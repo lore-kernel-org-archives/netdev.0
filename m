@@ -1,53 +1,207 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] vxlan: Use proper endian type for vni in vxlan[6]_xmit_skb
-Date: Wed, 22 Jul 2015 17:08:42 +0200
-Message-ID: <43ce50f9da21ebe190cfd6d41b334978250c061d.1437576553.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: <igal.liberman@freescale.com>
+Subject: [v3, 0/9] Freescale DPAA FMan
+Date: Wed, 22 Jul 2015 14:21:03 +0300
+Message-ID: <1437564063-16422-1-git-send-email-igal.liberman@freescale.com>
+Reply-To: <igal.liberman@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>, <madalin.bucur@freescale.com>,
+	<pebolle@tiscali.nl>, <joakim.tjernlund@transmode.se>,
+	<ppc@mindchasers.com>, Igal Liberman <igal.liberman@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:54154 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932693AbbGVPIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 11:08:47 -0400
+Received: from mail-bl2on0132.outbound.protection.outlook.com ([65.55.169.132]:61312
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S934418AbbGVPZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2015 11:25:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Silences the following sparse warnings:
-drivers/net/vxlan.c:1818:21: warning: incorrect type in assignment (different base types)
-drivers/net/vxlan.c:1818:21:    expected restricted __be32 [usertype] vx_vni
-drivers/net/vxlan.c:1818:21:    got unsigned int [unsigned] [usertype] vni
-drivers/net/vxlan.c:2014:58: warning: incorrect type in argument 11 (different base types)
-drivers/net/vxlan.c:2014:58:    expected unsigned int [unsigned] [usertype] vni
-drivers/net/vxlan.c:2014:58:    got restricted __be32 [usertype] <noident>
+From: Igal Liberman <igal.liberman@freescale.com>
 
-Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- drivers/net/vxlan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The Freescale Data Path Acceleration Architecture (DPAA) is a set of
+hardware components on specific QorIQ multicore processors.
+This architecture provides the infrastructure to support simplified
+sharing of networking interfaces and accelerators by multiple
+CPU cores and the accelerators.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index e9feefb..81f0f24 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1686,7 +1686,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 			   struct sk_buff *skb,
- 			   struct net_device *dev, struct in6_addr *saddr,
- 			   struct in6_addr *daddr, __u8 prio, __u8 ttl,
--			   __be16 src_port, __be16 dst_port, __u32 vni,
-+			   __be16 src_port, __be16 dst_port, __be32 vni,
- 			   struct vxlan_metadata *md, bool xnet, u32 vxflags)
- {
- 	struct vxlanhdr *vxh;
-@@ -1771,7 +1771,7 @@ err:
- 
- static int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
- 			  __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
--			  __be16 src_port, __be16 dst_port, __u32 vni,
-+			  __be16 src_port, __be16 dst_port, __be32 vni,
- 			  struct vxlan_metadata *md, bool xnet, u32 vxflags)
- {
- 	struct vxlanhdr *vxh;
+One of the DPAA accelerators is the Frame Manager (FMan) which
+contains a series of hardware blocks: ports, Ethernet MACs,
+a multi user RAM (MURAM) and Storage Profile (SP).
+
+This patch set introduce the FMan drivers. Each driver configures and
+initializes the corresponding FMan hardware module (described above).
+The MAC driver offers support for three different types of
+MACs (eTSEC, TGEC, MEMAC).
+
+The driver structure and a hint on file naming:
+----------------------------------
+|   FMan driver/MAC driver       |	fm_drv*, mac* files
+----------------------------------
+| FMan | Port | MAC | MURAM | SP |	fm_* files
+----------------------------------
+|		FLib		  |	fman_*.c, fsl_fman_.*h files
+----------------------------------
+
+The first 3 patches present the FMan Foundation Libraries (FLIBs).
+The FLIBs provide basic internal API for the FMan hardware
+configuration and control.
+Header files are located in fman/flib directory.
+Source files are located in each module directory.
+
+The upper layer of the FMan driver makes use of the basic API
+which is provided by the Flibs.
+
+The remaining patches present the required FMan hardware module drivers.
+
+v2 --> v3:
+	- Addressed feedback from Scott:
+		- Remove typedefs
+		- Remove unnecessary memory barriers
+		- Remove unnecessary casting
+		- Remove KConfig options
+		- Remove early_params
+		- Remove Hungarian notation
+		- Remove __packed__  attribute and padding from structures
+		- Remove unlikely attribute (where it's not needed)
+		- Use proper error codes and remove unnecessary prints
+		- Use proper values for sleep routines
+		- Replace complex Macros with functions
+		- Improve device tree processing code
+		- Use symbolic defines
+		- Add time-out in busy-wait loops
+		- Removed exit code (loadable module support will be added later)
+	- Fixed "fixed-link" issue raised by Joakim Tjernlund
+
+v1 --> v2:
+	- Addressed feedback from Paul Bolle:
+		- General feedback of FMan Driver layer
+		- Remove Errata defines
+		- Aligned comments to Kernel Doc
+		- Remove Loadable Module support (not yet supported)
+		- Removed not needed KConfig dependencies 
+	- Addressed feedback from Scott Wood
+		- Use Kernel ioread/iowrite services
+		- Squash FLIB source and header patches together
+
+
+This submission is based on the prior Freescale DPAA FMan V3,RFC submission. Several issues addresses in this submission:
+	- Reduced MAC layering and complexity
+	- Reduced code base
+	- T1024/T2080 10G best effort support
+
+Igal Liberman (9):
+  fsl/fman: Add the FMan FLIB
+  fsl/fman: Add the FMan port FLIB
+  fsl/fman: Add the FMan MAC FLIB
+  fsl/fman: Add FMan MURAM support
+  fsl/fman: Add Frame Manager support
+  fsl/fman: Add FMan MAC support
+  fsl/fman: Add FMan SP support
+  fsl/fman: Add FMan Port Support
+  fsl/fman: Add FMan MAC driver
+
+ drivers/net/ethernet/freescale/Kconfig             |    1 +
+ drivers/net/ethernet/freescale/Makefile            |    2 +
+ drivers/net/ethernet/freescale/fman/Kconfig        |    8 +
+ drivers/net/ethernet/freescale/fman/Makefile       |   12 +
+ .../net/ethernet/freescale/fman/flib/fsl_enet.h    |  135 ++
+ .../net/ethernet/freescale/fman/flib/fsl_fman.h    |  590 +++++++++
+ .../ethernet/freescale/fman/flib/fsl_fman_dtsec.h  |  809 ++++++++++++
+ .../freescale/fman/flib/fsl_fman_dtsec_mii_acc.h   |   89 ++
+ .../ethernet/freescale/fman/flib/fsl_fman_memac.h  |  428 ++++++
+ .../freescale/fman/flib/fsl_fman_memac_mii_acc.h   |   72 ++
+ .../ethernet/freescale/fman/flib/fsl_fman_port.h   |  409 ++++++
+ .../net/ethernet/freescale/fman/flib/fsl_fman_sp.h |   53 +
+ .../ethernet/freescale/fman/flib/fsl_fman_tgec.h   |  393 ++++++
+ drivers/net/ethernet/freescale/fman/fm.c           | 1366 ++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fm.h           |  279 ++++
+ drivers/net/ethernet/freescale/fman/fm_common.h    |  178 +++
+ drivers/net/ethernet/freescale/fman/fm_drv.c       |  642 +++++++++
+ drivers/net/ethernet/freescale/fman/fm_drv.h       |  111 ++
+ drivers/net/ethernet/freescale/fman/fm_muram.c     |  115 ++
+ drivers/net/ethernet/freescale/fman/fm_port_drv.c  |  386 ++++++
+ drivers/net/ethernet/freescale/fman/fm_sp_common.h |  105 ++
+ drivers/net/ethernet/freescale/fman/fman.c         |  911 +++++++++++++
+ .../ethernet/freescale/fman/inc/crc_mac_addr_ext.h |  314 +++++
+ drivers/net/ethernet/freescale/fman/inc/enet_ext.h |  199 +++
+ drivers/net/ethernet/freescale/fman/inc/fm_ext.h   |  446 +++++++
+ .../net/ethernet/freescale/fman/inc/fm_muram_ext.h |  102 ++
+ .../net/ethernet/freescale/fman/inc/fm_port_ext.h  |  340 +++++
+ .../net/ethernet/freescale/fman/inc/fsl_fman_drv.h |  203 +++
+ drivers/net/ethernet/freescale/fman/inc/mac.h      |  134 ++
+ drivers/net/ethernet/freescale/fman/mac/Makefile   |    8 +
+ drivers/net/ethernet/freescale/fman/mac/fm_dtsec.c | 1012 +++++++++++++++
+ drivers/net/ethernet/freescale/fman/mac/fm_dtsec.h |  207 +++
+ drivers/net/ethernet/freescale/fman/mac/fm_mac.h   |  259 ++++
+ drivers/net/ethernet/freescale/fman/mac/fm_memac.c |  673 ++++++++++
+ drivers/net/ethernet/freescale/fman/mac/fm_memac.h |  115 ++
+ drivers/net/ethernet/freescale/fman/mac/fm_tgec.c  |  552 ++++++++
+ drivers/net/ethernet/freescale/fman/mac/fm_tgec.h  |  124 ++
+ .../net/ethernet/freescale/fman/mac/fman_dtsec.c   |  503 +++++++
+ .../freescale/fman/mac/fman_dtsec_mii_acc.c        |  153 +++
+ .../net/ethernet/freescale/fman/mac/fman_memac.c   |  374 ++++++
+ .../freescale/fman/mac/fman_memac_mii_acc.c        |  151 +++
+ .../net/ethernet/freescale/fman/mac/fman_tgec.c    |  207 +++
+ drivers/net/ethernet/freescale/fman/mac/mac-api.c  |  698 ++++++++++
+ drivers/net/ethernet/freescale/fman/mac/mac.c      |  482 +++++++
+ drivers/net/ethernet/freescale/fman/port/Makefile  |    3 +
+ drivers/net/ethernet/freescale/fman/port/fm_port.c | 1081 ++++++++++++++++
+ drivers/net/ethernet/freescale/fman/port/fm_port.h |  502 +++++++
+ .../net/ethernet/freescale/fman/port/fman_port.c   |  510 ++++++++
+ drivers/net/ethernet/freescale/fman/sp/Makefile    |    3 +
+ drivers/net/ethernet/freescale/fman/sp/fm_sp.c     |  371 ++++++
+ 50 files changed, 16820 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/fman/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/fman/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_enet.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec_mii_acc.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac_mii_acc.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_port.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_sp.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_tgec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_common.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_drv.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_drv.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_muram.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_port_drv.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fm_sp_common.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/crc_mac_addr_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/enet_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fm_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fm_muram_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fm_port_ext.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/fsl_fman_drv.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/inc/mac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_dtsec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_mac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_memac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_tgec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fm_tgec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_dtsec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_dtsec_mii_acc.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_memac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_memac_mii_acc.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/fman_tgec.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/mac-api.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/mac/mac.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/fm_port.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/fm_port.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/port/fman_port.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/sp/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/fman/sp/fm_sp.c
+
 -- 
-2.4.3
+1.7.9.5
