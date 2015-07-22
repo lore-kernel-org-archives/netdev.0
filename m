@@ -1,38 +1,46 @@
-From: Su Kang Yin <cantona@cantona.net>
-Subject: [PATCH] mac80211_hwsim: unregister genetlink family properly
-Date: Wed, 22 Jul 2015 11:57:38 +0800
-Message-ID: <1437537458-25931-1-git-send-email-cantona@cantona.net>
-Cc: Su Kang Yin <cantona@cantona.net>
-To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] ipv6: Avoid rt6_probe() taking writer lock in
+ the fast path
+Date: Wed, 22 Jul 2015 07:19:11 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1507220716100.1851@ja.home.ssi.bg>
+References: <1437522680-3515872-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:38306 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750934AbbGVETX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2015 00:19:23 -0400
+In-Reply-To: <1437522680-3515872-1-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-During hwsim_init_netlink(), we should call genl_unregister_family()
-if failed on netlink_register_notifier() since the genetlink is
-already registered.
 
-Signed-off-by: Su Kang Yin <cantona@cantona.net>
----
- drivers/net/wireless/mac80211_hwsim.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+	Hello,
 
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index 99e873d..16d953e 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -3120,8 +3120,10 @@ static int hwsim_init_netlink(void)
- 		goto failure;
- 
- 	rc = netlink_register_notifier(&hwsim_netlink_notifier);
--	if (rc)
-+	if (rc) {
-+		genl_unregister_family(&hwsim_genl_family);
- 		goto failure;
-+	}
- 
- 	return 0;
- 
--- 
-1.9.1
+On Tue, 21 Jul 2015, Martin KaFai Lau wrote:
+
+> The patch checks neigh->nud_state before acquiring the writer lock.
+> Note that rt6_probe() is only used in CONFIG_IPV6_ROUTER_PREF.
+
+	Locking usage is absolutely correct.
+
+> +		if (!(neigh->nud_state & NUD_VALID) &&
+> +		    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
+
+	but this line is too long...
+
+> +			work = kmalloc(sizeof(*work), GFP_ATOMIC);
+> +			if (work) {
+> +				__neigh_set_probe_once(neigh);
+> +			}
+
+	scripts/checkpatch.pl --strict /tmp/file.patch
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
