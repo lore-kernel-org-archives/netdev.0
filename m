@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/3] tipc: introduce new tipc_sk_respond() function
-Date: Wed, 22 Jul 2015 10:11:19 -0400
-Message-ID: <1437574280-12485-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/3] tipc: let function tipc_msg_reverse() expand header when needed
+Date: Wed, 22 Jul 2015 10:11:18 -0400
+Message-ID: <1437574280-12485-2-git-send-email-jon.maloy@ericsson.com>
 References: <1437574280-12485-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,243 +10,199 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:30431 "EHLO
+Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:30415 "EHLO
 	smtp101.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934411AbbGVOL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 10:11:57 -0400
+	by vger.kernel.org with ESMTP id S934410AbbGVOL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 10:11:56 -0400
 In-Reply-To: <1437574280-12485-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, we use the code sequence
+The shortest TIPC message header, for cluster local CONNECTED messages,
+is 24 bytes long. With this format, the fields "dest_node" and
+"orig_node" are optimized away, since they in reality are redundant
+in this particular case.
 
-if (msg_reverse())
-   tipc_link_xmit_skb()
+However, the absence of these fields leads to code inconsistencies
+that are difficult to handle in some cases, especially when we need
+to reverse or reject messages at the socket layer.
 
-at numerous locations in socket.c. The preparation of arguments
-for these calls, as well as the sequence itself, makes the code
-unecessarily complex.
-
-In this commit, we introduce a new function, tipc_sk_respond(),
-that performs this call combination. We also replace some, but not
-yet all, of these explicit call sequences with calls to the new
-function. Notably, we let the function tipc_sk_proto_rcv() use
-the new function to directly send out PROBE_REPLY messages,
-instead of deferring this to the calling tipc_sk_rcv() function,
-as we do now.
+In this commit, we concentrate the handling of the absent fields
+to one place, by letting the function tipc_msg_reverse() reallocate
+the buffer and expand the header to 32 bytes when necessary. This
+means that the socket code now can assume that the two previously
+absent fields are present in the header when a message needs to be
+rejected. This opens up for some further simplifications of the
+socket code.
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/msg.c    |  3 +--
- net/tipc/msg.h    |  2 +-
- net/tipc/socket.c | 81 ++++++++++++++++++++++++++++++-------------------------
- 3 files changed, 47 insertions(+), 39 deletions(-)
+ net/tipc/msg.c    | 67 ++++++++++++++++++++++++++++++++++---------------------
+ net/tipc/msg.h    |  3 +--
+ net/tipc/socket.c | 12 +++++-----
+ 3 files changed, 48 insertions(+), 34 deletions(-)
 
 diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index 4339aab..b6cc58e 100644
+index 08b4cc7..4339aab 100644
 --- a/net/tipc/msg.c
 +++ b/net/tipc/msg.c
-@@ -469,7 +469,7 @@ bool tipc_msg_make_bundle(struct sk_buff **skb,  struct tipc_msg *msg,
-  * Consumes buffer at failure
+@@ -463,43 +463,58 @@ bool tipc_msg_make_bundle(struct sk_buff **skb,  struct tipc_msg *msg,
+ 
+ /**
+  * tipc_msg_reverse(): swap source and destination addresses and add error code
+- * @buf:  buffer containing message to be reversed
+- * @dnode: return value: node where to send message after reversal
+- * @err:  error code to be set in message
+- * Consumes buffer if failure
++ * @own_node: originating node id for reversed message
++ * @skb:  buffer containing message to be reversed; may be replaced.
++ * @err:  error code to be set in message, if any
++ * Consumes buffer at failure
   * Returns true if success, otherwise false
   */
--bool tipc_msg_reverse(u32 own_node,  struct sk_buff **skb, u32 *dnode, int err)
-+bool tipc_msg_reverse(u32 own_node,  struct sk_buff **skb, int err)
+-bool tipc_msg_reverse(u32 own_addr,  struct sk_buff *buf, u32 *dnode,
+-		      int err)
++bool tipc_msg_reverse(u32 own_node,  struct sk_buff **skb, u32 *dnode, int err)
  {
- 	struct sk_buff *_skb = *skb;
- 	struct tipc_msg *hdr = buf_msg(_skb);
-@@ -508,7 +508,6 @@ bool tipc_msg_reverse(u32 own_node,  struct sk_buff **skb, u32 *dnode, int err)
- 	msg_set_prevnode(hdr, own_node);
- 	msg_set_orignode(hdr, own_node);
- 	msg_set_size(hdr, msg_hdr_sz(hdr) + dlen);
--	*dnode = msg_destnode(hdr);
- 	skb_trim(_skb, msg_size(hdr));
- 	skb_orphan(_skb);
+-	struct tipc_msg *msg = buf_msg(buf);
++	struct sk_buff *_skb = *skb;
++	struct tipc_msg *hdr = buf_msg(_skb);
+ 	struct tipc_msg ohdr;
+-	uint rdsz = min_t(uint, msg_data_sz(msg), MAX_FORWARD_SIZE);
++	int dlen = min_t(uint, msg_data_sz(hdr), MAX_FORWARD_SIZE);
+ 
+-	if (skb_linearize(buf))
++	if (skb_linearize(_skb))
+ 		goto exit;
+-	msg = buf_msg(buf);
+-	if (msg_dest_droppable(msg))
++	hdr = buf_msg(_skb);
++	if (msg_dest_droppable(hdr))
+ 		goto exit;
+-	if (msg_errcode(msg))
++	if (msg_errcode(hdr))
+ 		goto exit;
+-	memcpy(&ohdr, msg, msg_hdr_sz(msg));
+-	msg_set_errcode(msg, err);
+-	msg_set_origport(msg, msg_destport(&ohdr));
+-	msg_set_destport(msg, msg_origport(&ohdr));
+-	msg_set_prevnode(msg, own_addr);
+-	if (!msg_short(msg)) {
+-		msg_set_orignode(msg, msg_destnode(&ohdr));
+-		msg_set_destnode(msg, msg_orignode(&ohdr));
++
++	/* Take a copy of original header before altering message */
++	memcpy(&ohdr, hdr, msg_hdr_sz(hdr));
++
++	/* Never return SHORT header; expand by replacing buffer if necessary */
++	if (msg_short(hdr)) {
++		*skb = tipc_buf_acquire(BASIC_H_SIZE + dlen);
++		if (!*skb)
++			goto exit;
++		memcpy((*skb)->data + BASIC_H_SIZE, msg_data(hdr), dlen);
++		kfree_skb(_skb);
++		_skb = *skb;
++		hdr = buf_msg(_skb);
++		memcpy(hdr, &ohdr, BASIC_H_SIZE);
++		msg_set_hdr_sz(hdr, BASIC_H_SIZE);
+ 	}
+-	msg_set_size(msg, msg_hdr_sz(msg) + rdsz);
+-	skb_trim(buf, msg_size(msg));
+-	skb_orphan(buf);
+-	*dnode = msg_orignode(&ohdr);
++
++	/* Now reverse the concerned fields */
++	msg_set_errcode(hdr, err);
++	msg_set_origport(hdr, msg_destport(&ohdr));
++	msg_set_destport(hdr, msg_origport(&ohdr));
++	msg_set_destnode(hdr, msg_prevnode(&ohdr));
++	msg_set_prevnode(hdr, own_node);
++	msg_set_orignode(hdr, own_node);
++	msg_set_size(hdr, msg_hdr_sz(hdr) + dlen);
++	*dnode = msg_destnode(hdr);
++	skb_trim(_skb, msg_size(hdr));
++	skb_orphan(_skb);
  	return true;
+ exit:
+-	kfree_skb(buf);
+-	*dnode = 0;
++	kfree_skb(_skb);
++	*skb = NULL;
+ 	return false;
+ }
+ 
 diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 0e96f59..d0834bc 100644
+index 2f1563b..0e96f59 100644
 --- a/net/tipc/msg.h
 +++ b/net/tipc/msg.h
-@@ -785,7 +785,7 @@ static inline bool msg_peer_is_up(struct tipc_msg *m)
+@@ -785,8 +785,7 @@ static inline bool msg_peer_is_up(struct tipc_msg *m)
  
  struct sk_buff *tipc_buf_acquire(u32 size);
  bool tipc_msg_validate(struct sk_buff *skb);
--bool tipc_msg_reverse(u32 own_addr, struct sk_buff **skb, u32 *dnode, int err);
-+bool tipc_msg_reverse(u32 own_addr, struct sk_buff **skb, int err);
+-bool tipc_msg_reverse(u32 own_addr, struct sk_buff *buf, u32 *dnode,
+-		      int err);
++bool tipc_msg_reverse(u32 own_addr, struct sk_buff **skb, u32 *dnode, int err);
  void tipc_msg_init(u32 own_addr, struct tipc_msg *m, u32 user, u32 type,
  		   u32 hsize, u32 destnode);
  struct sk_buff *tipc_msg_create(uint user, uint type, uint hdr_sz,
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index e2d5b98..71d88ad 100644
+index 5b0b08d..e2d5b98 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -248,6 +248,22 @@ static void tsk_advance_rx_queue(struct sock *sk)
- 	kfree_skb(__skb_dequeue(&sk->sk_receive_queue));
+@@ -260,7 +260,7 @@ static void tsk_rej_rx_queue(struct sock *sk)
+ 	u32 own_node = tsk_own_node(tipc_sk(sk));
+ 
+ 	while ((skb = __skb_dequeue(&sk->sk_receive_queue))) {
+-		if (tipc_msg_reverse(own_node, skb, &dnode, TIPC_ERR_NO_PORT))
++		if (tipc_msg_reverse(own_node, &skb, &dnode, TIPC_ERR_NO_PORT))
+ 			tipc_node_xmit_skb(sock_net(sk), skb, dnode, 0);
+ 	}
  }
- 
-+/* tipc_sk_respond() : send response message back to sender
-+ */
-+static void tipc_sk_respond(struct sock *sk, struct sk_buff *skb, int err)
-+{
-+	u32 selector;
-+	u32 dnode;
-+	u32 onode = tipc_own_addr(sock_net(sk));
-+
-+	if (!tipc_msg_reverse(onode, &skb, err))
-+		return;
-+
-+	dnode = msg_destnode(buf_msg(skb));
-+	selector = msg_origport(buf_msg(skb));
-+	tipc_node_xmit_skb(sock_net(sk), skb, dnode, selector);
-+}
-+
- /**
-  * tsk_rej_rx_queue - reject all buffers in socket receive queue
-  *
-@@ -256,13 +272,9 @@ static void tsk_advance_rx_queue(struct sock *sk)
- static void tsk_rej_rx_queue(struct sock *sk)
- {
- 	struct sk_buff *skb;
--	u32 dnode;
--	u32 own_node = tsk_own_node(tipc_sk(sk));
- 
--	while ((skb = __skb_dequeue(&sk->sk_receive_queue))) {
--		if (tipc_msg_reverse(own_node, &skb, &dnode, TIPC_ERR_NO_PORT))
--			tipc_node_xmit_skb(sock_net(sk), skb, dnode, 0);
--	}
-+	while ((skb = __skb_dequeue(&sk->sk_receive_queue)))
-+		tipc_sk_respond(sk, skb, TIPC_ERR_NO_PORT);
- }
- 
- /* tsk_peer_msg - verify if message was sent by connected port's peer
-@@ -441,9 +453,7 @@ static int tipc_release(struct socket *sock)
+@@ -441,7 +441,7 @@ static int tipc_release(struct socket *sock)
  				tsk->connected = 0;
  				tipc_node_remove_conn(net, dnode, tsk->portid);
  			}
--			if (tipc_msg_reverse(tsk_own_node(tsk), &skb, &dnode,
--					     TIPC_ERR_NO_PORT))
--				tipc_node_xmit_skb(net, skb, dnode, 0);
-+			tipc_sk_respond(sk, skb, TIPC_ERR_NO_PORT);
+-			if (tipc_msg_reverse(tsk_own_node(tsk), skb, &dnode,
++			if (tipc_msg_reverse(tsk_own_node(tsk), &skb, &dnode,
+ 					     TIPC_ERR_NO_PORT))
+ 				tipc_node_xmit_skb(net, skb, dnode, 0);
  		}
- 	}
- 
-@@ -764,35 +774,35 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
- /**
-  * tipc_sk_proto_rcv - receive a connection mng protocol message
-  * @tsk: receiving socket
-- * @skb: pointer to message buffer. Set to NULL if buffer is consumed.
-+ * @skb: pointer to message buffer.
-  */
--static void tipc_sk_proto_rcv(struct tipc_sock *tsk, struct sk_buff **skb)
-+static void tipc_sk_proto_rcv(struct tipc_sock *tsk, struct sk_buff *skb)
- {
--	struct tipc_msg *msg = buf_msg(*skb);
-+	struct sock *sk = &tsk->sk;
-+	struct tipc_msg *hdr = buf_msg(skb);
-+	int mtyp = msg_type(hdr);
- 	int conn_cong;
--	u32 dnode;
--	u32 own_node = tsk_own_node(tsk);
-+
- 	/* Ignore if connection cannot be validated: */
--	if (!tsk_peer_msg(tsk, msg))
-+	if (!tsk_peer_msg(tsk, hdr))
- 		goto exit;
- 
- 	tsk->probing_state = TIPC_CONN_OK;
- 
--	if (msg_type(msg) == CONN_ACK) {
-+	if (mtyp == CONN_PROBE) {
-+		msg_set_type(hdr, CONN_PROBE_REPLY);
-+		tipc_sk_respond(sk, skb, TIPC_OK);
-+		return;
-+	} else if (mtyp == CONN_ACK) {
- 		conn_cong = tsk_conn_cong(tsk);
--		tsk->sent_unacked -= msg_msgcnt(msg);
-+		tsk->sent_unacked -= msg_msgcnt(hdr);
+@@ -784,7 +784,7 @@ static void tipc_sk_proto_rcv(struct tipc_sock *tsk, struct sk_buff **skb)
  		if (conn_cong)
--			tsk->sk.sk_write_space(&tsk->sk);
--	} else if (msg_type(msg) == CONN_PROBE) {
--		if (tipc_msg_reverse(own_node, skb, &dnode, TIPC_OK)) {
--			msg_set_type(msg, CONN_PROBE_REPLY);
--			return;
--		}
-+			sk->sk_write_space(sk);
-+	} else if (mtyp != CONN_PROBE_REPLY) {
-+		pr_warn("Received unknown CONN_PROTO msg\n");
- 	}
--	/* Do nothing if msg_type() == CONN_PROBE_REPLY */
- exit:
--	kfree_skb(*skb);
--	*skb = NULL;
-+	kfree_skb(skb);
- }
- 
- static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
-@@ -1638,7 +1648,7 @@ static int filter_rcv(struct sock *sk, struct sk_buff **skb)
- 	int rc = TIPC_OK;
- 
- 	if (unlikely(msg_user(msg) == CONN_MANAGER)) {
--		tipc_sk_proto_rcv(tsk, skb);
-+		tipc_sk_proto_rcv(tsk, *skb);
- 		return TIPC_OK;
- 	}
- 
-@@ -1690,7 +1700,7 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- {
- 	int err;
- 	atomic_t *dcnt;
--	u32 dnode;
-+	u32 dnode = msg_prevnode(buf_msg(skb));
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct net *net = sock_net(sk);
- 	uint truesize = skb->truesize;
-@@ -1702,7 +1712,7 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ 			tsk->sk.sk_write_space(&tsk->sk);
+ 	} else if (msg_type(msg) == CONN_PROBE) {
+-		if (tipc_msg_reverse(own_node, *skb, &dnode, TIPC_OK)) {
++		if (tipc_msg_reverse(own_node, skb, &dnode, TIPC_OK)) {
+ 			msg_set_type(msg, CONN_PROBE_REPLY);
+ 			return;
+ 		}
+@@ -1702,7 +1702,7 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb)
  			atomic_add(truesize, dcnt);
  		return 0;
  	}
--	if (!err || tipc_msg_reverse(tsk_own_node(tsk), &skb, &dnode, -err))
-+	if (!err || tipc_msg_reverse(tsk_own_node(tsk), &skb, -err))
+-	if (!err || tipc_msg_reverse(tsk_own_node(tsk), skb, &dnode, -err))
++	if (!err || tipc_msg_reverse(tsk_own_node(tsk), &skb, &dnode, -err))
  		tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
  	return 0;
  }
-@@ -1794,9 +1804,11 @@ int tipc_sk_rcv(struct net *net, struct sk_buff_head *inputq)
- 		if (!err) {
- 			dnode = msg_destnode(buf_msg(skb));
+@@ -1796,7 +1796,7 @@ int tipc_sk_rcv(struct net *net, struct sk_buff_head *inputq)
  			goto xmit;
-+		} else {
-+			dnode = msg_prevnode(buf_msg(skb));
  		}
  		tn = net_generic(net, tipc_net_id);
--		if (!tipc_msg_reverse(tn->own_addr, &skb, &dnode, -err))
-+		if (!tipc_msg_reverse(tn->own_addr, &skb, -err))
+-		if (!tipc_msg_reverse(tn->own_addr, skb, &dnode, -err))
++		if (!tipc_msg_reverse(tn->own_addr, &skb, &dnode, -err))
  			continue;
  xmit:
  		tipc_node_xmit_skb(net, skb, dnode, dport);
-@@ -2083,6 +2095,8 @@ static int tipc_shutdown(struct socket *sock, int how)
- 	case SS_CONNECTED:
- 
- restart:
-+		dnode = tsk_peer_node(tsk);
-+
- 		/* Disconnect and send a 'FIN+' or 'FIN-' message to peer */
- 		skb = __skb_dequeue(&sk->sk_receive_queue);
- 		if (skb) {
-@@ -2090,13 +2104,8 @@ restart:
+@@ -2090,7 +2090,7 @@ restart:
  				kfree_skb(skb);
  				goto restart;
  			}
--			if (tipc_msg_reverse(tsk_own_node(tsk), &skb, &dnode,
--					     TIPC_CONN_SHUTDOWN))
--				tipc_node_xmit_skb(net, skb, dnode,
--						   tsk->portid);
-+			tipc_sk_respond(sk, skb, TIPC_CONN_SHUTDOWN);
- 		} else {
--			dnode = tsk_peer_node(tsk);
--
- 			skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE,
- 					      TIPC_CONN_MSG, SHORT_H_SIZE,
- 					      0, dnode, tsk_own_node(tsk),
+-			if (tipc_msg_reverse(tsk_own_node(tsk), skb, &dnode,
++			if (tipc_msg_reverse(tsk_own_node(tsk), &skb, &dnode,
+ 					     TIPC_CONN_SHUTDOWN))
+ 				tipc_node_xmit_skb(net, skb, dnode,
+ 						   tsk->portid);
 -- 
 1.9.1
