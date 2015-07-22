@@ -1,7 +1,7 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [RFC PATCH v2 net-next 1/3] tcp: replace cnt & rtt with struct in pkts_acked()
-Date: Tue, 21 Jul 2015 21:21:34 -0700
-Message-ID: <1437538896-1330704-2-git-send-email-brakmo@fb.com>
+Subject: [RFC PATCH v2 net-next 3/3] tcp: add NV congestion control
+Date: Tue, 21 Jul 2015 21:21:36 -0700
+Message-ID: <1437538896-1330704-4-git-send-email-brakmo@fb.com>
 References: <1437538896-1330704-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,395 +10,618 @@ Cc: Kernel Team <kernel-team@fb.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47667 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:1338 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754309AbbGVEW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 00:22:57 -0400
+	by vger.kernel.org with ESMTP id S1751236AbbGVEYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 00:24:06 -0400
 Received: from pps.filterd (m0004346 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6M4Mqbp006691
-	for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 21:22:57 -0700
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6M4MqI7006697
+	for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 21:24:06 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1vt2v4g3ep-6
+	by mx0a-00082601.pphosted.com with ESMTP id 1vt2v4g3f0-4
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 21:22:57 -0700
+	for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 21:24:06 -0700
 Received: from facebook.com (2401:db00:20:a00f:face:0:16:0)	by
  mx-out.facebook.com (10.223.100.97) with ESMTP	id
- 27ce8e90302911e5907f24be0593f280-43ef2b0 for <netdev@vger.kernel.org>;	Tue,
+ 27de1d4c302911e5949624be0593f280-53f12b0 for <netdev@vger.kernel.org>;	Tue,
  21 Jul 2015 21:21:42 -0700
 In-Reply-To: <1437538896-1330704-1-git-send-email-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace 2 arguments (cnt and rtt) in the congestion control modules'
-pkts_acked() function with a struct. This will allow adding more
-information without having to modify existing congestion control
-modules (tcp_nv in particular needs bytes in flight when packet
-was sent).
+This is a request for comments.
 
-This was proposed by Neal Cardwell in his comments to the tcp_nv patch.
+TCP-NV (New Vegas) is a major update to TCP-Vegas. An earlier version of
+NV was presented at 2010's LPC (slides). It is a delayed based
+congestion avoidance for the data center. This version has been tested
+within a 10G rack where the HW RTTs are 20-50us.
 
-Signed-off-by: Lawrence Brakmo <lawrence@brakmo.org>
+A description of TCP-NV, including implementation and experimental
+results, can be found at:
+http://www.brakmo.org/networking/tcp-nv/TCPNV.html
+
+The current version includes many module parameters to support
+experimentation with the parameters.
+
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
- include/net/tcp.h       |  7 ++++++-
- net/ipv4/tcp_bic.c      |  6 +++---
- net/ipv4/tcp_cdg.c      | 14 +++++++-------
- net/ipv4/tcp_cubic.c    |  6 +++---
- net/ipv4/tcp_htcp.c     | 10 +++++-----
- net/ipv4/tcp_illinois.c | 20 ++++++++++----------
- net/ipv4/tcp_input.c    |  7 +++++--
- net/ipv4/tcp_lp.c       |  6 +++---
- net/ipv4/tcp_vegas.c    |  6 +++---
- net/ipv4/tcp_vegas.h    |  2 +-
- net/ipv4/tcp_veno.c     |  6 +++---
- net/ipv4/tcp_westwood.c |  6 +++---
- net/ipv4/tcp_yeah.c     |  6 +++---
- 13 files changed, 55 insertions(+), 47 deletions(-)
+ include/net/tcp.h          |   1 +
+ net/ipv4/Kconfig           |  16 ++
+ net/ipv4/Makefile          |   1 +
+ net/ipv4/sysctl_net_ipv4.c |   9 +
+ net/ipv4/tcp_input.c       |   2 +
+ net/ipv4/tcp_nv.c          | 479 +++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 508 insertions(+)
+ create mode 100644 net/ipv4/tcp_nv.c
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 364426a..26e7651 100644
+index 2e62efe..c0690ae 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -834,6 +834,11 @@ enum tcp_ca_ack_event_flags {
+@@ -281,6 +281,7 @@ extern unsigned int sysctl_tcp_notsent_lowat;
+ extern int sysctl_tcp_min_tso_segs;
+ extern int sysctl_tcp_autocorking;
+ extern int sysctl_tcp_invalid_ratelimit;
++extern int sysctl_tcp_nv_enable;
  
- union tcp_cc_info;
+ extern atomic_long_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 6fb3c90..c37b374 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -539,6 +539,22 @@ config TCP_CONG_VEGAS
+ 	window. TCP Vegas should provide less packet loss, but it is
+ 	not as aggressive as TCP Reno.
  
-+struct ack_sample {
-+	u32 pkts_acked;
-+	s32 rtt_us;
-+};
++config TCP_CONG_NV
++       tristate "TCP NV"
++       default m
++       ---help---
++       TCP NV is a follow up to TCP Vegas. It has been modified to deal with
++       10G networks, measurement noise introduced by LRO, GRO and interrupt
++       coalescence. In addition, it will decrease its cwnd multiplicative
++       instead of linearly.
 +
- struct tcp_congestion_ops {
- 	struct list_head	list;
- 	u32 key;
-@@ -857,7 +862,7 @@ struct tcp_congestion_ops {
- 	/* new value of cwnd after loss (optional) */
- 	u32  (*undo_cwnd)(struct sock *sk);
- 	/* hook for packet ack accounting (optional) */
--	void (*pkts_acked)(struct sock *sk, u32 num_acked, s32 rtt_us);
-+	void (*pkts_acked)(struct sock *sk, struct ack_sample);
- 	/* get info for inet_diag (optional) */
- 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
- 			   union tcp_cc_info *info);
-diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
-index fd1405d..6a873f7 100644
---- a/net/ipv4/tcp_bic.c
-+++ b/net/ipv4/tcp_bic.c
-@@ -197,15 +197,15 @@ static void bictcp_state(struct sock *sk, u8 new_state)
- /* Track delayed acknowledgment ratio using sliding window
-  * ratio = (15*ratio + sample) / 16
-  */
--static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt)
-+static void bictcp_acked(struct sock *sk, struct ack_sample sample)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 
- 	if (icsk->icsk_ca_state == TCP_CA_Open) {
- 		struct bictcp *ca = inet_csk_ca(sk);
- 
--		cnt -= ca->delayed_ack >> ACK_RATIO_SHIFT;
--		ca->delayed_ack += cnt;
-+		ca->delayed_ack += sample.pkts_acked - 
-+			(ca->delayed_ack >> ACK_RATIO_SHIFT);
- 	}
- }
- 
-diff --git a/net/ipv4/tcp_cdg.c b/net/ipv4/tcp_cdg.c
-index 167b6a3..ef64106 100644
---- a/net/ipv4/tcp_cdg.c
-+++ b/net/ipv4/tcp_cdg.c
-@@ -294,12 +294,12 @@ static void tcp_cdg_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 	ca->shadow_wnd = max(ca->shadow_wnd, ca->shadow_wnd + incr);
- }
- 
--static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
-+static void tcp_cdg_acked(struct sock *sk, struct ack_sample sample)
- {
- 	struct cdg *ca = inet_csk_ca(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
--	if (rtt_us <= 0)
-+	if (sample.rtt_us <= 0)
- 		return;
- 
- 	/* A heuristic for filtering delayed ACKs, adapted from:
-@@ -307,20 +307,20 @@ static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
- 	 * delay and rate based TCP mechanisms." TR 100219A. CAIA, 2010.
- 	 */
- 	if (tp->sacked_out == 0) {
--		if (num_acked == 1 && ca->delack) {
-+		if (sample.pkts_acked == 1 && ca->delack) {
- 			/* A delayed ACK is only used for the minimum if it is
- 			 * provenly lower than an existing non-zero minimum.
- 			 */
--			ca->rtt.min = min(ca->rtt.min, rtt_us);
-+			ca->rtt.min = min(ca->rtt.min, sample.rtt_us);
- 			ca->delack--;
- 			return;
--		} else if (num_acked > 1 && ca->delack < 5) {
-+		} else if (sample.pkts_acked > 1 && ca->delack < 5) {
- 			ca->delack++;
- 		}
- 	}
- 
--	ca->rtt.min = min_not_zero(ca->rtt.min, rtt_us);
--	ca->rtt.max = max(ca->rtt.max, rtt_us);
-+	ca->rtt.min = min_not_zero(ca->rtt.min, sample.rtt_us);
-+	ca->rtt.max = max(ca->rtt.max, sample.rtt_us);
- }
- 
- static u32 tcp_cdg_ssthresh(struct sock *sk)
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index 28011fb..070d629 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -416,21 +416,21 @@ static void hystart_update(struct sock *sk, u32 delay)
- /* Track delayed acknowledgment ratio using sliding window
-  * ratio = (15*ratio + sample) / 16
-  */
--static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
-+static void bictcp_acked(struct sock *sk, struct ack_sample sample)
- {
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct bictcp *ca = inet_csk_ca(sk);
- 	u32 delay;
- 
- 	/* Some calls are for duplicates without timetamps */
--	if (rtt_us < 0)
-+	if (sample.rtt_us < 0)
- 		return;
- 
- 	/* Discard delay samples right after fast recovery */
- 	if (ca->epoch_start && (s32)(tcp_time_stamp - ca->epoch_start) < HZ)
- 		return;
- 
--	delay = (rtt_us << 3) / USEC_PER_MSEC;
-+	delay = (sample.rtt_us << 3) / USEC_PER_MSEC;
- 	if (delay == 0)
- 		delay = 1;
- 
-diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
-index 82f0d9e..4f0fb11 100644
---- a/net/ipv4/tcp_htcp.c
-+++ b/net/ipv4/tcp_htcp.c
-@@ -99,7 +99,7 @@ static inline void measure_rtt(struct sock *sk, u32 srtt)
- }
- 
- static void measure_achieved_throughput(struct sock *sk,
--					u32 pkts_acked, s32 rtt)
-+					struct ack_sample sample)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_sock *tp = tcp_sk(sk);
-@@ -107,10 +107,10 @@ static void measure_achieved_throughput(struct sock *sk,
- 	u32 now = tcp_time_stamp;
- 
- 	if (icsk->icsk_ca_state == TCP_CA_Open)
--		ca->pkts_acked = pkts_acked;
-+		ca->pkts_acked = sample.pkts_acked;
- 
--	if (rtt > 0)
--		measure_rtt(sk, usecs_to_jiffies(rtt));
-+	if (sample.rtt_us > 0)
-+		measure_rtt(sk, usecs_to_jiffies(sample.rtt_us));
- 
- 	if (!use_bandwidth_switch)
- 		return;
-@@ -122,7 +122,7 @@ static void measure_achieved_throughput(struct sock *sk,
- 		return;
- 	}
- 
--	ca->packetcount += pkts_acked;
-+	ca->packetcount += sample.pkts_acked;
- 
- 	if (ca->packetcount >= tp->snd_cwnd - (ca->alpha >> 7 ? : 1) &&
- 	    now - ca->lasttime >= ca->minRTT &&
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 2ab9bbb..7d18b71 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -82,30 +82,30 @@ static void tcp_illinois_init(struct sock *sk)
- }
- 
- /* Measure RTT for each ack. */
--static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked, s32 rtt)
-+static void tcp_illinois_acked(struct sock *sk, struct ack_sample sample)
- {
- 	struct illinois *ca = inet_csk_ca(sk);
- 
--	ca->acked = pkts_acked;
-+	ca->acked = sample.pkts_acked;
- 
- 	/* dup ack, no rtt sample */
--	if (rtt < 0)
-+	if (sample.rtt_us < 0)
- 		return;
- 
- 	/* ignore bogus values, this prevents wraparound in alpha math */
--	if (rtt > RTT_MAX)
--		rtt = RTT_MAX;
-+	if (sample.rtt_us > RTT_MAX)
-+		sample.rtt_us = RTT_MAX;
- 
- 	/* keep track of minimum RTT seen so far */
--	if (ca->base_rtt > rtt)
--		ca->base_rtt = rtt;
-+	if (ca->base_rtt > sample.rtt_us)
-+		ca->base_rtt = sample.rtt_us;
- 
- 	/* and max */
--	if (ca->max_rtt < rtt)
--		ca->max_rtt = rtt;
-+	if (ca->max_rtt < sample.rtt_us)
-+		ca->max_rtt = sample.rtt_us;
- 
- 	++ca->cnt_rtt;
--	ca->sum_rtt += rtt;
-+	ca->sum_rtt += sample.rtt_us;
- }
- 
- /* Maximum queuing delay */
++       Note that in general congestion avoidance (cwnd decreased when # packets
++       queued grows) cannot coexist with congestion control (cwnd decreased only
++       when there is packet loss) due to fairness issues. One scenario when the
++       can coexist safely is when the CA flows have RTTs << CC flows RTTs.
++
++       For further details see http://www.brakmo.org/networking/tcp-nv/
++
+ config TCP_CONG_SCALABLE
+ 	tristate "Scalable TCP"
+ 	default n
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index efc43f3..06f335f 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -50,6 +50,7 @@ obj-$(CONFIG_TCP_CONG_HSTCP) += tcp_highspeed.o
+ obj-$(CONFIG_TCP_CONG_HYBLA) += tcp_hybla.o
+ obj-$(CONFIG_TCP_CONG_HTCP) += tcp_htcp.o
+ obj-$(CONFIG_TCP_CONG_VEGAS) += tcp_vegas.o
++obj-$(CONFIG_TCP_CONG_NV) += tcp_nv.o
+ obj-$(CONFIG_TCP_CONG_VENO) += tcp_veno.o
+ obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
+ obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 433231c..31846d5 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -730,6 +730,15 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec_ms_jiffies,
+ 	},
+ 	{
++		.procname	= "tcp_nv_enable",
++		.data		= &sysctl_tcp_nv_enable,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &one,
++	},		
++	{
+ 		.procname	= "icmp_msgs_per_sec",
+ 		.data		= &sysctl_icmp_msgs_per_sec,
+ 		.maxlen		= sizeof(int),
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 1578fc2..4f641f6 100644
+index aca4ae5..87560d9 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -3195,8 +3195,11 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 		tcp_rearm_rto(sk);
- 	}
+@@ -101,6 +101,8 @@ int sysctl_tcp_thin_dupack __read_mostly;
+ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+ int sysctl_tcp_early_retrans __read_mostly = 3;
+ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
++int sysctl_tcp_nv_enable __read_mostly = 1;
++EXPORT_SYMBOL(sysctl_tcp_nv_enable);
  
--	if (icsk->icsk_ca_ops->pkts_acked)
--		icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
-+	if (icsk->icsk_ca_ops->pkts_acked) {
-+		struct ack_sample sample = {pkts_acked, ca_rtt_us};
+ #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
+ #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
+diff --git a/net/ipv4/tcp_nv.c b/net/ipv4/tcp_nv.c
+new file mode 100644
+index 0000000..af451b6
+--- /dev/null
++++ b/net/ipv4/tcp_nv.c
+@@ -0,0 +1,479 @@
++/*
++ * TCP NV: TCP with Congestion Avoidance
++ *
++ * TCP-NV is a successor of TCP-Vegas that has been developed to
++ * deal with the issues that occur in modern networks. 
++ * Like TCP-Vegas, TCP-NV supports true congestion avoidance,
++ * the ability to detect congestion before packet losses occur.
++ * When congestion (queue buildup) starts to occur, TCP-NV
++ * predicts what the cwnd size should be for the current
++ * throughput and it reduces the cwnd proportionally to
++ * the difference between the current cwnd and the predicted cwnd.
++ * TCP-NV behaves like Reno when no congestion is detected, or when
++ * recovering from packet losses.
++ *
++ * TODO:
++ * 1) Modify the behavior so cwnd can grow faster under certain conditions
++ * 2) Add mechanism to deal with reverse congestion.
++ */
 +
-+		icsk->icsk_ca_ops->pkts_acked(sk, sample);
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/math64.h>
++#include <net/tcp.h>
++#include <linux/inet_diag.h>
++
++/* TCP NV parameters */
++static int nv_pad __read_mostly = 10;
++static int nv_pad_buffer __read_mostly = 2;
++static int nv_reset_period __read_mostly = 5;
++static int nv_min_cwnd = 10;
++static int nv_dec_eval_min_calls = 100;
++static int nv_ssthresh_eval_min_calls = 30;
++static int nv_rtt_min_cnt = 2;
++static int nv_cong_decrease_mult = 30*128/100;
++static int nv_ssthresh_factor = 8;
++static int nv_rtt_factor = 128;
++static int nv_rtt_cnt_dec_delta = 20; /* dec cwnd by this many RTTs */
++static int nv_dec_factor = 5;  /* actual value is factor/8 */
++static int nv_loss_dec_factor = 820; /* on loss reduce cwnd by 20% */
++static int nv_cwnd_growth_factor = 2; /* larger => cwnd grows slower */
++
++module_param(nv_pad, int, 0644);
++MODULE_PARM_DESC(nv_pad, "extra packets above congestion level");
++module_param(nv_pad_buffer, int, 0644);
++MODULE_PARM_DESC(nv_pad_buffer, "no growth buffer zone");
++module_param(nv_reset_period, int, 0644);
++MODULE_PARM_DESC(nv_reset_period, "nv_min_rtt reset period (secs)");
++module_param(nv_min_cwnd, int, 0644);
++MODULE_PARM_DESC(nv_min_cwnd, "NV will not decrease cwnd below this value"
++		 " without losses");
++module_param(nv_dec_eval_min_calls, int, 0644);
++MODULE_PARM_DESC(nv_dec_eval_min_calls, "Wait for this many data points "
++		 "before declaring congestion (< 256)");
++module_param(nv_ssthresh_eval_min_calls, int, 0644);
++MODULE_PARM_DESC(nv_ssthresh_eval_min_calls, "Wait for this many data points "
++		 "before declaring congestion during initial slow-start");
++module_param(nv_rtt_min_cnt, int, 0644);
++MODULE_PARM_DESC(nv_rtt_min_cnt, "Wait for this many RTTs before declaring"
++		 " congestion (<64)");
++module_param(nv_cong_decrease_mult, int, 0644);
++MODULE_PARM_DESC(nv_cong_decrease_mult, "Congestion decrease factor");
++module_param(nv_ssthresh_factor, int, 0644);
++MODULE_PARM_DESC(nv_ssthresh_factor, "ssthresh factor");
++module_param(nv_rtt_factor, int, 0644);
++MODULE_PARM_DESC(nv_rtt_factor, "rtt averaging factor (0-256)");
++module_param(nv_rtt_cnt_dec_delta, int, 0644);
++MODULE_PARM_DESC(nv_rtt_cnt_dec_delta, "decrease cwnd for this many RTTs "
++		 "every 100 RTTs");
++module_param(nv_dec_factor, int, 0644);
++MODULE_PARM_DESC(nv_dec_factor, "decrease cwnd every ~192 RTTS by factor/8");
++module_param(nv_loss_dec_factor, int, 0644);
++MODULE_PARM_DESC(nv_loss_dec_factor, "on loss new cwnd = cwnd * this / 1024");
++module_param(nv_cwnd_growth_factor, int, 0644);
++MODULE_PARM_DESC(nv_cwnd_growth_factor, "larger => cwnd grows slower");
++
++/* TCP NV Parameters */
++struct tcpnv {
++	unsigned long nv_min_rtt_reset_jiffies;  /* when to switch to
++						  * nv_min_rtt_new */
++	u32 cnt;		/* increase cwnd by 1 after ACKs */
++	u32 loss_cwnd;	/* cwnd at last loss */
++	u8  nv_enable:1,
++		nv_allow_cwnd_growth:1, 	/* whether cwnd can grow */
++		nv_rtt_cnt:6;	/* RTTs without making ca decision */
++	u8  nv_eval_call_cnt;/* call count since last eval */
++	u8  nv_min_cwnd;	/* nv won't make a ca decision if cwnd is
++				 * smaller than this. It may grow to handle
++				 * TSO, LRO and interrupt coalescence because
++				 * with these a small cwnd cannot saturate
++				 * the link. Note that this is different from
++				 * sysctl_tcp_nv_min_cwnd */
++	u8  available;
++	u32 nv_last_rtt;	/* last rtt */
++	u32 nv_min_rtt;		/* active min rtt. Used to determine slope */
++	u32 nv_min_rtt_new;	/* min rtt for future use */
++	u32 nv_rtt_max_rate;  	/* max rate seen during current RTT */
++	u32 nv_rtt_start_seq;	/* current RTT ends when packet arrives
++				 * acking beyond nv_rtt_start_seq */
++	u32 nv_last_snd_una;	/* Previous value of tp->snd_una. It is
++				 * used to determine bytes acked since last
++				 * call to bictcp_acked */
++	u32 nv_no_cong_cnt;	/* Consecutive no congestion decisions */
++	u32 nv_rtt_cnt_dec;	/* RTTs since last temporary cwnd decrease */
++};
++
++#define NV_INIT_RTT	  0xffffffff
++#define NV_MIN_CWND	  4
++#define NV_MIN_CWND_GROW  2
++#define NV_TSO_CWND_BOUND 80
++
++static inline void tcpnv_reset(struct tcpnv *ca, struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	ca->loss_cwnd = 0;
++	ca->nv_no_cong_cnt = 0;
++	ca->cnt = 0;
++	ca->nv_rtt_cnt = 0;
++	ca->nv_rtt_cnt_dec = 0;
++	ca->nv_allow_cwnd_growth = 1;
++	ca->nv_last_rtt = 0;
++	ca->nv_rtt_max_rate = 0;
++	ca->nv_rtt_start_seq = tp->snd_una;
++	ca->nv_eval_call_cnt = 0;
++	ca->nv_last_snd_una = tp->snd_una;
++}
++
++static void tcpnv_init(struct sock *sk)
++{
++	struct tcpnv *ca = inet_csk_ca(sk);
++
++	tcpnv_reset(ca, sk);
++
++	ca->nv_min_rtt_reset_jiffies = jiffies + 2*HZ;
++	ca->nv_min_rtt = NV_INIT_RTT;
++	ca->nv_min_rtt_new = NV_INIT_RTT;
++	ca->nv_enable = sysctl_tcp_nv_enable;
++	ca->nv_min_cwnd = NV_MIN_CWND;
++	if (nv_dec_eval_min_calls > 255)
++		nv_dec_eval_min_calls = 255;
++	if (nv_rtt_min_cnt > 63)
++		nv_rtt_min_cnt = 63;
++}
++
++static void tcpnv_cong_avoid(struct sock *sk, u32 ack, u32 acked)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct tcpnv *ca = inet_csk_ca(sk);
++
++	if (!tcp_is_cwnd_limited(sk))
++		return;
++
++	/* Only grow cwnd if NV has not detected congestion */
++	if (sysctl_tcp_nv_enable && ca->nv_enable &&
++	    !ca->nv_allow_cwnd_growth)
++		return;
++
++	if (tp->snd_cwnd <= tp->snd_ssthresh) {
++		acked = tcp_slow_start(tp, acked);
++		if (!acked)
++			return;
 +	}
- 
- #if FASTRETRANS_DEBUG > 0
- 	WARN_ON((int)tp->sacked_out < 0);
-diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index 1e70fa8..341c768 100644
---- a/net/ipv4/tcp_lp.c
-+++ b/net/ipv4/tcp_lp.c
-@@ -260,13 +260,13 @@ static void tcp_lp_rtt_sample(struct sock *sk, u32 rtt)
-  * newReno in increase case.
-  * We work it out by following the idea from TCP-LP's paper directly
-  */
--static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
-+static void tcp_lp_pkts_acked(struct sock *sk, struct ack_sample sample)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct lp *lp = inet_csk_ca(sk);
- 
--	if (rtt_us > 0)
--		tcp_lp_rtt_sample(sk, rtt_us);
-+	if (sample.rtt_us > 0)
-+		tcp_lp_rtt_sample(sk, sample.rtt_us);
- 
- 	/* calc inference */
- 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
-diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index 13951c4..17d0a84 100644
---- a/net/ipv4/tcp_vegas.c
-+++ b/net/ipv4/tcp_vegas.c
-@@ -107,16 +107,16 @@ EXPORT_SYMBOL_GPL(tcp_vegas_init);
-  *   o min-filter RTT samples from a much longer window (forever for now)
-  *     to find the propagation delay (baseRTT)
-  */
--void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
-+void tcp_vegas_pkts_acked(struct sock *sk, struct ack_sample sample)
- {
- 	struct vegas *vegas = inet_csk_ca(sk);
- 	u32 vrtt;
- 
--	if (rtt_us < 0)
++	if (ca->cnt == 0 || !(sysctl_tcp_nv_enable || ca->nv_enable))
++		ca->cnt = tp->snd_cwnd;
++
++	tcp_cong_avoid_ai(tp, ca->cnt, acked);
++}
++
++static u32 tcpnv_recalc_ssthresh(struct sock *sk)
++{
++	const struct tcp_sock *tp = tcp_sk(sk);
++	struct tcpnv *ca = inet_csk_ca(sk);
++
++	ca->loss_cwnd = tp->snd_cwnd;
++	return max((tp->snd_cwnd * nv_loss_dec_factor) >> 10, 2U); 
++}
++
++static u32 tcpnv_undo_cwnd(struct sock *sk)
++{
++	struct tcpnv *ca = inet_csk_ca(sk);
++
++	return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
++}
++
++static void tcpnv_state(struct sock *sk, u8 new_state)
++{
++	struct tcpnv *ca = inet_csk_ca(sk);
++
++	if (new_state == TCP_CA_Open) {
++		ca->nv_enable = 1;
++		tcpnv_reset(ca, sk);
++	} else if (new_state == TCP_CA_Loss) {
++		ca->nv_enable = 0;
++	}
++}
++
++/* Do congestion avoidance calculaitons for TCP-NV
++ */
++static void tcpnv_acked(struct sock *sk, struct ack_sample sample)
++{
++	const struct inet_connection_sock *icsk = inet_csk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct tcpnv *ca = inet_csk_ca(sk);
++	unsigned long now = jiffies;
++	s64 rate64 = 0;
++	u32 rate, max_win, cwnd_by_slope;
++	u32 avg_rtt;
++	u32 bytes_acked = 0;
++
++	/* Some calls are for duplicates without timetamps */
 +	if (sample.rtt_us < 0)
- 		return;
- 
- 	/* Never allow zero rtt or baseRTT */
--	vrtt = rtt_us + 1;
-+	vrtt = sample.rtt_us + 1;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < vegas->baseRTT)
-diff --git a/net/ipv4/tcp_vegas.h b/net/ipv4/tcp_vegas.h
-index ef9da53..469f9ad 100644
---- a/net/ipv4/tcp_vegas.h
-+++ b/net/ipv4/tcp_vegas.h
-@@ -17,7 +17,7 @@ struct vegas {
- 
- void tcp_vegas_init(struct sock *sk);
- void tcp_vegas_state(struct sock *sk, u8 ca_state);
--void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us);
-+void tcp_vegas_pkts_acked(struct sock *sk, struct ack_sample sample);
- void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event);
- size_t tcp_vegas_get_info(struct sock *sk, u32 ext, int *attr,
- 			  union tcp_cc_info *info);
-diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
-index 0d094b9..563d8fd 100644
---- a/net/ipv4/tcp_veno.c
-+++ b/net/ipv4/tcp_veno.c
-@@ -69,16 +69,16 @@ static void tcp_veno_init(struct sock *sk)
- }
- 
- /* Do rtt sampling needed for Veno. */
--static void tcp_veno_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
-+static void tcp_veno_pkts_acked(struct sock *sk, struct ack_sample sample)
- {
- 	struct veno *veno = inet_csk_ca(sk);
- 	u32 vrtt;
- 
--	if (rtt_us < 0)
-+	if (sample.rtt_us < 0)
- 		return;
- 
- 	/* Never allow zero rtt or baseRTT */
--	vrtt = rtt_us + 1;
-+	vrtt = sample.rtt_us + 1;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < veno->basertt)
-diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index c10732e..d330c3e9 100644
---- a/net/ipv4/tcp_westwood.c
-+++ b/net/ipv4/tcp_westwood.c
-@@ -99,12 +99,12 @@ static void westwood_filter(struct westwood *w, u32 delta)
-  * Called after processing group of packets.
-  * but all westwood needs is the last sample of srtt.
-  */
--static void tcp_westwood_pkts_acked(struct sock *sk, u32 cnt, s32 rtt)
-+static void tcp_westwood_pkts_acked(struct sock *sk, struct ack_sample sample)
- {
- 	struct westwood *w = inet_csk_ca(sk);
- 
--	if (rtt > 0)
--		w->rtt = usecs_to_jiffies(rtt);
-+	if (sample.rtt_us > 0)
-+		w->rtt = usecs_to_jiffies(sample.rtt_us);
- }
- 
- /*
-diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index 17d3566..66b34c0 100644
---- a/net/ipv4/tcp_yeah.c
-+++ b/net/ipv4/tcp_yeah.c
-@@ -56,15 +56,15 @@ static void tcp_yeah_init(struct sock *sk)
- 	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
- }
- 
--static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, s32 rtt_us)
-+static void tcp_yeah_pkts_acked(struct sock *sk, struct ack_sample sample)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct yeah *yeah = inet_csk_ca(sk);
- 
- 	if (icsk->icsk_ca_state == TCP_CA_Open)
--		yeah->pkts_acked = pkts_acked;
-+		yeah->pkts_acked = sample.pkts_acked;
- 
--	tcp_vegas_pkts_acked(sk, pkts_acked, rtt_us);
-+	tcp_vegas_pkts_acked(sk, sample);
- }
- 
- static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 acked)
++		return;
++
++	/* If not in TCP_CA_Open state, skip. */
++	if (icsk->icsk_ca_state != TCP_CA_Open)
++		return;
++
++	/* If NV mode is not enabled, behave like Reno */
++	if (!sysctl_tcp_nv_enable  ||  !ca->nv_enable) {
++		ca->nv_allow_cwnd_growth = 1;
++		return;
++	}
++
++	bytes_acked = tp->snd_una - ca->nv_last_snd_una;
++	ca->nv_last_snd_una = tp->snd_una;
++
++	if (sample.in_flight == 0)
++		return;
++
++	/* Calculate moving average of RTT */
++	if (nv_rtt_factor > 0) {
++		if (ca->nv_last_rtt > 0) {
++			avg_rtt = (((u64)sample.rtt_us) * nv_rtt_factor +
++				   ((u64)ca->nv_last_rtt)
++				   * (256 - nv_rtt_factor)) >> 8;
++		} else {
++			avg_rtt = sample.rtt_us;
++			ca->nv_min_rtt = avg_rtt << 1;
++		}
++		ca->nv_last_rtt = avg_rtt;
++	} else {
++		avg_rtt = sample.rtt_us;
++	}
++
++	/* rate in 100's bits per second */
++	rate64 = ((u64)sample.in_flight) * 8000000;
++	rate = (u32)div64_u64(rate64, (u64)(avg_rtt*100));
++
++	/* Remember the maximum rate seen during this RTT
++	 * Note: It may be more than one RTT. This function should be
++	 *       called at least nv_dec_eval_min_calls times.
++	 */
++	if (ca->nv_rtt_max_rate < rate)
++		ca->nv_rtt_max_rate = rate;
++
++	/* We have valid information, increment counter */
++	if (ca->nv_eval_call_cnt < 255)
++		ca->nv_eval_call_cnt++;
++
++	/* update min rtt if necessary */
++	if (avg_rtt < ca->nv_min_rtt)
++		ca->nv_min_rtt = avg_rtt;
++
++	/* update future min_rtt if necessary */
++	if (avg_rtt < ca->nv_min_rtt_new)
++		ca->nv_min_rtt_new = avg_rtt;
++
++	/* nv_min_rtt is updated with the minimum (possibley averaged) rtt
++	 * seen in the last sysctl_tcp_nv_reset_period seconds (i.e. a
++	 * warm reset). This new nv_min_rtt will be continued to be updated
++	 * and be used for another sysctl_tcp_nv_reset_period seconds,
++	 * when it will be updated again.
++	 * In practice we introduce some randomness, so the actual period used
++	 * is chosen randomly from the range:
++	 *   [sysctl_tcp_nv_reset_period*3/4, sysctl_tcp_nv_reset_period*5/4)
++	 */
++	if (time_after_eq(now, ca->nv_min_rtt_reset_jiffies)) {
++		unsigned char rand;
++		ca->nv_min_rtt = ca->nv_min_rtt_new;
++		ca->nv_min_rtt_new = NV_INIT_RTT;
++		get_random_bytes(&rand, 1);
++		ca->nv_min_rtt_reset_jiffies =
++			now + ((nv_reset_period*(384 + rand)*HZ)>>9);
++		/* Every so often we decrease nv_min_cwnd in case previous
++		 *  value is no longer accurate.
++		 */
++		ca->nv_min_cwnd = max(ca->nv_min_cwnd/2, NV_MIN_CWND);
++	}
++
++	/* Once per RTT check if we need to do congestion avoidance */
++	if (before(ca->nv_rtt_start_seq, tp->snd_una)) {
++		ca->nv_rtt_start_seq = tp->snd_nxt;
++		if (ca->nv_rtt_cnt < 63)
++			/* Increase counter for RTTs without CA decision */
++			ca->nv_rtt_cnt++;
++		if (ca->nv_rtt_cnt_dec < 255)
++			/* Increase counter for temporary cwnd decrease */
++			ca->nv_rtt_cnt_dec++;
++
++		/* If this function is only called once within an RTT
++		 * the cwnd is probably too small (in some cases due to
++		 * tso, lro or interrupt coalescence), so we increase
++		 * nv_min_cwnd.
++		 */
++		if (ca->nv_eval_call_cnt == 1
++		    && bytes_acked >= (ca->nv_min_cwnd - 1) * tp->mss_cache
++		    && ca->nv_min_cwnd < (NV_TSO_CWND_BOUND + 1)
++		    && ca->nv_rtt_cnt_dec < 192) {
++			ca->nv_min_cwnd = min(ca->nv_min_cwnd
++					      + NV_MIN_CWND_GROW,
++					      NV_TSO_CWND_BOUND + 1);
++			ca->nv_rtt_start_seq = tp->snd_nxt +
++				ca->nv_min_cwnd*tp->mss_cache;
++			ca->nv_eval_call_cnt = 0;
++			ca->nv_allow_cwnd_growth = 1;
++			return;
++		}
++
++		/* Every 192 to 320 RTTs decrease cwnd to get better min RTT
++		 * measurement. In practice we accomplish this by initializing
++		 * nv_rtt_cnd_dec randomly form the range [0, 128) and
++		 * stopping at 320.
++		 * We keep the value low for nv_rtt_cnt_dec_delta RTTs and then
++		 * we restore cwnd to its previous value (by setting
++		 * ssthresh to the previous value).
++		 */
++		if (ca->nv_rtt_cnt_dec == 320) {
++			/* decrease cwnd and ssthresh */
++			tp->snd_cwnd =
++				max((unsigned int)nv_min_cwnd,
++				    ((tp->snd_cwnd * nv_dec_factor) >> 3));
++			tp->snd_ssthresh =
++				max(tp->snd_cwnd,
++				    ((tp->snd_ssthresh * nv_dec_factor) >> 3));
++			ca->nv_allow_cwnd_growth = 0;
++			return;
++		} else if (ca->nv_rtt_cnt_dec > 320) {
++			if (ca->nv_rtt_cnt_dec - 320 >= nv_rtt_cnt_dec_delta) {
++				/* Restore ssthresh to restore cwnd */
++				unsigned char rand;
++				get_random_bytes(&rand, 1);
++				ca->nv_rtt_cnt_dec = rand >> 1;
++				tp->snd_ssthresh = (tp->snd_ssthresh << 3)
++					/ nv_dec_factor;
++				ca->nv_allow_cwnd_growth = 1;
++				ca->nv_no_cong_cnt = 0;
++			}
++			return;
++		}
++
++		/* Find the ideal cwnd for current rate from slope
++		 * slope = 80000.0 * mss / nv_min_rtt
++		 * cwnd_by_slope = nv_rtt_max_rate / slope
++		 */
++		cwnd_by_slope = (u32)
++			div64_u64(((u64)ca->nv_rtt_max_rate) * ca->nv_min_rtt,
++				  (u64)(80000 * tp->mss_cache));
++		max_win = cwnd_by_slope + nv_pad;
++
++		/* If cwnd > max_win, decrease cwnd
++		 * if cwnd < max_win, grow cwnd
++		 * else leave the same
++		 */
++		if (tp->snd_cwnd > max_win) {
++			/* there is congestion, check that it is ok
++			 * to make a CA decision
++			 * 1. We should have at least nv_dec_eval_min_calls
++			 *    data points before making a CA  decision
++			 * 2. We only make a congesion decision after
++			 *    nv_rtt_min_cnt RTTs
++			 */
++			if (ca->nv_rtt_cnt < nv_rtt_min_cnt)
++				return;
++			else if (tp->snd_ssthresh == TCP_INFINITE_SSTHRESH) {
++				if (ca->nv_eval_call_cnt <
++				    nv_ssthresh_eval_min_calls)
++					return;
++			} else if (ca->nv_eval_call_cnt <
++				   nv_dec_eval_min_calls) {
++				return;
++			}
++
++			/* We have enough data to determine we are congested */
++			ca->nv_allow_cwnd_growth = 0;
++			tp->snd_ssthresh =
++				(nv_ssthresh_factor * max_win) >> 3;
++			if (tp->snd_cwnd - max_win > 2) {
++				/* gap > 2, we do exponential cwnd decrease */
++				int dec;
++				dec = max(2U, ((tp->snd_cwnd - max_win) *
++					       nv_cong_decrease_mult) >> 7);
++				tp->snd_cwnd -= dec;
++			} else if (nv_cong_decrease_mult > 0) {
++				tp->snd_cwnd = max_win;
++			}
++			ca->cnt = tp->snd_cwnd;
++			ca->nv_no_cong_cnt = 0;
++		} else if (tp->snd_cwnd <=  max_win - nv_pad_buffer) {
++			/* We allow growth of cwnd every RTT since we would
++			 * have grown even if we waited (just slower)
++			 */
++			ca->nv_allow_cwnd_growth = 1;
++			ca->nv_no_cong_cnt++;
++			if (nv_cwnd_growth_factor > 0 &&
++			    ca->nv_no_cong_cnt > nv_cwnd_growth_factor) {
++				ca->cnt = max(ca->cnt >> 1, (u32) 4);
++				ca->nv_no_cong_cnt = 0;
++			}
++		} else {
++			ca->nv_allow_cwnd_growth = 0;
++		}
++
++		/* update state */
++		ca->nv_eval_call_cnt = 0;
++		ca->nv_rtt_cnt = 0;
++		ca->nv_rtt_max_rate = 0;
++
++		/* Don't want to make cwnd < nv_min_cwnd
++		 * (it wasn't before, if it is now is because nv
++		 *  decreased it).
++		 */
++		if (tp->snd_cwnd < nv_min_cwnd)
++			tp->snd_cwnd = nv_min_cwnd;
++
++  }
++}
++
++/* Extract info for Tcp socket info provided via netlink */
++size_t tcpnv_get_info(struct sock *sk, u32 ext, int *attr,
++		       union tcp_cc_info *info)
++{
++	const struct tcpnv *ca = inet_csk_ca(sk);
++
++	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
++		info->vegas.tcpv_enabled = ca->nv_enable
++			&& sysctl_tcp_nv_enable;
++		info->vegas.tcpv_rttcnt = ca->nv_rtt_cnt;
++		info->vegas.tcpv_rtt = ca->nv_last_rtt;
++		info->vegas.tcpv_minrtt = ca->nv_min_rtt;
++
++		*attr = INET_DIAG_VEGASINFO;
++		return sizeof(struct tcpvegas_info);
++	}
++	return 0;
++}
++EXPORT_SYMBOL_GPL(tcpnv_get_info);
++
++static struct tcp_congestion_ops tcpnv __read_mostly = {
++	.init		= tcpnv_init,
++	.ssthresh	= tcpnv_recalc_ssthresh,
++	.cong_avoid	= tcpnv_cong_avoid,
++	.set_state	= tcpnv_state,
++	.undo_cwnd	= tcpnv_undo_cwnd,
++	.pkts_acked     = tcpnv_acked,
++	.get_info	= tcpnv_get_info,
++
++	.owner		= THIS_MODULE,
++	.name		= "nv",
++};
++
++static int __init tcpnv_register(void)
++{
++	BUILD_BUG_ON(sizeof(struct tcpnv) > ICSK_CA_PRIV_SIZE);
++
++	return tcp_register_congestion_control(&tcpnv);
++}
++
++static void __exit tcpnv_unregister(void)
++{
++	tcp_unregister_congestion_control(&tcpnv);
++}
++
++module_init(tcpnv_register);
++module_exit(tcpnv_unregister);
++
++MODULE_AUTHOR("Lawrence Brakmo");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("TCP NV");
++MODULE_VERSION("1.0");
 -- 
 1.8.1
