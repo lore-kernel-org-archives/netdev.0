@@ -1,122 +1,78 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: reproducable panic eviction work queue
-Date: Wed, 22 Jul 2015 11:11:10 +0200
-Message-ID: <55AF5E2E.5030203@cumulusnetworks.com>
-References: <F8D94413-90A2-4F80-AAA2-7A6AB57DF314@transip.nl>
- <1437209795.1026.31.camel@edumazet-glaptop2.roam.corp.google.com>
- <5FD5C17E-B321-404E-80A2-EE46BB8AA746@transip.nl>
- <55AA243D.5020306@cumulusnetworks.com>
- <22C5EB62-8974-432D-9C3B-45F4E4067A45@transip.nl>
- <55AA717D.8080800@cumulusnetworks.com> <55ACEDE9.3090205@transip.nl>
- <20150720143023.GC11985@breakpoint.cc> <55AE3208.8090403@transip.nl>
- <20150721183453.GL11985@breakpoint.cc> <55AF4FD7.2010009@transip.nl>
- <55AF5193.9090900@transip.nl>
+From: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+Subject: [PATCH v2] cgroup: net_cls: fix false-positive "suspicious RCU
+ usage"
+Date: Wed, 22 Jul 2015 12:23:20 +0300
+Message-ID: <20150722092320.30663.86742.stgit@buzz>
+References: <20150721164629.18385.14538.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Johan Schuijt <johan@transip.nl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"nikolay@redhat.com" <nikolay@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"chutzpah@gentoo.org" <chutzpah@gentoo.org>,
-	Robin Geuze <robing@transip.nl>,
-	netdev <netdev@vger.kernel.org>
-To: Frank Schreuder <fschreuder@transip.nl>,
-	Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:33528 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbbGVJLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 05:11:15 -0400
-Received: by wicmv11 with SMTP id mv11so72395087wic.0
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 02:11:14 -0700 (PDT)
-In-Reply-To: <55AF5193.9090900@transip.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150721164629.18385.14538.stgit@buzz>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 07/22/2015 10:17 AM, Frank Schreuder wrote:
-> I got some additional information from syslog:
-> 
-> Jul 22 09:49:33 dommy0 kernel: [  675.987890] NMI watchdog: BUG: soft lockup - CPU#3 stuck for 22s! [kworker/3:1:42]
-> Jul 22 09:49:42 dommy0 kernel: [  685.114033] INFO: rcu_sched self-detected stall on CPU { 3}  (t=39918 jiffies g=988 c=987 q=23168)
-> 
-> Thanks,
-> Frank
-> 
-> 
+In dev_queue_xmit() net_cls protected with rcu-bh.
 
-Hi,
-It looks like it's happening because of the evict_again logic, I think we should also
-add Florian's first suggestion about simplifying it to the patch and just skip the
-entry if we can't delete its timer otherwise we can restart the eviction and see
-entries that already had their timer stopped by us and can keep restarting for
-a long time.
-Here's an updated patch that removes the evict_again logic.
+[  270.730026] ===============================
+[  270.730029] [ INFO: suspicious RCU usage. ]
+[  270.730033] 4.2.0-rc3+ #2 Not tainted
+[  270.730036] -------------------------------
+[  270.730040] include/linux/cgroup.h:353 suspicious rcu_dereference_check() usage!
+[  270.730041] other info that might help us debug this:
+[  270.730043] rcu_scheduler_active = 1, debug_locks = 1
+[  270.730045] 2 locks held by dhclient/748:
+[  270.730046]  #0:  (rcu_read_lock_bh){......}, at: [<ffffffff81682b70>] __dev_queue_xmit+0x50/0x960
+[  270.730085]  #1:  (&qdisc_tx_lock){+.....}, at: [<ffffffff81682d60>] __dev_queue_xmit+0x240/0x960
+[  270.730090] stack backtrace:
+[  270.730096] CPU: 0 PID: 748 Comm: dhclient Not tainted 4.2.0-rc3+ #2
+[  270.730098] Hardware name: OpenStack Foundation OpenStack Nova, BIOS Bochs 01/01/2011
+[  270.730100]  0000000000000001 ffff8800bafeba58 ffffffff817ad487 0000000000000007
+[  270.730103]  ffff880232a0a780 ffff8800bafeba88 ffffffff810ca4f2 ffff88022fb23e00
+[  270.730105]  ffff880232a0a780 ffff8800bafebb68 ffff8800bafebb68 ffff8800bafebaa8
+[  270.730108] Call Trace:
+[  270.730121]  [<ffffffff817ad487>] dump_stack+0x4c/0x65
+[  270.730148]  [<ffffffff810ca4f2>] lockdep_rcu_suspicious+0xe2/0x120
+[  270.730153]  [<ffffffff816a62d2>] task_cls_state+0x92/0xa0
+[  270.730158]  [<ffffffffa00b534f>] cls_cgroup_classify+0x4f/0x120 [cls_cgroup]
+[  270.730164]  [<ffffffff816aac74>] tc_classify_compat+0x74/0xc0
+[  270.730166]  [<ffffffff816ab573>] tc_classify+0x33/0x90
+[  270.730170]  [<ffffffffa00bcb0a>] htb_enqueue+0xaa/0x4a0 [sch_htb]
+[  270.730172]  [<ffffffff81682e26>] __dev_queue_xmit+0x306/0x960
+[  270.730174]  [<ffffffff81682b70>] ? __dev_queue_xmit+0x50/0x960
+[  270.730176]  [<ffffffff816834a3>] dev_queue_xmit_sk+0x13/0x20
+[  270.730185]  [<ffffffff81787770>] dev_queue_xmit+0x10/0x20
+[  270.730187]  [<ffffffff8178b91c>] packet_snd.isra.62+0x54c/0x760
+[  270.730190]  [<ffffffff8178be25>] packet_sendmsg+0x2f5/0x3f0
+[  270.730203]  [<ffffffff81665245>] ? sock_def_readable+0x5/0x190
+[  270.730210]  [<ffffffff817b64bb>] ? _raw_spin_unlock+0x2b/0x40
+[  270.730216]  [<ffffffff8173bcbc>] ? unix_dgram_sendmsg+0x5cc/0x640
+[  270.730219]  [<ffffffff8165f367>] sock_sendmsg+0x47/0x50
+[  270.730221]  [<ffffffff8165f42f>] sock_write_iter+0x7f/0xd0
+[  270.730232]  [<ffffffff811fd4c7>] __vfs_write+0xa7/0xf0
+[  270.730234]  [<ffffffff811fe5b8>] vfs_write+0xb8/0x190
+[  270.730236]  [<ffffffff811fe8c2>] SyS_write+0x52/0xb0
+[  270.730239]  [<ffffffff817b6bae>] entry_SYSCALL_64_fastpath+0x12/0x76
 
+Signed-off-by: Konstantin Khlebnikov <khlebnikov-XoJtRXgx1JseBXzfvpsJ4g@public.gmane.org>
+---
+ net/core/netclassid_cgroup.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index e1300b3dd597..56a3a5685f76 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -45,6 +45,7 @@ enum {
-  * @flags: fragment queue flags
-  * @max_size: maximum received fragment size
-  * @net: namespace that this frag belongs to
-+ * @list_evictor: list of queues to forcefully evict (e.g. due to low memory)
-  */
- struct inet_frag_queue {
- 	spinlock_t		lock;
-@@ -59,6 +60,7 @@ struct inet_frag_queue {
- 	__u8			flags;
- 	u16			max_size;
- 	struct netns_frags	*net;
-+	struct hlist_node	list_evictor;
- };
+diff --git a/net/core/netclassid_cgroup.c b/net/core/netclassid_cgroup.c
+index 1f2a126f4ffa..6441f47b1a8f 100644
+--- a/net/core/netclassid_cgroup.c
++++ b/net/core/netclassid_cgroup.c
+@@ -23,7 +23,8 @@ static inline struct cgroup_cls_state *css_cls_state(struct cgroup_subsys_state
  
- #define INETFRAGS_HASHSZ	1024
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 5e346a082e5f..aaae37949c14 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -138,27 +138,17 @@ evict_again:
- 		if (!inet_fragq_should_evict(fq))
- 			continue;
- 
--		if (!del_timer(&fq->timer)) {
--			/* q expiring right now thus increment its refcount so
--			 * it won't be freed under us and wait until the timer
--			 * has finished executing then destroy it
--			 */
--			atomic_inc(&fq->refcnt);
--			spin_unlock(&hb->chain_lock);
--			del_timer_sync(&fq->timer);
--			inet_frag_put(fq, f);
--			goto evict_again;
--		}
-+		if (!del_timer(&fq->timer))
-+			continue;
- 
- 		fq->flags |= INET_FRAG_EVICTED;
--		hlist_del(&fq->list);
--		hlist_add_head(&fq->list, &expired);
-+		hlist_add_head(&fq->list_evictor, &expired);
- 		++evicted;
- 	}
- 
- 	spin_unlock(&hb->chain_lock);
- 
--	hlist_for_each_entry_safe(fq, n, &expired, list)
-+	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
- 		f->frag_expire((unsigned long) fq);
- 
- 	return evicted;
-@@ -284,8 +274,7 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- 	struct inet_frag_bucket *hb;
- 
- 	hb = get_frag_bucket_locked(fq, f);
--	if (!(fq->flags & INET_FRAG_EVICTED))
--		hlist_del(&fq->list);
-+	hlist_del(&fq->list);
- 	spin_unlock(&hb->chain_lock);
+ struct cgroup_cls_state *task_cls_state(struct task_struct *p)
+ {
+-	return css_cls_state(task_css(p, net_cls_cgrp_id));
++	return css_cls_state(task_css_check(p, net_cls_cgrp_id,
++					    rcu_read_lock_bh_held()));
  }
+ EXPORT_SYMBOL_GPL(task_cls_state);
  
