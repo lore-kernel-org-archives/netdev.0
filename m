@@ -1,51 +1,47 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/10] ipvs: do not use random local source address for tunnels
-Date: Thu, 23 Jul 2015 01:00:46 +0200
-Message-ID: <1437606052-5179-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/10] netfilter: nf_conntrack: Support expectations in different zones
+Date: Thu, 23 Jul 2015 01:00:52 +0200
+Message-ID: <1437606052-5179-11-git-send-email-pablo@netfilter.org>
 References: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:54459 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753414AbbGVWza (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2015 18:55:30 -0400
 In-Reply-To: <1437606052-5179-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Joe Stringer <joestringer@nicira.com>
 
-Michael Vallaly reports about wrong source address used
-in rare cases for tunneled traffic. Looks like
-__ip_vs_get_out_rt in 3.10+ is providing uninitialized
-dest_dst->dst_saddr.ip because ip_vs_dest_dst_alloc uses
-kmalloc. While we retry after seeing EINVAL from routing
-for data that does not look like valid local address, it
-still succeeded when this memory was previously used from
-other dests and with different local addresses. As result,
-we can use valid local address that is not suitable for
-our real server.
+When zones were originally introduced, the expectation functions were
+all extended to perform lookup using the zone. However, insertion was
+not modified to check the zone. This means that two expectations which
+are intended to apply for different connections that have the same tuple
+but exist in different zones cannot both be tracked.
 
-Fix it by providing 0.0.0.0 every time our cache is refreshed.
-By this way we will get preferred source address from routing.
-
-Reported-by: Michael Vallaly <lvs@nolatency.com>
-Fixes: 026ace060dfe ("ipvs: optimize dst usage for real server")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Fixes: 5d0aa2ccd4 (netfilter: nf_conntrack: add support for "conntrack zones")
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c |    1 -
- 1 file changed, 1 deletion(-)
+ net/netfilter/nf_conntrack_expect.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index b99d806..ec30d68 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -130,7 +130,6 @@ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 7a17070..b45a422 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -219,7 +219,8 @@ static inline int expect_clash(const struct nf_conntrack_expect *a,
+ 			a->mask.src.u3.all[count] & b->mask.src.u3.all[count];
+ 	}
  
- 	memset(&fl4, 0, sizeof(fl4));
- 	fl4.daddr = daddr;
--	fl4.saddr = (rt_mode & IP_VS_RT_MODE_CONNECT) ? *saddr : 0;
- 	fl4.flowi4_flags = (rt_mode & IP_VS_RT_MODE_KNOWN_NH) ?
- 			   FLOWI_FLAG_KNOWN_NH : 0;
+-	return nf_ct_tuple_mask_cmp(&a->tuple, &b->tuple, &intersect_mask);
++	return nf_ct_tuple_mask_cmp(&a->tuple, &b->tuple, &intersect_mask) &&
++	       nf_ct_zone(a->master) == nf_ct_zone(b->master);
+ }
  
+ static inline int expect_matches(const struct nf_conntrack_expect *a,
 -- 
 1.7.10.4
-
