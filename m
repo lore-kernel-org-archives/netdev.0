@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: via/Kconfig: GENERIC_PCI_IOMAP required if PCI
- not selected
-Date: Wed, 22 Jul 2015 11:08:36 -0700 (PDT)
-Message-ID: <20150722.110836.422018977846427052.davem@davemloft.net>
-References: <1437582854-3320-1-git-send-email-borneo.antonio@gmail.com>
+Subject: Re: [PATCH net-next] ip_tunnel: Provide tunnel metadata API for
+ CONFIG_INET=n
+Date: Wed, 22 Jul 2015 11:09:43 -0700 (PDT)
+Message-ID: <20150722.110943.692744854884325882.davem@davemloft.net>
+References: <592e4753a6a5752b12cebab65ad426cce20535ca.1437568711.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, alchark@gmail.com
-To: borneo.antonio@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1437582854-3320-1-git-send-email-borneo.antonio@gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswtich.org,
+	roopa@cumulusnetworks.com
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43637 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752103AbbGVSJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 14:09:44 -0400
+In-Reply-To: <592e4753a6a5752b12cebab65ad426cce20535ca.1437568711.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Borneo <borneo.antonio@gmail.com>
-Date: Thu, 23 Jul 2015 00:34:14 +0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Wed, 22 Jul 2015 14:43:58 +0200
 
-> -	depends on (PCI || OF_IRQ)
-> +	depends on (PCI || (OF_IRQ && GENERIC_PCI_IOMAP))
+> Account for the configuration FIB_RULES=y && INET=n as FIB_RULES can
+> be selected by IPV6 or DECNET without INET.
+> 
+> Fixes: e7030878fc84 ("fib: Add fib rule match on tunnel id")
+> Fixes: 3093fbe7ff4b ("route: Per route IP tunnel metadata via lightweight tunnel")
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Having GENERIC_PCI_IOMAP withut PCI makes absolutely no sense to me.
-
-I can't see why a platform would provide GENERIC_PCI_IOMAP when it
-does not have PCI enabled.
-
-You need to explain this.
-
-When PCI is not enabled, you should not be using any interface
-pci_*() whatsoever.  Especially such a core interface as pci_iomap().
-
-ALTERNATIVELY, NOP versions of pci_iomap() and friends should be
-provided when PCI is disabled, which just return errors and
-non-success statuses.
+Applied.
