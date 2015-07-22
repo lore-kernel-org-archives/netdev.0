@@ -1,123 +1,77 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net-next] ipv6: Avoid rt6_probe() taking writer lock in
- the fast path
-Date: Wed, 22 Jul 2015 11:10:59 +0900
-Message-ID: <55AEFBB3.1010503@miraclelinux.com>
-References: <1437522680-3515872-1-git-send-email-kafai@fb.com>
+From: Alexei Starovoitov <ast@kernel.org>
+Subject: Re: [RFC PATCH net-next] ebpf: Allow dereferences of PTR_TO_STACK
+ registers
+Date: Tue, 21 Jul 2015 20:00:48 -0700
+Message-ID: <20150722030047.GA14620@ast-dev1>
+References: <1437530440-1474680-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	Kernel Team <kernel-team@fb.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Martin KaFai Lau <kafai@fb.com>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: Alex Gartrell <agartrell@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33285 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558AbbGVCLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2015 22:11:04 -0400
-Received: by pdbnt7 with SMTP id nt7so59164692pdb.0
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2015 19:11:03 -0700 (PDT)
-In-Reply-To: <1437522680-3515872-1-git-send-email-kafai@fb.com>
+Received: from mail.kernel.org ([198.145.29.136]:37244 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754500AbbGVDAw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jul 2015 23:00:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1437530440-1474680-1-git-send-email-agartrell@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Jul 21, 2015 at 07:00:40PM -0700, Alex Gartrell wrote:
+>         mov %rsp, %r1           ; r1 = rsp
+>         add $-8, %r1            ; r1 = rsp - 8
+>         store_q $123, -8(%rsp)  ; *(u64*)r1 = 123  <- valid
+>         store_q $123, (%r1)     ; *(u64*)r1 = 123  <- previously invalid
+>         mov $0, %r0
+>         exit                    ; Always need to exit
 
-Martin KaFai Lau wrote:
-> The patch checks neigh->nud_state before acquiring the writer lock.
-> Note that rt6_probe() is only used in CONFIG_IPV6_ROUTER_PREF.
+Is this your new eBPF assembler syntax? :)
+imo gnu style looks ugly... ;)
 
-You have to take "some" lock when accessing neigh->nud_state
-theoretically.
+It's great to see such in-depth understanding of verifier!!
 
+> And we'd get the following error:
 > 
-> I also take this chance to re-arrange the code.
+> 	0: (bf) r1 = r10
+> 	1: (07) r1 += -8
+> 	2: (7a) *(u64 *)(r10 -8) = 999
+> 	3: (7a) *(u64 *)(r1 +0) = 999
+> 	R1 invalid mem access 'fp'
+> 
+> 	Unable to load program
+> 
+> We already know that a register is a stack address and the appropriate
+> offset, so we should be able to validate those references as well.
 
-No, please do not mix multiple changes.
+yes, we can teach verifier to do that.
+Though llvm doesn't generate such code. It's small enough change.
 
-> 
-> 40 udpflood processes and a /64 gateway route are used.
-> The gateway has NUD_PERMANENT.  Each of them is run for 30s.
-> At the end, the total number of finished sendto():
-> 
-> Before    After
-> 55M	  95M
-> 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Alex Gartrell <agartrell@fb.com>
 > ---
->  net/ipv6/route.c | 41 ++++++++++++++++++++---------------------
->  1 file changed, 20 insertions(+), 21 deletions(-)
+>  kernel/bpf/verifier.c | 9 +++++++++
+>  1 file changed, 9 insertions(+)
 > 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 6090969..a6c6b5a 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -544,6 +544,7 @@ static void rt6_probe_deferred(struct work_struct *w)
->  
->  static void rt6_probe(struct rt6_info *rt)
->  {
-> +	struct __rt6_probe_work *work;
->  	struct neighbour *neigh;
->  	/*
->  	 * Okay, this does not seem to be appropriate
-> @@ -558,34 +559,32 @@ static void rt6_probe(struct rt6_info *rt)
->  	rcu_read_lock_bh();
->  	neigh = __ipv6_neigh_lookup_noref(rt->dst.dev, &rt->rt6i_gateway);
->  	if (neigh) {
-> -		write_lock(&neigh->lock);
->  		if (neigh->nud_state & NUD_VALID)
->  			goto out;
-> -	}
-> -
-> -	if (!neigh ||
-> -	    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
-> -		struct __rt6_probe_work *work;
->  
-> +		work = NULL;
-> +		write_lock(&neigh->lock);
-> +		if (!(neigh->nud_state & NUD_VALID) &&
-> +		    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
-> +			work = kmalloc(sizeof(*work), GFP_ATOMIC);
-> +			if (work) {
-> +				__neigh_set_probe_once(neigh);
-> +			}
-> +		}
-> +		write_unlock(&neigh->lock);
-> +	} else {
->  		work = kmalloc(sizeof(*work), GFP_ATOMIC);
-> +	}
->  
-> -		if (neigh && work)
-> -			__neigh_set_probe_once(neigh);
-> -
-> -		if (neigh)
-> -			write_unlock(&neigh->lock);
-> +	if (work) {
-> +		INIT_WORK(&work->work, rt6_probe_deferred);
-> +		work->target = rt->rt6i_gateway;
-> +		dev_hold(rt->dst.dev);
-> +		work->dev = rt->dst.dev;
-> +		schedule_work(&work->work);
-> +	}
->  
-> -		if (work) {
-> -			INIT_WORK(&work->work, rt6_probe_deferred);
-> -			work->target = rt->rt6i_gateway;
-> -			dev_hold(rt->dst.dev);
-> -			work->dev = rt->dst.dev;
-> -			schedule_work(&work->work);
-> -		}
-> -	} else {
->  out:
-> -		write_unlock(&neigh->lock);
-> -	}
->  	rcu_read_unlock_bh();
->  }
->  #else
-> 
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 039d866..5dfbece 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -676,6 +676,15 @@ static int check_mem_access(struct verifier_env *env, u32 regno, int off,
+>  			err = check_stack_write(state, off, size, value_regno);
+>  		else
+>  			err = check_stack_read(state, off, size, value_regno);
+> +	} else if (state->regs[regno].type == PTR_TO_STACK) {
+> +		int real_off = state->regs[regno].imm + off;
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+real_off is missing alignment and bounds checks.
+something like:
+if (state->regs[regno].type == PTR_TO_STACK)
+	off += state->regs[regno].imm;
+if (off % size != 0)
+...
+else if (state->regs[regno].type == FRAME_PTR || == PTR_TO_STACK)
+.. as-is here ...
+
+would fix it.
+
+please add few accept and reject tests for this to test_verifier.c as well.
