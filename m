@@ -1,7 +1,7 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V3 net-next 1/5] tcp: TCP experimental option for SMC - definitions
-Date: Wed, 22 Jul 2015 10:59:48 +0200
-Message-ID: <1437555592-16506-2-git-send-email-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V3 net-next 3/5] net: introduce socket family constants
+Date: Wed, 22 Jul 2015 10:59:50 +0200
+Message-ID: <1437555592-16506-4-git-send-email-ubraun@linux.vnet.ibm.com>
 References: <20150715.212837.233151628267116088.davem@davemloft.net>
  <1437555592-16506-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
@@ -10,144 +10,85 @@ Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
 	ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:35197 "EHLO
-	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933186AbbGVJAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 05:00:03 -0400
+Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:33439 "EHLO
+	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933558AbbGVJAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 05:00:12 -0400
 Received: from /spool/local
-	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Wed, 22 Jul 2015 10:00:00 +0100
+	Wed, 22 Jul 2015 10:00:05 +0100
 In-Reply-To: <1437555592-16506-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ursula Braun <ursula.braun@de.ibm.com>
 
-The SMC-R protocol defines dynamic discovery of peers. This is done by
-implementing experimental TCP options as defined in RFC6994. The TCP code
-needs to be extended to support RFC6994.
-
-Setting the TCP experimental option for SMC-R [2] will be triggered from
-kernel exploiters like the new SMC-R socket family by setting a new
-flag "syn_smc" on struct tcp_sock of the connecting and the listening
-socket. If the client peer is SMC-R capable, flag syn_smc is kept on the
-connecting socket after the 3-way TCP handshake, otherwise it is reset.
-If the server peer is SMC-R capable, the new connected TCP socket has
-the new flag set, otherwise not.
-
-Code snippet client:
-  tcp_sk(sock->sk)->syn_smc = 1;
-  rc = kernel_connect(sock, addr, alen, flags);
-  if (tcp_sk(sock->sk)->syn_smc) {
-          /* switch to smc for this connection */
-
-Code snippet server:
-  tcp_sk(sock->sk)->syn_smc = 1;
-  rc = kernel_listen(sock, backlog);
-  rc = kernel_accept(sock, &newsock, 0);
-  if (tcp_sk(newsock->sk)->syn_smc) {
-          /* switch to smc for this connection */
-
-References:
-[1] Shared Use of TCP Experimental Options RFC 6994:
-    https://tools.ietf.org/rfc/rfc6994.txt
-[2] IANA ExID SMCR:
-    http://www.iana.org/assignments/tcp-parameters/tcp-parameters.xhtml#tcp-exids
-
-This patch has already been posted in June 2013, but Dave Miller has
-postponed applying till the user of the new flags, ie. the entire SMC-R
-protocol stack is implemented.
+The new socket family is assigned the next available address / protocol
+family constant 41.
+Implementing SO_KEEPALIVE for SMC-R requires an extra hook in net/ipv4/timer.c.
 
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 ---
- include/linux/tcp.h     | 6 ++++--
- include/net/inet_sock.h | 3 ++-
- include/net/tcp.h       | 8 ++++++++
- 3 files changed, 14 insertions(+), 3 deletions(-)
+ include/linux/socket.h |  4 +++-
+ include/net/smc.h      | 13 +++++++++++++
+ net/ipv4/tcp_timer.c   |  2 +-
+ 3 files changed, 17 insertions(+), 2 deletions(-)
+ create mode 100644 include/net/smc.h
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 48c3696..488a875 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -87,7 +87,8 @@ struct tcp_options_received {
- 		tstamp_ok : 1,	/* TIMESTAMP seen on SYN packet		*/
- 		dsack : 1,	/* D-SACK is scheduled			*/
- 		wscale_ok : 1,	/* Wscale seen on SYN packet		*/
--		sack_ok : 4,	/* SACK seen on SYN packet		*/
-+		sack_ok : 3,	/* SACK seen on SYN packet		*/
-+		smc_ok : 1,	/* SMC seen on SYN packet		*/
- 		snd_wscale : 4,	/* Window scaling received from sender	*/
- 		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
- 	u8	num_sacks;	/* Number of SACK blocks		*/
-@@ -207,7 +208,8 @@ struct tcp_sock {
- 		syn_fastopen_exp:1,/* SYN includes Fast Open exp. option */
- 		syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
- 		save_syn:1,	/* Save headers of SYN packet */
--		is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
-+		is_cwnd_limited:1,/* forward progress limited by snd_cwnd? */
-+		syn_smc:1;	/* SYN includes SMC			*/
- 	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 5bf59c8..dd18d32 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -200,7 +200,8 @@ struct ucred {
+ #define AF_ALG		38	/* Algorithm sockets		*/
+ #define AF_NFC		39	/* NFC sockets			*/
+ #define AF_VSOCK	40	/* vSockets			*/
+-#define AF_MAX		41	/* For now.. */
++#define AF_SMC		41	/* smc sockets>->------->-------*/
++#define AF_MAX		42	/* For now.. */
  
- /* RTT measurement */
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 47eb67b..18d8d3f 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -91,7 +91,8 @@ struct inet_request_sock {
- 				wscale_ok  : 1,
- 				ecn_ok	   : 1,
- 				acked	   : 1,
--				no_srccheck: 1;
-+				no_srccheck: 1,
-+				smc_ok     : 1;
- 	kmemcheck_bitfield_end(flags);
- 	u32                     ir_mark;
- 	union {
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 364426a..e4584ed 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -46,6 +46,7 @@
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -246,6 +247,7 @@ struct ucred {
+ #define PF_ALG		AF_ALG
+ #define PF_NFC		AF_NFC
+ #define PF_VSOCK	AF_VSOCK
++#define PF_SMC		AF_SMC
+ #define PF_MAX		AF_MAX
  
- #include <linux/seq_file.h>
- #include <linux/memcontrol.h>
-+#include <linux/unaligned/access_ok.h>
- 
- extern struct inet_hashinfo tcp_hashinfo;
- 
-@@ -185,6 +186,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
-  * experimental options. See draft-ietf-tcpm-experimental-options-00.txt
-  */
- #define TCPOPT_FASTOPEN_MAGIC	0xF989
-+#define TCPOPT_SMC_MAGIC	0xE2D4C3D9
- 
- /*
-  *     TCP option lengths
-@@ -197,6 +199,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOLEN_MD5SIG         18
- #define TCPOLEN_FASTOPEN_BASE  2
- #define TCPOLEN_EXP_FASTOPEN_BASE  4
-+#define TCPOLEN_EXP_SMC_BASE   6
- 
- /* But this is what stacks really send out. */
- #define TCPOLEN_TSTAMP_ALIGNED		12
-@@ -207,6 +210,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOLEN_SACK_PERBLOCK		8
- #define TCPOLEN_MD5SIG_ALIGNED		20
- #define TCPOLEN_MSS_ALIGNED		4
-+#define TCPOLEN_EXP_SMC_BASE_ALIGNED    8
- 
- /* Flags in tp->nonagle */
- #define TCP_NAGLE_OFF		1	/* Nagle's algo is disabled */
-@@ -1762,4 +1766,8 @@ static inline void skb_set_tcp_pure_ack(struct sk_buff *skb)
- 	skb->truesize = 2;
- }
- 
-+#if IS_ENABLED(CONFIG_AFSMC)
-+extern struct static_key tcp_have_smc;
-+#endif
+ /* Maximum queue length specifiable by listen.  */
+diff --git a/include/net/smc.h b/include/net/smc.h
+new file mode 100644
+index 0000000..cd513ee
+--- /dev/null
++++ b/include/net/smc.h
+@@ -0,0 +1,13 @@
++/*
++ * SMC		Definitions for the SMC protocol.
++ *
++ * Author:	Ursula Braun <ursula.braun@de.ibm.com>
++ */
++#ifndef _SMC_H
++#define _SMC_H
 +
- #endif	/* _TCP_H */
++/* SMC socket options - disjunct with TCP socket options */
++#define SMC_KEEPALIVE		99	/* start/stop keepalives */
++
++#endif /* _SMC_H */
++
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 7149ebc..070bfc7 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -557,7 +557,7 @@ void tcp_set_keepalive(struct sock *sk, int val)
+ 	else if (!val)
+ 		inet_csk_delete_keepalive_timer(sk);
+ }
+-
++EXPORT_SYMBOL(tcp_set_keepalive);
+ 
+ static void tcp_keepalive_timer (unsigned long data)
+ {
 -- 
 2.3.8
