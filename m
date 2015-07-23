@@ -1,41 +1,81 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] openvswitch: Retrieve tunnel metadata when receiving from vport-netdev
-Date: Thu, 23 Jul 2015 13:04:44 +0200
-Message-ID: <f91747edf4825bd5b6641c5c815d0e20f59b7a3a.1437649446.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:60744 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbbGWLEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 07:04:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
+ packet and get the r/w-ability
+Date: Thu, 23 Jul 2015 11:05:48 +0000
+Message-ID: <12f291ee00204fb39e224ff50c90ee3b@SIXPR30MB031.064d.mgd.msft.net>
+References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
+ <87zj2pk3jf.fsf@vitty.brq.redhat.com>
+ <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
+ <20150722103546.GO5371@mwanda>
+ <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
+ <20150723101057.GQ5371@mwanda> <20150723102449.GR5371@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "stephen@networkplumber.org" <stephen@networkplumber.org>,
+ "stefanha@redhat.com" <stefanha@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20150723102449.GR5371@mwanda>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Retrieve the tunnel metadata for packets received by a net_device and
-provide it to ovs_vport_receive() for flow key extraction.
+> From: Dan Carpenter
+> Sent: Thursday, July 23, 2015 18:25
+> On Thu, Jul 23, 2015 at 01:10:57PM +0300, Dan Carpenter wrote:
+> > In this specific case, writing it as "if (ret != 0)" caused the bug.  If
+> > we had written it as "if (ret) return ret;" then there are no zeroes so
+> > wouldn't have been any temptation to return the zero instead of the ret.
+> 
+> I did a search to see if returning the zero instead of the ret was a
+> common mistake and it seems like it might be.  I did:
+> 
+> grep 'if (ret != 0)' drivers/   -r -A1 -n | grep "return 0;" | perl -ne 's/.c-(\d+)-/.c:$1/;
+> print'
+> 
+> drivers/gpu/drm/nouveau/nouveau_display.c:111                   return 0;
+> drivers/regulator/wm8400-regulator.c:47         return 0;
+> drivers/platform/x86/dell-laptop.c:859          return 0;
+> drivers/media/dvb-frontends/dibx000_common.c:213                                return 0;
+> drivers/media/dvb-frontends/dibx000_common.c:217                                return 0;
+> drivers/media/dvb-frontends/dibx000_common.c:235                                return 0;
+> drivers/media/dvb-frontends/dibx000_common.c:239                                return 0;
+> drivers/hv/channel.c:898                return 0;
+> drivers/hv/channel.c:944                return 0;
+> 
+> A bunch of those look suspicious but I don't know the subsystems well
+> enough to be sure.  Can you check the last two?
+> 
+> dan carpenter
 
-[This hunk was in the GRE patch in the initial series and missed the
- cut for the initial submission for merging.]
+Thanks, Dan!
 
-Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/openvswitch/vport-netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+After I checked the code, I think there is no issue for the last two:
+in the case of "if (ret != 0) return 0;",  the output parameter buffer_actual_len is
+zero and it is explicitly checked by the callers.
+This may seem not natural and I think we can improve it in future.
 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 68d0582..2254b74 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -58,7 +58,7 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
- 	skb_push(skb, ETH_HLEN);
- 	ovs_skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
- 
--	ovs_vport_receive(vport, skb, NULL);
-+	ovs_vport_receive(vport, skb, skb_tunnel_info(skb, AF_INET));
- 	return;
- 
- error:
--- 
-2.4.3
+BTW, at the end of vmbus_recvpacket(), the "return 0;" should be "return ret;", but
+since the output parameter buffer_actual_len is checked by the callers, I think it's
+OK for now.
+
+Thanks,
+-- Dexuan
