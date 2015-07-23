@@ -1,121 +1,68 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: bcmgenet: Register link_update callback for all MoCA PHYs
-Date: Wed, 22 Jul 2015 17:29:53 -0700
-Message-ID: <1437611393-6494-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Wei-Chun Chao <weichunc@plumgrid.com>
+Subject: [PATCH net-next] ipv6: fix crash over flow-based vxlan device
+Date: Wed, 22 Jul 2015 18:13:12 -0700
+Message-ID: <1437613992-25953-1-git-send-email-weichunc@plumgrid.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ast@plumgrid.com,
+	tgraf@suug.ch
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34893 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751865AbbGWAby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 20:31:54 -0400
-Received: by pabkd10 with SMTP id kd10so74867097pab.2
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 17:31:54 -0700 (PDT)
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:34906 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752203AbbGWBNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 21:13:16 -0400
+Received: by pdrg1 with SMTP id g1so147295616pdr.2
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 18:13:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 8d88c6ebb34c ("net: bcmgenet: enable MoCA link state change
-detection") added a fixed PHY link_update callback for MoCA PHYs when
-registered using platform_data exclusively, this change is also
-applicable to systems using Device Tree as their primary configuration
-interface.
+Similar check was added in ip_rcv but not in ipv6_rcv.
 
-In order for this to work, move the link_update assignment into
-bcmgenet_moca_phy_setup() where we know for sure that we are running on
-a MoCA GENET instance, and do not override phydev->link since this is:
+BUG: unable to handle kernel NULL pointer dereference at (null)
+IP: [<ffffffff81734e0a>] ipv6_rcv+0xfa/0x500
+Call Trace:
+[<ffffffff816c9786>] ? ip_rcv+0x296/0x400
+[<ffffffff817732d2>] ? packet_rcv+0x52/0x410
+[<ffffffff8168e99f>] __netif_receive_skb_core+0x63f/0x9a0
+[<ffffffffc02b34a0>] ? br_handle_frame_finish+0x580/0x580 [bridge]
+[<ffffffff8109912c>] ? update_rq_clock.part.81+0x1c/0x40
+[<ffffffff8168ed18>] __netif_receive_skb+0x18/0x60
+[<ffffffff8168fa1f>] process_backlog+0x9f/0x150
 
-- properly taken care of by the PHY library by getting the link UP/DOWN
-  interrupts
-- this now runs everytime we call bcmgenet_open(), so we need to
-  preserve whatever we detected before we went administratively DOWN and
-  then UP
-- we need to make sure that MoCA PHYs start with a link DOWN during
-  probe in order to force a link transition to occur
-
-To avoid a forward declaration, move bcmgenet_fixed_phy_link_update()
-above its caller.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Fixes: ee122c79d422 (vxlan: Flow based tunneling)
+Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmmii.c | 37 +++++++++++++++++-----------
- 1 file changed, 23 insertions(+), 14 deletions(-)
+ net/ipv6/ip6_input.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 0802cd9d2424..b3679ad1c1c7 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -163,6 +163,15 @@ void bcmgenet_mii_setup(struct net_device *dev)
- 	phy_print_status(phydev);
- }
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 57990c9..adba03a 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -45,6 +45,7 @@
+ #include <net/addrconf.h>
+ #include <net/xfrm.h>
+ #include <net/inet_ecn.h>
++#include <net/dst_metadata.h>
  
-+static int bcmgenet_fixed_phy_link_update(struct net_device *dev,
-+					  struct fixed_phy_status *status)
-+{
-+	if (dev && dev->phydev && status)
-+		status->link = dev->phydev->link;
-+
-+	return 0;
-+}
-+
- void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
+ int ip6_rcv_finish(struct sock *sk, struct sk_buff *skb)
  {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
-@@ -215,6 +224,10 @@ static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
- 	reg = bcmgenet_sys_readl(priv, SYS_PORT_CTRL);
- 	reg |= LED_ACT_SOURCE_MAC;
- 	bcmgenet_sys_writel(priv, reg, SYS_PORT_CTRL);
-+
-+	if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET)
-+		fixed_phy_set_link_update(priv->phydev,
-+					  bcmgenet_fixed_phy_link_update);
- }
- 
- int bcmgenet_mii_config(struct net_device *dev)
-@@ -460,6 +473,7 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
- 	struct device_node *dn = priv->pdev->dev.of_node;
- 	struct device *kdev = &priv->pdev->dev;
- 	const char *phy_mode_str = NULL;
-+	struct phy_device *phydev = NULL;
- 	char *compat;
- 	int phy_mode;
- 	int ret;
-@@ -515,14 +529,12 @@ static int bcmgenet_mii_of_init(struct bcmgenet_priv *priv)
- 			priv->internal_phy = true;
+@@ -55,7 +56,7 @@ int ip6_rcv_finish(struct sock *sk, struct sk_buff *skb)
+ 		if (ipprot && ipprot->early_demux)
+ 			ipprot->early_demux(skb);
  	}
+-	if (!skb_dst(skb))
++	if (!skb_valid_dst(skb))
+ 		ip6_route_input(skb);
  
--	return 0;
--}
--
--static int bcmgenet_fixed_phy_link_update(struct net_device *dev,
--					  struct fixed_phy_status *status)
--{
--	if (dev && dev->phydev && status)
--		status->link = dev->phydev->link;
-+	/* Make sure we initialize MoCA PHYs with a link down */
-+	if (phy_mode == PHY_INTERFACE_MODE_MOCA) {
-+		phydev = of_phy_find_device(dn);
-+		if (phydev)
-+			phydev->link = 0;
-+	}
+ 	return dst_input(skb);
+@@ -98,7 +99,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	 * arrived via the sending interface (ethX), because of the
+ 	 * nature of scoping architecture. --yoshfuji
+ 	 */
+-	IP6CB(skb)->iif = skb_dst(skb) ? ip6_dst_idev(skb_dst(skb))->dev->ifindex : dev->ifindex;
++	IP6CB(skb)->iif = skb_valid_dst(skb) ? ip6_dst_idev(skb_dst(skb))->dev->ifindex : dev->ifindex;
  
- 	return 0;
- }
-@@ -579,12 +591,9 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
- 			return -ENODEV;
- 		}
- 
--		if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET) {
--			ret = fixed_phy_set_link_update(
--				phydev, bcmgenet_fixed_phy_link_update);
--			if (!ret)
--				phydev->link = 0;
--		}
-+		/* Make sure we initialize MoCA PHYs with a link down */
-+		phydev->link = 0;
-+
- 	}
- 
- 	priv->phydev = phydev;
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*hdr))))
+ 		goto err;
 -- 
-2.1.0
+1.9.1
