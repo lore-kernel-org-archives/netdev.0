@@ -1,45 +1,56 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH net 2/3] r8152: fix remote wakeup
-Date: Thu, 23 Jul 2015 09:55:41 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3AC58@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-148-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-150-Taiwan-albertk@realtek.com>
- <1437640258.4377.6.camel@suse.com>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [NET-NEXT PATCH] net: macb: Change capability mask of jumbo support
+Date: Thu, 23 Jul 2015 15:35:08 +0530
+Message-ID: <CAFcVECJ1egvteE6DazZg-1enAmhY5Opv9TYyHEsjS_YuXaZGYA@mail.gmail.com>
+References: <1437645686-5146-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1437640258.4377.6.camel-IBi9RG/b67k@public.gmane.org>
-Content-Language: zh-TW
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, davem@davemloft.net,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	boris.brezillon@free-electrons.com,
+	alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	"michals@xilinx.com" <michals@xilinx.com>
+To: Harini Katakam <harini.katakam@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437645686-5146-1-git-send-email-harinik@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBIaSwNCj4gDQo+IHRoaXMgaXMgbW9zdCBsaWtlbHkgd3JvbmcuIFVzYmNvcmUgZG9lcyBjaGVj
-ayBmb3IgYSBkZXZpY2UncyBhYmlsaXR5IHRvDQo+IGRvIHJlbW90ZSB3YWtldXAgYW5kIHdpbGwg
-YmxvY2sgYSBydW50aW1lIHN1c3BlbmQgaWYgaXQgZGV0ZWN0cyB0aGF0DQo+IGEgcmVtb3RlIHdh
-a2V1cCB3b3VsZCBiZSByZXF1aXJlZCBidXQgdGhlIGRldmljZSBjYW5ub3QgZGVsaXZlci4NCj4g
-KHN0YXRpYyBpbnQgYXV0b3N1c3BlbmRfY2hlY2soKSkNCj4gDQo+IFNvIGJ5IHJlbW92aW5nIHRo
-ZSBmbGFnIGluIHRoZSBwcm9iZSgpIG1ldGhvZCBtZWFucyB0aGF0IGRldmljZXMgd2lsbA0KPiBz
-dXNwZW5kIGR1cmluZyBvcGVyYXRpb25zIHdpdGhvdXQgcmVtb3RlIHdha2V1cCByZXF1ZXN0ZWQu
-IFRodXMgYW4NCj4gaW5jb21pbmcgcGFja2V0IGNhbm5vdCB3YWtlIHRoZW0gdXAuDQo+IA0KPiBJ
-ZiB5b3UgcmVtb3ZlIHNldHRpbmcgdGhlIGZsYWcgb24gcHJvYmUoKSB5b3UgbmVlZCB0byBzZXQg
-aXQgYXQgb3BlbigpDQo+IFthbmQgcmVzZXQgb24gY2xvc2UoKV0sIGFzIGRldmljZXMgd2hpY2gg
-Y2Fubm90IGRvIHJlbW90ZSB3YWtldXAgbXVzdA0KPiBvbmx5IGJlIHN1c3BlbmRlZCB3aGVuIHRo
-ZXkgYXJlIGRvd24uDQoNCkhpLA0KDQpJIGRvbid0IHRoaW5rIEkgdW5kZXJzdGFuZCB5b3VyIGRl
-c2NyaXB0aW9uIGNsZWFybHkuIE15IGlkZWEgaXMgdGhhdCBpZiB0aGUNCmRldmljZSBkb2Vzbid0
-IHN1cHBvcnQgd2FrZXVwLCB3ZSBkb24ndCBuZWVkIHNldCAiIG5lZWRzX3JlbW90ZV93YWtldXAi
-Lg0KV2UgYWxsb3cgdGhlIGRldmljZSBjb3VsZCBiZSBzdXNwZW5kZWQgYW5kIGNvdWxkbid0IGJl
-IHdha2VkIHVwIGJ5DQppbmNvbWluZyBwYWNrZXQuIFRoZSBzeXN0ZW0gY291bGQgYmUgd2FrZWQg
-dXAgYnkgb3RoZXIgbWV0aG9kcyBleGNlcHQNCmJ5IHRoZSBkZXZpY2UuDQoNCkkgZG9uJ3QgdW5k
-ZXJzdGFuZCB3aHkgSSBoYXZlIHRvIHNldCBpdCBhdCBvcGVuKCkgYW5kIHJlc2V0IGl0IGF0IGNs
-b3NlKCkuIEFuZA0Kd2h5IG11c3QgdGhlIGRldmljZSBvbmx5IGJlIHN1c3BlbmRlZCB3aGVuIGl0
-IGlzIGRvd24/DQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please ignore this patch. This is not on the right base, i'll resend it.
+
+Regards,
+Harini
+
+On Thu, Jul 23, 2015 at 3:31 PM, Harini Katakam
+<harini.katakam@xilinx.com> wrote:
+> Capability mask for jumbo and no gigabit half duplex is the same.
+> Change one of them.
+>
+> Signed-off-by: Harini Katakam <harinik@xilinx.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.h |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> index 15fd6e3..8b3087b 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -449,7 +449,7 @@
+>  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE       0x20000000
+>  #define MACB_CAPS_SG_DISABLED                  0x40000000
+>  #define MACB_CAPS_MACB_IS_GEM                  0x80000000
+> -#define MACB_CAPS_JUMBO                                0x00000008
+> +#define MACB_CAPS_JUMBO                                0x00000010
+>  #define NS_PER_SEC                             1000000000ULL
+>
+>  /* Bit manipulation macros */
+> --
+> 1.7.9.5
+>
