@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2.1 09/22] fjes: raise_intr_rxdata_task
-Date: Thu, 23 Jul 2015 09:10:23 +0900
-Message-ID: <1437610236-12490-9-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2.1 10/22] fjes: tx_stall_task
+Date: Thu, 23 Jul 2015 09:10:24 +0900
+Message-ID: <1437610236-12490-10-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1437610142-12439-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1437610236-12490-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
@@ -11,151 +11,154 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym04.jp.fujitsu.com ([211.128.242.43]:14596 "EHLO
-	mgwym04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753595AbbGWAPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 20:15:11 -0400
+Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:14336 "EHLO
+	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753537AbbGWAPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 20:15:17 -0400
 In-Reply-To: <1437610236-12490-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add raise_intr_rxdata_task.
-Extended Socket Network Device is shared memory
-based, so someone's transmission denotes other's
-reception. In order to notify receivers, sender
-has to raise interruption of receivers.
-raise_intr_rxdata_task does this work.
+This patch adds tx_stall_task.
+When receiver's buffer is full, sender stops
+its tx queue. This task is used to monitor
+receiver's status and when receiver's buffer
+is avairable, it resumes tx queue.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes.h      |  4 +++
- drivers/net/fjes/fjes_main.c | 64 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 68 insertions(+)
+ drivers/net/fjes/fjes.h      |  2 ++
+ drivers/net/fjes/fjes_main.c | 63 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 65 insertions(+)
 
 diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
-index 7af4304..8e9899e 100644
+index 8e9899e..b04ea9d 100644
 --- a/drivers/net/fjes/fjes.h
 +++ b/drivers/net/fjes/fjes.h
-@@ -50,6 +50,10 @@ struct fjes_adapter {
+@@ -30,6 +30,7 @@
+ #define FJES_MAX_QUEUES		1
+ #define FJES_TX_RETRY_INTERVAL	(20 * HZ)
+ #define FJES_TX_RETRY_TIMEOUT	(100)
++#define FJES_TX_TX_STALL_TIMEOUT	(FJES_TX_RETRY_INTERVAL / 2)
+ #define FJES_OPEN_ZONE_UPDATE_WAIT	(300) /* msec */
  
- 	bool irq_registered;
+ /* board specific private data structure */
+@@ -52,6 +53,7 @@ struct fjes_adapter {
  
-+	struct workqueue_struct *txrx_wq;
-+
-+	struct work_struct raise_intr_rxdata_task;
-+
+ 	struct workqueue_struct *txrx_wq;
+ 
++	struct work_struct tx_stall_task;
+ 	struct work_struct raise_intr_rxdata_task;
+ 
  	struct fjes_hw hw;
- };
- 
 diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index be14e66..8d67097 100644
+index 8d67097..8cc687e 100644
 --- a/drivers/net/fjes/fjes_main.c
 +++ b/drivers/net/fjes/fjes_main.c
-@@ -52,6 +52,7 @@ static int fjes_close(struct net_device *);
- static int fjes_setup_resources(struct fjes_adapter *);
+@@ -53,6 +53,7 @@ static int fjes_setup_resources(struct fjes_adapter *);
  static void fjes_free_resources(struct fjes_adapter *);
  static netdev_tx_t fjes_xmit_frame(struct sk_buff *, struct net_device *);
-+static void fjes_raise_intr_rxdata_task(struct work_struct *);
+ static void fjes_raise_intr_rxdata_task(struct work_struct *);
++static void fjes_tx_stall_task(struct work_struct *);
  static irqreturn_t fjes_intr(int, void*);
  
  static int fjes_acpi_add(struct acpi_device *);
-@@ -276,6 +277,8 @@ static int fjes_close(struct net_device *netdev)
- 
+@@ -278,6 +279,7 @@ static int fjes_close(struct net_device *netdev)
  	fjes_free_irq(adapter);
  
-+	cancel_work_sync(&adapter->raise_intr_rxdata_task);
-+
+ 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
++	cancel_work_sync(&adapter->tx_stall_task);
+ 
  	fjes_hw_wait_epstop(hw);
  
- 	fjes_free_resources(adapter);
-@@ -404,6 +407,55 @@ static void fjes_free_resources(struct fjes_adapter *adapter)
+@@ -407,6 +409,61 @@ static void fjes_free_resources(struct fjes_adapter *adapter)
  	}
  }
  
-+static void fjes_raise_intr_rxdata_task(struct work_struct *work)
++static void fjes_tx_stall_task(struct work_struct *work)
 +{
 +	struct fjes_adapter *adapter = container_of(work,
-+			struct fjes_adapter, raise_intr_rxdata_task);
++			struct fjes_adapter, tx_stall_task);
 +	struct fjes_hw *hw = &adapter->hw;
++	struct net_device *netdev = adapter->netdev;
++	enum ep_partner_status pstatus;
 +	int epid;
 +	int max_epid, my_epid;
-+	enum ep_partner_status pstatus;
++	union ep_buffer_info *info;
++	int all_queue_available;
++	int i;
++	int sendable;
++
++	if (((long)jiffies -
++		(long)(netdev->trans_start)) > FJES_TX_TX_STALL_TIMEOUT) {
++		netif_wake_queue(netdev);
++		return;
++	}
 +
 +	my_epid = hw->my_epid;
 +	max_epid = hw->max_epid;
 +
-+	for (epid = 0; epid < max_epid; epid++)
-+		hw->ep_shm_info[epid].tx_status_work = 0;
++	for (i = 0; i < 5; i++) {
++		all_queue_available = 1;
 +
-+	for (epid = 0; epid < max_epid; epid++) {
-+		if (epid == my_epid)
-+			continue;
++		for (epid = 0; epid < max_epid; epid++) {
++			if (my_epid == epid)
++				continue;
 +
-+		pstatus = fjes_hw_get_partner_ep_status(hw, epid);
-+		if (pstatus == EP_PARTNER_SHARED) {
-+			hw->ep_shm_info[epid].tx_status_work =
-+				hw->ep_shm_info[epid].tx.info->v1i.tx_status;
++			pstatus = fjes_hw_get_partner_ep_status(hw, epid);
++			sendable = (pstatus == EP_PARTNER_SHARED);
++			if (!sendable)
++				continue;
 +
-+			if (hw->ep_shm_info[epid].tx_status_work ==
-+				FJES_TX_DELAY_SEND_PENDING) {
-+				hw->ep_shm_info[epid].tx.info->v1i.tx_status =
-+					FJES_TX_DELAY_SEND_NONE;
++			info = adapter->hw.ep_shm_info[epid].tx.info;
++
++			if (EP_RING_FULL(info->v1i.head, info->v1i.tail,
++					 info->v1i.count_max)) {
++				all_queue_available = 0;
++				break;
 +			}
 +		}
-+	}
 +
-+	for (epid = 0; epid < max_epid; epid++) {
-+		if (epid == my_epid)
-+			continue;
-+
-+		pstatus = fjes_hw_get_partner_ep_status(hw, epid);
-+		if ((hw->ep_shm_info[epid].tx_status_work ==
-+		     FJES_TX_DELAY_SEND_PENDING) &&
-+		    (pstatus == EP_PARTNER_SHARED) &&
-+		    !(hw->ep_shm_info[epid].rx.info->v1i.rx_status)) {
-+			fjes_hw_raise_interrupt(hw, epid,
-+						REG_ICTL_MASK_RX_DATA);
++		if (all_queue_available) {
++			netif_wake_queue(netdev);
++			return;
 +		}
 +	}
 +
-+	usleep_range(500, 1000);
++	usleep_range(50, 100);
++
++	queue_work(adapter->txrx_wq, &adapter->tx_stall_task);
 +}
 +
- static int fjes_tx_send(struct fjes_adapter *adapter, int dest,
- 			void *data, size_t len)
+ static void fjes_raise_intr_rxdata_task(struct work_struct *work)
  {
-@@ -416,6 +468,9 @@ static int fjes_tx_send(struct fjes_adapter *adapter, int dest,
+ 	struct fjes_adapter *adapter = container_of(work,
+@@ -602,6 +659,10 @@ fjes_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 					netdev->trans_start = jiffies;
+ 					netif_tx_stop_queue(cur_queue);
  
- 	adapter->hw.ep_shm_info[dest].tx.info->v1i.tx_status =
- 		FJES_TX_DELAY_SEND_PENDING;
-+	if (!work_pending(&adapter->raise_intr_rxdata_task))
-+		queue_work(adapter->txrx_wq,
-+			   &adapter->raise_intr_rxdata_task);
- 
- 	retval = 0;
- 	return retval;
-@@ -629,6 +684,11 @@ static int fjes_probe(struct platform_device *plat_dev)
- 	adapter->force_reset = false;
- 	adapter->open_guard = false;
- 
-+	adapter->txrx_wq = create_workqueue(DRV_NAME "/txrx");
++					if (!work_pending(&adapter->tx_stall_task))
++						queue_work(adapter->txrx_wq,
++							   &adapter->tx_stall_task);
 +
-+	INIT_WORK(&adapter->raise_intr_rxdata_task,
-+		  fjes_raise_intr_rxdata_task);
-+
- 	res = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
- 	hw->hw_res.start = res->start;
- 	hw->hw_res.size = res->end - res->start + 1;
-@@ -669,6 +729,10 @@ static int fjes_remove(struct platform_device *plat_dev)
- 	struct fjes_adapter *adapter = netdev_priv(netdev);
+ 					ret = NETDEV_TX_BUSY;
+ 				}
+ 			} else {
+@@ -686,6 +747,7 @@ static int fjes_probe(struct platform_device *plat_dev)
+ 
+ 	adapter->txrx_wq = create_workqueue(DRV_NAME "/txrx");
+ 
++	INIT_WORK(&adapter->tx_stall_task, fjes_tx_stall_task);
+ 	INIT_WORK(&adapter->raise_intr_rxdata_task,
+ 		  fjes_raise_intr_rxdata_task);
+ 
+@@ -730,6 +792,7 @@ static int fjes_remove(struct platform_device *plat_dev)
  	struct fjes_hw *hw = &adapter->hw;
  
-+	cancel_work_sync(&adapter->raise_intr_rxdata_task);
-+	if (adapter->txrx_wq)
-+		destroy_workqueue(adapter->txrx_wq);
-+
- 	unregister_netdev(netdev);
+ 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
++	cancel_work_sync(&adapter->tx_stall_task);
+ 	if (adapter->txrx_wq)
+ 		destroy_workqueue(adapter->txrx_wq);
  
- 	fjes_hw_exit(hw);
 -- 
 1.8.3.1
