@@ -1,29 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] af_mpls: fix undefined reference to
- ip6_route_output
-Date: Thu, 23 Jul 2015 00:09:49 -0700 (PDT)
-Message-ID: <20150723.000949.1617391267827343249.davem@davemloft.net>
-References: <20150722.130444.1245167673786115378.davem@davemloft.net>
-	<20150722201729.GB26717@pox.localdomain>
-	<55AFFF47.8040704@cumulusnetworks.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net 0/3] r8152: issues fix
+Date: Thu, 23 Jul 2015 15:09:04 +0800
+Message-ID: <1394712342-15778-148-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54028 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750842AbbGWG46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 02:56:58 -0400
-In-Reply-To: <55AFFF47.8040704@cumulusnetworks.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:40234 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbbGWHIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 03:08:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roopa <roopa@cumulusnetworks.com>
-Date: Wed, 22 Jul 2015 13:38:31 -0700
+These patches are used to fix issues.
 
-> I cant think of a way to fix the current problem with my patch...
+Hayes Wang (3):
+  r8152: fix the issue about U1/U2
+  r8152: fix remote wakeup
+  r8152: don't enable napi before rx ready
 
-I guess it's not obvious that adding CONFIG_MPLS_IPV6 would solve
-the problem perfectly.
+ drivers/net/usb/r8152.c | 103 ++++++++++++++++++++++++++++--------------------
+ 1 file changed, 60 insertions(+), 43 deletions(-)
+
+-- 
+2.4.2
