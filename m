@@ -1,81 +1,45 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
- packet and get the r/w-ability
-Date: Thu, 23 Jul 2015 11:05:48 +0000
-Message-ID: <12f291ee00204fb39e224ff50c90ee3b@SIXPR30MB031.064d.mgd.msft.net>
-References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
- <87zj2pk3jf.fsf@vitty.brq.redhat.com>
- <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
- <20150722103546.GO5371@mwanda>
- <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
- <20150723101057.GQ5371@mwanda> <20150723102449.GR5371@mwanda>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net 2/3] r8152: fix remote wakeup
+Date: Thu, 23 Jul 2015 11:30:30 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3ACFE@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-148-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-150-Taiwan-albertk@realtek.com>
+	 <1437640258.4377.6.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F3AC58@RTITMBSV03.realtek.com.tw>
+ <1437647246.4377.33.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stephen@networkplumber.org" <stephen@networkplumber.org>,
- "stefanha@redhat.com" <stefanha@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150723102449.GR5371@mwanda>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1437647246.4377.33.camel-IBi9RG/b67k@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> From: Dan Carpenter
-> Sent: Thursday, July 23, 2015 18:25
-> On Thu, Jul 23, 2015 at 01:10:57PM +0300, Dan Carpenter wrote:
-> > In this specific case, writing it as "if (ret != 0)" caused the bug.  If
-> > we had written it as "if (ret) return ret;" then there are no zeroes so
-> > wouldn't have been any temptation to return the zero instead of the ret.
-> 
-> I did a search to see if returning the zero instead of the ret was a
-> common mistake and it seems like it might be.  I did:
-> 
-> grep 'if (ret != 0)' drivers/   -r -A1 -n | grep "return 0;" | perl -ne 's/.c-(\d+)-/.c:$1/;
-> print'
-> 
-> drivers/gpu/drm/nouveau/nouveau_display.c:111                   return 0;
-> drivers/regulator/wm8400-regulator.c:47         return 0;
-> drivers/platform/x86/dell-laptop.c:859          return 0;
-> drivers/media/dvb-frontends/dibx000_common.c:213                                return 0;
-> drivers/media/dvb-frontends/dibx000_common.c:217                                return 0;
-> drivers/media/dvb-frontends/dibx000_common.c:235                                return 0;
-> drivers/media/dvb-frontends/dibx000_common.c:239                                return 0;
-> drivers/hv/channel.c:898                return 0;
-> drivers/hv/channel.c:944                return 0;
-> 
-> A bunch of those look suspicious but I don't know the subsystems well
-> enough to be sure.  Can you check the last two?
-> 
-> dan carpenter
-
-Thanks, Dan!
-
-After I checked the code, I think there is no issue for the last two:
-in the case of "if (ret != 0) return 0;",  the output parameter buffer_actual_len is
-zero and it is explicitly checked by the callers.
-This may seem not natural and I think we can improve it in future.
-
-BTW, at the end of vmbus_recvpacket(), the "return 0;" should be "return ret;", but
-since the output parameter buffer_actual_len is checked by the callers, I think it's
-OK for now.
-
-Thanks,
--- Dexuan
+T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQpbLi4uXQ0KPiBJZiB0aGUg
+ZGV2aWNlIGRvZXMgbm90IHN1cHBvcnQgcmVtb3RlIHdha2V1cCBhbmQgdGhlIGRyaXZlciBlbmFi
+bGVzIGl0LCBydW50aW1lDQo+IHBvd2VyIG1hbmFnZW1lbnQgd2lsbCBiZSBzd2l0Y2hlZCBvZmYu
+DQo+IFRoYXQgaXMgdGhlIGN1cnJlbnQgc3RhdGUgYW5kIGl0IG1lYW5zIHRoYXQgZGV2aWNlcyB3
+aGljaCBkb24ndCBzdXBwb3J0IHJlbW90ZQ0KPiB3YWtldXAgY2Fubm90IGRvIHJ1bnRpbWUgcG93
+ZXIgbWFuYWdlbWVudCBhdCBhbGwuIEJ1dCB0aGUgZHJpdmVyIGlzIGNvcnJlY3QuDQo+IA0KPiBU
+aGUgb25seSB0aW1lIGEgZGV2aWNlIHRoYXQgZG9lc24ndCBzdXBwb3J0IHJlbW90ZSB3YWtldXAg
+Y2FuIGRvIHJ1bnRpbWUgcG93ZXINCj4gbWFuYWdlbnQgaXMgd2hlbiBubyBwYWNrZXRzIGNhbiBi
+ZSByZWNlaXZlZCB0aGF0IGlzIHdoaWxlIHRoZSBpbnRlcmZhY2UgaXMgZG93bi4gSWYNCj4geW91
+IHdhbnQgdG8gYWxsb3cgdGhhdCB5b3UgbXVzdCBub3Qgc2V0IG5lZWRzX3JlbW90ZV93YWtldXAg
+aW4gcHJvYmUoKSwgYnV0IHlvdQ0KPiBtdXN0IHNldCBpdCBpbiBvcGVuKCkgYmVjYXVzZSBpdCBp
+cyBuZWNlc3NhcnkgZm9yIHJ1bnRpbWUgcG93ZXIgbWFuYWdlbWVudCBhcyBJDQo+IGV4cGxhaW5l
+ZCBhYm92ZS4NCj4gDQo+IFNvcnJ5IGZvciB0aGUgbGVuZ3RoIG9mIHRoaXMgbWFpbCwgYnV0IEkg
+d2FudGVkIHRvIG1ha2Ugc3VyZSBJIGFtIGFic29sdXRlbHkgY2xlYXINCj4gdGhpcyB0aW1lLg0K
+DQpUaGFua3MgZm9yIHlvdSBleHBsYW5hdGlvbi4gSSBmb2N1cyBvbiB0aGUgd3JvbmcgcG9pbnQu
+IFlvdSBtZWFuIHRoaXMgd291bGQgY2F1c2UNCnRoZSBwcm9ibGVtIGZvciBydW50aW1lIHN1c3Bl
+bmQuIEkgd291bGQgcmV0aGluayBteSBtZXRob2QgYW5kIGNvcnJlY3QgaXQuDQoNCkJlc3QgUmVn
+YXJkcywNCkhheWVzDQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
