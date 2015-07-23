@@ -1,56 +1,58 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [NET-NEXT PATCH] net: macb: Change capability mask of jumbo support
-Date: Thu, 23 Jul 2015 15:35:08 +0530
-Message-ID: <CAFcVECJ1egvteE6DazZg-1enAmhY5Opv9TYyHEsjS_YuXaZGYA@mail.gmail.com>
-References: <1437645686-5146-1-git-send-email-harinik@xilinx.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
+ packet and get the r/w-ability
+Date: Thu, 23 Jul 2015 13:10:57 +0300
+Message-ID: <20150723101057.GQ5371@mwanda>
+References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
+ <87zj2pk3jf.fsf@vitty.brq.redhat.com>
+ <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
+ <20150722103546.GO5371@mwanda>
+ <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, davem@davemloft.net,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	boris.brezillon@free-electrons.com,
-	alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	"michals@xilinx.com" <michals@xilinx.com>
-To: Harini Katakam <harini.katakam@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437645686-5146-1-git-send-email-harinik@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "stephen@networkplumber.org" <stephen@networkplumber.org>,
+ "stefanha@redhat.com" <stefanha@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Please ignore this patch. This is not on the right base, i'll resend it.
+On Thu, Jul 23, 2015 at 03:05:16AM +0000, Dexuan Cui wrote:
+> The kind of usage is not rare in the kernel code:
 
-Regards,
-Harini
+Yeah.  But it's used 5% of the time.  If it's under 15% then there is a
+risk that we'll write a checkpatch rule to enforce the standard way...
+There are some places where != 0 is idiomatic, like when you are talking
+about the number zero.  strcmp() and friends should always be != 0 or
+== 0.
 
-On Thu, Jul 23, 2015 at 3:31 PM, Harini Katakam
-<harini.katakam@xilinx.com> wrote:
-> Capability mask for jumbo and no gigabit half duplex is the same.
-> Change one of them.
->
-> Signed-off-by: Harini Katakam <harinik@xilinx.com>
-> ---
->  drivers/net/ethernet/cadence/macb.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index 15fd6e3..8b3087b 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -449,7 +449,7 @@
->  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE       0x20000000
->  #define MACB_CAPS_SG_DISABLED                  0x40000000
->  #define MACB_CAPS_MACB_IS_GEM                  0x80000000
-> -#define MACB_CAPS_JUMBO                                0x00000008
-> +#define MACB_CAPS_JUMBO                                0x00000010
->  #define NS_PER_SEC                             1000000000ULL
->
->  /* Bit manipulation macros */
-> --
-> 1.7.9.5
->
+In this specific case, writing it as "if (ret != 0)" caused the bug.  If
+we had written it as "if (ret) return ret;" then there are no zeroes so
+wouldn't have been any temptation to return the zero instead of the ret.
+
+> Hi Dan, I read this as a humor.  :-)
+
+:)
+
+regards,
+dan carpenter
