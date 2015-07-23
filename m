@@ -1,65 +1,128 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
- packet and get the r/w-ability
-Date: Thu, 23 Jul 2015 13:24:50 +0300
-Message-ID: <20150723102449.GR5371@mwanda>
-References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
- <87zj2pk3jf.fsf@vitty.brq.redhat.com>
- <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
- <20150722103546.GO5371@mwanda>
- <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
- <20150723101057.GQ5371@mwanda>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH net 2/3] r8152: fix remote wakeup
+Date: Thu, 23 Jul 2015 12:27:26 +0200
+Message-ID: <1437647246.4377.33.camel@suse.com>
+References: <1394712342-15778-148-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-150-Taiwan-albertk@realtek.com>
+	 <1437640258.4377.6.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F3AC58@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stephen@networkplumber.org" <stephen@networkplumber.org>,
- "stefanha@redhat.com" <stefanha@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20150723101057.GQ5371@mwanda>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F3AC58@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 23, 2015 at 01:10:57PM +0300, Dan Carpenter wrote:
-> In this specific case, writing it as "if (ret != 0)" caused the bug.  If
-> we had written it as "if (ret) return ret;" then there are no zeroes so
-> wouldn't have been any temptation to return the zero instead of the ret.
+On Thu, 2015-07-23 at 09:55 +0000, Hayes Wang wrote:
+> > Hi,
+> > 
+> > this is most likely wrong. Usbcore does check for a device's ability to
+> > do remote wakeup and will block a runtime suspend if it detects that
+> > a remote wakeup would be required but the device cannot deliver.
+> > (static int autosuspend_check())
+> > 
+> > So by removing the flag in the probe() method means that devices will
+> > suspend during operations without remote wakeup requested. Thus an
+> > incoming packet cannot wake them up.
+> > 
+> > If you remove setting the flag on probe() you need to set it at open()
+> > [and reset on close()], as devices which cannot do remote wakeup must
+> > only be suspended when they are down.
+> 
+> Hi,
+> 
+> I don't think I understand your description clearly. My idea is that if the
 
-I did a search to see if returning the zero instead of the ret was a
-common mistake and it seems like it might be.  I did:
+Sorry, I will try to be clearer.
 
-grep 'if (ret != 0)' drivers/   -r -A1 -n | grep "return 0;" | perl -ne 's/.c-(\d+)-/.c:$1/; print'
+> device doesn't support wakeup, we don't need set " needs_remote_wakeup".
 
-drivers/gpu/drm/nouveau/nouveau_display.c:111                   return 0;
-drivers/regulator/wm8400-regulator.c:47         return 0;
-drivers/platform/x86/dell-laptop.c:859          return 0;
-drivers/media/dvb-frontends/dibx000_common.c:213                                return 0;
-drivers/media/dvb-frontends/dibx000_common.c:217                                return 0;
-drivers/media/dvb-frontends/dibx000_common.c:235                                return 0;
-drivers/media/dvb-frontends/dibx000_common.c:239                                return 0;
-drivers/hv/channel.c:898                return 0;
-drivers/hv/channel.c:944                return 0;
+The algorithm for power saving needs remote wakeup.
 
-A bunch of those look suspicious but I don't know the subsystems well
-enough to be sure.  Can you check the last two?
+> We allow the device could be suspended and couldn't be waked up by
+> incoming packet. The system could be waked up by other methods except
+> by the device.
 
-regards,
-dan carpenter
+The system is not the problem. I was talking about device level power
+management at runtime.
+
+> I don't understand why I have to set it at open() and reset it at close(). And
+> why must the device only be suspended when it is down?
+
+OK,
+
+the driver right now requests that runtime power management be done:
+
+static struct usb_driver rtl8152_driver = {
+	.name =		MODULENAME,
+	.id_table =	rtl8152_table,
+	.probe =	rtl8152_probe,
+	.disconnect =	rtl8152_disconnect,
+	.suspend =	rtl8152_suspend,
+	.resume =	rtl8152_resume,
+	.reset_resume =	rtl8152_resume,
+	.supports_autosuspend = 1,
+
+	^ the crucial flag
+
+	.disable_hub_initiated_lpm = 1,
+};
+
+It implements an advanced form of runtime power management which
+requires remote wakeup.
+For the device to work correctly it must not be suspended while
+
+a - a setting is changed
+b - a packet is transmitted
+c - a packet is received
+
+Cases a and b are covered by the driver on its own.
+Case a see for example rtl8152_set_mac_address()
+Case b is handled in rtl8152_start_xmit()
+
+		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
+			set_bit(SCHEDULE_NAPI, &tp->flags);
+			schedule_delayed_work(&tp->schedule, 0);
+		} else {
+			usb_mark_last_busy(tp->udev);
+
+The scheduled work will resume the device if necessary.
+
+Case c is handled in rtl8152_resume()
+
+	if (netif_running(tp->netdev)) {
+		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
+			rtl_runtime_suspend_enable(tp, false);
+			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
+			set_bit(WORK_ENABLE, &tp->flags);
+			if (netif_carrier_ok(tp->netdev))
+				rtl_start_rx(tp);
+
+But that code path only runs if remote wakeup is enabled.
+So to operate with runtime power management is is necessary
+that the device support remote wakeup and the driver enable it.
+
+If the device does not support remote wakeup and the driver
+enables it, runtime power management will be switched off.
+That is the current state and it means that devices which
+don't support remote wakeup cannot do runtime power management
+at all. But the driver is correct.
+
+The only time a device that doesn't support remote wakeup can
+do runtime power managent is when no packets can be received
+that is while the interface is down. If you want to allow that
+you must not set needs_remote_wakeup in probe(), but you must
+set it in open() because it is necessary for runtime power
+management as I explained above.
+
+Sorry for the length of this mail, but I wanted to make sure
+I am absolutely clear this time.
+
+	HTH
+		Oliver
