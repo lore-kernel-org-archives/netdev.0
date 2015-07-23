@@ -1,53 +1,40 @@
-From: Praveen Kumar <praveen.k09@samsung.com>
-Subject: [PATCH v2] ax88179_178a: Add reset functionality in reset_resume
-Date: Thu, 23 Jul 2015 10:16:33 +0000 (GMT)
-Message-ID: <2040698821.307761437646593772.JavaMail.weblogic@epmlwas08b>
-Reply-To: praveen.k09@samsung.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: vivek.bhagat@samsung.com,
-	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] niu: don't count tx error twice in case of headroom realloc fails
+Date: Thu, 23 Jul 2015 12:20:37 +0200
+Message-ID: <1437646837-5631-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:52275 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752242AbbGWKQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 06:16:36 -0400
-Received: from epcpsbgx3.samsung.com
- (u163.gpu120.samsung.co.kr [203.254.230.163])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0NRX01Z3GR7LC080@mailout2.samsung.com> for
- netdev@vger.kernel.org; Thu, 23 Jul 2015 19:16:33 +0900 (KST)
-MIME-version: 1.0
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:34549 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751874AbbGWKUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 06:20:41 -0400
+Received: by wibud3 with SMTP id ud3so17230477wib.1
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 03:20:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V2l0aG91dCByZXNldCBmdW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVj
-dGlvbgpkb2VzIG5vdCBlc3RhYmxpc2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5n
-IHdvcmtzIGF0CnRoZSBzYW1lIHRpbWUuIGlwZXJmIGNvbm5lY3Rpb24gZmFpbHMgYnkgZ2l2aW5n
-IGNoZWNrc3VtIGVycm9yCmluIHRjcGR1bXAuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRf
-cmVzdW1lIHNvbHZlcyBhYm92ZSBidWcuCldlIGhhdmUgdmVyaWZpZWQgaXQgb24gQVNJWCBiYXNl
-ZCBTVCBMYWIsIENhZHljZSBkb25nbGUuCgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFn
-YXQgPHZpdmVrLmJoYWdhdEBzYW1zdW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1h
-ciA8cHJhdmVlbi5rMDlAc2Ftc3VuZy5jb20+CgotLS0KIGRyaXZlcnMvbmV0L3VzYi9heDg4MTc5
-XzE3OGEuYyB8ICAgMTQgKysrKysrKysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRp
-b25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2F4ODgx
-NzlfMTc4YS5jIGIvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jCmluZGV4IGU2MzM4YzEu
-LjAwOTI4YzAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYworKysg
-Yi9kcml2ZXJzL25ldC91c2IvYXg4ODE3OV8xNzhhLmMKQEAgLTE2MzAsNiArMTYzMCwxOCBAQCBz
-dGF0aWMgaW50IGF4ODgxNzlfc3RvcChzdHJ1Y3QgdXNibmV0ICpkZXYpCiAJcmV0dXJuIDA7CiB9
-CiAKK3N0YXRpYyBpbnQgYXg4ODE3OV9yZXNldF9yZXN1bWUoc3RydWN0IHVzYl9pbnRlcmZhY2Ug
-KmludGYpCit7CisJc3RydWN0IHVzYm5ldCAqZGV2ID0gdXNiX2dldF9pbnRmZGF0YShpbnRmKTsK
-KwlpbnQgcmV0OworCisJcmV0ID0gYXg4ODE3OV9yZXNldChkZXYpOworCWlmIChyZXQgPCAwKQor
-CQlyZXR1cm4gcmV0OworCisJcmV0dXJuICBheDg4MTc5X3Jlc3VtZShpbnRmKTsKK30KKwogc3Rh
-dGljIGNvbnN0IHN0cnVjdCBkcml2ZXJfaW5mbyBheDg4MTc5X2luZm8gPSB7CiAJLmRlc2NyaXB0
-aW9uID0gIkFTSVggQVg4ODE3OSBVU0IgMy4wIEdpZ2FiaXQgRXRoZXJuZXQiLAogCS5iaW5kID0g
-YXg4ODE3OV9iaW5kLApAQCAtMTc0NCw3ICsxNzU2LDcgQEAgc3RhdGljIHN0cnVjdCB1c2JfZHJp
-dmVyIGF4ODgxNzlfMTc4YV9kcml2ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5z
-dXNwZW5kID0JYXg4ODE3OV9zdXNwZW5kLAogCS5yZXN1bWUgPQlheDg4MTc5X3Jlc3VtZSwKLQku
-cmVzZXRfcmVzdW1lID0JYXg4ODE3OV9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9CWF4ODgxNzlf
-cmVzZXRfcmVzdW1lLAogCS5kaXNjb25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1cHBv
-cnRzX2F1dG9zdXNwZW5kID0gMSwKIAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCi0t
-IAoxLjcuOS41
+Fixes: a3138df9 ("[NIU]: Add Sun Neptune ethernet driver.")
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/ethernet/sun/niu.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 0c5842a..ab6051a 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -6658,10 +6658,8 @@ static netdev_tx_t niu_start_xmit(struct sk_buff *skb,
+ 		struct sk_buff *skb_new;
+ 
+ 		skb_new = skb_realloc_headroom(skb, len);
+-		if (!skb_new) {
+-			rp->tx_errors++;
++		if (!skb_new)
+ 			goto out_drop;
+-		}
+ 		kfree_skb(skb);
+ 		skb = skb_new;
+ 	} else
+-- 
+1.9.3
