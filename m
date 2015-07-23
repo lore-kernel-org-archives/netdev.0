@@ -1,68 +1,71 @@
-From: Wei-Chun Chao <weichunc@plumgrid.com>
-Subject: [PATCH net-next] ipv6: fix crash over flow-based vxlan device
-Date: Wed, 22 Jul 2015 18:13:12 -0700
-Message-ID: <1437613992-25953-1-git-send-email-weichunc@plumgrid.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net, ast@plumgrid.com,
-	tgraf@suug.ch
-To: unlisted-recipients:; (no To-header on input)
+From: Antonio Borneo <borneo.antonio@gmail.com>
+Subject: Re: [PATCH] net: via/Kconfig: GENERIC_PCI_IOMAP required if PCI not selected
+Date: Thu, 23 Jul 2015 09:35:51 +0800
+Message-ID: <CAAj6DX3WpzogwYFa4EQ-b1o+n-4kE0iXOokYQA5NpV=3YBmM_A@mail.gmail.com>
+References: <1437582854-3320-1-git-send-email-borneo.antonio@gmail.com>
+	<20150722.110836.422018977846427052.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	Alexey Charkov <alchark@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:34906 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbbGWBNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 21:13:16 -0400
-Received: by pdrg1 with SMTP id g1so147295616pdr.2
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2015 18:13:16 -0700 (PDT)
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:33526 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752586AbbGWBfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 21:35:52 -0400
+In-Reply-To: <20150722.110836.422018977846427052.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar check was added in ip_rcv but not in ipv6_rcv.
+On Thu, Jul 23, 2015 at 2:08 AM, David Miller <davem@davemloft.net> wrote:
+> From: Antonio Borneo <borneo.antonio@gmail.com>
+> Date: Thu, 23 Jul 2015 00:34:14 +0800
+>
+>> -     depends on (PCI || OF_IRQ)
+>> +     depends on (PCI || (OF_IRQ && GENERIC_PCI_IOMAP))
+>
+> Having GENERIC_PCI_IOMAP withut PCI makes absolutely no sense to me.
+>
+> I can't see why a platform would provide GENERIC_PCI_IOMAP when it
+> does not have PCI enabled.
 
-BUG: unable to handle kernel NULL pointer dereference at (null)
-IP: [<ffffffff81734e0a>] ipv6_rcv+0xfa/0x500
-Call Trace:
-[<ffffffff816c9786>] ? ip_rcv+0x296/0x400
-[<ffffffff817732d2>] ? packet_rcv+0x52/0x410
-[<ffffffff8168e99f>] __netif_receive_skb_core+0x63f/0x9a0
-[<ffffffffc02b34a0>] ? br_handle_frame_finish+0x580/0x580 [bridge]
-[<ffffffff8109912c>] ? update_rq_clock.part.81+0x1c/0x40
-[<ffffffff8168ed18>] __netif_receive_skb+0x18/0x60
-[<ffffffff8168fa1f>] process_backlog+0x9f/0x150
+My understanding for GENERIC_PCI_IOMAP is to enable providing empty
+pci_iomap/pci_iounmap.
+Digging in git log, arch that used to provide such empty instances
+moved to a centralized implementation by using GENERIC_PCI_IOMAP.
+For me such empty functions should be available by default when PCI is
+not set, but this is not the case today.
 
-Fixes: ee122c79d422 (vxlan: Flow based tunneling)
-Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
----
- net/ipv6/ip6_input.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+So there are cases that set GENERIC_PCI_IOMAP without setting PCI. E.g.
+make ARCH=mips workpad_defconfig
+make ARCH=microblaze allnoconfig
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 57990c9..adba03a 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -45,6 +45,7 @@
- #include <net/addrconf.h>
- #include <net/xfrm.h>
- #include <net/inet_ecn.h>
-+#include <net/dst_metadata.h>
- 
- int ip6_rcv_finish(struct sock *sk, struct sk_buff *skb)
- {
-@@ -55,7 +56,7 @@ int ip6_rcv_finish(struct sock *sk, struct sk_buff *skb)
- 		if (ipprot && ipprot->early_demux)
- 			ipprot->early_demux(skb);
- 	}
--	if (!skb_dst(skb))
-+	if (!skb_valid_dst(skb))
- 		ip6_route_input(skb);
- 
- 	return dst_input(skb);
-@@ -98,7 +99,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	 * arrived via the sending interface (ethX), because of the
- 	 * nature of scoping architecture. --yoshfuji
- 	 */
--	IP6CB(skb)->iif = skb_dst(skb) ? ip6_dst_idev(skb_dst(skb))->dev->ifindex : dev->ifindex;
-+	IP6CB(skb)->iif = skb_valid_dst(skb) ? ip6_dst_idev(skb_dst(skb))->dev->ifindex : dev->ifindex;
- 
- 	if (unlikely(!pskb_may_pull(skb, sizeof(*hdr))))
- 		goto err;
--- 
-1.9.1
+Moreover, in lib/Kconfig GENERIC_PCI_IOMAP is selected when
+GENERIC_IOMAP is set, without dependencies from PCI.
+
+You can also check
+https://lkml.org/lkml/2013/9/11/76
+already upstream in commit
+78857614104a26cdada4c53eea104752042bf5a1
+
+Anyway, no other Kconfig uses GENERIC_PCI_IOMAP within conditionals,
+which makes this patch quite unusual.
+
+If you think this is not the way to go, we can consider to revert both
+0f8b6cea1f3271ccc37dd2847b39e235461e0ced
+b7d3282a245f44286b88e436b1d08c518cdf4569
+and take some more time for a different solution.
+
+Regards,
+Antonio
+
+> You need to explain this.
+>
+> When PCI is not enabled, you should not be using any interface
+> pci_*() whatsoever.  Especially such a core interface as pci_iomap().
+>
+> ALTERNATIVELY, NOP versions of pci_iomap() and friends should be
+> provided when PCI is disabled, which just return errors and
+> non-success statuses.
