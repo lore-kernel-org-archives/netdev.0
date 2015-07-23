@@ -1,131 +1,76 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] route: allow to route in a peer netns via lwt
- framework
-Date: Thu, 23 Jul 2015 08:01:48 -0700
-Message-ID: <55B101DC.6040609@cumulusnetworks.com>
-References: <1437661349-17620-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth 2015-07-23
+Date: Thu, 23 Jul 2015 18:17:22 +0300
+Message-ID: <20150723151722.GA20850@t440s.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="TB36FDmn/VVEgNH/"
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:34956 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753299AbbGWPBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 11:01:50 -0400
-Received: by pdrg1 with SMTP id g1so158396148pdr.2
-        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 08:01:50 -0700 (PDT)
-In-Reply-To: <1437661349-17620-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:35704 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752925AbbGWPSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 11:18:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/23/15, 7:22 AM, Nicolas Dichtel wrote:
-> This patch takes advantage of the newly added lwtunnel framework to
-> allow the user to set routes that points to a peer netns.
->
-> Packets are injected to the peer netns via the loopback device. It works
-> only when the output device is 'lo'.
->
-> Example:
-> ip route add 40.1.1.1/32 encap netns nsid 5 via dev lo
->
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->   drivers/net/loopback.c        | 16 +++++++++++++
->   include/net/lwtunnel.h        | 23 +++++++++++++++++++
->   include/uapi/linux/lwtunnel.h |  1 +
->   net/core/net_namespace.c      | 52 +++++++++++++++++++++++++++++++++++++++++++
->   4 files changed, 92 insertions(+)
->
-> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-> index c76283c2f84a..758d02f592f9 100644
-> --- a/drivers/net/loopback.c
-> +++ b/drivers/net/loopback.c
-> @@ -57,6 +57,7 @@
->   #include <linux/percpu.h>
->   #include <net/net_namespace.h>
->   #include <linux/u64_stats_sync.h>
-> +#include <net/lwtunnel.h>
->   
->   struct pcpu_lstats {
->   	u64			packets;
-> @@ -71,9 +72,23 @@ struct pcpu_lstats {
->   static netdev_tx_t loopback_xmit(struct sk_buff *skb,
->   				 struct net_device *dev)
->   {
-> +	int nsid = skb_lwt_netns_info(skb);
->   	struct pcpu_lstats *lb_stats;
->   	int len;
->   
-> +	if (nsid >= 0) {
-> +		struct net *peernet = get_net_ns_by_id(dev_net(dev), nsid);
-> +
-> +		if (!peernet) {
-> +			kfree_skb(skb);
-> +			goto end;
-> +		}
-> +
-> +		dev_forward_skb(peernet->loopback_dev, skb);
-> +		put_net(peernet);
-> +		goto end;
-> +	}
-> +
->   	skb_orphan(skb);
->   
->   	/* Before queueing this packet to netif_rx(),
-> @@ -94,6 +109,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
->   		u64_stats_update_end(&lb_stats->syncp);
->   	}
->   
-> +end:
->   	return NETDEV_TX_OK;
->   }
->   
-> diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-> index 918e03c1dafa..cc05ce3c1aae 100644
-> --- a/include/net/lwtunnel.h
-> +++ b/include/net/lwtunnel.h
-> @@ -5,7 +5,9 @@
->   #include <linux/netdevice.h>
->   #include <linux/skbuff.h>
->   #include <linux/types.h>
-> +#include <linux/net_namespace.h>
->   #include <net/route.h>
-> +#include <net/ip6_fib.h>
->   
->   #define LWTUNNEL_HASH_BITS   7
->   #define LWTUNNEL_HASH_SIZE   (1 << LWTUNNEL_HASH_BITS)
-> @@ -141,4 +143,25 @@ static inline int lwtunnel_output6(struct sock *sk, struct sk_buff *skb)
->   
->   #endif
->   
-> +static inline u32 *lwt_netns_info(struct lwtunnel_state *lwtstate)
-> +{
-> +	return (u32 *)lwtstate->data;
-> +}
-> +
-> +static inline int skb_lwt_netns_info(struct sk_buff *skb)
-> +{
-> +	if (skb->protocol == htons(ETH_P_IP)) {
-> +		struct rtable *rt = (struct rtable *)skb_dst(skb);
-> +
-> +		if (rt && rt->rt_lwtstate)
-> +			return *lwt_netns_info(rt->rt_lwtstate);
-> +	} else if (skb->protocol == htons(ETH_P_IPV6)) {
-> +		struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
-> +
-> +		if (rt6 && rt6->rt6i_lwtstate)
-> +			return *lwt_netns_info(rt6->rt6i_lwtstate);
-> +	}
-> +
-> +	return NETNSA_NSID_NOT_ASSIGNED;
-> +}
->   #endif /* __NET_LWTUNNEL_H */
-since these apis' don't have to be netns specific,
-Can they just be named lwtunnel_get_state_data and skb_lwtunnel_state ?
 
-and seems like they should be declared for both CONFIG_LWTUNNEL 'y' and 'n'.
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Thanks,
-Roopa
+Hi Dave,
+
+Here's another one-patch pull request for 4.2 which targets a potential
+NULL pointer dereference in the LE Security Manager code that can be
+triggered by using older user space tools. The issue has been there
+since 4.0 so there's the appropriate "Cc: stable" in place.
+
+Let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit c5dfd654d0ec0a28fe81e7bd4d4fd984a9855e09:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-07-22 14:45:25 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
+
+for you to fetch changes up to 25ba265390c09b0a2b2f3fd9ba82e37248b7a371:
+
+  Bluetooth: Fix NULL pointer dereference in smp_conn_security (2015-07-23 16:41:24 +0200)
+
+----------------------------------------------------------------
+Johan Hedberg (1):
+      Bluetooth: Fix NULL pointer dereference in smp_conn_security
+
+ net/bluetooth/smp.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+--TB36FDmn/VVEgNH/
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVsQWCAAoJECQj9vv5qNQSNYEP/jdc48d4zP0vnFEpD47SBuIn
+7KhEr3qAiCkLFUgV8efW0MWcePLhTQZywKZBlszsURKd4eeGuLaUXo8eAjsm+683
+f672H4iVcBuQfMFbE1pNbSknX55zpHBD2wlW54FJ6QC5nVxcJzFmUBNCcA4aFHct
+nT9SOZOaMU41ZJy7BVhCbW74OB2H3siEftR3aKYE7ol2KEL/vB0Eh0xDZ1zs7CEg
+KWtPBQ/5t0SqGnsMeb1CBspsfc8WceSDG1q2JMUGYiX+vhEZO/4Zk5ZXWQuPq1tH
+U36S0SnSVjiLqYOleyLvB+R93mdT9eZvZdmw8+AJA6LZH4uhnlpqPraLuZ3iUtcv
+AiCGievtSeeom8NvlZTjy3DQRWVvGok4Ubbw8J1fgzD90laNYTL/0PcfA9SpoFt3
+YA9cxqP+wdPRZUJ/jbHKpq+CIEl7wANDngSXtwmqVi0lAn/GRIxxPvzPgSCrC4xz
+ecxe2fnlNAKs3Mk9i+Vo1I0Ckx7CmjfiAc5F41kqRgyTv021dp466O/ZMxgFlFDX
+UhVm09iTtr1wYjfjrbBqBqQfGvuc4G3LGFgtGTq0/dyAA2ut1q2RVjBtefQ9w15/
+BMwDTub1h/VzQLxbBcUZ5H/kblzN0x6m5uawdVVxvzRKS9E2SkmLoi5htQbFbH/d
+yUGgJXa+kGDePdaHHR89
+=T1UA
+-----END PGP SIGNATURE-----
+
+--TB36FDmn/VVEgNH/--
