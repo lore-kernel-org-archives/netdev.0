@@ -1,56 +1,43 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] ebpf: Allow dereferences of PTR_TO_STACK
- registers
-Date: Thu, 23 Jul 2015 14:47:03 -0700
-Message-ID: <20150723214702.GA31886@Alexeis-MacBook-Pro.local>
-References: <1437686680-1157510-1-git-send-email-agartrell@fb.com>
+Subject: Re: [PATCH v2 iproute2] tc: fix bpf compilation with old glibc
+Date: Thu, 23 Jul 2015 14:50:27 -0700
+Message-ID: <20150723215026.GB31886@Alexeis-MacBook-Pro.local>
+References: <20150722094702.2eb3c0ea@urahara>
+ <1437635861-19157-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ast@kernel.org, daniel@iogearbox.net,
-	netdev@vger.kernel.org, kernel-team@fb.com
-To: Alex Gartrell <agartrell@fb.com>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f178.google.com ([209.85.160.178]:36697 "EHLO
-	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753863AbbGWVrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 17:47:07 -0400
-Received: by ykay190 with SMTP id y190so4869658yka.3
-        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 14:47:06 -0700 (PDT)
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:35749 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753642AbbGWVua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 17:50:30 -0400
+Received: by ykdu72 with SMTP id u72so4991790ykd.2
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 14:50:30 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1437686680-1157510-1-git-send-email-agartrell@fb.com>
+In-Reply-To: <1437635861-19157-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 23, 2015 at 02:24:40PM -0700, Alex Gartrell wrote:
->         mov %rsp, %r1           ; r1 = rsp
->         add $-8, %r1            ; r1 = rsp - 8
->         store_q $123, -8(%rsp)  ; *(u64*)r1 = 123  <- valid
->         store_q $123, (%r1)     ; *(u64*)r1 = 123  <- previously invalid
->         mov $0, %r0
->         exit                    ; Always need to exit
+On Thu, Jul 23, 2015 at 09:17:41AM +0200, Nicolas Dichtel wrote:
+> Error was:
+> f_bpf.o: In function `bpf_parse_opt':
+> f_bpf.c:(.text+0x88f): undefined reference to `secure_getenv'
+> m_bpf.o: In function `parse_bpf':
+> m_bpf.c:(.text+0x587): undefined reference to `secure_getenv'
+> collect2: error: ld returned 1 exit status
 > 
-> And we'd get the following error:
+> There is no special reason to use the secure version of getenv, thus let's
+> simply use getenv().
 > 
-> 	0: (bf) r1 = r10
-> 	1: (07) r1 += -8
-> 	2: (7a) *(u64 *)(r10 -8) = 999
-> 	3: (7a) *(u64 *)(r1 +0) = 999
-> 	R1 invalid mem access 'fp'
-> 
-> 	Unable to load program
-> 
-> We already know that a register is a stack address and the appropriate
-> offset, so we should be able to validate those references as well.
-> 
-> Signed-off-by: Alex Gartrell <agartrell@fb.com>
+> CC: Daniel Borkmann <daniel@iogearbox.net>
+> Fixes: 88eea5395483 ("tc: {f,m}_bpf: allow to retrieve uds path from env")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 > ---
->  kernel/bpf/verifier.c       |  6 ++++-
->  samples/bpf/test_verifier.c | 59 +++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 64 insertions(+), 1 deletion(-)
+> 
+> v2: rework the fix to use getenv() instead of secure_getenv()
 
-Looks good.
+had the same workaround locally.
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-
-> +			BPF_ST_MEM(BPF_DW, BPF_REG_1, 2, 0xfaceb00c),
-
-nice constants :)
