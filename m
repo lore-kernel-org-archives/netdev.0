@@ -1,45 +1,46 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH net 2/3] r8152: fix remote wakeup
-Date: Thu, 23 Jul 2015 11:30:30 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3ACFE@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-148-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-150-Taiwan-albertk@realtek.com>
-	 <1437640258.4377.6.camel@suse.com>
-	 <0835B3720019904CB8F7AA43166CEEB2F3AC58@RTITMBSV03.realtek.com.tw>
- <1437647246.4377.33.camel@suse.com>
+From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Subject: Re: Several races in "usbnet" module (kernel 4.1.x)
+Date: Thu, 23 Jul 2015 14:39:42 +0300
+Message-ID: <55B0D27E.8090701@rosalab.ru>
+References: <55AD3A41.2040100@rosalab.ru> <1437644594.4377.12.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1437647246.4377.33.camel-IBi9RG/b67k@public.gmane.org>
-Content-Language: zh-TW
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from collab.rosalab.ru ([195.19.76.181]:48679 "EHLO
+	collab.rosalab.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025AbbGWLjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 07:39:46 -0400
+In-Reply-To: <1437644594.4377.12.camel@suse.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQpbLi4uXQ0KPiBJZiB0aGUg
-ZGV2aWNlIGRvZXMgbm90IHN1cHBvcnQgcmVtb3RlIHdha2V1cCBhbmQgdGhlIGRyaXZlciBlbmFi
-bGVzIGl0LCBydW50aW1lDQo+IHBvd2VyIG1hbmFnZW1lbnQgd2lsbCBiZSBzd2l0Y2hlZCBvZmYu
-DQo+IFRoYXQgaXMgdGhlIGN1cnJlbnQgc3RhdGUgYW5kIGl0IG1lYW5zIHRoYXQgZGV2aWNlcyB3
-aGljaCBkb24ndCBzdXBwb3J0IHJlbW90ZQ0KPiB3YWtldXAgY2Fubm90IGRvIHJ1bnRpbWUgcG93
-ZXIgbWFuYWdlbWVudCBhdCBhbGwuIEJ1dCB0aGUgZHJpdmVyIGlzIGNvcnJlY3QuDQo+IA0KPiBU
-aGUgb25seSB0aW1lIGEgZGV2aWNlIHRoYXQgZG9lc24ndCBzdXBwb3J0IHJlbW90ZSB3YWtldXAg
-Y2FuIGRvIHJ1bnRpbWUgcG93ZXINCj4gbWFuYWdlbnQgaXMgd2hlbiBubyBwYWNrZXRzIGNhbiBi
-ZSByZWNlaXZlZCB0aGF0IGlzIHdoaWxlIHRoZSBpbnRlcmZhY2UgaXMgZG93bi4gSWYNCj4geW91
-IHdhbnQgdG8gYWxsb3cgdGhhdCB5b3UgbXVzdCBub3Qgc2V0IG5lZWRzX3JlbW90ZV93YWtldXAg
-aW4gcHJvYmUoKSwgYnV0IHlvdQ0KPiBtdXN0IHNldCBpdCBpbiBvcGVuKCkgYmVjYXVzZSBpdCBp
-cyBuZWNlc3NhcnkgZm9yIHJ1bnRpbWUgcG93ZXIgbWFuYWdlbWVudCBhcyBJDQo+IGV4cGxhaW5l
-ZCBhYm92ZS4NCj4gDQo+IFNvcnJ5IGZvciB0aGUgbGVuZ3RoIG9mIHRoaXMgbWFpbCwgYnV0IEkg
-d2FudGVkIHRvIG1ha2Ugc3VyZSBJIGFtIGFic29sdXRlbHkgY2xlYXINCj4gdGhpcyB0aW1lLg0K
-DQpUaGFua3MgZm9yIHlvdSBleHBsYW5hdGlvbi4gSSBmb2N1cyBvbiB0aGUgd3JvbmcgcG9pbnQu
-IFlvdSBtZWFuIHRoaXMgd291bGQgY2F1c2UNCnRoZSBwcm9ibGVtIGZvciBydW50aW1lIHN1c3Bl
-bmQuIEkgd291bGQgcmV0aGluayBteSBtZXRob2QgYW5kIGNvcnJlY3QgaXQuDQoNCkJlc3QgUmVn
-YXJkcywNCkhheWVzDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+23.07.2015 12:43, Oliver Neukum =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Mon, 2015-07-20 at 21:13 +0300, Eugene Shatokhin wrote:
+>> [Race #5]
+>>
+>> Race on dev->rx_urb_size. I reproduced it a similar way as the races
+>> #2
+>> and #3 (changing MTU while downloading files).
+>>
+>> dev->rx_urb_size is written to here:
+>> #0  usbnet_change_mtu (usbnet.c:392)
+>>          dev->rx_urb_size =3D dev->hard_mtu;
+>>
+>> Here is the conflicting read from dev->rx_urb_size:
+>> * rx_submit (usbnet.c:467)
+>>          size_t                  size =3D dev->rx_urb_size;
+>
+> Yes, but what is the actual bad race? I mean, if you change
+> the MTU in operation, there will be a race. That is just
+> unavoidable.
+> Do we generate errors?
+
+No, I have observed no problems due to this race so far.
+
+Regards,
+Eugene
