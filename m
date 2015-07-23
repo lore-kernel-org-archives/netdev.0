@@ -1,44 +1,83 @@
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-Subject: RE: [PATCH] net/mdio: fix mdio_bus_match for c45 PHY
-Date: Thu, 23 Jul 2015 02:41:33 +0000
-Message-ID: <BLUPR03MB1475EAF589E991F42CA35D70E2820@BLUPR03MB1475.namprd03.prod.outlook.com>
-References: <1437127639-48082-1-git-send-email-shh.xie@gmail.com>
- <20150721.001704.649972038239229587.davem@davemloft.net>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
+ packet and get the r/w-ability
+Date: Thu, 23 Jul 2015 03:05:16 +0000
+Message-ID: <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
+References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
+ <87zj2pk3jf.fsf@vitty.brq.redhat.com>
+ <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
+ <20150722103546.GO5371@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0122.outbound.protection.outlook.com ([207.46.100.122]:55904
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753465AbbGWC4N convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2015 22:56:13 -0400
-In-Reply-To: <20150721.001704.649972038239229587.davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "stephen@networkplumber.org" <stephen@networkplumber.org>,
+ "stefanha@redhat.com" <stefanha@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20150722103546.GO5371@mwanda>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, July 21, 2015 3:17 PM
-> To: shh.xie@gmail.com
-> Cc: netdev@vger.kernel.org; Xie Shaohui-B21989
-> Subject: Re: [PATCH] net/mdio: fix mdio_bus_match for c45 PHY
-> 
-> From: <shh.xie@gmail.com>
-> Date: Fri, 17 Jul 2015 18:07:19 +0800
-> 
-> > From: Shaohui Xie <Shaohui.Xie@freescale.com>
-> >
-> > We store c45 PHY's id information in c45_ids, so it should be used to
-> > check the matching between PHY driver and PHY device for c45 PHY.
-> >
-> > Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> 
-> Applied, thanks.
-As mentioned, the patch was applied, but it does not merged, seems it was missed.
+> From: Dan Carpenter
+> Sent: Wednesday, July 22, 2015 18:36
+> To: Dexuan Cui
+> On Wed, Jul 22, 2015 at 10:09:10AM +0000, Dexuan Cui wrote:
+> > > I'd suggest you do something like
+> > >
+> > >     if (ret == -EAGIAIN)
+> > >         return 0;
+> > >     else if (ret)
+> > >         return ret;
+> > >
+> > > to make it future-proof (e.g. when a new error is returned by
+> > > hv_ringbuffer_peek). And a comment would also be useful as it is unclear
+> > > why we silence errors here.
+> > Hi Vitaly,
+> > Thanks!
+> > I think I made a mistake here:
+> > the "if (ret != 0) return 0;" should be changed
+> > to   "if (ret != 0) return ret;"
+Usually 0 means success to me, so 
+to me, "ret != 0" reads like "ret is not successful" and seems natural. 
 
-Thanks.
-Shaohui
+The kind of usage is not rare in the kernel code:
+
+decui@lin:~/linux-next$ grep 'if (ret != 0)' kernel/ include/ ipc/  -r  | wc -l
+28
+decui@lin:~/linux-next$ grep 'if (ret != 0)' drivers/   -r  | wc -l
+1031
+ 
+> The double negative really doesn't not make the code more complicated.
+> I like using a quadruple negative instead.
+> 
+> 	if (ret != 0 != 0)
+> 		return ret;
+> dan carpenter
+Hi Dan, I read this as a humor.  :-)
+
+I'll take the suggestion and remember to use this in V4 and in future:
+ 
+if (ret)
+	return ret;
+
+Thanks!
+
+-- Dexuan
