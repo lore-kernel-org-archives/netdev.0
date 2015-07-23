@@ -1,7 +1,7 @@
 From: WingMan Kwok <w-kwok2@ti.com>
-Subject: [net-next PATCH v1 4/6] net: netcp: Consolidates statistics collection code
-Date: Thu, 23 Jul 2015 15:57:22 -0400
-Message-ID: <1437681444-23109-5-git-send-email-w-kwok2@ti.com>
+Subject: [net-next PATCH v1 5/6] net: netcp: Fixes to CPSW statistics collection
+Date: Thu, 23 Jul 2015 15:57:23 -0400
+Message-ID: <1437681444-23109-6-git-send-email-w-kwok2@ti.com>
 References: <1437681444-23109-1-git-send-email-w-kwok2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,144 +13,205 @@ In-Reply-To: <1437681444-23109-1-git-send-email-w-kwok2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Different Keystone2 platforms have different number and
-layouts of hw statistics modules.  This patch consolidates
-the statistics processing of different Keystone2 platforms
-for easy maintenance.
+In certain applications it's beneficial to allow the CPSW h/w
+stats counters to continue to increment even while the kernel
+polls them. This patch implements this behavior for both 1G
+and 10G ethernet subsystem modules.
 
 Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 ---
- drivers/net/ethernet/ti/netcp_ethss.c |   99 ++++++++++++++++++---------------
- 1 file changed, 54 insertions(+), 45 deletions(-)
+ drivers/net/ethernet/ti/netcp_ethss.c |   86 ++++++++++++++++++++++++++++-----
+ 1 file changed, 75 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 3976516..b06f210 100644
+index b06f210..aa33066 100644
 --- a/drivers/net/ethernet/ti/netcp_ethss.c
 +++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -1550,70 +1550,79 @@ static int keystone_get_sset_count(struct net_device *ndev, int stringset)
+@@ -642,6 +642,7 @@ struct gbe_priv {
+ 	bool				enable_ale;
+ 	u8				max_num_slaves;
+ 	u8				max_num_ports; /* max_num_slaves + 1 */
++	u8				num_stats_mods;
+ 	struct netcp_tx_pipe		tx_pipe;
+ 
+ 	int				host_port;
+@@ -671,6 +672,7 @@ struct gbe_priv {
+ 	struct net_device		*dummy_ndev;
+ 
+ 	u64				*hw_stats;
++	u32				*hw_stats_prev;
+ 	const struct netcp_ethtool_stat *et_stats;
+ 	int				num_et_stats;
+ 	/*  Lock for updating the hwstats */
+@@ -1550,25 +1552,37 @@ static int keystone_get_sset_count(struct net_device *ndev, int stringset)
  	}
  }
  
--static void gbe_update_stats(struct gbe_priv *gbe_dev, uint64_t *data)
-+static inline void gbe_update_hw_stats_entry(struct gbe_priv *gbe_dev,
-+					     int et_stats_entry)
++static void gbe_reset_mod_stats(struct gbe_priv *gbe_dev, int stats_mod)
++{
++	void __iomem *base = gbe_dev->hw_stats_regs[stats_mod];
++	u32  __iomem *p_stats_entry;
++	int i;
++
++	for (i = 0; i < gbe_dev->num_et_stats; i++) {
++		if (gbe_dev->et_stats[i].type == stats_mod) {
++			p_stats_entry = base + gbe_dev->et_stats[i].offset;
++			gbe_dev->hw_stats[i] = 0;
++			gbe_dev->hw_stats_prev[i] = readl(p_stats_entry);
++		}
++	}
++}
++
+ static inline void gbe_update_hw_stats_entry(struct gbe_priv *gbe_dev,
+ 					     int et_stats_entry)
  {
  	void __iomem *base = NULL;
- 	u32  __iomem *p;
- 	u32 tmp = 0;
-+
-+	/* The hw_stats_regs pointers are already
-+	 * properly set to point to the right base:
-+	 */
-+	base = gbe_dev->hw_stats_regs[gbe_dev->et_stats[et_stats_entry].type];
-+	p = base + gbe_dev->et_stats[et_stats_entry].offset;
-+	tmp = readl(p);
-+	gbe_dev->hw_stats[et_stats_entry] += tmp;
-+
-+	/* write-to-decrement:
-+	 * new register value = old register value - write value
-+	 */
-+	writel(tmp, p);
-+}
-+
-+static void gbe_update_stats(struct gbe_priv *gbe_dev, uint64_t *data)
-+{
- 	int i;
+-	u32  __iomem *p;
+-	u32 tmp = 0;
++	u32  __iomem *p_stats_entry;
++	u32 curr, delta;
  
- 	for (i = 0; i < gbe_dev->num_et_stats; i++) {
--		base = gbe_dev->hw_stats_regs[gbe_dev->et_stats[i].type];
--		p = base + gbe_dev->et_stats[i].offset;
--		tmp = readl(p);
--		gbe_dev->hw_stats[i] = gbe_dev->hw_stats[i] + tmp;
-+		gbe_update_hw_stats_entry(gbe_dev, i);
-+
- 		if (data)
- 			data[i] = gbe_dev->hw_stats[i];
--		/* write-to-decrement:
--		 * new register value = old register value - write value
--		 */
--		writel(tmp, p);
- 	}
+ 	/* The hw_stats_regs pointers are already
+ 	 * properly set to point to the right base:
+ 	 */
+ 	base = gbe_dev->hw_stats_regs[gbe_dev->et_stats[et_stats_entry].type];
+-	p = base + gbe_dev->et_stats[et_stats_entry].offset;
+-	tmp = readl(p);
+-	gbe_dev->hw_stats[et_stats_entry] += tmp;
+-
+-	/* write-to-decrement:
+-	 * new register value = old register value - write value
+-	 */
+-	writel(tmp, p);
++	p_stats_entry = base + gbe_dev->et_stats[et_stats_entry].offset;
++	curr = readl(p_stats_entry);
++	delta = curr - gbe_dev->hw_stats_prev[et_stats_entry];
++	gbe_dev->hw_stats_prev[et_stats_entry] = curr;
++	gbe_dev->hw_stats[et_stats_entry] += delta;
  }
  
--static void gbe_update_stats_ver14(struct gbe_priv *gbe_dev, uint64_t *data)
-+static inline void gbe_stats_mod_visible_ver14(struct gbe_priv *gbe_dev,
-+					       int stats_mod)
+ static void gbe_update_stats(struct gbe_priv *gbe_dev, uint64_t *data)
+@@ -1607,6 +1621,12 @@ static inline void gbe_stats_mod_visible_ver14(struct gbe_priv *gbe_dev,
+ 	writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
+ }
+ 
++static void gbe_reset_mod_stats_ver14(struct gbe_priv *gbe_dev, int stats_mod)
++{
++	gbe_stats_mod_visible_ver14(gbe_dev, stats_mod);
++	gbe_reset_mod_stats(gbe_dev, stats_mod);
++}
++
+ static void gbe_update_stats_ver14(struct gbe_priv *gbe_dev, uint64_t *data)
  {
--	void __iomem *gbe_statsa = gbe_dev->hw_stats_regs[0];
--	void __iomem *gbe_statsb = gbe_dev->hw_stats_regs[1];
--	u64 *hw_stats = &gbe_dev->hw_stats[0];
--	void __iomem *base = NULL;
--	u32  __iomem *p;
--	u32 tmp = 0, val, pair_size = (gbe_dev->num_et_stats / 2);
--	int i, j, pair;
-+	u32 val;
+ 	u32 half_num_et_stats = (gbe_dev->num_et_stats / 2);
+@@ -2560,6 +2580,7 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
+ 	}
+ 	gbe_dev->xgbe_serdes_regs = regs;
  
--	for (pair = 0; pair < 2; pair++) {
--		val = readl(GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
-+	val = readl(GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
++	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
+ 	gbe_dev->et_stats = xgbe10_et_stats;
+ 	gbe_dev->num_et_stats = ARRAY_SIZE(xgbe10_et_stats);
  
--		if (pair == 0)
--			val &= ~GBE_STATS_CD_SEL;
--		else
--			val |= GBE_STATS_CD_SEL;
-+	switch (stats_mod) {
-+	case GBE_STATSA_MODULE:
-+	case GBE_STATSB_MODULE:
-+		val &= ~GBE_STATS_CD_SEL;
-+		break;
-+	case GBE_STATSC_MODULE:
-+	case GBE_STATSD_MODULE:
-+		val |= GBE_STATS_CD_SEL;
-+		break;
-+	default:
-+		return;
+@@ -2571,6 +2592,16 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
+ 		return -ENOMEM;
+ 	}
+ 
++	gbe_dev->hw_stats_prev =
++		devm_kzalloc(gbe_dev->dev,
++			     gbe_dev->num_et_stats * sizeof(u32),
++			     GFP_KERNEL);
++	if (!gbe_dev->hw_stats_prev) {
++		dev_err(gbe_dev->dev,
++			"hw_stats_prev memory allocation failed\n");
++		return -ENOMEM;
 +	}
 +
-+	/* make the stat module visible */
-+	writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
-+}
- 
--		/* make the stat modules visible */
--		writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
-+static void gbe_update_stats_ver14(struct gbe_priv *gbe_dev, uint64_t *data)
-+{
-+	u32 half_num_et_stats = (gbe_dev->num_et_stats / 2);
-+	int et_entry, j, pair;
- 
--		for (i = 0; i < pair_size; i++) {
--			j = pair * pair_size + i;
--			switch (gbe_dev->et_stats[j].type) {
--			case GBE_STATSA_MODULE:
--			case GBE_STATSC_MODULE:
--				base = gbe_statsa;
--			break;
--			case GBE_STATSB_MODULE:
--			case GBE_STATSD_MODULE:
--				base  = gbe_statsb;
--			break;
--			}
-+	for (pair = 0; pair < 2; pair++) {
-+		gbe_stats_mod_visible_ver14(gbe_dev, (pair ?
-+						      GBE_STATSC_MODULE :
-+						      GBE_STATSA_MODULE));
-+
-+		for (j = 0; j < half_num_et_stats; j++) {
-+			et_entry = pair * half_num_et_stats + j;
-+			gbe_update_hw_stats_entry(gbe_dev, et_entry);
- 
--			p = base + gbe_dev->et_stats[j].offset;
--			tmp = readl(p);
--			hw_stats[j] += tmp;
- 			if (data)
--				data[j] = hw_stats[j];
--			/* write-to-decrement:
--			 * new register value = old register value - write value
--			 */
--			writel(tmp, p);
-+				data[et_entry] = gbe_dev->hw_stats[et_entry];
- 		}
+ 	gbe_dev->ss_version = XGBE_SS_VERSION_10;
+ 	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
+ 					XGBE10_SGMII_MODULE_OFFSET;
+@@ -2668,6 +2699,7 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
  	}
- }
+ 	gbe_dev->switch_regs = regs;
+ 
++	gbe_dev->num_stats_mods = gbe_dev->max_num_slaves;
+ 	gbe_dev->et_stats = gbe13_et_stats;
+ 	gbe_dev->num_et_stats = ARRAY_SIZE(gbe13_et_stats);
+ 
+@@ -2679,6 +2711,16 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
+ 		return -ENOMEM;
+ 	}
+ 
++	gbe_dev->hw_stats_prev =
++		devm_kzalloc(gbe_dev->dev,
++			     gbe_dev->num_et_stats * sizeof(u32),
++			     GFP_KERNEL);
++	if (!gbe_dev->hw_stats_prev) {
++		dev_err(gbe_dev->dev,
++			"hw_stats_prev memory allocation failed\n");
++		return -ENOMEM;
++	}
++
+ 	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs + GBE13_SGMII_MODULE_OFFSET;
+ 	gbe_dev->host_port_regs = gbe_dev->switch_regs + GBE13_HOST_PORT_OFFSET;
+ 
+@@ -2722,6 +2764,7 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
+ 	void __iomem *regs;
+ 	int i, ret;
+ 
++	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
+ 	gbe_dev->et_stats = gbenu_et_stats;
+ 
+ 	if (IS_SS_ID_NU(gbe_dev))
+@@ -2739,6 +2782,16 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
+ 		return -ENOMEM;
+ 	}
+ 
++	gbe_dev->hw_stats_prev =
++		devm_kzalloc(gbe_dev->dev,
++			     gbe_dev->num_et_stats * sizeof(u32),
++			     GFP_KERNEL);
++	if (!gbe_dev->hw_stats_prev) {
++		dev_err(gbe_dev->dev,
++			"hw_stats_prev memory allocation failed\n");
++		return -ENOMEM;
++	}
++
+ 	ret = of_address_to_resource(node, GBENU_SM_REG_INDEX, &res);
+ 	if (ret) {
+ 		dev_err(gbe_dev->dev,
+@@ -2797,7 +2850,7 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
+ 	struct cpsw_ale_params ale_params;
+ 	struct gbe_priv *gbe_dev;
+ 	u32 slave_num;
+-	int ret = 0;
++	int i, ret = 0;
+ 
+ 	if (!node) {
+ 		dev_err(dev, "device tree info unavailable\n");
+@@ -2945,6 +2998,15 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
+ 	/* initialize host port */
+ 	gbe_init_host_port(gbe_dev);
+ 
++	spin_lock_bh(&gbe_dev->hw_stats_lock);
++	for (i = 0; i < gbe_dev->num_stats_mods; i++) {
++		if (gbe_dev->ss_version == GBE_SS_VERSION_14)
++			gbe_reset_mod_stats_ver14(gbe_dev, i);
++		else
++			gbe_reset_mod_stats(gbe_dev, i);
++	}
++	spin_unlock_bh(&gbe_dev->hw_stats_lock);
++
+ 	init_timer(&gbe_dev->timer);
+ 	gbe_dev->timer.data	 = (unsigned long)gbe_dev;
+ 	gbe_dev->timer.function = netcp_ethss_timer;
+@@ -2956,6 +3018,8 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
+ quit:
+ 	if (gbe_dev->hw_stats)
+ 		devm_kfree(dev, gbe_dev->hw_stats);
++	if (gbe_dev->hw_stats_prev)
++		devm_kfree(dev, gbe_dev->hw_stats_prev);
+ 	cpsw_ale_destroy(gbe_dev->ale);
+ 	if (gbe_dev->ss_regs)
+ 		devm_iounmap(dev, gbe_dev->ss_regs);
 -- 
 1.7.9.5
