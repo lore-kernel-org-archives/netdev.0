@@ -1,81 +1,39 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v2 iproute2] tc: fix bpf compilation with old glibc
-Date: Thu, 23 Jul 2015 09:17:41 +0200
-Message-ID: <1437635861-19157-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20150722094702.2eb3c0ea@urahara>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: shemminger@vyatta.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] ipv6: fix crash over flow-based vxlan device
+Date: Thu, 23 Jul 2015 09:17:58 +0200
+Message-ID: <20150723071758.GA22790@pox.localdomain>
+References: <1437613992-25953-1-git-send-email-weichunc@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ast@plumgrid.com
+To: Wei-Chun Chao <weichunc@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:48548 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325AbbGWHRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 03:17:53 -0400
-In-Reply-To: <20150722094702.2eb3c0ea@urahara>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:34670 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751325AbbGWHSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 03:18:01 -0400
+Received: by wibud3 with SMTP id ud3so10645437wib.1
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 00:18:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1437613992-25953-1-git-send-email-weichunc@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Error was:
-f_bpf.o: In function `bpf_parse_opt':
-f_bpf.c:(.text+0x88f): undefined reference to `secure_getenv'
-m_bpf.o: In function `parse_bpf':
-m_bpf.c:(.text+0x587): undefined reference to `secure_getenv'
-collect2: error: ld returned 1 exit status
+On 07/22/15 at 06:13pm, Wei-Chun Chao wrote:
+> Similar check was added in ip_rcv but not in ipv6_rcv.
+> 
+> BUG: unable to handle kernel NULL pointer dereference at (null)
+> IP: [<ffffffff81734e0a>] ipv6_rcv+0xfa/0x500
+> Call Trace:
+> [<ffffffff816c9786>] ? ip_rcv+0x296/0x400
+> [<ffffffff817732d2>] ? packet_rcv+0x52/0x410
+> [<ffffffff8168e99f>] __netif_receive_skb_core+0x63f/0x9a0
+> [<ffffffffc02b34a0>] ? br_handle_frame_finish+0x580/0x580 [bridge]
+> [<ffffffff8109912c>] ? update_rq_clock.part.81+0x1c/0x40
+> [<ffffffff8168ed18>] __netif_receive_skb+0x18/0x60
+> [<ffffffff8168fa1f>] process_backlog+0x9f/0x150
+> 
+> Fixes: ee122c79d422 (vxlan: Flow based tunneling)
+> Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
 
-There is no special reason to use the secure version of getenv, thus let's
-simply use getenv().
-
-CC: Daniel Borkmann <daniel@iogearbox.net>
-Fixes: 88eea5395483 ("tc: {f,m}_bpf: allow to retrieve uds path from env")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
-
-v2: rework the fix to use getenv() instead of secure_getenv()
-
- examples/bpf/bpf_agent.c | 2 +-
- tc/f_bpf.c               | 2 +-
- tc/m_bpf.c               | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/examples/bpf/bpf_agent.c b/examples/bpf/bpf_agent.c
-index 426b8800bf4e..f9b9ce3ccb3d 100644
---- a/examples/bpf/bpf_agent.c
-+++ b/examples/bpf/bpf_agent.c
-@@ -154,7 +154,7 @@ static void bpf_map_get_from_env(int *tfd)
- 		memset(key, 0, sizeof(key));
- 		snprintf(key, sizeof(key), "BPF_MAP%d", i);
- 
--		val = secure_getenv(key);
-+		val = getenv(key);
- 		assert(val != NULL);
- 
- 		tfd[i] = atoi(val);
-diff --git a/tc/f_bpf.c b/tc/f_bpf.c
-index c21bf33fd25f..490dc6b4e7ba 100644
---- a/tc/f_bpf.c
-+++ b/tc/f_bpf.c
-@@ -122,7 +122,7 @@ opt_bpf:
- 
- 			NEXT_ARG();
- 			if (ebpf) {
--				bpf_uds_name = secure_getenv(BPF_ENV_UDS);
-+				bpf_uds_name = getenv(BPF_ENV_UDS);
- 				bpf_obj = *argv;
- 				NEXT_ARG();
- 
-diff --git a/tc/m_bpf.c b/tc/m_bpf.c
-index 9ddb6672693c..c51f44fc6ce6 100644
---- a/tc/m_bpf.c
-+++ b/tc/m_bpf.c
-@@ -105,7 +105,7 @@ opt_bpf:
- 
- 			NEXT_ARG();
- 			if (ebpf) {
--				bpf_uds_name = secure_getenv(BPF_ENV_UDS);
-+				bpf_uds_name = getenv(BPF_ENV_UDS);
- 				bpf_obj = *argv;
- 				NEXT_ARG();
- 
--- 
-2.4.2
+Acked-by: Thomas Graf <tgraf@suug.ch>
