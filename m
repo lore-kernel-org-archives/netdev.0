@@ -1,7 +1,7 @@
 From: WingMan Kwok <w-kwok2@ti.com>
-Subject: [net-next PATCH v0 1/6] net: netcp: Fixes the use of spin_lock_bh in timer function
-Date: Thu, 23 Jul 2015 09:32:43 -0400
-Message-ID: <1437658368-1679-2-git-send-email-w-kwok2@ti.com>
+Subject: [net-next PATCH v0 6/6] net: netcp: Adds missing statistics for K2L and K2E
+Date: Thu, 23 Jul 2015 09:32:48 -0400
+Message-ID: <1437658368-1679-7-git-send-email-w-kwok2@ti.com>
 References: <1437658368-1679-1-git-send-email-w-kwok2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,37 +13,280 @@ In-Reply-To: <1437658368-1679-1-git-send-email-w-kwok2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a bug in which the timer routine synchronized
-against the ethtool-triggered statistics updates with spin_lock_bh().
-A timer function is itself a bottom-half, so this should be
-spin_lock().
+This patch adds the missing statistics for the host
+and slave ports of the CPSW on K2L and K2E platforms.
 
 Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 ---
- drivers/net/ethernet/ti/netcp_ethss.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/netcp_ethss.c |  177 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 174 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 9b7e0a3..cabf977 100644
+index e2ef7ba..7782120 100644
 --- a/drivers/net/ethernet/ti/netcp_ethss.c
 +++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -2189,14 +2189,15 @@ static void netcp_ethss_timer(unsigned long arg)
- 		netcp_ethss_update_link_state(gbe_dev, slave, NULL);
- 	}
+@@ -876,7 +876,7 @@ static const struct netcp_ethtool_stat gbe13_et_stats[] = {
+ };
  
--	spin_lock_bh(&gbe_dev->hw_stats_lock);
-+	/* A timer runs as a BH, no need to block them */
-+	spin_lock(&gbe_dev->hw_stats_lock);
+ /* This is the size of entries in GBENU_STATS_HOST */
+-#define GBENU_ET_STATS_HOST_SIZE	33
++#define GBENU_ET_STATS_HOST_SIZE	52
  
- 	if (gbe_dev->ss_version == GBE_SS_VERSION_14)
- 		gbe_update_stats_ver14(gbe_dev, NULL);
- 	else
- 		gbe_update_stats(gbe_dev, NULL);
+ #define GBENU_STATS_HOST(field)					\
+ {								\
+@@ -885,8 +885,8 @@ static const struct netcp_ethtool_stat gbe13_et_stats[] = {
+ 	offsetof(struct gbenu_hw_stats, field)			\
+ }
  
--	spin_unlock_bh(&gbe_dev->hw_stats_lock);
-+	spin_unlock(&gbe_dev->hw_stats_lock);
+-/* This is the size of entries in GBENU_STATS_HOST */
+-#define GBENU_ET_STATS_PORT_SIZE	46
++/* This is the size of entries in GBENU_STATS_PORT */
++#define GBENU_ET_STATS_PORT_SIZE	65
  
- 	gbe_dev->timer.expires	= jiffies + GBE_TIMER_INTERVAL;
- 	add_timer(&gbe_dev->timer);
+ #define GBENU_STATS_P1(field)					\
+ {								\
+@@ -978,7 +978,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_HOST(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_HOST(ale_unknown_bcast),
+ 	GBENU_STATS_HOST(ale_unknown_bcast_bytes),
++	GBENU_STATS_HOST(ale_pol_match),
++	GBENU_STATS_HOST(ale_pol_match_red),
++	GBENU_STATS_HOST(ale_pol_match_yellow),
+ 	GBENU_STATS_HOST(tx_mem_protect_err),
++	GBENU_STATS_HOST(tx_pri0_drop),
++	GBENU_STATS_HOST(tx_pri1_drop),
++	GBENU_STATS_HOST(tx_pri2_drop),
++	GBENU_STATS_HOST(tx_pri3_drop),
++	GBENU_STATS_HOST(tx_pri4_drop),
++	GBENU_STATS_HOST(tx_pri5_drop),
++	GBENU_STATS_HOST(tx_pri6_drop),
++	GBENU_STATS_HOST(tx_pri7_drop),
++	GBENU_STATS_HOST(tx_pri0_drop_bcnt),
++	GBENU_STATS_HOST(tx_pri1_drop_bcnt),
++	GBENU_STATS_HOST(tx_pri2_drop_bcnt),
++	GBENU_STATS_HOST(tx_pri3_drop_bcnt),
++	GBENU_STATS_HOST(tx_pri4_drop_bcnt),
++	GBENU_STATS_HOST(tx_pri5_drop_bcnt),
++	GBENU_STATS_HOST(tx_pri6_drop_bcnt),
++	GBENU_STATS_HOST(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 1 */
+ 	GBENU_STATS_P1(rx_good_frames),
+ 	GBENU_STATS_P1(rx_broadcast_frames),
+@@ -1025,7 +1044,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P1(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P1(ale_unknown_bcast),
+ 	GBENU_STATS_P1(ale_unknown_bcast_bytes),
++	GBENU_STATS_P1(ale_pol_match),
++	GBENU_STATS_P1(ale_pol_match_red),
++	GBENU_STATS_P1(ale_pol_match_yellow),
+ 	GBENU_STATS_P1(tx_mem_protect_err),
++	GBENU_STATS_P1(tx_pri0_drop),
++	GBENU_STATS_P1(tx_pri1_drop),
++	GBENU_STATS_P1(tx_pri2_drop),
++	GBENU_STATS_P1(tx_pri3_drop),
++	GBENU_STATS_P1(tx_pri4_drop),
++	GBENU_STATS_P1(tx_pri5_drop),
++	GBENU_STATS_P1(tx_pri6_drop),
++	GBENU_STATS_P1(tx_pri7_drop),
++	GBENU_STATS_P1(tx_pri0_drop_bcnt),
++	GBENU_STATS_P1(tx_pri1_drop_bcnt),
++	GBENU_STATS_P1(tx_pri2_drop_bcnt),
++	GBENU_STATS_P1(tx_pri3_drop_bcnt),
++	GBENU_STATS_P1(tx_pri4_drop_bcnt),
++	GBENU_STATS_P1(tx_pri5_drop_bcnt),
++	GBENU_STATS_P1(tx_pri6_drop_bcnt),
++	GBENU_STATS_P1(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 2 */
+ 	GBENU_STATS_P2(rx_good_frames),
+ 	GBENU_STATS_P2(rx_broadcast_frames),
+@@ -1072,7 +1110,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P2(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P2(ale_unknown_bcast),
+ 	GBENU_STATS_P2(ale_unknown_bcast_bytes),
++	GBENU_STATS_P2(ale_pol_match),
++	GBENU_STATS_P2(ale_pol_match_red),
++	GBENU_STATS_P2(ale_pol_match_yellow),
+ 	GBENU_STATS_P2(tx_mem_protect_err),
++	GBENU_STATS_P2(tx_pri0_drop),
++	GBENU_STATS_P2(tx_pri1_drop),
++	GBENU_STATS_P2(tx_pri2_drop),
++	GBENU_STATS_P2(tx_pri3_drop),
++	GBENU_STATS_P2(tx_pri4_drop),
++	GBENU_STATS_P2(tx_pri5_drop),
++	GBENU_STATS_P2(tx_pri6_drop),
++	GBENU_STATS_P2(tx_pri7_drop),
++	GBENU_STATS_P2(tx_pri0_drop_bcnt),
++	GBENU_STATS_P2(tx_pri1_drop_bcnt),
++	GBENU_STATS_P2(tx_pri2_drop_bcnt),
++	GBENU_STATS_P2(tx_pri3_drop_bcnt),
++	GBENU_STATS_P2(tx_pri4_drop_bcnt),
++	GBENU_STATS_P2(tx_pri5_drop_bcnt),
++	GBENU_STATS_P2(tx_pri6_drop_bcnt),
++	GBENU_STATS_P2(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 3 */
+ 	GBENU_STATS_P3(rx_good_frames),
+ 	GBENU_STATS_P3(rx_broadcast_frames),
+@@ -1119,7 +1176,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P3(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P3(ale_unknown_bcast),
+ 	GBENU_STATS_P3(ale_unknown_bcast_bytes),
++	GBENU_STATS_P3(ale_pol_match),
++	GBENU_STATS_P3(ale_pol_match_red),
++	GBENU_STATS_P3(ale_pol_match_yellow),
+ 	GBENU_STATS_P3(tx_mem_protect_err),
++	GBENU_STATS_P3(tx_pri0_drop),
++	GBENU_STATS_P3(tx_pri1_drop),
++	GBENU_STATS_P3(tx_pri2_drop),
++	GBENU_STATS_P3(tx_pri3_drop),
++	GBENU_STATS_P3(tx_pri4_drop),
++	GBENU_STATS_P3(tx_pri5_drop),
++	GBENU_STATS_P3(tx_pri6_drop),
++	GBENU_STATS_P3(tx_pri7_drop),
++	GBENU_STATS_P3(tx_pri0_drop_bcnt),
++	GBENU_STATS_P3(tx_pri1_drop_bcnt),
++	GBENU_STATS_P3(tx_pri2_drop_bcnt),
++	GBENU_STATS_P3(tx_pri3_drop_bcnt),
++	GBENU_STATS_P3(tx_pri4_drop_bcnt),
++	GBENU_STATS_P3(tx_pri5_drop_bcnt),
++	GBENU_STATS_P3(tx_pri6_drop_bcnt),
++	GBENU_STATS_P3(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 4 */
+ 	GBENU_STATS_P4(rx_good_frames),
+ 	GBENU_STATS_P4(rx_broadcast_frames),
+@@ -1166,7 +1242,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P4(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P4(ale_unknown_bcast),
+ 	GBENU_STATS_P4(ale_unknown_bcast_bytes),
++	GBENU_STATS_P4(ale_pol_match),
++	GBENU_STATS_P4(ale_pol_match_red),
++	GBENU_STATS_P4(ale_pol_match_yellow),
+ 	GBENU_STATS_P4(tx_mem_protect_err),
++	GBENU_STATS_P4(tx_pri0_drop),
++	GBENU_STATS_P4(tx_pri1_drop),
++	GBENU_STATS_P4(tx_pri2_drop),
++	GBENU_STATS_P4(tx_pri3_drop),
++	GBENU_STATS_P4(tx_pri4_drop),
++	GBENU_STATS_P4(tx_pri5_drop),
++	GBENU_STATS_P4(tx_pri6_drop),
++	GBENU_STATS_P4(tx_pri7_drop),
++	GBENU_STATS_P4(tx_pri0_drop_bcnt),
++	GBENU_STATS_P4(tx_pri1_drop_bcnt),
++	GBENU_STATS_P4(tx_pri2_drop_bcnt),
++	GBENU_STATS_P4(tx_pri3_drop_bcnt),
++	GBENU_STATS_P4(tx_pri4_drop_bcnt),
++	GBENU_STATS_P4(tx_pri5_drop_bcnt),
++	GBENU_STATS_P4(tx_pri6_drop_bcnt),
++	GBENU_STATS_P4(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 5 */
+ 	GBENU_STATS_P5(rx_good_frames),
+ 	GBENU_STATS_P5(rx_broadcast_frames),
+@@ -1213,7 +1308,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P5(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P5(ale_unknown_bcast),
+ 	GBENU_STATS_P5(ale_unknown_bcast_bytes),
++	GBENU_STATS_P5(ale_pol_match),
++	GBENU_STATS_P5(ale_pol_match_red),
++	GBENU_STATS_P5(ale_pol_match_yellow),
+ 	GBENU_STATS_P5(tx_mem_protect_err),
++	GBENU_STATS_P5(tx_pri0_drop),
++	GBENU_STATS_P5(tx_pri1_drop),
++	GBENU_STATS_P5(tx_pri2_drop),
++	GBENU_STATS_P5(tx_pri3_drop),
++	GBENU_STATS_P5(tx_pri4_drop),
++	GBENU_STATS_P5(tx_pri5_drop),
++	GBENU_STATS_P5(tx_pri6_drop),
++	GBENU_STATS_P5(tx_pri7_drop),
++	GBENU_STATS_P5(tx_pri0_drop_bcnt),
++	GBENU_STATS_P5(tx_pri1_drop_bcnt),
++	GBENU_STATS_P5(tx_pri2_drop_bcnt),
++	GBENU_STATS_P5(tx_pri3_drop_bcnt),
++	GBENU_STATS_P5(tx_pri4_drop_bcnt),
++	GBENU_STATS_P5(tx_pri5_drop_bcnt),
++	GBENU_STATS_P5(tx_pri6_drop_bcnt),
++	GBENU_STATS_P5(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 6 */
+ 	GBENU_STATS_P6(rx_good_frames),
+ 	GBENU_STATS_P6(rx_broadcast_frames),
+@@ -1260,7 +1374,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P6(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P6(ale_unknown_bcast),
+ 	GBENU_STATS_P6(ale_unknown_bcast_bytes),
++	GBENU_STATS_P6(ale_pol_match),
++	GBENU_STATS_P6(ale_pol_match_red),
++	GBENU_STATS_P6(ale_pol_match_yellow),
+ 	GBENU_STATS_P6(tx_mem_protect_err),
++	GBENU_STATS_P6(tx_pri0_drop),
++	GBENU_STATS_P6(tx_pri1_drop),
++	GBENU_STATS_P6(tx_pri2_drop),
++	GBENU_STATS_P6(tx_pri3_drop),
++	GBENU_STATS_P6(tx_pri4_drop),
++	GBENU_STATS_P6(tx_pri5_drop),
++	GBENU_STATS_P6(tx_pri6_drop),
++	GBENU_STATS_P6(tx_pri7_drop),
++	GBENU_STATS_P6(tx_pri0_drop_bcnt),
++	GBENU_STATS_P6(tx_pri1_drop_bcnt),
++	GBENU_STATS_P6(tx_pri2_drop_bcnt),
++	GBENU_STATS_P6(tx_pri3_drop_bcnt),
++	GBENU_STATS_P6(tx_pri4_drop_bcnt),
++	GBENU_STATS_P6(tx_pri5_drop_bcnt),
++	GBENU_STATS_P6(tx_pri6_drop_bcnt),
++	GBENU_STATS_P6(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 7 */
+ 	GBENU_STATS_P7(rx_good_frames),
+ 	GBENU_STATS_P7(rx_broadcast_frames),
+@@ -1307,7 +1440,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P7(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P7(ale_unknown_bcast),
+ 	GBENU_STATS_P7(ale_unknown_bcast_bytes),
++	GBENU_STATS_P7(ale_pol_match),
++	GBENU_STATS_P7(ale_pol_match_red),
++	GBENU_STATS_P7(ale_pol_match_yellow),
+ 	GBENU_STATS_P7(tx_mem_protect_err),
++	GBENU_STATS_P7(tx_pri0_drop),
++	GBENU_STATS_P7(tx_pri1_drop),
++	GBENU_STATS_P7(tx_pri2_drop),
++	GBENU_STATS_P7(tx_pri3_drop),
++	GBENU_STATS_P7(tx_pri4_drop),
++	GBENU_STATS_P7(tx_pri5_drop),
++	GBENU_STATS_P7(tx_pri6_drop),
++	GBENU_STATS_P7(tx_pri7_drop),
++	GBENU_STATS_P7(tx_pri0_drop_bcnt),
++	GBENU_STATS_P7(tx_pri1_drop_bcnt),
++	GBENU_STATS_P7(tx_pri2_drop_bcnt),
++	GBENU_STATS_P7(tx_pri3_drop_bcnt),
++	GBENU_STATS_P7(tx_pri4_drop_bcnt),
++	GBENU_STATS_P7(tx_pri5_drop_bcnt),
++	GBENU_STATS_P7(tx_pri6_drop_bcnt),
++	GBENU_STATS_P7(tx_pri7_drop_bcnt),
+ 	/* GBENU Module 8 */
+ 	GBENU_STATS_P8(rx_good_frames),
+ 	GBENU_STATS_P8(rx_broadcast_frames),
+@@ -1354,7 +1506,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
+ 	GBENU_STATS_P8(ale_unknown_mcast_bytes),
+ 	GBENU_STATS_P8(ale_unknown_bcast),
+ 	GBENU_STATS_P8(ale_unknown_bcast_bytes),
++	GBENU_STATS_P8(ale_pol_match),
++	GBENU_STATS_P8(ale_pol_match_red),
++	GBENU_STATS_P8(ale_pol_match_yellow),
+ 	GBENU_STATS_P8(tx_mem_protect_err),
++	GBENU_STATS_P8(tx_pri0_drop),
++	GBENU_STATS_P8(tx_pri1_drop),
++	GBENU_STATS_P8(tx_pri2_drop),
++	GBENU_STATS_P8(tx_pri3_drop),
++	GBENU_STATS_P8(tx_pri4_drop),
++	GBENU_STATS_P8(tx_pri5_drop),
++	GBENU_STATS_P8(tx_pri6_drop),
++	GBENU_STATS_P8(tx_pri7_drop),
++	GBENU_STATS_P8(tx_pri0_drop_bcnt),
++	GBENU_STATS_P8(tx_pri1_drop_bcnt),
++	GBENU_STATS_P8(tx_pri2_drop_bcnt),
++	GBENU_STATS_P8(tx_pri3_drop_bcnt),
++	GBENU_STATS_P8(tx_pri4_drop_bcnt),
++	GBENU_STATS_P8(tx_pri5_drop_bcnt),
++	GBENU_STATS_P8(tx_pri6_drop_bcnt),
++	GBENU_STATS_P8(tx_pri7_drop_bcnt),
+ };
+ 
+ #define XGBE_STATS0_INFO(field)				\
 -- 
 1.7.9.5
