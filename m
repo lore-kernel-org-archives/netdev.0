@@ -1,60 +1,58 @@
-From: Liberman Igal <Igal.Liberman@freescale.com>
-Subject: RE: [v3, 2/9] fsl/fman: Add the FMan port FLIB
-Date: Thu, 23 Jul 2015 12:48:10 +0000
-Message-ID: <DM2PR03MB383B0007660E892B81B5ADAE6820@DM2PR03MB383.namprd03.prod.outlook.com>
-References: <1437564108-16490-1-git-send-email-igal.liberman@freescale.com>
- <20150722095553.4cd028d1@urahara>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH] MIPS: Remove most of the custom gpio.h
+Date: Thu, 23 Jul 2015 15:03:36 +0200
+Message-ID: <CACRpkdYqwOymyK31rwhe7EQnSxLFrcy3PTBvCsyK1TR+J7=EQg@mail.gmail.com>
+References: <1437586416-14735-1-git-send-email-albeu@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
-	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
-	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
-	"ppc@mindchasers.com" <ppc@mindchasers.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150722095553.4cd028d1@urahara>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux MIPS <linux-mips@linux-mips.org>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Florian Fainelli <florian@openwrt.org>,
+	Joe Perches <joe@perches.com>,
+	Daniel Walter <dwalter@google.com>,
+	Sergey Ryazanov <ryazanov.s.a@gmail.com>,
+	Huacai Chen <chenhc@lemote.com>,
+	Andrew Bresticker <abrestic@chromium.org>,
+	James Hartley <james.hartley@imgtec.com>,
+	Paul Burton <paul.burton@imgtec.com>,
+	Waldemar Brodkorb <wbx@openadk.org>,
+	James Hogan <james.hogan@imgtec.com>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	Levente Kurusa <levex@linux.com>,
+	abdoulaye berthe <berthe.ab@gmail.com>,
+	Wolfram Sang <wsa@the-dreams.de>,
+	"linux-kernel@vger
+To: Alban Bedel <albeu@free.fr>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <1437586416-14735-1-git-send-email-albeu@free.fr>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jul 22, 2015 at 7:33 PM, Alban Bedel <albeu@free.fr> wrote:
 
+> Currently CONFIG_ARCH_HAVE_CUSTOM_GPIO_H is defined for all MIPS
+> machines, and each machine type provides its own gpio.h. However only
+> the Alchemy machine really use the feature, all other machines only
+> use the default wrappers.
+>
+> For most machine types we can just remove the custom gpio.h, as well
+> as the custom wrappers if some exists. A few more fixes are need in
+> a few drivers as they rely on linux/gpio.h to provides some machine
+> specific definitions, or used asm/gpio.h instead of linux/gpio.h for
+> the gpio API.
+>
+> Signed-off-by: Alban Bedel <albeu@free.fr>
 
-Regards,
-Igal Liberman.
+This is exactly what the kernel needs. Enjoy my:
+Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Wednesday, July 22, 2015 7:56 PM
-> To: Liberman Igal-B31950
-> Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; linux-
-> kernel@vger.kernel.org; Wood Scott-B07421; Bucur Madalin-Cristian-B32716;
-> pebolle@tiscali.nl; joakim.tjernlund@transmode.se; ppc@mindchasers.com
-> Subject: Re: [v3, 2/9] fsl/fman: Add the FMan port FLIB
-> 
-> On Wed, 22 Jul 2015 14:21:48 +0300
-> <igal.liberman@freescale.com> wrote:
-> 
-> > diff --git a/drivers/net/ethernet/freescale/fman/Kconfig
-> b/drivers/net/ethernet/freescale/fman/Kconfig
-> > index 8aeae29..af42c3a 100644
-> > --- a/drivers/net/ethernet/freescale/fman/Kconfig
-> > +++ b/drivers/net/ethernet/freescale/fman/Kconfig
-> > @@ -5,3 +5,4 @@ config FSL_FMAN
-> >  	help
-> >  		Freescale Data-Path Acceleration Architecture Frame
-> Manager
-> >  		(FMan) support
-> > +
-> 
-> Bogus blank line introduced at end of file?
-> Why was this not in patch 1?
+And feel free to merge this through the MIPS tree.
 
-It was added during the patch splitting.
-I'll fix that in the next submission, thank you for noticing.
-
-Igal.
+Yours,
+Linus Walleij
