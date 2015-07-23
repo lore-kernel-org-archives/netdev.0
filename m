@@ -1,44 +1,38 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: Several races in "usbnet" module (kernel 4.1.x)
-Date: Thu, 23 Jul 2015 11:43:14 +0200
-Message-ID: <1437644594.4377.12.camel@suse.com>
-References: <55AD3A41.2040100@rosalab.ru>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] openvswitch: fix compilation when vxlan is a
+ module
+Date: Thu, 23 Jul 2015 11:52:46 +0200
+Message-ID: <20150723095246.GE22790@pox.localdomain>
+References: <1437643747-22976-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eugene Shatokhin <eugene.shatokhin-irhHPgl+04UvJsYlp49lxw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <55AD3A41.2040100-irhHPgl+04UvJsYlp49lxw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, pshelar@nicira.com,
+	dev@openvswitch.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:34954 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751376AbbGWJwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 05:52:50 -0400
+Received: by wibxm9 with SMTP id xm9so200363547wib.0
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 02:52:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1437643747-22976-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-07-20 at 21:13 +0300, Eugene Shatokhin wrote:
-> [Race #5]
+On 07/23/15 at 11:29am, Nicolas Dichtel wrote:
+> With CONFIG_VXLAN=m and CONFIG_OPENVSWITCH=y, there was the following
+> compilation error:
+>   LD      init/built-in.o
+>   net/built-in.o: In function `vxlan_tnl_create':
+>   .../net/openvswitch/vport-netdev.c:322: undefined reference to `vxlan_dev_create'
+>   make: *** [vmlinux] Error 1
 > 
-> Race on dev->rx_urb_size. I reproduced it a similar way as the races
-> #2 
-> and #3 (changing MTU while downloading files).
-> 
-> dev->rx_urb_size is written to here:
-> #0  usbnet_change_mtu (usbnet.c:392)
->         dev->rx_urb_size = dev->hard_mtu;
-> 
-> Here is the conflicting read from dev->rx_urb_size:
-> * rx_submit (usbnet.c:467)
->         size_t                  size = dev->rx_urb_size;
+> CC: Thomas Graf <tgraf@suug.ch>
+> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Yes, but what is the actual bad race? I mean, if you change
-the MTU in operation, there will be a race. That is just
-unavoidable.
-Do we generate errors?
+Thanks!
 
-	Regards
-		Oliver
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Thomas Graf <tgraf@suug.ch>
