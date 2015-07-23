@@ -1,58 +1,81 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH] MIPS: Remove most of the custom gpio.h
-Date: Thu, 23 Jul 2015 15:03:36 +0200
-Message-ID: <CACRpkdYqwOymyK31rwhe7EQnSxLFrcy3PTBvCsyK1TR+J7=EQg@mail.gmail.com>
-References: <1437586416-14735-1-git-send-email-albeu@free.fr>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2.1 21/22] fjes: handle receive cancellation request
+ interrupt
+Date: Thu, 23 Jul 2015 16:06:01 +0300
+Message-ID: <55B0E6B9.3070301@cogentembedded.com>
+References: <1437610142-12439-1-git-send-email-izumi.taku@jp.fujitsu.com>
+ <1437610236-12490-1-git-send-email-izumi.taku@jp.fujitsu.com>
+ <1437610236-12490-21-git-send-email-izumi.taku@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux MIPS <linux-mips@linux-mips.org>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Tejun Heo <tj@kernel.org>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Florian Fainelli <florian@openwrt.org>,
-	Joe Perches <joe@perches.com>,
-	Daniel Walter <dwalter@google.com>,
-	Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Huacai Chen <chenhc@lemote.com>,
-	Andrew Bresticker <abrestic@chromium.org>,
-	James Hartley <james.hartley@imgtec.com>,
-	Paul Burton <paul.burton@imgtec.com>,
-	Waldemar Brodkorb <wbx@openadk.org>,
-	James Hogan <james.hogan@imgtec.com>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	Levente Kurusa <levex@linux.com>,
-	abdoulaye berthe <berthe.ab@gmail.com>,
-	Wolfram Sang <wsa@the-dreams.de>,
-	"linux-kernel@vger
-To: Alban Bedel <albeu@free.fr>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <1437586416-14735-1-git-send-email-albeu@free.fr>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
+	rkhan@redhat.com, alexander.h.duyck@redhat.com,
+	linux-acpi@vger.kernel.org, joe@perches.com,
+	stephen@networkplumber.org, yasu.isimatu@gmail.com
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <1437610236-12490-21-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 22, 2015 at 7:33 PM, Alban Bedel <albeu@free.fr> wrote:
+Hello.
 
-> Currently CONFIG_ARCH_HAVE_CUSTOM_GPIO_H is defined for all MIPS
-> machines, and each machine type provides its own gpio.h. However only
-> the Alchemy machine really use the feature, all other machines only
-> use the default wrappers.
+On 7/23/2015 3:10 AM, Taku Izumi wrote:
+
+> This patch adds implementation of handling IRQ
+> of other receiver's receive cancellation request.
+
+> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+> ---
+>   drivers/net/fjes/fjes_main.c | 79 ++++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 79 insertions(+)
 >
-> For most machine types we can just remove the custom gpio.h, as well
-> as the custom wrappers if some exists. A few more fixes are need in
-> a few drivers as they rely on linux/gpio.h to provides some machine
-> specific definitions, or used asm/gpio.h instead of linux/gpio.h for
-> the gpio API.
+> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+> index faaf2ed..b21ad68 100644
+> --- a/drivers/net/fjes/fjes_main.c
+> +++ b/drivers/net/fjes/fjes_main.c
+> @@ -822,6 +822,75 @@ static int fjes_vlan_rx_kill_vid(struct net_device *netdev,
+>   	return 0;
+>   }
 >
-> Signed-off-by: Alban Bedel <albeu@free.fr>
+> +static void fjes_txrx_stop_req_irq(struct fjes_adapter *adapter,
+> +				   int src_epid)
+> +{
+> +	struct fjes_hw *hw = &adapter->hw;
+> +	enum ep_partner_status status;
+> +
+> +	status = fjes_hw_get_partner_ep_status(hw, src_epid);
+> +	switch (status) {
+> +	case EP_PARTNER_UNSHARE:
+> +	default:
+> +		break;
+> +	case EP_PARTNER_COMPLETE:
+> +		break;
 
-This is exactly what the kernel needs. Enjoy my:
-Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
+    Why this *case* isn't merged with the above ones?
 
-And feel free to merge this through the MIPS tree.
+> +	case EP_PARTNER_WAITING:
+> +		if (src_epid < hw->my_epid) {
+> +			hw->ep_shm_info[src_epid].tx.info->v1i.rx_status |=
+> +				FJES_RX_STOP_REQ_DONE;
+> +
+> +			clear_bit(src_epid, &hw->txrx_stop_req_bit);
+> +			set_bit(src_epid, &adapter->unshare_watch_bitmask);
+> +
+> +			if (!work_pending(&adapter->unshare_watch_task))
+> +				queue_work(adapter->control_wq,
+> +					   &adapter->unshare_watch_task);
+> +		}
+> +		break;
+> +	case EP_PARTNER_SHARED:
+> +		if (hw->ep_shm_info[src_epid].rx.info->v1i.rx_status
+> +				& FJES_RX_STOP_REQ_REQUEST) {
 
-Yours,
-Linus Walleij
+    Please leave the & operator on the first line and start the second line 
+right under 'hw' on the first.
+
+[...]
+
+MBR, Sergei
