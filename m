@@ -1,7 +1,7 @@
 From: WingMan Kwok <w-kwok2@ti.com>
-Subject: [net-next PATCH v0 6/6] net: netcp: Adds missing statistics for K2L and K2E
-Date: Thu, 23 Jul 2015 09:32:48 -0400
-Message-ID: <1437658368-1679-7-git-send-email-w-kwok2@ti.com>
+Subject: [net-next PATCH v0 4/6] net: netcp: Consolidates statistics collection code
+Date: Thu, 23 Jul 2015 09:32:46 -0400
+Message-ID: <1437658368-1679-5-git-send-email-w-kwok2@ti.com>
 References: <1437658368-1679-1-git-send-email-w-kwok2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,280 +13,144 @@ In-Reply-To: <1437658368-1679-1-git-send-email-w-kwok2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the missing statistics for the host
-and slave ports of the CPSW on K2L and K2E platforms.
+Different Keystone2 platforms have different number and
+layouts of hw statistics modules.  This patch consolidates
+the statistics processing of different Keystone2 platforms
+for easy maintenance.
 
 Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 ---
- drivers/net/ethernet/ti/netcp_ethss.c |  177 ++++++++++++++++++++++++++++++++-
- 1 file changed, 174 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/ti/netcp_ethss.c |   99 ++++++++++++++++++---------------
+ 1 file changed, 54 insertions(+), 45 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index e2ef7ba..7782120 100644
+index a1f16e1..aadca02 100644
 --- a/drivers/net/ethernet/ti/netcp_ethss.c
 +++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -876,7 +876,7 @@ static const struct netcp_ethtool_stat gbe13_et_stats[] = {
- };
- 
- /* This is the size of entries in GBENU_STATS_HOST */
--#define GBENU_ET_STATS_HOST_SIZE	33
-+#define GBENU_ET_STATS_HOST_SIZE	52
- 
- #define GBENU_STATS_HOST(field)					\
- {								\
-@@ -885,8 +885,8 @@ static const struct netcp_ethtool_stat gbe13_et_stats[] = {
- 	offsetof(struct gbenu_hw_stats, field)			\
+@@ -1554,70 +1554,79 @@ static int keystone_get_sset_count(struct net_device *ndev, int stringset)
+ 	}
  }
  
--/* This is the size of entries in GBENU_STATS_HOST */
--#define GBENU_ET_STATS_PORT_SIZE	46
-+/* This is the size of entries in GBENU_STATS_PORT */
-+#define GBENU_ET_STATS_PORT_SIZE	65
+-static void gbe_update_stats(struct gbe_priv *gbe_dev, uint64_t *data)
++static inline void gbe_update_hw_stats_entry(struct gbe_priv *gbe_dev,
++					     int et_stats_entry)
+ {
+ 	void __iomem *base = NULL;
+ 	u32  __iomem *p;
+ 	u32 tmp = 0;
++
++	/* The hw_stats_regs pointers are already
++	 * properly set to point to the right base:
++	 */
++	base = gbe_dev->hw_stats_regs[gbe_dev->et_stats[et_stats_entry].type];
++	p = base + gbe_dev->et_stats[et_stats_entry].offset;
++	tmp = readl(p);
++	gbe_dev->hw_stats[et_stats_entry] += tmp;
++
++	/* write-to-decrement:
++	 * new register value = old register value - write value
++	 */
++	writel(tmp, p);
++}
++
++static void gbe_update_stats(struct gbe_priv *gbe_dev, uint64_t *data)
++{
+ 	int i;
  
- #define GBENU_STATS_P1(field)					\
- {								\
-@@ -978,7 +978,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_HOST(ale_unknown_mcast_bytes),
- 	GBENU_STATS_HOST(ale_unknown_bcast),
- 	GBENU_STATS_HOST(ale_unknown_bcast_bytes),
-+	GBENU_STATS_HOST(ale_pol_match),
-+	GBENU_STATS_HOST(ale_pol_match_red),
-+	GBENU_STATS_HOST(ale_pol_match_yellow),
- 	GBENU_STATS_HOST(tx_mem_protect_err),
-+	GBENU_STATS_HOST(tx_pri0_drop),
-+	GBENU_STATS_HOST(tx_pri1_drop),
-+	GBENU_STATS_HOST(tx_pri2_drop),
-+	GBENU_STATS_HOST(tx_pri3_drop),
-+	GBENU_STATS_HOST(tx_pri4_drop),
-+	GBENU_STATS_HOST(tx_pri5_drop),
-+	GBENU_STATS_HOST(tx_pri6_drop),
-+	GBENU_STATS_HOST(tx_pri7_drop),
-+	GBENU_STATS_HOST(tx_pri0_drop_bcnt),
-+	GBENU_STATS_HOST(tx_pri1_drop_bcnt),
-+	GBENU_STATS_HOST(tx_pri2_drop_bcnt),
-+	GBENU_STATS_HOST(tx_pri3_drop_bcnt),
-+	GBENU_STATS_HOST(tx_pri4_drop_bcnt),
-+	GBENU_STATS_HOST(tx_pri5_drop_bcnt),
-+	GBENU_STATS_HOST(tx_pri6_drop_bcnt),
-+	GBENU_STATS_HOST(tx_pri7_drop_bcnt),
- 	/* GBENU Module 1 */
- 	GBENU_STATS_P1(rx_good_frames),
- 	GBENU_STATS_P1(rx_broadcast_frames),
-@@ -1025,7 +1044,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P1(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P1(ale_unknown_bcast),
- 	GBENU_STATS_P1(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P1(ale_pol_match),
-+	GBENU_STATS_P1(ale_pol_match_red),
-+	GBENU_STATS_P1(ale_pol_match_yellow),
- 	GBENU_STATS_P1(tx_mem_protect_err),
-+	GBENU_STATS_P1(tx_pri0_drop),
-+	GBENU_STATS_P1(tx_pri1_drop),
-+	GBENU_STATS_P1(tx_pri2_drop),
-+	GBENU_STATS_P1(tx_pri3_drop),
-+	GBENU_STATS_P1(tx_pri4_drop),
-+	GBENU_STATS_P1(tx_pri5_drop),
-+	GBENU_STATS_P1(tx_pri6_drop),
-+	GBENU_STATS_P1(tx_pri7_drop),
-+	GBENU_STATS_P1(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P1(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P1(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P1(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P1(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P1(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P1(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P1(tx_pri7_drop_bcnt),
- 	/* GBENU Module 2 */
- 	GBENU_STATS_P2(rx_good_frames),
- 	GBENU_STATS_P2(rx_broadcast_frames),
-@@ -1072,7 +1110,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P2(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P2(ale_unknown_bcast),
- 	GBENU_STATS_P2(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P2(ale_pol_match),
-+	GBENU_STATS_P2(ale_pol_match_red),
-+	GBENU_STATS_P2(ale_pol_match_yellow),
- 	GBENU_STATS_P2(tx_mem_protect_err),
-+	GBENU_STATS_P2(tx_pri0_drop),
-+	GBENU_STATS_P2(tx_pri1_drop),
-+	GBENU_STATS_P2(tx_pri2_drop),
-+	GBENU_STATS_P2(tx_pri3_drop),
-+	GBENU_STATS_P2(tx_pri4_drop),
-+	GBENU_STATS_P2(tx_pri5_drop),
-+	GBENU_STATS_P2(tx_pri6_drop),
-+	GBENU_STATS_P2(tx_pri7_drop),
-+	GBENU_STATS_P2(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P2(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P2(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P2(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P2(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P2(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P2(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P2(tx_pri7_drop_bcnt),
- 	/* GBENU Module 3 */
- 	GBENU_STATS_P3(rx_good_frames),
- 	GBENU_STATS_P3(rx_broadcast_frames),
-@@ -1119,7 +1176,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P3(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P3(ale_unknown_bcast),
- 	GBENU_STATS_P3(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P3(ale_pol_match),
-+	GBENU_STATS_P3(ale_pol_match_red),
-+	GBENU_STATS_P3(ale_pol_match_yellow),
- 	GBENU_STATS_P3(tx_mem_protect_err),
-+	GBENU_STATS_P3(tx_pri0_drop),
-+	GBENU_STATS_P3(tx_pri1_drop),
-+	GBENU_STATS_P3(tx_pri2_drop),
-+	GBENU_STATS_P3(tx_pri3_drop),
-+	GBENU_STATS_P3(tx_pri4_drop),
-+	GBENU_STATS_P3(tx_pri5_drop),
-+	GBENU_STATS_P3(tx_pri6_drop),
-+	GBENU_STATS_P3(tx_pri7_drop),
-+	GBENU_STATS_P3(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P3(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P3(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P3(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P3(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P3(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P3(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P3(tx_pri7_drop_bcnt),
- 	/* GBENU Module 4 */
- 	GBENU_STATS_P4(rx_good_frames),
- 	GBENU_STATS_P4(rx_broadcast_frames),
-@@ -1166,7 +1242,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P4(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P4(ale_unknown_bcast),
- 	GBENU_STATS_P4(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P4(ale_pol_match),
-+	GBENU_STATS_P4(ale_pol_match_red),
-+	GBENU_STATS_P4(ale_pol_match_yellow),
- 	GBENU_STATS_P4(tx_mem_protect_err),
-+	GBENU_STATS_P4(tx_pri0_drop),
-+	GBENU_STATS_P4(tx_pri1_drop),
-+	GBENU_STATS_P4(tx_pri2_drop),
-+	GBENU_STATS_P4(tx_pri3_drop),
-+	GBENU_STATS_P4(tx_pri4_drop),
-+	GBENU_STATS_P4(tx_pri5_drop),
-+	GBENU_STATS_P4(tx_pri6_drop),
-+	GBENU_STATS_P4(tx_pri7_drop),
-+	GBENU_STATS_P4(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P4(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P4(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P4(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P4(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P4(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P4(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P4(tx_pri7_drop_bcnt),
- 	/* GBENU Module 5 */
- 	GBENU_STATS_P5(rx_good_frames),
- 	GBENU_STATS_P5(rx_broadcast_frames),
-@@ -1213,7 +1308,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P5(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P5(ale_unknown_bcast),
- 	GBENU_STATS_P5(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P5(ale_pol_match),
-+	GBENU_STATS_P5(ale_pol_match_red),
-+	GBENU_STATS_P5(ale_pol_match_yellow),
- 	GBENU_STATS_P5(tx_mem_protect_err),
-+	GBENU_STATS_P5(tx_pri0_drop),
-+	GBENU_STATS_P5(tx_pri1_drop),
-+	GBENU_STATS_P5(tx_pri2_drop),
-+	GBENU_STATS_P5(tx_pri3_drop),
-+	GBENU_STATS_P5(tx_pri4_drop),
-+	GBENU_STATS_P5(tx_pri5_drop),
-+	GBENU_STATS_P5(tx_pri6_drop),
-+	GBENU_STATS_P5(tx_pri7_drop),
-+	GBENU_STATS_P5(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P5(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P5(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P5(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P5(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P5(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P5(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P5(tx_pri7_drop_bcnt),
- 	/* GBENU Module 6 */
- 	GBENU_STATS_P6(rx_good_frames),
- 	GBENU_STATS_P6(rx_broadcast_frames),
-@@ -1260,7 +1374,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P6(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P6(ale_unknown_bcast),
- 	GBENU_STATS_P6(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P6(ale_pol_match),
-+	GBENU_STATS_P6(ale_pol_match_red),
-+	GBENU_STATS_P6(ale_pol_match_yellow),
- 	GBENU_STATS_P6(tx_mem_protect_err),
-+	GBENU_STATS_P6(tx_pri0_drop),
-+	GBENU_STATS_P6(tx_pri1_drop),
-+	GBENU_STATS_P6(tx_pri2_drop),
-+	GBENU_STATS_P6(tx_pri3_drop),
-+	GBENU_STATS_P6(tx_pri4_drop),
-+	GBENU_STATS_P6(tx_pri5_drop),
-+	GBENU_STATS_P6(tx_pri6_drop),
-+	GBENU_STATS_P6(tx_pri7_drop),
-+	GBENU_STATS_P6(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P6(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P6(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P6(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P6(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P6(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P6(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P6(tx_pri7_drop_bcnt),
- 	/* GBENU Module 7 */
- 	GBENU_STATS_P7(rx_good_frames),
- 	GBENU_STATS_P7(rx_broadcast_frames),
-@@ -1307,7 +1440,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P7(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P7(ale_unknown_bcast),
- 	GBENU_STATS_P7(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P7(ale_pol_match),
-+	GBENU_STATS_P7(ale_pol_match_red),
-+	GBENU_STATS_P7(ale_pol_match_yellow),
- 	GBENU_STATS_P7(tx_mem_protect_err),
-+	GBENU_STATS_P7(tx_pri0_drop),
-+	GBENU_STATS_P7(tx_pri1_drop),
-+	GBENU_STATS_P7(tx_pri2_drop),
-+	GBENU_STATS_P7(tx_pri3_drop),
-+	GBENU_STATS_P7(tx_pri4_drop),
-+	GBENU_STATS_P7(tx_pri5_drop),
-+	GBENU_STATS_P7(tx_pri6_drop),
-+	GBENU_STATS_P7(tx_pri7_drop),
-+	GBENU_STATS_P7(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P7(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P7(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P7(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P7(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P7(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P7(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P7(tx_pri7_drop_bcnt),
- 	/* GBENU Module 8 */
- 	GBENU_STATS_P8(rx_good_frames),
- 	GBENU_STATS_P8(rx_broadcast_frames),
-@@ -1354,7 +1506,26 @@ static const struct netcp_ethtool_stat gbenu_et_stats[] = {
- 	GBENU_STATS_P8(ale_unknown_mcast_bytes),
- 	GBENU_STATS_P8(ale_unknown_bcast),
- 	GBENU_STATS_P8(ale_unknown_bcast_bytes),
-+	GBENU_STATS_P8(ale_pol_match),
-+	GBENU_STATS_P8(ale_pol_match_red),
-+	GBENU_STATS_P8(ale_pol_match_yellow),
- 	GBENU_STATS_P8(tx_mem_protect_err),
-+	GBENU_STATS_P8(tx_pri0_drop),
-+	GBENU_STATS_P8(tx_pri1_drop),
-+	GBENU_STATS_P8(tx_pri2_drop),
-+	GBENU_STATS_P8(tx_pri3_drop),
-+	GBENU_STATS_P8(tx_pri4_drop),
-+	GBENU_STATS_P8(tx_pri5_drop),
-+	GBENU_STATS_P8(tx_pri6_drop),
-+	GBENU_STATS_P8(tx_pri7_drop),
-+	GBENU_STATS_P8(tx_pri0_drop_bcnt),
-+	GBENU_STATS_P8(tx_pri1_drop_bcnt),
-+	GBENU_STATS_P8(tx_pri2_drop_bcnt),
-+	GBENU_STATS_P8(tx_pri3_drop_bcnt),
-+	GBENU_STATS_P8(tx_pri4_drop_bcnt),
-+	GBENU_STATS_P8(tx_pri5_drop_bcnt),
-+	GBENU_STATS_P8(tx_pri6_drop_bcnt),
-+	GBENU_STATS_P8(tx_pri7_drop_bcnt),
- };
+ 	for (i = 0; i < gbe_dev->num_et_stats; i++) {
+-		base = gbe_dev->hw_stats_regs[gbe_dev->et_stats[i].type];
+-		p = base + gbe_dev->et_stats[i].offset;
+-		tmp = readl(p);
+-		gbe_dev->hw_stats[i] = gbe_dev->hw_stats[i] + tmp;
++		gbe_update_hw_stats_entry(gbe_dev, i);
++
+ 		if (data)
+ 			data[i] = gbe_dev->hw_stats[i];
+-		/* write-to-decrement:
+-		 * new register value = old register value - write value
+-		 */
+-		writel(tmp, p);
+ 	}
+ }
  
- #define XGBE_STATS0_INFO(field)				\
+-static void gbe_update_stats_ver14(struct gbe_priv *gbe_dev, uint64_t *data)
++static inline void gbe_stats_mod_visible_ver14(struct gbe_priv *gbe_dev,
++					       int stats_mod)
+ {
+-	void __iomem *gbe_statsa = gbe_dev->hw_stats_regs[0];
+-	void __iomem *gbe_statsb = gbe_dev->hw_stats_regs[1];
+-	u64 *hw_stats = &gbe_dev->hw_stats[0];
+-	void __iomem *base = NULL;
+-	u32  __iomem *p;
+-	u32 tmp = 0, val, pair_size = (gbe_dev->num_et_stats / 2);
+-	int i, j, pair;
++	u32 val;
+ 
+-	for (pair = 0; pair < 2; pair++) {
+-		val = readl(GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
++	val = readl(GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
+ 
+-		if (pair == 0)
+-			val &= ~GBE_STATS_CD_SEL;
+-		else
+-			val |= GBE_STATS_CD_SEL;
++	switch (stats_mod) {
++	case GBE_STATSA_MODULE:
++	case GBE_STATSB_MODULE:
++		val &= ~GBE_STATS_CD_SEL;
++		break;
++	case GBE_STATSC_MODULE:
++	case GBE_STATSD_MODULE:
++		val |= GBE_STATS_CD_SEL;
++		break;
++	default:
++		return;
++	}
++
++	/* make the stat module visible */
++	writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
++}
+ 
+-		/* make the stat modules visible */
+-		writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
++static void gbe_update_stats_ver14(struct gbe_priv *gbe_dev, uint64_t *data)
++{
++	u32 half_num_et_stats = (gbe_dev->num_et_stats / 2);
++	int et_entry, j, pair;
+ 
+-		for (i = 0; i < pair_size; i++) {
+-			j = pair * pair_size + i;
+-			switch (gbe_dev->et_stats[j].type) {
+-			case GBE_STATSA_MODULE:
+-			case GBE_STATSC_MODULE:
+-				base = gbe_statsa;
+-			break;
+-			case GBE_STATSB_MODULE:
+-			case GBE_STATSD_MODULE:
+-				base  = gbe_statsb;
+-			break;
+-			}
++	for (pair = 0; pair < 2; pair++) {
++		gbe_stats_mod_visible_ver14(gbe_dev, (pair ?
++						      GBE_STATSC_MODULE :
++						      GBE_STATSA_MODULE));
++
++		for (j = 0; j < half_num_et_stats; j++) {
++			et_entry = pair * half_num_et_stats + j;
++			gbe_update_hw_stats_entry(gbe_dev, et_entry);
+ 
+-			p = base + gbe_dev->et_stats[j].offset;
+-			tmp = readl(p);
+-			hw_stats[j] += tmp;
+ 			if (data)
+-				data[j] = hw_stats[j];
+-			/* write-to-decrement:
+-			 * new register value = old register value - write value
+-			 */
+-			writel(tmp, p);
++				data[et_entry] = gbe_dev->hw_stats[et_entry];
+ 		}
+ 	}
+ }
 -- 
 1.7.9.5
