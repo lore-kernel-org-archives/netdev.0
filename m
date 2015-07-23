@@ -1,58 +1,53 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
- packet and get the r/w-ability
-Date: Thu, 23 Jul 2015 13:10:57 +0300
-Message-ID: <20150723101057.GQ5371@mwanda>
-References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
- <87zj2pk3jf.fsf@vitty.brq.redhat.com>
- <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
- <20150722103546.GO5371@mwanda>
- <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
+From: Praveen Kumar <praveen.k09@samsung.com>
+Subject: [PATCH v2] ax88179_178a: Add reset functionality in reset_resume
+Date: Thu, 23 Jul 2015 10:16:33 +0000 (GMT)
+Message-ID: <2040698821.307761437646593772.JavaMail.weblogic@epmlwas08b>
+Reply-To: praveen.k09@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stephen@networkplumber.org" <stephen@networkplumber.org>,
- "stefanha@redhat.com" <stefanha@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: vivek.bhagat@samsung.com,
+	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout2.samsung.com ([203.254.224.25]:52275 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752242AbbGWKQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 06:16:36 -0400
+Received: from epcpsbgx3.samsung.com
+ (u163.gpu120.samsung.co.kr [203.254.230.163])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NRX01Z3GR7LC080@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Thu, 23 Jul 2015 19:16:33 +0900 (KST)
+MIME-version: 1.0
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 23, 2015 at 03:05:16AM +0000, Dexuan Cui wrote:
-> The kind of usage is not rare in the kernel code:
-
-Yeah.  But it's used 5% of the time.  If it's under 15% then there is a
-risk that we'll write a checkpatch rule to enforce the standard way...
-There are some places where != 0 is idiomatic, like when you are talking
-about the number zero.  strcmp() and friends should always be != 0 or
-== 0.
-
-In this specific case, writing it as "if (ret != 0)" caused the bug.  If
-we had written it as "if (ret) return ret;" then there are no zeroes so
-wouldn't have been any temptation to return the zero instead of the ret.
-
-> Hi Dan, I read this as a humor.  :-)
-
-:)
-
-regards,
-dan carpenter
+V2l0aG91dCByZXNldCBmdW5jdGlvbmFsaXR5IGluIHJlc2V0X3Jlc3VtZSwgaXBlcmYgY29ubmVj
+dGlvbgpkb2VzIG5vdCBlc3RhYmxpc2ggYWZ0ZXIgc3VzcGVuZC9yZXN1bWUgaG93ZXZlciBwaW5n
+IHdvcmtzIGF0CnRoZSBzYW1lIHRpbWUuIGlwZXJmIGNvbm5lY3Rpb24gZmFpbHMgYnkgZ2l2aW5n
+IGNoZWNrc3VtIGVycm9yCmluIHRjcGR1bXAuCgpyZXNldCBmdW5jdGlvbiBpbnNpZGUgcmVzZXRf
+cmVzdW1lIHNvbHZlcyBhYm92ZSBidWcuCldlIGhhdmUgdmVyaWZpZWQgaXQgb24gQVNJWCBiYXNl
+ZCBTVCBMYWIsIENhZHljZSBkb25nbGUuCgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFn
+YXQgPHZpdmVrLmJoYWdhdEBzYW1zdW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogUHJhdmVlbiBLdW1h
+ciA8cHJhdmVlbi5rMDlAc2Ftc3VuZy5jb20+CgotLS0KIGRyaXZlcnMvbmV0L3VzYi9heDg4MTc5
+XzE3OGEuYyB8ICAgMTQgKysrKysrKysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRp
+b25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2F4ODgx
+NzlfMTc4YS5jIGIvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jCmluZGV4IGU2MzM4YzEu
+LjAwOTI4YzAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9heDg4MTc5XzE3OGEuYworKysg
+Yi9kcml2ZXJzL25ldC91c2IvYXg4ODE3OV8xNzhhLmMKQEAgLTE2MzAsNiArMTYzMCwxOCBAQCBz
+dGF0aWMgaW50IGF4ODgxNzlfc3RvcChzdHJ1Y3QgdXNibmV0ICpkZXYpCiAJcmV0dXJuIDA7CiB9
+CiAKK3N0YXRpYyBpbnQgYXg4ODE3OV9yZXNldF9yZXN1bWUoc3RydWN0IHVzYl9pbnRlcmZhY2Ug
+KmludGYpCit7CisJc3RydWN0IHVzYm5ldCAqZGV2ID0gdXNiX2dldF9pbnRmZGF0YShpbnRmKTsK
+KwlpbnQgcmV0OworCisJcmV0ID0gYXg4ODE3OV9yZXNldChkZXYpOworCWlmIChyZXQgPCAwKQor
+CQlyZXR1cm4gcmV0OworCisJcmV0dXJuICBheDg4MTc5X3Jlc3VtZShpbnRmKTsKK30KKwogc3Rh
+dGljIGNvbnN0IHN0cnVjdCBkcml2ZXJfaW5mbyBheDg4MTc5X2luZm8gPSB7CiAJLmRlc2NyaXB0
+aW9uID0gIkFTSVggQVg4ODE3OSBVU0IgMy4wIEdpZ2FiaXQgRXRoZXJuZXQiLAogCS5iaW5kID0g
+YXg4ODE3OV9iaW5kLApAQCAtMTc0NCw3ICsxNzU2LDcgQEAgc3RhdGljIHN0cnVjdCB1c2JfZHJp
+dmVyIGF4ODgxNzlfMTc4YV9kcml2ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5z
+dXNwZW5kID0JYXg4ODE3OV9zdXNwZW5kLAogCS5yZXN1bWUgPQlheDg4MTc5X3Jlc3VtZSwKLQku
+cmVzZXRfcmVzdW1lID0JYXg4ODE3OV9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9CWF4ODgxNzlf
+cmVzZXRfcmVzdW1lLAogCS5kaXNjb25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1cHBv
+cnRzX2F1dG9zdXNwZW5kID0gMSwKIAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCi0t
+IAoxLjcuOS41
