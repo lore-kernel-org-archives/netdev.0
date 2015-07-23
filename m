@@ -1,67 +1,64 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] route: allow to route in a peer netns via lwt
- framework
-Date: Thu, 23 Jul 2015 17:25:51 +0200
-Message-ID: <55B1077F.1090501@6wind.com>
-References: <1437661349-17620-1-git-send-email-nicolas.dichtel@6wind.com> <55B101DC.6040609@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Alexey Charkov <alchark@gmail.com>
+Subject: Re: [PATCH] net: via/Kconfig: GENERIC_PCI_IOMAP required if PCI not selected
+Date: Thu, 23 Jul 2015 18:33:36 +0300
+Message-ID: <CABjd4Yx5YTEqUVGF+OqddB-q6u4u7boQK1ndcCKteQCa1LxubA@mail.gmail.com>
+References: <1437582854-3320-1-git-send-email-borneo.antonio@gmail.com>
+	<20150722.110836.422018977846427052.davem@davemloft.net>
+	<CAAj6DX3WpzogwYFa4EQ-b1o+n-4kE0iXOokYQA5NpV=3YBmM_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:33810 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752577AbbGWPZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 11:25:54 -0400
-Received: by wibud3 with SMTP id ud3so29535373wib.1
-        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 08:25:53 -0700 (PDT)
-In-Reply-To: <55B101DC.6040609@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org
+To: Antonio Borneo <borneo.antonio@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CAAj6DX3WpzogwYFa4EQ-b1o+n-4kE0iXOokYQA5NpV=3YBmM_A@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 23/07/2015 17:01, roopa a =E9crit :
-> On 7/23/15, 7:22 AM, Nicolas Dichtel wrote:
-[snip]
->> +static inline u32 *lwt_netns_info(struct lwtunnel_state *lwtstate)
->> +{
->> +    return (u32 *)lwtstate->data;
->> +}
->> +
->> +static inline int skb_lwt_netns_info(struct sk_buff *skb)
->> +{
->> +    if (skb->protocol =3D=3D htons(ETH_P_IP)) {
->> +        struct rtable *rt =3D (struct rtable *)skb_dst(skb);
->> +
->> +        if (rt && rt->rt_lwtstate)
->> +            return *lwt_netns_info(rt->rt_lwtstate);
->> +    } else if (skb->protocol =3D=3D htons(ETH_P_IPV6)) {
->> +        struct rt6_info *rt6 =3D (struct rt6_info *)skb_dst(skb);
->> +
->> +        if (rt6 && rt6->rt6i_lwtstate)
->> +            return *lwt_netns_info(rt6->rt6i_lwtstate);
->> +    }
->> +
->> +    return NETNSA_NSID_NOT_ASSIGNED;
->> +}
->>   #endif /* __NET_LWTUNNEL_H */
-> since these apis' don't have to be netns specific,
-> Can they just be named lwtunnel_get_state_data and skb_lwtunnel_state=
- ?
-They are specific to netns because lwtstate->data is interpreted as an =
-u32 *.
-But I agree that a test is missing against lwtstate->type to ensure tha=
-t data
-will be a nsid.
-
+2015-07-23 4:35 GMT+03:00 Antonio Borneo <borneo.antonio@gmail.com>:
+> On Thu, Jul 23, 2015 at 2:08 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Antonio Borneo <borneo.antonio@gmail.com>
+>> Date: Thu, 23 Jul 2015 00:34:14 +0800
+>>
+>>> -     depends on (PCI || OF_IRQ)
+>>> +     depends on (PCI || (OF_IRQ && GENERIC_PCI_IOMAP))
+>>
+>> Having GENERIC_PCI_IOMAP withut PCI makes absolutely no sense to me.
+>>
+>> I can't see why a platform would provide GENERIC_PCI_IOMAP when it
+>> does not have PCI enabled.
 >
-> and seems like they should be declared for both CONFIG_LWTUNNEL 'y' a=
-nd 'n'.
-It is outside the "#ifdef CONFIG_LWTUNNEL". I can successfully compile =
-with and
-without CONFIG_LWTUNNEL.
+> My understanding for GENERIC_PCI_IOMAP is to enable providing empty
+> pci_iomap/pci_iounmap.
 
-Thank you,
-Nicolas
+There is also a non-empty implementation that calls to ioremap/iounmap
+(compiled in when PCI=y). So it's rather an option that every
+architecture should use if they don't have any special requirements
+(which seems to be true about SH, too). Maybe a name like
+"MY_ARCH_DOESNT_NEED_ANYTHING_SPECIAL_FROM_PCI_IOMAP" instead of
+GENERIC_PCI_IOMAP would be more reflective of its current semantics,
+but it doesn't look very pretty anyway :)
+
+> Digging in git log, arch that used to provide such empty instances
+> moved to a centralized implementation by using GENERIC_PCI_IOMAP.
+> For me such empty functions should be available by default when PCI is
+> not set, but this is not the case today.
+
+If we trust the commit message in
+97a29d59fc222b36bac3ee3a8ae994f65bf7ffdf
+it looks like architectures that use their own PCI mapping functions
+would provide them unconditionally, so we shouldn't unconditionally
+include stubs in the generic header to avoid double definition.
+
+I think the way to fix this most consistently with what other arches
+do would be to move "select GENERIC_PCI_IOMAP" from arch/sh/Kconfig
+outside of "config PCI" (towards line 40 or so in the same file). This
+will ensure that all NOP stubs are applied correctly to avoid such
+compile-time errors.
+
+Happy to provide a 2-line patch to do the above, but I don't have any
+SH hardware to test.
+
+Best,
+Alexey
