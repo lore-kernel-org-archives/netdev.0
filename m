@@ -1,123 +1,55 @@
-From: WingMan Kwok <w-kwok2@ti.com>
-Subject: [net-next PATCH v0 3/6] net: netcp: Fixes error in oversized memory allocation for statistics storage
-Date: Thu, 23 Jul 2015 09:32:45 -0400
-Message-ID: <1437658368-1679-4-git-send-email-w-kwok2@ti.com>
-References: <1437658368-1679-1-git-send-email-w-kwok2@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: WingMan Kwok <w-kwok2@ti.com>
-To: <davem@davemloft.net>, <m-karicheri2@ti.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437658368-1679-1-git-send-email-w-kwok2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] lwtunnel: export linux/lwtunnel.h to userspace
+Date: Thu, 23 Jul 2015 15:43:56 +0200
+Message-ID: <1437659036-14282-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:49443 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752349AbbGWNoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 09:44:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The CPSW driver keeps internally some, but not all, of
-the statistics available in the hw statistics modules.  Furthermore,
-some of the locations in the hw statistics modules are reserved and
-contain no useful information.  Prior to this patch, the driver
-allocates memory of the size of the the whole hw statistics modules,
-instead of the size of statistics-entries-interested-in (i.e. et_stats),
-for internal storage.  This patch fixes that.
+Note also that include/linux/lwtunnel.h is not needed.
 
-Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+CC: Thomas Graf <tgraf@suug.ch>
+CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+Fixes: 499a24256862 ("lwtunnel: infrastructure for handling light weight tunnels like mpls")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/ethernet/ti/netcp_ethss.c |   42 ++++++++++++++++-----------------
- 1 file changed, 21 insertions(+), 21 deletions(-)
+ include/linux/lwtunnel.h  | 6 ------
+ include/uapi/linux/Kbuild | 1 +
+ 2 files changed, 1 insertion(+), 6 deletions(-)
+ delete mode 100644 include/linux/lwtunnel.h
 
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index b954856..a1f16e1 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -2555,10 +2555,12 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
- 	}
- 	gbe_dev->xgbe_serdes_regs = regs;
- 
-+	gbe_dev->et_stats = xgbe10_et_stats;
-+	gbe_dev->num_et_stats = ARRAY_SIZE(xgbe10_et_stats);
-+
- 	gbe_dev->hw_stats = devm_kzalloc(gbe_dev->dev,
--				  XGBE10_NUM_STAT_ENTRIES *
--				  (gbe_dev->max_num_ports) * sizeof(u64),
--				  GFP_KERNEL);
-+					 gbe_dev->num_et_stats * sizeof(u64),
-+					 GFP_KERNEL);
- 	if (!gbe_dev->hw_stats) {
- 		dev_err(gbe_dev->dev, "hw_stats memory allocation failed\n");
- 		return -ENOMEM;
-@@ -2577,8 +2579,6 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
- 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
- 	gbe_dev->host_port = XGBE10_HOST_PORT_NUM;
- 	gbe_dev->ale_entries = XGBE10_NUM_ALE_ENTRIES;
--	gbe_dev->et_stats = xgbe10_et_stats;
--	gbe_dev->num_et_stats = ARRAY_SIZE(xgbe10_et_stats);
- 	gbe_dev->stats_en_mask = (1 << (gbe_dev->max_num_ports)) - 1;
- 
- 	/* Subsystem registers */
-@@ -2663,10 +2663,12 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
- 	}
- 	gbe_dev->switch_regs = regs;
- 
-+	gbe_dev->et_stats = gbe13_et_stats;
-+	gbe_dev->num_et_stats = ARRAY_SIZE(gbe13_et_stats);
-+
- 	gbe_dev->hw_stats = devm_kzalloc(gbe_dev->dev,
--					  GBE13_NUM_HW_STAT_ENTRIES *
--					  gbe_dev->max_num_slaves * sizeof(u64),
--					  GFP_KERNEL);
-+					 gbe_dev->num_et_stats * sizeof(u64),
-+					 GFP_KERNEL);
- 	if (!gbe_dev->hw_stats) {
- 		dev_err(gbe_dev->dev, "hw_stats memory allocation failed\n");
- 		return -ENOMEM;
-@@ -2689,8 +2691,6 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
- 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
- 	gbe_dev->host_port = GBE13_HOST_PORT_NUM;
- 	gbe_dev->ale_entries = GBE13_NUM_ALE_ENTRIES;
--	gbe_dev->et_stats = gbe13_et_stats;
--	gbe_dev->num_et_stats = ARRAY_SIZE(gbe13_et_stats);
- 	gbe_dev->stats_en_mask = GBE13_REG_VAL_STAT_ENABLE_ALL;
- 
- 	/* Subsystem registers */
-@@ -2717,10 +2717,18 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
- 	void __iomem *regs;
- 	int i, ret;
- 
-+	gbe_dev->et_stats = gbenu_et_stats;
-+
-+	if (IS_SS_ID_NU(gbe_dev))
-+		gbe_dev->num_et_stats = GBENU_ET_STATS_HOST_SIZE +
-+			(gbe_dev->max_num_slaves * GBENU_ET_STATS_PORT_SIZE);
-+	else
-+		gbe_dev->num_et_stats = GBENU_ET_STATS_HOST_SIZE +
-+					GBENU_ET_STATS_PORT_SIZE;
-+
- 	gbe_dev->hw_stats = devm_kzalloc(gbe_dev->dev,
--				  GBENU_NUM_HW_STAT_ENTRIES *
--				  (gbe_dev->max_num_ports) * sizeof(u64),
--				  GFP_KERNEL);
-+					 gbe_dev->num_et_stats * sizeof(u64),
-+					 GFP_KERNEL);
- 	if (!gbe_dev->hw_stats) {
- 		dev_err(gbe_dev->dev, "hw_stats memory allocation failed\n");
- 		return -ENOMEM;
-@@ -2753,16 +2761,8 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
- 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
- 	gbe_dev->host_port = GBENU_HOST_PORT_NUM;
- 	gbe_dev->ale_entries = GBE13_NUM_ALE_ENTRIES;
--	gbe_dev->et_stats = gbenu_et_stats;
- 	gbe_dev->stats_en_mask = (1 << (gbe_dev->max_num_ports)) - 1;
- 
--	if (IS_SS_ID_NU(gbe_dev))
--		gbe_dev->num_et_stats = GBENU_ET_STATS_HOST_SIZE +
--			(gbe_dev->max_num_slaves * GBENU_ET_STATS_PORT_SIZE);
--	else
--		gbe_dev->num_et_stats = GBENU_ET_STATS_HOST_SIZE +
--					GBENU_ET_STATS_PORT_SIZE;
+diff --git a/include/linux/lwtunnel.h b/include/linux/lwtunnel.h
+deleted file mode 100644
+index 97f32f8b4ae1..000000000000
+--- a/include/linux/lwtunnel.h
++++ /dev/null
+@@ -1,6 +0,0 @@
+-#ifndef _LINUX_LWTUNNEL_H_
+-#define _LINUX_LWTUNNEL_H_
 -
- 	/* Subsystem registers */
- 	GBENU_SET_REG_OFS(gbe_dev, ss_regs, id_ver);
- 
+-#include <uapi/linux/lwtunnel.h>
+-
+-#endif /* _LINUX_LWTUNNEL_H_ */
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index 1ff9942718fe..aafb9937b162 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -243,6 +243,7 @@ header-y += limits.h
+ header-y += llc.h
+ header-y += loop.h
+ header-y += lp.h
++header-y += lwtunnel.h
+ header-y += magic.h
+ header-y += major.h
+ header-y += map_to_7segment.h
 -- 
-1.7.9.5
+2.4.2
