@@ -1,61 +1,111 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [PATCH net 2/3] r8152: fix remote wakeup
-Date: Thu, 23 Jul 2015 10:30:58 +0200
-Message-ID: <1437640258.4377.6.camel@suse.com>
-References: <1394712342-15778-148-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-150-Taiwan-albertk@realtek.com>
+From: Alban <albeu@free.fr>
+Subject: Re: [PATCH] MIPS: Remove most of the custom gpio.h
+Date: Thu, 23 Jul 2015 10:40:56 +0200
+Message-ID: <20150723104056.3cb903d0@tock>
+References: <1437586416-14735-1-git-send-email-albeu@free.fr>
+	<CAOLZvyE=PJUEzp7NqN+g9N1FASxSpfRJTV_uJeAppTxF3sRLhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-150-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Aban Bedel <albeu@free.fr>, Linux-MIPS <linux-mips@linux-mips.org>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Florian Fainelli <florian@openwrt.org>,
+	Joe Perches <joe@perches.com>,
+	Daniel Walter <dwalter@google.com>,
+	Sergey Ryazanov <ryazanov.s.a@gmail.com>,
+	Huacai Chen <chenhc@lemote.com>,
+	Andrew Bresticker <abrestic@chromium.org>,
+	James Hartley <james.hartley@imgtec.com>,
+	Paul Burton <paul.burton@imgtec.com>,
+	Waldemar Brodkorb <wbx@openadk.org>,
+	James Hogan <james.hogan@imgtec.com>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	Levente Kurusa <levex@linux.com>,
+	abdoulaye berthe <berth
+To: Manuel Lauss <manuel.lauss@gmail.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <CAOLZvyE=PJUEzp7NqN+g9N1FASxSpfRJTV_uJeAppTxF3sRLhQ@mail.gmail.com>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-07-23 at 15:09 +0800, Hayes Wang wrote:
-> Set needs_remote_wakeup only when the device supports it.
+On Wed, 22 Jul 2015 19:47:18 +0200
+Manuel Lauss <manuel.lauss@gmail.com> wrote:
+
+> On Wed, Jul 22, 2015 at 7:33 PM, Alban Bedel <albeu@free.fr> wrote:
+> > Currently CONFIG_ARCH_HAVE_CUSTOM_GPIO_H is defined for all MIPS
+> > machines, and each machine type provides its own gpio.h. However
+> > only the Alchemy machine really use the feature, all other machines
+> > only use the default wrappers.
+> >
+> > For most machine types we can just remove the custom gpio.h, as well
+> > as the custom wrappers if some exists. A few more fixes are need in
+> > a few drivers as they rely on linux/gpio.h to provides some machine
+> > specific definitions, or used asm/gpio.h instead of linux/gpio.h for
+> > the gpio API.
+> >
+> > Signed-off-by: Alban Bedel <albeu@free.fr>
+> > ---
+> >
+> > This patch is based on my previous serie:
+> > "MIPS: ath79: Move the GPIO driver to drivers/gpio".
+> >
+> > For testing I tried to build all mips defconfig, however my
+> > toolchain couldn't handle a few configs: ip28 malta_qemu_32r6
+> > maltasmvp_eva sead3micro. If somebody can test these that would be
+> > more than welcome.
+> >
+> > It might well be that some more drivers for MIPS devices that are
+> > not enabled in the defconfig will break because of this change, so
+> > more testing would be nice :)
+> >
+> > Regarding Alchemy I'm not sure what to do. It use a little more
+> > complex setup, quoting arch/mips/include/asm/mach-au1x00/gpio.h:
+> >
+> > /* Linux gpio framework integration.
+> > *
+> > * 4 use cases of Alchemy GPIOS:
+> > *(1) GPIOLIB=y, ALCHEMY_GPIO_INDIRECT=y:
+> > *       Board must register gpiochips.
+> > *(2) GPIOLIB=y, ALCHEMY_GPIO_INDIRECT=n:
+> > *       A gpiochip for the 75 GPIOs is registered.
+> > *
+> > *(3) GPIOLIB=n, ALCHEMY_GPIO_INDIRECT=y:
+> > *       the boards' gpio.h must provide the linux gpio wrapper
+> > functions,
+> > *
+> > *(4) GPIOLIB=n, ALCHEMY_GPIO_INDIRECT=n:
+> > *       inlinable gpio functions are provided which enable access
+> > to the
+> > *       Au1300 gpios only by using the numbers straight out of the
+> > data-
+> > *       sheets.
+> >
+> > * Cases 1 and 3 are intended for boards which want to provide their
+> > own
+> > * GPIO namespace and -operations (i.e. for example you have 8 GPIOs
+> > * which are in part provided by spare Au1300 GPIO pins and in part
+> > by
+> > * an external FPGA but you still want them to be accssible in linux
+> > * as gpio0-7. The board can of course use the alchemy_gpioX_*
+> > functions
+> > * as required).
+> > */
+> >
+> > This sound to me like this is really not needed anymore. Is there
+> > any users of this left, or can it just go?
 > 
-> Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-> ---
->  drivers/net/usb/r8152.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index e3a0110..eff1f25 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -4059,7 +4059,8 @@ static int rtl8152_probe(struct usb_interface *intf,
->  		break;
->  	}
->  
-> -	intf->needs_remote_wakeup = 1;
-> +	if (udev->actconfig->desc.bmAttributes & USB_CONFIG_ATT_WAKEUP)
-> +		intf->needs_remote_wakeup = 1;
+> There are no in-tree users of this, but a few out-of-tree ones (all
+> made by me) Does it have to be removed?  Is it blocking anything?
 
-Hi,
+It is not blocking anything, but I see little gain in it. Cases 1 and 3
+should nowadays be handled using normal GPIO drivers, and not with such
+platform specific constructs.
 
-this is most likely wrong. Usbcore does check for a device's ability to
-do remote wakeup and will block a runtime suspend if it detects that
-a remote wakeup would be required but the device cannot deliver.
-(static int autosuspend_check())
-
-So by removing the flag in the probe() method means that devices will
-suspend during operations without remote wakeup requested. Thus an
-incoming packet cannot wake them up.
-
-If you remove setting the flag on probe() you need to set it at open()
-[and reset on close()], as devices which cannot do remote wakeup must
-only be suspended when they are down.
-
-	Regards
-		Oliver
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alban
