@@ -1,32 +1,49 @@
 From: WingMan Kwok <w-kwok2@ti.com>
-Subject: [net-next PATCH v1 0/6] net: netcp: Bug fixes of CPSW statistics collection
-Date: Thu, 23 Jul 2015 15:57:18 -0400
-Message-ID: <1437681444-23109-1-git-send-email-w-kwok2@ti.com>
+Subject: [net-next PATCH v1 1/6] net: netcp: Fixes the use of spin_lock_bh in timer function
+Date: Thu, 23 Jul 2015 15:57:19 -0400
+Message-ID: <1437681444-23109-2-git-send-email-w-kwok2@ti.com>
+References: <1437681444-23109-1-git-send-email-w-kwok2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: WingMan Kwok <w-kwok2@ti.com>
 To: <davem@davemloft.net>, <m-karicheri2@ti.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437681444-23109-1-git-send-email-w-kwok2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set contains bug fixes and enhencements of hw ethernet
-statistics processing on TI's Keystone2 CPSW ethernet switches.
+This patch fixes a bug in which the timer routine synchronized
+against the ethtool-triggered statistics updates with spin_lock_bh().
+A timer function is itself a bottom-half, so this should be
+spin_lock().
 
-v1: Removes unused defines in PATCH 3/6 based on reviewer's comment
+Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+---
+ drivers/net/ethernet/ti/netcp_ethss.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-WingMan Kwok (6):
-  net: netcp: Fixes the use of spin_lock_bh in timer function
-  net: netcp: Fixes hw statistics module base setting error
-  net: netcp: Fixes error in oversized memory allocation for statistics
-    storage
-  net: netcp: Consolidates statistics collection code
-  net: netcp: Fixes to CPSW statistics collection
-  net: netcp: Adds missing statistics for K2L and K2E
-
- drivers/net/ethernet/ti/netcp_ethss.c |  403 ++++++++++++++++++++++++++-------
- 1 file changed, 324 insertions(+), 79 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index 9b7e0a3..cabf977 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -2189,14 +2189,15 @@ static void netcp_ethss_timer(unsigned long arg)
+ 		netcp_ethss_update_link_state(gbe_dev, slave, NULL);
+ 	}
+ 
+-	spin_lock_bh(&gbe_dev->hw_stats_lock);
++	/* A timer runs as a BH, no need to block them */
++	spin_lock(&gbe_dev->hw_stats_lock);
+ 
+ 	if (gbe_dev->ss_version == GBE_SS_VERSION_14)
+ 		gbe_update_stats_ver14(gbe_dev, NULL);
+ 	else
+ 		gbe_update_stats(gbe_dev, NULL);
+ 
+-	spin_unlock_bh(&gbe_dev->hw_stats_lock);
++	spin_unlock(&gbe_dev->hw_stats_lock);
+ 
+ 	gbe_dev->timer.expires	= jiffies + GBE_TIMER_INTERVAL;
+ 	add_timer(&gbe_dev->timer);
 -- 
 1.7.9.5
