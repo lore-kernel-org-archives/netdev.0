@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/4] mlxsw: Introduce Mellanox switch driver core
-Date: Thu, 23 Jul 2015 17:43:33 +0200
-Message-ID: <1437666216-3149-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/4] mlxsw: Add PCI bus implementation
+Date: Thu, 23 Jul 2015 17:43:34 +0200
+Message-ID: <1437666216-3149-3-git-send-email-jiri@resnulli.us>
 References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	ogerlitz@mellanox.com, sfeldma@gmail.com,
@@ -13,1222 +13,71 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	Jiri Pirko <jiri@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:32918 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752896AbbGWPnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 11:43:46 -0400
-Received: by wicmv11 with SMTP id mv11so29737074wic.0
-        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 08:43:44 -0700 (PDT)
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:37823 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753231AbbGWPnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 11:43:49 -0400
+Received: by wibud3 with SMTP id ud3so225330572wib.0
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 08:43:47 -0700 (PDT)
 In-Reply-To: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add core components of Mellanox switch driver infrastructure.
-Core infrastructure is designed so that it can be used by multiple
-bus drivers (PCI now, I2C and SGMII are planned to be implemented
-in the future). Multiple switch kind drivers can be registered as well.
-This core serves as a glue between buses and drivers.
+Add PCI bus implementation for Mellanox Technologies Switch ASICs. This
+includes firmware initialization, async queues manipulation and command
+interface implementation.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Elad Raz <eladr@mellanox.com>
 ---
- MAINTAINERS                                  |    9 +
- drivers/net/ethernet/mellanox/Kconfig        |    1 +
- drivers/net/ethernet/mellanox/Makefile       |    1 +
- drivers/net/ethernet/mellanox/mlxsw/Kconfig  |   11 +
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig  |   10 +
  drivers/net/ethernet/mellanox/mlxsw/Makefile |    2 +
- drivers/net/ethernet/mellanox/mlxsw/cmd.h    | 1090 ++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/core.c   |  551 +++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/core.h   |  180 +++++
- drivers/net/ethernet/mellanox/mlxsw/item.h   |  405 ++++++++++
- drivers/net/ethernet/mellanox/mlxsw/port.h   |   50 ++
- drivers/net/ethernet/mellanox/mlxsw/trap.h   |   68 ++
- 11 files changed, 2368 insertions(+)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/Kconfig
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/Makefile
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/cmd.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/item.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/port.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/trap.h
+ drivers/net/ethernet/mellanox/mlxsw/pci.c    | 1786 ++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/pci.h    |  220 ++++
+ 4 files changed, 2018 insertions(+)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/pci.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/pci.h
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index a226416..da41267 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6645,6 +6645,15 @@ W:	http://www.mellanox.com
- Q:	http://patchwork.ozlabs.org/project/netdev/list/
- F:	drivers/net/ethernet/mellanox/mlx4/en_*
- 
-+MELLANOX ETHERNET SWITCH DRIVERS
-+M:	Jiri Pirko <jiri@mellanox.com>
-+M:	Ido Schimmel <idosch@mellanox.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+W:	http://www.mellanox.com
-+Q:	http://patchwork.ozlabs.org/project/netdev/list/
-+F:	drivers/net/ethernet/mellanox/mlxsw/
-+
- MEMORY MANAGEMENT
- L:	linux-mm@kvack.org
- W:	http://www.linux-mm.org
-diff --git a/drivers/net/ethernet/mellanox/Kconfig b/drivers/net/ethernet/mellanox/Kconfig
-index 52a6665..d547010 100644
---- a/drivers/net/ethernet/mellanox/Kconfig
-+++ b/drivers/net/ethernet/mellanox/Kconfig
-@@ -18,5 +18,6 @@ if NET_VENDOR_MELLANOX
- 
- source "drivers/net/ethernet/mellanox/mlx4/Kconfig"
- source "drivers/net/ethernet/mellanox/mlx5/core/Kconfig"
-+source "drivers/net/ethernet/mellanox/mlxsw/Kconfig"
- 
- endif # NET_VENDOR_MELLANOX
-diff --git a/drivers/net/ethernet/mellanox/Makefile b/drivers/net/ethernet/mellanox/Makefile
-index 38fe32ef..2e2a5ec 100644
---- a/drivers/net/ethernet/mellanox/Makefile
-+++ b/drivers/net/ethernet/mellanox/Makefile
-@@ -4,3 +4,4 @@
- 
- obj-$(CONFIG_MLX4_CORE) += mlx4/
- obj-$(CONFIG_MLX5_CORE) += mlx5/core/
-+obj-$(CONFIG_MLXSW_CORE) += mlxsw/
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-new file mode 100644
-index 0000000..46268f2
---- /dev/null
+index 46268f2..1385f2c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
 +++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
-@@ -0,0 +1,11 @@
-+#
-+# Mellanox switch drivers configuration
-+#
+@@ -9,3 +9,13 @@ config MLXSW_CORE
+ 
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called mlxsw_core.
 +
-+config MLXSW_CORE
-+	tristate "Mellanox Technologies Switch ASICs support"
++config MLXSW_PCI
++	tristate "PCI bus implementation for Mellanox Technologies Switch ASICs"
++	depends on PCI && MLXSW_CORE
++	default m
 +	---help---
-+	  This driver supports Mellanox Technologies Switch ASICs family.
++	  This is PCI bus implementation for Mellanox Technologies Switch ASICs.
 +
 +	  To compile this driver as a module, choose M here: the
-+	  module will be called mlxsw_core.
++	  module will be called mlxsw_pci.
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-new file mode 100644
-index 0000000..271de28
---- /dev/null
+index 271de28..94841c3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
 +++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -0,0 +1,2 @@
-+obj-$(CONFIG_MLXSW_CORE)	+= mlxsw_core.o
-+mlxsw_core-objs			:= core.o
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/cmd.h b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
+@@ -1,2 +1,4 @@
+ obj-$(CONFIG_MLXSW_CORE)	+= mlxsw_core.o
+ mlxsw_core-objs			:= core.o
++obj-$(CONFIG_MLXSW_PCI)		+= mlxsw_pci.o
++mlxsw_pci-objs			:= pci.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
 new file mode 100644
-index 0000000..770db17
+index 0000000..8371e08
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-@@ -0,0 +1,1090 @@
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -0,0 +1,1786 @@
 +/*
-+ * drivers/net/ethernet/mellanox/mlxsw/cmd.h
++ * drivers/net/ethernet/mellanox/mlxsw/pci.c
 + * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
 + * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef _MLXSW_CMD_H
-+#define _MLXSW_CMD_H
-+
-+#include "item.h"
-+
-+#define MLXSW_CMD_MBOX_SIZE	4096
-+
-+static inline char *mlxsw_cmd_mbox_alloc(void)
-+{
-+	return kzalloc(MLXSW_CMD_MBOX_SIZE, GFP_KERNEL);
-+}
-+
-+static inline void mlxsw_cmd_mbox_free(char *mbox)
-+{
-+	kfree(mbox);
-+}
-+
-+static inline void mlxsw_cmd_mbox_zero(char *mbox)
-+{
-+	memset(mbox, 0, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+struct mlxsw_core;
-+
-+int mlxsw_cmd_exec(struct mlxsw_core *mlxsw_core, u16 opcode, u8 opcode_mod,
-+		   u32 in_mod, bool out_mbox_direct,
-+		   char *in_mbox, size_t in_mbox_size,
-+		   char *out_mbox, size_t out_mbox_size);
-+
-+static inline int mlxsw_cmd_exec_in(struct mlxsw_core *mlxsw_core, u16 opcode,
-+				    u8 opcode_mod, u32 in_mod, char *in_mbox,
-+				    size_t in_mbox_size)
-+{
-+	return mlxsw_cmd_exec(mlxsw_core, opcode, opcode_mod, in_mod, false,
-+			      in_mbox, in_mbox_size, NULL, 0);
-+}
-+
-+static inline int mlxsw_cmd_exec_out(struct mlxsw_core *mlxsw_core, u16 opcode,
-+				     u8 opcode_mod, u32 in_mod,
-+				     bool out_mbox_direct,
-+				     char *out_mbox, size_t out_mbox_size)
-+{
-+	return mlxsw_cmd_exec(mlxsw_core, opcode, opcode_mod, in_mod,
-+			      out_mbox_direct, NULL, 0,
-+			      out_mbox, out_mbox_size);
-+}
-+
-+static inline int mlxsw_cmd_exec_none(struct mlxsw_core *mlxsw_core, u16 opcode,
-+				      u8 opcode_mod, u32 in_mod)
-+{
-+	return mlxsw_cmd_exec(mlxsw_core, opcode, opcode_mod, in_mod, false,
-+			      NULL, 0, NULL, 0);
-+}
-+
-+enum mlxsw_cmd_opcode {
-+	MLXSW_CMD_OPCODE_QUERY_FW		= 0x004,
-+	MLXSW_CMD_OPCODE_QUERY_BOARDINFO	= 0x006,
-+	MLXSW_CMD_OPCODE_QUERY_AQ_CAP		= 0x003,
-+	MLXSW_CMD_OPCODE_MAP_FA			= 0xFFF,
-+	MLXSW_CMD_OPCODE_UNMAP_FA		= 0xFFE,
-+	MLXSW_CMD_OPCODE_CONFIG_PROFILE		= 0x100,
-+	MLXSW_CMD_OPCODE_ACCESS_REG		= 0x040,
-+	MLXSW_CMD_OPCODE_SW2HW_DQ		= 0x201,
-+	MLXSW_CMD_OPCODE_HW2SW_DQ		= 0x202,
-+	MLXSW_CMD_OPCODE_2ERR_DQ		= 0x01E,
-+	MLXSW_CMD_OPCODE_QUERY_DQ		= 0x022,
-+	MLXSW_CMD_OPCODE_SW2HW_CQ		= 0x016,
-+	MLXSW_CMD_OPCODE_HW2SW_CQ		= 0x017,
-+	MLXSW_CMD_OPCODE_QUERY_CQ		= 0x018,
-+	MLXSW_CMD_OPCODE_SW2HW_EQ		= 0x013,
-+	MLXSW_CMD_OPCODE_HW2SW_EQ		= 0x014,
-+	MLXSW_CMD_OPCODE_QUERY_EQ		= 0x015,
-+};
-+
-+static inline const char *mlxsw_cmd_opcode_str(u16 opcode)
-+{
-+	switch (opcode) {
-+	case MLXSW_CMD_OPCODE_QUERY_FW:
-+		return "QUERY_FW";
-+	case MLXSW_CMD_OPCODE_QUERY_BOARDINFO:
-+		return "QUERY_BOARDINFO";
-+	case MLXSW_CMD_OPCODE_QUERY_AQ_CAP:
-+		return "QUERY_AQ_CAP";
-+	case MLXSW_CMD_OPCODE_MAP_FA:
-+		return "MAP_FA";
-+	case MLXSW_CMD_OPCODE_UNMAP_FA:
-+		return "UNMAP_FA";
-+	case MLXSW_CMD_OPCODE_CONFIG_PROFILE:
-+		return "CONFIG_PROFILE";
-+	case MLXSW_CMD_OPCODE_ACCESS_REG:
-+		return "ACCESS_REG";
-+	case MLXSW_CMD_OPCODE_SW2HW_DQ:
-+		return "SW2HW_DQ";
-+	case MLXSW_CMD_OPCODE_HW2SW_DQ:
-+		return "HW2SW_DQ";
-+	case MLXSW_CMD_OPCODE_2ERR_DQ:
-+		return "2ERR_DQ";
-+	case MLXSW_CMD_OPCODE_QUERY_DQ:
-+		return "QUERY_DQ";
-+	case MLXSW_CMD_OPCODE_SW2HW_CQ:
-+		return "SW2HW_CQ";
-+	case MLXSW_CMD_OPCODE_HW2SW_CQ:
-+		return "HW2SW_CQ";
-+	case MLXSW_CMD_OPCODE_QUERY_CQ:
-+		return "QUERY_CQ";
-+	case MLXSW_CMD_OPCODE_SW2HW_EQ:
-+		return "SW2HW_EQ";
-+	case MLXSW_CMD_OPCODE_HW2SW_EQ:
-+		return "HW2SW_EQ";
-+	case MLXSW_CMD_OPCODE_QUERY_EQ:
-+		return "QUERY_EQ";
-+	default:
-+		return "*UNKNOWN*";
-+	}
-+}
-+
-+enum mlxsw_cmd_status {
-+	/* Command execution succeeded. */
-+	MLXSW_CMD_STATUS_OK		= 0x00,
-+	/* Internal error (e.g. bus error) occurred while processing command. */
-+	MLXSW_CMD_STATUS_INTERNAL_ERR	= 0x01,
-+	/* Operation/command not supported or opcode modifier not supported. */
-+	MLXSW_CMD_STATUS_BAD_OP		= 0x02,
-+	/* Parameter not supported, parameter out of range. */
-+	MLXSW_CMD_STATUS_BAD_PARAM	= 0x03,
-+	/* System was not enabled or bad system state. */
-+	MLXSW_CMD_STATUS_BAD_SYS_STATE	= 0x04,
-+	/* Attempt to access reserved or unallocated resource, or resource in
-+	 * inappropriate ownership.
-+	 */
-+	MLXSW_CMD_STATUS_BAD_RESOURCE	= 0x05,
-+	/* Requested resource is currently executing a command. */
-+	MLXSW_CMD_STATUS_RESOURCE_BUSY	= 0x06,
-+	/* Required capability exceeds device limits. */
-+	MLXSW_CMD_STATUS_EXCEED_LIM	= 0x08,
-+	/* Resource is not in the appropriate state or ownership. */
-+	MLXSW_CMD_STATUS_BAD_RES_STATE	= 0x09,
-+	/* Index out of range (might be beyond table size or attempt to
-+	 * access a reserved resource).
-+	 */
-+	MLXSW_CMD_STATUS_BAD_INDEX	= 0x0A,
-+	/* NVMEM checksum/CRC failed. */
-+	MLXSW_CMD_STATUS_BAD_NVMEM	= 0x0B,
-+	/* Bad management packet (silently discarded). */
-+	MLXSW_CMD_STATUS_BAD_PKT	= 0x30,
-+};
-+
-+static inline const char *mlxsw_cmd_status_str(u8 status)
-+{
-+	switch (status) {
-+	case MLXSW_CMD_STATUS_OK:
-+		return "OK";
-+	case MLXSW_CMD_STATUS_INTERNAL_ERR:
-+		return "INTERNAL_ERR";
-+	case MLXSW_CMD_STATUS_BAD_OP:
-+		return "BAD_OP";
-+	case MLXSW_CMD_STATUS_BAD_PARAM:
-+		return "BAD_PARAM";
-+	case MLXSW_CMD_STATUS_BAD_SYS_STATE:
-+		return "BAD_SYS_STATE";
-+	case MLXSW_CMD_STATUS_BAD_RESOURCE:
-+		return "BAD_RESOURCE";
-+	case MLXSW_CMD_STATUS_RESOURCE_BUSY:
-+		return "RESOURCE_BUSY";
-+	case MLXSW_CMD_STATUS_EXCEED_LIM:
-+		return "EXCEED_LIM";
-+	case MLXSW_CMD_STATUS_BAD_RES_STATE:
-+		return "BAD_RES_STATE";
-+	case MLXSW_CMD_STATUS_BAD_INDEX:
-+		return "BAD_INDEX";
-+	case MLXSW_CMD_STATUS_BAD_NVMEM:
-+		return "BAD_NVMEM";
-+	case MLXSW_CMD_STATUS_BAD_PKT:
-+		return "BAD_PKT";
-+	default:
-+		return "*UNKNOWN*";
-+	}
-+}
-+
-+/* QUERY_FW - Query Firmware
-+ * -------------------------
-+ * OpMod == 0, INMmod == 0
-+ * -----------------------
-+ * The QUERY_FW command retrieves information related to firmware, command
-+ * interface version and the amount of resources that should be allocated to
-+ * the firmware.
-+ */
-+
-+static inline int mlxsw_cmd_query_fw(struct mlxsw_core *mlxsw_core,
-+				     char *out_mbox)
-+{
-+	return mlxsw_cmd_exec_out(mlxsw_core, MLXSW_CMD_OPCODE_QUERY_FW,
-+				  0, 0, false, out_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* cmd_mbox_query_fw_fw_pages
-+ * Amount of physical memory to be allocatedfor firmware usage in 4KB pages.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_pages, 0x00, 16, 16);
-+
-+/* cmd_mbox_query_fw_fw_rev_major
-+ * Firmware Revision - Major
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_rev_major, 0x00, 0, 16);
-+
-+/* cmd_mbox_query_fw_fw_rev_subminor
-+ * Firmware Sub-minor version (Patch level)
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_rev_subminor, 0x04, 16, 16);
-+
-+/* cmd_mbox_query_fw_fw_rev_minor
-+ * Firmware Revision - Minor
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_rev_minor, 0x04, 0, 16);
-+
-+/* cmd_mbox_query_fw_core_clk
-+ * Internal Clock Frequency (in MHz)
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, core_clk, 0x08, 16, 16);
-+
-+/* cmd_mbox_query_fw_cmd_interface_rev
-+ * Command Interface Interpreter Revision ID. This number is bumped up
-+ * every time a non-backward-compatible change is done for the command
-+ * interface. The current cmd_interface_rev is 1.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, cmd_interface_rev, 0x08, 0, 16);
-+
-+/* cmd_mbox_query_fw_dt
-+ * If set, Debug Trace is supported
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, dt, 0x0C, 31, 1);
-+
-+/* cmd_mbox_query_fw_api_version
-+ * Indicates the version of the API, to enable software querying
-+ * for compatibility. The current api_version is 1.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, api_version, 0x0C, 0, 16);
-+
-+/* cmd_mbox_query_fw_fw_hour
-+ * Firmware timestamp - hour
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_hour, 0x10, 24, 8);
-+
-+/* cmd_mbox_query_fw_fw_minutes
-+ * Firmware timestamp - minutes
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_minutes, 0x10, 16, 8);
-+
-+/* cmd_mbox_query_fw_fw_seconds
-+ * Firmware timestamp - seconds
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_seconds, 0x10, 8, 8);
-+
-+/* cmd_mbox_query_fw_fw_year
-+ * Firmware timestamp - year
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_year, 0x14, 16, 16);
-+
-+/* cmd_mbox_query_fw_fw_month
-+ * Firmware timestamp - month
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_month, 0x14, 8, 8);
-+
-+/* cmd_mbox_query_fw_fw_day
-+ * Firmware timestamp - day
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, fw_day, 0x14, 0, 8);
-+
-+/* cmd_mbox_query_fw_clr_int_base_offset
-+ * Clear Interrupt register's offset from clr_int_bar register
-+ * in PCI address space.
-+ */
-+MLXSW_ITEM64(cmd_mbox, query_fw, clr_int_base_offset, 0x20, 0, 64);
-+
-+/* cmd_mbox_query_fw_clr_int_bar
-+ * PCI base address register (BAR) where clr_int register is located.
-+ * 00 - BAR 0-1 (64 bit BAR)
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, clr_int_bar, 0x28, 30, 2);
-+
-+/* cmd_mbox_query_fw_error_buf_offset
-+ * Read Only buffer for internal error reports of offset
-+ * from error_buf_bar register in PCI address space).
-+ */
-+MLXSW_ITEM64(cmd_mbox, query_fw, error_buf_offset, 0x30, 0, 64);
-+
-+/* cmd_mbox_query_fw_error_buf_size
-+ * Internal error buffer size in DWORDs
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, error_buf_size, 0x38, 0, 32);
-+
-+/* cmd_mbox_query_fw_error_int_bar
-+ * PCI base address register (BAR) where error buffer
-+ * register is located.
-+ * 00 - BAR 0-1 (64 bit BAR)
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, error_int_bar, 0x3C, 30, 2);
-+
-+/* cmd_mbox_query_fw_doorbell_page_offset
-+ * Offset of the doorbell page
-+ */
-+MLXSW_ITEM64(cmd_mbox, query_fw, doorbell_page_offset, 0x40, 0, 64);
-+
-+/* cmd_mbox_query_fw_doorbell_page_bar
-+ * PCI base address register (BAR) of the doorbell page
-+ * 00 - BAR 0-1 (64 bit BAR)
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_fw, doorbell_page_bar, 0x48, 30, 2);
-+
-+/* QUERY_BOARDINFO - Query Board Information
-+ * -----------------------------------------
-+ * OpMod == 0 (N/A), INMmod == 0 (N/A)
-+ * -----------------------------------
-+ * The QUERY_BOARDINFO command retrieves adapter specific parameters.
-+ */
-+
-+static inline int mlxsw_cmd_boardinfo(struct mlxsw_core *mlxsw_core,
-+				      char *out_mbox)
-+{
-+	return mlxsw_cmd_exec_out(mlxsw_core, MLXSW_CMD_OPCODE_QUERY_BOARDINFO,
-+				  0, 0, false, out_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* cmd_mbox_boardinfo_intapin
-+ * When PCIe interrupt messages are being used, this value is used for clearing
-+ * an interrupt. When using MSI-X, this register is not used.
-+ */
-+MLXSW_ITEM32(cmd_mbox, boardinfo, intapin, 0x10, 24, 8);
-+
-+/* cmd_mbox_boardinfo_vsd_vendor_id
-+ * PCISIG Vendor ID (www.pcisig.com/membership/vid_search) of the vendor
-+ * specifying/formatting the VSD. The vsd_vendor_id identifies the management
-+ * domain of the VSD/PSID data. Different vendors may choose different VSD/PSID
-+ * format and encoding as long as they use their assigned vsd_vendor_id.
-+ */
-+MLXSW_ITEM32(cmd_mbox, boardinfo, vsd_vendor_id, 0x1C, 0, 16);
-+
-+/* cmd_mbox_boardinfo_vsd
-+ * Vendor Specific Data. The VSD string that is burnt to the Flash
-+ * with the firmware.
-+ */
-+#define MLXSW_CMD_BOARDINFO_VSD_LEN 208
-+MLXSW_ITEM_BUF(cmd_mbox, boardinfo, vsd, 0x20, MLXSW_CMD_BOARDINFO_VSD_LEN);
-+
-+/* cmd_mbox_boardinfo_psid
-+ * The PSID field is a 16-ascii (byte) character string which acts as
-+ * the board ID. The PSID format is used in conjunction with
-+ * Mellanox vsd_vendor_id (15B3h).
-+ */
-+#define MLXSW_CMD_BOARDINFO_PSID_LEN 16
-+MLXSW_ITEM_BUF(cmd_mbox, boardinfo, psid, 0xF0, MLXSW_CMD_BOARDINFO_PSID_LEN);
-+
-+/* QUERY_AQ_CAP - Query Asynchronous Queues Capabilities
-+ * -----------------------------------------------------
-+ * OpMod == 0 (N/A), INMmod == 0 (N/A)
-+ * -----------------------------------
-+ * The QUERY_AQ_CAP command returns the device asynchronous queues
-+ * capabilities supported.
-+ */
-+
-+static inline int mlxsw_cmd_query_aq_cap(struct mlxsw_core *mlxsw_core,
-+					 char *out_mbox)
-+{
-+	return mlxsw_cmd_exec_out(mlxsw_core, MLXSW_CMD_OPCODE_QUERY_AQ_CAP,
-+				  0, 0, false, out_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* cmd_mbox_query_aq_cap_log_max_sdq_sz
-+ * Log (base 2) of max WQEs allowed on SDQ.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, log_max_sdq_sz, 0x00, 24, 8);
-+
-+/* cmd_mbox_query_aq_cap_max_num_sdqs
-+ * Maximum number of SDQs.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, max_num_sdqs, 0x00, 0, 8);
-+
-+/* cmd_mbox_query_aq_cap_log_max_rdq_sz
-+ * Log (base 2) of max WQEs allowed on RDQ.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, log_max_rdq_sz, 0x04, 24, 8);
-+
-+/* cmd_mbox_query_aq_cap_max_num_rdqs
-+ * Maximum number of RDQs.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, max_num_rdqs, 0x04, 0, 8);
-+
-+/* cmd_mbox_query_aq_cap_log_max_cq_sz
-+ * Log (base 2) of max CQEs allowed on CQ.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, log_max_cq_sz, 0x08, 24, 8);
-+
-+/* cmd_mbox_query_aq_cap_max_num_cqs
-+ * Maximum number of CQs.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, max_num_cqs, 0x08, 0, 8);
-+
-+/* cmd_mbox_query_aq_cap_log_max_eq_sz
-+ * Log (base 2) of max EQEs allowed on EQ.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, log_max_eq_sz, 0x0C, 24, 8);
-+
-+/* cmd_mbox_query_aq_cap_max_num_eqs
-+ * Maximum number of EQs.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, max_num_eqs, 0x0C, 0, 8);
-+
-+/* cmd_mbox_query_aq_cap_max_sg_sq
-+ * The maximum S/G list elements in an DSQ. DSQ must not contain
-+ * more S/G entries than indicated here.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, max_sg_sq, 0x10, 8, 8);
-+
-+/* cmd_mbox_query_aq_cap_
-+ * The maximum S/G list elements in an DRQ. DRQ must not contain
-+ * more S/G entries than indicated here.
-+ */
-+MLXSW_ITEM32(cmd_mbox, query_aq_cap, max_sg_rq, 0x10, 0, 8);
-+
-+/* MAP_FA - Map Firmware Area
-+ * --------------------------
-+ * OpMod == 0 (N/A), INMmod == Number of VPM entries
-+ * -------------------------------------------------
-+ * The MAP_FA command passes physical pages to the switch. These pages
-+ * are used to store the device firmware. MAP_FA can be executed multiple
-+ * times until all the firmware area is mapped (the size that should be
-+ * mapped is retrieved through the QUERY_FW command). All required pages
-+ * must be mapped to finish the initialization phase. Physical memory
-+ * passed in this command must be pinned.
-+ */
-+
-+static inline int mlxsw_cmd_map_fa(struct mlxsw_core *mlxsw_core,
-+				   char *in_mbox, u32 vpm_entries_count)
-+{
-+	return mlxsw_cmd_exec_in(mlxsw_core, MLXSW_CMD_OPCODE_MAP_FA,
-+				 0, vpm_entries_count,
-+				 in_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* cmd_mbox_map_fa_pa
-+ * Physical Address.
-+ */
-+MLXSW_ITEM64_INDEXED(cmd_mbox, map_fa, pa, 0x00, 12, 52, 0x08, 0x00, true);
-+
-+/* cmd_mbox_map_fa_log2size
-+ * Log (base 2) of the size in 4KB pages of the physical and contiguous memory
-+ * that starts at PA_L/H.
-+ */
-+MLXSW_ITEM32_INDEXED(cmd_mbox, map_fa, log2size, 0x00, 0, 5, 0x08, 0x04, false);
-+
-+/* UNMAP_FA - Unmap Firmware Area
-+ * ------------------------------
-+ * OpMod == 0 (N/A), INMmod == 0 (N/A)
-+ * -----------------------------------
-+ * The UNMAP_FA command unload the firmware and unmaps all the
-+ * firmware area. After this command is completed the device will not access
-+ * the pages that were mapped to the firmware area. After executing UNMAP_FA
-+ * command, software reset must be done prior to execution of MAP_FW command.
-+ */
-+
-+static inline int mlxsw_cmd_unmap_fa(struct mlxsw_core *mlxsw_core)
-+{
-+	return mlxsw_cmd_exec_none(mlxsw_core, MLXSW_CMD_OPCODE_UNMAP_FA, 0, 0);
-+}
-+
-+/* CONFIG_PROFILE (Set) - Configure Switch Profile
-+ * ------------------------------
-+ * OpMod == 1 (Set), INMmod == 0 (N/A)
-+ * -----------------------------------
-+ * The CONFIG_PROFILE command sets the switch profile. The command can be
-+ * executed on the device only once at startup in order to allocate and
-+ * configure all switch resources and prepare it for operational mode.
-+ * It is not possible to change the device profile after the chip is
-+ * in operational mode.
-+ * Failure of the CONFIG_PROFILE command leaves the hardware in an indeterminate
-+ * state therefore it is required to perform software reset to the device
-+ * following an unsuccessful completion of the command. It is required
-+ * to perform software reset to the device to change an existing profile.
-+ */
-+
-+static inline int mlxsw_cmd_config_profile_set(struct mlxsw_core *mlxsw_core,
-+					       char *in_mbox)
-+{
-+	return mlxsw_cmd_exec_in(mlxsw_core, MLXSW_CMD_OPCODE_CONFIG_PROFILE,
-+				 1, 0, in_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* cmd_mbox_config_profile_set_max_vepa_channels
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_vepa_channels, 0x0C, 0, 1);
-+
-+/* cmd_mbox_config_profile_set_max_lag
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_lag, 0x0C, 1, 1);
-+
-+/* cmd_mbox_config_profile_set_max_port_per_lag
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_port_per_lag, 0x0C, 2, 1);
-+
-+/* cmd_mbox_config_profile_set_max_mid
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_mid, 0x0C, 3, 1);
-+
-+/* cmd_mbox_config_profile_set_max_pgt
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_pgt, 0x0C, 4, 1);
-+
-+/* cmd_mbox_config_profile_set_max_system_port
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_system_port, 0x0C, 5, 1);
-+
-+/* cmd_mbox_config_profile_set_max_vlan_groups
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_vlan_groups, 0x0C, 6, 1);
-+
-+/* cmd_mbox_config_profile_set_max_regions
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_regions, 0x0C, 7, 1);
-+
-+/* cmd_mbox_config_profile_set_fid_based
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_flood_mode, 0x0C, 8, 1);
-+
-+/* cmd_mbox_config_profile_set_max_flood_tables
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_flood_tables, 0x0C, 9, 1);
-+
-+/* cmd_mbox_config_profile_set_max_ib_mc
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_ib_mc, 0x0C, 12, 1);
-+
-+/* cmd_mbox_config_profile_set_max_pkey
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_max_pkey, 0x0C, 13, 1);
-+
-+/* cmd_mbox_config_profile_set_adaptive_routing_group_cap
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile,
-+	     set_adaptive_routing_group_cap, 0x0C, 14, 1);
-+
-+/* cmd_mbox_config_profile_set_ar_sec
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_ar_sec, 0x0C, 15, 1);
-+
-+/* cmd_mbox_config_profile_max_vepa_channels
-+ * Maximum number of VEPA channels per port (0 through 16)
-+ * 0 - multi-channel VEPA is disabled
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_vepa_channels, 0x10, 0, 8);
-+
-+/* cmd_mbox_config_profile_max_lag
-+ * Maximum number of LAG IDs requested.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_lag, 0x14, 0, 16);
-+
-+/* cmd_mbox_config_profile_max_port_per_lag
-+ * Maximum number of ports per LAG requested.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_port_per_lag, 0x18, 0, 16);
-+
-+/* cmd_mbox_config_profile_max_mid
-+ * Maximum Multicast IDs.
-+ * Multicast IDs are allocated from 0 to max_mid-1
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_mid, 0x1C, 0, 16);
-+
-+/* cmd_mbox_config_profile_max_pgt
-+ * Maximum records in the Port Group Table per Switch Partition.
-+ * Port Group Table indexes are from 0 to max_pgt-1
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_pgt, 0x20, 0, 16);
-+
-+/* cmd_mbox_config_profile_max_system_port
-+ * The maximum number of system ports that can be allocated.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_system_port, 0x24, 0, 16);
-+
-+/* cmd_mbox_config_profile_max_vlan_groups
-+ * Maximum number VLAN Groups for VLAN binding.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_vlan_groups, 0x28, 0, 12);
-+
-+/* cmd_mbox_config_profile_max_regions
-+ * Maximum number of TCAM Regions.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_regions, 0x2C, 0, 16);
-+
-+/* cmd_mbox_config_profile_max_flood_tables
-+ * Maximum number of Flooding Tables. Flooding Tables are associated to
-+ * the different packet types for the different switch partitions.
-+ * Note that the table size depends on the fid_based mode.
-+ * In SwitchX silicon, tables are split equally between the switch
-+ * partitions. e.g. for 2 swids and 8 tables, the first 4 are associated
-+ * with swid-1 and the last 4 are associated with swid-2.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_flood_tables, 0x30, 16, 4);
-+
-+/* cmd_mbox_config_profile_max_vid_flood_tables
-+ * Maximum number of per-vid flooding tables. Flooding tables are associated
-+ * to the different packet types for the different switch partitions.
-+ * Table size is 4K entries covering all VID space.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_vid_flood_tables, 0x30, 8, 4);
-+
-+/* cmd_mbox_config_profile_fid_based
-+ * FID Based Flood Mode
-+ * 00 Do not use FID to offset the index into the Port Group Table/Multicast ID
-+ * 01 Use FID to offset the index to the Port Group Table (pgi)
-+ * 10 Use FID to offset the index to the Port Group Table (pgi) and
-+ * the Multicast ID
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, flood_mode, 0x30, 0, 2);
-+
-+/* cmd_mbox_config_profile_max_ib_mc
-+ * Maximum number of multicast FDB records for InfiniBand
-+ * FDB (in 512 chunks) per InfiniBand switch partition.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_ib_mc, 0x40, 0, 15);
-+
-+/* cmd_mbox_config_profile_max_pkey
-+ * Maximum per port PKEY table size (for PKEY enforcement)
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, max_pkey, 0x44, 0, 15);
-+
-+/* cmd_mbox_config_profile_ar_sec
-+ * Primary/secondary capability
-+ * Describes the number of adaptive routing sub-groups
-+ * 0 - disable primary/secondary (single group)
-+ * 1 - enable primary/secondary (2 sub-groups)
-+ * 2 - 3 sub-groups: Not supported in SwitchX, SwitchX-2
-+ * 3 - 4 sub-groups: Not supported in SwitchX, SwitchX-2
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, ar_sec, 0x4C, 24, 2);
-+
-+/* cmd_mbox_config_profile_adaptive_routing_group_cap
-+ * Adaptive Routing Group Capability. Indicates the number of AR groups
-+ * supported. Note that when Primary/secondary is enabled, each
-+ * primary/secondary couple consumes 2 adaptive routing entries.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, adaptive_routing_group_cap, 0x4C, 0, 16);
-+
-+/* cmd_mbox_config_profile_arn
-+ * Adaptive Routing Notification Enable
-+ * Not supported in SwitchX, SwitchX-2
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, arn, 0x50, 31, 1);
-+
-+/* cmd_mbox_config_profile_swid_config_mask
-+ * Modify Switch Partition Configuration mask. When set, the configu-
-+ * ration value for the Switch Partition are taken from the mailbox.
-+ * When clear, the current configuration values are used.
-+ * Bit 0 - set type
-+ * Bit 1 - properties
-+ * Other - reserved
-+ */
-+MLXSW_ITEM32_INDEXED(cmd_mbox, config_profile, swid_config_mask,
-+		     0x60, 24, 8, 0x08, 0x00, false);
-+
-+/* cmd_mbox_config_profile_swid_config_type
-+ * Switch Partition type.
-+ * 0000 - disabled (Switch Partition does not exist)
-+ * 0001 - InfiniBand
-+ * 0010 - Ethernet
-+ * 1000 - router port (SwitchX-2 only)
-+ * Other - reserved
-+ */
-+MLXSW_ITEM32_INDEXED(cmd_mbox, config_profile, swid_config_type,
-+		     0x60, 20, 4, 0x08, 0x00, false);
-+
-+/* cmd_mbox_config_profile_swid_config_properties
-+ * Switch Partition properties.
-+ */
-+MLXSW_ITEM32_INDEXED(cmd_mbox, config_profile, swid_config_properties,
-+		     0x60, 0, 8, 0x08, 0x00, false);
-+
-+/* ACCESS_REG - Access EMAD Supported Register
-+ * ----------------------------------
-+ * OpMod == 0 (N/A), INMmod == 0 (N/A)
-+ * -------------------------------------
-+ * The ACCESS_REG command supports accessing device registers. This access
-+ * is mainly used for bootstrapping.
-+ */
-+
-+static inline int mlxsw_cmd_access_reg(struct mlxsw_core *mlxsw_core,
-+				       char *in_mbox, char *out_mbox)
-+{
-+	return mlxsw_cmd_exec(mlxsw_core, MLXSW_CMD_OPCODE_ACCESS_REG,
-+			      0, 0, false, in_mbox, MLXSW_CMD_MBOX_SIZE,
-+			      out_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* SW2HW_DQ - Software to Hardware DQ
-+ * ----------------------------------
-+ * OpMod == 0 (send DQ) / OpMod == 1 (receive DQ)
-+ * INMmod == DQ number
-+ * ----------------------------------------------
-+ * The SW2HW_DQ command transitions a descriptor queue from software to
-+ * hardware ownership. The command enables posting WQEs and ringing DoorBells
-+ * on the descriptor queue.
-+ */
-+
-+static inline int __mlxsw_cmd_sw2hw_dq(struct mlxsw_core *mlxsw_core,
-+				       char *in_mbox, u32 dq_number,
-+				       u8 opcode_mod)
-+{
-+	return mlxsw_cmd_exec_in(mlxsw_core, MLXSW_CMD_OPCODE_SW2HW_DQ,
-+				 opcode_mod, dq_number,
-+				 in_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+enum {
-+	MLXSW_CMD_OPCODE_MOD_SDQ = 0,
-+	MLXSW_CMD_OPCODE_MOD_RDQ = 1,
-+};
-+
-+static inline int mlxsw_cmd_sw2hw_sdq(struct mlxsw_core *mlxsw_core,
-+				      char *in_mbox, u32 dq_number)
-+{
-+	return __mlxsw_cmd_sw2hw_dq(mlxsw_core, in_mbox, dq_number,
-+				    MLXSW_CMD_OPCODE_MOD_SDQ);
-+}
-+
-+static inline int mlxsw_cmd_sw2hw_rdq(struct mlxsw_core *mlxsw_core,
-+				      char *in_mbox, u32 dq_number)
-+{
-+	return __mlxsw_cmd_sw2hw_dq(mlxsw_core, in_mbox, dq_number,
-+				    MLXSW_CMD_OPCODE_MOD_RDQ);
-+}
-+
-+/* cmd_mbox_sw2hw_dq_cq
-+ * Number of the CQ that this Descriptor Queue reports completions to.
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_dq, cq, 0x00, 24, 8);
-+
-+/* cmd_mbox_sw2hw_dq_sdq_tclass
-+ * SDQ: CPU Egress TClass
-+ * RDQ: Reserved
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_dq, sdq_tclass, 0x00, 16, 6);
-+
-+/* cmd_mbox_sw2hw_dq_log2_dq_sz
-+ * Log (base 2) of the Descriptor Queue size in 4KB pages.
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_dq, log2_dq_sz, 0x00, 0, 6);
-+
-+/* cmd_mbox_sw2hw_dq_pa
-+ * Physical Address.
-+ */
-+MLXSW_ITEM64_INDEXED(cmd_mbox, sw2hw_dq, pa, 0x10, 12, 52, 0x08, 0x00, true);
-+
-+/* HW2SW_DQ - Hardware to Software DQ
-+ * ----------------------------------
-+ * OpMod == 0 (send DQ) / OpMod == 1 (receive DQ)
-+ * INMmod == DQ number
-+ * ----------------------------------------------
-+ * The HW2SW_DQ command transitions a descriptor queue from hardware to
-+ * software ownership. Incoming packets on the DQ are silently discarded,
-+ * SW should not post descriptors on nonoperational DQs.
-+ */
-+
-+static inline int __mlxsw_cmd_hw2sw_dq(struct mlxsw_core *mlxsw_core,
-+				       u32 dq_number, u8 opcode_mod)
-+{
-+	return mlxsw_cmd_exec_none(mlxsw_core, MLXSW_CMD_OPCODE_HW2SW_DQ,
-+				   opcode_mod, dq_number);
-+}
-+
-+static inline int mlxsw_cmd_hw2sw_sdq(struct mlxsw_core *mlxsw_core,
-+				      u32 dq_number)
-+{
-+	return __mlxsw_cmd_hw2sw_dq(mlxsw_core, dq_number,
-+				    MLXSW_CMD_OPCODE_MOD_SDQ);
-+}
-+
-+static inline int mlxsw_cmd_hw2sw_rdq(struct mlxsw_core *mlxsw_core,
-+				      u32 dq_number)
-+{
-+	return __mlxsw_cmd_hw2sw_dq(mlxsw_core, dq_number,
-+				    MLXSW_CMD_OPCODE_MOD_RDQ);
-+}
-+
-+/* 2ERR_DQ - To Error DQ
-+ * ---------------------
-+ * OpMod == 0 (send DQ) / OpMod == 1 (receive DQ)
-+ * INMmod == DQ number
-+ * ----------------------------------------------
-+ * The 2ERR_DQ command transitions the DQ into the error state from the state
-+ * in which it has been. While the command is executed, some in-process
-+ * descriptors may complete. Once the DQ transitions into the error state,
-+ * if there are posted descriptors on the RDQ/SDQ, the hardware writes
-+ * a completion with error (flushed) for all descriptors posted in the RDQ/SDQ.
-+ * When the command is completed successfully, the DQ is already in
-+ * the error state.
-+ */
-+
-+static inline int __mlxsw_cmd_2err_dq(struct mlxsw_core *mlxsw_core,
-+				      u32 dq_number, u8 opcode_mod)
-+{
-+	return mlxsw_cmd_exec_none(mlxsw_core, MLXSW_CMD_OPCODE_2ERR_DQ,
-+				   opcode_mod, dq_number);
-+}
-+
-+static inline int mlxsw_cmd_2err_sdq(struct mlxsw_core *mlxsw_core,
-+				     u32 dq_number)
-+{
-+	return __mlxsw_cmd_2err_dq(mlxsw_core, dq_number,
-+				   MLXSW_CMD_OPCODE_MOD_SDQ);
-+}
-+
-+static inline int mlxsw_cmd_2err_rdq(struct mlxsw_core *mlxsw_core,
-+				     u32 dq_number)
-+{
-+	return __mlxsw_cmd_2err_dq(mlxsw_core, dq_number,
-+				   MLXSW_CMD_OPCODE_MOD_RDQ);
-+}
-+
-+/* QUERY_DQ - Query DQ
-+ * ---------------------
-+ * OpMod == 0 (send DQ) / OpMod == 1 (receive DQ)
-+ * INMmod == DQ number
-+ * ----------------------------------------------
-+ * The QUERY_DQ command retrieves a snapshot of DQ parameters from the hardware.
-+ *
-+ * Note: Output mailbox has the same format as SW2HW_DQ.
-+ */
-+
-+static inline int __mlxsw_cmd_query_dq(struct mlxsw_core *mlxsw_core,
-+				       char *out_mbox, u32 dq_number,
-+				       u8 opcode_mod)
-+{
-+	return mlxsw_cmd_exec_out(mlxsw_core, MLXSW_CMD_OPCODE_2ERR_DQ,
-+				  opcode_mod, dq_number, false,
-+				  out_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+static inline int mlxsw_cmd_query_sdq(struct mlxsw_core *mlxsw_core,
-+				      char *out_mbox, u32 dq_number)
-+{
-+	return __mlxsw_cmd_query_dq(mlxsw_core, out_mbox, dq_number,
-+				    MLXSW_CMD_OPCODE_MOD_SDQ);
-+}
-+
-+static inline int mlxsw_cmd_query_rdq(struct mlxsw_core *mlxsw_core,
-+				      char *out_mbox, u32 dq_number)
-+{
-+	return __mlxsw_cmd_query_dq(mlxsw_core, out_mbox, dq_number,
-+				    MLXSW_CMD_OPCODE_MOD_RDQ);
-+}
-+
-+/* SW2HW_CQ - Software to Hardware CQ
-+ * ----------------------------------
-+ * OpMod == 0 (N/A), INMmod == CQ number
-+ * -------------------------------------
-+ * The SW2HW_CQ command transfers ownership of a CQ context entry from software
-+ * to hardware. The command takes the CQ context entry from the input mailbox
-+ * and stores it in the CQC in the ownership of the hardware. The command fails
-+ * if the requested CQC entry is already in the ownership of the hardware.
-+ */
-+
-+static inline int mlxsw_cmd_sw2hw_cq(struct mlxsw_core *mlxsw_core,
-+				     char *in_mbox, u32 cq_number)
-+{
-+	return mlxsw_cmd_exec_in(mlxsw_core, MLXSW_CMD_OPCODE_SW2HW_CQ,
-+				 0, cq_number, in_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* cmd_mbox_sw2hw_cq_cv
-+ * CQE Version.
-+ * 0 - CQE Version 0, 1 - CQE Version 1
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_cq, cv, 0x00, 28, 4);
-+
-+/* cmd_mbox_sw2hw_cq_c_eqn
-+ * Event Queue this CQ reports completion events to.
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_cq, c_eqn, 0x00, 24, 1);
-+
-+/* cmd_mbox_sw2hw_cq_oi
-+ * When set, overrun ignore is enabled. When set, updates of
-+ * CQ consumer counter (poll for completion) or Request completion
-+ * notifications (Arm CQ) DoorBells should not be rung on that CQ.
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_cq, oi, 0x00, 12, 1);
-+
-+/* cmd_mbox_sw2hw_cq_st
-+ * Event delivery state machine
-+ * 0x0 - FIRED
-+ * 0x1 - ARMED (Request for Notification)
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_cq, st, 0x00, 8, 1);
-+
-+/* cmd_mbox_sw2hw_cq_log_cq_size
-+ * Log (base 2) of the CQ size (in entries).
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_cq, log_cq_size, 0x00, 0, 4);
-+
-+/* cmd_mbox_sw2hw_cq_producer_counter
-+ * Producer Counter. The counter is incremented for each CQE that is
-+ * written by the HW to the CQ.
-+ * Maintained by HW (valid for the QUERY_CQ command only)
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_cq, producer_counter, 0x04, 0, 16);
-+
-+/* cmd_mbox_sw2hw_cq_pa
-+ * Physical Address.
-+ */
-+MLXSW_ITEM64_INDEXED(cmd_mbox, sw2hw_cq, pa, 0x10, 11, 53, 0x08, 0x00, true);
-+
-+/* HW2SW_CQ - Hardware to Software CQ
-+ * ----------------------------------
-+ * OpMod == 0 (N/A), INMmod == CQ number
-+ * -------------------------------------
-+ * The HW2SW_CQ command transfers ownership of a CQ context entry from hardware
-+ * to software. The CQC entry is invalidated as a result of this command.
-+ */
-+
-+static inline int mlxsw_cmd_hw2sw_cq(struct mlxsw_core *mlxsw_core,
-+				     u32 cq_number)
-+{
-+	return mlxsw_cmd_exec_none(mlxsw_core, MLXSW_CMD_OPCODE_HW2SW_CQ,
-+				   0, cq_number);
-+}
-+
-+/* QUERY_CQ - Query CQ
-+ * ----------------------------------
-+ * OpMod == 0 (N/A), INMmod == CQ number
-+ * -------------------------------------
-+ * The QUERY_CQ command retrieves a snapshot of the current CQ context entry.
-+ * The command stores the snapshot in the output mailbox in the software format.
-+ * Note that the CQ context state and values are not affected by the QUERY_CQ
-+ * command. The QUERY_CQ command is for debug purposes only.
-+ *
-+ * Note: Output mailbox has the same format as SW2HW_CQ.
-+ */
-+
-+static inline int mlxsw_cmd_query_cq(struct mlxsw_core *mlxsw_core,
-+				     char *out_mbox, u32 cq_number)
-+{
-+	return mlxsw_cmd_exec_out(mlxsw_core, MLXSW_CMD_OPCODE_QUERY_CQ,
-+				  0, cq_number, false,
-+				  out_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* SW2HW_EQ - Software to Hardware EQ
-+ * ----------------------------------
-+ * OpMod == 0 (N/A), INMmod == EQ number
-+ * -------------------------------------
-+ * The SW2HW_EQ command transfers ownership of an EQ context entry from software
-+ * to hardware. The command takes the EQ context entry from the input mailbox
-+ * and stores it in the EQC in the ownership of the hardware. The command fails
-+ * if the requested EQC entry is already in the ownership of the hardware.
-+ */
-+
-+static inline int mlxsw_cmd_sw2hw_eq(struct mlxsw_core *mlxsw_core,
-+				     char *in_mbox, u32 eq_number)
-+{
-+	return mlxsw_cmd_exec_in(mlxsw_core, MLXSW_CMD_OPCODE_SW2HW_EQ,
-+				 0, eq_number, in_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+/* cmd_mbox_sw2hw_eq_int_msix
-+ * When set, MSI-X cycles will be generated by this EQ.
-+ * When cleared, an interrupt will be generated by this EQ.
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_eq, int_msix, 0x00, 24, 1);
-+
-+/* cmd_mbox_sw2hw_eq_int_oi
-+ * When set, overrun ignore is enabled.
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_eq, oi, 0x00, 12, 1);
-+
-+/* cmd_mbox_sw2hw_eq_int_st
-+ * Event delivery state machine
-+ * 0x0 - FIRED
-+ * 0x1 - ARMED (Request for Notification)
-+ * 0x11 - Always ARMED
-+ * other - reserved
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_eq, st, 0x00, 8, 2);
-+
-+/* cmd_mbox_sw2hw_eq_int_log_eq_size
-+ * Log (base 2) of the EQ size (in entries).
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_eq, log_eq_size, 0x00, 0, 4);
-+
-+/* cmd_mbox_sw2hw_eq_int_producer_counter
-+ * Producer Counter. The counter is incremented for each EQE that is written
-+ * by the HW to the EQ.
-+ * Maintained by HW (valid for the QUERY_EQ command only)
-+ */
-+MLXSW_ITEM32(cmd_mbox, sw2hw_eq, producer_counter, 0x04, 0, 16);
-+
-+/* cmd_mbox_sw2hw_eq_int_pa
-+ * Physical Address.
-+ */
-+MLXSW_ITEM64_INDEXED(cmd_mbox, sw2hw_eq, pa, 0x10, 11, 53, 0x08, 0x00, true);
-+
-+/* HW2SW_EQ - Hardware to Software EQ
-+ * ----------------------------------
-+ * OpMod == 0 (N/A), INMmod == EQ number
-+ * -------------------------------------
-+ */
-+
-+static inline int mlxsw_cmd_hw2sw_eq(struct mlxsw_core *mlxsw_core,
-+				     u32 eq_number)
-+{
-+	return mlxsw_cmd_exec_none(mlxsw_core, MLXSW_CMD_OPCODE_HW2SW_EQ,
-+				   0, eq_number);
-+}
-+
-+/* QUERY_EQ - Query EQ
-+ * ----------------------------------
-+ * OpMod == 0 (N/A), INMmod == EQ number
-+ * -------------------------------------
-+ *
-+ * Note: Output mailbox has the same format as SW2HW_EQ.
-+ */
-+
-+static inline int mlxsw_cmd_query_eq(struct mlxsw_core *mlxsw_core,
-+				     char *out_mbox, u32 eq_number)
-+{
-+	return mlxsw_cmd_exec_out(mlxsw_core, MLXSW_CMD_OPCODE_QUERY_EQ,
-+				  0, eq_number, false,
-+				  out_mbox, MLXSW_CMD_MBOX_SIZE);
-+}
-+
-+#endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-new file mode 100644
-index 0000000..211ec9b
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -0,0 +1,551 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/core.c
-+ * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-+ * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
@@ -1261,531 +110,1766 @@ index 0000000..211ec9b
 +
 +#include <linux/kernel.h>
 +#include <linux/module.h>
-+#include <linux/device.h>
 +#include <linux/export.h>
 +#include <linux/err.h>
-+#include <linux/if_link.h>
++#include <linux/device.h>
++#include <linux/pci.h>
++#include <linux/interrupt.h>
++#include <linux/wait.h>
++#include <linux/types.h>
++#include <linux/skbuff.h>
++#include <linux/if_vlan.h>
++#include <linux/log2.h>
 +#include <linux/debugfs.h>
 +#include <linux/seq_file.h>
-+#include <linux/u64_stats_sync.h>
-+#include <linux/netdevice.h>
 +
++#include "pci.h"
 +#include "core.h"
-+#include "item.h"
 +#include "cmd.h"
 +#include "port.h"
-+#include "trap.h"
 +
-+static LIST_HEAD(mlxsw_core_driver_list);
-+static DEFINE_SPINLOCK(mlxsw_core_driver_list_lock);
++static const char mlxsw_pci_driver_name[] = "mlxsw_pci";
 +
-+static const char mlxsw_core_driver_name[] = "mlxsw_core";
-+
-+static struct dentry *mlxsw_core_dbg_root;
-+
-+struct mlxsw_core_pcpu_stats {
-+	u64			trap_rx_packets[MLXSW_TRAP_ID_MAX];
-+	u64			trap_rx_bytes[MLXSW_TRAP_ID_MAX];
-+	u64			port_rx_packets[MLXSW_PORT_MAX_PORTS];
-+	u64			port_rx_bytes[MLXSW_PORT_MAX_PORTS];
-+	struct u64_stats_sync	syncp;
-+	u32			trap_rx_dropped[MLXSW_TRAP_ID_MAX];
-+	u32			port_rx_dropped[MLXSW_PORT_MAX_PORTS];
-+	u32			trap_rx_invalid;
-+	u32			port_rx_invalid;
++static const struct pci_device_id mlxsw_pci_id_table[] = {
++	{0, }
 +};
 +
-+struct mlxsw_core {
-+	struct mlxsw_driver *driver;
-+	const struct mlxsw_bus *bus;
-+	void *bus_priv;
-+	const struct mlxsw_bus_info *bus_info;
-+	struct list_head rx_listener_list;
-+	struct mlxsw_core_pcpu_stats __percpu *pcpu_stats;
-+	struct dentry *dbg_dir;
++static struct dentry *mlxsw_pci_dbg_root;
++
++static const char *mlxsw_pci_device_kind_get(const struct pci_device_id *id)
++{
++	switch (id->device) {
++	default:
++		BUG();
++	}
++}
++
++#define mlxsw_pci_write32(mlxsw_pci, reg, val) \
++	iowrite32be(val, (mlxsw_pci)->hw_addr + (MLXSW_PCI_ ## reg))
++#define mlxsw_pci_read32(mlxsw_pci, reg) \
++	ioread32be((mlxsw_pci)->hw_addr + (MLXSW_PCI_ ## reg))
++
++enum mlxsw_pci_queue_type {
++	MLXSW_PCI_QUEUE_TYPE_SDQ,
++	MLXSW_PCI_QUEUE_TYPE_RDQ,
++	MLXSW_PCI_QUEUE_TYPE_CQ,
++	MLXSW_PCI_QUEUE_TYPE_EQ,
++};
++
++static const char *mlxsw_pci_queue_type_str(enum mlxsw_pci_queue_type q_type)
++{
++	switch (q_type) {
++	case MLXSW_PCI_QUEUE_TYPE_SDQ:
++		return "sdq";
++	case MLXSW_PCI_QUEUE_TYPE_RDQ:
++		return "rdq";
++	case MLXSW_PCI_QUEUE_TYPE_CQ:
++		return "cq";
++	case MLXSW_PCI_QUEUE_TYPE_EQ:
++		return "eq";
++	}
++	BUG();
++}
++
++#define MLXSW_PCI_QUEUE_TYPE_COUNT	4
++
++static const u16 mlxsw_pci_doorbell_type_offset[] = {
++	MLXSW_PCI_DOORBELL_SDQ_OFFSET,	/* for type MLXSW_PCI_QUEUE_TYPE_SDQ */
++	MLXSW_PCI_DOORBELL_RDQ_OFFSET,	/* for type MLXSW_PCI_QUEUE_TYPE_RDQ */
++	MLXSW_PCI_DOORBELL_CQ_OFFSET,	/* for type MLXSW_PCI_QUEUE_TYPE_CQ */
++	MLXSW_PCI_DOORBELL_EQ_OFFSET,	/* for type MLXSW_PCI_QUEUE_TYPE_EQ */
++};
++
++static const u16 mlxsw_pci_doorbell_arm_type_offset[] = {
++	0, /* unused */
++	0, /* unused */
++	MLXSW_PCI_DOORBELL_ARM_CQ_OFFSET, /* for type MLXSW_PCI_QUEUE_TYPE_CQ */
++	MLXSW_PCI_DOORBELL_ARM_EQ_OFFSET, /* for type MLXSW_PCI_QUEUE_TYPE_EQ */
++};
++
++struct mlxsw_pci_mem_item {
++	char *buf;
++	dma_addr_t mapaddr;
++	size_t size;
++};
++
++struct mlxsw_pci_queue_elem_info {
++	char *elem; /* pointer to actual dma mapped element mem chunk */
++	union {
++		struct {
++			struct sk_buff *skb;
++		} sdq;
++		struct {
++			struct sk_buff *skb;
++		} rdq;
++	} u;
++};
++
++struct mlxsw_pci_queue {
++	spinlock_t lock; /* for queue accesses */
++	struct mlxsw_pci_mem_item mem_item;
++	struct mlxsw_pci_queue_elem_info *elem_info;
++	u16 producer_counter;
++	u16 consumer_counter;
++	u16 count; /* number of elements in queue */
++	u8 num; /* queue number */
++	u8 elem_size; /* size of one element */
++	enum mlxsw_pci_queue_type type;
++	struct tasklet_struct tasklet; /* queue processing tasklet */
++	struct mlxsw_pci *pci;
++	union {
++		struct {
++			u32 comp_sdq_count;
++			u32 comp_rdq_count;
++		} cq;
++		struct {
++			u32 ev_cmd_count;
++			u32 ev_comp_count;
++			u32 ev_other_count;
++		} eq;
++	} u;
++};
++
++struct mlxsw_pci_queue_type_group {
++	struct mlxsw_pci_queue *q;
++	u8 count; /* number of queues in group */
++};
++
++struct mlxsw_pci {
++	struct pci_dev *pdev;
++	u8 __iomem *hw_addr;
++	struct mlxsw_pci_queue_type_group queues[MLXSW_PCI_QUEUE_TYPE_COUNT];
++	u32 doorbell_offset;
++	struct msix_entry msix_entry;
++	struct mlxsw_core *core;
 +	struct {
-+		struct debugfs_blob_wrapper vsd_blob;
-+		struct debugfs_blob_wrapper psid_blob;
-+	} dbg;
-+	unsigned long driver_priv[0];
-+	/* driver_priv has to be always the last item */
++		u16 num_pages;
++		struct mlxsw_pci_mem_item *items;
++	} fw_area;
++	struct {
++		struct mutex lock; /* Lock access to command registers */
++		bool nopoll;
++		wait_queue_head_t wait;
++		bool wait_done;
++		struct {
++			u8 status;
++			u64 out_param;
++		} comp;
++	} cmd;
++	struct mlxsw_bus_info bus_info;
++	struct dentry *dbg_dir;
 +};
 +
-+struct mlxsw_rx_listener_item {
-+	struct list_head list;
-+	struct mlxsw_rx_listener rxl;
-+	void *priv;
-+};
-+
-+/*****************
-+ * Core functions
-+ *****************/
-+
-+static int mlxsw_core_rx_stats_dbg_read(struct seq_file *file, void *data)
++static void mlxsw_pci_queue_tasklet_schedule(struct mlxsw_pci_queue *q)
 +{
-+	struct mlxsw_core *mlxsw_core = file->private;
-+	struct mlxsw_core_pcpu_stats *p;
-+	u64 rx_packets, rx_bytes;
-+	u64 tmp_rx_packets, tmp_rx_bytes;
-+	u32 rx_dropped, rx_invalid;
-+	unsigned int start;
++	tasklet_schedule(&q->tasklet);
++}
++
++static char *__mlxsw_pci_queue_elem_get(struct mlxsw_pci_queue *q,
++					size_t elem_size, int elem_index)
++{
++	return q->mem_item.buf + (elem_size * elem_index);
++}
++
++static struct mlxsw_pci_queue_elem_info *
++mlxsw_pci_queue_elem_info_get(struct mlxsw_pci_queue *q, int elem_index)
++{
++	return &q->elem_info[elem_index];
++}
++
++static struct mlxsw_pci_queue_elem_info *
++mlxsw_pci_queue_elem_info_producer_get(struct mlxsw_pci_queue *q)
++{
++	int index = q->producer_counter & (q->count - 1);
++
++	if ((q->producer_counter - q->consumer_counter) == q->count)
++		return NULL;
++	return mlxsw_pci_queue_elem_info_get(q, index);
++}
++
++static struct mlxsw_pci_queue_elem_info *
++mlxsw_pci_queue_elem_info_consumer_get(struct mlxsw_pci_queue *q)
++{
++	int index = q->consumer_counter & (q->count - 1);
++
++	return mlxsw_pci_queue_elem_info_get(q, index);
++}
++
++static char *mlxsw_pci_queue_elem_get(struct mlxsw_pci_queue *q, int elem_index)
++{
++	return mlxsw_pci_queue_elem_info_get(q, elem_index)->elem;
++}
++
++static bool mlxsw_pci_elem_hw_owned(struct mlxsw_pci_queue *q, bool owner_bit)
++{
++	return owner_bit != !!(q->consumer_counter & q->count);
++}
++
++static char *mlxsw_pci_queue_sw_elem_get(struct mlxsw_pci_queue *q,
++					 u32 (*get_elem_owner_func)(char *))
++{
++	struct mlxsw_pci_queue_elem_info *elem_info;
++	char *elem;
++	bool owner_bit;
++
++	elem_info = mlxsw_pci_queue_elem_info_consumer_get(q);
++	elem = elem_info->elem;
++	owner_bit = get_elem_owner_func(elem);
++	if (mlxsw_pci_elem_hw_owned(q, owner_bit))
++		return NULL;
++	q->consumer_counter++;
++	rmb(); /* make sure we read owned bit before the rest of elem */
++	return elem;
++}
++
++static struct mlxsw_pci_queue_type_group *
++mlxsw_pci_queue_type_group_get(struct mlxsw_pci *mlxsw_pci,
++			       enum mlxsw_pci_queue_type q_type)
++{
++	return &mlxsw_pci->queues[q_type];
++}
++
++static u8 __mlxsw_pci_queue_count(struct mlxsw_pci *mlxsw_pci,
++				  enum mlxsw_pci_queue_type q_type)
++{
++	struct mlxsw_pci_queue_type_group *queue_group;
++
++	queue_group = mlxsw_pci_queue_type_group_get(mlxsw_pci, q_type);
++	return queue_group->count;
++}
++
++static u8 mlxsw_pci_sdq_count(struct mlxsw_pci *mlxsw_pci)
++{
++	return __mlxsw_pci_queue_count(mlxsw_pci, MLXSW_PCI_QUEUE_TYPE_SDQ);
++}
++
++static u8 mlxsw_pci_rdq_count(struct mlxsw_pci *mlxsw_pci)
++{
++	return __mlxsw_pci_queue_count(mlxsw_pci, MLXSW_PCI_QUEUE_TYPE_RDQ);
++}
++
++static u8 mlxsw_pci_cq_count(struct mlxsw_pci *mlxsw_pci)
++{
++	return __mlxsw_pci_queue_count(mlxsw_pci, MLXSW_PCI_QUEUE_TYPE_CQ);
++}
++
++static u8 mlxsw_pci_eq_count(struct mlxsw_pci *mlxsw_pci)
++{
++	return __mlxsw_pci_queue_count(mlxsw_pci, MLXSW_PCI_QUEUE_TYPE_EQ);
++}
++
++static struct mlxsw_pci_queue *
++__mlxsw_pci_queue_get(struct mlxsw_pci *mlxsw_pci,
++		      enum mlxsw_pci_queue_type q_type, u8 q_num)
++{
++	return &mlxsw_pci->queues[q_type].q[q_num];
++}
++
++static struct mlxsw_pci_queue *mlxsw_pci_sdq_get(struct mlxsw_pci *mlxsw_pci,
++						 u8 q_num)
++{
++	return __mlxsw_pci_queue_get(mlxsw_pci,
++				     MLXSW_PCI_QUEUE_TYPE_SDQ, q_num);
++}
++
++static struct mlxsw_pci_queue *mlxsw_pci_rdq_get(struct mlxsw_pci *mlxsw_pci,
++						 u8 q_num)
++{
++	return __mlxsw_pci_queue_get(mlxsw_pci,
++				     MLXSW_PCI_QUEUE_TYPE_RDQ, q_num);
++}
++
++static struct mlxsw_pci_queue *mlxsw_pci_cq_get(struct mlxsw_pci *mlxsw_pci,
++						u8 q_num)
++{
++	return __mlxsw_pci_queue_get(mlxsw_pci, MLXSW_PCI_QUEUE_TYPE_CQ, q_num);
++}
++
++static struct mlxsw_pci_queue *mlxsw_pci_eq_get(struct mlxsw_pci *mlxsw_pci,
++						u8 q_num)
++{
++	return __mlxsw_pci_queue_get(mlxsw_pci, MLXSW_PCI_QUEUE_TYPE_EQ, q_num);
++}
++
++static void __mlxsw_pci_queue_doorbell_set(struct mlxsw_pci *mlxsw_pci,
++					   struct mlxsw_pci_queue *q,
++					   u16 val)
++{
++	mlxsw_pci_write32(mlxsw_pci,
++			  DOORBELL(mlxsw_pci->doorbell_offset,
++				   mlxsw_pci_doorbell_type_offset[q->type],
++				   q->num), val);
++}
++
++static void __mlxsw_pci_queue_doorbell_arm_set(struct mlxsw_pci *mlxsw_pci,
++					       struct mlxsw_pci_queue *q,
++					       u16 val)
++{
++	mlxsw_pci_write32(mlxsw_pci,
++			  DOORBELL(mlxsw_pci->doorbell_offset,
++				   mlxsw_pci_doorbell_arm_type_offset[q->type],
++				   q->num), val);
++}
++
++static void mlxsw_pci_queue_doorbell_producer_ring(struct mlxsw_pci *mlxsw_pci,
++						   struct mlxsw_pci_queue *q)
++{
++	wmb(); /* ensure all writes are done before we ring a bell */
++	__mlxsw_pci_queue_doorbell_set(mlxsw_pci, q, q->producer_counter);
++}
++
++static void mlxsw_pci_queue_doorbell_consumer_ring(struct mlxsw_pci *mlxsw_pci,
++						   struct mlxsw_pci_queue *q)
++{
++	wmb(); /* ensure all writes are done before we ring a bell */
++	__mlxsw_pci_queue_doorbell_set(mlxsw_pci, q,
++				       q->consumer_counter + q->count);
++}
++
++static void
++mlxsw_pci_queue_doorbell_arm_consumer_ring(struct mlxsw_pci *mlxsw_pci,
++					   struct mlxsw_pci_queue *q)
++{
++	wmb(); /* ensure all writes are done before we ring a bell */
++	__mlxsw_pci_queue_doorbell_arm_set(mlxsw_pci, q, q->consumer_counter);
++}
++
++static dma_addr_t __mlxsw_pci_queue_page_get(struct mlxsw_pci_queue *q,
++					     int page_index)
++{
++	return q->mem_item.mapaddr + MLXSW_PCI_PAGE_SIZE * page_index;
++}
++
++static int mlxsw_pci_sdq_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
++			      struct mlxsw_pci_queue *q)
++{
 +	int i;
-+	int j;
-+	static const char hdr[] =
-+		"     NUM   RX_PACKETS     RX_BYTES RX_DROPPED\n";
-+
-+	seq_printf(file, hdr);
-+	for (i = 0; i < MLXSW_TRAP_ID_MAX; i++) {
-+		rx_packets = 0;
-+		rx_bytes = 0;
-+		rx_dropped = 0;
-+		for_each_possible_cpu(j) {
-+			p = per_cpu_ptr(mlxsw_core->pcpu_stats, j);
-+			do {
-+				start = u64_stats_fetch_begin(&p->syncp);
-+				tmp_rx_packets = p->trap_rx_packets[i];
-+				tmp_rx_bytes = p->trap_rx_bytes[i];
-+			} while (u64_stats_fetch_retry(&p->syncp, start));
-+
-+			rx_packets += tmp_rx_packets;
-+			rx_bytes += tmp_rx_bytes;
-+			rx_dropped += p->trap_rx_dropped[i];
-+		}
-+		seq_printf(file, "trap %3d %12llu %12llu %10u\n",
-+			   i, rx_packets, rx_bytes, rx_dropped);
-+	}
-+	rx_invalid = 0;
-+	for_each_possible_cpu(j) {
-+		p = per_cpu_ptr(mlxsw_core->pcpu_stats, j);
-+		rx_invalid += p->trap_rx_invalid;
-+	}
-+	seq_printf(file, "trap INV                           %10u\n",
-+		   rx_invalid);
-+
-+	for (i = 0; i < MLXSW_PORT_MAX_PORTS; i++) {
-+		rx_packets = 0;
-+		rx_bytes = 0;
-+		rx_dropped = 0;
-+		for_each_possible_cpu(j) {
-+			p = per_cpu_ptr(mlxsw_core->pcpu_stats, j);
-+			do {
-+				start = u64_stats_fetch_begin(&p->syncp);
-+				tmp_rx_packets = p->port_rx_packets[i];
-+				tmp_rx_bytes = p->port_rx_bytes[i];
-+			} while (u64_stats_fetch_retry(&p->syncp, start));
-+
-+			rx_packets += tmp_rx_packets;
-+			rx_bytes += tmp_rx_bytes;
-+			rx_dropped += p->port_rx_dropped[i];
-+		}
-+		seq_printf(file, "port %3d %12llu %12llu %10u\n",
-+			   i, rx_packets, rx_bytes, rx_dropped);
-+	}
-+	rx_invalid = 0;
-+	for_each_possible_cpu(j) {
-+		p = per_cpu_ptr(mlxsw_core->pcpu_stats, j);
-+		rx_invalid += p->port_rx_invalid;
-+	}
-+	seq_printf(file, "port INV                           %10u\n",
-+		   rx_invalid);
-+	return 0;
-+}
-+
-+static int mlxsw_core_rx_stats_dbg_open(struct inode *inode, struct file *f)
-+{
-+	struct mlxsw_core *mlxsw_core = inode->i_private;
-+
-+	return single_open(f, mlxsw_core_rx_stats_dbg_read, mlxsw_core);
-+}
-+
-+static const struct file_operations mlxsw_core_rx_stats_dbg_ops = {
-+	.owner = THIS_MODULE,
-+	.open = mlxsw_core_rx_stats_dbg_open,
-+	.release = single_release,
-+	.read = seq_read,
-+	.llseek = seq_lseek
-+};
-+
-+static void mlxsw_core_buf_dump_dbg(struct mlxsw_core *mlxsw_core,
-+				    const char *buf, size_t size)
-+{
-+	__be32 *m = (__be32 *) buf;
-+	int i;
-+	int count = size / sizeof(__be32);
-+
-+	for (i = count - 1; i >= 0; i--)
-+		if (m[i])
-+			break;
-+	i++;
-+	count = i ? i : 1;
-+	for (i = 0; i < count; i += 4)
-+		dev_dbg(mlxsw_core->bus_info->dev, "%04x - %08x %08x %08x %08x\n",
-+			i * 4, be32_to_cpu(m[i]), be32_to_cpu(m[i + 1]),
-+			be32_to_cpu(m[i + 2]), be32_to_cpu(m[i + 3]));
-+}
-+
-+int mlxsw_core_driver_register(struct mlxsw_driver *mlxsw_driver)
-+{
-+	spin_lock(&mlxsw_core_driver_list_lock);
-+	list_add_tail(&mlxsw_driver->list, &mlxsw_core_driver_list);
-+	spin_unlock(&mlxsw_core_driver_list_lock);
-+	return 0;
-+}
-+EXPORT_SYMBOL(mlxsw_core_driver_register);
-+
-+void mlxsw_core_driver_unregister(struct mlxsw_driver *mlxsw_driver)
-+{
-+	spin_lock(&mlxsw_core_driver_list_lock);
-+	list_del(&mlxsw_driver->list);
-+	spin_unlock(&mlxsw_core_driver_list_lock);
-+}
-+EXPORT_SYMBOL(mlxsw_core_driver_unregister);
-+
-+static struct mlxsw_driver *__driver_find(const char *kind)
-+{
-+	struct mlxsw_driver *mlxsw_driver;
-+
-+	list_for_each_entry(mlxsw_driver, &mlxsw_core_driver_list, list) {
-+		if (strcmp(mlxsw_driver->kind, kind) == 0)
-+			return mlxsw_driver;
-+	}
-+	return NULL;
-+}
-+
-+static struct mlxsw_driver *mlxsw_core_driver_get(const char *kind)
-+{
-+	struct mlxsw_driver *mlxsw_driver;
-+
-+	spin_lock(&mlxsw_core_driver_list_lock);
-+	mlxsw_driver = __driver_find(kind);
-+	if (!mlxsw_driver) {
-+		spin_unlock(&mlxsw_core_driver_list_lock);
-+		request_module(MLXSW_MODULE_ALIAS_PREFIX "%s", kind);
-+		spin_lock(&mlxsw_core_driver_list_lock);
-+		mlxsw_driver = __driver_find(kind);
-+	}
-+	if (mlxsw_driver) {
-+		if (!try_module_get(mlxsw_driver->owner))
-+			mlxsw_driver = NULL;
-+	}
-+
-+	spin_unlock(&mlxsw_core_driver_list_lock);
-+	return mlxsw_driver;
-+}
-+
-+static void mlxsw_core_driver_put(const char *kind)
-+{
-+	struct mlxsw_driver *mlxsw_driver;
-+
-+	spin_lock(&mlxsw_core_driver_list_lock);
-+	mlxsw_driver = __driver_find(kind);
-+	spin_unlock(&mlxsw_core_driver_list_lock);
-+	if (!mlxsw_driver)
-+		return;
-+	module_put(mlxsw_driver->owner);
-+}
-+
-+static int mlxsw_core_debugfs_init(struct mlxsw_core *mlxsw_core)
-+{
-+	const struct mlxsw_bus_info *bus_info = mlxsw_core->bus_info;
-+
-+	mlxsw_core->dbg_dir = debugfs_create_dir(bus_info->device_name,
-+						 mlxsw_core_dbg_root);
-+	if (!mlxsw_core->dbg_dir)
-+		return -ENOMEM;
-+	debugfs_create_file("rx_stats", S_IRUGO, mlxsw_core->dbg_dir,
-+			    mlxsw_core, &mlxsw_core_rx_stats_dbg_ops);
-+	mlxsw_core->dbg.vsd_blob.data = (void *) &bus_info->vsd;
-+	mlxsw_core->dbg.vsd_blob.size = sizeof(bus_info->vsd);
-+	debugfs_create_blob("vsd", S_IRUGO, mlxsw_core->dbg_dir,
-+			    &mlxsw_core->dbg.vsd_blob);
-+	mlxsw_core->dbg.psid_blob.data = (void *) &bus_info->psid;
-+	mlxsw_core->dbg.psid_blob.size = sizeof(bus_info->psid);
-+	debugfs_create_blob("psid", S_IRUGO, mlxsw_core->dbg_dir,
-+			    &mlxsw_core->dbg.psid_blob);
-+	return 0;
-+}
-+
-+static void mlxsw_core_debugfs_fini(struct mlxsw_core *mlxsw_core)
-+{
-+	debugfs_remove_recursive(mlxsw_core->dbg_dir);
-+}
-+
-+int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
-+				   const struct mlxsw_bus *mlxsw_bus,
-+				   void *bus_priv)
-+{
-+	const char *device_kind = mlxsw_bus_info->device_kind;
-+	struct mlxsw_core *mlxsw_core;
-+	struct mlxsw_driver *mlxsw_driver;
-+	size_t alloc_size;
 +	int err;
 +
-+	mlxsw_driver = mlxsw_core_driver_get(device_kind);
-+	if (!mlxsw_driver)
-+		return -EINVAL;
-+	alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
-+	mlxsw_core = kzalloc(alloc_size, GFP_KERNEL);
-+	if (!mlxsw_core) {
-+		err = -ENOMEM;
-+		goto err_core_alloc;
++	q->producer_counter = 0;
++	q->consumer_counter = 0;
++
++	/* Set CQ of same number of this SDQ. */
++	mlxsw_cmd_mbox_sw2hw_dq_cq_set(mbox, q->num);
++	mlxsw_cmd_mbox_sw2hw_dq_sdq_tclass_set(mbox, 7);
++	mlxsw_cmd_mbox_sw2hw_dq_log2_dq_sz_set(mbox, 3); /* 8 pages */
++	for (i = 0; i < MLXSW_PCI_AQ_PAGES; i++) {
++		dma_addr_t mapaddr = __mlxsw_pci_queue_page_get(q, i);
++
++		mlxsw_cmd_mbox_sw2hw_dq_pa_set(mbox, i, mapaddr);
 +	}
 +
-+	INIT_LIST_HEAD(&mlxsw_core->rx_listener_list);
-+	mlxsw_core->driver = mlxsw_driver;
-+	mlxsw_core->bus = mlxsw_bus;
-+	mlxsw_core->bus_priv = bus_priv;
-+	mlxsw_core->bus_info = mlxsw_bus_info;
++	err = mlxsw_cmd_sw2hw_sdq(mlxsw_pci->core, mbox, q->num);
++	if (err)
++		return err;
++	mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
++	return 0;
++}
 +
-+	mlxsw_core->pcpu_stats =
-+		netdev_alloc_pcpu_stats(struct mlxsw_core_pcpu_stats);
-+	if (!mlxsw_core->pcpu_stats) {
-+		err = -ENOMEM;
-+		goto err_alloc_stats;
++static void mlxsw_pci_sdq_fini(struct mlxsw_pci *mlxsw_pci,
++			       struct mlxsw_pci_queue *q)
++{
++	mlxsw_cmd_hw2sw_sdq(mlxsw_pci->core, q->num);
++}
++
++static int mlxsw_pci_sdq_dbg_read(struct seq_file *file, void *data)
++{
++	struct mlxsw_pci *mlxsw_pci = dev_get_drvdata(file->private);
++	struct mlxsw_pci_queue *q;
++	int i;
++	static const char hdr[] =
++		"NUM PROD_COUNT CONS_COUNT COUNT\n";
++
++	seq_printf(file, hdr);
++	for (i = 0; i < mlxsw_pci_sdq_count(mlxsw_pci); i++) {
++		q = mlxsw_pci_sdq_get(mlxsw_pci, i);
++		spin_lock_bh(&q->lock);
++		seq_printf(file, "%3d %10d %10d %5d\n",
++			   i, q->producer_counter, q->consumer_counter,
++			   q->count);
++		spin_unlock_bh(&q->lock);
 +	}
-+	err = mlxsw_bus->init(bus_priv, mlxsw_core, mlxsw_driver->profile);
-+	if (err)
-+		goto err_bus_init;
++	return 0;
++}
 +
-+	err = mlxsw_driver->init(mlxsw_core->driver_priv, mlxsw_core,
-+				 mlxsw_bus_info);
-+	if (err)
-+		goto err_driver_init;
++static int mlxsw_pci_wqe_frag_map(struct mlxsw_pci *mlxsw_pci, char *wqe,
++				  int index, char *frag_data, size_t frag_len,
++				  int direction)
++{
++	struct pci_dev *pdev = mlxsw_pci->pdev;
++	dma_addr_t mapaddr;
 +
-+	err = mlxsw_core_debugfs_init(mlxsw_core);
-+	if (err)
-+		goto err_debugfs_init;
++	mapaddr = pci_map_single(pdev, frag_data, frag_len, direction);
++	if (unlikely(pci_dma_mapping_error(pdev, mapaddr))) {
++		if (net_ratelimit())
++			dev_err(&pdev->dev, "failed to dma map tx frag\n");
++		return -EIO;
++	}
++	mlxsw_pci_wqe_address_set(wqe, index, mapaddr);
++	mlxsw_pci_wqe_byte_count_set(wqe, index, frag_len);
++	return 0;
++}
 +
++static void mlxsw_pci_wqe_frag_unmap(struct mlxsw_pci *mlxsw_pci, char *wqe,
++				     int index, int direction)
++{
++	struct pci_dev *pdev = mlxsw_pci->pdev;
++	size_t frag_len = mlxsw_pci_wqe_byte_count_get(wqe, index);
++	dma_addr_t mapaddr = mlxsw_pci_wqe_address_get(wqe, index);
++
++	if (!frag_len)
++		return;
++	pci_unmap_single(pdev, mapaddr, frag_len, direction);
++}
++
++static int mlxsw_pci_rdq_skb_alloc(struct mlxsw_pci *mlxsw_pci,
++				   struct mlxsw_pci_queue_elem_info *elem_info)
++{
++	size_t buf_len = MLXSW_PORT_MAX_MTU;
++	char *wqe = elem_info->elem;
++	struct sk_buff *skb;
++	int err;
++
++	elem_info->u.rdq.skb = NULL;
++	skb = netdev_alloc_skb_ip_align(NULL, buf_len);
++	if (!skb)
++		return -ENOMEM;
++
++	/* Assume that wqe was previously zeroed. */
++
++	err = mlxsw_pci_wqe_frag_map(mlxsw_pci, wqe, 0, skb->data,
++				     buf_len, DMA_FROM_DEVICE);
++	if (err)
++		goto err_frag_map;
++
++	elem_info->u.rdq.skb = skb;
 +	return 0;
 +
-+err_debugfs_init:
-+	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+err_driver_init:
-+	mlxsw_bus->fini(bus_priv);
-+err_bus_init:
-+	free_percpu(mlxsw_core->pcpu_stats);
-+err_alloc_stats:
-+	kfree(mlxsw_core);
-+err_core_alloc:
-+	mlxsw_core_driver_put(device_kind);
++err_frag_map:
++	dev_kfree_skb_any(skb);
 +	return err;
 +}
-+EXPORT_SYMBOL(mlxsw_core_bus_device_register);
 +
-+void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
++static void mlxsw_pci_rdq_skb_free(struct mlxsw_pci *mlxsw_pci,
++				   struct mlxsw_pci_queue_elem_info *elem_info)
 +{
-+	const char *device_kind = mlxsw_core->bus_info->device_kind;
++	struct sk_buff *skb;
++	char *wqe;
 +
-+	mlxsw_core_debugfs_fini(mlxsw_core);
-+	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
-+	free_percpu(mlxsw_core->pcpu_stats);
-+	kfree(mlxsw_core);
-+	mlxsw_core_driver_put(device_kind);
-+}
-+EXPORT_SYMBOL(mlxsw_core_bus_device_unregister);
++	skb = elem_info->u.rdq.skb;
++	wqe = elem_info->elem;
 +
-+static struct mlxsw_core *__mlxsw_core_get(void *driver_priv)
-+{
-+	return container_of(driver_priv, struct mlxsw_core, driver_priv);
++	mlxsw_pci_wqe_frag_unmap(mlxsw_pci, wqe, 0, DMA_FROM_DEVICE);
++	dev_kfree_skb_any(skb);
 +}
 +
-+int mlxsw_core_skb_transmit(void *driver_priv, struct sk_buff *skb,
-+			    const struct mlxsw_tx_info *tx_info)
++static int mlxsw_pci_rdq_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
++			      struct mlxsw_pci_queue *q)
 +{
-+	struct mlxsw_core *mlxsw_core = __mlxsw_core_get(driver_priv);
++	struct mlxsw_pci_queue_elem_info *elem_info;
++	int i;
++	int err;
 +
-+	return mlxsw_core->bus->skb_transmit(mlxsw_core->bus_priv, skb,
-+					     tx_info);
-+}
-+EXPORT_SYMBOL(mlxsw_core_skb_transmit);
++	q->producer_counter = 0;
++	q->consumer_counter = 0;
 +
-+static bool __is_rx_listener_equal(const struct mlxsw_rx_listener *rxl_a,
-+				   const struct mlxsw_rx_listener *rxl_b)
-+{
-+	return (rxl_a->func == rxl_b->func &&
-+		rxl_a->local_port == rxl_b->local_port &&
-+		rxl_a->trap_id == rxl_b->trap_id);
-+}
++	/* Set CQ of same number of this RDQ with base
++	 * above MLXSW_PCI_SDQS_MAX as the lower ones are assigned to SDQs.
++	 */
++	mlxsw_cmd_mbox_sw2hw_dq_cq_set(mbox, q->num + MLXSW_PCI_SDQS_COUNT);
++	mlxsw_cmd_mbox_sw2hw_dq_log2_dq_sz_set(mbox, 3); /* 8 pages */
++	for (i = 0; i < MLXSW_PCI_AQ_PAGES; i++) {
++		dma_addr_t mapaddr = __mlxsw_pci_queue_page_get(q, i);
 +
-+static struct mlxsw_rx_listener_item *
-+__find_rx_listener_item(struct mlxsw_core *mlxsw_core,
-+			const struct mlxsw_rx_listener *rxl,
-+			void *priv)
-+{
-+	struct mlxsw_rx_listener_item *rxl_item;
-+
-+	list_for_each_entry(rxl_item, &mlxsw_core->rx_listener_list, list) {
-+		if (__is_rx_listener_equal(&rxl_item->rxl, rxl) &&
-+		    rxl_item->priv == priv)
-+			return rxl_item;
++		mlxsw_cmd_mbox_sw2hw_dq_pa_set(mbox, i, mapaddr);
 +	}
-+	return NULL;
++
++	err = mlxsw_cmd_sw2hw_rdq(mlxsw_pci->core, mbox, q->num);
++	if (err)
++		return err;
++
++	mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
++
++	for (i = 0; i < q->count; i++) {
++		elem_info = mlxsw_pci_queue_elem_info_producer_get(q);
++		BUG_ON(!elem_info);
++		err = mlxsw_pci_rdq_skb_alloc(mlxsw_pci, elem_info);
++		if (err)
++			goto rollback;
++		/* Everything is set up, ring doorbell to pass elem to HW */
++		q->producer_counter++;
++		mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
++	}
++
++	return 0;
++
++rollback:
++	for (i--; i >= 0; i--) {
++		elem_info = mlxsw_pci_queue_elem_info_get(q, i);
++		mlxsw_pci_rdq_skb_free(mlxsw_pci, elem_info);
++	}
++	mlxsw_cmd_hw2sw_rdq(mlxsw_pci->core, q->num);
++
++	return err;
 +}
 +
-+int mlxsw_core_rx_listener_register(struct mlxsw_core *mlxsw_core,
-+				    const struct mlxsw_rx_listener *rxl,
-+				    void *priv)
++static void mlxsw_pci_rdq_fini(struct mlxsw_pci *mlxsw_pci,
++			       struct mlxsw_pci_queue *q)
 +{
-+	struct mlxsw_rx_listener_item *rxl_item;
++	struct mlxsw_pci_queue_elem_info *elem_info;
++	int i;
 +
-+	rxl_item = __find_rx_listener_item(mlxsw_core, rxl, priv);
-+	if (rxl_item)
-+		return -EEXIST;
-+	rxl_item = kmalloc(sizeof(*rxl_item), GFP_KERNEL);
-+	if (!rxl_item)
-+		return -ENOMEM;
-+	rxl_item->rxl = *rxl;
-+	rxl_item->priv = priv;
++	mlxsw_cmd_hw2sw_rdq(mlxsw_pci->core, q->num);
++	for (i = 0; i < q->count; i++) {
++		elem_info = mlxsw_pci_queue_elem_info_get(q, i);
++		mlxsw_pci_rdq_skb_free(mlxsw_pci, elem_info);
++	}
++}
 +
-+	list_add_rcu(&rxl_item->list, &mlxsw_core->rx_listener_list);
++static int mlxsw_pci_rdq_dbg_read(struct seq_file *file, void *data)
++{
++	struct mlxsw_pci *mlxsw_pci = dev_get_drvdata(file->private);
++	struct mlxsw_pci_queue *q;
++	int i;
++	static const char hdr[] =
++		"NUM PROD_COUNT CONS_COUNT COUNT\n";
++
++	seq_printf(file, hdr);
++	for (i = 0; i < mlxsw_pci_rdq_count(mlxsw_pci); i++) {
++		q = mlxsw_pci_rdq_get(mlxsw_pci, i);
++		spin_lock_bh(&q->lock);
++		seq_printf(file, "%3d %10d %10d %5d\n",
++			   i, q->producer_counter, q->consumer_counter,
++			   q->count);
++		spin_unlock_bh(&q->lock);
++	}
 +	return 0;
 +}
-+EXPORT_SYMBOL(mlxsw_core_rx_listener_register);
 +
-+void mlxsw_core_rx_listener_unregister(struct mlxsw_core *mlxsw_core,
-+				       const struct mlxsw_rx_listener *rxl,
-+				       void *priv)
++static int mlxsw_pci_cq_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
++			     struct mlxsw_pci_queue *q)
 +{
-+	struct mlxsw_rx_listener_item *rxl_item;
++	int i;
++	int err;
 +
-+	rxl_item = __find_rx_listener_item(mlxsw_core, rxl, priv);
-+	if (!rxl_item)
-+		return;
-+	list_del_rcu(&rxl_item->list);
-+	synchronize_rcu();
-+	kfree(rxl_item);
-+}
-+EXPORT_SYMBOL(mlxsw_core_rx_listener_unregister);
++	q->consumer_counter = 0;
 +
-+void mlxsw_core_skb_receive(struct mlxsw_core *mlxsw_core, struct sk_buff *skb,
-+			    struct mlxsw_rx_info *rx_info)
-+{
-+	struct mlxsw_rx_listener_item *rxl_item;
-+	const struct mlxsw_rx_listener *rxl;
-+	struct mlxsw_core_pcpu_stats *pcpu_stats;
-+	u8 local_port = rx_info->sys_port;
-+	bool found = false;
++	for (i = 0; i < q->count; i++) {
++		char *elem = mlxsw_pci_queue_elem_get(q, i);
 +
-+	dev_dbg_ratelimited(mlxsw_core->bus_info->dev, "%s: sys_port = %d, trap_id = 0x%x\n",
-+			    __func__, rx_info->sys_port, rx_info->trap_id);
-+
-+	if ((rx_info->trap_id >= MLXSW_TRAP_ID_MAX) ||
-+	    (local_port >= MLXSW_PORT_MAX_PORTS))
-+		goto drop;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(rxl_item, &mlxsw_core->rx_listener_list, list) {
-+		rxl = &rxl_item->rxl;
-+		if (((rxl->local_port == MLXSW_PORT_MAX_PORTS) ||
-+		     (rxl->local_port == local_port)) &&
-+		    ((rxl->trap_id == MLXSW_TRAP_ID_DONT_CARE) ||
-+		     (rxl->trap_id == rx_info->trap_id))) {
-+			found = true;
-+			break;
-+		}
++		mlxsw_pci_cqe_owner_set(elem, 1);
 +	}
-+	rcu_read_unlock();
-+	if (!found)
++
++	mlxsw_cmd_mbox_sw2hw_cq_cv_set(mbox, 0); /* CQE ver 0 */
++	mlxsw_cmd_mbox_sw2hw_cq_c_eqn_set(mbox, MLXSW_PCI_EQ_COMP_NUM);
++	mlxsw_cmd_mbox_sw2hw_cq_oi_set(mbox, 0);
++	mlxsw_cmd_mbox_sw2hw_cq_st_set(mbox, 0);
++	mlxsw_cmd_mbox_sw2hw_cq_log_cq_size_set(mbox, ilog2(q->count));
++	for (i = 0; i < MLXSW_PCI_AQ_PAGES; i++) {
++		dma_addr_t mapaddr = __mlxsw_pci_queue_page_get(q, i);
++
++		mlxsw_cmd_mbox_sw2hw_cq_pa_set(mbox, i, mapaddr);
++	}
++	err = mlxsw_cmd_sw2hw_cq(mlxsw_pci->core, mbox, q->num);
++	if (err)
++		return err;
++	mlxsw_pci_queue_doorbell_consumer_ring(mlxsw_pci, q);
++	mlxsw_pci_queue_doorbell_arm_consumer_ring(mlxsw_pci, q);
++	return 0;
++}
++
++static void mlxsw_pci_cq_fini(struct mlxsw_pci *mlxsw_pci,
++			      struct mlxsw_pci_queue *q)
++{
++	mlxsw_cmd_hw2sw_cq(mlxsw_pci->core, q->num);
++}
++
++static int mlxsw_pci_cq_dbg_read(struct seq_file *file, void *data)
++{
++	struct mlxsw_pci *mlxsw_pci = dev_get_drvdata(file->private);
++
++	struct mlxsw_pci_queue *q;
++	int i;
++	static const char hdr[] =
++		"NUM CONS_INDEX  SDQ_COUNT  RDQ_COUNT COUNT\n";
++
++	seq_printf(file, hdr);
++	for (i = 0; i < mlxsw_pci_cq_count(mlxsw_pci); i++) {
++		q = mlxsw_pci_cq_get(mlxsw_pci, i);
++		spin_lock_bh(&q->lock);
++		seq_printf(file, "%3d %10d %10d %10d %5d\n",
++			   i, q->consumer_counter, q->u.cq.comp_sdq_count,
++			   q->u.cq.comp_rdq_count, q->count);
++		spin_unlock_bh(&q->lock);
++	}
++	return 0;
++}
++
++static void mlxsw_pci_cqe_sdq_handle(struct mlxsw_pci *mlxsw_pci,
++				     struct mlxsw_pci_queue *q,
++				     u16 consumer_counter_limit,
++				     char *cqe)
++{
++	struct pci_dev *pdev = mlxsw_pci->pdev;
++	struct mlxsw_pci_queue_elem_info *elem_info;
++	char *wqe;
++	struct sk_buff *skb;
++	int i;
++
++	spin_lock(&q->lock);
++	elem_info = mlxsw_pci_queue_elem_info_consumer_get(q);
++	skb = elem_info->u.sdq.skb;
++	wqe = elem_info->elem;
++	for (i = 0; i < MLXSW_PCI_WQE_SG_ENTRIES; i++)
++		mlxsw_pci_wqe_frag_unmap(mlxsw_pci, wqe, i, DMA_TO_DEVICE);
++	dev_kfree_skb_any(skb);
++	elem_info->u.sdq.skb = NULL;
++
++	if (q->consumer_counter++ != consumer_counter_limit)
++		dev_dbg_ratelimited(&pdev->dev, "Consumer counter does not match limit in SDQ\n");
++	spin_unlock(&q->lock);
++}
++
++static void mlxsw_pci_cqe_rdq_handle(struct mlxsw_pci *mlxsw_pci,
++				     struct mlxsw_pci_queue *q,
++				     u16 consumer_counter_limit,
++				     char *cqe)
++{
++	struct pci_dev *pdev = mlxsw_pci->pdev;
++	struct mlxsw_pci_queue_elem_info *elem_info;
++	char *wqe;
++	struct sk_buff *skb;
++	struct mlxsw_rx_info rx_info;
++	int err;
++
++	elem_info = mlxsw_pci_queue_elem_info_consumer_get(q);
++	skb = elem_info->u.sdq.skb;
++	if (!skb)
++		return;
++	wqe = elem_info->elem;
++	mlxsw_pci_wqe_frag_unmap(mlxsw_pci, wqe, 0, DMA_FROM_DEVICE);
++
++	if (q->consumer_counter++ != consumer_counter_limit)
++		dev_dbg_ratelimited(&pdev->dev, "Consumer counter does not match limit in RDQ\n");
++
++	/* We do not support lag now */
++	if (mlxsw_pci_cqe_lag_get(cqe))
 +		goto drop;
 +
-+	pcpu_stats = this_cpu_ptr(mlxsw_core->pcpu_stats);
-+	u64_stats_update_begin(&pcpu_stats->syncp);
-+	pcpu_stats->port_rx_packets[local_port]++;
-+	pcpu_stats->port_rx_bytes[local_port] += skb->len;
-+	pcpu_stats->trap_rx_packets[rx_info->trap_id]++;
-+	pcpu_stats->trap_rx_bytes[rx_info->trap_id] += skb->len;
-+	u64_stats_update_end(&pcpu_stats->syncp);
++	rx_info.sys_port = mlxsw_pci_cqe_system_port_get(cqe);
++	rx_info.trap_id = mlxsw_pci_cqe_trap_id_get(cqe);
 +
-+	rxl->func(skb, local_port, rx_info->trap_id, rxl_item->priv);
++	skb_put(skb, mlxsw_pci_cqe_byte_count_get(cqe));
++	mlxsw_core_skb_receive(mlxsw_pci->core, skb, &rx_info);
++
++put_new_skb:
++	memset(wqe, 0, q->elem_size);
++	err = mlxsw_pci_rdq_skb_alloc(mlxsw_pci, elem_info);
++	if (err && net_ratelimit())
++		dev_dbg(&pdev->dev, "Failed to alloc skb for RDQ\n");
++	/* Everything is set up, ring doorbell to pass elem to HW */
++	q->producer_counter++;
++	mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
 +	return;
 +
 +drop:
-+	if (rx_info->trap_id >= MLXSW_TRAP_ID_MAX)
-+		this_cpu_inc(mlxsw_core->pcpu_stats->trap_rx_invalid);
-+	else
-+		this_cpu_inc(mlxsw_core->pcpu_stats->trap_rx_dropped[rx_info->trap_id]);
-+	if (local_port >= MLXSW_PORT_MAX_PORTS)
-+		this_cpu_inc(mlxsw_core->pcpu_stats->port_rx_invalid);
-+	else
-+		this_cpu_inc(mlxsw_core->pcpu_stats->port_rx_dropped[local_port]);
-+	dev_kfree_skb(skb);
++	dev_kfree_skb_any(skb);
++	goto put_new_skb;
 +}
-+EXPORT_SYMBOL(mlxsw_core_skb_receive);
 +
-+int mlxsw_cmd_exec(struct mlxsw_core *mlxsw_core, u16 opcode, u8 opcode_mod,
-+		   u32 in_mod, bool out_mbox_direct,
-+		   char *in_mbox, size_t in_mbox_size,
-+		   char *out_mbox, size_t out_mbox_size)
++static char *mlxsw_pci_cq_sw_cqe_get(struct mlxsw_pci_queue *q)
 +{
-+	u8 status;
++	return mlxsw_pci_queue_sw_elem_get(q, mlxsw_pci_cqe_owner_get);
++}
++
++static void mlxsw_pci_cq_tasklet(unsigned long data)
++{
++	struct mlxsw_pci_queue *q = (struct mlxsw_pci_queue *) data;
++	struct mlxsw_pci *mlxsw_pci = q->pci;
++	char *cqe;
++	int items = 0;
++	int credits = q->count >> 1;
++
++	while ((cqe = mlxsw_pci_cq_sw_cqe_get(q))) {
++		u16 wqe_counter = mlxsw_pci_cqe_wqe_counter_get(cqe);
++		u8 sendq = mlxsw_pci_cqe_sr_get(cqe);
++		u8 dqn = mlxsw_pci_cqe_dqn_get(cqe);
++
++		if (sendq) {
++			struct mlxsw_pci_queue *sdq;
++
++			sdq = mlxsw_pci_sdq_get(mlxsw_pci, dqn);
++			mlxsw_pci_cqe_sdq_handle(mlxsw_pci, sdq,
++						 wqe_counter, cqe);
++			q->u.cq.comp_sdq_count++;
++		} else {
++			struct mlxsw_pci_queue *rdq;
++
++			rdq = mlxsw_pci_rdq_get(mlxsw_pci, dqn);
++			mlxsw_pci_cqe_rdq_handle(mlxsw_pci, rdq,
++						 wqe_counter, cqe);
++			q->u.cq.comp_rdq_count++;
++		}
++		if (++items == credits)
++			break;
++	}
++	if (items) {
++		mlxsw_pci_queue_doorbell_consumer_ring(mlxsw_pci, q);
++		mlxsw_pci_queue_doorbell_arm_consumer_ring(mlxsw_pci, q);
++	}
++}
++
++static int mlxsw_pci_eq_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
++			     struct mlxsw_pci_queue *q)
++{
++	int i;
 +	int err;
 +
-+	BUG_ON(in_mbox_size % sizeof(u32) || out_mbox_size % sizeof(u32));
-+	if (!mlxsw_core->bus->cmd_exec)
-+		return -EOPNOTSUPP;
++	q->consumer_counter = 0;
 +
-+	dev_dbg(mlxsw_core->bus_info->dev, "Cmd exec (opcode=%x(%s),opcode_mod=%x,in_mod=%x)\n",
-+		opcode, mlxsw_cmd_opcode_str(opcode), opcode_mod, in_mod);
-+	if (in_mbox) {
-+		dev_dbg(mlxsw_core->bus_info->dev, "Input mailbox:\n");
-+		mlxsw_core_buf_dump_dbg(mlxsw_core, in_mbox, in_mbox_size);
++	for (i = 0; i < q->count; i++) {
++		char *elem = mlxsw_pci_queue_elem_get(q, i);
++
++		mlxsw_pci_eqe_owner_set(elem, 1);
 +	}
 +
-+	err = mlxsw_core->bus->cmd_exec(mlxsw_core->bus_priv, opcode,
-+					opcode_mod, in_mod, out_mbox_direct,
-+					in_mbox, in_mbox_size,
-+					out_mbox, out_mbox_size, &status);
++	mlxsw_cmd_mbox_sw2hw_eq_int_msix_set(mbox, 1); /* MSI-X used */
++	mlxsw_cmd_mbox_sw2hw_eq_oi_set(mbox, 0);
++	mlxsw_cmd_mbox_sw2hw_eq_st_set(mbox, 1); /* armed */
++	mlxsw_cmd_mbox_sw2hw_eq_log_eq_size_set(mbox, ilog2(q->count));
++	for (i = 0; i < MLXSW_PCI_AQ_PAGES; i++) {
++		dma_addr_t mapaddr = __mlxsw_pci_queue_page_get(q, i);
 +
-+	if (err == -EIO && status != MLXSW_CMD_STATUS_OK) {
-+		dev_err(mlxsw_core->bus_info->dev, "Cmd exec failed (opcode=%x(%s),opcode_mod=%x,in_mod=%x,status=%x(%s))\n",
-+			opcode, mlxsw_cmd_opcode_str(opcode), opcode_mod,
-+			in_mod, status, mlxsw_cmd_status_str(status));
-+	} else if (err == -ETIMEDOUT) {
-+		dev_err(mlxsw_core->bus_info->dev, "Cmd exec timed-out (opcode=%x(%s),opcode_mod=%x,in_mod=%x)\n",
-+			opcode, mlxsw_cmd_opcode_str(opcode), opcode_mod,
-+			in_mod);
++		mlxsw_cmd_mbox_sw2hw_eq_pa_set(mbox, i, mapaddr);
 +	}
-+
-+	if (!err && out_mbox) {
-+		dev_dbg(mlxsw_core->bus_info->dev, "Output mailbox:\n");
-+		mlxsw_core_buf_dump_dbg(mlxsw_core, out_mbox, out_mbox_size);
-+	}
-+	return err;
-+}
-+EXPORT_SYMBOL(mlxsw_cmd_exec);
-+
-+static int __init mlxsw_core_module_init(void)
-+{
-+	mlxsw_core_dbg_root = debugfs_create_dir(mlxsw_core_driver_name, NULL);
-+	if (!mlxsw_core_dbg_root)
-+		return -ENOMEM;
++	err = mlxsw_cmd_sw2hw_eq(mlxsw_pci->core, mbox, q->num);
++	if (err)
++		return err;
++	mlxsw_pci_queue_doorbell_consumer_ring(mlxsw_pci, q);
++	mlxsw_pci_queue_doorbell_arm_consumer_ring(mlxsw_pci, q);
 +	return 0;
 +}
 +
-+static void __exit mlxsw_core_module_exit(void)
++static void mlxsw_pci_eq_fini(struct mlxsw_pci *mlxsw_pci,
++			      struct mlxsw_pci_queue *q)
 +{
-+	debugfs_remove_recursive(mlxsw_core_dbg_root);
++	mlxsw_cmd_hw2sw_eq(mlxsw_pci->core, q->num);
 +}
 +
-+module_init(mlxsw_core_module_init);
-+module_exit(mlxsw_core_module_exit);
++static int mlxsw_pci_eq_dbg_read(struct seq_file *file, void *data)
++{
++	struct mlxsw_pci *mlxsw_pci = dev_get_drvdata(file->private);
++	struct mlxsw_pci_queue *q;
++	int i;
++	static const char hdr[] =
++		"NUM CONS_COUNT     EV_CMD    EV_COMP   EV_OTHER COUNT\n";
++
++	seq_printf(file, hdr);
++	for (i = 0; i < mlxsw_pci_eq_count(mlxsw_pci); i++) {
++		q = mlxsw_pci_eq_get(mlxsw_pci, i);
++		spin_lock_bh(&q->lock);
++		seq_printf(file, "%3d %10d %10d %10d %10d %5d\n",
++			   i, q->consumer_counter, q->u.eq.ev_cmd_count,
++			   q->u.eq.ev_comp_count, q->u.eq.ev_other_count,
++			   q->count);
++		spin_unlock_bh(&q->lock);
++	}
++	return 0;
++}
++
++static void mlxsw_pci_eq_cmd_event(struct mlxsw_pci *mlxsw_pci, char *eqe)
++{
++	mlxsw_pci->cmd.comp.status = mlxsw_pci_eqe_cmd_status_get(eqe);
++	mlxsw_pci->cmd.comp.out_param =
++		((u64) mlxsw_pci_eqe_cmd_out_param_h_get(eqe)) << 32 |
++		mlxsw_pci_eqe_cmd_out_param_l_get(eqe);
++	mlxsw_pci->cmd.wait_done = true;
++	wake_up(&mlxsw_pci->cmd.wait);
++}
++
++static char *mlxsw_pci_eq_sw_eqe_get(struct mlxsw_pci_queue *q)
++{
++	return mlxsw_pci_queue_sw_elem_get(q, mlxsw_pci_eqe_owner_get);
++}
++
++static void mlxsw_pci_eq_tasklet(unsigned long data)
++{
++	struct mlxsw_pci_queue *q = (struct mlxsw_pci_queue *) data;
++	struct mlxsw_pci *mlxsw_pci = q->pci;
++	unsigned long active_cqns[BITS_TO_LONGS(MLXSW_PCI_CQS_COUNT)];
++	char *eqe;
++	u8 cqn;
++	bool cq_handle = false;
++	int items = 0;
++	int credits = q->count >> 1;
++
++	memset(&active_cqns, 0, sizeof(active_cqns));
++
++	while ((eqe = mlxsw_pci_eq_sw_eqe_get(q))) {
++		u8 event_type = mlxsw_pci_eqe_event_type_get(eqe);
++
++		switch (event_type) {
++		case MLXSW_PCI_EQE_EVENT_TYPE_CMD:
++			mlxsw_pci_eq_cmd_event(mlxsw_pci, eqe);
++			q->u.eq.ev_cmd_count++;
++			break;
++		case MLXSW_PCI_EQE_EVENT_TYPE_COMP:
++			cqn = mlxsw_pci_eqe_cqn_get(eqe);
++			set_bit(cqn, active_cqns);
++			cq_handle = true;
++			q->u.eq.ev_comp_count++;
++			break;
++		default:
++			q->u.eq.ev_other_count++;
++		}
++		if (++items == credits)
++			break;
++	}
++	if (items) {
++		mlxsw_pci_queue_doorbell_consumer_ring(mlxsw_pci, q);
++		mlxsw_pci_queue_doorbell_arm_consumer_ring(mlxsw_pci, q);
++	}
++
++	if (!cq_handle)
++		return;
++	for_each_set_bit(cqn, active_cqns, MLXSW_PCI_CQS_COUNT) {
++		q = mlxsw_pci_cq_get(mlxsw_pci, cqn);
++		mlxsw_pci_queue_tasklet_schedule(q);
++	}
++}
++
++struct mlxsw_pci_queue_ops {
++	const char *name;
++	enum mlxsw_pci_queue_type type;
++	int (*init)(struct mlxsw_pci *mlxsw_pci, char *mbox,
++		    struct mlxsw_pci_queue *q);
++	void (*fini)(struct mlxsw_pci *mlxsw_pci,
++		     struct mlxsw_pci_queue *q);
++	void (*tasklet)(unsigned long data);
++	int (*dbg_read)(struct seq_file *s, void *data);
++	u16 elem_count;
++	u8 elem_size;
++};
++
++static const struct mlxsw_pci_queue_ops mlxsw_pci_sdq_ops = {
++	.type		= MLXSW_PCI_QUEUE_TYPE_SDQ,
++	.init		= mlxsw_pci_sdq_init,
++	.fini		= mlxsw_pci_sdq_fini,
++	.dbg_read	= mlxsw_pci_sdq_dbg_read,
++	.elem_count	= MLXSW_PCI_WQE_COUNT,
++	.elem_size	= MLXSW_PCI_WQE_SIZE,
++};
++
++static const struct mlxsw_pci_queue_ops mlxsw_pci_rdq_ops = {
++	.type		= MLXSW_PCI_QUEUE_TYPE_RDQ,
++	.init		= mlxsw_pci_rdq_init,
++	.fini		= mlxsw_pci_rdq_fini,
++	.dbg_read	= mlxsw_pci_rdq_dbg_read,
++	.elem_count	= MLXSW_PCI_WQE_COUNT,
++	.elem_size	= MLXSW_PCI_WQE_SIZE
++};
++
++static const struct mlxsw_pci_queue_ops mlxsw_pci_cq_ops = {
++	.type		= MLXSW_PCI_QUEUE_TYPE_CQ,
++	.init		= mlxsw_pci_cq_init,
++	.fini		= mlxsw_pci_cq_fini,
++	.tasklet	= mlxsw_pci_cq_tasklet,
++	.dbg_read	= mlxsw_pci_cq_dbg_read,
++	.elem_count	= MLXSW_PCI_CQE_COUNT,
++	.elem_size	= MLXSW_PCI_CQE_SIZE
++};
++
++static const struct mlxsw_pci_queue_ops mlxsw_pci_eq_ops = {
++	.type		= MLXSW_PCI_QUEUE_TYPE_EQ,
++	.init		= mlxsw_pci_eq_init,
++	.fini		= mlxsw_pci_eq_fini,
++	.tasklet	= mlxsw_pci_eq_tasklet,
++	.dbg_read	= mlxsw_pci_eq_dbg_read,
++	.elem_count	= MLXSW_PCI_EQE_COUNT,
++	.elem_size	= MLXSW_PCI_EQE_SIZE
++};
++
++static int mlxsw_pci_queue_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
++				const struct mlxsw_pci_queue_ops *q_ops,
++				struct mlxsw_pci_queue *q, u8 q_num)
++{
++	struct mlxsw_pci_mem_item *mem_item = &q->mem_item;
++	int i;
++	int err;
++
++	spin_lock_init(&q->lock);
++	q->num = q_num;
++	q->count = q_ops->elem_count;
++	q->elem_size = q_ops->elem_size;
++	q->type = q_ops->type;
++	q->pci = mlxsw_pci;
++
++	if (q_ops->tasklet)
++		tasklet_init(&q->tasklet, q_ops->tasklet, (unsigned long) q);
++
++	mem_item->size = MLXSW_PCI_AQ_SIZE;
++	mem_item->buf = pci_alloc_consistent(mlxsw_pci->pdev,
++					     mem_item->size,
++					     &mem_item->mapaddr);
++	if (!mem_item->buf)
++		return -ENOMEM;
++	memset(mem_item->buf, 0, mem_item->size);
++
++	q->elem_info = kcalloc(q->count, sizeof(*q->elem_info), GFP_KERNEL);
++	if (!q->elem_info) {
++		err = -ENOMEM;
++		goto err_elem_info_alloc;
++	}
++
++	/* Initialize dma mapped elements info elem_info for
++	 * future easy access.
++	 */
++	for (i = 0; i < q->count; i++) {
++		struct mlxsw_pci_queue_elem_info *elem_info;
++
++		elem_info = mlxsw_pci_queue_elem_info_get(q, i);
++		elem_info->elem =
++			__mlxsw_pci_queue_elem_get(q, q_ops->elem_size, i);
++	}
++
++	mlxsw_cmd_mbox_zero(mbox);
++	err = q_ops->init(mlxsw_pci, mbox, q);
++	if (err)
++		goto err_q_ops_init;
++	return 0;
++
++err_q_ops_init:
++	kfree(q->elem_info);
++err_elem_info_alloc:
++	pci_free_consistent(mlxsw_pci->pdev, mem_item->size,
++			    mem_item->buf, mem_item->mapaddr);
++	return err;
++}
++
++static void mlxsw_pci_queue_fini(struct mlxsw_pci *mlxsw_pci,
++				 const struct mlxsw_pci_queue_ops *q_ops,
++				 struct mlxsw_pci_queue *q)
++{
++	struct mlxsw_pci_mem_item *mem_item = &q->mem_item;
++
++	q_ops->fini(mlxsw_pci, q);
++	kfree(q->elem_info);
++	pci_free_consistent(mlxsw_pci->pdev, mem_item->size,
++			    mem_item->buf, mem_item->mapaddr);
++}
++
++static int mlxsw_pci_queue_group_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
++				      const struct mlxsw_pci_queue_ops *q_ops,
++				      u8 num_qs)
++{
++	struct pci_dev *pdev = mlxsw_pci->pdev;
++	struct mlxsw_pci_queue_type_group *queue_group;
++	char tmp[16];
++	int i;
++	int err;
++
++	queue_group = mlxsw_pci_queue_type_group_get(mlxsw_pci, q_ops->type);
++	queue_group->q = kcalloc(num_qs, sizeof(*queue_group->q), GFP_KERNEL);
++	if (!queue_group->q)
++		return -ENOMEM;
++
++	for (i = 0; i < num_qs; i++) {
++		err = mlxsw_pci_queue_init(mlxsw_pci, mbox, q_ops,
++					   &queue_group->q[i], i);
++		if (err)
++			goto err_queue_init;
++	}
++	queue_group->count = num_qs;
++
++	sprintf(tmp, "%s_stats", mlxsw_pci_queue_type_str(q_ops->type));
++	debugfs_create_devm_seqfile(&pdev->dev, tmp, mlxsw_pci->dbg_dir,
++				    q_ops->dbg_read);
++
++	return 0;
++
++err_queue_init:
++	for (i--; i >= 0; i--)
++		mlxsw_pci_queue_fini(mlxsw_pci, q_ops, &queue_group->q[i]);
++	kfree(queue_group->q);
++	return err;
++}
++
++static void mlxsw_pci_queue_group_fini(struct mlxsw_pci *mlxsw_pci,
++				       const struct mlxsw_pci_queue_ops *q_ops)
++{
++	struct mlxsw_pci_queue_type_group *queue_group;
++	int i;
++
++	queue_group = mlxsw_pci_queue_type_group_get(mlxsw_pci, q_ops->type);
++	for (i = 0; i < queue_group->count; i++)
++		mlxsw_pci_queue_fini(mlxsw_pci, q_ops, &queue_group->q[i]);
++	kfree(queue_group->q);
++}
++
++static int mlxsw_pci_aqs_init(struct mlxsw_pci *mlxsw_pci, char *mbox)
++{
++	struct pci_dev *pdev = mlxsw_pci->pdev;
++	u8 num_sdqs;
++	u8 sdq_log2sz;
++	u8 num_rdqs;
++	u8 rdq_log2sz;
++	u8 num_cqs;
++	u8 cq_log2sz;
++	u8 num_eqs;
++	u8 eq_log2sz;
++	int err;
++
++	mlxsw_cmd_mbox_zero(mbox);
++	err = mlxsw_cmd_query_aq_cap(mlxsw_pci->core, mbox);
++	if (err)
++		return err;
++
++	num_sdqs = mlxsw_cmd_mbox_query_aq_cap_max_num_sdqs_get(mbox);
++	sdq_log2sz = mlxsw_cmd_mbox_query_aq_cap_log_max_sdq_sz_get(mbox);
++	num_rdqs = mlxsw_cmd_mbox_query_aq_cap_max_num_rdqs_get(mbox);
++	rdq_log2sz = mlxsw_cmd_mbox_query_aq_cap_log_max_rdq_sz_get(mbox);
++	num_cqs = mlxsw_cmd_mbox_query_aq_cap_max_num_cqs_get(mbox);
++	cq_log2sz = mlxsw_cmd_mbox_query_aq_cap_log_max_cq_sz_get(mbox);
++	num_eqs = mlxsw_cmd_mbox_query_aq_cap_max_num_eqs_get(mbox);
++	eq_log2sz = mlxsw_cmd_mbox_query_aq_cap_log_max_eq_sz_get(mbox);
++
++	if ((num_sdqs != MLXSW_PCI_SDQS_COUNT) ||
++	    (num_rdqs != MLXSW_PCI_RDQS_COUNT) ||
++	    (num_cqs != MLXSW_PCI_CQS_COUNT) ||
++	    (num_eqs != MLXSW_PCI_EQS_COUNT)) {
++		dev_err(&pdev->dev, "Unsupported number of queues\n");
++		return -EINVAL;
++	}
++
++	if ((1 << sdq_log2sz != MLXSW_PCI_WQE_COUNT) ||
++	    (1 << rdq_log2sz != MLXSW_PCI_WQE_COUNT) ||
++	    (1 << cq_log2sz != MLXSW_PCI_CQE_COUNT) ||
++	    (1 << eq_log2sz != MLXSW_PCI_EQE_COUNT)) {
++		dev_err(&pdev->dev, "Unsupported number of async queue descriptors\n");
++		return -EINVAL;
++	}
++
++	err = mlxsw_pci_queue_group_init(mlxsw_pci, mbox, &mlxsw_pci_eq_ops,
++					 num_eqs);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to initialize event queues\n");
++		return err;
++	}
++
++	err = mlxsw_pci_queue_group_init(mlxsw_pci, mbox, &mlxsw_pci_cq_ops,
++					 num_cqs);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to initialize completion queues\n");
++		goto err_cqs_init;
++	}
++
++	err = mlxsw_pci_queue_group_init(mlxsw_pci, mbox, &mlxsw_pci_sdq_ops,
++					 num_sdqs);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to initialize send descriptor queues\n");
++		goto err_sdqs_init;
++	}
++
++	err = mlxsw_pci_queue_group_init(mlxsw_pci, mbox, &mlxsw_pci_rdq_ops,
++					 num_rdqs);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to initialize receive descriptor queues\n");
++		goto err_rdqs_init;
++	}
++
++	/* We have to poll in command interface until queues are initialized */
++	mlxsw_pci->cmd.nopoll = true;
++	return 0;
++
++err_rdqs_init:
++	mlxsw_pci_queue_group_fini(mlxsw_pci, &mlxsw_pci_sdq_ops);
++err_sdqs_init:
++	mlxsw_pci_queue_group_fini(mlxsw_pci, &mlxsw_pci_cq_ops);
++err_cqs_init:
++	mlxsw_pci_queue_group_fini(mlxsw_pci, &mlxsw_pci_eq_ops);
++	return err;
++}
++
++static void mlxsw_pci_aqs_fini(struct mlxsw_pci *mlxsw_pci)
++{
++	mlxsw_pci->cmd.nopoll = false;
++	mlxsw_pci_queue_group_fini(mlxsw_pci, &mlxsw_pci_rdq_ops);
++	mlxsw_pci_queue_group_fini(mlxsw_pci, &mlxsw_pci_sdq_ops);
++	mlxsw_pci_queue_group_fini(mlxsw_pci, &mlxsw_pci_cq_ops);
++	mlxsw_pci_queue_group_fini(mlxsw_pci, &mlxsw_pci_eq_ops);
++}
++
++static void
++mlxsw_pci_config_profile_swid_config(struct mlxsw_pci *mlxsw_pci,
++				     char *mbox, int index,
++				     const struct mlxsw_swid_config *swid)
++{
++	u8 mask = 0;
++
++	if (swid->used_type) {
++		mlxsw_cmd_mbox_config_profile_swid_config_type_set(
++			mbox, index, swid->type);
++		mask |= 1;
++	}
++	if (swid->used_properties) {
++		mlxsw_cmd_mbox_config_profile_swid_config_properties_set(
++			mbox, index, swid->properties);
++		mask |= 2;
++	}
++	mlxsw_cmd_mbox_config_profile_swid_config_mask_set(mbox, index, mask);
++}
++
++static int mlxsw_pci_config_profile(struct mlxsw_pci *mlxsw_pci, char *mbox,
++				    const struct mlxsw_config_profile *profile)
++{
++	int i;
++
++	mlxsw_cmd_mbox_zero(mbox);
++
++	if (profile->used_max_vepa_channels) {
++		mlxsw_cmd_mbox_config_profile_set_max_vepa_channels_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_vepa_channels_set(
++			mbox, profile->max_vepa_channels);
++	}
++	if (profile->used_max_lag) {
++		mlxsw_cmd_mbox_config_profile_set_max_lag_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_lag_set(
++			mbox, profile->max_lag);
++	}
++	if (profile->used_max_port_per_lag) {
++		mlxsw_cmd_mbox_config_profile_set_max_port_per_lag_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_port_per_lag_set(
++			mbox, profile->max_port_per_lag);
++	}
++	if (profile->used_max_mid) {
++		mlxsw_cmd_mbox_config_profile_set_max_mid_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_mid_set(
++			mbox, profile->max_mid);
++	}
++	if (profile->used_max_pgt) {
++		mlxsw_cmd_mbox_config_profile_set_max_pgt_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_pgt_set(
++			mbox, profile->max_pgt);
++	}
++	if (profile->used_max_system_port) {
++		mlxsw_cmd_mbox_config_profile_set_max_system_port_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_system_port_set(
++			mbox, profile->max_system_port);
++	}
++	if (profile->used_max_vlan_groups) {
++		mlxsw_cmd_mbox_config_profile_set_max_vlan_groups_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_vlan_groups_set(
++			mbox, profile->max_vlan_groups);
++	}
++	if (profile->used_max_regions) {
++		mlxsw_cmd_mbox_config_profile_set_max_regions_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_regions_set(
++			mbox, profile->max_regions);
++	}
++	if (profile->used_flood_tables) {
++		mlxsw_cmd_mbox_config_profile_set_flood_tables_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_flood_tables_set(
++			mbox, profile->max_flood_tables);
++		mlxsw_cmd_mbox_config_profile_max_vid_flood_tables_set(
++			mbox, profile->max_vid_flood_tables);
++	}
++	if (profile->used_flood_mode) {
++		mlxsw_cmd_mbox_config_profile_set_flood_mode_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_flood_mode_set(
++			mbox, profile->flood_mode);
++	}
++	if (profile->used_max_ib_mc) {
++		mlxsw_cmd_mbox_config_profile_set_max_ib_mc_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_ib_mc_set(
++			mbox, profile->max_ib_mc);
++	}
++	if (profile->used_max_pkey) {
++		mlxsw_cmd_mbox_config_profile_set_max_pkey_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_max_pkey_set(
++			mbox, profile->max_pkey);
++	}
++	if (profile->used_ar_sec) {
++		mlxsw_cmd_mbox_config_profile_set_ar_sec_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_ar_sec_set(
++			mbox, profile->ar_sec);
++	}
++	if (profile->used_adaptive_routing_group_cap) {
++		mlxsw_cmd_mbox_config_profile_set_adaptive_routing_group_cap_set(
++			mbox, 1);
++		mlxsw_cmd_mbox_config_profile_adaptive_routing_group_cap_set(
++			mbox, profile->adaptive_routing_group_cap);
++	}
++
++	for (i = 0; i < MLXSW_CONFIG_PROFILE_SWID_COUNT; i++)
++		mlxsw_pci_config_profile_swid_config(mlxsw_pci, mbox, i,
++						     &profile->swid_config[i]);
++
++	return mlxsw_cmd_config_profile_set(mlxsw_pci->core, mbox);
++}
++
++static int mlxsw_pci_boardinfo(struct mlxsw_pci *mlxsw_pci, char *mbox)
++{
++	struct mlxsw_bus_info *bus_info = &mlxsw_pci->bus_info;
++	int err;
++
++	mlxsw_cmd_mbox_zero(mbox);
++	err = mlxsw_cmd_boardinfo(mlxsw_pci->core, mbox);
++	if (err)
++		return err;
++	mlxsw_cmd_mbox_boardinfo_vsd_memcpy_from(mbox, bus_info->vsd);
++	mlxsw_cmd_mbox_boardinfo_psid_memcpy_from(mbox, bus_info->psid);
++	return 0;
++}
++
++static int mlxsw_pci_fw_area_init(struct mlxsw_pci *mlxsw_pci, char *mbox,
++				  u16 num_pages)
++{
++	struct mlxsw_pci_mem_item *mem_item;
++	int i;
++	int err;
++
++	mlxsw_pci->fw_area.items = kcalloc(num_pages, sizeof(*mem_item),
++					   GFP_KERNEL);
++	if (!mlxsw_pci->fw_area.items)
++		return -ENOMEM;
++	mlxsw_pci->fw_area.num_pages = num_pages;
++
++	mlxsw_cmd_mbox_zero(mbox);
++	for (i = 0; i < num_pages; i++) {
++		mem_item = &mlxsw_pci->fw_area.items[i];
++
++		mem_item->size = MLXSW_PCI_PAGE_SIZE;
++		mem_item->buf = pci_alloc_consistent(mlxsw_pci->pdev,
++						     mem_item->size,
++						     &mem_item->mapaddr);
++		if (!mem_item->buf)
++			goto err_alloc;
++		mlxsw_cmd_mbox_map_fa_pa_set(mbox, i, mem_item->mapaddr);
++		mlxsw_cmd_mbox_map_fa_log2size_set(mbox, i, 0); /* 1 page */
++	}
++
++	err = mlxsw_cmd_map_fa(mlxsw_pci->core, mbox, num_pages);
++	if (err)
++		goto err_cmd_map_fa;
++
++	return 0;
++
++err_cmd_map_fa:
++err_alloc:
++	for (i--; i >= 0; i--) {
++		mem_item = &mlxsw_pci->fw_area.items[i];
++
++		pci_free_consistent(mlxsw_pci->pdev, mem_item->size,
++				    mem_item->buf, mem_item->mapaddr);
++	}
++	kfree(mlxsw_pci->fw_area.items);
++	return err;
++}
++
++static void mlxsw_pci_fw_area_fini(struct mlxsw_pci *mlxsw_pci)
++{
++	struct mlxsw_pci_mem_item *mem_item;
++	int i;
++
++	mlxsw_cmd_unmap_fa(mlxsw_pci->core);
++
++	for (i = 0; i < mlxsw_pci->fw_area.num_pages; i++) {
++		mem_item = &mlxsw_pci->fw_area.items[i];
++
++		pci_free_consistent(mlxsw_pci->pdev, mem_item->size,
++				    mem_item->buf, mem_item->mapaddr);
++	}
++	kfree(mlxsw_pci->fw_area.items);
++}
++
++static irqreturn_t mlxsw_pci_eq_irq_handler(int irq, void *dev_id)
++{
++	struct mlxsw_pci *mlxsw_pci = dev_id;
++	struct mlxsw_pci_queue *q;
++	int i;
++
++	for (i = 0; i < MLXSW_PCI_EQS_COUNT; i++) {
++		q = mlxsw_pci_eq_get(mlxsw_pci, i);
++		mlxsw_pci_queue_tasklet_schedule(q);
++	}
++	return IRQ_HANDLED;
++}
++
++static int mlxsw_pci_init(void *bus_priv, struct mlxsw_core *mlxsw_core,
++			  const struct mlxsw_config_profile *profile)
++{
++	struct mlxsw_pci *mlxsw_pci = bus_priv;
++	struct pci_dev *pdev = mlxsw_pci->pdev;
++	char *mbox;
++	u16 num_pages;
++	int err;
++
++	mutex_init(&mlxsw_pci->cmd.lock);
++	init_waitqueue_head(&mlxsw_pci->cmd.wait);
++
++	mlxsw_pci->core = mlxsw_core;
++
++	mbox = mlxsw_cmd_mbox_alloc();
++	if (!mbox)
++		return -ENOMEM;
++	err = mlxsw_cmd_query_fw(mlxsw_core, mbox);
++	if (err)
++		goto err_query_fw;
++
++	mlxsw_pci->bus_info.fw_rev.major =
++		mlxsw_cmd_mbox_query_fw_fw_rev_major_get(mbox);
++	mlxsw_pci->bus_info.fw_rev.minor =
++		mlxsw_cmd_mbox_query_fw_fw_rev_minor_get(mbox);
++	mlxsw_pci->bus_info.fw_rev.subminor =
++		mlxsw_cmd_mbox_query_fw_fw_rev_subminor_get(mbox);
++
++	if (mlxsw_cmd_mbox_query_fw_cmd_interface_rev_get(mbox) != 1) {
++		dev_err(&pdev->dev, "Unsupported cmd interface revision ID queried from hw\n");
++		err = -EINVAL;
++		goto err_iface_rev;
++	}
++	if (mlxsw_cmd_mbox_query_fw_doorbell_page_bar_get(mbox) != 0) {
++		dev_err(&pdev->dev, "Unsupported doorbell page bar queried from hw\n");
++		err = -EINVAL;
++		goto err_doorbell_page_bar;
++	}
++
++	mlxsw_pci->doorbell_offset =
++		mlxsw_cmd_mbox_query_fw_doorbell_page_offset_get(mbox);
++
++	num_pages = mlxsw_cmd_mbox_query_fw_fw_pages_get(mbox);
++	err = mlxsw_pci_fw_area_init(mlxsw_pci, mbox, num_pages);
++	if (err)
++		goto err_fw_area_init;
++
++	err = mlxsw_pci_boardinfo(mlxsw_pci, mbox);
++	if (err)
++		goto err_boardinfo;
++
++	err = mlxsw_pci_config_profile(mlxsw_pci, mbox, profile);
++	if (err)
++		goto err_config_profile;
++
++	err = mlxsw_pci_aqs_init(mlxsw_pci, mbox);
++	if (err)
++		goto err_aqs_init;
++
++	err = request_irq(mlxsw_pci->msix_entry.vector,
++			  mlxsw_pci_eq_irq_handler, 0,
++			  mlxsw_pci_driver_name, mlxsw_pci);
++	if (err) {
++		dev_err(&pdev->dev, "IRQ request failed\n");
++		goto err_request_eq_irq;
++	}
++
++	goto mbox_put;
++
++err_request_eq_irq:
++	mlxsw_pci_aqs_fini(mlxsw_pci);
++err_aqs_init:
++err_config_profile:
++err_boardinfo:
++	mlxsw_pci_fw_area_fini(mlxsw_pci);
++err_fw_area_init:
++err_doorbell_page_bar:
++err_iface_rev:
++err_query_fw:
++mbox_put:
++	mlxsw_cmd_mbox_free(mbox);
++	return err;
++}
++
++static void mlxsw_pci_fini(void *bus_priv)
++{
++	struct mlxsw_pci *mlxsw_pci = bus_priv;
++
++	free_irq(mlxsw_pci->msix_entry.vector, mlxsw_pci);
++	mlxsw_pci_aqs_fini(mlxsw_pci);
++	mlxsw_pci_fw_area_fini(mlxsw_pci);
++}
++
++static struct mlxsw_pci_queue *
++mlxsw_pci_sdq_pick(struct mlxsw_pci *mlxsw_pci,
++		   const struct mlxsw_tx_info *tx_info)
++{
++	u8 sdqn = tx_info->local_port % mlxsw_pci_sdq_count(mlxsw_pci);
++
++	return mlxsw_pci_sdq_get(mlxsw_pci, sdqn);
++}
++
++static int mlxsw_pci_skb_transmit(void *bus_priv, struct sk_buff *skb,
++				  const struct mlxsw_tx_info *tx_info)
++{
++	struct mlxsw_pci *mlxsw_pci = bus_priv;
++	struct mlxsw_pci_queue *q;
++	struct mlxsw_pci_queue_elem_info *elem_info;
++	char *wqe;
++	int i;
++	int err;
++
++	if (skb_shinfo(skb)->nr_frags > MLXSW_PCI_WQE_SG_ENTRIES - 1)
++		return -EINVAL;
++
++	q = mlxsw_pci_sdq_pick(mlxsw_pci, tx_info);
++	spin_lock_bh(&q->lock);
++	elem_info = mlxsw_pci_queue_elem_info_producer_get(q);
++	if (!elem_info) {
++		/* queue is full */
++		err = -EAGAIN;
++		goto unlock;
++	}
++	elem_info->u.sdq.skb = skb;
++
++	wqe = elem_info->elem;
++	mlxsw_pci_wqe_c_set(wqe, 1); /* always report completion */
++	mlxsw_pci_wqe_lp_set(wqe, !!tx_info->is_emad);
++	mlxsw_pci_wqe_type_set(wqe, MLXSW_PCI_WQE_TYPE_ETHERNET);
++
++	err = mlxsw_pci_wqe_frag_map(mlxsw_pci, wqe, 0, skb->data,
++				     skb_headlen(skb), DMA_TO_DEVICE);
++	if (err)
++		goto unlock;
++
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++
++		err = mlxsw_pci_wqe_frag_map(mlxsw_pci, wqe, i + 1,
++					     skb_frag_address(frag),
++					     skb_frag_size(frag),
++					     DMA_TO_DEVICE);
++		if (err)
++			goto unmap_frags;
++	}
++
++	/* Set unused sq entries byte count to zero. */
++	for (i++; i < MLXSW_PCI_WQE_SG_ENTRIES; i++)
++		mlxsw_pci_wqe_byte_count_set(wqe, i, 0);
++
++	/* Everything is set up, ring producer doorbell to get HW going */
++	q->producer_counter++;
++	mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
++
++	goto unlock;
++
++unmap_frags:
++	for (; i >= 0; i--)
++		mlxsw_pci_wqe_frag_unmap(mlxsw_pci, wqe, i, DMA_TO_DEVICE);
++unlock:
++	spin_unlock_bh(&q->lock);
++	return err;
++}
++
++static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
++			      u32 in_mod, bool out_mbox_direct,
++			      char *in_mbox, size_t in_mbox_size,
++			      char *out_mbox, size_t out_mbox_size,
++			      u8 *p_status)
++{
++	struct mlxsw_pci *mlxsw_pci = bus_priv;
++	dma_addr_t in_mapaddr = 0;
++	dma_addr_t out_mapaddr = 0;
++	bool evreq = mlxsw_pci->cmd.nopoll;
++	unsigned long timeout = msecs_to_jiffies(MLXSW_PCI_CIR_TIMEOUT_MSECS);
++	bool *p_wait_done = &mlxsw_pci->cmd.wait_done;
++	int err;
++
++	*p_status = MLXSW_CMD_STATUS_OK;
++
++	err = mutex_lock_interruptible(&mlxsw_pci->cmd.lock);
++	if (err)
++		return err;
++
++	if (in_mbox) {
++		in_mapaddr = pci_map_single(mlxsw_pci->pdev, in_mbox,
++					    in_mbox_size, PCI_DMA_TODEVICE);
++		if (unlikely(pci_dma_mapping_error(mlxsw_pci->pdev,
++						   in_mapaddr))) {
++			err = -EIO;
++			goto err_in_mbox_map;
++		}
++	}
++	mlxsw_pci_write32(mlxsw_pci, CIR_IN_PARAM_HI, in_mapaddr >> 32);
++	mlxsw_pci_write32(mlxsw_pci, CIR_IN_PARAM_LO, in_mapaddr);
++
++	if (out_mbox) {
++		out_mapaddr = pci_map_single(mlxsw_pci->pdev, out_mbox,
++					     out_mbox_size, PCI_DMA_FROMDEVICE);
++		if (unlikely(pci_dma_mapping_error(mlxsw_pci->pdev,
++						   out_mapaddr))) {
++			err = -EIO;
++			goto err_out_mbox_map;
++		}
++	}
++	mlxsw_pci_write32(mlxsw_pci, CIR_OUT_PARAM_HI, out_mapaddr >> 32);
++	mlxsw_pci_write32(mlxsw_pci, CIR_OUT_PARAM_LO, out_mapaddr);
++
++	mlxsw_pci_write32(mlxsw_pci, CIR_IN_MODIFIER, in_mod);
++	mlxsw_pci_write32(mlxsw_pci, CIR_TOKEN, 0);
++
++	*p_wait_done = false;
++
++	wmb(); /* all needs to be written before we write control register */
++	mlxsw_pci_write32(mlxsw_pci, CIR_CTRL,
++			  MLXSW_PCI_CIR_CTRL_GO_BIT |
++			  (evreq ? MLXSW_PCI_CIR_CTRL_EVREQ_BIT : 0) |
++			  (opcode_mod << MLXSW_PCI_CIR_CTRL_OPCODE_MOD_SHIFT) |
++			  opcode);
++
++	if (!evreq) {
++		unsigned long end;
++
++		end = jiffies + timeout;
++		do {
++			u32 ctrl = mlxsw_pci_read32(mlxsw_pci, CIR_CTRL);
++
++			if (!(ctrl & MLXSW_PCI_CIR_CTRL_GO_BIT)) {
++				*p_wait_done = true;
++				*p_status = ctrl >> MLXSW_PCI_CIR_CTRL_STATUS_SHIFT;
++				break;
++			}
++			cond_resched();
++		} while (time_before(jiffies, end));
++	} else {
++		wait_event_timeout(mlxsw_pci->cmd.wait, *p_wait_done, timeout);
++		*p_status = mlxsw_pci->cmd.comp.status;
++	}
++
++	err = 0;
++	if (*p_wait_done) {
++		if (*p_status)
++			err = -EIO;
++	} else {
++		err = -ETIMEDOUT;
++	}
++
++	if (!err && out_mbox && out_mbox_direct) {
++		/* Some commands does not use output param as address to mailbox
++		 * but they store output directly into registers. In that case,
++		 * copy registers into mbox buffer.
++		 */
++		__be32 tmp;
++
++		if (!evreq) {
++			tmp = cpu_to_be32(mlxsw_pci_read32(mlxsw_pci,
++							   CIR_OUT_PARAM_HI));
++			memcpy(out_mbox, &tmp, sizeof(tmp));
++			tmp = cpu_to_be32(mlxsw_pci_read32(mlxsw_pci,
++							   CIR_OUT_PARAM_LO));
++			memcpy(out_mbox + sizeof(tmp), &tmp, sizeof(tmp));
++		}
++	}
++
++	if (out_mapaddr)
++		pci_unmap_single(mlxsw_pci->pdev, out_mapaddr, out_mbox_size,
++				 PCI_DMA_FROMDEVICE);
++
++	/* fall through */
++
++err_out_mbox_map:
++	if (in_mapaddr)
++		pci_unmap_single(mlxsw_pci->pdev, in_mapaddr, in_mbox_size,
++				 PCI_DMA_TODEVICE);
++err_in_mbox_map:
++	mutex_unlock(&mlxsw_pci->cmd.lock);
++
++	return err;
++}
++
++static const struct mlxsw_bus mlxsw_pci_bus = {
++	.kind		= "pci",
++	.init		= mlxsw_pci_init,
++	.fini		= mlxsw_pci_fini,
++	.skb_transmit	= mlxsw_pci_skb_transmit,
++	.cmd_exec	= mlxsw_pci_cmd_exec,
++};
++
++static int mlxsw_pci_sw_reset(struct mlxsw_pci *mlxsw_pci)
++{
++	mlxsw_pci_write32(mlxsw_pci, SW_RESET, MLXSW_PCI_SW_RESET_RST_BIT);
++	/* Current firware does not let us know when the reset is done.
++	 * So we just wait here for constant time and hope for the best.
++	 */
++	msleep(MLXSW_PCI_SW_RESET_TIMEOUT_MSECS);
++	return 0;
++}
++
++static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
++{
++	struct mlxsw_pci *mlxsw_pci;
++	int err;
++
++	mlxsw_pci = kzalloc(sizeof(*mlxsw_pci), GFP_KERNEL);
++	if (!mlxsw_pci)
++		return -ENOMEM;
++
++	err = pci_enable_device(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "pci_enable_device failed\n");
++		goto err_pci_enable_device;
++	}
++
++	err = pci_request_regions(pdev, mlxsw_pci_driver_name);
++	if (err) {
++		dev_err(&pdev->dev, "pci_request_regions failed\n");
++		goto err_pci_request_regions;
++	}
++
++	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
++	if (!err) {
++		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
++		if (err) {
++			dev_err(&pdev->dev, "pci_set_consistent_dma_mask failed\n");
++			goto err_pci_set_dma_mask;
++		}
++	} else {
++		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
++		if (err) {
++			dev_err(&pdev->dev, "pci_set_dma_mask failed\n");
++			goto err_pci_set_dma_mask;
++		}
++	}
++
++	if (pci_resource_len(pdev, 0) < MLXSW_PCI_BAR0_SIZE) {
++		dev_err(&pdev->dev, "invalid PCI region size\n");
++		err = -EINVAL;
++		goto err_pci_resource_len_check;
++	}
++
++	mlxsw_pci->hw_addr = ioremap(pci_resource_start(pdev, 0),
++				     pci_resource_len(pdev, 0));
++	if (!mlxsw_pci->hw_addr) {
++		dev_err(&pdev->dev, "ioremap failed\n");
++		err = -EIO;
++		goto err_ioremap;
++	}
++	pci_set_master(pdev);
++
++	mlxsw_pci->pdev = pdev;
++	pci_set_drvdata(pdev, mlxsw_pci);
++
++	err = mlxsw_pci_sw_reset(mlxsw_pci);
++	if (err) {
++		dev_err(&pdev->dev, "Software reset failed\n");
++		goto err_sw_reset;
++	}
++
++	err = pci_enable_msix_exact(pdev, &mlxsw_pci->msix_entry, 1);
++	if (err) {
++		dev_err(&pdev->dev, "MSI-X init failed\n");
++		goto err_msix_init;
++	}
++
++	mlxsw_pci->bus_info.device_kind = mlxsw_pci_device_kind_get(id);
++	mlxsw_pci->bus_info.device_name = pci_name(mlxsw_pci->pdev);
++	mlxsw_pci->bus_info.dev = &pdev->dev;
++
++	mlxsw_pci->dbg_dir = debugfs_create_dir(mlxsw_pci->bus_info.device_name,
++						mlxsw_pci_dbg_root);
++	if (!mlxsw_pci->dbg_dir) {
++		dev_err(&pdev->dev, "Failed to create debugfs dir\n");
++		goto err_dbg_create_dir;
++	}
++
++	err = mlxsw_core_bus_device_register(&mlxsw_pci->bus_info,
++					     &mlxsw_pci_bus, mlxsw_pci);
++	if (err) {
++		dev_err(&pdev->dev, "cannot register bus device\n");
++		goto err_bus_device_register;
++	}
++
++	return 0;
++
++err_bus_device_register:
++	debugfs_remove_recursive(mlxsw_pci->dbg_dir);
++err_dbg_create_dir:
++	pci_disable_msix(mlxsw_pci->pdev);
++err_msix_init:
++err_sw_reset:
++	iounmap(mlxsw_pci->hw_addr);
++err_ioremap:
++err_pci_resource_len_check:
++err_pci_set_dma_mask:
++	pci_release_regions(pdev);
++err_pci_request_regions:
++	pci_disable_device(pdev);
++err_pci_enable_device:
++	kfree(mlxsw_pci);
++	return err;
++}
++
++static void mlxsw_pci_remove(struct pci_dev *pdev)
++{
++	struct mlxsw_pci *mlxsw_pci = pci_get_drvdata(pdev);
++
++	mlxsw_core_bus_device_unregister(mlxsw_pci->core);
++	debugfs_remove_recursive(mlxsw_pci->dbg_dir);
++	pci_disable_msix(mlxsw_pci->pdev);
++	iounmap(mlxsw_pci->hw_addr);
++	pci_release_regions(mlxsw_pci->pdev);
++	pci_disable_device(mlxsw_pci->pdev);
++	kfree(mlxsw_pci);
++}
++
++static struct pci_driver mlxsw_pci_driver = {
++	.name		= mlxsw_pci_driver_name,
++	.id_table	= mlxsw_pci_id_table,
++	.probe		= mlxsw_pci_probe,
++	.remove		= mlxsw_pci_remove,
++};
++
++static int __init mlxsw_pci_module_init(void)
++{
++	int err;
++
++	mlxsw_pci_dbg_root = debugfs_create_dir(mlxsw_pci_driver_name, NULL);
++	if (!mlxsw_pci_dbg_root)
++		return -ENOMEM;
++	err = pci_register_driver(&mlxsw_pci_driver);
++	if (err)
++		goto err_register_driver;
++	return 0;
++
++err_register_driver:
++	debugfs_remove_recursive(mlxsw_pci_dbg_root);
++	return err;
++}
++
++static void __exit mlxsw_pci_module_exit(void)
++{
++	pci_unregister_driver(&mlxsw_pci_driver);
++	debugfs_remove_recursive(mlxsw_pci_dbg_root);
++}
++
++module_init(mlxsw_pci_module_init);
++module_exit(mlxsw_pci_module_exit);
 +
 +MODULE_LICENSE("Dual BSD/GPL");
 +MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
-+MODULE_DESCRIPTION("Mellanox switch device core driver");
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
++MODULE_DESCRIPTION("Mellanox switch PCI interface driver");
++MODULE_DEVICE_TABLE(pci, mlxsw_pci_id_table);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.h b/drivers/net/ethernet/mellanox/mlxsw/pci.h
 new file mode 100644
-index 0000000..8033408
+index 0000000..6176a93
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -0,0 +1,180 @@
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.h
+@@ -0,0 +1,220 @@
 +/*
-+ * drivers/net/ethernet/mellanox/mlxsw/core.h
++ * drivers/net/ethernet/mellanox/mlxsw/pci.h
 + * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
 + * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-+ * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
@@ -1816,690 +1900,191 @@ index 0000000..8033408
 + * POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#ifndef _MLXSW_CORE_H
-+#define _MLXSW_CORE_H
++#ifndef _MLXSW_PCI_H
++#define _MLXSW_PCI_H
 +
-+#include <linux/module.h>
-+#include <linux/device.h>
-+#include <linux/slab.h>
-+#include <linux/gfp.h>
-+#include <linux/types.h>
-+#include <linux/skbuff.h>
-+
-+#include "cmd.h"
-+
-+#define MLXSW_MODULE_ALIAS_PREFIX "mlxsw-driver-"
-+#define MODULE_MLXSW_DRIVER_ALIAS(kind)	\
-+	MODULE_ALIAS(MLXSW_MODULE_ALIAS_PREFIX kind)
-+
-+struct mlxsw_core;
-+struct mlxsw_driver;
-+struct mlxsw_bus;
-+struct mlxsw_bus_info;
-+
-+int mlxsw_core_driver_register(struct mlxsw_driver *mlxsw_driver);
-+void mlxsw_core_driver_unregister(struct mlxsw_driver *mlxsw_driver);
-+
-+int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
-+				   const struct mlxsw_bus *mlxsw_bus,
-+				   void *bus_priv);
-+void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core);
-+
-+struct mlxsw_tx_info {
-+	u8 local_port;
-+	bool is_emad;
-+};
-+
-+int mlxsw_core_skb_transmit(void *driver_priv, struct sk_buff *skb,
-+			    const struct mlxsw_tx_info *tx_info);
-+
-+struct mlxsw_rx_listener {
-+	void (*func)(struct sk_buff *skb, u8 local_port,
-+		     u16 trap_id, void *priv);
-+	u8 local_port;
-+	u16 trap_id;
-+};
-+
-+int mlxsw_core_rx_listener_register(struct mlxsw_core *mlxsw_core,
-+				    const struct mlxsw_rx_listener *rxl,
-+				    void *priv);
-+void mlxsw_core_rx_listener_unregister(struct mlxsw_core *mlxsw_core,
-+				       const struct mlxsw_rx_listener *rxl,
-+				       void *priv);
-+
-+struct mlxsw_rx_info {
-+	u16 sys_port;
-+	int trap_id;
-+};
-+
-+void mlxsw_core_skb_receive(struct mlxsw_core *mlxsw_core, struct sk_buff *skb,
-+			    struct mlxsw_rx_info *rx_info);
-+
-+#define MLXSW_CONFIG_PROFILE_SWID_COUNT 8
-+
-+struct mlxsw_swid_config {
-+	u8	used_type:1,
-+		used_properties:1;
-+	u8	type;
-+	u8	properties;
-+};
-+
-+struct mlxsw_config_profile {
-+	u16	used_max_vepa_channels:1,
-+		used_max_lag:1,
-+		used_max_port_per_lag:1,
-+		used_max_mid:1,
-+		used_max_pgt:1,
-+		used_max_system_port:1,
-+		used_max_vlan_groups:1,
-+		used_max_regions:1,
-+		used_flood_tables:1,
-+		used_flood_mode:1,
-+		used_max_ib_mc:1,
-+		used_max_pkey:1,
-+		used_ar_sec:1,
-+		used_adaptive_routing_group_cap:1;
-+	u8	max_vepa_channels;
-+	u16	max_lag;
-+	u16	max_port_per_lag;
-+	u16	max_mid;
-+	u16	max_pgt;
-+	u16	max_system_port;
-+	u16	max_vlan_groups;
-+	u16	max_regions;
-+	u8	max_flood_tables;
-+	u8	max_vid_flood_tables;
-+	u8	flood_mode;
-+	u16	max_ib_mc;
-+	u16	max_pkey;
-+	u8	ar_sec;
-+	u16	adaptive_routing_group_cap;
-+	u8	arn;
-+	struct mlxsw_swid_config swid_config[MLXSW_CONFIG_PROFILE_SWID_COUNT];
-+};
-+
-+struct mlxsw_driver {
-+	struct list_head list;
-+	const char *kind;
-+	struct module *owner;
-+	size_t priv_size;
-+	int (*init)(void *driver_priv, struct mlxsw_core *mlxsw_core,
-+		    const struct mlxsw_bus_info *mlxsw_bus_info);
-+	void (*fini)(void *driver_priv);
-+	void (*txhdr_construct)(struct sk_buff *skb,
-+				const struct mlxsw_tx_info *tx_info);
-+	u8 txhdr_len;
-+	const struct mlxsw_config_profile *profile;
-+};
-+
-+struct mlxsw_bus {
-+	const char *kind;
-+	int (*init)(void *bus_priv, struct mlxsw_core *mlxsw_core,
-+		    const struct mlxsw_config_profile *profile);
-+	void (*fini)(void *bus_priv);
-+	int (*skb_transmit)(void *bus_priv, struct sk_buff *skb,
-+			    const struct mlxsw_tx_info *tx_info);
-+	int (*cmd_exec)(void *bus_priv, u16 opcode, u8 opcode_mod,
-+			u32 in_mod, bool out_mbox_direct,
-+			char *in_mbox, size_t in_mbox_size,
-+			char *out_mbox, size_t out_mbox_size,
-+			u8 *p_status);
-+};
-+
-+struct mlxsw_bus_info {
-+	const char *device_kind;
-+	const char *device_name;
-+	struct device *dev;
-+	struct {
-+		u16 major;
-+		u16 minor;
-+		u16 subminor;
-+	} fw_rev;
-+	u8 vsd[MLXSW_CMD_BOARDINFO_VSD_LEN];
-+	u8 psid[MLXSW_CMD_BOARDINFO_PSID_LEN];
-+};
-+
-+#endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/item.h b/drivers/net/ethernet/mellanox/mlxsw/item.h
-new file mode 100644
-index 0000000..4d0ac88
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/item.h
-@@ -0,0 +1,405 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/item.h
-+ * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef _MLXSW_ITEM_H
-+#define _MLXSW_ITEM_H
-+
-+#include <linux/types.h>
-+#include <linux/string.h>
 +#include <linux/bitops.h>
 +
-+struct mlxsw_item {
-+	unsigned short	offset;		/* bytes in container */
-+	unsigned short	step;		/* step in bytes for indexed items */
-+	unsigned short	in_step_offset; /* offset within one step */
-+	unsigned char	shift;		/* shift in bits */
-+	unsigned char	element_size;	/* size of element in bit array */
-+	bool		no_real_shift;
-+	union {
-+		unsigned char	bits;
-+		unsigned short	bytes;
-+	} size;
-+	const char	*name;
-+};
++#include "item.h"
 +
-+static inline unsigned int
-+__mlxsw_item_offset(struct mlxsw_item *item, unsigned short index,
-+		    size_t typesize)
-+{
-+	BUG_ON(index && !item->step);
-+	if (item->offset % typesize != 0 ||
-+	    item->step % typesize != 0 ||
-+	    item->in_step_offset % typesize != 0) {
-+		pr_err("mlxsw: item bug (name=%s,offset=%x,step=%x,in_step_offset=%x,typesize=%lx)\n",
-+		       item->name, item->offset, item->step,
-+		       item->in_step_offset, typesize);
-+		BUG();
-+	}
++#define MLXSW_PCI_BAR0_SIZE		(1024 * 1024) /* 1MB */
++#define MLXSW_PCI_PAGE_SIZE		4096
 +
-+	return ((item->offset + item->step * index + item->in_step_offset) /
-+		typesize);
-+}
++#define MLXSW_PCI_CIR_BASE			0x71000
++#define MLXSW_PCI_CIR_IN_PARAM_HI		MLXSW_PCI_CIR_BASE
++#define MLXSW_PCI_CIR_IN_PARAM_LO		(MLXSW_PCI_CIR_BASE + 0x04)
++#define MLXSW_PCI_CIR_IN_MODIFIER		(MLXSW_PCI_CIR_BASE + 0x08)
++#define MLXSW_PCI_CIR_OUT_PARAM_HI		(MLXSW_PCI_CIR_BASE + 0x0C)
++#define MLXSW_PCI_CIR_OUT_PARAM_LO		(MLXSW_PCI_CIR_BASE + 0x10)
++#define MLXSW_PCI_CIR_TOKEN			(MLXSW_PCI_CIR_BASE + 0x14)
++#define MLXSW_PCI_CIR_CTRL			(MLXSW_PCI_CIR_BASE + 0x18)
++#define MLXSW_PCI_CIR_CTRL_GO_BIT		BIT(23)
++#define MLXSW_PCI_CIR_CTRL_EVREQ_BIT		BIT(22)
++#define MLXSW_PCI_CIR_CTRL_OPCODE_MOD_SHIFT	12
++#define MLXSW_PCI_CIR_CTRL_STATUS_SHIFT		24
++#define MLXSW_PCI_CIR_TIMEOUT_MSECS		1000
 +
-+static inline u16 __mlxsw_item_get16(char *buf, struct mlxsw_item *item,
-+				     unsigned short index)
-+{
-+	unsigned int offset = __mlxsw_item_offset(item, index, sizeof(u16));
-+	__be16 *b = (__be16 *) buf;
-+	u16 tmp;
++#define MLXSW_PCI_SW_RESET			0xF0010
++#define MLXSW_PCI_SW_RESET_RST_BIT		BIT(0)
++#define MLXSW_PCI_SW_RESET_TIMEOUT_MSECS	5000
 +
-+	tmp = be16_to_cpu(b[offset]);
-+	tmp >>= item->shift;
-+	tmp &= GENMASK(item->size.bits - 1, 0);
-+	if (item->no_real_shift)
-+		tmp <<= item->shift;
-+	return tmp;
-+}
++#define MLXSW_PCI_DOORBELL_SDQ_OFFSET		0x000
++#define MLXSW_PCI_DOORBELL_RDQ_OFFSET		0x200
++#define MLXSW_PCI_DOORBELL_CQ_OFFSET		0x400
++#define MLXSW_PCI_DOORBELL_EQ_OFFSET		0x600
++#define MLXSW_PCI_DOORBELL_ARM_CQ_OFFSET	0x800
++#define MLXSW_PCI_DOORBELL_ARM_EQ_OFFSET	0xA00
 +
-+static inline void __mlxsw_item_set16(char *buf, struct mlxsw_item *item,
-+				      unsigned short index, u16 val)
-+{
-+	unsigned int offset = __mlxsw_item_offset(item, index,
-+						  sizeof(u16));
-+	__be16 *b = (__be16 *) buf;
-+	u16 mask = GENMASK(item->size.bits - 1, 0) << item->shift;
-+	u16 tmp;
++#define MLXSW_PCI_DOORBELL(offset, type_offset, num)	\
++	((offset) + (type_offset) + (num) * 4)
 +
-+	if (!item->no_real_shift)
-+		val <<= item->shift;
-+	val &= mask;
-+	tmp = be16_to_cpu(b[offset]);
-+	tmp &= ~mask;
-+	tmp |= val;
-+	b[offset] = cpu_to_be16(tmp);
-+}
++#define MLXSW_PCI_RDQS_COUNT	24
++#define MLXSW_PCI_SDQS_COUNT	24
++#define MLXSW_PCI_CQS_COUNT	(MLXSW_PCI_RDQS_COUNT + MLXSW_PCI_SDQS_COUNT)
++#define MLXSW_PCI_EQS_COUNT	2
++#define MLXSW_PCI_EQ_ASYNC_NUM	0
++#define MLXSW_PCI_EQ_COMP_NUM	1
 +
-+static inline u32 __mlxsw_item_get32(char *buf, struct mlxsw_item *item,
-+				     unsigned short index)
-+{
-+	unsigned int offset = __mlxsw_item_offset(item, index, sizeof(u32));
-+	__be32 *b = (__be32 *) buf;
-+	u32 tmp;
++#define MLXSW_PCI_AQ_PAGES	8
++#define MLXSW_PCI_AQ_SIZE	(MLXSW_PCI_PAGE_SIZE * MLXSW_PCI_AQ_PAGES)
++#define MLXSW_PCI_WQE_SIZE	32 /* 32 bytes per element */
++#define MLXSW_PCI_CQE_SIZE	16 /* 16 bytes per element */
++#define MLXSW_PCI_EQE_SIZE	16 /* 16 bytes per element */
++#define MLXSW_PCI_WQE_COUNT	(MLXSW_PCI_AQ_SIZE / MLXSW_PCI_WQE_SIZE)
++#define MLXSW_PCI_CQE_COUNT	(MLXSW_PCI_AQ_SIZE / MLXSW_PCI_CQE_SIZE)
++#define MLXSW_PCI_EQE_COUNT	(MLXSW_PCI_AQ_SIZE / MLXSW_PCI_EQE_SIZE)
++#define MLXSW_PCI_EQE_UPDATE_COUNT	0x80
 +
-+	tmp = be32_to_cpu(b[offset]);
-+	tmp >>= item->shift;
-+	tmp &= GENMASK(item->size.bits - 1, 0);
-+	if (item->no_real_shift)
-+		tmp <<= item->shift;
-+	return tmp;
-+}
++#define MLXSW_PCI_WQE_SG_ENTRIES	3
++#define MLXSW_PCI_WQE_TYPE_ETHERNET	0xA
 +
-+static inline void __mlxsw_item_set32(char *buf, struct mlxsw_item *item,
-+				      unsigned short index, u32 val)
-+{
-+	unsigned int offset = __mlxsw_item_offset(item, index,
-+						  sizeof(u32));
-+	__be32 *b = (__be32 *) buf;
-+	u32 mask = GENMASK(item->size.bits - 1, 0) << item->shift;
-+	u32 tmp;
-+
-+	if (!item->no_real_shift)
-+		val <<= item->shift;
-+	val &= mask;
-+	tmp = be32_to_cpu(b[offset]);
-+	tmp &= ~mask;
-+	tmp |= val;
-+	b[offset] = cpu_to_be32(tmp);
-+}
-+
-+static inline u64 __mlxsw_item_get64(char *buf, struct mlxsw_item *item,
-+				     unsigned short index)
-+{
-+	unsigned int offset = __mlxsw_item_offset(item, index, sizeof(u64));
-+	__be64 *b = (__be64 *) buf;
-+	u64 tmp;
-+
-+	tmp = be64_to_cpu(b[offset]);
-+	tmp >>= item->shift;
-+	tmp &= GENMASK_ULL(item->size.bits - 1, 0);
-+	if (item->no_real_shift)
-+		tmp <<= item->shift;
-+	return tmp;
-+}
-+
-+static inline void __mlxsw_item_set64(char *buf, struct mlxsw_item *item,
-+				      unsigned short index, u64 val)
-+{
-+	unsigned int offset = __mlxsw_item_offset(item, index, sizeof(u64));
-+	__be64 *b = (__be64 *) buf;
-+	u64 mask = GENMASK_ULL(item->size.bits - 1, 0) << item->shift;
-+	u64 tmp;
-+
-+	if (!item->no_real_shift)
-+		val <<= item->shift;
-+	val &= mask;
-+	tmp = be64_to_cpu(b[offset]);
-+	tmp &= ~mask;
-+	tmp |= val;
-+	b[offset] = cpu_to_be64(tmp);
-+}
-+
-+static inline void __mlxsw_item_memcpy_from(char *buf, char *dst,
-+					    struct mlxsw_item *item)
-+{
-+	memcpy(dst, &buf[item->offset], item->size.bytes);
-+}
-+
-+static inline void __mlxsw_item_memcpy_to(char *buf, char *src,
-+					  struct mlxsw_item *item)
-+{
-+	memcpy(&buf[item->offset], src, item->size.bytes);
-+}
-+
-+static inline u16
-+__mlxsw_item_bit_array_offset(struct mlxsw_item *item, u16 index, u8 *shift)
-+{
-+	u16 max_index, be_index;
-+	u16 offset;		/* byte offset inside the array */
-+
-+	BUG_ON(index && !item->element_size);
-+	if (item->offset % sizeof(u32) != 0 ||
-+	    BITS_PER_BYTE % item->element_size != 0) {
-+		pr_err("mlxsw: item bug (name=%s,offset=%x,element_size=%x)\n",
-+		       item->name, item->offset, item->element_size);
-+		BUG();
-+	}
-+
-+	max_index = (item->size.bytes << 3) / item->element_size - 1;
-+	be_index = max_index - index;
-+	offset = be_index * item->element_size >> 3;
-+	*shift = index % (BITS_PER_BYTE / item->element_size) << 1;
-+
-+	return item->offset + offset;
-+}
-+
-+static inline u8 __mlxsw_item_bit_array_get(char *buf, struct mlxsw_item *item,
-+					    u16 index)
-+{
-+	u8 shift, tmp;
-+	u16 offset = __mlxsw_item_bit_array_offset(item, index, &shift);
-+
-+	tmp = buf[offset];
-+	tmp >>= shift;
-+	tmp &= GENMASK(item->element_size - 1, 0);
-+	return tmp;
-+}
-+
-+static inline void __mlxsw_item_bit_array_set(char *buf, struct mlxsw_item *item,
-+					      u16 index, u8 val)
-+{
-+	u8 shift, tmp;
-+	u16 offset = __mlxsw_item_bit_array_offset(item, index, &shift);
-+	u8 mask = GENMASK(item->element_size - 1, 0) << shift;
-+
-+	val <<= shift;
-+	val &= mask;
-+	tmp = buf[offset];
-+	tmp &= ~mask;
-+	tmp |= val;
-+	buf[offset] = tmp;
-+}
-+
-+#define __ITEM_NAME(_type, _cname, _iname)					\
-+	mlxsw_##_type##_##_cname##_##_iname##_item
-+
-+/* _type: cmd_mbox, reg, etc.
-+ * _cname: containter name (e.g. command name, register name)
-+ * _iname: item name within the container
++/* pci_wqe_c
++ * If set it indicates that a completion should be reported upon
++ * execution of this descriptor.
 + */
++MLXSW_ITEM32(pci, wqe, c, 0x00, 31, 1);
 +
-+#define MLXSW_ITEM16(_type, _cname, _iname, _offset, _shift, _sizebits)		\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.shift = _shift,							\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u16 mlxsw_##_type##_##_cname##_##_iname##_get(char *buf)		\
-+{										\
-+	return __mlxsw_item_get16(buf, &__ITEM_NAME(_type, _cname, _iname), 0);	\
-+}										\
-+static inline void mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, u16 val)\
-+{										\
-+	__mlxsw_item_set16(buf, &__ITEM_NAME(_type, _cname, _iname), 0, val);	\
-+}
++/* pci_wqe_lp
++ * Local Processing, set if packet should be processed by the local
++ * switch hardware:
++ * For Ethernet EMAD (Direct Route and non Direct Route) -
++ * must be set if packet destination is local device
++ * For InfiniBand CTL - must be set if packet destination is local device
++ * Otherwise it must be clear
++ * Local Process packets must not exceed the size of 2K (including payload
++ * and headers).
++ */
++MLXSW_ITEM32(pci, wqe, lp, 0x00, 30, 1);
 +
-+#define MLXSW_ITEM16_INDEXED(_type, _cname, _iname, _offset, _shift, _sizebits,	\
-+			     _step, _instepoffset, _norealshift)		\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.step = _step,								\
-+	.in_step_offset = _instepoffset,					\
-+	.shift = _shift,							\
-+	.no_real_shift = _norealshift,						\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u16								\
-+mlxsw_##_type##_##_cname##_##_iname##_get(char *buf, unsigned short index)	\
-+{										\
-+	return __mlxsw_item_get16(buf, &__ITEM_NAME(_type, _cname, _iname),	\
-+				  index);					\
-+}										\
-+static inline void								\
-+mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, unsigned short index,	\
-+					  u16 val)				\
-+{										\
-+	__mlxsw_item_set16(buf, &__ITEM_NAME(_type, _cname, _iname),		\
-+			   index, val);						\
-+}
++/* pci_wqe_type
++ * Packet type.
++ */
++MLXSW_ITEM32(pci, wqe, type, 0x00, 23, 4);
 +
-+#define MLXSW_ITEM32(_type, _cname, _iname, _offset, _shift, _sizebits)		\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.shift = _shift,							\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u32 mlxsw_##_type##_##_cname##_##_iname##_get(char *buf)		\
-+{										\
-+	return __mlxsw_item_get32(buf, &__ITEM_NAME(_type, _cname, _iname), 0);	\
-+}										\
-+static inline void mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, u32 val)\
-+{										\
-+	__mlxsw_item_set32(buf, &__ITEM_NAME(_type, _cname, _iname), 0, val);	\
-+}
++/* pci_wqe_byte_count
++ * Size of i-th scatter/gather entry, 0 if entry is unused.
++ */
++MLXSW_ITEM16_INDEXED(pci, wqe, byte_count, 0x02, 0, 14, 0x02, 0x00, false);
 +
-+#define MLXSW_ITEM32_INDEXED(_type, _cname, _iname, _offset, _shift, _sizebits,	\
-+			     _step, _instepoffset, _norealshift)		\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.step = _step,								\
-+	.in_step_offset = _instepoffset,					\
-+	.shift = _shift,							\
-+	.no_real_shift = _norealshift,						\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u32								\
-+mlxsw_##_type##_##_cname##_##_iname##_get(char *buf, unsigned short index)	\
-+{										\
-+	return __mlxsw_item_get32(buf, &__ITEM_NAME(_type, _cname, _iname),	\
-+				  index);					\
-+}										\
-+static inline void								\
-+mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, unsigned short index,	\
-+					  u32 val)				\
-+{										\
-+	__mlxsw_item_set32(buf, &__ITEM_NAME(_type, _cname, _iname),		\
-+			   index, val);						\
-+}
++/* pci_wqe_address
++ * Physical address of i-th scatter/gather entry.
++ * Gather Entries must be 2Byte aligned.
++ */
++MLXSW_ITEM64_INDEXED(pci, wqe, address, 0x08, 0, 64, 0x8, 0x0, false);
 +
-+#define MLXSW_ITEM64(_type, _cname, _iname, _offset, _shift, _sizebits)		\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.shift = _shift,							\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u64 mlxsw_##_type##_##_cname##_##_iname##_get(char *buf)		\
-+{										\
-+	return __mlxsw_item_get64(buf, &__ITEM_NAME(_type, _cname, _iname), 0);	\
-+}										\
-+static inline void mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, u64 val)\
-+{										\
-+	__mlxsw_item_set64(buf, &__ITEM_NAME(_type, _cname, _iname), 0,	val);	\
-+}
++/* pci_cqe_lag
++ * Packet arrives from a port which is a LAG
++ */
++MLXSW_ITEM32(pci, cqe, lag, 0x00, 23, 1);
 +
-+#define MLXSW_ITEM64_INDEXED(_type, _cname, _iname, _offset, _shift,		\
-+			     _sizebits, _step, _instepoffset, _norealshift)	\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.step = _step,								\
-+	.in_step_offset = _instepoffset,					\
-+	.shift = _shift,							\
-+	.no_real_shift = _norealshift,						\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u64								\
-+mlxsw_##_type##_##_cname##_##_iname##_get(char *buf, unsigned short index)	\
-+{										\
-+	return __mlxsw_item_get64(buf, &__ITEM_NAME(_type, _cname, _iname),	\
-+				  index);					\
-+}										\
-+static inline void								\
-+mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, unsigned short index,	\
-+					  u64 val)				\
-+{										\
-+	__mlxsw_item_set64(buf, &__ITEM_NAME(_type, _cname, _iname),		\
-+			   index, val);						\
-+}
++/* pci_cqe_system_port
++ * When lag=0: System port on which the packet was received
++ * When lag=1:
++ * bits [15:4] LAG ID on which the packet was received
++ * bits [3:0] sub_port on which the packet was received
++ */
++MLXSW_ITEM32(pci, cqe, system_port, 0x00, 0, 16);
 +
-+#define MLXSW_ITEM_BUF(_type, _cname, _iname, _offset, _sizebytes)		\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.size = {.bytes = _sizebytes,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline void								\
-+mlxsw_##_type##_##_cname##_##_iname##_memcpy_from(char *buf, char *dst)		\
-+{										\
-+	__mlxsw_item_memcpy_from(buf, dst, &__ITEM_NAME(_type, _cname, _iname));\
-+}										\
-+static inline void								\
-+mlxsw_##_type##_##_cname##_##_iname##_memcpy_to(char *buf, char *src)		\
-+{										\
-+	__mlxsw_item_memcpy_to(buf, src, &__ITEM_NAME(_type, _cname, _iname));	\
-+}
++/* pci_cqe_wqe_counter
++ * WQE count of the WQEs completed on the associated dqn
++ */
++MLXSW_ITEM32(pci, cqe, wqe_counter, 0x04, 16, 16);
 +
-+#define MLXSW_ITEM_BIT_ARRAY(_type, _cname, _iname, _offset, _sizebytes,	\
-+			     _element_size)					\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.element_size = _element_size,						\
-+	.size = {.bytes = _sizebytes,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u8								\
-+mlxsw_##_type##_##_cname##_##_iname##_get(char *buf, u16 index)			\
-+{										\
-+	return __mlxsw_item_bit_array_get(buf,					\
-+					  &__ITEM_NAME(_type, _cname, _iname),	\
-+					  index);				\
-+}										\
-+static inline void								\
-+mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, u16 index, u8 val)		\
-+{										\
-+	return __mlxsw_item_bit_array_set(buf,					\
-+					  &__ITEM_NAME(_type, _cname, _iname),	\
-+					  index, val);				\
-+}										\
++/* pci_cqe_byte_count
++ * Byte count of received packets including additional two
++ * Reserved Bytes that are append to the end of the frame.
++ * Reserved for Send CQE.
++ */
++MLXSW_ITEM32(pci, cqe, byte_count, 0x04, 0, 14);
++
++/* pci_cqe_trap_id
++ * Trap ID that captured the packet.
++ */
++MLXSW_ITEM32(pci, cqe, trap_id, 0x08, 0, 8);
++
++/* pci_cqe_e
++ * CQE with Error.
++ */
++MLXSW_ITEM32(pci, cqe, e, 0x0C, 7, 1);
++
++/* pci_cqe_sr
++ * 1 - Send Queue
++ * 0 - Receive Queue
++ */
++MLXSW_ITEM32(pci, cqe, sr, 0x0C, 6, 1);
++
++/* pci_cqe_dqn
++ * Descriptor Queue (DQ) Number.
++ */
++MLXSW_ITEM32(pci, cqe, dqn, 0x0C, 1, 5);
++
++/* pci_cqe_owner
++ * Ownership bit.
++ */
++MLXSW_ITEM32(pci, cqe, owner, 0x0C, 0, 1);
++
++/* pci_eqe_event_type
++ * Event type.
++ */
++MLXSW_ITEM32(pci, eqe, event_type, 0x0C, 24, 8);
++#define MLXSW_PCI_EQE_EVENT_TYPE_COMP	0x00
++#define MLXSW_PCI_EQE_EVENT_TYPE_CMD	0x0A
++
++/* pci_eqe_event_sub_type
++ * Event type.
++ */
++MLXSW_ITEM32(pci, eqe, event_sub_type, 0x0C, 16, 8);
++
++/* pci_eqe_cqn
++ * Completion Queue that triggeret this EQE.
++ */
++MLXSW_ITEM32(pci, eqe, cqn, 0x0C, 8, 7);
++
++/* pci_eqe_owner
++ * Ownership bit.
++ */
++MLXSW_ITEM32(pci, eqe, owner, 0x0C, 0, 1);
++
++/* pci_eqe_cmd_token
++ * Command completion event - token
++ */
++MLXSW_ITEM32(pci, eqe, cmd_token, 0x08, 16, 16);
++
++/* pci_eqe_cmd_status
++ * Command completion event - status
++ */
++MLXSW_ITEM32(pci, eqe, cmd_status, 0x08, 0, 8);
++
++/* pci_eqe_cmd_out_param_h
++ * Command completion event - output parameter - higher part
++ */
++MLXSW_ITEM32(pci, eqe, cmd_out_param_h, 0x0C, 0, 32);
++
++/* pci_eqe_cmd_out_param_l
++ * Command completion event - output parameter - lower part
++ */
++MLXSW_ITEM32(pci, eqe, cmd_out_param_l, 0x10, 0, 32);
 +
 +#endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/port.h b/drivers/net/ethernet/mellanox/mlxsw/port.h
-new file mode 100644
-index 0000000..7d66c92
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/port.h
-@@ -0,0 +1,50 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/port.h
-+ * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
-+ * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+#ifndef _MLXSW_PORT_H
-+#define _MLXSW_PORT_H
-+
-+#include <linux/types.h>
-+
-+#define MLXSW_PORT_MAX_MTU		10000
-+
-+#define MLXSW_PORT_DEFAULT_VID		1
-+
-+#define MLXSW_PORT_MAX_PHY_PORTS	0x40
-+#define MLXSW_PORT_MAX_PORTS		MLXSW_PORT_MAX_PHY_PORTS
-+
-+#define MLXSW_PORT_CPU_PORT		0x0
-+
-+#endif /* _MLXSW_PORT_H */
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-new file mode 100644
-index 0000000..bff007d
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-@@ -0,0 +1,68 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/trap.h
-+ * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
-+ * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+#ifndef _MLXSW_TRAP_H
-+#define _MLXSW_TRAP_H
-+
-+enum {
-+	/* Ethernet EMAD and FDB miss */
-+	MLXSW_TRAP_ID_FDB_MC = 0x01,
-+	MLXSW_TRAP_ID_ETHEMAD = 0x05,
-+	/* L2 traps for specific packet types */
-+	MLXSW_TRAP_ID_STP = 0x10,
-+	MLXSW_TRAP_ID_LACP = 0x11,
-+	MLXSW_TRAP_ID_EAPOL = 0x12,
-+	MLXSW_TRAP_ID_LLDP = 0x13,
-+	MLXSW_TRAP_ID_MMRP = 0x14,
-+	MLXSW_TRAP_ID_MVRP = 0x15,
-+	MLXSW_TRAP_ID_RPVST = 0x16,
-+	MLXSW_TRAP_ID_DHCP = 0x19,
-+	MLXSW_TRAP_ID_IGMP_QUERY = 0x30,
-+	MLXSW_TRAP_ID_IGMP_V1_REPORT = 0x31,
-+	MLXSW_TRAP_ID_IGMP_V2_REPORT = 0x32,
-+	MLXSW_TRAP_ID_IGMP_V2_LEAVE = 0x33,
-+	MLXSW_TRAP_ID_IGMP_V3_REPORT = 0x34,
-+
-+	MLXSW_TRAP_ID_MAX = 0x1FF
-+};
-+
-+enum mlxsw_event_trap_id {
-+	/* Port Up/Down event generated by hardware */
-+	MLXSW_TRAP_ID_PUDE = 0x8,
-+};
-+
-+#define MLXSW_TRAP_ID_DONT_CARE (MLXSW_TRAP_ID_MAX)
-+
-+#endif /* _MLXSW_TRAP_H */
 -- 
 1.9.3
