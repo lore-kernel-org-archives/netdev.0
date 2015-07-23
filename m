@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net 3/3] r8152: don't enable napi before rx ready
-Date: Thu, 23 Jul 2015 15:09:07 +0800
-Message-ID: <1394712342-15778-151-Taiwan-albertk@realtek.com>
+Subject: [PATCH net 2/3] r8152: fix remote wakeup
+Date: Thu, 23 Jul 2015 15:09:06 +0800
+Message-ID: <1394712342-15778-150-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-148-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,57 +13,26 @@ In-Reply-To: <1394712342-15778-148-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adjust napi_disable() and napi_enable() to avoid r8152_poll() start
-working before rx ready. Otherwise, it may have race condition for
-rx_agg.
+Set needs_remote_wakeup only when the device supports it.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/usb/r8152.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index eff1f25..fe2cd8a 100644
+index e3a0110..eff1f25 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -2075,7 +2075,6 @@ static int rtl_start_rx(struct r8152 *tp)
- {
- 	int i, ret = 0;
- 
--	napi_disable(&tp->napi);
- 	INIT_LIST_HEAD(&tp->rx_done);
- 	for (i = 0; i < RTL8152_MAX_RX; i++) {
- 		INIT_LIST_HEAD(&tp->rx_info[i].list);
-@@ -2083,7 +2082,6 @@ static int rtl_start_rx(struct r8152 *tp)
- 		if (ret)
- 			break;
+@@ -4059,7 +4059,8 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 		break;
  	}
--	napi_enable(&tp->napi);
  
- 	if (ret && ++i < RTL8152_MAX_RX) {
- 		struct list_head rx_queue;
-@@ -2944,8 +2942,10 @@ static void set_carrier(struct r8152 *tp)
- 		if (!netif_carrier_ok(netdev)) {
- 			tp->rtl_ops.enable(tp);
- 			set_bit(RTL8152_SET_RX_MODE, &tp->flags);
-+			napi_disable(&tp->napi);
- 			netif_carrier_on(netdev);
- 			rtl_start_rx(tp);
-+			napi_enable(&tp->napi);
- 		}
- 	} else {
- 		if (netif_carrier_ok(netdev)) {
-@@ -3388,9 +3388,11 @@ static int rtl8152_resume(struct usb_interface *intf)
- 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
- 			rtl_runtime_suspend_enable(tp, false);
- 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-+			napi_disable(&tp->napi);
- 			set_bit(WORK_ENABLE, &tp->flags);
- 			if (netif_carrier_ok(tp->netdev))
- 				rtl_start_rx(tp);
-+			napi_enable(&tp->napi);
- 		} else {
- 			tp->rtl_ops.up(tp);
- 			rtl8152_set_speed(tp, AUTONEG_ENABLE,
+-	intf->needs_remote_wakeup = 1;
++	if (udev->actconfig->desc.bmAttributes & USB_CONFIG_ATT_WAKEUP)
++		intf->needs_remote_wakeup = 1;
+ 
+ 	tp->rtl_ops.init(tp);
+ 	set_ethernet_addr(tp);
 -- 
 2.4.2
