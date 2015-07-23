@@ -1,95 +1,83 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: [Patch v2 resend 2/2] net: fec: introduce fec_ptp_stop and use in probe fail path
-Date: Thu, 23 Jul 2015 16:06:20 +0200
-Message-ID: <1437660380-21164-2-git-send-email-l.stach@pengutronix.de>
-References: <1437660380-21164-1-git-send-email-l.stach@pengutronix.de>
-Cc: Duan Andy <fugang.duan@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>, netdev@vger.kernel.org,
-	patchwork-lst@pengutronix.de
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:47726 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753247AbbGWOG0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 10:06:26 -0400
-In-Reply-To: <1437660380-21164-1-git-send-email-l.stach@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: Move e1000e_disable_aspm_locked() inside
+ CONFIG_PM
+Date: Thu, 23 Jul 2015 07:07:26 -0700
+Message-ID: <1437660446.23223.3.camel@intel.com>
+References: <1436846075-29366-1-git-send-email-mpe@ellerman.id.au>
+	 <1436956216.13597.8.camel@intel.com>
+	 <1437529280.16792.9.camel@ellerman.id.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-+0vIDSnTgBeQWLf+v2FN"
+Cc: "Avargil, Raanan" <raanan.avargil@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, aaron.f.brown@intel.com,
+	yanirx.lubetkin@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+To: Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437529280.16792.9.camel@ellerman.id.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This function frees resources and cancels delayed work item that
-have been initialized in fec_ptp_init().
 
-Use this to do proper error handling if something goes wrong in
-probe function after fec_ptp_init has been called.
+--=-+0vIDSnTgBeQWLf+v2FN
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
-Acked-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h      |  1 +
- drivers/net/ethernet/freescale/fec_main.c |  5 ++---
- drivers/net/ethernet/freescale/fec_ptp.c  | 10 ++++++++++
- 3 files changed, 13 insertions(+), 3 deletions(-)
+On Wed, 2015-07-22 at 11:41 +1000, Michael Ellerman wrote:
+> On Wed, 2015-07-15 at 03:30 -0700, Jeff Kirsher wrote:
+> > On Tue, 2015-07-14 at 13:54 +1000, Michael Ellerman wrote:
+> > > e1000e_disable_aspm_locked() is only used in __e1000_resume()
+> which is
+> > > inside CONFIG_PM. So when CONFIG_PM=3Dn we get a "defined but not
+> used"
+> > > warning for e1000e_disable_aspm_locked().
+> > >=20
+> > > Move it inside the existing CONFIG_PM block to avoid the warning.
+> > >=20
+> > > Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> > > ---
+> > >  drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+> > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >=20
+> > NACK, this is already fixed in my next-queue tree.  Raanan submitted
+> a
+> > patch back on July 6th to resolve this issue, see commit id
+> > a75787d2246a93d256061db602f252703559af65 in my dev-queue branch of
+> my
+> > next-queue tree.
+>=20
+> OK. I take it your next-queue is destined for 4.3, so we'll just have
+> to suck
+> on the warning until then?
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 1eee73cccdf5..99d33e2d35e6 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -562,6 +562,7 @@ struct fec_enet_private {
- };
- 
- void fec_ptp_init(struct platform_device *pdev);
-+void fec_ptp_stop(struct platform_device *pdev);
- void fec_ptp_start_cyclecounter(struct net_device *ndev);
- int fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);
- int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr);
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index a7f1bdf718f8..32e3807c650e 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3494,6 +3494,7 @@ failed_register:
- failed_mii_init:
- failed_irq:
- failed_init:
-+	fec_ptp_stop(pdev);
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- failed_regulator:
-@@ -3515,14 +3516,12 @@ fec_drv_remove(struct platform_device *pdev)
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
--	cancel_delayed_work_sync(&fep->time_keep);
- 	cancel_work_sync(&fep->tx_timeout_work);
-+	fec_ptp_stop(pdev);
- 	unregister_netdev(ndev);
- 	fec_enet_mii_remove(fep);
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
--	if (fep->ptp_clock)
--		ptp_clock_unregister(fep->ptp_clock);
- 	of_node_put(fep->phy_node);
- 	free_netdev(ndev);
- 
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index a15663ad7f5e..f457a23d0bfb 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -604,6 +604,16 @@ void fec_ptp_init(struct platform_device *pdev)
- 	schedule_delayed_work(&fep->time_keep, HZ);
- }
- 
-+void fec_ptp_stop(struct platform_device *pdev)
-+{
-+	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	cancel_delayed_work_sync(&fep->time_keep);
-+	if (fep->ptp_clock)
-+		ptp_clock_unregister(fep->ptp_clock);
-+}
-+
- /**
-  * fec_ptp_check_pps_event
-  * @fep: the fec_enet_private structure handle
--- 
-2.1.4
+Yes, but I can queue Raanan's patch up for 4.2 (and possibly stable) if
+necessary.  I have no issue with doing that.
+
+--=-+0vIDSnTgBeQWLf+v2FN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVsPUeAAoJEOVv75VaS+3OM6UP+wSn4BKgC9gOiEaarNpIJ8fx
+Jbe+K3eTZEsajKxpX8jFYAAkB7p/eHYH4wHenBenaB6BsmMygCk19wa5wAWrY6Ue
+VzKaUodqbGJ0zCmMappZH8+LU98uW5UFwPGKuDlIanKBtditPBDDxAyVkNKj+1ZX
+BbMwi/J5Q2hIgE6wzl6DC9jG7zDfYx33RYgcGg5eHiScE+wEMxkOcx/WH6b9dCjI
+DYMfDxx3KoWh657qFuM/CHSxU0LuAshm+fCSjvj4OypRl5cQvx2pCHEzv4Lujx/V
+erzyrS7ITwDyInfoP5OAnjj3EGyieIMIIFNU1YYApp6TaiviMqqynUxMXaaEmbli
+hXvUso4m8qaZdjEK/W20X9mRSVuUMp5OJh5NF32Y+ovfocWweIA1vIIFxAcMq2fy
+16jWE794367dcvD9bTtqortQbV3OfC9xJAYlWPPX+Epi32AesGOqfsjTSbbFiLcR
+hkeObsX3PmzxYbnZJd3lyaRKIKcUasoQf6azFi4Fqe3b+rBZsFrdaoaunTuNI2ih
+wi1nfccNUpwxl/m5GhB+mLdw/fitUfe7e/9f2hld+xrKP1KQjyM/D2/y6tlbHAa8
+NCfwTuD+blRN0lXTmYoDhQ1RSsoSKfjramwHMJX3tlCnJGj9/wr9s3siwCAfS/lc
+PI5+kGT2+lKgU3Xjc1pF
+=2dAZ
+-----END PGP SIGNATURE-----
+
+--=-+0vIDSnTgBeQWLf+v2FN--
