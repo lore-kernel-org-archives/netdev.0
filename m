@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2.1 13/22] fjes: net_device_ops.ndo_change_mtu
-Date: Thu, 23 Jul 2015 09:10:27 +0900
-Message-ID: <1437610236-12490-13-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2.1 12/22] fjes: net_device_ops.ndo_get_stats64
+Date: Thu, 23 Jul 2015 09:10:26 +0900
+Message-ID: <1437610236-12490-12-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1437610142-12439-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1437610236-12490-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
@@ -10,67 +10,51 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
 In-Reply-To: <1437610236-12490-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds net_device_ops.ndo_change_mtu.
+This patch adds net_device_ops.ndo_get_stats64 callback.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes_main.c | 29 +++++++++++++++++++++++++++++
- 1 file changed, 29 insertions(+)
+ drivers/net/fjes/fjes_main.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
 diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index 842edbb..bb94890 100644
+index 186197d..842edbb 100644
 --- a/drivers/net/fjes/fjes_main.c
 +++ b/drivers/net/fjes/fjes_main.c
-@@ -57,6 +57,7 @@ static void fjes_tx_stall_task(struct work_struct *);
+@@ -55,6 +55,8 @@ static netdev_tx_t fjes_xmit_frame(struct sk_buff *, struct net_device *);
+ static void fjes_raise_intr_rxdata_task(struct work_struct *);
+ static void fjes_tx_stall_task(struct work_struct *);
  static irqreturn_t fjes_intr(int, void*);
- static struct rtnl_link_stats64 *
- fjes_get_stats64(struct net_device *, struct rtnl_link_stats64 *);
-+static int fjes_change_mtu(struct net_device *, int);
++static struct rtnl_link_stats64 *
++fjes_get_stats64(struct net_device *, struct rtnl_link_stats64 *);
  
  static int fjes_acpi_add(struct acpi_device *);
  static int fjes_acpi_remove(struct acpi_device *);
-@@ -222,6 +223,7 @@ static const struct net_device_ops fjes_netdev_ops = {
+@@ -219,6 +221,7 @@ static const struct net_device_ops fjes_netdev_ops = {
+ 	.ndo_open		= fjes_open,
  	.ndo_stop		= fjes_close,
  	.ndo_start_xmit		= fjes_xmit_frame,
- 	.ndo_get_stats64	= fjes_get_stats64,
-+	.ndo_change_mtu		= fjes_change_mtu,
++	.ndo_get_stats64	= fjes_get_stats64,
  };
  
  /* fjes_open - Called when a network interface is made active */
-@@ -715,6 +717,33 @@ fjes_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
- 	return stats;
+@@ -702,6 +705,16 @@ fjes_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	return ret;
  }
  
-+static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
++static struct rtnl_link_stats64 *
++fjes_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
 +{
-+	int idx;
-+	bool running = netif_running(netdev);
-+	int ret = 0;
++	struct fjes_adapter *adapter = netdev_priv(netdev);
 +
-+	for (idx = 0; fjes_support_mtu[idx] != 0; idx++) {
-+		if (new_mtu <= fjes_support_mtu[idx]) {
-+			new_mtu = fjes_support_mtu[idx];
-+			if (new_mtu == netdev->mtu)
-+				return 0;
++	memcpy(stats, &adapter->stats64, sizeof(struct rtnl_link_stats64));
 +
-+			if (running)
-+				fjes_close(netdev);
-+
-+			netdev->mtu = new_mtu;
-+
-+			if (running)
-+				ret = fjes_open(netdev);
-+
-+			return ret;
-+		}
-+	}
-+
-+	return -EINVAL;
++	return stats;
 +}
 +
  static irqreturn_t fjes_intr(int irq, void *data)
@@ -78,4 +62,3 @@ index 842edbb..bb94890 100644
  	struct fjes_adapter *adapter = data;
 -- 
 1.8.3.1
-
