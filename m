@@ -1,55 +1,39 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] lwtunnel: export linux/lwtunnel.h to userspace
-Date: Thu, 23 Jul 2015 15:43:56 +0200
-Message-ID: <1437659036-14282-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: davem@davemloft.net
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] af_mpls: fix undefined reference to ip6_route_output
+Date: Thu, 23 Jul 2015 06:44:13 -0700
+Message-ID: <55B0EFAD.1010007@cumulusnetworks.com>
+References: <20150722.130444.1245167673786115378.davem@davemloft.net> <20150722201729.GB26717@pox.localdomain> <55AFFF47.8040704@cumulusnetworks.com> <20150723.000949.1617391267827343249.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:49443 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349AbbGWNoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 09:44:13 -0400
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34660 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752358AbbGWNoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 09:44:16 -0400
+Received: by pdbbh15 with SMTP id bh15so111810958pdb.1
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 06:44:15 -0700 (PDT)
+In-Reply-To: <20150723.000949.1617391267827343249.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note also that include/linux/lwtunnel.h is not needed.
+On 7/23/15, 12:09 AM, David Miller wrote:
+> From: roopa <roopa@cumulusnetworks.com>
+> Date: Wed, 22 Jul 2015 13:38:31 -0700
+>
+>> I cant think of a way to fix the current problem with my patch...
+> I guess it's not obvious that adding CONFIG_MPLS_IPV6 would solve
+> the problem perfectly.
+I  thought that was not an option because CONFIG_MPLS_ROUTING is already 
+out and supports IPV6 when RTA_OIF is
+specified.
 
-CC: Thomas Graf <tgraf@suug.ch>
-CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-Fixes: 499a24256862 ("lwtunnel: infrastructure for handling light weight tunnels like mpls")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/linux/lwtunnel.h  | 6 ------
- include/uapi/linux/Kbuild | 1 +
- 2 files changed, 1 insertion(+), 6 deletions(-)
- delete mode 100644 include/linux/lwtunnel.h
+I did submit another version yesterday using IS_BUILTIN (sorry missed 
+the v2 in the patch prefix).
+https://patchwork.ozlabs.org/patch/498903/
 
-diff --git a/include/linux/lwtunnel.h b/include/linux/lwtunnel.h
-deleted file mode 100644
-index 97f32f8b4ae1..000000000000
---- a/include/linux/lwtunnel.h
-+++ /dev/null
-@@ -1,6 +0,0 @@
--#ifndef _LINUX_LWTUNNEL_H_
--#define _LINUX_LWTUNNEL_H_
--
--#include <uapi/linux/lwtunnel.h>
--
--#endif /* _LINUX_LWTUNNEL_H_ */
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index 1ff9942718fe..aafb9937b162 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -243,6 +243,7 @@ header-y += limits.h
- header-y += llc.h
- header-y += loop.h
- header-y += lp.h
-+header-y += lwtunnel.h
- header-y += magic.h
- header-y += major.h
- header-y += map_to_7segment.h
--- 
-2.4.2
+I can certainly introduce CONFIG_MPLS_IPV6, if that is a more acceptable.
+
+thanks.
