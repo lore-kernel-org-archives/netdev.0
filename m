@@ -1,35 +1,48 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 iproute2] tc: fix bpf compilation with old glibc
-Date: Thu, 23 Jul 2015 09:25:13 +0200
-Message-ID: <55B096D9.2050806@iogearbox.net>
-References: <20150722094702.2eb3c0ea@urahara> <1437635861-19157-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>, shemminger@vyatta.com
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net-next] ipv4: be more aggressive when probing alternative gateways
+Date: Thu, 23 Jul 2015 10:39:35 +0300
+Message-ID: <1437637175-8052-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46226 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135AbbGWHZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 03:25:17 -0400
-In-Reply-To: <1437635861-19157-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from ja.ssi.bg ([178.16.129.10]:44074 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751392AbbGWHkO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jul 2015 03:40:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/23/2015 09:17 AM, Nicolas Dichtel wrote:
-> Error was:
-> f_bpf.o: In function `bpf_parse_opt':
-> f_bpf.c:(.text+0x88f): undefined reference to `secure_getenv'
-> m_bpf.o: In function `parse_bpf':
-> m_bpf.c:(.text+0x587): undefined reference to `secure_getenv'
-> collect2: error: ld returned 1 exit status
->
-> There is no special reason to use the secure version of getenv, thus let's
-> simply use getenv().
->
-> CC: Daniel Borkmann <daniel@iogearbox.net>
-> Fixes: 88eea5395483 ("tc: {f,m}_bpf: allow to retrieve uds path from env")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Currently, we do not notice if new alternative gateways
+are added. We can do it by checking for present neigh
+entry. Also, gateways that are currently probed (NUD_INCOMPLETE)
+can be skipped from round-robin probing.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Suggested-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv4/fib_semantics.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 6754c64..d4c6732 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -438,13 +438,15 @@ static int fib_detect_death(struct fib_info *fi, int order,
+ 	if (n) {
+ 		state = n->nud_state;
+ 		neigh_release(n);
++	} else {
++		return 0;
+ 	}
+ 	if (state == NUD_REACHABLE)
+ 		return 0;
+ 	if ((state & NUD_VALID) && order != dflt)
+ 		return 0;
+ 	if ((state & NUD_VALID) ||
+-	    (*last_idx < 0 && order > dflt)) {
++	    (*last_idx < 0 && order > dflt && state != NUD_INCOMPLETE)) {
+ 		*last_resort = fi;
+ 		*last_idx = order;
+ 	}
+-- 
+1.9.3
