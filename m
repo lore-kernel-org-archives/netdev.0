@@ -1,51 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] bridge: stp: when using userspace stp stop
- kernel hello and hold timers
-Date: Thu, 23 Jul 2015 10:13:11 -0700
-Message-ID: <20150723101311.5e15b970@urahara>
-References: <1437667657-16954-1-git-send-email-nikolay@cumulusnetworks.com>
-	<20150723095945.2b4dd59e@urahara>
-	<55B11EF4.8050501@cumulusnetworks.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL v2] virtio/vhost: fixes for 4.2
+Date: Thu, 23 Jul 2015 20:13:03 +0300
+Message-ID: <20150723201303-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <55B11EF4.8050501@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	borntraeger@de.ibm.com, cornelia.huck@de.ibm.com,
+	imammedo@redhat.com, mst@redhat.com, pmorel@linux.vnet.ibm.com,
+	sfr@canb.auug.org.au, thuth@redhat.com, yan@daynix.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Jul 2015 19:05:56 +0200
-Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+Really same as previous pull, but as a problem was found in that one, I
+rebased and fixed.
 
-> On 07/23/2015 06:59 PM, Stephen Hemminger wrote:
-> > On Thu, 23 Jul 2015 09:07:37 -0700
-> > Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
-> >   
-> >> +		/* Stop hello and hold timer */
-> >> +		spin_lock_bh(&br->lock);
-> >> +		del_timer(&br->hello_timer);
-> >> +		list_for_each_entry(p, &br->port_list, list)
-> >> +			del_timer(&p->hold_timer);
-> >> +		spin_unlock_bh(&br->lock);  
-> > 
-> > Wouldn't it be easier to use del_timer_sync here?
-> >   
-> I think it should work. Also I have an error in the commit message
-> about the kernel BPDU sending which I need to correct. I'll prepare
-> a v2 with your suggestion and fixed commit message.
+The following changes since commit 59a5b0f7bf74f88da6670bcbf924d8cc1e75b1ee:
 
-The one thing to watch out for with del_timer_sync is that
-the timer routine and the caller can't be using the same lock
-otherwise timer will be spinning waiting to get lock that
-is held by caller who is waiting for timer.
+  virtio-pci: alloc only resources actually used. (2015-06-24 08:15:09 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to c9ce42f72fd0ba180fd35539829e4139dca31494:
+
+  vhost: add max_mem_regions module parameter (2015-07-13 23:17:19 +0300)
+
+----------------------------------------------------------------
+virtio/vhost: fixes for 4.2
+
+Bugfixes and documentation fixes. Igor's patch that allows
+users to tweak memory table size is borderline,
+but it does fix known crashes, so I merged it.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Cornelia Huck (2):
+      MAINTAINERS: separate section for s390 virtio drivers
+      virtio/s390: rename drivers/s390/kvm -> drivers/s390/virtio
+
+Igor Mammedov (3):
+      vhost: use binary search instead of linear in find_region()
+      vhost: extend memory regions allocation to vmalloc
+      vhost: add max_mem_regions module parameter
+
+Michael S. Tsirkin (2):
+      virtio_net: document VIRTIO_NET_CTRL_GUEST_OFFLOADS
+      virtio: define virtio_pci_cfg_cap in header.
+
+Pierre Morel (1):
+      9p/trans_virtio: reset virtio device on remove
+
+Stephen Rothwell (1):
+      virtio scsi: fix unused variable warning
+
+Thomas Huth (1):
+      virtio: Fix typecast of pointer in vring_init()
+
+ include/uapi/linux/virtio_net.h           | 16 ++++++++
+ include/uapi/linux/virtio_pci.h           |  6 +++
+ include/uapi/linux/virtio_ring.h          |  5 ++-
+ drivers/s390/{kvm => virtio}/kvm_virtio.c |  0
+ drivers/s390/{kvm => virtio}/virtio_ccw.c |  0
+ drivers/scsi/virtio_scsi.c                |  4 +-
+ drivers/vhost/vhost.c                     | 67 +++++++++++++++++++++++--------
+ net/9p/trans_virtio.c                     |  1 +
+ MAINTAINERS                               | 10 ++++-
+ drivers/s390/Makefile                     |  2 +-
+ drivers/s390/{kvm => virtio}/Makefile     |  0
+ 11 files changed, 91 insertions(+), 20 deletions(-)
+ rename drivers/s390/{kvm => virtio}/kvm_virtio.c (100%)
+ rename drivers/s390/{kvm => virtio}/virtio_ccw.c (100%)
+ rename drivers/s390/{kvm => virtio}/Makefile (100%)
