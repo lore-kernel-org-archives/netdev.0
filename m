@@ -1,32 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] ip_tunnel: Call ip_tunnel_core_init() from
- inet_init()
-Date: Thu, 23 Jul 2015 10:17:19 +0200
-Message-ID: <20150723081719.GC22790@pox.localdomain>
-References: <20150723115824.071b84ff@canb.auug.org.au>
- <20150723080844.GB22790@pox.localdomain>
- <20150723.012849.1964809126719828221.davem@davemloft.net>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCH net 2/3] r8152: fix remote wakeup
+Date: Thu, 23 Jul 2015 10:30:58 +0200
+Message-ID: <1437640258.4377.6.camel@suse.com>
+References: <1394712342-15778-148-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-150-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150723.012849.1964809126719828221.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-150-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 07/23/15 at 01:28am, David Miller wrote:
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Thu, 23 Jul 2015 10:08:44 +0200
+On Thu, 2015-07-23 at 15:09 +0800, Hayes Wang wrote:
+> Set needs_remote_wakeup only when the device supports it.
 > 
-> > Convert the module_init() to a invocation from inet_init() since
-> > ip_tunnel_core is part of the INET built-in.
-> > 
-> > Fixes: 3093fbe7ff4 ("route: Per route IP tunnel metadata via lightweight tunnel")
-> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  drivers/net/usb/r8152.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> I applied this instead of my module.h include fix, thanks Thomas.
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index e3a0110..eff1f25 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+> @@ -4059,7 +4059,8 @@ static int rtl8152_probe(struct usb_interface *intf,
+>  		break;
+>  	}
+>  
+> -	intf->needs_remote_wakeup = 1;
+> +	if (udev->actconfig->desc.bmAttributes & USB_CONFIG_ATT_WAKEUP)
+> +		intf->needs_remote_wakeup = 1;
 
-Thanks, sorry for the extra trouble you had to go through.
+Hi,
+
+this is most likely wrong. Usbcore does check for a device's ability to
+do remote wakeup and will block a runtime suspend if it detects that
+a remote wakeup would be required but the device cannot deliver.
+(static int autosuspend_check())
+
+So by removing the flag in the probe() method means that devices will
+suspend during operations without remote wakeup requested. Thus an
+incoming packet cannot wake them up.
+
+If you remove setting the flag on probe() you need to set it at open()
+[and reset on close()], as devices which cannot do remote wakeup must
+only be suspended when they are down.
+
+	Regards
+		Oliver
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
