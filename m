@@ -1,109 +1,93 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 3/6] net/mlx5e: Support TX packet copy into WQE
-Date: Thu, 23 Jul 2015 23:35:58 +0300
-Message-ID: <1437683761-28052-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 1/6] net/mlx5e: Support ETH_RSS_HASH_XOR
+Date: Thu, 23 Jul 2015 23:35:56 +0300
+Message-ID: <1437683761-28052-2-git-send-email-amirv@mellanox.com>
 References: <1437683761-28052-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
+	Tal Alon <talal@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:39705 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:39700 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754101AbbGWUhA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754105AbbGWUhA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 23 Jul 2015 16:37:00 -0400
 In-Reply-To: <1437683761-28052-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Achiad Shochat <achiad@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-AKA inline WQE.
-A TX latency optimization to save data gather DMA reads.
-Controlled by ETHTOOL_TX_COPYBREAK.
+The ConnectX-4 HW implements inverted XOR8.
+To make it act as XOR we re-order the HW RSS indirection table.
 
-Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Set XOR to be the default RSS hash function and add ethtool API to
+control it.
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 53 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 13 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    | 10 +++-
- 4 files changed, 77 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  1 +
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 39 ++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 46 +++++++++++++++++-----
+ include/linux/mlx5/mlx5_ifc.h                      |  6 +--
+ 4 files changed, 79 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 61d8433..d9dc506 100644
+index 3d23bd6..61d8433 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -196,6 +196,7 @@ struct mlx5e_params {
+@@ -195,6 +195,7 @@ struct mlx5e_params {
+ 	u16 rx_hash_log_tbl_sz;
  	bool lro_en;
  	u32 lro_wqe_sz;
- 	u8  rss_hfunc;
-+	u16 tx_max_inline;
++	u8  rss_hfunc;
  };
  
  enum {
-@@ -520,3 +521,4 @@ static inline void mlx5e_cq_arm(struct mlx5e_cq *cq)
- }
- 
- extern const struct ethtool_ops mlx5e_ethtool_ops;
-+u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index cb28535..14fd82c 100644
+index 3889384..cb28535 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -699,6 +699,57 @@ static int mlx5e_set_rxfh(struct net_device *netdev, const u32 *indir,
+@@ -662,6 +662,43 @@ out:
  	return err;
  }
  
-+static int mlx5e_get_tunable(struct net_device *dev,
-+			     const struct ethtool_tunable *tuna,
-+			     void *data)
++static int mlx5e_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
++			  u8 *hfunc)
 +{
-+	const struct mlx5e_priv *priv = netdev_priv(dev);
-+	int err = 0;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
 +
-+	switch (tuna->id) {
-+	case ETHTOOL_TX_COPYBREAK:
-+		*(u32 *)data = priv->params.tx_max_inline;
-+		break;
-+	default:
-+		err = -EINVAL;
-+		break;
-+	}
++	if (hfunc)
++		*hfunc = priv->params.rss_hfunc;
 +
-+	return err;
++	return 0;
 +}
 +
-+static int mlx5e_set_tunable(struct net_device *dev,
-+			     const struct ethtool_tunable *tuna,
-+			     const void *data)
++static int mlx5e_set_rxfh(struct net_device *netdev, const u32 *indir,
++			  const u8 *key, const u8 hfunc)
 +{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct mlx5e_params new_params;
-+	u32 val;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
 +	int err = 0;
 +
-+	switch (tuna->id) {
-+	case ETHTOOL_TX_COPYBREAK:
-+		val = *(u32 *)data;
-+		if (val > mlx5e_get_max_inline_cap(mdev)) {
-+			err = -EINVAL;
-+			break;
-+		}
++	if (hfunc == ETH_RSS_HASH_NO_CHANGE)
++		return 0;
 +
-+		mutex_lock(&priv->state_lock);
-+		new_params = priv->params;
-+		new_params.tx_max_inline = val;
-+		err = mlx5e_update_priv_params(priv, &new_params);
-+		mutex_unlock(&priv->state_lock);
-+		break;
-+	default:
-+		err = -EINVAL;
-+		break;
++	if ((hfunc != ETH_RSS_HASH_XOR) &&
++	    (hfunc != ETH_RSS_HASH_TOP))
++		return -EINVAL;
++
++	mutex_lock(&priv->state_lock);
++
++	priv->params.rss_hfunc = hfunc;
++	if (test_bit(MLX5E_STATE_OPENED, &priv->state)) {
++		mlx5e_close_locked(priv->netdev);
++		err = mlx5e_open_locked(priv->netdev);
 +	}
++
++	mutex_unlock(&priv->state_lock);
 +
 +	return err;
 +}
@@ -111,85 +95,117 @@ index cb28535..14fd82c 100644
  const struct ethtool_ops mlx5e_ethtool_ops = {
  	.get_drvinfo       = mlx5e_get_drvinfo,
  	.get_link          = ethtool_op_get_link,
-@@ -715,4 +766,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+@@ -676,4 +713,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.set_coalesce      = mlx5e_set_coalesce,
+ 	.get_settings      = mlx5e_get_settings,
  	.set_settings      = mlx5e_set_settings,
- 	.get_rxfh          = mlx5e_get_rxfh,
- 	.set_rxfh          = mlx5e_set_rxfh,
-+	.get_tunable       = mlx5e_get_tunable,
-+	.set_tunable       = mlx5e_set_tunable,
++	.get_rxfh          = mlx5e_get_rxfh,
++	.set_rxfh          = mlx5e_set_rxfh,
  };
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 57cc896..c55fad4 100644
+index 40206da..07d3627 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -41,6 +41,7 @@ struct mlx5e_rq_param {
- struct mlx5e_sq_param {
- 	u32                        sqc[MLX5_ST_SZ_DW(sqc)];
- 	struct mlx5_wq_param       wq;
-+	u16                        max_inline;
- };
- 
- struct mlx5e_cq_param {
-@@ -514,6 +515,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
- 	sq->wq.db       = &sq->wq.db[MLX5_SND_DBR];
- 	sq->uar_map     = sq->uar.map;
- 	sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
-+	sq->max_inline  = param->max_inline;
- 
- 	err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
- 	if (err)
-@@ -1020,6 +1022,7 @@ static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
- 	MLX5_SET(wq, wq, pd,            priv->pdn);
- 
- 	param->wq.buf_numa_node = dev_to_node(&priv->mdev->pdev->dev);
-+	param->max_inline = priv->params.tx_max_inline;
+@@ -1158,6 +1158,24 @@ static void mlx5e_close_tises(struct mlx5e_priv *priv)
+ 		mlx5e_close_tis(priv, tc);
  }
  
- static void mlx5e_build_common_cq_param(struct mlx5e_priv *priv,
-@@ -1703,6 +1706,15 @@ static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
- 	return 0;
- }
- 
-+u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
++static int mlx5e_rx_hash_fn(int hfunc)
 +{
-+	int bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
-+
-+	return bf_buf_size -
-+	       sizeof(struct mlx5e_tx_wqe) +
-+	       2 /*sizeof(mlx5e_tx_wqe.inline_hdr_start)*/;
++	return (hfunc == ETH_RSS_HASH_TOP) ?
++	       MLX5_RX_HASH_FN_TOEPLITZ :
++	       MLX5_RX_HASH_FN_INVERTED_XOR8;
 +}
 +
- static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
- 				    struct net_device *netdev,
- 				    int num_comp_vectors)
-@@ -1721,6 +1733,7 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
- 		MLX5E_PARAMS_DEFAULT_TX_CQ_MODERATION_USEC;
- 	priv->params.tx_cq_moderation_pkts =
- 		MLX5E_PARAMS_DEFAULT_TX_CQ_MODERATION_PKTS;
-+	priv->params.tx_max_inline         = mlx5e_get_max_inline_cap(mdev);
- 	priv->params.min_rx_wqes           =
- 		MLX5E_PARAMS_DEFAULT_MIN_RX_WQES;
- 	priv->params.rx_hash_log_tbl_sz    =
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 03f28f4..351ac69 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -112,7 +112,15 @@ u16 mlx5e_select_queue(struct net_device *dev, struct sk_buff *skb,
- static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
- 					    struct sk_buff *skb)
++static int mlx5e_bits_invert(unsigned long a, int size)
++{
++	int inv = 0;
++	int i;
++
++	for (i = 0; i < size; i++)
++		inv |= (test_bit(size - i - 1, &a) ? 1 : 0) << i;
++
++	return inv;
++}
++
+ static int mlx5e_open_rqt(struct mlx5e_priv *priv)
  {
--#define MLX5E_MIN_INLINE 16 /* eth header with vlan (w/o next ethertype) */
-+	/* Some NIC TX decisions, e.g loopback, are based on the packet
-+	 * headers and occur before the data gather.
-+	 * Therefore these headers must be copied into the WQE
-+	 */
-+#define MLX5E_MIN_INLINE (ETH_HLEN + 2/*vlan tag*/)
-+
-+	if (skb_headlen(skb) <= sq->max_inline)
-+		return skb_headlen(skb);
-+
- 	return MLX5E_MIN_INLINE;
- }
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -1166,11 +1184,10 @@ static int mlx5e_open_rqt(struct mlx5e_priv *priv)
+ 	void *rqtc;
+ 	int inlen;
+ 	int err;
+-	int sz;
++	int log_tbl_sz = priv->params.rx_hash_log_tbl_sz;
++	int sz = 1 << log_tbl_sz;
+ 	int i;
  
+-	sz = 1 << priv->params.rx_hash_log_tbl_sz;
+-
+ 	inlen = MLX5_ST_SZ_BYTES(create_rqt_in) + sizeof(u32) * sz;
+ 	in = mlx5_vzalloc(inlen);
+ 	if (!in)
+@@ -1182,8 +1199,12 @@ static int mlx5e_open_rqt(struct mlx5e_priv *priv)
+ 	MLX5_SET(rqtc, rqtc, rqt_max_size, sz);
+ 
+ 	for (i = 0; i < sz; i++) {
+-		int ix = i % priv->params.num_channels;
++		int ix = i;
++
++		if (priv->params.rss_hfunc == ETH_RSS_HASH_XOR)
++			ix = mlx5e_bits_invert(i, log_tbl_sz);
+ 
++		ix = ix % priv->params.num_channels;
+ 		MLX5_SET(rqtc, rqtc, rq_num[i], priv->channel[ix]->rq.rqn);
+ 	}
+ 
+@@ -1254,12 +1275,16 @@ static void mlx5e_build_tir_ctx(struct mlx5e_priv *priv, u32 *tirc, int tt)
+ 		MLX5_SET(tirc, tirc, indirect_table,
+ 			 priv->rqtn);
+ 		MLX5_SET(tirc, tirc, rx_hash_fn,
+-			 MLX5_TIRC_RX_HASH_FN_HASH_TOEPLITZ);
+-		MLX5_SET(tirc, tirc, rx_hash_symmetric, 1);
+-		netdev_rss_key_fill(MLX5_ADDR_OF(tirc, tirc,
+-						 rx_hash_toeplitz_key),
+-				    MLX5_FLD_SZ_BYTES(tirc,
+-						      rx_hash_toeplitz_key));
++			 mlx5e_rx_hash_fn(priv->params.rss_hfunc));
++		if (priv->params.rss_hfunc == ETH_RSS_HASH_TOP) {
++			void *rss_key = MLX5_ADDR_OF(tirc, tirc,
++						     rx_hash_toeplitz_key);
++			size_t len = MLX5_FLD_SZ_BYTES(tirc,
++						       rx_hash_toeplitz_key);
++
++			MLX5_SET(tirc, tirc, rx_hash_symmetric, 1);
++			netdev_rss_key_fill(rss_key, len);
++		}
+ 		break;
+ 	}
+ 
+@@ -1700,6 +1725,7 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 		MLX5E_PARAMS_DEFAULT_RX_HASH_LOG_TBL_SZ;
+ 	priv->params.num_tc                = 1;
+ 	priv->params.default_vlan_prio     = 0;
++	priv->params.rss_hfunc             = ETH_RSS_HASH_XOR;
+ 
+ 	priv->params.lro_en = false && !!MLX5_CAP_ETH(priv->mdev, lro_cap);
+ 	priv->params.lro_wqe_sz            =
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 6d2f6fe..c60a62b 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1936,9 +1936,9 @@ enum {
+ };
+ 
+ enum {
+-	MLX5_TIRC_RX_HASH_FN_HASH_NONE           = 0x0,
+-	MLX5_TIRC_RX_HASH_FN_HASH_INVERTED_XOR8  = 0x1,
+-	MLX5_TIRC_RX_HASH_FN_HASH_TOEPLITZ       = 0x2,
++	MLX5_RX_HASH_FN_NONE           = 0x0,
++	MLX5_RX_HASH_FN_INVERTED_XOR8  = 0x1,
++	MLX5_RX_HASH_FN_TOEPLITZ       = 0x2,
+ };
+ 
+ enum {
 -- 
 2.4.3.413.ga5fe668
