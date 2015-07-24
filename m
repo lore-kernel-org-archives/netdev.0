@@ -1,173 +1,45 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [PATCH 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Fri, 24 Jul 2015 15:45:56 +0000
-Message-ID: <BL2PR03MB545D22D02CEEDA05878E833E6810@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1437581806-17420-1-git-send-email-madalin.bucur@freescale.com>
-	 <1437581806-17420-2-git-send-email-madalin.bucur@freescale.com>
- <1437586665.20787.24.camel@perches.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 99461] recvfrom SYSCALL infinite loop/deadlock chewing
+ 100% CPU [was __libc_recv (fd=fd@entry=300, buf=buf@entry=0x7f6042880600,
+ n=n@entry=5, flags=-1, flags@entry=258) at
+ ../sysdeps/unix/sysv/linux/x86_64/recv.c:33]
+Date: Fri, 24 Jul 2015 08:47:38 -0700
+Message-ID: <20150724084738.47a5f9ac@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Liberman Igal <Igal.Liberman@freescale.com>,
-	"ppc@mindchasers.com" <ppc@mindchasers.com>,
-	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
-	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437586665.20787.24.camel@perches.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36033 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752127AbbGXPr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 11:47:29 -0400
+Received: by pachj5 with SMTP id hj5so16211394pac.3
+        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 08:47:29 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by smtp.gmail.com with ESMTPSA id k5sm15267055pdb.53.2015.07.24.08.47.28
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 24 Jul 2015 08:47:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joe Perches [mailto:joe@perches.com]
-> On Wed, 2015-07-22 at 19:16 +0300, Madalin Bucur wrote:
-> > This introduces the Freescale Data Path Acceleration Architecture
-> > (DPAA) Ethernet driver (dpaa_eth) that builds upon the DPAA QMan,
-> > BMan, PAMU and FMan drivers to deliver Ethernet connectivity on
-> > the Freescale DPAA QorIQ platforms.
-> 
-> trivia:
-> 
-> > +static void __hot _dpa_tx_conf(struct net_device	*net_dev,
-> > +			       const struct dpa_priv_s	*priv,
-> > +			       struct dpa_percpu_priv_s	*percpu_priv,
-> > +			       const struct qm_fd	*fd,
-> > +			       u32			fqid)
-> > +{
-> []
-> > +static struct dpa_bp * __cold
-> > +dpa_priv_bp_probe(struct device *dev)
-> 
-> Do the __hot and __cold markings really matter?
-> Some of them may be questionable.
 
-Some may be, yes. I need to go through all of them.
 
-> > +static int __init dpa_load(void)
-> > +{
-> []
-> > +	err = platform_driver_register(&dpa_driver);
-> > +	if (unlikely(err < 0)) {
-> > +		pr_err(KBUILD_MODNAME
-> > +			": %s:%hu:%s(): platform_driver_register() = %d\n",
-> > +			KBUILD_BASENAME ".c", __LINE__, __func__, err);
-> > +	}
-> > +
-> > +	pr_debug(KBUILD_MODNAME ": %s:%s() ->\n",
-> > +		 KBUILD_BASENAME ".c", __func__);
-> 
-> Perhaps these should use pr_fmt
+Begin forwarded message:
 
-Agree.
+Date: Fri, 24 Jul 2015 11:22:17 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 99461] recvfrom SYSCALL infinite loop/deadlock chewing 100% CPU [was __libc_recv (fd=fd@entry=300, buf=buf@entry=0x7f6042880600, n=n@entry=5, flags=-1, flags@entry=258) at ../sysdeps/unix/sysv/linux/x86_64/recv.c:33]
 
-> > +static void __exit dpa_unload(void)
-> > +{
-> > +	pr_debug(KBUILD_MODNAME ": -> %s:%s()\n",
-> > +		 KBUILD_BASENAME ".c", __func__);
-> 
-> dynamic debug has __func__ available and perhaps
-> the function tracer might be used instead.
-> 
-> > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-> []
-> > +#define __hot
-> 
-> curious.
-> 
-> Maybe it'd be good to add a real __hot to compiler.h
 
-They're mostly there to make readers aware the code is critical, any
-changes could mess performance.
+https://bugzilla.kernel.org/show_bug.cgi?id=99461
 
-> > +struct dpa_buffer_layout_s {
-> > +	u16	priv_data_size;
-> > +	bool		parse_results;
-> > +	bool		time_stamp;
-> > +	bool		hash_results;
-> > +	u16	data_align;
-> > +};
-> 
-> > +struct dpa_fq {
-> > +	struct qman_fq		 fq_base;
-> > +	struct list_head	 list;
-> > +	struct net_device	*net_dev;
-> 
-> some inconsistent indentation here and there
+--- Comment #4 from Dan Searle <dan@censornet.com> ---
+Is there anyone working on a fix for this bug? Is there any way a fix can be
+expedited?
 
-Yes, I've tried to align the style but given the many editors along the time the code existed 
-there still are areas out of sync.
-
-> > +struct dpa_bp {
-> > +	struct bman_pool		*pool;
-> > +	u8				bpid;
-> > +	struct device			*dev;
-> > +	union {
-> > +		/* The buffer pools used for the private ports are initialized
-> > +		 * with target_count buffers for each CPU; at runtime the
-> > +		 * number of buffers per CPU is constantly brought back to
-> this
-> > +		 * level
-> > +		 */
-> > +		int target_count;
-> > +		/* The configured value for the number of buffers in the
-> pool,
-> > +		 * used for shared port buffer pools
-> > +		 */
-> > +		int config_count;
-> > +	};
-> 
-> Anonymous unions are relatively rare
-
-We liked the direct access to members...
-In this particular case the use is a bit excessive, we can do without it.
-
-> > +	struct {
-> > +		/**
-> 
-> Maybe the /** style should be avoided
-
-Will fix.
-
-> > +		 * All egress queues to a given net device belong to one
-> > +		 * (and the same) congestion group.
-> > +		 */
-> > +		struct qman_cgr cgr;
-> > +	} cgr_data;
-> 
-> []
-> 
-> > +int dpa_stop(struct net_device *net_dev)
-> > +{
-> []
-> > +	err = mac_dev->stop(mac_dev);
-> > +	if (unlikely(err < 0))
-> > +		netif_err(priv, ifdown, net_dev, "mac_dev->stop() = %d\n",
-> > +			  err);
-> 
-> Some of the likely/unlikely uses may not
-> be useful/necessary.
-
-In this particular case it's gratuitous, I'll go through all of them.
-
-> > +
-> > +	for_each_port_device(i, mac_dev->port_dev) {
-> > +		error = fm_port_disable(
-> > +				fm_port_drv_handle(mac_dev-
-> >port_dev[i]));
-> > +		err = error ? error : err;
-> 
-> 		if (error)
-> 			err = error;
-> 
-> is more obvious to me.
-
-Yes, it's more readable.
-
-Thank you,
-Madalin
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
