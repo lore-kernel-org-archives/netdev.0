@@ -1,65 +1,84 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [PATCH 03/10] dpaa_eth: add configurable bpool thresholds
-Date: Fri, 24 Jul 2015 15:49:39 +0000
-Message-ID: <BL2PR03MB545AA0E6D98232FF43B6CE9E6810@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1437581806-17420-1-git-send-email-madalin.bucur@freescale.com>
-	 <1437581806-17420-2-git-send-email-madalin.bucur@freescale.com>
-	 <1437581806-17420-3-git-send-email-madalin.bucur@freescale.com>
- <1437587228.20787.26.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Liberman Igal <Igal.Liberman@freescale.com>,
-	"ppc@mindchasers.com" <ppc@mindchasers.com>,
-	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
-	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437587228.20787.26.camel@perches.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [PATCH] ip/ip6tunnel: fix missing return value check
+Date: Fri, 24 Jul 2015 12:11:32 -0400
+Message-ID: <1437754292-8279-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Cc: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3355 "EHLO
+	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753361AbbGXQLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 12:11:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joe Perches [mailto:joe@perches.com]
-> On Wed, 2015-07-22 at 19:16 +0300, Madalin Bucur wrote:
-> > Allow the user to tweak the refill threshold and the total number
-> > of buffers in the buffer pool. The provided values are for one CPU.
-> 
-> Any value in making these module parameters instead?
+Make sure that return value of each socket() call is properly checked
+and do not continue processing if the call failed.
 
-I expect one would (hardly ever) change these to improve some corner
-cases then use them with the new values. It may help in the tuning process
-but afterwards the bloat to the bootcmd would probably be  a nuisance.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ ip/tunnel.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-> > +config FSL_DPAA_ETH_MAX_BUF_COUNT
-> > +	int "Maximum number of buffers in private bpool"
-> > +	range 64 2048
-> > +	default "128"
-> > +	---help---
-> > +	  The maximum number of buffers to be by default allocated in the
-> DPAA-Ethernet private port's
-> > +	  buffer pool. One needn't normally modify this, as it has probably
-> been tuned for performance
-> > +	  already. This cannot be lower than DPAA_ETH_REFILL_THRESHOLD.
-> > +
-> > +config FSL_DPAA_ETH_REFILL_THRESHOLD
-> > +	int "Private bpool refill threshold"
-> > +	range 32 FSL_DPAA_ETH_MAX_BUF_COUNT
-> > +	default "80"
-> > +	---help---
-> > +	  The DPAA-Ethernet driver will start replenishing buffer pools whose
-> count
-> > +	  falls below this threshold. This must be related to
-> DPAA_ETH_MAX_BUF_COUNT. One needn't normally
-> > +	  modify this value unless one has very specific performance reasons.
-> > +
-> >  config FSL_DPAA_CS_THRESHOLD_1G
-> >  	hex "Egress congestion threshold on 1G ports"
-> >  	range 0x1000 0x10000000
-> 
-> 
+diff --git a/ip/tunnel.c b/ip/tunnel.c
+index 33c78e3..d69fe84 100644
+--- a/ip/tunnel.c
++++ b/ip/tunnel.c
+@@ -73,7 +73,13 @@ int tnl_get_ioctl(const char *basedev, void *p)
+ 
+ 	strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
+ 	ifr.ifr_ifru.ifru_data = (void*)p;
++
+ 	fd = socket(preferred_family, SOCK_DGRAM, 0);
++	if (fd < 0) {
++		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
++		return -1;
++	}
++
+ 	err = ioctl(fd, SIOCGETTUNNEL, &ifr);
+ 	if (err)
+ 		fprintf(stderr, "get tunnel \"%s\" failed: %s\n", basedev,
+@@ -94,7 +100,13 @@ int tnl_add_ioctl(int cmd, const char *basedev, const char *name, void *p)
+ 	else
+ 		strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
+ 	ifr.ifr_ifru.ifru_data = p;
++
+ 	fd = socket(preferred_family, SOCK_DGRAM, 0);
++	if (fd < 0) {
++		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
++		return -1;
++	}
++
+ 	err = ioctl(fd, cmd, &ifr);
+ 	if (err)
+ 		fprintf(stderr, "add tunnel \"%s\" failed: %s\n", ifr.ifr_name,
+@@ -115,7 +127,13 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p)
+ 		strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
+ 
+ 	ifr.ifr_ifru.ifru_data = p;
++
+ 	fd = socket(preferred_family, SOCK_DGRAM, 0);
++	if (fd < 0) {
++		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
++		return -1;
++	}
++
+ 	err = ioctl(fd, SIOCDELTUNNEL, &ifr);
+ 	if (err)
+ 		fprintf(stderr, "delete tunnel \"%s\" failed: %s\n",
+@@ -133,7 +151,13 @@ static int tnl_gen_ioctl(int cmd, const char *name,
+ 
+ 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+ 	ifr.ifr_ifru.ifru_data = p;
++
+ 	fd = socket(preferred_family, SOCK_DGRAM, 0);
++	if (fd < 0) {
++		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
++		return -1;
++	}
++
+ 	err = ioctl(fd, cmd, &ifr);
+ 	if (err && errno != skiperr)
+ 		fprintf(stderr, "%s: ioctl %x failed: %s\n", name,
+-- 
+1.8.3.1
