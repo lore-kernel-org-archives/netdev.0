@@ -1,36 +1,42 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH]mlx4-core: fix possible use after free in cq_completion
-Date: Fri, 24 Jul 2015 22:22:42 +0300
-Message-ID: <CAJ3xEMit4eFTp_eNL-pq83gEjx2d_7NTiKXtyYkEjBo1K_=u0w@mail.gmail.com>
-References: <CAMGffEnvM32Ae-XHDLuwGy1V7NKqosO+eAtakbKJCcVpqKQg3Q@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC Patch net-next] inet: introduce a sysctl ip_local_ports_strict_use
+Date: Fri, 24 Jul 2015 13:53:36 -0700
+Message-ID: <CAM_iQpVP8jMymy6rcQj0TKbWKKJBH6L7G=AzU8opJrWqGvBtNg@mail.gmail.com>
+References: <1437610057-13197-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20150722223904.20ef9011@uryu.home.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Yun Wang <yun.wang@profitbricks.com>,
-	"talal@mellanox.com" <talal@mellanox.com>
-To: Jinpu Wang <jinpu.wang@profitbricks.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:32874 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753197AbbGXTWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 15:22:43 -0400
-Received: by oige126 with SMTP id e126so24534939oig.0
-        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 12:22:42 -0700 (PDT)
-In-Reply-To: <CAMGffEnvM32Ae-XHDLuwGy1V7NKqosO+eAtakbKJCcVpqKQg3Q@mail.gmail.com>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:33938 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754747AbbGXUxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 16:53:36 -0400
+Received: by obre1 with SMTP id e1so23201478obr.1
+        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 13:53:36 -0700 (PDT)
+In-Reply-To: <20150722223904.20ef9011@uryu.home.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 24, 2015 at 11:18 AM, Jinpu Wang
-<jinpu.wang@profitbricks.com> wrote:
-> I hit bug in OFED, I report to link below:
-> http://marc.info/?l=linux-rdma&m=143634872328553&w=2
-> I checked latest mainline Linux 4.2-rc3, it has similar bug.
-> Here is the patch against Linux 4.2-rc3, compile test only.
+On Wed, Jul 22, 2015 at 10:39 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Wed, 22 Jul 2015 17:07:37 -0700
+> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>
+>> For a real example, named randomly selects some port to bind() for
+>> security concern. (It doesn't use bind(0) to let kernel to select port
+>> because it is not random enough, kernel usually just picks the next
+>> available.) When running named on a Mesos controlled host, named would
+>> silently fail when it binds a port assigned to a Mesos container.
+>
+> I think named is trying to workaround security issues that were fixed
+> 5 years ago in Linux. The kernel does not just pick the next available
+> in current code.
+>
 
-Did you see the bug hitting and the fix in action over upstream?! if
-not, it would be very helpful if you do so. Anyway, I'll ask Jack to
-look on that next week.
+Good to know that. I will rephrase the changelog.
 
-Or.
+Thanks.
