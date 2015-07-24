@@ -1,141 +1,75 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [RFC PATCH v3 net-next 2/3] tcp: add in_flight to tcp_skb_cb
-Date: Thu, 23 Jul 2015 19:21:08 -0700
-Message-ID: <1437704469-129240-3-git-send-email-brakmo@fb.com>
-References: <1437704469-129240-1-git-send-email-brakmo@fb.com>
+From: Suman Tripathi <stripathi@apm.com>
+Subject: Re: 4.2-rc3: APM xgene2: ethernet doesn't work
+Date: Fri, 24 Jul 2015 08:10:43 +0530
+Message-ID: <CAOHikRDw3tCsmEHxgiXV1hvxS=k0b87urqraVS=v2BsgQjO_tg@mail.gmail.com>
+References: <CACVXFVPz3g7O5+HWDo5iry-zjpCW_=NhDw4eF6mPT99ooSaXQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:11897 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753529AbbGXCVS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2015 22:21:18 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6O2I9rY007780
-	for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 19:21:17 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1vuc70821p-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 19:21:17 -0700
-Received: from facebook.com (2401:db00:20:a00f:face:0:16:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- a891c1fa31aa11e5855e0002c992ebde-10bf52b0 for <netdev@vger.kernel.org>;	Thu,
- 23 Jul 2015 19:21:14 -0700
-In-Reply-To: <1437704469-129240-1-git-send-email-brakmo@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Cloke <andrew.cloke@canonical.com>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVPz3g7O5+HWDo5iry-zjpCW_=NhDw4eF6mPT99ooSaXQA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Based on comments by Neal Cardwell to tcp_nv patch:
+Hi Ming,
 
-  AFAICT this patch would not require an increase in the size of sk_buff
-  cb[] if it were to take advantage of the fact that the tcp_skb_cb
-  header.h4 and header.h6 fields are only used in the packet reception
-  code path, and this in_flight field is only used on the transmit
-  side. So the in_flight field could be placed in a struct that is
-  itself placed in a union with the "header" union.
+On Thu, Jul 23, 2015 at 2:37 PM, Ming Lei <ming.lei@canonical.com> wrote:
+> Hi Guys,
+>
+> When booting from UEFI/ACPI, sometimes there is a crash[1]
+> from rx path, sometimes there isn't any rx packets comming.
+>
+> Firmware version: 2.02.10
+>
+> Thanks,
+>
+> [1], crash log
+> Call trace:
+> skbuff: skb_over_panic: text:ffffffc00048094c len:85 put:60
+> head:ffffffffffffffff data:          (null) tail:0x3c end:0x0
+> dev:<NULL>
+> Kernel panic - not syncing: BUG!
+> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W       4.2.0-rc3+ #76
+> Hardware name: AppliedMicro Mustang/Mustang, BIOS 2.0.0 Jun  9 2015
+> Call trace:
+> [<ffffffc000089b94>] dump_backtrace+0x0/0x12c
+> [<ffffffc000089cd0>] show_stack+0x10/0x1c
+> [<ffffffc0005fbe48>] dump_stack+0x8c/0xdc
+> [<ffffffc0005f8448>] panic+0xe4/0x220
+> [<ffffffc0005fcfa4>] skb_panic+0x74/0x78
+> [<ffffffc000526e88>] skb_put+0x88/0x8c
+> [<ffffffc000480948>] xgene_enet_process_ring+0xcc/0x394
+> [<ffffffc000480edc>] xgene_enet_napi+0x1c/0x54
+> [<ffffffc000537fbc>] net_rx_action+0x124/0x2c0
+> [<ffffffc0000b0070>] __do_softirq+0x110/0x238
+> [<ffffffc0000b0400>] irq_exit+0x88/0xf0
+> [<ffffffc0000e98b8>] __handle_domain_irq+0x68/0xb4
+> [<ffffffc0000824a0>] gic_handle_irq+0x30/0x7c
+> Exception stack(0xffffffc000877dc0 to 0xffffffc000877ee0)
+> 7dc0: 00874000 ffffffc0 0087a648 ffffffc0 00877f00 ffffffc0 000869e0 ffffffc0
+> 7de0: 00000000 00000000 00877f10 ffffffc0 fffbcb38 ffffffc7 fffbcb44 ffffffc7
+> 7e00: 00000000 01000000 da24b9c8 ffffffc7 fffbe0d9 ffffffc7 fffbe0d8 ffffffc7
+> 7e20: 008813a0 ffffffc0 ffff9429 00000000 00000750 00000000 008c93a9 ffffffc0
+> 7e40: 007a1b38 ffffffc0 007a1b20 ffffffc0 df5d7500 ffffffbe 00000000 00000000
+> 7e60: 98ab6000 0000007f 98a9d440 0000007f 00000000 00000000 00874000 ffffffc0
+> 7e80: 0087a648 ffffffc0 00867b00 ffffffc0 00000001 00000000 00877f20 ffffffc0
+> 7ea0: 00614500 ffffffc0 00785000 ffffffc0 008c9000 ffffffc0 0087a6cc ffffffc0
+> 7ec0: ffa01348 00000047 00877f00 ffffffc0 000869dc ffffffc0 00877f00 ffffffc0
+> [<ffffffc0000855a4>] el1_irq+0x64/0xd8
+> [<ffffffc0000e03fc>] default_idle_call+0x18/0x2c
+> [<ffffffc0000e050c>] cpu_startup_entry+0xfc/0x180
+> [<ffffffc0005f5f64>] rest_init+0x80/0x8c
+> [<ffffffc0008269b8>] start_kernel+0x3c0/0x3d8
+> Rebooting in 1 seconds..[DRAM: PHY calibrating ...ignored]
+>  ECC init *********ignored]
 
-  That way the sender code can remember the in_flight value
-  without requiring any extra space. And in the future other
-  sender-side info could be stored in the "tx" struct, if needed.
+It will be fixed in next release as it is a fix in firmware.
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- include/net/tcp.h     | 13 ++++++++++---
- net/ipv4/tcp_input.c  |  5 ++++-
- net/ipv4/tcp_output.c |  4 +++-
- 3 files changed, 17 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 1e6c5b04..b98d79a 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -755,11 +755,17 @@ struct tcp_skb_cb {
- 	/* 1 byte hole */
- 	__u32		ack_seq;	/* Sequence number ACK'd	*/
- 	union {
--		struct inet_skb_parm	h4;
-+		struct {
-+			/* bytes in flight when this packet was sent */
-+			__u32 in_flight;
-+		} tx;   /* only used for outgoing skbs */
-+		union {
-+			struct inet_skb_parm	h4;
- #if IS_ENABLED(CONFIG_IPV6)
--		struct inet6_skb_parm	h6;
-+			struct inet6_skb_parm	h6;
- #endif
--	} header;	/* For incoming frames		*/
-+		} header;	/* For incoming skbs */
-+	};
- };
- 
- #define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
-@@ -837,6 +843,7 @@ union tcp_cc_info;
- struct ack_sample {
- 	u32 pkts_acked;
- 	s32 rtt_us;
-+	u32 in_flight;
- };
- 
- struct tcp_congestion_ops {
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 423d3af..3ab4178 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3068,6 +3068,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 	long ca_rtt_us = -1L;
- 	struct sk_buff *skb;
- 	u32 pkts_acked = 0;
-+	u32 last_in_flight = 0;
- 	bool rtt_update;
- 	int flag = 0;
- 
-@@ -3107,6 +3108,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 			if (!first_ackt.v64)
- 				first_ackt = last_ackt;
- 
-+			last_in_flight = TCP_SKB_CB(skb)->tx.in_flight;
- 			reord = min(pkts_acked, reord);
- 			if (!after(scb->end_seq, tp->high_seq))
- 				flag |= FLAG_ORIG_SACK_ACKED;
-@@ -3196,7 +3198,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 	}
- 
- 	if (icsk->icsk_ca_ops->pkts_acked) {
--		struct ack_sample sample = {pkts_acked, ca_rtt_us};
-+		struct ack_sample sample = {pkts_acked, ca_rtt_us,
-+					    last_in_flight};
- 
- 		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
- 	}
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7105784..e9deab5 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -920,9 +920,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	int err;
- 
- 	BUG_ON(!skb || !tcp_skb_pcount(skb));
-+	tp = tcp_sk(sk);
- 
- 	if (clone_it) {
- 		skb_mstamp_get(&skb->skb_mstamp);
-+		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
-+			- tp->snd_una;
- 
- 		if (unlikely(skb_cloned(skb)))
- 			skb = pskb_copy(skb, gfp_mask);
-@@ -933,7 +936,6 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	}
- 
- 	inet = inet_sk(sk);
--	tp = tcp_sk(sk);
- 	tcb = TCP_SKB_CB(skb);
- 	memset(&opts, 0, sizeof(opts));
- 
 -- 
-1.8.1
+Thanks,
+with regards,
+Suman Tripathi
