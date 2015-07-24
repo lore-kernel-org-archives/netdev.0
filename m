@@ -1,130 +1,144 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next 2/4] mlxsw: Add PCI bus implementation
-Date: Thu, 23 Jul 2015 21:52:16 -0700
-Message-ID: <CAE4R7bBGErUyi64gdfSi+L-XkQLH5VMmpLM+TYoXzCYs021aLA@mail.gmail.com>
-References: <1437666216-3149-1-git-send-email-jiri@resnulli.us> <1437666216-3149-3-git-send-email-jiri@resnulli.us>
+From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
+	<hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [RFC PATCH v3 net-next 2/3] tcp: add in_flight to tcp_skb_cb
+Date: Fri, 24 Jul 2015 14:05:08 +0900
+Message-ID: <55B1C784.1040306@miraclelinux.com>
+References: <1437704469-129240-1-git-send-email-brakmo@fb.com> <1437704469-129240-3-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, idosch@mellanox.com,
-	eladr@mellanox.com,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>, ast@plumgrid.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	John Linville <linville@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:35947 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750827AbbGXEwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 00:52:36 -0400
-Received: by obnw1 with SMTP id w1so9704800obn.3
-        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 21:52:35 -0700 (PDT)
-In-Reply-To: <1437666216-3149-3-git-send-email-jiri@resnulli.us>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33657 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbbGXFFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 01:05:13 -0400
+Received: by padck2 with SMTP id ck2so8048020pad.0
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 22:05:12 -0700 (PDT)
+In-Reply-To: <1437704469-129240-3-git-send-email-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 23, 2015 at 8:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> Add PCI bus implementation for Mellanox Technologies Switch ASICs. This
-> includes firmware initialization, async queues manipulation and command
-> interface implementation.
->
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Elad Raz <eladr@mellanox.com>
+Hi,
 
-[cut]
+Lawrence Brakmo wrote:
+> Based on comments by Neal Cardwell to tcp_nv patch:
+> 
+>   AFAICT this patch would not require an increase in the size of sk_buff
+>   cb[] if it were to take advantage of the fact that the tcp_skb_cb
+>   header.h4 and header.h6 fields are only used in the packet reception
+>   code path, and this in_flight field is only used on the transmit
+>   side. So the in_flight field could be placed in a struct that is
+>   itself placed in a union with the "header" union.
 
-> +static int mlxsw_pci_skb_transmit(void *bus_priv, struct sk_buff *skb,
-> +                                 const struct mlxsw_tx_info *tx_info)
-> +{
-> +       struct mlxsw_pci *mlxsw_pci = bus_priv;
-> +       struct mlxsw_pci_queue *q;
-> +       struct mlxsw_pci_queue_elem_info *elem_info;
-> +       char *wqe;
-> +       int i;
-> +       int err;
-> +
-> +       if (skb_shinfo(skb)->nr_frags > MLXSW_PCI_WQE_SG_ENTRIES - 1)
-> +               return -EINVAL;
+Please make another patch only for this.
 
-Can you skb_linearize() here to try to continue?
+> 
+>   That way the sender code can remember the in_flight value
+>   without requiring any extra space. And in the future other
+>   sender-side info could be stored in the "tx" struct, if needed.
+> 
+> Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+> ---
+>  include/net/tcp.h     | 13 ++++++++++---
+>  net/ipv4/tcp_input.c  |  5 ++++-
+>  net/ipv4/tcp_output.c |  4 +++-
+>  3 files changed, 17 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 1e6c5b04..b98d79a 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -755,11 +755,17 @@ struct tcp_skb_cb {
+>  	/* 1 byte hole */
+>  	__u32		ack_seq;	/* Sequence number ACK'd	*/
+>  	union {
+> -		struct inet_skb_parm	h4;
+> +		struct {
+> +			/* bytes in flight when this packet was sent */
+> +			__u32 in_flight;
+> +		} tx;   /* only used for outgoing skbs */
+> +		union {
+> +			struct inet_skb_parm	h4;
+>  #if IS_ENABLED(CONFIG_IPV6)
+> -		struct inet6_skb_parm	h6;
+> +			struct inet6_skb_parm	h6;
+>  #endif
+> -	} header;	/* For incoming frames		*/
+> +		} header;	/* For incoming skbs */
+> +	};
+>  };
+>  
+>  #define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
+> @@ -837,6 +843,7 @@ union tcp_cc_info;
+>  struct ack_sample {
+>  	u32 pkts_acked;
+>  	s32 rtt_us;
+> +	u32 in_flight;
+>  };
+>  
+>  struct tcp_congestion_ops {
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 423d3af..3ab4178 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3068,6 +3068,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>  	long ca_rtt_us = -1L;
+>  	struct sk_buff *skb;
+>  	u32 pkts_acked = 0;
+> +	u32 last_in_flight = 0;
+>  	bool rtt_update;
+>  	int flag = 0;
+>  
+> @@ -3107,6 +3108,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>  			if (!first_ackt.v64)
+>  				first_ackt = last_ackt;
+>  
+> +			last_in_flight = TCP_SKB_CB(skb)->tx.in_flight;
+>  			reord = min(pkts_acked, reord);
+>  			if (!after(scb->end_seq, tp->high_seq))
+>  				flag |= FLAG_ORIG_SACK_ACKED;
+> @@ -3196,7 +3198,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>  	}
+>  
+>  	if (icsk->icsk_ca_ops->pkts_acked) {
+> -		struct ack_sample sample = {pkts_acked, ca_rtt_us};
+> +		struct ack_sample sample = {pkts_acked, ca_rtt_us,
+> +					    last_in_flight};
+>  
+>  		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
+>  	}
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 7105784..e9deab5 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -920,9 +920,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+>  	int err;
+>  
+>  	BUG_ON(!skb || !tcp_skb_pcount(skb));
+> +	tp = tcp_sk(sk);
+>  
+>  	if (clone_it) {
+>  		skb_mstamp_get(&skb->skb_mstamp);
+> +		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
+> +			- tp->snd_una;
+>  
+>  		if (unlikely(skb_cloned(skb)))
+>  			skb = pskb_copy(skb, gfp_mask);
+> @@ -933,7 +936,6 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+>  	}
+>  
+>  	inet = inet_sk(sk);
+> -	tp = tcp_sk(sk);
+>  	tcb = TCP_SKB_CB(skb);
+>  	memset(&opts, 0, sizeof(opts));
+>  
+> 
 
-> +       q = mlxsw_pci_sdq_pick(mlxsw_pci, tx_info);
-> +       spin_lock_bh(&q->lock);
-> +       elem_info = mlxsw_pci_queue_elem_info_producer_get(q);
-> +       if (!elem_info) {
-> +               /* queue is full */
-> +               err = -EAGAIN;
-> +               goto unlock;
-> +       }
-> +       elem_info->u.sdq.skb = skb;
-> +
-> +       wqe = elem_info->elem;
-> +       mlxsw_pci_wqe_c_set(wqe, 1); /* always report completion */
-> +       mlxsw_pci_wqe_lp_set(wqe, !!tx_info->is_emad);
-> +       mlxsw_pci_wqe_type_set(wqe, MLXSW_PCI_WQE_TYPE_ETHERNET);
-> +
-> +       err = mlxsw_pci_wqe_frag_map(mlxsw_pci, wqe, 0, skb->data,
-> +                                    skb_headlen(skb), DMA_TO_DEVICE);
-> +       if (err)
-> +               goto unlock;
-> +
-> +       for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-> +               const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-> +
-> +               err = mlxsw_pci_wqe_frag_map(mlxsw_pci, wqe, i + 1,
-> +                                            skb_frag_address(frag),
-> +                                            skb_frag_size(frag),
-> +                                            DMA_TO_DEVICE);
-> +               if (err)
-> +                       goto unmap_frags;
-> +       }
-> +
-> +       /* Set unused sq entries byte count to zero. */
-> +       for (i++; i < MLXSW_PCI_WQE_SG_ENTRIES; i++)
-> +               mlxsw_pci_wqe_byte_count_set(wqe, i, 0);
-
-Is hw OK with not clearing the unused sq entries dma_address?  Setting
-byte_count to zero must be sufficient?
-
-> +
-> +       /* Everything is set up, ring producer doorbell to get HW going */
-> +       q->producer_counter++;
-> +       mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
-> +
-> +       goto unlock;
-> +
-> +unmap_frags:
-> +       for (; i >= 0; i--)
-> +               mlxsw_pci_wqe_frag_unmap(mlxsw_pci, wqe, i, DMA_TO_DEVICE);
-> +unlock:
-> +       spin_unlock_bh(&q->lock);
-> +       return err;
-> +}
-> +
-> +static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
-> +                             u32 in_mod, bool out_mbox_direct,
-> +                             char *in_mbox, size_t in_mbox_size,
-> +                             char *out_mbox, size_t out_mbox_size,
-> +                             u8 *p_status)
-> +{
-> +       struct mlxsw_pci *mlxsw_pci = bus_priv;
-> +       dma_addr_t in_mapaddr = 0;
-> +       dma_addr_t out_mapaddr = 0;
-> +       bool evreq = mlxsw_pci->cmd.nopoll;
-> +       unsigned long timeout = msecs_to_jiffies(MLXSW_PCI_CIR_TIMEOUT_MSECS);
-> +       bool *p_wait_done = &mlxsw_pci->cmd.wait_done;
-
-Why is this initialized and then later set to false?
+-- 
+吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
+ミラクル・リナックス株式会社 技術本部 サポート部
