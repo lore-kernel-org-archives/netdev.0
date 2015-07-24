@@ -1,34 +1,33 @@
 From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] ipv6: copy lwtstate in ip6_rt_copy_init()
-Date: Fri, 24 Jul 2015 06:40:20 -0700
-Message-ID: <55B24044.4010406@cumulusnetworks.com>
-References: <1437733716-4494-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] route: allow to route in a peer netns via lwt
+ framework
+Date: Fri, 24 Jul 2015 06:50:09 -0700
+Message-ID: <55B24291.1040704@cumulusnetworks.com>
+References: <1437661349-17620-1-git-send-email-nicolas.dichtel@6wind.com> <55B101DC.6040609@cumulusnetworks.com> <55B1077F.1090501@6wind.com> <55B10D50.9010704@cumulusnetworks.com> <55B22E64.2010405@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:35517 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752552AbbGXNkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 09:40:23 -0400
-Received: by pdrg1 with SMTP id g1so14059088pdr.2
-        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 06:40:23 -0700 (PDT)
-In-Reply-To: <1437733716-4494-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34563 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752552AbbGXNuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 09:50:13 -0400
+Received: by pacan13 with SMTP id an13so15126573pac.1
+        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 06:50:12 -0700 (PDT)
+In-Reply-To: <55B22E64.2010405@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/24/15, 3:28 AM, Nicolas Dichtel wrote:
-> We need to copy this field (ip6_rt_cache_alloc() and ip6_rt_pcpu_alloc()
-> use ip6_rt_copy_init() to build a dst).
->
-> CC: Thomas Graf <tgraf@suug.ch>
-> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Fixes: 19e42e451506 ("ipv6: support for fib route lwtunnel encap attributes")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+On 7/24/15, 5:24 AM, Nicolas Dichtel wrote:
+> Sure, but my goal was to not create a new .h file just for these two 
+> helpers.
+> It's related to lwtunnel, thus I was thinking they can go here.
+ok..., since your lwt namespace functions went into net_namespace.c, I 
+was thinking
+these should really go into net_namespace.h. Does that work for you ?
+If that does not, then yes, they could live here.
 
-Thanks!
+Thanks,
+Roopa
