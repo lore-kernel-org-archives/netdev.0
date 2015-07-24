@@ -1,84 +1,165 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [PATCH] ip/ip6tunnel: fix missing return value check
-Date: Fri, 24 Jul 2015 12:11:32 -0400
-Message-ID: <1437754292-8279-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Cc: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] tcp: fix recv with flags MSG_WAITALL | MSG_PEEK
+Date: Fri, 24 Jul 2015 18:19:25 +0200
+Message-ID: <20150724161925.GA12489@bistromath.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Enrico Scholz <rh-bugzilla@ensc.de>,
+	Dan Searle <dan@censornet.com>,
+	Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:3355 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753361AbbGXQLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 12:11:53 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:58643 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754445AbbGXQT3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Jul 2015 12:19:29 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make sure that return value of each socket() call is properly checked
-and do not continue processing if the call failed.
+Currently, tcp_recvmsg enters a busy loop in sk_wait_data if called
+with flags = MSG_WAITALL | MSG_PEEK.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+sk_wait_data waits for sk_receive_queue not empty, but in this case,
+the receive queue is not empty, but does not contain any skb that we
+can use.
+
+Add a "last skb seen on receive queue" argument to sk_wait_data, so
+that it sleeps until the receive queue has new skbs.
+
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=99461
+Link: https://sourceware.org/bugzilla/show_bug.cgi?id=18493
+Link: https://bugzilla.redhat.com/show_bug.cgi?id=1205258
+Reported-by: Enrico Scholz <rh-bugzilla@ensc.de>
+Reported-by: Dan Searle <dan@censornet.com>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- ip/tunnel.c | 24 ++++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
+ include/net/sock.h |  2 +-
+ net/core/sock.c    |  5 +++--
+ net/dccp/proto.c   |  2 +-
+ net/ipv4/tcp.c     | 11 +++++++----
+ net/llc/af_llc.c   |  4 ++--
+ 5 files changed, 14 insertions(+), 10 deletions(-)
 
-diff --git a/ip/tunnel.c b/ip/tunnel.c
-index 33c78e3..d69fe84 100644
---- a/ip/tunnel.c
-+++ b/ip/tunnel.c
-@@ -73,7 +73,13 @@ int tnl_get_ioctl(const char *basedev, void *p)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 05a8c1aea251..f21f0708ec59 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -902,7 +902,7 @@ void sk_stream_kill_queues(struct sock *sk);
+ void sk_set_memalloc(struct sock *sk);
+ void sk_clear_memalloc(struct sock *sk);
  
- 	strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
- 	ifr.ifr_ifru.ifru_data = (void*)p;
-+
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
-+	if (fd < 0) {
-+		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+
- 	err = ioctl(fd, SIOCGETTUNNEL, &ifr);
- 	if (err)
- 		fprintf(stderr, "get tunnel \"%s\" failed: %s\n", basedev,
-@@ -94,7 +100,13 @@ int tnl_add_ioctl(int cmd, const char *basedev, const char *name, void *p)
- 	else
- 		strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
- 	ifr.ifr_ifru.ifru_data = p;
-+
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
-+	if (fd < 0) {
-+		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+
- 	err = ioctl(fd, cmd, &ifr);
- 	if (err)
- 		fprintf(stderr, "add tunnel \"%s\" failed: %s\n", ifr.ifr_name,
-@@ -115,7 +127,13 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p)
- 		strncpy(ifr.ifr_name, basedev, IFNAMSIZ);
+-int sk_wait_data(struct sock *sk, long *timeo);
++int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb);
  
- 	ifr.ifr_ifru.ifru_data = p;
-+
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
-+	if (fd < 0) {
-+		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+
- 	err = ioctl(fd, SIOCDELTUNNEL, &ifr);
- 	if (err)
- 		fprintf(stderr, "delete tunnel \"%s\" failed: %s\n",
-@@ -133,7 +151,13 @@ static int tnl_gen_ioctl(int cmd, const char *name,
+ struct request_sock_ops;
+ struct timewait_sock_ops;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 08f16db46070..8a14f1285fc4 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1967,20 +1967,21 @@ static void __release_sock(struct sock *sk)
+  * sk_wait_data - wait for data to arrive at sk_receive_queue
+  * @sk:    sock to wait on
+  * @timeo: for how long
++ * @skb:   last skb seen on sk_receive_queue
+  *
+  * Now socket state including sk->sk_err is changed only under lock,
+  * hence we may omit checks after joining wait queue.
+  * We check receive queue before schedule() only as optimization;
+  * it is very likely that release_sock() added new data.
+  */
+-int sk_wait_data(struct sock *sk, long *timeo)
++int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb)
+ {
+ 	int rc;
+ 	DEFINE_WAIT(wait);
  
- 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
- 	ifr.ifr_ifru.ifru_data = p;
-+
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
-+	if (fd < 0) {
-+		fprintf(stderr, "create socket failed: %s\n", strerror(errno));
-+		return -1;
-+	}
-+
- 	err = ioctl(fd, cmd, &ifr);
- 	if (err && errno != skiperr)
- 		fprintf(stderr, "%s: ioctl %x failed: %s\n", name,
+ 	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 	set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+-	rc = sk_wait_event(sk, timeo, !skb_queue_empty(&sk->sk_receive_queue));
++	rc = sk_wait_event(sk, timeo, skb_peek_tail(&sk->sk_receive_queue) != skb);
+ 	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+ 	finish_wait(sk_sleep(sk), &wait);
+ 	return rc;
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 52a94016526d..b5cf13a28009 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -886,7 +886,7 @@ verify_sock_status:
+ 			break;
+ 		}
+ 
+-		sk_wait_data(sk, &timeo);
++		sk_wait_data(sk, &timeo, NULL);
+ 		continue;
+ 	found_ok_skb:
+ 		if (len > skb->len)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 7f4056785acc..45534a5ab430 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -780,7 +780,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
+ 				ret = -EAGAIN;
+ 				break;
+ 			}
+-			sk_wait_data(sk, &timeo);
++			sk_wait_data(sk, &timeo, NULL);
+ 			if (signal_pending(current)) {
+ 				ret = sock_intr_errno(timeo);
+ 				break;
+@@ -1575,7 +1575,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
+ 	int target;		/* Read at least this many bytes */
+ 	long timeo;
+ 	struct task_struct *user_recv = NULL;
+-	struct sk_buff *skb;
++	struct sk_buff *skb, *last;
+ 	u32 urg_hole = 0;
+ 
+ 	if (unlikely(flags & MSG_ERRQUEUE))
+@@ -1635,7 +1635,9 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
+ 
+ 		/* Next get a buffer. */
+ 
++		last = skb_peek_tail(&sk->sk_receive_queue);
+ 		skb_queue_walk(&sk->sk_receive_queue, skb) {
++			last = skb;
+ 			/* Now that we have two receive queues this
+ 			 * shouldn't happen.
+ 			 */
+@@ -1754,8 +1756,9 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
+ 			/* Do not sleep, just process backlog. */
+ 			release_sock(sk);
+ 			lock_sock(sk);
+-		} else
+-			sk_wait_data(sk, &timeo);
++		} else {
++			sk_wait_data(sk, &timeo, last);
++		}
+ 
+ 		if (user_recv) {
+ 			int chunk;
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index 8fd9febaa5ba..8dab4e569571 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -613,7 +613,7 @@ static int llc_wait_data(struct sock *sk, long timeo)
+ 		if (signal_pending(current))
+ 			break;
+ 		rc = 0;
+-		if (sk_wait_data(sk, &timeo))
++		if (sk_wait_data(sk, &timeo, NULL))
+ 			break;
+ 	}
+ 	return rc;
+@@ -802,7 +802,7 @@ static int llc_ui_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 			release_sock(sk);
+ 			lock_sock(sk);
+ 		} else
+-			sk_wait_data(sk, &timeo);
++			sk_wait_data(sk, &timeo, NULL);
+ 
+ 		if ((flags & MSG_PEEK) && peek_seq != llc->copied_seq) {
+ 			net_dbg_ratelimited("LLC(%s:%d): Application bug, race in MSG_PEEK\n",
 -- 
-1.8.3.1
+2.4.6
