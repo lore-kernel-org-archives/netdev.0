@@ -1,44 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: fix recv with flags MSG_WAITALL | MSG_PEEK
-Date: Fri, 24 Jul 2015 19:05:56 +0200
-Message-ID: <1437757556.20182.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150724161925.GA12489@bistromath.redhat.com>
+From: Vineet Gupta <vgupta@synopsys.com>
+Subject: Re: [PATCH 2/3] brcmfmac: dhd_sdio.c: use existing atomic_or primitive
+Date: Fri, 24 Jul 2015 20:22:07 +0300
+Message-ID: <55B2743F.6060304@synopsys.com>
+References: <1436429599-10762-1-git-send-email-vgupta@synopsys.com>	<1436429599-10762-3-git-send-email-vgupta@synopsys.com> <87twstbi9p.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Enrico Scholz <rh-bugzilla@ensc.de>,
-	Dan Searle <dan@censornet.com>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+	linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:37637 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbbGXRF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 13:05:59 -0400
-Received: by wibud3 with SMTP id ud3so36173509wib.0
-        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 10:05:58 -0700 (PDT)
-In-Reply-To: <20150724161925.GA12489@bistromath.redhat.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:36031 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754628AbbGXRWN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 13:22:13 -0400
+In-Reply-To: <87twstbi9p.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-07-24 at 18:19 +0200, Sabrina Dubroca wrote:
-> Currently, tcp_recvmsg enters a busy loop in sk_wait_data if called
-> with flags = MSG_WAITALL | MSG_PEEK.
+On Friday 24 July 2015 08:02 PM, Kalle Valo wrote:
+> Vineet Gupta <Vineet.Gupta1@synopsys.com> writes:
 > 
-> sk_wait_data waits for sk_receive_queue not empty, but in this case,
-> the receive queue is not empty, but does not contain any skb that we
-> can use.
-> 
-> Add a "last skb seen on receive queue" argument to sk_wait_data, so
-> that it sleeps until the receive queue has new skbs.
-> 
-> Link: https://bugzilla.kernel.org/show_bug.cgi?id=99461
-> Link: https://sourceware.org/bugzilla/show_bug.cgi?id=18493
-> Link: https://bugzilla.redhat.com/show_bug.cgi?id=1205258
-> Reported-by: Enrico Scholz <rh-bugzilla@ensc.de>
-> Reported-by: Dan Searle <dan@censornet.com>
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> ---
+>> > There's already a generic implementation so use that instead.
+>> > ---
+>> > I'm not sure if the driver usage of atomic_or?() is correct in terms of
+>> > storage size of @val for 64 bit arches.
+>> >
+>> > Assuming LP64 programming model for linux on say x86_64: atomic_or()
+>> > callers in this driver use long (sana 64 bit) storage and pass it to
+>> > atomic_orr/atomic_or which downcasts it to 32 bits. Is that OK ?
+>> > ---
+>> > Cc: Brett Rudley <brudley@broadcom.com>
+>> > Cc: Arend van Spriel <arend@broadcom.com>
+>> > Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+>> > Cc: Hante Meuleman <meuleman@broadcom.com>
+>> > Cc: Kalle Valo <kvalo@codeaurora.org>
+>> > Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
+>> > Cc: Daniel Kim <dekim@broadcom.com>
+>> > Cc: linux-wireless@vger.kernel.org
+>> > Cc: brcm80211-dev-list@broadcom.com
+>> > Cc: Peter Zijlstra <peterz@infradead.org>
+>> > Cc: Ingo Molnar <mingo@kernel.org>
+>> > Cc: netdev@vger.kernel.org
+>> > Cc: linux-arch@vger.kernel.org
+>> > Cc: linux-kernel@vger.kernel.org
+>> > Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+>> >
+>> > Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+> What's the plan with this patch? Should I take it to my
+> wireless-drivers-next tree or will someone else take it?
 
-Very nice !
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Per last discussion on this topic, Arend wanted to discuss abt this with Hante.
+I'm not taking it anyways so feel free to pick it up if you want !
+
+-Vineet
