@@ -1,10 +1,10 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 2/4] mlxsw: Add PCI bus implementation
-Date: Fri, 24 Jul 2015 07:30:58 +0200
-Message-ID: <20150724053058.GC2178@nanopsycho.orion>
+Subject: Re: [patch net-next 0/4] Introduce Mellanox Technologies Switch
+ ASICs switchdev drivers
+Date: Fri, 24 Jul 2015 07:38:13 +0200
+Message-ID: <20150724053813.GE2178@nanopsycho.orion>
 References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
- <1437666216-3149-3-git-send-email-jiri@resnulli.us>
- <CAE4R7bBGErUyi64gdfSi+L-XkQLH5VMmpLM+TYoXzCYs021aLA@mail.gmail.com>
+ <CAE4R7bB-1LcnzvEegiHQ=6OKZ3tJVkTkyENFC1Th5XjSS4CMBw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Netdev <netdev@vger.kernel.org>,
@@ -21,125 +21,70 @@ Cc: Netdev <netdev@vger.kernel.org>,
 	John Linville <linville@tuxdriver.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Jiri Pirko <jiri@mellanox.com>
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
 To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:38450 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751130AbbGXFbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 01:31:01 -0400
-Received: by wibxm9 with SMTP id xm9so12211560wib.1
-        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 22:31:00 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:37801 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbbGXFiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 01:38:16 -0400
+Received: by wibud3 with SMTP id ud3so12368566wib.0
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 22:38:15 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAE4R7bBGErUyi64gdfSi+L-XkQLH5VMmpLM+TYoXzCYs021aLA@mail.gmail.com>
+In-Reply-To: <CAE4R7bB-1LcnzvEegiHQ=6OKZ3tJVkTkyENFC1Th5XjSS4CMBw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jul 24, 2015 at 06:52:16AM CEST, sfeldma@gmail.com wrote:
+Fri, Jul 24, 2015 at 02:03:20AM CEST, sfeldma@gmail.com wrote:
 >On Thu, Jul 23, 2015 at 8:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
+>> This patchset introduces Mellanox Technologies Switch driver infrastructure
+>> and support for SwitchX-2 ASIC.
 >>
->> Add PCI bus implementation for Mellanox Technologies Switch ASICs. This
->> includes firmware initialization, async queues manipulation and command
->> interface implementation.
+>> The driver is divided into 3 logical parts:
+>> 1) Bus - implements switch bus interface. Currently only PCI bus is
+>>    implemented, but more buses will be added in the future. Namely I2C
+>>    and SGMII.
+>>    (patch #2)
+>> 2) Driver - implemements of ASIC-specific functions.
+>>    Currently SwitchX-2 ASIC is supported, but a plan exists to introduce
+>>    support for Spectrum ASIC in the near future.
+>>    (patch #4)
+>> 3) Core - infrastructure that glues buses and drivers together.
+>>    It implements register access logic (EMADs) and takes care of RX traps
+>>    and events.
+>>    (patch #1 and #3)
 >>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Elad Raz <eladr@mellanox.com>
+>> Ido Schimmel (1):
+>>   mlxsw: Add interface to access registers and process events
+>>
+>> Jiri Pirko (3):
+>>   mlxsw: Introduce Mellanox switch driver core
+>>   mlxsw: Add PCI bus implementation
+>>   mlxsw: Introduce Mellanox SwitchX-2 ASIC support
 >
->[cut]
->
->> +static int mlxsw_pci_skb_transmit(void *bus_priv, struct sk_buff *skb,
->> +                                 const struct mlxsw_tx_info *tx_info)
->> +{
->> +       struct mlxsw_pci *mlxsw_pci = bus_priv;
->> +       struct mlxsw_pci_queue *q;
->> +       struct mlxsw_pci_queue_elem_info *elem_info;
->> +       char *wqe;
->> +       int i;
->> +       int err;
->> +
->> +       if (skb_shinfo(skb)->nr_frags > MLXSW_PCI_WQE_SG_ENTRIES - 1)
->> +               return -EINVAL;
->
->Can you skb_linearize() here to try to continue?
+>This is awesome!  Reviewing...
 
-Sure, I think we can do it. This would be good to have in rocker too.
+Thanks!
 
 
 >
->> +       q = mlxsw_pci_sdq_pick(mlxsw_pci, tx_info);
->> +       spin_lock_bh(&q->lock);
->> +       elem_info = mlxsw_pci_queue_elem_info_producer_get(q);
->> +       if (!elem_info) {
->> +               /* queue is full */
->> +               err = -EAGAIN;
->> +               goto unlock;
->> +       }
->> +       elem_info->u.sdq.skb = skb;
->> +
->> +       wqe = elem_info->elem;
->> +       mlxsw_pci_wqe_c_set(wqe, 1); /* always report completion */
->> +       mlxsw_pci_wqe_lp_set(wqe, !!tx_info->is_emad);
->> +       mlxsw_pci_wqe_type_set(wqe, MLXSW_PCI_WQE_TYPE_ETHERNET);
->> +
->> +       err = mlxsw_pci_wqe_frag_map(mlxsw_pci, wqe, 0, skb->data,
->> +                                    skb_headlen(skb), DMA_TO_DEVICE);
->> +       if (err)
->> +               goto unlock;
->> +
->> +       for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
->> +               const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
->> +
->> +               err = mlxsw_pci_wqe_frag_map(mlxsw_pci, wqe, i + 1,
->> +                                            skb_frag_address(frag),
->> +                                            skb_frag_size(frag),
->> +                                            DMA_TO_DEVICE);
->> +               if (err)
->> +                       goto unmap_frags;
->> +       }
->> +
->> +       /* Set unused sq entries byte count to zero. */
->> +       for (i++; i < MLXSW_PCI_WQE_SG_ENTRIES; i++)
->> +               mlxsw_pci_wqe_byte_count_set(wqe, i, 0);
->
->Is hw OK with not clearing the unused sq entries dma_address?  Setting
->byte_count to zero must be sufficient?
+>checkpatch.pl shows 1 ERROR, bunch of >80 chars WARNs, and bunch of
+>CHECKs on space after cast.
 
-Yes, byte_count == 0 is sufficient. No need to set address.
+Those >80char WARNs are mostly macro "\" on col 81. That is afaik ok.
+Maybe that should be changed in checkpatch as well.
+
+The error is false possitive. It is again in macro, checkpatch thinks it
+is a function and yells about "{" on the same line. However it is a
+struct initialization so in that case it is ok.
 
 
 >
->> +
->> +       /* Everything is set up, ring producer doorbell to get HW going */
->> +       q->producer_counter++;
->> +       mlxsw_pci_queue_doorbell_producer_ring(mlxsw_pci, q);
->> +
->> +       goto unlock;
->> +
->> +unmap_frags:
->> +       for (; i >= 0; i--)
->> +               mlxsw_pci_wqe_frag_unmap(mlxsw_pci, wqe, i, DMA_TO_DEVICE);
->> +unlock:
->> +       spin_unlock_bh(&q->lock);
->> +       return err;
->> +}
->> +
->> +static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
->> +                             u32 in_mod, bool out_mbox_direct,
->> +                             char *in_mbox, size_t in_mbox_size,
->> +                             char *out_mbox, size_t out_mbox_size,
->> +                             u8 *p_status)
->> +{
->> +       struct mlxsw_pci *mlxsw_pci = bus_priv;
->> +       dma_addr_t in_mapaddr = 0;
->> +       dma_addr_t out_mapaddr = 0;
->> +       bool evreq = mlxsw_pci->cmd.nopoll;
->> +       unsigned long timeout = msecs_to_jiffies(MLXSW_PCI_CIR_TIMEOUT_MSECS);
->> +       bool *p_wait_done = &mlxsw_pci->cmd.wait_done;
->
->Why is this initialized and then later set to false?
+>On the CHECKs on space after cast, should we modify checkpatch.pl to
+>not flag those for drivers/net?
 
-*p_wait_done
-so we actually set not p_wait_done but mlxsw_pci->cmd.wait_done there.
+I agree.
+
+
+>
+>-scott
