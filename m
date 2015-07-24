@@ -1,141 +1,95 @@
-From: WingMan Kwok <w-kwok2@ti.com>
-Subject: [PATCH] net: netcp: Fixes SGMII reset on network interface shutdown
-Date: Fri, 24 Jul 2015 15:02:29 -0400
-Message-ID: <1437764549-3857-1-git-send-email-w-kwok2@ti.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [RFC PATCH net] sctp: ASCONF-ACK with Unresolvable Address
+ should be sent
+Date: Fri, 24 Jul 2015 16:11:13 -0300
+Message-ID: <20150724191113.GO1730@localhost.localdomain>
+References: <1437720989-6610-1-git-send-email-lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: WingMan Kwok <w-kwok2@ti.com>
-To: <davem@davemloft.net>, <m-karicheri2@ti.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54027 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752203AbbGXTLP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Jul 2015 15:11:15 -0400
+Content-Disposition: inline
+In-Reply-To: <1437720989-6610-1-git-send-email-lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch asserts SGMII RTRESET, i.e. resetting the SGMII Tx/Rx
-logic,  during network interface shutdown to avoid having the
-hardware wedge when shutting down with high incoming traffic rates.
-This is cleared (brought out of RTRESET) when the interface is
-brought back up.
+On Fri, Jul 24, 2015 at 02:56:29PM +0800, Xin Long wrote:
+> RFC 5061:
+>     This is an opaque integer assigned by the sender to identify each
+>     request parameter.  The receiver of the ASCONF Chunk will copy this
+>     32-bit value into the ASCONF Response Correlation ID field of the
+>     ASCONF-ACK response parameter.  The sender of the ASCONF can use this
+>     same value in the ASCONF-ACK to find which request the response is
+>     for.  Note that the receiver MUST NOT change this 32-bit value.
+> 
+>     Address Parameter: TLV
+> 
+>     This field contains an IPv4 or IPv6 address parameter, as described
+>     in Section 3.3.2.1 of [RFC4960].
+> 
+> ASCONF chunk with Error Cause Indication Parameter (Unresolvable Address)
+> should be sent if the Delete IP Address is not part of the association.
+> 
+>   Endpoint A                           Endpoint B
+>   (ESTABLISHED)                        (ESTABLISHED)
+> 
+>   ASCONF        ----------------->
+>   (Delete IP Address)
+>                 <-----------------      ASCONF-ACK
+>                                         (Unresolvable Address)
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_make_chunk.c | 12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 06320c8..88d82ef 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -3090,8 +3090,18 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
 
+Please let's avoid increasing the indentation level when possible
 
-Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
----
-This patch depends on the patch set 
+>  			sctp_assoc_set_primary(asoc, asconf->transport);
+>  			sctp_assoc_del_nonprimary_peers(asoc,
+>  							asconf->transport);
+add a return here
 
-Subject: [net-next PATCH v1 0/6] net: netcp: Bug fixes of CPSW statistics
- collection
+> -		} else
+> +		} else {
+and remove this else {}
+and we're good.
 
-submitted earlier.
+sctp code is often too indented, trying to reduce that bit here and
+there.
 
- drivers/net/ethernet/ti/netcp.h       |    1 +
- drivers/net/ethernet/ti/netcp_ethss.c |   18 ++++++++++++++++++
- drivers/net/ethernet/ti/netcp_sgmii.c |   30 ++++++++++++++++++++++++++++--
- 3 files changed, 47 insertions(+), 2 deletions(-)
+> +			/* If the address is not part of the association, the
+> +			 * ASCONF-ACK with Error Cause Indication Parameter
+> +			 * which including cause of Unresolvable Address should
+> +			 * be sent.
+> +			 */
+> +			peer = sctp_assoc_lookup_paddr(asoc, &addr);
+> +			if (!peer)
+> +				return SCTP_ERROR_DNS_FAILED;
+> +
+>  			sctp_assoc_del_peer(asoc, &addr);
 
-diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
-index bbacf5c..a8a7306 100644
---- a/drivers/net/ethernet/ti/netcp.h
-+++ b/drivers/net/ethernet/ti/netcp.h
-@@ -223,6 +223,7 @@ void *netcp_device_find_module(struct netcp_device *netcp_device,
- 
- /* SGMII functions */
- int netcp_sgmii_reset(void __iomem *sgmii_ofs, int port);
-+bool netcp_sgmii_rtreset(void __iomem *sgmii_ofs, int port, bool set);
- int netcp_sgmii_get_port_link(void __iomem *sgmii_ofs, int port);
- int netcp_sgmii_config(void __iomem *sgmii_ofs, int port, u32 interface);
- 
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 7782120..571cf7a 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -2101,11 +2101,28 @@ static void gbe_port_config(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
- 	writel(slave->mac_control, GBE_REG_ADDR(slave, emac_regs, mac_control));
- }
- 
-+static void gbe_sgmii_rtreset(struct gbe_priv *priv,
-+			      struct gbe_slave *slave, bool set)
-+{
-+	void __iomem *sgmii_port_regs;
-+
-+	if (SLAVE_LINK_IS_XGMII(slave))
-+		return;
-+
-+	if ((priv->ss_version == GBE_SS_VERSION_14) && (slave->slave_num >= 2))
-+		sgmii_port_regs = priv->sgmii_port34_regs;
-+	else
-+		sgmii_port_regs = priv->sgmii_port_regs;
-+
-+	netcp_sgmii_rtreset(sgmii_port_regs, slave->slave_num, set);
-+}
-+
- static void gbe_slave_stop(struct gbe_intf *intf)
- {
- 	struct gbe_priv *gbe_dev = intf->gbe_dev;
- 	struct gbe_slave *slave = intf->slave;
- 
-+	gbe_sgmii_rtreset(gbe_dev, slave, true);
- 	gbe_port_reset(slave);
- 	/* Disable forwarding */
- 	cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
-@@ -2147,6 +2164,7 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
- 
- 	gbe_sgmii_config(priv, slave);
- 	gbe_port_reset(slave);
-+	gbe_sgmii_rtreset(priv, slave, false);
- 	gbe_port_config(priv, slave, priv->rx_packet_max);
- 	gbe_set_slave_mac(slave, gbe_intf);
- 	/* enable forwarding */
-diff --git a/drivers/net/ethernet/ti/netcp_sgmii.c b/drivers/net/ethernet/ti/netcp_sgmii.c
-index dbeb142..5d8419f 100644
---- a/drivers/net/ethernet/ti/netcp_sgmii.c
-+++ b/drivers/net/ethernet/ti/netcp_sgmii.c
-@@ -18,6 +18,9 @@
- 
- #include "netcp.h"
- 
-+#define SGMII_SRESET_RESET		BIT(0)
-+#define SGMII_SRESET_RTRESET		BIT(1)
-+
- #define SGMII_REG_STATUS_LOCK		BIT(4)
- #define	SGMII_REG_STATUS_LINK		BIT(0)
- #define SGMII_REG_STATUS_AUTONEG	BIT(2)
-@@ -51,12 +54,35 @@ static void sgmii_write_reg_bit(void __iomem *base, int reg, u32 val)
- int netcp_sgmii_reset(void __iomem *sgmii_ofs, int port)
- {
- 	/* Soft reset */
--	sgmii_write_reg_bit(sgmii_ofs, SGMII_SRESET_REG(port), 0x1);
--	while (sgmii_read_reg(sgmii_ofs, SGMII_SRESET_REG(port)) != 0x0)
-+	sgmii_write_reg_bit(sgmii_ofs, SGMII_SRESET_REG(port),
-+			    SGMII_SRESET_RESET);
-+
-+	while ((sgmii_read_reg(sgmii_ofs, SGMII_SRESET_REG(port)) &
-+		SGMII_SRESET_RESET) != 0x0)
- 		;
-+
- 	return 0;
- }
- 
-+/* port is 0 based */
-+bool netcp_sgmii_rtreset(void __iomem *sgmii_ofs, int port, bool set)
-+{
-+	u32 reg;
-+	bool oldval;
-+
-+	/* Initiate a soft reset */
-+	reg = sgmii_read_reg(sgmii_ofs, SGMII_SRESET_REG(port));
-+	oldval = (reg & SGMII_SRESET_RTRESET) != 0x0;
-+	if (set)
-+		reg |= SGMII_SRESET_RTRESET;
-+	else
-+		reg &= ~SGMII_SRESET_RTRESET;
-+	sgmii_write_reg(sgmii_ofs, SGMII_SRESET_REG(port), reg);
-+	wmb();
-+
-+	return oldval;
-+}
-+
- int netcp_sgmii_get_port_link(void __iomem *sgmii_ofs, int port)
- {
- 	u32 status = 0, link = 0;
--- 
-1.7.9.5
+Here we can replace this call to sctp_assoc_rm_peer() , because if we
+already have peer, we don't have to search for it again.
+
+Thanks,
+Marcelo
+
+> +		}
+>  		break;
+>  	case SCTP_PARAM_SET_PRIMARY:
+>  		/* ADDIP Section 4.2.4
+> -- 
+> 2.1.0
+> 
