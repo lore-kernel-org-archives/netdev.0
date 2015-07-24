@@ -1,56 +1,71 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: [PATCH V3 3/7] Drivers: hv: vmbus: add APIs to send/recv hvsock
- packet and get the r/w-ability
-Date: Fri, 24 Jul 2015 11:57:01 +0530
-Message-ID: <20150724062701.GA5525@sudip-PC>
-References: <1437476293-6837-1-git-send-email-decui@microsoft.com>
- <87zj2pk3jf.fsf@vitty.brq.redhat.com>
- <4538264677374d43961c2d709afb1dd3@SIXPR30MB031.064d.mgd.msft.net>
- <20150722103546.GO5371@mwanda>
- <75f1792c788e418eaddc0d6b7e3381de@SIXPR30MB031.064d.mgd.msft.net>
- <20150723101057.GQ5371@mwanda>
- <20150723102449.GR5371@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dexuan Cui <decui@microsoft.com>,
-	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"stefanha@redhat.com" <stefanha@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [RFC PATCH net] sctp: ASCONF-ACK with Unresolvable Address should be sent
+Date: Fri, 24 Jul 2015 14:56:29 +0800
+Message-ID: <1437720989-6610-1-git-send-email-lucien.xin@gmail.com>
+Cc: mleitner@redhat.com
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:34380 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752218AbbGXG1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 02:27:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20150723102449.GR5371@mwanda>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33054 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753017AbbGXG4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 02:56:33 -0400
+Received: by padck2 with SMTP id ck2so9594181pad.0
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2015 23:56:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 23, 2015 at 01:24:50PM +0300, Dan Carpenter wrote:
-> On Thu, Jul 23, 2015 at 01:10:57PM +0300, Dan Carpenter wrote:
-> > In this specific case, writing it as "if (ret != 0)" caused the bug.  If
-> > we had written it as "if (ret) return ret;" then there are no zeroes so
-> > wouldn't have been any temptation to return the zero instead of the ret.
-> 
-> I did a search to see if returning the zero instead of the ret was a
-> common mistake and it seems like it might be.  I did:
-> 
-> grep 'if (ret != 0)' drivers/   -r -A1 -n | grep "return 0;" | perl -ne 's/.c-(\d+)-/.c:$1/; print'
-> 
-> drivers/gpu/drm/nouveau/nouveau_display.c:111                   return 0;
-This is also ok, the function is supposed to return ret or-ed with the
-relevant flags based on the scan position. It is considered error if 0
-is returned (without any flag).
+RFC 5061:
+    This is an opaque integer assigned by the sender to identify each
+    request parameter.  The receiver of the ASCONF Chunk will copy this
+    32-bit value into the ASCONF Response Correlation ID field of the
+    ASCONF-ACK response parameter.  The sender of the ASCONF can use this
+    same value in the ASCONF-ACK to find which request the response is
+    for.  Note that the receiver MUST NOT change this 32-bit value.
 
-regards
-sudip
+    Address Parameter: TLV
+
+    This field contains an IPv4 or IPv6 address parameter, as described
+    in Section 3.3.2.1 of [RFC4960].
+
+ASCONF chunk with Error Cause Indication Parameter (Unresolvable Address)
+should be sent if the Delete IP Address is not part of the association.
+
+  Endpoint A                           Endpoint B
+  (ESTABLISHED)                        (ESTABLISHED)
+
+  ASCONF        ----------------->
+  (Delete IP Address)
+                <-----------------      ASCONF-ACK
+                                        (Unresolvable Address)
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/sm_make_chunk.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 06320c8..88d82ef 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3090,8 +3090,18 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+ 			sctp_assoc_set_primary(asoc, asconf->transport);
+ 			sctp_assoc_del_nonprimary_peers(asoc,
+ 							asconf->transport);
+-		} else
++		} else {
++			/* If the address is not part of the association, the
++			 * ASCONF-ACK with Error Cause Indication Parameter
++			 * which including cause of Unresolvable Address should
++			 * be sent.
++			 */
++			peer = sctp_assoc_lookup_paddr(asoc, &addr);
++			if (!peer)
++				return SCTP_ERROR_DNS_FAILED;
++
+ 			sctp_assoc_del_peer(asoc, &addr);
++		}
+ 		break;
+ 	case SCTP_PARAM_SET_PRIMARY:
+ 		/* ADDIP Section 4.2.4
+-- 
+2.1.0
