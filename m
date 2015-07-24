@@ -1,54 +1,141 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v1 6/6] net/macb: convert to kernel doc
-Date: Fri, 24 Jul 2015 21:24:04 +0300
-Message-ID: <1437762244-2678-7-git-send-email-andriy.shevchenko@linux.intel.com>
-References: <1437762244-2678-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Cyrille Pitchen <cyrille.pitchen@atmel.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45091 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754370AbbGXSYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jul 2015 14:24:09 -0400
-In-Reply-To: <1437762244-2678-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: WingMan Kwok <w-kwok2@ti.com>
+Subject: [PATCH] net: netcp: Fixes SGMII reset on network interface shutdown
+Date: Fri, 24 Jul 2015 15:02:29 -0400
+Message-ID: <1437764549-3857-1-git-send-email-w-kwok2@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: WingMan Kwok <w-kwok2@ti.com>
+To: <davem@davemloft.net>, <m-karicheri2@ti.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch coverts struct description to the kernel doc format. There is no
-functional change.
+This patch asserts SGMII RTRESET, i.e. resetting the SGMII Tx/Rx
+logic,  during network interface shutdown to avoid having the
+hardware wedge when shutting down with high incoming traffic rates.
+This is cleared (brought out of RTRESET) when the interface is
+brought back up.
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+
+Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 ---
- include/linux/platform_data/macb.h | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
+This patch depends on the patch set 
 
-diff --git a/include/linux/platform_data/macb.h b/include/linux/platform_data/macb.h
-index 044a124..21b15f6 100644
---- a/include/linux/platform_data/macb.h
-+++ b/include/linux/platform_data/macb.h
-@@ -8,11 +8,19 @@
- #ifndef __MACB_PDATA_H__
- #define __MACB_PDATA_H__
+Subject: [net-next PATCH v1 0/6] net: netcp: Bug fixes of CPSW statistics
+ collection
+
+submitted earlier.
+
+ drivers/net/ethernet/ti/netcp.h       |    1 +
+ drivers/net/ethernet/ti/netcp_ethss.c |   18 ++++++++++++++++++
+ drivers/net/ethernet/ti/netcp_sgmii.c |   30 ++++++++++++++++++++++++++++--
+ 3 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
+index bbacf5c..a8a7306 100644
+--- a/drivers/net/ethernet/ti/netcp.h
++++ b/drivers/net/ethernet/ti/netcp.h
+@@ -223,6 +223,7 @@ void *netcp_device_find_module(struct netcp_device *netcp_device,
  
-+/**
-+ * struct macb_platform_data - platform data for MACB Ethernet
-+ * @phy_mask:		phy mask passed when register the MDIO bus
-+ *			within the driver
-+ * @phy_irq_pin:	PHY IRQ
-+ * @is_rmii:		using RMII interface?
-+ * @rev_eth_addr:	reverse Ethernet address byte order
-+ */
- struct macb_platform_data {
- 	u32		phy_mask;
--	int		phy_irq_pin;	/* PHY IRQ */
--	u8		is_rmii;	/* using RMII interface? */
--	u8		rev_eth_addr;	/* reverse Ethernet address byte order */
-+	int		phy_irq_pin;
-+	u8		is_rmii;
-+	u8		rev_eth_addr;
- };
+ /* SGMII functions */
+ int netcp_sgmii_reset(void __iomem *sgmii_ofs, int port);
++bool netcp_sgmii_rtreset(void __iomem *sgmii_ofs, int port, bool set);
+ int netcp_sgmii_get_port_link(void __iomem *sgmii_ofs, int port);
+ int netcp_sgmii_config(void __iomem *sgmii_ofs, int port, u32 interface);
  
- #endif /* __MACB_PDATA_H__ */
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index 7782120..571cf7a 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -2101,11 +2101,28 @@ static void gbe_port_config(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
+ 	writel(slave->mac_control, GBE_REG_ADDR(slave, emac_regs, mac_control));
+ }
+ 
++static void gbe_sgmii_rtreset(struct gbe_priv *priv,
++			      struct gbe_slave *slave, bool set)
++{
++	void __iomem *sgmii_port_regs;
++
++	if (SLAVE_LINK_IS_XGMII(slave))
++		return;
++
++	if ((priv->ss_version == GBE_SS_VERSION_14) && (slave->slave_num >= 2))
++		sgmii_port_regs = priv->sgmii_port34_regs;
++	else
++		sgmii_port_regs = priv->sgmii_port_regs;
++
++	netcp_sgmii_rtreset(sgmii_port_regs, slave->slave_num, set);
++}
++
+ static void gbe_slave_stop(struct gbe_intf *intf)
+ {
+ 	struct gbe_priv *gbe_dev = intf->gbe_dev;
+ 	struct gbe_slave *slave = intf->slave;
+ 
++	gbe_sgmii_rtreset(gbe_dev, slave, true);
+ 	gbe_port_reset(slave);
+ 	/* Disable forwarding */
+ 	cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
+@@ -2147,6 +2164,7 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
+ 
+ 	gbe_sgmii_config(priv, slave);
+ 	gbe_port_reset(slave);
++	gbe_sgmii_rtreset(priv, slave, false);
+ 	gbe_port_config(priv, slave, priv->rx_packet_max);
+ 	gbe_set_slave_mac(slave, gbe_intf);
+ 	/* enable forwarding */
+diff --git a/drivers/net/ethernet/ti/netcp_sgmii.c b/drivers/net/ethernet/ti/netcp_sgmii.c
+index dbeb142..5d8419f 100644
+--- a/drivers/net/ethernet/ti/netcp_sgmii.c
++++ b/drivers/net/ethernet/ti/netcp_sgmii.c
+@@ -18,6 +18,9 @@
+ 
+ #include "netcp.h"
+ 
++#define SGMII_SRESET_RESET		BIT(0)
++#define SGMII_SRESET_RTRESET		BIT(1)
++
+ #define SGMII_REG_STATUS_LOCK		BIT(4)
+ #define	SGMII_REG_STATUS_LINK		BIT(0)
+ #define SGMII_REG_STATUS_AUTONEG	BIT(2)
+@@ -51,12 +54,35 @@ static void sgmii_write_reg_bit(void __iomem *base, int reg, u32 val)
+ int netcp_sgmii_reset(void __iomem *sgmii_ofs, int port)
+ {
+ 	/* Soft reset */
+-	sgmii_write_reg_bit(sgmii_ofs, SGMII_SRESET_REG(port), 0x1);
+-	while (sgmii_read_reg(sgmii_ofs, SGMII_SRESET_REG(port)) != 0x0)
++	sgmii_write_reg_bit(sgmii_ofs, SGMII_SRESET_REG(port),
++			    SGMII_SRESET_RESET);
++
++	while ((sgmii_read_reg(sgmii_ofs, SGMII_SRESET_REG(port)) &
++		SGMII_SRESET_RESET) != 0x0)
+ 		;
++
+ 	return 0;
+ }
+ 
++/* port is 0 based */
++bool netcp_sgmii_rtreset(void __iomem *sgmii_ofs, int port, bool set)
++{
++	u32 reg;
++	bool oldval;
++
++	/* Initiate a soft reset */
++	reg = sgmii_read_reg(sgmii_ofs, SGMII_SRESET_REG(port));
++	oldval = (reg & SGMII_SRESET_RTRESET) != 0x0;
++	if (set)
++		reg |= SGMII_SRESET_RTRESET;
++	else
++		reg &= ~SGMII_SRESET_RTRESET;
++	sgmii_write_reg(sgmii_ofs, SGMII_SRESET_REG(port), reg);
++	wmb();
++
++	return oldval;
++}
++
+ int netcp_sgmii_get_port_link(void __iomem *sgmii_ofs, int port)
+ {
+ 	u32 status = 0, link = 0;
 -- 
-2.4.6
+1.7.9.5
