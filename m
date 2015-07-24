@@ -1,42 +1,78 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC Patch net-next] inet: introduce a sysctl ip_local_ports_strict_use
-Date: Fri, 24 Jul 2015 13:53:36 -0700
-Message-ID: <CAM_iQpVP8jMymy6rcQj0TKbWKKJBH6L7G=AzU8opJrWqGvBtNg@mail.gmail.com>
-References: <1437610057-13197-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20150722223904.20ef9011@uryu.home.lan>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 1/1] e1000: remove dead e1000_init_eeprom_params
+ calls.
+Date: Fri, 24 Jul 2015 23:40:36 +0200
+Message-ID: <20150724214036.GA29524@electric-eye.fr.zoreil.com>
+References: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joern Engel <joern@logfs.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:33938 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754747AbbGXUxg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 16:53:36 -0400
-Received: by obre1 with SMTP id e1so23201478obr.1
-        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 13:53:36 -0700 (PDT)
-In-Reply-To: <20150722223904.20ef9011@uryu.home.lan>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39746 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753083AbbGXVk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 17:40:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 22, 2015 at 10:39 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Wed, 22 Jul 2015 17:07:37 -0700
-> Cong Wang <xiyou.wangcong@gmail.com> wrote:
->
->> For a real example, named randomly selects some port to bind() for
->> security concern. (It doesn't use bind(0) to let kernel to select port
->> because it is not random enough, kernel usually just picks the next
->> available.) When running named on a Mesos controlled host, named would
->> silently fail when it binds a port assigned to a Mesos container.
->
-> I think named is trying to workaround security issues that were fixed
-> 5 years ago in Linux. The kernel does not just pick the next available
-> in current code.
->
+The device probe method e1000_probe calls e1000_init_eeprom_params
+itself so there's no reason to call it again from e1000_do_write_eeprom
+or e1000_do_read_eeprom.
 
-Good to know that. I will rephrase the changelog.
+The sentence above assumes that e1000_init_eeprom_params is effective
+but it's mostly dependant on "hw->mac_type": safe as e1000_probe bails
+out early if it can't set mac_type (see e1000_init_hw_struct, then
+e1000_set_mac_type).
 
-Thanks.
+Btw, if effective, the removed paths would had been deadlock prone when
+e1000_eeprom_spi was set:
+-> e1000_write_eeprom (takes e1000_eeprom_lock)
+   -> e1000_do_write_eeprom
+      -> e1000_init_eeprom_params
+         -> e1000_read_eeprom (takes e1000_eeprom_lock)
+
+(same narrative with e1000_read_eeprom -> e1000_do_read_eeprom etc.)
+
+As a final note, the candidate deadlock above can't happen in e1000_probe
+due to the way eeprom->word_size is set / tested.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+
+Untested. I have found it while looking at Joern's patch.
+
+ drivers/net/ethernet/intel/e1000/e1000_hw.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
+index 45c8c864..b1af0d6 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
+@@ -3900,10 +3900,6 @@ static s32 e1000_do_read_eeprom(struct e1000_hw *hw, u16 offset, u16 words,
+ 		return E1000_SUCCESS;
+ 	}
+ 
+-	/* If eeprom is not yet detected, do so now */
+-	if (eeprom->word_size == 0)
+-		e1000_init_eeprom_params(hw);
+-
+ 	/* A check for invalid values:  offset too large, too many words, and
+ 	 * not enough words.
+ 	 */
+@@ -4074,10 +4070,6 @@ static s32 e1000_do_write_eeprom(struct e1000_hw *hw, u16 offset, u16 words,
+ 		return E1000_SUCCESS;
+ 	}
+ 
+-	/* If eeprom is not yet detected, do so now */
+-	if (eeprom->word_size == 0)
+-		e1000_init_eeprom_params(hw);
+-
+ 	/* A check for invalid values:  offset too large, too many words, and
+ 	 * not enough words.
+ 	 */
+-- 
+2.4.3
