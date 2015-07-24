@@ -1,183 +1,173 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Add structs and handlers for VF messages
-Date: Fri, 24 Jul 2015 10:08:40 -0700
-Message-ID: <1437757720-16105-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [PATCH 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Fri, 24 Jul 2015 15:45:56 +0000
+Message-ID: <BL2PR03MB545D22D02CEEDA05878E833E6810@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1437581806-17420-1-git-send-email-madalin.bucur@freescale.com>
+	 <1437581806-17420-2-git-send-email-madalin.bucur@freescale.com>
+ <1437586665.20787.24.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Scott Wood <scottwood@freescale.com>,
+	Liberman Igal <Igal.Liberman@freescale.com>,
+	"ppc@mindchasers.com" <ppc@mindchasers.com>,
+	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437586665.20787.24.camel@perches.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds data structures and handlers for messages related
-to SRIOV Virtual Function.
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+> On Wed, 2015-07-22 at 19:16 +0300, Madalin Bucur wrote:
+> > This introduces the Freescale Data Path Acceleration Architecture
+> > (DPAA) Ethernet driver (dpaa_eth) that builds upon the DPAA QMan,
+> > BMan, PAMU and FMan drivers to deliver Ethernet connectivity on
+> > the Freescale DPAA QorIQ platforms.
+> 
+> trivia:
+> 
+> > +static void __hot _dpa_tx_conf(struct net_device	*net_dev,
+> > +			       const struct dpa_priv_s	*priv,
+> > +			       struct dpa_percpu_priv_s	*percpu_priv,
+> > +			       const struct qm_fd	*fd,
+> > +			       u32			fqid)
+> > +{
+> []
+> > +static struct dpa_bp * __cold
+> > +dpa_priv_bp_probe(struct device *dev)
+> 
+> Do the __hot and __cold markings really matter?
+> Some of them may be questionable.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |   29 ++++++++++++++++++++++++++
- drivers/net/hyperv/netvsc.c     |   43 +++++++++++++++++++++++++++++---------
- 2 files changed, 62 insertions(+), 10 deletions(-)
+Some may be, yes. I need to go through all of them.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 26cd14c..f225d1f 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -541,6 +541,29 @@ union nvsp_2_message_uber {
- 	struct nvsp_2_free_rxbuf free_rxbuf;
- } __packed;
- 
-+struct nvsp_4_send_vf_association {
-+	/* 1: allocated, serial number is valid. 0: not allocated */
-+	u32 allocated;
-+
-+	/* Serial number of the VF to team with */
-+	u32 serial;
-+} __packed;
-+
-+enum nvsp_vm_datapath {
-+	NVSP_DATAPATH_SYNTHETIC = 0,
-+	NVSP_DATAPATH_VF,
-+	NVSP_DATAPATH_MAX
-+};
-+
-+struct nvsp_4_sw_datapath {
-+	u32 active_datapath; /* active data path in VM */
-+} __packed;
-+
-+union nvsp_4_message_uber {
-+	struct nvsp_4_send_vf_association vf_assoc;
-+	struct nvsp_4_sw_datapath active_dp;
-+} __packed;
-+
- enum nvsp_subchannel_operation {
- 	NVSP_SUBCHANNEL_NONE = 0,
- 	NVSP_SUBCHANNEL_ALLOCATE,
-@@ -578,6 +601,7 @@ union nvsp_all_messages {
- 	union nvsp_message_init_uber init_msg;
- 	union nvsp_1_message_uber v1_msg;
- 	union nvsp_2_message_uber v2_msg;
-+	union nvsp_4_message_uber v4_msg;
- 	union nvsp_5_message_uber v5_msg;
- } __packed;
- 
-@@ -689,6 +713,11 @@ struct netvsc_device {
- 
- 	/* The net device context */
- 	struct net_device_context *nd_ctx;
-+
-+	/* 1: allocated, serial number is valid. 0: not allocated */
-+	u32 vf_alloc;
-+	/* Serial number of the VF to team with */
-+	u32 vf_serial;
- };
- 
- /* NdisInitialize message */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 23126a7..51e4c0f 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -453,13 +453,16 @@ static int negotiate_nvsp_ver(struct hv_device *device,
- 	if (nvsp_ver == NVSP_PROTOCOL_VERSION_1)
- 		return 0;
- 
--	/* NVSPv2 only: Send NDIS config */
-+	/* NVSPv2 or later: Send NDIS config */
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 	init_packet->hdr.msg_type = NVSP_MSG2_TYPE_SEND_NDIS_CONFIG;
- 	init_packet->msg.v2_msg.send_ndis_config.mtu = net_device->ndev->mtu +
- 						       ETH_HLEN;
- 	init_packet->msg.v2_msg.send_ndis_config.capability.ieee8021q = 1;
- 
-+	if (nvsp_ver >= NVSP_PROTOCOL_VERSION_5)
-+		init_packet->msg.v2_msg.send_ndis_config.capability.sriov = 1;
-+
- 	ret = vmbus_sendpacket(device->channel, init_packet,
- 				sizeof(struct nvsp_message),
- 				(unsigned long)init_packet,
-@@ -1064,11 +1067,10 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 
- 
- static void netvsc_send_table(struct hv_device *hdev,
--			      struct vmpacket_descriptor *vmpkt)
-+			      struct nvsp_message *nvmsg)
- {
- 	struct netvsc_device *nvscdev;
- 	struct net_device *ndev;
--	struct nvsp_message *nvmsg;
- 	int i;
- 	u32 count, *tab;
- 
-@@ -1077,12 +1079,6 @@ static void netvsc_send_table(struct hv_device *hdev,
- 		return;
- 	ndev = nvscdev->ndev;
- 
--	nvmsg = (struct nvsp_message *)((unsigned long)vmpkt +
--					(vmpkt->offset8 << 3));
--
--	if (nvmsg->hdr.msg_type != NVSP_MSG5_TYPE_SEND_INDIRECTION_TABLE)
--		return;
--
- 	count = nvmsg->msg.v5_msg.send_table.count;
- 	if (count != VRSS_SEND_TAB_SIZE) {
- 		netdev_err(ndev, "Received wrong send-table size:%u\n", count);
-@@ -1096,6 +1092,28 @@ static void netvsc_send_table(struct hv_device *hdev,
- 		nvscdev->send_table[i] = tab[i];
- }
- 
-+static void netvsc_send_vf(struct netvsc_device *nvdev,
-+			   struct nvsp_message *nvmsg)
-+{
-+	nvdev->vf_alloc = nvmsg->msg.v4_msg.vf_assoc.allocated;
-+	nvdev->vf_serial = nvmsg->msg.v4_msg.vf_assoc.serial;
-+}
-+
-+static inline void netvsc_receive_inband(struct hv_device *hdev,
-+					 struct netvsc_device *nvdev,
-+					 struct nvsp_message *nvmsg)
-+{
-+	switch (nvmsg->hdr.msg_type) {
-+	case NVSP_MSG5_TYPE_SEND_INDIRECTION_TABLE:
-+		netvsc_send_table(hdev, nvmsg);
-+		break;
-+
-+	case NVSP_MSG4_TYPE_SEND_VF_ASSOCIATION:
-+		netvsc_send_vf(nvdev, nvmsg);
-+		break;
-+	}
-+}
-+
- void netvsc_channel_cb(void *context)
- {
- 	int ret;
-@@ -1108,6 +1126,7 @@ void netvsc_channel_cb(void *context)
- 	unsigned char *buffer;
- 	int bufferlen = NETVSC_PACKET_SIZE;
- 	struct net_device *ndev;
-+	struct nvsp_message *nvmsg;
- 
- 	if (channel->primary_channel != NULL)
- 		device = channel->primary_channel->device_obj;
-@@ -1126,6 +1145,8 @@ void netvsc_channel_cb(void *context)
- 		if (ret == 0) {
- 			if (bytes_recvd > 0) {
- 				desc = (struct vmpacket_descriptor *)buffer;
-+				nvmsg = (struct nvsp_message *)((unsigned long)
-+					 desc + (desc->offset8 << 3));
- 				switch (desc->type) {
- 				case VM_PKT_COMP:
- 					netvsc_send_completion(net_device,
-@@ -1138,7 +1159,9 @@ void netvsc_channel_cb(void *context)
- 					break;
- 
- 				case VM_PKT_DATA_INBAND:
--					netvsc_send_table(device, desc);
-+					netvsc_receive_inband(device,
-+							      net_device,
-+							      nvmsg);
- 					break;
- 
- 				default:
--- 
-1.7.4.1
+> > +static int __init dpa_load(void)
+> > +{
+> []
+> > +	err = platform_driver_register(&dpa_driver);
+> > +	if (unlikely(err < 0)) {
+> > +		pr_err(KBUILD_MODNAME
+> > +			": %s:%hu:%s(): platform_driver_register() = %d\n",
+> > +			KBUILD_BASENAME ".c", __LINE__, __func__, err);
+> > +	}
+> > +
+> > +	pr_debug(KBUILD_MODNAME ": %s:%s() ->\n",
+> > +		 KBUILD_BASENAME ".c", __func__);
+> 
+> Perhaps these should use pr_fmt
+
+Agree.
+
+> > +static void __exit dpa_unload(void)
+> > +{
+> > +	pr_debug(KBUILD_MODNAME ": -> %s:%s()\n",
+> > +		 KBUILD_BASENAME ".c", __func__);
+> 
+> dynamic debug has __func__ available and perhaps
+> the function tracer might be used instead.
+> 
+> > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+> []
+> > +#define __hot
+> 
+> curious.
+> 
+> Maybe it'd be good to add a real __hot to compiler.h
+
+They're mostly there to make readers aware the code is critical, any
+changes could mess performance.
+
+> > +struct dpa_buffer_layout_s {
+> > +	u16	priv_data_size;
+> > +	bool		parse_results;
+> > +	bool		time_stamp;
+> > +	bool		hash_results;
+> > +	u16	data_align;
+> > +};
+> 
+> > +struct dpa_fq {
+> > +	struct qman_fq		 fq_base;
+> > +	struct list_head	 list;
+> > +	struct net_device	*net_dev;
+> 
+> some inconsistent indentation here and there
+
+Yes, I've tried to align the style but given the many editors along the time the code existed 
+there still are areas out of sync.
+
+> > +struct dpa_bp {
+> > +	struct bman_pool		*pool;
+> > +	u8				bpid;
+> > +	struct device			*dev;
+> > +	union {
+> > +		/* The buffer pools used for the private ports are initialized
+> > +		 * with target_count buffers for each CPU; at runtime the
+> > +		 * number of buffers per CPU is constantly brought back to
+> this
+> > +		 * level
+> > +		 */
+> > +		int target_count;
+> > +		/* The configured value for the number of buffers in the
+> pool,
+> > +		 * used for shared port buffer pools
+> > +		 */
+> > +		int config_count;
+> > +	};
+> 
+> Anonymous unions are relatively rare
+
+We liked the direct access to members...
+In this particular case the use is a bit excessive, we can do without it.
+
+> > +	struct {
+> > +		/**
+> 
+> Maybe the /** style should be avoided
+
+Will fix.
+
+> > +		 * All egress queues to a given net device belong to one
+> > +		 * (and the same) congestion group.
+> > +		 */
+> > +		struct qman_cgr cgr;
+> > +	} cgr_data;
+> 
+> []
+> 
+> > +int dpa_stop(struct net_device *net_dev)
+> > +{
+> []
+> > +	err = mac_dev->stop(mac_dev);
+> > +	if (unlikely(err < 0))
+> > +		netif_err(priv, ifdown, net_dev, "mac_dev->stop() = %d\n",
+> > +			  err);
+> 
+> Some of the likely/unlikely uses may not
+> be useful/necessary.
+
+In this particular case it's gratuitous, I'll go through all of them.
+
+> > +
+> > +	for_each_port_device(i, mac_dev->port_dev) {
+> > +		error = fm_port_disable(
+> > +				fm_port_drv_handle(mac_dev-
+> >port_dev[i]));
+> > +		err = error ? error : err;
+> 
+> 		if (error)
+> 			err = error;
+> 
+> is more obvious to me.
+
+Yes, it's more readable.
+
+Thank you,
+Madalin
