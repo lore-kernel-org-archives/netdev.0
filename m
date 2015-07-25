@@ -1,75 +1,60 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [PATCH iproute2] xfrm: remove duplicated include
-Date: Sat, 25 Jul 2015 04:44:24 -0400
-Message-ID: <1437813864-4368-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Cc: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2368 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751824AbbGYIoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 04:44:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH] e1000e: Move e1000e_disable_aspm_locked() inside
+ CONFIG_PM
+Date: Sat, 25 Jul 2015 19:12:58 +1000
+Message-ID: <1437815578.8513.3.camel@ellerman.id.au>
+References: <1436846075-29366-1-git-send-email-mpe@ellerman.id.au>
+	 <1436956216.13597.8.camel@intel.com>
+	 <1437529280.16792.9.camel@ellerman.id.au>
+	 <1437660446.23223.3.camel@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Avargil, Raanan" <raanan.avargil@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, aaron.f.brown@intel.com,
+	yanirx.lubetkin@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437660446.23223.3.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove dupldated include for <linux/xfrm.h>, since it's already
-included by 'xfrm.h'.
+On Thu, 2015-07-23 at 07:07 -0700, Jeff Kirsher wrote:
+> On Wed, 2015-07-22 at 11:41 +1000, Michael Ellerman wrote:
+> > On Wed, 2015-07-15 at 03:30 -0700, Jeff Kirsher wrote:
+> > > On Tue, 2015-07-14 at 13:54 +1000, Michael Ellerman wrote:
+> > > > e1000e_disable_aspm_locked() is only used in __e1000_resume()
+> > which is
+> > > > inside CONFIG_PM. So when CONFIG_PM=n we get a "defined but not
+> > used"
+> > > > warning for e1000e_disable_aspm_locked().
+> > > > 
+> > > > Move it inside the existing CONFIG_PM block to avoid the warning.
+> > > > 
+> > > > Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> > > > ---
+> > > >  drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+> > > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > 
+> > > NACK, this is already fixed in my next-queue tree.  Raanan submitted
+> > a
+> > > patch back on July 6th to resolve this issue, see commit id
+> > > a75787d2246a93d256061db602f252703559af65 in my dev-queue branch of
+> > my
+> > > next-queue tree.
+> > 
+> > OK. I take it your next-queue is destined for 4.3, so we'll just have
+> > to suck
+> > on the warning until then?
+> 
+> Yes, but I can queue Raanan's patch up for 4.2 (and possibly stable) if
+> necessary.  I have no issue with doing that.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- ip/ipxfrm.c       | 1 -
- ip/xfrm_monitor.c | 1 -
- ip/xfrm_policy.c  | 1 -
- ip/xfrm_state.c   | 1 -
- 4 files changed, 4 deletions(-)
+For 4.2 would be nice, it would make my builds green again. But it's not the
+end of the world if it has to wait until 4.3.
 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 9c26428..e583abf 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -34,7 +34,6 @@
- #include <netdb.h>
- #include <linux/netlink.h>
- #include <linux/rtnetlink.h>
--#include <linux/xfrm.h>
- 
- #include "utils.h"
- #include "xfrm.h"
-diff --git a/ip/xfrm_monitor.c b/ip/xfrm_monitor.c
-index ebccb71..8b21efa 100644
---- a/ip/xfrm_monitor.c
-+++ b/ip/xfrm_monitor.c
-@@ -28,7 +28,6 @@
- #include <stdlib.h>
- #include <string.h>
- #include <netinet/in.h>
--#include <linux/xfrm.h>
- 
- #include "utils.h"
- #include "xfrm.h"
-diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-index 8f4d1a0..efea1e8 100644
---- a/ip/xfrm_policy.c
-+++ b/ip/xfrm_policy.c
-@@ -29,7 +29,6 @@
- #include <string.h>
- #include <netdb.h>
- #include <linux/netlink.h>
--#include <linux/xfrm.h>
- #include "utils.h"
- #include "xfrm.h"
- #include "ip_common.h"
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index d2831d0..b5734da 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -28,7 +28,6 @@
- #include <stdlib.h>
- #include <string.h>
- #include <netdb.h>
--#include <linux/xfrm.h>
- #include "utils.h"
- #include "xfrm.h"
- #include "ip_common.h"
--- 
-1.8.3.1
+cheers
