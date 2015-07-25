@@ -1,78 +1,121 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 1/1] e1000: remove dead e1000_init_eeprom_params
- calls.
-Date: Fri, 24 Jul 2015 23:40:36 +0200
-Message-ID: <20150724214036.GA29524@electric-eye.fr.zoreil.com>
-References: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: [RFC PATCH v4 net-next 3/4] tcp: add in_flight to tcp_skb_cb
+Date: Fri, 24 Jul 2015 19:47:05 -0700
+Message-ID: <1437792426-1724090-4-git-send-email-brakmo@fb.com>
+References: <1437792426-1724090-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joern Engel <joern@logfs.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39746 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753083AbbGXVk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 17:40:57 -0400
-Content-Disposition: inline
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59294 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030249AbbGYCrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 22:47:21 -0400
+Received: from pps.filterd (m0004060 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6P2kDKj020373
+	for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 19:47:20 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1vv0st89rk-5
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 19:47:20 -0700
+Received: from facebook.com (2401:db00:20:a00f:face:0:16:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 759abacc327711e586710002c9521c9e-fe7f42b0 for <netdev@vger.kernel.org>;	Fri,
+ 24 Jul 2015 19:47:16 -0700
+In-Reply-To: <1437792426-1724090-1-git-send-email-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The device probe method e1000_probe calls e1000_init_eeprom_params
-itself so there's no reason to call it again from e1000_do_write_eeprom
-or e1000_do_read_eeprom.
+Add in_flight (bytes in flight when packet was sent) field
+to tx component of tcp_skb_cb and make it available to
+congestion modules' pkts_acked() function through the
+ack_sample function argument.
 
-The sentence above assumes that e1000_init_eeprom_params is effective
-but it's mostly dependant on "hw->mac_type": safe as e1000_probe bails
-out early if it can't set mac_type (see e1000_init_hw_struct, then
-e1000_set_mac_type).
-
-Btw, if effective, the removed paths would had been deadlock prone when
-e1000_eeprom_spi was set:
--> e1000_write_eeprom (takes e1000_eeprom_lock)
-   -> e1000_do_write_eeprom
-      -> e1000_init_eeprom_params
-         -> e1000_read_eeprom (takes e1000_eeprom_lock)
-
-(same narrative with e1000_read_eeprom -> e1000_do_read_eeprom etc.)
-
-As a final note, the candidate deadlock above can't happen in e1000_probe
-due to the way eeprom->word_size is set / tested.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
 ---
+ include/net/tcp.h     | 2 ++
+ net/ipv4/tcp_input.c  | 5 ++++-
+ net/ipv4/tcp_output.c | 4 +++-
+ 3 files changed, 9 insertions(+), 2 deletions(-)
 
-Untested. I have found it while looking at Joern's patch.
-
- drivers/net/ethernet/intel/e1000/e1000_hw.c | 8 --------
- 1 file changed, 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index 45c8c864..b1af0d6 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -3900,10 +3900,6 @@ static s32 e1000_do_read_eeprom(struct e1000_hw *hw, u16 offset, u16 words,
- 		return E1000_SUCCESS;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 7c510ed..f850404 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -757,6 +757,7 @@ struct tcp_skb_cb {
+ 	union {
+ 		struct {
+ 			/* There is space for up to 20 bytes */
++			__u32 in_flight;/* Bytes in flight when packet sent */
+ 		} tx;   /* only used for outgoing skbs */
+ 		union {
+ 			struct inet_skb_parm	h4;
+@@ -842,6 +843,7 @@ union tcp_cc_info;
+ struct ack_sample {
+ 	u32 pkts_acked;
+ 	s32 rtt_us;
++	u32 in_flight;
+ };
+ 
+ struct tcp_congestion_ops {
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 423d3af..3ab4178 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3068,6 +3068,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 	long ca_rtt_us = -1L;
+ 	struct sk_buff *skb;
+ 	u32 pkts_acked = 0;
++	u32 last_in_flight = 0;
+ 	bool rtt_update;
+ 	int flag = 0;
+ 
+@@ -3107,6 +3108,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			if (!first_ackt.v64)
+ 				first_ackt = last_ackt;
+ 
++			last_in_flight = TCP_SKB_CB(skb)->tx.in_flight;
+ 			reord = min(pkts_acked, reord);
+ 			if (!after(scb->end_seq, tp->high_seq))
+ 				flag |= FLAG_ORIG_SACK_ACKED;
+@@ -3196,7 +3198,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
  	}
  
--	/* If eeprom is not yet detected, do so now */
--	if (eeprom->word_size == 0)
--		e1000_init_eeprom_params(hw);
--
- 	/* A check for invalid values:  offset too large, too many words, and
- 	 * not enough words.
- 	 */
-@@ -4074,10 +4070,6 @@ static s32 e1000_do_write_eeprom(struct e1000_hw *hw, u16 offset, u16 words,
- 		return E1000_SUCCESS;
+ 	if (icsk->icsk_ca_ops->pkts_acked) {
+-		struct ack_sample sample = {pkts_acked, ca_rtt_us};
++		struct ack_sample sample = {pkts_acked, ca_rtt_us,
++					    last_in_flight};
+ 
+ 		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
+ 	}
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7105784..e9deab5 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -920,9 +920,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	int err;
+ 
+ 	BUG_ON(!skb || !tcp_skb_pcount(skb));
++	tp = tcp_sk(sk);
+ 
+ 	if (clone_it) {
+ 		skb_mstamp_get(&skb->skb_mstamp);
++		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
++			- tp->snd_una;
+ 
+ 		if (unlikely(skb_cloned(skb)))
+ 			skb = pskb_copy(skb, gfp_mask);
+@@ -933,7 +936,6 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
  	}
  
--	/* If eeprom is not yet detected, do so now */
--	if (eeprom->word_size == 0)
--		e1000_init_eeprom_params(hw);
--
- 	/* A check for invalid values:  offset too large, too many words, and
- 	 * not enough words.
- 	 */
+ 	inet = inet_sk(sk);
+-	tp = tcp_sk(sk);
+ 	tcb = TCP_SKB_CB(skb);
+ 	memset(&opts, 0, sizeof(opts));
+ 
 -- 
-2.4.3
+1.8.1
