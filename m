@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: support ndo_get_phys_port_id()
-Date: Fri, 24 Jul 2015 22:41:37 -0700 (PDT)
-Message-ID: <20150724.224137.68785858473625935.davem@davemloft.net>
-References: <1437543912-3096-1-git-send-email-sriharsha.basavapatna@emulex.com>
+Subject: Re: [PATCH net 0/2] ipv4: fib_select_default changes
+Date: Fri, 24 Jul 2015 22:46:55 -0700 (PDT)
+Message-ID: <20150724.224655.1032371032057252330.davem@davemloft.net>
+References: <1437551003-25537-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sriharsha.basavapatna@emulex.com
+Cc: netdev@vger.kernel.org, fw@strlen.de, hagen@jauu.net
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49448 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49476 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbbGYF2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 01:28:37 -0400
-In-Reply-To: <1437543912-3096-1-git-send-email-sriharsha.basavapatna@emulex.com>
+	with ESMTP id S1751001AbbGYFdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 01:33:55 -0400
+In-Reply-To: <1437551003-25537-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-Date: Wed, 22 Jul 2015 11:15:12 +0530
+From: Julian Anastasov <ja@ssi.bg>
+Date: Wed, 22 Jul 2015 10:43:21 +0300
 
-> From: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+> This patchset contains 2 changes for the alternative routes,
+> one to add tb_id/fa_slen check needed after the recent
+> fib_trie optimizations for fib aliases and the second
+> change attempts to support alternative routes with TOS
+> requirement.
 > 
-> Add be_get_phys_port_id() function to report physical port id. The port id
-> should be unique across different be2net devices in the system. We use the
-> chip serial number along with the physical port number for this.
+> 	Sorry that I don't have access to the original
+> report from Hagen Paul Pfeifer. I hope he will see this
+> change.
 > 
-> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+> 	The second change adds fa_default field to the
+> fib aliases (which can be many) and if the feature to
+> filter the alternative routes by TOS is not worth it,
+> this second patch can be scrapped.
 
-Applied, thanks.
+Great work, series applied, thanks Julian!
