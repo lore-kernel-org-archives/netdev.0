@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] sch_plug: purge buffered packets during reset
-Date: Fri, 24 Jul 2015 22:57:42 -0700 (PDT)
-Message-ID: <20150724.225742.1063280397827976150.davem@davemloft.net>
-References: <1437521513-16116-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v2] bridge: Fix setting a flag in
+ br_fill_ifvlaninfo_range().
+Date: Fri, 24 Jul 2015 22:57:55 -0700 (PDT)
+Message-ID: <20150724.225755.745816746075981554.davem@davemloft.net>
+References: <1437541022-14250-1-git-send-email-rami.rosen@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org
+To: rami.rosen@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49562 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49571 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752101AbbGYFol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 01:44:41 -0400
-In-Reply-To: <1437521513-16116-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1752101AbbGYFoy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 01:44:54 -0400
+In-Reply-To: <1437541022-14250-1-git-send-email-rami.rosen@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 21 Jul 2015 16:31:53 -0700
+From: Rami Rosen <rami.rosen@intel.com>
+Date: Wed, 22 Jul 2015 07:57:02 +0300
 
-> Otherwise the skbuff related structures are not correctly
-> refcount'ed.
+> This patch fixes setting of vinfo.flags in the br_fill_ifvlaninfo_range() method. The
+> assignment of vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN has no effect and is
+> unneeded, as vinfo.flags value is overriden by the  immediately following 
+> vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END assignement.
 > 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Rami Rosen <rami.rosen@intel.com>
 
 Applied.
