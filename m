@@ -1,27 +1,27 @@
-From: Andrew Lunn <andrew@lunn.ch>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Subject: Re: [PATCH] dsa: mv88e6352/mv88e6xxx: Move temperature sensor code
  to mv88e6xxx.c
-Date: Sat, 25 Jul 2015 20:46:52 +0200
-Message-ID: <20150725184652.GB604@lunn.ch>
+Date: Sat, 25 Jul 2015 14:58:29 -0400 (EDT)
+Message-ID: <678254299.92854.1437850709856.JavaMail.zimbra@savoirfairelinux.com>
 References: <1437842548-7233-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47451 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932104AbbGYSxj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jul 2015 14:53:39 -0400
-Content-Disposition: inline
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:55324 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932104AbbGYS6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 14:58:32 -0400
 In-Reply-To: <1437842548-7233-1-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 25, 2015 at 09:42:28AM -0700, Guenter Roeck wrote:
+On Jul 25, 2015, at 12:42 PM, Guenter Roeck linux@roeck-us.net wrote:
+
 > Move the temperature sensing code for mv88e6352 and mv88e6320 families
 > into mv88e6xxx.c to simplify adding support for additional chips.
 > 
@@ -31,8 +31,8 @@ On Sat, Jul 25, 2015 at 09:42:28AM -0700, Guenter Roeck wrote:
 > Cc: Andrew Lunn <andrew@lunn.ch>
 > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-Acked-by: Andrew Lunn <andrew@lunn.ch>
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Thanks for doing this Guenter
-
-       Andrew
+On a Marvell 88E6352.
+Thanks,
+-v
