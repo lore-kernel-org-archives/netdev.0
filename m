@@ -1,278 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv6 RFT] net: fec: Ensure clocks are enabled while using mdio bus
-Date: Sat, 25 Jul 2015 22:38:02 +0200
-Message-ID: <1437856682-2338-1-git-send-email-andrew@lunn.ch>
-Cc: Andrew Lunn <andrew@lunn.ch>, Lucas Stach <l.stach@pengutronix.de>,
-	tyler.baker@linaro.org, fabio.estevam@freescale.com,
-	shawn.guo@linaro.org
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47507 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964828AbbGYUoz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jul 2015 16:44:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ravb: minimize TX data copying
+Date: Sat, 25 Jul 2015 23:49:27 +0300
+Message-ID: <55B3F657.8090606@cogentembedded.com>
+References: <7692456.7SI5hJLWyQ@wasted.cogentembedded.com>
+ <20150725204037.GA2172@nanopsycho.fritz.box>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20150725204037.GA2172@nanopsycho.fritz.box>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When a switch is attached to the mdio bus, the mdio bus can be used
-while the interface is not open. If the IPG clock is not enabled, MDIO
-reads/writes will simply time out.
+Hello.
 
-Add support for runtime PM to control this clock. Enable/disable this
-clock using runtime PM, with open()/close() and mdio read()/write()
-function triggering runtime PM operations. Since PM is optional, the
-IPG clock is enabled at probe and is no longer modified by
-fec_enet_clk_enable(), thus if PM is not enabled in the kernel, it is
-guaranteed the clock is running when MDIO operations are performed.
+On 07/25/2015 11:40 PM, Jiri Pirko wrote:
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
-Cc: tyler.baker@linaro.org
-Cc: fabio.estevam@freescale.com
-Cc: shawn.guo@linaro.org
----
+> <snip>
 
-v5 was accepted and then reverted, because it broke imx6.  Lucas Stach
-debugged what was going wrong and provided a patch. Thanks Lucas. This
-has been squashed into v6.
+>> The patch is against Dave Miller's 'net-next.git' repo.
 
-It would be good if this version had more testing on various platforms
-before it is accepted. If you reported a problem last time, please do
-test and send a Tested-by:
+    Dave, don't apply this yet, I'll post v2 with couple of comments fixed up.
 
-I'm out the office for a week starting tomorrow.
+> You can just put "net-next" into patch brackets like:
+> [patch net-next] whatever
+> That would do the trick :)
 
-Thanks
-	Andrew
+    Oh, I know. :-)
+    I just prefer to do this kind of thing uniformly regardless of the target 
+repo.
 
-v6: Move the runtime PM setup before the mdio probe.
+MBR, Sergei
 
-    Also move autosuspend init calls before runtime_pm_enable() so
-    that the RPM callbacks aren't invoked several times during the
-    probe function.
----
- drivers/net/ethernet/freescale/fec_main.c | 89 ++++++++++++++++++++++++++-----
- 1 file changed, 76 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 1f89c59b4353..349365d85b92 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -24,6 +24,7 @@
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/string.h>
-+#include <linux/pm_runtime.h>
- #include <linux/ptrace.h>
- #include <linux/errno.h>
- #include <linux/ioport.h>
-@@ -77,6 +78,7 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
- #define FEC_ENET_RAEM_V	0x8
- #define FEC_ENET_RAFL_V	0x8
- #define FEC_ENET_OPD_V	0xFFF0
-+#define FEC_MDIO_PM_TIMEOUT  100 /* ms */
- 
- static struct platform_device_id fec_devtype[] = {
- 	{
-@@ -1767,7 +1769,13 @@ static void fec_enet_adjust_link(struct net_device *ndev)
- static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- {
- 	struct fec_enet_private *fep = bus->priv;
-+	struct device *dev = &fep->pdev->dev;
- 	unsigned long time_left;
-+	int ret = 0;
-+
-+	ret = pm_runtime_get_sync(dev);
-+	if (IS_ERR_VALUE(ret))
-+		return ret;
- 
- 	fep->mii_timeout = 0;
- 	init_completion(&fep->mdio_done);
-@@ -1783,18 +1791,30 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 	if (time_left == 0) {
- 		fep->mii_timeout = 1;
- 		netdev_err(fep->netdev, "MDIO read timeout\n");
--		return -ETIMEDOUT;
-+		ret = -ETIMEDOUT;
-+		goto out;
- 	}
- 
--	/* return value */
--	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-+	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-+
-+out:
-+	pm_runtime_mark_last_busy(dev);
-+	pm_runtime_put_autosuspend(dev);
-+
-+	return ret;
- }
- 
- static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 			   u16 value)
- {
- 	struct fec_enet_private *fep = bus->priv;
-+	struct device *dev = &fep->pdev->dev;
- 	unsigned long time_left;
-+	int ret = 0;
-+
-+	ret = pm_runtime_get_sync(dev);
-+	if (IS_ERR_VALUE(ret))
-+		return ret;
- 
- 	fep->mii_timeout = 0;
- 	init_completion(&fep->mdio_done);
-@@ -1811,10 +1831,13 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 	if (time_left == 0) {
- 		fep->mii_timeout = 1;
- 		netdev_err(fep->netdev, "MDIO write timeout\n");
--		return -ETIMEDOUT;
-+		ret  = -ETIMEDOUT;
- 	}
- 
--	return 0;
-+	pm_runtime_mark_last_busy(dev);
-+	pm_runtime_put_autosuspend(dev);
-+
-+	return ret;
- }
- 
- static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
-@@ -1826,9 +1849,6 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
- 		ret = clk_prepare_enable(fep->clk_ahb);
- 		if (ret)
- 			return ret;
--		ret = clk_prepare_enable(fep->clk_ipg);
--		if (ret)
--			goto failed_clk_ipg;
- 		if (fep->clk_enet_out) {
- 			ret = clk_prepare_enable(fep->clk_enet_out);
- 			if (ret)
-@@ -1852,7 +1872,6 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
- 		}
- 	} else {
- 		clk_disable_unprepare(fep->clk_ahb);
--		clk_disable_unprepare(fep->clk_ipg);
- 		if (fep->clk_enet_out)
- 			clk_disable_unprepare(fep->clk_enet_out);
- 		if (fep->clk_ptp) {
-@@ -1874,8 +1893,6 @@ failed_clk_ptp:
- 	if (fep->clk_enet_out)
- 		clk_disable_unprepare(fep->clk_enet_out);
- failed_clk_enet_out:
--		clk_disable_unprepare(fep->clk_ipg);
--failed_clk_ipg:
- 		clk_disable_unprepare(fep->clk_ahb);
- 
- 	return ret;
-@@ -2847,10 +2864,14 @@ fec_enet_open(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int ret;
- 
-+	ret = pm_runtime_get_sync(&fep->pdev->dev);
-+	if (IS_ERR_VALUE(ret))
-+		return ret;
-+
- 	pinctrl_pm_select_default_state(&fep->pdev->dev);
- 	ret = fec_enet_clk_enable(ndev, true);
- 	if (ret)
--		return ret;
-+		goto clk_enable;
- 
- 	/* I should reset the ring buffers here, but I don't yet know
- 	 * a simple way to do that.
-@@ -2881,6 +2902,9 @@ err_enet_mii_probe:
- 	fec_enet_free_buffers(ndev);
- err_enet_alloc:
- 	fec_enet_clk_enable(ndev, false);
-+clk_enable:
-+	pm_runtime_mark_last_busy(&fep->pdev->dev);
-+	pm_runtime_put_autosuspend(&fep->pdev->dev);
- 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
- 	return ret;
- }
-@@ -2903,6 +2927,9 @@ fec_enet_close(struct net_device *ndev)
- 
- 	fec_enet_clk_enable(ndev, false);
- 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
-+	pm_runtime_mark_last_busy(&fep->pdev->dev);
-+	pm_runtime_put_autosuspend(&fep->pdev->dev);
-+
- 	fec_enet_free_buffers(ndev);
- 
- 	return 0;
-@@ -3388,6 +3415,10 @@ fec_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto failed_clk;
- 
-+	ret = clk_prepare_enable(fep->clk_ipg);
-+	if (ret)
-+		goto failed_clk_ipg;
-+
- 	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
- 	if (!IS_ERR(fep->reg_phy)) {
- 		ret = regulator_enable(fep->reg_phy);
-@@ -3400,6 +3431,11 @@ fec_probe(struct platform_device *pdev)
- 		fep->reg_phy = NULL;
- 	}
- 
-+	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
-+	pm_runtime_use_autosuspend(&pdev->dev);
-+	pm_runtime_set_active(&pdev->dev);
-+	pm_runtime_enable(&pdev->dev);
-+
- 	fec_reset_phy(pdev);
- 
- 	if (fep->bufdesc_ex)
-@@ -3447,6 +3483,10 @@ fec_probe(struct platform_device *pdev)
- 
- 	fep->rx_copybreak = COPYBREAK_DEFAULT;
- 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
-+
-+	pm_runtime_mark_last_busy(&pdev->dev);
-+	pm_runtime_put_autosuspend(&pdev->dev);
-+
- 	return 0;
- 
- failed_register:
-@@ -3457,6 +3497,8 @@ failed_init:
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- failed_regulator:
-+	clk_disable_unprepare(fep->clk_ipg);
-+failed_clk_ipg:
- 	fec_enet_clk_enable(ndev, false);
- failed_clk:
- failed_phy:
-@@ -3568,7 +3610,28 @@ failed_clk:
- 	return ret;
- }
- 
--static SIMPLE_DEV_PM_OPS(fec_pm_ops, fec_suspend, fec_resume);
-+static int __maybe_unused fec_runtime_suspend(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	clk_disable_unprepare(fep->clk_ipg);
-+
-+	return 0;
-+}
-+
-+static int __maybe_unused fec_runtime_resume(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	return clk_prepare_enable(fep->clk_ipg);
-+}
-+
-+static const struct dev_pm_ops fec_pm_ops = {
-+	SET_SYSTEM_SLEEP_PM_OPS(fec_suspend, fec_resume)
-+	SET_RUNTIME_PM_OPS(fec_runtime_suspend, fec_runtime_resume, NULL)
-+};
- 
- static struct platform_driver fec_driver = {
- 	.driver	= {
--- 
-2.1.4
