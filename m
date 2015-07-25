@@ -1,405 +1,103 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [RFC PATCH v4 net-next 1/4] tcp: replace cnt & rtt with struct in pkts_acked()
-Date: Fri, 24 Jul 2015 19:47:03 -0700
-Message-ID: <1437792426-1724090-2-git-send-email-brakmo@fb.com>
-References: <1437792426-1724090-1-git-send-email-brakmo@fb.com>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [RFC PATCH net] sctp: ASCONF-ACK with Unresolvable Address should
+ be sent
+Date: Sat, 25 Jul 2015 13:02:42 +0800
+Message-ID: <CADvbK_eBo5Ut=SsW=Smn9rNe785SuTEpzqC_020bOXiUnjSUcw@mail.gmail.com>
+References: <1437720989-6610-1-git-send-email-lucien.xin@gmail.com>
+	<20150724191113.GO1730@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51459 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1945995AbbGYCrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2015 22:47:21 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6P2j1Tf021220
-	for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 19:47:21 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1vv0hy8and-3
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 19:47:21 -0700
-Received: from facebook.com (2401:db00:20:a00f:face:0:16:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 7584b0ec327711e5ba020002c95209d8-c5bf32b0 for <netdev@vger.kernel.org>;	Fri,
- 24 Jul 2015 19:47:16 -0700
-In-Reply-To: <1437792426-1724090-1-git-send-email-brakmo@fb.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:34061 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751319AbbGYFCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 01:02:43 -0400
+Received: by iecrl10 with SMTP id rl10so28726600iec.1
+        for <netdev@vger.kernel.org>; Fri, 24 Jul 2015 22:02:42 -0700 (PDT)
+In-Reply-To: <20150724191113.GO1730@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace 2 arguments (cnt and rtt) in the congestion control modules'
-pkts_acked() function with a struct. This will allow adding more
-information without having to modify existing congestion control
-modules (tcp_nv in particular needs bytes in flight when packet
-was sent).
+On Sat, Jul 25, 2015 at 3:11 AM, Marcelo Ricardo Leitner
+<mleitner@redhat.com> wrote:
+> On Fri, Jul 24, 2015 at 02:56:29PM +0800, Xin Long wrote:
+>> RFC 5061:
+>>     This is an opaque integer assigned by the sender to identify each
+>>     request parameter.  The receiver of the ASCONF Chunk will copy this
+>>     32-bit value into the ASCONF Response Correlation ID field of the
+>>     ASCONF-ACK response parameter.  The sender of the ASCONF can use this
+>>     same value in the ASCONF-ACK to find which request the response is
+>>     for.  Note that the receiver MUST NOT change this 32-bit value.
+>>
+>>     Address Parameter: TLV
+>>
+>>     This field contains an IPv4 or IPv6 address parameter, as described
+>>     in Section 3.3.2.1 of [RFC4960].
+>>
+>> ASCONF chunk with Error Cause Indication Parameter (Unresolvable Address)
+>> should be sent if the Delete IP Address is not part of the association.
+>>
+>>   Endpoint A                           Endpoint B
+>>   (ESTABLISHED)                        (ESTABLISHED)
+>>
+>>   ASCONF        ----------------->
+>>   (Delete IP Address)
+>>                 <-----------------      ASCONF-ACK
+>>                                         (Unresolvable Address)
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  net/sctp/sm_make_chunk.c | 12 +++++++++++-
+>>  1 file changed, 11 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+>> index 06320c8..88d82ef 100644
+>> --- a/net/sctp/sm_make_chunk.c
+>> +++ b/net/sctp/sm_make_chunk.c
+>> @@ -3090,8 +3090,18 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+>
+> Please let's avoid increasing the indentation level when possible
+>
+>>                       sctp_assoc_set_primary(asoc, asconf->transport);
+>>                       sctp_assoc_del_nonprimary_peers(asoc,
+>>                                                       asconf->transport);
+> add a return here
+>
+>> -             } else
+>> +             } else {
+> and remove this else {}
+> and we're good.
+>
+> sctp code is often too indented, trying to reduce that bit here and
+> there.
+>
+>> +                     /* If the address is not part of the association, the
+>> +                      * ASCONF-ACK with Error Cause Indication Parameter
+>> +                      * which including cause of Unresolvable Address should
+>> +                      * be sent.
+>> +                      */
+>> +                     peer = sctp_assoc_lookup_paddr(asoc, &addr);
+>> +                     if (!peer)
+>> +                             return SCTP_ERROR_DNS_FAILED;
+>> +
+>>                       sctp_assoc_del_peer(asoc, &addr);
+>
+> Here we can replace this call to sctp_assoc_rm_peer() , because if we
+> already have peer, we don't have to search for it again.
+>
+> Thanks,
+> Marcelo
+>
+>> +             }
+>>               break;
+>>       case SCTP_PARAM_SET_PRIMARY:
+>>               /* ADDIP Section 4.2.4
+>> --
+>> 2.1.0
+>>
+>
+>
 
-As proposed by Neal Cardwell in his comments to the tcp_nv patch.
-
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- include/net/tcp.h       |  7 ++++++-
- net/ipv4/tcp_bic.c      |  6 +++---
- net/ipv4/tcp_cdg.c      | 14 +++++++-------
- net/ipv4/tcp_cubic.c    |  6 +++---
- net/ipv4/tcp_htcp.c     | 10 +++++-----
- net/ipv4/tcp_illinois.c | 20 ++++++++++----------
- net/ipv4/tcp_input.c    |  7 +++++--
- net/ipv4/tcp_lp.c       |  6 +++---
- net/ipv4/tcp_vegas.c    |  6 +++---
- net/ipv4/tcp_vegas.h    |  2 +-
- net/ipv4/tcp_veno.c     |  6 +++---
- net/ipv4/tcp_westwood.c |  6 +++---
- net/ipv4/tcp_yeah.c     |  6 +++---
- 13 files changed, 55 insertions(+), 47 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 364426a..1e6c5b04 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -834,6 +834,11 @@ enum tcp_ca_ack_event_flags {
- 
- union tcp_cc_info;
- 
-+struct ack_sample {
-+	u32 pkts_acked;
-+	s32 rtt_us;
-+};
-+
- struct tcp_congestion_ops {
- 	struct list_head	list;
- 	u32 key;
-@@ -857,7 +862,7 @@ struct tcp_congestion_ops {
- 	/* new value of cwnd after loss (optional) */
- 	u32  (*undo_cwnd)(struct sock *sk);
- 	/* hook for packet ack accounting (optional) */
--	void (*pkts_acked)(struct sock *sk, u32 num_acked, s32 rtt_us);
-+	void (*pkts_acked)(struct sock *sk, struct ack_sample *sample);
- 	/* get info for inet_diag (optional) */
- 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
- 			   union tcp_cc_info *info);
-diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
-index fd1405d..f237691 100644
---- a/net/ipv4/tcp_bic.c
-+++ b/net/ipv4/tcp_bic.c
-@@ -197,15 +197,15 @@ static void bictcp_state(struct sock *sk, u8 new_state)
- /* Track delayed acknowledgment ratio using sliding window
-  * ratio = (15*ratio + sample) / 16
-  */
--static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt)
-+static void bictcp_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 
- 	if (icsk->icsk_ca_state == TCP_CA_Open) {
- 		struct bictcp *ca = inet_csk_ca(sk);
- 
--		cnt -= ca->delayed_ack >> ACK_RATIO_SHIFT;
--		ca->delayed_ack += cnt;
-+		ca->delayed_ack += sample->pkts_acked - 
-+			(ca->delayed_ack >> ACK_RATIO_SHIFT);
- 	}
- }
- 
-diff --git a/net/ipv4/tcp_cdg.c b/net/ipv4/tcp_cdg.c
-index 167b6a3..9fbdfa5 100644
---- a/net/ipv4/tcp_cdg.c
-+++ b/net/ipv4/tcp_cdg.c
-@@ -294,12 +294,12 @@ static void tcp_cdg_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 	ca->shadow_wnd = max(ca->shadow_wnd, ca->shadow_wnd + incr);
- }
- 
--static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
-+static void tcp_cdg_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	struct cdg *ca = inet_csk_ca(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
--	if (rtt_us <= 0)
-+	if (sample->rtt_us <= 0)
- 		return;
- 
- 	/* A heuristic for filtering delayed ACKs, adapted from:
-@@ -307,20 +307,20 @@ static void tcp_cdg_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
- 	 * delay and rate based TCP mechanisms." TR 100219A. CAIA, 2010.
- 	 */
- 	if (tp->sacked_out == 0) {
--		if (num_acked == 1 && ca->delack) {
-+		if (sample->pkts_acked == 1 && ca->delack) {
- 			/* A delayed ACK is only used for the minimum if it is
- 			 * provenly lower than an existing non-zero minimum.
- 			 */
--			ca->rtt.min = min(ca->rtt.min, rtt_us);
-+			ca->rtt.min = min(ca->rtt.min, sample->rtt_us);
- 			ca->delack--;
- 			return;
--		} else if (num_acked > 1 && ca->delack < 5) {
-+		} else if (sample->pkts_acked > 1 && ca->delack < 5) {
- 			ca->delack++;
- 		}
- 	}
- 
--	ca->rtt.min = min_not_zero(ca->rtt.min, rtt_us);
--	ca->rtt.max = max(ca->rtt.max, rtt_us);
-+	ca->rtt.min = min_not_zero(ca->rtt.min, sample->rtt_us);
-+	ca->rtt.max = max(ca->rtt.max, sample->rtt_us);
- }
- 
- static u32 tcp_cdg_ssthresh(struct sock *sk)
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index 28011fb..9817a8f 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -416,21 +416,21 @@ static void hystart_update(struct sock *sk, u32 delay)
- /* Track delayed acknowledgment ratio using sliding window
-  * ratio = (15*ratio + sample) / 16
-  */
--static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
-+static void bictcp_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct bictcp *ca = inet_csk_ca(sk);
- 	u32 delay;
- 
- 	/* Some calls are for duplicates without timetamps */
--	if (rtt_us < 0)
-+	if (sample->rtt_us < 0)
- 		return;
- 
- 	/* Discard delay samples right after fast recovery */
- 	if (ca->epoch_start && (s32)(tcp_time_stamp - ca->epoch_start) < HZ)
- 		return;
- 
--	delay = (rtt_us << 3) / USEC_PER_MSEC;
-+	delay = (sample->rtt_us << 3) / USEC_PER_MSEC;
- 	if (delay == 0)
- 		delay = 1;
- 
-diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
-index 82f0d9e..53e21fb8 100644
---- a/net/ipv4/tcp_htcp.c
-+++ b/net/ipv4/tcp_htcp.c
-@@ -99,7 +99,7 @@ static inline void measure_rtt(struct sock *sk, u32 srtt)
- }
- 
- static void measure_achieved_throughput(struct sock *sk,
--					u32 pkts_acked, s32 rtt)
-+					struct ack_sample *sample)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_sock *tp = tcp_sk(sk);
-@@ -107,10 +107,10 @@ static void measure_achieved_throughput(struct sock *sk,
- 	u32 now = tcp_time_stamp;
- 
- 	if (icsk->icsk_ca_state == TCP_CA_Open)
--		ca->pkts_acked = pkts_acked;
-+		ca->pkts_acked = sample->pkts_acked;
- 
--	if (rtt > 0)
--		measure_rtt(sk, usecs_to_jiffies(rtt));
-+	if (sample->rtt_us > 0)
-+		measure_rtt(sk, usecs_to_jiffies(sample->rtt_us));
- 
- 	if (!use_bandwidth_switch)
- 		return;
-@@ -122,7 +122,7 @@ static void measure_achieved_throughput(struct sock *sk,
- 		return;
- 	}
- 
--	ca->packetcount += pkts_acked;
-+	ca->packetcount += sample->pkts_acked;
- 
- 	if (ca->packetcount >= tp->snd_cwnd - (ca->alpha >> 7 ? : 1) &&
- 	    now - ca->lasttime >= ca->minRTT &&
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 2ab9bbb..daf0992 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -82,30 +82,30 @@ static void tcp_illinois_init(struct sock *sk)
- }
- 
- /* Measure RTT for each ack. */
--static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked, s32 rtt)
-+static void tcp_illinois_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	struct illinois *ca = inet_csk_ca(sk);
- 
--	ca->acked = pkts_acked;
-+	ca->acked = sample->pkts_acked;
- 
- 	/* dup ack, no rtt sample */
--	if (rtt < 0)
-+	if (sample->rtt_us < 0)
- 		return;
- 
- 	/* ignore bogus values, this prevents wraparound in alpha math */
--	if (rtt > RTT_MAX)
--		rtt = RTT_MAX;
-+	if (sample->rtt_us > RTT_MAX)
-+		sample->rtt_us = RTT_MAX;
- 
- 	/* keep track of minimum RTT seen so far */
--	if (ca->base_rtt > rtt)
--		ca->base_rtt = rtt;
-+	if (ca->base_rtt > sample->rtt_us)
-+		ca->base_rtt = sample->rtt_us;
- 
- 	/* and max */
--	if (ca->max_rtt < rtt)
--		ca->max_rtt = rtt;
-+	if (ca->max_rtt < sample->rtt_us)
-+		ca->max_rtt = sample->rtt_us;
- 
- 	++ca->cnt_rtt;
--	ca->sum_rtt += rtt;
-+	ca->sum_rtt += sample->rtt_us;
- }
- 
- /* Maximum queuing delay */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 1578fc2..423d3af 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3195,8 +3195,11 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 		tcp_rearm_rto(sk);
- 	}
- 
--	if (icsk->icsk_ca_ops->pkts_acked)
--		icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
-+	if (icsk->icsk_ca_ops->pkts_acked) {
-+		struct ack_sample sample = {pkts_acked, ca_rtt_us};
-+
-+		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
-+	}
- 
- #if FASTRETRANS_DEBUG > 0
- 	WARN_ON((int)tp->sacked_out < 0);
-diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index 1e70fa8..8989c41 100644
---- a/net/ipv4/tcp_lp.c
-+++ b/net/ipv4/tcp_lp.c
-@@ -260,13 +260,13 @@ static void tcp_lp_rtt_sample(struct sock *sk, u32 rtt)
-  * newReno in increase case.
-  * We work it out by following the idea from TCP-LP's paper directly
-  */
--static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
-+static void tcp_lp_pkts_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct lp *lp = inet_csk_ca(sk);
- 
--	if (rtt_us > 0)
--		tcp_lp_rtt_sample(sk, rtt_us);
-+	if (sample->rtt_us > 0)
-+		tcp_lp_rtt_sample(sk, sample->rtt_us);
- 
- 	/* calc inference */
- 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
-diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index 13951c4..d8c9cb3 100644
---- a/net/ipv4/tcp_vegas.c
-+++ b/net/ipv4/tcp_vegas.c
-@@ -107,16 +107,16 @@ EXPORT_SYMBOL_GPL(tcp_vegas_init);
-  *   o min-filter RTT samples from a much longer window (forever for now)
-  *     to find the propagation delay (baseRTT)
-  */
--void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
-+void tcp_vegas_pkts_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	struct vegas *vegas = inet_csk_ca(sk);
- 	u32 vrtt;
- 
--	if (rtt_us < 0)
-+	if (sample->rtt_us < 0)
- 		return;
- 
- 	/* Never allow zero rtt or baseRTT */
--	vrtt = rtt_us + 1;
-+	vrtt = sample->rtt_us + 1;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < vegas->baseRTT)
-diff --git a/net/ipv4/tcp_vegas.h b/net/ipv4/tcp_vegas.h
-index ef9da53..9fa2eea 100644
---- a/net/ipv4/tcp_vegas.h
-+++ b/net/ipv4/tcp_vegas.h
-@@ -17,7 +17,7 @@ struct vegas {
- 
- void tcp_vegas_init(struct sock *sk);
- void tcp_vegas_state(struct sock *sk, u8 ca_state);
--void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us);
-+void tcp_vegas_pkts_acked(struct sock *sk, struct ack_sample *sample);
- void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event);
- size_t tcp_vegas_get_info(struct sock *sk, u32 ext, int *attr,
- 			  union tcp_cc_info *info);
-diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
-index 0d094b9..9ca3175 100644
---- a/net/ipv4/tcp_veno.c
-+++ b/net/ipv4/tcp_veno.c
-@@ -69,16 +69,16 @@ static void tcp_veno_init(struct sock *sk)
- }
- 
- /* Do rtt sampling needed for Veno. */
--static void tcp_veno_pkts_acked(struct sock *sk, u32 cnt, s32 rtt_us)
-+static void tcp_veno_pkts_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	struct veno *veno = inet_csk_ca(sk);
- 	u32 vrtt;
- 
--	if (rtt_us < 0)
-+	if (sample->rtt_us < 0)
- 		return;
- 
- 	/* Never allow zero rtt or baseRTT */
--	vrtt = rtt_us + 1;
-+	vrtt = sample->rtt_us + 1;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < veno->basertt)
-diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index c10732e..99c151a 100644
---- a/net/ipv4/tcp_westwood.c
-+++ b/net/ipv4/tcp_westwood.c
-@@ -99,12 +99,12 @@ static void westwood_filter(struct westwood *w, u32 delta)
-  * Called after processing group of packets.
-  * but all westwood needs is the last sample of srtt.
-  */
--static void tcp_westwood_pkts_acked(struct sock *sk, u32 cnt, s32 rtt)
-+static void tcp_westwood_pkts_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	struct westwood *w = inet_csk_ca(sk);
- 
--	if (rtt > 0)
--		w->rtt = usecs_to_jiffies(rtt);
-+	if (sample->rtt_us > 0)
-+		w->rtt = usecs_to_jiffies(sample->rtt_us);
- }
- 
- /*
-diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index 17d3566..3a507c5 100644
---- a/net/ipv4/tcp_yeah.c
-+++ b/net/ipv4/tcp_yeah.c
-@@ -56,15 +56,15 @@ static void tcp_yeah_init(struct sock *sk)
- 	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
- }
- 
--static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, s32 rtt_us)
-+static void tcp_yeah_pkts_acked(struct sock *sk, struct ack_sample *sample)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct yeah *yeah = inet_csk_ca(sk);
- 
- 	if (icsk->icsk_ca_state == TCP_CA_Open)
--		yeah->pkts_acked = pkts_acked;
-+		yeah->pkts_acked = sample->pkts_acked;
- 
--	tcp_vegas_pkts_acked(sk, pkts_acked, rtt_us);
-+	tcp_vegas_pkts_acked(sk, sample);
- }
- 
- static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 acked)
--- 
-1.8.1
+okay, I will repost it
