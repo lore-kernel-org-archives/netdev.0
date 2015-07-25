@@ -1,41 +1,30 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] dsa: mv88e6352/mv88e6xxx: Move temperature sensor code
- to mv88e6xxx.c
-Date: Sat, 25 Jul 2015 12:29:59 -0700
-Message-ID: <55B3E3B7.5060600@roeck-us.net>
-References: <1437842548-7233-1-git-send-email-linux@roeck-us.net> <20150725184652.GB604@lunn.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] ravb: minimize TX data copying
+Date: Sat, 25 Jul 2015 22:40:37 +0200
+Message-ID: <20150725204037.GA2172@nanopsycho.fritz.box>
+References: <7692456.7SI5hJLWyQ@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:37500 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932104AbbGYTaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 15:30:01 -0400
-In-Reply-To: <20150725184652.GB604@lunn.ch>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:34271 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964824AbbGYUkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2015 16:40:41 -0400
+Received: by wibud3 with SMTP id ud3so97846927wib.1
+        for <netdev@vger.kernel.org>; Sat, 25 Jul 2015 13:40:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <7692456.7SI5hJLWyQ@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/25/2015 11:46 AM, Andrew Lunn wrote:
-> On Sat, Jul 25, 2015 at 09:42:28AM -0700, Guenter Roeck wrote:
->> Move the temperature sensing code for mv88e6352 and mv88e6320 families
->> into mv88e6xxx.c to simplify adding support for additional chips.
->>
->> With this change, mv88e6xxx_6320_family() no longer needs to be
->> a global function and is made static.
->>
->> Cc: Andrew Lunn <andrew@lunn.ch>
->> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->
-> Acked-by: Andrew Lunn <andrew@lunn.ch>
->
-> Thanks for doing this Guenter
->
-My pleasure. Thanks a lot for the review!
+Sat, Jul 25, 2015 at 09:20:30PM CEST, sergei.shtylyov@cogentembedded.com wrote:
 
-Guenter
+<snip>
+
+>The patch is against Dave Miller's 'net-next.git' repo.
+
+You can just put "net-next" into patch brackets like:
+[patch net-next] whatever
+That would do the trick :)
