@@ -1,295 +1,278 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2] ravb: minimize TX data copying
-Date: Sat, 25 Jul 2015 23:42:01 +0300
-Message-ID: <6916181.NMDRL3LUfS@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv6 RFT] net: fec: Ensure clocks are enabled while using mdio bus
+Date: Sat, 25 Jul 2015 22:38:02 +0200
+Message-ID: <1437856682-2338-1-git-send-email-andrew@lunn.ch>
+Cc: Andrew Lunn <andrew@lunn.ch>, Lucas Stach <l.stach@pengutronix.de>,
+	tyler.baker@linaro.org, fabio.estevam@freescale.com,
+	shawn.guo@linaro.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:47507 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964828AbbGYUoz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jul 2015 16:44:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Renesas Ethernet AVB controller requires that all data are aligned on 4-byte
-boundary.  While it's  easily achievable for  the RX  data with  the help of
-skb_reserve() (we even align on 128-byte boundary as recommended by the manual),
-we  can't  do the same with the TX data, and it always comes  unaligned from
-the networking core. Originally we solved it an easy way, copying all packet
-to  a  preallocated  aligned buffer; however, it's enough to copy only up to
-3 first bytes from each packet, doing the transfer using 2 TX descriptors
-instead of just 1. Here's an implementation of the new  TX algorithm that
-significantly reduces the driver's memory requirements.
+When a switch is attached to the mdio bus, the mdio bus can be used
+while the interface is not open. If the IPG clock is not enabled, MDIO
+reads/writes will simply time out.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Add support for runtime PM to control this clock. Enable/disable this
+clock using runtime PM, with open()/close() and mdio read()/write()
+function triggering runtime PM operations. Since PM is optional, the
+IPG clock is enabled at probe and is no longer modified by
+fec_enet_clk_enable(), thus if PM is not enabled in the kernel, it is
+guaranteed the clock is running when MDIO operations are performed.
 
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+Cc: tyler.baker@linaro.org
+Cc: fabio.estevam@freescale.com
+Cc: shawn.guo@linaro.org
 ---
-The patch is against Dave Miller's 'net-next.git' repo.
 
-Changes in version 2:
-- fixed terminology in the comment to #define DPTR_ALIGN;
-- fixed a typo in the coment to #define NUM_TX_DESC.
+v5 was accepted and then reverted, because it broke imx6.  Lucas Stach
+debugged what was going wrong and provided a patch. Thanks Lucas. This
+has been squashed into v6.
 
- drivers/net/ethernet/renesas/ravb.h      |    5 +
- drivers/net/ethernet/renesas/ravb_main.c |  104 +++++++++++++++++--------------
- 2 files changed, 64 insertions(+), 45 deletions(-)
+It would be good if this version had more testing on various platforms
+before it is accepted. If you reported a problem last time, please do
+test and send a Tested-by:
 
-Index: net-next/drivers/net/ethernet/renesas/ravb.h
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/ravb.h
-+++ net-next/drivers/net/ethernet/renesas/ravb.h
-@@ -658,6 +658,8 @@ struct ravb_desc {
- 	__le32 dptr;	/* Descriptor pointer */
- };
+I'm out the office for a week starting tomorrow.
+
+Thanks
+	Andrew
+
+v6: Move the runtime PM setup before the mdio probe.
+
+    Also move autosuspend init calls before runtime_pm_enable() so
+    that the RPM callbacks aren't invoked several times during the
+    probe function.
+---
+ drivers/net/ethernet/freescale/fec_main.c | 89 ++++++++++++++++++++++++++-----
+ 1 file changed, 76 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 1f89c59b4353..349365d85b92 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -24,6 +24,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/string.h>
++#include <linux/pm_runtime.h>
+ #include <linux/ptrace.h>
+ #include <linux/errno.h>
+ #include <linux/ioport.h>
+@@ -77,6 +78,7 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
+ #define FEC_ENET_RAEM_V	0x8
+ #define FEC_ENET_RAFL_V	0x8
+ #define FEC_ENET_OPD_V	0xFFF0
++#define FEC_MDIO_PM_TIMEOUT  100 /* ms */
  
-+#define DPTR_ALIGN	4	/* Required descriptor pointer alignment */
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+@@ -1767,7 +1769,13 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ {
+ 	struct fec_enet_private *fep = bus->priv;
++	struct device *dev = &fep->pdev->dev;
+ 	unsigned long time_left;
++	int ret = 0;
 +
- enum DIE_DT {
- 	/* Frame data */
- 	DT_FMID		= 0x40,
-@@ -739,6 +741,7 @@ enum RAVB_QUEUE {
- #define RX_QUEUE_OFFSET	4
- #define NUM_RX_QUEUE	2
- #define NUM_TX_QUEUE	2
-+#define NUM_TX_DESC	2	/* TX descriptors per packet */
++	ret = pm_runtime_get_sync(dev);
++	if (IS_ERR_VALUE(ret))
++		return ret;
  
- struct ravb_tstamp_skb {
- 	struct list_head list;
-@@ -777,9 +780,9 @@ struct ravb_private {
- 	dma_addr_t tx_desc_dma[NUM_TX_QUEUE];
- 	struct ravb_ex_rx_desc *rx_ring[NUM_RX_QUEUE];
- 	struct ravb_tx_desc *tx_ring[NUM_TX_QUEUE];
-+	void *tx_align[NUM_TX_QUEUE];
- 	struct sk_buff **rx_skb[NUM_RX_QUEUE];
- 	struct sk_buff **tx_skb[NUM_TX_QUEUE];
--	void **tx_buffers[NUM_TX_QUEUE];
- 	u32 rx_over_errors;
- 	u32 rx_fifo_errors;
- 	struct net_device_stats stats[NUM_RX_QUEUE];
-Index: net-next/drivers/net/ethernet/renesas/ravb_main.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/ravb_main.c
-+++ net-next/drivers/net/ethernet/renesas/ravb_main.c
-@@ -195,12 +195,8 @@ static void ravb_ring_free(struct net_de
- 	priv->tx_skb[q] = NULL;
- 
- 	/* Free aligned TX buffers */
--	if (priv->tx_buffers[q]) {
--		for (i = 0; i < priv->num_tx_ring[q]; i++)
--			kfree(priv->tx_buffers[q][i]);
--	}
--	kfree(priv->tx_buffers[q]);
--	priv->tx_buffers[q] = NULL;
-+	kfree(priv->tx_align[q]);
-+	priv->tx_align[q] = NULL;
- 
- 	if (priv->rx_ring[q]) {
- 		ring_size = sizeof(struct ravb_ex_rx_desc) *
-@@ -212,7 +208,7 @@ static void ravb_ring_free(struct net_de
- 
- 	if (priv->tx_ring[q]) {
- 		ring_size = sizeof(struct ravb_tx_desc) *
--			    (priv->num_tx_ring[q] + 1);
-+			    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
- 		dma_free_coherent(NULL, ring_size, priv->tx_ring[q],
- 				  priv->tx_desc_dma[q]);
- 		priv->tx_ring[q] = NULL;
-@@ -227,7 +223,8 @@ static void ravb_ring_format(struct net_
- 	struct ravb_tx_desc *tx_desc;
- 	struct ravb_desc *desc;
- 	int rx_ring_size = sizeof(*rx_desc) * priv->num_rx_ring[q];
--	int tx_ring_size = sizeof(*tx_desc) * priv->num_tx_ring[q];
-+	int tx_ring_size = sizeof(*tx_desc) * priv->num_tx_ring[q] *
-+			   NUM_TX_DESC;
- 	dma_addr_t dma_addr;
- 	int i;
- 
-@@ -260,11 +257,12 @@ static void ravb_ring_format(struct net_
- 
- 	memset(priv->tx_ring[q], 0, tx_ring_size);
- 	/* Build TX ring buffer */
--	for (i = 0; i < priv->num_tx_ring[q]; i++) {
--		tx_desc = &priv->tx_ring[q][i];
-+	for (i = 0, tx_desc = priv->tx_ring[q]; i < priv->num_tx_ring[q];
-+	     i++, tx_desc++) {
-+		tx_desc->die_dt = DT_EEMPTY;
-+		tx_desc++;
- 		tx_desc->die_dt = DT_EEMPTY;
- 	}
--	tx_desc = &priv->tx_ring[q][i];
- 	tx_desc->dptr = cpu_to_le32((u32)priv->tx_desc_dma[q]);
- 	tx_desc->die_dt = DT_LINKFIX; /* type */
- 
-@@ -285,7 +283,6 @@ static int ravb_ring_init(struct net_dev
- 	struct ravb_private *priv = netdev_priv(ndev);
- 	struct sk_buff *skb;
- 	int ring_size;
--	void *buffer;
- 	int i;
- 
- 	/* Allocate RX and TX skb rings */
-@@ -305,19 +302,11 @@ static int ravb_ring_init(struct net_dev
+ 	fep->mii_timeout = 0;
+ 	init_completion(&fep->mdio_done);
+@@ -1783,18 +1791,30 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ 	if (time_left == 0) {
+ 		fep->mii_timeout = 1;
+ 		netdev_err(fep->netdev, "MDIO read timeout\n");
+-		return -ETIMEDOUT;
++		ret = -ETIMEDOUT;
++		goto out;
  	}
  
- 	/* Allocate rings for the aligned buffers */
--	priv->tx_buffers[q] = kcalloc(priv->num_tx_ring[q],
--				      sizeof(*priv->tx_buffers[q]), GFP_KERNEL);
--	if (!priv->tx_buffers[q])
-+	priv->tx_align[q] = kmalloc(DPTR_ALIGN * priv->num_tx_ring[q] +
-+				    DPTR_ALIGN - 1, GFP_KERNEL);
-+	if (!priv->tx_align[q])
- 		goto error;
- 
--	for (i = 0; i < priv->num_tx_ring[q]; i++) {
--		buffer = kmalloc(PKT_BUF_SZ + RAVB_ALIGN - 1, GFP_KERNEL);
--		if (!buffer)
--			goto error;
--		/* Aligned TX buffer */
--		priv->tx_buffers[q][i] = buffer;
--	}
--
- 	/* Allocate all RX descriptors. */
- 	ring_size = sizeof(struct ravb_ex_rx_desc) * (priv->num_rx_ring[q] + 1);
- 	priv->rx_ring[q] = dma_alloc_coherent(NULL, ring_size,
-@@ -329,7 +318,8 @@ static int ravb_ring_init(struct net_dev
- 	priv->dirty_rx[q] = 0;
- 
- 	/* Allocate all TX descriptors. */
--	ring_size = sizeof(struct ravb_tx_desc) * (priv->num_tx_ring[q] + 1);
-+	ring_size = sizeof(struct ravb_tx_desc) *
-+		    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
- 	priv->tx_ring[q] = dma_alloc_coherent(NULL, ring_size,
- 					      &priv->tx_desc_dma[q],
- 					      GFP_KERNEL);
-@@ -443,7 +433,8 @@ static int ravb_tx_free(struct net_devic
- 	u32 size;
- 
- 	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
--		entry = priv->dirty_tx[q] % priv->num_tx_ring[q];
-+		entry = priv->dirty_tx[q] % (priv->num_tx_ring[q] *
-+					     NUM_TX_DESC);
- 		desc = &priv->tx_ring[q][entry];
- 		if (desc->die_dt != DT_FEMPTY)
- 			break;
-@@ -451,14 +442,18 @@ static int ravb_tx_free(struct net_devic
- 		dma_rmb();
- 		size = le16_to_cpu(desc->ds_tagl) & TX_DS;
- 		/* Free the original skb. */
--		if (priv->tx_skb[q][entry]) {
-+		if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
- 			dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
- 					 size, DMA_TO_DEVICE);
--			dev_kfree_skb_any(priv->tx_skb[q][entry]);
--			priv->tx_skb[q][entry] = NULL;
-+			/* Last packet descriptor? */
-+			if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
-+				entry /= NUM_TX_DESC;
-+				dev_kfree_skb_any(priv->tx_skb[q][entry]);
-+				priv->tx_skb[q][entry] = NULL;
-+				stats->tx_packets++;
-+			}
- 			free_num++;
- 		}
--		stats->tx_packets++;
- 		stats->tx_bytes += size;
- 		desc->die_dt = DT_EEMPTY;
- 	}
-@@ -1284,37 +1279,53 @@ static netdev_tx_t ravb_start_xmit(struc
- 	u32 dma_addr;
- 	void *buffer;
- 	u32 entry;
-+	u32 len;
- 
- 	spin_lock_irqsave(&priv->lock, flags);
--	if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q]) {
-+	if (priv->cur_tx[q] - priv->dirty_tx[q] > (priv->num_tx_ring[q] - 1) *
-+	    NUM_TX_DESC) {
- 		netif_err(priv, tx_queued, ndev,
- 			  "still transmitting with the full ring!\n");
- 		netif_stop_subqueue(ndev, q);
- 		spin_unlock_irqrestore(&priv->lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
--	entry = priv->cur_tx[q] % priv->num_tx_ring[q];
--	priv->tx_skb[q][entry] = skb;
-+	entry = priv->cur_tx[q] % (priv->num_tx_ring[q] * NUM_TX_DESC);
-+	priv->tx_skb[q][entry / NUM_TX_DESC] = skb;
- 
- 	if (skb_put_padto(skb, ETH_ZLEN))
- 		goto drop;
- 
--	buffer = PTR_ALIGN(priv->tx_buffers[q][entry], RAVB_ALIGN);
--	memcpy(buffer, skb->data, skb->len);
--	desc = &priv->tx_ring[q][entry];
--	desc->ds_tagl = cpu_to_le16(skb->len);
--	dma_addr = dma_map_single(&ndev->dev, buffer, skb->len, DMA_TO_DEVICE);
-+	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
-+		 entry / NUM_TX_DESC * DPTR_ALIGN;
-+	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
-+	memcpy(buffer, skb->data, len);
-+	dma_addr = dma_map_single(&ndev->dev, buffer, len, DMA_TO_DEVICE);
- 	if (dma_mapping_error(&ndev->dev, dma_addr))
- 		goto drop;
+-	/* return value */
+-	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
++	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
 +
-+	desc = &priv->tx_ring[q][entry];
-+	desc->ds_tagl = cpu_to_le16(len);
-+	desc->dptr = cpu_to_le32(dma_addr);
++out:
++	pm_runtime_mark_last_busy(dev);
++	pm_runtime_put_autosuspend(dev);
 +
-+	buffer = skb->data + len;
-+	len = skb->len - len;
-+	dma_addr = dma_map_single(&ndev->dev, buffer, len, DMA_TO_DEVICE);
-+	if (dma_mapping_error(&ndev->dev, dma_addr))
-+		goto unmap;
-+
-+	desc++;
-+	desc->ds_tagl = cpu_to_le16(len);
- 	desc->dptr = cpu_to_le32(dma_addr);
- 
- 	/* TX timestamp required */
- 	if (q == RAVB_NC) {
- 		ts_skb = kmalloc(sizeof(*ts_skb), GFP_ATOMIC);
- 		if (!ts_skb) {
--			dma_unmap_single(&ndev->dev, dma_addr, skb->len,
-+			desc--;
-+			dma_unmap_single(&ndev->dev, dma_addr, len,
- 					 DMA_TO_DEVICE);
--			goto drop;
-+			goto unmap;
- 		}
- 		ts_skb->skb = skb;
- 		ts_skb->tag = priv->ts_skb_tag++;
-@@ -1330,13 +1341,15 @@ static netdev_tx_t ravb_start_xmit(struc
- 
- 	/* Descriptor type must be set after all the above writes */
- 	dma_wmb();
--	desc->die_dt = DT_FSINGLE;
-+	desc->die_dt = DT_FEND;
-+	desc--;
-+	desc->die_dt = DT_FSTART;
- 
- 	ravb_write(ndev, ravb_read(ndev, TCCR) | (TCCR_TSRQ0 << q), TCCR);
- 
--	priv->cur_tx[q]++;
--	if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q] &&
--	    !ravb_tx_free(ndev, q))
-+	priv->cur_tx[q] += NUM_TX_DESC;
-+	if (priv->cur_tx[q] - priv->dirty_tx[q] >
-+	    (priv->num_tx_ring[q] - 1) * NUM_TX_DESC && !ravb_tx_free(ndev, q))
- 		netif_stop_subqueue(ndev, q);
- 
- exit:
-@@ -1344,9 +1357,12 @@ exit:
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 	return NETDEV_TX_OK;
- 
-+unmap:
-+	dma_unmap_single(&ndev->dev, le32_to_cpu(desc->dptr),
-+			 le16_to_cpu(desc->ds_tagl), DMA_TO_DEVICE);
- drop:
- 	dev_kfree_skb_any(skb);
--	priv->tx_skb[q][entry] = NULL;
-+	priv->tx_skb[q][entry / NUM_TX_DESC] = NULL;
- 	goto exit;
++	return ret;
  }
  
-
+ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 			   u16 value)
+ {
+ 	struct fec_enet_private *fep = bus->priv;
++	struct device *dev = &fep->pdev->dev;
+ 	unsigned long time_left;
++	int ret = 0;
++
++	ret = pm_runtime_get_sync(dev);
++	if (IS_ERR_VALUE(ret))
++		return ret;
+ 
+ 	fep->mii_timeout = 0;
+ 	init_completion(&fep->mdio_done);
+@@ -1811,10 +1831,13 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 	if (time_left == 0) {
+ 		fep->mii_timeout = 1;
+ 		netdev_err(fep->netdev, "MDIO write timeout\n");
+-		return -ETIMEDOUT;
++		ret  = -ETIMEDOUT;
+ 	}
+ 
+-	return 0;
++	pm_runtime_mark_last_busy(dev);
++	pm_runtime_put_autosuspend(dev);
++
++	return ret;
+ }
+ 
+ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+@@ -1826,9 +1849,6 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 		ret = clk_prepare_enable(fep->clk_ahb);
+ 		if (ret)
+ 			return ret;
+-		ret = clk_prepare_enable(fep->clk_ipg);
+-		if (ret)
+-			goto failed_clk_ipg;
+ 		if (fep->clk_enet_out) {
+ 			ret = clk_prepare_enable(fep->clk_enet_out);
+ 			if (ret)
+@@ -1852,7 +1872,6 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 		}
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+-		clk_disable_unprepare(fep->clk_ipg);
+ 		if (fep->clk_enet_out)
+ 			clk_disable_unprepare(fep->clk_enet_out);
+ 		if (fep->clk_ptp) {
+@@ -1874,8 +1893,6 @@ failed_clk_ptp:
+ 	if (fep->clk_enet_out)
+ 		clk_disable_unprepare(fep->clk_enet_out);
+ failed_clk_enet_out:
+-		clk_disable_unprepare(fep->clk_ipg);
+-failed_clk_ipg:
+ 		clk_disable_unprepare(fep->clk_ahb);
+ 
+ 	return ret;
+@@ -2847,10 +2864,14 @@ fec_enet_open(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int ret;
+ 
++	ret = pm_runtime_get_sync(&fep->pdev->dev);
++	if (IS_ERR_VALUE(ret))
++		return ret;
++
+ 	pinctrl_pm_select_default_state(&fep->pdev->dev);
+ 	ret = fec_enet_clk_enable(ndev, true);
+ 	if (ret)
+-		return ret;
++		goto clk_enable;
+ 
+ 	/* I should reset the ring buffers here, but I don't yet know
+ 	 * a simple way to do that.
+@@ -2881,6 +2902,9 @@ err_enet_mii_probe:
+ 	fec_enet_free_buffers(ndev);
+ err_enet_alloc:
+ 	fec_enet_clk_enable(ndev, false);
++clk_enable:
++	pm_runtime_mark_last_busy(&fep->pdev->dev);
++	pm_runtime_put_autosuspend(&fep->pdev->dev);
+ 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	return ret;
+ }
+@@ -2903,6 +2927,9 @@ fec_enet_close(struct net_device *ndev)
+ 
+ 	fec_enet_clk_enable(ndev, false);
+ 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
++	pm_runtime_mark_last_busy(&fep->pdev->dev);
++	pm_runtime_put_autosuspend(&fep->pdev->dev);
++
+ 	fec_enet_free_buffers(ndev);
+ 
+ 	return 0;
+@@ -3388,6 +3415,10 @@ fec_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed_clk;
+ 
++	ret = clk_prepare_enable(fep->clk_ipg);
++	if (ret)
++		goto failed_clk_ipg;
++
+ 	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
+ 	if (!IS_ERR(fep->reg_phy)) {
+ 		ret = regulator_enable(fep->reg_phy);
+@@ -3400,6 +3431,11 @@ fec_probe(struct platform_device *pdev)
+ 		fep->reg_phy = NULL;
+ 	}
+ 
++	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
++	pm_runtime_use_autosuspend(&pdev->dev);
++	pm_runtime_set_active(&pdev->dev);
++	pm_runtime_enable(&pdev->dev);
++
+ 	fec_reset_phy(pdev);
+ 
+ 	if (fep->bufdesc_ex)
+@@ -3447,6 +3483,10 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	fep->rx_copybreak = COPYBREAK_DEFAULT;
+ 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
++
++	pm_runtime_mark_last_busy(&pdev->dev);
++	pm_runtime_put_autosuspend(&pdev->dev);
++
+ 	return 0;
+ 
+ failed_register:
+@@ -3457,6 +3497,8 @@ failed_init:
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ failed_regulator:
++	clk_disable_unprepare(fep->clk_ipg);
++failed_clk_ipg:
+ 	fec_enet_clk_enable(ndev, false);
+ failed_clk:
+ failed_phy:
+@@ -3568,7 +3610,28 @@ failed_clk:
+ 	return ret;
+ }
+ 
+-static SIMPLE_DEV_PM_OPS(fec_pm_ops, fec_suspend, fec_resume);
++static int __maybe_unused fec_runtime_suspend(struct device *dev)
++{
++	struct net_device *ndev = dev_get_drvdata(dev);
++	struct fec_enet_private *fep = netdev_priv(ndev);
++
++	clk_disable_unprepare(fep->clk_ipg);
++
++	return 0;
++}
++
++static int __maybe_unused fec_runtime_resume(struct device *dev)
++{
++	struct net_device *ndev = dev_get_drvdata(dev);
++	struct fec_enet_private *fep = netdev_priv(ndev);
++
++	return clk_prepare_enable(fep->clk_ipg);
++}
++
++static const struct dev_pm_ops fec_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(fec_suspend, fec_resume)
++	SET_RUNTIME_PM_OPS(fec_runtime_suspend, fec_runtime_resume, NULL)
++};
+ 
+ static struct platform_driver fec_driver = {
+ 	.driver	= {
+-- 
+2.1.4
