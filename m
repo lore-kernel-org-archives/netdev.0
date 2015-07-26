@@ -1,49 +1,71 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next] r8169: correct size from ... (snip)
-Date: Mon, 27 Jul 2015 00:58:01 +0200
-Message-ID: <20150726225801.GA14837@electric-eye.fr.zoreil.com>
-References: <1437945567-2495-1-git-send-email-corcodel.marian@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 net-next 0/5] net: implement SMC-R solution
+Date: Sun, 26 Jul 2015 16:15:30 -0700 (PDT)
+Message-ID: <20150726.161530.2192841818929026804.davem@davemloft.net>
+References: <20150715.212837.233151628267116088.davem@davemloft.net>
+	<1437555592-16506-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Corcodel Marian <corcodel.marian@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, ursula.braun@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41517 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753303AbbGZW6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 18:58:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1437945567-2495-1-git-send-email-corcodel.marian@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36636 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753655AbbGZXPc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 19:15:32 -0400
+In-Reply-To: <1437555592-16506-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corcodel Marian <corcodel.marian@gmail.com> :
-[...]
-> @@ -7594,7 +7595,7 @@ static int rtl_open(struct net_device *dev)
->  	if (!tp->TxDescArray)
->  		goto err_pm_runtime_put;
->  
-> -	tp->RxDescArray = dma_alloc_coherent(&pdev->dev, R8169_RX_RING_BYTES,
-> +	tp->RxDescArray = dma_alloc_coherent(&pdev->dev, rx_buf_sz,
->  					     &tp->RxPhyAddr, GFP_KERNEL);
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Wed, 22 Jul 2015 10:59:47 +0200
 
-1. RxDescArray is the descriptor ring. It does not care about rx_buf_sz.
+> 1. Provides optimized performance compared to standard TCP/IP over Ethernet
+>    within the data center for both request/response (latency) and streaming
+>    workloads (CPU savings) [3]. 
+>    Initial benchmarks on Linux on x86 processors have shown latency
+>    reduction of up to 52% with a throughput gain of 111% using SMC-R vs TCP
+>    for request/response message patterns (10 concurrent TCP connections
+>    with 16KB    messages) and CPU savings of up to 69% for streaming data
+>    patterns (single TCP connection with 20MB of data in one direction).
+>    [1] is currently updated to contain more detailed information on Linux
+>    and performance.
 
-2. I don't see how R8169_RX_RING_BYTES could reach 17000:
+I'm really sorry but this is the same rabbit hole and set of claims
+that have been bullhorned my way for RDMA over the years and I still
+don't buy it.
 
-#define NUM_RX_DESC     256U    /* Number of Rx descriptor registers */
-[...]
-#define R8169_RX_RING_BYTES     (NUM_RX_DESC * sizeof(struct RxDesc))
-[...]
-struct RxDesc {
-        __le32 opts1;
-        __le32 opts2;   
-        __le64 addr;
-};
+None of the RDMA'ish proponents ever talk about what you _don't_ get
+when this stuff triggers.
 
-256 * 16 = 4096
+No netfilter.
 
-3. The Subject: field should not include the verbose change description.
+No packet scheduler.
 
--- 
-Ueimor
+No classifier actions.
+
+No BPF.
+
+No bridging.
+
+Basically, every single interesting feature of the Linux networking
+goes away once this RDMA thing happens.
+
+Furthermore the benchmarks are carefully choosen to exemplify the
+perfect environment for this feature to excell at.
+
+Sorry, I don't want any of this in our core networking stack.  You'll
+have to support this completely outside of the TCP implementation and
+core networking code, and therefore have it %100 in your own separate
+module with your own can of worms like the Infiniband et al. people
+do.
+
+Having this standardized or "in widespread successful use" has no
+bearing upon the things I do not like about this patch set, so do not
+use those kinds of arguments to try and change my mind.  It won't
+work.
+
+I'm not applying this patch series.
