@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: Use proper endian type for vni in
- vxlan[6]_xmit_skb
-Date: Sun, 26 Jul 2015 16:33:51 -0700 (PDT)
-Message-ID: <20150726.163351.1709485504402821647.davem@davemloft.net>
-References: <43ce50f9da21ebe190cfd6d41b334978250c061d.1437576553.git.tgraf@suug.ch>
+Subject: Re: [PATCH 03/10] dpaa_eth: add configurable bpool thresholds
+Date: Sun, 26 Jul 2015 16:35:20 -0700 (PDT)
+Message-ID: <20150726.163520.846046458508685868.davem@davemloft.net>
+References: <1437581806-17420-3-git-send-email-madalin.bucur@freescale.com>
+	<1437587228.20787.26.camel@perches.com>
+	<BL2PR03MB545AA0E6D98232FF43B6CE9E6810@BL2PR03MB545.namprd03.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36731 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755092AbbGZXdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 19:33:52 -0400
-In-Reply-To: <43ce50f9da21ebe190cfd6d41b334978250c061d.1437576553.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	scottwood@freescale.com, Igal.Liberman@freescale.com,
+	ppc@mindchasers.com, pebolle@tiscali.nl,
+	joakim.tjernlund@transmode.se
+To: madalin.bucur@freescale.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BL2PR03MB545AA0E6D98232FF43B6CE9E6810@BL2PR03MB545.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 22 Jul 2015 17:08:42 +0200
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Date: Fri, 24 Jul 2015 15:49:39 +0000
 
-> Silences the following sparse warnings:
-> drivers/net/vxlan.c:1818:21: warning: incorrect type in assignment (different base types)
-> drivers/net/vxlan.c:1818:21:    expected restricted __be32 [usertype] vx_vni
-> drivers/net/vxlan.c:1818:21:    got unsigned int [unsigned] [usertype] vni
-> drivers/net/vxlan.c:2014:58: warning: incorrect type in argument 11 (different base types)
-> drivers/net/vxlan.c:2014:58:    expected unsigned int [unsigned] [usertype] vni
-> drivers/net/vxlan.c:2014:58:    got restricted __be32 [usertype] <noident>
+>> -----Original Message-----
+>> From: Joe Perches [mailto:joe@perches.com]
+>> On Wed, 2015-07-22 at 19:16 +0300, Madalin Bucur wrote:
+>> > Allow the user to tweak the refill threshold and the total number
+>> > of buffers in the buffer pool. The provided values are for one CPU.
+>> 
+>> Any value in making these module parameters instead?
 > 
-> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> I expect one would (hardly ever) change these to improve some corner
+> cases then use them with the new values. It may help in the tuning process
+> but afterwards the bloat to the bootcmd would probably be  a nuisance.
 
-Applied, thanks.
+I think these should be controlled by the existing ethtool infrastructure.
+
+Neither the Kconfig mechanism nor module parameters are appropriate, at all.
