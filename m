@@ -1,69 +1,149 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 4/4] mlxsw: Introduce Mellanox SwitchX-2 ASIC
- support
-Date: Sun, 26 Jul 2015 19:14:11 +0200
-Message-ID: <20150726171410.GB2207@nanopsycho.fritz.box>
-References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
- <1437666216-3149-5-git-send-email-jiri@resnulli.us>
- <CAE4R7bAk_nUCuqcJxuAAr6pOqNX7zXWv1zFZDVGwBi7_nk8=kQ@mail.gmail.com>
- <20150726071010.GA2150@nanopsycho.fritz.box>
+From: Felix Janda <felix.janda@posteo.de>
+Subject: [PATCH iproute2] Replace BSD MAXPATHLEN by POSIX PATH_MAX
+Date: Sun, 26 Jul 2015 21:25:32 +0200
+Message-ID: <20150726192532.GA17926@nyan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, idosch@mellanox.com,
-	eladr@mellanox.com,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	John Linville <linville@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Cc: Yegor Yefremov <yegorslists@googlemail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:34373 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755181AbbGZROP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 13:14:15 -0400
-Received: by wibud3 with SMTP id ud3so113842391wib.1
-        for <netdev@vger.kernel.org>; Sun, 26 Jul 2015 10:14:13 -0700 (PDT)
+Received: from mx02.posteo.de ([89.146.194.165]:50877 "EHLO mx02.posteo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755229AbbGZT0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Jul 2015 15:26:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20150726071010.GA2150@nanopsycho.fritz.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-<snip>
+Prefer using the POSIX constant PATH_MAX instead of the legacy BSD
+derived MAXPATHLEN. The necessary includes for MAXPATHLEN and PATH_MAX
+are <sys/param.h> and <limits.h>, respectively.
 
->
->
->>
->>> +               struct sk_buff *skb_new;
->>> +
->>> +               skb_new = skb_realloc_headroom(skb, MLXSW_TXHDR_LEN);
->>> +               dev_kfree_skb_any(skb);
->>> +               if (!skb_new) {
->>> +                       this_cpu_inc(mlxsw_sx_port->pcpu_stats->tx_dropped);
->>> +                       return NETDEV_TX_OK;
->>> +               }
->>> +               skb = skb_new;
->>> +       }
->>> +       mlxsw_sx_txhdr_construct(skb, &tx_info);
->>> +       err = mlxsw_core_skb_transmit(mlxsw_sx, skb, &tx_info);
->>> +       if (err == -EAGAIN)
->>> +               return NETDEV_TX_BUSY;
->>
->>I think there is a problem here when returning NETDEV_TX_BUSY when
->>original skb might have been freed above in the headroom check. (ref
->>Documentation/networking/driver.txt).
->
->I have to check this out a bit more. Thanks for pointing that out.
+Signed-off-by: Felix Janda <felix.janda@posteo.de>
+---
+This patch is identical except for title and commit message to the one
+with title "Use PATH_MAX instead of MAXPATHLEN".
+---
+ ip/ipnetns.c    | 15 +++++++--------
+ lib/namespace.c | 11 ++++++-----
+ 2 files changed, 13 insertions(+), 13 deletions(-)
 
-You are right. In case queue is busy we obviously cannot free
-the original skb. Will fix that in V2. Thanks!
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index 0c28f8a..3b704a4 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -4,7 +4,6 @@
+ #include <sys/wait.h>
+ #include <sys/inotify.h>
+ #include <sys/mount.h>
+-#include <sys/param.h>
+ #include <sys/syscall.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -437,7 +436,7 @@ static int is_pid(const char *str)
+ static int netns_pids(int argc, char **argv)
+ {
+ 	const char *name;
+-	char net_path[MAXPATHLEN];
++	char net_path[PATH_MAX];
+ 	int netns;
+ 	struct stat netst;
+ 	DIR *dir;
+@@ -472,7 +471,7 @@ static int netns_pids(int argc, char **argv)
+ 		return -1;
+ 	}
+ 	while((entry = readdir(dir))) {
+-		char pid_net_path[MAXPATHLEN];
++		char pid_net_path[PATH_MAX];
+ 		struct stat st;
+ 		if (!is_pid(entry->d_name))
+ 			continue;
+@@ -493,7 +492,7 @@ static int netns_pids(int argc, char **argv)
+ static int netns_identify(int argc, char **argv)
+ {
+ 	const char *pidstr;
+-	char net_path[MAXPATHLEN];
++	char net_path[PATH_MAX];
+ 	int netns;
+ 	struct stat netst;
+ 	DIR *dir;
+@@ -537,7 +536,7 @@ static int netns_identify(int argc, char **argv)
+ 	}
+ 
+ 	while((entry = readdir(dir))) {
+-		char name_path[MAXPATHLEN];
++		char name_path[PATH_MAX];
+ 		struct stat st;
+ 
+ 		if (strcmp(entry->d_name, ".") == 0)
+@@ -563,7 +562,7 @@ static int netns_identify(int argc, char **argv)
+ 
+ static int on_netns_del(char *nsname, void *arg)
+ {
+-	char netns_path[MAXPATHLEN];
++	char netns_path[PATH_MAX];
+ 
+ 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, nsname);
+ 	umount2(netns_path, MNT_DETACH);
+@@ -612,7 +611,7 @@ static int netns_add(int argc, char **argv)
+ 	 * userspace tweaks like remounting /sys, or bind mounting
+ 	 * a new /etc/resolv.conf can be shared between uers.
+ 	 */
+-	char netns_path[MAXPATHLEN];
++	char netns_path[PATH_MAX];
+ 	const char *name;
+ 	int fd;
+ 	int made_netns_run_dir_mount = 0;
+@@ -707,7 +706,7 @@ static int set_netnsid_from_name(const char *name, int nsid)
+ 
+ static int netns_set(int argc, char **argv)
+ {
+-	char netns_path[MAXPATHLEN];
++	char netns_path[PATH_MAX];
+ 	const char *name;
+ 	int netns, nsid;
+ 
+diff --git a/lib/namespace.c b/lib/namespace.c
+index c03a103..a61feb6 100644
+--- a/lib/namespace.c
++++ b/lib/namespace.c
+@@ -9,15 +9,16 @@
+ 
+ #include <fcntl.h>
+ #include <dirent.h>
++#include <limits.h>
+ 
+ #include "utils.h"
+ #include "namespace.h"
+ 
+ static void bind_etc(const char *name)
+ {
+-	char etc_netns_path[MAXPATHLEN];
+-	char netns_name[MAXPATHLEN];
+-	char etc_name[MAXPATHLEN];
++	char etc_netns_path[PATH_MAX];
++	char netns_name[PATH_MAX];
++	char etc_name[PATH_MAX];
+ 	struct dirent *entry;
+ 	DIR *dir;
+ 
+@@ -43,7 +44,7 @@ static void bind_etc(const char *name)
+ 
+ int netns_switch(char *name)
+ {
+-	char net_path[MAXPATHLEN];
++	char net_path[PATH_MAX];
+ 	int netns;
+ 
+ 	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
+@@ -87,7 +88,7 @@ int netns_switch(char *name)
+ 
+ int netns_get_fd(const char *name)
+ {
+-	char pathbuf[MAXPATHLEN];
++	char pathbuf[PATH_MAX];
+ 	const char *path, *ptr;
+ 
+ 	path = name;
+-- 
+2.3.6
