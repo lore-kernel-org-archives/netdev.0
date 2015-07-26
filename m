@@ -1,59 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: tso: allow deferring under reordering state
-Date: Sun, 26 Jul 2015 09:45:24 +0200
-Message-ID: <1437896724.20182.25.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH 2/3] brcmfmac: dhd_sdio.c: use existing atomic_or primitive
+Date: Sun, 26 Jul 2015 13:12:40 +0200
+Message-ID: <55B4C0A8.9000909@broadcom.com>
+References: <1436429599-10762-1-git-send-email-vgupta@synopsys.com>	<1436429599-10762-3-git-send-email-vgupta@synopsys.com> <87twstbi9p.fsf@kamboji.qca.qualcomm.com> <55B2743F.6060304@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:37821 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907AbbGZHp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 03:45:29 -0400
-Received: by wibud3 with SMTP id ud3so78433312wib.0
-        for <netdev@vger.kernel.org>; Sun, 26 Jul 2015 00:45:27 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+	<linux-arch@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Brett Rudley <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
+To: Vineet Gupta <vgupta@synopsys.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55B2743F.6060304@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 07/24/2015 07:22 PM, Vineet Gupta wrote:
+> On Friday 24 July 2015 08:02 PM, Kalle Valo wrote:
+>> Vineet Gupta <Vineet.Gupta1@synopsys.com> writes:
+>>
+>>>> There's already a generic implementation so use that instead.
+>>>> ---
+>>>> I'm not sure if the driver usage of atomic_or?() is correct in terms of
+>>>> storage size of @val for 64 bit arches.
+>>>>
+>>>> Assuming LP64 programming model for linux on say x86_64: atomic_or()
+>>>> callers in this driver use long (sana 64 bit) storage and pass it to
+>>>> atomic_orr/atomic_or which downcasts it to 32 bits. Is that OK ?
+>>>> ---
+>>>> Cc: Brett Rudley <brudley@broadcom.com>
+>>>> Cc: Arend van Spriel <arend@broadcom.com>
+>>>> Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+>>>> Cc: Hante Meuleman <meuleman@broadcom.com>
+>>>> Cc: Kalle Valo <kvalo@codeaurora.org>
+>>>> Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
+>>>> Cc: Daniel Kim <dekim@broadcom.com>
+>>>> Cc: linux-wireless@vger.kernel.org
+>>>> Cc: brcm80211-dev-list@broadcom.com
+>>>> Cc: Peter Zijlstra <peterz@infradead.org>
+>>>> Cc: Ingo Molnar <mingo@kernel.org>
+>>>> Cc: netdev@vger.kernel.org
+>>>> Cc: linux-arch@vger.kernel.org
+>>>> Cc: linux-kernel@vger.kernel.org
+>>>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+>>>>
+>>>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+>> What's the plan with this patch? Should I take it to my
+>> wireless-drivers-next tree or will someone else take it?
+>
+>
+> Per last discussion on this topic, Arend wanted to discuss abt this with Hante.
+> I'm not taking it anyways so feel free to pick it up if you want !
 
-While doing experiments with reordering resilience, we found
-linux senders were not able to send at full speed under reordering,
-because every incoming SACK was releasing one MSS.
+Well, that was before your "timeline" clarification about the generic 
+function. One what tree is this patch based?
 
-This patch removes the limitation, as we did for CWR state
-in commit a0ea700e409 ("tcp: tso: allow CA_CWR state in
-tcp_tso_should_defer()")
-
-Neal Cardwell had a concern about limited transmit so
-Yuchung conducted experiments on GFE and found nothing
-worth adding an extra check on fast path :
-
-  if (icsk->icsk_ca_state == TCP_CA_Disorder &&
-      tcp_sk(sk)->reordering == sysctl_tcp_reordering)
-          goto send_now;
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_output.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 71057849593a..7d1efa762b75 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1774,7 +1774,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
- 	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
- 		goto send_now;
- 
--	if (!((1 << icsk->icsk_ca_state) & (TCPF_CA_Open | TCPF_CA_CWR)))
-+	if (icsk->icsk_ca_state >= TCP_CA_Recovery)
- 		goto send_now;
- 
- 	/* Avoid bursty behavior by allowing defer
+Regards,
+Arend
