@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: via/Kconfig: GENERIC_PCI_IOMAP required if PCI
- not selected
-Date: Sun, 26 Jul 2015 16:36:58 -0700 (PDT)
-Message-ID: <20150726.163658.1558548081941865290.davem@davemloft.net>
-References: <1437582854-3320-1-git-send-email-borneo.antonio@gmail.com>
-	<20150722.110836.422018977846427052.davem@davemloft.net>
-	<CAAj6DX3WpzogwYFa4EQ-b1o+n-4kE0iXOokYQA5NpV=3YBmM_A@mail.gmail.com>
+Subject: Re: [PATCH net-next] cxgb4: Allow firmware flash, only if cxgb4 is
+ the master driver
+Date: Sun, 26 Jul 2015 16:38:15 -0700 (PDT)
+Message-ID: <20150726.163815.1355435878971452508.davem@davemloft.net>
+References: <1437585890-7405-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, alchark@gmail.com
-To: borneo.antonio@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAAj6DX3WpzogwYFa4EQ-b1o+n-4kE0iXOokYQA5NpV=3YBmM_A@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36777 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755168AbbGZXiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 19:38:16 -0400
+In-Reply-To: <1437585890-7405-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Borneo <borneo.antonio@gmail.com>
-Date: Thu, 23 Jul 2015 09:35:51 +0800
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed, 22 Jul 2015 22:54:50 +0530
 
-> Digging in git log, arch that used to provide such empty instances
-> moved to a centralized implementation by using GENERIC_PCI_IOMAP.
-> For me such empty functions should be available by default when PCI is
-> not set, but this is not the case today.
+> Adapter can go for a toss, if cxgb4 is loaded as slave and we try to
+> upgrade the firmware. So add a check for the same before flashing
+> firmware using ethtool.
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Then that is what we should fix instead of these hackish per-driver
-patches.
-
-Make it so that these fallback implementations always are present
-when PCI is not set.
+Applied, thanks.
