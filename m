@@ -1,149 +1,74 @@
-From: Felix Janda <felix.janda@posteo.de>
-Subject: [PATCH iproute2] Replace BSD MAXPATHLEN by POSIX PATH_MAX
-Date: Sun, 26 Jul 2015 21:25:32 +0200
-Message-ID: <20150726192532.GA17926@nyan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yegor Yefremov <yegorslists@googlemail.com>
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH net-next]r8169:Correct size from dma_alloc_coherent Maximum size    register with size argument from dma_alloc_coherent old    variable R8169_RX_RING_BYTES return to much value 17000 instead    of value of rx_buf_sz, another issue is on rtl8169_init_ring func,    Tx buffer and Rx buffer have same number off descriptors NUM_RX_DESC,    not others values.
+Date: Mon, 27 Jul 2015 00:19:27 +0300
+Message-ID: <1437945567-2495-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Corcodel Marian <corcodel.marian@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.posteo.de ([89.146.194.165]:50877 "EHLO mx02.posteo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755229AbbGZT0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jul 2015 15:26:25 -0400
-Content-Disposition: inline
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:36669 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753058AbbGZVUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 17:20:06 -0400
+Received: by wicgb10 with SMTP id gb10so87530957wic.1
+        for <netdev@vger.kernel.org>; Sun, 26 Jul 2015 14:20:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prefer using the POSIX constant PATH_MAX instead of the legacy BSD
-derived MAXPATHLEN. The necessary includes for MAXPATHLEN and PATH_MAX
-are <sys/param.h> and <limits.h>, respectively.
-
-Signed-off-by: Felix Janda <felix.janda@posteo.de>
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 ---
-This patch is identical except for title and commit message to the one
-with title "Use PATH_MAX instead of MAXPATHLEN".
----
- ip/ipnetns.c    | 15 +++++++--------
- lib/namespace.c | 11 ++++++-----
- 2 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 0c28f8a..3b704a4 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -4,7 +4,6 @@
- #include <sys/wait.h>
- #include <sys/inotify.h>
- #include <sys/mount.h>
--#include <sys/param.h>
- #include <sys/syscall.h>
- #include <stdio.h>
- #include <string.h>
-@@ -437,7 +436,7 @@ static int is_pid(const char *str)
- static int netns_pids(int argc, char **argv)
- {
- 	const char *name;
--	char net_path[MAXPATHLEN];
-+	char net_path[PATH_MAX];
- 	int netns;
- 	struct stat netst;
- 	DIR *dir;
-@@ -472,7 +471,7 @@ static int netns_pids(int argc, char **argv)
- 		return -1;
- 	}
- 	while((entry = readdir(dir))) {
--		char pid_net_path[MAXPATHLEN];
-+		char pid_net_path[PATH_MAX];
- 		struct stat st;
- 		if (!is_pid(entry->d_name))
- 			continue;
-@@ -493,7 +492,7 @@ static int netns_pids(int argc, char **argv)
- static int netns_identify(int argc, char **argv)
- {
- 	const char *pidstr;
--	char net_path[MAXPATHLEN];
-+	char net_path[PATH_MAX];
- 	int netns;
- 	struct stat netst;
- 	DIR *dir;
-@@ -537,7 +536,7 @@ static int netns_identify(int argc, char **argv)
- 	}
- 
- 	while((entry = readdir(dir))) {
--		char name_path[MAXPATHLEN];
-+		char name_path[PATH_MAX];
- 		struct stat st;
- 
- 		if (strcmp(entry->d_name, ".") == 0)
-@@ -563,7 +562,7 @@ static int netns_identify(int argc, char **argv)
- 
- static int on_netns_del(char *nsname, void *arg)
- {
--	char netns_path[MAXPATHLEN];
-+	char netns_path[PATH_MAX];
- 
- 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, nsname);
- 	umount2(netns_path, MNT_DETACH);
-@@ -612,7 +611,7 @@ static int netns_add(int argc, char **argv)
- 	 * userspace tweaks like remounting /sys, or bind mounting
- 	 * a new /etc/resolv.conf can be shared between uers.
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 3df51fa..561c23a 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5200,6 +5200,7 @@ static void rtl_set_rx_tx_desc_registers(struct rtl8169_private *tp,
+ 	 * register to be written before TxDescAddrLow to work.
+ 	 * Switching from MMIO to I/O access fixes the issue as well.
  	 */
--	char netns_path[MAXPATHLEN];
-+	char netns_path[PATH_MAX];
- 	const char *name;
- 	int fd;
- 	int made_netns_run_dir_mount = 0;
-@@ -707,7 +706,7 @@ static int set_netnsid_from_name(const char *name, int nsid)
++	
+ 	RTL_W32(TxDescStartAddrHigh, ((u64) tp->TxPhyAddr) >> 32);
+ 	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr) & DMA_BIT_MASK(32));
+ 	RTL_W32(RxDescAddrHigh, ((u64) tp->RxPhyAddr) >> 32);
+@@ -6724,8 +6725,8 @@ static int rtl8169_init_ring(struct net_device *dev)
  
- static int netns_set(int argc, char **argv)
- {
--	char netns_path[MAXPATHLEN];
-+	char netns_path[PATH_MAX];
- 	const char *name;
- 	int netns, nsid;
+ 	rtl8169_init_ring_indexes(tp);
  
-diff --git a/lib/namespace.c b/lib/namespace.c
-index c03a103..a61feb6 100644
---- a/lib/namespace.c
-+++ b/lib/namespace.c
-@@ -9,15 +9,16 @@
+-	memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
+-	memset(tp->Rx_databuff, 0x0, NUM_RX_DESC * sizeof(void *));
++	memset(tp->tx_skb, 0x0, NUM_RX_DESC);
++	memset(tp->Rx_databuff, 0x0, NUM_RX_DESC);
  
- #include <fcntl.h>
- #include <dirent.h>
-+#include <limits.h>
+ 	return rtl8169_rx_fill(tp);
+ }
+@@ -7555,7 +7556,7 @@ static int rtl8169_close(struct net_device *dev)
  
- #include "utils.h"
- #include "namespace.h"
+ 	free_irq(pdev->irq, dev);
  
- static void bind_etc(const char *name)
- {
--	char etc_netns_path[MAXPATHLEN];
--	char netns_name[MAXPATHLEN];
--	char etc_name[MAXPATHLEN];
-+	char etc_netns_path[PATH_MAX];
-+	char netns_name[PATH_MAX];
-+	char etc_name[PATH_MAX];
- 	struct dirent *entry;
- 	DIR *dir;
+-	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
++	dma_free_coherent(&pdev->dev, rx_buf_sz, tp->RxDescArray,
+ 			  tp->RxPhyAddr);
+ 	dma_free_coherent(&pdev->dev, R8169_TX_RING_BYTES, tp->TxDescArray,
+ 			  tp->TxPhyAddr);
+@@ -7594,7 +7595,7 @@ static int rtl_open(struct net_device *dev)
+ 	if (!tp->TxDescArray)
+ 		goto err_pm_runtime_put;
  
-@@ -43,7 +44,7 @@ static void bind_etc(const char *name)
- 
- int netns_switch(char *name)
- {
--	char net_path[MAXPATHLEN];
-+	char net_path[PATH_MAX];
- 	int netns;
- 
- 	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
-@@ -87,7 +88,7 @@ int netns_switch(char *name)
- 
- int netns_get_fd(const char *name)
- {
--	char pathbuf[MAXPATHLEN];
-+	char pathbuf[PATH_MAX];
- 	const char *path, *ptr;
- 
- 	path = name;
+-	tp->RxDescArray = dma_alloc_coherent(&pdev->dev, R8169_RX_RING_BYTES,
++	tp->RxDescArray = dma_alloc_coherent(&pdev->dev, rx_buf_sz,
+ 					     &tp->RxPhyAddr, GFP_KERNEL);
+ 	if (!tp->RxDescArray)
+ 		goto err_free_tx_0;
+@@ -7644,7 +7645,7 @@ err_release_fw_2:
+ 	rtl_release_firmware(tp);
+ 	rtl8169_rx_clear(tp);
+ err_free_rx_1:
+-	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
++	dma_free_coherent(&pdev->dev, rx_buf_sz, tp->RxDescArray,
+ 			  tp->RxPhyAddr);
+ 	tp->RxDescArray = NULL;
+ err_free_tx_0:
 -- 
-2.3.6
+2.1.4
