@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 03/10] dpaa_eth: add configurable bpool thresholds
-Date: Sun, 26 Jul 2015 16:35:20 -0700 (PDT)
-Message-ID: <20150726.163520.846046458508685868.davem@davemloft.net>
-References: <1437581806-17420-3-git-send-email-madalin.bucur@freescale.com>
-	<1437587228.20787.26.camel@perches.com>
-	<BL2PR03MB545AA0E6D98232FF43B6CE9E6810@BL2PR03MB545.namprd03.prod.outlook.com>
+Subject: Re: [PATCH] net: via/Kconfig: GENERIC_PCI_IOMAP required if PCI
+ not selected
+Date: Sun, 26 Jul 2015 16:36:58 -0700 (PDT)
+Message-ID: <20150726.163658.1558548081941865290.davem@davemloft.net>
+References: <1437582854-3320-1-git-send-email-borneo.antonio@gmail.com>
+	<20150722.110836.422018977846427052.davem@davemloft.net>
+	<CAAj6DX3WpzogwYFa4EQ-b1o+n-4kE0iXOokYQA5NpV=3YBmM_A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	scottwood@freescale.com, Igal.Liberman@freescale.com,
-	ppc@mindchasers.com, pebolle@tiscali.nl,
-	joakim.tjernlund@transmode.se
-To: madalin.bucur@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BL2PR03MB545AA0E6D98232FF43B6CE9E6810@BL2PR03MB545.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, alchark@gmail.com
+To: borneo.antonio@gmail.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CAAj6DX3WpzogwYFa4EQ-b1o+n-4kE0iXOokYQA5NpV=3YBmM_A@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Date: Fri, 24 Jul 2015 15:49:39 +0000
+From: Antonio Borneo <borneo.antonio@gmail.com>
+Date: Thu, 23 Jul 2015 09:35:51 +0800
 
->> -----Original Message-----
->> From: Joe Perches [mailto:joe@perches.com]
->> On Wed, 2015-07-22 at 19:16 +0300, Madalin Bucur wrote:
->> > Allow the user to tweak the refill threshold and the total number
->> > of buffers in the buffer pool. The provided values are for one CPU.
->> 
->> Any value in making these module parameters instead?
-> 
-> I expect one would (hardly ever) change these to improve some corner
-> cases then use them with the new values. It may help in the tuning process
-> but afterwards the bloat to the bootcmd would probably be  a nuisance.
+> Digging in git log, arch that used to provide such empty instances
+> moved to a centralized implementation by using GENERIC_PCI_IOMAP.
+> For me such empty functions should be available by default when PCI is
+> not set, but this is not the case today.
 
-I think these should be controlled by the existing ethtool infrastructure.
+Then that is what we should fix instead of these hackish per-driver
+patches.
 
-Neither the Kconfig mechanism nor module parameters are appropriate, at all.
+Make it so that these fallback implementations always are present
+when PCI is not set.
