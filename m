@@ -1,58 +1,91 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/4] Introduce Mellanox Technologies Switch
- ASICs switchdev drivers
-Date: Mon, 27 Jul 2015 22:27:47 +0200
-Message-ID: <20150727202747.GA2123@nanopsycho.fritz.box>
-References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
- <CAE4R7bBdDO=d_9dT560dSTo9E0kqcL-sXyF1HqsA-_WHCtPqAw@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [net-next 0/16] Proposal for VRF-lite - v3
+Date: Mon, 27 Jul 2015 15:30:48 -0500
+Message-ID: <87egjtz6kn.fsf@x220.int.ebiederm.org>
+References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, idosch@mellanox.com,
-	eladr@mellanox.com,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	John Linville <linville@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
+	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com, hannes@stressinduktion.org,
+	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
+	hadi@mojatatu.com, davem@davemloft.net, svaidya@brocade.com,
+	mingo@kernel.org, luto@amacapital.net
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:36432 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbbG0U1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 16:27:51 -0400
-Received: by wicgb10 with SMTP id gb10so128262353wic.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 13:27:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBdDO=d_9dT560dSTo9E0kqcL-sXyF1HqsA-_WHCtPqAw@mail.gmail.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:58699 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750915AbbG0UhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 16:37:25 -0400
+In-Reply-To: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
+	(David Ahern's message of "Mon, 27 Jul 2015 12:30:53 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jul 27, 2015 at 10:21:54PM CEST, sfeldma@gmail.com wrote:
->On Thu, Jul 23, 2015 at 8:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> This patchset introduces Mellanox Technologies Switch driver infrastructure
->> and support for SwitchX-2 ASIC.
+David Ahern <dsa@cumulusnetworks.com> writes:
+
+> In the context of internet scale routing a requirement that always comes
+> up is the need to partition the available routing tables into disjoint
+> routing planes. A specific use case is the multi-tenancy problem where
+> each tenant has their own unique routing tables and in the very least
+> need different default gateways.
 >
->You guys did a great job on the driver; looking forward to seeing
->L2/L3 hooked up.  Very nice, aesthetically pleasing code.
+> This patch allows the ability to create virtual router domains (aka VRFs
+> (VRF-lite to be specific) in the linux packet forwarding stack. The main
+> observation is that through the use of rules and socket binding to interfaces,
+> all the facilities that we need are already present in the infrastructure. What
+> is missing is a handle that identifies a routing domain and can be used to
+> gather applicable rules/tables and uniqify neighbor selection. The scheme used
+> needs to preserves the notions of ECMP, and general routing
+> principles.
 
-Thanks!
+This paragraph is false when it comes to sockets, as I have already
+pointed out.
 
+- VPN Routing and Forwarding (RFC4364 and it's kin) implies isolation
+  strong enough to allow using the the same ip on different machines
+  in different VPN instances and not have confusion.
+
+- The routing table is not the only table in the kernel that uses
+  an ip address as a key.
+
+  The result is that you can combine packets fragments that come in
+  on different interfaces (irrespective of your VPN), confuse tcp
+  parameters between interfaces, scramble your ipsec connections and I
+  don't know what else.
+
+Binding a socket to a network device is not strong enough to do what you
+want to do and it will lead to subtle bugs, that can be triggered by
+accident or by hostile actors.
+
+If these kinds of limitations are well documented and it is specified
+that these kinds of problems can occur with your socket code there may
+be a place for this code somewhere.
+
+However described like it is your code is wrong and fundmentally broken.
 >
->Is this a ground-up rewrite or a port of the SDK?  It's so clean and
->tight, I'm guessing a ground-up rewrite.
+> Version 3
+> - addressed comments from first 2 RFCs with the exception of the name
+>   Nicolas: We will do the name conversion once we agree on what the
+>            correct name should be (vrf, mrf or something else)
 
-It's rewritten from scratch.
+Not so.  I described the deep problems between your goals and your
+implementation and they are not even mentioned let alone addressed.
 
+> -  packets flow through the VRF device in both directions allowing the
+>    following:
+>    - tcpdump -i vrf<n>
+>    - tc rules on vrf device
+>    - netfilter rules on vrf device
 >
->Reviewed-by: Scott Feldman <sfeldma@gmail.com>
+> Ingo/Andy: I added you two as a start point for the proposed task related
+>            changes. Not sure who should be the reviewer; please let me know
+>            if someone else is more appropriate. Thanks.
 
-Thanks for your review!
+It looks like you are trying to implement a namespace that isn't a
+namespace.  Given that it is broken by design you have my nack.
+
+Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+Eric
