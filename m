@@ -1,8 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 01/16] net: Refactor rtable allocation and initialization
-Date: Mon, 27 Jul 2015 12:30:54 -0600
-Message-ID: <1438021869-49186-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [net-next 0/16] Proposal for VRF-lite - v3
+Date: Mon, 27 Jul 2015 12:30:53 -0600
+Message-ID: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
 	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
@@ -13,223 +12,219 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:34217 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628AbbG0Scw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:32:52 -0400
-Received: by igk11 with SMTP id 11so74182197igk.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:32:51 -0700 (PDT)
-In-Reply-To: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:34163 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753332AbbG0Sct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:32:49 -0400
+Received: by igk11 with SMTP id 11so74180867igk.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:32:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All callers to rt_dst_alloc have nearly the same initialization following
-a successful allocation. Consolidate it into ip_route_new_rtable.
+In the context of internet scale routing a requirement that always comes
+up is the need to partition the available routing tables into disjoint
+routing planes. A specific use case is the multi-tenancy problem where
+each tenant has their own unique routing tables and in the very least
+need different default gateways.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/route.h |   3 ++
- net/ipv4/route.c    | 111 +++++++++++++++++++++++-----------------------------
- 2 files changed, 51 insertions(+), 63 deletions(-)
+This patch allows the ability to create virtual router domains (aka VRFs
+(VRF-lite to be specific) in the linux packet forwarding stack. The main
+observation is that through the use of rules and socket binding to interfaces,
+all the facilities that we need are already present in the infrastructure. What
+is missing is a handle that identifies a routing domain and can be used to
+gather applicable rules/tables and uniqify neighbor selection. The scheme used
+needs to preserves the notions of ECMP, and general routing principles.
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 2d45f419477f..cec7a2a055c8 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -111,6 +111,9 @@ struct in_device;
- int ip_rt_init(void);
- void rt_cache_flush(struct net *net);
- void rt_flush_dev(struct net_device *dev);
-+struct rtable *ip_route_new_rtable(struct net_device *dev,
-+				   unsigned int flags, u16 type,
-+				   bool nopolicy, bool noxfrm, bool do_cache);
- struct rtable *__ip_route_output_key(struct net *, struct flowi4 *flp);
- struct rtable *ip_route_output_flow(struct net *, struct flowi4 *flp,
- 				    struct sock *sk);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 11096396ef4a..ef140919211f 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1443,12 +1443,42 @@ static struct rtable *rt_dst_alloc(struct net_device *dev,
- 			 (noxfrm ? DST_NOXFRM : 0));
- }
- 
-+struct rtable *ip_route_new_rtable(struct net_device *dev,
-+				   unsigned int flags, u16 type,
-+				   bool nopolicy, bool noxfrm, bool do_cache)
-+{
-+	struct rtable *rth;
-+
-+	rth = rt_dst_alloc(dev, nopolicy, noxfrm, do_cache);
-+	if (rth) {
-+		rth->rt_genid = rt_genid_ipv4(dev_net(dev));
-+		rth->rt_flags = flags;
-+		rth->rt_type = type;
-+		rth->rt_is_input = 0;
-+		rth->rt_iif = 0;
-+		rth->rt_pmtu = 0;
-+		rth->rt_gateway = 0;
-+		rth->rt_uses_gateway = 0;
-+		INIT_LIST_HEAD(&rth->rt_uncached);
-+		rth->rt_lwtstate = NULL;
-+
-+		rth->dst.output = ip_output;
-+		if (flags & RTCF_LOCAL)
-+			rth->dst.input = ip_local_deliver;
-+	}
-+
-+	return rth;
-+}
-+EXPORT_SYMBOL(ip_route_new_rtable);
-+
- /* called in rcu_read_lock() section */
- static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 				u8 tos, struct net_device *dev, int our)
- {
- 	struct rtable *rth;
- 	struct in_device *in_dev = __in_dev_get_rcu(dev);
-+	unsigned int flags = RTCF_MULTICAST;
-+	u16 type = RTN_MULTICAST;
- 	u32 itag = 0;
- 	int err;
- 
-@@ -1474,8 +1504,13 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		if (err < 0)
- 			goto e_err;
- 	}
--	rth = rt_dst_alloc(dev_net(dev)->loopback_dev,
--			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, false);
-+	if (our)
-+		flags |= RTCF_LOCAL;
-+
-+	rth = ip_route_new_rtable(dev_net(dev)->loopback_dev,
-+				  flags, type,
-+				  IN_DEV_CONF_GET(in_dev, NOPOLICY),
-+				  false, false);
- 	if (!rth)
- 		goto e_nobufs;
- 
-@@ -1483,22 +1518,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rth->dst.tclassid = itag;
- #endif
- 	rth->dst.output = ip_rt_bug;
--
--	rth->rt_genid	= rt_genid_ipv4(dev_net(dev));
--	rth->rt_flags	= RTCF_MULTICAST;
--	rth->rt_type	= RTN_MULTICAST;
- 	rth->rt_is_input= 1;
--	rth->rt_iif	= 0;
--	rth->rt_pmtu	= 0;
--	rth->rt_gateway	= 0;
--	rth->rt_uses_gateway = 0;
--	INIT_LIST_HEAD(&rth->rt_uncached);
--	rth->rt_lwtstate = NULL;
--	if (our) {
--		rth->dst.input= ip_local_deliver;
--		rth->rt_flags |= RTCF_LOCAL;
--	}
--
- #ifdef CONFIG_IP_MROUTE
- 	if (!ipv4_is_local_multicast(daddr) && IN_DEV_MFORWARD(in_dev))
- 		rth->dst.input = ip_mr_input;
-@@ -1606,28 +1626,17 @@ static int __mkroute_input(struct sk_buff *skb,
- 		}
- 	}
- 
--	rth = rt_dst_alloc(out_dev->dev,
--			   IN_DEV_CONF_GET(in_dev, NOPOLICY),
--			   IN_DEV_CONF_GET(out_dev, NOXFRM), do_cache);
-+	rth = ip_route_new_rtable(out_dev->dev, 0, res->type,
-+				  IN_DEV_CONF_GET(in_dev, NOPOLICY),
-+				  IN_DEV_CONF_GET(out_dev, NOXFRM), do_cache);
- 	if (!rth) {
- 		err = -ENOBUFS;
- 		goto cleanup;
- 	}
- 
--	rth->rt_genid = rt_genid_ipv4(dev_net(rth->dst.dev));
--	rth->rt_flags = 0;
--	rth->rt_type = res->type;
- 	rth->rt_is_input = 1;
--	rth->rt_iif 	= 0;
--	rth->rt_pmtu	= 0;
--	rth->rt_gateway	= 0;
--	rth->rt_uses_gateway = 0;
--	INIT_LIST_HEAD(&rth->rt_uncached);
--	rth->rt_lwtstate = NULL;
- 	RT_CACHE_STAT_INC(in_slow_tot);
--
- 	rth->dst.input = ip_forward;
--	rth->dst.output = ip_output;
- 
- 	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
- 	if (lwtunnel_output_redirect(rth->rt_lwtstate))
-@@ -1788,28 +1797,17 @@ out:	return err;
- 		}
- 	}
- 
--	rth = rt_dst_alloc(net->loopback_dev,
--			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, do_cache);
-+	rth = ip_route_new_rtable(net->loopback_dev, flags | RTCF_LOCAL,
-+				  res.type, IN_DEV_CONF_GET(in_dev, NOPOLICY),
-+				  false, do_cache);
- 	if (!rth)
- 		goto e_nobufs;
- 
--	rth->dst.input= ip_local_deliver;
- 	rth->dst.output= ip_rt_bug;
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 	rth->dst.tclassid = itag;
- #endif
--
--	rth->rt_genid = rt_genid_ipv4(net);
--	rth->rt_flags 	= flags|RTCF_LOCAL;
--	rth->rt_type	= res.type;
- 	rth->rt_is_input = 1;
--	rth->rt_iif	= 0;
--	rth->rt_pmtu	= 0;
--	rth->rt_gateway	= 0;
--	rth->rt_uses_gateway = 0;
--	INIT_LIST_HEAD(&rth->rt_uncached);
--	rth->rt_lwtstate = NULL;
--
- 	RT_CACHE_STAT_INC(in_slow_tot);
- 	if (res.type == RTN_UNREACHABLE) {
- 		rth->dst.input= ip_error;
-@@ -1981,29 +1979,16 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	}
- 
- add:
--	rth = rt_dst_alloc(dev_out,
--			   IN_DEV_CONF_GET(in_dev, NOPOLICY),
--			   IN_DEV_CONF_GET(in_dev, NOXFRM),
--			   do_cache);
-+	rth = ip_route_new_rtable(dev_out, flags, type,
-+				  IN_DEV_CONF_GET(in_dev, NOPOLICY),
-+				  IN_DEV_CONF_GET(in_dev, NOXFRM),
-+				  do_cache);
- 	if (!rth)
- 		return ERR_PTR(-ENOBUFS);
- 
--	rth->dst.output = ip_output;
--
--	rth->rt_genid = rt_genid_ipv4(dev_net(dev_out));
--	rth->rt_flags	= flags;
--	rth->rt_type	= type;
--	rth->rt_is_input = 0;
--	rth->rt_iif	= orig_oif ? : 0;
--	rth->rt_pmtu	= 0;
--	rth->rt_gateway = 0;
--	rth->rt_uses_gateway = 0;
--	INIT_LIST_HEAD(&rth->rt_uncached);
--	rth->rt_lwtstate = NULL;
-+	rth->rt_iif	= orig_oif;
- 	RT_CACHE_STAT_INC(out_slow_tot);
- 
--	if (flags & RTCF_LOCAL)
--		rth->dst.input = ip_local_deliver;
- 	if (flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
- 		if (flags & RTCF_LOCAL &&
- 		    !(dev_out->flags & IFF_LOOPBACK)) {
+This driver is a cross between functionality that the IPVLAN driver
+and the Team drivers provide where a device is created and packets
+into/out of the routing domain are shuttled through this device. The
+device is then used as a handle to identify the applicable rules. The
+VRF device is thus the layer3 equivalent of a vlan device.
+
+The very important point to note is that this is only a Layer3 concept
+so L2 tools (e.g., LLDP) do not need to be run in each VRF, processes can
+run in unaware mode or select a VRF to be talking through. Also the
+behavioral model is a generalized application of the familiar VRF-Lite
+model with some performance paths that need optimization. (Specifically
+the output route selector that Roopa, Robert, Thomas and EricB are
+currently discussing on the MPLS thread)
+
+High Level points
+=================
+1. Simple overlay driver (minimal changes to current stack)
+   * uses the existing fib tables and fib rules infrastructure
+2. Modelled closely after the ipvlan driver
+3. Uses current API and infrastructure.
+   * Applications can use SO_BINDTODEVICE or cmsg device indentifiers
+     to pick VRF (ping, traceroute just work)
+   * Standard IP Rules work, and since they are aggregated against the
+     device, scale is manageable
+4. Completely orthogonal to Namespaces and only provides separation in
+   the routing plane (and ARP)
+
+                                                 N2
+           N1 (all configs here)          +---------------+
+    +--------------+                      |               |
+    |swp1 :10.0.1.1+----------------------+swp1 :10.0.1.2 |
+    |              |                      |               |
+    |swp2 :10.0.2.1+----------------------+swp2 :10.0.2.2 |
+    |              |                      +---------------+
+    | VRF 1        |
+    | table 5      |
+    |              |
+    +---------------+
+    |              |
+    | VRF 2        |                             N3
+    | table 6      |                      +---------------+
+    |              |                      |               |
+    |swp3 :10.0.2.1+----------------------+swp1 :10.0.2.2 |
+    |              |                      |               |
+    |swp4 :10.0.3.1+----------------------+swp2 :10.0.3.2 |
+    +--------------+                      +---------------+
+
+
+Given the topology above, the setup needed to get the basic VRF
+functions working would be
+
+Create the VRF devices and associate with a table
+    ip link add vrf1 type vrf table 5
+    ip link add vrf2 type vrf table 6
+
+Install the lookup rules that map table to VRF domain
+    ip rule add pref 200 oif vrf1 lookup 5
+    ip rule add pref 200 iif vrf1 lookup 5
+    ip rule add pref 200 oif vrf2 lookup 6
+    ip rule add pref 200 iif vrf2 lookup 6
+
+    ip link set vrf1 up
+    ip link set vrf2 up
+
+Enslave the routing member interfaces
+    ip link set swp1 master vrf1
+    ip link set swp2 master vrf1
+    ip link set swp3 master vrf2
+    ip link set swp4 master vrf2
+
+Connected routes are automatically moved from main table to the VRF
+table.
+
+ping using VRF0 is simply
+    ping -I vrf0 10.0.1.2
+
+Or using the task context and a command such as the example chvrf in
+patch 15 unmodified applications are run in a VRF context using:
+   chvrf -v 1 ping 10.0.1.2
+
+
+Design Highlights
+=================
+If a device is enslaved to a VRF device (ie., associated with a VRF)
+then:
+1. Rx path
+   The master device index is used as the iif for all lookups.
+
+2. Tx path
+   Similarly, for Tx the VRF device oif is used in the flow to direct
+   lookups to the table associated with the VRF via its rule. From there
+   the FLOWI_FLAG_VRFSRC flag is used to indicate that the oif should
+   not be used for FIB table lookups.
+
+3. Connected and local routes
+   On link up for a device, connected and local routes are added to the
+   table associated with the VRF device, rather than the local and main
+   tables.
+
+4. Socket lookups
+   Socket lookups use the VRF device for comparison with sk_bound_dev_if.
+   If a socket is not bound to a device a socket match can happen based
+   on destination address, port and protocol in which case a VRF global
+   or agnostic process handles the connection (ie., this allows 1 listener
+   socket to handle connections across VRFs). The child socket becomes
+   bound to the VRF (sk_bound_dev_if is set to the VRF device).
+
+5. Neighbor entries
+   Neighbor entries are not impacted by the VRF device. Entries are
+   associated with a particular interface; the VRF association is indirect
+   via the interface-to-VRF device enslavement.
+
+Version 3
+- addressed comments from first 2 RFCs with the exception of the name
+  Nicolas: We will do the name conversion once we agree on what the
+           correct name should be (vrf, mrf or something else)
+
+-  packets flow through the VRF device in both directions allowing the
+   following:
+   - tcpdump -i vrf<n>
+   - tc rules on vrf device
+   - netfilter rules on vrf device
+
+Ingo/Andy: I added you two as a start point for the proposed task related
+           changes. Not sure who should be the reviewer; please let me know
+           if someone else is more appropriate. Thanks.
+
+TO-DO
+=====
+1. IPv6
+
+2. listen filter to restrict VRF connections
+   - i.e., bind to VRF's a, b, c only or NOT VRFs e, f, g
+
+
+Bug-Fixes and ideas from Hannes, Roopa Prabhu, Jon Toppins, Jamal
+
+Patches can also be pulled from:
+    https://github.com/dsahern/linux.git, vrf-dev-rfc3 branch
+    https://github.com/dsahern/iproute2,  vrf-dev-rfc3 branch
+
+
+David Ahern (15):
+  net: Refactor rtable allocation and initialization
+  net: export a few FIB functions
+  net: Introduce VRF related flags and helpers
+  net: Use VRF device index for lookups on RX
+  net: Use VRF device index for lookups on TX
+  net: Tx via VRF device
+  net: Add inet_addr lookup by table
+  net: Fix up inet_addr_type checks
+  net: Add routes to the table associated with the device
+  net: Use passed in table for nexthop lookups
+  net: Use VRF device index for socket lookups
+  net: Add ipv4 route helper to set next hop
+  net: Introduce VRF device driver - v2
+  net: Add sk_bind_dev_if to task_struct
+  net: Add chvrf command
+  net: FIB debugging tracepoints
+
+ drivers/net/Kconfig          |   7 +
+ drivers/net/Makefile         |   1 +
+ drivers/net/vrf.c            | 596 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/netdevice.h    |  21 +++
+ include/linux/sched.h        |   3 +
+ include/net/flow.h           |   1 +
+ include/net/route.h          |  13 ++
+ include/net/vrf.h            |  83 +++++++++++
+ include/uapi/linux/if_link.h |   9 ++
+ include/uapi/linux/prctl.h   |   4 +
+ kernel/fork.c                |   2 +
+ kernel/sys.c                 |  35 +++++
+ net/ipv4/af_inet.c           |  14 +-
+ net/ipv4/arp.c               |  15 +-
+ net/ipv4/fib_frontend.c      |  68 +++++++--
+ net/ipv4/fib_semantics.c     |  44 ++++--
+ net/ipv4/fib_trie.c          |   8 +-
+ net/ipv4/icmp.c              |   9 +-
+ net/ipv4/route.c             | 149 +++++++++++--------
+ net/ipv4/syncookies.c        |   5 +-
+ net/ipv4/tcp_input.c         |   6 +-
+ net/ipv4/tcp_ipv4.c          |  11 +-
+ net/ipv6/af_inet6.c          |   1 +
+ net/ipv6/route.c             |   2 +-
+ tools/net/Makefile           |   6 +-
+ tools/net/chvrf.c            | 225 ++++++++++++++++++++++++++++
+ 26 files changed, 1230 insertions(+), 108 deletions(-)
+ create mode 100644 drivers/net/vrf.c
+ create mode 100644 include/net/vrf.h
+ create mode 100644 tools/net/chvrf.c
+
 -- 
 2.3.2 (Apple Git-55)
