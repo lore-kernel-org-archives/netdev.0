@@ -1,30 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: netcp: Fixes SGMII reset on network interface
- shutdown
-Date: Mon, 27 Jul 2015 01:14:36 -0700 (PDT)
-Message-ID: <20150727.011436.1250682506547894597.davem@davemloft.net>
-References: <1437764549-3857-1-git-send-email-w-kwok2@ti.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v1 0/6] net/macb: fix for AVR32 and clean up
+Date: Mon, 27 Jul 2015 10:18:22 +0200
+Message-ID: <55B5E94E.7000204@atmel.com>
+References: <1437762244-2678-1-git-send-email-andriy.shevchenko@linux.intel.com> <20150727.011045.135084155148986440.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: m-karicheri2@ti.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: w-kwok2@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1437764549-3857-1-git-send-email-w-kwok2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <cyrille.pitchen@atmel.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	<andriy.shevchenko@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:24613 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135AbbG0IT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:19:29 -0400
+In-Reply-To: <20150727.011045.135084155148986440.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: WingMan Kwok <w-kwok2@ti.com>
-Date: Fri, 24 Jul 2015 15:02:29 -0400
+Le 27/07/2015 10:10, David Miller a =E9crit :
+> From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> Date: Fri, 24 Jul 2015 21:23:58 +0300
+>=20
+>> It seems no one had tested recently the driver on AVR32 platforms
+>> such as ATNGW100. This series bring it back to work.
+>=20
+> Series applied, thanks.
 
-> This patch asserts SGMII RTRESET, i.e. resetting the SGMII Tx/Rx
-> logic,  during network interface shutdown to avoid having the
-> hardware wedge when shutting down with high incoming traffic rates.
-> This is cleared (brought out of RTRESET) when the interface is
-> brought back up.
-> 
-> 
-> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+David, I would have liked to have more time to go through this series:
+can you hold on a little bit?
 
-Applied.
+Bye,
+--=20
+Nicolas Ferre
