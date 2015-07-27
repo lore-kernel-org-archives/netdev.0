@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 03/16] net: Introduce VRF related flags and helpers
-Date: Mon, 27 Jul 2015 12:30:56 -0600
-Message-ID: <1438021869-49186-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 10/16] net: Use passed in table for nexthop lookups
+Date: Mon, 27 Jul 2015 12:31:03 -0600
+Message-ID: <1438021869-49186-11-git-send-email-dsa@cumulusnetworks.com>
 References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -13,203 +13,72 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38436 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753813AbbG0Scz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:32:55 -0400
-Received: by iggf3 with SMTP id f3so89043256igg.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:32:55 -0700 (PDT)
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:32850 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923AbbG0SdI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:33:08 -0400
+Received: by igbpg9 with SMTP id pg9so104326090igb.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:33:07 -0700 (PDT)
 In-Reply-To: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a VRF_MASTER flag for interfaces and helper functions for determining
-if a device is a VRF_MASTER.
+If a user passes in a table for new routes use that table for nexthop
+lookups. Specifically, this solves the case where a connected route does
+not exist in the main table, but only another table and then a subsequent
+route is added with a next hop using the connected route. ie.,
 
-Add link attribute for passing VRF_TABLE id.
+$ ip route ls
+default via 10.0.2.2 dev eth0
+10.0.2.0/24 dev eth0  proto kernel  scope link  src 10.0.2.15
+169.254.0.0/16 dev eth0  scope link  metric 1003
+192.168.56.0/24 dev eth1  proto kernel  scope link  src 192.168.56.51
 
-Add vrf_ptr to netdevice.
+$ ip route ls table 10
+1.1.1.0/24 dev eth2  scope link
 
-Add various macros for determining if a device is a VRF device, the index
-of the master VRF device and table associated with VRF device.
+Without this patch adding a nexthop route fails:
 
-Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+$ ip route add table 10 2.2.2.0/24 via 1.1.1.10
+RTNETLINK answers: Network is unreachable
+
+With this patch the route is added successfully.
+
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/linux/netdevice.h    | 21 +++++++++++
- include/net/vrf.h            | 83 ++++++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/if_link.h |  9 +++++
- 3 files changed, 113 insertions(+)
- create mode 100644 include/net/vrf.h
+ net/ipv4/fib_semantics.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 607b5f41f46f..81cddddbaf78 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1289,6 +1289,7 @@ enum netdev_priv_flags {
- 	IFF_XMIT_DST_RELEASE_PERM	= 1<<22,
- 	IFF_IPVLAN_MASTER		= 1<<23,
- 	IFF_IPVLAN_SLAVE		= 1<<24,
-+	IFF_VRF_MASTER			= 1<<25,
- };
- 
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-@@ -1316,6 +1317,7 @@ enum netdev_priv_flags {
- #define IFF_XMIT_DST_RELEASE_PERM	IFF_XMIT_DST_RELEASE_PERM
- #define IFF_IPVLAN_MASTER		IFF_IPVLAN_MASTER
- #define IFF_IPVLAN_SLAVE		IFF_IPVLAN_SLAVE
-+#define IFF_VRF_MASTER			IFF_VRF_MASTER
- 
- /**
-  *	struct net_device - The DEVICE structure.
-@@ -1432,6 +1434,7 @@ enum netdev_priv_flags {
-  *	@dn_ptr:	DECnet specific data
-  *	@ip6_ptr:	IPv6 specific data
-  *	@ax25_ptr:	AX.25 specific data
-+ *	@vrf_ptr:	VRF specific data
-  *	@ieee80211_ptr:	IEEE 802.11 specific data, assign before registering
-  *
-  *	@last_rx:	Time of last Rx
-@@ -1650,6 +1653,7 @@ struct net_device {
- 	struct dn_dev __rcu     *dn_ptr;
- 	struct inet6_dev __rcu	*ip6_ptr;
- 	void			*ax25_ptr;
-+	struct net_vrf_dev	*vrf_ptr;
- 	struct wireless_dev	*ieee80211_ptr;
- 	struct wpan_dev		*ieee802154_ptr;
- #if IS_ENABLED(CONFIG_MPLS_ROUTING)
-@@ -3808,6 +3812,23 @@ static inline bool netif_supports_nofcs(struct net_device *dev)
- 	return dev->priv_flags & IFF_SUPP_NOFCS;
- }
- 
-+static inline bool netif_is_vrf(const struct net_device *dev)
-+{
-+	return dev->priv_flags & IFF_VRF_MASTER;
-+}
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 37e1dee7692a..7d79dfbfa5d2 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -691,6 +691,7 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 		}
+ 		rcu_read_lock();
+ 		{
++			struct fib_table *tbl = NULL;
+ 			struct flowi4 fl4 = {
+ 				.daddr = nh->nh_gw,
+ 				.flowi4_scope = cfg->fc_scope + 1,
+@@ -701,8 +702,16 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 			/* It is not necessary, but requires a bit of thinking */
+ 			if (fl4.flowi4_scope < RT_SCOPE_LINK)
+ 				fl4.flowi4_scope = RT_SCOPE_LINK;
+-			err = fib_lookup(net, &fl4, &res,
+-					 FIB_LOOKUP_IGNORE_LINKSTATE);
 +
-+static inline bool netif_index_is_vrf(struct net *net, int ifindex)
-+{
-+	struct net_device *dev = dev_get_by_index(net, ifindex);
-+	bool rc = false;
++			if (cfg->fc_table)
++				tbl = fib_get_table(net, cfg->fc_table);
 +
-+	if (dev) {
-+		rc = netif_is_vrf(dev);
-+		dev_put(dev);
-+	}
-+	return rc;
-+}
-+
- /* This device needs to keep skb dst for qdisc enqueue or ndo_start_xmit() */
- static inline void netif_keep_dst(struct net_device *dev)
- {
-diff --git a/include/net/vrf.h b/include/net/vrf.h
-new file mode 100644
-index 000000000000..743a172ee849
---- /dev/null
-+++ b/include/net/vrf.h
-@@ -0,0 +1,83 @@
-+/*
-+ * include/net/net_vrf.h - adds vrf dev structure definitions
-+ * Copyright (c) 2015 Cumulus Networks
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __LINUX_NET_VRF_H
-+#define __LINUX_NET_VRF_H
-+
-+struct net_vrf_dev {
-+	int                     ifindex; /* ifindex of master dev */
-+	u32                     tb_id;   /* table id for VRF */
-+};
-+
-+#if IS_ENABLED(CONFIG_NET_VRF)
-+static inline int vrf_master_dev_ifindex(const struct net_device *dev)
-+{
-+	struct net_vrf_dev *vrf_ptr;
-+	int ifindex = 0;
-+
-+	if (!dev)
-+		return 0;
-+
-+	if (netif_is_vrf(dev))
-+		ifindex = dev->ifindex;
-+	else {
-+		vrf_ptr = rcu_dereference(dev->vrf_ptr);
-+		if (vrf_ptr)
-+			ifindex = vrf_ptr->ifindex;
-+	}
-+
-+	return ifindex;
-+}
-+
-+static inline int vrf_get_master_dev_ifindex(struct net *net, int ifindex)
-+{
-+	int rc = 0;
-+
-+	if (ifindex) {
-+		struct net_device *dev = dev_get_by_index(net, ifindex);
-+
-+		if (dev) {
-+			rc = vrf_master_dev_ifindex(dev);
-+			dev_put(dev);
-+		}
-+	}
-+	return rc;
-+}
-+
-+static inline int vrf_dev_table(const struct net_device *dev)
-+{
-+	int tb_id = 0;
-+
-+	if (dev) {
-+		struct net_vrf_dev *vrf_ptr = rcu_dereference(dev->vrf_ptr);
-+
-+		if (vrf_ptr)
-+			tb_id = vrf_ptr->tb_id;
-+	}
-+	return tb_id;
-+}
-+#else
-+static inline int vrf_master_dev_ifindex(const struct net_device *dev)
-+{
-+	return 0;
-+}
-+
-+static inline int vrf_get_master_dev_ifindex(struct net *net, int ifindex)
-+{
-+	return 0;
-+}
-+
-+static inline int vrf_dev_table(const struct net_device *dev)
-+{
-+	return 0;
-+}
-+#endif
-+
-+#endif /* __LINUX_NET_VRF_H */
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 9eeb5d9cf8f0..0037b6b8858d 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -340,6 +340,15 @@ enum macvlan_macaddr_mode {
- 
- #define MACVLAN_FLAG_NOPROMISC	1
- 
-+/* VRF section */
-+enum {
-+	IFLA_VRF_UNSPEC,
-+	IFLA_VRF_TABLE,
-+	__IFLA_VRF_MAX
-+};
-+
-+#define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
-+
- /* IPVLAN section */
- enum {
- 	IFLA_IPVLAN_UNSPEC,
++			if (tbl)
++				err = fib_table_lookup(tbl, &fl4, &res,
++						   FIB_LOOKUP_IGNORE_LINKSTATE);
++			else
++				err = fib_lookup(net, &fl4, &res,
++						 FIB_LOOKUP_IGNORE_LINKSTATE);
+ 			if (err) {
+ 				rcu_read_unlock();
+ 				return err;
 -- 
 2.3.2 (Apple Git-55)
