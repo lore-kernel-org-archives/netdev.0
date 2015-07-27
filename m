@@ -1,275 +1,102 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next 3/3] openvswitch: 802.1AD: Flow handling,
- actions, vlan parsing and netlink attributes
-Date: Mon, 27 Jul 2015 12:02:40 -0700
-Message-ID: <CALnjE+o7a0zSQebOB2Vr2ZmVM=+Pd0NMZQEVOWd-vyvoOqV2VQ@mail.gmail.com>
-References: <1437922355-3809-1-git-send-email-thomasfherbert@gmail.com>
-	<1437922355-3809-4-git-send-email-thomasfherbert@gmail.com>
+From: Jovi Zhangwei <jovi@cloudflare.com>
+Subject: Re: kernel warning in tcp_fragment
+Date: Mon, 27 Jul 2015 12:08:34 -0700
+Message-ID: <CABPcSq+sf0wfxVBMXQzhXymrb3+EMaUcBnkFZxXczpJSq4yZaQ@mail.gmail.com>
+References: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas F Herbert <thomasfherbert@gmail.com>
+To: Neal Cardwell <ncardwell@google.com>, kafai@fb.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:34102 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752840AbbG0TCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 15:02:40 -0400
-Received: by igk11 with SMTP id 11so75344408igk.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 12:02:40 -0700 (PDT)
-In-Reply-To: <1437922355-3809-4-git-send-email-thomasfherbert@gmail.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:33490 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753291AbbG0TIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 15:08:36 -0400
+Received: by lbbyj8 with SMTP id yj8so60012577lbb.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 12:08:34 -0700 (PDT)
+In-Reply-To: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 26, 2015 at 7:52 AM, Thomas F Herbert
-<thomasfherbert@gmail.com> wrote:
-> Add support for 802.1ad including the ability to push and pop double
-> tagged vlans. Add support for 802.1ad to netlink parsing and flow
-> conversion. Uses double nested encap attributes to represent double
-> tagged vlan. Inner TPID encoded along with ctci in nested attributes. Allows
-> either 0x8100 or 0x88a8 on inner or outer tags.
->
-> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
-> ---
->  net/openvswitch/flow.c         |  84 +++++++++++++++---
->  net/openvswitch/flow.h         |   5 ++
->  net/openvswitch/flow_netlink.c | 196 ++++++++++++++++++++++++++++++++++-------
->  3 files changed, 243 insertions(+), 42 deletions(-)
->
-> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> index 8db22ef..0abab37 100644
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -298,21 +298,80 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
->  static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
->  {
->         struct qtag_prefix {
-> -               __be16 eth_type; /* ETH_P_8021Q */
-> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
->                 __be16 tci;
->         };
-> -       struct qtag_prefix *qp;
-> +       struct qtag_prefix *qp = (struct qtag_prefix *)skb->data;
->
-> -       if (unlikely(skb->len < sizeof(struct qtag_prefix) + sizeof(__be16)))
-> +       struct qinqtag_prefix {
-> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
-> +               __be16 tci;
-> +               __be16 inner_tpid; /* ETH_P_8021Q */
-> +               __be16 ctci;
-> +       };
-> +
-> +       if (likely(skb_vlan_tag_present(skb))) {
-> +               key->eth.tci = htons(skb->vlan_tci);
-> +
-> +               /* Case where upstream
-> +                * processing has already stripped the outer vlan tag.
-> +                */
-> +               if (unlikely(skb->vlan_proto == htons(ETH_P_8021AD))) {
-> +                       if (unlikely(skb->len < sizeof(struct qtag_prefix) +
-> +                                       sizeof(__be16))) {
-> +                               key->eth.tci = 0;
-> +                               return 0;
-> +                       }
-> +
-> +                       if (unlikely(!pskb_may_pull(skb,
-> +                                                   sizeof(struct qtag_prefix) +
-> +                                                   sizeof(__be16)))) {
-> +                               return -ENOMEM;
-> +                       }
-> +
-No need to curly brackets for single statement.
+ping...
 
-> +                       if (likely(qp->eth_type == htons(ETH_P_8021Q))) {
-> +                               key->eth.cvlan.ctci =
-> +                                       qp->tci | htons(VLAN_TAG_PRESENT);
-> +                               key->eth.cvlan.c_tpid = qp->eth_type;
-> +                               __skb_pull(skb, sizeof(struct qtag_prefix));
-> +                       }
-key->eth.cvlan.tci and tpid should be set irrespective of qp->eth_type
-as it is done bellow for non offload case.
-
-> +               }
->                 return 0;
-> +       }
+On Wed, Jul 22, 2015 at 11:55 AM, Jovi Zhangwei <jovi@cloudflare.com> wrote:
+> Hi Neal and Martin,
 >
-> -       if (unlikely(!pskb_may_pull(skb, sizeof(struct qtag_prefix) +
-> -                                        sizeof(__be16))))
-> -               return -ENOMEM;
+> Sorry for disturbing, our production system(3.14 and 3.18 stable
+> kernel) have many tcp_fragment warnings,
+> the trace is same as below one which you discussed before.
 >
-> -       qp = (struct qtag_prefix *) skb->data;
-> -       key->eth.tci = qp->tci | htons(VLAN_TAG_PRESENT);
-> -       __skb_pull(skb, sizeof(struct qtag_prefix));
-> +       if (qp->eth_type == htons(ETH_P_8021AD)) {
-> +               struct qinqtag_prefix *qinqp =
-> +                                       (struct qinqtag_prefix *)skb->data;
-> +
-> +               if (unlikely(skb->len < sizeof(struct qinqtag_prefix) +
-> +                                       sizeof(__be16)))
-> +                       return 0;
-> +
-> +               if (unlikely(!pskb_may_pull(skb, sizeof(struct qinqtag_prefix) +
-> +                               sizeof(__be16)))) {
-> +                       return -ENOMEM;
-> +               }
-No need to curly brackets for single statement.
-
-> +               key->eth.tci = qinqp->tci | htons(VLAN_TAG_PRESENT);
-> +               key->eth.cvlan.ctci = qinqp->ctci | htons(VLAN_TAG_PRESENT);
-> +               key->eth.cvlan.c_tpid = qinqp->inner_tpid;
-> +
-> +               __skb_pull(skb, sizeof(struct qinqtag_prefix));
-> +
-> +               return 0;
-> +       }
-> +       if (qp->eth_type == htons(ETH_P_8021Q)) {
-> +               if (unlikely(skb->len < sizeof(struct qtag_prefix) +
-> +                                       sizeof(__be16)))
-> +                       return -ENOMEM;
-> +
-> +               if (unlikely(!pskb_may_pull(skb, sizeof(struct qtag_prefix) +
-> +                               sizeof(__be16))))
-> +                       return 0;
-> +               key->eth.tci = qp->tci | htons(VLAN_TAG_PRESENT);
-> +
-> +               __skb_pull(skb, sizeof(struct qtag_prefix));
-> +       }
+> http://comments.gmane.org/gmane.linux.network/365658
 >
->         return 0;
->  }
-> @@ -474,9 +533,10 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
->          */
+> But I didn't found the final solution in that mail thread, do you have
+> any new ideas or patches on this warning?
 >
->         key->eth.tci = 0;
-> -       if (skb_vlan_tag_present(skb))
-> -               key->eth.tci = htons(skb->vlan_tci);
-> -       else if (eth->h_proto == htons(ETH_P_8021Q))
-> +       key->eth.cvlan.ctci = 0;
-> +       key->eth.cvlan.c_tpid = 0;
-> +       if ((skb_vlan_tag_present(skb)) ||
-> +           eth_type_vlan(eth->h_proto))
->                 if (unlikely(parse_vlan(skb, key)))
->                         return -ENOMEM;
+> Great thanks.
 >
-inside the function first skb vlan tag is checked and then it checks
-for 8021Q and 8021AD. These are exact same checks. Why do you think it
-is not redundant?
-
-> diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-> index b62cdb3..69c48c6 100644
-> --- a/net/openvswitch/flow.h
-> +++ b/net/openvswitch/flow.h
-
-...
 >
-
-...
->  static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
->                                 const struct nlattr **a, bool is_mask,
->                                 bool log)
-> @@ -1024,6 +1049,104 @@ static void mask_set_nlattr(struct nlattr *attr, u8 val)
->         nlattr_set(attr, val, ovs_key_lens);
->  }
->
-> +static int parse_vlan_from_nlattrs(const struct nlattr *nla,
-> +                                  struct sw_flow_match *match,
-> +                                  u64 *key_attrs, bool *ie_valid,
-> +                                  const struct nlattr **a, bool is_mask,
-> +                                  bool log)
-> +{
-> +       int err;
-> +       __be16 tci;
-> +       const struct nlattr *encap;
-> +
-> +       *ie_valid = false;
-> +       if (!is_mask) {
-> +               u64 v_attrs = 0;
-> +
-> +               tci = nla_get_be16(a[OVS_KEY_ATTR_VLAN]);
-> +
-> +               if (tci & htons(VLAN_TAG_PRESENT)) {
-> +                       err = parse_flow_nlattrs(nla, a, &v_attrs, log);
-> +                       if (err)
-> +                               return err;
-> +                       if (!v_attrs)
-> +                               return -EINVAL;
-> +                       /* Another encap attribute here indicates
-> +                        * a double tagged vlan.
-> +                        */
-> +                       if (v_attrs & (1ULL << OVS_KEY_ATTR_ENCAP)) {
-> +                               if (!(v_attrs & (1ULL << OVS_KEY_ATTR_VLAN))) {
-> +                                       OVS_NLERR(log, "Inner encap attr is set for non VLAN frame");
-> +                                       return -EINVAL;
-> +                               }
-> +                               v_attrs &= ~(1 << OVS_KEY_ATTR_ETHERTYPE);
-> +                               encap = a[OVS_KEY_ATTR_ENCAP];
-> +                               v_attrs &= ~(1 << OVS_KEY_ATTR_ENCAP);
-> +                               *ie_valid = true;
-> +
-> +                               err = cust_vlan_from_nlattrs(match, v_attrs,
-> +                                                            &encap, is_mask,
-> +                                                            log);
-> +                               if (err)
-> +                                       return err;
-> +                               /* Insure that tci key attribute isn't
-> +                                * overwritten by encapsulated customer tci.
-> +                                */
-> +                               v_attrs &= ~(1 << OVS_KEY_ATTR_VLAN);
-> +                               *key_attrs |= v_attrs;
-> +                       } else {
-> +                               *key_attrs &= ~(1 << OVS_KEY_ATTR_VLAN);
-> +                               err = parse_flow_nlattrs(nla, a, key_attrs,
-> +                                                        log);
-> +                               if (err)
-> +                                       return err;
-> +                       }
-This code will not process nested flow attributes correctly. in case
-of 8021AD where we have double nested encap attributes we need to
-parse flow attributes to retrieve inner attributes. Same issue exist
-for flow mask case.
-
-
-> +               } else if (!tci) {
-> +                       /* Corner case for truncated 802.1Q header. */
-> +                       if (nla_len(nla)) {
-> +                               OVS_NLERR(log, "Truncated 802.1Q header has non-zero encap attribute.");
-> +                               return -EINVAL;
-> +                       }
-> +               } else {
-> +                       OVS_NLERR(log, "Encap attr is set for non-VLAN frame");
-> +                       return  -EINVAL;
-> +               }
-> +
-> +       } else {
-> +               u64 mask_v_attrs = 0;
-> +
-> +               tci = 0;
-> +               if (a[OVS_KEY_ATTR_VLAN])
-> +                       tci = nla_get_be16(a[OVS_KEY_ATTR_VLAN]);
-> +
-> +               if (!(tci & htons(VLAN_TAG_PRESENT))) {
-> +                       OVS_NLERR(log, "VLAN tag present bit must have an exact match (tci_mask=%x).",
-> +                                 ntohs(tci));
-> +                       err = -EINVAL;
-> +                       return err;
-> +               }
-> +               err = parse_flow_mask_nlattrs(nla, a, &mask_v_attrs,
-> +                                             log);
-> +               if (err)
-> +                       return err;
-> +
-> +               if (mask_v_attrs & (1ULL << OVS_KEY_ATTR_VLAN)) {
-> +                       err = cust_vlan_from_nlattrs(match, mask_v_attrs,
-> +                                                    a, is_mask, log);
-> +                       if (err)
-> +                               return err;
-> +
-> +                       mask_v_attrs &= ~(1ULL << OVS_KEY_ATTR_VLAN);
-> +                       *key_attrs |= mask_v_attrs;
-> +              } else {
-> +                       *key_attrs &= ~(1 << OVS_KEY_ATTR_VLAN);
-> +                       if (err)
-> +                               return err;
-> +               }
-> +       }
-...
+> [5184217.672290] WARNING: CPU: 9 PID: 2801 at
+> net/ipv4/tcp_output.c:1081 tcp_fragment+0x34/0x230()
+> [5184217.680995] Modules linked in: sfc_char(O) sfc_resource(O)
+> sfc_affinity(O) nf_conntrack_netlink xt_connlimit xt_length xt_bpf
+> xt_hashlimit iptable_nat nf_nat_ipv4 nf_nat iptable_mangle xt_comment
+> ip6table_security ip6table_mangle ip_set_hash_netport 8021q garp bridg
+> e stp llc ipmi_devintf nf_conntrack_ipv6 nf_defrag_ipv6
+> ip6table_filter ip6table_raw ip6_tables nf_conntrack_ipv4
+> nf_defrag_ipv4 xt_NFLOG nfnetlink_log xt_conntrack iptable_filter
+> xt_tcpudp xt_multiport xt_CT nf_conntrack xt_set iptable_raw ip_tables
+> x_tables ip_set_hash
+> _net ip_set_hash_ip ip_set nfnetlink rpcsec_gss_krb5 auth_rpcgss
+> oid_registry nfsv4 fuse nfsv3 nfs_acl nfs fscache lockd sunrpc
+> tcp_cubic sg sfc(O) mtd mdio igb dca i2c_algo_bit ptp pps_core sd_mod
+> crct10dif_generic crc_t10dif crct10dif_common x86_pkg_temp_thermal
+> acpi_c
+> pufreq coretemp kvm_intel kvm crc32c_intel aesni_intel ablk_helper
+> cryptd lrw gf128mul glue_helper aes_x86_64 ahci libahci ehci_pci
+> libata ehci_hcd i2c_i801 i2c_core lpc_ich mfd_core usbcore scsi_mod
+> usb_common wmi evdev ipmi_si ipmi_msghandler tpm_tis tpm acpi_pad
+> proce
+> ssor thermal_sys button
+> [5184217.684098] CPU: 9 PID: 2801 Comm: rrdns Tainted: G        W  O
+> 3.14.28-cloudflare #1
+> [5184217.684099] Hardware name: Quanta Computer Inc QuantaPlex
+> T41S-2U/S2S-MB, BIOS S2S_3A14          09/18/2014
+> [5184217.684100]  0000000000000000 ffffffff81466263 0000000000000000
+> ffffffff8103bb34
+> [5184217.684101]  ffffffff813e07f2 ffff8818abebcc00 000000000000004a
+> 0000000000000002
+> [5184217.684102]  0000000000000060 ffffffff813e07f2 0000003000004120
+> ffff8818abebcc00
+> [5184217.684104] Call Trace:
+> [5184217.684105]  <IRQ>  [<ffffffff81466263>] ? dump_stack+0x41/0x51
+> [5184217.684111]  [<ffffffff8103bb34>] ? warn_slowpath_common+0x74/0x89
+> [5184217.684115]  [<ffffffff813e07f2>] ? tcp_fragment+0x34/0x230
+> [5184217.684118]  [<ffffffff813e07f2>] ? tcp_fragment+0x34/0x230
+> [5184217.684119]  [<ffffffff813d98b7>] ? tcp_mark_head_lost+0x1bd/0x1d5
+> [5184217.684123]  [<ffffffff813ddb71>] ? tcp_fastretrans_alert+0x69f/0x71d
+> [5184217.684125]  [<ffffffff813de567>] ? tcp_ack+0x90f/0xb16
+> [5184217.684126]  [<ffffffff813df618>] ? tcp_rcv_state_process+0x5bd/0x9b8
+> [5184217.684128]  [<ffffffff8106d9c0>] ? __wake_up_sync_key+0x3a/0x4d
+> [5184217.684130]  [<ffffffff813920ed>] ? sk_wake_async+0x17/0x34
+> [5184217.684133]  [<ffffffff81440d13>] ? ipv6_skip_exthdr+0x28/0xc7
+> [5184217.684139]  [<ffffffff81418db6>] ? NF_HOOK_THRESH.constprop.11+0x4a/0x4a
+> [5184217.684143]  [<ffffffff81435abe>] ? tcp_v6_do_rcv+0x3ac/0x4f1
+> [5184217.684146]  [<ffffffff81435eec>] ? tcp_v6_rcv+0x2e9/0x554
+> [5184217.684148]  [<ffffffff813c70d3>] ? nf_hook_slow+0x66/0xf1
+> [5184217.684150]  [<ffffffff81418db6>] ? NF_HOOK_THRESH.constprop.11+0x4a/0x4a
+> [5184217.684167]  [<ffffffff81418f70>] ? ip6_input_finish+0x1ba/0x2a7
+> [5184217.684169]  [<ffffffff813a1c12>] ? __netif_receive_skb_core+0x422/0x494
+> [5184217.684172]  [<ffffffff813a283a>] ? netif_receive_skb_internal+0x37/0x6d
+> [5184217.684188]  [<ffffffffa09a2e40>] ? efx_ssr_try_merge+0x336/0x34e [sfc]
+> [5184217.684215]  [<ffffffffa09a4075>] ? __efx_ssr_end_of_burst+0x3e/0xd2 [sfc]
+> [5184217.684225]  [<ffffffffa098e3bd>] ? efx_process_channel+0x5d/0x71 [sfc]
+> [5184217.684243]  [<ffffffffa098f557>] ? efx_poll+0x6d/0x16b [sfc]
+> [5184217.684248]  [<ffffffff813a2e27>] ? net_rx_action+0xc6/0x191
+> [5184217.684250]  [<ffffffff8103f7ee>] ? __do_softirq+0x100/0x27c
+> [5184217.684254]  [<ffffffff8103fae6>] ? irq_exit+0x51/0xbc
+> [5184217.684255]  [<ffffffff81003e35>] ? do_IRQ+0x9d/0xb4
+> [5184217.684258]  [<ffffffff8146992a>] ? common_interrupt+0x6a/0x6a
+> [5184217.684261]  <EOI> <4>[5184217.684263] ---[ end trace 4f42d23abf1c890e ]---
+> [5184217.684460] ------------[ cut here ]------------
