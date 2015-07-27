@@ -1,29 +1,66 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] route: allow to route in a peer netns via lwt
- framework
-Date: Mon, 27 Jul 2015 22:07:11 +0200
-Message-ID: <55B68F6F.9020607@6wind.com>
-References: <1437661349-17620-1-git-send-email-nicolas.dichtel@6wind.com> <55B24B9B.4080001@cumulusnetworks.com> <55B24C85.2010502@6wind.com> <55B25798.2040706@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net PATCH] fib_trie: Drop unnecessary calls to leaf_pull_suffix
+Date: Mon, 27 Jul 2015 13:08:06 -0700
+Message-ID: <20150727195631.26840.93266.stgit@ahduyck-vm-fedora22>
+References: <55B6612C.7050506@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com, tgraf@suug.ch
-To: David Ahern <dsa@cumulusnetworks.com>, davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35345 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753254AbbG0UHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 16:07:15 -0400
-Received: by wibxm9 with SMTP id xm9so128004278wib.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 13:07:13 -0700 (PDT)
-In-Reply-To: <55B25798.2040706@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58173 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754373AbbG0UIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2015 16:08:07 -0400
+In-Reply-To: <55B6612C.7050506@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 24/07/2015 17:19, David Ahern a =E9crit :
-> In this case you are knowingly dropping packets. Would be nice to hav=
-e a counter
-> showing that.
-Ok.
+It was reported that update_suffix was taking a long time on systems where
+a large number of leaves were attached to a single node.  As it turns out
+fib_table_flush was calling update_suffix for each leaf that didn't have all
+of the aliases stripped from it.  As a result, on this large node removing
+one leaf would result in us calling update_suffix for every other leaf on
+the node.
+
+The fix is to just remove the calls to leaf_pull_suffix since they are
+redundant as we already have a call in resize that will go through and
+update the suffix length for the node before we exit out of
+fib_table_flush or fib_table_flush_external.
+
+Reported-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+
+This patch should apply to linux-4.1.y and newer kernels.
+
+I've done a bit of testing on my system and I no longer see update_suffix
+dominating the performance traces.  David if you can test with this patch
+to see if you still see the issue I would appreciate it.
+
+ net/ipv4/fib_trie.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index ef90d73911de..70168ca4716b 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1791,8 +1791,6 @@ void fib_table_flush_external(struct fib_table *tb)
+ 		if (hlist_empty(&n->leaf)) {
+ 			put_child_root(pn, n->key, NULL);
+ 			node_free(n);
+-		} else {
+-			leaf_pull_suffix(pn, n);
+ 		}
+ 	}
+ }
+@@ -1862,8 +1860,6 @@ int fib_table_flush(struct fib_table *tb)
+ 		if (hlist_empty(&n->leaf)) {
+ 			put_child_root(pn, n->key, NULL);
+ 			node_free(n);
+-		} else {
+-			leaf_pull_suffix(pn, n);
+ 		}
+ 	}
+ 
