@@ -1,76 +1,188 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH 1/2] igb: Teardown SR-IOV before
-	unregister_netdev()
-Date: Mon, 27 Jul 2015 23:42:09 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D783BF445@FMSMSX113.amr.corp.intel.com>
-References: <20150727223753.10121.78169.stgit@gimli.home>
- <20150727231834.10121.62918.stgit@gimli.home>
+From: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kvGyRCNUhGIzFRTEAbKEI=?=
+	<hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCHv2] net/ipv6: add sysctl option accept_ra_hop_limit
+Date: Tue, 28 Jul 2015 08:50:07 +0900
+Message-ID: <55B6C3AF.1050504@miraclelinux.com>
+References: <1437978942-7047-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Alex Williamson' <alex.williamson@redhat.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150727231834.10121.62918.stgit@gimli.home>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:35279 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932334AbbG0XuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 19:50:11 -0400
+Received: by pdrg1 with SMTP id g1so59773394pdr.2
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 16:50:11 -0700 (PDT)
+In-Reply-To: <1437978942-7047-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ACK
+Hi,
 
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Alex Williamson
-> Sent: Monday, July 27, 2015 4:19 PM
-> To: intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: [Intel-wired-lan] [PATCH 1/2] igb: Teardown SR-IOV before
-> unregister_netdev()
+Hangbin Liu wrote:
+> Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
+> disabled accept hop limit from RA if it is higher than the current hop
+> limit for security stuff. But this behavior kind of break the RFC definition.
 > 
-> When the .remove() callback for a PF is called, SR-IOV support for the
-> device is disabled, which requires unbinding and removing the VFs.
-> The VFs may be in-use either by the host kernel or userspace, such as
-> assigned to a VM through vfio-pci.  In this latter case, the VFs may
-> be removed either by shutting down the VM or hot-unplugging the
-> devices from the VM.  Unfortunately in the case of a Windows 2012 R2
-> guest, hot-unplug is broken due to the ordering of the PF driver
-> teardown.  Disabling SR-IOV prior to unregister_netdev() avoids this
-> issue.
+> RFC 4861, 6.3.4.  Processing Received Router Advertisements
+>    If the received Cur Hop Limit value is non-zero, the host SHOULD set
+>    its CurHopLimit variable to the received value.
 > 
-> Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+> So add sysctl option accept_ra_hop_limit to let user choose whether accept
+> hop limit info in RA.
+> 
+
+How about introducing "minimum hop limit", instead?
+
+|commit 6fd99094de2b83d1d4c8457f2c83483b2828e75a
+|Author: D.S. Ljungmark <ljungmark@modio.se>
+|Date:   Wed Mar 25 09:28:15 2015 +0100
+|
+|    ipv6: Don't reduce hop limit for an interface
+:
+|    RFC 3756, Section 4.2.7, "Parameter Spoofing"
+|    
+:
+|   >   As an example, one possible approach to mitigate this threat is to
+|    >   ignore very small hop limits.  The nodes could implement a
+|    >   configurable minimum hop limit, and ignore attempts to set it below
+|    >   said limit.
+
+--yoshfuji
+
+
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 > ---
->  drivers/net/ethernet/intel/igb/igb_main.c |    8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+>  Documentation/networking/ip-sysctl.txt | 11 +++++++++++
+>  include/linux/ipv6.h                   |  1 +
+>  include/uapi/linux/ipv6.h              |  1 +
+>  net/ipv6/addrconf.c                    | 10 ++++++++++
+>  net/ipv6/ndisc.c                       | 17 +++++++++++------
+>  5 files changed, 34 insertions(+), 6 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 517746f..606a7ae 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -2805,14 +2805,14 @@ static void igb_remove(struct pci_dev *pdev)
->  	 */
->  	igb_release_hw_control(adapter);
-> 
-> -	unregister_netdev(netdev);
-> -
-> -	igb_clear_interrupt_scheme(adapter);
-> -
->  #ifdef CONFIG_PCI_IOV
->  	igb_disable_sriov(pdev);
->  #endif
-> 
-> +	unregister_netdev(netdev);
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 5fae770..778c479 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1346,6 +1346,17 @@ accept_ra_pinfo - BOOLEAN
+>  	Functional default: enabled if accept_ra is enabled.
+>  			    disabled if accept_ra is disabled.
+>  
+> +accept_ra_hop_limit - INTEGER
+> +	Learn hop limit in Router Advertisement.
 > +
-> +	igb_clear_interrupt_scheme(adapter);
+> +	Possible values are:
+> +		0 Do not accept hop limit in Router Advertisements.
+> +		1 Accept hop limit in Router Advertisements if it is higher
+> +		  than the current hop limit.
+> +		2 Accept hop limit in Router Advertisements anyway.
 > +
->  	pci_iounmap(pdev, hw->hw_addr);
->  	if (hw->flash_address)
->  		iounmap(hw->flash_address);
+> +	Default: 1
+> +
+>  accept_ra_rt_info_max_plen - INTEGER
+>  	Maximum prefix length of Route Information in RA.
+>  
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 82806c6..a21a9c6 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -30,6 +30,7 @@ struct ipv6_devconf {
+>  	__s32		max_addresses;
+>  	__s32		accept_ra_defrtr;
+>  	__s32		accept_ra_pinfo;
+> +	__s32           accept_ra_hop_limit;
+>  #ifdef CONFIG_IPV6_ROUTER_PREF
+>  	__s32		accept_ra_rtr_pref;
+>  	__s32		rtr_probe_interval;
+> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> index 5efa54a..a8c1083 100644
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -171,6 +171,7 @@ enum {
+>  	DEVCONF_USE_OPTIMISTIC,
+>  	DEVCONF_ACCEPT_RA_MTU,
+>  	DEVCONF_STABLE_SECRET,
+> +	DEVCONF_ACCEPT_RA_HOP_LIMIT,
+>  	DEVCONF_MAX
+>  };
+>  
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 21c2c81..486a7a5 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -196,6 +196,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+>  	.accept_ra_defrtr	= 1,
+>  	.accept_ra_from_local	= 0,
+>  	.accept_ra_pinfo	= 1,
+> +	.accept_ra_hop_limit    = 1,
+>  #ifdef CONFIG_IPV6_ROUTER_PREF
+>  	.accept_ra_rtr_pref	= 1,
+>  	.rtr_probe_interval	= 60 * HZ,
+> @@ -237,6 +238,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+>  	.accept_ra_defrtr	= 1,
+>  	.accept_ra_from_local	= 0,
+>  	.accept_ra_pinfo	= 1,
+> +	.accept_ra_hop_limit    = 1,
+>  #ifdef CONFIG_IPV6_ROUTER_PREF
+>  	.accept_ra_rtr_pref	= 1,
+>  	.rtr_probe_interval	= 60 * HZ,
+> @@ -4561,6 +4563,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+>  	array[DEVCONF_MAX_ADDRESSES] = cnf->max_addresses;
+>  	array[DEVCONF_ACCEPT_RA_DEFRTR] = cnf->accept_ra_defrtr;
+>  	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
+> +	array[DEVCONF_ACCEPT_RA_HOP_LIMIT] = cnf->accept_ra_hop_limit;
+>  #ifdef CONFIG_IPV6_ROUTER_PREF
+>  	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
+>  	array[DEVCONF_RTR_PROBE_INTERVAL] =
+> @@ -5462,6 +5465,13 @@ static struct addrconf_sysctl_table
+>  			.mode		= 0644,
+>  			.proc_handler	= proc_dointvec,
+>  		},
+> +		{
+> +			.procname	= "accept_ra_hop_limit",
+> +			.data		= &ipv6_devconf.accept_ra_hop_limit,
+> +			.maxlen		= sizeof(int),
+> +			.mode		= 0644,
+> +			.proc_handler	= proc_dointvec,
+> +		},
+>  #ifdef CONFIG_IPV6_ROUTER_PREF
+>  		{
+>  			.procname	= "accept_ra_rtr_pref",
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 0a05b35..aca67da 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -1226,13 +1226,18 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+>  	if (rt)
+>  		rt6_set_expires(rt, jiffies + (HZ * lifetime));
+>  	if (ra_msg->icmph.icmp6_hop_limit) {
+> -		/* Only set hop_limit on the interface if it is higher than
+> -		 * the current hop_limit.
+> -		 */
+> -		if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
+> +		switch (in6_dev->cnf.accept_ra_hop_limit) {
+> +		case 0:
+> +			break;
+> +		case 1:
+> +			if (in6_dev->cnf.hop_limit > ra_msg->icmph.icmp6_hop_limit) {
+> +				ND_PRINTK(2, warn,
+> +					  "RA: Got route advertisement with lower hop_limit than current\n");
+> +				break;
+> +			}
+> +		default:
+>  			in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
+> -		} else {
+> -			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
+> +			break;
+>  		}
+>  		if (rt)
+>  			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
 > 
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+
+-- 
+吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
+ミラクル・リナックス株式会社 技術本部 サポート部
