@@ -1,112 +1,273 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 07/16] net: Add inet_addr lookup by table
-Date: Mon, 27 Jul 2015 12:31:00 -0600
-Message-ID: <1438021869-49186-8-git-send-email-dsa@cumulusnetworks.com>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
-	hannes@stressinduktion.org, nicolas.dichtel@6wind.com,
-	stephen@networkplumber.org, hadi@mojatatu.com,
-	ebiederm@xmission.com, davem@davemloft.net, svaidya@brocade.com,
-	mingo@kernel.org, luto@amacapital.net,
-	David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:37072 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893AbbG0SdC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:33:02 -0400
-Received: by igbpg9 with SMTP id pg9so89326942igb.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:33:02 -0700 (PDT)
-In-Reply-To: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 8/8] can: replace timestamp as unique skb attribute
+Date: Mon, 27 Jul 2015 20:34:32 +0200
+Message-ID: <55B679B8.30705@hartkopp.net>
+References: <1436728691-1145-1-git-send-email-mkl@pengutronix.de> <1436728691-1145-9-git-send-email-mkl@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, linux-stable <stable@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1436728691-1145-9-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently inet_addr_type and inet_dev_addr_type expect local addresses
-to be in the local table. With the VRF device local routes for devices
-associated with a VRF will be in the table associated with the VRF.
-Provide an alternate inet_addr lookup to use a specific table rather
-than defaulting to the local table.
+Hello Greg,
 
-Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/route.h     |  1 +
- net/ipv4/fib_frontend.c | 22 +++++++++++++++-------
- 2 files changed, 16 insertions(+), 7 deletions(-)
+On 12.07.2015 21:18, Marc Kleine-Budde wrote:
+> From: Oliver Hartkopp <socketcan@hartkopp.net>
+>
+> Commit 514ac99c64b "can: fix multiple delivery of a single CAN frame for
+> overlapping CAN filters" requires the skb->tstamp to be set to check for
+> identical CAN skbs.
+>
+> Without timestamping to be required by user space applications this timestamp
+> was not generated which lead to commit 36c01245eb8 "can: fix loss of CAN frames
+> in raw_rcv" - which forces the timestamp to be set in all CAN related skbuffs
+> by introducing several __net_timestamp() calls.
+>
+> This forces e.g. out of tree drivers which are not using alloc_can{,fd}_skb()
+> to add __net_timestamp() after skbuff creation to prevent the frame loss fixed
+> in mainline Linux.
+>
+> This patch removes the timestamp dependency and uses an atomic counter to
+> create an unique identifier together with the skbuff pointer.
+>
+> Btw: the new skbcnt element introduced in struct can_skb_priv has to be
+> initialized with zero in out-of-tree drivers which are not using
+> alloc_can{,fd}_skb() too.
+>
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> Cc: linux-stable <stable@vger.kernel.org>
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 54f97eea0fb2..3b51c339c269 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -192,6 +192,7 @@ void ipv4_sk_redirect(struct sk_buff *skb, struct sock *sk);
- void ip_rt_send_redirect(struct sk_buff *skb);
- 
- unsigned int inet_addr_type(struct net *net, __be32 addr);
-+unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id);
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr);
- void ip_rt_multicast_event(struct in_device *);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 6e68a003d0fd..cc413b0170ed 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -214,12 +214,12 @@ void fib_flush_external(struct net *net)
-  */
- static inline unsigned int __inet_dev_addr_type(struct net *net,
- 						const struct net_device *dev,
--						__be32 addr)
-+						__be32 addr, int tb_id)
- {
- 	struct flowi4		fl4 = { .daddr = addr };
- 	struct fib_result	res;
- 	unsigned int ret = RTN_BROADCAST;
--	struct fib_table *local_table;
-+	struct fib_table *table;
- 
- 	if (ipv4_is_zeronet(addr) || ipv4_is_lbcast(addr))
- 		return RTN_BROADCAST;
-@@ -228,10 +228,10 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
- 
- 	rcu_read_lock();
- 
--	local_table = fib_get_table(net, RT_TABLE_LOCAL);
--	if (local_table) {
-+	table = fib_get_table(net, tb_id);
-+	if (table) {
- 		ret = RTN_UNICAST;
--		if (!fib_table_lookup(local_table, &fl4, &res, FIB_LOOKUP_NOREF)) {
-+		if (!fib_table_lookup(table, &fl4, &res, FIB_LOOKUP_NOREF)) {
- 			if (!dev || dev == res.fi->fib_dev)
- 				ret = res.type;
- 		}
-@@ -241,16 +241,24 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
- 	return ret;
- }
- 
-+unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id)
-+{
-+	return __inet_dev_addr_type(net, NULL, addr, tb_id);
-+}
-+EXPORT_SYMBOL(inet_addr_type_table);
-+
- unsigned int inet_addr_type(struct net *net, __be32 addr)
- {
--	return __inet_dev_addr_type(net, NULL, addr);
-+	return __inet_dev_addr_type(net, NULL, addr, RT_TABLE_LOCAL);
- }
- EXPORT_SYMBOL(inet_addr_type);
- 
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr)
- {
--	return __inet_dev_addr_type(net, dev, addr);
-+	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
-+
-+	return __inet_dev_addr_type(net, dev, addr, rt_table);
- }
- EXPORT_SYMBOL(inet_dev_addr_type);
- 
--- 
-2.3.2 (Apple Git-55)
+Can you please queue up this missing/lost patch for the long term 4.1.x ?
+
+It fixes the mess with commits
+
+514ac99c64b "can: fix multiple delivery of a single CAN frame for overlapping 
+CAN filters"
+
+which originally fixed
+
+36c01245eb8 "can: fix loss of CAN frames in raw_rcv"
+
+So finally this missing patch would bring 4.1.x into the proper state we now 
+have in 4.2-rc4.
+
+Upstream commit of this patch is:
+
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=d3b58c47d330de8c29898fe9746f7530408f8a59
+
+Best regards,
+Oliver
+
+
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> ---
+>   drivers/net/can/dev.c   |  7 ++-----
+>   drivers/net/can/slcan.c |  2 +-
+>   drivers/net/can/vcan.c  |  3 ---
+>   include/linux/can/skb.h |  2 ++
+>   net/can/af_can.c        | 12 +++++++-----
+>   net/can/bcm.c           |  2 ++
+>   net/can/raw.c           |  7 ++++---
+>   7 files changed, 18 insertions(+), 17 deletions(-)
+>
+> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+> index e9b1810d319f..aede704605c6 100644
+> --- a/drivers/net/can/dev.c
+> +++ b/drivers/net/can/dev.c
+> @@ -440,9 +440,6 @@ unsigned int can_get_echo_skb(struct net_device *dev, unsigned int idx)
+>   		struct can_frame *cf = (struct can_frame *)skb->data;
+>   		u8 dlc = cf->can_dlc;
+>
+> -		if (!(skb->tstamp.tv64))
+> -			__net_timestamp(skb);
+> -
+>   		netif_rx(priv->echo_skb[idx]);
+>   		priv->echo_skb[idx] = NULL;
+>
+> @@ -578,7 +575,6 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
+>   	if (unlikely(!skb))
+>   		return NULL;
+>
+> -	__net_timestamp(skb);
+>   	skb->protocol = htons(ETH_P_CAN);
+>   	skb->pkt_type = PACKET_BROADCAST;
+>   	skb->ip_summed = CHECKSUM_UNNECESSARY;
+> @@ -589,6 +585,7 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
+>
+>   	can_skb_reserve(skb);
+>   	can_skb_prv(skb)->ifindex = dev->ifindex;
+> +	can_skb_prv(skb)->skbcnt = 0;
+>
+>   	*cf = (struct can_frame *)skb_put(skb, sizeof(struct can_frame));
+>   	memset(*cf, 0, sizeof(struct can_frame));
+> @@ -607,7 +604,6 @@ struct sk_buff *alloc_canfd_skb(struct net_device *dev,
+>   	if (unlikely(!skb))
+>   		return NULL;
+>
+> -	__net_timestamp(skb);
+>   	skb->protocol = htons(ETH_P_CANFD);
+>   	skb->pkt_type = PACKET_BROADCAST;
+>   	skb->ip_summed = CHECKSUM_UNNECESSARY;
+> @@ -618,6 +614,7 @@ struct sk_buff *alloc_canfd_skb(struct net_device *dev,
+>
+>   	can_skb_reserve(skb);
+>   	can_skb_prv(skb)->ifindex = dev->ifindex;
+> +	can_skb_prv(skb)->skbcnt = 0;
+>
+>   	*cfd = (struct canfd_frame *)skb_put(skb, sizeof(struct canfd_frame));
+>   	memset(*cfd, 0, sizeof(struct canfd_frame));
+> diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
+> index f64f5290d6f8..a23a7af8eb9a 100644
+> --- a/drivers/net/can/slcan.c
+> +++ b/drivers/net/can/slcan.c
+> @@ -207,7 +207,6 @@ static void slc_bump(struct slcan *sl)
+>   	if (!skb)
+>   		return;
+>
+> -	__net_timestamp(skb);
+>   	skb->dev = sl->dev;
+>   	skb->protocol = htons(ETH_P_CAN);
+>   	skb->pkt_type = PACKET_BROADCAST;
+> @@ -215,6 +214,7 @@ static void slc_bump(struct slcan *sl)
+>
+>   	can_skb_reserve(skb);
+>   	can_skb_prv(skb)->ifindex = sl->dev->ifindex;
+> +	can_skb_prv(skb)->skbcnt = 0;
+>
+>   	memcpy(skb_put(skb, sizeof(struct can_frame)),
+>   	       &cf, sizeof(struct can_frame));
+> diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
+> index 0ce868de855d..674f367087c5 100644
+> --- a/drivers/net/can/vcan.c
+> +++ b/drivers/net/can/vcan.c
+> @@ -78,9 +78,6 @@ static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
+>   	skb->dev       = dev;
+>   	skb->ip_summed = CHECKSUM_UNNECESSARY;
+>
+> -	if (!(skb->tstamp.tv64))
+> -		__net_timestamp(skb);
+> -
+>   	netif_rx_ni(skb);
+>   }
+>
+> diff --git a/include/linux/can/skb.h b/include/linux/can/skb.h
+> index b6a52a4b457a..51bb6532785c 100644
+> --- a/include/linux/can/skb.h
+> +++ b/include/linux/can/skb.h
+> @@ -27,10 +27,12 @@
+>   /**
+>    * struct can_skb_priv - private additional data inside CAN sk_buffs
+>    * @ifindex:	ifindex of the first interface the CAN frame appeared on
+> + * @skbcnt:	atomic counter to have an unique id together with skb pointer
+>    * @cf:		align to the following CAN frame at skb->data
+>    */
+>   struct can_skb_priv {
+>   	int ifindex;
+> +	int skbcnt;
+>   	struct can_frame cf[0];
+>   };
+>
+> diff --git a/net/can/af_can.c b/net/can/af_can.c
+> index 7933e62a7318..166d436196c1 100644
+> --- a/net/can/af_can.c
+> +++ b/net/can/af_can.c
+> @@ -89,6 +89,8 @@ struct timer_list can_stattimer;   /* timer for statistics update */
+>   struct s_stats    can_stats;       /* packet statistics */
+>   struct s_pstats   can_pstats;      /* receive list statistics */
+>
+> +static atomic_t skbcounter = ATOMIC_INIT(0);
+> +
+>   /*
+>    * af_can socket functions
+>    */
+> @@ -310,12 +312,8 @@ int can_send(struct sk_buff *skb, int loop)
+>   		return err;
+>   	}
+>
+> -	if (newskb) {
+> -		if (!(newskb->tstamp.tv64))
+> -			__net_timestamp(newskb);
+> -
+> +	if (newskb)
+>   		netif_rx_ni(newskb);
+> -	}
+>
+>   	/* update statistics */
+>   	can_stats.tx_frames++;
+> @@ -683,6 +681,10 @@ static void can_receive(struct sk_buff *skb, struct net_device *dev)
+>   	can_stats.rx_frames++;
+>   	can_stats.rx_frames_delta++;
+>
+> +	/* create non-zero unique skb identifier together with *skb */
+> +	while (!(can_skb_prv(skb)->skbcnt))
+> +		can_skb_prv(skb)->skbcnt = atomic_inc_return(&skbcounter);
+> +
+>   	rcu_read_lock();
+>
+>   	/* deliver the packet to sockets listening on all devices */
+> diff --git a/net/can/bcm.c b/net/can/bcm.c
+> index b523453585be..a1ba6875c2a2 100644
+> --- a/net/can/bcm.c
+> +++ b/net/can/bcm.c
+> @@ -261,6 +261,7 @@ static void bcm_can_tx(struct bcm_op *op)
+>
+>   	can_skb_reserve(skb);
+>   	can_skb_prv(skb)->ifindex = dev->ifindex;
+> +	can_skb_prv(skb)->skbcnt = 0;
+>
+>   	memcpy(skb_put(skb, CFSIZ), cf, CFSIZ);
+>
+> @@ -1217,6 +1218,7 @@ static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
+>   	}
+>
+>   	can_skb_prv(skb)->ifindex = dev->ifindex;
+> +	can_skb_prv(skb)->skbcnt = 0;
+>   	skb->dev = dev;
+>   	can_skb_set_owner(skb, sk);
+>   	err = can_send(skb, 1); /* send with loopback */
+> diff --git a/net/can/raw.c b/net/can/raw.c
+> index 31b9748cbb4e..2e67b1423cd3 100644
+> --- a/net/can/raw.c
+> +++ b/net/can/raw.c
+> @@ -75,7 +75,7 @@ MODULE_ALIAS("can-proto-1");
+>    */
+>
+>   struct uniqframe {
+> -	ktime_t tstamp;
+> +	int skbcnt;
+>   	const struct sk_buff *skb;
+>   	unsigned int join_rx_count;
+>   };
+> @@ -133,7 +133,7 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+>
+>   	/* eliminate multiple filter matches for the same skb */
+>   	if (this_cpu_ptr(ro->uniq)->skb == oskb &&
+> -	    ktime_equal(this_cpu_ptr(ro->uniq)->tstamp, oskb->tstamp)) {
+> +	    this_cpu_ptr(ro->uniq)->skbcnt == can_skb_prv(oskb)->skbcnt) {
+>   		if (ro->join_filters) {
+>   			this_cpu_inc(ro->uniq->join_rx_count);
+>   			/* drop frame until all enabled filters matched */
+> @@ -144,7 +144,7 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+>   		}
+>   	} else {
+>   		this_cpu_ptr(ro->uniq)->skb = oskb;
+> -		this_cpu_ptr(ro->uniq)->tstamp = oskb->tstamp;
+> +		this_cpu_ptr(ro->uniq)->skbcnt = can_skb_prv(oskb)->skbcnt;
+>   		this_cpu_ptr(ro->uniq)->join_rx_count = 1;
+>   		/* drop first frame to check all enabled filters? */
+>   		if (ro->join_filters && ro->count > 1)
+> @@ -749,6 +749,7 @@ static int raw_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
+>
+>   	can_skb_reserve(skb);
+>   	can_skb_prv(skb)->ifindex = dev->ifindex;
+> +	can_skb_prv(skb)->skbcnt = 0;
+>
+>   	err = memcpy_from_msg(skb_put(skb, size), msg, size);
+>   	if (err < 0)
+>
