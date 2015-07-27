@@ -1,40 +1,44 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for Jul 27 (net/mpls/af_mpls.c)
-Date: Mon, 27 Jul 2015 08:30:24 -0700
-Message-ID: <55B64E90.7030503@infradead.org>
-References: <20150727160232.009f3c91@canb.auug.org.au>
+From: s prasad <sprasad.kandregula@gmail.com>
+Subject: Need help about AR8327 Ethernet Driver
+Date: Mon, 27 Jul 2015 12:16:10 -0400
+Message-ID: <CAJa-X96OijRZS4G5eKRUR0c3QG8zpYVJj53t68m_z3O1fgf8Ow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Mathieu Olivari <mathieu@codeaurora.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40129 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691AbbG0Pa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 11:30:29 -0400
-In-Reply-To: <20150727160232.009f3c91@canb.auug.org.au>
+Received: from mail-vn0-f50.google.com ([209.85.216.50]:36242 "EHLO
+	mail-vn0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752049AbbG0QQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 12:16:12 -0400
+Received: by vnk197 with SMTP id 197so32664369vnk.3
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 09:16:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/26/15 23:02, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Changes since 20150724:
-> 
+Hi  All,
 
-on i386 or x86_64:
+I am trying to sniff Ethernet data using AR8327 chip-set from other
+Ethernet device KSZ8895, which gives multiplexed TX and RX data of
+monitoring data of another device.
 
-when CONFIG_IPV6 is not enabled:
+If I am using devices like DUB-E100(D-Link), am able capture data from
+KSZ8895(Multiplexed TX and Rx Ethernet data).
 
+But If I am trying to sniff Ethernet data using AR8327 Chipset(Router
+TP-Link AC 1750), then am not able to capture data. But in
+(switch/port) port registers showing correct values.
 
-net/built-in.o: In function `find_outdev':
-af_mpls.c:(.text+0x1e8ddd): undefined reference to `ip6_route_output'
-af_mpls.c:(.text+0x1e8e90): undefined reference to `ip_route_output_flow'
+Am using tcpdump to check data on specific interface. When I am using
+DUB-E100(D-Link) or passive Ethernet sniffer(Either Rx or Tx packets)
+then able to see whole data, but not with AR8327 Chipset.
 
+My environment is given below:
+Router: TPLink AC 1750
+Ethernet data coming from KSZ8895 (Multiplexed Tx and RX of another device)
+"OpenWRT" Environment
 
+Can somebody through where should I look to solve my issue.
 
-
--- 
-~Randy
+Thanks and Regards,
+S Prasad
