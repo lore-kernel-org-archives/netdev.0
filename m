@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 11/16] net: Use VRF device index for socket lookups
-Date: Mon, 27 Jul 2015 12:31:04 -0600
-Message-ID: <1438021869-49186-12-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 09/16] net: Add routes to the table associated with the device
+Date: Mon, 27 Jul 2015 12:31:02 -0600
+Message-ID: <1438021869-49186-10-git-send-email-dsa@cumulusnetworks.com>
 References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -13,118 +13,99 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:37249 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628AbbG0SdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:33:10 -0400
-Received: by igbpg9 with SMTP id pg9so89331604igb.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:33:09 -0700 (PDT)
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:37165 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753946AbbG0SdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:33:06 -0400
+Received: by igbpg9 with SMTP id pg9so89329284igb.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:33:06 -0700 (PDT)
 In-Reply-To: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The intent of the VRF device is to leverage the existing SO_BINDTODEVICE
-as a means of creating L3 domains. Since sockets are expected to be bound
-to the VRF device the index of the master device needs to be used for
-socket lookups.
+When a device associated with a VRF is brought up or down routes
+should be added to/removed from the table associated with the VRF.
+fib_magic defaults to using the main or local tables. Have it use
+the table with the device if there is one.
 
-Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+A part of this is directing prefsrc validations to the correct
+table as well.
+
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/syncookies.c |  5 ++++-
- net/ipv4/tcp_input.c  |  6 +++++-
- net/ipv4/tcp_ipv4.c   | 11 +++++++++--
- 3 files changed, 18 insertions(+), 4 deletions(-)
+ net/ipv4/fib_frontend.c  |  8 ++++----
+ net/ipv4/fib_semantics.c | 25 +++++++++++++++++++------
+ 2 files changed, 23 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index d70b1f603692..dab52fba5872 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -18,6 +18,7 @@
- #include <linux/export.h>
- #include <net/tcp.h>
- #include <net/route.h>
-+#include <net/vrf.h>
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 5ce0d11222ca..e35541a64449 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -805,6 +805,7 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifaddr *ifa)
+ {
+ 	struct net *net = dev_net(ifa->ifa_dev->dev);
++	int tb_id = vrf_dev_table(ifa->ifa_dev->dev);
+ 	struct fib_table *tb;
+ 	struct fib_config cfg = {
+ 		.fc_protocol = RTPROT_KERNEL,
+@@ -819,11 +820,10 @@ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifad
+ 		},
+ 	};
  
- extern int sysctl_tcp_syncookies;
+-	if (type == RTN_UNICAST)
+-		tb = fib_new_table(net, RT_TABLE_MAIN);
+-	else
+-		tb = fib_new_table(net, RT_TABLE_LOCAL);
++	if (!tb_id)
++		tb_id = (type == RTN_UNICAST) ? RT_TABLE_MAIN : RT_TABLE_LOCAL;
  
-@@ -348,7 +349,9 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	treq->snt_synack	= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsecr : 0;
- 	treq->tfo_listener	= false;
++	tb = fib_new_table(net, tb_id);
+ 	if (!tb)
+ 		return;
  
--	ireq->ir_iif = sk->sk_bound_dev_if;
-+	ireq->ir_iif = vrf_get_master_dev_ifindex(sock_net(sk), skb->skb_iif);
-+	if (!ireq->ir_iif)
-+		ireq->ir_iif = sk->sk_bound_dev_if;
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index a578eacf9fcd..37e1dee7692a 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -838,6 +838,23 @@ __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh)
+ 	return nh->nh_saddr;
+ }
  
- 	/* We throwed the options of the initial SYN away, so we hope
- 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4e4d6bcd0ca9..df82fb05c459 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -72,6 +72,7 @@
- #include <net/dst.h>
- #include <net/tcp.h>
- #include <net/inet_common.h>
-+#include <net/vrf.h>
- #include <linux/ipsec.h>
- #include <asm/unaligned.h>
- #include <linux/errqueue.h>
-@@ -6141,7 +6142,10 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	tcp_openreq_init(req, &tmp_opt, skb, sk);
- 
- 	/* Note: tcp_v6_init_req() might override ir_iif for link locals */
--	inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
-+	inet_rsk(req)->ir_iif = vrf_get_master_dev_ifindex(sock_net(sk),
-+							   skb->skb_iif);
-+	if (!inet_rsk(req)->ir_iif)
-+		inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
- 
- 	af_ops->init_req(req, sk, skb);
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 486ba96ae91a..d0c40f4d9058 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -75,6 +75,7 @@
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
- #include <net/busy_poll.h>
-+#include <net/vrf.h>
- 
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-@@ -682,6 +683,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 	 */
- 	if (sk)
- 		arg.bound_dev_if = sk->sk_bound_dev_if;
-+	if (!arg.bound_dev_if && skb->dev)
-+		arg.bound_dev_if = vrf_master_dev_ifindex(skb->dev);
- 
- 	arg.tos = ip_hdr(skb)->tos;
- 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
-@@ -766,8 +769,10 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
- 				      ip_hdr(skb)->saddr, /* XXX */
- 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
- 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
--	if (oif)
--		arg.bound_dev_if = oif;
-+	arg.bound_dev_if = oif ? : vrf_master_dev_ifindex(skb_dst(skb)->dev);
-+	if (!arg.bound_dev_if)
-+		arg.bound_dev_if = vrf_master_dev_ifindex(skb->dev);
++static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
++{
++	if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
++	    fib_prefsrc != cfg->fc_dst) {
++		int tb_id = cfg->fc_table;
 +
- 	arg.tos = tos;
- 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
- 			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
-@@ -1269,6 +1274,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	ireq		      = inet_rsk(req);
- 	sk_daddr_set(newsk, ireq->ir_rmt_addr);
- 	sk_rcv_saddr_set(newsk, ireq->ir_loc_addr);
-+	if (netif_index_is_vrf(sock_net(newsk), ireq->ir_iif))
-+		newsk->sk_bound_dev_if = ireq->ir_iif;
- 	newinet->inet_saddr	      = ireq->ir_loc_addr;
- 	inet_opt	      = ireq->opt;
- 	rcu_assign_pointer(newinet->inet_opt, inet_opt);
++		if (tb_id == RT_TABLE_MAIN)
++			tb_id = RT_TABLE_LOCAL;
++
++		if (inet_addr_type_table(cfg->fc_nlinfo.nl_net,
++					 fib_prefsrc, tb_id) != RTN_LOCAL) {
++			return false;
++		}
++	}
++	return true;
++}
++
+ struct fib_info *fib_create_info(struct fib_config *cfg)
+ {
+ 	int err;
+@@ -1033,12 +1050,8 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 			fi->fib_flags |= RTNH_F_LINKDOWN;
+ 	}
+ 
+-	if (fi->fib_prefsrc) {
+-		if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
+-		    fi->fib_prefsrc != cfg->fc_dst)
+-			if (inet_addr_type(net, fi->fib_prefsrc) != RTN_LOCAL)
+-				goto err_inval;
+-	}
++	if (fi->fib_prefsrc && !fib_valid_prefsrc(cfg, fi->fib_prefsrc))
++		goto err_inval;
+ 
+ 	change_nexthops(fi) {
+ 		fib_info_update_nh_saddr(net, nexthop_nh);
 -- 
 2.3.2 (Apple Git-55)
