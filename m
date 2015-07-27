@@ -1,46 +1,46 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -master] netfilter: xt_CT: checking for IS_ERR() instead of
- NULL
-Date: Tue, 28 Jul 2015 01:42:28 +0300
-Message-ID: <20150727224228.GA10367@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH] netfilter: ipt_SYNPROXY: fix sending window update to client
+Date: Tue, 28 Jul 2015 00:53:26 +0200
+Message-ID: <1438037606-5462-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:35681 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932124AbbG0Wne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 18:43:34 -0400
-Content-Disposition: inline
+Received: from orbit.nwl.cc ([176.31.251.142]:43509 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754401AbbG0Wx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2015 18:53:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We recently changed this from nf_conntrack_alloc() to nf_ct_tmpl_alloc()
-so the error handling needs to changed to check for NULL instead of
-IS_ERR().
+Upon receipt of SYNACK from the server, ipt_SYNPROXY first sends back an ACK to
+finish the server handshake, then calls nf_ct_seqadj_init() to initiate
+sequence number adjustment of forwarded packets to the client and finally sends
+a window update to the client to unblock it's TX queue.
 
-Fixes: 0838aa7fcfcd ('netfilter: fix netns dependencies with conntrack templates')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Since synproxy_send_client_ack() does not set synproxy_send_tcp()'s nfct
+parameter, no sequence number adjustment happens and the client receives the
+window update with incorrect sequence number. Depending on client TCP
+implementation, this leads to a significant delay (until a window probe is
+being sent).
 
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index c663003..43ddeee 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -202,9 +202,10 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
- 		goto err1;
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ net/ipv4/netfilter/ipt_SYNPROXY.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+index fe8cc18..95ea633e 100644
+--- a/net/ipv4/netfilter/ipt_SYNPROXY.c
++++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+@@ -226,7 +226,8 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
  
- 	ct = nf_ct_tmpl_alloc(par->net, info->zone, GFP_KERNEL);
--	ret = PTR_ERR(ct);
--	if (IS_ERR(ct))
-+	if (!ct) {
-+		ret = -ENOMEM;
- 		goto err2;
-+	}
+ 	synproxy_build_options(nth, opts);
  
- 	ret = 0;
- 	if ((info->ct_events || info->exp_events) &&
+-	synproxy_send_tcp(skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
++	synproxy_send_tcp(skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
++	                  niph, nth, tcp_hdr_size);
+ }
+ 
+ static bool
+-- 
+1.8.3.1
