@@ -1,77 +1,40 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] packet: missing dev_put() in packet_do_bind()
-Date: Tue, 28 Jul 2015 01:32:21 +0300
-Message-ID: <20150727223220.GA10072@mwanda>
-References: <55B62C77.3070300@newtec.eu>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: Re: [PATCH] packet: Allow packets with only a header (but no payload)
+Date: Tue, 28 Jul 2015 00:35:56 +0200
+Message-ID: <CAFBinCDZDYJGjimsAD=+HFokc9ga0cLBD1KSAieagzWQNH+s=w@mail.gmail.com>
+References: <1437495247-471-1-git-send-email-martin.blumenstingl@googlemail.com>
+ <CA+FuTScr0o0ZmwWxVP4FZoQosRRiQG6+MDvCahMCWmjLkg+33g@mail.gmail.com>
+ <CAFBinCB4xOBzxwkEQYrpi1q7Xm4_-hpj2jUE2r-fQ5f2grjZ=Q@mail.gmail.com> <CA+FuTSctXr=2eC_-e793hvAPu=XyEhLeLoowH95tbOBx8CGj7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willem de Bruijn <willemb@google.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Daniel Borkmann <dborkman@redhat.com>,
-	Alexander Drozdov <al.drozdov@gmail.com>,
-	Eyal Birger <eyal.birger@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Lars Westerhoff <lars.westerhoff@newtec.eu>,
-	Boris Nikolaus <boris.nikolaus@newtec.eu>,
-	krystian.garbaciak@newtec.eu,
-	Michael Eyrich <michael.eyrich@newtec.eu>, security@kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+	David Miller <davem@davemloft.net>, johann.baudy@gnu-log.net
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:47658 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754305AbbG0WdI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 18:33:08 -0400
-Content-Disposition: inline
-In-Reply-To: <55B62C77.3070300@newtec.eu>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:35485 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754546AbbG0WgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 18:36:17 -0400
+Received: by lahh5 with SMTP id h5so57796902lah.2
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 15:36:16 -0700 (PDT)
+In-Reply-To: <CA+FuTSctXr=2eC_-e793hvAPu=XyEhLeLoowH95tbOBx8CGj7g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lars Westerhoff <lars.westerhoff@newtec.eu>
+Hi Johann,
 
-When binding a PF_PACKET socket, the use count of the bound interface is
-always increased with dev_hold in dev_get_by_{index,name}.  However,
-when rebound with the same protocol and device as in the previous bind
-the use count of the interface was not decreased.  Ultimately, this
-caused the deletion of the interface to fail with the following message:
+On Tue, Jul 21, 2015 at 6:51 PM, Willem de Bruijn <willemb@google.com> wrote:
+> I don't see a simple way of verifying the safety of allowing packets
+> without data short of a code audit, which would be huge, especially
+> when taking device driver logic into account. Perhaps someone
+> remembers why that statement was added and what edge case(s)
+> it refers to. I'm afraid that I don't. It was added in 69e3c75f4d54. I
+> added the author to this thread.
+I know it's summer (and thus vacation-time), but did you already have
+a chance to look into this?
 
-unregister_netdevice: waiting for dummy0 to become free. Usage count = 1
 
-This patch moves the dev_put out of the conditional part that was only
-executed when either the protocol or device changed on a bind.
-
-Fixes: 902fefb82ef7 ('packet: improve socket create/bind latency in some cases')
-Signed-off-by: Lars Westerhoff <lars.westerhoff@newtec.eu>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index c9e8741..c7c42eb 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2784,7 +2784,7 @@ static int packet_release(struct socket *sock)
- static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 proto)
- {
- 	struct packet_sock *po = pkt_sk(sk);
--	const struct net_device *dev_curr;
-+	struct net_device *dev_curr;
- 	__be16 proto_curr;
- 	bool need_rehook;
- 
-@@ -2808,15 +2808,13 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 proto)
- 
- 		po->num = proto;
- 		po->prot_hook.type = proto;
--
--		if (po->prot_hook.dev)
--			dev_put(po->prot_hook.dev);
--
- 		po->prot_hook.dev = dev;
- 
- 		po->ifindex = dev ? dev->ifindex : 0;
- 		packet_cached_dev_assign(po, dev);
- 	}
-+	if (dev_curr)
-+		dev_put(dev_curr);
- 
- 	if (proto == 0 || !need_rehook)
- 		goto out_unlock;
+Regards,
+Martin
