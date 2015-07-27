@@ -1,45 +1,42 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: netns refcnt leak for kernel accept sock
-Date: Mon, 27 Jul 2015 11:37:35 -0700
-Message-ID: <CAHA+R7PzsOCR-UmJ+73jXJaacc_adz9F3-Qs4zB0cSFajpJREw@mail.gmail.com>
-References: <20150727142146.GC16447@oracle.com>
-	<CAHA+R7Pe08rfERd1rMR1Y_kK2iUm4TDc92rRhhJhr-e+_fsioA@mail.gmail.com>
-	<20150727181946.GJ16447@oracle.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH v4 net-next 1/4] tcp: replace cnt & rtt with struct
+ in pkts_acked()
+Date: Mon, 27 Jul 2015 11:46:01 -0700
+Message-ID: <20150727114601.42fc6b63@urahara>
+References: <1437792426-1724090-1-git-send-email-brakmo@fb.com>
+	<1437792426-1724090-2-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Lawrence Brakmo <brakmo@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:34754 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbbG0Shg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:37:36 -0400
-Received: by ykax123 with SMTP id x123so76650432yka.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:37:35 -0700 (PDT)
-In-Reply-To: <20150727181946.GJ16447@oracle.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33340 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752747AbbG0Spz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:45:55 -0400
+Received: by padck2 with SMTP id ck2so55633572pad.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:45:55 -0700 (PDT)
+In-Reply-To: <1437792426-1724090-2-git-send-email-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 27, 2015 at 11:19 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (07/27/15 11:13), Cong Wang wrote:
->>
->> That refcnt should be released in sock destructor too, when the tcp
->> connection is terminated.
->
-> yes, but in my case, the listen socket is opened as part of
-> the ->init indirection in pernet_operations (thus it is a kernel socket)
-> and the expectation is that this listen socket, and any accept sockets
-> derived from it, will be closed in ->exit.
->
-> But if the accept socket is treated as a uspace socket (thus holds a get_net())
-> then it will block cleanup_net() and the associated ->exit cleanup operations.
->
-> This is probably not a problem for other systems like vxlan/gue/geneve etc
-> because they all use udp sockets, thus dont have the "accept" equivalent.
->
+On Fri, 24 Jul 2015 19:47:03 -0700
+Lawrence Brakmo <brakmo@fb.com> wrote:
 
-dlm uses a kernel TCP socket too, but it allocates a new socket and calls
-->accept() by itself. ;)
+> Replace 2 arguments (cnt and rtt) in the congestion control modules'
+> pkts_acked() function with a struct. This will allow adding more
+> information without having to modify existing congestion control
+> modules (tcp_nv in particular needs bytes in flight when packet
+> was sent).
+> 
+> As proposed by Neal Cardwell in his comments to the tcp_nv patch.
+
+Adding a layer of indirection makes code changes easier, but makes
+the code slower. Arguments are passed in registers, and putting an
+additional level of indirection only matters if you can't change
+all the CC modules. Since this is the kernel and API compatability
+doesn't matter, just pass more arguments.
