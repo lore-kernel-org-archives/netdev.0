@@ -1,155 +1,102 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net:master 41/49] drivers/net/ethernet/cadence/macb.c:164:1:
- error: macro "writel" passed 3 arguments, but takes just 2
-Date: Mon, 27 Jul 2015 14:25:21 -0700 (PDT)
-Message-ID: <20150727.142521.968868804720368489.davem@davemloft.net>
-References: <201507271704.JPi1M8WE%fengguang.wu@intel.com>
-	<1437995273.29746.84.camel@linux.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: [Bug 102051] New: Unexpected TCP behavior
+Date: Mon, 27 Jul 2015 23:35:14 +0200
+Message-ID: <1438032914.20182.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150727140218.095729a9@urahara>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, kbuild-all@01.org, netdev@vger.kernel.org
-To: andriy.shevchenko@linux.intel.com
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44429 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754553AbbG0VZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:25:24 -0400
-In-Reply-To: <1437995273.29746.84.camel@linux.intel.com>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:35520 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754065AbbG0VfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:35:18 -0400
+Received: by wibxm9 with SMTP id xm9so130669924wib.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 14:35:17 -0700 (PDT)
+In-Reply-To: <20150727140218.095729a9@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Mon, 27 Jul 2015 14:07:53 +0300
-
-> I do use compiler from Debian for AVR32, didn't check this on other
-> architectures.
+On Mon, 2015-07-27 at 14:02 -0700, Stephen Hemminger wrote:
 > 
-> Possible something like following will fix it:
+> Begin forwarded message:
+> 
+> Date: Mon, 27 Jul 2015 20:06:07 +0000
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+> Subject: [Bug 102051] New: Unexpected TCP behavior
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=102051
+> 
+>             Bug ID: 102051
+>            Summary: Unexpected TCP behavior
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.19
+>           Hardware: All
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: low
+>           Priority: P1
+>          Component: IPV4
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: vremetic@gmail.com
+>         Regression: No
+> 
+> While running nmap against localhost I started to see open ports in the dynamic
+> range (>1024). Kind of odd, knowing netstat and ss did not show any listeners
+> on the port.
+> 
+> With tcpdump, I confirmed system was returning S/ACK for ports that did not
+> have a listener enabled. The "issue" or feature only occurs if source port
+> matches the destination port.
+> 
+> # netstat -nap | grep 5000
+> #
+> 
+> $ nc localhost -p 5000 5000
+> a
+> a
+> 
+> # tcpdump -i lo port 5000
+> 14:28:18.059708 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [S], seq 2005295207,
+> win 43690, options [mss 65495,sackOK,TS val 4481790 ecr 0,nop,wscale 7], length
+> 0
+> 14:28:18.059721 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [S.], seq 2005295207,
+> ack 2005295208, win 43690, options [mss 65495,sackOK,TS val 4481790 ecr
+> 4481790,nop,wscale 7], length 0
 
-That isn't going to fix it.  You misunderstand the nature of the problem
-I think, the issue looks like this:
+Nothing wrong here. This is well known TCP behavior ( cross syn ).
 
-====================
-#define readl(x, y)		((x) + (y))
+> 14:28:18.059729 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [.], ack 2005295208,
+> win 342, options [nop,nop,TS val 4481790 ecr 4481790], length 0
+> 14:28:19.121392 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [P.], seq
+> 2005295208:2005295210, ack 2005295208, win 342, options [nop,nop,TS val 4482056
+> ecr 4481790], length 2
+> 14:28:19.121407 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [.], ack 2005295210,
+> win 342, options [nop,nop,TS val 4482056 ecr 4482056], length 0
+> 
+> # hping3 -S 127.0.0.1 -p 5000 -s 5000
+> HPING 127.0.0.1 (lo 127.0.0.1): S set, 40 headers + 0 data bytes 
+> len=40 ip=127.0.0.1 ttl=64 id=2036 sport=5000 flags=S seq=0 win=512 rtt=3.8 ms 
+>            << SYN
+> DUP! len=52 ip=127.0.0.1 ttl=64 DF id=670 sport=5000 flags=A seq=0 win=342
+> rtt=3.8 ms      << SYN/ACK
+> len=40 ip=127.0.0.1 ttl=64 DF id=43435 sport=5000 flags=RA seq=1 win=0 rtt=3.7
+> ms
+> 
+> I confirmed it with nmap, nc, and hping3; granted they build on same c
+> libraries, so I am not even sure if this should be filed as a kernel bug (or
+> even a bug);
+> just did not expect to see this behavior // 
+> 
+> Expected to see a RST instead.
+> 
 
-struct foo {
-	int (*readl)(int x, int y, int z);
-};
+Sigh.
 
-int test(struct foo *p)
-{
-	p->readl(1, 2, 3);
-}
-====================
-
-Archs typically define readl as a macro, so when you do things like
-p->readl() CPP tries to expand the macro when it sees the "readl("
-part, and that's the fundamental issue.
-
-We have to rename the method names so that the macro expansion does't
-interfere.
-
-Here is the fix I am committing to fix this:
-
-====================
-[PATCH] macb: Fix build with macro'ized readl/writel.
-
-If an architecture defines readl/writel using CPP macros, we
-get the following kinds of build failure:
-
-> > > drivers/net/ethernet/cadence/macb.c:164:1: error: macro "writel"
-> > > passed 3 arguments, but takes just 2
->      macb_or_gem_writel(bp, SA1B, bottom);
->     ^
-
-Rename the methods so that this doesn't happen.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/cadence/macb.c | 14 +++++++-------
- drivers/net/ethernet/cadence/macb.h | 16 ++++++++--------
- 2 files changed, 15 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index c638757..bf9eb2e 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -506,7 +506,7 @@ static void macb_update_stats(struct macb *bp)
- 	WARN_ON((unsigned long)(end - p - 1) != (MACB_TPF - MACB_PFR) / 4);
- 
- 	for(; p < end; p++, offset += 4)
--		*p += bp->readl(bp, offset);
-+		*p += bp->macb_reg_readl(bp, offset);
- }
- 
- static int macb_halt_tx(struct macb *bp)
-@@ -1934,14 +1934,14 @@ static void gem_update_stats(struct macb *bp)
- 
- 	for (i = 0; i < GEM_STATS_LEN; ++i, ++p) {
- 		u32 offset = gem_statistics[i].offset;
--		u64 val = bp->readl(bp, offset);
-+		u64 val = bp->macb_reg_readl(bp, offset);
- 
- 		bp->ethtool_stats[i] += val;
- 		*p += val;
- 
- 		if (offset == GEM_OCTTXL || offset == GEM_OCTRXL) {
- 			/* Add GEM_OCTTXH, GEM_OCTRXH */
--			val = bp->readl(bp, offset + 4);
-+			val = bp->macb_reg_readl(bp, offset + 4);
- 			bp->ethtool_stats[i] += ((u64)val) << 32;
- 			*(++p) += val;
- 		}
-@@ -2867,11 +2867,11 @@ static int macb_probe(struct platform_device *pdev)
- 	bp->regs = mem;
- 	bp->native_io = native_io;
- 	if (native_io) {
--		bp->readl = hw_readl_native;
--		bp->writel = hw_writel_native;
-+		bp->macb_reg_readl = hw_readl_native;
-+		bp->macb_reg_writel = hw_writel_native;
- 	} else {
--		bp->readl = hw_readl;
--		bp->writel = hw_writel;
-+		bp->macb_reg_readl = hw_readl;
-+		bp->macb_reg_writel = hw_writel;
- 	}
- 	bp->num_queues = num_queues;
- 	bp->queue_mask = queue_mask;
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 2aa102e..1895b6b 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -429,12 +429,12 @@
- 	 | GEM_BF(name, value))
- 
- /* Register access macros */
--#define macb_readl(port, reg)		(port)->readl((port), MACB_##reg)
--#define macb_writel(port, reg, value)	(port)->writel((port), MACB_##reg, (value))
--#define gem_readl(port, reg)		(port)->readl((port), GEM_##reg)
--#define gem_writel(port, reg, value)	(port)->writel((port), GEM_##reg, (value))
--#define queue_readl(queue, reg)		(queue)->bp->readl((queue)->bp, (queue)->reg)
--#define queue_writel(queue, reg, value)	(queue)->bp->writel((queue)->bp, (queue)->reg, (value))
-+#define macb_readl(port, reg)		(port)->macb_reg_readl((port), MACB_##reg)
-+#define macb_writel(port, reg, value)	(port)->macb_reg_writel((port), MACB_##reg, (value))
-+#define gem_readl(port, reg)		(port)->macb_reg_readl((port), GEM_##reg)
-+#define gem_writel(port, reg, value)	(port)->macb_reg_writel((port), GEM_##reg, (value))
-+#define queue_readl(queue, reg)		(queue)->bp->macb_reg_readl((queue)->bp, (queue)->reg)
-+#define queue_writel(queue, reg, value)	(queue)->bp->macb_reg_writel((queue)->bp, (queue)->reg, (value))
- 
- /* Conditional GEM/MACB macros.  These perform the operation to the correct
-  * register dependent on whether the device is a GEM or a MACB.  For registers
-@@ -782,8 +782,8 @@ struct macb {
- 	bool			native_io;
- 
- 	/* hardware IO accessors */
--	u32	(*readl)(struct macb *bp, int offset);
--	void	(*writel)(struct macb *bp, int offset, u32 value);
-+	u32	(*macb_reg_readl)(struct macb *bp, int offset);
-+	void	(*macb_reg_writel)(struct macb *bp, int offset, u32 value);
- 
- 	unsigned int		rx_tail;
- 	unsigned int		rx_prepared_head;
--- 
-2.1.0
+Wont fix.
