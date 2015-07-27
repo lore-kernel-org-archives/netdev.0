@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] lwtunnel: export linux/lwtunnel.h to userspace
-Date: Sun, 26 Jul 2015 21:46:14 -0700 (PDT)
-Message-ID: <20150726.214614.1861526312474581779.davem@davemloft.net>
-References: <1437659036-14282-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] cxgb4vf: Read correct FL congestion threshold
+ for T5 and T6
+Date: Sun, 26 Jul 2015 21:47:23 -0700 (PDT)
+Message-ID: <20150726.214723.1269693979460233312.davem@davemloft.net>
+References: <1437671474-30987-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, roopa@cumulusnetworks.com
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38081 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38087 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbbG0EqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 00:46:20 -0400
-In-Reply-To: <1437659036-14282-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1750927AbbG0ErX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 00:47:23 -0400
+In-Reply-To: <1437671474-30987-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu, 23 Jul 2015 15:43:56 +0200
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu, 23 Jul 2015 22:41:14 +0530
 
-> Note also that include/linux/lwtunnel.h is not needed.
+> VF driver was reading incorrect freelist congestion notification threshold
+> for FLM queues when packing is enabled for T5 and T6 adapter. Fixing it
+> now.
 > 
-> CC: Thomas Graf <tgraf@suug.ch>
-> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Fixes: 499a24256862 ("lwtunnel: infrastructure for handling light weight tunnels like mpls")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
 Applied, thanks.
