@@ -1,50 +1,94 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH][kernel 2.6.32] Bond interface can't send gratuitous ARP
-Date: Mon, 27 Jul 2015 07:21:44 +0200
-Message-ID: <20150727052144.GB19418@1wt.eu>
-References: <CAOtoAkdAArhXQCWsFq6Gk2-rZudY819HEtOJNuJzGxL5zNiEcg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tadavis@lbl.gov, const-g@xpert.com, ctindel@ieee.org,
-	girouard@us.ibm.com, fubar@us.ibm.com, mitch.a.williams@intel.com,
-	buytenh@gnu.org, greearb@candelatech.com, netdev@vger.kernel.org,
-	nick@dccinc.com, davem@redhat.com
-To: ????????? <xqjcool@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:23625 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751143AbbG0FWi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jul 2015 01:22:38 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOtoAkdAArhXQCWsFq6Gk2-rZudY819HEtOJNuJzGxL5zNiEcg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
+Subject: [PATCH] rsi: Fix failure to load firmware after memory leak fix and fix the leak
+Date: Mon, 27 Jul 2015 07:43:33 +0200
+Message-ID: <1437975813-3285-1-git-send-email-mike.looijmans@topic.nl>
+Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Qingjie,
+Fixes commit eae79b4f3e82ca63a53478a161b190a0d38fe526 ("rsi: fix memory leak
+in rsi_load_ta_instructions()") which stopped the driver from functioning.
 
-On Mon, Jul 27, 2015 at 09:05:29AM +0800, ????????? wrote:
-> Hi,
-> 
-> Bond interface worked as Active-Backup mode.
-> If the bond interface was added in bridge, then it's just a port of bridge.
-> It doesn' have IP address.
-> When bond slave changing, the current code "bond_send_gratuitous_arp"
-> didn't take effect. It couldn't send gratuitous ARP.
-> So I made a patch to fix this issue.
-> 
-> It's my first patch for kernel.
-> 
-> Thanks a lot for your *understanding* for any *inconvenience* caused.
+Firmware data has been allocated using vmalloc(), resulting in memory
+that cannot be used for DMA. Hence the firmware was first copied to a
+buffer allocated with kmalloc() in the original code. This patch reverts
+the commit and only calls "kfree()" to release the buffer after sending
+the data. This fixes the memory leak without breaking the driver.
 
-Patches may only be sent for mainline kernel. Since you're trying to fix
-2.6.32, you first need to check if a more recent version works properly.
-If it's the case, then instead you should ask for a backport of the patch
-that did the related change (it's easier for tracking bug fixes and
-regressions). If the problem is also present in mainline, then you should
-propose your patch for mainline. Since it's a fix, it will be backported.
+Add a comment to the kmemdup() calls to explain why this is done.
 
-BTW, please keep in mind that 2.6.32 is reaching EOL in a few months, so
-it would be a good time to try newer ones (3.2 or 3.4 are rock solid now).
+Tested on a Topic Miami-Florida board which contains the rsi SDIO chip.
 
-Hoping this helps,
-Willy
+Also added the same kfree() call to the USB glue driver. This was not
+tested on actual hardware though, as I only have the SDIO version.
+
+Signed-off-by: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+---
+ drivers/net/wireless/rsi/rsi_91x_sdio_ops.c | 6 +++++-
+ drivers/net/wireless/rsi/rsi_91x_usb_ops.c  | 2 ++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
+index b6cc9ff..5c37a71 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
++++ b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
+@@ -172,6 +172,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+ 	u32 len;
+ 	u32 num_blocks;
++	const u8 *fw;
+ 	const struct firmware *fw_entry = NULL;
+ 	u32 block_size = dev->tx_blk_size;
+ 	int status = 0;
+@@ -200,6 +201,8 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 		return status;
+ 	}
+ 
++	/* Copy firmware into DMA-accessible memory */
++	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
+ 	len = fw_entry->size;
+ 
+ 	if (len % 4)
+@@ -210,7 +213,8 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 	rsi_dbg(INIT_ZONE, "%s: Instruction size:%d\n", __func__, len);
+ 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
+ 
+-	status = rsi_copy_to_card(common, fw_entry->data, len, num_blocks);
++	status = rsi_copy_to_card(common, fw, len, num_blocks);
++	kfree(fw);
+ 	release_firmware(fw_entry);
+ 	return status;
+ }
+diff --git a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
+index 1106ce7..088e28e 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
++++ b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
+@@ -146,6 +146,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 		return status;
+ 	}
+ 
++	/* Copy firmware into DMA-accessible memory */
+ 	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
+ 	len = fw_entry->size;
+ 
+@@ -158,6 +159,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
+ 
+ 	status = rsi_copy_to_card(common, fw, len, num_blocks);
++	kfree(fw);
+ 	release_firmware(fw_entry);
+ 	return status;
+ }
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
