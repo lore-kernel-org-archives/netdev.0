@@ -1,52 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] inet: ip defrag bug fixes
-Date: Sun, 26 Jul 2015 21:00:36 -0700 (PDT)
-Message-ID: <20150726.210036.2175646567443197922.davem@davemloft.net>
-References: <1437645940-7895-1-git-send-email-fw@strlen.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [NET-NEXT PATCH] net: macb: Change capability mask of jumbo
+ support
+Date: Sun, 26 Jul 2015 21:17:20 -0700 (PDT)
+Message-ID: <20150726.211720.464580671483187425.davem@davemloft.net>
+References: <1437645686-5146-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johan@transip.nl, fschreuder@transip.nl,
-	nikolay@cumulusnetworks.com
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37848 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703AbbG0EAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 00:00:37 -0400
-In-Reply-To: <1437645940-7895-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+	michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org
+To: harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1437645686-5146-1-git-send-email-harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 23 Jul 2015 12:05:36 +0200
+From: Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Date: Thu, 23 Jul 2015 15:31:26 +0530
 
-> Johan Schuijt and Frank Schreuder reported crash and softlockup after the
-> inet workqueue eviction change:
+> Capability mask for jumbo and no gigabit half duplex is the same.
+> Change one of them.
 > 
-> general protection fault: 0000 [#1] SMP
-> CPU: 0 PID: 4 Comm: kworker/0:0 Not tainted 3.18.18-transip-1.5 #1
-> Workqueue: events inet_frag_worker
-> task: ffff880224935130 ti: ffff880224938000 task.ti: ffff880224938000
-> RIP: 0010:[<ffffffff8149288c>] [<ffffffff8149288c>] inet_evict_bucket+0xfc/0x160
-> RSP: 0018:ffff88022493bd58  EFLAGS: 00010286
-> RAX: ffff88021f4f3e80 RBX: dead000000100100 RCX: 000000000000006b
-> RDX: 000000000000006c RSI: ffff88021f4f3e80 RDI: dead0000001000a8
-> RBP: 0000000000000002 R08: ffff880222273900 R09: ffff880036e49200
-> R10: ffff8800c6e86500 R11: ffff880036f45500 R12: ffffffff81a87100
-> R13: ffff88022493bd70 R14: 0000000000000000 R15: ffff8800c9b26280
-> [..]
-> Call Trace:
->  [<ffffffff814929e0>] ? inet_frag_worker+0x60/0x210
->  [<ffffffff8107e3a2>] ? process_one_work+0x142/0x3b0
->  [<ffffffff8107eb94>] ? worker_thread+0x114/0x440
-> [..]
-> 
-> A second issue results in softlockup since the evictor may restart the
-> eviction loop for a (potentially) unlimited number of times while local
-> softirqs are disabled.
-> 
-> Frank reports that test system remained stable for 14 hours of testing
-> (before, crash occured within half an hour in their setup).
+> Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
 
-Looks great, series applied, thanks everyone.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
