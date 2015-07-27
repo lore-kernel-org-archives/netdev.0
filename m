@@ -1,85 +1,65 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: Several races in "usbnet" module (kernel 4.1.x)
-Date: Mon, 27 Jul 2015 14:29:28 +0200
-Message-ID: <1438000168.32457.18.camel@suse.com>
-References: <55AD3A41.2040100@rosalab.ru> <1437480243.3823.5.camel@suse.com>
-	 <55B27805.90601@rosalab.ru>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [PATCH 03/10] dpaa_eth: add configurable bpool thresholds
+Date: Mon, 27 Jul 2015 12:54:09 +0000
+Message-ID: <BL2PR03MB5454AAD79FE8530995B1B08E68E0@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1437581806-17420-3-git-send-email-madalin.bucur@freescale.com>
+	<1437587228.20787.26.camel@perches.com>
+	<BL2PR03MB545AA0E6D98232FF43B6CE9E6810@BL2PR03MB545.namprd03.prod.outlook.com>
+ <20150726.163520.846046458508685868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "joe@perches.com" <joe@perches.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Scott Wood <scottwood@freescale.com>,
+	Liberman Igal <Igal.Liberman@freescale.com>,
+	"ppc@mindchasers.com" <ppc@mindchasers.com>,
+	"pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55B27805.90601@rosalab.ru>
+In-Reply-To: <20150726.163520.846046458508685868.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-07-24 at 20:38 +0300, Eugene Shatokhin wrote:
-> 21.07.2015 15:04, Oliver Neukum =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, July 27, 2015 2:35 AM
+> To: Bucur Madalin-Cristian-B32716
+> Cc: joe@perches.com; netdev@vger.kernel.org; linuxppc-
+> dev@lists.ozlabs.org; linux-kernel@vger.kernel.org; Wood Scott-B07421;
+> Liberman Igal-B31950; ppc@mindchasers.com; pebolle@tiscali.nl;
+> joakim.tjernlund@transmode.se
+> Subject: Re: [PATCH 03/10] dpaa_eth: add configurable bpool thresholds
+> 
+> From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+> Date: Fri, 24 Jul 2015 15:49:39 +0000
+> 
+> >> -----Original Message-----
+> >> From: Joe Perches [mailto:joe@perches.com]
+> >> On Wed, 2015-07-22 at 19:16 +0300, Madalin Bucur wrote:
+> >> > Allow the user to tweak the refill threshold and the total number
+> >> > of buffers in the buffer pool. The provided values are for one CPU.
+> >>
+> >> Any value in making these module parameters instead?
+> >
+> > I expect one would (hardly ever) change these to improve some corner
+> > cases then use them with the new values. It may help in the tuning process
+> > but afterwards the bloat to the bootcmd would probably be  a nuisance.
+> 
+> I think these should be controlled by the existing ethtool infrastructure.
+> 
+> Neither the Kconfig mechanism nor module parameters are appropriate, at
+> all.
 
-> > your analysis is correct and it looks like in addition to your prop=
-osed
-> > fix locking needs to be simplified and a common lock to be taken.
-> > Suggestions?
->=20
-> Just an idea, I haven't tested it.
->=20
-> How about moving the operations with dev->done under &list->lock in=20
-> defer_bh, while keeping dev->done.lock too and changing=20
+The existing ethtool options are for ring based drivers (ethtool -g / -G).
+I would not use those as we are not using rings (they do not map well anyway).
 
-Why keep dev->done.lock?
-Does it make sense at all?
+We could introduce special options for our non-ring devices but for these
+parameters in particular I'd just resort to defines in the code as it's
+improbable one would want to change them.
 
-> usbnet_terminate_urbs() as described below?
->=20
-> Like this:
-> @@ -428,12 +428,12 @@ static enum skb_state defer_bh(struct usbnet *d=
-ev,=20
-> struct sk_buff *skb,
->   	old_state =3D entry->state;
->   	entry->state =3D state;
->   	__skb_unlink(skb, list);
-> -	spin_unlock(&list->lock);
->   	spin_lock(&dev->done.lock);
->   	__skb_queue_tail(&dev->done, skb);
->   	if (dev->done.qlen =3D=3D 1)
->   		tasklet_schedule(&dev->bh);
-> -	spin_unlock_irqrestore(&dev->done.lock, flags);
-> +	spin_unlock(&dev->done.lock);
-> +	spin_unlock_irqrestore(&list->lock, flags);
->   	return old_state;
->   }
-> -------------------
->=20
-> usbnet_terminate_urbs() can then be changed as follows:
->=20
-> @@ -749,6 +749,20 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
->=20
-> =20
-> /*-------------------------------------------------------------------=
-------*/
->=20
-> +static void wait_skb_queue_empty(struct sk_buff_head *q)
-> +{
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&q->lock, flags);
-> +	while (!skb_queue_empty(q)) {
-> +		spin_unlock_irqrestore(&q->lock, flags);
-> +		schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
-> +		set_current_state(TASK_UNINTERRUPTIBLE);
-
-I suppose you want to invert those lines
-
-> +		spin_lock_irqsave(&q->lock, flags);
-> +	}
-> +	spin_unlock_irqrestore(&q->lock, flags);
-> +}
-> +
-
-Your changes make sense, but it locks to me as if a lock would
-become totally redundant.
-
-	Regards
-		Oliver
+Madalin
