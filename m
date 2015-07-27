@@ -1,41 +1,73 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: kernel warning in tcp_fragment
-Date: Mon, 27 Jul 2015 16:19:48 -0700
-Message-ID: <20150727231947.GC2832181@devbig242.prn2.facebook.com>
-References: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH 2/2] ixgbe: Teardown SR-IOV before
+	unregister_netdev()
+Date: Mon, 27 Jul 2015 23:42:15 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D783BF457@FMSMSX113.amr.corp.intel.com>
+References: <20150727223753.10121.78169.stgit@gimli.home>
+ <20150727231840.10121.31628.stgit@gimli.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <ncardwell@google.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	FB Kernel Team <kernel-team@fb.com>
-To: Jovi Zhangwei <jovi@cloudflare.com>,
-	Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:27262 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753578AbbG0XVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 19:21:16 -0400
-Content-Disposition: inline
-In-Reply-To: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Alex Williamson' <alex.williamson@redhat.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150727231840.10121.31628.stgit@gimli.home>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 22, 2015 at 11:55:35AM -0700, Jovi Zhangwei wrote:
-> Sorry for disturbing, our production system(3.14 and 3.18 stable
-> kernel) have many tcp_fragment warnings,
-> the trace is same as below one which you discussed before.
+ACK
+
+> -----Original Message-----
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Alex Williamson
+> Sent: Monday, July 27, 2015 4:19 PM
+> To: intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: [Intel-wired-lan] [PATCH 2/2] ixgbe: Teardown SR-IOV before
+> unregister_netdev()
 > 
-> https://urldefense.proofpoint.com/v1/url?u=http://comments.gmane.org/gmane.linux.network/365658&k=ZVNjlDMF0FElm4dQtryO4A%3D%3D%0A&r=%2Faj1ZOQObwbmtLwlDw3XzQ%3D%3D%0A&m=fQUME5h%2FYY3oZjXbnLC3z6TaEEcTBSCAji4PkNqFjq8%3D%0A&s=1527f3221a6f31cba9544e5ddaa20986aafe8be8c898b42c7e9ce5e68d3803d8
+> When the .remove() callback for a PF is called, SR-IOV support for the
+> device is disabled, which requires unbinding and removing the VFs.
+> The VFs may be in-use either by the host kernel or userspace, such as
+> assigned to a VM through vfio-pci.  In this latter case, the VFs may
+> be removed either by shutting down the VM or hot-unplugging the
+> devices from the VM.  Unfortunately in the case of a Windows 2012 R2
+> guest, hot-unplug is broken due to the ordering of the PF driver
+> teardown.  Disabling SR-IOV prior to unregister_netdev() avoids this
+> issue.
 > 
-> But I didn't found the final solution in that mail thread, do you have
-> any new ideas or patches on this warning?
-
-I think the following points to the last discussion.  We are currently using a
-similar patch:
-http://comments.gmane.org/gmane.linux.network/366549
-
-Eric, any update on your findings? or you have already pushed a fix?
-
-Thanks,
---Martin
+> Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index f775123..e27813c 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -9035,12 +9035,12 @@ static void ixgbe_remove(struct pci_dev *pdev)
+>  	/* remove the added san mac */
+>  	ixgbe_del_sanmac_netdev(netdev);
+> 
+> -	if (netdev->reg_state == NETREG_REGISTERED)
+> -		unregister_netdev(netdev);
+> -
+>  #ifdef CONFIG_PCI_IOV
+>  	ixgbe_disable_sriov(adapter);
+>  #endif
+> +	if (netdev->reg_state == NETREG_REGISTERED)
+> +		unregister_netdev(netdev);
+> +
+>  	ixgbe_clear_interrupt_scheme(adapter);
+> 
+>  	ixgbe_release_hw_control(adapter);
+> 
+> _______________________________________________
+> Intel-wired-lan mailing list
+> Intel-wired-lan@lists.osuosl.org
+> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
