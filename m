@@ -1,66 +1,47 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net PATCH] fib_trie: Drop unnecessary calls to leaf_pull_suffix
-Date: Mon, 27 Jul 2015 13:08:06 -0700
-Message-ID: <20150727195631.26840.93266.stgit@ahduyck-vm-fedora22>
-References: <55B6612C.7050506@cumulusnetworks.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next 0/4] Introduce Mellanox Technologies Switch ASICs
+ switchdev drivers
+Date: Mon, 27 Jul 2015 13:21:54 -0700
+Message-ID: <CAE4R7bBdDO=d_9dT560dSTo9E0kqcL-sXyF1HqsA-_WHCtPqAw@mail.gmail.com>
+References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, idosch@mellanox.com,
+	eladr@mellanox.com,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	john fastabend <john.fastabend@gmail.com>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	John Linville <linville@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58173 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754373AbbG0UIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jul 2015 16:08:07 -0400
-In-Reply-To: <55B6612C.7050506@cumulusnetworks.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:35134 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752790AbbG0UWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 16:22:14 -0400
+Received: by obbop1 with SMTP id op1so68423480obb.2
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 13:22:14 -0700 (PDT)
+In-Reply-To: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It was reported that update_suffix was taking a long time on systems where
-a large number of leaves were attached to a single node.  As it turns out
-fib_table_flush was calling update_suffix for each leaf that didn't have all
-of the aliases stripped from it.  As a result, on this large node removing
-one leaf would result in us calling update_suffix for every other leaf on
-the node.
+On Thu, Jul 23, 2015 at 8:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> This patchset introduces Mellanox Technologies Switch driver infrastructure
+> and support for SwitchX-2 ASIC.
 
-The fix is to just remove the calls to leaf_pull_suffix since they are
-redundant as we already have a call in resize that will go through and
-update the suffix length for the node before we exit out of
-fib_table_flush or fib_table_flush_external.
+You guys did a great job on the driver; looking forward to seeing
+L2/L3 hooked up.  Very nice, aesthetically pleasing code.
 
-Reported-by: David Ahern <dsa@cumulusnetworks.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
+Is this a ground-up rewrite or a port of the SDK?  It's so clean and
+tight, I'm guessing a ground-up rewrite.
 
-This patch should apply to linux-4.1.y and newer kernels.
-
-I've done a bit of testing on my system and I no longer see update_suffix
-dominating the performance traces.  David if you can test with this patch
-to see if you still see the issue I would appreciate it.
-
- net/ipv4/fib_trie.c |    4 ----
- 1 file changed, 4 deletions(-)
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index ef90d73911de..70168ca4716b 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1791,8 +1791,6 @@ void fib_table_flush_external(struct fib_table *tb)
- 		if (hlist_empty(&n->leaf)) {
- 			put_child_root(pn, n->key, NULL);
- 			node_free(n);
--		} else {
--			leaf_pull_suffix(pn, n);
- 		}
- 	}
- }
-@@ -1862,8 +1860,6 @@ int fib_table_flush(struct fib_table *tb)
- 		if (hlist_empty(&n->leaf)) {
- 			put_child_root(pn, n->key, NULL);
- 			node_free(n);
--		} else {
--			leaf_pull_suffix(pn, n);
- 		}
- 	}
- 
+Reviewed-by: Scott Feldman <sfeldma@gmail.com>
