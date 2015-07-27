@@ -1,77 +1,77 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: netns refcnt leak for kernel accept sock
-Date: Mon, 27 Jul 2015 12:40:27 -0500
-Message-ID: <87h9op5wj8.fsf@x220.int.ebiederm.org>
-References: <20150727142146.GC16447@oracle.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: increase in time to delete an interface with 4.x kernels
+Date: Mon, 27 Jul 2015 10:36:26 -0700
+Message-ID: <55B66C1A.4000804@redhat.com>
+References: <55B6612C.7050506@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:51445 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752187AbbG0RrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 13:47:02 -0400
-In-Reply-To: <20150727142146.GC16447@oracle.com> (Sowmini Varadhan's message
-	of "Mon, 27 Jul 2015 16:21:46 +0200")
+Received: from mx1.redhat.com ([209.132.183.28]:57715 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753237AbbG0RyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2015 13:54:25 -0400
+In-Reply-To: <55B6612C.7050506@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07/27/2015 09:49 AM, David Ahern wrote:
+> Hi Alex:
+>
+> I believe you did the recent overhaul to the fib implementation. I am
+> seeing dramatically higher times to delete an interface with an ipv4
+> address in 4.2-rc3. perf-top points to update_suffix:
+>
+>     PerfTop:   15834 irqs/sec  kernel:97.3%  exact:  0.0% [4000Hz
+> cpu-clock],  (all, 4 CPUs)
+> -------------------------------------------------------------------------------------------
+>
+>
+>      74.69%  [kernel]       [k] update_suffix
+>       2.38%  [kernel]       [k] fib_table_flush
+>       2.20%  [kernel]       [k] fib6_walk_continue
+>       2.03%  [kernel]       [k] fib6_ifdown
+>       1.31%  [kernel]       [k] fib6_age
+>
+>
+> I have a simple script to create and assign an ipv4 address to 10k dummy
+> interfaces:
+>
+> l=0
+> for (( j = 1; j <= 40; j += 1))
+> do
+>      for (( k = 1 ; k <= 250  ; k += 1 ))
+>      do
+>          l=$((l + 1))
+>          ip link add dev dummy${l} type dummy
+>            ip addr add  72.$j.$k.1/24 dev dummy${l}
+>            ifconfig dummy${l} up
+>      done
+> done
+>
+>
+> and a counter script to delete them all:
+>
+> k=$(ip link show | grep dummy | wc -l)
+> for (( j = 1; j <= k; j += 1))
+> do
+>      ip link del dev dummy${j}
+> done
+>
 
-sock_create_kern and friends are specialied interfaces for special
-purposes.  At a quick read through I don't think we have a single in
-tree user doing with them what you are trying to do.
+Okay so looking over what this script does it looks like it really 
+exposes the worst case scenerio for update_suffix.  You have a monstrous 
+tnode that is 15 bits ins size.  That is roughly 32K entries, and 
+unfortunately the suffix is 8 bits long with a position of 7.
 
-Without seeing code using the interfaces in the way are trying to use
-them I do not have enough information to comment intelligently.
+The result is that for every removal the code is scanning 16K entries in 
+order to relevel things after an entry is removed.
 
-Eric
+Let me try a couple of quick things and I should have a patch for you in 
+the next couple of hours.
 
-Sowmini Varadhan <sowmini.varadhan@oracle.com> writes:
-> I'm running into a netns refcnt issue, and I suspect that 
-> eeb1bd5c has something to do with it (perhaps we need an 
-> additional change in sk_clone_lock() after eeb1bd5c). 
-> Here's the problem:
->
-> When we create an syn_recv sock based on a kernel listen sock, we
-> take a get_net() ref  with a stack similar to the one shown below.
-> Note that the parent (kernel, listen) sock itself has not taken
-> a get_net() ref, because it explicitly calls sock_create_kern().
->
->   get_net /* for the newsk */
->   sk_clone_lock
->   inet_csk_clone_lock
->   tcp_create_openreq_child
->   tcp_v4_syn_recv_sock
->   tcp_check_req
->   tcp_v4_do_rcv
->   tcp_v4_rcv 
->    :
->
-> But it's not clear to me where this refcnt will be released: 
-> in my case, I expect to create/cleanup kernel sockets as part 
-> of ->init/->exit for my module, but because the accept socket 
-> has a netns refcnt, it blocks cleanup_net(), thus my ->exit 
-> pernet_subsys op cannot run and clean this up, and we have a leak.
->
-> I think that sk_clone_lock() should only do a get_net() if the parent
-> is not a kernel socket (making this similar to sk_alloc()), i.e.,
->
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 08f16db..371d1b7 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1497,7 +1497,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gf
->                 sock_copy(newsk, sk);
->
->                 /* SANITY */
-> -               get_net(sock_net(newsk));
-> +               if (likely(newsk->sk_net_refcnt))
-> +                       get_net(sock_net(newsk));
->                 sk_node_init(&newsk->sk_node);
->                 sock_lock_init(newsk);
->                 bh_lock_sock(newsk);
->
-> Does this sound right?
->
-> --Sowmini
+Thanks.
+
+- Alex
