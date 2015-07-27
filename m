@@ -1,66 +1,100 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: netns refcnt leak for kernel accept sock
-Date: Mon, 27 Jul 2015 16:21:46 +0200
-Message-ID: <20150727142146.GC16447@oracle.com>
+From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Subject: Re: Several races in "usbnet" module (kernel 4.1.x)
+Date: Mon, 27 Jul 2015 17:23:53 +0300
+Message-ID: <55B63EF9.6090800@rosalab.ru>
+References: <55AD3A41.2040100@rosalab.ru> <1437488529.3823.16.camel@suse.com>
+ <55AFE210.7030104@rosalab.ru> <1437642952.4377.10.camel@suse.com>
+ <55B24EB6.5090907@rosalab.ru> <1437991239.32457.9.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ebiederm@xmission.com, davem@davemloft.net,
-	sowmini.varadhan@oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:40464 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbbG0OVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 10:21:54 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1437991239.32457.9.camel@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+27.07.2015 13:00, Oliver Neukum =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Fri, 2015-07-24 at 17:41 +0300, Eugene Shatokhin wrote:
+>> 23.07.2015 12:15, Oliver Neukum =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>
+>>   From what I see now in Documentation/atomic_ops.txt, stores to the
+>> properly aligned memory locations are in fact atomic.
+>
+> They are, but again only with respect to each other.
 
-I'm running into a netns refcnt issue, and I suspect that 
-eeb1bd5c has something to do with it (perhaps we need an 
-additional change in sk_clone_lock() after eeb1bd5c). 
-Here's the problem:
+You are right. The architectures like "sparc" and may be others, indeed=
+,=20
+use spinlocks to implement atomic operations, including bit manupulatio=
+n.
 
-When we create an syn_recv sock based on a kernel listen sock, we
-take a get_net() ref  with a stack similar to the one shown below.
-Note that the parent (kernel, listen) sock itself has not taken
-a get_net() ref, because it explicitly calls sock_create_kern().
+Well then, I can only think about clearing each flag individually (with=
+=20
+clear_bit()) instead of using "dev->flags =3D 0".
 
-  get_net /* for the newsk */
-  sk_clone_lock
-  inet_csk_clone_lock
-  tcp_create_openreq_child
-  tcp_v4_syn_recv_sock
-  tcp_check_req
-  tcp_v4_do_rcv
-  tcp_v4_rcv 
-   :
+Something like this:
 
-But it's not clear to me where this refcnt will be released: 
-in my case, I expect to create/cleanup kernel sockets as part 
-of ->init/->exit for my module, but because the accept socket 
-has a netns refcnt, it blocks cleanup_net(), thus my ->exit 
-pernet_subsys op cannot run and clean this up, and we have a leak.
+-----------------
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 3c86b10..826eefe 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -779,6 +790,7 @@ int usbnet_stop (struct net_device *net)
+         struct usbnet           *dev =3D netdev_priv(net);
+         struct driver_info      *info =3D dev->driver_info;
+         int                     retval, pm;
++       int                     e;
 
-I think that sk_clone_lock() should only do a get_net() if the parent
-is not a kernel socket (making this similar to sk_alloc()), i.e.,
+         clear_bit(EVENT_DEV_OPEN, &dev->flags);
+         netif_stop_queue (net);
+@@ -813,7 +825,8 @@ int usbnet_stop (struct net_device *net)
+          * can't flush_scheduled_work() until we drop rtnl (later),
+          * else workers could deadlock; so make workers a NOP.
+          */
+-       dev->flags =3D 0;
++       for (e =3D 0; e < EVENT_NUM_EVENTS; ++e)
++               clear_bit(e, &dev->flags)
+         del_timer_sync (&dev->delay);
+         tasklet_kill (&dev->bh);
+         if (!pm)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 08f16db..371d1b7 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1497,7 +1497,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gf
-                sock_copy(newsk, sk);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 6e0ce8c..7ad62da 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -79,6 +79,7 @@ struct usbnet {
+# define EVENT_RX_KILL 10
+# define EVENT_LINK_CHANGE 11
+# define EVENT_SET_RX_MODE 12
++# define EVENT_NUM_EVENTS 13 /* Or may be keep all these in an enum? *=
+/
+};
 
-                /* SANITY */
--               get_net(sock_net(newsk));
-+               if (likely(newsk->sk_net_refcnt))
-+                       get_net(sock_net(newsk));
-                sk_node_init(&newsk->sk_node);
-                sock_lock_init(newsk);
-                bh_lock_sock(newsk);
+static inline struct usb_driver *driver_of(struct usb_interface *intf)
+-------------------
 
-Does this sound right?
+clear_bit() is atomic w.r.t. itself and other bit ops.
+>
+>> So, I think, the situation you described above cannot happen for
+>> dev->flags, which is good. No need to address that in the patch. The
+>> race might be harmless after all.
+>>
+>> If I understand the code correctly now, dev->flags is set to 0 in
+>> usbnet_stop() so that the worker function (usbnet_deferred_kevent) w=
+ould
+>
+> Yes, particularly not reschedule itself.
+>
+>> do nothing, should it start later. If so, how about adding memory
+>> barriers for all CPUs to see dev->flags is 0 before other things?
+>
+> Taking a lock, as del_timer_sync() does, implies a memory barrier,
+> as does a work.
 
---Sowmini
+If so, then, yes, additional barriers are not needed.
+
+Regards,
+Eugene
