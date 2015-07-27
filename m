@@ -1,42 +1,52 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH v4 net-next 1/4] tcp: replace cnt & rtt with struct
- in pkts_acked()
-Date: Mon, 27 Jul 2015 11:46:01 -0700
-Message-ID: <20150727114601.42fc6b63@urahara>
-References: <1437792426-1724090-1-git-send-email-brakmo@fb.com>
-	<1437792426-1724090-2-git-send-email-brakmo@fb.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: netns refcnt leak for kernel accept sock
+Date: Mon, 27 Jul 2015 20:50:02 +0200
+Message-ID: <20150727185002.GA20334@oracle.com>
+References: <20150727142146.GC16447@oracle.com>
+ <CAHA+R7Pe08rfERd1rMR1Y_kK2iUm4TDc92rRhhJhr-e+_fsioA@mail.gmail.com>
+ <20150727181946.GJ16447@oracle.com>
+ <CAHA+R7PzsOCR-UmJ+73jXJaacc_adz9F3-Qs4zB0cSFajpJREw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Lawrence Brakmo <brakmo@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33340 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752747AbbG0Spz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:45:55 -0400
-Received: by padck2 with SMTP id ck2so55633572pad.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:45:55 -0700 (PDT)
-In-Reply-To: <1437792426-1724090-2-git-send-email-brakmo@fb.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:42514 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbbG0SuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:50:17 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7PzsOCR-UmJ+73jXJaacc_adz9F3-Qs4zB0cSFajpJREw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 24 Jul 2015 19:47:03 -0700
-Lawrence Brakmo <brakmo@fb.com> wrote:
-
-> Replace 2 arguments (cnt and rtt) in the congestion control modules'
-> pkts_acked() function with a struct. This will allow adding more
-> information without having to modify existing congestion control
-> modules (tcp_nv in particular needs bytes in flight when packet
-> was sent).
+On (07/27/15 11:37), Cong Wang wrote:
 > 
-> As proposed by Neal Cardwell in his comments to the tcp_nv patch.
+> dlm uses a kernel TCP socket too, but it allocates a new socket and calls
+> ->accept() by itself. ;)
 
-Adding a layer of indirection makes code changes easier, but makes
-the code slower. Arguments are passed in registers, and putting an
-additional level of indirection only matters if you can't change
-all the CC modules. Since this is the kernel and API compatability
-doesn't matter, just pass more arguments.
+sure, and rds does this in rds_tcp_accept_one() too.
+
+But the newsk being created in sk_clone_lock  is the one on an 
+incoming syn, i.e., the one that is saved up as part of listen backlog, 
+to be returned later on the accept.
+
+I dont know the details of dlm- can you have one dlm instance per
+network namespace? That's where I'm running into this issue- when we
+try to have one rds listen socket per netns, and want to be able to
+do both
+- dynamically build/tear down new network namepsaces, without 
+  unloading rds_tcp globally
+- unload rds_tcp globally withouth tearing down individual netns.
+
+But perhaps we digress.
+
+Fundamental issue remains: newsk is the syn_recv version of the
+listen socket. If the listen socket is a "kernel" socket (kern == 1
+for sk_alloc, and the listen socket thus has no sk_net_refcnt),
+the syn_recv socket must also have that behavior, so that it is
+cleaned up in the same way.
+
+--Sowmini
