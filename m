@@ -1,56 +1,157 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: [patch net-next 4/4] mlxsw: Introduce Mellanox SwitchX-2 ASIC
- support
-Date: Mon, 27 Jul 2015 06:17:22 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F919405E0B@HASMSX110.ger.corp.intel.com>
-References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
- <1437666216-3149-5-git-send-email-jiri@resnulli.us>
- <CAE4R7bAk_nUCuqcJxuAAr6pOqNX7zXWv1zFZDVGwBi7_nk8=kQ@mail.gmail.com>
- <20150726071010.GA2150@nanopsycho.fritz.box>
- <20150726171410.GB2207@nanopsycho.fritz.box>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	John Linville <linville@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"Shrijeet Mukherjee" <shm@cumulusnetworks.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCHv2] net/ipv6: add sysctl option accept_ra_hop_limit
+Date: Mon, 27 Jul 2015 14:35:42 +0800
+Message-ID: <1437978942-7047-1-git-send-email-liuhangbin@gmail.com>
+Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:9249 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751135AbbG0GR3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 02:17:29 -0400
-In-Reply-To: <20150726171410.GB2207@nanopsycho.fritz.box>
-Content-Language: en-US
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:32905 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbbG0Gfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 02:35:55 -0400
+Received: by pdbnt7 with SMTP id nt7so46486794pdb.0
+        for <netdev@vger.kernel.org>; Sun, 26 Jul 2015 23:35:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Jiri,
+Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
+disabled accept hop limit from RA if it is higher than the current hop
+limit for security stuff. But this behavior kind of break the RFC definition.
 
-Keep on the good work!
+RFC 4861, 6.3.4.  Processing Received Router Advertisements
+   If the received Cur Hop Limit value is non-zero, the host SHOULD set
+   its CurHopLimit variable to the received value.
 
-The .func  member of the mlxsw_rx_listener object has this prototype:
-void (*func)(struct sk_buff *skb, u8 local_port, u16 trap_id, void *priv);
+So add sysctl option accept_ra_hop_limit to let user choose whether accept
+hop limit info in RA.
 
-Is the trap_id  parameter needed ?
-In the three use cases of .func, which are either mlxsw_emad_rx_listener_func(), mlxsw_core_event_listener_func(), or mlxsw_sx_rx_listener_func(), this parameter is not used at all.
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ Documentation/networking/ip-sysctl.txt | 11 +++++++++++
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    | 10 ++++++++++
+ net/ipv6/ndisc.c                       | 17 +++++++++++------
+ 5 files changed, 34 insertions(+), 6 deletions(-)
 
-
-Regards,
-Rami Rosen
-Intel Corporation
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 5fae770..778c479 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1346,6 +1346,17 @@ accept_ra_pinfo - BOOLEAN
+ 	Functional default: enabled if accept_ra is enabled.
+ 			    disabled if accept_ra is disabled.
+ 
++accept_ra_hop_limit - INTEGER
++	Learn hop limit in Router Advertisement.
++
++	Possible values are:
++		0 Do not accept hop limit in Router Advertisements.
++		1 Accept hop limit in Router Advertisements if it is higher
++		  than the current hop limit.
++		2 Accept hop limit in Router Advertisements anyway.
++
++	Default: 1
++
+ accept_ra_rt_info_max_plen - INTEGER
+ 	Maximum prefix length of Route Information in RA.
+ 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 82806c6..a21a9c6 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -30,6 +30,7 @@ struct ipv6_devconf {
+ 	__s32		max_addresses;
+ 	__s32		accept_ra_defrtr;
+ 	__s32		accept_ra_pinfo;
++	__s32           accept_ra_hop_limit;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	__s32		accept_ra_rtr_pref;
+ 	__s32		rtr_probe_interval;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 5efa54a..a8c1083 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -171,6 +171,7 @@ enum {
+ 	DEVCONF_USE_OPTIMISTIC,
+ 	DEVCONF_ACCEPT_RA_MTU,
+ 	DEVCONF_STABLE_SECRET,
++	DEVCONF_ACCEPT_RA_HOP_LIMIT,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 21c2c81..486a7a5 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -196,6 +196,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.accept_ra_defrtr	= 1,
+ 	.accept_ra_from_local	= 0,
+ 	.accept_ra_pinfo	= 1,
++	.accept_ra_hop_limit    = 1,
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	.accept_ra_rtr_pref	= 1,
+ 	.rtr_probe_interval	= 60 * HZ,
+@@ -237,6 +238,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.accept_ra_defrtr	= 1,
+ 	.accept_ra_from_local	= 0,
+ 	.accept_ra_pinfo	= 1,
++	.accept_ra_hop_limit    = 1,
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	.accept_ra_rtr_pref	= 1,
+ 	.rtr_probe_interval	= 60 * HZ,
+@@ -4561,6 +4563,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_MAX_ADDRESSES] = cnf->max_addresses;
+ 	array[DEVCONF_ACCEPT_RA_DEFRTR] = cnf->accept_ra_defrtr;
+ 	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
++	array[DEVCONF_ACCEPT_RA_HOP_LIMIT] = cnf->accept_ra_hop_limit;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
+ 	array[DEVCONF_RTR_PROBE_INTERVAL] =
+@@ -5462,6 +5465,13 @@ static struct addrconf_sysctl_table
+ 			.mode		= 0644,
+ 			.proc_handler	= proc_dointvec,
+ 		},
++		{
++			.procname	= "accept_ra_hop_limit",
++			.data		= &ipv6_devconf.accept_ra_hop_limit,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec,
++		},
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 		{
+ 			.procname	= "accept_ra_rtr_pref",
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 0a05b35..aca67da 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1226,13 +1226,18 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 	if (rt)
+ 		rt6_set_expires(rt, jiffies + (HZ * lifetime));
+ 	if (ra_msg->icmph.icmp6_hop_limit) {
+-		/* Only set hop_limit on the interface if it is higher than
+-		 * the current hop_limit.
+-		 */
+-		if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
++		switch (in6_dev->cnf.accept_ra_hop_limit) {
++		case 0:
++			break;
++		case 1:
++			if (in6_dev->cnf.hop_limit > ra_msg->icmph.icmp6_hop_limit) {
++				ND_PRINTK(2, warn,
++					  "RA: Got route advertisement with lower hop_limit than current\n");
++				break;
++			}
++		default:
+ 			in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
+-		} else {
+-			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
++			break;
+ 		}
+ 		if (rt)
+ 			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
+-- 
+1.9.3
