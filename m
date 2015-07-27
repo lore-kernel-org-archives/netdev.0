@@ -1,48 +1,125 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net PATCH] fib_trie: Drop unnecessary calls to leaf_pull_suffix
-Date: Mon, 27 Jul 2015 15:02:07 -0600
-Message-ID: <55B69C4F.40506@cumulusnetworks.com>
-References: <55B6612C.7050506@cumulusnetworks.com> <20150727195631.26840.93266.stgit@ahduyck-vm-fedora22>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 0/4] Shared vhost design
+Date: Tue, 28 Jul 2015 00:02:14 +0300
+Message-ID: <20150727235818-mutt-send-email-mst@redhat.com>
+References: <1436760455-5686-1-git-send-email-bsd@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@redhat.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Eyal Moscovici <EYALMO@il.ibm.com>,
+	Razya Ladelsky <RAZYA@il.ibm.com>, cgroups@vger.kernel.org,
+	jasowang@redhat.com
+To: Bandan Das <bsd@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:38639 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753817AbbG0VCK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:02:10 -0400
-Received: by iggf3 with SMTP id f3so94562106igg.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 14:02:09 -0700 (PDT)
-In-Reply-To: <20150727195631.26840.93266.stgit@ahduyck-vm-fedora22>
+Received: from mx1.redhat.com ([209.132.183.28]:36858 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753886AbbG0VCS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2015 17:02:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1436760455-5686-1-git-send-email-bsd@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/27/15 2:08 PM, Alexander Duyck wrote:
-> It was reported that update_suffix was taking a long time on systems where
-> a large number of leaves were attached to a single node.  As it turns out
-> fib_table_flush was calling update_suffix for each leaf that didn't have all
-> of the aliases stripped from it.  As a result, on this large node removing
-> one leaf would result in us calling update_suffix for every other leaf on
-> the node.
->
-> The fix is to just remove the calls to leaf_pull_suffix since they are
-> redundant as we already have a call in resize that will go through and
-> update the suffix length for the node before we exit out of
-> fib_table_flush or fib_table_flush_external.
->
-> Reported-by: David Ahern<dsa@cumulusnetworks.com>
-> Signed-off-by: Alexander Duyck<alexander.h.duyck@redhat.com>
-> ---
->
-> This patch should apply to linux-4.1.y and newer kernels.
->
-> I've done a bit of testing on my system and I no longer see update_suffix
-> dominating the performance traces.  David if you can test with this patch
-> to see if you still see the issue I would appreciate it.
->
+On Mon, Jul 13, 2015 at 12:07:31AM -0400, Bandan Das wrote:
+> Hello,
+> 
+> There have been discussions on improving the current vhost design. The first
+> attempt, to my knowledge was Shirley Ma's patch to create a dedicated vhost
+> worker per cgroup.
+> 
+> http://comments.gmane.org/gmane.linux.network/224730
+> 
+> Later, I posted a cmwq based approach for performance comparisions
+> http://comments.gmane.org/gmane.linux.network/286858
+> 
+> More recently was the Elvis work that was presented in KVM Forum 2013
+> http://www.linux-kvm.org/images/a/a3/Kvm-forum-2013-elvis.pdf
+> 
+> The Elvis patches rely on common vhost thread design for scalability
+> along with polling for performance. Since there are two major changes
+> being proposed, we decided to split up the work. The first (this RFC),
+> proposing a re-design of the vhost threading model and the second part
+> (not posted yet) to focus more on improving performance. 
+> 
+> I am posting this with the hope that we can have a meaningful discussion
+> on the proposed new architecture. We have run some tests to show that the new
+> design is scalable and in terms of performance, is comparable to the current
+> stable design. 
+> 
+> Test Setup:
+> The testing is based on the setup described in the Elvis proposal.
+> The initial tests are just an aggregate of Netperf STREAM and MAERTS but
+> as we progress, I am happy to run more tests. The hosts are two identical
+> 16 core Haswell systems with point to point network links. For the first 10 runs,
+> with n=1 upto n=10 guests running in parallel, I booted the target system with nr_cpus=8
+> and mem=12G. The purpose was to do a comparision of resource utilization
+> and how it affects performance. Finally, with the number of guests set at 14,
+> I didn't limit the number of CPUs booted on the host or limit memory seen by
+> the kernel but boot the kernel with isolcpus=14,15 that will be used to run
+> the vhost threads. The guests are pinned to cpus 0-13 and based on which
+> cpu the guest is running on, the corresponding I/O thread is either pinned
+> to cpu 14 or 15.
+> Results
+> # X axis is number of guests
+> # Y axis is netperf number
+> # nr_cpus=8 and mem=12G
+> #Number of Guests        #Baseline            #ELVIS
+> 1                        1119.3		      1111.0
+> 2			 1135.6		      1130.2
+> 3			 1135.5		      1131.6
+> 4			 1136.0		      1127.1
+> 5			 1118.6		      1129.3
+> 6			 1123.4		      1129.8
+> 7			 1128.7		      1135.4
+> 8			 1129.9		      1137.5
+> 9			 1130.6		      1135.1
+> 10			 1129.3		      1138.9
+> 14*			 1173.8		      1216.9
 
-Works for me. Thanks.
+I'm a bit too busy now, with 2.4 and related stuff, will review once we
+finish 2.4.  But I'd like to ask two things:
+- did you actually test a config where cgroups were used?
+- does the design address the issue of VM 1 being blocked
+  (e.g. because it hits swap) and blocking VM 2?
 
-Tested-by: David Ahern <dsa@cumulusnetworks.com>
+> 
+> #* Last run with the vCPU and I/O thread(s) pinned, no CPU/memory limit imposed.
+> #  I/O thread runs on CPU 14 or 15 depending on which guest it's serving
+> 
+> There's a simple graph at
+> http://people.redhat.com/~bdas/elvis/data/results.png
+> that shows how task affinity results in a jump and even without it,
+> as the number of guests increase, the shared vhost design performs
+> slightly better.
+> 
+> Observations:
+> 1. In terms of "stock" performance, the results are comparable.
+> 2. However, with a tuned setup, even without polling, we see an improvement
+> with the new design.
+> 3. Making the new design simulate old behavior would be a matter of setting
+> the number of guests per vhost threads to 1.
+> 4. Maybe, setting a per guest limit on the work being done by a specific vhost
+> thread is needed for it to be fair.
+> 5. cgroup associations needs to be figured out. I just slightly hacked the
+> current cgroup association mechanism to work with the new model. Ccing cgroups
+> for input/comments.
+> 
+> Many thanks to Razya Ladelsky and Eyal Moscovici, IBM for the initial
+> patches, the helpful testing suggestions and discussions.
+> 
+> Bandan Das (4):
+>   vhost: Introduce a universal thread to serve all users
+>   vhost: Limit the number of devices served by a single worker thread
+>   cgroup: Introduce a function to compare cgroups
+>   vhost: Add cgroup-aware creation of worker threads
+> 
+>  drivers/vhost/net.c    |   6 +-
+>  drivers/vhost/scsi.c   |  18 ++--
+>  drivers/vhost/vhost.c  | 272 +++++++++++++++++++++++++++++++++++--------------
+>  drivers/vhost/vhost.h  |  32 +++++-
+>  include/linux/cgroup.h |   1 +
+>  kernel/cgroup.c        |  40 ++++++++
+>  6 files changed, 275 insertions(+), 94 deletions(-)
+> 
+> -- 
+> 2.4.3
