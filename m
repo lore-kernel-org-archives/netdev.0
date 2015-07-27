@@ -1,94 +1,56 @@
-From: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
-Subject: [PATCH] rsi: Fix failure to load firmware after memory leak fix and fix the leak
-Date: Mon, 27 Jul 2015 07:43:33 +0200
-Message-ID: <1437975813-3285-1-git-send-email-mike.looijmans@topic.nl>
-Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>,
-	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [patch net-next 4/4] mlxsw: Introduce Mellanox SwitchX-2 ASIC
+ support
+Date: Mon, 27 Jul 2015 06:17:22 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F919405E0B@HASMSX110.ger.corp.intel.com>
+References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
+ <1437666216-3149-5-git-send-email-jiri@resnulli.us>
+ <CAE4R7bAk_nUCuqcJxuAAr6pOqNX7zXWv1zFZDVGwBi7_nk8=kQ@mail.gmail.com>
+ <20150726071010.GA2150@nanopsycho.fritz.box>
+ <20150726171410.GB2207@nanopsycho.fritz.box>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"idosch@mellanox.com" <idosch@mellanox.com>,
+	"eladr@mellanox.com" <eladr@mellanox.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	john fastabend <john.fastabend@gmail.com>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
+	John Linville <linville@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"Shrijeet Mukherjee" <shm@cumulusnetworks.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:9249 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751135AbbG0GR3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 02:17:29 -0400
+In-Reply-To: <20150726171410.GB2207@nanopsycho.fritz.box>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fixes commit eae79b4f3e82ca63a53478a161b190a0d38fe526 ("rsi: fix memory leak
-in rsi_load_ta_instructions()") which stopped the driver from functioning.
+Hi, Jiri,
 
-Firmware data has been allocated using vmalloc(), resulting in memory
-that cannot be used for DMA. Hence the firmware was first copied to a
-buffer allocated with kmalloc() in the original code. This patch reverts
-the commit and only calls "kfree()" to release the buffer after sending
-the data. This fixes the memory leak without breaking the driver.
+Keep on the good work!
 
-Add a comment to the kmemdup() calls to explain why this is done.
+The .func  member of the mlxsw_rx_listener object has this prototype:
+void (*func)(struct sk_buff *skb, u8 local_port, u16 trap_id, void *priv);
 
-Tested on a Topic Miami-Florida board which contains the rsi SDIO chip.
+Is the trap_id  parameter needed ?
+In the three use cases of .func, which are either mlxsw_emad_rx_listener_func(), mlxsw_core_event_listener_func(), or mlxsw_sx_rx_listener_func(), this parameter is not used at all.
 
-Also added the same kfree() call to the USB glue driver. This was not
-tested on actual hardware though, as I only have the SDIO version.
 
-Signed-off-by: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
-Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- drivers/net/wireless/rsi/rsi_91x_sdio_ops.c | 6 +++++-
- drivers/net/wireless/rsi/rsi_91x_usb_ops.c  | 2 ++
- 2 files changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-index b6cc9ff..5c37a71 100644
---- a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-@@ -172,6 +172,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
- 	u32 len;
- 	u32 num_blocks;
-+	const u8 *fw;
- 	const struct firmware *fw_entry = NULL;
- 	u32 block_size = dev->tx_blk_size;
- 	int status = 0;
-@@ -200,6 +201,8 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		return status;
- 	}
- 
-+	/* Copy firmware into DMA-accessible memory */
-+	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
- 	len = fw_entry->size;
- 
- 	if (len % 4)
-@@ -210,7 +213,8 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 	rsi_dbg(INIT_ZONE, "%s: Instruction size:%d\n", __func__, len);
- 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
- 
--	status = rsi_copy_to_card(common, fw_entry->data, len, num_blocks);
-+	status = rsi_copy_to_card(common, fw, len, num_blocks);
-+	kfree(fw);
- 	release_firmware(fw_entry);
- 	return status;
- }
-diff --git a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
-index 1106ce7..088e28e 100644
---- a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
-@@ -146,6 +146,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		return status;
- 	}
- 
-+	/* Copy firmware into DMA-accessible memory */
- 	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
- 	len = fw_entry->size;
- 
-@@ -158,6 +159,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
- 
- 	status = rsi_copy_to_card(common, fw, len, num_blocks);
-+	kfree(fw);
- 	release_firmware(fw_entry);
- 	return status;
- }
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Rami Rosen
+Intel Corporation
