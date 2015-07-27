@@ -1,43 +1,46 @@
-From: Rahul Jain <rahul.jain-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH] mwifiex: corrected README as per the file debugfs.c
-Date: Mon, 27 Jul 2015 08:31:09 +0000 (GMT)
-Message-ID: <127092198.55801437985868073.JavaMail.weblogic@epmlwas04c>
-Reply-To: rahul.jain-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] openvswitch: fix compilation when vxlan is a
+ module
+Date: Mon, 27 Jul 2015 10:33:52 +0200
+Message-ID: <20150727083352.GA25211@pox.localdomain>
+References: <1437643747-22976-1-git-send-email-nicolas.dichtel@6wind.com>
+ <20150726.205742.539016799227504892.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	HEMANSHU SRIVASTAVA <hemanshu.s-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-To: akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-MIME-version: 1.0
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	pshelar@nicira.com, dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:33099 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752076AbbG0Id4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:33:56 -0400
+Received: by wicmv11 with SMTP id mv11so129137588wic.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 01:33:54 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150726.205742.539016799227504892.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U3ViamVjdDogW1BBVENIXSBtd2lmaWV4OiBjb3JyZWN0ZWQgUkVBRE1FIGFzIHBlciB0aGUgZmls
-ZSBkZWJ1Z2ZzLmMKClNpZ25lZC1vZmYtYnk6IFJhaHVsIEphaW4gPHJhaHVsLmphaW5Ac2Ftc3Vu
-Zy5jb20+ClNpZ25lZC1vZmYtYnk6IEFtaXQgS2hhdHJpIDxhbWl0LmtoYXRyaUBzYW1zdW5nLmNv
-bT4KLS0tCiBkcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L1JFQURNRSB8IDMgKystCiAxIGZp
-bGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC9SRUFETUUgYi9kcml2ZXJzL25ldC93aXJlbGVz
-cy9td2lmaWV4L1JFQURNRQppbmRleCAyZjBmOWI1Li5lMDEwOGRmIDEwMDY0NAotLS0gYS9kcml2
-ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L1JFQURNRQorKysgYi9kcml2ZXJzL25ldC93aXJlbGVz
-cy9td2lmaWV4L1JFQURNRQpAQCAtOTMsNiArOTMsNyBAQCBpbmZvCiAKIAlkcml2ZXJfbmFtZSA9
-ICJtd2lmaWV4IgogCWRyaXZlcl92ZXJzaW9uID0gPGRyaXZlcl9uYW1lLCBkcml2ZXJfdmVyc2lv
-biwgKGZpcm13YXJlX3ZlcnNpb24pPgorCXZlcmV4dCA9IDxkcml2ZXIgZXh0ZW5kZWQgdmVyc2lv
-bj4KIAlpbnRlcmZhY2VfbmFtZSA9ICJtbGFuWCIKIAlic3NfbW9kZSA9ICJBZC1ob2MiIHwgIk1h
-bmFnZWQiIHwgIkF1dG8iIHwgIlVua25vd24iCiAJbWVkaWFfc3RhdGUgPSAiRGlzY29ubmVjdGVk
-IiB8ICJDb25uZWN0ZWQiCkBAIC0xMDEsNyArMTAyLDcgQEAgaW5mbwogCWVzc2lkID0gPGN1cnJl
-bnQgU1NJRD4KIAlic3NpZCA9IDxjdXJyZW50IEJTU0lEPgogCWNoYW5uZWwgPSA8Y3VycmVudCBj
-aGFubmVsPgotCXJlZ2lvbl9jb2RlID0gPGN1cnJlbnQgcmVnaW9uIGNvZGU+CisJY291bnRyeV9j
-b2RlID0gPGN1cnJlbnQgY291bnRyeSBjb2RlPgogCW11bHRpY2Fzcl9hZGRyZXNzW25dID0gPG11
-bHRpY2FzdCBhZGRyZXNzPgogCW51bV90eF9ieXRlcyA9IDxudW1iZXIgb2YgYnl0ZXMgc2VudCB0
-byBkZXZpY2U+CiAJbnVtX3J4X2J5dGVzID0gPG51bWJlciBvZiBieXRlcyByZWNlaXZlZCBmcm9t
-IGRldmljZSBhbmQgc2VudCB0byBrZXJuZWw+Ci0tIAoxLjkuMQoK
+On 07/26/15 at 08:57pm, David Miller wrote:
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Thu, 23 Jul 2015 11:29:07 +0200
+> 
+> > With CONFIG_VXLAN=m and CONFIG_OPENVSWITCH=y, there was the following
+> > compilation error:
+> >   LD      init/built-in.o
+> >   net/built-in.o: In function `vxlan_tnl_create':
+> >   .../net/openvswitch/vport-netdev.c:322: undefined reference to `vxlan_dev_create'
+> >   make: *** [vmlinux] Error 1
+> > 
+> > CC: Thomas Graf <tgraf@suug.ch>
+> > Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> 
+> Applied as a stop-gap measure to fix this, but this is a terrible
+> dependency.
+> 
+> There is no reason a user should have to know that without vxlan
+> they aren't able to turn on openvswitch.
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm working on a patch to re-enable this choice.
