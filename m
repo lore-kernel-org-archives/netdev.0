@@ -1,86 +1,264 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 2/4] net/mlx4_en: Prepare ethtool private flags to support more flags
-Date: Mon, 27 Jul 2015 14:46:32 +0300
-Message-ID: <1437997594-8506-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 1/4] net/mlx4_core: Preparations for 802.1ad VLAN support
+Date: Mon, 27 Jul 2015 14:46:31 +0300
+Message-ID: <1437997594-8506-2-git-send-email-amirv@mellanox.com>
 References: <1437997594-8506-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Hadar Har-Zion <hadarh@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:56761 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:56733 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752279AbbG0LrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jul 2015 07:47:16 -0400
+	id S1751577AbbG0LrE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2015 07:47:04 -0400
 In-Reply-To: <1437997594-8506-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Currently we support only one ethtool private flag. Prepare
-mlx4_en_set_priv_flags function to support more than one private flag.
-Will be used in the next patch to support hardware accelerated 802.1ad
-vlan.
+mlx4_core preparation to support hardware accelerated 802.1ad VLAN
+device.
 
+To allow 802.1ad accelerated device, "packet has vlan" (phv)
+Firmware capability should be available. Firmware without the
+phv capability won't behave properly and can't support 802.1ad device
+acceleration.
+
+The driver checks the Firmware capability and sets the phv bit
+accordingly in SET_PORT command.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 35 ++++++++++++-------------
- 1 file changed, 17 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c   | 82 +++++++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.h   |  1 +
+ drivers/net/ethernet/mellanox/mlx4/main.c | 15 ++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |  3 ++
+ include/linux/mlx4/device.h               |  5 ++
+ 5 files changed, 106 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 99ba1c5..70f6553 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1801,30 +1801,29 @@ static int mlx4_en_set_priv_flags(struct net_device *dev, u32 flags)
- 	bool bf_enabled_old = !!(priv->pflags & MLX4_EN_PRIV_FLAGS_BLUEFLAME);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index e30bf57..5a1c3d2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -154,6 +154,7 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[26] = "Port ETS Scheduler support",
+ 		[27] = "Port beacon support",
+ 		[28] = "RX-ALL support",
++		[29] = "802.1ad offload support",
+ 	};
  	int i;
  
--	if (bf_enabled_new == bf_enabled_old)
--		return 0; /* Nothing to do */
-+	if (bf_enabled_new != bf_enabled_old) {
-+		if (bf_enabled_new) {
-+			bool bf_supported = true;
+@@ -307,6 +308,7 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
  
--	if (bf_enabled_new) {
--		bool bf_supported = true;
-+			for (i = 0; i < priv->tx_ring_num; i++)
-+				bf_supported &= priv->tx_ring[i]->bf_alloced;
+ #define QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID 0x80
+ #define QUERY_FUNC_CAP_SUPPORTS_NON_POWER_OF_2_NUM_EQS (1 << 31)
++#define QUERY_FUNC_CAP_PHV_BIT			0x40
  
--		for (i = 0; i < priv->tx_ring_num; i++)
--			bf_supported &= priv->tx_ring[i]->bf_alloced;
-+			if (!bf_supported) {
-+				en_err(priv, "BlueFlame is not supported\n");
-+				return -EINVAL;
-+			}
+ 	if (vhcr->op_modifier == 1) {
+ 		struct mlx4_active_ports actv_ports =
+@@ -351,6 +353,12 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 		MLX4_PUT(outbox->buf, dev->caps.phys_port_id[vhcr->in_modifier],
+ 			 QUERY_FUNC_CAP_PHYS_PORT_ID);
  
--		if (!bf_supported) {
--			en_err(priv, "BlueFlame is not supported\n");
--			return -EINVAL;
-+			priv->pflags |= MLX4_EN_PRIV_FLAGS_BLUEFLAME;
-+		} else {
-+			priv->pflags &= ~MLX4_EN_PRIV_FLAGS_BLUEFLAME;
- 		}
++		if (dev->caps.phv_bit[port]) {
++			field = QUERY_FUNC_CAP_PHV_BIT;
++			MLX4_PUT(outbox->buf, field,
++				 QUERY_FUNC_CAP_FLAGS0_OFFSET);
++		}
++
+ 	} else if (vhcr->op_modifier == 0) {
+ 		struct mlx4_active_ports actv_ports =
+ 			mlx4_get_active_ports(dev, slave);
+@@ -600,6 +608,9 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
+ 		MLX4_GET(func_cap->phys_port_id, outbox,
+ 			 QUERY_FUNC_CAP_PHYS_PORT_ID);
  
--		priv->pflags |= MLX4_EN_PRIV_FLAGS_BLUEFLAME;
--	} else {
--		priv->pflags &= ~MLX4_EN_PRIV_FLAGS_BLUEFLAME;
--	}
--
--	for (i = 0; i < priv->tx_ring_num; i++)
--		priv->tx_ring[i]->bf_enabled = bf_enabled_new;
-+		for (i = 0; i < priv->tx_ring_num; i++)
-+			priv->tx_ring[i]->bf_enabled = bf_enabled_new;
++	MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
++	func_cap->flags |= (field & QUERY_FUNC_CAP_PHV_BIT);
++
+ 	/* All other resources are allocated by the master, but we still report
+ 	 * 'num' and 'reserved' capabilities as follows:
+ 	 * - num remains the maximum resource index
+@@ -700,6 +711,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ #define QUERY_DEV_CAP_D_MPT_ENTRY_SZ_OFFSET	0x92
+ #define QUERY_DEV_CAP_BMME_FLAGS_OFFSET		0x94
+ #define QUERY_DEV_CAP_CONFIG_DEV_OFFSET		0x94
++#define QUERY_DEV_CAP_PHV_EN_OFFSET		0x96
+ #define QUERY_DEV_CAP_RSVD_LKEY_OFFSET		0x98
+ #define QUERY_DEV_CAP_MAX_ICM_SZ_OFFSET		0xa0
+ #define QUERY_DEV_CAP_ETH_BACKPL_OFFSET		0x9c
+@@ -898,6 +910,12 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_CONFIG_DEV;
+ 	if (field & (1 << 2))
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_IGNORE_FCS;
++	MLX4_GET(field, outbox, QUERY_DEV_CAP_PHV_EN_OFFSET);
++	if (field & 0x80)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_PHV_EN;
++	if (field & 0x40)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_SKIP_OUTER_VLAN;
++
+ 	MLX4_GET(dev_cap->reserved_lkey, outbox,
+ 		 QUERY_DEV_CAP_RSVD_LKEY_OFFSET);
+ 	MLX4_GET(field32, outbox, QUERY_DEV_CAP_ETH_BACKPL_OFFSET);
+@@ -1992,6 +2010,10 @@ int mlx4_QUERY_HCA(struct mlx4_dev *dev,
+ 	MLX4_GET(param->uar_page_sz, outbox, INIT_HCA_UAR_PAGE_SZ_OFFSET);
+ 	MLX4_GET(param->log_uar_sz, outbox, INIT_HCA_LOG_UAR_SZ_OFFSET);
  
--	en_info(priv, "BlueFlame %s\n",
--		bf_enabled_new ?  "Enabled" : "Disabled");
-+		en_info(priv, "BlueFlame %s\n",
-+			bf_enabled_new ?  "Enabled" : "Disabled");
-+	}
++	/* phv_check enable */
++	MLX4_GET(byte_field, outbox, INIT_HCA_CACHELINE_SZ_OFFSET);
++	if (byte_field & 0x2)
++		param->phv_check_en = 1;
+ out:
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
  
- 	return 0;
+@@ -2758,3 +2780,63 @@ int mlx4_ACCESS_REG_wrapper(struct mlx4_dev *dev, int slave,
+ 			    0, MLX4_CMD_ACCESS_REG, MLX4_CMD_TIME_CLASS_C,
+ 			    MLX4_CMD_NATIVE);
  }
++
++static int mlx4_SET_PORT_phv_bit(struct mlx4_dev *dev, u8 port, u8 phv_bit)
++{
++#define SET_PORT_GEN_PHV_VALID	0x10
++#define SET_PORT_GEN_PHV_EN	0x80
++
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_port_general_context *context;
++	u32 in_mod;
++	int err;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	context = mailbox->buf;
++
++	context->v_ignore_fcs |=  SET_PORT_GEN_PHV_VALID;
++	if (phv_bit)
++		context->phv_en |=  SET_PORT_GEN_PHV_EN;
++
++	in_mod = MLX4_SET_PORT_GENERAL << 8 | port;
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
++		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
++		       MLX4_CMD_NATIVE);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
++}
++
++int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv)
++{
++	int err;
++	struct mlx4_func_cap func_cap;
++
++	memset(&func_cap, 0, sizeof(func_cap));
++	err = mlx4_QUERY_FUNC_CAP(dev, 1, &func_cap);
++	if (!err)
++		*phv = func_cap.flags & QUERY_FUNC_CAP_PHV_BIT;
++	return err;
++}
++EXPORT_SYMBOL(get_phv_bit);
++
++int set_phv_bit(struct mlx4_dev *dev, u8 port, int new_val)
++{
++	int ret;
++
++	if (mlx4_is_slave(dev))
++		return -EPERM;
++
++	if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_PHV_EN &&
++	    !(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_SKIP_OUTER_VLAN)) {
++		ret = mlx4_SET_PORT_phv_bit(dev, port, new_val);
++		if (!ret)
++			dev->caps.phv_bit[port] = new_val;
++		return ret;
++	}
++
++	return -EOPNOTSUPP;
++}
++EXPORT_SYMBOL(set_phv_bit);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+index 07cb7c2..08de555 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+@@ -204,6 +204,7 @@ struct mlx4_init_hca_param {
+ 	u16 cqe_size; /* For use only when CQE stride feature enabled */
+ 	u16 eqe_size; /* For use only when EQE stride feature enabled */
+ 	u8 rss_ip_frags;
++	u8 phv_check_en; /* for QUERY_HCA */
+ };
+ 
+ struct mlx4_init_ib_param {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index d76f425..6f35b6c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -405,6 +405,21 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	dev->caps.max_gso_sz	     = dev_cap->max_gso_sz;
+ 	dev->caps.max_rss_tbl_sz     = dev_cap->max_rss_tbl_sz;
+ 
++	if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_PHV_EN) {
++		struct mlx4_init_hca_param hca_param;
++
++		memset(&hca_param, 0, sizeof(hca_param));
++		err = mlx4_QUERY_HCA(dev, &hca_param);
++		/* Turn off PHV_EN flag in case phv_check_en is set.
++		 * phv_check_en is a HW check that parse the packet and verify
++		 * phv bit was reported correctly in the wqe. To allow QinQ
++		 * PHV_EN flag should be set and phv_check_en must be cleared
++		 * otherwise QinQ packets will be drop by the HW.
++		 */
++		if (err || hca_param.phv_check_en)
++			dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_PHV_EN;
++	}
++
+ 	/* Sense port always allowed on supported devices for ConnectX-1 and -2 */
+ 	if (mlx4_priv(dev)->pci_dev_data & MLX4_PCI_DEV_FORCE_SENSE_PORT)
+ 		dev->caps.flags |= MLX4_DEV_CAP_FLAG_SENSE_SUPPORT;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index a092c5c..232b2b5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -787,6 +787,9 @@ struct mlx4_set_port_general_context {
+ 	u8 pprx;
+ 	u8 pfcrx;
+ 	u16 reserved4;
++	u32 reserved5;
++	u8 phv_en;
++	u8 reserved6[3];
+ };
+ 
+ struct mlx4_set_port_rqp_calc_context {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index fd13c1c..bcbf8c7 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -211,6 +211,8 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_ETS_CFG		= 1LL <<  26,
+ 	MLX4_DEV_CAP_FLAG2_PORT_BEACON		= 1LL <<  27,
+ 	MLX4_DEV_CAP_FLAG2_IGNORE_FCS		= 1LL <<  28,
++	MLX4_DEV_CAP_FLAG2_PHV_EN		= 1LL <<  29,
++	MLX4_DEV_CAP_FLAG2_SKIP_OUTER_VLAN	= 1LL <<  30,
+ };
+ 
+ enum {
+@@ -581,6 +583,7 @@ struct mlx4_caps {
+ 	u64			phys_port_id[MLX4_MAX_PORTS + 1];
+ 	int			tunnel_offload_mode;
+ 	u8			rx_checksum_flags_port[MLX4_MAX_PORTS + 1];
++	u8			phv_bit[MLX4_MAX_PORTS + 1];
+ 	u8			alloc_res_qp_mask;
+ 	u32			dmfs_high_rate_qpn_base;
+ 	u32			dmfs_high_rate_qpn_range;
+@@ -1332,6 +1335,8 @@ int mlx4_SET_PORT_BEACON(struct mlx4_dev *dev, u8 port, u16 time);
+ int mlx4_SET_PORT_fcs_check(struct mlx4_dev *dev, u8 port,
+ 			    u8 ignore_fcs_value);
+ int mlx4_SET_PORT_VXLAN(struct mlx4_dev *dev, u8 port, u8 steering, int enable);
++int set_phv_bit(struct mlx4_dev *dev, u8 port, int new_val);
++int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv);
+ int mlx4_find_cached_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *idx);
+ int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *idx);
+ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
 -- 
 2.4.3.413.ga5fe668
