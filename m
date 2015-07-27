@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] lwtunnel: change prototype of
- lwtunnel_state_get()
-Date: Mon, 27 Jul 2015 01:03:07 -0700 (PDT)
-Message-ID: <20150727.010307.2033210673700214066.davem@davemloft.net>
-References: <1437733716-4494-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1437733716-4494-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] net: phy: fix auto negotiation checking for teranetics
+Date: Mon, 27 Jul 2015 01:04:51 -0700 (PDT)
+Message-ID: <20150727.010451.2303210475092539484.davem@davemloft.net>
+References: <1437737162-32854-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, roopa@cumulusnetworks.com
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, Shaohui.Xie@freescale.com
+To: shh.xie@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38979 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38991 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752254AbbG0IDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:03:07 -0400
-In-Reply-To: <1437733716-4494-2-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1751312AbbG0IEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:04:52 -0400
+In-Reply-To: <1437737162-32854-1-git-send-email-shh.xie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 24 Jul 2015 12:28:36 +0200
+From: <shh.xie@gmail.com>
+Date: Fri, 24 Jul 2015 19:26:02 +0800
 
-> It saves some lines and simplify a bit the code when the state is returning
-> by this function. It's also useful to handle a NULL entry.
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
 > 
-> To avoid too long lines, I've also renamed lwtunnel_state_get() and
-> lwtunnel_state_put() to lwtstate_get() and lwtstate_put().
+> When using fiber port, the phy cannot report it's auto negotiation state,
+> driver should always report auto negotiation is done when using fiber port.
 > 
-> CC: Thomas Graf <tgraf@suug.ch>
-> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 
 Applied.
