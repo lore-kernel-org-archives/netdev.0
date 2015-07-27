@@ -1,36 +1,28 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] lwtunnel: use kfree_skb() instead of vanilla kfree()
-Date: Mon, 27 Jul 2015 11:07:47 +0300
-Message-ID: <20150727080747.GA2937@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/2] ipv6: Avoid rt6_probe() taking writer
+ lock in the fast path
+Date: Mon, 27 Jul 2015 01:08:42 -0700 (PDT)
+Message-ID: <20150727.010842.295819742135675236.davem@davemloft.net>
+References: <1437757063-1186401-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:30206 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbbG0III (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:08:08 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:39029 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751817AbbG0IIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:08:43 -0400
+In-Reply-To: <1437757063-1186401-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-kfree_skb() is correct here.
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 24 Jul 2015 09:57:41 -0700
 
-Fixes: ffce41962ef6 ('lwtunnel: support dst output redirect function')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> v1 -> v2:
+> 1. Separate the code re-arrangement into another patch
+> 2. Fix style
 
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-index bb58826..5f7fae7 100644
---- a/net/core/lwtunnel.c
-+++ b/net/core/lwtunnel.c
-@@ -205,7 +205,7 @@ int __lwtunnel_output(struct sock *sk, struct sk_buff *skb,
- 	return ret;
- 
- drop:
--	kfree(skb);
-+	kfree_skb(skb);
- 
- 	return ret;
- }
+Looks good, series applied.
