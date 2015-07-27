@@ -1,53 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 0/4] Shared vhost design
-Date: Tue, 28 Jul 2015 00:07:19 +0300
-Message-ID: <20150728000221-mutt-send-email-mst@redhat.com>
-References: <1436760455-5686-1-git-send-email-bsd@redhat.com>
- <OF451FED84.3040AFD2-ONC2257E8C.0043F908-C2257E8C.00446592@il.ibm.com>
- <jpgmvyh9ybg.fsf@linux.bootlegged.copy>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip: replace white-spaces with tabs
+Date: Mon, 27 Jul 2015 14:11:09 -0700
+Message-ID: <20150727141109.40cfda95@urahara>
+References: <1437828893-5347-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eyal Moscovici <EYALMO@il.ibm.com>, cgroups@vger.kernel.org,
-	jasowang@redhat.com, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Razya Ladelsky <RAZYA@il.ibm.com>
-To: Bandan Das <bsd@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <jpgmvyh9ybg.fsf@linux.bootlegged.copy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:34472 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751587AbbG0VK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:10:59 -0400
+Received: by pdbbh15 with SMTP id bh15so57993398pdb.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 14:10:58 -0700 (PDT)
+In-Reply-To: <1437828893-5347-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 27, 2015 at 03:48:19PM -0400, Bandan Das wrote:
-> Eyal Moscovici <EYALMO@il.ibm.com> writes:
-> 
-> > Hi, 
-> >
-> > The test showed the same relative numbers as we got in our internal 
-> > testing. I was wondering about the configuration in regards to NUMA. From
-> Thanks for confirming.
-> 
-> > our testing we saw that if the VMs are spread across 2 NUMA nodes then 
-> > having a shared vhost thread per node performs better then having the two 
-> > threads in the same core.
-> 
-> IIUC, this is similar to my test setup and observations i.e 
-> > 14*                                               1173.8  1216.9
-> 
-> In this case, there's a shared vhost thread on CPU 14 for numa node 0
-> and another on CPU 15 for numa node 1. Guests running on CPUs 0,2,4,6,8,10,12
-> are serviced by vhost-0 that runs on CPU 14 and guests running on CPUs 1,3,5,7,9,11,13
-> get serviced by vhost-1 (Numa node 1). I tried some other configurations but
-> this configuration gave me the best results.
-> 
-> 
-> Eyal, I think it makes sense to add polling on top of these patches and
-> get numbers for them too. Thoughts ?
-> 
-> Bandan
+On Sat, 25 Jul 2015 08:54:53 -0400
+Zhang Shengju <zhangshengju@cmss.chinamobile.com> wrote:
 
-So simple polling by vhost is kind of ok for some guests, but I think to
-really make it work for a reasonably wide selection of guests/workloads
-you need to combine it with 1. polling the NIC - it makes no sense to me
-to only poll one side of the equation; and probably 2. - polling in
-guest.
+> Replace white-spaces with tabs
+> 
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> ---
+>  ip/ip.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+
+There were more places that needed this, went ahead and made ip.c and bridge.c
+checkpatch clean.
