@@ -1,33 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] macvtap: fix network header pointer for VLAN
- tagged pkts
-Date: Mon, 27 Jul 2015 15:58:32 -0700 (PDT)
-Message-ID: <20150727.155832.101768068706820064.davem@davemloft.net>
-References: <1437662263-2733-1-git-send-email-ivecera@redhat.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: [PATCH 0/2] igb/ixgbe: Fix ordering of SR-IOV teardown
+Date: Mon, 27 Jul 2015 17:18:28 -0600
+Message-ID: <20150727223753.10121.78169.stgit@gimli.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	toshiaki.makita1@gmail.com
-To: ivecera@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45108 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754664AbbG0W6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 18:58:33 -0400
-In-Reply-To: <1437662263-2733-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Thu, 23 Jul 2015 16:37:43 +0200
+When running a Windows 2012 R2 guest with a pair of VFs assigned
+through vfio-pci, we run into a problem trying to hot-unplug those VFs
+after the PF has unregistered the netdev.  This is a common scenario
+if the PF is unbound from the driver while VFs are active.  In the
+case of igb, the resulting guest behavior differs slightly between the
+Microsoft provided and Intel add-on guest drivers.  With the Microsoft
+driver, the guest seems to stumble through ejecting both VFs, but
+takes longer than normal to do so.  With the Intel drivers, only one
+VF is unplugged, but Device Manager still shows it as present.  The
+second VF is non-functional but also still shown in Device Manager.
+At this point, the guest is in such a state that it will not cleanly
+shutdown.  With ixgbe VFs, both the Microsoft and Intel drivers take
+on this latter behavior.
 
-> Network header is set with offset ETH_HLEN but it is not true for VLAN
-> (multiple-)tagged and results in checksum issues in lower devices.
-> 
-> v2: leave skb->protocol untouched (thx Vlad), comment added
-> v3: moved after skb_probe_transport_header() call (thx Toshiaki)
-> 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+For both, I've found that disabling SR-IOV before unregistering the PF
+netdev device allows the hot-unplug to proceed without interruption or
+further ill behavior in the guest.  This is true regardless of which
+driver is used.  I don't fully understand what dependency is broken
+by unregistering the netdev prior to disabling SR-IOV, but I also
+don't see the benefit in delaying SR-IOV teardown in this call path.
+It could potentially be moved even earlier, but I'll let those more
+familiar with the hardware and code make that determination.  In any
+case, the VM behavior is substantially improved by this slight
+re-ordering.
 
-Applied, thanks.
+I don't have an i40e for testing, but it already appears to disable
+SR-IOV much earlier in the unbind path, so I wouldn't expect to find
+similar issues.  Thanks,
+
+Alex
+
+---
+
+Alex Williamson (2):
+      igb: Teardown SR-IOV before unregister_netdev()
+      ixgbe: Teardown SR-IOV before unregister_netdev()
+
+
+ drivers/net/ethernet/intel/igb/igb_main.c     |    8 ++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++---
+ 2 files changed, 7 insertions(+), 7 deletions(-)
