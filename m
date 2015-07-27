@@ -1,50 +1,40 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: Re: [PATCH iproute2 net-next] bridge: mdb: add support for router add/del notifications monitoring
-Date: Mon, 27 Jul 2015 23:49:38 +0200
-Message-ID: <13F15030-8AF3-4018-94B0-F2FF43A4E173@blackwall.org>
-References: <1437997445-29541-1-git-send-email-razor@blackwall.org> <20150727144018.1ffb2119@urahara>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH] fib_trie: Drop unnecessary calls to
+ leaf_pull_suffix
+Date: Mon, 27 Jul 2015 14:51:44 -0700 (PDT)
+Message-ID: <20150727.145144.1108615217553792979.davem@davemloft.net>
+References: <55B6612C.7050506@cumulusnetworks.com>
+	<20150727195631.26840.93266.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:32945 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915AbbG0Vtm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:49:42 -0400
-Received: by wicmv11 with SMTP id mv11so155988238wic.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 14:49:41 -0700 (PDT)
-In-Reply-To: <20150727144018.1ffb2119@urahara>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44652 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753909AbbG0Vvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:51:45 -0400
+In-Reply-To: <20150727195631.26840.93266.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Mon, 27 Jul 2015 13:08:06 -0700
 
-> On 27 Jul 2015, at 23:40, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> It was reported that update_suffix was taking a long time on systems where
+> a large number of leaves were attached to a single node.  As it turns out
+> fib_table_flush was calling update_suffix for each leaf that didn't have all
+> of the aliases stripped from it.  As a result, on this large node removing
+> one leaf would result in us calling update_suffix for every other leaf on
+> the node.
 > 
-> On Mon, 27 Jul 2015 13:44:05 +0200
-> Nikolay Aleksandrov <razor@blackwall.org> wrote:
+> The fix is to just remove the calls to leaf_pull_suffix since they are
+> redundant as we already have a call in resize that will go through and
+> update the suffix length for the node before we exit out of
+> fib_table_flush or fib_table_flush_external.
 > 
->> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> 
->> This patch adds support for ADDMDB/DELMDB notifications about router ports
->> which have been added or deleted/expired respectively.
->> 
->> Example output:
->> $ bridge -s monitor mdb
->> Deleted router port dev eth3 master br0
->> router port dev eth3 master br0
->> 
->> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> Looks useful, applied.
-> 
-> Does usage or manual page need to be updated as well?
-> 
-> 
+> Reported-by: David Ahern <dsa@cumulusnetworks.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-Good question :-) I'll look into it.
-Thanks!
+Applied and queued up for -stable, thanks.
