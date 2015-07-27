@@ -1,44 +1,76 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: Several races in "usbnet" module (kernel 4.1.x)
-Date: Mon, 27 Jul 2015 12:00:39 +0200
-Message-ID: <1437991239.32457.9.camel@suse.com>
-References: <55AD3A41.2040100@rosalab.ru>
-	 <1437488529.3823.16.camel@suse.com> <55AFE210.7030104@rosalab.ru>
-	 <1437642952.4377.10.camel@suse.com> <55B24EB6.5090907@rosalab.ru>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 2/3] brcmfmac: dhd_sdio.c: use existing atomic_or primitive
+Date: Mon, 27 Jul 2015 13:08:43 +0300
+Message-ID: <871tftc3pw.fsf@kamboji.qca.qualcomm.com>
+References: <1436429599-10762-1-git-send-email-vgupta@synopsys.com>
+	<1436429599-10762-3-git-send-email-vgupta@synopsys.com>
+	<87twstbi9p.fsf@kamboji.qca.qualcomm.com>
+	<55B2743F.6060304@synopsys.com> <55B4C0A8.9000909@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vineet Gupta <vgupta@synopsys.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+	<linux-arch@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Brett Rudley <brudley@broadcom.com>,
+	"Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
+To: Arend van Spriel <arend@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55B24EB6.5090907@rosalab.ru>
+In-Reply-To: <55B4C0A8.9000909@broadcom.com> (Arend van Spriel's message of
+	"Sun, 26 Jul 2015 13:12:40 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-07-24 at 17:41 +0300, Eugene Shatokhin wrote:
-> 23.07.2015 12:15, Oliver Neukum =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+Arend van Spriel <arend@broadcom.com> writes:
 
->  From what I see now in Documentation/atomic_ops.txt, stores to the=20
-> properly aligned memory locations are in fact atomic.
+> On 07/24/2015 07:22 PM, Vineet Gupta wrote:
+>> On Friday 24 July 2015 08:02 PM, Kalle Valo wrote:
+>>> Vineet Gupta <Vineet.Gupta1@synopsys.com> writes:
+>>>
+>>>>> There's already a generic implementation so use that instead.
+>>>>> ---
+>>>>> I'm not sure if the driver usage of atomic_or?() is correct in terms of
+>>>>> storage size of @val for 64 bit arches.
+>>>>>
+>>>>> Assuming LP64 programming model for linux on say x86_64: atomic_or()
+>>>>> callers in this driver use long (sana 64 bit) storage and pass it to
+>>>>> atomic_orr/atomic_or which downcasts it to 32 bits. Is that OK ?
+>>>>> ---
+>>>>> Cc: Brett Rudley <brudley@broadcom.com>
+>>>>> Cc: Arend van Spriel <arend@broadcom.com>
+>>>>> Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+>>>>> Cc: Hante Meuleman <meuleman@broadcom.com>
+>>>>> Cc: Kalle Valo <kvalo@codeaurora.org>
+>>>>> Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
+>>>>> Cc: Daniel Kim <dekim@broadcom.com>
+>>>>> Cc: linux-wireless@vger.kernel.org
+>>>>> Cc: brcm80211-dev-list@broadcom.com
+>>>>> Cc: Peter Zijlstra <peterz@infradead.org>
+>>>>> Cc: Ingo Molnar <mingo@kernel.org>
+>>>>> Cc: netdev@vger.kernel.org
+>>>>> Cc: linux-arch@vger.kernel.org
+>>>>> Cc: linux-kernel@vger.kernel.org
+>>>>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+>>>>>
+>>>>> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+>>> What's the plan with this patch? Should I take it to my
+>>> wireless-drivers-next tree or will someone else take it?
+>>
+>>
+>> Per last discussion on this topic, Arend wanted to discuss abt this with Hante.
+>> I'm not taking it anyways so feel free to pick it up if you want !
+>
+> Well, that was before your "timeline" clarification about the generic
+> function. One what tree is this patch based?
 
-They are, but again only with respect to each other.
+Yeah, if this patch depends on another patch I need to know about it.
+Otherwise I might break something when I apply this patch.
 
-> So, I think, the situation you described above cannot happen for=20
-> dev->flags, which is good. No need to address that in the patch. The=20
-> race might be harmless after all.
->=20
-> If I understand the code correctly now, dev->flags is set to 0 in=20
-> usbnet_stop() so that the worker function (usbnet_deferred_kevent) wo=
-uld
-
-Yes, particularly not reschedule itself.
-
-> do nothing, should it start later. If so, how about adding memory=20
-> barriers for all CPUs to see dev->flags is 0 before other things?
-
-Taking a lock, as del_timer_sync() does, implies a memory barrier,
-as does a work.
-
-	Regards
-		Oliver
+-- 
+Kalle Valo
