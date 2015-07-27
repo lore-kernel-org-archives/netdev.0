@@ -1,102 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 102051] New: Unexpected TCP behavior
-Date: Mon, 27 Jul 2015 23:35:14 +0200
-Message-ID: <1438032914.20182.38.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150727140218.095729a9@urahara>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] tc: fix bpf compilation with old glibc
+Date: Mon, 27 Jul 2015 14:36:28 -0700
+Message-ID: <20150727143628.52d46f8d@urahara>
+References: <1437568170-16995-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35520 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754065AbbG0VfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:35:18 -0400
-Received: by wibxm9 with SMTP id xm9so130669924wib.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 14:35:17 -0700 (PDT)
-In-Reply-To: <20150727140218.095729a9@urahara>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33300 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753954AbbG0VgT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 17:36:19 -0400
+Received: by padck2 with SMTP id ck2so57518830pad.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 14:36:18 -0700 (PDT)
+In-Reply-To: <1437568170-16995-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-07-27 at 14:02 -0700, Stephen Hemminger wrote:
-> 
-> Begin forwarded message:
-> 
-> Date: Mon, 27 Jul 2015 20:06:07 +0000
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-> Subject: [Bug 102051] New: Unexpected TCP behavior
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=102051
-> 
->             Bug ID: 102051
->            Summary: Unexpected TCP behavior
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.19
->           Hardware: All
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: low
->           Priority: P1
->          Component: IPV4
->           Assignee: shemminger@linux-foundation.org
->           Reporter: vremetic@gmail.com
->         Regression: No
-> 
-> While running nmap against localhost I started to see open ports in the dynamic
-> range (>1024). Kind of odd, knowing netstat and ss did not show any listeners
-> on the port.
-> 
-> With tcpdump, I confirmed system was returning S/ACK for ports that did not
-> have a listener enabled. The "issue" or feature only occurs if source port
-> matches the destination port.
-> 
-> # netstat -nap | grep 5000
-> #
-> 
-> $ nc localhost -p 5000 5000
-> a
-> a
-> 
-> # tcpdump -i lo port 5000
-> 14:28:18.059708 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [S], seq 2005295207,
-> win 43690, options [mss 65495,sackOK,TS val 4481790 ecr 0,nop,wscale 7], length
-> 0
-> 14:28:18.059721 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [S.], seq 2005295207,
-> ack 2005295208, win 43690, options [mss 65495,sackOK,TS val 4481790 ecr
-> 4481790,nop,wscale 7], length 0
+On Wed, 22 Jul 2015 14:29:30 +0200
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 
-Nothing wrong here. This is well known TCP behavior ( cross syn ).
+> Error was:
+> f_bpf.o: In function `bpf_parse_opt':
+> f_bpf.c:(.text+0x88f): undefined reference to `secure_getenv'
+> m_bpf.o: In function `parse_bpf':
+> m_bpf.c:(.text+0x587): undefined reference to `secure_getenv'
+> collect2: error: ld returned 1 exit status
+> 
+> CC: Daniel Borkmann <daniel@iogearbox.net>
+> Fixes: 88eea5395483 ("tc: {f,m}_bpf: allow to retrieve uds path from env")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-> 14:28:18.059729 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [.], ack 2005295208,
-> win 342, options [nop,nop,TS val 4481790 ecr 4481790], length 0
-> 14:28:19.121392 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [P.], seq
-> 2005295208:2005295210, ack 2005295208, win 342, options [nop,nop,TS val 4482056
-> ecr 4481790], length 2
-> 14:28:19.121407 IP 127.0.0.1.5000 > 127.0.0.1.5000: Flags [.], ack 2005295210,
-> win 342, options [nop,nop,TS val 4482056 ecr 4482056], length 0
-> 
-> # hping3 -S 127.0.0.1 -p 5000 -s 5000
-> HPING 127.0.0.1 (lo 127.0.0.1): S set, 40 headers + 0 data bytes 
-> len=40 ip=127.0.0.1 ttl=64 id=2036 sport=5000 flags=S seq=0 win=512 rtt=3.8 ms 
->            << SYN
-> DUP! len=52 ip=127.0.0.1 ttl=64 DF id=670 sport=5000 flags=A seq=0 win=342
-> rtt=3.8 ms      << SYN/ACK
-> len=40 ip=127.0.0.1 ttl=64 DF id=43435 sport=5000 flags=RA seq=1 win=0 rtt=3.7
-> ms
-> 
-> I confirmed it with nmap, nc, and hping3; granted they build on same c
-> libraries, so I am not even sure if this should be filed as a kernel bug (or
-> even a bug);
-> just did not expect to see this behavior // 
-> 
-> Expected to see a RST instead.
-> 
-
-Sigh.
-
-Wont fix.
+Applied thanks.
