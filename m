@@ -1,108 +1,67 @@
-From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
-Subject: RE: [PATCH v2.1 21/22] fjes: handle receive cancellation request
- interrupt
-Date: Mon, 27 Jul 2015 01:59:12 +0000
-Message-ID: <E86EADE93E2D054CBCD4E708C38D364A54263FA5@G01JPEXMBYT01>
-References: <1437610142-12439-1-git-send-email-izumi.taku@jp.fujitsu.com>
- <1437610236-12490-1-git-send-email-izumi.taku@jp.fujitsu.com>
- <1437610236-12490-21-git-send-email-izumi.taku@jp.fujitsu.com>
- <55B0E6B9.3070301@cogentembedded.com>
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH v1 net-next 1/1] net: fec: add stop mode request on/off
+ implemention
+Date: Mon, 27 Jul 2015 01:27:40 +0000
+Message-ID: <BN3PR0301MB1219403403FAE09C1B36E1A5F58E0@BN3PR0301MB1219.namprd03.prod.outlook.com>
+References: <1437560023-9271-1-git-send-email-b38611@freescale.com>
+ <20150726.162638.1540098306351231379.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Cc: "platform-driver-x86@vger.kernel.org"
-	<platform-driver-x86@vger.kernel.org>,
-	"dvhart@infradead.org" <dvhart@infradead.org>,
-	"rkhan@redhat.com" <rkhan@redhat.com>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	"joe@perches.com" <joe@perches.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"yasu.isimatu@gmail.com" <yasu.isimatu@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <55B0E6B9.3070301@cogentembedded.com>
-Content-Language: ja-JP
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Li Frank <Frank.Li@freescale.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0139.outbound.protection.outlook.com ([157.56.110.139]:53583
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751431AbbG0B7n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 21:59:43 -0400
+In-Reply-To: <20150726.162638.1540098306351231379.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
-
- Thanks for revewing.
-
-> -----Original Message-----
-> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
-> Sent: Thursday, July 23, 2015 10:06 PM
-> To: Izumi, Taku/泉 拓; netdev@vger.kernel.org; davem@davemloft.net
-> Cc: platform-driver-x86@vger.kernel.org; dvhart@infradead.org; rkhan@redhat.com; alexander.h.duyck@redhat.com;
-> linux-acpi@vger.kernel.org; joe@perches.com; stephen@networkplumber.org; yasu.isimatu@gmail.com
-> Subject: Re: [PATCH v2.1 21/22] fjes: handle receive cancellation request interrupt
+From: David Miller <davem@davemloft.net> Sent: Monday, July 27, 2015 7:27 AM
+> To: Duan Fugang-B38611
+> Cc: netdev@vger.kernel.org; Li Frank-B20596; stephen@networkplumber.org
+> Subject: Re: [PATCH v1 net-next 1/1] net: fec: add stop mode request
+> on/off implemention
 > 
-> Hello.
+> From: Fugang Duan <b38611@freescale.com>
+> Date: Wed, 22 Jul 2015 18:13:43 +0800
 > 
-> On 7/23/2015 3:10 AM, Taku Izumi wrote:
-> 
-> > This patch adds implementation of handling IRQ
-> > of other receiver's receive cancellation request.
-> 
-> > Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> > ---
-> >   drivers/net/fjes/fjes_main.c | 79 ++++++++++++++++++++++++++++++++++++++++++++
-> >   1 file changed, 79 insertions(+)
+> > The current driver depends on platform data to implement stop mode
+> > request on/off that call api pdata->sleep_mode_enable().
 > >
-> > diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-> > index faaf2ed..b21ad68 100644
-> > --- a/drivers/net/fjes/fjes_main.c
-> > +++ b/drivers/net/fjes/fjes_main.c
-> > @@ -822,6 +822,75 @@ static int fjes_vlan_rx_kill_vid(struct net_device *netdev,
-> >   	return 0;
-> >   }
+> > To reduce arch platform redundancy code, since the function only set
+> > SOC GPR register bit to request stop mode of/off, so we can move the
+> > function into driver. And the specifix GPR register offset and MASK
+> > bit can be transferred from DTS.
 > >
-> > +static void fjes_txrx_stop_req_irq(struct fjes_adapter *adapter,
-> > +				   int src_epid)
-> > +{
-> > +	struct fjes_hw *hw = &adapter->hw;
-> > +	enum ep_partner_status status;
-> > +
-> > +	status = fjes_hw_get_partner_ep_status(hw, src_epid);
-> > +	switch (status) {
-> > +	case EP_PARTNER_UNSHARE:
-> > +	default:
-> > +		break;
-> > +	case EP_PARTNER_COMPLETE:
-> > +		break;
+> > Signed-off-by: Fugang Duan <B38611@freescale.com>
 > 
->     Why this *case* isn't merged with the above ones?
+> Doesn't this break stop mode on those devices until the DTS is updated?
+> 
+> That's really unfortunate, because you're leaving all of the platform
+> data and implementation there, yet it's going to be unused.
+> 
+> I really think you need to keep the code using the platform data bits
+> around until all the DTSs are updated.
+> 
+> No matter what you tell me about how DTSs are updated (don't even mention
+> the details, I do not care) you simply cannot keep the platform data code
+> around and not use it.  It is completely nonsensible to have code that
+> would properly function and properly support a feature for the device in
+> the kernel, yet not use it.
+> 
+> Period.
 
-  Oh... You are right.
+Thanks for your comments.
 
-> 
-> > +	case EP_PARTNER_WAITING:
-> > +		if (src_epid < hw->my_epid) {
-> > +			hw->ep_shm_info[src_epid].tx.info->v1i.rx_status |=
-> > +				FJES_RX_STOP_REQ_DONE;
-> > +
-> > +			clear_bit(src_epid, &hw->txrx_stop_req_bit);
-> > +			set_bit(src_epid, &adapter->unshare_watch_bitmask);
-> > +
-> > +			if (!work_pending(&adapter->unshare_watch_task))
-> > +				queue_work(adapter->control_wq,
-> > +					   &adapter->unshare_watch_task);
-> > +		}
-> > +		break;
-> > +	case EP_PARTNER_SHARED:
-> > +		if (hw->ep_shm_info[src_epid].rx.info->v1i.rx_status
-> > +				& FJES_RX_STOP_REQ_REQUEST) {
-> 
->     Please leave the & operator on the first line and start the second line
-> right under 'hw' on the first.
+Firstly, I will send some board dts patches (and test).
+Secondly, the net/next tree have no platform data for stop mode because others suggest us to use dts not platform data, and there have no any boards support stop mode in net/next, so this doesn't break any boards in net/next.
 
-   OK.
-> 
-> [...]
-> 
-> MBR, Sergei
-
- Sincerely,
- Taku Izumi
+Regards,
+Andy
