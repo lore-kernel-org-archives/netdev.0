@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 15/16] net: Add chvrf command
-Date: Mon, 27 Jul 2015 12:31:08 -0600
-Message-ID: <1438021869-49186-16-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 05/16] net: Use VRF device index for lookups on TX
+Date: Mon, 27 Jul 2015 12:30:58 -0600
+Message-ID: <1438021869-49186-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -13,281 +13,119 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:35103 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754100AbbG0SdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:33:17 -0400
-Received: by igr7 with SMTP id 7so84409940igr.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:33:17 -0700 (PDT)
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:33646 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753813AbbG0Sc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:32:59 -0400
+Received: by igbpg9 with SMTP id pg9so104320082igb.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:32:58 -0700 (PDT)
 In-Reply-To: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Example of how to use the default bind to interface option for tasks and
-correlate with VRF devices.
+As with ingress use the index of VRF master device for route lookups on
+egress. However, the oif should only be used to direct the lookups to a
+specific table. Routes in the table are not based on the VRF device but
+rather interfaces that are part of the VRF so do not consider the oif for
+lookups within the table. The FLOWI_FLAG_VRFSRC is used to control this
+latter part.
 
+Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- tools/net/Makefile |   6 +-
- tools/net/chvrf.c  | 225 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 229 insertions(+), 2 deletions(-)
- create mode 100644 tools/net/chvrf.c
+ include/net/flow.h  | 1 +
+ include/net/route.h | 3 +++
+ net/ipv4/fib_trie.c | 7 +++++--
+ net/ipv4/icmp.c     | 4 ++++
+ net/ipv4/route.c    | 3 +++
+ 5 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/tools/net/Makefile b/tools/net/Makefile
-index ee577ea03ba5..c13f11f5637a 100644
---- a/tools/net/Makefile
-+++ b/tools/net/Makefile
-@@ -10,7 +10,7 @@ YACC = bison
- %.lex.c: %.l
- 	$(LEX) -o $@ $<
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 3098ae33a178..f305588fc162 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -33,6 +33,7 @@ struct flowi_common {
+ 	__u8	flowic_flags;
+ #define FLOWI_FLAG_ANYSRC		0x01
+ #define FLOWI_FLAG_KNOWN_NH		0x02
++#define FLOWI_FLAG_VRFSRC		0x04
+ 	__u32	flowic_secid;
+ 	struct flowi_tunnel flowic_tun_key;
+ };
+diff --git a/include/net/route.h b/include/net/route.h
+index cec7a2a055c8..54f97eea0fb2 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -254,6 +254,9 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32
+ 	if (inet_sk(sk)->transparent)
+ 		flow_flags |= FLOWI_FLAG_ANYSRC;
  
--all : bpf_jit_disasm bpf_dbg bpf_asm
-+all : bpf_jit_disasm bpf_dbg bpf_asm chvrf
++	if (netif_index_is_vrf(sock_net(sk), oif))
++		flow_flags |= FLOWI_FLAG_VRFSRC;
++
+ 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
+ 			   protocol, flow_flags, dst, src, dport, sport);
+ }
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index ac2d828c6daa..7da901c56e35 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1421,8 +1421,11 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
+ 			    nh->nh_flags & RTNH_F_LINKDOWN &&
+ 			    !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
+ 				continue;
+-			if (flp->flowi4_oif && flp->flowi4_oif != nh->nh_oif)
+-				continue;
++			if (!(flp->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
++				if (flp->flowi4_oif &&
++				    flp->flowi4_oif != nh->nh_oif)
++					continue;
++			}
  
- bpf_jit_disasm : CFLAGS = -Wall -O2 -DPACKAGE='bpf_jit_disasm'
- bpf_jit_disasm : LDLIBS = -lopcodes -lbfd -ldl
-@@ -25,8 +25,10 @@ bpf_asm : LDLIBS =
- bpf_asm : bpf_asm.o bpf_exp.yacc.o bpf_exp.lex.o
- bpf_exp.lex.o : bpf_exp.yacc.c
+ 			if (!(fib_flags & FIB_LOOKUP_NOREF))
+ 				atomic_inc(&fi->fib_clntref);
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index c0556f1e4bf0..d2d142b775b8 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -96,6 +96,7 @@
+ #include <net/xfrm.h>
+ #include <net/inet_common.h>
+ #include <net/ip_fib.h>
++#include <net/vrf.h>
  
-+chvrf : CFLAGS = -Wall -O2
+ /*
+  *	Build xmit assembly blocks
+@@ -425,6 +426,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	fl4.flowi4_mark = mark;
+ 	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
+ 	fl4.flowi4_proto = IPPROTO_ICMP;
++	fl4.flowi4_oif = vrf_master_dev_ifindex(skb->dev) ? : skb->dev->ifindex;
+ 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
+ 	rt = ip_route_output_key(net, &fl4);
+ 	if (IS_ERR(rt))
+@@ -458,6 +460,8 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	fl4->flowi4_proto = IPPROTO_ICMP;
+ 	fl4->fl4_icmp_type = type;
+ 	fl4->fl4_icmp_code = code;
++	fl4->flowi4_oif = vrf_master_dev_ifindex(skb_in->dev) ? : skb_in->dev->ifindex;
 +
- clean :
--	rm -rf *.o bpf_jit_disasm bpf_dbg bpf_asm bpf_exp.yacc.* bpf_exp.lex.*
-+	rm -rf *.o bpf_jit_disasm bpf_dbg bpf_asm bpf_exp.yacc.* bpf_exp.lex.* chvrf
+ 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
+ 	rt = __ip_route_output_key(net, fl4);
+ 	if (IS_ERR(rt))
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index ba74c83c05be..8119896e1159 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2093,6 +2093,9 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 		if (!dev_out)
+ 			goto out;
  
- install :
- 	install bpf_jit_disasm $(prefix)/bin/bpf_jit_disasm
-diff --git a/tools/net/chvrf.c b/tools/net/chvrf.c
-new file mode 100644
-index 000000000000..71cc925fd101
---- /dev/null
-+++ b/tools/net/chvrf.c
-@@ -0,0 +1,225 @@
-+/*
-+ * chvrf.c - Example of how to use the default bind-to-device option for
-+ *           tasks and correlate to VRFs via the VRF device.
-+ *
-+ * Copyright (c) 2015 Cumulus Networks
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+#include <sys/ioctl.h>
-+#include <sys/prctl.h>
-+#include <sys/socket.h>
-+#include <signal.h>
-+#include <string.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <netinet/in.h>
-+#include <net/if.h> /* for struct ifreq  */
-+#include <libgen.h>
-+#include <errno.h>
++		if (netif_is_vrf(dev_out))
++			fl4->flowi4_flags |= FLOWI_FLAG_VRFSRC;
 +
-+#ifndef PR_SET_SK_BIND_DEV_IF
-+#define PR_SET_SK_BIND_DEV_IF   47
-+#endif
-+#ifndef PR_GET_SK_BIND_DEV_IF
-+#define PR_GET_SK_BIND_DEV_IF   48
-+#endif
-+
-+static int vrf_to_device(int vrf)
-+{
-+	struct ifreq ifdata;
-+	int sd, rc;
-+
-+	memset(&ifdata, 0, sizeof(ifdata));
-+	snprintf(ifdata.ifr_name, sizeof(ifdata.ifr_name) - 1, "vrf%d", vrf);
-+
-+	sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-+	if (sd < 0) {
-+		perror("socket failed");
-+		return -1;
-+	}
-+
-+	/* Get the index for the specified interface */
-+	rc = ioctl(sd, SIOCGIFINDEX, (char *)&ifdata);
-+	close(sd);
-+	if (rc != 0) {
-+		perror("ioctl(SIOCGIFINDEX) failed");
-+		return -1;
-+	}
-+
-+	return ifdata.ifr_ifindex;
-+}
-+
-+static int device_to_vrf(int idx)
-+{
-+	struct ifreq ifdata;
-+	int sd, vrf, rc;
-+
-+	memset(&ifdata, 0, sizeof(ifdata));
-+	ifdata.ifr_ifindex = idx;
-+
-+	sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-+	if (sd < 0) {
-+		perror("socket failed");
-+		return -1;
-+	}
-+
-+	/* Get the index for the specified interface */
-+	rc = ioctl(sd, SIOCGIFNAME, (char *)&ifdata);
-+	close(sd);
-+	if (rc != 0) {
-+		perror("ioctl(SIOCGIFNAME) failed");
-+		return -1;
-+	}
-+
-+	if (sscanf(ifdata.ifr_name, "vrf%d", &vrf) != 1) {
-+		fprintf(stderr, "Unexpected device name (%s)\n", ifdata.ifr_name);
-+		vrf = -1;
-+	}
-+
-+	return vrf;
-+}
-+
-+static int set_vrf(int vrf)
-+{
-+	int idx;
-+	long err;
-+
-+	/* convert vrf to device index */
-+	idx = vrf_to_device(vrf);
-+	if (idx < 0) {
-+		fprintf(stderr, "Failed to get device index for vrf %d\n", vrf);
-+		return -1;
-+	}
-+
-+	/* set default device bind */
-+	err = prctl(PR_SET_SK_BIND_DEV_IF, idx);
-+	if (err < 0) {
-+		fprintf(stderr, "prctl failed to device index: %d\n", errno);
-+		return -1;
-+	}
-+
-+	return 0;
-+}
-+
-+/* get vrf context for given process id */
-+static int get_vrf(pid_t pid)
-+{
-+	int vrf;
-+	long err;
-+
-+	/* lookup device index pid is tied to */
-+	err = prctl(PR_GET_SK_BIND_DEV_IF, pid);
-+	if (err < 0) {
-+		fprintf(stderr, "prctl failed: %d\n", errno);
-+		return -1;
-+	}
-+
-+	if (err == 0)
-+		return 0;
-+
-+	/* convert device index to vrf id */
-+	vrf = device_to_vrf((int)err);
-+	if (vrf < 0) {
-+		fprintf(stderr, "Failed to get device index for vrf %d\n", vrf);
-+		return -1;
-+	}
-+
-+	return vrf;
-+}
-+
-+static int run_vrf(char **argv, int vrf)
-+{
-+	char *cmd;
-+
-+	if (set_vrf(vrf) != 0) {
-+		fprintf(stderr, "Failed to set vrf context\n");
-+		return 1;
-+	}
-+
-+	cmd = strdup(argv[0]);
-+	if (!cmd) {
-+		fprintf(stderr, "Failed to set command\n");
-+		return 1;
-+	}
-+	argv[0] = basename(argv[0]);
-+	if (execvp(cmd, argv) < 0)
-+		perror("Failed to exec command\n");
-+
-+	return 1;
-+}
-+
-+static int show_vrf(pid_t pid)
-+{
-+	int vrf = get_vrf(pid);
-+
-+	switch (vrf) {
-+	case -1:
-+		fprintf(stderr, "Failed to get vrf context for pid %d\n", pid);
-+		if (kill(pid, 0) < 0) {
-+			if (errno == ESRCH)
-+				fprintf(stderr, "No process with given pid\n");
-+		}
-+		break;
-+	case 0:
-+		printf("Process %d is not running in a VRF context\n", pid);
-+		break;
-+	default:
-+		printf("Process %d is running in VRF %d\n", pid, vrf);
-+	}
-+	return vrf < 0 ? 1 : 0;
-+}
-+
-+static void usage(char *_prog)
-+{
-+	const char *prog = basename(_prog);
-+
-+	fprintf(stderr, "usage:\n");
-+	fprintf(stderr, "\nShow VRF context for given pid\n");
-+	fprintf(stderr, "\t%s -p pid\n", prog);
-+	fprintf(stderr, "\nRun command in given VRF context\n");
-+	fprintf(stderr, "\t%s -v vrf <command>\n", prog);
-+}
-+
-+int main(int argc, char *argv[])
-+{
-+	int rc;
-+	pid_t pid = 0;
-+	int vrf = 0;
-+
-+	extern char *optarg;
-+	extern int optind;
-+
-+	while ((rc = getopt(argc, argv, "+:p:v:")) != -1) {
-+		switch (rc) {
-+		case 'p':
-+			pid = atoi(optarg);
-+			break;
-+		case 'v':
-+			vrf = atoi(optarg);
-+			break;
-+		default:
-+			usage(argv[0]);
-+			return 1;
-+		}
-+	}
-+
-+	if ((pid && vrf) || (!pid && !vrf)) {
-+		usage(argv[0]);
-+		return 1;
-+	}
-+
-+	if (pid)
-+		return show_vrf(pid);
-+
-+	if (optind == argc) {
-+		usage(argv[0]);
-+		return 1;
-+	}
-+
-+	return run_vrf(&argv[optind], vrf);
-+}
+ 		/* RACE: Check return value of inet_select_addr instead. */
+ 		if (!(dev_out->flags & IFF_UP) || !__in_dev_get_rcu(dev_out)) {
+ 			rth = ERR_PTR(-ENETUNREACH);
 -- 
 2.3.2 (Apple Git-55)
