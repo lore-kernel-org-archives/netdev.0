@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch v2 resend 1/2] net: fec: use managed DMA API functions
- to allocate BD ring
-Date: Sun, 26 Jul 2015 21:52:03 -0700 (PDT)
-Message-ID: <20150726.215203.263400958239850514.davem@davemloft.net>
-References: <1437660380-21164-1-git-send-email-l.stach@pengutronix.de>
+Subject: Re: pull request: bluetooth 2015-07-23
+Date: Sun, 26 Jul 2015 21:54:42 -0700 (PDT)
+Message-ID: <20150726.215442.695531626290691136.davem@davemloft.net>
+References: <20150723151722.GA20850@t440s.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@freescale.com, Frank.Li@freescale.com,
-	netdev@vger.kernel.org, patchwork-lst@pengutronix.de
-To: l.stach@pengutronix.de
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38117 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38137 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750744AbbG0EwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 00:52:05 -0400
-In-Reply-To: <1437660380-21164-1-git-send-email-l.stach@pengutronix.de>
+	with ESMTP id S1751400AbbG0Eyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 00:54:44 -0400
+In-Reply-To: <20150723151722.GA20850@t440s.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucas Stach <l.stach@pengutronix.de>
-Date: Thu, 23 Jul 2015 16:06:19 +0200
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Thu, 23 Jul 2015 18:17:22 +0300
 
-> So it gets freed when the device is going away.
-> This fixes a DMA memory leak on driver probe() fail and driver
-> remove().
+> Here's another one-patch pull request for 4.2 which targets a potential
+> NULL pointer dereference in the LE Security Manager code that can be
+> triggered by using older user space tools. The issue has been there
+> since 4.0 so there's the appropriate "Cc: stable" in place.
 > 
-> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
-> ---
-> v2: Fix indentation of second line to fix alignment with opening bracket.
+> Let me know if there are any issues pulling. Thanks.
 
-Applied.
+Pulled, thanks Johan.
