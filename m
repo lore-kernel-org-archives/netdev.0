@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 09/16] net: Add routes to the table associated with the device
-Date: Mon, 27 Jul 2015 12:31:02 -0600
-Message-ID: <1438021869-49186-10-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 12/16] net: Add ipv4 route helper to set next hop
+Date: Mon, 27 Jul 2015 12:31:05 -0600
+Message-ID: <1438021869-49186-13-git-send-email-dsa@cumulusnetworks.com>
 References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -13,99 +13,63 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:37165 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753946AbbG0SdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:33:06 -0400
-Received: by igbpg9 with SMTP id pg9so89329284igb.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:33:06 -0700 (PDT)
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:36053 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754015AbbG0SdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 14:33:12 -0400
+Received: by igbij6 with SMTP id ij6so83994580igb.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 11:33:11 -0700 (PDT)
 In-Reply-To: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a device associated with a VRF is brought up or down routes
-should be added to/removed from the table associated with the VRF.
-fib_magic defaults to using the main or local tables. Have it use
-the table with the device if there is one.
-
-A part of this is directing prefsrc validations to the correct
-table as well.
-
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/fib_frontend.c  |  8 ++++----
- net/ipv4/fib_semantics.c | 25 +++++++++++++++++++------
- 2 files changed, 23 insertions(+), 10 deletions(-)
+ include/net/route.h |  3 +++
+ net/ipv4/route.c    | 10 ++++++++++
+ 2 files changed, 13 insertions(+)
 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 5ce0d11222ca..e35541a64449 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -805,6 +805,7 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifaddr *ifa)
- {
- 	struct net *net = dev_net(ifa->ifa_dev->dev);
-+	int tb_id = vrf_dev_table(ifa->ifa_dev->dev);
- 	struct fib_table *tb;
- 	struct fib_config cfg = {
- 		.fc_protocol = RTPROT_KERNEL,
-@@ -819,11 +820,10 @@ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifad
- 		},
- 	};
+diff --git a/include/net/route.h b/include/net/route.h
+index b14cbec93fbd..900d50fbcfc7 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -107,6 +107,7 @@ struct rt_cache_stat {
+ extern struct ip_rt_acct __percpu *ip_rt_acct;
  
--	if (type == RTN_UNICAST)
--		tb = fib_new_table(net, RT_TABLE_MAIN);
--	else
--		tb = fib_new_table(net, RT_TABLE_LOCAL);
-+	if (!tb_id)
-+		tb_id = (type == RTN_UNICAST) ? RT_TABLE_MAIN : RT_TABLE_LOCAL;
+ struct in_device;
++struct fib_result;
  
-+	tb = fib_new_table(net, tb_id);
- 	if (!tb)
- 		return;
- 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index a578eacf9fcd..37e1dee7692a 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -838,6 +838,23 @@ __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh)
- 	return nh->nh_saddr;
+ int ip_rt_init(void);
+ void rt_cache_flush(struct net *net);
+@@ -114,6 +115,8 @@ void rt_flush_dev(struct net_device *dev);
+ struct rtable *ip_route_new_rtable(struct net_device *dev,
+ 				   unsigned int flags, u16 type,
+ 				   bool nopolicy, bool noxfrm, bool do_cache);
++void ip_route_set_nexthop(struct rtable *rt, __be32 daddr,
++			  const struct fib_result *res);
+ struct rtable *__ip_route_output_key(struct net *, struct flowi4 *flp);
+ struct rtable *ip_route_output_flow(struct net *, struct flowi4 *flp,
+ 				    struct sock *sk);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 050a3c1d89ba..47dae001a000 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1537,6 +1537,16 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	return err;
  }
  
-+static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
++void ip_route_set_nexthop(struct rtable *rt, __be32 daddr,
++			  const struct fib_result *res)
 +{
-+	if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
-+	    fib_prefsrc != cfg->fc_dst) {
-+		int tb_id = cfg->fc_table;
++	struct fib_nh_exception *fnhe;
 +
-+		if (tb_id == RT_TABLE_MAIN)
-+			tb_id = RT_TABLE_LOCAL;
++	fnhe = find_exception(&FIB_RES_NH(*res), daddr);
 +
-+		if (inet_addr_type_table(cfg->fc_nlinfo.nl_net,
-+					 fib_prefsrc, tb_id) != RTN_LOCAL) {
-+			return false;
-+		}
-+	}
-+	return true;
++	rt_set_nexthop(rt, daddr, res, fnhe, res->fi, res->type, 0);
 +}
-+
- struct fib_info *fib_create_info(struct fib_config *cfg)
- {
- 	int err;
-@@ -1033,12 +1050,8 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 			fi->fib_flags |= RTNH_F_LINKDOWN;
- 	}
++EXPORT_SYMBOL(ip_route_set_nexthop);
  
--	if (fi->fib_prefsrc) {
--		if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
--		    fi->fib_prefsrc != cfg->fc_dst)
--			if (inet_addr_type(net, fi->fib_prefsrc) != RTN_LOCAL)
--				goto err_inval;
--	}
-+	if (fi->fib_prefsrc && !fib_valid_prefsrc(cfg, fi->fib_prefsrc))
-+		goto err_inval;
- 
- 	change_nexthops(fi) {
- 		fib_info_update_nh_saddr(net, nexthop_nh);
+ static void ip_handle_martian_source(struct net_device *dev,
+ 				     struct in_device *in_dev,
 -- 
 2.3.2 (Apple Git-55)
