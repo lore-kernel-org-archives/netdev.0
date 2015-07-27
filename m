@@ -1,20 +1,15 @@
 From: s prasad <sprasad.kandregula@gmail.com>
-Subject: Need help about AR8327 Ethernet Driver
-Date: Mon, 27 Jul 2015 12:16:10 -0400
-Message-ID: <CAJa-X96OijRZS4G5eKRUR0c3QG8zpYVJj53t68m_z3O1fgf8Ow@mail.gmail.com>
+Subject: Fwd: Need help about AR8327 Ethernet Driver
+Date: Mon, 27 Jul 2015 12:16:52 -0400
+Message-ID: <CAJa-X96YSj4TkZBkPZ-wF80Mjw4D237reRgtL0hkqpFy-RugQA@mail.gmail.com>
+References: <CAJa-X96OijRZS4G5eKRUR0c3QG8zpYVJj53t68m_z3O1fgf8Ow@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Mathieu Olivari <mathieu@codeaurora.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vn0-f50.google.com ([209.85.216.50]:36242 "EHLO
-	mail-vn0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752049AbbG0QQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 12:16:12 -0400
-Received: by vnk197 with SMTP id 197so32664369vnk.3
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 09:16:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJa-X96OijRZS4G5eKRUR0c3QG8zpYVJj53t68m_z3O1fgf8Ow@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi  All,
 
@@ -42,3 +37,7 @@ Can somebody through where should I look to solve my issue.
 
 Thanks and Regards,
 S Prasad
+
+
+-- 
+S Prasad Kandregula
