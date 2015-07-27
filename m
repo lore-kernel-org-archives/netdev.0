@@ -1,47 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bcmgenet: Register link_update callback
- for all MoCA PHYs
-Date: Sun, 26 Jul 2015 20:54:15 -0700 (PDT)
-Message-ID: <20150726.205415.573396781347754561.davem@davemloft.net>
-References: <1437611393-6494-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: fix crash over flow-based vxlan device
+Date: Sun, 26 Jul 2015 20:55:14 -0700 (PDT)
+Message-ID: <20150726.205514.377285318773173282.davem@davemloft.net>
+References: <1437613992-25953-1-git-send-email-weichunc@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pgynther@google.com, jaedon.shin@gmail.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, ast@plumgrid.com, tgraf@suug.ch
+To: weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37808 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37812 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755256AbbG0Dyo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 23:54:44 -0400
-In-Reply-To: <1437611393-6494-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1755419AbbG0DzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2015 23:55:15 -0400
+In-Reply-To: <1437613992-25953-1-git-send-email-weichunc@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 22 Jul 2015 17:29:53 -0700
+From: Wei-Chun Chao <weichunc@plumgrid.com>
+Date: Wed, 22 Jul 2015 18:13:12 -0700
 
-> Commit 8d88c6ebb34c ("net: bcmgenet: enable MoCA link state change
-> detection") added a fixed PHY link_update callback for MoCA PHYs when
-> registered using platform_data exclusively, this change is also
-> applicable to systems using Device Tree as their primary configuration
-> interface.
+> Similar check was added in ip_rcv but not in ipv6_rcv.
 > 
-> In order for this to work, move the link_update assignment into
-> bcmgenet_moca_phy_setup() where we know for sure that we are running on
-> a MoCA GENET instance, and do not override phydev->link since this is:
+> BUG: unable to handle kernel NULL pointer dereference at (null)
+> IP: [<ffffffff81734e0a>] ipv6_rcv+0xfa/0x500
+> Call Trace:
+> [<ffffffff816c9786>] ? ip_rcv+0x296/0x400
+> [<ffffffff817732d2>] ? packet_rcv+0x52/0x410
+> [<ffffffff8168e99f>] __netif_receive_skb_core+0x63f/0x9a0
+> [<ffffffffc02b34a0>] ? br_handle_frame_finish+0x580/0x580 [bridge]
+> [<ffffffff8109912c>] ? update_rq_clock.part.81+0x1c/0x40
+> [<ffffffff8168ed18>] __netif_receive_skb+0x18/0x60
+> [<ffffffff8168fa1f>] process_backlog+0x9f/0x150
 > 
-> - properly taken care of by the PHY library by getting the link UP/DOWN
->   interrupts
-> - this now runs everytime we call bcmgenet_open(), so we need to
->   preserve whatever we detected before we went administratively DOWN and
->   then UP
-> - we need to make sure that MoCA PHYs start with a link DOWN during
->   probe in order to force a link transition to occur
-> 
-> To avoid a forward declaration, move bcmgenet_fixed_phy_link_update()
-> above its caller.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Fixes: ee122c79d422 (vxlan: Flow based tunneling)
+> Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
 
-Applied.
+Applied, thank you.
