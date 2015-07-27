@@ -1,11 +1,12 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next 0/4] Introduce Mellanox Technologies Switch ASICs
- switchdev drivers
-Date: Mon, 27 Jul 2015 13:21:54 -0700
-Message-ID: <CAE4R7bBdDO=d_9dT560dSTo9E0kqcL-sXyF1HqsA-_WHCtPqAw@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/4] Introduce Mellanox Technologies Switch
+ ASICs switchdev drivers
+Date: Mon, 27 Jul 2015 22:27:47 +0200
+Message-ID: <20150727202747.GA2123@nanopsycho.fritz.box>
 References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
+ <CAE4R7bBdDO=d_9dT560dSTo9E0kqcL-sXyF1HqsA-_WHCtPqAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>, idosch@mellanox.com,
 	eladr@mellanox.com,
@@ -22,26 +23,36 @@ Cc: Netdev <netdev@vger.kernel.org>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
 	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
-To: Jiri Pirko <jiri@resnulli.us>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:35134 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752790AbbG0UWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 16:22:14 -0400
-Received: by obbop1 with SMTP id op1so68423480obb.2
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 13:22:14 -0700 (PDT)
-In-Reply-To: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:36432 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbbG0U1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 16:27:51 -0400
+Received: by wicgb10 with SMTP id gb10so128262353wic.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 13:27:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bBdDO=d_9dT560dSTo9E0kqcL-sXyF1HqsA-_WHCtPqAw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 23, 2015 at 8:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> This patchset introduces Mellanox Technologies Switch driver infrastructure
-> and support for SwitchX-2 ASIC.
+Mon, Jul 27, 2015 at 10:21:54PM CEST, sfeldma@gmail.com wrote:
+>On Thu, Jul 23, 2015 at 8:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> This patchset introduces Mellanox Technologies Switch driver infrastructure
+>> and support for SwitchX-2 ASIC.
+>
+>You guys did a great job on the driver; looking forward to seeing
+>L2/L3 hooked up.  Very nice, aesthetically pleasing code.
 
-You guys did a great job on the driver; looking forward to seeing
-L2/L3 hooked up.  Very nice, aesthetically pleasing code.
+Thanks!
 
-Is this a ground-up rewrite or a port of the SDK?  It's so clean and
-tight, I'm guessing a ground-up rewrite.
+>
+>Is this a ground-up rewrite or a port of the SDK?  It's so clean and
+>tight, I'm guessing a ground-up rewrite.
 
-Reviewed-by: Scott Feldman <sfeldma@gmail.com>
+It's rewritten from scratch.
+
+>
+>Reviewed-by: Scott Feldman <sfeldma@gmail.com>
+
+Thanks for your review!
