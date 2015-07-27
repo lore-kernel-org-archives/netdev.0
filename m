@@ -1,55 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V12 2/3] Check for vlan ethernet types for
- 8021.q or 802.1ad
-Date: Mon, 27 Jul 2015 01:24:21 -0700 (PDT)
-Message-ID: <20150727.012421.729387450726515671.davem@davemloft.net>
-References: <1437922355-3809-1-git-send-email-thomasfherbert@gmail.com>
-	<1437922355-3809-3-git-send-email-thomasfherbert@gmail.com>
+Subject: Re: [patch -next] lwtunnel: use kfree_skb() instead of vanilla
+ kfree()
+Date: Mon, 27 Jul 2015 01:25:19 -0700 (PDT)
+Message-ID: <20150727.012519.1095992977174899951.davem@davemloft.net>
+References: <20150727080747.GA2937@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com, therbert@redhat.com,
-	dev@openvswitch.org
-To: thomasfherbert@gmail.com
+Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39151 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39158 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbbG0IYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:24:21 -0400
-In-Reply-To: <1437922355-3809-3-git-send-email-thomasfherbert@gmail.com>
+	with ESMTP id S1750741AbbG0IZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:25:19 -0400
+In-Reply-To: <20150727080747.GA2937@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas F Herbert <thomasfherbert@gmail.com>
-Date: Sun, 26 Jul 2015 10:52:34 -0400
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 27 Jul 2015 11:07:47 +0300
 
-> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
-> ---
->  include/linux/if_vlan.h | 17 +++++++++++++++++
->  1 file changed, 17 insertions(+)
+> kfree_skb() is correct here.
 > 
-> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-> index 67ce5bd..88d1be4 100644
-> --- a/include/linux/if_vlan.h
-> +++ b/include/linux/if_vlan.h
-> @@ -627,6 +627,23 @@ static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
->  
->  	return features;
->  }
-> +/**
-> + * eth_type_vlan - check for valid vlan ether type.
-> + * @ethertype: ether type to check
-> + *
-> + * Returns true if the ether type is a vlan ether type.
-> + */
-> +static inline bool eth_type_vlan(__be16 ethertype)
-> +{
-> +	switch (ethertype) {
-> +	case (htons(ETH_P_8021Q)):
-> +		return true;
-> +	case (htons(ETH_P_8021AD)):
-> +		return true;
+> Fixes: ffce41962ef6 ('lwtunnel: support dst output redirect function')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Please don't put unnecessary parenthesis around case statement values.
-
-Thanks.
+Oops, good catch.  Applied, thanks Dan.
