@@ -1,44 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 0/6] net/macb: fix for AVR32 and clean up
-Date: Mon, 27 Jul 2015 01:26:09 -0700 (PDT)
-Message-ID: <20150727.012609.2277518407759500807.davem@davemloft.net>
-References: <1437762244-2678-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	<20150727.011045.135084155148986440.davem@davemloft.net>
-	<55B5E94E.7000204@atmel.com>
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Subject: RE: [PATCH] phylib: add driver for aquantia phy
+Date: Mon, 27 Jul 2015 08:30:31 +0000
+Message-ID: <BLUPR03MB14753A6DDD02A9F944F2723EE28E0@BLUPR03MB1475.namprd03.prod.outlook.com>
+References: <1437709605-42980-1-git-send-email-shh.xie@gmail.com>
+ <55B1C17B.1000704@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andriy.shevchenko@linux.intel.com, cyrille.pitchen@atmel.com,
-	netdev@vger.kernel.org
-To: nicolas.ferre@atmel.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39172 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750854AbbG0I0K convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 04:26:10 -0400
-In-Reply-To: <55B5E94E.7000204@atmel.com>
+Received: from mail-by2on0124.outbound.protection.outlook.com ([207.46.100.124]:62819
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750779AbbG0Iae (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2015 04:30:34 -0400
+In-Reply-To: <55B1C17B.1000704@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Mon, 27 Jul 2015 10:18:22 +0200
-
-> Le 27/07/2015 10:10, David Miller a =E9crit :
->> From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
->> Date: Fri, 24 Jul 2015 21:23:58 +0300
->>=20
->>> It seems no one had tested recently the driver on AVR32 platforms
->>> such as ATNGW100. This series bring it back to work.
->>=20
->> Series applied, thanks.
->=20
-> David, I would have liked to have more time to go through this series=
-:
-> can you hold on a little bit?
-
-Too late it's already pushed out to my tree.  When I say "applied" it r=
-eally
-is committed to the permanent irreversable record in my public GIT tree=
-,
-so you must send me relative changes if you want anything fixes at this
-point.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
+YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgSnVseSAyNCwgMjAx
+NSAxMjozOSBQTQ0KPiBUbzogc2hoLnhpZUBnbWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IFhpZSBTaGFvaHVpLUIyMTk4OQ0KPiBTdWJq
+ZWN0OiBSZTogW1BBVENIXSBwaHlsaWI6IGFkZCBkcml2ZXIgZm9yIGFxdWFudGlhIHBoeQ0KPiAN
+Cj4gTGUgMDcvMjMvMTUgMjA6NDYsIHNoaC54aWVAZ21haWwuY29tIGEgw6ljcml0IDoNCj4gPiBG
+cm9tOiBTaGFvaHVpIFhpZSA8U2hhb2h1aS5YaWVAZnJlZXNjYWxlLmNvbT4NCj4gPg0KPiA+IFRo
+aXMgcGF0Y2ggYWRkZWQgZHJpdmVyIHRvIHN1cHBvcnQgQXF1YW50aWEgUEhZcyBBUTEyMDIsIEFR
+MjEwNCwNCj4gPiBBUVIxMDUsIEFRUjQwNSwgd2hpY2ggYWNjZXNzZWQgdGhyb3VnaCBjbGF1c2Ug
+NDUuDQo+IA0KPiBDb3VsZCB5b3UgcHJlZml4IHlvdXIgcGF0Y2hlcyB3aXRoICJuZXQ6IHBoeTog
+IiBpbiB0aGUgZnV0dXJlIHRvIGJlDQo+IGNvbnNpc3RlbnQgd2l0aCB3aGF0IGlzIHR5cGljYWxs
+eSB1c2VkPw0KW1MuSF0gT0suDQoNCj4gDQo+IFNlZSBjb21tZW50cyBiZWxvdw0KPiANCj4gPg0K
+PiA+IFNpZ25lZC1vZmYtYnk6IFNoYW9odWkgWGllIDxTaGFvaHVpLlhpZUBmcmVlc2NhbGUuY29t
+Pg0KPiA+IC0tLQ0KPiANCj4gW3NuaXBdDQo+IA0KPiA+ICtzdGF0aWMgaW50IGFxdWFudGlhX3Jl
+YWRfc3RhdHVzKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpIHsNCj4gPiArCWludCByZWc7DQo+
+ID4gKw0KPiA+ICsJcGh5ZGV2LT5zcGVlZCA9IFNQRUVEXzEwMDAwOw0KPiA+ICsJcGh5ZGV2LT5k
+dXBsZXggPSBEVVBMRVhfRlVMTDsNCj4gPiArDQo+ID4gKwlyZWcgPSBwaHlfcmVhZF9tbWQocGh5
+ZGV2LCBNRElPX01NRF9BTiwgTURJT19TVEFUMSk7DQo+ID4gKwlyZWcgPSBwaHlfcmVhZF9tbWQo
+cGh5ZGV2LCBNRElPX01NRF9BTiwgTURJT19TVEFUMSk7DQo+ID4gKwlpZiAocmVnICYgTURJT19T
+VEFUMV9MU1RBVFVTKQ0KPiA+ICsJCXBoeWRldi0+bGluayA9IDE7DQo+ID4gKwllbHNlDQo+ID4g
+KwkJcGh5ZGV2LT5saW5rID0gMDsNCj4gPiArDQo+ID4gKwlyZWcgPSBwaHlfcmVhZF9tbWQocGh5
+ZGV2LCBNRElPX01NRF9BTiwgMHhjODAwKTsNCj4gPiArCW1kZWxheSgxMCk7DQo+ID4gKwlyZWcg
+PSBwaHlfcmVhZF9tbWQocGh5ZGV2LCBNRElPX01NRF9BTiwgMHhjODAwKTsNCj4gPiArCWlmIChy
+ZWcgPT0gMHg5KQ0KPiA+ICsJCXBoeWRldi0+c3BlZWQgPSBTUEVFRF8yNTAwOw0KPiA+ICsJZWxz
+ZSBpZiAocmVnID09IDB4NSkNCj4gPiArCQlwaHlkZXYtPnNwZWVkID0gU1BFRURfMTAwMDsNCj4g
+PiArCWVsc2UgaWYgKHJlZyA9PSAweDMpDQo+ID4gKwkJcGh5ZGV2LT5zcGVlZCA9IFNQRUVEXzEw
+MDsNCj4gDQo+IENvdWxkIHdlIHVzZSBhIHN3aXRjaC9jYXNlIGhlcmU/IA0KW1MuSF0gT0suDQoN
+CkhvdyBhYm91dCAxME1iaXRzL3NlYyBhbmQgZHVwbGV4IGFyZSB3ZQ0KPiBndWFyYW50ZWVkIHRv
+IGJlIGZ1bGwtZHVwbGV4IGF0IGUuZzogMTAwIG9yIDEwTWJpdHMvc2VjPw0KW1MuSF0gVGhlIFBI
+WSBkb2VzIG5vdCBzdXBwb3J0IDEwTSBiaXRzL3NlYy4gDQpXaGVuIGxpbmsgdG8gMTAwTS4gdGhl
+IHBoeSBpcyBmdWxsLWR1cGxleC4NCg0KPiANCj4gPiArDQo+ID4gKwlyZXR1cm4gMDsNCj4gPiAr
+fQ0KPiA+ICsNCj4gPiArc3RhdGljIHN0cnVjdCBwaHlfZHJpdmVyIGFxdWFudGlhX2RyaXZlcltd
+ID0geyB7DQo+ID4gKwkucGh5X2lkCQk9IFBIWV9JRF9BUTEyMDIsDQo+ID4gKwkucGh5X2lkX21h
+c2sJPSAweGZmZmZmZmYwLA0KPiA+ICsJLm5hbWUJCT0gIkFxdWFudGlhIEFRMTIwMiIsDQo+ID4g
+KwkuZmVhdHVyZXMJPSBQSFlfR0JJVF9GRUFUVVJFUywNCj4gDQo+IElmIHRoZXNlIGFyZSAxMEdi
+RSBQSFlzLCBzaG91bGQgbm90IHdlIHN0YXJ0IGRlZmluaW5nIGEgbmV3IGZlYXR1cmVzDQo+IGJp
+dG1hc2sgaGVyZSB0byByZWZsZWN0IHRoYXQgYWNjb3JkaW5nbHk/IFRoYXQgd2F5IE1BQw0KW1Mu
+SF0gdGhlcmUgYXJlIHNldmVyYWwgZGVmaW5lcyBmb3IgMTBHIFBIWXMsIHNob3VsZCBiZSB1c2Vk
+IGJ5IGEgZ2l2ZW4gMTBHIFBIWS4gDQoNCmZvciB0aGlzIEFxdWFudGlhIFBIWSwgU1VQUE9SVEVE
+XzEwMDAwYmFzZVRfRnVsbCBpcyBhIHZhbGlkIGRlZmluZSwgc2hvdWxkIEkgc2V0IGl0IGFzIGJl
+bG93Og0KLmZlYXR1cmVzCT0gUEhZX0dCSVRfRkVBVFVSRVMgfCBTVVBQT1JURURfMTAwMDBiYXNl
+VF9GdWxsLA0KDQpPciBoYW5kbGUgdGhlIFNVUFBPUlRFRF8xMDAwMGJhc2VUX0Z1bGwgc2VwYXJh
+dGVseT8NCg0KVGhhbmtzIGZvciByZXZpZXdpbmchDQpTaGFvaHVpDQo=
