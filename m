@@ -1,50 +1,113 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
-Date: Tue, 28 Jul 2015 15:17:33 +0100
-Message-ID: <55B78EFD.1030306@brocade.com>
-References: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
+Date: Tue, 28 Jul 2015 16:20:20 +0200
+Message-ID: <1438093220.25794.34.camel@stressinduktion.org>
+References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
+	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>
+	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>
+	 <1438085969.25794.14.camel@stressinduktion.org>
+	 <87k2tktmk8.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, <davem@davemloft.net>,
-	<tgraf@suug.ch>
+Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+	shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
+	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
+	hadi@mojatatu.com, davem@davemloft.net, svaidya@brocade.com,
+	mingo@kernel.org, luto@amacapital.net
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58779 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751564AbbG1ORt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 10:17:49 -0400
-In-Reply-To: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:50248 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752496AbbG1OU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 10:20:26 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id CA23420B42
+	for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 10:20:25 -0400 (EDT)
+In-Reply-To: <87k2tktmk8.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/07/15 07:40, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> Undefined reference to ip6_route_output and ip_route_output
-> was reported with CONFIG_INET=n and CONFIG_IPV6=n.
->
-> This patch adds new CONFIG_MPLS_NEXTHOP_DEVLOOKUP
-> to lookup nexthop device if user has not specified it
-> in RTA_OIF attribute. Make CONFIG_MPLS_NEXTHOP_DEVLOOKUP
-> depend on INET and (IPV6 || IPV6=n) because it
-> uses ip6_route_output and ip_route_output.
->
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Reported-by: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Tue, 2015-07-28 at 08:54 -0500, Eric W. Biederman wrote:
+> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+> 
+> > Hello Eric,
+> > 
+> > On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
+> > > David Ahern <dsa@cumulusnetworks.com> writes:
+> > > 
+> > > > Allow tasks to have a default device index for binding sockets. 
+> > > > If 
+> > > > set
+> > > > the value is passed to all AF_INET/AF_INET6 sockets when they 
+> > > > are
+> > > > created.
+> > > > 
+> > > > The task setting is passed parent to child on fork, but can be 
+> > > > set 
+> > > > or
+> > > > changed after task creation using prctl (if task has 
+> > > > CAP_NET_ADMIN
+> > > > permissions). The setting for a socket can be retrieved using 
+> > > > prctl().
+> > > > This option allows an administrator to restrict a task to only 
+> > > > send/receive
+> > > > packets through the specified device. In the case of VRF devices 
+> > > > this
+> > > > option restricts tasks to a specific VRF.
+> > > > 
+> > > > Correlation of the device index to a specific VRF, ie.,
+> > > >    ifindex --> VRF device --> VRF id
+> > > > is left to userspace.
+> > > 
+> > > Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> > > 
+> > > Because it is broken by design.  Your routing device is only safe 
+> > > for
+> > > programs that know it's limitations it is not appropriate for 
+> > > general
+> > > applications.
+> > > 
+> > > Since you don't even seen to know it's limitations I think this is 
+> > > a
+> > > bad path to walk down.
+> > 
+> > Can you please elaborate about the broken by design?
+> > 
+> > Different operating systems are already using this approach with 
+> > good
+> > success. I read your other mail regarding isolation of different 
+> > VRFs
+> > and I agree that all code which persists state depending solely on 
+> > the
+> > IP address is affected by this and this must be dealt with and fixed
+> > (actually, there aren't too many).
+> 
+> The size of struct net would tend to disagree with the assertion that
+> there are not too many.
 
-Is there a compelling reason to allow the user/applications to not 
-specify the output interface and to derive it from the nexthop? If the 
-user/application intends to treat this as a recursive route then it has 
-to make sure to trigger route updates to the kernel anyway, and an 
-application should have the output interface and real nexthop close to 
-hand in that case.
+netns_frags and inet_peer comes to my mind at first. 
 
-If there isn't a compelling reason, then perhaps the best course of 
-action is to revert the commit, instead of introducing a level of config 
-complexity that means that users/applications may not be able to rely on 
-this capability anyway?
+All those data structures simply need to have an opaque id added to the
+hash and comparison functions to deal with this problem. And we will
+need this in future anyway, as openvswitch will get connection tracking
+support and thus the fragmentation engine and icmp rate limiter will
+need to be taught about zones in OVS.
 
-Thanks,
-Rob
+> > But I wouldn't call that broken by design. This stuff will get fixed
+> > like e.g. cross-talk between fragmentation queues, icmp rate 
+> > limiters
+> > etc, which could already happen in the past.
+> > 
+> > What is your opinion on the fundamental approach only from a user
+> > perspective? Do you think that is broken, too?
+> 
+> I think promising something to userspace that a design can not deliver
+> is a fundamental problem.
+
+You are still talking about the isolation aspect, right?
+
+Bye,
+Hannes
