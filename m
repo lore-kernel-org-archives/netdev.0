@@ -1,113 +1,160 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
-Date: Tue, 28 Jul 2015 16:20:20 +0200
-Message-ID: <1438093220.25794.34.camel@stressinduktion.org>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
-	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>
-	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>
-	 <1438085969.25794.14.camel@stressinduktion.org>
-	 <87k2tktmk8.fsf@x220.int.ebiederm.org>
+From: Julien Grall <julien.grall@citrix.com>
+Subject: [PATCH 0/8] Use correctly the Xen memory terminologies in Linux
+Date: Tue, 28 Jul 2015 16:02:41 +0100
+Message-ID: <1438095769-2560-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-	shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
-	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
-	hadi@mojatatu.com, davem@davemloft.net, svaidya@brocade.com,
-	mingo@kernel.org, luto@amacapital.net
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:50248 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752496AbbG1OU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 10:20:26 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id CA23420B42
-	for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 10:20:25 -0400 (EDT)
-In-Reply-To: <87k2tktmk8.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
+	<linux-kernel@vger.kernel.org>,
+	Julien Grall <julien.grall@citrix.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Jiri Slaby <jslaby@suse.com>, Juergen Gross <jgross@suse.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	<linux-api@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-fbdev@vger.kernel.org>, <linux-input@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>, <linux-scsi@vger.kernel.org>,
+	<netdev@vger.kernel.org>,
+	=?UTF-8?q?Roger=20Pau=20Monn=C3=A9?= <roger.pau@citrix.com>,
+	R
+To: <xen-devel@lists.xenproject.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-07-28 at 08:54 -0500, Eric W. Biederman wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
-> 
-> > Hello Eric,
-> > 
-> > On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
-> > > David Ahern <dsa@cumulusnetworks.com> writes:
-> > > 
-> > > > Allow tasks to have a default device index for binding sockets. 
-> > > > If 
-> > > > set
-> > > > the value is passed to all AF_INET/AF_INET6 sockets when they 
-> > > > are
-> > > > created.
-> > > > 
-> > > > The task setting is passed parent to child on fork, but can be 
-> > > > set 
-> > > > or
-> > > > changed after task creation using prctl (if task has 
-> > > > CAP_NET_ADMIN
-> > > > permissions). The setting for a socket can be retrieved using 
-> > > > prctl().
-> > > > This option allows an administrator to restrict a task to only 
-> > > > send/receive
-> > > > packets through the specified device. In the case of VRF devices 
-> > > > this
-> > > > option restricts tasks to a specific VRF.
-> > > > 
-> > > > Correlation of the device index to a specific VRF, ie.,
-> > > >    ifindex --> VRF device --> VRF id
-> > > > is left to userspace.
-> > > 
-> > > Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> > > 
-> > > Because it is broken by design.  Your routing device is only safe 
-> > > for
-> > > programs that know it's limitations it is not appropriate for 
-> > > general
-> > > applications.
-> > > 
-> > > Since you don't even seen to know it's limitations I think this is 
-> > > a
-> > > bad path to walk down.
-> > 
-> > Can you please elaborate about the broken by design?
-> > 
-> > Different operating systems are already using this approach with 
-> > good
-> > success. I read your other mail regarding isolation of different 
-> > VRFs
-> > and I agree that all code which persists state depending solely on 
-> > the
-> > IP address is affected by this and this must be dealt with and fixed
-> > (actually, there aren't too many).
-> 
-> The size of struct net would tend to disagree with the assertion that
-> there are not too many.
+Hi all,
 
-netns_frags and inet_peer comes to my mind at first. 
+This patch series aims to use the memory terminologies described in
+include/linux/mm.h [1] for Linux xen code.
 
-All those data structures simply need to have an opaque id added to the
-hash and comparison functions to deal with this problem. And we will
-need this in future anyway, as openvswitch will get connection tracking
-support and thus the fragmentation engine and icmp rate limiter will
-need to be taught about zones in OVS.
+Linux is using mistakenly MFN when GFN is meant, I suspect this is beca=
+use the
+first support of Xen was for PV. This has brought some misimplementatio=
+n
+of memory helpers on ARM and make the developper confused about the exp=
+ected
+behavior.
 
-> > But I wouldn't call that broken by design. This stuff will get fixed
-> > like e.g. cross-talk between fragmentation queues, icmp rate 
-> > limiters
-> > etc, which could already happen in the past.
-> > 
-> > What is your opinion on the fundamental approach only from a user
-> > perspective? Do you think that is broken, too?
-> 
-> I think promising something to userspace that a design can not deliver
-> is a fundamental problem.
+=46or instance, with pfn_to_mfn, we expect to get a MFN based on the na=
+me.
+Although, if we look at the implementation on x86, it's returning a GFN=
+=2E
+Most of the callers are also using it this way.
 
-You are still talking about the isolation aspect, right?
+The first 2 patches of this series is ARM related in order to remove
+PV specific helpers which should not be used and fixing the implementat=
+ion of
+pfn_to_mfn.
 
-Bye,
-Hannes
+The rest of the series is here rename most of the usage in the common c=
+ode
+of MFN to GFN. I also took the opportunity to replace most of the call =
+to
+pfn_to_gfn in the common code by page_to_gfn avoid construction such
+as pfn_to_gfn(page_to_pfn(...).
+
+Note the one xen-blkfront will be dropped by 64K series [2], I can incl=
+ude it
+if necessary.
+
+This series is based on Linux 4.2-rc4. A branch with all the patches
+can be found here:
+    git://xenbits.xen.org/people/julieng/linux-arm.git branch page-rena=
+ming-v1
+
+Sincerely yours,
+
+[1] Xen tree: e758ed14f390342513405dd766e874934573e6cb
+[2] https://lkml.org/lkml/2015/7/9/628
+
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "James E.J. Bottomley" <JBottomley@odin.com>
+Cc: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
+Cc: Jiri Slaby <jslaby@suse.com>
+Cc: Juergen Gross <jgross@suse.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: linux-api@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-fbdev@vger.kernel.org
+Cc: linux-input@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-scsi@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: "Roger Pau Monn=C3=A9" <roger.pau@citrix.com>
+Cc: Russell King <linux@arm.linux.org.uk>
+Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: x86@kernel.org
+
+Julien Grall (8):
+  arm/xen: Remove helpers which are PV specific
+  xen: Make clear that swiotlb and biomerge are dealing with DMA addres=
+s
+  arm/xen: implement correctly pfn_to_mfn
+  xen: Use the correctly the Xen memory terminologies
+  xen/tmem: Use page_to_gfn rather than pfn_to_gfn
+  video/xen-fbfront: Further s/MFN/GFN clean-up
+  hvc/xen: Further s/MFN/GFN clean-up
+  xen/privcmd: Further s/MFN/GFN/ clean-up
+
+ arch/arm/include/asm/xen/page.h         | 44 +++++++++++++++----------=
+-----
+ arch/arm/xen/enlighten.c                | 18 ++++++-------
+ arch/arm/xen/mm.c                       |  4 +--
+ arch/x86/include/asm/xen/page.h         | 34 +++++++++++++----------
+ arch/x86/xen/enlighten.c                |  4 +--
+ arch/x86/xen/mmu.c                      | 48 ++++++++++++++++---------=
+--------
+ arch/x86/xen/p2m.c                      | 32 +++++++++++-----------
+ arch/x86/xen/setup.c                    | 12 ++++-----
+ arch/x86/xen/smp.c                      |  4 +--
+ arch/x86/xen/suspend.c                  |  8 +++---
+ drivers/block/xen-blkfront.c            |  6 ++---
+ drivers/input/misc/xen-kbdfront.c       |  4 +--
+ drivers/net/xen-netback/netback.c       |  4 +--
+ drivers/net/xen-netfront.c              |  8 +++---
+ drivers/scsi/xen-scsifront.c            |  8 +++---
+ drivers/tty/hvc/hvc_xen.c               | 18 +++++--------
+ drivers/video/fbdev/xen-fbfront.c       | 20 +++++++-------
+ drivers/xen/balloon.c                   |  2 +-
+ drivers/xen/biomerge.c                  |  6 ++---
+ drivers/xen/events/events_base.c        |  2 +-
+ drivers/xen/events/events_fifo.c        |  4 +--
+ drivers/xen/gntalloc.c                  |  3 ++-
+ drivers/xen/manage.c                    |  2 +-
+ drivers/xen/privcmd.c                   | 44 +++++++++++++++----------=
+-----
+ drivers/xen/swiotlb-xen.c               | 16 +++++------
+ drivers/xen/tmem.c                      | 21 +++++----------
+ drivers/xen/xenbus/xenbus_client.c      |  2 +-
+ drivers/xen/xenbus/xenbus_dev_backend.c |  2 +-
+ drivers/xen/xenbus/xenbus_probe.c       |  8 +++---
+ drivers/xen/xlate_mmu.c                 | 18 ++++++-------
+ include/uapi/xen/privcmd.h              |  4 +++
+ include/xen/page.h                      |  4 +--
+ include/xen/xen-ops.h                   | 10 +++----
+ 33 files changed, 210 insertions(+), 214 deletions(-)
+
+--=20
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
