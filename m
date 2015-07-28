@@ -1,71 +1,99 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH net 1/2] r8152: add pre_reset and post_reset
-Date: Tue, 28 Jul 2015 14:05:37 +0200
-Message-ID: <1438085137.1787.2.camel@suse.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net v2 1/2] r8152: add pre_reset and post_reset
+Date: Tue, 28 Jul 2015 20:08:41 +0800
+Message-ID: <1394712342-15778-160-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-157-Taiwan-albertk@realtek.com>
-	 <1438073562.11934.2.camel@suse.com>
-	 <0835B3720019904CB8F7AA43166CEEB2F3C3EC@RTITMBSV03.realtek.com.tw>
+ <1394712342-15778-159-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F3C3EC@RTITMBSV03.realtek.com.tw>
+In-Reply-To: <1394712342-15778-159-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-07-28 at 09:52 +0000, Hayes Wang wrote:
-> Oliver Neukum [mailto:oneukum@suse.com]
-> > Sent: Tuesday, July 28, 2015 4:53 PM
-> [...]
-> > > +		return 0;
-> > > +
-> > > +	netdev = tp->netdev;
-> > > +	if (!netif_running(netdev))
-> > > +		return 0;
-> > > +
-> > > +	ret = usb_autopm_get_interface(intf);
-> > > +	if (ret < 0)
-> > > +		return ret;
-> > 
-> > What sense does this make?
-> > 
-> [...]
-> > > +		return 0;
-> > > +
-> > > +	netdev = tp->netdev;
-> > > +	if (!netif_running(netdev))
-> > > +		return 0;
-> > > +
-> > > +	ret = usb_autopm_get_interface(intf);
-> > 
-> > The device will be awake.
-> 
-> I don't sure if the device would be in runtimesuspend, so I wake it up by myself.
-> I think you mean I don't have to do this. I would remove them and resend the
-> patch. Thanks.
+Add rtl8152_pre_reset() and rtl8152_post_reset() which are used when
+calling usb_reset_device(). The two functions could reduce the time
+of reset when calling usb_reset_device() after probe().
 
-Usbcore will resume the device.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 54 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
 
-	HTH
-		Oliver
-
-     A. 
-        /* Prevent autosuspend during the reset */
-        usb_autoresume_device(udev);
-
-        if (config) {
-                for (i = 0; i < config->desc.bNumInterfaces; ++i) {
-                        struct usb_interface *cintf = config->interface[i];
-                        struct usb_driver *drv;
-                        int unbind = 0;
-
-                        if (cintf->dev.driver) {
-                                drv = to_usb_driver(cintf->dev.driver);
-                                if (drv->pre_reset && drv->post_reset)
-                                        unbind = (drv->pre_reset)(cintf);
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 144dc64..e1b6d6d 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3342,6 +3342,58 @@ static void r8153_init(struct r8152 *tp)
+ 	r8153_u2p3en(tp, true);
+ }
+ 
++static int rtl8152_pre_reset(struct usb_interface *intf)
++{
++	struct r8152 *tp = usb_get_intfdata(intf);
++	struct net_device *netdev;
++
++	if (!tp)
++		return 0;
++
++	netdev = tp->netdev;
++	if (!netif_running(netdev))
++		return 0;
++
++	napi_disable(&tp->napi);
++	clear_bit(WORK_ENABLE, &tp->flags);
++	usb_kill_urb(tp->intr_urb);
++	cancel_delayed_work_sync(&tp->schedule);
++	if (netif_carrier_ok(netdev)) {
++		netif_stop_queue(netdev);
++		mutex_lock(&tp->control);
++		tp->rtl_ops.disable(tp);
++		mutex_unlock(&tp->control);
++	}
++
++	return 0;
++}
++
++static int rtl8152_post_reset(struct usb_interface *intf)
++{
++	struct r8152 *tp = usb_get_intfdata(intf);
++	struct net_device *netdev;
++
++	if (!tp)
++		return 0;
++
++	netdev = tp->netdev;
++	if (!netif_running(netdev))
++		return 0;
++
++	set_bit(WORK_ENABLE, &tp->flags);
++	if (netif_carrier_ok(netdev)) {
++		mutex_lock(&tp->control);
++		tp->rtl_ops.enable(tp);
++		rtl8152_set_rx_mode(netdev);
++		mutex_unlock(&tp->control);
++		netif_wake_queue(netdev);
++	}
++
++	napi_enable(&tp->napi);
++
++	return 0;
++}
++
+ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct r8152 *tp = usb_get_intfdata(intf);
+@@ -4164,6 +4216,8 @@ static struct usb_driver rtl8152_driver = {
+ 	.suspend =	rtl8152_suspend,
+ 	.resume =	rtl8152_resume,
+ 	.reset_resume =	rtl8152_resume,
++	.pre_reset =	rtl8152_pre_reset,
++	.post_reset =	rtl8152_post_reset,
+ 	.supports_autosuspend = 1,
+ 	.disable_hub_initiated_lpm = 1,
+ };
+-- 
+2.4.2
