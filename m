@@ -1,56 +1,101 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3] af_mpls: fix undefined reference to ip6_route_output
-Date: Mon, 27 Jul 2015 21:30:31 -0700
-Message-ID: <55B70567.6090402@cumulusnetworks.com>
-References: <1438044077-1910-1-git-send-email-roopa@cumulusnetworks.com> <20150727.212041.2269026145203619118.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:34691 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753551AbbG1Eac (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 00:30:32 -0400
-Received: by pdbbh15 with SMTP id bh15so63528832pdb.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 21:30:32 -0700 (PDT)
-In-Reply-To: <20150727.212041.2269026145203619118.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mike Looijmans <mike.looijmans@topic.nl>
+Subject: [PATCH v2] rsi: Fix failure to load firmware after memory leak fix and fix the leak
+Date: Tue, 28 Jul 2015 07:51:01 +0200
+Message-ID: <1438062661-3173-1-git-send-email-mike.looijmans@topic.nl>
+References: <1437975813-3285-1-git-send-email-mike.looijmans@topic.nl>
+Cc: kvalo@codeaurora.org, khoroshilov@ispras.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mike Looijmans <mike.looijmans@topic.nl>,
+	stable@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1437975813-3285-1-git-send-email-mike.looijmans@topic.nl>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/27/15, 9:20 PM, David Miller wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Mon, 27 Jul 2015 17:41:17 -0700
->
->> @@ -33,4 +33,11 @@ config MPLS_IPTUNNEL
->>   	---help---
->>   	 mpls ip tunnel support.
->>   
->> +config MPLS_NEXTHOP_DEVLOOKUP
->> +	bool "MPLS: nexthop oif dev lookup"
->> +	depends on MPLS_ROUTING && INET && (IPV6 || IPV6=n)
->> +	---help---
->> +	 This enables mpls route nexthop dev lookup when oif is not
->> +	 specified by user
->
-> This still allows the illegal combination, how did you test this?
->
-> CONFIG_IPV6=m
-> CONFIG_MPLS=y
-> CONFIG_NET_MPLS_GSO=y
-> CONFIG_MPLS_ROUTING=y
-> CONFIG_MPLS_IPTUNNEL=y
-> CONFIG_MPLS_NEXTHOP_DEVLOOKUP=y
->
-> net/built-in.o: In function `find_outdev':
-> af_mpls.c:(.text+0x17df41): undefined reference to `ip6_route_output'
->
-> The situation that must be prevented is MPLS_ROUTING=y + IPV6=m,
-> but that's exactly what is being allowed even after your patch.
->
-> Again, how did you test this?  Did you try the case that causes
-> problems as indicated in the failure reports?
-yes, I did test exactly the combination above. And also CONFIG_IPV6=m + 
-CONFIG_MPLS_ROUTING=m and others with CONFIG_IPV6=n. Am not sure how I 
-missed the error.... I will look again. Sorry about the iteration.
+Fixes commit eae79b4f3e82 ("rsi: fix memory leak in rsi_load_ta_instructions()")
+which stopped the driver from functioning.
+
+Firmware data has been allocated using vmalloc(), resulting in memory
+that cannot be used for DMA. Hence the firmware was first copied to a
+buffer allocated with kmalloc() in the original code. This patch reverts
+the commit and only calls "kfree()" to release the buffer after sending
+the data. This fixes the memory leak without breaking the driver.
+
+Add a comment to the kmemdup() calls to explain why this is done, and abort
+if memory allocation fails.
+
+Tested on a Topic Miami-Florida board which contains the rsi SDIO chip.
+
+Also added the same kfree() call to the USB glue driver. This was not
+tested on actual hardware though, as I only have the SDIO version.
+
+Fixes: eae79b4f3e82 ("rsi: fix memory leak in rsi_load_ta_instructions()")
+Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
+Cc: stable@vger.kernel.org
+---
+v2: Add "Fixes:" header and abbreviate git hashes.
+    Return -ENOMEM if kmemdup() fails.
+
+ drivers/net/wireless/rsi/rsi_91x_sdio_ops.c | 8 +++++++-
+ drivers/net/wireless/rsi/rsi_91x_usb_ops.c  | 4 ++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
+index b6cc9ff..1c6788a 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
++++ b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
+@@ -172,6 +172,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
+ 	u32 len;
+ 	u32 num_blocks;
++	const u8 *fw;
+ 	const struct firmware *fw_entry = NULL;
+ 	u32 block_size = dev->tx_blk_size;
+ 	int status = 0;
+@@ -200,6 +201,10 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 		return status;
+ 	}
+ 
++	/* Copy firmware into DMA-accessible memory */
++	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
++	if (!fw)
++		return -ENOMEM;
+ 	len = fw_entry->size;
+ 
+ 	if (len % 4)
+@@ -210,7 +215,8 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 	rsi_dbg(INIT_ZONE, "%s: Instruction size:%d\n", __func__, len);
+ 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
+ 
+-	status = rsi_copy_to_card(common, fw_entry->data, len, num_blocks);
++	status = rsi_copy_to_card(common, fw, len, num_blocks);
++	kfree(fw);
+ 	release_firmware(fw_entry);
+ 	return status;
+ }
+diff --git a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
+index 1106ce7..30c2cf7 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
++++ b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
+@@ -146,7 +146,10 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 		return status;
+ 	}
+ 
++	/* Copy firmware into DMA-accessible memory */
+ 	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
++	if (!fw)
++		return -ENOMEM;
+ 	len = fw_entry->size;
+ 
+ 	if (len % 4)
+@@ -158,6 +161,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
+ 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
+ 
+ 	status = rsi_copy_to_card(common, fw, len, num_blocks);
++	kfree(fw);
+ 	release_firmware(fw_entry);
+ 	return status;
+ }
+-- 
+1.9.1
