@@ -1,91 +1,70 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH 1/3] net: mdio-octeon: Modify driver to work on both
- ThunderX and Octeon
-Date: Tue, 28 Jul 2015 07:07:24 -0700
-Message-ID: <55B78C9C.6080006@caviumnetworks.com>
-References: <1438049683-10630-1-git-send-email-mohun106@gmail.com>
- <1438049683-10630-2-git-send-email-mohun106@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	David Daney <david.daney@cavium.com>
-To: <mohun106@gmail.com>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438049683-10630-2-git-send-email-mohun106@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Subject: [PATCH net-next 1/5] s390/bpf: clear correct BPF accumulator register
+Date: Tue, 28 Jul 2015 16:09:56 +0200
+Message-ID: <1438092600-16221-2-git-send-email-holzheu@linux.vnet.ibm.com>
+References: <1438092600-16221-1-git-send-email-holzheu@linux.vnet.ibm.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:59049 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932124AbbG1OKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 10:10:19 -0400
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <holzheu@linux.vnet.ibm.com>;
+	Tue, 28 Jul 2015 15:10:17 +0100
+In-Reply-To: <1438092600-16221-1-git-send-email-holzheu@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/27/2015 07:14 PM, mohun106@gmail.com wrote:
-> From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
->
-> This patch modifies the mdio-octeon driver to work on both ThunderX and
-> Octeon SoCs from Cavium Inc.
->
-> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
-> Signed-off-by: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->   drivers/net/phy/Kconfig       |    9 ++-
->   drivers/net/phy/mdio-octeon.c |  122 +++++++++++++++++++++++++++++++++++-----
->   2 files changed, 111 insertions(+), 20 deletions(-)
->
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index cf18940..0d6af19 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -145,13 +145,14 @@ config MDIO_GPIO
->   	  will be called mdio-gpio.
->
->   config MDIO_OCTEON
-> -	tristate "Support for MDIO buses on Octeon SOCs"
-> -	depends on CAVIUM_OCTEON_SOC
-> +	tristate "Support for MDIO buses on Octeon and ThunderX SOCs"
-> +	depends on 64BIT
->   	default y
+Currently we assumed the following BPF to eBPF register mapping:
 
-If it now depends only on 64BIT, we should probably remove the 
-"default".  People building for x86 are not interested in this driver.
+ - BPF_REG_A -> BPF_REG_7
+ - BPF_REG_X -> BPF_REG_8
 
+Unfortunately this mapping is wrong. The correct mapping is:
 
-[...]
->
-> +#ifdef __BIG_ENDIAN_BITFIELD
-> +#define OCT_MDIO_BITFIELD_FIELD(field, more)	\
-> +	field;					\
-> +	more
-> +
-> +#else
-> +#define OCT_MDIO_BITFIELD_FIELD(field, more)	\
-> +	more					\
-> +	field;
-> +
-> +#endif
-> +
-> +union cvmx_smix_clk {
-> +	uint64_t u64;
+ - BPF_REG_A -> BPF_REG_0
+ - BPF_REG_X -> BPF_REG_7
 
-Perhaps: s/uint64_t/u64/
+So clear the correct registers and use the BPF_REG_A and BPF_REG_X
+macros instead of BPF_REG_0/7.
 
-There are several of these.
+Fixes: 054623105728 ("s390/bpf: Add s390x eBPF JIT compiler backend")
+Cc: stable@vger.kernel.org # 4.0+
+Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+---
+ arch/s390/net/bpf_jit_comp.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-
-> +	struct cvmx_smix_clk_s {
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 reserved_25_63:39,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 mode:1,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 reserved_21_23:3,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 sample_hi:5,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 sample_mode:1,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 reserved_14_14:1,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 clk_idle:1,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 preamble:1,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 sample:4,
-> +	  OCT_MDIO_BITFIELD_FIELD(u64 phase:8,
-> +	  ;))))))))))
-> +	} s;
-> +};
-> +
-[...]
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 79c731e..01ad166 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -448,13 +448,13 @@ static void bpf_jit_prologue(struct bpf_jit *jit)
+ 		EMIT6_DISP_LH(0xe3000000, 0x0004, REG_SKB_DATA, REG_0,
+ 			      BPF_REG_1, offsetof(struct sk_buff, data));
+ 	}
+-	/* BPF compatibility: clear A (%b7) and X (%b8) registers */
+-	if (REG_SEEN(BPF_REG_7))
+-		/* lghi %b7,0 */
+-		EMIT4_IMM(0xa7090000, BPF_REG_7, 0);
+-	if (REG_SEEN(BPF_REG_8))
+-		/* lghi %b8,0 */
+-		EMIT4_IMM(0xa7090000, BPF_REG_8, 0);
++	/* BPF compatibility: clear A (%b0) and X (%b7) registers */
++	if (REG_SEEN(BPF_REG_A))
++		/* lghi %ba,0 */
++		EMIT4_IMM(0xa7090000, BPF_REG_A, 0);
++	if (REG_SEEN(BPF_REG_X))
++		/* lghi %bx,0 */
++		EMIT4_IMM(0xa7090000, BPF_REG_X, 0);
+ }
+ 
+ /*
+-- 
+2.3.8
