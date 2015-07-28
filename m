@@ -1,7 +1,7 @@
 From: Christopher Hall <christopher.s.hall@intel.com>
-Subject: [PATCH 3/5] Add calls to translate Always Running Timer (ART) to system time
-Date: Mon, 27 Jul 2015 17:46:54 -0700
-Message-ID: <1438044416-15588-4-git-send-email-christopher.s.hall@intel.com>
+Subject: [PATCH 4/5] Add support for driver cross-timestamp to PTP_SYS_OFFSET ioctl
+Date: Mon, 27 Jul 2015 17:46:55 -0700
+Message-ID: <1438044416-15588-5-git-send-email-christopher.s.hall@intel.com>
 References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Christopher Hall <christopher.s.hall@intel.com>
@@ -14,268 +14,177 @@ In-Reply-To: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* art_to_mono64
-* art_to_rawmono64
-* art_to_realtime64
+This patch allows system and device time ("cross-timestamp") to be
+performed by the driver. Currently, the cross-timestamping is performed
+in the PTP_SYS_OFFSET ioctl.  The PTP clock driver reads gettimeofday()
+and the gettime64() callback provided by the driver. The cross-timestamp
+is best effort where the latency between the capture of system time
+(getnstimeofday()) and the device time (driver callback) may be
+significant.
 
-Intel audio and PCH ethernet devices use the Always Running Timer (ART) to
-relate their device clock to system time
+This patch adds an additional callback getsynctime64(). Which will be
+called when the driver is able to perform a more accurate, implementation
+specific cross-timestamping.  For example, future network devices that
+implement PCIE PTM will be able to precisely correlate the device clock
+with the system clock with virtually zero latency between captures.
+This added callback can be used by the driver to expose this functionality.
+
+The callback, getsynctime64(), will only be called when defined and
+n_samples == 1 because the driver returns only 1 cross-timestamp where
+multiple samples cannot be chained together.
+
+This patch also adds to the capabilities ioctl (PTP_CLOCK_GETCAPS),
+allowing applications to query whether or not drivers implement the
+getsynctime callback, providing more precise cross timestamping.
+
+Commit Details:
+
+Added additional callback to ptp_clock_info:
+
+* getsynctime64()
+
+This takes 2 arguments referring to system and device time
+
+With this callback drivers may provide both system time and device time
+to ensure precise correlation
+
+Modified PTP_SYS_OFFSET ioctl in PTP clock driver to use the above
+callback if it's available
+
+Added capability (PTP_CLOCK_GETCAPS) for checking whether driver supports
+cross timestamping
+
+Added check for cross timestamping flag to testptp.c
 
 Signed-off-by: Christopher Hall <christopher.s.hall@intel.com>
 ---
- arch/x86/Kconfig           |  12 ++++
- arch/x86/include/asm/art.h |  42 ++++++++++++++
- arch/x86/kernel/Makefile   |   1 +
- arch/x86/kernel/art.c      | 134 +++++++++++++++++++++++++++++++++++++++++++++
- arch/x86/kernel/tsc.c      |   4 ++
- 5 files changed, 193 insertions(+)
- create mode 100644 arch/x86/include/asm/art.h
- create mode 100644 arch/x86/kernel/art.c
+ Documentation/ptp/testptp.c      |  6 ++++--
+ drivers/ptp/ptp_chardev.c        | 29 +++++++++++++++++++++--------
+ include/linux/ptp_clock_kernel.h |  7 +++++++
+ include/uapi/linux/ptp_clock.h   |  4 +++-
+ 4 files changed, 35 insertions(+), 11 deletions(-)
 
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index b3a1a5d..1ef9985 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -1175,6 +1175,18 @@ config X86_CPUID
- 	  with major 203 and minors 0 to 31 for /dev/cpu/0/cpuid to
- 	  /dev/cpu/31/cpuid.
- 
-+config X86_ART
-+	bool "Always Running Timer"
-+	default y
-+	depends on X86_TSC
-+	---help---
-+	  This option provides functionality to drivers and devices that use
-+	  the always-running-timer (ART) to correlate their device clock
-+	  counter with the system clock counter. The TSC is *exactly* related
-+	  to the ART by a ratio m/n specified by CPUID leaf 0x15
-+	  (n=EAX,m=EBX). If ART is unused or unavailable there isn't any
-+	  performance impact. It's safe to say Y.
-+
- choice
- 	prompt "High Memory Support"
- 	default HIGHMEM4G
-diff --git a/arch/x86/include/asm/art.h b/arch/x86/include/asm/art.h
-new file mode 100644
-index 0000000..da58ce4
---- /dev/null
-+++ b/arch/x86/include/asm/art.h
-@@ -0,0 +1,42 @@
-+/*
-+ * x86 ART related functions
-+ */
-+#ifndef _ASM_X86_ART_H
-+#define _ASM_X86_ART_H
-+
-+#ifndef CONFIG_X86_ART
-+
-+static inline int setup_art(void)
-+{
-+	return 0;
-+}
-+
-+static inline bool has_art(void)
-+{
-+	return false;
-+}
-+
-+static inline int art_to_rawmono64(struct timespec64 *rawmono, cycle_t art)
-+{
-+	return -ENXIO;
-+}
-+static inline int art_to_realtime64(struct timespec64 *realtime, cycle_t art)
-+{
-+	return -ENXIO;
-+}
-+static inline int art_to_mono64(struct timespec64 *mono, cycle_t art)
-+{
-+	return -ENXIO;
-+}
-+
-+#else
-+
-+extern int setup_art(void);
-+extern bool has_art(void);
-+extern int art_to_rawmono64(struct timespec64 *rawmono, cycle_t art);
-+extern int art_to_realtime64(struct timespec64 *realtime, cycle_t art);
-+extern int art_to_mono64(struct timespec64 *mono, cycle_t art);
-+
-+#endif
-+
-+#endif/*_ASM_X86_ART_H*/
-diff --git a/arch/x86/kernel/Makefile b/arch/x86/kernel/Makefile
-index 0f15af4..0908311 100644
---- a/arch/x86/kernel/Makefile
-+++ b/arch/x86/kernel/Makefile
-@@ -109,6 +109,7 @@ obj-$(CONFIG_PERF_EVENTS)		+= perf_regs.o
- obj-$(CONFIG_TRACING)			+= tracepoint.o
- obj-$(CONFIG_IOSF_MBI)			+= iosf_mbi.o
- obj-$(CONFIG_PMC_ATOM)			+= pmc_atom.o
-+obj-$(CONFIG_X86_ART)			+= art.o
- 
- ###
- # 64 bit specific files
-diff --git a/arch/x86/kernel/art.c b/arch/x86/kernel/art.c
-new file mode 100644
-index 0000000..1906cf0
---- /dev/null
-+++ b/arch/x86/kernel/art.c
-@@ -0,0 +1,134 @@
-+#include <asm/tsc.h>
-+#include <asm/cpufeature.h>
-+#include <asm/processor.h>
-+#include <linux/spinlock.h>
-+#include <linux/seqlock.h>
-+
-+#define CPUID_ART_LEAF 0x15
-+
-+static bool art_present;
-+
-+static struct art_state {
-+	seqcount_t seq;
-+	u32 art_ratio_numerator;
-+	u32 art_ratio_denominator;
-+
-+	cycle_t prev_art;
-+	cycle_t prev_tsc_corr_art; /*This is the TSC value corresponding to
-+				     prev_art */
-+	u32 tsc_remainder;
-+} art_state ____cacheline_aligned;
-+
-+static DEFINE_RAW_SPINLOCK(art_lock);
-+
-+#define MIN_DENOMINATOR 2
-+int setup_art(void)
-+{
-+	if (boot_cpu_data.cpuid_level < CPUID_ART_LEAF)
-+		return 0;
-+	art_state.art_ratio_denominator = cpuid_eax(CPUID_ART_LEAF);
-+	if (art_state.art_ratio_denominator < MIN_DENOMINATOR)
-+		return 0;
-+	art_state.art_ratio_numerator = cpuid_ebx(CPUID_ART_LEAF);
-+
-+	art_present = true;
-+	return 0;
-+}
-+
-+static bool has_art(void)
-+{
-+	return art_present;
-+}
-+EXPORT_SYMBOL(has_art);
-+
-+#define ROLLOVER_THRESHOLD (2ULL << 23)
-+
-+static u32 art_scale(struct art_state *art_state, cycle_t *art)
-+{
-+	u32 rem;
-+
-+	*art *= art_state->art_ratio_numerator;
-+
-+	switch (art_state->art_ratio_denominator) {
-+	default:
-+		rem = do_div(*art, art_state->art_ratio_denominator);
-+	case 2:
-+		rem = *art & 0x1;
-+		*art >>= 1;
-+	}
-+	return rem + art_state->tsc_remainder;
-+}
-+
-+static cycle_t art_to_tsc(cycle_t art)
-+{
-+	unsigned seq;
-+	cycle_t tsc_next;
-+	u32 rem_next;
-+	bool backward = false;
-+	unsigned long flags;
-+
-+	do {
-+		seq = read_seqcount_begin(&art_state.seq);
-+
-+		if (art < art_state.prev_art &&
-+		    art_state.prev_art - art < ROLLOVER_THRESHOLD) {
-+			tsc_next = (art_state.prev_art-art);
-+			art_scale(&art_state, &tsc_next);
-+			tsc_next = art_state.prev_tsc_corr_art - tsc_next;
-+			backward = true;
-+		} else {
-+			tsc_next = art - art_state.prev_art;
-+			rem_next = art_scale(&art_state, &tsc_next);
-+			tsc_next += art_state.prev_tsc_corr_art;
-+
-+			tsc_next += rem_next /
-+				art_state.art_ratio_denominator;
-+			rem_next %= art_state.art_ratio_denominator;
-+		}
-+	} while (read_seqcount_retry(&art_state.seq, seq));
-+
-+	/* There's no need to update after every read, if an update is
-+	   already in progress by someone else just exit */
-+	if (!backward && raw_spin_trylock_irqsave(&art_lock, flags)) {
-+		write_seqcount_begin(&art_state.seq);
-+		art_state.prev_art = art;
-+		art_state.prev_tsc_corr_art = tsc_next;
-+		art_state.tsc_remainder = rem_next;
-+		write_seqcount_end(&art_state.seq);
-+		raw_spin_unlock_irqrestore(&art_lock, flags);
-+	}
-+
-+	return tsc_next;
-+}
-+
-+static bool checked_art_to_tsc(cycle_t *tsc)
-+{
-+	if (!has_art())
-+		return false;
-+	*tsc = art_to_tsc(*tsc);
-+	return true;
-+}
-+
-+static int art_to_rawmono64(struct timespec64 *rawmono, cycle_t art)
-+{
-+	if (!checked_art_to_tsc(&art))
-+		return -ENXIO;
-+	return tsc_to_rawmono64(rawmono, art);
-+}
-+EXPORT_SYMBOL(art_to_rawmono64);
-+
-+static int art_to_realtime64(struct timespec64 *realtime, cycle_t art)
-+{
-+	if (!checked_art_to_tsc(&art))
-+		return -ENXIO;
-+	return tsc_to_realtime64(realtime, art);
-+}
-+EXPORT_SYMBOL(art_to_realtime64);
-+
-+static int art_to_mono64(struct timespec64 *mono, cycle_t art)
-+{
-+	if (!checked_art_to_tsc(&art))
-+		return -ENXIO;
-+	return tsc_to_mono64(mono, art);
-+}
-+EXPORT_SYMBOL(art_to_mono64);
-diff --git a/arch/x86/kernel/tsc.c b/arch/x86/kernel/tsc.c
-index a192271..828c4b3 100644
---- a/arch/x86/kernel/tsc.c
-+++ b/arch/x86/kernel/tsc.c
-@@ -22,6 +22,8 @@
- #include <asm/nmi.h>
- #include <asm/x86_init.h>
- 
-+#include <asm/art.h>
-+
- unsigned int __read_mostly cpu_khz;	/* TSC clocks / usec, not used here */
- EXPORT_SYMBOL(cpu_khz);
- 
-@@ -1177,6 +1179,8 @@ static int __init init_tsc_clocksource(void)
- 		return 0;
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index 2bc8abc..8004efd 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -276,13 +276,15 @@ int main(int argc, char *argv[])
+ 			       "  %d external time stamp channels\n"
+ 			       "  %d programmable periodic signals\n"
+ 			       "  %d pulse per second\n"
+-			       "  %d programmable pins\n",
++			       "  %d programmable pins\n"
++			       "  %d cross timestamping\n",
+ 			       caps.max_adj,
+ 			       caps.n_alarm,
+ 			       caps.n_ext_ts,
+ 			       caps.n_per_out,
+ 			       caps.pps,
+-			       caps.n_pins);
++			       caps.n_pins,
++			       caps.cross_timestamping);
+ 		}
  	}
  
-+	setup_art();
-+
- 	schedule_delayed_work(&tsc_irqwork, 0);
- 	return 0;
- }
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index da7bae9..392ccfa 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -124,7 +124,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
+ 	struct ptp_clock_info *ops = ptp->info;
+ 	struct ptp_clock_time *pct;
+-	struct timespec64 ts;
++	struct timespec64 ts, systs;
+ 	int enable, err = 0;
+ 	unsigned int i, pin_index;
+ 
+@@ -138,6 +138,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 		caps.n_per_out = ptp->info->n_per_out;
+ 		caps.pps = ptp->info->pps;
+ 		caps.n_pins = ptp->info->n_pins;
++		caps.cross_timestamping = ptp->info->getsynctime64 != NULL;
+ 		if (copy_to_user((void __user *)arg, &caps, sizeof(caps)))
+ 			err = -EFAULT;
+ 		break;
+@@ -196,19 +197,31 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 			break;
+ 		}
+ 		pct = &sysoff->ts[0];
+-		for (i = 0; i < sysoff->n_samples; i++) {
+-			getnstimeofday64(&ts);
++		if (ptp->info->getsynctime64 && sysoff->n_samples == 1 &&
++		    ptp->info->getsynctime64(ptp->info, &ts, &systs) == 0) {
++			pct->sec = systs.tv_sec;
++			pct->nsec = systs.tv_nsec;
++			pct++;
+ 			pct->sec = ts.tv_sec;
+ 			pct->nsec = ts.tv_nsec;
+ 			pct++;
+-			ptp->info->gettime64(ptp->info, &ts);
++			pct->sec = systs.tv_sec;
++			pct->nsec = systs.tv_nsec;
++		} else {
++			for (i = 0; i < sysoff->n_samples; i++) {
++				getnstimeofday64(&ts);
++				pct->sec = ts.tv_sec;
++				pct->nsec = ts.tv_nsec;
++				pct++;
++				ptp->info->gettime64(ptp->info, &ts);
++				pct->sec = ts.tv_sec;
++				pct->nsec = ts.tv_nsec;
++				pct++;
++			}
++			getnstimeofday64(&ts);
+ 			pct->sec = ts.tv_sec;
+ 			pct->nsec = ts.tv_nsec;
+-			pct++;
+ 		}
+-		getnstimeofday64(&ts);
+-		pct->sec = ts.tv_sec;
+-		pct->nsec = ts.tv_nsec;
+ 		if (copy_to_user((void __user *)arg, sysoff, sizeof(*sysoff)))
+ 			err = -EFAULT;
+ 		break;
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index b8b7306..8c43345 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -67,6 +67,11 @@ struct ptp_clock_request {
+  * @gettime64:  Reads the current time from the hardware clock.
+  *              parameter ts: Holds the result.
+  *
++ * @getsynctime64:  Reads the current time from the hardware clock and system
++ *                  clock simultaneously.
++ *                  parameter dev: Holds the device time
++ *                  parameter sys: Holds the system time
++ *
+  * @settime64:  Set the current time on the hardware clock.
+  *              parameter ts: Time value to set.
+  *
+@@ -105,6 +110,8 @@ struct ptp_clock_info {
+ 	int (*adjfreq)(struct ptp_clock_info *ptp, s32 delta);
+ 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
+ 	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
++	int (*getsynctime64)(struct ptp_clock_info *ptp, struct timespec64 *dev,
++			struct timespec64 *sys);
+ 	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
+ 	int (*enable)(struct ptp_clock_info *ptp,
+ 		      struct ptp_clock_request *request, int on);
+diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
+index f0b7bfe..ffb2635 100644
+--- a/include/uapi/linux/ptp_clock.h
++++ b/include/uapi/linux/ptp_clock.h
+@@ -51,7 +51,9 @@ struct ptp_clock_caps {
+ 	int n_per_out; /* Number of programmable periodic signals. */
+ 	int pps;       /* Whether the clock supports a PPS callback. */
+ 	int n_pins;    /* Number of input/output pins. */
+-	int rsv[14];   /* Reserved for future use. */
++	/* Whether the clock supports precise system-device cross timestamps */
++	int cross_timestamping;
++	int rsv[13];   /* Reserved for future use. */
+ };
+ 
+ struct ptp_extts_request {
 -- 
 1.9.1
