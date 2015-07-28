@@ -1,7 +1,7 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH 1/3] net: netcp: fix cleanup interface list in netcp_remove()
-Date: Tue, 28 Jul 2015 18:20:12 -0400
-Message-ID: <1438122014-24744-2-git-send-email-m-karicheri2@ti.com>
+Subject: [PATCH 2/3] net: netcp: ethss: fix up incorrect use of list api
+Date: Tue, 28 Jul 2015 18:20:13 -0400
+Message-ID: <1438122014-24744-3-git-send-email-m-karicheri2@ti.com>
 References: <1438122014-24744-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,51 +12,31 @@ In-Reply-To: <1438122014-24744-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently if user do rmmod keystone_netcp.ko following warning is
-seen :-
-
-[   59.035891] ------------[ cut here ]------------
-[   59.040535] WARNING: CPU: 2 PID: 1619 at drivers/net/ethernet/ti/
-netcp_core.c:2127 netcp_remove)
-
-This is because the interface list is not cleaned up in netcp_remove.
-This patch fixes this. Also fix some checkpatch related warnings.
+The code seems to assume a null is returned when the list is empty
+from first_sec_slave() to break the loop which is incorrect. Fix the
+code by using list_empty().
 
 Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 ---
- drivers/net/ethernet/ti/netcp_core.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/netcp_ethss.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index ec8ed30..a1c6961 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -2112,6 +2112,7 @@ probe_quit:
- static int netcp_remove(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index 9b7e0a3..77bcfca 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -2490,10 +2490,9 @@ static void free_secondary_ports(struct gbe_priv *gbe_dev)
  {
- 	struct netcp_device *netcp_device = platform_get_drvdata(pdev);
-+	struct netcp_intf *netcp_intf, *netcp_tmp;
- 	struct netcp_inst_modpriv *inst_modpriv, *tmp;
- 	struct netcp_module *module;
+ 	struct gbe_slave *slave;
  
-@@ -2123,8 +2124,16 @@ static int netcp_remove(struct platform_device *pdev)
- 		list_del(&inst_modpriv->inst_list);
- 		kfree(inst_modpriv);
- 	}
--	WARN(!list_empty(&netcp_device->interface_head), "%s interface list not empty!\n",
--	     pdev->name);
+-	for (;;) {
++	while (!list_empty(&gbe_dev->secondary_slaves)) {
+ 		slave = first_sec_slave(gbe_dev);
+-		if (!slave)
+-			break;
 +
-+	/* now that all modules are removed, clean up the interfaces */
-+	list_for_each_entry_safe(netcp_intf, netcp_tmp,
-+				 &netcp_device->interface_head,
-+				 interface_list) {
-+		netcp_delete_interface(netcp_device, netcp_intf->ndev);
-+	}
-+
-+	WARN(!list_empty(&netcp_device->interface_head),
-+	     "%s interface list not empty!\n", pdev->name);
- 
- 	devm_kfree(&pdev->dev, netcp_device);
- 	pm_runtime_put_sync(&pdev->dev);
+ 		if (slave->phy)
+ 			phy_disconnect(slave->phy);
+ 		list_del(&slave->slave_list);
 -- 
 1.9.1
