@@ -1,83 +1,49 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net] bridge: Fix network header pointer for vlan
-	tagged packets
-Date: Tue, 28 Jul 2015 19:05:37 +0900
-Message-ID: <1438077937-16134-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Alexander Drozdov <al.drozdov@gmail.com>
+Subject: [PATCH] packet: tpacket_snd(): fix signed/unsigned comparison
+Date: Tue, 28 Jul 2015 13:57:01 +0300
+Message-ID: <1438081021-1321-1-git-send-email-al.drozdov@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Eyal Birger <eyal.birger@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexander Drozdov <al.drozdov@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are several devices that can receive vlan tagged packets with
-CHECKSUM_PARTIAL like tap, possibly veth and xennet.
-When (multiple) vlan tagged packets with CHECKSUM_PARTIAL are forwarded
-by bridge to a device with the IP_CSUM feature, they end up with checksum
-error because before entering bridge, the network header is set to
-ETH_HLEN (not including vlan header length) in __netif_receive_skb_core(),
-get_rps_cpu(), or drivers' rx functions, and nobody fixes the pointer later.
+tpacket_fill_skb() can return a negative value (-errno) which
+is stored in tp_len variable. In that case the following
+condition will be (but shouldn't be) true:
 
-Since the network header is exepected to be ETH_HLEN in flow-dissection
-and hash-calculation in RPS in rx path, and since the header pointer fix
-is needed only in tx path, set the appropriate network header on forwarding
-packets.
+tp_len > dev->mtu + dev->hard_header_len
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+as dev->mtu and dev->hard_header_len are both unsigned.
+
+That may lead to just returning an incorrect EMSGSIZE errno
+to the user.
+
+Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
 ---
- net/bridge/br_forward.c | 29 ++++++++++++++++++++++-------
- 1 file changed, 22 insertions(+), 7 deletions(-)
+ net/packet/af_packet.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 0ff6e1b..fa7bfce 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -37,15 +37,30 @@ static inline int should_deliver(const struct net_bridge_port *p,
- 
- int br_dev_queue_push_xmit(struct sock *sk, struct sk_buff *skb)
- {
--	if (!is_skb_forwardable(skb->dev, skb)) {
--		kfree_skb(skb);
--	} else {
--		skb_push(skb, ETH_HLEN);
--		br_drop_fake_rtable(skb);
--		skb_sender_cpu_clear(skb);
--		dev_queue_xmit(skb);
-+	if (!is_skb_forwardable(skb->dev, skb))
-+		goto drop;
-+
-+	skb_push(skb, ETH_HLEN);
-+	br_drop_fake_rtable(skb);
-+	skb_sender_cpu_clear(skb);
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-+	    (skb->protocol == htons(ETH_P_8021Q) ||
-+	     skb->protocol == htons(ETH_P_8021AD))) {
-+		int depth;
-+
-+		if (!__vlan_get_protocol(skb, skb->protocol, &depth))
-+			goto drop;
-+
-+		skb_set_network_header(skb, depth);
- 	}
- 
-+	dev_queue_xmit(skb);
-+
-+	return 0;
-+
-+drop:
-+	kfree_skb(skb);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(br_dev_queue_push_xmit);
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c9e8741..d1d3625 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2403,7 +2403,8 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 		}
+ 		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
+ 					  addr, hlen);
+-		if (tp_len > dev->mtu + dev->hard_header_len) {
++		if (likely(tp_len >= 0) &&
++		    tp_len > dev->mtu + dev->hard_header_len) {
+ 			struct ethhdr *ehdr;
+ 			/* Earlier code assumed this would be a VLAN pkt,
+ 			 * double-check this now that we have the actual
 -- 
-1.8.1.2
+1.9.1
