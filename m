@@ -1,51 +1,51 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v7 4/4] ip link: proto_down config and display.
-Date: Tue, 28 Jul 2015 16:44:53 -0700
-Message-ID: <20150728164453.07cf0422@urahara>
-References: <1436906602-2958-5-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 net-next] bridge: mdb: add support for vlans
+Date: Tue, 28 Jul 2015 16:46:56 -0700
+Message-ID: <20150728164656.0b8b66ab@urahara>
+References: <1436975120-41319-1-git-send-email-nikolay@cumulusnetworks.com>
+	<55B764CF.2070509@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, sfeldma@gmail.com, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	wkok@cumulusnetworks.com
-To: anuradhak@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:35273 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110AbbG1Xoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 19:44:44 -0400
-Received: by pdrg1 with SMTP id g1so78484003pdr.2
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 16:44:44 -0700 (PDT)
-In-Reply-To: <1436906602-2958-5-git-send-email-anuradhak@cumulusnetworks.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34894 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbbG1Xqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 19:46:46 -0400
+Received: by pabkd10 with SMTP id kd10so77315493pab.2
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 16:46:46 -0700 (PDT)
+In-Reply-To: <55B764CF.2070509@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Jul 2015 13:43:22 -0700
-anuradhak@cumulusnetworks.com wrote:
+On Tue, 28 Jul 2015 13:17:35 +0200
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 
-> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+> On 07/15/2015 05:45 PM, Nikolay Aleksandrov wrote:
+> > This patch allows the user to specify the vlan of the mdb group being
+> > added or deleted and adds support for displaying the vlan when
+> > dumping mdb information or monitoring it. It also updates the man page
+> > to reflect the new "vid" argument for mdb.
+> > 
+> > Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> > ---
+> > note: the cast in print_mdb_entry() was necessary to shut the compiler
+> > 
+> >  bridge/mdb.c              | 31 +++++++++++++++++++------------
+> >  include/linux/if_bridge.h |  1 +
+> >  man/man8/bridge.8         |  8 +++++++-
+> >  3 files changed, 27 insertions(+), 13 deletions(-)
+> > 
 > 
-> This patch adds support to set and display protodown on a switch port. The
-> switch driver can handle this error state by doing a phys down on the port.
+> Hi Stephen,
+> Just wondering what's the state of this patch because I'd like to submit some
+> improvements in the same area and I'm wondering if I should do them on top
+> of this patch or if I need to change something in it ?
 > 
-> One example user space application setting this flag is a multi-chassis
-> LAG application to handle split-brain situation on peer-link failure.
+> Thanks,
+>  Nik
 > 
-> Example:
-> root@net-next:~# ip link set eth1 protodown on
-> root@net-next:~/iproute2# ip link show eth1
-> 4: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
->     link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff protodown on
-> root@net-next:~/iproute2# ip link set eth1 protodown off
-> root@net-next:~/iproute2# ip link show eth1
-> 4: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
->     link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
-> root@net-next:~/iproute2#
-> 
-> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 
-Applied to net-next branch.
+Now on net-next branch of iproute2 since support is not in 4.2 kernel.
