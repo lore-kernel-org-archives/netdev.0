@@ -1,102 +1,104 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH net-next 00/17] stmmac clean up for 4.3 part2
-Date: Wed, 29 Jul 2015 00:08:47 +0200
-Message-ID: <1438121344-5304-1-git-send-email-manabian@gmail.com>
-Cc: Joachim Eastwood <manabian@gmail.com>, netdev@vger.kernel.org,
-	b.galvani@gmail.com, arnd@arndb.de, roger.chen@rock-chips.com,
-	heiko@sntech.de, wens@csie.org, dinguyen@opensource.altera.com,
-	linux-rockchip@lists.infradead.org, mathieu@codeaurora.org
-To: peppe.cavallaro@st.com, davem@davemloft.net
+Subject: [PATCH net-next 06/17] stmmac: dwmac-sunxi: move sun7i_gmac_setup function
+Date: Wed, 29 Jul 2015 00:08:53 +0200
+Message-ID: <1438121344-5304-7-git-send-email-manabian@gmail.com>
+References: <1438121344-5304-1-git-send-email-manabian@gmail.com>
+Cc: Joachim Eastwood <manabian@gmail.com>, netdev@vger.kernel.org
+To: peppe.cavallaro@st.com, wens@csie.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f68.google.com ([209.85.215.68]:34244 "EHLO
-	mail-la0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751509AbbG1WJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:09:21 -0400
-Received: by laef2 with SMTP id f2so5864910lae.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:09:20 -0700 (PDT)
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:34719 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751953AbbG1WJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:09:28 -0400
+Received: by lbbzr7 with SMTP id zr7so83962548lbb.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:09:26 -0700 (PDT)
+In-Reply-To: <1438121344-5304-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set creates proper probe functions in the remaining
-dwmac-* drivers, lets the drivers manage their own of match data
-structure, and cleans up some of the drivers a bit. Note that
-should be no functional change in any of the drivers.
+Move sun7i_gmac_setup in preparation for turning it into
+a proper probe function.
 
-First patch from Fengguang fixes a Coccinelle that was found after
-the previous patch set when into next.
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c | 58 +++++++++++------------
+ 1 file changed, 29 insertions(+), 29 deletions(-)
 
-Probe functions are best placed just above the platform_driver
-struct since it usually needs to call other functions in the
-driver but this requires some code movement in the drivers. To
-keep the conversion itself easier to review the code movement is
-done in separate patches. This creates some extra churn but I
-think it's worth it in this case.
-
-As only a couple of drivers actually needs to use of match data
-this pushed down from stmmac_platform and into the drivers. This
-also makes it possible for drivers to have their own match data
-structure. dwmac-rk benefits most from this.
-
-After each driver has it's own probe function and manages it's
-own match data the setup/free hooks and common match data struct
-are removed.
-
-Sorry for the slightly largish patch set this time around.
-
-
-Since I can only test the core changes on my platform and not the
-specific dwmac-drivers I greatly appreciate if people could test
-this on their respective platforms. I did spend quite a bit of
-time visually checking all these patches, but nothing beats real
-hardware testing. Thanks!
-
-
-Patch set based on net-next can also be picked up from here:
-https://github.com/manabian/linux-lpc.git stmmac_4.3_part2
-
-For those who want to have a look at all the patches for
-v4.3 a branch based on Linus master can be found here:
-https://github.com/manabian/linux-lpc.git stmmac_4.2
-
-
-Previous parts can be found here:
-http://www.spinics.net/lists/netdev/msg328997.html
-http://www.spinics.net/lists/netdev/msg329932.html
-http://www.spinics.net/lists/netdev/msg336097.html
-
-
-Fengguang Wu (1):
-  stmmac: fix ptr_ret.cocci warning
-
-Joachim Eastwood (16):
-  stmmac: dwmac-ipq806x: move ipq806x_gmac_fix_mac_speed function
-  stmmac: dwmac-ipq806x: turn setup callback into a probe function
-  stmmac: dwmac-socfpga: move socfpga_dwmac_probe function
-  stmmac: dwmac-socfpga: turn setup callback into a probe function
-  stmmac: dwmac-sunxi: move sun7i_gmac_setup function
-  stmmac: dwmac-sunxi: turn setup callback into a probe function
-  stmmac: dwmac-sti: turn setup callback into a probe function
-  stmmac: dwmac-rk: create a new probe function
-  stmmac: move stmmac_pltfr_probe into dwmac-generic
-  stmmac: let dwmac-* drivers handle their own match data
-  stmmac: dwmac-sti: use custom of match structure
-  stmmac: dwmac-rk: make rk_gmac_ops structs static const
-  stmmac: dwmac-rk: use rk_gmac_ops as of match data
-  stmmac: remove unused stmmac_of_data struct
-  stmmac: remove setup/free glue callbacks
-  stmmac: dwmac-sti: refactor the init glue callbacks
-
- Documentation/networking/stmmac.txt                | 10 +--
- .../net/ethernet/stmicro/stmmac/dwmac-generic.c    | 42 +++++++++-
- .../net/ethernet/stmicro/stmmac/dwmac-ipq806x.c    | 50 +++++++-----
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 73 ++++++++++-------
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 78 ++++++++++--------
- drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 83 ++++++++++---------
- drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  | 95 ++++++++++++----------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 80 +-----------------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |  1 -
- include/linux/stmmac.h                             | 20 -----
- 10 files changed, 260 insertions(+), 272 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+index 15048ca39759..c9d6e2d5bfc9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+@@ -33,35 +33,6 @@ struct sunxi_priv_data {
+ 	struct regulator *regulator;
+ };
+ 
+-static void *sun7i_gmac_setup(struct platform_device *pdev)
+-{
+-	struct sunxi_priv_data *gmac;
+-	struct device *dev = &pdev->dev;
+-
+-	gmac = devm_kzalloc(dev, sizeof(*gmac), GFP_KERNEL);
+-	if (!gmac)
+-		return ERR_PTR(-ENOMEM);
+-
+-	gmac->interface = of_get_phy_mode(dev->of_node);
+-
+-	gmac->tx_clk = devm_clk_get(dev, "allwinner_gmac_tx");
+-	if (IS_ERR(gmac->tx_clk)) {
+-		dev_err(dev, "could not get tx clock\n");
+-		return gmac->tx_clk;
+-	}
+-
+-	/* Optional regulator for PHY */
+-	gmac->regulator = devm_regulator_get_optional(dev, "phy");
+-	if (IS_ERR(gmac->regulator)) {
+-		if (PTR_ERR(gmac->regulator) == -EPROBE_DEFER)
+-			return ERR_PTR(-EPROBE_DEFER);
+-		dev_info(dev, "no regulator found\n");
+-		gmac->regulator = NULL;
+-	}
+-
+-	return gmac;
+-}
+-
+ #define SUN7I_GMAC_GMII_RGMII_RATE	125000000
+ #define SUN7I_GMAC_MII_RATE		25000000
+ 
+@@ -132,6 +103,35 @@ static void sun7i_fix_speed(void *priv, unsigned int speed)
+ 	}
+ }
+ 
++static void *sun7i_gmac_setup(struct platform_device *pdev)
++{
++	struct sunxi_priv_data *gmac;
++	struct device *dev = &pdev->dev;
++
++	gmac = devm_kzalloc(dev, sizeof(*gmac), GFP_KERNEL);
++	if (!gmac)
++		return ERR_PTR(-ENOMEM);
++
++	gmac->interface = of_get_phy_mode(dev->of_node);
++
++	gmac->tx_clk = devm_clk_get(dev, "allwinner_gmac_tx");
++	if (IS_ERR(gmac->tx_clk)) {
++		dev_err(dev, "could not get tx clock\n");
++		return gmac->tx_clk;
++	}
++
++	/* Optional regulator for PHY */
++	gmac->regulator = devm_regulator_get_optional(dev, "phy");
++	if (IS_ERR(gmac->regulator)) {
++		if (PTR_ERR(gmac->regulator) == -EPROBE_DEFER)
++			return ERR_PTR(-EPROBE_DEFER);
++		dev_info(dev, "no regulator found\n");
++		gmac->regulator = NULL;
++	}
++
++	return gmac;
++}
++
+ /* of_data specifying hardware features and callbacks.
+  * hardware features were copied from Allwinner drivers. */
+ static const struct stmmac_of_data sun7i_gmac_data = {
 -- 
 1.8.0
