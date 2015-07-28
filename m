@@ -1,7 +1,7 @@
 From: Christopher Hall <christopher.s.hall@intel.com>
-Subject: [PATCH 5/5] Enables cross timestamping in the e1000e driver
-Date: Mon, 27 Jul 2015 17:46:56 -0700
-Message-ID: <1438044416-15588-6-git-send-email-christopher.s.hall@intel.com>
+Subject: [PATCH 1/5] Add functions producing system time given a backing counter value
+Date: Mon, 27 Jul 2015 17:46:52 -0700
+Message-ID: <1438044416-15588-2-git-send-email-christopher.s.hall@intel.com>
 References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Christopher Hall <christopher.s.hall@intel.com>
@@ -14,157 +14,333 @@ In-Reply-To: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds getsynctime64() callback which captures "raw" cross timestamp
-between ART and Ethernet device clock
-Translates captured ART to REALTIME clock
+* counter_to_rawmono64
+* counter_to_mono64
+* counter_to_realtime64
+
+Enables drivers to translate a captured system clock counter to system
+time. This is useful for network and audio devices that capture timestamps
+in terms of both the system clock and device clock.
 
 Signed-off-by: Christopher Hall <christopher.s.hall@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |  7 +++
- drivers/net/ethernet/intel/e1000e/ptp.c     | 83 +++++++++++++++++++++++++++++
- drivers/net/ethernet/intel/e1000e/regs.h    |  4 ++
- 3 files changed, 94 insertions(+)
+ include/linux/timekeeping.h |   8 ++
+ kernel/time/timekeeping.c   | 211 +++++++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 199 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 133d407..9f16269 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -527,6 +527,13 @@
- #define E1000_RXCW_C          0x20000000        /* Receive config */
- #define E1000_RXCW_SYNCH      0x40000000        /* Receive config synch */
+diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+index 6e191e4..04e6455 100644
+--- a/include/linux/timekeeping.h
++++ b/include/linux/timekeeping.h
+@@ -1,6 +1,8 @@
+ #ifndef _LINUX_TIMEKEEPING_H
+ #define _LINUX_TIMEKEEPING_H
  
-+/* HH Time Sync */
-+#define E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK   0x0000F000      /* max delay */
-+#define E1000_TSYNCTXCTL_SYNC_COMP              0x40000000      /* sync complete
-+ */
-+#define E1000_TSYNCTXCTL_START_SYNC             0x80000000      /* initiate sync
-+ */
++struct clocksource; /* Defined in clocksource.h */
 +
- #define E1000_TSYNCTXCTL_VALID		0x00000001 /* Tx timestamp valid */
- #define E1000_TSYNCTXCTL_ENABLED	0x00000010 /* enable Tx timestamping */
+ /* Included from linux/ktime.h */
  
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index 25a0ad5..bd8b888 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -25,6 +25,7 @@
+ void timekeeping_init(void);
+@@ -27,6 +29,12 @@ struct timespec __current_kernel_time(void);
   */
- 
- #include "e1000.h"
-+#include <asm/art.h>
- 
- /**
-  * e1000e_phc_adjfreq - adjust the frequency of the hardware clock
-@@ -98,6 +99,87 @@ static int e1000e_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	return 0;
+ struct timespec64 get_monotonic_coarse64(void);
+ extern void getrawmonotonic64(struct timespec64 *ts);
++extern int counter_to_rawmono64
++(struct timespec64 *rawmono, cycle_t counterval, struct clocksource *cs);
++extern int counter_to_mono64
++(struct timespec64 *mono, cycle_t counterval, struct clocksource *cs);
++extern int counter_to_realtime64
++(struct timespec64 *realtime, cycle_t counterval, struct clocksource *cs);
+ extern void ktime_get_ts64(struct timespec64 *ts);
+ extern time64_t ktime_get_seconds(void);
+ extern time64_t ktime_get_real_seconds(void);
+diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+index bca3667..1ca4fe0 100644
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -116,6 +116,8 @@ static inline void tk_update_sleep_time(struct timekeeper *tk, ktime_t delta)
+ 	tk->offs_boot = ktime_add(tk->offs_boot, delta);
  }
  
-+#define HW_WAIT_COUNT (2)
-+#define HW_RETRY_COUNT (2)
++#define ROLLOVER_THRESHOLD (2ULL << 39)
 +
-+static int e1000e_phc_read_timestamp_pair(struct e1000_adapter *adapter,
-+					  u64 *systim, u64 *plttim)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	int i, j;
-+	u32 tsync_ctrl;
-+	int ret;
-+
-+	if (hw->mac.type < e1000_pch_spt)
-+		return -ENXIO;
-+
-+	for (j = 0; j < HW_RETRY_COUNT; ++j) {
-+		tsync_ctrl = er32(TSYNCTXCTL);
-+		tsync_ctrl |= E1000_TSYNCTXCTL_START_SYNC |
-+			E1000_TSYNCTXCTL_MAX_ALLOWED_DLY_MASK;
-+		ew32(TSYNCTXCTL, tsync_ctrl);
-+		ret = 0;
-+		for (i = 0; i < HW_WAIT_COUNT; ++i) {
-+			udelay(2);
-+			tsync_ctrl = er32(TSYNCTXCTL);
-+			if (tsync_ctrl & E1000_TSYNCTXCTL_SYNC_COMP)
-+				break;
+ #ifdef CONFIG_DEBUG_TIMEKEEPING
+ #define WARNING_FREQ (HZ*300) /* 5 minute rate-limiting */
+ 
+@@ -158,10 +160,11 @@ static void timekeeping_check_update(struct timekeeper *tk, cycle_t offset)
+ 	}
+ }
+ 
+-static inline cycle_t timekeeping_get_delta(struct tk_read_base *tkr)
++static inline int timekeeping_get_delta
++(cycle_t *delta, struct tk_read_base *tkr, cycle_t *counterval)
+ {
+ 	struct timekeeper *tk = &tk_core.timekeeper;
+-	cycle_t now, last, mask, max, delta;
++	cycle_t now = *counterval, last, mask, max, delta;
+ 	unsigned int seq;
+ 
+ 	/*
+@@ -173,46 +176,61 @@ static inline cycle_t timekeeping_get_delta(struct tk_read_base *tkr)
+ 	 */
+ 	do {
+ 		seq = read_seqcount_begin(&tk_core.seq);
+-		now = tkr->read(tkr->clock);
++		if (counterval == NULL) {
++			now = tkr->read(tkr->clock);
++		} else {
++			if (now < tkr->cycle_last &&
++			   tkr->cycle_last - now < ROLLOVER_THRESHOLD)
++				return -EAGAIN;
 +		}
-+
-+		if (i == HW_WAIT_COUNT) {
-+			ret = -ETIMEDOUT;
-+		} else if (ret == 0) {
-+			*plttim = er32(PLTSTMPH);
-+			*plttim <<= 32;
-+			*plttim |= er32(PLTSTMPL);
-+			*systim = er32(SYSSTMPH);
-+			*systim <<= 32;
-+			*systim |= er32(SYSSTMPL);
-+			break;
-+		}
+ 		last = tkr->cycle_last;
+ 		mask = tkr->mask;
+ 		max = tkr->clock->max_cycles;
+ 	} while (read_seqcount_retry(&tk_core.seq, seq));
+ 
+-	delta = clocksource_delta(now, last, mask);
++	*delta = clocksource_delta(now, last, mask);
+ 
+ 	/*
+ 	 * Try to catch underflows by checking if we are seeing small
+ 	 * mask-relative negative values.
+ 	 */
+-	if (unlikely((~delta & mask) < (mask >> 3))) {
++	if (unlikely((~*delta & mask) < (mask >> 3))) {
+ 		tk->underflow_seen = 1;
+-		delta = 0;
++		*delta = 0;
+ 	}
+ 
+ 	/* Cap delta value to the max_cycles values to avoid mult overflows */
+-	if (unlikely(delta > max)) {
+-		tk->overflow_seen = 1;
+-		delta = tkr->clock->max_cycles;
++	if (unlikely(*delta > max)) {
++		tk->underflow_seen = 1;
++		*delta = tkr->clock->max_cycles;
+ 	}
+ 
+-	return delta;
++	return 0;
+ }
+ #else
+-static inline void timekeeping_check_update(struct timekeeper *tk, cycle_t offset)
++static inline void timekeeping_check_update
++(struct timekeeper *tk, cycle_t offset)
+ {
+ }
+-static inline cycle_t timekeeping_get_delta(struct tk_read_base *tkr)
++static inline cycle_t timekeeping_get_delta
++(cycle_t *delta, struct tk_read_base *tkr, cycle_t *counterval)
+ {
+-	cycle_t cycle_now, delta;
++	cycle_t cycle_now;
+ 
+ 	/* read clocksource */
+-	cycle_now = tkr->read(tkr->clock);
++	if (counterval == NULL) {
++		cycle_now = tkr->read(tkr->clock);
++	} else {
++		cycle_now = *counterval;
++		if (cycle_now < tkr->cycle_last &&
++		   tkr->cycle_last - cycle_now < ROLLOVER_THRESHOLD)
++			return -EAGAIN;
 +	}
+ 
+ 	/* calculate the delta since the last update_wall_time */
+-	delta = clocksource_delta(cycle_now, tkr->cycle_last, tkr->mask);
++	*delta = clocksource_delta(cycle_now, tkr->cycle_last, tkr->mask);
+ 
+-	return delta;
++	return 0;
+ }
+ #endif
+ 
+@@ -298,13 +316,11 @@ u32 (*arch_gettimeoffset)(void) = default_arch_gettimeoffset;
+ static inline u32 arch_gettimeoffset(void) { return 0; }
+ #endif
+ 
+-static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
++static inline s64 timekeeping_delta_to_ns
++(struct tk_read_base *tkr, cycle_t delta)
+ {
+-	cycle_t delta;
+ 	s64 nsec;
+ 
+-	delta = timekeeping_get_delta(tkr);
+-
+ 	nsec = delta * tkr->mult + tkr->xtime_nsec;
+ 	nsec >>= tkr->shift;
+ 
+@@ -312,6 +328,28 @@ static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
+ 	return nsec + arch_gettimeoffset();
+ }
+ 
++static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
++{
++	cycle_t delta;
 +
-+	return ret;
++	timekeeping_get_delta(&delta, tkr, NULL);
++	return timekeeping_delta_to_ns(tkr, delta);
 +}
 +
-+#define SYNCTIME_RETRY_COUNT (2)
-+
-+static int e1000e_phc_getsynctime(struct ptp_clock_info *ptp,
-+				  struct timespec64 *devts,
-+				  struct timespec64 *systs)
++static inline int timekeeping_counter_to_ns
++(s64 *nsec, struct tk_read_base *tkr, cycle_t counterval)
 +{
-+	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
-+						     ptp_clock_info);
-+	unsigned long flags;
-+	u32 remainder;
-+	u64 plttim, systim;
++	cycle_t delta;
++	int err;
 +
-+	int i, ret;
++	err = timekeeping_get_delta(&delta, tkr, &counterval);
++	if (err != 0)
++		return err;
 +
-+	if (!has_art())
-+		return -ENXIO;
-+
-+	for (i = 0; i < SYNCTIME_RETRY_COUNT; ++i) {
-+		ret = e1000e_phc_read_timestamp_pair
-+			(adapter, &systim, &plttim);
-+		if (ret != 0)
-+			continue;
-+
-+		ret = art_to_realtime64(systs, plttim);
-+		if (ret == 0) {
-+			spin_lock_irqsave(&adapter->systim_lock, flags);
-+			systim = timecounter_cyc2time(&adapter->tc, systim);
-+			spin_unlock_irqrestore(&adapter->systim_lock, flags);
-+			devts->tv_sec =
-+				div_u64_rem(systim, NSEC_PER_SEC, &remainder);
-+			devts->tv_nsec = remainder;
-+			break;
-+		}
-+	}
-+
-+	return ret;
++	*nsec = timekeeping_delta_to_ns(tkr, delta);
++	return 0;
 +}
 +
  /**
-  * e1000e_phc_gettime - Reads the current time from the hardware clock
-  * @ptp: ptp clock structure
-@@ -190,6 +272,7 @@ static const struct ptp_clock_info e1000e_ptp_clock_info = {
- 	.adjfreq	= e1000e_phc_adjfreq,
- 	.adjtime	= e1000e_phc_adjtime,
- 	.gettime64	= e1000e_phc_gettime,
-+	.getsynctime64	= e1000e_phc_getsynctime,
- 	.settime64	= e1000e_phc_settime,
- 	.enable		= e1000e_phc_enable,
- };
-diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
-index b24e5fe..4dd5b54 100644
---- a/drivers/net/ethernet/intel/e1000e/regs.h
-+++ b/drivers/net/ethernet/intel/e1000e/regs.h
-@@ -246,6 +246,10 @@
- #define E1000_SYSTIML	0x0B600	/* System time register Low - RO */
- #define E1000_SYSTIMH	0x0B604	/* System time register High - RO */
- #define E1000_TIMINCA	0x0B608	/* Increment attributes register - RW */
-+#define E1000_SYSSTMPL  0x0B648 /* HH Timesync system stamp low register */
-+#define E1000_SYSSTMPH  0x0B64C /* HH Timesync system stamp hi register */
-+#define E1000_PLTSTMPL  0x0B640 /* HH Timesync platform stamp low register */
-+#define E1000_PLTSTMPH  0x0B644 /* HH Timesync platform stamp hi register */
- #define E1000_RXMTRL	0x0B634	/* Time sync Rx EtherType and Msg Type - RW */
- #define E1000_RXUDP	0x0B638	/* Time Sync Rx UDP Port - RW */
+  * update_fast_timekeeper - Update the fast and NMI safe monotonic timekeeper.
+  * @tkr: Timekeeping readout base from which we take the update
+@@ -1117,6 +1155,139 @@ void getrawmonotonic64(struct timespec64 *ts)
+ EXPORT_SYMBOL(getrawmonotonic64);
  
+ 
++ /**
++ * counterval_to_rawmono64 - Returns the raw monotonic time given a counter
++ * value
++ * @counterval:          counter value (input)
++ * @rawmono:             raw monotonic clock (output)
++ * @cs:                  clocksource from which clockvalue is derived
++ *
++ * Returns:
++ *   0      - Success
++ *  -EAGAIN - Clock value is in the past, try again
++ *  -ENXIO  - Clocksource 'cs' doesn't match the current clocksource
++ *
++ */
++int counter_to_rawmono64(struct timespec64 *rawmono, cycle_t counterval,
++			 struct clocksource *cs)
++{
++	struct timekeeper *tk = &tk_core.timekeeper;
++	struct clocksource *curr_clock;
++	struct timespec64 ts64;
++	unsigned long seq;
++	s64 nsecs;
++	int err;
++
++	do {
++		seq = read_seqcount_begin(&tk_core.seq);
++		err = timekeeping_counter_to_ns
++			(&nsecs, &tk->tkr_raw, counterval);
++		if (err != 0)
++			return err;
++		ts64 = tk->raw_time;
++		curr_clock = tk->tkr_raw.clock;
++	} while (read_seqcount_retry(&tk_core.seq, seq));
++
++	if (curr_clock != cs)
++		return -ENXIO;
++
++	timespec64_add_ns(&ts64, nsecs);
++	*rawmono = ts64;
++
++	return 0;
++}
++EXPORT_SYMBOL(counter_to_rawmono64);
++
++ /**
++ * counterval_to_realtime64 - Returns the real time given a counter
++ * value
++ * @counterval:          counter value (input)
++ * @realtime:             realtime clock (output)
++ * @cs:                  clocksource from which clockvalue is derived
++ *
++ * Returns:
++ *   0      - Success
++ *  -EAGAIN - Clock value is in the past, try again
++ *  -ENXIO  - Clocksource 'cs' doesn't match the current clocksource
++ *
++ */
++int counter_to_realtime64(struct timespec64 *realtime, cycle_t counterval,
++			  struct clocksource *cs)
++{
++	struct timekeeper *tk = &tk_core.timekeeper;
++	struct clocksource *curr_clock;
++	struct timespec64 ts64;
++	unsigned long seq;
++	s64 nsecs;
++	int err;
++
++	do {
++		seq = read_seqcount_begin(&tk_core.seq);
++		err = timekeeping_counter_to_ns
++			(&nsecs, &tk->tkr_mono, counterval);
++		if (err != 0)
++			return err;
++		ts64.tv_sec = tk->xtime_sec;
++		curr_clock = tk->tkr_mono.clock;
++	} while (read_seqcount_retry(&tk_core.seq, seq));
++
++	if (curr_clock != cs)
++		return -ENXIO;
++
++	ts64.tv_nsec = 0;
++	timespec64_add_ns(&ts64, nsecs);
++	*realtime = ts64;
++
++	return 0;
++}
++EXPORT_SYMBOL(counter_to_realtime64);
++
++ /**
++ * counterval_to_mono64 - Returns the real time given a counter
++ * value
++ * @counterval:          counter value (input)
++ * @realtime:             realtime clock (output)
++ * @cs:                  clocksource from which clockvalue is derived
++ *
++ * Returns:
++ *   0      - Success
++ *  -EAGAIN - Clock value is in the past, try again
++ *  -ENXIO  - Clocksource 'cs' doesn't match the current clocksource
++ *
++ */
++int counter_to_mono64(struct timespec64 *mono, cycle_t counterval,
++		      struct clocksource *cs)
++{
++	struct timekeeper *tk = &tk_core.timekeeper;
++	struct clocksource *curr_clock;
++	struct timespec64 tomono;
++	struct timespec64 ts64;
++	unsigned long seq;
++	s64 nsecs;
++	int err;
++
++	do {
++		seq = read_seqcount_begin(&tk_core.seq);
++		err = timekeeping_counter_to_ns
++			(&nsecs, &tk->tkr_mono, counterval);
++		if (err != 0)
++			return err;
++		ts64.tv_sec = tk->xtime_sec;
++		tomono = tk->wall_to_monotonic;
++		curr_clock = tk->tkr_mono.clock;
++	} while (read_seqcount_retry(&tk_core.seq, seq));
++
++	if (curr_clock != cs)
++		return -ENXIO;
++
++	ts64.tv_nsec = 0;
++	timespec64_add_ns(&ts64, nsecs);
++	*mono = timespec64_add(ts64, tomono);
++
++	return 0;
++}
++EXPORT_SYMBOL(counter_to_mono64);
++
+ /**
+  * timekeeping_valid_for_hres - Check if timekeeping is suitable for hres
+  */
 -- 
 1.9.1
