@@ -1,116 +1,101 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
-Date: Mon, 27 Jul 2015 23:40:24 -0700
-Message-ID: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, tgraf@suug.ch
+From: Sebastian Fett <db_extern@gmx.de>
+Subject: Re: ARP response with link local IP, why not broadcast
+Date: Tue, 28 Jul 2015 09:12:03 +0200
+Message-ID: <55B72B43.9060400@gmx.de>
+References: <55B6432E.5070401@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33143 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238AbbG1Gk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 02:40:29 -0400
-Received: by padck2 with SMTP id ck2so64741714pad.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 23:40:29 -0700 (PDT)
+Received: from mout.gmx.net ([212.227.17.20]:49942 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751570AbbG1HLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jul 2015 03:11:09 -0400
+Received: from [192.168.11.112] ([94.186.167.49]) by mail.gmx.com (mrgmx102)
+ with ESMTPSA (Nemesis) id 0MMHaL-1ZGQ8k1pYT-0083Wp for
+ <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:11:07 +0200
+In-Reply-To: <55B6432E.5070401@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Just a quick update on the subject.
 
-Undefined reference to ip6_route_output and ip_route_output
-was reported with CONFIG_INET=n and CONFIG_IPV6=n.
+Thanks for the input. It's good to see that I am not the only one that
+has this problem.
 
-This patch adds new CONFIG_MPLS_NEXTHOP_DEVLOOKUP
-to lookup nexthop device if user has not specified it
-in RTA_OIF attribute. Make CONFIG_MPLS_NEXTHOP_DEVLOOKUP
-depend on INET and (IPV6 || IPV6=n) because it
-uses ip6_route_output and ip_route_output.
+Right now we go with our initial approach and bcast our arp responses.
+We have a very local network build only for one purpose. Other devices
+in that network use the same approach. And the master controll software
+will arp request every address eventually.
+It's not ideal and will potentially take a couple minutes to resolve
+every conflict. But it's the best compromise between effort and benefit.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Reported-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
+I'll let you know about our test results. Maybe somebody is interested.
 
-v1 - v2: use IS_BUILTIN
+Btw, I still wonder if I can partially keep the kernel from answering
+ARP packets?
 
-v2 - v3: Use new Kconfig option that depends on (IPV6 || IPV6=n) as
-	 suggested by Dave. Also uses IS_ERR as suggested by Thomas.
 
-v3 - v4: Include missed case of (MPLS_ROUTING=y && IPV6=m) reported by
-         Dave.
-
- net/mpls/Kconfig   |    8 ++++++++
- net/mpls/af_mpls.c |   19 ++++++++++++++++++-
- 2 files changed, 26 insertions(+), 1 deletion(-)
-
-diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
-index 5c467ef..134764e 100644
---- a/net/mpls/Kconfig
-+++ b/net/mpls/Kconfig
-@@ -33,4 +33,12 @@ config MPLS_IPTUNNEL
- 	---help---
- 	 mpls ip tunnel support.
- 
-+config MPLS_NEXTHOP_DEVLOOKUP
-+	bool "MPLS: nexthop oif dev lookup"
-+	depends on MPLS_ROUTING && INET && \
-+		((IPV6 && !(MPLS_ROUTING=y && IPV6=m)) || IPV6=n)
-+	---help---
-+	 This enables mpls route nexthop dev lookup when oif is not
-+	 specified by user
-+
- endif # MPLS
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 49f1b0e..3e0c0212d 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -331,6 +331,7 @@ static unsigned find_free_label(struct net *net)
- 	return LABEL_NOT_SPECIFIED;
- }
- 
-+#if IS_ENABLED(CONFIG_MPLS_NEXTHOP_DEVLOOKUP)
- static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
-@@ -350,7 +351,14 @@ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- errout:
- 	return dev;
- }
-+#else
-+static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
-+#if IS_ENABLED(CONFIG_MPLS_NEXTHOP_DEVLOOKUP) && IS_ENABLED(CONFIG_IPV6)
- static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
-@@ -371,6 +379,12 @@ errout:
- 
- 	return dev;
- }
-+#else
-+static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
- static struct net_device *find_outdev(struct net *net,
- 				      struct mpls_route_config *cfg)
-@@ -427,8 +441,11 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 
- 	err = -ENODEV;
- 	dev = find_outdev(net, cfg);
--	if (!dev)
-+	if (IS_ERR(dev)) {
-+		err = PTR_ERR(dev);
-+		dev = NULL;
- 		goto errout;
-+	}
- 
- 	/* Ensure this is a supported device */
- 	err = -EINVAL;
--- 
-1.7.10.4
+> On Wed, Jul 22, 2015 at 9:49 AM, Sebastian Fett <db_extern@gmx.de> wrote:
+>
+>>> what is your use case?
+>>>
+>>
+>> My problem ist a local network of audio devices. It is a valid possibility
+>> that two halfs of the setup are set up individually (Stage left and stage
+>> right). Both local networks will auto configure themselves via link local
+>> and will be stable. But there always can be two devices with the same IP in
+>> both networks.
+>> At one point those two networks will be connected. With the current
+>> behaviour the conflicting devices will never know of each other and the
+>> address conflict.
+>
+> Ah yes, this is a valid problem (Partition-Join tolerance) and one that is
+> being discussed in the Ipv6 context on 6man:
+> http://www.ietf.org/mail-archive/web/ipv6/current/msg22712.html
+>
+> FWIW, when Solaris implemented ACD (rfc 5227) the compromise
+> that was made between bcasting *every* ARP response whle solving
+> the type or issue that you describe was to use a periodic ARP "announce",
+> advertising the IP address (a Grat ARP) with exponential backoff.
+> If a duplicate address is triggered (as would happen in the scenario
+> that you describe) the system would fall into the aggressive defend mode.
+>
+> ARP announcemnts were bcast, but the noise is mitigated by tunable
+> exponential backoff.
+>
+> Of course, all of this only helps to *detect* the duplicate- eventually
+> some other entity has to jump in and arbitrate on which one should
+> "own" the address.
+>
+>> The devices are controlled by a central PC using avahi/bonjour. It will know
+>> of all conflicting devices, but will only be able to talk to the one that
+>> happens to be in it's ARP cache. And renewing that cache will not change
+>> anything, because it will happen with unicast messages.
+>>
+>> I looked at a Dante Controller (an audio data streaming device). And here
+>> all ARP messages are answered with broadcasts.
+>>
+>> I think that behaviour is acceptable because it only happens in local
+>> networks. Waking up sleeping devices will not be a concern there.
+>
+> I dont know if a short term solution that makes sense here is to have
+> a tunable for this.
+>
+> But even the "always bcast arp response" will fail if you have a silent
+> rejoin of the partitioned network- there is a reliance on the owner
+> of an address bcasting their ARP resp at some point right?
+>
+> (there's also a DoS vector here- I can create a lot of bcast traffic
+> by arping for an address..)
+>>
+>> That brings me to another question. When I react to an ARP packet in a
+>> userspace program, can I keep that packet from reaching the kernel as well?
+>> I would like to avoid to completely handle ARP in userspace.
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
