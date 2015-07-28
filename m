@@ -1,110 +1,38 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] bridge: mcast: give fast leave precedence over
-	multicast router and querier
-Date: Tue, 28 Jul 2015 03:28:27 -0700
-Message-ID: <1438079308-25040-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: bridge@lists.linux-foundation.org, herbert@gondor.apana.org.au,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net 1/2] r8152: add pre_reset and post_reset
+Date: Tue, 28 Jul 2015 09:52:15 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3C3EC@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-157-Taiwan-albertk@realtek.com>
+ <1438073562.11934.2.camel@suse.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1438073562.11934.2.camel-IBi9RG/b67k@public.gmane.org>
+Content-Language: zh-TW
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Satish Ashok <sashok@cumulusnetworks.com>
-
-When fast leave is configured on a bridge port and an IGMP leave is
-received for a group, the group is not deleted immediately if there is
-a router detected or if multicast querier is configured.
-Ideally the group should be deleted immediately when fast leave is
-configured.
-
-Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
----
- net/bridge/br_multicast.c | 50 ++++++++++++++++++++++++-----------------------
- 1 file changed, 26 insertions(+), 24 deletions(-)
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 79db489cdade..0b39dcc65b94 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1416,8 +1416,7 @@ br_multicast_leave_group(struct net_bridge *br,
- 
- 	spin_lock(&br->multicast_lock);
- 	if (!netif_running(br->dev) ||
--	    (port && port->state == BR_STATE_DISABLED) ||
--	    timer_pending(&other_query->timer))
-+	    (port && port->state == BR_STATE_DISABLED))
- 		goto out;
- 
- 	mdb = mlock_dereference(br->mdb, br);
-@@ -1425,6 +1424,31 @@ br_multicast_leave_group(struct net_bridge *br,
- 	if (!mp)
- 		goto out;
- 
-+	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
-+		struct net_bridge_port_group __rcu **pp;
-+
-+		for (pp = &mp->ports;
-+		     (p = mlock_dereference(*pp, br)) != NULL;
-+		     pp = &p->next) {
-+			if (p->port != port)
-+				continue;
-+
-+			rcu_assign_pointer(*pp, p->next);
-+			hlist_del_init(&p->mglist);
-+			del_timer(&p->timer);
-+			call_rcu_bh(&p->rcu, br_multicast_free_pg);
-+			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
-+
-+			if (!mp->ports && !mp->mglist &&
-+			    netif_running(br->dev))
-+				mod_timer(&mp->timer, jiffies);
-+		}
-+		goto out;
-+	}
-+
-+	if (timer_pending(&other_query->timer))
-+		goto out;
-+
- 	if (br->multicast_querier) {
- 		__br_multicast_send_query(br, port, &mp->addr);
- 
-@@ -1450,28 +1474,6 @@ br_multicast_leave_group(struct net_bridge *br,
- 		}
- 	}
- 
--	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
--		struct net_bridge_port_group __rcu **pp;
--
--		for (pp = &mp->ports;
--		     (p = mlock_dereference(*pp, br)) != NULL;
--		     pp = &p->next) {
--			if (p->port != port)
--				continue;
--
--			rcu_assign_pointer(*pp, p->next);
--			hlist_del_init(&p->mglist);
--			del_timer(&p->timer);
--			call_rcu_bh(&p->rcu, br_multicast_free_pg);
--			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
--
--			if (!mp->ports && !mp->mglist &&
--			    netif_running(br->dev))
--				mod_timer(&mp->timer, jiffies);
--		}
--		goto out;
--	}
--
- 	now = jiffies;
- 	time = now + br->multicast_last_member_count *
- 		     br->multicast_last_member_interval;
--- 
-2.4.3
+T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXks
+IEp1bHkgMjgsIDIwMTUgNDo1MyBQTQ0KWy4uLl0NCj4gPiArCQlyZXR1cm4gMDsNCj4gPiArDQo+
+ID4gKwluZXRkZXYgPSB0cC0+bmV0ZGV2Ow0KPiA+ICsJaWYgKCFuZXRpZl9ydW5uaW5nKG5ldGRl
+dikpDQo+ID4gKwkJcmV0dXJuIDA7DQo+ID4gKw0KPiA+ICsJcmV0ID0gdXNiX2F1dG9wbV9nZXRf
+aW50ZXJmYWNlKGludGYpOw0KPiA+ICsJaWYgKHJldCA8IDApDQo+ID4gKwkJcmV0dXJuIHJldDsN
+Cj4gDQo+IFdoYXQgc2Vuc2UgZG9lcyB0aGlzIG1ha2U/DQo+IA0KWy4uLl0NCj4gPiArCQlyZXR1
+cm4gMDsNCj4gPiArDQo+ID4gKwluZXRkZXYgPSB0cC0+bmV0ZGV2Ow0KPiA+ICsJaWYgKCFuZXRp
+Zl9ydW5uaW5nKG5ldGRldikpDQo+ID4gKwkJcmV0dXJuIDA7DQo+ID4gKw0KPiA+ICsJcmV0ID0g
+dXNiX2F1dG9wbV9nZXRfaW50ZXJmYWNlKGludGYpOw0KPiANCj4gVGhlIGRldmljZSB3aWxsIGJl
+IGF3YWtlLg0KDQpJIGRvbid0IHN1cmUgaWYgdGhlIGRldmljZSB3b3VsZCBiZSBpbiBydW50aW1l
+c3VzcGVuZCwgc28gSSB3YWtlIGl0IHVwIGJ5IG15c2VsZi4NCkkgdGhpbmsgeW91IG1lYW4gSSBk
+b24ndCBoYXZlIHRvIGRvIHRoaXMuIEkgd291bGQgcmVtb3ZlIHRoZW0gYW5kIHJlc2VuZCB0aGUN
+CnBhdGNoLiBUaGFua3MuDQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
