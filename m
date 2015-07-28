@@ -1,106 +1,106 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [net-next 0/16] Proposal for VRF-lite - v3
-Date: Tue, 28 Jul 2015 10:02:01 -0600
-Message-ID: <55B7A779.6040906@cumulusnetworks.com>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com> <87egjtz6kn.fsf@x220.int.ebiederm.org>
+Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
+Date: Tue, 28 Jul 2015 10:07:17 -0600
+Message-ID: <55B7A8B5.6020305@cumulusnetworks.com>
+References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>	 <1438085969.25794.14.camel@stressinduktion.org> <1438099265.20182.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, shm@cumulusnetworks.com,
 	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	ddutt@cumulusnetworks.com, hannes@stressinduktion.org,
-	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
-	hadi@mojatatu.com, davem@davemloft.net, svaidya@brocade.com,
-	mingo@kernel.org, luto@amacapital.net
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+	ddutt@cumulusnetworks.com, nicolas.dichtel@6wind.com,
+	stephen@networkplumber.org, hadi@mojatatu.com, davem@davemloft.net,
+	svaidya@brocade.com, mingo@kernel.org, luto@amacapital.net
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:34842 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181AbbG1QCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:02:06 -0400
-Received: by pdrg1 with SMTP id g1so72982823pdr.2
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:02:04 -0700 (PDT)
-In-Reply-To: <87egjtz6kn.fsf@x220.int.ebiederm.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:34190 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751261AbbG1QHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:07:21 -0400
+Received: by pdbbh15 with SMTP id bh15so73030487pdb.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:07:20 -0700 (PDT)
+In-Reply-To: <1438099265.20182.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/27/15 2:30 PM, Eric W. Biederman wrote:
-> This paragraph is false when it comes to sockets, as I have already
-> pointed out.
->
-> - VPN Routing and Forwarding (RFC4364 and it's kin) implies isolation
->    strong enough to allow using the the same ip on different machines
->    in different VPN instances and not have confusion.
->
-> - The routing table is not the only table in the kernel that uses
->    an ip address as a key.
->
->    The result is that you can combine packets fragments that come in
->    on different interfaces (irrespective of your VPN), confuse tcp
->    parameters between interfaces, scramble your ipsec connections and I
->    don't know what else.
-
-The duplicate IP address is a problem with the networking stack today; 
-the VRF device does not introduce it. The VRF device does allow 
-duplicate IP addresses within a namespace but separate VRFs, though yes 
-various places that rely solely on source address like IP fragmentation 
-do need to be fixed.
-
-I looked at the IPv4 fragmentation code yesterday and will continue 
-today. So help me with the history: is there any reason why the device 
-index is not used today? It seems like a straight forward change.
-
-1. simple netdevices with the same IP address
---> no problem using index in the lookup
-
-2. 2 ipsec tunnels -- different netdevices, same IP address
---> no problem using index
-
-3. stacked devices like bonding and team interfaces appear to the stack 
-as a single device
---> no problem using index of stacked device
-
-4. If an interface is deleted and a new one is created with the same IP 
-address then we want to fail the lookup
---> no problem using index
-
-5. other???
-
-Is there a use case where I can't add ifindex of the incoming device (or 
-higher level device if skb->dev is changed) to the hash and lookup for 
-fragments?
-
-
->> Version 3
->> - addressed comments from first 2 RFCs with the exception of the name
->>    Nicolas: We will do the name conversion once we agree on what the
->>             correct name should be (vrf, mrf or something else)
->
-> Not so.  I described the deep problems between your goals and your
-> implementation and they are not even mentioned let alone addressed.
-
-I have addressed comments to the extent that I can. As I stated in my 
-last followup to you Eric I did not understand your point. I asked for 
-clarification, a --verbose if you will. I can't read your mind, so I 
-need you to elaborate on your points to be able to respond and address 
-your concerns.
-
->
->> -  packets flow through the VRF device in both directions allowing the
->>     following:
->>     - tcpdump -i vrf<n>
->>     - tc rules on vrf device
->>     - netfilter rules on vrf device
+On 7/28/15 10:01 AM, Eric Dumazet wrote:
+> On Tue, 2015-07-28 at 14:19 +0200, Hannes Frederic Sowa wrote:
+>> Hello Eric,
 >>
->> Ingo/Andy: I added you two as a start point for the proposed task related
->>             changes. Not sure who should be the reviewer; please let me know
->>             if someone else is more appropriate. Thanks.
+>> On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
+>>> David Ahern <dsa@cumulusnetworks.com> writes:
+>>>
+>>>> Allow tasks to have a default device index for binding sockets. If
+>>>> set
+>>>> the value is passed to all AF_INET/AF_INET6 sockets when they are
+>>>> created.
+>>>>
+>>>> The task setting is passed parent to child on fork, but can be set
+>>>> or
+>>>> changed after task creation using prctl (if task has CAP_NET_ADMIN
+>>>> permissions). The setting for a socket can be retrieved using
+>>>> prctl().
+>>>> This option allows an administrator to restrict a task to only
+>>>> send/receive
+>>>> packets through the specified device. In the case of VRF devices
+>>>> this
+>>>> option restricts tasks to a specific VRF.
+>>>>
+>>>> Correlation of the device index to a specific VRF, ie.,
+>>>>     ifindex --> VRF device --> VRF id
+>>>> is left to userspace.
+>>>
+>>> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>>>
+>>> Because it is broken by design.  Your routing device is only safe for
+>>> programs that know it's limitations it is not appropriate for general
+>>> applications.
+>>>
+>>> Since you don't even seen to know it's limitations I think this is a
+>>> bad path to walk down.
+>>
+>> Can you please elaborate about the broken by design?
+>>
+>> Different operating systems are already using this approach with good
+>> success. I read your other mail regarding isolation of different VRFs
+>> and I agree that all code which persists state depending solely on the
+>> IP address is affected by this and this must be dealt with and fixed
+>> (actually, there aren't too many).
+>>
+>> But I wouldn't call that broken by design. This stuff will get fixed
+>> like e.g. cross-talk between fragmentation queues, icmp rate limiters
+>> etc, which could already happen in the past.
+>>
+>> What is your opinion on the fundamental approach only from a user
+>> perspective? Do you think that is broken, too?
 >
-> It looks like you are trying to implement a namespace that isn't a
-> namespace.  Given that it is broken by design you have my nack.
+> I agree with Eric here.
+>
+> This sk_bind_dev_if on task_struct is quite a hack.
+>
+> What will be added next ? An array of dev_if ? netfilter support ?
+> af_packet support ? What about /proc files and netlink dumps ?
 
-This is an L3 separation within a namespace, not a device level 
-separation which is what namespaces provide.
+It could just as easily be a pointer to a struct (e.g., struct net_ctx) 
+such that the intrusion to task_struct is simply 8 bytes -- very similar 
+to the nsproxy used for the assorted namespaces. The struct can then 
+contain whatever network config is imposed on the task.
+
+>
+> We already have network namespaces. Extend this if needed, instead of
+> bypassing them.
+
+Problems with using network namespaces for VRFs has been discussed in 
+the past. e.g.,
+     http://www.spinics.net/lists/netdev/msg298368.html
 
 David
+
+>
+> No need to add something else (with lack of proper reporting for various
+> tools)
+>
+>
