@@ -1,45 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] packet: tpacket_snd(): fix signed/unsigned comparison
-Date: Tue, 28 Jul 2015 13:38:04 +0200
-Message-ID: <1438083484.20182.43.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438081021-1321-1-git-send-email-al.drozdov@gmail.com>
-	 <55B76256.2040105@iogearbox.net>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH net 1/2] r8152: add pre_reset and post_reset
+Date: Tue, 28 Jul 2015 14:05:37 +0200
+Message-ID: <1438085137.1787.2.camel@suse.com>
+References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-157-Taiwan-albertk@realtek.com>
+	 <1438073562.11934.2.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F3C3EC@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Drozdov <al.drozdov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Eyal Birger <eyal.birger@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55B76256.2040105@iogearbox.net>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F3C3EC@RTITMBSV03.realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-07-28 at 13:07 +0200, Daniel Borkmann wrote:
-> On 07/28/2015 12:57 PM, Alexander Drozdov wrote:
-> > tpacket_fill_skb() can return a negative value (-errno) which
-> > is stored in tp_len variable. In that case the following
-> > condition will be (but shouldn't be) true:
-> >
-> > tp_len > dev->mtu + dev->hard_header_len
-> >
-> > as dev->mtu and dev->hard_header_len are both unsigned.
-> >
-> > That may lead to just returning an incorrect EMSGSIZE errno
-> > to the user.
-> >
-> > Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+On Tue, 2015-07-28 at 09:52 +0000, Hayes Wang wrote:
+> Oliver Neukum [mailto:oneukum@suse.com]
+> > Sent: Tuesday, July 28, 2015 4:53 PM
+> [...]
+> > > +		return 0;
+> > > +
+> > > +	netdev = tp->netdev;
+> > > +	if (!netif_running(netdev))
+> > > +		return 0;
+> > > +
+> > > +	ret = usb_autopm_get_interface(intf);
+> > > +	if (ret < 0)
+> > > +		return ret;
+> > 
+> > What sense does this make?
+> > 
+> [...]
+> > > +		return 0;
+> > > +
+> > > +	netdev = tp->netdev;
+> > > +	if (!netif_running(netdev))
+> > > +		return 0;
+> > > +
+> > > +	ret = usb_autopm_get_interface(intf);
+> > 
+> > The device will be awake.
 > 
-> Looks good to me, thanks!
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> --
+> I don't sure if the device would be in runtimesuspend, so I wake it up by myself.
+> I think you mean I don't have to do this. I would remove them and resend the
+> patch. Thanks.
 
-Fixes: 52f1454f629fa ("packet: allow to transmit +4 byte in TX_RING slot for VLAN case")
+Usbcore will resume the device.
+
+	HTH
+		Oliver
+
+     A. 
+        /* Prevent autosuspend during the reset */
+        usb_autoresume_device(udev);
+
+        if (config) {
+                for (i = 0; i < config->desc.bNumInterfaces; ++i) {
+                        struct usb_interface *cintf = config->interface[i];
+                        struct usb_driver *drv;
+                        int unbind = 0;
+
+                        if (cintf->dev.driver) {
+                                drv = to_usb_driver(cintf->dev.driver);
+                                if (drv->pre_reset && drv->post_reset)
+                                        unbind = (drv->pre_reset)(cintf);
