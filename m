@@ -1,32 +1,47 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
-Date: Tue, 28 Jul 2015 12:28:58 -0700
-Message-ID: <55B7D7FA.8070301@cumulusnetworks.com>
-References: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com> <1438088676.25794.19.camel@stressinduktion.org>
+From: "Chris (Christopher) Brand" <chris.brand@broadcom.com>
+Subject: RE: [Xen-devel] [PATCH 4/8] xen: Use the correctly the Xen memory
+	terminologies
+Date: Tue, 28 Jul 2015 19:39:57 +0000
+Message-ID: <4EE5B48738DDED408878C97C8E050A8B1D7DDBB5@SJEXCHMB05.corp.ad.broadcom.com>
+References: <1438095769-2560-1-git-send-email-julien.grall@citrix.com>
+ <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33758 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbbG1T3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 15:29:00 -0400
-Received: by padck2 with SMTP id ck2so74430033pad.0
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 12:29:00 -0700 (PDT)
-In-Reply-To: <1438088676.25794.19.camel@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, Jiri Slaby <jslaby@suse.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"stefano.stabellini@eu.citrix.com" <stefano.stabellini@eu.citrix.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	"linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	"Ingo Molnar" <mingo@redhat.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Juergen Gross <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>,
+	Greg Kroah-Hartman <gregkh@lin
+To: Julien Grall <julien.grall@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/28/15, 6:04 AM, Hannes Frederic Sowa wrote:
-> Can't you simply use ipv6_stub_impl.ipv6_dst_lookup with sk=NULL to do
-> that and don't have a run-time dependency on IPv6 at all (for the cost
-> of a function pointer).
-  ipv6_stub_impl.ipv6_dst_lookup seems to require sk today.
-But it only needs it to get 'net' in the beginning and sk is optional 
-afterwards.
-I will submit a patch to add 'net' as an arg  to ipv6_dst_lookup.
-Users of ipv6_dst_lookup are few and that seems like an easy change and 
-helps my patch.
-If you or others think otherwise, pls let me know.
+PiBCYXNlZCBvbiBpbmNsdWRlL3hlbi9tbS5oIFsxXSwgTGludXggaXMgbWlzdGFrZW5seSB1c2lu
+ZyBNRk4gd2hlbiBHRk4gaXMgbWVhbnQsDQo+IEkgc3VzcGVjdCB0aGlzIGlzIGJlY2F1c2UgdGhl
+IGZpcnN0IHN1cHBvcnQgZm9yIFhlbiB3YXMgZm9yIFBWLiBUaGlzIGJyb3VnaCBzb21lDQpUeXBv
+IDogImJyb3VnaHQiDQpQZXJoYXBzICJyZXN1bHRlZCBpbiIgd291bGQgYmUgYmV0dGVyID8NCg0K
+PiBtaXNpbXBsZW1lbnRhdGlvbiBvZiBoZWxwZXJzIG9uIEFSTSBhbmQgbWFrZSB0aGUgZGV2ZWxv
+cHBlciBjb25mdXNlZCB0aGUgZXhwZWN0ZWQgYmVoYXZpb3IuDQpUeXBvOiAiZGV2ZWxvcGVyIi4N
+CkknZCBhbHNvIHN1Z2dlc3QgIi4uLmFuZCBjb25mdXNlZCBkZXZlbG9wZXJzIGFib3V0IHRoZS4u
+LiIuDQoNClsuLi5dDQoNCj4gRm9yIGNsYXJpdHkgYW5kIGF2b2lkIG5ldyBjb25mdXNpb24sIHJl
+cGxhY2UgYW55IHJlZmVyZW5jZSBvZiBtZm4gaW50byBnbmYgaW4gYW55IGhlbHBlcnMgdXNlZCBi
+eSBQViBkcml2ZXJzLg0KVHlwbyA6ICJnZm4iDQpJJ2Qgc3VnZ2VzdCAiLi4ucmVwbGFjZSBhbnkg
+cmVmZXJlbmNlIHRvIG1mbiB3aXRoIGdmbi4uLiINCg0KWy4uLl0NCg0KQ2hyaXMNCg0K
