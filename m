@@ -1,57 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [net-next PATCH 2/2] drivers: net: cpsw: add separate napi for
- tx packet handling for performance improvment
-Date: Wed, 29 Jul 2015 00:30:13 +0200
-Message-ID: <20150728223013.GA10669@electric-eye.fr.zoreil.com>
-References: <1437995941-5857-1-git-send-email-mugunthanvnm@ti.com>
- <1437995941-5857-3-git-send-email-mugunthanvnm@ti.com>
- <20150727212206.GA8912@electric-eye.fr.zoreil.com>
- <55B71E99.50807@ti.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
+Date: Tue, 28 Jul 2015 15:37:37 -0700
+Message-ID: <55B80431.4070507@cumulusnetworks.com>
+References: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com> <1438088676.25794.19.camel@stressinduktion.org> <55B7D7FA.8070301@cumulusnetworks.com> <1438122163.2621886.335716241.03B1A616@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:48467 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131AbbG1Waf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:30:35 -0400
-Content-Disposition: inline
-In-Reply-To: <55B71E99.50807@ti.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:32870 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751058AbbG1Whi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:37:38 -0400
+Received: by pdbnt7 with SMTP id nt7so77597362pdb.0
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:37:38 -0700 (PDT)
+In-Reply-To: <1438122163.2621886.335716241.03B1A616@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mugunthan V N <mugunthanvnm@ti.com> :
-> On Tuesday 28 July 2015 02:52 AM, Francois Romieu wrote:
-> > Mugunthan V N <mugunthanvnm@ti.com> :
-[...]
-> >> @@ -752,13 +753,22 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
-> >>  	struct cpsw_priv *priv = dev_id;
-> >>  
-> >>  	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
-> >> -	cpdma_chan_process(priv->txch, 128);
-> >> +	writel(0, &priv->wr_regs->tx_en);
-> >> +
-> >> +	if (netif_running(priv->ndev)) {
-> >> +		napi_schedule(&priv->napi_tx);
-> >> +		return IRQ_HANDLED;
-> >> +	}
-> > 
-> > 
-> > cpsw_ndo_stop calls napi_disable: you can remove netif_running.
-> > 
-> 
-> This netif_running check is to find which interface is up as the
-> interrupt is shared by both the interfaces. When first interface is down
-> and second interface is active then napi_schedule for first interface
-> will fail and second interface napi needs to be scheduled.
-> 
-> So I don't think netif_running needs to be removed.
+On 7/28/15, 3:22 PM, Hannes Frederic Sowa wrote:
+> Hi roopa,
+>
+> On Tue, Jul 28, 2015, at 21:28, roopa wrote:
+>>    ipv6_stub_impl.ipv6_dst_lookup seems to require sk today.
+>> But it only needs it to get 'net' in the beginning and sk is optional
+>> afterwards.
+>> I will submit a patch to add 'net' as an arg  to ipv6_dst_lookup.
+>> Users of ipv6_dst_lookup are few and that seems like an easy change and
+>> helps my patch.
+>> If you or others think otherwise, pls let me know.
+> No need to extend this function at any cost. Simply add your own
+> function pointer to the struct if needed.
 
-Each interface has its own napi tx (resp. rx) context: I would had expected
-two unconditional napi_schedule per tx (resp. rx) shared irq, not one.
+saw your this email after I hit send on the series. Since the new 
+function pointer will be exactly similar to ipv6_dst_lookup
+with just an additional argument, a new function pointer does not seem 
+necessary. But i can certainly change it
+to a new function pointer and resend if that is more acceptable.
+>
+> Probably you have to move the ipv6_stub = &ipv6_stub_impl;
+> initialization in inet6_init down so you don't expose the function
+> pointer too early and thus it races with initialization (and error
+> handling seems to be incorrect in this function, too).
+>
+ok, will look.
 
-I'll read it again after some sleep.
-
--- 
-Ueimor
+thanks,
+Roopa
