@@ -1,67 +1,85 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: Buggy cable detection on i.MX51, fec driver and LAN8700 PHY
-Date: Tue, 28 Jul 2015 01:24:33 +0000
-Message-ID: <BN3PR0301MB1219FE298512C24ABC97BE5FF58D0@BN3PR0301MB1219.namprd03.prod.outlook.com>
-References: <55B6453C.10500@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 28 Jul 2015 11:26:23 +1000
+Message-ID: <20150728112623.3ec0b2b5@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	Zhou David <luwei.zhou@freescale.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Uwe Kleine-K?nig" <u.kleine-koenig@pengutronix.de>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Lothar Wa?mann <LW@KARO-electronics.de>,
-	"Li Frank" <Frank.Li@freescale.com>
-To: "plyatov@gmail.com" <plyatov@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55B6453C.10500@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSWdvciBQbHlhdG92IDxwbHlhdG92QGdtYWlsLmNvbT4gU2VudDogTW9uZGF5LCBKdWx5
-IDI3LCAyMDE1IDEwOjUxIFBNDQo+IFRvOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBGbG9yaWFuIEZhaW5lbGxpOyBKb2UgUGVyY2hl
-czsgWmhvdSBMdXdlaS1CNDU2NDM7IER1YW4gRnVnYW5nLUIzODYxMTsNCj4gUmljaGFyZCBDb2No
-cmFuOyBEYXZpZCBTLiBNaWxsZXI7IFV3ZSBLbGVpbmUtS8O2bmlnOyBFc3RldmFtIEZhYmlvLVI0
-OTQ5NjsNCj4gTG90aGFyIFdhw59tYW5uOyBMaSBGcmFuay1CMjA1OTYNCj4gU3ViamVjdDogQnVn
-Z3kgY2FibGUgZGV0ZWN0aW9uIG9uIGkuTVg1MSwgZmVjIGRyaXZlciBhbmQgTEFOODcwMCBQSFkN
-Cj4gDQo+IERlYXIgYWxsLA0KPiANCj4gdmVyeSBvZnRlbiB3ZSBvYnNlcnZlIGlzc3VlIHdpdGgg
-RXRoZXJuZXQgY2FibGUgZGV0ZWN0aW9uIGR1cmluZyBjYWJsZQ0KPiB1bnBsdWdnaW5nIGFuZCBw
-bHVnZ2luZy4NCj4gDQo+IFdlIHVzZSBWb2lwYWMgaS5NWDUxIFNPTXMgKFN5c3RlbSBPbiBNb2R1
-bGVzKS4gVGhleSBhcmUgYmFzZWQgb24NCj4gRnJlZXNjYWxlIGkuTVg1MSBDUFUgd2l0aCBMQU43
-ODAwIFBIWSBpbiBNSUkgbW9kZS4gVGhlIHNjaGVtYXRpYyBvZiBQSFkNCj4gY29ubmVjdGlvbiBp
-cyB2ZXJ5IHNpbWlsYXIgdG8gdGhlIEZyZWVzY2FsZSBpLk1YNTEgQmFiYmFnZSBib2FyZC4NCj4g
-DQo+IFRoZSBFdGhlcm5ldCBpbnRlcmZhY2UgZXRoMCBpcyBjb25maWd1cmVkIHN0YXRpY2FsbHkg
-Zm9yIHNpbXBsaWNpdHksIGJ1dA0KPiBzYW1lIGlzc3VlIGV4aXN0cyB3aXRoIERIQ1AgY29uZmln
-dXJhdGlvbi4NCj4gDQo+IEkgZGlkIGEgbG90IG9mIHRlc3RzIHRvIGRldGVybWluZSBzdGFiaWxp
-dHkgb2YgRXRoZXJuZXQgY2FibGUgZGV0ZWN0aW9uDQo+IGJ5IHRoZSAiZmVjIiBFdGhlcm5ldCBk
-cml2ZXIuDQo+IA0KPiBJbiBub3JtYWwgb3BlcmF0aW9uLCBpZiBJIHVucGx1ZyB0aGUgRXRoZXJu
-ZXQgY2FibGUsIHRoZW4gImZlYyIgZHJpdmVyDQo+IHByaW50cyAiZmVjIDgzZmVjMDAwLmV0aGVy
-bmV0IGV0aDA6IExpbmsgaXMgRG93biIgYW5kIGdyZWVuIExFRCAoRXRoZXJuZXQNCj4gbWVkaXVt
-IGRldGVjdGVkKSBpcyBPRkYuDQo+IElmIEkgcGx1ZyBjYWJsZSBiYWNrLCB0aGVuICJmZWMiIGRy
-aXZlciBwcmludCAiZmVjIDgzZmVjMDAwLmV0aGVybmV0DQo+IGV0aDA6IExpbmsgaXMgVXAgLSAx
-MDBNYnBzL0Z1bGwgLSBmbG93IGNvbnRyb2wgb2ZmIiBhbmQgZ3JlZW4gTEVEIGlzIE9OLg0KPiAN
-Cj4gQnV0IHNvbWV0aW1lcywgYWZ0ZXIgY2FibGUgcGx1Z2dpbmcsICJmZWMiIGRyaXZlciBkb2Vz
-IG5vdCBwcmludCBhbnl0aGluZw0KPiBvbiB0aGUgY29uc29sZSBhbmQgZ3JlZW4gTEVEIGRvZXMg
-bm90IHNob3cgZGV0ZWN0aW9uIG9mIEV0aGVybmV0IGNhYmxlLg0KPiBGcmVxdWVuY3kgb2YgaXNz
-dWUgYXBwZWFyaW5nIGlzIGEgcmFuZG9tIHZhbHVlLg0KPiBTb21ldGltZXMgaXNzdWUgYXBwZWFy
-cyBhZnRlciBzZWNvbmQgY2FibGUgdW5wbHVnZ2luZy9wbHVnZ2luZywgYnV0DQo+IHNvbWV0aW1l
-cyAtIGFmdGVyIDEwLTIwIHVucGx1Z2dpbmcvcGx1Z2dpbmcuDQo+IA0KPiBUaGUgaXNzdWUgd2Fz
-IHRlc3RlZCBhbmQgZXhpc3RzIG9uIGtlcm5lbHMgZnJvbSBsaW51eC0zLjguNSB0aWxsIGN1cnJl
-bnQNCj4gbGludXgtNC4yLXJjNC1jYmZlOGZhNmNkNjcyMDExYzc1NWMzY2Q4NWM5ZmZkNGUyZDEw
-YTZmLg0KPiANCj4gU2FtZSB0ZXN0cyB3YXMgbWFkZSB3aXRoIGRpZmZlcmVudCB2ZXJzaW9ucyBv
-ZiB0aGUgQmFyZWJveCBib290bG9hZGVyIGFuZA0KPiBjYWJsZSBkZXRlY3Rpb24gd29ya3MgZmxh
-d2xlc3MuDQo+IA0KPiBQbGVhc2UsIGhlbHAgdG8gcmVzb2x2ZSBpc3N1ZSB3aXRoIExpbnV4IGRy
-aXZlcnMuDQo+IA0KPiBCZXN0IHdpc2hlcy4NCj4gLS0NCj4gSWdvciBQbHlhdG92DQoNCkZvciBw
-aHkgY2FibGUgZGV0ZWN0aW9uIGlzc3VlLCBtb3N0bHkgaXQgaXMgcGh5IGRldmljZSBpc3N1ZSBs
-aWtlOg0KLQlQaHkgaXMgbm90IHN0YWJsZSwgbWF5YmUgdGhlIHBoeSBpbml0aWFsIHNldHRpbmcg
-aXMgbm90IHJpZ2h0Lg0KLQlNRElPIGJ1cyByZWFkIGlzIG5vdCByaWdodCwgbWF5YmUgTURJTy9N
-REMgcGluIGRyaXZlIHN0cmVuZ3RoICh0aW1pbmcpIGRvZXNuJ3QgbWF0Y2ggc3BlYyByZXF1aXJl
-bWVudC4NCg0KWW91IGNhbiBtZWFzdXJlIHRoZSBNRElPIHRpbWluZyBmaXJzdGx5LCBhbmQgdGhl
-biBjaGVjayB0aGUgcGh5IHNldHRpbmcuDQoNClJlZ2FyZHMsDQpBbmR5DQo=
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  net/ipv4/ip_fragment.c
+
+between commit:
+
+  0e60d245a0be ("inet: frag: change *_frag_mem_limit functions to take netns_frags as argument")
+
+from the net tree and commit:
+
+  14fe22e33462 ("Revert "ipv4: use skb coalescing in defragmentation"")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/ipv4/ip_fragment.c
+index 921138f6c97c,f44bccc42494..000000000000
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@@ -587,35 -586,22 +586,22 @@@ static int ip_frag_reasm(struct ipq *qp
+  		head->len -= clone->len;
+  		clone->csum = 0;
+  		clone->ip_summed = head->ip_summed;
+ -		add_frag_mem_limit(&qp->q, clone->truesize);
+ +		add_frag_mem_limit(qp->q.net, clone->truesize);
+  	}
+  
++ 	skb_shinfo(head)->frag_list = head->next;
+  	skb_push(head, head->data - skb_network_header(head));
+  
+- 	sum_truesize = head->truesize;
+- 	for (fp = head->next; fp;) {
+- 		bool headstolen;
+- 		int delta;
+- 		struct sk_buff *next = fp->next;
+- 
+- 		sum_truesize += fp->truesize;
++ 	for (fp=head->next; fp; fp = fp->next) {
++ 		head->data_len += fp->len;
++ 		head->len += fp->len;
+  		if (head->ip_summed != fp->ip_summed)
+  			head->ip_summed = CHECKSUM_NONE;
+  		else if (head->ip_summed == CHECKSUM_COMPLETE)
+  			head->csum = csum_add(head->csum, fp->csum);
+- 
+- 		if (skb_try_coalesce(head, fp, &headstolen, &delta)) {
+- 			kfree_skb_partial(fp, headstolen);
+- 		} else {
+- 			if (!skb_shinfo(head)->frag_list)
+- 				skb_shinfo(head)->frag_list = fp;
+- 			head->data_len += fp->len;
+- 			head->len += fp->len;
+- 			head->truesize += fp->truesize;
+- 		}
+- 		fp = next;
++ 		head->truesize += fp->truesize;
+  	}
+- 	sub_frag_mem_limit(qp->q.net, sum_truesize);
+ -	sub_frag_mem_limit(&qp->q, head->truesize);
+++	sub_frag_mem_limit(qp->q.net, head->truesize);
+  
+  	head->next = NULL;
+  	head->dev = dev;
