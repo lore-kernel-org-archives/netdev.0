@@ -1,117 +1,74 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v3] af_mpls: fix undefined reference to ip6_route_output
-Date: Mon, 27 Jul 2015 17:41:17 -0700
-Message-ID: <1438044077-1910-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36657 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753190AbbG1AlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 20:41:22 -0400
-Received: by pachj5 with SMTP id hj5so59452687pac.3
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 17:41:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christopher Hall <christopher.s.hall@intel.com>
+Subject: [PATCH 0/5] Patchset enabling hardware based cross-timestamps for next gen Intel platforms
+Date: Mon, 27 Jul 2015 17:46:51 -0700
+Message-ID: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Christopher Hall <christopher.s.hall@intel.com>
+To: john.stultz@linaro.org, tglx@linutronix.de,
+	richardcochran@gmail.com, mingo@redhat.com,
+	jeffrey.t.kirsher@intel.com, john.ronciak@intel.com, hpa@zytor.com,
+	x86@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Next generation Intel platforms will have an Always Running
+Timer (ART) that always runs when the system is powered and
+is available to both the CPU and various on-board devices.
+Initially, those devices include audio and network.  The
+ART will give these devices the capability of precisely
+cross timestamping their local device clock with the system
+clock.
 
-This patch fixes undefined reference to ip6_route_output and
-ip_route_output with CONFIG_INET=n and CONFIG_IPV6=n.
+A system clock value like TSC or ART is not useful
+unless translated to system time. The first three patches
+enable this by changing the timekeeping code to return a
+system time given a system clock value and translating ART
+to TSC.
 
-The patch adds new CONFIG_MPLS_NEXTHOP_DEVLOOKUP
-to lookup nexthop device if user has not specified it
-in RTA_OIF attribute. Make CONFIG_MPLS_NEXTHOP_DEVLOOKUP
-depend on INET and (IPV6 || IPV6=n) because it
-uses ip6_route_output and ip_route_output.
+The last two patches modify the PTP driver to call a
+cross timestamp function in the driver when available and
+perform the cross timestamp in the e1000e driver.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Reported-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-v1 - v2: use IS_BUILTIN
+Given the precise relationship between the network device
+clock and system time enables better synchronization of
+events on multiple network connected devices.
 
-v2 - v3: Use new Kconfig option that depends on (IPV6 || IPV6=n) as
-	 suggested by Dave. Also uses IS_ERR as suggested by Thomas.
+Changelog:
 
-Dave, Instead of adding it only for IPV6, the new Kconfig variable
-depends on INET and (IPV6 || IPV6=n). If you think something like
-CONFIG_MPLS_NEXTHOP_IPV6_DEVLOOKUP to cover just IPV6 (which was the
-problem case) is preferable, I will respin.
+* The PTP portion of the patch set was posted 7/8/2015 (v3)
+  and rejected because of there wasn't a driver that
+  implemented the new API.  Now, the driver patch is added
+  and the PTP patch operation is modified to revert to
+  previous behavior when cross timestamp can't be
+  completed.  This is indicated by the driver returning a
+  non-zero value.
 
+Christopher Hall (5):
+  Add functions producing system time given a backing counter value
+  Added functions mapping TSC value to system time
+  Add calls to translate Always Running Timer (ART) to system time
+  Add support for driver cross-timestamp to PTP_SYS_OFFSET ioctl
+  Enables cross timestamping in the e1000e driver
 
- net/mpls/Kconfig   |    7 +++++++
- net/mpls/af_mpls.c |   19 ++++++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+ Documentation/ptp/testptp.c                 |   6 +-
+ arch/x86/Kconfig                            |  12 ++
+ arch/x86/include/asm/art.h                  |  42 ++++++
+ arch/x86/include/asm/tsc.h                  |   5 +
+ arch/x86/kernel/Makefile                    |   1 +
+ arch/x86/kernel/art.c                       | 134 ++++++++++++++++++
+ arch/x86/kernel/tsc.c                       |  22 +++
+ drivers/net/ethernet/intel/e1000e/defines.h |   7 +
+ drivers/net/ethernet/intel/e1000e/ptp.c     |  77 ++++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |   4 +
+ drivers/ptp/ptp_chardev.c                   |  29 ++--
+ include/linux/ptp_clock_kernel.h            |   7 +
+ include/linux/timekeeping.h                 |   8 ++
+ include/uapi/linux/ptp_clock.h              |   4 +-
+ kernel/time/timekeeping.c                   | 211 +++++++++++++++++++++++++---
+ 15 files changed, 538 insertions(+), 31 deletions(-)
+ create mode 100644 arch/x86/include/asm/art.h
+ create mode 100644 arch/x86/kernel/art.c
 
-diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
-index 5c467ef..ec8f972 100644
---- a/net/mpls/Kconfig
-+++ b/net/mpls/Kconfig
-@@ -33,4 +33,11 @@ config MPLS_IPTUNNEL
- 	---help---
- 	 mpls ip tunnel support.
- 
-+config MPLS_NEXTHOP_DEVLOOKUP
-+	bool "MPLS: nexthop oif dev lookup"
-+	depends on MPLS_ROUTING && INET && (IPV6 || IPV6=n)
-+	---help---
-+	 This enables mpls route nexthop dev lookup when oif is not
-+	 specified by user
-+
- endif # MPLS
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 49f1b0e..3e0c0212d 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -331,6 +331,7 @@ static unsigned find_free_label(struct net *net)
- 	return LABEL_NOT_SPECIFIED;
- }
- 
-+#if IS_ENABLED(CONFIG_MPLS_NEXTHOP_DEVLOOKUP)
- static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
-@@ -350,7 +351,14 @@ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- errout:
- 	return dev;
- }
-+#else
-+static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
-+#if IS_ENABLED(CONFIG_MPLS_NEXTHOP_DEVLOOKUP) && IS_ENABLED(CONFIG_IPV6)
- static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
-@@ -371,6 +379,12 @@ errout:
- 
- 	return dev;
- }
-+#else
-+static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
- static struct net_device *find_outdev(struct net *net,
- 				      struct mpls_route_config *cfg)
-@@ -427,8 +441,11 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 
- 	err = -ENODEV;
- 	dev = find_outdev(net, cfg);
--	if (!dev)
-+	if (IS_ERR(dev)) {
-+		err = PTR_ERR(dev);
-+		dev = NULL;
- 		goto errout;
-+	}
- 
- 	/* Ensure this is a supported device */
- 	err = -EINVAL;
 -- 
-1.7.10.4
+1.9.1
