@@ -1,60 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 4/4] mlxsw: Introduce Mellanox SwitchX-2 ASIC
- support
-Date: Tue, 28 Jul 2015 20:06:25 +0200
-Message-ID: <20150728180625.GA2046@nanopsycho>
-References: <1437666216-3149-1-git-send-email-jiri@resnulli.us>
- <1437666216-3149-5-git-send-email-jiri@resnulli.us>
- <CAE4R7bAk_nUCuqcJxuAAr6pOqNX7zXWv1zFZDVGwBi7_nk8=kQ@mail.gmail.com>
- <20150726071010.GA2150@nanopsycho.fritz.box>
- <20150726171410.GB2207@nanopsycho.fritz.box>
- <9B0331B6EBBD0E4684FBFAEDA55776F919405E0B@HASMSX110.ger.corp.intel.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH 4/8] xen: Use the correctly the Xen memory terminologies
+Date: Tue, 28 Jul 2015 15:12:11 -0400
+Message-ID: <55B7D40B.5080903@oracle.com>
+References: <1438095769-2560-1-git-send-email-julien.grall@citrix.com> <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	John Linville <linville@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: "Rosen, Rami" <rami.rosen@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34231 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbbG1SG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 14:06:29 -0400
-Received: by wibud3 with SMTP id ud3so191330444wib.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 11:06:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F919405E0B@HASMSX110.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, stefano.stabellini@eu.citrix.com,
+	linux-kernel@vger.kernel.org,
+	Russell King <linux@arm.linux.org.uk>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	=?UTF-8?B?Um9nZXIgUGF1IE1vbm7DqQ==?= <roger.pau@citrix.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Wei Liu <wei.liu2@citrix.com>, Juergen Gross <jgross@suse.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Slaby <jslaby@suse.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	linux-input@vger.kernel.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-fbdev@vger.kernel.org, linux-ar
+To: Julien Grall <julien.grall@citrix.com>,
+	xen-devel@lists.xenproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Jul 27, 2015 at 08:17:22AM CEST, rami.rosen@intel.com wrote:
->Hi, Jiri,
+On 07/28/2015 11:02 AM, Julien Grall wrote:
+> Based on include/xen/mm.h [1], Linux is mistakenly using MFN when GFN
+> is meant, I suspect this is because the first support for Xen was for
+> PV. This brough some misimplementation of helpers on ARM and make the
+> developper confused the expected behavior.
 >
->Keep on the good work!
+> For instance, with pfn_to_mfn, we expect to get an MFN based on the name.
+> Although, if we look at the implementation on x86, it's returning a GFN.
 >
->The .func  member of the mlxsw_rx_listener object has this prototype:
->void (*func)(struct sk_buff *skb, u8 local_port, u16 trap_id, void *priv);
->
->Is the trap_id  parameter needed ?
->In the three use cases of .func, which are either mlxsw_emad_rx_listener_func(), mlxsw_core_event_listener_func(), or mlxsw_sx_rx_listener_func(), this parameter is not used at all.
+> For clarity and avoid new confusion, replace any reference of mfn into
+> gnf in any helpers used by PV drivers.
 
-You are right. We intended to use MLXSW_TRAP_ID_DONT_CARE and use
-trap_id in the callback, but when user registers a callback for exact
-trap_id, this is not needed. Will remove in v2.
 
-Thanks.
+
+
+> @@ -730,7 +730,7 @@ static void xen_do_pin(unsigned level, unsigned long pfn)
+>   	struct mmuext_op op;
+>
+>   	op.cmd = level;
+> -	op.arg1.mfn = pfn_to_mfn(pfn);
+> +	op.arg1.mfn = pfn_to_gfn(pfn);
+
+
+This looks slightly odd. It is correct but given that purpose of this 
+series is to make things more clear perhaps we can add another union 
+member (gfn) to mmuext_op.arg1?
+
+(Of course, the hypervisor will continue referring to mfn which could 
+still be confusing)
+
+
+>
+>   	xen_extend_mmuext_op(&op);
+>   }
+> @@ -1323,7 +1323,7 @@ static void __xen_write_cr3(bool kernel, unsigned long cr3)
+>   	trace_xen_mmu_write_cr3(kernel, cr3);
+>
+>   	if (cr3)
+> -		mfn = pfn_to_mfn(PFN_DOWN(cr3));
+> +		mfn = pfn_to_gfn(PFN_DOWN(cr3));
+
+Here too. And further down, thoughout this patch.
+
+
+
+
+-boris
