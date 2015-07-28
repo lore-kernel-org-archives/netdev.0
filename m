@@ -1,72 +1,54 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 4/8] xen: Use the correctly the Xen memory
- terminologies
-Date: Tue, 28 Jul 2015 18:16:02 +0100
-Message-ID: <55B7B8D2.5060107@citrix.com>
-References: <1438095769-2560-1-git-send-email-julien.grall@citrix.com>
- <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] ebpf, x86: fix general protection fault when tail
+ call is invoked
+Date: Tue, 28 Jul 2015 19:17:11 +0200
+Message-ID: <55B7B917.4090102@iogearbox.net>
+References: <23a2630be3c3d41932b9df134f06b9b44671b55e.1438088105.git.daniel@iogearbox.net> <55B7B590.8030600@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <linux-fbdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
-	"Jiri Slaby" <jslaby@suse.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	<stefano.stabellini@eu.citrix.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	<linux-scsi@vger.kernel.org>, <x86@kernel.org>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	<linux-input@vger.kernel.org>,
-	"Jean-Christophe Plagniol-Villard" <plagnioj@jcrosoft.com>,
-	<ian.campbell@citrix.com>,
-	"James E.J. Bottomley" <JBottomley@odin.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Juergen Gross <jgross@suse.com>,
-	"Wei Liu" <wei.liu2@citrix.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	<linux-kernel@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	=?UT
-To: Julien Grall <julien.grall@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59623 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845AbbG1RRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 13:17:16 -0400
+In-Reply-To: <55B7B590.8030600@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/07/15 16:02, Julien Grall wrote:
-> Based on include/xen/mm.h [1], Linux is mistakenly using MFN when GFN
-> is meant, I suspect this is because the first support for Xen was for
-> PV. This brough some misimplementation of helpers on ARM and make the
-> developper confused the expected behavior.
+On 07/28/2015 07:02 PM, Alexei Starovoitov wrote:
+> On 7/28/15 6:26 AM, Daniel Borkmann wrote:
+>> After patch, disassembly:
+>>
+>>    [...]
+>>    9e:   lea    0x80(%rsi,%rdx,8),%rax   <--- CONFIG_LOCKDEP/CONFIG_LOCK_STAT
+>>          48 8d 84 d6 80 00 00 00
+>>    a6:   mov    (%rax),%rax
+>>          48 8b 00
+>>    [...]
+>>
+>>    [...]
+>>    9e:   lea    0x50(%rsi,%rdx,8),%rax   <--- No CONFIG_LOCKDEP
+>>          48 8d 84 d6 50 00 00 00
+>>    a6:   mov    (%rax),%rax
+>>          48 8b 00
+>>    [...]
+>>
+>> Fixes: b52f00e6a715 ("x86: bpf_jit: implement bpf_tail_call() helper")
+>> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
+>
+> Thanks for fixing it.
 
-For the benefit of other subsystem maintainers, this is a purely
-mechanical change in Xen-specific terminology.  It doesn't need reviews
-or acks from non-Xen people (IMO).
+No problem!
 
-> For instance, with pfn_to_mfn, we expect to get an MFN based on the name.
-> Although, if we look at the implementation on x86, it's returning a GFN.
-> 
-> For clarity and avoid new confusion, replace any reference of mfn into
-> gnf in any helpers used by PV drivers.
-> 
-> Take also the opportunity to simplify simple construction such
-> as pfn_to_mfn(page_to_pfn(page)) into page_to_gfn. More complex clean up
-> will come in follow-up patches.
-> 
-> I think it may be possible to do further clean up in the x86 code to
-> ensure that helpers returning machine address (such as virt_address) is
-> not used by no auto-translated guests. I will let x86 xen expert doing
-> it.
+> Most of my development is actually with LOCKDEP on, but I don't ever
+> turn LOCK_STAT on, so sadly missed this 48 byte increase of 80 byte
+> structure :(
 
-Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+I feel that at some point we might have hit this anyway, e.g. Huawei
+guys with their perf work further extending bpf_maps, etc, etc.
 
-It looks a bit odd to use GFN in some of the PV code where the
-hypervisor API uses MFN but overall I think using the correct
-terminology where possible is best.  But I'd like to have Boris's or
-Konrad's opinion on this.
-
-David
+Thanks,
+Daniel
