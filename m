@@ -1,106 +1,108 @@
 From: David Ahern <dsa@cumulusnetworks.com>
 Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
-Date: Tue, 28 Jul 2015 10:07:17 -0600
-Message-ID: <55B7A8B5.6020305@cumulusnetworks.com>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>	 <1438085969.25794.14.camel@stressinduktion.org> <1438099265.20182.63.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 28 Jul 2015 10:11:13 -0600
+Message-ID: <55B7A9A1.6010704@cumulusnetworks.com>
+References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com> <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com> <CALCETrWbvbRK5rE3O-1AO9WSFxvWnbYMyYNu953SmiaEU1Q0XQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	ddutt@cumulusnetworks.com, nicolas.dichtel@6wind.com,
-	stephen@networkplumber.org, hadi@mojatatu.com, davem@davemloft.net,
-	svaidya@brocade.com, mingo@kernel.org, luto@amacapital.net
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: gospo@cumulusnetworks.com,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	ddutt@cumulusnetworks.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	jtoppins@cumulusnetworks.com,
+	Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	svaidya@brocade.com, hadi@mojatatu.com,
+	nikolay@cumulusnetworks.com, roopa@cumulusnetworks.com
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:34190 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261AbbG1QHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:07:21 -0400
-Received: by pdbbh15 with SMTP id bh15so73030487pdb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:07:20 -0700 (PDT)
-In-Reply-To: <1438099265.20182.63.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:33777 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751985AbbG1QLP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:11:15 -0400
+Received: by pdbnt7 with SMTP id nt7so72992836pdb.0
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:11:15 -0700 (PDT)
+In-Reply-To: <CALCETrWbvbRK5rE3O-1AO9WSFxvWnbYMyYNu953SmiaEU1Q0XQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/28/15 10:01 AM, Eric Dumazet wrote:
-> On Tue, 2015-07-28 at 14:19 +0200, Hannes Frederic Sowa wrote:
->> Hello Eric,
+On 7/28/15 9:25 AM, Andy Lutomirski wrote:
+> On Jul 27, 2015 11:33 AM, "David Ahern" <dsa@cumulusnetworks.com> wrote:
 >>
->> On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
->>> David Ahern <dsa@cumulusnetworks.com> writes:
->>>
->>>> Allow tasks to have a default device index for binding sockets. If
->>>> set
->>>> the value is passed to all AF_INET/AF_INET6 sockets when they are
->>>> created.
->>>>
->>>> The task setting is passed parent to child on fork, but can be set
->>>> or
->>>> changed after task creation using prctl (if task has CAP_NET_ADMIN
->>>> permissions). The setting for a socket can be retrieved using
->>>> prctl().
->>>> This option allows an administrator to restrict a task to only
->>>> send/receive
->>>> packets through the specified device. In the case of VRF devices
->>>> this
->>>> option restricts tasks to a specific VRF.
->>>>
->>>> Correlation of the device index to a specific VRF, ie.,
->>>>     ifindex --> VRF device --> VRF id
->>>> is left to userspace.
->>>
->>> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
->>>
->>> Because it is broken by design.  Your routing device is only safe for
->>> programs that know it's limitations it is not appropriate for general
->>> applications.
->>>
->>> Since you don't even seen to know it's limitations I think this is a
->>> bad path to walk down.
+>> Allow tasks to have a default device index for binding sockets. If set
+>> the value is passed to all AF_INET/AF_INET6 sockets when they are created.
 >>
->> Can you please elaborate about the broken by design?
->>
->> Different operating systems are already using this approach with good
->> success. I read your other mail regarding isolation of different VRFs
->> and I agree that all code which persists state depending solely on the
->> IP address is affected by this and this must be dealt with and fixed
->> (actually, there aren't too many).
->>
->> But I wouldn't call that broken by design. This stuff will get fixed
->> like e.g. cross-talk between fragmentation queues, icmp rate limiters
->> etc, which could already happen in the past.
->>
->> What is your opinion on the fundamental approach only from a user
->> perspective? Do you think that is broken, too?
 >
-> I agree with Eric here.
->
-> This sk_bind_dev_if on task_struct is quite a hack.
->
-> What will be added next ? An array of dev_if ? netfilter support ?
-> af_packet support ? What about /proc files and netlink dumps ?
+> This is not intended to be a review of the concept.  I haven't thought
+> about whether the concept is a good idea, broken by design, or
+> whatever.  FWIW, if this were added to the kernel and didn't require
+> excessive privilege, I'd probably use it.  (I still don't really
+> understand why binding to a device requires privilege in the first
+> place, but, again, I haven't thought about it very much.)
 
-It could just as easily be a pointer to a struct (e.g., struct net_ctx) 
-such that the intrusion to task_struct is simply 8 bytes -- very similar 
-to the nsproxy used for the assorted namespaces. The struct can then 
-contain whatever network config is imposed on the task.
+The intent here is to restrict a task to only sending and receiving 
+packets from a single network device. The device can be single ethernet 
+interface, a stacked device (e.g, bond) or in our case a VRF device 
+which restricts a task to interfaces (and hence network paths) 
+associated with the VRF.
 
 >
-> We already have network namespaces. Extend this if needed, instead of
-> bypassing them.
+>> +#ifdef CONFIG_NET
+>> +       case PR_SET_SK_BIND_DEV_IF:
+>> +       {
+>> +               struct net_device *dev;
+>> +               int idx = (int) arg2;
+>> +
+>> +               if (!capable(CAP_NET_ADMIN))
+>> +                       return -EPERM;
+>> +
+>
+> Can you either use ns_capable or add a comment as to why not?
 
-Problems with using network namespaces for VRFs has been discussed in 
-the past. e.g.,
-     http://www.spinics.net/lists/netdev/msg298368.html
+will do.
 
+>
+> Also, please return -EINVAL if unused args are nonzero.
+
+ok.
+
+>
+>> +               if (idx) {
+>> +                       dev = dev_get_by_index(me->nsproxy->net_ns, idx);
+>> +                       if (!dev)
+>> +                               return -EINVAL;
+>> +                       dev_put(dev);
+>> +               }
+>> +               me->sk_bind_dev_if = idx;
+>> +               break;
+>> +       }
+>> +       case PR_GET_SK_BIND_DEV_IF:
+>> +       {
+>> +               struct task_struct *tsk;
+>> +               int sk_bind_dev_if = -EINVAL;
+>> +
+>> +               rcu_read_lock();
+>> +               tsk = find_task_by_vpid(arg2);
+>> +               if (tsk)
+>> +                       sk_bind_dev_if = tsk->sk_bind_dev_if;
+>
+> Why do you support different tasks here?  Could this use proc instead?
+
+In this case we want to allow a separate process to determine if a task 
+is restricted to a device.
+
+>
+> The same -EINVAL issue applies.
+>
+> Also, I think you need to hook setns and unshare to do something
+> reasonable when the task is bound to a device.
+
+ack on both.
+
+Thanks for the review,
 David
-
->
-> No need to add something else (with lack of proper reporting for various
-> tools)
->
->
