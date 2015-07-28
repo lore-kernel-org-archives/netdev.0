@@ -1,47 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
-Date: Tue, 28 Jul 2015 18:52:57 +0200
-Message-ID: <1438102377.20182.65.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
-	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>
-	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>
-	 <1438085969.25794.14.camel@stressinduktion.org>
-	 <1438099265.20182.63.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <55B7A8B5.6020305@cumulusnetworks.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] ebpf, x86: fix general protection fault when tail
+ call is invoked
+Date: Tue, 28 Jul 2015 10:02:08 -0700
+Message-ID: <55B7B590.8030600@plumgrid.com>
+References: <23a2630be3c3d41932b9df134f06b9b44671b55e.1438088105.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	ddutt@cumulusnetworks.com, nicolas.dichtel@6wind.com,
-	stephen@networkplumber.org, hadi@mojatatu.com, davem@davemloft.net,
-	svaidya@brocade.com, mingo@kernel.org, luto@amacapital.net
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:37827 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143AbbG1QxC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:53:02 -0400
-Received: by wibud3 with SMTP id ud3so168227589wib.0
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:53:00 -0700 (PDT)
-In-Reply-To: <55B7A8B5.6020305@cumulusnetworks.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35704 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752710AbbG1RCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 13:02:11 -0400
+Received: by pabkd10 with SMTP id kd10so72790852pab.2
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 10:02:11 -0700 (PDT)
+In-Reply-To: <23a2630be3c3d41932b9df134f06b9b44671b55e.1438088105.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-07-28 at 10:07 -0600, David Ahern wrote:
+On 7/28/15 6:26 AM, Daniel Borkmann wrote:
+> After patch, disassembly:
+>
+>    [...]
+>    9e:   lea    0x80(%rsi,%rdx,8),%rax   <--- CONFIG_LOCKDEP/CONFIG_LOCK_STAT
+>          48 8d 84 d6 80 00 00 00
+>    a6:   mov    (%rax),%rax
+>          48 8b 00
+>    [...]
+>
+>    [...]
+>    9e:   lea    0x50(%rsi,%rdx,8),%rax   <--- No CONFIG_LOCKDEP
+>          48 8d 84 d6 50 00 00 00
+>    a6:   mov    (%rax),%rax
+>          48 8b 00
+>    [...]
+>
+> Fixes: b52f00e6a715 ("x86: bpf_jit: implement bpf_tail_call() helper")
+> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
 
-> Problems with using network namespaces for VRFs has been discussed in 
-> the past. e.g.,
->      http://www.spinics.net/lists/netdev/msg298368.html
+Thanks for fixing it.
+Most of my development is actually with LOCKDEP on, but I don't ever
+turn LOCK_STAT on, so sadly missed this 48 byte increase of 80 byte
+structure :(
 
-Great. Are you suggesting to get rid of network namespaces ?
-
-If not, your proposal only increases bloat and maintenance burden.
-
-If namespaces cant be fixed, they are the wrong design and we should
-remove them.
-
-If they can be fixed, they must be fixed.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
