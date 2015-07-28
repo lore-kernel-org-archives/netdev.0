@@ -1,42 +1,81 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH net v2 2/2] r8152: reset device when tx timeout
-Date: Tue, 28 Jul 2015 14:14:05 +0200
-Message-ID: <1438085645.1787.4.camel@suse.com>
-References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-159-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-161-Taiwan-albertk@realtek.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
+Date: Tue, 28 Jul 2015 14:19:29 +0200
+Message-ID: <1438085969.25794.14.camel@stressinduktion.org>
+References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
+	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>
+	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
+	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com, nicolas.dichtel@6wind.com,
+	stephen@networkplumber.org, hadi@mojatatu.com, davem@davemloft.net,
+	svaidya@brocade.com, mingo@kernel.org, luto@amacapital.net
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:42999 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752085AbbG1MPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jul 2015 08:15:16 -0400
-In-Reply-To: <1394712342-15778-161-Taiwan-albertk@realtek.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:43619 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753204AbbG1MTe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 08:19:34 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id DE0952089C
+	for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 08:19:33 -0400 (EDT)
+In-Reply-To: <87wpxlxrvg.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-07-28 at 20:08 +0800, Hayes Wang wrote:
->  static void rtl8152_tx_timeout(struct net_device *netdev)
->  {
->         struct r8152 *tp = netdev_priv(netdev);
-> -       int i;
->  
->         netif_warn(tp, tx_err, netdev, "Tx timeout\n");
-> -       for (i = 0; i < RTL8152_MAX_TX; i++)
-> -               usb_unlink_urb(tp->tx_info[i].urb);
-> +
-> +       usb_queue_reset_device(tp->intf);
-> +       cancel_delayed_work(&tp->schedule);
+Hello Eric,
 
-Sorry to bother you again, but this looks wrong.
-You want to cancel first. There is no point in
-running any work before the reset is done. It will
-undo any progress anyway.
+On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
+> David Ahern <dsa@cumulusnetworks.com> writes:
+> 
+> > Allow tasks to have a default device index for binding sockets. If 
+> > set
+> > the value is passed to all AF_INET/AF_INET6 sockets when they are
+> > created.
+> > 
+> > The task setting is passed parent to child on fork, but can be set 
+> > or
+> > changed after task creation using prctl (if task has CAP_NET_ADMIN
+> > permissions). The setting for a socket can be retrieved using 
+> > prctl().
+> > This option allows an administrator to restrict a task to only 
+> > send/receive
+> > packets through the specified device. In the case of VRF devices 
+> > this
+> > option restricts tasks to a specific VRF.
+> > 
+> > Correlation of the device index to a specific VRF, ie.,
+> >    ifindex --> VRF device --> VRF id
+> > is left to userspace.
+> 
+> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+> Because it is broken by design.  Your routing device is only safe for
+> programs that know it's limitations it is not appropriate for general
+> applications.
+> 
+> Since you don't even seen to know it's limitations I think this is a
+> bad path to walk down.
 
-	Regards
-		Oliver
+Can you please elaborate about the broken by design?
+
+Different operating systems are already using this approach with good
+success. I read your other mail regarding isolation of different VRFs
+and I agree that all code which persists state depending solely on the
+IP address is affected by this and this must be dealt with and fixed
+(actually, there aren't too many).
+
+But I wouldn't call that broken by design. This stuff will get fixed
+like e.g. cross-talk between fragmentation queues, icmp rate limiters
+etc, which could already happen in the past.
+
+What is your opinion on the fundamental approach only from a user
+perspective? Do you think that is broken, too?
+
+Thanks,
+Hannes
