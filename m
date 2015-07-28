@@ -1,85 +1,93 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
-Date: Tue, 28 Jul 2015 08:41:48 -0700
-Message-ID: <55B7A2BC.2090509@cumulusnetworks.com>
-References: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com> <1438088676.25794.19.camel@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
+Date: Tue, 28 Jul 2015 18:01:05 +0200
+Message-ID: <1438099265.20182.63.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
+	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>
+	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>
+	 <1438085969.25794.14.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+	shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
+	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
+	hadi@mojatatu.com, davem@davemloft.net, svaidya@brocade.com,
+	mingo@kernel.org, luto@amacapital.net
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:34364 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141AbbG1Plu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 11:41:50 -0400
-Received: by pdbbh15 with SMTP id bh15so72694285pdb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 08:41:49 -0700 (PDT)
-In-Reply-To: <1438088676.25794.19.camel@stressinduktion.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:36266 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750712AbbG1QBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:01:10 -0400
+Received: by wicgb10 with SMTP id gb10so163350727wic.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:01:09 -0700 (PDT)
+In-Reply-To: <1438085969.25794.14.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/28/15, 6:04 AM, Hannes Frederic Sowa wrote:
-> On Mon, 2015-07-27 at 23:40 -0700, Roopa Prabhu wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Undefined reference to ip6_route_output and ip_route_output
->> was reported with CONFIG_INET=n and CONFIG_IPV6=n.
->>
->> This patch adds new CONFIG_MPLS_NEXTHOP_DEVLOOKUP
->> to lookup nexthop device if user has not specified it
->> in RTA_OIF attribute. Make CONFIG_MPLS_NEXTHOP_DEVLOOKUP
->> depend on INET and (IPV6 || IPV6=n) because it
->> uses ip6_route_output and ip_route_output.
->>
->> Reported-by: kbuild test robot <fengguang.wu@intel.com>
->> Reported-by: Thomas Graf <tgraf@suug.ch>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>
->> v1 - v2: use IS_BUILTIN
->>
->> v2 - v3: Use new Kconfig option that depends on (IPV6 || IPV6=n) as
->> 	 suggested by Dave. Also uses IS_ERR as suggested by Thomas.
->>
->> v3 - v4: Include missed case of (MPLS_ROUTING=y && IPV6=m) reported by
->>           Dave.
->>
->>   net/mpls/Kconfig   |    8 ++++++++
->>   net/mpls/af_mpls.c |   19 ++++++++++++++++++-
->>   2 files changed, 26 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
->> index 5c467ef..134764e 100644
->> --- a/net/mpls/Kconfig
->> +++ b/net/mpls/Kconfig
->> @@ -33,4 +33,12 @@ config MPLS_IPTUNNEL
->>   	---help---
->>   	 mpls ip tunnel support.
->>   
->> +config MPLS_NEXTHOP_DEVLOOKUP
->> +	bool "MPLS: nexthop oif dev lookup"
->> +	depends on MPLS_ROUTING && INET && \
->> +		((IPV6 && !(MPLS_ROUTING=y && IPV6=m)) || IPV6=n)
->> +	---help---
->> +	 This enables mpls route nexthop dev lookup when oif is not
->> +	 specified by user
->> +
-> Urks.
->
-> Can't you simply use ipv6_stub_impl.ipv6_dst_lookup with sk=NULL to do
-> that and don't have a run-time dependency on IPv6 at all (for the cost
-> of a function pointer).
-I did not realize that this could be an option. I now see vxlan using it.
-I will try it out.
+On Tue, 2015-07-28 at 14:19 +0200, Hannes Frederic Sowa wrote:
+> Hello Eric,
+> 
+> On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
+> > David Ahern <dsa@cumulusnetworks.com> writes:
+> > 
+> > > Allow tasks to have a default device index for binding sockets. If 
+> > > set
+> > > the value is passed to all AF_INET/AF_INET6 sockets when they are
+> > > created.
+> > > 
+> > > The task setting is passed parent to child on fork, but can be set 
+> > > or
+> > > changed after task creation using prctl (if task has CAP_NET_ADMIN
+> > > permissions). The setting for a socket can be retrieved using 
+> > > prctl().
+> > > This option allows an administrator to restrict a task to only 
+> > > send/receive
+> > > packets through the specified device. In the case of VRF devices 
+> > > this
+> > > option restricts tasks to a specific VRF.
+> > > 
+> > > Correlation of the device index to a specific VRF, ie.,
+> > >    ifindex --> VRF device --> VRF id
+> > > is left to userspace.
+> > 
+> > Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> > 
+> > Because it is broken by design.  Your routing device is only safe for
+> > programs that know it's limitations it is not appropriate for general
+> > applications.
+> > 
+> > Since you don't even seen to know it's limitations I think this is a
+> > bad path to walk down.
+> 
+> Can you please elaborate about the broken by design?
+> 
+> Different operating systems are already using this approach with good
+> success. I read your other mail regarding isolation of different VRFs
+> and I agree that all code which persists state depending solely on the
+> IP address is affected by this and this must be dealt with and fixed
+> (actually, there aren't too many).
+> 
+> But I wouldn't call that broken by design. This stuff will get fixed
+> like e.g. cross-talk between fragmentation queues, icmp rate limiters
+> etc, which could already happen in the past.
+> 
+> What is your opinion on the fundamental approach only from a user
+> perspective? Do you think that is broken, too?
 
-> Maybe same for IPv4?
-I would prefer leaving IPV4 alone with CONFIG_INET. IPV6 was my problem 
-case.
-Let me see if i can fix that first without introducing a config option.
+I agree with Eric here.
 
-Thanks,
-Roopa
+This sk_bind_dev_if on task_struct is quite a hack.
 
+What will be added next ? An array of dev_if ? netfilter support ?
+af_packet support ? What about /proc files and netlink dumps ?
 
->
+We already have network namespaces. Extend this if needed, instead of
+bypassing them.
+
+No need to add something else (with lack of proper reporting for various
+tools)
