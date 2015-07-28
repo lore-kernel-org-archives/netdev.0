@@ -1,68 +1,64 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
-Date: Tue, 28 Jul 2015 09:16:17 -0700
-Message-ID: <55B7AAD1.7010603@cumulusnetworks.com>
-References: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com> <55B78EFD.1030306@brocade.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 13/16] net: Introduce VRF device driver - v2
+Date: Tue, 28 Jul 2015 10:22:11 -0600
+Message-ID: <55B7AC33.1000506@cumulusnetworks.com>
+References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com> <1438021869-49186-14-git-send-email-dsa@cumulusnetworks.com> <55B68E16.1020309@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
-To: Robert Shearman <rshearma@brocade.com>
+Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com, hannes@stressinduktion.org,
+	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
+	hadi@mojatatu.com, ebiederm@xmission.com, davem@davemloft.net,
+	svaidya@brocade.com, mingo@kernel.org, luto@amacapital.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35710 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbbG1QQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:16:19 -0400
-Received: by pabkd10 with SMTP id kd10so72229704pab.2
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:16:19 -0700 (PDT)
-In-Reply-To: <55B78EFD.1030306@brocade.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:35909 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751985AbbG1QWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 12:22:14 -0400
+Received: by pdjr16 with SMTP id r16so74510671pdj.3
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 09:22:13 -0700 (PDT)
+In-Reply-To: <55B68E16.1020309@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/28/15, 7:17 AM, Robert Shearman wrote:
-> On 28/07/15 07:40, Roopa Prabhu wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Undefined reference to ip6_route_output and ip_route_output
->> was reported with CONFIG_INET=n and CONFIG_IPV6=n.
->>
->> This patch adds new CONFIG_MPLS_NEXTHOP_DEVLOOKUP
->> to lookup nexthop device if user has not specified it
->> in RTA_OIF attribute. Make CONFIG_MPLS_NEXTHOP_DEVLOOKUP
->> depend on INET and (IPV6 || IPV6=n) because it
->> uses ip6_route_output and ip_route_output.
->>
->> Reported-by: kbuild test robot <fengguang.wu@intel.com>
->> Reported-by: Thomas Graf <tgraf@suug.ch>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+On 7/27/15 2:01 PM, Nikolay Aleksandrov wrote:
+>> +
+>> +	if (!vrf_is_master(dev) || vrf_is_master(port_dev) ||
 >
-> Is there a compelling reason to allow the user/applications to not 
-> specify the output interface and to derive it from the nexthop? If the 
-> user/application intends to treat this as a recursive route then it 
-> has to make sure to trigger route updates to the kernel anyway, and an 
-> application should have the output interface and real nexthop close to 
-> hand in that case.
+> Hmm, this means that bonds won't be able to be VRF slaves.
+> They have the IFF_MASTER flag set.
 
-RTA_OIF is optional for ipv4 and ipv6 routes and we wanted to keep it 
-that way for mpls routes as well (Quagga is the application in our use 
-case).
-It was a simple patch...until i realized the IPV6 dependency issues (I 
-will sure remember this next time).
+Right, will change to the IFF_VRF_MASTER flag.
 
 >
-> If there isn't a compelling reason, then perhaps the best course of 
-> action is to revert the commit, instead of introducing a level of 
-> config complexity that means that users/applications may not be able 
-> to rely on this capability anyway?
-The config option though looks complex should not introduce any 
-complexity for the user. It is on by default and always on for the 
-default case.
-Only for the cases where the IPV6 is a loaded as a module and 
-MPLS_ROUTING is not, the app may get family not supported errors.
-I did suggest a revert the first time. Mainly for me to fix the mistake 
-i made and resubmit after proper IPV6 dependency testing.
+>> +	    vrf_is_slave(port_dev))
+>> +		return -EINVAL;
+>> +
+>> +	return do_vrf_add_slave(dev, port_dev);
+>> +}
+>> +
+>> +/* inverse of do_vrf_add_slave */
+>> +static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
+>> +{
+>> +	struct net_vrf *vrf = netdev_priv(dev);
+>> +	struct slave_queue *queue = &vrf->queue;
+>> +	struct net_vrf_dev *vrf_ptr = NULL;
+>> +	struct slave *slave;
+>> +
+>> +	vrf_ptr = rcu_dereference(dev->vrf_ptr);
+>> +	RCU_INIT_POINTER(dev->vrf_ptr, NULL);
+>
+> I think this isn't safe, you should wait for a grace period before freeing the
+> pointer. Actually you can just move the kfree() below the netdev_rx_handler_unregister()
+> since it does synchronize_rcu() anyway.
 
-I am in the process of trying the option that hannes suggested.
+ok
 
-Thanks,
-Roopa
+And ack on all other comments..
+
+Thanks for the review,
+David
