@@ -1,86 +1,154 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCHv2] net/ipv6: add sysctl option accept_ra_hop_limit
-Date: Tue, 28 Jul 2015 11:05:36 +0800
-Message-ID: <CAPwn2JSk0P8n+aSxTGiU0Q2RSSbZ52NVZxOS+yURpor2YQVySQ@mail.gmail.com>
-References: <1437978942-7047-1-git-send-email-liuhangbin@gmail.com>
-	<55B6C3AF.1050504@miraclelinux.com>
+From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
+Subject: RE: [RFC PATCH 0/2] net: macb: Add mdio driver for accessing
+ multiple phy devices
+Date: Tue, 28 Jul 2015 03:34:51 +0000
+Message-ID: <03CA77BA8AF6F1469AEDFBDA1322A7B749FC9CBA@XAP-PVEXMBX02.xlnx.xilinx.com>
+References: <1436762920-32107-1-git-send-email-punnaia@xilinx.com>
+ <55ACF7FC.4020408@xilinx.com> <55B5DFAF.4040909@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
-	<hideaki.yoshifuji@miraclelinux.com>
+Cc: Harini Katakam <harinik@xilinx.com>,
+	"kpc528@gmail.com" <kpc528@gmail.com>,
+	"kalluripunnaiahchoudary@gmail.com"
+	<kalluripunnaiahchoudary@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Michal Simek <michals@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:33186 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754333AbbG1DFh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 23:05:37 -0400
-Received: by obdeg2 with SMTP id eg2so74628440obd.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2015 20:05:37 -0700 (PDT)
-In-Reply-To: <55B6C3AF.1050504@miraclelinux.com>
+Received: from mail-by2on0094.outbound.protection.outlook.com ([207.46.100.94]:46000
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755007AbbG1De4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2015 23:34:56 -0400
+In-Reply-To: <55B5DFAF.4040909@atmel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-07-28 7:50 GMT+08:00 YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=
-=E6=98=8E
-<hideaki.yoshifuji@miraclelinux.com>:
-> Hi,
->
-> Hangbin Liu wrote:
->> Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface"=
-)
->> disabled accept hop limit from RA if it is higher than the current h=
-op
->> limit for security stuff. But this behavior kind of break the RFC de=
-finition.
->>
->> RFC 4861, 6.3.4.  Processing Received Router Advertisements
->>    If the received Cur Hop Limit value is non-zero, the host SHOULD =
-set
->>    its CurHopLimit variable to the received value.
->>
->> So add sysctl option accept_ra_hop_limit to let user choose whether =
-accept
->> hop limit info in RA.
->>
->
-> How about introducing "minimum hop limit", instead?
+Hi Nicolas,
 
-Hi Yoshifuji,
+> -----Original Message-----
+> From: Nicolas Ferre [mailto:nicolas.ferre@atmel.com]
+> Sent: Monday, July 27, 2015 1:07 PM
+> To: Michal Simek; Punnaiah Choudary Kalluri; Anirudha Sarangi;
+> davem@davemloft.net; Florian Fainelli; andrew@lunn.ch
+> Cc: Harini Katakam; kpc528@gmail.com;
+> kalluripunnaiahchoudary@gmail.com; netdev@vger.kernel.org; Punnaiah
+> Choudary Kalluri
+> Subject: Re: [RFC PATCH 0/2] net: macb: Add mdio driver for accessing
+> multiple phy devices
+>=20
+> Le 20/07/2015 15:30, Michal Simek a =E9crit :
+> > Hi Nicolas,
+> >
+> > have you had a time to look at this?
+>=20
+> Michal,
+>=20
+> Sorry for the delay.
+>=20
+> With the insight of Florian and Andrew, I do agree to move to your
+> "Implementation 1" and a separate driver for mdio bus.
+>=20
+> The only thing that worries me it that the architecture AVR32 which w=
+e
+> are sharing this driver with doesn't have support for device tree (an=
+d
+> may never have). So, it would be good to make sure to keep compatibil=
+ity
+> with it.
+>=20
+> Another point to take into account is the transition period: we have
+> several SoC .dtsi/dts that will need to be converted and we'll need t=
+o
+> add this mdio support before that it's integrated in netdev: we have =
+to
+> think about it in advance.
 
-This is a good idea. Maybe this can be another sysctl option?
+Ok. I will send you updated patch for mdio support soon and we will fin=
+alize next
+Course of actions if it doesn't break the existing flow.=20
 
-The minimum hop limit can be an enhancement of the security issue, then=
- we will
-not only increase the hop limit, but also could decrease it in the
-range of values we
-accept.
-
-On the other hand, with this patch, we can enable, disable or partly
-enable accept
-hop limit. If we only use "minimum hop limit", people could not use a s=
-tatic hop
-limit value.
-
-May be we use a =E2=80=9Chop limit range" instead? How do you think?
-
-Thanks
-Hangbin
-
->
-> |commit 6fd99094de2b83d1d4c8457f2c83483b2828e75a
-> |Author: D.S. Ljungmark <ljungmark@modio.se>
-> |Date:   Wed Mar 25 09:28:15 2015 +0100
-> |
-> |    ipv6: Don't reduce hop limit for an interface
-> :
-> |    RFC 3756, Section 4.2.7, "Parameter Spoofing"
-> |
-> :
-> |   >   As an example, one possible approach to mitigate this threat =
-is to
-> |    >   ignore very small hop limits.  The nodes could implement a
-> |    >   configurable minimum hop limit, and ignore attempts to set i=
-t below
-> |    >   said limit.
+Thanks,
+Punnaiah
+>=20
+> Thanks, bye.
+>=20
+>=20
+> > On 07/13/2015 06:48 AM, Punnaiah Choudary Kalluri wrote:
+> >> This patch is to add support for the design that has multiple ethe=
+rnet
+> >> mac controllers and single mdio bus connected to multiple phy devi=
+ces.
+> >> i.e mdio lines are connected to any of the ethernet mac controller=
+ and
+> >> all the phy devices will be accessed using the phy maintenance int=
+erface
+> >> in that mac controller.
+> >>
+> >>  ______                   _____
+> >> |      |                 |PHY0 |
+> >> | MAC0 |-----------------|     |
+> >> |______|       |         |_____|
+> >>                |
+> >>  ______        |          _____
+> >> |      |       |         |     |
+> >> | MAC1 |       |_________|PHY1 |
+> >> |______|                 |____ |
+> >>
+> >> So, i come up with two implementations for addressing the above
+> configuration.
+> >>
+> >> Implementation 1:
+> >>  Have separate driver for mdio bus
+> >>  Create a DT node for all the PHY devices connected to the mdio bu=
+s
+> >>  This driver will share the register space of the mac controller t=
+hat has
+> >>  mdio bus connected.
+> >>
+> >> Implementation 2:
+> >>  Add new property "has-mdio" and it should be 1 for the mac that h=
+as
+> mdio bus
+> >>  connected.
+> >>  Create the mdio bus only when the has-mdio property is 1
+> >>
+> >> Please review the two implementations and suggest which one is bet=
+ter
+> to proceed
+> >> further. In my opinion implementation 1 will be the ideal one.
+> >>
+> >> Currently i have tested the patches with single mac and single phy
+> >> configuration. I need to take care of few more cases before releas=
+ing the
+> final patch
+> >> but before that i would like to have your opinion on the above
+> implementations
+> >> and finalize one implementation. so that i can enhance it further.
+> >>
+> >> Punnaiah Choudary Kalluri (1):
+> >>   net: macb: Add mdio driver for accessing multiple phy devices
+> >>   net: macb: Add support for single mac managing more than one phy
+> >>
+> >>
+> >>  drivers/net/ethernet/cadence/Makefile    |    2 +-
+> >>  drivers/net/ethernet/cadence/macb.c      |   93 +-------------
+> >>  drivers/net/ethernet/cadence/macb.h      |    3 +-
+> >>  drivers/net/ethernet/cadence/macb_mdio.c |  204
+> ++++++++++++++++++++++++++++++
+> >>  4 files changed, 211 insertions(+), 91 deletions(-)
+> >>  create mode 100644 drivers/net/ethernet/cadence/macb_mdio.c
+> >>
+> >
+> >
+> >
+>=20
+>=20
+> --
+> Nicolas Ferre
