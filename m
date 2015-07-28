@@ -1,128 +1,57 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v5 2/2] af_mpls: fix undefined reference to ip6_route_output
-Date: Tue, 28 Jul 2015 15:27:41 -0700
-Message-ID: <1438122461-8350-3-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, tgraf@suug.ch, hannes@stressinduktion.org,
-	rshearma@brocade.com, stephen@networkplumber.org,
-	kuznet@ms2.inr.ac.ru, jon.maloy@ericsson.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [net-next PATCH 2/2] drivers: net: cpsw: add separate napi for
+ tx packet handling for performance improvment
+Date: Wed, 29 Jul 2015 00:30:13 +0200
+Message-ID: <20150728223013.GA10669@electric-eye.fr.zoreil.com>
+References: <1437995941-5857-1-git-send-email-mugunthanvnm@ti.com>
+ <1437995941-5857-3-git-send-email-mugunthanvnm@ti.com>
+ <20150727212206.GA8912@electric-eye.fr.zoreil.com>
+ <55B71E99.50807@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:34187 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927AbbG1W1t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:27:49 -0400
-Received: by pdbbh15 with SMTP id bh15so77607151pdb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:27:49 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48467 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbbG1Waf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:30:35 -0400
+Content-Disposition: inline
+In-Reply-To: <55B71E99.50807@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Mugunthan V N <mugunthanvnm@ti.com> :
+> On Tuesday 28 July 2015 02:52 AM, Francois Romieu wrote:
+> > Mugunthan V N <mugunthanvnm@ti.com> :
+[...]
+> >> @@ -752,13 +753,22 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
+> >>  	struct cpsw_priv *priv = dev_id;
+> >>  
+> >>  	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+> >> -	cpdma_chan_process(priv->txch, 128);
+> >> +	writel(0, &priv->wr_regs->tx_en);
+> >> +
+> >> +	if (netif_running(priv->ndev)) {
+> >> +		napi_schedule(&priv->napi_tx);
+> >> +		return IRQ_HANDLED;
+> >> +	}
+> > 
+> > 
+> > cpsw_ndo_stop calls napi_disable: you can remove netif_running.
+> > 
+> 
+> This netif_running check is to find which interface is up as the
+> interrupt is shared by both the interfaces. When first interface is down
+> and second interface is active then napi_schedule for first interface
+> will fail and second interface napi needs to be scheduled.
+> 
+> So I don't think netif_running needs to be removed.
 
-Undefined reference to ip6_route_output and ip_route_output
-was reported with CONFIG_INET=n and CONFIG_IPV6=n.
+Each interface has its own napi tx (resp. rx) context: I would had expected
+two unconditional napi_schedule per tx (resp. rx) shared irq, not one.
 
-This patch uses ipv6_stub_impl.ipv6_dst_lookup instead of
-ip6_route_output. And wraps affected code under
-IS_ENABLED(CONFIG_INET) and IS_ENABLED(CONFIG_IPV6).
+I'll read it again after some sleep.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Reported-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/mpls/af_mpls.c |   39 +++++++++++++++++++++++++++++++--------
- 1 file changed, 31 insertions(+), 8 deletions(-)
-
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 49f1b0e..1c82888 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -15,7 +15,10 @@
- #include <net/ip_fib.h>
- #include <net/netevent.h>
- #include <net/netns/generic.h>
--#include <net/ip6_route.h>
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
-+#endif
- #include "internal.h"
- 
- #define LABEL_NOT_SPECIFIED (1<<20)
-@@ -331,6 +334,7 @@ static unsigned find_free_label(struct net *net)
- 	return LABEL_NOT_SPECIFIED;
- }
- 
-+#if IS_ENABLED(CONFIG_INET)
- static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
-@@ -347,30 +351,47 @@ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- 
- 	ip_rt_put(rt);
- 
--errout:
- 	return dev;
-+errout:
-+	return ERR_PTR(-ENODEV);
- }
-+#else
-+static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
- {
- 	struct net_device *dev = NULL;
- 	struct dst_entry *dst;
- 	struct flowi6 fl6;
- 
-+	if (!ipv6_stub)
-+		return ERR_PTR(-EAFNOSUPPORT);
-+
- 	memset(&fl6, 0, sizeof(fl6));
- 	memcpy(&fl6.daddr, addr, sizeof(struct in6_addr));
--	dst = ip6_route_output(net, NULL, &fl6);
--	if (dst->error)
-+	if (ipv6_stub->ipv6_dst_lookup(net, NULL, &dst, &fl6))
- 		goto errout;
- 
- 	dev = dst->dev;
- 	dev_hold(dev);
--
--errout:
- 	dst_release(dst);
- 
- 	return dev;
-+
-+errout:
-+	return ERR_PTR(-ENODEV);
- }
-+#else
-+static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
-+{
-+	return ERR_PTR(-EAFNOSUPPORT);
-+}
-+#endif
- 
- static struct net_device *find_outdev(struct net *net,
- 				      struct mpls_route_config *cfg)
-@@ -425,10 +446,12 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 	if (cfg->rc_output_labels > MAX_NEW_LABELS)
- 		goto errout;
- 
--	err = -ENODEV;
- 	dev = find_outdev(net, cfg);
--	if (!dev)
-+	if (IS_ERR(dev)) {
-+		err = PTR_ERR(dev);
-+		dev = NULL;
- 		goto errout;
-+	}
- 
- 	/* Ensure this is a supported device */
- 	err = -EINVAL;
 -- 
-1.7.10.4
+Ueimor
