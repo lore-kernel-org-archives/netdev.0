@@ -1,34 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net/mlx4_en: Hardware accelerated 802.1ad
-Date: Tue, 28 Jul 2015 01:05:49 -0700 (PDT)
-Message-ID: <20150728.010549.361433787156162588.davem@davemloft.net>
-References: <1437997594-8506-1-git-send-email-amirv@mellanox.com>
-	<20150727.150053.102391071393638884.davem@davemloft.net>
-	<55B7346C.3020904@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, netdev@vger.kernel.org, hadarh@mellanox.com,
-	talal@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48347 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932217AbbG1IFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 04:05:53 -0400
-In-Reply-To: <55B7346C.3020904@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Adrien Schildknecht <adrien+dev@schischi.me>
+Subject: [PATCH] mac80211: fix invalid read in minstrel_sort_best_tp_rates()
+Date: Tue, 28 Jul 2015 10:30:16 +0200
+Message-ID: <1438072216-19228-1-git-send-email-adrien+dev@schischi.me>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Adrien Schildknecht <adrien+dev@schischi.me>
+To: johannes@sipsolutions.net, davem@davemloft.net,
+	thomas@net.t-labs.tu-berlin.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 28 Jul 2015 10:51:08 +0300
+At the last iteration of the loop, j may equal zero and thus
+tp_list[j - 1] causes an invalid read.
+Changed the logic of the loop so that j - 1 is always >= 0.
 
-> On 7/28/2015 1:00 AM, David Miller wrote:
->> Series applied, thanks. 
-> 
-> Hi Dave,
-> 
-> I don't see this on your kernel.org clone.. maybe forgot to press on
-> the push button?
+Signed-off-by: Adrien Schildknecht <adrien+dev@schischi.me>
+---
+ net/mac80211/rc80211_minstrel.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-It should be there now.
+diff --git a/net/mac80211/rc80211_minstrel.c b/net/mac80211/rc80211_minstrel.c
+index 247552a..3ece7d1 100644
+--- a/net/mac80211/rc80211_minstrel.c
++++ b/net/mac80211/rc80211_minstrel.c
+@@ -92,14 +92,15 @@ int minstrel_get_tp_avg(struct minstrel_rate *mr, int prob_ewma)
+ static inline void
+ minstrel_sort_best_tp_rates(struct minstrel_sta_info *mi, int i, u8 *tp_list)
+ {
+-	int j = MAX_THR_RATES;
+-	struct minstrel_rate_stats *tmp_mrs = &mi->r[j - 1].stats;
++	int j;
++	struct minstrel_rate_stats *tmp_mrs;
+ 	struct minstrel_rate_stats *cur_mrs = &mi->r[i].stats;
+ 
+-	while (j > 0 && (minstrel_get_tp_avg(&mi->r[i], cur_mrs->prob_ewma) >
+-	       minstrel_get_tp_avg(&mi->r[tp_list[j - 1]], tmp_mrs->prob_ewma))) {
+-		j--;
++	for (j = MAX_THR_RATES; j > 0; --j) {
+ 		tmp_mrs = &mi->r[tp_list[j - 1]].stats;
++		if (minstrel_get_tp_avg(&mi->r[i], cur_mrs->prob_ewma) <=
++		    minstrel_get_tp_avg(&mi->r[tp_list[j - 1]], tmp_mrs->prob_ewma))
++			break;
+ 	}
+ 
+ 	if (j < MAX_THR_RATES - 1)
+-- 
+2.4.6
