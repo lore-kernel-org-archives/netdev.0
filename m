@@ -1,60 +1,31 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH net-next 02/17] stmmac: dwmac-ipq806x: move ipq806x_gmac_fix_mac_speed function
-Date: Wed, 29 Jul 2015 00:08:49 +0200
-Message-ID: <1438121344-5304-3-git-send-email-manabian@gmail.com>
-References: <1438121344-5304-1-git-send-email-manabian@gmail.com>
-Cc: Joachim Eastwood <manabian@gmail.com>, netdev@vger.kernel.org
-To: peppe.cavallaro@st.com, davem@davemloft.net, mathieu@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:36044 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751910AbbG1WJX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:09:23 -0400
-Received: by lbbqi7 with SMTP id qi7so83899172lbb.3
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:09:22 -0700 (PDT)
-In-Reply-To: <1438121344-5304-1-git-send-email-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: mohun106@gmail.com
+Subject: [PATCH v2 0/3] Add MDIO support to ThunderX NIC driver
+Date: Tue, 28 Jul 2015 15:12:10 -0700
+Message-ID: <1438121533-21528-1-git-send-email-mohun106@gmail.com>
+Cc: ddaney@caviumnetworks.com, sgoutham@caviumnetworks.com,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+To: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move ipq806x_gmac_fix_mac_speed in preparation for turning
-the setup glue callback in a proper probe function.
+From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+This patch series adds MDIO support to ThunderX NIC driver by making use
+of existing mdio-octeon driver. In the process modified the mdio-octeon
+driver to work on both Octeon and ThunderX platforms.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-index 7e3129e7f143..5f1b3f9d8dba 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-@@ -248,6 +248,13 @@ static void *ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
- 	return NULL;
- }
- 
-+static void ipq806x_gmac_fix_mac_speed(void *priv, unsigned int speed)
-+{
-+	struct ipq806x_gmac *gmac = priv;
-+
-+	ipq806x_gmac_set_speed(gmac, speed);
-+}
-+
- static void *ipq806x_gmac_setup(struct platform_device *pdev)
- {
- 	struct device *dev = &pdev->dev;
-@@ -330,13 +337,6 @@ static void *ipq806x_gmac_setup(struct platform_device *pdev)
- 	return gmac;
- }
- 
--static void ipq806x_gmac_fix_mac_speed(void *priv, unsigned int speed)
--{
--	struct ipq806x_gmac *gmac = priv;
--
--	ipq806x_gmac_set_speed(gmac, speed);
--}
--
- static const struct stmmac_of_data ipq806x_gmac_data = {
- 	.has_gmac	= 1,
- 	.setup		= ipq806x_gmac_setup,
--- 
-1.8.0
+* From v1:
+  - Removed default selection in Kconfig for MDIO_OCTEON
+  - Replace uint64 with u64 as suggested by David Daney
+
+Radha Mohan Chintakuntla (3):
+  net: mdio-octeon: Modify driver to work on both ThunderX and Octeon
+  net: mdio-octeon: Fix octeon_mdiobus_probe function for return values
+  net: thunderx: Select CONFIG_MDIO_OCTEON for ThunderX NIC
+
+ drivers/net/ethernet/cavium/Kconfig |    2 +
+ drivers/net/phy/Kconfig             |   10 ++--
+ drivers/net/phy/mdio-octeon.c       |  136 +++++++++++++++++++++++++++++------
+ 3 files changed, 122 insertions(+), 26 deletions(-)
