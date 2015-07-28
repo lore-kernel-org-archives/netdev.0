@@ -1,170 +1,78 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V4 4/7] Drivers: hv: vmbus: add APIs to register callbacks to process hvsock connection
-Date: Tue, 28 Jul 2015 05:35:11 -0700
-Message-ID: <1438086911-19384-1-git-send-email-decui@microsoft.com>
-Cc: pebolle@tiscali.nl, stefanha@redhat.com, vkuznets@redhat.com,
-	dan.carpenter@oracle.com
-To: gregkh@linuxfoundation.org, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
-	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net] bridge: mdb: fix delmdb state in the
+	notification
+Date: Tue, 28 Jul 2015 13:10:44 +0200
+Message-ID: <1438081844-18801-1-git-send-email-razor@blackwall.org>
+Cc: amwang@redhat.com, Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	cwang@twopensource.com, bridge@lists.linux-foundation.org,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-With the 2 APIs supplied by the VMBus driver, the coming net/hvsock driver
-can register 2 callbacks and can know when a new hvsock connection is
-offered by the host, and when a hvsock connection is being closed by the
-host.
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Since mdb states were introduced when deleting an entry the state was
+left as it was set in the delete request from the user which leads to
+the following output when doing a monitor (for example):
+$ bridge mdb add dev br0 port eth3 grp 239.0.0.1 permanent
+(monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+$ bridge mdb del dev br0 port eth3 grp 239.0.0.1 permanent
+(monitor) dev br0 port eth3 grp 239.0.0.1 temp
+^^^
+Note the "temp" state in the delete notification which is wrong since
+the entry was permanent, the state in a delete is always reported as
+"temp" regardless of the real state of the entry.
+
+After this patch:
+$ bridge mdb add dev br0 port eth3 grp 239.0.0.1 permanent
+(monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+$ bridge mdb del dev br0 port eth3 grp 239.0.0.1 permanent
+(monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+
+There's one important note to make here that the state is actually not
+matched when doing a delete, so one can delete a permanent entry by
+stating "temp" in the end of the command, I've chosen this fix in order
+not to break user-space tools which rely on this (incorrect) behaviour.
+
+So to give an example after this patch and using the wrong state:
+$ bridge mdb add dev br0 port eth3 grp 239.0.0.1 permanent
+(monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+$ bridge mdb del dev br0 port eth3 grp 239.0.0.1 temp
+(monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+
+Note the state of the entry that got deleted is correct in the
+notification.
+
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Fixes: ccb1c31a7a87 ("bridge: add flags to distinguish permanent mdb entires")
 ---
- drivers/hv/Makefile           |  4 ++-
- drivers/hv/channel_mgmt.c     |  9 ++++++
- drivers/hv/hvsock_callbacks.c | 71 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/hyperv.h        | 10 ++++++
- 4 files changed, 93 insertions(+), 1 deletion(-)
- create mode 100644 drivers/hv/hvsock_callbacks.c
+I propose to fix the state matching in net-next but we may risk breaking
+some user-space tools which rely on this behaviour.
 
-diff --git a/drivers/hv/Makefile b/drivers/hv/Makefile
-index 39c9b2c..ef6f8a8 100644
---- a/drivers/hv/Makefile
-+++ b/drivers/hv/Makefile
-@@ -4,5 +4,7 @@ obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
+ net/bridge/br_mdb.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 1198a3dbad95..c94321955db7 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -445,6 +445,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
+ 		if (p->port->state == BR_STATE_DISABLED)
+ 			goto unlock;
  
- hv_vmbus-y := vmbus_drv.o \
- 		 hv.o connection.o channel.o \
--		 channel_mgmt.o ring_buffer.o
-+		 channel_mgmt.o ring_buffer.o \
-+		 hvsock_callbacks.o
-+
- hv_utils-y := hv_util.o hv_kvp.o hv_snapshot.o hv_fcopy.o hv_utils_transport.o
-diff --git a/drivers/hv/channel_mgmt.c b/drivers/hv/channel_mgmt.c
-index 7018c53..a8b1e61 100644
---- a/drivers/hv/channel_mgmt.c
-+++ b/drivers/hv/channel_mgmt.c
-@@ -300,6 +300,12 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
- 		return;
- 	}
- 
-+	if (is_hvsock_channel(newchannel)) {
-+		if (hvsock_process_offer(newchannel) != 0)
-+			goto err_deq_chan;
-+		return;
-+	}
-+
- 	/*
- 	 * Start the process of binding this offer to the driver
- 	 * We need to set the DeviceObject field before calling
-@@ -564,7 +570,10 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
- 			vmbus_device_unregister(channel->device_obj);
- 			put_device(dev);
- 		}
-+	} else if (is_hvsock_channel(channel)) {
-+		hvsock_process_offer_rescind(channel);
- 	} else {
-+		/* it is a sub-channel. */
- 		hv_process_channel_removal(channel,
- 			channel->offermsg.child_relid);
- 	}
-diff --git a/drivers/hv/hvsock_callbacks.c b/drivers/hv/hvsock_callbacks.c
-new file mode 100644
-index 0000000..28f7b75
---- /dev/null
-+++ b/drivers/hv/hvsock_callbacks.c
-@@ -0,0 +1,71 @@
-+/*
-+ * Copyright (c) 2015, Microsoft Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ */
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/hyperv.h>
-+
-+/* We should hold the mutex when getting/setting the function pointers */
-+static DEFINE_MUTEX(hvsock_cb_mutex);
-+static int (*__process_offer)(struct vmbus_channel *channel);
-+static void (*__process_offer_rescind)(struct vmbus_channel *channel);
-+
-+int hvsock_process_offer(struct vmbus_channel *channel)
-+{
-+	int ret = -ENODEV;
-+
-+	mutex_lock(&hvsock_cb_mutex);
-+
-+	if (__process_offer != NULL)
-+		ret = __process_offer(channel);
-+
-+	mutex_unlock(&hvsock_cb_mutex);
-+
-+	return ret;
-+}
-+
-+void hvsock_process_offer_rescind(struct vmbus_channel *channel)
-+{
-+	mutex_lock(&hvsock_cb_mutex);
-+
-+	if (__process_offer_rescind != NULL)
-+		__process_offer_rescind(channel);
-+	else
-+		hv_process_channel_removal(channel,
-+			channel->offermsg.child_relid);
-+
-+	mutex_unlock(&hvsock_cb_mutex);
-+}
-+
-+void vmbus_register_hvsock_callbacks(
-+	int (*process_offer)(struct vmbus_channel *),
-+	void (*process_offer_rescind)(struct vmbus_channel *))
-+{
-+	mutex_lock(&hvsock_cb_mutex);
-+
-+	__process_offer = process_offer;
-+	__process_offer_rescind = process_offer_rescind;
-+
-+	mutex_unlock(&hvsock_cb_mutex);
-+}
-+EXPORT_SYMBOL_GPL(vmbus_register_hvsock_callbacks);
-+
-+void vmbus_unregister_hvsock_callbacks(void)
-+{
-+	mutex_lock(&hvsock_cb_mutex);
-+
-+	__process_offer = NULL;
-+	__process_offer_rescind = NULL;
-+
-+	mutex_unlock(&hvsock_cb_mutex);
-+}
-+EXPORT_SYMBOL_GPL(vmbus_unregister_hvsock_callbacks);
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index c8e27da..fda9790 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -1269,6 +1269,16 @@ extern __u32 vmbus_proto_version;
- 
- int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
- 				  const uuid_le *shv_host_servie_id);
-+
-+extern int hvsock_process_offer(struct vmbus_channel *channel);
-+extern void hvsock_process_offer_rescind(struct vmbus_channel *channel);
-+
-+extern void vmbus_register_hvsock_callbacks(
-+	int (*process_offer)(struct vmbus_channel *),
-+	void (*process_offer_rescind)(struct vmbus_channel *));
-+
-+void vmbus_unregister_hvsock_callbacks(void);
-+
- struct vmpipe_proto_header {
- 	u32 pkt_type;
- 
++		entry->state = p->state;
+ 		rcu_assign_pointer(*pp, p->next);
+ 		hlist_del_init(&p->mglist);
+ 		del_timer(&p->timer);
 -- 
-2.1.0
+2.4.3
