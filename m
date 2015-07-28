@@ -1,94 +1,75 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH net-next 14/17] stmmac: dwmac-rk: use rk_gmac_ops as of match data
-Date: Wed, 29 Jul 2015 00:09:01 +0200
-Message-ID: <1438121344-5304-15-git-send-email-manabian@gmail.com>
+From: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 13/17] stmmac: dwmac-rk: make rk_gmac_ops structs
+ static const
+Date: Wed, 29 Jul 2015 00:09:00 +0200
+Message-ID: <1438121344-5304-14-git-send-email-manabian@gmail.com>
 References: <1438121344-5304-1-git-send-email-manabian@gmail.com>
-Cc: Joachim Eastwood <manabian@gmail.com>, netdev@vger.kernel.org,
-	linux-rockchip@lists.infradead.org
-To: peppe.cavallaro@st.com, heiko@sntech.de, roger.chen@rock-chips.com,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:35394 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751953AbbG1WJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:09:36 -0400
-Received: by lahh5 with SMTP id h5so77071949lah.2
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:09:35 -0700 (PDT)
-In-Reply-To: <1438121344-5304-1-git-send-email-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1438121344-5304-1-git-send-email-manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Remove the setup glue callback and use rk_gmac_ops as OF match
-data so it can used directly when calling rk_gmac_setup.
+Mark the rk_gmac_ops structures as static const as they should be.
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+Signed-off-by: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 27 ++++----------------------
- 1 file changed, 4 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 5d8042ea8370..11baa4b19779 100644
+index 65c1e1afe6a8..5d8042ea8370 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -529,16 +529,6 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
- 	return bsp_priv;
+@@ -46,7 +46,7 @@ struct rk_priv_data {
+ 	struct platform_device *pdev;
+ 	int phy_iface;
+ 	struct regulator *regulator;
+-	struct rk_gmac_ops *ops;
++	const struct rk_gmac_ops *ops;
+ 
+ 	bool clk_enabled;
+ 	bool clock_input;
+@@ -177,7 +177,7 @@ static void rk3288_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
+ 	}
  }
  
--static void *rk3288_gmac_setup(struct platform_device *pdev)
--{
--	return rk_gmac_setup(pdev, &rk3288_ops);
--}
--
--static void *rk3368_gmac_setup(struct platform_device *pdev)
--{
--	return rk_gmac_setup(pdev, &rk3368_ops);
--}
--
- static int rk_gmac_init(struct platform_device *pdev, void *priv)
- {
- 	struct rk_priv_data *bsp_priv = priv;
-@@ -580,7 +570,7 @@ static int rk_gmac_probe(struct platform_device *pdev)
- {
- 	struct plat_stmmacenet_data *plat_dat;
- 	struct stmmac_resources stmmac_res;
--	const struct stmmac_of_data *data;
-+	const struct rk_gmac_ops *data;
- 	int ret;
- 
- 	data = of_device_get_match_data(&pdev->dev);
-@@ -598,12 +588,11 @@ static int rk_gmac_probe(struct platform_device *pdev)
- 		return PTR_ERR(plat_dat);
- 
- 	plat_dat->has_gmac = true;
--	plat_dat->setup = data->setup;
- 	plat_dat->init = rk_gmac_init;
- 	plat_dat->exit = rk_gmac_exit;
- 	plat_dat->fix_mac_speed = rk_fix_speed;
- 
--	plat_dat->bsp_priv = plat_dat->setup(pdev);
-+	plat_dat->bsp_priv = rk_gmac_setup(pdev, data);
- 	if (IS_ERR(plat_dat->bsp_priv))
- 		return PTR_ERR(plat_dat->bsp_priv);
- 
-@@ -614,17 +603,9 @@ static int rk_gmac_probe(struct platform_device *pdev)
- 	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+-struct rk_gmac_ops rk3288_ops = {
++static const struct rk_gmac_ops rk3288_ops = {
+ 	.set_to_rgmii = rk3288_set_to_rgmii,
+ 	.set_to_rmii = rk3288_set_to_rmii,
+ 	.set_rgmii_speed = rk3288_set_rgmii_speed,
+@@ -289,7 +289,7 @@ static void rk3368_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
+ 	}
  }
  
--static const struct stmmac_of_data rk3288_gmac_data = {
--	.setup = rk3288_gmac_setup,
--};
--
--static const struct stmmac_of_data rk3368_gmac_data = {
--	.setup = rk3368_gmac_setup,
--};
--
- static const struct of_device_id rk_gmac_dwmac_match[] = {
--	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_gmac_data},
--	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_gmac_data},
-+	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_ops },
-+	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_ops },
- 	{ }
- };
- MODULE_DEVICE_TABLE(of, rk_gmac_dwmac_match);
+-struct rk_gmac_ops rk3368_ops = {
++static const struct rk_gmac_ops rk3368_ops = {
+ 	.set_to_rgmii = rk3368_set_to_rgmii,
+ 	.set_to_rmii = rk3368_set_to_rmii,
+ 	.set_rgmii_speed = rk3368_set_rgmii_speed,
+@@ -448,7 +448,7 @@ static int phy_power_on(struct rk_priv_data *bsp_priv, bool enable)
+ }
+ 
+ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
+-					  struct rk_gmac_ops *ops)
++					  const struct rk_gmac_ops *ops)
+ {
+ 	struct rk_priv_data *bsp_priv;
+ 	struct device *dev = &pdev->dev;
 -- 
 1.8.0
