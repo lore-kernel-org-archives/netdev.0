@@ -1,39 +1,62 @@
-From: mohun106@gmail.com
-Subject: [PATCH v2 3/3] net: thunderx: Select CONFIG_MDIO_OCTEON for ThunderX NIC
-Date: Tue, 28 Jul 2015 15:12:13 -0700
-Message-ID: <1438121533-21528-4-git-send-email-mohun106@gmail.com>
-References: <1438121533-21528-1-git-send-email-mohun106@gmail.com>
-Cc: ddaney@caviumnetworks.com, sgoutham@caviumnetworks.com,
-	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
-To: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH 1/3] net: netcp: fix cleanup interface list in netcp_remove()
+Date: Tue, 28 Jul 2015 18:20:12 -0400
+Message-ID: <1438122014-24744-2-git-send-email-m-karicheri2@ti.com>
+References: <1438122014-24744-1-git-send-email-m-karicheri2@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<w-kwok2@ti.com>, <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438121533-21528-1-git-send-email-mohun106@gmail.com>
+In-Reply-To: <1438122014-24744-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+Currently if user do rmmod keystone_netcp.ko following warning is
+seen :-
 
-The CONFIG_MDIO_OCTEON is required so that the ThunderX NIC driver can
-talk to the PHY drivers.
+[   59.035891] ------------[ cut here ]------------
+[   59.040535] WARNING: CPU: 2 PID: 1619 at drivers/net/ethernet/ti/
+netcp_core.c:2127 netcp_remove)
 
-Signed-off-by: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+This is because the interface list is not cleaned up in netcp_remove.
+This patch fixes this. Also fix some checkpatch related warnings.
+
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 ---
- drivers/net/ethernet/cavium/Kconfig |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/ti/netcp_core.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index c4d6bbe..3584420 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -37,6 +37,8 @@ config	THUNDER_NIC_BGX
- 	tristate "Thunder MAC interface driver (BGX)"
- 	depends on 64BIT
- 	default ARCH_THUNDER
-+	select PHYLIB
-+	select MDIO_OCTEON
- 	---help---
- 	  This driver supports programming and controlling of MAC
- 	  interface from NIC physical function driver.
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index ec8ed30..a1c6961 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -2112,6 +2112,7 @@ probe_quit:
+ static int netcp_remove(struct platform_device *pdev)
+ {
+ 	struct netcp_device *netcp_device = platform_get_drvdata(pdev);
++	struct netcp_intf *netcp_intf, *netcp_tmp;
+ 	struct netcp_inst_modpriv *inst_modpriv, *tmp;
+ 	struct netcp_module *module;
+ 
+@@ -2123,8 +2124,16 @@ static int netcp_remove(struct platform_device *pdev)
+ 		list_del(&inst_modpriv->inst_list);
+ 		kfree(inst_modpriv);
+ 	}
+-	WARN(!list_empty(&netcp_device->interface_head), "%s interface list not empty!\n",
+-	     pdev->name);
++
++	/* now that all modules are removed, clean up the interfaces */
++	list_for_each_entry_safe(netcp_intf, netcp_tmp,
++				 &netcp_device->interface_head,
++				 interface_list) {
++		netcp_delete_interface(netcp_device, netcp_intf->ndev);
++	}
++
++	WARN(!list_empty(&netcp_device->interface_head),
++	     "%s interface list not empty!\n", pdev->name);
+ 
+ 	devm_kfree(&pdev->dev, netcp_device);
+ 	pm_runtime_put_sync(&pdev->dev);
 -- 
-1.7.1
+1.9.1
