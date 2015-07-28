@@ -1,51 +1,110 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next] net/mlx4_en: Hardware accelerated 802.1ad works only on the first port
-Date: Tue, 28 Jul 2015 13:19:19 +0300
-Message-ID: <1438078759-21477-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Hadar Har-Zion <hadarh@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51910 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932424AbbG1KUN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jul 2015 06:20:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] bridge: mcast: give fast leave precedence over
+	multicast router and querier
+Date: Tue, 28 Jul 2015 03:28:27 -0700
+Message-ID: <1438079308-25040-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: bridge@lists.linux-foundation.org, herbert@gondor.apana.org.au,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Fix mistakenly used, hard coded, port number in get_phv_bit()
+From: Satish Ashok <sashok@cumulusnetworks.com>
 
-Fixes: 77fc29c ("net/mlx4_core: Preparations for 802.1ad VLAN support")
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+When fast leave is configured on a bridge port and an IGMP leave is
+received for a group, the group is not deleted immediately if there is
+a router detected or if multicast querier is configured.
+Ideally the group should be deleted immediately when fast leave is
+configured.
+
+Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
 ---
-Hi Dave,
+ net/bridge/br_multicast.c | 50 ++++++++++++++++++++++++-----------------------
+ 1 file changed, 26 insertions(+), 24 deletions(-)
 
-Because of my mistake I've sent a version [1] without some internal review
-fixes.  This patch fix the only code issue that was missing. The rest were only
-improvements to the commit messages, which unfortunately it is too late to fix now.
-
-[1] - http://www.spinics.net/lists/netdev/msg337148.html
-
-Thanks,
-Amir
-
-
- drivers/net/ethernet/mellanox/mlx4/fw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 5a1c3d2..e8ec1de 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -2815,7 +2815,7 @@ int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv)
- 	struct mlx4_func_cap func_cap;
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 79db489cdade..0b39dcc65b94 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1416,8 +1416,7 @@ br_multicast_leave_group(struct net_bridge *br,
  
- 	memset(&func_cap, 0, sizeof(func_cap));
--	err = mlx4_QUERY_FUNC_CAP(dev, 1, &func_cap);
-+	err = mlx4_QUERY_FUNC_CAP(dev, port, &func_cap);
- 	if (!err)
- 		*phv = func_cap.flags & QUERY_FUNC_CAP_PHV_BIT;
- 	return err;
+ 	spin_lock(&br->multicast_lock);
+ 	if (!netif_running(br->dev) ||
+-	    (port && port->state == BR_STATE_DISABLED) ||
+-	    timer_pending(&other_query->timer))
++	    (port && port->state == BR_STATE_DISABLED))
+ 		goto out;
+ 
+ 	mdb = mlock_dereference(br->mdb, br);
+@@ -1425,6 +1424,31 @@ br_multicast_leave_group(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
++		struct net_bridge_port_group __rcu **pp;
++
++		for (pp = &mp->ports;
++		     (p = mlock_dereference(*pp, br)) != NULL;
++		     pp = &p->next) {
++			if (p->port != port)
++				continue;
++
++			rcu_assign_pointer(*pp, p->next);
++			hlist_del_init(&p->mglist);
++			del_timer(&p->timer);
++			call_rcu_bh(&p->rcu, br_multicast_free_pg);
++			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
++
++			if (!mp->ports && !mp->mglist &&
++			    netif_running(br->dev))
++				mod_timer(&mp->timer, jiffies);
++		}
++		goto out;
++	}
++
++	if (timer_pending(&other_query->timer))
++		goto out;
++
+ 	if (br->multicast_querier) {
+ 		__br_multicast_send_query(br, port, &mp->addr);
+ 
+@@ -1450,28 +1474,6 @@ br_multicast_leave_group(struct net_bridge *br,
+ 		}
+ 	}
+ 
+-	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
+-		struct net_bridge_port_group __rcu **pp;
+-
+-		for (pp = &mp->ports;
+-		     (p = mlock_dereference(*pp, br)) != NULL;
+-		     pp = &p->next) {
+-			if (p->port != port)
+-				continue;
+-
+-			rcu_assign_pointer(*pp, p->next);
+-			hlist_del_init(&p->mglist);
+-			del_timer(&p->timer);
+-			call_rcu_bh(&p->rcu, br_multicast_free_pg);
+-			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
+-
+-			if (!mp->ports && !mp->mglist &&
+-			    netif_running(br->dev))
+-				mod_timer(&mp->timer, jiffies);
+-		}
+-		goto out;
+-	}
+-
+ 	now = jiffies;
+ 	time = now + br->multicast_last_member_count *
+ 		     br->multicast_last_member_interval;
 -- 
-2.4.3.413.ga5fe668
+2.4.3
