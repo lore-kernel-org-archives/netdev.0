@@ -1,38 +1,37 @@
 From: mohun106@gmail.com
-Subject: [PATCH 3/3] net: thunderx: Select CONFIG_MDIO_OCTEON for ThunderX NIC
-Date: Mon, 27 Jul 2015 19:14:43 -0700
-Message-ID: <1438049683-10630-4-git-send-email-mohun106@gmail.com>
-References: <1438049683-10630-1-git-send-email-mohun106@gmail.com>
+Subject: [PATCH 0/3] Add MDIO support to ThunderX NIC driver
+Date: Mon, 27 Jul 2015 19:14:40 -0700
+Message-ID: <1438049683-10630-1-git-send-email-mohun106@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
 To: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438049683-10630-1-git-send-email-mohun106@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+ linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
 
-The CONFIG_MDIO_OCTEON is required so that the ThunderX NIC driver can
-talk to the PHY drivers.
+This patch series adds MDIO support to ThunderX NIC driver by making use
+of existing mdio-octeon driver. In the process modified the mdio-octeon
+driver to work on both Octeon and ThunderX platforms.
 
-Signed-off-by: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
----
- drivers/net/ethernet/cavium/Kconfig |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Radha Mohan Chintakuntla (3):
+  net: mdio-octeon: Modify driver to work on both ThunderX and Octeon
+  net: mdio-octeon: Fix octeon_mdiobus_probe function for return values
+  net: thunderx: Select CONFIG_MDIO_OCTEON for ThunderX NIC
 
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index c4d6bbe..3584420 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -37,6 +37,8 @@ config	THUNDER_NIC_BGX
- 	tristate "Thunder MAC interface driver (BGX)"
- 	depends on 64BIT
- 	default ARCH_THUNDER
-+	select PHYLIB
-+	select MDIO_OCTEON
- 	---help---
- 	  This driver supports programming and controlling of MAC
- 	  interface from NIC physical function driver.
--- 
-1.7.1
+ drivers/net/ethernet/cavium/Kconfig |    2 +
+ drivers/net/phy/Kconfig             |    9 ++-
+ drivers/net/phy/mdio-octeon.c       |  136 +++++++++++++++++++++++++++++------
+ 3 files changed, 122 insertions(+), 25 deletions(-)
