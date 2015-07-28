@@ -1,57 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Drivers: isdn: Drop unnecessary continue
-Date: Tue, 28 Jul 2015 12:18:09 +0200
-Message-ID: <1438078689.20182.42.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438072868-5408-1-git-send-email-shraddha.6596@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shraddha Barke <shraddha.6596@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438072868-5408-1-git-send-email-shraddha.6596@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next] net/mlx4_en: Hardware accelerated 802.1ad works only on the first port
+Date: Tue, 28 Jul 2015 13:19:19 +0300
+Message-ID: <1438078759-21477-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Hadar Har-Zion <hadarh@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:51910 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932424AbbG1KUN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jul 2015 06:20:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-07-28 at 14:11 +0530, Shraddha Barke wrote:
-> The semantic patch used to make this change is :
-> 
-> @@
-> @@
-> for (...;...;...) {
->   ...
->   if (...) {
->     ...
-> -   continue;
->   }
-> }
-> 
-> Signed-off-by: Shraddha Barke <shraddha.6596@gmail.com>
-> ---
->  drivers/isdn/hardware/mISDN/hfcsusb.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
-> index 114f3bc..91beb83 100644
-> --- a/drivers/isdn/hardware/mISDN/hfcsusb.c
-> +++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
-> @@ -1921,10 +1921,9 @@ hfcsusb_probe(struct usb_interface *intf, const struct usb_device_id *id)
->  		if ((le16_to_cpu(dev->descriptor.idVendor)
->  		     == hfcsusb_idtab[i].idVendor) &&
->  		    (le16_to_cpu(dev->descriptor.idProduct)
-> -		     == hfcsusb_idtab[i].idProduct)) {
-> +		     == hfcsusb_idtab[i].idProduct))
->  			vend_idx = i;
-> -			continue;
-> -		}
-> +
->  	}
->  
->  	printk(KERN_DEBUG
+Fix mistakenly used, hard coded, port number in get_phv_bit()
+
+Fixes: 77fc29c ("net/mlx4_core: Preparations for 802.1ad VLAN support")
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+Hi Dave,
+
+Because of my mistake I've sent a version [1] without some internal review
+fixes.  This patch fix the only code issue that was missing. The rest were only
+improvements to the commit messages, which unfortunately it is too late to fix now.
+
+[1] - http://www.spinics.net/lists/netdev/msg337148.html
+
+Thanks,
+Amir
 
 
-Well, it seems author intent was to use a break instead of a continue.
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Not a big deal...
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 5a1c3d2..e8ec1de 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -2815,7 +2815,7 @@ int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv)
+ 	struct mlx4_func_cap func_cap;
+ 
+ 	memset(&func_cap, 0, sizeof(func_cap));
+-	err = mlx4_QUERY_FUNC_CAP(dev, 1, &func_cap);
++	err = mlx4_QUERY_FUNC_CAP(dev, port, &func_cap);
+ 	if (!err)
+ 		*phv = func_cap.flags & QUERY_FUNC_CAP_PHV_BIT;
+ 	return err;
+-- 
+2.4.3.413.ga5fe668
