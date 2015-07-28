@@ -1,53 +1,37 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next] packet: remove handling of tx_ring from prb_shutdown_retire_blk_timer()
-Date: Tue, 28 Jul 2015 14:21:26 +0200
-Message-ID: <1438086086-10014-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:54032 "EHLO mail.zhinst.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932173AbbG1M0g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jul 2015 08:26:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net v2 2/2] r8152: reset device when tx timeout
+Date: Tue, 28 Jul 2015 12:31:09 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3C538@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-159-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-161-Taiwan-albertk@realtek.com>
+ <1438085645.1787.4.camel@suse.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438085645.1787.4.camel@suse.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Follow e8e85cc5eb57 ("packet: remove handling of tx_ring") and remove
-the tx_ring parameter from prb_shutdown_retire_blk_timer() as it is only
-called with tx_ring = 0.
-
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- net/packet/af_packet.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index c9e8741..2af8590 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -518,13 +518,11 @@ static void prb_del_retire_blk_timer(struct tpacket_kbdq_core *pkc)
- }
- 
- static void prb_shutdown_retire_blk_timer(struct packet_sock *po,
--		int tx_ring,
- 		struct sk_buff_head *rb_queue)
- {
- 	struct tpacket_kbdq_core *pkc;
- 
--	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
--			GET_PBDQC_FROM_RB(&po->rx_ring);
-+	pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
- 
- 	spin_lock_bh(&rb_queue->lock);
- 	pkc->delete_blk_timer = 1;
-@@ -4044,7 +4042,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 	if (closing && (po->tp_version > TPACKET_V2)) {
- 		/* Because we don't support block-based V3 on tx-ring */
- 		if (!tx_ring)
--			prb_shutdown_retire_blk_timer(po, tx_ring, rb_queue);
-+			prb_shutdown_retire_blk_timer(po, rb_queue);
- 	}
- 	release_sock(sk);
- 
--- 
-2.2.2
+T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXks
+IEp1bHkgMjgsIDIwMTUgODoxNCBQTQ0KWy4uLl0NCj4gPiAgc3RhdGljIHZvaWQgcnRsODE1Ml90
+eF90aW1lb3V0KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpICB7DQo+ID4gICAgICAgICBzdHJ1
+Y3QgcjgxNTIgKnRwID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiAtICAgICAgIGludCBpOw0K
+PiA+DQo+ID4gICAgICAgICBuZXRpZl93YXJuKHRwLCB0eF9lcnIsIG5ldGRldiwgIlR4IHRpbWVv
+dXRcbiIpOw0KPiA+IC0gICAgICAgZm9yIChpID0gMDsgaSA8IFJUTDgxNTJfTUFYX1RYOyBpKysp
+DQo+ID4gLSAgICAgICAgICAgICAgIHVzYl91bmxpbmtfdXJiKHRwLT50eF9pbmZvW2ldLnVyYik7
+DQo+ID4gKw0KPiA+ICsgICAgICAgdXNiX3F1ZXVlX3Jlc2V0X2RldmljZSh0cC0+aW50Zik7DQo+
+ID4gKyAgICAgICBjYW5jZWxfZGVsYXllZF93b3JrKCZ0cC0+c2NoZWR1bGUpOw0KPiANCj4gU29y
+cnkgdG8gYm90aGVyIHlvdSBhZ2FpbiwgYnV0IHRoaXMgbG9va3Mgd3JvbmcuDQo+IFlvdSB3YW50
+IHRvIGNhbmNlbCBmaXJzdC4gVGhlcmUgaXMgbm8gcG9pbnQgaW4gcnVubmluZyBhbnkgd29yayBi
+ZWZvcmUgdGhlIHJlc2V0IGlzDQo+IGRvbmUuIEl0IHdpbGwgdW5kbyBhbnkgcHJvZ3Jlc3MgYW55
+d2F5Lg0KDQpFeGN1c2UgbWUuIERvIHlvdSBtZWFuIEkgZG9uJ3QgbmVlZCBjYW5jZWwgdGhlIG90
+aGVyIHdvcmsgYmVjYXVzZSBpdCB3b3VsZG4ndCBiZQ0KcnVuIGJlZm9yZSB0aGUgcmVzZXQgaXMg
+ZmluaXNoZWQ/DQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoNCg==
