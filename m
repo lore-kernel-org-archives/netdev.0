@@ -1,48 +1,57 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: [PATCH net-next 0/4] dwc_eth_qos: Add support for Synopsys DWC Ethernet QoS
-Date: Tue, 28 Jul 2015 12:01:46 +0200
-Message-ID: <1438077710-19175-1-git-send-email-larper@axis.com>
-Cc: andire@axis.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, Lars Persson <larper@axis.com>
-To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Drivers: isdn: Drop unnecessary continue
+Date: Tue, 28 Jul 2015 12:18:09 +0200
+Message-ID: <1438078689.20182.42.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438072868-5408-1-git-send-email-shraddha.6596@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	Julia Lawall <julia.lawall@lip6.fr>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
+To: Shraddha Barke <shraddha.6596@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438072868-5408-1-git-send-email-shraddha.6596@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a driver supporting version 4.10a of the Synopsys DWC Ethernet QoS
-gigabit ethernet controller. The IP has changed significantly compared to the
-dwmac1000 so a separate driver is justified.
+On Tue, 2015-07-28 at 14:11 +0530, Shraddha Barke wrote:
+> The semantic patch used to make this change is :
+> 
+> @@
+> @@
+> for (...;...;...) {
+>   ...
+>   if (...) {
+>     ...
+> -   continue;
+>   }
+> }
+> 
+> Signed-off-by: Shraddha Barke <shraddha.6596@gmail.com>
+> ---
+>  drivers/isdn/hardware/mISDN/hfcsusb.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
+> index 114f3bc..91beb83 100644
+> --- a/drivers/isdn/hardware/mISDN/hfcsusb.c
+> +++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
+> @@ -1921,10 +1921,9 @@ hfcsusb_probe(struct usb_interface *intf, const struct usb_device_id *id)
+>  		if ((le16_to_cpu(dev->descriptor.idVendor)
+>  		     == hfcsusb_idtab[i].idVendor) &&
+>  		    (le16_to_cpu(dev->descriptor.idProduct)
+> -		     == hfcsusb_idtab[i].idProduct)) {
+> +		     == hfcsusb_idtab[i].idProduct))
+>  			vend_idx = i;
+> -			continue;
+> -		}
+> +
+>  	}
+>  
+>  	printk(KERN_DEBUG
 
-The IP is highly configurable at synthesis time. This driver has been
-developed for a subset of the total available feature set. Currently
-it supports:
-* TSO
-* Checksum offload for RX and TX.
-* Energy efficient ethernet.
-* GMII phy interface.
-* The statistics module.
-* Single RX and TX queue.
 
-Lars Persson (4):
-  dwc_eth_qos: Add Synopsys DWC Ethernet QoS bindings
-  dwc_eth_qos: Add support for Synopsys DWC Ethernet QoS
-  dwc_eth_qos: Add the synopsys folder to the build system.
-  dwc_eth_qos: Add maintainer info
+Well, it seems author intent was to use a break instead of a continue.
 
- .../bindings/net/snps,dwc-qos-ethernet.txt         |   75 +
- MAINTAINERS                                        |    7 +
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/synopsys/Kconfig              |   27 +
- drivers/net/ethernet/synopsys/Makefile             |    5 +
- drivers/net/ethernet/synopsys/dwc_eth_qos.c        | 3019 ++++++++++++++++++++
- 7 files changed, 3135 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
- create mode 100644 drivers/net/ethernet/synopsys/Kconfig
- create mode 100644 drivers/net/ethernet/synopsys/Makefile
- create mode 100644 drivers/net/ethernet/synopsys/dwc_eth_qos.c
-
--- 
-2.1.4
+Not a big deal...
