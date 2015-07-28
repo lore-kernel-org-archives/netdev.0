@@ -1,38 +1,83 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH net 1/2] r8152: add pre_reset and post_reset
-Date: Tue, 28 Jul 2015 09:52:15 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3C3EC@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-157-Taiwan-albertk@realtek.com>
- <1438073562.11934.2.camel@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1438073562.11934.2.camel-IBi9RG/b67k@public.gmane.org>
-Content-Language: zh-TW
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net] bridge: Fix network header pointer for vlan
+	tagged packets
+Date: Tue, 28 Jul 2015 19:05:37 +0900
+Message-ID: <1438077937-16134-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXks
-IEp1bHkgMjgsIDIwMTUgNDo1MyBQTQ0KWy4uLl0NCj4gPiArCQlyZXR1cm4gMDsNCj4gPiArDQo+
-ID4gKwluZXRkZXYgPSB0cC0+bmV0ZGV2Ow0KPiA+ICsJaWYgKCFuZXRpZl9ydW5uaW5nKG5ldGRl
-dikpDQo+ID4gKwkJcmV0dXJuIDA7DQo+ID4gKw0KPiA+ICsJcmV0ID0gdXNiX2F1dG9wbV9nZXRf
-aW50ZXJmYWNlKGludGYpOw0KPiA+ICsJaWYgKHJldCA8IDApDQo+ID4gKwkJcmV0dXJuIHJldDsN
-Cj4gDQo+IFdoYXQgc2Vuc2UgZG9lcyB0aGlzIG1ha2U/DQo+IA0KWy4uLl0NCj4gPiArCQlyZXR1
-cm4gMDsNCj4gPiArDQo+ID4gKwluZXRkZXYgPSB0cC0+bmV0ZGV2Ow0KPiA+ICsJaWYgKCFuZXRp
-Zl9ydW5uaW5nKG5ldGRldikpDQo+ID4gKwkJcmV0dXJuIDA7DQo+ID4gKw0KPiA+ICsJcmV0ID0g
-dXNiX2F1dG9wbV9nZXRfaW50ZXJmYWNlKGludGYpOw0KPiANCj4gVGhlIGRldmljZSB3aWxsIGJl
-IGF3YWtlLg0KDQpJIGRvbid0IHN1cmUgaWYgdGhlIGRldmljZSB3b3VsZCBiZSBpbiBydW50aW1l
-c3VzcGVuZCwgc28gSSB3YWtlIGl0IHVwIGJ5IG15c2VsZi4NCkkgdGhpbmsgeW91IG1lYW4gSSBk
-b24ndCBoYXZlIHRvIGRvIHRoaXMuIEkgd291bGQgcmVtb3ZlIHRoZW0gYW5kIHJlc2VuZCB0aGUN
-CnBhdGNoLiBUaGFua3MuDQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There are several devices that can receive vlan tagged packets with
+CHECKSUM_PARTIAL like tap, possibly veth and xennet.
+When (multiple) vlan tagged packets with CHECKSUM_PARTIAL are forwarded
+by bridge to a device with the IP_CSUM feature, they end up with checksum
+error because before entering bridge, the network header is set to
+ETH_HLEN (not including vlan header length) in __netif_receive_skb_core(),
+get_rps_cpu(), or drivers' rx functions, and nobody fixes the pointer later.
+
+Since the network header is exepected to be ETH_HLEN in flow-dissection
+and hash-calculation in RPS in rx path, and since the header pointer fix
+is needed only in tx path, set the appropriate network header on forwarding
+packets.
+
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_forward.c | 29 ++++++++++++++++++++++-------
+ 1 file changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 0ff6e1b..fa7bfce 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -37,15 +37,30 @@ static inline int should_deliver(const struct net_bridge_port *p,
+ 
+ int br_dev_queue_push_xmit(struct sock *sk, struct sk_buff *skb)
+ {
+-	if (!is_skb_forwardable(skb->dev, skb)) {
+-		kfree_skb(skb);
+-	} else {
+-		skb_push(skb, ETH_HLEN);
+-		br_drop_fake_rtable(skb);
+-		skb_sender_cpu_clear(skb);
+-		dev_queue_xmit(skb);
++	if (!is_skb_forwardable(skb->dev, skb))
++		goto drop;
++
++	skb_push(skb, ETH_HLEN);
++	br_drop_fake_rtable(skb);
++	skb_sender_cpu_clear(skb);
++
++	if (skb->ip_summed == CHECKSUM_PARTIAL &&
++	    (skb->protocol == htons(ETH_P_8021Q) ||
++	     skb->protocol == htons(ETH_P_8021AD))) {
++		int depth;
++
++		if (!__vlan_get_protocol(skb, skb->protocol, &depth))
++			goto drop;
++
++		skb_set_network_header(skb, depth);
+ 	}
+ 
++	dev_queue_xmit(skb);
++
++	return 0;
++
++drop:
++	kfree_skb(skb);
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(br_dev_queue_push_xmit);
+-- 
+1.8.1.2
