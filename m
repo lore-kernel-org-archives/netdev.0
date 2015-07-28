@@ -1,81 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
-Date: Tue, 28 Jul 2015 14:19:29 +0200
-Message-ID: <1438085969.25794.14.camel@stressinduktion.org>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
-	 <1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>
-	 <87wpxlxrvg.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	ddutt@cumulusnetworks.com, nicolas.dichtel@6wind.com,
-	stephen@networkplumber.org, hadi@mojatatu.com, davem@davemloft.net,
-	svaidya@brocade.com, mingo@kernel.org, luto@amacapital.net
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Ahern <dsa@cumulusnetworks.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH net-next] packet: remove handling of tx_ring from prb_shutdown_retire_blk_timer()
+Date: Tue, 28 Jul 2015 14:21:26 +0200
+Message-ID: <1438086086-10014-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:43619 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753204AbbG1MTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 08:19:34 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id DE0952089C
-	for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 08:19:33 -0400 (EDT)
-In-Reply-To: <87wpxlxrvg.fsf@x220.int.ebiederm.org>
+Received: from mail.zhinst.com ([212.126.164.98]:54032 "EHLO mail.zhinst.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932173AbbG1M0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jul 2015 08:26:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+Follow e8e85cc5eb57 ("packet: remove handling of tx_ring") and remove
+the tx_ring parameter from prb_shutdown_retire_blk_timer() as it is only
+called with tx_ring = 0.
 
-On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
-> David Ahern <dsa@cumulusnetworks.com> writes:
-> 
-> > Allow tasks to have a default device index for binding sockets. If 
-> > set
-> > the value is passed to all AF_INET/AF_INET6 sockets when they are
-> > created.
-> > 
-> > The task setting is passed parent to child on fork, but can be set 
-> > or
-> > changed after task creation using prctl (if task has CAP_NET_ADMIN
-> > permissions). The setting for a socket can be retrieved using 
-> > prctl().
-> > This option allows an administrator to restrict a task to only 
-> > send/receive
-> > packets through the specified device. In the case of VRF devices 
-> > this
-> > option restricts tasks to a specific VRF.
-> > 
-> > Correlation of the device index to a specific VRF, ie.,
-> >    ifindex --> VRF device --> VRF id
-> > is left to userspace.
-> 
-> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> 
-> Because it is broken by design.  Your routing device is only safe for
-> programs that know it's limitations it is not appropriate for general
-> applications.
-> 
-> Since you don't even seen to know it's limitations I think this is a
-> bad path to walk down.
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ net/packet/af_packet.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-Can you please elaborate about the broken by design?
-
-Different operating systems are already using this approach with good
-success. I read your other mail regarding isolation of different VRFs
-and I agree that all code which persists state depending solely on the
-IP address is affected by this and this must be dealt with and fixed
-(actually, there aren't too many).
-
-But I wouldn't call that broken by design. This stuff will get fixed
-like e.g. cross-talk between fragmentation queues, icmp rate limiters
-etc, which could already happen in the past.
-
-What is your opinion on the fundamental approach only from a user
-perspective? Do you think that is broken, too?
-
-Thanks,
-Hannes
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c9e8741..2af8590 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -518,13 +518,11 @@ static void prb_del_retire_blk_timer(struct tpacket_kbdq_core *pkc)
+ }
+ 
+ static void prb_shutdown_retire_blk_timer(struct packet_sock *po,
+-		int tx_ring,
+ 		struct sk_buff_head *rb_queue)
+ {
+ 	struct tpacket_kbdq_core *pkc;
+ 
+-	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
+-			GET_PBDQC_FROM_RB(&po->rx_ring);
++	pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
+ 
+ 	spin_lock_bh(&rb_queue->lock);
+ 	pkc->delete_blk_timer = 1;
+@@ -4044,7 +4042,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+ 	if (closing && (po->tp_version > TPACKET_V2)) {
+ 		/* Because we don't support block-based V3 on tx-ring */
+ 		if (!tx_ring)
+-			prb_shutdown_retire_blk_timer(po, tx_ring, rb_queue);
++			prb_shutdown_retire_blk_timer(po, rb_queue);
+ 	}
+ 	release_sock(sk);
+ 
+-- 
+2.2.2
