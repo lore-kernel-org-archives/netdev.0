@@ -1,60 +1,94 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH 1/1] net/ipv4: Enable flow-based ECMP
-Date: Tue, 28 Jul 2015 12:51:57 -0700
-Message-ID: <20150728125157.10917b0b@urahara>
-References: <55B6E8AC.4060600@alliedtelesis.co.nz>
+From: WingMan Kwok <w-kwok2@ti.com>
+Subject: [net-next PATCH] net: netcp: Fixes efuse mac addr swap on k2e and k2l
+Date: Tue, 28 Jul 2015 16:01:11 -0400
+Message-ID: <1438113671-6098-1-git-send-email-w-kwok2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jmorris@namei.org" <jmorris@namei.org>
-To: Richard Laing <Richard.Laing@alliedtelesis.co.nz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33677 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753146AbbG1Tvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 15:51:48 -0400
-Received: by pdbnt7 with SMTP id nt7so75700859pdb.0
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 12:51:47 -0700 (PDT)
-In-Reply-To: <55B6E8AC.4060600@alliedtelesis.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: WingMan Kwok <w-kwok2@ti.com>
+To: <davem@davemloft.net>, <m-karicheri2@ti.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Jul 2015 02:27:57 +0000
-Richard Laing <Richard.Laing@alliedtelesis.co.nz> wrote:
+On some of the K2E and K2L platforms, the two DWORDs in
+efuse occupied by the pre-programmed mac address for
+slave port 1 are swapped.  To workaround this issue,
+this patch adds a new define NETCP_EFUSE_ADDR_SWAP (2)
+which signifies the occurrence of such swapping so that
+the driver can take proper action.  The flag can be
+enabled in the corresponding netcp interface dts binding
+as efuse-mac = <2>  under the corresponding netcp
+interface node.
 
-> From: Richard Laing <richard.laing@alliedtelesis.co.nz>
-> 
-> Enable flow-based ECMP.
-> 
-> Currently if equal-cost multipath is enabled the kernel chooses between
-> equal cost paths for each matching packet, essentially packets are
-> round-robined between the routes. This means that packets from a single
-> flow can traverse different routes. If one of the routes experiences
-> congestion this can result in delayed or out of order packets arriving
-> at the destination.
-> 
-> This patch allows packets to be routed based on their
-> flow - packets in the same flow will always use the same route. This
-> prevents out of order packets. There are other issues with round-robin
-> based ECMP routing related to variable path MTU handling and debugging.
-> See RFC2991 for more details on the problems associated with packet
-> based ECMP routing.
-> 
-> This patch relies on the skb hash value to select between routes. The
-> selection uses a hash-threshold algorithm (see RFC2992).
-> 
-> Signed-off-by: Richard Laing <richard.laing@alliedtelesis.co.nz>
+Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+---
+ .../devicetree/bindings/net/keystone-netcp.txt     |    6 +++++-
+ drivers/net/ethernet/ti/netcp_core.c               |   15 +++++++++++++--
+ 2 files changed, 18 insertions(+), 3 deletions(-)
 
-ECMP needs some work, glad to see someone has started again.
-A little bit of history, the original ECMP algorithm selection code was dropped years ago
-because it was buggy. The API was good, but the implemenation had problems.
-
-Somewhere in my dustbin, I have some patches from internal stuff that allows
-selecting the algorithm at runtime.
-
-Your implementation makes it a compile time choice. Although this is good
-for testing, it really needs to be a sysctl or route attribute to be
-useful in a distro environment.
-
-As others said, your mailer is mangling the lines by wrapping.
+diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
+index d0e6fa3..b30ab6b 100644
+--- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
++++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
+@@ -130,7 +130,11 @@ Required properties:
+ 
+ Optional properties:
+ - efuse-mac:	If this is 1, then the MAC address for the interface is
+-		obtained from the device efuse mac address register
++		obtained from the device efuse mac address register.
++		If this is 2, the two DWORDs occupied by the MAC address
++		are swapped.  The netcp driver will swap the two DWORDs
++		back to the proper order when this property is set to 2
++		when it obtains the mac address from efuse.
+ - local-mac-address:	the driver is designed to use the of_get_mac_address api
+ 			only if efuse-mac is 0. When efuse-mac is 0, the MAC
+ 			address is obtained from local-mac-address. If this
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 3ca87f2..6f2e151 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -51,6 +51,8 @@
+ 		    NETIF_MSG_PKTDATA	| NETIF_MSG_TX_QUEUED	|	\
+ 		    NETIF_MSG_RX_STATUS)
+ 
++#define NETCP_EFUSE_ADDR_SWAP	2
++
+ #define knav_queue_get_id(q)	knav_queue_device_control(q, \
+ 				KNAV_QUEUE_GET_ID, (unsigned long)NULL)
+ 
+@@ -172,13 +174,22 @@ static void set_words(u32 *words, int num_words, u32 *desc)
+ }
+ 
+ /* Read the e-fuse value as 32 bit values to be endian independent */
+-static int emac_arch_get_mac_addr(char *x, void __iomem *efuse_mac)
++static int emac_arch_get_mac_addr(char *x, void __iomem *efuse_mac, u32 swap)
+ {
+ 	unsigned int addr0, addr1;
+ 
+ 	addr1 = readl(efuse_mac + 4);
+ 	addr0 = readl(efuse_mac);
+ 
++	switch (swap) {
++	case NETCP_EFUSE_ADDR_SWAP:
++		addr0 = addr1;
++		addr1 = readl(efuse_mac);
++		break;
++	default:
++		break;
++	}
++
+ 	x[0] = (addr1 & 0x0000ff00) >> 8;
+ 	x[1] = addr1 & 0x000000ff;
+ 	x[2] = (addr0 & 0xff000000) >> 24;
+@@ -1902,7 +1913,7 @@ static int netcp_create_interface(struct netcp_device *netcp_device,
+ 			goto quit;
+ 		}
+ 
+-		emac_arch_get_mac_addr(efuse_mac_addr, efuse);
++		emac_arch_get_mac_addr(efuse_mac_addr, efuse, efuse_mac);
+ 		if (is_valid_ether_addr(efuse_mac_addr))
+ 			ether_addr_copy(ndev->dev_addr, efuse_mac_addr);
+ 		else
+-- 
+1.7.9.5
