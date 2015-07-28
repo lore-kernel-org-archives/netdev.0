@@ -1,73 +1,61 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH V4 7/7] Drivers: hv: vmbus: disable local interrupt when hvsock's callback is running
-Date: Tue, 28 Jul 2015 05:35:30 -0700
-Message-ID: <1438086930-19483-1-git-send-email-decui@microsoft.com>
-Cc: pebolle@tiscali.nl, stefanha@redhat.com, vkuznets@redhat.com,
-	dan.carpenter@oracle.com
-To: gregkh@linuxfoundation.org, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org, olaf@aepfle.de,
-	apw@canonical.com, jasowang@redhat.com, kys@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 net-next] bridge: mdb: add support for router
+ add/del notifications monitoring
+Date: Tue, 28 Jul 2015 13:15:14 +0200
+Message-ID: <55B76442.9040005@cumulusnetworks.com>
+References: <1437997445-29541-1-git-send-email-razor@blackwall.org>
+ <20150727144018.1ffb2119@urahara>
+ <13F15030-8AF3-4018-94B0-F2FF43A4E173@blackwall.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Nikolay Aleksandrov <razor@blackwall.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:37282 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752465AbbG1LPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 07:15:17 -0400
+Received: by wibud3 with SMTP id ud3so154330940wib.0
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 04:15:16 -0700 (PDT)
+In-Reply-To: <13F15030-8AF3-4018-94B0-F2FF43A4E173@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In the SMP guest case, when the per-channel callback hvsock_events() is
-running on virtual CPU A, if the guest tries to close the connection on
-virtual CPU B: we invoke vmbus_close() -> vmbus_close_internal(),
-then we can have trouble: on B, vmbus_close_internal() will send IPI
-reset_channel_cb() to A, trying to set channel->onchannel_callbackto NULL;
-on A, if the IPI handler happens between
-"if (channel->onchannel_callback != NULL)" and invoking
-channel->onchannel_callback, we'll invoke a function pointer of NULL.
+On 07/27/2015 11:49 PM, Nikolay Aleksandrov wrote:
+> 
+>> On 27 Jul 2015, at 23:40, Stephen Hemminger <stephen@networkplumber.org> wrote:
+>>
+>> On Mon, 27 Jul 2015 13:44:05 +0200
+>> Nikolay Aleksandrov <razor@blackwall.org> wrote:
+>>
+>>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>>
+>>> This patch adds support for ADDMDB/DELMDB notifications about router ports
+>>> which have been added or deleted/expired respectively.
+>>>
+>>> Example output:
+>>> $ bridge -s monitor mdb
+>>> Deleted router port dev eth3 master br0
+>>> router port dev eth3 master br0
+>>>
+>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>
+>> Looks useful, applied.
+>>
+>> Does usage or manual page need to be updated as well?
+>>
+>>
+> 
+> Good question :-) I'll look into it.
+> Thanks!
+> 
 
-This is why the patch is necessary.
+I've looked into it and we don't need any documentation/man changes
+the mdb monitoring command is the same and the description doesn't specify
+what exactly is being returned, so we're good.
 
-Signed-off-by: Dexuan Cui <decui@microsoft.com>
----
- drivers/hv/connection.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/hv/connection.c b/drivers/hv/connection.c
-index 4fc2e88..4766fd8 100644
---- a/drivers/hv/connection.c
-+++ b/drivers/hv/connection.c
-@@ -319,6 +319,9 @@ static void process_chn_event(u32 relid)
- 	void *arg;
- 	bool read_state;
- 	u32 bytes_to_read;
-+	bool is_hvsock = false;
-+
-+	local_irq_disable();
- 
- 	/*
- 	 * Find the channel based on this relid and invokes the
-@@ -327,7 +330,11 @@ static void process_chn_event(u32 relid)
- 	channel = pcpu_relid2channel(relid);
- 
- 	if (!channel)
--		return;
-+		goto out;
-+
-+	is_hvsock = is_hvsock_channel(channel);
-+	if (!is_hvsock)
-+		local_irq_enable();
- 
- 	/*
- 	 * A channel once created is persistent even when there
-@@ -363,6 +370,12 @@ static void process_chn_event(u32 relid)
- 				bytes_to_read = 0;
- 		} while (read_state && (bytes_to_read != 0));
- 	}
-+
-+	/* local_irq_enable() is alredy invoked above */
-+	if (!is_hvsock)
-+		return;
-+out:
-+	local_irq_enable();
- }
- 
- /*
--- 
-2.1.0
+Cheers,
+ Nik
