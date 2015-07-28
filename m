@@ -1,44 +1,45 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 net-next] bridge: mdb: add support for vlans
-Date: Tue, 28 Jul 2015 13:17:35 +0200
-Message-ID: <55B764CF.2070509@cumulusnetworks.com>
-References: <1436975120-41319-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] packet: tpacket_snd(): fix signed/unsigned comparison
+Date: Tue, 28 Jul 2015 13:38:04 +0200
+Message-ID: <1438083484.20182.43.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438081021-1321-1-git-send-email-al.drozdov@gmail.com>
+	 <55B76256.2040105@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:33288 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbbG1LRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 07:17:38 -0400
-Received: by wicmv11 with SMTP id mv11so174893523wic.0
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 04:17:36 -0700 (PDT)
-In-Reply-To: <1436975120-41319-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexander Drozdov <al.drozdov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Eyal Birger <eyal.birger@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55B76256.2040105@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/15/2015 05:45 PM, Nikolay Aleksandrov wrote:
-> This patch allows the user to specify the vlan of the mdb group being
-> added or deleted and adds support for displaying the vlan when
-> dumping mdb information or monitoring it. It also updates the man page
-> to reflect the new "vid" argument for mdb.
+On Tue, 2015-07-28 at 13:07 +0200, Daniel Borkmann wrote:
+> On 07/28/2015 12:57 PM, Alexander Drozdov wrote:
+> > tpacket_fill_skb() can return a negative value (-errno) which
+> > is stored in tp_len variable. In that case the following
+> > condition will be (but shouldn't be) true:
+> >
+> > tp_len > dev->mtu + dev->hard_header_len
+> >
+> > as dev->mtu and dev->hard_header_len are both unsigned.
+> >
+> > That may lead to just returning an incorrect EMSGSIZE errno
+> > to the user.
+> >
+> > Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> note: the cast in print_mdb_entry() was necessary to shut the compiler
+> Looks good to me, thanks!
 > 
->  bridge/mdb.c              | 31 +++++++++++++++++++------------
->  include/linux/if_bridge.h |  1 +
->  man/man8/bridge.8         |  8 +++++++-
->  3 files changed, 27 insertions(+), 13 deletions(-)
-> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> --
 
-Hi Stephen,
-Just wondering what's the state of this patch because I'd like to submit some
-improvements in the same area and I'm wondering if I should do them on top
-of this patch or if I need to change something in it ?
-
-Thanks,
- Nik
+Fixes: 52f1454f629fa ("packet: allow to transmit +4 byte in TX_RING slot for VLAN case")
