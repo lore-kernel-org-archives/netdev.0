@@ -1,50 +1,54 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
-Date: Tue, 28 Jul 2015 15:37:37 -0700
-Message-ID: <55B80431.4070507@cumulusnetworks.com>
-References: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com> <1438088676.25794.19.camel@stressinduktion.org> <55B7D7FA.8070301@cumulusnetworks.com> <1438122163.2621886.335716241.03B1A616@webmail.messagingengine.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] bridge: mdb: fix delmdb state in the notification
+Date: Tue, 28 Jul 2015 15:38:21 -0700
+Message-ID: <CAHA+R7NJod_=R=Hh2Mz7nMiTxCMv=E4TMLsn2uOrS+f9gp+uHQ@mail.gmail.com>
+References: <1438081844-18801-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <amwang@redhat.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:32870 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058AbbG1Whi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:37:38 -0400
-Received: by pdbnt7 with SMTP id nt7so77597362pdb.0
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:37:38 -0700 (PDT)
-In-Reply-To: <1438122163.2621886.335716241.03B1A616@webmail.messagingengine.com>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:33657 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbbG1WiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 18:38:21 -0400
+Received: by ykba194 with SMTP id a194so5692101ykb.0
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 15:38:21 -0700 (PDT)
+In-Reply-To: <1438081844-18801-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/28/15, 3:22 PM, Hannes Frederic Sowa wrote:
-> Hi roopa,
+On Tue, Jul 28, 2015 at 4:10 AM, Nikolay Aleksandrov
+<razor@blackwall.org> wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 >
-> On Tue, Jul 28, 2015, at 21:28, roopa wrote:
->>    ipv6_stub_impl.ipv6_dst_lookup seems to require sk today.
->> But it only needs it to get 'net' in the beginning and sk is optional
->> afterwards.
->> I will submit a patch to add 'net' as an arg  to ipv6_dst_lookup.
->> Users of ipv6_dst_lookup are few and that seems like an easy change and
->> helps my patch.
->> If you or others think otherwise, pls let me know.
-> No need to extend this function at any cost. Simply add your own
-> function pointer to the struct if needed.
+> Since mdb states were introduced when deleting an entry the state was
+> left as it was set in the delete request from the user which leads to
+> the following output when doing a monitor (for example):
+> $ bridge mdb add dev br0 port eth3 grp 239.0.0.1 permanent
+> (monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+> $ bridge mdb del dev br0 port eth3 grp 239.0.0.1 permanent
+> (monitor) dev br0 port eth3 grp 239.0.0.1 temp
+> ^^^
+> Note the "temp" state in the delete notification which is wrong since
+> the entry was permanent, the state in a delete is always reported as
+> "temp" regardless of the real state of the entry.
+>
 
-saw your this email after I hit send on the series. Since the new 
-function pointer will be exactly similar to ipv6_dst_lookup
-with just an additional argument, a new function pointer does not seem 
-necessary. But i can certainly change it
-to a new function pointer and resend if that is more acceptable.
->
-> Probably you have to move the ipv6_stub = &ipv6_stub_impl;
-> initialization in inet6_init down so you don't expose the function
-> pointer too early and thus it races with initialization (and error
-> handling seems to be incorrect in this function, too).
->
-ok, will look.
+Hmm?
 
-thanks,
-Roopa
+I think it is iproute2 who forgets to set entry->state when deleting it?
+
+                } else if (strcmp(*argv, "permanent") == 0) {
+                        if (cmd == RTM_NEWMDB)
+                                entry.state |= MDB_PERMANENT;
+
+Kernel simply returns what you pass to it.
+
+Please fix iproute2.
