@@ -1,101 +1,86 @@
 From: Mike Looijmans <mike.looijmans@topic.nl>
-Subject: [PATCH v2] rsi: Fix failure to load firmware after memory leak fix and fix the leak
-Date: Tue, 28 Jul 2015 07:51:01 +0200
-Message-ID: <1438062661-3173-1-git-send-email-mike.looijmans@topic.nl>
-References: <1437975813-3285-1-git-send-email-mike.looijmans@topic.nl>
-Cc: kvalo@codeaurora.org, khoroshilov@ispras.ru,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mike Looijmans <mike.looijmans@topic.nl>,
-	stable@vger.kernel.org
-To: linux-wireless@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1437975813-3285-1-git-send-email-mike.looijmans@topic.nl>
-Sender: stable-owner@vger.kernel.org
+Subject: Re: [PATCH] rsi: Fix failure to load firmware after memory leak fix
+ and fix the leak
+Date: Tue, 28 Jul 2015 07:53:21 +0200
+Message-ID: <55B718D1.2030803@topic.nl>
+References: <1437975813-3285-1-git-send-email-mike.looijmans@topic.nl> <87wpxlao8l.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-wireless@vger.kernel.org>, <khoroshilov@ispras.ru>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<stable@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87wpxlao8l.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes commit eae79b4f3e82 ("rsi: fix memory leak in rsi_load_ta_instructions()")
-which stopped the driver from functioning.
+=EF=BB=BFOn 27-07-15 12:28, Kalle Valo wrote:
+> Mike Looijmans <mike.looijmans@topic.nl> writes:
+>
+>> Fixes commit eae79b4f3e82ca63a53478a161b190a0d38fe526 ("rsi: fix mem=
+ory leak
+>> in rsi_load_ta_instructions()") which stopped the driver from functi=
+oning.
+>
+> You can abbreviate the commit id:
+>
+> Fixes commit eae79b4f3e82 ("rsi: fix memory leak in
+> rsi_load_ta_instructions()") which stopped the driver from functionin=
+g.
+>
+>> Firmware data has been allocated using vmalloc(), resulting in memor=
+y
+>> that cannot be used for DMA. Hence the firmware was first copied to =
+a
+>> buffer allocated with kmalloc() in the original code. This patch rev=
+erts
+>> the commit and only calls "kfree()" to release the buffer after send=
+ing
+>> the data. This fixes the memory leak without breaking the driver.
+>>
+>> Add a comment to the kmemdup() calls to explain why this is done.
+>>
+>> Tested on a Topic Miami-Florida board which contains the rsi SDIO ch=
+ip.
+>>
+>> Also added the same kfree() call to the USB glue driver. This was no=
+t
+>> tested on actual hardware though, as I only have the SDIO version.
+>>
+>> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
+>
+> Add this before Signed-off-by line:
+>
+> Fixes: eae79b4f3e82 ("rsi: fix memory leak in rsi_load_ta_instruction=
+s()")
+>
+>> Cc: stable@vger.kernel.org
+>
+> Also no need to send email to stable@vger.kernel.org list, this line =
+is
+> enough and the stable team will pick the commit automatically.
 
-Firmware data has been allocated using vmalloc(), resulting in memory
-that cannot be used for DMA. Hence the firmware was first copied to a
-buffer allocated with kmalloc() in the original code. This patch reverts
-the commit and only calls "kfree()" to release the buffer after sending
-the data. This fixes the memory leak without breaking the driver.
+I wondered why that happened, and just noticed that git send-email=20
+automatically added this to the recipients. So it happened for v2 as we=
+ll,=20
+sorry for that.
 
-Add a comment to the kmemdup() calls to explain why this is done, and abort
-if memory allocation fails.
 
-Tested on a Topic Miami-Florida board which contains the rsi SDIO chip.
 
-Also added the same kfree() call to the USB glue driver. This was not
-tested on actual hardware though, as I only have the SDIO version.
+Kind regards,
 
-Fixes: eae79b4f3e82 ("rsi: fix memory leak in rsi_load_ta_instructions()")
-Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
-Cc: stable@vger.kernel.org
----
-v2: Add "Fixes:" header and abbreviate git hashes.
-    Return -ENOMEM if kmemdup() fails.
+Mike Looijmans
+System Expert
 
- drivers/net/wireless/rsi/rsi_91x_sdio_ops.c | 8 +++++++-
- drivers/net/wireless/rsi/rsi_91x_usb_ops.c  | 4 ++++
- 2 files changed, 11 insertions(+), 1 deletion(-)
+TOPIC Embedded Products
+Eindhovenseweg 32-C, NL-5683 KH Best
+Postbus 440, NL-5680 AK Best
+Telefoon: +31 (0) 499 33 69 79
+Telefax: +31 (0) 499 33 69 70
+E-mail: mike.looijmans@topicproducts.com
+Website: www.topicproducts.com
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-index b6cc9ff..1c6788a 100644
---- a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
-@@ -172,6 +172,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
- 	u32 len;
- 	u32 num_blocks;
-+	const u8 *fw;
- 	const struct firmware *fw_entry = NULL;
- 	u32 block_size = dev->tx_blk_size;
- 	int status = 0;
-@@ -200,6 +201,10 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		return status;
- 	}
- 
-+	/* Copy firmware into DMA-accessible memory */
-+	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
-+	if (!fw)
-+		return -ENOMEM;
- 	len = fw_entry->size;
- 
- 	if (len % 4)
-@@ -210,7 +215,8 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 	rsi_dbg(INIT_ZONE, "%s: Instruction size:%d\n", __func__, len);
- 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
- 
--	status = rsi_copy_to_card(common, fw_entry->data, len, num_blocks);
-+	status = rsi_copy_to_card(common, fw, len, num_blocks);
-+	kfree(fw);
- 	release_firmware(fw_entry);
- 	return status;
- }
-diff --git a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
-index 1106ce7..30c2cf7 100644
---- a/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_usb_ops.c
-@@ -146,7 +146,10 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 		return status;
- 	}
- 
-+	/* Copy firmware into DMA-accessible memory */
- 	fw = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
-+	if (!fw)
-+		return -ENOMEM;
- 	len = fw_entry->size;
- 
- 	if (len % 4)
-@@ -158,6 +161,7 @@ static int rsi_load_ta_instructions(struct rsi_common *common)
- 	rsi_dbg(INIT_ZONE, "%s: num blocks: %d\n", __func__, num_blocks);
- 
- 	status = rsi_copy_to_card(common, fw, len, num_blocks);
-+	kfree(fw);
- 	release_firmware(fw_entry);
- 	return status;
- }
--- 
-1.9.1
+Please consider the environment before printing this e-mail
