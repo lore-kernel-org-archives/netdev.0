@@ -1,57 +1,106 @@
-From: Richard Laing <Richard.Laing@alliedtelesis.co.nz>
-Subject: Re: [RFC PATCH 1/1] net/ipv4: Enable flow-based ECMP
-Date: Tue, 28 Jul 2015 21:22:07 +0000
-Message-ID: <55B7F27E.6040706@alliedtelesis.co.nz>
-References: <55B6E8AC.4060600@alliedtelesis.co.nz>
-	<CALx6S361R1UeEECQn9vFDCS-wi_StoV6mekqgSK-0t-0NPvWEA@mail.gmail.com>
- <CALx6S36e1rr=4EbD+-FgodWam6KR5034X3jFsYYDTaLKbQF-PA@mail.gmail.com>
+From: Radha Mohan <mohun106@gmail.com>
+Subject: Re: [PATCH 1/3] net: mdio-octeon: Modify driver to work on both
+ ThunderX and Octeon
+Date: Tue, 28 Jul 2015 14:48:13 -0700
+Message-ID: <CAC8NTUUYW1YhUPxh670TqZM0h_QLpcPS6a4-Gd=UssdPmNH3xQ@mail.gmail.com>
+References: <1438049683-10630-1-git-send-email-mohun106@gmail.com>
+	<1438049683-10630-2-git-send-email-mohun106@gmail.com>
+	<55B78C9C.6080006@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jmorris@namei.org" <jmorris@namei.org>, Martin Lau <kafai@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:51750 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751374AbbG1VWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 17:22:14 -0400
-In-Reply-To: <CALx6S36e1rr=4EbD+-FgodWam6KR5034X3jFsYYDTaLKbQF-PA@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <A0F35F4A5A777E4AA89B2E387B6EED7D@atlnz.lc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linux-kernel@vger.kernel.org,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	David Daney <david.daney@cavium.com>
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55B78C9C.6080006@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCk9uIDA3LzI5LzIwMTUgMDk6MTUgQU0sIFRvbSBIZXJiZXJ0IHdyb3RlOg0KPiBPbiBUdWUs
-IEp1bCAyOCwgMjAxNSBhdCAyOjAyIFBNLCBUb20gSGVyYmVydCA8dG9tQGhlcmJlcnRsYW5kLmNv
-bT4gd3JvdGU6DQo+PiBPbiBNb24sIEp1bCAyNywgMjAxNSBhdCA3OjI3IFBNLCBSaWNoYXJkIExh
-aW5nDQo+PiA8UmljaGFyZC5MYWluZ0BhbGxpZWR0ZWxlc2lzLmNvLm56PiB3cm90ZToNCj4+PiBG
-cm9tOiBSaWNoYXJkIExhaW5nIDxyaWNoYXJkLmxhaW5nQGFsbGllZHRlbGVzaXMuY28ubno+DQo+
-Pj4NCj4+PiBFbmFibGUgZmxvdy1iYXNlZCBFQ01QLg0KPj4+DQo+Pj4gQ3VycmVudGx5IGlmIGVx
-dWFsLWNvc3QgbXVsdGlwYXRoIGlzIGVuYWJsZWQgdGhlIGtlcm5lbCBjaG9vc2VzIGJldHdlZW4N
-Cj4+PiBlcXVhbCBjb3N0IHBhdGhzIGZvciBlYWNoIG1hdGNoaW5nIHBhY2tldCwgZXNzZW50aWFs
-bHkgcGFja2V0cyBhcmUNCj4+PiByb3VuZC1yb2JpbmVkIGJldHdlZW4gdGhlIHJvdXRlcy4gVGhp
-cyBtZWFucyB0aGF0IHBhY2tldHMgZnJvbSBhIHNpbmdsZQ0KPj4+IGZsb3cgY2FuIHRyYXZlcnNl
-IGRpZmZlcmVudCByb3V0ZXMuIElmIG9uZSBvZiB0aGUgcm91dGVzIGV4cGVyaWVuY2VzDQo+Pj4g
-Y29uZ2VzdGlvbiB0aGlzIGNhbiByZXN1bHQgaW4gZGVsYXllZCBvciBvdXQgb2Ygb3JkZXIgcGFj
-a2V0cyBhcnJpdmluZw0KPj4+IGF0IHRoZSBkZXN0aW5hdGlvbi4NCj4+Pg0KPj4gUmljaGFyZCwg
-c29tZW9uZSB3YXMgY29tcGxhaW5pbmcgdG8gbWUganVzdCBsYXN0IHdlZWsgYWJvdXQgdGhlDQo+
-PiB3ZWFrbmVzcyBvZiB0aGUgcm91bmQgcm9iaW4gYWxnb3JpdGhtLiBUaGFua3MgZm9yIGxvb2tp
-bmcgaW50byB0aGlzIQ0KPj4NCj4+PiBUaGlzIHBhdGNoIGFsbG93cyBwYWNrZXRzIHRvIGJlIHJv
-dXRlZCBiYXNlZCBvbiB0aGVpcg0KPj4+IGZsb3cgLSBwYWNrZXRzIGluIHRoZSBzYW1lIGZsb3cg
-d2lsbCBhbHdheXMgdXNlIHRoZSBzYW1lIHJvdXRlLiBUaGlzDQo+Pj4gcHJldmVudHMgb3V0IG9m
-IG9yZGVyIHBhY2tldHMuIFRoZXJlIGFyZSBvdGhlciBpc3N1ZXMgd2l0aCByb3VuZC1yb2Jpbg0K
-Pj4+IGJhc2VkIEVDTVAgcm91dGluZyByZWxhdGVkIHRvIHZhcmlhYmxlIHBhdGggTVRVIGhhbmRs
-aW5nIGFuZCBkZWJ1Z2dpbmcuDQo+Pj4gU2VlIFJGQzI5OTEgZm9yIG1vcmUgZGV0YWlscyBvbiB0
-aGUgcHJvYmxlbXMgYXNzb2NpYXRlZCB3aXRoIHBhY2tldA0KPj4+IGJhc2VkIEVDTVAgcm91dGlu
-Zy4NCj4+Pg0KPiBidHcsIGl0IGxvb2tzIGxpa2UgSVB2NiBpcyBhbHJlYWR5IGRvaW5nIHRoZSBo
-YXNoIGJ1dCBpcyBjYWxjdWxhdGluZw0KPiBpdCBieSBoYW5kIGluc3RlYWQgb2YgdXNpbmcgc2tf
-dHhoYXNoIG9yIHNrYi0+aGFzaC4gSXQgd291bGQgYmUgbmljZQ0KPiBpZiB3ZSBjb3VsZCB1bmlm
-eSB0aGlzIGJldHdlZW4gdjQgYW5kIHY2IGF0IHNvbWUgcG9pbnQgdG8gYm90aCB1c2luZw0KPiB0
-aGUgZXhpc3RpbmcgaGFzaGVzLg0KPg0KPiBUb20NCg0KVGhhbmtzIFRvbSwgeWVzIElQdjYgZG9l
-cyB3b3JrIGp1c3QgZmluZSBjdXJyZW50bHkuIEFzc3VtaW5nIEkgZ2V0IGEgDQp2ZXJzaW9uIG9m
-IHRoaXMgcGF0Y2ggcHVzaGVkIHVwZGF0aW5nIHRoZSBJUHY2IHZlcnNpb24gd291bGQgc2VlbSBs
-aWtlIGEgDQpnb29kIG9wdGlvbi4NCg0KDQotLSANClJpY2hhcmQgTGFpbmcNClNvZnR3YXJlIFRl
-YW0gTGVhZGVyDQpBbGxpZWQgVGVsZXNpcyBMYWJzfCAyNyBOYXphcmV0aCBBdmUgfCBDaHJpc3Rj
-aHVyY2ggODAyNCB8IE5ldyBaZWFsYW5kDQpQaG9uZTogKzY0IDMgMzM5IDkyNDgNCldlYjogd3d3
-LmFsbGllZHRlbGVzaXMuY29tDQo=
+On Tue, Jul 28, 2015 at 7:07 AM, David Daney <ddaney@caviumnetworks.com> wrote:
+> On 07/27/2015 07:14 PM, mohun106@gmail.com wrote:
+>>
+>> From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+>>
+>> This patch modifies the mdio-octeon driver to work on both ThunderX and
+>> Octeon SoCs from Cavium Inc.
+>>
+>> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+>> Signed-off-by: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+>> Signed-off-by: David Daney <david.daney@cavium.com>
+>> ---
+>>   drivers/net/phy/Kconfig       |    9 ++-
+>>   drivers/net/phy/mdio-octeon.c |  122
+>> +++++++++++++++++++++++++++++++++++-----
+>>   2 files changed, 111 insertions(+), 20 deletions(-)
+>>
+>> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+>> index cf18940..0d6af19 100644
+>> --- a/drivers/net/phy/Kconfig
+>> +++ b/drivers/net/phy/Kconfig
+>> @@ -145,13 +145,14 @@ config MDIO_GPIO
+>>           will be called mdio-gpio.
+>>
+>>   config MDIO_OCTEON
+>> -       tristate "Support for MDIO buses on Octeon SOCs"
+>> -       depends on CAVIUM_OCTEON_SOC
+>> +       tristate "Support for MDIO buses on Octeon and ThunderX SOCs"
+>> +       depends on 64BIT
+>>         default y
+>
+>
+> If it now depends only on 64BIT, we should probably remove the "default".
+> People building for x86 are not interested in this driver.
+>
+
+Ok got it.
+
+>
+> [...]
+>>
+>>
+>> +#ifdef __BIG_ENDIAN_BITFIELD
+>> +#define OCT_MDIO_BITFIELD_FIELD(field, more)   \
+>> +       field;                                  \
+>> +       more
+>> +
+>> +#else
+>> +#define OCT_MDIO_BITFIELD_FIELD(field, more)   \
+>> +       more                                    \
+>> +       field;
+>> +
+>> +#endif
+>> +
+>> +union cvmx_smix_clk {
+>> +       uint64_t u64;
+>
+>
+> Perhaps: s/uint64_t/u64/
+>
+> There are several of these.
+
+Ok will do. If there aren;t any more comments I will re-submit another version.
+
+>
+>
+>> +       struct cvmx_smix_clk_s {
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 reserved_25_63:39,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 mode:1,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 reserved_21_23:3,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 sample_hi:5,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 sample_mode:1,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 reserved_14_14:1,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 clk_idle:1,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 preamble:1,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 sample:4,
+>> +         OCT_MDIO_BITFIELD_FIELD(u64 phase:8,
+>> +         ;))))))))))
+>> +       } s;
+>> +};
+>> +
+>
+> [...]
