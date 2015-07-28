@@ -1,86 +1,91 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 14/16] net: Add sk_bind_dev_if to task_struct
-Date: Tue, 28 Jul 2015 08:54:15 -0500
-Message-ID: <87k2tktmk8.fsf@x220.int.ebiederm.org>
-References: <1438021869-49186-1-git-send-email-dsa@cumulusnetworks.com>
-	<1438021869-49186-15-git-send-email-dsa@cumulusnetworks.com>
-	<87wpxlxrvg.fsf@x220.int.ebiederm.org>
-	<1438085969.25794.14.camel@stressinduktion.org>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH 1/3] net: mdio-octeon: Modify driver to work on both
+ ThunderX and Octeon
+Date: Tue, 28 Jul 2015 07:07:24 -0700
+Message-ID: <55B78C9C.6080006@caviumnetworks.com>
+References: <1438049683-10630-1-git-send-email-mohun106@gmail.com>
+ <1438049683-10630-2-git-send-email-mohun106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-	shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, ddutt@cumulusnetworks.com,
-	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
-	hadi@mojatatu.com, davem@davemloft.net, svaidya@brocade.com,
-	mingo@kernel.org, luto@amacapital.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:33822 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134AbbG1OAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 10:00:54 -0400
-In-Reply-To: <1438085969.25794.14.camel@stressinduktion.org> (Hannes Frederic
-	Sowa's message of "Tue, 28 Jul 2015 14:19:29 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	David Daney <david.daney@cavium.com>
+To: <mohun106@gmail.com>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438049683-10630-2-git-send-email-mohun106@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
-
-> Hello Eric,
+On 07/27/2015 07:14 PM, mohun106@gmail.com wrote:
+> From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
 >
-> On Mon, 2015-07-27 at 15:33 -0500, Eric W. Biederman wrote:
->> David Ahern <dsa@cumulusnetworks.com> writes:
->> 
->> > Allow tasks to have a default device index for binding sockets. If 
->> > set
->> > the value is passed to all AF_INET/AF_INET6 sockets when they are
->> > created.
->> > 
->> > The task setting is passed parent to child on fork, but can be set 
->> > or
->> > changed after task creation using prctl (if task has CAP_NET_ADMIN
->> > permissions). The setting for a socket can be retrieved using 
->> > prctl().
->> > This option allows an administrator to restrict a task to only 
->> > send/receive
->> > packets through the specified device. In the case of VRF devices 
->> > this
->> > option restricts tasks to a specific VRF.
->> > 
->> > Correlation of the device index to a specific VRF, ie.,
->> >    ifindex --> VRF device --> VRF id
->> > is left to userspace.
->> 
->> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> 
->> Because it is broken by design.  Your routing device is only safe for
->> programs that know it's limitations it is not appropriate for general
->> applications.
->> 
->> Since you don't even seen to know it's limitations I think this is a
->> bad path to walk down.
+> This patch modifies the mdio-octeon driver to work on both ThunderX and
+> Octeon SoCs from Cavium Inc.
 >
-> Can you please elaborate about the broken by design?
+> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+> Signed-off-by: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
+>   drivers/net/phy/Kconfig       |    9 ++-
+>   drivers/net/phy/mdio-octeon.c |  122 +++++++++++++++++++++++++++++++++++-----
+>   2 files changed, 111 insertions(+), 20 deletions(-)
 >
-> Different operating systems are already using this approach with good
-> success. I read your other mail regarding isolation of different VRFs
-> and I agree that all code which persists state depending solely on the
-> IP address is affected by this and this must be dealt with and fixed
-> (actually, there aren't too many).
-
-The size of struct net would tend to disagree with the assertion that
-there are not too many.
-
-> But I wouldn't call that broken by design. This stuff will get fixed
-> like e.g. cross-talk between fragmentation queues, icmp rate limiters
-> etc, which could already happen in the past.
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index cf18940..0d6af19 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -145,13 +145,14 @@ config MDIO_GPIO
+>   	  will be called mdio-gpio.
 >
-> What is your opinion on the fundamental approach only from a user
-> perspective? Do you think that is broken, too?
+>   config MDIO_OCTEON
+> -	tristate "Support for MDIO buses on Octeon SOCs"
+> -	depends on CAVIUM_OCTEON_SOC
+> +	tristate "Support for MDIO buses on Octeon and ThunderX SOCs"
+> +	depends on 64BIT
+>   	default y
 
-I think promising something to userspace that a design can not deliver
-is a fundamental problem.
+If it now depends only on 64BIT, we should probably remove the 
+"default".  People building for x86 are not interested in this driver.
 
-Eric
+
+[...]
+>
+> +#ifdef __BIG_ENDIAN_BITFIELD
+> +#define OCT_MDIO_BITFIELD_FIELD(field, more)	\
+> +	field;					\
+> +	more
+> +
+> +#else
+> +#define OCT_MDIO_BITFIELD_FIELD(field, more)	\
+> +	more					\
+> +	field;
+> +
+> +#endif
+> +
+> +union cvmx_smix_clk {
+> +	uint64_t u64;
+
+Perhaps: s/uint64_t/u64/
+
+There are several of these.
+
+
+> +	struct cvmx_smix_clk_s {
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 reserved_25_63:39,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 mode:1,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 reserved_21_23:3,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 sample_hi:5,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 sample_mode:1,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 reserved_14_14:1,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 clk_idle:1,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 preamble:1,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 sample:4,
+> +	  OCT_MDIO_BITFIELD_FIELD(u64 phase:8,
+> +	  ;))))))))))
+> +	} s;
+> +};
+> +
+[...]
