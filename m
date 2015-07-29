@@ -1,42 +1,48 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net v2 2/2] r8152: reset device when tx timeout
-Date: Wed, 29 Jul 2015 11:09:32 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3CDA7@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-159-Taiwan-albertk@realtek.com>
-	 <1394712342-15778-161-Taiwan-albertk@realtek.com>
-	 <1438085645.1787.4.camel@suse.com>
-	 <0835B3720019904CB8F7AA43166CEEB2F3C538@RTITMBSV03.realtek.com.tw>
-	 <1438088317.1787.5.camel@suse.com>
-	 <0835B3720019904CB8F7AA43166CEEB2F3C673@RTITMBSV03.realtek.com.tw>
- <1438154521.9445.3.camel@suse.com>
+From: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+Subject: [PATCH] net: pktgen: Remove unused 'allocated_skbs' field
+Date: Wed, 29 Jul 2015 12:47:16 +0300
+Message-ID: <1438163236-12593-1-git-send-email-bogdan.hamciuc@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438154521.9445.3.camel@suse.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0141.outbound.protection.outlook.com ([157.56.110.141]:45637
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751985AbbG2LUI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jul 2015 07:20:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T2xpdmVyIE5ldWt1bSBbbWFpbHRvOm9uZXVrdW1Ac3VzZS5jb21dDQo+IFNlbnQ6IFdlZG5lc2Rh
-eSwgSnVseSAyOSwgMjAxNSAzOjIyIFBNDQpbLi4uXQ0KPiBOb3csIEkgdGhpbmsgSSBnb3QgdGhl
-IHJlYXNvbiBmb3IgdGhlIGNvbmZ1c2lvbi4NCj4gDQo+IFlvdSBhcmUgdXNpbmcgY2FuY2VsX2Rl
-bGF5ZWRfd29yaygmdHAtPnNjaGVkdWxlKTsgYWZ0ZXIgeW91IHF1ZXVlIGEgcmVzZXQuDQo+IFRo
-ZXJlZm9yZSB0aGUgb3JkZXIgaW4gd2hpY2ggdGhlIHdvcmsgYW5kIHRoZSByZXNldCB3aWxsIGJl
-IGV4ZWN1dGVkIGlzIHVuZGVmaW5lZC4NCj4gVXN1YWxseSB0aGUgc2NoZWR1bGVkIHdvcmsgd2ls
-bCBiZSBjYW5jZWxlZCwgYnV0IG5vdCBhbHdheXMuDQoNCkFjdHVhbGx5LCB0aGUgb3JkZXIgaXMg
-bm90IGltcG9ydGFudCBmb3IgbWUuIFRoZXJlIGFyZSBzb21lIHByb3RlY3Rpb25zIHRvIGF2b2lk
-DQp0aGUgd29yayBhbmQgdGhlIHJlc2V0IHJ1biBhdCB0aGUgc2FtZSB0aW1lLiBCZXNpZGVzLCB0
-aGUgcmVzZXQgY291bGQgYmUgcnVuIGJlZm9yZQ0Kb3IgYWZ0ZXIgdGhlIHdvcmsuIEkgY2FuY2Vs
-IHRoZSB3b3JrIGJlY2F1c2UgSSB3YW50IHRvIGxldCB0aGUgcmVzZXQgc3RhcnQgYXMgZWFybHkg
-YXMNCnBvc3NpYmxlLiBJZiB0aGUgd29yayBydW5zIGJlZm9yZSB0aGUgcmVzZXQsIHRoZSByZXNl
-dCB3b3VsZG4ndCBzdGFydCB1bnRpbCB0aGUgd29yayBpcw0KZmluaXNoZWQuDQoNCj4gVGhhdCBp
-cyBub3QgZ29vZC4NCg0KSSB0aGluayBJIGhhZCBiZXR0ZXIgdG8gcmVtb3ZlIGNhbmNlbF9kZWxh
-eV93b3JrKCksIGJlY2F1c2UgaXQgbWFrZXMgY29uZnVzaW9uLg0KQW5kLCBpdCBkb2Vzbid0IHNl
-ZW0gdG8gYmUgbmVjZXNzYXJ5LiBUaGFua3MuIA0KDQpCZXN0IFJlZ2FyZHMsDQpIYXllcw0KDQo=
+Field pktgen_dev.allocated_skbs had been written to, but never read
+from. The number of allocated skbs can be deduced anyway, from the total
+number of sent packets and the 'clone_skb' param.
+
+Signed-off-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+---
+ net/core/pktgen.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 5961da6..0e0fb30 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -273,7 +273,6 @@ struct pktgen_dev {
+ 
+ 	/* runtime counters relating to clone_skb */
+ 
+-	__u64 allocated_skbs;
+ 	__u32 clone_count;
+ 	int last_ok;		/* Was last skb sent?
+ 				 * Or a failed transmit of some sort?
+@@ -3398,7 +3397,6 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 			return;
+ 		}
+ 		pkt_dev->last_pkt_size = pkt_dev->skb->len;
+-		pkt_dev->allocated_skbs++;
+ 		pkt_dev->clone_count = 0;	/* reset counter */
+ 	}
+ 
+-- 
+1.8.3.1
