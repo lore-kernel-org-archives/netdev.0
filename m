@@ -1,121 +1,78 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCHv2] net/ipv6: add sysctl option accept_ra_hop_limit
-Date: Wed, 29 Jul 2015 11:14:18 +0900
-Message-ID: <55B836FA.7070106@miraclelinux.com>
-References: <1437978942-7047-1-git-send-email-liuhangbin@gmail.com>	<55B6C3AF.1050504@miraclelinux.com>	<CAPwn2JSk0P8n+aSxTGiU0Q2RSSbZ52NVZxOS+yURpor2YQVySQ@mail.gmail.com>	<55B6FDD0.4020904@miraclelinux.com> <CAPwn2JTRvN7pzSxz4TMXC7FNWxbH0PYPPoOjpRpM_rCigoiFeg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/5] s390/bpf: Fix multiple macro expansions
+Date: Tue, 28 Jul 2015 20:13:41 -0700
+Message-ID: <1438139621.2529.31.camel@perches.com>
+References: <1438092600-16221-1-git-send-email-holzheu@linux.vnet.ibm.com>
+	 <1438092600-16221-3-git-send-email-holzheu@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	davem@davemloft.net
-To: Hangbin Liu <liuhangbin@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34187 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbbG2COW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 22:14:22 -0400
-Received: by pacan13 with SMTP id an13so80565790pac.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 19:14:21 -0700 (PDT)
-In-Reply-To: <CAPwn2JTRvN7pzSxz4TMXC7FNWxbH0PYPPoOjpRpM_rCigoiFeg@mail.gmail.com>
+Received: from smtprelay0195.hostedemail.com ([216.40.44.195]:44207 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750798AbbG2DNp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 23:13:45 -0400
+In-Reply-To: <1438092600-16221-3-git-send-email-holzheu@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hangbin Liu wrote:
-> 2015-07-28 11:58 GMT+08:00 YOSHIFUJI Hideaki
-> <hideaki.yoshifuji@miraclelinux.com>:
->> Hi,
->>
->> Hangbin Liu wrote:
->>> 2015-07-28 7:50 GMT+08:00 YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=
-=B1=E6=98=8E
->>> <hideaki.yoshifuji@miraclelinux.com>:
->>>> Hi,
->>>>
->>>> Hangbin Liu wrote:
->>>>> Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interfa=
-ce")
->>>>> disabled accept hop limit from RA if it is higher than the curren=
-t hop
->>>>> limit for security stuff. But this behavior kind of break the RFC=
- definition.
->>>>>
->>>>> RFC 4861, 6.3.4.  Processing Received Router Advertisements
->>>>>    If the received Cur Hop Limit value is non-zero, the host SHOU=
-LD set
->>>>>    its CurHopLimit variable to the received value.
->>>>>
->>>>> So add sysctl option accept_ra_hop_limit to let user choose wheth=
-er accept
->>>>> hop limit info in RA.
->>>>>
->>>>
->>>> How about introducing "minimum hop limit", instead?
->>>
->>> Hi Yoshifuji,
->>>
->>> This is a good idea. Maybe this can be another sysctl option?
->>>
->>> The minimum hop limit can be an enhancement of the security issue, =
-then we will
->>> not only increase the hop limit, but also could decrease it in the
->>> range of values we
->>> accept.
->>>
->>> On the other hand, with this patch, we can enable, disable or partl=
-y
->>> enable accept
->>> hop limit. If we only use "minimum hop limit", people could not use=
- a static hop
->>> limit value.
->>>
->>> May be we use a =E2=80=9Chop limit range" instead? How do you think=
-?
->>
->> I think name of sysctl is the same as you suggested and change the
->> semantics.  default value is 0 to accept all hotlimit value
->> as before and people can set it to 32 (for example) to reject
->> too-small hoplimit (0-31).
->=20
-> OK, then I will try submit a "minimum hop limit", thanks for your sug=
-gestion :)
+On Tue, 2015-07-28 at 16:09 +0200, Michael Holzheu wrote:
+> The EMIT6_DISP_LH macro passes the "disp" parameter to the _EMIT6_DISP_LH
+> macro. The _EMIT6_DISP_LH macro uses the "disp" parameter twice:
+> 
+>  unsigned int __disp_h = ((u32)disp) & 0xff000;
+>  unsigned int __disp_l = ((u32)disp) & 0x00fff;
+> 
+> The EMIT6_DISP_LH is used several times with EMIT_CONST_U64() as "disp"
+> parameter. Therefore always two constants are created per usage of
+> EMIT6_DISP_LH.
+> 
+> Fix this and add variable "__disp" to avoid multiple expansions.
+> 
+> Fixes: 054623105728 ("s390/bpf: Add s390x eBPF JIT compiler backend")
+> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> ---
+>  arch/s390/net/bpf_jit_comp.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+> index 01ad166..de0f0bc 100644
+> --- a/arch/s390/net/bpf_jit_comp.c
+> +++ b/arch/s390/net/bpf_jit_comp.c
+> @@ -221,8 +221,9 @@ static inline void reg_set_seen(struct nbpf_jit *jit, u32 b1)
+>  
+>  #define EMIT6_DISP_LH(op1, op2, b1, b2, b3, disp)		\
+>  ({								\
+> +	int __disp = (disp);					\
+>  	_EMIT6_DISP_LH(op1 | reg(b1, b2) << 16 |		\
+> -		       reg_high(b3) << 8, op2, disp);		\
+> +		       reg_high(b3) << 8, op2, __disp);		\
+>  	REG_SET_SEEN(b1);					\
+>  	REG_SET_SEEN(b2);					\
+>  	REG_SET_SEEN(b3);					\
 
-accept_ra_min_hop_limit would be better as we have
-accept_ra_rt_info_max_plen.
-
->=20
-> Regards
-> Hangbin
->>
->> --yoshfuji
->>
->>>
->>> Thanks
->>> Hangbin
->>>
->>>>
->>>> |commit 6fd99094de2b83d1d4c8457f2c83483b2828e75a
->>>> |Author: D.S. Ljungmark <ljungmark@modio.se>
->>>> |Date:   Wed Mar 25 09:28:15 2015 +0100
->>>> |
->>>> |    ipv6: Don't reduce hop limit for an interface
->>>> :
->>>> |    RFC 3756, Section 4.2.7, "Parameter Spoofing"
->>>> |
->>>> :
->>>> |   >   As an example, one possible approach to mitigate this thre=
-at is to
->>>> |    >   ignore very small hop limits.  The nodes could implement =
-a
->>>> |    >   configurable minimum hop limit, and ignore attempts to se=
-t it below
->>>> |    >   said limit.
->>
->> --
->> Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
->> Technical Division, MIRACLE LINUX CORPORATION
-
---=20
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Perhaps it'd be better to change _EMIT6_DISP_LH
+---
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 3a15baa..409e206 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -205,8 +205,9 @@ static inline void reg_set_seen(struct bpf_jit *jit,
+u32 b1)
+ 
+ #define _EMIT6_DISP_LH(op1, op2, disp)				\
+ ({								\
+-	unsigned int __disp_h = ((u32)disp) & 0xff000;		\
+-	unsigned int __disp_l = ((u32)disp) & 0x00fff;		\
++	u32 _disp = (u32)disp;					\
++	unsigned int __disp_h = _disp & 0xff000;		\
++	unsigned int __disp_l = _disp & 0x00fff;		\
+ 	_EMIT6(op1 | __disp_l, op2 | __disp_h >> 4);		\
+ })
+ 
