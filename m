@@ -1,94 +1,85 @@
-From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next 2/5] s390/bpf: Fix multiple macro expansions
-Date: Wed, 29 Jul 2015 10:32:05 +0200
-Message-ID: <20150729103205.66b31a9e@holzheu>
-References: <1438092600-16221-1-git-send-email-holzheu@linux.vnet.ibm.com>
-	<1438092600-16221-3-git-send-email-holzheu@linux.vnet.ibm.com>
-	<1438139621.2529.31.camel@perches.com>
+From: Manoil Claudiu <claudiu.manoil@freescale.com>
+Subject: RE: [PATCH] gianfar: Fix warnings when built on 64-bit
+Date: Wed, 29 Jul 2015 08:41:29 +0000
+Message-ID: <BY2PR0301MB072721F7AD52766A864FC79E9C8C0@BY2PR0301MB0727.namprd03.prod.outlook.com>
+References: <1438147477-393-1-git-send-email-scottwood@freescale.com>
+ <4498062.4y369pLSmO@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Arnd Bergmann <arnd@arndb.de>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:48572 "EHLO
-	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752316AbbG2IcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 04:32:13 -0400
-Received: from /spool/local
-	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <holzheu@linux.vnet.ibm.com>;
-	Wed, 29 Jul 2015 09:32:12 +0100
-In-Reply-To: <1438139621.2529.31.camel@perches.com>
+Received: from mail-by2on0147.outbound.protection.outlook.com ([207.46.100.147]:19958
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751462AbbG2Ila convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 04:41:30 -0400
+In-Reply-To: <4498062.4y369pLSmO@wuerfel>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Jul 2015 20:13:41 -0700
-Joe Perches <joe@perches.com> wrote:
+> -----Original Message-----
+> From: Arnd Bergmann [mailto:arnd@arndb.de]
+> Sent: Wednesday, July 29, 2015 11:02 AM
+> To: linuxppc-dev@lists.ozlabs.org; netdev@vger.kernel.org; Manoil Claudiu-
+> B08782; Wood Scott-B07421
+> Subject: Re: [PATCH] gianfar: Fix warnings when built on 64-bit
+> 
+> On Wednesday 29 July 2015 00:24:37 Scott Wood wrote:
+> 
+> > Alternatively, if there's a desire to not mess with this code (I don't
+> > know how to trigger this code path to test it), this driver should be
+> > given dependencies that ensure that it only builds on 32-bit.
+> 
+> These are obvious fixes, they should definitely go in.
 
-> On Tue, 2015-07-28 at 16:09 +0200, Michael Holzheu wrote:
-> > The EMIT6_DISP_LH macro passes the "disp" parameter to the _EMIT6_DISP_LH
-> > macro. The _EMIT6_DISP_LH macro uses the "disp" parameter twice:
-> > 
-> >  unsigned int __disp_h = ((u32)disp) & 0xff000;
-> >  unsigned int __disp_l = ((u32)disp) & 0x00fff;
-> > 
-> > The EMIT6_DISP_LH is used several times with EMIT_CONST_U64() as "disp"
-> > parameter. Therefore always two constants are created per usage of
-> > EMIT6_DISP_LH.
-> > 
-> > Fix this and add variable "__disp" to avoid multiple expansions.
-> > 
-> > Fixes: 054623105728 ("s390/bpf: Add s390x eBPF JIT compiler backend")
-> > Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-> > ---
-> >  arch/s390/net/bpf_jit_comp.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-> > index 01ad166..de0f0bc 100644
-> > --- a/arch/s390/net/bpf_jit_comp.c
-> > +++ b/arch/s390/net/bpf_jit_comp.c
-> > @@ -221,8 +221,9 @@ static inline void reg_set_seen(struct nbpf_jit *jit, u32 b1)
-> >  
-> >  #define EMIT6_DISP_LH(op1, op2, b1, b2, b3, disp)		\
-> >  ({								\
-> > +	int __disp = (disp);					\
-> >  	_EMIT6_DISP_LH(op1 | reg(b1, b2) << 16 |		\
-> > -		       reg_high(b3) << 8, op2, disp);		\
-> > +		       reg_high(b3) << 8, op2, __disp);		\
-> >  	REG_SET_SEEN(b1);					\
-> >  	REG_SET_SEEN(b2);					\
-> >  	REG_SET_SEEN(b3);					\
-> 
-> Perhaps it'd be better to change _EMIT6_DISP_LH
+This patch conflicts with the rx s/g patch series:
+https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/?id=9061cb023567abf081569d6851b0815dd18437e6
 
-Looks a bit better. I will send the updated patch.
+So if applied as it is on top of net.git it will give a headache when net-next.git
+will be merged into net.git (or vice versa).
 
-Thanks!
-Michael
+Since there are no 64-bit systems with gianfar/ eTSEC, I think that this patch
+should target net-next.git (reworked to be applicable on net-next.git) to avoid
+the conflict.   I could do this rework and resend it on top of net-next.git
 
-> ---
-> diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-> index 3a15baa..409e206 100644
-> --- a/arch/s390/net/bpf_jit_comp.c
-> +++ b/arch/s390/net/bpf_jit_comp.c
-> @@ -205,8 +205,9 @@ static inline void reg_set_seen(struct bpf_jit *jit,
-> u32 b1)
 > 
->  #define _EMIT6_DISP_LH(op1, op2, disp)				\
->  ({								\
-> -	unsigned int __disp_h = ((u32)disp) & 0xff000;		\
-> -	unsigned int __disp_l = ((u32)disp) & 0x00fff;		\
-> +	u32 _disp = (u32)disp;					\
-> +	unsigned int __disp_h = _disp & 0xff000;		\
-> +	unsigned int __disp_l = _disp & 0x00fff;		\
->  	_EMIT6(op1 | __disp_l, op2 | __disp_h >> 4);		\
->  })
+> >  drivers/net/ethernet/freescale/gianfar.c | 22 ++++++++++++++++++----
+> >  1 file changed, 18 insertions(+), 4 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/freescale/gianfar.c
+> b/drivers/net/ethernet/freescale/gianfar.c
+> > index ff87502..7c682ac 100644
+> > --- a/drivers/net/ethernet/freescale/gianfar.c
+> > +++ b/drivers/net/ethernet/freescale/gianfar.c
+> > @@ -565,6 +565,7 @@ static void gfar_ints_enable(struct gfar_private
+> *priv)
+> >  	}
+> >  }
+> >
+> > +#ifdef CONFIG_PM
+> >  static void lock_tx_qs(struct gfar_private *priv)
+> >  {
+> >  	int i;
+> > @@ -580,6 +581,7 @@ static void unlock_tx_qs(struct gfar_private *priv)
+> >  	for (i = 0; i < priv->num_tx_queues; i++)
+> >  		spin_unlock(&priv->tx_queue[i]->txlock);
+> >  }
+> > +#endif
+> >
 > 
+> This seems unrelated and should probably be a separate fix.
 > 
-> 
+
+I'm working at a patch set to revive/ cleanup the power management code,
+and lock_tx_qs() is planned to be removed (it can be shown that it's not needed).
+So this change can be remove from this patch.
+
+Thanks,
+Claudiu
+
+[...]
