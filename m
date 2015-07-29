@@ -1,58 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] gianfar: Fix warnings when built on 64-bit
-Date: Wed, 29 Jul 2015 23:04:46 +0200
-Message-ID: <2331012.mZ9bDLS4JC@wuerfel>
-References: <1438147477-393-1-git-send-email-scottwood@freescale.com> <4498062.4y369pLSmO@wuerfel> <1438185761.2993.333.camel@freescale.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [net-next PATCH 1/3] net: make default tx_queue_len configurable
+Date: Wed, 29 Jul 2015 23:06:18 +0200
+Message-ID: <20150729210618.GF32705@breakpoint.cc>
+References: <1438203103-27013-1-git-send-email-phil@nwl.cc>
+ <1438203103-27013-2-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	Claudiu Manoil <claudiu.manoil@freescale.com>
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:57206 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221AbbG2VFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:05:00 -0400
-In-Reply-To: <1438185761.2993.333.camel@freescale.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56091 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750803AbbG2VGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:06:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1438203103-27013-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 29 July 2015 11:02:41 Scott Wood wrote:
-> On Wed, 2015-07-29 at 10:02 +0200, Arnd Bergmann wrote:
-> > On Wednesday 29 July 2015 00:24:37 Scott Wood wrote:
-> > > +#ifdef CONFIG_PM
-> > >  static void lock_tx_qs(struct gfar_private *priv)
-> > >  {
-> > >     int i;
-> > > @@ -580,6 +581,7 @@ static void unlock_tx_qs(struct gfar_private *priv)
-> > >     for (i = 0; i < priv->num_tx_queues; i++)
-> > >             spin_unlock(&priv->tx_queue[i]->txlock);
-> > >  }
-> > > +#endif
-> > >  
-> > 
-> > This seems unrelated and should probably be a separate fix.
+Phil Sutter <phil@nwl.cc> wrote:
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  net/Kconfig        | 12 ++++++++++++
+>  net/ethernet/eth.c |  2 +-
+>  2 files changed, 13 insertions(+), 1 deletion(-)
 > 
-> It's related in that it fixes a warning -- the 64-bit build didn't have 
-> CONFIG_PM -- though I should have been clearer about that in the changelog.
+> diff --git a/net/Kconfig b/net/Kconfig
+> index 7021c1b..21c164f 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -48,6 +48,18 @@ config COMPAT_NETLINK_MESSAGES
+>  config NET_INGRESS
+>  	bool
+>  
+> +config DEFAULT_TX_QUEUE_LEN
+> +	prompt "Default TX queue length (in packets)" if EXPERT
+> +	int
+> +	default 1000	# Ethernet wants good queues
+> +	help
+> +	  Set the default value of tx_queue_len for newly created network
+> +	  interfaces. It is used by queueing disciplines to determine how many
+> +	  packets to keep in backlog before starting to drop new ones.
+> +
+> +	  The default value of 1000 packets is there for a very long time and
+> +	  in combination with GSO way too big.
+> +
 
-Yes, that's what I meant: you can easily have a 32-bit build without
-CONFIG_PM of course, and that would have the same problem.
+I can't see how this could be used in a meaningful way.
 
-> > 
-> > You are fixing two problems here: the warning about a size cast, and
-> > the fact that the driver is using the wrong pointer. I'd suggest
-> > explaining it in the changelog.
-> > 
-> > Note that we normally rely on void pointer arithmetic in the kernel, so
-> > I'd write it without the uintptr_t casts as 
-> > 
-> >       bdp_dma = lower_32_bits(rx_queue->rx_bd_dma_base + (base - bdp));
-> 
-> But those aren't void pointers, and rx_bd_dma_base isn't a pointer, so you'd 
-> get the wrong answer doing that.
+No distro is going to touch this.
 
-Ah, right.
-
-	Arnd
+I don't think sysctl value would help either.
