@@ -1,63 +1,47 @@
 From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH] gianfar: Fix warnings when built on 64-bit
-Date: Wed, 29 Jul 2015 11:02:41 -0500
-Message-ID: <1438185761.2993.333.camel@freescale.com>
-References: <1438147477-393-1-git-send-email-scottwood@freescale.com>
- <4498062.4y369pLSmO@wuerfel>
+Subject: Re: [PATCH net-next v2] gianfar: Fix warnings when built on 64-bit
+Date: Wed, 29 Jul 2015 11:06:01 -0500
+Message-ID: <1438185961.2993.335.camel@freescale.com>
+References: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- Claudiu Manoil <claudiu.manoil@freescale.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <4498062.4y369pLSmO@wuerfel>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	<arnd@arndb.de>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0121.outbound.protection.outlook.com ([65.55.169.121]:24800
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750839AbbG2QGK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jul 2015 12:06:10 -0400
+In-Reply-To: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE1LTA3LTI5IGF0IDEwOjAyICswMjAwLCBBcm5kIEJlcmdtYW5uIHdyb3RlOgo+
-IE9uIFdlZG5lc2RheSAyOSBKdWx5IDIwMTUgMDA6MjQ6MzcgU2NvdHQgV29vZCB3cm90ZToKPiA+
-ICsjaWZkZWYgQ09ORklHX1BNCj4gPiAgc3RhdGljIHZvaWQgbG9ja190eF9xcyhzdHJ1Y3QgZ2Zh
-cl9wcml2YXRlICpwcml2KQo+ID4gIHsKPiA+ICAgICBpbnQgaTsKPiA+IEBAIC01ODAsNiArNTgx
-LDcgQEAgc3RhdGljIHZvaWQgdW5sb2NrX3R4X3FzKHN0cnVjdCBnZmFyX3ByaXZhdGUgKnByaXYp
-Cj4gPiAgICAgZm9yIChpID0gMDsgaSA8IHByaXYtPm51bV90eF9xdWV1ZXM7IGkrKykKPiA+ICAg
-ICAgICAgICAgIHNwaW5fdW5sb2NrKCZwcml2LT50eF9xdWV1ZVtpXS0+dHhsb2NrKTsKPiA+ICB9
-Cj4gPiArI2VuZGlmCj4gPiAgCj4gCj4gVGhpcyBzZWVtcyB1bnJlbGF0ZWQgYW5kIHNob3VsZCBw
-cm9iYWJseSBiZSBhIHNlcGFyYXRlIGZpeC4KCkl0J3MgcmVsYXRlZCBpbiB0aGF0IGl0IGZpeGVz
-IGEgd2FybmluZyAtLSB0aGUgNjQtYml0IGJ1aWxkIGRpZG4ndCBoYXZlIApDT05GSUdfUE0gLS0g
-dGhvdWdoIEkgc2hvdWxkIGhhdmUgYmVlbiBjbGVhcmVyIGFib3V0IHRoYXQgaW4gdGhlIGNoYW5n
-ZWxvZy4KCj4gPiBAQCAtMjk2NCw4ICsyOTY3LDEzIEBAIGludCBnZmFyX2NsZWFuX3J4X3Jpbmco
-c3RydWN0IGdmYXJfcHJpdl9yeF9xIAo+ID4gKnJ4X3F1ZXVlLCBpbnQgcnhfd29ya19saW1pdCkK
-PiA+ICAgICAgICAgICAgIGdmYXJfaW5pdF9yeGJkcChyeF9xdWV1ZSwgYmRwLCBidWZhZGRyKTsK
-PiA+ICAKPiA+ICAgICAgICAgICAgIC8qIFVwZGF0ZSBMYXN0IEZyZWUgUnhCRCBwb2ludGVyIGZv
-ciBMRkMgKi8KPiA+IC0gICAgICAgICAgIGlmICh1bmxpa2VseShyeF9xdWV1ZS0+cmZicHRyICYm
-IHByaXYtPnR4X2FjdHVhbF9lbikpCj4gPiAtICAgICAgICAgICAgICAgICAgIGdmYXJfd3JpdGUo
-cnhfcXVldWUtPnJmYnB0ciwgKHUzMiliZHApOwo+ID4gKyAgICAgICAgICAgaWYgKHVubGlrZWx5
-KHJ4X3F1ZXVlLT5yZmJwdHIgJiYgcHJpdi0+dHhfYWN0dWFsX2VuKSkgewo+ID4gKyAgICAgICAg
-ICAgICAgICAgICB1MzIgYmRwX2RtYTsKPiA+ICsKPiA+ICsgICAgICAgICAgICAgICAgICAgYmRw
-X2RtYSA9IGxvd2VyXzMyX2JpdHMocnhfcXVldWUtPnJ4X2JkX2RtYV9iYXNlKTsKPiA+ICsgICAg
-ICAgICAgICAgICAgICAgYmRwX2RtYSArPSAodWludHB0cl90KWJkcCAtICh1aW50cHRyX3QpYmFz
-ZTsKPiA+ICsgICAgICAgICAgICAgICAgICAgZ2Zhcl93cml0ZShyeF9xdWV1ZS0+cmZicHRyLCBi
-ZHBfZG1hKTsKPiA+ICsgICAgICAgICAgIH0KPiA+ICAKPiA+ICAgICAgICAgICAgIC8qIFVwZGF0
-ZSB0byB0aGUgbmV4dCBwb2ludGVyICovCj4gPiAgICAgICAgICAgICBiZHAgPSBuZXh0X2JkKGJk
-cCwgYmFzZSwgcnhfcXVldWUtPnJ4X3Jpbmdfc2l6ZSk7Cj4gCj4gWW91IGFyZSBmaXhpbmcgdHdv
-IHByb2JsZW1zIGhlcmU6IHRoZSB3YXJuaW5nIGFib3V0IGEgc2l6ZSBjYXN0LCBhbmQKPiB0aGUg
-ZmFjdCB0aGF0IHRoZSBkcml2ZXIgaXMgdXNpbmcgdGhlIHdyb25nIHBvaW50ZXIuIEknZCBzdWdn
-ZXN0Cj4gZXhwbGFpbmluZyBpdCBpbiB0aGUgY2hhbmdlbG9nLgo+IAo+IE5vdGUgdGhhdCB3ZSBu
-b3JtYWxseSByZWx5IG9uIHZvaWQgcG9pbnRlciBhcml0aG1ldGljIGluIHRoZSBrZXJuZWwsIHNv
-Cj4gSSdkIHdyaXRlIGl0IHdpdGhvdXQgdGhlIHVpbnRwdHJfdCBjYXN0cyBhcyAKPiAKPiAgICAg
-ICBiZHBfZG1hID0gbG93ZXJfMzJfYml0cyhyeF9xdWV1ZS0+cnhfYmRfZG1hX2Jhc2UgKyAoYmFz
-ZSAtIGJkcCkpOwoKQnV0IHRob3NlIGFyZW4ndCB2b2lkIHBvaW50ZXJzLCBhbmQgcnhfYmRfZG1h
-X2Jhc2UgaXNuJ3QgYSBwb2ludGVyLCBzbyB5b3UnZCAKZ2V0IHRoZSB3cm9uZyBhbnN3ZXIgZG9p
-bmcgdGhhdC4KCi1TY290dAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3ps
-YWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+On Wed, 2015-07-29 at 16:13 +0300, Claudiu Manoil wrote:
+> From: Scott Wood <scottwood@freescale.com>
+> 
+> As part of defconfig consolidation using fragments, we'd like to be
+> able to have the same drivers enabled on 32-bit and 64-bit.  Gianfar
+> happens to only exist on 32-bit systems, and when building the
+> resulting 64-bit kernel warnings were produced.
+> 
+> A couple of the warnings are trivial, but the rfbptr code has deeper
+> issues.  It uses the virtual address as the DMA address, which again,
+> happens to work in the environments where this driver is currently
+> used, but is not the right thing to do.
+> 
+> Fixes: 45b679c9a3cc ("gianfar: Implement PAUSE frame generation
+> support")
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> 
+> ---
+> v2 - rebased/reworked on top of net-next (instead of net);
+>    - removed CONFIG_PM unrelated change;
+
+Are you going to submit the CONFIG_PM change separately?  It fixes a warning 
+when CONFIG_PM is not enabled.
+
+-Scott
