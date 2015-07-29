@@ -1,47 +1,70 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH net-next v2] gianfar: Fix warnings when built on 64-bit
-Date: Wed, 29 Jul 2015 11:06:01 -0500
-Message-ID: <1438185961.2993.335.camel@freescale.com>
-References: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC PATCH 1/1] net/ipv4: Enable flow-based ECMP
+Date: Wed, 29 Jul 2015 09:12:42 -0700
+Message-ID: <CALx6S36NeeBeLj_UDMMm1-ub-cPy5n7OZhqGag2rN7bcQo9kWQ@mail.gmail.com>
+References: <55B6E8AC.4060600@alliedtelesis.co.nz>
+	<CALx6S361R1UeEECQn9vFDCS-wi_StoV6mekqgSK-0t-0NPvWEA@mail.gmail.com>
+	<55B7F202.5050503@alliedtelesis.co.nz>
+	<20150729061148.GB18456@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	<arnd@arndb.de>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Richard Laing <Richard.Laing@alliedtelesis.co.nz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jmorris@namei.org" <jmorris@namei.org>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0121.outbound.protection.outlook.com ([65.55.169.121]:24800
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750839AbbG2QGK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2015 12:06:10 -0400
-In-Reply-To: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35635 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752235AbbG2QMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 12:12:43 -0400
+Received: by igr7 with SMTP id 7so149403903igr.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 09:12:42 -0700 (PDT)
+In-Reply-To: <20150729061148.GB18456@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-07-29 at 16:13 +0300, Claudiu Manoil wrote:
-> From: Scott Wood <scottwood@freescale.com>
-> 
-> As part of defconfig consolidation using fragments, we'd like to be
-> able to have the same drivers enabled on 32-bit and 64-bit.  Gianfar
-> happens to only exist on 32-bit systems, and when building the
-> resulting 64-bit kernel warnings were produced.
-> 
-> A couple of the warnings are trivial, but the rfbptr code has deeper
-> issues.  It uses the virtual address as the DMA address, which again,
-> happens to work in the environments where this driver is currently
-> used, but is not the right thing to do.
-> 
-> Fixes: 45b679c9a3cc ("gianfar: Implement PAUSE frame generation
-> support")
-> Signed-off-by: Scott Wood <scottwood@freescale.com>
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
-> 
-> ---
-> v2 - rebased/reworked on top of net-next (instead of net);
->    - removed CONFIG_PM unrelated change;
+On Tue, Jul 28, 2015 at 11:11 PM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> On Tue, Jul 28, 2015 at 09:20:02PM +0000, Richard Laing wrote:
+>> >> diff --git a/include/net/flow.h b/include/net/flow.h
+>> >> index 8109a15..d1d933d 100644
+>> >> --- a/include/net/flow.h
+>> >> +++ b/include/net/flow.h
+>> >> @@ -79,6 +79,10 @@ struct flowi4 {
+>> >>    #define fl4_ipsec_spi        uli.spi
+>> >>    #define fl4_mh_type        uli.mht.type
+>> >>    #define fl4_gre_key        uli.gre_key
+>> >> +
+>> >> +#ifdef CONFIG_IP_FLOW_BASED_MULTIPATH
+>> > Why bother making this a CONFIG, round robin is a miserable algorithm
+>> > anyway and nearly all the other packet steering mechanisms already use
+>> > a hash.
+>>
+>> Fair enough, I will look at making it a sysctl option. I guess the
+>> default can be the current behaviour.
+>
+> Hm... that's an interesting question. In general, it's better to use
+> current behaviour as a default so that people are not surprised on
+> upgrade. On the other hand, it used to be per-flow  - or rather per
+> destination - earlier (until the routing cache removal, I believe) and
+> per-flow distribution is IMHO preferrable in majority of use cases. In
+> theory, there was a route attribute "equalize" to switch to per-packet
+> distribution, but it was never actually implemented, AFAIK (it was
+> recognized by ip and passed to kernel but ignored there).
+>
+> Anyway, config option is definitely inconvenient as most users install
+> distribution kernels and do not configure their kernels themselves. Even
+> boot parameter would be better - but sysctl sounds much better. Having
+> both sysctl and per-route attribute would be perfect, of course.
+>
+IPv6 routing already uses a hash without any capability of setting
+this to be round robin, probably every network device on the planet
+performs ECMP using a hash since it is stateless algorithm, and as I
+pointed most of our other packet steering mechanisms use a hash. So
+the IPv4 path seems to be the odd man out here. Keeping round robin
+seems around awfully conservative to me, and implies that we need to
+implement it in IPv6 to maintain feature parity.
 
-Are you going to submit the CONFIG_PM change separately?  It fixes a warning 
-when CONFIG_PM is not enabled.
+Tom
 
--Scott
+>                                                         Michal Kubecek
+>
