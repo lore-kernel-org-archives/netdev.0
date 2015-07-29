@@ -1,110 +1,61 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCHv2] net/ipv6: add sysctl option accept_ra_hop_limit
-Date: Wed, 29 Jul 2015 10:00:35 +0800
-Message-ID: <CAPwn2JTRvN7pzSxz4TMXC7FNWxbH0PYPPoOjpRpM_rCigoiFeg@mail.gmail.com>
-References: <1437978942-7047-1-git-send-email-liuhangbin@gmail.com>
-	<55B6C3AF.1050504@miraclelinux.com>
-	<CAPwn2JSk0P8n+aSxTGiU0Q2RSSbZ52NVZxOS+yURpor2YQVySQ@mail.gmail.com>
-	<55B6FDD0.4020904@miraclelinux.com>
+From: "Hall, Christopher S" <christopher.s.hall@intel.com>
+Subject: RE: [PATCH 3/5] Add calls to translate Always Running Timer (ART)
+ to system time
+Date: Wed, 29 Jul 2015 02:05:12 +0000
+Message-ID: <B79D786B7111A34A8CF09F833429C493A909CF29@ORSMSX109.amr.corp.intel.com>
+References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
+	<1438044416-15588-4-git-send-email-christopher.s.hall@intel.com>
+ <CALAqxLXPbVZr0aXceM6bFHd3xu=4W-DinQL8yMMsVYEecPSeHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f196.google.com ([209.85.214.196]:34606 "EHLO
-	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752294AbbG2CAf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 22:00:35 -0400
-Received: by obbdh8 with SMTP id dh8so6906555obb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2015 19:00:35 -0700 (PDT)
-In-Reply-To: <55B6FDD0.4020904@miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'John Stultz' <john.stultz@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALAqxLXPbVZr0aXceM6bFHd3xu=4W-DinQL8yMMsVYEecPSeHw@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2015-07-28 11:58 GMT+08:00 YOSHIFUJI Hideaki
-<hideaki.yoshifuji@miraclelinux.com>:
-> Hi,
->
-> Hangbin Liu wrote:
->> 2015-07-28 7:50 GMT+08:00 YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=
-=B1=E6=98=8E
->> <hideaki.yoshifuji@miraclelinux.com>:
->>> Hi,
->>>
->>> Hangbin Liu wrote:
->>>> Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interfac=
-e")
->>>> disabled accept hop limit from RA if it is higher than the current=
- hop
->>>> limit for security stuff. But this behavior kind of break the RFC =
-definition.
->>>>
->>>> RFC 4861, 6.3.4.  Processing Received Router Advertisements
->>>>    If the received Cur Hop Limit value is non-zero, the host SHOUL=
-D set
->>>>    its CurHopLimit variable to the received value.
->>>>
->>>> So add sysctl option accept_ra_hop_limit to let user choose whethe=
-r accept
->>>> hop limit info in RA.
->>>>
->>>
->>> How about introducing "minimum hop limit", instead?
->>
->> Hi Yoshifuji,
->>
->> This is a good idea. Maybe this can be another sysctl option?
->>
->> The minimum hop limit can be an enhancement of the security issue, t=
-hen we will
->> not only increase the hop limit, but also could decrease it in the
->> range of values we
->> accept.
->>
->> On the other hand, with this patch, we can enable, disable or partly
->> enable accept
->> hop limit. If we only use "minimum hop limit", people could not use =
-a static hop
->> limit value.
->>
->> May be we use a =E2=80=9Chop limit range" instead? How do you think?
->
-> I think name of sysctl is the same as you suggested and change the
-> semantics.  default value is 0 to accept all hotlimit value
-> as before and people can set it to 32 (for example) to reject
-> too-small hoplimit (0-31).
-
-OK, then I will try submit a "minimum hop limit", thanks for your sugge=
-stion :)
-
-Regards
-Hangbin
->
-> --yoshfuji
->
->>
->> Thanks
->> Hangbin
->>
->>>
->>> |commit 6fd99094de2b83d1d4c8457f2c83483b2828e75a
->>> |Author: D.S. Ljungmark <ljungmark@modio.se>
->>> |Date:   Wed Mar 25 09:28:15 2015 +0100
->>> |
->>> |    ipv6: Don't reduce hop limit for an interface
->>> :
->>> |    RFC 3756, Section 4.2.7, "Parameter Spoofing"
->>> |
->>> :
->>> |   >   As an example, one possible approach to mitigate this threa=
-t is to
->>> |    >   ignore very small hop limits.  The nodes could implement a
->>> |    >   configurable minimum hop limit, and ignore attempts to set=
- it below
->>> |    >   said limit.
->
-> --
-> Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-> Technical Division, MIRACLE LINUX CORPORATION
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9obiBTdHVsdHogW21h
+aWx0bzpqb2huLnN0dWx0ekBsaW5hcm8ub3JnXQ0KPiBTZW50OiBNb25kYXksIEp1bHkgMjcsIDIw
+MTUgOToxMSBQTQ0KPiBUbzogSGFsbCwgQ2hyaXN0b3BoZXIgUw0KPiBDYzogVGhvbWFzIEdsZWl4
+bmVyOyBSaWNoYXJkIENvY2hyYW47IEluZ28gTW9sbmFyOyBLaXJzaGVyLCBKZWZmcmV5IFQ7DQo+
+IFJvbmNpYWssIEpvaG47IEguIFBldGVyIEFudmluOyB4ODZAa2VybmVsLm9yZzsgbGttbDsNCj4g
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDMvNV0gQWRkIGNh
+bGxzIHRvIHRyYW5zbGF0ZSBBbHdheXMgUnVubmluZyBUaW1lcg0KPiAoQVJUKSB0byBzeXN0ZW0g
+dGltZQ0KPiANCj4gT24gTW9uLCBKdWwgMjcsIDIwMTUgYXQgNTo0NiBQTSwgQ2hyaXN0b3BoZXIg
+SGFsbA0KPiA8Y2hyaXN0b3BoZXIucy5oYWxsQGludGVsLmNvbT4gd3JvdGU6DQo+ID4gK3N0YXRp
+YyBib29sIGNoZWNrZWRfYXJ0X3RvX3RzYyhjeWNsZV90ICp0c2MpDQo+ID4gK3sNCj4gPiArICAg
+ICAgIGlmICghaGFzX2FydCgpKQ0KPiA+ICsgICAgICAgICAgICAgICByZXR1cm4gZmFsc2U7DQo+
+ID4gKyAgICAgICAqdHNjID0gYXJ0X3RvX3RzYygqdHNjKTsNCj4gPiArICAgICAgIHJldHVybiB0
+cnVlOw0KPiA+ICt9DQo+ID4gKw0KPiA+ICtzdGF0aWMgaW50IGFydF90b19yYXdtb25vNjQoc3Ry
+dWN0IHRpbWVzcGVjNjQgKnJhd21vbm8sIGN5Y2xlX3QgYXJ0KQ0KPiA+ICt7DQo+ID4gKyAgICAg
+ICBpZiAoIWNoZWNrZWRfYXJ0X3RvX3RzYygmYXJ0KSkNCj4gPiArICAgICAgICAgICAgICAgcmV0
+dXJuIC1FTlhJTzsNCj4gPiArICAgICAgIHJldHVybiB0c2NfdG9fcmF3bW9ubzY0KHJhd21vbm8s
+IGFydCk7DQo+ID4gK30NCj4gPiArRVhQT1JUX1NZTUJPTChhcnRfdG9fcmF3bW9ubzY0KTsNCj4g
+DQo+IFRoaXMgYWxsIHNlZW1zIHRvIGFzc3VtZSB0aGUgVFNDIGlzIHRoZSBjdXJyZW50IGNsb2Nr
+c291cmNlLCB3aGljaCBpdA0KPiBtYXkgbm90IGJlIGlmIHRoZSB1c2VyIGhhcyBvdmVycmlkZGVu
+IGl0Lg0KDQpJIGRvbid0IG1ha2UgdGhhdCBhc3N1bXB0aW9uLiAgVGhlIGNvdW50ZXJfdG9fKiBm
+dW5jdGlvbnMgdGFrZSBhDQpwb2ludGVyIHRvIGEgY2xvY2tzb3VyY2Ugc3RydWN0LiAgVGhleSBy
+ZXR1cm4gLUVOWElPIGlmIHRoYXQgY2xvY2tzb3VyY2UNCmRvZXNu4oCZdCBtYXRjaCB0aGUgY3Vy
+cmVudCBjbG9ja3NvdXJjZS4NCg0KVGhlIHRzY190b18qIGZ1bmN0aW9ucyBwYXNzIHRoZSB0c2Mg
+Y2xvY2tzb3VyY2UgcG9pbnRlciB0byB0aGUgY291bnRlcl90b18qDQpmdW5jdGlvbnMuICBUaGVz
+ZSB0c2MgY29udmVyc2lvbiBmdW5jdGlvbnMgYXJlIGNhbGxlZCBieSB0aGUgYXJ0X3RvXyoNCmZ1
+bmN0aW9ucy4NCg0KPiANCj4gSWYgaW5zdGVhZCB0aGVyZSB3ZXJlIGEgY291bnRlcl90b19yYXdt
+b25vNjQoKSB3aGljaCB0b29rIHRoZSBjb3VudGVyDQo+IHZhbHVlIGFuZCBtYXliZSB0aGUgbmFt
+ZSBvZiB0aGUgY2xvY2tzb3VyY2UgKGlmIHRoZSBzdHJuY21wIGlzDQo+IGFmZm9yZGFibGUgZm9y
+IHlvdXIgdXNlKSwgaXQgbWlnaHQgYmUgZWFzaWVyIGZvciB0aGUgY29yZSB0byBwcm92aWRlDQo+
+IGFuIGVycm9yIGlmIHRoZSBjdXJyZW50IHRpbWVrZWVwaW5nIGNsb2Nrc291cmNlIGlzbid0IHRo
+ZSBvbmUgdGhlDQo+IGNvdW50ZXIgdmFsdWUgaXMgYmFzZWQgb24uIFRoaXMgd291bGQgYWxzbyBh
+bGxvdyB0aGUgdHNjX3RvXyooKQ0KPiBtaWRsYXllcnMgdG8gYmUgZHJvcHBlZCAoc2luY2UgdGhl
+eSBkb24ndCBzZWVtIHRvIGRvIG11Y2gpLg0KPiANCj4gdGhhbmtzDQo+IC1qb2huDQoNCkFnYWlu
+LCB0aGFua3MgZm9yIHlvdXIgaW5wdXQuDQoNCkNocmlzDQo=
