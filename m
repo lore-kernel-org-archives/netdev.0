@@ -1,45 +1,99 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 1/5] Add functions producing system time given a backing
- counter value
-Date: Wed, 29 Jul 2015 14:35:55 +0200
-Message-ID: <20150729123555.GP19282@twins.programming.kicks-ass.net>
-References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
- <1438044416-15588-2-git-send-email-christopher.s.hall@intel.com>
- <CALAqxLWSakB1zdnYAE=2yQTPLdzkjO3wLA82Q+CJoJccGLWM8Q@mail.gmail.com>
- <CALAqxLVkwJ5cmvSZ9bL-F7YTFprZ+CvZW4MrMN0sEkk5yFqMRQ@mail.gmail.com>
- <alpine.DEB.2.11.1507291014490.3825@nanos>
- <20150729104944.GM19282@twins.programming.kicks-ass.net>
- <20150729114840.GA16880@localhost.localdomain>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net v3 1/2] r8152: add pre_reset and post_reset
+Date: Wed, 29 Jul 2015 20:39:08 +0800
+Message-ID: <1394712342-15778-163-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+ <1394712342-15778-162-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	John Stultz <john.stultz@linaro.org>,
-	Christopher Hall <christopher.s.hall@intel.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	john.ronciak@intel.com, "H. Peter Anvin" <hpa@zytor.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150729114840.GA16880@localhost.localdomain>
+In-Reply-To: <1394712342-15778-162-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 29, 2015 at 01:48:41PM +0200, Richard Cochran wrote:
-> On Wed, Jul 29, 2015 at 12:49:44PM +0200, Peter Zijlstra wrote:
-> > This is still fuzzy, right? The hardware ART timestamp could be from
-> > _before_ the NTP adjust; or the NTP adjust could happen while we do this
-> > conversion and we'll take the retry loop.
-> 
-> In the original series, yes.
->  
-> > In both cases, the resulting value is computed using a different slope
-> > than was in effect at the time of the stamp. With the end result being
-> > slightly off from what it should be.
-> 
-> In Thomas' patch the get_ts() is meant to read fresh pairs of time
-> stamps from within the loop.
+Add rtl8152_pre_reset() and rtl8152_post_reset() which are used when
+calling usb_reset_device(). The two functions could reduce the time
+of reset when calling usb_reset_device() after probe().
 
-Ah, indeed, I missed that. Yes if that's possible we get it right.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 54 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 144dc64..e1b6d6d 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3342,6 +3342,58 @@ static void r8153_init(struct r8152 *tp)
+ 	r8153_u2p3en(tp, true);
+ }
+ 
++static int rtl8152_pre_reset(struct usb_interface *intf)
++{
++	struct r8152 *tp = usb_get_intfdata(intf);
++	struct net_device *netdev;
++
++	if (!tp)
++		return 0;
++
++	netdev = tp->netdev;
++	if (!netif_running(netdev))
++		return 0;
++
++	napi_disable(&tp->napi);
++	clear_bit(WORK_ENABLE, &tp->flags);
++	usb_kill_urb(tp->intr_urb);
++	cancel_delayed_work_sync(&tp->schedule);
++	if (netif_carrier_ok(netdev)) {
++		netif_stop_queue(netdev);
++		mutex_lock(&tp->control);
++		tp->rtl_ops.disable(tp);
++		mutex_unlock(&tp->control);
++	}
++
++	return 0;
++}
++
++static int rtl8152_post_reset(struct usb_interface *intf)
++{
++	struct r8152 *tp = usb_get_intfdata(intf);
++	struct net_device *netdev;
++
++	if (!tp)
++		return 0;
++
++	netdev = tp->netdev;
++	if (!netif_running(netdev))
++		return 0;
++
++	set_bit(WORK_ENABLE, &tp->flags);
++	if (netif_carrier_ok(netdev)) {
++		mutex_lock(&tp->control);
++		tp->rtl_ops.enable(tp);
++		rtl8152_set_rx_mode(netdev);
++		mutex_unlock(&tp->control);
++		netif_wake_queue(netdev);
++	}
++
++	napi_enable(&tp->napi);
++
++	return 0;
++}
++
+ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct r8152 *tp = usb_get_intfdata(intf);
+@@ -4164,6 +4216,8 @@ static struct usb_driver rtl8152_driver = {
+ 	.suspend =	rtl8152_suspend,
+ 	.resume =	rtl8152_resume,
+ 	.reset_resume =	rtl8152_resume,
++	.pre_reset =	rtl8152_pre_reset,
++	.post_reset =	rtl8152_post_reset,
+ 	.supports_autosuspend = 1,
+ 	.disable_hub_initiated_lpm = 1,
+ };
+-- 
+2.4.2
