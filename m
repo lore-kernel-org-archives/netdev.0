@@ -1,39 +1,48 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v3 0/2] r8152: device reset
-Date: Wed, 29 Jul 2015 20:39:07 +0800
-Message-ID: <1394712342-15778-162-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net 1/1] qlcnic: Fix corruption while copying
+Date: Wed, 29 Jul 2015 07:55:35 -0400
+Message-ID: <1438170935-9302-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-156-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49872 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750871AbbG2MlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 08:41:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-v3:
-For patch #2, remove cancel_delayed_work().
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-v2:
-For patch #1, remove usb_autopm_get_interface(), usb_autopm_put_interface(), and
-the checking of intf->condition.
+Use proper typecasting while performing byte-by-byte copy
 
-For patch #2, replace the original method with usb_queue_reset_device() to reset
-the device. 
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+---
+Hi Dave,
 
-v1:
-Although the driver works normally, we find the device may get all 0xff data when
-transmitting packets on certain platforms. It would break the device and no packet
-could be transmitted. The reset is necessary to recover the hw for this situation.
+Please apply this patch to net.
 
-Hayes Wang (2):
-  r8152: add pre_reset and post_reset
-  r8152: reset device when tx timeout
+Thanks,
+Shahed
+---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- drivers/net/usb/r8152.c | 90 ++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 86 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index 78acec4..bf89216 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1415,7 +1415,7 @@ static int qlcnic_83xx_copy_fw_file(struct qlcnic_adapter *adapter)
+ 	if (fw->size & 0xF) {
+ 		addr = dest + size;
+ 		for (i = 0; i < (fw->size & 0xF); i++)
+-			data[i] = temp[size + i];
++			data[i] = ((u8 *)temp)[size + i];
+ 		for (; i < 16; i++)
+ 			data[i] = 0;
+ 		ret = qlcnic_ms_mem_write128(adapter, addr,
 -- 
-2.4.2
+1.5.6
