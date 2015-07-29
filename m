@@ -1,35 +1,46 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPsec maintenance during the next weeks
-Date: Wed, 29 Jul 2015 12:47:20 +0200
-Message-ID: <20150729104718.GJ12278@secunet.com>
-References: <20150708050426.GH12278@secunet.com>
- <20150707.225817.433642479342540811.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 1/2] net: Set sk_txhash from a random number
+Date: Wed, 29 Jul 2015 12:47:37 +0200
+Message-ID: <20150729104737.GD13113@pox.localdomain>
+References: <1438124526-2129341-1-git-send-email-tom@herbertland.com>
+ <1438124526-2129341-2-git-send-email-tom@herbertland.com>
+ <20150729091333.GB13113@pox.localdomain>
+ <1438162146.20182.74.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150729095416.GC13113@pox.localdomain>
+ <1438164408.20182.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, kernel-team@fb.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39283 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750909AbbG2KrY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2015 06:47:24 -0400
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:34573 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751309AbbG2Krl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 06:47:41 -0400
+Received: by wibud3 with SMTP id ud3so215106467wib.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 03:47:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20150707.225817.433642479342540811.davem@davemloft.net>
+In-Reply-To: <1438164408.20182.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 07, 2015 at 10:58:17PM -0700, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Wed, 8 Jul 2015 07:04:32 +0200
+On 07/29/15 at 12:06pm, Eric Dumazet wrote:
+> On Wed, 2015-07-29 at 11:54 +0200, Thomas Graf wrote:
 > 
-> > I'll be off without mail access for the next two and a half weeks.
-> > Can you please take urgent IPsec patches directly into the net
-> > tree during this time? 
+> > skb_set_hash_from_sk()
+> > skb_get_hash()
 > > 
-> > I'll let you know as soon as I'm back.
+> > Am I misreading this? I'm not using SO_REUSEPORT and it might be OK
+> > to assume that different sockets may go to different queues even if
+> > the L4 tuple is identical.
 > 
-> Sure, thanks for letting me know.
+> skb_set_hash_from_sk() sets skb->hash in output path. Nothing uses it
+> then later. bonding uses its own hash functions.
+> 
+> SO_REUSEPORT is on input path, and uses its own hash anyway.
 
-I'm back and continue to run the ipsec trees.
-
-Thanks!
+Yes, I'm talking about the output path only but after further reading,
+the only case that could be a problem is if two SO_REUSEPORT sockets
+connect to the same destination address and port which will be prevented
+by connect anyway.
