@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4: suppress NETDEV_UP notification on address
- lifetime update
-Date: Tue, 28 Jul 2015 23:38:55 -0700 (PDT)
-Message-ID: <20150728.233855.1081514455386990046.davem@davemloft.net>
-References: <1437927538-21703-1-git-send-email-david.ward@ll.mit.edu>
+Subject: Re: [PATCH net] arp: filter NOARP neighbours for SIOCGARP
+Date: Tue, 28 Jul 2015 23:41:47 -0700 (PDT)
+Message-ID: <20150728.234147.1087098759056655521.davem@davemloft.net>
+References: <1437989630.20182.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.ward@ll.mit.edu
+Cc: netdev@vger.kernel.org, valas@google.com, willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56508 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56520 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115AbbG2Gi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 02:38:56 -0400
-In-Reply-To: <1437927538-21703-1-git-send-email-david.ward@ll.mit.edu>
+	with ESMTP id S1750957AbbG2Gls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 02:41:48 -0400
+In-Reply-To: <1437989630.20182.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ward <david.ward@ll.mit.edu>
-Date: Sun, 26 Jul 2015 12:18:58 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 27 Jul 2015 11:33:50 +0200
 
-> This notification causes the FIB to be updated, which is not needed
-> because the address already exists, and more importantly it may undo
-> intentional changes that were made to the FIB after the address was
-> originally added. (As a point of comparison, when an address becomes
-> deprecated because its preferred lifetime expired, a notification on
-> this chain is not generated.)
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The motivation for this commit is fixing an incompatibility between
-> DHCP clients which set and update the address lifetime according to
-> the lease, and a commercial VPN client which replaces kernel routes
-> in a way that outbound traffic is sent only through the tunnel (and
-> disconnects if any further route changes are detected via netlink).
+> When arp is off on a device, and ioctl(SIOCGARP) is queried,
+> a buggy answer is given with MAC address of the device, instead
+> of the mac address of the destination/gateway.
 > 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> We filter out NUD_NOARP neighbours for /proc/net/arp,
+> we must do the same for SIOCGARP ioctl.
+> 
+> Tested:
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Vytautas Valancius <valas@google.com>
 
-Yeah, this makes sense, applied.
-
-I bet the SCTP notifier could have ended up with dups in it's local
-address list because of this.
+Applied, thanks Eric.
