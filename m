@@ -1,62 +1,65 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH 1/2] net: Export __netdev_alloc_frag() to allow gfp_mask
- flags
-Date: Wed, 29 Jul 2015 16:22:41 -0400
-Message-ID: <55B93611.7070506@ti.com>
-References: <1438182653-2136-1-git-send-email-w-kwok2@ti.com> <1438187516.20182.95.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: [PATCH v2 0/2] igb/ixgbe: Fix ordering of SR-IOV teardown
+Date: Wed, 29 Jul 2015 14:38:08 -0600
+Message-ID: <20150729203726.10732.91020.stgit@gimli.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	WingMan Kwok <w-kwok2@ti.com>
+Cc: netdev@vger.kernel.org, mitch.a.williams@intel.com,
+	linux-kernel@vger.kernel.org
+To: intel-wired-lan@lists.osuosl.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438187516.20182.95.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric,
+v2:
+ - Rebase to DaveM's net tree, context-only change
+ - Add Mitch's Acks
 
-On 07/29/2015 12:31 PM, Eric Dumazet wrote:
-> On Wed, 2015-07-29 at 11:10 -0400, WingMan Kwok wrote:
->> This patch makes the function __netdev_alloc_frag() non-static and
->> exports it so that drivers that need to specify additional flags,
->> such as __GFP_DMA, can use it. The currently exported function,
->> netdev_alloc_frag() doesn't allow passing in gfp_mask flags.
->>
->> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
->> Signed-off-by: Reece R. Pollack <x0183204@ti.com>
->> ---
->>   include/linux/skbuff.h |    1 +
->>   net/core/skbuff.c      |    3 ++-
->>   2 files changed, 3 insertions(+), 1 deletion(-)
->
-> You can not do this.
->
-> __napi_alloc_frag() uses __alloc_page_frag() using a per cpu reserve.
->
-Thanks for your response.
+There's no functional change from v1, so the choice of v1 or v2 is
+just a matter of which maintainer wants to take these.
 
-I assume you mean to say __netdev_alloc_frag() which is what the patch 
-affects. Right?
+Original description:
 
-> This per cpu reserve would be shared by regular GFP_ATOMIC and your
-> __GFP_DMA allocations.
+When running a Windows 2012 R2 guest with a pair of VFs assigned
+through vfio-pci, we run into a problem trying to hot-unplug those VFs
+after the PF has unregistered the netdev.  This is a common scenario
+if the PF is unbound from the driver while VFs are active.  In the
+case of igb, the resulting guest behavior differs slightly between the
+Microsoft provided and Intel add-on guest drivers.  With the Microsoft
+driver, the guest seems to stumble through ejecting both VFs, but
+takes longer than normal to do so.  With the Intel drivers, only one
+VF is unplugged, but Device Manager still shows it as present.  The
+second VF is non-functional but also still shown in Device Manager.
+At this point, the guest is in such a state that it will not cleanly
+shutdown.  With ixgbe VFs, both the Microsoft and Intel drivers take
+on this latter behavior.
 
-I am trying to understand the issue here. Is there any issue in sharing 
-this per CPU reserve between DMA and ATOMIC allocations. Without this 
-flag, the assumption is this function can return memory which is not 
-DMA-able and this flag assures it is allocated from DMA zone.
+For both, I've found that disabling SR-IOV before unregistering the PF
+netdev device allows the hot-unplug to proceed without interruption or
+further ill behavior in the guest.  This is true regardless of which
+driver is used.  I don't fully understand what dependency is broken
+by unregistering the netdev prior to disabling SR-IOV, but I also
+don't see the benefit in delaying SR-IOV teardown in this call path.
+It could potentially be moved even earlier, but I'll let those more
+familiar with the hardware and code make that determination.  In any
+case, the VM behavior is substantially improved by this slight
+re-ordering.
 
-Murali
->
->
->
->
->
+I don't have an i40e for testing, but it already appears to disable
+SR-IOV much earlier in the unbind path, so I wouldn't expect to find
+similar issues.  Thanks,
+
+Alex
+
+---
+
+Alex Williamson (2):
+      igb: Teardown SR-IOV before unregister_netdev()
+      ixgbe: Teardown SR-IOV before unregister_netdev()
 
 
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+ drivers/net/ethernet/intel/igb/igb_main.c     |    8 ++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++---
+ 2 files changed, 7 insertions(+), 7 deletions(-)
