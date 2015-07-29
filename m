@@ -1,53 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] lwtunnel: Make lwtun_encaps[] static
-Date: Wed, 29 Jul 2015 09:45:40 +0200
-Message-ID: <66e6473d98879c465cf4965d44230374c716ed25.1438155918.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>
-To: davem@davemloft.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] gianfar: Fix warnings when built on 64-bit
+Date: Wed, 29 Jul 2015 10:02:07 +0200
+Message-ID: <4498062.4y369pLSmO@wuerfel>
+References: <1438147477-393-1-git-send-email-scottwood@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:34344 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752907AbbG2H6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 03:58:52 -0400
+Received: from mout.kundenserver.de ([212.227.126.187]:55524 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbbG2ICP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 04:02:15 -0400
+In-Reply-To: <1438147477-393-1-git-send-email-scottwood@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any external user should use the registration API instead of
-accessing this directly.
+On Wednesday 29 July 2015 00:24:37 Scott Wood wrote:
 
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- include/net/lwtunnel.h | 3 ---
- net/core/lwtunnel.c    | 2 +-
- 2 files changed, 1 insertion(+), 4 deletions(-)
+> Alternatively, if there's a desire to not mess with this code (I don't
+> know how to trigger this code path to test it), this driver should be
+> given dependencies that ensure that it only builds on 32-bit.
 
-diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-index b020390..33bd309 100644
---- a/include/net/lwtunnel.h
-+++ b/include/net/lwtunnel.h
-@@ -31,9 +31,6 @@ struct lwtunnel_encap_ops {
- 	int (*cmp_encap)(struct lwtunnel_state *a, struct lwtunnel_state *b);
- };
- 
--extern const struct lwtunnel_encap_ops __rcu *
--		lwtun_encaps[LWTUNNEL_ENCAP_MAX+1];
--
- #ifdef CONFIG_LWTUNNEL
- static inline struct lwtunnel_state *
- lwtstate_get(struct lwtunnel_state *lws)
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-index 5f7fae7..c240c89 100644
---- a/net/core/lwtunnel.c
-+++ b/net/core/lwtunnel.c
-@@ -37,7 +37,7 @@ struct lwtunnel_state *lwtunnel_state_alloc(int encap_len)
- }
- EXPORT_SYMBOL(lwtunnel_state_alloc);
- 
--const struct lwtunnel_encap_ops __rcu *
-+static const struct lwtunnel_encap_ops __rcu *
- 		lwtun_encaps[LWTUNNEL_ENCAP_MAX + 1] __read_mostly;
- 
- int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *ops,
--- 
-2.4.3
+These are obvious fixes, they should definitely go in.
+
+>  drivers/net/ethernet/freescale/gianfar.c | 22 ++++++++++++++++++----
+>  1 file changed, 18 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+> index ff87502..7c682ac 100644
+> --- a/drivers/net/ethernet/freescale/gianfar.c
+> +++ b/drivers/net/ethernet/freescale/gianfar.c
+> @@ -565,6 +565,7 @@ static void gfar_ints_enable(struct gfar_private *priv)
+>  	}
+>  }
+>  
+> +#ifdef CONFIG_PM
+>  static void lock_tx_qs(struct gfar_private *priv)
+>  {
+>  	int i;
+> @@ -580,6 +581,7 @@ static void unlock_tx_qs(struct gfar_private *priv)
+>  	for (i = 0; i < priv->num_tx_queues; i++)
+>  		spin_unlock(&priv->tx_queue[i]->txlock);
+>  }
+> +#endif
+>  
+
+This seems unrelated and should probably be a separate fix.
+
+> @@ -2964,8 +2967,13 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+>  		gfar_init_rxbdp(rx_queue, bdp, bufaddr);
+>  
+>  		/* Update Last Free RxBD pointer for LFC */
+> -		if (unlikely(rx_queue->rfbptr && priv->tx_actual_en))
+> -			gfar_write(rx_queue->rfbptr, (u32)bdp);
+> +		if (unlikely(rx_queue->rfbptr && priv->tx_actual_en)) {
+> +			u32 bdp_dma;
+> +
+> +			bdp_dma = lower_32_bits(rx_queue->rx_bd_dma_base);
+> +			bdp_dma += (uintptr_t)bdp - (uintptr_t)base;
+> +			gfar_write(rx_queue->rfbptr, bdp_dma);
+> +		}
+>  
+>  		/* Update to the next pointer */
+>  		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
+
+You are fixing two problems here: the warning about a size cast, and
+the fact that the driver is using the wrong pointer. I'd suggest
+explaining it in the changelog.
+
+Note that we normally rely on void pointer arithmetic in the kernel, so
+I'd write it without the uintptr_t casts as 
+
+	bdp_dma = lower_32_bits(rx_queue->rx_bd_dma_base + (base - bdp));
+
+	Arnd
