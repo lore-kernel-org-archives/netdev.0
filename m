@@ -1,74 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 2/3] net: sched: set tx_queue_len to default
- when changing noqueue device's qdisc
-Date: Wed, 29 Jul 2015 23:10:45 +0200
-Message-ID: <1438204245.20182.106.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438203103-27013-1-git-send-email-phil@nwl.cc>
-	 <1438203103-27013-2-git-send-email-phil@nwl.cc>
-	 <1438203103-27013-3-git-send-email-phil@nwl.cc>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v3] route: allow to route in a peer netns via
+ lwt framework
+Date: Wed, 29 Jul 2015 23:17:51 +0200
+Message-ID: <55B942FF.2020303@6wind.com>
+References: <55B68CE2.10008@6wind.com>	 <1438175774-4408-1-git-send-email-nicolas.dichtel@6wind.com> <1438183251.20182.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
-	Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, tgraf@suug.ch,
+	alexei.starovoitov@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:33046 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273AbbG2VKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:10:49 -0400
-Received: by wicmv11 with SMTP id mv11so234491543wic.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 14:10:48 -0700 (PDT)
-In-Reply-To: <1438203103-27013-3-git-send-email-phil@nwl.cc>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:33139 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753340AbbG2VRz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:17:55 -0400
+Received: by wicmv11 with SMTP id mv11so234668287wic.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 14:17:54 -0700 (PDT)
+In-Reply-To: <1438183251.20182.93.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-07-29 at 22:51 +0200, Phil Sutter wrote:
-> Virtual interfaces don't necessarily need a qdisc attached to them. This
-> is signalled by setting dev->tx_queue_len to zero upon initialisation. The
-> problems begin when a user still adds a qdisc, as then the special value
-> is used as a regular one causing massive packet drops as soon as the
-> device sees a bit of traffic load.
-> 
-> This patch solves the issue by setting tx_queue_len to the global
-> default for physical devices if it is zero and a qdisc is added. Another
-> benefit of this is that veth devices can default to noqueue while still
-> preserving the expected behaviour when adding a qdisc.
-> 
-> The drawback of this patch is that the noqueue state won't be restored
-> after a user has removed the custom qdisc, as the information about
-> whether this is legitimate for the given device is lost.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  net/sched/sch_api.c | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index f06aa01..79b8900 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -1315,6 +1315,10 @@ graft:
->  			qdisc_destroy(q);
->  		return err;
->  	}
-> +	/* circumvent noqueue hack for virtual interfaces if
-> +	 * user desires to use a qdisc on it */
-> +	if (!dev->tx_queue_len)
-> +		dev->tx_queue_len = CONFIG_DEFAULT_TX_QUEUE_LEN;
->  
->  	return 0;
->  }
-
-This is still broken for htb : htb_init() would run before this,
-and htb_init() does :
-
-
-q->direct_qlen = qdisc_dev(sch)->tx_queue_len;
-
-Really, I am not sure this can be changed. qdisc scripts are mostly
-written by skilled people knowing if txqueuelen needs to be changed or
-not...
-
-Change the kernel behavior and scripts will break.
+Le 29/07/2015 17:20, Eric Dumazet a =C3=A9crit :
+> On Wed, 2015-07-29 at 15:16 +0200, Nicolas Dichtel wrote:
+>> This patch takes advantage of the newly added lwtunnel framework to
+>> allow the user to set routes that point to a peer netns.
+>>
+>> Packets are injected to the peer netns via the loopback device. It w=
+orks
+>> only when the output device is 'lo'.
+>>
+>> Example:
+>> ip route add 40.1.1.1/32 encap netns nsid 5 via dev lo
+>>
+>> The goal is to be scalable when the number of netns is high (10k or =
+more).
+>> Which this patch, we can save two interfaces (veth) per netns, which=
+ helps
+>> to to reduce memory consumption and the time needed to create a netn=
+s.
+>
+>
+> Really this is a hack Nicolas.
+>
+> get_net_ns_by_id() was not meant to be used in data (fast ???) path.
+>
+> Same for get_net() and put_net()
+>
+> Plumbing like that should not happen in lo start_xmit()
+Yes, I think you're right. I was a bit too enthusiasm with this new fra=
+mework.
+Do you think it would be acceptable if the netns was directly reference=
+d
+instead of a nsid?
