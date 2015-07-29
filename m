@@ -1,8 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net 02/11] net: thunderx: Fix memory leak while tearing down
- interface
-Date: Wed, 29 Jul 2015 16:49:37 +0300
-Message-ID: <1438177787-20940-3-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH net 03/11] net: thunderx: Fix RQ_DROP miscalculation
+Date: Wed, 29 Jul 2015 16:49:38 +0300
+Message-ID: <1438177787-20940-4-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,63 +28,65 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Fixed 'tso_hdrs' memory not being freed properly.
-Also fixed SQ skbuff maintenance issues.
+With earlier configured value sufficient number of CQEs are not
+being reserved for transmitted packets. Hence under heavy incoming
+traffic load, receive notifications will take away most of the CQ
+thus transmit notifications will be lost resulting in tx skbs not
+being freed.
+
+Finally SQ will be full and it will be stopped, watchdog timer
+will kick in. After this fix receive notifications will not take
+morethan half of CQ reserving the rest for transmit notifications.
+
+Also changed CQ & SQ sizes from 16k to 4k.
+This is also due to the receive notifications taking first half of
+CQ under heavy load and time taken by NAPI to clear transmit notifications
+will increase with higher queue sizes. Again results in SQ being stopped.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 1 +
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 8 +++++---
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 8b119a0..2890cd6 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -425,6 +425,7 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
- 	if (skb) {
- 		prefetch(skb);
- 		dev_consume_skb_any(skb);
-+		sq->skbuff[cqe_tx->sqe_ptr] = (u64)NULL;
- 	}
- }
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index 8341bdf..f0937b7 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -62,7 +62,7 @@
+ #define SND_QUEUE_CNT		8
+ #define CMP_QUEUE_CNT		8 /* Max of RCV and SND qcount */
  
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 4dae6aa..4c91959 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -382,7 +382,8 @@ static void nicvf_free_snd_queue(struct nicvf *nic, struct snd_queue *sq)
- 		return;
+-#define SND_QSIZE		SND_QUEUE_SIZE4
++#define SND_QSIZE		SND_QUEUE_SIZE2
+ #define SND_QUEUE_LEN		(1ULL << (SND_QSIZE + 10))
+ #define MAX_SND_QUEUE_LEN	(1ULL << (SND_QUEUE_SIZE6 + 10))
+ #define SND_QUEUE_THRESH	2ULL
+@@ -70,7 +70,10 @@
+ /* Since timestamp not enabled, otherwise 2 */
+ #define MAX_CQE_PER_PKT_XMIT		1
  
- 	if (sq->tso_hdrs)
--		dma_free_coherent(&nic->pdev->dev, sq->dmem.q_len,
-+		dma_free_coherent(&nic->pdev->dev,
-+				  sq->dmem.q_len * TSO_HEADER_SIZE,
- 				  sq->tso_hdrs, sq->tso_hdrs_phys);
+-#define CMP_QSIZE		CMP_QUEUE_SIZE4
++/* Keep CQ and SQ sizes same, if timestamping
++ * is enabled this equation will change.
++ */
++#define CMP_QSIZE		CMP_QUEUE_SIZE2
+ #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
+ #define CMP_QUEUE_CQE_THRESH	0
+ #define CMP_QUEUE_TIMER_THRESH	220 /* 10usec */
+@@ -87,7 +90,12 @@
  
- 	kfree(sq->skbuff);
-@@ -863,10 +864,11 @@ void nicvf_sq_free_used_descs(struct net_device *netdev, struct snd_queue *sq,
- 			continue;
- 		}
- 		skb = (struct sk_buff *)sq->skbuff[sq->head];
-+		if (skb)
-+			dev_kfree_skb_any(skb);
- 		atomic64_add(1, (atomic64_t *)&netdev->stats.tx_packets);
- 		atomic64_add(hdr->tot_len,
- 			     (atomic64_t *)&netdev->stats.tx_bytes);
--		dev_kfree_skb_any(skb);
- 		nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
- 	}
- }
-@@ -1048,7 +1050,7 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
- 		}
- 		nicvf_sq_add_hdr_subdesc(sq, hdr_qentry,
- 					 seg_subdescs - 1, skb, seg_len);
--		sq->skbuff[hdr_qentry] = 0;
-+		sq->skbuff[hdr_qentry] = (u64)NULL;
- 		qentry = nicvf_get_nxt_sqentry(sq, qentry);
+ #define MAX_CQES_FOR_TX		((SND_QUEUE_LEN / MIN_SQ_DESC_PER_PKT_XMIT) * \
+ 				 MAX_CQE_PER_PKT_XMIT)
+-#define RQ_CQ_DROP		((CMP_QUEUE_LEN - MAX_CQES_FOR_TX) / 256)
++/* Calculate number of CQEs to reserve for all SQEs.
++ * Its 1/256th level of CQ size.
++ * '+ 1' to account for pipelining
++ */
++#define RQ_CQ_DROP		((256 / (CMP_QUEUE_LEN / \
++				 (CMP_QUEUE_LEN - MAX_CQES_FOR_TX))) + 1)
  
- 		desc_cnt += seg_subdescs;
+ /* Descriptor size in bytes */
+ #define SND_QUEUE_DESC_SIZE	16
 -- 
 2.4.6
