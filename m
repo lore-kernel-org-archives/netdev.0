@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx4_en: Hardware accelerated 802.1ad
- works only on the first port
-Date: Wed, 29 Jul 2015 12:22:20 -0700 (PDT)
-Message-ID: <20150729.122220.2000858785713042224.davem@davemloft.net>
-References: <1438078759-21477-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH] net: switchdev: restrict vid range abstraction
+Date: Wed, 29 Jul 2015 12:28:50 -0700 (PDT)
+Message-ID: <20150729.122850.41892076269756846.davem@davemloft.net>
+References: <CAE4R7bA5jh3Rgn_U1Sit3qW+i2vKNE++c9TYTJ8sp5j8h=awbw@mail.gmail.com>
+	<20150729.112842.1871916445536378243.davem@davemloft.net>
+	<117624450.145106.1438197245281.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadarh@mellanox.com, ogerlitz@mellanox.com,
-	talal@mellanox.com
-To: amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33509 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753199AbbG2TWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 15:22:21 -0400
-In-Reply-To: <1438078759-21477-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us,
+	f.fainelli@gmail.com, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <117624450.145106.1438197245281.JavaMail.zimbra@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Tue, 28 Jul 2015 13:19:19 +0300
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed, 29 Jul 2015 15:14:05 -0400 (EDT)
 
-> Fix mistakenly used, hard coded, port number in get_phv_bit()
-> 
-> Fixes: 77fc29c ("net/mlx4_core: Preparations for 802.1ad VLAN support")
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> While a range might be convenient to a user, exposing it to drivers is
+> likely to end up writing the same vid_begin to vid_end for loop.
 
-Applied.
+It is impossible not to expose this to the driver.
+
+We have to have a prepare/commit sequence where the prepare part
+can see the whole of the request.
+
+It must know the full set of changes it must be able to support
+in one go in order to signal a failure properly.
+
+So in fact this is the most convenient way for the drivers to be
+exposed to this issue.
