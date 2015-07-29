@@ -1,29 +1,30 @@
-From: Florian Westphal <fw@strlen.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [net-next PATCH 2/3] net: sched: set tx_queue_len to default
  when changing noqueue device's qdisc
-Date: Wed, 29 Jul 2015 23:10:22 +0200
-Message-ID: <20150729211022.GG32705@breakpoint.cc>
+Date: Wed, 29 Jul 2015 23:10:45 +0200
+Message-ID: <1438204245.20182.106.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1438203103-27013-1-git-send-email-phil@nwl.cc>
- <1438203103-27013-2-git-send-email-phil@nwl.cc>
- <1438203103-27013-3-git-send-email-phil@nwl.cc>
+	 <1438203103-27013-2-git-send-email-phil@nwl.cc>
+	 <1438203103-27013-3-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
 	Cong Wang <cwang@twopensource.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>
 To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56104 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750803AbbG2VKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:10:24 -0400
-Content-Disposition: inline
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:33046 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273AbbG2VKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:10:49 -0400
+Received: by wicmv11 with SMTP id mv11so234491543wic.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 14:10:48 -0700 (PDT)
 In-Reply-To: <1438203103-27013-3-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phil Sutter <phil@nwl.cc> wrote:
+On Wed, 2015-07-29 at 22:51 +0200, Phil Sutter wrote:
 > Virtual interfaces don't necessarily need a qdisc attached to them. This
 > is signalled by setting dev->tx_queue_len to zero upon initialisation. The
 > problems begin when a user still adds a qdisc, as then the special value
@@ -56,17 +57,18 @@ Phil Sutter <phil@nwl.cc> wrote:
 > +	 * user desires to use a qdisc on it */
 > +	if (!dev->tx_queue_len)
 > +		dev->tx_queue_len = CONFIG_DEFAULT_TX_QUEUE_LEN;
+>  
+>  	return 0;
+>  }
 
-The comment should tell you that this isn't pretty :-)
+This is still broken for htb : htb_init() would run before this,
+and htb_init() does :
 
-How about making tx_queue_len really the tx_queue_len, and some
-not some "yeah, if its zero don't assign a queue"?
 
-IOW, why not specifically annotate virtual devices so they do not get a
-queue, ever (unless configured?)
+q->direct_qlen = qdisc_dev(sch)->tx_queue_len;
 
-That would allow to leave every default setting just the way they are,
-and it would not muck with people assigning e.g. htb to veth since
-the txqlen would be untouched.
+Really, I am not sure this can be changed. qdisc scripts are mostly
+written by skilled people knowing if txqueuelen needs to be changed or
+not...
 
-But aside from that, I think your suggested hack would work.
+Change the kernel behavior and scripts will break.
