@@ -1,33 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/17] stmmac clean up for 4.3 part2
-Date: Wed, 29 Jul 2015 00:13:54 -0700 (PDT)
-Message-ID: <20150729.001354.861107528589588129.davem@davemloft.net>
-References: <1438121344-5304-1-git-send-email-manabian@gmail.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH net v2 2/2] r8152: reset device when tx timeout
+Date: Wed, 29 Jul 2015 09:22:01 +0200
+Message-ID: <1438154521.9445.3.camel@suse.com>
+References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-159-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-161-Taiwan-albertk@realtek.com>
+	 <1438085645.1787.4.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F3C538@RTITMBSV03.realtek.com.tw>
+	 <1438088317.1787.5.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F3C673@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	b.galvani@gmail.com, arnd@arndb.de, roger.chen@rock-chips.com,
-	heiko@sntech.de, wens@csie.org, dinguyen@opensource.altera.com,
-	linux-rockchip@lists.infradead.org, mathieu@codeaurora.org
-To: manabian@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56732 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752414AbbG2HN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 03:13:56 -0400
-In-Reply-To: <1438121344-5304-1-git-send-email-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2F3C673@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Wed, 29 Jul 2015 00:08:47 +0200
+On Wed, 2015-07-29 at 02:06 +0000, Hayes Wang wrote:
+>  Oliver Neukum [mailto:oneukum@suse.com]
+> > Sent: Tuesday, July 28, 2015 8:59 PM
+> [...]
+> > > > >  static void rtl8152_tx_timeout(struct net_device *netdev)  {
+> > > > >         struct r8152 *tp = netdev_priv(netdev);
+> > > > > -       int i;
+> > > > >
+> > > > >         netif_warn(tp, tx_err, netdev, "Tx timeout\n");
+> > > > > -       for (i = 0; i < RTL8152_MAX_TX; i++)
+> > > > > -               usb_unlink_urb(tp->tx_info[i].urb);
+> > > > > +
+> > > > > +       usb_queue_reset_device(tp->intf);
+> > > > > +       cancel_delayed_work(&tp->schedule);
+> > > >
+> > > > Sorry to bother you again, but this looks wrong.
+> > > > You want to cancel first. There is no point in running any work
+> > > > before the reset is done. It will undo any progress anyway.
+> > >
+> > > Excuse me. Do you mean I don't need cancel the other work because it
+> > > wouldn't be run before the reset is finished?
+> > 
+> > No, whatever the other work will do, the reset will undo.
+> 
+> Excuse me. I don't understand why I couldn't use usb_queue_reset_device() directly.
+> Why the reset will undo? 
 
-> This patch set creates proper probe functions in the remaining
-> dwmac-* drivers, lets the drivers manage their own of match data
-> structure, and cleans up some of the drivers a bit. Note that
-> should be no functional change in any of the drivers.
+Now, I think I got the reason for the confusion.
 
-This is a really nice set of simplifications, series applied, thanks.
+You are using cancel_delayed_work(&tp->schedule); after you queue
+a reset. Therefore the order in which the work and the reset will
+be executed is undefined. Usually the scheduled work will be canceled,
+but not always.
 
-Please follow up on any breakage reported, thanks.
+That is not good.
+
+	Regards
+		Oliver
