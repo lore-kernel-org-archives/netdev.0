@@ -1,39 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: Set sk_txhash from a random number
-Date: Wed, 29 Jul 2015 12:06:48 +0200
-Message-ID: <1438164408.20182.86.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438124526-2129341-1-git-send-email-tom@herbertland.com>
-	 <1438124526-2129341-2-git-send-email-tom@herbertland.com>
-	 <20150729091333.GB13113@pox.localdomain>
-	 <1438162146.20182.74.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150729095416.GC13113@pox.localdomain>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH 4/8] xen: Use the correctly the Xen memory terminologies
+Date: Wed, 29 Jul 2015 11:13:24 +0100
+Message-ID: <20150729101323.GW5111@zion.uk.xensource.com>
+References: <1438095769-2560-1-git-send-email-julien.grall@citrix.com>
+ <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, kernel-team@fb.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:34641 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800AbbG2KGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 06:06:52 -0400
-Received: by wibud3 with SMTP id ud3so213763925wib.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 03:06:51 -0700 (PDT)
-In-Reply-To: <20150729095416.GC13113@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xenproject.org>, <ian.campbell@citrix.com>,
+	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
+	"Russell King" <linux@arm.linux.org.uk>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	"David Vrabel" <david.vrabel@citrix.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"Ingo Molnar" <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>,
+	<x86@kernel.org>,
+	Roger Pau =?iso-8859-1?Q?Monn=E9?= <roger.pau@citrix.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Wei Liu <wei.liu2@citrix.com>, Juergen Gross <jgross@suse.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Jiri Slaby" <jslaby@suse.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	<linux-input@vger.kernel.org>, <netdev@vger.kernel.org>,
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-07-29 at 11:54 +0200, Thomas Graf wrote:
+On Tue, Jul 28, 2015 at 04:02:45PM +0100, Julien Grall wrote:
+[...]
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 7d50711..3b7b7c3 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -314,7 +314,7 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
+>  		} else {
+>  			copy_gop->source.domid = DOMID_SELF;
+>  			copy_gop->source.u.gmfn =
+> -				virt_to_mfn(page_address(page));
+> +				virt_to_gfn(page_address(page));
+>  		}
+>  		copy_gop->source.offset = offset;
+>  
+> @@ -1284,7 +1284,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+>  		queue->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
+>  
+>  		queue->tx_copy_ops[*copy_ops].dest.u.gmfn =
+> -			virt_to_mfn(skb->data);
+> +			virt_to_gfn(skb->data);
+>  		queue->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
+>  		queue->tx_copy_ops[*copy_ops].dest.offset =
+>  			offset_in_page(skb->data);
 
-> skb_set_hash_from_sk()
-> skb_get_hash()
-> 
-> Am I misreading this? I'm not using SO_REUSEPORT and it might be OK
-> to assume that different sockets may go to different queues even if
-> the L4 tuple is identical.
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
 
-skb_set_hash_from_sk() sets skb->hash in output path. Nothing uses it
-then later. bonding uses its own hash functions.
+One possible improvement is to change gmfn in copy_gop to gfn as well.
+But that's outside of netback code.
 
-SO_REUSEPORT is on input path, and uses its own hash anyway.
+Wei.
