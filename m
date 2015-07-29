@@ -1,61 +1,78 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] flow_dissector: remove __flow_hash_consistentify
-Date: Wed, 29 Jul 2015 14:47:48 -0700
-Message-ID: <CALx6S35ZmVyhX5vv15Ao459pVzWk3tRJuieBQ_dp5ymgQXM9wg@mail.gmail.com>
-References: <1438202943-937619-1-git-send-email-tom@herbertland.com>
-	<1438204774.20182.109.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vladimir Zapolskiy <vz@mleia.com>
+Subject: [PATCH] net: phy: spi_ks8995: clean up ks8995_registers_read/write
+Date: Thu, 30 Jul 2015 00:44:20 +0300
+Message-ID: <1438206260-13465-1-git-send-email-vz@mleia.com>
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:34714 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753451AbbG2Vrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:47:48 -0400
-Received: by igk11 with SMTP id 11so145743833igk.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 14:47:48 -0700 (PDT)
-In-Reply-To: <1438204774.20182.109.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from li271-223.members.linode.com ([178.79.152.223]:38084 "EHLO
+	mail.mleia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752711AbbG2VvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jul 2015 17:51:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2015 at 2:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-07-29 at 13:49 -0700, Tom Herbert wrote:
->> The intent of this function was to produce a consistent hash for both
->> directions of a flow. However, since we added more inputs to the flow
->> hashing (IPv6 flow labels for instance) in a lot of cases we won't get
->> the same hash computed for each direction anyway. Also, there is no
->> defined correlation between the hashes computed in each direction of a
->> flow.
->>
->> This patch removes the function since it is not providing significant
->> value and is expensive to be called for every packet. If there are
->> ever users of the flow_hash_from_keys that did require consistency
->> they can swap addresses and ports as needed in the flow_keys before
->> calling flow_hash_from_keys.
->
-> Have you tested this change with conntracking and RPS enabled ?
->
-> This was whole point from commit b249dcb82d327e41
->
-> I guess difference is even bigger today after removal of central
-> conntracking lock.
->
-Hi Eric,
+The change removes redundant sysfs binary file boundary checks,
+since this task is already done on caller side in fs/sysfs/file.c
 
-So the scenario you're thinking is conntrack in the forwarding path,
-RPS enabled (RSS not relevant), no hash from device, no IPv6 flow
-labels or any other asymmetric inputs into the flow hash? I can look
-at that, but it does make me wonder if maybe conntrack should set RFS
-for both sides to avoid any issue with asymmetric hashes. With more
-IPv6 and flow labels (which we will enable by default), asymmetric
-hashes will likely become the norm.
+Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
+---
+ drivers/net/phy/spi_ks8995.c | 22 ----------------------
+ 1 file changed, 22 deletions(-)
 
-Thanks,
-Tom
-
-
->
->
+diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
+index 4653015..f091d69 100644
+--- a/drivers/net/phy/spi_ks8995.c
++++ b/drivers/net/phy/spi_ks8995.c
+@@ -209,8 +209,6 @@ static int ks8995_reset(struct ks8995_switch *ks)
+ 	return ks8995_start(ks);
+ }
+ 
+-/* ------------------------------------------------------------------------ */
+-
+ static ssize_t ks8995_registers_read(struct file *filp, struct kobject *kobj,
+ 	struct bin_attribute *bin_attr, char *buf, loff_t off, size_t count)
+ {
+@@ -220,19 +218,9 @@ static ssize_t ks8995_registers_read(struct file *filp, struct kobject *kobj,
+ 	dev = container_of(kobj, struct device, kobj);
+ 	ks8995 = dev_get_drvdata(dev);
+ 
+-	if (unlikely(off > ks8995->regs_attr.size))
+-		return 0;
+-
+-	if ((off + count) > ks8995->regs_attr.size)
+-		count = ks8995->regs_attr.size - off;
+-
+-	if (unlikely(!count))
+-		return count;
+-
+ 	return ks8995_read(ks8995, buf, off, count);
+ }
+ 
+-
+ static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
+ 	struct bin_attribute *bin_attr, char *buf, loff_t off, size_t count)
+ {
+@@ -242,19 +230,9 @@ static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
+ 	dev = container_of(kobj, struct device, kobj);
+ 	ks8995 = dev_get_drvdata(dev);
+ 
+-	if (unlikely(off >= ks8995->regs_attr.size))
+-		return -EFBIG;
+-
+-	if ((off + count) > ks8995->regs_attr.size)
+-		count = ks8995->regs_attr.size - off;
+-
+-	if (unlikely(!count))
+-		return count;
+-
+ 	return ks8995_write(ks8995, buf, off, count);
+ }
+ 
+-
+ static const struct bin_attribute ks8995_registers_attr = {
+ 	.attr = {
+ 		.name   = "registers",
+-- 
+2.1.4
