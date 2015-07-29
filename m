@@ -1,59 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] net: make default tx_queue_len
- configurable
-Date: Wed, 29 Jul 2015 14:37:31 -0700 (PDT)
-Message-ID: <20150729.143731.834219016906219771.davem@davemloft.net>
-References: <1438203103-27013-2-git-send-email-phil@nwl.cc>
-	<20150729210618.GF32705@breakpoint.cc>
-	<20150729213428.GC15554@orbit.nwl.cc>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] flow_dissector: remove __flow_hash_consistentify
+Date: Wed, 29 Jul 2015 14:47:48 -0700
+Message-ID: <CALx6S35ZmVyhX5vv15Ao459pVzWk3tRJuieBQ_dp5ymgQXM9wg@mail.gmail.com>
+References: <1438202943-937619-1-git-send-email-tom@herbertland.com>
+	<1438204774.20182.109.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org, brouer@redhat.com,
-	cwang@twopensource.com, eric.dumazet@gmail.com
-To: phil@nwl.cc
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34318 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753264AbbG2Vhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:37:32 -0400
-In-Reply-To: <20150729213428.GC15554@orbit.nwl.cc>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:34714 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753451AbbG2Vrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:47:48 -0400
+Received: by igk11 with SMTP id 11so145743833igk.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 14:47:48 -0700 (PDT)
+In-Reply-To: <1438204774.20182.109.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Wed, 29 Jul 2015 23:34:28 +0200
+On Wed, Jul 29, 2015 at 2:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-07-29 at 13:49 -0700, Tom Herbert wrote:
+>> The intent of this function was to produce a consistent hash for both
+>> directions of a flow. However, since we added more inputs to the flow
+>> hashing (IPv6 flow labels for instance) in a lot of cases we won't get
+>> the same hash computed for each direction anyway. Also, there is no
+>> defined correlation between the hashes computed in each direction of a
+>> flow.
+>>
+>> This patch removes the function since it is not providing significant
+>> value and is expensive to be called for every packet. If there are
+>> ever users of the flow_hash_from_keys that did require consistency
+>> they can swap addresses and ports as needed in the flow_keys before
+>> calling flow_hash_from_keys.
+>
+> Have you tested this change with conntracking and RPS enabled ?
+>
+> This was whole point from commit b249dcb82d327e41
+>
+> I guess difference is even bigger today after removal of central
+> conntracking lock.
+>
+Hi Eric,
 
-> On Wed, Jul 29, 2015 at 11:06:18PM +0200, Florian Westphal wrote:
->> Phil Sutter <phil@nwl.cc> wrote:
-> [...]
->> > +config DEFAULT_TX_QUEUE_LEN
->> > +	prompt "Default TX queue length (in packets)" if EXPERT
->> > +	int
->> > +	default 1000	# Ethernet wants good queues
->> > +	help
->> > +	  Set the default value of tx_queue_len for newly created network
->> > +	  interfaces. It is used by queueing disciplines to determine how many
->> > +	  packets to keep in backlog before starting to drop new ones.
->> > +
->> > +	  The default value of 1000 packets is there for a very long time and
->> > +	  in combination with GSO way too big.
->> > +
->> 
->> I can't see how this could be used in a meaningful way.
->> 
->> No distro is going to touch this.
->> 
->> I don't think sysctl value would help either.
-> 
-> I just didn't want to introduce yet another magic value assignment. It's
-> merely a #define with a little flexibility and a subtle note that the
-> default should be changed attached.
+So the scenario you're thinking is conntrack in the forwarding path,
+RPS enabled (RSS not relevant), no hash from device, no IPv6 flow
+labels or any other asymmetric inputs into the flow hash? I can look
+at that, but it does make me wonder if maybe conntrack should set RFS
+for both sides to avoid any issue with asymmetric hashes. With more
+IPv6 and flow labels (which we will enable by default), asymmetric
+hashes will likely become the norm.
 
-Like others have mentioned, fix the _REAL_ issue.
+Thanks,
+Tom
 
-Which is that there are devices (virtual or whatever) which don't want
-a qdisc attached no matter what.  Flag those devices as such and
-adjust the qdisc attachment logic to check that new flag.
 
-Anything is better than hacking the queue len.
+>
+>
