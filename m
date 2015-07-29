@@ -1,75 +1,60 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Re: [PATCH 4/8] xen: Use the correctly the Xen memory terminologies
-Date: Wed, 29 Jul 2015 15:23:03 +0100
-Message-ID: <55B8E1C7.6070608@citrix.com>
-References: <1438095769-2560-1-git-send-email-julien.grall@citrix.com>
- <1438095769-2560-5-git-send-email-julien.grall@citrix.com>
- <55B7D40B.5080903@oracle.com> <55B8B846.2060103@citrix.com>
- <55B8DFD7.6070107@oracle.com>
+From: Kirill Tkhai <ktkhai@odin.com>
+Subject: Re: [PATCH] net_sched: restore "mpu xxx" handling
+Date: Wed, 29 Jul 2015 17:39:47 +0300
+Message-ID: <55B8E5B3.4010608@odin.com>
+References: <55B8B807.4030102@odin.com> <1438175068.20182.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-fbdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
-	"Jiri Slaby" <jslaby@suse.com>, <stefano.stabellini@eu.citrix.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	<linux-scsi@vger.kernel.org>, <x86@kernel.org>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	<linux-input@vger.kernel.org>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	<ian.campbell@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"James E.J. Bottomley" <JBottomley@odin.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Juergen Gross <jgross@suse.com>,
-	"Wei Liu" <wei.liu2@citrix.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	<linux-kernel@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	=?win
-To: Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55B8DFD7.6070107@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>, <tkhai@ya.ru>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.parallels.com ([195.214.232.42]:52866 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751164AbbG2OkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 10:40:02 -0400
+In-Reply-To: <1438175068.20182.90.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29/07/15 15:14, Boris Ostrovsky wrote:
->> static inline unsigned long pfn_to_gfn(unsigned long pfn)
->> {
->>     if (xen_feature(XENFEAT_autotranslated_physmap))
->>         return pfn;
->>     else
->>         return pfn_to_mfn(pfn);
->> }
+On 29.07.2015 16:04, Eric Dumazet wrote:
+> On Wed, 2015-07-29 at 14:24 +0300, Kirill Tkhai wrote:
+>> commit 56b765b79 ("htb: improved accuracy at high rates")
+>> broke the "mpu xxx" handling.
+>>
+>> This patch restores the "mpu xxx" handling for htb:
+>>
+>> # tc class add dev eth0 classid 1:2 parent 1: htb rate 1mbit mpu 0
+>> # ping -f -c 1000 10.30.22.52
+>> rtt min/avg/max/mdev = 0.156/1.881/2.454/0.175 ms, ipg/ewma 1.908/1.925 ms
+>>
+>> # tc class change dev eth0 classid 1:2 parent 1: htb rate 1mbit mpu 1000
+>> # ping -f -c 1000 10.30.22.52
+>> rtt min/avg/max/mdev = 15.352/22.229/38.646/2.212 ms, pipe 3, ipg/ewma 15.999/22.609 ms
 > 
+> Note this mpu option was completely broken a long time ago with GSO /
+> TSO anyway.
 > 
-> But you'd still say 'op.arg1.mfn = pfn_to_gfn(pfn);' in xen_do_pin()
-> i.e. assign GFN to MFN, right? That's what I was referring to.
+> Note sure we really want it in this state ?
+> 
+> What is your use case ?
 
-Well no. I would use op.arg1.mfn = pfn_to_mfn(pfn) given that the code,
-if I'm right, is only executed for PV.
+It's a way to limit a number of small packets sent from inside container
+(virtual enviroment).
 
-mfn = pfn_to_gfn(...) was valid too because on PV is always an MFN. The
-suggestion of pfn_to_mfn was just for more readability,
+Its ethernet card is virtual and it's possible to control the things like TSO,
+and to turn it off.
 
-> (In general, I am not sure a guest should ever use 'mfn' as it is purely
-> a hypervisor construct. Including p2m, which I think should really be
-> p2g as this is what we use to figure out what to stick into page tables)
+We use that in 2.6.32. Now I'm working with 3.10 and found, that the interface
+has been changed. The patch is similar the functionality, which we had before
+commit 56b765b79.
 
-I think avoid to use mfn in the hypervisor interface is out-of-scope for
-this series. If we ever want to modify the Xen API in Linux, we should
-do in sync with Xen to avoid inconsistency on naming.
+Are there another alternatives?
 
-Anyway, the oddity of mfn = pfn_to_gfn(...) is mostly contained in the
-x86 specific code. I don't mind to either add pfn_to_mfn and use it or
-add a comment /* PV-specific so mfn == gfn */ for every use of mfn =
-pfn_to_gfn(...).
+> In any case, correct fix would be in psched_l2t_ns(), otherwise you fix
+> htb but not the other qdisc (tbf for that matter)
 
-Regards,
-
--- 
-Julien Grall
+Sure, I'm agree.
