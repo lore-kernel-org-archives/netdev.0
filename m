@@ -1,76 +1,49 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 6/8] net/mlx5e: Do not use netdev_err() before the netdev is registered
-Date: Wed, 29 Jul 2015 15:05:44 +0300
-Message-ID: <1438171546-17021-7-git-send-email-amirv@mellanox.com>
-References: <1438171546-17021-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53845 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752438AbbG2MGp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2015 08:06:45 -0400
-In-Reply-To: <1438171546-17021-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/5] Add functions producing system time given a backing
+ counter value
+Date: Wed, 29 Jul 2015 14:30:05 +0200
+Message-ID: <20150729123005.GB16880@localhost.localdomain>
+References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
+ <1438044416-15588-2-git-send-email-christopher.s.hall@intel.com>
+ <CALAqxLWSakB1zdnYAE=2yQTPLdzkjO3wLA82Q+CJoJccGLWM8Q@mail.gmail.com>
+ <CALAqxLVkwJ5cmvSZ9bL-F7YTFprZ+CvZW4MrMN0sEkk5yFqMRQ@mail.gmail.com>
+ <alpine.DEB.2.11.1507291014490.3825@nanos>
+ <alpine.DEB.2.11.1507291222190.3825@nanos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Stultz <john.stultz@linaro.org>,
+	Christopher Hall <christopher.s.hall@intel.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	john.ronciak@intel.com, "H. Peter Anvin" <hpa@zytor.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1507291222190.3825@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Achiad Shochat <achiad@mellanox.com>
+On Wed, Jul 29, 2015 at 12:23:27PM +0200, Thomas Gleixner wrote:
+> > Something like the below untested patch should be all we need for PTP
+> > to be as precise as possible.
 
-Since it is un-named at this time.
+Yes, that is as good as it can be.  The code protects against
+concurrent NTP adjustments, and the PTP driver will have to block
+changes to its clock during the ioctl.
 
-Signed-off-by: Achiad Shochat <achiad@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 15 +++++----------
- 1 file changed, 5 insertions(+), 10 deletions(-)
+> > I don't know whether we need functionality to convert arbitrary
+> > timestamps at all, but if we really need them then they are going to
+> > be pretty simple and explicitely not precise for anything else than
+> > clock monotonic raw. But that's a different story.
+> > 
+> > Lets concentrate on PTP first and talk about the other stuff once we
+> > settled the use case which actually has a precision requirement.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 5504910..6581f58 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1893,36 +1893,31 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
- 
- 	err = mlx5_alloc_map_uar(mdev, &priv->cq_uar);
- 	if (err) {
--		netdev_err(netdev, "%s: mlx5_alloc_map_uar failed, %d\n",
--			   __func__, err);
-+		mlx5_core_err(mdev, "alloc_map uar failed, %d\n", err);
- 		goto err_free_netdev;
- 	}
- 
- 	err = mlx5_core_alloc_pd(mdev, &priv->pdn);
- 	if (err) {
--		netdev_err(netdev, "%s: mlx5_core_alloc_pd failed, %d\n",
--			   __func__, err);
-+		mlx5_core_err(mdev, "alloc pd failed, %d\n", err);
- 		goto err_unmap_free_uar;
- 	}
- 
- 	err = mlx5_alloc_transport_domain(mdev, &priv->tdn);
- 	if (err) {
--		netdev_err(netdev, "%s: mlx5_alloc_transport_domain failed, %d\n",
--			   __func__, err);
-+		mlx5_core_err(mdev, "alloc td failed, %d\n", err);
- 		goto err_dealloc_pd;
- 	}
- 
- 	err = mlx5e_create_mkey(priv, priv->pdn, &priv->mr);
- 	if (err) {
--		netdev_err(netdev, "%s: mlx5e_create_mkey failed, %d\n",
--			   __func__, err);
-+		mlx5_core_err(mdev, "create mkey failed, %d\n", err);
- 		goto err_dealloc_transport_domain;
- 	}
- 
- 	err = register_netdev(netdev);
- 	if (err) {
--		netdev_err(netdev, "%s: register_netdev failed, %d\n",
--			   __func__, err);
-+		mlx5_core_err(mdev, "register_netdev failed, %d\n", err);
- 		goto err_destroy_mkey;
- 	}
- 
--- 
-2.4.3.413.ga5fe668
+The PTP ioctl only needs the REALTIME value, and so the MONO-RAW bit
+could be dropped for now.
+
+Thanks,
+Richard
