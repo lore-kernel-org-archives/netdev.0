@@ -1,39 +1,38 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: Re-add CONFIG_OPENVSWITCH_VXLAN
-Date: Wed, 29 Jul 2015 12:05:49 -0700
-Message-ID: <CALnjE+qr8JAbm6s5dT0tCAMzFo0PN=mXvcD7zmcKhBvcabvSPA@mail.gmail.com>
-References: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
+From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next v2 2/5] s390/bpf: Fix multiple macro expansions
+Date: Wed, 29 Jul 2015 21:09:58 +0200
+Message-ID: <20150729210958.6cb4cd6b@holzheu>
+References: <1438159540-8819-1-git-send-email-holzheu@linux.vnet.ibm.com>
+	<20150729.113125.2150347091764771576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, schwidefsky@de.ibm.com, daniel@iogearbox.net,
+	joe@perches.com, netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:36427 "EHLO
-	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752324AbbG2TFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 15:05:49 -0400
-Received: by ioeg141 with SMTP id g141so31436694ioe.3
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 12:05:49 -0700 (PDT)
-In-Reply-To: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
+Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:50787 "EHLO
+	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbbG2TKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 15:10:05 -0400
+Received: from /spool/local
+	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <holzheu@linux.vnet.ibm.com>;
+	Wed, 29 Jul 2015 20:10:03 +0100
+In-Reply-To: <20150729.113125.2150347091764771576.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2015 at 4:52 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> This readds the config option CONFIG_OPENVSWITCH_VXLAN to avoid a
-> hard dependency of OVS on VXLAN. It moves the VXLAN config compat
-> code to vport-vxlan.c and allows compliation as a module.
->
-> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
-> Fixes: 2661371ace96 ("openvswitch: fix compilation when vxlan is a module")
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On Wed, 29 Jul 2015 11:31:25 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Looks good.
-Once userspace vswitchd can directly configures VXLAN device, we can
-deprecate this vport-vxlan module.
+> 
+> Please, when updating patches in a series, always resubmit the entire
+> series not just the patches you want to change.
+> 
+> Thank you.
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+Sure, I will do that.
+
+Sorry for the trouble!
+Michael
