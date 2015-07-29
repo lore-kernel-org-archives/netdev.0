@@ -1,39 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPsec maintenance during the next weeks
-Date: Wed, 29 Jul 2015 11:36:16 -0700 (PDT)
-Message-ID: <20150729.113616.795345805204150867.davem@davemloft.net>
-References: <20150708050426.GH12278@secunet.com>
-	<20150707.225817.433642479342540811.davem@davemloft.net>
-	<20150729104718.GJ12278@secunet.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: Re-add CONFIG_OPENVSWITCH_VXLAN
+Date: Wed, 29 Jul 2015 12:05:49 -0700
+Message-ID: <CALnjE+qr8JAbm6s5dT0tCAMzFo0PN=mXvcD7zmcKhBvcabvSPA@mail.gmail.com>
+References: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33160 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbbG2SgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 14:36:17 -0400
-In-Reply-To: <20150729104718.GJ12278@secunet.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:36427 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752324AbbG2TFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 15:05:49 -0400
+Received: by ioeg141 with SMTP id g141so31436694ioe.3
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 12:05:49 -0700 (PDT)
+In-Reply-To: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 29 Jul 2015 12:47:20 +0200
+On Wed, Jul 29, 2015 at 4:52 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> This readds the config option CONFIG_OPENVSWITCH_VXLAN to avoid a
+> hard dependency of OVS on VXLAN. It moves the VXLAN config compat
+> code to vport-vxlan.c and allows compliation as a module.
+>
+> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+> Fixes: 2661371ace96 ("openvswitch: fix compilation when vxlan is a module")
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> On Tue, Jul 07, 2015 at 10:58:17PM -0700, David Miller wrote:
->> From: Steffen Klassert <steffen.klassert@secunet.com>
->> Date: Wed, 8 Jul 2015 07:04:32 +0200
->> 
->> > I'll be off without mail access for the next two and a half weeks.
->> > Can you please take urgent IPsec patches directly into the net
->> > tree during this time? 
->> > 
->> > I'll let you know as soon as I'm back.
->> 
->> Sure, thanks for letting me know.
-> 
-> I'm back and continue to run the ipsec trees.
+Looks good.
+Once userspace vswitchd can directly configures VXLAN device, we can
+deprecate this vport-vxlan module.
 
-Welcome back :)
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
