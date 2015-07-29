@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] bridge: stp: when using userspace stp stop
- kernel hello and hold timers
-Date: Tue, 28 Jul 2015 23:33:33 -0700 (PDT)
-Message-ID: <20150728.233333.793723681312359738.davem@davemloft.net>
-References: <1437667657-16954-1-git-send-email-nikolay@cumulusnetworks.com>
-	<1437674465-4388-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] net/ipv4: suppress NETDEV_UP notification on address
+ lifetime update
+Date: Tue, 28 Jul 2015 23:38:55 -0700 (PDT)
+Message-ID: <20150728.233855.1081514455386990046.davem@davemloft.net>
+References: <1437927538-21703-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, razor@blackwall.org,
-	sashok@cumulusnetworks.com
-To: nikolay@cumulusnetworks.com
+Cc: netdev@vger.kernel.org
+To: david.ward@ll.mit.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56490 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56508 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752979AbbG2Gde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 02:33:34 -0400
-In-Reply-To: <1437674465-4388-1-git-send-email-nikolay@cumulusnetworks.com>
+	with ESMTP id S1752115AbbG2Gi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 02:38:56 -0400
+In-Reply-To: <1437927538-21703-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Thu, 23 Jul 2015 11:01:05 -0700
+From: David Ward <david.ward@ll.mit.edu>
+Date: Sun, 26 Jul 2015 12:18:58 -0400
 
-> From: Nikolay Aleksandrov <razor@blackwall.org>
+> This notification causes the FIB to be updated, which is not needed
+> because the address already exists, and more importantly it may undo
+> intentional changes that were made to the FIB after the address was
+> originally added. (As a point of comparison, when an address becomes
+> deprecated because its preferred lifetime expired, a notification on
+> this chain is not generated.)
 > 
-> These should be handled only by the respective STP which is in control.
-> They become problematic for devices with limited resources with many
-> ports because the hold_timer is per port and fires each second and the
-> hello timer fires each 2 seconds even though it's global. While in
-> user-space STP mode these timers are completely unnecessary so it's better
-> to keep them off.
-> Also ensure that when the bridge is up these timers are started only when
-> running with kernel STP.
+> The motivation for this commit is fixing an incompatibility between
+> DHCP clients which set and update the address lifetime according to
+> the lease, and a commercial VPN client which replaces kernel routes
+> in a way that outbound traffic is sent only through the tunnel (and
+> disconnects if any further route changes are detected via netlink).
 > 
-> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
-Applied, thanks.
+Yeah, this makes sense, applied.
+
+I bet the SCTP notifier could have ended up with dups in it's local
+address list because of this.
