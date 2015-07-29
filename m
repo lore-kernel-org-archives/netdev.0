@@ -1,52 +1,70 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCHv2] net/ipv6: add sysctl option accept_ra_hop_limit
-Date: Wed, 29 Jul 2015 17:58:31 +0800
-Message-ID: <CAPwn2JT21NSjJ8vxQ98TPaEK1HN-y9qM30cYRyUdHYaMGPgKZw@mail.gmail.com>
-References: <1437978942-7047-1-git-send-email-liuhangbin@gmail.com>
-	<55B6C3AF.1050504@miraclelinux.com>
-	<CAPwn2JSk0P8n+aSxTGiU0Q2RSSbZ52NVZxOS+yURpor2YQVySQ@mail.gmail.com>
-	<55B6FDD0.4020904@miraclelinux.com>
-	<CAPwn2JTRvN7pzSxz4TMXC7FNWxbH0PYPPoOjpRpM_rCigoiFeg@mail.gmail.com>
-	<55B836FA.7070106@miraclelinux.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: flush nd cache on IFF_NOARP change
+Date: Wed, 29 Jul 2015 12:01:41 +0200
+Message-ID: <1438164101.20182.83.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1437989630.20182.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150728.234147.1087098759056655521.davem@davemloft.net>
+	 <1438161351.20182.73.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1438162343.20182.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, valas@google.com, willemb@google.com,
+	Mario Fanelli <mariofanelli@google.com>, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:33482 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839AbbG2J6c convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 05:58:32 -0400
-Received: by oixx19 with SMTP id x19so2361738oix.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 02:58:31 -0700 (PDT)
-In-Reply-To: <55B836FA.7070106@miraclelinux.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:36063 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbbG2KBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 06:01:46 -0400
+Received: by wicgb10 with SMTP id gb10so192797642wic.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 03:01:45 -0700 (PDT)
+In-Reply-To: <1438162343.20182.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-07-29 10:14 GMT+08:00 YOSHIFUJI Hideaki
-<hideaki.yoshifuji@miraclelinux.com>:
->>>> May be we use a =E2=80=9Chop limit range" instead? How do you thin=
-k?
->>>
->>> I think name of sysctl is the same as you suggested and change the
->>> semantics.  default value is 0 to accept all hotlimit value
->>> as before and people can set it to 32 (for example) to reject
->>> too-small hoplimit (0-31).
->>
->> OK, then I will try submit a "minimum hop limit", thanks for your su=
-ggestion :)
->
-> accept_ra_min_hop_limit would be better as we have
-> accept_ra_rt_info_max_plen.
->
-Opps, I missed this mail and send a [PATCH] net/ipv6: add sysctl
-option min_hop_limit...
-I will send a [PATCHv3] net/ipv6: add sysctl option
-accept_ra_min_hop_limit as this patch's
-follow up. Sorry for the version confusion.
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks
-Hangbin
+This patch is the IPv6 equivalent of commit
+6c8b4e3ff81b ("arp: flush arp cache on IFF_NOARP change") 
+
+Without it, we keep buggy neighbours in the cache, with destination
+MAC address equal to our own MAC address.
+
+Tested:
+ tcpdump -i eth0 -s 0 ip6 -n -e &
+ ip link set dev eth0 arp off
+ ping6 remote   // sends buggy frames
+ ip link set dev eth0 arp on
+ ping6 remote   // should work once kernel is patched
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Mario Fanelli <mariofanelli@google.com>
+---
+ net/ipv6/ndisc.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 0a05b35..c53331c 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1650,6 +1650,7 @@ int ndisc_rcv(struct sk_buff *skb)
+ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct netdev_notifier_change_info *change_info;
+ 	struct net *net = dev_net(dev);
+ 	struct inet6_dev *idev;
+ 
+@@ -1664,6 +1665,11 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
+ 			ndisc_send_unsol_na(dev);
+ 		in6_dev_put(idev);
+ 		break;
++	case NETDEV_CHANGE:
++		change_info = ptr;
++		if (change_info->flags_changed & IFF_NOARP)
++			neigh_changeaddr(&nd_tbl, dev);
++		break;
+ 	case NETDEV_DOWN:
+ 		neigh_ifdown(&nd_tbl, dev);
+ 		fib6_run_gc(0, net, false);
