@@ -1,63 +1,80 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH] net: switchdev: restrict vid range abstraction
-Date: Wed, 29 Jul 2015 15:14:05 -0400 (EDT)
-Message-ID: <117624450.145106.1438197245281.JavaMail.zimbra@savoirfairelinux.com>
-References: <1437954348-11859-1-git-send-email-vivien.didelot@savoirfairelinux.com> <CAE4R7bA5jh3Rgn_U1Sit3qW+i2vKNE++c9TYTJ8sp5j8h=awbw@mail.gmail.com> <20150729.112842.1871916445536378243.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev <netdev@vger.kernel.org>,
-	jiri@resnulli.us, Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>
-To: David <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150729.112842.1871916445536378243.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Subject: [PATCH net-next v2 3/5] s390/bpf: increase BPF_SIZE_MAX
+Date: Wed, 29 Jul 2015 21:15:16 +0200
+Message-ID: <1438197318-16903-4-git-send-email-holzheu@linux.vnet.ibm.com>
+References: <1438197318-16903-1-git-send-email-holzheu@linux.vnet.ibm.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:36362 "EHLO
+	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753464AbbG2TP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 15:15:28 -0400
+Received: from /spool/local
+	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <holzheu@linux.vnet.ibm.com>;
+	Wed, 29 Jul 2015 20:15:27 +0100
+In-Reply-To: <1438197318-16903-1-git-send-email-holzheu@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Scott, David,
+Currently we have the restriction that jitted BPF programs can
+have a maximum size of one page. The reason is that we use short
+displacements for the literal pool.
 
-On Jul 29, 2015, at 2:28 PM, David davem@davemloft.net wrote:
+The 20 bit displacements are available since z990 and BPF requires
+z196 as minimum. Therefore we can remove this restriction and use
+everywhere 20 bit signed long displacements.
 
-> From: Scott Feldman <sfeldma@gmail.com>
-> Date: Wed, 29 Jul 2015 00:31:44 -0700
-> 
->> Since the netlink request (for example vlan add) includes the range,
->> I'm not seeing how we can response with success for the satisfied
->> vlans in the range, and also respond with an error for the unsatisfied
->> vlans in the range.   In other words, from the netlink msgs
->> perspective, we need to treat a vlan range as all-or-nothing.  So in
->> your example, if hw can't add vlan 2, we fail the entire request to
->> add range 2-5.  This is where the prepare phase checks to make sure
->> the entire request can be satisfied before committing to hw.
+Acked-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+---
+ arch/s390/net/bpf_jit_comp.c | 15 +++------------
+ 1 file changed, 3 insertions(+), 12 deletions(-)
 
-I made this change in order to start restricting the bridge abstraction
-to switchdev, since IMHO its info flags do not add much value to the
-switch chip drivers perspective.
-
-While a range might be convenient to a user, exposing it to drivers is
-likely to end up writing the same vid_begin to vid_end for loop.
-
-> This was my concern with the change as well.
-> 
-> The user asked for the range to be installed, so if any portion
-> of it cannot be done we must not make any changes to the HW
-> configuration and fail the entire request.
-
-I understand the concern with the netlink request.
-
-However, this can be confusing to someone. With the previous example:
-
-    bridge vlan add dev port0 vid 2-5 master
-
-must fail for the entire range (due to the single netlink request). But:
-
-    bridge vlan add dev port0 vid 2 master
-
-will silently fallback to software VLAN (assuming that the driver
-correctly returned -EOPNOTSUPP in the prepare phase). In other words, no
-changes has been committed to the hardware.
-
-Thanks,
--v
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 66926ab..04af367 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -45,7 +45,7 @@ struct bpf_jit {
+ 	int labels[1];		/* Labels for local jumps */
+ };
+ 
+-#define BPF_SIZE_MAX	4096	/* Max size for program */
++#define BPF_SIZE_MAX	0x7ffff	/* Max size for program (20 bit signed displ) */
+ 
+ #define SEEN_SKB	1	/* skb access */
+ #define SEEN_MEM	2	/* use mem[] for temporary storage */
+@@ -203,15 +203,6 @@ static inline void reg_set_seen(struct bpf_jit *jit, u32 b1)
+ 	_EMIT6(op1 | __disp, op2);				\
+ })
+ 
+-#define EMIT6_DISP(op1, op2, b1, b2, b3, disp)			\
+-({								\
+-	_EMIT6_DISP(op1 | reg(b1, b2) << 16 |			\
+-		    reg_high(b3) << 8, op2, disp);		\
+-	REG_SET_SEEN(b1);					\
+-	REG_SET_SEEN(b2);					\
+-	REG_SET_SEEN(b3);					\
+-})
+-
+ #define _EMIT6_DISP_LH(op1, op2, disp)				\
+ ({								\
+ 	u32 _disp = (u32) disp;					\
+@@ -981,8 +972,8 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp, int i
+ 		REG_SET_SEEN(BPF_REG_5);
+ 		jit->seen |= SEEN_FUNC;
+ 		/* lg %w1,<d(imm)>(%l) */
+-		EMIT6_DISP(0xe3000000, 0x0004, REG_W1, REG_0, REG_L,
+-			   EMIT_CONST_U64(func));
++		EMIT6_DISP_LH(0xe3000000, 0x0004, REG_W1, REG_0, REG_L,
++			      EMIT_CONST_U64(func));
+ 		/* basr %r14,%w1 */
+ 		EMIT2(0x0d00, REG_14, REG_W1);
+ 		/* lgr %b0,%r2: load return value into %b0 */
+-- 
+2.3.8
