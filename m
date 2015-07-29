@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net 08/11] net: thunderx: Set watchdog timeout value
-Date: Wed, 29 Jul 2015 16:49:43 +0300
-Message-ID: <1438177787-20940-9-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH net 05/11] net: thunderx: Fix TSO packet statistic
+Date: Wed, 29 Jul 2015 16:49:40 +0300
+Message-ID: <1438177787-20940-6-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,47 +28,25 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-If a txq (SQ) remains in stopped state after this timeout its
-considered as stuck and interface is reinited.
+Fixing TSO packages not being counted.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h        | 9 +++++++++
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 1 +
- 2 files changed, 10 insertions(+)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index a0be076..8aee250 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -125,6 +125,15 @@
-  */
- #define NICPF_CLK_PER_INT_TICK		2
- 
-+/* Time to wait before we decide that a SQ is stuck.
-+ *
-+ * Since both pkt rx and tx notifications are done with same CQ,
-+ * when packets are being received at very high rate (eg: L2 forwarding)
-+ * then freeing transmitted skbs will be delayed and watchdog
-+ * will kick in, resetting interface. Hence keeping this value high.
-+ */
-+#define	NICVF_TX_TIMEOUT		(50 * HZ)
-+
- struct nicvf_cq_poll {
- 	u8	cq_idx;		/* Completion queue index */
- 	struct	napi_struct napi;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 422d46e..abee2d7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1293,6 +1293,7 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->hw_features = netdev->features;
- 
- 	netdev->netdev_ops = &nicvf_netdev_ops;
-+	netdev->watchdog_timeo = NICVF_TX_TIMEOUT;
- 
- 	INIT_WORK(&nic->reset_task, nicvf_reset_task);
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index 4c91959..500fdbe 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1064,6 +1064,7 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
+ 	/* Inform HW to xmit all TSO segments */
+ 	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
+ 			      skb_get_queue_mapping(skb), desc_cnt);
++	nic->drv_stats.tx_tso++;
+ 	return 1;
+ }
  
 -- 
 2.4.6
