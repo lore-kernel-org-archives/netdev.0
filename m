@@ -1,63 +1,46 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Simplified API over the FIB Trie
-Date: Wed, 29 Jul 2015 14:57:39 +0200
-Message-ID: <CAHmME9p7Q4gwsGKLmhSVnFxUAFzr7TB=cJfTkGrH+DmEvAFm+w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net_sched: restore "mpu xxx" handling
+Date: Wed, 29 Jul 2015 15:04:28 +0200
+Message-ID: <1438175068.20182.90.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <55B8B807.4030102@odin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>, tkhai@ya.ru
+To: Kirill Tkhai <ktkhai@odin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:47341 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753507AbbG2M5n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2015 08:57:43 -0400
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id e9f2b090
-	for <netdev@vger.kernel.org>;
-	Wed, 29 Jul 2015 12:57:03 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 77482af7
-	TLS version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=YES
-	for <netdev@vger.kernel.org>;
-	Wed, 29 Jul 2015 12:57:03 +0000 (UTC)
-Received: by laah7 with SMTP id h7so5706362laa.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 05:57:39 -0700 (PDT)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:33318 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbbG2NEc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 09:04:32 -0400
+Received: by wicmv11 with SMTP id mv11so218285828wic.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 06:04:31 -0700 (PDT)
+In-Reply-To: <55B8B807.4030102@odin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+On Wed, 2015-07-29 at 14:24 +0300, Kirill Tkhai wrote:
+> commit 56b765b79 ("htb: improved accuracy at high rates")
+> broke the "mpu xxx" handling.
+> 
+> This patch restores the "mpu xxx" handling for htb:
+> 
+> # tc class add dev eth0 classid 1:2 parent 1: htb rate 1mbit mpu 0
+> # ping -f -c 1000 10.30.22.52
+> rtt min/avg/max/mdev = 0.156/1.881/2.454/0.175 ms, ipg/ewma 1.908/1.925 ms
+> 
+> # tc class change dev eth0 classid 1:2 parent 1: htb rate 1mbit mpu 1000
+> # ping -f -c 1000 10.30.22.52
+> rtt min/avg/max/mdev = 15.352/22.229/38.646/2.212 ms, pipe 3, ipg/ewma 15.999/22.609 ms
 
-In a module I'm working on, I need a data structure that's similar to
-a routing table. I'm looking at net/ip_fib.h and net/ip6_fib.h as a
-means for doing this, but it's wildly complex. What I'm looking for is
-something with a basic API like this:
+Note this mpu option was completely broken a long time ago with GSO /
+TSO anyway.
 
-http://codepad.org/S36n9t7W
+Note sure we really want it in this state ?
 
-=-=-=-=-=-=BEGIN API-=-=-=-=-=-=
-int routing_table_v4_insert(struct routing_table_v4 *table, const
-struct in_addr *ip, uint8_t cidr, void *value);
-void *routing_table_v4_lookup(struct routing_table_v4 *table, const
-struct in_addr *ip);
-void *routing_table_v4_lookup_exact(struct routing_table_v4 *table,
-const struct in_addr *ip, uint8_t cidr);
-int routing_table_v4_remove_by_key(struct routing_table_v4 *table,
-const struct in_addr *ip, uint8_t cidr);
-int routing_table_v4_remove_by_value(struct routing_table_v4 *table,
-void *value);
+What is your use case ?
 
-int routing_table_v6_insert(struct routing_table_v6 *table, const
-struct in6_addr *ip, uint8_t cidr, void *value);
-void *routing_table_v6_lookup(struct routing_table_v6 *table, const
-struct in6_addr *ip);
-void *routing_table_v6_lookup_exact(struct routing_table_v6 *table,
-const struct in6_addr *ip, uint8_t cidr);
-int routing_table_v6_remove_by_key(struct routing_table_v6 *table,
-const struct in6_addr *ip, uint8_t cidr);
-int routing_table_v6_remove_by_value(struct routing_table_v6 *table,
-void *value);
-=-=-=-=-=-=END API-=-=-=-=-=-=-=
-
-I'm wondering from those who know this code well if the structure in
-net/ip_fib.h and net/ip6_fib.h is suitable for what I want. Or, if I
-should look elsewhere. Or, if I should in fact roll my own.
-
-Thanks,
-Jason
+In any case, correct fix would be in psched_l2t_ns(), otherwise you fix
+htb but not the other qdisc (tbf for that matter)
