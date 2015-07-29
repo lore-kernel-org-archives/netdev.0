@@ -1,50 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] igb/ixgbe: Fix ordering of SR-IOV teardown
-Date: Wed, 29 Jul 2015 12:16:30 -0700 (PDT)
-Message-ID: <20150729.121630.2264285348757503000.davem@davemloft.net>
-References: <20150727223753.10121.78169.stgit@gimli.home>
+Subject: Re: [PATCH net] bridge: Fix network header pointer for
+ vlan tagged packets
+Date: Wed, 29 Jul 2015 12:21:23 -0700 (PDT)
+Message-ID: <20150729.122123.754536415828052026.davem@davemloft.net>
+References: <1438077937-16134-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alex.williamson@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150727223753.10121.78169.stgit@gimli.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	ivecera@redhat.com
+To: makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1438077937-16134-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Alex Williamson <alex.williamson@redhat.com>
-Date: Mon, 27 Jul 2015 17:18:28 -0600
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Tue, 28 Jul 2015 19:05:37 +0900
 
-> When running a Windows 2012 R2 guest with a pair of VFs assigned
-> through vfio-pci, we run into a problem trying to hot-unplug those VFs
-> after the PF has unregistered the netdev.  This is a common scenario
-> if the PF is unbound from the driver while VFs are active.  In the
-> case of igb, the resulting guest behavior differs slightly between the
-> Microsoft provided and Intel add-on guest drivers.  With the Microsoft
-> driver, the guest seems to stumble through ejecting both VFs, but
-> takes longer than normal to do so.  With the Intel drivers, only one
-> VF is unplugged, but Device Manager still shows it as present.  The
-> second VF is non-functional but also still shown in Device Manager.
-> At this point, the guest is in such a state that it will not cleanly
-> shutdown.  With ixgbe VFs, both the Microsoft and Intel drivers take
-> on this latter behavior.
+> There are several devices that can receive vlan tagged packets with
+> CHECKSUM_PARTIAL like tap, possibly veth and xennet.
+> When (multiple) vlan tagged packets with CHECKSUM_PARTIAL are forwarded
+> by bridge to a device with the IP_CSUM feature, they end up with checksum
+> error because before entering bridge, the network header is set to
+> ETH_HLEN (not including vlan header length) in __netif_receive_skb_core(),
+> get_rps_cpu(), or drivers' rx functions, and nobody fixes the pointer later.
 > 
-> For both, I've found that disabling SR-IOV before unregistering the PF
-> netdev device allows the hot-unplug to proceed without interruption or
-> further ill behavior in the guest.  This is true regardless of which
-> driver is used.  I don't fully understand what dependency is broken
-> by unregistering the netdev prior to disabling SR-IOV, but I also
-> don't see the benefit in delaying SR-IOV teardown in this call path.
-> It could potentially be moved even earlier, but I'll let those more
-> familiar with the hardware and code make that determination.  In any
-> case, the VM behavior is substantially improved by this slight
-> re-ordering.
+> Since the network header is exepected to be ETH_HLEN in flow-dissection
+> and hash-calculation in RPS in rx path, and since the header pointer fix
+> is needed only in tx path, set the appropriate network header on forwarding
+> packets.
 > 
-> I don't have an i40e for testing, but it already appears to disable
-> SR-IOV much earlier in the unbind path, so I wouldn't expect to find
-> similar issues.  Thanks,
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-Patch #2 does not apply cleanly, please respin this series against
-my 'net' GIT tree, thanks.
+Applied, thank you.
