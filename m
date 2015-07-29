@@ -1,59 +1,43 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v4] af_mpls: fix undefined reference to ip6_route_output
-Date: Wed, 29 Jul 2015 12:52:50 +0100
-Message-ID: <55B8BE92.7080807@brocade.com>
-References: <1438065624-38229-1-git-send-email-roopa@cumulusnetworks.com>
- <55B78EFD.1030306@brocade.com> <55B7AAD1.7010603@cumulusnetworks.com>
- <55B8AD24.6020205@brocade.com> <20150729105119.GE13113@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: roopa <roopa@cumulusnetworks.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 5/8] net/mlx5e: Avoid redundant de-reference
+Date: Wed, 29 Jul 2015 15:05:43 +0300
+Message-ID: <1438171546-17021-6-git-send-email-amirv@mellanox.com>
+References: <1438171546-17021-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:53087 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750741AbbG2LxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 07:53:09 -0400
-In-Reply-To: <20150729105119.GE13113@pox.localdomain>
+Received: from [193.47.165.129] ([193.47.165.129]:53824 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752117AbbG2MGd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jul 2015 08:06:33 -0400
+In-Reply-To: <1438171546-17021-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29/07/15 11:51, Thomas Graf wrote:
-> On 07/29/15 at 11:38am, Robert Shearman wrote:
->> On 28/07/15 17:16, roopa wrote:
->>> RTA_OIF is optional for ipv4 and ipv6 routes and we wanted to keep it
->>> that way for mpls routes as well (Quagga is the application in our use
->>> case).
->>> It was a simple patch...until i realized the IPV6 dependency issues (I
->>> will sure remember this next time).
->>
->> Having read the code, I realise the nexthop isn't derived from the lookup.
->> Given that this can only work for the case where a path is recursive via a
->> connected nexthop, it seems to be of limited use.
->>
->> I'm not familiar with the Quagga code, but is it worth adding this
->> additional complexity to the kernel rather than making a change to Quagga
->> instead, where presumably it already has code to derive the output interface
->> in the case of having a recursive route via a non-connected nexthop?
->
-> I think it's wrong to assume that it's always a single management
-> application that manages both parts of the route. At least for
-> underlays and overlays it is fairly common to run something like
-> Quagga to manage the underlay and use multiple other orchestration
-> tools on top to create virtual networks which should not be aware of
-> any underlay specifics.
+From: Achiad Shochat <achiad@mellanox.com>
 
-I agree, but this kernel mechanism doesn't serve that purpose in the 
-general case - it only works for a connected nexthop. In other cases, 
-the application creating the overlay network (assuming it's not using 
-tunnels) will need to the recursive route resolution itself.
+Use the already defined rq pointer directly.
 
-I'd like to see recursive route resolution including responding to 
-changes in the via route being done in the kernel for other reasons too, 
-but IMHO just the derivation of the output interface for a connected 
-nexthop on the initial route add doesn't offer much benefit.
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-Rob
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index ef1480b..5504910 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -345,7 +345,7 @@ static int mlx5e_enable_rq(struct mlx5e_rq *rq, struct mlx5e_rq_param *param)
+ 
+ 	memcpy(rqc, param->rqc, sizeof(param->rqc));
+ 
+-	MLX5_SET(rqc,  rqc, cqn,		c->rq.cq.mcq.cqn);
++	MLX5_SET(rqc,  rqc, cqn,		rq->cq.mcq.cqn);
+ 	MLX5_SET(rqc,  rqc, state,		MLX5_RQC_STATE_RST);
+ 	MLX5_SET(rqc,  rqc, flush_in_error_en,	1);
+ 	MLX5_SET(wq,   wq,  log_wq_pg_sz,	rq->wq_ctrl.buf.page_shift -
+-- 
+2.4.3.413.ga5fe668
