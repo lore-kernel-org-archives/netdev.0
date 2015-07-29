@@ -1,48 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V4 7/7] Drivers: hv: vmbus: disable local interrupt
- when hvsock's callback is running
-Date: Wed, 29 Jul 2015 15:28:09 -0700 (PDT)
-Message-ID: <20150729.152809.1531386671239230150.davem@davemloft.net>
-References: <1438086930-19483-1-git-send-email-decui@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, gregkh@linuxfoundation.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
- stephen@networkplumber.org, stefanha@redhat.com, netdev@vger.kernel.org,
- apw@canonical.com, pebolle@tiscali.nl, dan.carpenter@oracle.com
-To: decui@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1438086930-19483-1-git-send-email-decui@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/1] tipc: fix bug in broadcast synch message create function
+Date: Wed, 29 Jul 2015 18:28:01 -0400
+Message-ID: <1438208881-30453-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:20014 "EHLO
+	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754579AbbG2W2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 18:28:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dexuan Cui <decui@microsoft.com>
-Date: Tue, 28 Jul 2015 05:35:30 -0700
+In commit d999297c3dbbe7fdd832f7fa4ec84301e170b3e6
+("tipc: reduce locking scope during packet reception") we introduced
+a new function tipc_build_bcast_sync_msg(), which carries initial
+synchronization data between two nodes at first contact and at
+re-contact. In this function, we missed to add synchronization data,
+with the effect that the broadcast link endpoints will fail to
+synchronize correctly at re-contact between a running and a restarted
+node. All other cases work as intended.
 
-> In the SMP guest case, when the per-channel callback hvsock_events() is
-> running on virtual CPU A, if the guest tries to close the connection on
-> virtual CPU B: we invoke vmbus_close() -> vmbus_close_internal(),
-> then we can have trouble: on B, vmbus_close_internal() will send IPI
-> reset_channel_cb() to A, trying to set channel->onchannel_callbackto NULL;
-> on A, if the IPI handler happens between
-> "if (channel->onchannel_callback != NULL)" and invoking
-> channel->onchannel_callback, we'll invoke a function pointer of NULL.
-> 
-> This is why the patch is necessary.
-> 
-> Signed-off-by: Dexuan Cui <decui@microsoft.com>
+With this commit, we fix this bug.
 
-Sorry, I do not accept that you must use conditional locking and/or
-IRQ disabling.
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/link.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Boil it down to what is necessary for the least common denominator,
-and use that unconditionally.
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index b63d573..cc40aa6 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -294,11 +294,14 @@ static void tipc_link_build_bcast_sync_msg(struct tipc_link *l,
+ {
+ 	struct sk_buff *skb;
+ 	struct sk_buff_head list;
++	u16 last_sent;
+ 
+ 	skb = tipc_msg_create(BCAST_PROTOCOL, STATE_MSG, INT_H_SIZE,
+ 			      0, l->addr, link_own_addr(l), 0, 0, 0);
+ 	if (!skb)
+ 		return;
++	last_sent = tipc_bclink_get_last_sent(l->owner->net);
++	msg_set_last_bcast(buf_msg(skb), last_sent);
+ 	__skb_queue_head_init(&list);
+ 	__skb_queue_tail(&list, skb);
+ 	tipc_link_xmit(l, &list, xmitq);
+-- 
+1.9.1
