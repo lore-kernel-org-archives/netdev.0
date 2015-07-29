@@ -1,33 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] igb/ixgbe: Fix ordering of SR-IOV teardown
-Date: Wed, 29 Jul 2015 14:31:41 -0700 (PDT)
-Message-ID: <20150729.143141.657802657776347202.davem@davemloft.net>
-References: <20150727223753.10121.78169.stgit@gimli.home>
-	<20150729.121630.2264285348757503000.davem@davemloft.net>
-	<1438198387.13460.68.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alex.williamson@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438198387.13460.68.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 0/4] Introduce Mellanox Technologies Switch ASICs switchdev drivers
+Date: Wed, 29 Jul 2015 23:33:45 +0200
+Message-ID: <1438205629-3108-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	ogerlitz@mellanox.com, sfeldma@gmail.com,
+	roopa@cumulusnetworks.com, f.fainelli@gmail.com, tgraf@suug.ch,
+	ast@plumgrid.com, jhs@mojatatu.com, daniel@iogearbox.net,
+	john.fastabend@gmail.com, simon.horman@netronome.com,
+	linville@tuxdriver.com, andy@greyhouse.net,
+	shm@cumulusnetworks.com, nhorman@tuxdriver.com,
+	rami.rosen@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33295 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273AbbG2Vdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:33:54 -0400
+Received: by wicmv11 with SMTP id mv11so235051350wic.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 14:33:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alex Williamson <alex.williamson@redhat.com>
-Date: Wed, 29 Jul 2015 13:33:07 -0600
+From: Jiri Pirko <jiri@mellanox.com>
 
-> I expect that's because of this patch that's in Jeff's dev-queue branch:
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/jkirsher/next-queue.git/commit/?h=dev-queue&id=ddf766a812a13eca1116b5905e902184904266f9
-> 
-> I based these patches off that branch, assuming they'd take the same
-> route and avoid the merge conflict.  If you'd rather take these, I'll be
-> happy to respin.  Apologies for not noting the base branch in the
-> series.  Thanks,
+This patchset introduces Mellanox Technologies Switch driver infrastructure
+and support for SwitchX-2 ASIC.
 
-No, that's fine, this would normally go via Jeff's tree anyways.
+The driver is divided into 3 logical parts:
+1) Bus - implements switch bus interface. Currently only PCI bus is
+   implemented, but more buses will be added in the future. Namely I2C
+   and SGMII.
+   (patch #2)
+2) Driver - implemements of ASIC-specific functions.
+   Currently SwitchX-2 ASIC is supported, but a plan exists to introduce
+   support for Spectrum ASIC in the near future.
+   (patch #4)
+3) Core - infrastructure that glues buses and drivers together.
+   It implements register access logic (EMADs) and takes care of RX traps
+   and events.
+   (patch #1 and #3)
 
-I just didn't see him take it so I assumed that it should go via me.
+Ido Schimmel (1):
+  mlxsw: Add interface to access registers and process events
+
+Jiri Pirko (3):
+  mlxsw: Introduce Mellanox switch driver core
+  mlxsw: Add PCI bus implementation
+  mlxsw: Introduce Mellanox SwitchX-2 ASIC support
+
+ MAINTAINERS                                    |    9 +
+ drivers/net/ethernet/mellanox/Kconfig          |    1 +
+ drivers/net/ethernet/mellanox/Makefile         |    1 +
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig    |   32 +
+ drivers/net/ethernet/mellanox/mlxsw/Makefile   |    6 +
+ drivers/net/ethernet/mellanox/mlxsw/cmd.h      | 1090 ++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/core.c     | 1286 +++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/core.h     |  202 +++
+ drivers/net/ethernet/mellanox/mlxsw/emad.h     |  127 ++
+ drivers/net/ethernet/mellanox/mlxsw/item.h     |  405 ++++++
+ drivers/net/ethernet/mellanox/mlxsw/pci.c      | 1794 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/pci.h      |  221 +++
+ drivers/net/ethernet/mellanox/mlxsw/port.h     |   75 +
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      | 1289 +++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 1552 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |   66 +
+ drivers/net/ethernet/mellanox/mlxsw/txheader.h |   80 ++
+ 17 files changed, 8236 insertions(+)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/Kconfig
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/cmd.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/emad.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/item.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/pci.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/pci.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/port.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/reg.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/trap.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/txheader.h
+
+-- 
+1.9.3
