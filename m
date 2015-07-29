@@ -1,7 +1,8 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net 05/11] net: thunderx: Fix TSO packet statistic
-Date: Wed, 29 Jul 2015 16:49:40 +0300
-Message-ID: <1438177787-20940-6-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH net 06/11] net: thunderx: Suppress alloc_pages() failure
+ warnings
+Date: Wed, 29 Jul 2015 16:49:41 +0300
+Message-ID: <1438177787-20940-7-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,25 +29,34 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Fixing TSO packages not being counted.
+Suppressing standard alloc_pages() warnings. Some kernel configs limit
+alloc size and the network driver may fail. Do not drop a kernel
+warning in this case, instead just drop a oneliner that the network
+driver could not be loaded since the buffer could not be allocated.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 4c91959..500fdbe 100644
+index 500fdbe..ca4240a 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -1064,6 +1064,7 @@ static int nicvf_sq_append_tso(struct nicvf *nic, struct snd_queue *sq,
- 	/* Inform HW to xmit all TSO segments */
- 	nicvf_queue_reg_write(nic, NIC_QSET_SQ_0_7_DOOR,
- 			      skb_get_queue_mapping(skb), desc_cnt);
-+	nic->drv_stats.tx_tso++;
- 	return 1;
- }
+@@ -103,9 +103,11 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
  
+ 	/* Allocate a new page */
+ 	if (!nic->rb_page) {
+-		nic->rb_page = alloc_pages(gfp | __GFP_COMP, order);
++		nic->rb_page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
++					   order);
+ 		if (!nic->rb_page) {
+-			netdev_err(nic->netdev, "Failed to allocate new rcv buffer\n");
++			netdev_err(nic->netdev,
++				   "Failed to allocate new rcv buffer\n");
+ 			return -ENOMEM;
+ 		}
+ 		nic->rb_page_offset = 0;
 -- 
 2.4.6
