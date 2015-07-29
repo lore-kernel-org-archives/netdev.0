@@ -1,34 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] s390/bpf: recache skb->data/hlen for
- skb_vlan_push/pop
-Date: Wed, 29 Jul 2015 15:00:14 -0700 (PDT)
-Message-ID: <20150729.150014.82183966921783124.davem@davemloft.net>
-References: <1438197318-16903-1-git-send-email-holzheu@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] bridge: mdb: fix delmdb state in the notification
+Date: Wed, 29 Jul 2015 15:03:14 -0700 (PDT)
+Message-ID: <20150729.150314.217450368845250422.davem@davemloft.net>
+References: <1438081844-18801-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, schwidefsky@de.ibm.com, daniel@iogearbox.net,
-	joe@perches.com, netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: holzheu@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	stephen@networkplumber.org, cwang@twopensource.com,
+	amwang@redhat.com, nikolay@cumulusnetworks.com
+To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34417 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34430 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341AbbG2WAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 18:00:15 -0400
-In-Reply-To: <1438197318-16903-1-git-send-email-holzheu@linux.vnet.ibm.com>
+	with ESMTP id S1753451AbbG2WDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 18:03:15 -0400
+In-Reply-To: <1438081844-18801-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-Date: Wed, 29 Jul 2015 21:15:13 +0200
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Tue, 28 Jul 2015 13:10:44 +0200
 
-> Here the s390 backend for Alexei's patch 4e10df9a60d9 ("bpf: introduce
-> bpf_skb_vlan_push/pop() helpers") plus two bugfixes and two minor
-> improvements.
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> The first patch "s390/bpf: clear correct BPF accumulator register" will
-> also go upstream via Martin's "fixes" branch.
+> Since mdb states were introduced when deleting an entry the state was
+> left as it was set in the delete request from the user which leads to
+> the following output when doing a monitor (for example):
+> $ bridge mdb add dev br0 port eth3 grp 239.0.0.1 permanent
+> (monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+> $ bridge mdb del dev br0 port eth3 grp 239.0.0.1 permanent
+> (monitor) dev br0 port eth3 grp 239.0.0.1 temp
+> ^^^
+> Note the "temp" state in the delete notification which is wrong since
+> the entry was permanent, the state in a delete is always reported as
+> "temp" regardless of the real state of the entry.
 > 
-> * v2: Integrated suggestions from Joe Perches
+> After this patch:
+> $ bridge mdb add dev br0 port eth3 grp 239.0.0.1 permanent
+> (monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+> $ bridge mdb del dev br0 port eth3 grp 239.0.0.1 permanent
+> (monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+> 
+> There's one important note to make here that the state is actually not
+> matched when doing a delete, so one can delete a permanent entry by
+> stating "temp" in the end of the command, I've chosen this fix in order
+> not to break user-space tools which rely on this (incorrect) behaviour.
+> 
+> So to give an example after this patch and using the wrong state:
+> $ bridge mdb add dev br0 port eth3 grp 239.0.0.1 permanent
+> (monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+> $ bridge mdb del dev br0 port eth3 grp 239.0.0.1 temp
+> (monitor) dev br0 port eth3 grp 239.0.0.1 permanent
+> 
+> Note the state of the entry that got deleted is correct in the
+> notification.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Fixes: ccb1c31a7a87 ("bridge: add flags to distinguish permanent mdb entires")
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
