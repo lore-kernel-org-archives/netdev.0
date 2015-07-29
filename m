@@ -1,171 +1,59 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] net: sched: fix refcount imbalance in actions
-Date: Wed, 29 Jul 2015 23:35:25 +0200
-Message-ID: <00f17fd2908b742c7e450bb76a1d487c0b32304f.1438205044.git.daniel@iogearbox.net>
-Cc: cwang@twopensource.com, ast@plumgrid.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/3] net: make default tx_queue_len
+ configurable
+Date: Wed, 29 Jul 2015 14:37:31 -0700 (PDT)
+Message-ID: <20150729.143731.834219016906219771.davem@davemloft.net>
+References: <1438203103-27013-2-git-send-email-phil@nwl.cc>
+	<20150729210618.GF32705@breakpoint.cc>
+	<20150729213428.GC15554@orbit.nwl.cc>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, netdev@vger.kernel.org, brouer@redhat.com,
+	cwang@twopensource.com, eric.dumazet@gmail.com
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60314 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754105AbbG2Vf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:35:29 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:34318 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753264AbbG2Vhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:37:32 -0400
+In-Reply-To: <20150729213428.GC15554@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 55334a5db5cd ("net_sched: act: refuse to remove bound action
-outside"), we end up with a wrong reference count for a tc action.
+From: Phil Sutter <phil@nwl.cc>
+Date: Wed, 29 Jul 2015 23:34:28 +0200
 
-Test case 1:
+> On Wed, Jul 29, 2015 at 11:06:18PM +0200, Florian Westphal wrote:
+>> Phil Sutter <phil@nwl.cc> wrote:
+> [...]
+>> > +config DEFAULT_TX_QUEUE_LEN
+>> > +	prompt "Default TX queue length (in packets)" if EXPERT
+>> > +	int
+>> > +	default 1000	# Ethernet wants good queues
+>> > +	help
+>> > +	  Set the default value of tx_queue_len for newly created network
+>> > +	  interfaces. It is used by queueing disciplines to determine how many
+>> > +	  packets to keep in backlog before starting to drop new ones.
+>> > +
+>> > +	  The default value of 1000 packets is there for a very long time and
+>> > +	  in combination with GSO way too big.
+>> > +
+>> 
+>> I can't see how this could be used in a meaningful way.
+>> 
+>> No distro is going to touch this.
+>> 
+>> I don't think sysctl value would help either.
+> 
+> I just didn't want to introduce yet another magic value assignment. It's
+> merely a #define with a little flexibility and a subtle note that the
+> default should be changed attached.
 
-  FOO="1,6 0 0 4294967295,"
-  BAR="1,6 0 0 4294967294,"
-  tc filter add dev foo parent 1: bpf bytecode "$FOO" flowid 1:1 \
-     action bpf bytecode "$FOO"
-  tc actions show action bpf
-    action order 0: bpf bytecode '1,6 0 0 4294967295' default-action pipe
-    index 1 ref 1 bind 1
-  tc actions replace action bpf bytecode "$BAR" index 1
-  tc actions show action bpf
-    action order 0: bpf bytecode '1,6 0 0 4294967294' default-action pipe
-    index 1 ref 2 bind 1
-  tc actions replace action bpf bytecode "$FOO" index 1
-  tc actions show action bpf
-    action order 0: bpf bytecode '1,6 0 0 4294967295' default-action pipe
-    index 1 ref 3 bind 1
+Like others have mentioned, fix the _REAL_ issue.
 
-Test case 2:
+Which is that there are devices (virtual or whatever) which don't want
+a qdisc attached no matter what.  Flag those devices as such and
+adjust the qdisc attachment logic to check that new flag.
 
-  FOO="1,6 0 0 4294967295,"
-  tc filter add dev foo parent 1: bpf bytecode "$FOO" flowid 1:1 action ok
-  tc actions show action gact
-    action order 0: gact action pass
-    random type none pass val 0
-     index 1 ref 1 bind 1
-  tc actions add action drop index 1
-    RTNETLINK answers: File exists [...]
-  tc actions show action gact
-    action order 0: gact action pass
-     random type none pass val 0
-     index 1 ref 2 bind 1
-  tc actions add action drop index 1
-    RTNETLINK answers: File exists [...]
-  tc actions show action gact
-    action order 0: gact action pass
-     random type none pass val 0
-     index 1 ref 3 bind 1
-
-What happens is that in tcf_hash_check(), we check tcf_common for a given
-index and increase tcfc_refcnt and conditionally tcfc_bindcnt when we've
-found an existing action. Now there are the following cases:
-
-  1) We do a late binding of an action. In that case, we leave the
-     tcfc_refcnt/tcfc_bindcnt increased and are done with the ->init()
-     handler. This is correctly handeled.
-
-  2) We replace the given action, or we try to add one without replacing
-     and find out that the action at a specific index already exists
-     (thus, we go out with error in that case).
-
-In case of 2), we have to undo the reference count increase from
-tcf_hash_check() in the tcf_hash_check() function. Currently, we fail to
-do so because of the 'tcfc_bindcnt > 0' check which bails out early with
-an -EPERM error.
-
-Now, while commit 55334a5db5cd prevents 'tc actions del action ...' on an
-already classifier-bound action to drop the reference count (which could
-then become negative, wrap around etc), this restriction only accounts for
-invocations outside a specific action's ->init() handler.
-
-One possible solution would be to add a flag thus we possibly trigger
-the -EPERM ony in situations where it is indeed relevant.
-
-After the patch, above test cases have correct reference count again.
-
-Fixes: 55334a5db5cd ("net_sched: act: refuse to remove bound action outside")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/net/act_api.h |  8 +++++++-
- net/sched/act_api.c   | 11 ++++++-----
- 2 files changed, 13 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 3ee4c92..931738b 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -99,7 +99,6 @@ struct tc_action_ops {
- 
- int tcf_hash_search(struct tc_action *a, u32 index);
- void tcf_hash_destroy(struct tc_action *a);
--int tcf_hash_release(struct tc_action *a, int bind);
- u32 tcf_hash_new_index(struct tcf_hashinfo *hinfo);
- int tcf_hash_check(u32 index, struct tc_action *a, int bind);
- int tcf_hash_create(u32 index, struct nlattr *est, struct tc_action *a,
-@@ -107,6 +106,13 @@ int tcf_hash_create(u32 index, struct nlattr *est, struct tc_action *a,
- void tcf_hash_cleanup(struct tc_action *a, struct nlattr *est);
- void tcf_hash_insert(struct tc_action *a);
- 
-+int __tcf_hash_release(struct tc_action *a, bool bind, bool strict);
-+
-+static inline int tcf_hash_release(struct tc_action *a, bool bind)
-+{
-+	return __tcf_hash_release(a, bind, false);
-+}
-+
- int tcf_register_action(struct tc_action_ops *a, unsigned int mask);
- int tcf_unregister_action(struct tc_action_ops *a);
- int tcf_action_destroy(struct list_head *actions, int bind);
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index af427a3..43ec926 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -45,7 +45,7 @@ void tcf_hash_destroy(struct tc_action *a)
- }
- EXPORT_SYMBOL(tcf_hash_destroy);
- 
--int tcf_hash_release(struct tc_action *a, int bind)
-+int __tcf_hash_release(struct tc_action *a, bool bind, bool strict)
- {
- 	struct tcf_common *p = a->priv;
- 	int ret = 0;
-@@ -53,7 +53,7 @@ int tcf_hash_release(struct tc_action *a, int bind)
- 	if (p) {
- 		if (bind)
- 			p->tcfc_bindcnt--;
--		else if (p->tcfc_bindcnt > 0)
-+		else if (strict && p->tcfc_bindcnt > 0)
- 			return -EPERM;
- 
- 		p->tcfc_refcnt--;
-@@ -64,9 +64,10 @@ int tcf_hash_release(struct tc_action *a, int bind)
- 			ret = 1;
- 		}
- 	}
-+
- 	return ret;
- }
--EXPORT_SYMBOL(tcf_hash_release);
-+EXPORT_SYMBOL(__tcf_hash_release);
- 
- static int tcf_dump_walker(struct sk_buff *skb, struct netlink_callback *cb,
- 			   struct tc_action *a)
-@@ -136,7 +137,7 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a)
- 		head = &hinfo->htab[tcf_hash(i, hinfo->hmask)];
- 		hlist_for_each_entry_safe(p, n, head, tcfc_head) {
- 			a->priv = p;
--			ret = tcf_hash_release(a, 0);
-+			ret = __tcf_hash_release(a, false, true);
- 			if (ret == ACT_P_DELETED) {
- 				module_put(a->ops->owner);
- 				n_i++;
-@@ -408,7 +409,7 @@ int tcf_action_destroy(struct list_head *actions, int bind)
- 	int ret = 0;
- 
- 	list_for_each_entry_safe(a, tmp, actions, list) {
--		ret = tcf_hash_release(a, bind);
-+		ret = __tcf_hash_release(a, bind, true);
- 		if (ret == ACT_P_DELETED)
- 			module_put(a->ops->owner);
- 		else if (ret < 0)
--- 
-1.9.3
+Anything is better than hacking the queue len.
