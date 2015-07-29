@@ -1,72 +1,60 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH 4/8] xen: Use the correctly the Xen memory terminologies
-Date: Wed, 29 Jul 2015 10:51:18 -0400
-Message-ID: <55B8E866.60308@oracle.com>
-References: <1438095769-2560-1-git-send-email-julien.grall@citrix.com> <1438095769-2560-5-git-send-email-julien.grall@citrix.com> <55B7D40B.5080903@oracle.com> <55B8B846.2060103@citrix.com> <55B8DFD7.6070107@oracle.com> <55B8E1C7.6070608@citrix.com>
+From: WingMan Kwok <w-kwok2@ti.com>
+Subject: [PATCH 1/2] net: Export __netdev_alloc_frag() to allow gfp_mask flags
+Date: Wed, 29 Jul 2015 11:10:52 -0400
+Message-ID: <1438182653-2136-1-git-send-email-w-kwok2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-fbdev@vger.kernel.org, "H. Peter Anvin" <hpa@zytor.com>,
-	Jiri Slaby <jslaby@suse.com>, stefano.stabellini@eu.citrix.com,
-	Russell King <linux@arm.linux.org.uk>,
-	linux-scsi@vger.kernel.org, x86@kernel.org,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	linux-input@vger.kernel.org,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	ian.campbell@citrix.com,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"James E.J. Bottomley" <JBottomley@odin.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Juergen Gross <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	=?windows-1252?Q?Roger_Pau_Mon
-To: Julien Grall <julien.grall@citrix.com>,
-	xen-devel@lists.xenproject.org
+Content-Type: text/plain
+Cc: WingMan Kwok <w-kwok2@ti.com>, "Reece R. Pollack" <x0183204@ti.com>
+To: <davem@davemloft.net>, <m-karicheri2@ti.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55B8E1C7.6070608@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/29/2015 10:23 AM, Julien Grall wrote:
-> On 29/07/15 15:14, Boris Ostrovsky wrote:
->>> static inline unsigned long pfn_to_gfn(unsigned long pfn)
->>> {
->>>      if (xen_feature(XENFEAT_autotranslated_physmap))
->>>          return pfn;
->>>      else
->>>          return pfn_to_mfn(pfn);
->>> }
->>
->> But you'd still say 'op.arg1.mfn = pfn_to_gfn(pfn);' in xen_do_pin()
->> i.e. assign GFN to MFN, right? That's what I was referring to.
-> Well no. I would use op.arg1.mfn = pfn_to_mfn(pfn) given that the code,
-> if I'm right, is only executed for PV.
->
-> mfn = pfn_to_gfn(...) was valid too because on PV is always an MFN. The
-> suggestion of pfn_to_mfn was just for more readability,
+This patch makes the function __netdev_alloc_frag() non-static and
+exports it so that drivers that need to specify additional flags,
+such as __GFP_DMA, can use it. The currently exported function,
+netdev_alloc_frag() doesn't allow passing in gfp_mask flags.
 
-Right, and my comments were also not about correctness.
+Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+Signed-off-by: Reece R. Pollack <x0183204@ti.com>
+---
+ include/linux/skbuff.h |    1 +
+ net/core/skbuff.c      |    3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-
->
->> (In general, I am not sure a guest should ever use 'mfn' as it is purely
->> a hypervisor construct. Including p2m, which I think should really be
->> p2g as this is what we use to figure out what to stick into page tables)
-> I think avoid to use mfn in the hypervisor interface is out-of-scope for
-> this series. If we ever want to modify the Xen API in Linux, we should
-> do in sync with Xen to avoid inconsistency on naming.
->
-> Anyway, the oddity of mfn = pfn_to_gfn(...) is mostly contained in the
-> x86 specific code. I don't mind to either add pfn_to_mfn and use it or
-> add a comment /* PV-specific so mfn == gfn */ for every use of mfn =
-> pfn_to_gfn(...).
-
-I think the former is better (even thought it adds a test)
-
--boris
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d6cdd6e..596deb3 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2139,6 +2139,7 @@ static inline void __skb_queue_purge(struct sk_buff_head *list)
+ 		kfree_skb(skb);
+ }
+ 
++void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask);
+ void *netdev_alloc_frag(unsigned int fragsz);
+ 
+ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int length,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index b6a19ca..6f3451f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -350,7 +350,7 @@ EXPORT_SYMBOL(build_skb);
+ static DEFINE_PER_CPU(struct page_frag_cache, netdev_alloc_cache);
+ static DEFINE_PER_CPU(struct page_frag_cache, napi_alloc_cache);
+ 
+-static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
++void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
+ {
+ 	struct page_frag_cache *nc;
+ 	unsigned long flags;
+@@ -362,6 +362,7 @@ static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
+ 	local_irq_restore(flags);
+ 	return data;
+ }
++EXPORT_SYMBOL(__netdev_alloc_frag);
+ 
+ /**
+  * netdev_alloc_frag - allocate a page fragment
+-- 
+1.7.9.5
