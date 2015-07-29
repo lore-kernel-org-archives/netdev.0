@@ -1,58 +1,73 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v3] route: allow to route in a peer netns via
- lwt framework
-Date: Wed, 29 Jul 2015 23:17:51 +0200
-Message-ID: <55B942FF.2020303@6wind.com>
-References: <55B68CE2.10008@6wind.com>	 <1438175774-4408-1-git-send-email-nicolas.dichtel@6wind.com> <1438183251.20182.93.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH] net: switchdev: restrict vid range abstraction
+Date: Wed, 29 Jul 2015 14:17:43 -0700
+Message-ID: <CAE4R7bBdNv_e37BZRHyjNp_-5f1sD1AF5ykKCMP_Cf+fV6nEJw@mail.gmail.com>
+References: <1437954348-11859-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <CAE4R7bA5jh3Rgn_U1Sit3qW+i2vKNE++c9TYTJ8sp5j8h=awbw@mail.gmail.com>
+ <20150729.112842.1871916445536378243.davem@davemloft.net> <117624450.145106.1438197245281.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, tgraf@suug.ch,
-	alexei.starovoitov@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:33139 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753340AbbG2VRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:17:55 -0400
-Received: by wicmv11 with SMTP id mv11so234668287wic.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 14:17:54 -0700 (PDT)
-In-Reply-To: <1438183251.20182.93.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <117624450.145106.1438197245281.JavaMail.zimbra@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 29/07/2015 17:20, Eric Dumazet a =C3=A9crit :
-> On Wed, 2015-07-29 at 15:16 +0200, Nicolas Dichtel wrote:
->> This patch takes advantage of the newly added lwtunnel framework to
->> allow the user to set routes that point to a peer netns.
+On Wed, Jul 29, 2015 at 12:14 PM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
+> Hi Scott, David,
+>
+> On Jul 29, 2015, at 2:28 PM, David davem@davemloft.net wrote:
+>
+>> From: Scott Feldman <sfeldma@gmail.com>
+>> Date: Wed, 29 Jul 2015 00:31:44 -0700
 >>
->> Packets are injected to the peer netns via the loopback device. It w=
-orks
->> only when the output device is 'lo'.
+>>> Since the netlink request (for example vlan add) includes the range,
+>>> I'm not seeing how we can response with success for the satisfied
+>>> vlans in the range, and also respond with an error for the unsatisfied
+>>> vlans in the range.   In other words, from the netlink msgs
+>>> perspective, we need to treat a vlan range as all-or-nothing.  So in
+>>> your example, if hw can't add vlan 2, we fail the entire request to
+>>> add range 2-5.  This is where the prepare phase checks to make sure
+>>> the entire request can be satisfied before committing to hw.
+>
+> I made this change in order to start restricting the bridge abstraction
+> to switchdev, since IMHO its info flags do not add much value to the
+> switch chip drivers perspective.
+>
+> While a range might be convenient to a user, exposing it to drivers is
+> likely to end up writing the same vid_begin to vid_end for loop.
+>
+>> This was my concern with the change as well.
 >>
->> Example:
->> ip route add 40.1.1.1/32 encap netns nsid 5 via dev lo
->>
->> The goal is to be scalable when the number of netns is high (10k or =
-more).
->> Which this patch, we can save two interfaces (veth) per netns, which=
- helps
->> to to reduce memory consumption and the time needed to create a netn=
-s.
+>> The user asked for the range to be installed, so if any portion
+>> of it cannot be done we must not make any changes to the HW
+>> configuration and fail the entire request.
 >
+> I understand the concern with the netlink request.
 >
-> Really this is a hack Nicolas.
+> However, this can be confusing to someone. With the previous example:
 >
-> get_net_ns_by_id() was not meant to be used in data (fast ???) path.
+>     bridge vlan add dev port0 vid 2-5 master
 >
-> Same for get_net() and put_net()
+> must fail for the entire range (due to the single netlink request). But:
 >
-> Plumbing like that should not happen in lo start_xmit()
-Yes, I think you're right. I was a bit too enthusiasm with this new fra=
-mework.
-Do you think it would be acceptable if the netns was directly reference=
-d
-instead of a nsid?
+>     bridge vlan add dev port0 vid 2 master
+>
+> will silently fallback to software VLAN (assuming that the driver
+> correctly returned -EOPNOTSUPP in the prepare phase). In other words, no
+> changes has been committed to the hardware.
+
+I see your concern now, I think.  net/bridge/br_netlink.c:br_afspec()
+does the range loop but doesn't rewind if something goes wrong with
+one of the vlans in the range.  The call into switchdev is
+one-at-a-time at that point.  If br_afspec() handled the rewind, would
+this address your concern?  We can keep the range support in the
+switchdev vlan obj, so 'self' can use it.
+
+-scott
