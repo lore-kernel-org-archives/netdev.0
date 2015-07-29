@@ -1,32 +1,66 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 1/2] net: Set sk_txhash from a random number
-Date: Wed, 29 Jul 2015 11:13:33 +0200
-Message-ID: <20150729091333.GB13113@pox.localdomain>
-References: <1438124526-2129341-1-git-send-email-tom@herbertland.com>
- <1438124526-2129341-2-git-send-email-tom@herbertland.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] arp: filter NOARP neighbours for SIOCGARP
+Date: Wed, 29 Jul 2015 11:15:51 +0200
+Message-ID: <1438161351.20182.73.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1437989630.20182.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150728.234147.1087098759056655521.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, valas@google.com, willemb@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34623 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbbG2JNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 05:13:37 -0400
-Received: by wibud3 with SMTP id ud3so211964699wib.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 02:13:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1438124526-2129341-2-git-send-email-tom@herbertland.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:36746 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328AbbG2JPz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 05:15:55 -0400
+Received: by wicgb10 with SMTP id gb10so191063141wic.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 02:15:54 -0700 (PDT)
+In-Reply-To: <20150728.234147.1087098759056655521.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/28/15 at 04:02pm, Tom Herbert wrote:
-> This patch creates sk_set_txhash and eliminates protocol specific
-> inet_set_txhash and ip6_set_txhash. sk_set_txhash simply sets a
-> random number instead of performing flow dissection. sk_set_txash
-> is also allowed to be called multiple times for the same socket,
-> we'll need this when redoing the hash for negative routing advice.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+On Tue, 2015-07-28 at 23:41 -0700, David Miller wrote:
 
-Doesn't this break TX hashing with SO_REUSEPORT?
+> Applied, thanks Eric.
+Thanks David
+
+Note that IPv6 is completely broken after 'arp off' sequence.
+
+ND destination MAC are a copy of eth0 MAC address, instead of the required multicast.
+
+lpaa23:~# ip link set dev eth0 arp off
+lpaa23:~# ping6 4444::555:0027
+PING 4444::555:0027(4444::555:27) 56 data bytes
+02:05:13.742684 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 1, length 64
+02:05:14.742200 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 2, length 64
+^C
+--- 4444::555:0027 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 999ms
+
+lpaa23:~# ip link set dev eth0 arp on 
+
+lpaa23:~# ip -6 neigh sh dev eth0
+fe80::21a:11ff:fec3:d45 lladdr 00:1a:11:c3:0d:45 STALE
+4444::555:26  FAILED
+4444::555:25  FAILED
+
+lpaa23:~# ping6 4444::555:0027
+PING 4444::555:0027(4444::555:27) 56 data bytes
+02:12:15.698654 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 1, length 64
+02:12:16.698249 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 2, length 64
+02:12:17.698224 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 3, length 64
+^C
+--- 4444::555:0027 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 1999ms
+
+lpaa23:~# ip -6 neigh flush dev eth0
+
+lpaa23:~# ip -6 neigh sh dev eth0
+4444::555:24  FAILED
+4444::555:28  FAILED
+fe80::21a:11ff:fec3:d45  FAILED
+4444::555:26  FAILED
+4444::555:25  FAILED
+
+Oh well...
