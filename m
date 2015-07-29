@@ -1,67 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] net: Export __netdev_alloc_frag() to allow gfp_mask
- flags
-Date: Wed, 29 Jul 2015 22:37:55 +0200
-Message-ID: <1438202275.20182.99.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438182653-2136-1-git-send-email-w-kwok2@ti.com>
-	 <1438187516.20182.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <55B93611.7070506@ti.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: [PATCH v2 1/2] igb: Teardown SR-IOV before unregister_netdev()
+Date: Wed, 29 Jul 2015 14:38:15 -0600
+Message-ID: <20150729203814.10732.38094.stgit@gimli.home>
+References: <20150729203726.10732.91020.stgit@gimli.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: WingMan Kwok <w-kwok2@ti.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Murali Karicheri <m-karicheri2@ti.com>
+Cc: netdev@vger.kernel.org, mitch.a.williams@intel.com,
+	linux-kernel@vger.kernel.org
+To: intel-wired-lan@lists.osuosl.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55B93611.7070506@ti.com>
+In-Reply-To: <20150729203726.10732.91020.stgit@gimli.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-07-29 at 16:22 -0400, Murali Karicheri wrote:
-> Eric,
-> 
-> On 07/29/2015 12:31 PM, Eric Dumazet wrote:
-> > On Wed, 2015-07-29 at 11:10 -0400, WingMan Kwok wrote:
-> >> This patch makes the function __netdev_alloc_frag() non-static and
-> >> exports it so that drivers that need to specify additional flags,
-> >> such as __GFP_DMA, can use it. The currently exported function,
-> >> netdev_alloc_frag() doesn't allow passing in gfp_mask flags.
-> >>
-> >> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
-> >> Signed-off-by: Reece R. Pollack <x0183204@ti.com>
-> >> ---
-> >>   include/linux/skbuff.h |    1 +
-> >>   net/core/skbuff.c      |    3 ++-
-> >>   2 files changed, 3 insertions(+), 1 deletion(-)
-> >
-> > You can not do this.
-> >
-> > __napi_alloc_frag() uses __alloc_page_frag() using a per cpu reserve.
-> >
-> Thanks for your response.
-> 
-> I assume you mean to say __netdev_alloc_frag() which is what the patch 
-> affects. Right?
-> 
-> > This per cpu reserve would be shared by regular GFP_ATOMIC and your
-> > __GFP_DMA allocations.
-> 
-> I am trying to understand the issue here. Is there any issue in sharing 
-> this per CPU reserve between DMA and ATOMIC allocations. Without this 
-> flag, the assumption is this function can return memory which is not 
-> DMA-able and this flag assures it is allocated from DMA zone.
+When the .remove() callback for a PF is called, SR-IOV support for the
+device is disabled, which requires unbinding and removing the VFs.
+The VFs may be in-use either by the host kernel or userspace, such as
+assigned to a VM through vfio-pci.  In this latter case, the VFs may
+be removed either by shutting down the VM or hot-unplugging the
+devices from the VM.  Unfortunately in the case of a Windows 2012 R2
+guest, hot-unplug is broken due to the ordering of the PF driver
+teardown.  Disabling SR-IOV prior to unregister_netdev() avoids this
+issue.
 
-First caller __netdev_alloc_frag() uses GFP_ATOMIC.
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+Acked-by: Mitch Williams <mitch.a.williams@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-A big page (32 KB) is allocated and stored into cache. Part of it given
-to caller. (like 1536 bytes or so)
-
-Then your driver calls with __GFP_DMA.
-
-We find a prior page on percpu cache with enough room in it to allocate
-a fragment.
-
-Your driver getd a fragment from the prior GFP_ATOMIC allocation, with
-no DMA guarantee.
-
-Therefore, your patch is not working in all cases.
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 2f70a9b..417cc9c 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2805,14 +2805,14 @@ static void igb_remove(struct pci_dev *pdev)
+ 	 */
+ 	igb_release_hw_control(adapter);
+ 
+-	unregister_netdev(netdev);
+-
+-	igb_clear_interrupt_scheme(adapter);
+-
+ #ifdef CONFIG_PCI_IOV
+ 	igb_disable_sriov(pdev);
+ #endif
+ 
++	unregister_netdev(netdev);
++
++	igb_clear_interrupt_scheme(adapter);
++
+ 	pci_iounmap(pdev, hw->hw_addr);
+ 	if (hw->flash_address)
+ 		iounmap(hw->flash_address);
