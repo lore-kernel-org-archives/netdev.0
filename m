@@ -1,79 +1,104 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] gianfar: Fix warnings when built on 64-bit
-Date: Wed, 29 Jul 2015 10:02:07 +0200
-Message-ID: <4498062.4y369pLSmO@wuerfel>
-References: <1438147477-393-1-git-send-email-scottwood@freescale.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 3/5] Add calls to translate Always Running Timer (ART)
+ to system time
+Date: Wed, 29 Jul 2015 10:25:10 +0200
+Message-ID: <1438158310.5106.14.camel@tiscali.nl>
+References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
+	 <1438044416-15588-4-git-send-email-christopher.s.hall@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Scott Wood <scottwood@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:55524 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbbG2ICP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 04:02:15 -0400
-In-Reply-To: <1438147477-393-1-git-send-email-scottwood@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.stultz@linaro.org, tglx@linutronix.de,
+	richardcochran@gmail.com, mingo@redhat.com,
+	jeffrey.t.kirsher@intel.com, john.ronciak@intel.com, hpa@zytor.com,
+	x86@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Christopher Hall <christopher.s.hall@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438044416-15588-4-git-send-email-christopher.s.hall@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 29 July 2015 00:24:37 Scott Wood wrote:
+On ma, 2015-07-27 at 17:46 -0700, Christopher Hall wrote:
+> --- /dev/null
+> +++ b/arch/x86/include/asm/art.h
 
-> Alternatively, if there's a desire to not mess with this code (I don't
-> know how to trigger this code path to test it), this driver should be
-> given dependencies that ensure that it only builds on 32-bit.
-
-These are obvious fixes, they should definitely go in.
-
->  drivers/net/ethernet/freescale/gianfar.c | 22 ++++++++++++++++++----
->  1 file changed, 18 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-> index ff87502..7c682ac 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.c
-> +++ b/drivers/net/ethernet/freescale/gianfar.c
-> @@ -565,6 +565,7 @@ static void gfar_ints_enable(struct gfar_private *priv)
->  	}
->  }
->  
-> +#ifdef CONFIG_PM
->  static void lock_tx_qs(struct gfar_private *priv)
->  {
->  	int i;
-> @@ -580,6 +581,7 @@ static void unlock_tx_qs(struct gfar_private *priv)
->  	for (i = 0; i < priv->num_tx_queues; i++)
->  		spin_unlock(&priv->tx_queue[i]->txlock);
->  }
-> +#endif
->  
-
-This seems unrelated and should probably be a separate fix.
-
-> @@ -2964,8 +2967,13 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
->  		gfar_init_rxbdp(rx_queue, bdp, bufaddr);
->  
->  		/* Update Last Free RxBD pointer for LFC */
-> -		if (unlikely(rx_queue->rfbptr && priv->tx_actual_en))
-> -			gfar_write(rx_queue->rfbptr, (u32)bdp);
-> +		if (unlikely(rx_queue->rfbptr && priv->tx_actual_en)) {
-> +			u32 bdp_dma;
+> +#ifndef CONFIG_X86_ART
 > +
-> +			bdp_dma = lower_32_bits(rx_queue->rx_bd_dma_base);
-> +			bdp_dma += (uintptr_t)bdp - (uintptr_t)base;
-> +			gfar_write(rx_queue->rfbptr, bdp_dma);
-> +		}
->  
->  		/* Update to the next pointer */
->  		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
+> +static inline int setup_art(void)
+> +{
+> +	return 0;
+> +}
+> +
+> +static inline bool has_art(void)
+> +{
+> +	return false;
+> +}
+> +
+> +static inline int art_to_rawmono64(struct timespec64 *rawmono, cycle_t art)
+> +{
+> +	return -ENXIO;
+> +}
+> +static inline int art_to_realtime64(struct timespec64 *realtime, cycle_t art)
+> +{
+> +	return -ENXIO;
+> +}
+> +static inline int art_to_mono64(struct timespec64 *mono, cycle_t art)
+> +{
+> +	return -ENXIO;
+> +}
+> +
+> +#else
+> +
+> +extern int setup_art(void);
+> +extern bool has_art(void);
+> +extern int art_to_rawmono64(struct timespec64 *rawmono, cycle_t art);
+> +extern int art_to_realtime64(struct timespec64 *realtime, cycle_t art);
+> +extern int art_to_mono64(struct timespec64 *mono, cycle_t art);
+> +
+> +#endif
 
-You are fixing two problems here: the warning about a size cast, and
-the fact that the driver is using the wrong pointer. I'd suggest
-explaining it in the changelog.
+> --- /dev/null
+> +++ b/arch/x86/kernel/art.c
 
-Note that we normally rely on void pointer arithmetic in the kernel, so
-I'd write it without the uintptr_t casts as 
+> +static bool has_art(void)
+> +{
+> +	return art_present;
+> +}
+> +EXPORT_SYMBOL(has_art);
 
-	bdp_dma = lower_32_bits(rx_queue->rx_bd_dma_base + (base - bdp));
+This exports a static function. Does that work?
 
-	Arnd
+> +static int art_to_rawmono64(struct timespec64 *rawmono, cycle_t art)
+> +{
+> +	if (!checked_art_to_tsc(&art))
+> +		return -ENXIO;
+> +	return tsc_to_rawmono64(rawmono, art);
+> +}
+> +EXPORT_SYMBOL(art_to_rawmono64);
+> +
+> +static int art_to_realtime64(struct timespec64 *realtime, cycle_t art)
+> +{
+> +	if (!checked_art_to_tsc(&art))
+> +		return -ENXIO;
+> +	return tsc_to_realtime64(realtime, art);
+> +}
+> +EXPORT_SYMBOL(art_to_realtime64);
+> +
+> +static int art_to_mono64(struct timespec64 *mono, cycle_t art)
+> +{
+> +	if (!checked_art_to_tsc(&art))
+> +		return -ENXIO;
+> +	return tsc_to_mono64(mono, art);
+> +}
+> +EXPORT_SYMBOL(art_to_mono64);
+
+Ditto (three times).
+
+By the way, this series doesn't add users for art_to_mono64() and
+art_to_mono64(), right?
+
+Thanks,
+
+
+Paul Bolle
