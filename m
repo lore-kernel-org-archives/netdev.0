@@ -1,8 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net 07/11] net: thunderx: Wakeup TXQ only if CQE_TX are
- processed
-Date: Wed, 29 Jul 2015 16:49:42 +0300
-Message-ID: <1438177787-20940-8-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH net 08/11] net: thunderx: Set watchdog timeout value
+Date: Wed, 29 Jul 2015 16:49:43 +0300
+Message-ID: <1438177787-20940-9-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,165 +28,47 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Previously TXQ is wakedup whenever napi is executed
-and irrespective of if any CQE_TX are processed or not.
-Added 'txq_stop' and 'txq_wake' counters to aid in debugging
-if there are any future issues.
+If a txq (SQ) remains in stopped state after this timeout its
+considered as stuck and interface is reinited.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |  3 +-
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    |  3 +-
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 40 +++++++++++++++-------
- 3 files changed, 31 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h        | 9 +++++++++
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 1 +
+ 2 files changed, 10 insertions(+)
 
 diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index dda8a02..a0be076 100644
+index a0be076..8aee250 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic.h
 +++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -216,8 +216,9 @@ struct nicvf_drv_stats {
- 	/* Tx */
- 	u64 tx_frames_ok;
- 	u64 tx_drops;
--	u64 tx_busy;
- 	u64 tx_tso;
-+	u64 txq_stop;
-+	u64 txq_wake;
- };
+@@ -125,6 +125,15 @@
+  */
+ #define NICPF_CLK_PER_INT_TICK		2
  
- struct nicvf {
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index b22dee6..a4228e6 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -66,9 +66,10 @@ static const struct nicvf_stat nicvf_drv_stats[] = {
- 	NICVF_DRV_STAT(rx_frames_jumbo),
- 	NICVF_DRV_STAT(rx_drops),
- 	NICVF_DRV_STAT(tx_frames_ok),
--	NICVF_DRV_STAT(tx_busy),
- 	NICVF_DRV_STAT(tx_tso),
- 	NICVF_DRV_STAT(tx_drops),
-+	NICVF_DRV_STAT(txq_stop),
-+	NICVF_DRV_STAT(txq_wake),
- };
- 
- static const struct nicvf_stat nicvf_queue_stats[] = {
++/* Time to wait before we decide that a SQ is stuck.
++ *
++ * Since both pkt rx and tx notifications are done with same CQ,
++ * when packets are being received at very high rate (eg: L2 forwarding)
++ * then freeing transmitted skbs will be delayed and watchdog
++ * will kick in, resetting interface. Hence keeping this value high.
++ */
++#define	NICVF_TX_TIMEOUT		(50 * HZ)
++
+ struct nicvf_cq_poll {
+ 	u8	cq_idx;		/* Completion queue index */
+ 	struct	napi_struct napi;
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 2890cd6..422d46e 100644
+index 422d46e..abee2d7 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -477,12 +477,13 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
- static int nicvf_cq_intr_handler(struct net_device *netdev, u8 cq_idx,
- 				 struct napi_struct *napi, int budget)
- {
--	int processed_cqe, work_done = 0;
-+	int processed_cqe, work_done = 0, tx_done = 0;
- 	int cqe_count, cqe_head;
- 	struct nicvf *nic = netdev_priv(netdev);
- 	struct queue_set *qs = nic->qs;
- 	struct cmp_queue *cq = &qs->cq[cq_idx];
- 	struct cqe_rx_t *cq_desc;
-+	struct netdev_queue *txq;
+@@ -1293,6 +1293,7 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	netdev->hw_features = netdev->features;
  
- 	spin_lock_bh(&cq->lock);
- loop:
-@@ -497,8 +498,8 @@ loop:
- 	cqe_head = nicvf_queue_reg_read(nic, NIC_QSET_CQ_0_7_HEAD, cq_idx) >> 9;
- 	cqe_head &= 0xFFFF;
+ 	netdev->netdev_ops = &nicvf_netdev_ops;
++	netdev->watchdog_timeo = NICVF_TX_TIMEOUT;
  
--	netdev_dbg(nic->netdev, "%s cqe_count %d cqe_head %d\n",
--		   __func__, cqe_count, cqe_head);
-+	netdev_dbg(nic->netdev, "%s CQ%d cqe_count %d cqe_head %d\n",
-+		   __func__, cq_idx, cqe_count, cqe_head);
- 	while (processed_cqe < cqe_count) {
- 		/* Get the CQ descriptor */
- 		cq_desc = (struct cqe_rx_t *)GET_CQ_DESC(cq, cqe_head);
-@@ -512,8 +513,8 @@ loop:
- 			break;
- 		}
- 
--		netdev_dbg(nic->netdev, "cq_desc->cqe_type %d\n",
--			   cq_desc->cqe_type);
-+		netdev_dbg(nic->netdev, "CQ%d cq_desc->cqe_type %d\n",
-+			   cq_idx, cq_desc->cqe_type);
- 		switch (cq_desc->cqe_type) {
- 		case CQE_TYPE_RX:
- 			nicvf_rcv_pkt_handler(netdev, napi, cq,
-@@ -523,6 +524,7 @@ loop:
- 		case CQE_TYPE_SEND:
- 			nicvf_snd_pkt_handler(netdev, cq,
- 					      (void *)cq_desc, CQE_TYPE_SEND);
-+			tx_done++;
- 		break;
- 		case CQE_TYPE_INVALID:
- 		case CQE_TYPE_RX_SPLIT:
-@@ -533,8 +535,9 @@ loop:
- 		}
- 		processed_cqe++;
- 	}
--	netdev_dbg(nic->netdev, "%s processed_cqe %d work_done %d budget %d\n",
--		   __func__, processed_cqe, work_done, budget);
-+	netdev_dbg(nic->netdev,
-+		   "%s CQ%d processed_cqe %d work_done %d budget %d\n",
-+		   __func__, cq_idx, processed_cqe, work_done, budget);
- 
- 	/* Ring doorbell to inform H/W to reuse processed CQEs */
- 	nicvf_queue_reg_write(nic, NIC_QSET_CQ_0_7_DOOR,
-@@ -544,6 +547,19 @@ loop:
- 		goto loop;
- 
- done:
-+	/* Wakeup TXQ if its stopped earlier due to SQ full */
-+	if (tx_done) {
-+		txq = netdev_get_tx_queue(netdev, cq_idx);
-+		if (netif_tx_queue_stopped(txq)) {
-+			netif_tx_wake_queue(txq);
-+			nic->drv_stats.txq_wake++;
-+			if (netif_msg_tx_err(nic))
-+				netdev_warn(netdev,
-+					    "%s: Transmit queue wakeup SQ%d\n",
-+					    netdev->name, cq_idx);
-+		}
-+	}
-+
- 	spin_unlock_bh(&cq->lock);
- 	return work_done;
- }
-@@ -555,15 +571,10 @@ static int nicvf_poll(struct napi_struct *napi, int budget)
- 	struct net_device *netdev = napi->dev;
- 	struct nicvf *nic = netdev_priv(netdev);
- 	struct nicvf_cq_poll *cq;
--	struct netdev_queue *txq;
- 
- 	cq = container_of(napi, struct nicvf_cq_poll, napi);
- 	work_done = nicvf_cq_intr_handler(netdev, cq->cq_idx, napi, budget);
- 
--	txq = netdev_get_tx_queue(netdev, cq->cq_idx);
--	if (netif_tx_queue_stopped(txq))
--		netif_tx_wake_queue(txq);
--
- 	if (work_done < budget) {
- 		/* Slow packet rate, exit polling */
- 		napi_complete(napi);
-@@ -836,7 +847,7 @@ static netdev_tx_t nicvf_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 	if (!nicvf_sq_append_skb(nic, skb) && !netif_tx_queue_stopped(txq)) {
- 		netif_tx_stop_queue(txq);
--		nic->drv_stats.tx_busy++;
-+		nic->drv_stats.txq_stop++;
- 		if (netif_msg_tx_err(nic))
- 			netdev_warn(netdev,
- 				    "%s: Transmit ring full, stopping SQ%d\n",
-@@ -989,6 +1000,9 @@ int nicvf_open(struct net_device *netdev)
- 	for (qidx = 0; qidx < qs->rbdr_cnt; qidx++)
- 		nicvf_enable_intr(nic, NICVF_INTR_RBDR, qidx);
- 
-+	nic->drv_stats.txq_stop = 0;
-+	nic->drv_stats.txq_wake = 0;
-+
- 	netif_carrier_on(netdev);
- 	netif_tx_start_all_queues(netdev);
+ 	INIT_WORK(&nic->reset_task, nicvf_reset_task);
  
 -- 
 2.4.6
