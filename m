@@ -1,92 +1,88 @@
-From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net 03/11] net: thunderx: Fix RQ_DROP miscalculation
-Date: Wed, 29 Jul 2015 16:49:38 +0300
-Message-ID: <1438177787-20940-4-git-send-email-aleksey.makarov@caviumnetworks.com>
-References: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: RE: [PATCH 1/5] Add functions producing system time given a backing
+ counter value
+Date: Wed, 29 Jul 2015 16:05:19 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1507291603220.3825@nanos>
+References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com> <1438044416-15588-2-git-send-email-christopher.s.hall@intel.com> <CALAqxLWSakB1zdnYAE=2yQTPLdzkjO3wLA82Q+CJoJccGLWM8Q@mail.gmail.com>
+ <B79D786B7111A34A8CF09F833429C493A909CEE1@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Robert Richter <rric@kernel.org>, David Daney <david.daney@cavium.com>,
- Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
- Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
- linux-kernel@vger.kernel.org,
- Robert Richter <robert.richter@caviumnetworks.com>,
- Sunil Goutham <sgoutham@cavium.com>, linux-arm-kernel@lists.infradead.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: 'John Stultz' <john.stultz@linaro.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Hall, Christopher S" <christopher.s.hall@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:40719 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbbG2OFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 10:05:42 -0400
+In-Reply-To: <B79D786B7111A34A8CF09F833429C493A909CEE1@ORSMSX109.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sunil Goutham <sgoutham@cavium.com>
+On Wed, 29 Jul 2015, Hall, Christopher S wrote:
+> 
+> > -----Original Message-----
+> > From: John Stultz [mailto:john.stultz@linaro.org]
+> > Sent: Monday, July 27, 2015 8:44 PM
+> > To: Hall, Christopher S
+> > Cc: Thomas Gleixner; Richard Cochran; Ingo Molnar; Kirsher, Jeffrey T;
+> > Ronciak, John; H. Peter Anvin; x86@kernel.org; lkml;
+> > netdev@vger.kernel.org
+> > Subject: Re: [PATCH 1/5] Add functions producing system time given a
+> > backing counter value
+> > 
+> > On Mon, Jul 27, 2015 at 5:46 PM, Christopher Hall
+> > <christopher.s.hall@intel.com> wrote:
+> > > * counter_to_rawmono64
+> > > * counter_to_mono64
+> > > * counter_to_realtime64
+> > >
+> > > Enables drivers to translate a captured system clock counter to system
+> > > time. This is useful for network and audio devices that capture
+> > timestamps
+> > > in terms of both the system clock and device clock.
+> > 
+> > Huh.  So for counter_to_realtime64 & mono64, this seems to ignore the
+> > fact that the multiplier is constantly adjusted and corrected. So that
+> > calling the function twice with the same counter value may result in
+> > different returned values.
+> > 
+> > I've not yet groked the whole patchset, but it seems like there needs
+> > to be some mechanism that ensures the counter value is captured and
+> > used in the same (or at least close) interval that the timekeeper data
+> > is valid for.
+> 
+> The ART (and derived TSC) values are always in the past.  There's no
+> chance that we could exceed the interval.  I don't think any similar
+> usage would be a problem either.
+> 
+> Are you suggesting that, for completeness, this be enforced by the
+> conversion function?
+> 
+> I do a check here to make sure that the current counter value isn't before
+> the beginning of the current interval:
+> 
+> timekeeping_get_delta()
+> ...
+>                if (cycle_now < tkr->cycle_last &&
+>                    tkr->cycle_last - cycle_now < ROLLOVER_THRESHOLD)
+>                         return -EAGAIN;
+> 
+> If tkr->cycle_last - cycle_now is large, the assumption is that
+> rollover occurred.  Otherwise, the caller should re-read the counter
+> so that it falls within the current interval.  In my "normal use"
+> testing, re-read never occurred.
 
-With earlier configured value sufficient number of CQEs are not
-being reserved for transmitted packets. Hence under heavy incoming
-traffic load, receive notifications will take away most of the CQ
-thus transmit notifications will be lost resulting in tx skbs not
-being freed.
+Sure that never happens, because your rollover value is 2 << 39 for
+whatever reasons.
 
-Finally SQ will be full and it will be stopped, watchdog timer
-will kick in. After this fix receive notifications will not take
-morethan half of CQ reserving the rest for transmit notifications.
+So on a 1GHz machine that is (2 << 39) / 1e9 ~= 1099.51 seconds.
 
-Also changed CQ & SQ sizes from 16k to 4k.
-This is also due to the receive notifications taking first half of
-CQ under heavy load and time taken by NAPI to clear transmit notifications
-will increase with higher queue sizes. Again results in SQ being stopped.
-
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
-Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index 8341bdf..f0937b7 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -62,7 +62,7 @@
- #define SND_QUEUE_CNT		8
- #define CMP_QUEUE_CNT		8 /* Max of RCV and SND qcount */
- 
--#define SND_QSIZE		SND_QUEUE_SIZE4
-+#define SND_QSIZE		SND_QUEUE_SIZE2
- #define SND_QUEUE_LEN		(1ULL << (SND_QSIZE + 10))
- #define MAX_SND_QUEUE_LEN	(1ULL << (SND_QUEUE_SIZE6 + 10))
- #define SND_QUEUE_THRESH	2ULL
-@@ -70,7 +70,10 @@
- /* Since timestamp not enabled, otherwise 2 */
- #define MAX_CQE_PER_PKT_XMIT		1
- 
--#define CMP_QSIZE		CMP_QUEUE_SIZE4
-+/* Keep CQ and SQ sizes same, if timestamping
-+ * is enabled this equation will change.
-+ */
-+#define CMP_QSIZE		CMP_QUEUE_SIZE2
- #define CMP_QUEUE_LEN		(1ULL << (CMP_QSIZE + 10))
- #define CMP_QUEUE_CQE_THRESH	0
- #define CMP_QUEUE_TIMER_THRESH	220 /* 10usec */
-@@ -87,7 +90,12 @@
- 
- #define MAX_CQES_FOR_TX		((SND_QUEUE_LEN / MIN_SQ_DESC_PER_PKT_XMIT) * \
- 				 MAX_CQE_PER_PKT_XMIT)
--#define RQ_CQ_DROP		((CMP_QUEUE_LEN - MAX_CQES_FOR_TX) / 256)
-+/* Calculate number of CQEs to reserve for all SQEs.
-+ * Its 1/256th level of CQ size.
-+ * '+ 1' to account for pipelining
-+ */
-+#define RQ_CQ_DROP		((256 / (CMP_QUEUE_LEN / \
-+				 (CMP_QUEUE_LEN - MAX_CQES_FOR_TX))) + 1)
- 
- /* Descriptor size in bytes */
- #define SND_QUEUE_DESC_SIZE	16
--- 
-2.4.6
+Oh well.
