@@ -1,57 +1,97 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: [PATCH v2 2/2] ixgbe: Teardown SR-IOV before unregister_netdev()
-Date: Wed, 29 Jul 2015 14:38:21 -0600
-Message-ID: <20150729203821.10732.51057.stgit@gimli.home>
-References: <20150729203726.10732.91020.stgit@gimli.home>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next] flow_dissector: remove __flow_hash_consistentify
+Date: Wed, 29 Jul 2015 13:49:03 -0700
+Message-ID: <1438202943-937619-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mitch.a.williams@intel.com,
-	linux-kernel@vger.kernel.org
-To: intel-wired-lan@lists.osuosl.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150729203726.10732.91020.stgit@gimli.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38967 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752424AbbG2UtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 16:49:12 -0400
+Received: from pps.filterd (m0004060 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6TKlMHE020955
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 13:49:11 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1vy5360agt-2
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 13:49:11 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.102.107.99) with ESMTP	id
+ 434154cc363311e5b6d70002c99293a0-363fd2b0 for <netdev@vger.kernel.org>;	Wed,
+ 29 Jul 2015 13:49:10 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the .remove() callback for a PF is called, SR-IOV support for the
-device is disabled, which requires unbinding and removing the VFs.
-The VFs may be in-use either by the host kernel or userspace, such as
-assigned to a VM through vfio-pci.  In this latter case, the VFs may
-be removed either by shutting down the VM or hot-unplugging the
-devices from the VM.  Unfortunately in the case of a Windows 2012 R2
-guest, hot-unplug is broken due to the ordering of the PF driver
-teardown.  Disabling SR-IOV prior to unregister_netdev() avoids this
-issue.
+The intent of this function was to produce a consistent hash for both
+directions of a flow. However, since we added more inputs to the flow
+hashing (IPv6 flow labels for instance) in a lot of cases we won't get
+the same hash computed for each direction anyway. Also, there is no
+defined correlation between the hashes computed in each direction of a
+flow.
 
-Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
-Acked-by: Mitch Williams <mitch.a.williams@intel.com>
+This patch removes the function since it is not providing significant
+value and is expensive to be called for every packet. If there are
+ever users of the flow_hash_from_keys that did require consistency
+they can swap addresses and ports as needed in the flow_keys before
+calling flow_hash_from_keys.
+
+Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/core/flow_dissector.c | 35 -----------------------------------
+ 1 file changed, 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 9aa6104..faa218c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8855,9 +8855,6 @@ static void ixgbe_remove(struct pci_dev *pdev)
- 	/* remove the added san mac */
- 	ixgbe_del_sanmac_netdev(netdev);
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 2a834c6..9c9236b 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -500,45 +500,10 @@ __be32 flow_get_u32_dst(const struct flow_keys *flow)
+ }
+ EXPORT_SYMBOL(flow_get_u32_dst);
  
--	if (netdev->reg_state == NETREG_REGISTERED)
--		unregister_netdev(netdev);
+-static inline void __flow_hash_consistentify(struct flow_keys *keys)
+-{
+-	int addr_diff, i;
 -
- #ifdef CONFIG_PCI_IOV
- 	/*
- 	 * Only disable SR-IOV on unload if the user specified the now
-@@ -8866,6 +8863,9 @@ static void ixgbe_remove(struct pci_dev *pdev)
- 	if (max_vfs)
- 		ixgbe_disable_sriov(adapter);
- #endif
-+	if (netdev->reg_state == NETREG_REGISTERED)
-+		unregister_netdev(netdev);
-+
- 	ixgbe_clear_interrupt_scheme(adapter);
+-	switch (keys->control.addr_type) {
+-	case FLOW_DISSECTOR_KEY_IPV4_ADDRS:
+-		addr_diff = (__force u32)keys->addrs.v4addrs.dst -
+-			    (__force u32)keys->addrs.v4addrs.src;
+-		if ((addr_diff < 0) ||
+-		    (addr_diff == 0 &&
+-		     ((__force u16)keys->ports.dst <
+-		      (__force u16)keys->ports.src))) {
+-			swap(keys->addrs.v4addrs.src, keys->addrs.v4addrs.dst);
+-			swap(keys->ports.src, keys->ports.dst);
+-		}
+-		break;
+-	case FLOW_DISSECTOR_KEY_IPV6_ADDRS:
+-		addr_diff = memcmp(&keys->addrs.v6addrs.dst,
+-				   &keys->addrs.v6addrs.src,
+-				   sizeof(keys->addrs.v6addrs.dst));
+-		if ((addr_diff < 0) ||
+-		    (addr_diff == 0 &&
+-		     ((__force u16)keys->ports.dst <
+-		      (__force u16)keys->ports.src))) {
+-			for (i = 0; i < 4; i++)
+-				swap(keys->addrs.v6addrs.src.s6_addr32[i],
+-				     keys->addrs.v6addrs.dst.s6_addr32[i]);
+-			swap(keys->ports.src, keys->ports.dst);
+-		}
+-		break;
+-	}
+-}
+-
+ static inline u32 __flow_hash_from_keys(struct flow_keys *keys, u32 keyval)
+ {
+ 	u32 hash;
  
- 	ixgbe_release_hw_control(adapter);
+-	__flow_hash_consistentify(keys);
+-
+ 	hash = __flow_hash_words((u32 *)flow_keys_hash_start(keys),
+ 				 flow_keys_hash_length(keys), keyval);
+ 	if (!hash)
+-- 
+1.8.1
