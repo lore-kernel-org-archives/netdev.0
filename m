@@ -1,56 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
- 10/100/1000 Ethernet device driver
-Date: Wed, 29 Jul 2015 12:14:01 -0700 (PDT)
-Message-ID: <20150729.121401.1138495718406304622.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D53361B@CHN-SV-EXMX02.mchp-main.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: switchdev: restrict vid range abstraction
+Date: Wed, 29 Jul 2015 15:14:05 -0400 (EDT)
+Message-ID: <117624450.145106.1438197245281.JavaMail.zimbra@savoirfairelinux.com>
+References: <1437954348-11859-1-git-send-email-vivien.didelot@savoirfairelinux.com> <CAE4R7bA5jh3Rgn_U1Sit3qW+i2vKNE++c9TYTJ8sp5j8h=awbw@mail.gmail.com> <20150729.112842.1871916445536378243.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33402 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752429AbbG2TOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 15:14:04 -0400
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D53361B@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfeldma@gmail.com, netdev <netdev@vger.kernel.org>,
+	jiri@resnulli.us, Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: David <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150729.112842.1871916445536378243.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <Woojung.Huh@microchip.com>
-Date: Mon, 27 Jul 2015 19:59:30 +0000
+Hi Scott, David,
 
-> +static int lan78xx_read_stats(struct lan78xx_net *dev,
-> +			      struct lan78xx_statstage *data)
-> +{
-> +	int ret = 0;
-> +	struct lan78xx_statstage *stats;
-> +
-> +	BUG_ON(!dev);
-> +	BUG_ON(!data);
-> +	BUG_ON(sizeof(struct lan78xx_statstage) != 0xBC);
-> +
-> +	stats = kmalloc(sizeof(*stats), GFP_KERNEL);
-> +	if (!stats)
-> +		return -ENOMEM;
-> +
-> +	ret = usb_control_msg(dev->udev,
-> +			      usb_rcvctrlpipe(dev->udev, 0),
-> +			      USB_VENDOR_REQUEST_GET_STATS,
-> +			      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> +			      0,
-> +			      0,
-> +			      (void *)stats,
-> +			      sizeof(*stats),
-> +			      USB_CTRL_SET_TIMEOUT);
-> +	if (likely(ret >= 0)) {
-> +		le32_to_cpus(stats);
-> +		*data = *stats;
+On Jul 29, 2015, at 2:28 PM, David davem@davemloft.net wrote:
 
-This doesn't work.
+> From: Scott Feldman <sfeldma@gmail.com>
+> Date: Wed, 29 Jul 2015 00:31:44 -0700
+> 
+>> Since the netlink request (for example vlan add) includes the range,
+>> I'm not seeing how we can response with success for the satisfied
+>> vlans in the range, and also respond with an error for the unsatisfied
+>> vlans in the range.   In other words, from the netlink msgs
+>> perspective, we need to treat a vlan range as all-or-nothing.  So in
+>> your example, if hw can't add vlan 2, we fail the entire request to
+>> add range 2-5.  This is where the prepare phase checks to make sure
+>> the entire request can be satisfied before committing to hw.
 
-le32_to_cpus() will only byte swap the first 'u32' in this statistics structure,
-not all of them.
+I made this change in order to start restricting the bridge abstraction
+to switchdev, since IMHO its info flags do not add much value to the
+switch chip drivers perspective.
 
-You have to explicitly byte swap each and every member.
+While a range might be convenient to a user, exposing it to drivers is
+likely to end up writing the same vid_begin to vid_end for loop.
+
+> This was my concern with the change as well.
+> 
+> The user asked for the range to be installed, so if any portion
+> of it cannot be done we must not make any changes to the HW
+> configuration and fail the entire request.
+
+I understand the concern with the netlink request.
+
+However, this can be confusing to someone. With the previous example:
+
+    bridge vlan add dev port0 vid 2-5 master
+
+must fail for the entire range (due to the single netlink request). But:
+
+    bridge vlan add dev port0 vid 2 master
+
+will silently fallback to software VLAN (assuming that the driver
+correctly returned -EOPNOTSUPP in the prepare phase). In other words, no
+changes has been committed to the hardware.
+
+Thanks,
+-v
