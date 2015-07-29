@@ -1,36 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: mcast: give fast leave precedence over
- multicast router and querier
-Date: Wed, 29 Jul 2015 14:57:40 -0700 (PDT)
-Message-ID: <20150729.145740.1642510215945079225.davem@davemloft.net>
-References: <1438079308-25040-1-git-send-email-nikolay@cumulusnetworks.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
+ 10/100/1000 Ethernet device driver
+Date: Wed, 29 Jul 2015 21:57:52 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D537333@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D53361B@CHN-SV-EXMX02.mchp-main.com>
+ <20150729.121401.1138495718406304622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	herbert@gondor.apana.org.au, stephen@networkplumber.org,
-	sashok@cumulusnetworks.com
-To: nikolay@cumulusnetworks.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34405 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341AbbG2V5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:57:41 -0400
-In-Reply-To: <1438079308-25040-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from exsmtp02.microchip.com ([198.175.253.38]:54456 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753341AbbG2V5x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:57:53 -0400
+In-Reply-To: <20150729.121401.1138495718406304622.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Tue, 28 Jul 2015 03:28:27 -0700
+Thanks for review and comment.
+Will repost  after update.
 
-> From: Satish Ashok <sashok@cumulusnetworks.com>
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, July 29, 2015 3:14 PM
+> To: Woojung Huh - C21699
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
+> 10/100/1000 Ethernet device driver
 > 
-> When fast leave is configured on a bridge port and an IGMP leave is
-> received for a group, the group is not deleted immediately if there is
-> a router detected or if multicast querier is configured.
-> Ideally the group should be deleted immediately when fast leave is
-> configured.
+> From: <Woojung.Huh@microchip.com>
+> Date: Mon, 27 Jul 2015 19:59:30 +0000
 > 
-> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
-
-Applied, thanks.
+> > +static int lan78xx_read_stats(struct lan78xx_net *dev,
+> > +			      struct lan78xx_statstage *data)
+> > +{
+> > +	int ret = 0;
+> > +	struct lan78xx_statstage *stats;
+> > +
+> > +	BUG_ON(!dev);
+> > +	BUG_ON(!data);
+> > +	BUG_ON(sizeof(struct lan78xx_statstage) != 0xBC);
+> > +
+> > +	stats = kmalloc(sizeof(*stats), GFP_KERNEL);
+> > +	if (!stats)
+> > +		return -ENOMEM;
+> > +
+> > +	ret = usb_control_msg(dev->udev,
+> > +			      usb_rcvctrlpipe(dev->udev, 0),
+> > +			      USB_VENDOR_REQUEST_GET_STATS,
+> > +			      USB_DIR_IN | USB_TYPE_VENDOR |
+> USB_RECIP_DEVICE,
+> > +			      0,
+> > +			      0,
+> > +			      (void *)stats,
+> > +			      sizeof(*stats),
+> > +			      USB_CTRL_SET_TIMEOUT);
+> > +	if (likely(ret >= 0)) {
+> > +		le32_to_cpus(stats);
+> > +		*data = *stats;
+> 
+> This doesn't work.
+> 
+> le32_to_cpus() will only byte swap the first 'u32' in this statistics structure,
+> not all of them.
+> 
+> You have to explicitly byte swap each and every member.
