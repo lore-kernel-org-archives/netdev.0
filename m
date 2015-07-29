@@ -1,7 +1,7 @@
 From: Alex Williamson <alex.williamson@redhat.com>
-Subject: [PATCH v2 1/2] igb: Teardown SR-IOV before unregister_netdev()
-Date: Wed, 29 Jul 2015 14:38:15 -0600
-Message-ID: <20150729203814.10732.38094.stgit@gimli.home>
+Subject: [PATCH v2 2/2] ixgbe: Teardown SR-IOV before unregister_netdev()
+Date: Wed, 29 Jul 2015 14:38:21 -0600
+Message-ID: <20150729203821.10732.51057.stgit@gimli.home>
 References: <20150729203726.10732.91020.stgit@gimli.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -28,29 +28,30 @@ issue.
 Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
 Acked-by: Mitch Williams <mitch.a.williams@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 2f70a9b..417cc9c 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2805,14 +2805,14 @@ static void igb_remove(struct pci_dev *pdev)
- 	 */
- 	igb_release_hw_control(adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 9aa6104..faa218c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8855,9 +8855,6 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 	/* remove the added san mac */
+ 	ixgbe_del_sanmac_netdev(netdev);
  
--	unregister_netdev(netdev);
--
--	igb_clear_interrupt_scheme(adapter);
+-	if (netdev->reg_state == NETREG_REGISTERED)
+-		unregister_netdev(netdev);
 -
  #ifdef CONFIG_PCI_IOV
- 	igb_disable_sriov(pdev);
+ 	/*
+ 	 * Only disable SR-IOV on unload if the user specified the now
+@@ -8866,6 +8863,9 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 	if (max_vfs)
+ 		ixgbe_disable_sriov(adapter);
  #endif
++	if (netdev->reg_state == NETREG_REGISTERED)
++		unregister_netdev(netdev);
++
+ 	ixgbe_clear_interrupt_scheme(adapter);
  
-+	unregister_netdev(netdev);
-+
-+	igb_clear_interrupt_scheme(adapter);
-+
- 	pci_iounmap(pdev, hw->hw_addr);
- 	if (hw->flash_address)
- 		iounmap(hw->flash_address);
+ 	ixgbe_release_hw_control(adapter);
