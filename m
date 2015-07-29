@@ -1,70 +1,34 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
- 10/100/1000 Ethernet device driver
-Date: Wed, 29 Jul 2015 21:57:52 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D537333@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D53361B@CHN-SV-EXMX02.mchp-main.com>
- <20150729.121401.1138495718406304622.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/5] s390/bpf: recache skb->data/hlen for
+ skb_vlan_push/pop
+Date: Wed, 29 Jul 2015 15:00:14 -0700 (PDT)
+Message-ID: <20150729.150014.82183966921783124.davem@davemloft.net>
+References: <1438197318-16903-1-git-send-email-holzheu@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, schwidefsky@de.ibm.com, daniel@iogearbox.net,
+	joe@perches.com, netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: holzheu@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp02.microchip.com ([198.175.253.38]:54456 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753341AbbG2V5x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:57:53 -0400
-In-Reply-To: <20150729.121401.1138495718406304622.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:34417 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753341AbbG2WAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 18:00:15 -0400
+In-Reply-To: <1438197318-16903-1-git-send-email-holzheu@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for review and comment.
-Will repost  after update.
+From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Date: Wed, 29 Jul 2015 21:15:13 +0200
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, July 29, 2015 3:14 PM
-> To: Woojung Huh - C21699
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
-> 10/100/1000 Ethernet device driver
+> Here the s390 backend for Alexei's patch 4e10df9a60d9 ("bpf: introduce
+> bpf_skb_vlan_push/pop() helpers") plus two bugfixes and two minor
+> improvements.
 > 
-> From: <Woojung.Huh@microchip.com>
-> Date: Mon, 27 Jul 2015 19:59:30 +0000
+> The first patch "s390/bpf: clear correct BPF accumulator register" will
+> also go upstream via Martin's "fixes" branch.
 > 
-> > +static int lan78xx_read_stats(struct lan78xx_net *dev,
-> > +			      struct lan78xx_statstage *data)
-> > +{
-> > +	int ret = 0;
-> > +	struct lan78xx_statstage *stats;
-> > +
-> > +	BUG_ON(!dev);
-> > +	BUG_ON(!data);
-> > +	BUG_ON(sizeof(struct lan78xx_statstage) != 0xBC);
-> > +
-> > +	stats = kmalloc(sizeof(*stats), GFP_KERNEL);
-> > +	if (!stats)
-> > +		return -ENOMEM;
-> > +
-> > +	ret = usb_control_msg(dev->udev,
-> > +			      usb_rcvctrlpipe(dev->udev, 0),
-> > +			      USB_VENDOR_REQUEST_GET_STATS,
-> > +			      USB_DIR_IN | USB_TYPE_VENDOR |
-> USB_RECIP_DEVICE,
-> > +			      0,
-> > +			      0,
-> > +			      (void *)stats,
-> > +			      sizeof(*stats),
-> > +			      USB_CTRL_SET_TIMEOUT);
-> > +	if (likely(ret >= 0)) {
-> > +		le32_to_cpus(stats);
-> > +		*data = *stats;
-> 
-> This doesn't work.
-> 
-> le32_to_cpus() will only byte swap the first 'u32' in this statistics structure,
-> not all of them.
-> 
-> You have to explicitly byte swap each and every member.
+> * v2: Integrated suggestions from Joe Perches
+
+Series applied, thanks.
