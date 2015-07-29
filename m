@@ -1,46 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_sched: restore "mpu xxx" handling
-Date: Wed, 29 Jul 2015 15:04:28 +0200
-Message-ID: <1438175068.20182.90.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <55B8B807.4030102@odin.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net-next v2] gianfar: Fix warnings when built on 64-bit
+Date: Wed, 29 Jul 2015 16:13:06 +0300
+Message-ID: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>, tkhai@ya.ru
-To: Kirill Tkhai <ktkhai@odin.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>, <arnd@arndb.de>,
+	Scott Wood <scottwood@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:33318 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbbG2NEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 09:04:32 -0400
-Received: by wicmv11 with SMTP id mv11so218285828wic.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 06:04:31 -0700 (PDT)
-In-Reply-To: <55B8B807.4030102@odin.com>
+Received: from mail-bn1bon0133.outbound.protection.outlook.com ([157.56.111.133]:56423
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750819AbbG2NNy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jul 2015 09:13:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-07-29 at 14:24 +0300, Kirill Tkhai wrote:
-> commit 56b765b79 ("htb: improved accuracy at high rates")
-> broke the "mpu xxx" handling.
-> 
-> This patch restores the "mpu xxx" handling for htb:
-> 
-> # tc class add dev eth0 classid 1:2 parent 1: htb rate 1mbit mpu 0
-> # ping -f -c 1000 10.30.22.52
-> rtt min/avg/max/mdev = 0.156/1.881/2.454/0.175 ms, ipg/ewma 1.908/1.925 ms
-> 
-> # tc class change dev eth0 classid 1:2 parent 1: htb rate 1mbit mpu 1000
-> # ping -f -c 1000 10.30.22.52
-> rtt min/avg/max/mdev = 15.352/22.229/38.646/2.212 ms, pipe 3, ipg/ewma 15.999/22.609 ms
+From: Scott Wood <scottwood@freescale.com>
 
-Note this mpu option was completely broken a long time ago with GSO /
-TSO anyway.
+As part of defconfig consolidation using fragments, we'd like to be
+able to have the same drivers enabled on 32-bit and 64-bit.  Gianfar
+happens to only exist on 32-bit systems, and when building the
+resulting 64-bit kernel warnings were produced.
 
-Note sure we really want it in this state ?
+A couple of the warnings are trivial, but the rfbptr code has deeper
+issues.  It uses the virtual address as the DMA address, which again,
+happens to work in the environments where this driver is currently
+used, but is not the right thing to do.
 
-What is your use case ?
+Fixes: 45b679c9a3cc ("gianfar: Implement PAUSE frame generation
+support")
+Signed-off-by: Scott Wood <scottwood@freescale.com>
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-In any case, correct fix would be in psched_l2t_ns(), otherwise you fix
-htb but not the other qdisc (tbf for that matter)
+---
+v2 - rebased/reworked on top of net-next (instead of net);
+   - removed CONFIG_PM unrelated change;
+
+ drivers/net/ethernet/freescale/gianfar.c | 15 +++++++++------
+ drivers/net/ethernet/freescale/gianfar.h |  9 +++++++--
+ 2 files changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 648ca85..afa3ea7 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2611,7 +2611,8 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 
+ 		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)) {
+ 			struct skb_shared_hwtstamps shhwtstamps;
+-			u64 *ns = (u64*) (((u32)skb->data + 0x10) & ~0x7);
++			u64 *ns = (u64 *)(((uintptr_t)skb->data + 0x10) &
++					  ~0x7UL);
+ 
+ 			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
+ 			shhwtstamps.hwtstamp = ns_to_ktime(*ns);
+@@ -3043,8 +3044,9 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 
+ 	/* Update Last Free RxBD pointer for LFC */
+ 	if (unlikely(priv->tx_actual_en)) {
+-		bdp = gfar_rxbd_lastfree(rx_queue);
+-		gfar_write(rx_queue->rfbptr, (u32)bdp);
++		u32 bdp_dma = gfar_rxbd_dma_lastfree(rx_queue);
++
++		gfar_write(rx_queue->rfbptr, bdp_dma);
+ 	}
+ 
+ 	return howmany;
+@@ -3563,7 +3565,6 @@ static noinline void gfar_update_link_state(struct gfar_private *priv)
+ 	struct phy_device *phydev = priv->phydev;
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	int i;
+-	struct rxbd8 *bdp;
+ 
+ 	if (unlikely(test_bit(GFAR_RESETTING, &priv->state)))
+ 		return;
+@@ -3620,9 +3621,11 @@ static noinline void gfar_update_link_state(struct gfar_private *priv)
+ 		/* Turn last free buffer recording on */
+ 		if ((tempval1 & MACCFG1_TX_FLOW) && !tx_flow_oldval) {
+ 			for (i = 0; i < priv->num_rx_queues; i++) {
++				u32 bdp_dma;
++
+ 				rx_queue = priv->rx_queue[i];
+-				bdp = gfar_rxbd_lastfree(rx_queue);
+-				gfar_write(rx_queue->rfbptr, (u32)bdp);
++				bdp_dma = gfar_rxbd_dma_lastfree(rx_queue);
++				gfar_write(rx_queue->rfbptr, bdp_dma);
+ 			}
+ 
+ 			priv->tx_actual_en = 1;
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 4402124..8a5f4de9 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -1310,13 +1310,18 @@ static inline int gfar_rxbd_unused(struct gfar_priv_rx_q *rxq)
+ 	return rxq->rx_ring_size + rxq->next_to_clean - rxq->next_to_use - 1;
+ }
+ 
+-static inline struct rxbd8 *gfar_rxbd_lastfree(struct gfar_priv_rx_q *rxq)
++static inline u32 gfar_rxbd_dma_lastfree(struct gfar_priv_rx_q *rxq)
+ {
++	struct rxbd8 *bdp;
++	u32 bdp_dma;
+ 	int i;
+ 
+ 	i = rxq->next_to_use ? rxq->next_to_use - 1 : rxq->rx_ring_size - 1;
++	bdp = &rxq->rx_bd_base[i];
++	bdp_dma = lower_32_bits(rxq->rx_bd_dma_base);
++	bdp_dma += (uintptr_t)bdp - (uintptr_t)rxq->rx_bd_base;
+ 
+-	return &rxq->rx_bd_base[i];
++	return bdp_dma;
+ }
+ 
+ irqreturn_t gfar_receive(int irq, void *dev_id);
+-- 
+1.7.11.7
