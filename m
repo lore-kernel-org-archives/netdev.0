@@ -1,75 +1,48 @@
-From: Manoil Claudiu <claudiu.manoil@freescale.com>
-Subject: RE: [PATCH] gianfar: Fix warnings when built on 64-bit
-Date: Wed, 29 Jul 2015 11:03:29 +0000
-Message-ID: <CY1PR0301MB0732B8101733EF131F29D3F89C8C0@CY1PR0301MB0732.namprd03.prod.outlook.com>
-References: <1438147477-393-1-git-send-email-scottwood@freescale.com>
- <4498062.4y369pLSmO@wuerfel>
+From: Julien Grall <julien.grall@citrix.com>
+Subject: Re: [PATCH 0/8] Use correctly the Xen memory terminologies in Linux
+Date: Wed, 29 Jul 2015 12:02:50 +0100
+Message-ID: <55B8B2DA.8090900@citrix.com>
+References: <1438095769-2560-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Arnd Bergmann <arnd@arndb.de>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Scott Wood <scottwood@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0119.outbound.protection.outlook.com ([157.56.110.119]:31232
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750898AbbG2LDb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 07:03:31 -0400
-In-Reply-To: <4498062.4y369pLSmO@wuerfel>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
+	<linux-kernel@vger.kernel.org>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Jiri Slaby <jslaby@suse.com>, Juergen Gross <jgross@suse.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	<linux-api@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-fbdev@vger.kernel.org>, <linux-input@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>, <linux-scsi@vger.kernel.org>,
+	<netdev@vger.kernel.org>,
+	=?UTF-8?B?Um9nZXIgUGF1IE1vbm7DqQ==?= <roger.pau@citrix.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	"T
+To: <xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438095769-2560-1-git-send-email-julien.grall@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Arnd Bergmann [mailto:arnd@arndb.de]
-> Sent: Wednesday, July 29, 2015 11:02 AM
-> To: linuxppc-dev@lists.ozlabs.org; netdev@vger.kernel.org; Manoil Claudiu-
-> B08782; Wood Scott-B07421
-> Subject: Re: [PATCH] gianfar: Fix warnings when built on 64-bit
+On 28/07/15 16:02, Julien Grall wrote:
+> Hi all,
 > 
-> On Wednesday 29 July 2015 00:24:37 Scott Wood wrote:
-> 
-> > Alternatively, if there's a desire to not mess with this code (I don't
-> > know how to trigger this code path to test it), this driver should be
-> > given dependencies that ensure that it only builds on 32-bit.
-> 
-[...]
+> This patch series aims to use the memory terminologies described in
+> include/linux/mm.h [1] for Linux xen code.
 
-> > @@ -2964,8 +2967,13 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q
-> *rx_queue, int rx_work_limit)
-> >  		gfar_init_rxbdp(rx_queue, bdp, bufaddr);
-> >
-> >  		/* Update Last Free RxBD pointer for LFC */
-> > -		if (unlikely(rx_queue->rfbptr && priv->tx_actual_en))
-> > -			gfar_write(rx_queue->rfbptr, (u32)bdp);
-> > +		if (unlikely(rx_queue->rfbptr && priv->tx_actual_en)) {
-> > +			u32 bdp_dma;
-> > +
-> > +			bdp_dma = lower_32_bits(rx_queue-
-> >rx_bd_dma_base);
-> > +			bdp_dma += (uintptr_t)bdp - (uintptr_t)base;
-> > +			gfar_write(rx_queue->rfbptr, bdp_dma);
-> > +		}
-> >
-> >  		/* Update to the next pointer */
-> >  		bdp = next_bd(bdp, base, rx_queue->rx_ring_size);
-> 
-> You are fixing two problems here: the warning about a size cast, and
-> the fact that the driver is using the wrong pointer. I'd suggest
-> explaining it in the changelog.
-> 
+I mistakenly wrote the wrong include here. It should be include/xen/mm.h
+from the Xen tree:
 
-What would be the wrong pointer here? "base"?
-"base" is " rx_queue->rx_bd_base".
+http://xenbits.xen.org/gitweb/?p=xen.git;a=commitdiff;h=e758ed14f390342513405dd766e874934573e6cb
 
-> Note that we normally rely on void pointer arithmetic in the kernel, so
-> I'd write it without the uintptr_t casts as
-> 
-> 	bdp_dma = lower_32_bits(rx_queue->rx_bd_dma_base + (base -
-> bdp));
+Regards,
 
-I think you mean: (bdp-base)
-
-Claudiu
+-- 
+Julien Grall
