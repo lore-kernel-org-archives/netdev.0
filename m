@@ -1,8 +1,8 @@
 From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
-Subject: [PATCH net 06/11] net: thunderx: Suppress alloc_pages() failure
- warnings
-Date: Wed, 29 Jul 2015 16:49:41 +0300
-Message-ID: <1438177787-20940-7-git-send-email-aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH net 09/11] net: thunderx: Fix crash when changing rss with
+ mutliple traffic flows
+Date: Wed, 29 Jul 2015 16:49:44 +0300
+Message-ID: <1438177787-20940-10-git-send-email-aleksey.makarov@caviumnetworks.com>
 References: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,34 +29,65 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Suppressing standard alloc_pages() warnings. Some kernel configs limit
-alloc size and the network driver may fail. Do not drop a kernel
-warning in this case, instead just drop a oneliner that the network
-driver could not be loaded since the buffer could not be allocated.
+This fixes a crash when changing rss with multiple traffic flows.
+
+While interface teardown, disable tx queues after all NAPI threads
+are done. If done otherwise tx queues might be woken up inside NAPI
+if any CQE_TX are processed.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 500fdbe..ca4240a 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -103,9 +103,11 @@ static inline int nicvf_alloc_rcv_buffer(struct nicvf *nic, gfp_t gfp,
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index abee2d7..c7a29a3 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -234,7 +234,7 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 				    nic->duplex == DUPLEX_FULL ?
+ 				"Full duplex" : "Half duplex");
+ 			netif_carrier_on(nic->netdev);
+-			netif_tx_wake_all_queues(nic->netdev);
++			netif_tx_start_all_queues(nic->netdev);
+ 		} else {
+ 			netdev_info(nic->netdev, "%s: Link is Down\n",
+ 				    nic->netdev->name);
+@@ -551,7 +551,7 @@ done:
+ 	if (tx_done) {
+ 		txq = netdev_get_tx_queue(netdev, cq_idx);
+ 		if (netif_tx_queue_stopped(txq)) {
+-			netif_tx_wake_queue(txq);
++			netif_tx_start_queue(txq);
+ 			nic->drv_stats.txq_wake++;
+ 			if (netif_msg_tx_err(nic))
+ 				netdev_warn(netdev,
+@@ -845,7 +845,7 @@ static netdev_tx_t nicvf_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_OK;
+ 	}
  
- 	/* Allocate a new page */
- 	if (!nic->rb_page) {
--		nic->rb_page = alloc_pages(gfp | __GFP_COMP, order);
-+		nic->rb_page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
-+					   order);
- 		if (!nic->rb_page) {
--			netdev_err(nic->netdev, "Failed to allocate new rcv buffer\n");
-+			netdev_err(nic->netdev,
-+				   "Failed to allocate new rcv buffer\n");
- 			return -ENOMEM;
- 		}
- 		nic->rb_page_offset = 0;
+-	if (!nicvf_sq_append_skb(nic, skb) && !netif_tx_queue_stopped(txq)) {
++	if (!netif_tx_queue_stopped(txq) && !nicvf_sq_append_skb(nic, skb)) {
+ 		netif_tx_stop_queue(txq);
+ 		nic->drv_stats.txq_stop++;
+ 		if (netif_msg_tx_err(nic))
+@@ -871,7 +871,6 @@ int nicvf_stop(struct net_device *netdev)
+ 	nicvf_send_msg_to_pf(nic, &mbx);
+ 
+ 	netif_carrier_off(netdev);
+-	netif_tx_disable(netdev);
+ 
+ 	/* Disable RBDR & QS error interrupts */
+ 	for (qidx = 0; qidx < qs->rbdr_cnt; qidx++) {
+@@ -906,6 +905,8 @@ int nicvf_stop(struct net_device *netdev)
+ 		kfree(cq_poll);
+ 	}
+ 
++	netif_tx_disable(netdev);
++
+ 	/* Free resources */
+ 	nicvf_config_data_transfer(nic, false);
+ 
 -- 
 2.4.6
