@@ -1,61 +1,43 @@
-From: "Hall, Christopher S" <christopher.s.hall@intel.com>
-Subject: RE: [PATCH 3/5] Add calls to translate Always Running Timer (ART)
- to system time
-Date: Wed, 29 Jul 2015 02:05:12 +0000
-Message-ID: <B79D786B7111A34A8CF09F833429C493A909CF29@ORSMSX109.amr.corp.intel.com>
-References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com>
-	<1438044416-15588-4-git-send-email-christopher.s.hall@intel.com>
- <CALAqxLXPbVZr0aXceM6bFHd3xu=4W-DinQL8yMMsVYEecPSeHw@mail.gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net v2 2/2] r8152: reset device when tx timeout
+Date: Wed, 29 Jul 2015 02:06:40 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2F3C673@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-159-Taiwan-albertk@realtek.com>
+	 <1394712342-15778-161-Taiwan-albertk@realtek.com>
+	 <1438085645.1787.4.camel@suse.com>
+	 <0835B3720019904CB8F7AA43166CEEB2F3C538@RTITMBSV03.realtek.com.tw>
+ <1438088317.1787.5.camel@suse.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'John Stultz' <john.stultz@linaro.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALAqxLXPbVZr0aXceM6bFHd3xu=4W-DinQL8yMMsVYEecPSeHw@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <1438088317.1787.5.camel@suse.com>
+Content-Language: zh-TW
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9obiBTdHVsdHogW21h
-aWx0bzpqb2huLnN0dWx0ekBsaW5hcm8ub3JnXQ0KPiBTZW50OiBNb25kYXksIEp1bHkgMjcsIDIw
-MTUgOToxMSBQTQ0KPiBUbzogSGFsbCwgQ2hyaXN0b3BoZXIgUw0KPiBDYzogVGhvbWFzIEdsZWl4
-bmVyOyBSaWNoYXJkIENvY2hyYW47IEluZ28gTW9sbmFyOyBLaXJzaGVyLCBKZWZmcmV5IFQ7DQo+
-IFJvbmNpYWssIEpvaG47IEguIFBldGVyIEFudmluOyB4ODZAa2VybmVsLm9yZzsgbGttbDsNCj4g
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDMvNV0gQWRkIGNh
-bGxzIHRvIHRyYW5zbGF0ZSBBbHdheXMgUnVubmluZyBUaW1lcg0KPiAoQVJUKSB0byBzeXN0ZW0g
-dGltZQ0KPiANCj4gT24gTW9uLCBKdWwgMjcsIDIwMTUgYXQgNTo0NiBQTSwgQ2hyaXN0b3BoZXIg
-SGFsbA0KPiA8Y2hyaXN0b3BoZXIucy5oYWxsQGludGVsLmNvbT4gd3JvdGU6DQo+ID4gK3N0YXRp
-YyBib29sIGNoZWNrZWRfYXJ0X3RvX3RzYyhjeWNsZV90ICp0c2MpDQo+ID4gK3sNCj4gPiArICAg
-ICAgIGlmICghaGFzX2FydCgpKQ0KPiA+ICsgICAgICAgICAgICAgICByZXR1cm4gZmFsc2U7DQo+
-ID4gKyAgICAgICAqdHNjID0gYXJ0X3RvX3RzYygqdHNjKTsNCj4gPiArICAgICAgIHJldHVybiB0
-cnVlOw0KPiA+ICt9DQo+ID4gKw0KPiA+ICtzdGF0aWMgaW50IGFydF90b19yYXdtb25vNjQoc3Ry
-dWN0IHRpbWVzcGVjNjQgKnJhd21vbm8sIGN5Y2xlX3QgYXJ0KQ0KPiA+ICt7DQo+ID4gKyAgICAg
-ICBpZiAoIWNoZWNrZWRfYXJ0X3RvX3RzYygmYXJ0KSkNCj4gPiArICAgICAgICAgICAgICAgcmV0
-dXJuIC1FTlhJTzsNCj4gPiArICAgICAgIHJldHVybiB0c2NfdG9fcmF3bW9ubzY0KHJhd21vbm8s
-IGFydCk7DQo+ID4gK30NCj4gPiArRVhQT1JUX1NZTUJPTChhcnRfdG9fcmF3bW9ubzY0KTsNCj4g
-DQo+IFRoaXMgYWxsIHNlZW1zIHRvIGFzc3VtZSB0aGUgVFNDIGlzIHRoZSBjdXJyZW50IGNsb2Nr
-c291cmNlLCB3aGljaCBpdA0KPiBtYXkgbm90IGJlIGlmIHRoZSB1c2VyIGhhcyBvdmVycmlkZGVu
-IGl0Lg0KDQpJIGRvbid0IG1ha2UgdGhhdCBhc3N1bXB0aW9uLiAgVGhlIGNvdW50ZXJfdG9fKiBm
-dW5jdGlvbnMgdGFrZSBhDQpwb2ludGVyIHRvIGEgY2xvY2tzb3VyY2Ugc3RydWN0LiAgVGhleSBy
-ZXR1cm4gLUVOWElPIGlmIHRoYXQgY2xvY2tzb3VyY2UNCmRvZXNu4oCZdCBtYXRjaCB0aGUgY3Vy
-cmVudCBjbG9ja3NvdXJjZS4NCg0KVGhlIHRzY190b18qIGZ1bmN0aW9ucyBwYXNzIHRoZSB0c2Mg
-Y2xvY2tzb3VyY2UgcG9pbnRlciB0byB0aGUgY291bnRlcl90b18qDQpmdW5jdGlvbnMuICBUaGVz
-ZSB0c2MgY29udmVyc2lvbiBmdW5jdGlvbnMgYXJlIGNhbGxlZCBieSB0aGUgYXJ0X3RvXyoNCmZ1
-bmN0aW9ucy4NCg0KPiANCj4gSWYgaW5zdGVhZCB0aGVyZSB3ZXJlIGEgY291bnRlcl90b19yYXdt
-b25vNjQoKSB3aGljaCB0b29rIHRoZSBjb3VudGVyDQo+IHZhbHVlIGFuZCBtYXliZSB0aGUgbmFt
-ZSBvZiB0aGUgY2xvY2tzb3VyY2UgKGlmIHRoZSBzdHJuY21wIGlzDQo+IGFmZm9yZGFibGUgZm9y
-IHlvdXIgdXNlKSwgaXQgbWlnaHQgYmUgZWFzaWVyIGZvciB0aGUgY29yZSB0byBwcm92aWRlDQo+
-IGFuIGVycm9yIGlmIHRoZSBjdXJyZW50IHRpbWVrZWVwaW5nIGNsb2Nrc291cmNlIGlzbid0IHRo
-ZSBvbmUgdGhlDQo+IGNvdW50ZXIgdmFsdWUgaXMgYmFzZWQgb24uIFRoaXMgd291bGQgYWxzbyBh
-bGxvdyB0aGUgdHNjX3RvXyooKQ0KPiBtaWRsYXllcnMgdG8gYmUgZHJvcHBlZCAoc2luY2UgdGhl
-eSBkb24ndCBzZWVtIHRvIGRvIG11Y2gpLg0KPiANCj4gdGhhbmtzDQo+IC1qb2huDQoNCkFnYWlu
-LCB0aGFua3MgZm9yIHlvdXIgaW5wdXQuDQoNCkNocmlzDQo=
+IE9saXZlciBOZXVrdW0gW21haWx0bzpvbmV1a3VtQHN1c2UuY29tXQ0KPiBTZW50OiBUdWVzZGF5
+LCBKdWx5IDI4LCAyMDE1IDg6NTkgUE0NClsuLi5dDQo+ID4gPiA+ICBzdGF0aWMgdm9pZCBydGw4
+MTUyX3R4X3RpbWVvdXQoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldikgIHsNCj4gPiA+ID4gICAg
+ICAgICBzdHJ1Y3QgcjgxNTIgKnRwID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiA+ID4gLSAg
+ICAgICBpbnQgaTsNCj4gPiA+ID4NCj4gPiA+ID4gICAgICAgICBuZXRpZl93YXJuKHRwLCB0eF9l
+cnIsIG5ldGRldiwgIlR4IHRpbWVvdXRcbiIpOw0KPiA+ID4gPiAtICAgICAgIGZvciAoaSA9IDA7
+IGkgPCBSVEw4MTUyX01BWF9UWDsgaSsrKQ0KPiA+ID4gPiAtICAgICAgICAgICAgICAgdXNiX3Vu
+bGlua191cmIodHAtPnR4X2luZm9baV0udXJiKTsNCj4gPiA+ID4gKw0KPiA+ID4gPiArICAgICAg
+IHVzYl9xdWV1ZV9yZXNldF9kZXZpY2UodHAtPmludGYpOw0KPiA+ID4gPiArICAgICAgIGNhbmNl
+bF9kZWxheWVkX3dvcmsoJnRwLT5zY2hlZHVsZSk7DQo+ID4gPg0KPiA+ID4gU29ycnkgdG8gYm90
+aGVyIHlvdSBhZ2FpbiwgYnV0IHRoaXMgbG9va3Mgd3JvbmcuDQo+ID4gPiBZb3Ugd2FudCB0byBj
+YW5jZWwgZmlyc3QuIFRoZXJlIGlzIG5vIHBvaW50IGluIHJ1bm5pbmcgYW55IHdvcmsNCj4gPiA+
+IGJlZm9yZSB0aGUgcmVzZXQgaXMgZG9uZS4gSXQgd2lsbCB1bmRvIGFueSBwcm9ncmVzcyBhbnl3
+YXkuDQo+ID4NCj4gPiBFeGN1c2UgbWUuIERvIHlvdSBtZWFuIEkgZG9uJ3QgbmVlZCBjYW5jZWwg
+dGhlIG90aGVyIHdvcmsgYmVjYXVzZSBpdA0KPiA+IHdvdWxkbid0IGJlIHJ1biBiZWZvcmUgdGhl
+IHJlc2V0IGlzIGZpbmlzaGVkPw0KPiANCj4gTm8sIHdoYXRldmVyIHRoZSBvdGhlciB3b3JrIHdp
+bGwgZG8sIHRoZSByZXNldCB3aWxsIHVuZG8uDQoNCkV4Y3VzZSBtZS4gSSBkb24ndCB1bmRlcnN0
+YW5kIHdoeSBJIGNvdWxkbid0IHVzZSB1c2JfcXVldWVfcmVzZXRfZGV2aWNlKCkgZGlyZWN0bHku
+DQpXaHkgdGhlIHJlc2V0IHdpbGwgdW5kbz8gDQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoNCg==
