@@ -1,190 +1,99 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] act_bpf: fix memory leaks when replacing bpf programs
-Date: Wed, 29 Jul 2015 18:40:56 +0200
-Message-ID: <414a0b7318a7d8a33f1a1d5ec051f47a17c41c11.1438187493.git.daniel@iogearbox.net>
-Cc: jiri@resnulli.us, ast@plumgrid.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36658 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbbG2QlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 12:41:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexandre DERUMIER <aderumier-U/x3PoR4x10AvxtiuMwx3w@public.gmane.org>
+Subject: bridge vlan range,
+ kernel 4.1 : "message truncated" warning when too much vlans defined
+Date: Wed, 29 Jul 2015 20:24:49 +0200 (CEST)
+Message-ID: <1522237479.23555412.1438194289391.JavaMail.zimbra@oxygem.tv>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pve-devel <pve-devel-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <pve-devel-bounces-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org>
+List-Unsubscribe: <http://pve.proxmox.com/cgi-bin/mailman/options/pve-devel>,
+ <mailto:pve-devel-request-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://pve.proxmox.com/pipermail/pve-devel/>
+List-Post: <mailto:pve-devel-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org>
+List-Help: <mailto:pve-devel-request-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org?subject=help>
+List-Subscribe: <http://pve.proxmox.com/cgi-bin/mailman/listinfo/pve-devel>,
+ <mailto:pve-devel-request-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org?subject=subscribe>
+Errors-To: pve-devel-bounces-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org
+Sender: "pve-devel" <pve-devel-bounces-KmHT29P9Uc/4CZzEM2C48g@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-We currently trigger multiple memory leaks when replacing bpf
-actions, besides others:
+Hi, 
 
-  comm "tc", pid 1909, jiffies 4294851310 (age 1602.796s)
-  hex dump (first 32 bytes):
-    01 00 00 00 03 00 00 00 00 00 00 00 00 00 00 00  ................
-    18 b0 98 6d 00 88 ff ff 00 00 00 00 00 00 00 00  ...m............
-  backtrace:
-    [<ffffffff817e623e>] kmemleak_alloc+0x4e/0xb0
-    [<ffffffff8120a22d>] __vmalloc_node_range+0x1bd/0x2c0
-    [<ffffffff8120a37a>] __vmalloc+0x4a/0x50
-    [<ffffffff811a8d0a>] bpf_prog_alloc+0x3a/0xa0
-    [<ffffffff816c0684>] bpf_prog_create+0x44/0xa0
-    [<ffffffffa09ba4eb>] tcf_bpf_init+0x28b/0x3c0 [act_bpf]
-    [<ffffffff816d7001>] tcf_action_init_1+0x191/0x1b0
-    [<ffffffff816d70a2>] tcf_action_init+0x82/0xf0
-    [<ffffffff816d4d12>] tcf_exts_validate+0xb2/0xc0
-    [<ffffffffa09b5838>] cls_bpf_modify_existing+0x98/0x340 [cls_bpf]
-    [<ffffffffa09b5cd6>] cls_bpf_change+0x1a6/0x274 [cls_bpf]
-    [<ffffffff816d56e5>] tc_ctl_tfilter+0x335/0x910
-    [<ffffffff816b9145>] rtnetlink_rcv_msg+0x95/0x240
-    [<ffffffff816df34f>] netlink_rcv_skb+0xaf/0xc0
-    [<ffffffff816b909e>] rtnetlink_rcv+0x2e/0x40
-    [<ffffffff816deaaf>] netlink_unicast+0xef/0x1b0
+I'm currently testing vlan range on bridge filtering with kernel 4.1. 
 
-Issue is that the old content from tcf_bpf is allocated and needs
-to be released when we replace it. We seem to do that since the
-beginning of act_bpf on the filter and insns, later on the name as
-well.
 
-Example test case, after patch:
+If I defined too much vlans, or too big vlan range, 
+I have a warning "message truncated", even if I'm using "-c" 
 
-  # FOO="1,6 0 0 4294967295,"
-  # BAR="1,6 0 0 4294967294,"
-  # tc actions add action bpf bytecode "$FOO" index 2
-  # tc actions show action bpf
-   action order 0: bpf bytecode '1,6 0 0 4294967295' default-action pipe
-   index 2 ref 1 bind 0
-  # tc actions replace action bpf bytecode "$BAR" index 2
-  # tc actions show action bpf
-   action order 0: bpf bytecode '1,6 0 0 4294967294' default-action pipe
-   index 2 ref 1 bind 0
-  # tc actions replace action bpf bytecode "$FOO" index 2
-  # tc actions show action bpf
-   action order 0: bpf bytecode '1,6 0 0 4294967295' default-action pipe
-   index 2 ref 1 bind 0
-  # tc actions del action bpf index 2
-  [...]
-  # echo "scan" > /sys/kernel/debug/kmemleak
-  # cat /sys/kernel/debug/kmemleak | grep "comm \"tc\"" | wc -l
-  0
 
-Fixes: d23b8ad8ab23 ("tc: add BPF based action")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- net/sched/act_bpf.c | 53 +++++++++++++++++++++++++++++++++++------------------
- 1 file changed, 35 insertions(+), 18 deletions(-)
+# bridge -c vlan 
+Message truncated 
+port vlan ids 
+eth2 1 PVID Egress Untagged 
 
-diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-index 1df7828..d0edeb7 100644
---- a/net/sched/act_bpf.c
-+++ b/net/sched/act_bpf.c
-@@ -27,9 +27,10 @@
- struct tcf_bpf_cfg {
- 	struct bpf_prog *filter;
- 	struct sock_filter *bpf_ops;
--	char *bpf_name;
-+	const char *bpf_name;
- 	u32 bpf_fd;
- 	u16 bpf_num_ops;
-+	bool is_ebpf;
- };
- 
- static int tcf_bpf(struct sk_buff *skb, const struct tc_action *act,
-@@ -207,6 +208,7 @@ static int tcf_bpf_init_from_ops(struct nlattr **tb, struct tcf_bpf_cfg *cfg)
- 	cfg->bpf_ops = bpf_ops;
- 	cfg->bpf_num_ops = bpf_num_ops;
- 	cfg->filter = fp;
-+	cfg->is_ebpf = false;
- 
- 	return 0;
- }
-@@ -241,18 +243,40 @@ static int tcf_bpf_init_from_efd(struct nlattr **tb, struct tcf_bpf_cfg *cfg)
- 	cfg->bpf_fd = bpf_fd;
- 	cfg->bpf_name = name;
- 	cfg->filter = fp;
-+	cfg->is_ebpf = true;
- 
- 	return 0;
- }
- 
-+static void tcf_bpf_cfg_cleanup(const struct tcf_bpf_cfg *cfg)
-+{
-+	if (cfg->is_ebpf)
-+		bpf_prog_put(cfg->filter);
-+	else
-+		bpf_prog_destroy(cfg->filter);
-+
-+	kfree(cfg->bpf_ops);
-+	kfree(cfg->bpf_name);
-+}
-+
-+static void tcf_bpf_prog_fill_cfg(const struct tcf_bpf *prog,
-+				  struct tcf_bpf_cfg *cfg)
-+{
-+	cfg->is_ebpf = tcf_bpf_is_ebpf(prog);
-+	cfg->filter = prog->filter;
-+
-+	cfg->bpf_ops = prog->bpf_ops;
-+	cfg->bpf_name = prog->bpf_name;
-+}
-+
- static int tcf_bpf_init(struct net *net, struct nlattr *nla,
- 			struct nlattr *est, struct tc_action *act,
- 			int replace, int bind)
- {
- 	struct nlattr *tb[TCA_ACT_BPF_MAX + 1];
-+	struct tcf_bpf_cfg cfg, old;
- 	struct tc_act_bpf *parm;
- 	struct tcf_bpf *prog;
--	struct tcf_bpf_cfg cfg;
- 	bool is_bpf, is_ebpf;
- 	int ret;
- 
-@@ -301,6 +325,9 @@ static int tcf_bpf_init(struct net *net, struct nlattr *nla,
- 	prog = to_bpf(act);
- 	spin_lock_bh(&prog->tcf_lock);
- 
-+	if (ret != ACT_P_CREATED)
-+		tcf_bpf_prog_fill_cfg(prog, &old);
-+
- 	prog->bpf_ops = cfg.bpf_ops;
- 	prog->bpf_name = cfg.bpf_name;
- 
-@@ -316,32 +343,22 @@ static int tcf_bpf_init(struct net *net, struct nlattr *nla,
- 
- 	if (ret == ACT_P_CREATED)
- 		tcf_hash_insert(act);
-+	else
-+		tcf_bpf_cfg_cleanup(&old);
- 
- 	return ret;
- 
- destroy_fp:
--	if (is_ebpf)
--		bpf_prog_put(cfg.filter);
--	else
--		bpf_prog_destroy(cfg.filter);
--
--	kfree(cfg.bpf_ops);
--	kfree(cfg.bpf_name);
--
-+	tcf_bpf_cfg_cleanup(&cfg);
- 	return ret;
- }
- 
- static void tcf_bpf_cleanup(struct tc_action *act, int bind)
- {
--	const struct tcf_bpf *prog = act->priv;
--
--	if (tcf_bpf_is_ebpf(prog))
--		bpf_prog_put(prog->filter);
--	else
--		bpf_prog_destroy(prog->filter);
-+	struct tcf_bpf_cfg tmp;
- 
--	kfree(prog->bpf_ops);
--	kfree(prog->bpf_name);
-+	tcf_bpf_prog_fill_cfg(act->priv, &tmp);
-+	tcf_bpf_cfg_cleanup(&tmp);
- }
- 
- static struct tc_action_ops act_bpf_ops __read_mostly = {
--- 
-1.9.3
+bond0 1 PVID Egress Untagged 
+2-1850 
+
+vmbr0 1 PVID Egress Untagged 
+94 
+
+
+or 
+# bridge -c vlan 
+Message truncated 
+port vlan ids 
+eth2 1 PVID Egress Untagged 
+2-900 
+bond0 1 PVID Egress Untagged 
+2-900 
+
+vmbr0 1 PVID Egress Untagged 
+94 
+
+
+
+Also, more important, this is also impact "ip", and truncate the output 
+
+#ip link 
+
+Message truncated 
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default 
+link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00 
+2: eth2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 9000 qdisc pfifo_fast master vmbr1 state DOWN mode DEFAULT group default qlen 1000 
+link/ether 00:15:17:80:29:e6 brd ff:ff:ff:ff:ff:ff 
+3: eth3: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000 
+link/ether 00:15:17:80:29:e7 brd ff:ff:ff:ff:ff:ff 
+4: eth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc mq master bond0 state UP mode DEFAULT group default qlen 1000 
+link/ether 00:1a:a0:3c:98:c5 brd ff:ff:ff:ff:ff:ff 
+5: eth5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc pfifo_fast master ovs-system state UP mode DEFAULT group default qlen 1000 
+link/ether 68:05:ca:09:c3:7c brd ff:ff:ff:ff:ff:ff 
+6: eth4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc pfifo_fast master ovs-system state UP mode DEFAULT group default qlen 1000 
+link/ether 68:05:ca:09:c3:7d brd ff:ff:ff:ff:ff:ff 
+7: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc mq master bond0 state UP mode DEFAULT group default qlen 1000 
+link/ether 00:1a:a0:3c:98:c5 brd ff:ff:ff:ff:ff:ff 
+8: ovs-system@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default 
+link/ether 7e:dd:5d:ea:ef:26 brd ff:ff:ff:ff:ff:ff 
+9: vmbr10@NONE: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc noqueue state UNKNOWN mode DEFAULT group default 
+link/ether 68:05:ca:09:c3:7d brd ff:ff:ff:ff:ff:ff 
+10: bond1@NONE: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc noqueue state UNKNOWN mode DEFAULT group default 
+link/ether 8a:c3:da:b0:9d:87 brd ff:ff:ff:ff:ff:ff 
+11: bond0@NONE: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue master vmbr0 state UP mode DEFAULT group default 
+link/ether 00:1a:a0:3c:98:c5 brd ff:ff:ff:ff:ff:ff 
+12: vmbr0@NONE: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
+link/ether 00:1a:a0:3c:98:c5 brd ff:ff:ff:ff:ff:ff 
+13: vmbr0.94@vmbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
+link/ether 00:1a:a0:3c:98:c5 brd ff:ff:ff:ff:ff:ff 
+
+---->should have more interfaces here 
+
+
+Is it a known bug ? 
+
+
+
+Regards, 
+
+Alexandre Derumier
