@@ -1,60 +1,48 @@
-From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-Subject: [PATCH net-next v2 2/5] s390/bpf: Fix multiple macro expansions
-Date: Wed, 29 Jul 2015 10:45:40 +0200
-Message-ID: <1438159540-8819-1-git-send-email-holzheu@linux.vnet.ibm.com>
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Wed, 29 Jul 2015 10:51:07 +0200
+Message-ID: <1970944.Bv0UlMJzsJ@storm>
+References: <1719052.SGOfRAJhfQ@storm> <2239047.Ns2P95dsQ1@storm> <309B89C4C689E141A5FF6A0C5FB2118B78DDC307@ORSMSX101.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>,
+	Yanir Lubetkin <yanirx.lubetkin@intel.com>,
+	"Brown, Aaron F" <aaron.f.brown@intel.com>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:34978 "EHLO
-	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750712AbbG2Ipx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 04:45:53 -0400
-Received: from /spool/local
-	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <holzheu@linux.vnet.ibm.com>;
-	Wed, 29 Jul 2015 09:45:51 +0100
+Received: from re04.intra2net.com ([82.165.46.26]:50951 "EHLO
+	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472AbbG2I6R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 04:58:17 -0400
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B78DDC307@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The EMIT6_DISP_LH macro passes the "disp" parameter to the _EMIT6_DISP_LH
-macro. The _EMIT6_DISP_LH macro uses the "disp" parameter twice:
+Hi Jeff and Yanir,
 
- unsigned int __disp_h = ((u32)disp) & 0xff000;
- unsigned int __disp_l = ((u32)disp) & 0x00fff;
+On Saturday, 30. May 2015 01:18:44 Brown, Aaron F wrote:
+> > any news on this from the Intel labs?
+> 
+> Nothing significant.  Another one of our testers (whom works more closely
+> with the current e1000e driver owner than I) has managed to replicate it
+> on several systems and I know the developer spent some time poking around
+> the setup, but I don't think he's found the root cause yet and has been
+> busy chasing a number of other issues.
 
-The EMIT6_DISP_LH is used several times with EMIT_CONST_U64() as "disp"
-parameter. Therefore always two constants are created per usage of
-EMIT6_DISP_LH.
+so, any news from the Intel labs? I've seen some "hang fixes"
+on 03.06.2015, but I'm not sure if they are related to this issue.
 
-Fix this and add variable "_disp" to avoid multiple expansions.
+This problem is pretty annoying: We have a performance penalty for all 
+network cards right now as the buffer size of the core network stack
+had to be decreased to 4096 bytes again on our side.
+(https://www.marc.info/?l=linux-netdev&m=142131668206333)
+Better than no e1000e network connectivity though.
 
-* v2: Move "_disp" to _EMIT6_DISP_LH as suggested by Joe Perches
+The initial report on this issue was on 14.01.2015:
+https://www.marc.info/?l=linux-netdev&m=142124954120315
 
-Fixes: 054623105728 ("s390/bpf: Add s390x eBPF JIT compiler backend")
-Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
----
- arch/s390/net/bpf_jit_comp.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-index 01ad166..66926ab 100644
---- a/arch/s390/net/bpf_jit_comp.c
-+++ b/arch/s390/net/bpf_jit_comp.c
-@@ -214,8 +214,9 @@ static inline void reg_set_seen(struct bpf_jit *jit, u32 b1)
- 
- #define _EMIT6_DISP_LH(op1, op2, disp)				\
- ({								\
--	unsigned int __disp_h = ((u32)disp) & 0xff000;		\
--	unsigned int __disp_l = ((u32)disp) & 0x00fff;		\
-+	u32 _disp = (u32) disp;					\
-+	unsigned int __disp_h = _disp & 0xff000;		\
-+	unsigned int __disp_l = _disp & 0x00fff;		\
- 	_EMIT6(op1 | __disp_l, op2 | __disp_h >> 4);		\
- })
- 
--- 
-2.3.8
+Best regards,
+Thomas
