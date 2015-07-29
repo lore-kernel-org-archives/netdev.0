@@ -1,41 +1,39 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH 0/3] Backwards-compatible noqueue in virtual interfaces
-Date: Wed, 29 Jul 2015 16:10:03 -0700
-Message-ID: <CAHA+R7MadVkeka-ccJBHT7+tuLbw8ZhtO0QD5jRagtx-+DpRpw@mail.gmail.com>
-References: <1438203103-27013-1-git-send-email-phil@nwl.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] tipc: fix bug in broadcast synch message
+ create function
+Date: Wed, 29 Jul 2015 16:48:32 -0700 (PDT)
+Message-ID: <20150729.164832.705060026020098916.davem@davemloft.net>
+References: <1438208881-30453-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:33970 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753819AbbG2XKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 19:10:04 -0400
-Received: by ykax123 with SMTP id x123so21071606yka.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 16:10:03 -0700 (PDT)
-In-Reply-To: <1438203103-27013-1-git-send-email-phil@nwl.cc>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34971 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753800AbbG2Xsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 19:48:35 -0400
+In-Reply-To: <1438208881-30453-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2015 at 1:51 PM, Phil Sutter <phil@nwl.cc> wrote:
-> This series is inspired by a patch sent[1] in from Jesper Brouer and the
-> discussion it started. Basically it tries to provide a solution which is
-> backwards compatible while still enabling the veth performance
-> improvement by default.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Wed, 29 Jul 2015 18:28:01 -0400
 
-You can specify the tx_queue_len when you create the veth device,
-if that can be your "default".
+> In commit d999297c3dbbe7fdd832f7fa4ec84301e170b3e6
+> ("tipc: reduce locking scope during packet reception") we introduced
+> a new function tipc_build_bcast_sync_msg(), which carries initial
+> synchronization data between two nodes at first contact and at
+> re-contact. In this function, we missed to add synchronization data,
+> with the effect that the broadcast link endpoints will fail to
+> synchronize correctly at re-contact between a running and a restarted
+> node. All other cases work as intended.
+> 
+> With this commit, we fix this bug.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-tx_queue_len ties too much with qdisc probably due to historical
-reasons, ideally we should only specify the queue len via qdisc
-interface since at least a per-device tx_queue_len doesn't make
-much sense for those multiqueue or hierarchical qdisc's. It's hard
-to change without breaking existing scripts/code.
-
-Like David said, maybe you can add a new netdev flag saying
-not to have any qdisc even when tx_queue_len !=0, or let each
-device choose its default qdisc...
+Applied, thanks Jon.
