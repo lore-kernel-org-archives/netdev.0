@@ -1,88 +1,95 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: RE: [PATCH 1/5] Add functions producing system time given a backing
- counter value
-Date: Wed, 29 Jul 2015 16:05:19 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1507291603220.3825@nanos>
-References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com> <1438044416-15588-2-git-send-email-christopher.s.hall@intel.com> <CALAqxLWSakB1zdnYAE=2yQTPLdzkjO3wLA82Q+CJoJccGLWM8Q@mail.gmail.com>
- <B79D786B7111A34A8CF09F833429C493A909CEE1@ORSMSX109.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: 'John Stultz' <john.stultz@linaro.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Hall, Christopher S" <christopher.s.hall@intel.com>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Subject: [PATCH net-next] be2net: Support vxlan offload stats in the driver
+Date: Wed, 29 Jul 2015 19:35:32 +0530
+Message-ID: <1438178732-29026-1-git-send-email-sriharsha.basavapatna@emulex.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:40719 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbbG2OFm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 10:05:42 -0400
-In-Reply-To: <B79D786B7111A34A8CF09F833429C493A909CEE1@ORSMSX109.amr.corp.intel.com>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:50466 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752430AbbG2OHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 10:07:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Jul 2015, Hall, Christopher S wrote:
-> 
-> > -----Original Message-----
-> > From: John Stultz [mailto:john.stultz@linaro.org]
-> > Sent: Monday, July 27, 2015 8:44 PM
-> > To: Hall, Christopher S
-> > Cc: Thomas Gleixner; Richard Cochran; Ingo Molnar; Kirsher, Jeffrey T;
-> > Ronciak, John; H. Peter Anvin; x86@kernel.org; lkml;
-> > netdev@vger.kernel.org
-> > Subject: Re: [PATCH 1/5] Add functions producing system time given a
-> > backing counter value
-> > 
-> > On Mon, Jul 27, 2015 at 5:46 PM, Christopher Hall
-> > <christopher.s.hall@intel.com> wrote:
-> > > * counter_to_rawmono64
-> > > * counter_to_mono64
-> > > * counter_to_realtime64
-> > >
-> > > Enables drivers to translate a captured system clock counter to system
-> > > time. This is useful for network and audio devices that capture
-> > timestamps
-> > > in terms of both the system clock and device clock.
-> > 
-> > Huh.  So for counter_to_realtime64 & mono64, this seems to ignore the
-> > fact that the multiplier is constantly adjusted and corrected. So that
-> > calling the function twice with the same counter value may result in
-> > different returned values.
-> > 
-> > I've not yet groked the whole patchset, but it seems like there needs
-> > to be some mechanism that ensures the counter value is captured and
-> > used in the same (or at least close) interval that the timekeeper data
-> > is valid for.
-> 
-> The ART (and derived TSC) values are always in the past.  There's no
-> chance that we could exceed the interval.  I don't think any similar
-> usage would be a problem either.
-> 
-> Are you suggesting that, for completeness, this be enforced by the
-> conversion function?
-> 
-> I do a check here to make sure that the current counter value isn't before
-> the beginning of the current interval:
-> 
-> timekeeping_get_delta()
-> ...
->                if (cycle_now < tkr->cycle_last &&
->                    tkr->cycle_last - cycle_now < ROLLOVER_THRESHOLD)
->                         return -EAGAIN;
-> 
-> If tkr->cycle_last - cycle_now is large, the assumption is that
-> rollover occurred.  Otherwise, the caller should re-read the counter
-> so that it falls within the current interval.  In my "normal use"
-> testing, re-read never occurred.
+This patch adds vxlan offload specific counters to ethtool stats. We
+provide tx/rx queue counters to show the number of vxlan offload pkts
+sent/received.
 
-Sure that never happens, because your rollover value is 2 << 39 for
-whatever reasons.
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h         | 2 ++
+ drivers/net/ethernet/emulex/benet/be_ethtool.c | 2 ++
+ drivers/net/ethernet/emulex/benet/be_main.c    | 7 ++++++-
+ 3 files changed, 10 insertions(+), 1 deletion(-)
 
-So on a 1GHz machine that is (2 << 39) / 1e9 ~= 1099.51 seconds.
-
-Oh well.
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 8cd384d..0a27805 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -230,6 +230,7 @@ struct be_mcc_obj {
+ struct be_tx_stats {
+ 	u64 tx_bytes;
+ 	u64 tx_pkts;
++	u64 tx_vxlan_offload_pkts;
+ 	u64 tx_reqs;
+ 	u64 tx_compl;
+ 	ulong tx_jiffies;
+@@ -277,6 +278,7 @@ struct be_rx_page_info {
+ struct be_rx_stats {
+ 	u64 rx_bytes;
+ 	u64 rx_pkts;
++	u64 rx_vxlan_offload_pkts;
+ 	u32 rx_drops_no_skbs;	/* skb allocation errors */
+ 	u32 rx_drops_no_frags;	/* HW has no fetched frags */
+ 	u32 rx_post_fail;	/* page post alloc failures */
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index d20ff05..2c9ed17 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -138,6 +138,7 @@ static const struct be_ethtool_stat et_stats[] = {
+ static const struct be_ethtool_stat et_rx_stats[] = {
+ 	{DRVSTAT_RX_INFO(rx_bytes)},/* If moving this member see above note */
+ 	{DRVSTAT_RX_INFO(rx_pkts)}, /* If moving this member see above note */
++	{DRVSTAT_RX_INFO(rx_vxlan_offload_pkts)},
+ 	{DRVSTAT_RX_INFO(rx_compl)},
+ 	{DRVSTAT_RX_INFO(rx_compl_err)},
+ 	{DRVSTAT_RX_INFO(rx_mcast_pkts)},
+@@ -190,6 +191,7 @@ static const struct be_ethtool_stat et_tx_stats[] = {
+ 	{DRVSTAT_TX_INFO(tx_internal_parity_err)},
+ 	{DRVSTAT_TX_INFO(tx_bytes)},
+ 	{DRVSTAT_TX_INFO(tx_pkts)},
++	{DRVSTAT_TX_INFO(tx_vxlan_offload_pkts)},
+ 	/* Number of skbs queued for trasmission by the driver */
+ 	{DRVSTAT_TX_INFO(tx_reqs)},
+ 	/* Number of times the TX queue was stopped due to lack
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 5e92db8..d86bc5d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -677,11 +677,14 @@ void be_link_status_update(struct be_adapter *adapter, u8 link_status)
+ static void be_tx_stats_update(struct be_tx_obj *txo, struct sk_buff *skb)
+ {
+ 	struct be_tx_stats *stats = tx_stats(txo);
++	u64 tx_pkts = skb_shinfo(skb)->gso_segs ? : 1;
+ 
+ 	u64_stats_update_begin(&stats->sync);
+ 	stats->tx_reqs++;
+ 	stats->tx_bytes += skb->len;
+-	stats->tx_pkts += (skb_shinfo(skb)->gso_segs ? : 1);
++	stats->tx_pkts += tx_pkts;
++	if (skb->encapsulation && skb->ip_summed == CHECKSUM_PARTIAL)
++		stats->tx_vxlan_offload_pkts += tx_pkts;
+ 	u64_stats_update_end(&stats->sync);
+ }
+ 
+@@ -1957,6 +1960,8 @@ static void be_rx_stats_update(struct be_rx_obj *rxo,
+ 	stats->rx_compl++;
+ 	stats->rx_bytes += rxcp->pkt_size;
+ 	stats->rx_pkts++;
++	if (rxcp->tunneled)
++		stats->rx_vxlan_offload_pkts++;
+ 	if (rxcp->pkt_type == BE_MULTICAST_PACKET)
+ 		stats->rx_mcast_pkts++;
+ 	if (rxcp->err)
+-- 
+2.3.0.rc2
