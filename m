@@ -1,78 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 2/5] s390/bpf: Fix multiple macro expansions
-Date: Tue, 28 Jul 2015 20:13:41 -0700
-Message-ID: <1438139621.2529.31.camel@perches.com>
-References: <1438092600-16221-1-git-send-email-holzheu@linux.vnet.ibm.com>
-	 <1438092600-16221-3-git-send-email-holzheu@linux.vnet.ibm.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH 2/2] drivers: net: cpsw: add separate napi for
+ tx packet handling for performance improvment
+Date: Wed, 29 Jul 2015 10:48:56 +0530
+Message-ID: <55B86240.4090301@ti.com>
+References: <1437995941-5857-1-git-send-email-mugunthanvnm@ti.com> <1437995941-5857-3-git-send-email-mugunthanvnm@ti.com> <20150727212206.GA8912@electric-eye.fr.zoreil.com> <55B71E99.50807@ti.com> <20150728223013.GA10669@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0195.hostedemail.com ([216.40.44.195]:44207 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750798AbbG2DNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2015 23:13:45 -0400
-In-Reply-To: <1438092600-16221-3-git-send-email-holzheu@linux.vnet.ibm.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:47266 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbbG2FTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 01:19:09 -0400
+In-Reply-To: <20150728223013.GA10669@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-07-28 at 16:09 +0200, Michael Holzheu wrote:
-> The EMIT6_DISP_LH macro passes the "disp" parameter to the _EMIT6_DISP_LH
-> macro. The _EMIT6_DISP_LH macro uses the "disp" parameter twice:
+On Wednesday 29 July 2015 04:00 AM, Francois Romieu wrote:
+> Mugunthan V N <mugunthanvnm@ti.com> :
+>> On Tuesday 28 July 2015 02:52 AM, Francois Romieu wrote:
+>>> Mugunthan V N <mugunthanvnm@ti.com> :
+> [...]
+>>>> @@ -752,13 +753,22 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
+>>>>  	struct cpsw_priv *priv = dev_id;
+>>>>  
+>>>>  	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+>>>> -	cpdma_chan_process(priv->txch, 128);
+>>>> +	writel(0, &priv->wr_regs->tx_en);
+>>>> +
+>>>> +	if (netif_running(priv->ndev)) {
+>>>> +		napi_schedule(&priv->napi_tx);
+>>>> +		return IRQ_HANDLED;
+>>>> +	}
+>>>
+>>>
+>>> cpsw_ndo_stop calls napi_disable: you can remove netif_running.
+>>>
+>>
+>> This netif_running check is to find which interface is up as the
+>> interrupt is shared by both the interfaces. When first interface is down
+>> and second interface is active then napi_schedule for first interface
+>> will fail and second interface napi needs to be scheduled.
+>>
+>> So I don't think netif_running needs to be removed.
 > 
->  unsigned int __disp_h = ((u32)disp) & 0xff000;
->  unsigned int __disp_l = ((u32)disp) & 0x00fff;
+> Each interface has its own napi tx (resp. rx) context: I would had expected
+> two unconditional napi_schedule per tx (resp. rx) shared irq, not one.
 > 
-> The EMIT6_DISP_LH is used several times with EMIT_CONST_U64() as "disp"
-> parameter. Therefore always two constants are created per usage of
-> EMIT6_DISP_LH.
+> I'll read it again after some sleep.
 > 
-> Fix this and add variable "__disp" to avoid multiple expansions.
-> 
-> Fixes: 054623105728 ("s390/bpf: Add s390x eBPF JIT compiler backend")
-> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-> ---
->  arch/s390/net/bpf_jit_comp.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-> index 01ad166..de0f0bc 100644
-> --- a/arch/s390/net/bpf_jit_comp.c
-> +++ b/arch/s390/net/bpf_jit_comp.c
-> @@ -221,8 +221,9 @@ static inline void reg_set_seen(struct nbpf_jit *jit, u32 b1)
->  
->  #define EMIT6_DISP_LH(op1, op2, b1, b2, b3, disp)		\
->  ({								\
-> +	int __disp = (disp);					\
->  	_EMIT6_DISP_LH(op1 | reg(b1, b2) << 16 |		\
-> -		       reg_high(b3) << 8, op2, disp);		\
-> +		       reg_high(b3) << 8, op2, __disp);		\
->  	REG_SET_SEEN(b1);					\
->  	REG_SET_SEEN(b2);					\
->  	REG_SET_SEEN(b3);					\
 
-Perhaps it'd be better to change _EMIT6_DISP_LH
----
-diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-index 3a15baa..409e206 100644
---- a/arch/s390/net/bpf_jit_comp.c
-+++ b/arch/s390/net/bpf_jit_comp.c
-@@ -205,8 +205,9 @@ static inline void reg_set_seen(struct bpf_jit *jit,
-u32 b1)
- 
- #define _EMIT6_DISP_LH(op1, op2, disp)				\
- ({								\
--	unsigned int __disp_h = ((u32)disp) & 0xff000;		\
--	unsigned int __disp_l = ((u32)disp) & 0x00fff;		\
-+	u32 _disp = (u32)disp;					\
-+	unsigned int __disp_h = _disp & 0xff000;		\
-+	unsigned int __disp_l = _disp & 0x00fff;		\
- 	_EMIT6(op1 | __disp_l, op2 | __disp_h >> 4);		\
- })
- 
+For each interrupt only one napi will be scheduled, when the first
+interface is down then only second interface napi is scheduled in both
+tx and rx irqs.
+
+Regards
+Mugunthan V N
