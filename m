@@ -1,42 +1,38 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH net-next v5 00/11] ipv6: Only create RTF_CACHE route after
- encountering pmtu exception
-Date: Wed, 29 Jul 2015 11:25:40 +0200
-Message-ID: <55B89C14.2070700@ahsoftware.de>
-References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: Set sk_txhash from a random number
+Date: Wed, 29 Jul 2015 11:29:06 +0200
+Message-ID: <1438162146.20182.74.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438124526-2129341-1-git-send-email-tom@herbertland.com>
+	 <1438124526-2129341-2-git-send-email-tom@herbertland.com>
+	 <20150729091333.GB13113@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Kernel Team <Kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>, netdev <netdev@vger.kernel.org>
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, kernel-team@fb.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:40216 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbbG2JZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 05:25:51 -0400
-Received: from wandq.ahsoftware (p4FC374AF.dip0.t-ipconnect.de [79.195.116.175])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.ahsoftware.de (Postfix) with ESMTPSA id 5F2982C9C219
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 11:25:49 +0200 (CEST)
-In-Reply-To: <1432353366-2296465-1-git-send-email-kafai@fb.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:35918 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbbG2J3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 05:29:10 -0400
+Received: by wicgb10 with SMTP id gb10so191564788wic.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 02:29:09 -0700 (PDT)
+In-Reply-To: <20150729091333.GB13113@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 23.05.2015 um 05:55 schrieb Martin KaFai Lau:
+On Wed, 2015-07-29 at 11:13 +0200, Thomas Graf wrote:
+> On 07/28/15 at 04:02pm, Tom Herbert wrote:
+> > This patch creates sk_set_txhash and eliminates protocol specific
+> > inet_set_txhash and ip6_set_txhash. sk_set_txhash simply sets a
+> > random number instead of performing flow dissection. sk_set_txash
+> > is also allowed to be called multiple times for the same socket,
+> > we'll need this when redoing the hash for negative routing advice.
+> > 
+> > Signed-off-by: Tom Herbert <tom@herbertland.com>
+> 
+> Doesn't this break TX hashing with SO_REUSEPORT?
 
-> This series is to avoid creating a RTF_CACHE route whenever we are consulting
-> the fib6 tree with a new destination.  Instead, only create RTF_CACHE route
-> when we see a pmtu exception.
 
-That even helps on systems without an IPv6-connection to world because 
-it avoids the IPv6 route add/delete pairs which happened before whenever 
-an IPv6-connection was tried (e.g. by Happy Eyeballs algorithms).
-
-I think that's worse a laud. thanks.
-
-Alexander Holler
+AFAIK nothing uses sk_txhash yet.
