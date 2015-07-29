@@ -1,66 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] arp: filter NOARP neighbours for SIOCGARP
-Date: Wed, 29 Jul 2015 11:15:51 +0200
-Message-ID: <1438161351.20182.73.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1437989630.20182.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150728.234147.1087098759056655521.davem@davemloft.net>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH net-next v5 00/11] ipv6: Only create RTF_CACHE route after
+ encountering pmtu exception
+Date: Wed, 29 Jul 2015 11:25:40 +0200
+Message-ID: <55B89C14.2070700@ahsoftware.de>
+References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, valas@google.com, willemb@google.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:36746 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751328AbbG2JPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 05:15:55 -0400
-Received: by wicgb10 with SMTP id gb10so191063141wic.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 02:15:54 -0700 (PDT)
-In-Reply-To: <20150728.234147.1087098759056655521.davem@davemloft.net>
+Received: from h1446028.stratoserver.net ([85.214.92.142]:40216 "EHLO
+	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751882AbbG2JZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 05:25:51 -0400
+Received: from wandq.ahsoftware (p4FC374AF.dip0.t-ipconnect.de [79.195.116.175])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.ahsoftware.de (Postfix) with ESMTPSA id 5F2982C9C219
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 11:25:49 +0200 (CEST)
+In-Reply-To: <1432353366-2296465-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-07-28 at 23:41 -0700, David Miller wrote:
+Am 23.05.2015 um 05:55 schrieb Martin KaFai Lau:
 
-> Applied, thanks Eric.
-Thanks David
+> This series is to avoid creating a RTF_CACHE route whenever we are consulting
+> the fib6 tree with a new destination.  Instead, only create RTF_CACHE route
+> when we see a pmtu exception.
 
-Note that IPv6 is completely broken after 'arp off' sequence.
+That even helps on systems without an IPv6-connection to world because 
+it avoids the IPv6 route add/delete pairs which happened before whenever 
+an IPv6-connection was tried (e.g. by Happy Eyeballs algorithms).
 
-ND destination MAC are a copy of eth0 MAC address, instead of the required multicast.
+I think that's worse a laud. thanks.
 
-lpaa23:~# ip link set dev eth0 arp off
-lpaa23:~# ping6 4444::555:0027
-PING 4444::555:0027(4444::555:27) 56 data bytes
-02:05:13.742684 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 1, length 64
-02:05:14.742200 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 2, length 64
-^C
---- 4444::555:0027 ping statistics ---
-2 packets transmitted, 0 received, 100% packet loss, time 999ms
-
-lpaa23:~# ip link set dev eth0 arp on 
-
-lpaa23:~# ip -6 neigh sh dev eth0
-fe80::21a:11ff:fec3:d45 lladdr 00:1a:11:c3:0d:45 STALE
-4444::555:26  FAILED
-4444::555:25  FAILED
-
-lpaa23:~# ping6 4444::555:0027
-PING 4444::555:0027(4444::555:27) 56 data bytes
-02:12:15.698654 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 1, length 64
-02:12:16.698249 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 2, length 64
-02:12:17.698224 00:1a:11:c3:0d:7f > 00:1a:11:c3:0d:7f, ethertype IPv6 (0x86dd), length 118: 4444::555:23 > 4444::555:27: ICMP6, echo request, seq 3, length 64
-^C
---- 4444::555:0027 ping statistics ---
-3 packets transmitted, 0 received, 100% packet loss, time 1999ms
-
-lpaa23:~# ip -6 neigh flush dev eth0
-
-lpaa23:~# ip -6 neigh sh dev eth0
-4444::555:24  FAILED
-4444::555:28  FAILED
-fe80::21a:11ff:fec3:d45  FAILED
-4444::555:26  FAILED
-4444::555:25  FAILED
-
-Oh well...
+Alexander Holler
