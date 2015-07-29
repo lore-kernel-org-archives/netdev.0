@@ -1,62 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] net: netcp: Allocate RX packet buffers using
- __GFP_DMA
-Date: Wed, 29 Jul 2015 22:59:56 +0200
-Message-ID: <1438203596.20182.103.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438182653-2136-1-git-send-email-w-kwok2@ti.com>
-	 <1438182653-2136-2-git-send-email-w-kwok2@ti.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] gianfar: Fix warnings when built on 64-bit
+Date: Wed, 29 Jul 2015 23:04:46 +0200
+Message-ID: <2331012.mZ9bDLS4JC@wuerfel>
+References: <1438147477-393-1-git-send-email-scottwood@freescale.com> <4498062.4y369pLSmO@wuerfel> <1438185761.2993.333.camel@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, m-karicheri2@ti.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Reece R. Pollack" <x0183204@ti.com>
-To: WingMan Kwok <w-kwok2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438182653-2136-2-git-send-email-w-kwok2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.13]:57206 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753221AbbG2VFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 17:05:00 -0400
+In-Reply-To: <1438185761.2993.333.camel@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-07-29 at 11:10 -0400, WingMan Kwok wrote:
-> The Keystone II DMA hardware can only access addresses in the
-> lower 2 GiB of SDRAM. This patch makes sure the RX buffers are
-> allocated using the __GFP_DMA flag so they meet this requirement.
+On Wednesday 29 July 2015 11:02:41 Scott Wood wrote:
+> On Wed, 2015-07-29 at 10:02 +0200, Arnd Bergmann wrote:
+> > On Wednesday 29 July 2015 00:24:37 Scott Wood wrote:
+> > > +#ifdef CONFIG_PM
+> > >  static void lock_tx_qs(struct gfar_private *priv)
+> > >  {
+> > >     int i;
+> > > @@ -580,6 +581,7 @@ static void unlock_tx_qs(struct gfar_private *priv)
+> > >     for (i = 0; i < priv->num_tx_queues; i++)
+> > >             spin_unlock(&priv->tx_queue[i]->txlock);
+> > >  }
+> > > +#endif
+> > >  
+> > 
+> > This seems unrelated and should probably be a separate fix.
 > 
-> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
-> Signed-off-by: Reece R. Pollack <x0183204@ti.com>
-> ---
->  drivers/net/ethernet/ti/netcp_core.c |   11 +++++++----
->  1 file changed, 7 insertions(+), 4 deletions(-)
+> It's related in that it fixes a warning -- the 64-bit build didn't have 
+> CONFIG_PM -- though I should have been clearer about that in the changelog.
 
-Following patch gets rid of netdev_alloc_frag() which is not GFP_DMA
-ready (and wont be)
+Yes, that's what I meant: you can easily have a 32-bit build without
+CONFIG_PM of course, and that would have the same problem.
 
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 3ca87f26582a..0971c46d6cd5 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -808,14 +808,8 @@ static void netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
- 		primary_buf_len = SKB_DATA_ALIGN(buf_len) +
- 				SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 
--		if (primary_buf_len <= PAGE_SIZE) {
--			bufptr = netdev_alloc_frag(primary_buf_len);
--			pad[1] = primary_buf_len;
--		} else {
--			bufptr = kmalloc(primary_buf_len, GFP_ATOMIC |
--					 GFP_DMA32 | __GFP_COLD);
--			pad[1] = 0;
--		}
-+		bufptr = kmalloc(primary_buf_len, GFP_ATOMIC | GFP_DMA);
-+		pad[1] = 0;
- 
- 		if (unlikely(!bufptr)) {
- 			dev_warn_ratelimited(netcp->ndev_dev, "Primary RX buffer alloc failed\n");
-@@ -827,7 +821,7 @@ static void netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
- 
- 	} else {
- 		/* Allocate a secondary receive queue entry */
--		page = alloc_page(GFP_ATOMIC | GFP_DMA32 | __GFP_COLD);
-+		page = alloc_page(GFP_ATOMIC | GFP_DMA | __GFP_COLD);
- 		if (unlikely(!page)) {
- 			dev_warn_ratelimited(netcp->ndev_dev, "Secondary page alloc failed\n");
- 			goto fail;
+> > 
+> > You are fixing two problems here: the warning about a size cast, and
+> > the fact that the driver is using the wrong pointer. I'd suggest
+> > explaining it in the changelog.
+> > 
+> > Note that we normally rely on void pointer arithmetic in the kernel, so
+> > I'd write it without the uintptr_t casts as 
+> > 
+> >       bdp_dma = lower_32_bits(rx_queue->rx_bd_dma_base + (base - bdp));
+> 
+> But those aren't void pointers, and rx_bd_dma_base isn't a pointer, so you'd 
+> get the wrong answer doing that.
+
+Ah, right.
+
+	Arnd
