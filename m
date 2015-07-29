@@ -1,64 +1,108 @@
-From: Sebastian Ott <sebott@linux.vnet.ibm.com>
-Subject: Re: mlx4: "failed to allocate default counter port 1"
-Date: Wed, 29 Jul 2015 14:50:10 +0200 (CEST)
-Message-ID: <alpine.LFD.2.11.1507291449180.1712@denkbrett>
-References: <alpine.LFD.2.11.1506301229520.1799@denkbrett> <5592913C.3000207@mellanox.com> <alpine.LFD.2.11.1506301520180.1799@denkbrett> <55929F2D.9050805@mellanox.com> <alpine.LFD.2.11.1506301615100.1799@denkbrett> <5593E88F.10006@mellanox.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 1/5] Add functions producing system time given a backing
+ counter value
+Date: Wed, 29 Jul 2015 14:52:16 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1507291444310.3825@nanos>
+References: <1438044416-15588-1-git-send-email-christopher.s.hall@intel.com> <1438044416-15588-2-git-send-email-christopher.s.hall@intel.com> <CALAqxLWSakB1zdnYAE=2yQTPLdzkjO3wLA82Q+CJoJccGLWM8Q@mail.gmail.com> <CALAqxLVkwJ5cmvSZ9bL-F7YTFprZ+CvZW4MrMN0sEkk5yFqMRQ@mail.gmail.com>
+ <alpine.DEB.2.11.1507291014490.3825@nanos> <20150729104944.GM19282@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eran Ben Elisha <eranbe@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Hadar Hen Zion <hadarh@mellanox.com>, netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:40438 "EHLO
-	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751351AbbG2MuS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 08:50:18 -0400
-Received: from /spool/local
-	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sebott@linux.vnet.ibm.com>;
-	Wed, 29 Jul 2015 13:50:16 +0100
-Received: from b06cxnps4075.portsmouth.uk.ibm.com (d06relay12.portsmouth.uk.ibm.com [9.149.109.197])
-	by d06dlp01.portsmouth.uk.ibm.com (Postfix) with ESMTP id 6F15217D8024
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 13:51:39 +0100 (BST)
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by b06cxnps4075.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t6TCoDCZ34930910
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 12:50:13 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t6TCoCuu026989
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 06:50:13 -0600
-In-Reply-To: <5593E88F.10006@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: John Stultz <john.stultz@linaro.org>,
+	Christopher Hall <christopher.s.hall@intel.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	john.ronciak@intel.com, "H. Peter Anvin" <hpa@zytor.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150729104944.GM19282@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Jul 2015, Or Gerlitz wrote:
-> On 6/30/2015 5:17 PM, Sebastian Ott wrote:
-> > On Tue, 30 Jun 2015, Or Gerlitz wrote:
-> > > On 6/30/2015 4:24 PM, Sebastian Ott wrote:
-> > > > > > Do you run the VF on the same system/kernel as the PF, or the VF is
-> > > > > > probed to
-> > > > > > VM which runs the latest kernel and the PF runsolder kernel (which?)
-> > > > The latter case. The PF is driven by a much older Kernel running OFED
-> > > > 2.3.2.0.0.1
-> > > >
-> > > Can you try running the inbox PF driver that comes with the PF kernel
-> > > (what
-> > > kernel is that?) I'd like to see we're OK there.
-> > Frankly, I don't know. Plus I also don't know how to build an ofed kernel.
-> >
+On Wed, 29 Jul 2015, Peter Zijlstra wrote:
+> On Wed, Jul 29, 2015 at 12:19:06PM +0200, Thomas Gleixner wrote:
+> > I don't know whether we need functionality to convert arbitrary
+> > timestamps at all, but if we really need them then they are going to
+> > be pretty simple and explicitely not precise for anything else than
+> > clock monotonic raw. But that's a different story.
 > 
-> I didn't want you to build that package, but rather the outer way around,
-> namely
-> see what happens if uninstalling this package and running with the mlx4 inbox
-> PF
-> driver from the kernel provided from your distro of choice or an
-> upstreamkernel installed
-> by you. Anyway, I hope the below patch would provide a quick band-aid and let
-> you to continue running upstream VFs over that PF config, let me know (I will
-> be
-> OOO till Thu-Sun). Once we see how this behaves, will take it from there.
+> I think we need that too, and agreed, given NTP anything other than
+> MONO_RAW is going to be fuzzy at best.
 
-Any updates on this one?
+Yes, but that's a trivial case.
+ 
+> > +static u64 art_to_tsc(u64 cycles)
+> > +{
+> > +	/* FIXME: This needs 128bit math to work proper */
+> > +	return tsc_adjust + (cycles * tsc_numerator) / tsc_denominator;
+> 
+> Yeah, its really unfortunate its given as a divisor and not a shift.
+> That said I think, at least on the initial hardware, its 2, so:
+> 
+> 	return mul_u64_u32_shr(cycles, tsc_numerator, 1);
+> 
+> Should do, given that TSC_ADJUST had better be 0.
 
-Regards,
-Sebastian
+I don't trust BIOS folks :)
+
++       u64 tmp, res = tsc_adjust;
++
++       res += (cycles / tsc_denominator) * tsc_numerator;
++       tmp = (cycles % tsc_denominator) * tsc_numerator;
++       res += tmp / tsc_denominator;
++       return res;
+
+That's what I have in my final patch.
+ 
+> > +	do {
+> > +		seq = read_seqcount_begin(&tk_core.seq);
+> > +		/*
+> > +		 * Verify that the correlated clocksoure is related to
+> > +		 * the currently installed timekeeper clocksoure
+> > +		 */
+> > +		if (tk->tkr_mono.clock != crs->related_cs)
+> > +			return -ENODEV;
+> > +
+> > +		/*
+> > +		 * Try to get a timestamp from the device.
+> > +		 */
+> > +		ret = crt->get_ts(crt);
+> > +		if (ret)
+> > +			return ret;
+> > +
+> > +		/*
+> > +		 * Convert the timestamp to timekeeper clock cycles
+> > +		 */
+> > +		cycles = crs->convert(crs, crt->system_ts);
+> > +
+> > +		/* Convert to clock realtime */
+> > +		base = ktime_add(tk->tkr_mono.base, tk_core.timekeeper.offs_real);
+> > +		nsecs = timekeeping_convert_to_ns(&tk->tkr_mono, cycles);
+> > +		crt->system_real = ktime_add_ns(base, nsecs);
+> > +
+> > +		/* Convert to clock raw monotonic */
+> > +		base = tk->tkr_raw.base;
+> > +		nsecs = timekeeping_convert_to_ns(&tk->tkr_raw, cycles);
+> > +		crt->system_raw = ktime_add_ns(base, nsecs);
+> > +
+> > +	} while (read_seqcount_retry(&tk_core.seq, seq));
+> > +	return 0;
+> > +}
+> 
+> This is still fuzzy, right? The hardware ART timestamp could be from
+> _before_ the NTP adjust; or the NTP adjust could happen while we do this
+> conversion and we'll take the retry loop.
+
+I read the timestamp pair in the loop, so its always consistent.
+ 
+> Any other ART users (buffered ETH frames) the delay will only get
+> bigger.
+
+That's a different story and we really can only convert this to
+monotonic raw.
+
+Thanks,
+
+	tglx
