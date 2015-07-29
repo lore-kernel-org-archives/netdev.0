@@ -1,36 +1,58 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: mlx4: "failed to allocate default counter port 1"
-Date: Wed, 29 Jul 2015 16:25:35 +0300
-Message-ID: <55B8D44F.7090800@mellanox.com>
-References: <alpine.LFD.2.11.1506301229520.1799@denkbrett>
- <5592913C.3000207@mellanox.com>
- <alpine.LFD.2.11.1506301520180.1799@denkbrett>
- <55929F2D.9050805@mellanox.com>
- <alpine.LFD.2.11.1506301615100.1799@denkbrett> <5593E88F.10006@mellanox.com>
- <alpine.LFD.2.11.1507291449180.1712@denkbrett>
+From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+Subject: [PATCH net 01/11] net: thunderx: Fix data integrity issues with LDWB
+Date: Wed, 29 Jul 2015 16:49:36 +0300
+Message-ID: <1438177787-20940-2-git-send-email-aleksey.makarov@caviumnetworks.com>
+References: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eran Ben Elisha <eranbe@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: Sebastian Ott <sebott@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0057.outbound.protection.outlook.com ([157.56.112.57]:38528
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752664AbbG2N0B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2015 09:26:01 -0400
-In-Reply-To: <alpine.LFD.2.11.1507291449180.1712@denkbrett>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Robert Richter <rric@kernel.org>, David Daney <david.daney@cavium.com>,
+ Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
+ Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+ linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>,
+ Robert Richter <robert.richter@caviumnetworks.com>,
+ Sunil Goutham <sgoutham@cavium.com>, linux-arm-kernel@lists.infradead.org
+To: <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1438177787-20940-1-git-send-email-aleksey.makarov@caviumnetworks.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 7/29/2015 3:50 PM, Sebastian Ott wrote:
-> Any updates on this one?
+From: Sunil Goutham <sgoutham@cavium.com>
 
-yep, we submitted the patch, see upstream commit 
-178d23e3cd4811ebe702d60ac31e8bee389a5847
-"net/mlx4_core: Use sink counter for the VF default as fallback"
+Switching back to LDD transactions from LDWB.
 
-Or.
+While transmitting packets out with LDWB transactions
+data integrity issues are seen very frequently.
+hence switching back to LDD.
+
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index d69d228..4dae6aa 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -992,7 +992,7 @@ static inline void nicvf_sq_add_gather_subdesc(struct snd_queue *sq, int qentry,
+ 
+ 	memset(gather, 0, SND_QUEUE_DESC_SIZE);
+ 	gather->subdesc_type = SQ_DESC_TYPE_GATHER;
+-	gather->ld_type = NIC_SEND_LD_TYPE_E_LDWB;
++	gather->ld_type = NIC_SEND_LD_TYPE_E_LDD;
+ 	gather->size = size;
+ 	gather->addr = data;
+ }
+-- 
+2.4.6
