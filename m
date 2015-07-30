@@ -1,56 +1,42 @@
-From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Subject: RE: [Question]Why a skb with frag_list causes BUG_ON in function
- skb_segment
-Date: Thu, 30 Jul 2015 05:56:40 +0000
-Message-ID: <60A73B7A161A82449A7DB7B382BFD1553712F837@SZXEMA504-MBS.china.huawei.com>
-References: <60A73B7A161A82449A7DB7B382BFD1553712AF1C@SZXEMA504-MBS.china.huawei.com>
-	 <55B9A76A.3030908@redhat.com>
- <1438232461.20182.117.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] gianfar: Fix warnings when built on 64-bit
+Date: Wed, 29 Jul 2015 22:57:40 -0700 (PDT)
+Message-ID: <20150729.225740.248853332948489247.davem@davemloft.net>
+References: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>,
-	Qinchuanyu <qinchuanyu@huawei.com>, Yewudi <yewudi@huawei.com>,
-	liuyongan 00175866 <l00175866@notesmail.huawei.com.cn>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438232461.20182.117.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: zh-CN
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arnd@arndb.de, scottwood@freescale.com
+To: claudiu.manoil@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36262 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbbG3F5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 01:57:41 -0400
+In-Reply-To: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-R2V0IGl0Lg0KRXJpYywgdGhhbmtzIGZvciB5b3VyIGV4cGxhaW5hdGlvbi4gOi0pDQoNCkphc29u
-LCB0aGFuayB5b3UhIEkgd2lsbCByZW1lbWJlciBjYyBuZXRkZXZAdmdlci5rZXJuZWwub3JnIG5l
-eHQgdGltZS4NCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEVyaWMgRHVtYXpl
-dCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dIA0KU2VudDogVGh1cnNkYXksIEp1bHkg
-MzAsIDIwMTUgMTowMSBQTQ0KVG86IEphc29uIFdhbmcNCkNjOiBaaGFuZ2ppZSAoSFopOyBsaW51
-eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBtc3RAcmVkaGF0LmNvbTsgUWluY2h1YW55dTsgWWV3
-dWRpOyBsaXV5b25nYW4gMDAxNzU4NjY7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6
-IFJlOiBbUXVlc3Rpb25dV2h5IGEgc2tiIHdpdGggZnJhZ19saXN0IGNhdXNlcyBCVUdfT04gaW4g
-ZnVuY3Rpb24gc2tiX3NlZ21lbnQNCg0KT24gVGh1LCAyMDE1LTA3LTMwIGF0IDEyOjI2ICswODAw
-LCBKYXNvbiBXYW5nIHdyb3RlOg0KPiBjYyBuZXRkZXYgZm9yIG1vcmUgZXhwZXJ0cw0KPiANCj4g
-T24gMDcvMjgvMjAxNSAwNDo1MyBQTSwgWmhhbmdqaWUgKEhaKSB3cm90ZToNCj4gPg0KPiA+IEhp
-LA0KPiA+DQo+ID4gSSBnZW5lcmF0ZSBhIHNrYiBhcyBmb2xsb3dzOg0KPiA+DQo+ID4gSXQgaGFz
-IGEgbGluZWFyIGRhdGEgcmVnaW9uLCAxNyBmcmFncyBhbmQgdGhlIGxhc3QgZnJhZ21lbnQgaXMg
-aW4gDQo+ID4gc2tiX3NoaW5mbyhza2IpLT5mcmFnX2xpc3QuDQo+ID4NCj4gPiBCZWZvcmUgdGhp
-cyBza2IgaXMgc2VudCB0byBkcml2ZXIsIGRldl9oYXJkX3N0YXJ0X3htaXQoKSB3aWxsIA0KPiA+
-IHNlZ21lbnQgaXQgZmlyc3Qoc2tiIGhhcyBmcmFnX2xpc3QsDQo+ID4NCj4gPiBzbyB3ZSBnZXQg
-dHJ1ZSBmcm9tIG5ldGlmX25lZWRzX2dzbygpKSwgdGhlbiB0aGUgc2tiIGlzIHBhc3NlZCB0byAN
-Cj4gPiBmdW5jdGlvbiBza2Jfc2VnbWVudCgpLg0KPiA+DQo+ID4gVGhlbiwgQlVHX09OKCkgaGFw
-cGVuZWQuDQo+ID4NCj4gPiB3aGlsZSAocG9zIDwgb2Zmc2V0ICsgbGVuKSB7DQo+ID4NCj4gPiAg
-ICAgICAgIGlmIChpID49IG5mcmFncykgew0KPiA+DQo+ID4gICAgICAgICAgICAgICAgIEJVR19P
-Tihza2JfaGVhZGxlbihsaXN0X3NrYikpOyAgICAoc2tidWZmLmM6MzEyMCkNCj4gPg0KPiA+ICAg
-ICAgICAgICAgICAgICDigKYNCj4gPg0KPiA+ICAgICAgICAgfQ0KPiA+DQo+ID4gICAgICAgICDi
-gKYNCj4gPg0KPiA+IH0NCj4gPg0KPiA+IEEgc2tiIHRoYXQgaGFzIG5vIGZyYWdzIGJ1dCBmcmFn
-X2xpc3QgYWxzbyBjYXVzZXMgQlVHX09OKCkuDQo+ID4NCj4gPiBJIHdvbmRlciBpZiBza2IgbGlr
-ZSBmb2xsb3dzIGlzIGxlZ2FsPyBDb3VsZCBza2IgaW4gZnJhZ19saXN0IGhhdmUgDQo+ID4gbGlu
-ZWFyIGRhdGEgcmVnaW9uPw0KDQpUaGUgYW5zd2VyIGlzIDogc2tiX3NlZ21lbnQoKSBpcyB2ZXJ5
-IGNvbXBsZXggYnV0IGRvZXMgbm90IGhhbmRsZSBhbGwgcG9zc2libGUgY2FzZXMuDQoNCnNrYiBm
-b3VuZCBpbiBza2Jfc2hpbmZvKHNrYiktPmZyYWdfbGlzdCBtdXN0IG5vdCBoYXZlIGFueXRoaW5n
-IGluIHRoZWlyDQpza2ItPmhlYWQuIFRoaXMgd291bGQgcmVxdWlyZSB2ZXJ5IGV4cGVuc2l2ZSBs
-b2dpYyBhbmQgbWVtb3J5DQphbGxvY2F0aW9ucyBhbmQgY29waWVzLg0KDQpNYWtlIHN1cmUgeW91
-IGZvbGxvdyB0aGlzIHJ1bGUgaW4geW91ciBkcml2ZXIsIG9yIGV2ZW4gYmV0dGVyIGxlYXZlIHRo
-aXMgd29yayB0byBHUk8gZW5naW5lLg0KDQoNCg0K
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Wed, 29 Jul 2015 16:13:06 +0300
+
+> From: Scott Wood <scottwood@freescale.com>
+> 
+> As part of defconfig consolidation using fragments, we'd like to be
+> able to have the same drivers enabled on 32-bit and 64-bit.  Gianfar
+> happens to only exist on 32-bit systems, and when building the
+> resulting 64-bit kernel warnings were produced.
+> 
+> A couple of the warnings are trivial, but the rfbptr code has deeper
+> issues.  It uses the virtual address as the DMA address, which again,
+> happens to work in the environments where this driver is currently
+> used, but is not the right thing to do.
+> 
+> Fixes: 45b679c9a3cc ("gianfar: Implement PAUSE frame generation
+> support")
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+
+Applied, thanks.
+
+ 
