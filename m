@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/phy: micrel: Reenable interrupts during resume
-Date: Wed, 29 Jul 2015 23:55:32 -0700 (PDT)
-Message-ID: <20150729.235532.2011128033027594424.davem@davemloft.net>
-References: <1438183274-4631-1-git-send-email-nathan.sullivan@ni.com>
+Subject: Re: [PATCH net] act_bpf: fix memory leaks when replacing bpf
+ programs
+Date: Wed, 29 Jul 2015 23:57:06 -0700 (PDT)
+Message-ID: <20150729.235706.1301630743612331900.davem@davemloft.net>
+References: <414a0b7318a7d8a33f1a1d5ec051f47a17c41c11.1438187493.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nathan.sullivan@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438183274-4631-1-git-send-email-nathan.sullivan@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, ast@plumgrid.com, jhs@mojatatu.com,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36522 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751024AbbG3G5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:57:07 -0400
+In-Reply-To: <414a0b7318a7d8a33f1a1d5ec051f47a17c41c11.1438187493.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTmF0aGFuIFN1bGxpdmFuIDxuYXRoYW4uc3VsbGl2YW5AbmkuY29tPg0KRGF0ZTogV2Vk
-LCAyOSBKdWwgMjAxNSAxMDoyMToxNCAtMDUwMA0KDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25l
-dC9waHkvbWljcmVsLmMgYi9kcml2ZXJzL25ldC9waHkvbWljcmVsLmMNCj4gaW5kZXggNDk5MTg1
-ZS4uN2E5M2FmNiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jDQo+ICsr
-KyBiL2RyaXZlcnMvbmV0L3BoeS9taWNyZWwuYw0KPiBAQCAtNDQ3LDYgKzQ0NywyMiBAQCBzdGF0
-aWMgaW50IGtzejkwMzFfY2VudGVyX2ZscF90aW1pbmcoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRl
-dikNCj4gIAlyZXR1cm4gZ2VucGh5X3Jlc3RhcnRfYW5lZyhwaHlkZXYpOw0KPiAgfQ0KPiAgDQo+
-ICtzdGF0aWMgaW50IGtzejkwMzFfcmVzdW1lKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpDQo+
-ICt7DQo+ICsJaW50IHJlc3VsdDsNCj4gKw0KPiArCXJlc3VsdCA9IGdlbnBoeV9yZXN1bWUocGh5
-ZGV2KTsNCj4gKw0KPiArCWlmIChyZXN1bHQpDQo+ICsJCXJldHVybiByZXN1bHQ7DQo+ICsNCj4g
-KwkvKiBUaGlzIHBoeSB3aWxsIHJlc2V0IGludGVycnVwdCBlbmFibGVzIHdoZW4gbGVhdmluZyBw
-b3dlciBkb3duICovDQo+ICsJaWYgKFBIWV9JTlRFUlJVUFRfRU5BQkxFRCAmIHBoeWRldi0+aW50
-ZXJydXB0cykNCj4gKwkJcmVzdWx0ID0ga3N6cGh5X3NldF9pbnRlcnJ1cHQocGh5ZGV2KTsNCj4g
-Kw0KDQpUaGlzIGRvZXNuJ3QgY29tcGlsZS4NCg0KZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jOiBJ
-biBmdW5jdGlvbiCha3N6OTAzMV9yZXN1bWWiOg0KZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jOjQ2
-MTozOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWtzenBoeV9zZXRf
-aW50ZXJydXB0oiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCiAgIHJl
-c3VsdCA9IGtzenBoeV9zZXRfaW50ZXJydXB0KHBoeWRldik7DQogICBeDQpjYzE6IHNvbWUgd2Fy
-bmluZ3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCnNjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6MjY0
-OiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9uZXQvcGh5L21pY3JlbC5vJyBmYWlsZWQNCg==
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 29 Jul 2015 18:40:56 +0200
+
+> We currently trigger multiple memory leaks when replacing bpf
+> actions, besides others:
+ ...
+> Fixes: d23b8ad8ab23 ("tc: add BPF based action")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Applied and queued up for -stable, thanks Daniel.
