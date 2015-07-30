@@ -1,9 +1,10 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH V4 6/7] hvsock: introduce Hyper-V VM Sockets feature
-Date: Thu, 30 Jul 2015 10:17:44 +0000
-Message-ID: <4cd0704b1a324edc9330b11b006d8574@SIXPR30MB031.064d.mgd.msft.net>
-References: <1438086923-19450-1-git-send-email-decui@microsoft.com>
- <20150729.152737.853332463848886188.davem@davemloft.net>
+Subject: RE: [PATCH V4 7/7] Drivers: hv: vmbus: disable local interrupt when
+ hvsock's callback is running
+Date: Thu, 30 Jul 2015 10:18:04 +0000
+Message-ID: <77fb17eab5474ee7bf34bb1c148b84ea@SIXPR30MB031.064d.mgd.msft.net>
+References: <1438086930-19483-1-git-send-email-decui@microsoft.com>
+ <20150729.152809.1531386671239230150.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,9 +20,9 @@ Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
  "apw@canonical.com" <apw@canonical.com>,
  "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
  "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>, KY Srinivasan <kys@microsoft.com>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150729.152737.853332463848886188.davem@davemloft.net>
+In-Reply-To: <20150729.152809.1531386671239230150.davem@davemloft.net>
 Content-Language: en-US
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
@@ -36,46 +37,48 @@ List-Id: netdev.vger.kernel.org
 
 > From: David Miller
 > Sent: Thursday, July 30, 2015 6:28
-> >From: Dexuan Cui
-> >Date: Tue, 28 Jul 2015 05:35:23 -0700
+> > From: Dexuan Cui <decui@microsoft.com>
+> > Date: Tue, 28 Jul 2015 05:35:30 -0700
 > >
-> > +/* hvsock_release() can be invoked in 2 paths:
-> > + * 1. on process termination:
-> > + *	hvsock_sk_destruct+0x1a/0x20
-> > + *	__sk_free+0x1d/0x130
-> > + *	sk_free+0x19/0x20
-> > + *	hvsock_release+0x138/0x160
-> > + *	sock_release+0x1f/0x90
-> > + *	sock_close+0x12/0x20
-> > + *	__fput+0xdf/0x1f0
-> > + *	____fput+0xe/0x10
-> > + *	task_work_run+0xd4/0xf0
-> > + *	do_exit+0x334/0xb90
-> > + *	? __do_page_fault+0x1e1/0x490
-> > + *	? lockdep_sys_exit_thunk+0x35/0x67
-> > + *	do_group_exit+0x54/0xe0
-> > + *	SyS_exit_group+0x14/0x20
-> > + *	system_call_fastpath+0x16/0x1b
-> > + *
-> > + *  2. when accept() returns -ENITR:
-> > + *	hvsock_release+0x151/0x160
-> > + *	sock_release+0x1f/0x90
-> > + *	sock_close+0x12/0x20
-> > + *	__fput+0xdf/0x1f0
-> > + *	____fput+0xe/0x10
-> > + *	task_work_run+0xb7/0xf0
-> > + *	get_signal+0x750/0x770
-> > + *	do_signal+0x28/0xbb0
-> > + *	? put_unused_fd+0x52/0x60
-> > + *	? SYSC_accept4+0x1ca/0x220
-> > + *	do_notify_resume+0x4f/0x90
-> > + *	int_signal+0x12/0x17
-> > + */
-> 
-> It is a bit much to put full stack backtraces into a comment like this.
+> > In the SMP guest case, when the per-channel callback hvsock_events() is
+> > running on virtual CPU A, if the guest tries to close the connection on
+> > virtual CPU B: we invoke vmbus_close() -> vmbus_close_internal(),
+> > then we can have trouble: on B, vmbus_close_internal() will send IPI
+> > reset_channel_cb() to A, trying to set channel->onchannel_callbackto NULL;
+> > on A, if the IPI handler happens between
+> > "if (channel->onchannel_callback != NULL)" and invoking
+> > channel->onchannel_callback, we'll invoke a function pointer of NULL.
+> >
+> > This is why the patch is necessary.
+> >
+> Sorry, I do not accept that you must use conditional locking and/or
+> IRQ disabling.
+>
+> Boil it down to what is necessary for the least common denominator,
+> and use that unconditionally.
 
-Thanks for reviewing the patch, David!
-I'll remove these lines and add a proper comment here.
+Hi David,
+Thanks for the comment!
+
+I agree with you it's not clean to use conditional IRQ disabling.
+
+Here I didn't use unconditionally IRQ disabling because the Hyper-V netvsc
+and storvsc driver's vmbus event callbacks (i.e. netvsc_channel_cb() and
+storvsc_on_channel_callback()) may take relatively long time (e.g., netvsc can
+operate at a speed of 10Gb) and I think it's bad to disable IRQ for long time
+when the callbacks are running in a tasklet context, e.g., the Hyper-V timer
+can be affected: see vmbus_isr() -> hv_process_timer_expiration().
+
+To resolve the race condition between vmbus_close_internal() and
+process_chn_event() in SMP case, now I propose a new method:
+
+we can serialize the 2 paths by adding
+tasklet_disable(hv_context.event_dpc[channel->target_cpu]) and
+tasklet_enable(...) in vmbus_close_internal().
+
+In this way, we need the least change and we can drop this patch.
+
+Please let me know your opinion.
 
 Thanks,
 -- Dexuan
