@@ -1,186 +1,64 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net-next v4] net/ipv6: add sysctl option accept_ra_min_hop_limit
-Date: Thu, 30 Jul 2015 15:06:34 +0900
-Message-ID: <55B9BEEA.7010406@miraclelinux.com>
-References: <1438224907-30873-1-git-send-email-liuhangbin@gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH 2/2] drivers: net: cpsw: add separate napi for
+ tx packet handling for performance improvment
+Date: Thu, 30 Jul 2015 11:42:09 +0530
+Message-ID: <55B9C039.2060805@ti.com>
+References: <1437995941-5857-1-git-send-email-mugunthanvnm@ti.com> <1437995941-5857-3-git-send-email-mugunthanvnm@ti.com> <20150727212206.GA8912@electric-eye.fr.zoreil.com> <55B71E99.50807@ti.com> <20150728223013.GA10669@electric-eye.fr.zoreil.com> <55B86240.4090301@ti.com> <20150729225709.GA8122@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:36468 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910AbbG3GGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:06:38 -0400
-Received: by pachj5 with SMTP id hj5so17864584pac.3
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 23:06:37 -0700 (PDT)
-In-Reply-To: <1438224907-30873-1-git-send-email-liuhangbin@gmail.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:46916 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750775AbbG3GMY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2015 02:12:24 -0400
+In-Reply-To: <20150729225709.GA8122@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Hangbin Liu wrote:
-> Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
-> disabled accept hop limit from RA if it is higher than the current hop
-
-higher?
-
-> limit for security stuff. But this behavior kind of break the RFC definition.
+On Thursday 30 July 2015 04:27 AM, Francois Romieu wrote:
+> Mugunthan V N <mugunthanvnm@ti.com> :
+>> On Wednesday 29 July 2015 04:00 AM, Francois Romieu wrote:
+>>> Mugunthan V N <mugunthanvnm@ti.com> :
+>>>> On Tuesday 28 July 2015 02:52 AM, Francois Romieu wrote:
+> [...]
+>>>>> cpsw_ndo_stop calls napi_disable: you can remove netif_running.
+>>>>>
+>>>>
+>>>> This netif_running check is to find which interface is up as the
+>>>> interrupt is shared by both the interfaces. When first interface is down
+>>>> and second interface is active then napi_schedule for first interface
+>>>> will fail and second interface napi needs to be scheduled.
+>>>>
+>>>> So I don't think netif_running needs to be removed.
+>>>
+>>> Each interface has its own napi tx (resp. rx) context: I would had expected
+>>> two unconditional napi_schedule per tx (resp. rx) shared irq, not one.
+>>>
+>>> I'll read it again after some sleep.
+>>>
+>>
+>> For each interrupt only one napi will be scheduled, when the first
+>> interface is down then only second interface napi is scheduled in both
+>> tx and rx irqs.
 > 
-> RFC 4861, 6.3.4.  Processing Received Router Advertisements
->    A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
->    and Retrans Timer) may contain a value denoting that it is
->    unspecified.  In such cases, the parameter should be ignored and the
->    host should continue using whatever value it is already using.
+> Ok, I've had some hints from the "Assumptions" section at
+> http://processors.wiki.ti.com/index.php/AM335x_CPSW_%28Ethernet%29_Driver%27s_Guide#Dual_Standalone_EMAC_mode
 > 
->    If the received Cur Hop Limit value is non-zero, the host SHOULD set
->    its CurHopLimit variable to the received value.
-> 
-> So add sysctl option accept_ra_min_hop_limit to let user choose the minimum
-> hop limit value they can accept from RA. And set default to 1 to meet RFC
-> standards.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
->  Documentation/networking/ip-sysctl.txt |  8 ++++++++
->  include/linux/ipv6.h                   |  1 +
->  include/uapi/linux/ipv6.h              |  1 +
->  net/ipv6/addrconf.c                    | 10 ++++++++++
->  net/ipv6/ndisc.c                       | 14 +++++---------
->  5 files changed, 25 insertions(+), 9 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 1a5ab21b..00d26d9 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -1340,6 +1340,14 @@ accept_ra_from_local - BOOLEAN
->  	   disabled if accept_ra_from_local is disabled
->                 on a specific interface.
->  
-> +accept_ra_min_hop_limit - INTEGER
-> +	Minimum hop limit Information in Router Advertisement.
-> +
-> +	Hop limit Information in Router Advertisement less than this
-> +	variable shall be ignored.
-> +
-> +	Default: 1
-> +
->  accept_ra_pinfo - BOOLEAN
->  	Learn Prefix Information in Router Advertisement.
->  
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index 06ed637..cb9dcad 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -29,6 +29,7 @@ struct ipv6_devconf {
->  	__s32		max_desync_factor;
->  	__s32		max_addresses;
->  	__s32		accept_ra_defrtr;
-> +	__s32		accept_ra_min_hop_limit;
->  	__s32		accept_ra_pinfo;
->  #ifdef CONFIG_IPV6_ROUTER_PREF
->  	__s32		accept_ra_rtr_pref;
-> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-> index 641a146..80f3b74 100644
-> --- a/include/uapi/linux/ipv6.h
-> +++ b/include/uapi/linux/ipv6.h
-> @@ -172,6 +172,7 @@ enum {
->  	DEVCONF_ACCEPT_RA_MTU,
->  	DEVCONF_STABLE_SECRET,
->  	DEVCONF_USE_OIF_ADDRS_ONLY,
-> +	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
->  	DEVCONF_MAX
->  };
->  
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index eb0c6a3..53e3a9d 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -195,6 +195,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
->  	.max_addresses		= IPV6_MAX_ADDRESSES,
->  	.accept_ra_defrtr	= 1,
->  	.accept_ra_from_local	= 0,
-> +	.accept_ra_min_hop_limit= 1,
->  	.accept_ra_pinfo	= 1,
->  #ifdef CONFIG_IPV6_ROUTER_PREF
->  	.accept_ra_rtr_pref	= 1,
-> @@ -237,6 +238,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
->  	.max_addresses		= IPV6_MAX_ADDRESSES,
->  	.accept_ra_defrtr	= 1,
->  	.accept_ra_from_local	= 0,
-> +	.accept_ra_min_hop_limit= 1,
->  	.accept_ra_pinfo	= 1,
->  #ifdef CONFIG_IPV6_ROUTER_PREF
->  	.accept_ra_rtr_pref	= 1,
-> @@ -4588,6 +4590,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
->  	array[DEVCONF_MAX_DESYNC_FACTOR] = cnf->max_desync_factor;
->  	array[DEVCONF_MAX_ADDRESSES] = cnf->max_addresses;
->  	array[DEVCONF_ACCEPT_RA_DEFRTR] = cnf->accept_ra_defrtr;
-> +	array[DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT] = cnf->accept_ra_min_hop_limit;
->  	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
->  #ifdef CONFIG_IPV6_ROUTER_PREF
->  	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
-> @@ -5485,6 +5488,13 @@ static struct addrconf_sysctl_table
->  			.proc_handler	= proc_dointvec,
->  		},
->  		{
-> +			.procname	= "accept_ra_min_hop_limit",
-> +			.data		= &ipv6_devconf.accept_ra_min_hop_limit,
-> +			.maxlen		= sizeof(int),
-> +			.mode		= 0644,
-> +			.proc_handler	= proc_dointvec,
-> +		},
-> +		{
->  			.procname	= "accept_ra_pinfo",
->  			.data		= &ipv6_devconf.accept_ra_pinfo,
->  			.maxlen		= sizeof(int),
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 0a05b35..5619e64 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -1225,18 +1225,14 @@ static void ndisc_router_discovery(struct sk_buff *skb)
->  
->  	if (rt)
->  		rt6_set_expires(rt, jiffies + (HZ * lifetime));
-> -	if (ra_msg->icmph.icmp6_hop_limit) {
-> -		/* Only set hop_limit on the interface if it is higher than
-> -		 * the current hop_limit.
-> -		 */
-> -		if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
-> -			in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
-> -		} else {
-> -			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
-> -		}
-> +	if (in6_dev->cnf.accept_ra_min_hop_limit < 256 && ra_msg->icmph.icmp6_hop_limit &&
-> +	    in6_dev->cnf.accept_ra_min_hop_limit <= ra_msg->icmph.icmp6_hop_limit) {
-> +		in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
->  		if (rt)
->  			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
->  				       ra_msg->icmph.icmp6_hop_limit);
-> +	} else {
-> +		ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than minimum\n");
->  	}
->  
->  skip_defrtr:
+> Why does the driver create 2 rx napi contexts ? They don't run at the
+> same time and the port demux is done in cpsw_dual_emac_src_port_detect.
+> The driver would work the same with a single rx (resp. tx) napi context
+> for both interfaces.
 > 
 
-No because we emit incorrect warning with 0 hoplimit in RA.
+The wiki you had pointed out is old design done on v3.2 and doesn't have
+device tree support also. In mainline Dual EMAC implementation has
+changed a lot.
 
-if (in6_dev->cnf.accept_ra_min_hop_limit < 256 &&
-    ra_msg->icmph.icmp6_hop_limit) {
-	if (in6_dev->cnf.accept_ra_min_hop_limit <= ra_msg->icmph.icmp6_hop_limit) {
-		in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
-		if (rt)
-			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
-				       ra_msg->icmph.icmp6_hop_limit);
-	} else {
-		ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than minimum\n");
-  	}
-}
+I can think of a way with one napi implementation for each rx and tx,
+will submit a separate patch for it.
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Regards
+Mugunthan V N
