@@ -1,35 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2015-07-30
-Date: Thu, 30 Jul 2015 16:17:23 -0700 (PDT)
-Message-ID: <20150730.161723.780687374288228317.davem@davemloft.net>
-References: <20150730173448.GA13424@t440s.P-661HNU-F1>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/3] net: Switch tag HW extraction/insertion
+Date: Thu, 30 Jul 2015 16:18:43 -0700
+Message-ID: <55BAB0D3.4070607@gmail.com>
+References: <1438209160-6898-1-git-send-email-f.fainelli@gmail.com>	<20150730.141935.723435302404122784.davem@davemloft.net> <20150730.155124.2216613161860898066.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: johan.hedberg@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752482AbbG3XRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 19:17:24 -0400
-In-Reply-To: <20150730173448.GA13424@t440s.P-661HNU-F1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	andrew@lunn.ch, cphealy@gmail.com, mathieu@codeaurora.org,
+	jonasj76@gmail.com, andrey.volkov@nexvision.fr,
+	Chris.Packham@alliedtelesis.co.nz
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150730.155124.2216613161860898066.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Thu, 30 Jul 2015 20:34:48 +0300
+On 30/07/15 15:51, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 30 Jul 2015 14:19:35 -0700 (PDT)
+>=20
+>> This looks fine, series applied, thanks.
+>=20
+> I think your control block is too large, you'll need to rework this
+> somehow.
 
-> Here's a set of Bluetooth & 802.15.4 patches intended for the 4.3 kernel.
-> 
->  - Cleanups & fixes to mac802154
->  - Refactoring of Intel Bluetooth HCI driver
->  - Various coding style fixes to Bluetooth HCI drivers
->  - Support for Intel Lightning Peak Bluetooth devices
->  - Generic class code in interface descriptor in btusb to match more HW
->  - Refactoring of Bluetooth HS code together with a new config option
->  - Support for BCM4330B1 Broadcom UART controller
-> 
-> Let me know if there are any issues pulling. Thanks.
+Interesting, this only seems to show up with 64-bits build, which is wh=
+y
+I did not catch this earlier (building for ARMv7 typically), sorry abou=
+t
+that, I will come up with a fix.
 
-Pulled, thanks Johan.
+>=20
+> In function =E2=80=98dsa_copy_brcm_tag=E2=80=99,
+>     inlined from =E2=80=98bcm_sysport_desc_rx=E2=80=99 at drivers/net=
+/ethernet/broadcom/bcmsysport.c:707:4,
+>     inlined from =E2=80=98bcm_sysport_poll=E2=80=99 at drivers/net/et=
+hernet/broadcom/bcmsysport.c:864:12:
+> include/linux/compiler.h:447:38: error: call to =E2=80=98__compiletim=
+e_assert_2016=E2=80=99 declared with attribute error: BUILD_BUG_ON fail=
+ed: sizeof(skb->cb) - sizeof(struct napi_gro_cb) < BRCM_TAG_LEN
+>   _compiletime_assert(condition, msg, __compiletime_assert_, __LINE__=
+)
+>                                       ^
+> include/linux/compiler.h:430:4: note: in definition of macro =E2=80=98=
+__compiletime_assert=E2=80=99
+>     prefix ## suffix();    \
+>     ^
+> include/linux/compiler.h:447:2: note: in expansion of macro =E2=80=98=
+_compiletime_assert=E2=80=99
+>   _compiletime_assert(condition, msg, __compiletime_assert_, __LINE__=
+)
+>   ^
+> include/linux/bug.h:50:37: note: in expansion of macro =E2=80=98compi=
+letime_assert=E2=80=99
+>  #define BUILD_BUG_ON_MSG(cond, msg) compiletime_assert(!(cond), msg)
+>                                      ^
+> include/linux/bug.h:74:2: note: in expansion of macro =E2=80=98BUILD_=
+BUG_ON_MSG=E2=80=99
+>   BUILD_BUG_ON_MSG(condition, "BUILD_BUG_ON failed: " #condition)
+>   ^
+> include/linux/netdevice.h:2016:2: note: in expansion of macro =E2=80=98=
+BUILD_BUG_ON=E2=80=99
+>   BUILD_BUG_ON(sizeof(skb->cb) - sizeof(struct napi_gro_cb) < BRCM_TA=
+G_LEN);
+>   ^
+> scripts/Makefile.build:264: recipe for target 'drivers/net/ethernet/b=
+roadcom/bcmsysport.o' failed
+>=20
+
+
+--=20
+=46lorian
