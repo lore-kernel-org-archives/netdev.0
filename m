@@ -1,74 +1,25 @@
-From: Richard Laing <Richard.Laing@alliedtelesis.co.nz>
-Subject: Re: [RFC PATCH 1/1] net/ipv4: Enable flow-based ECMP
-Date: Thu, 30 Jul 2015 01:23:57 +0000
-Message-ID: <55B97CAC.3010004@alliedtelesis.co.nz>
-References: <55B6E8AC.4060600@alliedtelesis.co.nz>
-	<CALx6S361R1UeEECQn9vFDCS-wi_StoV6mekqgSK-0t-0NPvWEA@mail.gmail.com>
-	<55B7F202.5050503@alliedtelesis.co.nz>
-	<20150729061148.GB18456@unicorn.suse.cz>
- <CALx6S36NeeBeLj_UDMMm1-ub-cPy5n7OZhqGag2rN7bcQo9kWQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] net: netcp: bug fixes for dynamic module support
+Date: Wed, 29 Jul 2015 18:38:00 -0700 (PDT)
+Message-ID: <20150729.183800.543604371813212309.davem@davemloft.net>
+References: <1438122014-24744-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jmorris@namei.org" <jmorris@namei.org>
-To: Tom Herbert <tom@herbertland.com>,
-	Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:54846 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754575AbbG3BYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 21:24:05 -0400
-In-Reply-To: <CALx6S36NeeBeLj_UDMMm1-ub-cPy5n7OZhqGag2rN7bcQo9kWQ@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <3E83AB7A046B27479C56C468C1B19B64@atlnz.lc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	w-kwok2@ti.com
+To: m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438122014-24744-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCk9uIDA3LzMwLzIwMTUgMDQ6MTIgQU0sIFRvbSBIZXJiZXJ0IHdyb3RlOg0KPiBPbiBUdWUs
-IEp1bCAyOCwgMjAxNSBhdCAxMToxMSBQTSwgTWljaGFsIEt1YmVjZWsgPG1rdWJlY2VrQHN1c2Uu
-Y3o+IHdyb3RlOg0KPj4gT24gVHVlLCBKdWwgMjgsIDIwMTUgYXQgMDk6MjA6MDJQTSArMDAwMCwg
-UmljaGFyZCBMYWluZyB3cm90ZToNCj4+Pj4+IGRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9mbG93
-LmggYi9pbmNsdWRlL25ldC9mbG93LmgNCj4+Pj4+IGluZGV4IDgxMDlhMTUuLmQxZDkzM2QgMTAw
-NjQ0DQo+Pj4+PiAtLS0gYS9pbmNsdWRlL25ldC9mbG93LmgNCj4+Pj4+ICsrKyBiL2luY2x1ZGUv
-bmV0L2Zsb3cuaA0KPj4+Pj4gQEAgLTc5LDYgKzc5LDEwIEBAIHN0cnVjdCBmbG93aTQgew0KPj4+
-Pj4gICAgICNkZWZpbmUgZmw0X2lwc2VjX3NwaSAgICAgICAgdWxpLnNwaQ0KPj4+Pj4gICAgICNk
-ZWZpbmUgZmw0X21oX3R5cGUgICAgICAgIHVsaS5taHQudHlwZQ0KPj4+Pj4gICAgICNkZWZpbmUg
-Zmw0X2dyZV9rZXkgICAgICAgIHVsaS5ncmVfa2V5DQo+Pj4+PiArDQo+Pj4+PiArI2lmZGVmIENP
-TkZJR19JUF9GTE9XX0JBU0VEX01VTFRJUEFUSA0KPj4+PiBXaHkgYm90aGVyIG1ha2luZyB0aGlz
-IGEgQ09ORklHLCByb3VuZCByb2JpbiBpcyBhIG1pc2VyYWJsZSBhbGdvcml0aG0NCj4+Pj4gYW55
-d2F5IGFuZCBuZWFybHkgYWxsIHRoZSBvdGhlciBwYWNrZXQgc3RlZXJpbmcgbWVjaGFuaXNtcyBh
-bHJlYWR5IHVzZQ0KPj4+PiBhIGhhc2guDQo+Pj4gRmFpciBlbm91Z2gsIEkgd2lsbCBsb29rIGF0
-IG1ha2luZyBpdCBhIHN5c2N0bCBvcHRpb24uIEkgZ3Vlc3MgdGhlDQo+Pj4gZGVmYXVsdCBjYW4g
-YmUgdGhlIGN1cnJlbnQgYmVoYXZpb3VyLg0KPj4gSG0uLi4gdGhhdCdzIGFuIGludGVyZXN0aW5n
-IHF1ZXN0aW9uLiBJbiBnZW5lcmFsLCBpdCdzIGJldHRlciB0byB1c2UNCj4+IGN1cnJlbnQgYmVo
-YXZpb3VyIGFzIGEgZGVmYXVsdCBzbyB0aGF0IHBlb3BsZSBhcmUgbm90IHN1cnByaXNlZCBvbg0K
-Pj4gdXBncmFkZS4gT24gdGhlIG90aGVyIGhhbmQsIGl0IHVzZWQgdG8gYmUgcGVyLWZsb3cgIC0g
-b3IgcmF0aGVyIHBlcg0KPj4gZGVzdGluYXRpb24gLSBlYXJsaWVyICh1bnRpbCB0aGUgcm91dGlu
-ZyBjYWNoZSByZW1vdmFsLCBJIGJlbGlldmUpIGFuZA0KPj4gcGVyLWZsb3cgZGlzdHJpYnV0aW9u
-IGlzIElNSE8gcHJlZmVycmFibGUgaW4gbWFqb3JpdHkgb2YgdXNlIGNhc2VzLiBJbg0KPj4gdGhl
-b3J5LCB0aGVyZSB3YXMgYSByb3V0ZSBhdHRyaWJ1dGUgImVxdWFsaXplIiB0byBzd2l0Y2ggdG8g
-cGVyLXBhY2tldA0KPj4gZGlzdHJpYnV0aW9uLCBidXQgaXQgd2FzIG5ldmVyIGFjdHVhbGx5IGlt
-cGxlbWVudGVkLCBBRkFJSyAoaXQgd2FzDQo+PiByZWNvZ25pemVkIGJ5IGlwIGFuZCBwYXNzZWQg
-dG8ga2VybmVsIGJ1dCBpZ25vcmVkIHRoZXJlKS4NCj4+DQo+PiBBbnl3YXksIGNvbmZpZyBvcHRp
-b24gaXMgZGVmaW5pdGVseSBpbmNvbnZlbmllbnQgYXMgbW9zdCB1c2VycyBpbnN0YWxsDQo+PiBk
-aXN0cmlidXRpb24ga2VybmVscyBhbmQgZG8gbm90IGNvbmZpZ3VyZSB0aGVpciBrZXJuZWxzIHRo
-ZW1zZWx2ZXMuIEV2ZW4NCj4+IGJvb3QgcGFyYW1ldGVyIHdvdWxkIGJlIGJldHRlciAtIGJ1dCBz
-eXNjdGwgc291bmRzIG11Y2ggYmV0dGVyLiBIYXZpbmcNCj4+IGJvdGggc3lzY3RsIGFuZCBwZXIt
-cm91dGUgYXR0cmlidXRlIHdvdWxkIGJlIHBlcmZlY3QsIG9mIGNvdXJzZS4NCj4+DQo+IElQdjYg
-cm91dGluZyBhbHJlYWR5IHVzZXMgYSBoYXNoIHdpdGhvdXQgYW55IGNhcGFiaWxpdHkgb2Ygc2V0
-dGluZw0KPiB0aGlzIHRvIGJlIHJvdW5kIHJvYmluLCBwcm9iYWJseSBldmVyeSBuZXR3b3JrIGRl
-dmljZSBvbiB0aGUgcGxhbmV0DQo+IHBlcmZvcm1zIEVDTVAgdXNpbmcgYSBoYXNoIHNpbmNlIGl0
-IGlzIHN0YXRlbGVzcyBhbGdvcml0aG0sIGFuZCBhcyBJDQo+IHBvaW50ZWQgbW9zdCBvZiBvdXIg
-b3RoZXIgcGFja2V0IHN0ZWVyaW5nIG1lY2hhbmlzbXMgdXNlIGEgaGFzaC4gU28NCj4gdGhlIElQ
-djQgcGF0aCBzZWVtcyB0byBiZSB0aGUgb2RkIG1hbiBvdXQgaGVyZS4gS2VlcGluZyByb3VuZCBy
-b2Jpbg0KPiBzZWVtcyBhcm91bmQgYXdmdWxseSBjb25zZXJ2YXRpdmUgdG8gbWUsIGFuZCBpbXBs
-aWVzIHRoYXQgd2UgbmVlZCB0bw0KPiBpbXBsZW1lbnQgaXQgaW4gSVB2NiB0byBtYWludGFpbiBm
-ZWF0dXJlIHBhcml0eS4NCj4NCj4gVG9tDQoNClRoYW5rcyBUb20sIEkgd291bGQgY2VydGFpbmx5
-IGFncmVlIHRoYXQgZmxvdyBiYXNlZCBpcyBwcmVmZXJhYmxlIHRvIHRoZSBjdXJyZW50IGJlaGF2
-aW91ciBhbmQgd291bGQgYmUgaGFwcHkgdG8gbWFrZSBpdCB0aGUgZGVmYXVsdC4gSSB3aWxsIHVw
-ZGF0ZSBteSBwYXRjaCB3aXRoIHRoZSBmZWVkYmFjayBhbmQgc2VuZCBhbiB1cGRhdGUsIG5vIEVU
-QSByaWdodCBub3chDQoNCkNoZWVycw0KUmljaGFyZA0KDQotLQ0KUmljaGFyZCBMYWluZw0KU29m
-dHdhcmUgVGVhbSBMZWFkZXINCkFsbGllZCBUZWxlc2lzIExhYnN8IDI3IE5hemFyZXRoIEF2ZSB8
-IENocmlzdGNodXJjaCA4MDI0IHwgTmV3IFplYWxhbmQNClBob25lOiArNjQgMyAzMzkgOTI0OA0K
-V2ViOiB3d3cuYWxsaWVkdGVsZXNpcy5jb20NCg==
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Tue, 28 Jul 2015 18:20:11 -0400
+
+> This series fixes few bugs to allow keystone netcp modules to be
+> dynamically loaded and removed. Currently it allows following
+> sequence multiple times
+ ...
+
+Series applied, thanks.
