@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 01/12] tipc: eliminate function
-	tipc_link_activate()
-Date: Thu, 30 Jul 2015 18:24:15 -0400
-Message-ID: <1438295066-29655-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 03/12] tipc: reverse call order
+	for link_reset()->node_link_down()
+Date: Thu, 30 Jul 2015 18:24:17 -0400
+Message-ID: <1438295066-29655-4-git-send-email-jon.maloy@ericsson.com>
 References: <1438295066-29655-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,119 +23,158 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The function tipc_link_activate() is redundant, since it mostly performs
-settings that have already been done in a preceding tipc_link_reset().
+In many cases the call order when a link is reset goes as follows:
+tipc_node_xx()->tipc_link_reset()->tipc_node_link_down()
 
-There are three exceptions to this:
-- The actual state change to TIPC_LINK_WORKING. This should anyway be done
-  in the FSM, and not in a separate function.
-- Registration of the link with the bearer. This should be done by the
-  node, since we don't want the link to have any knowledge about its
-  specific bearer.
-- Call to tipc_node_link_up() for user access registration. With the new
-  role distribution between link aggregation and link level this becomes
-  the wrong call order; tipc_node_link_up() should instead be called
-  directly as a result of a TIPC_LINK_UP event, hence by the node itself.
+This is not the right order if we want the node to be in control,
+so in this commit we change the order to:
+tipc_node_xx()->tipc_node_link_down()->tipc_link_reset()
 
-This commit implements those changes.
+The fact that tipc_link_reset() now is called from only one
+location with a well-defined state will also facilitate later
+simplifications of tipc_link_reset() and the link FSM.
 
 Tested-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c | 17 ++++-------------
- net/tipc/link.h |  1 -
- net/tipc/node.c |  6 ++++--
- 3 files changed, 8 insertions(+), 16 deletions(-)
+ net/tipc/link.c |  6 +-----
+ net/tipc/node.c | 30 +++++++++++++++++++++---------
+ 2 files changed, 22 insertions(+), 14 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index cc40aa6..05837ba 100644
+index 8c81db7..2ccdb6f 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -228,6 +228,8 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- 	l_ptr->peer_session = WILDCARD_SESSION;
- 	l_ptr->bearer_id = b_ptr->identity;
- 	l_ptr->tolerance = b_ptr->tolerance;
-+	l_ptr->snd_nxt = 1;
-+	l_ptr->rcv_nxt = 1;
- 	l_ptr->state = TIPC_LINK_RESETTING;
+@@ -566,7 +566,6 @@ void tipc_link_purge_queues(struct tipc_link *l_ptr)
+ void tipc_link_reset(struct tipc_link *l_ptr)
+ {
+ 	u32 prev_state = l_ptr->state;
+-	int was_active_link = tipc_link_is_active(l_ptr);
+ 	struct tipc_node *owner = l_ptr->owner;
+ 	struct tipc_link *pl = tipc_parallel_link(l_ptr);
  
- 	l_ptr->pmsg = (struct tipc_msg *)&l_ptr->proto_msg;
-@@ -376,6 +378,7 @@ static int tipc_link_fsm_evt(struct tipc_link *l, int evt,
- 			pl = node_active_link(l->owner, 0);
- 			if (pl && link_probing(pl))
- 				break;
-+			l->state = TIPC_LINK_WORKING;
- 			actions |= LINK_ACTIVATE;
- 			if (!l->owner->working_links)
- 				actions |= SND_BCAST_SYNC;
-@@ -398,6 +401,7 @@ static int tipc_link_fsm_evt(struct tipc_link *l, int evt,
- 			pl = node_active_link(l->owner, 0);
- 			if (pl && link_probing(pl))
- 				break;
-+			l->state = TIPC_LINK_WORKING;
- 			actions |= LINK_ACTIVATE;
- 			if (!l->owner->working_links)
- 				actions |= SND_BCAST_SYNC;
-@@ -639,19 +643,6 @@ void tipc_link_reset(struct tipc_link *l_ptr)
- 	link_reset_statistics(l_ptr);
- }
+@@ -584,10 +583,7 @@ void tipc_link_reset(struct tipc_link *l_ptr)
+ 	    (prev_state == TIPC_LINK_ESTABLISHING))
+ 		return;
  
--void tipc_link_activate(struct tipc_link *link)
--{
--	struct tipc_node *node = link->owner;
+-	tipc_node_link_down(l_ptr->owner, l_ptr->bearer_id);
+-	tipc_bearer_remove_dest(owner->net, l_ptr->bearer_id, l_ptr->addr);
 -
--	link->rcv_nxt = 1;
--	link->stats.recv_info = 1;
--	link->silent_intv_cnt = 0;
--	link->state = TIPC_LINK_WORKING;
--	link->exec_mode = TIPC_LINK_OPEN;
--	tipc_node_link_up(node, link->bearer_id);
--	tipc_bearer_add_dest(node->net, link->bearer_id, link->addr);
--}
--
- /**
-  * __tipc_link_xmit(): same as tipc_link_xmit, but destlink is known & locked
-  * @link: link to use
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 37cfd7d..279196d 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -223,7 +223,6 @@ void tipc_link_purge_queues(struct tipc_link *l_ptr);
- void tipc_link_purge_backlog(struct tipc_link *l);
- void tipc_link_reset_all(struct tipc_node *node);
- void tipc_link_reset(struct tipc_link *l_ptr);
--void tipc_link_activate(struct tipc_link *link);
- int __tipc_link_xmit(struct net *net, struct tipc_link *link,
- 		     struct sk_buff_head *list);
- int tipc_link_xmit(struct tipc_link *link,	struct sk_buff_head *list,
+-	if (was_active_link && tipc_node_is_up(l_ptr->owner) && (pl != l_ptr)) {
++	if (tipc_node_is_up(l_ptr->owner) && (pl != l_ptr)) {
+ 		l_ptr->exec_mode = TIPC_LINK_BLOCKED;
+ 		l_ptr->failover_checkpt = l_ptr->rcv_nxt;
+ 		pl->failover_pkts = FIRST_FAILOVER;
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index e92f84a..558df25 100644
+index 6a0680b..65c2c80 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -295,11 +295,13 @@ void tipc_node_link_up(struct tipc_node *n, int bearer_id)
- 	n->action_flags |= TIPC_NOTIFY_LINK_UP;
+@@ -265,7 +265,7 @@ static void tipc_node_timeout(unsigned long data)
+ 			tipc_node_calculate_timer(n, l);
+ 			rc = tipc_link_timeout(l, &xmitq);
+ 			if (rc & TIPC_LINK_DOWN_EVT)
+-				tipc_link_reset(l);
++				tipc_node_link_down(n, bearer_id);
+ 		}
+ 		tipc_node_unlock(n);
+ 		maddr = &n->links[bearer_id].maddr;
+@@ -338,10 +338,15 @@ void tipc_node_link_down(struct tipc_node *n, int bearer_id)
+ 	struct tipc_link *l, *_l;
+ 
+ 	l = n->links[bearer_id].link;
++	if (!l || !tipc_link_is_up(l))
++		return;
++
+ 	n->working_links--;
+ 	n->action_flags |= TIPC_NOTIFY_LINK_DOWN;
  	n->link_id = l->peer_bearer_id << 16 | l->bearer_id;
  
-+	tipc_bearer_add_dest(n->net, bearer_id, n->addr);
++	tipc_bearer_remove_dest(n->net, l->bearer_id, n->addr);
 +
- 	pr_debug("Established link <%s> on network plane %c\n",
+ 	pr_debug("Lost link <%s> on network plane %c\n",
  		 l->name, l->net_plane);
  
- 	/* No active links ? => take both active slots */
--	if (*slot0 < 0) {
-+	if (!tipc_node_is_up(n)) {
- 		*slot0 = bearer_id;
- 		*slot1 = bearer_id;
- 		node_established_contact(n);
-@@ -896,7 +898,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
- 	rc = tipc_link_rcv(l, skb, &xmitq);
+@@ -352,6 +357,8 @@ void tipc_node_link_down(struct tipc_node *n, int bearer_id)
+ 		_l = n->links[i].link;
+ 		if (!_l || !tipc_link_is_up(_l))
+ 			continue;
++		if (_l == l)
++			continue;
+ 		if (_l->priority < highest)
+ 			continue;
+ 		if (_l->priority > highest) {
+@@ -362,9 +369,13 @@ void tipc_node_link_down(struct tipc_node *n, int bearer_id)
+ 		}
+ 		*slot1 = i;
+ 	}
++
+ 	if (tipc_node_is_up(n))
+ 		tipc_link_failover_send_queue(l);
+-	else
++
++	tipc_link_reset(l);
++
++	if (!tipc_node_is_up(n))
+ 		node_lost_contact(n);
+ }
  
+@@ -403,7 +414,7 @@ bool tipc_node_update_dest(struct tipc_node *n,  struct tipc_bearer *b,
+ 	}
+ 	memcpy(&l->media_addr, maddr, sizeof(*maddr));
+ 	memcpy(curr, maddr, sizeof(*maddr));
+-	tipc_link_reset(l);
++	tipc_node_link_down(n, b->identity);
+ 	return true;
+ }
+ 
+@@ -418,7 +429,7 @@ void tipc_node_delete_links(struct net *net, int bearer_id)
+ 		tipc_node_lock(n);
+ 		l = n->links[bearer_id].link;
+ 		if (l) {
+-			tipc_link_reset(l);
++			tipc_node_link_down(n, bearer_id);
+ 			n->links[bearer_id].link = NULL;
+ 			n->link_cnt--;
+ 		}
+@@ -439,8 +450,9 @@ static void tipc_node_reset_links(struct tipc_node *n)
+ 		tipc_addr_string_fill(addr_string, n->addr));
+ 
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		if (n->links[i].link)
+-			tipc_link_reset(n->links[i].link);
++		if (!n->links[i].link)
++			continue;
++		tipc_node_link_down(n, i);
+ 	}
+ 	tipc_node_unlock(n);
+ }
+@@ -837,7 +849,7 @@ int tipc_node_xmit(struct net *net, struct sk_buff_head *list,
+ 		if (likely(l))
+ 			rc = tipc_link_xmit(l, list, &xmitq);
+ 		if (unlikely(rc == -ENOBUFS))
+-			tipc_link_reset(l);
++			tipc_node_link_down(n, bearer_id);
+ 		tipc_node_unlock(n);
+ 		tipc_node_put(n);
+ 	}
+@@ -902,7 +914,7 @@ static void tipc_node_tnl_init(struct tipc_node *n, int bearer_id,
+ 
+ 	if (msg_type(hdr) == FAILOVER_MSG) {
+ 		if (tipc_link_is_up(pl)) {
+-			tipc_link_reset(pl);
++			tipc_node_link_down(n, pb_id);
+ 			pl->exec_mode = TIPC_LINK_BLOCKED;
+ 		}
+ 	}
+@@ -978,7 +990,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
  	if (unlikely(rc & TIPC_LINK_UP_EVT))
--		tipc_link_activate(l);
-+		tipc_node_link_up(n, bearer_id);
+ 		tipc_node_link_up(n, bearer_id);
  	if (unlikely(rc & TIPC_LINK_DOWN_EVT))
- 		tipc_link_reset(l);
+-		tipc_link_reset(l);
++		tipc_node_link_down(n, bearer_id);
  	skb = NULL;
+ unlock:
+ 	tipc_node_unlock(n);
 -- 
 1.9.1
 
