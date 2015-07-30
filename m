@@ -1,108 +1,277 @@
-From: Gregory Hoggarth <Gregory.Hoggarth@alliedtelesis.co.nz>
-Subject: RE: Panic with demuxed ipv4 multicast udp sockets on 4.0.4
-Date: Thu, 30 Jul 2015 22:29:09 +0000
-Message-ID: <0dd213ace919410da723ac93892d1f4d@svr-chch-ex1.atlnz.lc>
-References: <2ddbe291fff643899849eb068ef219e0@svr-chch-ex1.atlnz.lc>
-	 <1438234969.20182.124.camel@edumazet-glaptop2.roam.corp.google.com>,<1438235159.20182.125.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"alexgartrell@gmail.com" <alexgartrell@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] bpf: add helpers to access tunnel metadata
+Date: Thu, 30 Jul 2015 15:36:57 -0700
+Message-ID: <1438295817-27295-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:56603 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752524AbbG3W3Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 18:29:16 -0400
-In-Reply-To: <1438235159.20182.125.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-NZ
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35096 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750744AbbG3WhJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 18:37:09 -0400
+Received: by pabkd10 with SMTP id kd10so29872892pab.2
+        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 15:37:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Introduce helpers to let eBPF programs attached to TC manipulate tunnel metadata:
+bpf_skb_[gs]et_tunnel_key(skb, key, size, flags)
+skb: pointer to skb
+key: pointer to 'struct bpf_tunnel_key'
+size: size of 'struct bpf_tunnel_key'
+flags: room for future extensions
 
-Thanks for the patch. I have put this into our code and we'll run our test over tonight and the weekend and report back on Monday.
+First eBPF program that uses these helpers will allocate per_cpu
+metadata_dst structures that will be used on TX.
+On RX metadata_dst is allocated by tunnel driver.
 
-Thanks,
-Greg
+Typical usage for TX:
+struct bpf_tunnel_key tkey;
+... populate tkey ...
+bpf_skb_set_tunnel_key(skb, &tkey, sizeof(tkey), 0);
+bpf_clone_redirect(skb, vxlan_dev_ifindex, 0);
 
-________________________________________
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Sent: Thursday, 30 July 2015 5:45 p.m.
-To: Gregory Hoggarth
-Cc: Shawn Bohrer; netdev@vger.kernel.org; alexgartrell@gmail.com
-Subject: Re: Panic with demuxed ipv4 multicast udp sockets on 4.0.4
+RX:
+struct bpf_tunnel_key tkey = {};
+bpf_skb_get_tunnel_key(skb, &tkey, sizeof(tkey), 0);
+... lookup or redirect based on tkey ...
 
-On Thu, 2015-07-30 at 07:42 +0200, Eric Dumazet wrote:
-> On Thu, 2015-07-30 at 01:41 +0000, Gregory Hoggarth wrote:
-> > Hi,
-> >
-> > My company has also started having what appears to be the same problem, since we upgraded our embedded system to
-> > linux kernel 3.16.
-> >
-> > I tried applying the suggested fix of READ_ONCE (and also had to add in the necessary code to compiler.h as 3.16
-> > didn't have it) and unfortunately it did not fix the issue at all.
-> >
-> > Unfortunately we do not have an easy reproduction method, and do not know precisely what is going on in the system
-> > when the issue occurs. We know it is a multicast UDP packet but that is about it. For us, the crash happens during
-> > a critical stage in our system initialisation, making additional debugging and instrumentation difficult. Our
-> > reproduction rate is approximately 1 out of 100 test runs; testing overnight we will usually see 3-5 instances of
-> > the crash happening. All our attempts to increase the reproduction rate, or reproduce the issue in a simpler/more
-> > controlled way have failed.
-> >
-> > Because we have customised the linux kernel, in some places radically, we assumed this was just a problem only we
-> > were seeing, so we were trying to fix it ourselves. Now that this appears to be a generic problem upstream, we've
-> > simply disabled UDP early demux in our system (since it's a new optimisation that we have lived without up till
-> > now) and will wait for this issue to be fixed upstream instead.
-> >
-> >
-> > So I'm sharing the debug patch I've written to help gather data on what is going on in the system, and some
-> > of the output we've gotten from the debug, in case this is useful for anyone else who is seeing this problem or
-> > would like to try and fix it.
-> >
-> > Feel free to ask questions, I'm not sure how much help I can be but will do my best. We'll be happy to assist in
-> > testing any proposed fixes. I also have some more examples of kernel oops and debug output if that could be useful,
-> > although the debug is from earlier iterations of the patch so that historical output is not as detailed as the
-> > output generated by the latest version of the patch attached here.
-> >
-> > Thanks,
-> > Greg Hoggarth
->
-> CC UDP early demux author : Shawn Bohrer
->
-> I believe this is a race condition with a dst escaping RCU protected
-> region.
->
-> I will send a patch.
->
+'struct bpf_tunnel_key' will be extended in the future by adding
+elements to the end and the 'size' argument will indicate which fields
+are populated, thereby keeping backwards compatibility.
+The 'flags' argument may be used as well when the 'size' is not enough or
+to indicate completely different layout of bpf_tunnel_key.
 
-Please try following fixes :
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 83aa604f9273..02baaa6d97b3 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1778,9 +1778,10 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
-                struct dst_entry *dst = skb_dst(skb);
-                int ret;
+Here are two examples how these helpers are used to implement different
+styles of distributed bridge:
 
--               if (unlikely(sk->sk_rx_dst != dst))
-+               if (unlikely(sk->sk_rx_dst != dst)) {
-+                       skb_dst_force(skb);
-                        udp_sk_rx_dst_set(sk, dst);
+- traditional vxlan style with multicast in the fabric:
+https://github.com/iovisor/bcc/blob/master/examples/distributed_bridge/tunnel.c
+
+- full mesh of point to point tunnels without multicast:
+https://github.com/iovisor/bcc/blob/master/examples/distributed_bridge/tunnel_mesh.c
+
+In both cases single vxlan netdev per host is used in flow mode and multiple
+linux bridges on different hosts are stitched together via bpf programs to
+form a distributed bridge.
+bpf programs redirect packets from vxlan netdev to bridges and back using
+ different lookup logic.
+
+ include/net/dst_metadata.h |    1 +
+ include/uapi/linux/bpf.h   |   17 ++++++++++
+ net/core/dst.c             |   35 ++++++++++++++++----
+ net/core/filter.c          |   77 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 124 insertions(+), 6 deletions(-)
+
+diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+index 7b0306894663..075f523ff23f 100644
+--- a/include/net/dst_metadata.h
++++ b/include/net/dst_metadata.h
+@@ -51,5 +51,6 @@ static inline bool skb_valid_dst(const struct sk_buff *skb)
+ }
+ 
+ struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags);
++struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags);
+ 
+ #endif /* __NET_DST_METADATA_H */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 2f6c83d714e9..bc0d27d3fbdd 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -258,6 +258,18 @@ enum bpf_func_id {
+ 	BPF_FUNC_get_cgroup_classid,
+ 	BPF_FUNC_skb_vlan_push, /* bpf_skb_vlan_push(skb, vlan_proto, vlan_tci) */
+ 	BPF_FUNC_skb_vlan_pop,  /* bpf_skb_vlan_pop(skb) */
++
++	/**
++	 * bpf_skb_[gs]et_tunnel_key(skb, key, size, flags)
++	 * retrieve or populate tunnel metadata
++	 * @skb: pointer to skb
++	 * @key: pointer to 'struct bpf_tunnel_key'
++	 * @size: size of 'struct bpf_tunnel_key'
++	 * @flags: room for future extensions
++	 * Retrun: 0 on success
++	 */
++	BPF_FUNC_skb_get_tunnel_key,
++	BPF_FUNC_skb_set_tunnel_key,
+ 	__BPF_FUNC_MAX_ID,
+ };
+ 
+@@ -280,4 +292,9 @@ struct __sk_buff {
+ 	__u32 cb[5];
+ };
+ 
++struct bpf_tunnel_key {
++	__u32 tunnel_id;
++	__u32 remote_ipv4;
++};
++
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 76a617f6d60a..f8694d1b8702 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -362,15 +362,10 @@ static int dst_md_discard(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
++static void __metadata_dst_init(struct metadata_dst *md_dst, u8 optslen)
+ {
+-	struct metadata_dst *md_dst;
+ 	struct dst_entry *dst;
+ 
+-	md_dst = kmalloc(sizeof(*md_dst) + optslen, flags);
+-	if (!md_dst)
+-		return ERR_PTR(-ENOMEM);
 -
-+               }
-                ret = udp_queue_rcv_skb(sk, skb);
-                sock_put(sk);
-                /* a return value > 0 means to resubmit the input, but
-@@ -1995,7 +1996,7 @@ void udp_v4_early_demux(struct sk_buff *skb)
-
-        skb->sk = sk;
-        skb->destructor = sock_efree;
--       dst = sk->sk_rx_dst;
-+       dst = READ_ONCE(sk->sk_rx_dst);
-
-        if (dst)
-                dst = dst_check(dst, 0);
+ 	dst = &md_dst->dst;
+ 	dst_init(dst, &md_dst_ops, NULL, 1, DST_OBSOLETE_NONE,
+ 		 DST_METADATA | DST_NOCACHE | DST_NOCOUNT);
+@@ -380,11 +375,39 @@ struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
+ 
+ 	memset(dst + 1, 0, sizeof(*md_dst) + optslen - sizeof(*dst));
+ 	md_dst->opts_len = optslen;
++}
++
++struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags)
++{
++	struct metadata_dst *md_dst;
++
++	md_dst = kmalloc(sizeof(*md_dst) + optslen, flags);
++	if (!md_dst)
++		return NULL;
++
++	__metadata_dst_init(md_dst, optslen);
+ 
+ 	return md_dst;
+ }
+ EXPORT_SYMBOL_GPL(metadata_dst_alloc);
+ 
++struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags)
++{
++	int cpu;
++	struct metadata_dst __percpu *md_dst;
++
++	md_dst = __alloc_percpu_gfp(sizeof(struct metadata_dst) + optslen,
++				    __alignof__(struct metadata_dst), flags);
++	if (!md_dst)
++		return NULL;
++
++	for_each_possible_cpu(cpu)
++		__metadata_dst_init(per_cpu_ptr(md_dst, cpu), optslen);
++
++	return md_dst;
++}
++EXPORT_SYMBOL_GPL(metadata_dst_alloc_percpu);
++
+ /* Dirty hack. We did it in 2.2 (in __dst_free),
+  * we have _very_ good reasons not to repeat
+  * this mistake in 2.3, but we have no choice
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 786722a9c6f2..1b72264ff2ee 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -48,6 +48,7 @@
+ #include <linux/bpf.h>
+ #include <net/sch_generic.h>
+ #include <net/cls_cgroup.h>
++#include <net/dst_metadata.h>
+ 
+ /**
+  *	sk_filter - run a packet through a socket filter
+@@ -1483,6 +1484,78 @@ bool bpf_helper_changes_skb_data(void *func)
+ 	return false;
+ }
+ 
++static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
++{
++	struct sk_buff *skb = (struct sk_buff *) (long) r1;
++	struct bpf_tunnel_key *to = (struct bpf_tunnel_key *) (long) r2;
++	struct ip_tunnel_info *info = skb_tunnel_info(skb, AF_INET);
++
++	if (unlikely(size != sizeof(struct bpf_tunnel_key) || flags || !info))
++		return -EINVAL;
++
++	to->tunnel_id = be64_to_cpu(info->key.tun_id);
++	to->remote_ipv4 = be32_to_cpu(info->key.ipv4_src);
++
++	return 0;
++}
++
++const struct bpf_func_proto bpf_skb_get_tunnel_key_proto = {
++	.func		= bpf_skb_get_tunnel_key,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_PTR_TO_STACK,
++	.arg3_type	= ARG_CONST_STACK_SIZE,
++	.arg4_type	= ARG_ANYTHING,
++};
++
++static struct metadata_dst __percpu *md_dst;
++
++static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
++{
++	struct sk_buff *skb = (struct sk_buff *) (long) r1;
++	struct bpf_tunnel_key *from = (struct bpf_tunnel_key *) (long) r2;
++	struct metadata_dst *md = this_cpu_ptr(md_dst);
++	struct ip_tunnel_info *info;
++
++	if (unlikely(size != sizeof(struct bpf_tunnel_key) || flags))
++		return -EINVAL;
++
++	skb_dst_drop(skb);
++	dst_hold((struct dst_entry *) md);
++	skb_dst_set(skb, (struct dst_entry *) md);
++
++	info = &md->u.tun_info;
++	info->mode = IP_TUNNEL_INFO_TX;
++	info->key.tun_id = cpu_to_be64(from->tunnel_id);
++	info->key.ipv4_dst = cpu_to_be32(from->remote_ipv4);
++
++	return 0;
++}
++
++const struct bpf_func_proto bpf_skb_set_tunnel_key_proto = {
++	.func		= bpf_skb_set_tunnel_key,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_PTR_TO_STACK,
++	.arg3_type	= ARG_CONST_STACK_SIZE,
++	.arg4_type	= ARG_ANYTHING,
++};
++
++static const struct bpf_func_proto *bpf_get_skb_set_tunnel_key_proto(void)
++{
++	if (!md_dst) {
++		/* race is not possible, since it's called from
++		 * verifier that is holding verifier mutex
++		 */
++		md_dst = metadata_dst_alloc_percpu(0, GFP_KERNEL);
++		if (!md_dst)
++			return NULL;
++	}
++	return &bpf_skb_set_tunnel_key_proto;
++}
++
+ static const struct bpf_func_proto *
+ sk_filter_func_proto(enum bpf_func_id func_id)
+ {
+@@ -1526,6 +1599,10 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_skb_vlan_push_proto;
+ 	case BPF_FUNC_skb_vlan_pop:
+ 		return &bpf_skb_vlan_pop_proto;
++	case BPF_FUNC_skb_get_tunnel_key:
++		return &bpf_skb_get_tunnel_key_proto;
++	case BPF_FUNC_skb_set_tunnel_key:
++		return bpf_get_skb_set_tunnel_key_proto();
+ 	default:
+ 		return sk_filter_func_proto(func_id);
+ 	}
+-- 
+1.7.9.5
