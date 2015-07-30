@@ -1,76 +1,83 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Thu, 30 Jul 2015 12:10:25 +1000
-Message-ID: <20150730121025.3703e788@canb.auug.org.au>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH V4.2] rtlwifi: Fix NULL dereference when PCI driver used as an AP
+Date: Wed, 29 Jul 2015 21:11:20 -0500
+Message-ID: <1438222280-4146-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Satish Ashok <sashok@cumulusnetworks.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Luis Felipe Dominguez Vega <lfdominguez-UMrjrmwGhSo@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Luis Felipe Dominguez Vega <lfdominguez-UMrjrmwGhSo@public.gmane.org>
 
-Today's linux-next merge of the net-next tree got a conflict in:
+In commit 33511b157bbcebaef853cc1811992b664a2e5862 ("rtlwifi: add support to
+send beacon frame"), the mechanism for sending beacons was established. That
+patch works correctly for rtl8192cu, but there is a possibility of getting
+the following warnings in the PCI drivers:
 
-  net/bridge/br_multicast.c
+WARNING: CPU: 1 PID: 2439 at net/mac80211/driver-ops.h:12
+ieee80211_bss_info_change_notify+0x179/0x1d0 [mac80211]()
+wlp5s0:  Failed check-sdata-in-driver check, flags: 0x0
 
-between commit:
+The warning is followed by a NULL pointer dereference as follows:
 
-  544586f742b4 ("bridge: mcast: give fast leave precedence over multicast router and querier")
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000006
+IP: [<ffffffffc073998e>] rtl_get_tcb_desc+0x5e/0x760 [rtlwifi]
 
-from the net tree and commit:
+This problem was reported at http://thread.gmane.org/gmane.linux.kernel.wireless.general/138645,
+but no solution was found at that time.
 
-  09cf0211f970 ("bridge: mdb: fill state in br_mdb_notify")
+The problem was also reported at https://bugzilla.kernel.org/show_bug.cgi?id=9744
+and this solution was developed and tested there.
 
-from the net-next tree.
+The USB driver works with a NULL final argument in the adapter_tx() callback;
+however, the PCI drivers need a struct rtl_tcb_desc in that position.
 
-I fixed it up (hopefully - see below) and can carry the fix as necessary
-(no action is required).
+Signed-off-by: Luis Felipe Dominguez Vega <lfdominguez-UMrjrmwGhSo@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> [3.19+]
+---
 
+Kalle,
+
+I have marked this fix for V4.2, and I hope it will make it.
+
+Thanks,
+
+Larry
+---
+ drivers/net/wireless/rtlwifi/core.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/core.c b/drivers/net/wireless/rtlwifi/core.c
+index 3b3a88b..585d088 100644
+--- a/drivers/net/wireless/rtlwifi/core.c
++++ b/drivers/net/wireless/rtlwifi/core.c
+@@ -1015,9 +1015,12 @@ static void send_beacon_frame(struct ieee80211_hw *hw,
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct sk_buff *skb = ieee80211_beacon_get(hw, vif);
++	struct rtl_tcb_desc tcb_desc;
+ 
+-	if (skb)
+-		rtlpriv->intf_ops->adapter_tx(hw, NULL, skb, NULL);
++	if (skb) {
++		memset(&tcb_desc, 0, sizeof(struct rtl_tcb_desc));
++		rtlpriv->intf_ops->adapter_tx(hw, NULL, skb, &tcb_desc);
++	}
+ }
+ 
+ static void rtl_op_bss_info_changed(struct ieee80211_hw *hw,
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+2.1.4
 
-diff --cc net/bridge/br_multicast.c
-index 0b39dcc65b94,fd238587e032..000000000000
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@@ -1424,31 -1441,6 +1440,32 @@@ br_multicast_leave_group(struct net_bri
-  	if (!mp)
-  		goto out;
-  
- +	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
- +		struct net_bridge_port_group __rcu **pp;
- +
- +		for (pp = &mp->ports;
- +		     (p = mlock_dereference(*pp, br)) != NULL;
- +		     pp = &p->next) {
- +			if (p->port != port)
- +				continue;
- +
- +			rcu_assign_pointer(*pp, p->next);
- +			hlist_del_init(&p->mglist);
- +			del_timer(&p->timer);
-++			br_mdb_notify(br->dev, port, group, RTM_DELMDB,
-++				      p->state);
- +			call_rcu_bh(&p->rcu, br_multicast_free_pg);
-- 			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
- +
- +			if (!mp->ports && !mp->mglist &&
- +			    netif_running(br->dev))
- +				mod_timer(&mp->timer, jiffies);
- +		}
- +		goto out;
- +	}
- +
- +	if (timer_pending(&other_query->timer))
- +		goto out;
- +
-  	if (br->multicast_querier) {
-  		__br_multicast_send_query(br, port, &mp->addr);
-  
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
