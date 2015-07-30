@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] openvswitch: Re-add CONFIG_OPENVSWITCH_VXLAN
-Date: Wed, 29 Jul 2015 23:03:38 -0700 (PDT)
-Message-ID: <20150729.230338.291206259590958006.davem@davemloft.net>
-References: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
+Subject: Re: [PATCH net-next 0/8] net/mlx5e: Driver update 29-Jul-2015
+Date: Wed, 29 Jul 2015 23:05:45 -0700 (PDT)
+Message-ID: <20150729.230545.1151071454374723539.davem@davemloft.net>
+References: <1438171546-17021-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@nicira.com,
-	nicolas.dichtel@6wind.com
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, achiad@mellanox.com,
+	talal@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36308 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36319 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbbG3GDj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:03:39 -0400
-In-Reply-To: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
+	with ESMTP id S1750780AbbG3GFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:05:46 -0400
+In-Reply-To: <1438171546-17021-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 29 Jul 2015 13:52:06 +0200
+From: Amir Vadai <amirv@mellanox.com>
+Date: Wed, 29 Jul 2015 15:05:38 +0300
 
-> This readds the config option CONFIG_OPENVSWITCH_VXLAN to avoid a
-> hard dependency of OVS on VXLAN. It moves the VXLAN config compat
-> code to vport-vxlan.c and allows compliation as a module.
+> This patchset contain bug fixes and code cleaning patches to the ConnectX-4
+> Ethernet driver.
 > 
-> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
-> Fixes: 2661371ace96 ("openvswitch: fix compilation when vxlan is a module")
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Patchset was applied and tested over commit 8c1a91f ("Merge branch
+> 'mlx4-802.1ad-accel'")
 
-Applied.
+Series applied, thanks Amir.
