@@ -1,41 +1,57 @@
-From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH] ARCNET: fix hard_header_len limit
-Date: Thu, 30 Jul 2015 15:34:36 +0200
-Message-ID: <1438263276-26202-1-git-send-email-m.grzeschik@pengutronix.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49224 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937AbbG3NfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 09:35:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] printk: Warn about dropped messages also on extended
+ consoles
+Date: Thu, 30 Jul 2015 09:39:01 -0400
+Message-ID: <20150730133901.GC3504@mtj.duckdns.org>
+References: <1438255732-31326-1-git-send-email-pmladek@suse.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Petr Mladek <pmladek@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1438255732-31326-1-git-send-email-pmladek@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The commit <9c7077622dd9> ("packet: make packet_snd fail on len smaller
-than l2 header") adds the check for minimum packet length of the used l2.
-For arcnet the hardware header length is not the complete archdr which
-includes hard + soft header. This patch changes the length to
-sizeof(arc_hardware).
+Hello,
 
-Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
----
- drivers/net/arcnet/arcnet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Thu, Jul 30, 2015 at 01:28:52PM +0200, Petr Mladek wrote:
+> The commit #6fe29354befe4c ("printk: implement support for extended console
+> drivers") added an extra buffer to format messages for extended consoles.
+> We need to put there also the warning about dropped messages, so it appears
+> on these consoles.
 
-diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
-index 10f71c73..816d0e9 100644
---- a/drivers/net/arcnet/arcnet.c
-+++ b/drivers/net/arcnet/arcnet.c
-@@ -326,7 +326,7 @@ static void arcdev_setup(struct net_device *dev)
- 	dev->type = ARPHRD_ARCNET;
- 	dev->netdev_ops = &arcnet_netdev_ops;
- 	dev->header_ops = &arcnet_header_ops;
--	dev->hard_header_len = sizeof(struct archdr);
-+	dev->hard_header_len = sizeof(struct arc_hardware);
- 	dev->mtu = choose_mtu();
- 
- 	dev->addr_len = ARCNET_ALEN;
+I don't get it.  Extended messages are all stamped with sequence
+number and the gap in sequence number is a clear sign of missing
+messages.
+
+> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+> index cf8c24203368..77d3d3698283 100644
+> --- a/kernel/printk/printk.c
+> +++ b/kernel/printk/printk.c
+> @@ -2254,8 +2254,15 @@ again:
+>  		}
+>  
+>  		if (console_seq < log_first_seq) {
+> -			len = sprintf(text, "** %u printk messages dropped ** ",
+> -				      (unsigned)(log_first_seq - console_seq));
+> +			static const char dropped_msg[] =
+> +				"** %u printk messages dropped ** ";
+> +			unsigned int dropped_count =
+> +				(unsigned int)(log_first_seq - console_seq);
+> +
+> +			len = sprintf(text, dropped_msg, dropped_count);
+> +			if (nr_ext_console_drivers)
+> +				ext_len = sprintf(ext_text, dropped_msg,
+> +						  dropped_count);
+
+And you can't shove random message in front of the header.
+
+Nacked-by: Tejun Heo <tj@kernel.org>
+
+Thanks.
+
 -- 
-2.1.4
+tejun
