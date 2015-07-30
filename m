@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: netcp: Fixes efuse mac addr swap on k2e
- and k2l
-Date: Wed, 29 Jul 2015 17:16:24 -0700 (PDT)
-Message-ID: <20150729.171624.568549486034691205.davem@davemloft.net>
-References: <1438113671-6098-1-git-send-email-w-kwok2@ti.com>
+Subject: Re: [PATCH v2 0/3] Add MDIO support to ThunderX NIC driver
+Date: Wed, 29 Jul 2015 17:18:07 -0700 (PDT)
+Message-ID: <20150729.171807.2080139287211431874.davem@davemloft.net>
+References: <1438121533-21528-1-git-send-email-mohun106@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: m-karicheri2@ti.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: w-kwok2@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35057 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752280AbbG3AQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 20:16:25 -0400
-In-Reply-To: <1438113671-6098-1-git-send-email-w-kwok2@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	ddaney@caviumnetworks.com, sgoutham@caviumnetworks.com,
+	rchintakuntla@cavium.com
+To: mohun106@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438121533-21528-1-git-send-email-mohun106@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: WingMan Kwok <w-kwok2@ti.com>
-Date: Tue, 28 Jul 2015 16:01:11 -0400
+From: mohun106@gmail.com
+Date: Tue, 28 Jul 2015 15:12:10 -0700
 
-> On some of the K2E and K2L platforms, the two DWORDs in
-> efuse occupied by the pre-programmed mac address for
-> slave port 1 are swapped.  To workaround this issue,
-> this patch adds a new define NETCP_EFUSE_ADDR_SWAP (2)
-> which signifies the occurrence of such swapping so that
-> the driver can take proper action.  The flag can be
-> enabled in the corresponding netcp interface dts binding
-> as efuse-mac = <2>  under the corresponding netcp
-> interface node.
+> This patch series adds MDIO support to ThunderX NIC driver by making use
+> of existing mdio-octeon driver. In the process modified the mdio-octeon
+> driver to work on both Octeon and ThunderX platforms.
 > 
-> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+> * From v1:
+>   - Removed default selection in Kconfig for MDIO_OCTEON
+>   - Replace uint64 with u64 as suggested by David Daney
 
-Applied, thanks.
+Series applied, thanks.
