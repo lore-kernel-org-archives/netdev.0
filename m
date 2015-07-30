@@ -1,48 +1,63 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH RFC net-next 1/3] RDS-TCP: Make RDS-TCP work correctly
- when it is set up in a netns other than init_net
-Date: Thu, 30 Jul 2015 19:58:57 +0200
-Message-ID: <20150730175857.GA20426@oracle.com>
-References: <cover.1438245718.git.sowmini.varadhan@oracle.com>
- <89cdf26d7506a1d2d1a2d6cfda2fab9a5fc84ad6.1438245718.git.sowmini.varadhan@oracle.com>
- <55BA58D1.3050108@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] net/phy: micrel: Reenable interrupts during resume
+Date: Thu, 30 Jul 2015 21:00:58 +0300
+Message-ID: <55BA665A.4080103@cogentembedded.com>
+References: <1438269348-8725-1-git-send-email-nathan.sullivan@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cwang@twopensource.com,
-	ajaykumar.hotchandani@oracle.com
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:18289 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754689AbbG3R7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 13:59:06 -0400
-Content-Disposition: inline
-In-Reply-To: <55BA58D1.3050108@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nathan Sullivan <nathan.sullivan@ni.com>, f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438269348-8725-1-git-send-email-nathan.sullivan@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (07/30/15 11:03), David Ahern wrote:
-> >+	write_pnet(&conn->c_net, net);
-> 
-> these are typically in wrappers like sock_net and sock_net_set
-  :
+Hello.
 
-> >+	conn = rds_conn_create(&init_net, dp->dp_daddr, dp->dp_saddr,
-> >+			       &rds_ib_transport, GFP_KERNEL);
-> 
-> I forget what connection this is -- control channel? 
+On 07/30/2015 06:15 PM, Nathan Sullivan wrote:
 
-this is IB. It should/will eventually also use any net than init_net,
-but for the moment, I'd like to figure out the bigger  issue
-of pernet vs per_subsys, which is harder to fix than the above
-(and which I'll happily fix later).
+> The ksz9031 has a behavior where it will clear the interrupt enable bits
+> when leaving power down.  To work around this, make sure the interrupt
+> bits are in the state they are expected to be when resuming.
 
-I suspect that the right solution may be to have some notifier
-callbacks in rds_tcp that listen for ifdown and tear down the sockets,
-rather than wait for keepalive timeout.
+> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+> ---
 
-> Ditto here.
+> Changes for V2: Actually make sure it compiles this time.
 
-yes, me too.
+> ---
+>   drivers/net/phy/micrel.c |   18 +++++++++++++++++-
+>   1 file changed, 17 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index 499185e..9774582 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -447,6 +447,22 @@ static int ksz9031_center_flp_timing(struct phy_device *phydev)
+>   	return genphy_restart_aneg(phydev);
+>   }
+>
+> +static int ksz9031_resume(struct phy_device *phydev)
+> +{
+> +	int result;
+> +
+> +	result = genphy_resume(phydev);
+> +
 
---Sowmini
+    I don't think empty line is needed here. Sorry for missing it in the first 
+posting...
+
+> +	if (result)
+> +		return result;
+> +
+> +	/* This phy will reset interrupt enables when leaving power down */
+> +	if (PHY_INTERRUPT_ENABLED & phydev->interrupts)
+> +		result = kszphy_config_intr(phydev);
+> +
+> +	return result;
+> +}
+> +
+[...]
+
+WBR, Sergei
