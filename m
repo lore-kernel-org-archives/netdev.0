@@ -1,49 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] net: sk_clone_lock() should only do get_net()
- if the parent is not a kernel socket
-Date: Thu, 30 Jul 2015 16:00:06 -0700 (PDT)
-Message-ID: <20150730.160006.1603147920495272496.davem@davemloft.net>
-References: <20150730135036.GA17366@oracle.com>
+From: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+Subject: [REGRESSION] stmmac_platform: Unknown symbol devm_kmalloc (err 0)
+Date: Fri, 31 Jul 2015 02:07:26 +0300
+Message-ID: <CAFMg4WCm6rs6xMKPiKGmALc45+ne-xUzQgYHH7zOPotQ-iEqjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	edumazet@google.com, willemb@google.com, ebiederm@xmission.com,
-	alexander.h.duyck@intel.com, ast@plumgrid.com,
-	hannes@stressinduktion.org, dborkman@redhat.com
-To: sowmini.varadhan@oracle.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Ripard <maxime.ripard@anandra.org>
+To: netdev <netdev@vger.kernel.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41842 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751170AbbG3XAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 19:00:07 -0400
-In-Reply-To: <20150730135036.GA17366@oracle.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:33638 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbbG3XH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 19:07:28 -0400
+Received: by lbbyj8 with SMTP id yj8so36268268lbb.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 16:07:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu, 30 Jul 2015 15:50:36 +0200
+Hi all, stmmac driver doesn't work on cubietruck (and some more
+devices like PcDuino3 Nano[0]).
 
-> 
-> 
-> The newsk returned by sk_clone_lock should hold a get_net()
-> reference if, and only if, the parent is not a kernel socket
-> (making this similar to sk_alloc()).
-> 
-> E.g,. for the SYN_RECV path, tcp_v4_syn_recv_sock->..inet_csk_clone_lock
-> sets up the syn_recv newsk from sk_clone_lock. When the parent (listen)
-> socket is a kernel socket (defined in sk_alloc() as having
-> sk_net_refcnt == 0), then the newsk should also have a 0 sk_net_refcnt
-> and should not hold a get_net() reference.
-> 
-> Fixes: 26abe14379f8 ("net: Modify sk_alloc to not reference count the
->       netns of kernel sockets.")
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
-> v2: pulled patch #3 out of the RFC patch-set for RDS-TCP netns fixes; 
->     Added Fixes, Acked-by, Cc fields based on mailing list feedback
->     from Eric Dumazet.
+This error comes from converting dwmac-sunxi to platform driver.
 
-Applied, thanks everyone.
+stmmac_platform: module license 'unspecified' taints kernel.
+Disabling lock debugging due to kernel taint
+stmmac_platform: Unknown symbol devm_kmalloc (err 0)
+stmmac_platform: Unknown symbol stmmac_suspend (err 0)
+stmmac_platform: Unknown symbol platform_get_irq_byname (err 0)
+stmmac_platform: Unknown symbol stmmac_dvr_remove (err 0)
+stmmac_platform: Unknown symbol platform_get_resource (err 0)
+stmmac_platform: Unknown symbol of_get_phy_mode (err 0)
+stmmac_platform: Unknown symbol of_property_read_u32_array (err 0)
+stmmac_platform: Unknown symbol of_alias_get_id (err 0)
+stmmac_platform: Unknown symbol stmmac_resume (err 0)
+stmmac_platform: Unknown symbol stmmac_dvr_probe (err 0)
+
+I've filled bugreport with the same info[1]. What info I would provide
+to help with fixing this?
+
+[0] https://lists.fedoraproject.org/pipermail/arm/2015-July/009681.html
+[1] https://bugzilla.kernel.org/show_bug.cgi?id=102141
+-- 
+-Igor Gnatenko
