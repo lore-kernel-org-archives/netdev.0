@@ -1,104 +1,76 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: bridge vlan range, kernel 4.1 : "message truncated" warning
- when too much vlans defined
-Date: Thu, 30 Jul 2015 02:03:06 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC350F536639@ORSMSX101.amr.corp.intel.com>
-References: <1522237479.23555412.1438194289391.JavaMail.zimbra@oxygem.tv>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 30 Jul 2015 12:10:25 +1000
+Message-ID: <20150730121025.3703e788@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pve-devel <pve-devel@pve.proxmox.com>
-To: Alexandre DERUMIER <aderumier@odiso.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23578 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751371AbbG3CDI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2015 22:03:08 -0400
-In-Reply-To: <1522237479.23555412.1438194289391.JavaMail.zimbra@oxygem.tv>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Satish Ashok <sashok@cumulusnetworks.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-VGhlIGVhc2llc3QgZml4IGlzIGluIGlwcm91dGUyLg0KSW5jcmVhc2luZyB0aGUgYnVmZmVyIHNp
-emUgdXNlZCBpbiBydG5sX2R1bXBfZmlsdGVyX2wgM3ggZW1waXJpY2FsbHkgcmVzb2x2ZXMgdGhl
-DQppc3N1ZS4NCg0KVGhlIHJvb3QtY2F1c2UgaXMgZHVlIHRvIHRoZSBidWZmZXIgc2l6ZSBjYWxj
-dWxhdGlvbiBvZiBkdW1wIHJlcXVlc3QgaW4gdGhlIA0Ka2VybmVsLiBJdCBpcyBiYXNlZCBvbiB0
-aGUgdG90YWwgbnVtYmVyIG9mIFZMQU5zIGFuZCBkb2VzIG5vdCBhY2NvdW50IGZvcg0KY29tcHJl
-c3NlZCB2bGFuIHJlcXVlc3RzLg0KVGhlIGZsYWcgYXJndW1lbnQgaXMgbm90IHByb3BhZ2F0ZWQg
-dG8gZ2V0IHNpemUgZnVuY3Rpb25zLg0KDQpGaXhpbmcgdGhlIHNpemUgY2FsY3VsYXRpb24gaW4g
-dGhlIGtlcm5lbCB3b3VsZCB3b3JrIG1vc3Qgb2YgdGhlIHRpbWUgYnV0IHdvdWxkDQpGYWlsIHdo
-ZW4gdGhlIG51bWJlciBvZiByYW5nZXMgKGFuZC9vciBub24tY29udGlndW91cyBWTEFOcykgZXhj
-ZWVkcyB+MTgwMC4NCg0KVGhlcmVmb3JlLCBmaXhpbmcgdGhlIHNpemUgY2FsY3VsYXRpb24gaW4g
-dGhlIGtlcm5lbCBkb2VzIG5vdCB3b3J0aCB0aGUNCkVmZm9ydC4gRml4aW5nIGlwcm91dGUyIHNl
-ZW1zIHRoZSBlYXN5IHdheSB0byBvdmVyY29tZSB0aGUgaXNzdWUuICAgDQoNCmRpZmYgLS1naXQg
-YS9saWIvbGlibmV0bGluay5jIGIvbGliL2xpYm5ldGxpbmsuYw0KaW5kZXggOTAxMjM2ZS4uMjVj
-MWMwMiAxMDA2NDQNCi0tLSBhL2xpYi9saWJuZXRsaW5rLmMNCisrKyBiL2xpYi9saWJuZXRsaW5r
-LmMNCkBAIC0xOTgsNyArMTk4LDcgQEAgaW50IHJ0bmxfZHVtcF9maWx0ZXJfbChzdHJ1Y3QgcnRu
-bF9oYW5kbGUgKnJ0aCwNCiAgICAgICAgICAgICAgICAubXNnX2lvdiA9ICZpb3YsDQogICAgICAg
-ICAgICAgICAgLm1zZ19pb3ZsZW4gPSAxLA0KICAgICAgICB9Ow0KLSAgICAgICBjaGFyIGJ1Zlsx
-NjM4NF07DQorICAgICAgIGNoYXIgYnVmWzMqMTYzODRdOw0KICAgICAgICBpbnQgZHVtcF9pbnRy
-ID0gMDsNCiAgICAgICAgaW92Lmlvdl9iYXNlID0gYnVmOw0KDQpSb25lbg0KDQo+LS0tLS1Pcmln
-aW5hbCBNZXNzYWdlLS0tLS0NCj5Gcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFtt
-YWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj5CZWhhbGYgT2YgQWxleGFu
-ZHJlIERFUlVNSUVSDQo+U2VudDogV2VkbmVzZGF5LCBKdWx5IDI5LCAyMDE1IDExOjI1IEFNDQo+
-VG86IG5ldGRldg0KPkNjOiBwdmUtZGV2ZWwNCj5TdWJqZWN0OiBicmlkZ2UgdmxhbiByYW5nZSwg
-a2VybmVsIDQuMSA6ICJtZXNzYWdlIHRydW5jYXRlZCIgd2FybmluZyB3aGVuIHRvbw0KPm11Y2gg
-dmxhbnMgZGVmaW5lZA0KPg0KPkhpLA0KPg0KPkknbSBjdXJyZW50bHkgdGVzdGluZyB2bGFuIHJh
-bmdlIG9uIGJyaWRnZSBmaWx0ZXJpbmcgd2l0aCBrZXJuZWwgNC4xLg0KPg0KPg0KPklmIEkgZGVm
-aW5lZCB0b28gbXVjaCB2bGFucywgb3IgdG9vIGJpZyB2bGFuIHJhbmdlLA0KPkkgaGF2ZSBhIHdh
-cm5pbmcgIm1lc3NhZ2UgdHJ1bmNhdGVkIiwgZXZlbiBpZiBJJ20gdXNpbmcgIi1jIg0KPg0KPg0K
-PiMgYnJpZGdlIC1jIHZsYW4NCj5NZXNzYWdlIHRydW5jYXRlZA0KPnBvcnQgdmxhbiBpZHMNCj5l
-dGgyIDEgUFZJRCBFZ3Jlc3MgVW50YWdnZWQNCj4NCj5ib25kMCAxIFBWSUQgRWdyZXNzIFVudGFn
-Z2VkDQo+Mi0xODUwDQo+DQo+dm1icjAgMSBQVklEIEVncmVzcyBVbnRhZ2dlZA0KPjk0DQo+DQo+
-DQo+b3INCj4jIGJyaWRnZSAtYyB2bGFuDQo+TWVzc2FnZSB0cnVuY2F0ZWQNCj5wb3J0IHZsYW4g
-aWRzDQo+ZXRoMiAxIFBWSUQgRWdyZXNzIFVudGFnZ2VkDQo+Mi05MDANCj5ib25kMCAxIFBWSUQg
-RWdyZXNzIFVudGFnZ2VkDQo+Mi05MDANCj4NCj52bWJyMCAxIFBWSUQgRWdyZXNzIFVudGFnZ2Vk
-DQo+OTQNCj4NCj4NCj4NCj5BbHNvLCBtb3JlIGltcG9ydGFudCwgdGhpcyBpcyBhbHNvIGltcGFj
-dCAiaXAiLCBhbmQgdHJ1bmNhdGUgdGhlIG91dHB1dA0KPg0KPiNpcCBsaW5rDQo+DQo+TWVzc2Fn
-ZSB0cnVuY2F0ZWQNCj4xOiBsbzogPExPT1BCQUNLLFVQLExPV0VSX1VQPiBtdHUgNjU1MzYgcWRp
-c2Mgbm9xdWV1ZSBzdGF0ZSBVTktOT1dOIG1vZGUNCj5ERUZBVUxUIGdyb3VwIGRlZmF1bHQNCj5s
-aW5rL2xvb3BiYWNrIDAwOjAwOjAwOjAwOjAwOjAwIGJyZCAwMDowMDowMDowMDowMDowMA0KPjI6
-IGV0aDI6IDxOTy1DQVJSSUVSLEJST0FEQ0FTVCxNVUxUSUNBU1QsVVA+IG10dSA5MDAwIHFkaXNj
-IHBmaWZvX2Zhc3QgbWFzdGVyDQo+dm1icjEgc3RhdGUgRE9XTiBtb2RlIERFRkFVTFQgZ3JvdXAg
-ZGVmYXVsdCBxbGVuIDEwMDANCj5saW5rL2V0aGVyIDAwOjE1OjE3OjgwOjI5OmU2IGJyZCBmZjpm
-ZjpmZjpmZjpmZjpmZg0KPjM6IGV0aDM6IDxCUk9BRENBU1QsTVVMVElDQVNUPiBtdHUgMTUwMCBx
-ZGlzYyBub29wIHN0YXRlIERPV04gbW9kZSBERUZBVUxUDQo+Z3JvdXAgZGVmYXVsdCBxbGVuIDEw
-MDANCj5saW5rL2V0aGVyIDAwOjE1OjE3OjgwOjI5OmU3IGJyZCBmZjpmZjpmZjpmZjpmZjpmZg0K
-PjQ6IGV0aDA6IDxCUk9BRENBU1QsTVVMVElDQVNULFNMQVZFLFVQLExPV0VSX1VQPiBtdHUgMTUw
-MCBxZGlzYyBtcSBtYXN0ZXINCj5ib25kMCBzdGF0ZSBVUCBtb2RlIERFRkFVTFQgZ3JvdXAgZGVm
-YXVsdCBxbGVuIDEwMDANCj5saW5rL2V0aGVyIDAwOjFhOmEwOjNjOjk4OmM1IGJyZCBmZjpmZjpm
-ZjpmZjpmZjpmZg0KPjU6IGV0aDU6IDxCUk9BRENBU1QsTVVMVElDQVNULFVQLExPV0VSX1VQPiBt
-dHUgOTAwMCBxZGlzYyBwZmlmb19mYXN0IG1hc3Rlcg0KPm92cy1zeXN0ZW0gc3RhdGUgVVAgbW9k
-ZSBERUZBVUxUIGdyb3VwIGRlZmF1bHQgcWxlbiAxMDAwDQo+bGluay9ldGhlciA2ODowNTpjYTow
-OTpjMzo3YyBicmQgZmY6ZmY6ZmY6ZmY6ZmY6ZmYNCj42OiBldGg0OiA8QlJPQURDQVNULE1VTFRJ
-Q0FTVCxVUCxMT1dFUl9VUD4gbXR1IDkwMDAgcWRpc2MgcGZpZm9fZmFzdCBtYXN0ZXINCj5vdnMt
-c3lzdGVtIHN0YXRlIFVQIG1vZGUgREVGQVVMVCBncm91cCBkZWZhdWx0IHFsZW4gMTAwMA0KPmxp
-bmsvZXRoZXIgNjg6MDU6Y2E6MDk6YzM6N2QgYnJkIGZmOmZmOmZmOmZmOmZmOmZmDQo+NzogZXRo
-MTogPEJST0FEQ0FTVCxNVUxUSUNBU1QsU0xBVkUsVVAsTE9XRVJfVVA+IG10dSAxNTAwIHFkaXNj
-IG1xIG1hc3Rlcg0KPmJvbmQwIHN0YXRlIFVQIG1vZGUgREVGQVVMVCBncm91cCBkZWZhdWx0IHFs
-ZW4gMTAwMA0KPmxpbmsvZXRoZXIgMDA6MWE6YTA6M2M6OTg6YzUgYnJkIGZmOmZmOmZmOmZmOmZm
-OmZmDQo+ODogb3ZzLXN5c3RlbUBOT05FOiA8QlJPQURDQVNULE1VTFRJQ0FTVD4gbXR1IDE1MDAg
-cWRpc2Mgbm9vcCBzdGF0ZSBET1dOIG1vZGUNCj5ERUZBVUxUIGdyb3VwIGRlZmF1bHQNCj5saW5r
-L2V0aGVyIDdlOmRkOjVkOmVhOmVmOjI2IGJyZCBmZjpmZjpmZjpmZjpmZjpmZg0KPjk6IHZtYnIx
-MEBOT05FOiA8QlJPQURDQVNULE1VTFRJQ0FTVCxVUCxMT1dFUl9VUD4gbXR1IDkwMDAgcWRpc2Mg
-bm9xdWV1ZSBzdGF0ZQ0KPlVOS05PV04gbW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1bHQNCj5saW5r
-L2V0aGVyIDY4OjA1OmNhOjA5OmMzOjdkIGJyZCBmZjpmZjpmZjpmZjpmZjpmZg0KPjEwOiBib25k
-MUBOT05FOiA8QlJPQURDQVNULE1VTFRJQ0FTVCxVUCxMT1dFUl9VUD4gbXR1IDkwMDAgcWRpc2Mg
-bm9xdWV1ZSBzdGF0ZQ0KPlVOS05PV04gbW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1bHQNCj5saW5r
-L2V0aGVyIDhhOmMzOmRhOmIwOjlkOjg3IGJyZCBmZjpmZjpmZjpmZjpmZjpmZg0KPjExOiBib25k
-MEBOT05FOiA8QlJPQURDQVNULE1VTFRJQ0FTVCxNQVNURVIsVVAsTE9XRVJfVVA+IG10dSAxNTAw
-IHFkaXNjDQo+bm9xdWV1ZSBtYXN0ZXIgdm1icjAgc3RhdGUgVVAgbW9kZSBERUZBVUxUIGdyb3Vw
-IGRlZmF1bHQNCj5saW5rL2V0aGVyIDAwOjFhOmEwOjNjOjk4OmM1IGJyZCBmZjpmZjpmZjpmZjpm
-ZjpmZg0KPjEyOiB2bWJyMEBOT05FOiA8QlJPQURDQVNULE1VTFRJQ0FTVCxVUCxMT1dFUl9VUD4g
-bXR1IDE1MDAgcWRpc2Mgbm9xdWV1ZSBzdGF0ZQ0KPlVQIG1vZGUgREVGQVVMVCBncm91cCBkZWZh
-dWx0DQo+bGluay9ldGhlciAwMDoxYTphMDozYzo5ODpjNSBicmQgZmY6ZmY6ZmY6ZmY6ZmY6ZmYN
-Cj4xMzogdm1icjAuOTRAdm1icjA6IDxCUk9BRENBU1QsTVVMVElDQVNULFVQLExPV0VSX1VQPiBt
-dHUgMTUwMCBxZGlzYyBub3F1ZXVlDQo+c3RhdGUgVVAgbW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1
-bHQNCj5saW5rL2V0aGVyIDAwOjFhOmEwOjNjOjk4OmM1IGJyZCBmZjpmZjpmZjpmZjpmZjpmZg0K
-Pg0KPi0tLS0+c2hvdWxkIGhhdmUgbW9yZSBpbnRlcmZhY2VzIGhlcmUNCj4NCj4NCj5JcyBpdCBh
-IGtub3duIGJ1ZyA/DQo+DQo+DQo+DQo+UmVnYXJkcywNCj4NCj5BbGV4YW5kcmUgRGVydW1pZXIN
-Cj4NCj4tLQ0KPlRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1
-bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+dGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9t
-b0B2Z2VyLmtlcm5lbC5vcmcNCj5Nb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5r
-ZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg==
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  net/bridge/br_multicast.c
+
+between commit:
+
+  544586f742b4 ("bridge: mcast: give fast leave precedence over multicast router and querier")
+
+from the net tree and commit:
+
+  09cf0211f970 ("bridge: mdb: fill state in br_mdb_notify")
+
+from the net-next tree.
+
+I fixed it up (hopefully - see below) and can carry the fix as necessary
+(no action is required).
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/bridge/br_multicast.c
+index 0b39dcc65b94,fd238587e032..000000000000
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@@ -1424,31 -1441,6 +1440,32 @@@ br_multicast_leave_group(struct net_bri
+  	if (!mp)
+  		goto out;
+  
+ +	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
+ +		struct net_bridge_port_group __rcu **pp;
+ +
+ +		for (pp = &mp->ports;
+ +		     (p = mlock_dereference(*pp, br)) != NULL;
+ +		     pp = &p->next) {
+ +			if (p->port != port)
+ +				continue;
+ +
+ +			rcu_assign_pointer(*pp, p->next);
+ +			hlist_del_init(&p->mglist);
+ +			del_timer(&p->timer);
+++			br_mdb_notify(br->dev, port, group, RTM_DELMDB,
+++				      p->state);
+ +			call_rcu_bh(&p->rcu, br_multicast_free_pg);
+- 			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
+ +
+ +			if (!mp->ports && !mp->mglist &&
+ +			    netif_running(br->dev))
+ +				mod_timer(&mp->timer, jiffies);
+ +		}
+ +		goto out;
+ +	}
+ +
+ +	if (timer_pending(&other_query->timer))
+ +		goto out;
+ +
+  	if (br->multicast_querier) {
+  		__br_multicast_send_query(br, port, &mp->addr);
+  
