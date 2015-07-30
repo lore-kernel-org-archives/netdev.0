@@ -1,91 +1,70 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH V4 4/7] Drivers: hv: vmbus: add APIs to register callbacks
- to process hvsock connection
-Date: Thu, 30 Jul 2015 10:20:14 +0000
-Message-ID: <f65ab29ed3d0488685afdca2dd2189a9@SIXPR30MB031.064d.mgd.msft.net>
-References: <1438086911-19384-1-git-send-email-decui@microsoft.com>
- <20150729.152651.331017965932467028.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stephen@networkplumber.org" <stephen@networkplumber.org>,
- "stefanha@redhat.com" <stefanha@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
- "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
-To: David Miller <davem@davemloft.net>, KY Srinivasan <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150729.152651.331017965932467028.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 2/4] bpf: provide helper that indicates eBPF was migrated
+Date: Thu, 30 Jul 2015 12:42:47 +0200
+Message-ID: <11e0f83fcc330f6f7bd0d427dc4c81b2a699b498.1438250937.git.daniel@iogearbox.net>
+References: <cover.1438250937.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, holzheu@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:52554 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754819AbbG3Kmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 06:42:53 -0400
+In-Reply-To: <cover.1438250937.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1438250937.git.daniel@iogearbox.net>
+References: <cover.1438250937.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller
-> Sent: Thursday, July 30, 2015 6:27
-> 
-> From: Dexuan Cui
-> Date: Tue, 28 Jul 2015 05:35:11 -0700
-> 
-> > With the 2 APIs supplied by the VMBus driver, the coming net/hvsock driver
-> > can register 2 callbacks and can know when a new hvsock connection is
-> > offered by the host, and when a hvsock connection is being closed by the
-> > host.
-> >
-> This is an extremely terrible interface.
-> 
-> It's an opaque hook that allows on registry, and it's solve purpose
-> is to allow a backdoor call into a foreign driver in another module.
-> 
-> These are exactly the things we try to avoid.
+During recent discussions we had with Michael, we found that it would
+be useful to have an indicator that tells the JIT that an eBPF program
+had been migrated from classic instructions into eBPF instructions, as
+only in that case A and X need to be cleared in the prologue. Such eBPF
+programs do not set a particular type, but all have BPF_PROG_TYPE_UNSPEC.
+Thus, introduce a small helper for cde66c2d88da ("s390/bpf: Only clear
+A and X for converted BPF programs") and possibly others in future.
 
-Hi David,
-Thanks a lot for your reviewing and the suggestion!
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+---
+ arch/s390/net/bpf_jit_comp.c |  2 +-
+ include/linux/filter.h       | 10 ++++++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-> Why not create a real abstraction where clients register an object,
-> that can be contained as a sub-member inside of their own driver
-> private, that provides the callback registry mechanism.
-
-Please pardon me for my inexperience.
-Can you please be a bit more specific?
-I guess maybe you're referencing a common design pattern in the driver
-code, so an example in some existing driver would be the best. :-)
-
-"clients register an object " -- 
-does the "clients" mean the hvsock driver?
-and the "object" means the 2 callbacks?
-
-IMHO, here the vmbus driver has to synchronously pass the 2 events
-to the hvsock driver, so a "backdoor call into the hvsock driver" is
-inevitable anyway?
-
-e.g., in the path vmbus_process_offer() -> hvsock_process_offer(), the
-return value of the latter is important to the former, because on error
-the former needs to clean up some internal states of the vmbus driver (that
-is, the "goto err_deq_chan").
-
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index bbbac6d..9f4bbc0 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -1245,7 +1245,7 @@ static int bpf_jit_prog(struct bpf_jit *jit, struct bpf_prog *fp)
+ 	jit->lit = jit->lit_start;
+ 	jit->prg = 0;
  
-> That way you can register multiple clients, do things like allow
-> AF_PACKET capturing of vmbus traffic, etc.
-
-I thought AF_PACKET can only capture IP packets	or Ethernet frames.
-Can it be used to capture AF_UNIX packet? 
-If yes, I suppose we can consider making it work for AF_HYPERV too,
-if people ask for that.
-
-Thanks,
--- Dexuan
+-	bpf_jit_prologue(jit, fp->type == BPF_PROG_TYPE_UNSPEC);
++	bpf_jit_prologue(jit, bpf_prog_was_classic(fp));
+ 	for (i = 0; i < fp->len; i += insn_count) {
+ 		insn_count = bpf_jit_insn(jit, fp, i);
+ 		if (insn_count < 0)
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 69d0055..6b02549 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -354,6 +354,16 @@ static inline unsigned int bpf_prog_size(unsigned int proglen)
+ 		   offsetof(struct bpf_prog, insns[proglen]));
+ }
+ 
++static inline bool bpf_prog_was_classic(const struct bpf_prog *prog)
++{
++	/* When classic BPF programs have been loaded and the arch
++	 * does not have a classic BPF JIT (anymore), they have been
++	 * converted via bpf_migrate_filter() to eBPF and thus always
++	 * have an unspec program type.
++	 */
++	return prog->type == BPF_PROG_TYPE_UNSPEC;
++}
++
+ #define bpf_classic_proglen(fprog) (fprog->len * sizeof(fprog->filter[0]))
+ 
+ #ifdef CONFIG_DEBUG_SET_MODULE_RONX
+-- 
+1.9.3
