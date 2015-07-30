@@ -1,10 +1,10 @@
 From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH V4 7/7] Drivers: hv: vmbus: disable local interrupt when
- hvsock's callback is running
-Date: Thu, 30 Jul 2015 10:18:04 +0000
-Message-ID: <77fb17eab5474ee7bf34bb1c148b84ea@SIXPR30MB031.064d.mgd.msft.net>
-References: <1438086930-19483-1-git-send-email-decui@microsoft.com>
- <20150729.152809.1531386671239230150.davem@davemloft.net>
+Subject: RE: [PATCH V4 4/7] Drivers: hv: vmbus: add APIs to register callbacks
+ to process hvsock connection
+Date: Thu, 30 Jul 2015 10:20:14 +0000
+Message-ID: <f65ab29ed3d0488685afdca2dd2189a9@SIXPR30MB031.064d.mgd.msft.net>
+References: <1438086911-19384-1-git-send-email-decui@microsoft.com>
+ <20150729.152651.331017965932467028.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,7 +22,7 @@ Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
  "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
 To: David Miller <davem@davemloft.net>, KY Srinivasan <kys@microsoft.com>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150729.152809.1531386671239230150.davem@davemloft.net>
+In-Reply-To: <20150729.152651.331017965932467028.davem@davemloft.net>
 Content-Language: en-US
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
@@ -36,49 +36,56 @@ Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
 > From: David Miller
-> Sent: Thursday, July 30, 2015 6:28
-> > From: Dexuan Cui <decui@microsoft.com>
-> > Date: Tue, 28 Jul 2015 05:35:30 -0700
+> Sent: Thursday, July 30, 2015 6:27
+> 
+> From: Dexuan Cui
+> Date: Tue, 28 Jul 2015 05:35:11 -0700
+> 
+> > With the 2 APIs supplied by the VMBus driver, the coming net/hvsock driver
+> > can register 2 callbacks and can know when a new hvsock connection is
+> > offered by the host, and when a hvsock connection is being closed by the
+> > host.
 > >
-> > In the SMP guest case, when the per-channel callback hvsock_events() is
-> > running on virtual CPU A, if the guest tries to close the connection on
-> > virtual CPU B: we invoke vmbus_close() -> vmbus_close_internal(),
-> > then we can have trouble: on B, vmbus_close_internal() will send IPI
-> > reset_channel_cb() to A, trying to set channel->onchannel_callbackto NULL;
-> > on A, if the IPI handler happens between
-> > "if (channel->onchannel_callback != NULL)" and invoking
-> > channel->onchannel_callback, we'll invoke a function pointer of NULL.
-> >
-> > This is why the patch is necessary.
-> >
-> Sorry, I do not accept that you must use conditional locking and/or
-> IRQ disabling.
->
-> Boil it down to what is necessary for the least common denominator,
-> and use that unconditionally.
+> This is an extremely terrible interface.
+> 
+> It's an opaque hook that allows on registry, and it's solve purpose
+> is to allow a backdoor call into a foreign driver in another module.
+> 
+> These are exactly the things we try to avoid.
 
 Hi David,
-Thanks for the comment!
+Thanks a lot for your reviewing and the suggestion!
 
-I agree with you it's not clean to use conditional IRQ disabling.
+> Why not create a real abstraction where clients register an object,
+> that can be contained as a sub-member inside of their own driver
+> private, that provides the callback registry mechanism.
 
-Here I didn't use unconditionally IRQ disabling because the Hyper-V netvsc
-and storvsc driver's vmbus event callbacks (i.e. netvsc_channel_cb() and
-storvsc_on_channel_callback()) may take relatively long time (e.g., netvsc can
-operate at a speed of 10Gb) and I think it's bad to disable IRQ for long time
-when the callbacks are running in a tasklet context, e.g., the Hyper-V timer
-can be affected: see vmbus_isr() -> hv_process_timer_expiration().
+Please pardon me for my inexperience.
+Can you please be a bit more specific?
+I guess maybe you're referencing a common design pattern in the driver
+code, so an example in some existing driver would be the best. :-)
 
-To resolve the race condition between vmbus_close_internal() and
-process_chn_event() in SMP case, now I propose a new method:
+"clients register an object " -- 
+does the "clients" mean the hvsock driver?
+and the "object" means the 2 callbacks?
 
-we can serialize the 2 paths by adding
-tasklet_disable(hv_context.event_dpc[channel->target_cpu]) and
-tasklet_enable(...) in vmbus_close_internal().
+IMHO, here the vmbus driver has to synchronously pass the 2 events
+to the hvsock driver, so a "backdoor call into the hvsock driver" is
+inevitable anyway?
 
-In this way, we need the least change and we can drop this patch.
+e.g., in the path vmbus_process_offer() -> hvsock_process_offer(), the
+return value of the latter is important to the former, because on error
+the former needs to clean up some internal states of the vmbus driver (that
+is, the "goto err_deq_chan").
 
-Please let me know your opinion.
+ 
+> That way you can register multiple clients, do things like allow
+> AF_PACKET capturing of vmbus traffic, etc.
+
+I thought AF_PACKET can only capture IP packets	or Ethernet frames.
+Can it be used to capture AF_UNIX packet? 
+If yes, I suppose we can consider making it work for AF_HYPERV too,
+if people ask for that.
 
 Thanks,
 -- Dexuan
