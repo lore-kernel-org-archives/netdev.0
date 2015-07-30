@@ -1,77 +1,92 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH RFC net-next 0/3] RDS-TCP: Network namespace support
-Date: Thu, 30 Jul 2015 04:55:44 -0400
-Message-ID: <cover.1438245718.git.sowmini.varadhan@oracle.com>
-Cc: cwang@twopensource.com, ajaykumar.hotchandani@oracle.com,
-	sowmini.varadhan@oracle.com
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH iproute2 net-next] bridge: mdb: add deleted when monitoring delmdb event
+Date: Thu, 30 Jul 2015 11:30:32 +0200
+Message-ID: <1438248632-6270-1-git-send-email-razor@blackwall.org>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:38087 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754970AbbG3I4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 04:56:34 -0400
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:33063 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755295AbbG3Jan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 05:30:43 -0400
+Received: by wicmv11 with SMTP id mv11so13306553wic.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 02:30:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-This patch series contains the set of changes to correctly set up 
-the infra for PF_RDS sockets that use TCP as the transport in multiple
-network namespaces.
+Before this patch both addmdb and delmdb events were printed the same,
+now we'll get a "Deleted" string in front when delmdb is received.
+Before:
+$ bridge mdb add dev br0 port eth3 grp 239.0.0.1
+(monitor) dev br0 port eth3 grp 239.0.0.1 temp
+$ bridge mdb del dev br0 port eth3 grp 239.0.0.1
+(monitor) dev br0 port eth3 grp 239.0.0.1 temp
+^^ No way to differentiate between both events.
 
-Patch 1 in the series is the minimal set of changes to allow
-a single instance of RDS-TCP to run in any (i.e init_net or other) 
-namespace. The changes in this patch set ensure that the
-execution of 'modprobe [-r] rds_tcp' correctly sets up the kernel
-TCP sockets relative to the current netns. 
+After:
+$ bridge mdb add dev br0 port eth3 grp 239.0.0.1
+(monitor) dev br0 port eth3 grp 239.0.0.1 temp
+$ bridge mdb del dev br0 port eth3 grp 239.0.0.1
+(monitor) Deleted dev br0 port eth3 grp 239.0.0.1 temp
 
-Patch 2 of the series further allows multiple RDS-TCP instances,
-one per network namespace. The changes in this patch allows dynamic
-creation/tear-down of RDS-TCP client and server sockets  across all
-current and future namespaces. 
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ bridge/mdb.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-Comments are specifically invited about the following:
-
-   There is some question in my mind as to whether Patch 2 should
-   use register_pernet_subsys() or register_pernet_device(): due
-   to the nature of the architecture, RDS/TCP is not a network device,
-   but more accurately a subsystem that encapsulates an RDS packet into
-   a TCP/IP header at the ksocket layer. However, the listen socket
-   is created as part of the ->init in the pernet_operations, and the 
-   connect/accept sockets get created in the kernel dynamically, with the
-   intention that all of these sockets should be cleaned as part of ->exit.
-
-   Based on the comments in net_namespace.h, sockets would need
-   to be cleaned up as part of a pernet operation, else they would
-   hold up lo cleanup.  In the current version of patch2,  that cleanup is
-   achieved after the ethernet devices, by the socket keepalive timeout,
-   after which the ->exit will get called. I'm not sure there is a clean
-   way to avoid this.  As thing stand, doing "ip netns delete <name>"
-   would result in syslogd messages about "unregister_netdevice: waiting
-   for lo to become free. Usage count .." being seen in the interval between
-   ethernet device migration to init_net and the keepalive timeout
+diff --git a/bridge/mdb.c b/bridge/mdb.c
+index 1b34f69b92d4..b14bd019c5c5 100644
+--- a/bridge/mdb.c
++++ b/bridge/mdb.c
+@@ -48,7 +48,8 @@ static void br_print_router_ports(FILE *f, struct rtattr *attr)
+ 	fprintf(f, "\n");
+ }
  
-Patch 3 in this set is independant of the above two changes, and is 
-a bugfix/follow up to eeb1bd5c encountered while testing the above.
-
-Sowmini Varadhan (3):
-  Make RDS-TCP work correctly when it is set up in a netns other than
-    init_net
-  Support multiple RDS-TCP listen endpoints, one per netns.
-  sk_clone_lock() should only do get_net() if the parent is not a
-    kernel socket
-
- net/core/sock.c       |    3 +-
- net/rds/bind.c        |    3 +-
- net/rds/connection.c  |   16 ++++---
- net/rds/ib.c          |    2 +-
- net/rds/ib_cm.c       |    4 +-
- net/rds/iw.c          |    2 +-
- net/rds/iw_cm.c       |    4 +-
- net/rds/rds.h         |   11 +++--
- net/rds/send.c        |    3 +-
- net/rds/tcp.c         |  116 ++++++++++++++++++++++++++++++++++++++++++-------
- net/rds/tcp.h         |    7 ++-
- net/rds/tcp_connect.c |    9 +++-
- net/rds/tcp_listen.c  |   40 ++++++-----------
- net/rds/transport.c   |    4 +-
- 14 files changed, 155 insertions(+), 69 deletions(-)
+-static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
++static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
++			    struct nlmsghdr *n)
+ {
+ 	SPRINT_BUF(abuf);
+ 	const void *src;
+@@ -57,6 +58,8 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
+ 	af = e->addr.proto == htons(ETH_P_IP) ? AF_INET : AF_INET6;
+ 	src = af == AF_INET ? (const void *)&e->addr.u.ip4 :
+ 			      (const void *)&e->addr.u.ip6;
++	if (n->nlmsg_type == RTM_DELMDB)
++		fprintf(f, "Deleted ");
+ 	fprintf(f, "dev %s port %s grp %s %s", ll_index_to_name(ifindex),
+ 		ll_index_to_name(e->ifindex),
+ 		inet_ntop(af, src, abuf, sizeof(abuf)),
+@@ -66,7 +69,8 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
+ 	fprintf(f, "\n");
+ }
+ 
+-static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr)
++static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr,
++			       struct nlmsghdr *n)
+ {
+ 	struct rtattr *i;
+ 	int rem;
+@@ -75,7 +79,7 @@ static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr)
+ 	rem = RTA_PAYLOAD(attr);
+ 	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+ 		e = RTA_DATA(i);
+-		print_mdb_entry(f, ifindex, e);
++		print_mdb_entry(f, ifindex, e, n);
+ 	}
+ }
+ 
+@@ -108,7 +112,7 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		int rem = RTA_PAYLOAD(tb[MDBA_MDB]);
+ 
+ 		for (i = RTA_DATA(tb[MDBA_MDB]); RTA_OK(i, rem); i = RTA_NEXT(i, rem))
+-			br_print_mdb_entry(fp, r->ifindex, i);
++			br_print_mdb_entry(fp, r->ifindex, i, n);
+ 	}
+ 
+ 	if (tb[MDBA_ROUTER]) {
+-- 
+2.4.3
