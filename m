@@ -1,92 +1,195 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH iproute2 net-next] bridge: mdb: add deleted when monitoring delmdb event
-Date: Thu, 30 Jul 2015 11:30:32 +0200
-Message-ID: <1438248632-6270-1-git-send-email-razor@blackwall.org>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:33063 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755295AbbG3Jan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 05:30:43 -0400
-Received: by wicmv11 with SMTP id mv11so13306553wic.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 02:30:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: [PATCH] bus: subsys: update return type of ->remove_dev() to void
+Date: Thu, 30 Jul 2015 15:04:01 +0530
+Message-ID: <02c0569741812b655edde5124c3e2937bb79f9f8.1438248445.git.viresh.kumar@linaro.org>
+Cc: Rafael Wysocki <rjw@rjwysocki.net>,
+	Viresh Kumar <viresh.kumar@linaro.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	Joe Perches <joe@perches.com>, Joerg Roedel <jroedel@suse.de>,
+	linux-kernel@vger.kernel.org (open list),
+	linux-pm@vger.kernel.org (open list:CPU FREQUENCY DRIVERS),
+	linux-sh@vger.kernel.org (open list:SUPERH),
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	x86@kernel.org (maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT))
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Its return value is not used by the subsys core and nothing meaningful
+can be done with it, even if we want to use it. The subsys device is
+anyway getting removed.
 
-Before this patch both addmdb and delmdb events were printed the same,
-now we'll get a "Deleted" string in front when delmdb is received.
-Before:
-$ bridge mdb add dev br0 port eth3 grp 239.0.0.1
-(monitor) dev br0 port eth3 grp 239.0.0.1 temp
-$ bridge mdb del dev br0 port eth3 grp 239.0.0.1
-(monitor) dev br0 port eth3 grp 239.0.0.1 temp
-^^ No way to differentiate between both events.
+Update prototype of ->remove_dev() to make its return type as void. Fix
+all usage sites as well.
 
-After:
-$ bridge mdb add dev br0 port eth3 grp 239.0.0.1
-(monitor) dev br0 port eth3 grp 239.0.0.1 temp
-$ bridge mdb del dev br0 port eth3 grp 239.0.0.1
-(monitor) Deleted dev br0 port eth3 grp 239.0.0.1 temp
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 ---
- bridge/mdb.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+Based of 4.2-rc4.
+---
+ arch/sh/kernel/cpu/sh4/sq.c          |  3 +--
+ arch/tile/kernel/sysfs.c             | 11 ++++-------
+ arch/x86/kernel/cpu/microcode/core.c |  5 ++---
+ drivers/cpufreq/cpufreq.c            | 12 +++++-------
+ drivers/net/rionet.c                 |  4 +---
+ include/linux/device.h               |  2 +-
+ 6 files changed, 14 insertions(+), 23 deletions(-)
 
-diff --git a/bridge/mdb.c b/bridge/mdb.c
-index 1b34f69b92d4..b14bd019c5c5 100644
---- a/bridge/mdb.c
-+++ b/bridge/mdb.c
-@@ -48,7 +48,8 @@ static void br_print_router_ports(FILE *f, struct rtattr *attr)
- 	fprintf(f, "\n");
+diff --git a/arch/sh/kernel/cpu/sh4/sq.c b/arch/sh/kernel/cpu/sh4/sq.c
+index 0a47bd3e7bee..4ca78ed71ad2 100644
+--- a/arch/sh/kernel/cpu/sh4/sq.c
++++ b/arch/sh/kernel/cpu/sh4/sq.c
+@@ -355,13 +355,12 @@ static int sq_dev_add(struct device *dev, struct subsys_interface *sif)
+ 	return error;
  }
  
--static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
-+static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
-+			    struct nlmsghdr *n)
+-static int sq_dev_remove(struct device *dev, struct subsys_interface *sif)
++static void sq_dev_remove(struct device *dev, struct subsys_interface *sif)
  {
- 	SPRINT_BUF(abuf);
- 	const void *src;
-@@ -57,6 +58,8 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
- 	af = e->addr.proto == htons(ETH_P_IP) ? AF_INET : AF_INET6;
- 	src = af == AF_INET ? (const void *)&e->addr.u.ip4 :
- 			      (const void *)&e->addr.u.ip6;
-+	if (n->nlmsg_type == RTM_DELMDB)
-+		fprintf(f, "Deleted ");
- 	fprintf(f, "dev %s port %s grp %s %s", ll_index_to_name(ifindex),
- 		ll_index_to_name(e->ifindex),
- 		inet_ntop(af, src, abuf, sizeof(abuf)),
-@@ -66,7 +69,8 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
- 	fprintf(f, "\n");
+ 	unsigned int cpu = dev->id;
+ 	struct kobject *kobj = sq_kobject[cpu];
+ 
+ 	kobject_put(kobj);
+-	return 0;
  }
  
--static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr)
-+static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr,
-+			       struct nlmsghdr *n)
+ static struct subsys_interface sq_interface = {
+diff --git a/arch/tile/kernel/sysfs.c b/arch/tile/kernel/sysfs.c
+index a3ed12f8f83b..825867c53853 100644
+--- a/arch/tile/kernel/sysfs.c
++++ b/arch/tile/kernel/sysfs.c
+@@ -198,16 +198,13 @@ static int hv_stats_device_add(struct device *dev, struct subsys_interface *sif)
+ 	return err;
+ }
+ 
+-static int hv_stats_device_remove(struct device *dev,
+-				  struct subsys_interface *sif)
++static void hv_stats_device_remove(struct device *dev,
++				   struct subsys_interface *sif)
  {
- 	struct rtattr *i;
- 	int rem;
-@@ -75,7 +79,7 @@ static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr)
- 	rem = RTA_PAYLOAD(attr);
- 	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
- 		e = RTA_DATA(i);
--		print_mdb_entry(f, ifindex, e);
-+		print_mdb_entry(f, ifindex, e, n);
- 	}
+ 	int cpu = dev->id;
+ 
+-	if (!cpu_online(cpu))
+-		return 0;
+-
+-	sysfs_remove_file(&dev->kobj, &dev_attr_hv_stats.attr);
+-	return 0;
++	if (cpu_online(cpu))
++		sysfs_remove_file(&dev->kobj, &dev_attr_hv_stats.attr);
  }
  
-@@ -108,7 +112,7 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		int rem = RTA_PAYLOAD(tb[MDBA_MDB]);
  
- 		for (i = RTA_DATA(tb[MDBA_MDB]); RTA_OK(i, rem); i = RTA_NEXT(i, rem))
--			br_print_mdb_entry(fp, r->ifindex, i);
-+			br_print_mdb_entry(fp, r->ifindex, i, n);
+diff --git a/arch/x86/kernel/cpu/microcode/core.c b/arch/x86/kernel/cpu/microcode/core.c
+index 6236a54a63f4..3c986390058a 100644
+--- a/arch/x86/kernel/cpu/microcode/core.c
++++ b/arch/x86/kernel/cpu/microcode/core.c
+@@ -377,17 +377,16 @@ static int mc_device_add(struct device *dev, struct subsys_interface *sif)
+ 	return err;
+ }
+ 
+-static int mc_device_remove(struct device *dev, struct subsys_interface *sif)
++static void mc_device_remove(struct device *dev, struct subsys_interface *sif)
+ {
+ 	int cpu = dev->id;
+ 
+ 	if (!cpu_online(cpu))
+-		return 0;
++		return;
+ 
+ 	pr_debug("CPU%d removed\n", cpu);
+ 	microcode_fini_cpu(cpu);
+ 	sysfs_remove_group(&dev->kobj, &mc_attr_group);
+-	return 0;
+ }
+ 
+ static struct subsys_interface mc_cpu_interface = {
+diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
+index 26063afb3eba..6da25c10bdfd 100644
+--- a/drivers/cpufreq/cpufreq.c
++++ b/drivers/cpufreq/cpufreq.c
+@@ -1518,7 +1518,7 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
+  *
+  * Removes the cpufreq interface for a CPU device.
+  */
+-static int cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif)
++static void cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif)
+ {
+ 	unsigned int cpu = dev->id;
+ 	int ret;
+@@ -1533,7 +1533,7 @@ static int cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif)
+ 		struct cpumask mask;
+ 
+ 		if (!policy)
+-			return 0;
++			return;
+ 
+ 		cpumask_copy(&mask, policy->related_cpus);
+ 		cpumask_clear_cpu(cpu, &mask);
+@@ -1544,19 +1544,17 @@ static int cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif)
+ 		 */
+ 		if (cpumask_intersects(&mask, cpu_present_mask)) {
+ 			remove_cpu_dev_symlink(policy, cpu);
+-			return 0;
++			return;
+ 		}
+ 
+ 		cpufreq_policy_free(policy, true);
+-		return 0;
++		return;
  	}
  
- 	if (tb[MDBA_ROUTER]) {
+ 	ret = __cpufreq_remove_dev_prepare(dev, sif);
+ 
+ 	if (!ret)
+-		ret = __cpufreq_remove_dev_finish(dev, sif);
+-
+-	return ret;
++		__cpufreq_remove_dev_finish(dev, sif);
+ }
+ 
+ static void handle_update(struct work_struct *work)
+diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
+index dac7a0d9bb46..01f08a7751f7 100644
+--- a/drivers/net/rionet.c
++++ b/drivers/net/rionet.c
+@@ -396,7 +396,7 @@ static int rionet_close(struct net_device *ndev)
+ 	return 0;
+ }
+ 
+-static int rionet_remove_dev(struct device *dev, struct subsys_interface *sif)
++static void rionet_remove_dev(struct device *dev, struct subsys_interface *sif)
+ {
+ 	struct rio_dev *rdev = to_rio_dev(dev);
+ 	unsigned char netid = rdev->net->hport->id;
+@@ -416,8 +416,6 @@ static int rionet_remove_dev(struct device *dev, struct subsys_interface *sif)
+ 			}
+ 		}
+ 	}
+-
+-	return 0;
+ }
+ 
+ static void rionet_get_drvinfo(struct net_device *ndev,
+diff --git a/include/linux/device.h b/include/linux/device.h
+index a2b4ea70a946..1225f98e9240 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -341,7 +341,7 @@ struct subsys_interface {
+ 	struct bus_type *subsys;
+ 	struct list_head node;
+ 	int (*add_dev)(struct device *dev, struct subsys_interface *sif);
+-	int (*remove_dev)(struct device *dev, struct subsys_interface *sif);
++	void (*remove_dev)(struct device *dev, struct subsys_interface *sif);
+ };
+ 
+ int subsys_interface_register(struct subsys_interface *sif);
 -- 
-2.4.3
+2.4.0
+
