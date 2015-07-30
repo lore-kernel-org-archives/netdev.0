@@ -1,102 +1,111 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net: sched: fix refcount imbalance in actions
-Date: Wed, 29 Jul 2015 17:33:57 -0700
-Message-ID: <CAHA+R7MVFhv1_J=0QE6zjCiVtCCKsaU=WgX6eH-u3op7GLZW5w@mail.gmail.com>
-References: <00f17fd2908b742c7e450bb76a1d487c0b32304f.1438205044.git.daniel@iogearbox.net>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCHv3] net/ipv6: add sysctl option accept_ra_min_hop_limit
+Date: Thu, 30 Jul 2015 09:45:26 +0900
+Message-ID: <55B973A6.1060607@miraclelinux.com>
+References: <1438164858-5253-1-git-send-email-liuhangbin@gmail.com>	<55B8AD62.1050002@miraclelinux.com> <CAPwn2JT6e=f0q=Q5rbqF_6ZejLyj+Ysyk1eP5KTBkGLz-Mpfqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	network dev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:36066 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754616AbbG3Ad6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 20:33:58 -0400
-Received: by ykay190 with SMTP id y190so22219683yka.3
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 17:33:58 -0700 (PDT)
-In-Reply-To: <00f17fd2908b742c7e450bb76a1d487c0b32304f.1438205044.git.daniel@iogearbox.net>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35023 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754645AbbG3Apb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 20:45:31 -0400
+Received: by pabkd10 with SMTP id kd10so13817305pab.2
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 17:45:30 -0700 (PDT)
+In-Reply-To: <CAPwn2JT6e=f0q=Q5rbqF_6ZejLyj+Ysyk1eP5KTBkGLz-Mpfqg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2015 at 2:35 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> What happens is that in tcf_hash_check(), we check tcf_common for a given
-> index and increase tcfc_refcnt and conditionally tcfc_bindcnt when we've
-> found an existing action. Now there are the following cases:
->
->   1) We do a late binding of an action. In that case, we leave the
->      tcfc_refcnt/tcfc_bindcnt increased and are done with the ->init()
->      handler. This is correctly handeled.
->
->   2) We replace the given action, or we try to add one without replacing
->      and find out that the action at a specific index already exists
->      (thus, we go out with error in that case).
->
-> In case of 2), we have to undo the reference count increase from
-> tcf_hash_check() in the tcf_hash_check() function. Currently, we fail to
-> do so because of the 'tcfc_bindcnt > 0' check which bails out early with
-> an -EPERM error.
->
-> Now, while commit 55334a5db5cd prevents 'tc actions del action ...' on an
-> already classifier-bound action to drop the reference count (which could
-> then become negative, wrap around etc), this restriction only accounts for
-> invocations outside a specific action's ->init() handler.
->
-> One possible solution would be to add a flag thus we possibly trigger
-> the -EPERM ony in situations where it is indeed relevant.
->
-> After the patch, above test cases have correct reference count again.
->
+Hi,
 
-Hmm, so in the tcf_hash_check() !=0 path we forget to decrease the refcount,
-maybe we should not increase it at all? Does the following simpler fix make
-any sense? I will think more about this tomorrow.
+Hangbin Liu wrote:
+>>> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+>>> index 0a05b35..acda056 100644
+>>> --- a/net/ipv6/ndisc.c
+>>> +++ b/net/ipv6/ndisc.c
+>>> @@ -1226,13 +1226,11 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+>>>       if (rt)
+>>>               rt6_set_expires(rt, jiffies + (HZ * lifetime));
+>>>       if (ra_msg->icmph.icmp6_hop_limit) {
+>>> -             /* Only set hop_limit on the interface if it is higher than
+>>> -              * the current hop_limit.
+>>> -              */
+>>> -             if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
+>>> +             if (in6_dev->cnf.accept_ra_min_hop_limit <= ra_msg->icmph.icmp6_hop_limit &&
+>>> +                 ra_msg->icmph.icmp6_hop_limit != 0) {
+>>>                       in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
+>>>               } else {
+>>> -                     ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
+>>> +                     ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than minimum\n");
+>>>               }
+>>>               if (rt)
+>>>                       dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
+>>>
+>>
+>> Please see my comments against your previous patch.
+> 
+> I pasted you comments here so we don't need to discuss in two mails :)
+> 
+>>
+>> ra_msg->icmph.icmp6_hop_limit != 0 is checkd by outer "if".
+> 
+> Yes, thanks for your reminding :)
+> 
+>>
+>> You do not need to update cnf.hop_limit if it is already equal to
+>> hop limit received.
+> 
+> We need to update cnf.hop_limit if min_hop_limit <= icmp6_hop_limit. e.g.
+> current hop limit is 64, min hop limit is 1 and ra hop limit is 32, then we need
+> update current hop limit to 32.
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index af427a3..bd63a39 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -53,8 +53,11 @@ int tcf_hash_release(struct tc_action *a, int bind)
-        if (p) {
-                if (bind)
-                        p->tcfc_bindcnt--;
--               else if (p->tcfc_bindcnt > 0)
--                       return -EPERM;
-+               else {
-+                       if (p->tcfc_bindcnt > 0)
-+                               return -EPERM;
-+                       return ret;
-+               }
+OK
 
-                p->tcfc_refcnt--;
-                if (p->tcfc_bindcnt <= 0 && p->tcfc_refcnt <= 0) {
-@@ -214,9 +217,10 @@ int tcf_hash_check(u32 index, struct tc_action
-*a, int bind)
-        struct tcf_hashinfo *hinfo = a->ops->hinfo;
-        struct tcf_common *p = NULL;
-        if (index && (p = tcf_hash_lookup(index, hinfo)) != NULL) {
--               if (bind)
-+               if (bind) {
-                        p->tcfc_bindcnt++;
--               p->tcfc_refcnt++;
-+                       p->tcfc_refcnt++;
-+               }
-                a->priv = p;
-                return 1;
-        }
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index a42a3b2..2685450 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -98,6 +98,8 @@ static int tcf_mirred_init(struct net *net, struct
-nlattr *nla,
-                        return ret;
-                ret = ACT_P_CREATED;
-        } else {
-+               if (bind)
-+                       return 0;
-                if (!ovr) {
-                        tcf_hash_release(a, bind);
-                        return -EEXIST;
+> 
+>>
+>> How about ignoring hop limit without message is configured value is
+>> larger than 255, BTW?
+> 
+> Although set accept_ra_min_hop_limit great than 255 is meaningless,  there
+> is also no need to check it since icmp6_hop_limit will not larger than 255. so
+> 
+> +               if (in6_dev->cnf.accept_ra_min_hop_limit <= 255 &&
+> +                   in6_dev->cnf.accept_ra_min_hop_limit <=
+> ra_msg->icmph.icmp6_hop_limit )
+>                         in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
+> 
+> is  duplicated check. How do you think?
+
+How about checking in6_dev->cnf.accept_ra_min_hop_limit by outer if, then?
+
+
+if (in6_dev->cnf.accept_ra_min_hop_limit < 256 &&
+    ra_msg->icmph.icmp6_hop_limit) {
+...
+}
+
+> 
+>>
+>>>               if (rt)
+>>>                       dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
+>>>
+>>
+>> This can be inside the inner "if".
+> 
+> OK, will move it.
+> 
+> 
+> Best Regards
+> Hangbin
+> 
+
+Regards,
+
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
