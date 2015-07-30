@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 0/2] af_mpls: fix undefined reference to
- ip6_route_output with CONFIG_IPV6=n
-Date: Thu, 30 Jul 2015 14:02:52 -0700 (PDT)
-Message-ID: <20150730.140252.110937713726990587.davem@davemloft.net>
-References: <55BA252F.3070601@cumulusnetworks.com>
-	<1438268245.17421.5.camel@stressinduktion.org>
-	<55BA8B36.9030402@cumulusnetworks.com>
+Subject: Re: [PATCH net v3 0/2] r8152: device reset
+Date: Thu, 30 Jul 2015 14:04:01 -0700 (PDT)
+Message-ID: <20150730.140401.2147687049481097497.davem@davemloft.net>
+References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
+	<1394712342-15778-162-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, tgraf@suug.ch, rshearma@brocade.com,
-	stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
-	jon.maloy@ericsson.com, netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41230 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751391AbbG3VCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 17:02:53 -0400
-In-Reply-To: <55BA8B36.9030402@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-162-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roopa <roopa@cumulusnetworks.com>
-Date: Thu, 30 Jul 2015 13:38:14 -0700
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Wed, 29 Jul 2015 20:39:07 +0800
 
-> but was only concerned about ipv6 module unload.
+> v3:
+> For patch #2, remove cancel_delayed_work().
+> 
+> v2:
+> For patch #1, remove usb_autopm_get_interface(), usb_autopm_put_interface(), and
+> the checking of intf->condition.
+> 
+> For patch #2, replace the original method with usb_queue_reset_device() to reset
+> the device. 
+> 
+> v1:
+> Although the driver works normally, we find the device may get all 0xff data when
+> transmitting packets on certain platforms. It would break the device and no packet
+> could be transmitted. The reset is necessary to recover the hw for this situation.
 
-It is not possible to unload the ipv6 module.
+Series applied, thanks.
