@@ -1,73 +1,65 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next v2] netfilter: nf_ct_sctp: minimal multihoming
- support
-Date: Thu, 30 Jul 2015 13:54:34 +0200
-Message-ID: <20150730115434.GA6960@salvia>
-References: <20150717141757.01EBFA0A84@unicorn.suse.cz>
+Subject: Re: [patch -master] netfilter: xt_CT: checking for IS_ERR() instead
+ of NULL
+Date: Thu, 30 Jul 2015 13:57:43 +0200
+Message-ID: <20150730115743.GA7077@salvia>
+References: <20150727224228.GA10367@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+Cc: Patrick McHardy <kaber@trash.net>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:54619 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752281AbbG3Lvq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2015 07:51:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20150717141757.01EBFA0A84@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150727224228.GA10367@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 17, 2015 at 04:17:56PM +0200, Michal Kubecek wrote:
-> Currently nf_conntrack_proto_sctp module handles only packets between
-> primary addresses used to establish the connection. Any packets between
-> secondary addresses are classified as invalid so that usual firewall
-> configurations drop them. Allowing HEARTBEAT and HEARTBEAT-ACK chunks to
-> establish a new conntrack would allow traffic between secondary
-> addresses to pass through. A more sophisticated solution based on the
-> addresses advertised in the initial handshake (and possibly also later
-> dynamic address addition and removal) would be much harder to implement.
-> Moreover, in general we cannot assume to always see the initial
-> handshake as it can be routed through a different path.
+On Tue, Jul 28, 2015 at 01:42:28AM +0300, Dan Carpenter wrote:
+> We recently changed this from nf_conntrack_alloc() to nf_ct_tmpl_alloc()
+> so the error handling needs to changed to check for NULL instead of
+> IS_ERR().
+> 
+> Fixes: 0838aa7fcfcd ('netfilter: fix netns dependencies with conntrack templates')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied, thanks.
 
-I have remove the chunks below though, see explanation below.
+I have also appended this chunk, since synproxy is also affected:
 
-> @@ -705,6 +756,18 @@ static struct ctl_table sctp_compat_sysctl_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_jiffies,
->  	},
-> +	{
-> +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_sent",
-> +		.maxlen		= sizeof(unsigned int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_jiffies,
-> +	},
-> +	{
-> +		.procname	= "ip_conntrack_sctp_timeout_heartbeat_acked",
-> +		.maxlen		= sizeof(unsigned int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_jiffies,
-> +	},
->  	{ }
->  };
->  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
-[...]
-> @@ -752,6 +817,8 @@ static int sctp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn,
->  	pn->ctl_compat_table[4].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT];
->  	pn->ctl_compat_table[5].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD];
->  	pn->ctl_compat_table[6].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT];
-> +	pn->ctl_compat_table[7].data = &sn->timeouts[SCTP_CONNTRACK_HEARTBEAT_SENT];
-> +	pn->ctl_compat_table[8].data = &sn->timeouts[SCTP_CONNTRACK_HEARTBEAT_ACKED];
->  #endif
->  #endif
->  	return 0;
+--- a/net/netfilter/nf_synproxy_core.c
++++ b/net/netfilter/nf_synproxy_core.c
+@@ -353,7 +353,7 @@ static int __net_init synproxy_net_init(struct net *net)
+        int err = -ENOMEM;
+ 
+        ct = nf_ct_tmpl_alloc(net, 0, GFP_KERNEL);
+-       if (IS_ERR(ct)) {
++       if (!ct) {
+                err = PTR_ERR(ct);
+                goto err1;
+        }
 
-These are part of the compat sysctl interface (those entries that are
-prefixed by "ip_conntrack_*) that we should remove at some point (the
-new entries that are prefixed by "nf_conntrack_*" has been already
-there for a bit less than ~10 years and we got a netlink interface to
-configure this for several years already), so better skip those spots.
+> diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+> index c663003..43ddeee 100644
+> --- a/net/netfilter/xt_CT.c
+> +++ b/net/netfilter/xt_CT.c
+> @@ -202,9 +202,10 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
+>  		goto err1;
+>  
+>  	ct = nf_ct_tmpl_alloc(par->net, info->zone, GFP_KERNEL);
+> -	ret = PTR_ERR(ct);
+> -	if (IS_ERR(ct))
+> +	if (!ct) {
+> +		ret = -ENOMEM;
+>  		goto err2;
+> +	}
+>  
+>  	ret = 0;
+>  	if ((info->ct_events || info->exp_events) &&
