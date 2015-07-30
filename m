@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/4] net: dsa: Add netconsole support
-Date: Thu, 30 Jul 2015 12:35:39 -0700
-Message-ID: <1438284939-2750-5-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/4] net: systemport: Add netconsole support
+Date: Thu, 30 Jul 2015 12:35:37 -0700
+Message-ID: <1438284939-2750-3-git-send-email-f.fainelli@gmail.com>
 References: <1438284939-2750-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -12,164 +12,55 @@ Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
 	Chris.Packham@alliedtelesis.co.nz, alexander.h.duyck@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:34826 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752497AbbG3TjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 15:39:16 -0400
-Received: by pdrg1 with SMTP id g1so29292608pdr.2
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 12:39:16 -0700 (PDT)
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:34562 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751323AbbG3TjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 15:39:13 -0400
+Received: by pdbbh15 with SMTP id bh15so29124610pdb.1
+        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 12:39:13 -0700 (PDT)
 In-Reply-To: <1438284939-2750-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for using DSA slave network devices with netconsole, which
-requires us to allocate and free custom netpoll instances and invoke the
-parent network device poll controller callback.
-
-In order for netconsole to work, we need to construct the DSA tag, but
-not queue the skb for transmission on the master network device xmit
-function.
+Implement a poll controller for netconsole which invokes the RX
+interrupt handler to poll for incoming packets, and cleans up all TX
+queues.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/dsa_priv.h |  4 ++++
- net/dsa/slave.c    | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 71 insertions(+)
+ drivers/net/ethernet/broadcom/bcmsysport.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 92ec9d839348..070210ad7f39 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -13,6 +13,7 @@
- 
- #include <linux/phy.h>
- #include <linux/netdevice.h>
-+#include <linux/netpoll.h>
- 
- struct dsa_device_ops {
- 	int (*xmit)(struct sk_buff *skb, struct net_device *dev);
-@@ -47,6 +48,9 @@ struct dsa_slave_priv {
- 	int			old_duplex;
- 
- 	struct net_device	*bridge_dev;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	struct netpoll		*netpoll;
-+#endif
- };
- 
- /* dsa.c */
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 5495c23765ea..360d381c3c56 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -18,6 +18,7 @@
- #include <net/rtnetlink.h>
- #include <net/switchdev.h>
- #include <linux/if_bridge.h>
-+#include <linux/netpoll.h>
- #include "dsa_priv.h"
- 
- /* slave mii_bus handling ***************************************************/
-@@ -418,6 +419,18 @@ static int dsa_slave_port_attr_get(struct net_device *dev,
- 	return 0;
- }
- 
-+static inline netdev_tx_t dsa_netpoll_send_skb(struct dsa_slave_priv *p,
-+					       struct sk_buff *skb)
-+{
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (p->netpoll)
-+		netpoll_send_skb(p->netpoll, skb);
-+#else
-+	BUG();
-+#endif
-+	return NETDEV_TX_OK;
-+}
-+
- static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -430,6 +443,9 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (ret)
- 		return NETDEV_TX_OK;
- 
-+	if (unlikely(netpoll_tx_running(dev)))
-+		return dsa_netpoll_send_skb(p, skb);
-+
- 	/* Queue the SKB for transmission on the parent interface, but
- 	 * do not modify its EtherType
- 	 */
-@@ -444,6 +460,9 @@ static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 
-+	if (unlikely(netpoll_tx_running(dev)))
-+		return dsa_netpoll_send_skb(p, skb);
-+
- 	skb->dev = p->parent->dst->master_netdev;
- 	dev_queue_xmit(skb);
- 
-@@ -679,6 +698,49 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
- 	return ret;
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 4566cdf0bc39..3685924708f6 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -933,6 +933,16 @@ static irqreturn_t bcm_sysport_wol_isr(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
  }
  
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+static int dsa_slave_netpoll_setup(struct net_device *dev,
-+				   struct netpoll_info *ni)
++static void bcm_sysport_poll_controller(struct net_device *dev)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	struct net_device *master = ds->dst->master_netdev;
-+	struct netpoll *netpoll;
-+	int err = 0;
++	struct bcm_sysport_priv *priv = netdev_priv(dev);
 +
-+	netpoll = kzalloc(sizeof(*netpoll), GFP_KERNEL);
-+	if (!netpoll)
-+		return -ENOMEM;
-+
-+	err = __netpoll_setup(netpoll, master);
-+	if (err) {
-+		kfree(netpoll);
-+		goto out;
-+	}
-+
-+	p->netpoll = netpoll;
-+out:
-+	return err;
-+}
-+
-+static void dsa_slave_netpoll_cleanup(struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct netpoll *netpoll = p->netpoll;
-+
-+	if (!netpoll)
-+		return;
-+
-+	p->netpoll = NULL;
-+
-+	__netpoll_free_async(netpoll);
-+}
-+
-+static void dsa_slave_poll_controller(struct net_device *dev)
-+{
++	bcm_sysport_rx_isr(priv->irq0, priv);
++	bcm_sysport_tx_reclaim_all(priv);
 +}
 +#endif
 +
- static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_settings		= dsa_slave_get_settings,
- 	.set_settings		= dsa_slave_set_settings,
-@@ -711,6 +773,11 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_fdb_dump		= dsa_slave_fdb_dump,
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
- 	.ndo_get_iflink		= dsa_slave_get_iflink,
+ static struct sk_buff *bcm_sysport_insert_tsb(struct sk_buff *skb,
+ 					      struct net_device *dev)
+ {
+@@ -1723,6 +1733,9 @@ static const struct net_device_ops bcm_sysport_netdev_ops = {
+ 	.ndo_set_features	= bcm_sysport_set_features,
+ 	.ndo_set_rx_mode	= bcm_sysport_set_rx_mode,
+ 	.ndo_set_mac_address	= bcm_sysport_change_mac,
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_netpoll_setup	= dsa_slave_netpoll_setup,
-+	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
-+	.ndo_poll_controller	= dsa_slave_poll_controller,
++	.ndo_poll_controller	= bcm_sysport_poll_controller,
 +#endif
  };
  
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
+ #define REV_FMT	"v%2x.%02x"
 -- 
 2.1.0
