@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] lwtunnel: Make lwtun_encaps[] static
-Date: Wed, 29 Jul 2015 22:59:54 -0700 (PDT)
-Message-ID: <20150729.225954.1199356192498170951.davem@davemloft.net>
-References: <66e6473d98879c465cf4965d44230374c716ed25.1438155918.git.tgraf@suug.ch>
+Subject: Re: [PATCH] net: pktgen: Observe needed_headroom of the device
+Date: Wed, 29 Jul 2015 23:00:58 -0700 (PDT)
+Message-ID: <20150729.230058.218703315508987990.davem@davemloft.net>
+References: <1438163158-12554-1-git-send-email-bogdan.hamciuc@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org
+To: bogdan.hamciuc@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36277 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36284 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbbG3F7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 01:59:55 -0400
-In-Reply-To: <66e6473d98879c465cf4965d44230374c716ed25.1438155918.git.tgraf@suug.ch>
+	with ESMTP id S1751944AbbG3GA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:00:59 -0400
+In-Reply-To: <1438163158-12554-1-git-send-email-bogdan.hamciuc@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 29 Jul 2015 09:45:40 +0200
+From: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+Date: Wed, 29 Jul 2015 12:45:58 +0300
 
-> Any external user should use the registration API instead of
-> accessing this directly.
+> Allocate enough space so as not to force the outgoing net device to do
+> skb_realloc_headroom().
 > 
-> Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
 
-Applied, thanks.
+Applied to net-next.
