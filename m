@@ -1,65 +1,56 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [patch -master] netfilter: xt_CT: checking for IS_ERR() instead
- of NULL
-Date: Thu, 30 Jul 2015 13:57:43 +0200
-Message-ID: <20150730115743.GA7077@salvia>
-References: <20150727224228.GA10367@mwanda>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH net-next v5 00/11] ipv6: Only create RTF_CACHE route after
+ encountering pmtu exception
+Date: Thu, 30 Jul 2015 13:57:56 +0200
+Message-ID: <55BA1144.9090203@ahsoftware.de>
+References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
+ <55B89C14.2070700@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Kernel Team <Kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54619 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752281AbbG3Lvq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jul 2015 07:51:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20150727224228.GA10367@mwanda>
+Received: from h1446028.stratoserver.net ([85.214.92.142]:56281 "EHLO
+	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbbG3L6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 07:58:06 -0400
+Received: from wandq.ahsoftware (p4FC37192.dip0.t-ipconnect.de [79.195.113.146])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.ahsoftware.de (Postfix) with ESMTPSA id 2DD2C2C9C21C
+	for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 13:58:03 +0200 (CEST)
+In-Reply-To: <55B89C14.2070700@ahsoftware.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 28, 2015 at 01:42:28AM +0300, Dan Carpenter wrote:
-> We recently changed this from nf_conntrack_alloc() to nf_ct_tmpl_alloc()
-> so the error handling needs to changed to check for NULL instead of
-> IS_ERR().
-> 
-> Fixes: 0838aa7fcfcd ('netfilter: fix netns dependencies with conntrack templates')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Am 29.07.2015 um 11:25 schrieb Alexander Holler:
+> Am 23.05.2015 um 05:55 schrieb Martin KaFai Lau:
+>
+>> This series is to avoid creating a RTF_CACHE route whenever we are
+>> consulting
+>> the fib6 tree with a new destination.  Instead, only create RTF_CACHE
+>> route
+>> when we see a pmtu exception.
+>
+> That even helps on systems without an IPv6-connection to world because
+> it avoids the IPv6 route add/delete pairs which happened before whenever
+> an IPv6-connection was tried (e.g. by Happy Eyeballs algorithms).
+>
+> I think that's worse a laud. thanks.
 
-Applied, thanks.
+Of course, I meant worth. Sorry, but the left part of my brain seems to 
+be sometimes in a (maybe forced) power save mode. ;)
 
-I have also appended this chunk, since synproxy is also affected:
+Also I wonder how the previous algorithm went into the kernel at all or 
+why it wasn't fixed earlier. Anyway, it's great that someone took the 
+time to fix that annoying behaviour (I've had on my radar since quiet 
+some time).
 
---- a/net/netfilter/nf_synproxy_core.c
-+++ b/net/netfilter/nf_synproxy_core.c
-@@ -353,7 +353,7 @@ static int __net_init synproxy_net_init(struct net *net)
-        int err = -ENOMEM;
- 
-        ct = nf_ct_tmpl_alloc(net, 0, GFP_KERNEL);
--       if (IS_ERR(ct)) {
-+       if (!ct) {
-                err = PTR_ERR(ct);
-                goto err1;
-        }
+Thanks again
 
-> diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-> index c663003..43ddeee 100644
-> --- a/net/netfilter/xt_CT.c
-> +++ b/net/netfilter/xt_CT.c
-> @@ -202,9 +202,10 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
->  		goto err1;
->  
->  	ct = nf_ct_tmpl_alloc(par->net, info->zone, GFP_KERNEL);
-> -	ret = PTR_ERR(ct);
-> -	if (IS_ERR(ct))
-> +	if (!ct) {
-> +		ret = -ENOMEM;
->  		goto err2;
-> +	}
->  
->  	ret = 0;
->  	if ((info->ct_events || info->exp_events) &&
+> Alexander Holler
