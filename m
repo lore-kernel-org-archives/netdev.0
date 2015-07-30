@@ -1,59 +1,54 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 3/4] bpf, x86/sparc: show actual number of passes in bpf_jit_dump
-Date: Thu, 30 Jul 2015 12:42:48 +0200
-Message-ID: <16c61aff6d8c8261a9edabc00a038b06780b0ee6.1438250937.git.daniel@iogearbox.net>
-References: <cover.1438250937.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, holzheu@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52556 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755146AbbG3Kmy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 06:42:54 -0400
-In-Reply-To: <cover.1438250937.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1438250937.git.daniel@iogearbox.net>
-References: <cover.1438250937.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: [PATCH] bus: subsys: update return type of ->remove_dev() to void
+Date: Thu, 30 Jul 2015 12:59:17 +0200
+Message-ID: <20150730105917.GA25460@nazgul.tnic>
+References: <02c0569741812b655edde5124c3e2937bb79f9f8.1438248445.git.viresh.kumar@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Rafael Wysocki <rjw@rjwysocki.net>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
+	Joe Perches <joe@perches.com>, Joerg Roedel <jroedel@suse.de>,
+	open list <linux-kernel@vger.kernel.org>,
+	"open list:CPU FREQUENCY DRIVERS" <linux-pm@vger.kernel.org>,
+	"open list:SUPERH" <linux-sh@vger.kernel.org>,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>
+To: Viresh Kumar <viresh.kumar@linaro.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <02c0569741812b655edde5124c3e2937bb79f9f8.1438248445.git.viresh.kumar@linaro.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When bpf_jit_compile() got split into two functions via commit
-f3c2af7ba17a ("net: filter: x86: split bpf_jit_compile()"), bpf_jit_dump()
-was changed to always show 0 as number of compiler passes. Change it to
-dump the actual number. Also on sparc, we count passes starting from 0,
-so add 1 for the debug dump as well.
+On Thu, Jul 30, 2015 at 03:04:01PM +0530, Viresh Kumar wrote:
+> Its return value is not used by the subsys core and nothing meaningfu=
+l
+> can be done with it, even if we want to use it. The subsys device is
+> anyway getting removed.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- arch/sparc/net/bpf_jit_comp.c | 2 +-
- arch/x86/net/bpf_jit_comp.c   | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+I'm assuming sysfs paths covered by it, will remain intact... ? For the
+microcode loader case that's this hierarchy here:
 
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index 7931eee..f8b9f71 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -807,7 +807,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
- 	}
- 
- 	if (bpf_jit_enable > 1)
--		bpf_jit_dump(flen, proglen, pass, image);
-+		bpf_jit_dump(flen, proglen, pass + 1, image);
- 
- 	if (image) {
- 		bpf_flush_icache(image, image + proglen);
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 6c335a8..c08000b 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -1103,7 +1103,7 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
- 	}
- 
- 	if (bpf_jit_enable > 1)
--		bpf_jit_dump(prog->len, proglen, 0, image);
-+		bpf_jit_dump(prog->len, proglen, pass + 1, image);
- 
- 	if (image) {
- 		bpf_flush_icache(header, image + proglen);
--- 
-1.9.3
+$ tree /sys/devices/system/cpu/cpu?/microcode/
+/sys/devices/system/cpu/cpu0/microcode/
+=E2=94=9C=E2=94=80=E2=94=80 processor_flags
+=E2=94=94=E2=94=80=E2=94=80 version
+/sys/devices/system/cpu/cpu1/microcode/
+=E2=94=9C=E2=94=80=E2=94=80 processor_flags
+=E2=94=94=E2=94=80=E2=94=80 version
+=2E..
+
+--=20
+Regards/Gruss,
+    Boris.
+
+ECO tip #101: Trim your mails when you reply.
+--
