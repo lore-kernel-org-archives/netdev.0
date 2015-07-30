@@ -1,94 +1,50 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next 1/4] net: bcmgenet: Add netconsole support
-Date: Thu, 30 Jul 2015 15:43:17 -0700
-Message-ID: <CAGXr9JE3R_h=JnZvfu91aVhAkn8A56mekGY2k_vyRE0ei5vuBA@mail.gmail.com>
-References: <1438284939-2750-1-git-send-email-f.fainelli@gmail.com>
-	<1438284939-2750-2-git-send-email-f.fainelli@gmail.com>
-	<CAGXr9JECxcM3gaWh=k4g8c7mNvVyDD_1=80rg_FLXcedC0RHzQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: Switch tag HW extraction/insertion
+Date: Thu, 30 Jul 2015 15:51:24 -0700 (PDT)
+Message-ID: <20150730.155124.2216613161860898066.davem@davemloft.net>
+References: <1438209160-6898-1-git-send-email-f.fainelli@gmail.com>
+	<20150730.141935.723435302404122784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jaedon Shin <jaedon.shin@gmail.com>,
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	vivien.didelot@savoirfairelinux.com,
 	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
 	andrew@lunn.ch, cphealy@gmail.com, mathieu@codeaurora.org,
 	jonasj76@gmail.com, andrey.volkov@nexvision.fr,
-	Chris.Packham@alliedtelesis.co.nz, alexander.h.duyck@redhat.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:32993 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017AbbG3WnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 18:43:18 -0400
-Received: by wicmv11 with SMTP id mv11so37635869wic.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 15:43:17 -0700 (PDT)
-In-Reply-To: <CAGXr9JECxcM3gaWh=k4g8c7mNvVyDD_1=80rg_FLXcedC0RHzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Chris.Packham@alliedtelesis.co.nz
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150730.141935.723435302404122784.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 30, 2015 at 2:04 PM, Petri Gynther <pgynther@google.com> wrote:
-> On Thu, Jul 30, 2015 at 12:35 PM, Florian Fainelli <f.fainelli@gmail.com>
-> wrote:
->>
->> Implement a poll controller for netconsole which invokes the RX
->> interrupt handler to poll for incoming packets, and cleans up all TX
->> queues.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 13 +++++++++++++
->>  1 file changed, 13 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> index c6f2d396edf0..544160f39c1b 100644
->> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> @@ -2388,6 +2388,16 @@ static irqreturn_t bcmgenet_wol_isr(int irq, void
->> *dev_id)
->>         return IRQ_HANDLED;
->>  }
->>
->> +#ifdef CONFIG_NET_POLL_CONTROLLER
->> +static void bcmgenet_poll_controller(struct net_device *dev)
->> +{
->> +       struct bcmgenet_priv *priv = netdev_priv(dev);
->> +
->> +       bcmgenet_isr0(priv->irq0, priv);
->
->
-> Need to add here:
->     bcmgenet_isr1(priv->irq1, priv);
->
-> for handling Rx + Tx priority queues.
->
->>
->> +       bcmgenet_tx_reclaim_all(dev);
-
-Do you need the above call to bcmgenet_tx_reclaim_all()?
-
-bcmgenet_isr0() and bcmgenet_isr1() will schedule NAPI handlers for
-all Rx and Tx queues that need it.
-
->> +}
->> +#endif
->> +
->>  static void bcmgenet_umac_reset(struct bcmgenet_priv *priv)
->>  {
->>         u32 reg;
->> @@ -2939,6 +2949,9 @@ static const struct net_device_ops
->> bcmgenet_netdev_ops = {
->>         .ndo_set_mac_address    = bcmgenet_set_mac_addr,
->>         .ndo_do_ioctl           = bcmgenet_ioctl,
->>         .ndo_set_features       = bcmgenet_set_features,
->> +#ifdef CONFIG_NET_POLL_CONTROLLER
->> +       .ndo_poll_controller    = bcmgenet_poll_controller,
->> +#endif
->>  };
->>
->>  /* Array of GENET hardware parameters/characteristics */
->> --
->> 2.1.0
->>
->
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAzMCBK
+dWwgMjAxNSAxNDoxOTozNSAtMDcwMCAoUERUKQ0KDQo+IFRoaXMgbG9va3MgZmluZSwgc2VyaWVz
+IGFwcGxpZWQsIHRoYW5rcy4NCg0KSSB0aGluayB5b3VyIGNvbnRyb2wgYmxvY2sgaXMgdG9vIGxh
+cmdlLCB5b3UnbGwgbmVlZCB0byByZXdvcmsgdGhpcw0Kc29tZWhvdy4NCg0KSW4gZnVuY3Rpb24g
+oWRzYV9jb3B5X2JyY21fdGFnoiwNCiAgICBpbmxpbmVkIGZyb20goWJjbV9zeXNwb3J0X2Rlc2Nf
+cniiIGF0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuYzo3MDc6NCwN
+CiAgICBpbmxpbmVkIGZyb20goWJjbV9zeXNwb3J0X3BvbGyiIGF0IGRyaXZlcnMvbmV0L2V0aGVy
+bmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuYzo4NjQ6MTI6DQppbmNsdWRlL2xpbnV4L2NvbXBpbGVy
+Lmg6NDQ3OjM4OiBlcnJvcjogY2FsbCB0byChX19jb21waWxldGltZV9hc3NlcnRfMjAxNqIgZGVj
+bGFyZWQgd2l0aCBhdHRyaWJ1dGUgZXJyb3I6IEJVSUxEX0JVR19PTiBmYWlsZWQ6IHNpemVvZihz
+a2ItPmNiKSAtIHNpemVvZihzdHJ1Y3QgbmFwaV9ncm9fY2IpIDwgQlJDTV9UQUdfTEVODQogIF9j
+b21waWxldGltZV9hc3NlcnQoY29uZGl0aW9uLCBtc2csIF9fY29tcGlsZXRpbWVfYXNzZXJ0Xywg
+X19MSU5FX18pDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCmluY2x1
+ZGUvbGludXgvY29tcGlsZXIuaDo0MzA6NDogbm90ZTogaW4gZGVmaW5pdGlvbiBvZiBtYWNybyCh
+X19jb21waWxldGltZV9hc3NlcnSiDQogICAgcHJlZml4ICMjIHN1ZmZpeCgpOyAgICBcDQogICAg
+Xg0KaW5jbHVkZS9saW51eC9jb21waWxlci5oOjQ0NzoyOiBub3RlOiBpbiBleHBhbnNpb24gb2Yg
+bWFjcm8goV9jb21waWxldGltZV9hc3NlcnSiDQogIF9jb21waWxldGltZV9hc3NlcnQoY29uZGl0
+aW9uLCBtc2csIF9fY29tcGlsZXRpbWVfYXNzZXJ0XywgX19MSU5FX18pDQogIF4NCmluY2x1ZGUv
+bGludXgvYnVnLmg6NTA6Mzc6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNybyChY29tcGlsZXRp
+bWVfYXNzZXJ0og0KICNkZWZpbmUgQlVJTERfQlVHX09OX01TRyhjb25kLCBtc2cpIGNvbXBpbGV0
+aW1lX2Fzc2VydCghKGNvbmQpLCBtc2cpDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgXg0KaW5jbHVkZS9saW51eC9idWcuaDo3NDoyOiBub3RlOiBpbiBleHBhbnNpb24gb2Yg
+bWFjcm8goUJVSUxEX0JVR19PTl9NU0eiDQogIEJVSUxEX0JVR19PTl9NU0coY29uZGl0aW9uLCAi
+QlVJTERfQlVHX09OIGZhaWxlZDogIiAjY29uZGl0aW9uKQ0KICBeDQppbmNsdWRlL2xpbnV4L25l
+dGRldmljZS5oOjIwMTY6Mjogbm90ZTogaW4gZXhwYW5zaW9uIG9mIG1hY3JvIKFCVUlMRF9CVUdf
+T06iDQogIEJVSUxEX0JVR19PTihzaXplb2Yoc2tiLT5jYikgLSBzaXplb2Yoc3RydWN0IG5hcGlf
+Z3JvX2NiKSA8IEJSQ01fVEFHX0xFTik7DQogIF4NCnNjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6MjY0
+OiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmNtc3lz
+cG9ydC5vJyBmYWlsZWQNCg==
