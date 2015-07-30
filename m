@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: fix bug in broadcast synch message
- create function
-Date: Wed, 29 Jul 2015 16:48:32 -0700 (PDT)
-Message-ID: <20150729.164832.705060026020098916.davem@davemloft.net>
-References: <1438208881-30453-1-git-send-email-jon.maloy@ericsson.com>
+From: Radha Mohan <mohun106@gmail.com>
+Subject: Re: [PATCH v2 0/3] Add MDIO support to ThunderX NIC driver
+Date: Wed, 29 Jul 2015 17:01:06 -0700
+Message-ID: <CAC8NTUXy0Man6QvxgRJW-B4KPxrrzK5ngDAAZX8PB5nPwBKYVQ@mail.gmail.com>
+References: <1438121533-21528-1-git-send-email-mohun106@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34971 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753800AbbG2Xsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 19:48:35 -0400
-In-Reply-To: <1438208881-30453-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Daney <ddaney@caviumnetworks.com>,
+	sgoutham@caviumnetworks.com,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438121533-21528-1-git-send-email-mohun106@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Wed, 29 Jul 2015 18:28:01 -0400
+On Tue, Jul 28, 2015 at 3:12 PM,  <mohun106@gmail.com> wrote:
+> From: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
+>
+> This patch series adds MDIO support to ThunderX NIC driver by making use
+> of existing mdio-octeon driver. In the process modified the mdio-octeon
+> driver to work on both Octeon and ThunderX platforms.
+>
+> * From v1:
+>   - Removed default selection in Kconfig for MDIO_OCTEON
+>   - Replace uint64 with u64 as suggested by David Daney
+>
+> Radha Mohan Chintakuntla (3):
+>   net: mdio-octeon: Modify driver to work on both ThunderX and Octeon
+>   net: mdio-octeon: Fix octeon_mdiobus_probe function for return values
+>   net: thunderx: Select CONFIG_MDIO_OCTEON for ThunderX NIC
+>
+>  drivers/net/ethernet/cavium/Kconfig |    2 +
+>  drivers/net/phy/Kconfig             |   10 ++--
+>  drivers/net/phy/mdio-octeon.c       |  136 +++++++++++++++++++++++++++++------
+>  3 files changed, 122 insertions(+), 26 deletions(-)
+>
 
-> In commit d999297c3dbbe7fdd832f7fa4ec84301e170b3e6
-> ("tipc: reduce locking scope during packet reception") we introduced
-> a new function tipc_build_bcast_sync_msg(), which carries initial
-> synchronization data between two nodes at first contact and at
-> re-contact. In this function, we missed to add synchronization data,
-> with the effect that the broadcast link endpoints will fail to
-> synchronize correctly at re-contact between a running and a restarted
-> node. All other cases work as intended.
-> 
-> With this commit, we fix this bug.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-
-Applied, thanks Jon.
+Cc'ing David Miller.
+Can you pick this patch series please ?
