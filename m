@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 0/2] r8152: device reset
-Date: Thu, 30 Jul 2015 14:04:01 -0700 (PDT)
-Message-ID: <20150730.140401.2147687049481097497.davem@davemloft.net>
-References: <1394712342-15778-156-Taiwan-albertk@realtek.com>
-	<1394712342-15778-162-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH] net: phy: spi_ks8995: clean up
+ ks8995_registers_read/write
+Date: Thu, 30 Jul 2015 14:17:00 -0700 (PDT)
+Message-ID: <20150730.141700.252577173004269743.davem@davemloft.net>
+References: <1438206260-13465-1-git-send-email-vz@mleia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-162-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: vz@mleia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41315 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752304AbbG3VRB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 17:17:01 -0400
+In-Reply-To: <1438206260-13465-1-git-send-email-vz@mleia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Wed, 29 Jul 2015 20:39:07 +0800
+From: Vladimir Zapolskiy <vz@mleia.com>
+Date: Thu, 30 Jul 2015 00:44:20 +0300
 
-> v3:
-> For patch #2, remove cancel_delayed_work().
+> The change removes redundant sysfs binary file boundary checks,
+> since this task is already done on caller side in fs/sysfs/file.c
 > 
-> v2:
-> For patch #1, remove usb_autopm_get_interface(), usb_autopm_put_interface(), and
-> the checking of intf->condition.
-> 
-> For patch #2, replace the original method with usb_queue_reset_device() to reset
-> the device. 
-> 
-> v1:
-> Although the driver works normally, we find the device may get all 0xff data when
-> transmitting packets on certain platforms. It would break the device and no packet
-> could be transmitted. The reset is necessary to recover the hw for this situation.
+> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
 
-Series applied, thanks.
+Applied to net-next, thanks.
