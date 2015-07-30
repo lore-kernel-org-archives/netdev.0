@@ -1,63 +1,26 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net-next 0/9] OVS conntrack support
-Date: Thu, 30 Jul 2015 11:12:34 -0700
-Message-ID: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
-	jpettit@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	jesse@nicira.com, fwestpha@redhat.com, hannes@redhat.com,
-	tgraf@noironetworks.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] Minor BPF updates
+Date: Thu, 30 Jul 2015 11:13:40 -0700 (PDT)
+Message-ID: <20150730.111340.288435665856516351.davem@davemloft.net>
+References: <cover.1438250937.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, holzheu@linux.vnet.ibm.com,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40235 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191AbbG3SNl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 14:13:41 -0400
+In-Reply-To: <cover.1438250937.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The goal of this series is to allow OVS to send packets through the Linux
-kernel connection tracker, and subsequently match on fields populated by
-conntrack.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 30 Jul 2015 12:42:45 +0200
 
-This version includes new handling of IPv4 and IPv6 fragments, support for
-conntrack labels, and tracking connections via helpers. The kernel module tests
-distributed with the corresponding OVS userspace check a variety of scenarios
-implementing one-way firewalls, two-way firewalls, with and without IP
-fragments, VLANs and VXLAN tunnels, and in conjunction with FTP helpers, for
-both IPv4 and IPv6 traffic.
+> Various minor misc updates.
 
-This functionality is enabled through the CONFIG_OPENVSWITCH_CONNTRACK option.
-
-The branch below has been updated with the corresponding userspace pieces:
-https://github.com/justinpettit/ovs conntrack
-
-Joe Stringer (8):
-  openvswitch: Scrub packet in ovs_vport_receive()
-  openvswitch: Serialize acts with original netlink len
-  openvswitch: Move MASKED* macros to datapath.h
-  ipv6: Export nf_ct_frag6_gather()
-  openvswitch: Add conntrack action
-  netfilter: Always export nf_connlabels_replace()
-  openvswitch: Allow matching on conntrack label
-  openvswitch: Allow attaching helpers to ct action
-
-Justin Pettit (1):
-  openvswitch: Allow matching on conntrack mark
-
- include/uapi/linux/openvswitch.h        |  49 +++
- net/ipv6/netfilter/nf_conntrack_reasm.c |   1 +
- net/netfilter/nf_conntrack_labels.c     |   2 -
- net/openvswitch/Kconfig                 |  12 +
- net/openvswitch/Makefile                |   1 +
- net/openvswitch/actions.c               | 224 ++++++++--
- net/openvswitch/conntrack.c             | 758 ++++++++++++++++++++++++++++++++
- net/openvswitch/conntrack.h             | 128 ++++++
- net/openvswitch/datapath.c              |  70 ++-
- net/openvswitch/datapath.h              |  12 +
- net/openvswitch/flow.c                  |   5 +
- net/openvswitch/flow.h                  |   9 +
- net/openvswitch/flow_netlink.c          | 103 ++++-
- net/openvswitch/flow_netlink.h          |   4 +-
- net/openvswitch/vport.c                 |   4 +
- 15 files changed, 1317 insertions(+), 65 deletions(-)
- create mode 100644 net/openvswitch/conntrack.c
- create mode 100644 net/openvswitch/conntrack.h
-
--- 
-2.1.4
+Series applied, thanks Daniel.
