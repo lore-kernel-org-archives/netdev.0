@@ -1,48 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [[PATCH net-next v5] net/ipv6: add sysctl option
- accept_ra_min_hop_limit
-Date: Thu, 30 Jul 2015 15:57:00 -0700 (PDT)
-Message-ID: <20150730.155700.2101007694308260895.davem@davemloft.net>
-References: <1438237722-13694-1-git-send-email-liuhangbin@gmail.com>
-	<55B9C56D.2040601@miraclelinux.com>
+Subject: Re: [PATCH net-next] flow_dissector: remove
+ __flow_hash_consistentify
+Date: Thu, 30 Jul 2015 15:57:22 -0700 (PDT)
+Message-ID: <20150730.155722.69727543232933153.davem@davemloft.net>
+References: <1438202943-937619-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: liuhangbin@gmail.com, netdev@vger.kernel.org, davem@davemloft.com,
-	hannes@stressinduktion.org
-To: hideaki.yoshifuji@miraclelinux.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41817 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41823 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbbG3W5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 18:57:01 -0400
-In-Reply-To: <55B9C56D.2040601@miraclelinux.com>
+	with ESMTP id S1750950AbbG3W5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 18:57:23 -0400
+In-Reply-To: <1438202943-937619-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Date: Thu, 30 Jul 2015 15:34:21 +0900
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 29 Jul 2015 13:49:03 -0700
 
-> Hangbin Liu wrote:
->> Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
->> disabled accept hop limit from RA if it is smaller than the current hop
->> limit for security stuff. But this behavior kind of break the RFC definition.
->> 
->> RFC 4861, 6.3.4.  Processing Received Router Advertisements
->>    A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
->>    and Retrans Timer) may contain a value denoting that it is
->>    unspecified.  In such cases, the parameter should be ignored and the
->>    host should continue using whatever value it is already using.
->> 
->>    If the received Cur Hop Limit value is non-zero, the host SHOULD set
->>    its CurHopLimit variable to the received value.
->> 
->> So add sysctl option accept_ra_min_hop_limit to let user choose the minimum
->> hop limit value they can accept from RA. And set default to 1 to meet RFC
->> standards.
->> 
->> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> The intent of this function was to produce a consistent hash for both
+> directions of a flow. However, since we added more inputs to the flow
+> hashing (IPv6 flow labels for instance) in a lot of cases we won't get
+> the same hash computed for each direction anyway. Also, there is no
+> defined correlation between the hashes computed in each direction of a
+> flow.
 > 
-> Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+> This patch removes the function since it is not providing significant
+> value and is expensive to be called for every packet. If there are
+> ever users of the flow_hash_from_keys that did require consistency
+> they can swap addresses and ports as needed in the flow_keys before
+> calling flow_hash_from_keys.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Applied, thanks everyone.
+The conntrack issue needs to be sorted out before I can consider this
+change seriously.
