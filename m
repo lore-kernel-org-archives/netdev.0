@@ -1,84 +1,57 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: Re: ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()
-Date: Fri, 31 Jul 2015 01:15:15 +0200
-Message-ID: <CA++eYdsHw0-2rs1JB-VXiRwwGGCYpS5viW9EMb9sEK7nDcQnYQ@mail.gmail.com>
-References: <CA++eYdtOendgSVix0aibj_Ykd=7td4ac3z9Zz1c_p67Xy3bWYw@mail.gmail.com>
-	<20150730213225.GA11294@sbohrermbp13-local.rgmadvisors.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in ovs_vport_receive()
+Date: Thu, 30 Jul 2015 16:16:49 -0700
+Message-ID: <CANr6G5wRS1zg4oLdS5L4gM7iCS11BHb7+8uUN1fh5Oa9F4_BBw@mail.gmail.com>
+References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
+ <1438279963-29563-2-git-send-email-joestringer@nicira.com> <20150730184010.GC11177@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
-	sbohrer@rgmadvisors.com, netdev <netdev@vger.kernel.org>,
-	Yurij.Plotnikov@oktetlabs.ru, David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?St=C3=A5le_Kristoffersen?= <stalk@bridgetech.tv>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:33644 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750938AbbG3XPS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 19:15:18 -0400
-Received: by wicmv11 with SMTP id mv11so38208717wic.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 16:15:15 -0700 (PDT)
-In-Reply-To: <20150730213225.GA11294@sbohrermbp13-local.rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Justin Pettit <jpettit@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150730184010.GC11177@pox.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 30, 2015 at 11:32 PM, Shawn Bohrer <shawn.bohrer@gmail.com>=
- wrote:
-> On Thu, Jul 30, 2015 at 10:26:08PM +0200, Kenneth Klette Jonassen wro=
-te:
->> Commit 6e54030 breaks the IP_MULTICAST_ALL socket option. There is
->> already a check in ip_mc_sf_allow() that should do the filtering you
->> claim to fix. Was it considered?
->>
->> Commit message:
->> 421b3885bf6d56391297844f43fb7154a6396e12 "udp: ipv4: Add udp early
->> demux" introduced a regression that allowed sockets bound to INADDR_=
-ANY
->> to receive packets from multicast groups that the socket had not joi=
-ned...
->>
->> man ip(7):
->> IP_MULTICAST_ALL (since Linux 2.6.31)
->> This option can be used to modify the delivery policy of
->> multicast messages to sockets bound to the wildcard INADDR_ANY
->> address.  The argument is a boolean integer (defaults to 1).
->> If set to 1, the socket will receive messages from all the
->> groups that have been joined globally on the whole system.
->> Otherwise, it will deliver messages only from the groups that
->> have been explicitly joined=E2=80=A6
+On 30 July 2015 at 11:40, Thomas Graf <tgraf@suug.ch> wrote:
+> On 07/30/15 at 11:12am, Joe Stringer wrote:
+>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 >
-> Do you have an application or test case that is now broken after this
-> commit?  Or is this just a theoretical breakage based off of my commi=
-t
-> message?  If you have a simple example test case can you share it?
-> Also if this breaks your application but you don't have a test case
-> can you describe the breakage?  Is IP_MULTICAST_ALL 0 or 1?  Are you
-> not receiving packets or receiving packets you don't expect to
-> receive?
->
-> I admittedly haven't tried to create a test case yet, but looking ove=
-r
-> the code I'm not sure how this could have broken IP_MULTICAST_ALL.
-> Commit 6e54030 added a call to ip_check_mc_rcu() which as far as I ca=
-n
-> tell checks to see that a received multicast packet was a mc address
-> joined on that interface.
+> Can you write a few lines on why this is needed? I have flows which
+> use the mark to communicate with netfilter through internal ports.
 
-Ah, ok. Thanks for the clarification. Feedback was based on your
-commit message, as we already had the per-socket check in
-ip_mc_sf_allow() when mc_all=3D=3D0. Since ip_check_mc_rcu() is really =
-a
-per-device check, it should be ok.
+The problem I was seeing is when packets come from a different
+namespace on the localhost, they still have conntrack data associated.
+This doesn't make sense, so the intention is to perform nf_reset().
+However, it seems like we should actually be doing a bit more - at
+least the skb_dst_drop() and perhaps some of the other stuff in
+skb_scrub_packet().
 
-> Without this check it is possible to
-> receive multicast packets for an address that hasn't been joined on
-> that machine at all.  Which was the bug I was fixing.
+Do you want to retain the mark when transitioning between namespaces?
 
-Agreed. It is really filtering inadvertently received multicast packets=
-=2E
+Perhaps something like the below incremental would be sufficient:
 
-Then we should probably move the ip_early_demux code from
-ip_rcv_finish() to ip_route_input_noref()? As is, we now call
-ip_check_mc_rcu() twice for some workloads, i.e., once for a failed
-early_demux(), then again right before ip_route_input_slow().
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 8a63df6..82844e6 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -475,7 +475,9 @@ void ovs_vport_receive(struct vport *vport, struct
+sk_buff *skb,
+        struct sw_flow_key key;
+        int error;
+
+-       if (!skb->sk || (sock_net(skb->sk) != read_pnet(&vport->dp->net)))
++       if (!skb->sk)
++               skb_scrub_packet(skb, false);
++       else if (sock_net(skb->sk) != read_pnet(&vport->dp->net))
+                skb_scrub_packet(skb, true);
+
+        stats = this_cpu_ptr(vport->percpu_stats);
