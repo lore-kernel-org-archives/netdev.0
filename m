@@ -1,36 +1,62 @@
-From: Petr Mladek <pmladek@suse.com>
-Subject: Re: [PATCH] printk: Warn about dropped messages also on extended
- consoles
-Date: Thu, 30 Jul 2015 17:02:09 +0200
-Message-ID: <20150730150209.GM2673@pathway.suse.cz>
-References: <1438255732-31326-1-git-send-email-pmladek@suse.com>
- <20150730133901.GC3504@mtj.duckdns.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: [PATCH v2] net/phy: micrel: Reenable interrupts during resume
+Date: Thu, 30 Jul 2015 10:15:48 -0500
+Message-ID: <1438269348-8725-1-git-send-email-nathan.sullivan@ni.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nathan Sullivan <nathan.sullivan@ni.com>
+To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150730133901.GC3504@mtj.duckdns.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu 2015-07-30 09:39:01, Tejun Heo wrote:
-> Hello,
-> 
-> On Thu, Jul 30, 2015 at 01:28:52PM +0200, Petr Mladek wrote:
-> > The commit #6fe29354befe4c ("printk: implement support for extended console
-> > drivers") added an extra buffer to format messages for extended consoles.
-> > We need to put there also the warning about dropped messages, so it appears
-> > on these consoles.
-> 
-> I don't get it.  Extended messages are all stamped with sequence
-> number and the gap in sequence number is a clear sign of missing
-> messages.
+The ksz9031 has a behavior where it will clear the interrupt enable bits
+when leaving power down.  To work around this, make sure the interrupt
+bits are in the state they are expected to be when resuming.
 
-Grr, I misconfigured netconsole and did not see the extended
-information. You are right, the patch is not needed.
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+---
 
-Best Regards,
-Petr
+Changes for V2: Actually make sure it compiles this time.
+
+---
+ drivers/net/phy/micrel.c |   18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 499185e..9774582 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -447,6 +447,22 @@ static int ksz9031_center_flp_timing(struct phy_device *phydev)
+ 	return genphy_restart_aneg(phydev);
+ }
+ 
++static int ksz9031_resume(struct phy_device *phydev)
++{
++	int result;
++
++	result = genphy_resume(phydev);
++
++	if (result)
++		return result;
++
++	/* This phy will reset interrupt enables when leaving power down */
++	if (PHY_INTERRUPT_ENABLED & phydev->interrupts)
++		result = kszphy_config_intr(phydev);
++
++	return result;
++}
++
+ static int ksz9031_config_init(struct phy_device *phydev)
+ {
+ 	const struct device *dev = &phydev->dev;
+@@ -776,7 +792,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+ 	.config_intr	= kszphy_config_intr,
+ 	.suspend	= genphy_suspend,
+-	.resume		= genphy_resume,
++	.resume		= ksz9031_resume,
+ 	.driver		= { .owner = THIS_MODULE, },
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8873MLL,
+-- 
+1.7.10.4
