@@ -1,239 +1,66 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH][v2] net: phy: add driver for aquantia phy
-Date: Thu, 30 Jul 2015 12:17:15 +0800
-Message-ID: <1438229835-44865-1-git-send-email-shh.xie@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [Question]Why a skb with frag_list causes BUG_ON in function
+ skb_segment
+Date: Thu, 30 Jul 2015 12:26:18 +0800
+Message-ID: <55B9A76A.3030908@redhat.com>
+References: <60A73B7A161A82449A7DB7B382BFD1553712AF1C@SZXEMA504-MBS.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0100.outbound.protection.outlook.com ([65.55.169.100]:28612
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750879AbbG3EWe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jul 2015 00:22:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Qinchuanyu <qinchuanyu@huawei.com>, Yewudi <yewudi@huawei.com>,
+	liuyongan 00175866 <l00175866@notesmail.huawei.com.cn>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Zhangjie (HZ)" <zhangjie14@huawei.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <60A73B7A161A82449A7DB7B382BFD1553712AF1C@SZXEMA504-MBS.china.huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+cc netdev for more experts
 
-This patch added driver to support Aquantia PHYs AQ1202, AQ2104, AQR105,
-AQR405, which accessed through clause 45.
-
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
-changes in v2:
-addressed Florian's comments.
-
- drivers/net/phy/Kconfig    |   5 ++
- drivers/net/phy/Makefile   |   1 +
- drivers/net/phy/aquantia.c | 170 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 176 insertions(+)
- create mode 100644 drivers/net/phy/aquantia.c
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 8ef8191..c07030d 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -14,6 +14,11 @@ if PHYLIB
- 
- comment "MII PHY device drivers"
- 
-+config AQUANTIA_PHY
-+        tristate "Drivers for the Aquantia PHYs"
-+        ---help---
-+          Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
-+
- config AT803X_PHY
- 	tristate "Drivers for Atheros AT803X PHYs"
- 	---help---
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 16aac1c..9bb1033 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -3,6 +3,7 @@
- libphy-objs			:= phy.o phy_device.o mdio_bus.o
- 
- obj-$(CONFIG_PHYLIB)		+= libphy.o
-+obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
- obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
- obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
- obj-$(CONFIG_CICADA_PHY)	+= cicada.o
-diff --git a/drivers/net/phy/aquantia.c b/drivers/net/phy/aquantia.c
-new file mode 100644
-index 0000000..e57301a
---- /dev/null
-+++ b/drivers/net/phy/aquantia.c
-@@ -0,0 +1,170 @@
-+/*
-+ * Driver for Aquantia PHY
-+ *
-+ * Author: Shaohui Xie <Shaohui.Xie@freescale.com>
-+ *
-+ * Copyright 2015 Freescale Semiconductor, Inc.
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2.  This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/delay.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+#include <linux/mdio.h>
-+
-+#define PHY_ID_AQ1202	0x03a1b445
-+#define PHY_ID_AQ2104	0x03a1b460
-+#define PHY_ID_AQR105	0x03a1b4a2
-+#define PHY_ID_AQR405	0x03a1b4b0
-+
-+#define PHY_AQUANTIA_FEATURES	(SUPPORTED_10000baseT_Full | \
-+				 SUPPORTED_1000baseT_Full | \
-+				 SUPPORTED_100baseT_Full | \
-+				 PHY_DEFAULT_FEATURES)
-+
-+static int aquantia_soft_reset(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+
-+static int aquantia_config_init(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+
-+static int aquantia_config_aneg(struct phy_device *phydev)
-+{
-+	phydev->supported = PHY_AQUANTIA_FEATURES;
-+	phydev->advertising = phydev->supported;
-+
-+	return 0;
-+}
-+
-+static int aquantia_aneg_done(struct phy_device *phydev)
-+{
-+	int reg;
-+
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
-+	return (reg < 0) ? reg : (reg & BMSR_ANEGCOMPLETE);
-+}
-+
-+static int aquantia_read_status(struct phy_device *phydev)
-+{
-+	int reg;
-+
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
-+	if (reg & MDIO_STAT1_LSTATUS)
-+		phydev->link = 1;
-+	else
-+		phydev->link = 0;
-+
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
-+	mdelay(10);
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
-+
-+	switch (reg) {
-+	case 0x9:
-+		phydev->speed = SPEED_2500;
-+		break;
-+	case 0x5:
-+		phydev->speed = SPEED_1000;
-+		break;
-+	case 0x3:
-+		phydev->speed = SPEED_100;
-+		break;
-+	case 0x7:
-+	default:
-+		phydev->speed = SPEED_10000;
-+		break;
-+	}
-+	phydev->duplex = DUPLEX_FULL;
-+
-+	return 0;
-+}
-+
-+static struct phy_driver aquantia_driver[] = {
-+{
-+	.phy_id		= PHY_ID_AQ1202,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQ1202",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.soft_reset	= aquantia_soft_reset,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_init    = aquantia_config_init,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+{
-+	.phy_id		= PHY_ID_AQ2104,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQ2104",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.soft_reset	= aquantia_soft_reset,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_init    = aquantia_config_init,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+{
-+	.phy_id		= PHY_ID_AQR105,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQR105",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.soft_reset	= aquantia_soft_reset,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_init    = aquantia_config_init,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+{
-+	.phy_id		= PHY_ID_AQR405,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQR405",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.soft_reset	= aquantia_soft_reset,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_init    = aquantia_config_init,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+};
-+
-+static int __init aquantia_init(void)
-+{
-+	return phy_drivers_register(aquantia_driver,
-+				    ARRAY_SIZE(aquantia_driver));
-+}
-+
-+static void __exit aquantia_exit(void)
-+{
-+	return phy_drivers_unregister(aquantia_driver,
-+				      ARRAY_SIZE(aquantia_driver));
-+}
-+
-+module_init(aquantia_init);
-+module_exit(aquantia_exit);
-+
-+static struct mdio_device_id __maybe_unused aquantia_tbl[] = {
-+	{ PHY_ID_AQ1202, 0xfffffff0 },
-+	{ PHY_ID_AQ2104, 0xfffffff0 },
-+	{ PHY_ID_AQR105, 0xfffffff0 },
-+	{ PHY_ID_AQR405, 0xfffffff0 },
-+	{ }
-+};
-+
-+MODULE_DEVICE_TABLE(mdio, aquantia_tbl);
-+
-+MODULE_DESCRIPTION("Aquantia PHY driver");
-+MODULE_AUTHOR("Shaohui Xie <Shaohui.Xie@freescale.com>");
-+MODULE_LICENSE("GPL v2");
--- 
-2.1.0.27.g96db324
+On 07/28/2015 04:53 PM, Zhangjie (HZ) wrote:
+>
+> Hi,
+>
+> I generate a skb as follows:
+>
+> It has a linear data region, 17 frags and the last fragment is in
+> skb_shinfo(skb)->frag_list.
+>
+> Before this skb is sent to driver, dev_hard_start_xmit() will segment
+> it first(skb has frag_list,
+>
+> so we get true from netif_needs_gso()), then the skb is passed to
+> function skb_segment().
+>
+> Then, BUG_ON() happened.
+>
+> while (pos < offset + len) {
+>
+>         if (i >=3D nfrags) {
+>
+>                 BUG_ON(skb_headlen(list_skb));    (skbuff.c:3120)
+>
+>                 =E2=80=A6
+>
+>         }
+>
+>         =E2=80=A6
+>
+> }
+>
+> A skb that has no frags but frag_list also causes BUG_ON().
+>
+> I wonder if skb like follows is legal? Could skb in frag_list have
+> linear data region?
+>
+> =20
+>
+> =20
+>
+> Thanks
+>
+> Zhangjie
+>
