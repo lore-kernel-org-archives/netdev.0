@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: Support vxlan offload stats in the
- driver
-Date: Wed, 29 Jul 2015 23:54:19 -0700 (PDT)
-Message-ID: <20150729.235419.371864185023392531.davem@davemloft.net>
-References: <1438178732-29026-1-git-send-email-sriharsha.basavapatna@emulex.com>
+Subject: Re: [PATCH] net/phy: micrel: Reenable interrupts during resume
+Date: Wed, 29 Jul 2015 23:55:32 -0700 (PDT)
+Message-ID: <20150729.235532.2011128033027594424.davem@davemloft.net>
+References: <1438183274-4631-1-git-send-email-nathan.sullivan@ni.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sriharsha.basavapatna@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36502 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754560AbbG3GyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:54:19 -0400
-In-Reply-To: <1438178732-29026-1-git-send-email-sriharsha.basavapatna@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nathan.sullivan@ni.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438183274-4631-1-git-send-email-nathan.sullivan@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-Date: Wed, 29 Jul 2015 19:35:32 +0530
-
-> This patch adds vxlan offload specific counters to ethtool stats. We
-> provide tx/rx queue counters to show the number of vxlan offload pkts
-> sent/received.
-> 
-> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-
-Applied, thanks.
+RnJvbTogTmF0aGFuIFN1bGxpdmFuIDxuYXRoYW4uc3VsbGl2YW5AbmkuY29tPg0KRGF0ZTogV2Vk
+LCAyOSBKdWwgMjAxNSAxMDoyMToxNCAtMDUwMA0KDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25l
+dC9waHkvbWljcmVsLmMgYi9kcml2ZXJzL25ldC9waHkvbWljcmVsLmMNCj4gaW5kZXggNDk5MTg1
+ZS4uN2E5M2FmNiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jDQo+ICsr
+KyBiL2RyaXZlcnMvbmV0L3BoeS9taWNyZWwuYw0KPiBAQCAtNDQ3LDYgKzQ0NywyMiBAQCBzdGF0
+aWMgaW50IGtzejkwMzFfY2VudGVyX2ZscF90aW1pbmcoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRl
+dikNCj4gIAlyZXR1cm4gZ2VucGh5X3Jlc3RhcnRfYW5lZyhwaHlkZXYpOw0KPiAgfQ0KPiAgDQo+
+ICtzdGF0aWMgaW50IGtzejkwMzFfcmVzdW1lKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpDQo+
+ICt7DQo+ICsJaW50IHJlc3VsdDsNCj4gKw0KPiArCXJlc3VsdCA9IGdlbnBoeV9yZXN1bWUocGh5
+ZGV2KTsNCj4gKw0KPiArCWlmIChyZXN1bHQpDQo+ICsJCXJldHVybiByZXN1bHQ7DQo+ICsNCj4g
+KwkvKiBUaGlzIHBoeSB3aWxsIHJlc2V0IGludGVycnVwdCBlbmFibGVzIHdoZW4gbGVhdmluZyBw
+b3dlciBkb3duICovDQo+ICsJaWYgKFBIWV9JTlRFUlJVUFRfRU5BQkxFRCAmIHBoeWRldi0+aW50
+ZXJydXB0cykNCj4gKwkJcmVzdWx0ID0ga3N6cGh5X3NldF9pbnRlcnJ1cHQocGh5ZGV2KTsNCj4g
+Kw0KDQpUaGlzIGRvZXNuJ3QgY29tcGlsZS4NCg0KZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jOiBJ
+biBmdW5jdGlvbiCha3N6OTAzMV9yZXN1bWWiOg0KZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jOjQ2
+MTozOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWtzenBoeV9zZXRf
+aW50ZXJydXB0oiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCiAgIHJl
+c3VsdCA9IGtzenBoeV9zZXRfaW50ZXJydXB0KHBoeWRldik7DQogICBeDQpjYzE6IHNvbWUgd2Fy
+bmluZ3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCnNjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6MjY0
+OiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9uZXQvcGh5L21pY3JlbC5vJyBmYWlsZWQNCg==
