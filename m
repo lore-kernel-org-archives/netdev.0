@@ -1,29 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next] r8169:Place dma_alloc_coherent on interrupt
- context
-Date: Thu, 30 Jul 2015 22:59:09 +0200
-Message-ID: <20150730205909.GA7888@electric-eye.fr.zoreil.com>
-References: <1438284801-4188-1-git-send-email-corcodel.marian@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5 0/2] af_mpls: fix undefined reference to
+ ip6_route_output with CONFIG_IPV6=n
+Date: Thu, 30 Jul 2015 14:02:52 -0700 (PDT)
+Message-ID: <20150730.140252.110937713726990587.davem@davemloft.net>
+References: <55BA252F.3070601@cumulusnetworks.com>
+	<1438268245.17421.5.camel@stressinduktion.org>
+	<55BA8B36.9030402@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Corcodel Marian <corcodel.marian@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, tgraf@suug.ch, rshearma@brocade.com,
+	stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
+	jon.maloy@ericsson.com, netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:55631 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751703AbbG3U71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 16:59:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1438284801-4188-1-git-send-email-corcodel.marian@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41230 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391AbbG3VCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 17:02:53 -0400
+In-Reply-To: <55BA8B36.9030402@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corcodel Marian <corcodel.marian@gmail.com> :
->    According to this doc
->  https://www.kernel.org/doc/Documentation/DMA-API.txt   dma_alloc_coherent
->  must run on interrupt context, and flush the chip before use.
+From: roopa <roopa@cumulusnetworks.com>
+Date: Thu, 30 Jul 2015 13:38:14 -0700
 
-You have misunderstood what an irq context is.
+> but was only concerned about ipv6 module unload.
 
--- 
-Ueimor
+It is not possible to unload the ipv6 module.
