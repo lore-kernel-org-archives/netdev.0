@@ -1,99 +1,63 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2 v2] bridge fdb: add 'use' option to set NTF_USE flag in fdb add requests
-Date: Thu, 30 Jul 2015 14:37:02 -0700
-Message-ID: <1438292222-45993-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: --to=stephen@networkplumber.org
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: Re: [PATCH] packet: Allow packets with only a header (but no payload)
+Date: Fri, 31 Jul 2015 00:15:46 +0200
+Message-ID: <CAFBinCBYv44ttGNyny11gEwNMJDwYzO=YYJC5scwOE-PN2nn4A@mail.gmail.com>
+References: <1437495247-471-1-git-send-email-martin.blumenstingl@googlemail.com>
+ <CA+FuTScr0o0ZmwWxVP4FZoQosRRiQG6+MDvCahMCWmjLkg+33g@mail.gmail.com>
+ <CAFBinCB4xOBzxwkEQYrpi1q7Xm4_-hpj2jUE2r-fQ5f2grjZ=Q@mail.gmail.com>
+ <CA+FuTSctXr=2eC_-e793hvAPu=XyEhLeLoowH95tbOBx8CGj7g@mail.gmail.com>
+ <CAFBinCDZDYJGjimsAD=+HFokc9ga0cLBD1KSAieagzWQNH+s=w@mail.gmail.com> <CA+FuTSfw+-6Xb_0xchM5E6vCMSsyiSvSYF3MbuE25pEt07RRbw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, johann.baudy@gnu-log.net,
+	paulus@samba.org
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:32915 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287AbbG3VhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 17:37:07 -0400
-Received: by padck2 with SMTP id ck2so29384080pad.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 14:37:06 -0700 (PDT)
+Received: from mail-la0-f44.google.com ([209.85.215.44]:34677 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479AbbG3WQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 18:16:07 -0400
+Received: by lafd3 with SMTP id d3so33380624laf.1
+        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 15:16:05 -0700 (PDT)
+In-Reply-To: <CA+FuTSfw+-6Xb_0xchM5E6vCMSsyiSvSYF3MbuE25pEt07RRbw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Wed, Jul 29, 2015 at 8:05 AM, Willem de Bruijn <willemb@google.com> wrote:
+> Martin, to return to your initial statement that PPPoE PADI packets can
+> have a zero payload: the PPPoE RFC states that PADI packets "MUST
+> contain exactly one TAG of TAG_TYPE Service-Name, indicating the
+> service the Host is requesting, and any number of other TAG types."
+> (RFC 2516, 5.1). Is the observed behavior (no payload) perhaps
+> incorrect?
+As far as I can see you are right, but the real world seems to be different.
+My ISP for example lists the PPPoE connection settings, but they are
+nowhere mentioning the "service name".
 
-This is similar to command options corresponding to other NTF_* flags
-already exposed to the user space (examples self/master).
+I have also re-read pppd's source code again and that seems to confirm
+what you are reading in the RFC: Leaving the service name away makes
+seems to violate the RFC, but pppd still accepts those configurations.
 
-Also updates bridge man page (The man page patch also includes
-a fix to the 'self' entry and documents 'master' for fdb entries)
+> Even if it is, if this is breaking established userspace expectations,
+> we should look into it. Ethernet specifies a minimum payload size of
+> 46 on the wire, but perhaps that is handled with padding, so that
+> 0 length should be valid within the stack. Also, there may be other
+> valid uses of 0 length payload on top of link layers that are not Ethernet.
+Good catch. I would also like to note that the documentation for
+"hard_header_len" describes it as "Hardware header length". When the
+purpose of this field we should check whether the documentation should
+be updated to "Minimum hardware header length" -> that would mean the
+condition has to be a "len < hard_header_len" instead of a "len <=
+hard_header_len" (as it is now).
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-v1-v2 : fixed usage
+PS: I have also added the pppd maintainer (Paul Mackerras) to this
+thread because I think he should know about this issue (and he can
+probably provide more details if required).
+As a quick summary for him: linux  >= 3.19 rejects PADI packets when
+no service name is configured.
 
- bridge/fdb.c      |    7 +++++--
- man/man8/bridge.8 |   15 ++++++++++++---
- 2 files changed, 17 insertions(+), 5 deletions(-)
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index 278e55f..bd7e4f9 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -31,8 +31,9 @@ static unsigned int filter_index;
- 
- static void usage(void)
- {
--	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
--		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
-+	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace ADDR dev DEV\n"
-+			"              [ self ] [ master ] [ use ] [ router ]\n"
-+			"              [ local | temp ] [ dst IPADDR ] [ vlan VID ]\n"
- 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
- 	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ brport DEV ]\n");
- 	exit(-1);
-@@ -305,6 +306,8 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
- 				duparg2("vlan", *argv);
- 			NEXT_ARG();
- 			vid = atoi(*argv);
-+		} else if (matches(*argv, "use") == 0) {
-+			req.ndm.ndm_flags |= NTF_USE;
- 		} else {
- 			if (strcmp(*argv, "to") == 0) {
- 				NEXT_ARG();
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 4135d01..6796e15 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -53,8 +53,8 @@ bridge \- show / manipulate bridge addresses and devices
- .I LLADDR
- .B  dev
- .IR DEV " { "
--.BR local " | " temp " } { "
--.BR self " } { " router " } [ "
-+.BR local " | " temp " } [ "
-+.BR self " ] [ " master " ] [ " router " ] [ " use " ] [ "
- .B  dst
- .IR IPADDR " ] [ "
- .B vni
-@@ -323,7 +323,11 @@ the Ethernet MAC address.
- the interface to which this address is associated.
- 
- .B self
--- the address is associated with a software fdb (default)
-+- the address is associated with the port drivers fdb. Usually hardware.
-+.sp
-+
-+.B master
-+- the address is associated with master devices fdb. Usually software (default).
- .sp
- 
- .B router
-@@ -332,6 +336,11 @@ Valid if the referenced device is a VXLAN type device and has
- route shortcircuit enabled.
- .sp
- 
-+.B use
-+- the address is in use. User space can use this option to
-+indicate to the kernel that the fdb entry is in use.
-+.sp
-+
- .in -8
- The next command line parameters apply only
- when the specified device
--- 
-1.7.10.4
+Regards,
+Martin
