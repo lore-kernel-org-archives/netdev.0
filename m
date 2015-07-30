@@ -1,159 +1,239 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH net-next v4] net/ipv6: add sysctl option accept_ra_min_hop_limit
-Date: Thu, 30 Jul 2015 10:55:07 +0800
-Message-ID: <1438224907-30873-1-git-send-email-liuhangbin@gmail.com>
-Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: <shh.xie@gmail.com>
+Subject: [PATCH][v2] net: phy: add driver for aquantia phy
+Date: Thu, 30 Jul 2015 12:17:15 +0800
+Message-ID: <1438229835-44865-1-git-send-email-shh.xie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:32807 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbbG3CzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2015 22:55:20 -0400
-Received: by pdbnt7 with SMTP id nt7so16170273pdb.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2015 19:55:20 -0700 (PDT)
+Received: from mail-bl2on0100.outbound.protection.outlook.com ([65.55.169.100]:28612
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750879AbbG3EWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2015 00:22:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
-disabled accept hop limit from RA if it is higher than the current hop
-limit for security stuff. But this behavior kind of break the RFC definition.
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-RFC 4861, 6.3.4.  Processing Received Router Advertisements
-   A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
-   and Retrans Timer) may contain a value denoting that it is
-   unspecified.  In such cases, the parameter should be ignored and the
-   host should continue using whatever value it is already using.
+This patch added driver to support Aquantia PHYs AQ1202, AQ2104, AQR105,
+AQR405, which accessed through clause 45.
 
-   If the received Cur Hop Limit value is non-zero, the host SHOULD set
-   its CurHopLimit variable to the received value.
-
-So add sysctl option accept_ra_min_hop_limit to let user choose the minimum
-hop limit value they can accept from RA. And set default to 1 to meet RFC
-standards.
-
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 ---
- Documentation/networking/ip-sysctl.txt |  8 ++++++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    | 10 ++++++++++
- net/ipv6/ndisc.c                       | 14 +++++---------
- 5 files changed, 25 insertions(+), 9 deletions(-)
+changes in v2:
+addressed Florian's comments.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 1a5ab21b..00d26d9 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1340,6 +1340,14 @@ accept_ra_from_local - BOOLEAN
- 	   disabled if accept_ra_from_local is disabled
-                on a specific interface.
+ drivers/net/phy/Kconfig    |   5 ++
+ drivers/net/phy/Makefile   |   1 +
+ drivers/net/phy/aquantia.c | 170 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 176 insertions(+)
+ create mode 100644 drivers/net/phy/aquantia.c
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 8ef8191..c07030d 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -14,6 +14,11 @@ if PHYLIB
  
-+accept_ra_min_hop_limit - INTEGER
-+	Minimum hop limit Information in Router Advertisement.
+ comment "MII PHY device drivers"
+ 
++config AQUANTIA_PHY
++        tristate "Drivers for the Aquantia PHYs"
++        ---help---
++          Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
 +
-+	Hop limit Information in Router Advertisement less than this
-+	variable shall be ignored.
+ config AT803X_PHY
+ 	tristate "Drivers for Atheros AT803X PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 16aac1c..9bb1033 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -3,6 +3,7 @@
+ libphy-objs			:= phy.o phy_device.o mdio_bus.o
+ 
+ obj-$(CONFIG_PHYLIB)		+= libphy.o
++obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
+ obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
+ obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
+ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
+diff --git a/drivers/net/phy/aquantia.c b/drivers/net/phy/aquantia.c
+new file mode 100644
+index 0000000..e57301a
+--- /dev/null
++++ b/drivers/net/phy/aquantia.c
+@@ -0,0 +1,170 @@
++/*
++ * Driver for Aquantia PHY
++ *
++ * Author: Shaohui Xie <Shaohui.Xie@freescale.com>
++ *
++ * Copyright 2015 Freescale Semiconductor, Inc.
++ *
++ * This file is licensed under the terms of the GNU General Public License
++ * version 2.  This program is licensed "as is" without any warranty of any
++ * kind, whether express or implied.
++ */
 +
-+	Default: 1
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/delay.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++#include <linux/mdio.h>
 +
- accept_ra_pinfo - BOOLEAN
- 	Learn Prefix Information in Router Advertisement.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 06ed637..cb9dcad 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -29,6 +29,7 @@ struct ipv6_devconf {
- 	__s32		max_desync_factor;
- 	__s32		max_addresses;
- 	__s32		accept_ra_defrtr;
-+	__s32		accept_ra_min_hop_limit;
- 	__s32		accept_ra_pinfo;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	__s32		accept_ra_rtr_pref;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 641a146..80f3b74 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -172,6 +172,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_MTU,
- 	DEVCONF_STABLE_SECRET,
- 	DEVCONF_USE_OIF_ADDRS_ONLY,
-+	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
- 	DEVCONF_MAX
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index eb0c6a3..53e3a9d 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -195,6 +195,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.max_addresses		= IPV6_MAX_ADDRESSES,
- 	.accept_ra_defrtr	= 1,
- 	.accept_ra_from_local	= 0,
-+	.accept_ra_min_hop_limit= 1,
- 	.accept_ra_pinfo	= 1,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
-@@ -237,6 +238,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.max_addresses		= IPV6_MAX_ADDRESSES,
- 	.accept_ra_defrtr	= 1,
- 	.accept_ra_from_local	= 0,
-+	.accept_ra_min_hop_limit= 1,
- 	.accept_ra_pinfo	= 1,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
-@@ -4588,6 +4590,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_MAX_DESYNC_FACTOR] = cnf->max_desync_factor;
- 	array[DEVCONF_MAX_ADDRESSES] = cnf->max_addresses;
- 	array[DEVCONF_ACCEPT_RA_DEFRTR] = cnf->accept_ra_defrtr;
-+	array[DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT] = cnf->accept_ra_min_hop_limit;
- 	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
-@@ -5485,6 +5488,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
-+			.procname	= "accept_ra_min_hop_limit",
-+			.data		= &ipv6_devconf.accept_ra_min_hop_limit,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
-+		{
- 			.procname	= "accept_ra_pinfo",
- 			.data		= &ipv6_devconf.accept_ra_pinfo,
- 			.maxlen		= sizeof(int),
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 0a05b35..5619e64 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1225,18 +1225,14 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 
- 	if (rt)
- 		rt6_set_expires(rt, jiffies + (HZ * lifetime));
--	if (ra_msg->icmph.icmp6_hop_limit) {
--		/* Only set hop_limit on the interface if it is higher than
--		 * the current hop_limit.
--		 */
--		if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
--			in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
--		} else {
--			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
--		}
-+	if (in6_dev->cnf.accept_ra_min_hop_limit < 256 && ra_msg->icmph.icmp6_hop_limit &&
-+	    in6_dev->cnf.accept_ra_min_hop_limit <= ra_msg->icmph.icmp6_hop_limit) {
-+		in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
- 		if (rt)
- 			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
- 				       ra_msg->icmph.icmp6_hop_limit);
-+	} else {
-+		ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than minimum\n");
- 	}
- 
- skip_defrtr:
++#define PHY_ID_AQ1202	0x03a1b445
++#define PHY_ID_AQ2104	0x03a1b460
++#define PHY_ID_AQR105	0x03a1b4a2
++#define PHY_ID_AQR405	0x03a1b4b0
++
++#define PHY_AQUANTIA_FEATURES	(SUPPORTED_10000baseT_Full | \
++				 SUPPORTED_1000baseT_Full | \
++				 SUPPORTED_100baseT_Full | \
++				 PHY_DEFAULT_FEATURES)
++
++static int aquantia_soft_reset(struct phy_device *phydev)
++{
++	return 0;
++}
++
++static int aquantia_config_init(struct phy_device *phydev)
++{
++	return 0;
++}
++
++static int aquantia_config_aneg(struct phy_device *phydev)
++{
++	phydev->supported = PHY_AQUANTIA_FEATURES;
++	phydev->advertising = phydev->supported;
++
++	return 0;
++}
++
++static int aquantia_aneg_done(struct phy_device *phydev)
++{
++	int reg;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++	return (reg < 0) ? reg : (reg & BMSR_ANEGCOMPLETE);
++}
++
++static int aquantia_read_status(struct phy_device *phydev)
++{
++	int reg;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++	if (reg & MDIO_STAT1_LSTATUS)
++		phydev->link = 1;
++	else
++		phydev->link = 0;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
++	mdelay(10);
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
++
++	switch (reg) {
++	case 0x9:
++		phydev->speed = SPEED_2500;
++		break;
++	case 0x5:
++		phydev->speed = SPEED_1000;
++		break;
++	case 0x3:
++		phydev->speed = SPEED_100;
++		break;
++	case 0x7:
++	default:
++		phydev->speed = SPEED_10000;
++		break;
++	}
++	phydev->duplex = DUPLEX_FULL;
++
++	return 0;
++}
++
++static struct phy_driver aquantia_driver[] = {
++{
++	.phy_id		= PHY_ID_AQ1202,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQ1202",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.soft_reset	= aquantia_soft_reset,
++	.aneg_done	= aquantia_aneg_done,
++	.config_init    = aquantia_config_init,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++{
++	.phy_id		= PHY_ID_AQ2104,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQ2104",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.soft_reset	= aquantia_soft_reset,
++	.aneg_done	= aquantia_aneg_done,
++	.config_init    = aquantia_config_init,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++{
++	.phy_id		= PHY_ID_AQR105,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQR105",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.soft_reset	= aquantia_soft_reset,
++	.aneg_done	= aquantia_aneg_done,
++	.config_init    = aquantia_config_init,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++{
++	.phy_id		= PHY_ID_AQR405,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQR405",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.soft_reset	= aquantia_soft_reset,
++	.aneg_done	= aquantia_aneg_done,
++	.config_init    = aquantia_config_init,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++};
++
++static int __init aquantia_init(void)
++{
++	return phy_drivers_register(aquantia_driver,
++				    ARRAY_SIZE(aquantia_driver));
++}
++
++static void __exit aquantia_exit(void)
++{
++	return phy_drivers_unregister(aquantia_driver,
++				      ARRAY_SIZE(aquantia_driver));
++}
++
++module_init(aquantia_init);
++module_exit(aquantia_exit);
++
++static struct mdio_device_id __maybe_unused aquantia_tbl[] = {
++	{ PHY_ID_AQ1202, 0xfffffff0 },
++	{ PHY_ID_AQ2104, 0xfffffff0 },
++	{ PHY_ID_AQR105, 0xfffffff0 },
++	{ PHY_ID_AQR405, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, aquantia_tbl);
++
++MODULE_DESCRIPTION("Aquantia PHY driver");
++MODULE_AUTHOR("Shaohui Xie <Shaohui.Xie@freescale.com>");
++MODULE_LICENSE("GPL v2");
 -- 
-1.9.3
+2.1.0.27.g96db324
