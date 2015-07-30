@@ -1,80 +1,123 @@
-From: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for-next V7 03/10] net/bonding: Export bond_option_active_slave_get_rcu
-Date: Thu, 30 Jul 2015 18:33:24 +0300
-Message-ID: <1438270411-17648-4-git-send-email-matanb@mellanox.com>
+From: Matan Barak <matanb@mellanox.com>
+Subject: [PATCH for-next V7 01/10] net/ipv6: Export addrconf_ifid_eui48
+Date: Thu, 30 Jul 2015 18:33:22 +0300
+Message-ID: <1438270411-17648-2-git-send-email-matanb@mellanox.com>
 References: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
-Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Somnath Kotur <Somnath.Kotur-idTK6quXuVSLFuii7jzJGg@public.gmane.org>,
-	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1438270411-17648-1-git-send-email-matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Matan Barak <matanb@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	linux-rdma@vger.kernel.org, Sean Hefty <sean.hefty@intel.com>,
+	Somnath Kotur <Somnath.Kotur@Avagotech.Com>,
+	Moni Shoua <monis@mellanox.com>, talal@mellanox.com,
+	haggaie@mellanox.com, netdev@vger.kernel.org
+To: Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:45221 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751182AbbG3PeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2015 11:34:22 -0400
+In-Reply-To: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some consumers of the netdev events API would like to know who is the
-active slave when a NETDEV_CHANGEUPPER or NETDEV_BONDING_FAILOVER
-events occur. For example, when managing RoCE GIDs, GIDs based on the
-bond's ips should only be set on the port which corresponds to active
-slave netdevice.
+For loopback purposes, RoCE devices should have a default GID in the
+port GID table, even when the interface is down. In order to do so,
+we use the IPv6 link local address which would have been genenrated
+for the related Ethernet netdevice when it goes up as a default GID.
 
-Signed-off-by: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+addrconf_ifid_eui48 is used to gernerate this address, export it.
+
+Signed-off-by: Matan Barak <matanb@mellanox.com>
 ---
- drivers/net/bonding/bond_options.c | 13 -------------
- include/net/bonding.h              |  7 +++++++
- 2 files changed, 7 insertions(+), 13 deletions(-)
+ include/net/addrconf.h | 31 +++++++++++++++++++++++++++++++
+ net/ipv6/addrconf.c    | 31 -------------------------------
+ 2 files changed, 31 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index e9c624d..28bd005 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -730,19 +730,6 @@ static int bond_option_mode_set(struct bonding *bond,
- 	return 0;
- }
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index def59d3..431fdfa 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -91,6 +91,37 @@ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2);
+ void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr);
+ void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr);
  
--static struct net_device *__bond_option_active_slave_get(struct bonding *bond,
--							 struct slave *slave)
--{
--	return bond_uses_primary(bond) && slave ? slave->dev : NULL;
--}
--
--struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond)
--{
--	struct slave *slave = rcu_dereference(bond->curr_active_slave);
--
--	return __bond_option_active_slave_get(bond, slave);
--}
--
- static int bond_option_active_slave_set(struct bonding *bond,
- 					const struct bond_opt_value *newval)
- {
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 20defc0..c1740a2 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -310,6 +310,13 @@ static inline bool bond_uses_primary(struct bonding *bond)
- 	return bond_mode_uses_primary(BOND_MODE(bond));
- }
- 
-+static inline struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond)
++static inline int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
 +{
-+	struct slave *slave = rcu_dereference(bond->curr_active_slave);
++	if (dev->addr_len != ETH_ALEN)
++		return -1;
++	memcpy(eui, dev->dev_addr, 3);
++	memcpy(eui + 5, dev->dev_addr + 3, 3);
 +
-+	return bond_uses_primary(bond) && slave ? slave->dev : NULL;
++	/*
++	 * The zSeries OSA network cards can be shared among various
++	 * OS instances, but the OSA cards have only one MAC address.
++	 * This leads to duplicate address conflicts in conjunction
++	 * with IPv6 if more than one instance uses the same card.
++	 *
++	 * The driver for these cards can deliver a unique 16-bit
++	 * identifier for each instance sharing the same card.  It is
++	 * placed instead of 0xFFFE in the interface identifier.  The
++	 * "u" bit of the interface identifier is not inverted in this
++	 * case.  Hence the resulting interface identifier has local
++	 * scope according to RFC2373.
++	 */
++	if (dev->dev_id) {
++		eui[3] = (dev->dev_id >> 8) & 0xFF;
++		eui[4] = dev->dev_id & 0xFF;
++	} else {
++		eui[3] = 0xFF;
++		eui[4] = 0xFE;
++		eui[0] ^= 2;
++	}
++	return 0;
 +}
 +
- static inline bool bond_slave_is_up(struct slave *slave)
+ static inline unsigned long addrconf_timeout_fixup(u32 timeout,
+ 						   unsigned int unit)
  {
- 	return netif_running(slave->dev) && netif_carrier_ok(slave->dev);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 21c2c81..5b0c041 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1845,37 +1845,6 @@ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
+ 	__ipv6_dev_ac_dec(ifp->idev, &addr);
+ }
+ 
+-static int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
+-{
+-	if (dev->addr_len != ETH_ALEN)
+-		return -1;
+-	memcpy(eui, dev->dev_addr, 3);
+-	memcpy(eui + 5, dev->dev_addr + 3, 3);
+-
+-	/*
+-	 * The zSeries OSA network cards can be shared among various
+-	 * OS instances, but the OSA cards have only one MAC address.
+-	 * This leads to duplicate address conflicts in conjunction
+-	 * with IPv6 if more than one instance uses the same card.
+-	 *
+-	 * The driver for these cards can deliver a unique 16-bit
+-	 * identifier for each instance sharing the same card.  It is
+-	 * placed instead of 0xFFFE in the interface identifier.  The
+-	 * "u" bit of the interface identifier is not inverted in this
+-	 * case.  Hence the resulting interface identifier has local
+-	 * scope according to RFC2373.
+-	 */
+-	if (dev->dev_id) {
+-		eui[3] = (dev->dev_id >> 8) & 0xFF;
+-		eui[4] = dev->dev_id & 0xFF;
+-	} else {
+-		eui[3] = 0xFF;
+-		eui[4] = 0xFE;
+-		eui[0] ^= 2;
+-	}
+-	return 0;
+-}
+-
+ static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
+ {
+ 	if (dev->addr_len != IEEE802154_ADDR_LEN)
 -- 
 2.1.0
 
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cc: netdev@vger.kernel.org
