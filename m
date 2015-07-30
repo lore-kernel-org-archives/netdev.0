@@ -1,32 +1,54 @@
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Subject: Re: [PATCH v2] net/phy: micrel: Reenable interrupts during resume
-Date: Thu, 30 Jul 2015 18:09:05 -0500
-Message-ID: <20150730230905.GA9355@nathan3500-linux-VM>
-References: <1438269348-8725-1-git-send-email-nathan.sullivan@ni.com>
- <20150730.100034.1983500409184401997.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] ipv6: Turn on auto IPv6 flow labels by
+ default
+Date: Thu, 30 Jul 2015 16:13:38 -0700 (PDT)
+Message-ID: <20150730.161338.130333553135883566.davem@davemloft.net>
+References: <1438275262-3708460-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150730.100034.1983500409184401997.davem@davemloft.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41905 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbbG3XNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 19:13:40 -0400
+In-Reply-To: <1438275262-3708460-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 30, 2015 at 10:00:34AM -0700, David Miller wrote:
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
-> Date: Thu, 30 Jul 2015 10:15:48 -0500
-> 
-> > Changes for V2: Actually make sure it compiles this time.
-> 
-> If V1 didn't compile, even for you, then I have a big problem.
-> 
-> And that problem is that you didn't test this change at all.
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 30 Jul 2015 09:54:19 -0700
 
-Sorry about that, I have tested it against 3.14, which is why I had
-the older interrupt function in v1.  On HEAD, the phy no longer
-suspends when ethernet goes down on our hardware - I'm still working
-on figuring out why.  I'm also surprised no one noticed this behavior
-before I did, but if the phy never goes into suspend you wouldn't.
+> BSD (MacOS) has already turned on flow labels by default and this does
+> not seem to be causing any problems in the Internet. Let's go ahead
+> and turn them on by default. We'll continue to monitor for any devices
+> start choking on them.
+> 
+> Flow labels are important since they are the desired solution for
+> network devices to perform ECMP and RSS (RFC6437 and RFC6438).
+> Traditionally, devices perform a 5-tuple hash on packets that
+> includes port numbers. For the most part, these devices can only
+> compute 5-tuple hashes for TCP and UDP. This severely limits our ability
+> to get good network load balancing for other protocols (IPIP, GRE,ESP,
+> etc.), and hence we are limited in using other protocols. Unfortunately,
+> this method is accepted as the de facto standard to the extent that
+> there are several proposals to encapsulate protocols in UDP _just_ for
+> the purposes for getting ECMP to work. With hosts generating flow labels
+> and devices taking them as input into ECMP (several already do), we can
+> start to fix this fundamental problem. 
+> 
+> This patch set:
+>  - Changes IPV6_FLOWINFO sockopt to be opt-out of flow labels for
+>    connections rather than opt-in
+>  - Disable flow label state ranges sysctl by default
+>  - Enable auto flow labels sysctl by default
+
+I am pretty sure administrators are going to want a way to enforce that
+all applications must use flow labels.
+
+So can you add a third mode that turns on auto-flow-label, but
+disallows the application level opt-out?
+
+Thanks.
