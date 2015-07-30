@@ -1,44 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: flush nd cache on IFF_NOARP change
-Date: Wed, 29 Jul 2015 23:01:53 -0700 (PDT)
-Message-ID: <20150729.230153.72255655678954107.davem@davemloft.net>
-References: <1438161351.20182.73.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1438162343.20182.75.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1438164101.20182.83.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] openvswitch: Re-add CONFIG_OPENVSWITCH_VXLAN
+Date: Wed, 29 Jul 2015 23:03:38 -0700 (PDT)
+Message-ID: <20150729.230338.291206259590958006.davem@davemloft.net>
+References: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, valas@google.com, willemb@google.com,
-	mariofanelli@google.com, edumazet@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@nicira.com,
+	nicolas.dichtel@6wind.com
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36303 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36308 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbbG3GBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:01:54 -0400
-In-Reply-To: <1438164101.20182.83.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750734AbbG3GDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:03:39 -0400
+In-Reply-To: <bd6d90197964df7c1b8e52ba5d30e9f703355366.1438169322.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 29 Jul 2015 12:01:41 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Date: Wed, 29 Jul 2015 13:52:06 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> This readds the config option CONFIG_OPENVSWITCH_VXLAN to avoid a
+> hard dependency of OVS on VXLAN. It moves the VXLAN config compat
+> code to vport-vxlan.c and allows compliation as a module.
 > 
-> This patch is the IPv6 equivalent of commit
-> 6c8b4e3ff81b ("arp: flush arp cache on IFF_NOARP change") 
-> 
-> Without it, we keep buggy neighbours in the cache, with destination
-> MAC address equal to our own MAC address.
-> 
-> Tested:
->  tcpdump -i eth0 -s 0 ip6 -n -e &
->  ip link set dev eth0 arp off
->  ping6 remote   // sends buggy frames
->  ip link set dev eth0 arp on
->  ping6 remote   // should work once kernel is patched
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Mario Fanelli <mariofanelli@google.com>
+> Fixes: 614732eaa12d ("openvswitch: Use regular VXLAN net_device device")
+> Fixes: 2661371ace96 ("openvswitch: fix compilation when vxlan is a module")
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied, thanks Eric.
+Applied.
