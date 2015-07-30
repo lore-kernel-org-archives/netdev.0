@@ -1,71 +1,99 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()
-Date: Thu, 30 Jul 2015 16:32:25 -0500
-Message-ID: <20150730213225.GA11294@sbohrermbp13-local.rgmadvisors.com>
-References: <CA++eYdtOendgSVix0aibj_Ykd=7td4ac3z9Zz1c_p67Xy3bWYw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sbohrer@rgmadvisors.com, netdev <netdev@vger.kernel.org>,
-	Yurij.Plotnikov@oktetlabs.ru, David Miller <davem@davemloft.net>,
-	=?iso-8859-1?Q?St=E5le?= Kristoffersen <stalk@bridgetech.tv>
-To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 v2] bridge fdb: add 'use' option to set NTF_USE flag in fdb add requests
+Date: Thu, 30 Jul 2015 14:37:02 -0700
+Message-ID: <1438292222-45993-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: --to=stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:36243 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750938AbbG3Vcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 17:32:31 -0400
-Received: by oibn4 with SMTP id n4so28887509oib.3
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 14:32:30 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CA++eYdtOendgSVix0aibj_Ykd=7td4ac3z9Zz1c_p67Xy3bWYw@mail.gmail.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:32915 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751287AbbG3VhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 17:37:07 -0400
+Received: by padck2 with SMTP id ck2so29384080pad.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 14:37:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 30, 2015 at 10:26:08PM +0200, Kenneth Klette Jonassen wrote=
-:
-> Commit 6e54030 breaks the IP_MULTICAST_ALL socket option. There is
-> already a check in ip_mc_sf_allow() that should do the filtering you
-> claim to fix. Was it considered?
->
-> Commit message:
-> 421b3885bf6d56391297844f43fb7154a6396e12 "udp: ipv4: Add udp early
-> demux" introduced a regression that allowed sockets bound to INADDR_A=
-NY
-> to receive packets from multicast groups that the socket had not join=
-ed...
->=20
-> man ip(7):
-> IP_MULTICAST_ALL (since Linux 2.6.31)
-> This option can be used to modify the delivery policy of
-> multicast messages to sockets bound to the wildcard INADDR_ANY
-> address.  The argument is a boolean integer (defaults to 1).
-> If set to 1, the socket will receive messages from all the
-> groups that have been joined globally on the whole system.
-> Otherwise, it will deliver messages only from the groups that
-> have been explicitly joined=E2=80=A6
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Do you have an application or test case that is now broken after this
-commit?  Or is this just a theoretical breakage based off of my commit
-message?  If you have a simple example test case can you share it?
-Also if this breaks your application but you don't have a test case
-can you describe the breakage?  Is IP_MULTICAST_ALL 0 or 1?  Are you
-not receiving packets or receiving packets you don't expect to
-receive?
+This is similar to command options corresponding to other NTF_* flags
+already exposed to the user space (examples self/master).
 
-I admittedly haven't tried to create a test case yet, but looking over
-the code I'm not sure how this could have broken IP_MULTICAST_ALL.
-Commit 6e54030 added a call to ip_check_mc_rcu() which as far as I can
-tell checks to see that a received multicast packet was a mc address
-joined on that interface.  Without this check it is possible to
-receive multicast packets for an address that hasn't been joined on
-that machine at all.  Which was the bug I was fixing.
+Also updates bridge man page (The man page patch also includes
+a fix to the 'self' entry and documents 'master' for fdb entries)
 
-The ip_mc_sf_allow() check comes next, and is still there.  It should
-continue to provide the behavior you quoted from the man page.  It
-isn't/wasn't sufficient to use IP_MULTICAST_ALL as a fix for the
-original bug because as I mentioned above you could receive packets
-that nothing on the machine had joined.
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+v1-v2 : fixed usage
 
---
-Shawn
+ bridge/fdb.c      |    7 +++++--
+ man/man8/bridge.8 |   15 ++++++++++++---
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 278e55f..bd7e4f9 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -31,8 +31,9 @@ static unsigned int filter_index;
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
+-		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
++	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace ADDR dev DEV\n"
++			"              [ self ] [ master ] [ use ] [ router ]\n"
++			"              [ local | temp ] [ dst IPADDR ] [ vlan VID ]\n"
+ 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
+ 	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ brport DEV ]\n");
+ 	exit(-1);
+@@ -305,6 +306,8 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
+ 				duparg2("vlan", *argv);
+ 			NEXT_ARG();
+ 			vid = atoi(*argv);
++		} else if (matches(*argv, "use") == 0) {
++			req.ndm.ndm_flags |= NTF_USE;
+ 		} else {
+ 			if (strcmp(*argv, "to") == 0) {
+ 				NEXT_ARG();
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 4135d01..6796e15 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -53,8 +53,8 @@ bridge \- show / manipulate bridge addresses and devices
+ .I LLADDR
+ .B  dev
+ .IR DEV " { "
+-.BR local " | " temp " } { "
+-.BR self " } { " router " } [ "
++.BR local " | " temp " } [ "
++.BR self " ] [ " master " ] [ " router " ] [ " use " ] [ "
+ .B  dst
+ .IR IPADDR " ] [ "
+ .B vni
+@@ -323,7 +323,11 @@ the Ethernet MAC address.
+ the interface to which this address is associated.
+ 
+ .B self
+-- the address is associated with a software fdb (default)
++- the address is associated with the port drivers fdb. Usually hardware.
++.sp
++
++.B master
++- the address is associated with master devices fdb. Usually software (default).
+ .sp
+ 
+ .B router
+@@ -332,6 +336,11 @@ Valid if the referenced device is a VXLAN type device and has
+ route shortcircuit enabled.
+ .sp
+ 
++.B use
++- the address is in use. User space can use this option to
++indicate to the kernel that the fdb entry is in use.
++.sp
++
+ .in -8
+ The next command line parameters apply only
+ when the specified device
+-- 
+1.7.10.4
