@@ -1,63 +1,133 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: Re: [PATCH] packet: Allow packets with only a header (but no payload)
-Date: Fri, 31 Jul 2015 00:15:46 +0200
-Message-ID: <CAFBinCBYv44ttGNyny11gEwNMJDwYzO=YYJC5scwOE-PN2nn4A@mail.gmail.com>
-References: <1437495247-471-1-git-send-email-martin.blumenstingl@googlemail.com>
- <CA+FuTScr0o0ZmwWxVP4FZoQosRRiQG6+MDvCahMCWmjLkg+33g@mail.gmail.com>
- <CAFBinCB4xOBzxwkEQYrpi1q7Xm4_-hpj2jUE2r-fQ5f2grjZ=Q@mail.gmail.com>
- <CA+FuTSctXr=2eC_-e793hvAPu=XyEhLeLoowH95tbOBx8CGj7g@mail.gmail.com>
- <CAFBinCDZDYJGjimsAD=+HFokc9ga0cLBD1KSAieagzWQNH+s=w@mail.gmail.com> <CA+FuTSfw+-6Xb_0xchM5E6vCMSsyiSvSYF3MbuE25pEt07RRbw@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH] ixgbe: Limit lowest interrupt rate for adaptive interrupt
+ moderation to 12K
+Date: Thu, 30 Jul 2015 15:19:28 -0700
+Message-ID: <20150730221927.984.91700.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, johann.baudy@gnu-log.net,
-	paulus@samba.org
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:34677 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752479AbbG3WQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 18:16:07 -0400
-Received: by lafd3 with SMTP id d3so33380624laf.1
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 15:16:05 -0700 (PDT)
-In-Reply-To: <CA+FuTSfw+-6Xb_0xchM5E6vCMSsyiSvSYF3MbuE25pEt07RRbw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38883 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750942AbbG3WT3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2015 18:19:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2015 at 8:05 AM, Willem de Bruijn <willemb@google.com> wrote:
-> Martin, to return to your initial statement that PPPoE PADI packets can
-> have a zero payload: the PPPoE RFC states that PADI packets "MUST
-> contain exactly one TAG of TAG_TYPE Service-Name, indicating the
-> service the Host is requesting, and any number of other TAG types."
-> (RFC 2516, 5.1). Is the observed behavior (no payload) perhaps
-> incorrect?
-As far as I can see you are right, but the real world seems to be different.
-My ISP for example lists the PPPoE connection settings, but they are
-nowhere mentioning the "service name".
+This patch updates the lowest limit for adaptive interrupt interrupt
+moderation to roughly 12K interrupts per second.
 
-I have also re-read pppd's source code again and that seems to confirm
-what you are reading in the RFC: Leaving the service name away makes
-seems to violate the RFC, but pppd still accepts those configurations.
+The way I came about reaching 12K as the desired interrupt rate is by
+testing with UDP flows.  Specifically I had a simple test that ran a
+netperf UDP_STREAM test at varying sizes.  What I found was as the packet
+sizes increased the performance fell steadily behind until we were only
+able to receive at ~4Gb/s with a message size of 65507.  A bit of digging
+found that we were dropping packets for the socket in the network stack,
+and looking at things further what I found was I could solve it by increasing
+the interrupt rate, or increasing the rmem_default/rmem_max.  What I found was
+that when the interrupt coalescing resulted in more data being processed
+per interrupt than could be stored in the socket buffer we started losing
+packets and the performance dropped.  So I reached 12K based on the
+following math.
 
-> Even if it is, if this is breaking established userspace expectations,
-> we should look into it. Ethernet specifies a minimum payload size of
-> 46 on the wire, but perhaps that is handled with padding, so that
-> 0 length should be valid within the stack. Also, there may be other
-> valid uses of 0 length payload on top of link layers that are not Ethernet.
-Good catch. I would also like to note that the documentation for
-"hard_header_len" describes it as "Hardware header length". When the
-purpose of this field we should check whether the documentation should
-be updated to "Minimum hardware header length" -> that would mean the
-condition has to be a "len < hard_header_len" instead of a "len <=
-hard_header_len" (as it is now).
+rmem_default = 212992
+skb->truesize = 2994
+212992 / 2994 = 71.14 packets to fill the buffer
 
-PS: I have also added the pppd maintainer (Paul Mackerras) to this
-thread because I think he should know about this issue (and he can
-probably provide more details if required).
-As a quick summary for him: linux  >= 3.19 rejects PADI packets when
-no service name is configured.
+packet rate at 1514 packet size is 812744pps
+71.14 / 812744 = 87.9us to fill socket buffer
 
+>From there it was just a matter of choosing the interrupt rate and
+providing a bit of wiggle room which is why I decided to go with 12K
+interrupts per second as that uses a value of 84us.
 
-Regards,
-Martin
+The data below is based on VM to VM over a direct assigned ixgbe interface.
+The test run was:
+	netperf -H <ip> -t UDP_STREAM"
+
+Socket  Message  Elapsed      Messages                   CPU      Service
+Size    Size     Time         Okay Errors   Throughput   Util     Demand
+bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+Before:
+212992   65507   60.00     1100662      0     9613.4     10.89    0.557
+212992           60.00      473474            4135.4     11.27    0.576
+
+After:
+212992   65507   60.00     1100413      0     9611.2     10.73    0.549
+212992           60.00      974132            8508.3     11.69    0.598
+
+Using bare metal the data is similar but not as dramatic as the throughput
+increases from about 8.5Gb/s to 9.5Gb/s.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c     |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    4 ++--
+ 4 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index ac3ac2a20386..93ebb30e6cbd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -539,8 +539,7 @@ struct hwmon_buff {
+ #define IXGBE_MIN_RSC_ITR	24
+ #define IXGBE_100K_ITR		40
+ #define IXGBE_20K_ITR		200
+-#define IXGBE_10K_ITR		400
+-#define IXGBE_8K_ITR		500
++#define IXGBE_12K_ITR		336
+ 
+ /* ixgbe_test_staterr - tests bits in Rx descriptor status and error fields */
+ static inline __le32 ixgbe_test_staterr(union ixgbe_adv_rx_desc *rx_desc,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index f7aeb560a504..6a929cf2ce7c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2279,7 +2279,7 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 		adapter->tx_itr_setting = ec->tx_coalesce_usecs;
+ 
+ 	if (adapter->tx_itr_setting == 1)
+-		tx_itr_param = IXGBE_10K_ITR;
++		tx_itr_param = IXGBE_12K_ITR;
+ 	else
+ 		tx_itr_param = adapter->tx_itr_setting;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index 68e1e757ecef..f3168bcc7d87 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -866,7 +866,7 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
+ 	if (txr_count && !rxr_count) {
+ 		/* tx only vector */
+ 		if (adapter->tx_itr_setting == 1)
+-			q_vector->itr = IXGBE_10K_ITR;
++			q_vector->itr = IXGBE_12K_ITR;
+ 		else
+ 			q_vector->itr = adapter->tx_itr_setting;
+ 	} else {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3e6a9319c718..d35dedbb9560 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2252,7 +2252,7 @@ static void ixgbe_update_itr(struct ixgbe_q_vector *q_vector,
+ 	/* simple throttlerate management
+ 	 *   0-10MB/s   lowest (100000 ints/s)
+ 	 *  10-20MB/s   low    (20000 ints/s)
+-	 *  20-1249MB/s bulk   (8000 ints/s)
++	 *  20-1249MB/s bulk   (12000 ints/s)
+ 	 */
+ 	/* what was last interrupt timeslice? */
+ 	timepassed_us = q_vector->itr >> 2;
+@@ -2341,7 +2341,7 @@ static void ixgbe_set_itr(struct ixgbe_q_vector *q_vector)
+ 		new_itr = IXGBE_20K_ITR;
+ 		break;
+ 	case bulk_latency:
+-		new_itr = IXGBE_8K_ITR;
++		new_itr = IXGBE_12K_ITR;
+ 		break;
+ 	default:
+ 		break;
