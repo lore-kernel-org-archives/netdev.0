@@ -1,342 +1,77 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH RFC net-next 2/3] RDS-TCP: Support multiple RDS-TCP listen endpoints, one per netns.
-Date: Thu, 30 Jul 2015 04:55:46 -0400
-Message-ID: <b07540e74fb24429fdccaefb938a3db13b662b04.1438245718.git.sowmini.varadhan@oracle.com>
-References: <cover.1438245718.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH RFC net-next 0/3] RDS-TCP: Network namespace support
+Date: Thu, 30 Jul 2015 04:55:44 -0400
+Message-ID: <cover.1438245718.git.sowmini.varadhan@oracle.com>
 Cc: cwang@twopensource.com, ajaykumar.hotchandani@oracle.com,
 	sowmini.varadhan@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:37955 "EHLO
+Received: from userp1040.oracle.com ([156.151.31.81]:38087 "EHLO
 	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755002AbbG3I4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 04:56:22 -0400
-In-Reply-To: <cover.1438245718.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1438245718.git.sowmini.varadhan@oracle.com>
-References: <cover.1438245718.git.sowmini.varadhan@oracle.com>
+	with ESMTP id S1754970AbbG3I4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 04:56:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Register pernet subsys init/stop functions that will set up
-and tear down per-net RDS-TCP listen endpoints. Unregister
-pernet subusys functions on 'modprobe -r' to clean up these
-end points.
 
-Enable keepalive on both accept and connect socket endpoints.
-The keepalive timer expiration will ensure that cleanup_net()
-will eventually complete, allowing the pernet ->exit to be invoked.
+This patch series contains the set of changes to correctly set up 
+the infra for PF_RDS sockets that use TCP as the transport in multiple
+network namespaces.
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/rds/tcp.c         |  112 ++++++++++++++++++++++++++++++++++++++++++------
+Patch 1 in the series is the minimal set of changes to allow
+a single instance of RDS-TCP to run in any (i.e init_net or other) 
+namespace. The changes in this patch set ensure that the
+execution of 'modprobe [-r] rds_tcp' correctly sets up the kernel
+TCP sockets relative to the current netns. 
+
+Patch 2 of the series further allows multiple RDS-TCP instances,
+one per network namespace. The changes in this patch allows dynamic
+creation/tear-down of RDS-TCP client and server sockets  across all
+current and future namespaces. 
+
+Comments are specifically invited about the following:
+
+   There is some question in my mind as to whether Patch 2 should
+   use register_pernet_subsys() or register_pernet_device(): due
+   to the nature of the architecture, RDS/TCP is not a network device,
+   but more accurately a subsystem that encapsulates an RDS packet into
+   a TCP/IP header at the ksocket layer. However, the listen socket
+   is created as part of the ->init in the pernet_operations, and the 
+   connect/accept sockets get created in the kernel dynamically, with the
+   intention that all of these sockets should be cleaned as part of ->exit.
+
+   Based on the comments in net_namespace.h, sockets would need
+   to be cleaned up as part of a pernet operation, else they would
+   hold up lo cleanup.  In the current version of patch2,  that cleanup is
+   achieved after the ethernet devices, by the socket keepalive timeout,
+   after which the ->exit will get called. I'm not sure there is a clean
+   way to avoid this.  As thing stand, doing "ip netns delete <name>"
+   would result in syslogd messages about "unregister_netdevice: waiting
+   for lo to become free. Usage count .." being seen in the interval between
+   ethernet device migration to init_net and the keepalive timeout
+ 
+Patch 3 in this set is independant of the above two changes, and is 
+a bugfix/follow up to eeb1bd5c encountered while testing the above.
+
+Sowmini Varadhan (3):
+  Make RDS-TCP work correctly when it is set up in a netns other than
+    init_net
+  Support multiple RDS-TCP listen endpoints, one per netns.
+  sk_clone_lock() should only do get_net() if the parent is not a
+    kernel socket
+
+ net/core/sock.c       |    3 +-
+ net/rds/bind.c        |    3 +-
+ net/rds/connection.c  |   16 ++++---
+ net/rds/ib.c          |    2 +-
+ net/rds/ib_cm.c       |    4 +-
+ net/rds/iw.c          |    2 +-
+ net/rds/iw_cm.c       |    4 +-
+ net/rds/rds.h         |   11 +++--
+ net/rds/send.c        |    3 +-
+ net/rds/tcp.c         |  116 ++++++++++++++++++++++++++++++++++++++++++-------
  net/rds/tcp.h         |    7 ++-
- net/rds/tcp_connect.c |    6 ++-
- net/rds/tcp_listen.c  |   38 ++++-------------
- 4 files changed, 115 insertions(+), 48 deletions(-)
-
-diff --git a/net/rds/tcp.c b/net/rds/tcp.c
-index 98f5de3..fadf1a1 100644
---- a/net/rds/tcp.c
-+++ b/net/rds/tcp.c
-@@ -35,6 +35,8 @@
- #include <linux/in.h>
- #include <linux/module.h>
- #include <net/tcp.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
- 
- #include "rds.h"
- #include "tcp.h"
-@@ -250,16 +252,32 @@ static void rds_tcp_destroy_conns(void)
- 	}
- }
- 
--static void rds_tcp_exit(void)
-+static void rds_tcp_destroy_conns_for_net(struct net *net)
- {
--	rds_info_deregister_func(RDS_INFO_TCP_SOCKETS, rds_tcp_tc_info);
--	rds_tcp_listen_stop();
--	rds_tcp_destroy_conns();
--	rds_trans_unregister(&rds_tcp_transport);
--	rds_tcp_recv_exit();
--	kmem_cache_destroy(rds_tcp_conn_slab);
-+	struct rds_tcp_connection *tc, *_tc;
-+	struct list_head tmp_list;
-+
-+	BUG_ON(!net);
-+	INIT_LIST_HEAD(&tmp_list);
-+	/* avoid calling conn_destroy with irqs off */
-+	spin_lock_irq(&rds_tcp_conn_lock);
-+	list_for_each_entry_safe(tc, _tc, &rds_tcp_conn_list, t_tcp_node) {
-+		struct net *c_net = read_pnet(&tc->conn->c_net);
-+
-+		if (net == c_net) {
-+			list_del(&tc->t_tcp_node);
-+			list_add_tail(&tc->t_tcp_node, &tmp_list);
-+		}
-+	}
-+	spin_unlock_irq(&rds_tcp_conn_lock);
-+	list_for_each_entry_safe(tc, _tc, &tmp_list, t_tcp_node) {
-+		if (tc->conn->c_passive)
-+			rds_conn_destroy(tc->conn->c_passive);
-+		rds_conn_destroy(tc->conn);
-+	}
- }
--module_exit(rds_tcp_exit);
-+
-+static void rds_tcp_exit(void);
- 
- struct rds_transport rds_tcp_transport = {
- 	.laddr_check		= rds_tcp_laddr_check,
-@@ -281,6 +299,73 @@ struct rds_transport rds_tcp_transport = {
- 	.t_prefer_loopback	= 1,
- };
- 
-+static int rds_tcp_netid;
-+
-+/* per-network namespace private data for this module */
-+struct rds_tcp_net {
-+	struct socket *rds_tcp_listen_sock;
-+	struct work_struct rds_tcp_accept_w;
-+};
-+
-+static void rds_tcp_accept_worker(struct work_struct *work)
-+{
-+	struct rds_tcp_net *rtn = container_of(work,
-+					       struct rds_tcp_net,
-+					       rds_tcp_accept_w);
-+
-+	while (rds_tcp_accept_one(rtn->rds_tcp_listen_sock) == 0)
-+		cond_resched();
-+}
-+
-+void rds_tcp_accept_work(struct sock *sk)
-+{
-+	struct net *net = sock_net(sk);
-+	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
-+
-+	queue_work(rds_wq, &rtn->rds_tcp_accept_w);
-+}
-+
-+static __net_init int rds_tcp_init_net(struct net *net)
-+{
-+	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
-+
-+	rtn->rds_tcp_listen_sock = rds_tcp_listen_init(net);
-+	if (!rtn->rds_tcp_listen_sock) {
-+		pr_warn("could not set up listen sock\n");
-+		return -EAFNOSUPPORT;
-+	}
-+	INIT_WORK(&rtn->rds_tcp_accept_w, rds_tcp_accept_worker);
-+	return 0;
-+}
-+
-+static void __net_exit rds_tcp_exit_net(struct net *net)
-+{
-+	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
-+
-+	rds_tcp_listen_stop(rtn->rds_tcp_listen_sock);
-+	rtn->rds_tcp_listen_sock = NULL;
-+	flush_work(&rtn->rds_tcp_accept_w);
-+	rds_tcp_destroy_conns_for_net(net);
-+}
-+
-+static struct pernet_operations rds_tcp_net_ops = {
-+	.init = rds_tcp_init_net,
-+	.exit = rds_tcp_exit_net,
-+	.id = &rds_tcp_netid,
-+	.size = sizeof(struct rds_tcp_net),
-+};
-+
-+static void rds_tcp_exit(void)
-+{
-+	rds_info_deregister_func(RDS_INFO_TCP_SOCKETS, rds_tcp_tc_info);
-+	unregister_pernet_subsys(&rds_tcp_net_ops);
-+	rds_tcp_destroy_conns();
-+	rds_trans_unregister(&rds_tcp_transport);
-+	rds_tcp_recv_exit();
-+	kmem_cache_destroy(rds_tcp_conn_slab);
-+}
-+module_exit(rds_tcp_exit);
-+
- static int rds_tcp_init(void)
- {
- 	int ret;
-@@ -293,6 +378,10 @@ static int rds_tcp_init(void)
- 		goto out;
- 	}
- 
-+	ret = register_pernet_subsys(&rds_tcp_net_ops);
-+	if (ret)
-+		goto out_slab;
-+
- 	ret = rds_tcp_recv_init();
- 	if (ret)
- 		goto out_slab;
-@@ -301,19 +390,14 @@ static int rds_tcp_init(void)
- 	if (ret)
- 		goto out_recv;
- 
--	ret = rds_tcp_listen_init();
--	if (ret)
--		goto out_register;
--
- 	rds_info_register_func(RDS_INFO_TCP_SOCKETS, rds_tcp_tc_info);
- 
- 	goto out;
- 
--out_register:
--	rds_trans_unregister(&rds_tcp_transport);
- out_recv:
- 	rds_tcp_recv_exit();
- out_slab:
-+	unregister_pernet_subsys(&rds_tcp_net_ops);
- 	kmem_cache_destroy(rds_tcp_conn_slab);
- out:
- 	return ret;
-diff --git a/net/rds/tcp.h b/net/rds/tcp.h
-index 0dbdd37..64f873c 100644
---- a/net/rds/tcp.h
-+++ b/net/rds/tcp.h
-@@ -52,6 +52,7 @@ u32 rds_tcp_snd_nxt(struct rds_tcp_connection *tc);
- u32 rds_tcp_snd_una(struct rds_tcp_connection *tc);
- u64 rds_tcp_map_seq(struct rds_tcp_connection *tc, u32 seq);
- extern struct rds_transport rds_tcp_transport;
-+void rds_tcp_accept_work(struct sock *sk);
- 
- /* tcp_connect.c */
- int rds_tcp_conn_connect(struct rds_connection *conn);
-@@ -59,9 +60,11 @@ void rds_tcp_conn_shutdown(struct rds_connection *conn);
- void rds_tcp_state_change(struct sock *sk);
- 
- /* tcp_listen.c */
--int rds_tcp_listen_init(void);
--void rds_tcp_listen_stop(void);
-+struct socket *rds_tcp_listen_init(struct net *);
-+void rds_tcp_listen_stop(struct socket *);
- void rds_tcp_listen_data_ready(struct sock *sk);
-+int rds_tcp_accept_one(struct socket *sock);
-+int rds_tcp_keepalive(struct socket *sock);
- 
- /* tcp_recv.c */
- int rds_tcp_recv_init(void);
-diff --git a/net/rds/tcp_connect.c b/net/rds/tcp_connect.c
-index 54a4609..a1d948e 100644
---- a/net/rds/tcp_connect.c
-+++ b/net/rds/tcp_connect.c
-@@ -112,10 +112,12 @@ int rds_tcp_conn_connect(struct rds_connection *conn)
- 	rdsdebug("connect to address %pI4 returned %d\n", &conn->c_faddr, ret);
- 	if (ret == -EINPROGRESS)
- 		ret = 0;
--	if (ret == 0)
-+	if (ret == 0) {
-+		rds_tcp_keepalive(sock);
- 		sock = NULL;
--	else
-+	} else {
- 		rds_tcp_restore_callbacks(sock, conn->c_transport_data);
-+	}
- 
- out:
- 	if (sock)
-diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
-index 398ffe5..444d78d 100644
---- a/net/rds/tcp_listen.c
-+++ b/net/rds/tcp_listen.c
-@@ -38,14 +38,7 @@
- #include "rds.h"
- #include "tcp.h"
- 
--/*
-- * cheesy, but simple..
-- */
--static void rds_tcp_accept_worker(struct work_struct *work);
--static DECLARE_WORK(rds_tcp_listen_work, rds_tcp_accept_worker);
--static struct socket *rds_tcp_listen_sock;
--
--static int rds_tcp_keepalive(struct socket *sock)
-+int rds_tcp_keepalive(struct socket *sock)
- {
- 	/* values below based on xs_udp_default_timeout */
- 	int keepidle = 5; /* send a probe 'keepidle' secs after last data */
-@@ -77,7 +70,7 @@ static int rds_tcp_keepalive(struct socket *sock)
- 	return ret;
- }
- 
--static int rds_tcp_accept_one(struct socket *sock)
-+int rds_tcp_accept_one(struct socket *sock)
- {
- 	struct socket *new_sock = NULL;
- 	struct rds_connection *conn;
-@@ -150,12 +143,6 @@ static int rds_tcp_accept_one(struct socket *sock)
- 	return ret;
- }
- 
--static void rds_tcp_accept_worker(struct work_struct *work)
--{
--	while (rds_tcp_accept_one(rds_tcp_listen_sock) == 0)
--		cond_resched();
--}
--
- void rds_tcp_listen_data_ready(struct sock *sk)
- {
- 	void (*ready)(struct sock *sk);
-@@ -176,26 +163,20 @@ void rds_tcp_listen_data_ready(struct sock *sk)
- 	 * socket
- 	 */
- 	if (sk->sk_state == TCP_LISTEN)
--		queue_work(rds_wq, &rds_tcp_listen_work);
-+		rds_tcp_accept_work(sk);
- 
- out:
- 	read_unlock(&sk->sk_callback_lock);
- 	ready(sk);
- }
- 
--int rds_tcp_listen_init(void)
-+struct socket *rds_tcp_listen_init(struct net *net)
- {
- 	struct sockaddr_in sin;
- 	struct socket *sock = NULL;
- 	int ret;
- 
--	/* MUST call sock_create_kern directly so that we avoid get_net()
--	 * in sk_alloc(). Doing a get_net() will result in cleanup_net()
--	 * never getting invoked, which will leave sock and other things
--	 * in limbo.
--	 */
--	ret = sock_create_kern(current->nsproxy->net_ns, PF_INET,
--			       SOCK_STREAM, IPPROTO_TCP, &sock);
-+	ret = sock_create_kern(net, PF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
- 	if (ret < 0)
- 		goto out;
- 
-@@ -219,17 +200,15 @@ int rds_tcp_listen_init(void)
- 	if (ret < 0)
- 		goto out;
- 
--	rds_tcp_listen_sock = sock;
--	sock = NULL;
-+	return sock;
- out:
- 	if (sock)
- 		sock_release(sock);
--	return ret;
-+	return NULL;
- }
- 
--void rds_tcp_listen_stop(void)
-+void rds_tcp_listen_stop(struct socket *sock)
- {
--	struct socket *sock = rds_tcp_listen_sock;
- 	struct sock *sk;
- 
- 	if (!sock)
-@@ -250,5 +229,4 @@ void rds_tcp_listen_stop(void)
- 	/* wait for accepts to stop and close the socket */
- 	flush_workqueue(rds_wq);
- 	sock_release(sock);
--	rds_tcp_listen_sock = NULL;
- }
--- 
-1.7.1
+ net/rds/tcp_connect.c |    9 +++-
+ net/rds/tcp_listen.c  |   40 ++++++-----------
+ net/rds/transport.c   |    4 +-
+ 14 files changed, 155 insertions(+), 69 deletions(-)
