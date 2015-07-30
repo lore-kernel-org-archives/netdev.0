@@ -1,8 +1,9 @@
-From: Borislav Petkov <bp@alien8.de>
+From: Viresh Kumar <viresh.kumar@linaro.org>
 Subject: Re: [PATCH] bus: subsys: update return type of ->remove_dev() to void
-Date: Thu, 30 Jul 2015 12:59:17 +0200
-Message-ID: <20150730105917.GA25460@nazgul.tnic>
+Date: Thu, 30 Jul 2015 16:31:10 +0530
+Message-ID: <20150730110110.GA24546@linux>
 References: <02c0569741812b655edde5124c3e2937bb79f9f8.1438248445.git.viresh.kumar@linaro.org>
+ <20150730105917.GA25460@nazgul.tnic>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -21,34 +22,34 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	"maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>
-To: Viresh Kumar <viresh.kumar@linaro.org>
+To: Borislav Petkov <bp@alien8.de>
 Return-path: <linux-sh-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <02c0569741812b655edde5124c3e2937bb79f9f8.1438248445.git.viresh.kumar@linaro.org>
+In-Reply-To: <20150730105917.GA25460@nazgul.tnic>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 30, 2015 at 03:04:01PM +0530, Viresh Kumar wrote:
-> Its return value is not used by the subsys core and nothing meaningfu=
-l
-> can be done with it, even if we want to use it. The subsys device is
-> anyway getting removed.
+On 30-07-15, 12:59, Borislav Petkov wrote:
+> On Thu, Jul 30, 2015 at 03:04:01PM +0530, Viresh Kumar wrote:
+> > Its return value is not used by the subsys core and nothing meaning=
+ful
+> > can be done with it, even if we want to use it. The subsys device i=
+s
+> > anyway getting removed.
+>=20
+> I'm assuming sysfs paths covered by it, will remain intact... ? For t=
+he
+> microcode loader case that's this hierarchy here:
+>=20
+> $ tree /sys/devices/system/cpu/cpu?/microcode/
+> /sys/devices/system/cpu/cpu0/microcode/
+> =E2=94=9C=E2=94=80=E2=94=80 processor_flags
+> =E2=94=94=E2=94=80=E2=94=80 version
+> /sys/devices/system/cpu/cpu1/microcode/
+> =E2=94=9C=E2=94=80=E2=94=80 processor_flags
+> =E2=94=94=E2=94=80=E2=94=80 version
 
-I'm assuming sysfs paths covered by it, will remain intact... ? For the
-microcode loader case that's this hierarchy here:
-
-$ tree /sys/devices/system/cpu/cpu?/microcode/
-/sys/devices/system/cpu/cpu0/microcode/
-=E2=94=9C=E2=94=80=E2=94=80 processor_flags
-=E2=94=94=E2=94=80=E2=94=80 version
-/sys/devices/system/cpu/cpu1/microcode/
-=E2=94=9C=E2=94=80=E2=94=80 processor_flags
-=E2=94=94=E2=94=80=E2=94=80 version
-=2E..
+Yeah, Its not touching the sysfs path at all.
 
 --=20
-Regards/Gruss,
-    Boris.
-
-ECO tip #101: Trim your mails when you reply.
---
+viresh
