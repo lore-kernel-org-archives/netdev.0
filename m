@@ -1,42 +1,41 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH] MAINTAINERS: add arcnet and take maintainership
-Date: Thu, 30 Jul 2015 15:30:13 +0200
-Message-ID: <1438263013-13262-1-git-send-email-m.grzeschik@pengutronix.de>
-Cc: davem@davemloft.net, joe@perches.com, kernel@pengutronix.de
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH] ARCNET: fix hard_header_len limit
+Date: Thu, 30 Jul 2015 15:34:36 +0200
+Message-ID: <1438263276-26202-1-git-send-email-m.grzeschik@pengutronix.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@pengutronix.de
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49224 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750937AbbG3NfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 09:35:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add entry for arcnet to MAINTAINERS file and add myself as the
-maintainer of the subsystem.
+The commit <9c7077622dd9> ("packet: make packet_snd fail on len smaller
+than l2 header") adds the check for minimum packet length of the used l2.
+For arcnet the hardware header length is not the complete archdr which
+includes hard + soft header. This patch changes the length to
+sizeof(arc_hardware).
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Cc: davem@davemloft.net
-Cc: joe@perches.com
 ---
-As I have a test coverage of com20020 based arcnet systems
-I would like to take the responsibility of maintaining the subsystem.
+ drivers/net/arcnet/arcnet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- MAINTAINERS | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 9289ecb..08f1a41 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -790,6 +790,12 @@ S:	Maintained
- F:	drivers/video/fbdev/arcfb.c
- F:	drivers/video/fbdev/core/fb_defio.c
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index 10f71c73..816d0e9 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -326,7 +326,7 @@ static void arcdev_setup(struct net_device *dev)
+ 	dev->type = ARPHRD_ARCNET;
+ 	dev->netdev_ops = &arcnet_netdev_ops;
+ 	dev->header_ops = &arcnet_header_ops;
+-	dev->hard_header_len = sizeof(struct archdr);
++	dev->hard_header_len = sizeof(struct arc_hardware);
+ 	dev->mtu = choose_mtu();
  
-+ARCNET NETWORK LAYER
-+M:	Michael Grzeschik <m.grzeschik@pengutronix.de>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/arcnet/
-+
- ARM MFM AND FLOPPY DRIVERS
- M:	Ian Molton <spyro@f2s.com>
- S:	Maintained
+ 	dev->addr_len = ARCNET_ALEN;
 -- 
 2.1.4
