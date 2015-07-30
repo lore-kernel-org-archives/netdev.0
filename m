@@ -1,29 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] qlcnic: Fix corruption while copying
-Date: Wed, 29 Jul 2015 23:57:48 -0700 (PDT)
-Message-ID: <20150729.235748.538378358060387571.davem@davemloft.net>
-References: <1438170935-9302-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Manoil Claudiu <claudiu.manoil@freescale.com>
+Subject: RE: [PATCH net-next v2] gianfar: Fix warnings when built on 64-bit
+Date: Thu, 30 Jul 2015 07:48:27 +0000
+Message-ID: <BY2PR0301MB07279D57E9BBE78BC0F12B079C8B0@BY2PR0301MB0727.namprd03.prod.outlook.com>
+References: <1438175586-11614-1-git-send-email-claudiu.manoil@freescale.com>
+ <1438185961.2993.335.camel@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com
-To: shahed.shaikh@qlogic.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"arnd@arndb.de" <arnd@arndb.de>
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36529 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbbG3G5s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 02:57:48 -0400
-In-Reply-To: <1438170935-9302-1-git-send-email-shahed.shaikh@qlogic.com>
+Received: from mail-bl2on0119.outbound.protection.outlook.com ([65.55.169.119]:22720
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751610AbbG3Hsb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2015 03:48:31 -0400
+In-Reply-To: <1438185961.2993.335.camel@freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Date: Wed, 29 Jul 2015 07:55:35 -0400
-
-> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> 
-> Use proper typecasting while performing byte-by-byte copy
-> 
-> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-
-Applied, thank you.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXb29kIFNjb3R0LUIwNzQyMQ0K
+PiBTZW50OiBXZWRuZXNkYXksIEp1bHkgMjksIDIwMTUgNzowNiBQTQ0KPiBUbzogTWFub2lsIENs
+YXVkaXUtQjA4NzgyDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBEYXZpZCBTLiBNaWxs
+ZXI7IGFybmRAYXJuZGIuZGUNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCB2Ml0gZ2lh
+bmZhcjogRml4IHdhcm5pbmdzIHdoZW4gYnVpbHQgb24gNjQtYml0DQo+IA0KWy4uLl0NCj4gDQo+
+IEFyZSB5b3UgZ29pbmcgdG8gc3VibWl0IHRoZSBDT05GSUdfUE0gY2hhbmdlIHNlcGFyYXRlbHk/
+ICBJdCBmaXhlcyBhDQo+IHdhcm5pbmcgd2hlbiBDT05GSUdfUE0gaXMgbm90IGVuYWJsZWQuDQo+
+IA0KU3VyZS4gIEFzIEkgbWVudGlvbmVkIGJlZm9yZSwgSSdtIGFscmVhZHkgd29ya2luZyBvbiBQ
+TSByZWxhdGVkIGZpeGVzIGluIGdpYW5mYXIuIA0KTXkgaW50ZW50aW9uIGlzIHRvIGluY2x1ZGUg
+dGhpcyBjaGFuZ2UgaW4gdGhhdCBzZXQsIHRhcmdldGluZyBuZXQuZ2l0IHRoaXMgdGltZS4gVGhh
+bmtzLg0K
