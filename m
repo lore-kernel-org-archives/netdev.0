@@ -1,39 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/phy: micrel: Reenable interrupts during resume
-Date: Fri, 31 Jul 2015 00:22:04 -0700 (PDT)
-Message-ID: <20150731.002204.2044640569422262574.davem@davemloft.net>
-References: <1438269348-8725-1-git-send-email-nathan.sullivan@ni.com>
-	<20150730.100034.1983500409184401997.davem@davemloft.net>
-	<20150730230905.GA9355@nathan3500-linux-VM>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in
+ ovs_vport_receive()
+Date: Fri, 31 Jul 2015 09:38:09 +0200
+Message-ID: <20150731073809.GA4738@pox.localdomain>
+References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
+ <1438279963-29563-2-git-send-email-joestringer@nicira.com>
+ <20150730184010.GC11177@pox.localdomain>
+ <CANr6G5wRS1zg4oLdS5L4gM7iCS11BHb7+8uUN1fh5Oa9F4_BBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nathan.sullivan@ni.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Justin Pettit <jpettit@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150730230905.GA9355@nathan3500-linux-VM>
+Content-Disposition: inline
+In-Reply-To: <CANr6G5wRS1zg4oLdS5L4gM7iCS11BHb7+8uUN1fh5Oa9F4_BBw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Date: Thu, 30 Jul 2015 18:09:05 -0500
-
-> On Thu, Jul 30, 2015 at 10:00:34AM -0700, David Miller wrote:
->> From: Nathan Sullivan <nathan.sullivan@ni.com>
->> Date: Thu, 30 Jul 2015 10:15:48 -0500
->> 
->> > Changes for V2: Actually make sure it compiles this time.
->> 
->> If V1 didn't compile, even for you, then I have a big problem.
->> 
->> And that problem is that you didn't test this change at all.
+On 07/30/15 at 04:16pm, Joe Stringer wrote:
+> On 30 July 2015 at 11:40, Thomas Graf <tgraf@suug.ch> wrote:
+> > On 07/30/15 at 11:12am, Joe Stringer wrote:
+> >> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> >
+> > Can you write a few lines on why this is needed? I have flows which
+> > use the mark to communicate with netfilter through internal ports.
 > 
-> Sorry about that, I have tested it against 3.14, which is why I had
-> the older interrupt function in v1.  On HEAD, the phy no longer
-> suspends when ethernet goes down on our hardware - I'm still working
-> on figuring out why.  I'm also surprised no one noticed this behavior
-> before I did, but if the phy never goes into suspend you wouldn't.
+> The problem I was seeing is when packets come from a different
+> namespace on the localhost, they still have conntrack data associated.
+> This doesn't make sense, so the intention is to perform nf_reset().
+> However, it seems like we should actually be doing a bit more - at
+> least the skb_dst_drop() and perhaps some of the other stuff in
+> skb_scrub_packet().
+> 
+> Do you want to retain the mark when transitioning between namespaces?
 
-I think you should sort out the PHY suspending issue before we move
-forward with this patch.
+Since we have retained it so far I think we should keep on doing
+that. I'm pretty sure there are users of it out there besides me.
+As you know, it's common to have tap devices in between OVS and the
+guest in OpenStack and install netfilter rules there.
+
+As for whether we should scrub it in between namespaces. Probably yes
+but it's definitely tremendously useful to be able to transfer some
+metadata (mark and dst metadata) between namespaces. The default
+behaviour should probably be to scrub it with a flag to keep it. If
+that flag is not set and nsid of port != bridge then we scrub the mark
+and other metadata.
