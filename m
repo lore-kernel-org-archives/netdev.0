@@ -1,32 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
- 10/100/1000 Ethernet device driver
-Date: Fri, 31 Jul 2015 15:19:15 -0700 (PDT)
-Message-ID: <20150731.151915.1788101742098740589.davem@davemloft.net>
-References: <9235D6609DB808459E95D78E17F2E43D538C9D@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH net-next] bpf: add helpers to access tunnel metadata
+Date: Fri, 31 Jul 2015 15:20:35 -0700 (PDT)
+Message-ID: <20150731.152035.178009344109129845.davem@davemloft.net>
+References: <1438295817-27295-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Woojung.Huh@microchip.com
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51483 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51500 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752077AbbGaWTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:19:16 -0400
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D538C9D@CHN-SV-EXMX02.mchp-main.com>
+	with ESMTP id S1752077AbbGaWUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:20:36 -0400
+In-Reply-To: <1438295817-27295-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Woojung.Huh@microchip.com>
-Date: Thu, 30 Jul 2015 19:45:21 +0000
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Thu, 30 Jul 2015 15:36:57 -0700
 
-> Repost patch of driver for LAN7800 family of USB 2.0 & USB 3.0 to Gigabit E=
-> thernet.
-> - remove module param which can be configurable by standard mechanism.
-> - remove other module parms except msg_level per review comment.
-> - update to handle byte swap for statistics structure correctly.
+> Introduce helpers to let eBPF programs attached to TC manipulate tunnel metadata:
+> bpf_skb_[gs]et_tunnel_key(skb, key, size, flags)
+> skb: pointer to skb
+> key: pointer to 'struct bpf_tunnel_key'
+> size: size of 'struct bpf_tunnel_key'
+> flags: room for future extensions
 > 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+> First eBPF program that uses these helpers will allocate per_cpu
+> metadata_dst structures that will be used on TX.
+> On RX metadata_dst is allocated by tunnel driver.
+> 
+> Typical usage for TX:
+> struct bpf_tunnel_key tkey;
+> ... populate tkey ...
+> bpf_skb_set_tunnel_key(skb, &tkey, sizeof(tkey), 0);
+> bpf_clone_redirect(skb, vxlan_dev_ifindex, 0);
+> 
+> RX:
+> struct bpf_tunnel_key tkey = {};
+> bpf_skb_get_tunnel_key(skb, &tkey, sizeof(tkey), 0);
+> ... lookup or redirect based on tkey ...
+> 
+> 'struct bpf_tunnel_key' will be extended in the future by adding
+> elements to the end and the 'size' argument will indicate which fields
+> are populated, thereby keeping backwards compatibility.
+> The 'flags' argument may be used as well when the 'size' is not enough or
+> to indicate completely different layout of bpf_tunnel_key.
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
 Applied, thanks.
