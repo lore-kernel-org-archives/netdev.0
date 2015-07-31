@@ -1,58 +1,51 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in ovs_vport_receive()
-Date: Fri, 31 Jul 2015 10:51:11 -0700
-Message-ID: <CANr6G5zsh2DUDBrZpQBpFO_GggvPa4ztdwDxRQuByzwU-S-FUg@mail.gmail.com>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
- <1438279963-29563-2-git-send-email-joestringer@nicira.com> <1438353294.20479.7.camel@redhat.com>
+From: Jovi Zhangwei <jovi@cloudflare.com>
+Subject: Re: kernel warning in tcp_fragment
+Date: Fri, 31 Jul 2015 11:04:46 -0700
+Message-ID: <CABPcSqLJz33sQ9a_-g9oi7i=fxkBSXga9aSs3X2CJ_Xb2xVSOg@mail.gmail.com>
+References: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
+	<20150727231947.GC2832181@devbig242.prn2.facebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
+Content-Transfer-Encoding: 8BIT
+Cc: Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org,
 	Patrick McHardy <kaber@trash.net>,
-	Justin Pettit <jpettit@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Thomas Graf <tgraf@noironetworks.com>
-To: Hannes Frederic Sowa <hannes@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438353294.20479.7.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	FB Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:34733 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752604AbbGaSEs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 14:04:48 -0400
+Received: by lbqc9 with SMTP id c9so25437599lbq.1
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 11:04:47 -0700 (PDT)
+In-Reply-To: <20150727231947.GC2832181@devbig242.prn2.facebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 31 July 2015 at 07:34, Hannes Frederic Sowa <hannes@redhat.com> wrote:
-> On Thu, 2015-07-30 at 11:12 -0700, Joe Stringer wrote:
->> Signed-off-by: Joe Stringer <joestringer@nicira.com>
->> ---
->>  net/openvswitch/vport.c | 3 +++
->>  1 file changed, 3 insertions(+)
->>
->> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
->> index d14f594..baa018f 100644
->> --- a/net/openvswitch/vport.c
->> +++ b/net/openvswitch/vport.c
->> @@ -475,6 +475,9 @@ void ovs_vport_receive(struct vport *vport, struct
->> sk_buff *skb,
->>       struct sw_flow_key key;
->>       int error;
->>
->> +     if (!skb->sk || (sock_net(skb->sk) != read_pnet(&vport->dp
->> ->net)))
->> +             skb_scrub_packet(skb, true);
->> +
->>       stats = this_cpu_ptr(vport->percpu_stats);
->>       u64_stats_update_begin(&stats->syncp);
->>       stats->rx_packets++;
->
-> In general, this shouldn't be necessary as the packet should already be
-> scrubbed before they arrive here.
->
-> Could you maybe add a WARN_ON and check how those skbs with conntrack
-> data traverse the stack? I also didn't understand why make it dependent
-> on the socket.
+Hi Eric,
 
-OK, sure. One case I could think of is with an OVS internal port in
-another namespace, directly attached to the bridge. I'll have a play
-around with WARN_ON and see if I can come up with something more
-trimmed down.
+Would you like share your thought on this bug? great thanks.
+
+
+On Mon, Jul 27, 2015 at 4:19 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Wed, Jul 22, 2015 at 11:55:35AM -0700, Jovi Zhangwei wrote:
+>> Sorry for disturbing, our production system(3.14 and 3.18 stable
+>> kernel) have many tcp_fragment warnings,
+>> the trace is same as below one which you discussed before.
+>>
+>> https://urldefense.proofpoint.com/v1/url?u=http://comments.gmane.org/gmane.linux.network/365658&k=ZVNjlDMF0FElm4dQtryO4A%3D%3D%0A&r=%2Faj1ZOQObwbmtLwlDw3XzQ%3D%3D%0A&m=fQUME5h%2FYY3oZjXbnLC3z6TaEEcTBSCAji4PkNqFjq8%3D%0A&s=1527f3221a6f31cba9544e5ddaa20986aafe8be8c898b42c7e9ce5e68d3803d8
+>>
+>> But I didn't found the final solution in that mail thread, do you have
+>> any new ideas or patches on this warning?
+>
+> I think the following points to the last discussion.  We are currently using a
+> similar patch:
+> http://comments.gmane.org/gmane.linux.network/366549
+>
+> Eric, any update on your findings? or you have already pushed a fix?
+>
+> Thanks,
+> --Martin
