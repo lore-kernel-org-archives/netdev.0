@@ -1,95 +1,80 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH net-next 8/9] openvswitch: Allow matching on conntrack label
-Date: Fri, 31 Jul 2015 16:07:04 -0700
-Message-ID: <CANr6G5zFzZC7PgB37KWRCQh84U2SEhan26wqs9zW3KXcC_t=TQ@mail.gmail.com>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
- <1438279963-29563-9-git-send-email-joestringer@nicira.com> <20150731132004.GA20471@breakpoint.cc>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v2 net-next 0/5] ipv6: Turn on auto IPv6 flow labels by default
+Date: Fri, 31 Jul 2015 16:52:09 -0700
+Message-ID: <1438386734-1942188-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Justin Pettit <jpettit@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>,
-	Thomas Graf <tgraf@noironetworks.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150731132004.GA20471@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36469 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751701AbbGaXzo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 19:55:44 -0400
+Received: from pps.filterd (m0004003 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t6VNs4XF013370
+	for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 16:55:43 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1w0j9p8692-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 16:55:43 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ a6a5049837df11e5a9b10002c9521c9e-fc7f02b0 for <netdev@vger.kernel.org>;	Fri,
+ 31 Jul 2015 16:55:41 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 31 July 2015 at 06:20, Florian Westphal <fw@strlen.de> wrote:
-> Joe Stringer <joestringer@nicira.com> wrote:
->> +/* Load connlabel and ensure it supports 128-bit labels */
->> +static struct xt_match *load_connlabel(struct net *net)
->> +{
->> +#ifdef CONFIG_NF_CONNTRACK_LABELS
->> +     struct xt_match *match;
->> +     struct xt_mtchk_param mtpar;
->> +     struct xt_connlabel_mtinfo info;
->> +     int err = -EINVAL;
->> +
->> +     match = xt_request_find_match(NFPROTO_UNSPEC, "connlabel", 0);
->> +     if (IS_ERR(match)) {
->> +             match = NULL;
->> +             goto exit;
->> +     }
->> +
->> +     info.bit = sizeof(struct ovs_key_ct_label) * 8 - 1;
->> +     info.options = 0;
->> +
->> +     mtpar.net       = net;
->> +     mtpar.table     = match->table;
->> +     mtpar.entryinfo = NULL;
->> +     mtpar.match     = match;
->> +     mtpar.matchinfo = &info;
->> +     mtpar.hook_mask = BIT(NF_INET_PRE_ROUTING);
->> +     mtpar.family    = NFPROTO_IPV4;
->> +
->> +     err = xt_check_match(&mtpar, XT_ALIGN(match->matchsize), match->proto,
->> +                          0);
->
-> Yummy :-)
+BSD (MacOS) has already turned on flow labels by default and this does
+not seem to be causing any problems in the Internet. Let's go ahead
+and turn them on by default. We'll continue to monitor for any devices
+start choking on them.
 
-You're very graceful :-)
+Flow labels are important since they are the desired solution for
+network devices to perform ECMP and RSS (RFC6437 and RFC6438).
+Traditionally, devices perform a 5-tuple hash on packets that
+includes port numbers. For the most part, these devices can only
+compute 5-tuple hashes for TCP and UDP. This severely limits our ability
+to get good network load balancing for other protocols (IPIP, GRE,ESP,
+etc.), and hence we are limited in using other protocols. Unfortunately,
+this method is accepted as the de facto standard to the extent that
+there are several proposals to encapsulate protocols in UDP _just_ for
+the purposes for getting ECMP to work. With hosts generating flow labels
+and devices taking them as input into ECMP (several already do), we can
+start to fix this fundamental problem. 
 
-> Rather than adding a dependency on xtables I think a better option would
-> be to move the
->
-> par->net->ct.labels_used++;
-> words = BITS_TO_LONGS(info->bit+1);
-> if (words > par->net->ct.label_words)
->         par->net->ct.label_words = words;
->
-> parts from the checkentry/destroy hooks of xt_connlabel into
-> nf_conntrack_labels.c so that you don't need this mtpar stunt above
-> anymore (and I'd like to add ctlabel set support for nft at one point
-> so I'd also need to move that out of xt_label).
->
-> You can move that out of this series and submit that to nf-devel as
-> separate patch if you want.
+This patch set:
+ - Changes IPV6_FLOWINFO sockopt to be opt-out of flow labels for
+   connections rather than opt-in
+ - Disable flow label state ranges sysctl by default
+ - Enable auto flow labels sysctl by default
 
-Thanks for the suggestion, I'll send a patch and adjust this code in
-v2 accordingly.
+v2:
+  - Added functions to create an skb->hash based on flowi4 and flowi6.
+    These are called in output path when creating a packet
+  - Call skb_get_hash_flowi6 in ip6_make_flowlabel
+  - Implement the auto_flowlabels sysctl as a mode for auto flowlabels.
+    There are four modes which correspond to flow labels being enabled
+    and whether socket option can be used to opt in or opt out of
+    using them
 
->> +         ovs_ct_verify(OVS_KEY_ATTR_CT_LABEL)) {
->> +             const struct ovs_key_ct_label *cl;
->> +
->> +             cl = nla_data(a[OVS_KEY_ATTR_CT_LABEL]);
->> +             SW_FLOW_KEY_MEMCPY(match, ct.label, cl->ct_label,
->> +                                sizeof(*cl), is_mask);
->> +             *attrs &= ~(1ULL << OVS_KEY_ATTR_CT_LABEL);
->> +     }
->
-> So you're using labels as arbitrary 128 bit identifier, right?
->
-> Nothing wrong with that, just asking.
+Tom Herbert (5):
+  net: Add functions to get skb->hash based on flow structures
+  ipv6: Call skb_get_hash_flowi6 to get skb->hash in ip6_make_flowlabel
+  ipv6: Implement different admin modes for automatic flow labels
+  ipv6: Disable flowlabel state ranges by default
+  ipv6: Enable auto flow labels by default
 
-Right, it's exposed as an arbitrarily maskable/settable field of 128
-bits in length, as that's the maximum today. So it's effectively up to
-userspace to use it as a bunch of 1-bit flags or N-bit fields within
-the range of the 128 bits.
+ Documentation/networking/ip-sysctl.txt | 20 +++++++----
+ include/linux/skbuff.h                 | 21 ++++++++++++
+ include/net/ipv6.h                     | 62 ++++++++++++++++++++++++++--------
+ net/core/flow_dissector.c              | 58 ++++++++++++++++++++++++++++---
+ net/ipv6/af_inet6.c                    |  5 +--
+ net/ipv6/ip6_gre.c                     |  5 +--
+ net/ipv6/ip6_output.c                  |  4 +--
+ net/ipv6/ip6_tunnel.c                  |  2 +-
+ net/ipv6/sysctl_net_ipv6.c             |  7 +++-
+ 9 files changed, 151 insertions(+), 33 deletions(-)
+
+-- 
+1.8.5.6
