@@ -1,46 +1,27 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
- 10/100/1000 Ethernet device driver
-Date: Fri, 31 Jul 2015 22:26:02 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D539861@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D538C9D@CHN-SV-EXMX02.mchp-main.com>
- <20150731.151915.1788101742098740589.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] br2684: Remove unnecessary formatting macros b1 and bs
+Date: Fri, 31 Jul 2015 15:26:06 -0700 (PDT)
+Message-ID: <20150731.152606.903585206259906467.davem@davemloft.net>
+References: <1438325668.19675.54.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:64604 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753222AbbGaW0E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:26:04 -0400
-In-Reply-To: <20150731.151915.1788101742098740589.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:51559 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072AbbGaW0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:26:07 -0400
+In-Reply-To: <1438325668.19675.54.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for all reviews & comments.
+From: Joe Perches <joe@perches.com>
+Date: Thu, 30 Jul 2015 23:54:28 -0700
 
-- Woojung
+> Use vsprintf extension %pI4 instead.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, July 31, 2015 6:19 PM
-> To: Woojung Huh - C21699
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next 1/1] Microchip's LAN7800 family USB 2/3 to
-> 10/100/1000 Ethernet device driver
-> 
-> From: <Woojung.Huh@microchip.com>
-> Date: Thu, 30 Jul 2015 19:45:21 +0000
-> 
-> > Repost patch of driver for LAN7800 family of USB 2.0 & USB 3.0 to Gigabit E=
-> > thernet.
-> > - remove module param which can be configurable by standard mechanism.
-> > - remove other module parms except msg_level per review comment.
-> > - update to handle byte swap for statistics structure correctly.
-> >
-> > Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
-> 
-> Applied, thanks.
+Applied.
