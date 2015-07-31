@@ -1,49 +1,86 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in ovs_vport_receive()
-Date: Thu, 30 Jul 2015 20:43:23 -0700
-Message-ID: <CALnjE+oXzYbOFHiji3CoDSjmS5Lai+rE12_ubAEjMbm6+KRj9Q@mail.gmail.com>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
-	<1438279963-29563-2-git-send-email-joestringer@nicira.com>
+From: Chris Packham <Chris.Packham@alliedtelesis.co.nz>
+Subject: Re: [PATCH net-next 0/3] net: Switch tag HW extraction/insertion
+Date: Fri, 31 Jul 2015 04:24:22 +0000
+Message-ID: <55BAF873.10807@alliedtelesis.co.nz>
+References: <1438209160-6898-1-git-send-email-f.fainelli@gmail.com>
+	<20150730.141935.723435302404122784.davem@davemloft.net>
+ <20150730.155124.2216613161860898066.davem@davemloft.net>
+ <55BAD4BD.20405@alphacore.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo@netfilter.org,
-	Patrick McHardy <kaber@trash.net>,
-	Justin Pettit <jpettit@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>,
-	Thomas Graf <tgraf@noironetworks.com>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"vivien.didelot@savoirfairelinux.com"
+	<vivien.didelot@savoirfairelinux.com>,
+	"jerome.oufella@savoirfairelinux.com"
+	<jerome.oufella@savoirfairelinux.com>,
+	"linux@roeck-us.net" <linux@roeck-us.net>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"cphealy@gmail.com" <cphealy@gmail.com>,
+	"mathieu@codeaurora.org" <mathieu@codeaurora.org>,
+	"jonasj76@gmail.com" <jonasj76@gmail.com>,
+	"andrey.volkov@nexvision.fr" <andrey.volkov@nexvision.fr>
+To: Florian Fainelli <florian@alphacore.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438279963-29563-2-git-send-email-joestringer@nicira.com>
+In-Reply-To: <55BAD4BD.20405@alphacore.org>
+Content-Language: en-US
+Content-ID: <45F67A429FF65047A2DC057FB0440256@atlnz.lc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 30, 2015 at 11:12 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> ---
->  net/openvswitch/vport.c | 3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index d14f594..baa018f 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -475,6 +475,9 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
->         struct sw_flow_key key;
->         int error;
->
-> +       if (!skb->sk || (sock_net(skb->sk) != read_pnet(&vport->dp->net)))
-> +               skb_scrub_packet(skb, true);
-> +
-skb scrub drops dst which cause use-after-free bug for flow based
-tunnel devices.
-
-
->         stats = this_cpu_ptr(vport->percpu_stats);
->         u64_stats_update_begin(&stats->syncp);
->         stats->rx_packets++;
-> --
-> 2.1.4
->
+SGkgRmxvcmlhbiwNCg0KT24gMDcvMzEvMjAxNSAwMTo1MSBQTSwgRmxvcmlhbiBGYWluZWxsaSB3
+cm90ZToNCj4gT24gMzAvMDcvMTUgMTU6NTEsIERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEZyb206
+IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4+IERhdGU6IFRodSwgMzAgSnVs
+IDIwMTUgMTQ6MTk6MzUgLTA3MDAgKFBEVCkNCj4+DQo+Pj4gVGhpcyBsb29rcyBmaW5lLCBzZXJp
+ZXMgYXBwbGllZCwgdGhhbmtzLg0KPj4NCj4+IEkgdGhpbmsgeW91ciBjb250cm9sIGJsb2NrIGlz
+IHRvbyBsYXJnZSwgeW91J2xsIG5lZWQgdG8gcmV3b3JrIHRoaXMNCj4+IHNvbWVob3cuDQo+DQo+
+IFNvIG5hcGlfZ3JvX2NiIHJlYWxseSBpcyA0OCBieXRlcyBvbiA2NC1iaXRzIGFyY2hpdGVjdHVy
+ZXMgKGhhZCBub3QNCj4gcmVhbGl6ZWQgaXQgd2FzIHNvIGJpZykuDQo+DQo+IFdoYXQgd291bGQg
+eW91IHJlY29tbWVuZCB0byBkbyBoZXJlIGNvbnNpZGVyaW5nIHRoYXQgdGhpcyBkcml2ZXIgaXMN
+Cj4gY3VycmVudGx5IHVzZWQgb24gMzItYml0cyBwbGF0Zm9ybXMsIGJ1dCBJIHNlZSBubyByZWFz
+b24gd2h5IHNvbWVvbmUNCj4gd291bGQgbm8gd2FudCB0byB1c2UgdGhpcyBmZWF0dXJlIG9uIGEg
+NjQtYml0IHBsYXRmb3JtLA0KDQpJIGhhdmVuJ3QgcmVhZCBhIGxvdCBvZiB0aGUgZGV0YWlsIGlu
+IHlvdXIgcGF0Y2ggc2VyaWVzIHlldCBub3IgZG8gSSANCnVuZGVyc3RhbmQgdGhlIHJhbWlmaWNh
+dGlvbnMgb2YgdGhlIGVycm9yIHRoaXMgaGFzIHRyaWdnZXJlZC4gQnV0IEkgd2lsbCANCnN0aWNr
+IG15IGhhbmQgdXAgZm9yIHRoaXMgcG9pbnQuIFdlIGRvIGhhdmUgYSByb3V0ZXIgd2l0aCBhIDY0
+LWJpdCBDUFUgDQphbmQgYSBiY20gTDIgc3dpdGNoIChiNTMgaXMgdGhlIGNvZGUgbmFtZSBiZWlu
+ZyBmbHVuZyBhcm91bmQpLg0KDQpOb25lIG9mIHRoaXMgaXMgdXBzdHJlYW0gKHlldCkgYnV0IHRo
+ZSBDUFUgdmVuZG9yIGhhcyBhdCBsZWFzdCBjb21lIHRvIA0KdGhlIHBhcnR5IGFuZCBoYXMgbGFu
+ZGVkIHBhdGNoZXMgaW4gNC4yLiBXZSdkIHByb2JhYmx5IGhhdmUgdG8gZG8gdGhlIA0Kc3dpdGNo
+IHN1cHBvcnQgb3Vyc2VsdmVzIChwZXJoYXBzIGJhc2VkIG9uIGNvZGUgZnJvbSBvcGVuV1JUKS4N
+Cg0KID4geWV0IHdlIGFyZQ0KPiBjb21wZXRpbmcgd2l0aCBuYXBpX2dyb19jYiwgYW5kIGFkZGlu
+ZyBhIG5ldyBza2J1ZmYgbWVtYmVyIGlzIHByZXR0eQ0KPiBtdWNoIGEgbm8tbm8/IFdvdWxkIGl0
+IGJlIGFjY2VwdGFibGUgdG8gaGF2ZSBhIG5ldyBtZW1iZXIgd2hpY2ggaXMgaWZkZWYNCj4gQ09O
+RklHX05FVF9EU0FfVEFHX0JSQ00/DQo+DQo+IEZXSVcsIHRoaXMgZG9lcyBwcm92aWRlIGEgc21h
+bGwgMi0zJSB0aHJvdWdocHV0IGluY3JlYXNlIGZvciBSWC4NCg0KSSdsbCBsZWF2ZXMgdGhpcyBm
+b3IgdGhlIG5ldGRldiBmb2xrcyB0byBjb21tZW50IG9uLiBJIGp1c3Qgd2FudGVkIHRvIA0KbGV0
+IHlvdSBrbm93IHRoYXQgc3VjaCBhIHVzZS1jYXNlIF9tYXlfIGV4aXN0Lg0KDQo+Pg0KPj4gSW4g
+ZnVuY3Rpb24g4oCYZHNhX2NvcHlfYnJjbV90YWfigJksDQo+PiAgICAgIGlubGluZWQgZnJvbSDi
+gJhiY21fc3lzcG9ydF9kZXNjX3J44oCZIGF0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29t
+L2JjbXN5c3BvcnQuYzo3MDc6NCwNCj4+ICAgICAgaW5saW5lZCBmcm9tIOKAmGJjbV9zeXNwb3J0
+X3BvbGzigJkgYXQgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmNtc3lzcG9ydC5jOjg2
+NDoxMjoNCj4+IGluY2x1ZGUvbGludXgvY29tcGlsZXIuaDo0NDc6Mzg6IGVycm9yOiBjYWxsIHRv
+IOKAmF9fY29tcGlsZXRpbWVfYXNzZXJ0XzIwMTbigJkgZGVjbGFyZWQgd2l0aCBhdHRyaWJ1dGUg
+ZXJyb3I6IEJVSUxEX0JVR19PTiBmYWlsZWQ6IHNpemVvZihza2ItPmNiKSAtIHNpemVvZihzdHJ1
+Y3QgbmFwaV9ncm9fY2IpIDwgQlJDTV9UQUdfTEVODQo+PiAgICBfY29tcGlsZXRpbWVfYXNzZXJ0
+KGNvbmRpdGlvbiwgbXNnLCBfX2NvbXBpbGV0aW1lX2Fzc2VydF8sIF9fTElORV9fKQ0KPj4gICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXg0KPj4gaW5jbHVkZS9saW51eC9j
+b21waWxlci5oOjQzMDo0OiBub3RlOiBpbiBkZWZpbml0aW9uIG9mIG1hY3JvIOKAmF9fY29tcGls
+ZXRpbWVfYXNzZXJ04oCZDQo+PiAgICAgIHByZWZpeCAjIyBzdWZmaXgoKTsgICAgXA0KPj4gICAg
+ICBeDQo+PiBpbmNsdWRlL2xpbnV4L2NvbXBpbGVyLmg6NDQ3OjI6IG5vdGU6IGluIGV4cGFuc2lv
+biBvZiBtYWNybyDigJhfY29tcGlsZXRpbWVfYXNzZXJ04oCZDQo+PiAgICBfY29tcGlsZXRpbWVf
+YXNzZXJ0KGNvbmRpdGlvbiwgbXNnLCBfX2NvbXBpbGV0aW1lX2Fzc2VydF8sIF9fTElORV9fKQ0K
+Pj4gICAgXg0KPj4gaW5jbHVkZS9saW51eC9idWcuaDo1MDozNzogbm90ZTogaW4gZXhwYW5zaW9u
+IG9mIG1hY3JvIOKAmGNvbXBpbGV0aW1lX2Fzc2VydOKAmQ0KPj4gICAjZGVmaW5lIEJVSUxEX0JV
+R19PTl9NU0coY29uZCwgbXNnKSBjb21waWxldGltZV9hc3NlcnQoIShjb25kKSwgbXNnKQ0KPj4g
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQo+PiBpbmNsdWRlL2xpbnV4
+L2J1Zy5oOjc0OjI6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNybyDigJhCVUlMRF9CVUdfT05f
+TVNH4oCZDQo+PiAgICBCVUlMRF9CVUdfT05fTVNHKGNvbmRpdGlvbiwgIkJVSUxEX0JVR19PTiBm
+YWlsZWQ6ICIgI2NvbmRpdGlvbikNCj4+ICAgIF4NCj4+IGluY2x1ZGUvbGludXgvbmV0ZGV2aWNl
+Lmg6MjAxNjoyOiBub3RlOiBpbiBleHBhbnNpb24gb2YgbWFjcm8g4oCYQlVJTERfQlVHX09O4oCZ
+DQo+PiAgICBCVUlMRF9CVUdfT04oc2l6ZW9mKHNrYi0+Y2IpIC0gc2l6ZW9mKHN0cnVjdCBuYXBp
+X2dyb19jYikgPCBCUkNNX1RBR19MRU4pOw0KPj4gICAgXg0KPj4gc2NyaXB0cy9NYWtlZmlsZS5i
+dWlsZDoyNjQ6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNv
+bS9iY21zeXNwb3J0Lm8nIGZhaWxlZA0KPj4NCj4NCj4=
