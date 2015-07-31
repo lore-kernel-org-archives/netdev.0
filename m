@@ -1,36 +1,34 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH net-next 5/9] openvswitch: Add conntrack action
-Date: Fri, 31 Jul 2015 17:26:02 +0200
-Message-ID: <1438356362.20479.16.camel@redhat.com>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
-	 <1438279963-29563-6-git-send-email-joestringer@nicira.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net 0/3] gianfar: wol magic packet fixes
+Date: Fri, 31 Jul 2015 18:38:30 +0300
+Message-ID: <1438357113-8312-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
-	jpettit@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	jesse@nicira.com, fwestpha@redhat.com, tgraf@noironetworks.com
-To: Joe Stringer <joestringer@nicira.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438279963-29563-6-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0113.outbound.protection.outlook.com ([207.46.100.113]:23872
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754052AbbGaPj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Jul 2015 11:39:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-30 at 11:12 -0700, Joe Stringer wrote:
-> +static void do_output(struct datapath *dp, struct sk_buff *skb, int
-> out_port,
-> +		      struct sw_flow_key *key)
->  {
->  	struct vport *vport = ovs_vport_rcu(dp, out_port);
->  
-> -	if (likely(vport))
-> -		ovs_vport_send(vport, skb);
-> -	else
-> +	if (likely(vport)) {
-> +		unsigned int mru = OVS_CB(skb)->mru;
-> +		struct dst_entry *orig_dst = dst_clone(skb_dst(skb));
+These changes were already validated as part of FSL SDK.
+Patch 2 fixes occasional wake-on magic packet failures during
+traffic, probably due to incorrect traffic stop/ device halt
+sequence and incorrect usage of txlock.
 
-I think you forgot to remove this?
+Claudiu Manoil (3):
+  gianfar: Fix warning when CONFIG_PM off
+  gianfar: Fix suspend/resume for wol magic packet
+  gianfar: Enable device wakeup when appropriate
 
-Bye,
-Hannes
+ drivers/net/ethernet/freescale/gianfar.c         | 104 +++++++----------------
+ drivers/net/ethernet/freescale/gianfar.h         |   3 -
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |   5 +-
+ 3 files changed, 33 insertions(+), 79 deletions(-)
+
+-- 
+1.7.11.7
