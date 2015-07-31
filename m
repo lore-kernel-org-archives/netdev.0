@@ -1,102 +1,65 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 1/1] sfc: allow ethtool selftest and MC reboot to
- complete on an unprivileged function
-Date: Fri, 31 Jul 2015 11:14:54 +0100
-Message-ID: <55BB4A9E.1090406@solarflare.com>
+Subject: [PATCH net-next 1/1] sfc: MC allocations must be restored following
+ an entity reset
+Date: Fri, 31 Jul 2015 11:15:22 +0100
+Message-ID: <55BB4ABA.3080005@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:50528 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751037AbbGaKPB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:15:01 -0400
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:39843 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751069AbbGaKP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:15:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Pieczko <dpieczko@solarflare.com>
 
-The policy in the net driver is to attempt MCDI commands and
-then handle any EPERM error codes appropriately when returned
-by unprivileged functions.
-The ethtool selftest contains some tests which are useful on
-an unprivileged function, such as the event queue interrupt
-tests, but other tests cannot be performed as the function
-does not have the required permissions.
-
-If a test returns -EPERM, act as though the test was not run
-and continue.
-
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c     |  8 ++++++++
- drivers/net/ethernet/sfc/selftest.c | 14 +++++++++++++-
- 2 files changed, 21 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/sfc/ef10.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 8505d82..7e2e206 100644
+index 7e2e206..06b8061 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1041,6 +1041,12 @@ static int efx_ef10_reset(struct efx_nic *efx, enum reset_type reset_type)
+@@ -991,12 +991,24 @@ static int efx_ef10_init_nic(struct efx_nic *efx)
+ static void efx_ef10_reset_mc_allocations(struct efx_nic *efx)
  {
- 	int rc = efx_mcdi_reset(efx, reset_type);
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++#ifdef CONFIG_SFC_SRIOV
++	unsigned int i;
++#endif
  
-+	/* Unprivileged functions return -EPERM, but need to return success
-+	 * here so that the datapath is brought back up.
-+	 */
-+	if (reset_type == RESET_TYPE_WORLD && rc == -EPERM)
-+		rc = 0;
+ 	/* All our allocations have been reset */
+ 	nic_data->must_realloc_vis = true;
+ 	nic_data->must_restore_filters = true;
+ 	nic_data->must_restore_piobufs = true;
+ 	nic_data->rx_rss_context = EFX_EF10_RSS_CONTEXT_INVALID;
 +
- 	/* If it was a port reset, trigger reallocation of MC resources.
- 	 * Note that on an MC reset nothing needs to be done now because we'll
- 	 * detect the MC reset later and handle it then.
-@@ -4324,6 +4330,8 @@ efx_ef10_test_chip(struct efx_nic *efx, struct efx_self_tests *tests)
- 	rc = efx_mcdi_reset(efx, RESET_TYPE_WORLD);
- 
- out:
-+	if (rc == -EPERM)
-+		rc = 0;
- 	rc2 = efx_reset_up(efx, RESET_TYPE_WORLD, rc == 0);
- 	return rc ? rc : rc2;
- }
-diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
-index b605dfd5..9d78830 100644
---- a/drivers/net/ethernet/sfc/selftest.c
-+++ b/drivers/net/ethernet/sfc/selftest.c
-@@ -114,7 +114,10 @@ static int efx_test_nvram(struct efx_nic *efx, struct efx_self_tests *tests)
- 
- 	if (efx->type->test_nvram) {
- 		rc = efx->type->test_nvram(efx);
--		tests->nvram = rc ? -1 : 1;
-+		if (rc == -EPERM)
-+			rc = 0;
-+		else
-+			tests->nvram = rc ? -1 : 1;
- 	}
- 
- 	return rc;
-@@ -253,6 +256,12 @@ static int efx_test_phy(struct efx_nic *efx, struct efx_self_tests *tests,
- 	mutex_lock(&efx->mac_lock);
- 	rc = efx->phy_op->run_tests(efx, tests->phy_ext, flags);
- 	mutex_unlock(&efx->mac_lock);
-+	if (rc == -EPERM)
-+		rc = 0;
-+	else
-+		netif_info(efx, drv, efx->net_dev,
-+			   "%s phy selftest\n", rc ? "Failed" : "Passed");
-+
- 	return rc;
++	/* Driver-created vswitches and vports must be re-created */
++	nic_data->must_probe_vswitching = true;
++	nic_data->vport_id = EVB_PORT_ID_ASSIGNED;
++#ifdef CONFIG_SFC_SRIOV
++	if (nic_data->vf)
++		for (i = 0; i < efx->vf_count; i++)
++			nic_data->vf[i].vport_id = 0;
++#endif
  }
  
-@@ -661,6 +670,9 @@ static int efx_test_loopbacks(struct efx_nic *efx, struct efx_self_tests *tests,
- 	wmb();
- 	kfree(state);
+ static enum reset_type efx_ef10_map_reset_reason(enum reset_type reason)
+@@ -1571,10 +1583,6 @@ static int efx_ef10_mcdi_poll_reboot(struct efx_nic *efx)
+ 	/* All our allocations have been reset */
+ 	efx_ef10_reset_mc_allocations(efx);
  
-+	if (rc == -EPERM)
-+		rc = 0;
-+
- 	return rc;
- }
+-	/* Driver-created vswitches and vports must be re-created */
+-	nic_data->must_probe_vswitching = true;
+-	nic_data->vport_id = EVB_PORT_ID_ASSIGNED;
+-
+ 	/* The datapath firmware might have been changed */
+ 	nic_data->must_check_datapath_caps = true;
  
