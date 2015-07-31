@@ -1,67 +1,66 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH for-next V7 00/10] Move RoCE GID management to IB/Core
-Date: Fri, 31 Jul 2015 12:40:14 +0300
-Message-ID: <CAJ3xEMh9z=LG7dW0nBP8Zdrbf0SkZ_GCxjCoowWXuw2dueN+xg@mail.gmail.com>
-References: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net] act_mirred: avoid calling tcf_hash_release() when
+ binding
+Date: Fri, 31 Jul 2015 12:06:48 +0200
+Message-ID: <55BB48B8.6060201@iogearbox.net>
+References: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Somnath Kotur <Somnath.Kotur@avagotech.com>,
-	Moni Shoua <monis@mellanox.com>,
-	"talal@mellanox.com" <talal@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Matan Barak <matanb@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:33037 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751115AbbGaJkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 05:40:15 -0400
-In-Reply-To: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:46709 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbbGaKGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:06:52 -0400
+In-Reply-To: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 30, 2015 at 6:33 PM, Matan Barak <matanb@mellanox.com> wrote:
-
-[...]
-
-> Changes from V6:
-> (1) Addressed Jason's comments:
->         (a) Cache is no longer a client but part of IB infrastructure
->         (b) No need for READ_ONCE and flush_workqueue when tearing down
->             the cache
-
-Doug
-
-So... are we ready to go with V7 upstream?
-
-Or.
-
-
-> Changes from V5:
-> (1) Incoporate the changes to cache.c so we use the same infrastructure
->     to manage both IB and RoCE (per Doug's request)
-> (2) Replace the locking mechanism in the IB core GID cache from seqcount +
->     rcu to rwlock (addressing comments from Jason)
-> (3) get_netdev returns a helded (dev_hold) device
-> (4) Squashed the RocE GID table, RoCE GID management and default GID handling
->     code into one patch (per Doug's request).
-> (5) Change modify_gid to add_gid and del_gid.
-> (6) set the netdev related changes into three dedicated patches and make
->     them be 1st in the series.
+On 07/31/2015 02:12 AM, Cong Wang wrote:
+> When we share an action within a filter, the bind refcnt
+> should increase, therefore we should not call tcf_hash_release().
 >
-> Changes from V4:
-> (1) Remove any API changes.
-> (2) Fixed a bug regarding bonding upper devices.
-> (3) Rebased ontop of Doug's k.o/for-4.2.
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> ---
+>   net/sched/act_mirred.c | 2 ++
+>   1 file changed, 2 insertions(+)
 >
-> Changes from V3:
-> (1) Remove RoCE V2 functionality (it will be sent at later patchset).
-> (2) Instead of removing qp_attr_mask flags, reserve them.
-> (3) Remove the kref from IB devices in favor of rwsem.
-> (4) Change the name of roce_gid_cache to roce_gid_table.
-> (5) Fix a race when roce_gid_table is free'd while getting events.
-> (6) Remove the roce_gid_cache active/inactive flag/API.
+> diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+> index a42a3b2..2685450 100644
+> --- a/net/sched/act_mirred.c
+> +++ b/net/sched/act_mirred.c
+> @@ -98,6 +98,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>   			return ret;
+>   		ret = ACT_P_CREATED;
+>   	} else {
+> +		if (bind)
+> +			return 0;
+>   		if (!ovr) {
+>   			tcf_hash_release(a, bind);
+>   			return -EEXIST;
+>
+
+Did you test all variants on this?
+
+I.e. what happens when you replace an existing one, I think the
+refcnt should also be dropped here. It looks like we only drop
+it, in case we tried to add an action to an already existing index ...
+
+	[...]
+	} else {
+		if (bind)
+			return 0;
+		tcf_hash_release(a, bind);
+		if (!ovr)
+			return -EEXIST;
+	}
+	[...]
+
+Thanks,
+Daniel
