@@ -1,30 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: iproute2: ip batch processing problem
-Date: Fri, 31 Jul 2015 07:49:35 +0200
-Message-ID: <1438321775.20182.139.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAK4M3OjtNxB8xcmqQ1hVgbkV8i+=oOv9O8A1mMY2c_WM87a2qA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Antti Paila <antti.paila@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:36498 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137AbbGaFtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 01:49:40 -0400
-Received: by wicgj17 with SMTP id gj17so2455116wic.1
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 22:49:39 -0700 (PDT)
-In-Reply-To: <CAK4M3OjtNxB8xcmqQ1hVgbkV8i+=oOv9O8A1mMY2c_WM87a2qA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next 0/4] Stacked vlan TSO for virtual devices
+Date: Fri, 31 Jul 2015 15:03:23 +0900
+Message-ID: <1438322608-4688-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-07-31 at 08:34 +0300, Antti Paila wrote:
+Basically virtual devices do not need to segment double tagged packets.
+This patch set adds TSO feature for double tagged packets to several
+virtual devices, which can be realized by simply setting
+.ndo_features_check to passthru_features_check.
 
-> Should the batch mode support mixed IPv4 and IPv6 addresses and if so,
-> would it make sense to clear the 'preferred_family' variable
-> before processing each line of the batch file?
+Toshiaki Makita (4):
+  macvlan: Don't segment multiple tagged packets on macvlan device
+  veth: Don't segment multiple tagged packets on veth device
+  bridge: Don't segment multiple tagged packets on bridge device
+  tuntap: Don't segment multiple tagged packets on tap device
 
-This makes sense, please send a patch.
+ drivers/net/macvlan.c  | 1 +
+ drivers/net/tun.c      | 1 +
+ drivers/net/veth.c     | 1 +
+ net/bridge/br_device.c | 1 +
+ 4 files changed, 4 insertions(+)
 
-Thanks !
+-- 
+1.8.1.2
