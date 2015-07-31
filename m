@@ -1,57 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Panic with demuxed ipv4 multicast udp sockets on 4.0.4
-Date: Fri, 31 Jul 2015 12:17:46 +0200
-Message-ID: <1438337866.2748.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <2ddbe291fff643899849eb068ef219e0@svr-chch-ex1.atlnz.lc>
-	 <1438234969.20182.124.camel@edumazet-glaptop2.roam.corp.google.com>
-	 ,<1438235159.20182.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0dd213ace919410da723ac93892d1f4d@svr-chch-ex1.atlnz.lc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"alexgartrell@gmail.com" <alexgartrell@gmail.com>
-To: Gregory Hoggarth <Gregory.Hoggarth@alliedtelesis.co.nz>
+From: Antti Paila <antti.paila@gmail.com>
+Subject: [PATCH] ip: Preserve original portocol family in batch mode
+Date: Fri, 31 Jul 2015 13:55:31 +0300
+Message-ID: <1438340131-13882-1-git-send-email-antti.paila@stonesoft.com>
+Cc: Antti Paila <antti.paila@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:35153 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbbGaKRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:17:50 -0400
-Received: by wibxm9 with SMTP id xm9so27074382wib.0
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 03:17:49 -0700 (PDT)
-In-Reply-To: <0dd213ace919410da723ac93892d1f4d@svr-chch-ex1.atlnz.lc>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:33041 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456AbbGaKz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:55:59 -0400
+Received: by lbbyj8 with SMTP id yj8so43916323lbb.0
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 03:55:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-07-30 at 22:29 +0000, Gregory Hoggarth wrote:
-> Hi Eric,
-> 
-> Thanks for the patch. I have put this into our code and we'll run our test over tonight and the weekend and report back on Monday.
-> 
-> Thanks,
+From: Antti Paila <antti.paila@gmail.com>
 
-Oh well, real fix will be :
+Reset the 'preferred_family' global variable
+to its initially set value before each batch
+file command is processed.
 
-(Or at least test if DST_NOCACHE is set : those dst need special care)
+Signed-off-by: Antti Paila <antti.paila@gmail.com>
+---
+ ip/ip.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 83aa604f9273..470196cb50b8 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1995,12 +1995,12 @@ void udp_v4_early_demux(struct sk_buff *skb)
+diff --git a/ip/ip.c b/ip/ip.c
+index 3d993b9..0cf743f 100644
+--- a/ip/ip.c
++++ b/ip/ip.c
+@@ -118,6 +118,7 @@ static int batch(const char *name)
+ 	char *line = NULL;
+ 	size_t len = 0;
+ 	int ret = EXIT_SUCCESS;
++	int orig_family = preferred_family;
  
- 	skb->sk = sk;
- 	skb->destructor = sock_efree;
--	dst = sk->sk_rx_dst;
-+	dst = READ_ONCE(sk->sk_rx_dst);
+ 	batch_mode = 1;
  
- 	if (dst)
- 		dst = dst_check(dst, 0);
--	if (dst)
--		skb_dst_set_noref(skb, dst);
-+	if (dst && atomic_inc_not_zero(&dst->__refcnt))
-+		skb_dst_set(skb, dst);
- }
+@@ -140,6 +141,8 @@ static int batch(const char *name)
+ 		char *largv[100];
+ 		int largc;
  
- int udp_rcv(struct sk_buff *skb)
++		preferred_family = orig_family;
++
+ 		largc = makeargs(line, largv, 100);
+ 		if (largc == 0)
+ 			continue;	/* blank line */
+-- 
+1.9.1
