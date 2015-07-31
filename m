@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 3/4] net: dsa: Refactor transmit path to eliminate duplication
-Date: Fri, 31 Jul 2015 11:42:56 -0700
-Message-ID: <1438368177-23942-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 4/4] net: dsa: Add netconsole support
+Date: Fri, 31 Jul 2015 11:42:57 -0700
+Message-ID: <1438368177-23942-5-git-send-email-f.fainelli@gmail.com>
 References: <1438368177-23942-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -12,268 +12,157 @@ Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
 	Chris.Packham@alliedtelesis.co.nz, alexander.h.duyck@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:35186 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751714AbbGaSpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 14:45:19 -0400
-Received: by pdrg1 with SMTP id g1so46845426pdr.2
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 11:45:18 -0700 (PDT)
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:35198 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751726AbbGaSpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 14:45:21 -0400
+Received: by pdrg1 with SMTP id g1so46845710pdr.2
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 11:45:20 -0700 (PDT)
 In-Reply-To: <1438368177-23942-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All tagging protocols do the same thing: increment device statistics,
-make room for the tag to be inserted, create the tag, invoke the parent
-network device transmit function.
+Add support for using DSA slave network devices with netconsole, which
+requires us to allocate and free custom netpoll instances and invoke the
+parent network device poll controller callback.
 
-In order to prepare for adding netpoll support, which requires the tag
-creation, but not using the parent network device transmit function, do
-some little refactoring which eliminates duplication between the 4
-tagging protocols supported.
-
-We need to return a sk_buff pointer back to the caller because the tag
-specific transmit function may have to reallocate the original skb (e.g:
-tag_trailer.c) and this is the one we should be transmitting, not the
-original sk_buff we were passed.
+In order for netconsole to work, we need to construct the DSA tag, but
+not queue the skb for transmission on the master network device xmit
+function.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
-Changes in v2:
-
-- take a sk_buff pointer back from the tag's xmit function in case the
-  SKB was re-allocated/altered from the original one
-
- net/dsa/dsa_priv.h    |  4 ++--
- net/dsa/slave.c       | 27 +++++++++++++++++++--------
- net/dsa/tag_brcm.c    | 15 +++------------
- net/dsa/tag_dsa.c     | 12 +++---------
- net/dsa/tag_edsa.c    | 12 +++---------
- net/dsa/tag_trailer.c | 12 +++---------
- 6 files changed, 33 insertions(+), 49 deletions(-)
+ net/dsa/dsa_priv.h |  4 ++++
+ net/dsa/slave.c    | 67 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 71 insertions(+)
 
 diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index d5f1f9b862ea..eeade901e67a 100644
+index eeade901e67a..311796c809af 100644
 --- a/net/dsa/dsa_priv.h
 +++ b/net/dsa/dsa_priv.h
-@@ -15,7 +15,7 @@
+@@ -13,6 +13,7 @@
+ 
+ #include <linux/phy.h>
  #include <linux/netdevice.h>
++#include <linux/netpoll.h>
  
  struct dsa_device_ops {
--	netdev_tx_t (*xmit)(struct sk_buff *skb, struct net_device *dev);
-+	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
- 	int (*rcv)(struct sk_buff *skb, struct net_device *dev,
- 		   struct packet_type *pt, struct net_device *orig_dev);
- };
-@@ -26,7 +26,7 @@ struct dsa_slave_priv {
- 	 * switch port.
- 	 */
- 	struct net_device	*dev;
--	netdev_tx_t		(*xmit)(struct sk_buff *skb,
-+	struct sk_buff *	(*xmit)(struct sk_buff *skb,
- 					struct net_device *dev);
+ 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
+@@ -47,6 +48,9 @@ struct dsa_slave_priv {
+ 	int			old_duplex;
  
- 	/*
+ 	struct net_device	*bridge_dev;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	struct netpoll		*netpoll;
++#endif
+ };
+ 
+ /* dsa.c */
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 0917123790ea..5fc87ee53905 100644
+index 5fc87ee53905..0010c690cc67 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -421,21 +421,32 @@ static int dsa_slave_port_attr_get(struct net_device *dev,
+@@ -18,6 +18,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/switchdev.h>
+ #include <linux/if_bridge.h>
++#include <linux/netpoll.h>
+ #include "dsa_priv.h"
+ 
+ /* slave mii_bus handling ***************************************************/
+@@ -418,6 +419,18 @@ static int dsa_slave_port_attr_get(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static inline netdev_tx_t dsa_netpoll_send_skb(struct dsa_slave_priv *p,
++					       struct sk_buff *skb)
++{
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (p->netpoll)
++		netpoll_send_skb(p->netpoll, skb);
++#else
++	BUG();
++#endif
++	return NETDEV_TX_OK;
++}
++
  static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
  {
  	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct sk_buff *nskb;
+@@ -431,6 +444,12 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!nskb)
+ 		return NETDEV_TX_OK;
  
--	return p->xmit(skb, dev);
--}
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
- 
--static netdev_tx_t dsa_slave_notag_xmit(struct sk_buff *skb,
--					struct net_device *dev)
--{
--	struct dsa_slave_priv *p = netdev_priv(dev);
-+	/* Transmit function may have to reallocate the original SKB */
-+	nskb = p->xmit(skb, dev);
-+	if (!nskb)
-+		return NETDEV_TX_OK;
- 
--	skb->dev = p->parent->dst->master_netdev;
--	dev_queue_xmit(skb);
-+	/* Queue the SKB for transmission on the parent interface, but
-+	 * do not modify its EtherType
++	/* SKB for netpoll still need to be mangled with the protocol-specific
++	 * tag to be successfully transmitted
 +	 */
-+	nskb->dev = p->parent->dst->master_netdev;
-+	dev_queue_xmit(nskb);
- 
- 	return NETDEV_TX_OK;
++	if (unlikely(netpoll_tx_running(dev)))
++		return dsa_netpoll_send_skb(p, nskb);
++
+ 	/* Queue the SKB for transmission on the parent interface, but
+ 	 * do not modify its EtherType
+ 	 */
+@@ -676,6 +695,49 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	return ret;
  }
  
-+static struct sk_buff *dsa_slave_notag_xmit(struct sk_buff *skb,
-+					    struct net_device *dev)
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static int dsa_slave_netpoll_setup(struct net_device *dev,
++				   struct netpoll_info *ni)
 +{
-+	/* Just return the original SKB */
-+	return skb;
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	struct net_device *master = ds->dst->master_netdev;
++	struct netpoll *netpoll;
++	int err = 0;
++
++	netpoll = kzalloc(sizeof(*netpoll), GFP_KERNEL);
++	if (!netpoll)
++		return -ENOMEM;
++
++	err = __netpoll_setup(netpoll, master);
++	if (err) {
++		kfree(netpoll);
++		goto out;
++	}
++
++	p->netpoll = netpoll;
++out:
++	return err;
 +}
 +
++static void dsa_slave_netpoll_cleanup(struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct netpoll *netpoll = p->netpoll;
++
++	if (!netpoll)
++		return;
++
++	p->netpoll = NULL;
++
++	__netpoll_free_async(netpoll);
++}
++
++static void dsa_slave_poll_controller(struct net_device *dev)
++{
++}
++#endif
++
+ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_settings		= dsa_slave_get_settings,
+ 	.set_settings		= dsa_slave_set_settings,
+@@ -708,6 +770,11 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_fdb_dump		= dsa_slave_fdb_dump,
+ 	.ndo_do_ioctl		= dsa_slave_ioctl,
+ 	.ndo_get_iflink		= dsa_slave_get_iflink,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_netpoll_setup	= dsa_slave_netpoll_setup,
++	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
++	.ndo_poll_controller	= dsa_slave_poll_controller,
++#endif
+ };
  
- /* ethtool operations *******************************************************/
- static int
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index 83d3572cdb20..e2aadb73111d 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -58,14 +58,11 @@
- #define BRCM_EG_TC_MASK		0x7
- #define BRCM_EG_PID_MASK	0x1f
- 
--static netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
-+static struct sk_buff *brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	u8 *brcm_tag;
- 
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
--
- 	if (skb_cow_head(skb, BRCM_TAG_LEN) < 0)
- 		goto out_free;
- 
-@@ -87,17 +84,11 @@ static netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- 		brcm_tag[2] = BRCM_IG_DSTMAP2_MASK;
- 	brcm_tag[3] = (1 << p->port) & BRCM_IG_DSTMAP1_MASK;
- 
--	/* Queue the SKB for transmission on the parent interface, but
--	 * do not modify its EtherType
--	 */
--	skb->dev = p->parent->dst->master_netdev;
--	dev_queue_xmit(skb);
--
--	return NETDEV_TX_OK;
-+	return skb;
- 
- out_free:
- 	kfree_skb(skb);
--	return NETDEV_TX_OK;
-+	return NULL;
- }
- 
- static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index 2dab27063273..aa780e4ac0bd 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -15,14 +15,11 @@
- 
- #define DSA_HLEN	4
- 
--static netdev_tx_t dsa_xmit(struct sk_buff *skb, struct net_device *dev)
-+static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	u8 *dsa_header;
- 
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
--
- 	/*
- 	 * Convert the outermost 802.1q tag to a DSA tag for tagged
- 	 * packets, or insert a DSA tag between the addresses and
-@@ -63,14 +60,11 @@ static netdev_tx_t dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 		dsa_header[3] = 0x00;
- 	}
- 
--	skb->dev = p->parent->dst->master_netdev;
--	dev_queue_xmit(skb);
--
--	return NETDEV_TX_OK;
-+	return skb;
- 
- out_free:
- 	kfree_skb(skb);
--	return NETDEV_TX_OK;
-+	return NULL;
- }
- 
- static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 9aeda596f7ec..2288c8098c42 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -16,14 +16,11 @@
- #define DSA_HLEN	4
- #define EDSA_HLEN	8
- 
--static netdev_tx_t edsa_xmit(struct sk_buff *skb, struct net_device *dev)
-+static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	u8 *edsa_header;
- 
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
--
- 	/*
- 	 * Convert the outermost 802.1q tag to a DSA tag and prepend
- 	 * a DSA ethertype field is the packet is tagged, or insert
-@@ -76,14 +73,11 @@ static netdev_tx_t edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 		edsa_header[7] = 0x00;
- 	}
- 
--	skb->dev = p->parent->dst->master_netdev;
--	dev_queue_xmit(skb);
--
--	return NETDEV_TX_OK;
-+	return skb;
- 
- out_free:
- 	kfree_skb(skb);
--	return NETDEV_TX_OK;
-+	return NULL;
- }
- 
- static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index e268f9db8893..d25efc93d8f1 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -13,16 +13,13 @@
- #include <linux/slab.h>
- #include "dsa_priv.h"
- 
--static netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev)
-+static struct sk_buff *trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct sk_buff *nskb;
- 	int padlen;
- 	u8 *trailer;
- 
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
--
- 	/*
- 	 * We have to make sure that the trailer ends up as the very
- 	 * last 4 bytes of the packet.  This means that we have to pad
-@@ -36,7 +33,7 @@ static netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- 	nskb = alloc_skb(NET_IP_ALIGN + skb->len + padlen + 4, GFP_ATOMIC);
- 	if (nskb == NULL) {
- 		kfree_skb(skb);
--		return NETDEV_TX_OK;
-+		return NULL;
- 	}
- 	skb_reserve(nskb, NET_IP_ALIGN);
- 
-@@ -57,10 +54,7 @@ static netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- 	trailer[2] = 0x10;
- 	trailer[3] = 0x00;
- 
--	nskb->dev = p->parent->dst->master_netdev;
--	dev_queue_xmit(nskb);
--
--	return NETDEV_TX_OK;
-+	return nskb;
- }
- 
- static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
+ static const struct switchdev_ops dsa_slave_switchdev_ops = {
 -- 
 2.1.0
