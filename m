@@ -1,65 +1,57 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 1/1] sfc: MC allocations must be restored following
- an entity reset
-Date: Fri, 31 Jul 2015 11:15:22 +0100
-Message-ID: <55BB4ABA.3080005@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Panic with demuxed ipv4 multicast udp sockets on 4.0.4
+Date: Fri, 31 Jul 2015 12:17:46 +0200
+Message-ID: <1438337866.2748.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <2ddbe291fff643899849eb068ef219e0@svr-chch-ex1.atlnz.lc>
+	 <1438234969.20182.124.camel@edumazet-glaptop2.roam.corp.google.com>
+	 ,<1438235159.20182.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0dd213ace919410da723ac93892d1f4d@svr-chch-ex1.atlnz.lc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"alexgartrell@gmail.com" <alexgartrell@gmail.com>
+To: Gregory Hoggarth <Gregory.Hoggarth@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:39843 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751069AbbGaKP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:15:28 -0400
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:35153 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbbGaKRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:17:50 -0400
+Received: by wibxm9 with SMTP id xm9so27074382wib.0
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 03:17:49 -0700 (PDT)
+In-Reply-To: <0dd213ace919410da723ac93892d1f4d@svr-chch-ex1.atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Pieczko <dpieczko@solarflare.com>
+On Thu, 2015-07-30 at 22:29 +0000, Gregory Hoggarth wrote:
+> Hi Eric,
+> 
+> Thanks for the patch. I have put this into our code and we'll run our test over tonight and the weekend and report back on Monday.
+> 
+> Thanks,
 
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+Oh well, real fix will be :
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 7e2e206..06b8061 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -991,12 +991,24 @@ static int efx_ef10_init_nic(struct efx_nic *efx)
- static void efx_ef10_reset_mc_allocations(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+#ifdef CONFIG_SFC_SRIOV
-+	unsigned int i;
-+#endif
+(Or at least test if DST_NOCACHE is set : those dst need special care)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 83aa604f9273..470196cb50b8 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1995,12 +1995,12 @@ void udp_v4_early_demux(struct sk_buff *skb)
  
- 	/* All our allocations have been reset */
- 	nic_data->must_realloc_vis = true;
- 	nic_data->must_restore_filters = true;
- 	nic_data->must_restore_piobufs = true;
- 	nic_data->rx_rss_context = EFX_EF10_RSS_CONTEXT_INVALID;
-+
-+	/* Driver-created vswitches and vports must be re-created */
-+	nic_data->must_probe_vswitching = true;
-+	nic_data->vport_id = EVB_PORT_ID_ASSIGNED;
-+#ifdef CONFIG_SFC_SRIOV
-+	if (nic_data->vf)
-+		for (i = 0; i < efx->vf_count; i++)
-+			nic_data->vf[i].vport_id = 0;
-+#endif
+ 	skb->sk = sk;
+ 	skb->destructor = sock_efree;
+-	dst = sk->sk_rx_dst;
++	dst = READ_ONCE(sk->sk_rx_dst);
+ 
+ 	if (dst)
+ 		dst = dst_check(dst, 0);
+-	if (dst)
+-		skb_dst_set_noref(skb, dst);
++	if (dst && atomic_inc_not_zero(&dst->__refcnt))
++		skb_dst_set(skb, dst);
  }
  
- static enum reset_type efx_ef10_map_reset_reason(enum reset_type reason)
-@@ -1571,10 +1583,6 @@ static int efx_ef10_mcdi_poll_reboot(struct efx_nic *efx)
- 	/* All our allocations have been reset */
- 	efx_ef10_reset_mc_allocations(efx);
- 
--	/* Driver-created vswitches and vports must be re-created */
--	nic_data->must_probe_vswitching = true;
--	nic_data->vport_id = EVB_PORT_ID_ASSIGNED;
--
- 	/* The datapath firmware might have been changed */
- 	nic_data->must_check_datapath_caps = true;
- 
+ int udp_rcv(struct sk_buff *skb)
