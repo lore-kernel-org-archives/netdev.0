@@ -1,77 +1,60 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH V3 net-next 0/5] net: implement SMC-R solution
-Date: Fri, 31 Jul 2015 21:04:52 +0200
-Message-ID: <1438369492.12528.6.camel@BR9GV9YG.de.ibm.com>
-References: <20150715.212837.233151628267116088.davem@davemloft.net>
-	 <1437555592-16506-1-git-send-email-ubraun@linux.vnet.ibm.com>
-	 <20150726.161530.2192841818929026804.davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC net-next] net: Assert napi_gro_cb size against skb->cb[]
+Date: Fri, 31 Jul 2015 13:14:07 -0700
+Message-ID: <CALx6S37j0iXVPkcRTFqFZSjWNqWC_JSOHprWGvFy6pDC9jvF2A@mail.gmail.com>
+References: <1438368669-659-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, ursula.braun@de.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>, daniel@iogearbox.net,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:35850 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187AbbGaTEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 15:04:55 -0400
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Fri, 31 Jul 2015 20:04:54 +0100
-In-Reply-To: <20150726.161530.2192841818929026804.davem@davemloft.net>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:38830 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755598AbbGaUOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 16:14:08 -0400
+Received: by iggf3 with SMTP id f3so24007373igg.1
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 13:14:07 -0700 (PDT)
+In-Reply-To: <1438368669-659-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2015-07-26 at 16:15 -0700, David Miller wrote:
+On Fri, Jul 31, 2015 at 11:51 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 64-bits hosts, napi_gro_cb is 48 bytes, which is exactly the size of
+> skb->cb[], while on 32-bits hosts it is 36 bytes, but if it were to
+> grow, we would not be catching a size inflation as we should.
+>
+> Make sure that we have enough room for a napi_gro_cb to be hosted in
+> skb->cb[], and put this build-time assertion in skb_gro_reset_offset()
+> since this function is invoked by the GRO layers entry points.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  net/core/dev.c | 2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 4870c3556a5a..20bc82604b75 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4115,6 +4115,8 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
+>         const struct skb_shared_info *pinfo = skb_shinfo(skb);
+>         const skb_frag_t *frag0 = &pinfo->frags[0];
+>
+> +       BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct napi_gro_cb));
+> +
+Maybe sizeof(struct napi_gro_cb) > sizeof(skb->cb) since this about
+napi_gro_cb being too big, not cb being too small.
 
-> I'm really sorry but this is the same rabbit hole and set of claims
-> that have been bullhorned my way for RDMA over the years and I still
-> don't buy it.
-> 
-> None of the RDMA'ish proponents ever talk about what you _don't_ get
-> when this stuff triggers.
-> 
-> No netfilter.
-> 
-> No packet scheduler.
-> 
-> No classifier actions.
-> 
-> No BPF.
-> 
-> No bridging.
-> 
-> Basically, every single interesting feature of the Linux networking
-> goes away once this RDMA thing happens.
-Correct, Dave: All the RDMA protocols do not benefit from packet-based
-features of Linux networking. Which is why SMC-R starts with TCP to
-maintain some of it. This allows for adhering to the TCP management
-model, e.g. for addressing and capability to intercept connection
-establishment. We did SMC-R for a good reason -- bringing value to the
-mainframe datacenter environment, and potentially other setups, too; and
-that includes performance benefits.
-> 
-> Furthermore the benchmarks are carefully choosen to exemplify the
-> perfect environment for this feature to excell at.
-Our benchmarks shown are by no means "some carefully chosen" selection.
-Would you like to see some other benchmarks?
-> 
-> Sorry, I don't want any of this in our core networking stack.  You'll
-> have to support this completely outside of the TCP implementation and
-> core networking code, and therefore have it %100 in your own separate
-> module with your own can of worms like the Infiniband et al. people
-> do.
-Since you are asking for a solution "100% in our own separate module
-with our own can of worms", we have to give up the transparent detection
-whether a communication peer can do SMC-R or not (this has been the
-purpose of the rejected TCP hooks). Instead, we want just the new
-self-contained SMC-R socket family added to the kernel. We will adapt
-the code accordingly to get rid of TCP experimental options. Is it ok
-for you, if we send the whole new code for /net/smc/ in one single patch
-since all of it is required for doing the job, or prefer smaller chunks
-(which, if half way applied, won't get real functionality)?
-
-Kind regards, Ursula
+>         NAPI_GRO_CB(skb)->data_offset = 0;
+>         NAPI_GRO_CB(skb)->frag0 = NULL;
+>         NAPI_GRO_CB(skb)->frag0_len = 0;
+> --
+> 2.1.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
