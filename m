@@ -1,51 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/3] net: Switch tag HW extraction/insertion
-Date: Fri, 31 Jul 2015 08:08:40 +0200
-Message-ID: <1438322920.20182.144.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438209160-6898-1-git-send-email-f.fainelli@gmail.com>
-		<20150730.141935.723435302404122784.davem@davemloft.net>
-	 <20150730.155124.2216613161860898066.davem@davemloft.net>
-	 <55BAD4BD.20405@alphacore.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v2] rsi: Fix failure to load firmware after memory leak fix and
+ fixthe leak
+Date: Fri, 31 Jul 2015 06:23:12 +0000 (UTC)
+Message-ID: <20150731062312.CF880140A4E@smtp.codeaurora.org>
+References: <1438062661-3173-1-git-send-email-mike.looijmans@topic.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
-	andrew@lunn.ch, cphealy@gmail.com, mathieu@codeaurora.org,
-	jonasj76@gmail.com, andrey.volkov@nexvision.fr,
-	Chris.Packham@alliedtelesis.co.nz
-To: Florian Fainelli <florian@alphacore.org>
+Cc: linux-wireless@vger.kernel.org, khoroshilov@ispras.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mike Looijmans <mike.looijmans@topic.nl>,
+	stable@vger.kernel.org
+To: Mike Looijmans <mike.looijmans@topic.nl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55BAD4BD.20405@alphacore.org>
+In-Reply-To: <1438062661-3173-1-git-send-email-mike.looijmans@topic.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-07-30 at 18:51 -0700, Florian Fainelli wrote:
-> On 30/07/15 15:51, David Miller wrote:
-> > From: David Miller <davem@davemloft.net>
-> > Date: Thu, 30 Jul 2015 14:19:35 -0700 (PDT)
-> > 
-> >> This looks fine, series applied, thanks.
-> > 
-> > I think your control block is too large, you'll need to rework this
-> > somehow.
-> 
-> So napi_gro_cb really is 48 bytes on 64-bits architectures (had not
-> realized it was so big).
-> 
-> What would you recommend to do here considering that this driver is
-> currently used on 32-bits platforms, but I see no reason why someone
-> would no want to use this feature on a 64-bit platform, yet we are
-> competing with napi_gro_cb, and adding a new skbuff member is pretty
-> much a no-no? Would it be acceptable to have a new member which is ifdef
-> CONFIG_NET_DSA_TAG_BRCM?
-> 
-> FWIW, this does provide a small 2-3% throughput increase for RX.
 
-Which layer will read this tag after GRO processing ?
+> Fixes commit eae79b4f3e82 ("rsi: fix memory leak in rsi_load_ta_instructions()")
+> which stopped the driver from functioning.
+> 
+> Firmware data has been allocated using vmalloc(), resulting in memory
+> that cannot be used for DMA. Hence the firmware was first copied to a
+> buffer allocated with kmalloc() in the original code. This patch reverts
+> the commit and only calls "kfree()" to release the buffer after sending
+> the data. This fixes the memory leak without breaking the driver.
+> 
+> Add a comment to the kmemdup() calls to explain why this is done, and abort
+> if memory allocation fails.
+> 
+> Tested on a Topic Miami-Florida board which contains the rsi SDIO chip.
+> 
+> Also added the same kfree() call to the USB glue driver. This was not
+> tested on actual hardware though, as I only have the SDIO version.
+> 
+> Fixes: eae79b4f3e82 ("rsi: fix memory leak in rsi_load_ta_instructions()")
+> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
+> Cc: stable@vger.kernel.org
 
-It seems you simply can use skb->cb[] like other layers : At offset 0.
+Thanks, applied to wireless-drivers.git.
 
-BTW brcm_tag_rcv() does not even use GRO, as it calls
-netif_receive_skb()
+Kalle Valo
