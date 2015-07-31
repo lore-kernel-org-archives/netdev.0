@@ -1,63 +1,55 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] vxlan: expose COLLECT_METADATA flag to user space
-Date: Thu, 30 Jul 2015 20:10:22 -0700
-Message-ID: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36023 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884AbbGaDK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 23:10:29 -0400
-Received: by pdjr16 with SMTP id r16so35292171pdj.3
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 20:10:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] r8152: disable the capability of zero length
+Date: Fri, 31 Jul 2015 11:23:39 +0800
+Message-ID: <1394712342-15778-165-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Two vxlan driver flags FLOWBASED and COLLECT_METADATA need to be set to
-make use of its new flow mode. The former already exposed. Expose the latter.
+The UEFI driver would enable zero length, and the Linux driver doesn't
+need it. Zero length let the hw complete the transfer with length 0,
+when there is no received packet. It would add the load of USB host
+controller and reduce the performance.
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/vxlan.c          |    5 +++++
- include/uapi/linux/if_link.h |    1 +
- 2 files changed, 6 insertions(+)
+ drivers/net/usb/r8152.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 81f0f24b2cfb..1205729fcc56 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2463,6 +2463,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
- 	[IFLA_VXLAN_L2MISS]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_L3MISS]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_FLOWBASED]	= { .type = NLA_U8 },
-+	[IFLA_VXLAN_COLLECT_METADATA]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_PORT]	= { .type = NLA_U16 },
- 	[IFLA_VXLAN_UDP_CSUM]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_UDP_ZERO_CSUM6_TX]	= { .type = NLA_U8 },
-@@ -2817,6 +2818,10 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	    nla_get_u8(data[IFLA_VXLAN_FLOWBASED]))
- 		conf.flags |= VXLAN_F_FLOW_BASED;
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 57b72ec..348652a 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -339,6 +339,7 @@
  
-+	if (data[IFLA_VXLAN_COLLECT_METADATA] &&
-+	    nla_get_u8(data[IFLA_VXLAN_COLLECT_METADATA]))
-+		conf.flags |= VXLAN_F_COLLECT_METADATA;
-+
- 	if (data[IFLA_VXLAN_PORT_RANGE]) {
- 		const struct ifla_vxlan_port_range *p
- 			= nla_data(data[IFLA_VXLAN_PORT_RANGE]);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 9eeb5d9cf8f0..24e22cd4be79 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -383,6 +383,7 @@ enum {
- 	IFLA_VXLAN_GBP,
- 	IFLA_VXLAN_REMCSUM_NOPARTIAL,
- 	IFLA_VXLAN_FLOWBASED,
-+	IFLA_VXLAN_COLLECT_METADATA,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
+ /* USB_USB_CTRL */
+ #define RX_AGG_DISABLE		0x0010
++#define RX_ZERO_EN		0x0080
+ 
+ /* USB_U2P3_CTRL */
+ #define U2P3_ENABLE		0x0001
+@@ -2705,7 +2706,7 @@ static void r8153_first_init(struct r8152 *tp)
+ 
+ 	/* rx aggregation */
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_USB_CTRL);
+-	ocp_data &= ~RX_AGG_DISABLE;
++	ocp_data &= ~(RX_AGG_DISABLE | RX_ZERO_EN);
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_USB_CTRL, ocp_data);
+ }
+ 
+@@ -3227,7 +3228,7 @@ static void r8152b_init(struct r8152 *tp)
+ 
+ 	/* enable rx aggregation */
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_USB_CTRL);
+-	ocp_data &= ~RX_AGG_DISABLE;
++	ocp_data &= ~(RX_AGG_DISABLE | RX_ZERO_EN);
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_USB_CTRL, ocp_data);
+ }
+ 
 -- 
-1.7.9.5
+2.4.2
