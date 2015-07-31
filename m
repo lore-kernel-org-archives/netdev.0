@@ -1,66 +1,102 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [Patch net] act_mirred: avoid calling tcf_hash_release() when
- binding
-Date: Fri, 31 Jul 2015 12:06:48 +0200
-Message-ID: <55BB48B8.6060201@iogearbox.net>
-References: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next 1/1] sfc: allow ethtool selftest and MC reboot to
+ complete on an unprivileged function
+Date: Fri, 31 Jul 2015 11:14:54 +0100
+Message-ID: <55BB4A9E.1090406@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46709 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbbGaKGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:06:52 -0400
-In-Reply-To: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:50528 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751037AbbGaKPB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 06:15:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/31/2015 02:12 AM, Cong Wang wrote:
-> When we share an action within a filter, the bind refcnt
-> should increase, therefore we should not call tcf_hash_release().
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> ---
->   net/sched/act_mirred.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-> index a42a3b2..2685450 100644
-> --- a/net/sched/act_mirred.c
-> +++ b/net/sched/act_mirred.c
-> @@ -98,6 +98,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
->   			return ret;
->   		ret = ACT_P_CREATED;
->   	} else {
-> +		if (bind)
-> +			return 0;
->   		if (!ovr) {
->   			tcf_hash_release(a, bind);
->   			return -EEXIST;
->
+From: Daniel Pieczko <dpieczko@solarflare.com>
 
-Did you test all variants on this?
+The policy in the net driver is to attempt MCDI commands and
+then handle any EPERM error codes appropriately when returned
+by unprivileged functions.
+The ethtool selftest contains some tests which are useful on
+an unprivileged function, such as the event queue interrupt
+tests, but other tests cannot be performed as the function
+does not have the required permissions.
 
-I.e. what happens when you replace an existing one, I think the
-refcnt should also be dropped here. It looks like we only drop
-it, in case we tried to add an action to an already existing index ...
+If a test returns -EPERM, act as though the test was not run
+and continue.
 
-	[...]
-	} else {
-		if (bind)
-			return 0;
-		tcf_hash_release(a, bind);
-		if (!ovr)
-			return -EEXIST;
-	}
-	[...]
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ef10.c     |  8 ++++++++
+ drivers/net/ethernet/sfc/selftest.c | 14 +++++++++++++-
+ 2 files changed, 21 insertions(+), 1 deletion(-)
 
-Thanks,
-Daniel
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 8505d82..7e2e206 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -1041,6 +1041,12 @@ static int efx_ef10_reset(struct efx_nic *efx, enum reset_type reset_type)
+ {
+ 	int rc = efx_mcdi_reset(efx, reset_type);
+ 
++	/* Unprivileged functions return -EPERM, but need to return success
++	 * here so that the datapath is brought back up.
++	 */
++	if (reset_type == RESET_TYPE_WORLD && rc == -EPERM)
++		rc = 0;
++
+ 	/* If it was a port reset, trigger reallocation of MC resources.
+ 	 * Note that on an MC reset nothing needs to be done now because we'll
+ 	 * detect the MC reset later and handle it then.
+@@ -4324,6 +4330,8 @@ efx_ef10_test_chip(struct efx_nic *efx, struct efx_self_tests *tests)
+ 	rc = efx_mcdi_reset(efx, RESET_TYPE_WORLD);
+ 
+ out:
++	if (rc == -EPERM)
++		rc = 0;
+ 	rc2 = efx_reset_up(efx, RESET_TYPE_WORLD, rc == 0);
+ 	return rc ? rc : rc2;
+ }
+diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+index b605dfd5..9d78830 100644
+--- a/drivers/net/ethernet/sfc/selftest.c
++++ b/drivers/net/ethernet/sfc/selftest.c
+@@ -114,7 +114,10 @@ static int efx_test_nvram(struct efx_nic *efx, struct efx_self_tests *tests)
+ 
+ 	if (efx->type->test_nvram) {
+ 		rc = efx->type->test_nvram(efx);
+-		tests->nvram = rc ? -1 : 1;
++		if (rc == -EPERM)
++			rc = 0;
++		else
++			tests->nvram = rc ? -1 : 1;
+ 	}
+ 
+ 	return rc;
+@@ -253,6 +256,12 @@ static int efx_test_phy(struct efx_nic *efx, struct efx_self_tests *tests,
+ 	mutex_lock(&efx->mac_lock);
+ 	rc = efx->phy_op->run_tests(efx, tests->phy_ext, flags);
+ 	mutex_unlock(&efx->mac_lock);
++	if (rc == -EPERM)
++		rc = 0;
++	else
++		netif_info(efx, drv, efx->net_dev,
++			   "%s phy selftest\n", rc ? "Failed" : "Passed");
++
+ 	return rc;
+ }
+ 
+@@ -661,6 +670,9 @@ static int efx_test_loopbacks(struct efx_nic *efx, struct efx_self_tests *tests,
+ 	wmb();
+ 	kfree(state);
+ 
++	if (rc == -EPERM)
++		rc = 0;
++
+ 	return rc;
+ }
+ 
