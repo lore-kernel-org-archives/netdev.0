@@ -1,27 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] br2684: Remove unnecessary formatting macros b1 and bs
-Date: Fri, 31 Jul 2015 15:26:06 -0700 (PDT)
-Message-ID: <20150731.152606.903585206259906467.davem@davemloft.net>
-References: <1438325668.19675.54.camel@perches.com>
+Subject: Re: [PATCH][v3] net: phy: add driver for aquantia phy
+Date: Fri, 31 Jul 2015 15:31:08 -0700 (PDT)
+Message-ID: <20150731.153108.1224798981020759728.davem@davemloft.net>
+References: <1438333122-31759-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	Shaohui.Xie@freescale.com
+To: shh.xie@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51559 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51583 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbbGaW0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:26:07 -0400
-In-Reply-To: <1438325668.19675.54.camel@perches.com>
+	with ESMTP id S1750780AbbGaWbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:31:09 -0400
+In-Reply-To: <1438333122-31759-1-git-send-email-shh.xie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 30 Jul 2015 23:54:28 -0700
+From: <shh.xie@gmail.com>
+Date: Fri, 31 Jul 2015 16:58:42 +0800
 
-> Use vsprintf extension %pI4 instead.
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> This patch added driver to support Aquantia PHYs AQ1202, AQ2104, AQR105,
+> AQR405, which accessed through clause 45.
+> 
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> ---
+> changes in v3:
+> removed nop routines.
+> 
+> changes in v2:
+> addressed Florian's comments.
 
-Applied.
+Applied to net-next, thanks.
