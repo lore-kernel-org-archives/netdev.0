@@ -1,51 +1,92 @@
-From: Jovi Zhangwei <jovi@cloudflare.com>
-Subject: Re: kernel warning in tcp_fragment
-Date: Fri, 31 Jul 2015 11:04:46 -0700
-Message-ID: <CABPcSqLJz33sQ9a_-g9oi7i=fxkBSXga9aSs3X2CJ_Xb2xVSOg@mail.gmail.com>
-References: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
-	<20150727231947.GC2832181@devbig242.prn2.facebook.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net-next 5/9] openvswitch: Add conntrack action
+Date: Fri, 31 Jul 2015 11:35:20 -0700
+Message-ID: <CANr6G5zA7ZdcZtn5sqCJfUzoCWOaBowu6=imeWTt6Oc49WZUeQ@mail.gmail.com>
+References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
+ <1438279963-29563-6-git-send-email-joestringer@nicira.com> <1438354361.20479.15.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org,
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>,
-	FB Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+	Justin Pettit <jpettit@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Thomas Graf <tgraf@noironetworks.com>
+To: Hannes Frederic Sowa <hannes@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:34733 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604AbbGaSEs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 14:04:48 -0400
-Received: by lbqc9 with SMTP id c9so25437599lbq.1
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 11:04:47 -0700 (PDT)
-In-Reply-To: <20150727231947.GC2832181@devbig242.prn2.facebook.com>
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:36607 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbbGaSfk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 14:35:40 -0400
+Received: by ykay190 with SMTP id y190so66021948yka.3
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 11:35:39 -0700 (PDT)
+In-Reply-To: <1438354361.20479.15.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Thanks for review,
 
-Would you like share your thought on this bug? great thanks.
+On 31 July 2015 at 07:52, Hannes Frederic Sowa <hannes@redhat.com> wrote:
+> On Thu, 2015-07-30 at 11:12 -0700, Joe Stringer wrote:
+>> +static void prepare_frag(struct vport *vport, struct sw_flow_key
+>> *key,
+>> +                      struct sk_buff *skb)
+>> +{
+>> +     unsigned int hlen = ETH_HLEN;
+>> +     struct ovs_frag_data *data;
+>> +
+>> +     data = this_cpu_ptr(&ovs_frag_data_storage);
+>> +     data->dst = skb_dst(skb);
+>
+>
+> If data->dst is unsigned long, we could simply use an assignment:
+>
+> data->dst = skb->_skb_refdst;
+>
+> At this point we never leave rcu_read_lock section, so we are safe,
+> maybe we can add a comment for that.
 
+OK, it also may be helpful to highlight that prepare_frag() is done
+once for an assembled frame, then ovs_vport_output() performs the
+inverse for each fragment. I'll do this.
 
-On Mon, Jul 27, 2015 at 4:19 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> On Wed, Jul 22, 2015 at 11:55:35AM -0700, Jovi Zhangwei wrote:
->> Sorry for disturbing, our production system(3.14 and 3.18 stable
->> kernel) have many tcp_fragment warnings,
->> the trace is same as below one which you discussed before.
->>
->> https://urldefense.proofpoint.com/v1/url?u=http://comments.gmane.org/gmane.linux.network/365658&k=ZVNjlDMF0FElm4dQtryO4A%3D%3D%0A&r=%2Faj1ZOQObwbmtLwlDw3XzQ%3D%3D%0A&m=fQUME5h%2FYY3oZjXbnLC3z6TaEEcTBSCAji4PkNqFjq8%3D%0A&s=1527f3221a6f31cba9544e5ddaa20986aafe8be8c898b42c7e9ce5e68d3803d8
->>
->> But I didn't found the final solution in that mail thread, do you have
->> any new ideas or patches on this warning?
+...
+>> +             } else if (key->eth.type == htons(ETH_P_IP)) {
+>> +                     struct dst_entry ovs_dst;
+>> +
+>> +                     prepare_frag(vport, key, skb);
+>> +                     dst_init(&ovs_dst, &ovs_dst_ops, vport->dev,
+>> +                              1, DST_OBSOLETE_NONE, DST_NOCOUNT);
 >
-> I think the following points to the last discussion.  We are currently using a
-> similar patch:
-> http://comments.gmane.org/gmane.linux.network/366549
+> I don't think we should take a ref on the netdev here.
 >
-> Eric, any update on your findings? or you have already pushed a fix?
+> dst_init(&ovs_dst, &ovs_dst_ops, NULL,
+>          1, DST_OBSOLETE_NONE, DST_NOCOUNT);
+> ovs_dst.dev = vport->dev;
+
+Some of this was me being overly cautious: take a ref on the dev for
+as long as the fragment dst exists; take a ref on the original (eg
+tunnel_metadata) dst for the length of handling the output of this
+frame.
+
+>> +
+>> +                     skb_dst_drop(skb);
+>> +                     skb_dst_set_noref(skb, &ovs_dst);
+>> +                     IPCB(skb)->frag_max_size = mru;
+>> +
+>> +                     ip_do_fragment(skb->sk, skb,
+>> ovs_vport_output);
+>> +                     dev_put(ovs_dst.dev);
 >
-> Thanks,
-> --Martin
+> Can be removed then.
+>
+> It seems a little strange to leave the skb->dst attached to the skb but
+> drop the reference from the netdevice here. Maybe a comment would make
+> sense, otherwise it smells fishy.
+
+For each fragment, ovs_vport_output() will revert the changes made
+here - restoring the original dst. Either way, if we're not taking a
+ref on the netdev then this should be fine.
