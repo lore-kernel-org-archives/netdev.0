@@ -1,9 +1,9 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v5 0/4] bpf: Introduce the new ability of eBPF programs to
- access hardware PMU counter
-Date: Fri, 31 Jul 2015 09:33:29 -0700
-Message-ID: <55BBA359.2060601@plumgrid.com>
+Subject: Re: [PATCH v5 1/4] bpf: Make the bpf_prog_array_map more generic
+Date: Fri, 31 Jul 2015 09:36:36 -0700
+Message-ID: <55BBA414.7040106@plumgrid.com>
 References: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
+ <1438343970-11974-2-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -14,27 +14,31 @@ To: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
 	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
 	daniel@iogearbox.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
+In-Reply-To: <1438343970-11974-2-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 7/31/15 4:59 AM, Kaixu Xia wrote:
-> changes in V5:
->   - move struct fd_array_map_ops* fd_ops to bpf_map;
->   - move array perf event decrement refcnt function to
->     map_free;
->   - fix the NULL ptr of perf_event_get();
->   - move bpf_perf_event_read() to kernel/bpf/bpf_trace.c;
->   - get rid of the remaining struct bpf_prog;
->   - move the unnecessay cast on void *;
+> According to the comments from Daniel, rewrite part of
+> the bpf_prog_array map code and make it more generic.
+> So the new perf_event_array map type can reuse most of
+> code with bpf_prog_array map and add fewer lines of
+> special code.
+>
+> Tested the samples/bpf/tracex5 after this patch:
+> 	$ sudo ./tracex5
+> 	...
+> 	dd-1051  [000] d...    26.682903: : mmap
+> 	dd-1051  [000] d...    26.698348: : syscall=102 (one of get/set uid/pid/gid)
+> 	dd-1051  [000] d...    26.703892: : read(fd=0, buf=000000000078c010, size=512)
+> 	dd-1051  [000] d...    26.705847: : write(fd=1, buf=000000000078c010, size=512)
+> 	dd-1051  [000] d...    26.707914: : read(fd=0, buf=000000000078c010, size=512)
+> 	dd-1051  [000] d...    26.710988: : write(fd=1, buf=000000000078c010, size=512)
+> 	dd-1051  [000] d...    26.711865: : read(fd=0, buf=000000000078c010, size=512)
+> 	dd-1051  [000] d...    26.712704: : write(fd=1, buf=000000000078c010, size=512)
+> 	...
 
-overall looks good. few nits here and there...
-
-With amount of changes to bpf core in patch 1 it definitely
-needs to go via net-next, otherwise merge window conflicts
-will be nasty.
-
-Ingo, Peter, could you please review perf bits in patches 2 and 3,
-so we can take the whole set via net-next.
-
-Thanks!
+the commit log doesn't really need these test results.
+Also first paragraph is meaningless without prior history.
+Please reword it, so it clearly says what this patch is doing and why.
+Anyone reading it years later should be able to understand.
