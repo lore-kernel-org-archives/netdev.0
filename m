@@ -1,46 +1,40 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH for-next V7 00/10] Move RoCE GID management to IB/Core
-Date: Fri, 31 Jul 2015 10:32:01 -0600
-Message-ID: <20150731163201.GA6027@obsidianresearch.com>
-References: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
- <CAJ3xEMh9z=LG7dW0nBP8Zdrbf0SkZ_GCxjCoowWXuw2dueN+xg@mail.gmail.com>
- <55BB6F10.5030408@redhat.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v5 0/4] bpf: Introduce the new ability of eBPF programs to
+ access hardware PMU counter
+Date: Fri, 31 Jul 2015 09:33:29 -0700
+Message-ID: <55BBA359.2060601@plumgrid.com>
+References: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Somnath Kotur <Somnath.Kotur-1wcpHE2jlwO1Z/+hSey0Gg@public.gmane.org>,
-	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <55BB6F10.5030408-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wangnan0@huawei.com, linux-kernel@vger.kernel.org,
+	pi3orama@163.com, hekuang@huawei.com, netdev@vger.kernel.org
+To: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
+	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
+	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
+	daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 31, 2015 at 08:50:24AM -0400, Doug Ledford wrote:
+On 7/31/15 4:59 AM, Kaixu Xia wrote:
+> changes in V5:
+>   - move struct fd_array_map_ops* fd_ops to bpf_map;
+>   - move array perf event decrement refcnt function to
+>     map_free;
+>   - fix the NULL ptr of perf_event_get();
+>   - move bpf_perf_event_read() to kernel/bpf/bpf_trace.c;
+>   - get rid of the remaining struct bpf_prog;
+>   - move the unnecessay cast on void *;
 
-> > So... are we ready to go with V7 upstream?
-> 
-> Yes.  I've already pulled it in.
+overall looks good. few nits here and there...
 
-You are taking the netdev stuff without an ack from netdev??
+With amount of changes to bpf core in patch 1 it definitely
+needs to go via net-next, otherwise merge window conflicts
+will be nasty.
 
-I've been too busy too look at v7, but a quick check of the 'move the
-cache into core code stuff' looks wrong to
-me. ib_unregister_event_handler and flush_workqueue should not/can not be
-called from a kref free'r.
+Ingo, Peter, could you please review perf bits in patches 2 and 3,
+so we can take the whole set via net-next.
 
-Looking at your for-rebase branch.. please make sure you get all the
-attributions this cycle :|
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
