@@ -1,224 +1,67 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH][v3] net: phy: add driver for aquantia phy
-Date: Fri, 31 Jul 2015 16:58:42 +0800
-Message-ID: <1438333122-31759-1-git-send-email-shh.xie@gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH for-next V7 00/10] Move RoCE GID management to IB/Core
+Date: Fri, 31 Jul 2015 12:40:14 +0300
+Message-ID: <CAJ3xEMh9z=LG7dW0nBP8Zdrbf0SkZ_GCxjCoowWXuw2dueN+xg@mail.gmail.com>
+References: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <f.fainelli@gmail.com>, Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Somnath Kotur <Somnath.Kotur@avagotech.com>,
+	Moni Shoua <monis@mellanox.com>,
+	"talal@mellanox.com" <talal@mellanox.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Matan Barak <matanb@mellanox.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0097.outbound.protection.outlook.com ([207.46.100.97]:38951
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751511AbbGaJS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Jul 2015 05:18:59 -0400
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:33037 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751115AbbGaJkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 05:40:15 -0400
+In-Reply-To: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+On Thu, Jul 30, 2015 at 6:33 PM, Matan Barak <matanb@mellanox.com> wrote:
 
-This patch added driver to support Aquantia PHYs AQ1202, AQ2104, AQR105,
-AQR405, which accessed through clause 45.
+[...]
 
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
-changes in v3:
-removed nop routines.
+> Changes from V6:
+> (1) Addressed Jason's comments:
+>         (a) Cache is no longer a client but part of IB infrastructure
+>         (b) No need for READ_ONCE and flush_workqueue when tearing down
+>             the cache
 
-changes in v2:
-addressed Florian's comments.
+Doug
 
- drivers/net/phy/Kconfig    |   5 ++
- drivers/net/phy/Makefile   |   1 +
- drivers/net/phy/aquantia.c | 152 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 158 insertions(+)
- create mode 100644 drivers/net/phy/aquantia.c
+So... are we ready to go with V7 upstream?
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 8ef8191..c07030d 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -14,6 +14,11 @@ if PHYLIB
- 
- comment "MII PHY device drivers"
- 
-+config AQUANTIA_PHY
-+        tristate "Drivers for the Aquantia PHYs"
-+        ---help---
-+          Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
-+
- config AT803X_PHY
- 	tristate "Drivers for Atheros AT803X PHYs"
- 	---help---
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 16aac1c..9bb1033 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -3,6 +3,7 @@
- libphy-objs			:= phy.o phy_device.o mdio_bus.o
- 
- obj-$(CONFIG_PHYLIB)		+= libphy.o
-+obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
- obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
- obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
- obj-$(CONFIG_CICADA_PHY)	+= cicada.o
-diff --git a/drivers/net/phy/aquantia.c b/drivers/net/phy/aquantia.c
-new file mode 100644
-index 0000000..73d347d
---- /dev/null
-+++ b/drivers/net/phy/aquantia.c
-@@ -0,0 +1,152 @@
-+/*
-+ * Driver for Aquantia PHY
-+ *
-+ * Author: Shaohui Xie <Shaohui.Xie@freescale.com>
-+ *
-+ * Copyright 2015 Freescale Semiconductor, Inc.
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2.  This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/delay.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+#include <linux/mdio.h>
-+
-+#define PHY_ID_AQ1202	0x03a1b445
-+#define PHY_ID_AQ2104	0x03a1b460
-+#define PHY_ID_AQR105	0x03a1b4a2
-+#define PHY_ID_AQR405	0x03a1b4b0
-+
-+#define PHY_AQUANTIA_FEATURES	(SUPPORTED_10000baseT_Full | \
-+				 SUPPORTED_1000baseT_Full | \
-+				 SUPPORTED_100baseT_Full | \
-+				 PHY_DEFAULT_FEATURES)
-+
-+static int aquantia_config_aneg(struct phy_device *phydev)
-+{
-+	phydev->supported = PHY_AQUANTIA_FEATURES;
-+	phydev->advertising = phydev->supported;
-+
-+	return 0;
-+}
-+
-+static int aquantia_aneg_done(struct phy_device *phydev)
-+{
-+	int reg;
-+
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
-+	return (reg < 0) ? reg : (reg & BMSR_ANEGCOMPLETE);
-+}
-+
-+static int aquantia_read_status(struct phy_device *phydev)
-+{
-+	int reg;
-+
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
-+	if (reg & MDIO_STAT1_LSTATUS)
-+		phydev->link = 1;
-+	else
-+		phydev->link = 0;
-+
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
-+	mdelay(10);
-+	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
-+
-+	switch (reg) {
-+	case 0x9:
-+		phydev->speed = SPEED_2500;
-+		break;
-+	case 0x5:
-+		phydev->speed = SPEED_1000;
-+		break;
-+	case 0x3:
-+		phydev->speed = SPEED_100;
-+		break;
-+	case 0x7:
-+	default:
-+		phydev->speed = SPEED_10000;
-+		break;
-+	}
-+	phydev->duplex = DUPLEX_FULL;
-+
-+	return 0;
-+}
-+
-+static struct phy_driver aquantia_driver[] = {
-+{
-+	.phy_id		= PHY_ID_AQ1202,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQ1202",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+{
-+	.phy_id		= PHY_ID_AQ2104,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQ2104",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+{
-+	.phy_id		= PHY_ID_AQR105,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQR105",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+{
-+	.phy_id		= PHY_ID_AQR405,
-+	.phy_id_mask	= 0xfffffff0,
-+	.name		= "Aquantia AQR405",
-+	.features	= PHY_AQUANTIA_FEATURES,
-+	.aneg_done	= aquantia_aneg_done,
-+	.config_aneg    = aquantia_config_aneg,
-+	.read_status	= aquantia_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+},
-+};
-+
-+static int __init aquantia_init(void)
-+{
-+	return phy_drivers_register(aquantia_driver,
-+				    ARRAY_SIZE(aquantia_driver));
-+}
-+
-+static void __exit aquantia_exit(void)
-+{
-+	return phy_drivers_unregister(aquantia_driver,
-+				      ARRAY_SIZE(aquantia_driver));
-+}
-+
-+module_init(aquantia_init);
-+module_exit(aquantia_exit);
-+
-+static struct mdio_device_id __maybe_unused aquantia_tbl[] = {
-+	{ PHY_ID_AQ1202, 0xfffffff0 },
-+	{ PHY_ID_AQ2104, 0xfffffff0 },
-+	{ PHY_ID_AQR105, 0xfffffff0 },
-+	{ PHY_ID_AQR405, 0xfffffff0 },
-+	{ }
-+};
-+
-+MODULE_DEVICE_TABLE(mdio, aquantia_tbl);
-+
-+MODULE_DESCRIPTION("Aquantia PHY driver");
-+MODULE_AUTHOR("Shaohui Xie <Shaohui.Xie@freescale.com>");
-+MODULE_LICENSE("GPL v2");
--- 
-2.1.0.27.g96db324
+Or.
+
+
+> Changes from V5:
+> (1) Incoporate the changes to cache.c so we use the same infrastructure
+>     to manage both IB and RoCE (per Doug's request)
+> (2) Replace the locking mechanism in the IB core GID cache from seqcount +
+>     rcu to rwlock (addressing comments from Jason)
+> (3) get_netdev returns a helded (dev_hold) device
+> (4) Squashed the RocE GID table, RoCE GID management and default GID handling
+>     code into one patch (per Doug's request).
+> (5) Change modify_gid to add_gid and del_gid.
+> (6) set the netdev related changes into three dedicated patches and make
+>     them be 1st in the series.
+>
+> Changes from V4:
+> (1) Remove any API changes.
+> (2) Fixed a bug regarding bonding upper devices.
+> (3) Rebased ontop of Doug's k.o/for-4.2.
+>
+> Changes from V3:
+> (1) Remove RoCE V2 functionality (it will be sent at later patchset).
+> (2) Instead of removing qp_attr_mask flags, reserve them.
+> (3) Remove the kref from IB devices in favor of rwsem.
+> (4) Change the name of roce_gid_cache to roce_gid_table.
+> (5) Fix a race when roce_gid_table is free'd while getting events.
+> (6) Remove the roce_gid_cache active/inactive flag/API.
