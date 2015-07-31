@@ -1,57 +1,55 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net 1/3] gianfar: Fix warning when CONFIG_PM off
-Date: Fri, 31 Jul 2015 18:38:31 +0300
-Message-ID: <1438357113-8312-2-git-send-email-claudiu.manoil@freescale.com>
-References: <1438357113-8312-1-git-send-email-claudiu.manoil@freescale.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] vxlan: expose COLLECT_METADATA flag to user
+ space
+Date: Fri, 31 Jul 2015 08:41:40 -0700
+Message-ID: <55BB9734.1010005@plumgrid.com>
+References: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
+ <20150731080019.GB4738@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0111.outbound.protection.outlook.com ([157.56.110.111]:20439
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753958AbbGaPj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Jul 2015 11:39:26 -0400
-In-Reply-To: <1438357113-8312-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:36335 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752784AbbGaPll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 11:41:41 -0400
+Received: by pdjr16 with SMTP id r16so45658570pdj.3
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 08:41:41 -0700 (PDT)
+In-Reply-To: <20150731080019.GB4738@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  CC      drivers/net/ethernet/freescale/gianfar.o
-drivers/net/ethernet/freescale/gianfar.c:568:13: warning: 'lock_tx_qs'
-defined but not used [-Wunused-function]
- static void lock_tx_qs(struct gfar_private *priv)
-             ^
-drivers/net/ethernet/freescale/gianfar.c:576:13: warning: 'unlock_tx_qs'
-defined but not used [-Wunused-function]
- static void unlock_tx_qs(struct gfar_private *priv)
-             ^
+On 7/31/15 1:00 AM, Thomas Graf wrote:
+> On 07/30/15 at 08:10pm, Alexei Starovoitov wrote:
+>> Two vxlan driver flags FLOWBASED and COLLECT_METADATA need to be set to
+>> make use of its new flow mode. The former already exposed. Expose the latter.
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>
+> Since you are analyzing the program when you load it. Could you call
+> ip_tunnel_need_metadata() when we load a program which accesses
+> the new metadata field and ip_tunnel_unneed_metadata() when you unload
+> it? This would hide the need to set this flag from the user. The con
+> is that it enables metadata on all net_devices.
 
-Reported-by: Scott Wood <scottwood@freescale.com>
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 2 ++
- 1 file changed, 2 insertions(+)
+I thought about it, but the global static_key enabler via
+ip_tunnel_collect_metadata() is an overkill when we only want
+to enable it for one tunnel. I can imagine why you may need
+it for routing, but every tunnel type needs its own
+collect_metadata flag similar to vxlan.
+Also in bpf there is no program scan at unload time.
+To call ip_tunnel_unneed_metadata() cleanly, I would need to
+extra global refcnt just for that. which is ugly.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index ff87502..caad327 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -565,6 +565,7 @@ static void gfar_ints_enable(struct gfar_private *priv)
- 	}
- }
- 
-+#ifdef CONFIG_PM
- static void lock_tx_qs(struct gfar_private *priv)
- {
- 	int i;
-@@ -580,6 +581,7 @@ static void unlock_tx_qs(struct gfar_private *priv)
- 	for (i = 0; i < priv->num_tx_queues; i++)
- 		spin_unlock(&priv->tx_queue[i]->txlock);
- }
-+#endif
- 
- static int gfar_alloc_tx_queues(struct gfar_private *priv)
- {
--- 
-1.7.11.7
+> I'm also fine with exposing this flag to the user though. I'll leave it
+> up to you so feel free to add my ack if you want to go this route.
+>
+> Acked-by: Thomas Graf <tgraf@suug.ch>
+
+thanks. I think exposing collect_metadata for vxlan and in the future
+for other tunnel types is the clean enough way, though the other
+alternative would be to get rid of collect_metadata flag
+from the kernel and do it when flowmode flag is set. Thoughts?
