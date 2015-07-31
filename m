@@ -1,52 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC net-next] net: Assert napi_gro_cb size against skb->cb[]
-Date: Fri, 31 Jul 2015 14:50:46 -0700
-Message-ID: <55BBEDB6.5050600@gmail.com>
-References: <1438368669-659-1-git-send-email-f.fainelli@gmail.com>	<20150731202403.GB20471@breakpoint.cc> <20150731.134442.1572308169975939249.davem@davemloft.net>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: Re: [RFC PATCH 0/2] net: macb: Add mdio driver for accessing
+ multiple phy devices
+Date: Fri, 31 Jul 2015 16:53:07 -0500
+Message-ID: <20150731215307.GA27700@nathan3500-linux-VM>
+References: <1436762920-32107-1-git-send-email-punnaia@xilinx.com>
+ <55ACF7FC.4020408@xilinx.com>
+ <55B5DFAF.4040909@atmel.com>
+ <03CA77BA8AF6F1469AEDFBDA1322A7B749FC9CBA@XAP-PVEXMBX02.xlnx.xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	daniel@iogearbox.net, edumazet@google.com
-To: David Miller <davem@davemloft.net>, fw@strlen.de
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Michal Simek <michals@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Harini Katakam <harinik@xilinx.com>,
+	"kpc528@gmail.com" <kpc528@gmail.com>,
+	"kalluripunnaiahchoudary@gmail.com"
+	<kalluripunnaiahchoudary@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:36815 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946627AbbGaVwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 17:52:51 -0400
-Received: by pdjr16 with SMTP id r16so49969788pdj.3
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 14:52:50 -0700 (PDT)
-In-Reply-To: <20150731.134442.1572308169975939249.davem@davemloft.net>
+Received: from skprod2.natinst.com ([130.164.80.23]:56629 "EHLO ni.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755428AbbGaVxT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Jul 2015 17:53:19 -0400
+In-Reply-To: <03CA77BA8AF6F1469AEDFBDA1322A7B749FC9CBA@XAP-PVEXMBX02.xlnx.xilinx.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31/07/15 13:44, David Miller wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Fri, 31 Jul 2015 22:24:03 +0200
+On Tue, Jul 28, 2015 at 03:34:51AM +0000, Punnaiah Choudary Kalluri wrote:
+> Ok. I will send you updated patch for mdio support soon and we will finalize next
+> Course of actions if it doesn't break the existing flow. 
 > 
->> Florian Fainelli <f.fainelli@gmail.com> wrote:
->>> On 64-bits hosts, napi_gro_cb is 48 bytes, which is exactly the size of
->>> skb->cb[], while on 32-bits hosts it is 36 bytes, but if it were to
->>> grow, we would not be catching a size inflation as we should.
->>> ---
->>>  net/core/dev.c | 2 ++
->>>  1 file changed, 2 insertions(+)
->>>
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index 4870c3556a5a..20bc82604b75 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -4115,6 +4115,8 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
->>>  	const struct skb_shared_info *pinfo = skb_shinfo(skb);
->>>  	const skb_frag_t *frag0 = &pinfo->frags[0];
->>>  
->>> +	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct napi_gro_cb));
->>
->> commit c3c7c254b2e8cd99b0adf288c2a1bddacd7ba255
->> already added a check for this.
-> 
-> Indeed.
+> Thanks,
+> Punnaiah
 
-Whoops, missed that part, thanks Florian!
--- 
-Florian
+Just a heads up, when mdio no longer turns off when macb goes down, the micrel
+9031 phy will have an issue with interrupts getting disabling during phy
+suspend.  I have a patch to correct this issue here:
+
+https://patchwork.ozlabs.org/patch/502189/
+
+Would you mind including this patch in your set?
