@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: expose COLLECT_METADATA flag to user
- space
-Date: Fri, 31 Jul 2015 15:24:15 -0700 (PDT)
-Message-ID: <20150731.152415.433150917985876428.davem@davemloft.net>
-References: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] act_mirred: avoid calling tcf_hash_release() when binding
+Date: Fri, 31 Jul 2015 15:25:02 -0700
+Message-ID: <CAM_iQpWmHizNaO7_DhV97APYFpZoApZO3ZzAHu8kv6MopuAg4g@mail.gmail.com>
+References: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
+	<55BB48B8.6060201@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, tgraf@suug.ch, netdev@vger.kernel.org
-To: ast@plumgrid.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Cong Wang <cwang@twopensource.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51541 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753642AbbGaWYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:24:16 -0400
-In-Reply-To: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:33752 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479AbbGaWZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 18:25:04 -0400
+Received: by obdeg2 with SMTP id eg2so63849411obd.0
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 15:25:02 -0700 (PDT)
+In-Reply-To: <55BB48B8.6060201@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Thu, 30 Jul 2015 20:10:22 -0700
+On Fri, Jul 31, 2015 at 3:06 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Did you test all variants on this?
+>
+> I.e. what happens when you replace an existing one, I think the
+> refcnt should also be dropped here. It looks like we only drop
+> it, in case we tried to add an action to an already existing index ...
+>
 
-> Two vxlan driver flags FLOWBASED and COLLECT_METADATA need to be set to
-> make use of its new flow mode. The former already exposed. Expose the latter.
-> 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Yeah, clearly the replace case is anti-pattern too, like you showed.
 
-Applied.
+But that is a different bug, right? Since 'bind' is independent of
+'replace'. As in $subject, my patch only fixes the binding case.
+I will send a following patch to fix replace case.
