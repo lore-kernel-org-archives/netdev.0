@@ -1,67 +1,74 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH 08/15] drivers: net: Drop unlikely before IS_ERR(_OR_NULL)
-Date: Fri, 31 Jul 2015 11:04:27 -0400
-Message-ID: <55BB8E7B.7050307@ti.com>
-References: <cover.1438331416.git.viresh.kumar@linaro.org> <ceb569d147977a4138a7dd334fe7b9b0efdac8ac.1438331416.git.viresh.kumar@linaro.org>
+From: Igor Gnatenko <i.gnatenko.brain@gmail.com>
+Subject: Re: [REGRESSION] stmmac_platform: Unknown symbol devm_kmalloc (err 0)
+Date: Fri, 31 Jul 2015 18:18:04 +0300
+Message-ID: <CAFMg4WD2i2uLSjZ-xPzOhJzjmxe9opWTcCw2z=tHcuZDrFsY9Q@mail.gmail.com>
+References: <CAFMg4WCm6rs6xMKPiKGmALc45+ne-xUzQgYHH7zOPotQ-iEqjg@mail.gmail.com>
+	<CAGhQ9VzAGMa3pfv8TuW5-RCsZ5m_a8amXqCtHGRh9N14cAMxAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linaro-kernel@lists.linaro.org>, <linux-kernel@vger.kernel.org>,
-	open list: TI NETCP ETHERNET DRIVER <netdev@vger.kernel.org>,
-	Wingman Kwok <w-kwok2@ti.com>, ;
-To: Viresh Kumar <viresh.kumar@linaro.org>, <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ceb569d147977a4138a7dd334fe7b9b0efdac8ac.1438331416.git.viresh.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Maxime Ripard <maxime.ripard@anandra.org>
+To: Joachim Eastwood <manabian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:34700 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751873AbbGaPSG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 11:18:06 -0400
+Received: by lafd3 with SMTP id d3so46264602laf.1
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 08:18:04 -0700 (PDT)
+In-Reply-To: <CAGhQ9VzAGMa3pfv8TuW5-RCsZ5m_a8amXqCtHGRh9N14cAMxAg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/31/2015 04:38 AM, Viresh Kumar wrote:
-> IS_ERR(_OR_NULL) already contain an 'unlikely' compiler flag and there
-> is no need to do that again from its callers. Drop it.
+On Fri, Jul 31, 2015 at 5:02 PM, Joachim  Eastwood <manabian@gmail.com> wrote:
+> Hi Igor,
+Hi,
 >
-
-IS_ERR_OR_NULL() is defined as
-
-static inline bool __must_check IS_ERR_OR_NULL(__force const void *ptr)
-{
-         return !ptr || IS_ERR_VALUE((unsigned long)ptr);
-}
-
-So the unlikely() applies only to second part. Wouldn't that be a 
-problem for optimization?
-
-Murali
-
-> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
-> ---
->   drivers/net/ethernet/ti/netcp_core.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
+> On 31 July 2015 at 01:07, Igor Gnatenko <i.gnatenko.brain@gmail.com> wrote:
+>> Hi all, stmmac driver doesn't work on cubietruck (and some more
+>> devices like PcDuino3 Nano[0]).
+>>
+>> This error comes from converting dwmac-sunxi to platform driver.
+>>
+>> stmmac_platform: module license 'unspecified' taints kernel.
+>> Disabling lock debugging due to kernel taint
 >
-> diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-> index ec8ed30196f3..f685a19a3703 100644
-> --- a/drivers/net/ethernet/ti/netcp_core.c
-> +++ b/drivers/net/ethernet/ti/netcp_core.c
-> @@ -1016,7 +1016,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
->   	}
+> Ah, I guess 50649ab14982a ("stmmac: drop driver from stmmac platform
+> code") was a over eager when removing stuff. I should have kept the
+> MODULE_* macro's as stmmac_platform can still be a module. I'll send
+> out a patch a bit later with a CC to you.
+Cool!
 >
->   	desc = knav_pool_desc_get(netcp->tx_pool);
-> -	if (unlikely(IS_ERR_OR_NULL(desc))) {
-> +	if (IS_ERR_OR_NULL(desc)) {
->   		dev_err(netcp->ndev_dev, "out of TX desc\n");
->   		dma_unmap_single(dev, dma_addr, pkt_len, DMA_TO_DEVICE);
->   		return NULL;
-> @@ -1049,7 +1049,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
->   		}
 >
->   		ndesc = knav_pool_desc_get(netcp->tx_pool);
-> -		if (unlikely(IS_ERR_OR_NULL(ndesc))) {
-> +		if (IS_ERR_OR_NULL(ndesc)) {
->   			dev_err(netcp->ndev_dev, "out of TX desc for frags\n");
->   			dma_unmap_page(dev, dma_addr, buf_len, DMA_TO_DEVICE);
->   			goto free_descs;
+>> stmmac_platform: Unknown symbol devm_kmalloc (err 0)
+>> stmmac_platform: Unknown symbol stmmac_suspend (err 0)
+>> stmmac_platform: Unknown symbol platform_get_irq_byname (err 0)
+>> stmmac_platform: Unknown symbol stmmac_dvr_remove (err 0)
+>> stmmac_platform: Unknown symbol platform_get_resource (err 0)
+>> stmmac_platform: Unknown symbol of_get_phy_mode (err 0)
+>> stmmac_platform: Unknown symbol of_property_read_u32_array (err 0)
+>> stmmac_platform: Unknown symbol of_alias_get_id (err 0)
+>> stmmac_platform: Unknown symbol stmmac_resume (err 0)
+>> stmmac_platform: Unknown symbol stmmac_dvr_probe (err 0)
 >
-
-
+> I'll look into this as well.
+>
+>
+>> I've filled bugreport with the same info[1]. What info I would provide
+>> to help with fixing this?
+>
+> Thanks for reporting. If you could test patch I will send out soon
+> that would be of great help.
+I will test patch ASAP once I will get it into my mailbox.
+>
+>
+> regards,
+> Joachim Eastwood
+>
+>> [0] https://lists.fedoraproject.org/pipermail/arm/2015-July/009681.html
+>> [1] https://bugzilla.kernel.org/show_bug.cgi?id=102141
+>> --
+>> -Igor Gnatenko
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+-Igor Gnatenko
