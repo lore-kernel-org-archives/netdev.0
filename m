@@ -1,48 +1,170 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Problem with fragmented packets on tun/tap interface
-Date: Fri, 31 Jul 2015 13:21:35 +0200
-Message-ID: <1438341695.2748.11.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAPBAu3WwLLAYtRuxrA2uDF7J5-1FPfvJ-JVB1_WHNZdf1W_M=A@mail.gmail.com>
-	 <1438329395.2748.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAPBAu3V2Y56wnfgh1Y9gJ8XxVGEjZYaCXBNfg-uUOeYLy9NTrw@mail.gmail.com>
+From: Kaixu Xia <xiakaixu@huawei.com>
+Subject: [PATCH v5 2/4] bpf: Add new bpf map type to store the pointer to struct perf_event
+Date: Fri, 31 Jul 2015 11:59:28 +0000
+Message-ID: <1438343970-11974-3-git-send-email-xiakaixu@huawei.com>
+References: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Prashant Upadhyaya <praupadhyaya@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:37427 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbbGaLVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 07:21:39 -0400
-Received: by wibud3 with SMTP id ud3so27735720wib.0
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 04:21:38 -0700 (PDT)
-In-Reply-To: <CAPBAu3V2Y56wnfgh1Y9gJ8XxVGEjZYaCXBNfg-uUOeYLy9NTrw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <xiakaixu@huawei.com>, <wangnan0@huawei.com>,
+	<linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
+	<hekuang@huawei.com>, <netdev@vger.kernel.org>
+To: <ast@plumgrid.com>, <davem@davemloft.net>, <acme@kernel.org>,
+	<mingo@redhat.com>, <a.p.zijlstra@chello.nl>,
+	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
+	<daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-07-31 at 16:42 +0530, Prashant Upadhyaya wrote:
-> On Fri, Jul 31, 2015 at 1:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Fri, 2015-07-31 at 12:30 +0530, Prashant Upadhyaya wrote:
-> >
-> >> The delays work for me but is clearly not good for the performance of
-> >> the slow path. And more importantly, I was looking for a fundamental
-> >> reason regarding why it works with delays and why not without it. The
-> >> issue is reproducible with a big ping (3.11.10-301.fc20.x86_64)
-> >
-> > How big ping needs to be to reproduce the problem ?
-> >
-> >
-> 
-> If the MTU is 1500, I start getting problems anywhere starting from
-> 2900 bytes and surely comes when further big pings are used eg. 10 K.
-> (ping <IP> -s <Size> eg. ping 10.3.10.244 -s 10000)
-> And the big pings do work, as I said, with the delay hack.
+Introduce a new bpf map type 'BPF_MAP_TYPE_PERF_EVENT_ARRAY'.
+This map only stores the pointer to struct perf_event. The
+user space event FDs from perf_event_open() syscall are converted
+to the pointer to struct perf_event and stored in map.
 
-It might help trying this while you receive such frags :
+Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+---
+ include/linux/bpf.h        |  1 +
+ include/linux/perf_event.h |  2 ++
+ include/uapi/linux/bpf.h   |  1 +
+ kernel/bpf/arraymap.c      | 55 ++++++++++++++++++++++++++++++++++++++++++++++
+ kernel/events/core.c       | 17 ++++++++++++++
+ 5 files changed, 76 insertions(+)
 
-perf record -a -g skb:kfree_skb sleep 10
-
-...
-
-perf report
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index a8ce262..d0b394a 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -10,6 +10,7 @@
+ #include <uapi/linux/bpf.h>
+ #include <linux/workqueue.h>
+ #include <linux/file.h>
++#include <linux/perf_event.h>
+ 
+ struct bpf_map;
+ 
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index 2027809..27e05c1 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -641,6 +641,7 @@ extern int perf_event_init_task(struct task_struct *child);
+ extern void perf_event_exit_task(struct task_struct *child);
+ extern void perf_event_free_task(struct task_struct *task);
+ extern void perf_event_delayed_put(struct task_struct *task);
++extern struct perf_event *perf_event_get(unsigned int fd);
+ extern void perf_event_print_debug(void);
+ extern void perf_pmu_disable(struct pmu *pmu);
+ extern void perf_pmu_enable(struct pmu *pmu);
+@@ -979,6 +980,7 @@ static inline int perf_event_init_task(struct task_struct *child)	{ return 0; }
+ static inline void perf_event_exit_task(struct task_struct *child)	{ }
+ static inline void perf_event_free_task(struct task_struct *task)	{ }
+ static inline void perf_event_delayed_put(struct task_struct *task)	{ }
++static struct perf_event *perf_event_get(unsigned int fd)		{ return ERR_PTR(-EINVAL); }
+ static inline void perf_event_print_debug(void)				{ }
+ static inline int perf_event_task_disable(void)				{ return -EINVAL; }
+ static inline int perf_event_task_enable(void)				{ return -EINVAL; }
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 29ef6f9..69a1f6b 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -114,6 +114,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_HASH,
+ 	BPF_MAP_TYPE_ARRAY,
+ 	BPF_MAP_TYPE_PROG_ARRAY,
++	BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+ };
+ 
+ enum bpf_prog_type {
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 45df657..b7e0b5d 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -273,3 +273,58 @@ static int __init register_prog_array_map(void)
+ 	return 0;
+ }
+ late_initcall(register_prog_array_map);
++
++static void perf_event_array_map_free(struct bpf_map *map)
++{
++	bpf_fd_array_map_clear(map);
++	fd_array_map_free(map);
++}
++
++static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
++{
++	struct perf_event *event;
++
++	event = perf_event_get(fd);
++	if (IS_ERR(event))
++		return event;
++
++	/*
++	 * prevent some crazy events so we can make our life easier
++	 */
++	if (event->attr.type != PERF_TYPE_RAW &&
++	    event->attr.type != PERF_TYPE_HARDWARE) {
++		perf_event_release_kernel(event);
++		return ERR_PTR(-EINVAL);
++	}
++	return event;
++}
++
++static void perf_event_fd_array_put_ptr(void *ptr)
++{
++	struct perf_event *event = ptr;
++
++	perf_event_release_kernel(event);
++}
++
++static const struct bpf_map_ops perf_event_array_ops = {
++	.map_alloc = fd_array_map_alloc,
++	.map_free = perf_event_array_map_free,
++	.map_get_next_key = array_map_get_next_key,
++	.map_lookup_elem = fd_array_map_lookup_elem,
++	.map_update_elem = fd_array_map_update_elem,
++	.map_delete_elem = fd_array_map_delete_elem,
++	.map_fd_get_ptr = perf_event_fd_array_get_ptr,
++	.map_fd_put_ptr = perf_event_fd_array_put_ptr,
++};
++
++static struct bpf_map_type_list perf_event_array_type __read_mostly = {
++	.ops = &perf_event_array_ops,
++	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
++};
++
++static int __init register_perf_event_array_map(void)
++{
++	bpf_register_map_type(&perf_event_array_type);
++	return 0;
++}
++late_initcall(register_perf_event_array_map);
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index d3dae34..58f0d47 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -8574,6 +8574,23 @@ void perf_event_delayed_put(struct task_struct *task)
+ 		WARN_ON_ONCE(task->perf_event_ctxp[ctxn]);
+ }
+ 
++struct perf_event *perf_event_get(unsigned int fd)
++{
++	int err;
++	struct fd f;
++	struct perf_event *event;
++
++	err = perf_fget_light(fd, &f);
++	if (err)
++		return ERR_PTR(err);
++
++	event = f.file->private_data;
++	atomic_long_inc(&event->refcount);
++	fdput(f);
++
++	return event;
++}
++
+ /*
+  * inherit a event from parent task to child task:
+  */
+-- 
+1.8.3.4
