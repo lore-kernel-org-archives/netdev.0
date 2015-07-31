@@ -1,71 +1,51 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [REGRESSION] stmmac_platform: Unknown symbol devm_kmalloc (err 0)
-Date: Fri, 31 Jul 2015 16:02:52 +0200
-Message-ID: <CAGhQ9VzAGMa3pfv8TuW5-RCsZ5m_a8amXqCtHGRh9N14cAMxAg@mail.gmail.com>
-References: <CAFMg4WCm6rs6xMKPiKGmALc45+ne-xUzQgYHH7zOPotQ-iEqjg@mail.gmail.com>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: Re: [PATCH v2] net/phy: micrel: Reenable interrupts during resume
+Date: Fri, 31 Jul 2015 09:27:06 -0500
+Message-ID: <20150731142706.GA11442@nathan3500-linux-VM>
+References: <1438269348-8725-1-git-send-email-nathan.sullivan@ni.com>
+ <20150730.100034.1983500409184401997.davem@davemloft.net>
+ <20150730230905.GA9355@nathan3500-linux-VM>
+ <20150731.002204.2044640569422262574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Maxime Ripard <maxime.ripard@anandra.org>
-To: Igor Gnatenko <i.gnatenko.brain@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:34172 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752488AbbGaOCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 10:02:53 -0400
-Received: by lafd3 with SMTP id d3so44824188laf.1
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 07:02:52 -0700 (PDT)
-In-Reply-To: <CAFMg4WCm6rs6xMKPiKGmALc45+ne-xUzQgYHH7zOPotQ-iEqjg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150731.002204.2044640569422262574.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Igor,
+On Fri, Jul 31, 2015 at 12:22:04AM -0700, David Miller wrote:
+> From: Nathan Sullivan <nathan.sullivan@ni.com>
+> Date: Thu, 30 Jul 2015 18:09:05 -0500
+> 
+> > On Thu, Jul 30, 2015 at 10:00:34AM -0700, David Miller wrote:
+> >> From: Nathan Sullivan <nathan.sullivan@ni.com>
+> >> Date: Thu, 30 Jul 2015 10:15:48 -0500
+> >> 
+> >> > Changes for V2: Actually make sure it compiles this time.
+> >> 
+> >> If V1 didn't compile, even for you, then I have a big problem.
+> >> 
+> >> And that problem is that you didn't test this change at all.
+> > 
+> > Sorry about that, I have tested it against 3.14, which is why I had
+> > the older interrupt function in v1.  On HEAD, the phy no longer
+> > suspends when ethernet goes down on our hardware - I'm still working
+> > on figuring out why.  I'm also surprised no one noticed this behavior
+> > before I did, but if the phy never goes into suspend you wouldn't.
+> 
+> I think you should sort out the PHY suspending issue before we move
+> forward with this patch.
 
-On 31 July 2015 at 01:07, Igor Gnatenko <i.gnatenko.brain@gmail.com> wrote:
-> Hi all, stmmac driver doesn't work on cubietruck (and some more
-> devices like PcDuino3 Nano[0]).
->
-> This error comes from converting dwmac-sunxi to platform driver.
->
-> stmmac_platform: module license 'unspecified' taints kernel.
-> Disabling lock debugging due to kernel taint
+I believe I found the issue, we are using this PHY with cadence macb as
+the MAC.  The driver currently turns off the management port in
+macb_reset_hw, which we have stopped with a local change since our hardware
+typically has multiple phys on one mdio bus.  That also prevents phy suspend
+from working correctly, since the bus goes down before the phy state machine
+can stop the phy.
 
-Ah, I guess 50649ab14982a ("stmmac: drop driver from stmmac platform
-code") was a over eager when removing stuff. I should have kept the
-MODULE_* macro's as stmmac_platform can still be a module. I'll send
-out a patch a bit later with a CC to you.
-
-
-> stmmac_platform: Unknown symbol devm_kmalloc (err 0)
-> stmmac_platform: Unknown symbol stmmac_suspend (err 0)
-> stmmac_platform: Unknown symbol platform_get_irq_byname (err 0)
-> stmmac_platform: Unknown symbol stmmac_dvr_remove (err 0)
-> stmmac_platform: Unknown symbol platform_get_resource (err 0)
-> stmmac_platform: Unknown symbol of_get_phy_mode (err 0)
-> stmmac_platform: Unknown symbol of_property_read_u32_array (err 0)
-> stmmac_platform: Unknown symbol of_alias_get_id (err 0)
-> stmmac_platform: Unknown symbol stmmac_resume (err 0)
-> stmmac_platform: Unknown symbol stmmac_dvr_probe (err 0)
-
-I'll look into this as well.
-
-
-> I've filled bugreport with the same info[1]. What info I would provide
-> to help with fixing this?
-
-Thanks for reporting. If you could test patch I will send out soon
-that would be of great help.
-
-
-regards,
-Joachim Eastwood
-
-> [0] https://lists.fedoraproject.org/pipermail/arm/2015-July/009681.html
-> [1] https://bugzilla.kernel.org/show_bug.cgi?id=102141
-> --
-> -Igor Gnatenko
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In our local patch, we have macb_reset_hw keep the mdio bus on if it's on
+already.  Does that sound like an acceptable fix to you?
