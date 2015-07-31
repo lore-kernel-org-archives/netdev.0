@@ -1,7 +1,8 @@
 From: Kaixu Xia <xiakaixu@huawei.com>
-Subject: [PATCH v5 0/4] bpf: Introduce the new ability of eBPF programs to access hardware PMU counter
-Date: Fri, 31 Jul 2015 11:59:26 +0000
-Message-ID: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
+Subject: [PATCH v5 4/4] samples/bpf: example of get selected PMU counter value
+Date: Fri, 31 Jul 2015 11:59:30 +0000
+Message-ID: <1438343970-11974-5-git-send-email-xiakaixu@huawei.com>
+References: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <xiakaixu@huawei.com>, <wangnan0@huawei.com>,
@@ -12,111 +13,177 @@ To: <ast@plumgrid.com>, <davem@davemloft.net>, <acme@kernel.org>,
 	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
 	<daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438343970-11974-1-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Previous patch v4 url:
-https://lkml.org/lkml/2015/7/28/432
+This is a simple example and shows how to use the new ability
+to get the selected Hardware PMU counter value.
 
-changes in V5: 
- - move struct fd_array_map_ops* fd_ops to bpf_map;
- - move array perf event decrement refcnt function to
-   map_free;
- - fix the NULL ptr of perf_event_get();
- - move bpf_perf_event_read() to kernel/bpf/bpf_trace.c;
- - get rid of the remaining struct bpf_prog;
- - move the unnecessay cast on void *;
-
-changes in V4: 
- - make the bpf_prog_array_map more generic;
- - fix the bug of event refcnt leak;
- - use more useful errno in bpf_perf_event_read();
-
-changes in V3: 
- - collapse V2 patches 1-3 into one;
- - drop the function map->ops->map_traverse_elem() and release
-   the struct perf_event in map_free;
- - only allow to access bpf_perf_event_read() from programs;
- - update the perf_event_array_map elem via xchg();
- - pass index directly to bpf_perf_event_read() instead of
-   MAP_KEY;
-
-changes in V2: 
- - put atomic_long_inc_not_zero() between fdget() and fdput();
- - limit the event type to PERF_TYPE_RAW and PERF_TYPE_HARDWARE;
- - Only read the event counter on current CPU or on current
-   process;
- - add new map type BPF_MAP_TYPE_PERF_EVENT_ARRAY to store the
-   pointer to the struct perf_event;
- - according to the perf_event_map_fd and key, the function
-   bpf_perf_event_read() can get the Hardware PMU counter value;
-
-Patch 4/4 is a simple example and shows how to use this new eBPF
-programs ability. The PMU counter data can be found in
-/sys/kernel/debug/tracing/trace(trace_pipe).(the cycles PMU
-value when 'kprobe/sys_write' sampling)
-
-  $ cat /sys/kernel/debug/tracing/trace_pipe
-  $ ./tracex6
-       ...
-       syslog-ng-548   [000] d..1    76.905673: : CPU-0   681765271
-       syslog-ng-548   [000] d..1    76.905690: : CPU-0   681787855
-       syslog-ng-548   [000] d..1    76.905707: : CPU-0   681810504
-       syslog-ng-548   [000] d..1    76.905725: : CPU-0   681834771
-       syslog-ng-548   [000] d..1    76.905745: : CPU-0   681859519
-       syslog-ng-548   [000] d..1    76.905766: : CPU-0   681890419
-       syslog-ng-548   [000] d..1    76.905783: : CPU-0   681914045
-       syslog-ng-548   [000] d..1    76.905800: : CPU-0   681935950
-       syslog-ng-548   [000] d..1    76.905816: : CPU-0   681958299
-              ls-690   [005] d..1    82.241308: : CPU-5   3138451
-              sh-691   [004] d..1    82.244570: : CPU-4   7324988
-           <...>-699   [007] d..1    99.961387: : CPU-7   3194027
-           <...>-695   [003] d..1    99.961474: : CPU-3   288901
-           <...>-695   [003] d..1    99.961541: : CPU-3   383145
-           <...>-695   [003] d..1    99.961591: : CPU-3   450365
-           <...>-695   [003] d..1    99.961639: : CPU-3   515751
-           <...>-695   [003] d..1    99.961686: : CPU-3   579047
-       ...
-
-The detail of patches is as follow:
-
-Patch 1/4 rewrites part of the bpf_prog_array map code and make it
-more generic;
-
-Patch 2/4 introduces a new bpf map type. This map only stores the
-pointer to struct perf_event;
-
-Patch 3/4 implements function bpf_perf_event_read() that get the
-selected hardware PMU conuter;
-
-Patch 4/4 gives a simple example.
-
-Kaixu Xia (3):
-  bpf: Add new bpf map type to store the pointer to struct perf_event
-  bpf: Implement function bpf_perf_event_read() that get the selected
-    hardware PMU conuter
-  samples/bpf: example of get selected PMU counter value
-
-Wang Nan (1):
-  bpf: Make the bpf_prog_array_map more generic
-
- arch/x86/net/bpf_jit_comp.c |   6 +-
- include/linux/bpf.h         |  10 +++-
- include/linux/perf_event.h  |  14 ++++-
- include/uapi/linux/bpf.h    |   2 +
- kernel/bpf/arraymap.c       | 135 ++++++++++++++++++++++++++++++++++----------
- kernel/bpf/core.c           |   2 +-
- kernel/bpf/syscall.c        |   2 +-
- kernel/bpf/verifier.c       |  56 +++++++++++++-----
- kernel/events/core.c        |  27 ++++++---
- kernel/trace/bpf_trace.c    |  37 ++++++++++++
- samples/bpf/Makefile        |   4 ++
- samples/bpf/bpf_helpers.h   |   2 +
- samples/bpf/tracex6_kern.c  |  26 +++++++++
- samples/bpf/tracex6_user.c  |  68 ++++++++++++++++++++++
- 14 files changed, 328 insertions(+), 63 deletions(-)
+Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+---
+ samples/bpf/Makefile       |  4 +++
+ samples/bpf/bpf_helpers.h  |  2 ++
+ samples/bpf/tracex6_kern.c | 26 ++++++++++++++++++
+ samples/bpf/tracex6_user.c | 68 ++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 100 insertions(+)
  create mode 100644 samples/bpf/tracex6_kern.c
  create mode 100644 samples/bpf/tracex6_user.c
 
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 4450fed..63e7d50 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -12,6 +12,7 @@ hostprogs-y += tracex2
+ hostprogs-y += tracex3
+ hostprogs-y += tracex4
+ hostprogs-y += tracex5
++hostprogs-y += tracex6
+ hostprogs-y += lathist
+ 
+ test_verifier-objs := test_verifier.o libbpf.o
+@@ -25,6 +26,7 @@ tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
+ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
+ tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+ tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
++tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
+ lathist-objs := bpf_load.o libbpf.o lathist_user.o
+ 
+ # Tell kbuild to always build the programs
+@@ -37,6 +39,7 @@ always += tracex2_kern.o
+ always += tracex3_kern.o
+ always += tracex4_kern.o
+ always += tracex5_kern.o
++always += tracex6_kern.o
+ always += tcbpf1_kern.o
+ always += lathist_kern.o
+ 
+@@ -51,6 +54,7 @@ HOSTLOADLIBES_tracex2 += -lelf
+ HOSTLOADLIBES_tracex3 += -lelf
+ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
++HOSTLOADLIBES_tracex6 += -lelf
+ HOSTLOADLIBES_lathist += -lelf
+ 
+ # point this to your LLVM backend with bpf support
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index bdf1c16..c8a3594 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -31,6 +31,8 @@ static unsigned long long (*bpf_get_current_uid_gid)(void) =
+ 	(void *) BPF_FUNC_get_current_uid_gid;
+ static int (*bpf_get_current_comm)(void *buf, int buf_size) =
+ 	(void *) BPF_FUNC_get_current_comm;
++static int (*bpf_perf_event_read)(void *map, int index) =
++	(void *) BPF_FUNC_perf_event_read;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
+diff --git a/samples/bpf/tracex6_kern.c b/samples/bpf/tracex6_kern.c
+new file mode 100644
+index 0000000..23d1cff
+--- /dev/null
++++ b/samples/bpf/tracex6_kern.c
+@@ -0,0 +1,26 @@
++#include <linux/version.h>
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
++
++struct bpf_map_def SEC("maps") my_map = {
++	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
++	.key_size = sizeof(int),
++	.value_size = sizeof(u32),
++	.max_entries = 32,
++};
++
++SEC("kprobe/sys_write")
++int bpf_prog1(struct pt_regs *ctx)
++{
++	u64 count;
++	u32 key = bpf_get_smp_processor_id();
++	char fmt[] = "CPU-%d   %llu\n";
++
++	count = bpf_perf_event_read(&my_map, key);
++	bpf_trace_printk(fmt, sizeof(fmt), key, count);
++
++	return 0;
++}
++
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
+new file mode 100644
+index 0000000..928f05e
+--- /dev/null
++++ b/samples/bpf/tracex6_user.c
+@@ -0,0 +1,68 @@
++#include <stdio.h>
++#include <unistd.h>
++#include <stdlib.h>
++#include <stdbool.h>
++#include <string.h>
++#include <fcntl.h>
++#include <poll.h>
++#include <sys/ioctl.h>
++#include <linux/perf_event.h>
++#include <linux/bpf.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++#define SAMPLE_PERIOD  0x7fffffffffffffffULL
++
++static void test_bpf_perf_event(void)
++{
++	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
++	int *pmu_fd = malloc(nr_cpus * sizeof(int));
++	unsigned long value;
++	int i;
++
++	struct perf_event_attr attr_insn_pmu = {
++		.freq = 0,
++		.sample_period = SAMPLE_PERIOD,
++		.inherit = 0,
++		.type = PERF_TYPE_HARDWARE,
++		.read_format = 0,
++		.sample_type = 0,
++		.config = 0,/* PMU: cycles */
++	};
++
++	for (i = 0; i < nr_cpus; i++) {
++		pmu_fd[i] = perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
++		if (pmu_fd[i] < 0)
++			printf("event syscall failed\n");
++
++		bpf_update_elem(map_fd[0], &i, &pmu_fd[i], BPF_ANY);
++		ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0);
++	}
++
++	system("ls");
++	system("pwd");
++	system("sleep 2");
++
++	for (i = 0; i < nr_cpus; i++)
++		close(pmu_fd[i]);
++
++	close(map_fd);
++
++	free(pmu_fd);
++}
++
++int main(int argc, char **argv)
++{
++	char filename[256];
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	test_bpf_perf_event();
++
++	return 0;
++}
 -- 
 1.8.3.4
