@@ -1,41 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] ipsec:Fix error handling in the function xfrm6_get_addr
-Date: Fri, 31 Jul 2015 08:00:19 +0800
-Message-ID: <20150731000019.GA22464@gondor.apana.org.au>
-References: <1438273240-15493-1-git-send-email-xerofoify@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1438273240-15493-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] act_pedit: check binding before calling tcf_hash_release()
+Date: Thu, 30 Jul 2015 17:12:21 -0700
+Message-ID: <1438301541-26192-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:32885 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013AbbGaAMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2015 20:12:32 -0400
+Received: by pacom8 with SMTP id om8so2860255pac.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jul 2015 17:12:31 -0700 (PDT)
+In-Reply-To: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 30, 2015 at 12:20:40PM -0400, Nicholas Krause wrote:
->
-> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-> index ed0583c..f60c670 100644
-> --- a/net/ipv6/xfrm6_policy.c
-> +++ b/net/ipv6/xfrm6_policy.c
-> @@ -61,7 +61,9 @@ static int xfrm6_get_saddr(struct net *net,
->  		return -EHOSTUNREACH;
->  
->  	dev = ip6_dst_idev(dst)->dev;
-> -	ipv6_dev_get_saddr(dev_net(dev), dev, &daddr->in6, 0, &saddr->in6);
-> +	if (ipv6_dev_get_saddr(dev_net(dev), dev, &daddr->in6, 0, &saddr->in6))
-> +		return -EADDRNOTAVAIL;
-> +
->  	dst_release(dst);
+When we share an action within a filter, the bind refcnt
+should increase, therefore we should not call tcf_hash_release().
 
-You're leaking dst.
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
+---
+ net/sched/act_pedit.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Cheers,
+diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+index 17e6d66..ff8b466 100644
+--- a/net/sched/act_pedit.c
++++ b/net/sched/act_pedit.c
+@@ -68,13 +68,12 @@ static int tcf_pedit_init(struct net *net, struct nlattr *nla,
+ 		}
+ 		ret = ACT_P_CREATED;
+ 	} else {
+-		p = to_pedit(a);
+-		tcf_hash_release(a, bind);
+ 		if (bind)
+ 			return 0;
++		tcf_hash_release(a, bind);
+ 		if (!ovr)
+ 			return -EEXIST;
+-
++		p = to_pedit(a);
+ 		if (p->tcfp_nkeys && p->tcfp_nkeys != parm->nkeys) {
+ 			keys = kmalloc(ksize, GFP_KERNEL);
+ 			if (keys == NULL)
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.8.3.1
