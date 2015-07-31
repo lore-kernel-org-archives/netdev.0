@@ -1,74 +1,224 @@
-From: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 15/15] net: Drop unlikely before IS_ERR(_OR_NULL)
-Date: Fri, 31 Jul 2015 14:08:35 +0530
-Message-ID: <88a6d5b3eb1579a29ed896d7fd6e58c94663d3ac.1438331416.git.viresh.kumar@linaro.org>
-References: <cover.1438331416.git.viresh.kumar@linaro.org>
+From: <shh.xie@gmail.com>
+Subject: [PATCH][v3] net: phy: add driver for aquantia phy
+Date: Fri, 31 Jul 2015 16:58:42 +0800
+Message-ID: <1438333122-31759-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Vlad Yasevich <vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "open list:SCTP PROTOCOL" <linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "open list:OPENVSWITCH" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1438331416.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-In-Reply-To: <cover.1438331416.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-References: <cover.1438331416.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0097.outbound.protection.outlook.com ([207.46.100.97]:38951
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751511AbbGaJS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Jul 2015 05:18:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SVNfRVJSKF9PUl9OVUxMKSBhbHJlYWR5IGNvbnRhaW4gYW4gJ3VubGlrZWx5JyBjb21waWxlciBm
-bGFnIGFuZCB0aGVyZQppcyBubyBuZWVkIHRvIGRvIHRoYXQgYWdhaW4gZnJvbSBpdHMgY2FsbGVy
-cy4gRHJvcCBpdC4KClNpZ25lZC1vZmYtYnk6IFZpcmVzaCBLdW1hciA8dmlyZXNoLmt1bWFyQGxp
-bmFyby5vcmc+Ci0tLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgfCAyICstCiBuZXQvc2N0
-cC9zb2NrZXQuYyAgICAgICAgICB8IDIgKy0KIG5ldC9zb2NrZXQuYyAgICAgICAgICAgICAgIHwg
-NiArKystLS0KIDMgZmlsZXMgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygt
-KQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jIGIvbmV0L29wZW52c3dp
-dGNoL2RhdGFwYXRoLmMKaW5kZXggZmY4YzRhNGMxNjA5Li4wMWQ2OTY4MGJhNWQgMTAwNjQ0Ci0t
-LSBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9kYXRh
-cGF0aC5jCkBAIC0xMTQzLDcgKzExNDMsNyBAQCBzdGF0aWMgaW50IG92c19mbG93X2NtZF9zZXQo
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGdlbmxfaW5mbyAqaW5mbykKIAkJCQkJCWluZm8s
-IE9WU19GTE9XX0NNRF9ORVcsIGZhbHNlLAogCQkJCQkJdWZpZF9mbGFncyk7CiAKLQkJaWYgKHVu
-bGlrZWx5KElTX0VSUihyZXBseSkpKSB7CisJCWlmIChJU19FUlIocmVwbHkpKSB7CiAJCQllcnJv
-ciA9IFBUUl9FUlIocmVwbHkpOwogCQkJZ290byBlcnJfdW5sb2NrX292czsKIAkJfQpkaWZmIC0t
-Z2l0IGEvbmV0L3NjdHAvc29ja2V0LmMgYi9uZXQvc2N0cC9zb2NrZXQuYwppbmRleCAxNDI1ZWMy
-YmJkNWEuLmMxNTY5NDMyMjM1ZSAxMDA2NDQKLS0tIGEvbmV0L3NjdHAvc29ja2V0LmMKKysrIGIv
-bmV0L3NjdHAvc29ja2V0LmMKQEAgLTQ0ODEsNyArNDQ4MSw3IEBAIHN0YXRpYyBpbnQgc2N0cF9n
-ZXRzb2Nrb3B0X3BlZWxvZmYoc3RydWN0IHNvY2sgKnNrLCBpbnQgbGVuLCBjaGFyIF9fdXNlciAq
-b3B0dmFsCiAJfQogCiAJbmV3ZmlsZSA9IHNvY2tfYWxsb2NfZmlsZShuZXdzb2NrLCAwLCBOVUxM
-KTsKLQlpZiAodW5saWtlbHkoSVNfRVJSKG5ld2ZpbGUpKSkgeworCWlmIChJU19FUlIobmV3Zmls
-ZSkpIHsKIAkJcHV0X3VudXNlZF9mZChyZXR2YWwpOwogCQlzb2NrX3JlbGVhc2UobmV3c29jayk7
-CiAJCXJldHVybiBQVFJfRVJSKG5ld2ZpbGUpOwpkaWZmIC0tZ2l0IGEvbmV0L3NvY2tldC5jIGIv
-bmV0L3NvY2tldC5jCmluZGV4IDk5NjNhMGI1M2E2NC4uZGQyYzI0N2M5OWUzIDEwMDY0NAotLS0g
-YS9uZXQvc29ja2V0LmMKKysrIGIvbmV0L3NvY2tldC5jCkBAIC0zNzMsNyArMzczLDcgQEAgc3Ry
-dWN0IGZpbGUgKnNvY2tfYWxsb2NfZmlsZShzdHJ1Y3Qgc29ja2V0ICpzb2NrLCBpbnQgZmxhZ3Ms
-IGNvbnN0IGNoYXIgKmRuYW1lKQogCiAJZmlsZSA9IGFsbG9jX2ZpbGUoJnBhdGgsIEZNT0RFX1JF
-QUQgfCBGTU9ERV9XUklURSwKIAkJICAmc29ja2V0X2ZpbGVfb3BzKTsKLQlpZiAodW5saWtlbHko
-SVNfRVJSKGZpbGUpKSkgeworCWlmIChJU19FUlIoZmlsZSkpIHsKIAkJLyogZHJvcCBkZW50cnks
-IGtlZXAgaW5vZGUgKi8KIAkJaWhvbGQoZF9pbm9kZShwYXRoLmRlbnRyeSkpOwogCQlwYXRoX3B1
-dCgmcGF0aCk7CkBAIC0xMzAzLDcgKzEzMDMsNyBAQCBTWVNDQUxMX0RFRklORTQoc29ja2V0cGFp
-ciwgaW50LCBmYW1pbHksIGludCwgdHlwZSwgaW50LCBwcm90b2NvbCwKIAl9CiAKIAluZXdmaWxl
-MSA9IHNvY2tfYWxsb2NfZmlsZShzb2NrMSwgZmxhZ3MsIE5VTEwpOwotCWlmICh1bmxpa2VseShJ
-U19FUlIobmV3ZmlsZTEpKSkgeworCWlmIChJU19FUlIobmV3ZmlsZTEpKSB7CiAJCWVyciA9IFBU
-Ul9FUlIobmV3ZmlsZTEpOwogCQlnb3RvIG91dF9wdXRfdW51c2VkX2JvdGg7CiAJfQpAQCAtMTQ2
-Nyw3ICsxNDY3LDcgQEAgU1lTQ0FMTF9ERUZJTkU0KGFjY2VwdDQsIGludCwgZmQsIHN0cnVjdCBz
-b2NrYWRkciBfX3VzZXIgKiwgdXBlZXJfc29ja2FkZHIsCiAJCWdvdG8gb3V0X3B1dDsKIAl9CiAJ
-bmV3ZmlsZSA9IHNvY2tfYWxsb2NfZmlsZShuZXdzb2NrLCBmbGFncywgc29jay0+c2stPnNrX3By
-b3RfY3JlYXRvci0+bmFtZSk7Ci0JaWYgKHVubGlrZWx5KElTX0VSUihuZXdmaWxlKSkpIHsKKwlp
-ZiAoSVNfRVJSKG5ld2ZpbGUpKSB7CiAJCWVyciA9IFBUUl9FUlIobmV3ZmlsZSk7CiAJCXB1dF91
-bnVzZWRfZmQobmV3ZmQpOwogCQlzb2NrX3JlbGVhc2UobmV3c29jayk7Ci0tIAoyLjQuMAoKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcg
-bGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9kZXYK
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+
+This patch added driver to support Aquantia PHYs AQ1202, AQ2104, AQR105,
+AQR405, which accessed through clause 45.
+
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+changes in v3:
+removed nop routines.
+
+changes in v2:
+addressed Florian's comments.
+
+ drivers/net/phy/Kconfig    |   5 ++
+ drivers/net/phy/Makefile   |   1 +
+ drivers/net/phy/aquantia.c | 152 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 158 insertions(+)
+ create mode 100644 drivers/net/phy/aquantia.c
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 8ef8191..c07030d 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -14,6 +14,11 @@ if PHYLIB
+ 
+ comment "MII PHY device drivers"
+ 
++config AQUANTIA_PHY
++        tristate "Drivers for the Aquantia PHYs"
++        ---help---
++          Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
++
+ config AT803X_PHY
+ 	tristate "Drivers for Atheros AT803X PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 16aac1c..9bb1033 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -3,6 +3,7 @@
+ libphy-objs			:= phy.o phy_device.o mdio_bus.o
+ 
+ obj-$(CONFIG_PHYLIB)		+= libphy.o
++obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
+ obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
+ obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
+ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
+diff --git a/drivers/net/phy/aquantia.c b/drivers/net/phy/aquantia.c
+new file mode 100644
+index 0000000..73d347d
+--- /dev/null
++++ b/drivers/net/phy/aquantia.c
+@@ -0,0 +1,152 @@
++/*
++ * Driver for Aquantia PHY
++ *
++ * Author: Shaohui Xie <Shaohui.Xie@freescale.com>
++ *
++ * Copyright 2015 Freescale Semiconductor, Inc.
++ *
++ * This file is licensed under the terms of the GNU General Public License
++ * version 2.  This program is licensed "as is" without any warranty of any
++ * kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/delay.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++#include <linux/mdio.h>
++
++#define PHY_ID_AQ1202	0x03a1b445
++#define PHY_ID_AQ2104	0x03a1b460
++#define PHY_ID_AQR105	0x03a1b4a2
++#define PHY_ID_AQR405	0x03a1b4b0
++
++#define PHY_AQUANTIA_FEATURES	(SUPPORTED_10000baseT_Full | \
++				 SUPPORTED_1000baseT_Full | \
++				 SUPPORTED_100baseT_Full | \
++				 PHY_DEFAULT_FEATURES)
++
++static int aquantia_config_aneg(struct phy_device *phydev)
++{
++	phydev->supported = PHY_AQUANTIA_FEATURES;
++	phydev->advertising = phydev->supported;
++
++	return 0;
++}
++
++static int aquantia_aneg_done(struct phy_device *phydev)
++{
++	int reg;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++	return (reg < 0) ? reg : (reg & BMSR_ANEGCOMPLETE);
++}
++
++static int aquantia_read_status(struct phy_device *phydev)
++{
++	int reg;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++	if (reg & MDIO_STAT1_LSTATUS)
++		phydev->link = 1;
++	else
++		phydev->link = 0;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
++	mdelay(10);
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xc800);
++
++	switch (reg) {
++	case 0x9:
++		phydev->speed = SPEED_2500;
++		break;
++	case 0x5:
++		phydev->speed = SPEED_1000;
++		break;
++	case 0x3:
++		phydev->speed = SPEED_100;
++		break;
++	case 0x7:
++	default:
++		phydev->speed = SPEED_10000;
++		break;
++	}
++	phydev->duplex = DUPLEX_FULL;
++
++	return 0;
++}
++
++static struct phy_driver aquantia_driver[] = {
++{
++	.phy_id		= PHY_ID_AQ1202,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQ1202",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.aneg_done	= aquantia_aneg_done,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++{
++	.phy_id		= PHY_ID_AQ2104,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQ2104",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.aneg_done	= aquantia_aneg_done,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++{
++	.phy_id		= PHY_ID_AQR105,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQR105",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.aneg_done	= aquantia_aneg_done,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++{
++	.phy_id		= PHY_ID_AQR405,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Aquantia AQR405",
++	.features	= PHY_AQUANTIA_FEATURES,
++	.aneg_done	= aquantia_aneg_done,
++	.config_aneg    = aquantia_config_aneg,
++	.read_status	= aquantia_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++},
++};
++
++static int __init aquantia_init(void)
++{
++	return phy_drivers_register(aquantia_driver,
++				    ARRAY_SIZE(aquantia_driver));
++}
++
++static void __exit aquantia_exit(void)
++{
++	return phy_drivers_unregister(aquantia_driver,
++				      ARRAY_SIZE(aquantia_driver));
++}
++
++module_init(aquantia_init);
++module_exit(aquantia_exit);
++
++static struct mdio_device_id __maybe_unused aquantia_tbl[] = {
++	{ PHY_ID_AQ1202, 0xfffffff0 },
++	{ PHY_ID_AQ2104, 0xfffffff0 },
++	{ PHY_ID_AQR105, 0xfffffff0 },
++	{ PHY_ID_AQR405, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, aquantia_tbl);
++
++MODULE_DESCRIPTION("Aquantia PHY driver");
++MODULE_AUTHOR("Shaohui Xie <Shaohui.Xie@freescale.com>");
++MODULE_LICENSE("GPL v2");
+-- 
+2.1.0.27.g96db324
