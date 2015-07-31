@@ -1,39 +1,43 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] vxlan: expose COLLECT_METADATA flag to user
- space
-Date: Fri, 31 Jul 2015 10:00:19 +0200
-Message-ID: <20150731080019.GB4738@pox.localdomain>
-References: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 v2] bridge fdb: add 'use' option to set NTF_USE
+ flag in fdb add requests
+Date: Fri, 31 Jul 2015 10:05:23 +0200
+Message-ID: <55BB2C43.5060804@cumulusnetworks.com>
+References: <1438292222-45993-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:36173 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750786AbbGaIAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 04:00:22 -0400
-Received: by wicgj17 with SMTP id gj17so6233890wic.1
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 01:00:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:35076 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbbGaIF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 04:05:27 -0400
+Received: by wibxm9 with SMTP id xm9so22454895wib.0
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 01:05:26 -0700 (PDT)
+In-Reply-To: <1438292222-45993-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/30/15 at 08:10pm, Alexei Starovoitov wrote:
-> Two vxlan driver flags FLOWBASED and COLLECT_METADATA need to be set to
-> make use of its new flow mode. The former already exposed. Expose the latter.
+On 07/30/2015 11:37 PM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> This is similar to command options corresponding to other NTF_* flags
+> already exposed to the user space (examples self/master).
+> 
+> Also updates bridge man page (The man page patch also includes
+> a fix to the 'self' entry and documents 'master' for fdb entries)
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> v1-v2 : fixed usage
+> 
+>  bridge/fdb.c      |    7 +++++--
+>  man/man8/bridge.8 |   15 ++++++++++++---
+>  2 files changed, 17 insertions(+), 5 deletions(-)
 
-Since you are analyzing the program when you load it. Could you call
-ip_tunnel_need_metadata() when we load a program which accesses
-the new metadata field and ip_tunnel_unneed_metadata() when you unload
-it? This would hide the need to set this flag from the user. The con
-is that it enables metadata on all net_devices.
+Nice, now I won't have to patch iproute2 to test with NTF_USE. :-)
 
-I'm also fine with exposing this flag to the user though. I'll leave it
-up to you so feel free to add my ack if you want to go this route.
-
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
