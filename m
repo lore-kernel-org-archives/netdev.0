@@ -1,93 +1,90 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 8/9] openvswitch: Allow matching on conntrack
- label
-Date: Fri, 31 Jul 2015 15:20:04 +0200
-Message-ID: <20150731132004.GA20471@breakpoint.cc>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
- <1438279963-29563-9-git-send-email-joestringer@nicira.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Null pointer dereference in UDP4 core on AVR32 ATNGW100
+Date: Fri, 31 Jul 2015 16:25:44 +0300
+Message-ID: <CAHp75VdG5Ys09pmc1Qo1EHSRr1gYdLv--9NtECB_VUo5d9+USg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pablo@netfilter.org, kaber@trash.net, jpettit@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com, jesse@nicira.com,
-	fwestpha@redhat.com, hannes@redhat.com, tgraf@noironetworks.com
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	David Held <drheld@google.com>,
+	Hans-Christian Egtvedt <egtvedt@samfundet.no>
+To: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1438279963-29563-9-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Stringer <joestringer@nicira.com> wrote:
-> Allow matching and setting the conntrack label field. As with ct_mark,
-> this is populated by executing the ct() action, and is a writable field.
-> The set_field() action may be used to modify the label, which will take
-> effect on the most recent conntrack entry.
-> 
-> E.g.: actions:ct(zone=1),set_field(1->ct_label)
-> 
-> This will perform conntrack lookup in zone 1, then modify the label for
-> that entry. The conntrack entry itself must be committed using the
-> "commit" flag in the conntrack action flags for this change to persist.
-> 
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Hi!
 
-> +/* Load connlabel and ensure it supports 128-bit labels */
-> +static struct xt_match *load_connlabel(struct net *net)
-> +{
-> +#ifdef CONFIG_NF_CONNTRACK_LABELS
-> +	struct xt_match *match;
-> +	struct xt_mtchk_param mtpar;
-> +	struct xt_connlabel_mtinfo info;
-> +	int err = -EINVAL;
-> +
-> +	match = xt_request_find_match(NFPROTO_UNSPEC, "connlabel", 0);
-> +	if (IS_ERR(match)) {
-> +		match = NULL;
-> +		goto exit;
-> +	}
-> +
-> +	info.bit = sizeof(struct ovs_key_ct_label) * 8 - 1;
-> +	info.options = 0;
-> +
-> +	mtpar.net	= net;
-> +	mtpar.table	= match->table;
-> +	mtpar.entryinfo = NULL;
-> +	mtpar.match	= match;
-> +	mtpar.matchinfo = &info;
-> +	mtpar.hook_mask = BIT(NF_INET_PRE_ROUTING);
-> +	mtpar.family	= NFPROTO_IPV4;
-> +
-> +	err = xt_check_match(&mtpar, XT_ALIGN(match->matchsize), match->proto,
-> +			     0);
+Got few weeks ago an old AVR32 board (ATNGW100).
+It has ethernet cards supported by macb driver.
 
-Yummy :-)
+Bring it mostly back to work with recent kernel from linux-next. Now,
+when I start networking on it, I got in few seconds kernel panic.
 
-Rather than adding a dependency on xtables I think a better option would
-be to move the
+Unable to handle kernel NULL pointer dereference at virtual address 000=
+00000
+ptbr =3D 91e42000 pgd =3D 91e4b000
+Oops: Kernel access of bad area, sig: 11 [#1]
+=46RAME_POINTER chip: 0x01f:0x1e82 rev 2
+Modules linked in:
+CPU: 0 PID: 0 Comm: swapper Not tainted 4.2.0-rc4-next-20150729+ #102
+task: 903532dc ti: 90350000 task.ti: 90350000
+PC is at __udp4_lib_rcv+0x300/0x660
+LR is at 0x15da8a2f
+pc : [<90233a84>]    lr : [<15da8a2f>]    Not tainted
+0sp : 90351b5c  r12: 00000000  r11: 91cd4450
+r10: 00000000  r9 : 0000004c  r8 : 00000000
+r7 : 90351c80  r6 : 91db5c80  r5 : 91e4e540  r4 : 11f6a114
+r3 : 00000000  r2 : 91e6b224  r1 : 0000008a  r0 : 00000000
+=46lags: qvnZc
+Mode bits: hjmde....g
+CPU Mode: Interrupt level 0
+Stack: (0x90351b5c to 0x90352000)
+=E2=80=A6
+Call trace:
+[<90233df0>] udp_rcv+0xc/0x14
+[<90215220>] ip_local_deliver_finish+0xac/0x15c
+[<902150ca>] ip_local_deliver+0x76/0x84
+[<90214d32>] ip_rcv_finish+0x23a/0x250
+[<90215004>] ip_rcv+0x2bc/0x30c
+[<901f5ee4>] __netif_receive_skb_core+0x548/0x570
+[<901f5f52>] __netif_receive_skb+0x46/0x50
+[<901f5f8e>] netif_receive_skb_internal+0x32/0x3c
+[<901f5fa0>] netif_receive_skb_sk+0x8/0xc
+[<901cf358>] macb_rx+0x1b0/0x1d8
+[<901cf4d8>] macb_poll+0x38/0xa4
+[<901faf9c>] net_rx_action+0x84/0x1b4
+[<90021e46>] __do_softirq+0x5a/0x150
+[<90021f86>] irq_exit+0x26/0x58
+[<9001a520>] do_IRQ+0x34/0x44
+[<90019428>] irq_level0+0x18/0x5c
+[<900355a4>] default_idle_call+0x1c/0x20
+[<9003563e>] cpu_startup_entry+0x66/0xa8
+[<902a16a4>] rest_init+0x48/0x70
+[<900007fc>] start_kernel+0x290/0x2dc
 
-par->net->ct.labels_used++;
-words = BITS_TO_LONGS(info->bit+1);
-if (words > par->net->ct.label_words)
-	par->net->ct.label_words = words;
+Long time bisecting and reading assembly points to the
 
-parts from the checkentry/destroy hooks of xt_connlabel into
-nf_conntrack_labels.c so that you don't need this mtpar stunt above
-anymore (and I'd like to add ctlabel set support for nft at one point
-so I'd also need to move that out of xt_label).
+commit 2dc41cff7545d55c6294525c811594576f8e119c
+Author: David Held <drheld@google.com>
+Date:   Tue Jul 15 23:28:32 2014 -0400
 
-You can move that out of this series and submit that to nf-devel as
-separate patch if you want.
+    udp: Use hash2 for long hash1 chains in __udp*_lib_mcast_deliver.
 
-> +	    ovs_ct_verify(OVS_KEY_ATTR_CT_LABEL)) {
-> +		const struct ovs_key_ct_label *cl;
-> +
-> +		cl = nla_data(a[OVS_KEY_ATTR_CT_LABEL]);
-> +		SW_FLOW_KEY_MEMCPY(match, ct.label, cl->ct_label,
-> +				   sizeof(*cl), is_mask);
-> +		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_LABEL);
-> +	}
+I don't know yet neither the package exactly makes this (tried to
+debug print, but bug disappears) nor should be network card driver
+fixed, or even compiler / binutils problems (using it from buildroot,
+which is gcc 4.2.2). Would like to hear opinions what the root cause
+might be and what ways we have to fix it. I'm also wondering if any
+other architecture with same network card has the issue.
 
-So you're using labels as arbitrary 128 bit identifier, right?
+P.S.
+Since buildroot is not supporting anymore avr32 I use the version just
+before this removal. (Nicolas, does Atmel care about that?)
 
-Nothing wrong with that, just asking.
+--=20
+With Best Regards,
+Andy Shevchenko
