@@ -1,138 +1,85 @@
-From: Loganaden Velvindron <logan@elandsys.com>
-Subject: [PATCH] Add BQL support for 3c59x, based on patch from Tino
- Reichardt.
-Date: Fri, 31 Jul 2015 23:13:13 -0700
-Message-ID: <20150801061313.GA12571@mx.elandsys.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] udp: fix dst races with multicast early demux
+Date: Sat, 01 Aug 2015 12:14:33 +0200
+Message-ID: <1438424073.2748.28.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <2ddbe291fff643899849eb068ef219e0@svr-chch-ex1.atlnz.lc>
+	 <1438234969.20182.124.camel@edumazet-glaptop2.roam.corp.google.com>
+	 ,<1438235159.20182.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0dd213ace919410da723ac93892d1f4d@svr-chch-ex1.atlnz.lc>
+	 <1438337866.2748.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1438341449.2748.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"alexgartrell@gmail.com" <alexgartrell@gmail.com>,
+	Michal =?UTF-8?Q?Kube=C4=8Dek?= <mkubecek@suse.cz>
+To: Gregory Hoggarth <Gregory.Hoggarth@alliedtelesis.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.qubic.net ([208.69.177.116]:49908 "EHLO mx.elandsys.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750905AbbHAGaB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Aug 2015 02:30:01 -0400
-Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
-	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id t716DDAN000352
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 23:13:14 -0700 (PDT)
-Received: (from logan@localhost)
-	by mx.elandsys.com (8.14.5/8.14.5/Submit) id t716DDpF001931
-	for netdev@vger.kernel.org; Fri, 31 Jul 2015 23:13:13 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:36360 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbbHAKOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Aug 2015 06:14:37 -0400
+Received: by wicgj17 with SMTP id gj17so46745616wic.1
+        for <netdev@vger.kernel.org>; Sat, 01 Aug 2015 03:14:36 -0700 (PDT)
+In-Reply-To: <1438341449.2748.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tested on 3Com PCI 3c905C Tornardo by running Flent multiple times.
+=46rom: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
+Multicast dst are not cached. They carry DST_NOCACHE.
+
+As mentioned in commit f8864972126899 ("ipv4: fix dst race in
+sk_dst_get()"), these dst need special care before caching them
+into a socket.
+
+Caching them is allowed only if their refcnt was not 0, ie we
+must use atomic_inc_not_zero()
+
+Also, we must use READ_ONCE() to fetch sk->sk_rx_dst, as mentioned
+in commit d0c294c53a771 ("tcp: prevent fetching dst twice in early demu=
+x
+code")
+
+=46ixes: 421b3885bf6d ("udp: ipv4: Add udp early demux")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Gregory Hoggarth <Gregory.Hoggarth@alliedtelesis.co.nz>
+Reported-by: Alex Gartrell <agartrell@fb.com>
+Cc: Michal Kube=C4=8Dek <mkubecek@suse.cz>
 ---
- drivers/net/ethernet/3com/3c59x.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+David : I will be on vacation for following 7 days, no internet access.
+Please wait for tests done by Gregory & Alex before merging this ?
+Thanks !
 
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index 2d1ce3c..5b1b818 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -1726,6 +1726,7 @@ vortex_up(struct net_device *dev)
- 	if (vp->cb_fn_base)			/* The PCMCIA people are idiots.  */
- 		iowrite32(0x8000, vp->cb_fn_base + 4);
- 	netif_start_queue (dev);
-+	netdev_reset_queue(dev);
- err_out:
- 	return err;
+ net/ipv4/udp.c |   13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 83aa604f9273..1b8c5ba7d5f7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1995,12 +1995,19 @@ void udp_v4_early_demux(struct sk_buff *skb)
+=20
+ 	skb->sk =3D sk;
+ 	skb->destructor =3D sock_efree;
+-	dst =3D sk->sk_rx_dst;
++	dst =3D READ_ONCE(sk->sk_rx_dst);
+=20
+ 	if (dst)
+ 		dst =3D dst_check(dst, 0);
+-	if (dst)
+-		skb_dst_set_noref(skb, dst);
++	if (dst) {
++		/* DST_NOCACHE can not be used without taking a reference */
++		if (dst->flags & DST_NOCACHE) {
++			if (likely(atomic_inc_not_zero(&dst->__refcnt)))
++				skb_dst_set(skb, dst);
++		} else {
++			skb_dst_set_noref(skb, dst);
++		}
++	}
  }
-@@ -2064,6 +2065,7 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct vortex_private *vp = netdev_priv(dev);
- 	void __iomem *ioaddr = vp->ioaddr;
-+	int skblen = skb->len;
- 
- 	/* Put out the doubleword header... */
- 	iowrite32(skb->len, ioaddr + TX_FIFO);
-@@ -2095,6 +2097,7 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
-+	netdev_sent_queue(dev, skblen);
- 
- 	/* Clear the Tx status stack. */
- 	{
-@@ -2126,6 +2129,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	void __iomem *ioaddr = vp->ioaddr;
- 	/* Calculate the next Tx descriptor entry. */
- 	int entry = vp->cur_tx % TX_RING_SIZE;
-+	int skblen = skb->len;
- 	struct boom_tx_desc *prev_entry = &vp->tx_ring[(vp->cur_tx-1) % TX_RING_SIZE];
- 	unsigned long flags;
- 	dma_addr_t dma_addr;
-@@ -2231,6 +2235,8 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	vp->cur_tx++;
-+	netdev_sent_queue(dev, skblen);
-+
- 	if (vp->cur_tx - vp->dirty_tx > TX_RING_SIZE - 1) {
- 		netif_stop_queue (dev);
- 	} else {					/* Clear previous interrupt enable. */
-@@ -2268,6 +2274,7 @@ vortex_interrupt(int irq, void *dev_id)
- 	int status;
- 	int work_done = max_interrupt_work;
- 	int handled = 0;
-+	unsigned int bytes_compl = 0, pkts_compl = 0;	
- 
- 	ioaddr = vp->ioaddr;
- 	spin_lock(&vp->lock);
-@@ -2315,6 +2322,8 @@ vortex_interrupt(int irq, void *dev_id)
- 			if (ioread16(ioaddr + Wn7_MasterStatus) & 0x1000) {
- 				iowrite16(0x1000, ioaddr + Wn7_MasterStatus); /* Ack the event. */
- 				pci_unmap_single(VORTEX_PCI(vp), vp->tx_skb_dma, (vp->tx_skb->len + 3) & ~3, PCI_DMA_TODEVICE);
-+				pkts_compl++;
-+				bytes_compl += vp->tx_skb->len;
- 				dev_kfree_skb_irq(vp->tx_skb); /* Release the transferred buffer */
- 				if (ioread16(ioaddr + TxFree) > 1536) {
- 					/*
-@@ -2359,6 +2368,7 @@ vortex_interrupt(int irq, void *dev_id)
- 		iowrite16(AckIntr | IntReq | IntLatch, ioaddr + EL3_CMD);
- 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & (IntLatch | RxComplete));
- 
-+	netdev_completed_queue(dev, pkts_compl, bytes_compl);
- 	spin_unlock(&vp->window_lock);
- 
- 	if (vortex_debug > 4)
-@@ -2383,6 +2393,7 @@ boomerang_interrupt(int irq, void *dev_id)
- 	int status;
- 	int work_done = max_interrupt_work;
- 	int handled = 0;
-+	unsigned int bytes_compl = 0, pkts_compl = 0;
- 
- 	ioaddr = vp->ioaddr;
- 
-@@ -2456,6 +2467,8 @@ boomerang_interrupt(int irq, void *dev_id)
- 					pci_unmap_single(VORTEX_PCI(vp),
- 						le32_to_cpu(vp->tx_ring[entry].addr), skb->len, PCI_DMA_TODEVICE);
- #endif
-+					pkts_compl++;
-+					bytes_compl += skb->len;
- 					dev_kfree_skb_irq(skb);
- 					vp->tx_skbuff[entry] = NULL;
- 				} else {
-@@ -2496,6 +2509,7 @@ boomerang_interrupt(int irq, void *dev_id)
- 			iowrite32(0x8000, vp->cb_fn_base + 4);
- 
- 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & IntLatch);
-+	netdev_completed_queue(dev, pkts_compl, bytes_compl);
- 
- 	if (vortex_debug > 4)
- 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
-@@ -2697,7 +2711,8 @@ vortex_down(struct net_device *dev, int final_down)
- 	struct vortex_private *vp = netdev_priv(dev);
- 	void __iomem *ioaddr = vp->ioaddr;
- 
--	netif_stop_queue (dev);
-+	netdev_reset_queue(dev);
-+	netif_stop_queue(dev);
- 
- 	del_timer_sync(&vp->rx_oom_timer);
- 	del_timer_sync(&vp->timer);
--- 
-2.4.5
+=20
+ int udp_rcv(struct sk_buff *skb)
