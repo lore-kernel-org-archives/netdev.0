@@ -1,95 +1,67 @@
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Subject: [PATCH] r8169: Add ff_dup wich disable advertise on full duplex
-Date: Sat,  1 Aug 2015 20:20:21 +0300
-Message-ID: <1438449621-3061-1-git-send-email-corcodel.marian@gmail.com>
-Cc: Corcodel Marian <corcodel.marian@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:33305 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015AbbHARUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Aug 2015 13:20:35 -0400
-Received: by wicmv11 with SMTP id mv11so90500929wic.0
-        for <netdev@vger.kernel.org>; Sat, 01 Aug 2015 10:20:34 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bandan Das <bsd-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH 0/4] Shared vhost design
+Date: Sat, 01 Aug 2015 14:48:33 -0400
+Message-ID: <jpgy4hukfpa.fsf@linux.bootlegged.copy>
+References: <1436760455-5686-1-git-send-email-bsd@redhat.com>
+	<OF451FED84.3040AFD2-ONC2257E8C.0043F908-C2257E8C.00446592@il.ibm.com>
+	<jpgmvyh9ybg.fsf@linux.bootlegged.copy>
+	<20150728000221-mutt-send-email-mst@redhat.com>
+	<OFFB2CB583.341B00EF-ONC2257E94.002FF06E-C2257E94.0032BC0A@il.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Razya Ladelsky <RAZYA-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>
+To: Eyal Moscovici <EYALMO-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <OFFB2CB583.341B00EF-ONC2257E94.002FF06E-C2257E94.0032BC0A-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>
+	(Eyal Moscovici's message of "Sat, 1 Aug 2015 12:14:10 +0300")
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-   Add parameter ff_dup wich disable advertise 10/100Mbs
- duplex full   for card wich start on low speed on full duplex.Verry strange with this patch
- First insert module with ff_dup=1 link is good , unload module, load module wo parameter ff_dup
- and is full duplex and full speed on RTL_GIGA_MAC_VER_09.  
+Eyal Moscovici <EYALMO-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org> writes:
+...
+>
+> We can start to implement polling, but I am unsure if the cgroups 
+> integration 
+> will be sufficient. The polling vhost thread should be scheduled all
+> the time and just moving it from one cgroup to the other wont be 
+> sufficient. 
+> I think it needs a deeper integration to the point where either we have a 
+> vhost thread for each cgroup or the vhost thread enforces the cgroup 
+> policies over its polled VM guests.
+
+Agreed, what we have with cgroups is not sufficient. I am waiting
+for Tejun et al to comment on our approach :) Michael mentioned whether
+it's possible to integrate cgroups into workgroups which I think is a more
+generic and the preferred solution. I just don't know yet how easy/difficult
+it is to implement this with the new cgroups unified hierarchy.
 
 
-Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+BTW, I am working on the numbers you had asked for. Honestly, I think the
+cost of cgroups could be similar to running a vhost thread/guest since
+that is how cgroups integration currently works. But it's good to have the
+numbers before us. 
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 3df51fa..c635d11 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -346,6 +346,7 @@ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
- 
- static int rx_buf_sz = 16383;
- static int use_dac;
-+static int ff_dup;
- static struct {
- 	u32 msg_enable;
- } debug = { -1 };
-@@ -850,6 +851,8 @@ module_param(use_dac, int, 0);
- MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
- module_param_named(debug, debug.msg_enable, int, 0);
- MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
-+module_param(ff_dup, int, 0);
-+MODULE_PARM_DESC(ff_dup, "Disable full duplex operations. ");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(RTL8169_VERSION);
- MODULE_FIRMWARE(FIRMWARE_8168D_1);
-@@ -1901,6 +1904,7 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 				  u8 autoneg, u16 speed, u8 duplex, u32 adv)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	int adv_10baseT_full, adv_100baseT_full;
- 	int giga_ctrl, bmcr;
- 	int rc = -EINVAL;
- 
-@@ -1913,13 +1917,27 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 		auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
- 				ADVERTISE_100HALF | ADVERTISE_100FULL);
- 
-+		if (!ff_dup) {
-+		  adv_10baseT_full = ADVERTISED_10baseT_Full;
-+		  adv_100baseT_full = ADVERTISED_100baseT_Full;
-+		} else {
-+		  adv_10baseT_full = 0;
-+		  adv_100baseT_full = 0;
-+                 }
-+
-+		bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
-+		rtl_writephy(tp, MII_BMCR, bmcr);
-+
-+
- 		if (adv & ADVERTISED_10baseT_Half)
- 			auto_nego |= ADVERTISE_10HALF;
--		if (adv & ADVERTISED_10baseT_Full)
--			auto_nego |= ADVERTISE_10FULL;
- 		if (adv & ADVERTISED_100baseT_Half)
- 			auto_nego |= ADVERTISE_100HALF;
--		if (adv & ADVERTISED_100baseT_Full)
-+
-+		if (adv & adv_10baseT_full)
-+			auto_nego |= ADVERTISE_10FULL;
-+
-+		if (adv & adv_100baseT_full)
- 			auto_nego |= ADVERTISE_100FULL;
- 
- 		auto_nego |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
-@@ -1940,7 +1958,7 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 			goto out;
- 		}
- 
--		bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
-+		//bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
- 
- 		rtl_writephy(tp, MII_ADVERTISE, auto_nego);
- 		rtl_writephy(tp, MII_CTRL1000, giga_ctrl);
--- 
-2.1.4
+>> 
+>> So simple polling by vhost is kind of ok for some guests, but I think to
+>> really make it work for a reasonably wide selection of guests/workloads
+>> you need to combine it with 1. polling the NIC - it makes no sense to me
+>> to only poll one side of the equation; and probably 2. - polling in
+>> guest.
+>> 
+>
+> I agree that we need polling on the NIC which could probably be achieved 
+> by using
+> the polling interface introduced in kernel 3.11: 
+> http://lwn.net/Articles/551284/
+> although I never tried using it myself.
+> About your point about polling inside the guest, I think it is orthogonal 
+> to polling
+> in the host.
+>
+>
+> Eyal Moscovici
+> HL-Cloud Infrastructure Solutions
+> IBM Haifa Research Lab
