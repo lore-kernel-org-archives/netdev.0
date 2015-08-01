@@ -1,50 +1,83 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in
- ovs_vport_receive()
-Date: Sat, 1 Aug 2015 21:17:41 +0200
-Message-ID: <20150801191741.GA13837@pox.localdomain>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
- <1438279963-29563-2-git-send-email-joestringer@nicira.com>
- <1438353294.20479.7.camel@redhat.com>
- <CANr6G5zsh2DUDBrZpQBpFO_GggvPa4ztdwDxRQuByzwU-S-FUg@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [RFC] [PATCH] net: socket: Fix the wrong returns for recvmsg
+ and sendmsg
+Date: Sat, 01 Aug 2015 20:36:22 +0100
+Message-ID: <1438457782.3225.35.camel@decadent.org.uk>
+References: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Justin Pettit <jpettit@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
-	Florian Westphal <fwestpha@redhat.com>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-tNZ0fBS4rdOwby5/TyNT"
+Cc: lizefan@huawei.com, viro@zeniv.linux.org.uk, davem@davemloft.net,
+	xuhanbing@huawei.com, stable@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Junling Zheng <zhengjunling@huawei.com>, gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:33036 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352AbbHATRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Aug 2015 15:17:45 -0400
-Received: by wicmv11 with SMTP id mv11so92218053wic.0
-        for <netdev@vger.kernel.org>; Sat, 01 Aug 2015 12:17:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CANr6G5zsh2DUDBrZpQBpFO_GggvPa4ztdwDxRQuByzwU-S-FUg@mail.gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35124 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751373AbbHATgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Aug 2015 15:36:38 -0400
+In-Reply-To: <1433150880-9976-1-git-send-email-zhengjunling@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/31/15 at 10:51am, Joe Stringer wrote:
-> On 31 July 2015 at 07:34, Hannes Frederic Sowa <hannes@redhat.com> wrote:
-> > In general, this shouldn't be necessary as the packet should already be
-> > scrubbed before they arrive here.
-> >
-> > Could you maybe add a WARN_ON and check how those skbs with conntrack
-> > data traverse the stack? I also didn't understand why make it dependent
-> > on the socket.
-> 
-> OK, sure. One case I could think of is with an OVS internal port in
-> another namespace, directly attached to the bridge. I'll have a play
-> around with WARN_ON and see if I can come up with something more
-> trimmed down.
 
-The OVS internal port will definitely pass through an unscrubbed
-packet across namespaces. I think the proper thing to do would be
-to scrub but conditionally keep metadata.
+--=-tNZ0fBS4rdOwby5/TyNT
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2015-06-01 at 09:28 +0000, Junling Zheng wrote:
+> Hi, Greg:
+>=20
+> We found that after v3.10.73, recvmsg might return -EFAULT while -EINVAL
+> was expected.
+>=20
+> We tested it through the recvmsg01 testcase come from LTP testsuit. It se=
+t
+> msg->msg_namelen to -1 and the recvmsg syscall returned errno 14, which i=
+s
+> unexpected (errno 22 is expected):
+>=20
+> recvmsg01    4  TFAIL  :  invalid socket length ; returned -1 (expected -=
+1),
+> errno 14 (expected 22)
+>=20
+> Linux mainline has no this bug for commit 08adb7dab fixes it accidentally=
+.
+> However, it is too large and complex to be backported to LTS 3.10.
+>=20
+> So, I made the following patch to fix the above problem for LTS 3.10.
+[...]
+
+It looks like the 3.2 branch has the same problem, so I've queued this
+patch up there as well.  Thanks a lot.
+
+Ben.
+
+--=20
+Ben Hutchings
+One of the nice things about standards is that there are so many of them.
+
+
+--=-tNZ0fBS4rdOwby5/TyNT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVb0ftue/yOyVhhEJAQrdHBAAuZpxA6HCIAkvm9zADRszP+Uz6E9AjWNi
+9665Gay9UEEeRdqzF65SG+TETGDrvp7lA00/wnwE5BrROrEDyRzbozvDAXJeotyu
+5MelxcEBhO191SSY66Px7U0sCSJKtuB+N53T8ORp3AtG/cWGwGGAf/7V6MUuFTYf
+FAhxtTSbhkmBO44AhN0WG7w3SPjgiF0RunT7UXlZH6SH7sqSCGUxbqZqH1LLLYpD
+dV5DUwMBeXWBwdCyUXPAQHA6h2bsnownNgw4J2ZdKl5L1mRgiQhHEe/4MAIK+aGt
+JOjK2SCLUlwp/PlWuavAs0E4neJJzqxt/493pTG8igD9mAB4FUB8sZRt4ipi7QCt
+rrnlCabcfkEdM7mwp3bqCJCnvMkg1PVXYMxFSBNy8jOM5Bb6zOKPW3sblq58PjIn
+UfpJKVogS1Vh3LeeSCEDeGMfYIqQXx634Mmbf91ZC1+jx0+t3RjdEeAZrS4L2Wf/
+yAHY0auXt8YnrpQ1ODOdADpqsTfsVNJkD6JGkebm990KJyDW9JykTqVNs5v7Cb2g
+HkLZBrz400eXz59MifBiCGcsk+ILGZqDDCWcDX3t54tkWafLxxCO0pF3wgM6+RfR
+vRq8yn4xA603RBPLS+jh5hGH76010waT30e7Znj69D9SLVmmeD9oCDJQ+XD9WGt0
+tZoboHC4B8w=
+=/4Z2
+-----END PGP SIGNATURE-----
+
+--=-tNZ0fBS4rdOwby5/TyNT--
