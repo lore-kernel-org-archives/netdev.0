@@ -1,98 +1,84 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] fq_codel: explicitly reset flows in ->reset()
-Date: Fri, 31 Jul 2015 17:53:39 -0700
-Message-ID: <1438390419-30414-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Alex Gartrell <agartrell@fb.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34877 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658AbbHAAxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2015 20:53:48 -0400
-Received: by pabkd10 with SMTP id kd10so48727970pab.2
-        for <netdev@vger.kernel.org>; Fri, 31 Jul 2015 17:53:48 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: switchdev: restrict vid range abstraction
+Date: Fri, 31 Jul 2015 21:02:14 -0400 (EDT)
+Message-ID: <1087251318.172776.1438390934326.JavaMail.zimbra@savoirfairelinux.com>
+References: <1437954348-11859-1-git-send-email-vivien.didelot@savoirfairelinux.com> <CAE4R7bA5jh3Rgn_U1Sit3qW+i2vKNE++c9TYTJ8sp5j8h=awbw@mail.gmail.com> <20150729.112842.1871916445536378243.davem@davemloft.net> <117624450.145106.1438197245281.JavaMail.zimbra@savoirfairelinux.com> <CAE4R7bBdNv_e37BZRHyjNp_-5f1sD1AF5ykKCMP_Cf+fV6nEJw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAE4R7bBdNv_e37BZRHyjNp_-5f1sD1AF5ykKCMP_Cf+fV6nEJw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+Hi Scott,
 
-Alex reported the following crash when using fq_codel
-with htb:
+On Jul 29, 2015, at 5:17 PM, Scott Feldman sfeldma@gmail.com wrote:
 
-  crash> bt
-  PID: 630839  TASK: ffff8823c990d280  CPU: 14  COMMAND: "tc"
-   [... snip ...]
-   #8 [ffff8820ceec17a0] page_fault at ffffffff8160a8c2
-      [exception RIP: htb_qlen_notify+24]
-      RIP: ffffffffa0841718  RSP: ffff8820ceec1858  RFLAGS: 00010282
-      RAX: 0000000000000000  RBX: 0000000000000000  RCX: ffff88241747b400
-      RDX: ffff88241747b408  RSI: 0000000000000000  RDI: ffff8811fb27d000
-      RBP: ffff8820ceec1868   R8: ffff88120cdeff24   R9: ffff88120cdeff30
-      R10: 0000000000000bd4  R11: ffffffffa0840919  R12: ffffffffa0843340
-      R13: 0000000000000000  R14: 0000000000000001  R15: ffff8808dae5c2e8
-      ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
-   #9 [...] qdisc_tree_decrease_qlen at ffffffff81565375
-  #10 [...] fq_codel_dequeue at ffffffffa084e0a0 [sch_fq_codel]
-  #11 [...] fq_codel_reset at ffffffffa084e2f8 [sch_fq_codel]
-  #12 [...] qdisc_destroy at ffffffff81560d2d
-  #13 [...] htb_destroy_class at ffffffffa08408f8 [sch_htb]
-  #14 [...] htb_put at ffffffffa084095c [sch_htb]
-  #15 [...] tc_ctl_tclass at ffffffff815645a3
-  #16 [...] rtnetlink_rcv_msg at ffffffff81552cb0
-  [... snip ...]
+> On Wed, Jul 29, 2015 at 12:14 PM, Vivien Didelot
+> <vivien.didelot@savoirfairelinux.com> wrote:
+>> Hi Scott, David,
+>>
+>> On Jul 29, 2015, at 2:28 PM, David davem@davemloft.net wrote:
+>>
+>>> From: Scott Feldman <sfeldma@gmail.com>
+>>> Date: Wed, 29 Jul 2015 00:31:44 -0700
+>>>
+>>>> Since the netlink request (for example vlan add) includes the range,
+>>>> I'm not seeing how we can response with success for the satisfied
+>>>> vlans in the range, and also respond with an error for the unsatisfied
+>>>> vlans in the range.   In other words, from the netlink msgs
+>>>> perspective, we need to treat a vlan range as all-or-nothing.  So in
+>>>> your example, if hw can't add vlan 2, we fail the entire request to
+>>>> add range 2-5.  This is where the prepare phase checks to make sure
+>>>> the entire request can be satisfied before committing to hw.
+>>
+>> I made this change in order to start restricting the bridge abstraction
+>> to switchdev, since IMHO its info flags do not add much value to the
+>> switch chip drivers perspective.
+>>
+>> While a range might be convenient to a user, exposing it to drivers is
+>> likely to end up writing the same vid_begin to vid_end for loop.
+>>
+>>> This was my concern with the change as well.
+>>>
+>>> The user asked for the range to be installed, so if any portion
+>>> of it cannot be done we must not make any changes to the HW
+>>> configuration and fail the entire request.
+>>
+>> I understand the concern with the netlink request.
+>>
+>> However, this can be confusing to someone. With the previous example:
+>>
+>>     bridge vlan add dev port0 vid 2-5 master
+>>
+>> must fail for the entire range (due to the single netlink request). But:
+>>
+>>     bridge vlan add dev port0 vid 2 master
+>>
+>> will silently fallback to software VLAN (assuming that the driver
+>> correctly returned -EOPNOTSUPP in the prepare phase). In other words, no
+>> changes has been committed to the hardware.
+> 
+> I see your concern now, I think.  net/bridge/br_netlink.c:br_afspec()
+> does the range loop but doesn't rewind if something goes wrong with
+> one of the vlans in the range.  The call into switchdev is
+> one-at-a-time at that point.  If br_afspec() handled the rewind, would
+> this address your concern?  We can keep the range support in the
+> switchdev vlan obj, so 'self' can use it.
 
-As Jamal pointed out, there is actually no need to call dequeue
-to purge the queued skb's in reset, data structures can be just
-reset explicitly. Therefore, we reset everything except config's
-and stats, so that we would have a fresh start after device flipping.
+I am not sure is the rewind is needed. My concern was trying to handle
+the fallback to software VLAN for a single VID within a range, so that
+we can free a switch chip driver for this bridge-specific notion. But
+because of the single netlink request, it seems not possible.
 
-Fixes: 4b549a2ef4be ("fq_codel: Fair Queue Codel AQM")
-Reported-by: Alex Gartrell <agartrell@fb.com>
-Cc: Alex Gartrell <agartrell@fb.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-[xiyou.wangcong@gmail.com: added codel_vars_init() and qdisc_qstats_backlog_dec()]
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/sch_fq_codel.c | 22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
+At which level does this fallback happen exactly?
 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 21ca33c..a9ba030 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -288,10 +288,26 @@ static struct sk_buff *fq_codel_dequeue(struct Qdisc *sch)
- 
- static void fq_codel_reset(struct Qdisc *sch)
- {
--	struct sk_buff *skb;
-+	struct fq_codel_sched_data *q = qdisc_priv(sch);
-+	int i;
- 
--	while ((skb = fq_codel_dequeue(sch)) != NULL)
--		kfree_skb(skb);
-+	INIT_LIST_HEAD(&q->new_flows);
-+	INIT_LIST_HEAD(&q->old_flows);
-+	for (i = 0; i < q->flows_cnt; i++) {
-+		struct fq_codel_flow *flow = q->flows + i;
-+
-+		while (flow->head) {
-+			struct sk_buff *skb = dequeue_head(flow);
-+
-+			qdisc_qstats_backlog_dec(sch, skb);
-+			kfree_skb(skb);
-+		}
-+
-+		INIT_LIST_HEAD(&flow->flowchain);
-+		codel_vars_init(&flow->cvars);
-+	}
-+	memset(q->backlogs, 0, q->flows_cnt * sizeof(u32));
-+	sch->q.qlen = 0;
- }
- 
- static const struct nla_policy fq_codel_policy[TCA_FQ_CODEL_MAX + 1] = {
--- 
-1.8.3.1
+Thanks,
+-v
