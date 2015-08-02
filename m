@@ -1,44 +1,34 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/2] rocker: linearize skb in case frags would not fit into tx descriptor
-Date: Sun,  2 Aug 2015 20:56:38 +0200
-Message-ID: <1438541798-1725-2-git-send-email-jiri@resnulli.us>
-References: <1438541798-1725-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com
-To: netdev@vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net] rocker: free netdevice during netdevice removal
+Date: Sun, 2 Aug 2015 13:20:49 -0700
+Message-ID: <CAE4R7bBDbE9cC0H2J5Q0DsyKd4eyb7y_O4Av8X8jjoMyDP5wgA@mail.gmail.com>
+References: <1438536556-13154-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:38148 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbbHBS4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 14:56:43 -0400
-Received: by wibxm9 with SMTP id xm9so88546377wib.1
-        for <netdev@vger.kernel.org>; Sun, 02 Aug 2015 11:56:42 -0700 (PDT)
-In-Reply-To: <1438541798-1725-1-git-send-email-jiri@resnulli.us>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:33159 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbbHBUVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 16:21:09 -0400
+Received: by obdeg2 with SMTP id eg2so85972790obd.0
+        for <netdev@vger.kernel.org>; Sun, 02 Aug 2015 13:21:09 -0700 (PDT)
+In-Reply-To: <1438536556-13154-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Suggested-by: Scott Feldman <sfeldma@gmail.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/ethernet/rocker/rocker.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+On Sun, Aug 2, 2015 at 10:29 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
+>
+> When removing a port's netdevice in 'rocker_remove_ports', we should
+> also free the allocated 'net_device' structure. Do that by calling
+> 'free_netdev' after unregistering it.
+>
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Fixes: 4b8ac9660af ("rocker: introduce rocker switch driver")
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 730bdc0..4cd5a71 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4157,8 +4157,11 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct net_device *dev)
- 					  skb->data, skb_headlen(skb));
- 	if (err)
- 		goto nest_cancel;
--	if (skb_shinfo(skb)->nr_frags > ROCKER_TX_FRAGS_MAX)
--		goto nest_cancel;
-+	if (skb_shinfo(skb)->nr_frags > ROCKER_TX_FRAGS_MAX) {
-+		err = skb_linearize(skb);
-+		if (err)
-+			goto unmap_frags;
-+	}
- 
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
--- 
-1.9.3
+Acked-by: Scott Feldman <sfeldma@gmail.com>
