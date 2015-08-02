@@ -1,44 +1,48 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] rocker: free netdevice during netdevice removal
-Date: Sun,  2 Aug 2015 19:29:16 +0200
-Message-ID: <1438536556-13154-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, sfeldma@gmail.com,
-	Ido Schimmel <idosch@mellanox.com>
-To: netdev@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH -4.2] rtlwifi: rtl8723be: Add module parameter for MSI interrupts
+Date: Sun,  2 Aug 2015 13:24:13 -0500
+Message-ID: <1438539853-29619-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:37150 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbbHBR3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 13:29:19 -0400
-Received: by wibud3 with SMTP id ud3so86879611wib.0
-        for <netdev@vger.kernel.org>; Sun, 02 Aug 2015 10:29:18 -0700 (PDT)
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:36639 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751680AbbHBSY2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 14:24:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+The driver code allows for the disabling of MSI interrupts; however the
+module_parm line was missed and the option fails to show with modinfo.
 
-When removing a port's netdevice in 'rocker_remove_ports', we should
-also free the allocated 'net_device' structure. Do that by calling
-'free_netdev' after unregistering it.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Fixes: 4b8ac9660af ("rocker: introduce rocker switch driver")
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org> [3.15+]
 ---
- drivers/net/ethernet/rocker/rocker.c | 1 +
+
+Kalle,
+
+This one-liner should be applied as soon as possible.
+
+Thanks,
+
+Larry
+---
+ drivers/net/wireless/rtlwifi/rtl8723be/sw.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 7b4c347..1d0f140 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4923,6 +4923,7 @@ static void rocker_remove_ports(const struct rocker *rocker)
- 		rocker_port_ig_tbl(rocker_port, SWITCHDEV_TRANS_NONE,
- 				   ROCKER_OP_FLAG_REMOVE);
- 		unregister_netdev(rocker_port->dev);
-+		free_netdev(rocker_port->dev);
- 	}
- 	kfree(rocker->ports);
- }
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
+index 1017f02..7bf88d9 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
+@@ -385,6 +385,7 @@ module_param_named(debug, rtl8723be_mod_params.debug, int, 0444);
+ module_param_named(ips, rtl8723be_mod_params.inactiveps, bool, 0444);
+ module_param_named(swlps, rtl8723be_mod_params.swctrl_lps, bool, 0444);
+ module_param_named(fwlps, rtl8723be_mod_params.fwctrl_lps, bool, 0444);
++module_param_named(msi, rtl8723be_mod_params.msi_support, bool, 0444);
+ module_param_named(disable_watchdog, rtl8723be_mod_params.disable_watchdog,
+ 		   bool, 0444);
+ MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
 -- 
-1.9.3
+2.1.4
