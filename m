@@ -1,19 +1,18 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH v2 11/11] net: rfkill: Allow compile test of GPIO consumers if !GPIOLIB
-Date: Sun,  2 Aug 2015 11:09:54 +0200
-Message-ID: <1438506594-31931-1-git-send-email-geert@linux-m68k.org>
+Subject: [PATCH v2 04/11] net: phy: Allow compile test of GPIO consumers if !GPIOLIB
+Date: Sun,  2 Aug 2015 11:09:50 +0200
+Message-ID: <1438506590-31630-1-git-send-email-geert@linux-m68k.org>
 References: <1438506475-31012-1-git-send-email-geert@linux-m68k.org>
 Cc: netdev@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
 	Alexandre Courbot <gnurou@gmail.com>,
 	linux-gpio@vger.kernel.org,
 	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from michel.telenet-ops.be ([195.130.137.88]:35162 "EHLO
-	michel.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbbHBJJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 05:09:55 -0400
+Received: from andre.telenet-ops.be ([195.130.132.53]:42111 "EHLO
+	andre.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752178AbbHBJJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 05:09:51 -0400
 In-Reply-To: <1438506475-31012-1-git-send-email-geert@linux-m68k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -31,22 +30,22 @@ Acked-by: Linus Walleij <linus.walleij@linaro.org>
 v2:
   - Add Acked-by.
 ---
- net/rfkill/Kconfig | 3 ++-
+ drivers/net/phy/Kconfig | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/rfkill/Kconfig b/net/rfkill/Kconfig
-index 4c10e7e6c9f6ae53..598d374f6a35f714 100644
---- a/net/rfkill/Kconfig
-+++ b/net/rfkill/Kconfig
-@@ -36,7 +36,8 @@ config RFKILL_REGULATOR
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 8ef81914422049ff..b98b4a2b8922a912 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -142,7 +142,8 @@ config MDIO_BITBANG
  
- config RFKILL_GPIO
- 	tristate "GPIO RFKILL driver"
--	depends on RFKILL && GPIOLIB
-+	depends on RFKILL
+ config MDIO_GPIO
+ 	tristate "Support for GPIO lib-based bitbanged MDIO buses"
+-	depends on MDIO_BITBANG && GPIOLIB
++	depends on MDIO_BITBANG
 +	depends on GPIOLIB || COMPILE_TEST
- 	default n
- 	help
- 	  If you say yes here you get support of a generic gpio RFKILL
+ 	---help---
+ 	  Supports GPIO lib-based MDIO busses.
+ 
 -- 
 1.9.1
