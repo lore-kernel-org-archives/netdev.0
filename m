@@ -1,51 +1,49 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH v2 04/11] net: phy: Allow compile test of GPIO consumers if !GPIOLIB
-Date: Sun,  2 Aug 2015 11:09:50 +0200
-Message-ID: <1438506590-31630-1-git-send-email-geert@linux-m68k.org>
-References: <1438506475-31012-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	linux-gpio@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next] bnx2x: Correct logic for pvid configuration.
+Date: Sun, 2 Aug 2015 12:42:41 +0300
+Message-ID: <1438508561-31209-1-git-send-email-Yuval.Mintz@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <dan.carpenter@oracel.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from andre.telenet-ops.be ([195.130.132.53]:42111 "EHLO
-	andre.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752178AbbHBJJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 05:09:51 -0400
-In-Reply-To: <1438506475-31012-1-git-send-email-geert@linux-m68k.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:3422 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751863AbbHBJm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 05:42:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The GPIO subsystem provides dummy GPIO consumer functions if GPIOLIB is
-not enabled. Hence drivers that depend on GPIOLIB, but use GPIO consumer
-functionality only, can still be compiled if GPIOLIB is not enabled.
+Commit 05cc5a39ddb7 ("bnx2x: add vlan filtering offload") has introduced
+an incorrect logic for checking whether pvid should be configured for
+a vf, causing the hypervisor driver to send unneeded ramrods for all of
+the vfs each time a pvid has changed.
 
-Relax the dependency on GPIOLIB if COMPILE_TEST is enabled, where
-appropriate.
-
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Linus Walleij <linus.walleij@linaro.org>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
-v2:
-  - Add Acked-by.
+Looks like this has been hidden by the fact that
+VLAN_VALID == (1 << MAC_ADDR_VALID).
+Since MAC is almost always set by the hypervisor it simply caused
+additional ramrods to be sent instead of preventing the feature.
 ---
- drivers/net/phy/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 8ef81914422049ff..b98b4a2b8922a912 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -142,7 +142,8 @@ config MDIO_BITBANG
- 
- config MDIO_GPIO
- 	tristate "Support for GPIO lib-based bitbanged MDIO buses"
--	depends on MDIO_BITBANG && GPIOLIB
-+	depends on MDIO_BITBANG
-+	depends on GPIOLIB || COMPILE_TEST
- 	---help---
- 	  Supports GPIO lib-based MDIO busses.
- 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index ec82831..9d02734 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -2528,7 +2528,7 @@ void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp)
+ 	DP(BNX2X_MSG_IOV, "configuring vlan for VFs from sp-task\n");
+ 	for_each_vf(bp, vfidx) {
+ 		bulletin = BP_VF_BULLETIN(bp, vfidx);
+-		if (bulletin->valid_bitmap & VLAN_VALID)
++		if (bulletin->valid_bitmap & (1 << VLAN_VALID))
+ 			bnx2x_set_vf_vlan(bp->dev, vfidx, bulletin->vlan, 0);
+ 	}
+ }
 -- 
-1.9.1
+1.9.3
