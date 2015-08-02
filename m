@@ -1,48 +1,42 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH -4.2] rtlwifi: rtl8723be: Add module parameter for MSI interrupts
-Date: Sun,  2 Aug 2015 13:24:13 -0500
-Message-ID: <1438539853-29619-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: kvalo@codeaurora.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/2] rocker: enable support for scattered packets
+Date: Sun,  2 Aug 2015 20:56:37 +0200
+Message-ID: <1438541798-1725-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfeldma@gmail.com, idosch@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:36639 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751680AbbHBSY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 14:24:28 -0400
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:33964 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbbHBS4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 14:56:41 -0400
+Received: by wibud3 with SMTP id ud3so111279948wib.1
+        for <netdev@vger.kernel.org>; Sun, 02 Aug 2015 11:56:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver code allows for the disabling of MSI interrupts; however the
-module_parm line was missed and the option fails to show with modinfo.
+From: Ido Schimmel <idosch@mellanox.com>
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org> [3.15+]
+rocker supports the transmission of scattered packets, so let the kernel
+know about it by setting the NETIF_F_SG bit in the device's features.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
+ drivers/net/ethernet/rocker/rocker.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Kalle,
-
-This one-liner should be applied as soon as possible.
-
-Thanks,
-
-Larry
----
- drivers/net/wireless/rtlwifi/rtl8723be/sw.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-index 1017f02..7bf88d9 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-@@ -385,6 +385,7 @@ module_param_named(debug, rtl8723be_mod_params.debug, int, 0444);
- module_param_named(ips, rtl8723be_mod_params.inactiveps, bool, 0444);
- module_param_named(swlps, rtl8723be_mod_params.swctrl_lps, bool, 0444);
- module_param_named(fwlps, rtl8723be_mod_params.fwctrl_lps, bool, 0444);
-+module_param_named(msi, rtl8723be_mod_params.msi_support, bool, 0444);
- module_param_named(disable_watchdog, rtl8723be_mod_params.disable_watchdog,
- 		   bool, 0444);
- MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 7b4c347..730bdc0 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4970,7 +4970,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 		       NAPI_POLL_WEIGHT);
+ 	rocker_carrier_init(rocker_port);
+ 
+-	dev->features |= NETIF_F_NETNS_LOCAL;
++	dev->features |= NETIF_F_NETNS_LOCAL | NETIF_F_SG;
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
 -- 
-2.1.4
+1.9.3
