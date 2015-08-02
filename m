@@ -1,139 +1,80 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 102181] New: kernel soft lockup when using
- tcp_keepalive_timer
-Date: Sat, 1 Aug 2015 17:15:40 -0700
-Message-ID: <20150801171540.2f6d8aa6@urahara>
+From: Jason Gunthorpe <jgunthorpe-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Re: [PATCH for-next V7 00/10] Move RoCE GID management to IB/Core
+Date: Sat, 1 Aug 2015 21:03:30 -0600
+Message-ID: <CABLbMxNu_uYPs0=uT+yX0CjJ+2obZ5qvAeXA2y4A77K2Dm+y3w@mail.gmail.com>
+References: <55BC1317.50700@redhat.com>
+	<be961828-39ff-4a15-863e-93cc86dfcf49@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33370 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753700AbbHBAPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Aug 2015 20:15:31 -0400
-Received: by padck2 with SMTP id ck2so62616358pad.0
-        for <netdev@vger.kernel.org>; Sat, 01 Aug 2015 17:15:31 -0700 (PDT)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by smtp.gmail.com with ESMTPSA id s7sm12754519pdn.85.2015.08.01.17.15.30
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sat, 01 Aug 2015 17:15:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Somnath Kotur <Somnath.Kotur-1wcpHE2jlwO1Z/+hSey0Gg@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <be961828-39ff-4a15-863e-93cc86dfcf49-2ueSQiBKiTY7tOexoI0I+QC/G2K4zDHf@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+> In many respects, I expect the ib_unregister_device() call to mirror the
+>  error unwind found in the register call with the modifications for
+>  dealing with a device that was actually live.
 
+Yes, it should look like that, I also noticed there were ordering
+problems in this area. and we probably have some long standing
+use-after-free bugs in here which are hopefully harmless..
 
-Begin forwarded message:
+However, the kfrees should still be in release.
 
-Date: Sat, 1 Aug 2015 09:43:46 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 102181] New: kernel soft lockup when using tcp_keepalive_timer
+> To a certain extent, your comments in the v6 thread about the cache
+> being expected to work beyond the life of the device and therefore part
+> of the core stack are somewhat reasonable, but the life of the cache on
+> a per device basis is no different than the life of the client
+> registration.
 
+Well, no, later patches in the series add calls into this code from
+the drivers, and I looked into those and it wasn't obviously clear
+that they were or could be made safe, or that future uses from drivers
+would also be safe.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=102181
+I looked at all of this, and thought about addressing the issue by
+suggesting reordering removal, but it just doesn't guarantee safety,
+requires too much auditing to prove and is a lot more work. Moving the
+kfree is 10 lines or so and is guaranteed correct.
 
-            Bug ID: 102181
-           Summary: kernel soft lockup when using tcp_keepalive_timer
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.0.93
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: 13806511171@163.com
-        Regression: No
+I disagree this is subtle or unexpected design pattern. The standard
+kernel pattern with kref is a create/remove/release triplet. When you
+have kref controlled structure every single member in that structure
+needs to be analyzed for lifetime and the unwind(s) needs to be placed
+in remove or release. For this cache code, that analysis tells me the
+kfree unwind needs to live in release and the workqueue/event stuff in
+remove. That is how I noticed to start with: a kfree of a member
+inside a kref'd structure outside of release looks out of place,
+especially if there is no locking protecting it...
 
-Kernel report soft lockup when call the timer function tcp_keepalive_timer.
-Only one cpu dead lock in bh_lock_sock(sk);
-And all the other CPUs are idle.
-The kernel version is 3.0.93.
-And the messages:
+The idiom is also to often use kref_put as part of the error unwind in
+create, and since v7 doesn't do this it introduces a double kfree bug
+as well..
 
-[73136.797013] BUG: soft lockup - CPU#3 stuck for 22s! [neutron-server:5728]
-[73136.804090] Modules linked in: ip6table_filter ip6table_raw ip6_tables
-iptable_raw iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi xt_tcpudp
-iptable_mangle iptable_nat nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 edd joydev
-st sr_mod ide_gd_mod(N) ide_cd_mod ide_core cdrom xfs 8021q garp stp llc
-sch_htb af_packet softdog signo_catch(N) ipmi_devintf ipmi_si ipmi_msghandler
-kbox(F) iptable_filter ip_tables x_tables openvswitch nf_conntrack crc32c
-libcrc32c gre mperf uio nbd bonding vhost_scsi target_core_mod configfs ext4(N)
-jbd2 crc16 loop vhost_net macvtap macvlan tun kvm_intel kvm ipv6 ipv6_lib ahci
-libahci libata i2c_i801 ixgbe(X) pcspkr hio(FN) i2c_core ses dca enclosure sg
-rtc_cmos acpi_power_meter button container ext3 jbd mbcache dm_mirror
-dm_region_hash dm_log linear sd_mod crc_t10dif ehci_hcd usbcore mpt3sas
-usb_common scsi_transport_sas raid_class processor thermal_sys hwmon
-scsi_dh_emc scsi_dh_alua scsi_dh_rdac scsi_dh_hp_sw scsi_dh scsi_mod
-dm_snapshot dm_mod [last unloaded: iTCO_vendor_support]
-[73136.899222] Supported: No, Unsupported modules are loaded
-[73136.904927] CPU 3 
-[73136.906762] Modules linked in: ip6table_filter ip6table_raw ip6_tables
-iptable_raw iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi xt_tcpudp
-iptable_mangle iptable_nat nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 edd joydev
-st sr_mod ide_gd_mod(N) ide_cd_mod ide_core cdrom xfs 8021q garp stp llc
-sch_htb af_packet softdog signo_catch(N) ipmi_devintf ipmi_si ipmi_msghandler
-kbox(F) iptable_filter ip_tables x_tables openvswitch nf_conntrack crc32c
-libcrc32c gre mperf uio nbd bonding vhost_scsi target_core_mod configfs ext4(N)
-jbd2 crc16 loop vhost_net macvtap macvlan tun kvm_intel kvm ipv6 ipv6_lib ahci
-libahci libata i2c_i801 ixgbe(X) pcspkr hio(FN) i2c_core ses dca enclosure sg
-rtc_cmos acpi_power_meter button container ext3 jbd mbcache dm_mirror
-dm_region_hash dm_log linear sd_mod crc_t10dif ehci_hcd usbcore mpt3sas
-usb_common scsi_transport_sas raid_class processor thermal_sys hwmon
-scsi_dh_emc scsi_dh_alua scsi_dh_rdac scsi_dh_hp_sw scsi_dh scsi_mod
-dm_snapshot dm_mod [last unloaded: iTCO_vendor_support]
-[73137.009680] Supported: No, Unsupported modules are loaded
-[73137.015376] 
-[73137.017177] Pid: 5728, comm: neutron-server Tainted: GF       W  NX
-3.0.93-0.8-default #1 To be filled by O.E.M. RH2288H V3/BC11HGSA0
-[73137.029814] RIP: 0010:[<ffffffff81460158>]  [<ffffffff81460158>]
-_raw_spin_lock+0x18/0x20
-[73137.038619] RSP: 0000:ffff88307fc63e28  EFLAGS: 00000297
-[73137.044212] RAX: 0000000000000001 RBX: ffff882f5d7e87d0 RCX:
-ffff882f5f288020
-[73137.051642] RDX: 0000000000000000 RSI: ffffffff813f40d0 RDI:
-ffff882d351e2850
-[73137.059020] RBP: ffff882d351e29b0 R08: dead000000200200 R09:
-ffff8828a33fa348
-[73137.066441] R10: 00000000000007c7 R11: ffffffff81025b00 R12:
-ffffffff81468a73
-[73137.073823] R13: ffff88307fc63d98 R14: ffff882d351e2800 R15:
-ffff882d351e2800
-[73137.081255] FS:  00002b3127ea2b20(0000) GS:ffff88307fc60000(0000)
-knlGS:0000000000000000
-[73137.089952] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[73137.095996] CR2: 00002b8ab967fb90 CR3: 00000028a3674000 CR4:
-00000000001407e0
-[73137.103372] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-0000000000000000
-[73137.110811] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-0000000000000400
-[73137.118241] Process neutron-server (pid: 5728, threadinfo ffff8828a368a000,
-task ffff8828a33fa300)
-[73137.127806] Stack:
-[73137.130133]  ffffffff813f40f1 ffff882d351e29b0 ffff882d351e29b0
-0000000000000100
-[73137.138221]  ffffffff8106f45b ffff882d351e29b0 ffff882f5f288000
-0000000000000008
-[73137.146199]  ffff88307fc63ea0 ffffffff813f40d0 ffffffff81070873
-ffff882f5f289c20
-[73137.154287] Call Trace:
-[73137.157049]  [<ffffffff813f40f1>] tcp_keepalive_timer+0x21/0x270
-[73137.163364]  [<ffffffff8106f45b>] call_timer_fn+0x6b/0x120
-[73137.169148]  [<ffffffff81070873>] run_timer_softirq+0x173/0x240
-[73137.175315]  [<ffffffff8106769f>] __do_softirq+0xef/0x220
-[73137.181014]  [<ffffffff814692dc>] call_softirq+0x1c/0x30
-[73137.186631]  [<ffffffff810044d5>] do_softirq+0x65/0xa0
-[73137.192078]  [<ffffffff81067495>] irq_exit+0xc5/0xe0
-[73137.197349]  [<ffffffff810268f8>] smp_apic_timer_interrupt+0x68/0xa0
-[73137.203956]  [<ffffffff81468a73>] apic_timer_interrupt+0x13/0x20
-[73137.210261]  [<00002b3126f9dee5>] 0x2b3126f9dee4
+At the end of the day this really shouldn't be the problem of the
+caller, as long as the ib_device pointer is valid then core API should
+be callable without causing a use-after-free.
 
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+> These branches are from my internal tree and really are WIP branches.
+> I've pushed those WIP branches to github.  As I stated when I set my two
+
+Sure testing sounds reasonable, maybe you need a different phrase for
+this situation than 'thanks applied'.
+
+Anyhow, it is a holiday here till Tuesday, hopefully Matan can fix
+this up for your testing before then.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
