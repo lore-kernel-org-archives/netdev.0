@@ -1,60 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] act_bpf: properly support late binding of bpf
- action to a classifier
-Date: Mon, 03 Aug 2015 16:06:19 -0700 (PDT)
-Message-ID: <20150803.160619.1456376856814017427.davem@davemloft.net>
-References: <8e2446e087041587d665a8ca2d105f164a8e0794.1438610179.git.daniel@iogearbox.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 1/1] e1000: remove dead e1000_init_eeprom_params calls.
+Date: Mon, 3 Aug 2015 16:07:48 -0700
+Message-ID: <CAL3LdT6UmZ6x0bm--qQ3YQ2RM5SQjmgaQoa4GeQdEbxbQD9iBg@mail.gmail.com>
+References: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
+	<20150724214036.GA29524@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, jiri@resnulli.us, jhs@mojatatu.com,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Joern Engel <joern@logfs.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45475 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbbHCXGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 19:06:20 -0400
-In-Reply-To: <8e2446e087041587d665a8ca2d105f164a8e0794.1438610179.git.daniel@iogearbox.net>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:33639 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbbHCXHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 19:07:49 -0400
+Received: by obdeg2 with SMTP id eg2so110501124obd.0
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 16:07:48 -0700 (PDT)
+In-Reply-To: <20150724214036.GA29524@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon,  3 Aug 2015 16:21:57 +0200
+On Fri, Jul 24, 2015 at 2:40 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> The device probe method e1000_probe calls e1000_init_eeprom_params
+> itself so there's no reason to call it again from e1000_do_write_eeprom
+> or e1000_do_read_eeprom.
+>
+> The sentence above assumes that e1000_init_eeprom_params is effective
+> but it's mostly dependant on "hw->mac_type": safe as e1000_probe bails
+> out early if it can't set mac_type (see e1000_init_hw_struct, then
+> e1000_set_mac_type).
+>
+> Btw, if effective, the removed paths would had been deadlock prone when
+> e1000_eeprom_spi was set:
+> -> e1000_write_eeprom (takes e1000_eeprom_lock)
+>    -> e1000_do_write_eeprom
+>       -> e1000_init_eeprom_params
+>          -> e1000_read_eeprom (takes e1000_eeprom_lock)
+>
+> (same narrative with e1000_read_eeprom -> e1000_do_read_eeprom etc.)
+>
+> As a final note, the candidate deadlock above can't happen in e1000_probe
+> due to the way eeprom->word_size is set / tested.
+>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>
+> Untested. I have found it while looking at Joern's patch.
+>
+>  drivers/net/ethernet/intel/e1000/e1000_hw.c | 8 --------
+>  1 file changed, 8 deletions(-)
 
-> Since the introduction of the BPF action in d23b8ad8ab23 ("tc: add BPF
-> based action"), late binding was not working as expected. I.e. setting
-> the action part for a classifier only via 'bpf index <num>', where <num>
-> is the index of an existing action, is being rejected by the kernel due
-> to other missing parameters.
-> 
-> It doesn't make sense to require these parameters such as BPF opcodes
-> etc, as they are not going to be used anyway: in this case, they're just
-> allocated/parsed and then freed again w/o doing anything meaningful.
-> 
-> Instead, parse and verify the remaining parameters *after* the test on
-> tcf_hash_check(), when we really know that we're dealing with creation
-> of a new action or replacement of an existing one and where late binding
-> is thus irrelevant.
-> 
-> After patch, test case is now working:
-> 
->   FOO="1,6 0 0 4294967295,"
->   tc actions add action bpf bytecode "$FOO"
->   tc filter add dev foo parent 1: bpf bytecode "$FOO" flowid 1:1 action bpf index 1
->   tc actions show action bpf
->     action order 0: bpf bytecode '1,6 0 0 4294967295' default-action pipe
->     index 1 ref 2 bind 1
->   tc filter show dev foo
->     filter protocol all pref 49152 bpf
->     filter protocol all pref 49152 bpf handle 0x1 flowid 1:1 bytecode '1,6 0 0 4294967295'
->     action order 1: bpf bytecode '1,6 0 0 4294967295' default-action pipe
->     index 1 ref 2 bind 1
-> 
-> Late binding of a BPF action can be useful for preloading maps (e.g. before
-> they hit traffic) in case of eBPF programs, or to share a single eBPF action
-> with multiple classifiers.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Can you please send this to intel-wired-lan@lists.osuosl.org mailing
+list?  That is the mailing list created/used for these patches.  It
+also helps me out by adding your patch to our patchworks project for
+patches against Intel wired drivers.
 
-Applied to net-next, thanks Daniel.
+Thanks in advance, sorry for the delayed response, was on vacation last week.
