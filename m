@@ -1,155 +1,156 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] act_bpf: properly support late binding of bpf action to a classifier
-Date: Mon,  3 Aug 2015 16:21:57 +0200
-Message-ID: <8e2446e087041587d665a8ca2d105f164a8e0794.1438610179.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, jiri@resnulli.us, jhs@mojatatu.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Subject: [PATCH] xen-netback: Allocate fraglist early to avoid complex rollback
+Date: Mon, 3 Aug 2015 15:38:03 +0100
+Message-ID: <1438612683-5783-1-git-send-email-ross.lagerwall@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <xen-devel@lists.xenproject.org>, Wei Liu <wei.liu2@citrix.com>,
+	"Ian Campbell" <ian.campbell@citrix.com>,
+	Ross Lagerwall <ross.lagerwall@citrix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45503 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570AbbHCOWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 10:22:00 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:46684 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbbHCOih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 10:38:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the introduction of the BPF action in d23b8ad8ab23 ("tc: add BPF
-based action"), late binding was not working as expected. I.e. setting
-the action part for a classifier only via 'bpf index <num>', where <num>
-is the index of an existing action, is being rejected by the kernel due
-to other missing parameters.
+Determine if a fraglist is needed in the tx path, and allocate it if
+necessary before setting up the copy and map operations.
+Otherwise, undoing the copy and map operations is tricky.
 
-It doesn't make sense to require these parameters such as BPF opcodes
-etc, as they are not going to be used anyway: in this case, they're just
-allocated/parsed and then freed again w/o doing anything meaningful.
+This fixes a use-after-free: if allocating the fraglist failed, the copy
+and map operations that had been set up were still executed, writing
+over the data area of a freed skb.
 
-Instead, parse and verify the remaining parameters *after* the test on
-tcf_hash_check(), when we really know that we're dealing with creation
-of a new action or replacement of an existing one and where late binding
-is thus irrelevant.
-
-After patch, test case is now working:
-
-  FOO="1,6 0 0 4294967295,"
-  tc actions add action bpf bytecode "$FOO"
-  tc filter add dev foo parent 1: bpf bytecode "$FOO" flowid 1:1 action bpf index 1
-  tc actions show action bpf
-    action order 0: bpf bytecode '1,6 0 0 4294967295' default-action pipe
-    index 1 ref 2 bind 1
-  tc filter show dev foo
-    filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 flowid 1:1 bytecode '1,6 0 0 4294967295'
-    action order 1: bpf bytecode '1,6 0 0 4294967295' default-action pipe
-    index 1 ref 2 bind 1
-
-Late binding of a BPF action can be useful for preloading maps (e.g. before
-they hit traffic) in case of eBPF programs, or to share a single eBPF action
-with multiple classifiers.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
 ---
- This one was still in my queue of fixes, net-next is totally fine here.
- Will push out minor iproute2 change afterwards.
+ drivers/net/xen-netback/netback.c | 61 +++++++++++++++++++++------------------
+ 1 file changed, 33 insertions(+), 28 deletions(-)
 
- net/sched/act_bpf.c | 51 +++++++++++++++++++++++++++------------------------
- 1 file changed, 27 insertions(+), 24 deletions(-)
-
-diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-index aaae8e8..1b97dab 100644
---- a/net/sched/act_bpf.c
-+++ b/net/sched/act_bpf.c
-@@ -278,7 +278,7 @@ static int tcf_bpf_init(struct net *net, struct nlattr *nla,
- 	struct tc_act_bpf *parm;
- 	struct tcf_bpf *prog;
- 	bool is_bpf, is_ebpf;
--	int ret;
-+	int ret, res = 0;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 7d50711..1b406e7 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -810,23 +810,17 @@ static inline struct sk_buff *xenvif_alloc_skb(unsigned int size)
+ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif_queue *queue,
+ 							struct sk_buff *skb,
+ 							struct xen_netif_tx_request *txp,
+-							struct gnttab_map_grant_ref *gop)
++							struct gnttab_map_grant_ref *gop,
++							unsigned int frag_overflow,
++							struct sk_buff *nskb)
+ {
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 	skb_frag_t *frags = shinfo->frags;
+ 	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
+ 	int start;
+ 	pending_ring_idx_t index;
+-	unsigned int nr_slots, frag_overflow = 0;
++	unsigned int nr_slots;
  
- 	if (!nla)
- 		return -EINVAL;
-@@ -287,41 +287,43 @@ static int tcf_bpf_init(struct net *net, struct nlattr *nla,
- 	if (ret < 0)
- 		return ret;
+-	/* At this point shinfo->nr_frags is in fact the number of
+-	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
+-	 */
+-	if (shinfo->nr_frags > MAX_SKB_FRAGS) {
+-		frag_overflow = shinfo->nr_frags - MAX_SKB_FRAGS;
+-		BUG_ON(frag_overflow > MAX_SKB_FRAGS);
+-		shinfo->nr_frags = MAX_SKB_FRAGS;
+-	}
+ 	nr_slots = shinfo->nr_frags;
  
--	is_bpf = tb[TCA_ACT_BPF_OPS_LEN] && tb[TCA_ACT_BPF_OPS];
--	is_ebpf = tb[TCA_ACT_BPF_FD];
--
--	if ((!is_bpf && !is_ebpf) || (is_bpf && is_ebpf) ||
--	    !tb[TCA_ACT_BPF_PARMS])
-+	if (!tb[TCA_ACT_BPF_PARMS])
- 		return -EINVAL;
- 
- 	parm = nla_data(tb[TCA_ACT_BPF_PARMS]);
- 
--	memset(&cfg, 0, sizeof(cfg));
--
--	ret = is_bpf ? tcf_bpf_init_from_ops(tb, &cfg) :
--		       tcf_bpf_init_from_efd(tb, &cfg);
--	if (ret < 0)
--		return ret;
--
- 	if (!tcf_hash_check(parm->index, act, bind)) {
- 		ret = tcf_hash_create(parm->index, est, act,
- 				      sizeof(*prog), bind, false);
- 		if (ret < 0)
--			goto destroy_fp;
-+			return ret;
- 
--		ret = ACT_P_CREATED;
-+		res = ACT_P_CREATED;
- 	} else {
- 		/* Don't override defaults. */
- 		if (bind)
--			goto destroy_fp;
-+			return 0;
- 
- 		tcf_hash_release(act, bind);
--		if (!replace) {
--			ret = -EEXIST;
--			goto destroy_fp;
--		}
-+		if (!replace)
-+			return -EEXIST;
+ 	/* Skip first skb fragment if it is on same page as header fragment. */
+@@ -841,13 +835,6 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif_queue *que
  	}
  
-+	is_bpf = tb[TCA_ACT_BPF_OPS_LEN] && tb[TCA_ACT_BPF_OPS];
-+	is_ebpf = tb[TCA_ACT_BPF_FD];
+ 	if (frag_overflow) {
+-		struct sk_buff *nskb = xenvif_alloc_skb(0);
+-		if (unlikely(nskb == NULL)) {
+-			if (net_ratelimit())
+-				netdev_err(queue->vif->dev,
+-					   "Can't allocate the frag_list skb.\n");
+-			return NULL;
+-		}
+ 
+ 		shinfo = skb_shinfo(nskb);
+ 		frags = shinfo->frags;
+@@ -1175,9 +1162,10 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 				     unsigned *copy_ops,
+ 				     unsigned *map_ops)
+ {
+-	struct gnttab_map_grant_ref *gop = queue->tx_map_ops, *request_gop;
+-	struct sk_buff *skb;
++	struct gnttab_map_grant_ref *gop = queue->tx_map_ops;
++	struct sk_buff *skb, *nskb;
+ 	int ret;
++	unsigned int frag_overflow;
+ 
+ 	while (skb_queue_len(&queue->tx_queue) < budget) {
+ 		struct xen_netif_tx_request txreq;
+@@ -1265,6 +1253,29 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 			break;
+ 		}
+ 
++		skb_shinfo(skb)->nr_frags = ret;
++		if (data_len < txreq.size)
++			skb_shinfo(skb)->nr_frags++;
++		/* At this point shinfo->nr_frags is in fact the number of
++		 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
++		 */
++		frag_overflow = 0;
++		nskb = NULL;
++		if (skb_shinfo(skb)->nr_frags > MAX_SKB_FRAGS) {
++			frag_overflow = skb_shinfo(skb)->nr_frags - MAX_SKB_FRAGS;
++			BUG_ON(frag_overflow > MAX_SKB_FRAGS);
++			skb_shinfo(skb)->nr_frags = MAX_SKB_FRAGS;
++			nskb = xenvif_alloc_skb(0);
++			if (unlikely(nskb == NULL)) {
++				kfree_skb(skb);
++				xenvif_tx_err(queue, &txreq, idx);
++				if (net_ratelimit())
++					netdev_err(queue->vif->dev,
++						   "Can't allocate the frag_list skb.\n");
++				break;
++			}
++		}
 +
-+	if ((!is_bpf && !is_ebpf) || (is_bpf && is_ebpf)) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	memset(&cfg, 0, sizeof(cfg));
-+
-+	ret = is_bpf ? tcf_bpf_init_from_ops(tb, &cfg) :
-+		       tcf_bpf_init_from_efd(tb, &cfg);
-+	if (ret < 0)
-+		goto out;
-+
- 	prog = to_bpf(act);
- 	spin_lock_bh(&prog->tcf_lock);
+ 		if (extras[XEN_NETIF_EXTRA_TYPE_GSO - 1].type) {
+ 			struct xen_netif_extra_info *gso;
+ 			gso = &extras[XEN_NETIF_EXTRA_TYPE_GSO - 1];
+@@ -1272,6 +1283,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+ 			if (xenvif_set_skb_gso(queue->vif, skb, gso)) {
+ 				/* Failure in xenvif_set_skb_gso is fatal. */
+ 				kfree_skb(skb);
++				kfree_skb(nskb);
+ 				break;
+ 			}
+ 		}
+@@ -1294,9 +1306,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
  
-@@ -341,15 +343,16 @@ static int tcf_bpf_init(struct net *net, struct nlattr *nla,
+ 		(*copy_ops)++;
  
- 	spin_unlock_bh(&prog->tcf_lock);
+-		skb_shinfo(skb)->nr_frags = ret;
+ 		if (data_len < txreq.size) {
+-			skb_shinfo(skb)->nr_frags++;
+ 			frag_set_pending_idx(&skb_shinfo(skb)->frags[0],
+ 					     pending_idx);
+ 			xenvif_tx_create_map_op(queue, pending_idx, &txreq, gop);
+@@ -1310,13 +1320,8 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
  
--	if (ret == ACT_P_CREATED)
-+	if (res == ACT_P_CREATED)
- 		tcf_hash_insert(act);
- 	else
- 		tcf_bpf_cfg_cleanup(&old);
+ 		queue->pending_cons++;
  
--	return ret;
-+	return res;
-+out:
-+	if (res == ACT_P_CREATED)
-+		tcf_hash_cleanup(act, est);
+-		request_gop = xenvif_get_requests(queue, skb, txfrags, gop);
+-		if (request_gop == NULL) {
+-			kfree_skb(skb);
+-			xenvif_tx_err(queue, &txreq, idx);
+-			break;
+-		}
+-		gop = request_gop;
++		gop = xenvif_get_requests(queue, skb, txfrags, gop,
++				          frag_overflow, nskb);
  
--destroy_fp:
--	tcf_bpf_cfg_cleanup(&cfg);
- 	return ret;
- }
+ 		__skb_queue_tail(&queue->tx_queue, skb);
  
 -- 
-1.9.3
+2.1.0
