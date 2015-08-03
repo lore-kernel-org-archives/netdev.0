@@ -1,52 +1,32 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [patch -master] netfilter: xt_CT: checking for IS_ERR() instead
- of NULL
-Date: Mon, 3 Aug 2015 11:30:16 -0700
-Message-ID: <CANr6G5z7B1T0VCMQ1cVCpiDwJvOTNMfh0L3j6pDNVNHhmShAng@mail.gmail.com>
-References: <20150727224228.GA10367@mwanda> <20150730115743.GA7077@salvia> <CANr6G5y1bO18L3bFuGs+=Dfszm0+voQtmz-u51nhGY0u5ebb-A@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next 1/2] rocker: enable support for scattered packets
+Date: Mon, 3 Aug 2015 11:30:38 -0700
+Message-ID: <CAE4R7bAXXs1zg4P3TGY+J8truLBoKr1DEW-fJMePke6k1JoXZg@mail.gmail.com>
+References: <1438541798-1725-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CANr6G5y1bO18L3bFuGs+=Dfszm0+voQtmz-u51nhGY0u5ebb-A@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Ido Schimmel <idosch@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:35047 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754571AbbHCSa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 14:30:58 -0400
+Received: by obbop1 with SMTP id op1so105776926obb.2
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 11:30:57 -0700 (PDT)
+In-Reply-To: <1438541798-1725-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3 August 2015 at 11:29, Joe Stringer <joestringer@nicira.com> wrote:
-> On 30 July 2015 at 04:57, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> On Tue, Jul 28, 2015 at 01:42:28AM +0300, Dan Carpenter wrote:
->>> We recently changed this from nf_conntrack_alloc() to nf_ct_tmpl_alloc()
->>> so the error handling needs to changed to check for NULL instead of
->>> IS_ERR().
->>>
->>> Fixes: 0838aa7fcfcd ('netfilter: fix netns dependencies with conntrack templates')
->>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->>
->> Applied, thanks.
->>
->> I have also appended this chunk, since synproxy is also affected:
->>
->> --- a/net/netfilter/nf_synproxy_core.c
->> +++ b/net/netfilter/nf_synproxy_core.c
->> @@ -353,7 +353,7 @@ static int __net_init synproxy_net_init(struct net *net)
->>         int err = -ENOMEM;
->>
->>         ct = nf_ct_tmpl_alloc(net, 0, GFP_KERNEL);
->> -       if (IS_ERR(ct)) {
->> +       if (!ct) {
->>                 err = PTR_ERR(ct);
->>                 goto err1;
->>         }
+On Sun, Aug 2, 2015 at 11:56 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
 >
-> Does PTR_ERR() implicitly interpret NULL as -ENOMEM? Seems like the
-> fix applied here is a little different from the xt_CT fix.
+> rocker supports the transmission of scattered packets, so let the kernel
+> know about it by setting the NETIF_F_SG bit in the device's features.
+>
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Just saw the initialization of err now, but this would be overridden
-within the error checking statement.
+Acked-by: Scott Feldman <sfeldma@gmail.com>
