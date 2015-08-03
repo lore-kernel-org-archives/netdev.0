@@ -1,7 +1,7 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH 3/6] test_bpf: test LD_ABS and LD_IND instructions on fragmented skbs.
-Date: Mon,  3 Aug 2015 16:02:05 +0200
-Message-ID: <1438610528-14245-4-git-send-email-nschichan@freebox.fr>
+Subject: [PATCH 1/6] test_bpf: avoid oopsing the kernel when generate_test_data() fails.
+Date: Mon,  3 Aug 2015 16:02:03 +0200
+Message-ID: <1438610528-14245-2-git-send-email-nschichan@freebox.fr>
 References: <1438610528-14245-1-git-send-email-nschichan@freebox.fr>
 Cc: Nicolas Schichan <nschichan@freebox.fr>
 To: Daniel Borkmann <daniel@iogearbox.net>,
@@ -13,167 +13,27 @@ In-Reply-To: <1438610528-14245-1-git-send-email-nschichan@freebox.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These new tests exercise various load sizes and offsets crossing the
-head/fragment boundary.
-
 Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- lib/test_bpf.c | 142 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 142 insertions(+)
+ lib/test_bpf.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index acef1e9..f5606fb 100644
+index 3afddf2..6843d0b 100644
 --- a/lib/test_bpf.c
 +++ b/lib/test_bpf.c
-@@ -4493,6 +4493,148 @@ static struct bpf_test tests[] = {
- 		{ { 1, 0xbef } },
- 		.fill_helper = bpf_fill_ld_abs_vlan_push_pop,
- 	},
-+	/*
-+	 * LD_IND / LD_ABS on fragmented SKBs
-+	 */
-+	{
-+		"LD_IND byte frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_B, 0x0),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ },
-+		{ {0x40, 0x42} },
-+		.frag_data = {
-+			0x42, 0x00, 0x00, 0x00,
-+			0x43, 0x44, 0x00, 0x00,
-+			0x21, 0x07, 0x19, 0x83,
-+		},
-+	},
-+	{
-+		"LD_IND halfword frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_H, 0x4),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ },
-+		{ {0x40, 0x4344} },
-+		.frag_data = {
-+			0x42, 0x00, 0x00, 0x00,
-+			0x43, 0x44, 0x00, 0x00,
-+			0x21, 0x07, 0x19, 0x83,
-+		},
-+	},
-+	{
-+		"LD_IND word frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, 0x8),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ },
-+		{ {0x40, 0x21071983} },
-+		.frag_data = {
-+			0x42, 0x00, 0x00, 0x00,
-+			0x43, 0x44, 0x00, 0x00,
-+			0x21, 0x07, 0x19, 0x83,
-+		},
-+	},
-+	{
-+		"LD_IND halfword mixed head/frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_H, -0x1),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ [0x3e] = 0x25, [0x3f] = 0x05, },
-+		{ {0x40, 0x0519} },
-+		.frag_data = { 0x19, 0x82 },
-+	},
-+	{
-+		"LD_IND word mixed head/frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x2),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ [0x3e] = 0x25, [0x3f] = 0x05, },
-+		{ {0x40, 0x25051982} },
-+		.frag_data = { 0x19, 0x82 },
-+	},
-+	{
-+		"LD_ABS byte frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_B, 0x40),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ },
-+		{ {0x40, 0x42} },
-+		.frag_data = {
-+			0x42, 0x00, 0x00, 0x00,
-+			0x43, 0x44, 0x00, 0x00,
-+			0x21, 0x07, 0x19, 0x83,
-+		},
-+	},
-+	{
-+		"LD_ABS halfword frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x44),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ },
-+		{ {0x40, 0x4344} },
-+		.frag_data = {
-+			0x42, 0x00, 0x00, 0x00,
-+			0x43, 0x44, 0x00, 0x00,
-+			0x21, 0x07, 0x19, 0x83,
-+		},
-+	},
-+	{
-+		"LD_ABS word frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x48),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ },
-+		{ {0x40, 0x21071983} },
-+		.frag_data = {
-+			0x42, 0x00, 0x00, 0x00,
-+			0x43, 0x44, 0x00, 0x00,
-+			0x21, 0x07, 0x19, 0x83,
-+		},
-+	},
-+	{
-+		"LD_ABS halfword mixed head/frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x3f),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ [0x3e] = 0x25, [0x3f] = 0x05, },
-+		{ {0x40, 0x0519} },
-+		.frag_data = { 0x19, 0x82 },
-+	},
-+	{
-+		"LD_ABS word mixed head/frag",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x3e),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC | FLAG_SKB_FRAG,
-+		{ [0x3e] = 0x25, [0x3f] = 0x05, },
-+		{ {0x40, 0x25051982} },
-+		.frag_data = { 0x19, 0x82 },
-+	},
- };
+@@ -4672,6 +4672,11 @@ static int run_one(const struct bpf_prog *fp, struct bpf_test *test)
+ 			break;
  
- static struct net_device dev;
+ 		data = generate_test_data(test, i);
++		if (!data && !(test->aux & FLAG_NO_DATA)) {
++			pr_cont("data generation failed ");
++			err_cnt++;
++			break;
++		}
+ 		ret = __run_one(fp, data, runs, &duration);
+ 		release_test_data(test, data);
+ 
 -- 
 1.9.1
