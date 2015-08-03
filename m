@@ -1,254 +1,52 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 1/4] gro: Fix remcsum offload to deal with frags in GRO
-Date: Mon, 3 Aug 2015 10:11:15 -0700
-Message-ID: <1438621878-1113072-2-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 net-next 4/4] fou: Do WARN_ON_ONCE in gue_gro_receive for bad proto callbacks
+Date: Mon, 3 Aug 2015 10:11:18 -0700
+Message-ID: <1438621878-1113072-5-git-send-email-tom@herbertland.com>
 References: <1438621878-1113072-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:31427 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:9427 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753866AbbHCRLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 13:11:54 -0400
-Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t73HAFC2027489
-	for <netdev@vger.kernel.org>; Mon, 3 Aug 2015 10:11:54 -0700
+	by vger.kernel.org with ESMTP id S1753370AbbHCRNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 13:13:06 -0400
+Received: from pps.filterd (m0004347 [127.0.0.1])
+	by m0004347.ppops.net (8.14.5/8.14.5) with SMTP id t73HCdnp014977
+	for <netdev@vger.kernel.org>; Mon, 3 Aug 2015 10:13:05 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1w2bsr03q9-1
+	by m0004347.ppops.net with ESMTP id 1w2a678bmc-19
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 10:11:54 -0700
+	for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 10:13:05 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.223.100.97) with ESMTP	id
- bb477bc23a0211e5b8d524be0593f280-bd7fa2b0 for <netdev@vger.kernel.org>;	Mon,
- 03 Aug 2015 10:11:51 -0700
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ c0a8fa5a3a0211e5a16d0002c9521c9e-1ffb2b0 for <netdev@vger.kernel.org>;	Mon,
+ 03 Aug 2015 10:12:00 -0700
 In-Reply-To: <1438621878-1113072-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The remote checksum offload GRO did not consider the case that frag0
-might be in use. This patch fixes that by accessing headers using the
-skb_gro functions and not saving offsets relative to skb->head.
+Do WARN_ON_ONCE instead of WARN_ON in gue_gro_receive when the offload
+callcaks are bad (either don't exist or gro_receive is not specified).
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/vxlan.c       | 23 +++++++++--------------
- include/linux/netdevice.h | 44 ++++++++++++++++++++++++++++++++------------
- net/ipv4/fou.c            | 28 ++++++++++++----------------
- 3 files changed, 53 insertions(+), 42 deletions(-)
+ net/ipv4/fou.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index e90f7a4..60b5b42 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -519,10 +519,10 @@ static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
- 					  u32 data, struct gro_remcsum *grc,
- 					  bool nopartial)
- {
--	size_t start, offset, plen;
-+	size_t start, offset;
- 
- 	if (skb->remcsum_offload)
--		return NULL;
-+		return vh;
- 
- 	if (!NAPI_GRO_CB(skb)->csum_valid)
- 		return NULL;
-@@ -532,17 +532,8 @@ static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
- 			  offsetof(struct udphdr, check) :
- 			  offsetof(struct tcphdr, check));
- 
--	plen = hdrlen + offset + sizeof(u16);
--
--	/* Pull checksum that will be written */
--	if (skb_gro_header_hard(skb, off + plen)) {
--		vh = skb_gro_header_slow(skb, off + plen, off);
--		if (!vh)
--			return NULL;
--	}
--
--	skb_gro_remcsum_process(skb, (void *)vh + hdrlen,
--				start, offset, grc, nopartial);
-+	vh = skb_gro_remcsum_process(skb, (void *)vh, off, hdrlen,
-+				     start, offset, grc, nopartial);
- 
- 	skb->remcsum_offload = 1;
- 
-@@ -573,7 +564,6 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
- 			goto out;
- 	}
- 
--	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
- 	skb_gro_postpull_rcsum(skb, vh, sizeof(struct vxlanhdr));
- 
- 	flags = ntohl(vh->vx_flags);
-@@ -588,6 +578,8 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
- 			goto out;
- 	}
- 
-+	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
-+
- 	flush = 0;
- 
- 	for (p = *head; p; p = p->next) {
-@@ -1110,6 +1102,9 @@ static struct vxlanhdr *vxlan_remcsum(struct sk_buff *skb, struct vxlanhdr *vh,
- {
- 	size_t start, offset, plen;
- 
-+	if (skb->remcsum_offload)
-+		return vh;
-+
- 	start = (data & VXLAN_RCO_MASK) << VXLAN_RCO_SHIFT;
- 	offset = start + ((data & VXLAN_RCO_UDP) ?
- 			  offsetof(struct udphdr, check) :
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 607b5f4..568d7ae 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2303,8 +2303,7 @@ __sum16 __skb_gro_checksum_complete(struct sk_buff *skb);
- 
- static inline bool skb_at_gro_remcsum_start(struct sk_buff *skb)
- {
--	return (NAPI_GRO_CB(skb)->gro_remcsum_start - skb_headroom(skb) ==
--		skb_gro_offset(skb));
-+	return (NAPI_GRO_CB(skb)->gro_remcsum_start == skb_gro_offset(skb));
- }
- 
- static inline bool __skb_gro_checksum_validate_needed(struct sk_buff *skb,
-@@ -2400,37 +2399,58 @@ static inline void skb_gro_remcsum_init(struct gro_remcsum *grc)
- 	grc->delta = 0;
- }
- 
--static inline void skb_gro_remcsum_process(struct sk_buff *skb, void *ptr,
--					   int start, int offset,
--					   struct gro_remcsum *grc,
--					   bool nopartial)
-+static inline void *skb_gro_remcsum_process(struct sk_buff *skb, void *ptr,
-+					    unsigned int off, size_t hdrlen,
-+					    int start, int offset,
-+					    struct gro_remcsum *grc,
-+					    bool nopartial)
- {
- 	__wsum delta;
-+	size_t plen = hdrlen + max_t(size_t, offset + sizeof(u16), start);
- 
- 	BUG_ON(!NAPI_GRO_CB(skb)->csum_valid);
- 
- 	if (!nopartial) {
--		NAPI_GRO_CB(skb)->gro_remcsum_start =
--		    ((unsigned char *)ptr + start) - skb->head;
--		return;
-+		NAPI_GRO_CB(skb)->gro_remcsum_start = off + hdrlen + start;
-+		return ptr;
-+	}
-+
-+	ptr = skb_gro_header_fast(skb, off);
-+	if (skb_gro_header_hard(skb, off + plen)) {
-+		ptr = skb_gro_header_slow(skb, off + plen, off);
-+		if (!ptr)
-+			return NULL;
- 	}
- 
--	delta = remcsum_adjust(ptr, NAPI_GRO_CB(skb)->csum, start, offset);
-+	delta = remcsum_adjust(ptr + hdrlen, NAPI_GRO_CB(skb)->csum,
-+			       start, offset);
- 
- 	/* Adjust skb->csum since we changed the packet */
- 	NAPI_GRO_CB(skb)->csum = csum_add(NAPI_GRO_CB(skb)->csum, delta);
- 
--	grc->offset = (ptr + offset) - (void *)skb->head;
-+	grc->offset = off + hdrlen + offset;
- 	grc->delta = delta;
-+
-+	return ptr;
- }
- 
- static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
- 					   struct gro_remcsum *grc)
- {
-+	void *ptr;
-+	size_t plen = grc->offset + sizeof(u16);
-+
- 	if (!grc->delta)
- 		return;
- 
--	remcsum_unadjust((__sum16 *)(skb->head + grc->offset), grc->delta);
-+	ptr = skb_gro_header_fast(skb, grc->offset);
-+	if (skb_gro_header_hard(skb, grc->offset + sizeof(u16))) {
-+		ptr = skb_gro_header_slow(skb, plen, grc->offset);
-+		if (!ptr)
-+			return;
-+	}
-+
-+	remcsum_unadjust((__sum16 *)ptr, grc->delta);
- }
- 
- static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
 diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 34968cd..eb11f95 100644
+index eb11f95..2d1646c 100644
 --- a/net/ipv4/fou.c
 +++ b/net/ipv4/fou.c
-@@ -79,7 +79,11 @@ static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
- 	__be16 *pd = data;
- 	size_t start = ntohs(pd[0]);
- 	size_t offset = ntohs(pd[1]);
--	size_t plen = hdrlen + max_t(size_t, offset + sizeof(u16), start);
-+	size_t plen = sizeof(struct udphdr) + hdrlen +
-+	    max_t(size_t, offset + sizeof(u16), start);
-+
-+	if (skb->remcsum_offload)
-+		return guehdr;
+@@ -347,7 +347,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
+ 	rcu_read_lock();
+ 	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
+ 	ops = rcu_dereference(offloads[guehdr->proto_ctype]);
+-	if (WARN_ON(!ops || !ops->callbacks.gro_receive))
++	if (WARN_ON_ONCE(!ops || !ops->callbacks.gro_receive))
+ 		goto out_unlock;
  
- 	if (!pskb_may_pull(skb, plen))
- 		return NULL;
-@@ -221,29 +225,21 @@ out_unlock:
- 
- static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
- 				      struct guehdr *guehdr, void *data,
--				      size_t hdrlen, u8 ipproto,
--				      struct gro_remcsum *grc, bool nopartial)
-+				      size_t hdrlen, struct gro_remcsum *grc,
-+				      bool nopartial)
- {
- 	__be16 *pd = data;
- 	size_t start = ntohs(pd[0]);
- 	size_t offset = ntohs(pd[1]);
--	size_t plen = hdrlen + max_t(size_t, offset + sizeof(u16), start);
- 
- 	if (skb->remcsum_offload)
--		return NULL;
-+		return guehdr;
- 
- 	if (!NAPI_GRO_CB(skb)->csum_valid)
- 		return NULL;
- 
--	/* Pull checksum that will be written */
--	if (skb_gro_header_hard(skb, off + plen)) {
--		guehdr = skb_gro_header_slow(skb, off + plen, off);
--		if (!guehdr)
--			return NULL;
--	}
--
--	skb_gro_remcsum_process(skb, (void *)guehdr + hdrlen,
--				start, offset, grc, nopartial);
-+	guehdr = skb_gro_remcsum_process(skb, (void *)guehdr, off, hdrlen,
-+					 start, offset, grc, nopartial);
- 
- 	skb->remcsum_offload = 1;
- 
-@@ -307,10 +303,10 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 
- 		if (flags & GUE_PFLAG_REMCSUM) {
- 			guehdr = gue_gro_remcsum(skb, off, guehdr,
--						 data + doffset, hdrlen,
--						 guehdr->proto_ctype, &grc,
-+						 data + doffset, hdrlen, &grc,
- 						 !!(fou->flags &
- 						    FOU_F_REMCSUM_NOPARTIAL));
-+
- 			if (!guehdr)
- 				goto out;
- 
+ 	pp = ops->callbacks.gro_receive(head, skb);
 -- 
 1.8.5.6
