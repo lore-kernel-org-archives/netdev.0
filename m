@@ -1,33 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] act_mirred: avoid calling tcf_hash_release() when
- binding
-Date: Mon, 03 Aug 2015 14:13:40 -0700 (PDT)
-Message-ID: <20150803.141340.660093362814455413.davem@davemloft.net>
-References: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next] vxlan: expose COLLECT_METADATA flag to user space
+Date: Mon, 3 Aug 2015 14:14:18 -0700
+Message-ID: <CAEP_g=-7-PkYGdcigXC68nh+nCKHkr=9soYjcQsCx5rOkTQ90Q@mail.gmail.com>
+References: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
+ <20150731080019.GB4738@pox.localdomain> <55BB9734.1010005@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, daniel@iogearbox.net,
-	cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44885 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932358AbbHCVNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 17:13:41 -0400
-In-Reply-To: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:33517 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932358AbbHCVOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 17:14:39 -0400
+Received: by lbbyj8 with SMTP id yj8so84550606lbb.0
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 14:14:37 -0700 (PDT)
+In-Reply-To: <55BB9734.1010005@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 30 Jul 2015 17:12:20 -0700
+On Fri, Jul 31, 2015 at 8:41 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> thanks. I think exposing collect_metadata for vxlan and in the future
+> for other tunnel types is the clean enough way, though the other
+> alternative would be to get rid of collect_metadata flag
+> from the kernel and do it when flowmode flag is set. Thoughts?
 
-> When we share an action within a filter, the bind refcnt
-> should increase, therefore we should not call tcf_hash_release().
-> 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-
-Applied, thanks.
+This seems like a good idea to me - I'm not sure that flow based
+tunnels are all that useful without metadata collection enabled and
+the fewer interfaces that we have to create for each tunnel type, the
+better.
