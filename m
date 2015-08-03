@@ -1,50 +1,46 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: [PATCH] net: fec: fix initial runtime PM refcount
-Date: Mon,  3 Aug 2015 17:50:11 +0200
-Message-ID: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>, netdev@vger.kernel.org,
-	kernel@pengutronix.de, patchwork-lst@pengutronix.de
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:42727 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753998AbbHCPuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 11:50:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH 08/15] drivers: net: Drop unlikely before IS_ERR(_OR_NULL)
+Date: Mon, 3 Aug 2015 11:52:59 -0400
+Message-ID: <55BF8E5B.5050408@ti.com>
+References: <cover.1438331416.git.viresh.kumar@linaro.org> <ceb569d147977a4138a7dd334fe7b9b0efdac8ac.1438331416.git.viresh.kumar@linaro.org> <55BB8E7B.7050307@ti.com> <20150731162018.GD899@linux>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <akpm@linux-foundation.org>, <linaro-kernel@lists.linaro.org>,
+	<linux-kernel@vger.kernel.org>, open list:
+	TI NETCP ETHERNET DRIVER <netdev@vger.kernel.org>,
+	Wingman Kwok <w-kwok2@ti.com>, ;
+To: Viresh Kumar <viresh.kumar@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150731162018.GD899@linux>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The clocks are initially active and thus the device is marked active.
-This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
-call at the end of probe then leaves us with an invalid refcount of -1,
-which in turn leads to the device staying in suspended state even though
-netdev open had been called.
+On 07/31/2015 12:20 PM, Viresh Kumar wrote:
+> On 31-07-15, 11:04, Murali Karicheri wrote:
+>> On 07/31/2015 04:38 AM, Viresh Kumar wrote:
+>>> IS_ERR(_OR_NULL) already contain an 'unlikely' compiler flag and there
+>>> is no need to do that again from its callers. Drop it.
+>>>
+>>
+>> IS_ERR_OR_NULL() is defined as
+>>
+>> static inline bool __must_check IS_ERR_OR_NULL(__force const void *ptr)
+>> {
+>>          return !ptr || IS_ERR_VALUE((unsigned long)ptr);
+>> }
+>>
+>> So the unlikely() applies only to second part. Wouldn't that be a
+>> problem for optimization?
+>
+> This is what the first patch of the series does:
+>
+> http://permalink.gmane.org/gmane.linux.kernel/2009151
+>
+Assuming the above change is merged, this patch looks good.
 
-Fix this by initializing the refcount to be coherent with the initial
-device status.
+Acked-by: Murali Karicheri <m-karicheri2@ti.com>
 
-Fixes:
-8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
-
-Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
----
-Please apply this as a fix for 4.2
----
- drivers/net/ethernet/freescale/fec_main.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 32e3807c650e..271bb5862346 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
- 
- 	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
- 	pm_runtime_use_autosuspend(&pdev->dev);
-+	pm_runtime_get_noresume(&pdev->dev);
- 	pm_runtime_set_active(&pdev->dev);
- 	pm_runtime_enable(&pdev->dev);
- 
 -- 
-2.1.4
+Murali Karicheri
+Linux Kernel, Keystone
