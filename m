@@ -1,50 +1,48 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] ebpf: add skb->hash to offset map for usage
- in {cls,act}_bpf or filters
-Date: Mon, 03 Aug 2015 14:49:14 +0200
-Message-ID: <55BF634A.10400@iogearbox.net>
-References: <4b25d0b28e9c366a8a307d855d1690038956e6bd.1438382433.git.daniel@iogearbox.net> <CALx6S35Xw-14Z8=w2cg7dFFzfkEmkjuqU=37uG3Tb-OoW2JEoA@mail.gmail.com> <55BF072C.3000302@plumgrid.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next 0/4] bnx2x, cnic, bnx2fc: add support for BD
+Date: Mon, 3 Aug 2015 13:09:31 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DF63D5@avmb3.qlogic.org>
+References: <1438607016-25335-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "James.bottomley@HansenPartnership.com"
+	<James.bottomley@HansenPartnership.com>,
+	"linux-scsi-owner@vger.kernel.org" <linux-scsi-owner@vger.kernel.org>,
+	Chad Dupuis <chad.dupuis@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37652 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752670AbbHCMtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 08:49:18 -0400
-In-Reply-To: <55BF072C.3000302@plumgrid.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:33170 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753325AbbHCNJh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2015 09:09:37 -0400
+In-Reply-To: <1438607016-25335-1-git-send-email-Yuval.Mintz@qlogic.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2015 08:16 AM, Alexei Starovoitov wrote:
-> On 8/2/15 6:09 PM, Tom Herbert wrote:
->>> I was thinking whether to add skb_get_hash(), but then concluded the
->>> >raw skb->hash seems fine in this case: we can directly access the hash
->>> >w/o extra eBPF helper function call, it's filled out by many NICs on
->>> >ingress, and in case the entropy level would not be sufficient, people
->>> >can still implement their own specific sw fallback hash mix anyway.
->>> >
->> Maybe we should add the skb_get_hash also? It doesn't as useful if
->> some scenarios we get a valid hash and in others not.
->
-> we also discussed whether it makes sense to expose l4_hash and sw_hash
-> bits as well. imo, seems a bit of overkill, since such call into sw hash
-> function like this exposes the logic of flow_dissector looking into
-> inner header. There are pros and cons. I think if we expose
-> flow_dissector it's cleaner to do it directly (instead of skb_get_hash).
-> Alternatively we can obfuscate skb_get_hash by calling it
-> 'please compute some a hash on a packet somehow', but that will be
-> awkward to use. The programs can compute whatever hash they like anyway.
+> Commit 230d00eb4bfe ("bnx2x: new Multi-function mode - BD") added support
+> for a new multi-function mode, but it added only the support required by bnx2x
+> for L2 interfaces.
+> 
+> This adds the required changes to support the new multi-function mode in the
+> offloaded storage protocols.
+> 
+> Dave,
+> 
+> Please consider applying this series to `net-next'.
+> 
+> Do notice that this involves non-networking driver changes - but sending this as
+> a single series seemed like the best approach as we had to have bnx2x changes
+> to support the new functionality.
+> If this is problematic, please tell us what's the preferred solution here.
+> 
+> Thanks,
+> Yuval
 
-I don't have a particularly strong opinion if you want to expose skb_get_hash()
-to eBPF as well as a helper function (note, it will add a function call as
-extra cost each time), but as Alexei says, there are pros and cons on either
-way. We just have to be careful as what this is being advertised to uapi, so
-we can reserve ourselves changes in future. I would definitely avoid to expose
-l4_hash and sw_hash, though, as that should really remain an implementation
-detail inside the kernel, and flow dissector for your own hash function you
-could actually already code up for your specific use case in eBPF, hm.
+Apparently I've made a typo in netdev's E-mail address.
+Dave - do you want me to re-send the entire series?
