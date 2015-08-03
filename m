@@ -1,42 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] fq_codel: explicitly reset flows in ->reset()
-Date: Sun, 02 Aug 2015 17:20:28 -0700 (PDT)
-Message-ID: <20150802.172028.327907117686065749.davem@davemloft.net>
-References: <1438390419-30414-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] ebpf: add skb->hash to offset map for usage
+ in {cls,act}_bpf or filters
+Date: Sun, 02 Aug 2015 17:21:15 -0700 (PDT)
+Message-ID: <20150802.172115.1166803002987723606.davem@davemloft.net>
+References: <4b25d0b28e9c366a8a307d855d1690038956e6bd.1438382433.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, agartrell@fb.com, jhs@mojatatu.com,
-	eric.dumazet@gmail.com
-To: xiyou.wangcong@gmail.com
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38465 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38475 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875AbbHCAU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 20:20:29 -0400
-In-Reply-To: <1438390419-30414-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1751875AbbHCAVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 20:21:16 -0400
+In-Reply-To: <4b25d0b28e9c366a8a307d855d1690038956e6bd.1438382433.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 31 Jul 2015 17:53:39 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sat,  1 Aug 2015 00:46:29 +0200
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Add skb->hash to the __sk_buff offset map, so it can be accessed from
+> an eBPF program. We currently already do this for classic BPF filters,
+> but not yet on eBPF, it might be useful as a demuxer in combination with
+> helpers like bpf_clone_redirect(), toy example:
 > 
-> Alex reported the following crash when using fq_codel
-> with htb:
- ...
-> As Jamal pointed out, there is actually no need to call dequeue
-> to purge the queued skb's in reset, data structures can be just
-> reset explicitly. Therefore, we reset everything except config's
-> and stats, so that we would have a fresh start after device flipping.
+>   __section("cls-lb") int ingress_main(struct __sk_buff *skb)
+>   {
+>     unsigned int which = 3 + (skb->hash & 7);
+>     /* bpf_skb_store_bytes(skb, ...); */
+>     /* bpf_l{3,4}_csum_replace(skb, ...); */
+>     bpf_clone_redirect(skb, which, 0);
+>     return -1;
+>   }
 > 
-> Fixes: 4b549a2ef4be ("fq_codel: Fair Queue Codel AQM")
-> Reported-by: Alex Gartrell <agartrell@fb.com>
-> Cc: Alex Gartrell <agartrell@fb.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> [xiyou.wangcong@gmail.com: added codel_vars_init() and qdisc_qstats_backlog_dec()]
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> I was thinking whether to add skb_get_hash(), but then concluded the
+> raw skb->hash seems fine in this case: we can directly access the hash
+> w/o extra eBPF helper function call, it's filled out by many NICs on
+> ingress, and in case the entropy level would not be sufficient, people
+> can still implement their own specific sw fallback hash mix anyway.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Applied, thanks.
+Applied, thanks Daniel.
