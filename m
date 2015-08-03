@@ -1,40 +1,58 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH]Fix a null dereference in e1000_open
-Date: Mon,  3 Aug 2015 09:36:26 +0800
-Message-ID: <1438565786-5070-1-git-send-email-baijiaju1990@163.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jia-Ju Bai <baijiaju1990@163.com>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH] net: dsa: fix EDSA frame from hwaccel frame
+Date: Sun,  2 Aug 2015 21:46:02 -0400
+Message-ID: <1438566362-28786-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:63507 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbbHCBrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 21:47:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When e1000e_setup_rx_resources is failed in e1000_open,
-e1000e_free_tx_resources in "err_setup_rx" segment is executed.
-"writel(0, tx_ring->head)" statement in e1000_clean_tx_ring
-in e1000e_free_tx_resources will cause a null dereference(crash), 
-because "tx_ring->head" is only assigned in e1000_configure_tx
-in e1000_configure, but it is after e1000e_setup_rx_resources.
-This patch adds a check to fix it.
+If the underlying network device features NETIF_F_HW_VLAN_CTAG_TX,
+an EDSA frame is prepended with a 802.1q header once queued.
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+To fix this, push the VLAN tag to the payload if present, before
+checking the frame protocol.
+
+[note: we may prefer to access directly VLAN TCI from hwaccel frames,
+but this approach is simpler.]
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/dsa/tag_edsa.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 89d788d..838ec8e 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2448,7 +2448,8 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
+diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
+index 2288c80..3ada4eb 100644
+--- a/net/dsa/tag_edsa.c
++++ b/net/dsa/tag_edsa.c
+@@ -9,6 +9,7 @@
+  */
  
--	writel(0, tx_ring->head);
-+	if (tx_ring->head)
-+		writel(0, tx_ring->head);
- 	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
- 		e1000e_update_tdt_wa(tx_ring, 0);
- 	else
+ #include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
+ #include <linux/list.h>
+ #include <linux/slab.h>
+ #include "dsa_priv.h"
+@@ -21,6 +22,10 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	u8 *edsa_header;
+ 
++	skb = vlan_hwaccel_push_inside(skb);
++	if (unlikely(!skb))
++		return NULL;
++
+ 	/*
+ 	 * Convert the outermost 802.1q tag to a DSA tag and prepend
+ 	 * a DSA ethertype field is the packet is tagged, or insert
 -- 
-1.7.9.5
+2.4.6
