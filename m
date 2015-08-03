@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: Correct logic for pvid configuration.
-Date: Sun, 02 Aug 2015 17:18:54 -0700 (PDT)
-Message-ID: <20150802.171854.596690780702830379.davem@davemloft.net>
-References: <1438508561-31209-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [Patch net] fq_codel: explicitly reset flows in ->reset()
+Date: Sun, 02 Aug 2015 17:20:28 -0700 (PDT)
+Message-ID: <20150802.172028.327907117686065749.davem@davemloft.net>
+References: <1438390419-30414-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracel.com,
-	Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
+Cc: netdev@vger.kernel.org, agartrell@fb.com, jhs@mojatatu.com,
+	eric.dumazet@gmail.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38460 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38465 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875AbbHCAS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 20:18:57 -0400
-In-Reply-To: <1438508561-31209-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1751875AbbHCAU3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2015 20:20:29 -0400
+In-Reply-To: <1438390419-30414-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 2 Aug 2015 12:42:41 +0300
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 31 Jul 2015 17:53:39 -0700
 
-> Commit 05cc5a39ddb7 ("bnx2x: add vlan filtering offload") has introduced
-> an incorrect logic for checking whether pvid should be configured for
-> a vf, causing the hypervisor driver to send unneeded ramrods for all of
-> the vfs each time a pvid has changed.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
 > 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
-> ---
-> Looks like this has been hidden by the fact that
-> VLAN_VALID == (1 << MAC_ADDR_VALID).
-> Since MAC is almost always set by the hypervisor it simply caused
-> additional ramrods to be sent instead of preventing the feature.
+> Alex reported the following crash when using fq_codel
+> with htb:
+ ...
+> As Jamal pointed out, there is actually no need to call dequeue
+> to purge the queued skb's in reset, data structures can be just
+> reset explicitly. Therefore, we reset everything except config's
+> and stats, so that we would have a fresh start after device flipping.
+> 
+> Fixes: 4b549a2ef4be ("fq_codel: Fair Queue Codel AQM")
+> Reported-by: Alex Gartrell <agartrell@fb.com>
+> Cc: Alex Gartrell <agartrell@fb.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> [xiyou.wangcong@gmail.com: added codel_vars_init() and qdisc_qstats_backlog_dec()]
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied, thank you.
+Applied, thanks.
