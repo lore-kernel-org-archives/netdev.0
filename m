@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: Permit users to change transmit and receive max
- pachet size
-Date: Mon, 03 Aug 2015 14:12:31 -0700 (PDT)
-Message-ID: <20150803.141231.997328134552287186.davem@davemloft.net>
-References: <yqromneucjufgmy89t6y59jf.1438635988401@email.android.com>
+Subject: Re: [Patch net] act_mirred: avoid calling tcf_hash_release() when
+ binding
+Date: Mon, 03 Aug 2015 14:13:40 -0700 (PDT)
+Message-ID: <20150803.141340.660093362814455413.davem@davemloft.net>
+References: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: corcodel.marian@gmail.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, daniel@iogearbox.net,
+	cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44869 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44885 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932358AbbHCVMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 17:12:32 -0400
-In-Reply-To: <yqromneucjufgmy89t6y59jf.1438635988401@email.android.com>
+	with ESMTP id S932358AbbHCVNl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 17:13:41 -0400
+In-Reply-To: <1438301541-26192-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Corcodel.marian" <corcodel.marian@gmail.com>
-Date: Tue, 04 Aug 2015 00:06:28 +0300
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Thu, 30 Jul 2015 17:12:20 -0700
 
-> Sorry bu these parameters is not covered by ethtool.
+> When we share an action within a filter, the bind refcnt
+> should increase, therefore we should not call tcf_hash_release().
+> 
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
 
-Then simply add such a generic facility, so other drivers can benefit
-from it as well.
-
-I'll be completely honest, and say that I don't anticipate that you
-will implement the ethtool option properly, and that it will probably
-take 5 or 6 iterations of review of such a patch before we'll be
-willing to accept it.  But this is really what you will have to do.
-
-Then you will need to submit a patch to 'ethtool' itself to support
-the new options.
+Applied, thanks.
