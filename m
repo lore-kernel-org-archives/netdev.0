@@ -1,54 +1,70 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Fix L4 checksum handling when
- dealing with IP fragments
-Date: Mon, 3 Aug 2015 09:25:53 -0700
-Message-ID: <CALnjE+p-y8i5h1Dnk0BHnhdq94Ndys=uQ=UXy3uLWmNA48SeJg@mail.gmail.com>
-References: <1438484942.277866.12350@glenng-linux.sea.corp.google.com>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: Re: [PATCH 4/6] test_bpf: add module parameters to filter the tests
+ to run.
+Date: Mon, 03 Aug 2015 18:23:44 +0200
+Message-ID: <55BF9590.4080205@freebox.fr>
+References: <1438610528-14245-1-git-send-email-nschichan@freebox.fr> <1438610528-14245-5-git-send-email-nschichan@freebox.fr> <55BF8F90.5030001@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Glenn Griffin <ggriffin.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1438484942.277866.12350-ACJuPB1Uyt4EJhTZDIxEbXoUN1GumTyQ7j82oEJ37pA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55BF8F90.5030001@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gU2F0LCBBdWcgMSwgMjAxNSBhdCA2OjMxIFBNLCBHbGVubiBHcmlmZmluIDxnZ3JpZmZpbi5r
-ZXJuZWxAZ21haWwuY29tPiB3cm90ZToKPiBvcGVudnN3aXRjaCBtb2RpZmllcyB0aGUgTDQgY2hl
-Y2tzdW0gb2YgYSBwYWNrZXQgd2hlbiBtb2RpZnlpbmcKPiB0aGUgaXAgYWRkcmVzcy4gV2hlbiBh
-biBJUCBwYWNrZXQgaXMgZnJhZ21lbnRlZCBvbmx5IHRoZSBmaXJzdAo+IGZyYWdtZW50IGNvbnRh
-aW5zIGFuIEw0IGhlYWRlciBhbmQgY2hlY2tzdW0uIFByaW9yIHRvIHRoaXMgY2hhbmdlCj4gb3Bl
-bnZzd2l0Y2ggd291bGQgbW9kaWZ5IGFsbCBmcmFnbWVudHMsIG1vZGlmeWluZyBhcHBsaWNhdGlv
-biBkYXRhCj4gaW4gbm9uLWZpcnN0IGZyYWdtZW50cywgY2F1c2luZyBjaGVja3N1bSBmYWlsdXJl
-cyBpbiB0aGUKPiByZWFzc2VtYmxlZCBwYWNrZXQuCj4KPiBTaWduZWQtb2ZmLWJ5OiBHbGVubiBH
-cmlmZmluIDxnZ3JpZmZpbi5rZXJuZWxAZ21haWwuY29tPgoKUGF0Y2ggbG9va3MgZ29vZC4gSSBo
-YXZlIG9uZSBmb2xsb3dpbmcgY29tbWVudC4KPiAtLS0KPiAgbmV0L29wZW52c3dpdGNoL2FjdGlv
-bnMuYyB8IDE2ICsrKysrKysrKysrKy0tLS0KPiAgMSBmaWxlIGNoYW5nZWQsIDEyIGluc2VydGlv
-bnMoKyksIDQgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Fj
-dGlvbnMuYyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPiBpbmRleCA4YThjMGI4Li5iZmZm
-YjFhIDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPiArKysgYi9uZXQv
-b3BlbnZzd2l0Y2gvYWN0aW9ucy5jCj4gQEAgLTI3MywyOCArMjczLDM2IEBAIHN0YXRpYyBpbnQg
-c2V0X2V0aF9hZGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBzd19mbG93X2tleSAqZmxv
-d19rZXksCj4gICAgICAgICByZXR1cm4gMDsKPiAgfQo+Cj4gLXN0YXRpYyB2b2lkIHNldF9pcF9h
-ZGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBpcGhkciAqbmgsCj4gLSAgICAgICAgICAg
-ICAgICAgICAgICAgX19iZTMyICphZGRyLCBfX2JlMzIgbmV3X2FkZHIpCj4gK3N0YXRpYyB2b2lk
-IHVwZGF0ZV9pcF9sNF9jaGVja3N1bShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgaXBoZHIg
-Km5oLAo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBfX2JlMzIgYWRkciwgX19i
-ZTMyIG5ld19hZGRyKQo+ICB7Cj4gICAgICAgICBpbnQgdHJhbnNwb3J0X2xlbiA9IHNrYi0+bGVu
-IC0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2tiKTsKPgo+ICsgICAgICAgaWYgKG50b2hzKG5oLT5m
-cmFnX29mZikgJiBJUF9PRkZTRVQpCj4gKyAgICAgICAgICAgICAgIHJldHVybjsKCkl0IGlzIGVm
-ZmljaWVudCB0byBjaGVjayBmcmFnLW9mZnNldCBpbiBuZXR3b3JrIGJ5dGUgb3JkZXIuCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxp
-c3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlz
-dGluZm8vZGV2Cg==
+On 08/03/2015 05:58 PM, Daniel Borkmann wrote:
+> On 08/03/2015 04:02 PM, Nicolas Schichan wrote:
+>> When developping on the interpreter or a particular JIT, it can be
+>> insteresting to restrict the test list to a specific test or a
+> 
+> s/insteresting/interesting/
+[...]
+> s/test_pbf/test_bpf/
+[...]
+> s/test_pbf/test_bpf/
+[...]
+> s/conver/cover/
+
+Sorry for the various typos, I'll fix that in a V2.
+
+>> +         */
+>> +        if (test_id >= ARRAY_SIZE(tests)) {
+>> +            pr_err("test_bpf: invalid test_id specified.\n");
+>> +            return -EINVAL;
+>> +        }
+> [...]
+>> @@ -4893,6 +4955,14 @@ static __init void destroy_bpf_tests(void)
+>>       }
+>>   }
+>>
+>> +static bool exclude_test(int test_id)
+>> +{
+>> +    if (test_range[0] >= 0 &&
+>> +        (test_id < test_range[0] || test_id > test_range[1]))
+>> +        return true;
+>> +    return false;
+> 
+> Minor nit: could directly return it, f.e.:
+> 
+>     return test_range[0] >= 0 && (test_id < test_range[0] ||
+>                                       test_id > test_range[1]);
+
+I will change that.
+
+> Btw, for the range test in prepare_bpf_tests(), you could also reject
+> a negative lower bound index right there.
+
+I thought it was better to have all the sanity checks grouped in
+prepare_bpf_tests() (with the checking of the test_name and test_id parameters
+nearby) ? Also a negative lower bound is meaning that no range has been set so
+all tests should be run.
+
+Thanks,
+
+-- 
+Nicolas Schichan
+Freebox SAS
