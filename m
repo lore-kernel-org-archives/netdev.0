@@ -1,48 +1,62 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] e100: Add a check after pci_pool_create to avoid null pointer dereference
-Date: Mon,  3 Aug 2015 10:17:08 +0800
-Message-ID: <1438568228-13288-1-git-send-email-baijiaju1990@163.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jia-Ju Bai <baijiaju1990@163.com>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: charley <charley.chu@yahoo.com>
+Subject: Re: Kernel Oops in =?utf-8?b?X19pbmV0X3R3c2tfa2lsbCgp?=
+Date: Mon, 3 Aug 2015 02:19:56 +0000 (UTC)
+Message-ID: <loom.20150803T035445-326@post.gmane.org>
+References: <545A49B4.7090107@iogearbox.net> <CAHA+R7PAdVS=TBd8ZDAW3wdadjNEVjiyemrs54wNp8fdtCMvZQ@mail.gmail.com> <FB8A4655DFD2B34DB16AE06DDDD6C0E231A71CE3@SJEXCHMB12.corp.ad.broadcom.com> <20141105.143929.861274469992898400.davem@davemloft.net> <FB8A4655DFD2B34DB16AE06DDDD6C0E231A72A4B@SJEXCHMB12.corp.ad.broadcom.com> <loom.20150710T183514-452@post.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:33666 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750924AbbHCCZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Aug 2015 22:25:08 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1ZM5R2-0002Ft-Sh
+	for netdev@vger.kernel.org; Mon, 03 Aug 2015 04:25:05 +0200
+Received: from S0106bc4dfb1c2143.vs.shawcable.net ([96.55.76.170])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 04:25:04 +0200
+Received: from charley.chu by S0106bc4dfb1c2143.vs.shawcable.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 04:25:04 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver lacks the check of nic->cbs_pool after pci_pool_create
-in e100_probe. When this function is failed, a null pointer dereference 
-occurs when pci_pool_alloc uses nic->cbs_pool in e100_alloc_cbs.
-This patch adds a check and related error handling code to fix it.
+Phani <pgargey <at> yahoo.com> writes:
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/ethernet/intel/e100.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+> 
+> 
+> > 
+> > > The problem has been fixed. It is introduced by a third party patch,
+> > > which decreases the refcnt of timewait socket.
+> >
+> 
+> What is the fix?
+> pl share the gerrit.
+> 
+> 
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index d2657a4..767c161 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2967,6 +2967,11 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			   nic->params.cbs.max * sizeof(struct cb),
- 			   sizeof(u32),
- 			   0);
-+	if (!nic->cbs_pool) {
-+		netif_err(nic, probe, nic->netdev, "Cannot create DMA pool, aborting\n");
-+		err = -ENOMEM;
-+		goto err_out_pool;
-+	}
- 	netif_info(nic, probe, nic->netdev,
- 		   "addr 0x%llx, irq %d, MAC addr %pM\n",
- 		   (unsigned long long)pci_resource_start(pdev, use_io ? 1 : 0),
-@@ -2974,6 +2979,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	return 0;
- 
-+err_out_pool:
-+	unregister_netdev(netdev);
- err_out_free:
- 	e100_free(nic);
- err_out_iounmap:
--- 
-1.7.9.5
+Here you go.
+
+https://android.googlesource.com/kernel/common/+/android-
+3.14/net/netfilter/xt_qtaguid.c
+
+
+diff --git a/net/netfilter/xt_qtaguid.c b/net/netfilter/xt_qtaguid.c
+--- a/net/netfilter/xt_qtaguid.c
++++ b/net/netfilter/xt_qtaguid.c
+@@ -1605,7 +1605,8 @@ static struct sock 
+*qtaguid_find_sk(const struct sk_buff *skb,
+ 		 * "struct inet_timewait_sock" which is missing fields.
+		 */
+		if (sk->sk_state  == TCP_TIME_WAIT) {
+-			sock_gen_put(sk);
++                      if (sk != skb-sk)
++			    sock_gen_put(sk);
+			sk = NULL;
+		}
+	}
