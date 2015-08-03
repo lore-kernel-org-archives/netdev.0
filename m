@@ -1,118 +1,71 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 4/6] test_bpf: add module parameters to filter the tests
- to run.
-Date: Mon, 03 Aug 2015 17:58:08 +0200
-Message-ID: <55BF8F90.5030001@iogearbox.net>
-References: <1438610528-14245-1-git-send-email-nschichan@freebox.fr> <1438610528-14245-5-git-send-email-nschichan@freebox.fr>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
+Date: Mon, 3 Aug 2015 18:15:54 +0200
+Message-ID: <20150803161554.GK3467@lunn.ch>
+References: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Nicolas Schichan <nschichan@freebox.fr>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438610528-14245-5-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, netdev@vger.kernel.org,
+	kernel@pengutronix.de, patchwork-lst@pengutronix.de
+To: Lucas Stach <l.stach@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:54414 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754306AbbHCQWu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2015 12:22:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2015 04:02 PM, Nicolas Schichan wrote:
-> When developping on the interpreter or a particular JIT, it can be
-> insteresting to restrict the test list to a specific test or a
-
-s/insteresting/interesting/
-
-> particular range of tests.
->
-> This patch adds the following module parameters to the test_bpf module:
->
-> * test_name=<string>: only the specified named test will be run.
->
-> * test_id=<number>: only the test with the specified id will be run
->    (see the output of test_pbf without parameters to get the test id).
-
-s/test_pbf/test_bpf/
-
-> * test_range=<number>,<number>: only the tests with IDs in the
->    specified id range are run (see the output of test_pbf without
-
-s/test_pbf/test_bpf/
-
->    parameters to get the test ids).
->
-> Any invalid range, test id or test name will result in -EINVAL being
-> returned and no tests being run.
->
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
-
-Seems very useful for the test suite, thanks.
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-
+On Mon, Aug 03, 2015 at 05:50:11PM +0200, Lucas Stach wrote:
+> The clocks are initially active and thus the device is marked active.
+> This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
+> call at the end of probe then leaves us with an invalid refcount of -1,
+> which in turn leads to the device staying in suspended state even though
+> netdev open had been called.
+> 
+> Fix this by initializing the refcount to be coherent with the initial
+> device status.
+> 
+> Fixes:
+> 8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
+> 
+> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
 > ---
->   lib/test_bpf.c | 73 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 73 insertions(+)
->
-> diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-> index f5606fb..abd0507 100644
-> --- a/lib/test_bpf.c
-> +++ b/lib/test_bpf.c
-> @@ -4870,10 +4870,72 @@ static int run_one(const struct bpf_prog *fp, struct bpf_test *test)
->   	return err_cnt;
->   }
->
-> +static char test_name[64];
-> +module_param_string(test_name, test_name, sizeof(test_name), 0);
-> +
-> +static int test_id = -1;
-> +module_param(test_id, int, 0);
-> +
-> +static int test_range[2] = { -1, -1 };
-> +module_param_array(test_range, int, NULL, 0);
-> +
-> +static __init int find_test_index(const char *test_name)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < ARRAY_SIZE(tests); i++) {
-> +		if (!strcmp(tests[i].descr, test_name))
-> +			return i;
-> +	}
-> +	return -1;
-> +}
-> +
->   static __init int prepare_bpf_tests(void)
->   {
->   	int i;
->
-> +	if (test_id >= 0) {
-> +		/*
-> +		 * if a test_id was specified, use test_range to
-> +		 * conver only that test.
+> Please apply this as a fix for 4.2
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 32e3807c650e..271bb5862346 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
+>  
+>  	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
+>  	pm_runtime_use_autosuspend(&pdev->dev);
+> +	pm_runtime_get_noresume(&pdev->dev);
+>  	pm_runtime_set_active(&pdev->dev);
+>  	pm_runtime_enable(&pdev->dev);
 
-s/conver/cover/
+This might work, but is it the correct fix?
 
-> +		 */
-> +		if (test_id >= ARRAY_SIZE(tests)) {
-> +			pr_err("test_bpf: invalid test_id specified.\n");
-> +			return -EINVAL;
-> +		}
-[...]
-> @@ -4893,6 +4955,14 @@ static __init void destroy_bpf_tests(void)
->   	}
->   }
->
-> +static bool exclude_test(int test_id)
-> +{
-> +	if (test_range[0] >= 0 &&
-> +	    (test_id < test_range[0] || test_id > test_range[1]))
-> +		return true;
-> +	return false;
+Documentation/power/runtime_pm.txt says:
 
-Minor nit: could directly return it, f.e.:
+534 In addition to that, the initial runtime PM status of all devices is
+535 'suspended', but it need not reflect the actual physical state of the device.
+536 Thus, if the device is initially active (i.e. it is able to process I/O), its
+537 runtime PM status must be changed to 'active', with the help of
+538 pm_runtime_set_active(), before pm_runtime_enable() is called for the device.
 
-	return test_range[0] >= 0 && (test_id < test_range[0] ||
-                                       test_id > test_range[1]);
+At the point we call the pm_runtime_ functions above, all the clocks
+are ticking. So according to the documentation pm_runtime_set_active()
+is the right thing to do. But it makes no mention of have to call
+pm_runtime_get_noresume(). I would of expected pm_runtime_set_active()
+to set the count to the correct value.
 
-Btw, for the range test in prepare_bpf_tests(), you could also reject
-a negative lower bound index right there.
+   Andrew
