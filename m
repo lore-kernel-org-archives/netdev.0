@@ -1,102 +1,149 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/4] cxgb4: Add support to dump edc bist status
-Date: Mon,  3 Aug 2015 22:18:56 +0530
-Message-ID: <1438620538-11421-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 3/4] cxgb4/cxgb4vf: read the correct bits of PL Who Am I register
+Date: Mon,  3 Aug 2015 22:18:57 +0530
+Message-ID: <1438620538-11421-4-git-send-email-hariprasad@chelsio.com>
 References: <1438620538-11421-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:24421 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:18324 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753232AbbHCLeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 07:34:31 -0400
+	by vger.kernel.org with ESMTP id S1752899AbbHCLee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 07:34:34 -0400
 In-Reply-To: <1438620538-11421-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to dump edc bist status for ECC data errors
+Read the correct bits of PL Who Am I for the Source PF field which has
+changed in T6
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   | 39 ++++++++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |  5 ++--
- 2 files changed, 42 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 36 ++++++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 10 +++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  4 +++
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c  |  4 ++-
+ 4 files changed, 50 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 800bd48..b193295 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -345,6 +345,43 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
- 				       FW_CMD_MAX_TIMEOUT);
- }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d582e17..159b2a7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4551,6 +4551,33 @@ static void free_some_resources(struct adapter *adapter)
+ 		   NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
+ #define SEGMENT_SIZE 128
  
-+static int t4_edc_err_read(struct adapter *adap, int idx)
++static int get_chip_type(struct pci_dev *pdev, u32 pl_rev)
 +{
-+	u32 edc_ecc_err_addr_reg;
-+	u32 rdata_reg;
++	int ver, chip;
++	uint16_t device_id;
 +
-+	if (is_t4(adap->params.chip)) {
-+		CH_WARN(adap, "%s: T4 NOT supported.\n", __func__);
-+		return 0;
++	/* Retrieve adapter's device ID
++	 */
++	pci_read_config_word(pdev, PCI_DEVICE_ID, &device_id);
++	ver = device_id >> 12;
++	switch (ver) {
++	case CHELSIO_T4:
++		chip |= CHELSIO_CHIP_CODE(CHELSIO_T4, pl_rev);
++		break;
++	case CHELSIO_T5:
++		chip |= CHELSIO_CHIP_CODE(CHELSIO_T5, pl_rev);
++		break;
++	case CHELSIO_T6:
++		chip |= CHELSIO_CHIP_CODE(CHELSIO_T5, pl_rev);
++		break;
++	default:
++		dev_err(&pdev->dev, "Device %d is not supported\n",
++			device_id);
++		return -EINVAL;
 +	}
-+	if (idx != 0 && idx != 1) {
-+		CH_WARN(adap, "%s: idx %d NOT supported.\n", __func__, idx);
-+		return 0;
-+	}
-+
-+	edc_ecc_err_addr_reg = EDC_T5_REG(EDC_H_ECC_ERR_ADDR_A, idx);
-+	rdata_reg = EDC_T5_REG(EDC_H_BIST_STATUS_RDATA_A, idx);
-+
-+	CH_WARN(adap,
-+		"edc%d err addr 0x%x: 0x%x.\n",
-+		idx, edc_ecc_err_addr_reg,
-+		t4_read_reg(adap, edc_ecc_err_addr_reg));
-+	CH_WARN(adap,
-+		"bist: 0x%x, status %llx %llx %llx %llx %llx %llx %llx %llx %llx.\n",
-+		rdata_reg,
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 8),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 16),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 24),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 32),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 40),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 48),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 56),
-+		(unsigned long long)t4_read_reg64(adap, rdata_reg + 64));
-+
-+	return 0;
++	return chip;
 +}
 +
- /**
-  *	t4_memory_rw - read/write EDC 0, EDC 1 or MC via PCIE memory window
-  *	@adap: the adapter
-@@ -3283,6 +3320,8 @@ static void mem_intr_handler(struct adapter *adapter, int idx)
- 	if (v & ECC_CE_INT_CAUSE_F) {
- 		u32 cnt = ECC_CECNT_G(t4_read_reg(adapter, cnt_addr));
+ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	int func, i, err, s_qpp, qpp, num_seg;
+@@ -4558,6 +4585,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	bool highdma = false;
+ 	struct adapter *adapter = NULL;
+ 	void __iomem *regs;
++	u32 whoami, pl_rev;
++	enum chip_type chip;
  
-+		t4_edc_err_read(adapter, idx);
-+
- 		t4_write_reg(adapter, cnt_addr, ECC_CECNT_V(ECC_CECNT_M));
- 		if (printk_ratelimit())
- 			dev_warn(adapter->pdev_dev,
+ 	printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
+ 
+@@ -4586,7 +4615,12 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto out_unmap_bar0;
+ 
+ 	/* We control everything through one PF */
+-	func = SOURCEPF_G(readl(regs + PL_WHOAMI_A));
++	whoami = readl(regs + PL_WHOAMI_A);
++	pl_rev = REV_G(readl(regs + PL_REV_A));
++	chip = get_chip_type(pdev, pl_rev);
++	func = (CHELSIO_CHIP_VERSION(chip) <= CHELSIO_T5
++		? SOURCEPF_G(whoami)
++		: T6_SOURCEPF_G(whoami));
+ 	if (func != ent->driver_data) {
+ 		iounmap(regs);
+ 		pci_disable_device(pdev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index b193295..3cd6a23 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3529,7 +3529,10 @@ int t4_slow_intr_handler(struct adapter *adapter)
+ void t4_intr_enable(struct adapter *adapter)
+ {
+ 	u32 val = 0;
+-	u32 pf = SOURCEPF_G(t4_read_reg(adapter, PL_WHOAMI_A));
++	u32 whoami = t4_read_reg(adapter, PL_WHOAMI_A);
++	u32 pf = (CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5
++		  ? SOURCEPF_G(whoami)
++		  : T6_SOURCEPF_G(whoami));
+ 
+ 	if (CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5)
+ 		val = ERR_DROPPED_DB_F | ERR_EGR_CTXT_PRIO_F | DBFIFO_HP_INT_F;
+@@ -3554,7 +3557,10 @@ void t4_intr_enable(struct adapter *adapter)
+  */
+ void t4_intr_disable(struct adapter *adapter)
+ {
+-	u32 pf = SOURCEPF_G(t4_read_reg(adapter, PL_WHOAMI_A));
++	u32 whoami = t4_read_reg(adapter, PL_WHOAMI_A);
++	u32 pf = (CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5
++		  ? SOURCEPF_G(whoami)
++		  : T6_SOURCEPF_G(whoami));
+ 
+ 	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE_A), 0);
+ 	t4_set_reg_field(adapter, PL_INT_MAP0_A, 1 << pf, 0);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 0626868..13ce018 100644
+index 13ce018..e444dc4 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2867,10 +2867,11 @@
- #define EDC_H_BIST_DATA_PATTERN_A	0x50010
- #define EDC_H_BIST_STATUS_RDATA_A	0x50028
+@@ -2588,6 +2588,10 @@
+ #define SOURCEPF_M    0x7U
+ #define SOURCEPF_G(x) (((x) >> SOURCEPF_S) & SOURCEPF_M)
  
-+#define EDC_H_ECC_ERR_ADDR_A		0x50084
- #define EDC_T51_BASE_ADDR		0x50800
++#define T6_SOURCEPF_S    9
++#define T6_SOURCEPF_M    0x7U
++#define T6_SOURCEPF_G(x) (((x) >> T6_SOURCEPF_S) & T6_SOURCEPF_M)
++
+ #define PL_INT_CAUSE_A 0x1940c
  
--#define EDC_STRIDE_T5 (EDC_T51_BASE_ADDR - EDC_T50_BASE_ADDR)
--#define EDC_REG_T5(reg, idx) (reg + EDC_STRIDE_T5 * idx)
-+#define EDC_T5_STRIDE (EDC_T51_BASE_ADDR - EDC_T50_BASE_ADDR)
-+#define EDC_T5_REG(reg, idx) (reg + EDC_T5_STRIDE * idx)
+ #define ULP_TX_S    27
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index 0db6dc9..0a28eed 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -619,7 +619,9 @@ int t4vf_get_sge_params(struct adapter *adapter)
+ 		 */
+ 		whoami = t4_read_reg(adapter,
+ 				     T4VF_PL_BASE_ADDR + PL_VF_WHOAMI_A);
+-		pf = SOURCEPF_G(whoami);
++		pf = (CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5
++				? SOURCEPF_G(whoami)
++				: T6_SOURCEPF_G(whoami));
  
- #define PL_VF_REV_A 0x4
- #define PL_VF_WHOAMI_A 0x0
+ 		s_hps = (HOSTPAGESIZEPF0_S +
+ 			 (HOSTPAGESIZEPF1_S - HOSTPAGESIZEPF0_S) * pf);
 -- 
 2.3.4
