@@ -1,104 +1,146 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH 2/6] test_bpf: allow tests to specify an skb fragment.
-Date: Mon,  3 Aug 2015 16:02:04 +0200
-Message-ID: <1438610528-14245-3-git-send-email-nschichan@freebox.fr>
+Subject: [PATCH 4/6] test_bpf: add module parameters to filter the tests to run.
+Date: Mon,  3 Aug 2015 16:02:06 +0200
+Message-ID: <1438610528-14245-5-git-send-email-nschichan@freebox.fr>
 References: <1438610528-14245-1-git-send-email-nschichan@freebox.fr>
 Cc: Nicolas Schichan <nschichan@freebox.fr>
 To: Daniel Borkmann <daniel@iogearbox.net>,
 	Alexei Starovoitov <ast@plumgrid.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:53771 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753583AbbHCOCh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2015 10:02:37 -0400
 In-Reply-To: <1438610528-14245-1-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This introduce a new test->aux flag (FLAG_SKB_FRAG) to tell the
-populate_skb() function to add a fragment to the test skb containing
-the data specified in test->frag_data).
+When developping on the interpreter or a particular JIT, it can be
+insteresting to restrict the test list to a specific test or a
+particular range of tests.
+
+This patch adds the following module parameters to the test_bpf module:
+
+* test_name=<string>: only the specified named test will be run.
+
+* test_id=<number>: only the test with the specified id will be run
+  (see the output of test_pbf without parameters to get the test id).
+
+* test_range=<number>,<number>: only the tests with IDs in the
+  specified id range are run (see the output of test_pbf without
+  parameters to get the test ids).
+
+Any invalid range, test id or test name will result in -EINVAL being
+returned and no tests being run.
 
 Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- lib/test_bpf.c | 38 +++++++++++++++++++++++++++++++++++++-
- 1 file changed, 37 insertions(+), 1 deletion(-)
+ lib/test_bpf.c | 73 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 73 insertions(+)
 
 diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 6843d0b..acef1e9 100644
+index f5606fb..abd0507 100644
 --- a/lib/test_bpf.c
 +++ b/lib/test_bpf.c
-@@ -23,6 +23,7 @@
- #include <linux/netdevice.h>
- #include <linux/if_vlan.h>
- #include <linux/random.h>
-+#include <linux/highmem.h>
- 
- /* General test specific settings */
- #define MAX_SUBTESTS	3
-@@ -56,6 +57,7 @@
- /* Flags that can be passed to test cases */
- #define FLAG_NO_DATA		BIT(0)
- #define FLAG_EXPECTED_FAIL	BIT(1)
-+#define FLAG_SKB_FRAG		BIT(2)
- 
- enum {
- 	CLASSIC  = BIT(6),	/* Old BPF instructions only. */
-@@ -81,6 +83,7 @@ struct bpf_test {
- 		__u32 result;
- 	} test[MAX_SUBTESTS];
- 	int (*fill_helper)(struct bpf_test *self);
-+	__u8 frag_data[MAX_DATA];
- };
- 
- /* Large test cases need separate allocation and fill handler. */
-@@ -4525,6 +4528,10 @@ static struct sk_buff *populate_skb(char *buf, int size)
- 
- static void *generate_test_data(struct bpf_test *test, int sub)
- {
-+	struct sk_buff *skb;
-+	struct page *page;
-+	void *ptr;
-+
- 	if (test->aux & FLAG_NO_DATA)
- 		return NULL;
- 
-@@ -4532,7 +4539,36 @@ static void *generate_test_data(struct bpf_test *test, int sub)
- 	 * subtests generate skbs of different sizes based on
- 	 * the same data.
- 	 */
--	return populate_skb(test->data, test->test[sub].data_size);
-+	skb = populate_skb(test->data, test->test[sub].data_size);
-+	if (!skb)
-+		return NULL;
-+
-+	if (test->aux & FLAG_SKB_FRAG) {
-+		/*
-+		 * when the test requires a fragmented skb, add a
-+		 * single fragment to the skb, filled with
-+		 * test->frag_data.
-+		 */
-+		page = alloc_page(GFP_KERNEL);
-+
-+		if (!page)
-+			goto err_kfree_skb;
-+
-+		ptr = kmap(page);
-+		if (!ptr)
-+			goto err_free_page;
-+		memcpy(ptr, test->frag_data, MAX_DATA);
-+		kunmap(page);
-+		skb_add_rx_frag(skb, 0, page, 0, MAX_DATA, MAX_DATA);
-+	}
-+
-+	return skb;
-+
-+err_free_page:
-+	__free_page(page);
-+err_kfree_skb:
-+	kfree_skb(skb);
-+	return NULL;
+@@ -4870,10 +4870,72 @@ static int run_one(const struct bpf_prog *fp, struct bpf_test *test)
+ 	return err_cnt;
  }
  
- static void release_test_data(const struct bpf_test *test, void *data)
++static char test_name[64];
++module_param_string(test_name, test_name, sizeof(test_name), 0);
++
++static int test_id = -1;
++module_param(test_id, int, 0);
++
++static int test_range[2] = { -1, -1 };
++module_param_array(test_range, int, NULL, 0);
++
++static __init int find_test_index(const char *test_name)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(tests); i++) {
++		if (!strcmp(tests[i].descr, test_name))
++			return i;
++	}
++	return -1;
++}
++
+ static __init int prepare_bpf_tests(void)
+ {
+ 	int i;
+ 
++	if (test_id >= 0) {
++		/*
++		 * if a test_id was specified, use test_range to
++		 * conver only that test.
++		 */
++		if (test_id >= ARRAY_SIZE(tests)) {
++			pr_err("test_bpf: invalid test_id specified.\n");
++			return -EINVAL;
++		}
++
++		test_range[0] = test_id;
++		test_range[1] = test_id;
++	} else if (test_range[0] >= 0) {
++		/*
++		 * check that the supplied test_range is valid.
++		 */
++		if (test_range[0] >= ARRAY_SIZE(tests) ||
++		    test_range[1] >= ARRAY_SIZE(tests)) {
++			pr_err("test_bpf: test_range is out of bound.\n");
++			return -EINVAL;
++		}
++
++		if (test_range[1] < test_range[0]) {
++			pr_err("test_bpf: test_range is ending before it starts.\n");
++			return -EINVAL;
++		}
++	} else if (*test_name) {
++		/*
++		 * if a test_name was specified, find it and setup
++		 * test_range to cover only that test.
++		 */
++		int idx = find_test_index(test_name);
++
++		if (idx < 0) {
++			pr_err("test_bpf: no test named '%s' found.\n",
++			       test_name);
++			return -EINVAL;
++		}
++		test_range[0] = idx;
++		test_range[1] = idx;
++	}
++
+ 	for (i = 0; i < ARRAY_SIZE(tests); i++) {
+ 		if (tests[i].fill_helper &&
+ 		    tests[i].fill_helper(&tests[i]) < 0)
+@@ -4893,6 +4955,14 @@ static __init void destroy_bpf_tests(void)
+ 	}
+ }
+ 
++static bool exclude_test(int test_id)
++{
++	if (test_range[0] >= 0 &&
++	    (test_id < test_range[0] || test_id > test_range[1]))
++		return true;
++	return false;
++}
++
+ static __init int test_bpf(void)
+ {
+ 	int i, err_cnt = 0, pass_cnt = 0;
+@@ -4902,6 +4972,9 @@ static __init int test_bpf(void)
+ 		struct bpf_prog *fp;
+ 		int err;
+ 
++		if (exclude_test(i))
++			continue;
++
+ 		pr_info("#%d %s ", i, tests[i].descr);
+ 
+ 		fp = generate_filter(i, &err);
 -- 
 1.9.1
