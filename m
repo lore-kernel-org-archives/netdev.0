@@ -1,55 +1,54 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] virtio_net: add gro capability
-Date: Mon, 03 Aug 2015 09:22:48 -0700
-Message-ID: <55BF9558.3020501@hp.com>
-References: <1438359917.2748.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150803162529-mutt-send-email-mst@redhat.com>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: Fix L4 checksum handling when
+ dealing with IP fragments
+Date: Mon, 3 Aug 2015 09:25:53 -0700
+Message-ID: <CALnjE+p-y8i5h1Dnk0BHnhdq94Ndys=uQ=UXy3uLWmNA48SeJg@mail.gmail.com>
+References: <1438484942.277866.12350@glenng-linux.sea.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150803162529-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Glenn Griffin <ggriffin.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1438484942.277866.12350-ACJuPB1Uyt4EJhTZDIxEbXoUN1GumTyQ7j82oEJ37pA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On 08/03/2015 06:37 AM, Michael S. Tsirkin wrote:
-> Ideally this needs to also be tested on non-vxlan configs with gro in
-> host, to make sure this doesn't cause regressions.
-
-Measured with the same instances on the same hardware and software, 
-taking a path through the stack (public rather than private IPs, with 
-Distributed Virtual Router (DVR) enabled) which gives them GRO:
-
-Throughput				
-	Min	Median	Average	Max
-4.2.0-rc3+_hostGRO	6713	8351	8232	9102
-4.2.0-rc3+flush1k_hostGRO	6539	8267	8206	8982
-
-As singletons, Mins and Maxes probably have rather high variability, I'd 
-focus on the Median and Average and those are within 1%.
-
-Send Service Demand				
-	Min	Median	Average	Max
-4.2.0-rc3+_hostGRO	0.332	0.496	0.490	0.651
-4.2.0-rc3+flush1k_hostGRO	0.328	0.493	0.488	0.678
-
-Receive Service Demand				
-	Min	Median	Average	Max
-4.2.0-rc3+_hostGRO	0.386	0.469	0.485	0.677
-4.2.0-rc3+flush1k_hostGRO	0.369	0.466	0.477	0.665
-
-happy benchmarking,
-
-rick
+T24gU2F0LCBBdWcgMSwgMjAxNSBhdCA2OjMxIFBNLCBHbGVubiBHcmlmZmluIDxnZ3JpZmZpbi5r
+ZXJuZWxAZ21haWwuY29tPiB3cm90ZToKPiBvcGVudnN3aXRjaCBtb2RpZmllcyB0aGUgTDQgY2hl
+Y2tzdW0gb2YgYSBwYWNrZXQgd2hlbiBtb2RpZnlpbmcKPiB0aGUgaXAgYWRkcmVzcy4gV2hlbiBh
+biBJUCBwYWNrZXQgaXMgZnJhZ21lbnRlZCBvbmx5IHRoZSBmaXJzdAo+IGZyYWdtZW50IGNvbnRh
+aW5zIGFuIEw0IGhlYWRlciBhbmQgY2hlY2tzdW0uIFByaW9yIHRvIHRoaXMgY2hhbmdlCj4gb3Bl
+bnZzd2l0Y2ggd291bGQgbW9kaWZ5IGFsbCBmcmFnbWVudHMsIG1vZGlmeWluZyBhcHBsaWNhdGlv
+biBkYXRhCj4gaW4gbm9uLWZpcnN0IGZyYWdtZW50cywgY2F1c2luZyBjaGVja3N1bSBmYWlsdXJl
+cyBpbiB0aGUKPiByZWFzc2VtYmxlZCBwYWNrZXQuCj4KPiBTaWduZWQtb2ZmLWJ5OiBHbGVubiBH
+cmlmZmluIDxnZ3JpZmZpbi5rZXJuZWxAZ21haWwuY29tPgoKUGF0Y2ggbG9va3MgZ29vZC4gSSBo
+YXZlIG9uZSBmb2xsb3dpbmcgY29tbWVudC4KPiAtLS0KPiAgbmV0L29wZW52c3dpdGNoL2FjdGlv
+bnMuYyB8IDE2ICsrKysrKysrKysrKy0tLS0KPiAgMSBmaWxlIGNoYW5nZWQsIDEyIGluc2VydGlv
+bnMoKyksIDQgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Fj
+dGlvbnMuYyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPiBpbmRleCA4YThjMGI4Li5iZmZm
+YjFhIDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPiArKysgYi9uZXQv
+b3BlbnZzd2l0Y2gvYWN0aW9ucy5jCj4gQEAgLTI3MywyOCArMjczLDM2IEBAIHN0YXRpYyBpbnQg
+c2V0X2V0aF9hZGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBzd19mbG93X2tleSAqZmxv
+d19rZXksCj4gICAgICAgICByZXR1cm4gMDsKPiAgfQo+Cj4gLXN0YXRpYyB2b2lkIHNldF9pcF9h
+ZGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBpcGhkciAqbmgsCj4gLSAgICAgICAgICAg
+ICAgICAgICAgICAgX19iZTMyICphZGRyLCBfX2JlMzIgbmV3X2FkZHIpCj4gK3N0YXRpYyB2b2lk
+IHVwZGF0ZV9pcF9sNF9jaGVja3N1bShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgaXBoZHIg
+Km5oLAo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBfX2JlMzIgYWRkciwgX19i
+ZTMyIG5ld19hZGRyKQo+ICB7Cj4gICAgICAgICBpbnQgdHJhbnNwb3J0X2xlbiA9IHNrYi0+bGVu
+IC0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2tiKTsKPgo+ICsgICAgICAgaWYgKG50b2hzKG5oLT5m
+cmFnX29mZikgJiBJUF9PRkZTRVQpCj4gKyAgICAgICAgICAgICAgIHJldHVybjsKCkl0IGlzIGVm
+ZmljaWVudCB0byBjaGVjayBmcmFnLW9mZnNldCBpbiBuZXR3b3JrIGJ5dGUgb3JkZXIuCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxp
+c3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlz
+dGluZm8vZGV2Cg==
