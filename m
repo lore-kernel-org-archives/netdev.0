@@ -1,58 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 1/1] e1000: remove dead e1000_init_eeprom_params calls.
-Date: Mon, 3 Aug 2015 16:07:48 -0700
-Message-ID: <CAL3LdT6UmZ6x0bm--qQ3YQ2RM5SQjmgaQoa4GeQdEbxbQD9iBg@mail.gmail.com>
-References: <20150714202311.GA5189@192-168-0-3.rdsnet.ro>
-	<20150724214036.GA29524@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Joern Engel <joern@logfs.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:33639 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbbHCXHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 19:07:49 -0400
-Received: by obdeg2 with SMTP id eg2so110501124obd.0
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 16:07:48 -0700 (PDT)
-In-Reply-To: <20150724214036.GA29524@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next] bridge: mdb: fix vlan_enabled access when
+	vlans are not configured
+Date: Tue,  4 Aug 2015 01:19:58 +0200
+Message-ID: <1438643998-9259-1-git-send-email-razor@blackwall.org>
+References: <201508040606.8x0wKgcJ%fengguang.wu@intel.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <201508040606.8x0wKgcJ%fengguang.wu@intel.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 24, 2015 at 2:40 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> The device probe method e1000_probe calls e1000_init_eeprom_params
-> itself so there's no reason to call it again from e1000_do_write_eeprom
-> or e1000_do_read_eeprom.
->
-> The sentence above assumes that e1000_init_eeprom_params is effective
-> but it's mostly dependant on "hw->mac_type": safe as e1000_probe bails
-> out early if it can't set mac_type (see e1000_init_hw_struct, then
-> e1000_set_mac_type).
->
-> Btw, if effective, the removed paths would had been deadlock prone when
-> e1000_eeprom_spi was set:
-> -> e1000_write_eeprom (takes e1000_eeprom_lock)
->    -> e1000_do_write_eeprom
->       -> e1000_init_eeprom_params
->          -> e1000_read_eeprom (takes e1000_eeprom_lock)
->
-> (same narrative with e1000_read_eeprom -> e1000_do_read_eeprom etc.)
->
-> As a final note, the candidate deadlock above can't happen in e1000_probe
-> due to the way eeprom->word_size is set / tested.
->
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> ---
->
-> Untested. I have found it while looking at Joern's patch.
->
->  drivers/net/ethernet/intel/e1000/e1000_hw.c | 8 --------
->  1 file changed, 8 deletions(-)
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Can you please send this to intel-wired-lan@lists.osuosl.org mailing
-list?  That is the mailing list created/used for these patches.  It
-also helps me out by adding your patch to our patchworks project for
-patches against Intel wired drivers.
+Instead of trying to access br->vlan_enabled directly use the provided
+helper br_vlan_enabled().
 
-Thanks in advance, sorry for the delayed response, was on vacation last week.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+Sorry, forgot to change this before sending the patch.
+
+ net/bridge/br_mdb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 1df3ef4a73b9..d747275fad18 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -490,7 +490,7 @@ static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return -EINVAL;
+ 
+ 	pv = nbp_get_vlan_info(p);
+-	if (br->vlan_enabled && pv && entry->vid == 0) {
++	if (br_vlan_enabled(br) && pv && entry->vid == 0) {
+ 		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
+ 			entry->vid = vid;
+ 			err = __br_mdb_add(net, br, entry);
+@@ -592,7 +592,7 @@ static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return -EINVAL;
+ 
+ 	pv = nbp_get_vlan_info(p);
+-	if (br->vlan_enabled && pv && entry->vid == 0) {
++	if (br_vlan_enabled(br) && pv && entry->vid == 0) {
+ 		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
+ 			entry->vid = vid;
+ 			err = __br_mdb_del(br, entry);
+-- 
+2.4.3
