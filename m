@@ -1,100 +1,55 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH iproute2 net-next] iplink: bonding: add support for IFLA_BOND_TLB_DYNAMIC_LB
-Date: Mon,  3 Aug 2015 12:19:55 +0200
-Message-ID: <1438597195-18044-1-git-send-email-razor@blackwall.org>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:35811 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753095AbbHCKUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 06:20:00 -0400
-Received: by wibxm9 with SMTP id xm9so114402492wib.0
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 03:19:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH] MIPS: Remove all the uses of custom gpio.h
+Date: Mon, 3 Aug 2015 13:25:36 +0200
+Message-ID: <CACRpkdYk13TQXYVfG0cOvmz9RTZ717rFWax+fij7oPbaUoqpOA@mail.gmail.com>
+References: <1438277338-7246-1-git-send-email-albeu@free.fr>
+	<CACRpkdbUhYysC+mGuJY6Y8kd18LQLoWu+av81+ZD4UZo2nM-Yw@mail.gmail.com>
+	<20150803072332.GC16650@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alban Bedel <albeu@free.fr>,
+	Linux MIPS <linux-mips@linux-mips.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Florian Fainelli <florian@openwrt.org>,
+	Manuel Lauss <manuel.lauss@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	Daniel Walter <dwalter@google.com>,
+	Sergey Ryazanov <ryazanov.s.a@gmail.com>,
+	Huacai Chen <chenhc@lemote.com>,
+	Andrew Bresticker <abrestic@chromium.org>,
+	James Hartley <james.hartley@imgtec.com>,
+	Paul Burton <paul.burton@imgtec.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Wolfram Sang <wsa@the-dreams.de>,
+	Simon Horman <horms+renesas@verge.net.au>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	Masanari Iid
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <20150803072332.GC16650@linux-mips.org>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Mon, Aug 3, 2015 at 9:23 AM, Ralf Baechle <ralf@linux-mips.org> wrote:
+> On Mon, Aug 03, 2015 at 09:13:27AM +0200, Linus Walleij wrote:
+>
+>> Very good job being done here.
+>> Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
+>>
+>> I guess this better go in through the MIPS tree.
+>> Given all the OpenWRT ports using MIPS this is excellent
+>> progress for a large hobbyist community.
+>
+> Alban has posted a v2 [1] already but I take it that your Reviewed-by: applies
+> to the v2 patch as well?
 
-Add support to be able to set and show the value of tlb_dynamic_lb
-(IFLA_BOND_TLB_DYNAMIC_LB).
-Example:
-$ ip -d link show dev bond0 type bond
-7: bond0: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN
-mode DEFAULT group default
-    link/ether ce:2f:e1:6e:d7:e0 brd ff:ff:ff:ff:ff:ff promiscuity 0
-    bond mode balance-tlb miimon 100 updelay 0 downdelay 0 use_carrier 1
-arp_interval 0 arp_validate none arp_all_targets any primary_reselect
-always fail_over_mac none xmit_hash_policy layer2 resend_igmp 1
-num_grat_arp 1 all_slaves_active 0 min_links 0 lp_interval 1
-packets_per_slave 1 lacp_rate slow ad_select stable tlb_dynamic_lb 1
-addrgenmode eui64
+Sure thing. Green light for this.
 
-$ ip -d l set dev bond0 type bond tlb_dynamic_lb 0
-$ ip -d link show dev bond0 type bond
-7: bond0: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN
-mode DEFAULT group default
-    link/ether ce:2f:e1:6e:d7:e0 brd ff:ff:ff:ff:ff:ff promiscuity 0
-    bond mode balance-tlb miimon 100 updelay 0 downdelay 0 use_carrier 1
-arp_interval 0 arp_validate none arp_all_targets any primary_reselect
-always fail_over_mac none xmit_hash_policy layer2 resend_igmp 1
-num_grat_arp 1 all_slaves_active 0 min_links 0 lp_interval 1
-packets_per_slave 1 lacp_rate slow ad_select stable tlb_dynamic_lb 0
-addrgenmode eui64
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- ip/iplink_bond.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
-
-diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
-index 2a9783e4f114..1b50de909356 100644
---- a/ip/iplink_bond.c
-+++ b/ip/iplink_bond.c
-@@ -133,6 +133,7 @@ static void print_explain(FILE *f)
- 		"                [ min_links MIN_LINKS ]\n"
- 		"                [ lp_interval LP_INTERVAL ]\n"
- 		"                [ packets_per_slave PACKETS_PER_SLAVE ]\n"
-+		"		 [ tlb_dynamic_lb TLB_DYNAMIC_LB ]\n"
- 		"                [ lacp_rate LACP_RATE ]\n"
- 		"                [ ad_select AD_SELECT ]\n"
- 		"                [ ad_user_port_key PORTKEY ]\n"
-@@ -160,7 +161,7 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
- {
- 	__u8 mode, use_carrier, primary_reselect, fail_over_mac;
- 	__u8 xmit_hash_policy, num_peer_notif, all_slaves_active;
--	__u8 lacp_rate, ad_select;
-+	__u8 lacp_rate, ad_select, tlb_dynamic_lb;
- 	__u16 ad_user_port_key, ad_actor_sys_prio;
- 	__u32 miimon, updelay, downdelay, arp_interval, arp_validate;
- 	__u32 arp_all_targets, resend_igmp, min_links, lp_interval;
-@@ -374,6 +375,14 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
- 				return -1;
- 			addattr_l(n, 1024, IFLA_BOND_AD_ACTOR_SYSTEM,
- 				  abuf, len);
-+		} else if (matches(*argv, "tlb_dynamic_lb") == 0) {
-+			NEXT_ARG();
-+			if (get_u8(&tlb_dynamic_lb, *argv, 0)) {
-+				invarg("invalid tlb_dynamic_lb", *argv);
-+				return -1;
-+			}
-+			addattr8(n, 1024, IFLA_BOND_TLB_DYNAMIC_LB,
-+				 tlb_dynamic_lb);
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -583,6 +592,11 @@ static void bond_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 				    RTA_PAYLOAD(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
- 				    1 /*ARPHDR_ETHER*/, b1, sizeof(b1)));
- 	}
-+
-+	if (tb[IFLA_BOND_TLB_DYNAMIC_LB]) {
-+		fprintf(f, "tlb_dynamic_lb %u ",
-+			rta_getattr_u8(tb[IFLA_BOND_TLB_DYNAMIC_LB]));
-+	}
- }
- 
- static void bond_print_help(struct link_util *lu, int argc, char **argv,
--- 
-2.4.3
+Yours,
+Linus Walleij
