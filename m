@@ -1,28 +1,64 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next 2/2] rocker: linearize skb in case frags would
- not fit into tx descriptor
-Date: Mon, 3 Aug 2015 11:31:50 -0700
-Message-ID: <CAE4R7bAAYv8AbmhKWJ0Rgs5RBWRhaGOa9Bknf2UBsAwKuZSDLg@mail.gmail.com>
-References: <1438541798-1725-1-git-send-email-jiri@resnulli.us> <1438541798-1725-2-git-send-email-jiri@resnulli.us>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch -master] netfilter: xt_CT: checking for IS_ERR() instead
+ of NULL
+Date: Mon, 3 Aug 2015 22:24:06 +0200
+Message-ID: <20150803202406.GA3339@salvia>
+References: <20150727224228.GA10367@mwanda>
+ <20150730115743.GA7077@salvia>
+ <CANr6G5y1bO18L3bFuGs+=Dfszm0+voQtmz-u51nhGY0u5ebb-A@mail.gmail.com>
+ <CANr6G5z7B1T0VCMQ1cVCpiDwJvOTNMfh0L3j6pDNVNHhmShAng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:34965 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754318AbbHCScL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 14:32:11 -0400
-Received: by obbop1 with SMTP id op1so105803046obb.2
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 11:32:10 -0700 (PDT)
-In-Reply-To: <1438541798-1725-2-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CANr6G5z7B1T0VCMQ1cVCpiDwJvOTNMfh0L3j6pDNVNHhmShAng@mail.gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 2, 2015 at 11:56 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Suggested-by: Scott Feldman <sfeldma@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+On Mon, Aug 03, 2015 at 11:30:16AM -0700, Joe Stringer wrote:
+> On 3 August 2015 at 11:29, Joe Stringer <joestringer@nicira.com> wrote:
+> > On 30 July 2015 at 04:57, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> >> On Tue, Jul 28, 2015 at 01:42:28AM +0300, Dan Carpenter wrote:
+> >>> We recently changed this from nf_conntrack_alloc() to nf_ct_tmpl_alloc()
+> >>> so the error handling needs to changed to check for NULL instead of
+> >>> IS_ERR().
+> >>>
+> >>> Fixes: 0838aa7fcfcd ('netfilter: fix netns dependencies with conntrack templates')
+> >>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> >>
+> >> Applied, thanks.
+> >>
+> >> I have also appended this chunk, since synproxy is also affected:
+> >>
+> >> --- a/net/netfilter/nf_synproxy_core.c
+> >> +++ b/net/netfilter/nf_synproxy_core.c
+> >> @@ -353,7 +353,7 @@ static int __net_init synproxy_net_init(struct net *net)
+> >>         int err = -ENOMEM;
+> >>
+> >>         ct = nf_ct_tmpl_alloc(net, 0, GFP_KERNEL);
+> >> -       if (IS_ERR(ct)) {
+> >> +       if (!ct) {
+> >>                 err = PTR_ERR(ct);
+> >>                 goto err1;
+> >>         }
+> >
+> > Does PTR_ERR() implicitly interpret NULL as -ENOMEM? Seems like the
+> > fix applied here is a little different from the xt_CT fix.
+> 
+> Just saw the initialization of err now, but this would be overridden
+> within the error checking statement.
 
-Acked-by: Scott Feldman <sfeldma@gmail.com>
+Right, I noticed before pushing out this change, the final applied
+patch is here:
+
+http://git.kernel.org/cgit/linux/kernel/git/pablo/nf.git/commit/?id=1a727c63612fc582370cf3dc01239d3d239743b5
+
+Let me know if you still have any concern, thanks Joe.
