@@ -1,33 +1,29 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] mpls: Use definition for reserved label checks
-Date: Mon, 03 Aug 2015 14:45:19 -0700
-Message-ID: <55BFE0EF.5010000@cumulusnetworks.com>
-References: <1438620604-18746-1-git-send-email-rshearma@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r8169: Permit users to change transmit and receive max
+ pachet size
+Date: Mon, 03 Aug 2015 14:56:08 -0700 (PDT)
+Message-ID: <20150803.145608.1565215068703069235.davem@davemloft.net>
+References: <ctml34x6j21mkn1wutfemkq7.1438638110313@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: Robert Shearman <rshearma@brocade.com>
+Cc: netdev@vger.kernel.org
+To: corcodel.marian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33368 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754337AbbHCVpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 17:45:21 -0400
-Received: by padck2 with SMTP id ck2so99012491pad.0
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 14:45:21 -0700 (PDT)
-In-Reply-To: <1438620604-18746-1-git-send-email-rshearma@brocade.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45093 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932332AbbHCV4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 17:56:11 -0400
+In-Reply-To: <ctml34x6j21mkn1wutfemkq7.1438638110313@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/3/15, 9:50 AM, Robert Shearman wrote:
-> In multiple locations there are checks for whether the label in hand
-> is a reserved label or not using the arbritray value of 16. Factor
-> this out into a #define for better maintainability and for
-> documentation.
->
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
+From: "Corcodel.marian" <corcodel.marian@gmail.com>
+Date: Tue, 04 Aug 2015 00:41:50 +0300
 
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> A this moment these param is only for test and not for large utilization.
+
+Then you can patch your local driver for "testing".
+
+You change doesn't belong upstream.  We're not going to litter drivers
+with debugging hack options.
