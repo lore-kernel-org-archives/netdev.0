@@ -1,44 +1,95 @@
-From: Wenyu Zhang <wenyuz@vmware.com>
-Subject: [PATCH v1] netdev: Make 100 percents packets sampled when sampling rate is 1.
-Date: Mon, 3 Aug 2015 00:11:58 -0700
-Message-ID: <1438585918-20233-1-git-send-email-wenyuz@vmware.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH] MIPS: Remove all the uses of custom gpio.h
+Date: Mon, 3 Aug 2015 09:13:27 +0200
+Message-ID: <CACRpkdbUhYysC+mGuJY6Y8kd18LQLoWu+av81+ZD4UZo2nM-Yw@mail.gmail.com>
+References: <1438277338-7246-1-git-send-email-albeu@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <wenyuz@vmware.com>, <jgross@vmware.com>, <netdev@vger.kernel.org>,
-	<dev@openvswitch.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:54385 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751438AbbHCHMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 03:12:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux MIPS <linux-mips@linux-mips.org>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Tejun Heo <tj@kernel.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Florian Fainelli <florian@openwrt.org>,
+	Manuel Lauss <manuel.lauss@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	Daniel Walter <dwalter@google.com>,
+	Sergey Ryazanov <ryazanov.s.a@gmail.com>,
+	Huacai Chen <chenhc@lemote.com>,
+	Andrew Bresticker <abrestic@chromium.org>,
+	James Hartley <james.hartley@imgtec.com>,
+	Paul Burton <paul.burton@imgtec.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Wolfram Sang <wsa@the-dreams.de>,
+	Simon Horman <horms+renesas@verge.net.au>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	Masan
+To: Alban Bedel <albeu@free.fr>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <1438277338-7246-1-git-send-email-albeu@free.fr>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When sampling rate is 1, the sampling probability is UINT32_MAX. The packet
-should be sampled even the prandom32() generate the number of UINT32_MAX.
-And none packet need be sampled when the probability is 0.
+On Thu, Jul 30, 2015 at 7:28 PM, Alban Bedel <albeu@free.fr> wrote:
 
-Signed-off-by: Wenyu Zhang <wenyuz@vmware.com>
----
- net/openvswitch/actions.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+> Currently CONFIG_ARCH_HAVE_CUSTOM_GPIO_H is defined for all MIPS
+> machines, and each machine type provides its own gpio.h. However
+> only a handful really implement the GPIO API, most just forward
+> everythings to gpiolib.
+>
+> The Alchemy machine is notable as it provides a system to allow
+> implementing the GPIO API at the board level. But it is not used by
+> any board currently supported, so it can also be removed.
+>
+> For most machine types we can just remove the custom gpio.h, as well
+> as the custom wrappers if some exists. Some of the code found in
+> the wrappers must be moved to the respective GPIO driver.
+>
+> A few more fixes are need in some drivers as they rely on linux/gpio.h
+> to provides some machine specific definitions, or used asm/gpio.h
+> instead of linux/gpio.h for the gpio API.
+>
+> Signed-off-by: Alban Bedel <albeu@free.fr>
+> ---
+>
+> This patch is based on my previous serie:
+> "MIPS: ath79: Move the GPIO driver to drivers/gpio".
+>
+> It supercede my previous patch named:
+> "MIPS: Remove most of the custom gpio.h"
+>
+> Compared to the previous patch:
+> * Fixed gpio_to_irq on jz4740 and rb532
+> * Cleaned up alchemy as well
+> * Removed asm/gpio.h
+>
+> For testing I tried to build all mips defconfig, however my toolchain
+> couldn't handle a few configs: ip28 malta_qemu_32r6 maltasmvp_eva
+> sead3micro. If somebody can test these that would be more than welcome.
+>
+> Now a few stats about the state of CONFIG_ARCH_HAVE_CUSTOM_GPIO_H
+> after appling this patch. Of the 31 supportd arch, 15 still have
+> asm/gpio.h, of these 9 are just a "#warning Include linux/gpio.h
+> instead of asm/gpio.h". So we have 6 arch left: arm, avr32, blackfin,
+> m68k, sh and unicore32. But only m68k and unicore32 really provides
+> custom wrappers, all the others only forward to gpiolib.
+>
+> On the drivers side we only have 13 occurences of '#include
+> <asm/gpio.h>' left, mostly in drivers used on ARM SoC.
+>
+> So the work left to phase out the legacy GPIO is really not that much
+> anymore.
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index cf04c2f..03acb09 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -669,9 +669,11 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 
- 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
- 		 a = nla_next(a, &rem)) {
-+		uint32_t probability;
- 		switch (nla_type(a)) {
- 		case OVS_SAMPLE_ATTR_PROBABILITY:
--			if (prandom_u32() >= nla_get_u32(a))
-+			probability = nla_get_u32(a);
-+			if (!probability || probability > nla_get_u32(a))
- 				return 0;
- 			break;
- 
--- 
-1.7.9.5
+Very good job being done here.
+Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
+
+I guess this better go in through the MIPS tree.
+Given all the OpenWRT ports using MIPS this is excellent
+progress for a large hobbyist community.
+
+Yours,
+Linus Walleij
