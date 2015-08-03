@@ -1,51 +1,116 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next 2/2] ipv4: apply lwtunnel encap for locally-generated packets
-Date: Mon, 3 Aug 2015 17:39:21 +0100
-Message-ID: <1438619961-15919-3-git-send-email-rshearma@brocade.com>
-References: <1438619961-15919-1-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net-next] mpls: Use definition for reserved label checks
+Date: Mon, 3 Aug 2015 17:50:04 +0100
+Message-ID: <1438620604-18746-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Thomas Graf <tgraf@suug.ch>,
 	Roopa Prabhu <roopa@cumulusnetworks.com>,
 	"Robert Shearman" <rshearma@brocade.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:14406 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:49830 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754009AbbHCQke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 12:40:34 -0400
-In-Reply-To: <1438619961-15919-1-git-send-email-rshearma@brocade.com>
+	by vger.kernel.org with ESMTP id S1752323AbbHCQvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 12:51:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-lwtunnel encap is applied for forwarded packets, but not for
-locally-generated packets. This is because the output function is not
-overridden in __mkroute_output, unlike it is in __mkroute_input.
-
-The lwtunnel state is correctly set on the rth through the call to
-rt_set_nexthop, so all that needs to be done is to override the dst
-output function to be lwtunnel_output if there is lwtunnel state
-present and it requires output redirection.
+In multiple locations there are checks for whether the label in hand
+is a reserved label or not using the arbritray value of 16. Factor
+this out into a #define for better maintainability and for
+documentation.
 
 Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- net/ipv4/route.c | 2 ++
- 1 file changed, 2 insertions(+)
+Resend of an earlier version of this patch that was included as part
+of a larger series. Changes since that version:
+  - Move new #define into userspace header file in line with other
+    well-defined label values. Rename to match.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 908f7ef2f12a..18fd7c9095c7 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2022,6 +2022,8 @@ add:
+ include/uapi/linux/mpls.h |  2 ++
+ net/mpls/af_mpls.c        | 21 +++++++++++----------
+ 2 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
+index 139d4dd1cab8..24a6cb1aec86 100644
+--- a/include/uapi/linux/mpls.h
++++ b/include/uapi/linux/mpls.h
+@@ -41,4 +41,6 @@ struct mpls_label {
+ #define MPLS_LABEL_OAMALERT		14 /* RFC3429 */
+ #define MPLS_LABEL_EXTENSION		15 /* RFC7274 */
+ 
++#define MPLS_LABEL_FIRST_UNRESERVED	16 /* RFC3032 */
++
+ #endif /* _UAPI_MPLS_H */
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 88cfaa241c07..b6b9a6c4e784 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -293,7 +293,7 @@ static void mpls_notify_route(struct net *net, unsigned index,
+ 	struct mpls_route *rt = new ? new : old;
+ 	unsigned nlm_flags = (old && new) ? NLM_F_REPLACE : 0;
+ 	/* Ignore reserved labels for now */
+-	if (rt && (index >= 16))
++	if (rt && (index >= MPLS_LABEL_FIRST_UNRESERVED))
+ 		rtmsg_lfib(event, index, rt, nlh, net, portid, nlm_flags);
+ }
+ 
+@@ -327,7 +327,8 @@ static unsigned find_free_label(struct net *net)
+ 
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+ 	platform_labels = net->mpls.platform_labels;
+-	for (index = 16; index < platform_labels; index++) {
++	for (index = MPLS_LABEL_FIRST_UNRESERVED; index < platform_labels;
++	     index++) {
+ 		if (!rtnl_dereference(platform_label[index]))
+ 			return index;
+ 	}
+@@ -436,8 +437,8 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 		index = find_free_label(net);
  	}
  
- 	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0);
-+	if (lwtunnel_output_redirect(rth->rt_lwtstate))
-+		rth->dst.output = lwtunnel_output;
+-	/* The first 16 labels are reserved, and may not be set */
+-	if (index < 16)
++	/* Reserved labels may not be set */
++	if (index < MPLS_LABEL_FIRST_UNRESERVED)
+ 		goto errout;
  
- 	return rth;
- }
+ 	/* The full 20 bit range may not be supported. */
+@@ -516,8 +517,8 @@ static int mpls_route_del(struct mpls_route_config *cfg)
+ 
+ 	index = cfg->rc_label;
+ 
+-	/* The first 16 labels are reserved, and may not be removed */
+-	if (index < 16)
++	/* Reserved labels may not be removed */
++	if (index < MPLS_LABEL_FIRST_UNRESERVED)
+ 		goto errout;
+ 
+ 	/* The full 20 bit range may not be supported */
+@@ -835,8 +836,8 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 					   &cfg->rc_label))
+ 				goto errout;
+ 
+-			/* The first 16 labels are reserved, and may not be set */
+-			if (cfg->rc_label < 16)
++			/* Reserved labels may not be set */
++			if (cfg->rc_label < MPLS_LABEL_FIRST_UNRESERVED)
+ 				goto errout;
+ 
+ 			break;
+@@ -961,8 +962,8 @@ static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
+ 	ASSERT_RTNL();
+ 
+ 	index = cb->args[0];
+-	if (index < 16)
+-		index = 16;
++	if (index < MPLS_LABEL_FIRST_UNRESERVED)
++		index = MPLS_LABEL_FIRST_UNRESERVED;
+ 
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+ 	platform_labels = net->mpls.platform_labels;
 -- 
 2.1.4
