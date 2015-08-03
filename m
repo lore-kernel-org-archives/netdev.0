@@ -1,7 +1,7 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH 5/6] test_bpf: add more tests for LD_ABS and LD_IND.
-Date: Mon,  3 Aug 2015 16:02:07 +0200
-Message-ID: <1438610528-14245-6-git-send-email-nschichan@freebox.fr>
+Subject: [PATCH 2/6] test_bpf: allow tests to specify an skb fragment.
+Date: Mon,  3 Aug 2015 16:02:04 +0200
+Message-ID: <1438610528-14245-3-git-send-email-nschichan@freebox.fr>
 References: <1438610528-14245-1-git-send-email-nschichan@freebox.fr>
 Cc: Nicolas Schichan <nschichan@freebox.fr>
 To: Daniel Borkmann <daniel@iogearbox.net>,
@@ -13,322 +13,92 @@ In-Reply-To: <1438610528-14245-1-git-send-email-nschichan@freebox.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This exerces the LD_ABS and LD_IND instructions for various sizes and
-alignments. This also checks that X when used as an offset to a
-BPF_IND instruction first in a filter is correctly set to 0.
+This introduce a new test->aux flag (FLAG_SKB_FRAG) to tell the
+populate_skb() function to add a fragment to the test skb containing
+the data specified in test->frag_data).
 
 Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- lib/test_bpf.c | 296 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 296 insertions(+)
+ lib/test_bpf.c | 38 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 37 insertions(+), 1 deletion(-)
 
 diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index abd0507..a84a875 100644
+index 6843d0b..acef1e9 100644
 --- a/lib/test_bpf.c
 +++ b/lib/test_bpf.c
-@@ -4635,6 +4635,302 @@ static struct bpf_test tests[] = {
- 		{ {0x40, 0x25051982} },
- 		.frag_data = { 0x19, 0x82 },
- 	},
-+	/*
-+	 * LD_IND / LD_ABS on non fragmented SKBs
-+	 */
-+	{
-+		/*
-+		 * this tests that the JIT/interpreter correctly resets X
-+		 * before using it in an LD_IND instruction.
-+		 */
-+		"LD_IND byte default X",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_B, 0x1),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{ [0x1] = 0x42 },
-+		{ {0x40, 0x42 } },
-+	},
-+	{
-+		"LD_IND byte positive offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x3e),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_B, 0x1),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{ [0x3c] = 0x25, [0x3d] = 0x05,  [0x3e] = 0x19, [0x3f] = 0x82 },
-+		{ {0x40, 0x82 } },
-+	},
-+	{
-+		"LD_IND byte negative offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x3e),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_B, -0x1),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{ [0x3c] = 0x25, [0x3d] = 0x05,  [0x3e] = 0x19, [0x3f] = 0x82 },
-+		{ {0x40, 0x05 } },
-+	},
-+	{
-+		"LD_IND halfword positive offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_H, 0x2),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+		},
-+		{ {0x40, 0xdd88 } },
-+	},
-+	{
-+		"LD_IND halfword negative offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_H, -0x2),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+		},
-+		{ {0x40, 0xbb66 } },
-+	},
-+	{
-+		"LD_IND halfword unaligned",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_H, -0x1),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+		},
-+		{ {0x40, 0x66cc } },
-+	},
-+	{
-+		"LD_IND word positive offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, 0x4),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xee99ffaa } },
-+	},
-+	{
-+		"LD_IND word negative offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x4),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xaa55bb66 } },
-+	},
-+	{
-+		"LD_IND word unaligned (addr & 3 == 2)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x2),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xbb66cc77 } },
-+	},
-+	{
-+		"LD_IND word unaligned (addr & 3 == 1)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x3),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x55bb66cc } },
-+	},
-+	{
-+		"LD_IND word unaligned (addr & 3 == 3)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x1),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x66cc77dd } },
-+	},
-+	{
-+		"LD_ABS byte",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_B, 0x20),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xcc } },
-+	},
-+	{
-+		"LD_ABS halfword",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x22),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xdd88 } },
-+	},
-+	{
-+		"LD_ABS halfword unaligned",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x25),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x99ff } },
-+	},
-+	{
-+		"LD_ABS word",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x1c),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xaa55bb66 } },
-+	},
-+	{
-+		"LD_ABS word unaligned (addr & 3 == 2)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x22),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xdd88ee99 } },
-+	},
-+	{
-+		"LD_ABS word unaligned (addr & 3 == 1)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x21),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x77dd88ee } },
-+	},
-+	{
-+		"LD_ABS word unaligned (addr & 3 == 3)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x23),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x88ee99ff } },
-+	},
+@@ -23,6 +23,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_vlan.h>
+ #include <linux/random.h>
++#include <linux/highmem.h>
+ 
+ /* General test specific settings */
+ #define MAX_SUBTESTS	3
+@@ -56,6 +57,7 @@
+ /* Flags that can be passed to test cases */
+ #define FLAG_NO_DATA		BIT(0)
+ #define FLAG_EXPECTED_FAIL	BIT(1)
++#define FLAG_SKB_FRAG		BIT(2)
+ 
+ enum {
+ 	CLASSIC  = BIT(6),	/* Old BPF instructions only. */
+@@ -81,6 +83,7 @@ struct bpf_test {
+ 		__u32 result;
+ 	} test[MAX_SUBTESTS];
+ 	int (*fill_helper)(struct bpf_test *self);
++	__u8 frag_data[MAX_DATA];
  };
  
- static struct net_device dev;
+ /* Large test cases need separate allocation and fill handler. */
+@@ -4525,6 +4528,10 @@ static struct sk_buff *populate_skb(char *buf, int size)
+ 
+ static void *generate_test_data(struct bpf_test *test, int sub)
+ {
++	struct sk_buff *skb;
++	struct page *page;
++	void *ptr;
++
+ 	if (test->aux & FLAG_NO_DATA)
+ 		return NULL;
+ 
+@@ -4532,7 +4539,36 @@ static void *generate_test_data(struct bpf_test *test, int sub)
+ 	 * subtests generate skbs of different sizes based on
+ 	 * the same data.
+ 	 */
+-	return populate_skb(test->data, test->test[sub].data_size);
++	skb = populate_skb(test->data, test->test[sub].data_size);
++	if (!skb)
++		return NULL;
++
++	if (test->aux & FLAG_SKB_FRAG) {
++		/*
++		 * when the test requires a fragmented skb, add a
++		 * single fragment to the skb, filled with
++		 * test->frag_data.
++		 */
++		page = alloc_page(GFP_KERNEL);
++
++		if (!page)
++			goto err_kfree_skb;
++
++		ptr = kmap(page);
++		if (!ptr)
++			goto err_free_page;
++		memcpy(ptr, test->frag_data, MAX_DATA);
++		kunmap(page);
++		skb_add_rx_frag(skb, 0, page, 0, MAX_DATA, MAX_DATA);
++	}
++
++	return skb;
++
++err_free_page:
++	__free_page(page);
++err_kfree_skb:
++	kfree_skb(skb);
++	return NULL;
+ }
+ 
+ static void release_test_data(const struct bpf_test *test, void *data)
 -- 
 1.9.1
