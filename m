@@ -1,68 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/6] test_bpf: allow tests to specify an skb fragment.
-Date: Mon, 03 Aug 2015 17:29:40 +0200
-Message-ID: <55BF88E4.2050307@iogearbox.net>
-References: <1438610528-14245-1-git-send-email-nschichan@freebox.fr> <1438610528-14245-3-git-send-email-nschichan@freebox.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Nicolas Schichan <nschichan@freebox.fr>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438610528-14245-3-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: [PATCH] net: fec: fix initial runtime PM refcount
+Date: Mon,  3 Aug 2015 17:50:11 +0200
+Message-ID: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>, netdev@vger.kernel.org,
+	kernel@pengutronix.de, patchwork-lst@pengutronix.de
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42727 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753998AbbHCPuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 11:50:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2015 04:02 PM, Nicolas Schichan wrote:
-> This introduce a new test->aux flag (FLAG_SKB_FRAG) to tell the
-> populate_skb() function to add a fragment to the test skb containing
-> the data specified in test->frag_data).
->
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
-> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+The clocks are initially active and thus the device is marked active.
+This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
+call at the end of probe then leaves us with an invalid refcount of -1,
+which in turn leads to the device staying in suspended state even though
+netdev open had been called.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Fix this by initializing the refcount to be coherent with the initial
+device status.
 
-I'm good with this change here, just a comment below in general.
+Fixes:
+8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
 
->   enum {
->   	CLASSIC  = BIT(6),	/* Old BPF instructions only. */
-> @@ -81,6 +83,7 @@ struct bpf_test {
->   		__u32 result;
->   	} test[MAX_SUBTESTS];
->   	int (*fill_helper)(struct bpf_test *self);
-> +	__u8 frag_data[MAX_DATA];
->   };
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+Please apply this as a fix for 4.2
+---
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-We now have 286 tests, which is awesome!
-
-Perhaps, we need to start thinking of a better test description method
-soonish as the test_bpf.ko module grew to ~1.6M, i.e. whenever we add
-to struct bpf_test, it adds memory overhead upon all test cases.
-
->   /* Large test cases need separate allocation and fill handler. */
-> @@ -4525,6 +4528,10 @@ static struct sk_buff *populate_skb(char *buf, int size)
->
->   static void *generate_test_data(struct bpf_test *test, int sub)
->   {
-> +	struct sk_buff *skb;
-> +	struct page *page;
-> +	void *ptr;
-> +
->   	if (test->aux & FLAG_NO_DATA)
->   		return NULL;
->
-> @@ -4532,7 +4539,36 @@ static void *generate_test_data(struct bpf_test *test, int sub)
->   	 * subtests generate skbs of different sizes based on
->   	 * the same data.
->   	 */
-> -	return populate_skb(test->data, test->test[sub].data_size);
-> +	skb = populate_skb(test->data, test->test[sub].data_size);
-> +	if (!skb)
-> +		return NULL;
-> +
-> +	if (test->aux & FLAG_SKB_FRAG) {
-
-Really minor nit: declaration of page, ptr could have been only in this block.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 32e3807c650e..271bb5862346 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
+ 	pm_runtime_use_autosuspend(&pdev->dev);
++	pm_runtime_get_noresume(&pdev->dev);
+ 	pm_runtime_set_active(&pdev->dev);
+ 	pm_runtime_enable(&pdev->dev);
+ 
+-- 
+2.1.4
