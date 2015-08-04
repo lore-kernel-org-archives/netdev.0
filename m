@@ -1,7 +1,7 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 04/14] batman-adv: Make DAT capability changes atomic
-Date: Tue,  4 Aug 2015 18:35:24 +0200
-Message-ID: <1438706134-3492-5-git-send-email-antonio__21232.2086365477$1438707393$gmane$org@meshcoding.com>
+Subject: [PATCH 07/14] batman-adv: Make MCAST capability changes atomic
+Date: Tue,  4 Aug 2015 18:35:27 +0200
+Message-ID: <1438706134-3492-8-git-send-email-antonio__28336.1046611846$1438707394$gmane$org@meshcoding.com>
 References: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,10 +12,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:13810 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:41095 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753780AbbHDQ4X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 12:56:23 -0400
+	id S1753780AbbHDQ4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 12:56:25 -0400
 In-Reply-To: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -29,21 +29,20 @@ handler run in between.
 =46ix this by using the atomic set_bit()/clear_bit()/test_bit() functio=
 ns.
 
-=46ixes: 17cf0ea455f1 ("batman-adv: tvlv - add distributed arp table co=
-ntainer")
+=46ixes: 60432d756cf0 ("batman-adv: Announce new capability via multica=
+st TVLV")
 Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/distributed-arp-table.c | 7 ++++---
- net/batman-adv/types.h                 | 4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ net/batman-adv/multicast.c | 18 ++++++++++--------
+ net/batman-adv/types.h     |  2 +-
+ 2 files changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/di=
-stributed-arp-table.c
-index 6d0b471..1aa4e7e 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
+diff --git a/net/batman-adv/multicast.c b/net/batman-adv/multicast.c
+index 7aa480b..f92473d 100644
+--- a/net/batman-adv/multicast.c
++++ b/net/batman-adv/multicast.c
 @@ -19,6 +19,7 @@
  #include "main.h"
 =20
@@ -52,50 +51,69 @@ index 6d0b471..1aa4e7e 100644
  #include <linux/byteorder/generic.h>
  #include <linux/errno.h>
  #include <linux/etherdevice.h>
-@@ -453,7 +454,7 @@ static bool batadv_is_orig_node_eligible(struct bat=
-adv_dat_candidate *res,
- 	int j;
+@@ -697,29 +698,30 @@ static void batadv_mcast_tvlv_ogm_handler_v1(stru=
+ct batadv_priv *bat_priv,
+ 	uint8_t mcast_flags =3D BATADV_NO_FLAGS;
+ 	bool orig_initialized;
 =20
- 	/* check if orig node candidate is running DAT */
--	if (!(candidate->capabilities & BATADV_ORIG_CAPA_HAS_DAT))
-+	if (!(test_bit(BATADV_ORIG_CAPA_HAS_DAT, &candidate->capabilities)))
- 		goto out;
+-	orig_initialized =3D orig->capa_initialized & BATADV_ORIG_CAPA_HAS_MC=
+AST;
++	orig_initialized =3D test_bit(BATADV_ORIG_CAPA_HAS_MCAST,
++				    &orig->capa_initialized);
 =20
- 	/* Check if this node has already been selected... */
-@@ -713,9 +714,9 @@ static void batadv_dat_tvlv_ogm_handler_v1(struct b=
-atadv_priv *bat_priv,
- 					   uint16_t tvlv_value_len)
+ 	/* If mcast support is turned on decrease the disabled mcast node
+ 	 * counter only if we had increased it for this node before. If this
+ 	 * is a completely new orig_node no need to decrease the counter.
+ 	 */
+ 	if (orig_mcast_enabled &&
+-	    !(orig->capabilities & BATADV_ORIG_CAPA_HAS_MCAST)) {
++	    !(test_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capabilities))) {
+ 		if (orig_initialized)
+ 			atomic_dec(&bat_priv->mcast.num_disabled);
+-		orig->capabilities |=3D BATADV_ORIG_CAPA_HAS_MCAST;
++		set_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capabilities);
+ 	/* If mcast support is being switched off or if this is an initial
+ 	 * OGM without mcast support then increase the disabled mcast
+ 	 * node counter.
+ 	 */
+ 	} else if (!orig_mcast_enabled &&
+-		   (orig->capabilities & BATADV_ORIG_CAPA_HAS_MCAST ||
++		   (test_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capabilities) ||
+ 		    !orig_initialized)) {
+ 		atomic_inc(&bat_priv->mcast.num_disabled);
+-		orig->capabilities &=3D ~BATADV_ORIG_CAPA_HAS_MCAST;
++		clear_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capabilities);
+ 	}
+=20
+-	orig->capa_initialized |=3D BATADV_ORIG_CAPA_HAS_MCAST;
++	set_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capa_initialized);
+=20
+ 	if (orig_mcast_enabled && tvlv_value &&
+ 	    (tvlv_value_len >=3D sizeof(mcast_flags)))
+@@ -763,8 +765,8 @@ void batadv_mcast_purge_orig(struct batadv_orig_nod=
+e *orig)
  {
- 	if (flags & BATADV_TVLV_HANDLER_OGM_CIFNOTFND)
--		orig->capabilities &=3D ~BATADV_ORIG_CAPA_HAS_DAT;
-+		clear_bit(BATADV_ORIG_CAPA_HAS_DAT, &orig->capabilities);
- 	else
--		orig->capabilities |=3D BATADV_ORIG_CAPA_HAS_DAT;
-+		set_bit(BATADV_ORIG_CAPA_HAS_DAT, &orig->capabilities);
- }
+ 	struct batadv_priv *bat_priv =3D orig->bat_priv;
 =20
- /**
+-	if (!(orig->capabilities & BATADV_ORIG_CAPA_HAS_MCAST) &&
+-	    orig->capa_initialized & BATADV_ORIG_CAPA_HAS_MCAST)
++	if (!(test_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capabilities)) &&
++	    test_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capa_initialized))
+ 		atomic_dec(&bat_priv->mcast.num_disabled);
+=20
+ 	batadv_mcast_want_unsnoop_update(bat_priv, orig, BATADV_NO_FLAGS);
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 67d6348..29fd625 100644
+index 6f801ef..1eeed18 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -273,7 +273,7 @@ struct batadv_orig_node {
- 	struct hlist_node mcast_want_all_ipv4_node;
- 	struct hlist_node mcast_want_all_ipv6_node;
- #endif
--	uint8_t capabilities;
-+	unsigned long capabilities;
- 	uint8_t capa_initialized;
- 	atomic_t last_ttvn;
- 	unsigned char *tt_buff;
-@@ -313,7 +313,7 @@ struct batadv_orig_node {
-  *  (=3D orig node announces a tvlv of type BATADV_TVLV_MCAST)
-  */
- enum batadv_orig_capabilities {
--	BATADV_ORIG_CAPA_HAS_DAT =3D BIT(0),
-+	BATADV_ORIG_CAPA_HAS_DAT,
- 	BATADV_ORIG_CAPA_HAS_NC =3D BIT(1),
- 	BATADV_ORIG_CAPA_HAS_TT =3D BIT(2),
- 	BATADV_ORIG_CAPA_HAS_MCAST =3D BIT(3),
+@@ -316,7 +316,7 @@ enum batadv_orig_capabilities {
+ 	BATADV_ORIG_CAPA_HAS_DAT,
+ 	BATADV_ORIG_CAPA_HAS_NC,
+ 	BATADV_ORIG_CAPA_HAS_TT,
+-	BATADV_ORIG_CAPA_HAS_MCAST =3D BIT(3),
++	BATADV_ORIG_CAPA_HAS_MCAST,
+ };
+=20
+ /**
 --=20
 2.5.0
