@@ -1,46 +1,36 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: BUG: null dereference in __skb_recv_datagram
-Date: Mon, 3 Aug 2015 22:34:02 -0700
-Message-ID: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
-References: <CAMUH3-VQaWdxnGUuJamGXQZN+Pq-4YBFcr6Yq3R6qD0=8cjG_g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] mpls: Use definition for reserved label checks
+Date: Mon, 03 Aug 2015 22:35:15 -0700 (PDT)
+Message-ID: <20150803.223515.375865467578538382.davem@davemloft.net>
+References: <1438620604-18746-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, khlebnikov@yandex-team.ru
-To: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, tgraf@suug.ch,
+	roopa@cumulusnetworks.com
+To: rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:35785 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709AbbHDFeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 01:34:22 -0400
-Received: by ykdu72 with SMTP id u72so129218934ykd.2
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 22:34:22 -0700 (PDT)
-In-Reply-To: <CAMUH3-VQaWdxnGUuJamGXQZN+Pq-4YBFcr6Yq3R6qD0=8cjG_g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47298 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751977AbbHDFfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 01:35:17 -0400
+In-Reply-To: <1438620604-18746-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> [  318.244596] BUG: unable to handle kernel NULL pointer dereference
-> at 000000000000008e
-> [  318.245182] IP: [<ffffffff81455e7c>] __skb_recv_datagram+0xbc/0x5a0
+From: Robert Shearman <rshearma@brocade.com>
+Date: Mon, 3 Aug 2015 17:50:04 +0100
 
-Replying to myself, and adding commit interested parties...
+> In multiple locations there are checks for whether the label in hand
+> is a reserved label or not using the arbritray value of 16. Factor
+> this out into a #define for better maintainability and for
+> documentation.
+> 
+> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> ---
+> Resend of an earlier version of this patch that was included as part
+> of a larger series. Changes since that version:
+>   - Move new #define into userspace header file in line with other
+>     well-defined label values. Rename to match.
 
-I went through the git log for the function in question, and
-positively identified that the following commit introduces the crash:
-
-738ac1e net: Clone skb before setting peeked flag
-
-Null dereference is at line 224 of net/core/datagram.c (according to
-my objdump dis-assembly):
-
-                spin_lock_irqsave(&queue->lock, cpu_flags);
-                skb_queue_walk(queue, skb) {
-                        last = skb;
-                        *peeked = skb->peeked;
-
-^-----------------------------------
-                        if (flags & MSG_PEEK) {
-                                if (_off >= skb->len && (skb->len || _off ||
-                                                         skb->peeked)) {
-
-Beyond that, I'm probably out of my comfort zone, so if anyone has a
-bright idea of a patch to try, I will gladly test it.
+Applied, thanks.
