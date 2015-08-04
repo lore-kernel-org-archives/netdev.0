@@ -1,86 +1,84 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: net: Fix skb_set_peeked use-after-free bug
-Date: Tue, 4 Aug 2015 08:30:23 -0700
-Message-ID: <CAMUH3-Uu4FH1hkMYeLb8BTRDPEC3WPhb7hksn9-FPfEy_2dBJg@mail.gmail.com>
-References: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
- <20150804074247.GA29951@gondor.apana.org.au>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 3/4] net: dsa: add support for switchdev FDB
+ objects
+Date: Tue, 4 Aug 2015 11:43:02 -0400 (EDT)
+Message-ID: <715366305.202451.1438702982910.JavaMail.zimbra@savoirfairelinux.com>
+References: <1438669859-29800-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1438669859-29800-4-git-send-email-vivien.didelot@savoirfairelinux.com> <CAE4R7bAmOzFUOoC1gQQMEuuM1v7U5WeF42d0+YFY1VcTZvrsFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	khlebnikov@yandex-team.ru
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f181.google.com ([209.85.160.181]:35044 "EHLO
-	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbHDPan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 11:30:43 -0400
-Received: by ykcq64 with SMTP id q64so5933541ykc.2
-        for <netdev@vger.kernel.org>; Tue, 04 Aug 2015 08:30:43 -0700 (PDT)
-In-Reply-To: <20150804074247.GA29951@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAE4R7bAmOzFUOoC1gQQMEuuM1v7U5WeF42d0+YFY1VcTZvrsFA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> The commit 738ac1ebb96d02e0d23bc320302a6ea94c612dec ("net: Clone
-> skb before setting peeked flag") introduced a use-after-free bug
-> in skb_recv_datagram.  This is because skb_set_peeked may create
-> a new skb and free the existing one.  As it stands the caller will
-> continue to use the old freed skb.
->
-> This patch fixes it by making skb_set_peeked return the new skb
-> (or the old one if unchanged).
->
-> Fixes: 738ac1ebb96d ("net: Clone skb before setting peeked flag")
-> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> index 4967262..617088a 100644
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -131,12 +131,12 @@ out_noerr:
->         goto out;
->  }
->
-> -static int skb_set_peeked(struct sk_buff *skb)
-> +static struct sk_buff *skb_set_peeked(struct sk_buff *skb)
->  {
->         struct sk_buff *nskb;
->
->         if (skb->peeked)
-> -               return 0;
-> +               return skb;
->
->         /* We have to unshare an skb before modifying it. */
->         if (!skb_shared(skb))
-> @@ -144,7 +144,7 @@ static int skb_set_peeked(struct sk_buff *skb)
->
->         nskb = skb_clone(skb, GFP_ATOMIC);
->         if (!nskb)
-> -               return -ENOMEM;
-> +               return ERR_PTR(-ENOMEM);
->
->         skb->prev->next = nskb;
->         skb->next->prev = nskb;
-> @@ -157,7 +157,7 @@ static int skb_set_peeked(struct sk_buff *skb)
->  done:
->         skb->peeked = 1;
->
-> -       return 0;
-> +       return skb;
->  }
->
->  /**
-> @@ -229,8 +229,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
->                                         continue;
->                                 }
->
-> -                               error = skb_set_peeked(skb);
-> -                               if (error)
-> +                               skb = skb_set_peeked(skb);
-> +                               error = PTR_ERR(skb);
-> +                               if (IS_ERR(skb))
->                                         goto unlock_err;
->
->                                 atomic_inc(&skb->users);
+Hi Scott,
 
-This patch holds good in my testing. Thanks!
+On Aug 4, 2015, at 8:18 AM, Scott Feldman sfeldma@gmail.com wrote:
+
+> On Mon, Aug 3, 2015 at 11:30 PM, Vivien Didelot
+> <vivien.didelot@savoirfairelinux.com> wrote:
+>> Remove the fdb_{add,del,getnext} function pointer in favor of new
+>> port_fdb_{add,del,getnext}.
+>>
+>> Implement the switchdev_port_obj_{add,del,dump} functions in DSA to
+>> support the SWITCHDEV_OBJ_PORT_FDB objects.
+>>
+>> These functions are called from switchdev_port_bridge_{get,set,del}link.
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> ---
+>>  drivers/net/dsa/mv88e6171.c |   3 -
+>>  drivers/net/dsa/mv88e6352.c |   3 -
+>>  include/net/dsa.h           |  16 ++--
+>>  net/dsa/slave.c             | 221 ++++++++++++++++++++++++--------------------
+>>  4 files changed, 129 insertions(+), 114 deletions(-)
+>>
+> 
+> [cut]
+> 
+>>  static int dsa_slave_bridge_port_join(struct net_device *dev,
+>>                                       struct net_device *br)
+>>  {
+>> @@ -765,9 +776,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+>>         .ndo_change_rx_flags    = dsa_slave_change_rx_flags,
+>>         .ndo_set_rx_mode        = dsa_slave_set_rx_mode,
+>>         .ndo_set_mac_address    = dsa_slave_set_mac_address,
+>> -       .ndo_fdb_add            = dsa_slave_fdb_add,
+>> -       .ndo_fdb_del            = dsa_slave_fdb_del,
+>> -       .ndo_fdb_dump           = dsa_slave_fdb_dump,
+>> +       .ndo_fdb_add            = switchdev_port_fdb_add,
+>> +       .ndo_fdb_del            = switchdev_port_fdb_del,
+>> +       .ndo_fdb_dump           = switchdev_port_fdb_dump,
+>>         .ndo_do_ioctl           = dsa_slave_ioctl,
+>>         .ndo_get_iflink         = dsa_slave_get_iflink,
+>>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>> @@ -775,11 +786,17 @@ static const struct net_device_ops dsa_slave_netdev_ops =
+>> {
+>>         .ndo_netpoll_cleanup    = dsa_slave_netpoll_cleanup,
+>>         .ndo_poll_controller    = dsa_slave_poll_controller,
+>>  #endif
+>> +       .ndo_bridge_getlink     = switchdev_port_bridge_getlink,
+>> +       .ndo_bridge_setlink     = switchdev_port_bridge_setlink,
+>> +       .ndo_bridge_dellink     = switchdev_port_bridge_dellink,
+>>  };
+> 
+> These ndo_bridge_xxx changes aren't relevant to the patch, are they?
+> You'll need those for VLANs but not for FDBs.
+
+You're right, that is part of my next HW VLAN patchset. I removed them.
+I also use ether_addr_copy instead of memcpy, as suggested by
+checkpatch.pl.
+
+A v2 is ready, I'll wait a bit for eventual other reviews though.
+
+Thanks,
+-v
