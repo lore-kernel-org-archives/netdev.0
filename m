@@ -1,16 +1,16 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 3/8] net/mlx5_core: Introduce access function to modify RSS/LRO params
-Date: Tue,  4 Aug 2015 14:05:42 +0300
-Message-ID: <1438686347-17370-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 2/8] net/mlx5e: Introduce the "Drop RQ"
+Date: Tue,  4 Aug 2015 14:05:41 +0300
+Message-ID: <1438686347-17370-3-git-send-email-amirv@mellanox.com>
 References: <1438686347-17370-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Achiad Shochat <achiad@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36453 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36444 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932776AbbHDLGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933419AbbHDLGW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 4 Aug 2015 07:06:22 -0400
 In-Reply-To: <1438686347-17370-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,7 +18,8 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Achiad Shochat <achiad@mellanox.com>
 
-To be used by the mlx5 Eth driver in following commit.
+RX traffic routed to this RQ will be silently dropped, at the NIC HW
+level.
 
 This is in preparation for netdev "light-weight" open/stop flow
 change described in previous commit.
@@ -26,73 +27,212 @@ change described in previous commit.
 Signed-off-by: Achiad Shochat <achiad@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/transobj.c | 12 ++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/transobj.h |  2 ++
- include/linux/mlx5/mlx5_ifc.h                      |  9 ++++++++-
- 3 files changed, 22 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 122 ++++++++++++++++++++--
+ 2 files changed, 114 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-index c4f3f74..e6453f6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-@@ -163,6 +163,18 @@ int mlx5_core_create_tir(struct mlx5_core_dev *dev, u32 *in, int inlen,
- 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index af57912..31e9610 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -217,6 +217,7 @@ struct mlx5e_cq {
+ 	struct napi_struct        *napi;
+ 	struct mlx5_core_cq        mcq;
+ 	struct mlx5e_channel      *channel;
++	struct mlx5e_priv         *priv;
+ 
+ 	/* control */
+ 	struct mlx5_wq_ctrl        wq_ctrl;
+@@ -240,6 +241,7 @@ struct mlx5e_rq {
+ 	struct mlx5_wq_ctrl    wq_ctrl;
+ 	u32                    rqn;
+ 	struct mlx5e_channel  *channel;
++	struct mlx5e_priv     *priv;
+ } ____cacheline_aligned_in_smp;
+ 
+ struct mlx5e_tx_skb_cb {
+@@ -399,6 +401,7 @@ struct mlx5e_priv {
+ 	u32                        pdn;
+ 	u32                        tdn;
+ 	struct mlx5_core_mr        mr;
++	struct mlx5e_rq            drop_rq;
+ 
+ 	struct mlx5e_channel     **channel;
+ 	u32                        tisn[MLX5E_MAX_NUM_TC];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 333c828..baa7a69 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -307,6 +307,7 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 	rq->netdev  = c->netdev;
+ 	rq->channel = c;
+ 	rq->ix      = c->ix;
++	rq->priv    = c->priv;
+ 
+ 	return 0;
+ 
+@@ -324,8 +325,7 @@ static void mlx5e_destroy_rq(struct mlx5e_rq *rq)
+ 
+ static int mlx5e_enable_rq(struct mlx5e_rq *rq, struct mlx5e_rq_param *param)
+ {
+-	struct mlx5e_channel *c = rq->channel;
+-	struct mlx5e_priv *priv = c->priv;
++	struct mlx5e_priv *priv = rq->priv;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 
+ 	void *in;
+@@ -392,11 +392,7 @@ static int mlx5e_modify_rq(struct mlx5e_rq *rq, int curr_state, int next_state)
+ 
+ static void mlx5e_disable_rq(struct mlx5e_rq *rq)
+ {
+-	struct mlx5e_channel *c = rq->channel;
+-	struct mlx5e_priv *priv = c->priv;
+-	struct mlx5_core_dev *mdev = priv->mdev;
+-
+-	mlx5_core_destroy_rq(mdev, rq->rqn);
++	mlx5_core_destroy_rq(rq->priv->mdev, rq->rqn);
  }
  
-+int mlx5_core_modify_tir(struct mlx5_core_dev *dev, u32 tirn, u32 *in,
-+			 int inlen)
+ static int mlx5e_wait_for_min_rx_wqes(struct mlx5e_rq *rq)
+@@ -740,6 +736,7 @@ static int mlx5e_create_cq(struct mlx5e_channel *c,
+ 	}
+ 
+ 	cq->channel = c;
++	cq->priv = priv;
+ 
+ 	return 0;
+ }
+@@ -751,8 +748,7 @@ static void mlx5e_destroy_cq(struct mlx5e_cq *cq)
+ 
+ static int mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param)
+ {
+-	struct mlx5e_channel *c = cq->channel;
+-	struct mlx5e_priv *priv = c->priv;
++	struct mlx5e_priv *priv = cq->priv;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	struct mlx5_core_cq *mcq = &cq->mcq;
+ 
+@@ -798,8 +794,7 @@ static int mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param)
+ 
+ static void mlx5e_disable_cq(struct mlx5e_cq *cq)
+ {
+-	struct mlx5e_channel *c = cq->channel;
+-	struct mlx5e_priv *priv = c->priv;
++	struct mlx5e_priv *priv = cq->priv;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 
+ 	mlx5_core_destroy_cq(mdev, &cq->mcq);
+@@ -1119,6 +1114,111 @@ static void mlx5e_close_channels(struct mlx5e_priv *priv)
+ 	kfree(priv->channel);
+ }
+ 
++static int mlx5e_create_drop_rq(struct mlx5e_priv *priv,
++				struct mlx5e_rq *rq,
++				struct mlx5e_rq_param *param)
 +{
-+	u32 out[MLX5_ST_SZ_DW(modify_tir_out)];
++	struct mlx5_core_dev *mdev = priv->mdev;
++	void *rqc = param->rqc;
++	void *rqc_wq = MLX5_ADDR_OF(rqc, rqc, wq);
++	int err;
 +
-+	MLX5_SET(modify_tir_in, in, tirn, tirn);
-+	MLX5_SET(modify_tir_in, in, opcode, MLX5_CMD_OP_MODIFY_TIR);
++	param->wq.db_numa_node = param->wq.buf_numa_node;
 +
-+	memset(out, 0, sizeof(out));
-+	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
++	err = mlx5_wq_ll_create(mdev, &param->wq, rqc_wq, &rq->wq,
++				&rq->wq_ctrl);
++	if (err)
++		return err;
++
++	rq->priv = priv;
++
++	return 0;
 +}
 +
- void mlx5_core_destroy_tir(struct mlx5_core_dev *dev, u32 tirn)
++static int mlx5e_create_drop_cq(struct mlx5e_priv *priv,
++				struct mlx5e_cq *cq,
++				struct mlx5e_cq_param *param)
++{
++	struct mlx5_core_dev *mdev = priv->mdev;
++	struct mlx5_core_cq *mcq = &cq->mcq;
++	int eqn_not_used;
++	int irqn;
++	int err;
++
++	err = mlx5_cqwq_create(mdev, &param->wq, param->cqc, &cq->wq,
++			       &cq->wq_ctrl);
++	if (err)
++		return err;
++
++	mlx5_vector2eqn(mdev, param->eq_ix, &eqn_not_used, &irqn);
++
++	mcq->cqe_sz     = 64;
++	mcq->set_ci_db  = cq->wq_ctrl.db.db;
++	mcq->arm_db     = cq->wq_ctrl.db.db + 1;
++	*mcq->set_ci_db = 0;
++	*mcq->arm_db    = 0;
++	mcq->vector     = param->eq_ix;
++	mcq->comp       = mlx5e_completion_event;
++	mcq->event      = mlx5e_cq_error_event;
++	mcq->irqn       = irqn;
++	mcq->uar        = &priv->cq_uar;
++
++	cq->priv = priv;
++
++	return 0;
++}
++
++static int mlx5e_open_drop_rq(struct mlx5e_priv *priv)
++{
++	struct mlx5e_cq_param cq_param;
++	struct mlx5e_rq_param rq_param;
++	struct mlx5e_rq *rq = &priv->drop_rq;
++	struct mlx5e_cq *cq = &priv->drop_rq.cq;
++	int err;
++
++	memset(&cq_param, 0, sizeof(cq_param));
++	memset(&rq_param, 0, sizeof(rq_param));
++	mlx5e_build_rx_cq_param(priv, &cq_param);
++	mlx5e_build_rq_param(priv, &rq_param);
++
++	err = mlx5e_create_drop_cq(priv, cq, &cq_param);
++	if (err)
++		return err;
++
++	err = mlx5e_enable_cq(cq, &cq_param);
++	if (err)
++		goto err_destroy_cq;
++
++	err = mlx5e_create_drop_rq(priv, rq, &rq_param);
++	if (err)
++		goto err_disable_cq;
++
++	err = mlx5e_enable_rq(rq, &rq_param);
++	if (err)
++		goto err_destroy_rq;
++
++	return 0;
++
++err_destroy_rq:
++	mlx5e_destroy_rq(&priv->drop_rq);
++
++err_disable_cq:
++	mlx5e_disable_cq(&priv->drop_rq.cq);
++
++err_destroy_cq:
++	mlx5e_destroy_cq(&priv->drop_rq.cq);
++
++	return err;
++}
++
++static void mlx5e_close_drop_rq(struct mlx5e_priv *priv)
++{
++	mlx5e_disable_rq(&priv->drop_rq);
++	mlx5e_destroy_rq(&priv->drop_rq);
++	mlx5e_disable_cq(&priv->drop_rq.cq);
++	mlx5e_destroy_cq(&priv->drop_rq.cq);
++}
++
+ static int mlx5e_open_tis(struct mlx5e_priv *priv, int tc)
  {
- 	u32 in[MLX5_ST_SZ_DW(destroy_tir_out)];
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-index 10bd75e..d436c2d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-@@ -45,6 +45,8 @@ int mlx5_core_modify_sq(struct mlx5_core_dev *dev, u32 sqn, u32 *in, int inlen);
- void mlx5_core_destroy_sq(struct mlx5_core_dev *dev, u32 sqn);
- int mlx5_core_create_tir(struct mlx5_core_dev *dev, u32 *in, int inlen,
- 			 u32 *tirn);
-+int mlx5_core_modify_tir(struct mlx5_core_dev *dev, u32 tirn, u32 *in,
-+			 int inlen);
- void mlx5_core_destroy_tir(struct mlx5_core_dev *dev, u32 tirn);
- int mlx5_core_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen,
- 			 u32 *tisn);
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index c60a62b..469b7bd 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -4050,6 +4050,13 @@ struct mlx5_ifc_modify_tis_in_bits {
- 	struct mlx5_ifc_tisc_bits ctx;
- };
- 
-+struct mlx5_ifc_modify_tir_bitmask_bits {
-+	u8	   reserved[0x20];
-+
-+	u8         reserved1[0x1f];
-+	u8         lro[0x1];
-+};
-+
- struct mlx5_ifc_modify_tir_out_bits {
- 	u8         status[0x8];
- 	u8         reserved_0[0x18];
-@@ -4071,7 +4078,7 @@ struct mlx5_ifc_modify_tir_in_bits {
- 
- 	u8         reserved_3[0x20];
- 
--	u8         modify_bitmask[0x40];
-+	struct mlx5_ifc_modify_tir_bitmask_bits bitmask;
- 
- 	u8         reserved_4[0x40];
- 
+ 	struct mlx5_core_dev *mdev = priv->mdev;
 -- 
 2.4.3.413.ga5fe668
