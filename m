@@ -1,91 +1,104 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
-Date: Tue, 04 Aug 2015 09:34:22 +0200
-Message-ID: <1438673662.2458.19.camel@pengutronix.de>
-References: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
-	 <20150803161554.GK3467@lunn.ch>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: net: Fix skb_set_peeked use-after-free bug
+Date: Tue, 4 Aug 2015 15:42:47 +0800
+Message-ID: <20150804074247.GA29951@gondor.apana.org.au>
+References: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, patchwork-lst@pengutronix.de,
-	"David S. Miller" <davem@davemloft.net>, kernel@pengutronix.de,
-	Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	khlebnikov@yandex-team.ru
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:57329 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752878AbbHDHeY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 03:34:24 -0400
-In-Reply-To: <20150803161554.GK3467@lunn.ch>
+Received: from helcar.hengli.com.au ([209.40.204.226]:46910 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754990AbbHDHmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 03:42:53 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag, den 03.08.2015, 18:15 +0200 schrieb Andrew Lunn:
-> On Mon, Aug 03, 2015 at 05:50:11PM +0200, Lucas Stach wrote:
-> > The clocks are initially active and thus the device is marked active.
-> > This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
-> > call at the end of probe then leaves us with an invalid refcount of -1,
-> > which in turn leads to the device staying in suspended state even though
-> > netdev open had been called.
-> > 
-> > Fix this by initializing the refcount to be coherent with the initial
-> > device status.
-> > 
-> > Fixes:
-> > 8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
-> > 
-> > Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
-> > ---
-> > Please apply this as a fix for 4.2
-> > ---
-> >  drivers/net/ethernet/freescale/fec_main.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> > index 32e3807c650e..271bb5862346 100644
-> > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
-> >  
-> >  	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
-> >  	pm_runtime_use_autosuspend(&pdev->dev);
-> > +	pm_runtime_get_noresume(&pdev->dev);
-> >  	pm_runtime_set_active(&pdev->dev);
-> >  	pm_runtime_enable(&pdev->dev);
+Brenden Blanco <bblanco@plumgrid.com> wrote:
+>> [  318.244596] BUG: unable to handle kernel NULL pointer dereference
+>> at 000000000000008e
+>> [  318.245182] IP: [<ffffffff81455e7c>] __skb_recv_datagram+0xbc/0x5a0
 > 
-> This might work, but is it the correct fix?
+> Replying to myself, and adding commit interested parties...
 > 
-> Documentation/power/runtime_pm.txt says:
+> I went through the git log for the function in question, and
+> positively identified that the following commit introduces the crash:
 > 
-> 534 In addition to that, the initial runtime PM status of all devices is
-> 535 'suspended', but it need not reflect the actual physical state of the device.
-> 536 Thus, if the device is initially active (i.e. it is able to process I/O), its
-> 537 runtime PM status must be changed to 'active', with the help of
-> 538 pm_runtime_set_active(), before pm_runtime_enable() is called for the device.
+> 738ac1e net: Clone skb before setting peeked flag
 > 
-> At the point we call the pm_runtime_ functions above, all the clocks
-> are ticking. So according to the documentation pm_runtime_set_active()
-> is the right thing to do. But it makes no mention of have to call
-> pm_runtime_get_noresume(). I would of expected pm_runtime_set_active()
-> to set the count to the correct value.
-> 
-It is the correct fix.
+> Null dereference is at line 224 of net/core/datagram.c (according to
+> my objdump dis-assembly):
 
-pm_runtime_enable() is the transition point between whatever state the
-device was in and the runtime PM managed state. pm_runtime_set_active()
-informs the RPM framework about the current device state.
-pm_runtime_get_noresume() tells the RPM framework what state we want the
-device to be in after the transition to RPM managed state.
+Sorry, brain fart on my part.  Please try this patch.
 
-We expect the device to stay on while we go through the probe() routine,
-so we need to get the runtime PM refcount, otherwise it would be fine
-for RPM to turn the device off immediately after calling
-pm_runtime_enable(). We drop the refcount when leaving the probe
-routine.
+---8<---
+The commit 738ac1ebb96d02e0d23bc320302a6ea94c612dec ("net: Clone
+skb before setting peeked flag") introduced a use-after-free bug
+in skb_recv_datagram.  This is because skb_set_peeked may create
+a new skb and free the existing one.  As it stands the caller will
+continue to use the old freed skb.
 
-Regards,
-Lucas
+This patch fixes it by making skb_set_peeked return the new skb
+(or the old one if unchanged).
+
+Fixes: 738ac1ebb96d ("net: Clone skb before setting peeked flag")
+Reported-by: Brenden Blanco <bblanco@plumgrid.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 4967262..617088a 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -131,12 +131,12 @@ out_noerr:
+ 	goto out;
+ }
+ 
+-static int skb_set_peeked(struct sk_buff *skb)
++static struct sk_buff *skb_set_peeked(struct sk_buff *skb)
+ {
+ 	struct sk_buff *nskb;
+ 
+ 	if (skb->peeked)
+-		return 0;
++		return skb;
+ 
+ 	/* We have to unshare an skb before modifying it. */
+ 	if (!skb_shared(skb))
+@@ -144,7 +144,7 @@ static int skb_set_peeked(struct sk_buff *skb)
+ 
+ 	nskb = skb_clone(skb, GFP_ATOMIC);
+ 	if (!nskb)
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	skb->prev->next = nskb;
+ 	skb->next->prev = nskb;
+@@ -157,7 +157,7 @@ static int skb_set_peeked(struct sk_buff *skb)
+ done:
+ 	skb->peeked = 1;
+ 
+-	return 0;
++	return skb;
+ }
+ 
+ /**
+@@ -229,8 +229,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 					continue;
+ 				}
+ 
+-				error = skb_set_peeked(skb);
+-				if (error)
++				skb = skb_set_peeked(skb);
++				error = PTR_ERR(skb);
++				if (IS_ERR(skb))
+ 					goto unlock_err;
+ 
+ 				atomic_inc(&skb->users);
 -- 
-Pengutronix e.K.             | Lucas Stach                 |
-Industrial Linux Solutions   | http://www.pengutronix.de/  |
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
