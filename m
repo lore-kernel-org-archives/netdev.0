@@ -1,31 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fix skb_set_peeked use-after-free bug
-Date: Tue, 4 Aug 2015 17:50:11 +0800
-Message-ID: <20150804095011.GA28055@gondor.apana.org.au>
-References: <063D6719AE5E284EB5DD2968C1650D6D1CB727D0@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bblanco@plumgrid.com, netdev@vger.kernel.org, davem@davemloft.net,
-	khlebnikov@yandex-team.ru
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:52240 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932382AbbHDJuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 05:50:23 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB727D0@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] virtio-net: drop NETIF_F_FRAGLIST
+Date: Tue,  4 Aug 2015 17:55:45 +0800
+Message-ID: <1438682145-25986-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
+To: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Laight <David.Laight@aculab.com> wrote:
->
-> In that case, what happens to the receive queue when skb_clone()
-> takes a copy of the skb - freeing the original one?
+virtio declares support for NETIF_F_FRAGLIST, but assumes
+that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
+always true with a fraglist.
 
-The new skb is inserted into the recv queue and replacing the
-existing skb.
+A longer fraglist in the skb will make the call to skb_to_sgvec overflow
+the sg array, leading to memory corruption.
+
+Drop NETIF_F_FRAGLIST so we only get what we can handle.
+
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+The patch is needed for stable.
+---
+ drivers/net/virtio_net.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 7fbca37..2347a73 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1756,9 +1756,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	/* Do we support "hardware" checksums? */
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
+ 		/* This opens up the world of extra features. */
+-		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG;
+ 		if (csum)
+-			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG;
+ 
+ 		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
+ 			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.4
