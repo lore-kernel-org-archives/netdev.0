@@ -1,59 +1,42 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
-Date: Tue, 4 Aug 2015 10:11:40 +0200
-Message-ID: <20150804081140.GH9999@pengutronix.de>
-References: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 0/4] add meminfo, bist status and misc. fixes
+Date: Tue, 04 Aug 2015 01:25:27 -0700 (PDT)
+Message-ID: <20150804.012527.1846602799326607390.davem@davemloft.net>
+References: <1438679180-25930-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	patchwork-lst@pengutronix.de, kernel@pengutronix.de
-To: Lucas Stach <l.stach@pengutronix.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60254 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754698AbbHDILn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 04:11:43 -0400
-Content-Disposition: inline
-In-Reply-To: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48356 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755110AbbHDIZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 04:25:30 -0400
+In-Reply-To: <1438679180-25930-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Lucas,
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue,  4 Aug 2015 14:36:16 +0530
 
-On Mon, Aug 03, 2015 at 05:50:11PM +0200, Lucas Stach wrote:
-> The clocks are initially active and thus the device is marked active.
-> This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend=
-()
-> call at the end of probe then leaves us with an invalid refcount of -=
-1,
-> which in turn leads to the device staying in suspended state even tho=
-ugh
-> netdev open had been called.
->=20
-> Fix this by initializing the refcount to be coherent with the initial
-> device status.
->=20
-> Fixes:
-> 8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus=
-)
->=20
-> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
-the two \n after "Fixes:" and before the S-o-b are unusual I think.
+> This patch series adds the following.
+> Add support to dump memory address range of various hw modules
+> Add support to dump edc bist status during ecc error
+> Read correct bits of who am i register for T6 adapter
+> and update T6 register range
+> 
+> This patch series has been created against net-next tree and includes
+> patches on cxgb4 and cxgb4vf driver.
+> 
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
+> 
+> Thanks
+> 
+> V2: PATCH 3/4 ("cxgb4/cxgb4vf: read the correct bits of PL Who Am I
+>     register") Fix switch statement in get_chip_type() and some more style
+>     fixes based on review comment by Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Other than that I tested the change on i.MX27 and it works now. The
-power refcount oscillates between 1 and 2 now as expected and booting
-with NFS-root works fine. So:
-
-Tested-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-
-Thanks
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Series applied... although you really need to fix the time and date
+on your computer.
