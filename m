@@ -1,300 +1,98 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 08/14] batman-adv: Fix potential synchronization issues in mcast tvlv handler
-Date: Tue,  4 Aug 2015 18:35:28 +0200
-Message-ID: <1438706134-3492-9-git-send-email-antonio__20379.9700750553$1438707339$gmane$org@meshcoding.com>
+Subject: [PATCH 09/14] batman-adv: fix kernel crash due to missing NULL checks
+Date: Tue,  4 Aug 2015 18:35:29 +0200
+Message-ID: <1438706134-3492-10-git-send-email-antonio__22710.3738267489$1438707383$gmane$org@meshcoding.com>
 References: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:30771 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:34658 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753602AbbHDQzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 12:55:09 -0400
+	id S1751972AbbHDQ4L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 12:56:11 -0400
 In-Reply-To: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+From: Marek Lindner <mareklindner@neomailbox.ch>
 
-So far the mcast tvlv handler did not anticipate the processing of
-multiple incoming OGMs from the same originator at the same time. This
-can lead to various issues:
+batadv_softif_vlan_get() may return NULL which has to be verified
+by the caller.
 
-* Broken refcounting: For instance two mcast handlers might both assume
-  that an originator just got multicast capabilities and will together
-  wrongly decrease mcast.num_disabled by two, potentially leading to
-  an integer underflow.
-
-* Potential kernel panic on hlist_del_rcu(): Two mcast handlers might
-  one after another try to do an
-  hlist_del_rcu(&orig->mcast_want_all_*_node). The second one will
-  cause memory corruption / crashes.
-  (Reported by: Sven Eckelmann <sven@narfation.org>)
-
-Right in the beginning the code path makes assumptions about the curren=
-t
-multicast related state of an originator and bases all updates on that.=
- The
-easiest and least error prune way to fix the issues in this case is to
-serialize multiple mcast handler invocations with a spinlock.
-
-=46ixes: 60432d756cf0 ("batman-adv: Announce new capability via multica=
-st TVLV")
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+Fixes: 35df3b298fc8 ("batman-adv: fix TT VLAN inconsistency on VLAN re-add")
+Reported-by: Ryan Thompson <ryan@eero.com>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/multicast.c  | 63 +++++++++++++++++++++++++++++++++++--=
---------
- net/batman-adv/originator.c |  5 ++++
- net/batman-adv/types.h      |  3 +++
- 3 files changed, 58 insertions(+), 13 deletions(-)
+ net/batman-adv/soft-interface.c    |  3 +++
+ net/batman-adv/translation-table.c | 18 ++++++++++++++----
+ 2 files changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/net/batman-adv/multicast.c b/net/batman-adv/multicast.c
-index f92473d..7d2b1f8 100644
---- a/net/batman-adv/multicast.c
-+++ b/net/batman-adv/multicast.c
-@@ -20,6 +20,7 @@
-=20
- #include <linux/atomic.h>
- #include <linux/bitops.h>
-+#include <linux/bug.h>
- #include <linux/byteorder/generic.h>
- #include <linux/errno.h>
- #include <linux/etherdevice.h>
-@@ -589,19 +590,26 @@ batadv_mcast_forw_mode(struct batadv_priv *bat_pr=
-iv, struct sk_buff *skb,
-  *
-  * If the BATADV_MCAST_WANT_ALL_UNSNOOPABLES flag of this originator,
-  * orig, has toggled then this method updates counter and list accordi=
-ngly.
-+ *
-+ * Caller needs to hold orig->mcast_handler_lock.
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index c002961..a2fc843 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -479,6 +479,9 @@ out:
   */
- static void batadv_mcast_want_unsnoop_update(struct batadv_priv *bat_p=
-riv,
- 					     struct batadv_orig_node *orig,
- 					     uint8_t mcast_flags)
+ void batadv_softif_vlan_free_ref(struct batadv_softif_vlan *vlan)
  {
-+	struct hlist_node *node =3D &orig->mcast_want_all_unsnoopables_node;
-+	struct hlist_head *head =3D &bat_priv->mcast.want_all_unsnoopables_li=
-st;
++	if (!vlan)
++		return;
 +
- 	/* switched from flag unset to set */
- 	if (mcast_flags & BATADV_MCAST_WANT_ALL_UNSNOOPABLES &&
- 	    !(orig->mcast_flags & BATADV_MCAST_WANT_ALL_UNSNOOPABLES)) {
- 		atomic_inc(&bat_priv->mcast.num_want_all_unsnoopables);
-=20
- 		spin_lock_bh(&bat_priv->mcast.want_lists_lock);
--		hlist_add_head_rcu(&orig->mcast_want_all_unsnoopables_node,
--				   &bat_priv->mcast.want_all_unsnoopables_list);
-+		/* flag checks above + mcast_handler_lock prevents this */
-+		WARN_ON(!hlist_unhashed(node));
+ 	if (atomic_dec_and_test(&vlan->refcount)) {
+ 		spin_lock_bh(&vlan->bat_priv->softif_vlan_list_lock);
+ 		hlist_del_rcu(&vlan->list);
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 1573489..2db3093 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -595,6 +595,9 @@ bool batadv_tt_local_add(struct net_device *soft_iface, const uint8_t *addr,
+ 
+ 	/* increase the refcounter of the related vlan */
+ 	vlan = batadv_softif_vlan_get(bat_priv, vid);
++	if (WARN(!vlan, "adding TT local entry %pM to non-existent VLAN %d",
++		 addr, BATADV_PRINT_VID(vid)))
++		goto out;
+ 
+ 	batadv_dbg(BATADV_DBG_TT, bat_priv,
+ 		   "Creating new local tt entry: %pM (vid: %d, ttvn: %d)\n",
+@@ -1067,6 +1070,9 @@ uint16_t batadv_tt_local_remove(struct batadv_priv *bat_priv,
+ 
+ 	/* decrease the reference held for this vlan */
+ 	vlan = batadv_softif_vlan_get(bat_priv, vid);
++	if (!vlan)
++		goto out;
 +
-+		hlist_add_head_rcu(node, head);
- 		spin_unlock_bh(&bat_priv->mcast.want_lists_lock);
- 	/* switched from flag set to unset */
- 	} else if (!(mcast_flags & BATADV_MCAST_WANT_ALL_UNSNOOPABLES) &&
-@@ -609,7 +617,10 @@ static void batadv_mcast_want_unsnoop_update(struc=
-t batadv_priv *bat_priv,
- 		atomic_dec(&bat_priv->mcast.num_want_all_unsnoopables);
-=20
- 		spin_lock_bh(&bat_priv->mcast.want_lists_lock);
--		hlist_del_rcu(&orig->mcast_want_all_unsnoopables_node);
-+		/* flag checks above + mcast_handler_lock prevents this */
-+		WARN_ON(hlist_unhashed(node));
-+
-+		hlist_del_init_rcu(node);
- 		spin_unlock_bh(&bat_priv->mcast.want_lists_lock);
- 	}
- }
-@@ -622,19 +633,26 @@ static void batadv_mcast_want_unsnoop_update(stru=
-ct batadv_priv *bat_priv,
-  *
-  * If the BATADV_MCAST_WANT_ALL_IPV4 flag of this originator, orig, ha=
-s
-  * toggled then this method updates counter and list accordingly.
-+ *
-+ * Caller needs to hold orig->mcast_handler_lock.
-  */
- static void batadv_mcast_want_ipv4_update(struct batadv_priv *bat_priv=
-,
- 					  struct batadv_orig_node *orig,
- 					  uint8_t mcast_flags)
- {
-+	struct hlist_node *node =3D &orig->mcast_want_all_ipv4_node;
-+	struct hlist_head *head =3D &bat_priv->mcast.want_all_ipv4_list;
-+
- 	/* switched from flag unset to set */
- 	if (mcast_flags & BATADV_MCAST_WANT_ALL_IPV4 &&
- 	    !(orig->mcast_flags & BATADV_MCAST_WANT_ALL_IPV4)) {
- 		atomic_inc(&bat_priv->mcast.num_want_all_ipv4);
-=20
- 		spin_lock_bh(&bat_priv->mcast.want_lists_lock);
--		hlist_add_head_rcu(&orig->mcast_want_all_ipv4_node,
--				   &bat_priv->mcast.want_all_ipv4_list);
-+		/* flag checks above + mcast_handler_lock prevents this */
-+		WARN_ON(!hlist_unhashed(node));
-+
-+		hlist_add_head_rcu(node, head);
- 		spin_unlock_bh(&bat_priv->mcast.want_lists_lock);
- 	/* switched from flag set to unset */
- 	} else if (!(mcast_flags & BATADV_MCAST_WANT_ALL_IPV4) &&
-@@ -642,7 +660,10 @@ static void batadv_mcast_want_ipv4_update(struct b=
-atadv_priv *bat_priv,
- 		atomic_dec(&bat_priv->mcast.num_want_all_ipv4);
-=20
- 		spin_lock_bh(&bat_priv->mcast.want_lists_lock);
--		hlist_del_rcu(&orig->mcast_want_all_ipv4_node);
-+		/* flag checks above + mcast_handler_lock prevents this */
-+		WARN_ON(hlist_unhashed(node));
-+
-+		hlist_del_init_rcu(node);
- 		spin_unlock_bh(&bat_priv->mcast.want_lists_lock);
- 	}
- }
-@@ -655,19 +676,26 @@ static void batadv_mcast_want_ipv4_update(struct =
-batadv_priv *bat_priv,
-  *
-  * If the BATADV_MCAST_WANT_ALL_IPV6 flag of this originator, orig, ha=
-s
-  * toggled then this method updates counter and list accordingly.
-+ *
-+ * Caller needs to hold orig->mcast_handler_lock.
-  */
- static void batadv_mcast_want_ipv6_update(struct batadv_priv *bat_priv=
-,
- 					  struct batadv_orig_node *orig,
- 					  uint8_t mcast_flags)
- {
-+	struct hlist_node *node =3D &orig->mcast_want_all_ipv6_node;
-+	struct hlist_head *head =3D &bat_priv->mcast.want_all_ipv6_list;
-+
- 	/* switched from flag unset to set */
- 	if (mcast_flags & BATADV_MCAST_WANT_ALL_IPV6 &&
- 	    !(orig->mcast_flags & BATADV_MCAST_WANT_ALL_IPV6)) {
- 		atomic_inc(&bat_priv->mcast.num_want_all_ipv6);
-=20
- 		spin_lock_bh(&bat_priv->mcast.want_lists_lock);
--		hlist_add_head_rcu(&orig->mcast_want_all_ipv6_node,
--				   &bat_priv->mcast.want_all_ipv6_list);
-+		/* flag checks above + mcast_handler_lock prevents this */
-+		WARN_ON(!hlist_unhashed(node));
-+
-+		hlist_add_head_rcu(node, head);
- 		spin_unlock_bh(&bat_priv->mcast.want_lists_lock);
- 	/* switched from flag set to unset */
- 	} else if (!(mcast_flags & BATADV_MCAST_WANT_ALL_IPV6) &&
-@@ -675,7 +703,10 @@ static void batadv_mcast_want_ipv6_update(struct b=
-atadv_priv *bat_priv,
- 		atomic_dec(&bat_priv->mcast.num_want_all_ipv6);
-=20
- 		spin_lock_bh(&bat_priv->mcast.want_lists_lock);
--		hlist_del_rcu(&orig->mcast_want_all_ipv6_node);
-+		/* flag checks above + mcast_handler_lock prevents this */
-+		WARN_ON(hlist_unhashed(node));
-+
-+		hlist_del_init_rcu(node);
- 		spin_unlock_bh(&bat_priv->mcast.want_lists_lock);
- 	}
- }
-@@ -698,6 +729,11 @@ static void batadv_mcast_tvlv_ogm_handler_v1(struc=
-t batadv_priv *bat_priv,
- 	uint8_t mcast_flags =3D BATADV_NO_FLAGS;
- 	bool orig_initialized;
-=20
-+	if (orig_mcast_enabled && tvlv_value &&
-+	    (tvlv_value_len >=3D sizeof(mcast_flags)))
-+		mcast_flags =3D *(uint8_t *)tvlv_value;
-+
-+	spin_lock_bh(&orig->mcast_handler_lock);
- 	orig_initialized =3D test_bit(BATADV_ORIG_CAPA_HAS_MCAST,
- 				    &orig->capa_initialized);
-=20
-@@ -723,15 +759,12 @@ static void batadv_mcast_tvlv_ogm_handler_v1(stru=
-ct batadv_priv *bat_priv,
-=20
- 	set_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capa_initialized);
-=20
--	if (orig_mcast_enabled && tvlv_value &&
--	    (tvlv_value_len >=3D sizeof(mcast_flags)))
--		mcast_flags =3D *(uint8_t *)tvlv_value;
--
- 	batadv_mcast_want_unsnoop_update(bat_priv, orig, mcast_flags);
- 	batadv_mcast_want_ipv4_update(bat_priv, orig, mcast_flags);
- 	batadv_mcast_want_ipv6_update(bat_priv, orig, mcast_flags);
-=20
- 	orig->mcast_flags =3D mcast_flags;
-+	spin_unlock_bh(&orig->mcast_handler_lock);
- }
-=20
- /**
-@@ -765,6 +798,8 @@ void batadv_mcast_purge_orig(struct batadv_orig_nod=
-e *orig)
- {
- 	struct batadv_priv *bat_priv =3D orig->bat_priv;
-=20
-+	spin_lock_bh(&orig->mcast_handler_lock);
-+
- 	if (!(test_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capabilities)) &&
- 	    test_bit(BATADV_ORIG_CAPA_HAS_MCAST, &orig->capa_initialized))
- 		atomic_dec(&bat_priv->mcast.num_disabled);
-@@ -772,4 +807,6 @@ void batadv_mcast_purge_orig(struct batadv_orig_nod=
-e *orig)
- 	batadv_mcast_want_unsnoop_update(bat_priv, orig, BATADV_NO_FLAGS);
- 	batadv_mcast_want_ipv4_update(bat_priv, orig, BATADV_NO_FLAGS);
- 	batadv_mcast_want_ipv6_update(bat_priv, orig, BATADV_NO_FLAGS);
-+
-+	spin_unlock_bh(&orig->mcast_handler_lock);
- }
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 018b749..32a0fcf 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -696,8 +696,13 @@ struct batadv_orig_node *batadv_orig_node_new(stru=
-ct batadv_priv *bat_priv,
- 	orig_node->last_seen =3D jiffies;
- 	reset_time =3D jiffies - 1 - msecs_to_jiffies(BATADV_RESET_PROTECTION=
-_MS);
- 	orig_node->bcast_seqno_reset =3D reset_time;
-+
- #ifdef CONFIG_BATMAN_ADV_MCAST
- 	orig_node->mcast_flags =3D BATADV_NO_FLAGS;
-+	INIT_HLIST_NODE(&orig_node->mcast_want_all_unsnoopables_node);
-+	INIT_HLIST_NODE(&orig_node->mcast_want_all_ipv4_node);
-+	INIT_HLIST_NODE(&orig_node->mcast_want_all_ipv6_node);
-+	spin_lock_init(&orig_node->mcast_handler_lock);
- #endif
-=20
- 	/* create a vlan object for the "untagged" LAN */
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 1eeed18..55610a8 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -221,6 +221,7 @@ struct batadv_orig_bat_iv {
-  * @batadv_dat_addr_t:  address of the orig node in the distributed ha=
-sh
-  * @last_seen: time when last packet from this node was received
-  * @bcast_seqno_reset: time when the broadcast seqno window was reset
-+ * @mcast_handler_lock: synchronizes mcast-capability and -flag change=
-s
-  * @mcast_flags: multicast flags announced by the orig node
-  * @mcast_want_all_unsnoop_node: a list node for the
-  *  mcast.want_all_unsnoopables list
-@@ -268,6 +269,8 @@ struct batadv_orig_node {
- 	unsigned long last_seen;
- 	unsigned long bcast_seqno_reset;
- #ifdef CONFIG_BATMAN_ADV_MCAST
-+	/* synchronizes mcast tvlv specific orig changes */
-+	spinlock_t mcast_handler_lock;
- 	uint8_t mcast_flags;
- 	struct hlist_node mcast_want_all_unsnoopables_node;
- 	struct hlist_node mcast_want_all_ipv4_node;
---=20
+ 	batadv_softif_vlan_free_ref(vlan);
+ 	batadv_softif_vlan_free_ref(vlan);
+ 
+@@ -1167,8 +1173,10 @@ static void batadv_tt_local_table_free(struct batadv_priv *bat_priv)
+ 			/* decrease the reference held for this vlan */
+ 			vlan = batadv_softif_vlan_get(bat_priv,
+ 						      tt_common_entry->vid);
+-			batadv_softif_vlan_free_ref(vlan);
+-			batadv_softif_vlan_free_ref(vlan);
++			if (vlan) {
++				batadv_softif_vlan_free_ref(vlan);
++				batadv_softif_vlan_free_ref(vlan);
++			}
+ 
+ 			batadv_tt_local_entry_free_ref(tt_local);
+ 		}
+@@ -3208,8 +3216,10 @@ static void batadv_tt_local_purge_pending_clients(struct batadv_priv *bat_priv)
+ 
+ 			/* decrease the reference held for this vlan */
+ 			vlan = batadv_softif_vlan_get(bat_priv, tt_common->vid);
+-			batadv_softif_vlan_free_ref(vlan);
+-			batadv_softif_vlan_free_ref(vlan);
++			if (vlan) {
++				batadv_softif_vlan_free_ref(vlan);
++				batadv_softif_vlan_free_ref(vlan);
++			}
+ 
+ 			batadv_tt_local_entry_free_ref(tt_local);
+ 		}
+-- 
 2.5.0
