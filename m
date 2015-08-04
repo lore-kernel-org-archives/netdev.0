@@ -1,60 +1,71 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 1/2] openvswitch: Use regular GRE net_device
- instead of vport
-Date: Mon, 3 Aug 2015 22:55:25 -0700
-Message-ID: <CALnjE+ooDLxTryGXhqt03UHhOyk+OfEcbAqECdGS+JotXJ5mrA@mail.gmail.com>
-References: <1438648046-10346-1-git-send-email-pshelar@nicira.com>
-	<20150804042339.GA47032@Alexeis-MBP.westell.com>
-	<20150803.215955.1031623872655808616.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:38531 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbbHDFz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 01:55:27 -0400
-Received: by iggf3 with SMTP id f3so4634252igg.1
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 22:55:25 -0700 (PDT)
-In-Reply-To: <20150803.215955.1031623872655808616.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: net: dsa: support switchdev FDB objects
+Date: Tue,  4 Aug 2015 01:54:39 -0400
+Message-ID: <1438667683-18872-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 3, 2015 at 9:59 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Date: Mon, 3 Aug 2015 21:23:40 -0700
->
->> On Mon, Aug 03, 2015 at 05:27:26PM -0700, Pravin B Shelar wrote:
->>> With addition of flow based tunneling, there is no need to
->>> have special GRE vport. Removes all of the OVS specific
->>> GRE code and make OVS use a ip_gre net_device.
->>> Minimal GRE vport is kept to handle compatibility with
->>> current userspace application.
->>>
->>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->> ...
->>> +#define GRE_TAP_FB_NAME "gretap0"
->> ...
->>> +    /* fallback device is used for flow based tunneling. */
->>> +    if (!strcmp(dev->name, GRE_TAP_FB_NAME)) {
->>> +            struct ip_tunnel *t;
->>> +
->>> +            t = netdev_priv(dev);
->>> +            t->flow_based_tunnel = true;
->>> +            eth_hw_addr_random(dev);
->>> +            netif_keep_dst(dev);
->>> +    }
->>> +
->>
->> feature detection based on netdev name?
->> meaning that there will be only one such device for the whole
->> host? and namespaces cannot have their own gre tunnels?
->> (since host 'gretap0' cannot be seen in netns)
->
-> Doing anything like this by netdev name is wrong.
->
-> Pravin you will need to do this in some other way.
->
-ok, I will add API to create flow-based GRE device.
+This patchset refactors the DSA and mv88e6xxx code to use the switchdev FDB
+objects.
+
+The first two patches add minor but necessary changes to switchdev, the third
+one implements the switchdev glue in DSA for FDB routines, and the forth one
+refactors the FDB access functions in the mv88e6xxx code.
+
+Below is an example (ports 0-2 belongs to br0, ports 3-4 belongs to br1):
+
+    # bridge fdb add 3c:97:0e:11:30:6e dev swp2
+    # bridge fdb add 3c:97:0e:11:40:78 dev swp3
+    # bridge fdb add 3c:97:0e:11:50:86 dev swp4
+    # bridge fdb del 3c:97:0e:11:40:78 dev swp3
+    # bridge fdb
+    01:00:5e:00:00:01 dev eth0 self permanent
+    01:00:5e:00:00:01 dev eth1 self permanent
+    00:50:d2:10:78:15 dev swp0 master br0 permanent
+    3c:97:0e:11:30:6e dev swp2 self static
+    00:50:d2:10:78:15 dev swp3 master br1 permanent
+    3c:97:0e:11:50:86 dev swp4 self static
+    # cat /sys/kernel/debug/dsa0/atu
+    # DB   T/P  Vec State Addr
+    # 001  Port 004   e   3c:97:0e:11:30:6e
+    # 004  Port 010   e   3c:97:0e:11:50:86
+
+For the 88E6xxx switches, FIDs 1 to num_ports will be reserved for non-bridged
+ports and bridge groups, and the remaining will be later used by VLANs.
+
+This change is necessary to welcome the support for hardware VLANs (which will
+follow soon).
+
+Cheers,
+-v
+
+Vivien Didelot (4):
+  net: switchdev: change fdb addr for a byte array
+  net: switchdev: support static FDB addresses
+  net: dsa: add support for switchdev FDB objects
+  net: dsa: mv88e6xxx: refactor FDB routines
+
+ drivers/net/dsa/mv88e6171.c          |   6 +-
+ drivers/net/dsa/mv88e6352.c          |   6 +-
+ drivers/net/dsa/mv88e6xxx.c          | 205 ++++++++++++++++++++++----------
+ drivers/net/dsa/mv88e6xxx.h          |  31 +++--
+ drivers/net/ethernet/rocker/rocker.c |   2 +-
+ include/net/dsa.h                    |  16 ++-
+ include/net/switchdev.h              |   3 +-
+ net/bridge/br_fdb.c                  |   2 +-
+ net/dsa/slave.c                      | 221 +++++++++++++++++++----------------
+ net/switchdev/switchdev.c            |   6 +-
+ 10 files changed, 308 insertions(+), 190 deletions(-)
+
+-- 
+2.4.6
