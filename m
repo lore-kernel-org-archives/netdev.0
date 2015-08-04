@@ -1,41 +1,70 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [Xen-devel] printk from softirq on xen: hard lockup
-Date: Wed, 5 Aug 2015 01:01:25 +0200
-Message-ID: <CAHmME9r6yYyiRXD7hyyvZnk9CvNAxgG5MSb=F=smSV6+j_U_FQ@mail.gmail.com>
-References: <CAHmME9rUdafnjz0ej-z_cgznMrj27SJgy6v8GJXM0qGfUpWaMQ@mail.gmail.com>
-	<55C0F291.7060806@citrix.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH v2 4/8] xen: Use the correctly the Xen memory terminologies
+Date: Tue, 04 Aug 2015 19:16:45 -0400
+Message-ID: <55C147DD.7000600@oracle.com>
+References: <1438711972-18752-1-git-send-email-julien.grall@citrix.com>
+ <1438711972-18752-5-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, Paul McKenney <paulmck@linux.vnet.ibm.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55C0F291.7060806@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: linux-fbdev@vger.kernel.org, "H. Peter Anvin" <hpa@zytor.com>,
+ Jiri Slaby <jslaby@suse.com>, stefano.stabellini@eu.citrix.com,
+ Russell King <linux@arm.linux.org.uk>, linux-scsi@vger.kernel.org,
+ x86@kernel.org, Tomi Valkeinen <tomi.valkeinen@ti.com>,
+ linux-input@vger.kernel.org,
+ Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+ ian.campbell@citrix.com, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+ "James E.J. Bottomley" <JBottomley@odin.com>,
+ Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>,
+ linux-arm-kernel@lists.infradead.org, Juergen Gross <jgross@suse.com>,
+ Wei Liu <wei.liu2@citrix.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Dmitry Torokhov <dmitry.torokhov@gmail.com>, linux-kernel@vger.kernel.org,
+ David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org,
+ linuxppc-dev@lists.ozlabs.org,
+ =?UTF-8?B?Um9nZXIgUGF1IE1vbm7DqQ==?
+To: Julien Grall <julien.grall@citrix.com>, xen-devel@lists.xenproject.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1438711972-18752-5-git-send-email-julien.grall@citrix.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hey David,
+On 08/04/2015 02:12 PM, Julien Grall wrote:
+>   
+>   /*
+>    * We detect special mappings in one of two ways:
+> @@ -217,9 +232,13 @@ static inline unsigned long bfn_to_local_pfn(unsigned long mfn)
+>   
+>   /* VIRT <-> MACHINE conversion */
+>   #define virt_to_machine(v)	(phys_to_machine(XPADDR(__pa(v))))
+> -#define virt_to_pfn(v)          (PFN_DOWN(__pa(v)))
+>   #define virt_to_mfn(v)		(pfn_to_mfn(virt_to_pfn(v)))
+>   #define mfn_to_virt(m)		(__va(mfn_to_pfn(m) << PAGE_SHIFT))
+> +#define virt_to_pfn(v)          (PFN_DOWN(__pa(v)))
 
-Sorry for the premature response on my phone earlier. Real reply follows.
->> rcu_read_lock, when using Xen PV. Relevant excerpts of the
->                                 ^^  PV guest?
+This looks like unnecessary change.
 
-Yes. The lockup occurs on a PV guest. Nothing special at all about the
-configuration. Vanilla upstream 4.1.3 kernel.
 
->> __xapic_wait_icr_idle () at ./arch/x86/include/asm/ipi.h:56
->> 56              while (native_apic_mem_read(APIC_ICR) & APIC_ICR_BUSY)
->                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  => HVM guest
->
-> Which is it?
+> diff --git a/drivers/video/fbdev/xen-fbfront.c b/drivers/video/fbdev/xen-fbfront.c
+> index 09dc447..25e3cce 100644
+> --- a/drivers/video/fbdev/xen-fbfront.c
+> +++ b/drivers/video/fbdev/xen-fbfront.c
+> @@ -539,7 +539,7 @@ static int xenfb_remove(struct xenbus_device *dev)
+>   
+>   static unsigned long vmalloc_to_mfn(void *address)
+>   {
+> -	return pfn_to_mfn(vmalloc_to_pfn(address));
+> +	return pfn_to_gfn(vmalloc_to_pfn(address));
+>   }
 
-That's odd. It's a PV guest, not an HVM nor PVH guest.
+Are you sure? This will return vmalloc_to_pfn(address)).
 
->
-> A HVM guest's serial console may be particularly slow (since it's
-> emulated by qemu).  Try using the PV console?
 
-I am using the PV console. But actually the problem occurs too even if
-/proc/sys/kernel/printk is set to all zeros (no klog on the console).
-
-The plot thickens?
+-boris
