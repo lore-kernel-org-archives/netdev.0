@@ -1,36 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/1] net/ipv4: Enable flow-based ECMP
-Date: Mon, 3 Aug 2015 22:31:58 -0700
-Message-ID: <20150803223158.40ae7d52@urahara>
-References: <1438651727-4429-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: Re: BUG: null dereference in __skb_recv_datagram
+Date: Mon, 3 Aug 2015 22:34:02 -0700
+Message-ID: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
+References: <CAMUH3-VQaWdxnGUuJamGXQZN+Pq-4YBFcr6Yq3R6qD0=8cjG_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org
-To: Richard Laing <richard.laing@alliedtelesis.co.nz>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, khlebnikov@yandex-team.ru
+To: netdev@vger.kernel.org, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:35517 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709AbbHDFbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 01:31:50 -0400
-Received: by pasy3 with SMTP id y3so31578581pas.2
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 22:31:50 -0700 (PDT)
-In-Reply-To: <1438651727-4429-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:35785 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750709AbbHDFeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 01:34:22 -0400
+Received: by ykdu72 with SMTP id u72so129218934ykd.2
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 22:34:22 -0700 (PDT)
+In-Reply-To: <CAMUH3-VQaWdxnGUuJamGXQZN+Pq-4YBFcr6Yq3R6qD0=8cjG_g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  4 Aug 2015 13:28:47 +1200
-Richard Laing <richard.laing@alliedtelesis.co.nz> wrote:
+> [  318.244596] BUG: unable to handle kernel NULL pointer dereference
+> at 000000000000008e
+> [  318.245182] IP: [<ffffffff81455e7c>] __skb_recv_datagram+0xbc/0x5a0
 
-> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-> index 5fa643b..7db9f72 100644
-> --- a/include/net/ip_fib.h
-> +++ b/include/net/ip_fib.h
-> @@ -117,6 +117,8 @@ struct fib_info {
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
->  	int			fib_power;
->  #endif
-> +	/* Cache the number of live nexthops for flow based ECMP calculation. */
-> +	int			live_nexthops;
+Replying to myself, and adding commit interested parties...
 
-unsigned or u16 ? rather than risking sign issues.
+I went through the git log for the function in question, and
+positively identified that the following commit introduces the crash:
+
+738ac1e net: Clone skb before setting peeked flag
+
+Null dereference is at line 224 of net/core/datagram.c (according to
+my objdump dis-assembly):
+
+                spin_lock_irqsave(&queue->lock, cpu_flags);
+                skb_queue_walk(queue, skb) {
+                        last = skb;
+                        *peeked = skb->peeked;
+
+^-----------------------------------
+                        if (flags & MSG_PEEK) {
+                                if (_off >= skb->len && (skb->len || _off ||
+                                                         skb->peeked)) {
+
+Beyond that, I'm probably out of my comfort zone, so if anyone has a
+bright idea of a patch to try, I will gladly test it.
