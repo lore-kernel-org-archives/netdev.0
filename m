@@ -1,105 +1,99 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH v2 2/3] drivers: net: cpsw: dual_emac: simplify napi usage
-Date: Tue, 4 Aug 2015 16:06:19 +0530
-Message-ID: <1438684580-11384-3-git-send-email-mugunthanvnm@ti.com>
-References: <1438684580-11384-1-git-send-email-mugunthanvnm@ti.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH 1/2] iwlwifi: convert hex_dump_to_buffer() to %*ph
+Date: Tue, 04 Aug 2015 13:47:13 +0300
+Message-ID: <1438685233.29746.156.camel@linux.intel.com>
+References: <1437050535-22858-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:38356 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755774AbbHDKgl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 06:36:41 -0400
-In-Reply-To: <1438684580-11384-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mga02.intel.com ([134.134.136.20]:29783 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932332AbbHDKtY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 06:49:24 -0400
+In-Reply-To: <1437050535-22858-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since interrupt is shared between the two ethernet interface and
-in isr only one napi is scheduled at an instance so having two
-napis doesn't make any difference. So making napi also as a
-common resource for the dual ethernet interfaces.
+On Thu, 2015-07-16 at 15:42 +0300, Andy Shevchenko wrote:
+> There is no need to use hex_dump_to_buffer() in the cases like this:
+> 
+> 	hexdump_to_buffer(buf, len, 16, 1, outbuf, outlen, false);	> /* len <= 16 
+> */
+> 	sprintf("%s\n", outbuf);
+> 
+> since it maybe easily converted to simple:
+> 
+> 	sprintf("%*ph\n", len, buf);
+> 
+> Note: it seems in one case the output is groupped by 2 bytes and 
+> looks like a
+> typo. Thus, patch changes that to plain byte stream.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 26 +++++++++-----------------
- 1 file changed, 9 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index d68d759..1d923e8 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -768,20 +768,8 @@ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
- 	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
- 	writel(0, &priv->wr_regs->rx_en);
- 
--	if (netif_running(priv->ndev)) {
--		napi_schedule(&priv->napi);
--		return IRQ_HANDLED;
--	}
--
--	priv = cpsw_get_slave_priv(priv, 1);
--	if (!priv)
--		return IRQ_NONE;
--
--	if (netif_running(priv->ndev)) {
--		napi_schedule(&priv->napi);
--		return IRQ_HANDLED;
--	}
--	return IRQ_NONE;
-+	napi_schedule(&priv->napi);
-+	return IRQ_HANDLED;
- }
- 
- static int cpsw_poll(struct napi_struct *napi, int budget)
-@@ -1246,6 +1234,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 				  ALE_ALL_PORTS << priv->host_port, 0, 0);
- 
- 	if (!cpsw_common_res_usage_state(priv)) {
-+		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
-+
- 		/* setup tx dma to fixed prio and zero offset */
- 		cpdma_control_set(priv->dma, CPDMA_TX_PRIO_FIXED, 1);
- 		cpdma_control_set(priv->dma, CPDMA_RX_BUFFER_OFFSET, 0);
-@@ -1259,6 +1249,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 		/* Enable internal fifo flow control */
- 		writel(0x7, &priv->regs->flow_control);
- 
-+		napi_enable(&priv_sl0->napi);
-+
- 		if (WARN_ON(!priv->data.rx_descs))
- 			priv->data.rx_descs = 128;
- 
-@@ -1297,7 +1289,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 		cpsw_set_coalesce(ndev, &coal);
- 	}
- 
--	napi_enable(&priv->napi);
- 	cpdma_ctlr_start(priv->dma);
- 	cpsw_intr_enable(priv);
- 
-@@ -1319,10 +1310,12 @@ static int cpsw_ndo_stop(struct net_device *ndev)
- 
- 	cpsw_info(priv, ifdown, "shutting down cpsw device\n");
- 	netif_stop_queue(priv->ndev);
--	napi_disable(&priv->napi);
- 	netif_carrier_off(priv->ndev);
- 
- 	if (cpsw_common_res_usage_state(priv) <= 1) {
-+		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
-+
-+		napi_disable(&priv_sl0->napi);
- 		cpts_unregister(priv->cpts);
- 		cpsw_intr_disable(priv);
- 		cpdma_ctlr_stop(priv->dma);
-@@ -2105,7 +2098,6 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
- 
- 	ndev->netdev_ops = &cpsw_netdev_ops;
- 	ndev->ethtool_ops = &cpsw_ethtool_ops;
--	netif_napi_add(ndev, &priv_sl2->napi, cpsw_poll, CPSW_POLL_WEIGHT);
- 
- 	/* register the network device */
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
+Any comments on this, anyone?
+
+The idea is to minimize usage of hexdump_to_buffer(), i.e. not using it
+when it's an obvious overkill.
+
+> 
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> ---
+>  drivers/net/wireless/iwlwifi/dvm/debugfs.c | 8 ++------
+>  drivers/net/wireless/iwlwifi/mvm/debugfs.c | 7 +------
+>  2 files changed, 3 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/iwlwifi/dvm/debugfs.c 
+> b/drivers/net/wireless/iwlwifi/dvm/debugfs.c
+> index 0ffb6ff..b15e44f 100644
+> --- a/drivers/net/wireless/iwlwifi/dvm/debugfs.c
+> +++ b/drivers/net/wireless/iwlwifi/dvm/debugfs.c
+> @@ -310,12 +310,8 @@ static ssize_t iwl_dbgfs_nvm_read(struct file 
+> *file,
+>  	pos += scnprintf(buf + pos, buf_size - pos,
+>  			 "NVM version: 0x%x\n", nvm_ver);
+>  	for (ofs = 0 ; ofs < eeprom_len ; ofs += 16) {
+> -		pos += scnprintf(buf + pos, buf_size - pos, "0x%.4x 
+> ", ofs);
+> -		hex_dump_to_buffer(ptr + ofs, 16 , 16, 2, buf + pos,
+> -				   buf_size - pos, 0);
+> -		pos += strlen(buf + pos);
+> -		if (buf_size - pos > 0)
+> -			buf[pos++] = '\n';
+> +		pos += scnprintf(buf + pos, buf_size - pos, "0x%.4x 
+> %16ph\n",
+> +				 ofs, ptr + ofs);
+>  	}
+>  
+>  	ret = simple_read_from_buffer(user_buf, count, ppos, buf, 
+> pos);
+> diff --git a/drivers/net/wireless/iwlwifi/mvm/debugfs.c 
+> b/drivers/net/wireless/iwlwifi/mvm/debugfs.c
+> index ffb4b5c..98abd31 100644
+> --- a/drivers/net/wireless/iwlwifi/mvm/debugfs.c
+> +++ b/drivers/net/wireless/iwlwifi/mvm/debugfs.c
+> @@ -1200,12 +1200,7 @@ static ssize_t iwl_dbgfs_d3_sram_read(struct 
+> file *file, char __user *user_buf,
+>  	if (ptr) {
+>  		for (ofs = 0; ofs < len; ofs += 16) {
+>  			pos += scnprintf(buf + pos, bufsz - pos,
+> -					 "0x%.4x ", ofs);
+> -			hex_dump_to_buffer(ptr + ofs, 16, 16, 1, buf 
+> + pos,
+> -					   bufsz - pos, false);
+> -			pos += strlen(buf + pos);
+> -			if (bufsz - pos > 0)
+> -				buf[pos++] = '\n';
+> +					 "0x%.4x %16ph\n", ofs, ptr 
+> + ofs);
+>  		}
+>  	} else {
+>  		pos += scnprintf(buf + pos, bufsz - pos,
+
 -- 
-2.5.0.234.gefc8a62
+Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Intel Finland Oy
