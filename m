@@ -1,153 +1,118 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH v2 net-next 1/4] cnic: Populate upper layer driver state in MFW
-Date: Tue, 4 Aug 2015 09:37:27 +0300
-Message-ID: <1438670250-20130-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH v2 net-next 2/4] cnic: Add the interfaces to get FC-NPIV table.
+Date: Tue, 4 Aug 2015 09:37:28 +0300
+Message-ID: <1438670250-20130-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1438670250-20130-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <James.bottomley@HansenPartnership.com>,
 	<linux-scsi-owner@vger.kernel.org>, <chad.dupuis@qlogic.com>,
-	<Ariel.Elior@qlogic.com>, Tej Parkash <tej.parkash@qlogic.com>,
+	<Ariel.Elior@qlogic.com>,
+	Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>,
 	Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:15360 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751967AbbHDGhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 02:37:48 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:64511 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751967AbbHDGhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 02:37:52 -0400
 In-Reply-To: <1438670250-20130-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tej Parkash <tej.parkash@qlogic.com>
+From: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
 
-Signed-off-by: Tej Parkash <tej.parkash@qlogic.com>
+Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
+Signed-off-by: Chad Dupuis <chad.dupuis@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c    | 18 +++++++++++++++---
- drivers/net/ethernet/broadcom/cnic_if.h |  5 +++++
- 2 files changed, 20 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c    | 18 ++++++++++++++++++
+ drivers/net/ethernet/broadcom/cnic_if.h | 16 ++++++++++++++--
+ 2 files changed, 32 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 17c145f..d9e3567 100644
+index d9e3567..b69dc58 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -192,6 +192,7 @@ static void cnic_ctx_wr(struct cnic_dev *dev, u32 cid_addr, u32 off, u32 val)
- 	struct drv_ctl_info info;
- 	struct drv_ctl_io *io = &info.data.io;
- 
-+	memset(&info, 0, sizeof(struct drv_ctl_info));
- 	info.cmd = DRV_CTL_CTX_WR_CMD;
- 	io->cid_addr = cid_addr;
- 	io->offset = off;
-@@ -206,6 +207,7 @@ static void cnic_ctx_tbl_wr(struct cnic_dev *dev, u32 off, dma_addr_t addr)
- 	struct drv_ctl_info info;
- 	struct drv_ctl_io *io = &info.data.io;
- 
-+	memset(&info, 0, sizeof(struct drv_ctl_info));
- 	info.cmd = DRV_CTL_CTXTBL_WR_CMD;
- 	io->offset = off;
- 	io->dma_addr = addr;
-@@ -219,6 +221,7 @@ static void cnic_ring_ctl(struct cnic_dev *dev, u32 cid, u32 cl_id, int start)
- 	struct drv_ctl_info info;
- 	struct drv_ctl_l2_ring *ring = &info.data.ring;
- 
-+	memset(&info, 0, sizeof(struct drv_ctl_info));
- 	if (start)
- 		info.cmd = DRV_CTL_START_L2_CMD;
- 	else
-@@ -236,6 +239,7 @@ static void cnic_reg_wr_ind(struct cnic_dev *dev, u32 off, u32 val)
- 	struct drv_ctl_info info;
- 	struct drv_ctl_io *io = &info.data.io;
- 
-+	memset(&info, 0, sizeof(struct drv_ctl_info));
- 	info.cmd = DRV_CTL_IO_WR_CMD;
- 	io->offset = off;
- 	io->data = val;
-@@ -249,13 +253,14 @@ static u32 cnic_reg_rd_ind(struct cnic_dev *dev, u32 off)
- 	struct drv_ctl_info info;
- 	struct drv_ctl_io *io = &info.data.io;
- 
-+	memset(&info, 0, sizeof(struct drv_ctl_info));
- 	info.cmd = DRV_CTL_IO_RD_CMD;
- 	io->offset = off;
- 	ethdev->drv_ctl(dev->netdev, &info);
- 	return io->data;
+@@ -5445,6 +5445,23 @@ static void cnic_free_dev(struct cnic_dev *dev)
+ 	kfree(dev);
  }
  
--static void cnic_ulp_ctl(struct cnic_dev *dev, int ulp_type, bool reg)
-+static void cnic_ulp_ctl(struct cnic_dev *dev, int ulp_type, bool reg, int state)
++static int cnic_get_fc_npiv_tbl(struct cnic_dev *dev,
++				struct cnic_fc_npiv_tbl *npiv_tbl)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++	struct bnx2x *bp = netdev_priv(dev->netdev);
++	int ret;
++
++	if (!test_bit(CNIC_F_CNIC_UP, &dev->flags))
++		return -EAGAIN;     /* bnx2x is down */
++
++	if (!BNX2X_CHIP_IS_E2_PLUS(bp))
++		return -EINVAL;
++
++	ret = cp->ethdev->drv_get_fc_npiv_tbl(dev->netdev, npiv_tbl);
++	return ret;
++}
++
+ static struct cnic_dev *cnic_alloc_dev(struct net_device *dev,
+ 				       struct pci_dev *pdev)
  {
- 	struct cnic_local *cp = dev->cnic_priv;
- 	struct cnic_eth_dev *ethdev = cp->ethdev;
-@@ -263,6 +268,7 @@ static void cnic_ulp_ctl(struct cnic_dev *dev, int ulp_type, bool reg)
- 	struct fcoe_capabilities *fcoe_cap =
- 		&info.data.register_data.fcoe_features;
+@@ -5463,6 +5480,7 @@ static struct cnic_dev *cnic_alloc_dev(struct net_device *dev,
+ 	cdev->register_device = cnic_register_device;
+ 	cdev->unregister_device = cnic_unregister_device;
+ 	cdev->iscsi_nl_msg_recv = cnic_iscsi_nl_msg_recv;
++	cdev->get_fc_npiv_tbl = cnic_get_fc_npiv_tbl;
  
-+	memset(&info, 0, sizeof(struct drv_ctl_info));
- 	if (reg) {
- 		info.cmd = DRV_CTL_ULP_REGISTER_CMD;
- 		if (ulp_type == CNIC_ULP_FCOE && dev->fcoe_cap)
-@@ -272,6 +278,7 @@ static void cnic_ulp_ctl(struct cnic_dev *dev, int ulp_type, bool reg)
- 	}
- 
- 	info.data.ulp_type = ulp_type;
-+	info.drv_state = state;
- 	ethdev->drv_ctl(dev->netdev, &info);
- }
- 
-@@ -286,6 +293,7 @@ static void cnic_spq_completion(struct cnic_dev *dev, int cmd, u32 count)
- 	struct cnic_eth_dev *ethdev = cp->ethdev;
- 	struct drv_ctl_info info;
- 
-+	memset(&info, 0, sizeof(struct drv_ctl_info));
- 	info.cmd = cmd;
- 	info.data.credit.credit_count = count;
- 	ethdev->drv_ctl(dev->netdev, &info);
-@@ -591,7 +599,7 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
- 
- 	mutex_unlock(&cnic_lock);
- 
--	cnic_ulp_ctl(dev, ulp_type, true);
-+	cnic_ulp_ctl(dev, ulp_type, true, DRV_ACTIVE);
- 
- 	return 0;
- 
-@@ -636,7 +644,10 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
- 	if (test_bit(ULP_F_CALL_PENDING, &cp->ulp_flags[ulp_type]))
- 		netdev_warn(dev->netdev, "Failed waiting for ULP up call to complete\n");
- 
--	cnic_ulp_ctl(dev, ulp_type, false);
-+	if (test_bit(ULP_F_INIT, &cp->ulp_flags[ulp_type]))
-+		cnic_ulp_ctl(dev, ulp_type, false, DRV_UNLOADED);
-+	else
-+		cnic_ulp_ctl(dev, ulp_type, false, DRV_INACTIVE);
- 
- 	return 0;
- }
-@@ -4267,6 +4278,7 @@ static void cnic_delete_task(struct work_struct *work)
- 
- 		cnic_ulp_stop_one(cp, CNIC_ULP_ISCSI);
- 
-+		memset(&info, 0, sizeof(struct drv_ctl_info));
- 		info.cmd = DRV_CTL_ISCSI_STOPPED_CMD;
- 		cp->ethdev->drv_ctl(dev->netdev, &info);
- 	}
+ 	cp = cdev->cnic_priv;
+ 	cp->dev = cdev;
 diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
-index ef6125b..d0cf006 100644
+index d0cf006..789e5c7 100644
 --- a/drivers/net/ethernet/broadcom/cnic_if.h
 +++ b/drivers/net/ethernet/broadcom/cnic_if.h
-@@ -151,6 +151,11 @@ struct drv_ctl_register_data {
+@@ -15,8 +15,8 @@
  
- struct drv_ctl_info {
- 	int	cmd;
-+	int     drv_state;
-+#define DRV_NOP		0
-+#define DRV_ACTIVE	1
-+#define DRV_INACTIVE	2
-+#define DRV_UNLOADED	3
- 	union {
- 		struct drv_ctl_spq_credit credit;
- 		struct drv_ctl_io io;
+ #include "bnx2x/bnx2x_mfw_req.h"
+ 
+-#define CNIC_MODULE_VERSION	"2.5.21"
+-#define CNIC_MODULE_RELDATE	"January 29, 2015"
++#define CNIC_MODULE_VERSION	"2.5.22"
++#define CNIC_MODULE_RELDATE	"July 20, 2015"
+ 
+ #define CNIC_ULP_RDMA		0
+ #define CNIC_ULP_ISCSI		1
+@@ -166,6 +166,15 @@ struct drv_ctl_info {
+ 	} data;
+ };
+ 
++#define MAX_NPIV_ENTRIES 64
++#define FC_NPIV_WWN_SIZE 8
++
++struct cnic_fc_npiv_tbl {
++	u8 wwpn[MAX_NPIV_ENTRIES][FC_NPIV_WWN_SIZE];
++	u8 wwnn[MAX_NPIV_ENTRIES][FC_NPIV_WWN_SIZE];
++	u32 count;
++};
++
+ struct cnic_ops {
+ 	struct module	*cnic_owner;
+ 	/* Calls to these functions are protected by RCU.  When
+@@ -231,6 +240,8 @@ struct cnic_eth_dev {
+ 	int		(*drv_submit_kwqes_16)(struct net_device *,
+ 					       struct kwqe_16 *[], u32);
+ 	int		(*drv_ctl)(struct net_device *, struct drv_ctl_info *);
++	int		(*drv_get_fc_npiv_tbl)(struct net_device *,
++					       struct cnic_fc_npiv_tbl *);
+ 	unsigned long	reserved1[2];
+ 	union drv_info_to_mcp	*addr_drv_info_to_mcp;
+ };
+@@ -319,6 +330,7 @@ struct cnic_dev {
+ 	struct cnic_dev *(*cm_select_dev)(struct sockaddr_in *, int ulp_type);
+ 	int (*iscsi_nl_msg_recv)(struct cnic_dev *dev, u32 msg_type,
+ 				 char *data, u16 data_size);
++	int (*get_fc_npiv_tbl)(struct cnic_dev *, struct cnic_fc_npiv_tbl *);
+ 	unsigned long	flags;
+ #define CNIC_F_CNIC_UP		1
+ #define CNIC_F_BNX2_CLASS	3
 -- 
 1.7.12.4
