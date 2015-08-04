@@ -1,34 +1,41 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH 2/3] missing rtnl_unlock in igb_sriov_reinit()
-Date: Tue, 4 Aug 2015 22:41:21 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81ADF4C9@ORSMSX101.amr.corp.intel.com>
-References: <559BF609.4020705@virtuozzo.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [Xen-devel] printk from softirq on xen: hard lockup
+Date: Wed, 5 Aug 2015 01:01:25 +0200
+Message-ID: <CAHmME9r6yYyiRXD7hyyvZnk9CvNAxgG5MSb=F=smSV6+j_U_FQ@mail.gmail.com>
+References: <CAHmME9rUdafnjz0ej-z_cgznMrj27SJgy6v8GJXM0qGfUpWaMQ@mail.gmail.com>
+	<55C0F291.7060806@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Fujinaka, Todd" <todd.fujinaka@intel.com>
-To: Vasily Averin <vvs@virtuozzo.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:35922 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751383AbbHDWl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 18:41:28 -0400
-In-Reply-To: <559BF609.4020705@virtuozzo.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, Paul McKenney <paulmck@linux.vnet.ibm.com>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55C0F291.7060806@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVy
-QHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVoYWxmIE9mIFZhc2lseSBBdmVyaW4NCj4gU2VudDog
-VHVlc2RheSwgSnVseSAwNywgMjAxNSA4OjU0IEFNDQo+IFRvOiBEYXZpZCBTLiBNaWxsZXI7IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wu
-b3JnOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IEZ1amluYWthLCBUb2RkDQo+IFN1YmplY3Q6IFtQQVRD
-SCAyLzNdIG1pc3NpbmcgcnRubF91bmxvY2sgaW4gaWdiX3NyaW92X3JlaW5pdCgpDQo+IA0KPiBT
-aWduZWQtb2ZmLWJ5OiBWYXNpbHkgQXZlcmluIDx2dnNAdmlydHVvenpvLmNvbT4NCj4gLS0tDQo+
-ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYyB8IDEgKw0KPiAgMSBm
-aWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspDQoNClRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFh
-cm9uLmYuYnJvd25AaW50ZWwuY29tPg0K
+Hey David,
+
+Sorry for the premature response on my phone earlier. Real reply follows.
+>> rcu_read_lock, when using Xen PV. Relevant excerpts of the
+>                                 ^^  PV guest?
+
+Yes. The lockup occurs on a PV guest. Nothing special at all about the
+configuration. Vanilla upstream 4.1.3 kernel.
+
+>> __xapic_wait_icr_idle () at ./arch/x86/include/asm/ipi.h:56
+>> 56              while (native_apic_mem_read(APIC_ICR) & APIC_ICR_BUSY)
+>                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  => HVM guest
+>
+> Which is it?
+
+That's odd. It's a PV guest, not an HVM nor PVH guest.
+
+>
+> A HVM guest's serial console may be particularly slow (since it's
+> emulated by qemu).  Try using the PV console?
+
+I am using the PV console. But actually the problem occurs too even if
+/proc/sys/kernel/printk is set to all zeros (no klog on the console).
+
+The plot thickens?
