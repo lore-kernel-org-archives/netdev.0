@@ -1,7 +1,7 @@
 From: Kaixu Xia <xiakaixu@huawei.com>
-Subject: [PATCH v6 4/4] samples/bpf: example of get selected PMU counter value
-Date: Tue, 4 Aug 2015 08:58:16 +0000
-Message-ID: <1438678696-88289-5-git-send-email-xiakaixu@huawei.com>
+Subject: [PATCH v6 1/4] bpf: Make the bpf_prog_array_map more generic
+Date: Tue, 4 Aug 2015 08:58:13 +0000
+Message-ID: <1438678696-88289-2-git-send-email-xiakaixu@huawei.com>
 References: <1438678696-88289-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,173 +17,254 @@ In-Reply-To: <1438678696-88289-1-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a simple example and shows how to use the new ability
-to get the selected Hardware PMU counter value.
+From: Wang Nan <wangnan0@huawei.com>
 
+All the map backends are of generic nature. In order to avoid
+adding much special code into the eBPF core, rewrite part of
+the bpf_prog_array map code and make it more generic. So the
+new perf_event_array map type can reuse most of code with
+bpf_prog_array map and add fewer lines of special code.
+
+Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
 ---
- samples/bpf/Makefile       |  4 +++
- samples/bpf/bpf_helpers.h  |  2 ++
- samples/bpf/tracex6_kern.c | 26 ++++++++++++++++++
- samples/bpf/tracex6_user.c | 68 ++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 100 insertions(+)
- create mode 100644 samples/bpf/tracex6_kern.c
- create mode 100644 samples/bpf/tracex6_user.c
+ arch/x86/net/bpf_jit_comp.c |  6 ++--
+ include/linux/bpf.h         |  8 +++--
+ kernel/bpf/arraymap.c       | 80 +++++++++++++++++++++++++++------------------
+ kernel/bpf/core.c           |  2 +-
+ kernel/bpf/syscall.c        |  2 +-
+ 5 files changed, 60 insertions(+), 38 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 4450fed..63e7d50 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -12,6 +12,7 @@ hostprogs-y += tracex2
- hostprogs-y += tracex3
- hostprogs-y += tracex4
- hostprogs-y += tracex5
-+hostprogs-y += tracex6
- hostprogs-y += lathist
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 579a8fd..e377f07 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -246,7 +246,7 @@ static void emit_prologue(u8 **pprog)
+  *     goto out;
+  *   if (++tail_call_cnt > MAX_TAIL_CALL_CNT)
+  *     goto out;
+- *   prog = array->prog[index];
++ *   prog = array->ptrs[index];
+  *   if (prog == NULL)
+  *     goto out;
+  *   goto *(prog->bpf_func + prologue_size);
+@@ -284,9 +284,9 @@ static void emit_bpf_tail_call(u8 **pprog)
+ 	EMIT3(0x83, 0xC0, 0x01);                  /* add eax, 1 */
+ 	EMIT2_off32(0x89, 0x85, -STACKSIZE + 36); /* mov dword ptr [rbp - 516], eax */
  
- test_verifier-objs := test_verifier.o libbpf.o
-@@ -25,6 +26,7 @@ tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
- tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
- tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
- tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
-+tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
- lathist-objs := bpf_load.o libbpf.o lathist_user.o
+-	/* prog = array->prog[index]; */
++	/* prog = array->ptrs[index]; */
+ 	EMIT4(0x48, 0x8D, 0x44, 0xD6);            /* lea rax, [rsi + rdx * 8 + 0x50] */
+-	EMIT1(offsetof(struct bpf_array, prog));
++	EMIT1(offsetof(struct bpf_array, ptrs));
+ 	EMIT3(0x48, 0x8B, 0x00);                  /* mov rax, qword ptr [rax] */
  
- # Tell kbuild to always build the programs
-@@ -37,6 +39,7 @@ always += tracex2_kern.o
- always += tracex3_kern.o
- always += tracex4_kern.o
- always += tracex5_kern.o
-+always += tracex6_kern.o
- always += tcbpf1_kern.o
- always += lathist_kern.o
- 
-@@ -51,6 +54,7 @@ HOSTLOADLIBES_tracex2 += -lelf
- HOSTLOADLIBES_tracex3 += -lelf
- HOSTLOADLIBES_tracex4 += -lelf -lrt
- HOSTLOADLIBES_tracex5 += -lelf
-+HOSTLOADLIBES_tracex6 += -lelf
- HOSTLOADLIBES_lathist += -lelf
- 
- # point this to your LLVM backend with bpf support
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index bdf1c16..c8a3594 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -31,6 +31,8 @@ static unsigned long long (*bpf_get_current_uid_gid)(void) =
- 	(void *) BPF_FUNC_get_current_uid_gid;
- static int (*bpf_get_current_comm)(void *buf, int buf_size) =
- 	(void *) BPF_FUNC_get_current_comm;
-+static int (*bpf_perf_event_read)(void *map, int index) =
-+	(void *) BPF_FUNC_perf_event_read;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
-diff --git a/samples/bpf/tracex6_kern.c b/samples/bpf/tracex6_kern.c
-new file mode 100644
-index 0000000..23d1cff
---- /dev/null
-+++ b/samples/bpf/tracex6_kern.c
-@@ -0,0 +1,26 @@
-+#include <linux/version.h>
-+#include <uapi/linux/bpf.h>
-+#include "bpf_helpers.h"
+ 	/* if (prog == NULL)
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 4383476..a8ce262 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -24,6 +24,10 @@ struct bpf_map_ops {
+ 	void *(*map_lookup_elem)(struct bpf_map *map, void *key);
+ 	int (*map_update_elem)(struct bpf_map *map, void *key, void *value, u64 flags);
+ 	int (*map_delete_elem)(struct bpf_map *map, void *key);
 +
-+struct bpf_map_def SEC("maps") my_map = {
-+	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(u32),
-+	.max_entries = 32,
-+};
-+
-+SEC("kprobe/sys_write")
-+int bpf_prog1(struct pt_regs *ctx)
++	/* funcs called by prog_array and perf_event_array map */
++	void *(*map_fd_get_ptr) (struct bpf_map *map, int fd);
++	void (*map_fd_put_ptr) (void *ptr);
+ };
+ 
+ struct bpf_map {
+@@ -142,13 +146,13 @@ struct bpf_array {
+ 	bool owner_jited;
+ 	union {
+ 		char value[0] __aligned(8);
+-		struct bpf_prog *prog[0] __aligned(8);
++		void *ptrs[0] __aligned(8);
+ 	};
+ };
+ #define MAX_TAIL_CALL_CNT 32
+ 
+ u64 bpf_tail_call(u64 ctx, u64 r2, u64 index, u64 r4, u64 r5);
+-void bpf_prog_array_map_clear(struct bpf_map *map);
++void bpf_fd_array_map_clear(struct bpf_map *map);
+ bool bpf_prog_array_compatible(struct bpf_array *array, const struct bpf_prog *fp);
+ const struct bpf_func_proto *bpf_get_trace_printk_proto(void);
+ 
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index cb31229..45df657 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -150,15 +150,15 @@ static int __init register_array_map(void)
+ }
+ late_initcall(register_array_map);
+ 
+-static struct bpf_map *prog_array_map_alloc(union bpf_attr *attr)
++static struct bpf_map *fd_array_map_alloc(union bpf_attr *attr)
+ {
+-	/* only bpf_prog file descriptors can be stored in prog_array map */
++	/* only file descriptors can be stored in this type of map */
+ 	if (attr->value_size != sizeof(u32))
+ 		return ERR_PTR(-EINVAL);
+ 	return array_map_alloc(attr);
+ }
+ 
+-static void prog_array_map_free(struct bpf_map *map)
++static void fd_array_map_free(struct bpf_map *map)
+ {
+ 	struct bpf_array *array = container_of(map, struct bpf_array, map);
+ 	int i;
+@@ -167,21 +167,21 @@ static void prog_array_map_free(struct bpf_map *map)
+ 
+ 	/* make sure it's empty */
+ 	for (i = 0; i < array->map.max_entries; i++)
+-		BUG_ON(array->prog[i] != NULL);
++		BUG_ON(array->ptrs[i] != NULL);
+ 	kvfree(array);
+ }
+ 
+-static void *prog_array_map_lookup_elem(struct bpf_map *map, void *key)
++static void *fd_array_map_lookup_elem(struct bpf_map *map, void *key)
+ {
+ 	return NULL;
+ }
+ 
+ /* only called from syscall */
+-static int prog_array_map_update_elem(struct bpf_map *map, void *key,
+-				      void *value, u64 map_flags)
++static int fd_array_map_update_elem(struct bpf_map *map, void *key,
++				    void *value, u64 map_flags)
+ {
+ 	struct bpf_array *array = container_of(map, struct bpf_array, map);
+-	struct bpf_prog *prog, *old_prog;
++	void *new_ptr, *old_ptr;
+ 	u32 index = *(u32 *)key, ufd;
+ 
+ 	if (map_flags != BPF_ANY)
+@@ -191,57 +191,75 @@ static int prog_array_map_update_elem(struct bpf_map *map, void *key,
+ 		return -E2BIG;
+ 
+ 	ufd = *(u32 *)value;
+-	prog = bpf_prog_get(ufd);
+-	if (IS_ERR(prog))
+-		return PTR_ERR(prog);
+-
+-	if (!bpf_prog_array_compatible(array, prog)) {
+-		bpf_prog_put(prog);
+-		return -EINVAL;
+-	}
++	new_ptr = map->ops->map_fd_get_ptr(map, ufd);
++	if (IS_ERR(new_ptr))
++		return PTR_ERR(new_ptr);
+ 
+-	old_prog = xchg(array->prog + index, prog);
+-	if (old_prog)
+-		bpf_prog_put_rcu(old_prog);
++	old_ptr = xchg(array->ptrs + index, new_ptr);
++	if (old_ptr)
++		map->ops->map_fd_put_ptr(old_ptr);
+ 
+ 	return 0;
+ }
+ 
+-static int prog_array_map_delete_elem(struct bpf_map *map, void *key)
++static int fd_array_map_delete_elem(struct bpf_map *map, void *key)
+ {
+ 	struct bpf_array *array = container_of(map, struct bpf_array, map);
+-	struct bpf_prog *old_prog;
++	void *old_ptr;
+ 	u32 index = *(u32 *)key;
+ 
+ 	if (index >= array->map.max_entries)
+ 		return -E2BIG;
+ 
+-	old_prog = xchg(array->prog + index, NULL);
+-	if (old_prog) {
+-		bpf_prog_put_rcu(old_prog);
++	old_ptr = xchg(array->ptrs + index, NULL);
++	if (old_ptr) {
++		map->ops->map_fd_put_ptr(old_ptr);
+ 		return 0;
+ 	} else {
+ 		return -ENOENT;
+ 	}
+ }
+ 
++static void *prog_fd_array_get_ptr(struct bpf_map *map, int fd)
 +{
-+	u64 count;
-+	u32 key = bpf_get_smp_processor_id();
-+	char fmt[] = "CPU-%d   %llu\n";
++	struct bpf_array *array = container_of(map, struct bpf_array, map);
++	struct bpf_prog *prog = bpf_prog_get(fd);
++	if (IS_ERR(prog))
++		return prog;
 +
-+	count = bpf_perf_event_read(&my_map, key);
-+	bpf_trace_printk(fmt, sizeof(fmt), key, count);
-+
-+	return 0;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-+u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
-new file mode 100644
-index 0000000..928f05e
---- /dev/null
-+++ b/samples/bpf/tracex6_user.c
-@@ -0,0 +1,68 @@
-+#include <stdio.h>
-+#include <unistd.h>
-+#include <stdlib.h>
-+#include <stdbool.h>
-+#include <string.h>
-+#include <fcntl.h>
-+#include <poll.h>
-+#include <sys/ioctl.h>
-+#include <linux/perf_event.h>
-+#include <linux/bpf.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+
-+#define SAMPLE_PERIOD  0x7fffffffffffffffULL
-+
-+static void test_bpf_perf_event(void)
-+{
-+	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-+	int *pmu_fd = malloc(nr_cpus * sizeof(int));
-+	unsigned long value;
-+	int i;
-+
-+	struct perf_event_attr attr_insn_pmu = {
-+		.freq = 0,
-+		.sample_period = SAMPLE_PERIOD,
-+		.inherit = 0,
-+		.type = PERF_TYPE_HARDWARE,
-+		.read_format = 0,
-+		.sample_type = 0,
-+		.config = 0,/* PMU: cycles */
-+	};
-+
-+	for (i = 0; i < nr_cpus; i++) {
-+		pmu_fd[i] = perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
-+		if (pmu_fd[i] < 0)
-+			printf("event syscall failed\n");
-+
-+		bpf_update_elem(map_fd[0], &i, &pmu_fd[i], BPF_ANY);
-+		ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0);
++	if (!bpf_prog_array_compatible(array, prog)) {
++		bpf_prog_put(prog);
++		return ERR_PTR(-EINVAL);
 +	}
-+
-+	system("ls");
-+	system("pwd");
-+	system("sleep 2");
-+
-+	for (i = 0; i < nr_cpus; i++)
-+		close(pmu_fd[i]);
-+
-+	close(map_fd);
-+
-+	free(pmu_fd);
++	return prog;
 +}
 +
-+int main(int argc, char **argv)
++static void prog_fd_array_put_ptr(void *ptr)
 +{
-+	char filename[256];
++	struct bpf_prog *prog = ptr;
 +
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	test_bpf_perf_event();
-+
-+	return 0;
++	bpf_prog_put_rcu(prog);
 +}
++
+ /* decrement refcnt of all bpf_progs that are stored in this map */
+-void bpf_prog_array_map_clear(struct bpf_map *map)
++void bpf_fd_array_map_clear(struct bpf_map *map)
+ {
+ 	struct bpf_array *array = container_of(map, struct bpf_array, map);
+ 	int i;
+ 
+ 	for (i = 0; i < array->map.max_entries; i++)
+-		prog_array_map_delete_elem(map, &i);
++		fd_array_map_delete_elem(map, &i);
+ }
+ 
+ static const struct bpf_map_ops prog_array_ops = {
+-	.map_alloc = prog_array_map_alloc,
+-	.map_free = prog_array_map_free,
++	.map_alloc = fd_array_map_alloc,
++	.map_free = fd_array_map_free,
+ 	.map_get_next_key = array_map_get_next_key,
+-	.map_lookup_elem = prog_array_map_lookup_elem,
+-	.map_update_elem = prog_array_map_update_elem,
+-	.map_delete_elem = prog_array_map_delete_elem,
++	.map_lookup_elem = fd_array_map_lookup_elem,
++	.map_update_elem = fd_array_map_update_elem,
++	.map_delete_elem = fd_array_map_delete_elem,
++	.map_fd_get_ptr = prog_fd_array_get_ptr,
++	.map_fd_put_ptr = prog_fd_array_put_ptr,
+ };
+ 
+ static struct bpf_map_type_list prog_array_type __read_mostly = {
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index c5bedc8..be848d0 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -449,7 +449,7 @@ select_insn:
+ 
+ 		tail_call_cnt++;
+ 
+-		prog = READ_ONCE(array->prog[index]);
++		prog = READ_ONCE(array->ptrs[index]);
+ 		if (unlikely(!prog))
+ 			goto out;
+ 
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index a1b14d1..dc9b464 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -72,7 +72,7 @@ static int bpf_map_release(struct inode *inode, struct file *filp)
+ 		/* prog_array stores refcnt-ed bpf_prog pointers
+ 		 * release them all when user space closes prog_array_fd
+ 		 */
+-		bpf_prog_array_map_clear(map);
++		bpf_fd_array_map_clear(map);
+ 
+ 	bpf_map_put(map);
+ 	return 0;
 -- 
 1.8.3.4
