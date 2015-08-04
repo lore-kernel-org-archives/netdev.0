@@ -1,66 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] virtio-net: drop NETIF_F_FRAGLIST
-Date: Tue, 4 Aug 2015 14:11:00 +0300
-Message-ID: <55C09DC4.4070108@cogentembedded.com>
-References: <1438682145-25986-1-git-send-email-jasowang@redhat.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: RX overrun errors building on several of our hosts
+Date: Tue, 4 Aug 2015 11:39:27 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63DF6D71@avmb3.qlogic.org>
+References: <DM2PR07MB670383331D9D645D83D9ADAF1770@DM2PR07MB670.namprd07.prod.outlook.com>
+ <DM2PR07MB670C5AE859AC24DB9AAF869F1770@DM2PR07MB670.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1438682145-25986-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Dan Finn <Dan.Finn@plansource.com>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:52763 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932678AbbHDLjb convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 07:39:31 -0400
+In-Reply-To: <DM2PR07MB670C5AE859AC24DB9AAF869F1770@DM2PR07MB670.namprd07.prod.outlook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+> After implementing a new monitoring tool I've noticed that several of our
+> physical servers have increasing RX errors, all seem to be classified as overruns.
 
-On 8/4/2015 12:55 PM, Jason Wang wrote:
+Just to be sure we're looking at the same thing - are you referring to the errors
+appearing on the bonding interfaces? I.e., ~10^(-6) of Rx packets are errors?
+Also, how exactly do you classify such errors as overruns?
 
-> virtio declares support for NETIF_F_FRAGLIST, but assumes
-> that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
-> always true with a fraglist.
+If you can, please provide `ethtool -S' and `ethtool -I' outputs for
+base interfaces. Also, for good measures, please provide an `ethtool -d'
+output as well.
 
-> A longer fraglist in the skb will make the call to skb_to_sgvec overflow
-> the sg array, leading to memory corruption.
-
-> Drop NETIF_F_FRAGLIST so we only get what we can handle.
-
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> The patch is needed for stable.
-> ---
->   drivers/net/virtio_net.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
-
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 7fbca37..2347a73 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1756,9 +1756,9 @@ static int virtnet_probe(struct virtio_device *vdev)
->   	/* Do we support "hardware" checksums? */
->   	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
->   		/* This opens up the world of extra features. */
-> -		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-> +		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG;
->   		if (csum)
-> -			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-> +			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG;
-
-    I'd have added spaces around | to match the style seen below.
-
->   		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
->   			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
-
-MBR, Sergei
+Thanks,
+Yuval
