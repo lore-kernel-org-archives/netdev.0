@@ -1,46 +1,129 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] r8169: enforce RX_MULTI_EN on rtl8168ep/8111ep chips
-Date: Tue,  4 Aug 2015 22:11:43 +0200
-Message-ID: <1438719103-22067-1-git-send-email-ivecera@redhat.com>
-Cc: alexander@bitspace.se, nic_swsd@realtek.com, romieu@fr.zoreil.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53488 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752411AbbHDULs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 16:11:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: WingMan Kwok <w-kwok2@ti.com>
+Subject: [PATCH] net: netcp: fix unused interface rx buffer size configuration
+Date: Tue, 4 Aug 2015 16:56:53 -0400
+Message-ID: <1438721813-14044-1-git-send-email-w-kwok2@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: WingMan Kwok <w-kwok2@ti.com>
+To: <davem@davemloft.net>, <m-karicheri2@ti.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Enforcing this flag in RxConfig for the mentioned chips fixes netdev
-watchdog issues prepended with AMD IOMMU message(s) like:
-AMD-Vi: Event logged [IO_PAGE_FAULT device=01:00.0 domain=0x001d address=0x0000000000003000 flags=0x0050]
+Prior to this patch, rx buffer size for each rx queue
+of an interface is configurable through dts bindings.
+But for an interface, the first rx queue's rx buffer
+size is always the usual MTU size (plus usual overhead)
+and page size for the remaining rx queues (if they are
+enabled by specifying a non-zero rx queue depth dts
+binding of the corresponding interface).  This patch
+removes the rx buffer size configuration capability.
 
-Note that this flag is also set in Realtek's own driver for these chips.
-
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-Tested-by: Alexander Lindqvist <alexander@bitspace.se>
+Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ti/netcp.h      |    1 -
+ drivers/net/ethernet/ti/netcp_core.c |   35 +++++++++++++---------------------
+ 2 files changed, 13 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 3df51fa..f790f61 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4875,10 +4875,12 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_46:
- 	case RTL_GIGA_MAC_VER_47:
- 	case RTL_GIGA_MAC_VER_48:
-+		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
-+		break;
- 	case RTL_GIGA_MAC_VER_49:
- 	case RTL_GIGA_MAC_VER_50:
- 	case RTL_GIGA_MAC_VER_51:
--		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
-+		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST | RX_EARLY_OFF);
- 		break;
- 	default:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST);
+diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
+index a8a7306..bb1bb72 100644
+--- a/drivers/net/ethernet/ti/netcp.h
++++ b/drivers/net/ethernet/ti/netcp.h
+@@ -85,7 +85,6 @@ struct netcp_intf {
+ 	struct list_head	rxhook_list_head;
+ 	unsigned int		rx_queue_id;
+ 	void			*rx_fdq[KNAV_DMA_FDQ_PER_CHAN];
+-	u32			rx_buffer_sizes[KNAV_DMA_FDQ_PER_CHAN];
+ 	struct napi_struct	rx_napi;
+ 	struct napi_struct	tx_napi;
+ 
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 9749dfd..4755838 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -34,6 +34,7 @@
+ #define NETCP_SOP_OFFSET	(NET_IP_ALIGN + NET_SKB_PAD)
+ #define NETCP_NAPI_WEIGHT	64
+ #define NETCP_TX_TIMEOUT	(5 * HZ)
++#define NETCP_PACKET_SIZE	(ETH_FRAME_LEN + ETH_FCS_LEN)
+ #define NETCP_MIN_PACKET_SIZE	ETH_ZLEN
+ #define NETCP_MAX_MCAST_ADDR	16
+ 
+@@ -804,30 +805,28 @@ static void netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
+ 	if (likely(fdq == 0)) {
+ 		unsigned int primary_buf_len;
+ 		/* Allocate a primary receive queue entry */
+-		buf_len = netcp->rx_buffer_sizes[0] + NETCP_SOP_OFFSET;
++		buf_len = NETCP_PACKET_SIZE + NETCP_SOP_OFFSET;
+ 		primary_buf_len = SKB_DATA_ALIGN(buf_len) +
+ 				SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 
+-		if (primary_buf_len <= PAGE_SIZE) {
+-			bufptr = netdev_alloc_frag(primary_buf_len);
+-			pad[1] = primary_buf_len;
+-		} else {
+-			bufptr = kmalloc(primary_buf_len, GFP_ATOMIC |
+-					 GFP_DMA32 | __GFP_COLD);
+-			pad[1] = 0;
+-		}
++		bufptr = netdev_alloc_frag(primary_buf_len);
++		pad[1] = primary_buf_len;
+ 
+ 		if (unlikely(!bufptr)) {
+-			dev_warn_ratelimited(netcp->ndev_dev, "Primary RX buffer alloc failed\n");
++			dev_warn_ratelimited(netcp->ndev_dev,
++					     "Primary RX buffer alloc failed\n");
+ 			goto fail;
+ 		}
+ 		dma = dma_map_single(netcp->dev, bufptr, buf_len,
+ 				     DMA_TO_DEVICE);
++		if (unlikely(dma_mapping_error(netcp->dev, dma)))
++			goto fail;
++
+ 		pad[0] = (u32)bufptr;
+ 
+ 	} else {
+ 		/* Allocate a secondary receive queue entry */
+-		page = alloc_page(GFP_ATOMIC | GFP_DMA32 | __GFP_COLD);
++		page = alloc_page(GFP_ATOMIC | GFP_DMA | __GFP_COLD);
+ 		if (unlikely(!page)) {
+ 			dev_warn_ratelimited(netcp->ndev_dev, "Secondary page alloc failed\n");
+ 			goto fail;
+@@ -1010,7 +1009,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 
+ 	/* Map the linear buffer */
+ 	dma_addr = dma_map_single(dev, skb->data, pkt_len, DMA_TO_DEVICE);
+-	if (unlikely(!dma_addr)) {
++	if (unlikely(dma_mapping_error(dev, dma_addr))) {
+ 		dev_err(netcp->ndev_dev, "Failed to map skb buffer\n");
+ 		return NULL;
+ 	}
+@@ -1546,8 +1545,8 @@ static int netcp_setup_navigator_resources(struct net_device *ndev)
+ 	knav_queue_disable_notify(netcp->rx_queue);
+ 
+ 	/* open Rx FDQs */
+-	for (i = 0; i < KNAV_DMA_FDQ_PER_CHAN &&
+-	     netcp->rx_queue_depths[i] && netcp->rx_buffer_sizes[i]; ++i) {
++	for (i = 0; i < KNAV_DMA_FDQ_PER_CHAN && netcp->rx_queue_depths[i];
++	     ++i) {
+ 		snprintf(name, sizeof(name), "rx-fdq-%s-%d", ndev->name, i);
+ 		netcp->rx_fdq[i] = knav_queue_open(name, KNAV_QUEUE_GP, 0);
+ 		if (IS_ERR_OR_NULL(netcp->rx_fdq[i])) {
+@@ -1941,14 +1940,6 @@ static int netcp_create_interface(struct netcp_device *netcp_device,
+ 		netcp->rx_queue_depths[0] = 128;
+ 	}
+ 
+-	ret = of_property_read_u32_array(node_interface, "rx-buffer-size",
+-					 netcp->rx_buffer_sizes,
+-					 KNAV_DMA_FDQ_PER_CHAN);
+-	if (ret) {
+-		dev_err(dev, "missing \"rx-buffer-size\" parameter\n");
+-		netcp->rx_buffer_sizes[0] = 1536;
+-	}
+-
+ 	ret = of_property_read_u32_array(node_interface, "rx-pool", temp, 2);
+ 	if (ret < 0) {
+ 		dev_err(dev, "missing \"rx-pool\" parameter\n");
 -- 
-2.4.6
+1.7.9.5
