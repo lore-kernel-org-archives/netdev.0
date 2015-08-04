@@ -1,64 +1,88 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 0/2] lwtunnel: encap locally-generated ipv4 packets
-Date: Tue, 4 Aug 2015 14:55:59 +0100
-Message-ID: <55C0C46F.6000103@brocade.com>
-References: <1438619961-15919-1-git-send-email-rshearma@brocade.com>
- <55BFDFF3.2030309@cumulusnetworks.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
+Date: Tue, 4 Aug 2015 10:20:55 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1508041019380.1577-100000@iolanthe.rowland.org>
+References: <1438674216.2458.24.camel@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:51783 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753487AbbHDN4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 09:56:16 -0400
-In-Reply-To: <55BFDFF3.2030309@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, Andrew Lunn <andrew@lunn.ch>,
+	<netdev@vger.kernel.org>, <patchwork-lst@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>, <kernel@pengutronix.de>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+	<linux-pm@vger.kernel.org>
+To: Lucas Stach <l.stach@pengutronix.de>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1438674216.2458.24.camel@pengutronix.de>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/08/15 22:41, roopa wrote:
-> On 8/3/15, 9:39 AM, Robert Shearman wrote:
->> Locally-generated IPv4 packets, such as from applications running on
->> the host or traceroute/ping currently don't have lwtunnel output
->> redirected encap applied. However, they should do in the same way as
->> for forwarded packets and this patch series addresses that.
->>
->> Robert Shearman (2):
->>    lwtunnel: set skb protocol and dev
->>    ipv4: apply lwtunnel encap for locally-generated packets
->>
->>   net/core/lwtunnel.c | 12 ++++++++++--
->>   net/ipv4/route.c    |  2 ++
->>   2 files changed, 12 insertions(+), 2 deletions(-)
->>
-> Thanks for this patch Robert. Looks good.
-> I have been thinking of sending a similar patch out for this and
-> since i was also looking at ip fragmentation, I have a slightly
-> different patch which I think should also take care of
-> encapsulating locally generated packets too. This patch moves the output
-> redirection to after ip fragmentation.
-> What do you think about the below (I have briefly tested it. Was
-> planning to test some more before sending it out as RFC) ?
+On Tue, 4 Aug 2015, Lucas Stach wrote:
 
-I'm glad you're looking at fragmentation - this does need to be 
-implemented at some point.
+> Am Montag, den 03.08.2015, 14:28 -0400 schrieb Alan Stern:
+> > On Mon, 3 Aug 2015, Uwe [iso-8859-1] Kleine-Knig wrote:
+> > 
+> > > Hello,
+> > > 
+> > > I have no clue about runtime-pm, but I added a few people to Cc: who
+> > > should know better ...
+> > > 
+> > > Best regards
+> > > Uwe
+> > > 
+> > > On Mon, Aug 03, 2015 at 06:15:54PM +0200, Andrew Lunn wrote:
+> > > > On Mon, Aug 03, 2015 at 05:50:11PM +0200, Lucas Stach wrote:
+> > > > > The clocks are initially active and thus the device is marked active.
+> > > > > This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
+> > > > > call at the end of probe then leaves us with an invalid refcount of -1,
+> > > > > which in turn leads to the device staying in suspended state even though
+> > > > > netdev open had been called.
+> > > > > 
+> > > > > Fix this by initializing the refcount to be coherent with the initial
+> > > > > device status.
+> > > > > 
+> > > > > Fixes:
+> > > > > 8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
+> > > > > 
+> > > > > Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+> > > > > ---
+> > > > > Please apply this as a fix for 4.2
+> > > > > ---
+> > > > >  drivers/net/ethernet/freescale/fec_main.c | 1 +
+> > > > >  1 file changed, 1 insertion(+)
+> > > > > 
+> > > > > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> > > > > index 32e3807c650e..271bb5862346 100644
+> > > > > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > > > > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > > > > @@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
+> > > > >  
+> > > > >  	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
+> > > > >  	pm_runtime_use_autosuspend(&pdev->dev);
+> > > > > +	pm_runtime_get_noresume(&pdev->dev);
+> > > > >  	pm_runtime_set_active(&pdev->dev);
+> > > > >  	pm_runtime_enable(&pdev->dev);
+> > > > 
+> > > > This might work, but is it the correct fix?
+> > 
+> > It looks reasonable to me.  It might also make sense to move all of
+> > that pm_runtime_* stuff to the end of the probe routine.  Notice that
+> > they don't get undone if register_netdev() fails.
+> > 
+> Unfortunately we can not move RPM enabling to the end of probe, as the
+> MDIO read/write functions that rely on RPM are already called while we
+> are still in the middle of the probe function.
 
-While it looks like fragmentation should work, the issue is that now 
-post-routing netfilter modules will be presented with un-encapsulated 
-packets without distinguishing them from encapsulated packets.
+In that case, adding a call pm_runtime_get_noresume() is the right 
+thing to do.
 
-An example of why this is a problem is that this would prevent operators 
-from implementing rules to prevent non-control IP packets being output 
-onto an interface in an MPLS core, and I have seen service providers 
-doing this sort of thing in the past. So I think this is a pretty big 
-deal for MPLS. There are possibly other less obvious use cases that 
-would be prevented by this change.
+> I agree that we need better error handling here, but that comment
+> applies to the whole FEC probe function. I think that this might be
+> invasive enough to justify a delay to the next merge window, not really
+> material for the late RCs.
 
-So as long as you can keep these working, I'd be fine with such an approach.
+That's entirely up to you, of course.
 
-Thanks,
-Rob
+Alan Stern
+
