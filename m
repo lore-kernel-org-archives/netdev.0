@@ -1,58 +1,44 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net] net: dsa: fix EDSA frame from hwaccel frame
-Date: Tue,  4 Aug 2015 02:35:11 -0400
-Message-ID: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH v2 net-next 0/4] bnx2x, cnic, bnx2fc: add support for BD
+Date: Tue, 4 Aug 2015 09:37:26 +0300
+Message-ID: <1438670250-20130-1-git-send-email-Yuval.Mintz@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <James.bottomley@HansenPartnership.com>,
+	<linux-scsi-owner@vger.kernel.org>, <chad.dupuis@qlogic.com>,
+	<Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:63805 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751967AbbHDGgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 02:36:23 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:4234 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751967AbbHDGhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 02:37:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the underlying network device features NETIF_F_HW_VLAN_CTAG_TX,
-an EDSA frame is prepended with a 802.1q header once queued.
+Commit 230d00eb4bfe ("bnx2x: new Multi-function mode - BD") added support
+for a new multi-function mode, but it added only the support required by
+bnx2x for L2 interfaces.
 
-To fix this, push the VLAN tag to the payload if present, before
-checking the frame protocol.
+This adds the required changes to support the new multi-function mode in
+the offloaded storage protocols.
 
-[note: we may prefer to access directly VLAN TCI from hwaccel frames,
-but this approach is simpler.]
+Dave,
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/tag_edsa.c | 5 +++++
- 1 file changed, 5 insertions(+)
+Please consider applying this series to `net-next'.
 
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 2288c80..3ada4eb 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <linux/etherdevice.h>
-+#include <linux/if_vlan.h>
- #include <linux/list.h>
- #include <linux/slab.h>
- #include "dsa_priv.h"
-@@ -21,6 +22,10 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	u8 *edsa_header;
- 
-+	skb = vlan_hwaccel_push_inside(skb);
-+	if (unlikely(!skb))
-+		return NULL;
-+
- 	/*
- 	 * Convert the outermost 802.1q tag to a DSA tag and prepend
- 	 * a DSA ethertype field is the packet is tagged, or insert
+Do notice that this involves non-networking driver changes -
+but sending this as a single series seemed like the best approach as
+we had to have bnx2x changes to support the new functionality.
+If this is problematic, please tell us what's the preferred solution here.
+
+Changes from previous versions
+------------------------------
+
+ - From v1 - no actual changes; v1 failed to reach netdev so in order to
+   keep things in line I've termed this one v2.
+
+Thanks,
+Yuval
 -- 
-2.4.6
+1.8.3.1
