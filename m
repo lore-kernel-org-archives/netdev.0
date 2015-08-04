@@ -1,62 +1,42 @@
 From: Richard Laing <Richard.Laing@alliedtelesis.co.nz>
 Subject: Re: [PATCH 1/1] net/ipv4: Enable flow-based ECMP
-Date: Tue, 4 Aug 2015 22:07:45 +0000
-Message-ID: <55C137B0.5020302@alliedtelesis.co.nz>
+Date: Tue, 4 Aug 2015 22:10:05 +0000
+Message-ID: <55C1383C.7070403@alliedtelesis.co.nz>
 References: <1438651727-4429-1-git-send-email-richard.laing@alliedtelesis.co.nz>
- <20150803223158.40ae7d52@urahara>
+ <1722301438673827@web16h.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jmorris@namei.org" <jmorris@namei.org>
+To: Oleg A Arkhangelsky <sysoleg@yandex.ru>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"pch@ordbogen.com" <pch@ordbogen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:36177 "EHLO
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:36188 "EHLO
 	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752118AbbHDWHv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 18:07:51 -0400
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(Client did not present a certificate)
-	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 834C2806B6
-	for <netdev@vger.kernel.org>; Wed,  5 Aug 2015 10:07:49 +1200 (NZST)
-In-Reply-To: <20150803223158.40ae7d52@urahara>
+	with ESMTP id S1751658AbbHDWKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 18:10:11 -0400
+In-Reply-To: <1722301438673827@web16h.yandex.ru>
 Content-Language: en-US
-Content-ID: <1CD6D67E1E5E86418EDB829DE6E5BEBC@atlnz.lc>
+Content-ID: <9B4F7E0556E60345BE62B5CB891FD378@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
-
-Given that fib_nhs is currently an int I would rather keep live_nexthops 
-also as an int to match, probably fib_nhs could at least be set as 
-unsigned or changed to u16 or even u8 perhaps.
-
-Best Regards,
-Richard
-
-On 08/04/2015 05:31 PM, Stephen Hemminger wrote:
-> On Tue,  4 Aug 2015 13:28:47 +1200
-> Richard Laing <richard.laing@alliedtelesis.co.nz> wrote:
->
->> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
->> index 5fa643b..7db9f72 100644
->> --- a/include/net/ip_fib.h
->> +++ b/include/net/ip_fib.h
->> @@ -117,6 +117,8 @@ struct fib_info {
->>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
->>   	int			fib_power;
->>   #endif
->> +	/* Cache the number of live nexthops for flow based ECMP calculation. */
->> +	int			live_nexthops;
-> unsigned or u16 ? rather than risking sign issues.
-
--- 
-
-*Richard Laing*
-Software Team Leader*
-Allied Telesis Labs*| 27 Nazareth Ave | Christchurch 8024 | New Zealand
-Phone: +64 3 3393000 | DDI: +64 3 339 9248 | Web: *alliedtelesis.com 
-<http://alliedtelesis.com/>*<skype:andrewriddell3?chat>
-
-
-http://productselector.alliedtelesis.eu/ 
-<http://productselector.alliedtelesis.eu/>
+SGkgT2xlZywNCg0KSSBoYWRuJ3Qgc2VlbiB0aGF0IHBhdGNoLCB0aGFua3MsIGl0IGxvb2tzIGxp
+a2UgYSBwcmV0dHkgdGhvcm91Z2ggc29sdXRpb24uDQoNCkJlc3QgUmVnYXJkcywNClJpY2hhcmQN
+Cg0KT24gMDgvMDQvMjAxNSAwNzozNyBQTSwgT2xlZyBBIEFya2hhbmdlbHNreSB3cm90ZToNCj4N
+Cj4gMDQuMDguMjAxNSwgMDQ6MjksICJSaWNoYXJkIExhaW5nIiA8cmljaGFyZC5sYWluZ0BhbGxp
+ZWR0ZWxlc2lzLmNvLm56PjoNCj4+IEVuYWJsZSBmbG93LWJhc2VkIEVDTVAuDQo+IExvb2tzIGxp
+a2UgeW91ciBhcHByb2FjaCBpcyBvbmx5IHJlc3RyaWN0ZWQgdG8gdGhlIGNhc2Ugd2hlbiBzb2Nr
+ZXRzIGFyZQ0KPiBpbnZvbHZlZC4gV2hhdCBhYm91dCBmb3J3YXJkZWQgdHJhZmZpYyAoSVAgcm91
+dGluZyBjYXNlKT8NCj4NCj4gSGF2ZSB5b3Ugc2VlbiBzaW1pbGFyIHdvcmsgZG9uZSBieSBQZXRl
+ciBOw7hybHVuZD8NCj4NCj4gaHR0cDovL2NvbW1lbnRzLmdtYW5lLm9yZy9nbWFuZS5saW51eC5r
+ZXJuZWwuYXBpLzEyMjAxDQo+DQo+IC0tDQo+IHdiciwgT2xlZy4NCj4NCj4gIkFuYXJjaHkgaXMg
+YWJvdXQgdGFraW5nIGNvbXBsZXRlIHJlc3BvbnNpYmlsaXR5IGZvciB5b3Vyc2VsZi4iDQo+ICAg
+ICAgICBBbGFuIE1vb3JlLg0KDQotLSANCg0KKlJpY2hhcmQgTGFpbmcqDQpTb2Z0d2FyZSBUZWFt
+IExlYWRlcioNCkFsbGllZCBUZWxlc2lzIExhYnMqfCAyNyBOYXphcmV0aCBBdmUgfCBDaHJpc3Rj
+aHVyY2ggODAyNCB8IE5ldyBaZWFsYW5kDQpQaG9uZTogKzY0IDMgMzM5MzAwMCB8IERESTogKzY0
+IDMgMzM5IDkyNDggfCBXZWI6ICphbGxpZWR0ZWxlc2lzLmNvbSANCjxodHRwOi8vYWxsaWVkdGVs
+ZXNpcy5jb20vPio8c2t5cGU6YW5kcmV3cmlkZGVsbDM/Y2hhdD4NCg0KDQpodHRwOi8vcHJvZHVj
+dHNlbGVjdG9yLmFsbGllZHRlbGVzaXMuZXUvIA0KPGh0dHA6Ly9wcm9kdWN0c2VsZWN0b3IuYWxs
+aWVkdGVsZXNpcy5ldS8+
