@@ -1,53 +1,55 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH] igb: do not re-init SR-IOV during probe
-Date: Tue, 4 Aug 2015 22:15:43 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81ADF460@ORSMSX101.amr.corp.intel.com>
-References: <1436533272-18070-1-git-send-email-sassmann@kpanic.de>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH 1/1] net/ipv4: Enable flow-based ECMP
+Date: Tue, 4 Aug 2015 15:25:28 -0700
+Message-ID: <CALx6S37yEGoXeXTJfYSGDbmBHSwg8LqogRVK55my5Z46daxaCA@mail.gmail.com>
+References: <1438651727-4429-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+	<1722301438673827@web16h.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Stefan Assmann <sassmann@kpanic.de>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Richard Laing <richard.laing@alliedtelesis.co.nz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pch@ordbogen.com, "jmorris@namei.org" <jmorris@namei.org>
+To: Oleg A Arkhangelsky <sysoleg@yandex.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:62587 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751074AbbHDWPp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 18:15:45 -0400
-In-Reply-To: <1436533272-18070-1-git-send-email-sassmann@kpanic.de>
-Content-Language: en-US
+Received: from mail-io0-f173.google.com ([209.85.223.173]:34248 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbbHDWZ3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 18:25:29 -0400
+Received: by ioea135 with SMTP id a135so31870960ioe.1
+        for <netdev@vger.kernel.org>; Tue, 04 Aug 2015 15:25:28 -0700 (PDT)
+In-Reply-To: <1722301438673827@web16h.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Stefan Assmann
-> Sent: Friday, July 10, 2015 6:01 AM
-> To: intel-wired-lan@lists.osuosl.org
-> Cc: netdev@vger.kernel.org; Kirsher, Jeffrey T; sassmann@kpanic.de
-> Subject: [PATCH] igb: do not re-init SR-IOV during probe
-> 
-> During driver probing the following code path is triggered.
-> igb_probe
-> ->igb_sw_init
->   ->igb_probe_vfs
->     ->igb_pci_enable_sriov
->       ->igb_sriov_reinit
-> 
-> Doing the SR-IOV re-init is not necessary during probing since we're
-> starting from scratch. Here we can call igb_enable_sriov() right away.
-> 
-> Running igb_sriov_reinit() during igb_probe() also seems to cause
-> occasional packet loss on some onboard 82576 NICs. Reproduced on
-> Dell and HP servers with onboard 82576 NICs.
-> Example:
-> Intel Corporation 82576 Gigabit Network Connection [8086:10c9] (rev 01)
-> Subsystem: Dell Device [1028:0481]
-> 
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
+On Tue, Aug 4, 2015 at 12:37 AM, Oleg A Arkhangelsky <sysoleg@yandex.ru=
+> wrote:
+>
+>
+> 04.08.2015, 04:29, "Richard Laing" <richard.laing@alliedtelesis.co.nz=
+>:
+>> Enable flow-based ECMP.
+>
+> Looks like your approach is only restricted to the case when sockets =
+are
+> involved. What about forwarded traffic (IP routing case)?
+>
+skb_get_hash_flowi4 can be called to get the hash now. This should
+work with or without (connected) sockets.
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Thanks,
+Tom
+
+> Have you seen similar work done by Peter N=C3=B8rlund?
+>
+> http://comments.gmane.org/gmane.linux.kernel.api/12201
+>
+> --
+> wbr, Oleg.
+>
+> "Anarchy is about taking complete responsibility for yourself."
+>       Alan Moore.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
