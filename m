@@ -1,23 +1,27 @@
-From: roopa <roopa@cumulusnetworks.com>
+From: Robert Shearman <rshearma@brocade.com>
 Subject: Re: [patch] mpls: small cleanup in inet/inet6_fib_lookup_dev()
-Date: Tue, 04 Aug 2015 06:40:21 -0700
-Message-ID: <55C0C0C5.1040901@cumulusnetworks.com>
+Date: Tue, 4 Aug 2015 14:53:02 +0100
+Message-ID: <55C0C3BE.8010007@brocade.com>
 References: <20150804074422.GB10867@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Robert Shearman <rshearma@brocade.com>,
-	Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Tom Herbert <tom@herbertland.com>, <netdev@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:51637 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933627AbbHDNxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 09:53:19 -0400
 In-Reply-To: <20150804074422.GB10867@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/4/15, 12:44 AM, Dan Carpenter wrote:
+On 04/08/15 08:44, Dan Carpenter wrote:
 > We recently changed this code from returning NULL to returning ERR_PTR.
 > There are some left over NULL assignments which we can remove.  We can
 > preserve the error code from ip_route_output() instead of always
@@ -26,5 +30,5 @@ On 8/4/15, 12:44 AM, Dan Carpenter wrote:
 > direct returns.
 >
 > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+Acked-by: Robert Shearman <rshearma@brocade.com>
