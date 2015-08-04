@@ -1,83 +1,39 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] mpls: small cleanup in inet/inet6_fib_lookup_dev()
-Date: Tue, 4 Aug 2015 10:44:22 +0300
-Message-ID: <20150804074422.GB10867@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Robert Shearman <rshearma@brocade.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH ethtool ] Add new interrupt bit FEmp
+Date: Tue,  4 Aug 2015 10:52:46 +0300
+Message-ID: <1438674766-2179-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38858 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932162AbbHDHxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 03:53:07 -0400
+Received: by wibxm9 with SMTP id xm9so11789843wib.1
+        for <netdev@vger.kernel.org>; Tue, 04 Aug 2015 00:53:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We recently changed this code from returning NULL to returning ERR_PTR.
-There are some left over NULL assignments which we can remove.  We can
-preserve the error code from ip_route_output() instead of always
-returning -ENODEV.  Also these functions use a mix of gotos and direct
-returns.  There is no cleanup necessary so I changed the gotos to
-direct returns.
+   Add new interrupt bit FEmp (Rx FIFO empty under FIFO full
+ Status Interrupt)
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 88cfaa2..d933059 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -337,14 +337,14 @@ static unsigned find_free_label(struct net *net)
- #if IS_ENABLED(CONFIG_INET)
- static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- {
--	struct net_device *dev = NULL;
-+	struct net_device *dev;
- 	struct rtable *rt;
- 	struct in_addr daddr;
- 
- 	memcpy(&daddr, addr, sizeof(struct in_addr));
- 	rt = ip_route_output(net, daddr.s_addr, 0, 0, 0);
- 	if (IS_ERR(rt))
--		goto errout;
-+		return ERR_CAST(rt);
- 
- 	dev = rt->dst.dev;
- 	dev_hold(dev);
-@@ -352,8 +352,6 @@ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- 	ip_rt_put(rt);
- 
- 	return dev;
--errout:
--	return ERR_PTR(-ENODEV);
- }
- #else
- static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
-@@ -365,7 +363,7 @@ static struct net_device *inet_fib_lookup_dev(struct net *net, void *addr)
- #if IS_ENABLED(CONFIG_IPV6)
- static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
- {
--	struct net_device *dev = NULL;
-+	struct net_device *dev;
- 	struct dst_entry *dst;
- 	struct flowi6 fl6;
- 	int err;
-@@ -377,16 +375,13 @@ static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
- 	memcpy(&fl6.daddr, addr, sizeof(struct in6_addr));
- 	err = ipv6_stub->ipv6_dst_lookup(net, NULL, &dst, &fl6);
- 	if (err)
--		goto errout;
-+		return ERR_PTR(err);
- 
- 	dev = dst->dev;
- 	dev_hold(dev);
- 	dst_release(dst);
- 
- 	return dev;
--
--errout:
--	return ERR_PTR(err);
- }
- #else
- static struct net_device *inet6_fib_lookup_dev(struct net *net, void *addr)
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+---
+ realtek.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/realtek.c b/realtek.c
+index e437466..a9185b2 100644
+--- a/realtek.c
++++ b/realtek.c
+@@ -229,6 +229,7 @@ print_intr_bits(u16 mask)
+ 		"      %s%s%s%s%s%s%s%s%s%s%s\n",
+ 		mask & (1 << 15)	? "SERR " : "",
+ 		mask & (1 << 14)	? "TimeOut " : "",
++		mask & (1 << 9) 	? "FEmp " : "", 
+ 		mask & (1 << 8)		? "SWInt " : "",
+ 		mask & (1 << 7)		? "TxNoBuf " : "",
+ 		mask & (1 << 6)		? "RxFIFO " : "",
+-- 
+2.1.4
