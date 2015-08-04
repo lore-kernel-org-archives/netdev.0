@@ -1,7 +1,7 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH V2 net-next 5/6] test_bpf: add more tests for LD_ABS and LD_IND.
-Date: Tue,  4 Aug 2015 15:19:11 +0200
-Message-ID: <1438694352-17469-6-git-send-email-nschichan@freebox.fr>
+Subject: [PATCH V2 net-next 3/6] test_bpf: test LD_ABS and LD_IND instructions on fragmented skbs.
+Date: Tue,  4 Aug 2015 15:19:09 +0200
+Message-ID: <1438694352-17469-4-git-send-email-nschichan@freebox.fr>
 References: <1438694352-17469-1-git-send-email-nschichan@freebox.fr>
 Cc: Nicolas Schichan <nschichan@freebox.fr>
 To: Daniel Borkmann <daniel@iogearbox.net>,
@@ -13,321 +13,166 @@ In-Reply-To: <1438694352-17469-1-git-send-email-nschichan@freebox.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This exerces the LD_ABS and LD_IND instructions for various sizes and
-alignments. This also checks that X when used as an offset to a
-BPF_IND instruction first in a filter is correctly set to 0.
+These new tests exercise various load sizes and offsets crossing the
+head/fragment boundary.
 
 Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
 ---
- lib/test_bpf.c | 296 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 296 insertions(+)
+ lib/test_bpf.c | 142 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 142 insertions(+)
 
 diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 8200980..e6ef56d 100644
+index e261751..f18b7b8 100644
 --- a/lib/test_bpf.c
 +++ b/lib/test_bpf.c
-@@ -4635,6 +4635,302 @@ static struct bpf_test tests[] = {
- 		{ {0x40, 0x25051982} },
- 		.frag_data = { 0x19, 0x82 },
+@@ -4493,6 +4493,148 @@ static struct bpf_test tests[] = {
+ 		{ { 1, 0xbef } },
+ 		.fill_helper = bpf_fill_ld_abs_vlan_push_pop,
  	},
 +	/*
-+	 * LD_IND / LD_ABS on non fragmented SKBs
++	 * LD_IND / LD_ABS on fragmented SKBs
 +	 */
 +	{
-+		/*
-+		 * this tests that the JIT/interpreter correctly resets X
-+		 * before using it in an LD_IND instruction.
-+		 */
-+		"LD_IND byte default X",
++		"LD_IND byte frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_B, 0x1),
++			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
++			BPF_STMT(BPF_LD | BPF_IND | BPF_B, 0x0),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{ [0x1] = 0x42 },
-+		{ {0x40, 0x42 } },
++		CLASSIC | FLAG_SKB_FRAG,
++		{ },
++		{ {0x40, 0x42} },
++		.frag_data = {
++			0x42, 0x00, 0x00, 0x00,
++			0x43, 0x44, 0x00, 0x00,
++			0x21, 0x07, 0x19, 0x83,
++		},
 +	},
 +	{
-+		"LD_IND byte positive offset",
++		"LD_IND halfword frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x3e),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_B, 0x1),
++			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
++			BPF_STMT(BPF_LD | BPF_IND | BPF_H, 0x4),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{ [0x3c] = 0x25, [0x3d] = 0x05,  [0x3e] = 0x19, [0x3f] = 0x82 },
-+		{ {0x40, 0x82 } },
++		CLASSIC | FLAG_SKB_FRAG,
++		{ },
++		{ {0x40, 0x4344} },
++		.frag_data = {
++			0x42, 0x00, 0x00, 0x00,
++			0x43, 0x44, 0x00, 0x00,
++			0x21, 0x07, 0x19, 0x83,
++		},
 +	},
 +	{
-+		"LD_IND byte negative offset",
++		"LD_IND word frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x3e),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_B, -0x1),
++			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
++			BPF_STMT(BPF_LD | BPF_IND | BPF_W, 0x8),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{ [0x3c] = 0x25, [0x3d] = 0x05,  [0x3e] = 0x19, [0x3f] = 0x82 },
-+		{ {0x40, 0x05 } },
++		CLASSIC | FLAG_SKB_FRAG,
++		{ },
++		{ {0x40, 0x21071983} },
++		.frag_data = {
++			0x42, 0x00, 0x00, 0x00,
++			0x43, 0x44, 0x00, 0x00,
++			0x21, 0x07, 0x19, 0x83,
++		},
 +	},
 +	{
-+		"LD_IND halfword positive offset",
++		"LD_IND halfword mixed head/frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_H, 0x2),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+		},
-+		{ {0x40, 0xdd88 } },
-+	},
-+	{
-+		"LD_IND halfword negative offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_H, -0x2),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+		},
-+		{ {0x40, 0xbb66 } },
-+	},
-+	{
-+		"LD_IND halfword unaligned",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
++			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
 +			BPF_STMT(BPF_LD | BPF_IND | BPF_H, -0x1),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+		},
-+		{ {0x40, 0x66cc } },
++		CLASSIC | FLAG_SKB_FRAG,
++		{ [0x3e] = 0x25, [0x3f] = 0x05, },
++		{ {0x40, 0x0519} },
++		.frag_data = { 0x19, 0x82 },
 +	},
 +	{
-+		"LD_IND word positive offset",
++		"LD_IND word mixed head/frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, 0x4),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xee99ffaa } },
-+	},
-+	{
-+		"LD_IND word negative offset",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x4),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xaa55bb66 } },
-+	},
-+	{
-+		"LD_IND word unaligned (addr & 3 == 2)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
++			BPF_STMT(BPF_LDX | BPF_IMM, 0x40),
 +			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x2),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xbb66cc77 } },
++		CLASSIC | FLAG_SKB_FRAG,
++		{ [0x3e] = 0x25, [0x3f] = 0x05, },
++		{ {0x40, 0x25051982} },
++		.frag_data = { 0x19, 0x82 },
 +	},
 +	{
-+		"LD_IND word unaligned (addr & 3 == 1)",
++		"LD_ABS byte frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x3),
++			BPF_STMT(BPF_LD | BPF_ABS | BPF_B, 0x40),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
++		CLASSIC | FLAG_SKB_FRAG,
++		{ },
++		{ {0x40, 0x42} },
++		.frag_data = {
++			0x42, 0x00, 0x00, 0x00,
++			0x43, 0x44, 0x00, 0x00,
++			0x21, 0x07, 0x19, 0x83,
 +		},
-+		{ {0x40, 0x55bb66cc } },
 +	},
 +	{
-+		"LD_IND word unaligned (addr & 3 == 3)",
++		"LD_ABS halfword frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LDX | BPF_IMM, 0x20),
-+			BPF_STMT(BPF_LD | BPF_IND | BPF_W, -0x1),
++			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x44),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
++		CLASSIC | FLAG_SKB_FRAG,
++		{ },
++		{ {0x40, 0x4344} },
++		.frag_data = {
++			0x42, 0x00, 0x00, 0x00,
++			0x43, 0x44, 0x00, 0x00,
++			0x21, 0x07, 0x19, 0x83,
 +		},
-+		{ {0x40, 0x66cc77dd } },
 +	},
 +	{
-+		"LD_ABS byte",
++		"LD_ABS word frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_B, 0x20),
++			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x48),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
++		CLASSIC | FLAG_SKB_FRAG,
++		{ },
++		{ {0x40, 0x21071983} },
++		.frag_data = {
++			0x42, 0x00, 0x00, 0x00,
++			0x43, 0x44, 0x00, 0x00,
++			0x21, 0x07, 0x19, 0x83,
 +		},
-+		{ {0x40, 0xcc } },
 +	},
 +	{
-+		"LD_ABS halfword",
++		"LD_ABS halfword mixed head/frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x22),
++			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x3f),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xdd88 } },
++		CLASSIC | FLAG_SKB_FRAG,
++		{ [0x3e] = 0x25, [0x3f] = 0x05, },
++		{ {0x40, 0x0519} },
++		.frag_data = { 0x19, 0x82 },
 +	},
 +	{
-+		"LD_ABS halfword unaligned",
++		"LD_ABS word mixed head/frag",
 +		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_H, 0x25),
++			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x3e),
 +			BPF_STMT(BPF_RET | BPF_A, 0x0),
 +		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x99ff } },
-+	},
-+	{
-+		"LD_ABS word",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x1c),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xaa55bb66 } },
-+	},
-+	{
-+		"LD_ABS word unaligned (addr & 3 == 2)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x22),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0xdd88ee99 } },
-+	},
-+	{
-+		"LD_ABS word unaligned (addr & 3 == 1)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x21),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x77dd88ee } },
-+	},
-+	{
-+		"LD_ABS word unaligned (addr & 3 == 3)",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_ABS | BPF_W, 0x23),
-+			BPF_STMT(BPF_RET | BPF_A, 0x0),
-+		},
-+		CLASSIC,
-+		{
-+			[0x1c] = 0xaa, [0x1d] = 0x55,
-+			[0x1e] = 0xbb, [0x1f] = 0x66,
-+			[0x20] = 0xcc, [0x21] = 0x77,
-+			[0x22] = 0xdd, [0x23] = 0x88,
-+			[0x24] = 0xee, [0x25] = 0x99,
-+			[0x26] = 0xff, [0x27] = 0xaa,
-+		},
-+		{ {0x40, 0x88ee99ff } },
++		CLASSIC | FLAG_SKB_FRAG,
++		{ [0x3e] = 0x25, [0x3f] = 0x05, },
++		{ {0x40, 0x25051982} },
++		.frag_data = { 0x19, 0x82 },
 +	},
  };
  
