@@ -1,119 +1,91 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH v2 net-next 4/4] bnx2fc: Read npiv table from nvram and create vports.
-Date: Tue, 4 Aug 2015 09:37:30 +0300
-Message-ID: <1438670250-20130-5-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1438670250-20130-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
+Date: Tue, 04 Aug 2015 09:34:22 +0200
+Message-ID: <1438673662.2458.19.camel@pengutronix.de>
+References: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
+	 <20150803161554.GK3467@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <James.bottomley@HansenPartnership.com>,
-	<linux-scsi-owner@vger.kernel.org>, <chad.dupuis@qlogic.com>,
-	<Ariel.Elior@qlogic.com>, Joe Carnuccio <joe.carnuccio@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, patchwork-lst@pengutronix.de,
+	"David S. Miller" <davem@davemloft.net>, kernel@pengutronix.de,
+	Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:32691 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753318AbbHDGiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 02:38:00 -0400
-In-Reply-To: <1438670250-20130-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57329 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752878AbbHDHeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 03:34:24 -0400
+In-Reply-To: <20150803161554.GK3467@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Carnuccio <joe.carnuccio@qlogic.com>
+Am Montag, den 03.08.2015, 18:15 +0200 schrieb Andrew Lunn:
+> On Mon, Aug 03, 2015 at 05:50:11PM +0200, Lucas Stach wrote:
+> > The clocks are initially active and thus the device is marked active.
+> > This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
+> > call at the end of probe then leaves us with an invalid refcount of -1,
+> > which in turn leads to the device staying in suspended state even though
+> > netdev open had been called.
+> > 
+> > Fix this by initializing the refcount to be coherent with the initial
+> > device status.
+> > 
+> > Fixes:
+> > 8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
+> > 
+> > Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+> > ---
+> > Please apply this as a fix for 4.2
+> > ---
+> >  drivers/net/ethernet/freescale/fec_main.c | 1 +
+> >  1 file changed, 1 insertion(+)
+> > 
+> > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> > index 32e3807c650e..271bb5862346 100644
+> > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > @@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
+> >  
+> >  	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
+> >  	pm_runtime_use_autosuspend(&pdev->dev);
+> > +	pm_runtime_get_noresume(&pdev->dev);
+> >  	pm_runtime_set_active(&pdev->dev);
+> >  	pm_runtime_enable(&pdev->dev);
+> 
+> This might work, but is it the correct fix?
+> 
+> Documentation/power/runtime_pm.txt says:
+> 
+> 534 In addition to that, the initial runtime PM status of all devices is
+> 535 'suspended', but it need not reflect the actual physical state of the device.
+> 536 Thus, if the device is initially active (i.e. it is able to process I/O), its
+> 537 runtime PM status must be changed to 'active', with the help of
+> 538 pm_runtime_set_active(), before pm_runtime_enable() is called for the device.
+> 
+> At the point we call the pm_runtime_ functions above, all the clocks
+> are ticking. So according to the documentation pm_runtime_set_active()
+> is the right thing to do. But it makes no mention of have to call
+> pm_runtime_get_noresume(). I would of expected pm_runtime_set_active()
+> to set the count to the correct value.
+> 
+It is the correct fix.
 
-Signed-off-by: Joe Carnuccio <joe.carnuccio@qlogic.com>
-Signed-off-by: Chad Dupuis <chad.dupuis@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/scsi/bnx2fc/bnx2fc_fcoe.c | 66 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 66 insertions(+)
+pm_runtime_enable() is the transition point between whatever state the
+device was in and the runtime PM managed state. pm_runtime_set_active()
+informs the RPM framework about the current device state.
+pm_runtime_get_noresume() tells the RPM framework what state we want the
+device to be in after the transition to RPM managed state.
 
-diff --git a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
-index 98d06d1..d5cdc47 100644
---- a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
-+++ b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
-@@ -2051,9 +2051,49 @@ static int bnx2fc_disable(struct net_device *netdev)
- 	return rc;
- }
- 
-+static uint bnx2fc_npiv_create_vports(struct fc_lport *lport,
-+				      struct cnic_fc_npiv_tbl *npiv_tbl)
-+{
-+	struct fc_vport_identifiers vpid;
-+	uint i, created = 0;
-+
-+	if (npiv_tbl->count > MAX_NPIV_ENTRIES) {
-+		BNX2FC_HBA_DBG(lport, "Exceeded count max of npiv table\n");
-+		goto done;
-+	}
-+
-+	/* Sanity check the first entry to make sure it's not 0 */
-+	if (wwn_to_u64(npiv_tbl->wwnn[0]) == 0 &&
-+	    wwn_to_u64(npiv_tbl->wwpn[0]) == 0) {
-+		BNX2FC_HBA_DBG(lport, "First NPIV table entries invalid.\n");
-+		goto done;
-+	}
-+
-+	vpid.roles = FC_PORT_ROLE_FCP_INITIATOR;
-+	vpid.vport_type = FC_PORTTYPE_NPIV;
-+	vpid.disable = false;
-+
-+	for (i = 0; i < npiv_tbl->count; i++) {
-+		vpid.node_name = wwn_to_u64(npiv_tbl->wwnn[i]);
-+		vpid.port_name = wwn_to_u64(npiv_tbl->wwpn[i]);
-+		scnprintf(vpid.symbolic_name, sizeof(vpid.symbolic_name),
-+		    "NPIV[%u]:%016llx-%016llx",
-+		    created, vpid.port_name, vpid.node_name);
-+		if (fc_vport_create(lport->host, 0, &vpid))
-+			created++;
-+		else
-+			BNX2FC_HBA_DBG(lport, "Failed to create vport\n");
-+	}
-+done:
-+	return created;
-+}
-+
- static int __bnx2fc_enable(struct fcoe_ctlr *ctlr)
- {
- 	struct bnx2fc_interface *interface = fcoe_ctlr_priv(ctlr);
-+	struct bnx2fc_hba *hba;
-+	struct cnic_fc_npiv_tbl npiv_tbl;
-+	struct fc_lport *lport;
- 
- 	if (interface->enabled == false) {
- 		if (!ctlr->lp) {
-@@ -2064,6 +2104,32 @@ static int __bnx2fc_enable(struct fcoe_ctlr *ctlr)
- 			interface->enabled = true;
- 		}
- 	}
-+
-+	/* Create static NPIV ports if any are contained in NVRAM */
-+	hba = interface->hba;
-+	lport = ctlr->lp;
-+
-+	if (!hba)
-+		goto done;
-+
-+	if (!hba->cnic)
-+		goto done;
-+
-+	if (!lport)
-+		goto done;
-+
-+	if (!lport->host)
-+		goto done;
-+
-+	if (!hba->cnic->get_fc_npiv_tbl)
-+		goto done;
-+
-+	memset(&npiv_tbl, 0, sizeof(npiv_tbl));
-+	if (hba->cnic->get_fc_npiv_tbl(hba->cnic, &npiv_tbl))
-+		goto done;
-+
-+	bnx2fc_npiv_create_vports(lport, &npiv_tbl);
-+done:
- 	return 0;
- }
- 
+We expect the device to stay on while we go through the probe() routine,
+so we need to get the runtime PM refcount, otherwise it would be fine
+for RPM to turn the device off immediately after calling
+pm_runtime_enable(). We drop the refcount when leaving the probe
+routine.
+
+Regards,
+Lucas
 -- 
-1.7.12.4
+Pengutronix e.K.             | Lucas Stach                 |
+Industrial Linux Solutions   | http://www.pengutronix.de/  |
