@@ -1,69 +1,29 @@
-From: Ian Campbell <ijc@hellion.org.uk>
-Subject: [PATCH net] net: thunderx: remove effective "default y" from Kconfig if ARCH_THUNDER=y
-Date: Tue,  4 Aug 2015 20:25:55 +0100
-Message-ID: <1438716355-11515-1-git-send-email-ijc@hellion.org.uk>
-Cc: Ian Campbell <ijc@hellion.org.uk>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Robert Richter <rric@kernel.org>,
-	Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request [net]: batman-adv 20150804
+Date: Tue, 04 Aug 2015 12:40:40 -0700 (PDT)
+Message-ID: <20150804.124040.324026088945274161.davem@davemloft.net>
+References: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54515 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753782AbbHDTkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 15:40:41 -0400
+In-Reply-To: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As well as for kernels built only for ThunderX ARCH_THUNDERX is also enabled
-for kernels which support multiple platforms (such as distro kernels). Thus
-"default ARCH_THUNDER" is inappropriate.
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Tue,  4 Aug 2015 18:35:20 +0200
 
-I believe default m is equally frowned upon, so remove the line completely
-rather than "default m if ARCH_THUNDER".
+> here you have our batch of fixes intended for net/linux-4.2.
 
-Signed-off-by: Ian Campbell <ijc@hellion.org.uk>
-Cc: Sunil Goutham <sgoutham@cavium.com>
-Cc: Robert Richter <rric@kernel.org>
-Cc: Derek Chickles <derek.chickles@caviumnetworks.com>
-Cc: Satanand Burla <satananda.burla@caviumnetworks.com>
-Cc: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Cc: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/ethernet/cavium/Kconfig | 3 ---
- 1 file changed, 3 deletions(-)
+Sorry, you can't come to me this late in the -RC series with such
+a huge collection of bug fixes.
 
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index 3584420..9b35d14 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -16,7 +16,6 @@ if NET_VENDOR_CAVIUM
- config THUNDER_NIC_PF
- 	tristate "Thunder Physical function driver"
- 	depends on 64BIT
--	default ARCH_THUNDER
- 	select THUNDER_NIC_BGX
- 	---help---
- 	  This driver supports Thunder's NIC physical function.
-@@ -29,14 +28,12 @@ config THUNDER_NIC_PF
- config THUNDER_NIC_VF
- 	tristate "Thunder Virtual function driver"
- 	depends on 64BIT
--	default ARCH_THUNDER
- 	---help---
- 	  This driver supports Thunder's NIC virtual function
- 
- config	THUNDER_NIC_BGX
- 	tristate "Thunder MAC interface driver (BGX)"
- 	depends on 64BIT
--	default ARCH_THUNDER
- 	select PHYLIB
- 	select MDIO_OCTEON
- 	---help---
--- 
-2.1.4
+Break out the most important critical ones, and only submit those.
+The rest will have to go via net-next.
