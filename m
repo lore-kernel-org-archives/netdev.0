@@ -1,224 +1,69 @@
-From: Richard Laing <richard.laing@alliedtelesis.co.nz>
-Subject: [PATCH 1/1] net/ipv4: Enable flow-based ECMP
-Date: Tue,  4 Aug 2015 13:28:47 +1200
-Message-ID: <1438651727-4429-1-git-send-email-richard.laing@alliedtelesis.co.nz>
-Cc: jmorris@namei.org,
-	Richard Laing <richard.laing@alliedtelesis.co.nz>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: BUG: null dereference in __skb_recv_datagram
+Date: Mon, 3 Aug 2015 18:57:44 -0700
+Message-ID: <CAMUH3-VQaWdxnGUuJamGXQZN+Pq-4YBFcr6Yq3R6qD0=8cjG_g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:34323 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbbHDB3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 21:29:08 -0400
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:36058 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753235AbbHDB6E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2015 21:58:04 -0400
+Received: by ykeo23 with SMTP id o23so29417129yke.3
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2015 18:58:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable flow-based ECMP.
+Hi Folks,
 
-Currently if equal-cost multipath is enabled the kernel chooses between
-equal cost paths for each matching packet, essentially packets are
-round-robined between the routes. This means that packets from a single
-flow can traverse different routes. If one of the routes experiences
-congestion this can result in delayed or out of order packets arriving
-at the destination.
+I just hit this one off of latest net-next tree, git hash
+58da018053531b9cb91423a64f2a762ef0fe7456
 
-This patch allows packets to be routed based on their flow - packets
-in the same flow will always use the same route. This prevents out of
-order packets. There are other issues with round-robin based ECMP routing
-related to variable path MTU handling and debugging. The default
-behaviour is changed by this patch to enable flow based ECMP routing
-rather than the previous round-robin routing. The behaviour can be
-changed using a new sysctl option /net/ipv4/route/flow_based_ecmp.
+I was running a set of tests from pyroute2 project:
+https://github.com/svinota/pyroute2
 
-See RFC2991 for more details on the problems associated with packet
-based ECMP routing.
+A simple `sudo make test skip_tests=test_stress` in there hits the
+issue every time.
 
-This patch relies on the skb hash value to select between routes. The
-selection uses a hash-threshold algorithm (see RFC2992).
-
-Signed-off-by: Richard Laing <richard.laing@alliedtelesis.co.nz>
----
-
- include/net/flow.h       |    8 ++++++++
- include/net/ip_fib.h     |    4 ++++
- include/net/route.h      |    2 ++
- net/ipv4/fib_semantics.c |   30 ++++++++++++++++++++++++++++++
- net/ipv4/route.c         |   19 +++++++++++++++----
- 5 files changed, 59 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 8109a15..b0a2524 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -79,6 +79,8 @@ struct flowi4 {
- #define fl4_ipsec_spi		uli.spi
- #define fl4_mh_type		uli.mht.type
- #define fl4_gre_key		uli.gre_key
-+
-+	__u32	flowi4_hash;
- } __attribute__((__aligned__(BITS_PER_LONG/8)));
- 
- static inline void flowi4_init_output(struct flowi4 *fl4, int oif,
-@@ -99,6 +101,7 @@ static inline void flowi4_init_output(struct flowi4 *fl4, int oif,
- 	fl4->saddr = saddr;
- 	fl4->fl4_dport = dport;
- 	fl4->fl4_sport = sport;
-+	fl4->flowi4_hash = 0;
- }
- 
- /* Reset some input parameters after previous lookup */
-@@ -182,6 +185,11 @@ static inline struct flowi *flowidn_to_flowi(struct flowidn *fldn)
- 	return container_of(fldn, struct flowi, u.dn);
- }
- 
-+static inline void flowi4_set_flow_hash(struct flowi4 *fl, __u32 hash)
-+{
-+	fl->flowi4_hash = hash;
-+}
-+
- typedef unsigned long flow_compare_t;
- 
- static inline size_t flow_key_size(u16 family)
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 5fa643b..7db9f72 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -117,6 +117,8 @@ struct fib_info {
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	int			fib_power;
- #endif
-+	/* Cache the number of live nexthops for flow based ECMP calculation. */
-+	int			live_nexthops;
- 	struct rcu_head		rcu;
- 	struct fib_nh		fib_nh[0];
- #define fib_dev		fib_nh[0].nh_dev
-@@ -310,6 +312,8 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event);
- int fib_sync_down_addr(struct net *net, __be32 local);
- int fib_sync_up(struct net_device *dev, unsigned int nh_flags);
- void fib_select_multipath(struct fib_result *res);
-+void fib_select_multipath_for_flow(struct fib_result *res,
-+				   const struct flowi4 *fl4);
- 
- /* Exported by fib_trie.c */
- void fib_trie_init(void);
-diff --git a/include/net/route.h b/include/net/route.h
-index fe22d03..a00e606 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -252,6 +252,8 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32
- 
- 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
- 			   protocol, flow_flags, dst, src, dport, sport);
-+
-+	flowi4_set_flow_hash(fl4, sk->sk_txhash);
- }
- 
- static inline struct rtable *ip_route_connect(struct flowi4 *fl4,
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 3a06586..0a56ad3 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -981,6 +981,7 @@ link_it:
- 		head = &fib_info_devhash[hash];
- 		hlist_add_head(&nexthop_nh->nh_hash, head);
- 	} endfor_nexthops(fi)
-+	fi->live_nexthops = fi->fib_nhs;
- 	spin_unlock_bh(&fib_info_lock);
- 	return fi;
- 
-@@ -1196,6 +1197,7 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event)
- 			}
- 			ret++;
- 		}
-+		fi->live_nexthops = fi->fib_nhs - dead;
- 	}
- 
- 	return ret;
-@@ -1331,6 +1333,7 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
- 		if (alive > 0) {
- 			fi->fib_flags &= ~nh_flags;
- 			ret++;
-+			fi->live_nexthops = alive;
- 		}
- 	}
- 
-@@ -1397,4 +1400,31 @@ void fib_select_multipath(struct fib_result *res)
- 	res->nh_sel = 0;
- 	spin_unlock_bh(&fib_multipath_lock);
- }
-+
-+void fib_select_multipath_for_flow(struct fib_result *res,
-+				   const struct flowi4 *fl4)
-+{
-+	struct fib_info *fi = res->fi;
-+	int multipath_entry;
-+	int region_size;
-+
-+	if (fl4->flowi4_hash) {
-+		/* Hash-threshold algorithm, see RFC2992. */
-+		region_size = U32_MAX / fi->live_nexthops;
-+		multipath_entry = fl4->flowi4_hash / region_size;
-+
-+		spin_lock_bh(&fib_multipath_lock);
-+		for_nexthops(fi) {
-+			if (!(nh->nh_flags & RTNH_F_DEAD)) {
-+				res->nh_sel = nhsel;
-+				if (multipath_entry == 0)
-+					break;
-+				multipath_entry--;
-+			}
-+		} endfor_nexthops(fi);
-+		spin_unlock_bh(&fib_multipath_lock);
-+	} else {
-+		fib_select_multipath(res);
-+	}
-+}
- #endif
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e681b85..a9ac9ff 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -124,6 +124,7 @@ static int ip_rt_error_burst __read_mostly	= 5 * HZ;
- static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
- static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
- static int ip_rt_min_advmss __read_mostly	= 256;
-+static int ip_rt_flow_based_ecmp __read_mostly	= 1;
- 
- /*
-  *	Interface to generic destination cache.
-@@ -1633,13 +1634,20 @@ out:
- 
- static int ip_mkroute_input(struct sk_buff *skb,
- 			    struct fib_result *res,
--			    const struct flowi4 *fl4,
-+			    struct flowi4 *fl4,
- 			    struct in_device *in_dev,
- 			    __be32 daddr, __be32 saddr, u32 tos)
- {
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
--	if (res->fi && res->fi->fib_nhs > 1)
--		fib_select_multipath(res);
-+	if (res->fi && res->fi->fib_nhs > 1) {
-+		if (ip_rt_flow_based_ecmp) {
-+			if (skb)
-+				flowi4_set_flow_hash(fl4, skb_get_hash(skb));
-+			fib_select_multipath_for_flow(res, fl4);
-+		} else {
-+			fib_select_multipath(res);
-+		}
-+	}
- #endif
- 
- 	/* create a routing cache entry */
-@@ -2170,7 +2178,10 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	if (res.fi->fib_nhs > 1 && fl4->flowi4_oif == 0)
--		fib_select_multipath(&res);
-+		if (ip_rt_flow_based_ecmp)
-+			fib_select_multipath_for_flow(&res, fl4);
-+		else
-+			fib_select_multipath(&res);
- 	else
- #endif
- 	if (!res.prefixlen &&
+[  318.244596] BUG: unable to handle kernel NULL pointer dereference
+at 000000000000008e
+[  318.245182] IP: [<ffffffff81455e7c>] __skb_recv_datagram+0xbc/0x5a0
+[  318.245762] PGD 80999d067 PUD 7fc04a067 PMD 0
+[  318.246336] Oops: 0000 [#1]
+[  318.262158] CPU: 3 PID: 1580 Comm: dnsmasq Not tainted 4.2.0-rc4-g58da018 #28
+[  318.263143] Hardware name: MSI MS-7930/Z97S SLI PLUS (MS-7930),
+BIOS V1.2 05/22/2014
+[  318.264137] task: ffff880806c96200 ti: ffff8807fc090000 task.ti:
+ffff8807fc090000
+[  318.265136] RIP: 0010:[<ffffffff81455e7c>] [<ffffffff81455e7c>]
+__skb_recv_datagram+0xbc/0x5a0
+[  318.266153] RSP: 0018:ffff8807fc093b98  EFLAGS: 00010082
+[  318.267158] RAX: 0000000000000296 RBX: 0000000000000000 RCX: ffff8807fc093c7c
+[  318.268172] RDX: 0000000000000001 RSI: 0000000000000000 RDI: ffff88080a4b88ac
+[  318.269186] RBP: ffff8807fc093c68 R08: ffff8807fc093cb0 R09: 000000007ffff000
+[  318.270200] R10: ffff8807fc094000 R11: 0000000000000246 R12: ffff8807fc093c78
+[  318.271217] R13: ffff88080a4b8800 R14: ffff88080a4b8898 R15: 0000000000000000
+[  318.272236] FS:  00007f52a582f700(0000) GS:ffff88082ecc0000(0000)
+knlGS:0000000000000000
+[  318.273264] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  318.274286] CR2: 000000000000008e CR3: 0000000808240000 CR4: 00000000001406e0
+[  318.275314] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  318.276323] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+[  318.277311] Stack:
+[  318.278282]  dead000000200200 ffff8808061e4300 ffff88080a4d9100
+00000000000000db
+[  318.279291]  ffff880800000000 ffff8807fc093a78 ffff880806c96200
+ffff8807fc094000
+[  318.280287]  ffff8807fc093c20 ffff8807fc093cb0 0000000000000000
+ffff8807fc093c7c
+[  318.281260] Call Trace:
+[  318.282202]  [<ffffffff811e5af0>] ? poll_select_copy_remaining+0x140/0x140
+[  318.283150]  [<ffffffff8145639f>] skb_recv_datagram+0x3f/0x60
+[  318.284077]  [<ffffffff81492e49>] netlink_recvmsg+0x59/0x360
+[  318.284984]  [<ffffffff81445543>] sock_recvmsg+0x13/0x20
+[  318.285867]  [<ffffffff81448053>] ___sys_recvmsg+0xe3/0x210
+[  318.286729]  [<ffffffff81212af6>] ? fsnotify+0x316/0x4a0
+[  318.287569]  [<ffffffff81449367>] __sys_recvmsg+0x57/0xa0
+[  318.288389]  [<ffffffff814493c2>] SyS_recvmsg+0x12/0x20
+[  318.289186]  [<ffffffff81564aee>] entry_SYSCALL_64_fastpath+0x12/0x71
