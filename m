@@ -1,70 +1,69 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 8/8] can: replace timestamp as unique skb attribute
-Date: Tue, 4 Aug 2015 12:18:48 -0700
-Message-ID: <20150804191848.GA29709@kroah.com>
-References: <1436728691-1145-1-git-send-email-mkl@pengutronix.de>
- <1436728691-1145-9-git-send-email-mkl@pengutronix.de>
- <55B679B8.30705@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, linux-stable <stable@vger.kernel.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55B679B8.30705@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
+From: Ian Campbell <ijc@hellion.org.uk>
+Subject: [PATCH net] net: thunderx: remove effective "default y" from Kconfig if ARCH_THUNDER=y
+Date: Tue,  4 Aug 2015 20:25:55 +0100
+Message-ID: <1438716355-11515-1-git-send-email-ijc@hellion.org.uk>
+Cc: Ian Campbell <ijc@hellion.org.uk>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rric@kernel.org>,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 27, 2015 at 08:34:32PM +0200, Oliver Hartkopp wrote:
-> Hello Greg,
-> 
-> On 12.07.2015 21:18, Marc Kleine-Budde wrote:
-> >From: Oliver Hartkopp <socketcan@hartkopp.net>
-> >
-> >Commit 514ac99c64b "can: fix multiple delivery of a single CAN frame for
-> >overlapping CAN filters" requires the skb->tstamp to be set to check for
-> >identical CAN skbs.
-> >
-> >Without timestamping to be required by user space applications this timestamp
-> >was not generated which lead to commit 36c01245eb8 "can: fix loss of CAN frames
-> >in raw_rcv" - which forces the timestamp to be set in all CAN related skbuffs
-> >by introducing several __net_timestamp() calls.
-> >
-> >This forces e.g. out of tree drivers which are not using alloc_can{,fd}_skb()
-> >to add __net_timestamp() after skbuff creation to prevent the frame loss fixed
-> >in mainline Linux.
-> >
-> >This patch removes the timestamp dependency and uses an atomic counter to
-> >create an unique identifier together with the skbuff pointer.
-> >
-> >Btw: the new skbcnt element introduced in struct can_skb_priv has to be
-> >initialized with zero in out-of-tree drivers which are not using
-> >alloc_can{,fd}_skb() too.
-> >
-> >Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-> >Cc: linux-stable <stable@vger.kernel.org>
-> 
-> Can you please queue up this missing/lost patch for the long term 4.1.x ?
-> 
-> It fixes the mess with commits
-> 
-> 514ac99c64b "can: fix multiple delivery of a single CAN frame for
-> overlapping CAN filters"
-> 
-> which originally fixed
-> 
-> 36c01245eb8 "can: fix loss of CAN frames in raw_rcv"
-> 
-> So finally this missing patch would bring 4.1.x into the proper state we now
-> have in 4.2-rc4.
-> 
-> Upstream commit of this patch is:
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=d3b58c47d330de8c29898fe9746f7530408f8a59
+As well as for kernels built only for ThunderX ARCH_THUNDERX is also enabled
+for kernels which support multiple platforms (such as distro kernels). Thus
+"default ARCH_THUNDER" is inappropriate.
 
-It's in my queue, I still have way over 200 commits to get through for
-4.1.x, your patches are in good company.
+I believe default m is equally frowned upon, so remove the line completely
+rather than "default m if ARCH_THUNDER".
 
-greg k-h
+Signed-off-by: Ian Campbell <ijc@hellion.org.uk>
+Cc: Sunil Goutham <sgoutham@cavium.com>
+Cc: Robert Richter <rric@kernel.org>
+Cc: Derek Chickles <derek.chickles@caviumnetworks.com>
+Cc: Satanand Burla <satananda.burla@caviumnetworks.com>
+Cc: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+Cc: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/cavium/Kconfig | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index 3584420..9b35d14 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -16,7 +16,6 @@ if NET_VENDOR_CAVIUM
+ config THUNDER_NIC_PF
+ 	tristate "Thunder Physical function driver"
+ 	depends on 64BIT
+-	default ARCH_THUNDER
+ 	select THUNDER_NIC_BGX
+ 	---help---
+ 	  This driver supports Thunder's NIC physical function.
+@@ -29,14 +28,12 @@ config THUNDER_NIC_PF
+ config THUNDER_NIC_VF
+ 	tristate "Thunder Virtual function driver"
+ 	depends on 64BIT
+-	default ARCH_THUNDER
+ 	---help---
+ 	  This driver supports Thunder's NIC virtual function
+ 
+ config	THUNDER_NIC_BGX
+ 	tristate "Thunder MAC interface driver (BGX)"
+ 	depends on 64BIT
+-	default ARCH_THUNDER
+ 	select PHYLIB
+ 	select MDIO_OCTEON
+ 	---help---
+-- 
+2.1.4
