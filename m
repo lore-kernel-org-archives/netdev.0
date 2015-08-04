@@ -1,238 +1,462 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 2/8] net/mlx5e: Introduce the "Drop RQ"
-Date: Tue,  4 Aug 2015 14:05:41 +0300
-Message-ID: <1438686347-17370-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 4/8] net/mlx5e: Light-weight netdev open/stop
+Date: Tue,  4 Aug 2015 14:05:43 +0300
+Message-ID: <1438686347-17370-5-git-send-email-amirv@mellanox.com>
 References: <1438686347-17370-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Achiad Shochat <achiad@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36444 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36438 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933419AbbHDLGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 07:06:22 -0400
+	id S933411AbbHDLGV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 07:06:21 -0400
 In-Reply-To: <1438686347-17370-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Achiad Shochat <achiad@mellanox.com>
 
-RX traffic routed to this RQ will be silently dropped, at the NIC HW
-level.
+Create/destroy TIRs, TISs and flow tables upon PCI probe/remove rather
+than upon the netdev ndo_open/stop.
 
-This is in preparation for netdev "light-weight" open/stop flow
-change described in previous commit.
+Upon ndo_stop(), redirect all RX traffic to the (lately introduced)
+"Drop RQ" and then close only the RX/TX rings, leaving the TIRs,
+TISs and flow tables alive.
 
 Signed-off-by: Achiad Shochat <achiad@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |   3 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 122 ++++++++++++++++++++--
- 2 files changed, 114 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 237 ++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c |  12 ++
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.h |   2 +
+ include/linux/mlx5/mlx5_ifc.h                      |   9 +-
+ 4 files changed, 184 insertions(+), 76 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index af57912..31e9610 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -217,6 +217,7 @@ struct mlx5e_cq {
- 	struct napi_struct        *napi;
- 	struct mlx5_core_cq        mcq;
- 	struct mlx5e_channel      *channel;
-+	struct mlx5e_priv         *priv;
- 
- 	/* control */
- 	struct mlx5_wq_ctrl        wq_ctrl;
-@@ -240,6 +241,7 @@ struct mlx5e_rq {
- 	struct mlx5_wq_ctrl    wq_ctrl;
- 	u32                    rqn;
- 	struct mlx5e_channel  *channel;
-+	struct mlx5e_priv     *priv;
- } ____cacheline_aligned_in_smp;
- 
- struct mlx5e_tx_skb_cb {
-@@ -399,6 +401,7 @@ struct mlx5e_priv {
- 	u32                        pdn;
- 	u32                        tdn;
- 	struct mlx5_core_mr        mr;
-+	struct mlx5e_rq            drop_rq;
- 
- 	struct mlx5e_channel     **channel;
- 	u32                        tisn[MLX5E_MAX_NUM_TC];
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 333c828..baa7a69 100644
+index baa7a69..33d08bb 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -307,6 +307,7 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
- 	rq->netdev  = c->netdev;
- 	rq->channel = c;
- 	rq->ix      = c->ix;
-+	rq->priv    = c->priv;
+@@ -1301,14 +1301,18 @@ static void mlx5e_fill_rqt_rqns(struct mlx5e_priv *priv, void *rqtc,
  
- 	return 0;
+ 			ix = ix % priv->params.num_channels;
+ 			MLX5_SET(rqtc, rqtc, rq_num[i],
+-				 priv->channel[ix]->rq.rqn);
++				 test_bit(MLX5E_STATE_OPENED, &priv->state) ?
++				 priv->channel[ix]->rq.rqn :
++				 priv->drop_rq.rqn);
+ 		}
  
-@@ -324,8 +325,7 @@ static void mlx5e_destroy_rq(struct mlx5e_rq *rq)
+ 		break;
  
- static int mlx5e_enable_rq(struct mlx5e_rq *rq, struct mlx5e_rq_param *param)
- {
--	struct mlx5e_channel *c = rq->channel;
--	struct mlx5e_priv *priv = c->priv;
-+	struct mlx5e_priv *priv = rq->priv;
- 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	default: /* MLX5E_SINGLE_RQ_RQT */
+ 		MLX5_SET(rqtc, rqtc, rq_num[0],
+-			 priv->channel[0]->rq.rqn);
++			 test_bit(MLX5E_STATE_OPENED, &priv->state) ?
++			 priv->channel[0]->rq.rqn :
++			 priv->drop_rq.rqn);
  
- 	void *in;
-@@ -392,11 +392,7 @@ static int mlx5e_modify_rq(struct mlx5e_rq *rq, int curr_state, int next_state)
- 
- static void mlx5e_disable_rq(struct mlx5e_rq *rq)
- {
--	struct mlx5e_channel *c = rq->channel;
--	struct mlx5e_priv *priv = c->priv;
--	struct mlx5_core_dev *mdev = priv->mdev;
--
--	mlx5_core_destroy_rq(mdev, rq->rqn);
-+	mlx5_core_destroy_rq(rq->priv->mdev, rq->rqn);
- }
- 
- static int mlx5e_wait_for_min_rx_wqes(struct mlx5e_rq *rq)
-@@ -740,6 +736,7 @@ static int mlx5e_create_cq(struct mlx5e_channel *c,
+ 		break;
  	}
- 
- 	cq->channel = c;
-+	cq->priv = priv;
- 
- 	return 0;
- }
-@@ -751,8 +748,7 @@ static void mlx5e_destroy_cq(struct mlx5e_cq *cq)
- 
- static int mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param)
- {
--	struct mlx5e_channel *c = cq->channel;
--	struct mlx5e_priv *priv = c->priv;
-+	struct mlx5e_priv *priv = cq->priv;
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 	struct mlx5_core_cq *mcq = &cq->mcq;
- 
-@@ -798,8 +794,7 @@ static int mlx5e_enable_cq(struct mlx5e_cq *cq, struct mlx5e_cq_param *param)
- 
- static void mlx5e_disable_cq(struct mlx5e_cq *cq)
- {
--	struct mlx5e_channel *c = cq->channel;
--	struct mlx5e_priv *priv = c->priv;
-+	struct mlx5e_priv *priv = cq->priv;
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 
- 	mlx5_core_destroy_cq(mdev, &cq->mcq);
-@@ -1119,6 +1114,111 @@ static void mlx5e_close_channels(struct mlx5e_priv *priv)
- 	kfree(priv->channel);
+@@ -1347,19 +1351,95 @@ static int mlx5e_open_rqt(struct mlx5e_priv *priv, enum mlx5e_rqt_ix rqt_ix)
+ 	return err;
  }
  
-+static int mlx5e_create_drop_rq(struct mlx5e_priv *priv,
-+				struct mlx5e_rq *rq,
-+				struct mlx5e_rq_param *param)
++static int mlx5e_redirect_rqt(struct mlx5e_priv *priv, enum mlx5e_rqt_ix rqt_ix)
 +{
 +	struct mlx5_core_dev *mdev = priv->mdev;
-+	void *rqc = param->rqc;
-+	void *rqc_wq = MLX5_ADDR_OF(rqc, rqc, wq);
++	u32 *in;
++	void *rqtc;
++	int inlen;
++	int log_sz;
++	int sz;
 +	int err;
 +
-+	param->wq.db_numa_node = param->wq.buf_numa_node;
++	log_sz = (rqt_ix == MLX5E_SINGLE_RQ_RQT) ? 0 :
++		  priv->params.rx_hash_log_tbl_sz;
++	sz = 1 << log_sz;
 +
-+	err = mlx5_wq_ll_create(mdev, &param->wq, rqc_wq, &rq->wq,
-+				&rq->wq_ctrl);
-+	if (err)
-+		return err;
++	inlen = MLX5_ST_SZ_BYTES(modify_rqt_in) + sizeof(u32) * sz;
++	in = mlx5_vzalloc(inlen);
++	if (!in)
++		return -ENOMEM;
 +
-+	rq->priv = priv;
++	rqtc = MLX5_ADDR_OF(modify_rqt_in, in, ctx);
 +
-+	return 0;
-+}
++	MLX5_SET(rqtc, rqtc, rqt_actual_size, sz);
 +
-+static int mlx5e_create_drop_cq(struct mlx5e_priv *priv,
-+				struct mlx5e_cq *cq,
-+				struct mlx5e_cq_param *param)
-+{
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct mlx5_core_cq *mcq = &cq->mcq;
-+	int eqn_not_used;
-+	int irqn;
-+	int err;
++	mlx5e_fill_rqt_rqns(priv, rqtc, rqt_ix);
 +
-+	err = mlx5_cqwq_create(mdev, &param->wq, param->cqc, &cq->wq,
-+			       &cq->wq_ctrl);
-+	if (err)
-+		return err;
++	MLX5_SET(modify_rqt_in, in, bitmask.rqn_list, 1);
 +
-+	mlx5_vector2eqn(mdev, param->eq_ix, &eqn_not_used, &irqn);
++	err = mlx5_core_modify_rqt(mdev, priv->rqtn[rqt_ix], in, inlen);
 +
-+	mcq->cqe_sz     = 64;
-+	mcq->set_ci_db  = cq->wq_ctrl.db.db;
-+	mcq->arm_db     = cq->wq_ctrl.db.db + 1;
-+	*mcq->set_ci_db = 0;
-+	*mcq->arm_db    = 0;
-+	mcq->vector     = param->eq_ix;
-+	mcq->comp       = mlx5e_completion_event;
-+	mcq->event      = mlx5e_cq_error_event;
-+	mcq->irqn       = irqn;
-+	mcq->uar        = &priv->cq_uar;
-+
-+	cq->priv = priv;
-+
-+	return 0;
-+}
-+
-+static int mlx5e_open_drop_rq(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_cq_param cq_param;
-+	struct mlx5e_rq_param rq_param;
-+	struct mlx5e_rq *rq = &priv->drop_rq;
-+	struct mlx5e_cq *cq = &priv->drop_rq.cq;
-+	int err;
-+
-+	memset(&cq_param, 0, sizeof(cq_param));
-+	memset(&rq_param, 0, sizeof(rq_param));
-+	mlx5e_build_rx_cq_param(priv, &cq_param);
-+	mlx5e_build_rq_param(priv, &rq_param);
-+
-+	err = mlx5e_create_drop_cq(priv, cq, &cq_param);
-+	if (err)
-+		return err;
-+
-+	err = mlx5e_enable_cq(cq, &cq_param);
-+	if (err)
-+		goto err_destroy_cq;
-+
-+	err = mlx5e_create_drop_rq(priv, rq, &rq_param);
-+	if (err)
-+		goto err_disable_cq;
-+
-+	err = mlx5e_enable_rq(rq, &rq_param);
-+	if (err)
-+		goto err_destroy_rq;
-+
-+	return 0;
-+
-+err_destroy_rq:
-+	mlx5e_destroy_rq(&priv->drop_rq);
-+
-+err_disable_cq:
-+	mlx5e_disable_cq(&priv->drop_rq.cq);
-+
-+err_destroy_cq:
-+	mlx5e_destroy_cq(&priv->drop_rq.cq);
++	kvfree(in);
 +
 +	return err;
 +}
 +
-+static void mlx5e_close_drop_rq(struct mlx5e_priv *priv)
+ static void mlx5e_close_rqt(struct mlx5e_priv *priv, enum mlx5e_rqt_ix rqt_ix)
+ {
+ 	mlx5_core_destroy_rqt(priv->mdev, priv->rqtn[rqt_ix]);
+ }
+ 
++static void mlx5e_build_tir_ctx_lro(void *tirc, struct mlx5e_priv *priv)
 +{
-+	mlx5e_disable_rq(&priv->drop_rq);
-+	mlx5e_destroy_rq(&priv->drop_rq);
-+	mlx5e_disable_cq(&priv->drop_rq.cq);
-+	mlx5e_destroy_cq(&priv->drop_rq.cq);
++	if (!priv->params.lro_en)
++		return;
++
++#define ROUGH_MAX_L2_L3_HDR_SZ 256
++
++	MLX5_SET(tirc, tirc, lro_enable_mask,
++		 MLX5_TIRC_LRO_ENABLE_MASK_IPV4_LRO |
++		 MLX5_TIRC_LRO_ENABLE_MASK_IPV6_LRO);
++	MLX5_SET(tirc, tirc, lro_max_ip_payload_size,
++		 (priv->params.lro_wqe_sz -
++		  ROUGH_MAX_L2_L3_HDR_SZ) >> 8);
++	MLX5_SET(tirc, tirc, lro_timeout_period_usecs,
++		 MLX5_CAP_ETH(priv->mdev,
++			      lro_timer_supported_periods[3]));
 +}
 +
- static int mlx5e_open_tis(struct mlx5e_priv *priv, int tc)
++static int mlx5e_modify_tir_lro(struct mlx5e_priv *priv, int tt)
++{
++	struct mlx5_core_dev *mdev = priv->mdev;
++
++	void *in;
++	void *tirc;
++	int inlen;
++	int err;
++
++	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
++	in = mlx5_vzalloc(inlen);
++	if (!in)
++		return -ENOMEM;
++
++	MLX5_SET(modify_tir_in, in, bitmask.lro, 1);
++	tirc = MLX5_ADDR_OF(modify_tir_in, in, ctx);
++
++	mlx5e_build_tir_ctx_lro(tirc, priv);
++
++	err = mlx5_core_modify_tir(mdev, priv->tirn[tt], in, inlen);
++
++	kvfree(in);
++
++	return err;
++}
++
+ static void mlx5e_build_tir_ctx(struct mlx5e_priv *priv, u32 *tirc, int tt)
  {
- 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
+ 
+ 	MLX5_SET(tirc, tirc, transport_domain, priv->tdn);
+ 
+-#define ROUGH_MAX_L2_L3_HDR_SZ 256
+-
+ #define MLX5_HASH_IP            (MLX5_HASH_FIELD_SEL_SRC_IP   |\
+ 				 MLX5_HASH_FIELD_SEL_DST_IP)
+ 
+@@ -1372,17 +1452,7 @@ static void mlx5e_build_tir_ctx(struct mlx5e_priv *priv, u32 *tirc, int tt)
+ 				 MLX5_HASH_FIELD_SEL_DST_IP   |\
+ 				 MLX5_HASH_FIELD_SEL_IPSEC_SPI)
+ 
+-	if (priv->params.lro_en) {
+-		MLX5_SET(tirc, tirc, lro_enable_mask,
+-			 MLX5_TIRC_LRO_ENABLE_MASK_IPV4_LRO |
+-			 MLX5_TIRC_LRO_ENABLE_MASK_IPV6_LRO);
+-		MLX5_SET(tirc, tirc, lro_max_ip_payload_size,
+-			 (priv->params.lro_wqe_sz -
+-			  ROUGH_MAX_L2_L3_HDR_SZ) >> 8);
+-		MLX5_SET(tirc, tirc, lro_timeout_period_usecs,
+-			 MLX5_CAP_ETH(priv->mdev,
+-				      lro_timer_supported_periods[3]));
+-	}
++	mlx5e_build_tir_ctx_lro(tirc, priv);
+ 
+ 	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
+ 
+@@ -1568,12 +1638,20 @@ static int mlx5e_set_dev_port_mtu(struct net_device *netdev)
+ 	return 0;
+ }
+ 
++static void mlx5e_redirect_rqts(struct mlx5e_priv *priv)
++{
++	mlx5e_redirect_rqt(priv, MLX5E_INDIRECTION_RQT);
++	mlx5e_redirect_rqt(priv, MLX5E_SINGLE_RQ_RQT);
++}
++
+ int mlx5e_open_locked(struct net_device *netdev)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	int num_txqs;
+ 	int err;
+ 
++	set_bit(MLX5E_STATE_OPENED, &priv->state);
++
+ 	num_txqs = priv->params.num_channels * priv->params.num_tc;
+ 	netif_set_real_num_tx_queues(netdev, num_txqs);
+ 	netif_set_real_num_rx_queues(netdev, priv->params.num_channels);
+@@ -1582,83 +1660,32 @@ int mlx5e_open_locked(struct net_device *netdev)
+ 	if (err)
+ 		return err;
+ 
+-	err = mlx5e_open_tises(priv);
+-	if (err) {
+-		netdev_err(netdev, "%s: mlx5e_open_tises failed, %d\n",
+-			   __func__, err);
+-		return err;
+-	}
+-
+ 	err = mlx5e_open_channels(priv);
+ 	if (err) {
+ 		netdev_err(netdev, "%s: mlx5e_open_channels failed, %d\n",
+ 			   __func__, err);
+-		goto err_close_tises;
+-	}
+-
+-	err = mlx5e_open_rqt(priv, MLX5E_INDIRECTION_RQT);
+-	if (err) {
+-		netdev_err(netdev, "%s: mlx5e_open_rqt(INDIR) failed, %d\n",
+-			   __func__, err);
+-		goto err_close_channels;
+-	}
+-
+-	err = mlx5e_open_rqt(priv, MLX5E_SINGLE_RQ_RQT);
+-	if (err) {
+-		netdev_err(netdev, "%s: mlx5e_open_rqt(SINGLE) failed, %d\n",
+-			   __func__, err);
+-		goto err_close_rqt_indir;
+-	}
+-
+-	err = mlx5e_open_tirs(priv);
+-	if (err) {
+-		netdev_err(netdev, "%s: mlx5e_open_tir failed, %d\n",
+-			   __func__, err);
+-		goto err_close_rqt_single;
+-	}
+-
+-	err = mlx5e_open_flow_table(priv);
+-	if (err) {
+-		netdev_err(netdev, "%s: mlx5e_open_flow_table failed, %d\n",
+-			   __func__, err);
+-		goto err_close_tirs;
++		return err;
+ 	}
+ 
+ 	err = mlx5e_add_all_vlan_rules(priv);
+ 	if (err) {
+ 		netdev_err(netdev, "%s: mlx5e_add_all_vlan_rules failed, %d\n",
+ 			   __func__, err);
+-		goto err_close_flow_table;
++		goto err_close_channels;
+ 	}
+ 
+ 	mlx5e_init_eth_addr(priv);
+ 
+-	set_bit(MLX5E_STATE_OPENED, &priv->state);
+-
+ 	mlx5e_update_carrier(priv);
++	mlx5e_redirect_rqts(priv);
+ 	mlx5e_set_rx_mode_core(priv);
+ 
+ 	schedule_delayed_work(&priv->update_stats_work, 0);
+ 	return 0;
+ 
+-err_close_flow_table:
+-	mlx5e_close_flow_table(priv);
+-
+-err_close_tirs:
+-	mlx5e_close_tirs(priv);
+-
+-err_close_rqt_single:
+-	mlx5e_close_rqt(priv, MLX5E_SINGLE_RQ_RQT);
+-
+-err_close_rqt_indir:
+-	mlx5e_close_rqt(priv, MLX5E_INDIRECTION_RQT);
+-
+ err_close_channels:
+ 	mlx5e_close_channels(priv);
+ 
+-err_close_tises:
+-	mlx5e_close_tises(priv);
+-
+ 	return err;
+ }
+ 
+@@ -1682,13 +1709,9 @@ int mlx5e_close_locked(struct net_device *netdev)
+ 
+ 	mlx5e_set_rx_mode_core(priv);
+ 	mlx5e_del_all_vlan_rules(priv);
++	mlx5e_redirect_rqts(priv);
+ 	netif_carrier_off(priv->netdev);
+-	mlx5e_close_flow_table(priv);
+-	mlx5e_close_tirs(priv);
+-	mlx5e_close_rqt(priv, MLX5E_SINGLE_RQ_RQT);
+-	mlx5e_close_rqt(priv, MLX5E_INDIRECTION_RQT);
+ 	mlx5e_close_channels(priv);
+-	mlx5e_close_tises(priv);
+ 
+ 	return 0;
+ }
+@@ -1766,6 +1789,8 @@ static int mlx5e_set_features(struct net_device *netdev,
+ 			mlx5e_close_locked(priv->netdev);
+ 
+ 		priv->params.lro_en = !!(features & NETIF_F_LRO);
++		mlx5e_modify_tir_lro(priv, MLX5E_TT_IPV4_TCP);
++		mlx5e_modify_tir_lro(priv, MLX5E_TT_IPV6_TCP);
+ 
+ 		if (was_opened)
+ 			err = mlx5e_open_locked(priv->netdev);
+@@ -2026,16 +2051,72 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 		goto err_dealloc_transport_domain;
+ 	}
+ 
++	err = mlx5e_open_tises(priv);
++	if (err) {
++		mlx5_core_warn(mdev, "open tises failed, %d\n", err);
++		goto err_destroy_mkey;
++	}
++
++	err = mlx5e_open_drop_rq(priv);
++	if (err) {
++		mlx5_core_err(mdev, "open drop rq failed, %d\n", err);
++		goto err_close_tises;
++	}
++
++	err = mlx5e_open_rqt(priv, MLX5E_INDIRECTION_RQT);
++	if (err) {
++		mlx5_core_warn(mdev, "open rqt(INDIR) failed, %d\n", err);
++		goto err_close_drop_rq;
++	}
++
++	err = mlx5e_open_rqt(priv, MLX5E_SINGLE_RQ_RQT);
++	if (err) {
++		mlx5_core_warn(mdev, "open rqt(SINGLE) failed, %d\n", err);
++		goto err_close_rqt_indir;
++	}
++
++	err = mlx5e_open_tirs(priv);
++	if (err) {
++		mlx5_core_warn(mdev, "open tirs failed, %d\n", err);
++		goto err_close_rqt_single;
++	}
++
++	err = mlx5e_open_flow_table(priv);
++	if (err) {
++		mlx5_core_warn(mdev, "open flow table failed, %d\n", err);
++		goto err_close_tirs;
++	}
++
++	mlx5e_init_eth_addr(priv);
++
+ 	err = register_netdev(netdev);
+ 	if (err) {
+ 		mlx5_core_err(mdev, "register_netdev failed, %d\n", err);
+-		goto err_destroy_mkey;
++		goto err_close_flow_table;
+ 	}
+ 
+ 	mlx5e_enable_async_events(priv);
+ 
+ 	return priv;
+ 
++err_close_flow_table:
++	mlx5e_close_flow_table(priv);
++
++err_close_tirs:
++	mlx5e_close_tirs(priv);
++
++err_close_rqt_single:
++	mlx5e_close_rqt(priv, MLX5E_SINGLE_RQ_RQT);
++
++err_close_rqt_indir:
++	mlx5e_close_rqt(priv, MLX5E_INDIRECTION_RQT);
++
++err_close_drop_rq:
++	mlx5e_close_drop_rq(priv);
++
++err_close_tises:
++	mlx5e_close_tises(priv);
++
+ err_destroy_mkey:
+ 	mlx5_core_destroy_mkey(mdev, &priv->mr);
+ 
+@@ -2060,6 +2141,12 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
+ 	struct net_device *netdev = priv->netdev;
+ 
+ 	unregister_netdev(netdev);
++	mlx5e_close_flow_table(priv);
++	mlx5e_close_tirs(priv);
++	mlx5e_close_rqt(priv, MLX5E_SINGLE_RQ_RQT);
++	mlx5e_close_rqt(priv, MLX5E_INDIRECTION_RQT);
++	mlx5e_close_drop_rq(priv);
++	mlx5e_close_tises(priv);
+ 	mlx5_core_destroy_mkey(priv->mdev, &priv->mr);
+ 	mlx5_dealloc_transport_domain(priv->mdev, priv->tdn);
+ 	mlx5_core_dealloc_pd(priv->mdev, priv->pdn);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+index e6453f6..b4c87c7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+@@ -387,6 +387,18 @@ int mlx5_core_create_rqt(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 	return err;
+ }
+ 
++int mlx5_core_modify_rqt(struct mlx5_core_dev *dev, u32 rqtn, u32 *in,
++			 int inlen)
++{
++	u32 out[MLX5_ST_SZ_DW(modify_rqt_out)];
++
++	MLX5_SET(modify_rqt_in, in, rqtn, rqtn);
++	MLX5_SET(modify_rqt_in, in, opcode, MLX5_CMD_OP_MODIFY_RQT);
++
++	memset(out, 0, sizeof(out));
++	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
++}
++
+ void mlx5_core_destroy_rqt(struct mlx5_core_dev *dev, u32 rqtn)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(destroy_rqt_in)];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
+index d436c2d..74cae51 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
+@@ -65,6 +65,8 @@ int mlx5_core_arm_xsrq(struct mlx5_core_dev *dev, u32 rmpn, u16 lwm);
+ 
+ int mlx5_core_create_rqt(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 			 u32 *rqtn);
++int mlx5_core_modify_rqt(struct mlx5_core_dev *dev, u32 rqtn, u32 *in,
++			 int inlen);
+ void mlx5_core_destroy_rqt(struct mlx5_core_dev *dev, u32 rqtn);
+ 
+ #endif /* __TRANSOBJ_H__ */
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 469b7bd..dd20974 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -4123,6 +4123,13 @@ struct mlx5_ifc_modify_rqt_out_bits {
+ 	u8         reserved_1[0x40];
+ };
+ 
++struct mlx5_ifc_rqt_bitmask_bits {
++	u8	   reserved[0x20];
++
++	u8         reserved1[0x1f];
++	u8         rqn_list[0x1];
++};
++
+ struct mlx5_ifc_modify_rqt_in_bits {
+ 	u8         opcode[0x10];
+ 	u8         reserved_0[0x10];
+@@ -4135,7 +4142,7 @@ struct mlx5_ifc_modify_rqt_in_bits {
+ 
+ 	u8         reserved_3[0x20];
+ 
+-	u8         modify_bitmask[0x40];
++	struct mlx5_ifc_rqt_bitmask_bits bitmask;
+ 
+ 	u8         reserved_4[0x40];
+ 
 -- 
 2.4.3.413.ga5fe668
