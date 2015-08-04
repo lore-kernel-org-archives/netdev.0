@@ -1,61 +1,30 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v6 2/4] bpf: Add new bpf map type to store the pointer to
- struct perf_event
-Date: Tue, 4 Aug 2015 10:43:35 -0700
-Message-ID: <55C0F9C7.6070901@plumgrid.com>
-References: <1438678696-88289-1-git-send-email-xiakaixu@huawei.com>
- <1438678696-88289-3-git-send-email-xiakaixu@huawei.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: ipt_SYNPROXY: fix sending window update to
+ client
+Date: Tue, 4 Aug 2015 19:53:02 +0200
+Message-ID: <20150804175302.GA19650@salvia>
+References: <1438037606-5462-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: wangnan0@huawei.com, linux-kernel@vger.kernel.org,
-	pi3orama@163.com, hekuang@huawei.com, netdev@vger.kernel.org
-To: Kaixu Xia <xiakaixu@huawei.com>, davem@davemloft.net,
-	acme@kernel.org, mingo@redhat.com, a.p.zijlstra@chello.nl,
-	masami.hiramatsu.pt@hitachi.com, jolsa@kernel.org,
-	daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438678696-88289-3-git-send-email-xiakaixu@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1438037606-5462-1-git-send-email-phil@nwl.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/4/15 1:58 AM, Kaixu Xia wrote:
-> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-> index 45df657..b1e98ff 100644
-> --- a/kernel/bpf/arraymap.c
-> +++ b/kernel/bpf/arraymap.c
-> @@ -273,3 +273,60 @@ static int __init register_prog_array_map(void)
->   	return 0;
->   }
->   late_initcall(register_prog_array_map);
-> +
-> +static void perf_event_array_map_free(struct bpf_map *map)
-> +{
-> +	bpf_fd_array_map_clear(map);
-> +	fd_array_map_free(map);
-> +}
-> +
-> +static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
-> +{
-> +	struct perf_event *event;
-> +	struct perf_event_attr *attr;
-> +
-> +	event = perf_event_get(fd);
-> +	if (IS_ERR(event))
-> +		return event;
-> +
-> +	attr = perf_event_attrs(event);
-> +	if (IS_ERR(attr))
-> +		return attr;
-> +
-> +	if (attr->type != PERF_TYPE_RAW &&
-> +	    attr->type != PERF_TYPE_HARDWARE) {
-> +		perf_event_release_kernel(event);
-> +		return ERR_PTR(-EINVAL);
-> +	}
-> +	return event;
-> +}
+On Tue, Jul 28, 2015 at 12:53:26AM +0200, Phil Sutter wrote:
+> Upon receipt of SYNACK from the server, ipt_SYNPROXY first sends back an ACK to
+> finish the server handshake, then calls nf_ct_seqadj_init() to initiate
+> sequence number adjustment of forwarded packets to the client and finally sends
+> a window update to the client to unblock it's TX queue.
+> 
+> Since synproxy_send_client_ack() does not set synproxy_send_tcp()'s nfct
+> parameter, no sequence number adjustment happens and the client receives the
+> window update with incorrect sequence number. Depending on client TCP
+> implementation, this leads to a significant delay (until a window probe is
+> being sent).
 
-I'm not sure whether Peter wanted to see the above function to be
-in events/core.c or not.
-imo it's fine here, since perf_event_attr is an uapi struct.
+Could you also fix the IPv6 side to get both codes in sync? Thanks.
+
