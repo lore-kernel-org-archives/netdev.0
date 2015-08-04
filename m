@@ -1,85 +1,87 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/18] netfilter: Factor out the hook list selection from nf_register_hook
-Date: Tue,  4 Aug 2015 12:02:33 +0200
-Message-ID: <1438682568-8346-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/18] netfilter: nftables: Only run the nftables chains in the proper netns
+Date: Tue,  4 Aug 2015 12:02:35 +0200
+Message-ID: <1438682568-8346-6-git-send-email-pablo@netfilter.org>
 References: <1438682568-8346-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55960 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:55990 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932995AbbHDJ5O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 05:57:14 -0400
+	id S933039AbbHDJ5W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 05:57:22 -0400
 In-Reply-To: <1438682568-8346-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-- Add a new function find_nf_hook_list to select the nf_hook_list
+- Register the nftables chains in the network namespace that they need
+  to run in.
 
-- Fail nf_register_hook when asked for a per netdevice hook list when
-  support for per netdevice hook lists is not built into the kernel.
-
-- Move the hook list head selection outside of nf_hook_mutex as
-  nothing in the selection requires the hook list, and error handling
-  is simpler if a mutex is not held.
+- Remove the hacks that stopped chains running in the wrong network
+  namespace.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/core.c |   32 ++++++++++++++++++--------------
- 1 file changed, 18 insertions(+), 14 deletions(-)
+ net/netfilter/nf_tables_api.c  |    8 ++++++--
+ net/netfilter/nf_tables_core.c |    5 -----
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index c4c3b85..fa4d3c1 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -62,27 +62,31 @@ EXPORT_SYMBOL(nf_hooks_needed);
- 
- static DEFINE_MUTEX(nf_hook_mutex);
- 
--int nf_register_hook(struct nf_hook_ops *reg)
-+static struct list_head *find_nf_hook_list(const struct nf_hook_ops *reg)
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index cfe6368..4a41eb9 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -130,20 +130,24 @@ static void nft_trans_destroy(struct nft_trans *trans)
+ int nft_register_basechain(struct nft_base_chain *basechain,
+ 			   unsigned int hook_nops)
  {
--	struct list_head *nf_hook_list;
--	struct nf_hook_ops *elem;
-+	struct list_head *nf_hook_list = NULL;
- 
--	mutex_lock(&nf_hook_mutex);
--	switch (reg->pf) {
--	case NFPROTO_NETDEV:
-+	if (reg->pf != NFPROTO_NETDEV)
-+		nf_hook_list = &nf_hooks[reg->pf][reg->hooknum];
-+	else if (reg->hooknum == NF_NETDEV_INGRESS) {
- #ifdef CONFIG_NETFILTER_INGRESS
--		if (reg->hooknum == NF_NETDEV_INGRESS) {
--			BUG_ON(reg->dev == NULL);
-+		if (reg->dev)
- 			nf_hook_list = &reg->dev->nf_hooks_ingress;
--			break;
--		}
- #endif
--		/* Fall through. */
--	default:
--		nf_hook_list = &nf_hooks[reg->pf][reg->hooknum];
--		break;
- 	}
-+	return nf_hook_list;
-+}
++	struct net *net = read_pnet(&basechain->pnet);
 +
-+int nf_register_hook(struct nf_hook_ops *reg)
-+{
-+	struct list_head *nf_hook_list;
-+	struct nf_hook_ops *elem;
+ 	if (basechain->flags & NFT_BASECHAIN_DISABLED)
+ 		return 0;
  
-+	nf_hook_list = find_nf_hook_list(reg);
-+	if (!nf_hook_list)
-+		return -ENOENT;
+-	return nf_register_hooks(basechain->ops, hook_nops);
++	return nf_register_net_hooks(net, basechain->ops, hook_nops);
+ }
+ EXPORT_SYMBOL_GPL(nft_register_basechain);
+ 
+ void nft_unregister_basechain(struct nft_base_chain *basechain,
+ 			      unsigned int hook_nops)
+ {
++	struct net *net = read_pnet(&basechain->pnet);
 +
-+	mutex_lock(&nf_hook_mutex);
- 	list_for_each_entry(elem, nf_hook_list, list) {
- 		if (reg->priority < elem->priority)
- 			break;
+ 	if (basechain->flags & NFT_BASECHAIN_DISABLED)
+ 		return;
+ 
+-	nf_unregister_hooks(basechain->ops, hook_nops);
++	nf_unregister_net_hooks(net, basechain->ops, hook_nops);
+ }
+ EXPORT_SYMBOL_GPL(nft_unregister_basechain);
+ 
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index f77bad4..05d0b03 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -114,7 +114,6 @@ unsigned int
+ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
+ {
+ 	const struct nft_chain *chain = ops->priv, *basechain = chain;
+-	const struct net *chain_net = read_pnet(&nft_base_chain(basechain)->pnet);
+ 	const struct net *net = dev_net(pkt->in ? pkt->in : pkt->out);
+ 	const struct nft_rule *rule;
+ 	const struct nft_expr *expr, *last;
+@@ -125,10 +124,6 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
+ 	int rulenum;
+ 	unsigned int gencursor = nft_genmask_cur(net);
+ 
+-	/* Ignore chains that are not for the current network namespace */
+-	if (!net_eq(net, chain_net))
+-		return NF_ACCEPT;
+-
+ do_chain:
+ 	rulenum = 0;
+ 	rule = list_entry(&chain->rules, struct nft_rule, list);
 -- 
 1.7.10.4
