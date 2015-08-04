@@ -1,104 +1,90 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: net: Fix skb_set_peeked use-after-free bug
-Date: Tue, 4 Aug 2015 15:42:47 +0800
-Message-ID: <20150804074247.GA29951@gondor.apana.org.au>
-References: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
+Date: Tue, 04 Aug 2015 09:43:36 +0200
+Message-ID: <1438674216.2458.24.camel@pengutronix.de>
+References: <Pine.LNX.4.44L0.1508031416250.1667-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	khlebnikov@yandex-team.ru
-To: Brenden Blanco <bblanco@plumgrid.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, Andrew Lunn <andrew@lunn.ch>,
+	netdev@vger.kernel.org, patchwork-lst@pengutronix.de,
+	"David S. Miller" <davem@davemloft.net>, kernel@pengutronix.de,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+	linux-pm@vger.kernel.org
+To: Alan Stern <stern@rowland.harvard.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:46910 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754990AbbHDHmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 03:42:53 -0400
-Content-Disposition: inline
-In-Reply-To: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:39203 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754651AbbHDHnm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 03:43:42 -0400
+In-Reply-To: <Pine.LNX.4.44L0.1508031416250.1667-100000@iolanthe.rowland.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brenden Blanco <bblanco@plumgrid.com> wrote:
->> [  318.244596] BUG: unable to handle kernel NULL pointer dereference
->> at 000000000000008e
->> [  318.245182] IP: [<ffffffff81455e7c>] __skb_recv_datagram+0xbc/0x5a0
+Am Montag, den 03.08.2015, 14:28 -0400 schrieb Alan Stern:
+> On Mon, 3 Aug 2015, Uwe [iso-8859-1] Kleine-Knig wrote:
 > 
-> Replying to myself, and adding commit interested parties...
+> > Hello,
+> > 
+> > I have no clue about runtime-pm, but I added a few people to Cc: who
+> > should know better ...
+> > 
+> > Best regards
+> > Uwe
+> > 
+> > On Mon, Aug 03, 2015 at 06:15:54PM +0200, Andrew Lunn wrote:
+> > > On Mon, Aug 03, 2015 at 05:50:11PM +0200, Lucas Stach wrote:
+> > > > The clocks are initially active and thus the device is marked active.
+> > > > This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
+> > > > call at the end of probe then leaves us with an invalid refcount of -1,
+> > > > which in turn leads to the device staying in suspended state even though
+> > > > netdev open had been called.
+> > > > 
+> > > > Fix this by initializing the refcount to be coherent with the initial
+> > > > device status.
+> > > > 
+> > > > Fixes:
+> > > > 8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
+> > > > 
+> > > > Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+> > > > ---
+> > > > Please apply this as a fix for 4.2
+> > > > ---
+> > > >  drivers/net/ethernet/freescale/fec_main.c | 1 +
+> > > >  1 file changed, 1 insertion(+)
+> > > > 
+> > > > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> > > > index 32e3807c650e..271bb5862346 100644
+> > > > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > > > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > > > @@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
+> > > >  
+> > > >  	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
+> > > >  	pm_runtime_use_autosuspend(&pdev->dev);
+> > > > +	pm_runtime_get_noresume(&pdev->dev);
+> > > >  	pm_runtime_set_active(&pdev->dev);
+> > > >  	pm_runtime_enable(&pdev->dev);
+> > > 
+> > > This might work, but is it the correct fix?
 > 
-> I went through the git log for the function in question, and
-> positively identified that the following commit introduces the crash:
+> It looks reasonable to me.  It might also make sense to move all of
+> that pm_runtime_* stuff to the end of the probe routine.  Notice that
+> they don't get undone if register_netdev() fails.
 > 
-> 738ac1e net: Clone skb before setting peeked flag
-> 
-> Null dereference is at line 224 of net/core/datagram.c (according to
-> my objdump dis-assembly):
+Unfortunately we can not move RPM enabling to the end of probe, as the
+MDIO read/write functions that rely on RPM are already called while we
+are still in the middle of the probe function.
 
-Sorry, brain fart on my part.  Please try this patch.
+I agree that we need better error handling here, but that comment
+applies to the whole FEC probe function. I think that this might be
+invasive enough to justify a delay to the next merge window, not really
+material for the late RCs.
 
----8<---
-The commit 738ac1ebb96d02e0d23bc320302a6ea94c612dec ("net: Clone
-skb before setting peeked flag") introduced a use-after-free bug
-in skb_recv_datagram.  This is because skb_set_peeked may create
-a new skb and free the existing one.  As it stands the caller will
-continue to use the old freed skb.
+Regards,
+Lucas
 
-This patch fixes it by making skb_set_peeked return the new skb
-(or the old one if unchanged).
-
-Fixes: 738ac1ebb96d ("net: Clone skb before setting peeked flag")
-Reported-by: Brenden Blanco <bblanco@plumgrid.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 4967262..617088a 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -131,12 +131,12 @@ out_noerr:
- 	goto out;
- }
- 
--static int skb_set_peeked(struct sk_buff *skb)
-+static struct sk_buff *skb_set_peeked(struct sk_buff *skb)
- {
- 	struct sk_buff *nskb;
- 
- 	if (skb->peeked)
--		return 0;
-+		return skb;
- 
- 	/* We have to unshare an skb before modifying it. */
- 	if (!skb_shared(skb))
-@@ -144,7 +144,7 @@ static int skb_set_peeked(struct sk_buff *skb)
- 
- 	nskb = skb_clone(skb, GFP_ATOMIC);
- 	if (!nskb)
--		return -ENOMEM;
-+		return ERR_PTR(-ENOMEM);
- 
- 	skb->prev->next = nskb;
- 	skb->next->prev = nskb;
-@@ -157,7 +157,7 @@ static int skb_set_peeked(struct sk_buff *skb)
- done:
- 	skb->peeked = 1;
- 
--	return 0;
-+	return skb;
- }
- 
- /**
-@@ -229,8 +229,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
- 					continue;
- 				}
- 
--				error = skb_set_peeked(skb);
--				if (error)
-+				skb = skb_set_peeked(skb);
-+				error = PTR_ERR(skb);
-+				if (IS_ERR(skb))
- 					goto unlock_err;
- 
- 				atomic_inc(&skb->users);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Pengutronix e.K.             | Lucas Stach                 |
+Industrial Linux Solutions   | http://www.pengutronix.de/  |
