@@ -1,28 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net_dbg_ratelimited: turn into no-op when !DEBUG
-Date: Mon, 03 Aug 2015 21:02:21 -0700
-Message-ID: <1438660941.10829.3.camel@perches.com>
-References: <1438658773-3220-1-git-send-email-Jason@zx2c4.com>
-	 <1438660677.10829.1.camel@perches.com>
+From: Wenyu Zhang <wenyuz@vmware.com>
+Subject: [PATCH net-next v2] openvswitch: Make 100 percents packets sampled when sampling rate is 1.
+Date: Mon, 3 Aug 2015 21:07:35 -0700
+Message-ID: <1438661255-22103-1-git-send-email-wenyuz@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438660677.10829.1.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <wenyuz@vmware.com>, <jgross@vmware.com>, <dev@openvswitch.org>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:45935 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751227AbbHDEHm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 00:07:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-08-03 at 20:57 -0700, Joe Perches wrote:
-> On Tue, 2015-08-04 at 05:26 +0200, Jason A. Donenfeld wrote:
-> > This patch replaces calls to net_dbg_ratelimited when !DEBUG with
-> > no_printk, keeping with the idiom of all the other debug print helpers.
-> 
-> Makes sense, thanks Jason.
+When sampling rate is 1, the sampling probability is UINT32_MAX. The packet
+should be sampled even the prandom_u32() generate the number of UINT32_MAX.
+And none packet need be sampled when the probability is 0.
 
-Perhaps better still would be to use if (0) no_printk so that
-the call and whatever argument calls the net_dbg_ratelimited
-makes are completely eliminated.
+Signed-off-by: Wenyu Zhang <wenyuz@vmware.com>
+---
+ net/openvswitch/actions.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index cf04c2f..c81bcf5 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -669,9 +669,11 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 
+ 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+ 		 a = nla_next(a, &rem)) {
++		uint32_t probability;
+ 		switch (nla_type(a)) {
+ 		case OVS_SAMPLE_ATTR_PROBABILITY:
+-			if (prandom_u32() >= nla_get_u32(a))
++			probability = nla_get_u32(a);
++			if (!probability || prandom_u32() > probability)
+ 				return 0;
+ 			break;
+ 
+-- 
+1.7.9.5
