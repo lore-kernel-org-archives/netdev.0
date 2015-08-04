@@ -1,42 +1,68 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
-Date: Tue, 4 Aug 2015 16:35:55 +0200
-Message-ID: <20150804143555.GQ9999@pengutronix.de>
-References: <1438674216.2458.24.camel@pengutronix.de>
- <Pine.LNX.4.44L0.1508041019380.1577-100000@iolanthe.rowland.org>
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Subject: [PATCH v2] xen/netback: Wake dealloc thread after
+	completing zerocopy work
+Date: Tue, 4 Aug 2015 15:40:59 +0100
+Message-ID: <1438699259-28508-1-git-send-email-ross.lagerwall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lucas Stach <l.stach@pengutronix.de>, Andrew Lunn <andrew@lunn.ch>,
-	Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>,
-	netdev@vger.kernel.org, linux-pm@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	patchwork-lst@pengutronix.de, kernel@pengutronix.de,
-	"David S. Miller" <davem@davemloft.net>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:53952 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751549AbbHDOgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 10:36:03 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44L0.1508041019380.1577-100000@iolanthe.rowland.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xenproject.org, Wei Liu <wei.liu2@citrix.com>, Ian
+	Campbell <ian.campbell@citrix.com>,
+	Ross Lagerwall <ross.lagerwall@citrix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Waking the dealloc thread before decrementing inflight_packets is racy
+because it means the thread may go to sleep before inflight_packets is
+decremented. If kthread_stop() has already been called, the dealloc
+thread may wait forever with nothing to wake it. Instead, wake the
+thread only after decrementing inflight_packets.
 
-On Tue, Aug 04, 2015 at 10:20:55AM -0400, Alan Stern wrote:
-> In that case, adding a call pm_runtime_get_noresume() is the right=20
-> thing to do.
-Is this an ack for Lucas' patch?
+Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+---
+Changed in V2: Move wakeup into zerocopy_complete function.
 
-Best regards
-Uwe
+ drivers/net/xen-netback/interface.c | 6 ++++++
+ drivers/net/xen-netback/netback.c   | 1 -
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 1a83e19..28577a3 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -61,6 +61,12 @@ void xenvif_skb_zerocopy_prepare(struct xenvif_queue *queue,
+ void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue)
+ {
+ 	atomic_dec(&queue->inflight_packets);
++
++	/* Wake the dealloc thread _after_ decrementing inflight_packets so
++	 * that if kthread_stop() has already been called, the dealloc thread
++	 * does not wait forever with nothing to wake it.
++	 */
++	wake_up(&queue->dealloc_wq);
+ }
+ 
+ int xenvif_schedulable(struct xenvif *vif)
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 7d50711..09ffda4 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1536,7 +1536,6 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
+ 		smp_wmb();
+ 		queue->dealloc_prod++;
+ 	} while (ubuf);
+-	wake_up(&queue->dealloc_wq);
+ 	spin_unlock_irqrestore(&queue->callback_lock, flags);
+ 
+ 	if (likely(zerocopy_success))
+-- 
+2.1.0
