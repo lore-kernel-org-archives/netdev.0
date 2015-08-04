@@ -1,38 +1,49 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] printk from softirq on xen: hard lockup
-Date: Tue, 4 Aug 2015 18:12:49 +0100
-Message-ID: <55C0F291.7060806@citrix.com>
-References: <CAHmME9rUdafnjz0ej-z_cgznMrj27SJgy6v8GJXM0qGfUpWaMQ@mail.gmail.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH] net: pktgen: don't abuse current->state in
+ pktgen_thread_worker()
+Date: Tue, 4 Aug 2015 14:30:11 -0300
+Message-ID: <20150804173011.GC2758@localhost.localdomain>
+References: <20150804163334.GA31842@redhat.com>
+ <20150804164056.GA2758@localhost.localdomain>
+ <20150804170827.GA1264@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Paul McKenney <paulmck@linux.vnet.ibm.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Huang Ying <ying.huang@intel.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jan Stancek <jstancek@redhat.com>,
+	Jesper Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9rUdafnjz0ej-z_cgznMrj27SJgy6v8GJXM0qGfUpWaMQ@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20150804170827.GA1264@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/08/15 17:41, Jason A. Donenfeld wrote:
-> Hi folks,
+On Tue, Aug 04, 2015 at 07:08:27PM +0200, Oleg Nesterov wrote:
+> On 08/04, Marcelo Ricardo Leitner wrote:
+> >
+> > On Tue, Aug 04, 2015 at 06:33:34PM +0200, Oleg Nesterov wrote:
+> > > Commit 1fbe4b46caca "net: pktgen: kill the Wait for kthread_stop
+> > > code in pktgen_thread_worker()" removed (in particular) the final
+> > > __set_current_state(TASK_RUNNING) and I didn't notice the previous
+> > > set_current_state(TASK_INTERRUPTIBLE). This triggers the warning
+> > > in __might_sleep() after return.
+> > >
+> > > Afaics, we can simply remove both set_current_state()'s, and we
+> > > could do this a long ago right after ef87979c273a2 "pktgen: better
+> > > scheduler friendliness" which changed pktgen_thread_worker() to
+> > > use wait_event_interruptible_timeout().
+> > >
+> > > Reported-by: Huang Ying <ying.huang@intel.com>
+> > > Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+> >
+> > Interesting that it didn't happen in my tests yet per description it
+> > should have. Huang, did you do anything special to trigger this?
 > 
-> Paul McKenney and I had an offline discussion about some rcu questions
-> that eventually lead into me investigating a strange full lock-up I'm
-> experiencing as a consequence of a printk in softirq inside of an
-> rcu_read_lock, when using Xen PV. Relevant excerpts of the
-                                ^^  PV guest?
+> Do you have CONFIG_DEBUG_ATOMIC_SLEEP=y ?
 
-> (gdb) target remote localhost:9999
-> Remote debugging using localhost:9999
-> __xapic_wait_icr_idle () at ./arch/x86/include/asm/ipi.h:56
-> 56              while (native_apic_mem_read(APIC_ICR) & APIC_ICR_BUSY)
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  => HVM guest
+Ahh yes, probably not. Thanks.
 
-Which is it?
-
-A HVM guest's serial console may be particularly slow (since it's
-emulated by qemu).  Try using the PV console?
-
-David
+  Marcelo
