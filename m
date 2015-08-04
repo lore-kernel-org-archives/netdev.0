@@ -1,123 +1,109 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 13/18] netfilter: fix possible removal of wrong hook
-Date: Tue,  4 Aug 2015 12:02:43 +0200
-Message-ID: <1438682568-8346-14-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/18] netfilter: nf_queue: fix nf_queue_nf_hook_drop()
+Date: Tue,  4 Aug 2015 12:02:42 +0200
+Message-ID: <1438682568-8346-13-git-send-email-pablo@netfilter.org>
 References: <1438682568-8346-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56068 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:56062 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933099AbbHDJ5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 05:57:36 -0400
+	id S933117AbbHDJ5f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 05:57:35 -0400
 In-Reply-To: <1438682568-8346-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nf_unregister_net_hook() uses the nf_hook_ops fields as tuple to look up for
-the corresponding hook in the list. However, we may have two hooks with exactly
-the same configuration.
+This function reacquires the rtnl_lock() which is already held by
+nf_unregister_hook().
 
-This shouldn't be a problem for nftables since every new chain has an unique
-priv field set, but this may still cause us problems in the future, so better
-address this problem now by keeping a reference to the original nf_hook_ops
-structure to make sure we delete the right hook from nf_unregister_net_hook().
+This can be triggered via: modprobe nf_conntrack_ipv4 && rmmod nf_conntrack_ipv4
 
+[  720.628746] INFO: task rmmod:3578 blocked for more than 120 seconds.
+[  720.628749]       Not tainted 4.2.0-rc2+ #113
+[  720.628752] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  720.628754] rmmod           D ffff8800ca46fd58     0  3578   3571 0x00000080
+[...]
+[  720.628783] Call Trace:
+[  720.628790]  [<ffffffff8152ea0b>] schedule+0x6b/0x90
+[  720.628795]  [<ffffffff8152ecb3>] schedule_preempt_disabled+0x13/0x20
+[  720.628799]  [<ffffffff8152ff55>] mutex_lock_nested+0x1f5/0x380
+[  720.628803]  [<ffffffff81462622>] ? rtnl_lock+0x12/0x20
+[  720.628807]  [<ffffffff81462622>] ? rtnl_lock+0x12/0x20
+[  720.628812]  [<ffffffff81462622>] rtnl_lock+0x12/0x20
+[  720.628817]  [<ffffffff8148ab25>] nf_queue_nf_hook_drop+0x15/0x160
+[  720.628825]  [<ffffffff81488d48>] nf_unregister_net_hook+0x168/0x190
+[  720.628831]  [<ffffffff81488e24>] nf_unregister_hook+0x64/0x80
+[  720.628837]  [<ffffffff81488e60>] nf_unregister_hooks+0x20/0x30
+[...]
+
+Moreover, nf_unregister_net_hook() should only destroy the queue for this
+netns, not for every netns.
+
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
 Fixes: 085db2c04557 ("netfilter: Per network namespace netfilter hooks.")
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/netfilter/core.c |   41 +++++++++++++++++++----------------------
- 1 file changed, 19 insertions(+), 22 deletions(-)
+ net/netfilter/core.c         |    2 +-
+ net/netfilter/nf_internals.h |    2 +-
+ net/netfilter/nf_queue.c     |   12 +++---------
+ 3 files changed, 5 insertions(+), 11 deletions(-)
 
 diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 12504fbb..0ecb2b5 100644
+index 87d237d..12504fbb 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -78,26 +78,27 @@ static struct list_head *find_nf_hook_list(struct net *net,
- 	return nf_hook_list;
- }
- 
-+struct nf_hook_entry {
-+	const struct nf_hook_ops	*orig_ops;
-+	struct nf_hook_ops		ops;
-+};
-+
- int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- {
- 	struct list_head *nf_hook_list;
--	struct nf_hook_ops *elem, *new;
-+	struct nf_hook_entry *entry;
-+	struct nf_hook_ops *elem;
- 
--	new = kzalloc(sizeof(*new), GFP_KERNEL);
--	if (!new)
-+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-+	if (!entry)
- 		return -ENOMEM;
- 
--	new->hook     = reg->hook;
--	new->dev      = reg->dev;
--	new->owner    = reg->owner;
--	new->priv     = reg->priv;
--	new->pf       = reg->pf;
--	new->hooknum  = reg->hooknum;
--	new->priority = reg->priority;
-+	entry->orig_ops	= reg;
-+	entry->ops	= *reg;
- 
- 	nf_hook_list = find_nf_hook_list(net, reg);
- 	if (!nf_hook_list) {
--		kfree(new);
-+		kfree(entry);
- 		return -ENOENT;
- 	}
- 
-@@ -106,7 +107,7 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 		if (reg->priority < elem->priority)
- 			break;
- 	}
--	list_add_rcu(&new->list, elem->list.prev);
-+	list_add_rcu(&entry->ops.list, elem->list.prev);
- 	mutex_unlock(&nf_hook_mutex);
- #ifdef CONFIG_NETFILTER_INGRESS
- 	if (reg->pf == NFPROTO_NETDEV && reg->hooknum == NF_NETDEV_INGRESS)
-@@ -122,6 +123,7 @@ EXPORT_SYMBOL(nf_register_net_hook);
- void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- {
- 	struct list_head *nf_hook_list;
-+	struct nf_hook_entry *entry;
- 	struct nf_hook_ops *elem;
- 
- 	nf_hook_list = find_nf_hook_list(net, reg);
-@@ -130,14 +132,9 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 
- 	mutex_lock(&nf_hook_mutex);
- 	list_for_each_entry(elem, nf_hook_list, list) {
--		if ((reg->hook     == elem->hook) &&
--		    (reg->dev      == elem->dev) &&
--		    (reg->owner    == elem->owner) &&
--		    (reg->priv     == elem->priv) &&
--		    (reg->pf       == elem->pf) &&
--		    (reg->hooknum  == elem->hooknum) &&
--		    (reg->priority == elem->priority)) {
--			list_del_rcu(&elem->list);
-+		entry = container_of(elem, struct nf_hook_entry, ops);
-+		if (entry->orig_ops == reg) {
-+			list_del_rcu(&entry->ops.list);
- 			break;
- 		}
- 	}
-@@ -154,8 +151,8 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+@@ -154,7 +154,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
  	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
  #endif
  	synchronize_net();
--	nf_queue_nf_hook_drop(net, elem);
--	kfree(elem);
-+	nf_queue_nf_hook_drop(net, &entry->ops);
-+	kfree(entry);
+-	nf_queue_nf_hook_drop(elem);
++	nf_queue_nf_hook_drop(net, elem);
+ 	kfree(elem);
  }
  EXPORT_SYMBOL(nf_unregister_net_hook);
+diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
+index 3992106..0655225 100644
+--- a/net/netfilter/nf_internals.h
++++ b/net/netfilter/nf_internals.h
+@@ -19,7 +19,7 @@ unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
+ /* nf_queue.c */
+ int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem,
+ 	     struct nf_hook_state *state, unsigned int queuenum);
+-void nf_queue_nf_hook_drop(struct nf_hook_ops *ops);
++void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops);
+ int __init netfilter_queue_init(void);
  
+ /* nf_log.c */
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 8a8b2ab..96777f9 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -105,21 +105,15 @@ bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+ }
+ EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
+ 
+-void nf_queue_nf_hook_drop(struct nf_hook_ops *ops)
++void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops)
+ {
+ 	const struct nf_queue_handler *qh;
+-	struct net *net;
+ 
+-	rtnl_lock();
+ 	rcu_read_lock();
+ 	qh = rcu_dereference(queue_handler);
+-	if (qh) {
+-		for_each_net(net) {
+-			qh->nf_hook_drop(net, ops);
+-		}
+-	}
++	if (qh)
++		qh->nf_hook_drop(net, ops);
+ 	rcu_read_unlock();
+-	rtnl_unlock();
+ }
+ 
+ /*
 -- 
 1.7.10.4
