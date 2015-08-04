@@ -1,47 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net_dbg_ratelimited: turn into no-op when !DEBUG
-Date: Tue, 04 Aug 2015 08:51:05 -0700
-Message-ID: <1438703465.10829.20.camel@perches.com>
-References: <20150803.215900.915316341182067498.davem@davemloft.net>
-	 <1438700836-6715-1-git-send-email-Jason@zx2c4.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
+Date: Tue, 4 Aug 2015 11:59:36 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1508041159100.1577-100000@iolanthe.rowland.org>
+References: <20150804143555.GQ9999@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438700836-6715-1-git-send-email-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lucas Stach <l.stach@pengutronix.de>, Andrew Lunn <andrew@lunn.ch>,
+	Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>,
+	<netdev@vger.kernel.org>, <linux-pm@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	<patchwork-lst@pengutronix.de>, <kernel@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <20150804143555.GQ9999@pengutronix.de>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-08-04 at 17:07 +0200, Jason A. Donenfeld wrote:
-> The pr_debug family of functions turns into a no-op when -DDEBUG is not
-> specified, opting instead to call "no_printk", which gets compiled to a
-> no-op (but retains gcc's nice warnings about printf-style arguments).
-[]
-> diff --git a/include/linux/net.h b/include/linux/net.h
-[]
-> @@ -239,8 +239,14 @@ do {								\
->  	net_ratelimited_function(pr_warn, fmt, ##__VA_ARGS__)
->  #define net_info_ratelimited(fmt, ...)				\
->  	net_ratelimited_function(pr_info, fmt, ##__VA_ARGS__)
-> +#if defined(DEBUG)
->  #define net_dbg_ratelimited(fmt, ...)				\
->  	net_ratelimited_function(pr_debug, fmt, ##__VA_ARGS__)
-> +#else
-> +#define net_dbg_ratelimited(fmt, ...)				\
-> +	if (0)							\
-> +		no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-> +#endif
+On Tue, 4 Aug 2015, Uwe [iso-8859-1] Kleine-K=F6nig wrote:
 
-This should be:
+> Hello,
+>=20
+> On Tue, Aug 04, 2015 at 10:20:55AM -0400, Alan Stern wrote:
+> > In that case, adding a call pm_runtime_get_noresume() is the right=20
+> > thing to do.
+> Is this an ack for Lucas' patch?
 
-#define net_dbg_ratelimited(fmt, ...)				\
-do {								\
-	if (0)							\
-		no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__); \
-} while (0)
+Yes:
 
-to be safe in if/else uses
+Acked-by: Alan Stern <stern@rowland.harvard.edu>
+
+Alan Stern
+
