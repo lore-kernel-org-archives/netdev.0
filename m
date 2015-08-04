@@ -1,67 +1,112 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 10/14] batman-adv: protect tt_local_entry from concurrent delete events
-Date: Tue,  4 Aug 2015 18:35:30 +0200
-Message-ID: <1438706134-3492-11-git-send-email-antonio__38835.2994494655$1438707155$gmane$org@meshcoding.com>
+Subject: [PATCH 06/14] batman-adv: Make TT capability changes atomic
+Date: Tue,  4 Aug 2015 18:35:26 +0200
+Message-ID: <1438706134-3492-7-git-send-email-antonio__15552.083325065$1438707250$gmane$org@meshcoding.com>
 References: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:11020 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:26512 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751732AbbHDQw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 12:52:27 -0400
+	id S1753342AbbHDQx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 12:53:56 -0400
 In-Reply-To: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <mareklindner@neomailbox.ch>
+=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 
-The tt_local_entry deletion performed in batadv_tt_local_remove() was neither
-protecting against simultaneous deletes nor checking whether the element was
-still part of the list before calling hlist_del_rcu().
+Bitwise OR/AND assignments in C aren't guaranteed to be atomic. One
+OGM handler might undo the set/clear of a specific bit from another
+handler run in between.
 
-Replacing the hlist_del_rcu() call with batadv_hash_remove() provides adequate
-protection via hash spinlocks as well as an is-element-still-in-hash check to
-avoid 'blind' hash removal.
+=46ix this by using the atomic set_bit()/clear_bit()/test_bit() functio=
+ns.
 
-Fixes: 068ee6e204e1 ("batman-adv: roaming handling mechanism redesign")
-Reported-by: alfonsname@web.de
+=46ixes: e17931d1a61d ("batman-adv: introduce capability initialization=
+ bitfield")
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/translation-table.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ net/batman-adv/translation-table.c | 8 +++++---
+ net/batman-adv/types.h             | 4 ++--
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 2db3093..cb2a2d1 100644
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/transl=
+ation-table.c
+index b482495..1573489 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -1038,6 +1038,7 @@ uint16_t batadv_tt_local_remove(struct batadv_priv *bat_priv,
- 	struct batadv_tt_local_entry *tt_local_entry;
- 	uint16_t flags, curr_flags = BATADV_NO_FLAGS;
- 	struct batadv_softif_vlan *vlan;
-+	void *tt_entry_exists;
- 
- 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, addr, vid);
- 	if (!tt_local_entry)
-@@ -1065,7 +1066,15 @@ uint16_t batadv_tt_local_remove(struct batadv_priv *bat_priv,
- 	 * immediately purge it
- 	 */
- 	batadv_tt_local_event(bat_priv, tt_local_entry, BATADV_TT_CLIENT_DEL);
--	hlist_del_rcu(&tt_local_entry->common.hash_entry);
-+
-+	tt_entry_exists = batadv_hash_remove(bat_priv->tt.local_hash,
-+					     batadv_compare_tt,
-+					     batadv_choose_tt,
-+					     &tt_local_entry->common);
-+	if (!tt_entry_exists)
-+		goto out;
-+
-+	/* extra call to free the local tt entry */
- 	batadv_tt_local_entry_free_ref(tt_local_entry);
- 
- 	/* decrease the reference held for this vlan */
--- 
+@@ -19,6 +19,7 @@
+ #include "main.h"
+=20
+ #include <linux/atomic.h>
++#include <linux/bitops.h>
+ #include <linux/bug.h>
+ #include <linux/byteorder/generic.h>
+ #include <linux/compiler.h>
+@@ -1862,7 +1863,7 @@ void batadv_tt_global_del_orig(struct batadv_priv=
+ *bat_priv,
+ 		}
+ 		spin_unlock_bh(list_lock);
+ 	}
+-	orig_node->capa_initialized &=3D ~BATADV_ORIG_CAPA_HAS_TT;
++	clear_bit(BATADV_ORIG_CAPA_HAS_TT, &orig_node->capa_initialized);
+ }
+=20
+ static bool batadv_tt_global_to_purge(struct batadv_tt_global_entry *t=
+t_global,
+@@ -2821,7 +2822,7 @@ static void _batadv_tt_update_changes(struct bata=
+dv_priv *bat_priv,
+ 				return;
+ 		}
+ 	}
+-	orig_node->capa_initialized |=3D BATADV_ORIG_CAPA_HAS_TT;
++	set_bit(BATADV_ORIG_CAPA_HAS_TT, &orig_node->capa_initialized);
+ }
+=20
+ static void batadv_tt_fill_gtable(struct batadv_priv *bat_priv,
+@@ -3321,7 +3322,8 @@ static void batadv_tt_update_orig(struct batadv_p=
+riv *bat_priv,
+ 	bool has_tt_init;
+=20
+ 	tt_vlan =3D (struct batadv_tvlv_tt_vlan_data *)tt_buff;
+-	has_tt_init =3D orig_node->capa_initialized & BATADV_ORIG_CAPA_HAS_TT=
+;
++	has_tt_init =3D test_bit(BATADV_ORIG_CAPA_HAS_TT,
++			       &orig_node->capa_initialized);
+=20
+ 	/* orig table not initialised AND first diff is in the OGM OR the ttv=
+n
+ 	 * increased by one -> we can apply the attached changes
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index ed4aec5..6f801ef 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -274,7 +274,7 @@ struct batadv_orig_node {
+ 	struct hlist_node mcast_want_all_ipv6_node;
+ #endif
+ 	unsigned long capabilities;
+-	uint8_t capa_initialized;
++	unsigned long capa_initialized;
+ 	atomic_t last_ttvn;
+ 	unsigned char *tt_buff;
+ 	int16_t tt_buff_len;
+@@ -315,7 +315,7 @@ struct batadv_orig_node {
+ enum batadv_orig_capabilities {
+ 	BATADV_ORIG_CAPA_HAS_DAT,
+ 	BATADV_ORIG_CAPA_HAS_NC,
+-	BATADV_ORIG_CAPA_HAS_TT =3D BIT(2),
++	BATADV_ORIG_CAPA_HAS_TT,
+ 	BATADV_ORIG_CAPA_HAS_MCAST =3D BIT(3),
+ };
+=20
+--=20
 2.5.0
