@@ -1,67 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: drop NETIF_F_FRAGLIST
-Date: Tue, 4 Aug 2015 13:05:34 +0300
-Message-ID: <20150804130323-mutt-send-email-mst@redhat.com>
-References: <1438682145-25986-1-git-send-email-jasowang@redhat.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH v2 0/3] CPSW interrupt handling cleanup and performance improvement
+Date: Tue, 4 Aug 2015 16:06:17 +0530
+Message-ID: <1438684580-11384-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1438682145-25986-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:33437 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755774AbbHDKgj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 06:36:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 04, 2015 at 05:55:45PM +0800, Jason Wang wrote:
-> virtio declares support for NETIF_F_FRAGLIST, but assumes
-> that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
-> always true with a fraglist.
-> 
-> A longer fraglist in the skb will make the call to skb_to_sgvec overflow
-> the sg array, leading to memory corruption.
-> 
-> Drop NETIF_F_FRAGLIST so we only get what we can handle.
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+This patch series removes the irq controller disable interrupt and
+adding a napi for tx event handling which improves the performance by
+~180Mbps on dra7-evm
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+[  5] local 192.168.10.116 port 5001 connected with 192.168.10.165 port 44176
+[  5]  0.0-60.0 sec  1.48 GBytes   210 Mbits/sec
+[  4] local 192.168.10.116 port 5001 connected with 192.168.10.165 port 33257
+[  4]  0.0-60.0 sec  2.71 GBytes   386 Mbits/sec
 
-Especially important now that virtio_net: add gro capability
-was merged for net-next, making bridged setups create fraglists.
+Changes from initial version: 
+* Added a patch to have napi only for first interface as there is
+  no use of having seperate napis for each interface as the
+  interrupt is shared by both interface and only one napi is
+  scheduled for each interrupt.
 
-> ---
-> The patch is needed for stable.
-> ---
->  drivers/net/virtio_net.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 7fbca37..2347a73 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1756,9 +1756,9 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	/* Do we support "hardware" checksums? */
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
->  		/* This opens up the world of extra features. */
-> -		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-> +		dev->hw_features |= NETIF_F_HW_CSUM|NETIF_F_SG;
->  		if (csum)
-> -			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-> +			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG;
->  
->  		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
->  			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
-> -- 
-> 2.1.4
+Mugunthan V N (3):
+  drivers: net: cpsw: remove  disable_irq/enable_irq as irq can be
+    masked from cpsw itself
+  drivers: net: cpsw: dual_emac: simplify napi usage
+  drivers: net: cpsw: add separate napi for tx
+
+ drivers/net/ethernet/ti/cpsw.c | 83 ++++++++++++++++++------------------------
+ 1 file changed, 35 insertions(+), 48 deletions(-)
+
+-- 
+2.5.0.234.gefc8a62
