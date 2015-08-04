@@ -1,79 +1,86 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 14/14] batman-adv: Fix potentially broken skb network header access
-Date: Tue,  4 Aug 2015 18:35:34 +0200
-Message-ID: <1438706134-3492-15-git-send-email-antonio__4983.52802028439$1438706748$gmane$org@meshcoding.com>
+Subject: [PATCH 03/14] batman-adv: avoid DAT to mess up LAN state
+Date: Tue,  4 Aug 2015 18:35:23 +0200
+Message-ID: <1438706134-3492-4-git-send-email-antonio__33317.5740241588$1438707002$gmane$org@meshcoding.com>
 References: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
+	Antonio Quartulli <antonio@meshcoding.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:31572 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:39226 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751228AbbHDQpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 12:45:31 -0400
+	id S1753250AbbHDQtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 12:49:52 -0400
 In-Reply-To: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+When a node running DAT receives an ARP request from the LAN for the
+first time, it is likely that this node will request the ARP entry
+through the distributed ARP table (DAT) in the mesh.
 
-The two commits noted below added calls to ip_hdr() and ipv6_hdr(). The=
-y
-need a correctly set skb network header.
+Once a DAT reply is received the asking node must check if the MAC
+address for which the IP address has been asked is local. If it is, the
+node must drop the ARP reply bceause the client should have replied on
+its own locally.
 
-Unfortunately we cannot rely on the device drivers to set it for us.
-Therefore setting it in the beginning of the according ndo_start_xmit
-handler.
+Forwarding this reply means fooling any L2 bridge (e.g. Ethernet
+switches) lying between the batman-adv node and the LAN. This happens
+because the L2 bridge will think that the client sending the ARP reply
+lies somewhere in the mesh, while this node is sitting in the same LAN.
 
-=46ixes: 1d8ab8d3c176 ("batman-adv: Modified forwarding behaviour for m=
-ulticast packets")
-=46ixes: ab49886e3da7 ("batman-adv: Add IPv4 link-local/IPv6-ll-all-nod=
-es multicast support")
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+Reported-by: Simon Wunderlich <sw@simonwunderlich.de>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/soft-interface.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ net/batman-adv/distributed-arp-table.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-inte=
-rface.c
-index a2fc843..51cda3a 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -202,6 +202,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
- 	int gw_mode;
- 	enum batadv_forw_mode forw_mode;
- 	struct batadv_orig_node *mcast_single_orig =3D NULL;
-+	int network_offset =3D ETH_HLEN;
-=20
- 	if (atomic_read(&bat_priv->mesh_state) !=3D BATADV_MESH_ACTIVE)
- 		goto dropped;
-@@ -214,14 +215,18 @@ static int batadv_interface_tx(struct sk_buff *sk=
-b,
- 	case ETH_P_8021Q:
- 		vhdr =3D vlan_eth_hdr(skb);
-=20
--		if (vhdr->h_vlan_encapsulated_proto !=3D ethertype)
-+		if (vhdr->h_vlan_encapsulated_proto !=3D ethertype) {
-+			network_offset +=3D VLAN_HLEN;
- 			break;
-+		}
-=20
- 		/* fall through */
- 	case ETH_P_BATMAN:
- 		goto dropped;
- 	}
-=20
-+	skb_set_network_header(skb, network_offset);
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index fb54e6a..6d0b471 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -1138,6 +1138,9 @@ void batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
+  * @bat_priv: the bat priv with all the soft interface information
+  * @skb: packet to check
+  * @hdr_size: size of the encapsulation header
++ *
++ * Returns true if the packet was snooped and consumed by DAT. False if the
++ * packet has to be delivered to the interface
+  */
+ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
+ 					 struct sk_buff *skb, int hdr_size)
+@@ -1145,7 +1148,7 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
+ 	uint16_t type;
+ 	__be32 ip_src, ip_dst;
+ 	uint8_t *hw_src, *hw_dst;
+-	bool ret = false;
++	bool dropped = false;
+ 	unsigned short vid;
+ 
+ 	if (!atomic_read(&bat_priv->distributed_arp_table))
+@@ -1174,12 +1177,17 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
+ 	/* if this REPLY is directed to a client of mine, let's deliver the
+ 	 * packet to the interface
+ 	 */
+-	ret = !batadv_is_my_client(bat_priv, hw_dst, vid);
++	dropped = !batadv_is_my_client(bat_priv, hw_dst, vid);
 +
- 	if (batadv_bla_tx(bat_priv, skb, vid))
- 		goto dropped;
-=20
---=20
++	/* if this REPLY is sent on behalf of a client of mine, let's drop the
++	 * packet because the client will reply by itself
++	 */
++	dropped |= batadv_is_my_client(bat_priv, hw_src, vid);
+ out:
+-	if (ret)
++	if (dropped)
+ 		kfree_skb(skb);
+-	/* if ret == false -> packet has to be delivered to the interface */
+-	return ret;
++	/* if dropped == false -> deliver to the interface */
++	return dropped;
+ }
+ 
+ /**
+-- 
 2.5.0
