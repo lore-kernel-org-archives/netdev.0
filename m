@@ -1,76 +1,46 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: [B.A.T.M.A.N.] pull request [net]: batman-adv 20150804
-Date: Tue, 4 Aug 2015 21:50:10 +0200
-Message-ID: <55C11772.90804@meshcoding.com>
-References: <1438706134-3492-1-git-send-email-antonio@meshcoding.com>
- <20150804.124040.324026088945274161.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="SXgXNOvNl4dthrhrhrUsbxPaoSc7xrqNw"
-Cc: The list for a Better Approach To Mobile Ad-hoc
-	 Networking <b.a.t.m.a.n@lists.open-mesh.org>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net] r8169: enforce RX_MULTI_EN on rtl8168ep/8111ep chips
+Date: Tue,  4 Aug 2015 22:11:43 +0200
+Message-ID: <1438719103-22067-1-git-send-email-ivecera@redhat.com>
+Cc: alexander@bitspace.se, nic_swsd@realtek.com, romieu@fr.zoreil.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:30459 "EHLO s1.neomailbox.net"
+Received: from mx1.redhat.com ([209.132.183.28]:53488 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752803AbbHDTvC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2015 15:51:02 -0400
-In-Reply-To: <20150804.124040.324026088945274161.davem@davemloft.net>
+	id S1752411AbbHDULs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2015 16:11:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---SXgXNOvNl4dthrhrhrUsbxPaoSc7xrqNw
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Enforcing this flag in RxConfig for the mentioned chips fixes netdev
+watchdog issues prepended with AMD IOMMU message(s) like:
+AMD-Vi: Event logged [IO_PAGE_FAULT device=01:00.0 domain=0x001d address=0x0000000000003000 flags=0x0050]
 
+Note that this flag is also set in Realtek's own driver for these chips.
 
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Tested-by: Alexander Lindqvist <alexander@bitspace.se>
+---
+ drivers/net/ethernet/realtek/r8169.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-On 04/08/15 21:40, David Miller wrote:
-> From: Antonio Quartulli <antonio@meshcoding.com>
-> Date: Tue,  4 Aug 2015 18:35:20 +0200
->=20
->> here you have our batch of fixes intended for net/linux-4.2.
->=20
-> Sorry, you can't come to me this late in the -RC series with such
-> a huge collection of bug fixes.
->=20
-> Break out the most important critical ones, and only submit those.
-> The rest will have to go via net-next.
-
-Ok David, I will split it up.
-
-Thanks for the quick feedback!
-
-
-
---=20
-Antonio Quartulli
-
-
---SXgXNOvNl4dthrhrhrUsbxPaoSc7xrqNw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVwRd6AAoJEOb/4TMchkvfguoQAMohCKBSkrU5MLHw+EVCIes6
-vKfhvwV2knPYiosPGwP0J1SI09ILNonovYhGuAm31SB5qkmqynKbEYP2iSQ8hugH
-A82K1y3TvbBKe4t834f4M+1uUtqUZI2c5ZneVuMLo8yyNxx8gZbrV/n8PdwSVbic
-81lghhwNC03z92vVmeONpJyLK0Ia9AuYR7/HI36Y7cpUh0XJVlIDRiy1us3PZcg6
-vuiYQEmSz944fAjjGnEXMubM7bjVfbOagHUxfvVwlI11lRzq8aH+0ao/ZkISZYpz
-xDAvX9e2vbkFKNVud/D0FWc+9We3hyc1C/cXrWM5oHvvO/uxmkBGOkjkILTUnIzM
-G+RqzLKhANlSYHo5EbfpuXUIPN7I6qtfXOB8mS8ipge3mlCOT+9VUxVRyTUFVuoe
-UIwlK5IV1uRT3SH3Z8ABHldmv9aQwqVOH6Fm96mJcNVuvBM6psSgLmQrNza4Sn9A
-E5zYYcAwQ0YEm+dO/fVbbGxBy1C13V/Nn3X6YIJS9/ZS4GHvdV52UAlNKUtwHLfL
-uLvH9vDXgtHSOVCSFRK7OpR6tmnd7sT2IeJ5l8+j80to2a839i8LCwsORjkRYB2i
-3AoBZcJjWJxQv83Hs+c+EYlhzkK3eP+PjRrQeQCmDFBWUCWSkYiic2yfPqsYzI2j
-m8NUwoeOuj9abPTh3Ywr
-=aTvl
------END PGP SIGNATURE-----
-
---SXgXNOvNl4dthrhrhrUsbxPaoSc7xrqNw--
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 3df51fa..f790f61 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4875,10 +4875,12 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_46:
+ 	case RTL_GIGA_MAC_VER_47:
+ 	case RTL_GIGA_MAC_VER_48:
++		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
++		break;
+ 	case RTL_GIGA_MAC_VER_49:
+ 	case RTL_GIGA_MAC_VER_50:
+ 	case RTL_GIGA_MAC_VER_51:
+-		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
++		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST | RX_EARLY_OFF);
+ 		break;
+ 	default:
+ 		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST);
+-- 
+2.4.6
