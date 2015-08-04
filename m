@@ -1,55 +1,44 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net 1/2] bridge: netlink: account for the IFLA_BRPORT_PROXYARP attribute size and policy
-Date: Tue,  4 Aug 2015 19:06:32 +0200
-Message-ID: <1438707993-14561-2-git-send-email-razor@blackwall.org>
-References: <1438707993-14561-1-git-send-email-razor@blackwall.org>
-Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, kyeyoonp@codeaurora.org,
-	jouni@codeaurora.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:36793 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752584AbbHDRGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 13:06:52 -0400
-Received: by wicgj17 with SMTP id gj17so159443688wic.1
-        for <netdev@vger.kernel.org>; Tue, 04 Aug 2015 10:06:51 -0700 (PDT)
-In-Reply-To: <1438707993-14561-1-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH] net: pktgen: don't abuse current->state in
+	pktgen_thread_worker()
+Date: Tue, 4 Aug 2015 19:08:27 +0200
+Message-ID: <20150804170827.GA1264@redhat.com>
+References: <20150804163334.GA31842@redhat.com> <20150804164056.GA2758@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Huang Ying <ying.huang@intel.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jan Stancek <jstancek@redhat.com>,
+	Jesper Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150804164056.GA2758@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On 08/04, Marcelo Ricardo Leitner wrote:
+>
+> On Tue, Aug 04, 2015 at 06:33:34PM +0200, Oleg Nesterov wrote:
+> > Commit 1fbe4b46caca "net: pktgen: kill the Wait for kthread_stop
+> > code in pktgen_thread_worker()" removed (in particular) the final
+> > __set_current_state(TASK_RUNNING) and I didn't notice the previous
+> > set_current_state(TASK_INTERRUPTIBLE). This triggers the warning
+> > in __might_sleep() after return.
+> >
+> > Afaics, we can simply remove both set_current_state()'s, and we
+> > could do this a long ago right after ef87979c273a2 "pktgen: better
+> > scheduler friendliness" which changed pktgen_thread_worker() to
+> > use wait_event_interruptible_timeout().
+> >
+> > Reported-by: Huang Ying <ying.huang@intel.com>
+> > Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+>
+> Interesting that it didn't happen in my tests yet per description it
+> should have. Huang, did you do anything special to trigger this?
 
-The attribute size wasn't accounted for in the get_slave_size() callback
-(br_port_get_slave_size) when it was introduced, so fix it now. Also add
-a policy entry for it in br_port_policy.
+Do you have CONFIG_DEBUG_ATOMIC_SLEEP=y ?
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Fixes: 958501163ddd ("bridge: Add support for IEEE 802.11 Proxy ARP")
----
- net/bridge/br_netlink.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 3da5525eb8a2..5390536d500c 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -112,6 +112,7 @@ static inline size_t br_port_info_size(void)
- 		+ nla_total_size(1)	/* IFLA_BRPORT_FAST_LEAVE */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_LEARNING */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_UNICAST_FLOOD */
-+		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP */
- 		+ 0;
- }
- 
-@@ -506,6 +507,7 @@ static const struct nla_policy br_port_policy[IFLA_BRPORT_MAX + 1] = {
- 	[IFLA_BRPORT_FAST_LEAVE]= { .type = NLA_U8 },
- 	[IFLA_BRPORT_LEARNING]	= { .type = NLA_U8 },
- 	[IFLA_BRPORT_UNICAST_FLOOD] = { .type = NLA_U8 },
-+	[IFLA_BRPORT_PROXYARP]	= { .type = NLA_U8 },
- };
- 
- /* Change the state of the port and notify spanning tree */
--- 
-2.4.3
+Oleg.
