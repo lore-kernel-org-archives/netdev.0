@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netback: Allocate fraglist early to avoid complex
- rollback
-Date: Mon, 03 Aug 2015 22:23:15 -0700 (PDT)
-Message-ID: <20150803.222315.50301920889896898.davem@davemloft.net>
-References: <1438612683-5783-1-git-send-email-ross.lagerwall@citrix.com>
+Subject: Re: [PATCH] net: fec: fix initial runtime PM refcount
+Date: Mon, 03 Aug 2015 22:23:58 -0700 (PDT)
+Message-ID: <20150803.222358.372324734978710162.davem@davemloft.net>
+References: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	wei.liu2@citrix.com, ian.campbell@citrix.com
-To: ross.lagerwall@citrix.com
+Cc: andrew@lunn.ch, u.kleine-koenig@pengutronix.de,
+	netdev@vger.kernel.org, kernel@pengutronix.de,
+	patchwork-lst@pengutronix.de
+To: l.stach@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47237 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47243 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752892AbbHDFXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 01:23:16 -0400
-In-Reply-To: <1438612683-5783-1-git-send-email-ross.lagerwall@citrix.com>
+	with ESMTP id S1753001AbbHDFX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 01:23:59 -0400
+In-Reply-To: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ross Lagerwall <ross.lagerwall@citrix.com>
-Date: Mon, 3 Aug 2015 15:38:03 +0100
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Mon,  3 Aug 2015 17:50:11 +0200
 
-> Determine if a fraglist is needed in the tx path, and allocate it if
-> necessary before setting up the copy and map operations.
-> Otherwise, undoing the copy and map operations is tricky.
+> The clocks are initially active and thus the device is marked active.
+> This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
+> call at the end of probe then leaves us with an invalid refcount of -1,
+> which in turn leads to the device staying in suspended state even though
+> netdev open had been called.
 > 
-> This fixes a use-after-free: if allocating the fraglist failed, the copy
-> and map operations that had been set up were still executed, writing
-> over the data area of a freed skb.
+> Fix this by initializing the refcount to be coherent with the initial
+> device status.
 > 
-> Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+> Fixes:
+> 8fff755e9f8 (net: fec: Ensure clocks are enabled while using mdio bus)
+> 
+> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+> ---
+> Please apply this as a fix for 4.2
 
-Applied, thanks.
+I'm waiting for feedback to be given wrt. the runtime-pm issues.
