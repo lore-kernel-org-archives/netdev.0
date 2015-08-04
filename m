@@ -1,56 +1,62 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v2] openvswitch: Make 100 percents
- packets sampled when sampling rate is 1.
-Date: Tue, 4 Aug 2015 15:00:28 -0700
-Message-ID: <CALnjE+pA3ctWthHuMqOwrtcHsFAAM=s5Ptpo01h55sQO8yqTCg@mail.gmail.com>
-References: <1438661255-22103-1-git-send-email-wenyuz@vmware.com>
+From: Richard Laing <Richard.Laing@alliedtelesis.co.nz>
+Subject: Re: [PATCH 1/1] net/ipv4: Enable flow-based ECMP
+Date: Tue, 4 Aug 2015 22:07:45 +0000
+Message-ID: <55C137B0.5020302@alliedtelesis.co.nz>
+References: <1438651727-4429-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+ <20150803223158.40ae7d52@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jesse Gross <jgross-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-To: Wenyu Zhang <wenyuz-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1438661255-22103-1-git-send-email-wenyuz-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:36177 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752118AbbHDWHv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 18:07:51 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 834C2806B6
+	for <netdev@vger.kernel.org>; Wed,  5 Aug 2015 10:07:49 +1200 (NZST)
+In-Reply-To: <20150803223158.40ae7d52@urahara>
+Content-Language: en-US
+Content-ID: <1CD6D67E1E5E86418EDB829DE6E5BEBC@atlnz.lc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBBdWcgMywgMjAxNSBhdCA5OjA3IFBNLCBXZW55dSBaaGFuZyA8d2VueXV6QHZtd2Fy
-ZS5jb20+IHdyb3RlOgo+IFdoZW4gc2FtcGxpbmcgcmF0ZSBpcyAxLCB0aGUgc2FtcGxpbmcgcHJv
-YmFiaWxpdHkgaXMgVUlOVDMyX01BWC4gVGhlIHBhY2tldAo+IHNob3VsZCBiZSBzYW1wbGVkIGV2
-ZW4gdGhlIHByYW5kb21fdTMyKCkgZ2VuZXJhdGUgdGhlIG51bWJlciBvZiBVSU5UMzJfTUFYLgo+
-IEFuZCBub25lIHBhY2tldCBuZWVkIGJlIHNhbXBsZWQgd2hlbiB0aGUgcHJvYmFiaWxpdHkgaXMg
-MC4KPgo+IFNpZ25lZC1vZmYtYnk6IFdlbnl1IFpoYW5nIDx3ZW55dXpAdm13YXJlLmNvbT4KClBh
-dGNoIGxvb2tzIGdvb2QsIEkgaGF2ZSBmb2xsb3dpbmcgbWlub3IgY29tbWVudHMuCgo+IC0tLQo+
-ICBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jIHwgICAgNCArKystCj4gIDEgZmlsZSBjaGFuZ2Vk
-LCAzIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3Bl
-bnZzd2l0Y2gvYWN0aW9ucy5jIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+IGluZGV4IGNm
-MDRjMmYuLmM4MWJjZjUgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+
-ICsrKyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPiBAQCAtNjY5LDkgKzY2OSwxMSBAQCBz
-dGF0aWMgaW50IHNhbXBsZShzdHJ1Y3QgZGF0YXBhdGggKmRwLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-LAo+Cj4gICAgICAgICBmb3IgKGEgPSBubGFfZGF0YShhdHRyKSwgcmVtID0gbmxhX2xlbihhdHRy
-KTsgcmVtID4gMDsKPiAgICAgICAgICAgICAgICAgIGEgPSBubGFfbmV4dChhLCAmcmVtKSkgewo+
-ICsgICAgICAgICAgICAgICB1aW50MzJfdCBwcm9iYWJpbGl0eTsKPiAgICAgICAgICAgICAgICAg
-c3dpdGNoIChubGFfdHlwZShhKSkgewpUaGVyZSBzaG91bGQgYmUgYmxhbmsgbGluZSBhZnRlciB2
-YXJpYWJsZSBkZWZpbml0aW9ucy4KCj4gICAgICAgICAgICAgICAgIGNhc2UgT1ZTX1NBTVBMRV9B
-VFRSX1BST0JBQklMSVRZOgo+IC0gICAgICAgICAgICAgICAgICAgICAgIGlmIChwcmFuZG9tX3Uz
-MigpID49IG5sYV9nZXRfdTMyKGEpKQo+ICsgICAgICAgICAgICAgICAgICAgICAgIHByb2JhYmls
-aXR5ID0gbmxhX2dldF91MzIoYSk7Cj4gKyAgICAgICAgICAgICAgICAgICAgICAgaWYgKCFwcm9i
-YWJpbGl0eSB8fCBwcmFuZG9tX3UzMigpID4gcHJvYmFiaWxpdHkpCj4gICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICByZXR1cm4gMDsKPiAgICAgICAgICAgICAgICAgICAgICAgICBicmVh
-azsKPgpJIGdvdCBmb2xsb3dpbmcgd2FybmluZyBvbiBjaGVja3BhdGNoLnBsCgouL3NjcmlwdHMv
-Y2hlY2twYXRjaC5wbAowMDAxLW9wZW52c3dpdGNoLU1ha2UtMTAwLXBlcmNlbnRzLXBhY2tldHMt
-c2FtcGxlZC13aGVuLXMucGF0Y2gKCkNIRUNLOiBQcmVmZXIga2VybmVsIHR5cGUgJ3UzMicgb3Zl
-ciAndWludDMyX3QnCgojMjQ6IEZJTEU6IG5ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmM6NjcyOgoK
-KyB1aW50MzJfdCBwcm9iYWJpbGl0eTsKCgp0b3RhbDogMCBlcnJvcnMsIDAgd2FybmluZ3MsIDEg
-Y2hlY2tzLCAxMiBsaW5lcyBjaGVja2VkCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRw
-Oi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Hi Stephen,
+
+Given that fib_nhs is currently an int I would rather keep live_nexthops 
+also as an int to match, probably fib_nhs could at least be set as 
+unsigned or changed to u16 or even u8 perhaps.
+
+Best Regards,
+Richard
+
+On 08/04/2015 05:31 PM, Stephen Hemminger wrote:
+> On Tue,  4 Aug 2015 13:28:47 +1200
+> Richard Laing <richard.laing@alliedtelesis.co.nz> wrote:
+>
+>> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+>> index 5fa643b..7db9f72 100644
+>> --- a/include/net/ip_fib.h
+>> +++ b/include/net/ip_fib.h
+>> @@ -117,6 +117,8 @@ struct fib_info {
+>>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
+>>   	int			fib_power;
+>>   #endif
+>> +	/* Cache the number of live nexthops for flow based ECMP calculation. */
+>> +	int			live_nexthops;
+> unsigned or u16 ? rather than risking sign issues.
+
+-- 
+
+*Richard Laing*
+Software Team Leader*
+Allied Telesis Labs*| 27 Nazareth Ave | Christchurch 8024 | New Zealand
+Phone: +64 3 3393000 | DDI: +64 3 339 9248 | Web: *alliedtelesis.com 
+<http://alliedtelesis.com/>*<skype:andrewriddell3?chat>
+
+
+http://productselector.alliedtelesis.eu/ 
+<http://productselector.alliedtelesis.eu/>
