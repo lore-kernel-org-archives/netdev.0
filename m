@@ -1,62 +1,41 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH V2 net-next 0/6] test_bpf improvements
-Date: Tue,  4 Aug 2015 15:19:06 +0200
-Message-ID: <1438694352-17469-1-git-send-email-nschichan@freebox.fr>
+Subject: [PATCH V2 net-next 1/6] test_bpf: avoid oopsing the kernel when generate_test_data() fails.
+Date: Tue,  4 Aug 2015 15:19:07 +0200
+Message-ID: <1438694352-17469-2-git-send-email-nschichan@freebox.fr>
+References: <1438694352-17469-1-git-send-email-nschichan@freebox.fr>
 Cc: Nicolas Schichan <nschichan@freebox.fr>
 To: Daniel Borkmann <daniel@iogearbox.net>,
 	Alexei Starovoitov <ast@plumgrid.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438694352-17469-1-git-send-email-nschichan@freebox.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Please find below the patch series with my latest changes to test_bpf.
+---
+ lib/test_bpf.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-The first patch checks for unexpected NULL generated skbs before
-running the filter.
-
-The second patch adds the possibility for tests to generate fragmented
-skbs.
-
-The third patch tests LD_ABS and LD_IND on fragmented skbs.
-
-The fourth patch adds the possibility to restrict the tests being run
-by specifying the name/id/range of the test(s) to run via module
-parameters.
-
-The fifth patch tests LD_ABS and LD_IND on non fragmented skbs with
-various sizes and alignments.
-
-The sixth and final patch checks that the interpreter or JIT correctly
-resets A and X to 0.
-
-This serie is against today's net-next tree.
-
-Changes in V2:
-
-* move declaration of 'ptr' in if() block in patch 2/6.
-
-* fix various typos in patch 4/6
-
-* rework default init of test_range array and cleanup exclude_test()
-  return condition in patch 4/6.
-
-Regards,
-
-Nicolas Schichan (6):
-  test_bpf: avoid oopsing the kernel when generate_test_data() fails.
-  test_bpf: allow tests to specify an skb fragment.
-  test_bpf: test LD_ABS and LD_IND instructions on fragmented skbs.
-  test_bpf: allow running of a single test specified as a module
-    parameter.
-  test_bpf: add more tests for LD_ABS and LD_IND.
-  test_bpf: add tests checking that JIT/interpreter sets A and X to 0.
-
- lib/test_bpf.c | 645 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 644 insertions(+), 1 deletion(-)
-
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 3afddf2..6843d0b 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -4672,6 +4672,11 @@ static int run_one(const struct bpf_prog *fp, struct bpf_test *test)
+ 			break;
+ 
+ 		data = generate_test_data(test, i);
++		if (!data && !(test->aux & FLAG_NO_DATA)) {
++			pr_cont("data generation failed ");
++			err_cnt++;
++			break;
++		}
+ 		ret = __run_one(fp, data, runs, &duration);
+ 		release_test_data(test, data);
+ 
 -- 
 1.9.1
