@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH 09/10] net: Use VRF device index for socket lookups
-Date: Wed,  5 Aug 2015 11:14:52 -0600
-Message-ID: <1438794894-70217-10-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH] iproute2: Add support for VRF device
+Date: Wed,  5 Aug 2015 11:14:54 -0600
+Message-ID: <1438794894-70217-12-git-send-email-dsa@cumulusnetworks.com>
 References: <1438794894-70217-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,118 +12,164 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:34042 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587AbbHERQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 13:16:39 -0400
-Received: by igk11 with SMTP id 11so118895464igk.1
-        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 10:16:38 -0700 (PDT)
+Received: from mail-io0-f174.google.com ([209.85.223.174]:36640 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752587AbbHERQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 13:16:42 -0400
+Received: by ioeg141 with SMTP id g141so56011762ioe.3
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 10:16:42 -0700 (PDT)
 In-Reply-To: <1438794894-70217-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The intent of the VRF device is to leverage the existing SO_BINDTODEVICE
-as a means of creating L3 domains. Since sockets are expected to be bound
-to the VRF device the index of the master device needs to be used for
-socket lookups.
+Allow user to create a vrf device and specify its table binding.
+Based on the iplink_vlan implementation.
 
 Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/syncookies.c |  5 ++++-
- net/ipv4/tcp_input.c  |  6 +++++-
- net/ipv4/tcp_ipv4.c   | 11 +++++++++--
- 3 files changed, 18 insertions(+), 4 deletions(-)
+ include/linux/if_link.h |  8 +++++
+ ip/Makefile             |  2 +-
+ ip/iplink.c             |  2 +-
+ ip/iplink_vrf.c         | 85 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 95 insertions(+), 2 deletions(-)
+ create mode 100644 ip/iplink_vrf.c
 
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index d70b1f603692..e5c8b1240278 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -18,6 +18,7 @@
- #include <linux/export.h>
- #include <net/tcp.h>
- #include <net/route.h>
-+#include <net/vrf.h>
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index b905cf7f4948..74dedf4320b8 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -338,6 +338,14 @@ enum macvlan_macaddr_mode {
  
- extern int sysctl_tcp_syncookies;
+ #define MACVLAN_FLAG_NOPROMISC	1
  
-@@ -348,7 +349,9 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
- 	treq->snt_synack	= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsecr : 0;
- 	treq->tfo_listener	= false;
- 
--	ireq->ir_iif = sk->sk_bound_dev_if;
-+	ireq->ir_iif = vrf_master_ifindex_by_index(sock_net(sk), skb->skb_iif);
-+	if (!ireq->ir_iif)
-+		ireq->ir_iif = sk->sk_bound_dev_if;
- 
- 	/* We throwed the options of the initial SYN away, so we hope
- 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4e4d6bcd0ca9..6b96240a4055 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -72,6 +72,7 @@
- #include <net/dst.h>
- #include <net/tcp.h>
- #include <net/inet_common.h>
-+#include <net/vrf.h>
- #include <linux/ipsec.h>
- #include <asm/unaligned.h>
- #include <linux/errqueue.h>
-@@ -6141,7 +6142,10 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	tcp_openreq_init(req, &tmp_opt, skb, sk);
- 
- 	/* Note: tcp_v6_init_req() might override ir_iif for link locals */
--	inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
-+	inet_rsk(req)->ir_iif = vrf_master_ifindex_by_index(sock_net(sk),
-+							    skb->skb_iif);
-+	if (!inet_rsk(req)->ir_iif)
-+		inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
- 
- 	af_ops->init_req(req, sk, skb);
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d27eb549ced6..0f8ed98a2e64 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -75,6 +75,7 @@
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
- #include <net/busy_poll.h>
-+#include <net/vrf.h>
- 
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-@@ -682,6 +683,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 	 */
- 	if (sk)
- 		arg.bound_dev_if = sk->sk_bound_dev_if;
-+	if (!arg.bound_dev_if && skb->dev)
-+		arg.bound_dev_if = vrf_master_ifindex_rcu(skb->dev);
- 
- 	arg.tos = ip_hdr(skb)->tos;
- 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
-@@ -766,8 +769,10 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
- 				      ip_hdr(skb)->saddr, /* XXX */
- 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
- 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
--	if (oif)
--		arg.bound_dev_if = oif;
-+	arg.bound_dev_if = oif ? : vrf_master_ifindex_rcu(skb_dst(skb)->dev);
-+	if (!arg.bound_dev_if)
-+		arg.bound_dev_if = vrf_master_ifindex_rcu(skb->dev);
++/* VRF section */
++enum {
++	IFLA_VRF_UNSPEC,
++	IFLA_VRF_TABLE,
++	__IFLA_VRF_MAX
++};
 +
- 	arg.tos = tos;
- 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
- 			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
-@@ -1269,6 +1274,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	ireq		      = inet_rsk(req);
- 	sk_daddr_set(newsk, ireq->ir_rmt_addr);
- 	sk_rcv_saddr_set(newsk, ireq->ir_loc_addr);
-+	if (netif_index_is_vrf(sock_net(newsk), ireq->ir_iif))
-+		newsk->sk_bound_dev_if = ireq->ir_iif;
- 	newinet->inet_saddr	      = ireq->ir_loc_addr;
- 	inet_opt	      = ireq->opt;
- 	rcu_assign_pointer(newinet->inet_opt, inet_opt);
++#define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
+ /* IPVLAN section */
+ enum {
+ 	IFLA_IPVLAN_UNSPEC,
+diff --git a/ip/Makefile b/ip/Makefile
+index 77653ecc5785..d8b38ac2e44b 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -7,7 +7,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
+     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o \
+     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
+     iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
+-    iplink_geneve.o
++    iplink_geneve.o iplink_vrf.o
+ 
+ RTMONOBJ=rtmon.o
+ 
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 369d50eab94e..14bf7211a447 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -94,7 +94,7 @@ void iplink_usage(void)
+ 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
+ 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
+ 		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon |\n");
+-		fprintf(stderr, "          bond_slave | ipvlan | geneve }\n");
++		fprintf(stderr, "          bond_slave | ipvlan | geneve | vrf }\n");
+ 	}
+ 	exit(-1);
+ }
+diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
+new file mode 100644
+index 000000000000..0d7e21c7c152
+--- /dev/null
++++ b/ip/iplink_vrf.c
+@@ -0,0 +1,85 @@
++/* iplink_vrf.c	VRF device support
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Shrijeet Mukherjee <shm@cumulusnetworks.com>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/socket.h>
++#include <linux/if_link.h>
++
++#include "rt_names.h"
++#include "utils.h"
++#include "ip_common.h"
++
++static void vrf_explain(FILE *f)
++{
++	fprintf(f, "Usage: ... vrf table TABLEID \n");
++}
++
++static void explain(void)
++{
++	vrf_explain(stderr);
++}
++
++static int table_arg(void)
++{
++	fprintf(stderr,"Error: argument of \"table\" must be 0-32767 and currently unused\n");
++	return -1;
++}
++
++static int vrf_parse_opt(struct link_util *lu, int argc, char **argv,
++			    struct nlmsghdr *n)
++{
++	while (argc > 0) {
++		if (matches(*argv, "table") == 0) {
++			__u32 table = 0;
++			NEXT_ARG();
++
++			table = atoi(*argv);
++			if (table < 0 || table > 32767)
++				return table_arg();
++			addattr32(n, 1024, IFLA_VRF_TABLE, table);
++		} else if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "vrf: unknown option \"%s\"?\n",
++				*argv);
++			explain();
++			return -1;
++		}
++		argc--, argv++;
++	}
++
++	return 0;
++}
++
++static void vrf_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++{
++	if (!tb)
++		return;
++
++	if (tb[IFLA_VRF_TABLE])
++		fprintf(f, "table %u ", rta_getattr_u32(tb[IFLA_VRF_TABLE]));
++}
++
++static void vrf_print_help(struct link_util *lu, int argc, char **argv,
++			      FILE *f)
++{
++	vrf_explain(f);
++}
++
++struct link_util vrf_link_util = {
++	.id		= "vrf",
++	.maxattr	= IFLA_VRF_MAX,
++	.parse_opt	= vrf_parse_opt,
++	.print_opt	= vrf_print_opt,
++	.print_help	= vrf_print_help,
++};
 -- 
 2.3.2 (Apple Git-55)
