@@ -1,7 +1,7 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv2 net-next 8/9] openvswitch: Allow matching on conntrack label
-Date: Tue,  4 Aug 2015 21:49:58 -0700
-Message-ID: <1438750199-9061-9-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv2 net-next 9/9] openvswitch: Allow attaching helpers to ct action
+Date: Tue,  4 Aug 2015 21:49:59 -0700
+Message-ID: <1438750199-9061-10-git-send-email-joestringer@nicira.com>
 References: <1438750199-9061-1-git-send-email-joestringer@nicira.com>
 Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
 	jpettit@nicira.com, pshelar@nicira.com, azhou@nicira.com,
@@ -13,308 +13,238 @@ In-Reply-To: <1438750199-9061-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow matching and setting the conntrack label field. As with ct_mark,
-this is populated by executing the ct() action, and is a writable field.
-The set_field() action may be used to modify the label, which will take
-effect on the most recent conntrack entry.
+Add support for using conntrack helpers to assist protocol detection.
+The new OVS_CT_ATTR_HELPER attribute of the ct action specifies a helper
+to be used for this connection.
 
-E.g.: actions:ct(zone=1),set_field(1->ct_label)
-
-This will perform conntrack lookup in zone 1, then modify the label for
-that entry. The conntrack entry itself must be committed using the
-"commit" flag in the conntrack action flags for this change to persist.
+Example ODP flows allowing FTP connections from ports 1->2:
+in_port=1,tcp,action=ct(helper=ftp,commit),2
+in_port=2,tcp,ct_state=-trk,action=ct(),recirc(1)
+recirc_id=1,in_port=2,tcp,ct_state=+trk-new+est,action=1
+recirc_id=1,in_port=2,tcp,ct_state=+trk+rel,action=1
 
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
 ---
-v2: Split out setting the connlabel size for the current namespace.
----
- include/uapi/linux/openvswitch.h |  6 ++++
- net/openvswitch/actions.c        |  4 +++
- net/openvswitch/conntrack.c      | 68 ++++++++++++++++++++++++++++++++++++++++
- net/openvswitch/conntrack.h      | 15 +++++++++
- net/openvswitch/flow.c           |  1 +
- net/openvswitch/flow.h           |  1 +
- net/openvswitch/flow_netlink.c   | 18 ++++++++++-
- 7 files changed, 112 insertions(+), 1 deletion(-)
+ include/uapi/linux/openvswitch.h |   1 +
+ net/openvswitch/conntrack.c      | 109 ++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 108 insertions(+), 2 deletions(-)
 
 diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 207788c..f360dc9 100644
+index f360dc9..e816170 100644
 --- a/include/uapi/linux/openvswitch.h
 +++ b/include/uapi/linux/openvswitch.h
-@@ -326,6 +326,7 @@ enum ovs_key_attr {
- 	OVS_KEY_ATTR_CT_STATE,	/* u8 bitmask of OVS_CS_F_* */
- 	OVS_KEY_ATTR_CT_ZONE,	/* u16 connection tracking zone. */
- 	OVS_KEY_ATTR_CT_MARK,	/* u32 connection tracking mark */
-+	OVS_KEY_ATTR_CT_LABEL,	/* 16-octet connection tracking label */
- 
- #ifdef __KERNEL__
- 	OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ip_tunnel_info */
-@@ -438,6 +439,11 @@ struct ovs_key_nd {
- 	__u8	nd_tll[ETH_ALEN];
+@@ -626,6 +626,7 @@ enum ovs_ct_attr {
+ 	OVS_CT_ATTR_UNSPEC,
+ 	OVS_CT_ATTR_FLAGS,      /* u8 bitmask of OVS_CT_F_*. */
+ 	OVS_CT_ATTR_ZONE,       /* u16 zone id. */
++	OVS_CT_ATTR_HELPER,
+ 	__OVS_CT_ATTR_MAX
  };
  
-+#define OVS_CT_LABEL_LEN	16
-+struct ovs_key_ct_label {
-+	__u8	ct_label[OVS_CT_LABEL_LEN];
-+};
-+
- /* OVS_KEY_ATTR_CT_STATE flags */
- #define OVS_CS_F_NEW               0x01 /* Beginning of a new connection. */
- #define OVS_CS_F_ESTABLISHED       0x02 /* Part of an existing connection. */
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index e96e516..2e3ff11 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -944,6 +944,10 @@ static int execute_masked_set_action(struct sk_buff *skb,
- 				      *get_mask(a, u32 *));
- 		break;
- 
-+	case OVS_KEY_ATTR_CT_LABEL:
-+		err = ovs_ct_set_label(skb, flow_key, nla_data(a),
-+				get_mask(a, struct ovs_key_ct_label *));
-+		break;
- 	}
- 
- 	return err;
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 81b80da..6a64a32 100644
+index 6a64a32..1f2a9bc 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
 @@ -15,6 +15,7 @@
  #include <linux/openvswitch.h>
  #include <net/ip.h>
  #include <net/netfilter/nf_conntrack_core.h>
-+#include <net/netfilter/nf_conntrack_labels.h>
++#include <net/netfilter/nf_conntrack_helper.h>
+ #include <net/netfilter/nf_conntrack_labels.h>
  #include <net/netfilter/nf_conntrack_zones.h>
  #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+@@ -30,6 +31,7 @@ struct ovs_ct_len_tbl {
+ };
  
-@@ -110,6 +111,30 @@ u32 ovs_ct_get_mark(const struct sk_buff *skb)
- 	return ct ? ct->mark : 0;
+ struct ovs_conntrack_info {
++	struct nf_conntrack_helper *helper;
+ 	struct nf_conn *ct;
+ 	u32 flags;
+ 	u16 zone;
+@@ -145,6 +147,51 @@ bool ovs_ct_state_valid(const struct sw_flow_key *key)
+ 	return __ovs_ct_state_valid(key->ct.state);
  }
  
-+void ovs_ct_get_label(const struct sk_buff *skb,
-+		      struct ovs_key_ct_label *label)
++/* 'skb' should already be pulled to nh_ofs. */
++static int ovs_ct_helper(struct sk_buff *skb, u16 proto)
 +{
++	const struct nf_conntrack_helper *helper;
++	const struct nf_conn_help *help;
 +	enum ip_conntrack_info ctinfo;
-+	struct nf_conn_labels *cl = NULL;
++	unsigned int protoff;
 +	struct nf_conn *ct;
 +
 +	ct = nf_ct_get(skb, &ctinfo);
-+	if (ct)
-+		cl = nf_ct_labels_find(ct);
++	if (!ct || ctinfo == IP_CT_RELATED_REPLY)
++		return NF_ACCEPT;
 +
-+	if (cl) {
-+		size_t len = cl->words * sizeof(long);
++	help = nfct_help(ct);
++	if (!help)
++		return NF_ACCEPT;
 +
-+		if (len > OVS_CT_LABEL_LEN)
-+			len = OVS_CT_LABEL_LEN;
-+		else if (len < OVS_CT_LABEL_LEN)
-+			memset(label, 0, OVS_CT_LABEL_LEN);
-+		memcpy(label, cl->bits, len);
-+	} else {
-+		memset(label, 0, OVS_CT_LABEL_LEN);
++	helper = rcu_dereference(help->helper);
++	if (!helper)
++		return NF_ACCEPT;
++
++	switch (proto) {
++	case NFPROTO_IPV4:
++		protoff = ip_hdrlen(skb);
++		break;
++	case NFPROTO_IPV6: {
++		u8 nexthdr = ipv6_hdr(skb)->nexthdr;
++		__be16 frag_off;
++
++		protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),
++					   &nexthdr, &frag_off);
++		if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
++			pr_debug("proto header not found\n");
++			return NF_ACCEPT;
++		}
++		break;
 +	}
++	default:
++		WARN_ONCE(1, "helper invoked on non-IP family!");
++		return NF_DROP;
++	}
++
++	return helper->help(skb, protoff, ct, ctinfo);
 +}
 +
- static bool __ovs_ct_state_valid(u8 state)
+ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+ 			    u16 zone, struct sk_buff *skb)
  {
- 	return (state && !(state & OVS_CS_F_INVALID));
-@@ -202,6 +227,7 @@ static void __ovs_ct_update_key(struct sk_buff *skb, struct sw_flow_key *key,
- 	key->ct.state = state;
- 	key->ct.zone = zone;
- 	key->ct.mark = ovs_ct_get_mark(skb);
-+	ovs_ct_get_label(skb, &key->ct.label);
- }
+@@ -217,6 +264,13 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
+ 		return false;
+ 	if (info->zone != nf_ct_zone(ct))
+ 		return false;
++	if (info->helper) {
++		struct nf_conn_help *help;
++
++		help = nf_ct_ext_find(ct, NF_CT_EXT_HELPER);
++		if (help && help->helper != info->helper)
++			return false;
++	}
  
- static void ovs_ct_update_key(struct sk_buff *skb, struct sw_flow_key *key,
-@@ -359,6 +385,41 @@ int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
+ 	return true;
+ }
+@@ -274,6 +328,11 @@ static int __ovs_ct_lookup(struct net *net, const struct sw_flow_key *key,
+ 		if (nf_conntrack_in(net, info->family, NF_INET_PRE_ROUTING,
+ 				    skb) != NF_ACCEPT)
+ 			return -ENOENT;
++
++		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
++			WARN_ONCE(1, "helper rejected packet");
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	return 0;
+@@ -420,15 +479,41 @@ int ovs_ct_set_label(struct sk_buff *skb, struct sw_flow_key *key,
  #endif
  }
  
-+int ovs_ct_set_label(struct sk_buff *skb, struct sw_flow_key *key,
-+		     const struct ovs_key_ct_label *label,
-+		     const struct ovs_key_ct_label *mask)
++static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
++			     const struct sw_flow_key *key, bool log)
 +{
-+#ifdef CONFIG_NF_CONNTRACK_LABELS
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn_labels *cl;
-+	struct nf_conn *ct;
-+	int err;
++	struct nf_conntrack_helper *helper;
++	struct nf_conn_help *help;
 +
-+	/* This must happen directly after lookup/commit. */
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (!ct)
-+		return -EINVAL;
-+
-+	cl = nf_ct_labels_find(ct);
-+	if (!cl) {
-+		nf_ct_labels_ext_add(ct);
-+		cl = nf_ct_labels_find(ct);
++	helper = nf_conntrack_helper_try_module_get(name, info->family,
++						    key->ip.proto);
++	if (!helper) {
++		OVS_NLERR(log, "Unknown helper \"%s\"", name);
++		return -ENOENT;
 +	}
-+	if (!cl || cl->words * sizeof(long) < OVS_CT_LABEL_LEN)
-+		return -ENOSPC;
 +
-+	err = nf_connlabels_replace(ct, (u32 *)label, (u32 *)mask,
-+				    OVS_CT_LABEL_LEN / sizeof(u32));
-+	if (err)
-+		return err;
++	help = nf_ct_helper_ext_add(info->ct, helper, GFP_KERNEL);
++	if (!help) {
++		module_put(helper->me);
++		return -ENOMEM;
++	}
 +
-+	ovs_ct_get_label(skb, &key->ct.label);
++	help->helper = helper;
++	info->helper = helper;
 +	return 0;
-+#else
-+	return -ENOTSUPP;
-+#endif
 +}
 +
  static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
  	[OVS_CT_ATTR_FLAGS]	= { .minlen = sizeof(u32),
  				    .maxlen = sizeof(u32) },
-@@ -426,6 +487,10 @@ bool ovs_ct_verify(enum ovs_key_attr attr)
- 	if (attr & OVS_KEY_ATTR_CT_MARK)
- 		return true;
- #endif
-+#ifdef CONFIG_NF_CONNTRACK_LABELS
-+	if (attr & OVS_KEY_ATTR_CT_LABEL)
-+		return true;
-+#endif
- 
- 	return false;
- }
-@@ -504,6 +569,8 @@ void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
- {
- 	data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
- 	data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
-+	if (nf_connlabels_get(net, sizeof(struct ovs_key_ct_label) * BITS_PER_BYTE))
-+		OVS_NLERR(true, "Failed to set connlabel length");
- }
- 
- void ovs_ct_exit(struct net *net, struct ovs_ct_perdp_data *data)
-@@ -512,4 +579,5 @@ void ovs_ct_exit(struct net *net, struct ovs_ct_perdp_data *data)
- 		nf_ct_l3proto_module_put(PF_INET);
- 	if (data->xt_v6)
- 		nf_ct_l3proto_module_put(PF_INET6);
-+	nf_connlabels_put(net);
- }
-diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
-index b0f06b4..333aaa5 100644
---- a/net/openvswitch/conntrack.h
-+++ b/net/openvswitch/conntrack.h
-@@ -40,6 +40,11 @@ int ovs_ct_execute(struct net *, struct sk_buff *, struct sw_flow_key *,
- int ovs_ct_set_mark(struct sk_buff *, struct sw_flow_key *, u32 ct_mark,
- 		    u32 mask);
- u32 ovs_ct_get_mark(const struct sk_buff *skb);
-+void ovs_ct_get_label(const struct sk_buff *skb,
-+		      struct ovs_key_ct_label *label);
-+int ovs_ct_set_label(struct sk_buff *, struct sw_flow_key *,
-+		     const struct ovs_key_ct_label *label,
-+		     const struct ovs_key_ct_label *mask);
- u8 ovs_ct_get_state(const struct sk_buff *skb);
- u16 ovs_ct_get_zone(const struct sk_buff *skb);
- bool ovs_ct_state_valid(const struct sw_flow_key *key);
-@@ -106,6 +111,16 @@ static inline int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
- 	return -ENOTSUPP;
- }
- 
-+static inline void ovs_ct_get_label(const struct sk_buff *skb,
-+				    struct ovs_key_ct_label *label) { }
-+static inline int ovs_ct_set_label(struct sk_buff *skb,
-+				   struct sw_flow_key *key,
-+				   const struct ovs_key_ct_label *label,
-+				   const struct ovs_key_ct_label *mask)
-+{
-+	return -ENOTSUPP;
-+}
-+
- static inline void ovs_ct_free_action(const struct nlattr *a) { }
- #endif
- #endif /* ovs_conntrack.h */
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 05ce284..301eb41 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -711,6 +711,7 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
- 	key->ct.state = ovs_ct_get_state(skb);
- 	key->ct.zone = ovs_ct_get_zone(skb);
- 	key->ct.mark = ovs_ct_get_mark(skb);
-+	ovs_ct_get_label(skb, &key->ct.label);
- 	key->ovs_flow_hash = 0;
- 	key->recirc_id = 0;
- 
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index e05e697..c57994b 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -116,6 +116,7 @@ struct sw_flow_key {
- 		u16 zone;
- 		u32 mark;
- 		u8 state;
-+		struct ovs_key_ct_label label;
- 	} ct;
- 
- } __aligned(BITS_PER_LONG/8); /* Ensure that we can do comparisons as longs. */
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index adaa1aa..58fd73f 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -281,7 +281,7 @@ size_t ovs_key_attr_size(void)
- 	/* Whenever adding new OVS_KEY_ FIELDS, we should consider
- 	 * updating this function.
- 	 */
--	BUILD_BUG_ON(OVS_KEY_ATTR_TUNNEL_INFO != 25);
-+	BUILD_BUG_ON(OVS_KEY_ATTR_TUNNEL_INFO != 26);
- 
- 	return    nla_total_size(4)   /* OVS_KEY_ATTR_PRIORITY */
- 		+ nla_total_size(0)   /* OVS_KEY_ATTR_TUNNEL */
-@@ -293,6 +293,7 @@ size_t ovs_key_attr_size(void)
- 		+ nla_total_size(1)   /* OVS_KEY_ATTR_CT_STATE */
- 		+ nla_total_size(2)   /* OVS_KEY_ATTR_CT_ZONE */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_MARK */
-+		+ nla_total_size(16)  /* OVS_KEY_ATTR_CT_LABEL */
- 		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
- 		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_VLAN */
-@@ -345,6 +346,7 @@ static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
- 	[OVS_KEY_ATTR_CT_STATE]	 = { .len = sizeof(u8) },
- 	[OVS_KEY_ATTR_CT_ZONE]	 = { .len = sizeof(u16) },
- 	[OVS_KEY_ATTR_CT_MARK]	 = { .len = sizeof(u32) },
-+	[OVS_KEY_ATTR_CT_LABEL]	 = { .len = sizeof(struct ovs_key_ct_label) },
+ 	[OVS_CT_ATTR_ZONE]	= { .minlen = sizeof(u16),
+ 				    .maxlen = sizeof(u16) },
++	[OVS_CT_ATTR_HELPER]	= { .minlen = 1,
++				    .maxlen = NF_CT_HELPER_NAME_LEN }
  };
  
- static bool is_all_zero(const u8 *fp, size_t size)
-@@ -796,6 +798,15 @@ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 		SW_FLOW_KEY_PUT(match, ct.mark, mark, is_mask);
- 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_MARK);
+ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+-		    bool log)
++		    const char **helper, bool log)
+ {
+ 	struct nlattr *a;
+ 	int rem;
+@@ -460,6 +545,13 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+ 		case OVS_CT_ATTR_FLAGS:
+ 			info->flags = nla_get_u32(a);
+ 			break;
++		case OVS_CT_ATTR_HELPER:
++			*helper = nla_data(a);
++			if (!memchr(*helper, '\0', nla_len(a))) {
++				OVS_NLERR(log, "Invalid conntrack helper");
++				return -EINVAL;
++			}
++			break;
+ 		default:
+ 			OVS_NLERR(log, "Unknown conntrack attr (%d)",
+ 				  type);
+@@ -500,6 +592,7 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
+ 		       struct sw_flow_actions **sfa,  bool log)
+ {
+ 	struct ovs_conntrack_info ct_info;
++	const char *helper = NULL;
+ 	u16 family;
+ 	int err;
+ 
+@@ -512,7 +605,7 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
+ 	memset(&ct_info, 0, sizeof(ct_info));
+ 	ct_info.family = family;
+ 
+-	err = parse_ct(attr, &ct_info, log);
++	err = parse_ct(attr, &ct_info, &helper, log);
+ 	if (err)
+ 		return err;
+ 
+@@ -522,6 +615,11 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
+ 		OVS_NLERR(log, "Failed to allocate conntrack template");
+ 		return -ENOMEM;
  	}
-+	if (*attrs & (1 << OVS_KEY_ATTR_CT_LABEL) &&
-+	    ovs_ct_verify(OVS_KEY_ATTR_CT_LABEL)) {
-+		const struct ovs_key_ct_label *cl;
-+
-+		cl = nla_data(a[OVS_KEY_ATTR_CT_LABEL]);
-+		SW_FLOW_KEY_MEMCPY(match, ct.label, cl->ct_label,
-+				   sizeof(*cl), is_mask);
-+		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_LABEL);
++	if (helper) {
++		err = ovs_ct_add_helper(&ct_info, helper, key, log);
++		if (err)
++			goto err_free_ct;
 +	}
- 	return 0;
+ 
+ 	err = ovs_nla_add_action(sfa, OVS_ACTION_ATTR_CT, &ct_info,
+ 				 sizeof(ct_info), log);
+@@ -551,6 +649,11 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
+ 	if (nla_put_u16(skb, OVS_CT_ATTR_ZONE, ct_info->zone))
+ 		return -EMSGSIZE;
+ #endif
++	if (ct_info->helper) {
++		if (nla_put_string(skb, OVS_CT_ATTR_HELPER,
++				   ct_info->helper->name))
++			return -EMSGSIZE;
++	}
+ 
+ 	nla_nest_end(skb, start);
+ 
+@@ -561,6 +664,8 @@ void ovs_ct_free_action(const struct nlattr *a)
+ {
+ 	struct ovs_conntrack_info *ct_info = nla_data(a);
+ 
++	if (ct_info->helper)
++		module_put(ct_info->helper->me);
+ 	if (ct_info->ct)
+ 		nf_ct_put(ct_info->ct);
  }
- 
-@@ -1352,6 +1363,10 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
- 	if (nla_put_u32(skb, OVS_KEY_ATTR_CT_MARK, output->ct.mark))
- 		goto nla_put_failure;
- 
-+	if (nla_put(skb, OVS_KEY_ATTR_CT_LABEL,
-+		    sizeof(output->ct.label), &output->ct.label))
-+		goto nla_put_failure;
-+
- 	nla = nla_reserve(skb, OVS_KEY_ATTR_ETHERNET, sizeof(*eth_key));
- 	if (!nla)
- 		goto nla_put_failure;
-@@ -1935,6 +1950,7 @@ static int validate_set(const struct nlattr *a,
- 	case OVS_KEY_ATTR_PRIORITY:
- 	case OVS_KEY_ATTR_SKB_MARK:
- 	case OVS_KEY_ATTR_CT_MARK:
-+	case OVS_KEY_ATTR_CT_LABEL:
- 	case OVS_KEY_ATTR_ETHERNET:
- 		break;
- 
 -- 
 2.1.4
