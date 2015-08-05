@@ -1,35 +1,46 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv2 net-next 3/9] ipv6: Export nf_ct_frag6_gather()
-Date: Tue,  4 Aug 2015 21:49:53 -0700
-Message-ID: <1438750199-9061-4-git-send-email-joestringer@nicira.com>
-References: <1438750199-9061-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
-	jpettit@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	jesse@nicira.com, fwestpha@redhat.com, hannes@redhat.com,
-	tgraf@noironetworks.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438750199-9061-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: rtnl_mutex deadlock?
+Date: Tue, 4 Aug 2015 22:31:30 -0700
+Message-ID: <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
+References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:34221 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbbHEFbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 01:31:31 -0400
+Received: by ykax123 with SMTP id x123so27136562yka.1
+        for <netdev@vger.kernel.org>; Tue, 04 Aug 2015 22:31:31 -0700 (PDT)
+In-Reply-To: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
----
- net/ipv6/netfilter/nf_conntrack_reasm.c | 1 +
- 1 file changed, 1 insertion(+)
+On Tue, Aug 4, 2015 at 8:48 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> Sorry for the spamming of random rtnetlink people, but I just resumed
+> my laptop at PDX, and networking was dead.
+>
+> It looks like a deadlock on rtnl_mutex, possibly due to some error
+> path not releasing the lock. No network op was making any progress,
+> and as you can see from the attached sysrq-w, it all seems to be hung
+> in rtnl_lock().
+>
+> The call trace from NetworkManager looks different from the others,
+> and looks to me like it might actually be a recursive invocation of
+> rtnetlink_rcv(), but since I have a fairly light configuration on this
+> laptop and don't have frame pointers enabled, I'm not sure how
+> reliable that stack trace is. It might be just stale entries. But if
+> they aren't stale, then that would certainly explain the deadlock.
+>
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 6d02498..701cd2b 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -633,6 +633,7 @@ ret_orig:
- 	kfree_skb(clone);
- 	return skb;
- }
-+EXPORT_SYMBOL_GPL(nf_ct_frag6_gather);
- 
- void nf_ct_frag6_consume_orig(struct sk_buff *skb)
- {
--- 
-2.1.4
+You are right, looks like kernel received a GETLINK netlink message
+from NetworkManager and then replied back but accidentally sent the
+reply to itself, seems something wrong with NETLINK_CB(skb).portid.
