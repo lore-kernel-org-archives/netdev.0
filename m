@@ -1,59 +1,86 @@
-From: xiakaixu <xiakaixu@huawei.com>
-Subject: Re: [PATCH v6 3/4] bpf: Implement function bpf_perf_event_read()
- that get the selected hardware PMU conuter
-Date: Wed, 5 Aug 2015 10:09:22 +0800
-Message-ID: <55C17052.80803@huawei.com>
-References: <1438678696-88289-1-git-send-email-xiakaixu@huawei.com> <1438678696-88289-4-git-send-email-xiakaixu@huawei.com> <55C0FC83.10504@plumgrid.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v3 2/3] openvswitch: Use regular GRE net_device
+ instead of vport
+Date: Tue, 4 Aug 2015 19:27:04 -0700
+Message-ID: <20150805022701.GA50708@Alexeis-MacBook-Pro.local>
+References: <1438730555-3142-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <acme@kernel.org>, <mingo@redhat.com>,
-	<a.p.zijlstra@chello.nl>, <masami.hiramatsu.pt@hitachi.com>,
-	<jolsa@kernel.org>, <daniel@iogearbox.net>, <wangnan0@huawei.com>,
-	<linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
-	<hekuang@huawei.com>, <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55C0FC83.10504@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:33860 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751233AbbHEC1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 22:27:08 -0400
+Received: by ykax123 with SMTP id x123so24688540yka.1
+        for <netdev@vger.kernel.org>; Tue, 04 Aug 2015 19:27:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1438730555-3142-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2015/8/5 1:55, Alexei Starovoitov =E5=86=99=E9=81=93:
-> On 8/4/15 1:58 AM, Kaixu Xia wrote:
->> +static int check_func_limit(struct bpf_map **mapp, int func_id)
->=20
-> how about 'check_map_func_compatibility' or 'check_map_func_affinity'=
- ?
->=20
->> +{
->> +    struct bpf_map *map =3D *mapp;
->=20
-> why pass pointer to a pointer? single pointer would be be fine.
->=20
->> +    bool bool_map, bool_func;
->> +    int i;
->> +
->> +    if (!map)
->> +        return 0;
->> +
->> +    for (i =3D 0; i <=3D ARRAY_SIZE(func_limit); i++) {
->> +        bool_map =3D (map->map_type =3D=3D func_limit[i].map_type);
->> +        bool_func =3D (func_id =3D=3D func_limit[i].func_id);
->> +        /* only when map & func pair match it can continue.
->> +         * don't allow any other map type to be passed into
->> +         * the special func;
->> +         */
->> +        if (bool_map !=3D bool_func)
->> +            return -EINVAL;
->> +    }
->=20
-> nice simplification!
->=20
-> the rest of the changes look good.
-> please respin your next set against net-next.
+On Tue, Aug 04, 2015 at 04:22:35PM -0700, Pravin B Shelar wrote:
+> Following patch adds support for flow based tunnel to GRE
+> tap deivces. Using flow based tunneling, we can implement
+> OVS GRE vport. This patch removes all of the OVS
+> specific GRE code and make OVS use a ip_gre net_device.
+> Minimal GRE vport is kept to handle compatibility with
+> current userspace application.
+> 
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+...
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+...
+> +struct net_device *ipgre_fb_dev_create(struct net *net, const char *name,
+> +				       u8 name_assign_type)
+> +{
+> +	struct ip_tunnel_net *itn = net_generic(net, gre_tap_net_id);
+> +	struct nlattr *tb[IFLA_MAX + 1];
+> +	struct net_device *dev;
+> +	struct ip_tunnel *t;
+> +	int err;
+> +
+> +	if (rtnl_dereference(itn->flow_based_tunnel))
+> +		return ERR_PTR(-EEXIST);
+> +
+> +	memset(&tb, 0, sizeof(tb));
+> +
+> +	dev = rtnl_create_link(net, name, name_assign_type,
+> +			       &ipgre_tap_ops, tb);
+> +	if (IS_ERR(dev))
+> +		return dev;
+> +
+> +	/* Configure flow based GRE device. */
+> +	t = netdev_priv(dev);
+> +	t->is_fb_tunnel = true;
+> +
+> +	err = ipgre_newlink(net, dev, tb, NULL);
+> +	if (err < 0)
+> +		goto out;
+> +	return dev;
+> +out:
+> +	free_netdev(dev);
+> +	return ERR_PTR(err);
+> +}
+> +EXPORT_SYMBOL_GPL(ipgre_fb_dev_create);
 
-Thanks for your review! I will follow them in the next set.
->=20
->=20
-> .
->=20
+...
+> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+...
+> +static struct vport *gre_tnl_create(const struct vport_parms *parms)
+>  {
+...
+> +	rtnl_lock();
+> +	dev = ipgre_fb_dev_create(net, parms->name, NET_NAME_USER);
+> +	if (IS_ERR(dev)) {
+> +		rtnl_unlock();
+> +		ovs_vport_free(vport);
+> +		return ERR_CAST(dev);
+
+So the code from vport-gre.c got moved into ip_gre.c and ipgre_fb_dev_create()
+got exported with the only user being ovs vport-gre ?!
+Then the proper commit message should say 'move ovs specific gre bits
+to ip_gre.c', since the only way to use it is to create ovs vport-gre.
+Instead, can you please do it similar to Thomas's vxlan patch so that
+such gre tunnel can actually be usable outside of ovs?
