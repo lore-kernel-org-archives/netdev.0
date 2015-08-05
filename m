@@ -1,94 +1,57 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH v2 net-next 2/2] RDS-TCP: Support multiple RDS-TCP listen
- endpoints, one per netns.
-Date: Tue, 4 Aug 2015 21:26:48 -0700
-Message-ID: <CAHA+R7Njnb8DZOq6dF7sktFgQYOOAY+JiiToh62B2C9SXroO3g@mail.gmail.com>
-References: <cover.1438612466.git.sowmini.varadhan@oracle.com>
-	<7f379a49e32abfe8e910db1a55114cce1a413c61.1438612466.git.sowmini.varadhan@oracle.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in ovs_vport_receive()
+Date: Tue, 4 Aug 2015 21:40:56 -0700
+Message-ID: <CANr6G5xF8XFr_6PDimR5YrYr=o=CDAJnfT3Op1R1WJ3wRcuDhw@mail.gmail.com>
+References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
+ <1438279963-29563-2-git-send-email-joestringer@nicira.com>
+ <1438353294.20479.7.camel@redhat.com> <CANr6G5zsh2DUDBrZpQBpFO_GggvPa4ztdwDxRQuByzwU-S-FUg@mail.gmail.com>
+ <20150801191741.GA13837@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
-	chien.yen@oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Cc: Hannes Frederic Sowa <hannes@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Justin Pettit <jpettit@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7f379a49e32abfe8e910db1a55114cce1a413c61.1438612466.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <20150801191741.GA13837@pox.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 3, 2015 at 10:29 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> +static struct pernet_operations rds_tcp_net_ops = {
-> +       .init = rds_tcp_init_net,
-> +       .exit = rds_tcp_exit_net,
-> +       .id = &rds_tcp_netid,
-> +       .size = sizeof(struct rds_tcp_net),
-> +};
-> +
-> +static void rds_tcp_kill_sock(struct net *net)
-> +{
-> +       struct rds_tcp_connection *tc, *_tc;
-> +       struct sock *sk;
-> +       struct list_head tmp_list;
-> +       struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
-> +
-> +       rds_tcp_listen_stop(rtn->rds_tcp_listen_sock);
-> +       rtn->rds_tcp_listen_sock = NULL;
-> +       flush_work(&rtn->rds_tcp_accept_w);
-> +       INIT_LIST_HEAD(&tmp_list);
+On 1 August 2015 at 12:17, Thomas Graf <tgraf@suug.ch> wrote:
+> On 07/31/15 at 10:51am, Joe Stringer wrote:
+>> On 31 July 2015 at 07:34, Hannes Frederic Sowa <hannes@redhat.com> wrote:
+>> > In general, this shouldn't be necessary as the packet should already be
+>> > scrubbed before they arrive here.
+>> >
+>> > Could you maybe add a WARN_ON and check how those skbs with conntrack
+>> > data traverse the stack? I also didn't understand why make it dependent
+>> > on the socket.
+>>
+>> OK, sure. One case I could think of is with an OVS internal port in
+>> another namespace, directly attached to the bridge. I'll have a play
+>> around with WARN_ON and see if I can come up with something more
+>> trimmed down.
+>
+> The OVS internal port will definitely pass through an unscrubbed
+> packet across namespaces. I think the proper thing to do would be
+> to scrub but conditionally keep metadata.
 
-Can be folded as LIST_HEAD(tmp_list).
+It's only "unscrubbed" when receiving from local stack at the moment.
+Some pieces are cleared when handing towards the local stack, and
+there's no configuration for that behaviour. Presumably internal port
+transmit and receive should mirror each other?
 
-
-> +       spin_lock_irq(&rds_tcp_conn_lock);
-> +       list_for_each_entry_safe(tc, _tc, &rds_tcp_conn_list, t_tcp_node) {
-> +               struct net *c_net = read_pnet(&tc->conn->c_net);
-> +
-> +               if (net != c_net || !tc->t_sock)
-> +                       continue;
-> +               list_del(&tc->t_tcp_node);
-> +               list_add_tail(&tc->t_tcp_node, &tmp_list);
-
-list_move_tail().
-
-
-> +       }
-> +       spin_unlock_irq(&rds_tcp_conn_lock);
-> +       list_for_each_entry_safe(tc, _tc, &tmp_list, t_tcp_node) {
-> +               sk = tc->t_sock->sk;
-> +               sk->sk_prot->disconnect(sk, 0);
-> +               tcp_done(sk);
-> +               if (tc->conn->c_passive)
-> +                       rds_conn_destroy(tc->conn->c_passive);
-> +               rds_conn_destroy(tc->conn);
-> +       }
-> +}
-> +
-> +static int rds_tcp_dev_event(struct notifier_block *this,
-> +                            unsigned long event, void *ptr)
-> +{
-> +       struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-> +
-> +       /* rds-tcp registers as a pernet subys, so the ->exit will only
-> +        * get invoked after network acitivity has quiesced. We need to
-> +        * clean up all sockets  to quiesce network activity, and use
-> +        * the unregistration of the per-net loopback device as a trigger
-> +        * to start that cleanup.
-> +        */
-> +       if (event == NETDEV_UNREGISTER_FINAL &&
-> +           strcmp(dev->name, "lo") == 0)
-
-
-Shouldn't check device name, check ->ifindex == LOOPBACK_IFINDEX
-instead.
-
-
-> +               rds_tcp_kill_sock(dev_net(dev));
-> +
-> +       return NOTIFY_DONE;
-> +}
-> +
-
-...
+I don't have a specific use case either way. The remaining code for
+this series handles this case correctly, it's just a matter of what
+behaviour we're looking for. We could implement the flag as you say, I
+presume that userspace would need to specify this during vport
+creation and the default should work similar to the existing behaviour
+(ie, keep metadata). One thing that's not entirely clear to me is
+exactly which metadata should be represented by this flag and whether
+the single flag is expressive enough.
