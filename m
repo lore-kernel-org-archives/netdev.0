@@ -1,107 +1,72 @@
-From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Subject: [PATCH v2 2/2] ethtool: add versioning for emac chips
-Date: Wed, 5 Aug 2015 15:08:29 +0400
-Message-ID: <20150805150829.2a0dee72@fr-ThinkPad-W520>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH v2 4/8] xen: Use the correctly the Xen memory terminologies
+Date: Wed, 05 Aug 2015 08:19:32 -0400
+Message-ID: <55C1FF54.8060409@oracle.com>
+References: <1438711972-18752-1-git-send-email-julien.grall@citrix.com> <1438711972-18752-5-git-send-email-julien.grall@citrix.com> <55C147DD.7000600@oracle.com> <55C1EA95.5060504@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-fbdev@vger.kernel.org, "H. Peter Anvin" <hpa@zytor.com>,
+	Jiri Slaby <jslaby@suse.com>, stefano.stabellini@eu.citrix.com,
+	Russell King <linux@arm.linux.org.uk>,
+	linux-scsi@vger.kernel.org, x86@kernel.org,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	linux-input@vger.kernel.org,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	ian.campbell@citrix.com,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Juergen Gross <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org,
+	=?windows-1252?Q?Roger_Pau_Mon
+To: Julien Grall <julien.grall@citrix.com>,
+	xen-devel@lists.xenproject.org
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <55C1EA95.5060504@citrix.com>
+Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* add three types of network chips : emac, emac4, emac4sync
-* add emac4sync processing in print_emac_regs
+On 08/05/2015 06:51 AM, Julien Grall wrote:
+>
+>>> diff --git a/drivers/video/fbdev/xen-fbfront.c
+>>> b/drivers/video/fbdev/xen-fbfront.c
+>>> index 09dc447..25e3cce 100644
+>>> --- a/drivers/video/fbdev/xen-fbfront.c
+>>> +++ b/drivers/video/fbdev/xen-fbfront.c
+>>> @@ -539,7 +539,7 @@ static int xenfb_remove(struct xenbus_device *dev)
+>>>      static unsigned long vmalloc_to_mfn(void *address)
+>>>    {
+>>> -    return pfn_to_mfn(vmalloc_to_pfn(address));
+>>> +    return pfn_to_gfn(vmalloc_to_pfn(address));
+>>>    }
+>> Are you sure? This will return vmalloc_to_pfn(address)).
+> I guess you mean vmalloc_to_mfn will return vmalloc_to_pfn?
+>
+> If so, it will be only the case on auto-translated case (because pfn ==
+> gfn). In the case of PV, the mfn will be returned.
 
-Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
----
- ibm_emac.c |   56 +++++++++++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 45 insertions(+), 11 deletions(-)
+How will mfn be returned on PV when pfn_to_gfn() is an identity function?
 
-diff --git a/ibm_emac.c b/ibm_emac.c
-index da6c28e..b3140d0 100644
---- a/ibm_emac.c
-+++ b/ibm_emac.c
-@@ -22,6 +22,10 @@
- #define EMAC_ETHTOOL_REGS_RGMII		0x00000002
- #define EMAC_ETHTOOL_REGS_TAH		0x00000004
- 
-+#define EMAC_VERSION			0
-+#define EMAC4_VERSION			1
-+#define EMAC4SYNC_VERSION		2
-+
- struct emac_ethtool_regs_hdr {
- 	u32 components;
- };
-@@ -164,8 +168,6 @@ static void *print_emac_regs(void *buf)
- 	       "TRTR  = 0x%08x RWMR = 0x%08x\n"
- 	       "IAR   = %04x%08x\n"
- 	       "LSA   = %04x%08x\n"
--	       "IAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n"
--	       "GAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n"
- 	       "VTPID = 0x%04x VTCI = 0x%04x\n"
- 	       "IPGVR = 0x%04x STACR = 0x%08x\n"
- 	       "OCTX  = 0x%08x OCRX = 0x%08x\n",
-@@ -175,17 +177,49 @@ static void *print_emac_regs(void *buf)
- 	       p->trtr, p->rwmr,
- 	       p->iahr, p->ialr,
- 	       p->lsah, p->lsal,
--	       p->u0.emac4.iaht1, p->u0.emac4.iaht2, p->u0.emac4.iaht3,
--	       p->u0.emac4.iaht4,
--	       p->u0.emac4.gaht1, p->u0.emac4.gaht2, p->u0.emac4.gaht3,
--	       p->u0.emac4.gaht4,
--	       p->vtpid, p->vtci, p->ipgvr, p->stacr, p->octx, p->ocrx);
-+	       p->vtpid, p->vtci,
-+	       p->ipgvr, p->stacr, p->octx, p->ocrx);
-+
-+	if (hdr->version == EMAC4SYNC_VERSION) {
-+		printf("MAHR  = 0x%08x MALR  = 0x%08x MMAHR = 0x%08x\n"
-+			"MMALR  = 0x%08x REVID  = 0x%08x\n",
-+			p->u0.emac4sync.mahr, p->u0.emac4sync.malr,
-+			p->u0.emac4sync.mmahr, p->u0.emac4sync.mmalr,
-+			p->u1.emac4sync.revid);
-+
-+		printf("IAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n",
-+			p->u1.emac4sync.iaht1, p->u1.emac4sync.iaht2,
-+			p->u1.emac4sync.iaht3, p->u1.emac4sync.iaht4);
-+		printf("        0x%04x 0x%04x 0x%04x 0x%04x\n",
-+			p->u1.emac4sync.iaht5, p->u1.emac4sync.iaht6,
-+			p->u1.emac4sync.iaht7, p->u1.emac4sync.iaht8);
-+
-+
-+		printf("GAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n",
-+			p->u1.emac4sync.gaht1, p->u1.emac4sync.gaht2,
-+			p->u1.emac4sync.gaht3, p->u1.emac4sync.gaht4);
-+		printf("        0x%04x 0x%04x 0x%04x 0x%04x\n\n",
-+			p->u1.emac4sync.gaht5, p->u1.emac4sync.gaht6,
-+			p->u1.emac4sync.gaht7, p->u1.emac4sync.gaht8);
-+
-+	} else if (hdr->version == EMAC4_VERSION) {
-+		printf("IAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n",
-+			p->u0.emac4.iaht1, p->u0.emac4.iaht2,
-+			p->u0.emac4.iaht3, p->u0.emac4.iaht4);
-+
-+		printf("GAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n",
-+			p->u0.emac4.gaht1, p->u0.emac4.gaht2,
-+			p->u0.emac4.gaht3, p->u0.emac4.gaht4);
- 
--	if (hdr->version)
- 		printf(" IPCR = 0x%08x\n\n", p->u1.emac4.ipcr);
--	else {
--		printf("\n\n");
--		res -= sizeof(u32);
-+	} else if (hdr->version == EMAC_VERSION) {
-+		printf("IAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n",
-+			p->u0.emac4.iaht1, p->u0.emac4.iaht2,
-+			p->u0.emac4.iaht3, p->u0.emac4.iaht4);
-+
-+		printf("GAHT  = 0x%04x 0x%04x 0x%04x 0x%04x\n",
-+			p->u0.emac4.gaht1, p->u0.emac4.gaht2,
-+			p->u0.emac4.gaht3, p->u0.emac4.gaht4);
- 	}
- 	return res;
- }
--- 
-1.7.9.5
+static inline unsigned long pfn_to_gfn(unsigned long pfn)
+  {
+      return pfn;
+  }
+
+
+-boris
+
+>
+> Although, this function is misnamed. It's fixed in a follow-up patch
+> (see #6) because it's required more renaming than this function. I
+> didn't want to add such changes within this patch.
+>
+> Regards,
+>
+
