@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH 10/10] net: Introduce VRF device driver
-Date: Wed,  5 Aug 2015 11:14:53 -0600
-Message-ID: <1438794894-70217-11-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH 09/10] net: Use VRF device index for socket lookups
+Date: Wed,  5 Aug 2015 11:14:52 -0600
+Message-ID: <1438794894-70217-10-git-send-email-dsa@cumulusnetworks.com>
 References: <1438794894-70217-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,813 +12,118 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:34065 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753467AbbHERQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 13:16:41 -0400
-Received: by igk11 with SMTP id 11so118896129igk.1
-        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 10:16:40 -0700 (PDT)
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34042 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752587AbbHERQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 13:16:39 -0400
+Received: by igk11 with SMTP id 11so118895464igk.1
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 10:16:38 -0700 (PDT)
 In-Reply-To: <1438794894-70217-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver borrows heavily from IPvlan and teaming drivers.
-
-Routing domains (VRF-lite) are created by instantiating a VRF master
-device with an associated table and enslaving all routed interfaces that
-participate in the domain. As part of the enslavement, all connected
-routes for the enslaved devices are moved to the table associated with
-the VRF device. Outgoing sockets must bind to the VRF device to function.
-
-Standard FIB rules bind the VRF device to tables and regular fib rule
-processing is followed. Routed traffic through the box, is forwarded by
-using the VRF device as the IIF and following the IIF rule to a table
-that is mated with the VRF.
-
-Example:
-
-   Create vrf 1:
-     ip link add vrf1 type vrf table 5
-     ip rule add iif vrf1 table 5
-     ip rule add oif vrf1 table 5
-     ip route add table 5 prohibit default
-     ip link set vrf1 up
-
-   Add interface to vrf 1:
-     ip link set eth1 master vrf1
+The intent of the VRF device is to leverage the existing SO_BINDTODEVICE
+as a means of creating L3 domains. Since sockets are expected to be bound
+to the VRF device the index of the master device needs to be used for
+socket lookups.
 
 Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/Kconfig  |   7 +
- drivers/net/Makefile |   1 +
- drivers/net/vrf.c    | 715 +++++++++++++++++++++++++++++++++++++++++++++++++++
- include/net/vrf.h    |   1 -
- 4 files changed, 723 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/vrf.c
+ net/ipv4/syncookies.c |  5 ++++-
+ net/ipv4/tcp_input.c  |  6 +++++-
+ net/ipv4/tcp_ipv4.c   | 11 +++++++++--
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index c18f9e62a9fa..e58468b02987 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -297,6 +297,13 @@ config NLMON
- 	  diagnostics, etc. This is mostly intended for developers or support
- 	  to debug netlink issues. If unsure, say N.
- 
-+config NET_VRF
-+	tristate "Virtual Routing and Forwarding (Lite)"
-+	depends on IP_MULTIPLE_TABLES && IPV6_MULTIPLE_TABLES
-+	---help---
-+	  This option enables the support for mapping interfaces into VRF's. The
-+	  support enables VRF devices.
-+
- endif # NET_CORE
- 
- config SUNGEM_PHY
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index c12cb22478a7..ca16dd689b36 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -25,6 +25,7 @@ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_VXLAN) += vxlan.o
- obj-$(CONFIG_GENEVE) += geneve.o
- obj-$(CONFIG_NLMON) += nlmon.o
-+obj-$(CONFIG_NET_VRF) += vrf.o
- 
- #
- # Networking Drivers
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-new file mode 100644
-index 000000000000..75c06ee2efa3
---- /dev/null
-+++ b/drivers/net/vrf.c
-@@ -0,0 +1,715 @@
-+/*
-+ * vrf.c: device driver to encapsulate a VRF space
-+ *
-+ * Copyright (c) 2015 Cumulus Networks. All rights reserved.
-+ * Copyright (c) 2015 Shrijeet Mukherjee <shm@cumulusnetworks.com>
-+ * Copyright (c) 2015 David Ahern <dsa@cumulusnetworks.com>
-+ *
-+ * Based on dummy, team and ipvlan drivers
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/ip.h>
-+#include <linux/init.h>
-+#include <linux/moduleparam.h>
-+#include <linux/netfilter.h>
-+#include <linux/rtnetlink.h>
-+#include <net/rtnetlink.h>
-+#include <linux/u64_stats_sync.h>
-+#include <linux/hashtable.h>
-+
-+#include <linux/inetdevice.h>
-+#include <net/ip.h>
-+#include <net/ip_fib.h>
-+#include <net/ip6_route.h>
-+#include <net/rtnetlink.h>
-+#include <net/route.h>
-+#include <net/addrconf.h>
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index d70b1f603692..e5c8b1240278 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -18,6 +18,7 @@
+ #include <linux/export.h>
+ #include <net/tcp.h>
+ #include <net/route.h>
 +#include <net/vrf.h>
-+
-+#define DRV_NAME	"vrf"
-+#define DRV_VERSION	"1.0"
-+
-+#define vrf_is_slave(dev)   ((dev)->flags & IFF_SLAVE)
-+
-+#define vrf_master_get_rcu(dev) \
-+	((struct net_device *)rcu_dereference(dev->rx_handler_data))
-+
-+struct pcpu_dstats {
-+	u64			tx_pkts;
-+	u64			tx_bytes;
-+	u64			tx_drps;
-+	u64			rx_pkts;
-+	u64			rx_bytes;
-+	struct u64_stats_sync	syncp;
-+};
-+
-+static struct dst_entry *vrf_ip_check(struct dst_entry *dst, u32 cookie)
-+{
-+	return dst;
-+}
-+
-+static int vrf_ip_local_out(struct sk_buff *skb)
-+{
-+	return ip_local_out(skb);
-+}
-+
-+static unsigned int vrf_v4_mtu(const struct dst_entry *dst)
-+{
-+	/* TO-DO: return max ethernet size? */
-+	return dst->dev->mtu;
-+}
-+
-+static void vrf_dst_destroy(struct dst_entry *dst)
-+{
-+	/* our dst lives forever - or until the device is closed */
-+}
-+
-+static unsigned int vrf_default_advmss(const struct dst_entry *dst)
-+{
-+	return 65535 - 40;
-+}
-+
-+static struct dst_ops vrf_dst_ops = {
-+	.family		= AF_INET,
-+	.local_out	= vrf_ip_local_out,
-+	.check		= vrf_ip_check,
-+	.mtu		= vrf_v4_mtu,
-+	.destroy	= vrf_dst_destroy,
-+	.default_advmss	= vrf_default_advmss,
-+};
-+
-+static bool is_ip_rx_frame(struct sk_buff *skb)
-+{
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+	case htons(ETH_P_IPV6):
-+		return true;
-+	}
-+	return false;
-+}
-+
-+/* note: already called with rcu_read_lock */
-+static rx_handler_result_t vrf_handle_frame(struct sk_buff **pskb)
-+{
-+	struct sk_buff *skb = *pskb;
-+
-+	if (is_ip_rx_frame(skb)) {
-+		struct net_device *dev = vrf_master_get_rcu(skb->dev);
-+		struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
-+
-+		u64_stats_update_begin(&dstats->syncp);
-+		dstats->rx_pkts++;
-+		dstats->rx_bytes += skb->len;
-+		u64_stats_update_end(&dstats->syncp);
-+
-+		skb->dev = dev;
-+
-+		return RX_HANDLER_ANOTHER;
-+	}
-+	return RX_HANDLER_PASS;
-+}
-+
-+static struct rtnl_link_stats64 *vrf_get_stats64(struct net_device *dev,
-+						 struct rtnl_link_stats64 *stats)
-+{
-+	int i;
-+
-+	for_each_possible_cpu(i) {
-+		const struct pcpu_dstats *dstats;
-+		u64 tbytes, tpkts, tdrops, rbytes, rpkts;
-+		unsigned int start;
-+
-+		dstats = per_cpu_ptr(dev->dstats, i);
-+		do {
-+			start = u64_stats_fetch_begin_irq(&dstats->syncp);
-+			tbytes = dstats->tx_bytes;
-+			tpkts = dstats->tx_pkts;
-+			tdrops = dstats->tx_drps;
-+			rbytes = dstats->rx_bytes;
-+			rpkts = dstats->rx_pkts;
-+		} while (u64_stats_fetch_retry_irq(&dstats->syncp, start));
-+		stats->tx_bytes += tbytes;
-+		stats->tx_packets += tpkts;
-+		stats->tx_dropped += tdrops;
-+		stats->rx_bytes += rbytes;
-+		stats->rx_packets += rpkts;
-+	}
-+	return stats;
-+}
-+
-+static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
-+					   struct net_device *dev)
-+{
-+	return 0;
-+}
-+
-+static int vrf_send_v4_prep(struct sk_buff *skb, struct flowi4 *fl4,
-+			    struct net_device *vrf_dev)
-+{
-+	struct rtable *rt;
-+	int err = 1;
-+
-+	rt = ip_route_output_flow(dev_net(vrf_dev), fl4, NULL);
-+	if (IS_ERR(rt))
-+		goto out;
-+
-+	/* TO-DO: what about broadcast ? */
-+	if (rt->rt_type != RTN_UNICAST && rt->rt_type != RTN_LOCAL) {
-+		ip_rt_put(rt);
-+		goto out;
-+	}
-+
-+	skb_dst_drop(skb);
-+	skb_dst_set(skb, &rt->dst);
-+	err = 0;
-+out:
-+	return err;
-+}
-+
-+static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
-+					   struct net_device *vrf_dev)
-+{
-+	struct iphdr *ip4h = ip_hdr(skb);
-+	int ret = NET_XMIT_DROP;
-+	struct flowi4 fl4 = {
-+		/* needed to match OIF rule */
-+		.flowi4_oif = vrf_dev->ifindex,
-+		.flowi4_iif = LOOPBACK_IFINDEX,
-+		.flowi4_tos = RT_TOS(ip4h->tos),
-+		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_VRFSRC,
-+		.daddr = ip4h->daddr,
-+	};
-+
-+	if (vrf_send_v4_prep(skb, &fl4, vrf_dev))
-+		goto err;
-+
-+	if (!ip4h->saddr) {
-+		ip4h->saddr = inet_select_addr(skb_dst(skb)->dev, 0,
-+					       RT_SCOPE_LINK);
-+	}
-+
-+	ret = ip_local_out(skb);
-+	if (unlikely(net_xmit_eval(ret)))
-+		vrf_dev->stats.tx_errors++;
-+	else
-+		ret = NET_XMIT_SUCCESS;
-+
-+out:
-+	return ret;
-+err:
-+	vrf_dev->stats.tx_errors++;
-+	kfree_skb(skb);
-+	goto out;
-+}
-+
-+static netdev_tx_t is_ip_tx_frame(struct sk_buff *skb, struct net_device *dev)
-+{
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+		return vrf_process_v4_outbound(skb, dev);
-+	case htons(ETH_P_IPV6):
-+		return vrf_process_v6_outbound(skb, dev);
-+	default:
-+		return NET_XMIT_DROP;
-+	}
-+}
-+
-+static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	netdev_tx_t ret = is_ip_tx_frame(skb, dev);
-+
-+	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
-+		struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
-+
-+		u64_stats_update_begin(&dstats->syncp);
-+		dstats->tx_pkts++;
-+		dstats->tx_bytes += skb->len;
-+		u64_stats_update_end(&dstats->syncp);
-+	} else {
-+		this_cpu_inc(dev->dstats->tx_drps);
-+	}
-+
-+	return ret;
-+}
-+
-+static netdev_tx_t vrf_finish(struct sock *sk, struct sk_buff *skb)
-+{
-+	return dev_queue_xmit(skb);
-+}
-+
-+static int vrf_output(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct net_device *dev = skb_dst(skb)->dev;
-+
-+	IP_UPD_PO_STATS(dev_net(dev), IPSTATS_MIB_OUT, skb->len);
-+
-+	skb->dev = dev;
-+	skb->protocol = htons(ETH_P_IP);
-+
-+	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, sk, skb,
-+			    NULL, dev,
-+			    vrf_finish,
-+			    !(IPCB(skb)->flags & IPSKB_REROUTED));
-+}
-+
-+static void vrf_rtable_destroy(struct net_vrf *vrf)
-+{
-+	struct dst_entry *dst = (struct dst_entry *)vrf->rth;
-+
-+	if (dst)
-+		dst_destroy(dst);
-+	vrf->rth = NULL;
-+}
-+
-+static struct rtable *vrf_rtable_create(struct net_device *dev)
-+{
-+	struct rtable *rth;
-+
-+	rth = dst_alloc(&vrf_dst_ops, dev, 2,
-+			DST_OBSOLETE_NONE,
-+			(DST_HOST | DST_NOPOLICY | DST_NOXFRM));
-+	if (rth) {
-+		rth->dst.output	= vrf_output;
-+		rth->rt_genid	= rt_genid_ipv4(dev_net(dev));
-+		rth->rt_flags	= 0;
-+		rth->rt_type	= RTN_UNICAST;
-+		rth->rt_is_input = 0;
-+		rth->rt_iif	= 0;
-+		rth->rt_pmtu	= 0;
-+		rth->rt_gateway	= 0;
-+		rth->rt_uses_gateway = 0;
-+		INIT_LIST_HEAD(&rth->rt_uncached);
-+		rth->rt_uncached_list = NULL;
-+		rth->rt_lwtstate = NULL;
-+	}
-+
-+	return rth;
-+}
-+
-+/**************************** device handling ********************/
-+
-+/* cycle interface to flush neighbor cache and move routes across tables */
-+static void cycle_netdev(struct net_device *dev)
-+{
-+	unsigned int flags = dev->flags;
-+	int ret;
-+
-+	if (!netif_running(dev))
-+		return;
-+
-+	ret = dev_change_flags(dev, flags & ~IFF_UP);
-+	if (ret >= 0)
-+		ret = dev_change_flags(dev, flags);
-+
-+	if (ret < 0) {
-+		netdev_err(dev,
-+			   "Failed to cycle device %s; route tables might be wrong!\n",
-+			   dev->name);
-+	}
-+}
-+
-+static struct slave *__vrf_find_slave_dev(struct slave_queue *queue,
-+					  struct net_device *dev)
-+{
-+	struct list_head *head = &queue->all_slaves;
-+	struct slave *slave;
-+
-+	list_for_each_entry(slave, head, list) {
-+		if (slave->dev == dev)
-+			return slave;
-+	}
-+
-+	return NULL;
-+}
-+
-+/* inverse of __vrf_insert_slave */
-+static void __vrf_remove_slave(struct slave_queue *queue, struct slave *slave)
-+{
-+	dev_put(slave->dev);
-+	list_del(&slave->list);
-+	queue->num_slaves--;
-+}
-+
-+static void __vrf_insert_slave(struct slave_queue *queue, struct slave *slave)
-+{
-+	dev_hold(slave->dev);
-+	list_add(&slave->list, &queue->all_slaves);
-+	queue->num_slaves++;
-+}
-+
-+static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
-+{
-+	struct net_vrf_dev *vrf_ptr = kmalloc(sizeof(*vrf_ptr), GFP_KERNEL);
-+	struct slave *slave = kzalloc(sizeof(*slave), GFP_KERNEL);
-+	struct slave *duplicate_slave;
-+	struct net_vrf *vrf = netdev_priv(dev);
-+	struct slave_queue *queue = &vrf->queue;
-+	int ret = -ENOMEM;
-+
-+	if (!slave || !vrf_ptr)
-+		goto out_fail;
-+
-+	slave->dev = port_dev;
-+
-+	vrf_ptr->ifindex = dev->ifindex;
-+	vrf_ptr->tb_id = vrf->tb_id;
-+
-+	duplicate_slave = __vrf_find_slave_dev(queue, port_dev);
-+	if (duplicate_slave) {
-+		ret = -EBUSY;
-+		goto out_fail;
-+	}
-+
-+	__vrf_insert_slave(queue, slave);
-+
-+	/* register the packet handler for slave ports */
-+	ret = netdev_rx_handler_register(port_dev, vrf_handle_frame, dev);
-+	if (ret) {
-+		netdev_err(port_dev,
-+			   "Device %s failed to register rx_handler\n",
-+			   port_dev->name);
-+		goto out_remove;
-+	}
-+
-+	ret = netdev_master_upper_dev_link(port_dev, dev);
-+	if (ret < 0)
-+		goto out_unregister;
-+
-+	port_dev->flags |= IFF_SLAVE;
-+
-+	rcu_assign_pointer(port_dev->vrf_ptr, vrf_ptr);
-+	cycle_netdev(port_dev);
-+
-+	return 0;
-+
-+out_unregister:
-+	netdev_rx_handler_unregister(port_dev);
-+out_remove:
-+	__vrf_remove_slave(queue, slave);
-+out_fail:
-+	kfree(vrf_ptr);
-+	kfree(slave);
-+	return ret;
-+}
-+
-+static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
-+{
-+	if (!netif_is_vrf(dev) || netif_is_vrf(port_dev) ||
-+	    vrf_is_slave(port_dev))
-+		return -EINVAL;
-+
-+	return do_vrf_add_slave(dev, port_dev);
-+}
-+
-+/* inverse of do_vrf_add_slave */
-+static int do_vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
-+{
-+	struct net_vrf_dev *vrf_ptr = rtnl_dereference(port_dev->vrf_ptr);
-+	struct net_vrf *vrf = netdev_priv(dev);
-+	struct slave_queue *queue = &vrf->queue;
-+	struct slave *slave;
-+
-+	RCU_INIT_POINTER(port_dev->vrf_ptr, NULL);
-+
-+	netdev_upper_dev_unlink(port_dev, dev);
-+	port_dev->flags &= ~IFF_SLAVE;
-+
-+	netdev_rx_handler_unregister(port_dev);
-+
-+	/* after netdev_rx_handler_unregister for synchronize_rcu */
-+	kfree(vrf_ptr);
-+
-+	cycle_netdev(port_dev);
-+
-+	slave = __vrf_find_slave_dev(queue, port_dev);
-+	if (slave)
-+		__vrf_remove_slave(queue, slave);
-+
-+	kfree(slave);
-+
-+	return 0;
-+}
-+
-+static int vrf_del_slave(struct net_device *dev, struct net_device *port_dev)
-+{
-+	if (!netif_is_vrf(dev))
-+		return -EINVAL;
-+
-+	return do_vrf_del_slave(dev, port_dev);
-+}
-+
-+static void vrf_dev_uninit(struct net_device *dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+	struct slave_queue *queue = &vrf->queue;
-+	struct list_head *head = &queue->all_slaves;
-+	struct slave *slave, *next;
-+
-+	vrf_rtable_destroy(vrf);
-+
-+	list_for_each_entry_safe(slave, next, head, list)
-+		vrf_del_slave(dev, slave->dev);
-+
-+	if (dev->dstats)
-+		free_percpu(dev->dstats);
-+	dev->dstats = NULL;
-+}
-+
-+static int vrf_dev_init(struct net_device *dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+
-+	INIT_LIST_HEAD(&vrf->queue.all_slaves);
-+
-+	dev->dstats = netdev_alloc_pcpu_stats(struct pcpu_dstats);
-+	if (!dev->dstats)
-+		goto out_nomem;
-+
-+	/* create the default dst which points back to us */
-+	vrf->rth = vrf_rtable_create(dev);
-+	if (!vrf->rth)
-+		goto out_stats;
-+
-+	dev->flags = IFF_MASTER | IFF_NOARP;
-+
-+	return 0;
-+
-+out_stats:
-+	free_percpu(dev->dstats);
-+	dev->dstats = NULL;
-+out_nomem:
-+	return -ENOMEM;
-+}
-+
-+static int vrf_dev_close(struct net_device *dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+	struct slave_queue *queue = &vrf->queue;
-+	struct list_head *head = &queue->all_slaves;
-+	struct slave *slave;
-+
-+	list_for_each_entry(slave, head, list) {
-+		slave->dev->vrf_ptr->ifindex = 0;
-+		slave->dev->vrf_ptr->tb_id = 0;
-+	}
-+
-+	return 0;
-+}
-+
-+static int vrf_dev_open(struct net_device *dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+	struct slave_queue *queue = &vrf->queue;
-+	struct list_head *head = &queue->all_slaves;
-+	struct slave *slave;
-+
-+	list_for_each_entry(slave, head, list) {
-+		slave->dev->vrf_ptr->ifindex = dev->ifindex;
-+		slave->dev->vrf_ptr->tb_id = vrf->tb_id;
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct net_device_ops vrf_netdev_ops = {
-+	.ndo_init		= vrf_dev_init,
-+	.ndo_uninit		= vrf_dev_uninit,
-+	.ndo_open		= vrf_dev_open,
-+	.ndo_stop		= vrf_dev_close,
-+	.ndo_start_xmit		= vrf_xmit,
-+	.ndo_get_stats64	= vrf_get_stats64,
-+	.ndo_add_slave		= vrf_add_slave,
-+	.ndo_del_slave		= vrf_del_slave,
-+};
-+
-+static void vrf_get_drvinfo(struct net_device *dev,
-+			    struct ethtool_drvinfo *info)
-+{
-+	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-+	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
-+}
-+
-+static const struct ethtool_ops vrf_ethtool_ops = {
-+	.get_drvinfo	= vrf_get_drvinfo,
-+};
-+
-+static void vrf_setup(struct net_device *dev)
-+{
-+	ether_setup(dev);
-+
-+	/* Initialize the device structure. */
-+	dev->netdev_ops = &vrf_netdev_ops;
-+	dev->ethtool_ops = &vrf_ethtool_ops;
-+	dev->destructor = free_netdev;
-+
-+	/* Fill in device structure with ethernet-generic values. */
-+	eth_hw_addr_random(dev);
-+
-+	/* don't acquire vrf device's netif_tx_lock when transmitting */
-+	dev->features |= NETIF_F_LLTX;
-+
-+	/* don't allow vrf devices to change network namespaces. */
-+	dev->features |= NETIF_F_NETNS_LOCAL;
-+}
-+
-+static int vrf_validate(struct nlattr *tb[], struct nlattr *data[])
-+{
-+	if (tb[IFLA_ADDRESS]) {
-+		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
-+			return -EINVAL;
-+		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
-+			return -EADDRNOTAVAIL;
-+	}
-+	return 0;
-+}
-+
-+static void vrf_dellink(struct net_device *dev, struct list_head *head)
-+{
-+	struct net_vrf_dev *vrf_ptr = dev->vrf_ptr;
-+
-+	RCU_INIT_POINTER(dev->vrf_ptr, NULL);
-+	kfree_rcu(vrf_ptr, rcu);
-+	unregister_netdevice_queue(dev, head);
-+}
-+
-+static int vrf_newlink(struct net *src_net, struct net_device *dev,
-+		       struct nlattr *tb[], struct nlattr *data[])
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+	int err;
-+
-+	if (!data || !data[IFLA_VRF_TABLE])
-+		return -EINVAL;
-+
-+	vrf->tb_id = nla_get_u32(data[IFLA_VRF_TABLE]);
-+
-+	dev->priv_flags |= IFF_VRF_MASTER;
-+
-+	err = -ENOMEM;
-+	dev->vrf_ptr = kmalloc(sizeof(*dev->vrf_ptr), GFP_KERNEL);
-+	if (!dev->vrf_ptr)
-+		goto out_fail;
-+
-+	dev->vrf_ptr->ifindex = dev->ifindex;
-+	dev->vrf_ptr->tb_id = vrf->tb_id;
-+
-+	err = register_netdevice(dev);
-+	if (err < 0)
-+		goto out_fail;
-+
-+	return 0;
-+
-+out_fail:
-+	kfree(dev->vrf_ptr);
-+	free_netdev(dev);
-+	return err;
-+}
-+
-+static size_t vrf_nl_getsize(const struct net_device *dev)
-+{
-+	return nla_total_size(sizeof(u32));  /* IFLA_VRF_TABLE */
-+}
-+
-+static int vrf_fillinfo(struct sk_buff *skb,
-+			const struct net_device *dev)
-+{
-+	struct net_vrf *vrf = netdev_priv(dev);
-+
-+	return nla_put_u32(skb, IFLA_VRF_TABLE, vrf->tb_id);
-+}
-+
-+static const struct nla_policy vrf_nl_policy[IFLA_VRF_MAX + 1] = {
-+	[IFLA_VRF_TABLE] = { .type = NLA_U32 },
-+};
-+
-+static struct rtnl_link_ops vrf_link_ops __read_mostly = {
-+	.kind		= DRV_NAME,
-+	.priv_size	= sizeof(struct net_vrf),
-+
-+	.get_size	= vrf_nl_getsize,
-+	.policy		= vrf_nl_policy,
-+	.validate	= vrf_validate,
-+	.fill_info	= vrf_fillinfo,
-+
-+	.newlink	= vrf_newlink,
-+	.dellink	= vrf_dellink,
-+	.setup		= vrf_setup,
-+	.maxtype	= IFLA_VRF_MAX,
-+};
-+
-+static int vrf_device_event(struct notifier_block *unused,
-+			    unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+
-+	/* only care about unregister events to drop slave references */
-+	if (event == NETDEV_UNREGISTER &&
-+	    dev->reg_state == NETREG_UNREGISTERING) {
-+		struct net_vrf_dev *vrf_ptr = rtnl_dereference(dev->vrf_ptr);
-+		struct net_device *vrf_dev;
-+
-+		if (!vrf_ptr || netif_is_vrf(dev))
-+			goto out;
-+
-+		vrf_dev = __dev_get_by_index(dev_net(dev), vrf_ptr->ifindex);
-+		if (vrf_dev)
-+			vrf_del_slave(vrf_dev, dev);
-+	}
-+out:
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block vrf_notifier_block __read_mostly = {
-+	.notifier_call = vrf_device_event,
-+};
-+
-+static int __init vrf_init_module(void)
-+{
-+	int rc;
-+
-+	vrf_dst_ops.kmem_cachep =
-+		kmem_cache_create("vrf_ip_dst_cache",
-+				  sizeof(struct rtable), 0,
-+				  SLAB_HWCACHE_ALIGN | SLAB_PANIC,
-+				  NULL);
-+
-+	if (!vrf_dst_ops.kmem_cachep)
-+		return -ENOMEM;
-+
-+	register_netdevice_notifier(&vrf_notifier_block);
-+
-+	rc = rtnl_link_register(&vrf_link_ops);
-+	if (rc < 0)
-+		goto error;
-+
-+	return 0;
-+
-+error:
-+	unregister_netdevice_notifier(&vrf_notifier_block);
-+	kmem_cache_destroy(vrf_dst_ops.kmem_cachep);
-+	return rc;
-+}
-+
-+static void __exit vrf_cleanup_module(void)
-+{
-+	rtnl_link_unregister(&vrf_link_ops);
-+	unregister_netdevice_notifier(&vrf_notifier_block);
-+	kmem_cache_destroy(vrf_dst_ops.kmem_cachep);
-+}
-+
-+module_init(vrf_init_module);
-+module_exit(vrf_cleanup_module);
-+MODULE_AUTHOR("Shrijeet Mukherjee, David Ahern");
-+MODULE_DESCRIPTION("Device driver to instantiate VRF domains");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_RTNL_LINK(DRV_NAME);
-+MODULE_VERSION(DRV_VERSION);
-diff --git a/include/net/vrf.h b/include/net/vrf.h
-index 5d4bd67a4902..b0e5c37d94fd 100644
---- a/include/net/vrf.h
-+++ b/include/net/vrf.h
-@@ -29,7 +29,6 @@ struct slave_queue {
  
- struct net_vrf {
- 	struct slave_queue	queue;
--	struct fib_table	*tb;
- 	struct rtable           *rth;
- 	u32			tb_id;
- };
+ extern int sysctl_tcp_syncookies;
+ 
+@@ -348,7 +349,9 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	treq->snt_synack	= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsecr : 0;
+ 	treq->tfo_listener	= false;
+ 
+-	ireq->ir_iif = sk->sk_bound_dev_if;
++	ireq->ir_iif = vrf_master_ifindex_by_index(sock_net(sk), skb->skb_iif);
++	if (!ireq->ir_iif)
++		ireq->ir_iif = sk->sk_bound_dev_if;
+ 
+ 	/* We throwed the options of the initial SYN away, so we hope
+ 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 4e4d6bcd0ca9..6b96240a4055 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -72,6 +72,7 @@
+ #include <net/dst.h>
+ #include <net/tcp.h>
+ #include <net/inet_common.h>
++#include <net/vrf.h>
+ #include <linux/ipsec.h>
+ #include <asm/unaligned.h>
+ #include <linux/errqueue.h>
+@@ -6141,7 +6142,10 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	tcp_openreq_init(req, &tmp_opt, skb, sk);
+ 
+ 	/* Note: tcp_v6_init_req() might override ir_iif for link locals */
+-	inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
++	inet_rsk(req)->ir_iif = vrf_master_ifindex_by_index(sock_net(sk),
++							    skb->skb_iif);
++	if (!inet_rsk(req)->ir_iif)
++		inet_rsk(req)->ir_iif = sk->sk_bound_dev_if;
+ 
+ 	af_ops->init_req(req, sk, skb);
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index d27eb549ced6..0f8ed98a2e64 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -75,6 +75,7 @@
+ #include <net/secure_seq.h>
+ #include <net/tcp_memcontrol.h>
+ #include <net/busy_poll.h>
++#include <net/vrf.h>
+ 
+ #include <linux/inet.h>
+ #include <linux/ipv6.h>
+@@ -682,6 +683,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	 */
+ 	if (sk)
+ 		arg.bound_dev_if = sk->sk_bound_dev_if;
++	if (!arg.bound_dev_if && skb->dev)
++		arg.bound_dev_if = vrf_master_ifindex_rcu(skb->dev);
+ 
+ 	arg.tos = ip_hdr(skb)->tos;
+ 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
+@@ -766,8 +769,10 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
+ 				      ip_hdr(skb)->saddr, /* XXX */
+ 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
+ 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
+-	if (oif)
+-		arg.bound_dev_if = oif;
++	arg.bound_dev_if = oif ? : vrf_master_ifindex_rcu(skb_dst(skb)->dev);
++	if (!arg.bound_dev_if)
++		arg.bound_dev_if = vrf_master_ifindex_rcu(skb->dev);
++
+ 	arg.tos = tos;
+ 	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
+ 			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
+@@ -1269,6 +1274,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	ireq		      = inet_rsk(req);
+ 	sk_daddr_set(newsk, ireq->ir_rmt_addr);
+ 	sk_rcv_saddr_set(newsk, ireq->ir_loc_addr);
++	if (netif_index_is_vrf(sock_net(newsk), ireq->ir_iif))
++		newsk->sk_bound_dev_if = ireq->ir_iif;
+ 	newinet->inet_saddr	      = ireq->ir_loc_addr;
+ 	inet_opt	      = ireq->opt;
+ 	rcu_assign_pointer(newinet->inet_opt, inet_opt);
 -- 
 2.3.2 (Apple Git-55)
