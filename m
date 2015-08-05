@@ -1,171 +1,46 @@
-From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH 2/5] net: rfkill: add rfkill_find_type function
-Date: Wed, 05 Aug 2015 17:07:29 +0300
-Message-ID: <1438783649.29746.175.camel@linux.intel.com>
+From: "Shevchenko, Andriy" <andriy.shevchenko@intel.com>
+Subject: Re: [PATCH 1/5] device property: helper macros for property entry
+ creation
+Date: Wed, 5 Aug 2015 14:12:25 +0000
+Message-ID: <1438783944.29746.176.camel@intel.com>
 References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
-	 <1438781947-7952-3-git-send-email-heikki.krogerus@linux.intel.com>
+	 <1438781947-7952-2-git-send-email-heikki.krogerus@linux.intel.com>
+	 <1438783338.29746.172.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1438781947-7952-3-git-send-email-heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "mika.westerberg@linux.intel.com" <mika.westerberg@linux.intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"rjw@rjwysocki.net" <rjw@rjwysocki.net>,
+	"linux-tegra@vger.kernel.org" <linux-tegra@vger.kernel.org>
+To: "heikki.krogerus@linux.intel.com" <heikki.krogerus@linux.intel.com>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438783338.29746.172.camel@linux.intel.com>
+Content-Language: en-US
+Content-ID: <3061C09E34E918408E94C81E30A6FDD7@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-08-05 at 16:39 +0300, Heikki Krogerus wrote:
-> Helper for finding the type based on name. Useful if the
-> type needs to be determined based on device property.
->=20
-> Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> ---
->  include/linux/rfkill.h | 15 +++++++++++++
->  net/rfkill/core.c      | 57 +++++++++++++++++++++++++---------------
-> ----------
->  2 files changed, 44 insertions(+), 28 deletions(-)
->=20
-> diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
-> index d901078..02f563c 100644
-> --- a/include/linux/rfkill.h
-> +++ b/include/linux/rfkill.h
-> @@ -212,6 +212,15 @@ void rfkill_set_states(struct rfkill *rfkill,=20
-> bool sw, bool hw);
->   * @rfkill: rfkill struct to query
->   */
->  bool rfkill_blocked(struct rfkill *rfkill);
-> +
-> +/**
-> + * rfkill_find_type - Helpper for finding rfkill type by name
-> + * @name: the name of the type
-> + *
-> + * Returns enum rfkill_type that conrresponds the name.
-> + */
-> +enum rfkill_type rfkill_find_type(const char *name);
-> +
->  #else /* !RFKILL */
->  static inline struct rfkill * __must_check
->  rfkill_alloc(const char *name,
-> @@ -268,6 +277,12 @@ static inline bool rfkill_blocked(struct rfkill=20
-> *rfkill)
->  {
->  	return false;
->  }
-> +
-> +static inline enum rfkill_type rfkill_find_type(const char *name)
-> +{
-> +	return 0;
-
-Hmm=E2=80=A6 Besides 0 is implicitly casted to enum type the issue with=
- enums
-that you rather have to supply existing enum entry. I would suggest to
-add RFKILL_TYPE_UNKNOWN if _ALL is reserved for some use cases.
-
-> +}
-> +
->  #endif /* RFKILL || RFKILL_MODULE */
-> =20
-> =20
-> diff --git a/net/rfkill/core.c b/net/rfkill/core.c
-> index f12149a..53d7a97e 100644
-> --- a/net/rfkill/core.c
-> +++ b/net/rfkill/core.c
-> @@ -574,6 +574,33 @@ void rfkill_set_states(struct rfkill *rfkill,=20
-> bool sw, bool hw)
->  }
->  EXPORT_SYMBOL(rfkill_set_states);
-> =20
-> +static const char *rfkill_types[NUM_RFKILL_TYPES] =3D {
-> +	[RFKILL_TYPE_WLAN]	=3D "wlan",
-> +	[RFKILL_TYPE_BLUETOOTH]	=3D "bluetooth",
-> +	[RFKILL_TYPE_UWB]	=3D "ultrawideband",
-> +	[RFKILL_TYPE_WIMAX]	=3D "wimax",
-> +	[RFKILL_TYPE_WWAN]	=3D "wwan",
-> +	[RFKILL_TYPE_GPS]	=3D "gps",
-> +	[RFKILL_TYPE_FM]	=3D "fm",
-> +	[RFKILL_TYPE_NFC]	=3D "nfc",
-> +};
-> +
-> +enum rfkill_type rfkill_find_type(const char *name)
-> +{
-> +	int i;
-> +
-> +	BUILD_BUG_ON(NUM_RFKILL_TYPES !=3D RFKILL_TYPE_NFC + 1);
-> +
-> +	if (!name)
-> +		return RFKILL_TYPE_ALL;
-> +
-> +	for (i =3D 1; i < NUM_RFKILL_TYPES; i++)
-> +		if (!strcmp(name, rfkill_types[i]))
-> +			return i;
-> +	return RFKILL_TYPE_ALL;
-> +}
-> +EXPORT_SYMBOL(rfkill_find_type);
-> +
->  static ssize_t name_show(struct device *dev, struct device_attribute=
-=20
-> *attr,
->  			 char *buf)
->  {
-> @@ -583,38 +610,12 @@ static ssize_t name_show(struct device *dev,=20
-> struct device_attribute *attr,
->  }
->  static DEVICE_ATTR_RO(name);
-> =20
-> -static const char *rfkill_get_type_str(enum rfkill_type type)
-> -{
-> -	BUILD_BUG_ON(NUM_RFKILL_TYPES !=3D RFKILL_TYPE_NFC + 1);
-> -
-> -	switch (type) {
-> -	case RFKILL_TYPE_WLAN:
-> -		return "wlan";
-> -	case RFKILL_TYPE_BLUETOOTH:
-> -		return "bluetooth";
-> -	case RFKILL_TYPE_UWB:
-> -		return "ultrawideband";
-> -	case RFKILL_TYPE_WIMAX:
-> -		return "wimax";
-> -	case RFKILL_TYPE_WWAN:
-> -		return "wwan";
-> -	case RFKILL_TYPE_GPS:
-> -		return "gps";
-> -	case RFKILL_TYPE_FM:
-> -		return "fm";
-> -	case RFKILL_TYPE_NFC:
-> -		return "nfc";
-> -	default:
-> -		BUG();
-> -	}
-> -}
-> -
->  static ssize_t type_show(struct device *dev, struct device_attribute=
-=20
-> *attr,
->  			 char *buf)
->  {
->  	struct rfkill *rfkill =3D to_rfkill(dev);
-> =20
-> -	return sprintf(buf, "%s\n", rfkill_get_type_str(rfkill
-> ->type));
-> +	return sprintf(buf, "%s\n", rfkill_types[rfkill->type]);
->  }
->  static DEVICE_ATTR_RO(type);
-> =20
-> @@ -760,7 +761,7 @@ static int rfkill_dev_uevent(struct device *dev,=20
-> struct kobj_uevent_env *env)
->  	if (error)
->  		return error;
->  	error =3D add_uevent_var(env, "RFKILL_TYPE=3D%s",
-> -			       rfkill_get_type_str(rfkill->type));
-> +			       rfkill_types[rfkill->type]);
->  	if (error)
->  		return error;
->  	spin_lock_irqsave(&rfkill->lock, flags);
-
---=20
-Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Intel Finland Oy
+T24gV2VkLCAyMDE1LTA4LTA1IGF0IDE3OjAyICswMzAwLCBBbmR5IFNoZXZjaGVua28gd3JvdGU6
+DQo+IE9uIFdlZCwgMjAxNS0wOC0wNSBhdCAxNjozOSArMDMwMCwgSGVpa2tpIEtyb2dlcnVzIHdy
+b3RlOg0KDQpbXQ0KDQo+ID4gKyNkZWZpbmUgUFJPUF9FTlRSWV9TVFJJTkcoX25hbWVfLCBfdmFs
+XykgeyBcDQo+IA0KPiDigKZfU1RSSU5HX0FSUkFZIEkgY2FuIG5vdGljZS4NCg0KcyAvIGNhbiAv
+IGNhbid0IC8NCg0KPiANCj4gPiArCS5uYW1lID0gX25hbWVfLCBcDQo+ID4gKwkudHlwZSA9IERF
+Vl9QUk9QX1NUUklORywgXA0KPiA+ICsJLm52YWwgPSAxLCBcDQo+ID4gKwkudmFsdWUuc3RyID0g
+KGNvbnN0IGNoYXIgKiopX3ZhbF8sIFwNCj4gPiArfQ0KPiA+ICsNCj4gPiAgLyoqDQo+ID4gICAq
+IHN0cnVjdCBwcm9wZXJ0eV9zZXQgLSBDb2xsZWN0aW9uIG9mICJidWlsdC1pbiIgZGV2aWNlIA0K
+PiA+IHByb3BlcnRpZXMuDQo+ID4gICAqIEBmd25vZGU6IEhhbmRsZSB0byBiZSBwb2ludGVkIHRv
+IGJ5IHRoZSBmd25vZGUgZmllbGQgb2Ygc3RydWN0IA0KPiA+IGRldmljZS4NCj4gDQoNCi0tIA0K
+QW5keSBTaGV2Y2hlbmtvIDxhbmRyaXkuc2hldmNoZW5rb0BpbnRlbC5jb20+DQpJbnRlbCBGaW5s
+YW5kIE95Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLQpJbnRlbCBGaW5sYW5kIE95ClJlZ2lzdGVyZWQgQWRkcmVzczog
+UEwgMjgxLCAwMDE4MSBIZWxzaW5raSAKQnVzaW5lc3MgSWRlbnRpdHkgQ29kZTogMDM1NzYwNiAt
+IDQgCkRvbWljaWxlZCBpbiBIZWxzaW5raSAKClRoaXMgZS1tYWlsIGFuZCBhbnkgYXR0YWNobWVu
+dHMgbWF5IGNvbnRhaW4gY29uZmlkZW50aWFsIG1hdGVyaWFsIGZvcgp0aGUgc29sZSB1c2Ugb2Yg
+dGhlIGludGVuZGVkIHJlY2lwaWVudChzKS4gQW55IHJldmlldyBvciBkaXN0cmlidXRpb24KYnkg
+b3RoZXJzIGlzIHN0cmljdGx5IHByb2hpYml0ZWQuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRl
+ZApyZWNpcGllbnQsIHBsZWFzZSBjb250YWN0IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBhbGwgY29w
+aWVzLgo=
