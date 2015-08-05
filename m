@@ -1,195 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] i40e: Add AQ commands for NVM Update for X722
-Date: Wed,  5 Aug 2015 16:52:10 -0700
-Message-ID: <1438818735-38115-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] i40e: Add IWARP support for X722
+Date: Wed,  5 Aug 2015 16:52:08 -0700
+Message-ID: <1438818735-38115-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1438818735-38115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:40422 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:11984 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753879AbbHEXwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Aug 2015 19:52:23 -0400
+	id S1753830AbbHEXwW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2015 19:52:22 -0400
 In-Reply-To: <1438818735-38115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-X722 does NVM update via the adminq queue, so we need to add support for
-that.
+X722 supports IWARP, this patch handles checking for PE critical errors.
+Since the driver doesn't support the IWARP interface for now, this patch
+just does bare minimum to log a message oif a PE critical error
+happens.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 129 +++++++++++++++++++++++++++++
- 1 file changed, 129 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index ce986af..9b83abc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -212,6 +212,74 @@ read_nvm_exit:
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index d9cb87f..3bb832a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2908,6 +2908,9 @@ static void i40e_enable_misc_int_causes(struct i40e_pf *pf)
+ 	      I40E_PFINT_ICR0_ENA_VFLR_MASK          |
+ 	      I40E_PFINT_ICR0_ENA_ADMINQ_MASK;
  
- /**
-+ * i40e_read_nvm_aq - Read Shadow RAM.
-+ * @hw: pointer to the HW structure.
-+ * @module_pointer: module pointer location in words from the NVM beginning
-+ * @offset: offset in words from module start
-+ * @words: number of words to write
-+ * @data: buffer with words to write to the Shadow RAM
-+ * @last_command: tells the AdminQ that this is the last command
-+ *
-+ * Writes a 16 bit words buffer to the Shadow RAM using the admin command.
-+ **/
-+static i40e_status i40e_read_nvm_aq(struct i40e_hw *hw, u8 module_pointer,
-+				    u32 offset, u16 words, void *data,
-+				    bool last_command)
-+{
-+	i40e_status ret_code = I40E_ERR_NVM;
-+	struct i40e_asq_cmd_details cmd_details;
++	if (pf->flags & I40E_FLAG_IWARP_ENABLED)
++		val |= I40E_PFINT_ICR0_ENA_PE_CRITERR_MASK;
 +
-+	memset(&cmd_details, 0, sizeof(cmd_details));
-+
-+	/* Here we are checking the SR limit only for the flat memory model.
-+	 * We cannot do it for the module-based model, as we did not acquire
-+	 * the NVM resource yet (we cannot get the module pointer value).
-+	 * Firmware will check the module-based model.
-+	 */
-+	if ((offset + words) > hw->nvm.sr_size)
-+		i40e_debug(hw, I40E_DEBUG_NVM,
-+			   "NVM write error: offset %d beyond Shadow RAM limit %d\n",
-+			   (offset + words), hw->nvm.sr_size);
-+	else if (words > I40E_SR_SECTOR_SIZE_IN_WORDS)
-+		/* We can write only up to 4KB (one sector), in one AQ write */
-+		i40e_debug(hw, I40E_DEBUG_NVM,
-+			   "NVM write fail error: tried to write %d words, limit is %d.\n",
-+			   words, I40E_SR_SECTOR_SIZE_IN_WORDS);
-+	else if (((offset + (words - 1)) / I40E_SR_SECTOR_SIZE_IN_WORDS)
-+		 != (offset / I40E_SR_SECTOR_SIZE_IN_WORDS))
-+		/* A single write cannot spread over two sectors */
-+		i40e_debug(hw, I40E_DEBUG_NVM,
-+			   "NVM write error: cannot spread over two sectors in a single write offset=%d words=%d\n",
-+			   offset, words);
-+	else
-+		ret_code = i40e_aq_read_nvm(hw, module_pointer,
-+					    2 * offset,  /*bytes*/
-+					    2 * words,   /*bytes*/
-+					    data, last_command, &cmd_details);
-+
-+	return ret_code;
-+}
-+
-+/**
-+ * i40e_read_nvm_word_aq - Reads Shadow RAM via AQ
-+ * @hw: pointer to the HW structure
-+ * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF)
-+ * @data: word read from the Shadow RAM
-+ *
-+ * Reads one 16 bit word from the Shadow RAM using the GLNVM_SRCTL register.
-+ **/
-+static i40e_status i40e_read_nvm_word_aq(struct i40e_hw *hw, u16 offset,
-+					 u16 *data)
-+{
-+	i40e_status ret_code = I40E_ERR_TIMEOUT;
-+
-+	ret_code = i40e_read_nvm_aq(hw, 0x0, offset, 1, data, true);
-+	*data = le16_to_cpu(*(__le16 *)data);
-+
-+	return ret_code;
-+}
-+
-+/**
-  * i40e_read_nvm_word - Reads Shadow RAM
-  * @hw: pointer to the HW structure
-  * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF)
-@@ -222,6 +290,8 @@ read_nvm_exit:
- i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
- 			       u16 *data)
- {
-+	if (hw->mac.type == I40E_MAC_X722)
-+		return i40e_read_nvm_word_aq(hw, offset, data);
- 	return i40e_read_nvm_word_srctl(hw, offset, data);
- }
+ 	if (pf->flags & I40E_FLAG_PTP)
+ 		val |= I40E_PFINT_ICR0_ENA_TIMESYNC_MASK;
  
-@@ -257,6 +327,63 @@ static i40e_status i40e_read_nvm_buffer_srctl(struct i40e_hw *hw, u16 offset,
- }
+@@ -3198,6 +3201,13 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ 	    (icr0 & I40E_PFINT_ICR0_SWINT_MASK))
+ 		pf->sw_int_count++;
  
- /**
-+ * i40e_read_nvm_buffer_aq - Reads Shadow RAM buffer via AQ
-+ * @hw: pointer to the HW structure
-+ * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
-+ * @words: (in) number of words to read; (out) number of words actually read
-+ * @data: words read from the Shadow RAM
-+ *
-+ * Reads 16 bit words (data buffer) from the SR using the i40e_read_nvm_aq()
-+ * method. The buffer read is preceded by the NVM ownership take
-+ * and followed by the release.
-+ **/
-+static i40e_status i40e_read_nvm_buffer_aq(struct i40e_hw *hw, u16 offset,
-+					   u16 *words, u16 *data)
-+{
-+	i40e_status ret_code;
-+	u16 read_size = *words;
-+	bool last_cmd = false;
-+	u16 words_read = 0;
-+	u16 i = 0;
++	if ((pf->flags & I40E_FLAG_IWARP_ENABLED) &&
++	    (ena_mask & I40E_PFINT_ICR0_ENA_PE_CRITERR_MASK)) {
++		ena_mask &= ~I40E_PFINT_ICR0_ENA_PE_CRITERR_MASK;
++		icr0 &= ~I40E_PFINT_ICR0_ENA_PE_CRITERR_MASK;
++		dev_info(&pf->pdev->dev, "cleared PE_CRITERR\n");
++	}
 +
-+	do {
-+		/* Calculate number of bytes we should read in this step.
-+		 * FVL AQ do not allow to read more than one page at a time or
-+		 * to cross page boundaries.
-+		 */
-+		if (offset % I40E_SR_SECTOR_SIZE_IN_WORDS)
-+			read_size = min(*words,
-+					(u16)(I40E_SR_SECTOR_SIZE_IN_WORDS -
-+				      (offset % I40E_SR_SECTOR_SIZE_IN_WORDS)));
-+		else
-+			read_size = min((*words - words_read),
-+					I40E_SR_SECTOR_SIZE_IN_WORDS);
-+
-+		/* Check if this is last command, if so set proper flag */
-+		if ((words_read + read_size) >= *words)
-+			last_cmd = true;
-+
-+		ret_code = i40e_read_nvm_aq(hw, 0x0, offset, read_size,
-+					    data + words_read, last_cmd);
-+		if (ret_code)
-+			goto read_nvm_buffer_aq_exit;
-+
-+		/* Increment counter for words already read and move offset to
-+		 * new read location
-+		 */
-+		words_read += read_size;
-+		offset += read_size;
-+	} while (words_read < *words);
-+
-+	for (i = 0; i < *words; i++)
-+		data[i] = le16_to_cpu(((__le16 *)data)[i]);
-+
-+read_nvm_buffer_aq_exit:
-+	*words = words_read;
-+	return ret_code;
-+}
-+
-+/**
-  * i40e_read_nvm_buffer - Reads Shadow RAM buffer
-  * @hw: pointer to the HW structure
-  * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
-@@ -270,6 +397,8 @@ static i40e_status i40e_read_nvm_buffer_srctl(struct i40e_hw *hw, u16 offset,
- i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
- 				 u16 *words, u16 *data)
- {
-+	if (hw->mac.type == I40E_MAC_X722)
-+		return i40e_read_nvm_buffer_aq(hw, offset, words, data);
- 	return i40e_read_nvm_buffer_srctl(hw, offset, words, data);
- }
+ 	/* only q0 is used in MSI/Legacy mode, and none are used in MSIX */
+ 	if (icr0 & I40E_PFINT_ICR0_QUEUE_0_MASK) {
  
 -- 
 2.4.3
