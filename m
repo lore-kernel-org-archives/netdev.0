@@ -1,57 +1,76 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in ovs_vport_receive()
-Date: Tue, 4 Aug 2015 21:40:56 -0700
-Message-ID: <CANr6G5xF8XFr_6PDimR5YrYr=o=CDAJnfT3Op1R1WJ3wRcuDhw@mail.gmail.com>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
- <1438279963-29563-2-git-send-email-joestringer@nicira.com>
- <1438353294.20479.7.camel@redhat.com> <CANr6G5zsh2DUDBrZpQBpFO_GggvPa4ztdwDxRQuByzwU-S-FUg@mail.gmail.com>
- <20150801191741.GA13837@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Justin Pettit <jpettit@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
-	Florian Westphal <fwestpha@redhat.com>
-To: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCHv2 net-next 0/9] OVS conntrack support
+Date: Tue,  4 Aug 2015 21:49:50 -0700
+Message-ID: <1438750199-9061-1-git-send-email-joestringer@nicira.com>
+Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
+	jpettit@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	jesse@nicira.com, fwestpha@redhat.com, hannes@redhat.com,
+	tgraf@noironetworks.com
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150801191741.GA13837@pox.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1 August 2015 at 12:17, Thomas Graf <tgraf@suug.ch> wrote:
-> On 07/31/15 at 10:51am, Joe Stringer wrote:
->> On 31 July 2015 at 07:34, Hannes Frederic Sowa <hannes@redhat.com> wrote:
->> > In general, this shouldn't be necessary as the packet should already be
->> > scrubbed before they arrive here.
->> >
->> > Could you maybe add a WARN_ON and check how those skbs with conntrack
->> > data traverse the stack? I also didn't understand why make it dependent
->> > on the socket.
->>
->> OK, sure. One case I could think of is with an OVS internal port in
->> another namespace, directly attached to the bridge. I'll have a play
->> around with WARN_ON and see if I can come up with something more
->> trimmed down.
->
-> The OVS internal port will definitely pass through an unscrubbed
-> packet across namespaces. I think the proper thing to do would be
-> to scrub but conditionally keep metadata.
+The goal of this series is to allow OVS to send packets through the Linux
+kernel connection tracker, and subsequently match on fields populated by
+conntrack.
 
-It's only "unscrubbed" when receiving from local stack at the moment.
-Some pieces are cleared when handing towards the local stack, and
-there's no configuration for that behaviour. Presumably internal port
-transmit and receive should mirror each other?
+This version addresses the feedback from v2, mostly minor tidyups and a few
+corner cases that were missed in v1. The biggest change is rather than
+attempting to handle VLANs specifically for header reconstruction after
+fragmentation, the entire L2 header is used as a more generic solution which
+should handle more corner cases correctly.
 
-I don't have a specific use case either way. The remaining code for
-this series handles this case correctly, it's just a matter of what
-behaviour we're looking for. We could implement the flag as you say, I
-presume that userspace would need to specify this during vport
-creation and the default should work similar to the existing behaviour
-(ie, keep metadata). One thing that's not entirely clear to me is
-exactly which metadata should be represented by this flag and whether
-the single flag is expressive enough.
+This functionality is enabled through the CONFIG_OPENVSWITCH_CONNTRACK option.
+
+The branch below has been updated with the corresponding userspace pieces:
+https://github.com/justinpettit/ovs conntrack
+
+v2: Split out per-netns connlabel width setting functions
+    Simplify reference tracking in output path.
+    Handle output cases where flow key is invalidated by prior push/pop
+    Store entire L2 header to apply to fragments
+    Various bits of refactoring, comments, styles, log improvements
+    Defer patch to scrub skb
+    Rebase
+
+v1: First non-RFC post.
+    Fragment handling.
+    Conntrack label support.
+
+Joe Stringer (8):
+  openvswitch: Serialize acts with original netlink len
+  openvswitch: Move MASKED* macros to datapath.h
+  ipv6: Export nf_ct_frag6_gather()
+  netfilter: connlabels: Export setting connlabel length
+  openvswitch: Add conntrack action
+  netfilter: Always export nf_connlabels_replace()
+  openvswitch: Allow matching on conntrack label
+  openvswitch: Allow attaching helpers to ct action
+
+Justin Pettit (1):
+  openvswitch: Allow matching on conntrack mark
+
+ include/net/netfilter/nf_conntrack_labels.h |   4 +
+ include/uapi/linux/openvswitch.h            |  49 ++
+ net/ipv6/netfilter/nf_conntrack_reasm.c     |   1 +
+ net/netfilter/nf_conntrack_labels.c         |  34 +-
+ net/netfilter/xt_connlabel.c                |  16 +-
+ net/openvswitch/Kconfig                     |  11 +
+ net/openvswitch/Makefile                    |   2 +
+ net/openvswitch/actions.c                   | 216 +++++++--
+ net/openvswitch/conntrack.c                 | 688 ++++++++++++++++++++++++++++
+ net/openvswitch/conntrack.h                 | 126 +++++
+ net/openvswitch/datapath.c                  |  75 ++-
+ net/openvswitch/datapath.h                  |  12 +
+ net/openvswitch/flow.c                      |   5 +
+ net/openvswitch/flow.h                      |   9 +
+ net/openvswitch/flow_netlink.c              | 102 ++++-
+ net/openvswitch/flow_netlink.h              |   4 +-
+ net/openvswitch/vport.c                     |   1 +
+ 17 files changed, 1276 insertions(+), 79 deletions(-)
+ create mode 100644 net/openvswitch/conntrack.c
+ create mode 100644 net/openvswitch/conntrack.h
+
+-- 
+2.1.4
