@@ -1,83 +1,30 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v2 4/8] xen: Use the correctly the Xen memory
- terminologies
-Date: Wed, 5 Aug 2015 13:33:32 +0100
-Message-ID: <55C2029C.9030705@citrix.com>
-References: <1438711972-18752-1-git-send-email-julien.grall@citrix.com>
-	<1438711972-18752-5-git-send-email-julien.grall@citrix.com>
-	<55C147DD.7000600@oracle.com> <55C1EA95.5060504@citrix.com>
- <55C1FF54.8060409@oracle.com>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: Re: [PATCH v2] e1000e: Modify tx/rx configurations to avoid null
+ pointer dereferences in e1000_open
+Date: Wed, 05 Aug 2015 20:34:24 +0800
+Message-ID: <55C202D0.3050003@163.com>
+References: <1438769770-8887-1-git-send-email-baijiaju1990@163.com> <1438771429.3467.28.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <linux-fbdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
-	"Jiri Slaby" <jslaby@suse.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	<linux-scsi@vger.kernel.org>, <x86@kernel.org>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	<linux-input@vger.kernel.org>,
-	"Jean-Christophe Plagniol-Villard" <plagnioj@jcrosoft.com>,
-	<ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
-	"James E.J. Bottomley" <JBottomley@odin.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Juergen Gross <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	<linux-kernel@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	=?windows-1252?Q?Roger_Pau_Monn=E9?= <roger.pau@citrix.
-To: Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <55C1FF54.8060409@oracle.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jesse.brandeburg@intel.com, alexander.duyck@gmail.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m50-134.163.com ([123.125.50.134]:53383 "EHLO m50-134.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751892AbbHEMeq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2015 08:34:46 -0400
+In-Reply-To: <1438771429.3467.28.camel@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/08/15 13:19, Boris Ostrovsky wrote:
-> On 08/05/2015 06:51 AM, Julien Grall wrote:
->>
->>>> diff --git a/drivers/video/fbdev/xen-fbfront.c
->>>> b/drivers/video/fbdev/xen-fbfront.c
->>>> index 09dc447..25e3cce 100644
->>>> --- a/drivers/video/fbdev/xen-fbfront.c
->>>> +++ b/drivers/video/fbdev/xen-fbfront.c
->>>> @@ -539,7 +539,7 @@ static int xenfb_remove(struct xenbus_device *dev)
->>>>      static unsigned long vmalloc_to_mfn(void *address)
->>>>    {
->>>> -    return pfn_to_mfn(vmalloc_to_pfn(address));
->>>> +    return pfn_to_gfn(vmalloc_to_pfn(address));
->>>>    }
->>> Are you sure? This will return vmalloc_to_pfn(address)).
->> I guess you mean vmalloc_to_mfn will return vmalloc_to_pfn?
->>
->> If so, it will be only the case on auto-translated case (because pfn ==
->> gfn). In the case of PV, the mfn will be returned.
-> 
-> How will mfn be returned on PV when pfn_to_gfn() is an identity function?
-> 
-> static inline unsigned long pfn_to_gfn(unsigned long pfn)
->  {
->      return pfn;
->  }
+On 08/05/2015 06:43 PM, Jeff Kirsher wrote:
+>
+> Is your intention that this patch replace the existing patch:
+> http://patchwork.ozlabs.org/patch/502990/
+> ...which is currently in my queue?
+>
 
-The identity function is only for ARM guest which are always
-auto-translated (arch/arm/include/asm/xen/page.h).
-
-The x86 version contains a check if the guest is auto-translated or not
-(arch/x86/include/asm/xen/page.):
-
-static inline unsigned long pfn_to_gfn(unsigned long pfn)
-{
-        if (xen_feature(XENFEAT_auto_translated_physmap))
-                return pfn;
-        else
-                return pfn_to_mfn(pfn);
-}
-
-Regards,
-
--- 
-Julien Grall
+Okay, please replace the previous patch.
