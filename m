@@ -1,173 +1,64 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Subject: Re: veths often slow to come up
-Date: Wed, 5 Aug 2015 12:23:59 -0300
-Message-ID: <20150805152358.GE10686@indiana.gru.redhat.com>
-References: <D1E67FCC.3FA19%Shaun.Crampton@metaswitch.com>
- <CAM_iQpV6ZjKWmy8ou6xM=fP8gfE19cS9r=YT4P2xW7rBJwAyZA@mail.gmail.com>
+From: Michael Grzeschik <mgr@pengutronix.de>
+Subject: Re: [PATCH] ARCNET: fix hard_header_len limit
+Date: Wed, 5 Aug 2015 17:34:51 +0200
+Message-ID: <20150805153451.GB20781@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Shaun Crampton <Shaun.Crampton@metaswitch.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:35855 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752101AbbHEPey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 11:34:54 -0400
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpV6ZjKWmy8ou6xM=fP8gfE19cS9r=YT4P2xW7rBJwAyZA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 04, 2015 at 08:26:28PM -0700, Cong Wang wrote:
-> (Cc'ing netdev for network issues)
->=20
-> On Tue, Aug 4, 2015 at 6:42 AM, Shaun Crampton
-> <Shaun.Crampton@metaswitch.com> wrote:
-> > Please CC me on any responses, thanks.
-> >
-> > Setting both ends of a veth to be oper UP completes very quickly bu=
-t I
-> > find that pings only start flowing over the veth after about a seco=
-nd.
-> > This seems to correlate with the NO-CARRIER flag being set or the
-> > interface being in "state UNKNOWN" or "state DOWN=C2=B2 for about a=
- second
-> > (demo script below).
-> >
-> > If I run the script repeatedly then sometimes it completes very qui=
-ckly on
-> > subsequent runs as if there=C2=B9s a hot cache somewhere.
-> >
-> > Could this be a bug or is there a configuration to speed this up?  =
-Seems
-> > odd that it=C2=B9s almost exactly 1s on the first run.
-> >
-> > Seen on these kernels:
-> > * 3.13.0-57-generic #95-Ubuntu SMP Fri Jun 19 09:28:15 UTC 2015 x86=
-_64
-> > x86_64 x86_64 GNU/Linux
-> > * 4.0.9-coreos #2 SMP Thu Jul 30 01:07:55 UTC 2015 x86_64 Intel(R) =
-Xeon(R)
-> > CPU @ 2.50GHz GenuineIntel GNU/Linux
-> >
-> > Regards,
-> >
-> > -Shaun
-> >
+On Thu, Jul 30, 2015 at 11:16:36AM -0700, David Miller wrote:
+> From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> Date: Thu, 30 Jul 2015 15:34:36 +0200
+> 
+> > The commit <9c7077622dd9> ("packet: make packet_snd fail on len smaller
+> > than l2 header") adds the check for minimum packet length of the used l2.
+> > For arcnet the hardware header length is not the complete archdr which
+> > includes hard + soft header. This patch changes the length to
+> > sizeof(arc_hardware).
+> > 
+> > Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> 
+> The hard header len is used for other purposes as well, are you sure
+> those don't get broken by this change?
 
-Take a look at linkwatch_urgent_event at net/core/link_watch.c, and all=
- of
-link_watch.c in general. That's where the 1s delay comes from. It's des=
-igned to
-prevent link message storms.
+Its meaning is to represent the amount of the hardware (link layer)
+data of one packet.
 
-In particular, look at commit 294cc44b7e48a6e7732499eebcf409b231460d8e,=
- which
-added the urgent event.
+Which other purposes do you mean?
+Can you point to some code?
 
-I suspect this was designed to workaround buggy drivers/hardware, not t=
-o help
-userspace handle thousands of virtual devices being created and destroy=
-ed all
-the time.
+> Code assumes that if the data at the SKB mac pointer is taken, for
+> dev->hard_header_len bytes, that is exactly the link layer header.
+> And that this can be used to compare two MAC headers, copy the
+> MAC header from one packet to another, etc.
 
-Maybe virtual devices should be whitelisted here? Maybe the patch below=
- is
-stupid, because drivers may abuse it, and drivers are buggy, otherwise =
-linkwatch
-would not be needed in the first place.
+The link layer size of arcnet is 4 bytes long. 1 byte source, 1 byte
+dest and two offset bytes. As described by struct arc_hardware in
+if_arcnet.h . The above condition is fulfilled when the mac pointer
+is 0.
 
-Regards.
-Cascardo.
+The following pending bytes of struct archdr have a variable meaning
+depending of the used protocol and are represented by an union.
+(network layer)
 
-> >
-> > Running my test script below (Assumes veth0/1 do not already exist)=
-:
-> >
-> > $ sudo ./veth-test.sh
-> > Time to create veth:
-> >
-> > real    0m0.019s
-> > user    0m0.002s
-> > sys     0m0.010s
-> >
-> > Time to wait for carrier:
-> >
-> > real    0m1.005s
-> > user    0m0.007s
-> > sys     0m0.123s
-> >
-> >
-> >
-> > # veth-test.sh
-> >
-> > #!/bin/bash
-> > function create_veth {
-> >   ip link add type veth
-> >   ip link set veth0 up
-> >   ip link set veth1 up
-> > }
-> > function wait_for_carrier {
-> >   while ! ip link show | grep -qE 'veth[01]';
-> >   do
-> >     sleep 0.05
-> >   done
-> >   while ip link show | grep -E 'veth[01]=C2=B9 | \
-> >         grep -Eq 'NO-CARRIER|state DOWN|state UNKNOWN';
-> >   do
-> >     sleep 0.05
-> >   done
-> > }
-> > echo "Time to create veth:"
-> > time create_veth
-> > echo
-> > echo "Time to wait for carrier:"
-> > time wait_for_carrier
-> > ip link del veth0
----
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 343592c..91123a8 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -306,6 +306,7 @@ static void veth_setup(struct net_device *dev)
-=20
- 	dev->priv_flags &=3D ~IFF_TX_SKB_SHARING;
- 	dev->priv_flags |=3D IFF_LIVE_ADDR_CHANGE;
-+	dev->priv_flags |=3D IFF_LINKWATCH_URGENT;
-=20
- 	dev->netdev_ops =3D &veth_netdev_ops;
- 	dev->ethtool_ops =3D &veth_ethtool_ops;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 607b5f4..138f5e9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1262,6 +1262,7 @@ struct net_device_ops {
-  * @IFF_LIVE_ADDR_CHANGE: device supports hardware address
-  *	change when it's running
-  * @IFF_MACVLAN: Macvlan device
-+ * @IFF_LINKWATCH_URGENT: device does not flood with link updates
-  */
- enum netdev_priv_flags {
- 	IFF_802_1Q_VLAN			=3D 1<<0,
-@@ -1289,6 +1290,7 @@ enum netdev_priv_flags {
- 	IFF_XMIT_DST_RELEASE_PERM	=3D 1<<22,
- 	IFF_IPVLAN_MASTER		=3D 1<<23,
- 	IFF_IPVLAN_SLAVE		=3D 1<<24,
-+	IFF_LINKWATCH_URGENT		=3D 1<<25,
- };
-=20
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-diff --git a/net/core/link_watch.c b/net/core/link_watch.c
-index 9828616..e2957a0 100644
---- a/net/core/link_watch.c
-+++ b/net/core/link_watch.c
-@@ -95,6 +95,9 @@ static bool linkwatch_urgent_event(struct net_device =
-*dev)
- 	if (dev->priv_flags & IFF_TEAM_PORT)
- 		return true;
-=20
-+	if (dev->priv_flags & IFF_LINKWATCH_URGENT)
-+		return true;
-+
- 	return netif_carrier_ok(dev) &&	qdisc_tx_changing(dev);
- }
----=20
+In the case of raw packets, the payload comes immediately after the
+hard_header.
+
+Thanks,
+Michael
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
