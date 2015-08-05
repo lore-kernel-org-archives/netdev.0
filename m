@@ -1,72 +1,77 @@
 From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: [PATCH 3/5] net: rfkill: gpio: get the name and type from device property
-Date: Wed,  5 Aug 2015 16:39:05 +0300
-Message-ID: <1438781947-7952-4-git-send-email-heikki.krogerus@linux.intel.com>
+Subject: [PATCH 4/5] ARM: tegra: use build-in device properties with rfkill_gpio
+Date: Wed,  5 Aug 2015 16:39:06 +0300
+Message-ID: <1438781947-7952-5-git-send-email-heikki.krogerus@linux.intel.com>
 References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
 Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
 	Mika Westerberg <mika.westerberg@linux.intel.com>,
 	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org
+	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Thierry Reding <thierry.reding@gmail.com>,
+	Stephen Warren <swarren@wwwdotorg.org>
 To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This prepares the driver for removal of platform data.
+Pass the rfkill name and type to the device with properties
+instead of driver specific platform data.
 
 Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+CC: Alexandre Courbot <gnurou@gmail.com>
+CC: Thierry Reding <thierry.reding@gmail.com>
+CC: Stephen Warren <swarren@wwwdotorg.org>
 ---
- net/rfkill/rfkill-gpio.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+ arch/arm/mach-tegra/board-paz00.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index d5d58d9..07323c3 100644
---- a/net/rfkill/rfkill-gpio.c
-+++ b/net/rfkill/rfkill-gpio.c
-@@ -81,7 +81,6 @@ static int rfkill_gpio_acpi_probe(struct device *dev,
- 	if (!id)
- 		return -ENODEV;
+diff --git a/arch/arm/mach-tegra/board-paz00.c b/arch/arm/mach-tegra/board-paz00.c
+index fbe74c6..5d8d3a4 100644
+--- a/arch/arm/mach-tegra/board-paz00.c
++++ b/arch/arm/mach-tegra/board-paz00.c
+@@ -17,23 +17,25 @@
+  *
+  */
  
--	rfkill->name = dev_name(dev);
- 	rfkill->type = (unsigned)id->driver_data;
++#include <linux/property.h>
+ #include <linux/gpio/machine.h>
+ #include <linux/platform_device.h>
+-#include <linux/rfkill-gpio.h>
  
- 	return acpi_dev_add_driver_gpios(ACPI_COMPANION(dev),
-@@ -93,12 +92,21 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
- 	struct rfkill_gpio_data *rfkill;
- 	struct gpio_desc *gpio;
-+	const char *type_name;
- 	int ret;
+ #include "board.h"
  
- 	rfkill = devm_kzalloc(&pdev->dev, sizeof(*rfkill), GFP_KERNEL);
- 	if (!rfkill)
- 		return -ENOMEM;
- 
-+	device_property_read_string(&pdev->dev, "name", &rfkill->name);
-+	device_property_read_string(&pdev->dev, "type", &type_name);
+-static struct rfkill_gpio_platform_data wifi_rfkill_platform_data = {
+-	.name	= "wifi_rfkill",
+-	.type	= RFKILL_TYPE_WLAN,
++static struct property_entry wifi_rfkill_prop[] = {
++	PROP_ENTRY_STRING("name", "wifi_rfkill"),
++	PROP_ENTRY_STRING("type", "wlan"),
++	{ },
++};
 +
-+	if (!rfkill->name)
-+		rfkill->name = dev_name(&pdev->dev);
-+
-+	rfkill->type = rfkill_find_type(type_name);
-+
- 	if (ACPI_HANDLE(&pdev->dev)) {
- 		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
- 		if (ret)
-@@ -124,10 +132,8 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
++static struct property_set wifi_rfkill_pset = {
++	.properties = wifi_rfkill_prop,
+ };
  
- 	rfkill->shutdown_gpio = gpio;
+ static struct platform_device wifi_rfkill_device = {
+ 	.name	= "rfkill_gpio",
+ 	.id	= -1,
+-	.dev	= {
+-		.platform_data = &wifi_rfkill_platform_data,
+-	},
+ };
  
--	/* Make sure at-least one of the GPIO is defined and that
--	 * a name is specified for this instance
--	 */
--	if ((!rfkill->reset_gpio && !rfkill->shutdown_gpio) || !rfkill->name) {
-+	/* Make sure at-least one GPIO is defined for this instance */
-+	if (!rfkill->reset_gpio && !rfkill->shutdown_gpio) {
- 		dev_err(&pdev->dev, "invalid platform data\n");
- 		return -EINVAL;
- 	}
+ static struct gpiod_lookup_table wifi_gpio_lookup = {
+@@ -47,6 +49,7 @@ static struct gpiod_lookup_table wifi_gpio_lookup = {
+ 
+ void __init tegra_paz00_wifikill_init(void)
+ {
++	device_add_property_set(&wifi_rfkill_device.dev, &wifi_rfkill_pset);
+ 	gpiod_add_lookup_table(&wifi_gpio_lookup);
+ 	platform_device_register(&wifi_rfkill_device);
+ }
 -- 
 2.4.6
