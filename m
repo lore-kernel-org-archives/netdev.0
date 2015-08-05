@@ -1,36 +1,68 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: rtnl_mutex deadlock?
-Date: Wed, 5 Aug 2015 10:44:51 +0200
-Message-ID: <CA+55aFw1856zEq88RfqoizjeVRR9Ut-ug+VWA+mKFOS77FYpSg@mail.gmail.com>
-References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
-	<CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
-	<20150805074330.GA2084@nanopsycho.orion>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH net-master v2] net: fec: fix initial runtime PM refcount
+Date: Wed,  5 Aug 2015 10:49:24 +0200
+Message-ID: <1438764564-15321-1-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	kernel@pengutronix.de, Lucas Stach <l.stach@pengutronix.de>,
+	Alan Stern <stern@rowland.harvard.edu>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:35589 "EHLO
-	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771AbbHEIov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 04:44:51 -0400
-Received: by iodd187 with SMTP id d187so42435633iod.2
-        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 01:44:51 -0700 (PDT)
-In-Reply-To: <20150805074330.GA2084@nanopsycho.orion>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:35400 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751344AbbHEItd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 04:49:33 -0400
+In-Reply-To: <1438617011-19073-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 5, 2015 at 9:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->
-> Indeed. Most probably, NETLINK_CB(skb).portid got zeroed.
->
-> Linus, are you able to reproduce this or is it a one-time issue?
+=46rom: Lucas Stach <l.stach@pengutronix.de>
 
-I don't think I'm able to reproduce this, it's happened only once so far.
+The clocks are initially active and thus the device is marked active.
+This still keeps the PM refcount at 0, the pm_runtime_put_autosuspend()
+call at the end of probe then leaves us with an invalid refcount of -1,
+which in turn leads to the device staying in suspended state even thoug=
+h
+netdev open had been called.
 
-                 Linus
+=46ix this by initializing the refcount to be coherent with the initial
+device status.
+
+=46ixes: 8fff755e9f8 (net: fec: Ensure clocks are enabled while using m=
+dio bus)
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+Acked-by: Alan Stern <stern@rowland.harvard.edu>
+Tested-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+Hello David,
+
+I think this is fine to apply now for 4.2-rc. I just picked up the
+patch, added Alan's ack and a tested-by for me to make it easier for
+you.
+
+Best regards
+Uwe
+
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index 32e3807c650e..271bb5862346 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -3433,6 +3433,7 @@ fec_probe(struct platform_device *pdev)
+=20
+ 	pm_runtime_set_autosuspend_delay(&pdev->dev, FEC_MDIO_PM_TIMEOUT);
+ 	pm_runtime_use_autosuspend(&pdev->dev);
++	pm_runtime_get_noresume(&pdev->dev);
+ 	pm_runtime_set_active(&pdev->dev);
+ 	pm_runtime_enable(&pdev->dev);
+=20
+--=20
+2.4.6
