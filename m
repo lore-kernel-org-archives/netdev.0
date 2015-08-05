@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH 04/10] udp: Handle VRF device
-Date: Wed,  5 Aug 2015 11:14:47 -0600
-Message-ID: <1438794894-70217-5-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH 02/10] net: Use VRF device index for lookups on RX
+Date: Wed,  5 Aug 2015 11:14:45 -0600
+Message-ID: <1438794894-70217-3-git-send-email-dsa@cumulusnetworks.com>
 References: <1438794894-70217-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,79 +12,80 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:33400 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753135AbbHERQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 13:16:29 -0400
-Received: by ioii16 with SMTP id i16so56094776ioi.0
-        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 10:16:29 -0700 (PDT)
+Received: from mail-io0-f180.google.com ([209.85.223.180]:35071 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912AbbHERQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 13:16:24 -0400
+Received: by iodd187 with SMTP id d187so55947952iod.2
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 10:16:23 -0700 (PDT)
 In-Reply-To: <1438794894-70217-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For unconnected UDP sockets using a VRF device lookup source address
-based on VRF table. This allows the UDP header to be properly setup
-before showing up at the VRF device via the dst.
+On ingress use index of VRF master device for route lookups if real device
+is enslaved. Rules are expected to be installed for the VRF device to
+direct lookups to a specific table.
 
 Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/udp.c | 25 +++++++++++++++++++++++--
- 1 file changed, 23 insertions(+), 2 deletions(-)
+ net/ipv4/fib_frontend.c | 8 +++++++-
+ net/ipv4/route.c        | 3 ++-
+ 2 files changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 83aa604f9273..b513d72a21b3 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -884,7 +884,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	struct rtable *rt = NULL;
- 	int free = 0;
- 	int connected = 0;
--	__be32 daddr, faddr, saddr;
-+	__be32 daddr, faddr, saddr, vsaddr = 0;
- 	__be16 dport;
- 	u8  tos;
- 	int err, is_udplite = IS_UDPLITE(sk);
-@@ -1013,11 +1013,30 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 6b98de0d7949..d8ced1d89f1b 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -45,6 +45,7 @@
+ #include <net/ip_fib.h>
+ #include <net/rtnetlink.h>
+ #include <net/xfrm.h>
++#include <net/vrf.h>
  
- 	if (!rt) {
- 		struct net *net = sock_net(sk);
-+		__u8 flow_flags = inet_sk_flowi_flags(sk);
+ #ifndef CONFIG_IP_MULTIPLE_TABLES
  
- 		fl4 = &fl4_stack;
-+
-+		/* unconnected socket. If output device is enslaved to a VRF
-+		 * device lookup source address from VRF table. This mimics
-+		 * behavior of ip_route_connect{_init}.
-+		 */
-+		if (netif_index_is_vrf(net, ipc.oif)) {
-+			flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
-+					   RT_SCOPE_UNIVERSE, sk->sk_protocol,
-+					   (flow_flags | FLOWI_FLAG_VRFSRC),
-+					   faddr, saddr, dport, inet->inet_sport);
-+
-+			rt = ip_route_output_flow(net, fl4, sk);
-+			if (!IS_ERR(rt)) {
-+				vsaddr = fl4->saddr;
-+				ip_rt_put(rt);
-+			}
-+		}
-+
- 		flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
- 				   RT_SCOPE_UNIVERSE, sk->sk_protocol,
--				   inet_sk_flowi_flags(sk),
-+				   flow_flags,
- 				   faddr, saddr, dport, inet->inet_sport);
+@@ -309,7 +310,9 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+ 	bool dev_match;
  
- 		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
-@@ -1042,6 +1061,8 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 		goto do_confirm;
- back_from_confirm:
+ 	fl4.flowi4_oif = 0;
+-	fl4.flowi4_iif = oif ? : LOOPBACK_IFINDEX;
++	fl4.flowi4_iif = vrf_master_ifindex_rcu(dev);
++	if (!fl4.flowi4_iif)
++		fl4.flowi4_iif = oif ? : LOOPBACK_IFINDEX;
+ 	fl4.daddr = src;
+ 	fl4.saddr = dst;
+ 	fl4.flowi4_tos = tos;
+@@ -339,6 +342,9 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+ 		if (nh->nh_dev == dev) {
+ 			dev_match = true;
+ 			break;
++		} else if (vrf_master_ifindex_rcu(nh->nh_dev) == dev->ifindex) {
++			dev_match = true;
++			break;
+ 		}
+ 	}
+ #else
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 18fd7c9095c7..c26ff1f7067d 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -112,6 +112,7 @@
+ #endif
+ #include <net/secure_seq.h>
+ #include <net/ip_tunnels.h>
++#include <net/vrf.h>
  
-+	if (vsaddr)
-+		fl4->saddr = vsaddr;
- 	saddr = fl4->saddr;
- 	if (!ipc.addr)
- 		daddr = ipc.addr = fl4->daddr;
+ #define RT_FL_TOS(oldflp4) \
+ 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+@@ -1726,7 +1727,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	 *	Now we are ready to route packet.
+ 	 */
+ 	fl4.flowi4_oif = 0;
+-	fl4.flowi4_iif = dev->ifindex;
++	fl4.flowi4_iif = vrf_master_ifindex_rcu(dev) ? : dev->ifindex;
+ 	fl4.flowi4_mark = skb->mark;
+ 	fl4.flowi4_tos = tos;
+ 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
 -- 
 2.3.2 (Apple Git-55)
