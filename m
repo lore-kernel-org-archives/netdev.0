@@ -1,41 +1,38 @@
-From: Wenyu Zhang <wenyuz-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v3] openvswitch: Make 100 percents
-	packets sampled when sampling rate is 1.
-Date: Wed, 5 Aug 2015 00:30:47 -0700
-Message-ID: <1438759847-27666-1-git-send-email-wenyuz@vmware.com>
+From: LIYONG <sdliyong@gmail.com>
+Subject: [PATCH] cc2520: set the default fifo pin value from platform data
+Date: Wed, 5 Aug 2015 15:39:46 +0800
+Message-ID: <BLU168-W96900E039F7CBF326825DCD6750@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <wenyuz-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <jgross-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: YONG LI <sdliyong@gmail.com>
+To: "varkabhadram@gmail.com" <varkabhadram@gmail.com>,
+	"alex.aring@gmail.com" <alex.aring@gmail.com>,
+	"linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-V2hlbiBzYW1wbGluZyByYXRlIGlzIDEsIHRoZSBzYW1wbGluZyBwcm9iYWJpbGl0eSBpcyBVSU5U
-MzJfTUFYLiBUaGUgcGFja2V0CnNob3VsZCBiZSBzYW1wbGVkIGV2ZW4gdGhlIHByYW5kb20zMigp
-IGdlbmVyYXRlIHRoZSBudW1iZXIgb2YgVUlOVDMyX01BWC4KQW5kIG5vbmUgcGFja2V0IG5lZWQg
-YmUgc2FtcGxlZCB3aGVuIHRoZSBwcm9iYWJpbGl0eSBpcyAwLgoKU2lnbmVkLW9mZi1ieTogV2Vu
-eXUgWmhhbmcgPHdlbnl1ekB2bXdhcmUuY29tPgotLS0KIG5ldC9vcGVudnN3aXRjaC9hY3Rpb25z
-LmMgfCAgICA1ICsrKystCiAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRpb25zKCspLCAxIGRlbGV0
-aW9uKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYyBiL25ldC9vcGVu
-dnN3aXRjaC9hY3Rpb25zLmMKaW5kZXggY2YwNGMyZi4uYTBhYzQxMCAxMDA2NDQKLS0tIGEvbmV0
-L29wZW52c3dpdGNoL2FjdGlvbnMuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jCkBA
-IC02NjksOSArNjY5LDEyIEBAIHN0YXRpYyBpbnQgc2FtcGxlKHN0cnVjdCBkYXRhcGF0aCAqZHAs
-IHN0cnVjdCBza19idWZmICpza2IsCiAKIAlmb3IgKGEgPSBubGFfZGF0YShhdHRyKSwgcmVtID0g
-bmxhX2xlbihhdHRyKTsgcmVtID4gMDsKIAkJIGEgPSBubGFfbmV4dChhLCAmcmVtKSkgeworCQl1
-MzIgcHJvYmFiaWxpdHk7CisKIAkJc3dpdGNoIChubGFfdHlwZShhKSkgewogCQljYXNlIE9WU19T
-QU1QTEVfQVRUUl9QUk9CQUJJTElUWToKLQkJCWlmIChwcmFuZG9tX3UzMigpID49IG5sYV9nZXRf
-dTMyKGEpKQorCQkJcHJvYmFiaWxpdHkgPSBubGFfZ2V0X3UzMihhKTsKKwkJCWlmICghcHJvYmFi
-aWxpdHkgfHwgcHJhbmRvbV91MzIoKSA+IHByb2JhYmlsaXR5KQogCQkJCXJldHVybiAwOwogCQkJ
-YnJlYWs7CiAKLS0gCjEuNy45LjUKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
-b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Without the device tree support, the fifo_pin is uninitialized, this
+Patch will set the fifo_pin value based on platform data
+
+Signed-off-by: Yong Li <sdliyong@gmail.com>
+---
+=A0drivers/net/ieee802154/cc2520.c | 1 +
+=A01 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/c=
+c2520.c
+index b6fc295..cd1e7ac 100644
+--- a/drivers/net/ieee802154/cc2520.c
++++ b/drivers/net/ieee802154/cc2520.c
+@@ -833,6 +833,7 @@ static int cc2520_get_platform_data(struct spi_devi=
+ce *spi,
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!spi_pdata)
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOENT;
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *pdata =3D *spi_pdata;
++ =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->fifo_pin =3D pdata->fifo;
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+=A0 =A0 =A0 =A0 }
