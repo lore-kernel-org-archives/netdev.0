@@ -1,93 +1,48 @@
-From: Calvin Owens <calvinowens@fb.com>
-Subject: [PATCH] net: Unbreak resetting default values for tcp_wmem/udp_wmem_min
-Date: Wed, 5 Aug 2015 13:26:54 -0700
-Message-ID: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] sky2: Add module parameter for passing the MAC address
+Date: Wed, 5 Aug 2015 22:33:42 +0200
+Message-ID: <20150805203342.GA26748@electric-eye.fr.zoreil.com>
+References: <1438789854-29194-1-git-send-email-Liviu.Dudau@arm.com>
+ <20150805094057.59260077@urahara>
+ <20150805171652.GG20890@e106497-lin.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>, Sorin Dumitru <sorin@returnze.ro>,
-	Calvin Owens <calvinowens@fb.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Mirko Lindner <mlindner@marvell.com>,
+	"ryan.harkin@linaro.org" <ryan.harkin@linaro.org>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Liviu Dudau <Liviu.Dudau@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43740 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752026AbbHEUeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 16:34:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20150805171652.GG20890@e106497-lin.cambridge.arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to
-SOCK_{RCV,SND}BUF_MIN") modified four sysctls to enforce that the values
-written to them are not less than SOCK_MIN_{RCV,SND}BUF.
+Liviu Dudau <Liviu.Dudau@arm.com> :
+> On Wed, Aug 05, 2015 at 05:40:57PM +0100, Stephen Hemminger wrote:
+[...]
+> > Yes, I can see that this can be a real problem, and other drivers
+> > solve the problem. The standard method is to assign a random mac address
+> > (and then let scripts overwrite) rather than introducing module parameter.
+> > Module parameters are discouraged because they are device specific.
+> > 
+> 
+> I agree. However, in my case, the boards people have assigned MAC addresses
+> to the chip, they just didn't built the board in such a way as to allow one
+> to store that MAC address in a permanent way :( And no, I can't use the DT
+> because the chip is actually on the PCIe bus.
+> 
+> Even with the generation of a random address, it still needs to be copied
+> into the device, so I would guess that a version of the patch I've sent is
+> still relevant?
 
-This change is fine for tcp_rmem and udp_rmem_min, since SOCK_MIN_RCVBUF
-is equal to equal to TCP_SKB_MIN_TRUESIZE. But it breaks tcp_wmem and
-udp_wmem_min for previously valid values because SOCK_MIN_SNDBUF is
-(2 * TCP_SKB_MIN_TRUESIZE), which ends up being greater than 4KB.
+Assuming a random address is generated, could you elaborate what is needed
+that sky2_set_mac_address fails to provide ?
 
-Thus, 4096 is no longer accepted as a valid value, despite still being
-the default for udp_wmem_min, and for 'min' in tcp_wmem. A huge number
-of sysctl configurations at FB use 4096 as 'min', so this change breaks
-all of them.
-
-This patch changes the sysctls to simply enforce that the value written
-is greater than or equal to the default value of SK_MEM_QUANTUM.
-
-Fixes: 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to SOCK_MIN...")
-Signed-off-by: Calvin Owens <calvinowens@fb.com>
----
- net/ipv4/sysctl_net_ipv4.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 433231c..a214b6a 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -41,8 +41,7 @@ static int tcp_syn_retries_min = 1;
- static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
- static int ip_ping_group_range_min[] = { 0, 0 };
- static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
--static int min_sndbuf = SOCK_MIN_SNDBUF;
--static int min_rcvbuf = SOCK_MIN_RCVBUF;
-+static int min_buf = SK_MEM_QUANTUM;
- 
- /* Update system visible IP port range */
- static void set_local_port_range(struct net *net, int range[2])
-@@ -530,7 +529,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_tcp_wmem),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &min_sndbuf,
-+		.extra1		= &min_buf,
- 	},
- 	{
- 		.procname	= "tcp_notsent_lowat",
-@@ -545,7 +544,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_tcp_rmem),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &min_rcvbuf,
-+		.extra1		= &min_buf,
- 	},
- 	{
- 		.procname	= "tcp_app_win",
-@@ -758,7 +757,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_udp_rmem_min),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &min_rcvbuf,
-+		.extra1		= &min_buf,
- 	},
- 	{
- 		.procname	= "udp_wmem_min",
-@@ -766,7 +765,7 @@ static struct ctl_table ipv4_table[] = {
- 		.maxlen		= sizeof(sysctl_udp_wmem_min),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &min_sndbuf,
-+		.extra1		= &min_buf,
- 	},
- 	{ }
- };
 -- 
-1.8.1
+Ueimor
