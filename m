@@ -1,76 +1,32 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [BUG] net/ipv4: inconsistent routing table
-Date: Wed, 5 Aug 2015 10:45:18 -0700
-Message-ID: <55C24BAE.7090702@gmail.com>
-References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
- <55C1D207.3040905@iogearbox.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [ovs-dev] [PATCH net-next v3] openvswitch: Make 100 percents
+ packets sampled when sampling rate is 1.
+Date: Wed, 5 Aug 2015 11:06:03 -0700
+Message-ID: <CALnjE+rmVbr+dDDpsqD4WX9fzSnNHVop8Ys==+h-dn+oYgNo+A@mail.gmail.com>
+References: <1438759847-27666-1-git-send-email-wenyuz@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Zang MingJie <zealot0630@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55C1D207.3040905@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jgross@vmware.com>, netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Wenyu Zhang <wenyuz@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:35861 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912AbbHESGF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 14:06:05 -0400
+Received: by igbij6 with SMTP id ij6so100377872igb.1
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 11:06:03 -0700 (PDT)
+In-Reply-To: <1438759847-27666-1-git-send-email-wenyuz@vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2015 02:06 AM, Daniel Borkmann wrote:
-> [ please cc netdev ]
+On Wed, Aug 5, 2015 at 12:30 AM, Wenyu Zhang <wenyuz@vmware.com> wrote:
+> When sampling rate is 1, the sampling probability is UINT32_MAX. The packet
+> should be sampled even the prandom32() generate the number of UINT32_MAX.
+> And none packet need be sampled when the probability is 0.
 >
-> On 08/05/2015 10:56 AM, Zang MingJie wrote:
->> Hi:
->>
->> I found a bug when remove an ip address which is referenced by a 
->> routing entry.
->>
->> step to reproduce:
->>
->> ip li add type dummy
->> ip li set dummy0 up
->> ip ad add 10.0.0.1/24 dev dummy0
->> ip ad add 10.0.0.2/24 dev dummy0
+> Signed-off-by: Wenyu Zhang <wenyuz@vmware.com>
 
-Okay, so up to this point you have 2 addresses on the same subnet that 
-are now on dummy0.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
->> ip ro add default via 10.0.0.2/24
-
-This makes the default route go through 10.0.0.2.
-
->> ip ad del 10.0.0.2/24 dev dummy0
-
-Then you remove 10.0.0.2 from the local system, however since 10.0.0.1 
-is on the same subnet dummy0 would still be the correct interface to 
-access 10.0.0.2 it is just no longer local to the system.
-
->> after deleting the secondary ip address, the routing entry still
->> pointing to 10.0.0.2
-
-You didn't delete the default routing entry so why would you expect it 
-to change?  All you did is remove 10.0.0.2 from the local system.  I 
-believe the assumption is that 10.0.0.2 is still out there somewhere, it 
-just isn't on the local system anymore.
-
->> # ip ro
->> default via 10.0.0.2 dev dummy0
->> 10.0.0.0/24 dev dummy0  proto kernel  scope link  src 10.0.0.1
-
-This matches up with what I would expect.  10.0.0.2 is the default 
-gateway and it is accessible from dummy0 since 10.0.0.0/24 is accessible 
-from dummy0.
-
->> but actually, kernel considers the default route is directly connected.
->>
->> # ip ro get 1.1.1.1
->> 1.1.1.1 dev dummy0  src 10.0.0.1
->>      cache
-
-I'm not sure how you came to the "directly connected" conclusion. It is 
-still routing things out through 10.0.0.2 from 10.0.0.1.
-
-Maybe your example would work better if you used 10.0.0.1 and 10.0.1.1 
-instead.  Then I think you might be able to better see that when you 
-delete the second address the route would be broken.
-
-- Alex
+Thanks.
