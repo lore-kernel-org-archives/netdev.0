@@ -1,33 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: net: Fix skb_set_peeked use-after-free bug
-Date: Wed, 5 Aug 2015 08:09:25 +0800
-Message-ID: <20150805000925.GB2725@gondor.apana.org.au>
-References: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
- <20150804074247.GA29951@gondor.apana.org.au>
- <CAMUH3-Uu4FH1hkMYeLb8BTRDPEC3WPhb7hksn9-FPfEy_2dBJg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	khlebnikov@yandex-team.ru
-To: Brenden Blanco <bblanco@plumgrid.com>
+From: Mathieu Olivari <mathieu@codeaurora.org>
+Subject: [PATCH] stmmac: dwmac-ipq806x: fix static checker warning
+Date: Tue,  4 Aug 2015 17:25:02 -0700
+Message-ID: <1438734302-22930-1-git-send-email-mathieu@codeaurora.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mathieu Olivari <mathieu@codeaurora.org>
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:53644 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbbHEAJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 20:09:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CAMUH3-Uu4FH1hkMYeLb8BTRDPEC3WPhb7hksn9-FPfEy_2dBJg@mail.gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:52835 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752987AbbHEAZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 20:25:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 04, 2015 at 08:30:23AM -0700, Brenden Blanco wrote:
->
-> This patch holds good in my testing. Thanks!
+The patch b1c17215d718: "stmmac: add ipq806x glue layer", leads to the
+following static checker warning:
 
-Thanks for testing.  Let's add a tag for patchwork:
+.../stmmac/dwmac-ipq806x.c:314 ipq806x_gmac_probe()
+warn: double left shift '1 << (1 << gmac->id)'
 
-Tested-by: Brenden Blanco <bblanco@plumgrid.com>
+The NSS_COMMON_CLK_SRC_CTRL_OFFSET macro is used once as an offset, and
+once as a mask, which is a bug indeed. We'll fix it by defining the
+offset as the real offset value and computing the mask from it when
+required.
+
+Tested on IPQ806x ref designs AP148 & DB149.
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Mathieu Olivari <mathieu@codeaurora.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+index 333489f..9d89bdb 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+@@ -42,7 +42,7 @@
+ #define NSS_COMMON_CLK_DIV_MASK			0x7f
+ 
+ #define NSS_COMMON_CLK_SRC_CTRL			0x14
+-#define NSS_COMMON_CLK_SRC_CTRL_OFFSET(x)	(1 << x)
++#define NSS_COMMON_CLK_SRC_CTRL_OFFSET(x)	(x)
+ /* Mode is coded on 1 bit but is different depending on the MAC ID:
+  * MAC0: QSGMII=0 RGMII=1
+  * MAC1: QSGMII=0 SGMII=0 RGMII=1
+@@ -308,7 +308,7 @@ static int ipq806x_gmac_probe(struct platform_device *pdev)
+ 
+ 	/* Configure the clock src according to the mode */
+ 	regmap_read(gmac->nss_common, NSS_COMMON_CLK_SRC_CTRL, &val);
+-	val &= ~NSS_COMMON_CLK_SRC_CTRL_OFFSET(gmac->id);
++	val &= ~(1 << NSS_COMMON_CLK_SRC_CTRL_OFFSET(gmac->id));
+ 	switch (gmac->phy_mode) {
+ 	case PHY_INTERFACE_MODE_RGMII:
+ 		val |= NSS_COMMON_CLK_SRC_CTRL_RGMII(gmac->id) <<
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.4
