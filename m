@@ -1,52 +1,33 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 0/2] bridge: netlink: add missing policy
- entries and sizes
-Date: Tue, 4 Aug 2015 16:54:14 -0700
-Message-ID: <20150804165414.0332926d@urahara>
-References: <1438707993-14561-1-git-send-email-razor@blackwall.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: net: Fix skb_set_peeked use-after-free bug
+Date: Wed, 5 Aug 2015 08:09:25 +0800
+Message-ID: <20150805000925.GB2725@gondor.apana.org.au>
+References: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
+ <20150804074247.GA29951@gondor.apana.org.au>
+ <CAMUH3-Uu4FH1hkMYeLb8BTRDPEC3WPhb7hksn9-FPfEy_2dBJg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, kyeyoonp@codeaurora.org,
-	jouni@codeaurora.org, davem@davemloft.net
-To: Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1438707993-14561-1-git-send-email-razor@blackwall.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	khlebnikov@yandex-team.ru
+To: Brenden Blanco <bblanco@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:53644 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbbHEAJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2015 20:09:30 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMUH3-Uu4FH1hkMYeLb8BTRDPEC3WPhb7hksn9-FPfEy_2dBJg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue,  4 Aug 2015 19:06:31 +0200
-Nikolay Aleksandrov <razor@blackwall.org> wrote:
+On Tue, Aug 04, 2015 at 08:30:23AM -0700, Brenden Blanco wrote:
+>
+> This patch holds good in my testing. Thanks!
 
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> Hi,
-> When IFLA_BRPORT_PROXYARP and PROXYARP_WIFI were introduced they weren't
-> accounted for in the get_slave_size() callback and didn't get a policy
-> entry, so fix it now. Sending as two separate patches because the first
-> one goes further back than the second and thus we get 2 different Fixes
-> tags.
-> 
-> Cheers,
->  Nik
-> 
-> Nikolay Aleksandrov (2):
->   bridge: netlink: account for the IFLA_BRPORT_PROXYARP attribute size
->     and policy
->   bridge: netlink: account for the IFLA_BRPORT_PROXYARP_WIFI attribute
->     size and policy
-> 
->  net/bridge/br_netlink.c | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
+Thanks for testing.  Let's add a tag for patchwork:
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+Tested-by: Brenden Blanco <bblanco@plumgrid.com>
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
