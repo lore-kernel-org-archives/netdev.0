@@ -1,127 +1,68 @@
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [v2 4/9] dpaa_eth: add driver's Tx queue selection mechanism
-Date: Wed, 5 Aug 2015 18:41:24 +0300
-Message-ID: <1438789289-16304-5-git-send-email-madalin.bucur@freescale.com>
-References: <1438789289-16304-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: <madalin.bucur@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<davem@davemloft.net>, <scottwood@freescale.com>,
-	<igal.liberman@freescale.com>, <ppc@mindchasers.com>,
-	<joe@perches.com>, <pebolle@tiscali.nl>,
-	<joakim.tjernlund@transmode.se>,
-	Madalin Bucur <madalin.bucur@freescale.com>
-To: <netdev@vger.kernel.org>
+From: Liviu Dudau <Liviu.Dudau@arm.com>
+Subject: [PATCH] sky2: Add module parameter for passing the MAC address
+Date: Wed,  5 Aug 2015 16:50:54 +0100
+Message-ID: <1438789854-29194-1-git-send-email-Liviu.Dudau@arm.com>
+Cc: Ryan Harkin <ryan.harkin@linaro.org>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Mirko Lindner <mlindner@marvell.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0115.outbound.protection.outlook.com ([207.46.100.115]:27157
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752826AbbHEPnq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Aug 2015 11:43:46 -0400
-In-Reply-To: <1438789289-16304-1-git-send-email-madalin.bucur@freescale.com>
+Received: from fw-tnat.cambridge.arm.com ([217.140.96.140]:37672 "EHLO
+	cam-smtp0.cambridge.arm.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752826AbbHEPvB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 11:51:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the selection of the transmission queue based on the CPU id.
+For designs where EEPROMs are not connected to PCI Yukon2
+chips we need to get the MAC address from the firmware.
+Add a module parameter called 'mac_address' for this. It
+will be used if no DT node can be found and the B2_MAC
+register holds an invalid value.
 
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+Signed-off-by: Liviu Dudau <Liviu.Dudau@arm.com>
 ---
- drivers/net/ethernet/freescale/dpaa/Kconfig           | 10 ++++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c        |  3 +++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h        |  6 ++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c |  8 ++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h |  4 ++++
- 5 files changed, 31 insertions(+)
+ drivers/net/ethernet/marvell/sky2.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig b/drivers/net/ethernet/freescale/dpaa/Kconfig
-index 1f3a203..6147403 100644
---- a/drivers/net/ethernet/freescale/dpaa/Kconfig
-+++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
-@@ -11,6 +11,16 @@ menuconfig FSL_DPAA_ETH
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index d9f4498..a977d95 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -101,6 +101,10 @@ static int legacy_pme = 0;
+ module_param(legacy_pme, int, 0);
+ MODULE_PARM_DESC(legacy_pme, "Legacy power management");
  
- if FSL_DPAA_ETH
- 
-+config FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+	bool "Use driver's Tx queue selection mechanism"
-+	default y
-+	---help---
-+	  The DPAA-Ethernet driver defines a ndo_select_queue() callback for optimal selection
-+	  of the egress FQ. That will override the XPS support for this netdevice.
-+	  If for whatever reason you want to be in control of the egress FQ-to-CPU selection and mapping,
-+	  or simply don't want to use the driver's ndo_select_queue() callback, then unselect this
-+	  and use the standard XPS support instead.
++/* Ugh!  Let the firmware tell us the hardware address */
++static int mac_address[ETH_ALEN] = { 0, };
++module_param_array(mac_address, int, NULL, 0);
 +
- config FSL_DPAA_CS_THRESHOLD_1G
- 	hex "Egress congestion threshold on 1G ports"
- 	range 0x1000 0x10000000
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 53c37cd..264945c 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -387,6 +387,9 @@ static const struct net_device_ops dpa_private_ops = {
- 	.ndo_get_stats64 = dpa_get_stats64,
- 	.ndo_set_mac_address = dpa_set_mac_address,
- 	.ndo_validate_addr = eth_validate_addr,
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+	.ndo_select_queue = dpa_select_queue,
-+#endif
- 	.ndo_change_mtu = dpa_change_mtu,
- 	.ndo_set_rx_mode = dpa_set_rx_mode,
- 	.ndo_init = dpa_ndo_init,
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index d337dcc..55c1106 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -430,9 +430,15 @@ static inline void _dpa_assign_wq(struct dpa_fq *fq)
- 	}
- }
- 
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+/* Use in lieu of skb_get_queue_mapping() */
-+#define dpa_get_queue_mapping(skb) \
-+	raw_smp_processor_id()
-+#else
- /* Use the queue selected by XPS */
- #define dpa_get_queue_mapping(skb) \
- 	skb_get_queue_mapping(skb)
-+#endif
- 
- static inline void _dpa_bp_free_pf(void *addr)
- {
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-index 7e4b9bd..1258683 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-@@ -586,6 +586,14 @@ bool dpa_bpid2pool_use(int bpid)
- 	return false;
- }
- 
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-+		     void *accel_priv, select_queue_fallback_t fallback)
-+{
-+	return dpa_get_queue_mapping(skb);
-+}
-+#endif
+ static const struct pci_device_id sky2_id_table[] = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9000) }, /* SK-9Sxx */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9E00) }, /* SK-9Exx */
+@@ -4811,13 +4815,21 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ 	/* try to get mac address in the following order:
+ 	 * 1) from device tree data
+ 	 * 2) from internal registers set by bootloader
++	 * 3) from the command line parameter
+ 	 */
+ 	iap = of_get_mac_address(hw->pdev->dev.of_node);
+ 	if (iap)
+ 		memcpy(dev->dev_addr, iap, ETH_ALEN);
+-	else
++	else {
+ 		memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8,
+ 			      ETH_ALEN);
++		if (!is_valid_ether_addr(&dev->dev_addr[0])) {
++			int i;
 +
- struct dpa_fq *dpa_fq_alloc(struct device *dev,
- 			    const struct fqid_cell *fqids,
- 			    struct list_head *list,
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-index bd88dda..4581bfc 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-@@ -88,6 +88,10 @@ struct dpa_bp *dpa_bpid2pool(int bpid);
- void dpa_bpid2pool_map(int bpid, struct dpa_bp *dpa_bp);
- bool dpa_bpid2pool_use(int bpid);
- void dpa_bp_drain(struct dpa_bp *bp);
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-+		     void *accel_priv, select_queue_fallback_t fallback);
-+#endif
- struct dpa_fq *dpa_fq_alloc(struct device *dev,
- 			    const struct fqid_cell *fqids,
- 			    struct list_head *list,
++			for (i = 0; i < ETH_ALEN; i++)
++				dev->dev_addr[i] = mac_address[i];
++		}
++	}
+ 
+ 	return dev;
+ }
 -- 
-1.7.11.7
+2.4.6
