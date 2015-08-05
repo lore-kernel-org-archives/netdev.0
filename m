@@ -1,82 +1,56 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [Xen-devel] [PATCH v2 4/8] xen: Use the correctly the Xen memory
- terminologies
-Date: Wed, 05 Aug 2015 08:44:03 -0400
-Message-ID: <55C20513.2070407@oracle.com>
-References: <1438711972-18752-1-git-send-email-julien.grall@citrix.com>	<1438711972-18752-5-git-send-email-julien.grall@citrix.com>	<55C147DD.7000600@oracle.com>
- <55C1EA95.5060504@citrix.com> <55C1FF54.8060409@oracle.com>
- <55C2029C.9030705@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: linux-fbdev@vger.kernel.org, "H. Peter Anvin" <hpa@zytor.com>,
- Jiri Slaby <jslaby@suse.com>, Russell King <linux@arm.linux.org.uk>,
- linux-scsi@vger.kernel.org, x86@kernel.org,
- Tomi Valkeinen <tomi.valkeinen@ti.com>, linux-input@vger.kernel.org,
- Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
- ian.campbell@citrix.com, stefano.stabellini@eu.citrix.com,
- "James E.J. Bottomley" <JBottomley@odin.com>,
- Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>,
- linux-arm-kernel@lists.infradead.org, Juergen Gross <jgross@suse.com>,
- Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
- Dmitry Torokhov <dmitry.torokhov@gmail.com>, linux-kernel@vger.kernel.org,
- David Vrabel <david.vrabel@citrix.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linuxppc-dev@lists.ozlabs.org,
- =?windows-1252?Q?Roger_Pau_Monn=E9?= <roger.pau@citrix.com>
-To: Julien Grall <julien.grall@citrix.com>, xen-devel@lists.xenproject.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <55C2029C.9030705@citrix.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 4/4] batman-adv: initialize up/down values when adding a gateway
+Date: Wed,  5 Aug 2015 14:51:47 +0200
+Message-ID: <1438779107-12665-5-git-send-email-antonio@meshcoding.com>
+References: <1438779107-12665-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Simon Wunderlich <simon@open-mesh.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s1.neomailbox.net ([5.148.176.57]:26591 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752166AbbHEMxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2015 08:53:12 -0400
+In-Reply-To: <1438779107-12665-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2015 08:33 AM, Julien Grall wrote:
-> On 05/08/15 13:19, Boris Ostrovsky wrote:
->> On 08/05/2015 06:51 AM, Julien Grall wrote:
->>>>> diff --git a/drivers/video/fbdev/xen-fbfront.c
->>>>> b/drivers/video/fbdev/xen-fbfront.c
->>>>> index 09dc447..25e3cce 100644
->>>>> --- a/drivers/video/fbdev/xen-fbfront.c
->>>>> +++ b/drivers/video/fbdev/xen-fbfront.c
->>>>> @@ -539,7 +539,7 @@ static int xenfb_remove(struct xenbus_device *dev)
->>>>>       static unsigned long vmalloc_to_mfn(void *address)
->>>>>     {
->>>>> -    return pfn_to_mfn(vmalloc_to_pfn(address));
->>>>> +    return pfn_to_gfn(vmalloc_to_pfn(address));
->>>>>     }
->>>> Are you sure? This will return vmalloc_to_pfn(address)).
->>> I guess you mean vmalloc_to_mfn will return vmalloc_to_pfn?
->>>
->>> If so, it will be only the case on auto-translated case (because pfn ==
->>> gfn). In the case of PV, the mfn will be returned.
->> How will mfn be returned on PV when pfn_to_gfn() is an identity function?
->>
->> static inline unsigned long pfn_to_gfn(unsigned long pfn)
->>   {
->>       return pfn;
->>   }
-> The identity function is only for ARM guest which are always
-> auto-translated (arch/arm/include/asm/xen/page.h).
->
-> The x86 version contains a check if the guest is auto-translated or not
-> (arch/x86/include/asm/xen/page.):
->
-> static inline unsigned long pfn_to_gfn(unsigned long pfn)
-> {
->          if (xen_feature(XENFEAT_auto_translated_physmap))
->                  return pfn;
->          else
->                  return pfn_to_mfn(pfn);
-> }
+From: Simon Wunderlich <simon@open-mesh.com>
 
-Of course --- I was looking at the top of the patch and didn't realize 
-it was ARM changes. Sorry for the noise.
+Without this initialization, gateways which actually announce up/down
+bandwidth of 0/0 could be added. If these nodes get purged via
+_batadv_purge_orig() later, the gw_node structure does not get removed
+since batadv_gw_node_delete() updates the gw_node with up/down
+bandwidth of 0/0, and the updating function then discards the change
+and does not free gw_node.
 
--boris
+This results in leaking the gw_node structures, which references other
+structures: gw_node -> orig_node -> orig_node_ifinfo -> hardif. When
+removing the interface later, the open reference on the hardif may cause
+hangs with the infamous "unregister_netdevice: waiting for mesh1 to
+become free. Usage count = 1" message.
+
+Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+---
+ net/batman-adv/gateway_client.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index bb015862..cffa92d 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -439,6 +439,8 @@ static void batadv_gw_node_add(struct batadv_priv *bat_priv,
+ 
+ 	INIT_HLIST_NODE(&gw_node->list);
+ 	gw_node->orig_node = orig_node;
++	gw_node->bandwidth_down = ntohl(gateway->bandwidth_down);
++	gw_node->bandwidth_up = ntohl(gateway->bandwidth_up);
+ 	atomic_set(&gw_node->refcount, 1);
+ 
+ 	spin_lock_bh(&bat_priv->gw.list_lock);
+-- 
+2.5.0
