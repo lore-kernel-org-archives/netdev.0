@@ -1,142 +1,43 @@
-From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH 5/5] net: rfkill: gpio: remove rfkill_gpio_platform_data
-Date: Wed, 05 Aug 2015 17:15:28 +0300
-Message-ID: <1438784128.29746.177.camel@linux.intel.com>
-References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
-	 <1438781947-7952-6-git-send-email-heikki.krogerus@linux.intel.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] vxlan: expose COLLECT_METADATA flag to user
+ space
+Date: Wed, 5 Aug 2015 16:39:15 +0200
+Message-ID: <20150805143915.GA3530@pox.localdomain>
+References: <1438312222-7130-1-git-send-email-ast@plumgrid.com>
+ <20150731080019.GB4738@pox.localdomain>
+ <55BB9734.1010005@plumgrid.com>
+ <CAEP_g=-7-PkYGdcigXC68nh+nCKHkr=9soYjcQsCx5rOkTQ90Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1438781947-7952-6-git-send-email-heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:37861 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751550AbbHEOjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 10:39:18 -0400
+Received: by wibhh20 with SMTP id hh20so27477997wib.0
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 07:39:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-7-PkYGdcigXC68nh+nCKHkr=9soYjcQsCx5rOkTQ90Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-08-05 at 16:39 +0300, Heikki Krogerus wrote:
-> No more users for it.
+On 08/03/15 at 02:14pm, Jesse Gross wrote:
+> On Fri, Jul 31, 2015 at 8:41 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> > thanks. I think exposing collect_metadata for vxlan and in the future
+> > for other tunnel types is the clean enough way, though the other
+> > alternative would be to get rid of collect_metadata flag
+> > from the kernel and do it when flowmode flag is set. Thoughts?
 > 
-> Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> ---
->  include/linux/rfkill-gpio.h | 37 -----------------------------------
-> --
->  net/rfkill/Kconfig          |  3 +--
->  net/rfkill/rfkill-gpio.c    |  8 --------
->  3 files changed, 1 insertion(+), 47 deletions(-)
->  delete mode 100644 include/linux/rfkill-gpio.h
-> 
-> diff --git a/include/linux/rfkill-gpio.h b/include/linux/rfkill
-> -gpio.h
-> deleted file mode 100644
-> index 20bcb55..0000000
-> --- a/include/linux/rfkill-gpio.h
-> +++ /dev/null
-> @@ -1,37 +0,0 @@
-> -/*
-> - * Copyright (c) 2011, NVIDIA Corporation.
-> - *
-> - * This program is free software; you can redistribute it and/or 
-> modify
-> - * it under the terms of the GNU General Public License as published 
-> by
-> - * the Free Software Foundation; either version 2 of the License, or
-> - * (at your option) any later version.
-> - *
-> - * This program is distributed in the hope that it will be useful, 
-> but WITHOUT
-> - * ANY WARRANTY; without even the implied warranty of 
-> MERCHANTABILITY or
-> - * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public 
-> License for
-> - * more details.
-> - *
-> - * You should have received a copy of the GNU General Public License 
-> along
-> - * with this program; if not, write to the Free Software Foundation, 
-> Inc.,
-> - * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-> - */
-> -
-> -
-> -#ifndef __RFKILL_GPIO_H
-> -#define __RFKILL_GPIO_H
-> -
-> -#include <linux/types.h>
-> -#include <linux/rfkill.h>
-> -
-> -/**
-> - * struct rfkill_gpio_platform_data - platform data for rfkill gpio 
-> device.
-> - * for unused gpio's, the expected value is -1.
-> - * @name:		name for the gpio rf kill instance
-> - */
-> -
-> -struct rfkill_gpio_platform_data {
-> -	char			*name;
-> -	enum rfkill_type	type;
-> -};
-> -
-> -#endif /* __RFKILL_GPIO_H */
-> diff --git a/net/rfkill/Kconfig b/net/rfkill/Kconfig
-> index 4c10e7e..6320890 100644
-> --- a/net/rfkill/Kconfig
-> +++ b/net/rfkill/Kconfig
-> @@ -40,5 +40,4 @@ config RFKILL_GPIO
->  	default n
->  	help
->  	  If you say yes here you get support of a generic gpio 
-> RFKILL
-> -	  driver. The platform should fill in the appropriate fields 
-> in the
-> -	  rfkill_gpio_platform_data structure and pass that to the 
-> driver.
-> +	  driver.
-> diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-> index 07323c3..69d92e1 100644
-> --- a/net/rfkill/rfkill-gpio.c
-> +++ b/net/rfkill/rfkill-gpio.c
-> @@ -27,8 +27,6 @@
->  #include <linux/acpi.h>
->  #include <linux/gpio/consumer.h>
->  
-> -#include <linux/rfkill-gpio.h>
-> -
->  struct rfkill_gpio_data {
->  	const char		*name;
->  	enum rfkill_type	type;
-> @@ -89,7 +87,6 @@ static int rfkill_gpio_acpi_probe(struct device 
-> *dev,
->  
->  static int rfkill_gpio_probe(struct platform_device *pdev)
->  {
-> -	struct rfkill_gpio_platform_data *pdata = pdev
-> ->dev.platform_data;
->  	struct rfkill_gpio_data *rfkill;
->  	struct gpio_desc *gpio;
->  	const char *type_name;
-> @@ -111,11 +108,6 @@ static int rfkill_gpio_probe(struct 
-> platform_device *pdev)
->  		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
->  		if (ret)
->  			return ret;
-> -	} else if (pdata) {
-> -		rfkill->name = pdata->name;
-> -		rfkill->type = pdata->type;
-> -	} else {
-> -		return -ENODEV;
+> This seems like a good idea to me - I'm not sure that flow based
+> tunnels are all that useful without metadata collection enabled and
+> the fewer interfaces that we have to create for each tunnel type, the
+> better.
 
-Shouldn't we leave the error path and modify to check if we have device
-property set set?
-
->  	}
->  
->  	rfkill->clk = devm_clk_get(&pdev->dev, NULL);
-
--- 
-Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Intel Finland Oy
+The use case at hand where the flag is useful if someone is only
+doing flow based TX which can be handy if the tunnel id remains
+unused.
