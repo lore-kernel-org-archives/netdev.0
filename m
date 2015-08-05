@@ -1,38 +1,55 @@
-From: LIYONG <sdliyong@gmail.com>
-Subject: [PATCH] cc2520: set the default fifo pin value from platform data
-Date: Wed, 5 Aug 2015 15:39:46 +0800
-Message-ID: <BLU168-W96900E039F7CBF326825DCD6750@phx.gbl>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: rtnl_mutex deadlock?
+Date: Wed, 5 Aug 2015 09:43:30 +0200
+Message-ID: <20150805074330.GA2084@nanopsycho.orion>
+References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
+ <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: YONG LI <sdliyong@gmail.com>
-To: "varkabhadram@gmail.com" <varkabhadram@gmail.com>,
-	"alex.aring@gmail.com" <alex.aring@gmail.com>,
-	"linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:32932 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751227AbbHEHnd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 03:43:33 -0400
+Received: by wijp15 with SMTP id p15so36442858wij.0
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 00:43:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Without the device tree support, the fifo_pin is uninitialized, this
-Patch will set the fifo_pin value based on platform data
+Wed, Aug 05, 2015 at 07:31:30AM CEST, cwang@twopensource.com wrote:
+>On Tue, Aug 4, 2015 at 8:48 AM, Linus Torvalds
+><torvalds@linux-foundation.org> wrote:
+>> Sorry for the spamming of random rtnetlink people, but I just resumed
+>> my laptop at PDX, and networking was dead.
+>>
+>> It looks like a deadlock on rtnl_mutex, possibly due to some error
+>> path not releasing the lock. No network op was making any progress,
+>> and as you can see from the attached sysrq-w, it all seems to be hung
+>> in rtnl_lock().
+>>
+>> The call trace from NetworkManager looks different from the others,
+>> and looks to me like it might actually be a recursive invocation of
+>> rtnetlink_rcv(), but since I have a fairly light configuration on this
+>> laptop and don't have frame pointers enabled, I'm not sure how
+>> reliable that stack trace is. It might be just stale entries. But if
+>> they aren't stale, then that would certainly explain the deadlock.
+>>
+>
+>You are right, looks like kernel received a GETLINK netlink message
+>from NetworkManager and then replied back but accidentally sent the
+>reply to itself, seems something wrong with NETLINK_CB(skb).portid.
 
-Signed-off-by: Yong Li <sdliyong@gmail.com>
----
-=A0drivers/net/ieee802154/cc2520.c | 1 +
-=A01 file changed, 1 insertion(+)
+Indeed. Most probably, NETLINK_CB(skb).portid got zeroed.
 
-diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/c=
-c2520.c
-index b6fc295..cd1e7ac 100644
---- a/drivers/net/ieee802154/cc2520.c
-+++ b/drivers/net/ieee802154/cc2520.c
-@@ -833,6 +833,7 @@ static int cc2520_get_platform_data(struct spi_devi=
-ce *spi,
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!spi_pdata)
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOENT;
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *pdata =3D *spi_pdata;
-+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->fifo_pin =3D pdata->fifo;
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
-=A0 =A0 =A0 =A0 }
+Linus, are you able to reproduce this or is it a one-time issue?
+
+Thanks!
