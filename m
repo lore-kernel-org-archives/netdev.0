@@ -1,89 +1,72 @@
-From: xiakaixu <xiakaixu@huawei.com>
-Subject: Re: [PATCH v6 3/4] bpf: Implement function bpf_perf_event_read()
- that get the selected hardware PMU conuter
-Date: Wed, 5 Aug 2015 18:31:55 +0800
-Message-ID: <55C1E61B.1040808@huawei.com>
-References: <1438678696-88289-1-git-send-email-xiakaixu@huawei.com> <1438678696-88289-4-git-send-email-xiakaixu@huawei.com> <20150805100425.GZ25159@twins.programming.kicks-ass.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2] e1000e: Modify tx/rx configurations to avoid null
+ pointer dereferences in e1000_open
+Date: Wed, 05 Aug 2015 03:43:49 -0700
+Message-ID: <1438771429.3467.28.camel@intel.com>
+References: <1438769770-8887-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <ast@plumgrid.com>, <davem@davemloft.net>, <acme@kernel.org>,
-	<mingo@redhat.com>, <masami.hiramatsu.pt@hitachi.com>,
-	<jolsa@kernel.org>, <daniel@iogearbox.net>, <wangnan0@huawei.com>,
-	<linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
-	<hekuang@huawei.com>, <netdev@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-eNzQauNk8sCPce2Q2GcO"
+Cc: jesse.brandeburg@intel.com, alexander.duyck@gmail.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jia-Ju Bai <baijiaju1990@163.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150805100425.GZ25159@twins.programming.kicks-ass.net>
+In-Reply-To: <1438769770-8887-1-git-send-email-baijiaju1990@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2015/8/5 18:04, Peter Zijlstra =E5=86=99=E9=81=93:
-> On Tue, Aug 04, 2015 at 08:58:15AM +0000, Kaixu Xia wrote:
->> diff --git a/kernel/events/core.c b/kernel/events/core.c
->> index 6251b53..726ca1b 100644
->> --- a/kernel/events/core.c
->> +++ b/kernel/events/core.c
->> @@ -8599,6 +8599,25 @@ struct perf_event_attr *perf_event_attrs(stru=
-ct perf_event *event)
->>  	return &event->attr;
->>  }
->> =20
->> +u64 perf_event_read_internal(struct perf_event *event)
->=20
-> Maybe: perf_event_read_local(), as this is this function only works f=
-or
-> events active on the current CPU.
->=20
->> +{
->> +	if (!event)
->> +		return -EINVAL;
->> +
->> +	if (unlikely(event->state !=3D PERF_EVENT_STATE_ACTIVE))
->> +		return -EINVAL;
->=20
-> You can return perf_event_count() in that case.
->=20
->> +
->> +	if (event->oncpu !=3D raw_smp_processor_id() &&
->=20
-> That _must_ be smp_processor_id(). If that gives a warning (ie.
-> preemption is not disabled or we're not affine to this one cpu) then =
-the
-> warning is valid.
->=20
->> +	    event->ctx->task !=3D current)
->=20
-> Write it like:
->=20
-> 	if (event->ctx->task !=3D current &&
-> 	    event->oncpu !=3D smp_processor_id())
->=20
-> That way you'll not evaluate smp_processor_id() for current task even=
-ts.
->=20
->> +		return -EINVAL;
->> +
->> +	if (unlikely(event->attr.inherit))
->> +		return -EINVAL;
->=20
-> This should be in your accept function, inherited events should never
-> get this far.
->=20
-> You need IRQs disabled while calling __perf_event_read(), did you tes=
-t
-> with lockdep enabled?
 
-Thanks for your review! I've not tested it, will do that from now on.
+--=-eNzQauNk8sCPce2Q2GcO
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2015-08-05 at 18:16 +0800, Jia-Ju Bai wrote:
+> When e1000e_setup_rx_resources is failed in e1000_open,
+> e1000e_free_tx_resources in "err_setup_rx" segment is executed.
+> "writel(0, tx_ring->head)" statement in e1000_clean_tx_ring
+> in e1000e_free_tx_resources will cause a null poonter
+> dereference(crash),
+> because "tx_ring->head" is only assigned in e1000_configure_tx
+> in e1000_configure, but it is after e1000e_setup_rx_resources.
 >=20
->> +	__perf_event_read(event);
->> +	return perf_event_count(event);
->> +}
+> This patch moves head/tail register writing to e1000_configure_tx/rx,=20
+> which can fix this problem. It is inspired by igb_configure_tx_ring=20
+> in the igb driver.
 >=20
-> Also, you probably want a WARN_ON(in_nmi()) there, this function is
-> _NOT_ NMI safe.
+> Specially, thank Alexander Duyck for his valuable suggestion.
 >=20
->=20
->=20
-> .
->=20
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c |   24
+> ++++++++++++------------
+>  1 file changed, 12 insertions(+), 12 deletions(-)
+
+Is your intention that this patch replace the existing patch:
+http://patchwork.ozlabs.org/patch/502990/
+...which is currently in my queue?
+
+--=-eNzQauNk8sCPce2Q2GcO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVwejlAAoJEOVv75VaS+3O0hEP/1LvQxKqt2YQHIXhGsszoUuc
+mtP9wfswPLQ1P8oONAQgg/vFKmi1jj7+qM8gWCWoH3WQ0ElfLIECVLxQknGAX8e4
+rGXVle0txXxqMDPWuWSK2rV96NH+YnLzdDKjpqoody/OMUF+KuK0y4+J+zqr5Hrb
+VihfDisez22tTNZcjxatswYBxS5n0y8/3lwDSDxHw/+AiOXP+mSdNU6DsdyNjU/N
+JJLC/ZicOc5jbgSR/jO6DcY9M0RQvZtaHrDyuyLCQs9d1AXHrUPzTVRYxya2OuGz
+IGrPvLn4G1DwAD2KXpyHafFmmpdIDlcWClwg+GJCC8aS9iJXeoSL2pg+Cw1RCoUr
+I44YI/OlYLLwvyfvRqlSQMEa2SroRayXBQaYVkZmW6hcn7z6lhjzUhGvpQFWcsPU
+tuMveLeOWqBO2y5pdhy7NfzQiiRc6ilvwLEc8a8rG19fbJZdq6yPVxAY5EFGIJlT
+ZMBC1y+EKQCXWVvsLKNBPGMWwi7ASxiu4UPtsYXBVHDT4BdC0WllJn/K1e9H4kBq
+2XrNViaRMmxYB0naaMMdWh8+bo8mdkAvL+Gghd/xwmKLKoCjR/QExR2OPvq2ruTa
+BkxKF9Z/It/M7tMRTOriqVrkq+TOsTJV5/WQD5rwIl07IbId8iAvbBHg4zqzGupD
+zZSIwh8nmSHzeUL0CzYa
+=tZWL
+-----END PGP SIGNATURE-----
+
+--=-eNzQauNk8sCPce2Q2GcO--
