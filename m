@@ -1,88 +1,89 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH v2] e1000e: Modify tx/rx configurations to avoid null pointer dereferences in e1000_open
-Date: Wed,  5 Aug 2015 18:16:10 +0800
-Message-ID: <1438769770-8887-1-git-send-email-baijiaju1990@163.com>
-Cc: alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
+From: xiakaixu <xiakaixu@huawei.com>
+Subject: Re: [PATCH v6 3/4] bpf: Implement function bpf_perf_event_read()
+ that get the selected hardware PMU conuter
+Date: Wed, 5 Aug 2015 18:31:55 +0800
+Message-ID: <55C1E61B.1040808@huawei.com>
+References: <1438678696-88289-1-git-send-email-xiakaixu@huawei.com> <1438678696-88289-4-git-send-email-xiakaixu@huawei.com> <20150805100425.GZ25159@twins.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <ast@plumgrid.com>, <davem@davemloft.net>, <acme@kernel.org>,
+	<mingo@redhat.com>, <masami.hiramatsu.pt@hitachi.com>,
+	<jolsa@kernel.org>, <daniel@iogearbox.net>, <wangnan0@huawei.com>,
+	<linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
+	<hekuang@huawei.com>, <netdev@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150805100425.GZ25159@twins.programming.kicks-ass.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When e1000e_setup_rx_resources is failed in e1000_open,
-e1000e_free_tx_resources in "err_setup_rx" segment is executed.
-"writel(0, tx_ring->head)" statement in e1000_clean_tx_ring
-in e1000e_free_tx_resources will cause a null poonter dereference(crash),
-because "tx_ring->head" is only assigned in e1000_configure_tx
-in e1000_configure, but it is after e1000e_setup_rx_resources.
+=E4=BA=8E 2015/8/5 18:04, Peter Zijlstra =E5=86=99=E9=81=93:
+> On Tue, Aug 04, 2015 at 08:58:15AM +0000, Kaixu Xia wrote:
+>> diff --git a/kernel/events/core.c b/kernel/events/core.c
+>> index 6251b53..726ca1b 100644
+>> --- a/kernel/events/core.c
+>> +++ b/kernel/events/core.c
+>> @@ -8599,6 +8599,25 @@ struct perf_event_attr *perf_event_attrs(stru=
+ct perf_event *event)
+>>  	return &event->attr;
+>>  }
+>> =20
+>> +u64 perf_event_read_internal(struct perf_event *event)
+>=20
+> Maybe: perf_event_read_local(), as this is this function only works f=
+or
+> events active on the current CPU.
+>=20
+>> +{
+>> +	if (!event)
+>> +		return -EINVAL;
+>> +
+>> +	if (unlikely(event->state !=3D PERF_EVENT_STATE_ACTIVE))
+>> +		return -EINVAL;
+>=20
+> You can return perf_event_count() in that case.
+>=20
+>> +
+>> +	if (event->oncpu !=3D raw_smp_processor_id() &&
+>=20
+> That _must_ be smp_processor_id(). If that gives a warning (ie.
+> preemption is not disabled or we're not affine to this one cpu) then =
+the
+> warning is valid.
+>=20
+>> +	    event->ctx->task !=3D current)
+>=20
+> Write it like:
+>=20
+> 	if (event->ctx->task !=3D current &&
+> 	    event->oncpu !=3D smp_processor_id())
+>=20
+> That way you'll not evaluate smp_processor_id() for current task even=
+ts.
+>=20
+>> +		return -EINVAL;
+>> +
+>> +	if (unlikely(event->attr.inherit))
+>> +		return -EINVAL;
+>=20
+> This should be in your accept function, inherited events should never
+> get this far.
+>=20
+> You need IRQs disabled while calling __perf_event_read(), did you tes=
+t
+> with lockdep enabled?
 
-This patch moves head/tail register writing to e1000_configure_tx/rx, 
-which can fix this problem. It is inspired by igb_configure_tx_ring 
-in the igb driver.
-
-Specially, thank Alexander Duyck for his valuable suggestion.
-
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c |   24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 89d788d..3aee51b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1737,12 +1737,6 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
- 	rx_ring->next_to_clean = 0;
- 	rx_ring->next_to_use = 0;
- 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
--
--	writel(0, rx_ring->head);
--	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
--		e1000e_update_rdt_wa(rx_ring, 0);
--	else
--		writel(0, rx_ring->tail);
- }
- 
- static void e1000e_downshift_workaround(struct work_struct *work)
-@@ -2447,12 +2441,6 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
- 
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
--
--	writel(0, tx_ring->head);
--	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
--		e1000e_update_tdt_wa(tx_ring, 0);
--	else
--		writel(0, tx_ring->tail);
- }
- 
- /**
-@@ -2954,6 +2942,12 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	tx_ring->head = adapter->hw.hw_addr + E1000_TDH(0);
- 	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT(0);
- 
-+	writel(0, tx_ring->head);
-+	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-+		e1000e_update_tdt_wa(tx_ring, 0);
-+	else
-+		writel(0, tx_ring->tail);
-+
- 	/* Set the Tx Interrupt Delay register */
- 	ew32(TIDV, adapter->tx_int_delay);
- 	/* Tx irq moderation */
-@@ -3275,6 +3269,12 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 	rx_ring->head = adapter->hw.hw_addr + E1000_RDH(0);
- 	rx_ring->tail = adapter->hw.hw_addr + E1000_RDT(0);
- 
-+	writel(0, rx_ring->head);
-+	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-+		e1000e_update_rdt_wa(rx_ring, 0);
-+	else
-+		writel(0, rx_ring->tail);
-+
- 	/* Enable Receive Checksum Offload for TCP and UDP */
- 	rxcsum = er32(RXCSUM);
- 	if (adapter->netdev->features & NETIF_F_RXCSUM)
--- 
-1.7.9.5
+Thanks for your review! I've not tested it, will do that from now on.
+>=20
+>> +	__perf_event_read(event);
+>> +	return perf_event_count(event);
+>> +}
+>=20
+> Also, you probably want a WARN_ON(in_nmi()) there, this function is
+> _NOT_ NMI safe.
+>=20
+>=20
+>=20
+> .
+>=20
