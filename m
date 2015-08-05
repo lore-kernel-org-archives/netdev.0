@@ -1,107 +1,93 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC] ipvlan: Problems with ipvlan and IPv6
-Date: Wed, 5 Aug 2015 13:28:20 -0700
-Message-ID: <1438806500-2384382-1-git-send-email-tom@herbertland.com>
+From: Calvin Owens <calvinowens@fb.com>
+Subject: [PATCH] net: Unbreak resetting default values for tcp_wmem/udp_wmem_min
+Date: Wed, 5 Aug 2015 13:26:54 -0700
+Message-ID: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47457 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753204AbbHEU2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 16:28:25 -0400
-Received: from pps.filterd (m0004347 [127.0.0.1])
-	by m0004347.ppops.net (8.14.5/8.14.5) with SMTP id t75KRFlO004290
-	for <netdev@vger.kernel.org>; Wed, 5 Aug 2015 13:28:24 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004347.ppops.net with ESMTP id 1w3s5f021e-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 13:28:24 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- 849a0fb83bb011e58c8d0002c9521c9e-817f92b0 for <netdev@vger.kernel.org>;	Wed,
- 05 Aug 2015 13:28:23 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-team@fb.com>, Sorin Dumitru <sorin@returnze.ro>,
+	Calvin Owens <calvinowens@fb.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just doing:
+Commit 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to
+SOCK_{RCV,SND}BUF_MIN") modified four sysctls to enforce that the values
+written to them are not less than SOCK_MIN_{RCV,SND}BUF.
 
-ip link add name ipvl0 link eth0 type ipvlan
-ip -6 addr add 3333:0:0:1:5555:0:1:1/128 dev ipvl0
-ip addr add 192.168.1.1/32 dev iplv0
+This change is fine for tcp_rmem and udp_rmem_min, since SOCK_MIN_RCVBUF
+is equal to equal to TCP_SKB_MIN_TRUESIZE. But it breaks tcp_wmem and
+udp_wmem_min for previously valid values because SOCK_MIN_SNDBUF is
+(2 * TCP_SKB_MIN_TRUESIZE), which ends up being greater than 4KB.
 
-Before patch:
+Thus, 4096 is no longer accepted as a valid value, despite still being
+the default for udp_wmem_min, and for 'min' in tcp_wmem. A huge number
+of sysctl configurations at FB use 4096 as 'min', so this change breaks
+all of them.
 
-  ping 3333:0:0:1:5555:0:1:1
+This patch changes the sysctls to simply enforce that the value written
+is greater than or equal to the default value of SK_MEM_QUANTUM.
 
-   - No response, tcpdump on ipvl0 shows two copies of each ICMP echo
-     request.
-
-  ping 192.168.1.1
-
-   - Works, tcpdump on ipvl0 shows nothing
-
-With patch applied:
-
-  ping 3333:0:0:1:5555:0:1:1
-
-   - Works, tcpdump on ipvl0 shows nothing
-
-  ping 192.168.1.1
-
-   - Works, tcpdump on ipvl0 shows nothing
-
-Some other problems I'm seeing
--  Occurrence of "Dead loop on virtual device ipvl0, fix it urgently!"
-
-   Running following script several times seems to get to the error.
-   Once in this state machine is pretty locked up:
-
-     rmmod ipvlan
-
-     for i  in `seq 0 199`;
-     do
-  	ip link add name ipvl$i link eth0 type ipvlan
-        addr=`echo $i | awk '{printf("%04x", $1)}'`
-	ip -6 addr add 3333:0:0:1:5555:0:1:$addr/128 dev ipvl$i
-	ifconfig ipvl$i up
-     done
-
-- Seeing "Dropped {multi|broad}cast of type= [86dd]"
-
-  Looks like this may be from ND messages. Might be innocuous I
-  suppose, but it is annoying to see in logs.
-
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Fixes: 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to SOCK_MIN...")
+Signed-off-by: Calvin Owens <calvinowens@fb.com>
 ---
- drivers/net/ipvlan/ipvlan_core.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/ipv4/sysctl_net_ipv4.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index 207f62e..0b68538 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -277,8 +277,8 @@ static int ipvlan_rcv_frame(struct ipvl_addr *addr, struct sk_buff *skb,
- 	skb->pkt_type = PACKET_HOST;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 433231c..a214b6a 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -41,8 +41,7 @@ static int tcp_syn_retries_min = 1;
+ static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
+ static int ip_ping_group_range_min[] = { 0, 0 };
+ static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
+-static int min_sndbuf = SOCK_MIN_SNDBUF;
+-static int min_rcvbuf = SOCK_MIN_RCVBUF;
++static int min_buf = SK_MEM_QUANTUM;
  
- 	if (local) {
--		if (dev_forward_skb(ipvlan->dev, skb) == NET_RX_SUCCESS)
--			success = true;
-+		netif_receive_skb(skb);
-+		success = true;
- 	} else {
- 		ret = RX_HANDLER_ANOTHER;
- 		success = true;
-@@ -384,7 +384,7 @@ static int ipvlan_process_v6_outbound(struct sk_buff *skb)
- 	struct dst_entry *dst;
- 	int err, ret = NET_XMIT_DROP;
- 	struct flowi6 fl6 = {
--		.flowi6_iif = skb->dev->ifindex,
-+		.flowi6_oif = dev_get_iflink(dev),
- 		.daddr = ip6h->daddr,
- 		.saddr = ip6h->saddr,
- 		.flowi6_flags = FLOWI_FLAG_ANYSRC,
+ /* Update system visible IP port range */
+ static void set_local_port_range(struct net *net, int range[2])
+@@ -530,7 +529,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.maxlen		= sizeof(sysctl_tcp_wmem),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+-		.extra1		= &min_sndbuf,
++		.extra1		= &min_buf,
+ 	},
+ 	{
+ 		.procname	= "tcp_notsent_lowat",
+@@ -545,7 +544,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.maxlen		= sizeof(sysctl_tcp_rmem),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+-		.extra1		= &min_rcvbuf,
++		.extra1		= &min_buf,
+ 	},
+ 	{
+ 		.procname	= "tcp_app_win",
+@@ -758,7 +757,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.maxlen		= sizeof(sysctl_udp_rmem_min),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+-		.extra1		= &min_rcvbuf,
++		.extra1		= &min_buf,
+ 	},
+ 	{
+ 		.procname	= "udp_wmem_min",
+@@ -766,7 +765,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.maxlen		= sizeof(sysctl_udp_wmem_min),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+-		.extra1		= &min_sndbuf,
++		.extra1		= &min_buf,
+ 	},
+ 	{ }
+ };
 -- 
 1.8.1
