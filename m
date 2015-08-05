@@ -1,34 +1,88 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v6 3/4] bpf: Implement function bpf_perf_event_read()
- that get the selected hardware PMU conuter
-Date: Wed, 5 Aug 2015 12:15:06 +0200
-Message-ID: <20150805101506.GY18673@twins.programming.kicks-ass.net>
-References: <1438678696-88289-1-git-send-email-xiakaixu@huawei.com>
- <1438678696-88289-4-git-send-email-xiakaixu@huawei.com>
- <20150805100425.GZ25159@twins.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@plumgrid.com, davem@davemloft.net, acme@kernel.org,
-	mingo@redhat.com, masami.hiramatsu.pt@hitachi.com,
-	jolsa@kernel.org, daniel@iogearbox.net, wangnan0@huawei.com,
-	linux-kernel@vger.kernel.org, pi3orama@163.com, hekuang@huawei.com,
-	netdev@vger.kernel.org
-To: Kaixu Xia <xiakaixu@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:56931 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750881AbbHEKPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 06:15:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20150805100425.GZ25159@twins.programming.kicks-ass.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jia-Ju Bai <baijiaju1990@163.com>
+Subject: [PATCH v2] e1000e: Modify tx/rx configurations to avoid null pointer dereferences in e1000_open
+Date: Wed,  5 Aug 2015 18:16:10 +0800
+Message-ID: <1438769770-8887-1-git-send-email-baijiaju1990@163.com>
+Cc: alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jia-Ju Bai <baijiaju1990@163.com>
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 05, 2015 at 12:04:25PM +0200, Peter Zijlstra wrote:
-> On Tue, Aug 04, 2015 at 08:58:15AM +0000, Kaixu Xia wrote:
+When e1000e_setup_rx_resources is failed in e1000_open,
+e1000e_free_tx_resources in "err_setup_rx" segment is executed.
+"writel(0, tx_ring->head)" statement in e1000_clean_tx_ring
+in e1000e_free_tx_resources will cause a null poonter dereference(crash),
+because "tx_ring->head" is only assigned in e1000_configure_tx
+in e1000_configure, but it is after e1000e_setup_rx_resources.
 
-> > +	    event->ctx->task != current)
+This patch moves head/tail register writing to e1000_configure_tx/rx, 
+which can fix this problem. It is inspired by igb_configure_tx_ring 
+in the igb driver.
 
-Strictly speaking we should hold rcu_read_lock around dereferencing
-event->ctx (or have IRQs disabled -- although I know Paul doesn't like
-us relying on that).
+Specially, thank Alexander Duyck for his valuable suggestion.
+
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 89d788d..3aee51b 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1737,12 +1737,6 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
+ 	rx_ring->next_to_clean = 0;
+ 	rx_ring->next_to_use = 0;
+ 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
+-
+-	writel(0, rx_ring->head);
+-	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+-		e1000e_update_rdt_wa(rx_ring, 0);
+-	else
+-		writel(0, rx_ring->tail);
+ }
+ 
+ static void e1000e_downshift_workaround(struct work_struct *work)
+@@ -2447,12 +2441,6 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
+ 
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
+-
+-	writel(0, tx_ring->head);
+-	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+-		e1000e_update_tdt_wa(tx_ring, 0);
+-	else
+-		writel(0, tx_ring->tail);
+ }
+ 
+ /**
+@@ -2954,6 +2942,12 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 	tx_ring->head = adapter->hw.hw_addr + E1000_TDH(0);
+ 	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT(0);
+ 
++	writel(0, tx_ring->head);
++	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++		e1000e_update_tdt_wa(tx_ring, 0);
++	else
++		writel(0, tx_ring->tail);
++
+ 	/* Set the Tx Interrupt Delay register */
+ 	ew32(TIDV, adapter->tx_int_delay);
+ 	/* Tx irq moderation */
+@@ -3275,6 +3269,12 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 	rx_ring->head = adapter->hw.hw_addr + E1000_RDH(0);
+ 	rx_ring->tail = adapter->hw.hw_addr + E1000_RDT(0);
+ 
++	writel(0, rx_ring->head);
++	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++		e1000e_update_rdt_wa(rx_ring, 0);
++	else
++		writel(0, rx_ring->tail);
++
+ 	/* Enable Receive Checksum Offload for TCP and UDP */
+ 	rxcsum = er32(RXCSUM);
+ 	if (adapter->netdev->features & NETIF_F_RXCSUM)
+-- 
+1.7.9.5
