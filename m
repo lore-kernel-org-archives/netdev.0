@@ -1,46 +1,57 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: rtnl_mutex deadlock?
-Date: Tue, 4 Aug 2015 22:31:30 -0700
-Message-ID: <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
-References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v3 net-next 0/2] RDS-TCP: Network namespace support
+Date: Wed,  5 Aug 2015 01:43:24 -0400
+Message-ID: <cover.1438752224.git.sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com, igor.maximov@oracle.com,
+	chien.yen@oracle.com, sowmini.varadhan@oracle.com,
+	cwang@twopensource.com, dsahern@gmail.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f170.google.com ([209.85.160.170]:34221 "EHLO
-	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbbHEFbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 01:31:31 -0400
-Received: by ykax123 with SMTP id x123so27136562yka.1
-        for <netdev@vger.kernel.org>; Tue, 04 Aug 2015 22:31:31 -0700 (PDT)
-In-Reply-To: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17613 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750709AbbHEFno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 01:43:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 4, 2015 at 8:48 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> Sorry for the spamming of random rtnetlink people, but I just resumed
-> my laptop at PDX, and networking was dead.
->
-> It looks like a deadlock on rtnl_mutex, possibly due to some error
-> path not releasing the lock. No network op was making any progress,
-> and as you can see from the attached sysrq-w, it all seems to be hung
-> in rtnl_lock().
->
-> The call trace from NetworkManager looks different from the others,
-> and looks to me like it might actually be a recursive invocation of
-> rtnetlink_rcv(), but since I have a fairly light configuration on this
-> laptop and don't have frame pointers enabled, I'm not sure how
-> reliable that stack trace is. It might be just stale entries. But if
-> they aren't stale, then that would certainly explain the deadlock.
->
+This patch series contains the set of changes to correctly set up 
+the infra for PF_RDS sockets that use TCP as the transport in multiple
+network namespaces.
 
-You are right, looks like kernel received a GETLINK netlink message
-from NetworkManager and then replied back but accidentally sent the
-reply to itself, seems something wrong with NETLINK_CB(skb).portid.
+Patch 1 in the series is the minimal set of changes to allow
+a single instance of RDS-TCP to run in any (i.e init_net or other) net
+namespace.  The changes in this patch set ensure that the execution of 
+'modprobe [-r] rds_tcp' sets up the kernel TCP sockets 
+relative to the current netns, so that RDS applications can send/recv
+packets from that netns, and the netns can later be deleted cleanly.
+
+Patch 2 of the series further allows multiple RDS-TCP instances,
+one per network namespace. The changes in this patch allows dynamic
+creation/tear-down of RDS-TCP client and server sockets  across all
+current and future namespaces. 
+
+v2 changes from RFC sent out earlier:
+    David Ahern comments in patch 1, net_device notifier in patch 2, 
+    patch 3 broken off and submitted separately.
+v3: Cong Wang review comments.
+
+Sowmini Varadhan (2):
+  Make RDS-TCP work correctly when it is set up in a netns other than
+    init_net
+  Support multiple RDS-TCP listen endpoints, one per netns.
+
+ net/rds/bind.c        |    3 +-
+ net/rds/connection.c  |   16 +++--
+ net/rds/ib.c          |    2 +-
+ net/rds/ib_cm.c       |    5 +-
+ net/rds/iw.c          |    2 +-
+ net/rds/iw_cm.c       |    5 +-
+ net/rds/rds.h         |   23 ++++++-
+ net/rds/send.c        |    3 +-
+ net/rds/tcp.c         |  165 +++++++++++++++++++++++++++++++++++++++++++-----
+ net/rds/tcp.h         |    7 ++-
+ net/rds/tcp_connect.c |    9 ++-
+ net/rds/tcp_listen.c  |   40 ++++--------
+ net/rds/transport.c   |    4 +-
+ 13 files changed, 214 insertions(+), 70 deletions(-)
