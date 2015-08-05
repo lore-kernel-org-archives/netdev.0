@@ -1,115 +1,155 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: Re: net: Fix skb_set_peeked use-after-free bug
-Date: Wed, 05 Aug 2015 14:46:04 +0300
-Message-ID: <55C1F77C.70302@yandex-team.ru>
-References: <20150804074247.GA29951@gondor.apana.org.au>
+From: Ivan Mikhaylov <ivan@ru.ibm.com>
+Subject: [PATCH v2 1/2] ethtool: changes of emac_regs structure accordingly
+ within driver emac_regs structure.
+Date: Wed, 5 Aug 2015 15:01:53 +0400
+Message-ID: <20150805150153.10f054ed@fr-ThinkPad-W520>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Brenden Blanco <bblanco@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1f.mail.yandex.net ([95.108.130.40]:59712 "EHLO
-	forward-corp1f.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751073AbbHELqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2015 07:46:08 -0400
-In-Reply-To: <20150804074247.GA29951@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04.08.2015 10:42, Herbert Xu wrote:
-> Brenden Blanco <bblanco@plumgrid.com> wrote:
->>> [  318.244596] BUG: unable to handle kernel NULL pointer dereference
->>> at 000000000000008e
->>> [  318.245182] IP: [<ffffffff81455e7c>] __skb_recv_datagram+0xbc/0x5a0
->>
->> Replying to myself, and adding commit interested parties...
->>
->> I went through the git log for the function in question, and
->> positively identified that the following commit introduces the crash:
->>
->> 738ac1e net: Clone skb before setting peeked flag
->>
->> Null dereference is at line 224 of net/core/datagram.c (according to
->> my objdump dis-assembly):
->
-> Sorry, brain fart on my part.  Please try this patch.
->
-> ---8<---
-> The commit 738ac1ebb96d02e0d23bc320302a6ea94c612dec ("net: Clone
-> skb before setting peeked flag") introduced a use-after-free bug
-> in skb_recv_datagram.  This is because skb_set_peeked may create
-> a new skb and free the existing one.  As it stands the caller will
-> continue to use the old freed skb.
->
-> This patch fixes it by making skb_set_peeked return the new skb
-> (or the old one if unchanged).
->
-> Fixes: 738ac1ebb96d ("net: Clone skb before setting peeked flag")
-> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+* do the redefinition of emac_regs struct from driver structure perspective
+  and passing size from actual struct size, not from memory area variable
+  which set in dts file.
 
-Seems correct. You can add:
+* passing variable from dts option may cause a problem with output below 
+  MII's section which we're fixing with this and 5369c71 commit in kernel.
 
-Reviewed-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
+---
+ ibm_emac.c |  101 +++++++++++++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 73 insertions(+), 28 deletions(-)
 
-Your skb_set_peeked() doesn't set prev/next to NULL when
-unlinks old skb from the queue unlike to __skb_unlink().
-Isn't big deal but nulling might be useful.
-
->
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> index 4967262..617088a 100644
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -131,12 +131,12 @@ out_noerr:
->   	goto out;
->   }
->
-> -static int skb_set_peeked(struct sk_buff *skb)
-> +static struct sk_buff *skb_set_peeked(struct sk_buff *skb)
->   {
->   	struct sk_buff *nskb;
->
->   	if (skb->peeked)
-> -		return 0;
-> +		return skb;
->
->   	/* We have to unshare an skb before modifying it. */
->   	if (!skb_shared(skb))
-> @@ -144,7 +144,7 @@ static int skb_set_peeked(struct sk_buff *skb)
->
->   	nskb = skb_clone(skb, GFP_ATOMIC);
->   	if (!nskb)
-> -		return -ENOMEM;
-> +		return ERR_PTR(-ENOMEM);
->
->   	skb->prev->next = nskb;
->   	skb->next->prev = nskb;
-> @@ -157,7 +157,7 @@ static int skb_set_peeked(struct sk_buff *skb)
->   done:
->   	skb->peeked = 1;
->
-> -	return 0;
-> +	return skb;
->   }
->
->   /**
-> @@ -229,8 +229,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
->   					continue;
->   				}
->
-> -				error = skb_set_peeked(skb);
-> -				if (error)
-> +				skb = skb_set_peeked(skb);
-> +				error = PTR_ERR(skb);
-> +				if (IS_ERR(skb))
->   					goto unlock_err;
->
->   				atomic_inc(&skb->users);
->
-
-
+diff --git a/ibm_emac.c b/ibm_emac.c
+index e128e48..da6c28e 100644
+--- a/ibm_emac.c
++++ b/ibm_emac.c
+@@ -32,35 +32,78 @@ struct emac_ethtool_regs_subhdr {
+ };
+ 
+ struct emac_regs {
+-	u32 mr0;
+-	u32 mr1;
+-	u32 tmr0;
+-	u32 tmr1;
+-	u32 rmr;
+-	u32 isr;
+-	u32 iser;
+-	u32 iahr;
+-	u32 ialr;
+-	u32 vtpid;
+-	u32 vtci;
+-	u32 ptr;
+-	u32 iaht1;
+-	u32 iaht2;
+-	u32 iaht3;
+-	u32 iaht4;
+-	u32 gaht1;
+-	u32 gaht2;
+-	u32 gaht3;
+-	u32 gaht4;
++	/* Common registers across all EMAC implementations. */
++	u32 mr0;			/* Special 	*/
++	u32 mr1;			/* Reset 	*/
++	u32 tmr0;			/* Special 	*/
++	u32 tmr1;			/* Special 	*/
++	u32 rmr;			/* Reset 	*/
++	u32 isr;			/* Always 	*/
++	u32 iser;			/* Reset 	*/
++	u32 iahr;			/* Reset, R, T 	*/
++	u32 ialr;			/* Reset, R, T 	*/
++	u32 vtpid;			/* Reset, R, T 	*/
++	u32 vtci;			/* Reset, R, T 	*/
++	u32 ptr;			/* Reset,    T 	*/
++	union {
++		/* Registers unique to EMAC4 implementations */
++		struct {
++			u32 iaht1;	/* Reset, R	*/
++			u32 iaht2;	/* Reset, R	*/
++			u32 iaht3;	/* Reset, R	*/
++			u32 iaht4;	/* Reset, R	*/
++			u32 gaht1;	/* Reset, R	*/
++			u32 gaht2;	/* Reset, R	*/
++			u32 gaht3;	/* Reset, R	*/
++			u32 gaht4;	/* Reset, R	*/
++		} emac4;
++		/* Registers unique to EMAC4SYNC implementations */
++		struct {
++			u32 mahr;	/* Reset, R, T  */
++			u32 malr;	/* Reset, R, T  */
++			u32 mmahr;	/* Reset, R, T  */
++			u32 mmalr;	/* Reset, R, T  */
++			u32 rsvd0[4];
++		} emac4sync;
++	} u0;
++	/* Common registers across all EMAC implementations. */
+ 	u32 lsah;
+ 	u32 lsal;
+-	u32 ipgvr;
+-	u32 stacr;
+-	u32 trtr;
+-	u32 rwmr;
++	u32 ipgvr;			/* Reset,    T 	*/
++	u32 stacr;			/* Special 	*/
++	u32 trtr;			/* Special 	*/
++	u32 rwmr;			/* Reset 	*/
+ 	u32 octx;
+ 	u32 ocrx;
+-	u32 ipcr;
++	union {
++		/* Registers unique to EMAC4 implementations */
++		struct {
++			u32 ipcr;
++		} emac4;
++		/* Registers unique to EMAC4SYNC implementations */
++		struct {
++			u32 rsvd1;
++			u32 revid;
++			u32 rsvd2[2];
++			u32 iaht1;	/* Reset, R     */
++			u32 iaht2;	/* Reset, R     */
++			u32 iaht3;	/* Reset, R     */
++			u32 iaht4;	/* Reset, R     */
++			u32 iaht5;	/* Reset, R     */
++			u32 iaht6;	/* Reset, R     */
++			u32 iaht7;	/* Reset, R     */
++			u32 iaht8;	/* Reset, R     */
++			u32 gaht1;	/* Reset, R     */
++			u32 gaht2;	/* Reset, R     */
++			u32 gaht3;	/* Reset, R     */
++			u32 gaht4;	/* Reset, R     */
++			u32 gaht5;	/* Reset, R     */
++			u32 gaht6;	/* Reset, R     */
++			u32 gaht7;	/* Reset, R     */
++			u32 gaht8;	/* Reset, R     */
++			u32 tpc;	/* Reset, T     */
++		} emac4sync;
++	} u1;
+ };
+ 
+ struct mal_regs {
+@@ -132,12 +175,14 @@ static void *print_emac_regs(void *buf)
+ 	       p->trtr, p->rwmr,
+ 	       p->iahr, p->ialr,
+ 	       p->lsah, p->lsal,
+-	       p->iaht1, p->iaht2, p->iaht3, p->iaht4,
+-	       p->gaht1, p->gaht2, p->gaht3, p->gaht4,
++	       p->u0.emac4.iaht1, p->u0.emac4.iaht2, p->u0.emac4.iaht3,
++	       p->u0.emac4.iaht4,
++	       p->u0.emac4.gaht1, p->u0.emac4.gaht2, p->u0.emac4.gaht3,
++	       p->u0.emac4.gaht4,
+ 	       p->vtpid, p->vtci, p->ipgvr, p->stacr, p->octx, p->ocrx);
+ 
+ 	if (hdr->version)
+-		printf(" IPCR = 0x%08x\n\n", p->ipcr);
++		printf(" IPCR = 0x%08x\n\n", p->u1.emac4.ipcr);
+ 	else {
+ 		printf("\n\n");
+ 		res -= sizeof(u32);
 -- 
-Konstantin
+1.7.9.5
