@@ -1,67 +1,84 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 3/4] batman-adv: protect tt_local_entry from concurrent delete events
-Date: Wed,  5 Aug 2015 14:51:46 +0200
-Message-ID: <1438779107-12665-4-git-send-email-antonio__30092.8324148574$1438779220$gmane$org@meshcoding.com>
-References: <1438779107-12665-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
+Subject: pull request [net]: batman-adv fixes 20150805
+Date: Wed,  5 Aug 2015 14:51:43 +0200
+Message-ID: <1438779107-12665-1-git-send-email-antonio__43971.9358263121$1438779229$gmane$org@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:25691 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:46757 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752156AbbHEMxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Aug 2015 08:53:11 -0400
-In-Reply-To: <1438779107-12665-1-git-send-email-antonio@meshcoding.com>
+	id S1752065AbbHEMxF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2015 08:53:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <mareklindner@neomailbox.ch>
+Hello David,
 
-The tt_local_entry deletion performed in batadv_tt_local_remove() was neither
-protecting against simultaneous deletes nor checking whether the element was
-still part of the list before calling hlist_del_rcu().
+here you have our patchset for net/linux-4.2 which contains only patches
+that we think to be important (meaning they fix critical
+crashes/misbehaviours actually reported by some users).
 
-Replacing the hlist_del_rcu() call with batadv_hash_remove() provides adequate
-protection via hash spinlocks as well as an is-element-still-in-hash check to
-avoid 'blind' hash removal.
+Patch 1 (by me) is preventing DAT from injecting replies received from the
+mesh into the LAN which would confuse a L2 bridge.
 
-Fixes: 068ee6e204e1 ("batman-adv: roaming handling mechanism redesign")
-Reported-by: alfonsname@web.de
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
- net/batman-adv/translation-table.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+Patch 2 introduces several NULL checks in order to prevent spurious
+kernel crashes due to NULL pointer deferences, by Marek Lindnder.
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 38b83c5..5e953297 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -1037,6 +1037,7 @@ uint16_t batadv_tt_local_remove(struct batadv_priv *bat_priv,
- 	struct batadv_tt_local_entry *tt_local_entry;
- 	uint16_t flags, curr_flags = BATADV_NO_FLAGS;
- 	struct batadv_softif_vlan *vlan;
-+	void *tt_entry_exists;
- 
- 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, addr, vid);
- 	if (!tt_local_entry)
-@@ -1064,7 +1065,15 @@ uint16_t batadv_tt_local_remove(struct batadv_priv *bat_priv,
- 	 * immediately purge it
- 	 */
- 	batadv_tt_local_event(bat_priv, tt_local_entry, BATADV_TT_CLIENT_DEL);
--	hlist_del_rcu(&tt_local_entry->common.hash_entry);
-+
-+	tt_entry_exists = batadv_hash_remove(bat_priv->tt.local_hash,
-+					     batadv_compare_tt,
-+					     batadv_choose_tt,
-+					     &tt_local_entry->common);
-+	if (!tt_entry_exists)
-+		goto out;
-+
-+	/* extra call to free the local tt entry */
- 	batadv_tt_local_entry_free_ref(tt_local_entry);
- 
- 	/* decrease the reference held for this vlan */
--- 
-2.5.0
+Patches 3, still by Marek, prevent accidental double deletions
+of tt_local_entry objects from their own lists which would lead to a
+kernel crash.
+
+Patch 4 by Simon Wunderlich fixes a memory leak which is triggered by
+the missing initialization of the bandwidth_up/down fields of the bat-GW
+struct.
+
+
+If possible, I'd recommend to consider all these patches for inclusion
+in the stable releases.
+
+
+
+Please pull or let me know if anything else is wrong!
+
+Thanks a lot David,
+	Antonio
+
+
+
+
+The following changes since commit 2475b22526d70234ecfe4a1ff88aed69badefba9:
+
+  xen-netback: Allocate fraglist early to avoid complex rollback (2015-08-03 22:23:03 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to 27a4d5efd417b6ef3190e9af357715532d4617a3:
+
+  batman-adv: initialize up/down values when adding a gateway (2015-08-05 00:31:47 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- prevent DAT from replying on behalf of local clients and confuse L2
+  bridges
+- fix crash on double list removal of TT objects (tt_local_entry)
+- fix crash due to missing NULL checks
+- initialize bw values for new GWs objects to prevent memory leak
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      batman-adv: avoid DAT to mess up LAN state
+
+Marek Lindner (2):
+      batman-adv: fix kernel crash due to missing NULL checks
+      batman-adv: protect tt_local_entry from concurrent delete events
+
+Simon Wunderlich (1):
+      batman-adv: initialize up/down values when adding a gateway
+
+ net/batman-adv/distributed-arp-table.c | 18 +++++++++++++-----
+ net/batman-adv/gateway_client.c        |  2 ++
+ net/batman-adv/soft-interface.c        |  3 +++
+ net/batman-adv/translation-table.c     | 29 ++++++++++++++++++++++++-----
+ 4 files changed, 42 insertions(+), 10 deletions(-)
