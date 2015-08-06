@@ -1,15 +1,15 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] xen-apic: Enable on domU as well
-Date: Thu,  6 Aug 2015 18:29:39 +0200
-Message-ID: <1438878579-26856-1-git-send-email-Jason@zx2c4.com>
-References: <CAHmME9r34QsbC-RuTw40PVOD-H7zQRwvPo0gdtesyV-V05vccA@mail.gmail.com>
+Subject: [PATCH v2] xen-apic: Enable on domU as well
+Date: Thu,  6 Aug 2015 18:37:05 +0200
+Message-ID: <1438879025-27362-1-git-send-email-Jason@zx2c4.com>
+References: <1438878579-26856-1-git-send-email-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>, <stable@vger.kernel.org>
 To: David Vrabel <david.vrabel@citrix.com>,
 	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, xen-devel@lists.xen.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9r34QsbC-RuTw40PVOD-H7zQRwvPo0gdtesyV-V05vccA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1438878579-26856-1-git-send-email-Jason@zx2c4.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 It turns out that domU also requires the Xen APIC driver. Otherwise we
@@ -46,8 +46,8 @@ Cc: Ian Campbell <ian.campbell@citrix.com>
 Cc: <stable@vger.kernel.org>
 ---
  arch/x86/xen/Makefile  |  4 ++--
- arch/x86/xen/xen-ops.h | 10 ----------
- 2 files changed, 2 insertions(+), 12 deletions(-)
+ arch/x86/xen/xen-ops.h | 11 ++++-------
+ 2 files changed, 6 insertions(+), 9 deletions(-)
 
 diff --git a/arch/x86/xen/Makefile b/arch/x86/xen/Makefile
 index 7322755..4b6e29a 100644
@@ -70,27 +70,33 @@ index 7322755..4b6e29a 100644
  obj-$(CONFIG_SWIOTLB_XEN)	+= pci-swiotlb-xen.o
  obj-$(CONFIG_XEN_EFI)		+= efi.o
 diff --git a/arch/x86/xen/xen-ops.h b/arch/x86/xen/xen-ops.h
-index c20fe29..7363e1b 100644
+index c20fe29..cd248ff 100644
 --- a/arch/x86/xen/xen-ops.h
 +++ b/arch/x86/xen/xen-ops.h
-@@ -99,18 +99,8 @@ static inline void xen_uninit_lock_cpu(int cpu)
+@@ -98,20 +98,17 @@ static inline void xen_uninit_lock_cpu(int cpu)
+ #endif
  
  struct dom0_vga_console_info;
- 
--#ifdef CONFIG_XEN_DOM0
+-
+ #ifdef CONFIG_XEN_DOM0
  void __init xen_init_vga(const struct dom0_vga_console_info *, size_t size);
- void __init xen_init_apic(void);
--#else
+-void __init xen_init_apic(void);
+ #else
 -static inline void __init xen_init_vga(const struct dom0_vga_console_info *info,
 -				       size_t size)
 -{
 -}
 -static inline void __init xen_init_apic(void)
--{
--}
--#endif
++void __init xen_init_vga(const struct dom0_vga_console_info *info,
++			size_t size);
+ {
+ }
+ #endif
  
++void __init xen_init_apic(void);
++
  #ifdef CONFIG_XEN_EFI
  extern void xen_efi_init(void);
+ #else
 -- 
 2.5.0
