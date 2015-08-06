@@ -1,50 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2] virtio-net: drop NETIF_F_FRAGLIST
-Date: Thu, 06 Aug 2015 15:49:10 -0700 (PDT)
-Message-ID: <20150806.154910.1261240005857312043.davem@davemloft.net>
-References: <1438742044-31064-1-git-send-email-jasowang@redhat.com>
-	<20150806161042-mutt-send-email-mst@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rtnl_mutex deadlock?
+Date: Fri, 7 Aug 2015 07:41:17 +0800
+Message-ID: <20150806234117.GA22588@gondor.apana.org.au>
+References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
+ <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
+ <20150805074330.GA2084@nanopsycho.orion>
+ <CA+55aFw1856zEq88RfqoizjeVRR9Ut-ug+VWA+mKFOS77FYpSg@mail.gmail.com>
+ <55C25CFB.2060103@iogearbox.net>
+ <20150806003026.GA12785@gondor.apana.org.au>
+ <55C3743F.1010900@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150806161042-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:56339 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752361AbbHFXlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 19:41:55 -0400
+Content-Disposition: inline
+In-Reply-To: <55C3743F.1010900@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 6 Aug 2015 16:13:11 +0300
-
-> On Wed, Aug 05, 2015 at 10:34:04AM +0800, Jason Wang wrote:
->> virtio declares support for NETIF_F_FRAGLIST, but assumes
->> that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
->> always true with a fraglist.
->> 
->> A longer fraglist in the skb will make the call to skb_to_sgvec overflow
->> the sg array, leading to memory corruption.
->> 
->> Drop NETIF_F_FRAGLIST so we only get what we can handle.
->> 
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Thu, Aug 06, 2015 at 04:50:39PM +0200, Daniel Borkmann wrote:
 > 
-> I noticed only now that this didn't Cc Dave, so of course it's
-> not applied.
+> Then, in __rhashtable_insert_fast(), I could trigger an -EBUSY when I'm
+> really unlucky and exceed the ht->elasticity limit of 16. I would then
+> end up in rhashtable_insert_rehash() to find out there's already one
+> ongoing and thus, I'm getting -EBUSY via __netlink_insert().
 
-CC:'ing me isn't the requirement. CC:'ing netdev is, which he
-did.  If you check patchwork, it's there in the queue.
+Right, so the only way you can trigger this is if you hit a chain
+longer than 16 and the number of entries in the table is less than
+75% the size of the table, as well as there being an existing resize
+or rehash operation.
 
-I'm just behind and heavily backlogged because I've been working
-on other things.
+This should be pretty much impossible.
+
+But if we had a WARN_ON_ONCE there then we'll know for sure.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
