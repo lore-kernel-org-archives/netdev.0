@@ -1,70 +1,46 @@
-From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Subject: Re: [Xen-devel] [PATCH v2 4/8] xen: Use the correctly the Xen memory
- terminologies
-Date: Thu, 6 Aug 2015 15:20:09 +0100
-Message-ID: <alpine.DEB.2.02.1508061520010.11337@kaball.uk.xensource.com>
-References: <1438711972-18752-1-git-send-email-julien.grall@citrix.com>
- <1438711972-18752-5-git-send-email-julien.grall@citrix.com>
- <55C33E4E.4050704@citrix.com>
- <alpine.DEB.2.02.1508061205190.11337@kaball.uk.xensource.com>
- <55C34250.3040801@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	<linux-fbdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
-	Jiri Slaby <jslaby@suse.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	<linux-scsi@vger.kernel.org>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>, <x86@kernel.org>,
-	Ingo Molnar <mingo@redhat.com>, <linux-input@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	<ian.campbell@citrix.com>,
-	"James E.J. Bottomley" <JBottomley@odin.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Juergen Gross <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	<linux-kernel@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<netdev@vger.ker
-To: Julien Grall <julien.grall@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55C34250.3040801@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/7] mlxsw: Call free_netdev when removing port
+Date: Thu,  6 Aug 2015 16:41:52 +0200
+Message-ID: <1438872118-16869-2-git-send-email-jiri@resnulli.us>
+References: <1438872118-16869-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	ogerlitz@mellanox.com, Jiri Pirko <jiri@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:37071 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754755AbbHFOmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 10:42:04 -0400
+Received: by wibhh20 with SMTP id hh20so27389393wib.0
+        for <netdev@vger.kernel.org>; Thu, 06 Aug 2015 07:42:03 -0700 (PDT)
+In-Reply-To: <1438872118-16869-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 6 Aug 2015, Julien Grall wrote:
-> On 06/08/15 12:06, Stefano Stabellini wrote:
-> > On Thu, 6 Aug 2015, Julien Grall wrote:
-> >> Hi,
-> >>
-> >>
-> >> On 04/08/15 19:12, Julien Grall wrote:
-> >>> diff --git a/include/xen/page.h b/include/xen/page.h
-> >>> index c5ed20b..e7e1425 100644
-> >>> --- a/include/xen/page.h
-> >>> +++ b/include/xen/page.h
-> >>> @@ -3,9 +3,9 @@
-> >>>  
-> >>>  #include <asm/xen/page.h>
-> >>>  
-> >>> -static inline unsigned long page_to_mfn(struct page *page)
-> >>> +static inline unsigned long page_to_gfn(struct page *page)
-> >>>  {
-> >>> -	return pfn_to_mfn(page_to_pfn(page));
-> >>> +	return pfn_to_gfn(page_to_pfn(page));
-> >>>  }
-> >>
-> >> I've just noticed that there is a function gfn_to_page used for KVM.
-> >>
-> >> Maybe I should rename page_to_gfn to xen_page_to_gfn to avoid confusion
-> >> with KVM one?
-> > 
-> > Yeah, prepending xen would help to avoid namespace pollution.
-> 
-> Will do. May I keep your Reviewed-by for this mechanical change?
+From: Ido Schimmel <idosch@mellanox.com>
 
-Yes
+When removing a port's netdevice we should also free the memory
+allocated by alloc_etherdev(). Do this by calling free_netdev() at the
+end of the teardown sequence.
+
+Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index 29b46ee..687f5cb 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -1079,6 +1079,7 @@ static void mlxsw_sx_port_remove(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ 	unregister_netdev(mlxsw_sx_port->dev); /* This calls ndo_stop */
+ 	mlxsw_sx_port_swid_set(mlxsw_sx_port, MLXSW_PORT_SWID_DISABLED_PORT);
+ 	free_percpu(mlxsw_sx_port->pcpu_stats);
++	free_netdev(mlxsw_sx_port->dev);
+ }
+ 
+ static void mlxsw_sx_ports_remove(struct mlxsw_sx *mlxsw_sx)
+-- 
+1.9.3
