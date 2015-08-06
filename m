@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: rtnl_mutex deadlock?
-Date: Fri, 7 Aug 2015 07:41:17 +0800
-Message-ID: <20150806234117.GA22588@gondor.apana.org.au>
+Date: Fri, 7 Aug 2015 07:42:50 +0800
+Message-ID: <20150806234250.GB22588@gondor.apana.org.au>
 References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
  <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
  <20150805074330.GA2084@nanopsycho.orion>
@@ -9,6 +9,7 @@ References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
  <55C25CFB.2060103@iogearbox.net>
  <20150806003026.GA12785@gondor.apana.org.au>
  <55C3743F.1010900@iogearbox.net>
+ <55C3E233.20502@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linus Torvalds <torvalds@linux-foundation.org>,
@@ -20,30 +21,23 @@ Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Network Development <netdev@vger.kernel.org>
 To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:56339 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:49252 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361AbbHFXlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 19:41:55 -0400
+	with ESMTP id S1752796AbbHFXnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 19:43:18 -0400
 Content-Disposition: inline
-In-Reply-To: <55C3743F.1010900@iogearbox.net>
+In-Reply-To: <55C3E233.20502@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 06, 2015 at 04:50:39PM +0200, Daniel Borkmann wrote:
-> 
-> Then, in __rhashtable_insert_fast(), I could trigger an -EBUSY when I'm
-> really unlucky and exceed the ht->elasticity limit of 16. I would then
-> end up in rhashtable_insert_rehash() to find out there's already one
-> ongoing and thus, I'm getting -EBUSY via __netlink_insert().
+On Fri, Aug 07, 2015 at 12:39:47AM +0200, Daniel Borkmann wrote:
+>
+> window was too small to trigger an error. I think in any case, remapping
+> seems okay.
 
-Right, so the only way you can trigger this is if you hit a chain
-longer than 16 and the number of entries in the table is less than
-75% the size of the table, as well as there being an existing resize
-or rehash operation.
-
-This should be pretty much impossible.
-
-But if we had a WARN_ON_ONCE there then we'll know for sure.
+Oh there is no doubt that we need your EBUSY remapping patch.
+It's just that it's very unlikely for this to be responsible
+for the dead-lock that Linus saw.
 
 Cheers,
 -- 
