@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 3/7] net: dsa: add support for switchdev FDB objects
-Date: Thu,  6 Aug 2015 01:44:04 -0400
-Message-ID: <1438839848-505-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 4/7] net: dsa: mv88e6xxx: extend fid mask
+Date: Thu,  6 Aug 2015 01:44:05 -0400
+Message-ID: <1438839848-505-5-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -17,331 +17,110 @@ In-Reply-To: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.co
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the fdb_{add,del,getnext} function pointer in favor of new
-port_fdb_{add,del,getnext}.
+The driver currently manages one FID per port (or bridge group), with a
+mask of DSA_MAX_PORTS bits, where 0 means that the FID is in use.
 
-Implement the switchdev_port_obj_{add,del,dump} functions in DSA to
-support the SWITCHDEV_OBJ_PORT_FDB objects.
+The Marvell 88E6xxx switches support up to 4094 FIDs (from 1 to 0xfff;
+FID 0 means that multiple address databases are not being used).
+
+This patch changes the fid_mask for an fid_bitmap of 4096 bits.
+
+>From now on, FIDs 1 to num_ports are reserved for non-bridged ports and
+bridge groups (a bridge group gets the FID of its first member). The
+remaining bits will be reserved for VLAN entries.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6171.c |   3 -
- drivers/net/dsa/mv88e6352.c |   3 -
- include/net/dsa.h           |  16 ++--
- net/dsa/slave.c             | 218 +++++++++++++++++++++++---------------------
- 4 files changed, 126 insertions(+), 114 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 20 +++++++++++++-------
+ drivers/net/dsa/mv88e6xxx.h |  8 +++++---
+ 2 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 1c78084..cfa21ed 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -116,9 +116,6 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_join_bridge       = mv88e6xxx_join_bridge,
- 	.port_leave_bridge      = mv88e6xxx_leave_bridge,
- 	.port_stp_update        = mv88e6xxx_port_stp_update,
--	.fdb_add		= mv88e6xxx_port_fdb_add,
--	.fdb_del		= mv88e6xxx_port_fdb_del,
--	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
- };
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 438c73e..b051576 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1091,7 +1091,7 @@ int mv88e6xxx_join_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
+ 	ps->bridge_mask[fid] = br_port_mask;
  
- MODULE_ALIAS("platform:mv88e6171");
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index af210ef..eb4630f 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -341,9 +341,6 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_join_bridge	= mv88e6xxx_join_bridge,
- 	.port_leave_bridge	= mv88e6xxx_leave_bridge,
- 	.port_stp_update	= mv88e6xxx_port_stp_update,
--	.fdb_add		= mv88e6xxx_port_fdb_add,
--	.fdb_del		= mv88e6xxx_port_fdb_del,
--	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
- };
+ 	if (fid != ps->fid[port]) {
+-		ps->fid_mask |= 1 << ps->fid[port];
++		clear_bit(ps->fid[port], ps->fid_bitmap);
+ 		ps->fid[port] = fid;
+ 		ret = _mv88e6xxx_update_bridge_config(ds, fid);
+ 	}
+@@ -1125,9 +1125,16 @@ int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
  
- MODULE_ALIAS("platform:mv88e6172");
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index fbca63b..091d35f 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -296,12 +296,16 @@ struct dsa_switch_driver {
- 				     u32 br_port_mask);
- 	int	(*port_stp_update)(struct dsa_switch *ds, int port,
- 				   u8 state);
--	int	(*fdb_add)(struct dsa_switch *ds, int port,
--			   const unsigned char *addr, u16 vid);
--	int	(*fdb_del)(struct dsa_switch *ds, int port,
--			   const unsigned char *addr, u16 vid);
--	int	(*fdb_getnext)(struct dsa_switch *ds, int port,
--			       unsigned char *addr, bool *is_static);
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	newfid = __ffs(ps->fid_mask);
++	newfid = find_next_zero_bit(ps->fid_bitmap, VLAN_N_VID, 1);
++	if (unlikely(newfid > ps->num_ports)) {
++		netdev_err(ds->ports[port], "all first %d FIDs are used\n",
++			   ps->num_ports);
++		ret = -ENOSPC;
++		goto unlock;
++	}
 +
-+	/*
-+	 * Forwarding database
-+	 */
-+	int	(*port_fdb_add)(struct dsa_switch *ds, int port, u16 vid,
-+				const u8 addr[ETH_ALEN]);
-+	int	(*port_fdb_del)(struct dsa_switch *ds, int port, u16 vid,
-+				const u8 addr[ETH_ALEN]);
-+	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port, u16 *vid,
-+				    u8 addr[ETH_ALEN], bool *is_static);
- };
+ 	ps->fid[port] = newfid;
+-	ps->fid_mask &= ~(1 << newfid);
++	set_bit(newfid, ps->fid_bitmap);
+ 	ps->bridge_mask[fid] &= ~(1 << port);
+ 	ps->bridge_mask[newfid] = 1 << port;
  
- void register_switch_driver(struct dsa_switch_driver *type);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 0010c69..1dbdeaa 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -19,6 +19,7 @@
- #include <net/switchdev.h>
- #include <linux/if_bridge.h>
- #include <linux/netpoll.h>
-+#include <linux/if_vlan.h>
- #include "dsa_priv.h"
+@@ -1135,6 +1142,7 @@ int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
+ 	if (!ret)
+ 		ret = _mv88e6xxx_update_bridge_config(ds, newfid);
  
- /* slave mii_bus handling ***************************************************/
-@@ -200,105 +201,6 @@ out:
- 	return 0;
- }
++unlock:
+ 	mutex_unlock(&ps->smi_mutex);
  
--static int dsa_slave_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
--			     struct net_device *dev,
--			     const unsigned char *addr, u16 vid, u16 nlm_flags)
--{
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->parent;
--	int ret = -EOPNOTSUPP;
--
--	if (ds->drv->fdb_add)
--		ret = ds->drv->fdb_add(ds, p->port, addr, vid);
--
--	return ret;
--}
--
--static int dsa_slave_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
--			     struct net_device *dev,
--			     const unsigned char *addr, u16 vid)
--{
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->parent;
--	int ret = -EOPNOTSUPP;
--
--	if (ds->drv->fdb_del)
--		ret = ds->drv->fdb_del(ds, p->port, addr, vid);
--
--	return ret;
--}
--
--static int dsa_slave_fill_info(struct net_device *dev, struct sk_buff *skb,
--			       const unsigned char *addr, u16 vid,
--			       bool is_static,
--			       u32 portid, u32 seq, int type,
--			       unsigned int flags)
--{
--	struct nlmsghdr *nlh;
--	struct ndmsg *ndm;
--
--	nlh = nlmsg_put(skb, portid, seq, type, sizeof(*ndm), flags);
--	if (!nlh)
--		return -EMSGSIZE;
--
--	ndm = nlmsg_data(nlh);
--	ndm->ndm_family	 = AF_BRIDGE;
--	ndm->ndm_pad1    = 0;
--	ndm->ndm_pad2    = 0;
--	ndm->ndm_flags	 = NTF_EXT_LEARNED;
--	ndm->ndm_type	 = 0;
--	ndm->ndm_ifindex = dev->ifindex;
--	ndm->ndm_state   = is_static ? NUD_NOARP : NUD_REACHABLE;
--
--	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, addr))
--		goto nla_put_failure;
--
--	if (vid && nla_put_u16(skb, NDA_VLAN, vid))
--		goto nla_put_failure;
--
--	nlmsg_end(skb, nlh);
--	return 0;
--
--nla_put_failure:
--	nlmsg_cancel(skb, nlh);
--	return -EMSGSIZE;
--}
--
--/* Dump information about entries, in response to GETNEIGH */
--static int dsa_slave_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
--			      struct net_device *dev,
--			      struct net_device *filter_dev, int idx)
--{
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->parent;
--	unsigned char addr[ETH_ALEN] = { 0 };
--	int ret;
--
--	if (!ds->drv->fdb_getnext)
--		return -EOPNOTSUPP;
--
--	for (; ; idx++) {
--		bool is_static;
--
--		ret = ds->drv->fdb_getnext(ds, p->port, addr, &is_static);
--		if (ret < 0)
--			break;
--
--		if (idx < cb->args[0])
--			continue;
--
--		ret = dsa_slave_fill_info(dev, skb, addr, 0,
--					  is_static,
--					  NETLINK_CB(cb->skb).portid,
--					  cb->nlh->nlmsg_seq,
--					  RTM_NEWNEIGH, NLM_F_MULTI);
--		if (ret < 0)
--			break;
--	}
--
--	return idx;
--}
--
- static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -364,6 +266,115 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
  	return ret;
- }
+@@ -1554,9 +1562,9 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	 * ports, and allow each of the 'real' ports to only talk to
+ 	 * the upstream port.
+ 	 */
+-	fid = __ffs(ps->fid_mask);
++	fid = port + 1;
+ 	ps->fid[port] = fid;
+-	ps->fid_mask &= ~(1 << fid);
++	set_bit(fid, ps->fid_bitmap);
  
-+static int dsa_slave_port_fdb_add(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_fdb *fdb = &obj->u.fdb;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int err;
-+
-+	if (obj->trans == SWITCHDEV_TRANS_PREPARE)
-+		err = ds->drv->port_fdb_add ? 0 : -EOPNOTSUPP;
-+	else if (obj->trans == SWITCHDEV_TRANS_COMMIT)
-+		err = ds->drv->port_fdb_add(ds, p->port, fdb->vid, fdb->addr);
-+	else
-+		err = -EOPNOTSUPP;
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_fdb_del(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_fdb *fdb = &obj->u.fdb;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+
-+	if (!ds->drv->port_fdb_del)
-+		return -EOPNOTSUPP;
-+
-+	return ds->drv->port_fdb_del(ds, p->port, fdb->vid, fdb->addr);
-+}
-+
-+static int dsa_slave_port_fdb_dump(struct net_device *dev,
-+				   struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_fdb *fdb = &obj->u.fdb;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	int err;
-+
-+	if (!ds->drv->port_fdb_getnext)
-+		return -EOPNOTSUPP;
-+
-+	memset(fdb, 0, sizeof(*fdb));
-+
-+	for (;;) {
-+		err = ds->drv->port_fdb_getnext(ds, p->port, &fdb->vid,
-+						fdb->addr, &fdb->is_static);
-+		if (err)
-+			break;
-+
-+		err = obj->cb(dev, obj);
-+		if (err)
-+			break;
-+	}
-+
-+	return err == -ENOENT ? 0 : err;
-+}
-+
-+static int dsa_slave_port_obj_add(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_FDB:
-+		err = dsa_slave_port_fdb_add(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_del(struct net_device *dev,
-+				  struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_FDB:
-+		err = dsa_slave_port_fdb_del(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+static int dsa_slave_port_obj_dump(struct net_device *dev,
-+				   struct switchdev_obj *obj)
-+{
-+	int err;
-+
-+	switch (obj->id) {
-+	case SWITCHDEV_OBJ_PORT_FDB:
-+		err = dsa_slave_port_fdb_dump(dev, obj);
-+		break;
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
- static int dsa_slave_bridge_port_join(struct net_device *dev,
- 				      struct net_device *br)
- {
-@@ -765,9 +776,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
- 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
- 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
--	.ndo_fdb_add		= dsa_slave_fdb_add,
--	.ndo_fdb_del		= dsa_slave_fdb_del,
--	.ndo_fdb_dump		= dsa_slave_fdb_dump,
-+	.ndo_fdb_add		= switchdev_port_fdb_add,
-+	.ndo_fdb_del		= switchdev_port_fdb_del,
-+	.ndo_fdb_dump		= switchdev_port_fdb_dump,
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
- 	.ndo_get_iflink		= dsa_slave_get_iflink,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -780,6 +791,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
- 	.switchdev_port_attr_get	= dsa_slave_port_attr_get,
- 	.switchdev_port_attr_set	= dsa_slave_port_attr_set,
-+	.switchdev_port_obj_add		= dsa_slave_port_obj_add,
-+	.switchdev_port_obj_del		= dsa_slave_port_obj_del,
-+	.switchdev_port_obj_dump	= dsa_slave_port_obj_dump,
- };
+ 	if (!dsa_is_cpu_port(ds, port))
+ 		ps->bridge_mask[fid] = 1 << port;
+@@ -1855,8 +1863,6 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
  
- static void dsa_slave_adjust_link(struct net_device *dev)
+ 	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
+ 
+-	ps->fid_mask = (1 << DSA_MAX_PORTS) - 1;
+-
+ 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+ 
+ 	name = kasprintf(GFP_KERNEL, "dsa%d", ds->index);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 6a66b4b..6d65b99 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -11,6 +11,8 @@
+ #ifndef __MV88E6XXX_H
+ #define __MV88E6XXX_H
+ 
++#include <linux/if_vlan.h>
++
+ #ifndef UINT64_MAX
+ #define UINT64_MAX		(u64)(~((u64)0))
+ #endif
+@@ -348,9 +350,9 @@ struct mv88e6xxx_priv_state {
+ 
+ 	/* hw bridging */
+ 
+-	u32 fid_mask;
+-	u8 fid[DSA_MAX_PORTS];
+-	u16 bridge_mask[DSA_MAX_PORTS];
++	DECLARE_BITMAP(fid_bitmap, VLAN_N_VID);	/* FIDs 1 to 4095 available */
++	u16 fid[DSA_MAX_PORTS];			/* per (non-bridged) port FID */
++	u16 bridge_mask[DSA_MAX_PORTS];		/* br groups (indexed by FID) */
+ 
+ 	unsigned long port_state_update_mask;
+ 	u8 port_state[DSA_MAX_PORTS];
 -- 
 2.4.6
