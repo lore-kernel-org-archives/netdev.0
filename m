@@ -1,29 +1,46 @@
-From: Shaun Crampton <Shaun.Crampton@metaswitch.com>
-Subject: Re: veths often slow to come up
-Date: Thu, 6 Aug 2015 08:09:03 +0000
-Message-ID: <D1E8D3E9.3FACB%Shaun.Crampton@metaswitch.com>
-References: <D1E67FCC.3FA19%Shaun.Crampton@metaswitch.com>
- <CAM_iQpV6ZjKWmy8ou6xM=fP8gfE19cS9r=YT4P2xW7rBJwAyZA@mail.gmail.com>
- <20150805152358.GE10686@indiana.gru.redhat.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [Xen-devel] printk from softirq on xen: hard lockup
+Date: Thu, 6 Aug 2015 09:22:49 +0100
+Message-ID: <1438849369.9747.91.camel@citrix.com>
+References: <CAHmME9rUdafnjz0ej-z_cgznMrj27SJgy6v8GJXM0qGfUpWaMQ@mail.gmail.com>
+	 <55C0F291.7060806@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Paul McKenney <paulmck@linux.vnet.ibm.com>
+To: David Vrabel <david.vrabel@citrix.com>,
+	"Jason A. Donenfeld" <Jason@zx2c4.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150805152358.GE10686@indiana.gru.redhat.com>
-Content-Language: en-US
-Content-ID: <A76DBBF1F65B6742A2A8EB81926661A8@metaswitch.com>
+In-Reply-To: <55C0F291.7060806@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Take a look at linkwatch_urgent_event at net/core/link_watch.c, and a=
-ll
->of
-> link_watch.c in general. That's where the 1s delay comes from.
+On Tue, 2015-08-04 at 18:12 +0100, David Vrabel wrote:
+> On 04/08/15 17:41, Jason A. Donenfeld wrote:
+> > Hi folks,
+> > 
+> > Paul McKenney and I had an offline discussion about some rcu questions
+> > that eventually lead into me investigating a strange full lock-up I'm
+> > experiencing as a consequence of a printk in softirq inside of an
+> > rcu_read_lock, when using Xen PV. Relevant excerpts of the
+>                                 ^^  PV guest?
+> 
+> > (gdb) target remote localhost:9999
+> > Remote debugging using localhost:9999
+> > __xapic_wait_icr_idle () at ./arch/x86/include/asm/ipi.h:56
+> > 56              while (native_apic_mem_read(APIC_ICR) & APIC_ICR_BUSY)
+>                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  => HVM guest
+> 
+> Which is it?
 
-Thanks for the diagnosis, I=B9ll take a look.
+Aren't there still some code paths for PV guests which hit the native APIC
+case (emulated in Xen even for PV these days, since pvops in the early days
+didn't accept the hooks needed to make use of the hypercall versions of
+apic read/write).
 
--Shaun
+In particular I'm thinking of the IPI which is (or was) used by the sysrq
+to trigger the backtrace on all CPUs.
+
+Ian.
