@@ -1,50 +1,111 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH for-next V7 00/10] Move RoCE GID management to IB/Core
-Date: Wed, 5 Aug 2015 22:53:35 -0600
-Message-ID: <20150806045335.GC14960@obsidianresearch.com>
-References: <1438270411-17648-1-git-send-email-matanb@mellanox.com>
- <CAJ3xEMh9z=LG7dW0nBP8Zdrbf0SkZ_GCxjCoowWXuw2dueN+xg@mail.gmail.com>
- <55BB6F10.5030408@redhat.com>
- <20150731163201.GA6027@obsidianresearch.com>
- <55BBB353.7020806@redhat.com>
- <CAJ3xEMiP57qf58B=VHRazs50RC5r-7OsUPb=GV1kBQ6vu6Tqjw@mail.gmail.com>
- <20150731220102.GA31209@obsidianresearch.com>
- <CAJ3xEMjgvgvc8WyUhHagiH4gNs6KK7pL_TmhXCywNiWEy4p70w@mail.gmail.com>
- <55BDCD36.6000301@mellanox.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH V4 4/7] Drivers: hv: vmbus: add APIs to register callbacks
+ to process hvsock connection
+Date: Thu, 6 Aug 2015 04:53:47 +0000
+Message-ID: <115a97288d1e4c239fcbaab28298c552@SIXPR30MB031.064d.mgd.msft.net>
+References: <1438086911-19384-1-git-send-email-decui@microsoft.com>
+ <20150729.152651.331017965932467028.davem@davemloft.net>
+ <f65ab29ed3d0488685afdca2dd2189a9@SIXPR30MB031.064d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Somnath Kotur <Somnath.Kotur-1wcpHE2jlwO1Z/+hSey0Gg@public.gmane.org>,
-	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <55BDCD36.6000301-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "stephen@networkplumber.org" <stephen@networkplumber.org>,
+ "stefanha@redhat.com" <stefanha@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
+To: David Miller <davem@davemloft.net>, KY Srinivasan <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <f65ab29ed3d0488685afdca2dd2189a9@SIXPR30MB031.064d.mgd.msft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 02, 2015 at 10:56:38AM +0300, Matan Barak wrote:
+> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On Behalf
+> Of Dexuan Cui
+> Sent: Thursday, July 30, 2015 18:20
+> To: David Miller <davem@davemloft.net>; KY Srinivasan <kys@microsoft.com>
+> Cc: olaf@aepfle.de; gregkh@linuxfoundation.org; jasowang@redhat.com;
+> driverdev-devel@linuxdriverproject.org; linux-kernel@vger.kernel.org;
+> stephen@networkplumber.org; stefanha@redhat.com; netdev@vger.kernel.org;
+> apw@canonical.com; pebolle@tiscali.nl; dan.carpenter@oracle.com
+> Subject: RE: [PATCH V4 4/7] Drivers: hv: vmbus: add APIs to register callbacks to
+> process hvsock connection
+> 
+> > From: David Miller
+> > Sent: Thursday, July 30, 2015 6:27
+> >
+> > From: Dexuan Cui
+> > Date: Tue, 28 Jul 2015 05:35:11 -0700
+> >
+> > > With the 2 APIs supplied by the VMBus driver, the coming net/hvsock driver
+> > > can register 2 callbacks and can know when a new hvsock connection is
+> > > offered by the host, and when a hvsock connection is being closed by the
+> > > host.
+> > >
+> > This is an extremely terrible interface.
+> >
+> > It's an opaque hook that allows on registry, and it's solve purpose
+> > is to allow a backdoor call into a foreign driver in another module.
+> >
+> > These are exactly the things we try to avoid.
+> 
+> Hi David,
+> Thanks a lot for your reviewing and the suggestion!
+> 
+> > Why not create a real abstraction where clients register an object,
+> > that can be contained as a sub-member inside of their own driver
+> > private, that provides the callback registry mechanism.
 
-> Indeed this design flaw was introduced when the first legacy verb was
-> extended. I think that falling back from extended code to legacy code
-> should be in the uverbs code. ib_uverbs_write will return -ENOSYS only
-> if both extended and non-extended don't exist. The uverbs command itself
-> will call the non-extended form if the comp_mask is zero and all
-> data between legacy size and the given size are zero as well.
-> What do you think?
+Hi David,
+Can you please have a look at my below questions?
 
-Yes, that is what I had expected from day 1.. Didn't notice it in the
-first introduction.
+I like your idea of a real abstraction. Your answer would definitely
+help me to implement that correctly. 
+
+> Please pardon me for my inexperience.
+> Can you please be a bit more specific?
+> I guess maybe you're referencing a common design pattern in the driver
+> code, so an example in some existing driver would be the best. :-)
+> 
+> "clients register an object " --
+> does the "clients" mean the hvsock driver?
+> and the "object" means the 2 callbacks?
+> 
+> IMHO, here the vmbus driver has to synchronously pass the 2 events
+> to the hvsock driver, so a "backdoor call into the hvsock driver" is
+> inevitable anyway?
+> 
+> e.g., in the path vmbus_process_offer() -> hvsock_process_offer(), the
+> return value of the latter is important to the former, because on error
+> the former needs to clean up some internal states of the vmbus driver (that
+> is, the "goto err_deq_chan").
+> 
+> 
+> > That way you can register multiple clients, do things like allow
+> > AF_PACKET capturing of vmbus traffic, etc.
+> 
+> I thought AF_PACKET can only capture IP packets	or Ethernet frames.
+> Can it be used to capture AF_UNIX packet?
+> If yes, I suppose we can consider making it work for AF_HYPERV too,
+> if people ask for that.
+> 
+> -- Dexuan
 
 Thanks,
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- Dexuan
