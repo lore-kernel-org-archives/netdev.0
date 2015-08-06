@@ -1,96 +1,143 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] netlink: make sure -EBUSY won't escape from netlink_insert
-Date: Fri,  7 Aug 2015 00:26:41 +0200
-Message-ID: <d466c48264ca677f0fc61ff76526780c32c37cb5.1438898409.git.daniel@iogearbox.net>
-Cc: herbert@gondor.apana.org.au, tgraf@suug.ch,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34946 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932210AbbHFW0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 18:26:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [BUG] net/ipv4: inconsistent routing table
+Date: Thu, 06 Aug 2015 12:43:04 -0700
+Message-ID: <55C3B8C8.9030507@redhat.com>
+References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com> <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com> <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>
+To: Zang MingJie <zealot0630@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Linus reports the following deadlock on rtnl_mutex; triggered only
-once so far (extract):
+On 08/06/2015 03:13 AM, Zang MingJie wrote:
+> On Thu, Aug 6, 2015 at 1:45 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On 08/05/2015 02:06 AM, Daniel Borkmann wrote:
+>>>
+>>> [ please cc netdev ]
+>>>
+>>> On 08/05/2015 10:56 AM, Zang MingJie wrote:
+>>>>
+>>>> Hi:
+>>>>
+>>>> I found a bug when remove an ip address which is referenced by a routing
+>>>> entry.
+>>>>
+>>>> step to reproduce:
+>>>>
+>>>> ip li add type dummy
+>>>> ip li set dummy0 up
+>>>> ip ad add 10.0.0.1/24 dev dummy0
+>>>> ip ad add 10.0.0.2/24 dev dummy0
+>>
+>>
+>> Okay, so up to this point you have 2 addresses on the same subnet that are
+>> now on dummy0.
+>>
+>>>> ip ro add default via 10.0.0.2/24
+>>
+>>
+>> This makes the default route go through 10.0.0.2.
+>>
+>>>> ip ad del 10.0.0.2/24 dev dummy0
+>>
+>>
+>> Then you remove 10.0.0.2 from the local system, however since 10.0.0.1 is on
+>> the same subnet dummy0 would still be the correct interface to access
+>> 10.0.0.2 it is just no longer local to the system.
+>>
+>>>> after deleting the secondary ip address, the routing entry still
+>>>> pointing to 10.0.0.2
+>>
+>>
+>> You didn't delete the default routing entry so why would you expect it to
+>> change?  All you did is remove 10.0.0.2 from the local system.  I believe
+>> the assumption is that 10.0.0.2 is still out there somewhere, it just isn't
+>> on the local system anymore.
+>
+> Yes, 10.0.0.2 is migrated to somewhere else
 
-[12236.694209] NetworkManager  D 0000000000013b80     0  1047      1 0x00000000
-[12236.694218]  ffff88003f902640 0000000000000000 ffffffff815d15a9 0000000000000018
-[12236.694224]  ffff880119538000 ffff88003f902640 ffffffff81a8ff84 00000000ffffffff
-[12236.694230]  ffffffff81a8ff88 ffff880119c47f00 ffffffff815d133a ffffffff81a8ff80
-[12236.694235] Call Trace:
-[12236.694250]  [<ffffffff815d15a9>] ? schedule_preempt_disabled+0x9/0x10
-[12236.694257]  [<ffffffff815d133a>] ? schedule+0x2a/0x70
-[12236.694263]  [<ffffffff815d15a9>] ? schedule_preempt_disabled+0x9/0x10
-[12236.694271]  [<ffffffff815d2c3f>] ? __mutex_lock_slowpath+0x7f/0xf0
-[12236.694280]  [<ffffffff815d2cc6>] ? mutex_lock+0x16/0x30
-[12236.694291]  [<ffffffff814f1f90>] ? rtnetlink_rcv+0x10/0x30
-[12236.694299]  [<ffffffff8150ce3b>] ? netlink_unicast+0xfb/0x180
-[12236.694309]  [<ffffffff814f5ad3>] ? rtnl_getlink+0x113/0x190
-[12236.694319]  [<ffffffff814f202a>] ? rtnetlink_rcv_msg+0x7a/0x210
-[12236.694331]  [<ffffffff8124565c>] ? sock_has_perm+0x5c/0x70
-[12236.694339]  [<ffffffff814f1fb0>] ? rtnetlink_rcv+0x30/0x30
-[12236.694346]  [<ffffffff8150d62c>] ? netlink_rcv_skb+0x9c/0xc0
-[12236.694354]  [<ffffffff814f1f9f>] ? rtnetlink_rcv+0x1f/0x30
-[12236.694360]  [<ffffffff8150ce3b>] ? netlink_unicast+0xfb/0x180
-[12236.694367]  [<ffffffff8150d344>] ? netlink_sendmsg+0x484/0x5d0
-[12236.694376]  [<ffffffff810a236f>] ? __wake_up+0x2f/0x50
-[12236.694387]  [<ffffffff814cad23>] ? sock_sendmsg+0x33/0x40
-[12236.694396]  [<ffffffff814cb05e>] ? ___sys_sendmsg+0x22e/0x240
-[12236.694405]  [<ffffffff814cab75>] ? ___sys_recvmsg+0x135/0x1a0
-[12236.694415]  [<ffffffff811a9d12>] ? eventfd_write+0x82/0x210
-[12236.694423]  [<ffffffff811a0f9e>] ? fsnotify+0x32e/0x4c0
-[12236.694429]  [<ffffffff8108cb70>] ? wake_up_q+0x60/0x60
-[12236.694434]  [<ffffffff814cba09>] ? __sys_sendmsg+0x39/0x70
-[12236.694440]  [<ffffffff815d4797>] ? entry_SYSCALL_64_fastpath+0x12/0x6a
+The address might have migrated, but the interface is still up and 
+10.0.0.1 is still present on the same subnet.  Because you made a local 
+address the default gateway the assumption is any routes not 
+specifically called out on other interfaces are directly accessible to 
+this interface.
 
-It seems so far plausible that the recursive call into rtnetlink_rcv()
-looks suspicious. One way, where this could trigger is that the senders
-NETLINK_CB(skb).portid was wrongly 0 (which is rtnetlink socket), so
-the rtnl_getlink() request's answer would be sent to the kernel instead
-to the actual user process, thus grabbing rtnl_mutex() twice.
+The bug indicates that the kernel is doing something to make the table 
+inconsistent, but a default route that is a local interface address does 
+essentially the same thing.
 
-One theory would be that netlink_autobind() triggered via netlink_sendmsg()
-internally overwrites the -EBUSY error to 0, but where it is wrongly
-originating from __netlink_insert() instead. That would reset the
-socket's portid to 0, which is then filled into NETLINK_CB(skb).portid
-later on. As commit d470e3b483dc ("[NETLINK]: Fix two socket hashing bugs.")
-also puts it, -EBUSY should not be propagated from netlink_insert().
+>>
+>>>> # ip ro
+>>>> default via 10.0.0.2 dev dummy0
+>>>> 10.0.0.0/24 dev dummy0  proto kernel  scope link  src 10.0.0.1
+>>
+>>
+>> This matches up with what I would expect.  10.0.0.2 is the default gateway
+>> and it is accessible from dummy0 since 10.0.0.0/24 is accessible from
+>> dummy0.
+>
+> This means 0.0.0.0/0 is accessible via 10.0.0.2 on the network of dummy0
 
-It looks like it's very unlikely to reproduce. We need to trigger the
-rhashtable_insert_rehash() handler under a situation where rehashing
-currently occurs (one /rare/ way would be to hit ht->elasticity limits
-while not filled enough to expand the hashtable, but that would rather
-require a specifically crafted bind() sequence with knowledge about
-destination slots, seems unlikely). It probably makes sense to guard
-__netlink_insert() in any case and remap that error. It was suggested
-that EOVERFLOW might be better than an already overloaded ENOMEM.
+Yes, but at the time you specified it 10.0.0.2 was a local address which 
+belonged to dummy0.  This means that dummy0 can access anything not 
+specified elsewhere via pretty much any address it wants.  So it is 
+perfectly valid if it wants to use a source address of 10.0.0.1 to send 
+packets to 1.1.1.1 over dummy0.
 
-Reference: http://thread.gmane.org/gmane.linux.network/372676
-Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- net/netlink/af_netlink.c | 5 +++++
- 1 file changed, 5 insertions(+)
+>>
+>>>> but actually, kernel considers the default route is directly connected.
+>>>>
+>>>> # ip ro get 1.1.1.1
+>>>> 1.1.1.1 dev dummy0  src 10.0.0.1
+>>>>       cache
+>>
+>>
+>> I'm not sure how you came to the "directly connected" conclusion. It is
+>> still routing things out through 10.0.0.2 from 10.0.0.1.
+>>
+>> Maybe your example would work better if you used 10.0.0.1 and 10.0.1.1
+>> instead.  Then I think you might be able to better see that when you delete
+>> the second address the route would be broken.
+>
+> No, it isn't. when ping 1.1.1.1, kernel will directly send arp request
+> braodcast to 1.1.1.1, this is not what I expect. it should send arp
+> request to 10.0.0.2, following should be the correct routing entry:
+>
+> # ip ro get 1.1.1.1
+> 1.1.1.1 via 10.0.0.2 dev dummy0  src 10.0.0.1
+>      cache
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index d8e2e39..67d2104 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1096,6 +1096,11 @@ static int netlink_insert(struct sock *sk, u32 portid)
- 
- 	err = __netlink_insert(table, sk);
- 	if (err) {
-+		/* In case the hashtable backend returns with -EBUSY
-+		 * from here, it must not escape to the caller.
-+		 */
-+		if (unlikely(err == -EBUSY))
-+			err = -EOVERFLOW;
- 		if (err == -EEXIST)
- 			err = -EADDRINUSE;
- 		nlk_sk(sk)->portid = 0;
--- 
-1.9.3
+I see what you are trying to say, but the example provided is a bit 
+lacking.  Assuming you could ping 1.1.1.1 via dummy0 before with 
+10.0.0.2 as your default gateway, that shouldn't change if 10.0.0.2 is 
+migrated to another address.  That is, unless there is an issue on the 
+system 10.0.0.2 was migrated to.
+
+Now if I move away from using dummy interface and instead using a real 
+network interface things can get a bit more interesting.  So if we 
+follow your example and use 2 different subnets on the two systems then 
+pings continue to work after we remove the addresses.  However if we 
+flip things a bit and add the default route, and then the local address 
+for the gateway they don't.  So something like below:
+	ip li set eth0 up
+	ip ad add 10.0.0.1/24 dev eth0
+	ip ro add default via 10.0.0.2
+	ip ad add 10.0.0.2/24 dev eth0
+
+What you end up with is eth0 sending arp requests looking for 10.0.0.2 
+even though it is a local address on the system.
+
+My question would be what is the correct behavior for this?  If a local 
+address is removed or added that is being used as a gateway address 
+should we delete the route, or update the scope of the next hop?
+
+- Alex
