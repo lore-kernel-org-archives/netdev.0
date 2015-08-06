@@ -1,102 +1,79 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2] xen-apic: Enable on domU as well
-Date: Thu,  6 Aug 2015 18:37:05 +0200
-Message-ID: <1438879025-27362-1-git-send-email-Jason@zx2c4.com>
-References: <1438878579-26856-1-git-send-email-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>, <stable@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xen.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1438878579-26856-1-git-send-email-Jason@zx2c4.com>
-Sender: stable-owner@vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2 2/7] net: switchdev: support static FDB addresses
+Date: Thu, 6 Aug 2015 09:37:12 -0700
+Message-ID: <CAE4R7bBRpEX+5J7Fbj=SuN8LcmcF8pH44y15emeB1pm_NgXGXw@mail.gmail.com>
+References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1438839848-505-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <CAE4R7bBjYZtE-hj8b-0bRcA2bB0Sh+YXhtcmk2FuJu_qLB3xew@mail.gmail.com> <20150806141934.GA20660@ketchup.touchtunes.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150806141934.GA20660@ketchup.touchtunes.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It turns out that domU also requires the Xen APIC driver. Otherwise we
-get stuck in busy loops that never exit, such as in this stack trace:
+On Thu, Aug 6, 2015 at 7:19 AM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
+> On 15-08-05 23:28:15, Scott Feldman wrote:
+>> On Wed, Aug 5, 2015 at 10:44 PM, Vivien Didelot
+>> <vivien.didelot@savoirfairelinux.com> wrote:
+>> > This patch adds a is_static boolean to the switchdev_obj_fdb structure,
+>> > in order to set the ndm_state to either NUD_NOARP or NUD_REACHABLE.
+>> >
+>> > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> > ---
+>> >  include/net/switchdev.h   | 1 +
+>> >  net/switchdev/switchdev.c | 2 +-
+>> >  2 files changed, 2 insertions(+), 1 deletion(-)
+>> >
+>> > diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>> > index e90e1a0..0e296b8 100644
+>> > --- a/include/net/switchdev.h
+>> > +++ b/include/net/switchdev.h
+>> > @@ -72,6 +72,7 @@ struct switchdev_obj {
+>> >                 struct switchdev_obj_fdb {              /* PORT_FDB */
+>> >                         u8 addr[ETH_ALEN];
+>> >                         u16 vid;
+>> > +                       bool is_static;
+>>
+>> What do you think about changing this to u16 ndm_state?  That way, it
+>> can be used on input (fdb add) and output (fdb dump), and the driver
+>> can privately track the state, kind of like how the bridge keeps
+>> is_static, is_local, etc.
+>
+> I'm OK with the change. Should we consider NUD_NONE (0) a valid value?
+>
+>> >                 } fdb;
+>> >         } u;
+>> >  };
+>> > diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>> > index 9db87a3..e9d1cac 100644
+>> > --- a/net/switchdev/switchdev.c
+>> > +++ b/net/switchdev/switchdev.c
+>> > @@ -811,7 +811,7 @@ static int switchdev_port_fdb_dump_cb(struct net_device *dev,
+>> >         ndm->ndm_flags   = NTF_SELF;
+>> >         ndm->ndm_type    = 0;
+>> >         ndm->ndm_ifindex = dev->ifindex;
+>> > -       ndm->ndm_state   = NUD_REACHABLE;
+>> > +       ndm->ndm_state   = obj->u.fdb.is_static ? NUD_NOARP : NUD_REACHABLE;
+>
+> In other word, do we prefer this:
+>
+>     ndm->ndm_state = obj->u.fdb.ndm_state == NUD_NONE ?
+>                      NUD_REACHABLE : obj->u.fdb.ndm_state;
+>
+> Or this (meaning switchdev users cannot leave it blank and must at least
+> set NUD_REACHABLE themselves):
+>
+>     ndm->ndm_state = obj->u.fdb.ndm_state;
 
-(gdb) target remote localhost:9999
-Remote debugging using localhost:9999
-__xapic_wait_icr_idle () at ./arch/x86/include/asm/ipi.h:56
-56              while (native_apic_mem_read(APIC_ICR) & APIC_ICR_BUSY)
-(gdb) bt
- #0  __xapic_wait_icr_idle () at ./arch/x86/include/asm/ipi.h:56
- #1  __default_send_IPI_shortcut (shortcut=<optimized out>,
-dest=<optimized out>, vector=<optimized out>) at
-./arch/x86/include/asm/ipi.h:75
- #2  apic_send_IPI_self (vector=246) at arch/x86/kernel/apic/probe_64.c:54
- #3  0xffffffff81011336 in arch_irq_work_raise () at
-arch/x86/kernel/irq_work.c:47
- #4  0xffffffff8114990c in irq_work_queue (work=0xffff88000fc0e400) at
-kernel/irq_work.c:100
- #5  0xffffffff8110c29d in wake_up_klogd () at kernel/printk/printk.c:2633
- #6  0xffffffff8110ca60 in vprintk_emit (facility=0, level=<optimized
-out>, dict=0x0 <irq_stack_union>, dictlen=<optimized out>,
-fmt=<optimized out>, args=<optimized out>)
-    at kernel/printk/printk.c:1778
- #7  0xffffffff816010c8 in printk (fmt=<optimized out>) at
-kernel/printk/printk.c:1868
- #8  0xffffffffc00013ea in ?? ()
- #9  0x0000000000000000 in ?? ()
-
-Mailing-list-thread: https://lkml.org/lkml/2015/8/4/755
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: <stable@vger.kernel.org>
----
- arch/x86/xen/Makefile  |  4 ++--
- arch/x86/xen/xen-ops.h | 11 ++++-------
- 2 files changed, 6 insertions(+), 9 deletions(-)
-
-diff --git a/arch/x86/xen/Makefile b/arch/x86/xen/Makefile
-index 7322755..4b6e29a 100644
---- a/arch/x86/xen/Makefile
-+++ b/arch/x86/xen/Makefile
-@@ -13,13 +13,13 @@ CFLAGS_mmu.o			:= $(nostackp)
- obj-y		:= enlighten.o setup.o multicalls.o mmu.o irq.o \
- 			time.o xen-asm.o xen-asm_$(BITS).o \
- 			grant-table.o suspend.o platform-pci-unplug.o \
--			p2m.o
-+			p2m.o apic.o
- 
- obj-$(CONFIG_EVENT_TRACING) += trace.o
- 
- obj-$(CONFIG_SMP)		+= smp.o
- obj-$(CONFIG_PARAVIRT_SPINLOCKS)+= spinlock.o
- obj-$(CONFIG_XEN_DEBUG_FS)	+= debugfs.o
--obj-$(CONFIG_XEN_DOM0)		+= apic.o vga.o
-+obj-$(CONFIG_XEN_DOM0)		+= vga.o
- obj-$(CONFIG_SWIOTLB_XEN)	+= pci-swiotlb-xen.o
- obj-$(CONFIG_XEN_EFI)		+= efi.o
-diff --git a/arch/x86/xen/xen-ops.h b/arch/x86/xen/xen-ops.h
-index c20fe29..cd248ff 100644
---- a/arch/x86/xen/xen-ops.h
-+++ b/arch/x86/xen/xen-ops.h
-@@ -98,20 +98,17 @@ static inline void xen_uninit_lock_cpu(int cpu)
- #endif
- 
- struct dom0_vga_console_info;
--
- #ifdef CONFIG_XEN_DOM0
- void __init xen_init_vga(const struct dom0_vga_console_info *, size_t size);
--void __init xen_init_apic(void);
- #else
--static inline void __init xen_init_vga(const struct dom0_vga_console_info *info,
--				       size_t size)
--{
--}
--static inline void __init xen_init_apic(void)
-+void __init xen_init_vga(const struct dom0_vga_console_info *info,
-+			size_t size);
- {
- }
- #endif
- 
-+void __init xen_init_apic(void);
-+
- #ifdef CONFIG_XEN_EFI
- extern void xen_efi_init(void);
- #else
--- 
-2.5.0
+My preference would be this option.
