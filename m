@@ -1,43 +1,35 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 6/6] misc/ss: fix memory leak in user_ent_hash_build()
-Date: Thu,  6 Aug 2015 14:24:36 +0200
-Message-ID: <1438863876-1935-6-git-send-email-phil@nwl.cc>
-References: <1438863876-1935-1-git-send-email-phil@nwl.cc>
- <1438863876-1935-2-git-send-email-phil@nwl.cc>
- <1438863876-1935-3-git-send-email-phil@nwl.cc>
- <1438863876-1935-4-git-send-email-phil@nwl.cc>
- <1438863876-1935-5-git-send-email-phil@nwl.cc>
+Subject: [PATCH 1/6] ip/ipnetns: prevent potential string buffer overflow
+Date: Thu,  6 Aug 2015 14:24:31 +0200
+Message-ID: <1438863876-1935-1-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:53165 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:38069 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755698AbbHFMYj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Aug 2015 08:24:39 -0400
-In-Reply-To: <1438863876-1935-5-git-send-email-phil@nwl.cc>
+	id S1755678AbbHFMYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Aug 2015 08:24:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- misc/ss.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ ip/ipnetns.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 0c7c6d7..bba7009 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -483,8 +483,10 @@ static void user_ent_hash_build(void)
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index 3b704a4..32b0f51 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -178,7 +178,8 @@ static int netns_map_add(int nsid, char *name)
+ 		return -ENOMEM;
+ 	}
+ 	c->nsid = nsid;
+-	strcpy(c->name, name);
++	strncpy(c->name, name, NAME_MAX);
++	c->name[NAME_MAX - 1] = '\0';
  
- 		sprintf(name + nameoff, "%d/fd/", pid);
- 		pos = strlen(name);
--		if ((dir1 = opendir(name)) == NULL)
-+		if ((dir1 = opendir(name)) == NULL) {
-+			free(pid_context);
- 			continue;
-+		}
- 
- 		process[0] = '\0';
- 		p = process;
+ 	h = NSID_HASH_NSID(nsid);
+ 	hlist_add_head(&c->nsid_hash, &nsid_head[h]);
 -- 
 2.1.2
