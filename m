@@ -1,61 +1,56 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: rtnl_mutex deadlock?
-Date: Thu, 06 Aug 2015 16:50:39 +0200
-Message-ID: <55C3743F.1010900@iogearbox.net>
-References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com> <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com> <20150805074330.GA2084@nanopsycho.orion> <CA+55aFw1856zEq88RfqoizjeVRR9Ut-ug+VWA+mKFOS77FYpSg@mail.gmail.com> <55C25CFB.2060103@iogearbox.net> <20150806003026.GA12785@gondor.apana.org.au>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 3/7] net: dsa: add support for switchdev FDB
+ objects
+Date: Thu, 6 Aug 2015 10:52:25 -0400
+Message-ID: <20150806145225.GB20660@ketchup.touchtunes.com>
+References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1438839848-505-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20150806140432.GC19896@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57954 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753103AbbHFOuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 10:50:50 -0400
-In-Reply-To: <20150806003026.GA12785@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150806140432.GC19896@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/06/2015 02:30 AM, Herbert Xu wrote:
-> On Wed, Aug 05, 2015 at 08:59:07PM +0200, Daniel Borkmann wrote:
->>
->> Here's a theory and patch below. Herbert, Thomas, does this make any
->> sense to you resp. sound plausible? ;)
->
-> It's certainly possible.  Whether it's plausible I'm not so sure.
-> The netlink hashtable is unlimited in size.  So it should always
-> be expanding, not rehashing.  The bug you found should only affect
-> rehashing.
->
->> I'm not quite sure what's best to return from here, i.e. whether we
->> propagate -ENOMEM or instead retry over and over again hoping that the
->> rehashing completed (and no new rehashing started in the mean time) ...
->
-> Please use something other than ENOMEM as it is already heavily
-> used in this context.  Perhaps EOVERFLOW?
+On 15-08-06 16:04:32, Andrew Lunn wrote:
+> Hi Vivien
+> 
+> Thanks for splitting up the big patch. This it is much easier to
+> review now.
+> 
+> Is this patch git bisectable?
 
-Okay, I'll do that.
+In terms of compilation, yes.
 
-> We should probably add a WARN_ON_ONCE in rhashtable_insert_rehash
-> since two concurrent rehashings indicates something is going
-> seriously wrong.
+> Clearly after this patch, but before all the other patches are in, we
+> will not be programming the hardware. The call into the driver is
+> removed here, but the replacement is added later. But is the EOPNOTSUP
+> enough that the system keeps working, by falling back to software?
 
-So, if I didn't miss anything, it looks like the following could have
-happened: the worker thread, that is rht_deferred_worker(), itself could
-trigger the first rehashing, e.g. after shrinking or expanding (or also
-in case none of both happen).
+You're right, it isn't. At this exact patch, issuing the example:
 
-Then, in __rhashtable_insert_fast(), I could trigger an -EBUSY when I'm
-really unlucky and exceed the ht->elasticity limit of 16. I would then
-end up in rhashtable_insert_rehash() to find out there's already one
-ongoing and thus, I'm getting -EBUSY via __netlink_insert().
+    bridge fdb add 3c:97:0e:11:30:6e dev swp2
 
-Perhaps that is what could have happened? Seems rare though, but it was
-also only seen rarely so far ...
+returns "RTNETLINK answers: Operation not supported".
+
+> The two driver APIs are very similar, the main difference being the
+> MAC address. Can you do the refactoring first, and then make the API
+> change. That means we can test each patch individually, and have
+> proper git bisectability.
+
+That'd be better indeed. I'll integrate the migration from
+.fdb_{add,del,getnext} to .port_fdb_{add,del,getnext} in this patch,
+then add the next patches improving FID and ATU management on top of it.
+
+Thanks,
+-v
