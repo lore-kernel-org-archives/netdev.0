@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 5/7] net: dsa: mv88e6xxx: rename ATU MAC accessors
-Date: Thu,  6 Aug 2015 01:44:06 -0400
-Message-ID: <1438839848-505-6-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev FDB objects
+Date: Thu,  6 Aug 2015 01:44:01 -0400
+Message-ID: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>,
@@ -12,95 +11,71 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Jiri Pirko <jiri@resnulli.us>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:55733 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754361AbbHFFoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 01:44:22 -0400
-In-Reply-To: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rename the __mv88e6xxx_{read,write}_addr functions to more explicit
-_mv88e6xxx_atu_mac_{read,write} functions, which also respect the single
-underscore convention used in the file (meaning SMI lock must be held).
+This patchset refactors the DSA and mv88e6xxx code to use the switchdev FDB
+objects.
 
-In the meantime, define their MAC address parameters as an array of
-ETH_ALEN bytes instead of a char pointer.
+The first two patches add minor but necessary changes to switchdev, the third
+one implements the switchdev glue in DSA for FDB routines, and the remaining
+ones refactor the FDB access functions in the mv88e6xxx code.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+Below is an usage example (ports 0-2 belongs to br0, ports 3-4 belongs to br1):
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b051576..9dad0a7 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1182,8 +1182,8 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
- 	return 0;
- }
- 
--static int __mv88e6xxx_write_addr(struct dsa_switch *ds,
--				  const unsigned char *addr)
-+static int _mv88e6xxx_atu_mac_write(struct dsa_switch *ds,
-+				    const u8 addr[ETH_ALEN])
- {
- 	int i, ret;
- 
-@@ -1198,7 +1198,7 @@ static int __mv88e6xxx_write_addr(struct dsa_switch *ds,
- 	return 0;
- }
- 
--static int __mv88e6xxx_read_addr(struct dsa_switch *ds, unsigned char *addr)
-+static int _mv88e6xxx_atu_mac_read(struct dsa_switch *ds, u8 addr[ETH_ALEN])
- {
- 	int i, ret;
- 
-@@ -1225,7 +1225,7 @@ static int __mv88e6xxx_port_fdb_cmd(struct dsa_switch *ds, int port,
- 	if (ret < 0)
- 		return ret;
- 
--	ret = __mv88e6xxx_write_addr(ds, addr);
-+	ret = _mv88e6xxx_atu_mac_write(ds, addr);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -1280,7 +1280,7 @@ static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
- 	if (ret < 0)
- 		return ret;
- 
--	ret = __mv88e6xxx_write_addr(ds, addr);
-+	ret = _mv88e6xxx_atu_mac_write(ds, addr);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -1297,7 +1297,7 @@ static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
- 			return -ENOENT;
- 	} while (!(((ret >> 4) & 0xff) & (1 << port)));
- 
--	ret = __mv88e6xxx_read_addr(ds, addr);
-+	ret = _mv88e6xxx_atu_mac_read(ds, addr);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -1661,7 +1661,7 @@ static int mv88e6xxx_atu_show_db(struct seq_file *s, struct dsa_switch *ds,
- 	unsigned char addr[6];
- 	int ret, data, state;
- 
--	ret = __mv88e6xxx_write_addr(ds, bcast);
-+	ret = _mv88e6xxx_atu_mac_write(ds, bcast);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -1676,7 +1676,7 @@ static int mv88e6xxx_atu_show_db(struct seq_file *s, struct dsa_switch *ds,
- 		state = data & GLOBAL_ATU_DATA_STATE_MASK;
- 		if (state == GLOBAL_ATU_DATA_STATE_UNUSED)
- 			break;
--		ret = __mv88e6xxx_read_addr(ds, addr);
-+		ret = _mv88e6xxx_atu_mac_read(ds, addr);
- 		if (ret < 0)
- 			return ret;
- 		mv88e6xxx_atu_show_entry(s, dbnum, addr, data);
+    # bridge fdb add 3c:97:0e:11:30:6e dev swp2
+    # bridge fdb add 3c:97:0e:11:40:78 dev swp3
+    # bridge fdb add 3c:97:0e:11:50:86 dev swp4
+    # bridge fdb del 3c:97:0e:11:40:78 dev swp3
+    # bridge fdb
+    01:00:5e:00:00:01 dev eth0 self permanent
+    01:00:5e:00:00:01 dev eth1 self permanent
+    00:50:d2:10:78:15 dev swp0 master br0 permanent
+    3c:97:0e:11:30:6e dev swp2 self static
+    00:50:d2:10:78:15 dev swp3 master br1 permanent
+    3c:97:0e:11:50:86 dev swp4 self static
+    # cat /sys/kernel/debug/dsa0/atu
+    # DB   T/P  Vec State Addr
+    # 001  Port 004   e   3c:97:0e:11:30:6e
+    # 004  Port 010   e   3c:97:0e:11:50:86
+
+For the 88E6xxx switches, FIDs 1 to num_ports will be reserved for non-bridged
+ports and bridge groups, and the remaining will be later used by VLANs.
+
+This change is necessary to welcome the support for hardware VLANs (which will
+follow soon).
+
+Changes in v2:
+
+ - remove ndo_bridge_{get,set,del}link from switchdev/DSA glue code
+
+ - use ether_addr_copy instead of memcpy for MAC addresses
+
+ - constify MAC address in port_fdb_{add,del}
+
+ - split the mv88e6xxx code refactoring into several patches
+
+Vivien Didelot (7):
+  net: switchdev: change fdb addr for a byte array
+  net: switchdev: support static FDB addresses
+  net: dsa: add support for switchdev FDB objects
+  net: dsa: mv88e6xxx: extend fid mask
+  net: dsa: mv88e6xxx: rename ATU MAC accessors
+  net: dsa: mv88e6xxx: rework FDB getnext operation
+  net: dsa: mv88e6xxx: rework FDB add/del operations
+
+ drivers/net/dsa/mv88e6171.c          |   6 +-
+ drivers/net/dsa/mv88e6352.c          |   6 +-
+ drivers/net/dsa/mv88e6xxx.c          | 223 ++++++++++++++++++++++++-----------
+ drivers/net/dsa/mv88e6xxx.h          |  31 +++--
+ drivers/net/ethernet/rocker/rocker.c |   2 +-
+ include/net/dsa.h                    |  16 ++-
+ include/net/switchdev.h              |   3 +-
+ net/bridge/br_fdb.c                  |   2 +-
+ net/dsa/slave.c                      | 218 ++++++++++++++++++----------------
+ net/switchdev/switchdev.c            |   7 +-
+ 10 files changed, 317 insertions(+), 197 deletions(-)
+
 -- 
 2.4.6
