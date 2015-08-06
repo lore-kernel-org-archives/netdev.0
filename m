@@ -1,155 +1,278 @@
 From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: [PATCH net-next 1/2] net: track link status of ipv6 nexthops
-Date: Thu,  6 Aug 2015 11:42:33 -0400
-Message-ID: <1438875754-28025-1-git-send-email-gospo@cumulusnetworks.com>
+Subject: [PATCH net-next 2/2] net: ipv6 sysctl option to ignore routes when nexthop link is down
+Date: Thu,  6 Aug 2015 11:42:34 -0400
+Message-ID: <1438875754-28025-2-git-send-email-gospo@cumulusnetworks.com>
+References: <1438875754-28025-1-git-send-email-gospo@cumulusnetworks.com>
 Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
 	Dinesh Dutt <ddutt@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:36640 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754187AbbHFPno (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 11:43:44 -0400
-Received: by qgeh16 with SMTP id h16so55480720qge.3
-        for <netdev@vger.kernel.org>; Thu, 06 Aug 2015 08:43:44 -0700 (PDT)
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:33891 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754236AbbHFPns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 11:43:48 -0400
+Received: by qgeg42 with SMTP id g42so18822647qge.1
+        for <netdev@vger.kernel.org>; Thu, 06 Aug 2015 08:43:47 -0700 (PDT)
+In-Reply-To: <1438875754-28025-1-git-send-email-gospo@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to track current link status of ipv6 nexthops to match
-recent changes that added support for ipv4 nexthops.  There was not a
-field already available that could track these and no space available in
-the existing rt6i_flags field, so this patch adds rt6i_nhflags to struct
-rt6_info.
+Like the ipv4 patch with a similar title, this adds a sysctl to allow
+the user to change routing behavior based on whether or not the
+interface associated with the nexthop was an up or down link.  The
+default setting preserves the current behavior, but anyone that enables
+it will notice that nexthops on down interfaces will no longer be
+selected:
+
+net.ipv6.conf.all.ignore_routes_with_linkdown = 0
+net.ipv6.conf.default.ignore_routes_with_linkdown = 0
+net.ipv6.conf.lo.ignore_routes_with_linkdown = 0
+...
+
+When the above sysctls are set, not only will link status be reported to
+userspace, but an indication that a nexthop is dead and will not be used
+is also reported.
+
+1000::/8 via 7000::2 dev p7p1  metric 1024 dead linkdown  pref medium
+1000::/8 via 8000::2 dev p8p1  metric 1024  pref medium
+7000::/8 dev p7p1  proto kernel  metric 256 dead linkdown  pref medium
+8000::/8 dev p8p1  proto kernel  metric 256  pref medium
+9000::/8 via 8000::2 dev p8p1  metric 2048  pref medium
+9000::/8 via 7000::2 dev p7p1  metric 1024 dead linkdown  pref medium
+fe80::/64 dev p7p1  proto kernel  metric 256 dead linkdown  pref medium
+fe80::/64 dev p8p1  proto kernel  metric 256  pref medium
+
+This also adds devconf support and notification when sysctl values
+change.
 
 Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
 ---
- include/net/ip6_fib.h   |  1 +
- include/net/ip6_route.h |  1 +
- net/ipv6/addrconf.c     |  2 ++
- net/ipv6/route.c        | 47 ++++++++++++++++++++++++++++++++++++++++++++++-
- 4 files changed, 50 insertions(+), 1 deletion(-)
+ include/linux/ipv6.h      |   1 +
+ include/uapi/linux/ipv6.h |   1 +
+ net/ipv6/addrconf.c       | 105 +++++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv6/route.c          |   8 ++++
+ 4 files changed, 114 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 276328e..371780b 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -119,6 +119,7 @@ struct rt6_info {
- 	/* These are in a separate cache line. */
- 	struct rt6key			rt6i_dst ____cacheline_aligned_in_smp;
- 	u32				rt6i_flags;
-+	u32				rt6i_nhflags;
- 	struct rt6key			rt6i_src;
- 	struct rt6key			rt6i_prefsrc;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index cb9dcad..f1f32af 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -31,6 +31,7 @@ struct ipv6_devconf {
+ 	__s32		accept_ra_defrtr;
+ 	__s32		accept_ra_min_hop_limit;
+ 	__s32		accept_ra_pinfo;
++	__s32		ignore_routes_with_linkdown;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	__s32		accept_ra_rtr_pref;
+ 	__s32		rtr_probe_interval;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 80f3b74..38b4fef 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -173,6 +173,7 @@ enum {
+ 	DEVCONF_STABLE_SECRET,
+ 	DEVCONF_USE_OIF_ADDRS_ONLY,
+ 	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
++	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
+ 	DEVCONF_MAX
+ };
  
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 297629a..6ba5e9e 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -125,6 +125,7 @@ struct rt6_rtnl_dump_arg {
- 
- int rt6_dump_route(struct rt6_info *rt, void *p_arg);
- void rt6_ifdown(struct net *net, struct net_device *dev);
-+void rt6_link_change(struct net *net, struct net_device *dev);
- void rt6_mtu_change(struct net_device *dev, unsigned int mtu);
- void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
- void rt6_clean_tohost(struct net *net, struct in6_addr *gateway);
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 53e3a9d..3fc8ee2 100644
+index 3fc8ee2..ab97461 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -3126,6 +3126,8 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 				run_pending = 1;
- 			}
- 		} else {
-+			rt6_link_change(dev_net(dev), dev);
+@@ -214,6 +214,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 		.initialized = false,
+ 	},
+ 	.use_oif_addrs_only	= 0,
++	.ignore_routes_with_linkdown = 0,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -257,6 +258,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 		.initialized = false,
+ 	},
+ 	.use_oif_addrs_only	= 0,
++	.ignore_routes_with_linkdown = 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -472,6 +474,9 @@ static int inet6_netconf_msgsize_devconf(int type)
+ 	if (type == -1 || type == NETCONFA_PROXY_NEIGH)
+ 		size += nla_total_size(4);
+ 
++	if (type == -1 || type == NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN)
++		size += nla_total_size(4);
 +
- 			if (!addrconf_qdisc_ok(dev)) {
- 				/* device is still not ready. */
- 				break;
+ 	return size;
+ }
+ 
+@@ -508,6 +513,11 @@ static int inet6_netconf_fill_devconf(struct sk_buff *skb, int ifindex,
+ 	    nla_put_s32(skb, NETCONFA_PROXY_NEIGH, devconf->proxy_ndp) < 0)
+ 		goto nla_put_failure;
+ 
++	if ((type == -1 || type == NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN) &&
++	    nla_put_s32(skb, NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
++			devconf->ignore_routes_with_linkdown) < 0)
++		goto nla_put_failure;
++
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
+ 
+@@ -544,6 +554,7 @@ static const struct nla_policy devconf_ipv6_policy[NETCONFA_MAX+1] = {
+ 	[NETCONFA_IFINDEX]	= { .len = sizeof(int) },
+ 	[NETCONFA_FORWARDING]	= { .len = sizeof(int) },
+ 	[NETCONFA_PROXY_NEIGH]	= { .len = sizeof(int) },
++	[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]	= { .len = sizeof(int) },
+ };
+ 
+ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+@@ -766,6 +777,63 @@ static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int newf)
+ 		rt6_purge_dflt_routers(net);
+ 	return 1;
+ }
++
++static void addrconf_linkdown_change(struct net *net, __s32 newf)
++{
++	struct net_device *dev;
++	struct inet6_dev *idev;
++
++	for_each_netdev(net, dev) {
++		idev = __in6_dev_get(dev);
++		if (idev) {
++			int changed = (!idev->cnf.ignore_routes_with_linkdown) ^ (!newf);
++
++			idev->cnf.ignore_routes_with_linkdown = newf;
++			if (changed)
++				inet6_netconf_notify_devconf(dev_net(dev),
++							     NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
++							     dev->ifindex,
++							     &idev->cnf);
++		}
++	}
++}
++
++static int addrconf_fixup_linkdown(struct ctl_table *table, int *p, int newf)
++{
++	struct net *net;
++	int old;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	net = (struct net *)table->extra2;
++	old = *p;
++	*p = newf;
++
++	if (p == &net->ipv6.devconf_dflt->ignore_routes_with_linkdown) {
++		if ((!newf) ^ (!old))
++			inet6_netconf_notify_devconf(net,
++						     NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
++						     NETCONFA_IFINDEX_DEFAULT,
++						     net->ipv6.devconf_dflt);
++		rtnl_unlock();
++		return 0;
++	}
++
++	if (p == &net->ipv6.devconf_all->ignore_routes_with_linkdown) {
++		net->ipv6.devconf_dflt->ignore_routes_with_linkdown = newf;
++		addrconf_linkdown_change(net, newf);
++		if ((!newf) ^ (!old))
++			inet6_netconf_notify_devconf(net,
++						     NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN,
++						     NETCONFA_IFINDEX_ALL,
++						     net->ipv6.devconf_all);
++	}
++	rtnl_unlock();
++
++	return 1;
++}
++
+ #endif
+ 
+ /* Nobody refers to this ifaddr, destroy it */
+@@ -4618,6 +4686,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
+ 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
+ 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
++	array[DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN] = cnf->ignore_routes_with_linkdown;
+ 	/* we omit DEVCONF_STABLE_SECRET for now */
+ 	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
+ }
+@@ -5340,6 +5409,34 @@ out:
+ 	return err;
+ }
+ 
++static
++int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
++						int write,
++						void __user *buffer,
++						size_t *lenp,
++						loff_t *ppos)
++{
++	int *valp = ctl->data;
++	int val = *valp;
++	loff_t pos = *ppos;
++	struct ctl_table lctl;
++	int ret;
++
++	/* ctl->data points to idev->cnf.ignore_routes_when_linkdown
++	 * we should not modify it until we get the rtnl lock.
++	 */
++	lctl = *ctl;
++	lctl.data = &val;
++
++	ret = proc_dointvec(&lctl, write, buffer, lenp, ppos);
++
++	if (write)
++		ret = addrconf_fixup_linkdown(ctl, valp, val);
++	if (ret)
++		*ppos = pos;
++	return ret;
++}
++
+ static struct addrconf_sysctl_table
+ {
+ 	struct ctl_table_header *sysctl_header;
+@@ -5631,7 +5728,13 @@ static struct addrconf_sysctl_table
+ 			.maxlen         = sizeof(int),
+ 			.mode           = 0644,
+ 			.proc_handler   = proc_dointvec,
+-
++		},
++		{
++			.procname	= "ignore_routes_with_linkdown",
++			.data		= &ipv6_devconf.ignore_routes_with_linkdown,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= addrconf_sysctl_ignore_routes_with_linkdown,
+ 		},
+ 		{
+ 			/* sentinel */
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 54fccf0..a5c8c6a 100644
+index a5c8c6a..d4b0723 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -1919,6 +1919,9 @@ install_route:
- 	rt->rt6i_idev = idev;
- 	rt->rt6i_table = table;
- 
-+	if (!netif_carrier_ok(dev))
-+		rt->rt6i_nhflags |= RTNH_F_LINKDOWN;
-+
- 	cfg->fc_nlinfo.nl_net = dev_net(dev);
- 
- 	err = ip6_convert_metrics(&mxc, cfg);
-@@ -2161,6 +2164,7 @@ static void ip6_rt_copy_init(struct rt6_info *rt, struct rt6_info *ort)
- 	rt->rt6i_prefsrc = ort->rt6i_prefsrc;
- 	rt->rt6i_table = ort->rt6i_table;
- 	rt->rt6i_lwtstate = lwtstate_get(ort->rt6i_lwtstate);
-+	rt->rt6i_nhflags = ort->rt6i_nhflags;
- }
- 
- #ifdef CONFIG_IPV6_ROUTE_INFO
-@@ -2526,6 +2530,30 @@ static int fib6_ifdown(struct rt6_info *rt, void *arg)
- 	return 0;
- }
- 
-+static int fib6_linkup(struct rt6_info *rt, void *arg)
-+{
-+	const struct arg_dev_net *adn = arg;
-+	const struct net_device *dev = adn->dev;
-+
-+	if (rt->dst.dev == dev || !dev)
-+		rt->rt6i_nhflags &= ~RTNH_F_LINKDOWN;
-+	return 0;
-+}
-+
-+static int fib6_linkdown(struct rt6_info *rt, void *arg)
-+{
-+	const struct arg_dev_net *adn = arg;
-+	const struct net_device *dev = adn->dev;
-+
-+	if (rt->dst.dev == dev || !dev) {
-+		rt->rt6i_nhflags |= RTNH_F_LINKDOWN;
-+
-+		if (rt->rt6i_flags & RTF_CACHE)
-+			return -1;
-+	}
-+	return 0;
-+}
-+
- void rt6_ifdown(struct net *net, struct net_device *dev)
+@@ -665,6 +665,11 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
  {
- 	struct arg_dev_net adn = {
-@@ -2538,6 +2566,23 @@ void rt6_ifdown(struct net *net, struct net_device *dev)
- 	rt6_uncached_list_flush_dev(net, dev);
- }
+ 	int m;
+ 	bool match_do_rr = false;
++	struct inet6_dev *idev = rt->rt6i_idev;
++
++	if (idev && (rt->rt6i_nhflags & RTNH_F_LINKDOWN) &&
++	    idev->cnf.ignore_routes_with_linkdown)
++		goto out;
  
-+void rt6_link_change(struct net *net, struct net_device *dev)
-+{
-+	struct arg_dev_net adn = {
-+		.dev = dev,
-+		.net = net,
-+	};
-+	unsigned int flags = dev_get_flags(dev);
-+
-+	if (flags & (IFF_RUNNING | IFF_LOWER_UP)) {
-+		fib6_clean_all(net, fib6_linkup, &adn);
-+		icmp6_clean_all(fib6_linkup, &adn);
-+	} else {
-+		fib6_clean_all(net, fib6_linkdown, &adn);
-+		icmp6_clean_all(fib6_linkdown, &adn);
-+	}
-+}
-+
- struct rt6_mtu_change_arg {
- 	struct net_device *dev;
- 	unsigned int mtu;
-@@ -2884,7 +2929,7 @@ static int rt6_fill_node(struct net *net,
- 		rtm->rtm_type = RTN_LOCAL;
+ 	if (rt6_check_expired(rt))
+ 		goto out;
+@@ -2930,6 +2935,9 @@ static int rt6_fill_node(struct net *net,
  	else
  		rtm->rtm_type = RTN_UNICAST;
--	rtm->rtm_flags = 0;
-+	rtm->rtm_flags = rt->rt6i_nhflags;
+ 	rtm->rtm_flags = rt->rt6i_nhflags;
++	if ((rt->rt6i_nhflags & RTNH_F_LINKDOWN) &&
++	    rt->rt6i_idev->cnf.ignore_routes_with_linkdown)
++		rtm->rtm_flags |= RTNH_F_DEAD;
  	rtm->rtm_scope = RT_SCOPE_UNIVERSE;
  	rtm->rtm_protocol = rt->rt6i_protocol;
  	if (rt->rt6i_flags & RTF_DYNAMIC)
