@@ -1,43 +1,180 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] printk from softirq on xen: hard lockup
-Date: Thu, 6 Aug 2015 11:02:47 +0100
-Message-ID: <55C330C7.6050204@citrix.com>
-References: <CAHmME9rUdafnjz0ej-z_cgznMrj27SJgy6v8GJXM0qGfUpWaMQ@mail.gmail.com>
-	<55C0F291.7060806@citrix.com>
- <CAHmME9r6yYyiRXD7hyyvZnk9CvNAxgG5MSb=F=smSV6+j_U_FQ@mail.gmail.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next] mpls: Enforce payload type of traffic sent using explicit NULL
+Date: Thu, 6 Aug 2015 11:04:56 +0100
+Message-ID: <1438855496-27926-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xen.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9r6yYyiRXD7hyyvZnk9CvNAxgG5MSb=F=smSV6+j_U_FQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"Robert Shearman" <rshearma@brocade.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:28311 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754124AbbHFKFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 06:05:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/08/15 00:01, Jason A. Donenfeld wrote:
-> Hey David,
-> 
-> Sorry for the premature response on my phone earlier. Real reply follows.
->>> rcu_read_lock, when using Xen PV. Relevant excerpts of the
->>                                 ^^  PV guest?
-> 
-> Yes. The lockup occurs on a PV guest. Nothing special at all about the
-> configuration. Vanilla upstream 4.1.3 kernel.
-> 
->>> __xapic_wait_icr_idle () at ./arch/x86/include/asm/ipi.h:56
->>> 56              while (native_apic_mem_read(APIC_ICR) & APIC_ICR_BUSY)
->>                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  => HVM guest
->>
->> Which is it?
-> 
-> That's odd. It's a PV guest, not an HVM nor PVH guest.
+RFC 4182 s2 states that if an IPv4 Explicit NULL label is the only
+label on the stack, then after popping the resulting packet must be
+treated as a IPv4 packet and forwarded based on the IPv4 header. The
+same is true for IPv6 Explicit NULL with an IPv6 packet following.
 
-Linux PV guests must use the "Xen PV" APIC driver.  You need to
-investigate why your PV guest is not using this (although I'm surprised
-it works at all with the wrong one).
+Therefore, when installing the IPv4/IPv6 Explicit NULL label routes,
+add an attribute that specifies the expected payload type for use at
+forwarding time for determining the type of the encapsulated packet
+instead of inspecting the first nibble of the packet.
 
-David
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+Previously submitted as part of a series with the subject "mpls: Allow
+payload type to be associated with label routes". However, no changes
+have been made since that version other than the subject. (v4).
+
+ net/mpls/af_mpls.c | 71 +++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 44 insertions(+), 27 deletions(-)
+
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index b6b9a6c4e784..16e65564723c 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -27,11 +27,23 @@
+ /* This maximum ha length copied from the definition of struct neighbour */
+ #define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
+ 
++enum mpls_payload_type {
++	MPT_UNSPEC, /* IPv4 or IPv6 */
++	MPT_IPV4 = 4,
++	MPT_IPV6 = 6,
++
++	/* Other types not implemented:
++	 *  - Pseudo-wire with or without control word (RFC4385)
++	 *  - GAL (RFC5586)
++	 */
++};
++
+ struct mpls_route { /* next hop label forwarding entry */
+ 	struct net_device __rcu *rt_dev;
+ 	struct rcu_head		rt_rcu;
+ 	u32			rt_label[MAX_NEW_LABELS];
+ 	u8			rt_protocol; /* routing protocol that set this entry */
++	u8                      rt_payload_type;
+ 	u8			rt_labels;
+ 	u8			rt_via_alen;
+ 	u8			rt_via_table;
+@@ -96,16 +108,8 @@ EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
+ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 			struct mpls_entry_decoded dec)
+ {
+-	/* RFC4385 and RFC5586 encode other packets in mpls such that
+-	 * they don't conflict with the ip version number, making
+-	 * decoding by examining the ip version correct in everything
+-	 * except for the strangest cases.
+-	 *
+-	 * The strange cases if we choose to support them will require
+-	 * manual configuration.
+-	 */
+-	struct iphdr *hdr4;
+-	bool success = true;
++	enum mpls_payload_type payload_type;
++	bool success = false;
+ 
+ 	/* The IPv4 code below accesses through the IPv4 header
+ 	 * checksum, which is 12 bytes into the packet.
+@@ -120,23 +124,32 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 	if (!pskb_may_pull(skb, 12))
+ 		return false;
+ 
+-	/* Use ip_hdr to find the ip protocol version */
+-	hdr4 = ip_hdr(skb);
+-	if (hdr4->version == 4) {
++	payload_type = rt->rt_payload_type;
++	if (payload_type == MPT_UNSPEC)
++		payload_type = ip_hdr(skb)->version;
++
++	switch (payload_type) {
++	case MPT_IPV4: {
++		struct iphdr *hdr4 = ip_hdr(skb);
+ 		skb->protocol = htons(ETH_P_IP);
+ 		csum_replace2(&hdr4->check,
+ 			      htons(hdr4->ttl << 8),
+ 			      htons(dec.ttl << 8));
+ 		hdr4->ttl = dec.ttl;
++		success = true;
++		break;
+ 	}
+-	else if (hdr4->version == 6) {
++	case MPT_IPV6: {
+ 		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		hdr6->hop_limit = dec.ttl;
++		success = true;
++		break;
+ 	}
+-	else
+-		/* version 0 and version 1 are used by pseudo wires */
+-		success = false;
++	case MPT_UNSPEC:
++		break;
++	}
++
+ 	return success;
+ }
+ 
+@@ -255,16 +268,17 @@ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
+ };
+ 
+ struct mpls_route_config {
+-	u32		rc_protocol;
+-	u32		rc_ifindex;
+-	u16		rc_via_table;
+-	u16		rc_via_alen;
+-	u8		rc_via[MAX_VIA_ALEN];
+-	u32		rc_label;
+-	u32		rc_output_labels;
+-	u32		rc_output_label[MAX_NEW_LABELS];
+-	u32		rc_nlflags;
+-	struct nl_info	rc_nlinfo;
++	u32			rc_protocol;
++	u32			rc_ifindex;
++	u16			rc_via_table;
++	u16			rc_via_alen;
++	u8			rc_via[MAX_VIA_ALEN];
++	u32			rc_label;
++	u32			rc_output_labels;
++	u32			rc_output_label[MAX_NEW_LABELS];
++	u32			rc_nlflags;
++	enum mpls_payload_type	rc_payload_type;
++	struct nl_info		rc_nlinfo;
+ };
+ 
+ static struct mpls_route *mpls_rt_alloc(size_t alen)
+@@ -495,6 +509,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 		rt->rt_label[i] = cfg->rc_output_label[i];
+ 	rt->rt_protocol = cfg->rc_protocol;
+ 	RCU_INIT_POINTER(rt->rt_dev, dev);
++	rt->rt_payload_type = cfg->rc_payload_type;
+ 	rt->rt_via_table = cfg->rc_via_table;
+ 	memcpy(rt->rt_via, cfg->rc_via, cfg->rc_via_alen);
+ 
+@@ -1049,6 +1064,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 			goto nort0;
+ 		RCU_INIT_POINTER(rt0->rt_dev, lo);
+ 		rt0->rt_protocol = RTPROT_KERNEL;
++		rt0->rt_payload_type = MPT_IPV4;
+ 		rt0->rt_via_table = NEIGH_LINK_TABLE;
+ 		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
+ 	}
+@@ -1059,6 +1075,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 			goto nort2;
+ 		RCU_INIT_POINTER(rt2->rt_dev, lo);
+ 		rt2->rt_protocol = RTPROT_KERNEL;
++		rt2->rt_payload_type = MPT_IPV6;
+ 		rt2->rt_via_table = NEIGH_LINK_TABLE;
+ 		memcpy(rt2->rt_via, lo->dev_addr, lo->addr_len);
+ 	}
+-- 
+2.1.4
