@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 4/7] net: dsa: mv88e6xxx: extend fid mask
-Date: Thu,  6 Aug 2015 01:44:05 -0400
-Message-ID: <1438839848-505-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 1/7] net: switchdev: change fdb addr for a byte array
+Date: Thu,  6 Aug 2015 01:44:02 -0400
+Message-ID: <1438839848-505-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -17,110 +17,99 @@ In-Reply-To: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.co
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver currently manages one FID per port (or bridge group), with a
-mask of DSA_MAX_PORTS bits, where 0 means that the FID is in use.
-
-The Marvell 88E6xxx switches support up to 4094 FIDs (from 1 to 0xfff;
-FID 0 means that multiple address databases are not being used).
-
-This patch changes the fid_mask for an fid_bitmap of 4096 bits.
-
->From now on, FIDs 1 to num_ports are reserved for non-bridged ports and
-bridge groups (a bridge group gets the FID of its first member). The
-remaining bits will be reserved for VLAN entries.
+The address in the switchdev_obj_fdb structure is currently represented
+as a pointer. Replacing it for a 6-byte array allows switchdev to carry
+addresses directly read from hardware registers, not stored by the
+switch chip driver (as in Rocker).
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 20 +++++++++++++-------
- drivers/net/dsa/mv88e6xxx.h |  8 +++++---
- 2 files changed, 18 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c | 2 +-
+ include/net/switchdev.h              | 2 +-
+ net/bridge/br_fdb.c                  | 2 +-
+ net/switchdev/switchdev.c            | 5 +++--
+ 4 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 438c73e..b051576 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1091,7 +1091,7 @@ int mv88e6xxx_join_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
- 	ps->bridge_mask[fid] = br_port_mask;
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 4cd5a71..a5bf809 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4543,7 +4543,7 @@ static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
+ 	hash_for_each_safe(rocker->fdb_tbl, bkt, tmp, found, entry) {
+ 		if (found->key.pport != rocker_port->pport)
+ 			continue;
+-		fdb->addr = found->key.addr;
++		ether_addr_copy(fdb->addr, found->key.addr);
+ 		fdb->vid = rocker_port_vlan_to_vid(rocker_port,
+ 						   found->key.vlan_id);
+ 		err = obj->cb(rocker_port->dev, obj);
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 89da893..e90e1a0 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -70,7 +70,7 @@ struct switchdev_obj {
+ 			u32 tb_id;
+ 		} ipv4_fib;
+ 		struct switchdev_obj_fdb {		/* PORT_FDB */
+-			const unsigned char *addr;
++			u8 addr[ETH_ALEN];
+ 			u16 vid;
+ 		} fdb;
+ 	} u;
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 9e9875d..5656b44 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -136,11 +136,11 @@ static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
+ 	struct switchdev_obj obj = {
+ 		.id = SWITCHDEV_OBJ_PORT_FDB,
+ 		.u.fdb = {
+-			.addr = f->addr.addr,
+ 			.vid = f->vlan_id,
+ 		},
+ 	};
  
- 	if (fid != ps->fid[port]) {
--		ps->fid_mask |= 1 << ps->fid[port];
-+		clear_bit(ps->fid[port], ps->fid_bitmap);
- 		ps->fid[port] = fid;
- 		ret = _mv88e6xxx_update_bridge_config(ds, fid);
- 	}
-@@ -1125,9 +1125,16 @@ int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
++	ether_addr_copy(obj.u.fdb.addr, f->addr.addr);
+ 	switchdev_port_obj_del(f->dst->dev, &obj);
+ }
  
- 	mutex_lock(&ps->smi_mutex);
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 33bafa2..9db87a3 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -15,6 +15,7 @@
+ #include <linux/mutex.h>
+ #include <linux/notifier.h>
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ #include <linux/if_bridge.h>
+ #include <net/ip_fib.h>
+ #include <net/switchdev.h>
+@@ -742,11 +743,11 @@ int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	struct switchdev_obj obj = {
+ 		.id = SWITCHDEV_OBJ_PORT_FDB,
+ 		.u.fdb = {
+-			.addr = addr,
+ 			.vid = vid,
+ 		},
+ 	};
  
--	newfid = __ffs(ps->fid_mask);
-+	newfid = find_next_zero_bit(ps->fid_bitmap, VLAN_N_VID, 1);
-+	if (unlikely(newfid > ps->num_ports)) {
-+		netdev_err(ds->ports[port], "all first %d FIDs are used\n",
-+			   ps->num_ports);
-+		ret = -ENOSPC;
-+		goto unlock;
-+	}
-+
- 	ps->fid[port] = newfid;
--	ps->fid_mask &= ~(1 << newfid);
-+	set_bit(newfid, ps->fid_bitmap);
- 	ps->bridge_mask[fid] &= ~(1 << port);
- 	ps->bridge_mask[newfid] = 1 << port;
++	ether_addr_copy(obj.u.fdb.addr, addr);
+ 	return switchdev_port_obj_add(dev, &obj);
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_fdb_add);
+@@ -769,11 +770,11 @@ int switchdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ 	struct switchdev_obj obj = {
+ 		.id = SWITCHDEV_OBJ_PORT_FDB,
+ 		.u.fdb = {
+-			.addr = addr,
+ 			.vid = vid,
+ 		},
+ 	};
  
-@@ -1135,6 +1142,7 @@ int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
- 	if (!ret)
- 		ret = _mv88e6xxx_update_bridge_config(ds, newfid);
- 
-+unlock:
- 	mutex_unlock(&ps->smi_mutex);
- 
- 	return ret;
-@@ -1554,9 +1562,9 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	 * ports, and allow each of the 'real' ports to only talk to
- 	 * the upstream port.
- 	 */
--	fid = __ffs(ps->fid_mask);
-+	fid = port + 1;
- 	ps->fid[port] = fid;
--	ps->fid_mask &= ~(1 << fid);
-+	set_bit(fid, ps->fid_bitmap);
- 
- 	if (!dsa_is_cpu_port(ds, port))
- 		ps->bridge_mask[fid] = 1 << port;
-@@ -1855,8 +1863,6 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
- 
- 	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
- 
--	ps->fid_mask = (1 << DSA_MAX_PORTS) - 1;
--
- 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
- 
- 	name = kasprintf(GFP_KERNEL, "dsa%d", ds->index);
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 6a66b4b..6d65b99 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -11,6 +11,8 @@
- #ifndef __MV88E6XXX_H
- #define __MV88E6XXX_H
- 
-+#include <linux/if_vlan.h>
-+
- #ifndef UINT64_MAX
- #define UINT64_MAX		(u64)(~((u64)0))
- #endif
-@@ -348,9 +350,9 @@ struct mv88e6xxx_priv_state {
- 
- 	/* hw bridging */
- 
--	u32 fid_mask;
--	u8 fid[DSA_MAX_PORTS];
--	u16 bridge_mask[DSA_MAX_PORTS];
-+	DECLARE_BITMAP(fid_bitmap, VLAN_N_VID);	/* FIDs 1 to 4095 available */
-+	u16 fid[DSA_MAX_PORTS];			/* per (non-bridged) port FID */
-+	u16 bridge_mask[DSA_MAX_PORTS];		/* br groups (indexed by FID) */
- 
- 	unsigned long port_state_update_mask;
- 	u8 port_state[DSA_MAX_PORTS];
++	ether_addr_copy(obj.u.fdb.addr, addr);
+ 	return switchdev_port_obj_del(dev, &obj);
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_fdb_del);
 -- 
 2.4.6
