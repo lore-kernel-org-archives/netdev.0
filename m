@@ -1,40 +1,53 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [trivial] net:wimax: Fix doucble word "the the" in networking.xml
-Date: Thu,  6 Aug 2015 12:52:47 +0900
-Message-ID: <1438833167-18798-1-git-send-email-standby24x7@gmail.com>
-Cc: corbet@lwn.net, Masanari Iida <standby24x7@gmail.com>
-To: inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
-	davem@davemloft.net, netdev@vger.kernel.org, trivial@kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v4 0/4] GRE: Use flow based tunneling for OVS GRE vport.
+Date: Wed,  5 Aug 2015 20:12:21 -0700
+Message-ID: <1438830741-6482-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35206 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793AbbHFE1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 00:27:40 -0400
+Received: by pabxd6 with SMTP id xd6so34818264pab.2
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2015 21:27:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fix a double word "the the"
-in Documentation/DocBook/networking.xml and
-Documentation/DocBook/networking/API-Wimax-report-rfkill-sw.html.
+Following patches make use of new flow based tunneling
+API from kernel. This allows us to directly use netdev
+based GRE tunnel implementation. While doing so I have
+removed GRE demux API which were targeted for OVS. Most
+of GRE protocol code is now consolidated in ip_gre module.
 
-These files are generated from comment in source, so I had to
-fix the typo in net/wimax/io-rfkill.c
+v3-v4:
+Added interface to ip-gre device to enable meta data collection.
+While doing this I split second patch into two patches.
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+v2-v3:
+Add API to create GRE flow based device.
 ---
- net/wimax/op-rfkill.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/wimax/op-rfkill.c b/net/wimax/op-rfkill.c
-index 7d73054..477364a 100644
---- a/net/wimax/op-rfkill.c
-+++ b/net/wimax/op-rfkill.c
-@@ -135,8 +135,7 @@ EXPORT_SYMBOL_GPL(wimax_report_rfkill_hw);
-  * @state: New state of the RF kill switch. %WIMAX_RF_ON radio on,
-  *     %WIMAX_RF_OFF radio off.
-  *
-- * Reports changes in the software RF switch state to the the WiMAX
-- * stack.
-+ * Reports changes in the software RF switch state to the WiMAX stack.
-  *
-  * The main use is during initialization, so the driver can query the
-  * device for its current software radio kill switch state and feed it
+Pravin B Shelar (4):
+  openvswitch: Move tunnel destroy function to oppenvswitch module.
+  ip_gre: Add support to collect tunnel metadata.
+  openvswitch: Use regular GRE net_device instead of vport
+  gre: Remove support for sharing GRE protocol hook.
+
+ include/net/gre.h              |  92 +--------
+ include/net/ip_tunnels.h       |   7 +-
+ include/uapi/linux/if_tunnel.h |   1 +
+ net/ipv4/gre_demux.c           | 235 +---------------------
+ net/ipv4/ip_gre.c              | 446 ++++++++++++++++++++++++++++++++++++++---
+ net/ipv4/ip_tunnel.c           |  37 +++-
+ net/ipv4/ipip.c                |   2 +-
+ net/ipv6/sit.c                 |   2 +-
+ net/openvswitch/Kconfig        |   1 -
+ net/openvswitch/vport-gre.c    | 237 ++--------------------
+ net/openvswitch/vport-netdev.c |  21 +-
+ net/openvswitch/vport-netdev.h |   2 +-
+ net/openvswitch/vport-vxlan.c  |  17 +-
+ 13 files changed, 502 insertions(+), 598 deletions(-)
+
 -- 
-2.5.0
+1.8.3.1
