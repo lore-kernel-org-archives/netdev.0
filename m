@@ -1,160 +1,96 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv2 net-next 5/9] openvswitch: Add conntrack action
-Date: Thu, 6 Aug 2015 14:36:34 -0700
-Message-ID: <CALnjE+pd1PcyBF5i+oL1bkiv6sSzCeBY4OQnP53N3v=FfeB05g@mail.gmail.com>
-References: <1438750199-9061-1-git-send-email-joestringer@nicira.com>
-	<1438750199-9061-6-git-send-email-joestringer@nicira.com>
-	<CALnjE+qbjaFAm8b7zkcQuWBo6SFN=P4XNGg36s3-pg=6JLrt3A@mail.gmail.com>
-	<CANr6G5yV6BNN_s40eFkGm09cWYEnrXRbJ5rZd7NX48CEF6sCEg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Justin Pettit <jpettit@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>,
-	Thomas Graf <tgraf@noironetworks.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANr6G5yV6BNN_s40eFkGm09cWYEnrXRbJ5rZd7NX48CEF6sCEg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] netlink: make sure -EBUSY won't escape from netlink_insert
+Date: Fri,  7 Aug 2015 00:26:41 +0200
+Message-ID: <d466c48264ca677f0fc61ff76526780c32c37cb5.1438898409.git.daniel@iogearbox.net>
+Cc: herbert@gondor.apana.org.au, tgraf@suug.ch,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:34946 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932210AbbHFW0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 18:26:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 6, 2015 at 11:07 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> On 5 August 2015 at 15:31, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Tue, Aug 4, 2015 at 9:49 PM, Joe Stringer <joestringer@nicira.com> wrote:
->> I got sparse warning:
->>
->> net/openvswitch/actions.c:634:1: warning: symbol 'ovs_dst_get_mtu' was
->> not declared. Should it be static?
->>
->> net/openvswitch/actions.c:703:17: warning: cast from restricted __be16
->>
->> net/openvswitch/actions.c:703:17: warning: incorrect type in argument
->> 1 (different base types)
->>
->> net/openvswitch/actions.c:703:17:    expected unsigned short
->> [unsigned] [usertype] val
->>
->> net/openvswitch/actions.c:703:17:    got restricted __be16 [usertype] ethertype
->>
->> net/openvswitch/actions.c:703:17: warning: cast from restricted __be16
->>
->> net/openvswitch/actions.c:703:17: warning: cast from restricted __be16
->
-> Hrm, thanks. I'll figure out why I wasn't getting any warnings and fix these up.
->
-I used following sparse parameters:
-make C=1 CF="-Wsparse-all -D__CHECKER__ -D__CHECK_ENDIAN__ -Wbitwise"
+Linus reports the following deadlock on rtnl_mutex; triggered only
+once so far (extract):
 
->>> -static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
->>> +static int ovs_vport_output(struct sock *sock, struct sk_buff *skb)
->>> +{
->>> +       struct ovs_frag_data *data = this_cpu_ptr(&ovs_frag_data_storage);
->>> +       struct vport *vport = data->vport;
->>> +
->>> +       if (skb_cow_head(skb, data->l2_len) < 0)
->>> +               return -ENOMEM;
->>> +
->> Need to free skb here.
->
-> OK.
->
->>> +       skb->_skb_refdst = data->dst;
->> I think we need to clone dst if there are multiple fragments.
->> Can you test this code with vxlan flow based tunnels?
->
-> In prepare_frag(), we're currently doing:
-> data->dst = skb->_skb_refdst & SKB_DST_NOREF
->
-> Which means that the fragments shouldn't need an additional reference.
-> However it also means that the original reference is never freed. I
-> think we just need to add the final free of the original reference
-> after fragmentation is finished, in ovs_fragment(). I'll do this.
->
-Each fragment needs to have its reference on the dst-entry if it is
-reference counted dst entry.
+[12236.694209] NetworkManager  D 0000000000013b80     0  1047      1 0x00000000
+[12236.694218]  ffff88003f902640 0000000000000000 ffffffff815d15a9 0000000000000018
+[12236.694224]  ffff880119538000 ffff88003f902640 ffffffff81a8ff84 00000000ffffffff
+[12236.694230]  ffffffff81a8ff88 ffff880119c47f00 ffffffff815d133a ffffffff81a8ff80
+[12236.694235] Call Trace:
+[12236.694250]  [<ffffffff815d15a9>] ? schedule_preempt_disabled+0x9/0x10
+[12236.694257]  [<ffffffff815d133a>] ? schedule+0x2a/0x70
+[12236.694263]  [<ffffffff815d15a9>] ? schedule_preempt_disabled+0x9/0x10
+[12236.694271]  [<ffffffff815d2c3f>] ? __mutex_lock_slowpath+0x7f/0xf0
+[12236.694280]  [<ffffffff815d2cc6>] ? mutex_lock+0x16/0x30
+[12236.694291]  [<ffffffff814f1f90>] ? rtnetlink_rcv+0x10/0x30
+[12236.694299]  [<ffffffff8150ce3b>] ? netlink_unicast+0xfb/0x180
+[12236.694309]  [<ffffffff814f5ad3>] ? rtnl_getlink+0x113/0x190
+[12236.694319]  [<ffffffff814f202a>] ? rtnetlink_rcv_msg+0x7a/0x210
+[12236.694331]  [<ffffffff8124565c>] ? sock_has_perm+0x5c/0x70
+[12236.694339]  [<ffffffff814f1fb0>] ? rtnetlink_rcv+0x30/0x30
+[12236.694346]  [<ffffffff8150d62c>] ? netlink_rcv_skb+0x9c/0xc0
+[12236.694354]  [<ffffffff814f1f9f>] ? rtnetlink_rcv+0x1f/0x30
+[12236.694360]  [<ffffffff8150ce3b>] ? netlink_unicast+0xfb/0x180
+[12236.694367]  [<ffffffff8150d344>] ? netlink_sendmsg+0x484/0x5d0
+[12236.694376]  [<ffffffff810a236f>] ? __wake_up+0x2f/0x50
+[12236.694387]  [<ffffffff814cad23>] ? sock_sendmsg+0x33/0x40
+[12236.694396]  [<ffffffff814cb05e>] ? ___sys_sendmsg+0x22e/0x240
+[12236.694405]  [<ffffffff814cab75>] ? ___sys_recvmsg+0x135/0x1a0
+[12236.694415]  [<ffffffff811a9d12>] ? eventfd_write+0x82/0x210
+[12236.694423]  [<ffffffff811a0f9e>] ? fsnotify+0x32e/0x4c0
+[12236.694429]  [<ffffffff8108cb70>] ? wake_up_q+0x60/0x60
+[12236.694434]  [<ffffffff814cba09>] ? __sys_sendmsg+0x39/0x70
+[12236.694440]  [<ffffffff815d4797>] ? entry_SYSCALL_64_fastpath+0x12/0x6a
 
-> I assume that's the same as just setting up OVS with a vxlan tunnel
-> and sending some traffic across it with different sizes. I have a test
-> case for that:
-> https://github.com/joestringer/openvswitch/blob/dev/ct_20150806/tests/kmod-traffic.at#L964
->
-ok
+It seems so far plausible that the recursive call into rtnetlink_rcv()
+looks suspicious. One way, where this could trigger is that the senders
+NETLINK_CB(skb).portid was wrongly 0 (which is rtnetlink socket), so
+the rtnl_getlink() request's answer would be sent to the kernel instead
+to the actual user process, thus grabbing rtnl_mutex() twice.
 
+One theory would be that netlink_autobind() triggered via netlink_sendmsg()
+internally overwrites the -EBUSY error to 0, but where it is wrongly
+originating from __netlink_insert() instead. That would reset the
+socket's portid to 0, which is then filled into NETLINK_CB(skb).portid
+later on. As commit d470e3b483dc ("[NETLINK]: Fix two socket hashing bugs.")
+also puts it, -EBUSY should not be propagated from netlink_insert().
 
->
->>> +static void ovs_fragment(struct vport *vport, struct sk_buff *skb,
->>> +                        unsigned int mru, __be16 ethertype)
->>> +{
->>> +       if (skb_network_offset(skb) > MAX_L2_LEN) {
->>> +               OVS_NLERR(1, "L2 header too long to fragment");
->>> +               return;
->>> +       }
->>> +
->>> +       if (ethertype == htons(ETH_P_IP)) {
->>> +               struct dst_entry ovs_dst;
->>> +
->>> +               prepare_frag(vport, skb);
->>> +               dst_init(&ovs_dst, &ovs_dst_ops, NULL, 1,
->>> +                        DST_OBSOLETE_NONE, DST_NOCOUNT);
->>> +               ovs_dst.dev = vport->dev;
->>> +
->>> +               skb_dst_set_noref(skb, &ovs_dst);
->>> +               IPCB(skb)->frag_max_size = mru;
->>> +
->>> +               ip_do_fragment(skb->sk, skb, ovs_vport_output);
->>> +       } else if (ethertype == htons(ETH_P_IPV6)) {
->>> +               const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
->>> +               struct rt6_info ovs_rt;
->>> +
->>> +               if (!v6ops) {
->>> +                       kfree_skb(skb);
->>> +                       return;
->>> +               }
->>> +
->>> +               prepare_frag(vport, skb);
->>> +               memset(&ovs_rt, 0, sizeof(ovs_rt));
->>> +               dst_init(&ovs_rt.dst, &ovs_dst_ops, NULL, 1,
->>> +                        DST_OBSOLETE_NONE, DST_NOCOUNT);
->>> +               ovs_rt.dst.dev = vport->dev;
->>> +
->>> +               skb_dst_set_noref(skb, &ovs_rt.dst);
->>> +               IP6CB(skb)->frag_max_size = mru;
->>> +
->>> +               v6ops->fragment(skb->sk, skb, ovs_vport_output);
->>> +       } else {
->>> +               WARN_ONCE(1, "Failed fragment ->%s: eth=%04x, MRU=%d, MTU=%d.",
->>> +                         ovs_vport_name(vport), htons(ethertype), mru,
->>> +                         vport->dev->mtu);
->>> +               kfree_skb(skb);
->>> +       }
->>> +}
->>> +
->> We also need something similar of this packet is going to userspace so
->> that we can send original packets to userspace. Otherwise we would
->> send defragmented packet to userspace.
->
-> OK, in that case we'll need to get an MTU from somewhere. I'll look at
-> using the MRU as the MTU for this path, since corner cases where the
-> MRU is greater than the netlink payload size seems pretty unlikely
-> (and the netlink sending code should already handle such cases). The
-> other concern I have is exactly how this should be presented to
-> userspace. Currently the conntrack action is treated an an implicit
-> reassembly, which will implicitly refragment on output. In between, it
-> remains defragmented. If we fragment on miss, then lookup will use the
-> key representing the defragmented packet (ie no OVS_FRAG_TYPE_* bits
-> set), so we should send the same up to userspace. I assume that
-> userspace would then re-parse the packets and see that they are
-> fragments for representing up to the higher layers like OpenFlow, but
-> for flow installation it would reuse the key passed up from the
-> kernel. Is that the model you have in mind?
->
-Right, Reassembly is transparent to cantrack action, so it should be
-to userspace. But this means we will need to fragment in upcall and
-defrag the skb again when the packet reenter kernel module from packet
-execute code path if we the action need to look at entire packet. So
-lets just keep it based on MRU parameter and we can enhance it later
-if we need it.
+It looks like it's very unlikely to reproduce. We need to trigger the
+rhashtable_insert_rehash() handler under a situation where rehashing
+currently occurs (one /rare/ way would be to hit ht->elasticity limits
+while not filled enough to expand the hashtable, but that would rather
+require a specifically crafted bind() sequence with knowledge about
+destination slots, seems unlikely). It probably makes sense to guard
+__netlink_insert() in any case and remap that error. It was suggested
+that EOVERFLOW might be better than an already overloaded ENOMEM.
+
+Reference: http://thread.gmane.org/gmane.linux.network/372676
+Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/netlink/af_netlink.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index d8e2e39..67d2104 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1096,6 +1096,11 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 
+ 	err = __netlink_insert(table, sk);
+ 	if (err) {
++		/* In case the hashtable backend returns with -EBUSY
++		 * from here, it must not escape to the caller.
++		 */
++		if (unlikely(err == -EBUSY))
++			err = -EOVERFLOW;
+ 		if (err == -EEXIST)
+ 			err = -EADDRINUSE;
+ 		nlk_sk(sk)->portid = 0;
+-- 
+1.9.3
