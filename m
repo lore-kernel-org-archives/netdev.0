@@ -1,58 +1,61 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH] igbvf: clear buffer_info->dma after dma_unmap_single()
-Date: Thu,  6 Aug 2015 09:32:17 +0200
-Message-ID: <1438846337-6164-1-git-send-email-sassmann@kpanic.de>
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	sassmann@kpanic.de
-To: intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51889 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753899AbbHFHca (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Aug 2015 03:32:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Subject: Re: [PATCH 1/5] device property: helper macros for property entry
+ creation
+Date: Thu, 6 Aug 2015 10:48:48 +0300
+Message-ID: <20150806074848.GH7675@kuha.fi.intel.com>
+References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
+ <1438781947-7952-2-git-send-email-heikki.krogerus@linux.intel.com>
+ <1438783338.29746.172.camel@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1438783338.29746.172.camel@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The driver doesn't clear buffer_info->dma after calling
-dma_unmap_single() in all cases. This has been discovered by changing
-the mtu twice, which caused the following backtrace.
+On Wed, Aug 05, 2015 at 05:02:18PM +0300, Andy Shevchenko wrote:
+> On Wed, 2015-08-05 at 16:39 +0300, Heikki Krogerus wrote:
+> > Marcos for easier creation of build-in property entries.
+> > 
+> > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+> > ---
+> >  include/linux/property.h | 35 +++++++++++++++++++++++++++++++++++
+> >  1 file changed, 35 insertions(+)
+> > 
+> > diff --git a/include/linux/property.h b/include/linux/property.h
+> > index 76ebde9..204d899 100644
+> > --- a/include/linux/property.h
+> > +++ b/include/linux/property.h
+> > @@ -152,6 +152,41 @@ struct property_entry {
+> >  	} value;
+> >  };
+> >  
+> > +#define PROP_ENTRY_U8(_name_, _val_) { \
+> 
+> PROP_ prefix is too generic.
+> Maybe DEVPROP_ ? At least for the latter no records in the current
+> sources.
 
-[   68.569280] WARNING: CPU: 2 PID: 1860 at drivers/iommu/intel-iommu.c:3517 intel_unmap+0x20c/0x220()
-[   68.579392] Driver unmaps unmatched page at PFN fffc2a40
-[   68.585322] Modules linked in: igbvf ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat nf_nat_ipv4 nf_nat kvm_intel kvm igb megs
-[   68.599163] CPU: 2 PID: 1860 Comm: ifconfig Not tainted 4.2.0-rc4+ #147
-[   68.606543] Hardware name: IBM  -[546025Z]-/00Y7630, BIOS -[VVE134TUS-1.51]- 10/17/2013
-[   68.615473]  0000000000000dbd ffff88046441bb08 ffffffff81a5ad0b ffffffff81e2f9ea
-[   68.623775]  ffff88046441bb58 ffff88046441bb48 ffffffff81056b55 ffff88047fc583c0
-[   68.632075]  0000000000000000 ffff880469a8e600 00000000fffc2a40 ffff880465b32098
-[   68.640375] Call Trace:
-[   68.643109]  [<ffffffff81a5ad0b>] dump_stack+0x48/0x5d
-[   68.648844]  [<ffffffff81056b55>] warn_slowpath_common+0x95/0xe0
-[   68.655549]  [<ffffffff81056c56>] warn_slowpath_fmt+0x46/0x70
-[   68.661960]  [<ffffffff8158a614>] ? find_iova+0x54/0x90
-[   68.667791]  [<ffffffff815988dc>] intel_unmap+0x20c/0x220
-[   68.673815]  [<ffffffff8159891e>] intel_unmap_page+0xe/0x10
-[   68.680038]  [<ffffffffa0067536>] igbvf_clean_rx_ring+0x96/0x370 [igbvf]
-[   68.687516]  [<ffffffffa0067915>] igbvf_down+0x105/0x110 [igbvf]
-[   68.694219]  [<ffffffffa0067beb>] igbvf_change_mtu+0x16b/0x180 [igbvf]
-[...]
+I disagree with that. IMO this kind of macros should ideally resemble
+the structure name they are used to fill (struct property_entry in
+this case). And there are already definitions for DEV_PROP_* to
+describe the types, so using something like DEVPROP_* here is just
+confusing.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
----
- drivers/net/ethernet/intel/igbvf/netdev.c | 1 +
- 1 file changed, 1 insertion(+)
+If PROP_ENTRY_* is really not good enough, we can change them
+PROPERTY_ENTRY_*. But is PROP_ENTRY_* really so bad?
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 95af14e..686fa71 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -319,6 +319,7 @@ static bool igbvf_clean_rx_irq(struct igbvf_adapter *adapter,
- 			dma_unmap_single(&pdev->dev, buffer_info->dma,
- 					 adapter->rx_ps_hdr_size,
- 					 DMA_FROM_DEVICE);
-+			buffer_info->dma = 0;
- 			skb_put(skb, hlen);
- 		}
- 
+Rafael, what is your opinion?
+
+
+Thanks,
+
 -- 
-2.4.3
+heikki
