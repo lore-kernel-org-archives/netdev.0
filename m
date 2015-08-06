@@ -1,167 +1,61 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 5/7] mlxsw: Simplify mlxsw_sx_port_xmit function
-Date: Thu,  6 Aug 2015 16:41:56 +0200
-Message-ID: <1438872118-16869-6-git-send-email-jiri@resnulli.us>
-References: <1438872118-16869-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	ogerlitz@mellanox.com, Jiri Pirko <jiri@mellanox.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: rtnl_mutex deadlock?
+Date: Thu, 06 Aug 2015 16:50:39 +0200
+Message-ID: <55C3743F.1010900@iogearbox.net>
+References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com> <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com> <20150805074330.GA2084@nanopsycho.orion> <CA+55aFw1856zEq88RfqoizjeVRR9Ut-ug+VWA+mKFOS77FYpSg@mail.gmail.com> <55C25CFB.2060103@iogearbox.net> <20150806003026.GA12785@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:36781 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754865AbbHFOmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 10:42:15 -0400
-Received: by wicgj17 with SMTP id gj17so25583779wic.1
-        for <netdev@vger.kernel.org>; Thu, 06 Aug 2015 07:42:14 -0700 (PDT)
-In-Reply-To: <1438872118-16869-1-git-send-email-jiri@resnulli.us>
+Received: from www62.your-server.de ([213.133.104.62]:57954 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753103AbbHFOuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 10:50:50 -0400
+In-Reply-To: <20150806003026.GA12785@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+On 08/06/2015 02:30 AM, Herbert Xu wrote:
+> On Wed, Aug 05, 2015 at 08:59:07PM +0200, Daniel Borkmann wrote:
+>>
+>> Here's a theory and patch below. Herbert, Thomas, does this make any
+>> sense to you resp. sound plausible? ;)
+>
+> It's certainly possible.  Whether it's plausible I'm not so sure.
+> The netlink hashtable is unlimited in size.  So it should always
+> be expanding, not rehashing.  The bug you found should only affect
+> rehashing.
+>
+>> I'm not quite sure what's best to return from here, i.e. whether we
+>> propagate -ENOMEM or instead retry over and over again hoping that the
+>> rehashing completed (and no new rehashing started in the mean time) ...
+>
+> Please use something other than ENOMEM as it is already heavily
+> used in this context.  Perhaps EOVERFLOW?
 
-Previously we only checked if the transmission queue is not full in the
-middle of the xmit function. This lead to complex logic due to the fact
-that sometimes we need to reallocate the headroom for our Tx header.
+Okay, I'll do that.
 
-Allow the switch driver to know if the transmission queue is not full
-before sending the packet and remove this complex logic.
+> We should probably add a WARN_ON_ONCE in rhashtable_insert_rehash
+> since two concurrent rehashings indicates something is going
+> seriously wrong.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/core.c     | 10 ++++++++++
- drivers/net/ethernet/mellanox/mlxsw/core.h     |  5 +++++
- drivers/net/ethernet/mellanox/mlxsw/pci.c      | 20 +++++++++++++++-----
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 25 ++++++++++---------------
- 4 files changed, 40 insertions(+), 20 deletions(-)
+So, if I didn't miss anything, it looks like the following could have
+happened: the worker thread, that is rht_deferred_worker(), itself could
+trigger the first rehashing, e.g. after shrinking or expanding (or also
+in case none of both happen).
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index ad66ae4..7562802 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -865,6 +865,16 @@ static struct mlxsw_core *__mlxsw_core_get(void *driver_priv)
- 	return container_of(driver_priv, struct mlxsw_core, driver_priv);
- }
- 
-+bool mlxsw_core_skb_transmit_busy(void *driver_priv,
-+				  const struct mlxsw_tx_info *tx_info)
-+{
-+	struct mlxsw_core *mlxsw_core = __mlxsw_core_get(driver_priv);
-+
-+	return mlxsw_core->bus->skb_transmit_busy(mlxsw_core->bus_priv,
-+						  tx_info);
-+}
-+EXPORT_SYMBOL(mlxsw_core_skb_transmit_busy);
-+
- int mlxsw_core_skb_transmit(void *driver_priv, struct sk_buff *skb,
- 			    const struct mlxsw_tx_info *tx_info)
- {
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 2280b31..1658084 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -73,6 +73,9 @@ struct mlxsw_tx_info {
- 	bool is_emad;
- };
- 
-+bool mlxsw_core_skb_transmit_busy(void *driver_priv,
-+				  const struct mlxsw_tx_info *tx_info);
-+
- int mlxsw_core_skb_transmit(void *driver_priv, struct sk_buff *skb,
- 			    const struct mlxsw_tx_info *tx_info);
- 
-@@ -177,6 +180,8 @@ struct mlxsw_bus {
- 	int (*init)(void *bus_priv, struct mlxsw_core *mlxsw_core,
- 		    const struct mlxsw_config_profile *profile);
- 	void (*fini)(void *bus_priv);
-+	bool (*skb_transmit_busy)(void *bus_priv,
-+				  const struct mlxsw_tx_info *tx_info);
- 	int (*skb_transmit)(void *bus_priv, struct sk_buff *skb,
- 			    const struct mlxsw_tx_info *tx_info);
- 	int (*cmd_exec)(void *bus_priv, u16 opcode, u8 opcode_mod,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index 3ec52ea..a34f474 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -1443,6 +1443,15 @@ mlxsw_pci_sdq_pick(struct mlxsw_pci *mlxsw_pci,
- 	return mlxsw_pci_sdq_get(mlxsw_pci, sdqn);
- }
- 
-+static bool mlxsw_pci_skb_transmit_busy(void *bus_priv,
-+					const struct mlxsw_tx_info *tx_info)
-+{
-+	struct mlxsw_pci *mlxsw_pci = bus_priv;
-+	struct mlxsw_pci_queue *q = mlxsw_pci_sdq_pick(mlxsw_pci, tx_info);
-+
-+	return !mlxsw_pci_queue_elem_info_producer_get(q);
-+}
-+
- static int mlxsw_pci_skb_transmit(void *bus_priv, struct sk_buff *skb,
- 				  const struct mlxsw_tx_info *tx_info)
- {
-@@ -1625,11 +1634,12 @@ err_in_mbox_map:
- }
- 
- static const struct mlxsw_bus mlxsw_pci_bus = {
--	.kind		= "pci",
--	.init		= mlxsw_pci_init,
--	.fini		= mlxsw_pci_fini,
--	.skb_transmit	= mlxsw_pci_skb_transmit,
--	.cmd_exec	= mlxsw_pci_cmd_exec,
-+	.kind			= "pci",
-+	.init			= mlxsw_pci_init,
-+	.fini			= mlxsw_pci_fini,
-+	.skb_transmit_busy	= mlxsw_pci_skb_transmit_busy,
-+	.skb_transmit		= mlxsw_pci_skb_transmit,
-+	.cmd_exec		= mlxsw_pci_cmd_exec,
- };
- 
- static int mlxsw_pci_sw_reset(struct mlxsw_pci *mlxsw_pci)
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 7eb045e..fce9b45 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -300,31 +300,26 @@ static netdev_tx_t mlxsw_sx_port_xmit(struct sk_buff *skb,
- 		.local_port = mlxsw_sx_port->local_port,
- 		.is_emad = false,
- 	};
--	struct sk_buff *skb_old = NULL;
- 	int err;
- 
-+	if (mlxsw_core_skb_transmit_busy(mlxsw_sx, &tx_info))
-+		return NETDEV_TX_BUSY;
-+
- 	if (unlikely(skb_headroom(skb) < MLXSW_TXHDR_LEN)) {
--		struct sk_buff *skb_new;
-+		struct sk_buff *skb_orig = skb;
- 
--		skb_old = skb;
--		skb_new = skb_realloc_headroom(skb, MLXSW_TXHDR_LEN);
--		if (!skb_new) {
-+		skb = skb_realloc_headroom(skb, MLXSW_TXHDR_LEN);
-+		if (!skb) {
- 			this_cpu_inc(mlxsw_sx_port->pcpu_stats->tx_dropped);
--			dev_kfree_skb_any(skb_old);
-+			dev_kfree_skb_any(skb_orig);
- 			return NETDEV_TX_OK;
- 		}
--		skb = skb_new;
- 	}
- 	mlxsw_sx_txhdr_construct(skb, &tx_info);
-+	/* Due to a race we might fail here because of a full queue. In that
-+	 * unlikely case we simply drop the packet.
-+	 */
- 	err = mlxsw_core_skb_transmit(mlxsw_sx, skb, &tx_info);
--	if (err == -EAGAIN) {
--		if (skb_old)
--			dev_kfree_skb_any(skb);
--		return NETDEV_TX_BUSY;
--	}
--
--	if (skb_old)
--		dev_kfree_skb_any(skb_old);
- 
- 	if (!err) {
- 		pcpu_stats = this_cpu_ptr(mlxsw_sx_port->pcpu_stats);
--- 
-1.9.3
+Then, in __rhashtable_insert_fast(), I could trigger an -EBUSY when I'm
+really unlucky and exceed the ht->elasticity limit of 16. I would then
+end up in rhashtable_insert_rehash() to find out there's already one
+ongoing and thus, I'm getting -EBUSY via __netlink_insert().
+
+Perhaps that is what could have happened? Seems rare though, but it was
+also only seen rarely so far ...
