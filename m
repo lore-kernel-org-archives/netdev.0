@@ -1,84 +1,70 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 2/7] net: switchdev: support static FDB
- addresses
-Date: Thu, 6 Aug 2015 10:19:34 -0400
-Message-ID: <20150806141934.GA20660@ketchup.touchtunes.com>
-References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1438839848-505-3-git-send-email-vivien.didelot@savoirfairelinux.com>
- <CAE4R7bBjYZtE-hj8b-0bRcA2bB0Sh+YXhtcmk2FuJu_qLB3xew@mail.gmail.com>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Subject: Re: [Xen-devel] [PATCH v2 4/8] xen: Use the correctly the Xen memory
+ terminologies
+Date: Thu, 6 Aug 2015 15:20:09 +0100
+Message-ID: <alpine.DEB.2.02.1508061520010.11337@kaball.uk.xensource.com>
+References: <1438711972-18752-1-git-send-email-julien.grall@citrix.com>
+ <1438711972-18752-5-git-send-email-julien.grall@citrix.com>
+ <55C33E4E.4050704@citrix.com>
+ <alpine.DEB.2.02.1508061205190.11337@kaball.uk.xensource.com>
+ <55C34250.3040801@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:64273 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755074AbbHFOTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 10:19:37 -0400
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBjYZtE-hj8b-0bRcA2bB0Sh+YXhtcmk2FuJu_qLB3xew@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	<linux-fbdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
+	Jiri Slaby <jslaby@suse.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	<linux-scsi@vger.kernel.org>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>, <x86@kernel.org>,
+	Ingo Molnar <mingo@redhat.com>, <linux-input@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	<ian.campbell@citrix.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Juergen Gross <jgross@suse.com>, Wei Liu <wei.liu2@citrix.com>,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	<linux-kernel@vger.kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	<netdev@vger.ker
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55C34250.3040801@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15-08-05 23:28:15, Scott Feldman wrote:
-> On Wed, Aug 5, 2015 at 10:44 PM, Vivien Didelot
-> <vivien.didelot@savoirfairelinux.com> wrote:
-> > This patch adds a is_static boolean to the switchdev_obj_fdb structure,
-> > in order to set the ndm_state to either NUD_NOARP or NUD_REACHABLE.
-> >
-> > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> > ---
-> >  include/net/switchdev.h   | 1 +
-> >  net/switchdev/switchdev.c | 2 +-
-> >  2 files changed, 2 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> > index e90e1a0..0e296b8 100644
-> > --- a/include/net/switchdev.h
-> > +++ b/include/net/switchdev.h
-> > @@ -72,6 +72,7 @@ struct switchdev_obj {
-> >                 struct switchdev_obj_fdb {              /* PORT_FDB */
-> >                         u8 addr[ETH_ALEN];
-> >                         u16 vid;
-> > +                       bool is_static;
+On Thu, 6 Aug 2015, Julien Grall wrote:
+> On 06/08/15 12:06, Stefano Stabellini wrote:
+> > On Thu, 6 Aug 2015, Julien Grall wrote:
+> >> Hi,
+> >>
+> >>
+> >> On 04/08/15 19:12, Julien Grall wrote:
+> >>> diff --git a/include/xen/page.h b/include/xen/page.h
+> >>> index c5ed20b..e7e1425 100644
+> >>> --- a/include/xen/page.h
+> >>> +++ b/include/xen/page.h
+> >>> @@ -3,9 +3,9 @@
+> >>>  
+> >>>  #include <asm/xen/page.h>
+> >>>  
+> >>> -static inline unsigned long page_to_mfn(struct page *page)
+> >>> +static inline unsigned long page_to_gfn(struct page *page)
+> >>>  {
+> >>> -	return pfn_to_mfn(page_to_pfn(page));
+> >>> +	return pfn_to_gfn(page_to_pfn(page));
+> >>>  }
+> >>
+> >> I've just noticed that there is a function gfn_to_page used for KVM.
+> >>
+> >> Maybe I should rename page_to_gfn to xen_page_to_gfn to avoid confusion
+> >> with KVM one?
+> > 
+> > Yeah, prepending xen would help to avoid namespace pollution.
 > 
-> What do you think about changing this to u16 ndm_state?  That way, it
-> can be used on input (fdb add) and output (fdb dump), and the driver
-> can privately track the state, kind of like how the bridge keeps
-> is_static, is_local, etc.
+> Will do. May I keep your Reviewed-by for this mechanical change?
 
-I'm OK with the change. Should we consider NUD_NONE (0) a valid value?
-
-> >                 } fdb;
-> >         } u;
-> >  };
-> > diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> > index 9db87a3..e9d1cac 100644
-> > --- a/net/switchdev/switchdev.c
-> > +++ b/net/switchdev/switchdev.c
-> > @@ -811,7 +811,7 @@ static int switchdev_port_fdb_dump_cb(struct net_device *dev,
-> >         ndm->ndm_flags   = NTF_SELF;
-> >         ndm->ndm_type    = 0;
-> >         ndm->ndm_ifindex = dev->ifindex;
-> > -       ndm->ndm_state   = NUD_REACHABLE;
-> > +       ndm->ndm_state   = obj->u.fdb.is_static ? NUD_NOARP : NUD_REACHABLE;
-
-In other word, do we prefer this:
-
-    ndm->ndm_state = obj->u.fdb.ndm_state == NUD_NONE ?
-                     NUD_REACHABLE : obj->u.fdb.ndm_state;
-
-Or this (meaning switchdev users cannot leave it blank and must at least
-set NUD_REACHABLE themselves):
-
-    ndm->ndm_state = obj->u.fdb.ndm_state;
-
-Thanks,
--v
+Yes
