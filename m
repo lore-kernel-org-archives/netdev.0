@@ -1,58 +1,71 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 4/6] misc/ss: add missing fclose() calls
-Date: Thu,  6 Aug 2015 14:24:34 +0200
-Message-ID: <1438863876-1935-4-git-send-email-phil@nwl.cc>
+Subject: [PATCH 5/6] lib/namespace: don't leak fd in error case
+Date: Thu,  6 Aug 2015 14:24:35 +0200
+Message-ID: <1438863876-1935-5-git-send-email-phil@nwl.cc>
 References: <1438863876-1935-1-git-send-email-phil@nwl.cc>
  <1438863876-1935-2-git-send-email-phil@nwl.cc>
  <1438863876-1935-3-git-send-email-phil@nwl.cc>
+ <1438863876-1935-4-git-send-email-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:47709 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:38165 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755143AbbHFMYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755418AbbHFMYi (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 6 Aug 2015 08:24:38 -0400
-In-Reply-To: <1438863876-1935-3-git-send-email-phil@nwl.cc>
+In-Reply-To: <1438863876-1935-4-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- misc/ss.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ lib/namespace.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index e77655a..0c7c6d7 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -3025,6 +3025,7 @@ static int packet_show_line(char *buf, const struct filter *f, int fam)
- static int packet_show(struct filter *f)
- {
- 	FILE *fp;
-+	int rc = 0;
- 
- 	if (!filter_af_get(f, AF_PACKET) || !(f->states & (1 << SS_CLOSE)))
- 		return 0;
-@@ -3036,9 +3037,10 @@ static int packet_show(struct filter *f)
- 	if ((fp = net_packet_open()) == NULL)
- 		return -1;
- 	if (generic_record_read(fp, packet_show_line, f, AF_PACKET))
+diff --git a/lib/namespace.c b/lib/namespace.c
+index a61feb6..8197165 100644
+--- a/lib/namespace.c
++++ b/lib/namespace.c
+@@ -58,32 +58,35 @@ int netns_switch(char *name)
+ 	if (setns(netns, CLONE_NEWNET) < 0) {
+ 		fprintf(stderr, "setting the network namespace \"%s\" failed: %s\n",
+ 			name, strerror(errno));
 -		return -1;
-+		rc = -1;
- 
--	return 0;
-+	fclose(fp);
-+	return rc;
- }
- 
- static int netlink_show_one(struct filter *f,
-@@ -3215,6 +3217,7 @@ static int netlink_show(struct filter *f)
- 		netlink_show_one(f, prot, pid, groups, 0, 0, 0, rq, wq, sk, cb);
++		goto fail_close;
  	}
  
-+	fclose(fp);
+ 	if (unshare(CLONE_NEWNS) < 0) {
+ 		fprintf(stderr, "unshare failed: %s\n", strerror(errno));
+-		return -1;
++		goto fail_close;
+ 	}
+ 	/* Don't let any mounts propagate back to the parent */
+ 	if (mount("", "/", "none", MS_SLAVE | MS_REC, NULL)) {
+ 		fprintf(stderr, "\"mount --make-rslave /\" failed: %s\n",
+ 			strerror(errno));
+-		return -1;
++		goto fail_close;
+ 	}
+ 	/* Mount a version of /sys that describes the network namespace */
+ 	if (umount2("/sys", MNT_DETACH) < 0) {
+ 		fprintf(stderr, "umount of /sys failed: %s\n", strerror(errno));
+-		return -1;
++		goto fail_close;
+ 	}
+ 	if (mount(name, "/sys", "sysfs", 0, NULL) < 0) {
+ 		fprintf(stderr, "mount of /sys failed: %s\n",strerror(errno));
+-		return -1;
++		goto fail_close;
+ 	}
+ 
+ 	/* Setup bind mounts for config files in /etc */
+ 	bind_etc(name);
  	return 0;
++fail_close:
++	close(netns);
++	return -1;
  }
  
+ int netns_get_fd(const char *name)
 -- 
 2.1.2
