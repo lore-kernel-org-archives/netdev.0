@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev FDB objects
-Date: Thu,  6 Aug 2015 01:44:01 -0400
-Message-ID: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 6/7] net: dsa: mv88e6xxx: rework FDB getnext operation
+Date: Thu,  6 Aug 2015 01:44:07 -0400
+Message-ID: <1438839848-505-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>,
@@ -12,70 +13,240 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset refactors the DSA and mv88e6xxx code to use the switchdev FDB
-objects.
+This commit adds a low level _mv88e6xxx_atu_getnext function and helpers
+to rewrite the mv88e6xxx_port_fdb_getnext operation.
 
-The first two patches add minor but necessary changes to switchdev, the third
-one implements the switchdev glue in DSA for FDB routines, and the remaining
-ones refactor the FDB access functions in the mv88e6xxx code.
+A mv88e6xxx_atu_entry structure is added for convenient access to the
+hardware, and GLOBAL_ATU_FID is defined instead of the raw 0x01 value.
 
-Below is an usage example (ports 0-2 belongs to br0, ports 3-4 belongs to br1):
+The previous implementation did not handle the eventual trunk mapping.
+If the related bit is set, then the ATU data register would contain the
+trunk ID, and not the port vector.
 
-    # bridge fdb add 3c:97:0e:11:30:6e dev swp2
-    # bridge fdb add 3c:97:0e:11:40:78 dev swp3
-    # bridge fdb add 3c:97:0e:11:50:86 dev swp4
-    # bridge fdb del 3c:97:0e:11:40:78 dev swp3
-    # bridge fdb
-    01:00:5e:00:00:01 dev eth0 self permanent
-    01:00:5e:00:00:01 dev eth1 self permanent
-    00:50:d2:10:78:15 dev swp0 master br0 permanent
-    3c:97:0e:11:30:6e dev swp2 self static
-    00:50:d2:10:78:15 dev swp3 master br1 permanent
-    3c:97:0e:11:50:86 dev swp4 self static
-    # cat /sys/kernel/debug/dsa0/atu
-    # DB   T/P  Vec State Addr
-    # 001  Port 004   e   3c:97:0e:11:30:6e
-    # 004  Port 010   e   3c:97:0e:11:50:86
+Check this in the FDB getnext operation and do not handle it (yet).
 
-For the 88E6xxx switches, FIDs 1 to num_ports will be reserved for non-bridged
-ports and bridge groups, and the remaining will be later used by VLANs.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6171.c |  1 +
+ drivers/net/dsa/mv88e6352.c |  1 +
+ drivers/net/dsa/mv88e6xxx.c | 97 +++++++++++++++++++++++++++++++++------------
+ drivers/net/dsa/mv88e6xxx.h | 15 ++++++-
+ 4 files changed, 87 insertions(+), 27 deletions(-)
 
-This change is necessary to welcome the support for hardware VLANs (which will
-follow soon).
-
-Changes in v2:
-
- - remove ndo_bridge_{get,set,del}link from switchdev/DSA glue code
-
- - use ether_addr_copy instead of memcpy for MAC addresses
-
- - constify MAC address in port_fdb_{add,del}
-
- - split the mv88e6xxx code refactoring into several patches
-
-Vivien Didelot (7):
-  net: switchdev: change fdb addr for a byte array
-  net: switchdev: support static FDB addresses
-  net: dsa: add support for switchdev FDB objects
-  net: dsa: mv88e6xxx: extend fid mask
-  net: dsa: mv88e6xxx: rename ATU MAC accessors
-  net: dsa: mv88e6xxx: rework FDB getnext operation
-  net: dsa: mv88e6xxx: rework FDB add/del operations
-
- drivers/net/dsa/mv88e6171.c          |   6 +-
- drivers/net/dsa/mv88e6352.c          |   6 +-
- drivers/net/dsa/mv88e6xxx.c          | 223 ++++++++++++++++++++++++-----------
- drivers/net/dsa/mv88e6xxx.h          |  31 +++--
- drivers/net/ethernet/rocker/rocker.c |   2 +-
- include/net/dsa.h                    |  16 ++-
- include/net/switchdev.h              |   3 +-
- net/bridge/br_fdb.c                  |   2 +-
- net/dsa/slave.c                      | 218 ++++++++++++++++++----------------
- net/switchdev/switchdev.c            |   7 +-
- 10 files changed, 317 insertions(+), 197 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index cfa21ed..b99fa50 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -116,6 +116,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.port_join_bridge       = mv88e6xxx_join_bridge,
+ 	.port_leave_bridge      = mv88e6xxx_leave_bridge,
+ 	.port_stp_update        = mv88e6xxx_port_stp_update,
++	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6171");
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index eb4630f..0a77135 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -341,6 +341,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.port_join_bridge	= mv88e6xxx_join_bridge,
+ 	.port_leave_bridge	= mv88e6xxx_leave_bridge,
+ 	.port_stp_update	= mv88e6xxx_port_stp_update,
++	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6172");
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 9dad0a7..6cad168 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -964,7 +964,7 @@ static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, int fid, u16 cmd)
+ {
+ 	int ret;
+ 
+-	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x01, fid);
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -1269,12 +1269,14 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 	return ret;
+ }
+ 
+-static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
+-				    unsigned char *addr, bool *is_static)
++static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
++				  const u8 addr[ETH_ALEN],
++				  struct mv88e6xxx_atu_entry *entry)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u8 fid = ps->fid[port];
+-	int ret, state;
++	struct mv88e6xxx_atu_entry next = { 0 };
++	int ret;
++
++	next.fid = fid;
+ 
+ 	ret = _mv88e6xxx_atu_wait(ds);
+ 	if (ret < 0)
+@@ -1284,39 +1286,84 @@ static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	do {
+-		ret = _mv88e6xxx_atu_cmd(ds, fid,  GLOBAL_ATU_OP_GET_NEXT_DB);
+-		if (ret < 0)
+-			return ret;
++	ret = _mv88e6xxx_atu_cmd(ds, fid, GLOBAL_ATU_OP_GET_NEXT_DB);
++	if (ret < 0)
++		return ret;
+ 
+-		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_DATA);
+-		if (ret < 0)
+-			return ret;
+-		state = ret & GLOBAL_ATU_DATA_STATE_MASK;
+-		if (state == GLOBAL_ATU_DATA_STATE_UNUSED)
+-			return -ENOENT;
+-	} while (!(((ret >> 4) & 0xff) & (1 << port)));
++	ret = _mv88e6xxx_atu_mac_read(ds, next.mac);
++	if (ret < 0)
++		return ret;
+ 
+-	ret = _mv88e6xxx_atu_mac_read(ds, addr);
++	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_DATA);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	*is_static = state == (is_multicast_ether_addr(addr) ?
+-			       GLOBAL_ATU_DATA_STATE_MC_STATIC :
+-			       GLOBAL_ATU_DATA_STATE_UC_STATIC);
++	next.state = ret & GLOBAL_ATU_DATA_STATE_MASK;
++	if (next.state != GLOBAL_ATU_DATA_STATE_UNUSED) {
++		unsigned int mask, shift;
++
++		if (ret & GLOBAL_ATU_DATA_TRUNK) {
++			next.trunk = true;
++			mask = GLOBAL_ATU_DATA_TRUNK_ID_MASK;
++			shift = GLOBAL_ATU_DATA_TRUNK_ID_SHIFT;
++		} else {
++			next.trunk = false;
++			mask = GLOBAL_ATU_DATA_PORT_VECTOR_MASK;
++			shift = GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT;
++		}
++
++		next.portv_trunkid = (ret & mask) >> shift;
++	}
+ 
++	*entry = next;
+ 	return 0;
+ }
+ 
+-/* get next entry for port */
+-int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+-			       unsigned char *addr, bool *is_static)
++static int _mv88e6xxx_port_vid_to_fid(struct dsa_switch *ds, int port, u16 vid)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	if (vid == 0)
++		return ps->fid[port];
++
++	return -ENOENT;
++}
++
++int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port, u16 *vid,
++			       u8 addr[ETH_ALEN], bool *is_static)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_atu_entry next;
++	u16 fid;
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = __mv88e6xxx_port_getnext(ds, port, addr, is_static);
++
++	ret = _mv88e6xxx_port_vid_to_fid(ds, port, *vid);
++	if (ret < 0)
++		goto unlock;
++	fid = ret;
++
++	do {
++		if (is_broadcast_ether_addr(addr)) {
++			ret = -ENOENT;
++			goto unlock;
++		}
++
++		ret = _mv88e6xxx_atu_getnext(ds, fid, addr, &next);
++		if (ret < 0)
++			goto unlock;
++
++		ether_addr_copy(addr, next.mac);
++
++		if (next.state == GLOBAL_ATU_DATA_STATE_UNUSED)
++			continue;
++	} while (next.trunk || (next.portv_trunkid & BIT(port)) == 0);
++
++	*is_static = next.state == (is_multicast_ether_addr(addr) ?
++				    GLOBAL_ATU_DATA_STATE_MC_STATIC :
++				    GLOBAL_ATU_DATA_STATE_UC_STATIC);
++unlock:
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+ 	return ret;
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 6d65b99..d9bd6a0 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -172,6 +172,7 @@
+ #define GLOBAL_MAC_01		0x01
+ #define GLOBAL_MAC_23		0x02
+ #define GLOBAL_MAC_45		0x03
++#define GLOBAL_ATU_FID		0x01	/* 6097 6165 6351 6352 */
+ #define GLOBAL_CONTROL		0x04
+ #define GLOBAL_CONTROL_SW_RESET		BIT(15)
+ #define GLOBAL_CONTROL_PPU_ENABLE	BIT(14)
+@@ -206,6 +207,8 @@
+ #define GLOBAL_ATU_OP_GET_CLR_VIOLATION	  ((7 << 12) | GLOBAL_ATU_OP_BUSY)
+ #define GLOBAL_ATU_DATA		0x0c
+ #define GLOBAL_ATU_DATA_TRUNK			BIT(15)
++#define GLOBAL_ATU_DATA_TRUNK_ID_MASK		0x00f0
++#define GLOBAL_ATU_DATA_TRUNK_ID_SHIFT		4
+ #define GLOBAL_ATU_DATA_PORT_VECTOR_MASK	0x3ff0
+ #define GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT	4
+ #define GLOBAL_ATU_DATA_STATE_MASK		0x0f
+@@ -312,6 +315,14 @@
+ #define GLOBAL2_QOS_WEIGHT	0x1c
+ #define GLOBAL2_MISC		0x1d
+ 
++struct mv88e6xxx_atu_entry {
++	u16	fid;
++	u8	state;
++	bool	trunk;
++	u16	portv_trunkid;
++	u8	mac[ETH_ALEN];
++};
++
+ struct mv88e6xxx_priv_state {
+ 	/* When using multi-chip addressing, this mutex protects
+ 	 * access to the indirect access registers.  (In single-chip
+@@ -416,11 +427,11 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 			   const unsigned char *addr, u16 vid);
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 			   const unsigned char *addr, u16 vid);
+-int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+-			       unsigned char *addr, bool *is_static);
+ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
+ int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+ 			     int reg, int val);
++int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port, u16 *vid,
++			       u8 addr[ETH_ALEN], bool *is_static);
+ 
+ extern struct dsa_switch_driver mv88e6131_switch_driver;
+ extern struct dsa_switch_driver mv88e6123_61_65_switch_driver;
 -- 
 2.4.6
