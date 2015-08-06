@@ -1,147 +1,58 @@
-From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH 5/5] net: rfkill: gpio: remove rfkill_gpio_platform_data
-Date: Thu, 6 Aug 2015 10:22:14 +0300
-Message-ID: <20150806072214.GG7675@kuha.fi.intel.com>
-References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
- <1438781947-7952-6-git-send-email-heikki.krogerus@linux.intel.com>
- <1438784128.29746.177.camel@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1438784128.29746.177.camel-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH] igbvf: clear buffer_info->dma after dma_unmap_single()
+Date: Thu,  6 Aug 2015 09:32:17 +0200
+Message-ID: <1438846337-6164-1-git-send-email-sassmann@kpanic.de>
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	sassmann@kpanic.de
+To: intel-wired-lan@lists.osuosl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51889 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753899AbbHFHca (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Aug 2015 03:32:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 05, 2015 at 05:15:28PM +0300, Andy Shevchenko wrote:
-> On Wed, 2015-08-05 at 16:39 +0300, Heikki Krogerus wrote:
-> > No more users for it.
-> > 
-> > Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> > ---
-> >  include/linux/rfkill-gpio.h | 37 -----------------------------------
-> > --
-> >  net/rfkill/Kconfig          |  3 +--
-> >  net/rfkill/rfkill-gpio.c    |  8 --------
-> >  3 files changed, 1 insertion(+), 47 deletions(-)
-> >  delete mode 100644 include/linux/rfkill-gpio.h
-> > 
-> > diff --git a/include/linux/rfkill-gpio.h b/include/linux/rfkill
-> > -gpio.h
-> > deleted file mode 100644
-> > index 20bcb55..0000000
-> > --- a/include/linux/rfkill-gpio.h
-> > +++ /dev/null
-> > @@ -1,37 +0,0 @@
-> > -/*
-> > - * Copyright (c) 2011, NVIDIA Corporation.
-> > - *
-> > - * This program is free software; you can redistribute it and/or 
-> > modify
-> > - * it under the terms of the GNU General Public License as published 
-> > by
-> > - * the Free Software Foundation; either version 2 of the License, or
-> > - * (at your option) any later version.
-> > - *
-> > - * This program is distributed in the hope that it will be useful, 
-> > but WITHOUT
-> > - * ANY WARRANTY; without even the implied warranty of 
-> > MERCHANTABILITY or
-> > - * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public 
-> > License for
-> > - * more details.
-> > - *
-> > - * You should have received a copy of the GNU General Public License 
-> > along
-> > - * with this program; if not, write to the Free Software Foundation, 
-> > Inc.,
-> > - * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-> > - */
-> > -
-> > -
-> > -#ifndef __RFKILL_GPIO_H
-> > -#define __RFKILL_GPIO_H
-> > -
-> > -#include <linux/types.h>
-> > -#include <linux/rfkill.h>
-> > -
-> > -/**
-> > - * struct rfkill_gpio_platform_data - platform data for rfkill gpio 
-> > device.
-> > - * for unused gpio's, the expected value is -1.
-> > - * @name:		name for the gpio rf kill instance
-> > - */
-> > -
-> > -struct rfkill_gpio_platform_data {
-> > -	char			*name;
-> > -	enum rfkill_type	type;
-> > -};
-> > -
-> > -#endif /* __RFKILL_GPIO_H */
-> > diff --git a/net/rfkill/Kconfig b/net/rfkill/Kconfig
-> > index 4c10e7e..6320890 100644
-> > --- a/net/rfkill/Kconfig
-> > +++ b/net/rfkill/Kconfig
-> > @@ -40,5 +40,4 @@ config RFKILL_GPIO
-> >  	default n
-> >  	help
-> >  	  If you say yes here you get support of a generic gpio 
-> > RFKILL
-> > -	  driver. The platform should fill in the appropriate fields 
-> > in the
-> > -	  rfkill_gpio_platform_data structure and pass that to the 
-> > driver.
-> > +	  driver.
-> > diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-> > index 07323c3..69d92e1 100644
-> > --- a/net/rfkill/rfkill-gpio.c
-> > +++ b/net/rfkill/rfkill-gpio.c
-> > @@ -27,8 +27,6 @@
-> >  #include <linux/acpi.h>
-> >  #include <linux/gpio/consumer.h>
-> >  
-> > -#include <linux/rfkill-gpio.h>
-> > -
-> >  struct rfkill_gpio_data {
-> >  	const char		*name;
-> >  	enum rfkill_type	type;
-> > @@ -89,7 +87,6 @@ static int rfkill_gpio_acpi_probe(struct device 
-> > *dev,
-> >  
-> >  static int rfkill_gpio_probe(struct platform_device *pdev)
-> >  {
-> > -	struct rfkill_gpio_platform_data *pdata = pdev
-> > ->dev.platform_data;
-> >  	struct rfkill_gpio_data *rfkill;
-> >  	struct gpio_desc *gpio;
-> >  	const char *type_name;
-> > @@ -111,11 +108,6 @@ static int rfkill_gpio_probe(struct 
-> > platform_device *pdev)
-> >  		ret = rfkill_gpio_acpi_probe(&pdev->dev, rfkill);
-> >  		if (ret)
-> >  			return ret;
-> > -	} else if (pdata) {
-> > -		rfkill->name = pdata->name;
-> > -		rfkill->type = pdata->type;
-> > -	} else {
-> > -		return -ENODEV;
-> 
-> Shouldn't we leave the error path and modify to check if we have device
-> property set set?
+The driver doesn't clear buffer_info->dma after calling
+dma_unmap_single() in all cases. This has been discovered by changing
+the mtu twice, which caused the following backtrace.
 
-We already check them before this point. After this ACPI will be the
-only "special" case where we know the needed information does not come
-from device property and needs separate handling. Otherwise, if the
-device properties are not set, we cracefully fail.
+[   68.569280] WARNING: CPU: 2 PID: 1860 at drivers/iommu/intel-iommu.c:3517 intel_unmap+0x20c/0x220()
+[   68.579392] Driver unmaps unmatched page at PFN fffc2a40
+[   68.585322] Modules linked in: igbvf ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat nf_nat_ipv4 nf_nat kvm_intel kvm igb megs
+[   68.599163] CPU: 2 PID: 1860 Comm: ifconfig Not tainted 4.2.0-rc4+ #147
+[   68.606543] Hardware name: IBM  -[546025Z]-/00Y7630, BIOS -[VVE134TUS-1.51]- 10/17/2013
+[   68.615473]  0000000000000dbd ffff88046441bb08 ffffffff81a5ad0b ffffffff81e2f9ea
+[   68.623775]  ffff88046441bb58 ffff88046441bb48 ffffffff81056b55 ffff88047fc583c0
+[   68.632075]  0000000000000000 ffff880469a8e600 00000000fffc2a40 ffff880465b32098
+[   68.640375] Call Trace:
+[   68.643109]  [<ffffffff81a5ad0b>] dump_stack+0x48/0x5d
+[   68.648844]  [<ffffffff81056b55>] warn_slowpath_common+0x95/0xe0
+[   68.655549]  [<ffffffff81056c56>] warn_slowpath_fmt+0x46/0x70
+[   68.661960]  [<ffffffff8158a614>] ? find_iova+0x54/0x90
+[   68.667791]  [<ffffffff815988dc>] intel_unmap+0x20c/0x220
+[   68.673815]  [<ffffffff8159891e>] intel_unmap_page+0xe/0x10
+[   68.680038]  [<ffffffffa0067536>] igbvf_clean_rx_ring+0x96/0x370 [igbvf]
+[   68.687516]  [<ffffffffa0067915>] igbvf_down+0x105/0x110 [igbvf]
+[   68.694219]  [<ffffffffa0067beb>] igbvf_change_mtu+0x16b/0x180 [igbvf]
+[...]
 
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/ethernet/intel/igbvf/netdev.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Thanks,
-
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 95af14e..686fa71 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -319,6 +319,7 @@ static bool igbvf_clean_rx_irq(struct igbvf_adapter *adapter,
+ 			dma_unmap_single(&pdev->dev, buffer_info->dma,
+ 					 adapter->rx_ps_hdr_size,
+ 					 DMA_FROM_DEVICE);
++			buffer_info->dma = 0;
+ 			skb_put(skb, hlen);
+ 		}
+ 
 -- 
-heikki
+2.4.3
