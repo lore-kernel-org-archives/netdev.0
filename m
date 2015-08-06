@@ -1,66 +1,66 @@
-From: Liviu Dudau <Liviu.Dudau@arm.com>
-Subject: Re: [PATCH] sky2: Add module parameter for passing the MAC address
-Date: Thu, 6 Aug 2015 11:31:49 +0100
-Message-ID: <20150806103149.GJ20890@e106497-lin.cambridge.arm.com>
-References: <1438789854-29194-1-git-send-email-Liviu.Dudau@arm.com>
- <20150805.173233.539752020022715092.davem@davemloft.net>
+From: Julien Grall <julien.grall@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v2 4/8] xen: Use the correctly the Xen memory
+ terminologies
+Date: Thu, 6 Aug 2015 12:00:30 +0100
+Message-ID: <55C33E4E.4050704@citrix.com>
+References: <1438711972-18752-1-git-send-email-julien.grall@citrix.com>
+ <1438711972-18752-5-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "mlindner@marvell.com" <mlindner@marvell.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"ryan.harkin@linaro.org" <ryan.harkin@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:62293 "EHLO
-	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754734AbbHFKbw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Aug 2015 06:31:52 -0400
-In-Reply-To: <20150805.173233.539752020022715092.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-fbdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
+	"Jiri Slaby" <jslaby@suse.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	<stefano.stabellini@eu.citrix.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	<linux-scsi@vger.kernel.org>, <x86@kernel.org>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	<linux-input@vger.kernel.org>,
+	"Jean-Christophe Plagniol-Villard" <plagnioj@jcrosoft.com>,
+	<ian.campbell@citrix.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Juergen Gross <jgross@suse.com>,
+	"Wei Liu" <wei.liu2@citrix.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	<linux-kernel@vger.kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	=?UT
+To: <xen-devel@lists.xenproject.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1438711972-18752-5-git-send-email-julien.grall@citrix.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 06, 2015 at 01:32:33AM +0100, David Miller wrote:
-> From: Liviu Dudau <Liviu.Dudau@arm.com>
-> Date: Wed,  5 Aug 2015 16:50:54 +0100
->=20
-> > For designs where EEPROMs are not connected to PCI Yukon2
-> > chips we need to get the MAC address from the firmware.
-> > Add a module parameter called 'mac_address' for this. It
-> > will be used if no DT node can be found and the B2_MAC
-> > register holds an invalid value.
-> >=20
-> > Signed-off-by: Liviu Dudau <Liviu.Dudau@arm.com>
->=20
-> Sorry, such module options are absolutely not allowed.
+Hi,
 
-Please clarify if this is a drivers/net/ethernet policy or=20
-that is true for the larger subsystem. There are a few
-networking drivers that have a mac_addr module parameter. I
-personally used drivers/net/ethernet/8390/pcnet_cs.c as inspiration
-for my patch.
 
->=20
-> If an invalid MAC is present, it should be set to a random
-> one via eth_random_addr().
->=20
+On 04/08/15 19:12, Julien Grall wrote:
+> diff --git a/include/xen/page.h b/include/xen/page.h
+> index c5ed20b..e7e1425 100644
+> --- a/include/xen/page.h
+> +++ b/include/xen/page.h
+> @@ -3,9 +3,9 @@
+>  
+>  #include <asm/xen/page.h>
+>  
+> -static inline unsigned long page_to_mfn(struct page *page)
+> +static inline unsigned long page_to_gfn(struct page *page)
+>  {
+> -	return pfn_to_mfn(page_to_pfn(page));
+> +	return pfn_to_gfn(page_to_pfn(page));
+>  }
 
-Understood. Stephen Hemminger has provided a patch that I can try
-and I will report back with the results.
+I've just noticed that there is a function gfn_to_page used for KVM.
 
-Best regards,
-Liviu
+Maybe I should rename page_to_gfn to xen_page_to_gfn to avoid confusion
+with KVM one?
 
---=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-| I would like to |
-| fix the world,  |
-| but they're not |
-| giving me the   |
- \ source code!  /
-  ---------------
-    =C2=AF\_(=E3=83=84)_/=C2=AF
+Regards,
+
+-- 
+Julien Grall
