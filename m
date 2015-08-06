@@ -1,180 +1,101 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next] mpls: Enforce payload type of traffic sent using explicit NULL
-Date: Thu, 6 Aug 2015 11:04:56 +0100
-Message-ID: <1438855496-27926-1-git-send-email-rshearma@brocade.com>
+From: Zang MingJie <zealot0630@gmail.com>
+Subject: Re: [BUG] net/ipv4: inconsistent routing table
+Date: Thu, 6 Aug 2015 18:13:01 +0800
+Message-ID: <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
+References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
+ <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"Robert Shearman" <rshearma@brocade.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:28311 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754124AbbHFKFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 06:05:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55C24BAE.7090702@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC 4182 s2 states that if an IPv4 Explicit NULL label is the only
-label on the stack, then after popping the resulting packet must be
-treated as a IPv4 packet and forwarded based on the IPv4 header. The
-same is true for IPv6 Explicit NULL with an IPv6 packet following.
+On Thu, Aug 6, 2015 at 1:45 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 08/05/2015 02:06 AM, Daniel Borkmann wrote:
+>>
+>> [ please cc netdev ]
+>>
+>> On 08/05/2015 10:56 AM, Zang MingJie wrote:
+>>>
+>>> Hi:
+>>>
+>>> I found a bug when remove an ip address which is referenced by a routing
+>>> entry.
+>>>
+>>> step to reproduce:
+>>>
+>>> ip li add type dummy
+>>> ip li set dummy0 up
+>>> ip ad add 10.0.0.1/24 dev dummy0
+>>> ip ad add 10.0.0.2/24 dev dummy0
+>
+>
+> Okay, so up to this point you have 2 addresses on the same subnet that are
+> now on dummy0.
+>
+>>> ip ro add default via 10.0.0.2/24
+>
+>
+> This makes the default route go through 10.0.0.2.
+>
+>>> ip ad del 10.0.0.2/24 dev dummy0
+>
+>
+> Then you remove 10.0.0.2 from the local system, however since 10.0.0.1 is on
+> the same subnet dummy0 would still be the correct interface to access
+> 10.0.0.2 it is just no longer local to the system.
+>
+>>> after deleting the secondary ip address, the routing entry still
+>>> pointing to 10.0.0.2
+>
+>
+> You didn't delete the default routing entry so why would you expect it to
+> change?  All you did is remove 10.0.0.2 from the local system.  I believe
+> the assumption is that 10.0.0.2 is still out there somewhere, it just isn't
+> on the local system anymore.
 
-Therefore, when installing the IPv4/IPv6 Explicit NULL label routes,
-add an attribute that specifies the expected payload type for use at
-forwarding time for determining the type of the encapsulated packet
-instead of inspecting the first nibble of the packet.
+Yes, 10.0.0.2 is migrated to somewhere else
 
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
----
-Previously submitted as part of a series with the subject "mpls: Allow
-payload type to be associated with label routes". However, no changes
-have been made since that version other than the subject. (v4).
+>
+>>> # ip ro
+>>> default via 10.0.0.2 dev dummy0
+>>> 10.0.0.0/24 dev dummy0  proto kernel  scope link  src 10.0.0.1
+>
+>
+> This matches up with what I would expect.  10.0.0.2 is the default gateway
+> and it is accessible from dummy0 since 10.0.0.0/24 is accessible from
+> dummy0.
 
- net/mpls/af_mpls.c | 71 +++++++++++++++++++++++++++++++++---------------------
- 1 file changed, 44 insertions(+), 27 deletions(-)
+This means 0.0.0.0/0 is accessible via 10.0.0.2 on the network of dummy0
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index b6b9a6c4e784..16e65564723c 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -27,11 +27,23 @@
- /* This maximum ha length copied from the definition of struct neighbour */
- #define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
- 
-+enum mpls_payload_type {
-+	MPT_UNSPEC, /* IPv4 or IPv6 */
-+	MPT_IPV4 = 4,
-+	MPT_IPV6 = 6,
-+
-+	/* Other types not implemented:
-+	 *  - Pseudo-wire with or without control word (RFC4385)
-+	 *  - GAL (RFC5586)
-+	 */
-+};
-+
- struct mpls_route { /* next hop label forwarding entry */
- 	struct net_device __rcu *rt_dev;
- 	struct rcu_head		rt_rcu;
- 	u32			rt_label[MAX_NEW_LABELS];
- 	u8			rt_protocol; /* routing protocol that set this entry */
-+	u8                      rt_payload_type;
- 	u8			rt_labels;
- 	u8			rt_via_alen;
- 	u8			rt_via_table;
-@@ -96,16 +108,8 @@ EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
- static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
- 			struct mpls_entry_decoded dec)
- {
--	/* RFC4385 and RFC5586 encode other packets in mpls such that
--	 * they don't conflict with the ip version number, making
--	 * decoding by examining the ip version correct in everything
--	 * except for the strangest cases.
--	 *
--	 * The strange cases if we choose to support them will require
--	 * manual configuration.
--	 */
--	struct iphdr *hdr4;
--	bool success = true;
-+	enum mpls_payload_type payload_type;
-+	bool success = false;
- 
- 	/* The IPv4 code below accesses through the IPv4 header
- 	 * checksum, which is 12 bytes into the packet.
-@@ -120,23 +124,32 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
- 	if (!pskb_may_pull(skb, 12))
- 		return false;
- 
--	/* Use ip_hdr to find the ip protocol version */
--	hdr4 = ip_hdr(skb);
--	if (hdr4->version == 4) {
-+	payload_type = rt->rt_payload_type;
-+	if (payload_type == MPT_UNSPEC)
-+		payload_type = ip_hdr(skb)->version;
-+
-+	switch (payload_type) {
-+	case MPT_IPV4: {
-+		struct iphdr *hdr4 = ip_hdr(skb);
- 		skb->protocol = htons(ETH_P_IP);
- 		csum_replace2(&hdr4->check,
- 			      htons(hdr4->ttl << 8),
- 			      htons(dec.ttl << 8));
- 		hdr4->ttl = dec.ttl;
-+		success = true;
-+		break;
- 	}
--	else if (hdr4->version == 6) {
-+	case MPT_IPV6: {
- 		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
- 		skb->protocol = htons(ETH_P_IPV6);
- 		hdr6->hop_limit = dec.ttl;
-+		success = true;
-+		break;
- 	}
--	else
--		/* version 0 and version 1 are used by pseudo wires */
--		success = false;
-+	case MPT_UNSPEC:
-+		break;
-+	}
-+
- 	return success;
- }
- 
-@@ -255,16 +268,17 @@ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
- };
- 
- struct mpls_route_config {
--	u32		rc_protocol;
--	u32		rc_ifindex;
--	u16		rc_via_table;
--	u16		rc_via_alen;
--	u8		rc_via[MAX_VIA_ALEN];
--	u32		rc_label;
--	u32		rc_output_labels;
--	u32		rc_output_label[MAX_NEW_LABELS];
--	u32		rc_nlflags;
--	struct nl_info	rc_nlinfo;
-+	u32			rc_protocol;
-+	u32			rc_ifindex;
-+	u16			rc_via_table;
-+	u16			rc_via_alen;
-+	u8			rc_via[MAX_VIA_ALEN];
-+	u32			rc_label;
-+	u32			rc_output_labels;
-+	u32			rc_output_label[MAX_NEW_LABELS];
-+	u32			rc_nlflags;
-+	enum mpls_payload_type	rc_payload_type;
-+	struct nl_info		rc_nlinfo;
- };
- 
- static struct mpls_route *mpls_rt_alloc(size_t alen)
-@@ -495,6 +509,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 		rt->rt_label[i] = cfg->rc_output_label[i];
- 	rt->rt_protocol = cfg->rc_protocol;
- 	RCU_INIT_POINTER(rt->rt_dev, dev);
-+	rt->rt_payload_type = cfg->rc_payload_type;
- 	rt->rt_via_table = cfg->rc_via_table;
- 	memcpy(rt->rt_via, cfg->rc_via, cfg->rc_via_alen);
- 
-@@ -1049,6 +1064,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 			goto nort0;
- 		RCU_INIT_POINTER(rt0->rt_dev, lo);
- 		rt0->rt_protocol = RTPROT_KERNEL;
-+		rt0->rt_payload_type = MPT_IPV4;
- 		rt0->rt_via_table = NEIGH_LINK_TABLE;
- 		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
- 	}
-@@ -1059,6 +1075,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 			goto nort2;
- 		RCU_INIT_POINTER(rt2->rt_dev, lo);
- 		rt2->rt_protocol = RTPROT_KERNEL;
-+		rt2->rt_payload_type = MPT_IPV6;
- 		rt2->rt_via_table = NEIGH_LINK_TABLE;
- 		memcpy(rt2->rt_via, lo->dev_addr, lo->addr_len);
- 	}
--- 
-2.1.4
+>
+>>> but actually, kernel considers the default route is directly connected.
+>>>
+>>> # ip ro get 1.1.1.1
+>>> 1.1.1.1 dev dummy0  src 10.0.0.1
+>>>      cache
+>
+>
+> I'm not sure how you came to the "directly connected" conclusion. It is
+> still routing things out through 10.0.0.2 from 10.0.0.1.
+>
+> Maybe your example would work better if you used 10.0.0.1 and 10.0.1.1
+> instead.  Then I think you might be able to better see that when you delete
+> the second address the route would be broken.
+
+No, it isn't. when ping 1.1.1.1, kernel will directly send arp request
+braodcast to 1.1.1.1, this is not what I expect. it should send arp
+request to 10.0.0.2, following should be the correct routing entry:
+
+# ip ro get 1.1.1.1
+1.1.1.1 via 10.0.0.2 dev dummy0  src 10.0.0.1
+    cache
+
+
+>
+> - Alex
