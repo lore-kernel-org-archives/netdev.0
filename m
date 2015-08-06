@@ -1,61 +1,29 @@
-From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: Re: [PATCH 1/5] device property: helper macros for property entry
- creation
-Date: Thu, 6 Aug 2015 10:48:48 +0300
-Message-ID: <20150806074848.GH7675@kuha.fi.intel.com>
-References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
- <1438781947-7952-2-git-send-email-heikki.krogerus@linux.intel.com>
- <1438783338.29746.172.camel@linux.intel.com>
+From: Shaun Crampton <Shaun.Crampton@metaswitch.com>
+Subject: Re: veths often slow to come up
+Date: Thu, 6 Aug 2015 08:09:03 +0000
+Message-ID: <D1E8D3E9.3FACB%Shaun.Crampton@metaswitch.com>
+References: <D1E67FCC.3FA19%Shaun.Crampton@metaswitch.com>
+ <CAM_iQpV6ZjKWmy8ou6xM=fP8gfE19cS9r=YT4P2xW7rBJwAyZA@mail.gmail.com>
+ <20150805152358.GE10686@indiana.gru.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1438783338.29746.172.camel@linux.intel.com>
+In-Reply-To: <20150805152358.GE10686@indiana.gru.redhat.com>
+Content-Language: en-US
+Content-ID: <A76DBBF1F65B6742A2A8EB81926661A8@metaswitch.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 05, 2015 at 05:02:18PM +0300, Andy Shevchenko wrote:
-> On Wed, 2015-08-05 at 16:39 +0300, Heikki Krogerus wrote:
-> > Marcos for easier creation of build-in property entries.
-> > 
-> > Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-> > ---
-> >  include/linux/property.h | 35 +++++++++++++++++++++++++++++++++++
-> >  1 file changed, 35 insertions(+)
-> > 
-> > diff --git a/include/linux/property.h b/include/linux/property.h
-> > index 76ebde9..204d899 100644
-> > --- a/include/linux/property.h
-> > +++ b/include/linux/property.h
-> > @@ -152,6 +152,41 @@ struct property_entry {
-> >  	} value;
-> >  };
-> >  
-> > +#define PROP_ENTRY_U8(_name_, _val_) { \
-> 
-> PROP_ prefix is too generic.
-> Maybe DEVPROP_ ? At least for the latter no records in the current
-> sources.
+> Take a look at linkwatch_urgent_event at net/core/link_watch.c, and a=
+ll
+>of
+> link_watch.c in general. That's where the 1s delay comes from.
 
-I disagree with that. IMO this kind of macros should ideally resemble
-the structure name they are used to fill (struct property_entry in
-this case). And there are already definitions for DEV_PROP_* to
-describe the types, so using something like DEVPROP_* here is just
-confusing.
+Thanks for the diagnosis, I=B9ll take a look.
 
-If PROP_ENTRY_* is really not good enough, we can change them
-PROPERTY_ENTRY_*. But is PROP_ENTRY_* really so bad?
-
-Rafael, what is your opinion?
-
-
-Thanks,
-
--- 
-heikki
+-Shaun
