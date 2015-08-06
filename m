@@ -1,67 +1,122 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v2 2/7] net: switchdev: support static FDB addresses
-Date: Wed, 5 Aug 2015 23:28:15 -0700
-Message-ID: <CAE4R7bBjYZtE-hj8b-0bRcA2bB0Sh+YXhtcmk2FuJu_qLB3xew@mail.gmail.com>
-References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1438839848-505-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Kaixu Xia <xiakaixu@huawei.com>
+Subject: [PATCH v7 3/5] bpf: Add new bpf map type to store the pointer to struct perf_event
+Date: Thu, 6 Aug 2015 07:02:34 +0000
+Message-ID: <1438844556-27064-4-git-send-email-xiakaixu@huawei.com>
+References: <1438844556-27064-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain
+Cc: <xiakaixu@huawei.com>, <wangnan0@huawei.com>,
+	<linux-kernel@vger.kernel.org>, <pi3orama@163.com>,
+	<hekuang@huawei.com>, <netdev@vger.kernel.org>
+To: <ast@plumgrid.com>, <davem@davemloft.net>, <acme@kernel.org>,
+	<mingo@redhat.com>, <a.p.zijlstra@chello.nl>,
+	<masami.hiramatsu.pt@hitachi.com>, <jolsa@kernel.org>,
+	<daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438839848-505-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1438844556-27064-1-git-send-email-xiakaixu@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 5, 2015 at 10:44 PM, Vivien Didelot
-<vivien.didelot@savoirfairelinux.com> wrote:
-> This patch adds a is_static boolean to the switchdev_obj_fdb structure,
-> in order to set the ndm_state to either NUD_NOARP or NUD_REACHABLE.
->
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  include/net/switchdev.h   | 1 +
->  net/switchdev/switchdev.c | 2 +-
->  2 files changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index e90e1a0..0e296b8 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -72,6 +72,7 @@ struct switchdev_obj {
->                 struct switchdev_obj_fdb {              /* PORT_FDB */
->                         u8 addr[ETH_ALEN];
->                         u16 vid;
-> +                       bool is_static;
+Introduce a new bpf map type 'BPF_MAP_TYPE_PERF_EVENT_ARRAY'.
+This map only stores the pointer to struct perf_event. The
+user space event FDs from perf_event_open() syscall are converted
+to the pointer to struct perf_event and stored in map.
 
-What do you think about changing this to u16 ndm_state?  That way, it
-can be used on input (fdb add) and output (fdb dump), and the driver
-can privately track the state, kind of like how the bridge keeps
-is_static, is_local, etc.
+Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+---
+ include/linux/bpf.h      |  1 +
+ include/uapi/linux/bpf.h |  1 +
+ kernel/bpf/arraymap.c    | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 59 insertions(+)
 
->                 } fdb;
->         } u;
->  };
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 9db87a3..e9d1cac 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -811,7 +811,7 @@ static int switchdev_port_fdb_dump_cb(struct net_device *dev,
->         ndm->ndm_flags   = NTF_SELF;
->         ndm->ndm_type    = 0;
->         ndm->ndm_ifindex = dev->ifindex;
-> -       ndm->ndm_state   = NUD_REACHABLE;
-> +       ndm->ndm_state   = obj->u.fdb.is_static ? NUD_NOARP : NUD_REACHABLE;
->
->         if (nla_put(dump->skb, NDA_LLADDR, ETH_ALEN, obj->u.fdb.addr))
->                 goto nla_put_failure;
-> --
-> 2.4.6
->
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index d495211..4fc1f40 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -10,6 +10,7 @@
+ #include <uapi/linux/bpf.h>
+ #include <linux/workqueue.h>
+ #include <linux/file.h>
++#include <linux/perf_event.h>
+ 
+ struct bpf_map;
+ 
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 2ce13c1..a1814e8 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -114,6 +114,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_HASH,
+ 	BPF_MAP_TYPE_ARRAY,
+ 	BPF_MAP_TYPE_PROG_ARRAY,
++	BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+ };
+ 
+ enum bpf_prog_type {
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 45df657..29ace10 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -273,3 +273,60 @@ static int __init register_prog_array_map(void)
+ 	return 0;
+ }
+ late_initcall(register_prog_array_map);
++
++static void perf_event_array_map_free(struct bpf_map *map)
++{
++	bpf_fd_array_map_clear(map);
++	fd_array_map_free(map);
++}
++
++static void *perf_event_fd_array_get_ptr(struct bpf_map *map, int fd)
++{
++	struct perf_event *event;
++	const struct perf_event_attr *attr;
++
++	event = perf_event_get(fd);
++	if (IS_ERR(event))
++		return event;
++
++	attr = perf_event_attrs(event);
++	if (IS_ERR(attr))
++		return (void *)attr;
++
++	if (attr->type != PERF_TYPE_RAW &&
++	    attr->type != PERF_TYPE_HARDWARE) {
++		perf_event_release_kernel(event);
++		return ERR_PTR(-EINVAL);
++	}
++	return event;
++}
++
++static void perf_event_fd_array_put_ptr(void *ptr)
++{
++	struct perf_event *event = ptr;
++
++	perf_event_release_kernel(event);
++}
++
++static const struct bpf_map_ops perf_event_array_ops = {
++	.map_alloc = fd_array_map_alloc,
++	.map_free = perf_event_array_map_free,
++	.map_get_next_key = array_map_get_next_key,
++	.map_lookup_elem = fd_array_map_lookup_elem,
++	.map_update_elem = fd_array_map_update_elem,
++	.map_delete_elem = fd_array_map_delete_elem,
++	.map_fd_get_ptr = perf_event_fd_array_get_ptr,
++	.map_fd_put_ptr = perf_event_fd_array_put_ptr,
++};
++
++static struct bpf_map_type_list perf_event_array_type __read_mostly = {
++	.ops = &perf_event_array_ops,
++	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
++};
++
++static int __init register_perf_event_array_map(void)
++{
++	bpf_register_map_type(&perf_event_array_type);
++	return 0;
++}
++late_initcall(register_perf_event_array_map);
+-- 
+1.8.3.4
