@@ -1,71 +1,27 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [RFC PATCH] net: ipv4: increase dhcp inter device timeout
-Date: Fri, 07 Aug 2015 16:15:46 +0900
-Message-ID: <55C45B22.1090909@miraclelinux.com>
-References: <1438928970-23908-1-git-send-email-mugunthanvnm@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+ 2015-08-05
+Date: Fri, 07 Aug 2015 00:19:27 -0700 (PDT)
+Message-ID: <20150807.001927.1930805230852362414.davem@davemloft.net>
+References: <1438818735-38115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	"David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:36579 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752261AbbHGHPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 03:15:51 -0400
-Received: by pdco4 with SMTP id o4so42056180pdc.3
-        for <netdev@vger.kernel.org>; Fri, 07 Aug 2015 00:15:50 -0700 (PDT)
-In-Reply-To: <1438928970-23908-1-git-send-email-mugunthanvnm@ti.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46630 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755066AbbHGHT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 03:19:28 -0400
+In-Reply-To: <1438818735-38115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  5 Aug 2015 16:52:00 -0700
 
-Mugunthan V N wrote:
-> When a system has multiple ethernet devices and during DHCP
-> request (for using NFS), the system waits only for HZ/2 which is
-> 500mS before switching to another interface for DHCP.
-> 
-> There are some routers (Ex: Trendnet routers) which responds to
-> DHCP request at about 560mS. When the system has only one
-> ethernet interface there is no issue as the timeout is 2S and the
-> dev xid doesn't change and only retries.
-> 
-> But when the system has multiple Ethernet like DRA74x with CPSW
-> in dual EMAC mode, the DHCP response is dropped as the dev xid
-> changes while shifting to the next device. So changing inter
-> device timeout to HZ (which is 1S).
-> 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
->  net/ipv4/ipconfig.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-> index 8e7328c..bdb8cb5 100644
-> --- a/net/ipv4/ipconfig.c
-> +++ b/net/ipv4/ipconfig.c
-> @@ -94,7 +94,7 @@
->  /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
->  #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
->  #define CONF_SEND_RETRIES 	6	/* Send six requests per open */
-> -#define CONF_INTER_TIMEOUT	(HZ/2)	/* Inter-device timeout: 1/2 second */
-> +#define CONF_INTER_TIMEOUT	(HZ)	/* Inter-device timeout: 1/2 second */
+> This series contains updates to i40e, i40evf and e1000e.
 
-You should update comment as well at least.
-
---yoshfuji
-
->  #define CONF_BASE_TIMEOUT	(HZ*2)	/* Initial timeout: 2 seconds */
->  #define CONF_TIMEOUT_RANDOM	(HZ)	/* Maximum amount of randomization */
->  #define CONF_TIMEOUT_MULT	*7/4	/* Rate of timeout growth */
-> 
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Pulled, thanks Jeff.
