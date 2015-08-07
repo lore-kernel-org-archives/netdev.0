@@ -1,69 +1,59 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in ovs_vport_receive()
-Date: Fri, 7 Aug 2015 15:07:31 -0700
-Message-ID: <CAEP_g=9yD+m7WadLXdvJmd84Mwwrpu5mCy=S_8q7O16DE05_2Q@mail.gmail.com>
-References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
- <1438279963-29563-2-git-send-email-joestringer@nicira.com>
- <1438353294.20479.7.camel@redhat.com> <CANr6G5zsh2DUDBrZpQBpFO_GggvPa4ztdwDxRQuByzwU-S-FUg@mail.gmail.com>
- <20150801191741.GA13837@pox.localdomain> <CANr6G5xF8XFr_6PDimR5YrYr=o=CDAJnfT3Op1R1WJ3wRcuDhw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v4, 0/9] Freescale DPAA FMan
+Date: Fri, 07 Aug 2015 15:31:02 -0700 (PDT)
+Message-ID: <20150807.153102.533553009548852567.davem@davemloft.net>
+References: <1438766725-8053-1-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Justin Pettit <jpettit@nicira.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>,
-	Florian Westphal <fwestpha@redhat.com>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, scottwood@freescale.com,
+	madalin.bucur@freescale.com, pebolle@tiscali.nl,
+	joakim.tjernlund@transmode.se, ppc@mindchasers.com,
+	stephen@networkplumber.org
+To: igal.liberman@freescale.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANr6G5xF8XFr_6PDimR5YrYr=o=CDAJnfT3Op1R1WJ3wRcuDhw@mail.gmail.com>
+In-Reply-To: <1438766725-8053-1-git-send-email-igal.liberman@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 4, 2015 at 9:40 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> On 1 August 2015 at 12:17, Thomas Graf <tgraf@suug.ch> wrote:
->> On 07/31/15 at 10:51am, Joe Stringer wrote:
->>> On 31 July 2015 at 07:34, Hannes Frederic Sowa <hannes@redhat.com> wrote:
->>> > In general, this shouldn't be necessary as the packet should already be
->>> > scrubbed before they arrive here.
->>> >
->>> > Could you maybe add a WARN_ON and check how those skbs with conntrack
->>> > data traverse the stack? I also didn't understand why make it dependent
->>> > on the socket.
->>>
->>> OK, sure. One case I could think of is with an OVS internal port in
->>> another namespace, directly attached to the bridge. I'll have a play
->>> around with WARN_ON and see if I can come up with something more
->>> trimmed down.
->>
->> The OVS internal port will definitely pass through an unscrubbed
->> packet across namespaces. I think the proper thing to do would be
->> to scrub but conditionally keep metadata.
->
-> It's only "unscrubbed" when receiving from local stack at the moment.
-> Some pieces are cleared when handing towards the local stack, and
-> there's no configuration for that behaviour. Presumably internal port
-> transmit and receive should mirror each other?
->
-> I don't have a specific use case either way. The remaining code for
-> this series handles this case correctly, it's just a matter of what
-> behaviour we're looking for. We could implement the flag as you say, I
-> presume that userspace would need to specify this during vport
-> creation and the default should work similar to the existing behaviour
-> (ie, keep metadata). One thing that's not entirely clear to me is
-> exactly which metadata should be represented by this flag and whether
-> the single flag is expressive enough.
+From: <igal.liberman@freescale.com>
+Date: Wed, 5 Aug 2015 12:25:16 +0300
 
-I would prefer not to have a flag as it seems unnecessarily
-complicated (doubly so if we try to have multiple flags to express
-different combinations). The use case for moving internal ports to
-different namespaces is pretty narrow, so it seems like we can just
-pick a set of metadata to keep and go with that. Mark seems the
-primary one to me.
+> The Freescale Data Path Acceleration Architecture (DPAA)
+> is a set of hardware components on specific QorIQ multicore processors.
+> This architecture provides the infrastructure to support simplified
+> sharing of networking interfaces and accelerators by multiple CPU cores
+> and the accelerators.
 
-I also think that it would be better to use skb->dev to determine the
-original namespace rather than the socket.
+I think the directory and code structure of this new driver is
+quite excessive.
+
+Because you've split things up _so_ much, you have to have
+all of these directories, and even worse and much more important
+to me you have to export so many functions from one source file
+to another.
+
+I think this is way too much.
+
+For example, in one file you have a bunch of initialization routines.
+init_a(), init_b(), init_c(), and you export them all.  Then they
+are always called in sequence:
+
+	init_a();
+	init_b();
+	init_c();
+
+This is completely pointless.  You just needed to export one
+function which calls all three functions.
+
+The namespace pollution of this driver is out of control.
+
+You really need to completely rework the architecture and
+layout of this driver before I will even begin to review it
+again.
+
+And the lack of review interest by other developers should be an
+indication to you how undesirable this code submission is to read.
+
+Thanks.
