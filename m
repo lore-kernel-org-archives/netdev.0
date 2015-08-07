@@ -1,59 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v4, 0/9] Freescale DPAA FMan
-Date: Fri, 07 Aug 2015 15:31:02 -0700 (PDT)
-Message-ID: <20150807.153102.533553009548852567.davem@davemloft.net>
-References: <1438766725-8053-1-git-send-email-igal.liberman@freescale.com>
+Subject: Re: [PATCH net-next] r8169:Issues on alloc memory
+Date: Fri, 07 Aug 2015 15:35:14 -0700 (PDT)
+Message-ID: <20150807.153514.763798776089518142.davem@davemloft.net>
+References: <1438789277-4468-1-git-send-email-corcodel.marian@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, scottwood@freescale.com,
-	madalin.bucur@freescale.com, pebolle@tiscali.nl,
-	joakim.tjernlund@transmode.se, ppc@mindchasers.com,
-	stephen@networkplumber.org
-To: igal.liberman@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438766725-8053-1-git-send-email-igal.liberman@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: corcodel.marian@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51455 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946300AbbHGWfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 18:35:15 -0400
+In-Reply-To: <1438789277-4468-1-git-send-email-corcodel.marian@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <igal.liberman@freescale.com>
-Date: Wed, 5 Aug 2015 12:25:16 +0300
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Date: Wed,  5 Aug 2015 18:41:17 +0300
 
-> The Freescale Data Path Acceleration Architecture (DPAA)
-> is a set of hardware components on specific QorIQ multicore processors.
-> This architecture provides the infrastructure to support simplified
-> sharing of networking interfaces and accelerators by multiple CPU cores
-> and the accelerators.
+> +#define R8169_TX_RING_BYTES	(NUM_ARRAYS_MAX * sizeof(struct TxDesc)) /* here sizeof not reporting correct */
+> +#define R8169_RX_RING_BYTES	(NUM_ARRAYS_MAX * sizeof(struct RxDesc)) /* here sizeof not reporting correct */
 
-I think the directory and code structure of this new driver is
-quite excessive.
+This comment makes the code more confusing rather than easier to
+understand.
 
-Because you've split things up _so_ much, you have to have
-all of these directories, and even worse and much more important
-to me you have to export so many functions from one source file
-to another.
+In fact I fail to see the reason for this patch, as a whole, at all.
 
-I think this is way too much.
+I hate to do this, but I am explitly letting you know that I am not going
+to invest any more time reviewing any submissions you make.
 
-For example, in one file you have a bunch of initialization routines.
-init_a(), init_b(), init_c(), and you export them all.  Then they
-are always called in sequence:
+They are all poorly formed, lack proper complete explanations, are
+buggy, or add no value at all to the driver.
 
-	init_a();
-	init_b();
-	init_c();
-
-This is completely pointless.  You just needed to export one
-function which calls all three functions.
-
-The namespace pollution of this driver is out of control.
-
-You really need to completely rework the architecture and
-layout of this driver before I will even begin to review it
-again.
-
-And the lack of review interest by other developers should be an
-indication to you how undesirable this code submission is to read.
-
-Thanks.
+And the situation is not improving.  This has been going on for several
+weeks now, and I have to draw the line somewhere.
