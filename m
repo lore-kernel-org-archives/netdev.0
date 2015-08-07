@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 8/9] dpaa_eth: add debugfs entries
-Date: Fri, 07 Aug 2015 15:37:16 -0700 (PDT)
-Message-ID: <20150807.153716.1393797980617992919.davem@davemloft.net>
-References: <1438789289-16304-1-git-send-email-madalin.bucur@freescale.com>
-	<1438789289-16304-9-git-send-email-madalin.bucur@freescale.com>
+Subject: Re: pull request [net]: batman-adv fixes 20150805
+Date: Fri, 07 Aug 2015 15:51:51 -0700 (PDT)
+Message-ID: <20150807.155151.1428466502655261225.davem@davemloft.net>
+References: <1438779107-12665-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, scottwood@freescale.com,
-	igal.liberman@freescale.com, ppc@mindchasers.com, joe@perches.com,
-	pebolle@tiscali.nl, joakim.tjernlund@transmode.se
-To: madalin.bucur@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438789289-16304-9-git-send-email-madalin.bucur@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51527 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946320AbbHGWvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 18:51:52 -0400
+In-Reply-To: <1438779107-12665-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Date: Wed, 5 Aug 2015 18:41:28 +0300
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Wed,  5 Aug 2015 14:51:43 +0200
 
-> Export per CPU counters through debugfs.
-> 
-> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+>   git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
 
-This is absolutely inappropriate.
-
-You can export these just fine via ethtool statistics.  There is zero reason
-to add ugly debugfs crap for something like this.
+Pulled and queued up for -stable, thanks.
