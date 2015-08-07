@@ -1,40 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/mlx5_core: Set log_uar_page_sz for non 4K
- page size architecture
-Date: Fri, 07 Aug 2015 15:56:10 -0700 (PDT)
-Message-ID: <20150807.155610.1947602025967878982.davem@davemloft.net>
-References: <1438790732-29819-1-git-send-email-clsoto@linux.vnet.ibm.com>
-	<55C33E77.2090005@mellanox.com>
+Subject: Re: [PATCH net-next] net: Fix race condition in store_rps_map
+Date: Fri, 07 Aug 2015 15:57:26 -0700 (PDT)
+Message-ID: <20150807.155726.1475197462744121004.davem@davemloft.net>
+References: <1438792767-76704-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: clsoto@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	brking@linux.vnet.ibm.com, eli@mellanox.com, majd@mellanox.com
-To: amirv@mellanox.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51536 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51560 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946320AbbHGW4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 18:56:11 -0400
-In-Reply-To: <55C33E77.2090005@mellanox.com>
+	with ESMTP id S1946356AbbHGW51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 18:57:27 -0400
+In-Reply-To: <1438792767-76704-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Thu, 6 Aug 2015 14:01:11 +0300
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 5 Aug 2015 09:39:27 -0700
 
-> On 8/5/2015 7:05 PM, clsoto@linux.vnet.ibm.com wrote:
->> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
->> 
->> failed to configure the page size for architectures with page size
->> different than 4K.
->> 
->> Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
->> ---
+> There is a race condition in store_rps_map that allows jump label
+> count in rps_needed to go below zero. This can happen when
+> concurrently attempting to set and a clear map.
 > 
-> Please pull this patch into kernel 4.2
+> Scenario:
 > 
-> Fixes: 938fe83 ("net/mlx5_core: New device capabilities handling")
-> Acked-by: Amir Vadai <amirv@mellanox.com>
+> 1. rps_needed count is zero
+> 2. New map is assigned by setting thread, but rps_needed count _not_ yet
+>    incremented (rps_needed count still zero)
+> 2. Map is cleared by second thread, old_map set to that just assigned
+> 3. Second thread performs static_key_slow_dec, rps_needed count now goes
+>    negative
+> 
+> Fix is to increment or decrement rps_needed under the spinlock.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Applied to 'net', thanks.
+Applied, thanks Tom.
