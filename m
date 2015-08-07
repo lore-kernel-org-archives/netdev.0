@@ -1,227 +1,37 @@
-From: Graeme Gregory <gg@slimlogic.co.uk>
-Subject: Re: [PATCH 2/2] net, thunder, bgx: Add support for ACPI binding.
-Date: Fri, 7 Aug 2015 15:54:14 +0100
-Message-ID: <20150807145414.GA5468@xora-haswell.xora.org.uk>
-References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com>
- <1438907590-29649-3-git-send-email-ddaney.cavm@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	Robert Richter <rrichter@cavium.com>,
-	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
-	David Daney <david.daney@cavium.com>
-To: David Daney <ddaney.cavm@gmail.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1438907590-29649-3-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-acpi-owner@vger.kernel.org
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: [PATCH] can: flexcan: demote register output to debug level
+Date: Fri,  7 Aug 2015 17:16:03 +0200
+Message-ID: <1438960563-17905-1-git-send-email-l.stach@pengutronix.de>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	patchwork-lst@pengutronix.de
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 06, 2015 at 05:33:10PM -0700, David Daney wrote:
-> From: David Daney <david.daney@cavium.com>
-> 
-> Find out which PHYs belong to which BGX instance in the ACPI way.
-> 
-> Set the MAC address of the device as provided by ACPI tables. This is
-> similar to the implementation for devicetree in
-> of_get_mac_address(). The table is searched for the device property
-> entries "mac-address", "local-mac-address" and "address" in that
-> order. The address is provided in a u64 variable and must contain a
-> valid 6 bytes-len mac addr.
-> 
-> Based on code from: Narinder Dhillon <ndhillon@cavium.com>
->                     Tomasz Nowicki <tomasz.nowicki@linaro.org>
->                     Robert Richter <rrichter@cavium.com>
-> 
-> Signed-off-by: Tomasz Nowicki <tomasz.nowicki@linaro.org>
-> Signed-off-by: Robert Richter <rrichter@cavium.com>
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->  drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 137 +++++++++++++++++++++-
->  1 file changed, 135 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> index 615b2af..2056583 100644
-> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-> @@ -6,6 +6,7 @@
->   * as published by the Free Software Foundation.
->   */
->  
-> +#include <linux/acpi.h>
->  #include <linux/module.h>
->  #include <linux/interrupt.h>
->  #include <linux/pci.h>
-> @@ -26,7 +27,7 @@
->  struct lmac {
->  	struct bgx		*bgx;
->  	int			dmac;
-> -	unsigned char		mac[ETH_ALEN];
-> +	u8			mac[ETH_ALEN];
->  	bool			link_up;
->  	int			lmacid; /* ID within BGX */
->  	int			lmacid_bd; /* ID on board */
-> @@ -835,6 +836,133 @@ static void bgx_get_qlm_mode(struct bgx *bgx)
->  	}
->  }
->  
-> +#ifdef CONFIG_ACPI
-> +
-> +static int bgx_match_phy_id(struct device *dev, void *data)
-> +{
-> +	struct phy_device *phydev = to_phy_device(dev);
-> +	u32 *phy_id = data;
-> +
-> +	if (phydev->addr == *phy_id)
-> +		return 1;
-> +
-> +	return 0;
-> +}
-> +
-> +static const char * const addr_propnames[] = {
-> +	"mac-address",
-> +	"local-mac-address",
-> +	"address",
-> +};
-> +
-> +static int acpi_get_mac_address(struct acpi_device *adev, u8 *dst)
-> +{
-> +	const union acpi_object *prop;
-> +	u64 mac_val;
-> +	u8 mac[ETH_ALEN];
-> +	int i, j;
-> +	int ret;
-> +
-> +	for (i = 0; i < ARRAY_SIZE(addr_propnames); i++) {
-> +		ret = acpi_dev_get_property(adev, addr_propnames[i],
-> +					    ACPI_TYPE_INTEGER, &prop);
+This message isn't really helpful for the general reader of the kernel
+logs, so should not be printed with info level. All other register
+programming outputs in the flexcan driver already use the debug level.
 
-Shouldn't this be trying to use device_property_read_* API and making
-the DT/ACPI path the same where possible?
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/net/can/flexcan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Graeme
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index ad0a7e8c2c2b..95abd395cb0d 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -797,7 +797,7 @@ static void flexcan_set_bittiming(struct net_device *dev)
+ 	if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
+ 		reg |= FLEXCAN_CTRL_SMP;
+ 
+-	netdev_info(dev, "writing ctrl=0x%08x\n", reg);
++	netdev_dbg(dev, "writing ctrl=0x%08x\n", reg);
+ 	flexcan_write(reg, &regs->ctrl);
+ 
+ 	/* print chip status */
+-- 
+2.4.6
 
-> +		if (ret)
-> +			continue;
-> +
-> +		mac_val = prop->integer.value;
-> +
-> +		if (mac_val & (~0ULL << 48))
-> +			continue;	/* more than 6 bytes */
-> +
-> +		for (j = 0; j < ARRAY_SIZE(mac); j++)
-> +			mac[j] = (u8)(mac_val >> (8 * j));
-> +		if (!is_valid_ether_addr(mac))
-> +			continue;
-> +
-> +		memcpy(dst, mac, ETH_ALEN);
-> +
-> +		return 0;
-> +	}
-> +
-> +	return ret ? ret : -EINVAL;
-> +}
-> +
-> +static acpi_status bgx_acpi_register_phy(acpi_handle handle,
-> +					 u32 lvl, void *context, void **rv)
-> +{
-> +	struct acpi_reference_args args;
-> +	const union acpi_object *prop;
-> +	struct bgx *bgx = context;
-> +	struct acpi_device *adev;
-> +	struct device *phy_dev;
-> +	u32 phy_id;
-> +
-> +	if (acpi_bus_get_device(handle, &adev))
-> +		goto out;
-> +
-> +	SET_NETDEV_DEV(&bgx->lmac[bgx->lmac_count].netdev, &bgx->pdev->dev);
-> +
-> +	acpi_get_mac_address(adev, bgx->lmac[bgx->lmac_count].mac);
-> +
-> +	bgx->lmac[bgx->lmac_count].lmacid = bgx->lmac_count;
-> +
-> +	if (acpi_dev_get_property_reference(adev, "phy-handle", 0, &args))
-> +		goto out;
-> +
-> +	if (acpi_dev_get_property(args.adev, "phy-channel", ACPI_TYPE_INTEGER, &prop))
-> +		goto out;
-> +
-> +	phy_id = prop->integer.value;
-> +
-> +	phy_dev = bus_find_device(&mdio_bus_type, NULL, (void *)&phy_id,
-> +				  bgx_match_phy_id);
-> +	if (!phy_dev)
-> +		goto out;
-> +
-> +	bgx->lmac[bgx->lmac_count].phydev = to_phy_device(phy_dev);
-> +out:
-> +	bgx->lmac_count++;
-> +	return AE_OK;
-> +}
-> +
-> +static acpi_status bgx_acpi_match_id(acpi_handle handle, u32 lvl,
-> +				     void *context, void **ret_val)
-> +{
-> +	struct acpi_buffer string = { ACPI_ALLOCATE_BUFFER, NULL };
-> +	struct bgx *bgx = context;
-> +	char bgx_sel[5];
-> +
-> +	snprintf(bgx_sel, 5, "BGX%d", bgx->bgx_id);
-> +	if (ACPI_FAILURE(acpi_get_name(handle, ACPI_SINGLE_NAME, &string))) {
-> +		pr_warn("Invalid link device\n");
-> +		return AE_OK;
-> +	}
-> +
-> +	if (strncmp(string.pointer, bgx_sel, 4))
-> +		return AE_OK;
-> +
-> +	acpi_walk_namespace(ACPI_TYPE_DEVICE, handle, 1,
-> +			    bgx_acpi_register_phy, NULL, bgx, NULL);
-> +
-> +	kfree(string.pointer);
-> +	return AE_CTRL_TERMINATE;
-> +}
-> +
-> +static int bgx_init_acpi_phy(struct bgx *bgx)
-> +{
-> +	acpi_get_devices(NULL, bgx_acpi_match_id, bgx, (void **)NULL);
-> +	return 0;
-> +}
-> +
-> +#else
-> +
-> +static int bgx_init_acpi_phy(struct bgx *bgx)
-> +{
-> +	return -ENODEV;
-> +}
-> +
-> +#endif /* CONFIG_ACPI */
-> +
->  #if IS_ENABLED(CONFIG_OF_MDIO)
->  
->  static int bgx_init_of_phy(struct bgx *bgx)
-> @@ -882,7 +1010,12 @@ static int bgx_init_of_phy(struct bgx *bgx)
->  
->  static int bgx_init_phy(struct bgx *bgx)
->  {
-> -	return bgx_init_of_phy(bgx);
-> +	int err = bgx_init_of_phy(bgx);
-> +
-> +	if (err != -ENODEV)
-> +		return err;
-> +
-> +	return bgx_init_acpi_phy(bgx);
->  }
->  
->  static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-> -- 
-> 1.9.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
