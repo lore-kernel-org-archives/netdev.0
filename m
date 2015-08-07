@@ -1,112 +1,213 @@
-From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH net-next] net: add explicit logging and stat for neighbour table overflow
-Date: Fri,  7 Aug 2015 11:10:37 -0700 (PDT)
-Message-ID: <20150807181038.2A32029003CC@tardy>
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hp.com ([15.201.208.53]:3839 "EHLO
-	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945911AbbHGSKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 14:10:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH 2/2] net, thunder, bgx: Add support for ACPI binding.
+Date: Fri, 7 Aug 2015 11:14:47 -0700
+Message-ID: <55C4F597.50103@caviumnetworks.com>
+References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com> <1438907590-29649-3-git-send-email-ddaney.cavm@gmail.com> <20150807145414.GA5468@xora-haswell.xora.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <ddaney.cavm@gmail.com>, <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>, <linux-mips@linux-mips.org>,
+	Robert Richter <rrichter@cavium.com>,
+	"Tomasz Nowicki" <tomasz.nowicki@linaro.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-acpi@vger.kernel.org>,
+	"David Daney" <david.daney@cavium.com>
+To: Graeme Gregory <gg@slimlogic.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150807145414.GA5468@xora-haswell.xora.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
+On 08/07/2015 07:54 AM, Graeme Gregory wrote:
+> On Thu, Aug 06, 2015 at 05:33:10PM -0700, David Daney wrote:
+>> From: David Daney <david.daney@cavium.com>
+>>
+>> Find out which PHYs belong to which BGX instance in the ACPI way.
+>>
+>> Set the MAC address of the device as provided by ACPI tables. This is
+>> similar to the implementation for devicetree in
+>> of_get_mac_address(). The table is searched for the device property
+>> entries "mac-address", "local-mac-address" and "address" in that
+>> order. The address is provided in a u64 variable and must contain a
+>> valid 6 bytes-len mac addr.
+>>
+>> Based on code from: Narinder Dhillon <ndhillon@cavium.com>
+>>                      Tomasz Nowicki <tomasz.nowicki@linaro.org>
+>>                      Robert Richter <rrichter@cavium.com>
+>>
+>> Signed-off-by: Tomasz Nowicki <tomasz.nowicki@linaro.org>
+>> Signed-off-by: Robert Richter <rrichter@cavium.com>
+>> Signed-off-by: David Daney <david.daney@cavium.com>
+>> ---
+>>   drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 137 +++++++++++++++++++++-
+>>   1 file changed, 135 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+>> index 615b2af..2056583 100644
+>> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+>> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+[...]
+>> +
+>> +static int acpi_get_mac_address(struct acpi_device *adev, u8 *dst)
+>> +{
+>> +	const union acpi_object *prop;
+>> +	u64 mac_val;
+>> +	u8 mac[ETH_ALEN];
+>> +	int i, j;
+>> +	int ret;
+>> +
+>> +	for (i = 0; i < ARRAY_SIZE(addr_propnames); i++) {
+>> +		ret = acpi_dev_get_property(adev, addr_propnames[i],
+>> +					    ACPI_TYPE_INTEGER, &prop);
+>
+> Shouldn't this be trying to use device_property_read_* API and making
+> the DT/ACPI path the same where possible?
+>
 
-Add an explicit neighbour table overflow message (ratelimited) and
-statistic to make diagnosing neighbour table overflows tractable in
-the wild.
+Ideally, something like you suggest would be possible.  However, there 
+are a couple of problems trying to do it in the kernel as it exists today:
 
-Diagnosing a neighbour table overflow can be quite difficult in the wild
-because there is no explicit dmesg logged.  Callers to neighbour code
-seem to use net_dbg_ratelimit when the neighbour call fails which means
-the "base message" is not emitted and the callback suppressed messages
-from the ratelimiting can end-up juxtaposed with unrelated messages.
-Further, a forced garbage collection will increment a stat on each call
-whether it was successful in freeing-up a table entry or not, so that
-statistic is only a hint.  So, add a net_info_ratelimited message and
-explicit statistic to the neighbour code.
+1) There is no 'struct device *' here, so device_property_read_* is not 
+applicable.
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
+2) There is no standard ACPI binding for MAC addresses, so it is 
+impossible to create a hypothetical fw_get_mac_address(), which would be 
+analogous to of_get_mac_address().
 
----
+Other e-mail threads have suggested that the path to an elegant solution 
+is to inter-mix a bunch of calls to acpi_dev_get_property*() and 
+fwnode_property_read*() as to use these more generic 
+fwnode_property_read*() functions whereever possible.  I rejected this 
+approach as it seems cleaner to me to consistently use a single set of APIs.
 
-Tested by cutting back the gc_threshN sysctls and attempting to ping a
-number of target IPs greater than the maximum size of the ARP table.
+Thanks,
+David Daney
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index bd33e66..8b68384 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -125,6 +125,7 @@ struct neigh_statistics {
- 	unsigned long forced_gc_runs;	/* number of forced GC runs */
- 
- 	unsigned long unres_discards;	/* number of unresolved drops */
-+	unsigned long table_fulls;      /* times even gc couldn't help */
- };
- 
- #define NEIGH_CACHE_STAT_INC(tbl, field) this_cpu_inc((tbl)->stats->field)
-diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-index 2e35c61..788655b 100644
---- a/include/uapi/linux/neighbour.h
-+++ b/include/uapi/linux/neighbour.h
-@@ -106,6 +106,7 @@ struct ndt_stats {
- 	__u64		ndts_rcv_probes_ucast;
- 	__u64		ndts_periodic_gc_runs;
- 	__u64		ndts_forced_gc_runs;
-+	__u64		ndts_table_fulls;
- };
- 
- enum {
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 84195da..2b515ba 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -274,8 +274,12 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device
- 	    (entries >= tbl->gc_thresh2 &&
- 	     time_after(now, tbl->last_flush + 5 * HZ))) {
- 		if (!neigh_forced_gc(tbl) &&
--		    entries >= tbl->gc_thresh3)
-+		    entries >= tbl->gc_thresh3) {
-+			net_info_ratelimited("%s: neighbor table overflow!\n",
-+					     tbl->id);
-+			NEIGH_CACHE_STAT_INC(tbl, table_fulls);
- 			goto out_entries;
-+		}
- 	}
- 
- 	n = kzalloc(tbl->entry_size + dev->neigh_priv_len, GFP_ATOMIC);
-@@ -1849,6 +1853,7 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
- 			ndst.ndts_rcv_probes_ucast	+= st->rcv_probes_ucast;
- 			ndst.ndts_periodic_gc_runs	+= st->periodic_gc_runs;
- 			ndst.ndts_forced_gc_runs	+= st->forced_gc_runs;
-+			ndst.ndts_table_fulls		+= st->table_fulls;
- 		}
- 
- 		if (nla_put(skb, NDTA_STATS, sizeof(ndst), &ndst))
-@@ -2717,12 +2722,12 @@ static int neigh_stat_seq_show(struct seq_file *seq, void *v)
- 	struct neigh_statistics *st = v;
- 
- 	if (v == SEQ_START_TOKEN) {
--		seq_printf(seq, "entries  allocs destroys hash_grows  lookups hits  res_failed  rcv_probes_mcast rcv_probes_ucast  periodic_gc_runs forced_gc_runs unresolved_discards\n");
-+		seq_printf(seq, "entries  allocs destroys hash_grows  lookups hits  res_failed  rcv_probes_mcast rcv_probes_ucast  periodic_gc_runs forced_gc_runs unresolved_discards table_fulls\n");
- 		return 0;
- 	}
- 
- 	seq_printf(seq, "%08x  %08lx %08lx %08lx  %08lx %08lx  %08lx  "
--			"%08lx %08lx  %08lx %08lx %08lx\n",
-+			"%08lx %08lx  %08lx %08lx %08lx %08lx\n",
- 		   atomic_read(&tbl->entries),
- 
- 		   st->allocs,
-@@ -2739,7 +2744,8 @@ static int neigh_stat_seq_show(struct seq_file *seq, void *v)
- 
- 		   st->periodic_gc_runs,
- 		   st->forced_gc_runs,
--		   st->unres_discards
-+		   st->unres_discards,
-+		   st->table_fulls
- 		   );
- 
- 	return 0;
+
+
+> Graeme
+>
+>> +		if (ret)
+>> +			continue;
+>> +
+>> +		mac_val = prop->integer.value;
+>> +
+>> +		if (mac_val & (~0ULL << 48))
+>> +			continue;	/* more than 6 bytes */
+>> +
+>> +		for (j = 0; j < ARRAY_SIZE(mac); j++)
+>> +			mac[j] = (u8)(mac_val >> (8 * j));
+>> +		if (!is_valid_ether_addr(mac))
+>> +			continue;
+>> +
+>> +		memcpy(dst, mac, ETH_ALEN);
+>> +
+>> +		return 0;
+>> +	}
+>> +
+>> +	return ret ? ret : -EINVAL;
+>> +}
+>> +
+>> +static acpi_status bgx_acpi_register_phy(acpi_handle handle,
+>> +					 u32 lvl, void *context, void **rv)
+>> +{
+>> +	struct acpi_reference_args args;
+>> +	const union acpi_object *prop;
+>> +	struct bgx *bgx = context;
+>> +	struct acpi_device *adev;
+>> +	struct device *phy_dev;
+>> +	u32 phy_id;
+>> +
+>> +	if (acpi_bus_get_device(handle, &adev))
+>> +		goto out;
+>> +
+>> +	SET_NETDEV_DEV(&bgx->lmac[bgx->lmac_count].netdev, &bgx->pdev->dev);
+>> +
+>> +	acpi_get_mac_address(adev, bgx->lmac[bgx->lmac_count].mac);
+>> +
+>> +	bgx->lmac[bgx->lmac_count].lmacid = bgx->lmac_count;
+>> +
+>> +	if (acpi_dev_get_property_reference(adev, "phy-handle", 0, &args))
+>> +		goto out;
+>> +
+>> +	if (acpi_dev_get_property(args.adev, "phy-channel", ACPI_TYPE_INTEGER, &prop))
+>> +		goto out;
+>> +
+>> +	phy_id = prop->integer.value;
+>> +
+>> +	phy_dev = bus_find_device(&mdio_bus_type, NULL, (void *)&phy_id,
+>> +				  bgx_match_phy_id);
+>> +	if (!phy_dev)
+>> +		goto out;
+>> +
+>> +	bgx->lmac[bgx->lmac_count].phydev = to_phy_device(phy_dev);
+>> +out:
+>> +	bgx->lmac_count++;
+>> +	return AE_OK;
+>> +}
+>> +
+>> +static acpi_status bgx_acpi_match_id(acpi_handle handle, u32 lvl,
+>> +				     void *context, void **ret_val)
+>> +{
+>> +	struct acpi_buffer string = { ACPI_ALLOCATE_BUFFER, NULL };
+>> +	struct bgx *bgx = context;
+>> +	char bgx_sel[5];
+>> +
+>> +	snprintf(bgx_sel, 5, "BGX%d", bgx->bgx_id);
+>> +	if (ACPI_FAILURE(acpi_get_name(handle, ACPI_SINGLE_NAME, &string))) {
+>> +		pr_warn("Invalid link device\n");
+>> +		return AE_OK;
+>> +	}
+>> +
+>> +	if (strncmp(string.pointer, bgx_sel, 4))
+>> +		return AE_OK;
+>> +
+>> +	acpi_walk_namespace(ACPI_TYPE_DEVICE, handle, 1,
+>> +			    bgx_acpi_register_phy, NULL, bgx, NULL);
+>> +
+>> +	kfree(string.pointer);
+>> +	return AE_CTRL_TERMINATE;
+>> +}
+>> +
+>> +static int bgx_init_acpi_phy(struct bgx *bgx)
+>> +{
+>> +	acpi_get_devices(NULL, bgx_acpi_match_id, bgx, (void **)NULL);
+>> +	return 0;
+>> +}
+>> +
+>> +#else
+>> +
+>> +static int bgx_init_acpi_phy(struct bgx *bgx)
+>> +{
+>> +	return -ENODEV;
+>> +}
+>> +
+>> +#endif /* CONFIG_ACPI */
+>> +
+>>   #if IS_ENABLED(CONFIG_OF_MDIO)
+>>
+>>   static int bgx_init_of_phy(struct bgx *bgx)
+>> @@ -882,7 +1010,12 @@ static int bgx_init_of_phy(struct bgx *bgx)
+>>
+>>   static int bgx_init_phy(struct bgx *bgx)
+>>   {
+>> -	return bgx_init_of_phy(bgx);
+>> +	int err = bgx_init_of_phy(bgx);
+>> +
+>> +	if (err != -ENODEV)
+>> +		return err;
+>> +
+>> +	return bgx_init_acpi_phy(bgx);
+>>   }
+>>
+>>   static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>> --
+>> 1.9.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
