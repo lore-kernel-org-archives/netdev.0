@@ -1,177 +1,62 @@
-From: Zang MingJie <zealot0630@gmail.com>
-Subject: Re: [BUG] net/ipv4: inconsistent routing table
-Date: Fri, 7 Aug 2015 04:23:53 -0400
-Message-ID: <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
-References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
- <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com>
- <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com> <55C3B8C8.9030507@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55C3B8C8.9030507@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net] ipv6: don't reject link-local nexthop on other interface
+Date: Fri,  7 Aug 2015 10:54:28 +0200
+Message-ID: <1438937668-12757-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45901 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751837AbbHGIyk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 04:54:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-IMO, the routing decision is determined, given a specific routing
-table and local network the result MUST be determined, independence of
-how/what order the routing entry is added.
+48ed7b26faa7 ("ipv6: reject locally assigned nexthop addresses") is too
+strict; it rejects following corner-case:
 
-Now there are two ways to configure the system resulting EXACTLY the
-same routing table and local addresses, but the routing decision is
-totally different.
+ip -6 route add default via fe80::1:2:3 dev eth1
 
-SAME routing table, DIFFERENT routing decision, there MUST be bugs in kernel.
+[ where fe80::1:2:3 is assigned to a local interface, but not eth1 ]
 
-On Thu, Aug 6, 2015 at 3:43 PM, Alexander Duyck
-<alexander.h.duyck@redhat.com> wrote:
-> On 08/06/2015 03:13 AM, Zang MingJie wrote:
->>
->> On Thu, Aug 6, 2015 at 1:45 AM, Alexander Duyck
->> <alexander.duyck@gmail.com> wrote:
->>>
->>> On 08/05/2015 02:06 AM, Daniel Borkmann wrote:
->>>>
->>>>
->>>> [ please cc netdev ]
->>>>
->>>> On 08/05/2015 10:56 AM, Zang MingJie wrote:
->>>>>
->>>>>
->>>>> Hi:
->>>>>
->>>>> I found a bug when remove an ip address which is referenced by a
->>>>> routing
->>>>> entry.
->>>>>
->>>>> step to reproduce:
->>>>>
->>>>> ip li add type dummy
->>>>> ip li set dummy0 up
->>>>> ip ad add 10.0.0.1/24 dev dummy0
->>>>> ip ad add 10.0.0.2/24 dev dummy0
->>>
->>>
->>>
->>> Okay, so up to this point you have 2 addresses on the same subnet that
->>> are
->>> now on dummy0.
->>>
->>>>> ip ro add default via 10.0.0.2/24
->>>
->>>
->>>
->>> This makes the default route go through 10.0.0.2.
->>>
->>>>> ip ad del 10.0.0.2/24 dev dummy0
->>>
->>>
->>>
->>> Then you remove 10.0.0.2 from the local system, however since 10.0.0.1 is
->>> on
->>> the same subnet dummy0 would still be the correct interface to access
->>> 10.0.0.2 it is just no longer local to the system.
->>>
->>>>> after deleting the secondary ip address, the routing entry still
->>>>> pointing to 10.0.0.2
->>>
->>>
->>>
->>> You didn't delete the default routing entry so why would you expect it to
->>> change?  All you did is remove 10.0.0.2 from the local system.  I believe
->>> the assumption is that 10.0.0.2 is still out there somewhere, it just
->>> isn't
->>> on the local system anymore.
->>
->>
->> Yes, 10.0.0.2 is migrated to somewhere else
->
->
-> The address might have migrated, but the interface is still up and 10.0.0.1
-> is still present on the same subnet.  Because you made a local address the
-> default gateway the assumption is any routes not specifically called out on
-> other interfaces are directly accessible to this interface.
->
-> The bug indicates that the kernel is doing something to make the table
-> inconsistent, but a default route that is a local interface address does
-> essentially the same thing.
->
->>>
->>>>> # ip ro
->>>>> default via 10.0.0.2 dev dummy0
->>>>> 10.0.0.0/24 dev dummy0  proto kernel  scope link  src 10.0.0.1
->>>
->>>
->>>
->>> This matches up with what I would expect.  10.0.0.2 is the default
->>> gateway
->>> and it is accessible from dummy0 since 10.0.0.0/24 is accessible from
->>> dummy0.
->>
->>
->> This means 0.0.0.0/0 is accessible via 10.0.0.2 on the network of dummy0
->
->
-> Yes, but at the time you specified it 10.0.0.2 was a local address which
-> belonged to dummy0.  This means that dummy0 can access anything not
-> specified elsewhere via pretty much any address it wants.  So it is
-> perfectly valid if it wants to use a source address of 10.0.0.1 to send
-> packets to 1.1.1.1 over dummy0.
->
->>>
->>>>> but actually, kernel considers the default route is directly connected.
->>>>>
->>>>> # ip ro get 1.1.1.1
->>>>> 1.1.1.1 dev dummy0  src 10.0.0.1
->>>>>       cache
->>>
->>>
->>>
->>> I'm not sure how you came to the "directly connected" conclusion. It is
->>> still routing things out through 10.0.0.2 from 10.0.0.1.
->>>
->>> Maybe your example would work better if you used 10.0.0.1 and 10.0.1.1
->>> instead.  Then I think you might be able to better see that when you
->>> delete
->>> the second address the route would be broken.
->>
->>
->> No, it isn't. when ping 1.1.1.1, kernel will directly send arp request
->> braodcast to 1.1.1.1, this is not what I expect. it should send arp
->> request to 10.0.0.2, following should be the correct routing entry:
->>
->> # ip ro get 1.1.1.1
->> 1.1.1.1 via 10.0.0.2 dev dummy0  src 10.0.0.1
->>      cache
->
->
-> I see what you are trying to say, but the example provided is a bit lacking.
-> Assuming you could ping 1.1.1.1 via dummy0 before with 10.0.0.2 as your
-> default gateway, that shouldn't change if 10.0.0.2 is migrated to another
-> address.  That is, unless there is an issue on the system 10.0.0.2 was
-> migrated to.
->
-> Now if I move away from using dummy interface and instead using a real
-> network interface things can get a bit more interesting.  So if we follow
-> your example and use 2 different subnets on the two systems then pings
-> continue to work after we remove the addresses.  However if we flip things a
-> bit and add the default route, and then the local address for the gateway
-> they don't.  So something like below:
->         ip li set eth0 up
->         ip ad add 10.0.0.1/24 dev eth0
->         ip ro add default via 10.0.0.2
->         ip ad add 10.0.0.2/24 dev eth0
->
-> What you end up with is eth0 sending arp requests looking for 10.0.0.2 even
-> though it is a local address on the system.
->
-> My question would be what is the correct behavior for this?  If a local
-> address is removed or added that is being used as a gateway address should
-> we delete the route, or update the scope of the next hop?
->
-> - Alex
+Fix this by restricting search to given device if nh is linklocal.
+
+Joint work with Hannes Frederic Sowa.
+
+Fixes: 48ed7b26faa7 ("ipv6: reject locally assigned nexthop addresses")
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv6/route.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6090969..9de4d2b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1831,6 +1831,7 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		int gwa_type;
+ 
+ 		gw_addr = &cfg->fc_gateway;
++		gwa_type = ipv6_addr_type(gw_addr);
+ 
+ 		/* if gw_addr is local we will fail to detect this in case
+ 		 * address is still TENTATIVE (DAD in progress). rt6_lookup()
+@@ -1838,11 +1839,12 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		 * prefix route was assigned to, which might be non-loopback.
+ 		 */
+ 		err = -EINVAL;
+-		if (ipv6_chk_addr_and_flags(net, gw_addr, NULL, 0, 0))
++		if (ipv6_chk_addr_and_flags(net, gw_addr,
++					    gwa_type & IPV6_ADDR_LINKLOCAL ?
++					    dev : NULL, 0, 0))
+ 			goto out;
+ 
+ 		rt->rt6i_gateway = *gw_addr;
+-		gwa_type = ipv6_addr_type(gw_addr);
+ 
+ 		if (gwa_type != (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST)) {
+ 			struct rt6_info *grt;
+-- 
+2.0.5
