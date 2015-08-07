@@ -1,39 +1,62 @@
-From: Su Kang Yin <cantona@cantona.net>
-Subject: [PATCH] mac80211_hwsim: unregister genetlink family properly
-Date: Fri,  7 Aug 2015 16:54:10 +0800
-Message-ID: <1438937650-361-1-git-send-email-cantona@cantona.net>
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Su Kang Yin <cantona@cantona.net>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <shh.xie@gmail.com>
+Subject: [PATCH] net: phy: select copper mode when Marvel 88e1111 in SGMII
+Date: Fri, 7 Aug 2015 17:07:50 +0800
+Message-ID: <1438938470-5776-1-git-send-email-shh.xie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Madalin Bucur <madalin.bucur@freescale.com>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0095.outbound.protection.outlook.com ([65.55.169.95]:60614
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751776AbbHGJNX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Aug 2015 05:13:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-During hwsim_init_netlink(), we should call genl_unregister_family()
-if failed on netlink_register_notifier() since the genetlink is
-already registered.
+From: Madalin Bucur <madalin.bucur@freescale.com>
 
-Signed-off-by: Su Kang Yin <cantona@cantona.net>
+For the Marvel 88e1111 PHY only two SGMII modes are available, both
+allowing only SGMII to copper mode (with or without clock). SGMII
+to fiber mode is not supported. Make sure the fiber/copper registers
+selector bits are cleared for selecting copper mode.
+
+Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
 ---
- drivers/net/wireless/mac80211_hwsim.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/phy/marvell.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index 99e873d..16d953e 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -3120,8 +3120,10 @@ static int hwsim_init_netlink(void)
- 		goto failure;
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 3320a17..e6897b6 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -52,6 +52,7 @@
+ #define MII_M1011_PHY_SCR_MDI_X		0x0020
+ #define MII_M1011_PHY_SCR_AUTO_CROSS	0x0060
  
- 	rc = netlink_register_notifier(&hwsim_netlink_notifier);
--	if (rc)
-+	if (rc) {
-+		genl_unregister_family(&hwsim_genl_family);
- 		goto failure;
-+	}
++#define MII_M1145_PHY_EXT_ADDR_PAGE	0x16
+ #define MII_M1145_PHY_EXT_SR		0x1b
+ #define MII_M1145_PHY_EXT_CR		0x14
+ #define MII_M1145_RGMII_RX_DELAY	0x0080
+@@ -552,6 +553,16 @@ static int m88e1111_config_init(struct phy_device *phydev)
+ 		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
+ 		if (err < 0)
+ 			return err;
++
++		/* make sure copper is selected */
++		err = phy_read(phydev, MII_M1145_PHY_EXT_ADDR_PAGE);
++		if (err < 0)
++			return err;
++
++		err = phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE,
++				err & (~0xff));
++		if (err < 0)
++			return err;
+ 	}
  
- 	return 0;
- 
+ 	if (phydev->interface == PHY_INTERFACE_MODE_RTBI) {
 -- 
-1.9.1
+2.1.0.27.g96db324
