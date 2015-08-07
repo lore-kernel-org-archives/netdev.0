@@ -1,38 +1,39 @@
-From: Rasesh Mody <rasesh.mody@qlogic.com>
-Subject: RE: [PATCH net] bna: fix interrupts storm caused by erroneous
- packets
-Date: Fri, 7 Aug 2015 18:35:43 +0000
-Message-ID: <2552F74A0BCCBE4DBE2AD218C81B281108518A6A@avmb3.qlogic.org>
-References: <1438894103-10597-1-git-send-email-ivecera@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] vxlan: combine VXLAN_FLOWBASED into
+ VXLAN_COLLECT_METADATA
+Date: Fri, 07 Aug 2015 11:46:45 -0700 (PDT)
+Message-ID: <20150807.114645.2108374064397756373.davem@davemloft.net>
+References: <1438753867-32403-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Ivan Vecera <ivecera@redhat.com>, netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, jesse@nicira.com, pshelar@nicira.com,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:62646 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1946070AbbHGSfr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Aug 2015 14:35:47 -0400
-In-Reply-To: <1438894103-10597-1-git-send-email-ivecera@redhat.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:50247 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946006AbbHGSqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 14:46:46 -0400
+In-Reply-To: <1438753867-32403-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Ivan Vecera [mailto:ivecera@redhat.com]
-> Sent: Thursday, August 06, 2015 1:48 PM
-> 
-> The commit "e29aa33 bna: Enable Multi Buffer RX" moved packets counter
-> increment from the beginning of the NAPI processing loop after the check
-> for erroneous packets so they are never accounted. This counter is used to
-> inform firmware about number of processed completions (packets).
-> As these packets are never acked the firmware fires IRQs for them again and
-> again.
-> 
-> Fixes: e29aa33 bna: Enable Multi Buffer RX
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue,  4 Aug 2015 22:51:07 -0700
 
-Acked-by: Rasesh Mody <rasesh.mody@qlogic.com>
+> IFLA_VXLAN_FLOWBASED is useless without IFLA_VXLAN_COLLECT_METADATA,
+> so combine them into single IFLA_VXLAN_COLLECT_METADATA flag.
+> 'flowbased' doesn't convey real meaning of the vxlan tunnel mode.
+> This mode can be used by routing, tc+bpf and ovs.
+> Only ovs is strictly flow based, so 'collect metadata' is a better
+> name for this tunnel mode.
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> it's not too late to kill uapi IFLA_VXLAN_FLOWBASED, since it
+> was introduced two weeks ago.
+> Alternatively we could rename both into vxlan_accept_metadata
+> or something else, but imo collect_metadata is ok.
 
-Thanks!
-Rasesh
+Applied, thanks.
