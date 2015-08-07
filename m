@@ -1,62 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net] ipv6: don't reject link-local nexthop on other interface
-Date: Fri,  7 Aug 2015 10:54:28 +0200
-Message-ID: <1438937668-12757-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45901 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751837AbbHGIyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 04:54:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Su Kang Yin <cantona@cantona.net>
+Subject: [PATCH] mac80211_hwsim: unregister genetlink family properly
+Date: Fri,  7 Aug 2015 16:54:10 +0800
+Message-ID: <1438937650-361-1-git-send-email-cantona@cantona.net>
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Su Kang Yin <cantona@cantona.net>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-48ed7b26faa7 ("ipv6: reject locally assigned nexthop addresses") is too
-strict; it rejects following corner-case:
+During hwsim_init_netlink(), we should call genl_unregister_family()
+if failed on netlink_register_notifier() since the genetlink is
+already registered.
 
-ip -6 route add default via fe80::1:2:3 dev eth1
-
-[ where fe80::1:2:3 is assigned to a local interface, but not eth1 ]
-
-Fix this by restricting search to given device if nh is linklocal.
-
-Joint work with Hannes Frederic Sowa.
-
-Fixes: 48ed7b26faa7 ("ipv6: reject locally assigned nexthop addresses")
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Su Kang Yin <cantona@cantona.net>
 ---
- net/ipv6/route.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/wireless/mac80211_hwsim.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 6090969..9de4d2b 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1831,6 +1831,7 @@ int ip6_route_add(struct fib6_config *cfg)
- 		int gwa_type;
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index 99e873d..16d953e 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -3120,8 +3120,10 @@ static int hwsim_init_netlink(void)
+ 		goto failure;
  
- 		gw_addr = &cfg->fc_gateway;
-+		gwa_type = ipv6_addr_type(gw_addr);
+ 	rc = netlink_register_notifier(&hwsim_netlink_notifier);
+-	if (rc)
++	if (rc) {
++		genl_unregister_family(&hwsim_genl_family);
+ 		goto failure;
++	}
  
- 		/* if gw_addr is local we will fail to detect this in case
- 		 * address is still TENTATIVE (DAD in progress). rt6_lookup()
-@@ -1838,11 +1839,12 @@ int ip6_route_add(struct fib6_config *cfg)
- 		 * prefix route was assigned to, which might be non-loopback.
- 		 */
- 		err = -EINVAL;
--		if (ipv6_chk_addr_and_flags(net, gw_addr, NULL, 0, 0))
-+		if (ipv6_chk_addr_and_flags(net, gw_addr,
-+					    gwa_type & IPV6_ADDR_LINKLOCAL ?
-+					    dev : NULL, 0, 0))
- 			goto out;
+ 	return 0;
  
- 		rt->rt6i_gateway = *gw_addr;
--		gwa_type = ipv6_addr_type(gw_addr);
- 
- 		if (gwa_type != (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST)) {
- 			struct rt6_info *grt;
 -- 
-2.0.5
+1.9.1
