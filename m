@@ -1,62 +1,96 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH] net: phy: select copper mode when Marvel 88e1111 in SGMII
-Date: Fri, 7 Aug 2015 17:07:50 +0800
-Message-ID: <1438938470-5776-1-git-send-email-shh.xie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Madalin Bucur <madalin.bucur@freescale.com>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2 -next] m_bpf: add frontend support for late binding
+Date: Fri,  7 Aug 2015 11:36:50 +0200
+Message-ID: <6a0435db24466adf0c0f85165e69e98a91183676.1438939738.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, jiri@resnulli.us, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0095.outbound.protection.outlook.com ([65.55.169.95]:60614
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751776AbbHGJNX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Aug 2015 05:13:23 -0400
+Received: from www62.your-server.de ([213.133.104.62]:44138 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751915AbbHGJg5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 05:36:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
+Frontend support for kernel commit a5c90b29e5cc ("act_bpf: properly
+support late binding of bpf action to a classifier").
 
-For the Marvel 88e1111 PHY only two SGMII modes are available, both
-allowing only SGMII to copper mode (with or without clock). SGMII
-to fiber mode is not supported. Make sure the fiber/copper registers
-selector bits are cleared for selecting copper mode.
-
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/phy/marvell.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ tc/m_bpf.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 3320a17..e6897b6 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -52,6 +52,7 @@
- #define MII_M1011_PHY_SCR_MDI_X		0x0020
- #define MII_M1011_PHY_SCR_AUTO_CROSS	0x0060
+diff --git a/tc/m_bpf.c b/tc/m_bpf.c
+index c51f44f..e1bb6a4 100644
+--- a/tc/m_bpf.c
++++ b/tc/m_bpf.c
+@@ -28,7 +28,7 @@ static const enum bpf_prog_type bpf_type = BPF_PROG_TYPE_SCHED_ACT;
  
-+#define MII_M1145_PHY_EXT_ADDR_PAGE	0x16
- #define MII_M1145_PHY_EXT_SR		0x1b
- #define MII_M1145_PHY_EXT_CR		0x14
- #define MII_M1145_RGMII_RX_DELAY	0x0080
-@@ -552,6 +553,16 @@ static int m88e1111_config_init(struct phy_device *phydev)
- 		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
- 		if (err < 0)
- 			return err;
-+
-+		/* make sure copper is selected */
-+		err = phy_read(phydev, MII_M1145_PHY_EXT_ADDR_PAGE);
-+		if (err < 0)
-+			return err;
-+
-+		err = phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE,
-+				err & (~0xff));
-+		if (err < 0)
-+			return err;
+ static void explain(void)
+ {
+-	fprintf(stderr, "Usage: ... bpf ...\n");
++	fprintf(stderr, "Usage: ... bpf ... [ index INDEX ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "BPF use case:\n");
+ 	fprintf(stderr, " bytecode BPF_BYTECODE\n");
+@@ -49,6 +49,9 @@ static void explain(void)
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where UDS_FILE points to a unix domain socket file in order\n");
+ 	fprintf(stderr, "to hand off control of all created eBPF maps to an agent.\n");
++	fprintf(stderr, "\n");
++	fprintf(stderr, "Where optionally INDEX points to an existing action, or\n");
++	fprintf(stderr, "explicitly specifies an action index upon creation.\n");
+ }
+ 
+ static void usage(void)
+@@ -64,6 +67,7 @@ static int parse_bpf(struct action_util *a, int *argc_p, char ***argv_p,
+ 	struct rtattr *tail;
+ 	struct tc_act_bpf parm = { 0 };
+ 	struct sock_filter bpf_ops[BPF_MAXINSNS];
++	bool ebpf_fill = false, bpf_fill = false;
+ 	bool ebpf = false, seen_run = false;
+ 	const char *bpf_uds_name = NULL;
+ 	const char *bpf_sec_name = NULL;
+@@ -148,11 +152,15 @@ opt_bpf:
+ 					 bpf_obj, bpf_sec_name);
+ 
+ 				bpf_fd = ret;
++				ebpf_fill = true;
+ 			} else {
+ 				bpf_len = ret;
++				bpf_fill = true;
+ 			}
+ 		} else if (matches(*argv, "help") == 0) {
+ 			usage();
++		} else if (matches(*argv, "index") == 0) {
++			break;
+ 		} else {
+ 			if (!seen_run)
+ 				goto opt_bpf;
+@@ -200,21 +208,15 @@ opt_bpf:
+ 		}
  	}
  
- 	if (phydev->interface == PHY_INTERFACE_MODE_RTBI) {
+-	if ((!bpf_len && !ebpf) || (!bpf_fd && ebpf)) {
+-		fprintf(stderr, "bpf: Bytecode needs to be passed\n");
+-		explain();
+-		return -1;
+-	}
+-
+ 	tail = NLMSG_TAIL(n);
+ 
+ 	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
+ 	addattr_l(n, MAX_MSG, TCA_ACT_BPF_PARMS, &parm, sizeof(parm));
+ 
+-	if (ebpf) {
++	if (ebpf_fill) {
+ 		addattr32(n, MAX_MSG, TCA_ACT_BPF_FD, bpf_fd);
+ 		addattrstrz(n, MAX_MSG, TCA_ACT_BPF_NAME, bpf_name);
+-	} else {
++	} else if (bpf_fill) {
+ 		addattr16(n, MAX_MSG, TCA_ACT_BPF_OPS_LEN, bpf_len);
+ 		addattr_l(n, MAX_MSG, TCA_ACT_BPF_OPS, &bpf_ops,
+ 			  bpf_len * sizeof(struct sock_filter));
 -- 
-2.1.0.27.g96db324
+1.9.3
