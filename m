@@ -1,33 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2] virtio-net: drop NETIF_F_FRAGLIST
-Date: Fri, 07 Aug 2015 00:13:26 -0700 (PDT)
-Message-ID: <20150807.001326.1062649438183092058.davem@davemloft.net>
-References: <1438742044-31064-1-git-send-email-jasowang@redhat.com>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [RFC PATCH] net: ipv4: increase dhcp inter device timeout
+Date: Fri, 07 Aug 2015 16:15:46 +0900
+Message-ID: <55C45B22.1090909@miraclelinux.com>
+References: <1438928970-23908-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438742044-31064-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:36579 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752261AbbHGHPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 03:15:51 -0400
+Received: by pdco4 with SMTP id o4so42056180pdc.3
+        for <netdev@vger.kernel.org>; Fri, 07 Aug 2015 00:15:50 -0700 (PDT)
+In-Reply-To: <1438928970-23908-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed,  5 Aug 2015 10:34:04 +0800
+Hi,
 
-> virtio declares support for NETIF_F_FRAGLIST, but assumes
-> that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
-> always true with a fraglist.
+Mugunthan V N wrote:
+> When a system has multiple ethernet devices and during DHCP
+> request (for using NFS), the system waits only for HZ/2 which is
+> 500mS before switching to another interface for DHCP.
 > 
-> A longer fraglist in the skb will make the call to skb_to_sgvec overflow
-> the sg array, leading to memory corruption.
+> There are some routers (Ex: Trendnet routers) which responds to
+> DHCP request at about 560mS. When the system has only one
+> ethernet interface there is no issue as the timeout is 2S and the
+> dev xid doesn't change and only retries.
 > 
-> Drop NETIF_F_FRAGLIST so we only get what we can handle.
+> But when the system has multiple Ethernet like DRA74x with CPSW
+> in dual EMAC mode, the DHCP response is dropped as the dev xid
+> changes while shifting to the next device. So changing inter
+> device timeout to HZ (which is 1S).
 > 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> ---
+>  net/ipv4/ipconfig.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+> index 8e7328c..bdb8cb5 100644
+> --- a/net/ipv4/ipconfig.c
+> +++ b/net/ipv4/ipconfig.c
+> @@ -94,7 +94,7 @@
+>  /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
+>  #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
+>  #define CONF_SEND_RETRIES 	6	/* Send six requests per open */
+> -#define CONF_INTER_TIMEOUT	(HZ/2)	/* Inter-device timeout: 1/2 second */
+> +#define CONF_INTER_TIMEOUT	(HZ)	/* Inter-device timeout: 1/2 second */
 
-Applied, thanks Jason.
+You should update comment as well at least.
+
+--yoshfuji
+
+>  #define CONF_BASE_TIMEOUT	(HZ*2)	/* Initial timeout: 2 seconds */
+>  #define CONF_TIMEOUT_RANDOM	(HZ)	/* Maximum amount of randomization */
+>  #define CONF_TIMEOUT_MULT	*7/4	/* Rate of timeout growth */
+> 
+
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
