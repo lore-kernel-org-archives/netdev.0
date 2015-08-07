@@ -1,67 +1,160 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [BUG] net/ipv4: inconsistent routing table
-Date: Fri, 07 Aug 2015 09:08:35 -0700
-Message-ID: <55C4D803.3090108@redhat.com>
-References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com> <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com> <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com> <55C3B8C8.9030507@redhat.com> <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>
-To: Zang MingJie <zealot0630@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41936 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932143AbbHGQIh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Aug 2015 12:08:37 -0400
-In-Reply-To: <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next] bridge: netlink: add support for
+	vlan_filtering attribute
+Date: Fri,  7 Aug 2015 19:24:18 +0300
+Message-ID: <1438964658-2904-1-git-send-email-razor@blackwall.org>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 08/07/2015 01:23 AM, Zang MingJie wrote:
-> IMO, the routing decision is determined, given a specific routing
-> table and local network the result MUST be determined, independence of
-> how/what order the routing entry is added.
->
-> Now there are two ways to configure the system resulting EXACTLY the
-> same routing table and local addresses, but the routing decision is
-> totally different.
->
-> SAME routing table, DIFFERENT routing decision, there MUST be bugs in kernel
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-I wasn't arguing that the behavior is undesirable, but the likelihood of 
-having a default route assigned to a local address should be pretty 
-low.  If the system is the default route of others then it should have a 
-different default gateway than itself.  For example an office router 
-would end up pointing to the ISP as the gateway, and the ISP would 
-either point to some other provider or run a BGP configuration.  So in 
-the case of the default route transitioning to us we should end up 
-having to delete and update the default route anyway.  This is likely 
-one of the reasons why there hasn't been any issues reported with this 
-behavior until now.
+This patch adds the ability to toggle the vlan filtering support via
+netlink. Since we're already running with rtnl in .changelink() we don't
+need to take any additional locks.
 
-I'm just wondering if the work involved to fix it is going to be worth 
-it.  We have to keep in mind that this will result in a change of 
-behavior for existing users and we don't know if anyone might be 
-expecting this type of behavior.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+I'll post the iproute2 patch if this one gets accepted.
 
-We basically are looking at one of three options.  The first one is to 
-just delete the route if you add the gateway as a local address or 
-remove it.  That would be consistent with what you might see if the 
-address was the sole address on an interface of its own.  The second 
-option is to update the nh_scope which I believe should be transitioned 
-between RT_SCOPE_HOST to RT_SCOPE_LINK if I am understanding things 
-correctly.  The third option is we don't change the behavior and just 
-document it.  This would then require manually deleting and restoring 
-any routes that use a recently modified address as their gateway.
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_netlink.c      | 12 +++++++++++-
+ net/bridge/br_private.h      |  6 ++++++
+ net/bridge/br_vlan.c         | 16 ++++++++++------
+ 4 files changed, 28 insertions(+), 7 deletions(-)
 
-Based on your feedback I'm assuming you would probably prefer the second 
-option.  I'm just waiting to see if there are any other opinions on the 
-matter before I act.
-
-Thanks.
-
-- Alex
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index ea047480a1f0..7531815bf88a 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -230,6 +230,7 @@ enum {
+ 	IFLA_BR_AGEING_TIME,
+ 	IFLA_BR_STP_STATE,
+ 	IFLA_BR_PRIORITY,
++	IFLA_BR_VLAN_FILTERING,
+ 	__IFLA_BR_MAX,
+ };
+ 
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 91a2e08c2bb8..2f5ab3def714 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -724,6 +724,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
+ 	[IFLA_BR_AGEING_TIME] = { .type = NLA_U32 },
+ 	[IFLA_BR_STP_STATE] = { .type = NLA_U32 },
+ 	[IFLA_BR_PRIORITY] = { .type = NLA_U16 },
++	[IFLA_BR_VLAN_FILTERING] = { .type = NLA_U8 },
+ };
+ 
+ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+@@ -771,6 +772,12 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 		br_stp_set_bridge_priority(br, priority);
+ 	}
+ 
++	if (data[IFLA_BR_VLAN_FILTERING]) {
++		u8 vlan_filter = nla_get_u8(data[IFLA_BR_VLAN_FILTERING]);
++
++		__br_vlan_filter_toggle(br, vlan_filter);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -782,6 +789,7 @@ static size_t br_get_size(const struct net_device *brdev)
+ 	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_AGEING_TIME */
+ 	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_STP_STATE */
+ 	       nla_total_size(sizeof(u16)) +    /* IFLA_BR_PRIORITY */
++	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_VLAN_FILTERING */
+ 	       0;
+ }
+ 
+@@ -794,13 +802,15 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	u32 ageing_time = jiffies_to_clock_t(br->ageing_time);
+ 	u32 stp_enabled = br->stp_enabled;
+ 	u16 priority = (br->bridge_id.prio[0] << 8) | br->bridge_id.prio[1];
++	u8 vlan_enabled = br_vlan_enabled(br);
+ 
+ 	if (nla_put_u32(skb, IFLA_BR_FORWARD_DELAY, forward_delay) ||
+ 	    nla_put_u32(skb, IFLA_BR_HELLO_TIME, hello_time) ||
+ 	    nla_put_u32(skb, IFLA_BR_MAX_AGE, age_time) ||
+ 	    nla_put_u32(skb, IFLA_BR_AGEING_TIME, ageing_time) ||
+ 	    nla_put_u32(skb, IFLA_BR_STP_STATE, stp_enabled) ||
+-	    nla_put_u16(skb, IFLA_BR_PRIORITY, priority))
++	    nla_put_u16(skb, IFLA_BR_PRIORITY, priority) ||
++	    nla_put_u8(skb, IFLA_BR_VLAN_FILTERING, vlan_enabled))
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index e2cb359f9dd3..f8b613195a07 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -614,6 +614,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid);
+ void br_vlan_flush(struct net_bridge *br);
+ bool br_vlan_find(struct net_bridge *br, u16 vid);
+ void br_recalculate_fwd_mask(struct net_bridge *br);
++void __br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
+ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
+ int br_vlan_set_proto(struct net_bridge *br, unsigned long val);
+ int br_vlan_init(struct net_bridge *br);
+@@ -771,6 +772,11 @@ static inline int br_vlan_enabled(struct net_bridge *br)
+ {
+ 	return 0;
+ }
++
++static inline void __br_vlan_filter_toggle(struct net_bridge *br,
++					   unsigned long val)
++{
++}
+ #endif
+ 
+ struct nf_br_ops {
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 0d41f81838ff..ea07b9eae0f6 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -468,21 +468,25 @@ void br_recalculate_fwd_mask(struct net_bridge *br)
+ 					      ~(1u << br->group_addr[5]);
+ }
+ 
+-int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
++void __br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
+ {
+-	if (!rtnl_trylock())
+-		return restart_syscall();
+-
+ 	if (br->vlan_enabled == val)
+-		goto unlock;
++		return;
+ 
+ 	br->vlan_enabled = val;
+ 	br_manage_promisc(br);
+ 	recalculate_group_addr(br);
+ 	br_recalculate_fwd_mask(br);
++}
+ 
+-unlock:
++int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
++{
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	__br_vlan_filter_toggle(br, val);
+ 	rtnl_unlock();
++
+ 	return 0;
+ }
+ 
+-- 
+2.4.3
