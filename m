@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: thunderx: remove effective "default y" from
- Kconfig if ARCH_THUNDER=y
-Date: Thu, 06 Aug 2015 23:58:49 -0700 (PDT)
-Message-ID: <20150806.235849.1866973399577659068.davem@davemloft.net>
-References: <1438716355-11515-1-git-send-email-ijc@hellion.org.uk>
+Subject: Re: [PATCH net] r8169: enforce RX_MULTI_EN on rtl8168ep/8111ep
+ chips
+Date: Fri, 07 Aug 2015 00:01:55 -0700 (PDT)
+Message-ID: <20150807.000155.1064429075141991744.davem@davemloft.net>
+References: <1438719103-22067-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sgoutham@cavium.com, rric@kernel.org,
-	derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com, arnd@arndb.de,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: ijc@hellion.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438716355-11515-1-git-send-email-ijc@hellion.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alexander@bitspace.se,
+	nic_swsd@realtek.com, romieu@fr.zoreil.com
+To: ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46231 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752585AbbHGHB5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 03:01:57 -0400
+In-Reply-To: <1438719103-22067-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ijc@hellion.org.uk>
-Date: Tue,  4 Aug 2015 20:25:55 +0100
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Tue,  4 Aug 2015 22:11:43 +0200
 
-> As well as for kernels built only for ThunderX ARCH_THUNDERX is also enabled
-> for kernels which support multiple platforms (such as distro kernels). Thus
-> "default ARCH_THUNDER" is inappropriate.
+> Enforcing this flag in RxConfig for the mentioned chips fixes netdev
+> watchdog issues prepended with AMD IOMMU message(s) like:
+> AMD-Vi: Event logged [IO_PAGE_FAULT device=01:00.0 domain=0x001d address=0x0000000000003000 flags=0x0050]
 > 
-> I believe default m is equally frowned upon, so remove the line completely
-> rather than "default m if ARCH_THUNDER".
+> Note that this flag is also set in Realtek's own driver for these chips.
 > 
-> Signed-off-by: Ian Campbell <ijc@hellion.org.uk>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Tested-by: Alexander Lindqvist <alexander@bitspace.se>
 
 Applied.
