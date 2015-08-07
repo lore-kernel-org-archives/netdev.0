@@ -1,7 +1,7 @@
 From: Mark Rutland <mark.rutland@arm.com>
 Subject: Re: [PATCH 2/2] net, thunder, bgx: Add support for ACPI binding.
-Date: Fri, 7 Aug 2015 18:51:27 +0100
-Message-ID: <20150807175127.GB12013@leverpostej>
+Date: Fri, 7 Aug 2015 18:53:53 +0100
+Message-ID: <20150807175353.GA31122@leverpostej>
 References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com>
  <1438907590-29649-3-git-send-email-ddaney.cavm@gmail.com>
  <20150807140106.GE7646@leverpostej>
@@ -22,7 +22,7 @@ Cc: David Daney <ddaney.cavm@gmail.com>,
 	Sunil Goutham <sgoutham@cavium.com>,
 	"linux-arm-kernel@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <deviectree@vger.kernel.org>
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
 To: David Daney <ddaney@caviumnetworks.com>
 Return-path: <linux-acpi-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -32,6 +32,8 @@ List-Id: netdev.vger.kernel.org
 
 [Correcting the devicetree list address, which I typo'd in my original
 reply]
+
+[resending to _really_ correct the address, apologies for the spam]
 
 > >> +static const char * const addr_propnames[] = {
 > >> +	"mac-address",
