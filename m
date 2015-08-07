@@ -1,39 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: combine VXLAN_FLOWBASED into
- VXLAN_COLLECT_METADATA
-Date: Fri, 07 Aug 2015 11:46:45 -0700 (PDT)
-Message-ID: <20150807.114645.2108374064397756373.davem@davemloft.net>
-References: <1438753867-32403-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH 0/3] be2net: patch set
+Date: Fri, 07 Aug 2015 11:57:58 -0700 (PDT)
+Message-ID: <20150807.115758.661898041262862547.davem@davemloft.net>
+References: <1438759670-2134-1-git-send-email-sathya.perla@avagotech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, jesse@nicira.com, pshelar@nicira.com,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@avagotech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50247 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50325 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946006AbbHGSqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 14:46:46 -0400
-In-Reply-To: <1438753867-32403-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S1946186AbbHGS57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 14:57:59 -0400
+In-Reply-To: <1438759670-2134-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue,  4 Aug 2015 22:51:07 -0700
+From: Sathya Perla <sathya.perla@avagotech.com>
+Date: Wed,  5 Aug 2015 03:27:47 -0400
 
-> IFLA_VXLAN_FLOWBASED is useless without IFLA_VXLAN_COLLECT_METADATA,
-> so combine them into single IFLA_VXLAN_COLLECT_METADATA flag.
-> 'flowbased' doesn't convey real meaning of the vxlan tunnel mode.
-> This mode can be used by routing, tc+bpf and ovs.
-> Only ovs is strictly flow based, so 'collect metadata' is a better
-> name for this tunnel mode.
+> This patch set contains 2 driver fixes to a Lancer HW issue and a fix
+> to a double free bug. Pls apply to the "net" tree. Thanks!
 > 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> it's not too late to kill uapi IFLA_VXLAN_FLOWBASED, since it
-> was introduced two weeks ago.
-> Alternatively we could rename both into vxlan_accept_metadata
-> or something else, but imo collect_metadata is ok.
+> Patch 1 now enables filters only after creating RXQs. This is done as 
+> HW issues were observed on Lancer adapters if filters
+> (flags, mac addrs etc) are enabled *before* creating RXQs. This patch
+> changes the driver design by enabling filters in be_open() --
+> instead of be_setup() -- after RXQs are created and buffers posted.
+> 
+> Patch 2 fixes an RX stall issue that was seen on Lancer adapters when
+> RXQs are destroyed while they are in an "out of buffer" state.
+> This patch fixes this issue by posting 64 buffers to each RXQ before
+> destroying them in the close path. This is done after ensuring that no
+> more new packets are selected for transfer to the RXQs by disabling
+> interface filters.
+> 
+> Patch 3 protects eqo->affinity_mask variable from being freed twice and
+> resulting in a crash.  It's now freed only when EQs haven't yet been
+> destroyed.
 
-Applied, thanks.
+Series applied, thanks.
