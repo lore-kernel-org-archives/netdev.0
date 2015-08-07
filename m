@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/4] bnx2x, cnic, bnx2fc: add support for BD
-Date: Thu, 06 Aug 2015 21:54:29 -0700 (PDT)
-Message-ID: <20150806.215429.1576532174279680769.davem@davemloft.net>
-References: <1438670250-20130-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: net: Fix skb_set_peeked use-after-free bug
+Date: Thu, 06 Aug 2015 21:56:28 -0700 (PDT)
+Message-ID: <20150806.215628.1038906181820631420.davem@davemloft.net>
+References: <CAMUH3-WyNR+2tsKgZ2qMNR=p+2Q3WDjcPrQcVSZfVSVyPA1qoA@mail.gmail.com>
+	<20150804074247.GA29951@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James.bottomley@HansenPartnership.com,
-	linux-scsi-owner@vger.kernel.org, chad.dupuis@qlogic.com,
-	Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
+Cc: bblanco@plumgrid.com, netdev@vger.kernel.org,
+	khlebnikov@yandex-team.ru
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45517 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45532 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752114AbbHGEya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 00:54:30 -0400
-In-Reply-To: <1438670250-20130-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1753809AbbHGE43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 00:56:29 -0400
+In-Reply-To: <20150804074247.GA29951@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Tue, 4 Aug 2015 09:37:26 +0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 4 Aug 2015 15:42:47 +0800
 
-> Commit 230d00eb4bfe ("bnx2x: new Multi-function mode - BD") added support
-> for a new multi-function mode, but it added only the support required by
-> bnx2x for L2 interfaces.
+> The commit 738ac1ebb96d02e0d23bc320302a6ea94c612dec ("net: Clone
+> skb before setting peeked flag") introduced a use-after-free bug
+> in skb_recv_datagram.  This is because skb_set_peeked may create
+> a new skb and free the existing one.  As it stands the caller will
+> continue to use the old freed skb.
 > 
-> This adds the required changes to support the new multi-function mode in
-> the offloaded storage protocols.
+> This patch fixes it by making skb_set_peeked return the new skb
+> (or the old one if unchanged).
 > 
-> Dave,
-> 
-> Please consider applying this series to `net-next'.
-> 
-> Do notice that this involves non-networking driver changes -
-> but sending this as a single series seemed like the best approach as
-> we had to have bnx2x changes to support the new functionality.
-> If this is problematic, please tell us what's the preferred solution here.
+> Fixes: 738ac1ebb96d ("net: Clone skb before setting peeked flag")
+> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Series applied, thanks.
+Applied, and since the commit this is fixing is queued up for -stable
+I'll of course queue this up too.
