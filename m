@@ -1,43 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/2] RDS-TCP: Network namespace support
-Date: Fri, 07 Aug 2015 11:30:11 -0700 (PDT)
-Message-ID: <20150807.113011.1424713081901290919.davem@davemloft.net>
-References: <cover.1438752224.git.sowmini.varadhan@oracle.com>
+From: Rasesh Mody <rasesh.mody@qlogic.com>
+Subject: RE: [PATCH net] bna: fix interrupts storm caused by erroneous
+ packets
+Date: Fri, 7 Aug 2015 18:35:43 +0000
+Message-ID: <2552F74A0BCCBE4DBE2AD218C81B281108518A6A@avmb3.qlogic.org>
+References: <1438894103-10597-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
-	igor.maximov@oracle.com, chien.yen@oracle.com,
-	cwang@twopensource.com, dsahern@gmail.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1438752224.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Ivan Vecera <ivecera@redhat.com>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:62646 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1946070AbbHGSfr convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Aug 2015 14:35:47 -0400
+In-Reply-To: <1438894103-10597-1-git-send-email-ivecera@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Wed,  5 Aug 2015 01:43:24 -0400
+> From: Ivan Vecera [mailto:ivecera@redhat.com]
+> Sent: Thursday, August 06, 2015 1:48 PM
+> 
+> The commit "e29aa33 bna: Enable Multi Buffer RX" moved packets counter
+> increment from the beginning of the NAPI processing loop after the check
+> for erroneous packets so they are never accounted. This counter is used to
+> inform firmware about number of processed completions (packets).
+> As these packets are never acked the firmware fires IRQs for them again and
+> again.
+> 
+> Fixes: e29aa33 bna: Enable Multi Buffer RX
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-> This patch series contains the set of changes to correctly set up 
-> the infra for PF_RDS sockets that use TCP as the transport in multiple
-> network namespaces.
-> 
-> Patch 1 in the series is the minimal set of changes to allow
-> a single instance of RDS-TCP to run in any (i.e init_net or other) net
-> namespace.  The changes in this patch set ensure that the execution of 
-> 'modprobe [-r] rds_tcp' sets up the kernel TCP sockets 
-> relative to the current netns, so that RDS applications can send/recv
-> packets from that netns, and the netns can later be deleted cleanly.
-> 
-> Patch 2 of the series further allows multiple RDS-TCP instances,
-> one per network namespace. The changes in this patch allows dynamic
-> creation/tear-down of RDS-TCP client and server sockets  across all
-> current and future namespaces. 
-> 
-> v2 changes from RFC sent out earlier:
->     David Ahern comments in patch 1, net_device notifier in patch 2, 
->     patch 3 broken off and submitted separately.
-> v3: Cong Wang review comments.
+Acked-by: Rasesh Mody <rasesh.mody@qlogic.com>
 
-Series applied, thanks.
+Thanks!
+Rasesh
