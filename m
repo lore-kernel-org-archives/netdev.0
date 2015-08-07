@@ -1,43 +1,117 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2 net-next 3/4] ipv6: Add gro functions to sit_offloads
-Date: Thu, 6 Aug 2015 17:15:04 -0700
-Message-ID: <CAEP_g=8tCkyRfPYARV4pqA7g0w6tQvioTnWLtFescv+3OS4JLw@mail.gmail.com>
-References: <1438621878-1113072-1-git-send-email-tom@herbertland.com> <1438621878-1113072-4-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:35862 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752949AbbHGAPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 20:15:25 -0400
-Received: by lagz9 with SMTP id z9so13090076lag.3
-        for <netdev@vger.kernel.org>; Thu, 06 Aug 2015 17:15:24 -0700 (PDT)
-In-Reply-To: <1438621878-1113072-4-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH 1/2] net: thunder: Factor out DT specific code in BGX
+Date: Thu,  6 Aug 2015 17:33:09 -0700
+Message-ID: <1438907590-29649-2-git-send-email-ddaney.cavm@gmail.com>
+References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-mips@linux-mips.org, Robert Richter <rrichter@cavium.com>,
+	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
+	David Daney <david.daney@cavium.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 3, 2015 at 10:11 AM, Tom Herbert <tom@herbertland.com> wrote:
-> For GRO to work with sit we need gro_receive and gro_complete populated
-> in the sit_offload structure.
->
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+From: Robert Richter <rrichter@cavium.com>
 
-You might want to checkout the recent history on this file unless
-there's something that's changed in the last couple of weeks:
+Separate DT code in preparation for follow-on ACPI integration.
 
-commit fdbf5b097bbd9693a86c0b8bfdd071a9a2117cfc
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Mon Jul 20 17:55:38 2015 +0800
+Based on code from: Tomasz Nowicki <tomasz.nowicki@linaro.org>
 
-    Revert "sit: Add gro callbacks to sit_offload"
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 48 +++++++++++++++++------
+ 1 file changed, 35 insertions(+), 13 deletions(-)
 
-    This patch reverts 19424e052fb44da2f00d1a868cbb51f3e9f4bbb5 ("sit:
-    Add gro callbacks to sit_offload") because it generates packets
-    that cannot be handled even by our own GSO.
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index b961a89..615b2af 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -835,18 +835,28 @@ static void bgx_get_qlm_mode(struct bgx *bgx)
+ 	}
+ }
+ 
+-static void bgx_init_of(struct bgx *bgx, struct device_node *np)
++#if IS_ENABLED(CONFIG_OF_MDIO)
++
++static int bgx_init_of_phy(struct bgx *bgx)
+ {
++	struct device_node *np;
+ 	struct device_node *np_child;
+ 	u8 lmac = 0;
++	char bgx_sel[5];
++	const char *mac;
+ 
+-	for_each_child_of_node(np, np_child) {
+-		struct device_node *phy_np;
+-		const char *mac;
++	/* Get BGX node from DT */
++	snprintf(bgx_sel, 5, "bgx%d", bgx->bgx_id);
++	np = of_find_node_by_name(NULL, bgx_sel);
++	if (!np)
++		return -ENODEV;
+ 
+-		phy_np = of_parse_phandle(np_child, "phy-handle", 0);
+-		if (phy_np)
+-			bgx->lmac[lmac].phydev = of_phy_find_device(phy_np);
++	for_each_child_of_node(np, np_child) {
++		struct device_node *phy_np = of_parse_phandle(np_child,
++							      "phy-handle", 0);
++		if (!phy_np)
++			continue;
++		bgx->lmac[lmac].phydev = of_phy_find_device(phy_np);
+ 
+ 		mac = of_get_mac_address(np_child);
+ 		if (mac)
+@@ -858,6 +868,21 @@ static void bgx_init_of(struct bgx *bgx, struct device_node *np)
+ 		if (lmac == MAX_LMAC_PER_BGX)
+ 			break;
+ 	}
++	return 0;
++}
++
++#else
++
++static int bgx_init_of_phy(struct bgx *bgx)
++{
++	return -ENODEV;
++}
++
++#endif /* CONFIG_OF_MDIO */
++
++static int bgx_init_phy(struct bgx *bgx)
++{
++	return bgx_init_of_phy(bgx);
+ }
+ 
+ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -865,8 +890,6 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int err;
+ 	struct device *dev = &pdev->dev;
+ 	struct bgx *bgx = NULL;
+-	struct device_node *np;
+-	char bgx_sel[5];
+ 	u8 lmac;
+ 
+ 	bgx = devm_kzalloc(dev, sizeof(*bgx), GFP_KERNEL);
+@@ -902,10 +925,9 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	bgx_vnic[bgx->bgx_id] = bgx;
+ 	bgx_get_qlm_mode(bgx);
+ 
+-	snprintf(bgx_sel, 5, "bgx%d", bgx->bgx_id);
+-	np = of_find_node_by_name(NULL, bgx_sel);
+-	if (np)
+-		bgx_init_of(bgx, np);
++	err = bgx_init_phy(bgx);
++	if (err)
++		goto err_enable;
+ 
+ 	bgx_init_hw(bgx);
+ 
+-- 
+1.9.1
 
-    Reported-by: Wolfgang Walter <linux@stwm.de>
-    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
