@@ -1,11 +1,18 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: rtnl_mutex deadlock?
-Date: Fri, 07 Aug 2015 01:58:15 +0200
-Message-ID: <55C3F497.6020003@iogearbox.net>
-References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com> <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com> <20150805074330.GA2084@nanopsycho.orion> <CA+55aFw1856zEq88RfqoizjeVRR9Ut-ug+VWA+mKFOS77FYpSg@mail.gmail.com> <55C25CFB.2060103@iogearbox.net> <20150806003026.GA12785@gondor.apana.org.au> <55C3743F.1010900@iogearbox.net> <20150806234117.GA22588@gondor.apana.org.au>
+Date: Fri, 7 Aug 2015 08:00:15 +0800
+Message-ID: <20150807000015.GA22952@gondor.apana.org.au>
+References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
+ <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
+ <20150805074330.GA2084@nanopsycho.orion>
+ <CA+55aFw1856zEq88RfqoizjeVRR9Ut-ug+VWA+mKFOS77FYpSg@mail.gmail.com>
+ <55C25CFB.2060103@iogearbox.net>
+ <20150806003026.GA12785@gondor.apana.org.au>
+ <55C3743F.1010900@iogearbox.net>
+ <20150806234117.GA22588@gondor.apana.org.au>
+ <55C3F497.6020003@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Jiri Pirko <jiri@resnulli.us>,
 	Cong Wang <cwang@twopensource.com>,
@@ -13,36 +20,27 @@ Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
 	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
 	Network Development <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39990 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753000AbbHFX6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 19:58:22 -0400
-In-Reply-To: <20150806234117.GA22588@gondor.apana.org.au>
+Received: from helcar.hengli.com.au ([209.40.204.226]:36178 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753334AbbHGAAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 20:00:42 -0400
+Content-Disposition: inline
+In-Reply-To: <55C3F497.6020003@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/07/2015 01:41 AM, Herbert Xu wrote:
-> On Thu, Aug 06, 2015 at 04:50:39PM +0200, Daniel Borkmann wrote:
->>
->> Then, in __rhashtable_insert_fast(), I could trigger an -EBUSY when I'm
->> really unlucky and exceed the ht->elasticity limit of 16. I would then
->> end up in rhashtable_insert_rehash() to find out there's already one
->> ongoing and thus, I'm getting -EBUSY via __netlink_insert().
+On Fri, Aug 07, 2015 at 01:58:15AM +0200, Daniel Borkmann wrote:
 >
-> Right, so the only way you can trigger this is if you hit a chain
-> longer than 16 and the number of entries in the table is less than
-> 75% the size of the table, as well as there being an existing resize
-> or rehash operation.
->
-> This should be pretty much impossible.
->
-> But if we had a WARN_ON_ONCE there then we'll know for sure.
+> Looks like we had a WARN_ON() in rhashtable_insert_rehash() before, but
+> was removed in a87b9ebf1709 ("rhashtable: Do not schedule more than one
+> rehash if we can't grow further"). Do you want to re-add a WARN_ON_ONCE()?
 
-Looks like we had a WARN_ON() in rhashtable_insert_rehash() before, but
-was removed in a87b9ebf1709 ("rhashtable: Do not schedule more than one
-rehash if we can't grow further"). Do you want to re-add a WARN_ON_ONCE()?
+I think so.  Thomas?
 
-Thanks,
-Daniel
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
