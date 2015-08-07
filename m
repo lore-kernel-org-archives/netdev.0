@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: dwmac-ipq806x: fix static checker warning
-Date: Fri, 07 Aug 2015 00:12:32 -0700 (PDT)
-Message-ID: <20150807.001232.883736987030332955.davem@davemloft.net>
-References: <1438734302-22930-1-git-send-email-mathieu@codeaurora.org>
+Subject: Re: [PATCH net V2] virtio-net: drop NETIF_F_FRAGLIST
+Date: Fri, 07 Aug 2015 00:13:26 -0700 (PDT)
+Message-ID: <20150807.001326.1062649438183092058.davem@davemloft.net>
+References: <1438742044-31064-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mathieu@codeaurora.org
+Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sergei.shtylyov@cogentembedded.com
+To: jasowang@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438734302-22930-1-git-send-email-mathieu@codeaurora.org>
+In-Reply-To: <1438742044-31064-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mathieu Olivari <mathieu@codeaurora.org>
-Date: Tue,  4 Aug 2015 17:25:02 -0700
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed,  5 Aug 2015 10:34:04 +0800
 
-> The patch b1c17215d718: "stmmac: add ipq806x glue layer", leads to the
-> following static checker warning:
+> virtio declares support for NETIF_F_FRAGLIST, but assumes
+> that there are at most MAX_SKB_FRAGS + 2 fragments which isn't
+> always true with a fraglist.
 > 
-> .../stmmac/dwmac-ipq806x.c:314 ipq806x_gmac_probe()
-> warn: double left shift '1 << (1 << gmac->id)'
+> A longer fraglist in the skb will make the call to skb_to_sgvec overflow
+> the sg array, leading to memory corruption.
 > 
-> The NSS_COMMON_CLK_SRC_CTRL_OFFSET macro is used once as an offset, and
-> once as a mask, which is a bug indeed. We'll fix it by defining the
-> offset as the real offset value and computing the mask from it when
-> required.
+> Drop NETIF_F_FRAGLIST so we only get what we can handle.
 > 
-> Tested on IPQ806x ref designs AP148 & DB149.
-> 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Mathieu Olivari <mathieu@codeaurora.org>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied.
+Applied, thanks Jason.
