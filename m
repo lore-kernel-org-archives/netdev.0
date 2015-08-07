@@ -1,46 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rtnl_mutex deadlock?
-Date: Fri, 7 Aug 2015 08:00:15 +0800
-Message-ID: <20150807000015.GA22952@gondor.apana.org.au>
-References: <CA+55aFwYhdHdLUbYYAc9GgmFuVXniwAESYHuzDWjdapPC0m1Xw@mail.gmail.com>
- <CAHA+R7N2fRz2zr-6MX9StqPLdNAWRiG55xidrC7reSRrVeQPcQ@mail.gmail.com>
- <20150805074330.GA2084@nanopsycho.orion>
- <CA+55aFw1856zEq88RfqoizjeVRR9Ut-ug+VWA+mKFOS77FYpSg@mail.gmail.com>
- <55C25CFB.2060103@iogearbox.net>
- <20150806003026.GA12785@gondor.apana.org.au>
- <55C3743F.1010900@iogearbox.net>
- <20150806234117.GA22588@gondor.apana.org.au>
- <55C3F497.6020003@iogearbox.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2 net-next 3/4] ipv6: Add gro functions to sit_offloads
+Date: Thu, 6 Aug 2015 17:15:04 -0700
+Message-ID: <CAEP_g=8tCkyRfPYARV4pqA7g0w6tQvioTnWLtFescv+3OS4JLw@mail.gmail.com>
+References: <1438621878-1113072-1-git-send-email-tom@herbertland.com> <1438621878-1113072-4-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:36178 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753334AbbHGAAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 20:00:42 -0400
-Content-Disposition: inline
-In-Reply-To: <55C3F497.6020003@iogearbox.net>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:35862 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752949AbbHGAPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2015 20:15:25 -0400
+Received: by lagz9 with SMTP id z9so13090076lag.3
+        for <netdev@vger.kernel.org>; Thu, 06 Aug 2015 17:15:24 -0700 (PDT)
+In-Reply-To: <1438621878-1113072-4-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 07, 2015 at 01:58:15AM +0200, Daniel Borkmann wrote:
+On Mon, Aug 3, 2015 at 10:11 AM, Tom Herbert <tom@herbertland.com> wrote:
+> For GRO to work with sit we need gro_receive and gro_complete populated
+> in the sit_offload structure.
 >
-> Looks like we had a WARN_ON() in rhashtable_insert_rehash() before, but
-> was removed in a87b9ebf1709 ("rhashtable: Do not schedule more than one
-> rehash if we can't grow further"). Do you want to re-add a WARN_ON_ONCE()?
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-I think so.  Thomas?
+You might want to checkout the recent history on this file unless
+there's something that's changed in the last couple of weeks:
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+commit fdbf5b097bbd9693a86c0b8bfdd071a9a2117cfc
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Mon Jul 20 17:55:38 2015 +0800
+
+    Revert "sit: Add gro callbacks to sit_offload"
+
+    This patch reverts 19424e052fb44da2f00d1a868cbb51f3e9f4bbb5 ("sit:
+    Add gro callbacks to sit_offload") because it generates packets
+    that cannot be handled even by our own GSO.
+
+    Reported-by: Wolfgang Walter <linux@stwm.de>
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
