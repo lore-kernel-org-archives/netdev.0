@@ -1,64 +1,69 @@
-From: "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>
-Subject: Re: [PATCH 1/5] device property: helper macros for property entry creation
-Date: Sat, 08 Aug 2015 00:08:19 +0200
-Message-ID: <6986422.HLaTehgfKn@vostro.rjw.lan>
-References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com> <1438783338.29746.172.camel@linux.intel.com> <20150806074848.GH7675@kuha.fi.intel.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 1/9] openvswitch: Scrub packet in ovs_vport_receive()
+Date: Fri, 7 Aug 2015 15:07:31 -0700
+Message-ID: <CAEP_g=9yD+m7WadLXdvJmd84Mwwrpu5mCy=S_8q7O16DE05_2Q@mail.gmail.com>
+References: <1438279963-29563-1-git-send-email-joestringer@nicira.com>
+ <1438279963-29563-2-git-send-email-joestringer@nicira.com>
+ <1438353294.20479.7.camel@redhat.com> <CANr6G5zsh2DUDBrZpQBpFO_GggvPa4ztdwDxRQuByzwU-S-FUg@mail.gmail.com>
+ <20150801191741.GA13837@pox.localdomain> <CANr6G5xF8XFr_6PDimR5YrYr=o=CDAJnfT3Op1R1WJ3wRcuDhw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150806074848.GH7675-FZxXFokcWpatqXYlAKuG4QC/G2K4zDHf@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Justin Pettit <jpettit@nicira.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Andy Zhou <azhou@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANr6G5xF8XFr_6PDimR5YrYr=o=CDAJnfT3Op1R1WJ3wRcuDhw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, August 06, 2015 10:48:48 AM Heikki Krogerus wrote:
-> On Wed, Aug 05, 2015 at 05:02:18PM +0300, Andy Shevchenko wrote:
-> > On Wed, 2015-08-05 at 16:39 +0300, Heikki Krogerus wrote:
-> > > Marcos for easier creation of build-in property entries.
-> > > 
-> > > Signed-off-by: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> > > ---
-> > >  include/linux/property.h | 35 +++++++++++++++++++++++++++++++++++
-> > >  1 file changed, 35 insertions(+)
-> > > 
-> > > diff --git a/include/linux/property.h b/include/linux/property.h
-> > > index 76ebde9..204d899 100644
-> > > --- a/include/linux/property.h
-> > > +++ b/include/linux/property.h
-> > > @@ -152,6 +152,41 @@ struct property_entry {
-> > >  	} value;
-> > >  };
-> > >  
-> > > +#define PROP_ENTRY_U8(_name_, _val_) { \
-> > 
-> > PROP_ prefix is too generic.
-> > Maybe DEVPROP_ ? At least for the latter no records in the current
-> > sources.
-> 
-> I disagree with that. IMO this kind of macros should ideally resemble
-> the structure name they are used to fill (struct property_entry in
-> this case). And there are already definitions for DEV_PROP_* to
-> describe the types, so using something like DEVPROP_* here is just
-> confusing.
-> 
-> If PROP_ENTRY_* is really not good enough, we can change them
-> PROPERTY_ENTRY_*. But is PROP_ENTRY_* really so bad?
-> 
-> Rafael, what is your opinion?
+On Tue, Aug 4, 2015 at 9:40 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> On 1 August 2015 at 12:17, Thomas Graf <tgraf@suug.ch> wrote:
+>> On 07/31/15 at 10:51am, Joe Stringer wrote:
+>>> On 31 July 2015 at 07:34, Hannes Frederic Sowa <hannes@redhat.com> wrote:
+>>> > In general, this shouldn't be necessary as the packet should already be
+>>> > scrubbed before they arrive here.
+>>> >
+>>> > Could you maybe add a WARN_ON and check how those skbs with conntrack
+>>> > data traverse the stack? I also didn't understand why make it dependent
+>>> > on the socket.
+>>>
+>>> OK, sure. One case I could think of is with an OVS internal port in
+>>> another namespace, directly attached to the bridge. I'll have a play
+>>> around with WARN_ON and see if I can come up with something more
+>>> trimmed down.
+>>
+>> The OVS internal port will definitely pass through an unscrubbed
+>> packet across namespaces. I think the proper thing to do would be
+>> to scrub but conditionally keep metadata.
+>
+> It's only "unscrubbed" when receiving from local stack at the moment.
+> Some pieces are cleared when handing towards the local stack, and
+> there's no configuration for that behaviour. Presumably internal port
+> transmit and receive should mirror each other?
+>
+> I don't have a specific use case either way. The remaining code for
+> this series handles this case correctly, it's just a matter of what
+> behaviour we're looking for. We could implement the flag as you say, I
+> presume that userspace would need to specify this during vport
+> creation and the default should work similar to the existing behaviour
+> (ie, keep metadata). One thing that's not entirely clear to me is
+> exactly which metadata should be represented by this flag and whether
+> the single flag is expressive enough.
 
-I would prefer PROPERTY_ENTRY_ to be honest.  It's not like we need to save
-characters here.
+I would prefer not to have a flag as it seems unnecessarily
+complicated (doubly so if we try to have multiple flags to express
+different combinations). The use case for moving internal ports to
+different namespaces is pretty narrow, so it seems like we can just
+pick a set of metadata to keep and go with that. Mark seems the
+primary one to me.
 
-Thanks,
-Rafael
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I also think that it would be better to use skb->dev to determine the
+original namespace rather than the socket.
