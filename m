@@ -1,16 +1,16 @@
 From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: [PATCH 28/31] net/xfrm: use kmemdup rather than duplicating its
+Subject: [PATCH 27/31] net/tipc: use kmemdup rather than duplicating its
  implementation
-Date: Fri, 07 Aug 2015 09:59:34 +0200
-Message-ID: <1438934377-4922-29-git-send-email-a.hajda@samsung.com>
+Date: Fri, 07 Aug 2015 09:59:33 +0200
+Message-ID: <1438934377-4922-28-git-send-email-a.hajda@samsung.com>
 References: <1438934377-4922-1-git-send-email-a.hajda@samsung.com>
 Cc: Andrzej Hajda <a.hajda@samsung.com>,
 	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
 	Marek Szyprowski <m.szyprowski@samsung.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-reply-to: <1438934377-4922-1-git-send-email-a.hajda@samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -23,27 +23,27 @@ scripts/coccinelle/api/memdup.cocci [1].
 
 Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
 ---
- net/xfrm/xfrm_user.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/tipc/server.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 0cebf1f..a8de9e3 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -925,12 +925,10 @@ static int xfrm_dump_sa(struct sk_buff *skb, struct netlink_callback *cb)
- 			return err;
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index 922e04a..c187cad 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -411,13 +411,12 @@ static struct outqueue_entry *tipc_alloc_entry(void *data, int len)
+ 	if (!entry)
+ 		return NULL;
  
- 		if (attrs[XFRMA_ADDRESS_FILTER]) {
--			filter = kmalloc(sizeof(*filter), GFP_KERNEL);
-+			filter = kmemdup(nla_data(attrs[XFRMA_ADDRESS_FILTER]),
-+					 sizeof(*filter), GFP_KERNEL);
- 			if (filter == NULL)
- 				return -ENOMEM;
--
--			memcpy(filter, nla_data(attrs[XFRMA_ADDRESS_FILTER]),
--			       sizeof(*filter));
- 		}
+-	buf = kmalloc(len, GFP_ATOMIC);
++	buf = kmemdup(data, len, GFP_ATOMIC);
+ 	if (!buf) {
+ 		kfree(entry);
+ 		return NULL;
+ 	}
  
- 		if (attrs[XFRMA_PROTO])
+-	memcpy(buf, data, len);
+ 	entry->iov.iov_base = buf;
+ 	entry->iov.iov_len = len;
+ 
 -- 
 1.9.1
