@@ -1,122 +1,112 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH 2/2] net, thunder, bgx: Add support for ACPI binding.
-Date: Fri, 7 Aug 2015 18:53:53 +0100
-Message-ID: <20150807175353.GA31122@leverpostej>
-References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com>
- <1438907590-29649-3-git-send-email-ddaney.cavm@gmail.com>
- <20150807140106.GE7646@leverpostej>
- <55C4ECC6.7050908@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <ddaney.cavm@gmail.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"rob.herring@linaro.org" <rob.herring@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-	David Daney <david.daney@cavium.com>,
-	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
-	Robert Richter <rrichter@cavium.com>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55C4ECC6.7050908@caviumnetworks.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: raj@tardy.usa.hp.com (Rick Jones)
+Subject: [PATCH net-next] net: add explicit logging and stat for neighbour table overflow
+Date: Fri,  7 Aug 2015 11:10:37 -0700 (PDT)
+Message-ID: <20150807181038.2A32029003CC@tardy>
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3425.houston.hp.com ([15.201.208.53]:3839 "EHLO
+	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945911AbbHGSKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 14:10:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Correcting the devicetree list address, which I typo'd in my original
-reply]
+From: Rick Jones <rick.jones2@hp.com>
 
-[resending to _really_ correct the address, apologies for the spam]
+Add an explicit neighbour table overflow message (ratelimited) and
+statistic to make diagnosing neighbour table overflows tractable in
+the wild.
 
-> >> +static const char * const addr_propnames[] = {
-> >> +	"mac-address",
-> >> +	"local-mac-address",
-> >> +	"address",
-> >> +};
-> >
-> > If these are going to be generally necessary, then we should get them
-> > adopted as standardised _DSD properties (ideally just one of them).
-> 
-> As far as I can tell, and please correct me if I am wrong, ACPI-6.0 
-> doesn't contemplate MAC addresses.
-> 
-> Today we are using "mac-address", which is an Integer containing the MAC 
-> address in its lowest order 48 bits in Little-Endian byte order.
-> 
-> The hardware and ACPI tables are here today, and we would like to 
-> support it.  If some future ACPI specification specifies a standard way 
-> to do this, we will probably adapt the code to do this in a standard manner.
-> 
-> 
-> >
-> > [...]
-> >
-> >> +static acpi_status bgx_acpi_register_phy(acpi_handle handle,
-> >> +					 u32 lvl, void *context, void **rv)
-> >> +{
-> >> +	struct acpi_reference_args args;
-> >> +	const union acpi_object *prop;
-> >> +	struct bgx *bgx = context;
-> >> +	struct acpi_device *adev;
-> >> +	struct device *phy_dev;
-> >> +	u32 phy_id;
-> >> +
-> >> +	if (acpi_bus_get_device(handle, &adev))
-> >> +		goto out;
-> >> +
-> >> +	SET_NETDEV_DEV(&bgx->lmac[bgx->lmac_count].netdev, &bgx->pdev->dev);
-> >> +
-> >> +	acpi_get_mac_address(adev, bgx->lmac[bgx->lmac_count].mac);
-> >> +
-> >> +	bgx->lmac[bgx->lmac_count].lmacid = bgx->lmac_count;
-> >> +
-> >> +	if (acpi_dev_get_property_reference(adev, "phy-handle", 0, &args))
-> >> +		goto out;
-> >> +
-> >> +	if (acpi_dev_get_property(args.adev, "phy-channel", ACPI_TYPE_INTEGER, &prop))
-> >> +		goto out;
-> >
-> > Likewise for any inter-device properties, so that we can actually handle
-> > them in a generic fashion, and avoid / learn from the mistakes we've
-> > already handled with DT.
-> 
-> This is the fallacy of the ACPI is superior to DT argument.  The 
-> specification of PHY topology and MAC addresses is well standardized in 
-> DT, there is no question about what the proper way to specify it is. 
-> Under ACPI, it is the Wild West, there is no specification, so each 
-> system design is forced to invent something, and everybody comes up with 
-> an incompatible implementation.
+Diagnosing a neighbour table overflow can be quite difficult in the wild
+because there is no explicit dmesg logged.  Callers to neighbour code
+seem to use net_dbg_ratelimit when the neighbour call fails which means
+the "base message" is not emitted and the callback suppressed messages
+from the ratelimiting can end-up juxtaposed with unrelated messages.
+Further, a forced garbage collection will increment a stat on each call
+whether it was successful in freeing-up a table entry or not, so that
+statistic is only a hint.  So, add a net_info_ratelimited message and
+explicit statistic to the neighbour code.
 
-Indeed.
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-If ACPI is going to handle it, it should handle it properly. I really
-don't see the point in bodging properties together in a less standard
-manner than DT, especially for inter-device relationships.
+---
 
-Doing so is painful for _everyone_, and it's extremely unlikely that
-other ACPI-aware OSs will actually support these custom descriptions,
-making this Linux-specific, and breaking the rationale for using ACPI in
-the first place -- a standard that says "just do non-standard stuff" is
-not a usable standard.
+Tested by cutting back the gc_threshN sysctls and attempting to ping a
+number of target IPs greater than the maximum size of the ARP table.
 
-For intra-device properties, we should standardise what we can, but
-vendor-specific stuff is ok -- this can be self-contained within a
-driver.
-
-For inter-device relationships ACPI _must_ gain a better model of
-componentised devices. It's simply unworkable otherwise, and as you
-point out it's fallacious to say that because ACPI is being used that
-something is magically industry standard, portable, etc.
-
-This is not your problem in particular; the entire handling of _DSD so
-far is a joke IMO.
-
-Thanks,
-Mark.
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index bd33e66..8b68384 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -125,6 +125,7 @@ struct neigh_statistics {
+ 	unsigned long forced_gc_runs;	/* number of forced GC runs */
+ 
+ 	unsigned long unres_discards;	/* number of unresolved drops */
++	unsigned long table_fulls;      /* times even gc couldn't help */
+ };
+ 
+ #define NEIGH_CACHE_STAT_INC(tbl, field) this_cpu_inc((tbl)->stats->field)
+diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
+index 2e35c61..788655b 100644
+--- a/include/uapi/linux/neighbour.h
++++ b/include/uapi/linux/neighbour.h
+@@ -106,6 +106,7 @@ struct ndt_stats {
+ 	__u64		ndts_rcv_probes_ucast;
+ 	__u64		ndts_periodic_gc_runs;
+ 	__u64		ndts_forced_gc_runs;
++	__u64		ndts_table_fulls;
+ };
+ 
+ enum {
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 84195da..2b515ba 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -274,8 +274,12 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device
+ 	    (entries >= tbl->gc_thresh2 &&
+ 	     time_after(now, tbl->last_flush + 5 * HZ))) {
+ 		if (!neigh_forced_gc(tbl) &&
+-		    entries >= tbl->gc_thresh3)
++		    entries >= tbl->gc_thresh3) {
++			net_info_ratelimited("%s: neighbor table overflow!\n",
++					     tbl->id);
++			NEIGH_CACHE_STAT_INC(tbl, table_fulls);
+ 			goto out_entries;
++		}
+ 	}
+ 
+ 	n = kzalloc(tbl->entry_size + dev->neigh_priv_len, GFP_ATOMIC);
+@@ -1849,6 +1853,7 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
+ 			ndst.ndts_rcv_probes_ucast	+= st->rcv_probes_ucast;
+ 			ndst.ndts_periodic_gc_runs	+= st->periodic_gc_runs;
+ 			ndst.ndts_forced_gc_runs	+= st->forced_gc_runs;
++			ndst.ndts_table_fulls		+= st->table_fulls;
+ 		}
+ 
+ 		if (nla_put(skb, NDTA_STATS, sizeof(ndst), &ndst))
+@@ -2717,12 +2722,12 @@ static int neigh_stat_seq_show(struct seq_file *seq, void *v)
+ 	struct neigh_statistics *st = v;
+ 
+ 	if (v == SEQ_START_TOKEN) {
+-		seq_printf(seq, "entries  allocs destroys hash_grows  lookups hits  res_failed  rcv_probes_mcast rcv_probes_ucast  periodic_gc_runs forced_gc_runs unresolved_discards\n");
++		seq_printf(seq, "entries  allocs destroys hash_grows  lookups hits  res_failed  rcv_probes_mcast rcv_probes_ucast  periodic_gc_runs forced_gc_runs unresolved_discards table_fulls\n");
+ 		return 0;
+ 	}
+ 
+ 	seq_printf(seq, "%08x  %08lx %08lx %08lx  %08lx %08lx  %08lx  "
+-			"%08lx %08lx  %08lx %08lx %08lx\n",
++			"%08lx %08lx  %08lx %08lx %08lx %08lx\n",
+ 		   atomic_read(&tbl->entries),
+ 
+ 		   st->allocs,
+@@ -2739,7 +2744,8 @@ static int neigh_stat_seq_show(struct seq_file *seq, void *v)
+ 
+ 		   st->periodic_gc_runs,
+ 		   st->forced_gc_runs,
+-		   st->unres_discards
++		   st->unres_discards,
++		   st->table_fulls
+ 		   );
+ 
+ 	return 0;
