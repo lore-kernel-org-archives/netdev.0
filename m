@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] bridge: netlink: account for the
- IFLA_BRPORT_PROXYARP_WIFI attribute size and policy
-Date: Thu, 06 Aug 2015 23:55:13 -0700 (PDT)
-Message-ID: <20150806.235513.1046191182801102990.davem@davemloft.net>
-References: <1438707993-14561-1-git-send-email-razor@blackwall.org>
-	<1438707993-14561-3-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net] net: thunderx: remove effective "default y" from
+ Kconfig if ARCH_THUNDER=y
+Date: Thu, 06 Aug 2015 23:58:49 -0700 (PDT)
+Message-ID: <20150806.235849.1866973399577659068.davem@davemloft.net>
+References: <1438716355-11515-1-git-send-email-ijc@hellion.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, kyeyoonp@codeaurora.org,
-	jouni@codeaurora.org, nikolay@cumulusnetworks.com
-To: razor@blackwall.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46041 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752338AbbHGGzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2015 02:55:14 -0400
-In-Reply-To: <1438707993-14561-3-git-send-email-razor@blackwall.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sgoutham@cavium.com, rric@kernel.org,
+	derek.chickles@caviumnetworks.com,
+	satananda.burla@caviumnetworks.com,
+	felix.manlunas@caviumnetworks.com,
+	raghu.vatsavayi@caviumnetworks.com, arnd@arndb.de,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: ijc@hellion.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438716355-11515-1-git-send-email-ijc@hellion.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Tue,  4 Aug 2015 19:06:33 +0200
+From: Ian Campbell <ijc@hellion.org.uk>
+Date: Tue,  4 Aug 2015 20:25:55 +0100
 
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> As well as for kernels built only for ThunderX ARCH_THUNDERX is also enabled
+> for kernels which support multiple platforms (such as distro kernels). Thus
+> "default ARCH_THUNDER" is inappropriate.
 > 
-> The attribute size wasn't accounted for in the get_slave_size() callback
-> (br_port_get_slave_size) when it was introduced, so fix it now. Also add
-> a policy entry for it in br_port_policy.
+> I believe default m is equally frowned upon, so remove the line completely
+> rather than "default m if ARCH_THUNDER".
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Fixes: 842a9ae08a25 ("bridge: Extend Proxy ARP design to allow optional rules for Wi-Fi")
+> Signed-off-by: Ian Campbell <ijc@hellion.org.uk>
 
 Applied.
