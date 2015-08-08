@@ -1,109 +1,40 @@
-From: "Rafael J. Wysocki" <rafael@kernel.org>
-Subject: Re: [PATCH 2/2] net, thunder, bgx: Add support for ACPI binding.
-Date: Sat, 8 Aug 2015 02:32:42 +0200
-Message-ID: <CAJZ5v0hG8xUX9k7QD+vTR90_V+Rrvv3LqxLF966YCRk192zrzQ@mail.gmail.com>
-References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com>
-	<1438907590-29649-3-git-send-email-ddaney.cavm@gmail.com>
-	<20150807145414.GA5468@xora-haswell.xora.org.uk>
-	<55C4F597.50103@caviumnetworks.com>
+From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Subject: RCU hang on 4.2-rc5
+Date: Sat, 8 Aug 2015 12:00:28 +0200
+Message-ID: <20150808100028.GA14897@sesse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Graeme Gregory <gg@slimlogic.co.uk>,
-	David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-mips@linux-mips.org, Robert Richter <rrichter@cavium.com>,
-	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
-	David Daney <david.daney@cavium.com>
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <55C4F597.50103@caviumnetworks.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cassarossa.samfundet.no ([193.35.52.29]:46814 "EHLO
+	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932237AbbHHKAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2015 06:00:35 -0400
+Received: from pannekake.samfundet.no ([2001:67c:29f4::50] ident=unknown)
+	by cassarossa.samfundet.no with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.80)
+	(envelope-from <sesse@samfundet.no>)
+	id 1ZO0vV-0008AE-PQ
+	for netdev@vger.kernel.org; Sat, 08 Aug 2015 12:00:32 +0200
+Received: from sesse by pannekake.samfundet.no with local (Exim 4.84)
+	(envelope-from <sesse@samfundet.no>)
+	id 1ZO0vU-00051P-PY
+	for netdev@vger.kernel.org; Sat, 08 Aug 2015 12:00:28 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hi,
 
-On Fri, Aug 7, 2015 at 8:14 PM, David Daney <ddaney@caviumnetworks.com> wrote:
-> On 08/07/2015 07:54 AM, Graeme Gregory wrote:
->>
->> On Thu, Aug 06, 2015 at 05:33:10PM -0700, David Daney wrote:
->>>
->>> From: David Daney <david.daney@cavium.com>
->>>
->>> Find out which PHYs belong to which BGX instance in the ACPI way.
->>>
->>> Set the MAC address of the device as provided by ACPI tables. This is
->>> similar to the implementation for devicetree in
->>> of_get_mac_address(). The table is searched for the device property
->>> entries "mac-address", "local-mac-address" and "address" in that
->>> order. The address is provided in a u64 variable and must contain a
->>> valid 6 bytes-len mac addr.
->>>
->>> Based on code from: Narinder Dhillon <ndhillon@cavium.com>
->>>                      Tomasz Nowicki <tomasz.nowicki@linaro.org>
->>>                      Robert Richter <rrichter@cavium.com>
->>>
->>> Signed-off-by: Tomasz Nowicki <tomasz.nowicki@linaro.org>
->>> Signed-off-by: Robert Richter <rrichter@cavium.com>
->>> Signed-off-by: David Daney <david.daney@cavium.com>
->>> ---
->>>   drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 137
->>> +++++++++++++++++++++-
->>>   1 file changed, 135 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->>> b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->>> index 615b2af..2056583 100644
->>> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->>> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
->
-> [...]
->>>
->>> +
->>> +static int acpi_get_mac_address(struct acpi_device *adev, u8 *dst)
->>> +{
->>> +       const union acpi_object *prop;
->>> +       u64 mac_val;
->>> +       u8 mac[ETH_ALEN];
->>> +       int i, j;
->>> +       int ret;
->>> +
->>> +       for (i = 0; i < ARRAY_SIZE(addr_propnames); i++) {
->>> +               ret = acpi_dev_get_property(adev, addr_propnames[i],
->>> +                                           ACPI_TYPE_INTEGER, &prop);
->>
->>
->> Shouldn't this be trying to use device_property_read_* API and making
->> the DT/ACPI path the same where possible?
->>
->
-> Ideally, something like you suggest would be possible.  However, there are a
-> couple of problems trying to do it in the kernel as it exists today:
->
-> 1) There is no 'struct device *' here, so device_property_read_* is not
-> applicable.
->
-> 2) There is no standard ACPI binding for MAC addresses, so it is impossible
-> to create a hypothetical fw_get_mac_address(), which would be analogous to
-> of_get_mac_address().
->
-> Other e-mail threads have suggested that the path to an elegant solution is
-> to inter-mix a bunch of calls to acpi_dev_get_property*() and
-> fwnode_property_read*() as to use these more generic fwnode_property_read*()
-> functions whereever possible.  I rejected this approach as it seems cleaner
-> to me to consistently use a single set of APIs.
+I have an issue with 4.2-rc5 where my machine hangs approximately once a day
+with RCU problems. I initially didn't think it was networking related, but
+the it seems to be (weakly) correlated with network activity, and there was
+IPv6 stuff in one of the backtraces, so I've reassigned to the networking
+component. However, I'm not sure if that generates an email to netdev. Could
+anyone please have a look?
 
-Actually, that wasn't my intention.
+  https://bugzilla.kernel.org/show_bug.cgi?id=102291
 
-I wanted to say that once you'd got an ACPI device pointer (struct
-acpi_device), you could easly convert it to a struct fwnode_handle
-pointer and operate that going forward when accessing properties.
-That at least would help with the properties that do not differ
-between DT and ACPI.
-
-Thanks,
-Rafael
+/* Steinar */
+-- 
+Homepage: http://www.sesse.net/
