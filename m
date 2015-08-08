@@ -1,58 +1,32 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] net, thunder, bgx: Add support for ACPI binding.
-Date: Sat, 08 Aug 2015 13:26:23 +0200
-Message-ID: <2414262.jivbxTLuUW@wuerfel>
-References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com> <55C467A0.4020601@linaro.org> <20150807104320.GQ1820@rric.localhost>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH v3 01/20] net/xen-netback: xenvif_gop_frag_copy: move GSO
+ check out of the loop
+Date: Sat, 8 Aug 2015 14:59:04 +0100
+Message-ID: <20150808135904.GA14214@zion.uk.xensource.com>
+References: <1438966019-19322-1-git-send-email-julien.grall@citrix.com>
+ <1438966019-19322-2-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Robert Richter <robert.richter@caviumnetworks.com>,
-        Tomasz Nowicki <tomasz.nowicki@linaro.org>,
-        linux-mips@linux-mips.org, David Daney <david.daney@cavium.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-acpi@vger.kernel.org, David Daney <ddaney.cavm@gmail.com>,
-        Sunil Goutham <sgoutham@cavium.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20150807104320.GQ1820@rric.localhost>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Cc: <xen-devel@lists.xenproject.org>,
+	<linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
+	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:27175 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932842AbbHHN7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2015 09:59:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1438966019-19322-2-git-send-email-julien.grall@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 07 August 2015 12:43:20 Robert Richter wrote:
+On Fri, Aug 07, 2015 at 05:46:40PM +0100, Julien Grall wrote:
+> The skb doesn't change within the function. Therefore it's only
+> necessary to check if we need GSO once at the beginning.
 > 
-> I would not pollute bgx_probe() with acpi and dt specifics, and instead
-> keep bgx_init_phy(). The typical design pattern for this is:
-> 
-> static int bgx_init_phy(struct bgx *bgx)
-> {
-> #ifdef CONFIG_ACPI
->         if (!acpi_disabled)
->                 return bgx_init_acpi_phy(bgx);
-> #endif
->         return bgx_init_of_phy(bgx);
-> }
-> 
-> This adds acpi runtime detection (acpi=no), does not call dt code in
-> case of acpi, and saves the #else for bgx_init_acpi_phy().
+> Signed-off-by: Julien Grall <julien.grall@citrix.com>
 > 
 
-What you should really do is to use the same function for both,
-using the generic device properties API. If that is not possible,
-explain in a comment why not.
-
-Aside from that, if you do have to use compile-time conditionals,
-use 'if (IS_ENABLED(CONFIG_ACPI) && !acpi_disabled)' instead of
-#ifdef, for readability. The compiler will produce the same binary,
-but also give helpful warnings about incorrect code that you don't
-get with #ifdef.
-
-	Arnd
+Acked-by: Wei Liu <wei.liu2@citrix.com>
