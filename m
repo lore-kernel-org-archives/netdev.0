@@ -1,209 +1,100 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH v3 18/20] net/xen-netback: Make it running on 64KB page
- granularity
-Date: Sat, 8 Aug 2015 15:55:34 +0100
-Message-ID: <20150808145534.GB14214@zion.uk.xensource.com>
-References: <1438966019-19322-1-git-send-email-julien.grall@citrix.com>
- <1438966019-19322-19-git-send-email-julien.grall@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xenproject.org>,
-	<linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
-	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
-To: Julien Grall <julien.grall@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1438966019-19322-19-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next] net: dsa: mv88e6352: Use mnemonics for EEPROM registers and bits
+Date: Sat,  8 Aug 2015 17:04:50 +0200
+Message-ID: <1439046290-9522-1-git-send-email-andrew@lunn.ch>
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:53960 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964791AbbHHPL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Aug 2015 11:11:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 07, 2015 at 05:46:57PM +0100, Julien Grall wrote:
-> The PV network protocol is using 4KB page granularity. The goal of this
-> patch is to allow a Linux using 64KB page granularity working as a
-> network backend on a non-modified Xen.
-> 
-> It's only necessary to adapt the ring size and break skb data in small
-> chunk of 4KB. The rest of the code is relying on the grant table code.
-> 
-> Signed-off-by: Julien Grall <julien.grall@citrix.com>
-> 
-> ---
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: netdev@vger.kernel.org
-> 
-[...]
-> +#define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, XEN_PAGE_SIZE)
-> +#define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, XEN_PAGE_SIZE)
->  
->  struct xenvif_rx_meta {
->  	int id;
-> @@ -80,16 +81,18 @@ struct xenvif_rx_meta {
->  /* Discriminate from any valid pending_idx value. */
->  #define INVALID_PENDING_IDX 0xFFFF
->  
-> -#define MAX_BUFFER_OFFSET PAGE_SIZE
-> +#define MAX_BUFFER_OFFSET XEN_PAGE_SIZE
->  
->  #define MAX_PENDING_REQS XEN_NETIF_TX_RING_SIZE
->  
-> +#define MAX_XEN_SKB_FRAGS (65536 / XEN_PAGE_SIZE + 1)
-> +
+Add register definitions #defines for accessing the EEPROM.
 
-It might be clearer if you add a comment saying the maximum number of
-frags is derived from the page size of the grant page, which happens to
-be XEN_PAGE_SIZE at the moment. 
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6352.c | 18 ++++++++++--------
+ drivers/net/dsa/mv88e6xxx.h |  8 ++++++--
+ 2 files changed, 16 insertions(+), 10 deletions(-)
 
-In the future we need to figure out the page size of grant page in a
-dynamic way. We shall cross the bridge when we get there.
-
->  /* It's possible for an skb to have a maximal number of frags
->   * but still be less than MAX_BUFFER_OFFSET in size. Thus the
-> - * worst-case number of copy operations is MAX_SKB_FRAGS per
-> + * worst-case number of copy operations is MAX_XEN_SKB_FRAGS per
->   * ring slot.
->   */
-> -#define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE)
-> +#define MAX_GRANT_COPY_OPS (MAX_XEN_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE)
->  
->  #define NETBACK_INVALID_HANDLE -1
->  
-> @@ -203,7 +206,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
->  /* Maximum number of Rx slots a to-guest packet may use, including the
->   * slot needed for GSO meta-data.
->   */
-> -#define XEN_NETBK_RX_SLOTS_MAX (MAX_SKB_FRAGS + 1)
-> +#define XEN_NETBK_RX_SLOTS_MAX ((MAX_XEN_SKB_FRAGS + 1))
->  
->  enum state_bit_shift {
->  	/* This bit marks that the vif is connected */
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 66f1780..c32a9f2 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -263,6 +263,80 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif_queue *queue,
->  	return meta;
->  }
->  
-[...]
->   * Set up the grant operations for this fragment. If it's a flipping
->   * interface, we also set up the unmap request from here.
-> @@ -272,83 +346,52 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
->  				 struct page *page, unsigned long size,
->  				 unsigned long offset, int *head)
->  {
-> -	struct gnttab_copy *copy_gop;
-> -	struct xenvif_rx_meta *meta;
-> +	struct gop_frag_copy info = {
-> +		.queue = queue,
-> +		.npo = npo,
-> +		.head = *head,
-> +		.gso_type = XEN_NETIF_GSO_TYPE_NONE,
-> +	};
->  	unsigned long bytes;
-> -	int gso_type = XEN_NETIF_GSO_TYPE_NONE;
->  
->  	if (skb_is_gso(skb)) {
->  		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
-> -			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-> +			info.gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
->  		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-> -			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
-> +			info.gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
->  	}
->  
->  	/* Data must not cross a page boundary. */
->  	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
->  
-> -	meta = npo->meta + npo->meta_prod - 1;
-> +	info.meta = npo->meta + npo->meta_prod - 1;
->  
->  	/* Skip unused frames from start of page */
->  	page += offset >> PAGE_SHIFT;
->  	offset &= ~PAGE_MASK;
->  
->  	while (size > 0) {
-> -		struct xen_page_foreign *foreign;
-> -
->  		BUG_ON(offset >= PAGE_SIZE);
-> -		BUG_ON(npo->copy_off > MAX_BUFFER_OFFSET);
-> -
-> -		if (npo->copy_off == MAX_BUFFER_OFFSET)
-> -			meta = get_next_rx_buffer(queue, npo);
->  
->  		bytes = PAGE_SIZE - offset;
->  		if (bytes > size)
->  			bytes = size;
->  
-> -		if (npo->copy_off + bytes > MAX_BUFFER_OFFSET)
-> -			bytes = MAX_BUFFER_OFFSET - npo->copy_off;
-> -
-> -		copy_gop = npo->copy + npo->copy_prod++;
-> -		copy_gop->flags = GNTCOPY_dest_gref;
-> -		copy_gop->len = bytes;
-> -
-> -		foreign = xen_page_foreign(page);
-> -		if (foreign) {
-> -			copy_gop->source.domid = foreign->domid;
-> -			copy_gop->source.u.ref = foreign->gref;
-> -			copy_gop->flags |= GNTCOPY_source_gref;
-> -		} else {
-> -			copy_gop->source.domid = DOMID_SELF;
-> -			copy_gop->source.u.gmfn =
-> -				virt_to_gfn(page_address(page));
-> -		}
-> -		copy_gop->source.offset = offset;
-> -
-> -		copy_gop->dest.domid = queue->vif->domid;
-> -		copy_gop->dest.offset = npo->copy_off;
-> -		copy_gop->dest.u.ref = npo->copy_gref;
-> -
-> -		npo->copy_off += bytes;
-> -		meta->size += bytes;
-> -
-> -		offset += bytes;
-> +		info.page = page;
-> +		gnttab_foreach_grant_in_range(page, offset, bytes,
-> +					      xenvif_gop_frag_copy_grant,
-> +					      &info);
-
-Looks like I need to at least wait until the API is settle before giving
-my ack.
-
->  		size -= bytes;
-> +		offset = 0;
-
-This looks wrong. Should be offset += bytes.
-
->  
-> -		/* Next frame */
-> -		if (offset == PAGE_SIZE && size) {
-> +		/* Next page */
-> +		if (size) {
->  			BUG_ON(!PageCompound(page));
->  			page++;
-> -			offset = 0;
-
-And this should not be deleted, I think.
-
-What is the reason for changing offset calculation? I think there is
-still compound page when using 64K page.
-
->  		}
-> -
-> -		/* Leave a gap for the GSO descriptor. */
-> -		if (*head && ((1 << gso_type) & queue->vif->gso_mask))
-> -			queue->rx.req_cons++;
-> -
-> -		*head = 0; /* There must be something in this buffer now. */
-> -
->  	}
-> +
-> +	*head = info.head;
->  }
->  
-
-The reset looks OK.
-
-Wei.
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index af210efecc55..7e935852e192 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -123,8 +123,9 @@ static int mv88e6352_read_eeprom_word(struct dsa_switch *ds, int addr)
+ 
+ 	mutex_lock(&ps->eeprom_mutex);
+ 
+-	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, 0x14,
+-				  0xc000 | (addr & 0xff));
++	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
++				  GLOBAL2_EEPROM_OP_READ |
++				  (addr & GLOBAL2_EEPROM_OP_ADDR_MASK));
+ 	if (ret < 0)
+ 		goto error;
+ 
+@@ -132,7 +133,7 @@ static int mv88e6352_read_eeprom_word(struct dsa_switch *ds, int addr)
+ 	if (ret < 0)
+ 		goto error;
+ 
+-	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL2, 0x15);
++	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL2, GLOBAL2_EEPROM_DATA);
+ error:
+ 	mutex_unlock(&ps->eeprom_mutex);
+ 	return ret;
+@@ -205,11 +206,11 @@ static int mv88e6352_eeprom_is_readonly(struct dsa_switch *ds)
+ {
+ 	int ret;
+ 
+-	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL2, 0x14);
++	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL2, GLOBAL2_EEPROM_OP);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (!(ret & 0x0400))
++	if (!(ret & GLOBAL2_EEPROM_OP_WRITE_EN))
+ 		return -EROFS;
+ 
+ 	return 0;
+@@ -223,12 +224,13 @@ static int mv88e6352_write_eeprom_word(struct dsa_switch *ds, int addr,
+ 
+ 	mutex_lock(&ps->eeprom_mutex);
+ 
+-	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, 0x15, data);
++	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_EEPROM_DATA, data);
+ 	if (ret < 0)
+ 		goto error;
+ 
+-	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, 0x14,
+-				  0xb000 | (addr & 0xff));
++	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
++				  GLOBAL2_EEPROM_OP_WRITE |
++				  (addr & GLOBAL2_EEPROM_OP_ADDR_MASK));
+ 	if (ret < 0)
+ 		goto error;
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 78e37226a37d..8b017d65b691 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -285,8 +285,12 @@
+ #define GLOBAL2_PRIO_OVERRIDE_FORCE_ARP		BIT(3)
+ #define GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT		0
+ #define GLOBAL2_EEPROM_OP	0x14
+-#define GLOBAL2_EEPROM_OP_BUSY	BIT(15)
+-#define GLOBAL2_EEPROM_OP_LOAD	BIT(11)
++#define GLOBAL2_EEPROM_OP_BUSY		BIT(15)
++#define GLOBAL2_EEPROM_OP_WRITE		((3 << 12) | GLOBAL2_EEPROM_OP_BUSY)
++#define GLOBAL2_EEPROM_OP_READ		((4 << 12) | GLOBAL2_EEPROM_OP_BUSY)
++#define GLOBAL2_EEPROM_OP_LOAD		BIT(11)
++#define GLOBAL2_EEPROM_OP_WRITE_EN	BIT(10)
++#define GLOBAL2_EEPROM_OP_ADDR_MASK	0xff
+ #define GLOBAL2_EEPROM_DATA	0x15
+ #define GLOBAL2_PTP_AVB_OP	0x16
+ #define GLOBAL2_PTP_AVB_DATA	0x17
+-- 
+2.5.0
