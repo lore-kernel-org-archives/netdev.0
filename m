@@ -1,52 +1,56 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 10 Aug 2015 11:24:15 +1000
-Message-ID: <20150810112415.3d7ffba8@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ian Campbell <ijc@hellion.org.uk>,
-	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v5 0/4] GRE: Use flow based tunneling for OVS GRE vport.
+Date: Fri,  7 Aug 2015 23:49:50 -0700
+Message-ID: <1439016590-15486-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33346 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509AbbHJDqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Aug 2015 23:46:20 -0400
+Received: by pabyb7 with SMTP id yb7so96634803pab.0
+        for <netdev@vger.kernel.org>; Sun, 09 Aug 2015 20:46:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Following patches make use of new Using GRE tunnel meta data
+collection feature. This allows us to directly use netdev
+based GRE tunnel implementation. While doing so I have
+removed GRE demux API which were targeted for OVS. Most
+of GRE protocol code is now consolidated in ip_gre module.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+v5-v4:
+Fixed Kconfig dependency for vport-gre module.
 
-  drivers/net/ethernet/cavium/Kconfig
+v3-v4:
+Added interface to ip-gre device to enable meta data collection.
+While doing this I split second patch into two patches.
 
-between commit:
+v2-v3:
+Add API to create GRE flow based device.
+---
 
-  22f54bf932a0 ("net: thunderx: remove effective "default y" from Kconfig if ARCH_THUNDER=y")
+Pravin B Shelar (4):
+  openvswitch: Move tunnel destroy function to oppenvswitch module.
+  ip_gre: Add support to collect tunnel metadata.
+  openvswitch: Use regular GRE net_device instead of vport
+  gre: Remove support for sharing GRE protocol hook.
 
-from the net tree and commit:
-
-  274b0b3984a9 ("net: thunderx: Select CONFIG_MDIO_OCTEON for ThunderX NIC")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+ include/net/gre.h              |  92 +--------
+ include/net/ip_tunnels.h       |   7 +-
+ include/uapi/linux/if_tunnel.h |   1 +
+ net/ipv4/gre_demux.c           | 235 +---------------------
+ net/ipv4/ip_gre.c              | 446 ++++++++++++++++++++++++++++++++++++++---
+ net/ipv4/ip_tunnel.c           |  37 +++-
+ net/ipv4/ipip.c                |   2 +-
+ net/ipv6/sit.c                 |   2 +-
+ net/openvswitch/Kconfig        |   2 +-
+ net/openvswitch/vport-gre.c    | 237 ++--------------------
+ net/openvswitch/vport-netdev.c |  21 +-
+ net/openvswitch/vport-netdev.h |   2 +-
+ net/openvswitch/vport-vxlan.c  |  17 +-
+ 13 files changed, 503 insertions(+), 598 deletions(-)
 
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/ethernet/cavium/Kconfig
-index 02e23e6f1424,358442087878..000000000000
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@@ -34,6 -36,9 +34,8 @@@ config THUNDER_NIC_V
-  config	THUNDER_NIC_BGX
-  	tristate "Thunder MAC interface driver (BGX)"
-  	depends on 64BIT
- -	default ARCH_THUNDER
-+ 	select PHYLIB
-+ 	select MDIO_OCTEON
-  	---help---
-  	  This driver supports programming and controlling of MAC
-  	  interface from NIC physical function driver.
+1.8.3.1
