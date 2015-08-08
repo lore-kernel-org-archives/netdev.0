@@ -1,66 +1,36 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/2] of: fsl/fman: reuse the fixed node parsing code
-Date: Sat, 08 Aug 2015 10:32:43 -0700
-Message-ID: <55C63D3B.5020005@gmail.com>
-References: <1438785745-15517-1-git-send-email-madalin.bucur@freescale.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] dsa: Support multiple MDIO busses
+Date: Sat, 08 Aug 2015 10:33:29 -0700
+Message-ID: <55C63D69.8070702@gmail.com>
+References: <1439046554-9669-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Igal.Liberman-KZfg59tc24xl57MIdRCFDg@public.gmane.org,
-	Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: madalin.bucur-KZfg59tc24xl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1438785745-15517-1-git-send-email-madalin.bucur-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:35064 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992555AbbHHRdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2015 13:33:31 -0400
+Received: by obbop1 with SMTP id op1so99148241obb.2
+        for <netdev@vger.kernel.org>; Sat, 08 Aug 2015 10:33:31 -0700 (PDT)
+In-Reply-To: <1439046554-9669-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CC'ing Stas,
-
-Le 08/05/15 07:42, Madalin Bucur a =C3=A9crit :
-> The FMan MAC configuration code needs the speed and duplex informatio=
-n
-> for fixed-link interfaces that is parsed now by the of function
-> of_phy_register_fixed_link(). This parses the fixed-link parameters b=
-ut
-> does not expose to the caller neither the phy_device pointer nor the
-> status struct where it loads the fixed-link params. By extracting the
-> fixed-link parsing code from of_phy_register_fixed_link() into a
-> separate function the parsed values are made available without changi=
-ng
-> the existing API. This change also removes a small redundancy in the
-> previous code calling fixed_phy_register().
-
-I will look into this shortly, sorry for the delay.
-
+Le 08/08/15 08:09, Andrew Lunn a =C3=A9crit :
+> When using a cluster of switches, some topologies will have an MDIO
+> bus per switch, not one for the whole cluster. Allow this to be
+> represented in the device tree, by adding an optional mii-bus propert=
+y
+> at the switch level. The old platform_device method of instantiation
+> supports this already, so only the device tree binding needs extendin=
+g
+> with an additional optional phandle.
 >=20
-> The FMan patch relies on the latest FMan driver v4 submission by Igal=
- Liberman:
-> https://patchwork.ozlabs.org/project/netdev/list/?submitter=3DIgal.Li=
-berman&state=3D*&q=3Dv4
->=20
-> Madalin Bucur (2):
->   of: separate fixed link parsing from registration
->   fsl_fman: use fixed_phy_status for MEMAC
->=20
->  .../ethernet/freescale/fman/flib/fsl_fman_memac.h  |  6 ++-
->  drivers/net/ethernet/freescale/fman/inc/mac.h      |  2 +-
->  drivers/net/ethernet/freescale/fman/mac/fm_memac.c | 42 ++++++++++++=
------
->  drivers/net/ethernet/freescale/fman/mac/fm_memac.h |  3 +-
->  drivers/net/ethernet/freescale/fman/mac/mac.c      | 18 ++++++--
->  drivers/of/of_mdio.c                               | 52 ++++++++++++=
-++--------
->  include/linux/of_mdio.h                            |  9 ++++
->  7 files changed, 94 insertions(+), 38 deletions(-)
->=20
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 --=20
 =46lorian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
