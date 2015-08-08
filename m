@@ -1,40 +1,36 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: RCU hang on 4.2-rc5
-Date: Sat, 8 Aug 2015 12:00:28 +0200
-Message-ID: <20150808100028.GA14897@sesse.net>
+From: Zang MingJie <zealot0630@gmail.com>
+Subject: Re: [BUG] net/ipv4: inconsistent routing table
+Date: Sat, 8 Aug 2015 18:36:22 +0800
+Message-ID: <CAOrge3q16PRh3TEBaGUeYDhLzWhCCytn+sopTzBr_23cj1gmaw@mail.gmail.com>
+References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
+ <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com>
+ <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
+ <55C3B8C8.9030507@redhat.com> <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
+ <55C4D803.3090108@redhat.com> <878u9njaon.fsf@stressinduktion.org> <CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([193.35.52.29]:46814 "EHLO
-	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932237AbbHHKAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2015 06:00:35 -0400
-Received: from pannekake.samfundet.no ([2001:67c:29f4::50] ident=unknown)
-	by cassarossa.samfundet.no with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <sesse@samfundet.no>)
-	id 1ZO0vV-0008AE-PQ
-	for netdev@vger.kernel.org; Sat, 08 Aug 2015 12:00:32 +0200
-Received: from sesse by pannekake.samfundet.no with local (Exim 4.84)
-	(envelope-from <sesse@samfundet.no>)
-	id 1ZO0vU-00051P-PY
-	for netdev@vger.kernel.org; Sat, 08 Aug 2015 12:00:28 +0200
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Days ago I mistakenly set the gateway address on my box, then add the
+default router, after I deleted the address my box can't access
+Internet and all things looks fine. It takes me several hours to
+figure out it is an kernel bug.
 
-I have an issue with 4.2-rc5 where my machine hangs approximately once a day
-with RCU problems. I initially didn't think it was networking related, but
-the it seems to be (weakly) correlated with network activity, and there was
-IPv6 stuff in one of the backtraces, so I've reassigned to the networking
-component. However, I'm not sure if that generates an email to netdev. Could
-anyone please have a look?
+>On Sat, Aug 8, 2015, 1:00 AM Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+>If we could rewind time, we could make local nexthops -EINVAL.
 
-  https://bugzilla.kernel.org/show_bug.cgi?id=102291
+I don't think this is the proper solution. As almost all network OS
+considers the routing table recursive, and it's next hop can be any
+unicast ip address.
 
-/* Steinar */
--- 
-Homepage: http://www.sesse.net/
+When the next hop is unreachable the entry won't be installed.
+
+I suggest adding a new sysconf entry, when not set, behavior as the
+same as now, when set recalculate the fib when necessary
+
+BTW is there any way to check the fib table?
