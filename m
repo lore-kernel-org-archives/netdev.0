@@ -1,36 +1,58 @@
-From: Zang MingJie <zealot0630@gmail.com>
-Subject: Re: [BUG] net/ipv4: inconsistent routing table
-Date: Sat, 8 Aug 2015 18:36:22 +0800
-Message-ID: <CAOrge3q16PRh3TEBaGUeYDhLzWhCCytn+sopTzBr_23cj1gmaw@mail.gmail.com>
-References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
- <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com>
- <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
- <55C3B8C8.9030507@redhat.com> <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
- <55C4D803.3090108@redhat.com> <878u9njaon.fsf@stressinduktion.org> <CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] net, thunder, bgx: Add support for ACPI binding.
+Date: Sat, 08 Aug 2015 13:26:23 +0200
+Message-ID: <2414262.jivbxTLuUW@wuerfel>
+References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com> <55C467A0.4020601@linaro.org> <20150807104320.GQ1820@rric.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Robert Richter <robert.richter@caviumnetworks.com>,
+        Tomasz Nowicki <tomasz.nowicki@linaro.org>,
+        linux-mips@linux-mips.org, David Daney <david.daney@cavium.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-acpi@vger.kernel.org, David Daney <ddaney.cavm@gmail.com>,
+        Sunil Goutham <sgoutham@cavium.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20150807104320.GQ1820@rric.localhost>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-Days ago I mistakenly set the gateway address on my box, then add the
-default router, after I deleted the address my box can't access
-Internet and all things looks fine. It takes me several hours to
-figure out it is an kernel bug.
+On Friday 07 August 2015 12:43:20 Robert Richter wrote:
+> 
+> I would not pollute bgx_probe() with acpi and dt specifics, and instead
+> keep bgx_init_phy(). The typical design pattern for this is:
+> 
+> static int bgx_init_phy(struct bgx *bgx)
+> {
+> #ifdef CONFIG_ACPI
+>         if (!acpi_disabled)
+>                 return bgx_init_acpi_phy(bgx);
+> #endif
+>         return bgx_init_of_phy(bgx);
+> }
+> 
+> This adds acpi runtime detection (acpi=no), does not call dt code in
+> case of acpi, and saves the #else for bgx_init_acpi_phy().
+> 
 
->On Sat, Aug 8, 2015, 1:00 AM Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
->If we could rewind time, we could make local nexthops -EINVAL.
+What you should really do is to use the same function for both,
+using the generic device properties API. If that is not possible,
+explain in a comment why not.
 
-I don't think this is the proper solution. As almost all network OS
-considers the routing table recursive, and it's next hop can be any
-unicast ip address.
+Aside from that, if you do have to use compile-time conditionals,
+use 'if (IS_ENABLED(CONFIG_ACPI) && !acpi_disabled)' instead of
+#ifdef, for readability. The compiler will produce the same binary,
+but also give helpful warnings about incorrect code that you don't
+get with #ifdef.
 
-When the next hop is unreachable the entry won't be installed.
-
-I suggest adding a new sysconf entry, when not set, behavior as the
-same as now, when set recalculate the fib when necessary
-
-BTW is there any way to check the fib table?
+	Arnd
