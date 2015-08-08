@@ -1,44 +1,57 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 2/2] cxgb4: cleanup some indenting
-Date: Sat, 8 Aug 2015 22:15:59 +0300
-Message-ID: <20150808191559.GC8034@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Hariprasad S <hariprasad@chelsio.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: Do not override PHY interface if already configured
+Date: Sat,  8 Aug 2015 12:58:57 -0700
+Message-ID: <1439063937-16316-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, linux@roeck-us.net,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:35777 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992609AbbHHUBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2015 16:01:12 -0400
+Received: by pdrg1 with SMTP id g1so56967820pdr.2
+        for <netdev@vger.kernel.org>; Sat, 08 Aug 2015 13:01:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add or remove some tabs so that statements line up correctly.
+In case we need to divert reads/writes using the slave MII bus, we may have
+already fetched a valid PHY interface property from Device Tree, and that
+mode is used by the PHY driver to make configuration decisions.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+If we could not fetch the "phy-mode" property, we will assign p->phy_interface
+to PHY_INTERFACE_MODE_NA, such that we can actually check for that condition as
+to whether or not we should override the interface value.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 9e0b670..b83ca7f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -346,11 +346,11 @@ static int cim_qcfg_show(struct seq_file *seq, void *v)
- 		if (is_t4(adap->params.chip)) {
- 			i = t4_cim_read(adap, UP_OBQ_0_REALADDR_A,
- 					ARRAY_SIZE(obq_wr_t4), obq_wr_t4);
--				wr = obq_wr_t4;
-+			wr = obq_wr_t4;
- 		} else {
- 			i = t4_cim_read(adap, UP_OBQ_0_SHADOW_REALADDR_A,
- 					ARRAY_SIZE(obq_wr_t5), obq_wr_t5);
--				wr = obq_wr_t5;
-+			wr = obq_wr_t5;
- 		}
- 	}
- 	if (i)
-@@ -2095,7 +2095,7 @@ do { \
- #undef T
- #undef S
- #undef S3
--return 0;
-+	return 0;
- }
+Fixes: 19334920eaf7 ("net: dsa: Set valid phy interface type")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Hi Guenter,
+
+Could you verify this does not break what you were trying to fix with your change?
+I am fairly confident this will not because for "PHYs" built-into the switch port
+we will not be able to fetch a "phy-mode" property from DT, so we will use
+PHY_INTERFACE_MODE_NA, but here, we will re-assign them to PHY_INTERFACE_MODE_GMII
+as before.
+
+Thanks!
+
+ net/dsa/slave.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 0917123790ea..35c47ddd04f0 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -756,7 +756,8 @@ static int dsa_slave_phy_connect(struct dsa_slave_priv *p,
+ 		return -ENODEV;
  
- static int sge_queue_entries(const struct adapter *adap)
+ 	/* Use already configured phy mode */
+-	p->phy_interface = p->phy->interface;
++	if (p->phy_interface == PHY_INTERFACE_MODE_NA)
++		p->phy_interface = p->phy->interface;
+ 	phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+ 			   p->phy_interface);
+ 
+-- 
+2.1.0
