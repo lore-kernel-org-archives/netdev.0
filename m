@@ -1,33 +1,66 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] netlink: make sure -EBUSY won't escape from
- netlink_insert
-Date: Sat, 8 Aug 2015 19:23:43 +0200
-Message-ID: <20150808172343.GB15145@pox.localdomain>
-References: <d466c48264ca677f0fc61ff76526780c32c37cb5.1438898409.git.daniel@iogearbox.net>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/2] of: fsl/fman: reuse the fixed node parsing code
+Date: Sat, 08 Aug 2015 10:32:43 -0700
+Message-ID: <55C63D3B.5020005@gmail.com>
+References: <1438785745-15517-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:38184 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992472AbbHHRXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2015 13:23:46 -0400
-Received: by wibxm9 with SMTP id xm9so101328550wib.1
-        for <netdev@vger.kernel.org>; Sat, 08 Aug 2015 10:23:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <d466c48264ca677f0fc61ff76526780c32c37cb5.1438898409.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Igal.Liberman-KZfg59tc24xl57MIdRCFDg@public.gmane.org,
+	Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: madalin.bucur-KZfg59tc24xl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1438785745-15517-1-git-send-email-madalin.bucur-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/07/15 at 12:26am, Daniel Borkmann wrote:
-> Linus reports the following deadlock on rtnl_mutex; triggered only
-> once so far (extract):
-> 
-[...] 
-> Reference: http://thread.gmane.org/gmane.linux.network/372676
-> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+CC'ing Stas,
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Le 08/05/15 07:42, Madalin Bucur a =C3=A9crit :
+> The FMan MAC configuration code needs the speed and duplex informatio=
+n
+> for fixed-link interfaces that is parsed now by the of function
+> of_phy_register_fixed_link(). This parses the fixed-link parameters b=
+ut
+> does not expose to the caller neither the phy_device pointer nor the
+> status struct where it loads the fixed-link params. By extracting the
+> fixed-link parsing code from of_phy_register_fixed_link() into a
+> separate function the parsed values are made available without changi=
+ng
+> the existing API. This change also removes a small redundancy in the
+> previous code calling fixed_phy_register().
+
+I will look into this shortly, sorry for the delay.
+
+>=20
+> The FMan patch relies on the latest FMan driver v4 submission by Igal=
+ Liberman:
+> https://patchwork.ozlabs.org/project/netdev/list/?submitter=3DIgal.Li=
+berman&state=3D*&q=3Dv4
+>=20
+> Madalin Bucur (2):
+>   of: separate fixed link parsing from registration
+>   fsl_fman: use fixed_phy_status for MEMAC
+>=20
+>  .../ethernet/freescale/fman/flib/fsl_fman_memac.h  |  6 ++-
+>  drivers/net/ethernet/freescale/fman/inc/mac.h      |  2 +-
+>  drivers/net/ethernet/freescale/fman/mac/fm_memac.c | 42 ++++++++++++=
+-----
+>  drivers/net/ethernet/freescale/fman/mac/fm_memac.h |  3 +-
+>  drivers/net/ethernet/freescale/fman/mac/mac.c      | 18 ++++++--
+>  drivers/of/of_mdio.c                               | 52 ++++++++++++=
+++--------
+>  include/linux/of_mdio.h                            |  9 ++++
+>  7 files changed, 94 insertions(+), 38 deletions(-)
+>=20
+
+
+--=20
+=46lorian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
