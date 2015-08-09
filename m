@@ -1,53 +1,238 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH 10/10] ss: fixed free on local array for valid json output
-Date: Mon, 10 Aug 2015 01:13:26 +0200
-Message-ID: <1439162006-11421-11-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH 09/10] ss: symmetrical formatter extension example
+Date: Mon, 10 Aug 2015 01:13:25 +0200
+Message-ID: <1439162006-11421-10-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1439162006-11421-1-git-send-email-matthias.tafelmeier@gmx.net>
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:63381 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.18]:59665 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751869AbbHIXN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2015 19:13:59 -0400
+	id S1751354AbbHIXNh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2015 19:13:37 -0400
 In-Reply-To: <1439162006-11421-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Minor fix to enable json output. Freeing of automatic char array name
-which will get freed after function stack cleanup. Another one after
-tcp_stats_fmt for freeing automatic tcpstats struct instance.
+This commit shall show shortly where to place changes when one wants to
+extend an ss output formatter with a new handler (format print
+procedure). The extension is done symmetrically. That means, every up to
+now existing formatter is extended with a semantically equivalent
+handler (hr and json formatter).
 
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- misc/ss.c | 6 ------
- 1 file changed, 6 deletions(-)
+ misc/ss_hr_fmt.c   | 61 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ misc/ss_json_fmt.c | 65 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ misc/ss_out_fmt.c  | 10 +++++++++
+ misc/ss_out_fmt.h  | 10 +++++++++
+ 4 files changed, 146 insertions(+)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 24f08d0..dc6e3f1 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1665,10 +1665,6 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 		s.segs_out = info->tcpi_segs_out;
- 		s.segs_in = info->tcpi_segs_in;
- 		tcp_stats_fmt(&s);
--		if (s.dctcp)
--			free(s.dctcp);
--		if (s.cong_alg)
--			free(s.cong_alg);
- 	}
+diff --git a/misc/ss_hr_fmt.c b/misc/ss_hr_fmt.c
+index 40b6b7c..ca73dda 100644
+--- a/misc/ss_hr_fmt.c
++++ b/misc/ss_hr_fmt.c
+@@ -242,6 +242,66 @@ static void packet_show_ring_hr_fmt(struct packet_diag_ring *ring)
+ 	printf(",features:0x%x", ring->pdr_features);
  }
  
-@@ -2367,8 +2363,6 @@ if (show_mem) {
- 		printf("}\n");
- 	}
- 
--	if (name)
--		free(name);
- 	return 0;
++static void packet_details_hr_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout)
++{
++	if (pinfo) {
++		printf("\n\tver:%d", pinfo->pdi_version);
++		printf(" cpy_thresh:%d", pinfo->pdi_copy_thresh);
++		printf(" flags( ");
++		if (pinfo->pdi_flags & PDI_RUNNING)
++			printf("running");
++		if (pinfo->pdi_flags & PDI_AUXDATA)
++			printf(" auxdata");
++		if (pinfo->pdi_flags & PDI_ORIGDEV)
++			printf(" origdev");
++		if (pinfo->pdi_flags & PDI_VNETHDR)
++			printf(" vnethdr");
++		if (pinfo->pdi_flags & PDI_LOSS)
++			printf(" loss");
++		if (!pinfo->pdi_flags)
++			printf("0");
++		printf(" )");
++	}
++	if (ring_rx) {
++		printf("\n\tring_rx(");
++		packet_show_ring_fmt(ring_rx);
++		printf(")");
++	}
++	if (ring_tx) {
++		printf("\n\tring_tx(");
++		packet_show_ring_fmt(ring_tx);
++		printf(")");
++	}
++	if (has_fanout) {
++		uint16_t type = (fanout >> 16) & 0xffff;
++
++		printf("\n\tfanout(");
++		printf("id:%d,", fanout & 0xffff);
++		printf("type:");
++
++		if (type == 0)
++			printf("hash");
++		else if (type == 1)
++			printf("lb");
++		else if (type == 2)
++			printf("cpu");
++		else if (type == 3)
++			printf("roll");
++		else if (type == 4)
++			printf("random");
++		else if (type == 5)
++			printf("qm");
++		else
++			printf("0x%x", type);
++
++		printf(")");
++	}
++}
++
+ const struct fmt_op_hub hr_output_op = {
+ 	.tcp_stats_fmt = tcp_stats_hr_fmt,
+ 	.tcp_timer_fmt = tcp_timer_hr_fmt,
+@@ -257,4 +317,5 @@ const struct fmt_op_hub hr_output_op = {
+ 	.opt_fmt = opt_hr_fmt,
+ 	.proc_fmt = proc_hr_fmt,
+ 	.packet_show_ring_fmt = packet_show_ring_hr_fmt,
++	.packet_details_fmt = packet_details_hr_fmt
+ };
+diff --git a/misc/ss_json_fmt.c b/misc/ss_json_fmt.c
+index e80f063..e7a1270 100644
+--- a/misc/ss_json_fmt.c
++++ b/misc/ss_json_fmt.c
+@@ -383,6 +383,70 @@ static void packet_show_ring_json_fmt(struct packet_diag_ring *ring)
+ 	printf("\"features_0x\" : \"%x\"\n", ring->pdr_features);
  }
  
++static void packet_details_json_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout)
++{
++	printf(",\n");
++	if (pinfo) {
++		printf("\t\"ver\": \"%d\",\n", pinfo->pdi_version);
++		printf("\t\"cpy_thresh\": \"%d\",\n", pinfo->pdi_copy_thresh);
++		printf("\t\"flags\": \"");
++		if (pinfo->pdi_flags & PDI_RUNNING)
++			printf("running");
++		if (pinfo->pdi_flags & PDI_AUXDATA)
++			printf("_auxdata");
++		if (pinfo->pdi_flags & PDI_ORIGDEV)
++			printf("_origdev");
++		if (pinfo->pdi_flags & PDI_VNETHDR)
++			printf("_vnethdr");
++		if (pinfo->pdi_flags & PDI_LOSS)
++			printf("_loss");
++		if (!pinfo->pdi_flags)
++			printf("0");
++		printf("\"");
++		res_json_fmt_branch(ring_rx || ring_tx || has_fanout, ' ');
++	}
++	if (ring_rx) {
++		printf("\t\"ring_rx\": {");
++		packet_show_ring_fmt(ring_rx);
++		printf("}");
++		res_json_fmt_branch(ring_tx || has_fanout, ' ');
++	}
++	if (ring_tx) {
++		printf("\t\"ring_tx\": {");
++		packet_show_ring_fmt(ring_tx);
++		printf("}");
++		res_json_fmt_branch(has_fanout, ' ');
++	}
++	if (has_fanout) {
++		uint16_t type = (fanout >> 16) & 0xffff;
++
++		printf("\t\"fanout\": \"");
++		printf("id:%d,", fanout & 0xffff);
++		printf("type:");
++
++		if (type == 0)
++			printf("hash");
++		else if (type == 1)
++			printf("lb");
++		else if (type == 2)
++			printf("cpu");
++		else if (type == 3)
++			printf("roll");
++		else if (type == 4)
++			printf("random");
++		else if (type == 5)
++			printf("qm");
++		else
++			printf("0x%x", type);
++
++		printf("\"");
++	}
++}
++
+ const struct fmt_op_hub json_output_op = {
+ 	.tcp_stats_fmt = tcp_stats_json_fmt,
+ 	.tcp_timer_fmt = tcp_timer_json_fmt,
+@@ -398,4 +462,5 @@ const struct fmt_op_hub json_output_op = {
+ 	.opt_fmt = opt_json_fmt,
+ 	.proc_fmt = proc_json_fmt,
+ 	.packet_show_ring_fmt = packet_show_ring_json_fmt,
++	.packet_details_fmt = packet_details_json_fmt
+ };
+diff --git a/misc/ss_out_fmt.c b/misc/ss_out_fmt.c
+index e17d898..3a0eb12 100644
+--- a/misc/ss_out_fmt.c
++++ b/misc/ss_out_fmt.c
+@@ -125,3 +125,13 @@ void packet_show_ring_fmt(struct packet_diag_ring *ring)
+ {
+ 	fmt_op_hub[fmt_type]->packet_show_ring_fmt(ring);
+ }
++void packet_details_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout)
++{
++	fmt_op_hub[fmt_type]->packet_details_fmt(pinfo,
++			ring_rx, ring_tx, fanout, has_fanout);
++}
++
+diff --git a/misc/ss_out_fmt.h b/misc/ss_out_fmt.h
+index b74f668..9443d44 100644
+--- a/misc/ss_out_fmt.h
++++ b/misc/ss_out_fmt.h
+@@ -54,6 +54,11 @@ struct fmt_op_hub {
+ 	void (*opt_fmt)(char *opt);
+ 	void (*proc_fmt)(int serv_width, char *pid_ctx);
+ 	void (*packet_show_ring_fmt)(struct packet_diag_ring *ring);
++	void (*packet_details_fmt)(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout);
+ };
+ 
+ void tcp_stats_fmt(struct tcpstat *s);
+@@ -74,6 +79,11 @@ void bpf_filter_fmt(struct sock_filter *f, int num);
+ void opt_fmt(char *opt);
+ void proc_fmt(int serv_width, char *pid_ctx);
+ void packet_show_ring_fmt(struct packet_diag_ring *ring);
++void packet_details_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout);
+ 
+ /*unisonly utilized formatting parts*/
+ char *sprint_bw(char *buf, double bw);
 -- 
 1.9.1
