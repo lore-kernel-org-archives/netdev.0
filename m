@@ -1,251 +1,458 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH 03/10] ss: removed obsolet fmt functions
-Date: Mon, 10 Aug 2015 01:13:19 +0200
-Message-ID: <1439162006-11421-4-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH 07/10] ss: renaming and export of current_filter
+Date: Mon, 10 Aug 2015 01:13:23 +0200
+Message-ID: <1439162006-11421-8-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1439162006-11421-1-git-send-email-matthias.tafelmeier@gmx.net>
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:65165 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.18]:59674 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751588AbbHIXNt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2015 19:13:49 -0400
+	id S1751354AbbHIXN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2015 19:13:59 -0400
 In-Reply-To: <1439162006-11421-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Those functions are obsoleted since the new fmt handler mechanism
-subsumes their tasks. Rendundancy would be contradictory to
-the new mechanism.
+Exported current_filter as ss_current_filter, because in
+the fmt handlers, I need that piece of info to resolve out issues of json.
 
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- misc/ss.c | 190 --------------------------------------------------------------
- 1 file changed, 190 deletions(-)
+ misc/ss.c | 218 +++++++++++++++++++++++++++++++-------------------------------
+ 1 file changed, 109 insertions(+), 109 deletions(-)
 
 diff --git a/misc/ss.c b/misc/ss.c
-index 3d31b81..e241b2f 100644
+index a760cf9..24f08d0 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -647,43 +647,6 @@ static const char *sstate_namel[] = {
- 	[SS_CLOSING] = "closing",
+@@ -199,7 +199,7 @@ static const struct filter default_afs[AF_MAX] = {
  };
  
--static void sock_state_print(struct sockstat *s, const char *sock_name)
--{
--	if (netid_width)
--		printf("%-*s ", netid_width, sock_name);
--	if (state_width)
--		printf("%-*s ", state_width, sstate_name[s->state]);
--
--	printf("%-6d %-6d ", s->rq, s->wq);
--}
--
--static void sock_details_print(struct sockstat *s)
--{
--	if (s->uid)
--		printf(" uid:%u", s->uid);
--
--	printf(" ino:%u", s->ino);
--	printf(" sk:%llx", s->sk);
--}
--
--static void sock_addr_print_width(int addr_len, const char *addr, char *delim,
--		int port_len, const char *port, const char *ifname)
--{
--	if (ifname) {
--		printf("%*s%%%s%s%-*s ", addr_len, addr, ifname, delim,
--				port_len, port);
--	}
--	else {
--		printf("%*s%s%-*s ", addr_len, addr, delim, port_len, port);
--	}
--}
--
--static void sock_addr_print(const char *addr, char *delim, const char *port,
--		const char *ifname)
--{
--	sock_addr_print_width(addr_width, addr, delim, serv_width, port, ifname);
--}
--
- static const char *tmr_name[] = {
- 	"off",
- 	"on",
-@@ -693,33 +656,6 @@ static const char *tmr_name[] = {
- 	"unknown"
- };
+ static int do_default = 1;
+-static struct filter current_filter;
++struct filter ss_current_filter;
  
--static const char *print_ms_timer(int timeout)
--{
--	static char buf[64];
--	int secs, msecs, minutes;
--	if (timeout < 0)
--		timeout = 0;
--	secs = timeout/1000;
--	minutes = secs/60;
--	secs = secs%60;
--	msecs = timeout%1000;
--	buf[0] = 0;
--	if (minutes) {
--		msecs = 0;
--		snprintf(buf, sizeof(buf)-16, "%dmin", minutes);
--		if (minutes > 9)
--			secs = 0;
--	}
--	if (secs) {
--		if (secs > 9)
--			msecs = 0;
--		sprintf(buf+strlen(buf), "%d%s", secs, msecs ? "." : "sec");
--	}
--	if (msecs)
--		sprintf(buf+strlen(buf), "%03dms", msecs);
--	return buf;
--}
--
- struct scache *rlist;
- 
- static void init_service_resolver(void)
-@@ -1482,122 +1418,6 @@ static int proc_inet_split_line(char *line, char **loc, char **rem, char **data)
- 	return 0;
- }
- 
--static char *sprint_bw(char *buf, double bw)
--{
--	if (bw > 1000000.)
--		sprintf(buf,"%.1fM", bw / 1000000.);
--	else if (bw > 1000.)
--		sprintf(buf,"%.1fK", bw / 1000.);
--	else
--		sprintf(buf, "%g", bw);
--
--	return buf;
--}
--
--static void tcp_stats_print(struct tcpstat *s)
--{
--	char b1[64];
--
--	if (s->has_ts_opt)
--		printf(" ts");
--	if (s->has_sack_opt)
--		printf(" sack");
--	if (s->has_ecn_opt)
--		printf(" ecn");
--	if (s->has_ecnseen_opt)
--		printf(" ecnseen");
--	if (s->has_fastopen_opt)
--		printf(" fastopen");
--	if (s->cong_alg[0])
--		printf(" %s", s->cong_alg);
--	if (s->has_wscale_opt)
--		printf(" wscale:%d,%d", s->snd_wscale, s->rcv_wscale);
--	if (s->rto)
--		printf(" rto:%g", s->rto);
--	if (s->backoff)
--		printf(" backoff:%u", s->backoff);
--	if (s->rtt)
--		printf(" rtt:%g/%g", s->rtt, s->rttvar);
--	if (s->ato)
--		printf(" ato:%g", s->ato);
--
--	if (s->qack)
--		printf(" qack:%d", s->qack);
--	if (s->qack & 1)
--		printf(" bidir");
--
--	if (s->mss)
--		printf(" mss:%d", s->mss);
--	if (s->cwnd)
--		printf(" cwnd:%d", s->cwnd);
--	if (s->ssthresh)
--		printf(" ssthresh:%d", s->ssthresh);
--
--	if (s->bytes_acked)
--		printf(" bytes_acked:%llu", s->bytes_acked);
--	if (s->bytes_received)
--		printf(" bytes_received:%llu", s->bytes_received);
--	if (s->segs_out)
--		printf(" segs_out:%u", s->segs_out);
--	if (s->segs_in)
--		printf(" segs_in:%u", s->segs_in);
--
--	if (s->dctcp && s->dctcp->enabled) {
--		struct dctcpstat *dctcp = s->dctcp;
--
--		printf(" dctcp:(ce_state:%u,alpha:%u,ab_ecn:%u,ab_tot:%u)",
--				dctcp->ce_state, dctcp->alpha, dctcp->ab_ecn,
--				dctcp->ab_tot);
--	} else if (s->dctcp) {
--		printf(" dctcp:fallback_mode");
--	}
--
--	if (s->send_bps)
--		printf(" send %sbps", sprint_bw(b1, s->send_bps));
--	if (s->lastsnd)
--		printf(" lastsnd:%u", s->lastsnd);
--	if (s->lastrcv)
--		printf(" lastrcv:%u", s->lastrcv);
--	if (s->lastack)
--		printf(" lastack:%u", s->lastack);
--
--	if (s->pacing_rate) {
--		printf(" pacing_rate %sbps", sprint_bw(b1, s->pacing_rate));
--		if (s->pacing_rate_max)
--				printf("/%sbps", sprint_bw(b1,
--							s->pacing_rate_max));
--	}
--
--	if (s->unacked)
--		printf(" unacked:%u", s->unacked);
--	if (s->retrans || s->retrans_total)
--		printf(" retrans:%u/%u", s->retrans, s->retrans_total);
--	if (s->lost)
--		printf(" lost:%u", s->lost);
--	if (s->sacked && s->ss.state != SS_LISTEN)
--		printf(" sacked:%u", s->sacked);
--	if (s->fackets)
--		printf(" fackets:%u", s->fackets);
--	if (s->reordering != 3)
--		printf(" reordering:%d", s->reordering);
--	if (s->rcv_rtt)
--		printf(" rcv_rtt:%g", s->rcv_rtt);
--	if (s->rcv_space)
--		printf(" rcv_space:%d", s->rcv_space);
--}
--
--static void tcp_timer_print(struct tcpstat *s)
--{
--	if (s->timer) {
--		if (s->timer > 4)
--			s->timer = 5;
--		printf(" timer:(%s,%s,%d)",
--				tmr_name[s->timer],
--				print_ms_timer(s->timeout),
--				s->retrans);
--	}
--}
--
- static int tcp_show_line(char *line, const struct filter *f, int family)
+ static void filter_db_set(struct filter *f, int db)
  {
- 	int rto = 0, ato = 0;
-@@ -2692,16 +2512,6 @@ static int packet_stats_print(struct sockstat *s, const struct filter *f)
- 	return 0;
- }
+@@ -1189,7 +1189,7 @@ void *parse_hostcond(char *addr, bool is_port)
+ 	struct aafilter a = { .port = -1 };
+ 	struct aafilter *res;
+ 	int fam = preferred_family;
+-	struct filter *f = &current_filter;
++	struct filter *f = &ss_current_filter;
  
--static void packet_show_ring(struct packet_diag_ring *ring)
--{
--	printf("blk_size:%d", ring->pdr_block_size);
--	printf(",blk_nr:%d", ring->pdr_block_nr);
--	printf(",frm_size:%d", ring->pdr_frame_size);
--	printf(",frm_nr:%d", ring->pdr_frame_nr);
--	printf(",tmo:%d", ring->pdr_retire_tmo);
--	printf(",features:0x%x", ring->pdr_features);
--}
--
- static int packet_show_sock(const struct sockaddr_nl *addr,
- 		struct nlmsghdr *nlh, void *arg)
- {
+ 	if (fam == AF_UNIX || strncmp(addr, "unix:", 5) == 0) {
+ 		char *p;
+@@ -1288,9 +1288,9 @@ void *parse_hostcond(char *addr, bool is_port)
+ 			if (get_integer(&a.port, port, 0)) {
+ 				struct servent *se1 = NULL;
+ 				struct servent *se2 = NULL;
+-				if (current_filter.dbs&(1<<UDP_DB))
++				if (ss_current_filter.dbs & (1 << UDP_DB))
+ 					se1 = getservbyname(port, UDP_PROTO);
+-				if (current_filter.dbs&(1<<TCP_DB))
++				if (ss_current_filter.dbs & (1 << TCP_DB))
+ 					se2 = getservbyname(port, TCP_PROTO);
+ 				if (se1 && se2 && se1->s_port != se2->s_port) {
+ 					fprintf(stderr, "Error: ambiguous port \"%s\".\n", port);
+@@ -1304,9 +1304,9 @@ void *parse_hostcond(char *addr, bool is_port)
+ 					struct scache *s;
+ 					for (s = rlist; s; s = s->next) {
+ 						if ((s->proto == UDP_PROTO &&
+-						     (current_filter.dbs&(1<<UDP_DB))) ||
++						     (ss_current_filter.dbs&(1<<UDP_DB))) ||
+ 						    (s->proto == TCP_PROTO &&
+-						     (current_filter.dbs&(1<<TCP_DB)))) {
++						     (ss_current_filter.dbs&(1<<TCP_DB)))) {
+ 							if (s->name && strcmp(s->name, port) == 0) {
+ 								if (a.port > 0 && a.port != s->port) {
+ 									fprintf(stderr, "Error: ambiguous port \"%s\".\n", port);
+@@ -3221,19 +3221,19 @@ int main(int argc, char *argv[])
+ 			follow_events = 1;
+ 			break;
+ 		case 'd':
+-			filter_db_set(&current_filter, DCCP_DB);
++			filter_db_set(&ss_current_filter, DCCP_DB);
+ 			break;
+ 		case 't':
+-			filter_db_set(&current_filter, TCP_DB);
++			filter_db_set(&ss_current_filter, TCP_DB);
+ 			break;
+ 		case 'u':
+-			filter_db_set(&current_filter, UDP_DB);
++			filter_db_set(&ss_current_filter, UDP_DB);
+ 			break;
+ 		case 'w':
+-			filter_db_set(&current_filter, RAW_DB);
++			filter_db_set(&ss_current_filter, RAW_DB);
+ 			break;
+ 		case 'x':
+-			filter_af_set(&current_filter, AF_UNIX);
++			filter_af_set(&ss_current_filter, AF_UNIX);
+ 			break;
+ 		case 'a':
+ 			state_filter = SS_ALL;
+@@ -3242,25 +3242,25 @@ int main(int argc, char *argv[])
+ 			state_filter = (1 << SS_LISTEN) | (1 << SS_CLOSE);
+ 			break;
+ 		case '4':
+-			filter_af_set(&current_filter, AF_INET);
++			filter_af_set(&ss_current_filter, AF_INET);
+ 			break;
+ 		case '6':
+-			filter_af_set(&current_filter, AF_INET6);
++			filter_af_set(&ss_current_filter, AF_INET6);
+ 			break;
+ 		case '0':
+-			filter_af_set(&current_filter, AF_PACKET);
++			filter_af_set(&ss_current_filter, AF_PACKET);
+ 			break;
+ 		case 'f':
+ 			if (strcmp(optarg, "inet") == 0)
+-				filter_af_set(&current_filter, AF_INET);
++				filter_af_set(&ss_current_filter, AF_INET);
+ 			else if (strcmp(optarg, "inet6") == 0)
+-				filter_af_set(&current_filter, AF_INET6);
++				filter_af_set(&ss_current_filter, AF_INET6);
+ 			else if (strcmp(optarg, "link") == 0)
+-				filter_af_set(&current_filter, AF_PACKET);
++				filter_af_set(&ss_current_filter, AF_PACKET);
+ 			else if (strcmp(optarg, "unix") == 0)
+-				filter_af_set(&current_filter, AF_UNIX);
++				filter_af_set(&ss_current_filter, AF_UNIX);
+ 			else if (strcmp(optarg, "netlink") == 0)
+-				filter_af_set(&current_filter, AF_NETLINK);
++				filter_af_set(&ss_current_filter, AF_NETLINK);
+ 			else if (strcmp(optarg, "help") == 0)
+ 				help();
+ 			else {
+@@ -3273,7 +3273,7 @@ int main(int argc, char *argv[])
+ 		{
+ 			char *p, *p1;
+ 			if (!saw_query) {
+-				current_filter.dbs = 0;
++				ss_current_filter.dbs = 0;
+ 				saw_query = 1;
+ 				do_default = 0;
+ 			}
+@@ -3282,44 +3282,44 @@ int main(int argc, char *argv[])
+ 				if ((p1 = strchr(p, ',')) != NULL)
+ 					*p1 = 0;
+ 				if (strcmp(p, "all") == 0) {
+-					filter_default_dbs(&current_filter);
++					filter_default_dbs(&ss_current_filter);
+ 				} else if (strcmp(p, "inet") == 0) {
+-					filter_db_set(&current_filter, UDP_DB);
+-					filter_db_set(&current_filter, DCCP_DB);
+-					filter_db_set(&current_filter, TCP_DB);
+-					filter_db_set(&current_filter, RAW_DB);
++					filter_db_set(&ss_current_filter, UDP_DB);
++					filter_db_set(&ss_current_filter, DCCP_DB);
++					filter_db_set(&ss_current_filter, TCP_DB);
++					filter_db_set(&ss_current_filter, RAW_DB);
+ 				} else if (strcmp(p, "udp") == 0) {
+-					filter_db_set(&current_filter, UDP_DB);
++					filter_db_set(&ss_current_filter, UDP_DB);
+ 				} else if (strcmp(p, "dccp") == 0) {
+-					filter_db_set(&current_filter, DCCP_DB);
++					filter_db_set(&ss_current_filter, DCCP_DB);
+ 				} else if (strcmp(p, "tcp") == 0) {
+-					filter_db_set(&current_filter, TCP_DB);
++					filter_db_set(&ss_current_filter, TCP_DB);
+ 				} else if (strcmp(p, "raw") == 0) {
+-					filter_db_set(&current_filter, RAW_DB);
++					filter_db_set(&ss_current_filter, RAW_DB);
+ 				} else if (strcmp(p, "unix") == 0) {
+-					filter_db_set(&current_filter, UNIX_ST_DB);
+-					filter_db_set(&current_filter, UNIX_DG_DB);
+-					filter_db_set(&current_filter, UNIX_SQ_DB);
++					filter_db_set(&ss_current_filter, UNIX_ST_DB);
++					filter_db_set(&ss_current_filter, UNIX_DG_DB);
++					filter_db_set(&ss_current_filter, UNIX_SQ_DB);
+ 				} else if (strcasecmp(p, "unix_stream") == 0 ||
+ 					   strcmp(p, "u_str") == 0) {
+-					filter_db_set(&current_filter, UNIX_ST_DB);
++					filter_db_set(&ss_current_filter, UNIX_ST_DB);
+ 				} else if (strcasecmp(p, "unix_dgram") == 0 ||
+ 					   strcmp(p, "u_dgr") == 0) {
+-					filter_db_set(&current_filter, UNIX_DG_DB);
++					filter_db_set(&ss_current_filter, UNIX_DG_DB);
+ 				} else if (strcasecmp(p, "unix_seqpacket") == 0 ||
+ 					   strcmp(p, "u_seq") == 0) {
+-					filter_db_set(&current_filter, UNIX_SQ_DB);
++					filter_db_set(&ss_current_filter, UNIX_SQ_DB);
+ 				} else if (strcmp(p, "packet") == 0) {
+-					filter_db_set(&current_filter, PACKET_R_DB);
+-					filter_db_set(&current_filter, PACKET_DG_DB);
++					filter_db_set(&ss_current_filter, PACKET_R_DB);
++					filter_db_set(&ss_current_filter, PACKET_DG_DB);
+ 				} else if (strcmp(p, "packet_raw") == 0 ||
+ 					   strcmp(p, "p_raw") == 0) {
+-					filter_db_set(&current_filter, PACKET_R_DB);
++					filter_db_set(&ss_current_filter, PACKET_R_DB);
+ 				} else if (strcmp(p, "packet_dgram") == 0 ||
+ 					   strcmp(p, "p_dgr") == 0) {
+-					filter_db_set(&current_filter, PACKET_DG_DB);
++					filter_db_set(&ss_current_filter, PACKET_DG_DB);
+ 				} else if (strcmp(p, "netlink") == 0) {
+-					filter_db_set(&current_filter, NETLINK_DB);
++					filter_db_set(&ss_current_filter, NETLINK_DB);
+ 				} else {
+ 					fprintf(stderr, "ss: \"%s\" is illegal socket table id\n", p);
+ 					usage();
+@@ -3388,7 +3388,7 @@ int main(int argc, char *argv[])
+ 
+ 	/* Now parse filter... */
+ 	if (argc == 0 && filter_fp) {
+-		if (ssfilter_parse(&current_filter.f, 0, NULL, filter_fp))
++		if (ssfilter_parse(&ss_current_filter.f, 0, NULL, filter_fp))
+ 			usage();
+ 	}
+ 
+@@ -3414,32 +3414,32 @@ int main(int argc, char *argv[])
+ 
+ 	if (do_default) {
+ 		state_filter = state_filter ? state_filter : SS_CONN;
+-		filter_default_dbs(&current_filter);
++		filter_default_dbs(&ss_current_filter);
+ 	}
+ 
+-	filter_states_set(&current_filter, state_filter);
+-	filter_merge_defaults(&current_filter);
++	filter_states_set(&ss_current_filter, state_filter);
++	filter_merge_defaults(&ss_current_filter);
+ 
+ 	if (resolve_services && resolve_hosts &&
+-	    (current_filter.dbs&(UNIX_DBM|(1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB))))
++	    (ss_current_filter.dbs&(UNIX_DBM|(1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB))))
+ 		init_service_resolver();
+ 
+-	if (current_filter.dbs == 0) {
++	if (ss_current_filter.dbs == 0) {
+ 		fprintf(stderr, "ss: no socket tables to show with such filter.\n");
+ 		exit(0);
+ 	}
+-	if (current_filter.families == 0) {
++	if (ss_current_filter.families == 0) {
+ 		fprintf(stderr, "ss: no families to show with such filter.\n");
+ 		exit(0);
+ 	}
+-	if (current_filter.states == 0) {
++	if (ss_current_filter.states == 0) {
+ 		fprintf(stderr, "ss: no socket states to show with such filter.\n");
+ 		exit(0);
+ 	}
+ 
+ 	if (dump_tcpdiag) {
+ 		FILE *dump_fp = stdout;
+-		if (!(current_filter.dbs & (1<<TCP_DB))) {
++		if (!(ss_current_filter.dbs & (1<<TCP_DB))) {
+ 			fprintf(stderr, "ss: tcpdiag dump requested and no tcp in filter.\n");
+ 			exit(0);
+ 		}
+@@ -3451,25 +3451,25 @@ int main(int argc, char *argv[])
+ 			}
+ 		}
+ 		printf("\"TCP\": [\n");
+-		inet_show_netlink(&current_filter, dump_fp, IPPROTO_TCP);
+-		res_json_fmt_branch(current_filter.dbs & (1<<NETLINK_DB) ||
+-				current_filter.dbs & PACKET_DBM ||
+-				current_filter.dbs & UNIX_DBM ||
+-				current_filter.dbs & (1<<RAW_DB) ||
+-				current_filter.dbs & (1<<UDP_DB) ||
+-				current_filter.dbs & (1<<TCP_DB) ||
+-				current_filter.dbs & (1<<DCCP_DB), ']');
++		inet_show_netlink(&ss_current_filter, dump_fp, IPPROTO_TCP);
++		res_json_fmt_branch(ss_current_filter.dbs & (1<<NETLINK_DB) ||
++				ss_current_filter.dbs & PACKET_DBM ||
++				ss_current_filter.dbs & UNIX_DBM ||
++				ss_current_filter.dbs & (1<<RAW_DB) ||
++				ss_current_filter.dbs & (1<<UDP_DB) ||
++				ss_current_filter.dbs & (1<<TCP_DB) ||
++				ss_current_filter.dbs & (1<<DCCP_DB), ']');
+ 		fflush(dump_fp);
+ 		exit(0);
+ 	}
+ 
+ 	if (do_summary) {
+-		print_summary(current_filter.dbs & PACKET_DBM ||
+-				current_filter.dbs & UNIX_DBM ||
+-				current_filter.dbs & (1<<RAW_DB) ||
+-				current_filter.dbs & (1<<UDP_DB) ||
+-				current_filter.dbs & (1<<TCP_DB) ||
+-				current_filter.dbs & (1<<DCCP_DB));
++		print_summary(ss_current_filter.dbs & PACKET_DBM ||
++				ss_current_filter.dbs & UNIX_DBM ||
++				ss_current_filter.dbs & (1<<RAW_DB) ||
++				ss_current_filter.dbs & (1<<UDP_DB) ||
++				ss_current_filter.dbs & (1<<TCP_DB) ||
++				ss_current_filter.dbs & (1<<DCCP_DB));
+ 		if (do_default && argc == 0) {
+ 			if (json_output) {
+ 				printf("}\n");
+@@ -3478,15 +3478,15 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+ 
+-	if (ssfilter_parse(&current_filter.f, argc, argv, filter_fp))
++	if (ssfilter_parse(&ss_current_filter.f, argc, argv, filter_fp))
+ 		usage();
+ 
+ 	netid_width = 0;
+-	if (current_filter.dbs&(current_filter.dbs-1))
++	if (ss_current_filter.dbs & (ss_current_filter.dbs - 1))
+ 		netid_width = 5;
+ 
+ 	state_width = 0;
+-	if (current_filter.states&(current_filter.states-1))
++	if (ss_current_filter.states & (ss_current_filter.states - 1))
+ 		state_width = 10;
+ 
+ 	screen_width = 80;
+@@ -3539,90 +3539,90 @@ int main(int argc, char *argv[])
+ 
+ 	fflush(stdout);
+ 
+-	if (current_filter.dbs & (1<<NETLINK_DB)) {
++	if (ss_current_filter.dbs & (1<<NETLINK_DB)) {
+ 		if (json_output) {
+ 			printf("\"NETLINK\": [\n");
+-			netlink_show(&current_filter);
++			netlink_show(&ss_current_filter);
+ 			json_first_elem = 1;
+-			res_json_fmt_branch(current_filter.dbs & PACKET_DBM ||
+-					current_filter.dbs & UNIX_DBM ||
+-					current_filter.dbs & (1<<RAW_DB) ||
+-					current_filter.dbs & (1<<UDP_DB) ||
+-					current_filter.dbs & (1<<TCP_DB) ||
+-					current_filter.dbs & (1<<DCCP_DB), ']');
++			res_json_fmt_branch(ss_current_filter.dbs & PACKET_DBM ||
++					ss_current_filter.dbs & UNIX_DBM ||
++					ss_current_filter.dbs & (1<<RAW_DB) ||
++					ss_current_filter.dbs & (1<<UDP_DB) ||
++					ss_current_filter.dbs & (1<<TCP_DB) ||
++					ss_current_filter.dbs & (1<<DCCP_DB), ']');
+ 		} else
+-			netlink_show(&current_filter);
++			netlink_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & PACKET_DBM) {
++	if (ss_current_filter.dbs & PACKET_DBM) {
+ 		if (json_output) {
+ 			printf("\"PACKET\": [\n");
+-			packet_show(&current_filter);
++			packet_show(&ss_current_filter);
+ 			json_first_elem = 1;
+ 			res_json_fmt_branch(
+-					current_filter.dbs & UNIX_DBM ||
+-					current_filter.dbs & (1<<RAW_DB) ||
+-					current_filter.dbs & (1<<UDP_DB) ||
+-					current_filter.dbs & (1<<TCP_DB) ||
+-					current_filter.dbs & (1<<DCCP_DB), ']');
++					ss_current_filter.dbs & UNIX_DBM ||
++					ss_current_filter.dbs & (1<<RAW_DB) ||
++					ss_current_filter.dbs & (1<<UDP_DB) ||
++					ss_current_filter.dbs & (1<<TCP_DB) ||
++					ss_current_filter.dbs & (1<<DCCP_DB), ']');
+ 		} else
+-			packet_show(&current_filter);
++			packet_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & UNIX_DBM) {
++	if (ss_current_filter.dbs & UNIX_DBM) {
+ 		if (json_output) {
+ 			printf("\"UNIX\": [\n");
+-			unix_show(&current_filter);
++			unix_show(&ss_current_filter);
+ 			json_first_elem = 1;
+ 			res_json_fmt_branch(
+-					current_filter.dbs & (1<<RAW_DB) ||
+-					current_filter.dbs & (1<<UDP_DB) ||
+-					current_filter.dbs & (1<<TCP_DB) ||
+-					current_filter.dbs & (1<<DCCP_DB), ']');
++					ss_current_filter.dbs & (1<<RAW_DB) ||
++					ss_current_filter.dbs & (1<<UDP_DB) ||
++					ss_current_filter.dbs & (1<<TCP_DB) ||
++					ss_current_filter.dbs & (1<<DCCP_DB), ']');
+ 
+ 		} else
+-			unix_show(&current_filter);
++			unix_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & (1<<RAW_DB)) {
++	if (ss_current_filter.dbs & (1<<RAW_DB)) {
+ 		if (json_output) {
+ 			printf("\"RAW\": [\n");
+-			raw_show(&current_filter);
++			raw_show(&ss_current_filter);
+ 			json_first_elem = 1;
+ 			res_json_fmt_branch(
+-					current_filter.dbs & (1<<UDP_DB) ||
+-					current_filter.dbs & (1<<TCP_DB) ||
+-					current_filter.dbs & (1<<DCCP_DB), ']');
++					ss_current_filter.dbs & (1<<UDP_DB) ||
++					ss_current_filter.dbs & (1<<TCP_DB) ||
++					ss_current_filter.dbs & (1<<DCCP_DB), ']');
+ 
+ 		} else
+-			raw_show(&current_filter);
++			raw_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & (1<<UDP_DB)) {
++	if (ss_current_filter.dbs & (1<<UDP_DB)) {
+ 		if (json_output) {
+ 			printf("\"UDP\": [\n");
+-			udp_show(&current_filter);
++			udp_show(&ss_current_filter);
+ 			json_first_elem = 1;
+ 			res_json_fmt_branch(
+-					current_filter.dbs & (1<<TCP_DB) ||
+-					current_filter.dbs & (1<<DCCP_DB), ']');
++					ss_current_filter.dbs & (1<<TCP_DB) ||
++					ss_current_filter.dbs & (1<<DCCP_DB), ']');
+ 
+ 		} else
+-			udp_show(&current_filter);
++			udp_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & (1<<TCP_DB)) {
++	if (ss_current_filter.dbs & (1<<TCP_DB)) {
+ 		if (json_output) {
+ 			printf("\"TCP\": [\n");
+-			tcp_show(&current_filter, IPPROTO_TCP);
++			tcp_show(&ss_current_filter, IPPROTO_TCP);
+ 			json_first_elem = 1;
+ 			res_json_fmt_branch(
+-					current_filter.dbs & (1<<DCCP_DB), ']');
++					ss_current_filter.dbs & (1<<DCCP_DB), ']');
+ 		} else
+-			tcp_show(&current_filter, IPPROTO_TCP);
++			tcp_show(&ss_current_filter, IPPROTO_TCP);
+ 	}
+-	if (current_filter.dbs & (1<<DCCP_DB)) {
++	if (ss_current_filter.dbs & (1<<DCCP_DB)) {
+ 		if (json_output) {
+ 			printf("\"DCCP\": [\n");
+-			tcp_show(&current_filter, IPPROTO_DCCP);
++			tcp_show(&ss_current_filter, IPPROTO_DCCP);
+ 			printf("]\n");
+ 		} else
+-			tcp_show(&current_filter, IPPROTO_DCCP);
++			tcp_show(&ss_current_filter, IPPROTO_DCCP);
+ 	}
+ 
+ 	if (json_output) {
+@@ -3632,7 +3632,7 @@ int main(int argc, char *argv[])
+ 	fflush(stdout);
+ 
+ 	if (follow_events)
+-		exit(handle_follow_request(&current_filter));
++		exit(handle_follow_request(&ss_current_filter));
+ 
+ 	if (show_users || show_proc_ctx || show_sock_ctx)
+ 		user_ent_destroy();
 -- 
 1.9.1
