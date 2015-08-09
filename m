@@ -1,220 +1,28 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 0/4] Shared vhost design
-Date: Sun, 9 Aug 2015 18:40:59 +0300
-Message-ID: <20150809183827-mutt-send-email-mst@redhat.com>
-References: <1436760455-5686-1-git-send-email-bsd@redhat.com>
- <20150727235818-mutt-send-email-mst@redhat.com>
- <jpgoaihs7lt.fsf@linux.bootlegged.copy>
- <20150809154357-mutt-send-email-mst@redhat.com>
- <OFC68F4730.CA40D595-ONC2257E9C.00515E83-C2257E9C.00523437@il.ibm.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v4 1/4] openvswitch: Move tunnel destroy
+ function to oppenvswitch module.
+Date: Sun, 9 Aug 2015 18:09:45 +0200
+Message-ID: <20150809160945.GD3113@pox.localdomain>
+References: <1438830750-6512-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bandan Das <bsd@redhat.com>, cgroups@vger.kernel.org,
-	jasowang@redhat.com, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Razya Ladelsky <RAZYA@il.ibm.com>
-To: Eyal Moscovici <EYALMO@il.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55976 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752508AbbHIPlD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2015 11:41:03 -0400
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:37500 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933047AbbHIQJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Aug 2015 12:09:48 -0400
+Received: by wibhh20 with SMTP id hh20so121254681wib.0
+        for <netdev@vger.kernel.org>; Sun, 09 Aug 2015 09:09:46 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <OFC68F4730.CA40D595-ONC2257E9C.00515E83-C2257E9C.00523437@il.ibm.com>
+In-Reply-To: <1438830750-6512-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 09, 2015 at 05:57:53PM +0300, Eyal Moscovici wrote:
-> Eyal Moscovici
-> HL-Cloud Infrastructure Solutions
-> IBM Haifa Research Lab
+On 08/05/15 at 08:12pm, Pravin B Shelar wrote:
+> This function will be used in gre and geneve vport implementations.
 > 
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 08/09/2015 03:45:47 PM:
-> 
-> > From: "Michael S. Tsirkin" <mst@redhat.com>
-> > To: Bandan Das <bsd@redhat.com>
-> > Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-
-> > kernel@vger.kernel.org, Eyal Moscovici/Haifa/IBM@IBMIL, Razya
-> > Ladelsky/Haifa/IBM@IBMIL, cgroups@vger.kernel.org, jasowang@redhat.com
-> > Date: 08/09/2015 03:46 PM
-> > Subject: Re: [RFC PATCH 0/4] Shared vhost design
-> >
-> > On Sat, Aug 08, 2015 at 07:06:38PM -0400, Bandan Das wrote:
-> > > Hi Michael,
-> > >
-> > > "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > >
-> > > > On Mon, Jul 13, 2015 at 12:07:31AM -0400, Bandan Das wrote:
-> > > >> Hello,
-> > > >>
-> > > >> There have been discussions on improving the current vhost
-> > design. The first
-> > > >> attempt, to my knowledge was Shirley Ma's patch to create a
-> > dedicated vhost
-> > > >> worker per cgroup.
-> > > >>
-> > > >> http://comments.gmane.org/gmane.linux.network/224730
-> > > >>
-> > > >> Later, I posted a cmwq based approach for performance comparisions
-> > > >> http://comments.gmane.org/gmane.linux.network/286858
-> > > >>
-> > > >> More recently was the Elvis work that was presented in KVM Forum 2013
-> > > >> http://www.linux-kvm.org/images/a/a3/Kvm-forum-2013-elvis.pdf
-> > > >>
-> > > >> The Elvis patches rely on common vhost thread design for scalability
-> > > >> along with polling for performance. Since there are two major changes
-> > > >> being proposed, we decided to split up the work. The first (this RFC),
-> > > >> proposing a re-design of the vhost threading model and the second part
-> > > >> (not posted yet) to focus more on improving performance.
-> > > >>
-> > > >> I am posting this with the hope that we can have a meaningful discussion
-> > > >> on the proposed new architecture. We have run some tests to
-> > show that the new
-> > > >> design is scalable and in terms of performance, is comparable
-> > to the current
-> > > >> stable design.
-> > > >>
-> > > >> Test Setup:
-> > > >> The testing is based on the setup described in the Elvis proposal.
-> > > >> The initial tests are just an aggregate of Netperf STREAM and MAERTS but
-> > > >> as we progress, I am happy to run more tests. The hosts are twoidentical
-> > > >> 16 core Haswell systems with point to point network links. For
-> > the first 10 runs,
-> > > >> with n=1 upto n=10 guests running in parallel, I booted the
-> > target system with nr_cpus=8
-> > > >> and mem=12G. The purpose was to do a comparision of resource utilization
-> > > >> and how it affects performance. Finally, with the number of
-> > guests set at 14,
-> > > >> I didn't limit the number of CPUs booted on the host or limit
-> > memory seen by
-> > > >> the kernel but boot the kernel with isolcpus=14,15 that will be
-> > used to run
-> > > >> the vhost threads. The guests are pinned to cpus 0-13 and based on which
-> > > >> cpu the guest is running on, the corresponding I/O thread is
-> > either pinned
-> > > >> to cpu 14 or 15.
-> > > >> Results
-> > > >> # X axis is number of guests
-> > > >> # Y axis is netperf number
-> > > >> # nr_cpus=8 and mem=12G
-> > > >> #Number of Guests        #Baseline            #ELVIS
-> > > >> 1                        1119.3            1111.0
-> > > >> 2          1135.6            1130.2
-> > > >> 3          1135.5            1131.6
-> > > >> 4          1136.0            1127.1
-> > > >> 5          1118.6            1129.3
-> > > >> 6          1123.4            1129.8
-> > > >> 7          1128.7            1135.4
-> > > >> 8          1129.9            1137.5
-> > > >> 9          1130.6            1135.1
-> > > >> 10          1129.3            1138.9
-> > > >> 14*          1173.8            1216.9
-> > > >
-> > > > I'm a bit too busy now, with 2.4 and related stuff, will review once we
-> > > > finish 2.4.  But I'd like to ask two things:
-> > > > - did you actually test a config where cgroups were used?
-> > >
-> > > Here are some numbers with a simple cgroup setup.
-> > >
-> > > Three cgroups with cpusets cpu=0,2,4 for cgroup1, cpu=1,3,5 for
-> > cgroup2 and cpu=6,7
-> > > for cgroup3 (even though 6,7 have different numa nodes)
-> > >
-> > > I run netperf for 1 to 9 guests starting with assigning the first guest
-> > > to cgroup1, second to cgroup2, third to cgroup3 and repeat this sequence
-> > > upto 9 guests.
-> > >
-> > > The numbers  - (TCP_STREAM + TCP_MAERTS)/2
-> > >
-> > >  #Number of Guests             #ELVIS (Mbps)
-> > >  1                             1056.9
-> > >  2                     1122.5
-> > >  3                     1122.8
-> > >  4                     1123.2
-> > >  5                     1122.6
-> > >  6                     1110.3
-> > >  7                     1116.3
-> > >  8                     1121.8
-> > >  9                     1118.5
-> > >
-> > > Maybe, my cgroup setup was too simple but these numbers are comparable
-> > > to the no cgroups results above. I wrote some tracing code to trace
-> > > cgroup_match_groups() and find cgroup search overhead but it seemed
-> > > unnecessary for this particular test.
-> > >
-> > >
-> > > > - does the design address the issue of VM 1 being blocked
-> > > >   (e.g. because it hits swap) and blocking VM 2?
-> > > Good question. I haven't thought of this yet. But IIUC,
-> > > the worker thread will complete VM1's job and then move on to
-> > > executing VM2's scheduled work.
-> > > It doesn't matter if VM1 is
-> > > blocked currently. I think it would be a problem though if/when
-> > > polling is introduced.
-> >
-> > Sorry, I wasn't clear. If VM1's memory is in swap, attempts to
-> > access it might block the service thread, so it won't
-> > complete VM2's job.
-> >
-> 
-> We are not talking about correctness only about performance issues. In this
-> case, if
-> the VM is swapped out you are most likely in a state of memory pressure.
-> Aren't the effects on performance of swapping in only the specific pages of the
-> vrings is negligible as compared to the performance effects in a state of
-> memory pressure?
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-VM1 is under pressure, but VM2 might not be.
-
-> >
-> >
-> > >
-> > > >>
-> > > >> #* Last run with the vCPU and I/O thread(s) pinned, no CPU/
-> > memory limit imposed.
-> > > >> #  I/O thread runs on CPU 14 or 15 depending on which guest it's serving
-> > > >>
-> > > >> There's a simple graph at
-> > > >> http://people.redhat.com/~bdas/elvis/data/results.png
-> > > >> that shows how task affinity results in a jump and even without it,
-> > > >> as the number of guests increase, the shared vhost design performs
-> > > >> slightly better.
-> > > >>
-> > > >> Observations:
-> > > >> 1. In terms of "stock" performance, the results are comparable.
-> > > >> 2. However, with a tuned setup, even without polling, we see an
-> > improvement
-> > > >> with the new design.
-> > > >> 3. Making the new design simulate old behavior would be a
-> > matter of setting
-> > > >> the number of guests per vhost threads to 1.
-> > > >> 4. Maybe, setting a per guest limit on the work being done by a
-> > specific vhost
-> > > >> thread is needed for it to be fair.
-> > > >> 5. cgroup associations needs to be figured out. I just slightlyhacked
-> the
-> > > >> current cgroup association mechanism to work with the new
-> > model. Ccing cgroups
-> > > >> for input/comments.
-> > > >>
-> > > >> Many thanks to Razya Ladelsky and Eyal Moscovici, IBM for the initial
-> > > >> patches, the helpful testing suggestions and discussions.
-> > > >>
-> > > >> Bandan Das (4):
-> > > >>   vhost: Introduce a universal thread to serve all users
-> > > >>   vhost: Limit the number of devices served by a single worker thread
-> > > >>   cgroup: Introduce a function to compare cgroups
-> > > >>   vhost: Add cgroup-aware creation of worker threads
-> > > >>
-> > > >>  drivers/vhost/net.c    |   6 +-
-> > > >>  drivers/vhost/scsi.c   |  18 ++--
-> > > >>  drivers/vhost/vhost.c  | 272 +++++++++++++++++++++++++++++++++
-> > ++--------------
-> > > >>  drivers/vhost/vhost.h  |  32 +++++-
-> > > >>  include/linux/cgroup.h |   1 +
-> > > >>  kernel/cgroup.c        |  40 ++++++++
-> > > >>  6 files changed, 275 insertions(+), 94 deletions(-)
-> > > >>
-> > > >> --
-> > > >> 2.4.3
-> >
+Acked-by: Thomas Graf <tgraf@suug.ch>
