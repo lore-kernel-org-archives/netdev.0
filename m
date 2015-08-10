@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn:remove reverse_bits(), use revbit8()
-Date: Mon, 10 Aug 2015 14:30:12 -0700 (PDT)
-Message-ID: <20150810.143012.1342124147857318471.davem@davemloft.net>
-References: <48EEE6BC-BAFE-4545-A860-237FBD1E279B@gmail.com>
+Subject: Re: [PATCH net 0/2] bnx2x: small fixes
+Date: Mon, 10 Aug 2015 14:32:16 -0700 (PDT)
+Message-ID: <20150810.143216.521562396060441620.davem@davemloft.net>
+References: <1439200176-17662-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: yalin.wang2010@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <48EEE6BC-BAFE-4545-A860-237FBD1E279B@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44483 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932726AbbHJVcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 17:32:17 -0400
+In-Reply-To: <1439200176-17662-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: yalin wang <yalin.wang2010@gmail.com>
-Date: Mon, 10 Aug 2015 17:15:57 +0800
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Mon, 10 Aug 2015 12:49:34 +0300
 
-> This change isdn driver, remove reverse_bits() function,
-> use the generic revbit8() function instead.
-> 
-> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
+> This adds 2 small fixes, one to error flows during memory release
+> and the other to flash writes via ethtool API.
 
-Applied, however please format your Subject lines better in the
-future.
-
-There should be a space after the subsystem specifier and the ':'
-character.  So "isdn: "
-
-Then you should capitalize the description in the Subject line
-because it is very much like an English sentence.
+Series applied, thanks.
