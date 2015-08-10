@@ -1,75 +1,113 @@
-From: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH V1 Resend 11/11] net: Drop unlikely before
-	IS_ERR(_OR_NULL)
-Date: Mon, 10 Aug 2015 11:42:33 +0530
-Message-ID: <c3999bbcb63b3f8d09be161333224c14cf709a8e.1439187003.git.viresh.kumar@linaro.org>
-References: <cover.1439187003.git.viresh.kumar@linaro.org>
+From: Damian Hobson-Garcia <dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
+Subject: Re: [PATCH] eventfd: implementation of EFD_MASK flag
+Date: Mon, 10 Aug 2015 15:23:40 +0900
+Message-ID: <55C8436C.1000806@igel.co.jp>
+References: <1439185906-28180-1-git-send-email-dhobsong@igel.co.jp>
+ <1439185906-28180-2-git-send-email-dhobsong@igel.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Vlad Yasevich <vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "open list:SCTP PROTOCOL" <linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "open list:OPENVSWITCH" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1439187003.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-In-Reply-To: <cover.1439187003.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-References: <cover.1439187003.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1439185906-28180-2-git-send-email-dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SVNfRVJSKF9PUl9OVUxMKSBhbHJlYWR5IGNvbnRhaW4gYW4gJ3VubGlrZWx5JyBjb21waWxlciBm
-bGFnIGFuZCB0aGVyZQppcyBubyBuZWVkIHRvIGRvIHRoYXQgYWdhaW4gZnJvbSBpdHMgY2FsbGVy
-cy4gRHJvcCBpdC4KClNpZ25lZC1vZmYtYnk6IFZpcmVzaCBLdW1hciA8dmlyZXNoLmt1bWFyQGxp
-bmFyby5vcmc+Ci0tLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgfCAyICstCiBuZXQvc2N0
-cC9zb2NrZXQuYyAgICAgICAgICB8IDIgKy0KIG5ldC9zb2NrZXQuYyAgICAgICAgICAgICAgIHwg
-NiArKystLS0KIDMgZmlsZXMgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygt
-KQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jIGIvbmV0L29wZW52c3dp
-dGNoL2RhdGFwYXRoLmMKaW5kZXggZmZlOTg0ZjViOTVjLi5hNTE1ZTMzOGNhZGUgMTAwNjQ0Ci0t
-LSBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9kYXRh
-cGF0aC5jCkBAIC0xMTQzLDcgKzExNDMsNyBAQCBzdGF0aWMgaW50IG92c19mbG93X2NtZF9zZXQo
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGdlbmxfaW5mbyAqaW5mbykKIAkJCQkJCWluZm8s
-IE9WU19GTE9XX0NNRF9ORVcsIGZhbHNlLAogCQkJCQkJdWZpZF9mbGFncyk7CiAKLQkJaWYgKHVu
-bGlrZWx5KElTX0VSUihyZXBseSkpKSB7CisJCWlmIChJU19FUlIocmVwbHkpKSB7CiAJCQllcnJv
-ciA9IFBUUl9FUlIocmVwbHkpOwogCQkJZ290byBlcnJfdW5sb2NrX292czsKIAkJfQpkaWZmIC0t
-Z2l0IGEvbmV0L3NjdHAvc29ja2V0LmMgYi9uZXQvc2N0cC9zb2NrZXQuYwppbmRleCAxN2JlZjAx
-YjlhYTMuLjg5N2MwMWMwMjljYSAxMDA2NDQKLS0tIGEvbmV0L3NjdHAvc29ja2V0LmMKKysrIGIv
-bmV0L3NjdHAvc29ja2V0LmMKQEAgLTQ0NzUsNyArNDQ3NSw3IEBAIHN0YXRpYyBpbnQgc2N0cF9n
-ZXRzb2Nrb3B0X3BlZWxvZmYoc3RydWN0IHNvY2sgKnNrLCBpbnQgbGVuLCBjaGFyIF9fdXNlciAq
-b3B0dmFsCiAJfQogCiAJbmV3ZmlsZSA9IHNvY2tfYWxsb2NfZmlsZShuZXdzb2NrLCAwLCBOVUxM
-KTsKLQlpZiAodW5saWtlbHkoSVNfRVJSKG5ld2ZpbGUpKSkgeworCWlmIChJU19FUlIobmV3Zmls
-ZSkpIHsKIAkJcHV0X3VudXNlZF9mZChyZXR2YWwpOwogCQlzb2NrX3JlbGVhc2UobmV3c29jayk7
-CiAJCXJldHVybiBQVFJfRVJSKG5ld2ZpbGUpOwpkaWZmIC0tZ2l0IGEvbmV0L3NvY2tldC5jIGIv
-bmV0L3NvY2tldC5jCmluZGV4IDk5NjNhMGI1M2E2NC4uZGQyYzI0N2M5OWUzIDEwMDY0NAotLS0g
-YS9uZXQvc29ja2V0LmMKKysrIGIvbmV0L3NvY2tldC5jCkBAIC0zNzMsNyArMzczLDcgQEAgc3Ry
-dWN0IGZpbGUgKnNvY2tfYWxsb2NfZmlsZShzdHJ1Y3Qgc29ja2V0ICpzb2NrLCBpbnQgZmxhZ3Ms
-IGNvbnN0IGNoYXIgKmRuYW1lKQogCiAJZmlsZSA9IGFsbG9jX2ZpbGUoJnBhdGgsIEZNT0RFX1JF
-QUQgfCBGTU9ERV9XUklURSwKIAkJICAmc29ja2V0X2ZpbGVfb3BzKTsKLQlpZiAodW5saWtlbHko
-SVNfRVJSKGZpbGUpKSkgeworCWlmIChJU19FUlIoZmlsZSkpIHsKIAkJLyogZHJvcCBkZW50cnks
-IGtlZXAgaW5vZGUgKi8KIAkJaWhvbGQoZF9pbm9kZShwYXRoLmRlbnRyeSkpOwogCQlwYXRoX3B1
-dCgmcGF0aCk7CkBAIC0xMzAzLDcgKzEzMDMsNyBAQCBTWVNDQUxMX0RFRklORTQoc29ja2V0cGFp
-ciwgaW50LCBmYW1pbHksIGludCwgdHlwZSwgaW50LCBwcm90b2NvbCwKIAl9CiAKIAluZXdmaWxl
-MSA9IHNvY2tfYWxsb2NfZmlsZShzb2NrMSwgZmxhZ3MsIE5VTEwpOwotCWlmICh1bmxpa2VseShJ
-U19FUlIobmV3ZmlsZTEpKSkgeworCWlmIChJU19FUlIobmV3ZmlsZTEpKSB7CiAJCWVyciA9IFBU
-Ul9FUlIobmV3ZmlsZTEpOwogCQlnb3RvIG91dF9wdXRfdW51c2VkX2JvdGg7CiAJfQpAQCAtMTQ2
-Nyw3ICsxNDY3LDcgQEAgU1lTQ0FMTF9ERUZJTkU0KGFjY2VwdDQsIGludCwgZmQsIHN0cnVjdCBz
-b2NrYWRkciBfX3VzZXIgKiwgdXBlZXJfc29ja2FkZHIsCiAJCWdvdG8gb3V0X3B1dDsKIAl9CiAJ
-bmV3ZmlsZSA9IHNvY2tfYWxsb2NfZmlsZShuZXdzb2NrLCBmbGFncywgc29jay0+c2stPnNrX3By
-b3RfY3JlYXRvci0+bmFtZSk7Ci0JaWYgKHVubGlrZWx5KElTX0VSUihuZXdmaWxlKSkpIHsKKwlp
-ZiAoSVNfRVJSKG5ld2ZpbGUpKSB7CiAJCWVyciA9IFBUUl9FUlIobmV3ZmlsZSk7CiAJCXB1dF91
-bnVzZWRfZmQobmV3ZmQpOwogCQlzb2NrX3JlbGVhc2UobmV3c29jayk7Ci0tIAoyLjQuMAoKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcg
-bGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9kZXYK
+Replying to my own post, but I had the following comments/questions.
+Martin, if you have any response to my comments I would be very happy to
+hear them.
+
+On 2015-08-10 2:51 PM, Damian Hobson-Garcia wrote:
+> From: Martin Sustrik <sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org>
+> 
+[snip]
+> 
+> write(2):
+> 
+> User is allowed to write only buffers containing the following structure:
+> 
+> struct efd_mask {
+>   __u32 events;
+>   __u64 data;
+> };
+> 
+> The value of 'events' should be any combination of event flags as defined by
+> poll(2) function (POLLIN, POLLOUT, POLLERR, POLLHUP etc.) Specified events will
+> be signaled when polling (select, poll, epoll) on the eventfd is done later on.
+> 'data' is opaque data that are not interpreted by eventfd object.
+> 
+I'm not fully clear on the purpose that the 'data' member serves.  Does
+this opaque handle need to be tied together with this event
+synchronization construct?
+
+[snip]
+
+> @@ -55,6 +69,9 @@ __u64 eventfd_signal(struct eventfd_ctx *ctx, __u64 n)
+>  {
+> +	/* This function should never be used with eventfd in the mask mode. */
+> +	BUG_ON(ctx->flags & EFD_MASK);
+> +
+...
+> @@ -158,6 +180,9 @@ int eventfd_ctx_remove_wait_queue(struct eventfd_ctx *ctx, wait_queue_t *wait,
+>  {
+> +	/* This function should never be used with eventfd in the mask mode. */
+> +	BUG_ON(ctx->flags & EFD_MASK);
+> +
+...
+> @@ -188,6 +213,9 @@ ssize_t eventfd_ctx_read(struct eventfd_ctx *ctx, int no_wait, __u64 *cnt)
+> +	/* This function should never be used with eventfd in the mask mode. */
+> +	BUG_ON(ctx->flags & EFD_MASK);
+> +
+
+If eventfd_ctx_fileget() returns EINVAL when EFD_MASK is set, I don't
+think that there will be a way to call these functions in the mask mode,
+so it should be possible to get rid of the BUG_ON checks.
+
+[snip]
+> @@ -230,6 +258,19 @@ static ssize_t eventfd_read(struct file *file, char __user *buf, size_t count,
+>  	ssize_t res;
+>  	__u64 cnt;
+>  
+> +	if (ctx->flags & EFD_MASK) {
+> +		struct efd_mask mask;
+> +
+> +		if (count < sizeof(mask))
+> +			return -EINVAL;
+> +		spin_lock_irq(&ctx->wqh.lock);
+> +		mask = ctx->mask;
+> +		spin_unlock_irq(&ctx->wqh.lock);
+> +		if (copy_to_user(buf, &mask, sizeof(mask)))
+> +			return -EFAULT;
+> +		return sizeof(mask);
+> +	}
+> +
+
+For the other eventfd modes, reading the value will update the internal
+state of the eventfd (either clearing or decrementing the counter).
+Should something similar be done here? I'm thinking of a case where a
+process is polling on this fd in a loop. Clearing the efd_mask data  on
+read should provide an easy way for the polling process to know if it is
+seeing new poll events.
+
+> @@ -292,8 +351,13 @@ static void eventfd_show_fdinfo(struct seq_file *m, struct file *f)
+>  	struct eventfd_ctx *ctx = f->private_data;
+>  
+>  	spin_lock_irq(&ctx->wqh.lock);
+> -	seq_printf(m, "eventfd-count: %16llx\n",
+> -		   (unsigned long long)ctx->count);
+> +	if (ctx->flags & EFD_MASK) {
+> +		seq_printf(m, "eventfd-mask: %x\n",
+> +				 (unsigned)ctx->mask.events);
+> +	} else {
+> +		seq_printf(m, "eventfd-count: %16llx\n",
+> +				 (unsigned long long)ctx->count);
+> +	}
+>  	spin_unlock_irq(&ctx->wqh.lock);
+>  }
+I think that putting the EFD_MASK functionality into a different fops
+structure might be useful for reducing the number of if statements.
+
+Thank you,
+Damian
