@@ -1,90 +1,101 @@
-From: Zang MingJie <zealot0630@gmail.com>
-Subject: Re: [BUG] net/ipv4: inconsistent routing table
-Date: Mon, 10 Aug 2015 06:51:07 -0400
-Message-ID: <CAOrge3pSQ7eck14biTncjOyGD-DKY0DvRr7JKpS3BowoSDry-Q@mail.gmail.com>
-References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
- <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com>
- <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
- <55C3B8C8.9030507@redhat.com> <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
- <55C4D803.3090108@redhat.com> <878u9njaon.fsf@stressinduktion.org>
- <CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com>
- <CAOrge3q16PRh3TEBaGUeYDhLzWhCCytn+sopTzBr_23cj1gmaw@mail.gmail.com> <878u9jijuc.fsf@stressinduktion.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH v3 18/20] net/xen-netback: Make it running on 64KB page
+ granularity
+Date: Mon, 10 Aug 2015 12:39:07 +0100
+Message-ID: <20150810113907.GH8857@zion.uk.xensource.com>
+References: <1438966019-19322-1-git-send-email-julien.grall@citrix.com>
+ <1438966019-19322-19-git-send-email-julien.grall@citrix.com>
+ <20150808145534.GB14214@zion.uk.xensource.com> <55C8759C.3010507@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
+	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Julien Grall <julien.grall@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <878u9jijuc.fsf@stressinduktion.org>
+Content-Disposition: inline
+In-Reply-To: <55C8759C.3010507@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Here comes several options:
+On Mon, Aug 10, 2015 at 10:57:48AM +0100, Julien Grall wrote:
+[...]
+> 
+> >>+		info.page = page;
+> >>+		gnttab_foreach_grant_in_range(page, offset, bytes,
+> >>+					      xenvif_gop_frag_copy_grant,
+> >>+					      &info);
+> >
+> >Looks like I need to at least wait until the API is settle before giving
+> >my ack.
+> >
+> >>  		size -= bytes;
+> >>+		offset = 0;
+> >
+> >This looks wrong. Should be offset += bytes.
+> 
+> With the new implementation of the loop, each iteration will be on a
+> different page.
+> So only the first page has an offset different than zero.
+> 
+> >
+> >>
+> >>-		/* Next frame */
+> >>-		if (offset == PAGE_SIZE && size) {
+> >>+		/* Next page */
+> >>+		if (size) {
+> >>  			BUG_ON(!PageCompound(page));
+> >>  			page++;
+> >>-			offset = 0;
+> >
+> >And this should not be deleted, I think.
+> >
+> >What is the reason for changing offset calculation? I think there is
+> >still compound page when using 64K page.
+> 
+> The compound pages are still working ... gnttab_foreach_grant_in_range is
+> called once per page. So the offset can be reset to 0 every time. No need to
+> add code which would make the result less clear.
+> 
+> We only need to know if the size is not 0 to get the next page.
+> 
+> The patch may not be clear enough to see it's working so I've copied the
+> result loop below:
+> 
+>         while (size > 0) {
+>                 BUG_ON(offset >= PAGE_SIZE);
+> 
+>                 bytes = PAGE_SIZE - offset;
+>                 if (bytes > size)
+>                         bytes = size;
+> 
+>                 info.page = page;
+>                 gnttab_foreach_grant_in_range(page, offset, bytes,
+>                                              xenvif_gop_frag_copy_grant,
+>                                               &info);
+>                 size -= bytes;
+>                 offset = 0;
+> 
+>                 /* Next page */
+>                 if (size) {
+>                         BUG_ON(!PageCompound(page));
+>                         page++;
+>                 }
+>         }
+> 
 
-1. reject local next hop w/ EINVAL
-2. delete route when local next hop removed
-3. transition between RT_SCOPE_HOST amd RT_SCOPE_LINK
-4. document it
+Right. That doesn't mean the original code was wrong or anything. But I
+don't want to bikeshed about this.
 
-which one should we choose ?
+Please add a comment saying that offset is always 0 starting from second
+iteration because the gnttab_foreach_grant_in_range makes sure we handle
+one page in one go.
 
-1 will definitely cause compatibility problem
-2 is the easiest solution
-3 need a bit of code, not sure if worth it
+Wei.
 
-On Mon, Aug 10, 2015 at 5:16 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hello,
->
-> Zang MingJie <zealot0630@gmail.com> writes:
->> Days ago I mistakenly set the gateway address on my box, then add the
->> default router, after I deleted the address my box can't access
->> Internet and all things looks fine. It takes me several hours to
->> figure out it is an kernel bug.
->
-> I don't consider this a kernel bug.
->
->>>On Sat, Aug 8, 2015, 1:00 AM Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
->>>If we could rewind time, we could make local nexthops -EINVAL.
->>
->> I don't think this is the proper solution. As almost all network OS
->> considers the routing table recursive, and it's next hop can be any
->> unicast ip address.
->
-> You are talking about ios, junos, no?
->
-> Linux does not have any kind of recursive routing table. It only helps
-> by doing a first-hop lookup during insertion time, that's merely it. If
-> you want to compare Linux to a "network OS" you would have to install
-> quagga/bird/xorp/... on a box to get the same behavior.
->
-> Also notice that we don't talk about adding/removing addresses to
-> interfaces but what the routing code considers are the routes which get
-> created because of those address changes (like the subnet route added in
-> IPv4 if you install an address with subnet on an interface). Thus we
-> shouldn't make address changes special, we would have to reevaluate the
-> complete FIB/routing-table (I guess everyone is talking about something
-> different here) at the time we only change a route. And this is a no-go.
->
-> I don't see a problem with adding a "recursive routing table" to the
-> stack if people need that. I just don't see the need for that.
->
->> When the next hop is unreachable the entry won't be installed.
->
-> In a recursive routing table, the entry could be installed but it will
-> only get into effect when the nexthop turns reachable.
->
->> I suggest adding a new sysconf entry, when not set, behavior as the
->> same as now, when set recalculate the fib when necessary
->
-> A new sysctl would work, but I don't consider it necessary. I don't
-> think we need the additional code for that. Kernel does not run routing
-> protocols and those are normally the only ones which need to do that.
->
->> BTW is there any way to check the fib table?
->
-> I don't understand the question. Do you mean
->
-> ip route get xx.yy.zz.aa ?
->
-> Bye,
-> Hannes
+
+> Regards,
+> 
+> -- 
+> Julien Grall
