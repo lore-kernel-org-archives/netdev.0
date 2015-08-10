@@ -1,48 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fec: fix the race between xmit and bdp
- reclaiming path
-Date: Mon, 10 Aug 2015 13:28:35 -0700 (PDT)
-Message-ID: <20150810.132835.492224591558177468.davem@davemloft.net>
-References: <1438926757-24447-1-git-send-email-haokexin@gmail.com>
+Subject: Re: [PATCH net] ipv6: don't reject link-local nexthop on other
+ interface
+Date: Mon, 10 Aug 2015 13:29:47 -0700 (PDT)
+Message-ID: <20150810.132947.858528788803489894.davem@davemloft.net>
+References: <1438937668-12757-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: haokexin@gmail.com
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44168 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44174 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754644AbbHJU2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 16:28:36 -0400
-In-Reply-To: <1438926757-24447-1-git-send-email-haokexin@gmail.com>
+	with ESMTP id S1753793AbbHJU3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 16:29:47 -0400
+In-Reply-To: <1438937668-12757-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Hao <haokexin@gmail.com>
-Date: Fri,  7 Aug 2015 13:52:37 +0800
+From: Florian Westphal <fw@strlen.de>
+Date: Fri,  7 Aug 2015 10:54:28 +0200
 
-> When we transmit a fragmented skb, we may run into a race like the
-> following scenario (assume txq->cur_tx is next to txq->dirty_tx):
->            cpu 0                                          cpu 1
->   fec_enet_txq_submit_skb
->     reserve a bdp for the first fragment
->     fec_enet_txq_submit_frag_skb
->        update the bdp for the other fragment
->        update txq->cur_tx
->                                                    fec_enet_tx_queue
->                                                      bdp = fec_enet_get_nextdesc(txq->dirty_tx, fep, queue_id);
->                                                      This bdp is the bdp reserved for the first segment. Given
->                                                      that this bdp BD_ENET_TX_READY bit is not set and txq->cur_tx
->                                                      is already pointed to a bdp beyond this one. We think this is a
->                                                      completed bdp and try to reclaim it.
->     update the bdp for the first segment
->     update txq->cur_tx
+> 48ed7b26faa7 ("ipv6: reject locally assigned nexthop addresses") is too
+> strict; it rejects following corner-case:
 > 
-> So we shouldn't update the txq->cur_tx until all the update to the
-> bdps used for fragments are performed. Also add the corresponding
-> memory barrier to guarantee that the update to the bdps, dirty_tx and
-> cur_tx performed in the proper order.
+> ip -6 route add default via fe80::1:2:3 dev eth1
 > 
-> Signed-off-by: Kevin Hao <haokexin@gmail.com>
+> [ where fe80::1:2:3 is assigned to a local interface, but not eth1 ]
+> 
+> Fix this by restricting search to given device if nh is linklocal.
+> 
+> Joint work with Hannes Frederic Sowa.
+> 
+> Fixes: 48ed7b26faa7 ("ipv6: reject locally assigned nexthop addresses")
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Applied, thanks.
+Applied, thank you.
