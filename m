@@ -1,86 +1,50 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Re: [PATCH v3 18/20] net/xen-netback: Make it running on 64KB page
- granularity
-Date: Mon, 10 Aug 2015 13:00:40 +0100
-Message-ID: <55C89268.2030102@citrix.com>
-References: <1438966019-19322-1-git-send-email-julien.grall@citrix.com>
- <1438966019-19322-19-git-send-email-julien.grall@citrix.com>
- <20150808145534.GB14214@zion.uk.xensource.com> <55C8759C.3010507@citrix.com>
- <20150810113907.GH8857@zion.uk.xensource.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC] bmac:change to use bitrev8() generic function
+Date: Mon, 10 Aug 2015 12:02:47 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB77DC9@AcuExch.aculab.com>
+References: <9A81C947-6F69-4549-B1D0-58061D6976CE@gmail.com>
+ <20150810114901.GS16878@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:53923 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751553AbbHJMBj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2015 08:01:39 -0400
-In-Reply-To: <20150810113907.GH8857@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "fabf@skynet.be" <fabf@skynet.be>,
+	"david@gibson.dropbear.id.au" <david@gibson.dropbear.id.au>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: 'Tobias Klauser' <tklauser@distanz.ch>,
+	yalin wang <yalin.wang2010@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150810114901.GS16878@distanz.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/08/15 12:39, Wei Liu wrote:
-> On Mon, Aug 10, 2015 at 10:57:48AM +0100, Julien Grall wrote:
->>         while (size > 0) {
->>                 BUG_ON(offset >= PAGE_SIZE);
->>
->>                 bytes = PAGE_SIZE - offset;
->>                 if (bytes > size)
->>                         bytes = size;
->>
->>                 info.page = page;
->>                 gnttab_foreach_grant_in_range(page, offset, bytes,
->>                                              xenvif_gop_frag_copy_grant,
->>                                               &info);
->>                 size -= bytes;
->>                 offset = 0;
->>
->>                 /* Next page */
->>                 if (size) {
->>                         BUG_ON(!PageCompound(page));
->>                         page++;
->>                 }
->>         }
->>
+> From: Tobias Klauser
+> Sent: 10 August 2015 12:49
+> On 2015-08-10 at 11:53:41 +0200, yalin wang <yalin.wang2010@gmail.com> wrote:
+> > This change to use generic bitrev8() for bmac driver.
+...
+> > @@ -871,7 +860,7 @@ bmac_addhash(struct bmac_data *bp, unsigned char *addr)
+> >
+> >  	if (!(*addr)) return;
+> >  	crc = bmac_crc((unsigned short *)addr) & 0x3f; /* Big-endian alert! */
+
+Why not *((u8 *)addr + 1) & 0x3f
+
+> > -	crc = reverse6[crc];	/* Hyperfast bit-reversing algorithm */
+> > +	crc = bitrev8((u8)crc);
 > 
-> Right. That doesn't mean the original code was wrong or anything. But I
-> don't want to bikeshed about this.
+> No, this won't work. reverse6 works on 6 bit values, while bitrev8 works
+> on 8bit values, e.g. reverse6[1] = 0x20, while bitrev8(1) = 0x80
 
-I never said the original code was wrong... The original code was
-allowing the possibility to copy less data than the length contained in
-page.
+You could use bitrev8(n) >> 2.
 
-In the new version, it has been pushed with the callback
-xenvif_gop_frag_copy_grant.
+But that is a 'strange' map of a 7-bit value to a 6-bit one.
 
-> Please add a comment saying that offset is always 0 starting from second
-> iteration because the gnttab_foreach_grant_in_range makes sure we handle
-> one page in one go.
+I thought it was more common for ethernet hardware to use the
+value of the crc register after all 6 bytes of the mac address
+had been processed.
 
-I think this is superfluous. To be honest, the comment should have been
-on the original version and not in the new one. The construction of the
-loop was far from obvious that we copied less data.
-
-In this new version, the reason is not because of
-gnttab_foreach_grant_in_range is always a page but how the loop has been
-constructed.
-
-If you look how bytes has been defined, it will always contain
-
-min(PAGE_SIZE - offset, size)
-
-So for the first page, this will be PAGE_SIZE - offset. A the end of the
-loop we reset the offset 0, indeed we copy all the data of the first
-page. For the second page and onwards this will always be PAGE_SIZE
-except for the last one where we took size.
-
-
-Regards,
-
--- 
-Julien Grall
+	David
