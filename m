@@ -1,218 +1,62 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] xfrm: Add oif to dst lookups
-Date: Mon, 10 Aug 2015 16:58:11 -0600
-Message-ID: <1439247491-80410-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, davem@davemloft.net
+From: Andrew Qu <andrew.qu@mediatek.com>
+Subject: VxLAN support question
+Date: Mon, 10 Aug 2015 23:47:56 +0000
+Message-ID: <EA360A7AB9D90D4B9E9173B6D27C371EE3F7B8CA@MTKMBS61N1.mediatek.inc>
+References: <1438753867-32403-1-git-send-email-ast@plumgrid.com>
+ <20150807.114645.2108374064397756373.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "tgraf@suug.ch" <tgraf@suug.ch>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"ast@plumgrid.com" <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:38360 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933468AbbHJW6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 18:58:46 -0400
-Received: by igfj19 with SMTP id j19so60420103igf.1
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 15:58:46 -0700 (PDT)
+Received: from mailgw02.mediatek.com ([69.46.227.142]:49685 "EHLO
+	mailgw02.mediatek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754853AbbHJXyg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 19:54:36 -0400
+In-Reply-To: <20150807.114645.2108374064397756373.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rules can be installed that direct route lookups to specific tables based
-on oif. Plumb the oif through the xfrm lookups so it gets set in the flow
-struct and passed to the resolver routines.
+Hi VxLAN experts,
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/xfrm.h      |  7 +++++--
- net/ipv4/xfrm4_policy.c | 11 ++++++-----
- net/ipv6/xfrm6_policy.c |  7 ++++---
- net/xfrm/xfrm_policy.c  | 24 ++++++++++++++----------
- 4 files changed, 29 insertions(+), 20 deletions(-)
+In user space, we are developing a CLI as the  following:
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index f0ee97eec24d..312e3fee9ccf 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -285,10 +285,13 @@ struct xfrm_policy_afinfo {
- 	unsigned short		family;
- 	struct dst_ops		*dst_ops;
- 	void			(*garbage_collect)(struct net *net);
--	struct dst_entry	*(*dst_lookup)(struct net *net, int tos,
-+	struct dst_entry	*(*dst_lookup)(struct net *net,
-+					       int tos, int oif,
- 					       const xfrm_address_t *saddr,
- 					       const xfrm_address_t *daddr);
--	int			(*get_saddr)(struct net *net, xfrm_address_t *saddr, xfrm_address_t *daddr);
-+	int			(*get_saddr)(struct net *net, int oif,
-+					     xfrm_address_t *saddr,
-+					     xfrm_address_t *daddr);
- 	void			(*decode_session)(struct sk_buff *skb,
- 						  struct flowi *fl,
- 						  int reverse);
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index bff69746e05f..55b3c0f4dde5 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -19,7 +19,7 @@
- static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
- 
- static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
--					    int tos,
-+					    int tos, int oif,
- 					    const xfrm_address_t *saddr,
- 					    const xfrm_address_t *daddr)
- {
-@@ -28,6 +28,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
- 	memset(fl4, 0, sizeof(*fl4));
- 	fl4->daddr = daddr->a4;
- 	fl4->flowi4_tos = tos;
-+	fl4->flowi4_oif = oif;
- 	if (saddr)
- 		fl4->saddr = saddr->a4;
- 
-@@ -38,22 +39,22 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
- 	return ERR_CAST(rt);
- }
- 
--static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
-+static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos, int oif,
- 					  const xfrm_address_t *saddr,
- 					  const xfrm_address_t *daddr)
- {
- 	struct flowi4 fl4;
- 
--	return __xfrm4_dst_lookup(net, &fl4, tos, saddr, daddr);
-+	return __xfrm4_dst_lookup(net, &fl4, tos, oif, saddr, daddr);
- }
- 
--static int xfrm4_get_saddr(struct net *net,
-+static int xfrm4_get_saddr(struct net *net, int oif,
- 			   xfrm_address_t *saddr, xfrm_address_t *daddr)
- {
- 	struct dst_entry *dst;
- 	struct flowi4 fl4;
- 
--	dst = __xfrm4_dst_lookup(net, &fl4, 0, NULL, daddr);
-+	dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, NULL, daddr);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
- 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index ed0583c1b9fc..a74013d3eceb 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -26,7 +26,7 @@
- 
- static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
- 
--static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
-+static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
- 					  const xfrm_address_t *saddr,
- 					  const xfrm_address_t *daddr)
- {
-@@ -35,6 +35,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
- 	int err;
- 
- 	memset(&fl6, 0, sizeof(fl6));
-+	fl6.flowi6_oif = oif;
- 	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
- 	if (saddr)
- 		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
-@@ -50,13 +51,13 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
- 	return dst;
- }
- 
--static int xfrm6_get_saddr(struct net *net,
-+static int xfrm6_get_saddr(struct net *net, int oif,
- 			   xfrm_address_t *saddr, xfrm_address_t *daddr)
- {
- 	struct dst_entry *dst;
- 	struct net_device *dev;
- 
--	dst = xfrm6_dst_lookup(net, 0, NULL, daddr);
-+	dst = xfrm6_dst_lookup(net, 0, oif, NULL, daddr);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 18cead7645be..94af3d065785 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -115,7 +115,8 @@ static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo)
- 	rcu_read_unlock();
- }
- 
--static inline struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos,
-+static inline struct dst_entry *__xfrm_dst_lookup(struct net *net,
-+						  int tos, int oif,
- 						  const xfrm_address_t *saddr,
- 						  const xfrm_address_t *daddr,
- 						  int family)
-@@ -127,14 +128,15 @@ static inline struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos,
- 	if (unlikely(afinfo == NULL))
- 		return ERR_PTR(-EAFNOSUPPORT);
- 
--	dst = afinfo->dst_lookup(net, tos, saddr, daddr);
-+	dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr);
- 
- 	xfrm_policy_put_afinfo(afinfo);
- 
- 	return dst;
- }
- 
--static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos,
-+static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x,
-+						int tos, int oif,
- 						xfrm_address_t *prev_saddr,
- 						xfrm_address_t *prev_daddr,
- 						int family)
-@@ -153,7 +155,7 @@ static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos,
- 		daddr = x->coaddr;
- 	}
- 
--	dst = __xfrm_dst_lookup(net, tos, saddr, daddr, family);
-+	dst = __xfrm_dst_lookup(net, tos, oif, saddr, daddr, family);
- 
- 	if (!IS_ERR(dst)) {
- 		if (prev_saddr != saddr)
-@@ -1373,15 +1375,15 @@ int __xfrm_sk_clone_policy(struct sock *sk)
- }
- 
- static int
--xfrm_get_saddr(struct net *net, xfrm_address_t *local, xfrm_address_t *remote,
--	       unsigned short family)
-+xfrm_get_saddr(struct net *net, int oif, xfrm_address_t *local,
-+	       xfrm_address_t *remote, unsigned short family)
- {
- 	int err;
- 	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
- 
- 	if (unlikely(afinfo == NULL))
- 		return -EINVAL;
--	err = afinfo->get_saddr(net, local, remote);
-+	err = afinfo->get_saddr(net, oif, local, remote);
- 	xfrm_policy_put_afinfo(afinfo);
- 	return err;
- }
-@@ -1410,7 +1412,9 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 			remote = &tmpl->id.daddr;
- 			local = &tmpl->saddr;
- 			if (xfrm_addr_any(local, tmpl->encap_family)) {
--				error = xfrm_get_saddr(net, &tmp, remote, tmpl->encap_family);
-+				error = xfrm_get_saddr(net, fl->flowi_oif,
-+						       &tmp, remote,
-+						       tmpl->encap_family);
- 				if (error)
- 					goto fail;
- 				local = &tmp;
-@@ -1690,8 +1694,8 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 
- 		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
- 			family = xfrm[i]->props.family;
--			dst = xfrm_dst_lookup(xfrm[i], tos, &saddr, &daddr,
--					      family);
-+			dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif,
-+					      &saddr, &daddr, family);
- 			err = PTR_ERR(dst);
- 			if (IS_ERR(dst))
- 				goto put_states;
--- 
-2.3.2 (Apple Git-55)
+Interface tunnel 100
+   Mode vxlan 
+   Remote ip ipv4 19.1.1.1
+   Local ip ipv4 20.1.1.1
+   Vni 1-1000  <====
+
+With Kernel 3.12.37,  we can't support above configurations in kernel. (OR PLEASE
+Correct me if I am wrong)
+
+Noticing VxLAN supports has been actively worked on, hoping most
+Recent kernel allow functionality above is supported now.
+
+Pretty much what I want is that  kernel will have about 1K interfaces (something like Tunnel100.1-tunnel100.1000
+To be created and attached to 1K bridge domains on which each VNI is associated with given
+VNI to bridge-domain will be assigned using other CLIs)
+
+Thanks,
+
+Andrew
+
+
+************* Email Confidentiality Notice ********************
+The information contained in this e-mail message (including any 
+attachments) may be confidential, proprietary, privileged, or otherwise
+exempt from disclosure under applicable laws. It is intended to be 
+conveyed only to the designated recipient(s). Any use, dissemination, 
+distribution, printing, retaining or copying of this e-mail (including its 
+attachments) by unintended recipient(s) is strictly prohibited and may 
+be unlawful. If you are not an intended recipient of this e-mail, or believe 
+that you have received this e-mail in error, please notify the sender 
+immediately (by replying to this e-mail), delete any and all copies of 
+this e-mail (including any attachments) from your system, and do not
+disclose the content of this e-mail to any other person. Thank you!
