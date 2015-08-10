@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Fixes for the network driver of Marvell Armada 375
- SoC
-Date: Mon, 10 Aug 2015 10:57:36 -0700 (PDT)
-Message-ID: <20150810.105736.226528661515254668.davem@davemloft.net>
-References: <y>
-	<1438880430-5480-1-git-send-email-mw@semihalf.com>
+Subject: Re: [PATCH net] bna: fix interrupts storm caused by erroneous
+ packets
+Date: Mon, 10 Aug 2015 10:58:23 -0700 (PDT)
+Message-ID: <20150810.105823.1492211213957567690.davem@davemloft.net>
+References: <1438894103-10597-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	jason@lakedaemon.net, thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com,
-	ezequiel.garcia@free-electrons.com, alior@marvell.com,
-	jaz@semihalf.com
-To: mw@semihalf.com
+Cc: netdev@vger.kernel.org, rasesh.mody@qlogic.com
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43287 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43295 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753472AbbHJR5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 13:57:38 -0400
-In-Reply-To: <1438880430-5480-1-git-send-email-mw@semihalf.com>
+	with ESMTP id S932097AbbHJR6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 13:58:24 -0400
+In-Reply-To: <1438894103-10597-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Wojtas <mw@semihalf.com>
-Date: Thu,  6 Aug 2015 19:00:27 +0200
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Thu,  6 Aug 2015 22:48:23 +0200
 
-> This is a set of three patches that fix long-lasting problems implemented in
-> the initial support for the Armada 375 network controller.
+> The commit "e29aa33 bna: Enable Multi Buffer RX" moved packets counter
+> increment from the beginning of the NAPI processing loop after the check
+> for erroneous packets so they are never accounted. This counter is used
+> to inform firmware about number of processed completions (packets).
+> As these packets are never acked the firmware fires IRQs for them again
+> and again.
 > 
-> Due to an inappropriate concept of handling the per-CPU sent packets'
-> processing on TX path the driver numerous problems occured, such as RCU
-> stalls. Those have been fixed, of which details you can find in the commit
-> logs. The patches were intensively tested on top of v4.2-rc5.
-> 
-> I'm looking forward to any comments or remarks.
+> Fixes: e29aa33 bna: Enable Multi Buffer RX
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Series applied, thanks.
+Applied, thanks.
