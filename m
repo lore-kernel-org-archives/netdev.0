@@ -1,45 +1,50 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/5] netfilter: nf_conntrack: silence warning on falling back to vmalloc()
-Date: Mon, 10 Aug 2015 19:58:35 +0200
-Message-ID: <1439229519-7640-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/5] netfilter: conntrack: Use flags in nf_ct_tmpl_alloc()
+Date: Mon, 10 Aug 2015 19:58:37 +0200
+Message-ID: <1439229519-7640-4-git-send-email-pablo@netfilter.org>
 References: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35698 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932295AbbHJRyR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2015 13:54:17 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since 88eab472ec21 ("netfilter: conntrack: adjust nf_conntrack_buckets default
-value"), the hashtable can easily hit this warning. We got reports from users
-that are getting this message in a quite spamming fashion, so better silence
-this.
+From: Joe Stringer <joestringer@nicira.com>
 
+The flags were ignored for this function when it was introduced. Also
+fix the style problem in kzalloc.
+
+Fixes: 0838aa7fc (netfilter: fix netns dependencies with conntrack
+templates)
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Acked-by: Florian Westphal <fw@strlen.de>
 ---
- net/netfilter/nf_conntrack_core.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/netfilter/nf_conntrack_core.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 651039a..f168099 100644
+index f168099..3c20d02 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
-@@ -1544,10 +1544,8 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
- 	sz = nr_slots * sizeof(struct hlist_nulls_head);
- 	hash = (void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN | __GFP_ZERO,
- 					get_order(sz));
--	if (!hash) {
--		printk(KERN_WARNING "nf_conntrack: falling back to vmalloc.\n");
-+	if (!hash)
- 		hash = vzalloc(sz);
--	}
+@@ -292,7 +292,7 @@ struct nf_conn *nf_ct_tmpl_alloc(struct net *net, u16 zone, gfp_t flags)
+ {
+ 	struct nf_conn *tmpl;
  
- 	if (hash && nulls)
- 		for (i = 0; i < nr_slots; i++)
+-	tmpl = kzalloc(sizeof(struct nf_conn), GFP_KERNEL);
++	tmpl = kzalloc(sizeof(*tmpl), flags);
+ 	if (tmpl == NULL)
+ 		return NULL;
+ 
+@@ -303,7 +303,7 @@ struct nf_conn *nf_ct_tmpl_alloc(struct net *net, u16 zone, gfp_t flags)
+ 	if (zone) {
+ 		struct nf_conntrack_zone *nf_ct_zone;
+ 
+-		nf_ct_zone = nf_ct_ext_add(tmpl, NF_CT_EXT_ZONE, GFP_ATOMIC);
++		nf_ct_zone = nf_ct_ext_add(tmpl, NF_CT_EXT_ZONE, flags);
+ 		if (!nf_ct_zone)
+ 			goto out_free;
+ 		nf_ct_zone->id = zone;
 -- 
 1.7.10.4
+
