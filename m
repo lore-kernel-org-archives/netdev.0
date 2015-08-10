@@ -1,64 +1,42 @@
-From: Satish Baddipadige <sbaddipa@broadcom.com>
-Subject: RE: [Problem] broadcom tg3 network driver disconnects under high
- load
-Date: Mon, 10 Aug 2015 12:20:02 +0000
-Message-ID: <054CBB5E7EA3964D85D929FECEEBA10431337B@SJEXCHMB05.corp.ad.broadcom.com>
-References: <CAGNmLEMbyR6-1WSyPRZQhLanH_UB7xb5cVVQ9N625bvdhbA6MA@mail.gmail.com>
-	 <1429908991.3920.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
-	 <1430244665.6888.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <1430247712.26841.18.camel@prashant>
-	 <CAGNmLEOJxarDZxmoXQfruPQ3RP89=h_zOTfBw-Fzq+Vizg315g@mail.gmail.com>
-	 <1430253781.26841.21.camel@prashant>
-	 <CAGNmLEO31=1JR+fPcsiwSgcKpb2e=w3VNEG8W4J7=i8Lud-5Ng@mail.gmail.com>
- <1430333716.26841.34.camel@prashant>
- <FB3F1E16BFB90C48B98EE49AA520E9667BC552@SJEXCHMB09.corp.ad.broadcom.com>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH net-next] mellanox: mlxsw: Use '%zx' to print size_t format
+Date: Mon, 10 Aug 2015 09:54:28 -0300
+Message-ID: <1439211268-8785-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Siva Reddy (Siva) Kallam" <siva.kallam@broadcom.com>,
-	Sanjeev Bansal <sanjeevb@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>
-To: Toan Pham <tpham3783@gmail.com>
+Content-Type: text/plain
+Cc: <jiri@mellanox.com>, <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:30128 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752523AbbHJMUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 08:20:04 -0400
-In-Reply-To: <FB3F1E16BFB90C48B98EE49AA520E9667BC552@SJEXCHMB09.corp.ad.broadcom.com>
-Content-Language: en-US
+Received: from mail-bn1bbn0104.outbound.protection.outlook.com ([157.56.111.104]:55872
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751583AbbHJMyt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Aug 2015 08:54:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgVG9hbiwNCg0KV2UgY291bGQgbm90IHJlcHJvZHVjZSB0aGUgaXNzdWUuDQoNCldlIGhhdmUg
-Zm9sbG93ZWQgdGhlIGJlbG93IHN0ZXBzLg0KIA0KICAgICAgICAxLiBCb290ZWQgdG8gSFAgRGVz
-a0VsaXRlIDcwNSB3aXRoIFVidW50dSAxNS4wNC4NCiAgICAgICAgMi4gQ3JlYXRlZCAxRyBmaWxl
-IHdpdGggdXJhbmRvbQ0KICAgICAgICAzLiBGcm9tIGFub3RoZXIgbWFjaGluZSwgcmVwZWF0ZWRs
-eSBjb3BpZWQgdGhlIDFHIGZpbGUgYmFjayBhbmQgZm9ydGggd2l0aCBzY3ANCg0KDQpXaXRoIHRo
-aXMgc2V0IHVwIGFuZCB0ZXN0cywgd2Ugd2VyZSB1bmFibGUgdG8gcmVwcm9kdWNlIHRoZSBpc3N1
-ZS4gDQoNCkFzIHdlIGRpc2N1c3NlZCBvZmZsaW5lLCBXZSBhbHNvIHRyaWVkIHdpdGggeW91ciBj
-dXN0b20gT1Mgb24gSFAgRGVza0VsaXRlIDcwNSBhbmQgY291bGRuJ3QgcmVwcm9kdWNlIHRoZSBp
-c3N1ZS4NCg0KQXMgeW91IHN1Z2dlc3RlZCBXZSBhbHNvIHRyaWVkIHdpdGggMUcgZmlsZSBwcm92
-aWRlZCBieSB5b3UgYnV0IGNvdWxkbid0IHJlcHJvZHVjZSB0aGUgaXNzdWUuDQoNClNpbmNlIFdl
-IGNhbid0IHJlcHJvZHVjZSB0aGlzIGlzc3VlLCBXZSBhcmUgdW5hYmxlIHRvIHByb2NlZWQgZnVy
-dGhlci4NCg0KVGhhbmsgWW91IGZvciBjb250aW51b3VzIGVmZm9ydHMgYW5kIGhlbHAuDQoNClRo
-YW5rcywNClNhdGlzaA0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbmV0ZGV2
-LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5v
-cmddIE9uIEJlaGFsZiBPZiBQcmFzaGFudCBTcmVlZGhhcmFuDQpTZW50OiBUaHVyc2RheSwgQXBy
-aWwgMzAsIDIwMTUgMTI6MjUgQU0NClRvOiBUb2FuIFBoYW0NCkNjOiBNaWNoYWVsIENoYW47IFNh
-bmplZXYgQmFuc2FsOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW1Byb2Js
-ZW1dIGJyb2FkY29tIHRnMyBuZXR3b3JrIGRyaXZlciBkaXNjb25uZWN0cyB1bmRlciBoaWdoIGxv
-YWQNCg0KT24gV2VkLCAyMDE1LTA0LTI5IGF0IDEzOjM0IC0wNDAwLCBUb2FuIFBoYW0gd3JvdGU6
-DQo+IFByYXNoYW50LA0KPiANCj4gVW5mb3J0dW5hdGVseSwgSSByYW4gdGhlIHNhbWUgdGVzdCAz
-IHRpbWVzIHdpdGggdGhlIG5ldyBwYXRjaCBhbmQgYWxsIA0KPiBvZiB0aGVtIGZhaWxlZC4NCj4g
-QXR0YWNoZWQgZmlsZSBpcyB0aGUgZG1lc2cgbG9nLCBhZnRlciB0aGUgV2F0Y2hkb2cgaGFkIHRp
-bWVkIG91dCwgYW5kIA0KPiB0cmllZCB0byByZXN0YXJ0IHRoZSBOSUMuDQo+IEZlZWwgZnJlZSB0
-byBsZXQgbWUga25vdyBpZiB5b3Ugd291bGQgbGlrZSB0byB0cnkgYW55dGhpbmcgZWxzZS4gIA0K
-PiBUaGFua3MNClRvYW4gdGhhbmtzIGZvciByZXN1bHQsIHNvIHRoaXMgbG9va3MgdG8gYmUgYSBk
-aWZmZXJlbnQgcHJvYmxlbS4gU2FuamVldiBpcyBzZXR0aW5nIHVwIHJlcG8gZW52aXJvbm1lbnQg
-c2ltaWxhciB0byB5b3VycyB0byBjYXB0dXJlIGEgcGNpZSB0cmFjZS4NCldpbGwga2VlcCB5b3Ug
-cG9zdGVkLiAgDQoNCg0KLS0NClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRo
-ZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluIHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBt
-YWpvcmRvbW9Admdlci5rZXJuZWwub3JnIE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92
-Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
+Use '%zx' to print size_t format in order to fix the following build warning:
+
+drivers/net/ethernet/mellanox/mlxsw/item.h:65:3: warning: format '%lx' expects argument of type 'long unsigned int', but argument 6 has type 'size_t' [-Wformat=]
+
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/item.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/item.h b/drivers/net/ethernet/mellanox/mlxsw/item.h
+index 4d0ac88..ffd55d0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/item.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/item.h
+@@ -62,7 +62,7 @@ __mlxsw_item_offset(struct mlxsw_item *item, unsigned short index,
+ 	if (item->offset % typesize != 0 ||
+ 	    item->step % typesize != 0 ||
+ 	    item->in_step_offset % typesize != 0) {
+-		pr_err("mlxsw: item bug (name=%s,offset=%x,step=%x,in_step_offset=%x,typesize=%lx)\n",
++		pr_err("mlxsw: item bug (name=%s,offset=%x,step=%x,in_step_offset=%x,typesize=%zx)\n",
+ 		       item->name, item->offset, item->step,
+ 		       item->in_step_offset, typesize);
+ 		BUG();
+-- 
+1.9.1
