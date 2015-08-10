@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 4/8] net: dsa: change FDB routines prototypes
-Date: Mon, 10 Aug 2015 09:09:49 -0400
-Message-ID: <1439212193-7673-5-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 0/8] net: dsa: mv88e6xxx: support switchdev FDB objects
+Date: Mon, 10 Aug 2015 09:09:45 -0400
+Message-ID: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>,
@@ -13,172 +12,79 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:62761 "EHLO
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:64289 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbbHJNKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 09:10:15 -0400
-In-Reply-To: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+	with ESMTP id S1751672AbbHJNKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 09:10:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change the prototype of port_getnext to include a vid parameter.
+This patchset refactors the FDB management in the mv88e6xxx code and adds the
+glue in DSA to use the switchdev FDB objects.
 
-This is necessary to introduce the support for VLAN.
+Below is an usage example (ports 0-2 belongs to br0, ports 3-4 belongs to br1):
 
-Also rename the fdb_{add,del,getnext} function pointers to
-port_fdb_{add,del,getnext} since they are specific to a given port.
+    # bridge fdb add 3c:97:0e:11:30:6e dev swp2
+    # bridge fdb add 3c:97:0e:11:40:78 dev swp3
+    # bridge fdb add 3c:97:0e:11:50:86 dev swp4
+    # bridge fdb del 3c:97:0e:11:40:78 dev swp3
+    # bridge fdb
+    01:00:5e:00:00:01 dev eth0 self permanent
+    01:00:5e:00:00:01 dev eth1 self permanent
+    00:50:d2:10:78:15 dev swp0 master br0 permanent
+    3c:97:0e:11:30:6e dev swp2 self static
+    00:50:d2:10:78:15 dev swp3 master br1 permanent
+    3c:97:0e:11:50:86 dev swp4 self static
+    # cat /sys/kernel/debug/dsa0/atu
+    # DB   T/P  Vec State Addr
+    # 001  Port 004   e   3c:97:0e:11:30:6e
+    # 004  Port 010   e   3c:97:0e:11:50:86
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6171.c |  6 +++---
- drivers/net/dsa/mv88e6352.c |  6 +++---
- drivers/net/dsa/mv88e6xxx.c |  2 +-
- drivers/net/dsa/mv88e6xxx.h |  2 +-
- include/net/dsa.h           | 17 +++++++++++------
- net/dsa/slave.c             | 16 +++++++++-------
- 6 files changed, 28 insertions(+), 21 deletions(-)
+For the 88E6xxx switches, FIDs 1 to num_ports will be reserved for non-bridged
+ports and bridge groups, and the remaining will be later used by VLANs.
 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 1c78084..735f04c 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -116,9 +116,9 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.port_join_bridge       = mv88e6xxx_join_bridge,
- 	.port_leave_bridge      = mv88e6xxx_leave_bridge,
- 	.port_stp_update        = mv88e6xxx_port_stp_update,
--	.fdb_add		= mv88e6xxx_port_fdb_add,
--	.fdb_del		= mv88e6xxx_port_fdb_del,
--	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
-+	.port_fdb_add		= mv88e6xxx_port_fdb_add,
-+	.port_fdb_del		= mv88e6xxx_port_fdb_del,
-+	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- };
- 
- MODULE_ALIAS("platform:mv88e6171");
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index af210ef..191fb25 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -341,9 +341,9 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_join_bridge	= mv88e6xxx_join_bridge,
- 	.port_leave_bridge	= mv88e6xxx_leave_bridge,
- 	.port_stp_update	= mv88e6xxx_port_stp_update,
--	.fdb_add		= mv88e6xxx_port_fdb_add,
--	.fdb_del		= mv88e6xxx_port_fdb_del,
--	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
-+	.port_fdb_add		= mv88e6xxx_port_fdb_add,
-+	.port_fdb_del		= mv88e6xxx_port_fdb_del,
-+	.port_fdb_getnext	= mv88e6xxx_port_fdb_getnext,
- };
- 
- MODULE_ALIAS("platform:mv88e6172");
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 6615e9f..00f983b 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1310,7 +1310,7 @@ static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
- 
- /* get next entry for port */
- int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, bool *is_static)
-+			       unsigned char *addr, u16 *vid, bool *is_static)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index fd1125f..0cf470c 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -418,7 +418,7 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 			   const unsigned char *addr, u16 vid);
- int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
--			       unsigned char *addr, bool *is_static);
-+			       unsigned char *addr, u16 *vid, bool *is_static);
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
- int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 			     int reg, int val);
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index fbca63b..6356f43 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -296,12 +296,17 @@ struct dsa_switch_driver {
- 				     u32 br_port_mask);
- 	int	(*port_stp_update)(struct dsa_switch *ds, int port,
- 				   u8 state);
--	int	(*fdb_add)(struct dsa_switch *ds, int port,
--			   const unsigned char *addr, u16 vid);
--	int	(*fdb_del)(struct dsa_switch *ds, int port,
--			   const unsigned char *addr, u16 vid);
--	int	(*fdb_getnext)(struct dsa_switch *ds, int port,
--			       unsigned char *addr, bool *is_static);
-+
-+	/*
-+	 * Forwarding database
-+	 */
-+	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
-+				const unsigned char *addr, u16 vid);
-+	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
-+				const unsigned char *addr, u16 vid);
-+	int	(*port_fdb_getnext)(struct dsa_switch *ds, int port,
-+				    unsigned char *addr, u16 *vid,
-+				    bool *is_static);
- };
- 
- void register_switch_driver(struct dsa_switch_driver *type);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 0010c69..3d341b6 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -208,8 +208,8 @@ static int dsa_slave_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	struct dsa_switch *ds = p->parent;
- 	int ret = -EOPNOTSUPP;
- 
--	if (ds->drv->fdb_add)
--		ret = ds->drv->fdb_add(ds, p->port, addr, vid);
-+	if (ds->drv->port_fdb_add)
-+		ret = ds->drv->port_fdb_add(ds, p->port, addr, vid);
- 
- 	return ret;
- }
-@@ -222,8 +222,8 @@ static int dsa_slave_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- 	struct dsa_switch *ds = p->parent;
- 	int ret = -EOPNOTSUPP;
- 
--	if (ds->drv->fdb_del)
--		ret = ds->drv->fdb_del(ds, p->port, addr, vid);
-+	if (ds->drv->port_fdb_del)
-+		ret = ds->drv->port_fdb_del(ds, p->port, addr, vid);
- 
- 	return ret;
- }
-@@ -272,22 +272,24 @@ static int dsa_slave_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
- 	unsigned char addr[ETH_ALEN] = { 0 };
-+	u16 vid = 0;
- 	int ret;
- 
--	if (!ds->drv->fdb_getnext)
-+	if (!ds->drv->port_fdb_getnext)
- 		return -EOPNOTSUPP;
- 
- 	for (; ; idx++) {
- 		bool is_static;
- 
--		ret = ds->drv->fdb_getnext(ds, p->port, addr, &is_static);
-+		ret = ds->drv->port_fdb_getnext(ds, p->port, addr, &vid,
-+						&is_static);
- 		if (ret < 0)
- 			break;
- 
- 		if (idx < cb->args[0])
- 			continue;
- 
--		ret = dsa_slave_fill_info(dev, skb, addr, 0,
-+		ret = dsa_slave_fill_info(dev, skb, addr, vid,
- 					  is_static,
- 					  NETLINK_CB(cb->skb).portid,
- 					  cb->nlh->nlmsg_seq,
+This change is necessary to welcome the support for hardware VLANs (which will
+follow soon).
+
+Changes in v3:
+
+ - reorder commits to improve bisectability and minimize diffs
+
+ - add an ndm_state member in switchdev_fdb_obj instead of an is_static boolean
+
+ - drop the need to convert unsigned char *addr to u8 addr[ETH_ALEN]
+   (it is casted to char pointer anyway)
+
+Changes in v2:
+
+ - remove ndo_bridge_{get,set,del}link from switchdev/DSA glue code
+
+ - use ether_addr_copy instead of memcpy for MAC addresses
+
+ - constify MAC address in port_fdb_{add,del}
+
+ - split the mv88e6xxx code refactoring into several patches
+
+Vivien Didelot (8):
+  net: dsa: mv88e6xxx: define GLOBAL_ATU_FID
+  net: dsa: mv88e6xxx: extend fid mask
+  net: dsa: mv88e6xxx: rename ATU MAC accessors
+  net: dsa: change FDB routines prototypes
+  net: dsa: mv88e6xxx: rework FDB add/del operations
+  net: dsa: mv88e6xxx: rework FDB Get Next operation
+  net: switchdev: support static FDB addresses
+  net: dsa: add support for switchdev FDB objects
+
+ drivers/net/dsa/mv88e6171.c          |   6 +-
+ drivers/net/dsa/mv88e6352.c          |   6 +-
+ drivers/net/dsa/mv88e6xxx.c          | 185 ++++++++++++++++++++++++++---------
+ drivers/net/dsa/mv88e6xxx.h          |  21 +++-
+ drivers/net/ethernet/rocker/rocker.c |   1 +
+ include/net/dsa.h                    |  17 ++--
+ include/net/switchdev.h              |   1 +
+ net/dsa/slave.c                      | 150 ++++++++++++++++------------
+ net/switchdev/switchdev.c            |   2 +-
+ 9 files changed, 260 insertions(+), 129 deletions(-)
+
 -- 
 2.5.0
