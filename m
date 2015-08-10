@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] bridge: netlink: add support for
- vlan_filtering attribute
-Date: Mon, 10 Aug 2015 13:36:53 -0700 (PDT)
-Message-ID: <20150810.133653.2183665032933289268.davem@davemloft.net>
-References: <1438964658-2904-1-git-send-email-razor@blackwall.org>
-	<1438965645-7841-1-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net-next] net: add explicit logging and stat for
+ neighbour table overflow
+Date: Mon, 10 Aug 2015 13:46:45 -0700 (PDT)
+Message-ID: <20150810.134645.320097321290649615.davem@davemloft.net>
+References: <20150807181038.2A32029003CC@tardy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	nikolay@cumulusnetworks.com
-To: razor@blackwall.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1438965645-7841-1-git-send-email-razor@blackwall.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: raj@tardy.usa.hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44251 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932553AbbHJUqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 16:46:46 -0400
+In-Reply-To: <20150807181038.2A32029003CC@tardy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Fri,  7 Aug 2015 19:40:45 +0300
+From: raj@tardy.usa.hp.com (Rick Jones)
+Date: Fri,  7 Aug 2015 11:10:37 -0700 (PDT)
 
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> From: Rick Jones <rick.jones2@hp.com>
 > 
-> This patch adds the ability to toggle the vlan filtering support via
-> netlink. Since we're already running with rtnl in .changelink() we don't
-> need to take any additional locks.
+> Add an explicit neighbour table overflow message (ratelimited) and
+> statistic to make diagnosing neighbour table overflows tractable in
+> the wild.
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Diagnosing a neighbour table overflow can be quite difficult in the wild
+> because there is no explicit dmesg logged.  Callers to neighbour code
+> seem to use net_dbg_ratelimit when the neighbour call fails which means
+> the "base message" is not emitted and the callback suppressed messages
+> from the ratelimiting can end-up juxtaposed with unrelated messages.
+> Further, a forced garbage collection will increment a stat on each call
+> whether it was successful in freeing-up a table entry or not, so that
+> statistic is only a hint.  So, add a net_info_ratelimited message and
+> explicit statistic to the neighbour code.
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-Applied, thanks.
+Looks fine, applied, thanks Rick.
