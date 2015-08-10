@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 7/8] net: switchdev: support static FDB addresses
-Date: Mon, 10 Aug 2015 09:09:52 -0400
-Message-ID: <1439212193-7673-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 5/8] net: dsa: mv88e6xxx: rework FDB add/del operations
+Date: Mon, 10 Aug 2015 09:09:50 -0400
+Message-ID: <1439212193-7673-6-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -12,59 +12,162 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Jiri Pirko <jiri@resnulli.us>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:51565 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752189AbbHJNKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 09:10:17 -0400
 In-Reply-To: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds an ndm_state member to the switchdev_obj_fdb structure,
-in order to support static FDB addresses.
+Add a mv88e6xxx_atu_entry structure and a low level function for the ATU
+Load operation, and provide FDB add and delete wrappers functions.
 
-Set Rocker ndm_state to NUD_REACHABLE.
+This implementation handles the eventual trunk mapping. If the related
+bit is set, then the ATU data register would contain the trunk ID, and
+not the port vector.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/rocker/rocker.c | 1 +
- include/net/switchdev.h              | 1 +
- net/switchdev/switchdev.c            | 2 +-
- 3 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6xxx.c | 69 +++++++++++++++++++++++++++++++++++++--------
+ drivers/net/dsa/mv88e6xxx.h | 10 +++++++
+ 2 files changed, 67 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index b77e0e7..af05075 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4544,6 +4544,7 @@ static int rocker_port_fdb_dump(const struct rocker_port *rocker_port,
- 		if (found->key.pport != rocker_port->pport)
- 			continue;
- 		fdb->addr = found->key.addr;
-+		fdb->ndm_state = NUD_REACHABLE;
- 		fdb->vid = rocker_port_vlan_to_vid(rocker_port,
- 						   found->key.vlan_id);
- 		err = obj->cb(rocker_port->dev, obj);
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 89da893..319baab 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -72,6 +72,7 @@ struct switchdev_obj {
- 		struct switchdev_obj_fdb {		/* PORT_FDB */
- 			const unsigned char *addr;
- 			u16 vid;
-+			u16 ndm_state;
- 		} fdb;
- 	} u;
- };
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 33bafa2..16c1c43 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -810,7 +810,7 @@ static int switchdev_port_fdb_dump_cb(struct net_device *dev,
- 	ndm->ndm_flags   = NTF_SELF;
- 	ndm->ndm_type    = 0;
- 	ndm->ndm_ifindex = dev->ifindex;
--	ndm->ndm_state   = NUD_REACHABLE;
-+	ndm->ndm_state   = obj->u.fdb.ndm_state;
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 00f983b..2bf8f57 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1214,29 +1214,74 @@ static int _mv88e6xxx_atu_mac_read(struct dsa_switch *ds, unsigned char *addr)
+ 	return 0;
+ }
  
- 	if (nla_put(dump->skb, NDA_LLADDR, ETH_ALEN, obj->u.fdb.addr))
- 		goto nla_put_failure;
+-static int __mv88e6xxx_port_fdb_cmd(struct dsa_switch *ds, int port,
+-				    const unsigned char *addr, int state)
++static int _mv88e6xxx_atu_load(struct dsa_switch *ds,
++			       struct mv88e6xxx_atu_entry *entry)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u8 fid = ps->fid[port];
++	u16 reg = 0;
+ 	int ret;
+ 
+ 	ret = _mv88e6xxx_atu_wait(ds);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = _mv88e6xxx_atu_mac_write(ds, addr);
++	ret = _mv88e6xxx_atu_mac_write(ds, entry->mac);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_DATA,
+-				   (0x10 << port) | state);
+-	if (ret)
++	if (entry->state != GLOBAL_ATU_DATA_STATE_UNUSED) {
++		unsigned int mask, shift;
++
++		if (entry->trunk) {
++			reg |= GLOBAL_ATU_DATA_TRUNK;
++			mask = GLOBAL_ATU_DATA_TRUNK_ID_MASK;
++			shift = GLOBAL_ATU_DATA_TRUNK_ID_SHIFT;
++		} else {
++			mask = GLOBAL_ATU_DATA_PORT_VECTOR_MASK;
++			shift = GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT;
++		}
++
++		reg |= (entry->portv_trunkid << shift) & mask;
++	}
++
++	reg |= entry->state & GLOBAL_ATU_DATA_STATE_MASK;
++
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_DATA, reg);
++	if (ret < 0)
+ 		return ret;
+ 
+-	ret = _mv88e6xxx_atu_cmd(ds, fid, GLOBAL_ATU_OP_LOAD_DB);
++	return _mv88e6xxx_atu_cmd(ds, entry->fid, GLOBAL_ATU_OP_LOAD_DB);
++}
+ 
+-	return ret;
++static int _mv88e6xxx_port_vid_to_fid(struct dsa_switch *ds, int port, u16 vid)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	if (vid == 0)
++		return ps->fid[port];
++
++	return -ENOENT;
++}
++
++static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
++				    const unsigned char *addr, u16 vid,
++				    u8 state)
++{
++	struct mv88e6xxx_atu_entry entry = { 0 };
++	int ret;
++
++	ret = _mv88e6xxx_port_vid_to_fid(ds, port, vid);
++	if (ret < 0)
++		return ret;
++
++	entry.fid = ret;
++	entry.state = state;
++	ether_addr_copy(entry.mac, addr);
++	if (state != GLOBAL_ATU_DATA_STATE_UNUSED) {
++		entry.trunk = false;
++		entry.portv_trunkid = BIT(port);
++	}
++
++	return _mv88e6xxx_atu_load(ds, &entry);
+ }
+ 
+ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+@@ -1249,7 +1294,7 @@ int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = __mv88e6xxx_port_fdb_cmd(ds, port, addr, state);
++	ret = _mv88e6xxx_port_fdb_load(ds, port, addr, vid, state);
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+ 	return ret;
+@@ -1262,7 +1307,7 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = __mv88e6xxx_port_fdb_cmd(ds, port, addr,
++	ret = _mv88e6xxx_port_fdb_load(ds, port, addr, vid,
+ 				       GLOBAL_ATU_DATA_STATE_UNUSED);
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 0cf470c..bd42a15 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -207,6 +207,8 @@
+ #define GLOBAL_ATU_OP_GET_CLR_VIOLATION	  ((7 << 12) | GLOBAL_ATU_OP_BUSY)
+ #define GLOBAL_ATU_DATA		0x0c
+ #define GLOBAL_ATU_DATA_TRUNK			BIT(15)
++#define GLOBAL_ATU_DATA_TRUNK_ID_MASK		0x00f0
++#define GLOBAL_ATU_DATA_TRUNK_ID_SHIFT		4
+ #define GLOBAL_ATU_DATA_PORT_VECTOR_MASK	0x3ff0
+ #define GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT	4
+ #define GLOBAL_ATU_DATA_STATE_MASK		0x0f
+@@ -313,6 +315,14 @@
+ #define GLOBAL2_QOS_WEIGHT	0x1c
+ #define GLOBAL2_MISC		0x1d
+ 
++struct mv88e6xxx_atu_entry {
++	u16	fid;
++	u8	state;
++	bool	trunk;
++	u16	portv_trunkid;
++	u8	mac[ETH_ALEN];
++};
++
+ struct mv88e6xxx_priv_state {
+ 	/* When using multi-chip addressing, this mutex protects
+ 	 * access to the indirect access registers.  (In single-chip
 -- 
 2.5.0
