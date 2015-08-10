@@ -1,72 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] inet: fix races with reqsk timers
-Date: Mon, 10 Aug 2015 09:09:13 -0700
-Message-ID: <1439222953.1084.13.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: yalin wang <yalin.wang2010@gmail.com>
+Subject: [PATCH] net/fddi:change HWM_REVERSE() macro
+Date: Tue, 11 Aug 2015 00:14:06 +0800
+Message-ID: <6AE77A24-5AC5-47E4-8B9F-9BCDE0C6A8F9@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org, open list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:33410 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751717AbbHJQJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 12:09:16 -0400
-Received: by pdrh1 with SMTP id h1so54982671pdr.0
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 09:09:15 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34523 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753366AbbHJQOr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 12:14:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+change HWM_REVERSE() macro to generic le32_to_cpu()
 
-reqsk_queue_destroy() and reqsk_queue_unlink() should use
-del_timer_sync() instead of del_timer() before calling reqsk_put(),
-otherwise we could free a req still used by another cpu.
-
-But before doing so, reqsk_queue_destroy() must release syn_wait_lock
-spinlock or risk a dead lock, as reqsk_timer_handler() might
-need to take this same spinlock from reqsk_queue_unlink() (called from
-inet_csk_reqsk_queue_drop())
-
-Fixes: fa76ce7328b2 ("inet: get rid of central tcp/dccp listener timer")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
 ---
- net/core/request_sock.c         |    8 +++++++-
- net/ipv4/inet_connection_sock.c |    2 +-
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/fddi/skfp/h/hwmtm.h | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/net/core/request_sock.c b/net/core/request_sock.c
-index 87b22c0..b42f0e2 100644
---- a/net/core/request_sock.c
-+++ b/net/core/request_sock.c
-@@ -103,10 +103,16 @@ void reqsk_queue_destroy(struct request_sock_queue *queue)
- 			spin_lock_bh(&queue->syn_wait_lock);
- 			while ((req = lopt->syn_table[i]) != NULL) {
- 				lopt->syn_table[i] = req->dl_next;
-+				/* Because of following del_timer_sync(),
-+				 * we must release the spinlock here
-+				 * or risk a dead lock.
-+				 */
-+				spin_unlock_bh(&queue->syn_wait_lock);
- 				atomic_inc(&lopt->qlen_dec);
--				if (del_timer(&req->rsk_timer))
-+				if (del_timer_sync(&req->rsk_timer))
- 					reqsk_put(req);
- 				reqsk_put(req);
-+				spin_lock_bh(&queue->syn_wait_lock);
- 			}
- 			spin_unlock_bh(&queue->syn_wait_lock);
- 		}
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 60021d0..05e3145 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -593,7 +593,7 @@ static bool reqsk_queue_unlink(struct request_sock_queue *queue,
- 	}
+diff --git a/drivers/net/fddi/skfp/h/hwmtm.h b/drivers/net/fddi/skfp/h/hwmtm.h
+index 5924d42..72701ef 100644
+--- a/drivers/net/fddi/skfp/h/hwmtm.h
++++ b/drivers/net/fddi/skfp/h/hwmtm.h
+@@ -14,7 +14,7 @@
  
- 	spin_unlock(&queue->syn_wait_lock);
--	if (del_timer(&req->rsk_timer))
-+	if (del_timer_sync(&req->rsk_timer))
- 		reqsk_put(req);
- 	return found;
- }
+ #ifndef	_HWM_
+ #define	_HWM_
+-
++#include <linux/byteorder/generic.h>
+ #include "mbuf.h"
+ 
+ /*
+@@ -74,14 +74,7 @@
+ #define NULL 		0
+ #endif
+ 
+-#ifdef	LITTLE_ENDIAN
+-#define HWM_REVERSE(x)	(x)
+-#else
+-#define	HWM_REVERSE(x)		((((x)<<24L)&0xff000000L)	+	\
+-				 (((x)<< 8L)&0x00ff0000L)	+	\
+-				 (((x)>> 8L)&0x0000ff00L)	+	\
+-				 (((x)>>24L)&0x000000ffL))
+-#endif
++#define HWM_REVERSE(x) le32_to_cpu(x)
+ 
+ #define C_INDIC		(1L<<25)
+ #define A_INDIC		(1L<<26)
+-- 
+1.9.1
