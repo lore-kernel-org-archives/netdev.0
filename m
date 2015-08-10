@@ -1,53 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 08/10] ss: symmetrical subhandler output extension example
-Date: Mon, 10 Aug 2015 15:19:06 +0300
-Message-ID: <55C896BA.8040408@cogentembedded.com>
-References: <1439162006-11421-1-git-send-email-matthias.tafelmeier@gmx.net>
- <1439162006-11421-9-git-send-email-matthias.tafelmeier@gmx.net>
+From: Satish Baddipadige <sbaddipa@broadcom.com>
+Subject: RE: [Problem] broadcom tg3 network driver disconnects under high
+ load
+Date: Mon, 10 Aug 2015 12:20:02 +0000
+Message-ID: <054CBB5E7EA3964D85D929FECEEBA10431337B@SJEXCHMB05.corp.ad.broadcom.com>
+References: <CAGNmLEMbyR6-1WSyPRZQhLanH_UB7xb5cVVQ9N625bvdhbA6MA@mail.gmail.com>
+	 <1429908991.3920.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
+	 <1430244665.6888.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <1430247712.26841.18.camel@prashant>
+	 <CAGNmLEOJxarDZxmoXQfruPQ3RP89=h_zOTfBw-Fzq+Vizg315g@mail.gmail.com>
+	 <1430253781.26841.21.camel@prashant>
+	 <CAGNmLEO31=1JR+fPcsiwSgcKpb2e=w3VNEG8W4J7=i8Lud-5Ng@mail.gmail.com>
+ <1430333716.26841.34.camel@prashant>
+ <FB3F1E16BFB90C48B98EE49AA520E9667BC552@SJEXCHMB09.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
-	edumazet@google.com, daniel@iogearbox.net
-To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Siva Reddy (Siva) Kallam" <siva.kallam@broadcom.com>,
+	Sanjeev Bansal <sanjeevb@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>
+To: Toan Pham <tpham3783@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:35269 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbbHJMTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 08:19:08 -0400
-Received: by lbbpo9 with SMTP id po9so94085498lbb.2
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 05:19:07 -0700 (PDT)
-In-Reply-To: <1439162006-11421-9-git-send-email-matthias.tafelmeier@gmx.net>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:30128 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752523AbbHJMUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 08:20:04 -0400
+In-Reply-To: <FB3F1E16BFB90C48B98EE49AA520E9667BC552@SJEXCHMB09.corp.ad.broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/10/2015 2:13 AM, Matthias Tafelmeier wrote:
-
-> This small sized patch shall convey the locations which have to be
-> changed for a symmetrical output extension. Symmetrical means in this
-> context all existing semantically related handlers in the diverse
-> formatters (for hr and json up to now).
-
-> Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-> Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
-
-[...]
-
-> diff --git a/misc/ss_json_fmt.c b/misc/ss_json_fmt.c
-> index f1a53cd..e80f063 100644
-> --- a/misc/ss_json_fmt.c
-> +++ b/misc/ss_json_fmt.c
-> @@ -161,7 +161,9 @@ static void tcp_stats_json_fmt(struct tcpstat *s)
->   	if (s->rcv_rtt) {
->   		printf(",\n%s\"rcv_rtt\": %g", indent1, s->rcv_rtt);
->   	}
-> -
-> +	if (s->rcv_space) {
-> +		printf(",\n%s\"rcv_space\": %d", indent1, s->rcv_space);
-> +	}
-
-    {} not needed. I guess you haven't run your patches thru 
-scripts/checkpatch.pl?
-
-WBR, Sergei
+SGkgVG9hbiwNCg0KV2UgY291bGQgbm90IHJlcHJvZHVjZSB0aGUgaXNzdWUuDQoNCldlIGhhdmUg
+Zm9sbG93ZWQgdGhlIGJlbG93IHN0ZXBzLg0KIA0KICAgICAgICAxLiBCb290ZWQgdG8gSFAgRGVz
+a0VsaXRlIDcwNSB3aXRoIFVidW50dSAxNS4wNC4NCiAgICAgICAgMi4gQ3JlYXRlZCAxRyBmaWxl
+IHdpdGggdXJhbmRvbQ0KICAgICAgICAzLiBGcm9tIGFub3RoZXIgbWFjaGluZSwgcmVwZWF0ZWRs
+eSBjb3BpZWQgdGhlIDFHIGZpbGUgYmFjayBhbmQgZm9ydGggd2l0aCBzY3ANCg0KDQpXaXRoIHRo
+aXMgc2V0IHVwIGFuZCB0ZXN0cywgd2Ugd2VyZSB1bmFibGUgdG8gcmVwcm9kdWNlIHRoZSBpc3N1
+ZS4gDQoNCkFzIHdlIGRpc2N1c3NlZCBvZmZsaW5lLCBXZSBhbHNvIHRyaWVkIHdpdGggeW91ciBj
+dXN0b20gT1Mgb24gSFAgRGVza0VsaXRlIDcwNSBhbmQgY291bGRuJ3QgcmVwcm9kdWNlIHRoZSBp
+c3N1ZS4NCg0KQXMgeW91IHN1Z2dlc3RlZCBXZSBhbHNvIHRyaWVkIHdpdGggMUcgZmlsZSBwcm92
+aWRlZCBieSB5b3UgYnV0IGNvdWxkbid0IHJlcHJvZHVjZSB0aGUgaXNzdWUuDQoNClNpbmNlIFdl
+IGNhbid0IHJlcHJvZHVjZSB0aGlzIGlzc3VlLCBXZSBhcmUgdW5hYmxlIHRvIHByb2NlZWQgZnVy
+dGhlci4NCg0KVGhhbmsgWW91IGZvciBjb250aW51b3VzIGVmZm9ydHMgYW5kIGhlbHAuDQoNClRo
+YW5rcywNClNhdGlzaA0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbmV0ZGV2
+LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5v
+cmddIE9uIEJlaGFsZiBPZiBQcmFzaGFudCBTcmVlZGhhcmFuDQpTZW50OiBUaHVyc2RheSwgQXBy
+aWwgMzAsIDIwMTUgMTI6MjUgQU0NClRvOiBUb2FuIFBoYW0NCkNjOiBNaWNoYWVsIENoYW47IFNh
+bmplZXYgQmFuc2FsOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW1Byb2Js
+ZW1dIGJyb2FkY29tIHRnMyBuZXR3b3JrIGRyaXZlciBkaXNjb25uZWN0cyB1bmRlciBoaWdoIGxv
+YWQNCg0KT24gV2VkLCAyMDE1LTA0LTI5IGF0IDEzOjM0IC0wNDAwLCBUb2FuIFBoYW0gd3JvdGU6
+DQo+IFByYXNoYW50LA0KPiANCj4gVW5mb3J0dW5hdGVseSwgSSByYW4gdGhlIHNhbWUgdGVzdCAz
+IHRpbWVzIHdpdGggdGhlIG5ldyBwYXRjaCBhbmQgYWxsIA0KPiBvZiB0aGVtIGZhaWxlZC4NCj4g
+QXR0YWNoZWQgZmlsZSBpcyB0aGUgZG1lc2cgbG9nLCBhZnRlciB0aGUgV2F0Y2hkb2cgaGFkIHRp
+bWVkIG91dCwgYW5kIA0KPiB0cmllZCB0byByZXN0YXJ0IHRoZSBOSUMuDQo+IEZlZWwgZnJlZSB0
+byBsZXQgbWUga25vdyBpZiB5b3Ugd291bGQgbGlrZSB0byB0cnkgYW55dGhpbmcgZWxzZS4gIA0K
+PiBUaGFua3MNClRvYW4gdGhhbmtzIGZvciByZXN1bHQsIHNvIHRoaXMgbG9va3MgdG8gYmUgYSBk
+aWZmZXJlbnQgcHJvYmxlbS4gU2FuamVldiBpcyBzZXR0aW5nIHVwIHJlcG8gZW52aXJvbm1lbnQg
+c2ltaWxhciB0byB5b3VycyB0byBjYXB0dXJlIGEgcGNpZSB0cmFjZS4NCldpbGwga2VlcCB5b3Ug
+cG9zdGVkLiAgDQoNCg0KLS0NClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRo
+ZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluIHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBt
+YWpvcmRvbW9Admdlci5rZXJuZWwub3JnIE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92
+Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
