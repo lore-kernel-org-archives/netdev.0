@@ -1,65 +1,46 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [RFC] bmac:change to use bitrev8() generic function
-Date: Mon, 10 Aug 2015 13:49:01 +0200
-Message-ID: <20150810114901.GS16878@distanz.ch>
-References: <9A81C947-6F69-4549-B1D0-58061D6976CE@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [BUG] net/ipv4: inconsistent routing table
+Date: Mon, 10 Aug 2015 13:50:06 +0200
+Message-ID: <87y4hjgy6p.fsf@stressinduktion.org>
+References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com> <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com> <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com> <55C3B8C8.9030507@redhat.com> <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com> <55C4D803.3090108@redhat.com> <878u9njaon.fsf@stressinduktion.org> <CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com> <CAOrge3q16PRh3TEBaGUeYDhLzWhCCytn+sopTzBr_23cj1gmaw@mail.gmail.com> <878u9jijuc.fsf@stressinduktion.org> <CAOrge3pSQ7eck14biTncjOyGD-DKY0DvRr7JKpS3BowoSDry-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fabf@skynet.be, david@gibson.dropbear.id.au, davem@davemloft.net,
-	benh@kernel.crashing.org, netdev@vger.kernel.org,
-	open list <linux-kernel@vger.kernel.org>
-To: yalin wang <yalin.wang2010@gmail.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Zang MingJie <zealot0630@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9A81C947-6F69-4549-B1D0-58061D6976CE@gmail.com>
+In-Reply-To: <CAOrge3pSQ7eck14biTncjOyGD-DKY0DvRr7JKpS3BowoSDry-Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2015-08-10 at 11:53:41 +0200, yalin wang <yalin.wang2010@gmail.com> wrote:
-> This change to use generic bitrev8() for bmac driver.
-> 
-> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
-> ---
->  drivers/net/ethernet/apple/bmac.c | 17 +++--------------
->  1 file changed, 3 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/apple/bmac.c b/drivers/net/ethernet/apple/bmac.c
-> index a65d7a6..e749747 100644
-> --- a/drivers/net/ethernet/apple/bmac.c
-> +++ b/drivers/net/ethernet/apple/bmac.c
-> @@ -22,6 +22,7 @@
->  #include <linux/bitrev.h>
->  #include <linux/ethtool.h>
->  #include <linux/slab.h>
-> +#include <linux/bitrev.h>
->  #include <asm/prom.h>
->  #include <asm/dbdma.h>
->  #include <asm/io.h>
-> @@ -805,18 +806,6 @@ static irqreturn_t bmac_txdma_intr(int irq, void *dev_id)
->  }
->  
->  #ifndef SUNHME_MULTICAST
-> -/* Real fast bit-reversal algorithm, 6-bit values */
-> -static int reverse6[64] = {
-> -	0x0,0x20,0x10,0x30,0x8,0x28,0x18,0x38,
-> -	0x4,0x24,0x14,0x34,0xc,0x2c,0x1c,0x3c,
-> -	0x2,0x22,0x12,0x32,0xa,0x2a,0x1a,0x3a,
-> -	0x6,0x26,0x16,0x36,0xe,0x2e,0x1e,0x3e,
-> -	0x1,0x21,0x11,0x31,0x9,0x29,0x19,0x39,
-> -	0x5,0x25,0x15,0x35,0xd,0x2d,0x1d,0x3d,
-> -	0x3,0x23,0x13,0x33,0xb,0x2b,0x1b,0x3b,
-> -	0x7,0x27,0x17,0x37,0xf,0x2f,0x1f,0x3f
-> -};
-> -
->  static unsigned int
->  crc416(unsigned int curval, unsigned short nxtval)
->  {
-> @@ -871,7 +860,7 @@ bmac_addhash(struct bmac_data *bp, unsigned char *addr)
->  
->  	if (!(*addr)) return;
->  	crc = bmac_crc((unsigned short *)addr) & 0x3f; /* Big-endian alert! */
-> -	crc = reverse6[crc];	/* Hyperfast bit-reversing algorithm */
-> +	crc = bitrev8((u8)crc);
+Hello,
 
-No, this won't work. reverse6 works on 6 bit values, while bitrev8 works
-on 8bit values, e.g. reverse6[1] = 0x20, while bitrev8(1) = 0x80
+Zang MingJie <zealot0630@gmail.com> writes:
+
+> Here comes several options:
+>
+> 1. reject local next hop w/ EINVAL
+> 2. delete route when local next hop removed
+
+Will also cause some people to complain.
+
+> 3. transition between RT_SCOPE_HOST amd RT_SCOPE_LINK
+
+I don't understand the scope transition. I know Alex mentioned it for
+the first time. Maybe he can explain?
+
+> 4. document it
+
+I prefer that one :)
+
+> which one should we choose ?
+>
+> 1 will definitely cause compatibility problem
+
+Agreed.
+
+> 2 is the easiest solution
+
+Will definietely cause some people to complain.
+
+Bye,
+Hannes
