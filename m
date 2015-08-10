@@ -1,50 +1,105 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/5] netfilter: conntrack: Use flags in nf_ct_tmpl_alloc()
-Date: Mon, 10 Aug 2015 19:58:37 +0200
-Message-ID: <1439229519-7640-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/5] netfilter: ip6t_SYNPROXY: fix NULL pointer dereference
+Date: Mon, 10 Aug 2015 19:58:38 +0200
+Message-ID: <1439229519-7640-5-git-send-email-pablo@netfilter.org>
 References: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35743 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932238AbbHJRyg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Aug 2015 13:54:36 -0400
 In-Reply-To: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joestringer@nicira.com>
+From: Phil Sutter <phil@nwl.cc>
 
-The flags were ignored for this function when it was introduced. Also
-fix the style problem in kzalloc.
+This happens when networking namespaces are enabled.
 
-Fixes: 0838aa7fc (netfilter: fix netns dependencies with conntrack
-templates)
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Suggested-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+Acked-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/netfilter/ip6t_SYNPROXY.c |   18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index f168099..3c20d02 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -292,7 +292,7 @@ struct nf_conn *nf_ct_tmpl_alloc(struct net *net, u16 zone, gfp_t flags)
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+index 6edb7b1..bcebc24 100644
+--- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -37,12 +37,13 @@ synproxy_build_ip(struct sk_buff *skb, const struct in6_addr *saddr,
+ }
+ 
+ static void
+-synproxy_send_tcp(const struct sk_buff *skb, struct sk_buff *nskb,
++synproxy_send_tcp(const struct synproxy_net *snet,
++		  const struct sk_buff *skb, struct sk_buff *nskb,
+ 		  struct nf_conntrack *nfct, enum ip_conntrack_info ctinfo,
+ 		  struct ipv6hdr *niph, struct tcphdr *nth,
+ 		  unsigned int tcp_hdr_size)
  {
- 	struct nf_conn *tmpl;
+-	struct net *net = nf_ct_net((struct nf_conn *)nfct);
++	struct net *net = nf_ct_net(snet->tmpl);
+ 	struct dst_entry *dst;
+ 	struct flowi6 fl6;
  
--	tmpl = kzalloc(sizeof(struct nf_conn), GFP_KERNEL);
-+	tmpl = kzalloc(sizeof(*tmpl), flags);
- 	if (tmpl == NULL)
- 		return NULL;
+@@ -83,7 +84,8 @@ free_nskb:
+ }
  
-@@ -303,7 +303,7 @@ struct nf_conn *nf_ct_tmpl_alloc(struct net *net, u16 zone, gfp_t flags)
- 	if (zone) {
- 		struct nf_conntrack_zone *nf_ct_zone;
+ static void
+-synproxy_send_client_synack(const struct sk_buff *skb, const struct tcphdr *th,
++synproxy_send_client_synack(const struct synproxy_net *snet,
++			    const struct sk_buff *skb, const struct tcphdr *th,
+ 			    const struct synproxy_options *opts)
+ {
+ 	struct sk_buff *nskb;
+@@ -119,7 +121,7 @@ synproxy_send_client_synack(const struct sk_buff *skb, const struct tcphdr *th,
  
--		nf_ct_zone = nf_ct_ext_add(tmpl, NF_CT_EXT_ZONE, GFP_ATOMIC);
-+		nf_ct_zone = nf_ct_ext_add(tmpl, NF_CT_EXT_ZONE, flags);
- 		if (!nf_ct_zone)
- 			goto out_free;
- 		nf_ct_zone->id = zone;
+ 	synproxy_build_options(nth, opts);
+ 
+-	synproxy_send_tcp(skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
++	synproxy_send_tcp(snet, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
+ 			  niph, nth, tcp_hdr_size);
+ }
+ 
+@@ -163,7 +165,7 @@ synproxy_send_server_syn(const struct synproxy_net *snet,
+ 
+ 	synproxy_build_options(nth, opts);
+ 
+-	synproxy_send_tcp(skb, nskb, &snet->tmpl->ct_general, IP_CT_NEW,
++	synproxy_send_tcp(snet, skb, nskb, &snet->tmpl->ct_general, IP_CT_NEW,
+ 			  niph, nth, tcp_hdr_size);
+ }
+ 
+@@ -203,7 +205,7 @@ synproxy_send_server_ack(const struct synproxy_net *snet,
+ 
+ 	synproxy_build_options(nth, opts);
+ 
+-	synproxy_send_tcp(skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
++	synproxy_send_tcp(snet, skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
+ }
+ 
+ static void
+@@ -241,7 +243,7 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
+ 
+ 	synproxy_build_options(nth, opts);
+ 
+-	synproxy_send_tcp(skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
++	synproxy_send_tcp(snet, skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
+ }
+ 
+ static bool
+@@ -301,7 +303,7 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 					  XT_SYNPROXY_OPT_SACK_PERM |
+ 					  XT_SYNPROXY_OPT_ECN);
+ 
+-		synproxy_send_client_synack(skb, th, &opts);
++		synproxy_send_client_synack(snet, skb, th, &opts);
+ 		return NF_DROP;
+ 
+ 	} else if (th->ack && !(th->fin || th->rst || th->syn)) {
 -- 
 1.7.10.4
-
