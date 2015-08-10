@@ -1,51 +1,75 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: [PATCH V1 Resend 06/11] drivers: net: Drop unlikely before IS_ERR(_OR_NULL)
-Date: Mon, 10 Aug 2015 11:42:28 +0530
-Message-ID: <c0530e8f04f0987c055317633ef43b01383dd066.1439187003.git.viresh.kumar@linaro.org>
+From: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH V1 Resend 11/11] net: Drop unlikely before
+	IS_ERR(_OR_NULL)
+Date: Mon, 10 Aug 2015 11:42:33 +0530
+Message-ID: <c3999bbcb63b3f8d09be161333224c14cf709a8e.1439187003.git.viresh.kumar@linaro.org>
 References: <cover.1439187003.git.viresh.kumar@linaro.org>
-Cc: linaro-kernel@lists.linaro.org, linux-kernel@vger.kernel.org,
-	Viresh Kumar <viresh.kumar@linaro.org>,
-	Murali Karicheri <m-karicheri2@ti.com>,
-	netdev@vger.kernel.org (open list:TI NETCP ETHERNET DRIVER),
-	Wingman Kwok <w-kwok2@ti.com>
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1439187003.git.viresh.kumar@linaro.org>
-In-Reply-To: <cover.1439187003.git.viresh.kumar@linaro.org>
-References: <cover.1439187003.git.viresh.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Vlad Yasevich <vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ "open list:SCTP PROTOCOL" <linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "open list:OPENVSWITCH" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1439187003.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+In-Reply-To: <cover.1439187003.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+References: <cover.1439187003.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-IS_ERR(_OR_NULL) already contain an 'unlikely' compiler flag and there
-is no need to do that again from its callers. Drop it.
-
-Acked-by: Murali Karicheri <m-karicheri2@ti.com>
-Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
----
- drivers/net/ethernet/ti/netcp_core.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 29ae672917b7..84dc3d617b90 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1027,7 +1027,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
- 	}
- 
- 	desc = knav_pool_desc_get(netcp->tx_pool);
--	if (unlikely(IS_ERR_OR_NULL(desc))) {
-+	if (IS_ERR_OR_NULL(desc)) {
- 		dev_err(netcp->ndev_dev, "out of TX desc\n");
- 		dma_unmap_single(dev, dma_addr, pkt_len, DMA_TO_DEVICE);
- 		return NULL;
-@@ -1060,7 +1060,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
- 		}
- 
- 		ndesc = knav_pool_desc_get(netcp->tx_pool);
--		if (unlikely(IS_ERR_OR_NULL(ndesc))) {
-+		if (IS_ERR_OR_NULL(ndesc)) {
- 			dev_err(netcp->ndev_dev, "out of TX desc for frags\n");
- 			dma_unmap_page(dev, dma_addr, buf_len, DMA_TO_DEVICE);
- 			goto free_descs;
--- 
-2.4.0
+SVNfRVJSKF9PUl9OVUxMKSBhbHJlYWR5IGNvbnRhaW4gYW4gJ3VubGlrZWx5JyBjb21waWxlciBm
+bGFnIGFuZCB0aGVyZQppcyBubyBuZWVkIHRvIGRvIHRoYXQgYWdhaW4gZnJvbSBpdHMgY2FsbGVy
+cy4gRHJvcCBpdC4KClNpZ25lZC1vZmYtYnk6IFZpcmVzaCBLdW1hciA8dmlyZXNoLmt1bWFyQGxp
+bmFyby5vcmc+Ci0tLQogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgfCAyICstCiBuZXQvc2N0
+cC9zb2NrZXQuYyAgICAgICAgICB8IDIgKy0KIG5ldC9zb2NrZXQuYyAgICAgICAgICAgICAgIHwg
+NiArKystLS0KIDMgZmlsZXMgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygt
+KQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jIGIvbmV0L29wZW52c3dp
+dGNoL2RhdGFwYXRoLmMKaW5kZXggZmZlOTg0ZjViOTVjLi5hNTE1ZTMzOGNhZGUgMTAwNjQ0Ci0t
+LSBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9kYXRh
+cGF0aC5jCkBAIC0xMTQzLDcgKzExNDMsNyBAQCBzdGF0aWMgaW50IG92c19mbG93X2NtZF9zZXQo
+c3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGdlbmxfaW5mbyAqaW5mbykKIAkJCQkJCWluZm8s
+IE9WU19GTE9XX0NNRF9ORVcsIGZhbHNlLAogCQkJCQkJdWZpZF9mbGFncyk7CiAKLQkJaWYgKHVu
+bGlrZWx5KElTX0VSUihyZXBseSkpKSB7CisJCWlmIChJU19FUlIocmVwbHkpKSB7CiAJCQllcnJv
+ciA9IFBUUl9FUlIocmVwbHkpOwogCQkJZ290byBlcnJfdW5sb2NrX292czsKIAkJfQpkaWZmIC0t
+Z2l0IGEvbmV0L3NjdHAvc29ja2V0LmMgYi9uZXQvc2N0cC9zb2NrZXQuYwppbmRleCAxN2JlZjAx
+YjlhYTMuLjg5N2MwMWMwMjljYSAxMDA2NDQKLS0tIGEvbmV0L3NjdHAvc29ja2V0LmMKKysrIGIv
+bmV0L3NjdHAvc29ja2V0LmMKQEAgLTQ0NzUsNyArNDQ3NSw3IEBAIHN0YXRpYyBpbnQgc2N0cF9n
+ZXRzb2Nrb3B0X3BlZWxvZmYoc3RydWN0IHNvY2sgKnNrLCBpbnQgbGVuLCBjaGFyIF9fdXNlciAq
+b3B0dmFsCiAJfQogCiAJbmV3ZmlsZSA9IHNvY2tfYWxsb2NfZmlsZShuZXdzb2NrLCAwLCBOVUxM
+KTsKLQlpZiAodW5saWtlbHkoSVNfRVJSKG5ld2ZpbGUpKSkgeworCWlmIChJU19FUlIobmV3Zmls
+ZSkpIHsKIAkJcHV0X3VudXNlZF9mZChyZXR2YWwpOwogCQlzb2NrX3JlbGVhc2UobmV3c29jayk7
+CiAJCXJldHVybiBQVFJfRVJSKG5ld2ZpbGUpOwpkaWZmIC0tZ2l0IGEvbmV0L3NvY2tldC5jIGIv
+bmV0L3NvY2tldC5jCmluZGV4IDk5NjNhMGI1M2E2NC4uZGQyYzI0N2M5OWUzIDEwMDY0NAotLS0g
+YS9uZXQvc29ja2V0LmMKKysrIGIvbmV0L3NvY2tldC5jCkBAIC0zNzMsNyArMzczLDcgQEAgc3Ry
+dWN0IGZpbGUgKnNvY2tfYWxsb2NfZmlsZShzdHJ1Y3Qgc29ja2V0ICpzb2NrLCBpbnQgZmxhZ3Ms
+IGNvbnN0IGNoYXIgKmRuYW1lKQogCiAJZmlsZSA9IGFsbG9jX2ZpbGUoJnBhdGgsIEZNT0RFX1JF
+QUQgfCBGTU9ERV9XUklURSwKIAkJICAmc29ja2V0X2ZpbGVfb3BzKTsKLQlpZiAodW5saWtlbHko
+SVNfRVJSKGZpbGUpKSkgeworCWlmIChJU19FUlIoZmlsZSkpIHsKIAkJLyogZHJvcCBkZW50cnks
+IGtlZXAgaW5vZGUgKi8KIAkJaWhvbGQoZF9pbm9kZShwYXRoLmRlbnRyeSkpOwogCQlwYXRoX3B1
+dCgmcGF0aCk7CkBAIC0xMzAzLDcgKzEzMDMsNyBAQCBTWVNDQUxMX0RFRklORTQoc29ja2V0cGFp
+ciwgaW50LCBmYW1pbHksIGludCwgdHlwZSwgaW50LCBwcm90b2NvbCwKIAl9CiAKIAluZXdmaWxl
+MSA9IHNvY2tfYWxsb2NfZmlsZShzb2NrMSwgZmxhZ3MsIE5VTEwpOwotCWlmICh1bmxpa2VseShJ
+U19FUlIobmV3ZmlsZTEpKSkgeworCWlmIChJU19FUlIobmV3ZmlsZTEpKSB7CiAJCWVyciA9IFBU
+Ul9FUlIobmV3ZmlsZTEpOwogCQlnb3RvIG91dF9wdXRfdW51c2VkX2JvdGg7CiAJfQpAQCAtMTQ2
+Nyw3ICsxNDY3LDcgQEAgU1lTQ0FMTF9ERUZJTkU0KGFjY2VwdDQsIGludCwgZmQsIHN0cnVjdCBz
+b2NrYWRkciBfX3VzZXIgKiwgdXBlZXJfc29ja2FkZHIsCiAJCWdvdG8gb3V0X3B1dDsKIAl9CiAJ
+bmV3ZmlsZSA9IHNvY2tfYWxsb2NfZmlsZShuZXdzb2NrLCBmbGFncywgc29jay0+c2stPnNrX3By
+b3RfY3JlYXRvci0+bmFtZSk7Ci0JaWYgKHVubGlrZWx5KElTX0VSUihuZXdmaWxlKSkpIHsKKwlp
+ZiAoSVNfRVJSKG5ld2ZpbGUpKSB7CiAJCWVyciA9IFBUUl9FUlIobmV3ZmlsZSk7CiAJCXB1dF91
+bnVzZWRfZmQobmV3ZmQpOwogCQlzb2NrX3JlbGVhc2UobmV3c29jayk7Ci0tIAoyLjQuMAoKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcg
+bGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9s
+aXN0aW5mby9kZXYK
