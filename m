@@ -1,61 +1,32 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCHv1 bluetooth-next] cc2520: set the default fifo pin value
- from platform data
-Date: Mon, 10 Aug 2015 21:08:24 +0530
-Message-ID: <55C8C570.9060102@gmail.com>
-References: <BLU168-W12778BE0A70F0EA756A9E8CD6700@phx.gbl>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v3 7/8] net: switchdev: support static FDB addresses
+Date: Mon, 10 Aug 2015 08:59:17 -0700
+Message-ID: <CAE4R7bAr3uFbv6q4LaE7N+rvv5v=ERX9oy1kSkWT6NidvatcCw@mail.gmail.com>
+References: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1439212193-7673-8-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: LIYONG <sdliyong@gmail.com>,
-	"alex.aring@gmail.com" <alex.aring@gmail.com>,
-	"linux-wpan@vger.kernel.org" <linux-wpan@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel <kernel@savoirfairelinux.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BLU168-W12778BE0A70F0EA756A9E8CD6700@phx.gbl>
+In-Reply-To: <1439212193-7673-8-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yup...  :-)  Your name in the From (LIYONG) address is different from SOB (Yong Li) address.
-It should be same, please fix your email-client.
-
-On 08/10/2015 12:59 PM, LIYONG wrote:
-
-> In case of the device tree support is disabled, the fifo_pin is uninitialized, this
-> patch will set the fifo_pin value based on platform data
+On Mon, Aug 10, 2015 at 6:09 AM, Vivien Didelot
+<vivien.didelot@savoirfairelinux.com> wrote:
+> This patch adds an ndm_state member to the switchdev_obj_fdb structure,
+> in order to support static FDB addresses.
 >
-> Signed-off-by: Yong Li<sdliyong@gmail.com>
-> ---
->   drivers/net/ieee802154/cc2520.c | 1 +
->   1 file changed, 1 insertion(+)
+> Set Rocker ndm_state to NUD_REACHABLE.
 >
-> diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
-> index 613dae5..c5b54a1 100644
-> --- a/drivers/net/ieee802154/cc2520.c
-> +++ b/drivers/net/ieee802154/cc2520.c
-> @@ -833,6 +833,7 @@ static int cc2520_get_platform_data(struct spi_device *spi,
->                  if (!spi_pdata)
->                          return -ENOENT;
->                  *pdata = *spi_pdata;
-> +               priv->fifo_pin = pdata->fifo;
->                  return 0;
->          }
->
-> --
-> 2.1.0
->
->   		 	   		
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-This patch is not applying.
-
-Please use 'git format-patch' to generate the patch. And send it by 'git send-email'
-
-In your case:
-	git commit -am -s "cc2520: set the default fifo pin value from platform data"
-	git format-patch --subject-prefix="PATCH v2 bluetooth-next" -1
-	git send-email 0001-....
-
-
--- 
-Varka Bhadram.
+Acked-by: Scott Feldman <sfeldma@gmail.com>
