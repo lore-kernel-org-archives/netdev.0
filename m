@@ -1,517 +1,238 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH 01/10] ss: rooted out ss type declarations for output formatters
-Date: Mon, 10 Aug 2015 20:52:15 +0200
-Message-ID: <1439232744-19505-2-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH 09/10] ss: symmetrical formatter extension example
+Date: Mon, 10 Aug 2015 20:52:23 +0200
+Message-ID: <1439232744-19505-10-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1439232744-19505-1-git-send-email-matthias.tafelmeier@gmx.net>
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:54129 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.21]:54448 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932364AbbHJSwm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2015 14:52:42 -0400
+	id S932364AbbHJSwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Aug 2015 14:52:53 -0400
 In-Reply-To: <1439232744-19505-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The prospected output formatters and ss do share type declarations like
-slabstat or tcpstat so that the decision has been made to centralize
-those declarations in ss_types.h.  Potential future declarations shall
-be placed there. The latter should help amend the extent of ss.c as
-well.
+This commit shall show shortly where to place changes when one wants to
+extend an ss output formatter with a new handler (format print
+procedure). The extension is done symmetrically. That means, every up to
+now existing formatter is extended with a semantically equivalent
+handler (hr and json formatter).
 
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- misc/ss.c       | 186 +-------------------------------------------------------
- misc/ss_types.h | 186 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 187 insertions(+), 185 deletions(-)
- create mode 100644 misc/ss_types.h
+ misc/ss_hr_fmt.c   | 61 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ misc/ss_json_fmt.c | 65 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ misc/ss_out_fmt.c  | 10 +++++++++
+ misc/ss_out_fmt.h  | 10 +++++++++
+ 4 files changed, 146 insertions(+)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index f4c828c..3d31b81 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -27,6 +27,7 @@
- #include <getopt.h>
- #include <stdbool.h>
- 
-+#include "ss_types.h"
- #include "utils.h"
- #include "rt_names.h"
- #include "ll_map.h"
-@@ -113,55 +114,17 @@ static const char *UDP_PROTO = "udp";
- static const char *RAW_PROTO = "raw";
- static const char *dg_proto = NULL;
- 
--enum
--{
--	TCP_DB,
--	DCCP_DB,
--	UDP_DB,
--	RAW_DB,
--	UNIX_DG_DB,
--	UNIX_ST_DB,
--	UNIX_SQ_DB,
--	PACKET_DG_DB,
--	PACKET_R_DB,
--	NETLINK_DB,
--	MAX_DB
--};
- 
- #define PACKET_DBM ((1<<PACKET_DG_DB)|(1<<PACKET_R_DB))
- #define UNIX_DBM ((1<<UNIX_DG_DB)|(1<<UNIX_ST_DB)|(1<<UNIX_SQ_DB))
- #define ALL_DB ((1<<MAX_DB)-1)
- #define INET_DBM ((1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB)|(1<<RAW_DB))
- 
--enum {
--	SS_UNKNOWN,
--	SS_ESTABLISHED,
--	SS_SYN_SENT,
--	SS_SYN_RECV,
--	SS_FIN_WAIT1,
--	SS_FIN_WAIT2,
--	SS_TIME_WAIT,
--	SS_CLOSE,
--	SS_CLOSE_WAIT,
--	SS_LAST_ACK,
--	SS_LISTEN,
--	SS_CLOSING,
--	SS_MAX
--};
--
- #define SS_ALL ((1 << SS_MAX) - 1)
- #define SS_CONN (SS_ALL & ~((1<<SS_LISTEN)|(1<<SS_CLOSE)|(1<<SS_TIME_WAIT)|(1<<SS_SYN_RECV)))
- 
- #include "ssfilter.h"
- 
--struct filter
--{
--	int dbs;
--	int states;
--	int families;
--	struct ssfilter *f;
--};
--
- static const struct filter default_dbs[MAX_DB] = {
- 	[TCP_DB] = {
- 		.states   = SS_CONN,
-@@ -376,16 +339,6 @@ static FILE *ephemeral_ports_open(void)
- 	return generic_proc_open("PROC_IP_LOCAL_PORT_RANGE", "sys/net/ipv4/ip_local_port_range");
+diff --git a/misc/ss_hr_fmt.c b/misc/ss_hr_fmt.c
+index 40b6b7c..ca73dda 100644
+--- a/misc/ss_hr_fmt.c
++++ b/misc/ss_hr_fmt.c
+@@ -242,6 +242,66 @@ static void packet_show_ring_hr_fmt(struct packet_diag_ring *ring)
+ 	printf(",features:0x%x", ring->pdr_features);
  }
  
--struct user_ent {
--	struct user_ent	*next;
--	unsigned int	ino;
--	int		pid;
--	int		fd;
--	char		*process;
--	char		*process_ctx;
--	char		*socket_ctx;
--};
--
- #define USER_ENT_HASH_SIZE	256
- struct user_ent *user_ent_hash[USER_ENT_HASH_SIZE];
- 
-@@ -538,12 +491,6 @@ static void user_ent_hash_build(void)
- 	closedir(dir);
++static void packet_details_hr_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout)
++{
++	if (pinfo) {
++		printf("\n\tver:%d", pinfo->pdi_version);
++		printf(" cpy_thresh:%d", pinfo->pdi_copy_thresh);
++		printf(" flags( ");
++		if (pinfo->pdi_flags & PDI_RUNNING)
++			printf("running");
++		if (pinfo->pdi_flags & PDI_AUXDATA)
++			printf(" auxdata");
++		if (pinfo->pdi_flags & PDI_ORIGDEV)
++			printf(" origdev");
++		if (pinfo->pdi_flags & PDI_VNETHDR)
++			printf(" vnethdr");
++		if (pinfo->pdi_flags & PDI_LOSS)
++			printf(" loss");
++		if (!pinfo->pdi_flags)
++			printf("0");
++		printf(" )");
++	}
++	if (ring_rx) {
++		printf("\n\tring_rx(");
++		packet_show_ring_fmt(ring_rx);
++		printf(")");
++	}
++	if (ring_tx) {
++		printf("\n\tring_tx(");
++		packet_show_ring_fmt(ring_tx);
++		printf(")");
++	}
++	if (has_fanout) {
++		uint16_t type = (fanout >> 16) & 0xffff;
++
++		printf("\n\tfanout(");
++		printf("id:%d,", fanout & 0xffff);
++		printf("type:");
++
++		if (type == 0)
++			printf("hash");
++		else if (type == 1)
++			printf("lb");
++		else if (type == 2)
++			printf("cpu");
++		else if (type == 3)
++			printf("roll");
++		else if (type == 4)
++			printf("random");
++		else if (type == 5)
++			printf("qm");
++		else
++			printf("0x%x", type);
++
++		printf(")");
++	}
++}
++
+ const struct fmt_op_hub hr_output_op = {
+ 	.tcp_stats_fmt = tcp_stats_hr_fmt,
+ 	.tcp_timer_fmt = tcp_timer_hr_fmt,
+@@ -257,4 +317,5 @@ const struct fmt_op_hub hr_output_op = {
+ 	.opt_fmt = opt_hr_fmt,
+ 	.proc_fmt = proc_hr_fmt,
+ 	.packet_show_ring_fmt = packet_show_ring_hr_fmt,
++	.packet_details_fmt = packet_details_hr_fmt
+ };
+diff --git a/misc/ss_json_fmt.c b/misc/ss_json_fmt.c
+index d7dfce9..3d10220 100644
+--- a/misc/ss_json_fmt.c
++++ b/misc/ss_json_fmt.c
+@@ -355,6 +355,70 @@ static void packet_show_ring_json_fmt(struct packet_diag_ring *ring)
+ 	printf("\"features_0x\" : \"%x\"\n", ring->pdr_features);
  }
  
--enum entry_types {
--	USERS,
--	PROC_CTX,
--	PROC_SOCK_CTX
--};
--
- #define ENTRY_BUF_SIZE 512
- static int find_entry(unsigned ino, char **buf, int type)
++static void packet_details_json_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout)
++{
++	printf(",\n");
++	if (pinfo) {
++		printf("\t\"ver\": \"%d\",\n", pinfo->pdi_version);
++		printf("\t\"cpy_thresh\": \"%d\",\n", pinfo->pdi_copy_thresh);
++		printf("\t\"flags\": \"");
++		if (pinfo->pdi_flags & PDI_RUNNING)
++			printf("running");
++		if (pinfo->pdi_flags & PDI_AUXDATA)
++			printf("_auxdata");
++		if (pinfo->pdi_flags & PDI_ORIGDEV)
++			printf("_origdev");
++		if (pinfo->pdi_flags & PDI_VNETHDR)
++			printf("_vnethdr");
++		if (pinfo->pdi_flags & PDI_LOSS)
++			printf("_loss");
++		if (!pinfo->pdi_flags)
++			printf("0");
++		printf("\"");
++		res_json_fmt_branch(ring_rx || ring_tx || has_fanout, ' ');
++	}
++	if (ring_rx) {
++		printf("\t\"ring_rx\": {");
++		packet_show_ring_fmt(ring_rx);
++		printf("}");
++		res_json_fmt_branch(ring_tx || has_fanout, ' ');
++	}
++	if (ring_tx) {
++		printf("\t\"ring_tx\": {");
++		packet_show_ring_fmt(ring_tx);
++		printf("}");
++		res_json_fmt_branch(has_fanout, ' ');
++	}
++	if (has_fanout) {
++		uint16_t type = (fanout >> 16) & 0xffff;
++
++		printf("\t\"fanout\": \"");
++		printf("id:%d,", fanout & 0xffff);
++		printf("type:");
++
++		if (type == 0)
++			printf("hash");
++		else if (type == 1)
++			printf("lb");
++		else if (type == 2)
++			printf("cpu");
++		else if (type == 3)
++			printf("roll");
++		else if (type == 4)
++			printf("random");
++		else if (type == 5)
++			printf("qm");
++		else
++			printf("0x%x", type);
++
++		printf("\"");
++	}
++}
++
+ const struct fmt_op_hub json_output_op = {
+ 	.tcp_stats_fmt = tcp_stats_json_fmt,
+ 	.tcp_timer_fmt = tcp_timer_json_fmt,
+@@ -370,4 +434,5 @@ const struct fmt_op_hub json_output_op = {
+ 	.opt_fmt = opt_json_fmt,
+ 	.proc_fmt = proc_json_fmt,
+ 	.packet_show_ring_fmt = packet_show_ring_json_fmt,
++	.packet_details_fmt = packet_details_json_fmt
+ };
+diff --git a/misc/ss_out_fmt.c b/misc/ss_out_fmt.c
+index e17d898..3a0eb12 100644
+--- a/misc/ss_out_fmt.c
++++ b/misc/ss_out_fmt.c
+@@ -125,3 +125,13 @@ void packet_show_ring_fmt(struct packet_diag_ring *ring)
  {
-@@ -616,17 +563,6 @@ next:
- 	return cnt;
+ 	fmt_op_hub[fmt_type]->packet_show_ring_fmt(ring);
  }
- 
--/* Get stats from slab */
--
--struct slabstat
--{
--	int socks;
--	int tcp_ports;
--	int tcp_tws;
--	int tcp_syns;
--	int skbs;
--};
--
- static struct slabstat slabstat;
- 
- static const char *slabstat_ids[] =
-@@ -711,75 +647,6 @@ static const char *sstate_namel[] = {
- 	[SS_CLOSING] = "closing",
++void packet_details_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout)
++{
++	fmt_op_hub[fmt_type]->packet_details_fmt(pinfo,
++			ring_rx, ring_tx, fanout, has_fanout);
++}
++
+diff --git a/misc/ss_out_fmt.h b/misc/ss_out_fmt.h
+index b74f668..9443d44 100644
+--- a/misc/ss_out_fmt.h
++++ b/misc/ss_out_fmt.h
+@@ -54,6 +54,11 @@ struct fmt_op_hub {
+ 	void (*opt_fmt)(char *opt);
+ 	void (*proc_fmt)(int serv_width, char *pid_ctx);
+ 	void (*packet_show_ring_fmt)(struct packet_diag_ring *ring);
++	void (*packet_details_fmt)(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout);
  };
  
--struct sockstat
--{
--	struct sockstat	   *next;
--	unsigned int	    type;
--	uint16_t	    prot;
--	inet_prefix	    local;
--	inet_prefix	    remote;
--	int		    lport;
--	int		    rport;
--	int		    state;
--	int		    rq, wq;
--	unsigned	    ino;
--	unsigned	    uid;
--	int		    refcnt;
--	unsigned int	    iface;
--	unsigned long long  sk;
--	char *name;
--	char *peer_name;
--};
--
--struct dctcpstat
--{
--	unsigned int	ce_state;
--	unsigned int	alpha;
--	unsigned int	ab_ecn;
--	unsigned int	ab_tot;
--	bool		enabled;
--};
--
--struct tcpstat
--{
--	struct sockstat	    ss;
--	int		    timer;
--	int		    timeout;
--	int		    probes;
--	char		    cong_alg[16];
--	double		    rto, ato, rtt, rttvar;
--	int		    qack, cwnd, ssthresh, backoff;
--	double		    send_bps;
--	int		    snd_wscale;
--	int		    rcv_wscale;
--	int		    mss;
--	unsigned int	    lastsnd;
--	unsigned int	    lastrcv;
--	unsigned int	    lastack;
--	double		    pacing_rate;
--	double		    pacing_rate_max;
--	unsigned long long  bytes_acked;
--	unsigned long long  bytes_received;
--	unsigned int	    segs_out;
--	unsigned int	    segs_in;
--	unsigned int	    unacked;
--	unsigned int	    retrans;
--	unsigned int	    retrans_total;
--	unsigned int	    lost;
--	unsigned int	    sacked;
--	unsigned int	    fackets;
--	unsigned int	    reordering;
--	double		    rcv_rtt;
--	int		    rcv_space;
--	bool		    has_ts_opt;
--	bool		    has_sack_opt;
--	bool		    has_ecn_opt;
--	bool		    has_ecnseen_opt;
--	bool		    has_fastopen_opt;
--	bool		    has_wscale_opt;
--	struct dctcpstat    *dctcp;
--};
--
- static void sock_state_print(struct sockstat *s, const char *sock_name)
- {
- 	if (netid_width)
-@@ -853,13 +720,6 @@ static const char *print_ms_timer(int timeout)
- 	return buf;
- }
+ void tcp_stats_fmt(struct tcpstat *s);
+@@ -74,6 +79,11 @@ void bpf_filter_fmt(struct sock_filter *f, int num);
+ void opt_fmt(char *opt);
+ void proc_fmt(int serv_width, char *pid_ctx);
+ void packet_show_ring_fmt(struct packet_diag_ring *ring);
++void packet_details_fmt(struct packet_diag_info *pinfo,
++		struct packet_diag_ring *ring_rx,
++		struct packet_diag_ring *ring_tx,
++		uint32_t fanout,
++		bool has_fanout);
  
--struct scache {
--	struct scache *next;
--	int port;
--	char *name;
--	const char *proto;
--};
--
- struct scache *rlist;
- 
- static void init_service_resolver(void)
-@@ -1024,13 +884,6 @@ static void inet_addr_print(const inet_prefix *a, int port, unsigned int ifindex
- 			ifname);
- }
- 
--struct aafilter
--{
--	inet_prefix	addr;
--	int		port;
--	struct aafilter *next;
--};
--
- static int inet2_addr_match(const inet_prefix *a, const inet_prefix *p,
- 			    int plen)
- {
-@@ -2186,11 +2039,6 @@ static int sockdiag_send(int family, int fd, int protocol, struct filter *f)
- 	return 0;
- }
- 
--struct inet_diag_arg {
--	struct filter *f;
--	int protocol;
--};
--
- static int show_one_inet_sock(const struct sockaddr_nl *addr,
- 		struct nlmsghdr *h, void *arg)
- {
-@@ -3218,10 +3066,6 @@ static int netlink_show(struct filter *f)
- 	return 0;
- }
- 
--struct sock_diag_msg {
--	__u8 sdiag_family;
--};
--
- static int generic_show_sock(const struct sockaddr_nl *addr,
- 		struct nlmsghdr *nlh, void *arg)
- {
-@@ -3276,11 +3120,6 @@ Exit:
- 	return ret;
- }
- 
--struct snmpstat
--{
--	int tcp_estab;
--};
--
- static int get_snmp_int(char *proto, char *key, int *result)
- {
- 	char buf[1024];
-@@ -3325,28 +3164,6 @@ static int get_snmp_int(char *proto, char *key, int *result)
- 	return -1;
- }
- 
--
--/* Get stats from sockstat */
--
--struct ssummary
--{
--	int socks;
--	int tcp_mem;
--	int tcp_total;
--	int tcp_orphans;
--	int tcp_tws;
--	int tcp4_hashed;
--	int udp4;
--	int raw4;
--	int frag4;
--	int frag4_mem;
--	int tcp6_hashed;
--	int udp6;
--	int raw6;
--	int frag6;
--	int frag6_mem;
--};
--
- static void get_sockstat_line(char *line, struct ssummary *s)
- {
- 	char id[256], rem[256];
-@@ -3811,7 +3628,6 @@ int main(int argc, char *argv[])
- 	    (current_filter.dbs&(UNIX_DBM|(1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB))))
- 		init_service_resolver();
- 
--
- 	if (current_filter.dbs == 0) {
- 		fprintf(stderr, "ss: no socket tables to show with such filter.\n");
- 		exit(0);
-diff --git a/misc/ss_types.h b/misc/ss_types.h
-new file mode 100644
-index 0000000..b4dfdc1
---- /dev/null
-+++ b/misc/ss_types.h
-@@ -0,0 +1,186 @@
-+#ifndef SS_STRUCTS_H
-+#define SS_STRUCTS_H
-+
-+#include <stdbool.h>
-+#include <stdint.h>
-+#include "utils.h"
-+
-+enum {
-+	TCP_DB,
-+	DCCP_DB,
-+	UDP_DB,
-+	RAW_DB,
-+	UNIX_DG_DB,
-+	UNIX_ST_DB,
-+	UNIX_SQ_DB,
-+	PACKET_DG_DB,
-+	PACKET_R_DB,
-+	NETLINK_DB,
-+	MAX_DB
-+};
-+
-+enum {
-+	SS_UNKNOWN,
-+	SS_ESTABLISHED,
-+	SS_SYN_SENT,
-+	SS_SYN_RECV,
-+	SS_FIN_WAIT1,
-+	SS_FIN_WAIT2,
-+	SS_TIME_WAIT,
-+	SS_CLOSE,
-+	SS_CLOSE_WAIT,
-+	SS_LAST_ACK,
-+	SS_LISTEN,
-+	SS_CLOSING,
-+	SS_MAX
-+};
-+
-+struct filter {
-+	int dbs;
-+	int states;
-+	int families;
-+	struct ssfilter *f;
-+};
-+
-+struct user_ent {
-+	struct user_ent *next;
-+	unsigned int ino;
-+	int pid;
-+	int fd;
-+	char *process;
-+	char *process_ctx;
-+	char *socket_ctx;
-+};
-+
-+/* Get stats from slab */
-+
-+struct slabstat {
-+	int socks;
-+	int tcp_ports;
-+	int tcp_tws;
-+	int tcp_syns;
-+	int skbs;
-+};
-+
-+struct sockstat {
-+	struct sockstat    *next;
-+	unsigned int        type;
-+	uint16_t            prot;
-+	inet_prefix         local;
-+	inet_prefix         remote;
-+	int                 lport;
-+	int                 rport;
-+	int                 state;
-+	int                 rq, wq;
-+	unsigned            ino;
-+	unsigned            uid;
-+	int                 refcnt;
-+	unsigned int        iface;
-+	unsigned long long  sk;
-+	char *name;
-+	char *peer_name;
-+};
-+
-+struct dctcpstat {
-+	unsigned int ce_state;
-+	unsigned int alpha;
-+	unsigned int ab_ecn;
-+	unsigned int ab_tot;
-+	bool enabled;
-+};
-+
-+#pragma pack(push, 1)
-+
-+struct tcpstat {
-+	struct sockstat     ss;
-+	int                 timer;
-+	int                 timeout;
-+	int                 probes;
-+	char                cong_alg[16];
-+	double              rto, ato, rtt, rttvar;
-+	int                 qack, cwnd, ssthresh, backoff;
-+	double              send_bps;
-+	int                 snd_wscale;
-+	int                 rcv_wscale;
-+	int                 mss;
-+	unsigned int        lastsnd;
-+	unsigned int        lastrcv;
-+	unsigned int        lastack;
-+	double              pacing_rate;
-+	double              pacing_rate_max;
-+	unsigned long long  bytes_acked;
-+	unsigned long long  bytes_received;
-+	unsigned int        segs_out;
-+	unsigned int        segs_in;
-+	unsigned int        unacked;
-+	unsigned int        retrans;
-+	unsigned int        retrans_total;
-+	unsigned int        lost;
-+	unsigned int        sacked;
-+	unsigned int        fackets;
-+	unsigned int        reordering;
-+	bool                has_ts_opt;
-+	bool                has_sack_opt;
-+	bool                has_ecn_opt;
-+	bool                has_ecnseen_opt;
-+	bool                has_fastopen_opt;
-+	bool                has_wscale_opt;
-+	struct dctcpstat    *dctcp;
-+	double              rcv_rtt;
-+	int                 rcv_space;
-+};
-+
-+#pragma pack(pop)
-+
-+struct scache {
-+	struct scache *next;
-+	int port;
-+	char *name;
-+	const char *proto;
-+};
-+
-+struct aafilter {
-+	inet_prefix addr;
-+	int port;
-+	struct aafilter *next;
-+};
-+
-+struct snmpstat {
-+	int tcp_estab;
-+};
-+
-+struct sock_diag_msg {
-+	__u8 sdiag_family;
-+};
-+
-+struct inet_diag_arg {
-+	struct filter *f;
-+	int protocol;
-+};
-+
-+/* Get stats from sockstat */
-+
-+struct ssummary {
-+	int socks;
-+	int tcp_mem;
-+	int tcp_total;
-+	int tcp_orphans;
-+	int tcp_tws;
-+	int tcp4_hashed;
-+	int udp4;
-+	int raw4;
-+	int frag4;
-+	int frag4_mem;
-+	int tcp6_hashed;
-+	int udp6;
-+	int raw6;
-+	int frag6;
-+	int frag6_mem;
-+};
-+
-+enum entry_types {
-+	USERS,
-+	PROC_CTX,
-+	PROC_SOCK_CTX
-+};
-+#endif				/* SS_STRUCTS_H */
+ /*unisonly utilized formatting parts*/
+ char *sprint_bw(char *buf, double bw);
 -- 
 1.9.1
