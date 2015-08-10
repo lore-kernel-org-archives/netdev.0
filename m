@@ -1,145 +1,59 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: kernel warning in tcp_fragment
-Date: Mon, 10 Aug 2015 14:35:37 -0400
-Message-ID: <CADVnQy=-ADK-LVVhOC8Fs=z_1PiLjMSc4+z_qnKXu-wKx7Nq8g@mail.gmail.com>
-References: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
-	<20150727231947.GC2832181@devbig242.prn2.facebook.com>
-	<CABPcSqLJz33sQ9a_-g9oi7i=fxkBSXga9aSs3X2CJ_Xb2xVSOg@mail.gmail.com>
-	<CABPcSqLWopootOwASY+KacoLM-G62iYfv+9VhJb0-MmQXtbYmQ@mail.gmail.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] net: track link status of ipv6 nexthops
+Date: Mon, 10 Aug 2015 14:46:52 -0400
+Message-ID: <20150810184651.GL504@gospo.home.greyhouse.net>
+References: <1438875754-28025-1-git-send-email-gospo@cumulusnetworks.com>
+ <20150810.105400.1277861088010551746.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e01634d6a731d34051cf9405d
-Cc: Martin KaFai Lau <kafai@fb.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	FB Kernel Team <kernel-team@fb.com>
-To: Jovi Zhangwei <jovi@cloudflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:35993 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932106AbbHJSfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 14:35:37 -0400
-Received: by obnw1 with SMTP id w1so130261296obn.3
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 11:35:37 -0700 (PDT)
-In-Reply-To: <CABPcSqLWopootOwASY+KacoLM-G62iYfv+9VhJb0-MmQXtbYmQ@mail.gmail.com>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:33738 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932375AbbHJSq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 14:46:58 -0400
+Received: by ykaz130 with SMTP id z130so39898306yka.0
+        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 11:46:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150810.105400.1277861088010551746.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---089e01634d6a731d34051cf9405d
-Content-Type: text/plain; charset=UTF-8
+On Mon, Aug 10, 2015 at 10:54:00AM -0700, David Miller wrote:
+> From: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Date: Thu,  6 Aug 2015 11:42:33 -0400
+> 
+> > Add support to track current link status of ipv6 nexthops to match
+> > recent changes that added support for ipv4 nexthops.  There was not a
+> > field already available that could track these and no space available in
+> > the existing rt6i_flags field, so this patch adds rt6i_nhflags to struct
+> > rt6_info.
+> > 
+> > Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> > Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+> 
+> This doesn't really make any sense to me.
+> 
+> You can evaluate the state of the link at the time you look at the
+> route at all of the places where it matters as far as I can tell.
+> 
+> It's so expensive to walk the entire routing table every time a link
+> goes up and down, so it's much better to take an "evaluate as needed"
+> approach to implementing this.
 
-On Mon, Aug 10, 2015 at 2:10 PM, Jovi Zhangwei <jovi@cloudflare.com> wrote:
->
-> Ping?
->
-> We saw a lot of this warnings in our production system. It would be
-> great appreciate if someone can give us the fix on this warnings. :)
+I went this way as the idea of storing this info in a flags structure
+for 2 reasons:
 
-What is your net.ipv4.tcp_mtu_probing setting? If 1, have you tried
-setting it to 0? Previous reports (
-https://patchwork.ozlabs.org/patch/480882/ ) have shown that this gets
-rid of at least one source of the warning. So that would provide a
-useful data point.
+- This idea or marking on link status changes and checking for that mark
+  during forwarding was done what was suggested by Alex et al for the
+  ipv4 code and I wanted to keep the overall design similar.
 
-Separately, you could also try the attached patch. This is against
-3.14.39. It tries to attack a different possible source of this
-warning. Please let us know if that patch helps.
+- New flags will likely be needed when switchdev support is added for
+  ipv6 routes so going ahead and mirroring the RTNH_F* flags in the the
+  ipv6 code seemed reasonable.
 
-Thanks!
-
-neal
-
---089e01634d6a731d34051cf9405d
-Content-Type: application/octet-stream;
-	name="0001-RFC-for-tests-on-v3.14.39-tcp-resegment-skbs-that-we.patch"
-Content-Disposition: attachment;
-	filename="0001-RFC-for-tests-on-v3.14.39-tcp-resegment-skbs-that-we.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_id69blsh0
-
-RnJvbSAyOGYxNzllMDA0YWRjYWEyMzk3Yzc3ODgyODM2ZmQ3MTExZWY2MWFhIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBOZWFsIENhcmR3ZWxsIDxuY2FyZHdlbGxAZ29vZ2xlLmNvbT4K
-RGF0ZTogRnJpLCAyOSBNYXkgMjAxNSAyMDowNToyMyAtMDQwMApTdWJqZWN0OiBbUEFUQ0hdIFtS
-RkMgZm9yIHRlc3RzIG9uIHYzLjE0LjM5XSB0Y3A6IHJlc2VnbWVudCBza2JzIHRoYXQgd2UgbWFy
-awogdW4tU0FDS2VkIGR1ZSB0byByZW5lZ2luZwoKW1RoaXMgcGF0Y2ggaXMgZm9yIExpbnV4IHYz
-LjE0LjM5IGFuZCBpcyBmb3IgdGVzdGluZyBhIHByb3Bvc2VkIGZpeApmb3IgdGhlIGlzc3VlIHJl
-cG9ydGVkIGluIHRoZSBuZXRkZXYgdGhyZWFkICJSZWN1cnJpbmcgdHJhY2UgZnJvbQp0Y3BfZnJh
-Z21lbnQoKSIgZnJvbSBNYXkgMjksIDIwMTUuIEEgc2xpZ2h0bHkgZGlmZmVyZW50IHBhdGNoIHdv
-dWxkIGJlCm5lZWRlZCBmb3IgbW9yZSByZWNlbnQga2VybmVscy5dCgpJZiB3ZSBhcmUgcmVtb3Zp
-bmcgYSBTQUNLIG1hcmsgZHVlIHRvIHJlbmVnaW5nIHRoZW4gd2Ugc2hvdWxkIGNoZWNrIHRvCnNl
-ZSBpZiB0aGUgcGNvdW50IG5lZWRzIHRvIGJlIHNhbml0aXplZCwgc2luY2UgdGNwX3NoaWZ0ZWRf
-c2tiKCkKY2FuIGpvaW4gdG9nZXRoZXIgU0FDS2VkIHNrYnMgaW4gYSB3YXkgdGhhdCBtYWtlcyB0
-aGVpciBwY291bnQKdW5yZXByZXNlbnRhdGl2ZSBvZiB0aGUgbGVuZ3RoIG9mIHRoZSBwYWNrZXQu
-CgpUaGlzIGlzIGFpbWVkIGF0IGZpeGluZyBzY2VuYXJpb3MgbGlrZSB0aGUgb25lIHdoZXJlCnRj
-cF9tYXJrX2hlYWRfbG9zdCgpIGNhbGxzIHRjcF9mcmFnbWVudCgpIGFuZCB3ZSBmaXJlIHRoZSBm
-b2xsb3dpbmcKd2FybmluZzoKCiAgICAgICAgIGlmIChXQVJOX09OKGxlbiA+IHNrYi0+bGVuKSkK
-ICAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwoKSGVyZSBpcyBhIHRoZW9yeSBhcyB0byBo
-b3cgdGhpcyBjb3VsZCBoYXBwZW4uLi4KClN1cHBvc2UgdGhlIE1TUz0xMDAwLCBmb3Igc2ltcGxp
-Y2l0eS4KCigxKSBzZW5kIHBhY2tldCBBLCAxMDAxIGJ5dGVzLCBwY291bnQgMgooMikgc2VuZCBw
-YWNrZXQgQiwgMTAwMSBieXRlcywgcGNvdW50IDIKKDMpIHJlY2VpdmUgU0FDSyBmb3IgQQooNCkg
-cmVjZWl2ZSBTQUNLIGZvciBBIGFuZCBCLCBzaGlmdCBCIG9udG8gQS4KCldoZW4gd2Ugc2hpZnQg
-QiBvbnRvIEEsIHRjcF9zaGlmdGVkX3NrYigpIGp1c3QgYWRkcyB0aGUgcGNvdW50cyBvZiBBCmFu
-ZCBCLCBzbyBub3cgQSdzIHBjb3VudCBpcyAyKzI9NC4gQnV0IGl0cyBza2ItPmxlbiBpcyAxMDAx
-KzEwMDEgPQoyMDAyIGJ5dGVzLiAgTm93IG5vcm1hbGx5IHdlIHdvdWxkIGV4cGVjdCBhbiBza2Ig
-d2l0aCBhIHBjb3VudCBvZiA0IHRvCmhhdmUgc29tZXdoZXJlIGJldHdlZW4gMypNU1MrMWJ5dGUg
-YW5kIDQqTVNTIChiZXR3ZWVuIDMwMDEgYW5kIDQwMDAKYnl0ZXMpLiBBbmQgdGNwX21hcmtfaGVh
-ZF9sb3N0KCkgYW5kIHRjcF9tYXRjaF9za2JfdG9fc2FjaygpCmltcGxpY2l0bHkgYXNzdW1lIHRo
-aXMuCgpTdXBwb3NlIHRoZXJlIGlzIHRoZW4gU0FDSyByZW5lZ2luZywgYW5kIHdlIHJlbW92ZSB0
-aGUgU0FDS2VkIGJpdCBmcm9tCnRoaXMgd2VpcmQgc2tiIEEgd2l0aCBwY291bnQgNCBhbmQgc2ti
-LT5sZW4gMjAwMi4gIFRoZW4gd2UgZ2V0IG1vcmUKU0FDS3MgZm9yIHBhY2tldHMgYmV5b25kIEEs
-IGFuZCB0aGUgbG9zcy1tYXJraW5nIHJ1bGVzIHNheSB3ZSBzaG91bGQKYmUgYWJsZSB0byBtYXJr
-IDMgcGFja2V0cyBzdGFydGluZyBhdCBBIGFzIGxvc3QuICBUaGVuIHdlIHRyeSB0byBjaG9wCjNN
-U1Mgd29ydGggb2YgYnl0ZXMgb2ZmIG9mIHBhY2tldCBBLCB3aGljaCBvbmx5IGhhcyAyLjAwMk1T
-UyBvZiBkYXRhLgpBbmQgdGhlIHdhcm5pbmcgZmlyZXMuCgpTaWduZWQtb2ZmLWJ5OiBOZWFsIENh
-cmR3ZWxsIDxuY2FyZHdlbGxAZ29vZ2xlLmNvbT4KLS0tCiBpbmNsdWRlL25ldC90Y3AuaCAgICAg
-fCAgMiArKwogbmV0L2lwdjQvdGNwX2lucHV0LmMgIHwgIDkgKysrKysrKystCiBuZXQvaXB2NC90
-Y3Bfb3V0cHV0LmMgfCAxNCArKysrKysrKysrKysrKwogMyBmaWxlcyBjaGFuZ2VkLCAyNCBpbnNl
-cnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvdGNwLmgg
-Yi9pbmNsdWRlL25ldC90Y3AuaAppbmRleCAxZjBkODQ3Li40NDY0MzEyIDEwMDY0NAotLS0gYS9p
-bmNsdWRlL25ldC90Y3AuaAorKysgYi9pbmNsdWRlL25ldC90Y3AuaApAQCAtNTQzLDYgKzU0Myw4
-IEBAIHZvaWQgdGNwX3htaXRfcmV0cmFuc21pdF9xdWV1ZShzdHJ1Y3Qgc29jayAqKTsKIHZvaWQg
-dGNwX3NpbXBsZV9yZXRyYW5zbWl0KHN0cnVjdCBzb2NrICopOwogaW50IHRjcF90cmltX2hlYWQo
-c3RydWN0IHNvY2sgKiwgc3RydWN0IHNrX2J1ZmYgKiwgdTMyKTsKIGludCB0Y3BfZnJhZ21lbnQo
-c3RydWN0IHNvY2sgKiwgc3RydWN0IHNrX2J1ZmYgKiwgdTMyLCB1bnNpZ25lZCBpbnQpOworaW50
-IHRjcF9yZXNldF9za2JfdHNvX3NlZ3Moc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLAorCQkJICAgdW5zaWduZWQgaW50IG1zc19ub3cpOwogCiB2b2lkIHRjcF9zZW5kX3Byb2Jl
-MChzdHJ1Y3Qgc29jayAqKTsKIHZvaWQgdGNwX3NlbmRfcGFydGlhbChzdHJ1Y3Qgc29jayAqKTsK
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9pbnB1dC5jIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMK
-aW5kZXggMjI5MTc5MS4uODA0NzEzYiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2lucHV0LmMK
-KysrIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMKQEAgLTE5MTUsNiArMTkxNSw3IEBAIHZvaWQgdGNw
-X2VudGVyX2xvc3Moc3RydWN0IHNvY2sgKnNrLCBpbnQgaG93KQogCXN0cnVjdCB0Y3Bfc29jayAq
-dHAgPSB0Y3Bfc2soc2spOwogCXN0cnVjdCBza19idWZmICpza2I7CiAJYm9vbCBuZXdfcmVjb3Zl
-cnkgPSBmYWxzZTsKKwlib29sIHdhc19zYWNrZWQ7CiAKIAkvKiBSZWR1Y2Ugc3N0aHJlc2ggaWYg
-aXQgaGFzIG5vdCB5ZXQgYmVlbiBtYWRlIGluc2lkZSB0aGlzIHdpbmRvdy4gKi8KIAlpZiAoaWNz
-ay0+aWNza19jYV9zdGF0ZSA8PSBUQ1BfQ0FfRGlzb3JkZXIgfHwKQEAgLTE5NDksMTEgKzE5NTAs
-MTcgQEAgdm9pZCB0Y3BfZW50ZXJfbG9zcyhzdHJ1Y3Qgc29jayAqc2ssIGludCBob3cpCiAJCQl0
-cC0+dW5kb19tYXJrZXIgPSAwOwogCiAJCVRDUF9TS0JfQ0Ioc2tiKS0+c2Fja2VkICY9ICh+VENQ
-Q0JfVEFHQklUUyl8VENQQ0JfU0FDS0VEX0FDS0VEOwotCQlpZiAoIShUQ1BfU0tCX0NCKHNrYikt
-PnNhY2tlZCZUQ1BDQl9TQUNLRURfQUNLRUQpIHx8IGhvdykgeworCQl3YXNfc2Fja2VkID0gVENQ
-X1NLQl9DQihza2IpLT5zYWNrZWQgJiBUQ1BDQl9TQUNLRURfQUNLRUQ7CisJCWlmICghd2FzX3Nh
-Y2tlZCB8fCBob3cpIHsKIAkJCVRDUF9TS0JfQ0Ioc2tiKS0+c2Fja2VkICY9IH5UQ1BDQl9TQUNL
-RURfQUNLRUQ7CiAJCQlUQ1BfU0tCX0NCKHNrYiktPnNhY2tlZCB8PSBUQ1BDQl9MT1NUOwogCQkJ
-dHAtPmxvc3Rfb3V0ICs9IHRjcF9za2JfcGNvdW50KHNrYik7CiAJCQl0cC0+cmV0cmFuc21pdF9o
-aWdoID0gVENQX1NLQl9DQihza2IpLT5lbmRfc2VxOworCisJCQkvKiBDbGVhbiB1cCB3ZWlyZCBw
-Y291bnRzIGZyb20gdGNwX3NoaWZ0ZWRfc2tiKCkuICovCisJCQlpZiAod2FzX3NhY2tlZCkKKwkJ
-CQl0Y3BfcmVzZXRfc2tiX3Rzb19zZWdzKHNrLCBza2IsCisJCQkJCQkgICAgICAgdGNwX2N1cnJl
-bnRfbXNzKHNrKSk7CiAJCX0KIAl9CiAJdGNwX3ZlcmlmeV9sZWZ0X291dCh0cCk7CmRpZmYgLS1n
-aXQgYS9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMgYi9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMKaW5kZXgg
-OTZmNjRlNS4uNzRjODc1NyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX291dHB1dC5jCisrKyBi
-L25ldC9pcHY0L3RjcF9vdXRwdXQuYwpAQCAtMTUwMSw2ICsxNTAxLDIwIEBAIHN0YXRpYyBpbnQg
-dGNwX2luaXRfdHNvX3NlZ3MoY29uc3Qgc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLAogCXJldHVybiB0c29fc2VnczsKIH0KIAorLyogUmVjb21wdXRlIHRoZSBUU08gc2VnbWVu
-dGF0aW9uIGZvciBhbiBza2IgdGhhdCB3YXMgYWxyZWFkeSBzZW50LiAqLworaW50IHRjcF9yZXNl
-dF9za2JfdHNvX3NlZ3Moc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAorCQkJ
-ICAgdW5zaWduZWQgaW50IG1zc19ub3cpCit7CisJaW50IG9sZHBjb3VudCA9IHRjcF9za2JfcGNv
-dW50KHNrYik7CisKKwlpZiAoc2tiX3VuY2xvbmUoc2tiLCBHRlBfQVRPTUlDKSkKKwkJcmV0dXJu
-IC1FTk9NRU07CisKKwl0Y3Bfc2V0X3NrYl90c29fc2Vncyhzaywgc2tiLCBtc3Nfbm93KTsKKwl0
-Y3BfYWRqdXN0X3Bjb3VudChzaywgc2tiLCBvbGRwY291bnQgLSB0Y3Bfc2tiX3Bjb3VudChza2Ip
-KTsKKworCXJldHVybiAwOworfQogCiAvKiBSZXR1cm4gdHJ1ZSBpZiB0aGUgTmFnbGUgdGVzdCBh
-bGxvd3MgdGhpcyBwYWNrZXQgdG8gYmUKICAqIHNlbnQgbm93LgotLSAKMi4yLjAucmMwLjIwNy5n
-YTNhNjE2YwoK
---089e01634d6a731d34051cf9405d--
+I would actually be fine with what you proposed (it is closer to the
+first implementation), so if my justification above does not change your
+mind, let me know and I'll post a v2 that does not add rt6i_nhflags and
+simply checks netif_carrier_ok() rather than RTNH_F_LINKDOWN.
