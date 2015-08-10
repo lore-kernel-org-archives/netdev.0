@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 3/9] net: Use VRF device index for lookups on TX
-Date: Mon, 10 Aug 2015 11:50:30 -0600
-Message-ID: <1439229037-79213-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 5/9] net: Add inet_addr lookup by table
+Date: Mon, 10 Aug 2015 11:50:32 -0600
+Message-ID: <1439229037-79213-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1439229037-79213-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,121 +12,100 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:37363 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932256AbbHJRwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 13:52:00 -0400
-Received: by igbpg9 with SMTP id pg9so74536036igb.0
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 10:52:00 -0700 (PDT)
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:37453 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932422AbbHJRwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 13:52:09 -0400
+Received: by igbpg9 with SMTP id pg9so74538552igb.0
+        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 10:52:08 -0700 (PDT)
 In-Reply-To: <1439229037-79213-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As with ingress use the index of VRF master device for route lookups on
-egress. However, the oif should only be used to direct the lookups to a
-specific table. Routes in the table are not based on the VRF device but
-rather interfaces that are part of the VRF so do not consider the oif for
-lookups within the table. The FLOWI_FLAG_VRFSRC is used to control this
-latter part.
+Currently inet_addr_type and inet_dev_addr_type expect local addresses
+to be in the local table. With the VRF device local routes for devices
+associated with a VRF will be in the table associated with the VRF.
+Provide an alternate inet_addr lookup to use a specific table rather
+than defaulting to the local table.
 
 Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/flow.h  | 1 +
- include/net/route.h | 3 +++
- net/ipv4/fib_trie.c | 7 +++++--
- net/ipv4/icmp.c     | 4 ++++
- net/ipv4/route.c    | 5 +++++
- 5 files changed, 18 insertions(+), 2 deletions(-)
+ include/net/route.h     |  1 +
+ net/ipv4/fib_frontend.c | 22 +++++++++++++++-------
+ 2 files changed, 16 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 3098ae33a178..f305588fc162 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -33,6 +33,7 @@ struct flowi_common {
- 	__u8	flowic_flags;
- #define FLOWI_FLAG_ANYSRC		0x01
- #define FLOWI_FLAG_KNOWN_NH		0x02
-+#define FLOWI_FLAG_VRFSRC		0x04
- 	__u32	flowic_secid;
- 	struct flowi_tunnel flowic_tun_key;
- };
 diff --git a/include/net/route.h b/include/net/route.h
-index 2d45f419477f..94189d4bd899 100644
+index 94189d4bd899..6ba681f0b98d 100644
 --- a/include/net/route.h
 +++ b/include/net/route.h
-@@ -251,6 +251,9 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32
- 	if (inet_sk(sk)->transparent)
- 		flow_flags |= FLOWI_FLAG_ANYSRC;
+@@ -189,6 +189,7 @@ void ipv4_sk_redirect(struct sk_buff *skb, struct sock *sk);
+ void ip_rt_send_redirect(struct sk_buff *skb);
  
-+	if (netif_index_is_vrf(sock_net(sk), oif))
-+		flow_flags |= FLOWI_FLAG_VRFSRC;
-+
- 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
- 			   protocol, flow_flags, dst, src, dport, sport);
- }
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 37c4bb89a708..1243c79cb5b0 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1423,8 +1423,11 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 			    nh->nh_flags & RTNH_F_LINKDOWN &&
- 			    !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
- 				continue;
--			if (flp->flowi4_oif && flp->flowi4_oif != nh->nh_oif)
--				continue;
-+			if (!(flp->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
-+				if (flp->flowi4_oif &&
-+				    flp->flowi4_oif != nh->nh_oif)
-+					continue;
-+			}
+ unsigned int inet_addr_type(struct net *net, __be32 addr);
++unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id);
+ unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
+ 				__be32 addr);
+ void ip_rt_multicast_event(struct in_device *);
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index d8ced1d89f1b..b11321a8e58d 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -212,12 +212,12 @@ void fib_flush_external(struct net *net)
+  */
+ static inline unsigned int __inet_dev_addr_type(struct net *net,
+ 						const struct net_device *dev,
+-						__be32 addr)
++						__be32 addr, int tb_id)
+ {
+ 	struct flowi4		fl4 = { .daddr = addr };
+ 	struct fib_result	res;
+ 	unsigned int ret = RTN_BROADCAST;
+-	struct fib_table *local_table;
++	struct fib_table *table;
  
- 			if (!(fib_flags & FIB_LOOKUP_NOREF))
- 				atomic_inc(&fi->fib_clntref);
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index c0556f1e4bf0..1164fc4ce3bc 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -96,6 +96,7 @@
- #include <net/xfrm.h>
- #include <net/inet_common.h>
- #include <net/ip_fib.h>
-+#include <net/vrf.h>
+ 	if (ipv4_is_zeronet(addr) || ipv4_is_lbcast(addr))
+ 		return RTN_BROADCAST;
+@@ -226,10 +226,10 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
  
- /*
-  *	Build xmit assembly blocks
-@@ -425,6 +426,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
- 	fl4.flowi4_mark = mark;
- 	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
- 	fl4.flowi4_proto = IPPROTO_ICMP;
-+	fl4.flowi4_oif = vrf_master_ifindex_rcu(skb->dev) ? : skb->dev->ifindex;
- 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
- 	rt = ip_route_output_key(net, &fl4);
- 	if (IS_ERR(rt))
-@@ -458,6 +460,8 @@ static struct rtable *icmp_route_lookup(struct net *net,
- 	fl4->flowi4_proto = IPPROTO_ICMP;
- 	fl4->fl4_icmp_type = type;
- 	fl4->fl4_icmp_code = code;
-+	fl4->flowi4_oif = vrf_master_ifindex_rcu(skb_in->dev) ? : skb_in->dev->ifindex;
-+
- 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
- 	rt = __ip_route_output_key(net, fl4);
- 	if (IS_ERR(rt))
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c26ff1f7067d..2c89d294b669 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2131,6 +2131,11 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 				fl4->saddr = inet_select_addr(dev_out, 0,
- 							      RT_SCOPE_HOST);
+ 	rcu_read_lock();
+ 
+-	local_table = fib_get_table(net, RT_TABLE_LOCAL);
+-	if (local_table) {
++	table = fib_get_table(net, tb_id);
++	if (table) {
+ 		ret = RTN_UNICAST;
+-		if (!fib_table_lookup(local_table, &fl4, &res, FIB_LOOKUP_NOREF)) {
++		if (!fib_table_lookup(table, &fl4, &res, FIB_LOOKUP_NOREF)) {
+ 			if (!dev || dev == res.fi->fib_dev)
+ 				ret = res.type;
  		}
-+		if (netif_is_vrf(dev_out) &&
-+		    !(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
-+			rth = vrf_dev_get_rth(dev_out);
-+			goto out;
-+		}
- 	}
+@@ -239,16 +239,24 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
+ 	return ret;
+ }
  
- 	if (!fl4->daddr) {
++unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id)
++{
++	return __inet_dev_addr_type(net, NULL, addr, tb_id);
++}
++EXPORT_SYMBOL(inet_addr_type_table);
++
+ unsigned int inet_addr_type(struct net *net, __be32 addr)
+ {
+-	return __inet_dev_addr_type(net, NULL, addr);
++	return __inet_dev_addr_type(net, NULL, addr, RT_TABLE_LOCAL);
+ }
+ EXPORT_SYMBOL(inet_addr_type);
+ 
+ unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
+ 				__be32 addr)
+ {
+-	return __inet_dev_addr_type(net, dev, addr);
++	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
++
++	return __inet_dev_addr_type(net, dev, addr, rt_table);
+ }
+ EXPORT_SYMBOL(inet_dev_addr_type);
+ 
 -- 
 2.3.2 (Apple Git-55)
