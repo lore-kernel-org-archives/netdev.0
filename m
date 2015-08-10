@@ -1,92 +1,90 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: eth: altera: Remove sgdmadesclen member from altera_tse_private
-Date: Mon, 10 Aug 2015 12:26:32 +0200
-Message-ID: <1439202392-6808-1-git-send-email-tklauser@distanz.ch>
-Cc: nios2-dev@lists.rocketboards.org
-To: Vince Bridgers <vbridger@opensource.altera.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:38509 "EHLO mail.zhinst.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933316AbbHJK0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2015 06:26:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zang MingJie <zealot0630@gmail.com>
+Subject: Re: [BUG] net/ipv4: inconsistent routing table
+Date: Mon, 10 Aug 2015 06:51:07 -0400
+Message-ID: <CAOrge3pSQ7eck14biTncjOyGD-DKY0DvRr7JKpS3BowoSDry-Q@mail.gmail.com>
+References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
+ <55C1D207.3040905@iogearbox.net> <55C24BAE.7090702@gmail.com>
+ <CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
+ <55C3B8C8.9030507@redhat.com> <CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
+ <55C4D803.3090108@redhat.com> <878u9njaon.fsf@stressinduktion.org>
+ <CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com>
+ <CAOrge3q16PRh3TEBaGUeYDhLzWhCCytn+sopTzBr_23cj1gmaw@mail.gmail.com> <878u9jijuc.fsf@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <878u9jijuc.fsf@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-altera_tse_private->sgdmadesclen is always assigned assigned the same
-value and never changes during runtime.  Remove the struct member and
-use a new define for sizeof(struct sgdma_descrip) instead.
+Here comes several options:
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/altera/altera_sgdma.c   | 8 +++-----
- drivers/net/ethernet/altera/altera_sgdmahw.h | 1 +
- drivers/net/ethernet/altera/altera_tse.h     | 1 -
- 3 files changed, 4 insertions(+), 6 deletions(-)
+1. reject local next hop w/ EINVAL
+2. delete route when local next hop removed
+3. transition between RT_SCOPE_HOST amd RT_SCOPE_LINK
+4. document it
 
-diff --git a/drivers/net/ethernet/altera/altera_sgdma.c b/drivers/net/ethernet/altera/altera_sgdma.c
-index 580553d..88ef67a 100644
---- a/drivers/net/ethernet/altera/altera_sgdma.c
-+++ b/drivers/net/ethernet/altera/altera_sgdma.c
-@@ -71,8 +71,6 @@ int sgdma_initialize(struct altera_tse_private *priv)
- 		      SGDMA_CTRLREG_INTEN |
- 		      SGDMA_CTRLREG_ILASTD;
- 
--	priv->sgdmadesclen = sizeof(struct sgdma_descrip);
--
- 	INIT_LIST_HEAD(&priv->txlisthd);
- 	INIT_LIST_HEAD(&priv->rxlisthd);
- 
-@@ -254,7 +252,7 @@ u32 sgdma_rx_status(struct altera_tse_private *priv)
- 		unsigned int pktstatus = 0;
- 		dma_sync_single_for_cpu(priv->device,
- 					priv->rxdescphys,
--					priv->sgdmadesclen,
-+					SGDMA_DESC_LEN,
- 					DMA_FROM_DEVICE);
- 
- 		pktlength = csrrd16(desc, sgdma_descroffs(bytes_xferred));
-@@ -374,7 +372,7 @@ static int sgdma_async_read(struct altera_tse_private *priv)
- 
- 		dma_sync_single_for_device(priv->device,
- 					   priv->rxdescphys,
--					   priv->sgdmadesclen,
-+					   SGDMA_DESC_LEN,
- 					   DMA_TO_DEVICE);
- 
- 		csrwr32(lower_32_bits(sgdma_rxphysaddr(priv, cdesc)),
-@@ -402,7 +400,7 @@ static int sgdma_async_write(struct altera_tse_private *priv,
- 	csrwr32(0x1f, priv->tx_dma_csr, sgdma_csroffs(status));
- 
- 	dma_sync_single_for_device(priv->device, priv->txdescphys,
--				   priv->sgdmadesclen, DMA_TO_DEVICE);
-+				   SGDMA_DESC_LEN, DMA_TO_DEVICE);
- 
- 	csrwr32(lower_32_bits(sgdma_txphysaddr(priv, desc)),
- 		priv->tx_dma_csr,
-diff --git a/drivers/net/ethernet/altera/altera_sgdmahw.h b/drivers/net/ethernet/altera/altera_sgdmahw.h
-index 85bc33b..bbd52f0 100644
---- a/drivers/net/ethernet/altera/altera_sgdmahw.h
-+++ b/drivers/net/ethernet/altera/altera_sgdmahw.h
-@@ -50,6 +50,7 @@ struct sgdma_descrip {
- 	u8	control;
- } __packed;
- 
-+#define SGDMA_DESC_LEN	sizeof(struct sgdma_descrip)
- 
- #define SGDMA_STATUS_ERR		BIT(0)
- #define SGDMA_STATUS_LENGTH_ERR		BIT(1)
-diff --git a/drivers/net/ethernet/altera/altera_tse.h b/drivers/net/ethernet/altera/altera_tse.h
-index 2adb24d..103c30d 100644
---- a/drivers/net/ethernet/altera/altera_tse.h
-+++ b/drivers/net/ethernet/altera/altera_tse.h
-@@ -458,7 +458,6 @@ struct altera_tse_private {
- 	u32 rxctrlreg;
- 	dma_addr_t rxdescphys;
- 	dma_addr_t txdescphys;
--	size_t sgdmadesclen;
- 
- 	struct list_head txlisthd;
- 	struct list_head rxlisthd;
--- 
-2.5.0
+which one should we choose ?
+
+1 will definitely cause compatibility problem
+2 is the easiest solution
+3 need a bit of code, not sure if worth it
+
+On Mon, Aug 10, 2015 at 5:16 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hello,
+>
+> Zang MingJie <zealot0630@gmail.com> writes:
+>> Days ago I mistakenly set the gateway address on my box, then add the
+>> default router, after I deleted the address my box can't access
+>> Internet and all things looks fine. It takes me several hours to
+>> figure out it is an kernel bug.
+>
+> I don't consider this a kernel bug.
+>
+>>>On Sat, Aug 8, 2015, 1:00 AM Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+>>>If we could rewind time, we could make local nexthops -EINVAL.
+>>
+>> I don't think this is the proper solution. As almost all network OS
+>> considers the routing table recursive, and it's next hop can be any
+>> unicast ip address.
+>
+> You are talking about ios, junos, no?
+>
+> Linux does not have any kind of recursive routing table. It only helps
+> by doing a first-hop lookup during insertion time, that's merely it. If
+> you want to compare Linux to a "network OS" you would have to install
+> quagga/bird/xorp/... on a box to get the same behavior.
+>
+> Also notice that we don't talk about adding/removing addresses to
+> interfaces but what the routing code considers are the routes which get
+> created because of those address changes (like the subnet route added in
+> IPv4 if you install an address with subnet on an interface). Thus we
+> shouldn't make address changes special, we would have to reevaluate the
+> complete FIB/routing-table (I guess everyone is talking about something
+> different here) at the time we only change a route. And this is a no-go.
+>
+> I don't see a problem with adding a "recursive routing table" to the
+> stack if people need that. I just don't see the need for that.
+>
+>> When the next hop is unreachable the entry won't be installed.
+>
+> In a recursive routing table, the entry could be installed but it will
+> only get into effect when the nexthop turns reachable.
+>
+>> I suggest adding a new sysconf entry, when not set, behavior as the
+>> same as now, when set recalculate the fib when necessary
+>
+> A new sysctl would work, but I don't consider it necessary. I don't
+> think we need the additional code for that. Kernel does not run routing
+> protocols and those are normally the only ones which need to do that.
+>
+>> BTW is there any way to check the fib table?
+>
+> I don't understand the question. Do you mean
+>
+> ip route get xx.yy.zz.aa ?
+>
+> Bye,
+> Hannes
