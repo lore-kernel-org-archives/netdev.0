@@ -1,45 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Unbreak resetting default values for
- tcp_wmem/udp_wmem_min
-Date: Sun, 09 Aug 2015 22:41:14 -0700 (PDT)
-Message-ID: <20150809.224114.818332231954008575.davem@davemloft.net>
-References: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
+Subject: Re: [PATCH net-next 1/1] lan78xx: Fix Smatch warnings
+Date: Sun, 09 Aug 2015 22:43:18 -0700 (PDT)
+Message-ID: <20150809.224318.1435549728086593846.davem@davemloft.net>
+References: <9235D6609DB808459E95D78E17F2E43D53BF06@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com, sorin@returnze.ro
-To: calvinowens@fb.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
+To: Woojung.Huh@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39561 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201AbbHJFnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 01:43:19 -0400
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D53BF06@CHN-SV-EXMX02.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Calvin Owens <calvinowens@fb.com>
-Date: Wed, 5 Aug 2015 13:26:54 -0700
+From: <Woojung.Huh@microchip.com>
+Date: Wed, 5 Aug 2015 21:26:14 +0000
 
-> Commit 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to
-> SOCK_{RCV,SND}BUF_MIN") modified four sysctls to enforce that the values
-> written to them are not less than SOCK_MIN_{RCV,SND}BUF.
-> 
-> This change is fine for tcp_rmem and udp_rmem_min, since SOCK_MIN_RCVBUF
-> is equal to equal to TCP_SKB_MIN_TRUESIZE. But it breaks tcp_wmem and
-> udp_wmem_min for previously valid values because SOCK_MIN_SNDBUF is
-> (2 * TCP_SKB_MIN_TRUESIZE), which ends up being greater than 4KB.
-> 
-> Thus, 4096 is no longer accepted as a valid value, despite still being
-> the default for udp_wmem_min, and for 'min' in tcp_wmem. A huge number
-> of sysctl configurations at FB use 4096 as 'min', so this change breaks
-> all of them.
-> 
-> This patch changes the sysctls to simply enforce that the value written
-> is greater than or equal to the default value of SK_MEM_QUANTUM.
-> 
-> Fixes: 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to SOCK_MIN...")
-> Signed-off-by: Calvin Owens <calvinowens@fb.com>
+> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> index ec8bd34..3ac405f 100644
+> --- a/drivers/net/usb/lan78xx.c
+> +++ b/drivers/net/usb/lan78xx.c
+> @@ -291,7 +291,7 @@ static int lan78xx_read_reg(struct lan78xx_net *dev, u32 index, u32 *data)
+>  	u32 *buf = kmalloc(sizeof(u32), GFP_KERNEL);
+>  	int ret;
+>  
+> -	BUG_ON(!dev);
+> +	WARN_ON_ONCE(!dev);
+>  
 
-I think increasing the default makes more sense.
+The debugging check makes no sense at all if you aren't going to crash
+immediately due to it.
 
-If we don't allow applications to set 4K, the kernel shouldn't start
-with that value either.
+The subsequent dereference of dev will cause a crash anyways.
+
+So if you're going to change this at all, just kill all of these
+NULL pointer debug checks, as they are completely pointless.
