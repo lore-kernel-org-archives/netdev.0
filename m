@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/7] mlxsw: Couple of fixes/adjustments
-Date: Sun, 09 Aug 2015 22:54:46 -0700 (PDT)
-Message-ID: <20150809.225446.1865081424057668746.davem@davemloft.net>
-References: <1438872118-16869-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	ogerlitz@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39629 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752885AbbHJFyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 01:54:47 -0400
-In-Reply-To: <1438872118-16869-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: [PATCH V1 Resend 06/11] drivers: net: Drop unlikely before IS_ERR(_OR_NULL)
+Date: Mon, 10 Aug 2015 11:42:28 +0530
+Message-ID: <c0530e8f04f0987c055317633ef43b01383dd066.1439187003.git.viresh.kumar@linaro.org>
+References: <cover.1439187003.git.viresh.kumar@linaro.org>
+Cc: linaro-kernel@lists.linaro.org, linux-kernel@vger.kernel.org,
+	Viresh Kumar <viresh.kumar@linaro.org>,
+	Murali Karicheri <m-karicheri2@ti.com>,
+	netdev@vger.kernel.org (open list:TI NETCP ETHERNET DRIVER),
+	Wingman Kwok <w-kwok2@ti.com>
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1439187003.git.viresh.kumar@linaro.org>
+In-Reply-To: <cover.1439187003.git.viresh.kumar@linaro.org>
+References: <cover.1439187003.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu,  6 Aug 2015 16:41:51 +0200
+IS_ERR(_OR_NULL) already contain an 'unlikely' compiler flag and there
+is no need to do that again from its callers. Drop it.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ido Schimmel (5):
->   mlxsw: Call free_netdev when removing port
->   mlxsw: Make system port to local port mapping explicit
->   mlxsw: Simplify mlxsw_sx_port_xmit function
->   mlxsw: Use correct skb length when dumping payload
->   mlxsw: Fix use-after-free bug in mlxsw_sx_port_xmit
-> 
-> Jiri Pirko (2):
->   mlxsw: Make pci module dependent on HAS_DMA and HAS_IOMEM
->   mlxsw: Strip FCS from incoming packets
+Acked-by: Murali Karicheri <m-karicheri2@ti.com>
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+---
+ drivers/net/ethernet/ti/netcp_core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Series applied, thanks.
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 29ae672917b7..84dc3d617b90 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -1027,7 +1027,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 	}
+ 
+ 	desc = knav_pool_desc_get(netcp->tx_pool);
+-	if (unlikely(IS_ERR_OR_NULL(desc))) {
++	if (IS_ERR_OR_NULL(desc)) {
+ 		dev_err(netcp->ndev_dev, "out of TX desc\n");
+ 		dma_unmap_single(dev, dma_addr, pkt_len, DMA_TO_DEVICE);
+ 		return NULL;
+@@ -1060,7 +1060,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 		}
+ 
+ 		ndesc = knav_pool_desc_get(netcp->tx_pool);
+-		if (unlikely(IS_ERR_OR_NULL(ndesc))) {
++		if (IS_ERR_OR_NULL(ndesc)) {
+ 			dev_err(netcp->ndev_dev, "out of TX desc for frags\n");
+ 			dma_unmap_page(dev, dma_addr, buf_len, DMA_TO_DEVICE);
+ 			goto free_descs;
+-- 
+2.4.0
