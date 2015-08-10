@@ -1,31 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] mellanox: mlxsw: Use '%zx' to print size_t
- format
-Date: Mon, 10 Aug 2015 15:01:15 +0200
-Message-ID: <20150810130115.GD2043@nanopsycho>
-References: <1439211268-8785-1-git-send-email-fabio.estevam@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jiri@mellanox.com, netdev@vger.kernel.org,
-	idosch@mellanox.com, eladr@mellanox.com
-To: Fabio Estevam <fabio.estevam@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:35496 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753085AbbHJNBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 09:01:18 -0400
-Received: by wicne3 with SMTP id ne3so21187929wic.0
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 06:01:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1439211268-8785-1-git-send-email-fabio.estevam@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 1/8] net: dsa: mv88e6xxx: define GLOBAL_ATU_FID
+Date: Mon, 10 Aug 2015 09:09:46 -0400
+Message-ID: <1439212193-7673-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Aug 10, 2015 at 02:54:28PM CEST, fabio.estevam@freescale.com wrote:
->Use '%zx' to print size_t format in order to fix the following build warning:
->
->drivers/net/ethernet/mellanox/mlxsw/item.h:65:3: warning: format '%lx' expects argument of type 'long unsigned int', but argument 6 has type 'size_t' [-Wformat=]
->
->Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Define register GLOBAL_ATU_FID instead of the raw value 0x01.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 2 +-
+ drivers/net/dsa/mv88e6xxx.h | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 438c73e..7562ad8 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -964,7 +964,7 @@ static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, int fid, u16 cmd)
+ {
+ 	int ret;
+ 
+-	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x01, fid);
++	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
+ 	if (ret < 0)
+ 		return ret;
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 6a66b4b..4ee69819 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -170,6 +170,7 @@
+ #define GLOBAL_MAC_01		0x01
+ #define GLOBAL_MAC_23		0x02
+ #define GLOBAL_MAC_45		0x03
++#define GLOBAL_ATU_FID		0x01	/* 6097 6165 6351 6352 */
+ #define GLOBAL_CONTROL		0x04
+ #define GLOBAL_CONTROL_SW_RESET		BIT(15)
+ #define GLOBAL_CONTROL_PPU_ENABLE	BIT(14)
+-- 
+2.5.0
