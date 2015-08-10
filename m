@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 6/8] net: dsa: mv88e6xxx: rework FDB Get Next operation
-Date: Mon, 10 Aug 2015 09:09:51 -0400
-Message-ID: <1439212193-7673-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 2/8] net: dsa: mv88e6xxx: extend fid mask
+Date: Mon, 10 Aug 2015 09:09:47 -0400
+Message-ID: <1439212193-7673-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -17,130 +17,110 @@ In-Reply-To: <1439212193-7673-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a low level _mv88e6xxx_atu_getnext function for convenient access to
-the hardware, and rework the FDB Get Next operation.
+The driver currently manages one FID per port (or bridge group), with a
+mask of DSA_MAX_PORTS bits, where 0 means that the FID is in use.
 
-This will ease the future integration with VLAN IDs.
+The Marvell 88E6xxx switches support up to 4094 FIDs (from 1 to 0xfff;
+FID 0 means that multiple address databases are not being used).
+
+This patch changes the fid_mask for an fid_bitmap of 4096 bits.
+
+>From now on, FIDs 1 to num_ports are reserved for non-bridged ports and
+bridge groups (a bridge group gets the FID of its first member). The
+remaining bits will be reserved for VLAN entries.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 80 +++++++++++++++++++++++++++++++++------------
- 1 file changed, 59 insertions(+), 21 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 20 +++++++++++++-------
+ drivers/net/dsa/mv88e6xxx.h |  8 +++++---
+ 2 files changed, 18 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 2bf8f57..d840490 100644
+index 7562ad8..d8ec3f6 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1314,12 +1314,14 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 	return ret;
- }
+@@ -1091,7 +1091,7 @@ int mv88e6xxx_join_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
+ 	ps->bridge_mask[fid] = br_port_mask;
  
--static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
--				    unsigned char *addr, bool *is_static)
-+static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
-+				  const unsigned char *addr,
-+				  struct mv88e6xxx_atu_entry *entry)
- {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	u8 fid = ps->fid[port];
--	int ret, state;
-+	struct mv88e6xxx_atu_entry next = { 0 };
-+	int ret;
-+
-+	next.fid = fid;
- 
- 	ret = _mv88e6xxx_atu_wait(ds);
- 	if (ret < 0)
-@@ -1329,27 +1331,36 @@ static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
- 	if (ret < 0)
- 		return ret;
- 
--	do {
--		ret = _mv88e6xxx_atu_cmd(ds, fid,  GLOBAL_ATU_OP_GET_NEXT_DB);
--		if (ret < 0)
--			return ret;
-+	ret = _mv88e6xxx_atu_cmd(ds, fid, GLOBAL_ATU_OP_GET_NEXT_DB);
-+	if (ret < 0)
-+		return ret;
- 
--		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_DATA);
--		if (ret < 0)
--			return ret;
--		state = ret & GLOBAL_ATU_DATA_STATE_MASK;
--		if (state == GLOBAL_ATU_DATA_STATE_UNUSED)
--			return -ENOENT;
--	} while (!(((ret >> 4) & 0xff) & (1 << port)));
-+	ret = _mv88e6xxx_atu_mac_read(ds, next.mac);
-+	if (ret < 0)
-+		return ret;
- 
--	ret = _mv88e6xxx_atu_mac_read(ds, addr);
-+	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_DATA);
- 	if (ret < 0)
- 		return ret;
- 
--	*is_static = state == (is_multicast_ether_addr(addr) ?
--			       GLOBAL_ATU_DATA_STATE_MC_STATIC :
--			       GLOBAL_ATU_DATA_STATE_UC_STATIC);
-+	next.state = ret & GLOBAL_ATU_DATA_STATE_MASK;
-+	if (next.state != GLOBAL_ATU_DATA_STATE_UNUSED) {
-+		unsigned int mask, shift;
- 
-+		if (ret & GLOBAL_ATU_DATA_TRUNK) {
-+			next.trunk = true;
-+			mask = GLOBAL_ATU_DATA_TRUNK_ID_MASK;
-+			shift = GLOBAL_ATU_DATA_TRUNK_ID_SHIFT;
-+		} else {
-+			next.trunk = false;
-+			mask = GLOBAL_ATU_DATA_PORT_VECTOR_MASK;
-+			shift = GLOBAL_ATU_DATA_PORT_VECTOR_SHIFT;
-+		}
-+
-+		next.portv_trunkid = (ret & mask) >> shift;
-+	}
-+
-+	*entry = next;
- 	return 0;
- }
- 
-@@ -1358,10 +1369,37 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
- 			       unsigned char *addr, u16 *vid, bool *is_static)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	struct mv88e6xxx_atu_entry next;
-+	u16 fid;
- 	int ret;
+ 	if (fid != ps->fid[port]) {
+-		ps->fid_mask |= 1 << ps->fid[port];
++		clear_bit(ps->fid[port], ps->fid_bitmap);
+ 		ps->fid[port] = fid;
+ 		ret = _mv88e6xxx_update_bridge_config(ds, fid);
+ 	}
+@@ -1125,9 +1125,16 @@ int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
  
  	mutex_lock(&ps->smi_mutex);
--	ret = __mv88e6xxx_port_getnext(ds, port, addr, is_static);
-+
-+	ret = _mv88e6xxx_port_vid_to_fid(ds, port, *vid);
-+	if (ret < 0)
+ 
+-	newfid = __ffs(ps->fid_mask);
++	newfid = find_next_zero_bit(ps->fid_bitmap, VLAN_N_VID, 1);
++	if (unlikely(newfid > ps->num_ports)) {
++		netdev_err(ds->ports[port], "all first %d FIDs are used\n",
++			   ps->num_ports);
++		ret = -ENOSPC;
 +		goto unlock;
-+	fid = ret;
++	}
 +
-+	do {
-+		if (is_broadcast_ether_addr(addr)) {
-+			ret = -ENOENT;
-+			goto unlock;
-+		}
-+
-+		ret = _mv88e6xxx_atu_getnext(ds, fid, addr, &next);
-+		if (ret < 0)
-+			goto unlock;
-+
-+		ether_addr_copy(addr, next.mac);
-+
-+		if (next.state == GLOBAL_ATU_DATA_STATE_UNUSED)
-+			continue;
-+	} while (next.trunk || (next.portv_trunkid & BIT(port)) == 0);
-+
-+	*is_static = next.state == (is_multicast_ether_addr(addr) ?
-+				    GLOBAL_ATU_DATA_STATE_MC_STATIC :
-+				    GLOBAL_ATU_DATA_STATE_UC_STATIC);
+ 	ps->fid[port] = newfid;
+-	ps->fid_mask &= ~(1 << newfid);
++	set_bit(newfid, ps->fid_bitmap);
+ 	ps->bridge_mask[fid] &= ~(1 << port);
+ 	ps->bridge_mask[newfid] = 1 << port;
+ 
+@@ -1135,6 +1142,7 @@ int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask)
+ 	if (!ret)
+ 		ret = _mv88e6xxx_update_bridge_config(ds, newfid);
+ 
 +unlock:
  	mutex_unlock(&ps->smi_mutex);
  
  	return ret;
+@@ -1554,9 +1562,9 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	 * ports, and allow each of the 'real' ports to only talk to
+ 	 * the upstream port.
+ 	 */
+-	fid = __ffs(ps->fid_mask);
++	fid = port + 1;
+ 	ps->fid[port] = fid;
+-	ps->fid_mask &= ~(1 << fid);
++	set_bit(fid, ps->fid_bitmap);
+ 
+ 	if (!dsa_is_cpu_port(ds, port))
+ 		ps->bridge_mask[fid] = 1 << port;
+@@ -1855,8 +1863,6 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
+ 
+ 	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
+ 
+-	ps->fid_mask = (1 << DSA_MAX_PORTS) - 1;
+-
+ 	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+ 
+ 	name = kasprintf(GFP_KERNEL, "dsa%d", ds->index);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 4ee69819..fd1125f 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -11,6 +11,8 @@
+ #ifndef __MV88E6XXX_H
+ #define __MV88E6XXX_H
+ 
++#include <linux/if_vlan.h>
++
+ #ifndef UINT64_MAX
+ #define UINT64_MAX		(u64)(~((u64)0))
+ #endif
+@@ -349,9 +351,9 @@ struct mv88e6xxx_priv_state {
+ 
+ 	/* hw bridging */
+ 
+-	u32 fid_mask;
+-	u8 fid[DSA_MAX_PORTS];
+-	u16 bridge_mask[DSA_MAX_PORTS];
++	DECLARE_BITMAP(fid_bitmap, VLAN_N_VID);	/* FIDs 1 to 4095 available */
++	u16 fid[DSA_MAX_PORTS];			/* per (non-bridged) port FID */
++	u16 bridge_mask[DSA_MAX_PORTS];		/* br groups (indexed by FID) */
+ 
+ 	unsigned long port_state_update_mask;
+ 	u8 port_state[DSA_MAX_PORTS];
 -- 
 2.5.0
