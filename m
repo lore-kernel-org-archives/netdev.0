@@ -1,101 +1,65 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH v3 18/20] net/xen-netback: Make it running on 64KB page
- granularity
-Date: Mon, 10 Aug 2015 12:39:07 +0100
-Message-ID: <20150810113907.GH8857@zion.uk.xensource.com>
-References: <1438966019-19322-1-git-send-email-julien.grall@citrix.com>
- <1438966019-19322-19-git-send-email-julien.grall@citrix.com>
- <20150808145534.GB14214@zion.uk.xensource.com> <55C8759C.3010507@citrix.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [RFC] bmac:change to use bitrev8() generic function
+Date: Mon, 10 Aug 2015 13:49:01 +0200
+Message-ID: <20150810114901.GS16878@distanz.ch>
+References: <9A81C947-6F69-4549-B1D0-58061D6976CE@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
-	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Julien Grall <julien.grall@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: fabf@skynet.be, david@gibson.dropbear.id.au, davem@davemloft.net,
+	benh@kernel.crashing.org, netdev@vger.kernel.org,
+	open list <linux-kernel@vger.kernel.org>
+To: yalin wang <yalin.wang2010@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <55C8759C.3010507@citrix.com>
+In-Reply-To: <9A81C947-6F69-4549-B1D0-58061D6976CE@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 10, 2015 at 10:57:48AM +0100, Julien Grall wrote:
-[...]
+On 2015-08-10 at 11:53:41 +0200, yalin wang <yalin.wang2010@gmail.com> wrote:
+> This change to use generic bitrev8() for bmac driver.
 > 
-> >>+		info.page = page;
-> >>+		gnttab_foreach_grant_in_range(page, offset, bytes,
-> >>+					      xenvif_gop_frag_copy_grant,
-> >>+					      &info);
-> >
-> >Looks like I need to at least wait until the API is settle before giving
-> >my ack.
-> >
-> >>  		size -= bytes;
-> >>+		offset = 0;
-> >
-> >This looks wrong. Should be offset += bytes.
+> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
+> ---
+>  drivers/net/ethernet/apple/bmac.c | 17 +++--------------
+>  1 file changed, 3 insertions(+), 14 deletions(-)
 > 
-> With the new implementation of the loop, each iteration will be on a
-> different page.
-> So only the first page has an offset different than zero.
-> 
-> >
-> >>
-> >>-		/* Next frame */
-> >>-		if (offset == PAGE_SIZE && size) {
-> >>+		/* Next page */
-> >>+		if (size) {
-> >>  			BUG_ON(!PageCompound(page));
-> >>  			page++;
-> >>-			offset = 0;
-> >
-> >And this should not be deleted, I think.
-> >
-> >What is the reason for changing offset calculation? I think there is
-> >still compound page when using 64K page.
-> 
-> The compound pages are still working ... gnttab_foreach_grant_in_range is
-> called once per page. So the offset can be reset to 0 every time. No need to
-> add code which would make the result less clear.
-> 
-> We only need to know if the size is not 0 to get the next page.
-> 
-> The patch may not be clear enough to see it's working so I've copied the
-> result loop below:
-> 
->         while (size > 0) {
->                 BUG_ON(offset >= PAGE_SIZE);
-> 
->                 bytes = PAGE_SIZE - offset;
->                 if (bytes > size)
->                         bytes = size;
-> 
->                 info.page = page;
->                 gnttab_foreach_grant_in_range(page, offset, bytes,
->                                              xenvif_gop_frag_copy_grant,
->                                               &info);
->                 size -= bytes;
->                 offset = 0;
-> 
->                 /* Next page */
->                 if (size) {
->                         BUG_ON(!PageCompound(page));
->                         page++;
->                 }
->         }
-> 
+> diff --git a/drivers/net/ethernet/apple/bmac.c b/drivers/net/ethernet/apple/bmac.c
+> index a65d7a6..e749747 100644
+> --- a/drivers/net/ethernet/apple/bmac.c
+> +++ b/drivers/net/ethernet/apple/bmac.c
+> @@ -22,6 +22,7 @@
+>  #include <linux/bitrev.h>
+>  #include <linux/ethtool.h>
+>  #include <linux/slab.h>
+> +#include <linux/bitrev.h>
+>  #include <asm/prom.h>
+>  #include <asm/dbdma.h>
+>  #include <asm/io.h>
+> @@ -805,18 +806,6 @@ static irqreturn_t bmac_txdma_intr(int irq, void *dev_id)
+>  }
+>  
+>  #ifndef SUNHME_MULTICAST
+> -/* Real fast bit-reversal algorithm, 6-bit values */
+> -static int reverse6[64] = {
+> -	0x0,0x20,0x10,0x30,0x8,0x28,0x18,0x38,
+> -	0x4,0x24,0x14,0x34,0xc,0x2c,0x1c,0x3c,
+> -	0x2,0x22,0x12,0x32,0xa,0x2a,0x1a,0x3a,
+> -	0x6,0x26,0x16,0x36,0xe,0x2e,0x1e,0x3e,
+> -	0x1,0x21,0x11,0x31,0x9,0x29,0x19,0x39,
+> -	0x5,0x25,0x15,0x35,0xd,0x2d,0x1d,0x3d,
+> -	0x3,0x23,0x13,0x33,0xb,0x2b,0x1b,0x3b,
+> -	0x7,0x27,0x17,0x37,0xf,0x2f,0x1f,0x3f
+> -};
+> -
+>  static unsigned int
+>  crc416(unsigned int curval, unsigned short nxtval)
+>  {
+> @@ -871,7 +860,7 @@ bmac_addhash(struct bmac_data *bp, unsigned char *addr)
+>  
+>  	if (!(*addr)) return;
+>  	crc = bmac_crc((unsigned short *)addr) & 0x3f; /* Big-endian alert! */
+> -	crc = reverse6[crc];	/* Hyperfast bit-reversing algorithm */
+> +	crc = bitrev8((u8)crc);
 
-Right. That doesn't mean the original code was wrong or anything. But I
-don't want to bikeshed about this.
-
-Please add a comment saying that offset is always 0 starting from second
-iteration because the gnttab_foreach_grant_in_range makes sure we handle
-one page in one go.
-
-Wei.
-
-
-> Regards,
-> 
-> -- 
-> Julien Grall
+No, this won't work. reverse6 works on 6 bit values, while bitrev8 works
+on 8bit values, e.g. reverse6[1] = 0x20, while bitrev8(1) = 0x80
