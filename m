@@ -1,497 +1,249 @@
-From: Bandan Das <bsd-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH 1/4] vhost: Introduce a universal thread to serve all users
-Date: Mon, 10 Aug 2015 17:05:13 -0400
-Message-ID: <jpga8tykg6u.fsf@linux.bootlegged.copy>
-References: <1436760455-5686-1-git-send-email-bsd@redhat.com>
-	<1436760455-5686-2-git-send-email-bsd@redhat.com>
-	<20150810112813-mutt-send-email-mst@redhat.com>
-	<jpg1tfarjly.fsf@linux.bootlegged.copy>
+From: Martin Sustrik <sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] eventfd: implementation of EFD_MASK flag
+Date: Mon, 10 Aug 2015 23:16:24 +0200
+Message-ID: <2a70fc7c97ec7cc57c3eb3c4a60e8a2f@imap.lucina.net>
+References: <1439185906-28180-1-git-send-email-dhobsong@igel.co.jp>
+ <1439185906-28180-2-git-send-email-dhobsong@igel.co.jp>
+ <55C8436C.1000806@igel.co.jp>
+ <45138eb2cdd715f14fbd01fb5c8d3655@imap.lucina.net>
+ <55C86762.5010709@igel.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eyal Moscovici <EYALMO-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>,
-	Razya Ladelsky <RAZYA-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <jpg1tfarjly.fsf-oDDOE2N8RG3XLSnhx7PemevR1TjyzBtM@public.gmane.org> (Bandan Das's message of
-	"Mon, 10 Aug 2015 16:09:29 -0400")
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Damian Hobson-Garcia <dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55C86762.5010709-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Bandan Das <bsd-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
-
-> "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
->
->> On Mon, Jul 13, 2015 at 12:07:32AM -0400, Bandan Das wrote:
->>> vhost threads are per-device, but in most cases a single thread
->>> is enough. This change creates a single thread that is used to
->>> serve all guests.
+On 2015-08-10 10:57, Damian Hobson-Garcia wrote:
+> Hi Martin,
+> 
+> Thanks for your comments.
+> 
+> On 2015-08-10 3:39 PM, Martin Sustrik wrote:
+>> On 2015-08-10 08:23, Damian Hobson-Garcia wrote:
+>>> Replying to my own post, but I had the following comments/questions.
+>>> Martin, if you have any response to my comments I would be very happy 
+>>> to
+>>> hear them.
 >>> 
->>> However, this complicates cgroups associations. The current policy
->>> is to attach the per-device thread to all cgroups of the parent process
->>> that the device is associated it. This is no longer possible if we
->>> have a single thread. So, we end up moving the thread around to
->>> cgroups of whichever device that needs servicing. This is a very
->>> inefficient protocol but seems to be the only way to integrate
->>> cgroups support.
->>> 
->>> Signed-off-by: Razya Ladelsky <razya-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>
->>> Signed-off-by: Bandan Das <bsd-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>
->> BTW, how does this interact with virtio net MQ?
->> It would seem that MQ gains from more parallelism and
->> CPU locality.
->
-> Hm.. Good point. As of this version, this design will always have
-> one worker thread servicing a guest. Now suppose we have 10 virtio
-> queues for a guest, surely, we could benefit from spawning off another
-> worker just like we are doing in case of a new guest/device with
-> the devs_per_worker parameter.
+>>> On 2015-08-10 2:51 PM, Damian Hobson-Garcia wrote:
+>>>> From: Martin Sustrik <sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org>
+>>>> 
+>>> [snip]
+>>>> 
+>>>> write(2):
+>>>> 
+>>>> User is allowed to write only buffers containing the following
+>>>> structure:
+>>>> 
+>>>> struct efd_mask {
+>>>>   __u32 events;
+>>>>   __u64 data;
+>>>> };
+>>>> 
+>>>> The value of 'events' should be any combination of event flags as
+>>>> defined by
+>>>> poll(2) function (POLLIN, POLLOUT, POLLERR, POLLHUP etc.) Specified
+>>>> events will
+>>>> be signaled when polling (select, poll, epoll) on the eventfd is 
+>>>> done
+>>>> later on.
+>>>> 'data' is opaque data that are not interpreted by eventfd object.
+>>>> 
+>>> I'm not fully clear on the purpose that the 'data' member serves.  
+>>> Does
+>>> this opaque handle need to be tied together with this event
+>>> synchronization construct?
+>> 
+>> It's a convenience thing. Imagine you are implementing your own file
+>> descriptor type in user space. You create an EFD_MASK socket and a
+>> structure that will hold any state that you need for the socket (tx/rx
+>> buffers and such).
+>> 
+>> Now you have two things to pass around. If you want to pass the fd to 
+>> a
+>> function, it must have two parameters (fd and pointer to the 
+>> structure).
+>> 
+>> To fix it you can put the fd into the structure. That way there's only
+>> one thing to pass around (the structure).
+>> 
+>> The problem with that approach is when you have generic code that 
+>> deals
+>> with file descriptors. For example, a simple poller which accepts a 
+>> list
+>> of (fd, callback) pairs and invokes the callback when one of the fds
+>> signals POLLIN. You can't send a pointer to a structure to such
+>> function. All you can send is the fd, but then, when the callback is
+>> invoked, fd is all you have. You have no idea where your state is.
+>> 
+>> 'data' member allows you to put the pointer to the state to the socket
+>> itself. Thus, if you have a fd, you can always find out where the
+>> associated data is by reading the mask structure from the fd.
+>> 
+> 
+> Ok, I see what you're saying. I guess that keeping track of the mapping
+> between the fd and the struct in user space could be non-trivial if
+> there are a large number of active fds that are polling very 
+> frequently.
+> Wouldn't it be sufficient to just use epoll() in this case though?  It
+> already seems to support this kind of thing.
 
-So, I did a quick smoke test with virtio-net and the Elvis patches.
-virtio net MQ already spawns a new worker thread for every queue,
-it seems ? So, the above setup already works! :) I will run some tests and
-post back the results.
+My use case was like this:
 
->>> ---
->>>  drivers/vhost/scsi.c  |  15 +++--
->>>  drivers/vhost/vhost.c | 150 ++++++++++++++++++++++++--------------------------
->>>  drivers/vhost/vhost.h |  19 +++++--
->>>  3 files changed, 97 insertions(+), 87 deletions(-)
+int s = mysocket();
+...
+// myrecv() can get the pointer to the structure
+// without user having to pass it as an argument
+myrecv(s, buf, sizeof(buf));
+
+However, same behaviour can be accomplished by simply keeping
+a static array of pointers in the user space.
+
+So let's cut this part out of the patch.
+
+> 
 >>> 
->>> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
->>> index ea32b38..6c42936 100644
->>> --- a/drivers/vhost/scsi.c
->>> +++ b/drivers/vhost/scsi.c
->>> @@ -535,7 +535,7 @@ static void vhost_scsi_complete_cmd(struct vhost_scsi_cmd *cmd)
->>>  
->>>  	llist_add(&cmd->tvc_completion_list, &vs->vs_completion_list);
->>>  
->>> -	vhost_work_queue(&vs->dev, &vs->vs_completion_work);
->>> +	vhost_work_queue(vs->dev.worker, &vs->vs_completion_work);
->>>  }
->>>  
->>>  static int vhost_scsi_queue_data_in(struct se_cmd *se_cmd)
->>> @@ -1282,7 +1282,7 @@ vhost_scsi_send_evt(struct vhost_scsi *vs,
->>>  	}
->>>  
->>>  	llist_add(&evt->list, &vs->vs_event_list);
->>> -	vhost_work_queue(&vs->dev, &vs->vs_event_work);
->>> +	vhost_work_queue(vs->dev.worker, &vs->vs_event_work);
->>>  }
->>>  
->>>  static void vhost_scsi_evt_handle_kick(struct vhost_work *work)
->>> @@ -1335,8 +1335,8 @@ static void vhost_scsi_flush(struct vhost_scsi *vs)
->>>  	/* Flush both the vhost poll and vhost work */
->>>  	for (i = 0; i < VHOST_SCSI_MAX_VQ; i++)
->>>  		vhost_scsi_flush_vq(vs, i);
->>> -	vhost_work_flush(&vs->dev, &vs->vs_completion_work);
->>> -	vhost_work_flush(&vs->dev, &vs->vs_event_work);
->>> +	vhost_work_flush(vs->dev.worker, &vs->vs_completion_work);
->>> +	vhost_work_flush(vs->dev.worker, &vs->vs_event_work);
->>>  
->>>  	/* Wait for all reqs issued before the flush to be finished */
->>>  	for (i = 0; i < VHOST_SCSI_MAX_VQ; i++)
->>> @@ -1584,8 +1584,11 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
->>>  	if (!vqs)
->>>  		goto err_vqs;
->>>  
->>> -	vhost_work_init(&vs->vs_completion_work, vhost_scsi_complete_cmd_work);
->>> -	vhost_work_init(&vs->vs_event_work, vhost_scsi_evt_work);
->>> +	vhost_work_init(&vs->dev, &vs->vs_completion_work,
->>> +			vhost_scsi_complete_cmd_work);
->>> +
->>> +	vhost_work_init(&vs->dev, &vs->vs_event_work,
->>> +			vhost_scsi_evt_work);
->>>  
->>>  	vs->vs_events_nr = 0;
->>>  	vs->vs_events_missed = false;
->>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->>> index 2ee2826..951c96b 100644
->>> --- a/drivers/vhost/vhost.c
->>> +++ b/drivers/vhost/vhost.c
->>> @@ -11,6 +11,8 @@
->>>   * Generic code for virtio server in host kernel.
->>>   */
->>>  
->>> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
->>> +
->>>  #include <linux/eventfd.h>
->>>  #include <linux/vhost.h>
->>>  #include <linux/uio.h>
->>> @@ -28,6 +30,9 @@
->>>  
->>>  #include "vhost.h"
->>>  
->>> +/* Just one worker thread to service all devices */
->>> +static struct vhost_worker *worker;
->>> +
->>>  enum {
->>>  	VHOST_MEMORY_MAX_NREGIONS = 64,
->>>  	VHOST_MEMORY_F_LOG = 0x1,
->>> @@ -58,13 +63,15 @@ static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
->>>  	return 0;
->>>  }
->>>  
->>> -void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn)
->>> +void vhost_work_init(struct vhost_dev *dev,
->>> +		     struct vhost_work *work, vhost_work_fn_t fn)
->>>  {
->>>  	INIT_LIST_HEAD(&work->node);
->>>  	work->fn = fn;
->>>  	init_waitqueue_head(&work->done);
->>>  	work->flushing = 0;
->>>  	work->queue_seq = work->done_seq = 0;
->>> +	work->dev = dev;
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_work_init);
->>>  
->>> @@ -78,7 +85,7 @@ void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->>>  	poll->dev = dev;
->>>  	poll->wqh = NULL;
->>>  
->>> -	vhost_work_init(&poll->work, fn);
->>> +	vhost_work_init(dev, &poll->work, fn);
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_poll_init);
->>>  
->>> @@ -116,30 +123,30 @@ void vhost_poll_stop(struct vhost_poll *poll)
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_poll_stop);
->>>  
->>> -static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
->>> -				unsigned seq)
->>> +static bool vhost_work_seq_done(struct vhost_worker *worker,
->>> +				struct vhost_work *work, unsigned seq)
->>>  {
->>>  	int left;
->>>  
->>> -	spin_lock_irq(&dev->work_lock);
->>> +	spin_lock_irq(&worker->work_lock);
->>>  	left = seq - work->done_seq;
->>> -	spin_unlock_irq(&dev->work_lock);
->>> +	spin_unlock_irq(&worker->work_lock);
->>>  	return left <= 0;
->>>  }
->>>  
->>> -void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work)
->>> +void vhost_work_flush(struct vhost_worker *worker, struct vhost_work *work)
->>>  {
->>>  	unsigned seq;
->>>  	int flushing;
->>>  
->>> -	spin_lock_irq(&dev->work_lock);
->>> +	spin_lock_irq(&worker->work_lock);
->>>  	seq = work->queue_seq;
->>>  	work->flushing++;
->>> -	spin_unlock_irq(&dev->work_lock);
->>> -	wait_event(work->done, vhost_work_seq_done(dev, work, seq));
->>> -	spin_lock_irq(&dev->work_lock);
->>> +	spin_unlock_irq(&worker->work_lock);
->>> +	wait_event(work->done, vhost_work_seq_done(worker, work, seq));
->>> +	spin_lock_irq(&worker->work_lock);
->>>  	flushing = --work->flushing;
->>> -	spin_unlock_irq(&dev->work_lock);
->>> +	spin_unlock_irq(&worker->work_lock);
->>>  	BUG_ON(flushing < 0);
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_work_flush);
->>> @@ -148,29 +155,30 @@ EXPORT_SYMBOL_GPL(vhost_work_flush);
->>>   * locks that are also used by the callback. */
->>>  void vhost_poll_flush(struct vhost_poll *poll)
->>>  {
->>> -	vhost_work_flush(poll->dev, &poll->work);
->>> +	vhost_work_flush(poll->dev->worker, &poll->work);
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_poll_flush);
->>>  
->>> -void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
->>> +void vhost_work_queue(struct vhost_worker *worker,
->>> +		      struct vhost_work *work)
->>>  {
->>>  	unsigned long flags;
->>>  
->>> -	spin_lock_irqsave(&dev->work_lock, flags);
->>> +	spin_lock_irqsave(&worker->work_lock, flags);
->>>  	if (list_empty(&work->node)) {
->>> -		list_add_tail(&work->node, &dev->work_list);
->>> +		list_add_tail(&work->node, &worker->work_list);
->>>  		work->queue_seq++;
->>> -		spin_unlock_irqrestore(&dev->work_lock, flags);
->>> -		wake_up_process(dev->worker);
->>> +		spin_unlock_irqrestore(&worker->work_lock, flags);
->>> +		wake_up_process(worker->thread);
->>>  	} else {
->>> -		spin_unlock_irqrestore(&dev->work_lock, flags);
->>> +		spin_unlock_irqrestore(&worker->work_lock, flags);
->>>  	}
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_work_queue);
->>>  
->>>  void vhost_poll_queue(struct vhost_poll *poll)
->>>  {
->>> -	vhost_work_queue(poll->dev, &poll->work);
->>> +	vhost_work_queue(poll->dev->worker, &poll->work);
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_poll_queue);
->>>  
->>> @@ -203,19 +211,18 @@ static void vhost_vq_reset(struct vhost_dev *dev,
->>>  
->>>  static int vhost_worker(void *data)
->>>  {
->>> -	struct vhost_dev *dev = data;
->>> +	struct vhost_worker *worker = data;
->>>  	struct vhost_work *work = NULL;
->>>  	unsigned uninitialized_var(seq);
->>>  	mm_segment_t oldfs = get_fs();
->>>  
->>>  	set_fs(USER_DS);
->>> -	use_mm(dev->mm);
->>>  
->>>  	for (;;) {
->>>  		/* mb paired w/ kthread_stop */
->>>  		set_current_state(TASK_INTERRUPTIBLE);
->>>  
->>> -		spin_lock_irq(&dev->work_lock);
->>> +		spin_lock_irq(&worker->work_lock);
->>>  		if (work) {
->>>  			work->done_seq = seq;
->>>  			if (work->flushing)
->>> @@ -223,21 +230,35 @@ static int vhost_worker(void *data)
->>>  		}
->>>  
->>>  		if (kthread_should_stop()) {
->>> -			spin_unlock_irq(&dev->work_lock);
->>> +			spin_unlock_irq(&worker->work_lock);
->>>  			__set_current_state(TASK_RUNNING);
->>>  			break;
->>>  		}
->>> -		if (!list_empty(&dev->work_list)) {
->>> -			work = list_first_entry(&dev->work_list,
->>> +		if (!list_empty(&worker->work_list)) {
->>> +			work = list_first_entry(&worker->work_list,
->>>  						struct vhost_work, node);
->>>  			list_del_init(&work->node);
->>>  			seq = work->queue_seq;
->>>  		} else
->>>  			work = NULL;
->>> -		spin_unlock_irq(&dev->work_lock);
->>> +		spin_unlock_irq(&worker->work_lock);
->>>  
->>>  		if (work) {
->>> +			struct vhost_dev *dev = work->dev;
->>> +
->>>  			__set_current_state(TASK_RUNNING);
->>> +
->>> +			if (current->mm != dev->mm) {
->>> +				unuse_mm(current->mm);
->>> +				use_mm(dev->mm);
->>> +			}
->>> +
->>> +			/* TODO: Consider a more elegant solution */
->>> +			if (worker->owner != dev->owner) {
->>> +				/* Should check for return value */
->>> +				cgroup_attach_task_all(dev->owner, current);
->>> +				worker->owner = dev->owner;
->>> +			}
->>>  			work->fn(work);
->>>  			if (need_resched())
->>>  				schedule();
->>> @@ -245,7 +266,6 @@ static int vhost_worker(void *data)
->>>  			schedule();
->>>  
->>>  	}
->>> -	unuse_mm(dev->mm);
->>>  	set_fs(oldfs);
->>>  	return 0;
->>>  }
->>> @@ -304,9 +324,8 @@ void vhost_dev_init(struct vhost_dev *dev,
->>>  	dev->log_file = NULL;
->>>  	dev->memory = NULL;
->>>  	dev->mm = NULL;
->>> -	spin_lock_init(&dev->work_lock);
->>> -	INIT_LIST_HEAD(&dev->work_list);
->>> -	dev->worker = NULL;
->>> +	dev->worker = worker;
->>> +	dev->owner = current;
->>>  
->>>  	for (i = 0; i < dev->nvqs; ++i) {
->>>  		vq = dev->vqs[i];
->>> @@ -331,31 +350,6 @@ long vhost_dev_check_owner(struct vhost_dev *dev)
->>>  }
->>>  EXPORT_SYMBOL_GPL(vhost_dev_check_owner);
->>>  
->>> -struct vhost_attach_cgroups_struct {
->>> -	struct vhost_work work;
->>> -	struct task_struct *owner;
->>> -	int ret;
->>> -};
->>> -
->>> -static void vhost_attach_cgroups_work(struct vhost_work *work)
->>> -{
->>> -	struct vhost_attach_cgroups_struct *s;
->>> -
->>> -	s = container_of(work, struct vhost_attach_cgroups_struct, work);
->>> -	s->ret = cgroup_attach_task_all(s->owner, current);
->>> -}
->>> -
->>> -static int vhost_attach_cgroups(struct vhost_dev *dev)
->>> -{
->>> -	struct vhost_attach_cgroups_struct attach;
->>> -
->>> -	attach.owner = current;
->>> -	vhost_work_init(&attach.work, vhost_attach_cgroups_work);
->>> -	vhost_work_queue(dev, &attach.work);
->>> -	vhost_work_flush(dev, &attach.work);
->>> -	return attach.ret;
->>> -}
->>> -
->>>  /* Caller should have device mutex */
->>>  bool vhost_dev_has_owner(struct vhost_dev *dev)
->>>  {
->>> @@ -366,7 +360,6 @@ EXPORT_SYMBOL_GPL(vhost_dev_has_owner);
->>>  /* Caller should have device mutex */
->>>  long vhost_dev_set_owner(struct vhost_dev *dev)
->>>  {
->>> -	struct task_struct *worker;
->>>  	int err;
->>>  
->>>  	/* Is there an owner already? */
->>> @@ -377,28 +370,15 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
->>>  
->>>  	/* No owner, become one */
->>>  	dev->mm = get_task_mm(current);
->>> -	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
->>> -	if (IS_ERR(worker)) {
->>> -		err = PTR_ERR(worker);
->>> -		goto err_worker;
->>> -	}
->>> -
->>>  	dev->worker = worker;
->>> -	wake_up_process(worker);	/* avoid contributing to loadavg */
->>> -
->>> -	err = vhost_attach_cgroups(dev);
->>> -	if (err)
->>> -		goto err_cgroup;
->>>  
->>>  	err = vhost_dev_alloc_iovecs(dev);
->>>  	if (err)
->>> -		goto err_cgroup;
->>> +		goto err_alloc;
->>>  
->>>  	return 0;
->>> -err_cgroup:
->>> -	kthread_stop(worker);
->>> +err_alloc:
->>>  	dev->worker = NULL;
->>> -err_worker:
->>>  	if (dev->mm)
->>>  		mmput(dev->mm);
->>>  	dev->mm = NULL;
->>> @@ -472,11 +452,6 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
->>>  	/* No one will access memory at this point */
->>>  	kfree(dev->memory);
->>>  	dev->memory = NULL;
->>> -	WARN_ON(!list_empty(&dev->work_list));
->>> -	if (dev->worker) {
->>> -		kthread_stop(dev->worker);
->>> -		dev->worker = NULL;
->>> -	}
->>>  	if (dev->mm)
->>>  		mmput(dev->mm);
->>>  	dev->mm = NULL;
->>> @@ -1567,11 +1542,32 @@ EXPORT_SYMBOL_GPL(vhost_disable_notify);
->>>  
->>>  static int __init vhost_init(void)
->>>  {
->>> +	struct vhost_worker *w =
->>> +		kzalloc(sizeof(*w), GFP_KERNEL);
->>> +	if (!w)
->>> +		return -ENOMEM;
->>> +
->>> +	w->thread = kthread_create(vhost_worker,
->>> +				   w, "vhost-worker");
->>> +	if (IS_ERR(w->thread))
->>> +		return PTR_ERR(w->thread);
->>> +
->>> +	worker = w;
->>> +	spin_lock_init(&worker->work_lock);
->>> +	INIT_LIST_HEAD(&worker->work_list);
->>> +	wake_up_process(worker->thread);
->>> +	pr_info("Created universal thread to service requests\n");
->>> +
->>>  	return 0;
->>>  }
->>>  
->>>  static void __exit vhost_exit(void)
->>>  {
->>> +	if (worker) {
->>> +		kthread_stop(worker->thread);
->>> +		WARN_ON(!list_empty(&worker->work_list));
->>> +		kfree(worker);
->>> +	}
->>>  }
->>>  
->>>  module_init(vhost_init);
->>> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
->>> index 8c1c792..2f204ce 100644
->>> --- a/drivers/vhost/vhost.h
->>> +++ b/drivers/vhost/vhost.h
->>> @@ -22,6 +22,7 @@ struct vhost_work {
->>>  	int			  flushing;
->>>  	unsigned		  queue_seq;
->>>  	unsigned		  done_seq;
->>> +	struct vhost_dev          *dev;
->>>  };
->>>  
->>>  /* Poll a file (eventfd or socket) */
->>> @@ -35,8 +36,8 @@ struct vhost_poll {
->>>  	struct vhost_dev	 *dev;
->>>  };
->>>  
->>> -void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn);
->>> -void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
->>> +void vhost_work_init(struct vhost_dev *dev,
->>> +		     struct vhost_work *work, vhost_work_fn_t fn);
->>>  
->>>  void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->>>  		     unsigned long mask, struct vhost_dev *dev);
->>> @@ -44,7 +45,6 @@ int vhost_poll_start(struct vhost_poll *poll, struct file *file);
->>>  void vhost_poll_stop(struct vhost_poll *poll);
->>>  void vhost_poll_flush(struct vhost_poll *poll);
->>>  void vhost_poll_queue(struct vhost_poll *poll);
->>> -void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work);
->>>  long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp);
->>>  
->>>  struct vhost_log {
->>> @@ -116,11 +116,22 @@ struct vhost_dev {
->>>  	int nvqs;
->>>  	struct file *log_file;
->>>  	struct eventfd_ctx *log_ctx;
->>> +	/* vhost shared worker */
->>> +	struct vhost_worker *worker;
->>> +	/* for cgroup support */
->>> +	struct task_struct *owner;
->>> +};
->>> +
->>> +struct vhost_worker {
->>>  	spinlock_t work_lock;
->>>  	struct list_head work_list;
->>> -	struct task_struct *worker;
->>> +	struct task_struct *thread;
->>> +	struct task_struct *owner;
->>>  };
->>>  
->>> +void vhost_work_queue(struct vhost_worker *worker,
->>> +		      struct vhost_work *work);
->>> +void vhost_work_flush(struct vhost_worker *worker, struct vhost_work *work);
->>>  void vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
->>>  long vhost_dev_set_owner(struct vhost_dev *dev);
->>>  bool vhost_dev_has_owner(struct vhost_dev *dev);
->>> -- 
->>> 2.4.3
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> [snip]
+>>> 
+>>>> @@ -55,6 +69,9 @@ __u64 eventfd_signal(struct eventfd_ctx *ctx, 
+>>>> __u64 n)
+>>>>  {
+>>>> +    /* This function should never be used with eventfd in the mask
+>>>> mode. */
+>>>> +    BUG_ON(ctx->flags & EFD_MASK);
+>>>> +
+>>> ...
+>>>> @@ -158,6 +180,9 @@ int eventfd_ctx_remove_wait_queue(struct
+>>>> eventfd_ctx *ctx, wait_queue_t *wait,
+>>>>  {
+>>>> +    /* This function should never be used with eventfd in the mask
+>>>> mode. */
+>>>> +    BUG_ON(ctx->flags & EFD_MASK);
+>>>> +
+>>> ...
+>>>> @@ -188,6 +213,9 @@ ssize_t eventfd_ctx_read(struct eventfd_ctx 
+>>>> *ctx,
+>>>> int no_wait, __u64 *cnt)
+>>>> +    /* This function should never be used with eventfd in the mask
+>>>> mode. */
+>>>> +    BUG_ON(ctx->flags & EFD_MASK);
+>>>> +
+>>> 
+>>> If eventfd_ctx_fileget() returns EINVAL when EFD_MASK is set, I don't
+>>> think that there will be a way to call these functions in the mask 
+>>> mode,
+>>> so it should be possible to get rid of the BUG_ON checks.
+>> 
+>> Sure. Feel free to do so.
+>> 
+>>> 
+>>> [snip]
+>>>> @@ -230,6 +258,19 @@ static ssize_t eventfd_read(struct file *file,
+>>>> char __user *buf, size_t count,
+>>>>      ssize_t res;
+>>>>      __u64 cnt;
+>>>> 
+>>>> +    if (ctx->flags & EFD_MASK) {
+>>>> +        struct efd_mask mask;
+>>>> +
+>>>> +        if (count < sizeof(mask))
+>>>> +            return -EINVAL;
+>>>> +        spin_lock_irq(&ctx->wqh.lock);
+>>>> +        mask = ctx->mask;
+>>>> +        spin_unlock_irq(&ctx->wqh.lock);
+>>>> +        if (copy_to_user(buf, &mask, sizeof(mask)))
+>>>> +            return -EFAULT;
+>>>> +        return sizeof(mask);
+>>>> +    }
+>>>> +
+>>> 
+>>> For the other eventfd modes, reading the value will update the 
+>>> internal
+>>> state of the eventfd (either clearing or decrementing the counter).
+>>> Should something similar be done here? I'm thinking of a case where a
+>>> process is polling on this fd in a loop. Clearing the efd_mask data  
+>>> on
+>>> read should provide an easy way for the polling process to know if it 
+>>> is
+>>> seeing new poll events.
+>> 
+>> No. In this case reading the value has no effect on the state of the 
+>> fd.
+>> How it should work is rather:
+>> 
+>> // fd is in POLLIN state
+>> poll(fd);
+>> // function exits with POLLIN but fd remains in POLLIN state
+>> my_recv(fd, buf, size);
+>> // my_recv function have found out that there's no more data to recv 
+>> and
+>> switched off the POLLIN flag
+>> poll(fd); // we block here waiting for more data to arrive from the 
+>> network
+>> 
+> 
+> How exactly doe the receiver switch off the POLLIN flag?  Does the
+> receiver also write to the eventfd? or do you mean that it just doesn't
+> set POLLIN in the events mask?  It seems cleaner to have the sender 
+> only
+> write the eventfd and the receiver only read it.  Your example would be
+> exactly the same, except that my_recv(fd, buf, size) would read to 
+> clear
+> instead of write.
+
+Keep in mind that the user of your mysocket is not supposed to do
+recv() or send() on the raw underlying fd. It's the implementation,
+myrecv() and mysend(), that does that.
+
+That being the case and also assuming that we cut the pointer out, there 
+seems
+to be little use for recv() any more. The implementation of socket knows
+what state it is in and so it doesn't have to retrieve it using recv().
+
+All it has to do is perform whatever business logic is needed and then 
+set new
+state of the socket via send().
+
+And the fact there's no clear use case, the logic of recv() is not 
+obvious.
+We can very well return ENOTIMPL.
+
+
+> 
+>>> 
+>>>> @@ -292,8 +351,13 @@ static void eventfd_show_fdinfo(struct seq_file
+>>>> *m, struct file *f)
+>>>>      struct eventfd_ctx *ctx = f->private_data;
+>>>> 
+>>>>      spin_lock_irq(&ctx->wqh.lock);
+>>>> -    seq_printf(m, "eventfd-count: %16llx\n",
+>>>> -           (unsigned long long)ctx->count);
+>>>> +    if (ctx->flags & EFD_MASK) {
+>>>> +        seq_printf(m, "eventfd-mask: %x\n",
+>>>> +                 (unsigned)ctx->mask.events);
+>>>> +    } else {
+>>>> +        seq_printf(m, "eventfd-count: %16llx\n",
+>>>> +                 (unsigned long long)ctx->count);
+>>>> +    }
+>>>>      spin_unlock_irq(&ctx->wqh.lock);
+>>>>  }
+>>> I think that putting the EFD_MASK functionality into a different fops
+>>> structure might be useful for reducing the number of if statements.
+>> 
+>> Sure. No objections.
+>> 
+>> Thanks for re-submitting the patch!
+> 
+> My pleasure.
+> 
+>> Martin
+>> 
+> 
+> Damian
