@@ -1,251 +1,350 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH 03/10] ss: removed obsolet fmt functions
-Date: Mon, 10 Aug 2015 20:52:17 +0200
-Message-ID: <1439232744-19505-4-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH 05/10] ss: framed skeleton for json output in ss
+Date: Mon, 10 Aug 2015 20:52:19 +0200
+Message-ID: <1439232744-19505-6-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1439232744-19505-1-git-send-email-matthias.tafelmeier@gmx.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:55101 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.22]:61368 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932453AbbHJSwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2015 14:52:54 -0400
+	id S932364AbbHJSw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Aug 2015 14:52:57 -0400
 In-Reply-To: <1439232744-19505-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Those functions are obsoleted since the new fmt handler mechanism
-subsumes their tasks. Rendundancy would be contradictory to
-the new mechanism.
+This patch just adds the --json flag to ss. Also it ensures proper
+stats components bracketization =E2=80=93 that goes for ex. TCP, UDP, N=
+ETLINK etc.
+
+Moreover, this patch prevents human readable headers to be printed. The
+first element flag ensures, that every first output json container
+element is treated specially, while all the others are treated equally.
+That is, only the first one does not print a coma ahead of itself. The
+rest does. This mechanism ensures the correct coma setting as demaned b=
+y
+the spec. Illustration in the following:
+
+PSEUDOCODE:
+
+{ >>>> no comma
+	{first }
+>>>>	,
+	{sec}
+>>>>	,
+	{third}
+	.
+	.
+	.
+}
 
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- misc/ss.c | 190 --------------------------------------------------------------
- 1 file changed, 190 deletions(-)
+ misc/ss.c | 198 ++++++++++++++++++++++++++++++++++++++++++++++++------=
+--------
+ 1 file changed, 155 insertions(+), 43 deletions(-)
 
 diff --git a/misc/ss.c b/misc/ss.c
-index 3d31b81..e241b2f 100644
+index 1b3ef90..8fb6e7d 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -647,43 +647,6 @@ static const char *sstate_namel[] = {
- 	[SS_CLOSING] = "closing",
- };
- 
--static void sock_state_print(struct sockstat *s, const char *sock_name)
--{
+@@ -34,6 +34,9 @@
+ #include "libnetlink.h"
+ #include "namespace.h"
+ #include "SNAPSHOT.h"
++#include "ss_out_fmt.h"
++#include "ss_json_fmt.h"
++#include "ss_types.h"
+=20
+ #include <linux/tcp.h>
+ #include <linux/sock_diag.h>
+@@ -101,6 +104,7 @@ int show_sock_ctx =3D 0;
+ /* If show_users & show_proc_ctx only do user_ent_hash_build() once */
+ int user_ent_hash_build_init =3D 0;
+ int follow_events =3D 0;
++int json_output =3D 0;
+=20
+ int netid_width;
+ int state_width;
+@@ -714,7 +718,6 @@ static int is_ephemeral(int port)
+ 	return (port >=3D ip_local_port_min && port<=3D ip_local_port_max);
+ }
+=20
+-
+ static const char *__resolve_service(int port)
+ {
+ 	struct scache *c;
+@@ -3064,6 +3067,9 @@ static int print_summary(void)
+=20
+ 	printf("\n");
+=20
++	if (json_output && has_successor)
++		printf(",\n");
++
+ 	return 0;
+ }
+=20
+@@ -3090,6 +3096,7 @@ static void _usage(FILE *dest)
+ "   -z, --contexts      display process and socket SELinux security co=
+ntexts\n"
+ "   -N, --net           switch to the specified network namespace name=
+\n"
+ "\n"
++"   -j, --json          format output in JSON\n"
+ "   -4, --ipv4          display only IP version 4 sockets\n"
+ "   -6, --ipv6          display only IP version 6 sockets\n"
+ "   -0, --packet        display PACKET sockets\n"
+@@ -3189,6 +3196,7 @@ static const struct option long_opts[] =3D {
+ 	{ "help", 0, 0, 'h' },
+ 	{ "context", 0, 0, 'Z' },
+ 	{ "contexts", 0, 0, 'z' },
++	{ "json", 0, 0, 'j' },
+ 	{ "net", 1, 0, 'N' },
+ 	{ 0 }
+=20
+@@ -3204,7 +3212,7 @@ int main(int argc, char *argv[])
+ 	int ch;
+ 	int state_filter =3D 0;
+=20
+-	while ((ch =3D getopt_long(argc, argv, "dhaletuwxnro460spbEf:miA:D:F:=
+vVzZN:",
++	while ((ch =3D getopt_long(argc, argv, "dhaletuwxnro460spbEf:miA:D:F:=
+vVzZN:j",
+ 				 long_opts, NULL)) !=3D EOF) {
+ 		switch(ch) {
+ 		case 'n':
+@@ -3383,6 +3391,10 @@ int main(int argc, char *argv[])
+ 			if (netns_switch(optarg))
+ 				exit(1);
+ 			break;
++		case 'j':
++			fmt_type =3D FMT_JSON;
++			json_output =3D 1;
++			break;
+ 		case 'h':
+ 		case '?':
+ 			help();
+@@ -3464,11 +3476,33 @@ int main(int argc, char *argv[])
+ 				exit(-1);
+ 			}
+ 		}
++		printf("\"TCP\": [\n");
+ 		inet_show_netlink(&current_filter, dump_fp, IPPROTO_TCP);
++		res_json_fmt_branch(current_filter.dbs & (1<<NETLINK_DB) ||
++				current_filter.dbs & PACKET_DBM ||
++				current_filter.dbs & UNIX_DBM ||
++				current_filter.dbs & (1<<RAW_DB) ||
++				current_filter.dbs & (1<<UDP_DB) ||
++				current_filter.dbs & (1<<TCP_DB) ||
++				current_filter.dbs & (1<<DCCP_DB), ']');
+ 		fflush(dump_fp);
+ 		exit(0);
+ 	}
+=20
++	if (do_summary) {
++		print_summary(current_filter.dbs & PACKET_DBM ||
++				current_filter.dbs & UNIX_DBM ||
++				current_filter.dbs & (1<<RAW_DB) ||
++				current_filter.dbs & (1<<UDP_DB) ||
++				current_filter.dbs & (1<<TCP_DB) ||
++				current_filter.dbs & (1<<DCCP_DB));
++		if (do_default && argc =3D=3D 0) {
++			if (json_output)
++				printf("}\n");
++			exit(0);
++		}
++	}
++
+ 	if (ssfilter_parse(&current_filter.f, argc, argv, filter_fp))
+ 		usage();
+=20
+@@ -3490,62 +3524,140 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+=20
+-	addrp_width =3D screen_width;
+-	addrp_width -=3D netid_width+1;
+-	addrp_width -=3D state_width+1;
+-	addrp_width -=3D 14;
++	if (!json_output) {
++
++		addrp_width =3D screen_width;
++		addrp_width -=3D netid_width + 1;
++		addrp_width -=3D state_width + 1;
++		addrp_width -=3D 14;
++
++		if (addrp_width & 1) {
++			if (netid_width)
++				netid_width++;
++			else if (state_width)
++				state_width++;
++		}
++
++		addrp_width /=3D 2;
++		addrp_width--;
++
++		serv_width =3D resolve_services ? 7 : 5;
++
++		if (addrp_width < 15 + serv_width + 1)
++			addrp_width =3D 15 + serv_width + 1;
+=20
+-	if (addrp_width&1) {
++		addr_width =3D addrp_width - serv_width - 1;
+ 		if (netid_width)
+-			netid_width++;
+-		else if (state_width)
+-			state_width++;
+-	}
++			printf("%-*s ", netid_width, "Netid");
++		if (state_width)
++			printf("%-*s ", state_width, "State");
++		printf("%-6s %-6s ", "Recv-Q", "Send-Q");
+=20
+-	addrp_width /=3D 2;
+-	addrp_width--;
++		/* Make enough space for the local/remote port field */
++		addr_width -=3D 13;
++		serv_width +=3D 13;
+=20
+-	serv_width =3D resolve_services ? 7 : 5;
++		printf("%*s:%-*s %*s:%-*s\n",
++				addr_width, "Local Address", serv_width, "Port",
++				addr_width, "Peer Address", serv_width, "Port");
++	}
+=20
+-	if (addrp_width < 15+serv_width+1)
+-		addrp_width =3D 15+serv_width+1;
++	fflush(stdout);
+=20
+-	addr_width =3D addrp_width - serv_width - 1;
++	if (current_filter.dbs & (1<<NETLINK_DB)) {
++		if (json_output) {
++			printf("\"NETLINK\": [\n");
++			netlink_show(&current_filter);
++			json_first_elem =3D 1;
++			res_json_fmt_branch(current_filter.dbs & PACKET_DBM ||
++					current_filter.dbs & UNIX_DBM ||
++					current_filter.dbs & (1<<RAW_DB) ||
++					current_filter.dbs & (1<<UDP_DB) ||
++					current_filter.dbs & (1<<TCP_DB) ||
++					current_filter.dbs & (1<<DCCP_DB), ']');
++		} else
++			netlink_show(&current_filter);
++	}
++	if (current_filter.dbs & PACKET_DBM) {
++		if (json_output) {
++			printf("\"PACKET\": [\n");
++			packet_show(&current_filter);
++			json_first_elem =3D 1;
++			res_json_fmt_branch(
++					current_filter.dbs & UNIX_DBM ||
++					current_filter.dbs & (1<<RAW_DB) ||
++					current_filter.dbs & (1<<UDP_DB) ||
++					current_filter.dbs & (1<<TCP_DB) ||
++					current_filter.dbs & (1<<DCCP_DB), ']');
++		} else
++			packet_show(&current_filter);
++	}
++	if (current_filter.dbs & UNIX_DBM) {
++		if (json_output) {
++			printf("\"UNIX\": [\n");
++			unix_show(&current_filter);
++			json_first_elem =3D 1;
++			res_json_fmt_branch(
++					current_filter.dbs & (1<<RAW_DB) ||
++					current_filter.dbs & (1<<UDP_DB) ||
++					current_filter.dbs & (1<<TCP_DB) ||
++					current_filter.dbs & (1<<DCCP_DB), ']');
+=20
 -	if (netid_width)
--		printf("%-*s ", netid_width, sock_name);
+-		printf("%-*s ", netid_width, "Netid");
 -	if (state_width)
--		printf("%-*s ", state_width, sstate_name[s->state]);
+-		printf("%-*s ", state_width, "State");
+-	printf("%-6s %-6s ", "Recv-Q", "Send-Q");
++		} else
++			unix_show(&current_filter);
++	}
++	if (current_filter.dbs & (1<<RAW_DB)) {
++		if (json_output) {
++			printf("\"RAW\": [\n");
++			raw_show(&current_filter);
++			json_first_elem =3D 1;
++			res_json_fmt_branch(
++					current_filter.dbs & (1<<UDP_DB) ||
++					current_filter.dbs & (1<<TCP_DB) ||
++					current_filter.dbs & (1<<DCCP_DB), ']');
+=20
+-	/* Make enough space for the local/remote port field */
+-	addr_width -=3D 13;
+-	serv_width +=3D 13;
++		} else
++			raw_show(&current_filter);
++	}
++	if (current_filter.dbs & (1<<UDP_DB)) {
++		if (json_output) {
++			printf("\"UDP\": [\n");
++			udp_show(&current_filter);
++			json_first_elem =3D 1;
++			res_json_fmt_branch(
++					current_filter.dbs & (1<<TCP_DB) ||
++					current_filter.dbs & (1<<DCCP_DB), ']');
+=20
+-	printf("%*s:%-*s %*s:%-*s\n",
+-	       addr_width, "Local Address", serv_width, "Port",
+-	       addr_width, "Peer Address", serv_width, "Port");
++		} else
++			udp_show(&current_filter);
++	}
++	if (current_filter.dbs & (1<<TCP_DB)) {
++		if (json_output) {
++			printf("\"TCP\": [\n");
++			tcp_show(&current_filter, IPPROTO_TCP);
++			json_first_elem =3D 1;
++			res_json_fmt_branch(
++					current_filter.dbs & (1<<DCCP_DB), ']');
++		} else
++			tcp_show(&current_filter, IPPROTO_TCP);
++	}
++	if (current_filter.dbs & (1<<DCCP_DB)) {
++		if (json_output) {
++			printf("\"DCCP\": [\n");
++			tcp_show(&current_filter, IPPROTO_DCCP);
++			printf("]\n");
++		} else
++			tcp_show(&current_filter, IPPROTO_DCCP);
++	}
++
++	if (json_output)
++		printf("}\n");
+=20
+ 	fflush(stdout);
+=20
+ 	if (follow_events)
+ 		exit(handle_follow_request(&current_filter));
+=20
+-	if (current_filter.dbs & (1<<NETLINK_DB))
+-		netlink_show(&current_filter);
+-	if (current_filter.dbs & PACKET_DBM)
+-		packet_show(&current_filter);
+-	if (current_filter.dbs & UNIX_DBM)
+-		unix_show(&current_filter);
+-	if (current_filter.dbs & (1<<RAW_DB))
+-		raw_show(&current_filter);
+-	if (current_filter.dbs & (1<<UDP_DB))
+-		udp_show(&current_filter);
+-	if (current_filter.dbs & (1<<TCP_DB))
+-		tcp_show(&current_filter, IPPROTO_TCP);
+-	if (current_filter.dbs & (1<<DCCP_DB))
+-		tcp_show(&current_filter, IPPROTO_DCCP);
 -
--	printf("%-6d %-6d ", s->rq, s->wq);
--}
--
--static void sock_details_print(struct sockstat *s)
--{
--	if (s->uid)
--		printf(" uid:%u", s->uid);
--
--	printf(" ino:%u", s->ino);
--	printf(" sk:%llx", s->sk);
--}
--
--static void sock_addr_print_width(int addr_len, const char *addr, char *delim,
--		int port_len, const char *port, const char *ifname)
--{
--	if (ifname) {
--		printf("%*s%%%s%s%-*s ", addr_len, addr, ifname, delim,
--				port_len, port);
--	}
--	else {
--		printf("%*s%s%-*s ", addr_len, addr, delim, port_len, port);
--	}
--}
--
--static void sock_addr_print(const char *addr, char *delim, const char *port,
--		const char *ifname)
--{
--	sock_addr_print_width(addr_width, addr, delim, serv_width, port, ifname);
--}
--
- static const char *tmr_name[] = {
- 	"off",
- 	"on",
-@@ -693,33 +656,6 @@ static const char *tmr_name[] = {
- 	"unknown"
- };
- 
--static const char *print_ms_timer(int timeout)
--{
--	static char buf[64];
--	int secs, msecs, minutes;
--	if (timeout < 0)
--		timeout = 0;
--	secs = timeout/1000;
--	minutes = secs/60;
--	secs = secs%60;
--	msecs = timeout%1000;
--	buf[0] = 0;
--	if (minutes) {
--		msecs = 0;
--		snprintf(buf, sizeof(buf)-16, "%dmin", minutes);
--		if (minutes > 9)
--			secs = 0;
--	}
--	if (secs) {
--		if (secs > 9)
--			msecs = 0;
--		sprintf(buf+strlen(buf), "%d%s", secs, msecs ? "." : "sec");
--	}
--	if (msecs)
--		sprintf(buf+strlen(buf), "%03dms", msecs);
--	return buf;
--}
--
- struct scache *rlist;
- 
- static void init_service_resolver(void)
-@@ -1482,122 +1418,6 @@ static int proc_inet_split_line(char *line, char **loc, char **rem, char **data)
- 	return 0;
- }
- 
--static char *sprint_bw(char *buf, double bw)
--{
--	if (bw > 1000000.)
--		sprintf(buf,"%.1fM", bw / 1000000.);
--	else if (bw > 1000.)
--		sprintf(buf,"%.1fK", bw / 1000.);
--	else
--		sprintf(buf, "%g", bw);
--
--	return buf;
--}
--
--static void tcp_stats_print(struct tcpstat *s)
--{
--	char b1[64];
--
--	if (s->has_ts_opt)
--		printf(" ts");
--	if (s->has_sack_opt)
--		printf(" sack");
--	if (s->has_ecn_opt)
--		printf(" ecn");
--	if (s->has_ecnseen_opt)
--		printf(" ecnseen");
--	if (s->has_fastopen_opt)
--		printf(" fastopen");
--	if (s->cong_alg[0])
--		printf(" %s", s->cong_alg);
--	if (s->has_wscale_opt)
--		printf(" wscale:%d,%d", s->snd_wscale, s->rcv_wscale);
--	if (s->rto)
--		printf(" rto:%g", s->rto);
--	if (s->backoff)
--		printf(" backoff:%u", s->backoff);
--	if (s->rtt)
--		printf(" rtt:%g/%g", s->rtt, s->rttvar);
--	if (s->ato)
--		printf(" ato:%g", s->ato);
--
--	if (s->qack)
--		printf(" qack:%d", s->qack);
--	if (s->qack & 1)
--		printf(" bidir");
--
--	if (s->mss)
--		printf(" mss:%d", s->mss);
--	if (s->cwnd)
--		printf(" cwnd:%d", s->cwnd);
--	if (s->ssthresh)
--		printf(" ssthresh:%d", s->ssthresh);
--
--	if (s->bytes_acked)
--		printf(" bytes_acked:%llu", s->bytes_acked);
--	if (s->bytes_received)
--		printf(" bytes_received:%llu", s->bytes_received);
--	if (s->segs_out)
--		printf(" segs_out:%u", s->segs_out);
--	if (s->segs_in)
--		printf(" segs_in:%u", s->segs_in);
--
--	if (s->dctcp && s->dctcp->enabled) {
--		struct dctcpstat *dctcp = s->dctcp;
--
--		printf(" dctcp:(ce_state:%u,alpha:%u,ab_ecn:%u,ab_tot:%u)",
--				dctcp->ce_state, dctcp->alpha, dctcp->ab_ecn,
--				dctcp->ab_tot);
--	} else if (s->dctcp) {
--		printf(" dctcp:fallback_mode");
--	}
--
--	if (s->send_bps)
--		printf(" send %sbps", sprint_bw(b1, s->send_bps));
--	if (s->lastsnd)
--		printf(" lastsnd:%u", s->lastsnd);
--	if (s->lastrcv)
--		printf(" lastrcv:%u", s->lastrcv);
--	if (s->lastack)
--		printf(" lastack:%u", s->lastack);
--
--	if (s->pacing_rate) {
--		printf(" pacing_rate %sbps", sprint_bw(b1, s->pacing_rate));
--		if (s->pacing_rate_max)
--				printf("/%sbps", sprint_bw(b1,
--							s->pacing_rate_max));
--	}
--
--	if (s->unacked)
--		printf(" unacked:%u", s->unacked);
--	if (s->retrans || s->retrans_total)
--		printf(" retrans:%u/%u", s->retrans, s->retrans_total);
--	if (s->lost)
--		printf(" lost:%u", s->lost);
--	if (s->sacked && s->ss.state != SS_LISTEN)
--		printf(" sacked:%u", s->sacked);
--	if (s->fackets)
--		printf(" fackets:%u", s->fackets);
--	if (s->reordering != 3)
--		printf(" reordering:%d", s->reordering);
--	if (s->rcv_rtt)
--		printf(" rcv_rtt:%g", s->rcv_rtt);
--	if (s->rcv_space)
--		printf(" rcv_space:%d", s->rcv_space);
--}
--
--static void tcp_timer_print(struct tcpstat *s)
--{
--	if (s->timer) {
--		if (s->timer > 4)
--			s->timer = 5;
--		printf(" timer:(%s,%s,%d)",
--				tmr_name[s->timer],
--				print_ms_timer(s->timeout),
--				s->retrans);
--	}
--}
--
- static int tcp_show_line(char *line, const struct filter *f, int family)
- {
- 	int rto = 0, ato = 0;
-@@ -2692,16 +2512,6 @@ static int packet_stats_print(struct sockstat *s, const struct filter *f)
- 	return 0;
- }
- 
--static void packet_show_ring(struct packet_diag_ring *ring)
--{
--	printf("blk_size:%d", ring->pdr_block_size);
--	printf(",blk_nr:%d", ring->pdr_block_nr);
--	printf(",frm_size:%d", ring->pdr_frame_size);
--	printf(",frm_nr:%d", ring->pdr_frame_nr);
--	printf(",tmo:%d", ring->pdr_retire_tmo);
--	printf(",features:0x%x", ring->pdr_features);
--}
--
- static int packet_show_sock(const struct sockaddr_nl *addr,
- 		struct nlmsghdr *nlh, void *arg)
- {
--- 
+ 	if (show_users || show_proc_ctx || show_sock_ctx)
+ 		user_ent_destroy();
+=20
+--=20
 1.9.1
