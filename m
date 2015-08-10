@@ -1,41 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] qlcnic: enhancements
-Date: Mon, 10 Aug 2015 13:34:50 -0700 (PDT)
-Message-ID: <20150810.133450.366990134543320574.davem@davemloft.net>
-References: <1438946227-11426-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: Re: [PATCH] net-timestamp: Update skb_complete_tx_timestamp comment
+Date: Mon, 10 Aug 2015 13:35:57 -0700 (PDT)
+Message-ID: <20150810.133557.1178147999990755832.davem@davemloft.net>
+References: <1438965141-26099-1-git-send-email-bpoirier@suse.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com
-To: shahed.shaikh@qlogic.com
+Cc: netdev@vger.kernel.org, alexander.h.duyck@redhat.com
+To: bpoirier@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44202 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44205 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753793AbbHJUev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 16:34:51 -0400
-In-Reply-To: <1438946227-11426-1-git-send-email-shahed.shaikh@qlogic.com>
+	with ESMTP id S932453AbbHJUf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 16:35:58 -0400
+In-Reply-To: <1438965141-26099-1-git-send-email-bpoirier@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Date: Fri, 7 Aug 2015 07:17:01 -0400
+From: Benjamin Poirier <bpoirier@suse.com>
+Date: Fri,  7 Aug 2015 09:32:21 -0700
 
-> This series adds few enhancements.
+> After "62bccb8 net-timestamp: Make the clone operation stand-alone from phy
+> timestamping" the hwtstamps parameter of skb_complete_tx_timestamp() may no
+> longer be NULL.
 > 
->   o Patch from Harish reorders the sequence of header files inclusion,
->     keeping kernel's header files on top.
-> 
->   o Firmware introduced a new feature which allows driver to increases
->     the size of firmware dump of iSCSI function which is being collected
->     by NIC driver.
-> 
->   o Print buffer address which is holding a firmware dump.
-> 
->   o Use vzalloc() instead kzalloc() for allocating large chunk of memory
->     which will avoid potential memory allocation failure.
-> 
->   o Add new device ID for 0x8C30 which is a 83xx series based VF function.
-> 
-> Please apply this series to net-next.
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-Series applied, thanks.
+Applied, thank you.
