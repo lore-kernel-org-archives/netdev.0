@@ -1,24 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] cxgb4: cleanup some indenting
-Date: Mon, 10 Aug 2015 14:27:22 -0700 (PDT)
-Message-ID: <20150810.142722.91360973743591522.davem@davemloft.net>
-References: <20150808191559.GC8034@mwanda>
+Subject: Re: [PATCH] isdn:remove reverse_bits(), use revbit8()
+Date: Mon, 10 Aug 2015 14:30:12 -0700 (PDT)
+Message-ID: <20150810.143012.1342124147857318471.davem@davemloft.net>
+References: <48EEE6BC-BAFE-4545-A860-237FBD1E279B@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20150808191559.GC8034@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: yalin.wang2010@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <48EEE6BC-BAFE-4545-A860-237FBD1E279B@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Sat, 8 Aug 2015 22:15:59 +0300
+From: yalin wang <yalin.wang2010@gmail.com>
+Date: Mon, 10 Aug 2015 17:15:57 +0800
 
-> Add or remove some tabs so that statements line up correctly.
+> This change isdn driver, remove reverse_bits() function,
+> use the generic revbit8() function instead.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
 
-Applied to 'net-next', thanks Dan.
+Applied, however please format your Subject lines better in the
+future.
+
+There should be a space after the subsystem specifier and the ':'
+character.  So "isdn: "
+
+Then you should capitalize the description in the Subject line
+because it is very much like an English sentence.
