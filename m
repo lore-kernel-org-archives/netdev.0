@@ -1,41 +1,45 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [RFC PATCH] net: ipv4: increase dhcp inter device timeout
-Date: Mon, 10 Aug 2015 10:30:24 +0530
-Message-ID: <55C82FE8.6020800@ti.com>
-References: <1438928970-23908-1-git-send-email-mugunthanvnm@ti.com> <55C45B22.1090909@miraclelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Unbreak resetting default values for
+ tcp_wmem/udp_wmem_min
+Date: Sun, 09 Aug 2015 22:41:14 -0700 (PDT)
+Message-ID: <20150809.224114.818332231954008575.davem@davemloft.net>
+References: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:41120 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751005AbbHJFBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2015 01:01:15 -0400
-In-Reply-To: <55C45B22.1090909@miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com, sorin@returnze.ro
+To: calvinowens@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 07 August 2015 12:45 PM, YOSHIFUJI Hideaki wrote:
->> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
->> > index 8e7328c..bdb8cb5 100644
->> > --- a/net/ipv4/ipconfig.c
->> > +++ b/net/ipv4/ipconfig.c
->> > @@ -94,7 +94,7 @@
->> >  /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
->> >  #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
->> >  #define CONF_SEND_RETRIES 	6	/* Send six requests per open */
->> > -#define CONF_INTER_TIMEOUT	(HZ/2)	/* Inter-device timeout: 1/2 second */
->> > +#define CONF_INTER_TIMEOUT	(HZ)	/* Inter-device timeout: 1/2 second */
-> You should update comment as well at least.
+From: Calvin Owens <calvinowens@fb.com>
+Date: Wed, 5 Aug 2015 13:26:54 -0700
 
-Will update in next version.
+> Commit 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to
+> SOCK_{RCV,SND}BUF_MIN") modified four sysctls to enforce that the values
+> written to them are not less than SOCK_MIN_{RCV,SND}BUF.
+> 
+> This change is fine for tcp_rmem and udp_rmem_min, since SOCK_MIN_RCVBUF
+> is equal to equal to TCP_SKB_MIN_TRUESIZE. But it breaks tcp_wmem and
+> udp_wmem_min for previously valid values because SOCK_MIN_SNDBUF is
+> (2 * TCP_SKB_MIN_TRUESIZE), which ends up being greater than 4KB.
+> 
+> Thus, 4096 is no longer accepted as a valid value, despite still being
+> the default for udp_wmem_min, and for 'min' in tcp_wmem. A huge number
+> of sysctl configurations at FB use 4096 as 'min', so this change breaks
+> all of them.
+> 
+> This patch changes the sysctls to simply enforce that the value written
+> is greater than or equal to the default value of SK_MEM_QUANTUM.
+> 
+> Fixes: 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to SOCK_MIN...")
+> Signed-off-by: Calvin Owens <calvinowens@fb.com>
 
-Regards
-Mugunthan V N
+I think increasing the default makes more sense.
+
+If we don't allow applications to set 4K, the kernel shouldn't start
+with that value either.
