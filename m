@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 5/9] net: Add inet_addr lookup by table
-Date: Mon, 10 Aug 2015 11:50:32 -0600
-Message-ID: <1439229037-79213-6-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 4/9] udp: Handle VRF device in sendmsg
+Date: Mon, 10 Aug 2015 11:50:31 -0600
+Message-ID: <1439229037-79213-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1439229037-79213-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,100 +12,62 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:37453 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932422AbbHJRwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 13:52:09 -0400
-Received: by igbpg9 with SMTP id pg9so74538552igb.0
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 10:52:08 -0700 (PDT)
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:37387 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932291AbbHJRwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 13:52:03 -0400
+Received: by igbpg9 with SMTP id pg9so74536634igb.0
+        for <netdev@vger.kernel.org>; Mon, 10 Aug 2015 10:52:02 -0700 (PDT)
 In-Reply-To: <1439229037-79213-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently inet_addr_type and inet_dev_addr_type expect local addresses
-to be in the local table. With the VRF device local routes for devices
-associated with a VRF will be in the table associated with the VRF.
-Provide an alternate inet_addr lookup to use a specific table rather
-than defaulting to the local table.
+For unconnected UDP sockets using a VRF device lookup source address
+based on VRF table. This allows the UDP header to be properly setup
+before showing up at the VRF device via the dst.
 
 Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/route.h     |  1 +
- net/ipv4/fib_frontend.c | 22 +++++++++++++++-------
- 2 files changed, 16 insertions(+), 7 deletions(-)
+ net/ipv4/udp.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 94189d4bd899..6ba681f0b98d 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -189,6 +189,7 @@ void ipv4_sk_redirect(struct sk_buff *skb, struct sock *sk);
- void ip_rt_send_redirect(struct sk_buff *skb);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 83aa604f9273..7af5052e3b1f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1013,11 +1013,31 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
  
- unsigned int inet_addr_type(struct net *net, __be32 addr);
-+unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id);
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr);
- void ip_rt_multicast_event(struct in_device *);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index d8ced1d89f1b..b11321a8e58d 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -212,12 +212,12 @@ void fib_flush_external(struct net *net)
-  */
- static inline unsigned int __inet_dev_addr_type(struct net *net,
- 						const struct net_device *dev,
--						__be32 addr)
-+						__be32 addr, int tb_id)
- {
- 	struct flowi4		fl4 = { .daddr = addr };
- 	struct fib_result	res;
- 	unsigned int ret = RTN_BROADCAST;
--	struct fib_table *local_table;
-+	struct fib_table *table;
+ 	if (!rt) {
+ 		struct net *net = sock_net(sk);
++		__u8 flow_flags = inet_sk_flowi_flags(sk);
  
- 	if (ipv4_is_zeronet(addr) || ipv4_is_lbcast(addr))
- 		return RTN_BROADCAST;
-@@ -226,10 +226,10 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
- 
- 	rcu_read_lock();
- 
--	local_table = fib_get_table(net, RT_TABLE_LOCAL);
--	if (local_table) {
-+	table = fib_get_table(net, tb_id);
-+	if (table) {
- 		ret = RTN_UNICAST;
--		if (!fib_table_lookup(local_table, &fl4, &res, FIB_LOOKUP_NOREF)) {
-+		if (!fib_table_lookup(table, &fl4, &res, FIB_LOOKUP_NOREF)) {
- 			if (!dev || dev == res.fi->fib_dev)
- 				ret = res.type;
- 		}
-@@ -239,16 +239,24 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
- 	return ret;
- }
- 
-+unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id)
-+{
-+	return __inet_dev_addr_type(net, NULL, addr, tb_id);
-+}
-+EXPORT_SYMBOL(inet_addr_type_table);
+ 		fl4 = &fl4_stack;
 +
- unsigned int inet_addr_type(struct net *net, __be32 addr)
- {
--	return __inet_dev_addr_type(net, NULL, addr);
-+	return __inet_dev_addr_type(net, NULL, addr, RT_TABLE_LOCAL);
- }
- EXPORT_SYMBOL(inet_addr_type);
- 
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr)
- {
--	return __inet_dev_addr_type(net, dev, addr);
-+	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
++		/* unconnected socket. If output device is enslaved to a VRF
++		 * device lookup source address from VRF table. This mimics
++		 * behavior of ip_route_connect{_init}.
++		 */
++		if (netif_index_is_vrf(net, ipc.oif)) {
++			flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
++					   RT_SCOPE_UNIVERSE, sk->sk_protocol,
++					   (flow_flags | FLOWI_FLAG_VRFSRC),
++					   faddr, saddr, dport,
++					   inet->inet_sport);
 +
-+	return __inet_dev_addr_type(net, dev, addr, rt_table);
- }
- EXPORT_SYMBOL(inet_dev_addr_type);
++			rt = ip_route_output_flow(net, fl4, sk);
++			if (!IS_ERR(rt)) {
++				saddr = fl4->saddr;
++				ip_rt_put(rt);
++			}
++		}
++
+ 		flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
+ 				   RT_SCOPE_UNIVERSE, sk->sk_protocol,
+-				   inet_sk_flowi_flags(sk),
++				   flow_flags,
+ 				   faddr, saddr, dport, inet->inet_sport);
  
+ 		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
 -- 
 2.3.2 (Apple Git-55)
