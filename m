@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netconsole: Check for carrier before calling
- netpoll_send_udp()
-Date: Mon, 10 Aug 2015 21:22:56 -0700 (PDT)
-Message-ID: <20150810.212256.1658635789817625453.davem@davemloft.net>
-References: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
+Subject: Re: [PATCH v2] net/fddi: remove HWM_REVERSE() macro
+Date: Mon, 10 Aug 2015 21:24:15 -0700 (PDT)
+Message-ID: <20150810.212415.2069364594323989203.davem@davemloft.net>
+References: <1439224589.2322.109.camel@perches.com>
+	<11E10C05-909B-4453-ADEB-EE3085A22B29@gmail.com>
+	<1FEC219B-7AF2-47C9-8EBB-786EE6EADCE4@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jmaxwell@redhat.com
-To: jmaxwell37@gmail.com
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: yalin.wang2010@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
+In-Reply-To: <1FEC219B-7AF2-47C9-8EBB-786EE6EADCE4@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Date: Tue, 11 Aug 2015 11:32:26 +1000
+From: yalin wang <yalin.wang2010@gmail.com>
+Date: Tue, 11 Aug 2015 09:57:21 +0800
 
-> We have seen a few crashes recently where a NIC is getting
-> reset for some reason and then the driver or another module calls
-> printk() which invokes netconsole. Netconsole then calls the
-> adapter specific poll routine via netpoll which crashes because 
-> the adapter is resetting and its structures are being reinitialized.
+>  HWM_REVERSE() macro is unused, remove it.
+> 
+> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
 
-This isn't a fix.
+Your email client has corrupted this patch.
 
-What if the carrier check passes, and then the chip reset starts on
-another cpu?  You'll have the same problem.
+Please read Documentation/email-clients.txt, send a test patch to yourself,
+and only resubmit this change once you are able to successfully apply the
+patch you receive in that test email.
 
-I'm not applying this, sorry.
+Thanks.
