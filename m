@@ -1,50 +1,68 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH v2 bluetooth-next] cc2520: set the default fifo pin value
- from platform data
-Date: Tue, 11 Aug 2015 08:48:20 +0530
-Message-ID: <55C9697C.7080906@gmail.com>
-References: <1439260985-5173-1-git-send-email-sdliyong@gmail.com>
+From: Calvin Owens <calvinowens@fb.com>
+Subject: Re: [PATCH] net: Unbreak resetting default values for
+ tcp_wmem/udp_wmem_min
+Date: Mon, 10 Aug 2015 20:34:06 -0700
+Message-ID: <20150811033406.GA1136819@mail.thefacebook.com>
+References: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
+ <20150809.224114.818332231954008575.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: sdliyong@gmail.com, alex.aring@gmail.com,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:35389 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933326AbbHKDSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 23:18:32 -0400
-In-Reply-To: <1439260985-5173-1-git-send-email-sdliyong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-team@fb.com>, <sorin@returnze.ro>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150809.224114.818332231954008575.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/11/2015 08:13 AM, sdliyong@gmail.com wrote:
-> From: Yong Li <sdliyong@gmail.com>
->
-> When the device tree support is disabled, the fifo_pin is uninitialized,
-> this patch will set the fifo_pin value based on platform data
->
-> Signed-off-by: Yong Li <sdliyong@gmail.com>
+On Sunday 08/09 at 22:41 -0700, David Miller wrote:
+> From: Calvin Owens <calvinowens@fb.com>
+> Date: Wed, 5 Aug 2015 13:26:54 -0700
+> 
+> > Commit 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to
+> > SOCK_{RCV,SND}BUF_MIN") modified four sysctls to enforce that the values
+> > written to them are not less than SOCK_MIN_{RCV,SND}BUF.
+> > 
+> > This change is fine for tcp_rmem and udp_rmem_min, since SOCK_MIN_RCVBUF
+> > is equal to equal to TCP_SKB_MIN_TRUESIZE. But it breaks tcp_wmem and
+> > udp_wmem_min for previously valid values because SOCK_MIN_SNDBUF is
+> > (2 * TCP_SKB_MIN_TRUESIZE), which ends up being greater than 4KB.
+> > 
+> > Thus, 4096 is no longer accepted as a valid value, despite still being
+> > the default for udp_wmem_min, and for 'min' in tcp_wmem. A huge number
+> > of sysctl configurations at FB use 4096 as 'min', so this change breaks
+> > all of them.
+> > 
+> > This patch changes the sysctls to simply enforce that the value written
+> > is greater than or equal to the default value of SK_MEM_QUANTUM.
+> > 
+> > Fixes: 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to SOCK_MIN...")
+> > Signed-off-by: Calvin Owens <calvinowens@fb.com>
+> 
+> I think increasing the default makes more sense.
+> 
+> If we don't allow applications to set 4K, the kernel shouldn't start
+> with that value either.
 
-Acked-by: Varka Bhadram <varkabhadram@gmail.com>
+I'm really questioning the limitation itself: why enforce a minimum of
+SOCK_MIN_SNDBUF here? Why not SK_MEM_QUANTUM?
 
-> ---
->   drivers/net/ieee802154/cc2520.c | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
-> index 613dae5..c5b54a1 100644
-> --- a/drivers/net/ieee802154/cc2520.c
-> +++ b/drivers/net/ieee802154/cc2520.c
-> @@ -833,6 +833,7 @@ static int cc2520_get_platform_data(struct spi_device *spi,
->   		if (!spi_pdata)
->   			return -ENOENT;
->   		*pdata = *spi_pdata;
-> +		priv->fifo_pin = pdata->fifo;
->   		return 0;
->   	}
->   
+Commit 8133534c760d4083 referred to b1cb59cf2efe7971, which choose to
+use the SOCK_MIN constants as the lower limits to avoid nasty bugs. But
+AFAICS, a limit of SOCK_MIN_SNDBUF isn't necessary to do that: the
+BUG_ON cited in the commit message for b1cb59cf2efe7971 seems to have
+happened because unix_stream_sendmsg() expects a minimum of a full page
+(ie SK_MEM_QUANTUM) and the math broke, not because it had less than
+SOCK_MIN_SNDBUF allocated.
 
--- 
-Varka Bhadram.
+Nothing seems to assume that it has at least SOCK_MIN_SNDBUF to play
+with, so my argument is that enforcing a minimum of SK_MEM_QUANTUM
+avoids the sort of bugs commit 8133534c760d4083 was trying to avoid, and
+it does so without breaking anybody's sysctl configurations. What do you
+think?
+
+Thanks very much,
+Calvin
