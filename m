@@ -1,7 +1,7 @@
 From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH] net: fs_enet: mask interrupts for TX partial frames.
-Date: Tue, 11 Aug 2015 12:11:03 +0200 (CEST)
-Message-ID: <20150811101103.045721A2414@localhost.localdomain>
+Subject: [PATCH] net: fs_enet: explicitly remove I flag on TX partial frames
+Date: Tue, 11 Aug 2015 12:11:00 +0200 (CEST)
+Message-ID: <20150811101101.116E41A2414@localhost.localdomain>
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org
 To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
@@ -10,30 +10,28 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We are not interested in interrupts for partially transmitted frames.
-Unlike SCC and FCC, the FEC doesn't handle the I bit in buffer
-descriptors, instead it defines two interrupt bits, TXB and TXF.
-
-We have to mask TXB in order to only get interrupts once the
-frame is fully transmitted.
+We are not interested in interrupts for partially transmitted frames,
+we have to clear BD_ENET_TX_INTR explicitly otherwise it may remain
+from a previously used descriptor.
 
 Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 ---
- drivers/net/ethernet/freescale/fs_enet/mac-fec.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-index b34214e..016743e 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-@@ -110,7 +110,7 @@ static int do_pd_setup(struct fs_enet_private *fep)
- }
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index b9ad34e..84c18ee 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -585,7 +585,8 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	frag = skb_shinfo(skb)->frags;
+ 	while (nr_frags) {
+ 		CBDC_SC(bdp,
+-			BD_ENET_TX_STATS | BD_ENET_TX_LAST | BD_ENET_TX_TC);
++			BD_ENET_TX_STATS | BD_ENET_TX_INTR | BD_ENET_TX_LAST |
++			BD_ENET_TX_TC);
+ 		CBDS_SC(bdp, BD_ENET_TX_READY);
  
- #define FEC_NAPI_RX_EVENT_MSK	(FEC_ENET_RXF | FEC_ENET_RXB)
--#define FEC_NAPI_TX_EVENT_MSK	(FEC_ENET_TXF | FEC_ENET_TXB)
-+#define FEC_NAPI_TX_EVENT_MSK	(FEC_ENET_TXF)
- #define FEC_RX_EVENT		(FEC_ENET_RXF)
- #define FEC_TX_EVENT		(FEC_ENET_TXF)
- #define FEC_ERR_EVENT_MSK	(FEC_ENET_HBERR | FEC_ENET_BABR | \
+ 		if ((CBDR_SC(bdp) & BD_ENET_TX_WRAP) == 0)
 -- 
 2.1.0
