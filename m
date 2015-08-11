@@ -1,47 +1,37 @@
-From: yalin wang <yalin.wang2010@gmail.com>
-Subject: Re: [PATCH v2 Resend] net/fddi: remove HWM_REVERSE() macro
-Date: Tue, 11 Aug 2015 13:50:56 +0800
-Message-ID: <03416E4A-6121-41C4-B209-AD60308FE317@gmail.com>
-References: <1FEC219B-7AF2-47C9-8EBB-786EE6EADCE4@gmail.com> <39055924-5AA5-4DE0-8872-D2F107EA82F1@gmail.com> <20150810.223750.1908561238664673104.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Jonathan Maxwell <jmaxwell37@gmail.com>
+Subject: Re: [PATCH net] netconsole: Check for carrier before calling netpoll_send_udp()
+Date: Tue, 11 Aug 2015 15:53:18 +1000
+Message-ID: <CAGHK07DgBuVk==rJrc2gWa311DCMJK9NdDDk8OJAfRb=YLigBg@mail.gmail.com>
+References: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
+	<20150810.212256.1658635789817625453.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jon Maxwell <jmaxwell@redhat.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150810.223750.1908561238664673104.davem@davemloft.net>
+In-Reply-To: <20150810.212256.1658635789817625453.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> What if the carrier check passes, and then the chip reset starts on
+> another cpu?  You'll have the same problem.
 
-> On Aug 11, 2015, at 13:37, David Miller <davem@davemloft.net> wrote:
-> 
-> From: yalin wang <yalin.wang2010@gmail.com>
-> Date: Tue, 11 Aug 2015 13:11:22 +0800
-> 
->> HWM_REVERSE() macro is unused, remove it.
->> 
->> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
-> 
-> You did not do as I asked you to, this patch is still corrupted
-> and there is no way you successfully applied what is in this patch.
-> 
->> -#define        HWM_REVERSE(x)          ((((x)<<24L)&0xff000000L)       +       \
->> -                                (((x)<< 8L)&0x00ff0000L)       +       \
->> -                                (((x)>> 8L)&0x0000ff00L)       +       \
->> -                                (((x)>>24L)&0x000000ffL))
-> 
-> This indentation here is spaces, whereas in the source files they
-> are TABS.
-> 
-> Your email client did this.
-> 
-> If you fail to properly verify that your outgoing patches are not
-> corrupted before submitting them here, I will stop reviewing and
-> considering your changes.
-> 
-> Thank you.
-ouch,  i am sorry that i am sending from windows PC,
-let me check that .
-Sorry for that .
+Okay, let me see if I can come up with a better way to mitigate this.
+
+On Tue, Aug 11, 2015 at 2:22 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jon Maxwell <jmaxwell37@gmail.com>
+> Date: Tue, 11 Aug 2015 11:32:26 +1000
+>
+>> We have seen a few crashes recently where a NIC is getting
+>> reset for some reason and then the driver or another module calls
+>> printk() which invokes netconsole. Netconsole then calls the
+>> adapter specific poll routine via netpoll which crashes because
+>> the adapter is resetting and its structures are being reinitialized.
+>
+> This isn't a fix.
+>
+> What if the carrier check passes, and then the chip reset starts on
+> another cpu?  You'll have the same problem.
+>
+> I'm not applying this, sorry.
