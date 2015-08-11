@@ -1,65 +1,49 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 0/2] of: fsl/fman: reuse the fixed node parsing code
-Date: Tue, 11 Aug 2015 19:00:20 +0300
-Message-ID: <55CA1C14.3000202@list.ru>
-References: <1438785745-15517-1-git-send-email-madalin.bucur@freescale.com>
- <55C63D3B.5020005@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] tcp: reduce cpu usage under tcp memory
+ pressure when SO_SNDBUF is set
+Date: Tue, 11 Aug 2015 09:12:10 -0700
+Message-ID: <1439309530.1084.31.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150811143846.672A92039@prod-mail-relay10.akamai.com>
+	 <1439304576.1084.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <55CA0EC2.9030306@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Igal.Liberman@freescale.com,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	madalin.bucur@freescale.com, netdev@vger.kernel.org,
-	grant.likely@linaro.org, robh+dt@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55C63D3B.5020005@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35578 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965299AbbHKQMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 12:12:12 -0400
+Received: by pacgr6 with SMTP id gr6so53817443pac.2
+        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 09:12:11 -0700 (PDT)
+In-Reply-To: <55CA0EC2.9030306@akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-08.08.2015 20:32, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> CC'ing Stas,
-Hi.
+On Tue, 2015-08-11 at 11:03 -0400, Jason Baron wrote:
 
-> Le 08/05/15 07:42, Madalin Bucur a =C3=A9crit :
->> The FMan MAC configuration code needs the speed and duplex informati=
-on
->> for fixed-link interfaces that is parsed now by the of function
->> of_phy_register_fixed_link(). This parses the fixed-link parameters =
-but
->> does not expose to the caller neither the phy_device pointer nor the
->> status struct where it loads the fixed-link params.
-I have only barely touched that code, but IMO both things
-are by design. There are some API deficiencies, and so, many
-drivers still use of_phy_find_device() to circumvent the encapsulation
-and get the phy_device pointer, but this is unlikely a good thing
-to do. I even proposed some API extensions, but there was no
-interest.
+> 
+> Yes, so the test case I'm using to test against is somewhat contrived.
+> In that I am simply allocating around 40,000 sockets that are idle to
+> create a 'permanent' memory pressure in the background. Then, I have
+> just 1 flow that sets SO_SNDBUF, which results in the: poll(), write() loop.
+> 
+> That said, we encountered this issue initially where we had 10,000+
+> flows and whenever the system would get into memory pressure, we would
+> see all the cpus spin at 100%.
+> 
+> So the testcase I wrote, was just a simplistic version for testing. But
+> I am going to try and test against the more realistic workload where
+> this issue was initially observed.
+> 
 
->>   By extracting the
->> fixed-link parsing code from of_phy_register_fixed_link() into a
->> separate function the parsed values are made available without chang=
-ing
->> the existing API. This change also removes a small redundancy in the
->> previous code calling fixed_phy_register().
-Today, the fixed_link is not always fixed.
-See for example this patch (already mainlined):
-https://lkml.org/lkml/2015/7/20/711
-of_phy_is_fixed_link() returns 'true' if you have
-managed=3D"in-band-status", and so the SGMII in-band status
-can update fixed-link params.
+Note that I am still trying to understand why we need to increase socket
+structure, for something which is inherently a problem of sharing memory
+with an unknown (potentially big) number of sockets.
 
-So my question is: why do you even need to know whether
-the link is fixed or not? IIRC you can check the phy_device
-pointer in the adjust_link callback of of_phy_connect() to get
-the current link status values. Why is this not enough for your
-task? Maybe the patch description should be updated to include
-why the current technique is bad, what is actually fixed by the
-change.
-I think using the fixed-link DT values directly is not something
-to be done. The encapsulation is there for a reason, so maybe
-instead we can see what API additions do we need to avoid the
-current limitations that force people to use of_phy_find_device()
-and other work-arounds.
+I suggested to use a flag (one bit).
+
+If set, then we should fallback to tcp_wmem[0] (each socket has 4096
+bytes, so that we can avoid starvation)
