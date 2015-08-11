@@ -1,26 +1,57 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth 2015-08-11
-Date: Tue, 11 Aug 2015 14:16:58 -0700 (PDT)
-Message-ID: <20150811.141658.1638018493466749703.davem@davemloft.net>
-References: <20150811200406.GA6173@t440s.P-661HNU-F1>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150811200406.GA6173-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/3] mpls: multipath support
+Date: Tue, 11 Aug 2015 14:45:45 -0700
+Message-ID: <1439329548-50935-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: ebiederm@xmission.com, rshearma@brocade.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:35845 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753535AbbHKVpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 17:45:55 -0400
+Received: by pdco4 with SMTP id o4so87924036pdc.3
+        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 14:45:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 11 Aug 2015 23:04:06 +0300
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> Here's an important regression fix for the 4.2-rc series that ensures
-> user space isn't given invalid LTK values. The bug essentially prevents
-> the encryption of subsequent LE connections, i.e. makes it impossible to
-> pair devices over LE.
-> 
-> Let me know if there are any issues pulling. Thanks.
+This patch series adds multipath support to mpls routes.
 
-Pulled, thanks.
+resembles ipv4 multipath support. The multipath route nexthop
+selection algorithm is the same code as in ipv4 fib code.
+
+I understand that the multipath algorithm in ipv4 is undergoing
+some changes and will move mpls to similar algo if applicable once
+those get merged.
+
+mpls multipath support can be moved under CONFIG_MPLS_ROUTE_MULTIPATH if
+needed similar to CONFIG_IP_ROUTE_MULTIPATH. I started with that
+but that resulted in too many #ifdef CONFIG_MPLS_ROUTE_MULTIPATH
+throughout the af_mpls code. If there is a strong reason
+to introduce a config option, I will respin v2 with
+CONFIG_MPLS_ROUTE_MULTIPATH. These multipath patches do not introduce
+any UAPI changes.
+
+example iproute2 usage:
+$ip -f mpls route add 100 nexthop as 200 via inet 10.1.1.2 dev swp1 \
+	nexthop as 300 via inet 10.1.1.6 dev swp2
+
+$ip -f mpls route show
+100 
+	nexthop as to 200 via inet 10.1.1.2  dev swp1
+	nexthop as to 300 via inet 10.1.1.6  dev swp2
+
+
+Roopa Prabhu (3):
+  mpls: move mpls_route nexthop fields to a new nhlfe struct
+  mpls: consistently use u8 to store number of labels
+  mpls: add multipath route support
+
+ include/net/mpls_iptunnel.h |    2 +-
+ net/mpls/af_mpls.c          |  519 ++++++++++++++++++++++++++++++++-----------
+ net/mpls/internal.h         |   44 +++-
+ 3 files changed, 437 insertions(+), 128 deletions(-)
+
+-- 
+1.7.10.4
