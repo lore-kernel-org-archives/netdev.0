@@ -1,38 +1,45 @@
 From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH] igb: Fix a deadlock in igb_sriov_reinit
-Date: Tue, 11 Aug 2015 02:06:54 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81AE3594@ORSMSX101.amr.corp.intel.com>
-References: <1438572986-32708-1-git-send-email-baijiaju1990@163.com>
+Subject: RE: [Intel-wired-lan] [PATCH 1/2] igb: Teardown SR-IOV before
+	unregister_netdev()
+Date: Tue, 11 Aug 2015 02:11:57 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81AE35B1@ORSMSX101.amr.corp.intel.com>
+References: <20150727223753.10121.78169.stgit@gimli.home>
+ <20150727231834.10121.62918.stgit@gimli.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jia-Ju Bai <baijiaju1990@163.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Alex Williamson <alex.williamson@redhat.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438572986-32708-1-git-send-email-baijiaju1990@163.com>
+In-Reply-To: <20150727231834.10121.62918.stgit@gimli.home>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Jia-Ju Bai
-> Sent: Sunday, August 02, 2015 8:36 PM
-> To: Kirsher, Jeffrey T; Brandeburg, Jesse
-> Cc: intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Jia-Ju Bai
-> Subject: [PATCH] igb: Fix a deadlock in igb_sriov_reinit
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Alex Williamson
+> Sent: Monday, July 27, 2015 4:19 PM
+> To: intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: [Intel-wired-lan] [PATCH 1/2] igb: Teardown SR-IOV before
+> unregister_netdev()
 > 
-> When igb_init_interrupt_scheme in igb_sriov_reinit is failed, the lock
-> acquired by rtnl_lock() is not released, which causes a deadlock.
-> This patch adds rtnl_unlock() in error handling to fix it.
+> When the .remove() callback for a PF is called, SR-IOV support for the
+> device is disabled, which requires unbinding and removing the VFs.
+> The VFs may be in-use either by the host kernel or userspace, such as
+> assigned to a VM through vfio-pci.  In this latter case, the VFs may
+> be removed either by shutting down the VM or hot-unplugging the
+> devices from the VM.  Unfortunately in the case of a Windows 2012 R2
+> guest, hot-unplug is broken due to the ordering of the PF driver
+> teardown.  Disabling SR-IOV prior to unregister_netdev() avoids this
+> issue.
 > 
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
 > ---
->  drivers/net/ethernet/intel/igb/igb_main.c |    1 +
->  1 file changed, 1 insertion(+)
+>  drivers/net/ethernet/intel/igb/igb_main.c |    8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
 
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
