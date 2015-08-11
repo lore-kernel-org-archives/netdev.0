@@ -1,40 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 6/9] net: Fix up inet_addr_type checks
-Date: Tue, 11 Aug 2015 11:51:53 -0700 (PDT)
-Message-ID: <20150811.115153.841476832505171489.davem@davemloft.net>
-References: <1439229037-79213-7-git-send-email-dsa@cumulusnetworks.com>
-	<20150811.111457.652499160223100513.davem@davemloft.net>
-	<55CA3C6C.5010606@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev
+ FDB objects
+Date: Tue, 11 Aug 2015 11:52:49 -0700 (PDT)
+Message-ID: <20150811.115249.1843804028134252781.davem@davemloft.net>
+References: <55CA38F7.4010105@gmail.com>
+	<20150811.110708.2068514265578197752.davem@davemloft.net>
+	<1084602462.1280363.1439317122548.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	ddutt@cumulusnetworks.com, hannes@stressinduktion.org,
-	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
-	hadi@mojatatu.com, ebiederm@xmission.com, svaidya@brocade.com
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752433AbbHKSvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 14:51:55 -0400
-In-Reply-To: <55CA3C6C.5010606@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	linux@roeck-us.net, andrew@lunn.ch, sfeldma@gmail.com,
+	jiri@resnulli.us
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1084602462.1280363.1439317122548.JavaMail.zimbra@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue, 11 Aug 2015 12:18:20 -0600
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue, 11 Aug 2015 14:18:42 -0400 (EDT)
 
-> The intent here was to default to current behavior and to keep the
-> details of that in one place. If you prefer table id to always enter
-> with the right value I can make that happen.
+> On Aug 11, 2015, at 2:07 PM, David davem@davemloft.net wrote:
+> 
+>> From: Florian Fainelli <f.fainelli@gmail.com>
+>> Date: Tue, 11 Aug 2015 11:03:35 -0700
+>> 
+>>> Put differently, my question is how do you value not rewriting
+>>> history vs. breaking bisectability (by accident of course)?
+>> 
+>> I never will rewrite history, ever.
+>> 
+>> Too many people clone my tree and depend upon it.
+> 
+> Sorry, I still don't understand. What are the consequences of:
+> 
+>     git revert -m 1 f1d5ca4
+> 
+> Then applying v3?
 
-I think it looks better that way.
+In this scenerio I think a relative fixup works better.
 
-People reading individual pieces of code can tell what is happening
-much more easily.
+> You already did that in the past:
+> https://github.com/torvalds/linux/commit/1f2cd84
 
-As currently structured, the have to know the internal details of a
-helper function to understand what '0' means.
+Each and every situation is evaluated by me on a case by case
+basis.
