@@ -1,78 +1,49 @@
-From: Andrew Qu <andrew.qu@mediatek.com>
-Subject: RE: VxLAN support question
-Date: Tue, 11 Aug 2015 17:58:14 +0000
-Message-ID: <EA360A7AB9D90D4B9E9173B6D27C371EE3F7BC1C@MTKMBS61N1.mediatek.inc>
-References: <1438753867-32403-1-git-send-email-ast@plumgrid.com>
- <20150807.114645.2108374064397756373.davem@davemloft.net>
- <EA360A7AB9D90D4B9E9173B6D27C371EE3F7B8CA@MTKMBS61N1.mediatek.inc>
- <55C98A18.9020900@plumgrid.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev
+ FDB objects
+Date: Tue, 11 Aug 2015 11:03:35 -0700
+Message-ID: <55CA38F7.4010105@gmail.com>
+References: <20150809.224822.1627697290087246344.davem@davemloft.net>	<20150810133924.GA10802@ketchup.touchtunes.com>	<1065657734.1253359.1439310306115.JavaMail.zimbra@savoirfairelinux.com> <20150811.103817.787813230853567028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "tgraf@suug.ch" <tgraf@suug.ch>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"pshelar@nicira.com" <pshelar@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, linux@roeck-us.net, andrew@lunn.ch,
+	sfeldma@gmail.com, jiri@resnulli.us
+To: David Miller <davem@davemloft.net>,
+	vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([69.46.227.141]:42803 "EHLO
-	mailgw01.mediatek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752014AbbHKSEA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 14:04:00 -0400
-In-Reply-To: <55C98A18.9020900@plumgrid.com>
-Content-Language: en-US
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:33116 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751841AbbHKSFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 14:05:49 -0400
+In-Reply-To: <20150811.103817.787813230853567028.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alexei,
+On 11/08/15 10:38, David Miller wrote:
+> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Date: Tue, 11 Aug 2015 12:25:06 -0400 (EDT)
+> 
+>> I can work on fixup patches to restore v3 changes on top of v2, but this
+>> won't fix the bisectability issue.
+>>
+>> Instead of fixing individual portions, reverting the merge commit
+>> f1d5ca4: "Merge branch 'mv88e6xxx-switchdev-fdb'" would undo all the v2
+>> series at once, then v3 can be merged on top of it.
+>>
+>> Can you consider this as an option?
+> 
+> Nothing will fix bisectability, so don't try.
+> 
+> Reverting an entire series when you have the fix available
+> already is excessive.
+> 
+> So as I have already asked you, send a relative fixup to clear
+> up this situation.
 
-I support using mcast group for all VNIs in control plane/data plane.
-But in case there is no mcast routing enabled, I need to support
-P2P vxlan underlay, hence use of the configuration I showed.
-
-Thanks for the confirmation.
-
-By the way, any informational doc I can read to know about the metadata mode of vxlan?
-
-Andrew
-
-
-
-======== please ignore my company added confidentiality notice on this thread =====================
-
-
------Original Message-----
-From: Alexei Starovoitov [mailto:ast@plumgrid.com] 
-Sent: Monday, August 10, 2015 10:37 PM
-To: Andrew Qu; David Miller
-Cc: tgraf@suug.ch; jesse@nicira.com; pshelar@nicira.com; netdev@vger.kernel.org
-Subject: Re: VxLAN support question
-
-On 8/10/15 4:47 PM, Andrew Qu wrote:
->
-> Pretty much what I want is that  kernel will have about 1K interfaces 
-> (something like Tunnel100.1-tunnel100.1000 To be created and attached 
-> to 1K bridge domains on which each VNI is associated with given VNI to 
-> bridge-domain will be assigned using other CLIs)
-
-creating 1k vxlan devices is doable, but you probably want to take a look at recently added metadata mode of vxlan.
-Also sounds like for each vni you'd need a different multicast group?
-What fabric going to support that?
-
-> ************* Email Confidentiality Notice ********************
-
-please avoid such banners.
-
-************* Email Confidentiality Notice ********************
-The information contained in this e-mail message (including any 
-attachments) may be confidential, proprietary, privileged, or otherwise
-exempt from disclosure under applicable laws. It is intended to be 
-conveyed only to the designated recipient(s). Any use, dissemination, 
-distribution, printing, retaining or copying of this e-mail (including its 
-attachments) by unintended recipient(s) is strictly prohibited and may 
-be unlawful. If you are not an intended recipient of this e-mail, or believe 
-that you have received this e-mail in error, please notify the sender 
-immediately (by replying to this e-mail), delete any and all copies of 
-this e-mail (including any attachments) from your system, and do not
-disclose the content of this e-mail to any other person. Thank you!
+What if the fix is to actually not break bisectability? Put differently,
+my question is how do you value not rewriting history vs. breaking
+bisectability (by accident of course)?
+-- 
+Florian
