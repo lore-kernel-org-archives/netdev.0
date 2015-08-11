@@ -1,257 +1,36 @@
-From: Damian Hobson-Garcia <dhobsong@igel.co.jp>
-Subject: Re: [PATCH] eventfd: implementation of EFD_MASK flag
-Date: Tue, 11 Aug 2015 16:54:31 +0900
-Message-ID: <55C9AA37.4070209@igel.co.jp>
-References: <1439185906-28180-1-git-send-email-dhobsong@igel.co.jp>
- <1439185906-28180-2-git-send-email-dhobsong@igel.co.jp>
- <55C8436C.1000806@igel.co.jp>
- <45138eb2cdd715f14fbd01fb5c8d3655@imap.lucina.net>
- <55C86762.5010709@igel.co.jp>
- <2a70fc7c97ec7cc57c3eb3c4a60e8a2f@imap.lucina.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next] bpf: s390: Fix build error caused by the
+ struct bpf_array member name changed
+Date: Tue, 11 Aug 2015 10:24:17 +0200
+Message-ID: <55C9B131.50108@iogearbox.net>
+References: <1439276026-60789-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org
-To: Martin Sustrik <sustrik@250bpm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33177 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933785AbbHKHye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 03:54:34 -0400
-Received: by pabyb7 with SMTP id yb7so124797356pab.0
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 00:54:33 -0700 (PDT)
-In-Reply-To: <2a70fc7c97ec7cc57c3eb3c4a60e8a2f@imap.lucina.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	wangnan0@huawei.com, Michael Holzheu <holzheu@linux.vnet.ibm.com>
+To: Kaixu Xia <xiakaixu@huawei.com>, fengguang.wu@intel.com,
+	davem@davemloft.net, ast@plumgrid.com, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439276026-60789-1-git-send-email-xiakaixu@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 08/11/2015 08:53 AM, Kaixu Xia wrote:
+> There is a build error that "'struct bpf_array' has no member
+> named 'prog'" on s390. In commit 2a36f0b, the member 'prog' of
+> struct bpf_array is replaced by 'ptrs'. So this patch fixes it.
+>
+> Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
 
+You were also asked to add a proper Fixes tag :
 
-On 2015-08-11 6:16 AM, Martin Sustrik wrote:
-> On 2015-08-10 10:57, Damian Hobson-Garcia wrote:
->> Hi Martin,
->>
->> Thanks for your comments.
->>
->> On 2015-08-10 3:39 PM, Martin Sustrik wrote:
->>> On 2015-08-10 08:23, Damian Hobson-Garcia wrote:
->>>> Replying to my own post, but I had the following comments/questions.
->>>> Martin, if you have any response to my comments I would be very
->>>> happy to
->>>> hear them.
->>>>
->>>> On 2015-08-10 2:51 PM, Damian Hobson-Garcia wrote:
->>>>> From: Martin Sustrik <sustrik@250bpm.com>
->>>>>
->>>> [snip]
->>>>>
->>>>> write(2):
->>>>>
->>>>> User is allowed to write only buffers containing the following
->>>>> structure:
->>>>>
->>>>> struct efd_mask {
->>>>>   __u32 events;
->>>>>   __u64 data;
->>>>> };
->>>>>
->>>>> The value of 'events' should be any combination of event flags as
->>>>> defined by
->>>>> poll(2) function (POLLIN, POLLOUT, POLLERR, POLLHUP etc.) Specified
->>>>> events will
->>>>> be signaled when polling (select, poll, epoll) on the eventfd is done
->>>>> later on.
->>>>> 'data' is opaque data that are not interpreted by eventfd object.
->>>>>
->>>> I'm not fully clear on the purpose that the 'data' member serves.  Does
->>>> this opaque handle need to be tied together with this event
->>>> synchronization construct?
->>>
->>> It's a convenience thing. Imagine you are implementing your own file
->>> descriptor type in user space. You create an EFD_MASK socket and a
->>> structure that will hold any state that you need for the socket (tx/rx
->>> buffers and such).
->>>
->>> Now you have two things to pass around. If you want to pass the fd to a
->>> function, it must have two parameters (fd and pointer to the structure).
->>>
->>> To fix it you can put the fd into the structure. That way there's only
->>> one thing to pass around (the structure).
->>>
->>> The problem with that approach is when you have generic code that deals
->>> with file descriptors. For example, a simple poller which accepts a list
->>> of (fd, callback) pairs and invokes the callback when one of the fds
->>> signals POLLIN. You can't send a pointer to a structure to such
->>> function. All you can send is the fd, but then, when the callback is
->>> invoked, fd is all you have. You have no idea where your state is.
->>>
->>> 'data' member allows you to put the pointer to the state to the socket
->>> itself. Thus, if you have a fd, you can always find out where the
->>> associated data is by reading the mask structure from the fd.
->>>
->>
->> Ok, I see what you're saying. I guess that keeping track of the mapping
->> between the fd and the struct in user space could be non-trivial if
->> there are a large number of active fds that are polling very frequently.
->> Wouldn't it be sufficient to just use epoll() in this case though?  It
->> already seems to support this kind of thing.
-> 
-> My use case was like this:
-> 
-> int s = mysocket();
-> ...
-> // myrecv() can get the pointer to the structure
-> // without user having to pass it as an argument
-> myrecv(s, buf, sizeof(buf));
-> 
-> However, same behaviour can be accomplished by simply keeping
-> a static array of pointers in the user space.
-> 
-> So let's cut this part out of the patch.
-> 
+Fixes: 2a36f0b92eb6 ("bpf: Make the bpf_prog_array_map more generic")
 
-Ok, I'll drop the 'data' member. I could add some padding to the
-efd_mask structure so that it is the same size as the 64-bit data size
-used when EFD_MASK is not set.
+I guess this bug was reported by Fengguang as you have him in Cc ?
 
->>
->>>>
->>>> [snip]
->>>>
->>>>> @@ -55,6 +69,9 @@ __u64 eventfd_signal(struct eventfd_ctx *ctx,
->>>>> __u64 n)
->>>>>  {
->>>>> +    /* This function should never be used with eventfd in the mask
->>>>> mode. */
->>>>> +    BUG_ON(ctx->flags & EFD_MASK);
->>>>> +
->>>> ...
->>>>> @@ -158,6 +180,9 @@ int eventfd_ctx_remove_wait_queue(struct
->>>>> eventfd_ctx *ctx, wait_queue_t *wait,
->>>>>  {
->>>>> +    /* This function should never be used with eventfd in the mask
->>>>> mode. */
->>>>> +    BUG_ON(ctx->flags & EFD_MASK);
->>>>> +
->>>> ...
->>>>> @@ -188,6 +213,9 @@ ssize_t eventfd_ctx_read(struct eventfd_ctx *ctx,
->>>>> int no_wait, __u64 *cnt)
->>>>> +    /* This function should never be used with eventfd in the mask
->>>>> mode. */
->>>>> +    BUG_ON(ctx->flags & EFD_MASK);
->>>>> +
->>>>
->>>> If eventfd_ctx_fileget() returns EINVAL when EFD_MASK is set, I don't
->>>> think that there will be a way to call these functions in the mask
->>>> mode,
->>>> so it should be possible to get rid of the BUG_ON checks.
->>>
->>> Sure. Feel free to do so.
->>>
->>>>
->>>> [snip]
->>>>> @@ -230,6 +258,19 @@ static ssize_t eventfd_read(struct file *file,
->>>>> char __user *buf, size_t count,
->>>>>      ssize_t res;
->>>>>      __u64 cnt;
->>>>>
->>>>> +    if (ctx->flags & EFD_MASK) {
->>>>> +        struct efd_mask mask;
->>>>> +
->>>>> +        if (count < sizeof(mask))
->>>>> +            return -EINVAL;
->>>>> +        spin_lock_irq(&ctx->wqh.lock);
->>>>> +        mask = ctx->mask;
->>>>> +        spin_unlock_irq(&ctx->wqh.lock);
->>>>> +        if (copy_to_user(buf, &mask, sizeof(mask)))
->>>>> +            return -EFAULT;
->>>>> +        return sizeof(mask);
->>>>> +    }
->>>>> +
->>>>
->>>> For the other eventfd modes, reading the value will update the internal
->>>> state of the eventfd (either clearing or decrementing the counter).
->>>> Should something similar be done here? I'm thinking of a case where a
->>>> process is polling on this fd in a loop. Clearing the efd_mask data  on
->>>> read should provide an easy way for the polling process to know if
->>>> it is
->>>> seeing new poll events.
->>>
->>> No. In this case reading the value has no effect on the state of the fd.
->>> How it should work is rather:
->>>
->>> // fd is in POLLIN state
->>> poll(fd);
->>> // function exits with POLLIN but fd remains in POLLIN state
->>> my_recv(fd, buf, size);
->>> // my_recv function have found out that there's no more data to recv and
->>> switched off the POLLIN flag
->>> poll(fd); // we block here waiting for more data to arrive from the
->>> network
->>>
->>
->> How exactly doe the receiver switch off the POLLIN flag?  Does the
->> receiver also write to the eventfd? or do you mean that it just doesn't
->> set POLLIN in the events mask?  It seems cleaner to have the sender only
->> write the eventfd and the receiver only read it.  Your example would be
->> exactly the same, except that my_recv(fd, buf, size) would read to clear
->> instead of write.
-> 
-> Keep in mind that the user of your mysocket is not supposed to do
-> recv() or send() on the raw underlying fd. It's the implementation,
-> myrecv() and mysend(), that does that.
-> 
-> That being the case and also assuming that we cut the pointer out, there
-> seems
-> to be little use for recv() any more. The implementation of socket knows
-> what state it is in and so it doesn't have to retrieve it using recv().
-> 
-> All it has to do is perform whatever business logic is needed and then
-> set new
-> state of the socket via send().
-> 
-> And the fact there's no clear use case, the logic of recv() is not obvious.
-> We can very well return ENOTIMPL.
+If that should be the case, then please also add a "Reported-by:" tag
+for his bug report.
 
-If the user of mysocket will only directly interact with the fd through
-poll/select/epoll then yes, read()/recv() doesn't have any use, and I
-agree, dropping it seems cleanest.
-
-
-> 
-> 
->>
->>>>
->>>>> @@ -292,8 +351,13 @@ static void eventfd_show_fdinfo(struct seq_file
->>>>> *m, struct file *f)
->>>>>      struct eventfd_ctx *ctx = f->private_data;
->>>>>
->>>>>      spin_lock_irq(&ctx->wqh.lock);
->>>>> -    seq_printf(m, "eventfd-count: %16llx\n",
->>>>> -           (unsigned long long)ctx->count);
->>>>> +    if (ctx->flags & EFD_MASK) {
->>>>> +        seq_printf(m, "eventfd-mask: %x\n",
->>>>> +                 (unsigned)ctx->mask.events);
->>>>> +    } else {
->>>>> +        seq_printf(m, "eventfd-count: %16llx\n",
->>>>> +                 (unsigned long long)ctx->count);
->>>>> +    }
->>>>>      spin_unlock_irq(&ctx->wqh.lock);
->>>>>  }
->>>> I think that putting the EFD_MASK functionality into a different fops
->>>> structure might be useful for reducing the number of if statements.
->>>
->>> Sure. No objections.
->>>
->>> Thanks for re-submitting the patch!
->>
->> My pleasure.
->>
->>> Martin
->>>
->>
->> Damian
-> 
-
-Damian
+Code looks good to me.
