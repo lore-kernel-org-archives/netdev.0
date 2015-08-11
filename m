@@ -1,48 +1,50 @@
 From: yalin wang <yalin.wang2010@gmail.com>
-Subject: [PATCH v2] net/fddi: remove HWM_REVERSE() macro
-Date: Tue, 11 Aug 2015 09:57:21 +0800
-Message-ID: <1FEC219B-7AF2-47C9-8EBB-786EE6EADCE4@gmail.com>
-References: <6AE77A24-5AC5-47E4-8B9F-9BCDE0C6A8F9@gmail.com> <1439224589.2322.109.camel@perches.com> <11E10C05-909B-4453-ADEB-EE3085A22B29@gmail.com>
+Subject: Re: [RFC] bmac:change to use bitrev8() generic function
+Date: Tue, 11 Aug 2015 10:06:23 +0800
+Message-ID: <89DC2B55-8B16-4B35-8EE0-AAD912E273BA@gmail.com>
+References: <9A81C947-6F69-4549-B1D0-58061D6976CE@gmail.com> <20150810114901.GS16878@distanz.ch> <063D6719AE5E284EB5DD2968C1650D6D1CB77DC9@AcuExch.aculab.com>
 Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, open list <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33640 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751679AbbHKB50 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 21:57:26 -0400
-In-Reply-To: <11E10C05-909B-4453-ADEB-EE3085A22B29@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8BIT
+Cc: Tobias Klauser <tklauser@distanz.ch>,
+	"fabf@skynet.be" <fabf@skynet.be>,
+	"david@gibson.dropbear.id.au" <david@gibson.dropbear.id.au>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB77DC9@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- HWM_REVERSE() macro is unused, remove it.
 
-Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
----
- drivers/net/fddi/skfp/h/hwmtm.h | 10 ----------
- 1 file changed, 10 deletions(-)
-
-diff --git a/drivers/net/fddi/skfp/h/hwmtm.h b/drivers/net/fddi/skfp/h/hwmtm.h
-index 5924d42..4ca2341 100644
---- a/drivers/net/fddi/skfp/h/hwmtm.h
-+++ b/drivers/net/fddi/skfp/h/hwmtm.h
-@@ -74,15 +74,6 @@
- #define NULL           0
- #endif
- 
--#ifdef LITTLE_ENDIAN
--#define HWM_REVERSE(x) (x)
--#else
--#define        HWM_REVERSE(x)          ((((x)<<24L)&0xff000000L)       +       \
--                                (((x)<< 8L)&0x00ff0000L)       +       \
--                                (((x)>> 8L)&0x0000ff00L)       +       \
--                                (((x)>>24L)&0x000000ffL))
--#endif
--
- #define C_INDIC                (1L<<25)
- #define A_INDIC                (1L<<26)
- #define        RD_FS_LOCAL     0x80
--- 
-1.9.1
+> On Aug 10, 2015, at 20:02, David Laight <David.Laight@ACULAB.COM> wrote:
+> 
+>> From: Tobias Klauser
+>> Sent: 10 August 2015 12:49
+>> On 2015-08-10 at 11:53:41 +0200, yalin wang <yalin.wang2010@gmail.com> wrote:
+>>> This change to use generic bitrev8() for bmac driver.
+> ...
+>>> @@ -871,7 +860,7 @@ bmac_addhash(struct bmac_data *bp, unsigned char *addr)
+>>> 
+>>> 	if (!(*addr)) return;
+>>> 	crc = bmac_crc((unsigned short *)addr) & 0x3f; /* Big-endian alert! */
+> 
+> Why not *((u8 *)addr + 1) & 0x3f
+> 
+>>> -	crc = reverse6[crc];	/* Hyperfast bit-reversing algorithm */
+>>> +	crc = bitrev8((u8)crc);
+>> 
+>> No, this won't work. reverse6 works on 6 bit values, while bitrev8 works
+>> on 8bit values, e.g. reverse6[1] = 0x20, while bitrev8(1) = 0x80
+> 
+> You could use bitrev8(n) >> 2.
+> 
+> But that is a 'strange' map of a 7-bit value to a 6-bit one.
+> 
+> I thought it was more common for ethernet hardware to use the
+> value of the crc register after all 6 bytes of the mac address
+> had been processed.
+oh, my mistake, i will change it in V2 for review.
