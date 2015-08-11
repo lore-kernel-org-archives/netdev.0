@@ -1,52 +1,84 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: [PATCH net-next v2] tcp: reduce cpu usage under tcp memory pressure
- when SO_SNDBUF is set
-Date: Tue, 11 Aug 2015 11:03:30 -0400
-Message-ID: <55CA0EC2.9030306@akamai.com>
-References: <20150811143846.672A92039@prod-mail-relay10.akamai.com> <1439304576.1084.24.camel@edumazet-glaptop2.roam.corp.google.com>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH net-next 1/2] lan78xx: Fix Smatch Warnings
+Date: Tue, 11 Aug 2015 15:21:41 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D53FAEF@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <dan.carpenter@oracle.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a23-79-238-175.deploy.static.akamaitechnologies.com ([23.79.238.175]:16884
-	"EHLO prod-mail-xrelay07.akamai.com" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752281AbbHKPDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 11:03:31 -0400
-In-Reply-To: <1439304576.1084.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:63521 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965062AbbHKPVn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 11:21:43 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+lan78xx.c:2282 tx_complete() warn: variable dereferenced before check 'skb' (see line 2249)
+lan78xx.c:2885 lan78xx_bh() info: ignoring unreachable code.
+lan78xx.c:3159 lan78xx_probe() info: ignoring unreachable code.
 
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-On 08/11/2015 10:49 AM, Eric Dumazet wrote:
-> On Tue, 2015-08-11 at 14:38 +0000, Jason Baron wrote:
->> From: Jason Baron <jbaron@akamai.com>
-> 
->> In my testing, this brought a single threaad's cpu usage down from 100% to ~1%
->> while maintaining the same level of throughput.
->>
-> 
-> Hi Jason. Could you give more details on this test ?
-> 
-> How many flows are competing ?
-> 
->
+Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+---
+ drivers/net/usb/lan78xx.c | 18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
 
-Yes, so the test case I'm using to test against is somewhat contrived.
-In that I am simply allocating around 40,000 sockets that are idle to
-create a 'permanent' memory pressure in the background. Then, I have
-just 1 flow that sets SO_SNDBUF, which results in the: poll(), write() loop.
-
-That said, we encountered this issue initially where we had 10,000+
-flows and whenever the system would get into memory pressure, we would
-see all the cpus spin at 100%.
-
-So the testcase I wrote, was just a simplistic version for testing. But
-I am going to try and test against the more realistic workload where
-this issue was initially observed.
-
-Thanks,
-
--Jason
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index ec8bd34..3a6a4c1 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -2279,8 +2279,7 @@ static void tx_complete(struct urb *urb)
+ 
+ 	usb_autopm_put_interface_async(dev->intf);
+ 
+-	if (skb)
+-		defer_bh(dev, skb, &dev->txq, tx_done);
++	defer_bh(dev, skb, &dev->txq, tx_done);
+ }
+ 
+ static void lan78xx_queue_skb(struct sk_buff_head *list,
+@@ -2295,13 +2294,15 @@ static void lan78xx_queue_skb(struct sk_buff_head *list,
+ netdev_tx_t lan78xx_start_xmit(struct sk_buff *skb, struct net_device *net)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
++	struct sk_buff *skb2 = NULL;
+ 
+-	if (skb)
++	if (skb) {
+ 		skb_tx_timestamp(skb);
++		skb2 = lan78xx_tx_prep(dev, skb, GFP_ATOMIC);
++	}
+ 
+-	skb = lan78xx_tx_prep(dev, skb, GFP_ATOMIC);
+-	if (skb) {
+-		skb_queue_tail(&dev->txq_pend, skb);
++	if (skb2) {
++		skb_queue_tail(&dev->txq_pend, skb2);
+ 
+ 		if (skb_queue_len(&dev->txq_pend) > 10)
+ 			netif_stop_queue(net);
+@@ -2882,10 +2883,6 @@ static void lan78xx_bh(unsigned long param)
+ 			netdev_dbg(dev->net, "skb state %d\n", entry->state);
+ 			return;
+ 		}
+-		if (!dev->done.prev)
+-			BUG_ON(!dev->done.prev);
+-		if (!dev->done.next)
+-			BUG_ON(!dev->done.next);
+ 	}
+ 
+ 	if (netif_device_present(dev->net) && netif_running(dev->net)) {
+@@ -3156,7 +3153,6 @@ static int lan78xx_probe(struct usb_interface *intf,
+ 
+ 	return 0;
+ 
+-	usb_set_intfdata(intf, NULL);
+ out3:
+ 	lan78xx_unbind(dev, intf);
+ out2:
+-- 
+2.1.4
