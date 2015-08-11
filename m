@@ -1,77 +1,37 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net] netconsole: Check for carrier before calling netpoll_send_udp()
-Date: Tue, 11 Aug 2015 11:32:26 +1000
-Message-ID: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	jmaxwell@redhat.com, Jon Maxwell <jmaxwell37@gmail.com>
-To: netdev@vger.kernel.org
+From: yalin wang <yalin.wang2010@gmail.com>
+Subject: Re: [PATCH] isdn:remove reverse_bits(), use revbit8()
+Date: Tue, 11 Aug 2015 09:38:23 +0800
+Message-ID: <D170D6B8-1B24-4F7E-8A20-4CBD3D0BFB8A@gmail.com>
+References: <48EEE6BC-BAFE-4545-A860-237FBD1E279B@gmail.com> <20150810.143012.1342124147857318471.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150810.143012.1342124147857318471.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We have seen a few crashes recently where a NIC is getting
-reset for some reason and then the driver or another module calls
-printk() which invokes netconsole. Netconsole then calls the
-adapter specific poll routine via netpoll which crashes because 
-the adapter is resetting and its structures are being reinitialized.
 
-So far we have seen this happen with ixgbe and vmxnet3 drivers.
-The back trace from the ixgbe crash example looks like this:
-
-#8 [] page_fault at
-#9 [] ixgbe_clean_rx_irq at  [ixgbe] <--- crash here
-#10 [] ixgbe_poll at  [ixgbe]
-#11 [] netpoll_poll_dev at 
-#12 [] netpoll_send_skb_on_dev at 
-#13 [] netpoll_send_udp at 
-#14 [] write_msg at  [netconsole]
-#15 [] __call_console_drivers at 
-#16 [] _call_console_drivers at 
-#17 [] release_console_sem at 
-#18 [] vprintk at 
-#19 [] printk at 
-#20 [] __dev_printk at 
-#21 [] _dev_info at 
-#22 [] ixgbe_init_interrupt_scheme at  [ixgbe]
-#23 [] ixgbe_dcbnl_devreset at  [ixgbe]
-#24 [] ixgbe_dcbnl_set_all at  [ixgbe]
-#25 [] ixgbe_dcbnl_setdcbx at  [ixgbe]
-#26 [] dcb_doit at 
-#27 [] rtnetlink_rcv_msg at 
-#28 [] netlink_rcv_skb at 
-#29 [] rtnetlink_rcv at 
-#30 [] netlink_unicast at 
-#31 [] netlink_sendmsg at 
-#32 [] sock_sendmsg at 
-#33 [] sys_sendto at 
-#34 [] system_call_fastpath at 
-
-I could reproduce this using an ixgbe NIC. 
-
-I verified that the proposed fix works. It checks that carrier is 
-asserted before calling netpoll_send_udp(). Therefore if the adapter
-is resetting netconsole does not call the netpoll routines and the 
-crash is avoided. When the adapter is back online and carrier is 
-reasserted netconsole will succeed again.
-
-Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
----
- drivers/net/netconsole.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index ba2f5e7..f760463 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -744,7 +744,8 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
- 	spin_lock_irqsave(&target_list_lock, flags);
- 	list_for_each_entry(nt, &target_list, list) {
- 		netconsole_target_get(nt);
--		if (nt->enabled && netif_running(nt->np.dev)) {
-+		if (nt->enabled && netif_running(nt->np.dev) &&
-+		    netif_carrier_ok(nt->np.dev)) {
- 			/*
- 			 * We nest this inside the for-each-target loop above
- 			 * so that we're able to get as much logging out to
--- 
-1.8.3.1
+> On Aug 11, 2015, at 05:30, David Miller <davem@davemloft.net> wrote:
+> 
+> From: yalin wang <yalin.wang2010@gmail.com>
+> Date: Mon, 10 Aug 2015 17:15:57 +0800
+> 
+>> This change isdn driver, remove reverse_bits() function,
+>> use the generic revbit8() function instead.
+>> 
+>> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
+> 
+> Applied, however please format your Subject lines better in the
+> future.
+> 
+> There should be a space after the subsystem specifier and the ':'
+> character.  So "isdn: "
+> 
+> Then you should capitalize the description in the Subject line
+> because it is very much like an English sentence.
+i see,
+Thanks for your kindly remind !
