@@ -1,50 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Netfilter fixes for net
-Date: Mon, 10 Aug 2015 21:08:46 -0700 (PDT)
-Message-ID: <20150810.210846.995750842725656061.davem@davemloft.net>
-References: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] mkiss: Fix error handling in mkiss_open()
+Date: Mon, 10 Aug 2015 21:10:55 -0700 (PDT)
+Message-ID: <20150810.211055.763218711116840541.davem@davemloft.net>
+References: <1439227363-6737-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org, zy900702@163.com
+To: fabio.estevam@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46082 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46098 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740AbbHKEIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 00:08:47 -0400
-In-Reply-To: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1750808AbbHKEK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 00:10:56 -0400
+In-Reply-To: <1439227363-6737-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 10 Aug 2015 19:58:34 +0200
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Date: Mon, 10 Aug 2015 14:22:43 -0300
 
-> The following patchset contains five Netfilter fixes for your net tree,
-> they are:
+> If register_netdev() fails we are not propagating the error and
+> we return success because ax_open() succeeded previously.
 > 
-> 1) Silence a warning on falling back to vmalloc(). Since 88eab472ec21, we can
->    easily hit this warning message, that gets users confused. So let's get rid
->    of it.
+> Fix this by checking the return value of ax_open() and 
+> register_netdev() and propagate the error in case of failure.
 > 
-> 2) Recently when porting the template object allocation on top of kmalloc to
->    fix the netns dependencies between x_tables and conntrack, the error
->    checks where left unchanged. Remove IS_ERR() and check for NULL instead.
->    Patch from Dan Carpenter.
-> 
-> 3) Don't ignore gfp_flags in the new nf_ct_tmpl_alloc() function, from
->    Joe Stringer.
-> 
-> 4) Fix a crash due to NULL pointer dereference in ip6t_SYNPROXY, patch from
->    Phil Sutter.
-> 
-> 5) The sequence number of the Syn+ack that is sent from SYNPROXY to clients is
->    not adjusted through our NAT infrastructure, as a result the client may
->    ignore this TCP packet and TCP flow hangs until the client probes us.  Also
->    from Phil Sutter.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> Reported-by: RUC_Soft_Sec <zy900702@163.com>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Pulled, thanks Pablo.
+Applied, thanks.
