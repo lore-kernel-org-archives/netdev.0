@@ -1,68 +1,77 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev
- FDB objects
-Date: Tue, 11 Aug 2015 12:25:06 -0400 (EDT)
-Message-ID: <1065657734.1253359.1439310306115.JavaMail.zimbra@savoirfairelinux.com>
-References: <1438839848-505-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150809.224822.1627697290087246344.davem@davemloft.net> <20150810133924.GA10802@ketchup.touchtunes.com>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [PATCH 0/2] of: fsl/fman: reuse the fixed node parsing code
+Date: Tue, 11 Aug 2015 16:33:52 +0000
+Message-ID: <BL2PR03MB545D4E18DE41AE01AFC37D6E67F0@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1438785745-15517-1-git-send-email-madalin.bucur@freescale.com>
+ <55C63D3B.5020005@gmail.com> <55CA1C14.3000202@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	Guenter Roeck <linux@roeck-us.net>, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>, sfeldma@gmail.com,
-	jiri@resnulli.us
-To: David <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Liberman Igal <Igal.Liberman@freescale.com>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>
+To: Stas Sergeev <stsp@list.ru>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150810133924.GA10802@ketchup.touchtunes.com>
+In-Reply-To: <55CA1C14.3000202@list.ru>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
-
-On Aug 10, 2015, at 9:39 AM, Vivien Didelot vivien.didelot@savoirfairelinux.com wrote:
-
-> Hi David,
-> 
-> On 15-08-09 22:48:22, David Miller wrote:
->> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> Date: Thu,  6 Aug 2015 01:44:01 -0400
->> 
->> > This patchset refactors the DSA and mv88e6xxx code to use the switchdev FDB
->> > objects.
->> 
->> Series applied, thanks.
-> 
-> I noticed you didn't push the serie yet. I've just sent the v3 which
-> includes the switchdev change (ndm_state) mentioned by Scott and the
-> reordering of commits to improve bisectability, as suggested by Andrew.
-> 
-> Please consider the v3 "[PATCH net-next v3 0/8] net: dsa: mv88e6xxx:
-> support switchdev FDB objects" instead.
-
-Somehow this message was ignored or seen too late, and v2 got pushed in
-the net-next tree.
-
-v2 introduces an uneeded patch to convert switchdev fdb address (1/7);
-an is_static member in switchdev that Scott didn't fully agree on (2/7);
-and the calls into the driver are removed in 3/7 and added later in the
-patchset, making it hard to bisect, as mentioned by Andrew.
-
-v3 fixes all of that, Scott acked the switchdev change and Andrew
-reviewed the whole patchset. It is indeed more readable and simpler:
-
-v2: 10 files changed, 317 insertions(+), 197 deletions(-)
-v3: 9 files changed, 260 insertions(+), 129 deletions(-)
-
-I can work on fixup patches to restore v3 changes on top of v2, but this
-won't fix the bisectability issue.
-
-Instead of fixing individual portions, reverting the merge commit
-f1d5ca4: "Merge branch 'mv88e6xxx-switchdev-fdb'" would undo all the v2
-series at once, then v3 can be merged on top of it.
-
-Can you consider this as an option?
-
-Thanks,
--v
+KyBKb2FraW0sIFNoYW9odWkNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9t
+OiBTdGFzIFNlcmdlZXYgW21haWx0bzpzdHNwQGxpc3QucnVdDQo+IA0KPiAwOC4wOC4yMDE1IDIw
+OjMyLCBGbG9yaWFuIEZhaW5lbGxpINC/0LjRiNC10YI6DQo+ID4gQ0MnaW5nIFN0YXMsDQo+IEhp
+Lg0KPiANCj4gPiBMZSAwOC8wNS8xNSAwNzo0MiwgTWFkYWxpbiBCdWN1ciBhIMOpY3JpdCA6DQo+
+ID4+IFRoZSBGTWFuIE1BQyBjb25maWd1cmF0aW9uIGNvZGUgbmVlZHMgdGhlIHNwZWVkIGFuZCBk
+dXBsZXgNCj4gaW5mb3JtYXRpb24NCj4gPj4gZm9yIGZpeGVkLWxpbmsgaW50ZXJmYWNlcyB0aGF0
+IGlzIHBhcnNlZCBub3cgYnkgdGhlIG9mIGZ1bmN0aW9uDQo+ID4+IG9mX3BoeV9yZWdpc3Rlcl9m
+aXhlZF9saW5rKCkuIFRoaXMgcGFyc2VzIHRoZSBmaXhlZC1saW5rIHBhcmFtZXRlcnMgYnV0DQo+
+ID4+IGRvZXMgbm90IGV4cG9zZSB0byB0aGUgY2FsbGVyIG5laXRoZXIgdGhlIHBoeV9kZXZpY2Ug
+cG9pbnRlciBub3IgdGhlDQo+ID4+IHN0YXR1cyBzdHJ1Y3Qgd2hlcmUgaXQgbG9hZHMgdGhlIGZp
+eGVkLWxpbmsgcGFyYW1zLg0KPiBJIGhhdmUgb25seSBiYXJlbHkgdG91Y2hlZCB0aGF0IGNvZGUs
+IGJ1dCBJTU8gYm90aCB0aGluZ3MNCj4gYXJlIGJ5IGRlc2lnbi4gVGhlcmUgYXJlIHNvbWUgQVBJ
+IGRlZmljaWVuY2llcywgYW5kIHNvLCBtYW55DQo+IGRyaXZlcnMgc3RpbGwgdXNlIG9mX3BoeV9m
+aW5kX2RldmljZSgpIHRvIGNpcmN1bXZlbnQgdGhlIGVuY2Fwc3VsYXRpb24NCj4gYW5kIGdldCB0
+aGUgcGh5X2RldmljZSBwb2ludGVyLCBidXQgdGhpcyBpcyB1bmxpa2VseSBhIGdvb2QgdGhpbmcN
+Cj4gdG8gZG8uIEkgZXZlbiBwcm9wb3NlZCBzb21lIEFQSSBleHRlbnNpb25zLCBidXQgdGhlcmUg
+d2FzIG5vDQo+IGludGVyZXN0Lg0KPiANCj4gPj4gICBCeSBleHRyYWN0aW5nIHRoZQ0KPiA+PiBm
+aXhlZC1saW5rIHBhcnNpbmcgY29kZSBmcm9tIG9mX3BoeV9yZWdpc3Rlcl9maXhlZF9saW5rKCkg
+aW50byBhDQo+ID4+IHNlcGFyYXRlIGZ1bmN0aW9uIHRoZSBwYXJzZWQgdmFsdWVzIGFyZSBtYWRl
+IGF2YWlsYWJsZSB3aXRob3V0IGNoYW5naW5nDQo+ID4+IHRoZSBleGlzdGluZyBBUEkuIFRoaXMg
+Y2hhbmdlIGFsc28gcmVtb3ZlcyBhIHNtYWxsIHJlZHVuZGFuY3kgaW4gdGhlDQo+ID4+IHByZXZp
+b3VzIGNvZGUgY2FsbGluZyBmaXhlZF9waHlfcmVnaXN0ZXIoKS4NCj4gVG9kYXksIHRoZSBmaXhl
+ZF9saW5rIGlzIG5vdCBhbHdheXMgZml4ZWQuDQo+IFNlZSBmb3IgZXhhbXBsZSB0aGlzIHBhdGNo
+IChhbHJlYWR5IG1haW5saW5lZCk6DQo+IGh0dHBzOi8vbGttbC5vcmcvbGttbC8yMDE1LzcvMjAv
+NzExDQo+IG9mX3BoeV9pc19maXhlZF9saW5rKCkgcmV0dXJucyAndHJ1ZScgaWYgeW91IGhhdmUN
+Cj4gbWFuYWdlZD0iaW4tYmFuZC1zdGF0dXMiLCBhbmQgc28gdGhlIFNHTUlJIGluLWJhbmQgc3Rh
+dHVzDQo+IGNhbiB1cGRhdGUgZml4ZWQtbGluayBwYXJhbXMuDQo+IA0KPiBTbyBteSBxdWVzdGlv
+biBpczogd2h5IGRvIHlvdSBldmVuIG5lZWQgdG8ga25vdyB3aGV0aGVyDQo+IHRoZSBsaW5rIGlz
+IGZpeGVkIG9yIG5vdD8gSUlSQyB5b3UgY2FuIGNoZWNrIHRoZSBwaHlfZGV2aWNlDQo+IHBvaW50
+ZXIgaW4gdGhlIGFkanVzdF9saW5rIGNhbGxiYWNrIG9mIG9mX3BoeV9jb25uZWN0KCkgdG8gZ2V0
+DQo+IHRoZSBjdXJyZW50IGxpbmsgc3RhdHVzIHZhbHVlcy4gV2h5IGlzIHRoaXMgbm90IGVub3Vn
+aCBmb3IgeW91cg0KPiB0YXNrPyBNYXliZSB0aGUgcGF0Y2ggZGVzY3JpcHRpb24gc2hvdWxkIGJl
+IHVwZGF0ZWQgdG8gaW5jbHVkZQ0KPiB3aHkgdGhlIGN1cnJlbnQgdGVjaG5pcXVlIGlzIGJhZCwg
+d2hhdCBpcyBhY3R1YWxseSBmaXhlZCBieSB0aGUNCj4gY2hhbmdlLg0KPiBJIHRoaW5rIHVzaW5n
+IHRoZSBmaXhlZC1saW5rIERUIHZhbHVlcyBkaXJlY3RseSBpcyBub3Qgc29tZXRoaW5nDQo+IHRv
+IGJlIGRvbmUuIFRoZSBlbmNhcHN1bGF0aW9uIGlzIHRoZXJlIGZvciBhIHJlYXNvbiwgc28gbWF5
+YmUNCj4gaW5zdGVhZCB3ZSBjYW4gc2VlIHdoYXQgQVBJIGFkZGl0aW9ucyBkbyB3ZSBuZWVkIHRv
+IGF2b2lkIHRoZQ0KPiBjdXJyZW50IGxpbWl0YXRpb25zIHRoYXQgZm9yY2UgcGVvcGxlIHRvIHVz
+ZSBvZl9waHlfZmluZF9kZXZpY2UoKQ0KPiBhbmQgb3RoZXIgd29yay1hcm91bmRzLg0KDQpJIG5l
+ZWQgdG8gYmUgYWJsZSB0byBkZXRlcm1pbmUgdGhlIGltcG9zZWQgc3BlZWQgYW5kIGR1cGxleCBm
+b3IgZml4ZWQgbGluaw0KZXh0ZXJuYWwgUEhZcyBiZWNhdXNlIEkgbmVlZCB0byBjb25maWd1cmUg
+dGhlIGludGVybmFsIFBIWSB3aXRoIG1hdGNoaW5nDQp2YWx1ZXMuIElmIEkgZG8gbm90IHNldCB0
+aGUgc2FtZSBzcGVlZCwgZ2l2ZW4gdGhlIGZhY3QgdGhhdCBBTiBuZWVkcyB0byBiZSBvZmYsDQp0
+aGVyZSB3aWxsIGJlIG5vIGxpbmsgYW5kIG5vIGFkanVzdCBsaW5rIHRvIGZpeCB0aGluZ3MgbGF0
+ZXIgKGFuZCB0aGUgaW50ZXJuYWwgUEhZIGlzDQpub3QgdXBkYXRlZCBieSBhZGp1c3QgbGluayBh
+bnl3YXkpLiBJIGRvIG5vdCBoYXZlIGFjY2VzcyBhdCB0aGUgcGh5IHBvaW50ZXIgYXQNCnRoZSB0
+aW1lIEkgbmVlZCB0aGUgc3BlZWQgYW5kIGR1cGxleCwgdG8gcmV0cmlldmUgdGhlIGRlZmF1bHRz
+IGZyb20gdGhlcmUgYW5kDQpJJ3ZlIHRyaWVkIHRvIG1ha2UgdGhlIHNtYWxsZXN0IGNoYW5nZXMg
+dGhhdCBhbGxvdyBtZSB0byByZXRyaWV2ZSB0aG9zZSB3aXRob3V0DQptb2RpZnlpbmcgZXhpc3Rp
+bmcgQVBJLg0KV2h5IGlzIGl0IGltcG9ydGFudCB0byBoaWRlIHRoZSBkZWZhdWx0IHZhbHVlcyBm
+cm9tIHRoZSBNQUMgZHJpdmVyPw0KDQpUaGFuayB5b3UsDQpNYWRhbGluDQo=
