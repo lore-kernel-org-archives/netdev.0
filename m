@@ -1,37 +1,31 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: ipv6_mc_check_mld - kernel BUG at net/core/skbuff.c:1128
-Date: Tue, 11 Aug 2015 22:51:40 +0200
-Message-ID: <20150811205140.GD4402@odroid>
-References: <CAMUH3-WBobHryNpxYUzuAr4bPBFkd=QFkWgOoLyGiVf6Qvx0Ww@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] net/ipv4: inconsistent routing table
+Date: Tue, 11 Aug 2015 14:15:08 -0700 (PDT)
+Message-ID: <20150811.141508.982016479032839502.davem@davemloft.net>
+References: <CAOrge3pSQ7eck14biTncjOyGD-DKY0DvRr7JKpS3BowoSDry-Q@mail.gmail.com>
+	<87y4hjgy6p.fsf@stressinduktion.org>
+	<55CA608B.1070302@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Brenden Blanco <bblanco@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.passe0815.de ([188.40.49.9]:47128 "EHLO mail.passe0815.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752134AbbHKU5v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Aug 2015 16:57:51 -0400
-Received: from mail.passe0815.de (localhost [127.0.0.1])
-	by mail.passe0815.de (Postfix) with ESMTP id 0C22F586A4E
-	for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 22:51:41 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <CAMUH3-WBobHryNpxYUzuAr4bPBFkd=QFkWgOoLyGiVf6Qvx0Ww@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, zealot0630@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: alexander.duyck@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55CA608B.1070302@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 10, 2015 at 02:56:12PM -0700, Brenden Blanco wrote:
-> Doing some code reading with Alexei, we found a suspect commit, which
-> introduces an skb_get and skb_may_pull of the same skb, which leads to the BUG
-> when skb->len == len.
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Tue, 11 Aug 2015 13:52:27 -0700
 
-Urgh, didn't know that pskb_may_pull() doesn't like an skb with a
-reference count greater than one... But yes, the BUG() call in
-skbuff.c:1128 / pskb_expand_head() says that (though in this case
-the BUG() in skbuff.c call actually seems kinda weird (/"wrong"?), as
-it isn't shared between different code paths).
+> On 08/10/2015 04:50 AM, Hannes Frederic Sowa wrote:
+>>> 4. document it
+>> I prefer that one :)
+> 
+> Yeah, me too.  The fact is things have worked this way up until now
+> and I suspect the reason why this hasn't been reported until now is
+> simply because in many cases it works since routes are usually updated
+> if you are moving the gateway onto the local system.
 
-Thanks for the thorough analysis, going to provide a patch within
-the next 24h (hopefully).
-
-Cheers, Linus
++1
