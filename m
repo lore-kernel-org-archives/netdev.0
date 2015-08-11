@@ -1,48 +1,45 @@
-From: Kaixu Xia <xiakaixu@huawei.com>
-Subject: [PATCH v2 net-next] bpf: s390: Fix build error caused by the struct bpf_array member name changed
-Date: Tue, 11 Aug 2015 06:53:46 +0000
-Message-ID: <1439276026-60789-1-git-send-email-xiakaixu@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<wangnan0@huawei.com>, <xiakaixu@huawei.com>
-To: <fengguang.wu@intel.com>, <davem@davemloft.net>,
-	<ast@plumgrid.com>, <schwidefsky@de.ibm.com>,
-	<heiko.carstens@de.ibm.com>
+From: yalin wang <yalin.wang2010@gmail.com>
+Subject: Re: [PATCH v2 Resend] net/fddi: remove HWM_REVERSE() macro
+Date: Tue, 11 Aug 2015 14:57:03 +0800
+Message-ID: <C6958AF1-72C6-4C27-951A-92E84326978B@gmail.com>
+References: <1FEC219B-7AF2-47C9-8EBB-786EE6EADCE4@gmail.com> <39055924-5AA5-4DE0-8872-D2F107EA82F1@gmail.com> <20150810.223750.1908561238664673104.davem@davemloft.net> <03416E4A-6121-41C4-B209-AD60308FE317@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <03416E4A-6121-41C4-B209-AD60308FE317@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is a build error that "'struct bpf_array' has no member
-named 'prog'" on s390. In commit 2a36f0b, the member 'prog' of
-struct bpf_array is replaced by 'ptrs'. So this patch fixes it.
+HWM_REVERSE() macro is unused, remove it.
 
-Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
 ---
- arch/s390/net/bpf_jit_comp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/fddi/skfp/h/hwmtm.h | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
-index 9f4bbc0..eeda051 100644
---- a/arch/s390/net/bpf_jit_comp.c
-+++ b/arch/s390/net/bpf_jit_comp.c
-@@ -1032,7 +1032,7 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp, int i
- 				      MAX_TAIL_CALL_CNT, 0, 0x2);
+diff --git a/drivers/net/fddi/skfp/h/hwmtm.h b/drivers/net/fddi/skfp/h/hwmtm.h
+index 5924d42..4ca2341 100644
+--- a/drivers/net/fddi/skfp/h/hwmtm.h
++++ b/drivers/net/fddi/skfp/h/hwmtm.h
+@@ -74,15 +74,6 @@
+ #define NULL 		0
+ #endif
  
- 		/*
--		 * prog = array->prog[index];
-+		 * prog = array->ptrs[index];
- 		 * if (prog == NULL)
- 		 *         goto out;
- 		 */
-@@ -1041,7 +1041,7 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp, int i
- 		EMIT6_DISP_LH(0xeb000000, 0x000d, REG_1, BPF_REG_3, REG_0, 3);
- 		/* lg %r1,prog(%b2,%r1) */
- 		EMIT6_DISP_LH(0xe3000000, 0x0004, REG_1, BPF_REG_2,
--			      REG_1, offsetof(struct bpf_array, prog));
-+			      REG_1, offsetof(struct bpf_array, ptrs));
- 		/* clgij %r1,0,0x8,label0 */
- 		EMIT6_PCREL_IMM_LABEL(0xec000000, 0x007d, REG_1, 0, 0, 0x8);
- 
+-#ifdef	LITTLE_ENDIAN
+-#define HWM_REVERSE(x)	(x)
+-#else
+-#define	HWM_REVERSE(x)		((((x)<<24L)&0xff000000L)	+	\
+-				 (((x)<< 8L)&0x00ff0000L)	+	\
+-				 (((x)>> 8L)&0x0000ff00L)	+	\
+-				 (((x)>>24L)&0x000000ffL))
+-#endif
+-
+ #define C_INDIC		(1L<<25)
+ #define A_INDIC		(1L<<26)
+ #define	RD_FS_LOCAL	0x80
 -- 
-1.8.3.4
+1.9.1
