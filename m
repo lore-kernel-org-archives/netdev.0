@@ -1,37 +1,28 @@
 From: yalin wang <yalin.wang2010@gmail.com>
-Subject: Re: [PATCH] isdn:remove reverse_bits(), use revbit8()
-Date: Tue, 11 Aug 2015 09:38:23 +0800
-Message-ID: <D170D6B8-1B24-4F7E-8A20-4CBD3D0BFB8A@gmail.com>
-References: <48EEE6BC-BAFE-4545-A860-237FBD1E279B@gmail.com> <20150810.143012.1342124147857318471.davem@davemloft.net>
+Subject: Re: [PATCH] net/fddi:change HWM_REVERSE() macro
+Date: Tue, 11 Aug 2015 09:40:47 +0800
+Message-ID: <11E10C05-909B-4453-ADEB-EE3085A22B29@gmail.com>
+References: <6AE77A24-5AC5-47E4-8B9F-9BCDE0C6A8F9@gmail.com> <1439224589.2322.109.camel@perches.com>
 Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150810.143012.1342124147857318471.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, open list <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:33389 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751679AbbHKBkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2015 21:40:52 -0400
+In-Reply-To: <1439224589.2322.109.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> On Aug 11, 2015, at 05:30, David Miller <davem@davemloft.net> wrote:
+> On Aug 11, 2015, at 00:36, Joe Perches <joe@perches.com> wrote:
 > 
-> From: yalin wang <yalin.wang2010@gmail.com>
-> Date: Mon, 10 Aug 2015 17:15:57 +0800
+> On Tue, 2015-08-11 at 00:14 +0800, yalin wang wrote:
+>> HWM_REVERSE
 > 
->> This change isdn driver, remove reverse_bits() function,
->> use the generic revbit8() function instead.
->> 
->> Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
+> Is unused and it would be better if removed.
 > 
-> Applied, however please format your Subject lines better in the
-> future.
-> 
-> There should be a space after the subsystem specifier and the ':'
-> character.  So "isdn: "
-> 
-> Then you should capitalize the description in the Subject line
-> because it is very much like an English sentence.
-i see,
-Thanks for your kindly remind !
+ok,  i will send V2 patch .
