@@ -1,45 +1,257 @@
-From: yalin wang <yalin.wang2010@gmail.com>
-Subject: Re: [PATCH v2 Resend] net/fddi: remove HWM_REVERSE() macro
-Date: Tue, 11 Aug 2015 14:57:03 +0800
-Message-ID: <C6958AF1-72C6-4C27-951A-92E84326978B@gmail.com>
-References: <1FEC219B-7AF2-47C9-8EBB-786EE6EADCE4@gmail.com> <39055924-5AA5-4DE0-8872-D2F107EA82F1@gmail.com> <20150810.223750.1908561238664673104.davem@davemloft.net> <03416E4A-6121-41C4-B209-AD60308FE317@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <03416E4A-6121-41C4-B209-AD60308FE317@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Damian Hobson-Garcia <dhobsong@igel.co.jp>
+Subject: Re: [PATCH] eventfd: implementation of EFD_MASK flag
+Date: Tue, 11 Aug 2015 16:54:31 +0900
+Message-ID: <55C9AA37.4070209@igel.co.jp>
+References: <1439185906-28180-1-git-send-email-dhobsong@igel.co.jp>
+ <1439185906-28180-2-git-send-email-dhobsong@igel.co.jp>
+ <55C8436C.1000806@igel.co.jp>
+ <45138eb2cdd715f14fbd01fb5c8d3655@imap.lucina.net>
+ <55C86762.5010709@igel.co.jp>
+ <2a70fc7c97ec7cc57c3eb3c4a60e8a2f@imap.lucina.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org
+To: Martin Sustrik <sustrik@250bpm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33177 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933785AbbHKHye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 03:54:34 -0400
+Received: by pabyb7 with SMTP id yb7so124797356pab.0
+        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 00:54:33 -0700 (PDT)
+In-Reply-To: <2a70fc7c97ec7cc57c3eb3c4a60e8a2f@imap.lucina.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-HWM_REVERSE() macro is unused, remove it.
 
-Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
----
- drivers/net/fddi/skfp/h/hwmtm.h | 9 ---------
- 1 file changed, 9 deletions(-)
 
-diff --git a/drivers/net/fddi/skfp/h/hwmtm.h b/drivers/net/fddi/skfp/h/hwmtm.h
-index 5924d42..4ca2341 100644
---- a/drivers/net/fddi/skfp/h/hwmtm.h
-+++ b/drivers/net/fddi/skfp/h/hwmtm.h
-@@ -74,15 +74,6 @@
- #define NULL 		0
- #endif
- 
--#ifdef	LITTLE_ENDIAN
--#define HWM_REVERSE(x)	(x)
--#else
--#define	HWM_REVERSE(x)		((((x)<<24L)&0xff000000L)	+	\
--				 (((x)<< 8L)&0x00ff0000L)	+	\
--				 (((x)>> 8L)&0x0000ff00L)	+	\
--				 (((x)>>24L)&0x000000ffL))
--#endif
--
- #define C_INDIC		(1L<<25)
- #define A_INDIC		(1L<<26)
- #define	RD_FS_LOCAL	0x80
--- 
-1.9.1
+On 2015-08-11 6:16 AM, Martin Sustrik wrote:
+> On 2015-08-10 10:57, Damian Hobson-Garcia wrote:
+>> Hi Martin,
+>>
+>> Thanks for your comments.
+>>
+>> On 2015-08-10 3:39 PM, Martin Sustrik wrote:
+>>> On 2015-08-10 08:23, Damian Hobson-Garcia wrote:
+>>>> Replying to my own post, but I had the following comments/questions.
+>>>> Martin, if you have any response to my comments I would be very
+>>>> happy to
+>>>> hear them.
+>>>>
+>>>> On 2015-08-10 2:51 PM, Damian Hobson-Garcia wrote:
+>>>>> From: Martin Sustrik <sustrik@250bpm.com>
+>>>>>
+>>>> [snip]
+>>>>>
+>>>>> write(2):
+>>>>>
+>>>>> User is allowed to write only buffers containing the following
+>>>>> structure:
+>>>>>
+>>>>> struct efd_mask {
+>>>>>   __u32 events;
+>>>>>   __u64 data;
+>>>>> };
+>>>>>
+>>>>> The value of 'events' should be any combination of event flags as
+>>>>> defined by
+>>>>> poll(2) function (POLLIN, POLLOUT, POLLERR, POLLHUP etc.) Specified
+>>>>> events will
+>>>>> be signaled when polling (select, poll, epoll) on the eventfd is done
+>>>>> later on.
+>>>>> 'data' is opaque data that are not interpreted by eventfd object.
+>>>>>
+>>>> I'm not fully clear on the purpose that the 'data' member serves.  Does
+>>>> this opaque handle need to be tied together with this event
+>>>> synchronization construct?
+>>>
+>>> It's a convenience thing. Imagine you are implementing your own file
+>>> descriptor type in user space. You create an EFD_MASK socket and a
+>>> structure that will hold any state that you need for the socket (tx/rx
+>>> buffers and such).
+>>>
+>>> Now you have two things to pass around. If you want to pass the fd to a
+>>> function, it must have two parameters (fd and pointer to the structure).
+>>>
+>>> To fix it you can put the fd into the structure. That way there's only
+>>> one thing to pass around (the structure).
+>>>
+>>> The problem with that approach is when you have generic code that deals
+>>> with file descriptors. For example, a simple poller which accepts a list
+>>> of (fd, callback) pairs and invokes the callback when one of the fds
+>>> signals POLLIN. You can't send a pointer to a structure to such
+>>> function. All you can send is the fd, but then, when the callback is
+>>> invoked, fd is all you have. You have no idea where your state is.
+>>>
+>>> 'data' member allows you to put the pointer to the state to the socket
+>>> itself. Thus, if you have a fd, you can always find out where the
+>>> associated data is by reading the mask structure from the fd.
+>>>
+>>
+>> Ok, I see what you're saying. I guess that keeping track of the mapping
+>> between the fd and the struct in user space could be non-trivial if
+>> there are a large number of active fds that are polling very frequently.
+>> Wouldn't it be sufficient to just use epoll() in this case though?  It
+>> already seems to support this kind of thing.
+> 
+> My use case was like this:
+> 
+> int s = mysocket();
+> ...
+> // myrecv() can get the pointer to the structure
+> // without user having to pass it as an argument
+> myrecv(s, buf, sizeof(buf));
+> 
+> However, same behaviour can be accomplished by simply keeping
+> a static array of pointers in the user space.
+> 
+> So let's cut this part out of the patch.
+> 
+
+Ok, I'll drop the 'data' member. I could add some padding to the
+efd_mask structure so that it is the same size as the 64-bit data size
+used when EFD_MASK is not set.
+
+>>
+>>>>
+>>>> [snip]
+>>>>
+>>>>> @@ -55,6 +69,9 @@ __u64 eventfd_signal(struct eventfd_ctx *ctx,
+>>>>> __u64 n)
+>>>>>  {
+>>>>> +    /* This function should never be used with eventfd in the mask
+>>>>> mode. */
+>>>>> +    BUG_ON(ctx->flags & EFD_MASK);
+>>>>> +
+>>>> ...
+>>>>> @@ -158,6 +180,9 @@ int eventfd_ctx_remove_wait_queue(struct
+>>>>> eventfd_ctx *ctx, wait_queue_t *wait,
+>>>>>  {
+>>>>> +    /* This function should never be used with eventfd in the mask
+>>>>> mode. */
+>>>>> +    BUG_ON(ctx->flags & EFD_MASK);
+>>>>> +
+>>>> ...
+>>>>> @@ -188,6 +213,9 @@ ssize_t eventfd_ctx_read(struct eventfd_ctx *ctx,
+>>>>> int no_wait, __u64 *cnt)
+>>>>> +    /* This function should never be used with eventfd in the mask
+>>>>> mode. */
+>>>>> +    BUG_ON(ctx->flags & EFD_MASK);
+>>>>> +
+>>>>
+>>>> If eventfd_ctx_fileget() returns EINVAL when EFD_MASK is set, I don't
+>>>> think that there will be a way to call these functions in the mask
+>>>> mode,
+>>>> so it should be possible to get rid of the BUG_ON checks.
+>>>
+>>> Sure. Feel free to do so.
+>>>
+>>>>
+>>>> [snip]
+>>>>> @@ -230,6 +258,19 @@ static ssize_t eventfd_read(struct file *file,
+>>>>> char __user *buf, size_t count,
+>>>>>      ssize_t res;
+>>>>>      __u64 cnt;
+>>>>>
+>>>>> +    if (ctx->flags & EFD_MASK) {
+>>>>> +        struct efd_mask mask;
+>>>>> +
+>>>>> +        if (count < sizeof(mask))
+>>>>> +            return -EINVAL;
+>>>>> +        spin_lock_irq(&ctx->wqh.lock);
+>>>>> +        mask = ctx->mask;
+>>>>> +        spin_unlock_irq(&ctx->wqh.lock);
+>>>>> +        if (copy_to_user(buf, &mask, sizeof(mask)))
+>>>>> +            return -EFAULT;
+>>>>> +        return sizeof(mask);
+>>>>> +    }
+>>>>> +
+>>>>
+>>>> For the other eventfd modes, reading the value will update the internal
+>>>> state of the eventfd (either clearing or decrementing the counter).
+>>>> Should something similar be done here? I'm thinking of a case where a
+>>>> process is polling on this fd in a loop. Clearing the efd_mask data  on
+>>>> read should provide an easy way for the polling process to know if
+>>>> it is
+>>>> seeing new poll events.
+>>>
+>>> No. In this case reading the value has no effect on the state of the fd.
+>>> How it should work is rather:
+>>>
+>>> // fd is in POLLIN state
+>>> poll(fd);
+>>> // function exits with POLLIN but fd remains in POLLIN state
+>>> my_recv(fd, buf, size);
+>>> // my_recv function have found out that there's no more data to recv and
+>>> switched off the POLLIN flag
+>>> poll(fd); // we block here waiting for more data to arrive from the
+>>> network
+>>>
+>>
+>> How exactly doe the receiver switch off the POLLIN flag?  Does the
+>> receiver also write to the eventfd? or do you mean that it just doesn't
+>> set POLLIN in the events mask?  It seems cleaner to have the sender only
+>> write the eventfd and the receiver only read it.  Your example would be
+>> exactly the same, except that my_recv(fd, buf, size) would read to clear
+>> instead of write.
+> 
+> Keep in mind that the user of your mysocket is not supposed to do
+> recv() or send() on the raw underlying fd. It's the implementation,
+> myrecv() and mysend(), that does that.
+> 
+> That being the case and also assuming that we cut the pointer out, there
+> seems
+> to be little use for recv() any more. The implementation of socket knows
+> what state it is in and so it doesn't have to retrieve it using recv().
+> 
+> All it has to do is perform whatever business logic is needed and then
+> set new
+> state of the socket via send().
+> 
+> And the fact there's no clear use case, the logic of recv() is not obvious.
+> We can very well return ENOTIMPL.
+
+If the user of mysocket will only directly interact with the fd through
+poll/select/epoll then yes, read()/recv() doesn't have any use, and I
+agree, dropping it seems cleanest.
+
+
+> 
+> 
+>>
+>>>>
+>>>>> @@ -292,8 +351,13 @@ static void eventfd_show_fdinfo(struct seq_file
+>>>>> *m, struct file *f)
+>>>>>      struct eventfd_ctx *ctx = f->private_data;
+>>>>>
+>>>>>      spin_lock_irq(&ctx->wqh.lock);
+>>>>> -    seq_printf(m, "eventfd-count: %16llx\n",
+>>>>> -           (unsigned long long)ctx->count);
+>>>>> +    if (ctx->flags & EFD_MASK) {
+>>>>> +        seq_printf(m, "eventfd-mask: %x\n",
+>>>>> +                 (unsigned)ctx->mask.events);
+>>>>> +    } else {
+>>>>> +        seq_printf(m, "eventfd-count: %16llx\n",
+>>>>> +                 (unsigned long long)ctx->count);
+>>>>> +    }
+>>>>>      spin_unlock_irq(&ctx->wqh.lock);
+>>>>>  }
+>>>> I think that putting the EFD_MASK functionality into a different fops
+>>>> structure might be useful for reducing the number of if statements.
+>>>
+>>> Sure. No objections.
+>>>
+>>> Thanks for re-submitting the patch!
+>>
+>> My pleasure.
+>>
+>>> Martin
+>>>
+>>
+>> Damian
+> 
+
+Damian
