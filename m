@@ -1,43 +1,39 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: option driver crashes on modem removal
-Date: Tue, 11 Aug 2015 11:32:20 +0200
-Message-ID: <CAGm1_kuUD8j6UTz2of_VHBZJQdT2v-nyPtZq1tm4Sgm1UnYgSA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Aleksander Morgado <aleksander@aleksander.es>,
-	Dan Williams <dcbw@redhat.com>,
-	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:36667 "EHLO
-	mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965027AbbHKJju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 05:39:50 -0400
-Received: by vkbf67 with SMTP id f67so11155799vkb.3
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 02:39:49 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: [PATCH] net: fs_enet: mask interrupts for TX partial frames.
+Date: Tue, 11 Aug 2015 12:11:03 +0200 (CEST)
+Message-ID: <20150811101103.045721A2414@localhost.localdomain>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have following problem. When removing USB dongle 07d1:3e01 or
-SierraWireless MC7304 I get following messages:
+We are not interested in interrupts for partially transmitted frames.
+Unlike SCC and FCC, the FEC doesn't handle the I bit in buffer
+descriptors, instead it defines two interrupt bits, TXB and TXF.
 
-option1 ttyUSB10: option_instat_callback: error -71
-option1 ttyUSB9: option_instat_callback: error -71
-option1 ttyUSB10: option_instat_callback: error -71
-option1 ttyUSB9: option_instat_callback: error -71
-option1 ttyUSB10: option_instat_callback: error -71
-option1 ttyUSB9: option_instat_callback: error -71
-INFO: rcu_sched detected stalls on CPUs/tasks: {} (detected by 0,
-t=2102 jiffies, g=694, c=693, q=24)
-INFO: Stall ended before state dump start
-option1 ttyUSB10: option_instat_callback: error -71
+We have to mask TXB in order to only get interrupts once the
+frame is fully transmitted.
 
-drivers/usb/serial/option.c seems to make nothing with such a status
-and just prints error. How one would handle this properly and just
-unregister device? Do you need more info?
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+---
+ drivers/net/ethernet/freescale/fs_enet/mac-fec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Tested kernels: 3.18.20 and 4.2.0-rc5 (this kernel shows only RCU stall crash)
-Hardware: TI am335x
-
-Regards,
-Yegor
+diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
+index b34214e..016743e 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
++++ b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
+@@ -110,7 +110,7 @@ static int do_pd_setup(struct fs_enet_private *fep)
+ }
+ 
+ #define FEC_NAPI_RX_EVENT_MSK	(FEC_ENET_RXF | FEC_ENET_RXB)
+-#define FEC_NAPI_TX_EVENT_MSK	(FEC_ENET_TXF | FEC_ENET_TXB)
++#define FEC_NAPI_TX_EVENT_MSK	(FEC_ENET_TXF)
+ #define FEC_RX_EVENT		(FEC_ENET_RXF)
+ #define FEC_TX_EVENT		(FEC_ENET_TXF)
+ #define FEC_ERR_EVENT_MSK	(FEC_ENET_HBERR | FEC_ENET_BABR | \
+-- 
+2.1.0
