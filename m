@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netconsole: Check for carrier before calling
- netpoll_send_udp()
-Date: Tue, 11 Aug 2015 10:25:21 -0700 (PDT)
-Message-ID: <20150811.102521.448694660627631235.davem@davemloft.net>
-References: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
-	<20150810.212256.1658635789817625453.davem@davemloft.net>
-	<CAGHK07DgBuVk==rJrc2gWa311DCMJK9NdDDk8OJAfRb=YLigBg@mail.gmail.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v3 0/9] Use correctly the Xen memory terminologies
+Date: Tue, 11 Aug 2015 18:37:25 +0100
+Message-ID: <55CA32D5.606@citrix.com>
+References: <1438965282-19103-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jmaxwell@redhat.com
-To: jmaxwell37@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGHK07DgBuVk==rJrc2gWa311DCMJK9NdDDk8OJAfRb=YLigBg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-fbdev@vger.kernel.org>, <x86@kernel.org>,
+	<netdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
+	Jiri Slaby <jslaby@suse.com>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	Russell King <linux@arm.linux.org.uk>,
+	<linux-scsi@vger.kernel.org>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	<stefano.stabellini@eu.citrix.com>, Ingo Molnar <mingo@redhat.com>,
+	<linux-input@vger.kernel.org>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	<ian.campbell@citrix.com>,
+	"James E.J. Bottomley" <JBottomley@odin.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Juergen Gross <jgross@suse.com>,
+	"Wei Liu" <wei.liu2@citrix.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	<linux-kernel@vger.kernel.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	<linux-api@vger.kernel.org>, <linuxppc-d
+To: Julien Grall <julien.grall@citrix.com>,
+	<xen-devel@lists.xenproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:45289 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672AbbHKRhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 13:37:31 -0400
+In-Reply-To: <1438965282-19103-1-git-send-email-julien.grall@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jonathan Maxwell <jmaxwell37@gmail.com>
-Date: Tue, 11 Aug 2015 15:53:18 +1000
-
->> What if the carrier check passes, and then the chip reset starts on
->> another cpu?  You'll have the same problem.
+On 07/08/15 17:34, Julien Grall wrote:
+> Hi all,
 > 
-> Okay, let me see if I can come up with a better way to mitigate this.
+> This patch series aims to use the memory terminologies described in
+> include/xen/mm.h [1] for Linux xen code.
 
-I personally think that drivers need to synchronize such things
-internally.  They are the only entity which knows when it's "OK"
-to do whatever the netpoll method does, and they are also the only
-entity which can properly synchronize such checks.
+Applied to for-linus-4.3, thanks.
+
+David
