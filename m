@@ -1,49 +1,45 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v3 0/9] Use correctly the Xen memory terminologies
-Date: Tue, 11 Aug 2015 18:37:25 +0100
-Message-ID: <55CA32D5.606@citrix.com>
-References: <1438965282-19103-1-git-send-email-julien.grall@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev
+ FDB objects
+Date: Tue, 11 Aug 2015 10:38:17 -0700 (PDT)
+Message-ID: <20150811.103817.787813230853567028.davem@davemloft.net>
+References: <20150809.224822.1627697290087246344.davem@davemloft.net>
+	<20150810133924.GA10802@ketchup.touchtunes.com>
+	<1065657734.1253359.1439310306115.JavaMail.zimbra@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-fbdev@vger.kernel.org>, <x86@kernel.org>,
-	<netdev@vger.kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
-	Jiri Slaby <jslaby@suse.com>,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	Russell King <linux@arm.linux.org.uk>,
-	<linux-scsi@vger.kernel.org>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	<stefano.stabellini@eu.citrix.com>, Ingo Molnar <mingo@redhat.com>,
-	<linux-input@vger.kernel.org>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	<ian.campbell@citrix.com>,
-	"James E.J. Bottomley" <JBottomley@odin.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Juergen Gross <jgross@suse.com>,
-	"Wei Liu" <wei.liu2@citrix.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	<linux-kernel@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<linux-api@vger.kernel.org>, <linuxppc-d
-To: Julien Grall <julien.grall@citrix.com>,
-	<xen-devel@lists.xenproject.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, linux@roeck-us.net, andrew@lunn.ch,
+	f.fainelli@gmail.com, sfeldma@gmail.com, jiri@resnulli.us
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:45289 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751672AbbHKRhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 13:37:31 -0400
-In-Reply-To: <1438965282-19103-1-git-send-email-julien.grall@citrix.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50491 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753134AbbHKRiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 13:38:19 -0400
+In-Reply-To: <1065657734.1253359.1439310306115.JavaMail.zimbra@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/08/15 17:34, Julien Grall wrote:
-> Hi all,
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue, 11 Aug 2015 12:25:06 -0400 (EDT)
+
+> I can work on fixup patches to restore v3 changes on top of v2, but this
+> won't fix the bisectability issue.
 > 
-> This patch series aims to use the memory terminologies described in
-> include/xen/mm.h [1] for Linux xen code.
+> Instead of fixing individual portions, reverting the merge commit
+> f1d5ca4: "Merge branch 'mv88e6xxx-switchdev-fdb'" would undo all the v2
+> series at once, then v3 can be merged on top of it.
+> 
+> Can you consider this as an option?
 
-Applied to for-linus-4.3, thanks.
+Nothing will fix bisectability, so don't try.
 
-David
+Reverting an entire series when you have the fix available
+already is excessive.
+
+So as I have already asked you, send a relative fixup to clear
+up this situation.
+
+Thanks.
