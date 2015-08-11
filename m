@@ -1,70 +1,65 @@
-From: Douglas Miller <dougmill@linux.vnet.ibm.com>
-Subject: Question on behavior of tg3_self_test() (ethtool -t on tg3 driver)
-Date: Tue, 11 Aug 2015 10:59:45 -0500
-Message-ID: <55CA1BF1.2060403@linux.vnet.ibm.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: [PATCH 0/2] of: fsl/fman: reuse the fixed node parsing code
+Date: Tue, 11 Aug 2015 19:00:20 +0300
+Message-ID: <55CA1C14.3000202@list.ru>
+References: <1438785745-15517-1-git-send-email-madalin.bucur@freescale.com>
+ <55C63D3B.5020005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e19.ny.us.ibm.com ([129.33.205.209]:33727 "EHLO
-	e19.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965211AbbHKP7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 11:59:50 -0400
-Received: from /spool/local
-	by e19.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dougmill@linux.vnet.ibm.com>;
-	Tue, 11 Aug 2015 11:59:49 -0400
-Received: from b01cxnp22036.gho.pok.ibm.com (b01cxnp22036.gho.pok.ibm.com [9.57.198.26])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 2177D38C804F
-	for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 11:59:47 -0400 (EDT)
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by b01cxnp22036.gho.pok.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t7BFxlnB51511432
-	for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 15:59:47 GMT
-Received: from d01av01.pok.ibm.com (localhost [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t7BFxkYA010957
-	for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 11:59:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Igal.Liberman@freescale.com,
+	Stas Sergeev <stsp@users.sourceforge.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	madalin.bucur@freescale.com, netdev@vger.kernel.org,
+	grant.likely@linaro.org, robh+dt@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55C63D3B.5020005@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(Sorry if you got several duplicates, am trying to work through rejected 
-messages due to supposed HTML content)
+08.08.2015 20:32, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> CC'ing Stas,
+Hi.
 
-The following behavior is being observed when running "ethtool -t <dev> 
-offline" on ports on the Broadcom BCM5719 adapter (tg3 driver). The 
-ports have wrap plugs on them, although I'm not sure why that would have 
-any affect.
+> Le 08/05/15 07:42, Madalin Bucur a =C3=A9crit :
+>> The FMan MAC configuration code needs the speed and duplex informati=
+on
+>> for fixed-link interfaces that is parsed now by the of function
+>> of_phy_register_fixed_link(). This parses the fixed-link parameters =
+but
+>> does not expose to the caller neither the phy_device pointer nor the
+>> status struct where it loads the fixed-link params.
+I have only barely touched that code, but IMO both things
+are by design. There are some API deficiencies, and so, many
+drivers still use of_phy_find_device() to circumvent the encapsulation
+and get the phy_device pointer, but this is unlikely a good thing
+to do. I even proposed some API extensions, but there was no
+interest.
 
-The test "ethtool -t <dev> offline" was being running continuously. The 
-first invocation passes, all subsequent ones fail (at least in the "link 
-test" step) after ~20 second timeout. When running the test once, I see 
-the following: Looking at /var/log/messages, I see a "Link is down" 
-message during the test. Then, 20 seconds after the test completes, 
-there is a "Link is up..." message. If I wait for the "Link is up..." 
-message I can run the test without problems. If the test is run again 
-while the link is still down, it fails and seems to delay the "link up" 
-by an additional 20 seconds.
+>>   By extracting the
+>> fixed-link parsing code from of_phy_register_fixed_link() into a
+>> separate function the parsed values are made available without chang=
+ing
+>> the existing API. This change also removes a small redundancy in the
+>> previous code calling fixed_phy_register().
+Today, the fixed_link is not always fixed.
+See for example this patch (already mainlined):
+https://lkml.org/lkml/2015/7/20/711
+of_phy_is_fixed_link() returns 'true' if you have
+managed=3D"in-band-status", and so the SGMII in-band status
+can update fixed-link params.
 
-If I run "external_lb" instead of "offline", I am able to run the test 
-repeatedly without error. So it seems that some action taken in the 
-"external_lb" case actually "repairs" the port. But the "external_lb" 
-test also exhibits the link-down for 20 seconds symptom, although it can 
-been run while the link is considered "down" without failure.
-
-The first question is whether we should expect to be able to run 
-"ethtool -t <dev> offline" continually, with no delay between runs. I 
-presume this is supported.
-
-Second question, I would like someone with experience with the tg3 
-driver and this adapter to comment on what might be done to fix this. My 
-first, simple, guess would be move the "tg3_phy_lpbk_set(tp, 0, true);" 
-setting (in tg3_test_loopback()) to be done for both "offline" and 
-"external_lb" cases. I am awaiting time on a system with this adapter in 
-order to try out some possible fixes and/or debug what might be 
-wrong/different with the configuration after the "offline" test.
-
-I would appreciate any help,
-Thanks,
-Doug Miller
+So my question is: why do you even need to know whether
+the link is fixed or not? IIRC you can check the phy_device
+pointer in the adjust_link callback of of_phy_connect() to get
+the current link status values. Why is this not enough for your
+task? Maybe the patch description should be updated to include
+why the current technique is bad, what is actually fixed by the
+change.
+I think using the fixed-link DT values directly is not something
+to be done. The encapsulation is there for a reason, so maybe
+instead we can see what API additions do we need to avoid the
+current limitations that force people to use of_phy_find_device()
+and other work-arounds.
