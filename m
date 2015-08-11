@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev
- FDB objects
-Date: Tue, 11 Aug 2015 12:05:18 -0700 (PDT)
-Message-ID: <20150811.120518.2294933288448291941.davem@davemloft.net>
-References: <1084602462.1280363.1439317122548.JavaMail.zimbra@savoirfairelinux.com>
-	<20150811.115249.1843804028134252781.davem@davemloft.net>
-	<20150811.120027.1186256660854311012.davem@davemloft.net>
+Subject: Re: [PATCH] net: fs_enet: mask interrupts for TX partial frames.
+Date: Tue, 11 Aug 2015 12:05:49 -0700 (PDT)
+Message-ID: <20150811.120549.725041722027995104.davem@davemloft.net>
+References: <20150811101103.045721A2414@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	linux@roeck-us.net, andrew@lunn.ch, sfeldma@gmail.com,
-	jiri@resnulli.us
-To: vivien.didelot@savoirfairelinux.com
+Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+To: christophe.leroy@c-s.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150811.120027.1186256660854311012.davem@davemloft.net>
+In-Reply-To: <20150811101103.045721A2414@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 11 Aug 2015 12:00:27 -0700 (PDT)
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Date: Tue, 11 Aug 2015 12:11:03 +0200 (CEST)
 
-> Ok, if you guys really want me to I'll do the revert-reapply thing.
+> We are not interested in interrupts for partially transmitted frames.
+> Unlike SCC and FCC, the FEC doesn't handle the I bit in buffer
+> descriptors, instead it defines two interrupt bits, TXB and TXF.
+> 
+> We have to mask TXB in order to only get interrupts once the
+> frame is fully transmitted.
+> 
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 
-Done.
+Applied.
