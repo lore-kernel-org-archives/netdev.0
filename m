@@ -1,48 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Unbreak resetting default values for
- tcp_wmem/udp_wmem_min
-Date: Mon, 10 Aug 2015 20:46:30 -0700 (PDT)
-Message-ID: <20150810.204630.1903301700926701432.davem@davemloft.net>
-References: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
-	<20150809.224114.818332231954008575.davem@davemloft.net>
-	<20150811033406.GA1136819@mail.thefacebook.com>
+Subject: Re: [PATCH 0/5] Netfilter fixes for net
+Date: Mon, 10 Aug 2015 21:08:46 -0700 (PDT)
+Message-ID: <20150810.210846.995750842725656061.davem@davemloft.net>
+References: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-team@fb.com, sorin@returnze.ro
-To: calvinowens@fb.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150811033406.GA1136819@mail.thefacebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46082 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740AbbHKEIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 00:08:47 -0400
+In-Reply-To: <1439229519-7640-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Calvin Owens <calvinowens@fb.com>
-Date: Mon, 10 Aug 2015 20:34:06 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 10 Aug 2015 19:58:34 +0200
 
-> I'm really questioning the limitation itself: why enforce a minimum of
-> SOCK_MIN_SNDBUF here? Why not SK_MEM_QUANTUM?
+> The following patchset contains five Netfilter fixes for your net tree,
+> they are:
 > 
-> Commit 8133534c760d4083 referred to b1cb59cf2efe7971, which choose to
-> use the SOCK_MIN constants as the lower limits to avoid nasty bugs. But
-> AFAICS, a limit of SOCK_MIN_SNDBUF isn't necessary to do that: the
-> BUG_ON cited in the commit message for b1cb59cf2efe7971 seems to have
-> happened because unix_stream_sendmsg() expects a minimum of a full page
-> (ie SK_MEM_QUANTUM) and the math broke, not because it had less than
-> SOCK_MIN_SNDBUF allocated.
+> 1) Silence a warning on falling back to vmalloc(). Since 88eab472ec21, we can
+>    easily hit this warning message, that gets users confused. So let's get rid
+>    of it.
 > 
-> Nothing seems to assume that it has at least SOCK_MIN_SNDBUF to play
-> with, so my argument is that enforcing a minimum of SK_MEM_QUANTUM
-> avoids the sort of bugs commit 8133534c760d4083 was trying to avoid, and
-> it does so without breaking anybody's sysctl configurations. What do you
-> think?
+> 2) Recently when porting the template object allocation on top of kmalloc to
+>    fix the netns dependencies between x_tables and conntrack, the error
+>    checks where left unchanged. Remove IS_ERR() and check for NULL instead.
+>    Patch from Dan Carpenter.
+> 
+> 3) Don't ignore gfp_flags in the new nf_ct_tmpl_alloc() function, from
+>    Joe Stringer.
+> 
+> 4) Fix a crash due to NULL pointer dereference in ip6t_SYNPROXY, patch from
+>    Phil Sutter.
+> 
+> 5) The sequence number of the Syn+ack that is sent from SYNPROXY to clients is
+>    not adjusted through our NAT infrastructure, as a result the client may
+>    ignore this TCP packet and TCP flow hangs until the client probes us.  Also
+>    from Phil Sutter.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-The author of said commit argues that too small values lead to really
-bad performance, but I guess he should have adjusted the default if he
-cared about it so much.
-
-Ok, can you respin your patch with some added details in the commit
-message like what you said above?
-
-Thanks.
+Pulled, thanks Pablo.
