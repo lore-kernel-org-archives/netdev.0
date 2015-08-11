@@ -1,37 +1,27 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH] net: fs_enet: explicitly remove I flag on TX partial frames
-Date: Tue, 11 Aug 2015 12:11:00 +0200 (CEST)
-Message-ID: <20150811101101.116E41A2414@localhost.localdomain>
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v3] xen-apic: Enable on domU as well
+Date: Tue, 11 Aug 2015 11:46:59 +0100
+Message-ID: <55C9D2A3.6010100@citrix.com>
+References: <1438879025-27362-1-git-send-email-Jason@zx2c4.com>
+ <1439214027-13994-1-git-send-email-Jason@zx2c4.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <stable@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xen.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1439214027-13994-1-git-send-email-Jason@zx2c4.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We are not interested in interrupts for partially transmitted frames,
-we have to clear BD_ENET_TX_INTR explicitly otherwise it may remain
-from a previously used descriptor.
+On 10/08/15 14:40, Jason A. Donenfeld wrote:
+> It turns out that domU also requires the Xen APIC driver. Otherwise we
+> get stuck in busy loops that never exit, such as in this stack trace:
 
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
----
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Applied to for-linus-4.2 and tagged for stable, thanks.
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index b9ad34e..84c18ee 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -585,7 +585,8 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	frag = skb_shinfo(skb)->frags;
- 	while (nr_frags) {
- 		CBDC_SC(bdp,
--			BD_ENET_TX_STATS | BD_ENET_TX_LAST | BD_ENET_TX_TC);
-+			BD_ENET_TX_STATS | BD_ENET_TX_INTR | BD_ENET_TX_LAST |
-+			BD_ENET_TX_TC);
- 		CBDS_SC(bdp, BD_ENET_TX_READY);
- 
- 		if ((CBDR_SC(bdp) & BD_ENET_TX_WRAP) == 0)
--- 
-2.1.0
+David
