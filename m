@@ -1,48 +1,31 @@
-From: yalin wang <yalin.wang2010@gmail.com>
-Subject: [PATCH v2 Resend] net/fddi: remove HWM_REVERSE() macro
-Date: Tue, 11 Aug 2015 13:11:22 +0800
-Message-ID: <39055924-5AA5-4DE0-8872-D2F107EA82F1@gmail.com>
-References: <1FEC219B-7AF2-47C9-8EBB-786EE6EADCE4@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	open list <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:32776 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976AbbHKFL0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 01:11:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: fix the bug "'struct bpf_array' has no
+ member named 'prog'" in s390 architecture
+Date: Mon, 10 Aug 2015 22:35:42 -0700 (PDT)
+Message-ID: <20150810.223542.2033645138701106691.davem@davemloft.net>
+References: <1439269224-13266-1-git-send-email-xiakaixu@huawei.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fengguang.wu@intel.com, ast@plumgrid.com, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, wangnan0@huawei.com
+To: xiakaixu@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439269224-13266-1-git-send-email-xiakaixu@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-HWM_REVERSE() macro is unused, remove it.
+From: Kaixu Xia <xiakaixu@huawei.com>
+Date: Tue, 11 Aug 2015 05:00:24 +0000
 
-Signed-off-by: yalin wang <yalin.wang2010@gmail.com>
----
-drivers/net/fddi/skfp/h/hwmtm.h | 10 ----------
-1 file changed, 10 deletions(-)
+> 'Kbuild test robot' sent me an email about a build error
+> "'struct bpf_array' has no member named 'prog'" in s390
+> architecture. This error is caused by commit: 2a36f0b92eb
+> 638dd023870574eb471b1c56be9ad [656/692] bpf: Make the bpf
+> _prog_array_map more generic. In this patch, the member 'prog'
+> of struct bpf_array has been replaced by 'ptrs'. So this
+> patch fix it.
 
-diff --git a/drivers/net/fddi/skfp/h/hwmtm.h b/drivers/net/fddi/skfp/h/hwmtm.h
-index 5924d42..4ca2341 100644
---- a/drivers/net/fddi/skfp/h/hwmtm.h
-+++ b/drivers/net/fddi/skfp/h/hwmtm.h
-@@ -74,15 +74,6 @@
-#define NULL           0
-#endif
-
--#ifdef LITTLE_ENDIAN
--#define HWM_REVERSE(x) (x)
--#else
--#define        HWM_REVERSE(x)          ((((x)<<24L)&0xff000000L)       +       \
--                                (((x)<< 8L)&0x00ff0000L)       +       \
--                                (((x)>> 8L)&0x0000ff00L)       +       \
--                                (((x)>>24L)&0x000000ffL))
--#endif
--
-#define C_INDIC                (1L<<25)
-#define A_INDIC                (1L<<26)
-#define        RD_FS_LOCAL     0x80
--- 
-1.9.1
+Please resubmit with a proper "Fixes: " and "Signed-off-by: "
+tags.
