@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] hamradio/kiss: missing error code in mkiss_open()
-Date: Mon, 10 Aug 2015 21:19:13 -0700 (PDT)
-Message-ID: <20150810.211913.2219664010166689156.davem@davemloft.net>
-References: <CA+55aFy1af43uxH1r=_CxTCgPNN802YA+H26Vbbkb=rknqZuXQ@mail.gmail.com>
-	<20150810213922.GA3380@mwanda>
+Subject: Re: [PATCH net] netconsole: Check for carrier before calling
+ netpoll_send_udp()
+Date: Mon, 10 Aug 2015 21:22:56 -0700 (PDT)
+Message-ID: <20150810.212256.1658635789817625453.davem@davemloft.net>
+References: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
-	torvalds@linux-foundation.org, zy900702@163.com
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46141 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976AbbHKETO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 00:19:14 -0400
-In-Reply-To: <20150810213922.GA3380@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jmaxwell@redhat.com
+To: jmaxwell37@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 11 Aug 2015 00:39:22 +0300
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Date: Tue, 11 Aug 2015 11:32:26 +1000
 
-> If register_netdev() fails we return success but we should return an
-> error code instead.
-> 
-> Reported-by: RUC_Soft_Sec <zy900702@163.com>
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> We have seen a few crashes recently where a NIC is getting
+> reset for some reason and then the driver or another module calls
+> printk() which invokes netconsole. Netconsole then calls the
+> adapter specific poll routine via netpoll which crashes because 
+> the adapter is resetting and its structures are being reinitialized.
 
-I just applied another patch which fixes this earlier.
+This isn't a fix.
+
+What if the carrier check passes, and then the chip reset starts on
+another cpu?  You'll have the same problem.
+
+I'm not applying this, sorry.
