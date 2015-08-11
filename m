@@ -1,58 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev
- FDB objects
-Date: Tue, 11 Aug 2015 12:00:27 -0700 (PDT)
-Message-ID: <20150811.120027.1186256660854311012.davem@davemloft.net>
-References: <20150811.110708.2068514265578197752.davem@davemloft.net>
-	<1084602462.1280363.1439317122548.JavaMail.zimbra@savoirfairelinux.com>
-	<20150811.115249.1843804028134252781.davem@davemloft.net>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH v2 1/2] igb: Teardown SR-IOV before
+	unregister_netdev()
+Date: Tue, 11 Aug 2015 19:01:42 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81AE3CE3@ORSMSX101.amr.corp.intel.com>
+References: <20150729203726.10732.91020.stgit@gimli.home>
+ <20150729203814.10732.38094.stgit@gimli.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	linux@roeck-us.net, andrew@lunn.ch, sfeldma@gmail.com,
-	jiri@resnulli.us
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51043 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752525AbbHKTA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 15:00:28 -0400
-In-Reply-To: <20150811.115249.1843804028134252781.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alex Williamson <alex.williamson@redhat.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150729203814.10732.38094.stgit@gimli.home>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 11 Aug 2015 11:52:49 -0700 (PDT)
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Alex Williamson
+> Sent: Wednesday, July 29, 2015 1:38 PM
+> To: intel-wired-lan@lists.osuosl.org; davem@davemloft.net; Kirsher,
+> Jeffrey T
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: [Intel-wired-lan] [PATCH v2 1/2] igb: Teardown SR-IOV before
+> unregister_netdev()
+> 
+> When the .remove() callback for a PF is called, SR-IOV support for the
+> device is disabled, which requires unbinding and removing the VFs.
+> The VFs may be in-use either by the host kernel or userspace, such as
+> assigned to a VM through vfio-pci.  In this latter case, the VFs may
+> be removed either by shutting down the VM or hot-unplugging the
+> devices from the VM.  Unfortunately in the case of a Windows 2012 R2
+> guest, hot-unplug is broken due to the ordering of the PF driver
+> teardown.  Disabling SR-IOV prior to unregister_netdev() avoids this
+> issue.
+> 
+> Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+> Acked-by: Mitch Williams <mitch.a.williams@intel.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c |    8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
 
-> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> Date: Tue, 11 Aug 2015 14:18:42 -0400 (EDT)
-> 
->> On Aug 11, 2015, at 2:07 PM, David davem@davemloft.net wrote:
->> 
->>> From: Florian Fainelli <f.fainelli@gmail.com>
->>> Date: Tue, 11 Aug 2015 11:03:35 -0700
->>> 
->>>> Put differently, my question is how do you value not rewriting
->>>> history vs. breaking bisectability (by accident of course)?
->>> 
->>> I never will rewrite history, ever.
->>> 
->>> Too many people clone my tree and depend upon it.
->> 
->> Sorry, I still don't understand. What are the consequences of:
->> 
->>     git revert -m 1 f1d5ca4
->> 
->> Then applying v3?
-> 
-> In this scenerio I think a relative fixup works better.
-> 
->> You already did that in the past:
->> https://github.com/torvalds/linux/commit/1f2cd84
-> 
-> Each and every situation is evaluated by me on a case by case
-> basis.
-
-Ok, if you guys really want me to I'll do the revert-reapply thing.
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
