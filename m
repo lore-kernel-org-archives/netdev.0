@@ -1,190 +1,135 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] iproute2: Add support for VRF device
-Date: Tue, 11 Aug 2015 22:17:35 +0300
-Message-ID: <E3EEA8BB-EC1B-409D-8577-5BC0EA2FC506@cumulusnetworks.com>
-References: <1439229037-79213-1-git-send-email-dsa@cumulusnetworks.com> <1439229037-79213-11-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	jtoppins@cumulusnetworks.com, ddutt@cumulusnetworks.com,
-	hannes@stressinduktion.org, nicolas.dichtel@6wind.com,
-	stephen@networkplumber.org, hadi@mojatatu.com,
-	ebiederm@xmission.com, davem@davemloft.net, svaidya@brocade.com
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Douglas Miller <dougmill@linux.vnet.ibm.com>
+Subject: Re: Question on behavior of tg3_self_test() (ethtool -t on tg3 driver)
+Date: Tue, 11 Aug 2015 14:24:17 -0500
+Message-ID: <55CA4BE1.80904@linux.vnet.ibm.com>
+References: <55CA1BF1.2060403@linux.vnet.ibm.com> <1439314863.6488.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	siva.kallam@broadcom.com
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:37956 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235AbbHKTRk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 15:17:40 -0400
-Received: by wicja10 with SMTP id ja10so81293678wic.1
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 12:17:38 -0700 (PDT)
-In-Reply-To: <1439229037-79213-11-git-send-email-dsa@cumulusnetworks.com>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:59323 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932312AbbHKTYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 15:24:21 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dougmill@linux.vnet.ibm.com>;
+	Tue, 11 Aug 2015 13:24:21 -0600
+Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id D868A3E4004E
+	for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 13:24:18 -0600 (MDT)
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by b03cxnp08025.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t7BJNMgG48496716
+	for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 12:23:22 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t7BJOINP012186
+	for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 13:24:18 -0600
+In-Reply-To: <1439314863.6488.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-Since there will be another version a few minor nits below,
+Thanks Michael for getting back to me.
 
-> On Aug 10, 2015, at 8:50 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> 
-> Allow user to create a vrf device and specify its table binding.
-> Based on the iplink_vlan implementation.
-> 
-> Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> include/linux/if_link.h |  8 +++++
-> ip/Makefile             |  2 +-
-> ip/iplink.c             |  2 +-
-> ip/iplink_vrf.c         | 85 +++++++++++++++++++++++++++++++++++++++++++++++++
-> 4 files changed, 95 insertions(+), 2 deletions(-)
-> create mode 100644 ip/iplink_vrf.c
-> 
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index b905cf7f4948..74dedf4320b8 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -338,6 +338,14 @@ enum macvlan_macaddr_mode {
-> 
-> #define MACVLAN_FLAG_NOPROMISC	1
-> 
-> +/* VRF section */
-> +enum {
-> +	IFLA_VRF_UNSPEC,
-> +	IFLA_VRF_TABLE,
-> +	__IFLA_VRF_MAX
-> +};
-> +
-> +#define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
-> /* IPVLAN section */
-> enum {
-> 	IFLA_IPVLAN_UNSPEC,
-> diff --git a/ip/Makefile b/ip/Makefile
-> index 77653ecc5785..d8b38ac2e44b 100644
-> --- a/ip/Makefile
-> +++ b/ip/Makefile
-> @@ -7,7 +7,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
->     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o \
->     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
->     iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
-> -    iplink_geneve.o
-> +    iplink_geneve.o iplink_vrf.o
-> 
-> RTMONOBJ=rtmon.o
-> 
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index 369d50eab94e..14bf7211a447 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -94,7 +94,7 @@ void iplink_usage(void)
-> 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
-> 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
-> 		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon |\n");
-> -		fprintf(stderr, "          bond_slave | ipvlan | geneve }\n");
-> +		fprintf(stderr, "          bond_slave | ipvlan | geneve | vrf }\n");
-> 	}
-> 	exit(-1);
-> }
-> diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-> new file mode 100644
-> index 000000000000..0d7e21c7c152
-> --- /dev/null
-> +++ b/ip/iplink_vrf.c
-> @@ -0,0 +1,85 @@
-> +/* iplink_vrf.c	VRF device support
-> + *
-> + *              This program is free software; you can redistribute it and/or
-> + *              modify it under the terms of the GNU General Public License
-> + *              as published by the Free Software Foundation; either version
-> + *              2 of the License, or (at your option) any later version.
-> + *
-> + * Authors:     Shrijeet Mukherjee <shm@cumulusnetworks.com>
-> + */
-> +
-> +#include <stdio.h>
-> +#include <stdlib.h>
-> +#include <string.h>
-> +#include <sys/socket.h>
-> +#include <linux/if_link.h>
-> +
-> +#include "rt_names.h"
-> +#include "utils.h"
-> +#include "ip_common.h"
-> +
-> +static void vrf_explain(FILE *f)
-> +{
-> +	fprintf(f, "Usage: ... vrf table TABLEID \n");
-> +}
-> +
-> +static void explain(void)
-> +{
-> +	vrf_explain(stderr);
-> +}
-> +
-> +static int table_arg(void)
-> +{
-> +	fprintf(stderr,"Error: argument of \"table\" must be 0-32767 and currently unused\n");
-> +	return -1;
-> +}
-> +
-> +static int vrf_parse_opt(struct link_util *lu, int argc, char **argv,
-> +			    struct nlmsghdr *n)
-> +{
-> +	while (argc > 0) {
-> +		if (matches(*argv, "table") == 0) {
-> +			__u32 table = 0;
-> +			NEXT_ARG();
-^^^
-Please leave a line between local variable definitions and code. Also no need
-to initialize table to 0.
+Yes, the "wrap plugs" are the loopback cables/plugs. It is my 
+understanding that the "offline" tests do not require anything to be 
+plugged into the ports, as they do not in any way touch the "external" 
+port. They perform an "internal loopback" test which does not depend on 
+any external connection.
 
-> +
-> +			table = atoi(*argv);
-> +			if (table < 0 || table > 32767)
-^^^
-table is unsigned, so < 0 will be always false.
+ From what I can tell, the only difference between "offline" and 
+"external_lb" is that "external_lb" performs the external loopback 
+tests, *in addition to* all the tests done for "offline". This would 
+imply that the only tests that depend on anything connected to the 
+physical port is "external_lb", and there is no requirement that the 
+wrap plugs be removed/replaced in order to run "offline" tests.
 
-> +				return table_arg();
-> +			addattr32(n, 1024, IFLA_VRF_TABLE, table);
-> +		} else if (matches(*argv, "help") == 0) {
-> +			explain();
-> +			return -1;
-> +		} else {
-> +			fprintf(stderr, "vrf: unknown option \"%s\"?\n",
-> +				*argv);
-> +			explain();
-> +			return -1;
-> +		}
-> +		argc--, argv++;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static void vrf_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
-> +{
-> +	if (!tb)
-> +		return;
-> +
-> +	if (tb[IFLA_VRF_TABLE])
-> +		fprintf(f, "table %u ", rta_getattr_u32(tb[IFLA_VRF_TABLE]));
-> +}
-> +
-> +static void vrf_print_help(struct link_util *lu, int argc, char **argv,
-> +			      FILE *f)
-> +{
-> +	vrf_explain(f);
-> +}
-> +
-> +struct link_util vrf_link_util = {
-> +	.id		= "vrf",
-> +	.maxattr	= IFLA_VRF_MAX,
-> +	.parse_opt	= vrf_parse_opt,
-> +	.print_opt	= vrf_print_opt,
-> +	.print_help	= vrf_print_help,
-> +};
-> -- 
-> 2.3.2 (Apple Git-55)
-> 
+In the case I was debugging, wrap plugs were installed because the ports 
+were, later, being tested in an "external loopback" way.
+
+What I am observing is that it takes about 20 seconds for the kernel to 
+declare that the link is up, after running the "offline" or 
+"external_lb" test. In the case of "offline" I cannot run the test again 
+until the kernel declares the link up. In the case of "external_lb" I 
+can run the test again immediately and it passes. This suggests to me 
+that the "external_lb" case (again, it is a superset of "offline") is 
+performing some configuration on the port that allows the subsequent 
+test to work. The one significant difference between "offline" and 
+"external_lb" is that "external_lb" performs the
+"tg3_phy_lpbk_set(tp, 0, true);" changes to configuration (immediately 
+prior to running the loopback tests again). I believe this call is to 
+switch from "internal loopback" to "normal", in order to leverage the 
+wrap plugs and perform the external loopback tests. But this call is not 
+made for "offline" and I am wondering if that leaves the port in a state 
+where it cannot be used until the kernel completes the "link up".
+
+Thanks,
+Doug
+
+
+
+On 08/11/2015 12:41 PM, Michael Chan wrote:
+> On Tue, 2015-08-11 at 10:59 -0500, Douglas Miller wrote:
+>> (Sorry if you got several duplicates, am trying to work through rejected
+>> messages due to supposed HTML content)
+>>
+>> The following behavior is being observed when running "ethtool -t <dev>
+>> offline" on ports on the Broadcom BCM5719 adapter (tg3 driver). The
+>> ports have wrap plugs on them, although I'm not sure why that would have
+>> any affect.
+> I'm not sure what are wrap plugs.
+>
+>> The test "ethtool -t <dev> offline" was being running continuously. The
+>> first invocation passes, all subsequent ones fail (at least in the "link
+>> test" step) after ~20 second timeout. When running the test once, I see
+>> the following: Looking at /var/log/messages, I see a "Link is down"
+>> message during the test. Then, 20 seconds after the test completes,
+>> there is a "Link is up..." message. If I wait for the "Link is up..."
+>> message I can run the test without problems. If the test is run again
+>> while the link is still down, it fails and seems to delay the "link up"
+>> by an additional 20 seconds.
+> When you do offline test, the chip is reset and the PHY is also reset,
+> causing the link to go down.  Normally, link should come back up within
+> a few seconds.  The selftest code will wait for 6 seconds for copper and
+> 2 seconds for serdes link to be up before declaring there is no link.
+>
+> So for whaever reason, the link in your setup takes longer than that to
+> come up and therefore it fails the link test when you run it in a loop
+> starting on the 2nd iteration.
+>
+>
+>> If I run "external_lb" instead of "offline", I am able to run the test
+>> repeatedly without error. So it seems that some action taken in the
+>> "external_lb" case actually "repairs" the port. But the "external_lb"
+>> test also exhibits the link-down for 20 seconds symptom, although it can
+>> been run while the link is considered "down" without failure.
+> External loopback requires a loopback cable.  So you must have a
+> loopback cable for this test to pass.  May be that's what you meant by
+> wrap plugs.
+>
+>> The first question is whether we should expect to be able to run
+>> "ethtool -t <dev> offline" continually, with no delay between runs. I
+>> presume this is supported.
+> If your intention is to run external loopback, yes you should specify
+> external loopback.  Otherwise the driver expects normal link behavior
+> and that's why it fails.
+>
+> If you connect a normal cable, then ethtool -t <dev> offline works
+> repeatedly, right?
+>
+>> Second question, I would like someone with experience with the tg3
+>> driver and this adapter to comment on what might be done to fix this. My
+>> first, simple, guess would be move the "tg3_phy_lpbk_set(tp, 0, true);"
+>> setting (in tg3_test_loopback()) to be done for both "offline" and
+>> "external_lb" cases. I am awaiting time on a system with this adapter in
+>> order to try out some possible fixes and/or debug what might be
+>> wrong/different with the configuration after the "offline" test.
+>>
+>> I would appreciate any help,
+>> Thanks,
+>> Doug Miller
+>>
+>
