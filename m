@@ -1,97 +1,39 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH net] sctp: ASCONF-ACK with Unresolvable Address should
- be sent
-Date: Tue, 11 Aug 2015 08:40:34 -0300
-Message-ID: <55C9DF32.5060808@gmail.com>
-References: <1437800888-17413-1-git-send-email-lucien.xin@gmail.com>
- <20150727134426.GS1730@localhost.localdomain>
- <CADvbK_cgaKf5nAGu-uE9NzgWpXrdHdqO82rAEWd63V9fO88M5w@mail.gmail.com>
+From: =?windows-1251?B?xerx7+Xw8g==?= <e.q.u.i.t.a.s@ukr.net>
+Subject: =?windows-1251?B?0OW6Y/LwYfaz/ywg67Pq4rPkYfaz/w==?=
+Date: Tue, 11 Aug 2015 14:19:47 +0300
+Message-ID: <916B3342EA3E1C0FD3D69F2216D438B9@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>
-To: lucien xin <lucien.xin@gmail.com>, davem <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1251;
+	format=flowed	reply-type=original
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:33578 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934028AbbHKLko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 07:40:44 -0400
-Received: by qged69 with SMTP id d69so136764538qge.0
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 04:40:43 -0700 (PDT)
-In-Reply-To: <CADvbK_cgaKf5nAGu-uE9NzgWpXrdHdqO82rAEWd63V9fO88M5w@mail.gmail.com>
+Received: from wiki-mail-eqiad.wikimedia.org ([93.171.205.129]:49963 "EHLO
+	wiki-mail-eqiad.wikimedia.org" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S964862AbbHKMT6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Aug 2015 08:19:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 11-08-2015 01:34, lucien xin escreveu:
-> On Mon, Jul 27, 2015 at 9:44 PM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
->> On Sat, Jul 25, 2015 at 01:08:08PM +0800, Xin Long wrote:
->>> RFC 5061:
->>>      This is an opaque integer assigned by the sender to identify each
->>>      request parameter.  The receiver of the ASCONF Chunk will copy this
->>>      32-bit value into the ASCONF Response Correlation ID field of the
->>>      ASCONF-ACK response parameter.  The sender of the ASCONF can use this
->>>      same value in the ASCONF-ACK to find which request the response is
->>>      for.  Note that the receiver MUST NOT change this 32-bit value.
->>>
->>>      Address Parameter: TLV
->>>
->>>      This field contains an IPv4 or IPv6 address parameter, as described
->>>      in Section 3.3.2.1 of [RFC4960].
->>>
->>> ASCONF chunk with Error Cause Indication Parameter (Unresolvable Address)
->>> should be sent if the Delete IP Address is not part of the association.
->>>
->>>    Endpoint A                           Endpoint B
->>>    (ESTABLISHED)                        (ESTABLISHED)
->>>
->>>    ASCONF        ----------------->
->>>    (Delete IP Address)
->>>                  <-----------------      ASCONF-ACK
->>>                                          (Unresolvable Address)
->>>
->>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>> ---
->>>   net/sctp/sm_make_chunk.c | 15 +++++++++++++--
->>>   1 file changed, 13 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
->>> index 06320c8..6e399f6 100644
->>> --- a/net/sctp/sm_make_chunk.c
->>> +++ b/net/sctp/sm_make_chunk.c
->>> @@ -3090,8 +3090,19 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
->>>                        sctp_assoc_set_primary(asoc, asconf->transport);
->>>                        sctp_assoc_del_nonprimary_peers(asoc,
->>>                                                        asconf->transport);
->>> -             } else
->>> -                     sctp_assoc_del_peer(asoc, &addr);
->>> +                     return SCTP_ERROR_NO_ERROR;
->>> +             }
->>> +
->>> +             /* If the address is not part of the association, the
->>> +              * ASCONF-ACK with Error Cause Indication Parameter
->>> +              * which including cause of Unresolvable Address should
->>> +              * be sent.
->>> +              */
->>> +             peer = sctp_assoc_lookup_paddr(asoc, &addr);
->>> +             if (!peer)
->>> +                     return SCTP_ERROR_DNS_FAILED;
->>> +
->>> +             sctp_assoc_rm_peer(asoc, peer);
->>>                break;
->>>        case SCTP_PARAM_SET_PRIMARY:
->>>                /* ADDIP Section 4.2.4
->>> --
->>> 2.1.0
->>>
->>
->> Looks good to me.
->>
->>    Marcelo
->>
->
-> any update for this one? is it accepted?
 
-You posted it as RFC only. Now we are waiting for its official version.
+=CB=B3=F2=EE, =F1=EF=E5=EA=E0...=D5=EE=F7=E5=F2=FC=F1=FF =E2=B3=E4=EF=EE=
+=F7=E8=F2=E8, =E0=EB=E5 c=EF=EE=EA=EE=FE =ED=E5 =E4=E0=BA =E2=E0=F8=E0 =
+=FE=F0=E8=E4=E8=F7=EDa =EE=F1=EE=E1a, =FF=EA=F3 =E4=E0=E2=ED=EE c=EB=B3=
+=E4 =E1=F3=EB=EE =EB=B3=EA=E2=B3=E4=F3=E2=E0=F2=E8?=20
 
-   Marcelo
+=D7=EE=EC=F3 =E1 =ED=E5 =E2=E7=FF=F2=E8=F1=FF =E7=E0 =F6=E5 =F1=E0=EC=E5=
+ =E7=E0=F0=E0=E7, =E0=E4=E6=E5 =FE=F0=E8=E4=E8=F7=ED=E0 =F4=B3=F0=EC=E0=
+ =C5=EA=E2=B3=F2=E0=F1 =CA=EE=EC=EF=E0=ED=B3 =EF=F0=EE=EF=EE=ED=F3=BA =E3=
+=E0=F0=ED=F3 =F6=B3=ED=F3 - =EB=B3=EA=E2=B3=E4a=F6=B3=FF =FE=F0=E8=E4=E8=
+=F7=ED=EE=BF =EEc=EE=E1=E8 =E2=B3=E4 4500 =E3=F0=ED. =CF=F0=E8=EF=E8=ED=
+=E5=ED=ED=FF =E4=B3=FF=EB=FC=ED=EE=F1=F2=B3 =D4O=CF - 4000 =E3=F0=ED.=20
+
+=C0 =ED=EE=E2=E8=E9 =E1=B3=E7=ED=E5=F1 =E7a=F0=E5=BA=F1=F2=F0=F3=E2=E0=F2=
+=E8 - =E7 =ED=E0=EC=E8 =EF=F0=EE=F1=F2=B3=F8=E5 =EF=F0=EE=F1=F2=EE=E3=EE=
+, =E0 =F2=E0=EA=EE=E6 =F8=E2=E8=E4=EA=EE =B3 =ED=E5=E4=EE=F0=EE=E3=EE -=
+ =D4O=CF - 1300 =E3=F0=ED., =E0 =FE=F0=E8=E4=E8=F7=ED=E0 =EE=F1=EE=E1=E0=
+-1700 =E3=F0=ED.
+
+O67*=D7=D70*12*=D7=D7
+0=D7=D7*38=C7*47*6=CE
