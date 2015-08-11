@@ -1,65 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 04/10] batman-adv: Make NC capability changes atomic
-Date: Tue, 11 Aug 2015 22:38:02 +0300
-Message-ID: <55CA4F1A.1050606@cogentembedded.com>
-References: <1439310948-32426-1-git-send-email-antonio@meshcoding.com>
- <1439310948-32426-5-git-send-email-antonio@meshcoding.com>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: pull request: bluetooth 2015-08-11
+Date: Tue, 11 Aug 2015 23:04:06 +0300
+Message-ID: <20150811200406.GA6173@t440s.P-661HNU-F1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: Antonio Quartulli <antonio@meshcoding.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:36586 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753334AbbHKTiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 15:38:06 -0400
-Received: by lbbpu9 with SMTP id pu9so92123131lbb.3
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 12:38:04 -0700 (PDT)
-In-Reply-To: <1439310948-32426-5-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="r5Pyd7+fXNt84Ff3"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/11/2015 07:35 PM, Antonio Quartulli wrote:
 
-> From: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
->
-> Bitwise OR/AND assignments in C aren't guaranteed to be atomic. One
-> OGM handler might undo the set/clear of a specific bit from another
-> handler run in between.
->
-> Fix this by using the atomic set_bit()/clear_bit()/test_bit() functio=
-ns.
->
-> Fixes: 3f4841ffb336 ("batman-adv: tvlv - add network coding container=
-")
-> Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
-> Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-> Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
-> ---
->   net/batman-adv/network-coding.c | 7 ++++---
->   net/batman-adv/types.h          | 2 +-
->   2 files changed, 5 insertions(+), 4 deletions(-)
->
-> diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network=
--coding.c
-> index f0a50f3..cfdc80d 100644
-> --- a/net/batman-adv/network-coding.c
-> +++ b/net/batman-adv/network-coding.c
-[...]
-> @@ -894,7 +895,7 @@ void batadv_nc_update_nc_node(struct batadv_priv =
-*bat_priv,
->   		goto out;
->
->   	/* check if orig node is network coding enabled */
-> -	if (!(orig_node->capabilities & BATADV_ORIG_CAPA_HAS_NC))
-> +	if (!(test_bit(BATADV_ORIG_CAPA_HAS_NC, &orig_node->capabilities)))
+--r5Pyd7+fXNt84Ff3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-    Likewise, () around the call no needed.
+Hi Dave,
 
-[...]
+Here's an important regression fix for the 4.2-rc series that ensures
+user space isn't given invalid LTK values. The bug essentially prevents
+the encryption of subsequent LE connections, i.e. makes it impossible to
+pair devices over LE.
 
-MBR, Sergei
+Let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 2475b22526d70234ecfe4a1ff88aed69badefba9:
+
+  xen-netback: Allocate fraglist early to avoid complex rollback (2015-08-03 22:23:03 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
+
+for you to fetch changes up to cb92205bad2e4dd630b884142dd707b72504c200:
+
+  Bluetooth: fix MGMT_EV_NEW_LONG_TERM_KEY event (2015-08-06 16:36:03 +0200)
+
+----------------------------------------------------------------
+Jakub Pawlowski (1):
+      Bluetooth: fix MGMT_EV_NEW_LONG_TERM_KEY event
+
+ net/bluetooth/mgmt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--r5Pyd7+fXNt84Ff3
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVylU2AAoJECQj9vv5qNQSZNAP/3iJySx+Jg7An9YGVQlrP+yA
+vEfOMN5PDbaSae/KHRBhE1hWfPIyLx6gVfXAgJqGUPg8ApsPE6pMCBCOgB3ySR3w
+m6/dAmm64jMsO8h5SocKPY4/GCcrA7nMNN/jro2F6OXHMsokXmAZvJhd5HrNwiwL
+UOwRxJ/YR5zVuvQURzY9YYepzVUoVtpKbLTF8qoEyyMgBCxrFYniSOOt/bhhQCvd
+ld6uBNoZSt2IM/fnMc1aWZSOe5eBgggXcxHbtRoH7xsykSX/8M4fCBmLjZh66e8T
+U70FN63zSz4HF78o5xLuXjwbNetm+xS/P68drdA5DmkSm23DOo9ePuES3zJ0ERHX
+MmwsqRw7hp052swi5BKsWOO7Y7QnR0mi96QWVrIiM7UP44AdYsTk0C7aLGoQsezM
++tbO7KoDm5ZgvHMw0fWFZsvLeqAXFoh/yzc9ISK5btSIgJLkUTUgbnJqnZPVKWA4
+0xmD02X5/ut1Cbt7u4TxI773qX8TCriTbr4E6MMSUbB/z/uapyonfp/uaByNDccS
+vJfuF2JNiCU9E3G+wqRctVACIWpVHCIHL03iw2cRS0jyVEmB5+liZrdXM/G3NLUN
+c1GFr91mRTmopcW/+fdl2d1ZsU+YcJqRiJKD40mV88lcEeEOd8lM4KCw7btCY2Sl
+5kIGdkYOzdPyf0LO5ArN
+=bm7P
+-----END PGP SIGNATURE-----
+
+--r5Pyd7+fXNt84Ff3--
