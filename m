@@ -1,64 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net-next] sky2: use random address if EEPROM is bad
-Date: Tue, 11 Aug 2015 21:56:06 +0300
-Message-ID: <55CA4546.40904@cogentembedded.com>
-References: <55C2AB51.1040409@gmail.com>
- <1439303756-30333-1-git-send-email-Liviu.Dudau@arm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/7] net: dsa: mv88e6xxx: support switchdev
+ FDB objects
+Date: Tue, 11 Aug 2015 12:00:27 -0700 (PDT)
+Message-ID: <20150811.120027.1186256660854311012.davem@davemloft.net>
+References: <20150811.110708.2068514265578197752.davem@davemloft.net>
+	<1084602462.1280363.1439317122548.JavaMail.zimbra@savoirfairelinux.com>
+	<20150811.115249.1843804028134252781.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mirko Lindner <mlindner@marvell.com>,
-	Ryan Harkin <ryan.harkin@linaro.org>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-To: Liviu Dudau <Liviu.Dudau@arm.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439303756-30333-1-git-send-email-Liviu.Dudau@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	linux@roeck-us.net, andrew@lunn.ch, sfeldma@gmail.com,
+	jiri@resnulli.us
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51043 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525AbbHKTA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 15:00:28 -0400
+In-Reply-To: <20150811.115249.1843804028134252781.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 11 Aug 2015 11:52:49 -0700 (PDT)
 
-On 08/11/2015 05:35 PM, Liviu Dudau wrote:
+> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Date: Tue, 11 Aug 2015 14:18:42 -0400 (EDT)
+> 
+>> On Aug 11, 2015, at 2:07 PM, David davem@davemloft.net wrote:
+>> 
+>>> From: Florian Fainelli <f.fainelli@gmail.com>
+>>> Date: Tue, 11 Aug 2015 11:03:35 -0700
+>>> 
+>>>> Put differently, my question is how do you value not rewriting
+>>>> history vs. breaking bisectability (by accident of course)?
+>>> 
+>>> I never will rewrite history, ever.
+>>> 
+>>> Too many people clone my tree and depend upon it.
+>> 
+>> Sorry, I still don't understand. What are the consequences of:
+>> 
+>>     git revert -m 1 f1d5ca4
+>> 
+>> Then applying v3?
+> 
+> In this scenerio I think a relative fixup works better.
+> 
+>> You already did that in the past:
+>> https://github.com/torvalds/linux/commit/1f2cd84
+> 
+> Each and every situation is evaluated by me on a case by case
+> basis.
 
-> On some embedded systems the EEPROM does not contain a valid MAC address.
-> In that case it is better to fallback to a generated mac address and
-> let init scripts fix the value later.
-
-> Reported-by: Liviu Dudau <Liviu.Dudau@arm.com>
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> [Changed handcoded setup to use eth_hw_addr_random() instead]
-> Signed-off-by: Liviu Dudau <Liviu.Dudau@arm.com>
-> ---
-> I have tested this on my Juno platform and I can successfully do an nfsroot boot.
-
-> Best regards,
-> Liviu
-
->   drivers/net/ethernet/marvell/sky2.c | 7 +++++++
->   1 file changed, 7 insertions(+)
-
-> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-> index d9f4498..c309879 100644
-> --- a/drivers/net/ethernet/marvell/sky2.c
-> +++ b/drivers/net/ethernet/marvell/sky2.c
-> @@ -4819,6 +4819,13 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
->   		memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8,
->   			      ETH_ALEN);
->
-> +	/* if the address is invalid, use a random value */
-> +	if (!is_valid_ether_addr(dev->dev_addr)) {
-> +		netdev_warn(dev,
-> +			"Invalid MAC address, defaulting to random\n");
-
-    Please start the continuation line right under 'dev' on the borken up line.
-
-> +		eth_hw_addr_random(dev);
-> +	}
-> +
->   	return dev;
->   }
-
-MBR, Sergei
+Ok, if you guys really want me to I'll do the revert-reapply thing.
