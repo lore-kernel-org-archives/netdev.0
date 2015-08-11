@@ -1,60 +1,92 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 02/10] batman-adv: Avoid u32 overflow during gateway select
-Date: Tue, 11 Aug 2015 18:35:40 +0200
-Message-ID: <1439310948-32426-3-git-send-email-antonio__44889.1765591272$1439311094$gmane$org@meshcoding.com>
+Subject: [PATCH 04/10] batman-adv: Make NC capability changes atomic
+Date: Tue, 11 Aug 2015 18:35:42 +0200
+Message-ID: <1439310948-32426-5-git-send-email-antonio__33652.6077510372$1439311110$gmane$org@meshcoding.com>
 References: <1439310948-32426-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Ruben Wisniewski <ruben@freifunk-nrw.de>,
-	Ruben Wisniewsi <ruben@vfn-nrw.de>,
-	Sven Eckelmann <sven@narfation.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:25294 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:1919 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965202AbbHKQg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Aug 2015 12:36:57 -0400
+	id S965382AbbHKQhA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Aug 2015 12:37:00 -0400
 In-Reply-To: <1439310948-32426-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ruben Wisniewski <ruben@freifunk-nrw.de>
+=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 
-The gateway selection based on fast connections is using a single value
-calculated from the average tq (0-255) and the download bandwidth (in
-100Kibit). The formula for the first step (tq ** 2 * 10000 * bandwidth)
-tends to overflow a u32 with low bandwidth settings like 50 [100KiBit]
-and a tq value of over 92.
+Bitwise OR/AND assignments in C aren't guaranteed to be atomic. One
+OGM handler might undo the set/clear of a specific bit from another
+handler run in between.
 
-Changing this to a 64 bit unsigned integer allows to support a
-bandwidth_down with up to ~2.8e10 [100KiBit] and a perfect tq of 255. This
-is ~6.6 times higher than the maximum possible value of the gateway
-announcement TVLV.
+=46ix this by using the atomic set_bit()/clear_bit()/test_bit() functio=
+ns.
 
-This problem only affects the non-default gw_sel_class 1.
-
-Signed-off-by: Ruben Wisniewsi <ruben@vfn-nrw.de>
-[sven@narfation.org: rewritten commit message]
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
+=46ixes: 3f4841ffb336 ("batman-adv: tvlv - add network coding container=
+")
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/gateway_client.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/network-coding.c | 7 ++++---
+ net/batman-adv/types.h          | 2 +-
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index e1e1f31..4ac24d8 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -153,7 +153,7 @@ batadv_gw_get_best_gw_node(struct batadv_priv *bat_priv)
- 	struct batadv_neigh_node *router;
- 	struct batadv_neigh_ifinfo *router_ifinfo;
- 	struct batadv_gw_node *gw_node, *curr_gw = NULL;
--	uint32_t max_gw_factor = 0, tmp_gw_factor = 0;
-+	uint64_t max_gw_factor = 0, tmp_gw_factor = 0;
- 	uint8_t max_tq = 0;
- 	uint8_t tq_avg;
- 	struct batadv_orig_node *orig_node;
--- 
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-c=
+oding.c
+index f0a50f3..cfdc80d 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -19,6 +19,7 @@
+ #include "main.h"
+=20
+ #include <linux/atomic.h>
++#include <linux/bitops.h>
+ #include <linux/byteorder/generic.h>
+ #include <linux/compiler.h>
+ #include <linux/debugfs.h>
+@@ -134,9 +135,9 @@ static void batadv_nc_tvlv_ogm_handler_v1(struct ba=
+tadv_priv *bat_priv,
+ 					  uint16_t tvlv_value_len)
+ {
+ 	if (flags & BATADV_TVLV_HANDLER_OGM_CIFNOTFND)
+-		orig->capabilities &=3D ~BATADV_ORIG_CAPA_HAS_NC;
++		clear_bit(BATADV_ORIG_CAPA_HAS_NC, &orig->capabilities);
+ 	else
+-		orig->capabilities |=3D BATADV_ORIG_CAPA_HAS_NC;
++		set_bit(BATADV_ORIG_CAPA_HAS_NC, &orig->capabilities);
+ }
+=20
+ /**
+@@ -894,7 +895,7 @@ void batadv_nc_update_nc_node(struct batadv_priv *b=
+at_priv,
+ 		goto out;
+=20
+ 	/* check if orig node is network coding enabled */
+-	if (!(orig_node->capabilities & BATADV_ORIG_CAPA_HAS_NC))
++	if (!(test_bit(BATADV_ORIG_CAPA_HAS_NC, &orig_node->capabilities)))
+ 		goto out;
+=20
+ 	/* accept ogms from 'good' neighbors and single hop neighbors */
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 29fd625..ed4aec5 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -314,7 +314,7 @@ struct batadv_orig_node {
+  */
+ enum batadv_orig_capabilities {
+ 	BATADV_ORIG_CAPA_HAS_DAT,
+-	BATADV_ORIG_CAPA_HAS_NC =3D BIT(1),
++	BATADV_ORIG_CAPA_HAS_NC,
+ 	BATADV_ORIG_CAPA_HAS_TT =3D BIT(2),
+ 	BATADV_ORIG_CAPA_HAS_MCAST =3D BIT(3),
+ };
+--=20
 2.5.0
