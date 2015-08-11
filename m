@@ -1,37 +1,48 @@
-From: Jonathan Maxwell <jmaxwell37@gmail.com>
-Subject: Re: [PATCH net] netconsole: Check for carrier before calling netpoll_send_udp()
-Date: Tue, 11 Aug 2015 15:53:18 +1000
-Message-ID: <CAGHK07DgBuVk==rJrc2gWa311DCMJK9NdDDk8OJAfRb=YLigBg@mail.gmail.com>
-References: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
-	<20150810.212256.1658635789817625453.davem@davemloft.net>
+From: Kaixu Xia <xiakaixu@huawei.com>
+Subject: [PATCH v2 net-next] bpf: s390: Fix build error caused by the struct bpf_array member name changed
+Date: Tue, 11 Aug 2015 06:53:46 +0000
+Message-ID: <1439276026-60789-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jon Maxwell <jmaxwell@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<wangnan0@huawei.com>, <xiakaixu@huawei.com>
+To: <fengguang.wu@intel.com>, <davem@davemloft.net>,
+	<ast@plumgrid.com>, <schwidefsky@de.ibm.com>,
+	<heiko.carstens@de.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150810.212256.1658635789817625453.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> What if the carrier check passes, and then the chip reset starts on
-> another cpu?  You'll have the same problem.
+There is a build error that "'struct bpf_array' has no member
+named 'prog'" on s390. In commit 2a36f0b, the member 'prog' of
+struct bpf_array is replaced by 'ptrs'. So this patch fixes it.
 
-Okay, let me see if I can come up with a better way to mitigate this.
+Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+---
+ arch/s390/net/bpf_jit_comp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On Tue, Aug 11, 2015 at 2:22 PM, David Miller <davem@davemloft.net> wrote:
-> From: Jon Maxwell <jmaxwell37@gmail.com>
-> Date: Tue, 11 Aug 2015 11:32:26 +1000
->
->> We have seen a few crashes recently where a NIC is getting
->> reset for some reason and then the driver or another module calls
->> printk() which invokes netconsole. Netconsole then calls the
->> adapter specific poll routine via netpoll which crashes because
->> the adapter is resetting and its structures are being reinitialized.
->
-> This isn't a fix.
->
-> What if the carrier check passes, and then the chip reset starts on
-> another cpu?  You'll have the same problem.
->
-> I'm not applying this, sorry.
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 9f4bbc0..eeda051 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -1032,7 +1032,7 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp, int i
+ 				      MAX_TAIL_CALL_CNT, 0, 0x2);
+ 
+ 		/*
+-		 * prog = array->prog[index];
++		 * prog = array->ptrs[index];
+ 		 * if (prog == NULL)
+ 		 *         goto out;
+ 		 */
+@@ -1041,7 +1041,7 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp, int i
+ 		EMIT6_DISP_LH(0xeb000000, 0x000d, REG_1, BPF_REG_3, REG_0, 3);
+ 		/* lg %r1,prog(%b2,%r1) */
+ 		EMIT6_DISP_LH(0xe3000000, 0x0004, REG_1, BPF_REG_2,
+-			      REG_1, offsetof(struct bpf_array, prog));
++			      REG_1, offsetof(struct bpf_array, ptrs));
+ 		/* clgij %r1,0,0x8,label0 */
+ 		EMIT6_PCREL_IMM_LABEL(0xec000000, 0x007d, REG_1, 0, 0, 0x8);
+ 
+-- 
+1.8.3.4
