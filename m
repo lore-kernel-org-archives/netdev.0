@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IGMP: Inhibit reports for local multicast groups
-Date: Wed, 12 Aug 2015 16:45:19 -0700 (PDT)
-Message-ID: <20150812.164519.1783786478654950784.davem@davemloft.net>
-References: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
+Subject: Re: [PATCH v2 net-next] documentation: bring vxlan documentation
+ more up-to-date
+Date: Wed, 12 Aug 2015 16:46:58 -0700 (PDT)
+Message-ID: <20150812.164658.994422326745582674.davem@davemloft.net>
+References: <20150812172314.5C6862900958@tardy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: pdowney@brocade.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: raj@tardy.usa.hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60768 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751359AbbHLXq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 19:46:58 -0400
+In-Reply-To: <20150812172314.5C6862900958@tardy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philip Downey <pdowney@brocade.com>
-Date: Wed, 12 Aug 2015 17:13:53 +0100
+From: raj@tardy.usa.hp.com (Rick Jones)
+Date: Wed, 12 Aug 2015 10:23:14 -0700 (PDT)
 
-> IGMP reports are generated for link local multicast groups (224.0.0.1
-> - 224.0.0.255) used by the routing protocols such as RIP, OSPF etc.
-> In general routers do not generate reports for local multicast groups.
+> From: Rick Jones <rick.jones2@hp.com>
 > 
-> IGMP reports for local multicast groups can now be inhibited by means
-> of a system control variable (setting the value to zero).
+> A few things have changed since the previous version of the vxlan
+> documentation was written, so update it and correct some grammer and
+> such while we are at it.
 > 
-> To retain backwards compatibility the previous behaviour is retained by
-> default on system boot.
-> 
-> Signed-off-by: Philip Downey <pdowney@brocade.com>
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-I'm always hesitent to apply patches like this.
+Applied with "grammar" misspelling fixed.
 
-I can't even understand from your explanation:
-
-1) what about local reporting behavior is so bad
-
-2) why you want to inhibit them at all
-
-For example, this:
-
-> In general routers do not generate reports for local multicast groups.
-
-Doesn't tell me anything.  You need to go into more detail about
-this, and explain the situation sufficiently.
+Thanks.
