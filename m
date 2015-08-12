@@ -1,34 +1,66 @@
-From: "Eng.Hoffmann" <hoffm144@gmail.com>
-Subject: Good Day To You.
-Date: Thu, 13 Aug 2015 00:44:15 +0200
-Message-ID: <CADYQ0SoiU_1A9k_zZ-geObc8vZUWsTFBgdFpi5gvR8=eJD-AHw@mail.gmail.com>
-Reply-To: hoffm144@yahoo.com
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv3 net-next 06/10] openvswitch: Allow matching on conntrack mark
+Date: Wed, 12 Aug 2015 16:00:19 -0700
+Message-ID: <CALnjE+rzFhJf67wd3NceKAmu1_vTw_NFeztNc=T2Fo1kRRsKaQ@mail.gmail.com>
+References: <1439333961-24474-1-git-send-email-joestringer@nicira.com>
+	<1439333961-24474-7-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f66.google.com ([209.85.215.66]:34729 "EHLO
-	mail-la0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbbHLWoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 18:44:17 -0400
-Received: by lahi9 with SMTP id i9so1619165lah.1
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 15:44:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Justin Pettit <jpettit@nicira.com>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>,
+	Thomas Graf <tgraf@noironetworks.com>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439333961-24474-7-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Good Day To You.
+On Tue, Aug 11, 2015 at 3:59 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> From: Justin Pettit <jpettit@nicira.com>
+>
+> Allow matching and setting the conntrack mark field. As with conntrack
+> state and zone, these are populated by executing the ct() action. Unlike
+> these, the ct_mark is also a writable field. The set_field() action may
+> be used to modify the mark, which will take effect on the most recent
+> conntrack entry.
+>
+> E.g.: actions:ct(zone=0),ct(zone=1),set_field(1->ct_mark)
+>
+> This will perform conntrack lookup in zone 0, then lookup in zone 1,
+> then modify the mark for the entry in zone 1. The mark for the entry in
+> zone 0 is unchanged. The conntrack entry itself must be committed using
+> the "commit" flag in the conntrack action flags for this change to persist.
+>
+> Signed-off-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> ---
+...
 
-Please forgive my intrusion into your privacy,I'm a US engineer living
-in Burkina-Faso, Am a sick widower that have decided to donate some of
-my wealth to a reliable individual that will utilize this money,
-$950.000.00usd to help the orphans in the society for the work of
-humanity as i don`t have a child that will inherit my wealth when i'm
-no more alive, i permit you to take 30% of this fund after the
-transfer into your account for your effort and use the rest for the
-help of orphanage homes and the less privileged in your location, if
-you are willing to accept my offer and use this fund exactly as i
-said,reply quickly with your data's for more details now that i can
-struggle to write.
+>
+> +int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
+> +                   u32 ct_mark, u32 mask)
+> +{
+> +#ifdef CONFIG_NF_CONNTRACK_MARK
+> +       enum ip_conntrack_info ctinfo;
+> +       struct nf_conn *ct;
+> +       u32 new_mark;
+> +
+> +       /* This must happen directly after lookup/commit. */
+> +       ct = nf_ct_get(skb, &ctinfo);
+> +       if (!ct)
+> +               return -EINVAL;
+> +
+> +       new_mark = ct_mark | (ct->mark & ~(mask));
+> +       if (ct->mark != new_mark) {
+> +               ct->mark = new_mark;
+> +               nf_conntrack_event_cache(IPCT_MARK, ct);
+> +               key->ct.mark = ct_mark;
+> +       }
+> +
 
-My regards
-Eng.Hoffmann.
+Is it fine to set just set mark and not initialize reset of key->ct members?
