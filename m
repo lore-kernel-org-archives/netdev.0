@@ -1,97 +1,75 @@
-From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH v2 net-next] documentation: bring vxlan documentation more up-to-date
-Date: Wed, 12 Aug 2015 10:23:14 -0700 (PDT)
-Message-ID: <20150812172314.5C6862900958@tardy>
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next 0/3] mpls: multipath support
+Date: Wed, 12 Aug 2015 18:30:14 +0100
+Message-ID: <55CB82A6.8070800@brocade.com>
+References: <1439329548-50935-1-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ebiederm@xmission.com>, <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hp.com ([15.240.0.71]:51054 "EHLO
-	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932279AbbHLRXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 13:23:24 -0400
-Received: from g1t5425.austin.hp.com (g1t5425.austin.hp.com [15.216.225.55])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id 9BD1F6751D
-	for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 17:23:16 +0000 (UTC)
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:1806 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932437AbbHLRab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 13:30:31 -0400
+In-Reply-To: <1439329548-50935-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
+On 11/08/15 22:45, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This patch series adds multipath support to mpls routes.
+>
+> resembles ipv4 multipath support. The multipath route nexthop
+> selection algorithm is the same code as in ipv4 fib code.
+>
+> I understand that the multipath algorithm in ipv4 is undergoing
+> some changes and will move mpls to similar algo if applicable once
+> those get merged.
 
-A few things have changed since the previous version of the vxlan
-documentation was written, so update it and correct some grammer and
-such while we are at it.
+Is it necessary for the mpls patch selection algorithm to closely 
+resemble the ipv4 one? A flow based algorithm would be much better for 
+traffic that is sensitive to re-ordering (e.g TCP, L2VPN) and IMHO we 
+should do this from the start for MPLS.
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
+I've also been looking at implementing this functionality. I've got a 
+set of patches for this that I can send if you'd like.
 
----
+>
+> mpls multipath support can be moved under CONFIG_MPLS_ROUTE_MULTIPATH if
+> needed similar to CONFIG_IP_ROUTE_MULTIPATH. I started with that
+> but that resulted in too many #ifdef CONFIG_MPLS_ROUTE_MULTIPATH
+> throughout the af_mpls code. If there is a strong reason
+> to introduce a config option, I will respin v2 with
+> CONFIG_MPLS_ROUTE_MULTIPATH. These multipath patches do not introduce
+> any UAPI changes.
 
-v2: Stephen Hemminger feedback to include dstport 4789 in command line
-    example.  Also some further refinements from other sources.
+I agree with not having such a config option - I can't see a strong 
+reason for it.
 
-diff --git a/Documentation/networking/vxlan.txt b/Documentation/networking/vxlan.txt
-index 6d99351..89ee11b 100644
---- a/Documentation/networking/vxlan.txt
-+++ b/Documentation/networking/vxlan.txt
-@@ -1,32 +1,36 @@
- Virtual eXtensible Local Area Networking documentation
- ======================================================
- 
--The VXLAN protocol is a tunnelling protocol that is designed to
--solve the problem of limited number of available VLAN's (4096).
--With VXLAN identifier is expanded to 24 bits.
--
--It is a draft RFC standard, that is implemented by Cisco Nexus,
--Vmware and Brocade. The protocol runs over UDP using a single
--destination port (still not standardized by IANA).
--This document describes the Linux kernel tunnel device,
--there is also an implantation of VXLAN for Openvswitch.
--
--Unlike most tunnels, a VXLAN is a 1 to N network, not just point
--to point. A VXLAN device can either dynamically learn the IP address
--of the other end, in a manner similar to a learning bridge, or the
--forwarding entries can be configured statically.
--
--The management of vxlan is done in a similar fashion to it's
--too closest neighbors GRE and VLAN. Configuring VXLAN requires
--the version of iproute2 that matches the kernel release
--where VXLAN was first merged upstream.
-+The VXLAN protocol is a tunnelling protocol designed to solve the
-+problem of limited VLAN IDs (4096) in IEEE 802.1q.  With VXLAN the
-+size of the identifier is expanded to 24 bits (16777216).
-+
-+VXLAN is described by IETF RFC 7348, and has been implemented by a
-+number of vendors.  The protocol runs over UDP using a single
-+destination port.  This document describes the Linux kernel tunnel
-+device, there is also a separate implementation of VXLAN for
-+Openvswitch.
-+
-+Unlike most tunnels, a VXLAN is a 1 to N network, not just point to
-+point. A VXLAN device can learn the IP address of the other endpoint
-+either dynamically in a manner similar to a learning bridge, or make
-+use of statically-configured forwarding entries.
-+
-+The management of vxlan is done in a manner similar to its two closest
-+neighbors GRE and VLAN. Configuring VXLAN requires the version of
-+iproute2 that matches the kernel release where VXLAN was first merged
-+upstream.
- 
- 1. Create vxlan device
--  # ip li add vxlan0 type vxlan id 42 group 239.1.1.1 dev eth1
--
--This creates a new device (vxlan0). The device uses the
--the multicast group 239.1.1.1 over eth1 to handle packets where
--no entry is in the forwarding table.
-+ # ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev eth1 dstport 4789
-+
-+This creates a new device named vxlan0.  The device uses the multicast
-+group 239.1.1.1 over eth1 to handle traffic for which there is no
-+entry in the forwarding table.  The destination port number is set to
-+the IANA-assigned value of 4789.  The Linux implementation of VXLAN
-+pre-dates the IANA's selection of a standard destination port number
-+and uses the Linux-selected value by default to maintain backwards
-+compatibility.
- 
- 2. Delete vxlan device
-   # ip link delete vxlan0
+Thanks,
+Rob
+
+>
+> example iproute2 usage:
+> $ip -f mpls route add 100 nexthop as 200 via inet 10.1.1.2 dev swp1 \
+> 	nexthop as 300 via inet 10.1.1.6 dev swp2
+>
+> $ip -f mpls route show
+> 100
+> 	nexthop as to 200 via inet 10.1.1.2  dev swp1
+> 	nexthop as to 300 via inet 10.1.1.6  dev swp2
+>
+>
+> Roopa Prabhu (3):
+>    mpls: move mpls_route nexthop fields to a new nhlfe struct
+>    mpls: consistently use u8 to store number of labels
+>    mpls: add multipath route support
+>
+>   include/net/mpls_iptunnel.h |    2 +-
+>   net/mpls/af_mpls.c          |  519 ++++++++++++++++++++++++++++++++-----------
+>   net/mpls/internal.h         |   44 +++-
+>   3 files changed, 437 insertions(+), 128 deletions(-)
+>
