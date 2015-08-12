@@ -1,79 +1,264 @@
 From: Roy Pledge <Roy.Pledge@freescale.com>
-Subject: [v2 01/11] powerpc: re-add devm_ioremap_prot()
-Date: Wed, 12 Aug 2015 16:14:47 -0400
-Message-ID: <1439410497-19039-2-git-send-email-Roy.Pledge@freescale.com>
+Subject: [v2 07/11] soc/bman: Add debugfs support for the BMan driver
+Date: Wed, 12 Aug 2015 16:14:53 -0400
+Message-ID: <1439410497-19039-8-git-send-email-Roy.Pledge@freescale.com>
 References: <1439410497-19039-1-git-send-email-Roy.Pledge@freescale.com>
-Reply-To: Roy.Pledge@freescale.com
+Reply-To: <Roy.Pledge@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <linuxppc-dev@lists.ozlabs.org>, <scottwood@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0146.outbound.protection.outlook.com ([157.56.110.146]:38976
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752102AbbHLUPO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2015 16:15:14 -0400
 In-Reply-To: <1439410497-19039-1-git-send-email-Roy.Pledge@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRW1pbCBNZWR2ZSA8RW1pbGlhbi5NZWR2ZUBGcmVlc2NhbGUuY29tPgoKZGV2bV9pb3Jl
-bWFwX3Byb3QoKSB3YXMgcmVtb3ZlZCBpbiBjb21taXQgZGVkZDI0YTEyLAphbmQgd2FzIGludHJv
-ZHVjZWQgaW4gY29tbWl0IGI0MWU1ZmZmZTguCgpUaGlzIHJldmVydHMgY29tbWl0IGRlZGQyNGEx
-MmZlNjczNTg5OGZlZWIwNjE4NGVlMzQ2OTA3YWJiNWQuCgpTaWduZWQtb2ZmLWJ5OiBFbWlsIE1l
-ZHZlIDxFbWlsaWFuLk1lZHZlQEZyZWVzY2FsZS5jb20+Ci0tLQogYXJjaC9wb3dlcnBjL2luY2x1
-ZGUvYXNtL2lvLmggfCAgICAzICsrKwogYXJjaC9wb3dlcnBjL2xpYi9NYWtlZmlsZSAgICAgfCAg
-ICAxICsKIGFyY2gvcG93ZXJwYy9saWIvZGV2cmVzLmMgICAgIHwgICA0MyArKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKwogMyBmaWxlcyBjaGFuZ2VkLCA0NyBpbnNlcnRp
-b25zKCspCiBjcmVhdGUgbW9kZSAxMDA2NDQgYXJjaC9wb3dlcnBjL2xpYi9kZXZyZXMuYwoKZGlm
-ZiAtLWdpdCBhL2FyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9pby5oIGIvYXJjaC9wb3dlcnBjL2lu
-Y2x1ZGUvYXNtL2lvLmgKaW5kZXggYThkMmVmMy4uOWVhZjMwMSAxMDA2NDQKLS0tIGEvYXJjaC9w
-b3dlcnBjL2luY2x1ZGUvYXNtL2lvLmgKKysrIGIvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL2lv
-LmgKQEAgLTg1NSw2ICs4NTUsOSBAQCBzdGF0aWMgaW5saW5lIHZvaWQgKiBidXNfdG9fdmlydCh1
-bnNpZ25lZCBsb25nIGFkZHJlc3MpCiAKICNkZWZpbmUgY2xyc2V0Yml0c184KGFkZHIsIGNsZWFy
-LCBzZXQpIGNscnNldGJpdHMoOCwgYWRkciwgY2xlYXIsIHNldCkKIAordm9pZCBfX2lvbWVtICpk
-ZXZtX2lvcmVtYXBfcHJvdChzdHJ1Y3QgZGV2aWNlICpkZXYsIHJlc291cmNlX3NpemVfdCBvZmZz
-ZXQsCisJCQkJc2l6ZV90IHNpemUsIHVuc2lnbmVkIGxvbmcgZmxhZ3MpOworCiAjZW5kaWYgLyog
-X19LRVJORUxfXyAqLwogCiAjZW5kaWYgLyogX0FTTV9QT1dFUlBDX0lPX0ggKi8KZGlmZiAtLWdp
-dCBhL2FyY2gvcG93ZXJwYy9saWIvTWFrZWZpbGUgYi9hcmNoL3Bvd2VycGMvbGliL01ha2VmaWxl
-CmluZGV4IGE0N2UxNDIuLjdhZTYwZjAgMTAwNjQ0Ci0tLSBhL2FyY2gvcG93ZXJwYy9saWIvTWFr
-ZWZpbGUKKysrIGIvYXJjaC9wb3dlcnBjL2xpYi9NYWtlZmlsZQpAQCAtMTMsNiArMTMsNyBAQCBv
-YmoteSArPSBzdHJpbmcubyBhbGxvYy5vIGNydHNhdnJlcy5vIHBwY19rc3ltcy5vIGNvZGUtcGF0
-Y2hpbmcubyBcCiAJIGZlYXR1cmUtZml4dXBzLm8KIAogb2JqLSQoQ09ORklHX1BQQzMyKQkrPSBk
-aXY2NC5vIGNvcHlfMzIubworb2JqLSQoQ09ORklHX0hBU19JT01FTSkJKz0gZGV2cmVzLm8KIAog
-b2JqNjQteQkrPSBjb3B5cGFnZV82NC5vIGNvcHl1c2VyXzY0Lm8gdXNlcmNvcHlfNjQubyBtZW1f
-NjQubyBod2VpZ2h0XzY0Lm8gXAogCSAgIGNvcHl1c2VyX3Bvd2VyNy5vIHN0cmluZ182NC5vIGNv
-cHlwYWdlX3Bvd2VyNy5vIG1lbWNweV9wb3dlcjcubyBcCmRpZmYgLS1naXQgYS9hcmNoL3Bvd2Vy
-cGMvbGliL2RldnJlcy5jIGIvYXJjaC9wb3dlcnBjL2xpYi9kZXZyZXMuYwpuZXcgZmlsZSBtb2Rl
-IDEwMDY0NAppbmRleCAwMDAwMDAwLi44ZGY1NWZjCi0tLSAvZGV2L251bGwKKysrIGIvYXJjaC9w
-b3dlcnBjL2xpYi9kZXZyZXMuYwpAQCAtMCwwICsxLDQzIEBACisvKgorICogQ29weXJpZ2h0IChD
-KSAyMDA4IEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yLCBJbmMuCisgKgorICogVGhpcyBwcm9ncmFt
-IGlzIGZyZWUgc29mdHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0IGFuZC9vcgorICogbW9k
-aWZ5IGl0IHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUgR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UK
-KyAqIGFzIHB1Ymxpc2hlZCBieSB0aGUgRnJlZSBTb2Z0d2FyZSBGb3VuZGF0aW9uOyBlaXRoZXIg
-dmVyc2lvbgorICogMiBvZiB0aGUgTGljZW5zZSwgb3IgKGF0IHlvdXIgb3B0aW9uKSBhbnkgbGF0
-ZXIgdmVyc2lvbi4KKyAqLworCisjaW5jbHVkZSA8bGludXgvZGV2aWNlLmg+CS8qIGRldnJlc18q
-KCksIGRldm1faW9yZW1hcF9yZWxlYXNlKCkgKi8KKyNpbmNsdWRlIDxsaW51eC9nZnAuaD4KKyNp
-bmNsdWRlIDxsaW51eC9pby5oPgkJLyogaW9yZW1hcF9wcm90KCkgKi8KKyNpbmNsdWRlIDxsaW51
-eC9leHBvcnQuaD4JLyogRVhQT1JUX1NZTUJPTCgpICovCisKKy8qKgorICogZGV2bV9pb3JlbWFw
-X3Byb3QgLSBNYW5hZ2VkIGlvcmVtYXBfcHJvdCgpCisgKiBAZGV2OiBHZW5lcmljIGRldmljZSB0
-byByZW1hcCBJTyBhZGRyZXNzIGZvcgorICogQG9mZnNldDogQlVTIG9mZnNldCB0byBtYXAKKyAq
-IEBzaXplOiBTaXplIG9mIG1hcAorICogQGZsYWdzOiBQYWdlIGZsYWdzCisgKgorICogTWFuYWdl
-ZCBpb3JlbWFwX3Byb3QoKS4gIE1hcCBpcyBhdXRvbWF0aWNhbGx5IHVubWFwcGVkIG9uIGRyaXZl
-cgorICogZGV0YWNoLgorICovCit2b2lkIF9faW9tZW0gKmRldm1faW9yZW1hcF9wcm90KHN0cnVj
-dCBkZXZpY2UgKmRldiwgcmVzb3VyY2Vfc2l6ZV90IG9mZnNldCwKKwkJCQkgc2l6ZV90IHNpemUs
-IHVuc2lnbmVkIGxvbmcgZmxhZ3MpCit7CisJdm9pZCBfX2lvbWVtICoqcHRyLCAqYWRkcjsKKwor
-CXB0ciA9IGRldnJlc19hbGxvYyhkZXZtX2lvcmVtYXBfcmVsZWFzZSwgc2l6ZW9mKCpwdHIpLCBH
-RlBfS0VSTkVMKTsKKwlpZiAoIXB0cikKKwkJcmV0dXJuIE5VTEw7CisKKwlhZGRyID0gaW9yZW1h
-cF9wcm90KG9mZnNldCwgc2l6ZSwgZmxhZ3MpOworCWlmIChhZGRyKSB7CisJCSpwdHIgPSBhZGRy
-OworCQlkZXZyZXNfYWRkKGRldiwgcHRyKTsKKwl9IGVsc2UKKwkJZGV2cmVzX2ZyZWUocHRyKTsK
-KworCXJldHVybiBhZGRyOworfQorRVhQT1JUX1NZTUJPTChkZXZtX2lvcmVtYXBfcHJvdCk7Ci0t
-IAoxLjcuOS41CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3Jn
-Cmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+From: Geoff Thorpe <Geoff.Thorpe@freescale.com>
+
+Add debugfs support for querying the state of hardware based
+Buffer Manager pools used in DPAA 1.0.
+
+Signed-off-by: Geoff Thorpe <Geoff.Thorpe@freescale.com>
+Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+Signed-off-by: Roy Pledge <Roy.Pledge@freescale.com>
+---
+ drivers/soc/fsl/qbman/Kconfig        |    7 ++
+ drivers/soc/fsl/qbman/Makefile       |    1 +
+ drivers/soc/fsl/qbman/bman-debugfs.c |  117 ++++++++++++++++++++++++++++++++++
+ drivers/soc/fsl/qbman/bman_api.c     |   19 ++++++
+ drivers/soc/fsl/qbman/dpaa_sys.h     |    7 +-
+ 5 files changed, 145 insertions(+), 6 deletions(-)
+ create mode 100644 drivers/soc/fsl/qbman/bman-debugfs.c
+
+diff --git a/drivers/soc/fsl/qbman/Kconfig b/drivers/soc/fsl/qbman/Kconfig
+index 1f2063a..919ef15 100644
+--- a/drivers/soc/fsl/qbman/Kconfig
++++ b/drivers/soc/fsl/qbman/Kconfig
+@@ -54,6 +54,13 @@ config FSL_BMAN_TEST_THRESH
+ 	  "drainer" thread, and the other threads that they observe exactly
+ 	  the depletion state changes that are expected.
+ 
++config FSL_BMAN_DEBUGFS
++	tristate "BMan debugfs support"
++	depends on DEBUG_FS
++	default n
++	help
++		BMan debugfs support
++
+ config FSL_QMAN
+ 	bool "QMan device management"
+ 	default n
+diff --git a/drivers/soc/fsl/qbman/Makefile b/drivers/soc/fsl/qbman/Makefile
+index 82f5482..2b53fbc 100644
+--- a/drivers/soc/fsl/qbman/Makefile
++++ b/drivers/soc/fsl/qbman/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_FSL_BMAN_TEST)			+= bman-test.o
+ bman-test-y					 = bman_test.o
+ bman-test-$(CONFIG_FSL_BMAN_TEST_API)		+= bman_test_api.o
+ bman-test-$(CONFIG_FSL_BMAN_TEST_THRESH)	+= bman_test_thresh.o
++obj-$(CONFIG_FSL_BMAN_DEBUGFS)			+= bman-debugfs.o
+ 
+ obj-$(CONFIG_FSL_QMAN)				+= qman_api.o qman_utils.o qman_driver.o
+ obj-$(CONFIG_FSL_QMAN_CONFIG)			+= qman.o qman_portal.o
+diff --git a/drivers/soc/fsl/qbman/bman-debugfs.c b/drivers/soc/fsl/qbman/bman-debugfs.c
+new file mode 100644
+index 0000000..b384f47
+--- /dev/null
++++ b/drivers/soc/fsl/qbman/bman-debugfs.c
+@@ -0,0 +1,117 @@
++/* Copyright 2010 - 2015 Freescale Semiconductor, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "bman_priv.h"
++
++static struct dentry *dfs_root; /* debugfs root directory */
++
++/* Query Buffer Pool State */
++
++static int query_bp_state_show(struct seq_file *file, void *offset)
++{
++	int ret;
++	struct bm_pool_state state;
++	int i, j;
++	u32 mask;
++
++	memset(&state, 0, sizeof(state));
++	ret = bman_query_pools(&state);
++	if (ret) {
++		seq_printf(file, "Error %d\n", ret);
++		return ret;
++	}
++
++	seq_puts(file, "bp_id  free_buffers_avail  bp_depleted\n");
++	for (i = 0; i < 2; i++) {
++		mask = 0x80000000;
++		for (j = 0; j < 32; j++) {
++			seq_printf(file,
++			 "  %-2u	   %-3s		    %-3s\n",
++			 (i * 32) + j,
++			 state.as.state.__state[i] & mask ? "no" : "yes",
++			 state.ds.state.__state[i] & mask ? "yes" : "no");
++			 mask >>= 1;
++		}
++	}
++
++	return 0;
++}
++
++static int query_bp_state_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, query_bp_state_show, NULL);
++}
++
++static const struct file_operations query_bp_state_fops = {
++	.owner		= THIS_MODULE,
++	.open		= query_bp_state_open,
++	.read		= seq_read,
++	.release	= single_release,
++};
++
++static int __init bman_debugfs_init(void)
++{
++	int ret = 0;
++	struct dentry *d;
++
++	dfs_root = debugfs_create_dir("bman", NULL);
++	if (dfs_root == NULL) {
++		pr_err("Cannot create dir\n");
++		return -ENOMEM;
++	}
++
++	d = debugfs_create_file("query_bp_state",
++		S_IRUGO,
++		dfs_root,
++		NULL,
++		&query_bp_state_fops);
++	if (d == NULL) {
++		ret = -ENOMEM;
++		pr_err("Cannot create query_bp_state\n");
++		goto _return;
++	}
++
++	return 0;
++
++_return:
++	debugfs_remove_recursive(dfs_root);
++
++	return ret;
++}
++
++static void __exit bman_debugfs_exit(void)
++{
++	debugfs_remove_recursive(dfs_root);
++}
++
++module_init(bman_debugfs_init);
++module_exit(bman_debugfs_exit);
++
++MODULE_LICENSE("Dual BSD/GPL");
+diff --git a/drivers/soc/fsl/qbman/bman_api.c b/drivers/soc/fsl/qbman/bman_api.c
+index a389db9..d8918fc 100644
+--- a/drivers/soc/fsl/qbman/bman_api.c
++++ b/drivers/soc/fsl/qbman/bman_api.c
+@@ -1014,6 +1014,25 @@ int bman_flush_stockpile(struct bman_pool *pool, u32 flags)
+ }
+ EXPORT_SYMBOL(bman_flush_stockpile);
+ 
++int bman_query_pools(struct bm_pool_state *state)
++{
++	struct bman_portal *p = get_affine_portal();
++	struct bm_mc_result *mcr;
++	__maybe_unused unsigned long irqflags;
++
++	PORTAL_IRQ_LOCK(p, irqflags);
++	bm_mc_start(&p->p);
++	bm_mc_commit(&p->p, BM_MCC_VERB_CMD_QUERY);
++	while (!(mcr = bm_mc_result(&p->p)))
++		cpu_relax();
++	DPA_ASSERT((mcr->verb & BM_MCR_VERB_CMD_MASK) == BM_MCR_VERB_CMD_QUERY);
++	*state = mcr->query;
++	PORTAL_IRQ_UNLOCK(p, irqflags);
++	put_affine_portal();
++	return 0;
++}
++EXPORT_SYMBOL(bman_query_pools);
++
+ #ifdef CONFIG_FSL_BMAN
+ u32 bman_query_free_buffers(struct bman_pool *pool)
+ {
+diff --git a/drivers/soc/fsl/qbman/dpaa_sys.h b/drivers/soc/fsl/qbman/dpaa_sys.h
+index cef9095..3cf446a 100644
+--- a/drivers/soc/fsl/qbman/dpaa_sys.h
++++ b/drivers/soc/fsl/qbman/dpaa_sys.h
+@@ -38,6 +38,7 @@
+ #include <linux/of_irq.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/kthread.h>
++#include <linux/debugfs.h>
+ #include <linux/platform_device.h>
+ #include <linux/ctype.h>
+ 
+@@ -76,9 +77,7 @@ int dpaa_resource_reserve(struct dpaa_resource *alloc, u32 base, u32 num);
+ #define DPA_PORTAL_CE 0
+ #define DPA_PORTAL_CI 1
+ 
+-/***********************/
+ /* Misc inline assists */
+-/***********************/
+ 
+ /* TODO: NB, we currently assume that hwsync() and lwsync() imply compiler
+  * barriers and that dcb*() won't fall victim to compiler or execution
+@@ -157,9 +156,7 @@ static inline void copy_words(void *dest, const void *src, size_t sz)
+ #define copy_words memcpy
+ #endif
+ 
+-/************/
+ /* RB-trees */
+-/************/
+ 
+ /* We encapsulate RB-trees so that its easier to use non-linux forms in
+  * non-linux systems. This also encapsulates the extra plumbing that linux code
+@@ -215,9 +212,7 @@ static inline type *name##_find(struct dpa_rbtree *tree, u32 val) \
+ 	return NULL; \
+ }
+ 
+-/************/
+ /* Bootargs */
+-/************/
+ 
+ /* QMan has "qportals=" and BMan has "bportals=", they use the same syntax
+  * though; a comma-separated list of items, each item being a cpu index and/or a
+-- 
+1.7.9.5
