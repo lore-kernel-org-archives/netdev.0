@@ -1,157 +1,142 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 4/4] cxgb4: Add debugfs support to dump tid info
-Date: Wed, 12 Aug 2015 16:55:07 +0530
-Message-ID: <1439378707-14462-5-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/4] cxgb4: Differentiates between TIDs being used in TCAM and HASH
+Date: Wed, 12 Aug 2015 16:55:05 +0530
+Message-ID: <1439378707-14462-3-git-send-email-hariprasad@chelsio.com>
 References: <1439378707-14462-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:5108 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:23201 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751433AbbHLLZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 07:25:14 -0400
+	by vger.kernel.org with ESMTP id S1750974AbbHLLZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 07:25:12 -0400
 In-Reply-To: <1439378707-14462-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add debugfs support to dump tid info like stid, sftid, tids, atid and
-hwtids
+For the tid info, differentiate from which region the TID is allocated
+from. It can be from TCAM region or HASH region.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 68 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/sge.c           |  9 ++-
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  4 ++
- 3 files changed, 76 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 32 +++++++++++++++++++++----
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |  9 ++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  1 +
+ 3 files changed, 36 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 15d58c3..ce075d1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -2257,6 +2257,73 @@ static const struct file_operations mem_debugfs_fops = {
- 	.llseek  = default_llseek,
- };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 27e87b6..df6cba1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -1654,20 +1654,25 @@ static void process_tid_release_list(struct work_struct *work)
+  */
+ void cxgb4_remove_tid(struct tid_info *t, unsigned int chan, unsigned int tid)
+ {
+-	void *old;
+ 	struct sk_buff *skb;
+ 	struct adapter *adap = container_of(t, struct adapter, tids);
  
-+static int tid_info_show(struct seq_file *seq, void *v)
-+{
-+	struct adapter *adap = seq->private;
-+	const struct tid_info *t = &adap->tids;
-+	enum chip_type chip = CHELSIO_CHIP_VERSION(adap->params.chip);
+-	old = t->tid_tab[tid];
++	WARN_ON(tid >= t->ntids);
 +
-+	if (t4_read_reg(adap, LE_DB_CONFIG_A) & HASHEN_F) {
-+		unsigned int sb;
-+
-+		if (chip <= CHELSIO_T5)
-+			sb = t4_read_reg(adap, LE_DB_SERVER_INDEX_A) / 4;
++	if (t->tid_tab[tid]) {
++		t->tid_tab[tid] = NULL;
++		if (t->hash_base && (tid >= t->hash_base))
++			atomic_dec(&t->hash_tids_in_use);
 +		else
-+			sb = t4_read_reg(adap, LE_DB_SRVR_START_INDEX_A);
-+
-+		if (sb) {
-+			seq_printf(seq, "TID range: 0..%u/%u..%u", sb - 1,
-+				   adap->tids.hash_base,
-+				   t->ntids - 1);
-+			seq_printf(seq, ", in use: %u/%u\n",
-+				   atomic_read(&t->tids_in_use),
-+				   atomic_read(&t->hash_tids_in_use));
-+		} else if (adap->flags & FW_OFLD_CONN) {
-+			seq_printf(seq, "TID range: %u..%u/%u..%u",
-+				   t->aftid_base,
-+				   t->aftid_end,
-+				   adap->tids.hash_base,
-+				   t->ntids - 1);
-+			seq_printf(seq, ", in use: %u/%u\n",
-+				   atomic_read(&t->tids_in_use),
-+				   atomic_read(&t->hash_tids_in_use));
-+		} else {
-+			seq_printf(seq, "TID range: %u..%u",
-+				   adap->tids.hash_base,
-+				   t->ntids - 1);
-+			seq_printf(seq, ", in use: %u\n",
-+				   atomic_read(&t->hash_tids_in_use));
-+		}
-+	} else if (t->ntids) {
-+		seq_printf(seq, "TID range: 0..%u", t->ntids - 1);
-+		seq_printf(seq, ", in use: %u\n",
-+			   atomic_read(&t->tids_in_use));
++			atomic_dec(&t->tids_in_use);
 +	}
 +
-+	if (t->nstids)
-+		seq_printf(seq, "STID range: %u..%u, in use: %u\n",
-+			   (!t->stid_base &&
-+			   (chip <= CHELSIO_T5)) ?
-+			   t->stid_base + 1 : t->stid_base,
-+			   t->stid_base + t->nstids - 1, t->stids_in_use);
-+	if (t->natids)
-+		seq_printf(seq, "ATID range: 0..%u, in use: %u\n",
-+			   t->natids - 1, t->atids_in_use);
-+	seq_printf(seq, "FTID range: %u..%u\n", t->ftid_base,
-+		   t->ftid_base + t->nftids - 1);
-+	if (t->nsftids)
-+		seq_printf(seq, "SFTID range: %u..%u in use: %u\n",
-+			   t->sftid_base, t->sftid_base + t->nsftids - 2,
-+			   t->sftids_in_use);
-+	if (t->ntids)
-+		seq_printf(seq, "HW TID usage: %u IP users, %u IPv6 users\n",
-+			   t4_read_reg(adap, LE_DB_ACT_CNT_IPV4_A),
-+			   t4_read_reg(adap, LE_DB_ACT_CNT_IPV6_A));
-+	return 0;
-+}
+ 	skb = alloc_skb(sizeof(struct cpl_tid_release), GFP_ATOMIC);
+ 	if (likely(skb)) {
+-		t->tid_tab[tid] = NULL;
+ 		mk_tid_release(skb, chan, tid);
+ 		t4_ofld_send(adap, skb);
+ 	} else
+ 		cxgb4_queue_tid_release(t, chan, tid);
+-	if (old)
+-		atomic_dec(&t->tids_in_use);
+ }
+ EXPORT_SYMBOL(cxgb4_remove_tid);
+ 
+@@ -1705,6 +1710,7 @@ static int tid_init(struct tid_info *t)
+ 	t->afree = NULL;
+ 	t->atids_in_use = 0;
+ 	atomic_set(&t->tids_in_use, 0);
++	atomic_set(&t->hash_tids_in_use, 0);
+ 
+ 	/* Setup the free list for atid_tab and clear the stid bitmap. */
+ 	if (natids) {
+@@ -4814,6 +4820,22 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		adapter->params.offload = 0;
+ 	}
+ 
++	if (is_offload(adapter)) {
++		if (t4_read_reg(adapter, LE_DB_CONFIG_A) & HASHEN_F) {
++			u32 hash_base, hash_reg;
 +
-+DEFINE_SIMPLE_DEBUGFS_FILE(tid_info);
++			if (chip <= CHELSIO_T5) {
++				hash_reg = LE_DB_TID_HASHBASE_A;
++				hash_base = t4_read_reg(adapter, hash_reg);
++				adapter->tids.hash_base = hash_base / 4;
++			} else {
++				hash_reg = T6_LE_DB_HASH_TID_BASE_A;
++				hash_base = t4_read_reg(adapter, hash_reg);
++				adapter->tids.hash_base = hash_base;
++			}
++		}
++	}
 +
- static void add_debugfs_mem(struct adapter *adap, const char *name,
- 			    unsigned int idx, unsigned int size_mb)
+ 	/* See what interrupts we'll be using */
+ 	if (msi > 1 && enable_msix(adapter) == 0)
+ 		adapter->flags |= USING_MSIX;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index b27897d..f61fed1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -96,6 +96,7 @@ struct tid_info {
+ 	unsigned long *stid_bmap;
+ 	unsigned int nstids;
+ 	unsigned int stid_base;
++	unsigned int hash_base;
+ 
+ 	union aopen_entry *atid_tab;
+ 	unsigned int natids;
+@@ -117,7 +118,10 @@ struct tid_info {
+ 	spinlock_t stid_lock;
+ 	unsigned int stids_in_use;
+ 
++	/* TIDs in the TCAM */
+ 	atomic_t tids_in_use;
++	/* TIDs in the HASH */
++	atomic_t hash_tids_in_use;
+ };
+ 
+ static inline void *lookup_tid(const struct tid_info *t, unsigned int tid)
+@@ -147,7 +151,10 @@ static inline void cxgb4_insert_tid(struct tid_info *t, void *data,
+ 				    unsigned int tid)
  {
-@@ -2670,6 +2737,7 @@ int t4_setup_debugfs(struct adapter *adap)
- #if IS_ENABLED(CONFIG_IPV6)
- 		{ "clip_tbl", &clip_tbl_debugfs_fops, S_IRUSR, 0 },
- #endif
-+		{ "tids", &tid_info_debugfs_fops, S_IRUSR, 0},
- 		{ "blocked_fl", &blocked_fl_fops, S_IRUSR | S_IWUSR, 0 },
- 		{ "meminfo", &meminfo_fops, S_IRUSR, 0 },
- 	};
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index d4248d7..78f446c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -1424,18 +1424,17 @@ static void restart_ctrlq(unsigned long data)
- 		struct fw_wr_hdr *wr;
- 		unsigned int ndesc = skb->priority;     /* previously saved */
+ 	t->tid_tab[tid] = data;
+-	atomic_inc(&t->tids_in_use);
++	if (t->hash_base && (tid >= t->hash_base))
++		atomic_inc(&t->hash_tids_in_use);
++	else
++		atomic_inc(&t->tids_in_use);
+ }
  
--		/*
--		 * Write descriptors and free skbs outside the lock to limit
-+		written += ndesc;
-+		/* Write descriptors and free skbs outside the lock to limit
- 		 * wait times.  q->full is still set so new skbs will be queued.
- 		 */
-+		wr = (struct fw_wr_hdr *)&q->q.desc[q->q.pidx];
-+		txq_advance(&q->q, ndesc);
- 		spin_unlock(&q->sendq.lock);
- 
--		wr = (struct fw_wr_hdr *)&q->q.desc[q->q.pidx];
- 		inline_tx_skb(skb, &q->q, wr);
- 		kfree_skb(skb);
- 
--		written += ndesc;
--		txq_advance(&q->q, ndesc);
- 		if (unlikely(txq_avail(&q->q) < TXQ_STOP_THRES)) {
- 			unsigned long old = q->q.stops;
- 
+ int cxgb4_alloc_atid(struct tid_info *t, void *data);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 365ebd5..4d2c929 100644
+index e444dc4..365ebd5 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2732,6 +2732,10 @@
- #define T6_LIPMISS_F    T6_LIPMISS_V(1U)
- 
- #define LE_DB_CONFIG_A 0x19c04
-+#define LE_DB_SERVER_INDEX_A 0x19c18
-+#define LE_DB_SRVR_START_INDEX_A 0x19c18
-+#define LE_DB_ACT_CNT_IPV4_A 0x19c20
-+#define LE_DB_ACT_CNT_IPV6_A 0x19c24
- #define LE_DB_HASH_TID_BASE_A 0x19c30
+@@ -2736,6 +2736,7 @@
  #define LE_DB_HASH_TBL_BASE_ADDR_A 0x19c30
  #define LE_DB_INT_CAUSE_A 0x19c3c
+ #define LE_DB_TID_HASHBASE_A 0x19df8
++#define T6_LE_DB_HASH_TID_BASE_A 0x19df8
+ 
+ #define HASHEN_S    20
+ #define HASHEN_V(x) ((x) << HASHEN_S)
 -- 
 2.3.4
