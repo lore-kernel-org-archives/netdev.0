@@ -1,128 +1,57 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [PATCH 0/2] of: fsl/fman: reuse the fixed node parsing code
-Date: Wed, 12 Aug 2015 14:43:38 +0000
-Message-ID: <BL2PR03MB5458B9D2402DE68E9B9014AE67E0@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1438785745-15517-1-git-send-email-madalin.bucur@freescale.com>
- <55C63D3B.5020005@gmail.com> <55CA1C14.3000202@list.ru>
- <BL2PR03MB545D4E18DE41AE01AFC37D6E67F0@BL2PR03MB545.namprd03.prod.outlook.com>
- <55CA29C8.5000707@list.ru>
- <BL2PR03MB545929237EF33BA13089EC1E67E0@BL2PR03MB545.namprd03.prod.outlook.com>
- <55CB50F1.7050308@list.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 1/3] net: make default tx_queue_len configurable
+Date: Wed, 12 Aug 2015 07:55:26 -0700
+Message-ID: <1439391326.29802.12.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438203103-27013-2-git-send-email-phil@nwl.cc>
+	 <20150729210618.GF32705@breakpoint.cc>
+	 <20150729213428.GC15554@orbit.nwl.cc>
+	 <20150729.143731.834219016906219771.davem@davemloft.net>
+	 <20150811174807.3e00b4da@redhat.com> <20150811162335.GB32353@orbit.nwl.cc>
+	 <20150812011347.GA58200@Alexeis-MacBook-Pro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Liberman Igal <Igal.Liberman@freescale.com>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: Stas Sergeev <stsp@list.ru>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55CB50F1.7050308@list.ru>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>, fw@strlen.de,
+	netdev@vger.kernel.org, cwang@twopensource.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33257 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753199AbbHLOz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 10:55:28 -0400
+Received: by pabyb7 with SMTP id yb7so16150628pab.0
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 07:55:28 -0700 (PDT)
+In-Reply-To: <20150812011347.GA58200@Alexeis-MacBook-Pro.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFzIFNlcmdlZXYgW21haWx0
-bzpzdHNwQGxpc3QucnVdDQo+DQo+IDEyLjA4LjIwMTUgMTY6MjYsIE1hZGFsaW4tQ3Jpc3RpYW4g
-QnVjdXIg0L/QuNGI0LXRgjoNCj4gPj4+IEkndmUgdHJpZWQgdG8gbWFrZSB0aGUgc21hbGxlc3Qg
-Y2hhbmdlcyB0aGF0IGFsbG93IG1lIHRvIHJldHJpZXZlIHRob3NlDQo+ID4+PiB3aXRob3V0IG1v
-ZGlmeWluZyBleGlzdGluZyBBUEkuDQo+ID4+PiBXaHkgaXMgaXQgaW1wb3J0YW50IHRvIGhpZGUg
-dGhlIGRlZmF1bHQgdmFsdWVzIGZyb20gdGhlIE1BQyBkcml2ZXI/DQo+ID4+IE15IHdvcnJ5IGlz
-IHRoYXQgdGhlIGZpeGVkIHZhbHVlcyBhcmUgbm90IHJlYWxseSBmaXhlZCwgYW5kDQo+ID4+IHRo
-ZXJlZm9yZSBhcmUgbm90IGFsd2F5cyB1c2VmdWwgdG8gYWNjZXNzIGRpcmVjdGx5LiBJdCBpcyBs
-aWtlbHkNCj4gPj4gbm90IGEgcHJvYmxlbSBmb3IgeW91ciB1c2UtY2FzZSwgYXMsIGFzIHlvdSBz
-YXksIHRoZSBBTiBpcw0KPiA+PiBkaXNhYmxlZCwgYnV0IHRoaXMgaXMgcHJvYmFibHkgbm90IHRo
-ZSBiZXN0IHRvIGRvIGluIGdlbmVyYWwuDQo+ID4gWWVzLCBub3QgYSBwcm9ibGVtIGluIG15IGNh
-c2UuDQo+ID4NCj4gPj4gQW5kIGFsc28geW91IGRvOg0KPiA+PiAtLS0NCj4gPj4NCj4gPj4gLQkJ
-ZXJyID0gb2ZfcGh5X3JlZ2lzdGVyX2ZpeGVkX2xpbmsobWFjX25vZGUpOw0KPiA+PiAtCQlpZiAo
-ZXJyKQ0KPiA+PiArCQlzdHJ1Y3QgcGh5X2RldmljZSAqcGh5Ow0KPiA+PiArDQo+ID4+ICsJCW1h
-Y19kZXYtPmZpeGVkX2xpbmsgPSBremFsbG9jKHNpemVvZigqbWFjX2Rldi0NCj4gPj4+IGZpeGVk
-X2xpbmspLA0KPiA+PiArCQkJCQkgICAgICBHRlBfS0VSTkVMKTsNCj4gPj4gKwkJaWYgKG9mX3Bo
-eV9wYXJzZV9maXhlZF9saW5rKG1hY19ub2RlLCBtYWNfZGV2LQ0KPiA+Pj4gZml4ZWRfbGluaykp
-DQo+ID4+ICsJCQlnb3RvIF9yZXR1cm5fZGV2X3NldF9kcnZkYXRhOw0KPiA+PiArDQo+ID4+ICsJ
-CXBoeSA9IGZpeGVkX3BoeV9yZWdpc3RlcihQSFlfUE9MTCwgbWFjX2Rldi0+Zml4ZWRfbGluaywN
-Cj4gPj4gKwkJCQkJIG1hY19ub2RlKTsNCj4gPj4NCj4gPj4gLS0tDQo+ID4+DQo+ID4+IHdoaWNo
-IG1lYW5zIHlvdSByZWFsbHkgd2FudCB0byBjaXJjdW12ZW50IHRoZSBjdXJyZW50IE9GDQo+ID4+
-IGFwaSBxdWl0ZSBhIGxvdCwgd2l0aG91dCBzYXlpbmcgd2h5IGluIHRoZSBwYXRjaCBkZXNjcmlw
-dGlvbi4NCj4gPiBJIGNpcmN1bXZlbnQgdGhlIEFQSSBiZWNhdXNlIEkgZGluIG5vdCB3YW50IHRv
-IGNoYW5nZSBleGlzdGluZyBBUEkuDQo+ID4gSWYgSSBjb3VsZCBnZXQgYSByZWZlcmVuY2UgdG8g
-dGhlIHN0YXR1cyBzdHJ1Y3Qgd2l0aG91dCBjaGFuZ2luZyBhbnkgY29kZQ0KPiA+IG9yIHdpdGhv
-dXQgYmVpbmcgcmVxdWlyZWQgdG8gY2FsbCBieSBteXNlbGYgZml4ZWRfcGh5X3JlZ2lzdGVyKCks
-IEkNCj4gPiB3b3VsZCBvZiBkb25lIHRoYXQuIEdpdmVuIHRoZSBleGlzdGluZyBjb2RlIGluDQo+
-IG9mX3BoeV9yZWdpc3Rlcl9maXhlZF9saW5rKCksDQo+ID4gdGhpcyB3YXMgbXkgb25seSBvcHRp
-b24uIEkgY291bGQgaGF2ZSBicm9rZW4gb2ZfcGh5X3JlZ2lzdGVyX2ZpeGVkX2xpbmsoKQ0KPiA+
-IGluIHR3byBmdW5jdGlvbnM6DQo+ID4NCj4gPiBvZl9waHlfcGFyc2VfZml4ZWRfbGluaygpIGFu
-ZCBvZl9waHlfcmVnaXN0ZXJfZml4ZWRfbGluaygpLCB0aGUgbGF0dGVyDQo+IGRvaW5nIG9ubHkN
-Cj4gPiB0aGUgY2FsbCB0byBmaXhlZF9waHlfcmVnaXN0ZXIoKQ0KPiA+DQo+ID4gdGhhdCB3b3Vs
-ZCBhbGxvdyB0byBrZWVwIG9mX3BoeV9yZWdpc3Rlcl9maXhlZF9saW5rKCkgYXMgaXQgaXMsIGJy
-b2tlbiBpbg0KPiB0d28gc3RhZ2VzOg0KPiA+DQo+ID4gLSBwYXJzaW5nDQo+ID4gLSByZWdpc3Rl
-cmluZw0KPiA+DQo+ID4gdGhhbiBjYW4gYmUgdXNlZCBieSBvdGhlciBkcml2ZXJzIGluIG9yZGVy
-IHRvIGdldCB0aGUgc3RhdHVzIGJ1dCBJIHRoaW5rIGl0J3MNCj4gb3ZlcmtpbGwuDQo+IFdoYXQg
-SSByZWZlcnJlZCB0byBhcyAiY2lyY3VtdmVudGluZyBhbiBBUEkiIGlzIHRoYXQgeW91IGRvDQo+
-IHBoeSA9IGZpeGVkX3BoeV9yZWdpc3RlcihQSFlfUE9MTCwgbWFjX2Rldi0+Zml4ZWRfbGluaywg
-KyBtYWNfbm9kZSk7DQo+IGJ5IGhhbmRzLCBpbnN0ZWFkIG9mIGxldHRpbmcgdGhlIG9mX3BoeV9y
-ZWdpc3Rlcl9maXhlZF9saW5rKCkgZG9pbmcgc28uDQo+IA0KPiBIb3cgYWJvdXQgYSBzbWFsbGVy
-IGNpcmN1bXZlbnRpb24sIGxpa2UgdGhpcyBmb3IgaW5zdGFuY2U6DQo+IC0tLQ0KPiBlcnIgPSBv
-Zl9waHlfcmVnaXN0ZXJfZml4ZWRfbGluayhtYWNfbm9kZSk7DQo+IHBoeSA9IG9mX3BoeV9maW5k
-X2RldmljZShkbik7DQo+IHN0YXR1cyA9IGZpeGVkX3BoeV9nZXRfbGlua19zdGF0dXMocGh5KTsg
-ICAgLy8gbm8gc3VjaCBmdW5jLCB0byBiZSBjb2RlZCB1cA0KPiAtLS0NCj4gDQo+IE9yIGV2ZW4g
-bGlrZSB0aGlzOg0KPiAtLS0NCj4gZXJyID0gb2ZfcGh5X3JlZ2lzdGVyX2ZpeGVkX2xpbmsobWFj
-X25vZGUpOw0KPiBwaHkgPSBvZl9waHlfZmluZF9kZXZpY2UoZG4pOw0KPiBzZXRfc3BlZWRfYW5k
-X2R1cGxleChwaHktPnNwZWVkLCBwaHktPmR1cGxleCk7ICAgIC8vIG5vdCBzdXJlIGlmIHRoZXNl
-DQo+IHZhbHVlcyBhcmUgYXZhaWxhYmxlIHRoYXQgZWFybHkNCj4gLS0tDQoNCkFmdGVyIG15IHBh
-dGNoLCBhbGwgdGhhdCBvZl9waHlfcmVnaXN0ZXJfZml4ZWRfbGluaygpIGRvZXMgaXMgdG8gY2Fs
-bA0KdGhlIG5ldyBwYXJzaW5nIGZ1bmN0aW9uIEkgaW50cm9kdWNlZCB0aGVuIHJlZ2lzdGVyIHRo
-ZSBmaXhlZCBQSFkuDQpJIGNvdWxkIGhhdmUgZG9uZSB0aGlzIChwc2V1ZG9jb2RlKToNCg0KLSBh
-ZGQgb2ZfcGh5X3BhcnNlX2ZpeGVkX2xpbmsoKSBhcyBzZWVuIGluIHRoZSBwYXRjaA0KLSBhZGQg
-b2ZfcGh5X3JlZ2lzdGVyX2ZpeGVkX3BoeSgpIHRoYXQganVzdCBjYWxscyBmaXhlZF9waHlfcmVn
-aXN0ZXIoKToNCg0KaW50IG9mX3BoeV9yZWdpc3Rlcl9maXhlZF9waHkobm9kZSkNCnsNCglwaHkg
-PSBmaXhlZF9waHlfcmVnaXN0ZXIoUEhZX1BPTEwsIG1hY19kZXYtPmZpeGVkX2xpbmssDQoJCQkJ
-ICAgICBtYWNfbm9kZSk7DQoJcmV0dXJuICghcGh5KTsNCn0NCg0KLSBjaGFuZ2Ugb2ZfcGh5X3Jl
-Z2lzdGVyX2ZpeGVkX2xpbmsoKSB0byBjb250YWluIG9ubHkgdGhpczoNCg0KaW50IG9mX3BoeV9y
-ZWdpc3Rlcl9maXhlZF9saW5rKG5vZGUpDQp7DQoJb2ZfcGh5X3BhcnNlX2ZpeGVkX2xpbmsobm9k
-ZSwgJnN0YXR1cyk7DQoNCglyZXR1cm4gb2ZfcGh5X3JlZ2lzdGVyX2ZpeGVkX3BoeShub2RlKTsN
-Cn0NCg0KVGhlbiBJIGNvdWxkIGNhbGwgb25seSBvZl8qIGZ1bmN0aW9ucyBidXQgdGhlIGVuZCBy
-ZXN1bHQgd291bGQgYmUgdGhlIHNhbWUgYW5kDQpvZl9waHlfcmVnaXN0ZXJfZml4ZWRfcGh5KCkg
-d291bGQgbm90IGp1c3RpZnkgaXRzIGV4aXN0ZW5jZSB0aGF0IG11Y2guLi4NCg0KVGhlIGdldHRl
-ciBmb3Igc3RhdHVzIHlvdSBzdWdnZXN0IHdvdWxkIGJlIGZpbmUsIGJ1dCBub3Qgc3VyZSBob3cg
-b25lIHdvdWxkIHJldHJpZXZlDQppdCBmcm9tIHRoZSBtYWNfbm9kZSB1bmxlc3Mgd2UgY2hhbmdl
-IG9mX3BoeV9yZWdpc3Rlcl9maXhlZF9saW5rKCkgdG8gcmV0dXJuIHRoZQ0KcG9pbnRlciB0byBw
-aHkgKGFuZCBhbGwgdGhlIGRyaXZlcnMgdGhhdCB1c2UgaXQuLi4pLg0KDQo+IA0KPiBBbHNvIEkg
-bWVhbnQgdGhlIGRlc2NyaXB0aW9uIHNob3VsZCBoYXZlIGJlZW4gaW4gdGhlIHBhdGNoLA0KPiBu
-b3QgaW4gdGhlIGUtbWFpbC4gOikgWW91IG9ubHkgd3JvdGUgX3doYXRfIHRoZSBwYXRjaCBkb2Vz
-DQo+ICh3aGljaCBpcyBvZiBjb3Vyc2Ugb2J2aW91cyBmcm9tIHRoZSBjb2RlIGl0c2VsZiksIGJ1
-dCBub3QNCj4gX3doeV8gYW5kIF93aGF0IHdhcyBmaXhlZF8gKHdoYXQgZGlkbid0IHdvcmspLg0K
-PiANCg0KDQpJZiB5b3UgcmVmZXIgdG8gdGhlIGZpcnN0LCBzZXBhcmF0aW9uIHBhdGNoLCBJIHRo
-b3VnaHQgdGhlIGRlc2NyaXB0aW9uIHdhcyBlbm91Z2g6DQoNCiAgICBvZjogc2VwYXJhdGUgZml4
-ZWQgbGluayBwYXJzaW5nIGZyb20gcmVnaXN0cmF0aW9uDQogICAgDQogICAgU29tZSBkcml2ZXJz
-IG1heSBuZWVkIHRvIHBhcnNlIHRoZSBmaXhlZCBsaW5rIHZhbHVlcyBiZWZvcmUgcmVnaXN0ZXJp
-bmcNCiAgICB0aGUgZml4ZWQgbGluayBwaHkuIFNlcGFyYXRlIHRoZSBwYXJzaW5nIGZyb20gdGhl
-IGFjdHVhbCByZWdpc3RyYXRpb24NCiAgICBhbmQgcHJvdmlkZSBhbiBleHBvcnQgZm9yIHRoZSBh
-ZGRlZCBwYXJzaW5nIGZ1bmN0aW9uLg0KICAgIA0KICAgIFNpZ25lZC1vZmYtYnk6IE1hZGFsaW4g
-QnVjdXIgPG1hZGFsaW4uYnVjdXJAZnJlZXNjYWxlLmNvbT4NCg0KRm9yIHRoaXMgb25lIGl0IHdh
-cyBhIGJpdCBicmllZiwgSSBhZG1pdCAtIHRoZSBsb25nZXIgdmVyc2lvbiB3b3VsZCBiZSB0aGF0
-IGJlZm9yZSBpdA0Kd2Ugd2VyZSBub3QgdXNpbmcgZnJvbSBmaXhlZCBsaW5rIGFueXRoaW5nIGVs
-c2UgYnV0IHRoZSBmYWN0IHRoZSBsaW5rIHdhcyBmaXhlZA0KKGlnbm9yZWQgYWN0dWFsIHNwZWVk
-LCBkdXBsZXggdmFsdWVzIHRoZXJlKSBhbmQgdGhpcyBwYXRjaCB0cmllcyB0byBmaXggdGhhdC4N
-CkluIHRoZSBlbmQgdGhpcyBwYXRjaCB3aWxsIGJlIHNxdWFzaGVkIGluIGEgbmV3IEZNYW4gcGF0
-Y2ggc2V0LCBsZXQgbWUgdXNlIHRoYXQgYXMNCmFuIGV4Y3VzZSBmb3IgdGhlIGJyaWVmIGNvbW1p
-dCBsb2cgOikNCg0KPHNuaXA+DQoNCj4gPiAgIFlvdSBhcmUgY29uY2VybmVkIGFib3V0IHBlb3Bs
-ZQ0KPiA+IGFidXNpbmcgdGhpcyBBUEkgdG8gcmVhZCBmaXhlZCBsaW5rIHN0YXR1cyB3aGVuIHRo
-ZSBsaW5rIGlzIG5vdCByZWFsbHkgZml4ZWQsIEknbQ0KPiBjb25jZXJuZWQNCj4gPiBhYm91dCBk
-ZWNsYXJpbmcgdGhlIGxpbmsgYXMgZml4ZWQtbGluayB3aGVuIGl0J3Mgbm90LiBNYXliZSB0aGUN
-Cj4gbmFtaW5nL2JpbmRpbmcgbmVlZHMgdG8gYmUNCj4gPiByZXZpc2VkIHRvIGNvdmVyIHRoZSBj
-YXNlIHdoZW4gYWxsIGlzIGZpeGVkIGJ1dCB0aGUgbGluay4NCj4gWWVzLCBuYW1pbmcgaXMgdGhl
-IHByb2JsZW0uIGZpeGVkLWxpbmsgaXMganVzdCBhIGJhZCBuYW1lLg0KPiBTZWUgaG93IGl0IGlz
-IGRlZmluZWQ6DQo+IC0tLQ0KPiBTb21lIEV0aGVybmV0IE1BQ3MgaGF2ZSBhICJmaXhlZCBsaW5r
-IiwgYW5kIGFyZSBub3QgY29ubmVjdGVkIHRvIGENCj4gbm9ybWFsIE1ESU8tbWFuYWdlZCBQSFkg
-ZGV2aWNlLg0KPiAtLS0NCj4gVG8gbWUgdGhpcyBtZWFucyBhbnkgbm9uLU1ESU8gUEhZIGNvbm5l
-Y3Rpb24sIGJ1dA0KPiB1bmZvcnR1bmF0ZWx5IHRoZSBuYW1lICJmaXhlZC1saW5rIiBzdWdnZXN0
-cyBhIGJpdCBtb3JlDQo+IHRoYW4gYWR2ZXJ0aXNlZC4gOigNCg0KWWVzLCBtYXliZSB0aGUgbmV3
-IGJpbmRpbmcgY291bGQgYmUgdXBkYXRlZCB0byBsb2FkIHNlbWFudGljYWxseSB0aGUgcHJlc2Vu
-Y2UNCm9yIGFic2VuY2Ugb2YgY2VydGFpbiBwYXJhbWV0ZXJzIHN1Y2ggYXMgbGluay4NCg==
+On Tue, 2015-08-11 at 18:13 -0700, Alexei Starovoitov wrote:
+> Also why introduce the flag? Why not just add 'tx_queue_len = 0;' 
+> to veth_setup() like the whole bunch of devices do?
+
+Sigh.
+
+Because some people install htb or pfifo on veth, leaving tx_queue_len
+unchanged.
+
+If you install htb while tx_queue_len is 0, pfifo created on htb classe
+can only queue one packet.
+
+
+static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+{
+        bool bypass;
+        bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
+
+        if (opt == NULL) {
+                u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
+
+                if (is_bfifo)
+                        limit *= psched_mtu(qdisc_dev(sch));
+
+                sch->limit = limit;
+
+
+
+Changing veth txqueuelen is too late.
