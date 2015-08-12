@@ -1,44 +1,32 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] bpf: fix build warnings and add function
- read_trace_pipe()
-Date: Wed, 12 Aug 2015 09:25:54 -0700
-Message-ID: <55CB7392.4070701@plumgrid.com>
-References: <1439372273-69958-1-git-send-email-xiakaixu@huawei.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 6/6] misc/ss: fix memory leak in user_ent_hash_build()
+Date: Wed, 12 Aug 2015 09:27:38 -0700
+Message-ID: <20150812092738.07b13f17@urahara>
+References: <1438863876-1935-1-git-send-email-phil@nwl.cc>
+	<1438863876-1935-2-git-send-email-phil@nwl.cc>
+	<1438863876-1935-3-git-send-email-phil@nwl.cc>
+	<1438863876-1935-4-git-send-email-phil@nwl.cc>
+	<1438863876-1935-5-git-send-email-phil@nwl.cc>
+	<b64bd55adf5d4f96b8f4d6e414161fad@BRMWP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	wangnan0@huawei.com, pi3orama@163.com
-To: Kaixu Xia <xiakaixu@huawei.com>, daniel@iogearbox.net,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439372273-69958-1-git-send-email-xiakaixu@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:35322 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932114AbbHLQ1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 12:27:36 -0400
+Received: by pdrg1 with SMTP id g1so8967865pdr.2
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 09:27:35 -0700 (PDT)
+In-Reply-To: <b64bd55adf5d4f96b8f4d6e414161fad@BRMWP-EXMB11.corp.brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/12/15 2:37 AM, Kaixu Xia wrote:
-> There are two improvements in this patch:
->   1. Fix the build warnings;
->   2. Add function read_trace_pipe() to print the result on
->      the screen;
->
-> Before this patch, we can get the result through /sys/kernel/de
-> bug/tracing/trace_pipe and get nothing on the screen.
-> By applying this patch, the result can be printed on the screen.
->    $ ./tracex6
-> 	...
->           tracex6-705   [003] d..1   131.428593: : CPU-3   19981414
->              sshd-683   [000] d..1   131.428727: : CPU-0   221682321
->              sshd-683   [000] d..1   131.428821: : CPU-0   221808766
->              sshd-683   [000] d..1   131.428950: : CPU-0   221982984
->              sshd-683   [000] d..1   131.429045: : CPU-0   222111851
->           tracex6-705   [003] d..1   131.429168: : CPU-3   20757551
->              sshd-683   [000] d..1   131.429170: : CPU-0   222281240
->              sshd-683   [000] d..1   131.429261: : CPU-0   222403340
->              sshd-683   [000] d..1   131.429378: : CPU-0   222561024
-> 	...
->
-> Signed-off-by: Kaixu Xia<xiakaixu@huawei.com>
+On Thu, 6 Aug 2015 12:24:36 +0000
+Phil Sutter <phil@nwl.cc> wrote:
 
-thanks!
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+
+I applied the rest of these as is.
