@@ -1,31 +1,42 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] ip-link: fix minor typo in manpage
-Date: Wed, 12 Aug 2015 09:02:47 -0700
-Message-ID: <20150812090247.67a363d0@urahara>
-References: <1439313251-9043-1-git-send-email-phil@nwl.cc>
+Subject: Re: [PATCH iproute2 0/3] iplink: shortify printing the usage of
+ bridge
+Date: Wed, 12 Aug 2015 09:08:10 -0700
+Message-ID: <20150812090810.2ee2aaef@urahara>
+References: <1439359404-5085-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36368 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753492AbbHLQCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 12:02:44 -0400
-Received: by pacrr5 with SMTP id rr5so17327657pac.3
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 09:02:43 -0700 (PDT)
-In-Reply-To: <1439313251-9043-1-git-send-email-phil@nwl.cc>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35532 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531AbbHLQIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 12:08:07 -0400
+Received: by pacgr6 with SMTP id gr6so17381664pac.2
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 09:08:07 -0700 (PDT)
+In-Reply-To: <1439359404-5085-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Aug 2015 19:14:11 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On Wed, 12 Aug 2015 06:03:21 +0000
+Zhang Shengju <zhangshengju@cmss.chinamobile.com> wrote:
 
-> Change '-human-readble' to '-human-readable'.
+> This patch set enables bridge related links to print usage with short format.
+> Or else it is needed to use the following way:
+> 	    
+>   ip link { add | del | set } type TYPE help
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Zhang Shengju (3):
+>   iplink: add missing link type
+>   iplink: use the short format to print help info
+>   iplink: shortify printing the usage of link type
+> 
+>  ip/iplink.c              |  2 +-
+>  ip/iplink_bridge.c       | 16 ++++++++++++++--
+>  ip/iplink_bridge_slave.c | 16 ++++++++++++++--
+>  3 files changed, 29 insertions(+), 5 deletions(-)
+> 
 
-
-
-Applied.
+All 3 and the typo patch applied.
