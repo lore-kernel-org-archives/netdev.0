@@ -1,7 +1,7 @@
 From: Roy Pledge <Roy.Pledge@freescale.com>
-Subject: [v2 06/11] soc/qman: Add self-tester for QMan driver
-Date: Wed, 12 Aug 2015 16:14:52 -0400
-Message-ID: <1439410497-19039-7-git-send-email-Roy.Pledge@freescale.com>
+Subject: [v2 05/11] soc/bman: Add self-tester for BMan driver
+Date: Wed, 12 Aug 2015 16:14:51 -0400
+Message-ID: <1439410497-19039-6-git-send-email-Roy.Pledge@freescale.com>
 References: <1439410497-19039-1-git-send-email-Roy.Pledge@freescale.com>
 Reply-To: <Roy.Pledge@freescale.com>
 Mime-Version: 1.0
@@ -15,43 +15,85 @@ List-Id: netdev.vger.kernel.org
 
 From: Geoff Thorpe <Geoff.Thorpe@freescale.com>
 
-Add a self test for the DPAA 1.0 Queue Manager driver. The tests
-ensure that the driver can properly enqueue and dequeue from frame
-queues using the QMan portal infrastructure.
+Add a self test for the DPAA 1.0 Buffer Manager driver. This
+test ensures that the driver can properly acquire and release
+buffers using the BMan portal infrastructure.
 
 Signed-off-by: Geoff Thorpe <Geoff.Thorpe@freescale.com>
 Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
 Signed-off-by: Roy Pledge <Roy.Pledge@freescale.com>
 ---
- drivers/soc/fsl/qbman/Makefile          |    4 +
- drivers/soc/fsl/qbman/qman_test.c       |   57 ++++
- drivers/soc/fsl/qbman/qman_test.h       |   44 +++
- drivers/soc/fsl/qbman/qman_test_api.c   |  216 +++++++++++++
- drivers/soc/fsl/qbman/qman_test_stash.c |  502 +++++++++++++++++++++++++++++++
- 5 files changed, 823 insertions(+)
- create mode 100644 drivers/soc/fsl/qbman/qman_test.c
- create mode 100644 drivers/soc/fsl/qbman/qman_test.h
- create mode 100644 drivers/soc/fsl/qbman/qman_test_api.c
- create mode 100644 drivers/soc/fsl/qbman/qman_test_stash.c
+ drivers/soc/fsl/qbman/Kconfig            |   26 ++++
+ drivers/soc/fsl/qbman/Makefile           |    4 +
+ drivers/soc/fsl/qbman/bman_test.c        |   56 +++++++++
+ drivers/soc/fsl/qbman/bman_test.h        |   34 +++++
+ drivers/soc/fsl/qbman/bman_test_api.c    |  184 +++++++++++++++++++++++++++
+ drivers/soc/fsl/qbman/bman_test_thresh.c |  198 ++++++++++++++++++++++++++++++
+ drivers/soc/fsl/qbman/dpaa_sys.h         |    1 +
+ 7 files changed, 503 insertions(+)
+ create mode 100644 drivers/soc/fsl/qbman/bman_test.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_test.h
+ create mode 100644 drivers/soc/fsl/qbman/bman_test_api.c
+ create mode 100644 drivers/soc/fsl/qbman/bman_test_thresh.c
 
+diff --git a/drivers/soc/fsl/qbman/Kconfig b/drivers/soc/fsl/qbman/Kconfig
+index 1ff52a8..1f2063a 100644
+--- a/drivers/soc/fsl/qbman/Kconfig
++++ b/drivers/soc/fsl/qbman/Kconfig
+@@ -28,6 +28,32 @@ config FSL_BMAN_PORTAL
+ 	help
+ 		FSL BMan portal driver
+ 
++config FSL_BMAN_TEST
++	tristate "BMan self-tests"
++	default n
++	help
++		Compile self-test code
++
++config FSL_BMAN_TEST_API
++	bool "High-level API self-test"
++	depends on FSL_BMAN_TEST
++	default y
++	help
++		This requires the presence of cpu-affine portals, and performs
++		high-level API testing with them (whichever portal(s) are affine
++		to the cpu(s) the test executes on).
++
++config FSL_BMAN_TEST_THRESH
++	bool "Thresholds self-test"
++	depends on FSL_BMAN_TEST
++	default y
++	help
++	  Multi-threaded (SMP) test of BMan pool depletion. A pool is seeded
++	  before multiple threads (one per cpu) create pool objects to track
++	  depletion state changes. The pool is then drained to empty by a
++	  "drainer" thread, and the other threads that they observe exactly
++	  the depletion state changes that are expected.
++
+ config FSL_QMAN
+ 	bool "QMan device management"
+ 	default n
 diff --git a/drivers/soc/fsl/qbman/Makefile b/drivers/soc/fsl/qbman/Makefile
-index 04509c3..82f5482 100644
+index 0d96598..04509c3 100644
 --- a/drivers/soc/fsl/qbman/Makefile
 +++ b/drivers/soc/fsl/qbman/Makefile
-@@ -12,3 +12,7 @@ bman-test-$(CONFIG_FSL_BMAN_TEST_THRESH)	+= bman_test_thresh.o
+@@ -5,6 +5,10 @@ obj-$(CONFIG_FSL_BMAN)				+= bman.o
+ obj-$(CONFIG_FSL_BMAN_PORTAL)			+= bman-portal.o
+ bman-portal-y					 = bman_portal.o bman_api.o	\
+ 						   bman_utils.o
++obj-$(CONFIG_FSL_BMAN_TEST)			+= bman-test.o
++bman-test-y					 = bman_test.o
++bman-test-$(CONFIG_FSL_BMAN_TEST_API)		+= bman_test_api.o
++bman-test-$(CONFIG_FSL_BMAN_TEST_THRESH)	+= bman_test_thresh.o
  
  obj-$(CONFIG_FSL_QMAN)				+= qman_api.o qman_utils.o qman_driver.o
  obj-$(CONFIG_FSL_QMAN_CONFIG)			+= qman.o qman_portal.o
-+obj-$(CONFIG_FSL_QMAN_TEST)			+= qman-test.o
-+qman-test-y					 = qman_test.o
-+qman-test-$(CONFIG_FSL_QMAN_TEST_API)		+= qman_test_api.o
-+qman-test-$(CONFIG_FSL_QMAN_TEST_STASH)		+= qman_test_stash.o
-diff --git a/drivers/soc/fsl/qbman/qman_test.c b/drivers/soc/fsl/qbman/qman_test.c
+diff --git a/drivers/soc/fsl/qbman/bman_test.c b/drivers/soc/fsl/qbman/bman_test.c
 new file mode 100644
-index 0000000..9ec49cb
+index 0000000..9298093
 --- /dev/null
-+++ b/drivers/soc/fsl/qbman/qman_test.c
-@@ -0,0 +1,57 @@
++++ b/drivers/soc/fsl/qbman/bman_test.c
+@@ -0,0 +1,56 @@
 +/* Copyright 2008 - 2015 Freescale Semiconductor, Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
@@ -82,24 +124,23 @@ index 0000000..9ec49cb
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include "qman_test.h"
++#include "bman_test.h"
 +
 +MODULE_AUTHOR("Geoff Thorpe");
 +MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_DESCRIPTION("QMan testing");
++MODULE_DESCRIPTION("BMan testing");
 +
 +static int test_init(void)
 +{
++#ifdef CONFIG_FSL_BMAN_TEST_API
 +	int loop = 1;
 +
-+	while (loop--) {
-+#ifdef CONFIG_FSL_QMAN_TEST_STASH
-+		qman_test_stash();
++	while (loop--)
++		bman_test_api();
 +#endif
-+#ifdef CONFIG_FSL_QMAN_TEST_API
-+		qman_test_api();
++#ifdef CONFIG_FSL_BMAN_TEST_THRESH
++	bman_test_thresh();
 +#endif
-+	}
 +	return 0;
 +}
 +
@@ -109,12 +150,12 @@ index 0000000..9ec49cb
 +
 +module_init(test_init);
 +module_exit(test_exit);
-diff --git a/drivers/soc/fsl/qbman/qman_test.h b/drivers/soc/fsl/qbman/qman_test.h
+diff --git a/drivers/soc/fsl/qbman/bman_test.h b/drivers/soc/fsl/qbman/bman_test.h
 new file mode 100644
-index 0000000..0b34a67
+index 0000000..9c51c38
 --- /dev/null
-+++ b/drivers/soc/fsl/qbman/qman_test.h
-@@ -0,0 +1,44 @@
++++ b/drivers/soc/fsl/qbman/bman_test.h
+@@ -0,0 +1,34 @@
 +/* Copyright 2008 - 2015 Freescale Semiconductor, Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
@@ -145,26 +186,16 @@ index 0000000..0b34a67
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/io.h>
-+#include <linux/slab.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/delay.h>
-+#include <linux/kthread.h>
-+#include <linux/platform_device.h>
++#include "bman_priv.h"
 +
-+#include <soc/fsl/qman.h>
-+
-+void qman_test_stash(void);
-+void qman_test_api(void);
-diff --git a/drivers/soc/fsl/qbman/qman_test_api.c b/drivers/soc/fsl/qbman/qman_test_api.c
++void bman_test_api(void);
++void bman_test_thresh(void);
+diff --git a/drivers/soc/fsl/qbman/bman_test_api.c b/drivers/soc/fsl/qbman/bman_test_api.c
 new file mode 100644
-index 0000000..ca3c1e6
+index 0000000..2f1bf74
 --- /dev/null
-+++ b/drivers/soc/fsl/qbman/qman_test_api.c
-@@ -0,0 +1,216 @@
++++ b/drivers/soc/fsl/qbman/bman_test_api.c
+@@ -0,0 +1,184 @@
 +/* Copyright 2008 - 2015 Freescale Semiconductor, Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
@@ -195,199 +226,167 @@ index 0000000..ca3c1e6
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include "qman_test.h"
++#include "bman_test.h"
 +
 +/*************/
 +/* constants */
 +/*************/
 +
-+#define CGR_ID		27
-+#define POOL_ID		2
-+#define FQ_FLAGS	QMAN_FQ_FLAG_DYNAMIC_FQID
-+#define NUM_ENQUEUES	10
-+#define NUM_PARTIAL	4
-+#define PORTAL_SDQCR	(QM_SDQCR_SOURCE_CHANNELS | \
-+			QM_SDQCR_TYPE_PRIO_QOS | \
-+			QM_SDQCR_TOKEN_SET(0x98) | \
-+			QM_SDQCR_CHANNELS_DEDICATED | \
-+			QM_SDQCR_CHANNELS_POOL(POOL_ID))
 +#define PORTAL_OPAQUE	((void *)0xf00dbeef)
-+#define VDQCR_FLAGS	(QMAN_VOLATILE_FLAG_WAIT | QMAN_VOLATILE_FLAG_FINISH)
-+
-+/*************************************/
-+/* Predeclarations (eg. for fq_base) */
-+/*************************************/
-+
-+static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *,
-+					struct qman_fq *,
-+					const struct qm_dqrr_entry *);
-+static void cb_ern(struct qman_portal *, struct qman_fq *,
-+			const struct qm_mr_entry *);
-+static void cb_fqs(struct qman_portal *, struct qman_fq *,
-+			const struct qm_mr_entry *);
++#define POOL_OPAQUE	((void *)0xdeadabba)
++#define NUM_BUFS	93
++#define LOOPS		3
++#define BMAN_TOKEN_MASK 0x00FFFFFFFFFFLLU
 +
 +/***************/
 +/* global vars */
 +/***************/
 +
-+static struct qm_fd fd, fd_dq;
-+static struct qman_fq fq_base = {
-+	.cb.dqrr = cb_dqrr,
-+	.cb.ern = cb_ern,
-+	.cb.fqs = cb_fqs
-+};
-+static DECLARE_WAIT_QUEUE_HEAD(waitqueue);
-+static int retire_complete, sdqcr_complete;
++static struct bman_pool *pool;
++static int depleted;
++static struct bm_buffer bufs_in[NUM_BUFS] ____cacheline_aligned;
++static struct bm_buffer bufs_out[NUM_BUFS] ____cacheline_aligned;
++static int bufs_received;
++
++/* Predeclare the callback so we can instantiate pool parameters */
++static void depletion_cb(struct bman_portal *, struct bman_pool *, void *, int);
 +
 +/**********************/
 +/* internal functions */
 +/**********************/
 +
-+/* Helpers for initialising and "incrementing" a frame descriptor */
-+static void fd_init(struct qm_fd *__fd)
++static void bufs_init(void)
 +{
-+	qm_fd_addr_set64(__fd, 0xabdeadbeefLLU);
-+	__fd->format = qm_fd_contig_big;
-+	__fd->length29 = 0x0000ffff;
-+	__fd->cmd = 0xfeedf00d;
++	int i;
++
++	for (i = 0; i < NUM_BUFS; i++)
++		bm_buffer_set64(&bufs_in[i], 0xfedc01234567LLU * i);
++	bufs_received = 0;
 +}
 +
-+static void fd_inc(struct qm_fd *__fd)
++static inline int bufs_cmp(const struct bm_buffer *a, const struct bm_buffer *b)
 +{
-+	u64 t = qm_fd_addr_get64(__fd);
-+	int z = t >> 40;
++	if ((bman_ip_rev == BMAN_REV20) || (bman_ip_rev == BMAN_REV21)) {
 +
-+	t <<= 1;
-+	if (z)
-+		t |= 1;
-+	qm_fd_addr_set64(__fd, t);
-+	__fd->length29--;
-+	__fd->cmd++;
++		/* On SoCs with BMan revison 2.0, BMan only respects the 40
++		 * LS-bits of buffer addresses, masking off the upper 8-bits on
++		 * release commands. The API provides for 48-bit addresses
++		 * because some SoCs support all 48-bits. When generating
++		 * garbage addresses for testing, we either need to zero the
++		 * upper 8-bits when releasing to BMan (otherwise we'll be
++		 * disappointed when the buffers we acquire back from BMan
++		 * don't match), or we need to mask the upper 8-bits off when
++		 * comparing. We do the latter.
++		 */
++		if ((bm_buffer_get64(a) & BMAN_TOKEN_MASK)
++				< (bm_buffer_get64(b) & BMAN_TOKEN_MASK))
++			return -1;
++		if ((bm_buffer_get64(a) & BMAN_TOKEN_MASK)
++				> (bm_buffer_get64(b) & BMAN_TOKEN_MASK))
++			return 1;
++	} else {
++		if (bm_buffer_get64(a) < bm_buffer_get64(b))
++			return -1;
++		if (bm_buffer_get64(a) > bm_buffer_get64(b))
++			return 1;
++	}
++
++	return 0;
 +}
 +
-+/* The only part of the 'fd' we can't memcmp() is the ppid */
-+static int fd_cmp(const struct qm_fd *a, const struct qm_fd *b)
++static void bufs_confirm(void)
 +{
-+	int r = (qm_fd_addr_get64(a) == qm_fd_addr_get64(b)) ? 0 : -1;
++	int i, j;
 +
-+	if (!r)
-+		r = a->format - b->format;
-+	if (!r)
-+		r = a->opaque - b->opaque;
-+	if (!r)
-+		r = a->cmd - b->cmd;
-+	return r;
++	for (i = 0; i < NUM_BUFS; i++) {
++		int matches = 0;
++
++		for (j = 0; j < NUM_BUFS; j++)
++			if (!bufs_cmp(&bufs_in[i], &bufs_out[j]))
++				matches++;
++		BUG_ON(matches != 1);
++	}
 +}
 +
 +/********/
 +/* test */
 +/********/
 +
-+static void do_enqueues(struct qman_fq *fq)
++static void depletion_cb(struct bman_portal *__portal, struct bman_pool *__pool,
++			void *pool_ctx, int __depleted)
 +{
-+	unsigned int loop;
++	BUG_ON(__pool != pool);
++	BUG_ON(pool_ctx != POOL_OPAQUE);
++	depleted = __depleted;
++}
 +
-+	for (loop = 0; loop < NUM_ENQUEUES; loop++) {
-+		if (qman_enqueue(fq, &fd, QMAN_ENQUEUE_FLAG_WAIT |
-+				(((loop + 1) == NUM_ENQUEUES) ?
-+				QMAN_ENQUEUE_FLAG_WAIT_SYNC : 0)))
-+			panic("qman_enqueue() failed\n");
-+		fd_inc(&fd);
++void bman_test_api(void)
++{
++	struct bman_pool_params pparams = {
++		.flags = BMAN_POOL_FLAG_DEPLETION | BMAN_POOL_FLAG_DYNAMIC_BPID,
++		.cb = depletion_cb,
++		.cb_ctx = POOL_OPAQUE,
++	};
++	int i, loops = LOOPS;
++
++	bufs_init();
++
++	pr_info("	--- Starting high-level test ---\n");
++
++	pool = bman_new_pool(&pparams);
++	BUG_ON(!pool);
++
++	/*******************/
++	/* Release buffers */
++	/*******************/
++do_loop:
++	i = 0;
++	while (i < NUM_BUFS) {
++		u32 flags = BMAN_RELEASE_FLAG_WAIT;
++		int num = 8;
++
++		if ((i + num) > NUM_BUFS)
++			num = NUM_BUFS - i;
++		if ((i + num) == NUM_BUFS)
++			flags |= BMAN_RELEASE_FLAG_WAIT_SYNC;
++		if (bman_release(pool, bufs_in + i, num, flags))
++			panic("bman_release() failed\n");
++		i += num;
 +	}
-+}
 +
-+void qman_test_api(void)
-+{
-+	unsigned int flags;
-+	int res;
-+	struct qman_fq *fq = &fq_base;
++	/*******************/
++	/* Acquire buffers */
++	/*******************/
++	while (i > 0) {
++		int tmp, num = 8;
 +
-+	pr_info("%s(): Starting\n", __func__);
-+	fd_init(&fd);
-+	fd_init(&fd_dq);
-+
-+	/* Initialise (parked) FQ */
-+	if (qman_create_fq(0, FQ_FLAGS, fq))
-+		panic("qman_create_fq() failed\n");
-+	if (qman_init_fq(fq, QMAN_INITFQ_FLAG_LOCAL, NULL))
-+		panic("qman_init_fq() failed\n");
-+
-+	/* Do enqueues + VDQCR, twice. (Parked FQ) */
-+	do_enqueues(fq);
-+	pr_info("VDQCR (till-empty);\n");
-+	if (qman_volatile_dequeue(fq, VDQCR_FLAGS,
-+			QM_VDQCR_NUMFRAMES_TILLEMPTY))
-+		panic("qman_volatile_dequeue() failed\n");
-+	do_enqueues(fq);
-+	pr_info("VDQCR (%d of %d);\n", NUM_PARTIAL, NUM_ENQUEUES);
-+	if (qman_volatile_dequeue(fq, VDQCR_FLAGS,
-+			QM_VDQCR_NUMFRAMES_SET(NUM_PARTIAL)))
-+		panic("qman_volatile_dequeue() failed\n");
-+	pr_info("VDQCR (%d of %d);\n", NUM_ENQUEUES - NUM_PARTIAL,
-+					NUM_ENQUEUES);
-+	if (qman_volatile_dequeue(fq, VDQCR_FLAGS,
-+			QM_VDQCR_NUMFRAMES_SET(NUM_ENQUEUES - NUM_PARTIAL)))
-+		panic("qman_volatile_dequeue() failed\n");
-+
-+	do_enqueues(fq);
-+	pr_info("scheduled dequeue (till-empty)\n");
-+	if (qman_schedule_fq(fq))
-+		panic("qman_schedule_fq() failed\n");
-+	wait_event(waitqueue, sdqcr_complete);
-+
-+	/* Retire and OOS the FQ */
-+	res = qman_retire_fq(fq, &flags);
-+	if (res < 0)
-+		panic("qman_retire_fq() failed\n");
-+	wait_event(waitqueue, retire_complete);
-+	if (flags & QMAN_FQ_STATE_BLOCKOOS)
-+		panic("leaking frames\n");
-+	if (qman_oos_fq(fq))
-+		panic("qman_oos_fq() failed\n");
-+	qman_destroy_fq(fq, 0);
-+	pr_info("%s(): Finished\n", __func__);
-+}
-+
-+static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p,
-+					struct qman_fq *fq,
-+					const struct qm_dqrr_entry *dq)
-+{
-+	if (fd_cmp(&fd_dq, &dq->fd)) {
-+		pr_err("BADNESS: dequeued frame doesn't match;\n");
-+		BUG();
++		if (num > i)
++			num = i;
++		tmp = bman_acquire(pool, bufs_out + i - num, num, 0);
++		BUG_ON(tmp != num);
++		i -= num;
 +	}
-+	fd_inc(&fd_dq);
-+	if (!(dq->stat & QM_DQRR_STAT_UNSCHEDULED) && !fd_cmp(&fd_dq, &fd)) {
-+		sdqcr_complete = 1;
-+		wake_up(&waitqueue);
-+	}
-+	return qman_cb_dqrr_consume;
-+}
++	i = bman_acquire(pool, NULL, 1, 0);
++	BUG_ON(i > 0);
 +
-+static void cb_ern(struct qman_portal *p, struct qman_fq *fq,
-+			const struct qm_mr_entry *msg)
-+{
-+	panic("cb_ern() unimplemented");
-+}
++	bufs_confirm();
 +
-+static void cb_fqs(struct qman_portal *p, struct qman_fq *fq,
-+			const struct qm_mr_entry *msg)
-+{
-+	u8 verb = (msg->verb & QM_MR_VERB_TYPE_MASK);
++	if (--loops)
++		goto do_loop;
 +
-+	if ((verb != QM_MR_VERB_FQRN) && (verb != QM_MR_VERB_FQRNI))
-+		panic("unexpected FQS message");
-+	pr_info("Retirement message received\n");
-+	retire_complete = 1;
-+	wake_up(&waitqueue);
++	/************/
++	/* Clean up */
++	/************/
++	bman_free_pool(pool);
++	pr_info("	--- Finished high-level test ---\n");
 +}
-diff --git a/drivers/soc/fsl/qbman/qman_test_stash.c b/drivers/soc/fsl/qbman/qman_test_stash.c
+diff --git a/drivers/soc/fsl/qbman/bman_test_thresh.c b/drivers/soc/fsl/qbman/bman_test_thresh.c
 new file mode 100644
-index 0000000..8ffbc5b
+index 0000000..41372a1
 --- /dev/null
-+++ b/drivers/soc/fsl/qbman/qman_test_stash.c
-@@ -0,0 +1,502 @@
-+/* Copyright 2009 - 2015 Freescale Semiconductor, Inc.
++++ b/drivers/soc/fsl/qbman/bman_test_thresh.c
+@@ -0,0 +1,198 @@
++/* Copyright 2010 - 2015 Freescale Semiconductor, Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
@@ -417,477 +416,185 @@ index 0000000..8ffbc5b
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include "qman_test.h"
++#include "bman_test.h"
 +
-+#include <linux/dma-mapping.h>
++/* Test constants */
++#define TEST_NUMBUFS	129728
++#define TEST_EXIT	129536
++#define TEST_ENTRY	129024
 +
-+/* Algorithm:
-+ *
-+ * Each cpu will have HP_PER_CPU "handlers" set up, each of which incorporates
-+ * an rx/tx pair of FQ objects (both of which are stashed on dequeue). The
-+ * organisation of FQIDs is such that the HP_PER_CPU*NUM_CPUS handlers will
-+ * shuttle a "hot potato" frame around them such that every forwarding action
-+ * moves it from one cpu to another. (The use of more than one handler per cpu
-+ * is to allow enough handlers/FQs to truly test the significance of caching -
-+ * ie. when cache-expiries are occurring.)
-+ *
-+ * The "hot potato" frame content will be HP_NUM_WORDS*4 bytes in size, and the
-+ * first and last words of the frame data will undergo a transformation step on
-+ * each forwarding action. To achieve this, each handler will be assigned a
-+ * 32-bit "mixer", that is produced using a 32-bit LFSR. When a frame is
-+ * received by a handler, the mixer of the expected sender is XOR'd into all
-+ * words of the entire frame, which is then validated against the original
-+ * values. Then, before forwarding, the entire frame is XOR'd with the mixer of
-+ * the current handler. Apart from validating that the frame is taking the
-+ * expected path, this also provides some quasi-realistic overheads to each
-+ * forwarding action - dereferencing *all* the frame data, computation, and
-+ * conditional branching. There is a "special" handler designated to act as the
-+ * instigator of the test by creating an enqueuing the "hot potato" frame, and
-+ * to determine when the test has completed by counting HP_LOOPS iterations.
-+ *
-+ * Init phases:
-+ *
-+ * 1. prepare each cpu's 'hp_cpu' struct using on_each_cpu(,,1) and link them
-+ *    into 'hp_cpu_list'. Specifically, set processor_id, allocate HP_PER_CPU
-+ *    handlers and link-list them (but do no other handler setup).
-+ *
-+ * 2. scan over 'hp_cpu_list' HP_PER_CPU times, the first time sets each
-+ *    hp_cpu's 'iterator' to point to its first handler. With each loop,
-+ *    allocate rx/tx FQIDs and mixer values to the hp_cpu's iterator handler
-+ *    and advance the iterator for the next loop. This includes a final fixup,
-+ *    which connects the last handler to the first (and which is why phase 2
-+ *    and 3 are separate).
-+ *
-+ * 3. scan over 'hp_cpu_list' HP_PER_CPU times, the first time sets each
-+ *    hp_cpu's 'iterator' to point to its first handler. With each loop,
-+ *    initialise FQ objects and advance the iterator for the next loop.
-+ *    Moreover, do this initialisation on the cpu it applies to so that Rx FQ
-+ *    initialisation targets the correct cpu.
-+ */
-+
-+/* helper to run something on all cpus (can't use on_each_cpu(), as that invokes
-+ * the fn from irq context, which is too restrictive). */
-+struct bstrap {
-+	void (*fn)(void);
-+	atomic_t started;
-+};
-+static int bstrap_fn(void *__bstrap)
-+{
-+	struct bstrap *bstrap = __bstrap;
-+
-+	atomic_inc(&bstrap->started);
-+	bstrap->fn();
-+	while (!kthread_should_stop())
-+		msleep(1);
-+	return 0;
-+}
-+static int on_all_cpus(void (*fn)(void))
-+{
++struct affine_test_data {
++	struct task_struct *t;
 +	int cpu;
++	int expect_affinity;
++	int drain;
++	int num_enter;
++	int num_exit;
++	struct list_head node;
++	struct completion wakethread;
++	struct completion wakeparent;
++};
 +
-+	for_each_cpu(cpu, cpu_online_mask) {
-+		struct bstrap bstrap = {
-+			.fn = fn,
-+			.started = ATOMIC_INIT(0)
-+		};
-+		struct task_struct *k = kthread_create(bstrap_fn, &bstrap,
-+			"hotpotato%d", cpu);
++static void cb_depletion(struct bman_portal *portal,
++			struct bman_pool *pool,
++			void *opaque,
++			int depleted)
++{
++	struct affine_test_data *data = opaque;
++	int c = smp_processor_id();
++
++	pr_info("%s(): bpid=%d, depleted=%d, cpu=%d, original=%d\n", __func__,
++		bman_get_params(pool)->bpid, !!depleted, c, data->cpu);
++	/* We should be executing on the CPU of the thread that owns the pool if
++	 * and that CPU has an affine portal (ie. it isn't slaved). */
++	BUG_ON((c != data->cpu) && data->expect_affinity);
++	BUG_ON((c == data->cpu) && !data->expect_affinity);
++	if (depleted)
++		data->num_enter++;
++	else
++		data->num_exit++;
++}
++
++/* Params used to set up a pool, this also dynamically allocates a BPID */
++static const struct bman_pool_params params_nocb = {
++	.flags = BMAN_POOL_FLAG_DYNAMIC_BPID | BMAN_POOL_FLAG_THRESH,
++	.thresholds = { TEST_ENTRY, TEST_EXIT, 0, 0 }
++};
++
++/* Params used to set up each cpu's pool with callbacks enabled */
++static struct bman_pool_params params_cb = {
++	.bpid = 0, /* will be replaced to match pool_nocb */
++	.flags = BMAN_POOL_FLAG_DEPLETION,
++	.cb = cb_depletion
++};
++
++static struct bman_pool *pool_nocb;
++static LIST_HEAD(threads);
++
++static int affine_test(void *__data)
++{
++	struct bman_pool *pool;
++	struct affine_test_data *data = __data;
++	struct bman_pool_params my_params = params_cb;
++
++	pr_info("Thread %d: starting\n", data->cpu);
++	/* create the pool */
++	my_params.cb_ctx = data;
++	pool = bman_new_pool(&my_params);
++	BUG_ON(!pool);
++	complete(&data->wakeparent);
++	wait_for_completion(&data->wakethread);
++	init_completion(&data->wakethread);
++
++	/* if we're the drainer, we get signalled for that */
++	if (data->drain) {
++		struct bm_buffer buf;
 +		int ret;
 +
-+		if (IS_ERR(k))
-+			return -ENOMEM;
-+		kthread_bind(k, cpu);
-+		wake_up_process(k);
-+		/* If we call kthread_stop() before the "wake up" has had an
-+		 * effect, then the thread may exit with -EINTR without ever
-+		 * running the function. So poll until it's started before
-+		 * requesting it to stop. */
-+		while (!atomic_read(&bstrap.started))
-+			msleep(10);
-+		ret = kthread_stop(k);
-+		if (ret)
-+			return ret;
++		pr_info("Thread %d: draining...\n", data->cpu);
++		do {
++			ret = bman_acquire(pool, &buf, 1, 0);
++		} while (ret > 0);
++		pr_info("Thread %d: draining done.\n", data->cpu);
++		complete(&data->wakeparent);
++		wait_for_completion(&data->wakethread);
++		init_completion(&data->wakethread);
 +	}
++
++	/* cleanup */
++	bman_free_pool(pool);
++	while (!kthread_should_stop())
++		cpu_relax();
++	pr_info("Thread %d: exiting\n", data->cpu);
 +	return 0;
 +}
 +
-+struct hp_handler {
-+
-+	/* The following data is stashed when 'rx' is dequeued; */
-+	/* -------------- */
-+	/* The Rx FQ, dequeues of which will stash the entire hp_handler */
-+	struct qman_fq rx;
-+	/* The Tx FQ we should forward to */
-+	struct qman_fq tx;
-+	/* The value we XOR post-dequeue, prior to validating */
-+	u32 rx_mixer;
-+	/* The value we XOR pre-enqueue, after validating */
-+	u32 tx_mixer;
-+	/* what the hotpotato address should be on dequeue */
-+	dma_addr_t addr;
-+	u32 *frame_ptr;
-+
-+	/* The following data isn't (necessarily) stashed on dequeue; */
-+	/* -------------- */
-+	u32 fqid_rx, fqid_tx;
-+	/* list node for linking us into 'hp_cpu' */
-+	struct list_head node;
-+	/* Just to check ... */
-+	unsigned int processor_id;
-+} ____cacheline_aligned;
-+
-+struct hp_cpu {
-+	/* identify the cpu we run on; */
-+	unsigned int processor_id;
-+	/* root node for the per-cpu list of handlers */
-+	struct list_head handlers;
-+	/* list node for linking us into 'hp_cpu_list' */
-+	struct list_head node;
-+	/* when repeatedly scanning 'hp_list', each time linking the n'th
-+	 * handlers together, this is used as per-cpu iterator state */
-+	struct hp_handler *iterator;
-+};
-+
-+/* Each cpu has one of these */
-+static DEFINE_PER_CPU(struct hp_cpu, hp_cpus);
-+
-+/* links together the hp_cpu structs, in first-come first-serve order. */
-+static LIST_HEAD(hp_cpu_list);
-+static spinlock_t hp_lock = __SPIN_LOCK_UNLOCKED(hp_lock);
-+
-+static unsigned int hp_cpu_list_length;
-+
-+/* the "special" handler, that starts and terminates the test. */
-+static struct hp_handler *special_handler;
-+static int loop_counter;
-+
-+/* handlers are allocated out of this, so they're properly aligned. */
-+static struct kmem_cache *hp_handler_slab;
-+
-+/* this is the frame data */
-+static void *__frame_ptr;
-+static u32 *frame_ptr;
-+static dma_addr_t frame_dma;
-+
-+/* the main function waits on this */
-+static DECLARE_WAIT_QUEUE_HEAD(queue);
-+
-+#define HP_PER_CPU	2
-+#define HP_LOOPS	8
-+/* 80 bytes, like a small ethernet frame, and bleeds into a second cacheline */
-+#define HP_NUM_WORDS	80
-+/* First word of the LFSR-based frame data */
-+#define HP_FIRST_WORD	0xabbaf00d
-+
-+static inline u32 do_lfsr(u32 prev)
++static struct affine_test_data *start_affine_test(int cpu, int drain)
 +{
-+	return (prev >> 1) ^ (-(prev & 1u) & 0xd0000001u);
++	struct affine_test_data *data = kmalloc(sizeof(*data), GFP_KERNEL);
++
++	if (!data)
++		return NULL;
++	data->cpu = cpu;
++	data->expect_affinity = cpumask_test_cpu(cpu, bman_affine_cpus());
++	data->drain = drain;
++	data->num_enter = 0;
++	data->num_exit = 0;
++	init_completion(&data->wakethread);
++	init_completion(&data->wakeparent);
++	list_add_tail(&data->node, &threads);
++	data->t = kthread_create(affine_test, data, "threshtest%d", cpu);
++	BUG_ON(IS_ERR(data->t));
++	kthread_bind(data->t, cpu);
++	wake_up_process(data->t);
++	return data;
 +}
 +
-+static void allocate_frame_data(void)
++void bman_test_thresh(void)
 +{
-+	u32 lfsr = HP_FIRST_WORD;
-+	int loop;
-+	struct platform_device *pdev = platform_device_alloc("foobar", -1);
++	int loop = TEST_NUMBUFS;
++	int ret, num_cpus = 0;
++	struct affine_test_data *data, *drainer = NULL;
 +
-+	if (!pdev)
-+		panic("platform_device_alloc() failed");
-+	if (platform_device_add(pdev))
-+		panic("platform_device_add() failed");
-+	__frame_ptr = kmalloc(4 * HP_NUM_WORDS, GFP_KERNEL);
-+	if (!__frame_ptr)
-+		panic("kmalloc() failed");
-+	frame_ptr = (void *)(((unsigned long)__frame_ptr + 63) &
-+				~(unsigned long)63);
-+	for (loop = 0; loop < HP_NUM_WORDS; loop++) {
-+		frame_ptr[loop] = lfsr;
-+		lfsr = do_lfsr(lfsr);
++	pr_info("%s(): Start\n", __func__);
++
++	/* allocate a BPID and seed it */
++	pool_nocb = bman_new_pool(&params_nocb);
++	BUG_ON(!pool_nocb);
++	while (loop--) {
++		struct bm_buffer buf;
++
++		bm_buffer_set64(&buf, 0x0badbeef + loop);
++		ret = bman_release(pool_nocb, &buf, 1,
++					BMAN_RELEASE_FLAG_WAIT);
++		BUG_ON(ret);
 +	}
-+	frame_dma = dma_map_single(&pdev->dev, frame_ptr, 4 * HP_NUM_WORDS,
-+					DMA_BIDIRECTIONAL);
-+	platform_device_del(pdev);
-+	platform_device_put(pdev);
-+}
++	while (!bman_rcr_is_empty())
++		cpu_relax();
++	pr_info("%s(): Buffers are in\n", __func__);
 +
-+static void deallocate_frame_data(void)
-+{
-+	kfree(__frame_ptr);
-+}
-+
-+static inline void process_frame_data(struct hp_handler *handler,
-+				const struct qm_fd *fd)
-+{
-+	u32 *p = handler->frame_ptr;
-+	u32 lfsr = HP_FIRST_WORD;
-+	int loop;
-+
-+	if (qm_fd_addr_get64(fd) != handler->addr)
-+		panic("bad frame address");
-+	for (loop = 0; loop < HP_NUM_WORDS; loop++, p++) {
-+		*p ^= handler->rx_mixer;
-+		if (*p != lfsr)
-+			panic("corrupt frame data");
-+		*p ^= handler->tx_mixer;
-+		lfsr = do_lfsr(lfsr);
-+	}
-+}
-+
-+static enum qman_cb_dqrr_result normal_dqrr(struct qman_portal *portal,
-+					struct qman_fq *fq,
-+					const struct qm_dqrr_entry *dqrr)
-+{
-+	struct hp_handler *handler = (struct hp_handler *)fq;
-+
-+	process_frame_data(handler, &dqrr->fd);
-+	if (qman_enqueue(&handler->tx, &dqrr->fd, 0))
-+		panic("qman_enqueue() failed");
-+	return qman_cb_dqrr_consume;
-+}
-+
-+static enum qman_cb_dqrr_result special_dqrr(struct qman_portal *portal,
-+					struct qman_fq *fq,
-+					const struct qm_dqrr_entry *dqrr)
-+{
-+	struct hp_handler *handler = (struct hp_handler *)fq;
-+
-+	process_frame_data(handler, &dqrr->fd);
-+	if (++loop_counter < HP_LOOPS) {
-+		if (qman_enqueue(&handler->tx, &dqrr->fd, 0))
-+			panic("qman_enqueue() failed");
-+	} else {
-+		pr_info("Received final (%dth) frame\n", loop_counter);
-+		wake_up(&queue);
-+	}
-+	return qman_cb_dqrr_consume;
-+}
-+
-+static void create_per_cpu_handlers(void)
-+{
-+	struct hp_handler *handler;
-+	int loop;
-+	struct hp_cpu *hp_cpu = this_cpu_ptr(&hp_cpus);
-+
-+	hp_cpu->processor_id = smp_processor_id();
-+	spin_lock(&hp_lock);
-+	list_add_tail(&hp_cpu->node, &hp_cpu_list);
-+	hp_cpu_list_length++;
-+	spin_unlock(&hp_lock);
-+	INIT_LIST_HEAD(&hp_cpu->handlers);
-+	for (loop = 0; loop < HP_PER_CPU; loop++) {
-+		handler = kmem_cache_alloc(hp_handler_slab, GFP_KERNEL);
-+		if (!handler)
-+			panic("kmem_cache_alloc() failed");
-+		handler->processor_id = hp_cpu->processor_id;
-+		handler->addr = frame_dma;
-+		handler->frame_ptr = frame_ptr;
-+		list_add_tail(&handler->node, &hp_cpu->handlers);
-+	}
-+}
-+
-+static void destroy_per_cpu_handlers(void)
-+{
-+	struct list_head *loop, *tmp;
-+	struct hp_cpu *hp_cpu = this_cpu_ptr(&hp_cpus);
-+
-+	spin_lock(&hp_lock);
-+	list_del(&hp_cpu->node);
-+	spin_unlock(&hp_lock);
-+	list_for_each_safe(loop, tmp, &hp_cpu->handlers) {
-+		u32 flags;
-+		struct hp_handler *handler = list_entry(loop, struct hp_handler,
-+							node);
-+		if (qman_retire_fq(&handler->rx, &flags))
-+			panic("qman_retire_fq(rx) failed");
-+		BUG_ON(flags & QMAN_FQ_STATE_BLOCKOOS);
-+		if (qman_oos_fq(&handler->rx))
-+			panic("qman_oos_fq(rx) failed");
-+		qman_destroy_fq(&handler->rx, 0);
-+		qman_destroy_fq(&handler->tx, 0);
-+		qman_release_fqid(handler->fqid_rx);
-+		list_del(&handler->node);
-+		kmem_cache_free(hp_handler_slab, handler);
-+	}
-+}
-+
-+static inline u8 num_cachelines(u32 offset)
-+{
-+	u8 res = (offset + (L1_CACHE_BYTES - 1))
-+			 / (L1_CACHE_BYTES);
-+	if (res > 3)
-+		return 3;
-+	return res;
-+}
-+#define STASH_DATA_CL \
-+	num_cachelines(HP_NUM_WORDS * 4)
-+#define STASH_CTX_CL \
-+	num_cachelines(offsetof(struct hp_handler, fqid_rx))
-+
-+static void init_handler(void *__handler)
-+{
-+	struct qm_mcc_initfq opts;
-+	struct hp_handler *handler = __handler;
-+
-+	BUG_ON(handler->processor_id != smp_processor_id());
-+	/* Set up rx */
-+	memset(&handler->rx, 0, sizeof(handler->rx));
-+	if (handler == special_handler)
-+		handler->rx.cb.dqrr = special_dqrr;
-+	else
-+		handler->rx.cb.dqrr = normal_dqrr;
-+	if (qman_create_fq(handler->fqid_rx, 0, &handler->rx))
-+		panic("qman_create_fq(rx) failed");
-+	memset(&opts, 0, sizeof(opts));
-+	opts.we_mask = QM_INITFQ_WE_FQCTRL | QM_INITFQ_WE_CONTEXTA;
-+	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
-+	opts.fqd.context_a.stashing.data_cl = STASH_DATA_CL;
-+	opts.fqd.context_a.stashing.context_cl = STASH_CTX_CL;
-+	if (qman_init_fq(&handler->rx, QMAN_INITFQ_FLAG_SCHED |
-+				QMAN_INITFQ_FLAG_LOCAL, &opts))
-+		panic("qman_init_fq(rx) failed");
-+	/* Set up tx */
-+	memset(&handler->tx, 0, sizeof(handler->tx));
-+	if (qman_create_fq(handler->fqid_tx, QMAN_FQ_FLAG_NO_MODIFY,
-+				&handler->tx))
-+		panic("qman_create_fq(tx) failed");
-+}
-+
-+static void init_phase2(void)
-+{
-+	int loop;
-+	u32 fqid = 0;
-+	u32 lfsr = 0xdeadbeef;
-+	struct hp_cpu *hp_cpu;
-+	struct hp_handler *handler;
-+
-+	for (loop = 0; loop < HP_PER_CPU; loop++) {
-+		list_for_each_entry(hp_cpu, &hp_cpu_list, node) {
-+			int ret;
-+
-+			if (!loop)
-+				hp_cpu->iterator = list_first_entry(
-+						&hp_cpu->handlers,
-+						struct hp_handler, node);
-+			else
-+				hp_cpu->iterator = list_entry(
-+						hp_cpu->iterator->node.next,
-+						struct hp_handler, node);
-+			/* Rx FQID is the previous handler's Tx FQID */
-+			hp_cpu->iterator->fqid_rx = fqid;
-+			/* Allocate new FQID for Tx */
-+			ret = qman_alloc_fqid(&fqid);
-+			if (ret)
-+				panic("qman_alloc_fqid() failed");
-+			hp_cpu->iterator->fqid_tx = fqid;
-+			/* Rx mixer is the previous handler's Tx mixer */
-+			hp_cpu->iterator->rx_mixer = lfsr;
-+			/* Get new mixer for Tx */
-+			lfsr = do_lfsr(lfsr);
-+			hp_cpu->iterator->tx_mixer = lfsr;
-+		}
-+	}
-+	/* Fix up the first handler (fqid_rx==0, rx_mixer=0xdeadbeef) */
-+	hp_cpu = list_first_entry(&hp_cpu_list, struct hp_cpu, node);
-+	handler = list_first_entry(&hp_cpu->handlers, struct hp_handler, node);
-+	BUG_ON((handler->fqid_rx != 0) || (handler->rx_mixer != 0xdeadbeef));
-+	handler->fqid_rx = fqid;
-+	handler->rx_mixer = lfsr;
-+	/* and tag it as our "special" handler */
-+	special_handler = handler;
-+}
-+
-+static void init_phase3(void)
-+{
-+	int loop;
-+	struct hp_cpu *hp_cpu;
-+
-+	for (loop = 0; loop < HP_PER_CPU; loop++) {
-+		list_for_each_entry(hp_cpu, &hp_cpu_list, node) {
-+			if (!loop)
-+				hp_cpu->iterator = list_first_entry(
-+						&hp_cpu->handlers,
-+						struct hp_handler, node);
-+			else
-+				hp_cpu->iterator = list_entry(
-+						hp_cpu->iterator->node.next,
-+						struct hp_handler, node);
-+			preempt_disable();
-+			if (hp_cpu->processor_id == smp_processor_id())
-+				init_handler(hp_cpu->iterator);
-+			else
-+				smp_call_function_single(hp_cpu->processor_id,
-+					init_handler, hp_cpu->iterator, 1);
-+			preempt_enable();
-+		}
-+	}
-+}
-+
-+static void send_first_frame(void *ignore)
-+{
-+	u32 *p = special_handler->frame_ptr;
-+	u32 lfsr = HP_FIRST_WORD;
-+	int loop;
-+	struct qm_fd fd;
-+
-+	BUG_ON(special_handler->processor_id != smp_processor_id());
-+	memset(&fd, 0, sizeof(fd));
-+	qm_fd_addr_set64(&fd, special_handler->addr);
-+	fd.format = qm_fd_contig_big;
-+	fd.length29 = HP_NUM_WORDS * 4;
-+	for (loop = 0; loop < HP_NUM_WORDS; loop++, p++) {
-+		if (*p != lfsr)
-+			panic("corrupt frame data");
-+		*p ^= special_handler->tx_mixer;
-+		lfsr = do_lfsr(lfsr);
-+	}
-+	pr_info("Sending first frame\n");
-+	if (qman_enqueue(&special_handler->tx, &fd, 0))
-+		panic("qman_enqueue() failed");
-+}
-+
-+void qman_test_stash(void)
-+{
-+	if (cpumask_weight(cpu_online_mask) < 2) {
-+		pr_info("%s(): skip - only 1 CPU\n", __func__);
-+		return;
++	/* create threads and wait for them to create pools */
++	params_cb.bpid = bman_get_params(pool_nocb)->bpid;
++	for_each_cpu(loop, cpu_online_mask) {
++		data = start_affine_test(loop, drainer ? 0 : 1);
++		BUG_ON(!data);
++		if (!drainer)
++			drainer = data;
++		num_cpus++;
++		wait_for_completion(&data->wakeparent);
 +	}
 +
-+	pr_info("%s(): Starting\n", __func__);
++	/* signal the drainer to start draining */
++	complete(&drainer->wakethread);
++	wait_for_completion(&drainer->wakeparent);
++	init_completion(&drainer->wakeparent);
 +
-+	hp_cpu_list_length = 0;
-+	loop_counter = 0;
-+	hp_handler_slab = kmem_cache_create("hp_handler_slab",
-+			sizeof(struct hp_handler), L1_CACHE_BYTES,
-+			SLAB_HWCACHE_ALIGN, NULL);
-+	if (!hp_handler_slab)
-+		panic("kmem_cache_create() failed");
++	/* tear down */
++	list_for_each_entry_safe(data, drainer, &threads, node) {
++		complete(&data->wakethread);
++		ret = kthread_stop(data->t);
++		BUG_ON(ret);
++		list_del(&data->node);
++		/* check that we get the expected callbacks (and no others) */
++		BUG_ON(data->num_enter != 1);
++		BUG_ON(data->num_exit != 0);
++		kfree(data);
++	}
++	bman_free_pool(pool_nocb);
 +
-+	allocate_frame_data();
-+
-+	/* Init phase 1 */
-+	pr_info("Creating %d handlers per cpu...\n", HP_PER_CPU);
-+	if (on_all_cpus(create_per_cpu_handlers))
-+		panic("on_each_cpu() failed");
-+	pr_info("Number of cpus: %d, total of %d handlers\n",
-+		hp_cpu_list_length, hp_cpu_list_length * HP_PER_CPU);
-+
-+	init_phase2();
-+
-+	init_phase3();
-+
-+	preempt_disable();
-+	if (special_handler->processor_id == smp_processor_id())
-+		send_first_frame(NULL);
-+	else
-+		smp_call_function_single(special_handler->processor_id,
-+			send_first_frame, NULL, 1);
-+	preempt_enable();
-+
-+	wait_event(queue, loop_counter == HP_LOOPS);
-+	deallocate_frame_data();
-+	if (on_all_cpus(destroy_per_cpu_handlers))
-+		panic("on_each_cpu() failed");
-+	kmem_cache_destroy(hp_handler_slab);
-+	pr_info("%s(): Finished\n", __func__);
++	pr_info("%s(): Done\n", __func__);
 +}
+diff --git a/drivers/soc/fsl/qbman/dpaa_sys.h b/drivers/soc/fsl/qbman/dpaa_sys.h
+index d3d6fc4..cef9095 100644
+--- a/drivers/soc/fsl/qbman/dpaa_sys.h
++++ b/drivers/soc/fsl/qbman/dpaa_sys.h
+@@ -37,6 +37,7 @@
+ #include <linux/of_address.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_reserved_mem.h>
++#include <linux/kthread.h>
+ #include <linux/platform_device.h>
+ #include <linux/ctype.h>
+ 
 -- 
 1.7.9.5
