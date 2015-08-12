@@ -1,7 +1,7 @@
 From: Roy Pledge <Roy.Pledge@freescale.com>
-Subject: [v2 02/11] soc/fsl: Introduce DPAA BMan device management driver
-Date: Wed, 12 Aug 2015 16:14:48 -0400
-Message-ID: <1439410497-19039-3-git-send-email-Roy.Pledge@freescale.com>
+Subject: [v2 08/11] soc/qman: Add debugfs support for the QMan driver
+Date: Wed, 12 Aug 2015 16:14:54 -0400
+Message-ID: <1439410497-19039-9-git-send-email-Roy.Pledge@freescale.com>
 References: <1439410497-19039-1-git-send-email-Roy.Pledge@freescale.com>
 Reply-To: <Roy.Pledge@freescale.com>
 Mime-Version: 1.0
@@ -15,122 +15,52 @@ List-Id: netdev.vger.kernel.org
 
 From: Geoff Thorpe <Geoff.Thorpe@freescale.com>
 
-This driver enables the Freescale DPAA 1.0 Buffer Manager block. BMan
-is a hardware buffer pool manager that allows accelerators
-connected to the SoC datapath to acquire and release buffers during
-data processing.
+Add debugfs sypport for querying the state of hardware based
+queues managed by the DPAA 1.0 Queue Manager.
 
 Signed-off-by: Geoff Thorpe <Geoff.Thorpe@freescale.com>
 Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
 Signed-off-by: Roy Pledge <Roy.Pledge@freescale.com>
 ---
- drivers/soc/Kconfig               |    1 +
- drivers/soc/Makefile              |    1 +
- drivers/soc/fsl/Kconfig           |    5 +
- drivers/soc/fsl/Makefile          |    3 +
- drivers/soc/fsl/qbman/Kconfig     |   25 ++
- drivers/soc/fsl/qbman/Makefile    |    1 +
- drivers/soc/fsl/qbman/bman.c      |  553 +++++++++++++++++++++++++++++++++++++
- drivers/soc/fsl/qbman/bman_priv.h |   53 ++++
- drivers/soc/fsl/qbman/dpaa_sys.h  |   55 ++++
- 9 files changed, 697 insertions(+)
- create mode 100644 drivers/soc/fsl/Kconfig
- create mode 100644 drivers/soc/fsl/Makefile
- create mode 100644 drivers/soc/fsl/qbman/Kconfig
- create mode 100644 drivers/soc/fsl/qbman/Makefile
- create mode 100644 drivers/soc/fsl/qbman/bman.c
- create mode 100644 drivers/soc/fsl/qbman/bman_priv.h
- create mode 100644 drivers/soc/fsl/qbman/dpaa_sys.h
+ drivers/soc/fsl/qbman/Makefile       |    1 +
+ drivers/soc/fsl/qbman/dpaa_sys.h     |    2 +
+ drivers/soc/fsl/qbman/qman-debugfs.c | 1313 ++++++++++++++++++++++++++++++++++
+ drivers/soc/fsl/qbman/qman_api.c     |   60 +-
+ drivers/soc/fsl/qbman/qman_priv.h    |    8 +
+ 5 files changed, 1382 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/soc/fsl/qbman/qman-debugfs.c
 
-diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
-index 96ddecb..4e3c8f4 100644
---- a/drivers/soc/Kconfig
-+++ b/drivers/soc/Kconfig
-@@ -1,6 +1,7 @@
- menu "SOC (System On Chip) specific Drivers"
- 
- source "drivers/soc/mediatek/Kconfig"
-+source "drivers/soc/fsl/Kconfig"
- source "drivers/soc/qcom/Kconfig"
- source "drivers/soc/sunxi/Kconfig"
- source "drivers/soc/ti/Kconfig"
-diff --git a/drivers/soc/Makefile b/drivers/soc/Makefile
-index 7dc7c0d..7adcd97 100644
---- a/drivers/soc/Makefile
-+++ b/drivers/soc/Makefile
-@@ -3,6 +3,7 @@
- #
- 
- obj-$(CONFIG_ARCH_MEDIATEK)	+= mediatek/
-+obj-$(CONFIG_FSL_SOC)		+= fsl/
- obj-$(CONFIG_ARCH_QCOM)		+= qcom/
- obj-$(CONFIG_ARCH_SUNXI)	+= sunxi/
- obj-$(CONFIG_ARCH_TEGRA)	+= tegra/
-diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
-new file mode 100644
-index 0000000..daa9c0d
---- /dev/null
-+++ b/drivers/soc/fsl/Kconfig
-@@ -0,0 +1,5 @@
-+menu "Freescale SOC (System On Chip) specific Drivers"
-+
-+source "drivers/soc/fsl/qbman/Kconfig"
-+
-+endmenu
-diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
-new file mode 100644
-index 0000000..19e74bb
---- /dev/null
-+++ b/drivers/soc/fsl/Makefile
-@@ -0,0 +1,3 @@
-+# Common
-+obj-$(CONFIG_FSL_DPA)				+= qbman/
-+
-diff --git a/drivers/soc/fsl/qbman/Kconfig b/drivers/soc/fsl/qbman/Kconfig
-new file mode 100644
-index 0000000..be4ae01
---- /dev/null
-+++ b/drivers/soc/fsl/qbman/Kconfig
-@@ -0,0 +1,25 @@
-+menuconfig FSL_DPA
-+	bool "Freescale DPAA support"
-+	depends on FSL_SOC || COMPILE_TEST
-+	default n
-+	help
-+		FSL Data-Path Acceleration Architecture drivers
-+
-+		These are not the actual Ethernet driver(s)
-+
-+if FSL_DPA
-+
-+config FSL_DPA_CHECKING
-+	bool "additional driver checking"
-+	default n
-+	help
-+		Compiles in additional checks to sanity-check the drivers and
-+		any use of it by other code. Not recommended for performance
-+
-+config FSL_BMAN
-+	tristate "BMan device management"
-+	default n
-+	help
-+		FSL DPAA BMan driver
-+
-+endif # FSL_DPA
 diff --git a/drivers/soc/fsl/qbman/Makefile b/drivers/soc/fsl/qbman/Makefile
-new file mode 100644
-index 0000000..02014d9
---- /dev/null
+index 2b53fbc..cce1f70 100644
+--- a/drivers/soc/fsl/qbman/Makefile
 +++ b/drivers/soc/fsl/qbman/Makefile
-@@ -0,0 +1 @@
-+obj-$(CONFIG_FSL_BMAN)				+= bman.o
-diff --git a/drivers/soc/fsl/qbman/bman.c b/drivers/soc/fsl/qbman/bman.c
+@@ -17,3 +17,4 @@ obj-$(CONFIG_FSL_QMAN_TEST)			+= qman-test.o
+ qman-test-y					 = qman_test.o
+ qman-test-$(CONFIG_FSL_QMAN_TEST_API)		+= qman_test_api.o
+ qman-test-$(CONFIG_FSL_QMAN_TEST_STASH)		+= qman_test_stash.o
++obj-$(CONFIG_FSL_QMAN_DEBUGFS)			+= qman-debugfs.o
+diff --git a/drivers/soc/fsl/qbman/dpaa_sys.h b/drivers/soc/fsl/qbman/dpaa_sys.h
+index 3cf446a..0dd341c 100644
+--- a/drivers/soc/fsl/qbman/dpaa_sys.h
++++ b/drivers/soc/fsl/qbman/dpaa_sys.h
+@@ -38,7 +38,9 @@
+ #include <linux/of_irq.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/kthread.h>
++#include <linux/uaccess.h>
+ #include <linux/debugfs.h>
++#include <linux/vmalloc.h>
+ #include <linux/platform_device.h>
+ #include <linux/ctype.h>
+ 
+diff --git a/drivers/soc/fsl/qbman/qman-debugfs.c b/drivers/soc/fsl/qbman/qman-debugfs.c
 new file mode 100644
-index 0000000..9a500ce
+index 0000000..57585e8
 --- /dev/null
-+++ b/drivers/soc/fsl/qbman/bman.c
-@@ -0,0 +1,553 @@
-+/* Copyright (c) 2009 - 2015 Freescale Semiconductor, Inc.
++++ b/drivers/soc/fsl/qbman/qman-debugfs.c
+@@ -0,0 +1,1313 @@
++/* Copyright 2010 - 2015 Freescale Semiconductor, Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
@@ -159,649 +89,1394 @@ index 0000000..9a500ce
 + * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
++#include "qman_priv.h"
 +
-+#include "bman_priv.h"
++#define MAX_FQID (0x00ffffff)
++#define QM_FQD_BLOCK_SIZE     64
++#define QM_FQD_AR	      (0xC10)
 +
-+/* Last updated for v00.79 of the BG */
++static u32 fqid_max;
++static u64 qman_ccsr_start;
++static u64 qman_ccsr_size;
 +
-+struct bman;
-+
-+/* Register offsets */
-+#define REG_POOL_SWDET(n)	(0x0000 + ((n) * 0x04))
-+#define REG_POOL_HWDET(n)	(0x0100 + ((n) * 0x04))
-+#define REG_POOL_SWDXT(n)	(0x0200 + ((n) * 0x04))
-+#define REG_POOL_HWDXT(n)	(0x0300 + ((n) * 0x04))
-+#define REG_POOL_CONTENT(n)	(0x0600 + ((n) * 0x04))
-+#define REG_FBPR_FPC		0x0800
-+#define REG_ECSR		0x0a00
-+#define REG_ECIR		0x0a04
-+#define REG_EADR		0x0a08
-+#define REG_EDATA(n)		(0x0a10 + ((n) * 0x04))
-+#define REG_SBEC(n)		(0x0a80 + ((n) * 0x04))
-+#define REG_IP_REV_1		0x0bf8
-+#define REG_IP_REV_2		0x0bfc
-+#define REG_FBPR_BARE		0x0c00
-+#define REG_FBPR_BAR		0x0c04
-+#define REG_FBPR_AR		0x0c10
-+#define REG_SRCIDR		0x0d04
-+#define REG_LIODNR		0x0d08
-+#define REG_ERR_ISR		0x0e00	/* + "enum bm_isr_reg" */
-+
-+/* Used by all error interrupt registers except 'inhibit' */
-+#define BM_EIRQ_IVCI	0x00000010	/* Invalid Command Verb */
-+#define BM_EIRQ_FLWI	0x00000008	/* FBPR Low Watermark */
-+#define BM_EIRQ_MBEI	0x00000004	/* Multi-bit ECC Error */
-+#define BM_EIRQ_SBEI	0x00000002	/* Single-bit ECC Error */
-+#define BM_EIRQ_BSCN	0x00000001	/* pool State Change Notification */
-+
-+/* BMAN_ECIR valid error bit */
-+#define PORTAL_ECSR_ERR	(BM_EIRQ_IVCI)
-+
-+union bman_ecir {
-+	u32 ecir_raw;
-+	struct {
-+		u32 __reserved1:4;
-+		u32 portal_num:4;
-+		u32 __reserved2:12;
-+		u32 numb:4;
-+		u32 __reserved3:2;
-+		u32 pid:6;
-+	} __packed info;
++static const char * const state_txt[] = {
++	"Out of Service",
++	"Retired",
++	"Tentatively Scheduled",
++	"Truly Scheduled",
++	"Parked",
++	"Active, Active Held or Held Suspended",
++	"Unknown State 6",
++	"Unknown State 7",
++	NULL,
 +};
 +
-+union bman_eadr {
-+	u32 eadr_raw;
-+	struct {
-+		u32 __reserved1:5;
-+		u32 memid:3;
-+		u32 __reserved2:14;
-+		u32 eadr:10;
-+	} __packed info;
-+};
++static const u8 fqd_states[] = {
++	QM_MCR_NP_STATE_OOS, QM_MCR_NP_STATE_RETIRED, QM_MCR_NP_STATE_TEN_SCHED,
++	QM_MCR_NP_STATE_TRU_SCHED, QM_MCR_NP_STATE_PARKED,
++	QM_MCR_NP_STATE_ACTIVE};
 +
-+struct bman_hwerr_txt {
-+	u32 mask;
++struct mask_to_text {
++	u16 mask;
 +	const char *txt;
 +};
 +
-+#define BMAN_HWE_TXT(a, b) { .mask = BM_EIRQ_##a, .txt = b }
-+
-+static const struct bman_hwerr_txt bman_hwerr_txts[] = {
-+	BMAN_HWE_TXT(IVCI, "Invalid Command Verb"),
-+	BMAN_HWE_TXT(FLWI, "FBPR Low Watermark"),
-+	BMAN_HWE_TXT(MBEI, "Multi-bit ECC Error"),
-+	BMAN_HWE_TXT(SBEI, "Single-bit ECC Error"),
-+	BMAN_HWE_TXT(BSCN, "Pool State Change Notification"),
-+};
-+#define BMAN_HWE_COUNT (sizeof(bman_hwerr_txts)/sizeof(struct bman_hwerr_txt))
-+
-+struct bman_error_info_mdata {
-+	u16 addr_mask;
-+	u16 bits;
-+	const char *txt;
++struct mask_filter_s {
++	u16 mask;
++	u8 filter;
 +};
 +
-+#define BMAN_ERR_MDATA(a, b, c) { .addr_mask = a, .bits = b, .txt = c}
-+static const struct bman_error_info_mdata error_mdata[] = {
-+	BMAN_ERR_MDATA(0x03FF, 192, "Stockpile memory"),
-+	BMAN_ERR_MDATA(0x00FF, 256, "SW portal ring memory port 1"),
-+	BMAN_ERR_MDATA(0x00FF, 256, "SW portal ring memory port 2"),
++static const struct mask_filter_s mask_filter[] = {
++	{QM_FQCTRL_PREFERINCACHE, 0},
++	{QM_FQCTRL_PREFERINCACHE, 1},
++	{QM_FQCTRL_HOLDACTIVE, 0},
++	{QM_FQCTRL_HOLDACTIVE, 1},
++	{QM_FQCTRL_AVOIDBLOCK, 0},
++	{QM_FQCTRL_AVOIDBLOCK, 1},
++	{QM_FQCTRL_FORCESFDR, 0},
++	{QM_FQCTRL_FORCESFDR, 1},
++	{QM_FQCTRL_CPCSTASH, 0},
++	{QM_FQCTRL_CPCSTASH, 1},
++	{QM_FQCTRL_CTXASTASHING, 0},
++	{QM_FQCTRL_CTXASTASHING, 1},
++	{QM_FQCTRL_ORP, 0},
++	{QM_FQCTRL_ORP, 1},
++	{QM_FQCTRL_TDE, 0},
++	{QM_FQCTRL_TDE, 1},
++	{QM_FQCTRL_CGE, 0},
++	{QM_FQCTRL_CGE, 1}
 +};
-+#define BMAN_ERR_MDATA_COUNT \
-+	(sizeof(error_mdata)/sizeof(struct bman_error_info_mdata))
 +
-+/* Add this in Kconfig */
-+#define BMAN_ERRS_TO_UNENABLE (BM_EIRQ_FLWI)
-+
-+/**
-+ * bm_err_isr_<reg>_<verb> - Manipulate global interrupt registers
-+ * @v: for accessors that write values, this is the 32-bit value
-+ *
-+ * Manipulates BMAN_ERR_ISR, BMAN_ERR_IER, BMAN_ERR_ISDR, BMAN_ERR_IIR. All
-+ * manipulations except bm_err_isr_[un]inhibit() use 32-bit masks composed of
-+ * the BM_EIRQ_*** definitions. Note that "bm_err_isr_enable_write" means
-+ * "write the enable register" rather than "enable the write register"!
-+ */
-+#define bm_err_isr_status_read(bm)	\
-+		__bm_err_isr_read(bm, bm_isr_status)
-+#define bm_err_isr_status_clear(bm, m)	\
-+		__bm_err_isr_write(bm, bm_isr_status, m)
-+#define bm_err_isr_enable_read(bm)	\
-+		__bm_err_isr_read(bm, bm_isr_enable)
-+#define bm_err_isr_enable_write(bm, v)	\
-+		__bm_err_isr_write(bm, bm_isr_enable, v)
-+#define bm_err_isr_disable_read(bm)	\
-+		__bm_err_isr_read(bm, bm_isr_disable)
-+#define bm_err_isr_disable_write(bm, v)	\
-+		__bm_err_isr_write(bm, bm_isr_disable, v)
-+#define bm_err_isr_inhibit(bm)		\
-+		__bm_err_isr_write(bm, bm_isr_inhibit, 1)
-+#define bm_err_isr_uninhibit(bm)	\
-+		__bm_err_isr_write(bm, bm_isr_inhibit, 0)
-+
-+static u16 bman_pool_max;
-+
-+/*
-+ * TODO: unimplemented registers
-+ *
-+ * BMAN_POOLk_SDCNT, BMAN_POOLk_HDCNT, BMAN_FULT,
-+ * BMAN_VLDPL, BMAN_EECC, BMAN_SBET, BMAN_EINJ
-+ */
-+
-+/* Encapsulate "struct bman *" as a cast of the register space address. */
-+
-+static struct bman *bm_create(void *regs)
-+{
-+	return (struct bman *)regs;
-+}
-+
-+static inline u32 __bm_in(struct bman *bm, u32 offset)
-+{
-+	return in_be32((void *)bm + offset);
-+}
-+static inline void __bm_out(struct bman *bm, u32 offset, u32 val)
-+{
-+	out_be32((void *)bm + offset, val);
-+}
-+#define bm_in(reg)		__bm_in(bm, REG_##reg)
-+#define bm_out(reg, val)	__bm_out(bm, REG_##reg, val)
-+
-+static u32 __bm_err_isr_read(struct bman *bm, enum bm_isr_reg n)
-+{
-+	return __bm_in(bm, REG_ERR_ISR + (n << 2));
-+}
-+
-+static void __bm_err_isr_write(struct bman *bm, enum bm_isr_reg n, u32 val)
-+{
-+	__bm_out(bm, REG_ERR_ISR + (n << 2), val);
-+}
-+
-+static void bm_get_version(struct bman *bm, u16 *id, u8 *major, u8 *minor)
-+{
-+	u32 v = bm_in(IP_REV_1);
-+	*id = (v >> 16);
-+	*major = (v >> 8) & 0xff;
-+	*minor = v & 0xff;
-+}
-+
-+static u32 __generate_thresh(u32 val, int roundup)
-+{
-+	u32 e = 0;	/* co-efficient, exponent */
-+	int oddbit = 0;
-+
-+	while (val > 0xff) {
-+		oddbit = val & 1;
-+		val >>= 1;
-+		e++;
-+		if (roundup && oddbit)
-+			val++;
++static const struct mask_to_text fq_ctrl_text_list[] = {
++	{
++		.mask = QM_FQCTRL_PREFERINCACHE,
++		.txt = "Prefer in cache",
++	},
++	{
++		.mask = QM_FQCTRL_HOLDACTIVE,
++		.txt =	"Hold active in portal",
++	},
++	{
++		.mask = QM_FQCTRL_AVOIDBLOCK,
++		.txt = "Avoid Blocking",
++	},
++	{
++		.mask = QM_FQCTRL_FORCESFDR,
++		.txt = "High-priority SFDRs",
++	},
++	{
++		.mask = QM_FQCTRL_CPCSTASH,
++		.txt = "CPC Stash Enable",
++	},
++	{
++		.mask = QM_FQCTRL_CTXASTASHING,
++		.txt =	"Context-A stashing",
++	},
++	{
++		.mask = QM_FQCTRL_ORP,
++		.txt =	"ORP Enable",
++	},
++	{
++		.mask = QM_FQCTRL_TDE,
++		.txt = "Tail-Drop Enable",
++	},
++	{
++		.mask = QM_FQCTRL_CGE,
++		.txt = "Congestion Group Enable",
++	},
++	{
++		.mask = 0,
++		.txt = NULL,
 +	}
-+	DPA_ASSERT(e < 0x10);
-+	return val | (e << 8);
-+}
++};
 +
-+static void bm_set_pool(struct bman *bm, u8 pool, u32 swdet, u32 swdxt,
-+			u32 hwdet, u32 hwdxt)
++static const char *get_fqd_ctrl_text(u16 mask)
 +{
-+	DPA_ASSERT(pool < bman_pool_max);
++	int i = 0;
 +
-+	bm_out(POOL_SWDET(pool), __generate_thresh(swdet, 0));
-+	bm_out(POOL_SWDXT(pool), __generate_thresh(swdxt, 1));
-+	bm_out(POOL_HWDET(pool), __generate_thresh(hwdet, 0));
-+	bm_out(POOL_HWDXT(pool), __generate_thresh(hwdxt, 1));
-+}
-+
-+static void bm_set_memory(struct bman *bm, u64 ba, int prio, u32 size)
-+{
-+	u32 exp = ilog2(size);
-+	/* choke if size isn't within range */
-+	DPA_ASSERT((size >= 4096) && (size <= 1073741824) &&
-+			is_power_of_2(size));
-+	/* choke if '[e]ba' has lower-alignment than 'size' */
-+	DPA_ASSERT(!(ba & (size - 1)));
-+	bm_out(FBPR_BARE, upper_32_bits(ba));
-+	bm_out(FBPR_BAR, lower_32_bits(ba));
-+	bm_out(FBPR_AR, (prio ? 0x40000000 : 0) | (exp - 1));
-+}
-+
-+/*****************/
-+/* Config driver */
-+/*****************/
-+
-+/* We support only one of these. */
-+static struct bman *bm;
-+
-+/* And this state belongs to 'bm' */
-+static dma_addr_t fbpr_a;
-+static size_t fbpr_sz;
-+
-+static int bman_fbpr(struct reserved_mem *rmem)
-+{
-+	fbpr_a = rmem->base;
-+	fbpr_sz = rmem->size;
-+
-+	WARN_ON(!(fbpr_a && fbpr_sz));
-+
-+	return 0;
-+}
-+RESERVEDMEM_OF_DECLARE(bman_fbpr, "fsl,bman-fbpr", bman_fbpr);
-+
-+int bm_pool_set(u32 bpid, const u32 *thresholds)
-+{
-+	if (!bm)
-+		return -ENODEV;
-+	bm_set_pool(bm, bpid, thresholds[0], thresholds[1],
-+		thresholds[2], thresholds[3]);
-+	return 0;
-+}
-+EXPORT_SYMBOL(bm_pool_set);
-+
-+static void log_edata_bits(u32 bit_count)
-+{
-+	u32 i, j, mask = 0xffffffff;
-+
-+	pr_warn("ErrInt, EDATA:\n");
-+	i = bit_count/32;
-+	if (bit_count%32) {
++	while (fq_ctrl_text_list[i].txt != NULL) {
++		if (fq_ctrl_text_list[i].mask == mask)
++			return fq_ctrl_text_list[i].txt;
 +		i++;
-+		mask = ~(mask << bit_count%32);
 +	}
-+	j = 16-i;
-+	pr_warn("  0x%08x\n", bm_in(EDATA(j)) & mask);
-+	j++;
-+	for (; j < 16; j++)
-+		pr_warn("  0x%08x\n", bm_in(EDATA(j)));
++	return NULL;
 +}
 +
-+static void log_additional_error_info(u32 isr_val, u32 ecsr_val)
-+{
-+	union bman_ecir ecir_val;
-+	union bman_eadr eadr_val;
++static const struct mask_to_text stashing_text_list[] = {
++	{
++		.mask = QM_STASHING_EXCL_CTX,
++		.txt = "FQ Ctx Stash"
++	},
++	{
++		.mask = QM_STASHING_EXCL_DATA,
++		.txt =	"Frame Data Stash",
++	},
++	{
++		.mask = QM_STASHING_EXCL_ANNOTATION,
++		.txt = "Frame Annotation Stash",
++	},
++	{
++		.mask = 0,
++		.txt = NULL,
++	},
++};
 +
-+	ecir_val.ecir_raw = bm_in(ECIR);
-+	/* Is portal info valid */
-+	if (ecsr_val & PORTAL_ECSR_ERR) {
-+		pr_warn("ErrInt: SWP id %d, numb %d, pid %d\n",
-+			ecir_val.info.portal_num, ecir_val.info.numb,
-+			ecir_val.info.pid);
-+	}
-+	if (ecsr_val & (BM_EIRQ_SBEI|BM_EIRQ_MBEI)) {
-+		eadr_val.eadr_raw = bm_in(EADR);
-+		pr_warn("ErrInt: EADR Memory: %s, 0x%x\n",
-+			error_mdata[eadr_val.info.memid].txt,
-+			error_mdata[eadr_val.info.memid].addr_mask
-+				& eadr_val.info.eadr);
-+		log_edata_bits(error_mdata[eadr_val.info.memid].bits);
++static int user_input_convert(const char __user *user_buf, size_t count,
++				unsigned long *val)
++{
++	char buf[12];
++
++	if (count > sizeof(buf) - 1)
++		return -EINVAL;
++	if (copy_from_user(buf, user_buf, count))
++		return -EFAULT;
++	buf[count] = '\0';
++	if (kstrtoul(buf, 0, val))
++		return -EINVAL;
++	return 0;
++}
++
++struct line_buffer_fq {
++	u32 buf[8];
++	u32 buf_cnt;
++	int line_cnt;
++};
++
++static void add_to_line_buffer(struct line_buffer_fq *line_buf, u32 fqid,
++			struct seq_file *file)
++{
++	line_buf->buf[line_buf->buf_cnt] = fqid;
++	line_buf->buf_cnt++;
++	if (line_buf->buf_cnt == 8) {
++		/* Buffer is full, flush it */
++		if (line_buf->line_cnt != 0)
++			seq_puts(file, ",\n");
++		seq_printf(file, "0x%06x,0x%06x,0x%06x,0x%06x,0x%06x,"
++			"0x%06x,0x%06x,0x%06x",
++			line_buf->buf[0], line_buf->buf[1], line_buf->buf[2],
++			line_buf->buf[3], line_buf->buf[4], line_buf->buf[5],
++			line_buf->buf[6], line_buf->buf[7]);
++		line_buf->buf_cnt = 0;
++		line_buf->line_cnt++;
 +	}
 +}
 +
-+/* BMan interrupt handler */
-+static irqreturn_t bman_isr(int irq, void *ptr)
++static void flush_line_buffer(struct line_buffer_fq *line_buf,
++				struct seq_file *file)
 +{
-+	u32 isr_val, ier_val, ecsr_val, isr_mask, i;
++	if (line_buf->buf_cnt) {
++		int y = 0;
 +
-+	ier_val = bm_err_isr_enable_read(bm);
-+	isr_val = bm_err_isr_status_read(bm);
-+	ecsr_val = bm_in(ECSR);
-+	isr_mask = isr_val & ier_val;
++		if (line_buf->line_cnt != 0)
++			seq_puts(file, ",\n");
++		while (y != line_buf->buf_cnt) {
++			if (y+1 == line_buf->buf_cnt)
++				seq_printf(file, "0x%06x", line_buf->buf[y]);
++			else
++				seq_printf(file, "0x%06x,", line_buf->buf[y]);
++			y++;
++		}
++		line_buf->line_cnt++;
++	}
++	if (line_buf->line_cnt)
++		seq_putc(file, '\n');
++}
 +
-+	if (!isr_mask)
-+		return IRQ_NONE;
++static struct dentry *dfs_root; /* debugfs root directory */
 +
-+	for (i = 0; i < BMAN_HWE_COUNT; i++) {
-+		if (bman_hwerr_txts[i].mask & isr_mask) {
-+			pr_warn("ErrInt: %s\n", bman_hwerr_txts[i].txt);
-+			if (bman_hwerr_txts[i].mask & ecsr_val) {
-+				log_additional_error_info(isr_mask, ecsr_val);
-+				/* Re-arm error capture registers */
-+				bm_out(ECSR, ecsr_val);
-+			}
-+			if (bman_hwerr_txts[i].mask & BMAN_ERRS_TO_UNENABLE) {
-+				pr_devel("Un-enabling error 0x%x\n",
-+					bman_hwerr_txts[i].mask);
-+				ier_val &= ~bman_hwerr_txts[i].mask;
-+				bm_err_isr_enable_write(bm, ier_val);
-+			}
++/* Query Frame Queue Non Programmable Fields */
++
++struct query_fq_np_fields_data_s {
++	u32 fqid;
++};
++static struct query_fq_np_fields_data_s query_fq_np_fields_data = {
++	.fqid = 1,
++};
++
++static int query_fq_np_fields_show(struct seq_file *file, void *offset)
++{
++	int ret;
++	struct qm_mcr_queryfq_np np;
++	struct qman_fq fq;
++
++	fq.fqid = query_fq_np_fields_data.fqid;
++	ret = qman_query_fq_np(&fq, &np);
++	if (ret)
++		return ret;
++	/* Print state */
++	seq_printf(file, "Query FQ Non Programmable Fields Result fqid 0x%x\n",
++			fq.fqid);
++	seq_printf(file, " force eligible pending: %s\n",
++		(np.state & QM_MCR_NP_STATE_FE) ? "yes" : "no");
++	seq_printf(file, " retirement pending: %s\n",
++		(np.state & QM_MCR_NP_STATE_R) ? "yes" : "no");
++	seq_printf(file, " state: %s\n",
++		state_txt[np.state & QM_MCR_NP_STATE_MASK]);
++	seq_printf(file, " fq_link: 0x%x\n", np.fqd_link);
++	seq_printf(file, " odp_seq: %u\n", np.odp_seq);
++	seq_printf(file, " orp_nesn: %u\n", np.orp_nesn);
++	seq_printf(file, " orp_ea_hseq: %u\n", np.orp_ea_hseq);
++	seq_printf(file, " orp_ea_tseq: %u\n", np.orp_ea_tseq);
++	seq_printf(file, " orp_ea_hptr: 0x%x\n", np.orp_ea_hptr);
++	seq_printf(file, " orp_ea_tptr: 0x%x\n", np.orp_ea_tptr);
++	seq_printf(file, " pfdr_hptr: 0x%x\n", np.pfdr_hptr);
++	seq_printf(file, " pfdr_tptr: 0x%x\n", np.pfdr_tptr);
++	seq_printf(file, " is: ics_surp contains a %s\n",
++		(np.is) ? "deficit" : "surplus");
++	seq_printf(file, " ics_surp: %u\n", np.ics_surp);
++	seq_printf(file, " byte_cnt: %u\n", np.byte_cnt);
++	seq_printf(file, " frm_cnt: %u\n", np.frm_cnt);
++	seq_printf(file, " ra1_sfdr: 0x%x\n", np.ra1_sfdr);
++	seq_printf(file, " ra2_sfdr: 0x%x\n", np.ra2_sfdr);
++	seq_printf(file, " od1_sfdr: 0x%x\n", np.od1_sfdr);
++	seq_printf(file, " od2_sfdr: 0x%x\n", np.od2_sfdr);
++	seq_printf(file, " od3_sfdr: 0x%x\n", np.od3_sfdr);
++	return 0;
++}
++
++static int query_fq_np_fields_open(struct inode *inode,
++					struct file *file)
++{
++	return single_open(file, query_fq_np_fields_show, NULL);
++}
++
++static ssize_t query_fq_np_fields_write(struct file *f,
++			const char __user *buf, size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
++
++	ret = user_input_convert(buf, count, &val);
++	if (ret)
++		return ret;
++	if (val > MAX_FQID)
++		return -EINVAL;
++	query_fq_np_fields_data.fqid = (u32)val;
++	return count;
++}
++
++static const struct file_operations query_fq_np_fields_fops = {
++	.owner		= THIS_MODULE,
++	.open		= query_fq_np_fields_open,
++	.read		= seq_read,
++	.write		= query_fq_np_fields_write,
++	.release	= single_release,
++};
++
++/* Frame Queue Programmable Fields */
++
++struct query_fq_fields_data_s {
++	u32 fqid;
++};
++
++static struct query_fq_fields_data_s query_fq_fields_data = {
++	.fqid = 1,
++};
++
++static int query_fq_fields_show(struct seq_file *file, void *offset)
++{
++	int ret;
++	struct qm_fqd fqd;
++	struct qman_fq fq;
++	int i = 0;
++
++	memset(&fqd, 0, sizeof(struct qm_fqd));
++	fq.fqid = query_fq_fields_data.fqid;
++	ret = qman_query_fq(&fq, &fqd);
++	if (ret)
++		return ret;
++	seq_printf(file, "Query FQ Programmable Fields Result fqid 0x%x\n",
++			fq.fqid);
++	seq_printf(file, " orprws: %u\n", fqd.orprws);
++	seq_printf(file, " oa: %u\n", fqd.oa);
++	seq_printf(file, " olws: %u\n", fqd.olws);
++
++	seq_printf(file, " cgid: %u\n", fqd.cgid);
++
++	if ((fqd.fq_ctrl & QM_FQCTRL_MASK) == 0)
++		seq_puts(file, " fq_ctrl: None\n");
++	else {
++		i = 0;
++		seq_puts(file, " fq_ctrl:\n");
++		while (fq_ctrl_text_list[i].txt != NULL) {
++			if ((fqd.fq_ctrl & QM_FQCTRL_MASK) &
++					fq_ctrl_text_list[i].mask)
++				seq_printf(file, "  %s\n",
++					fq_ctrl_text_list[i].txt);
++			i++;
 +		}
 +	}
-+	bm_err_isr_status_clear(bm, isr_val);
++	seq_printf(file, " dest_channel: %u\n", fqd.dest.channel);
++	seq_printf(file, " dest_wq: %u\n", fqd.dest.wq);
++	seq_printf(file, " ics_cred: %u\n", fqd.ics_cred);
++	seq_printf(file, " td_mant: %u\n", fqd.td.mant);
++	seq_printf(file, " td_exp: %u\n", fqd.td.exp);
 +
-+	return IRQ_HANDLED;
-+}
++	seq_printf(file, " ctx_b: 0x%x\n", fqd.context_b);
 +
-+u32 bm_pool_free_buffers(u32 bpid)
-+{
-+	return bm_in(POOL_CONTENT(bpid));
-+}
-+
-+static ssize_t show_fbpr_fpc(struct device *dev,
-+	struct device_attribute *dev_attr, char *buf)
-+{
-+	return snprintf(buf, PAGE_SIZE, "%u\n", bm_in(FBPR_FPC));
-+};
-+
-+static ssize_t show_pool_count(struct device *dev,
-+	struct device_attribute *dev_attr, char *buf)
-+{
-+	u32 data;
-+	int i;
-+
-+	if (kstrtoint(dev_attr->attr.name, 10, &i))
-+		return -EINVAL;
-+	data = bm_in(POOL_CONTENT(i));
-+	return snprintf(buf, PAGE_SIZE, "%d\n", data);
-+};
-+
-+static ssize_t show_err_isr(struct device *dev,
-+	struct device_attribute *dev_attr, char *buf)
-+{
-+	return snprintf(buf, PAGE_SIZE, "0x%08x\n", bm_in(ERR_ISR));
-+};
-+
-+static ssize_t show_sbec(struct device *dev,
-+	struct device_attribute *dev_attr, char *buf)
-+{
-+	int i;
-+
-+	if (sscanf(dev_attr->attr.name, "sbec_%d", &i) != 1)
-+		return -EINVAL;
-+	return snprintf(buf, PAGE_SIZE, "%u\n", bm_in(SBEC(i)));
-+};
-+
-+static DEVICE_ATTR(err_isr, S_IRUSR, show_err_isr, NULL);
-+static DEVICE_ATTR(fbpr_fpc, S_IRUSR, show_fbpr_fpc, NULL);
-+
-+/* Didn't use DEVICE_ATTR as 64 of this would be required.
-+ * Initialize them when needed. */
-+static char *name_attrs_pool_count; /* "xx" + null-terminator */
-+static struct device_attribute *dev_attr_buffer_pool_count;
-+
-+static DEVICE_ATTR(sbec_0, S_IRUSR, show_sbec, NULL);
-+static DEVICE_ATTR(sbec_1, S_IRUSR, show_sbec, NULL);
-+
-+static struct attribute *bman_dev_attributes[] = {
-+	&dev_attr_fbpr_fpc.attr,
-+	&dev_attr_err_isr.attr,
-+	NULL
-+};
-+
-+static struct attribute *bman_dev_ecr_attributes[] = {
-+	&dev_attr_sbec_0.attr,
-+	&dev_attr_sbec_1.attr,
-+	NULL
-+};
-+
-+static struct attribute **bman_dev_pool_count_attributes;
-+
-+/* root level */
-+static const struct attribute_group bman_dev_attr_grp = {
-+	.name = NULL,
-+	.attrs = bman_dev_attributes
-+};
-+static const struct attribute_group bman_dev_ecr_grp = {
-+	.name = "error_capture",
-+	.attrs = bman_dev_ecr_attributes
-+};
-+static struct attribute_group bman_dev_pool_countent_grp = {
-+	.name = "pool_count",
-+};
-+
-+static int of_fsl_bman_remove(struct platform_device *ofdev)
-+{
-+	sysfs_remove_group(&ofdev->dev.kobj, &bman_dev_attr_grp);
++	seq_printf(file, " ctx_a: 0x%llx\n", qm_fqd_stashing_get64(&fqd));
++	/* Any stashing configured */
++	if ((fqd.context_a.stashing.exclusive & 0x7) == 0)
++		seq_puts(file, " ctx_a_stash_exclusive: None\n");
++	else {
++		seq_puts(file, " ctx_a_stash_exclusive:\n");
++		i = 0;
++		while (stashing_text_list[i].txt != NULL) {
++			if ((fqd.fq_ctrl & 0x7) & stashing_text_list[i].mask)
++				seq_printf(file, "  %s\n",
++					stashing_text_list[i].txt);
++			i++;
++		}
++	}
++	seq_printf(file, " ctx_a_stash_annotation_cl: %u\n",
++			fqd.context_a.stashing.annotation_cl);
++	seq_printf(file, " ctx_a_stash_data_cl: %u\n",
++			fqd.context_a.stashing.data_cl);
++	seq_printf(file, " ctx_a_stash_context_cl: %u\n",
++			fqd.context_a.stashing.context_cl);
 +	return 0;
-+};
++}
 +
-+static int of_fsl_bman_probe(struct platform_device *ofdev)
++static int query_fq_fields_open(struct inode *inode,
++					struct file *file)
 +{
-+	int ret, err_irq, i;
-+	struct device *dev = &ofdev->dev;
-+	struct device_node *node = dev->of_node;
-+	struct resource res;
-+	u32 __iomem *regs;
-+	u16 id;
-+	u8 major, minor;
++	return single_open(file, query_fq_fields_show, NULL);
++}
 +
-+	if (!of_device_is_available(node))
-+		return -ENODEV;
++static ssize_t query_fq_fields_write(struct file *f,
++			const char __user *buf, size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
 +
-+	ret = of_address_to_resource(node, 0, &res);
-+	if (ret) {
-+		dev_err(dev, "Can't get %s property 'reg'\n", node->full_name);
++	ret = user_input_convert(buf, count, &val);
++	if (ret)
 +		return ret;
-+	}
-+	regs = devm_ioremap(dev, res.start, res.end - res.start + 1);
-+	if (!regs)
-+		return -ENXIO;
++	if (val > MAX_FQID)
++		return -EINVAL;
++	query_fq_fields_data.fqid = (u32)val;
++	return count;
++}
 +
-+	bm = bm_create(regs);
++static const struct file_operations query_fq_fields_fops = {
++	.owner		= THIS_MODULE,
++	.open		= query_fq_fields_open,
++	.read		= seq_read,
++	.write		= query_fq_fields_write,
++	.release	= single_release,
++};
 +
-+	bm_get_version(bm, &id, &major, &minor);
-+	dev_info(dev, "Bman ver:%04x,%02x,%02x\n", id, major, minor);
-+	if ((major == 1) && (minor == 0))
-+		bman_pool_max = 64;
-+	else if ((major == 2) && (minor == 0))
-+		bman_pool_max = 8;
-+	else if ((major == 2) && (minor == 1))
-+		bman_pool_max = 64;
-+	else
-+		dev_warn(dev, "unknown Bman version, default to rev1.0\n");
++/* Query WQ lengths */
 +
++struct query_wq_lengths_data_s {
++	union {
++		u16 channel_wq; /* ignores wq (3 lsbits) */
++		struct {
++			u16 id:13; /* qm_channel */
++			u16 __reserved:3;
++		} __packed channel;
++	};
++};
++static struct query_wq_lengths_data_s query_wq_lengths_data;
++static int query_wq_lengths_show(struct seq_file *file, void *offset)
++{
++	int ret;
++	struct qm_mcr_querywq wq;
++	int i;
 +
-+	bm_set_memory(bm, fbpr_a, 0, fbpr_sz);
-+
-+	err_irq = of_irq_to_resource(node, 0, NULL);
-+	if (err_irq == NO_IRQ) {
-+		dev_info(dev, "Can't get %s property 'interrupts'\n",
-+			 node->full_name);
-+		return -ENODEV;
-+	}
-+	ret = devm_request_irq(dev, err_irq, bman_isr, IRQF_SHARED, "bman-err",
-+			       node);
-+	if (ret)  {
-+		dev_err(dev, "devm_request_irq() failed %d for '%s'\n",
-+			ret, node->full_name);
++	memset(&wq, 0, sizeof(struct qm_mcr_querywq));
++	wq.channel.id = query_wq_lengths_data.channel.id;
++	ret = qman_query_wq(0, &wq);
++	if (ret)
 +		return ret;
++	seq_printf(file, "Query Result For Channel: 0x%x\n", wq.channel.id);
++	for (i = 0; i < 8; i++)
++		/* mask out upper 4 bits since they are not part of length */
++		seq_printf(file, " wq%d_len : %u\n", i, wq.wq_len[i] & 0x0fff);
++	return 0;
++}
++
++static int query_wq_lengths_open(struct inode *inode,
++					struct file *file)
++{
++	return single_open(file, query_wq_lengths_show, NULL);
++}
++
++static ssize_t query_wq_lengths_write(struct file *f,
++			const char __user *buf, size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
++
++	ret = user_input_convert(buf, count, &val);
++	if (ret)
++		return ret;
++	if (val > 0xfff8)
++		return -EINVAL;
++	query_wq_lengths_data.channel.id = (u16)val;
++	return count;
++}
++
++static const struct file_operations query_wq_lengths_fops = {
++	.owner		= THIS_MODULE,
++	.open		= query_wq_lengths_open,
++	.read		= seq_read,
++	.write		= query_wq_lengths_write,
++	.release	= single_release,
++};
++
++/* Query CGR */
++
++struct query_cgr_s {
++	u8 cgid;
++};
++static struct query_cgr_s query_cgr_data;
++
++static int query_cgr_show(struct seq_file *file, void *offset)
++{
++	int ret;
++	struct qm_mcr_querycgr cgrd;
++	struct qman_cgr cgr;
++	int i, j;
++	u32 mask;
++
++	memset(&cgr, 0, sizeof(cgr));
++	memset(&cgrd, 0, sizeof(cgrd));
++	cgr.cgrid = query_cgr_data.cgid;
++	ret = qman_query_cgr(&cgr, &cgrd);
++	if (ret)
++		return ret;
++	seq_printf(file, "Query CGR id 0x%x\n", cgr.cgrid);
++	seq_printf(file, " wr_parm_g MA: %u, Mn: %u, SA: %u, Sn: %u, Pn: %u\n",
++		cgrd.cgr.wr_parm_g.MA, cgrd.cgr.wr_parm_g.Mn,
++		cgrd.cgr.wr_parm_g.SA, cgrd.cgr.wr_parm_g.Sn,
++		cgrd.cgr.wr_parm_g.Pn);
++
++	seq_printf(file, " wr_parm_y MA: %u, Mn: %u, SA: %u, Sn: %u, Pn: %u\n",
++		cgrd.cgr.wr_parm_y.MA, cgrd.cgr.wr_parm_y.Mn,
++		cgrd.cgr.wr_parm_y.SA, cgrd.cgr.wr_parm_y.Sn,
++		cgrd.cgr.wr_parm_y.Pn);
++
++	seq_printf(file, " wr_parm_r MA: %u, Mn: %u, SA: %u, Sn: %u, Pn: %u\n",
++		cgrd.cgr.wr_parm_r.MA, cgrd.cgr.wr_parm_r.Mn,
++		cgrd.cgr.wr_parm_r.SA, cgrd.cgr.wr_parm_r.Sn,
++		cgrd.cgr.wr_parm_r.Pn);
++
++	seq_printf(file, " wr_en_g: %u, wr_en_y: %u, we_en_r: %u\n",
++		cgrd.cgr.wr_en_g, cgrd.cgr.wr_en_y, cgrd.cgr.wr_en_r);
++
++	seq_printf(file, " cscn_en: %u\n", cgrd.cgr.cscn_en);
++	if ((qman_ip_rev & 0xFF00) >= QMAN_REV30) {
++		seq_puts(file, " cscn_targ_dcp:\n");
++		mask = 0x80000000;
++		for (i = 0; i < 32; i++) {
++			if (cgrd.cgr.cscn_targ & mask)
++				seq_printf(file, "  send CSCN to dcp %u\n",
++								(31 - i));
++			mask >>= 1;
++		}
++
++		seq_puts(file, " cscn_targ_swp:\n");
++		for (i = 0; i < 4; i++) {
++			mask = 0x80000000;
++			for (j = 0; j < 32; j++) {
++				if (cgrd.cscn_targ_swp[i] & mask)
++					seq_printf(file, "  send CSCN to swp"
++						" %u\n", (127 - (i * 32) - j));
++				mask >>= 1;
++			}
++		}
++	} else {
++		seq_printf(file, " cscn_targ: %u\n", cgrd.cgr.cscn_targ);
 +	}
-+	/* Disable Buffer Pool State Change */
-+	bm_err_isr_disable_write(bm, BM_EIRQ_BSCN);
-+	/* Write-to-clear any stale bits, (eg. starvation being asserted prior
-+	 * to resource allocation during driver init). */
-+	bm_err_isr_status_clear(bm, 0xffffffff);
-+	/* Enable Error Interrupts */
-+	bm_err_isr_enable_write(bm, 0xffffffff);
++	seq_printf(file, " cstd_en: %u\n", cgrd.cgr.cstd_en);
++	seq_printf(file, " cs: %u\n", cgrd.cgr.cs);
 +
-+	ret = sysfs_create_group(&dev->kobj, &bman_dev_attr_grp);
++	seq_printf(file, " cs_thresh_TA: %u, cs_thresh_Tn: %u\n",
++		cgrd.cgr.cs_thres.TA, cgrd.cgr.cs_thres.Tn);
++
++	seq_printf(file, " mode: %s\n",
++		(cgrd.cgr.mode & QMAN_CGR_MODE_FRAME) ?
++		"frame count" : "byte count");
++	seq_printf(file, " i_bcnt: %llu\n", qm_mcr_querycgr_i_get64(&cgrd));
++	seq_printf(file, " a_bcnt: %llu\n", qm_mcr_querycgr_a_get64(&cgrd));
++
++	return 0;
++}
++
++static int query_cgr_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, query_cgr_show, NULL);
++}
++
++static ssize_t query_cgr_write(struct file *f, const char __user *buf,
++				size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
++
++	ret = user_input_convert(buf, count, &val);
 +	if (ret)
-+		goto done;
-+	ret = sysfs_create_group(&dev->kobj, &bman_dev_ecr_grp);
++		return ret;
++	if (val > 0xff)
++		return -EINVAL;
++	query_cgr_data.cgid = (u8)val;
++	return count;
++}
++
++static const struct file_operations query_cgr_fops = {
++	.owner		= THIS_MODULE,
++	.open		= query_cgr_open,
++	.read		= seq_read,
++	.write		= query_cgr_write,
++	.release	= single_release,
++};
++
++/* Test Write CGR */
++
++struct test_write_cgr_s {
++	u64 i_bcnt;
++	u8 cgid;
++};
++static struct test_write_cgr_s test_write_cgr_data;
++
++static int testwrite_cgr_show(struct seq_file *file, void *offset)
++{
++	int ret;
++	struct qm_mcr_cgrtestwrite result;
++	struct qman_cgr cgr;
++	u64 i_bcnt;
++
++	memset(&cgr, 0, sizeof(struct qman_cgr));
++	memset(&result, 0, sizeof(struct qm_mcr_cgrtestwrite));
++	cgr.cgrid = test_write_cgr_data.cgid;
++	i_bcnt = test_write_cgr_data.i_bcnt;
++	ret = qman_testwrite_cgr(&cgr, i_bcnt, &result);
 +	if (ret)
-+		goto del_group_0;
++		return ret;
++	seq_printf(file, "CGR Test Write CGR id 0x%x\n", cgr.cgrid);
++	seq_printf(file, " wr_parm_g MA: %u, Mn: %u, SA: %u, Sn: %u, Pn: %u\n",
++		result.cgr.wr_parm_g.MA, result.cgr.wr_parm_g.Mn,
++		result.cgr.wr_parm_g.SA, result.cgr.wr_parm_g.Sn,
++		result.cgr.wr_parm_g.Pn);
++	seq_printf(file, " wr_parm_y MA: %u, Mn: %u, SA: %u, Sn: %u, Pn: %u\n",
++		result.cgr.wr_parm_y.MA, result.cgr.wr_parm_y.Mn,
++		result.cgr.wr_parm_y.SA, result.cgr.wr_parm_y.Sn,
++		result.cgr.wr_parm_y.Pn);
++	seq_printf(file, " wr_parm_r MA: %u, Mn: %u, SA: %u, Sn: %u, Pn: %u\n",
++		result.cgr.wr_parm_r.MA, result.cgr.wr_parm_r.Mn,
++		result.cgr.wr_parm_r.SA, result.cgr.wr_parm_r.Sn,
++		result.cgr.wr_parm_r.Pn);
++	seq_printf(file, " wr_en_g: %u, wr_en_y: %u, we_en_r: %u\n",
++		result.cgr.wr_en_g, result.cgr.wr_en_y, result.cgr.wr_en_r);
++	seq_printf(file, " cscn_en: %u\n", result.cgr.cscn_en);
++	seq_printf(file, " cscn_targ: %u\n", result.cgr.cscn_targ);
++	seq_printf(file, " cstd_en: %u\n", result.cgr.cstd_en);
++	seq_printf(file, " cs: %u\n", result.cgr.cs);
++	seq_printf(file, " cs_thresh_TA: %u, cs_thresh_Tn: %u\n",
++		result.cgr.cs_thres.TA, result.cgr.cs_thres.Tn);
 +
-+	name_attrs_pool_count = devm_kmalloc(dev,
-+		sizeof(char) * bman_pool_max * 3, GFP_KERNEL);
-+	if (!name_attrs_pool_count)
-+		goto del_group_1;
++	/* Add Mode for Si 2 */
++	seq_printf(file, " mode: %s\n",
++		(result.cgr.mode & QMAN_CGR_MODE_FRAME) ?
++		"frame count" : "byte count");
 +
-+	dev_attr_buffer_pool_count = devm_kmalloc(dev,
-+		sizeof(struct device_attribute) * bman_pool_max, GFP_KERNEL);
-+	if (!dev_attr_buffer_pool_count)
-+		goto del_group_1;
++	seq_printf(file, " i_bcnt: %llu\n",
++		qm_mcr_cgrtestwrite_i_get64(&result));
++	seq_printf(file, " a_bcnt: %llu\n",
++		qm_mcr_cgrtestwrite_a_get64(&result));
++	seq_printf(file, " wr_prob_g: %u\n", result.wr_prob_g);
++	seq_printf(file, " wr_prob_y: %u\n", result.wr_prob_y);
++	seq_printf(file, " wr_prob_r: %u\n", result.wr_prob_r);
++	return 0;
++}
 +
-+	bman_dev_pool_count_attributes = devm_kmalloc(dev,
-+		sizeof(struct attribute *) * (bman_pool_max + 1), GFP_KERNEL);
-+	if (!bman_dev_pool_count_attributes)
-+		goto del_group_1;
++static int testwrite_cgr_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, testwrite_cgr_show, NULL);
++}
 +
-+	for (i = 0; i < bman_pool_max; i++) {
-+		ret = scnprintf((name_attrs_pool_count + i * 3), 3, "%d", i);
-+		if (!ret)
-+			goto del_group_1;
-+		dev_attr_buffer_pool_count[i].attr.name =
-+			(name_attrs_pool_count + i * 3);
-+		dev_attr_buffer_pool_count[i].attr.mode = S_IRUSR;
-+		dev_attr_buffer_pool_count[i].show = show_pool_count;
-+		bman_dev_pool_count_attributes[i] =
-+			&dev_attr_buffer_pool_count[i].attr;
++static const struct file_operations testwrite_cgr_fops = {
++	.owner		= THIS_MODULE,
++	.open		= testwrite_cgr_open,
++	.read		= seq_read,
++	.release	= single_release,
++};
++
++
++static int testwrite_cgr_ibcnt_show(struct seq_file *file, void *offset)
++{
++	seq_printf(file, "i_bcnt: %llu\n", test_write_cgr_data.i_bcnt);
++	return 0;
++}
++static int testwrite_cgr_ibcnt_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, testwrite_cgr_ibcnt_show, NULL);
++}
++
++static ssize_t testwrite_cgr_ibcnt_write(struct file *f, const char __user *buf,
++				size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
++
++	ret = user_input_convert(buf, count, &val);
++	if (ret)
++		return ret;
++	test_write_cgr_data.i_bcnt = val;
++	return count;
++}
++
++static const struct file_operations teswrite_cgr_ibcnt_fops = {
++	.owner		= THIS_MODULE,
++	.open		= testwrite_cgr_ibcnt_open,
++	.read		= seq_read,
++	.write		= testwrite_cgr_ibcnt_write,
++	.release	= single_release,
++};
++
++static int testwrite_cgr_cgrid_show(struct seq_file *file, void *offset)
++{
++	seq_printf(file, "cgrid: %u\n", (u32)test_write_cgr_data.cgid);
++	return 0;
++}
++static int testwrite_cgr_cgrid_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, testwrite_cgr_cgrid_show, NULL);
++}
++
++static ssize_t testwrite_cgr_cgrid_write(struct file *f, const char __user *buf,
++				size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
++
++	ret = user_input_convert(buf, count, &val);
++	if (ret)
++		return ret;
++	if (val > 0xff)
++		return -EINVAL;
++	test_write_cgr_data.cgid = (u8)val;
++	return count;
++}
++
++static const struct file_operations teswrite_cgr_cgrid_fops = {
++	.owner		= THIS_MODULE,
++	.open		= testwrite_cgr_cgrid_open,
++	.read		= seq_read,
++	.write		= testwrite_cgr_cgrid_write,
++	.release	= single_release,
++};
++
++/* Query Congestion State */
++
++static int query_congestion_show(struct seq_file *file, void *offset)
++{
++	int ret;
++	struct qm_mcr_querycongestion cs;
++	int i, j, in_cong = 0;
++	u32 mask;
++
++	memset(&cs, 0, sizeof(struct qm_mcr_querycongestion));
++	ret = qman_query_congestion(&cs);
++	if (ret)
++		return ret;
++	seq_puts(file, "Query Congestion Result\n");
++	for (i = 0; i < 8; i++) {
++		mask = 0x80000000;
++		for (j = 0; j < 32; j++) {
++			if (cs.state.__state[i] & mask) {
++				in_cong = 1;
++				seq_printf(file, " cg %u: %s\n", (i*32)+j,
++					"in congestion");
++			}
++			mask >>= 1;
++		}
 +	}
-+	bman_dev_pool_count_attributes[bman_pool_max] = NULL;
++	if (!in_cong)
++		seq_puts(file, " All congestion groups not congested.\n");
++	return 0;
++}
 +
-+	bman_dev_pool_countent_grp.attrs = bman_dev_pool_count_attributes;
++static int query_congestion_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, query_congestion_show, NULL);
++}
 +
-+	ret = sysfs_create_group(&dev->kobj, &bman_dev_pool_countent_grp);
++static const struct file_operations query_congestion_fops = {
++	.owner		= THIS_MODULE,
++	.open		= query_congestion_open,
++	.read		= seq_read,
++	.release	= single_release,
++};
++
++/* QMan register */
++
++struct qman_register_s {
++	u32 val;
++};
++static struct qman_register_s qman_register_data;
++
++static void init_ccsrmempeek(void)
++{
++	struct device_node *dn;
++	const u32 *regaddr_p;
++
++	dn = of_find_compatible_node(NULL, NULL, "fsl,qman");
++	if (!dn) {
++		pr_info("No fsl,qman node\n");
++		return;
++	}
++	regaddr_p = of_get_address(dn, 0, &qman_ccsr_size, NULL);
++	if (!regaddr_p) {
++		of_node_put(dn);
++		return;
++	}
++	qman_ccsr_start = of_translate_address(dn, regaddr_p);
++	of_node_put(dn);
++}
++/* This function provides access to QMan ccsr memory map */
++static int qman_ccsrmempeek(u32 *val, u32 offset)
++{
++	void __iomem *addr;
++	u64 phys_addr;
++
++	if (!qman_ccsr_start)
++		return -EINVAL;
++
++	if (offset > qman_ccsr_size - sizeof(u32))
++		return -EINVAL;
++
++	phys_addr = qman_ccsr_start + offset;
++	addr = ioremap(phys_addr, sizeof(u32));
++	if (!addr) {
++		pr_err("%s(): ioremap() failed\n", __func__);
++		return -EINVAL;
++	}
++	*val = in_be32(addr);
++	iounmap(addr);
++	return 0;
++}
++
++static int qman_ccsrmempeek_show(struct seq_file *file, void *offset)
++{
++	u32 b;
++
++	qman_ccsrmempeek(&b, qman_register_data.val);
++	seq_printf(file, "QMan register offset = 0x%x\n",
++		   qman_register_data.val);
++	seq_printf(file, "value = 0x%08x\n", b);
++
++	return 0;
++}
++
++static int qman_ccsrmempeek_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, qman_ccsrmempeek_show, NULL);
++}
++
++static ssize_t qman_ccsrmempeek_write(struct file *f, const char __user *buf,
++				size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
++
++	ret = user_input_convert(buf, count, &val);
 +	if (ret)
-+		goto del_group_1;
++		return ret;
++	/* multiple of 4 */
++	if (val > qman_ccsr_size - sizeof(u32)) {
++		pr_info("Input 0x%lx > 0x%llx\n",
++			val, qman_ccsr_size - sizeof(u32));
++		return -EINVAL;
++	}
++	if (val & 0x3) {
++		pr_info("Input 0x%lx not multiple of 4\n", val);
++		return -EINVAL;
++	}
++	qman_register_data.val = val;
++	return count;
++}
 +
-+	goto done;
++static const struct file_operations qman_ccsrmempeek_fops = {
++	.owner		= THIS_MODULE,
++	.open		= qman_ccsrmempeek_open,
++	.read		= seq_read,
++	.write		= qman_ccsrmempeek_write,
++};
 +
-+del_group_1:
-+	sysfs_remove_group(&dev->kobj, &bman_dev_ecr_grp);
-+del_group_0:
-+	sysfs_remove_group(&dev->kobj, &bman_dev_attr_grp);
-+done:
++/* QMan state */
++
++static int qman_fqd_state_show(struct seq_file *file, void *offset)
++{
++	struct qm_mcr_queryfq_np np;
++	struct qman_fq fq;
++	struct line_buffer_fq line_buf;
++	int ret, i;
++	u8 *state = file->private;
++	u32 qm_fq_state_cnt[ARRAY_SIZE(fqd_states)];
++
++	memset(qm_fq_state_cnt, 0, sizeof(qm_fq_state_cnt));
++	memset(&line_buf, 0, sizeof(line_buf));
++
++	seq_printf(file, "List of fq ids in state: %s\n", state_txt[*state]);
++
++	for (i = 1; i < fqid_max; i++) {
++		fq.fqid = i;
++		ret = qman_query_fq_np(&fq, &np);
++		if (ret)
++			return ret;
++		if (*state == (np.state & QM_MCR_NP_STATE_MASK))
++			add_to_line_buffer(&line_buf, fq.fqid, file);
++		/* Keep a summary count of all states */
++		if ((np.state & QM_MCR_NP_STATE_MASK) < ARRAY_SIZE(fqd_states))
++			qm_fq_state_cnt[(np.state & QM_MCR_NP_STATE_MASK)]++;
++	}
++	flush_line_buffer(&line_buf, file);
++
++	for (i = 0; i < ARRAY_SIZE(fqd_states); i++) {
++		seq_printf(file, "%s count = %u\n", state_txt[i],
++			   qm_fq_state_cnt[i]);
++	}
++	return 0;
++}
++
++static int qman_fqd_state_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, qman_fqd_state_show, inode->i_private);
++}
++
++static const struct file_operations qman_fqd_state_fops =  {
++	.owner		= THIS_MODULE,
++	.open		= qman_fqd_state_open,
++	.read		= seq_read,
++};
++
++static int qman_fqd_ctrl_show(struct seq_file *file, void *offset)
++{
++	struct qm_fqd fqd;
++	struct qman_fq fq;
++	u32 fq_en_cnt = 0, fq_di_cnt = 0;
++	int ret, i;
++	struct mask_filter_s *data = file->private;
++	const char *ctrl_txt = get_fqd_ctrl_text(data->mask);
++	struct line_buffer_fq line_buf;
++
++	memset(&line_buf, 0, sizeof(line_buf));
++	seq_printf(file, "List of fq ids with: %s :%s\n",
++		ctrl_txt, (data->filter) ? "enabled" : "disabled");
++	for (i = 1; i < fqid_max; i++) {
++		fq.fqid = i;
++		memset(&fqd, 0, sizeof(struct qm_fqd));
++		ret = qman_query_fq(&fq, &fqd);
++		if (ret)
++			return ret;
++		if (data->filter) {
++			if (fqd.fq_ctrl & data->mask)
++				add_to_line_buffer(&line_buf, fq.fqid, file);
++		} else {
++			if (!(fqd.fq_ctrl & data->mask))
++				add_to_line_buffer(&line_buf, fq.fqid, file);
++		}
++		if (fqd.fq_ctrl & data->mask)
++			fq_en_cnt++;
++		else
++			fq_di_cnt++;
++	}
++	flush_line_buffer(&line_buf, file);
++
++	seq_printf(file, "Total FQD with: %s :	enabled = %u\n",
++		   ctrl_txt, fq_en_cnt);
++	seq_printf(file, "Total FQD with: %s : disabled = %u\n",
++		   ctrl_txt, fq_di_cnt);
++	return 0;
++}
++
++/* QMan ctrl CGE, TDE, ORP, CTX, CPC, SFDR, BLOCK, HOLD, CACHE */
++static int qman_fqd_ctrl_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, qman_fqd_ctrl_show, inode->i_private);
++}
++
++static const struct file_operations qman_fqd_ctrl_fops =  {
++	.owner		= THIS_MODULE,
++	.open		= qman_fqd_ctrl_open,
++	.read		= seq_read,
++};
++
++/* QMan ctrl summary */
++
++/* QMan summary state */
++
++static int qman_fqd_non_prog_summary_show(struct seq_file *file, void *offset)
++{
++	struct qm_mcr_queryfq_np np;
++	struct qman_fq fq;
++	int ret, i;
++	u32 qm_fq_state_cnt[ARRAY_SIZE(fqd_states)];
++
++	memset(qm_fq_state_cnt, 0, sizeof(qm_fq_state_cnt));
++
++	for (i = 1; i < fqid_max; i++) {
++		fq.fqid = i;
++		ret = qman_query_fq_np(&fq, &np);
++		if (ret)
++			return ret;
++		/* Keep a summary count of all states */
++		if ((np.state & QM_MCR_NP_STATE_MASK) < ARRAY_SIZE(fqd_states))
++			qm_fq_state_cnt[(np.state & QM_MCR_NP_STATE_MASK)]++;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(fqd_states); i++) {
++		seq_printf(file, "%s count = %u\n", state_txt[i],
++			   qm_fq_state_cnt[i]);
++	}
++	return 0;
++}
++
++static int qman_fqd_prog_summary_show(struct seq_file *file, void *offset)
++{
++	struct qm_fqd fqd;
++	struct qman_fq fq;
++	int ret, i, j;
++	u32 qm_prog_cnt[ARRAY_SIZE(mask_filter)/2];
++
++	memset(qm_prog_cnt, 0, sizeof(qm_prog_cnt));
++
++	for (i = 1; i < fqid_max; i++) {
++		memset(&fqd, 0, sizeof(struct qm_fqd));
++		fq.fqid = i;
++		ret = qman_query_fq(&fq, &fqd);
++		if (ret)
++			return ret;
++		/* Keep a summary count of all states */
++		for (j = 0; j < ARRAY_SIZE(mask_filter); j += 2)
++			if ((fqd.fq_ctrl & QM_FQCTRL_MASK) &
++					mask_filter[j].mask)
++				qm_prog_cnt[j/2]++;
++	}
++	for (i = 0; i < ARRAY_SIZE(mask_filter) / 2; i++) {
++		seq_printf(file, "%s count = %u\n",
++			get_fqd_ctrl_text(mask_filter[i*2].mask),
++			   qm_prog_cnt[i]);
++	}
++	return 0;
++}
++
++static int qman_fqd_summary_show(struct seq_file *file, void *offset)
++{
++	int ret;
++
++	/* Display summary of non programmable fields */
++	ret = qman_fqd_non_prog_summary_show(file, offset);
 +	if (ret)
-+		dev_err(dev, "Cannot create dev attributes ret=%d\n", ret);
-+
++		return ret;
++	seq_puts(file, "-----------------------------------------\n");
++	/* Display programmable fields */
++	ret = qman_fqd_prog_summary_show(file, offset);
 +	return ret;
++}
++
++static int qman_fqd_summary_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, qman_fqd_summary_show, NULL);
++}
++
++static const struct file_operations qman_fqd_summary_fops =  {
++	.owner		= THIS_MODULE,
++	.open		= qman_fqd_summary_open,
++	.read		= seq_read,
 +};
 +
-+static const struct of_device_id of_fsl_bman_ids[] = {
-+	{
-+		.compatible = "fsl,bman",
-+	},
-+	{}
-+};
-+MODULE_DEVICE_TABLE(of, of_fsl_bman_ids);
++/* QMan destination work queue */
 +
-+static struct platform_driver of_fsl_bman_driver = {
-+	.driver = {
-+		.name = KBUILD_MODNAME,
-+		.of_match_table = of_fsl_bman_ids,
-+	},
-+	.probe = of_fsl_bman_probe,
-+	.remove = of_fsl_bman_remove,
++struct qman_dest_wq_s {
++	u16 wq_id;
++};
++static struct qman_dest_wq_s qman_dest_wq_data = {
++	.wq_id = 0,
 +};
 +
-+module_platform_driver(of_fsl_bman_driver);
-diff --git a/drivers/soc/fsl/qbman/bman_priv.h b/drivers/soc/fsl/qbman/bman_priv.h
-new file mode 100644
-index 0000000..702e469
---- /dev/null
-+++ b/drivers/soc/fsl/qbman/bman_priv.h
-@@ -0,0 +1,53 @@
-+/* Copyright 2008 - 2015 Freescale Semiconductor, Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
++static int qman_fqd_dest_wq_show(struct seq_file *file, void *offset)
++{
++	struct qm_fqd fqd;
++	struct qman_fq fq;
++	int ret, i;
++	u16 *wq, wq_id = qman_dest_wq_data.wq_id;
++	struct line_buffer_fq line_buf;
 +
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++	memset(&line_buf, 0, sizeof(line_buf));
++	/* use vmalloc : need to allocate large memory region and don't
++	 * require the memory to be physically contiguous. */
++	wq = vzalloc(sizeof(u16) * (0xFFFF+1));
++	if (!wq)
++		return -ENOMEM;
 +
-+#include "dpaa_sys.h"
++	seq_printf(file, "List of fq ids with destination work queue id"
++			" = 0x%x\n", wq_id);
 +
-+/* used by CCSR and portal interrupt code */
-+enum bm_isr_reg {
-+	bm_isr_status = 0,
-+	bm_isr_enable = 1,
-+	bm_isr_disable = 2,
-+	bm_isr_inhibit = 3
++	for (i = 1; i < fqid_max; i++) {
++		fq.fqid = i;
++		memset(&fqd, 0, sizeof(struct qm_fqd));
++		ret = qman_query_fq(&fq, &fqd);
++		if (ret) {
++			vfree(wq);
++			return ret;
++		}
++		if (wq_id == fqd.dest_wq)
++			add_to_line_buffer(&line_buf, fq.fqid, file);
++		wq[fqd.dest_wq]++;
++	}
++	flush_line_buffer(&line_buf, file);
++
++	seq_puts(file, "Summary of all FQD destination work queue values\n");
++	for (i = 0; i < 0xFFFF; i++) {
++		if (wq[i])
++			seq_printf(file, "Channel: 0x%x WQ: 0x%x WQ_ID: 0x%x, "
++				"count = %u\n", i >> 3, i & 0x3, i, wq[i]);
++	}
++	vfree(wq);
++	return 0;
++}
++
++static ssize_t qman_fqd_dest_wq_write(struct file *f, const char __user *buf,
++				      size_t count, loff_t *off)
++{
++	int ret;
++	unsigned long val;
++
++	ret = user_input_convert(buf, count, &val);
++	if (ret)
++		return ret;
++	if (val > 0xFFFF)
++		return -EINVAL;
++	qman_dest_wq_data.wq_id = val;
++	return count;
++}
++
++static int qman_fqd_dest_wq_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, qman_fqd_dest_wq_show, NULL);
++}
++
++static const struct file_operations qman_fqd_dest_wq_fops =  {
++	.owner		= THIS_MODULE,
++	.open		= qman_fqd_dest_wq_open,
++	.read		= seq_read,
++	.write		= qman_fqd_dest_wq_write,
 +};
 +
-+/* Set depletion thresholds associated with a buffer pool. Requires that the
-+ * operating system have access to BMan CCSR (ie. compiled in support and
-+ * run-time access courtesy of the device-tree). */
-+int bm_pool_set(u32 bpid, const u32 *thresholds);
-+#define BM_POOL_THRESH_SW_ENTER 0
-+#define BM_POOL_THRESH_SW_EXIT	1
-+#define BM_POOL_THRESH_HW_ENTER 2
-+#define BM_POOL_THRESH_HW_EXIT	3
++/* QMan Intra-Class Scheduling Credit */
 +
-+/* Read the free buffer count for a given buffer */
-+u32 bm_pool_free_buffers(u32 bpid);
-diff --git a/drivers/soc/fsl/qbman/dpaa_sys.h b/drivers/soc/fsl/qbman/dpaa_sys.h
-new file mode 100644
-index 0000000..cdaf3f7
---- /dev/null
-+++ b/drivers/soc/fsl/qbman/dpaa_sys.h
-@@ -0,0 +1,55 @@
-+/* Copyright 2008 - 2015 Freescale Semiconductor, Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
++static int qman_fqd_cred_show(struct seq_file *file, void *offset)
++{
++	struct qm_fqd fqd;
++	struct qman_fq fq;
++	int ret, i;
++	u32 fq_cnt = 0;
++	struct line_buffer_fq line_buf;
 +
-+#ifndef __DPAA_SYS_H
-+#define __DPAA_SYS_H
++	memset(&line_buf, 0, sizeof(line_buf));
++	seq_puts(file, "List of fq ids with Intra-Class Scheduling Credit > 0"
++			"\n");
 +
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/of_address.h>
-+#include <linux/of_irq.h>
-+#include <linux/of_reserved_mem.h>
-+#include <linux/platform_device.h>
++	for (i = 1; i < fqid_max; i++) {
++		fq.fqid = i;
++		memset(&fqd, 0, sizeof(struct qm_fqd));
++		ret = qman_query_fq(&fq, &fqd);
++		if (ret)
++			return ret;
++		if (fqd.ics_cred > 0) {
++			add_to_line_buffer(&line_buf, fq.fqid, file);
++			fq_cnt++;
++		}
++	}
++	flush_line_buffer(&line_buf, file);
 +
-+#ifdef CONFIG_FSL_DPA_CHECKING
-+#define DPA_ASSERT(x) \
++	seq_printf(file, "Total FQD with ics_cred > 0 = %d\n", fq_cnt);
++	return 0;
++}
++
++static int qman_fqd_cred_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, qman_fqd_cred_show, NULL);
++}
++
++static const struct file_operations qman_fqd_cred_fops =  {
++	.owner		= THIS_MODULE,
++	.open		= qman_fqd_cred_open,
++	.read		= seq_read,
++};
++
++/* helper macros used in qman_debugfs_init */
++#define QMAN_DBGFS_ENTRY(name, mode, parent, data, fops) \
 +	do { \
-+		if (!(x)) { \
-+			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
-+				__stringify_1(x)); \
-+			dump_stack(); \
-+			panic("assertion failure"); \
++		d = debugfs_create_file(name, \
++			mode, parent, \
++			data, \
++			fops); \
++		if (d == NULL) { \
++			ret = -ENOMEM; \
++			goto _return; \
 +		} \
 +	} while (0)
-+#else
-+#define DPA_ASSERT(x)
-+#endif
 +
-+#endif	/* __DPAA_SYS_H */
++/* dfs_root as parent */
++#define QMAN_DBGFS_ENTRY_ROOT(name, mode, data, fops) \
++	QMAN_DBGFS_ENTRY(name, mode, dfs_root, data, fops)
++
++/* fqd_root as parent */
++#define QMAN_DBGFS_ENTRY_FQDROOT(name, mode, data, fops) \
++	QMAN_DBGFS_ENTRY(name, mode, fqd_root, data, fops)
++
++/* fqd state */
++#define QMAN_DBGFS_ENTRY_FQDSTATE(name, index) \
++	QMAN_DBGFS_ENTRY_FQDROOT(name, S_IRUGO, \
++	(void *)&mask_filter[index], &qman_fqd_ctrl_fops)
++
++static int __init qman_debugfs_init(void)
++{
++	int ret = 0;
++	struct dentry *d, *fqd_root;
++	u32 reg;
++
++	fqid_max = 0;
++	init_ccsrmempeek();
++	if (qman_ccsr_start) {
++		if (!qman_ccsrmempeek(&reg, QM_FQD_AR)) {
++			/* extract the size of the FQD window */
++			reg = reg & 0x3f;
++			/* calculate valid frame queue descriptor range */
++			fqid_max = (1 << (reg + 1)) / QM_FQD_BLOCK_SIZE;
++		}
++	}
++
++	dfs_root = debugfs_create_dir("qman", NULL);
++	fqd_root = debugfs_create_dir("fqd", dfs_root);
++	if (dfs_root == NULL || fqd_root == NULL) {
++		pr_err("Cannot create dir\n");
++		return -ENOMEM;
++	}
++
++	if (fqid_max) {
++		QMAN_DBGFS_ENTRY_ROOT("ccsrmempeek", S_IRUGO | S_IWUGO,
++				NULL, &qman_ccsrmempeek_fops);
++	}
++	QMAN_DBGFS_ENTRY_ROOT("query_fq_np_fields", S_IRUGO | S_IWUGO,
++		&query_fq_np_fields_data, &query_fq_np_fields_fops);
++
++	QMAN_DBGFS_ENTRY_ROOT("query_fq_fields", S_IRUGO | S_IWUGO,
++		&query_fq_fields_data, &query_fq_fields_fops);
++
++	QMAN_DBGFS_ENTRY_ROOT("query_wq_lengths", S_IRUGO | S_IWUGO,
++		&query_wq_lengths_data, &query_wq_lengths_fops);
++
++	QMAN_DBGFS_ENTRY_ROOT("query_cgr", S_IRUGO | S_IWUGO,
++		&query_cgr_data, &query_cgr_fops);
++
++	QMAN_DBGFS_ENTRY_ROOT("query_congestion", S_IRUGO,
++		NULL, &query_congestion_fops);
++
++	QMAN_DBGFS_ENTRY_ROOT("testwrite_cgr", S_IRUGO,
++		NULL, &testwrite_cgr_fops);
++
++	QMAN_DBGFS_ENTRY_ROOT("testwrite_cgr_cgrid", S_IRUGO | S_IWUGO,
++		NULL, &teswrite_cgr_cgrid_fops);
++
++	QMAN_DBGFS_ENTRY_ROOT("testwrite_cgr_ibcnt", S_IRUGO | S_IWUGO,
++		NULL, &teswrite_cgr_ibcnt_fops);
++
++	/* Create files with fqd_root as parent */
++
++	QMAN_DBGFS_ENTRY_FQDROOT("stateoos", S_IRUGO,
++		(void *)&fqd_states[QM_MCR_NP_STATE_OOS], &qman_fqd_state_fops);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("state_retired", S_IRUGO,
++		(void *)&fqd_states[QM_MCR_NP_STATE_RETIRED],
++		&qman_fqd_state_fops);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("state_tentatively_sched", S_IRUGO,
++		(void *)&fqd_states[QM_MCR_NP_STATE_TEN_SCHED],
++		&qman_fqd_state_fops);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("state_truly_sched", S_IRUGO,
++		(void *)&fqd_states[QM_MCR_NP_STATE_TRU_SCHED],
++		&qman_fqd_state_fops);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("state_parked", S_IRUGO,
++		(void *)&fqd_states[QM_MCR_NP_STATE_PARKED],
++		&qman_fqd_state_fops);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("state_active", S_IRUGO,
++		(void *)&fqd_states[QM_MCR_NP_STATE_ACTIVE],
++		&qman_fqd_state_fops);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("cge_enable", 17);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("cge_disable", 16);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("tde_enable", 15);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("tde_disable", 14);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("orp_enable", 13);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("orp_disable", 12);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("ctx_a_stashing_enable", 11);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("ctx_a_stashing_disable", 10);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("cpc_enable", 9);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("cpc_disable", 8);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("sfdr_enable", 7);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("sfdr_disable", 6);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("avoid_blocking_enable", 5);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("avoid_blocking_disable", 4);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("hold_active_enable", 3);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("hold_active_disable", 2);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("prefer_in_cache_enable", 1);
++
++	QMAN_DBGFS_ENTRY_FQDSTATE("prefer_in_cache_disable", 0);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("summary", S_IRUGO,
++		NULL, &qman_fqd_summary_fops);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("wq", S_IRUGO | S_IWUGO,
++		NULL, &qman_fqd_dest_wq_fops);
++
++	QMAN_DBGFS_ENTRY_FQDROOT("cred", S_IRUGO,
++		NULL, &qman_fqd_cred_fops);
++
++	return 0;
++
++_return:
++	debugfs_remove_recursive(dfs_root);
++
++	return ret;
++}
++
++static void __exit qman_debugfs_exit(void)
++{
++	debugfs_remove_recursive(dfs_root);
++}
++
++module_init(qman_debugfs_init);
++module_exit(qman_debugfs_exit);
++
++MODULE_LICENSE("Dual BSD/GPL");
+diff --git a/drivers/soc/fsl/qbman/qman_api.c b/drivers/soc/fsl/qbman/qman_api.c
+index 8e2a9b7..d4f9be0 100644
+--- a/drivers/soc/fsl/qbman/qman_api.c
++++ b/drivers/soc/fsl/qbman/qman_api.c
+@@ -1225,9 +1225,7 @@ void qman_dca(struct qm_dqrr_entry *dq, int park_request)
+ }
+ EXPORT_SYMBOL(qman_dca);
+ 
+-/*******************/
+ /* Frame queue API */
+-/*******************/
+ 
+ static const char *mcr_result_str(u8 result)
+ {
+@@ -1788,6 +1786,37 @@ int qman_query_wq(u8 query_dedicated, struct qm_mcr_querywq *wq)
+ }
+ EXPORT_SYMBOL(qman_query_wq);
+ 
++int qman_testwrite_cgr(struct qman_cgr *cgr, u64 i_bcnt,
++			struct qm_mcr_cgrtestwrite *result)
++{
++	struct qm_mc_command *mcc;
++	struct qm_mc_result *mcr;
++	struct qman_portal *p = get_affine_portal();
++	unsigned long irqflags __maybe_unused;
++	u8 res;
++
++	PORTAL_IRQ_LOCK(p, irqflags);
++	mcc = qm_mc_start(&p->p);
++	mcc->cgrtestwrite.cgid = cgr->cgrid;
++	mcc->cgrtestwrite.i_bcnt_hi = (u8)(i_bcnt >> 32);
++	mcc->cgrtestwrite.i_bcnt_lo = (u32)i_bcnt;
++	qm_mc_commit(&p->p, QM_MCC_VERB_CGRTESTWRITE);
++	while (!(mcr = qm_mc_result(&p->p)))
++		cpu_relax();
++	DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == QM_MCC_VERB_CGRTESTWRITE);
++	res = mcr->result;
++	if (res == QM_MCR_RESULT_OK)
++		*result = mcr->cgrtestwrite;
++	PORTAL_IRQ_UNLOCK(p, irqflags);
++	put_affine_portal();
++	if (res != QM_MCR_RESULT_OK) {
++		pr_err("CGR TEST WRITE failed: %s\n", mcr_result_str(res));
++		return -EIO;
++	}
++	return 0;
++}
++EXPORT_SYMBOL(qman_testwrite_cgr);
++
+ int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *cgrd)
+ {
+ 	struct qm_mc_command *mcc;
+@@ -1816,6 +1845,33 @@ int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *cgrd)
+ }
+ EXPORT_SYMBOL(qman_query_cgr);
+ 
++int qman_query_congestion(struct qm_mcr_querycongestion *congestion)
++{
++	struct qm_mc_result *mcr;
++	struct qman_portal *p = get_affine_portal();
++	unsigned long irqflags __maybe_unused;
++	u8 res;
++
++	PORTAL_IRQ_LOCK(p, irqflags);
++	qm_mc_start(&p->p);
++	qm_mc_commit(&p->p, QM_MCC_VERB_QUERYCONGESTION);
++	while (!(mcr = qm_mc_result(&p->p)))
++		cpu_relax();
++	DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
++			QM_MCC_VERB_QUERYCONGESTION);
++	res = mcr->result;
++	if (res == QM_MCR_RESULT_OK)
++		*congestion = mcr->querycongestion;
++	PORTAL_IRQ_UNLOCK(p, irqflags);
++	put_affine_portal();
++	if (res != QM_MCR_RESULT_OK) {
++		pr_err("QUERY_CONGESTION failed: %s\n", mcr_result_str(res));
++		return -EIO;
++	}
++	return 0;
++}
++EXPORT_SYMBOL(qman_query_congestion);
++
+ /* internal function used as a wait_event() expression */
+ static int set_p_vdqcr(struct qman_portal *p, struct qman_fq *fq, u32 vdqcr)
+ {
+diff --git a/drivers/soc/fsl/qbman/qman_priv.h b/drivers/soc/fsl/qbman/qman_priv.h
+index 03c923f..6463b18 100644
+--- a/drivers/soc/fsl/qbman/qman_priv.h
++++ b/drivers/soc/fsl/qbman/qman_priv.h
+@@ -156,6 +156,14 @@ struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect,
+ const struct qm_portal_config *qman_destroy_affine_portal(void);
+ void qman_destroy_portal(struct qman_portal *qm);
+ 
++/* This CGR feature is supported by h/w and required by unit-tests and the
++ * debugfs hooks, so is implemented in the driver. However it allows an explicit
++ * corruption of h/w fields by s/w that are usually incorruptible (because the
++ * counters are usually maintained entirely within h/w). As such, we declare
++ * this API internally. */
++int qman_testwrite_cgr(struct qman_cgr *cgr, u64 i_bcnt,
++	struct qm_mcr_cgrtestwrite *result);
++
+ #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+ /* If the fq object pointer is greater than the size of context_b field,
+  * than a lookup table is required. */
 -- 
 1.7.9.5
