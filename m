@@ -1,43 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Use SK_MEM_QUANTUM as minimum for tcp/udp rmem/wmem
-Date: Wed, 12 Aug 2015 10:46:25 -0700
-Message-ID: <1439401585.29802.15.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
-	 <20150809.224114.818332231954008575.davem@davemloft.net>
-	 <20150811033406.GA1136819@mail.thefacebook.com>
-	 <20150810.204630.1903301700926701432.davem@davemloft.net>
-	 <20150812045420.GA3908557@mail.thefacebook.com>
-	 <1439389261.29802.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALh4rZqte0muVz0YLBVnsb9xzMh-xjKG8wmbi9Yo=9ge6z90HQ@mail.gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next 2/6] geneve: Make dst-port configurable.
+Date: Wed, 12 Aug 2015 10:57:30 -0700
+Message-ID: <CALnjE+rAsxUjGa3FADsnW8ZJtBYMPHEcbWEDT4WpcM05ki7M=g@mail.gmail.com>
+References: <1439356660-21754-1-git-send-email-pshelar@nicira.com>
+	<CAEP_g=9biFJDxbAFMBB+mbttBnbEkykJx7z24HrhUdjA25YpNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Calvin Owens <calvinowens@fb.com>,
-	Sorin Dumitru <sdumitru@ixiacom.com>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: Sorin Dumitru <sorin@returnze.ro>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALh4rZqte0muVz0YLBVnsb9xzMh-xjKG8wmbi9Yo=9ge6z90HQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:32878 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743AbbHLR5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 13:57:31 -0400
+Received: by iods203 with SMTP id s203so27975867iod.0
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 10:57:30 -0700 (PDT)
+In-Reply-To: <CAEP_g=9biFJDxbAFMBB+mbttBnbEkykJx7z24HrhUdjA25YpNg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-08-12 at 20:00 +0300, Sorin Dumitru wrote:
+On Wed, Aug 12, 2015 at 10:00 AM, Jesse Gross <jesse@nicira.com> wrote:
+> On Tue, Aug 11, 2015 at 10:17 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+>> index 78d49d1..5e9bab8 100644
+>> --- a/drivers/net/geneve.c
+>> +++ b/drivers/net/geneve.c
+>> @@ -378,6 +379,11 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+>>         if (data[IFLA_GENEVE_TOS])
+>>                 geneve->tos = nla_get_u8(data[IFLA_GENEVE_TOS]);
+>>
+>> +       if (data[IFLA_GENEVE_PORT])
+>> +               geneve->dst_port = htons(nla_get_u16(data[IFLA_GENEVE_PORT]));
+>> +       else
+>> +               geneve->dst_port = htons(GENEVE_UDP_PORT);
+>
+> I think there is a looming compatibility problem: if the request for
+> an alternate port isn't successful then it will be silently ignored,
+> which would presumably be confusing to the user when things appeared
+> to have worked without an error. Perhaps the right thing to do is to
+> check to see whether you get it back when the configuration is dumped
+> but it is worth thinking about now.
+>
 
-> Would clamping the values to a min value, like setsockopt(SO_SNDBUF)
-> does, be an option?
-> I still find it odd that SO_SNDBUF limits you, while the /proc
-> interface doesn't. If you think it's
-> too much, I'm ok with reverting it since it affects scripts.
-> 
-> On those arches where PAGE_SIZE == 64K(or > 16K) it looks like we have
-> tcp_wmem[1]
-> smaller than tcp_wmem[0]. Shouldn't we do something about this?
+Right, compatibility can to be handled by checking configuration.
 
-As long as we do not crash if/when root user changes /proc/sys/net
-settings, we are good.
+> Presumably IFLA_GENEVE_PORT should be added to geneve_policy.
+>
+ok.
 
-I would not care if performance is bad if root does something really
-stupid. root user is supposed to not mess things just for fun.
+> Not specific to this patch but I think that it will make things
+> significantly easier in the future if changelink was implemented.
+> VXLAN has the same issue as well.
+
+Do you mean allow dst-port configuration only through changelink()?
