@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fec: Remove unneeded use of
- IS_ERR_VALUE() macro
-Date: Wed, 12 Aug 2015 16:50:06 -0700 (PDT)
-Message-ID: <20150812.165006.368049193878368755.davem@davemloft.net>
-References: <1439392223-28350-1-git-send-email-festevam@gmail.com>
+Subject: Re: [patch] cosa: missing error code on failure in probe()
+Date: Wed, 12 Aug 2015 16:53:36 -0700 (PDT)
+Message-ID: <20150812.165336.2268773856388173453.davem@davemloft.net>
+References: <20150812210800.GB8068@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Julia.Lawall@lip6.fr, netdev@vger.kernel.org,
-	fabio.estevam@freescale.com
-To: festevam@gmail.com
+Cc: kas@fi.muni.cz, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60776 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60784 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbbHLXuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 19:50:07 -0400
-In-Reply-To: <1439392223-28350-1-git-send-email-festevam@gmail.com>
+	with ESMTP id S1750826AbbHLXxh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 19:53:37 -0400
+In-Reply-To: <20150812210800.GB8068@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Wed, 12 Aug 2015 12:10:23 -0300
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 13 Aug 2015 00:08:01 +0300
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
+> If register_hdlc_device() fails, the current code returns 0 but we
+> should return an error code instead.
 > 
-> There is no need to use the IS_ERR_VALUE() macro for checking
-> the return value from pm_runtime_* functions.
-> 
-> Just do a simple negative test instead.
-> 
-> The semantic patch that makes this change is available
-> in scripts/coccinelle/api/pm_runtime.cocci.
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks.
+Applied, thanks Dan.
