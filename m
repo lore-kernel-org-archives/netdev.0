@@ -1,111 +1,325 @@
-From: linux@eikelenboom.it
-Subject: Linux 4.2-rc6 regression: RIP: e030:[<ffffffff8110fb18>]
- [<ffffffff8110fb18>] =?UTF-8?Q?detach=5Fif=5Fpending+=30x=31=38/=30x=38?=
- =?UTF-8?Q?=30?=
-Date: Wed, 12 Aug 2015 21:19:38 +0200
-Message-ID: <7c39e6332aae572372108d5fd68c503b@eikelenboom.it>
+From: =?UTF-8?q?Pavel=20=C5=A0imerda?= <pavlix@pavlix.net>
+Subject: [PATCH iproute2 3/3] ip-address: fix and extend documentation
+Date: Wed, 12 Aug 2015 22:04:08 +0200
+Message-ID: <1439409848-26464-3-git-send-email-pavlix@pavlix.net>
+References: <1439409848-26464-1-git-send-email-pavlix@pavlix.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Vadim Kochan <vadim4j@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Phil Sutter <psutter@redhat.com>,
+	=?UTF-8?q?Pavel=20=C5=A0imerda?= <psimerda@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:56047 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751321AbbHLTYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 15:24:53 -0400
+Received: from fox.pavlix.net ([84.246.161.104]:46382 "EHLO fox.pavlix.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751034AbbHLUIt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2015 16:08:49 -0400
+In-Reply-To: <1439409848-26464-1-git-send-email-pavlix@pavlix.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+=46rom: Pavel =C5=A0imerda <psimerda@redhat.com>
 
-On my box running Xen with a 4.2-rc6 kernel i still get this splat in 
-dom0,
-which crashes the box.
-(i reported a similar splat before (at rc4) here, 
-http://www.spinics.net/lists/netdev/msg337570.html)
+ * Improve manual page synopsis and built-it help
+ * Use full subcommand names (e.g. 'address' and 'maddress')
+ * Specify when IPv4, IPv6 or both are affected
+ * Add lifetimes, home and nodad
+ * Remove any remaining excess spaces
 
-Never seen this one on 4.1, so it seems a regression.
+Commit 43d29f7 substantially improves generated ip-address.8 instead of
+ip-address.8.in and commit e419f2d removes the generated one losing the
+improvements entirely. This commit recovers the lost changes, adapts
+them to the current manual page and adds more man page and help
+improvements.
 
---
-Sander
+Original commit by: Kenyon Ralph <kenyon@kenyonralph.com>
+---
+ ip/ipaddress.c           |  16 +++----
+ man/man8/ip-address.8.in | 117 +++++++++++++++++++++++++++++++++++++--=
+--------
+ 2 files changed, 100 insertions(+), 33 deletions(-)
 
-
-[81133.193439] general protection fault: 0000 [#1] SMP
-[81133.204284] Modules linked in:
-[81133.214934] CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 
-4.2.0-rc6-20150811-linus-doflr+ #1
-[81133.225632] Hardware name: MSI MS-7640/890FXA-GD70 (MS-7640)  , BIOS 
-V1.8B1 09/13/2010
-[81133.236237] task: ffff880059b91580 ti: ffff880059bb4000 task.ti: 
-ffff880059bb4000
-[81133.246808] RIP: e030:[<ffffffff8110fb18>]  [<ffffffff8110fb18>] 
-detach_if_pending+0x18/0x80
-[81133.257354] RSP: e02b:ffff880059bb7848  EFLAGS: 00010086
-[81133.267749] RAX: ffff88004eddc7f0 RBX: ffff88000e20ae08 RCX: 
-dead000000200200
-[81133.278201] RDX: 0000000000000000 RSI: ffff88005f60e600 RDI: 
-ffff88000e20ae08
-[81133.288723] RBP: ffff880059bb7848 R08: 0000000000000001 R09: 
-0000000000000001
-[81133.298930] R10: 0000000000000003 R11: ffff88000e20ad68 R12: 
-0000000000000000
-[81133.308875] R13: 0000000101735569 R14: 0000000000015f90 R15: 
-ffff88005f60e600
-[81133.318845] FS:  00007f28c6f7c800(0000) GS:ffff88005f600000(0000) 
-knlGS:0000000000000000
-[81133.328864] CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
-[81133.338693] CR2: ffff8000007f6800 CR3: 000000003d55c000 CR4: 
-0000000000000660
-[81133.348462] Stack:
-[81133.358005]  ffff880059bb7898 ffffffff8110fe3f ffffffff810fc261 
-0000000000000200
-[81133.367682]  0000000000000003 ffff88000e20ad68 0000000000000000 
-ffff88005854d400
-[81133.377064]  0000000000015f90 0000000000000000 ffff880059bb78c8 
-ffffffff819b5243
-[81133.386374] Call Trace:
-[81133.395596]  [<ffffffff8110fe3f>] mod_timer_pending+0x3f/0xe0
-[81133.404999]  [<ffffffff810fc261>] ? 
-__raw_callee_save___pv_queued_spin_unlock+0x11/0x20
-[81133.414255]  [<ffffffff819b5243>] __nf_ct_refresh_acct+0xa3/0xb0
-[81133.423137]  [<ffffffff819bbe8b>] tcp_packet+0xb3b/0x1290
-[81133.431894]  [<ffffffff810cb8ca>] ? __local_bh_enable_ip+0x2a/0x90
-[81133.440622]  [<ffffffff819b4939>] ? 
-__nf_conntrack_find_get+0x129/0x2a0
-[81133.449339]  [<ffffffff819b682c>] nf_conntrack_in+0x29c/0x7c0
-[81133.457940]  [<ffffffff81a67181>] ipv4_conntrack_in+0x21/0x30
-[81133.466296]  [<ffffffff819aea1c>] nf_iterate+0x4c/0x80
-[81133.474401]  [<ffffffff819aeab4>] nf_hook_slow+0x64/0xc0
-[81133.482615]  [<ffffffff81a211ec>] ip_rcv+0x2ec/0x380
-[81133.490781]  [<ffffffff81a209f0>] ? 
-ip_local_deliver_finish+0x130/0x130
-[81133.498790]  [<ffffffff8197e140>] 
-__netif_receive_skb_core+0x2a0/0x970
-[81133.506714]  [<ffffffff81a56db8>] ? inet_gro_receive+0x1c8/0x200
-[81133.514609]  [<ffffffff81980705>] __netif_receive_skb+0x15/0x70
-[81133.522333]  [<ffffffff8198077e>] 
-netif_receive_skb_internal+0x1e/0x80
-[81133.529840]  [<ffffffff81980f3b>] napi_gro_receive+0x6b/0x90
-[81133.537173]  [<ffffffff81740fb6>] rtl8169_poll+0x2e6/0x600
-[81133.544444]  [<ffffffff810fc261>] ? 
-__raw_callee_save___pv_queued_spin_unlock+0x11/0x20
-[81133.551566]  [<ffffffff81981ad7>] net_rx_action+0x1f7/0x300
-[81133.558412]  [<ffffffff810cb6c3>] __do_softirq+0x103/0x210
-[81133.565353]  [<ffffffff810cb807>] run_ksoftirqd+0x37/0x60
-[81133.572359]  [<ffffffff810e4de0>] smpboot_thread_fn+0x130/0x190
-[81133.579215]  [<ffffffff810e4cb0>] ? sort_range+0x20/0x20
-[81133.586042]  [<ffffffff810e1fae>] kthread+0xee/0x110
-[81133.592792]  [<ffffffff810e1ec0>] ? 
-kthread_create_on_node+0x1b0/0x1b0
-[81133.599694]  [<ffffffff81af92df>] ret_from_fork+0x3f/0x70
-[81133.606662]  [<ffffffff810e1ec0>] ? 
-kthread_create_on_node+0x1b0/0x1b0
-[81133.613445] Code: 77 28 5d c3 66 66 66 66 66 66 2e 0f 1f 84 00 00 00 
-00 00 48 8b 47 08 55 48 89 e5 48 85 c0 74 6a 48 8b 0f 48 85 c9 48 89 08 
-74 04 <48> 89 41 08 84 d2 74 08 48 c7 47 08 00 00 00 00 f6 47 2a 10 48
-[81133.627196] RIP  [<ffffffff8110fb18>] detach_if_pending+0x18/0x80
-[81133.634036]  RSP <ffff880059bb7848>
-[81133.640817] ---[ end trace eaf596e1fcf6a591 ]---
-[81133.647521] Kernel panic - not syncing: Fatal exception in interrupt
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index b7b4e3e..177b65a 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -71,15 +71,15 @@ static void usage(void)
+ 	if (do_link) {
+ 		iplink_usage();
+ 	}
+-	fprintf(stderr, "Usage: ip addr {add|change|replace} IFADDR dev STRIN=
+G [ LIFETIME ]\n");
++	fprintf(stderr, "Usage: ip address {add|change|replace} IFADDR dev IF=
+NAME [ LIFETIME ]\n");
+ 	fprintf(stderr, "                                                    =
+  [ CONFFLAG-LIST ]\n");
+-	fprintf(stderr, "       ip addr del IFADDR dev STRING [mngtmpaddr]\n"=
+);
+-	fprintf(stderr, "       ip addr {show|save|flush} [ dev STRING ] [ sc=
+ope SCOPE-ID ]\n");
+-	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIS=
+T ] [ label PATTERN ] [up]\n");
+-	fprintf(stderr, "       ip addr {showdump|restore}\n");
++	fprintf(stderr, "       ip address del IFADDR dev IFNAME [mngtmpaddr]=
+\n");
++	fprintf(stderr, "       ip address {show|save|flush} [ dev IFNAME ] [=
+ scope SCOPE-ID ]\n");
++	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIS=
+T ] [ label LABEL ] [up]\n");
++	fprintf(stderr, "       ip address {showdump|restore}\n");
+ 	fprintf(stderr, "IFADDR :=3D PREFIX | ADDR peer PREFIX\n");
+ 	fprintf(stderr, "          [ broadcast ADDR ] [ anycast ADDR ]\n");
+-	fprintf(stderr, "          [ label STRING ] [ scope SCOPE-ID ]\n");
++	fprintf(stderr, "          [ label IFNAME ] [ scope SCOPE-ID ]\n");
+ 	fprintf(stderr, "SCOPE-ID :=3D [ host | link | global | NUMBER ]\n");
+ 	fprintf(stderr, "FLAG-LIST :=3D [ FLAG-LIST ] FLAG\n");
+ 	fprintf(stderr, "FLAG  :=3D [ permanent | dynamic | secondary | prima=
+ry |\n");
+@@ -1126,7 +1126,7 @@ static int ipadd_dump_check_magic(void)
+ 	__u32 magic =3D 0;
+=20
+ 	if (isatty(STDIN_FILENO)) {
+-		fprintf(stderr, "Can't restore addr dump from a terminal\n");
++		fprintf(stderr, "Can't restore address dump from a terminal\n");
+ 		return -1;
+ 	}
+=20
+@@ -1878,6 +1878,6 @@ int do_ipaddr(int argc, char **argv)
+ 		return ipaddr_restore();
+ 	if (matches(*argv, "help") =3D=3D 0)
+ 		usage();
+-	fprintf(stderr, "Command \"%s\" is unknown, try \"ip addr help\".\n",=
+ *argv);
++	fprintf(stderr, "Command \"%s\" is unknown, try \"ip address help\".\=
+n", *argv);
+ 	exit(-1);
+ }
+diff --git a/man/man8/ip-address.8.in b/man/man8/ip-address.8.in
+index 6e46af8..2ea3e67 100644
+--- a/man/man8/ip-address.8.in
++++ b/man/man8/ip-address.8.in
+@@ -14,18 +14,26 @@ ip-address \- protocol address management
+ .sp
+=20
+ .ti -8
+-.BR "ip address" " { " add " | " del " } "
+-.IB IFADDR " dev " STRING
++.BR "ip address" " { " add " | " change " | " replace " } "
++.IB IFADDR " dev " IFNAME
++.RI "[ " LIFETIME " ] [ " CONFFLAG-LIST " ]"
+=20
+ .ti -8
+-.BR "ip address" " { " show " | " flush " } [ " dev
+-.IR STRING " ] [ "
++.BR "ip address del"
++.IB IFADDR " dev " IFNAME " [ " mngtmpaddr " ]"
++
++.ti -8
++.BR "ip address" " { " show " | " save " | " flush " } [ " dev
++.IR IFNAME " ] [ "
+ .B  scope
+ .IR SCOPE-ID " ] [ "
+ .B  to
+ .IR PREFIX " ] [ " FLAG-LIST " ] [ "
+ .B  label
+-.IR PATTERN " ]"
++.IR PATTERN " ] [ " up " ]"
++
++.ti -8
++.BR "ip address" " { " showdump " | " restore " }"
+=20
+ .ti -8
+ .IR IFADDR " :=3D " PREFIX " | " ADDR
+@@ -36,7 +44,7 @@ ip-address \- protocol address management
+ .B  anycast
+ .IR ADDR " ] [ "
+ .B  label
+-.IR STRING " ] [ "
++.IR LABEL " ] [ "
+ .B  scope
+ .IR SCOPE-ID " ]"
+=20
+@@ -52,15 +60,33 @@ ip-address \- protocol address management
+ .IR FLAG " :=3D "
+ .RB "[ " permanent " | " dynamic " | " secondary " | " primary " | \
+ [ - ] " tentative " | [ - ] " deprecated " | [ - ] " dadfailed " | "\
+-temporary " ]"
++temporary " ] " CONFFLAG-LIST " ]"
++
++.ti -8
++.IR CONFFLAG-LIST " :=3D [ "  CONFFLAG-LIST " ] " CONFFLAG
++
++.ti -8
++.IR CONFFLAG " :=3D "
++.RB "[ " home " | " nodad " ]"
++
++.ti -8
++.IR LIFETIME " :=3D [ "
++.BI valid_lft " LFT"
++.RB "| " preferred_lft
++.IR  LFT " ]"
++
++.ti -8
++.IR LFT " :=3D [ "
++.BR forever " |"
++.IR SECONDS " ]"
+=20
+ .SH "DESCRIPTION"
+ The
+ .B address
+-is a protocol (IP or IPv6) address attached
+-to a network device.  Each device must have at least one address
+-to use the corresponding protocol.  It is possible to have several
+-different addresses attached to one device.  These addresses are not
++is a protocol (IPv4 or IPv6) address attached
++to a network device. Each device must have at least one address
++to use the corresponding protocol. It is possible to have several
++different addresses attached to one device. These addresses are not
+ discriminated, so that the term
+ .B alias
+ is not quite appropriate for them and we do not use it in this documen=
+t.
+@@ -73,7 +99,7 @@ and deletes old ones.
+ .SS ip address add - add new protocol address.
+=20
+ .TP
+-.BI dev " NAME"
++.BI dev " IFNAME "
+ the name of the device to add the address to.
+=20
+ .TP
+@@ -107,7 +133,7 @@ instead of the broadcast address. In this case, the=
+ broadcast address
+ is derived by setting/resetting the host bits of the interface prefix.
+=20
+ .TP
+-.BI label " NAME"
++.BI label " LABEL"
+ Each address may be tagged with a label string.
+ In order to preserve compatibility with Linux-2.0 net aliases,
+ this string must coincide with the name of the device or must be prefi=
+xed
+@@ -125,7 +151,7 @@ Predefined scope values are:
+ - the address is globally valid.
+ .sp
+ .B site
+-- (IPv6 only) the address is site local, i.e. it is
++- (IPv6 only, deprecated) the address is site local, i.e. it is
+ valid inside this site.
+ .sp
+ .B link
+@@ -135,6 +161,30 @@ valid inside this site.
+ - the address is valid only inside this host.
+ .in -8
+=20
++.TP
++.BI valid_lft " LFT"
++the valid lifetime of this address; see section 5.5.4 of
++RFC 4862. When it expires, the address is removed by the kernel.
++Defaults to
++.BR "forever" .
++
++.TP
++.BI preferred_lft " LFT"
++the preferred lifetime of this address; see section 5.5.4
++of RFC 4862. When it expires, the address is no longer used for new
++outgoing connections. Defaults to
++.BR "forever" .
++
++.TP
++.B home
++(IPv6 only) designates this address the "home address" as defined in
++RFC 6275.
++
++.TP
++.B nodad
++(IPv6 only) do not perform Duplicate Address Detection (RFC 4862) when
++adding this address.
++
+ .SS ip address delete - delete protocol address
+ .B Arguments:
+ coincide with the arguments of
+@@ -145,7 +195,7 @@ If no arguments are given, the first address is del=
+eted.
+ .SS ip address show - look at protocol addresses
+=20
+ .TP
+-.BI dev " NAME " (default)
++.BI dev " IFNAME " (default)
+ name of device.
+=20
+ .TP
+@@ -219,36 +269,53 @@ The difference is that it does not run when no ar=
+guments are given.
+=20
+ .PP
+ .B Warning:
+-This command (and other
++This command and other
+ .B flush
+-commands described below) is pretty dangerous. If you make a mistake,
+-it will not forgive it, but will cruelly purge all the addresses.
++commands are unforgiving. They will cruelly purge all the addresses.
+=20
+ .PP
+ With the
+ .B -statistics
+ option, the command becomes verbose. It prints out the number of delet=
+ed
+-addresses and the number of rounds made to flush the address list. If
+-this option is given twice,
++addresses and the number of rounds made to flush the address list.
++If this option is given twice,
+ .B ip address flush
+ also dumps all the deleted addresses in the format described in the
+ previous subsection.
+=20
+ .SH "EXAMPLES"
+ .PP
++ip address show
++.RS 4
++Shows IPv4 and IPv6 addresses assigned to all network interfaces. The =
+'show'
++subcommand can be omitted.
++.RE
++.PP
++ip address show up
++.RS 4
++Same as above except that only addresses assigned to active network in=
+terfaces
++are shown.
++.RE
++.PP
+ ip address show dev eth0
+ .RS 4
+-Shows the addresses assigned to network interface eth0
++Shows IPv4 and IPv6 addresses assigned to network interface eth0.
++.RE
++.PP
++ip address add 2001:0db8:85a3::0370:7334/64 dev eth1
++.RS 4
++Adds an IPv6 address to network interface eth1.
+ .RE
+ .PP
+-ip addr add 2001:0db8:85a3::0370:7334/64 dev eth1
++ip address delete 2001:0db8:85a3::0370:7334/64 dev eth1
+ .RS 4
+-Adds an IPv6 address to network interface eth1
++Delete the IPv6 address added above.
+ .RE
+ .PP
+-ip addr flush dev eth4
++ip address flush dev eth4 scope global
+ .RS 4
+-Removes all addresses from device eth4
++Removes all global IPv4 and IPv6 addresses from device eth4. Without '=
+scope
++global' it would remove all addresses including IPv6 link-local ones.
+ .RE
+=20
+ .SH SEE ALSO
+--=20
+2.4.1
