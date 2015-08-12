@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() loop upper
- bound
-Date: Wed, 12 Aug 2015 16:43:13 -0700 (PDT)
-Message-ID: <20150812.164313.2165285978444550238.davem@davemloft.net>
-References: <1439391432-4690-1-git-send-email-weichunc@plumgrid.com>
+Subject: Re: [PATCH] IGMP: Inhibit reports for local multicast groups
+Date: Wed, 12 Aug 2015 16:45:19 -0700 (PDT)
+Message-ID: <20150812.164519.1783786478654950784.davem@davemloft.net>
+References: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@plumgrid.com, xiakaixu@huawei.com
-To: weichunc@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60744 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751535AbbHLXnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 19:43:14 -0400
-In-Reply-To: <1439391432-4690-1-git-send-email-weichunc@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: pdowney@brocade.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei-Chun Chao <weichunc@plumgrid.com>
-Date: Wed, 12 Aug 2015 07:57:12 -0700
+From: Philip Downey <pdowney@brocade.com>
+Date: Wed, 12 Aug 2015 17:13:53 +0100
 
-> Verifier rejects programs incorrectly.
+> IGMP reports are generated for link local multicast groups (224.0.0.1
+> - 224.0.0.255) used by the routing protocols such as RIP, OSPF etc.
+> In general routers do not generate reports for local multicast groups.
 > 
-> Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read()")
-> Cc: Kaixu Xia <xiakaixu@huawei.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
-> ---
+> IGMP reports for local multicast groups can now be inhibited by means
+> of a system control variable (setting the value to zero).
 > 
-> v2: better subject line
+> To retain backwards compatibility the previous behaviour is retained by
+> default on system boot.
+> 
+> Signed-off-by: Philip Downey <pdowney@brocade.com>
 
-Applied, thanks.
+I'm always hesitent to apply patches like this.
+
+I can't even understand from your explanation:
+
+1) what about local reporting behavior is so bad
+
+2) why you want to inhibit them at all
+
+For example, this:
+
+> In general routers do not generate reports for local multicast groups.
+
+Doesn't tell me anything.  You need to go into more detail about
+this, and explain the situation sufficiently.
