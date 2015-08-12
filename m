@@ -1,45 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: track link status of ipv6 nexthops
-Date: Wed, 12 Aug 2015 14:32:26 -0700 (PDT)
-Message-ID: <20150812.143226.1427684779292104798.davem@davemloft.net>
-References: <1438875754-28025-1-git-send-email-gospo@cumulusnetworks.com>
-	<20150810.105400.1277861088010551746.davem@davemloft.net>
-	<20150810184651.GL504@gospo.home.greyhouse.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv3 net-next 01/10] openvswitch: Serialize acts with
+ original netlink len
+Date: Wed, 12 Aug 2015 14:34:45 -0700
+Message-ID: <CALnjE+q1kHpEcYvYyh82G+E74zON13521ji0A4pVZ8eVfaBwpA@mail.gmail.com>
+References: <1439333961-24474-1-git-send-email-joestringer@nicira.com>
+	<1439333961-24474-2-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
-To: gospo@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Justin Pettit <jpettit@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>,
+	Thomas Graf <tgraf@noironetworks.com>
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60153 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbbHLVc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:32:27 -0400
-In-Reply-To: <20150810184651.GL504@gospo.home.greyhouse.net>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:34947 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129AbbHLVeq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:34:46 -0400
+Received: by igbjg10 with SMTP id jg10so51922446igb.0
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 14:34:46 -0700 (PDT)
+In-Reply-To: <1439333961-24474-2-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Date: Mon, 10 Aug 2015 14:46:52 -0400
+On Tue, Aug 11, 2015 at 3:59 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Previously, we used the kernel-internal netlink actions length to
+> calculate the size of messages to serialize back to userspace.
+> However,the sw_flow_actions may not be formatted exactly the same as the
+> actions on the wire, so store the original actions length when
+> de-serializing and re-use the original length when serializing.
+>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 
-> I went this way as the idea of storing this info in a flags structure
-> for 2 reasons:
-> 
-> - This idea or marking on link status changes and checking for that mark
->   during forwarding was done what was suggested by Alex et al for the
->   ipv4 code and I wanted to keep the overall design similar.
-> 
-> - New flags will likely be needed when switchdev support is added for
->   ipv6 routes so going ahead and mirroring the RTNH_F* flags in the the
->   ipv6 code seemed reasonable.
-> 
-> I would actually be fine with what you proposed (it is closer to the
-> first implementation), so if my justification above does not change your
-> mind, let me know and I'll post a v2 that does not add rt6i_nhflags and
-> simply checks netif_carrier_ok() rather than RTNH_F_LINKDOWN.
-
-Ok fair enough, if we'll need more flags later then so be it.
-
-Andy, please resubmit this series, I'll apply it.
-
-Thanks.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
