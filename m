@@ -1,35 +1,51 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [net-next PATCH] net: Document xfrm4_gc_thresh and
- xfrm6_gc_thresh
-Date: Wed, 12 Aug 2015 12:27:45 +0200
-Message-ID: <20150812102745.GD25499@secunet.com>
-References: <20150811203501.1914.86746.stgit@ahduyck-vm-fedora22>
- <20150811.135152.34039482191606454.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <alexander.h.duyck@redhat.com>, <netdev@vger.kernel.org>,
-	<herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44048 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751046AbbHLK1s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2015 06:27:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20150811.135152.34039482191606454.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: [PATCH V1 Resend 05/10] drivers: net: Drop unlikely before IS_ERR(_OR_NULL)
+Date: Wed, 12 Aug 2015 15:59:42 +0530
+Message-ID: <be6452a07902fa6a50be0fa06af90dc172cc65fc.1439375087.git.viresh.kumar@linaro.org>
+References: <cover.1439375087.git.viresh.kumar@linaro.org>
+Cc: linaro-kernel@lists.linaro.org, linux-kernel@vger.kernel.org,
+	Viresh Kumar <viresh.kumar@linaro.org>,
+	Murali Karicheri <m-karicheri2@ti.com>,
+	netdev@vger.kernel.org (open list:TI NETCP ETHERNET DRIVER),
+	Wingman Kwok <w-kwok2@ti.com>
+To: trivial@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1439375087.git.viresh.kumar@linaro.org>
+In-Reply-To: <cover.1439375087.git.viresh.kumar@linaro.org>
+References: <cover.1439375087.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 11, 2015 at 01:51:52PM -0700, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@redhat.com>
-> Date: Tue, 11 Aug 2015 13:35:01 -0700
-> 
-> > This change adds documentation for xfrm4_gc_thresh and xfrm6_gc_thresh
-> > based on the comments in commit eeb1b73378b56 ("xfrm: Increase the garbage
-> > collector threshold").
-> > 
-> > Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> 
-> Thanks, I'll let Steffen review and pick this up.
+IS_ERR(_OR_NULL) already contain an 'unlikely' compiler flag and there
+is no need to do that again from its callers. Drop it.
 
-Now applied to ipsec-next, thanks!
+Acked-by: Murali Karicheri <m-karicheri2@ti.com>
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+---
+ drivers/net/ethernet/ti/netcp_core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 1a5aca55ea9f..f7f6e442e94b 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -1026,7 +1026,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 	}
+ 
+ 	desc = knav_pool_desc_get(netcp->tx_pool);
+-	if (unlikely(IS_ERR_OR_NULL(desc))) {
++	if (IS_ERR_OR_NULL(desc)) {
+ 		dev_err(netcp->ndev_dev, "out of TX desc\n");
+ 		dma_unmap_single(dev, dma_addr, pkt_len, DMA_TO_DEVICE);
+ 		return NULL;
+@@ -1059,7 +1059,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
+ 		}
+ 
+ 		ndesc = knav_pool_desc_get(netcp->tx_pool);
+-		if (unlikely(IS_ERR_OR_NULL(ndesc))) {
++		if (IS_ERR_OR_NULL(ndesc)) {
+ 			dev_err(netcp->ndev_dev, "out of TX desc for frags\n");
+ 			dma_unmap_page(dev, dma_addr, buf_len, DMA_TO_DEVICE);
+ 			goto free_descs;
+-- 
+2.4.0
