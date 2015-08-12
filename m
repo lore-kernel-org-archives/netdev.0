@@ -1,7 +1,8 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 0/3] Add AM335x PG1.0 CPSW errata workaround
-Date: Wed, 12 Aug 2015 15:22:52 +0530
-Message-ID: <1439373175-8650-1-git-send-email-mugunthanvnm@ti.com>
+Subject: [net-next PATCH 1/3] drivers: net: cpsw: add am335x errata workarround for interrutps
+Date: Wed, 12 Aug 2015 15:22:53 +0530
+Message-ID: <1439373175-8650-2-git-send-email-mugunthanvnm@ti.com>
+References: <1439373175-8650-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
@@ -10,29 +11,189 @@ Cc: <devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:48810 "EHLO arroyo.ext.ti.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:48813 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751902AbbHLJxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2015 05:53:10 -0400
+	id S1751902AbbHLJxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2015 05:53:12 -0400
+In-Reply-To: <1439373175-8650-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With commit 870915feabdc ("drivers: net: cpsw: remove
-disable_irq/enable_irq as irq can be masked from cpsw itself"),
-CPSW on AM335x beagle bone white is broken as there is a errata
-for AM335x PG1.0. This patch series implements the workaround by
-disabling the interrupts from ARM IRQ controller for AM335x SoC
-in addition to the masking of interrupts in CPSW.
+As per Am335x Errata [1] Advisory 1.0.9, The CPSW C0_TX_PEND and
+C0_RX_PEND interrupt outputs provide a single transmit interrupt
+that combines transmit channel interrupts TXPEND[7:0] and a
+single receive interrupt that combines receive channel interrupts
+RXPEND[7:0]. The TXPEND[0] and RXPEND[0] interrupt outputs are
+connected to the ARM Cortex-A8 interrupt controller (INTC) rather
+than the C0_TX_PEND and C0_RX_PEND interrupt outputs. So even
+though CPSW interrupt is cleared by writing appropriate values to
+EOI register the interrupt is not cleared in IRQ controller. So
+interrupt is still pending and CPU is struck in ISR, the
+workaround is to disable the interrupts in ARM irq controller.
 
-Mugunthan V N (3):
-  drivers: net: cpsw: add am335x errata workarround for interrutps
-  ARM: dts: dra7: update cpsw compatible
-  ARM: dts: am33xx: update cpsw compatible
+[1] http://www.ti.com/lit/er/sprz360f/sprz360f.pdf
 
- arch/arm/boot/dts/am33xx.dtsi  |  2 +-
- arch/arm/boot/dts/dra7.dtsi    |  2 +-
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
  drivers/net/ethernet/ti/cpsw.c | 83 +++++++++++++++++++++++++++++++++++++++---
- 3 files changed, 79 insertions(+), 8 deletions(-)
+ 1 file changed, 77 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 3b81b39..8fc90f1 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -387,6 +387,9 @@ struct cpsw_priv {
+ 	struct cpsw_ale			*ale;
+ 	bool				rx_pause;
+ 	bool				tx_pause;
++	bool				quirk_irq;
++	bool				rx_irq_disabled;
++	bool				tx_irq_disabled;
+ 	/* snapshot of IRQ numbers */
+ 	u32 irqs_table[4];
+ 	u32 num_irqs;
+@@ -755,6 +758,11 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
+ 	writel(0, &priv->wr_regs->tx_en);
+ 	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+ 
++	if (priv->quirk_irq) {
++		disable_irq_nosync(priv->irqs_table[1]);
++		priv->tx_irq_disabled = true;
++	}
++
+ 	napi_schedule(&priv->napi_tx);
+ 	return IRQ_HANDLED;
+ }
+@@ -766,6 +774,11 @@ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
+ 	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+ 	writel(0, &priv->wr_regs->rx_en);
+ 
++	if (priv->quirk_irq) {
++		disable_irq_nosync(priv->irqs_table[0]);
++		priv->rx_irq_disabled = true;
++	}
++
+ 	napi_schedule(&priv->napi_rx);
+ 	return IRQ_HANDLED;
+ }
+@@ -779,6 +792,10 @@ static int cpsw_tx_poll(struct napi_struct *napi_tx, int budget)
+ 	if (num_tx < budget) {
+ 		napi_complete(napi_tx);
+ 		writel(0xff, &priv->wr_regs->tx_en);
++		if (priv->quirk_irq && priv->tx_irq_disabled) {
++			priv->tx_irq_disabled = false;
++			enable_irq(priv->irqs_table[1]);
++		}
+ 	}
+ 
+ 	if (num_tx)
+@@ -796,6 +813,10 @@ static int cpsw_rx_poll(struct napi_struct *napi_rx, int budget)
+ 	if (num_rx < budget) {
+ 		napi_complete(napi_rx);
+ 		writel(0xff, &priv->wr_regs->rx_en);
++		if (priv->quirk_irq && priv->rx_irq_disabled) {
++			priv->rx_irq_disabled = false;
++			enable_irq(priv->irqs_table[0]);
++		}
+ 	}
+ 
+ 	if (num_rx)
+@@ -1267,6 +1288,16 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		napi_enable(&priv_sl0->napi_rx);
+ 		napi_enable(&priv_sl0->napi_tx);
+ 
++		if (priv_sl0->tx_irq_disabled) {
++			priv_sl0->tx_irq_disabled = false;
++			enable_irq(priv->irqs_table[1]);
++		}
++
++		if (priv_sl0->rx_irq_disabled) {
++			priv_sl0->rx_irq_disabled = false;
++			enable_irq(priv->irqs_table[0]);
++		}
++
+ 		if (WARN_ON(!priv->data.rx_descs))
+ 			priv->data.rx_descs = 128;
+ 
+@@ -2128,6 +2159,44 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+ 	return ret;
+ }
+ 
++#define CPSW_QUIRK_IRQ		BIT(0)
++
++static struct platform_device_id cpsw_devtype[] = {
++	{
++		/* keep it for existing comaptibles */
++		.name = "cpsw",
++		.driver_data = CPSW_QUIRK_IRQ,
++	}, {
++		.name = "am335x-cpsw",
++		.driver_data = CPSW_QUIRK_IRQ,
++	}, {
++		.name = "am4372-cpsw",
++		.driver_data = 0,
++	}, {
++		.name = "dra7-cpsw",
++		.driver_data = 0,
++	}, {
++		/* sentinel */
++	}
++};
++MODULE_DEVICE_TABLE(platform, cpsw_devtype);
++
++enum ti_cpsw_type {
++	CPSW = 0,
++	AM335X_CPSW,
++	AM4372_CPSW,
++	DRA7_CPSW,
++};
++
++static const struct of_device_id cpsw_of_mtable[] = {
++	{ .compatible = "ti,cpsw", .data = &cpsw_devtype[CPSW], },
++	{ .compatible = "ti,am335x-cpsw", .data = &cpsw_devtype[AM335X_CPSW], },
++	{ .compatible = "ti,am4372-cpsw", .data = &cpsw_devtype[AM4372_CPSW], },
++	{ .compatible = "ti,dra7-cpsw", .data = &cpsw_devtype[DRA7_CPSW], },
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
++
+ static int cpsw_probe(struct platform_device *pdev)
+ {
+ 	struct cpsw_platform_data	*data;
+@@ -2137,6 +2206,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	struct cpsw_ale_params		ale_params;
+ 	void __iomem			*ss_regs;
+ 	struct resource			*res, *ss_res;
++	const struct of_device_id	*of_id;
+ 	u32 slave_offset, sliver_offset, slave_size;
+ 	int ret = 0, i;
+ 	int irq;
+@@ -2327,6 +2397,13 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
+ 	}
+ 
++	of_id = of_match_device(cpsw_of_mtable, &pdev->dev);
++	if (of_id) {
++		pdev->id_entry = of_id->data;
++		if (pdev->id_entry->driver_data)
++			priv->quirk_irq = true;
++	}
++
+ 	/* Grab RX and TX IRQs. Note that we also have RX_THRESHOLD and
+ 	 * MISC IRQs which are always kept disabled with this driver so
+ 	 * we will not request them.
+@@ -2491,12 +2568,6 @@ static int cpsw_resume(struct device *dev)
+ 
+ static SIMPLE_DEV_PM_OPS(cpsw_pm_ops, cpsw_suspend, cpsw_resume);
+ 
+-static const struct of_device_id cpsw_of_mtable[] = {
+-	{ .compatible = "ti,cpsw", },
+-	{ /* sentinel */ },
+-};
+-MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
+-
+ static struct platform_driver cpsw_driver = {
+ 	.driver = {
+ 		.name	 = "cpsw",
 -- 
 2.5.0.234.gefc8a62
