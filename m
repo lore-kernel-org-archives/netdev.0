@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: fix build warnings and add function
- read_trace_pipe()
-Date: Wed, 12 Aug 2015 16:39:26 -0700 (PDT)
-Message-ID: <20150812.163926.1443596955889419582.davem@davemloft.net>
-References: <1439372273-69958-1-git-send-email-xiakaixu@huawei.com>
+Subject: Re: [net-next PATCH] net: ipv4: increase dhcp inter device timeout
+Date: Wed, 12 Aug 2015 16:40:41 -0700 (PDT)
+Message-ID: <20150812.164041.1772250761467753718.davem@davemloft.net>
+References: <1439373703-31620-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, ast@plumgrid.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	wangnan0@huawei.com, pi3orama@163.com
-To: xiakaixu@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439372273-69958-1-git-send-email-xiakaixu@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mugunthanvnm@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60722 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbbHLXkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 19:40:42 -0400
+In-Reply-To: <1439373703-31620-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kaixu Xia <xiakaixu@huawei.com>
-Date: Wed, 12 Aug 2015 09:37:53 +0000
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Wed, 12 Aug 2015 15:31:43 +0530
 
-> There are two improvements in this patch:
->  1. Fix the build warnings;
->  2. Add function read_trace_pipe() to print the result on
->     the screen;
+> When a system has multiple ethernet devices and during DHCP
+> request (for using NFS), the system waits only for HZ/2 which is
+> 500mS before switching to another interface for DHCP.
 > 
-> Before this patch, we can get the result through /sys/kernel/de
-> bug/tracing/trace_pipe and get nothing on the screen.
-> By applying this patch, the result can be printed on the screen.
->   $ ./tracex6
-> 	...
->          tracex6-705   [003] d..1   131.428593: : CPU-3   19981414
->             sshd-683   [000] d..1   131.428727: : CPU-0   221682321
->             sshd-683   [000] d..1   131.428821: : CPU-0   221808766
->             sshd-683   [000] d..1   131.428950: : CPU-0   221982984
->             sshd-683   [000] d..1   131.429045: : CPU-0   222111851
->          tracex6-705   [003] d..1   131.429168: : CPU-3   20757551
->             sshd-683   [000] d..1   131.429170: : CPU-0   222281240
->             sshd-683   [000] d..1   131.429261: : CPU-0   222403340
->             sshd-683   [000] d..1   131.429378: : CPU-0   222561024
-> 	...
+> There are some routers (Ex: Trendnet routers) which responds to
+> DHCP request at about 560mS. When the system has only one
+> ethernet interface there is no issue as the timeout is 2S and the
+> dev xid doesn't changes and only retries.
 > 
-> Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+> But when the system has multiple Ethernet like DRA74x with CPSW
+> in dual EMAC mode, the DHCP response is dropped as the dev xid
+> changes while shifting to the next device. So changing inter
+> device timeout to HZ (which is 1S).
+> 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
 Applied, thanks.
