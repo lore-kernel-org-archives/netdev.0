@@ -1,29 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux 4.2-rc6 regression: RIP: e030:[<ffffffff8110fb18>]
- [<ffffffff8110fb18>] detach_if_pending+0x18/0x80
-Date: Wed, 12 Aug 2015 15:41:19 -0700
-Message-ID: <1439419279.29802.25.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <7c39e6332aae572372108d5fd68c503b@eikelenboom.it>
-	 <1439412094.29802.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0de9f30086ee2e662bdafee61d24b3c1@eikelenboom.it>
-	 <20150812.144040.1151964094247340464.davem@davemloft.net>
-	 <b5e9ffc27531e98bc2ac1e28d6a3d0f0@eikelenboom.it>
+From: "Eng.Hoffmann" <hoffm144@gmail.com>
+Subject: Good Day To You.
+Date: Thu, 13 Aug 2015 00:44:15 +0200
+Message-ID: <CADYQ0SoiU_1A9k_zZ-geObc8vZUWsTFBgdFpi5gvR8=eJD-AHw@mail.gmail.com>
+Reply-To: hoffm144@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b5e9ffc27531e98bc2ac1e28d6a3d0f0@eikelenboom.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f66.google.com ([209.85.215.66]:34729 "EHLO
+	mail-la0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826AbbHLWoR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 18:44:17 -0400
+Received: by lahi9 with SMTP id i9so1619165lah.1
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 15:44:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-08-12 at 23:46 +0200, Sander Eikelenboom wrote:
+Good Day To You.
 
-> Thanks for the reminder, but luckily i was aware of that,
-> seen enough of your replies asking for patches to be resubmitted
-> against "the other tree" ;)
-> Kernel with patch is currently running so fingers crossed.
+Please forgive my intrusion into your privacy,I'm a US engineer living
+in Burkina-Faso, Am a sick widower that have decided to donate some of
+my wealth to a reliable individual that will utilize this money,
+$950.000.00usd to help the orphans in the society for the work of
+humanity as i don`t have a child that will inherit my wealth when i'm
+no more alive, i permit you to take 30% of this fund after the
+transfer into your account for your effort and use the rest for the
+help of orphanage homes and the less privileged in your location, if
+you are willing to accept my offer and use this fund exactly as i
+said,reply quickly with your data's for more details now that i can
+struggle to write.
 
-Thanks for testing. I am definitely interested knowing your results.
+My regards
+Eng.Hoffmann.
