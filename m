@@ -1,96 +1,96 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [PATCH 0/2] of: fsl/fman: reuse the fixed node parsing code
-Date: Wed, 12 Aug 2015 13:26:09 +0000
-Message-ID: <BL2PR03MB545929237EF33BA13089EC1E67E0@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1438785745-15517-1-git-send-email-madalin.bucur@freescale.com>
- <55C63D3B.5020005@gmail.com> <55CA1C14.3000202@list.ru>
- <BL2PR03MB545D4E18DE41AE01AFC37D6E67F0@BL2PR03MB545.namprd03.prod.outlook.com>
- <55CA29C8.5000707@list.ru>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: dccp related oops in inet_csk_get_port
+Date: Wed, 12 Aug 2015 09:27:56 -0400
+Message-ID: <20150812132756.GA8030@codemonkey.org.uk>
+References: <20150715220710.GB30757@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Liberman Igal <Igal.Liberman@freescale.com>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	"joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: Stas Sergeev <stsp@list.ru>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55CA29C8.5000707@list.ru>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arcturus.aphlor.org ([188.246.204.175]:39950 "EHLO
+	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754657AbbHLN2E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 09:28:04 -0400
+Received: from [209.6.119.210] (helo=backup.kernelslacker.org)
+	by arcturus.aphlor.org with esmtpsa (TLSv1.2:DHE-RSA-AES256-GCM-SHA384:256)
+	(Exim 4.84)
+	(envelope-from <davej@codemonkey.org.uk>)
+	id 1ZPW4M-0006Wz-7y
+	for netdev@vger.kernel.org; Wed, 12 Aug 2015 14:27:50 +0100
+Content-Disposition: inline
+In-Reply-To: <20150715220710.GB30757@codemonkey.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFzIFNlcmdlZXYgW21haWx0
-bzpzdHNwQGxpc3QucnVdDQo+IA0KPiAxMS4wOC4yMDE1IDE5OjMzLCBNYWRhbGluLUNyaXN0aWFu
-IEJ1Y3VyINC/0LjRiNC10YI6DQo+ID4gKyBKb2FraW0sIFNoYW9odWkNCj4gPg0KPiA+PiAtLS0t
-LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBTdGFzIFNlcmdlZXYgW21haWx0bzpz
-dHNwQGxpc3QucnVdDQo+ID4+DQo+ID4+IDA4LjA4LjIwMTUgMjA6MzIsIEZsb3JpYW4gRmFpbmVs
-bGkg0L/QuNGI0LXRgjoNCj4gPj4+IENDJ2luZyBTdGFzLA0KPiA+PiBIaS4NCj4gPj4NCj4gPj4+
-IExlIDA4LzA1LzE1IDA3OjQyLCBNYWRhbGluIEJ1Y3VyIGEgw6ljcml0IDoNCj4gPj4+PiBUaGUg
-Rk1hbiBNQUMgY29uZmlndXJhdGlvbiBjb2RlIG5lZWRzIHRoZSBzcGVlZCBhbmQgZHVwbGV4DQo+
-ID4+IGluZm9ybWF0aW9uDQo+ID4+Pj4gZm9yIGZpeGVkLWxpbmsgaW50ZXJmYWNlcyB0aGF0IGlz
-IHBhcnNlZCBub3cgYnkgdGhlIG9mIGZ1bmN0aW9uDQo+ID4+Pj4gb2ZfcGh5X3JlZ2lzdGVyX2Zp
-eGVkX2xpbmsoKS4gVGhpcyBwYXJzZXMgdGhlIGZpeGVkLWxpbmsgcGFyYW1ldGVycyBidXQNCj4g
-Pj4+PiBkb2VzIG5vdCBleHBvc2UgdG8gdGhlIGNhbGxlciBuZWl0aGVyIHRoZSBwaHlfZGV2aWNl
-IHBvaW50ZXIgbm9yIHRoZQ0KPiA+Pj4+IHN0YXR1cyBzdHJ1Y3Qgd2hlcmUgaXQgbG9hZHMgdGhl
-IGZpeGVkLWxpbmsgcGFyYW1zLg0KPHNuaXA+DQoNCj4gPiBJJ3ZlIHRyaWVkIHRvIG1ha2UgdGhl
-IHNtYWxsZXN0IGNoYW5nZXMgdGhhdCBhbGxvdyBtZSB0byByZXRyaWV2ZSB0aG9zZQ0KPiA+IHdp
-dGhvdXQgbW9kaWZ5aW5nIGV4aXN0aW5nIEFQSS4NCj4gPiBXaHkgaXMgaXQgaW1wb3J0YW50IHRv
-IGhpZGUgdGhlIGRlZmF1bHQgdmFsdWVzIGZyb20gdGhlIE1BQyBkcml2ZXI/DQo+IE15IHdvcnJ5
-IGlzIHRoYXQgdGhlIGZpeGVkIHZhbHVlcyBhcmUgbm90IHJlYWxseSBmaXhlZCwgYW5kDQo+IHRo
-ZXJlZm9yZSBhcmUgbm90IGFsd2F5cyB1c2VmdWwgdG8gYWNjZXNzIGRpcmVjdGx5LiBJdCBpcyBs
-aWtlbHkNCj4gbm90IGEgcHJvYmxlbSBmb3IgeW91ciB1c2UtY2FzZSwgYXMsIGFzIHlvdSBzYXks
-IHRoZSBBTiBpcw0KPiBkaXNhYmxlZCwgYnV0IHRoaXMgaXMgcHJvYmFibHkgbm90IHRoZSBiZXN0
-IHRvIGRvIGluIGdlbmVyYWwuDQoNClllcywgbm90IGEgcHJvYmxlbSBpbiBteSBjYXNlLg0KDQo+
-IEFuZCBhbHNvIHlvdSBkbzoNCj4gLS0tDQo+IA0KPiAtCQllcnIgPSBvZl9waHlfcmVnaXN0ZXJf
-Zml4ZWRfbGluayhtYWNfbm9kZSk7DQo+IC0JCWlmIChlcnIpDQo+ICsJCXN0cnVjdCBwaHlfZGV2
-aWNlICpwaHk7DQo+ICsNCj4gKwkJbWFjX2Rldi0+Zml4ZWRfbGluayA9IGt6YWxsb2Moc2l6ZW9m
-KCptYWNfZGV2LQ0KPiA+Zml4ZWRfbGluayksDQo+ICsJCQkJCSAgICAgIEdGUF9LRVJORUwpOw0K
-PiArCQlpZiAob2ZfcGh5X3BhcnNlX2ZpeGVkX2xpbmsobWFjX25vZGUsIG1hY19kZXYtDQo+ID5m
-aXhlZF9saW5rKSkNCj4gKwkJCWdvdG8gX3JldHVybl9kZXZfc2V0X2RydmRhdGE7DQo+ICsNCj4g
-KwkJcGh5ID0gZml4ZWRfcGh5X3JlZ2lzdGVyKFBIWV9QT0xMLCBtYWNfZGV2LT5maXhlZF9saW5r
-LA0KPiArCQkJCQkgbWFjX25vZGUpOw0KPiANCj4gLS0tDQo+IA0KPiB3aGljaCBtZWFucyB5b3Ug
-cmVhbGx5IHdhbnQgdG8gY2lyY3VtdmVudCB0aGUgY3VycmVudCBPRg0KPiBhcGkgcXVpdGUgYSBs
-b3QsIHdpdGhvdXQgc2F5aW5nIHdoeSBpbiB0aGUgcGF0Y2ggZGVzY3JpcHRpb24uDQoNCkkgY2ly
-Y3VtdmVudCB0aGUgQVBJIGJlY2F1c2UgSSBkaW4gbm90IHdhbnQgdG8gY2hhbmdlIGV4aXN0aW5n
-IEFQSS4NCklmIEkgY291bGQgZ2V0IGEgcmVmZXJlbmNlIHRvIHRoZSBzdGF0dXMgc3RydWN0IHdp
-dGhvdXQgY2hhbmdpbmcgYW55IGNvZGUgDQpvciB3aXRob3V0IGJlaW5nIHJlcXVpcmVkIHRvIGNh
-bGwgYnkgbXlzZWxmIGZpeGVkX3BoeV9yZWdpc3RlcigpLCBJDQp3b3VsZCBvZiBkb25lIHRoYXQu
-IEdpdmVuIHRoZSBleGlzdGluZyBjb2RlIGluIG9mX3BoeV9yZWdpc3Rlcl9maXhlZF9saW5rKCks
-DQp0aGlzIHdhcyBteSBvbmx5IG9wdGlvbi4gSSBjb3VsZCBoYXZlIGJyb2tlbiBvZl9waHlfcmVn
-aXN0ZXJfZml4ZWRfbGluaygpDQppbiB0d28gZnVuY3Rpb25zOg0KDQpvZl9waHlfcGFyc2VfZml4
-ZWRfbGluaygpIGFuZCBvZl9waHlfcmVnaXN0ZXJfZml4ZWRfbGluaygpLCB0aGUgbGF0dGVyIGRv
-aW5nIG9ubHkNCnRoZSBjYWxsIHRvIGZpeGVkX3BoeV9yZWdpc3RlcigpDQoNCnRoYXQgd291bGQg
-YWxsb3cgdG8ga2VlcCBvZl9waHlfcmVnaXN0ZXJfZml4ZWRfbGluaygpIGFzIGl0IGlzLCBicm9r
-ZW4gaW4gdHdvIHN0YWdlczoNCg0KLSBwYXJzaW5nDQotIHJlZ2lzdGVyaW5nDQoNCnRoYW4gY2Fu
-IGJlIHVzZWQgYnkgb3RoZXIgZHJpdmVycyBpbiBvcmRlciB0byBnZXQgdGhlIHN0YXR1cyBidXQg
-SSB0aGluayBpdCdzIG92ZXJraWxsLg0KDQo+IEFzIHN1Y2gsIGl0IG1heSBiZSBkaWZmaWN1bHQg
-dG8gcmV2aWV3LiBDb3VsZCB5b3UgcGxlYXNlIHdyaXRlDQo+IGEgbW9yZSBjb21wbGV0ZSBkZXNj
-cmlwdGlvbiB0byB0aGUgcGF0Y2g/DQoNClRvIGJldHRlciB1bmRlcnN0YW5kIHRoaXMgcGF0Y2gs
-IHRoaW5rIG9mIGl0IGFzIGp1c3QgYSByZWZhY3RvcmluZyBvZiB0aGUNCm9mX3BoeV9yZWdpc3Rl
-cl9maXhlZF9saW5rKCkgdGhhdCBkb2VzIHR3byB0aGluZ3MgaW5zaWRlOg0KDQotIHBhcnNpbmcg
-b2YgZml4ZWQgbGluayBub2RlICgyIGJpbmRpbmdzIHN1cHBvcnRlZCkNCi0gcmVnaXN0ZXIgcGh5
-IGJ5IGNhbGxpbmcgZml4ZWRfcGh5X3JlZ2lzdGVyKCkgaW4gdGhlIHNhbWUgd2F5LCBpbiB0aGUg
-c2FtZSBjb2RlYmFzZQ0KDQpJJ3ZlIGV4dHJhY3RlZCB0aGUgcGFyc2luZyBpbiBhIHNlcGFyYXRl
-IGZ1bmN0aW9uICggZm9sbG93aW5nIHRoZSAib25lIGZ1bmN0aW9uIHNob3VsZA0KZG8gb25lIHRo
-aW5nIiBydWxlKS4NCg0KVGhlbiBJJ3ZlIGV4cG9ydGVkIHRoaXMgZnVuY3Rpb24gdG8gbWFrZSBz
-dGF0dXMgYXZhaWxhYmxlIHRvIGNhbGxlcnMuDQoNCj4gQXMgdG8geW91ciBwcm9ibGVtOiB3b3Vs
-ZCBpdCBiZSBwb3NzaWJsZSB0byBzZXQgc3BlZWQgJiBkdXBsZXgNCj4gYWZ0ZXIgeW91IGRvIG9m
-X3BoeV9jb25uZWN0KCk/IEl0IHJldHVybnMgdGhlIHBoeV9kZXZpY2UNCj4gcG9pbnRlciwgYW5k
-IHBlcmhhcHMgeW91IGNhbiBsb29rIGludG8gcGh5ZGV2LT5zcGVlZCBhbmQNCj4gcGh5ZGV2LT5k
-dXBsZXggYXQgdGhhdCBwb2ludD8NCg0KSXQgd291bGQgYmUgcG9zc2libGUgYnV0IHVuLW5hdHVy
-YWwgYXMgSSdkIGhhdmUgcHJvYmluZyBpbmZvcm1hdGlvbiBvbmx5IGF2YWlsYWJsZSBhdA0KcnVu
-dGltZS4gVGhhdCB3b3VsZCBqdXN0IGNvbXBsaWNhdGUgbWF0dGVycyBmb3IgbXkgcGFydGljdWxh
-ciBjYXNlIGFucyBJIHN1c3BlY3QgdGhlcmUNCndpbGwgYmUgb3RoZXIgZHJpdmVycyB0aGF0IGdl
-dCBpbnRvIHRoaXMgc2l0dWF0aW9uLiBZb3UgYXJlIGNvbmNlcm5lZCBhYm91dCBwZW9wbGUNCmFi
-dXNpbmcgdGhpcyBBUEkgdG8gcmVhZCBmaXhlZCBsaW5rIHN0YXR1cyB3aGVuIHRoZSBsaW5rIGlz
-IG5vdCByZWFsbHkgZml4ZWQsIEknbSBjb25jZXJuZWQNCmFib3V0IGRlY2xhcmluZyB0aGUgbGlu
-ayBhcyBmaXhlZC1saW5rIHdoZW4gaXQncyBub3QuIE1heWJlIHRoZSBuYW1pbmcvYmluZGluZyBu
-ZWVkcyB0byBiZQ0KcmV2aXNlZCB0byBjb3ZlciB0aGUgY2FzZSB3aGVuIGFsbCBpcyBmaXhlZCBi
-dXQgdGhlIGxpbmsuDQoNCg==
+On Wed, Jul 15, 2015 at 06:07:10PM -0400, Dave Jones wrote:
+ > While experimenting with some dccp fuzzing, I hit this..
+ > 
+ > Oops: 0010 [#1] PREEMPT SMP DEBUG_PAGEALLOC 
+ > CPU: 3 PID: 19269 Comm: trinity-c22 Not tainted 4.2.0-rc2-think+ #2
+ > task: ffff88006f3954c0 ti: ffff8802b89b0000 task.ti: ffff8802b89b0000
+ > RIP: 0010:[<0000000000000000>]  [<          (null)>]           (null)
+ > RSP: 0018:ffff8802b89b3e30  EFLAGS: 00010246
+ > RAX: ffffffffc063b200 RBX: 000000000000908c RCX: 000000000000908c
+ > RDX: 0000000000000001 RSI: ffff8800cb94ef00 RDI: ffff880501ad8c40
+ > RBP: ffff8802b89b3eb8 R08: ffff8800cb94ef00 R09: 0000000000000000
+ > R10: 0000000000000001 R11: 0000000000000005 R12: 000000000000908c
+ > R13: ffffffffc0631940 R14: ffffffffafeefd40 R15: ffff8800cc97e850
+ > FS:  00007fc948b0b740(0000) GS:ffff880507e00000(0000) knlGS:0000000000000000
+ > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ > CR2: 0000000000000000 CR3: 000000024f2d2000 CR4: 00000000001407e0
+ > DR0: 00007fe46baf0000 DR1: 0000000000000000 DR2: 0000000000000000
+ > DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+ > Stack:
+ >  ffffffffaf725ae5 ffff8802b89b3e48 000003e800000005 ffff8802b89b3e68
+ >  ffff880501ad8c40 ffff8800cb94ef00 ffff880033cc8000 ffffffffb89b3e88
+ >  ffffffff00000000 ffff880501ad9200 ffff880501ad9200 ffff8802b89b3eb8
+ > Call Trace:
+ >  [<ffffffffaf725ae5>] ? inet_csk_get_port+0x3a5/0x4f0
+ >  [<ffffffffaf7260a9>] inet_csk_listen_start+0x79/0xe0
+ >  [<ffffffffc06260bb>] inet_dccp_listen+0x8b/0xc0 [dccp]
+ >  [<ffffffffaf6b509e>] SyS_listen+0x4e/0x80
+ >  [<ffffffffaf80063c>] tracesys_phase2+0x84/0x89
+
+I managed to reproduce this a lot faster. I can now hit it several times a day.
+
+I threw in this debug patch:
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 60021d0d9326..89b9cba73b3d 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -198,6 +198,14 @@ tb_found:
+ 			goto success;
+ 		} else {
+ 			ret = 1;
++
++			if (inet_csk(sk)->icsk_af_ops->bind_conflict == NULL) {
++				printk(KERN_INFO "bind_conflict == NULL\tops=%p state=%d err:%d\n",
++						inet_csk(sk)->icsk_af_ops,
++						sk->sk_state, sk->sk_err);
++				goto fail_unlock;
++			}
++
+ 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true)) {
+ 				if (((sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
+ 				     (tb->fastreuseport > 0 &&
+
+
+
+And now I regularly get 
+
+[ 7544.518516] bind_conflict == NULL	ops=ffffffffc04a1200 state=10 err:0
+
+$ grep ffffffffc04a1200  /proc/kallsyms 
+ffffffffc04a1200 r dccp_ipv6_mapped	[dccp_ipv6]
+
+It's always the v6 struct this happens with (at least so far).
+
+What I'm missing, is how that pointer can be zero.
+It's in rodata. Any write to it should cause a page fault.
+
+Also, I don't see anywhere where we actually write to that table directly.
+Do we do an indirect clearing of icsk_af_ops anywhere ?
+I'm not seeing anything obvious.
+
+	Dave
