@@ -1,31 +1,36 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 4/6] openvswitch: Use Geneve device.
-Date: Wed, 12 Aug 2015 14:04:43 -0700
-Message-ID: <CAEP_g=9n81RHv0ikFPAMqL94MnN8VGhSdY3L-+0mhk7cfqjSNQ@mail.gmail.com>
-References: <1439356669-21814-1-git-send-email-pshelar@nicira.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] cosa: missing error code on failure in probe()
+Date: Thu, 13 Aug 2015 00:08:01 +0300
+Message-ID: <20150812210800.GB8068@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:33173 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750778AbbHLVFH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:05:07 -0400
-Received: by lbbsx3 with SMTP id sx3so16636636lbb.0
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 14:05:03 -0700 (PDT)
-In-Reply-To: <1439356669-21814-1-git-send-email-pshelar@nicira.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:23886 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073AbbHLVIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:08:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 11, 2015 at 10:17 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> With help of tunnel metadata mode OVS can directly use
-> Geneve devices to implement Geneve tunnels.
-> This patch removes all of the OVS specific Geneve code
-> and make OVS use a Geneve net_device. Basic geneve vport
-> is still there to handle compatibility with current
-> userspace application.
->
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+If register_hdlc_device() fails, the current code returns 0 but we
+should return an error code instead.
 
-Reviewed-by: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+index 7193b73..848ea6a 100644
+--- a/drivers/net/wan/cosa.c
++++ b/drivers/net/wan/cosa.c
+@@ -589,7 +589,8 @@ static int cosa_probe(int base, int irq, int dma)
+ 		chan->netdev->base_addr = chan->cosa->datareg;
+ 		chan->netdev->irq = chan->cosa->irq;
+ 		chan->netdev->dma = chan->cosa->dma;
+-		if (register_hdlc_device(chan->netdev)) {
++		err = register_hdlc_device(chan->netdev);
++		if (err) {
+ 			netdev_warn(chan->netdev,
+ 				    "register_hdlc_device() failed\n");
+ 			free_netdev(chan->netdev);
