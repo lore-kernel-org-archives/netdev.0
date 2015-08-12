@@ -1,32 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: Do not override PHY interface if already
- configured
-Date: Wed, 12 Aug 2015 14:41:43 -0700 (PDT)
-Message-ID: <20150812.144143.1795131888720256658.davem@davemloft.net>
-References: <1439063937-16316-1-git-send-email-f.fainelli@gmail.com>
-	<20150812.143035.511637354777280164.davem@davemloft.net>
-	<55CBBBD4.1080803@gmail.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] net: track link status of ipv6 nexthops
+Date: Wed, 12 Aug 2015 17:44:32 -0400
+Message-ID: <20150812214431.GY504@gospo.home.greyhouse.net>
+References: <1438875754-28025-1-git-send-email-gospo@cumulusnetworks.com>
+ <20150810.105400.1277861088010551746.davem@davemloft.net>
+ <20150810184651.GL504@gospo.home.greyhouse.net>
+ <20150812.143226.1427684779292104798.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, linux@roeck-us.net
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60215 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751769AbbHLVlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:41:44 -0400
-In-Reply-To: <55CBBBD4.1080803@gmail.com>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:33494 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751078AbbHLVof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:44:35 -0400
+Received: by qkfj126 with SMTP id j126so9977168qkf.0
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 14:44:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150812.143226.1427684779292104798.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 12 Aug 2015 14:34:12 -0700
-
-> On 12/08/15 14:30, David Miller wrote:
->> Applied to 'net', thanks Florian.
+On Wed, Aug 12, 2015 at 02:32:26PM -0700, David Miller wrote:
+> From: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Date: Mon, 10 Aug 2015 14:46:52 -0400
 > 
-> Could you also schedule this for -stable, at least 4.1 is affected by
-> this change, thank you!
+> > I went this way as the idea of storing this info in a flags structure
+> > for 2 reasons:
+> > 
+> > - This idea or marking on link status changes and checking for that mark
+> >   during forwarding was done what was suggested by Alex et al for the
+> >   ipv4 code and I wanted to keep the overall design similar.
+> > 
+> > - New flags will likely be needed when switchdev support is added for
+> >   ipv6 routes so going ahead and mirroring the RTNH_F* flags in the the
+> >   ipv6 code seemed reasonable.
+> > 
+> > I would actually be fine with what you proposed (it is closer to the
+> > first implementation), so if my justification above does not change your
+> > mind, let me know and I'll post a v2 that does not add rt6i_nhflags and
+> > simply checks netif_carrier_ok() rather than RTNH_F_LINKDOWN.
+> 
+> Ok fair enough, if we'll need more flags later then so be it.
+> 
+> Andy, please resubmit this series, I'll apply it.
 
-Done, thanks.
+Thanks, Dave.  Will do.
