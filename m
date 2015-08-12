@@ -1,65 +1,86 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [PATCH v2 0/2] net: thunder: Add ACPI support.
-Date: Wed, 12 Aug 2015 16:23:38 +0100
-Message-ID: <20150812152337.GB5393@e104818-lin.cambridge.arm.com>
-References: <1439254717-2875-1-git-send-email-ddaney.cavm@gmail.com>
- <20150811.114908.1384923604512568161.davem@davemloft.net>
- <55CA5567.9010002@caviumnetworks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [BUG] net/ipv4: inconsistent routing table
+Date: Wed, 12 Aug 2015 08:23:52 -0700
+Message-ID: <20150812082352.56075327@urahara>
+References: <CAOrge3qi=7YPRO+VeCDvHsm_7SFC4Y=+JpwQtwAV3zk_q4fEAw@mail.gmail.com>
+	<55C1D207.3040905@iogearbox.net>
+	<55C24BAE.7090702@gmail.com>
+	<CAOrge3ps456Zw8nnnVitU3t6sEQ=Z=6QzO5Zsp4s17MhhZxyKQ@mail.gmail.com>
+	<55C3B8C8.9030507@redhat.com>
+	<CAOrge3oRWUfdMjDgH8PSY_5Y8=KKv2Cr9T3ZLXvuNx6_eq7g0Q@mail.gmail.com>
+	<55C4D803.3090108@redhat.com>
+	<878u9njaon.fsf@stressinduktion.org>
+	<CAOrge3qxOb_XrspuvYjV0pDDxUUoqGE3690KUQGoxZMxuD-NRQ@mail.gmail.com>
+	<CAOrge3q16PRh3TEBaGUeYDhLzWhCCytn+sopTzBr_23cj1gmaw@mail.gmail.com>
+	<878u9jijuc.fsf@stressinduktion.org>
+	<CAOrge3pSQ7eck14biTncjOyGD-DKY0DvRr7JKpS3BowoSDry-Q@mail.gmail.com>
+	<87y4hjgy6p.fsf@stressinduktion.org>
+	<55CA608B.1070302@gmail.com>
+	<CAOrge3pTg8qOzrNDBtNYB+UUKVmJKe-T+azrCqdrkt=T+HL0Tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mark.rutland@arm.com,
-	linux-mips@linux-mips.org, rafael@kernel.org,
-	netdev@vger.kernel.org, david.daney@cavium.com,
-	linux-kernel@vger.kernel.org, tomasz.nowicki@linaro.org,
-	rrichter@cavium.com, linux-acpi@vger.kernel.org,
-	ddaney.cavm@gmail.com, sgoutham@cavium.com,
-	linux-arm-kernel@lists.infradead.org
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55CA5567.9010002@caviumnetworks.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Zang MingJie <zealot0630@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOrge3pTg8qOzrNDBtNYB+UUKVmJKe-T+azrCqdrkt=T+HL0Tg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 11, 2015 at 01:04:55PM -0700, David Daney wrote:
-> On 08/11/2015 11:49 AM, David Miller wrote:
-> >From: David Daney <ddaney.cavm@gmail.com>
-> >Date: Mon, 10 Aug 2015 17:58:35 -0700
-> >
-> >>Change from v1:  Drop PHY binding part, use fwnode_property* APIs.
+On Wed, 12 Aug 2015 16:14:33 +0800
+Zang MingJie <zealot0630@gmail.com> wrote:
+
+> On Wed, Aug 12, 2015 at 4:52 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+> > On 08/10/2015 04:50 AM, Hannes Frederic Sowa wrote:
 > >>
-> >>The first patch (1/2) rearranges the existing code a little with no
-> >>functional change to get ready for the second.  The second (2/2) does
-> >>the actual work of adding support to extract the needed information
-> >>from the ACPI tables.
+> >> Hello,
+> >>
+> >> Zang MingJie <zealot0630@gmail.com> writes:
+> >>
+> >>> Here comes several options:
+> >>>
+> >>> 1. reject local next hop w/ EINVAL
+> >>> 2. delete route when local next hop removed
+> >>
+> >> Will also cause some people to complain.
+> >>
+> >>> 3. transition between RT_SCOPE_HOST amd RT_SCOPE_LINK
+> >>
+> >> I don't understand the scope transition. I know Alex mentioned it for
+> >> the first time. Maybe he can explain?
 > >
-> >Series applied.
+> >
+> > If I am not mistaken part of the issue in terms of the behaviour being seen
+> > is due to the fact that the nexthop scope is recorded only when the route is
+> > added, and there is code in place in rt_set_nexthop which will only use the
+> > gateway if the scope is RT_SCOPE_LINK.  So what we would probably need to do
+> > is go through and audit any routes on a given interface every time an
+> > address is added or removed and if the nh_gw is equal to the address added
+> > or removed would would need to transition between RT_SCOPE_LINK and
+> > RT_SCOPE_HOST since the gateway is transitioning between the local system
+> > and somewhere on the other side of the link.
+> >
+> > The problem is that this would still be a behaviour change and there may be
+> > somebody that has heartburn about it.
 > 
-> Thank you very much.
+> That's why I'm going to introduce a sysconf entry, with the entry
+> unset, keep compatibility; with the entry set, fix the bug.
 > 
-> >In the future it might be better structured to try and get the OF
-> >node, and if that fails then try and use the ACPI method to obtain
-> >these values.
-> 
-> Our current approach, as you can see in the patch, is the opposite.  If ACPI
-> is being used, prefer that over the OF device tree.
-> 
-> You seem to be recommending precedence for OF.  It should be consistent
-> across all drivers/sub-systems, so do you really think that OF before ACPI
-> is the way to go?
+> >
+> >>> 4. document it
+> >>
+> >> I prefer that one :)
+> >
+> >
+> > Yeah, me too.  The fact is things have worked this way up until now and I
+> > suspect the reason why this hasn't been reported until now is simply because
+> > in many cases it works since routes are usually updated if you are moving
+> > the gateway onto the local system.
 
-On arm64 (unless you use a vendor kernel), DT takes precedence over ACPI
-if both arm provided to the kernel (and it's a fair assumption given
-that ACPI on ARM is still in the early days). You could also force ACPI
-with acpi=force on the kernel cmd line and the arch code will not
-unflatten the DT even if it is provided, therefore is_of_node(fwnode)
-returning false.
-
-I haven't looked at your driver in detail but something like AMD's
-xgbe_probe() uses a single function for both DT and ACPI with
-device_property_read_*() functions getting the information from the
-correct place in either case. The ACPI vs DT precedence is handled by
-the arch boot code, we never mix the two and confuse the drivers.
-
--- 
-Catalin
+Most people doing any router use routing protocols suites like Quagga
+or Bird which have a routing management daemon. This is the kind of change
+that the routing services portion manages. When a route or interface change
+is detected it updates the FIB based on the bigger RIB.
