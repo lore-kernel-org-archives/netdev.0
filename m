@@ -1,34 +1,49 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 28/31] net/xfrm: use kmemdup rather than duplicating its
- implementation
-Date: Wed, 12 Aug 2015 12:25:25 +0200
-Message-ID: <20150812102525.GB25499@secunet.com>
-References: <1438934377-4922-1-git-send-email-a.hajda@samsung.com>
- <1438934377-4922-29-git-send-email-a.hajda@samsung.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/6] dlm: use sctp 1-to-1 API
+Date: Wed, 12 Aug 2015 10:23:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB794EB@AcuExch.aculab.com>
+References: <cover.1439330654.git.marcelo.leitner@gmail.com>
+ <479a4fd07289ea9043d84a27d706cccd2c968fb0.1439330654.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Andrzej Hajda <a.hajda@samsung.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Teigland <teigland@redhat.com>,
+	"tan.hu@zte.com.cn" <tan.hu@zte.com.cn>
+To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>,
+	"cluster-devel@redhat.com" <cluster-devel@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:43980 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751643AbbHLKZa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2015 06:25:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1438934377-4922-29-git-send-email-a.hajda@samsung.com>
+Received: from smtp-out4.electric.net ([192.162.216.193]:65188 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933212AbbHLKZv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 06:25:51 -0400
+In-Reply-To: <479a4fd07289ea9043d84a27d706cccd2c968fb0.1439330654.git.marcelo.leitner@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 07, 2015 at 09:59:34AM +0200, Andrzej Hajda wrote:
-> The patch was generated using fixed coccinelle semantic patch
-> scripts/coccinelle/api/memdup.cocci [1].
+From: Marcelo Ricardo Leitner
+> Sent: 11 August 2015 23:22
+> DLM is using 1-to-many API but in a 1-to-1 fashion. That is, it's not
+> needed but this causes it to use sctp_do_peeloff() to mimic an
+> kernel_accept() and this causes a symbol dependency on sctp module.
 > 
-> [1]: http://permalink.gmane.org/gmane.linux.kernel/2014320
-> 
-> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+> By switching it to 1-to-1 API we can avoid this dependency and also
+> reduce quite a lot of SCTP-specific code in lowcomms.c.
+...
 
-Applied to ipsec-next, thanks!
+You still need to enable sctp notifications (I think the patch deleted
+that code).
+Otherwise you don't get any kind of indication if the remote system
+'resets' (ie sends an new INIT chunk) on an existing connection.
+
+It is probably enough to treat the MSG_NOTIFICATION as a fatal error
+and close the socket.
+
+This is probably a bug in the sctp stack - if a connection is reset
+but the user hasn't requested notifications then it should be
+converted to a disconnect indication and a new incoming connection.
+
+	David
