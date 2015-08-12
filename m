@@ -1,100 +1,79 @@
 From: Roy Pledge <Roy.Pledge@freescale.com>
-Subject: [v2 11/11] soc/qman: add qman_delete_cgr_safe()
-Date: Wed, 12 Aug 2015 16:14:57 -0400
-Message-ID: <1439410497-19039-12-git-send-email-Roy.Pledge@freescale.com>
+Subject: [v2 01/11] powerpc: re-add devm_ioremap_prot()
+Date: Wed, 12 Aug 2015 16:14:47 -0400
+Message-ID: <1439410497-19039-2-git-send-email-Roy.Pledge@freescale.com>
 References: <1439410497-19039-1-git-send-email-Roy.Pledge@freescale.com>
-Reply-To: <Roy.Pledge@freescale.com>
+Reply-To: Roy.Pledge@freescale.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: <linuxppc-dev@lists.ozlabs.org>, <scottwood@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1439410497-19039-1-git-send-email-Roy.Pledge@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
-
-Add qman_delete_cgr_safe() that can be called from any CPU.
-This in turn schedules qman_delete_cgr() on the proper CPU.
-
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-Signed-off-by: Roy Pledge <Roy.Pledge@freescale.com>
----
- drivers/soc/fsl/qbman/qman_api.c |   46 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
-
-diff --git a/drivers/soc/fsl/qbman/qman_api.c b/drivers/soc/fsl/qbman/qman_api.c
-index d4f9be0..1dd60f2 100644
---- a/drivers/soc/fsl/qbman/qman_api.c
-+++ b/drivers/soc/fsl/qbman/qman_api.c
-@@ -2463,6 +2463,8 @@ EXPORT_SYMBOL(qman_modify_cgr);
- 					QM_CHANNEL_SWPORTAL0))
- #define PORTAL_IDX(n) (n->config->public_cfg.channel - QM_CHANNEL_SWPORTAL0)
- 
-+static u8 qman_cgr_cpus[__CGR_NUM];
-+
- int qman_create_cgr(struct qman_cgr *cgr, u32 flags,
- 			struct qm_mcc_initcgr *opts)
- {
-@@ -2479,7 +2481,10 @@ int qman_create_cgr(struct qman_cgr *cgr, u32 flags,
- 	if (cgr->cgrid >= __CGR_NUM)
- 		return -EINVAL;
- 
-+	preempt_disable();
- 	p = get_affine_portal();
-+	qman_cgr_cpus[cgr->cgrid] = smp_processor_id();
-+	preempt_enable();
- 
- 	memset(&local_opts, 0, sizeof(struct qm_mcc_initcgr));
- 	cgr->chan = p->config->public_cfg.channel;
-@@ -2621,6 +2626,47 @@ put_portal:
- }
- EXPORT_SYMBOL(qman_delete_cgr);
- 
-+struct cgr_comp {
-+	struct qman_cgr *cgr;
-+	struct completion completion;
-+};
-+
-+static int qman_delete_cgr_thread(void *p)
-+{
-+	struct cgr_comp *cgr_comp = (struct cgr_comp *)p;
-+	int res;
-+
-+	res = qman_delete_cgr((struct qman_cgr *)cgr_comp->cgr);
-+	complete(&cgr_comp->completion);
-+
-+	return res;
-+}
-+
-+void qman_delete_cgr_safe(struct qman_cgr *cgr)
-+{
-+	struct task_struct *thread;
-+	struct cgr_comp cgr_comp;
-+
-+	preempt_disable();
-+	if (qman_cgr_cpus[cgr->cgrid] != smp_processor_id()) {
-+		init_completion(&cgr_comp.completion);
-+		cgr_comp.cgr = cgr;
-+		thread = kthread_create(qman_delete_cgr_thread, &cgr_comp,
-+					"cgr_del");
-+
-+		if (likely(!IS_ERR(thread))) {
-+			kthread_bind(thread, qman_cgr_cpus[cgr->cgrid]);
-+			wake_up_process(thread);
-+			wait_for_completion(&cgr_comp.completion);
-+			preempt_enable();
-+			return;
-+		}
-+	}
-+	qman_delete_cgr(cgr);
-+	preempt_enable();
-+}
-+EXPORT_SYMBOL(qman_delete_cgr_safe);
-+
- int qman_set_wpm(int wpm_enable)
- {
- 	return qm_set_wpm(wpm_enable);
--- 
-1.7.9.5
+RnJvbTogRW1pbCBNZWR2ZSA8RW1pbGlhbi5NZWR2ZUBGcmVlc2NhbGUuY29tPgoKZGV2bV9pb3Jl
+bWFwX3Byb3QoKSB3YXMgcmVtb3ZlZCBpbiBjb21taXQgZGVkZDI0YTEyLAphbmQgd2FzIGludHJv
+ZHVjZWQgaW4gY29tbWl0IGI0MWU1ZmZmZTguCgpUaGlzIHJldmVydHMgY29tbWl0IGRlZGQyNGEx
+MmZlNjczNTg5OGZlZWIwNjE4NGVlMzQ2OTA3YWJiNWQuCgpTaWduZWQtb2ZmLWJ5OiBFbWlsIE1l
+ZHZlIDxFbWlsaWFuLk1lZHZlQEZyZWVzY2FsZS5jb20+Ci0tLQogYXJjaC9wb3dlcnBjL2luY2x1
+ZGUvYXNtL2lvLmggfCAgICAzICsrKwogYXJjaC9wb3dlcnBjL2xpYi9NYWtlZmlsZSAgICAgfCAg
+ICAxICsKIGFyY2gvcG93ZXJwYy9saWIvZGV2cmVzLmMgICAgIHwgICA0MyArKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKwogMyBmaWxlcyBjaGFuZ2VkLCA0NyBpbnNlcnRp
+b25zKCspCiBjcmVhdGUgbW9kZSAxMDA2NDQgYXJjaC9wb3dlcnBjL2xpYi9kZXZyZXMuYwoKZGlm
+ZiAtLWdpdCBhL2FyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9pby5oIGIvYXJjaC9wb3dlcnBjL2lu
+Y2x1ZGUvYXNtL2lvLmgKaW5kZXggYThkMmVmMy4uOWVhZjMwMSAxMDA2NDQKLS0tIGEvYXJjaC9w
+b3dlcnBjL2luY2x1ZGUvYXNtL2lvLmgKKysrIGIvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL2lv
+LmgKQEAgLTg1NSw2ICs4NTUsOSBAQCBzdGF0aWMgaW5saW5lIHZvaWQgKiBidXNfdG9fdmlydCh1
+bnNpZ25lZCBsb25nIGFkZHJlc3MpCiAKICNkZWZpbmUgY2xyc2V0Yml0c184KGFkZHIsIGNsZWFy
+LCBzZXQpIGNscnNldGJpdHMoOCwgYWRkciwgY2xlYXIsIHNldCkKIAordm9pZCBfX2lvbWVtICpk
+ZXZtX2lvcmVtYXBfcHJvdChzdHJ1Y3QgZGV2aWNlICpkZXYsIHJlc291cmNlX3NpemVfdCBvZmZz
+ZXQsCisJCQkJc2l6ZV90IHNpemUsIHVuc2lnbmVkIGxvbmcgZmxhZ3MpOworCiAjZW5kaWYgLyog
+X19LRVJORUxfXyAqLwogCiAjZW5kaWYgLyogX0FTTV9QT1dFUlBDX0lPX0ggKi8KZGlmZiAtLWdp
+dCBhL2FyY2gvcG93ZXJwYy9saWIvTWFrZWZpbGUgYi9hcmNoL3Bvd2VycGMvbGliL01ha2VmaWxl
+CmluZGV4IGE0N2UxNDIuLjdhZTYwZjAgMTAwNjQ0Ci0tLSBhL2FyY2gvcG93ZXJwYy9saWIvTWFr
+ZWZpbGUKKysrIGIvYXJjaC9wb3dlcnBjL2xpYi9NYWtlZmlsZQpAQCAtMTMsNiArMTMsNyBAQCBv
+YmoteSArPSBzdHJpbmcubyBhbGxvYy5vIGNydHNhdnJlcy5vIHBwY19rc3ltcy5vIGNvZGUtcGF0
+Y2hpbmcubyBcCiAJIGZlYXR1cmUtZml4dXBzLm8KIAogb2JqLSQoQ09ORklHX1BQQzMyKQkrPSBk
+aXY2NC5vIGNvcHlfMzIubworb2JqLSQoQ09ORklHX0hBU19JT01FTSkJKz0gZGV2cmVzLm8KIAog
+b2JqNjQteQkrPSBjb3B5cGFnZV82NC5vIGNvcHl1c2VyXzY0Lm8gdXNlcmNvcHlfNjQubyBtZW1f
+NjQubyBod2VpZ2h0XzY0Lm8gXAogCSAgIGNvcHl1c2VyX3Bvd2VyNy5vIHN0cmluZ182NC5vIGNv
+cHlwYWdlX3Bvd2VyNy5vIG1lbWNweV9wb3dlcjcubyBcCmRpZmYgLS1naXQgYS9hcmNoL3Bvd2Vy
+cGMvbGliL2RldnJlcy5jIGIvYXJjaC9wb3dlcnBjL2xpYi9kZXZyZXMuYwpuZXcgZmlsZSBtb2Rl
+IDEwMDY0NAppbmRleCAwMDAwMDAwLi44ZGY1NWZjCi0tLSAvZGV2L251bGwKKysrIGIvYXJjaC9w
+b3dlcnBjL2xpYi9kZXZyZXMuYwpAQCAtMCwwICsxLDQzIEBACisvKgorICogQ29weXJpZ2h0IChD
+KSAyMDA4IEZyZWVzY2FsZSBTZW1pY29uZHVjdG9yLCBJbmMuCisgKgorICogVGhpcyBwcm9ncmFt
+IGlzIGZyZWUgc29mdHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0IGFuZC9vcgorICogbW9k
+aWZ5IGl0IHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUgR05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UK
+KyAqIGFzIHB1Ymxpc2hlZCBieSB0aGUgRnJlZSBTb2Z0d2FyZSBGb3VuZGF0aW9uOyBlaXRoZXIg
+dmVyc2lvbgorICogMiBvZiB0aGUgTGljZW5zZSwgb3IgKGF0IHlvdXIgb3B0aW9uKSBhbnkgbGF0
+ZXIgdmVyc2lvbi4KKyAqLworCisjaW5jbHVkZSA8bGludXgvZGV2aWNlLmg+CS8qIGRldnJlc18q
+KCksIGRldm1faW9yZW1hcF9yZWxlYXNlKCkgKi8KKyNpbmNsdWRlIDxsaW51eC9nZnAuaD4KKyNp
+bmNsdWRlIDxsaW51eC9pby5oPgkJLyogaW9yZW1hcF9wcm90KCkgKi8KKyNpbmNsdWRlIDxsaW51
+eC9leHBvcnQuaD4JLyogRVhQT1JUX1NZTUJPTCgpICovCisKKy8qKgorICogZGV2bV9pb3JlbWFw
+X3Byb3QgLSBNYW5hZ2VkIGlvcmVtYXBfcHJvdCgpCisgKiBAZGV2OiBHZW5lcmljIGRldmljZSB0
+byByZW1hcCBJTyBhZGRyZXNzIGZvcgorICogQG9mZnNldDogQlVTIG9mZnNldCB0byBtYXAKKyAq
+IEBzaXplOiBTaXplIG9mIG1hcAorICogQGZsYWdzOiBQYWdlIGZsYWdzCisgKgorICogTWFuYWdl
+ZCBpb3JlbWFwX3Byb3QoKS4gIE1hcCBpcyBhdXRvbWF0aWNhbGx5IHVubWFwcGVkIG9uIGRyaXZl
+cgorICogZGV0YWNoLgorICovCit2b2lkIF9faW9tZW0gKmRldm1faW9yZW1hcF9wcm90KHN0cnVj
+dCBkZXZpY2UgKmRldiwgcmVzb3VyY2Vfc2l6ZV90IG9mZnNldCwKKwkJCQkgc2l6ZV90IHNpemUs
+IHVuc2lnbmVkIGxvbmcgZmxhZ3MpCit7CisJdm9pZCBfX2lvbWVtICoqcHRyLCAqYWRkcjsKKwor
+CXB0ciA9IGRldnJlc19hbGxvYyhkZXZtX2lvcmVtYXBfcmVsZWFzZSwgc2l6ZW9mKCpwdHIpLCBH
+RlBfS0VSTkVMKTsKKwlpZiAoIXB0cikKKwkJcmV0dXJuIE5VTEw7CisKKwlhZGRyID0gaW9yZW1h
+cF9wcm90KG9mZnNldCwgc2l6ZSwgZmxhZ3MpOworCWlmIChhZGRyKSB7CisJCSpwdHIgPSBhZGRy
+OworCQlkZXZyZXNfYWRkKGRldiwgcHRyKTsKKwl9IGVsc2UKKwkJZGV2cmVzX2ZyZWUocHRyKTsK
+KworCXJldHVybiBhZGRyOworfQorRVhQT1JUX1NZTUJPTChkZXZtX2lvcmVtYXBfcHJvdCk7Ci0t
+IAoxLjcuOS41CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3Jn
+Cmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
