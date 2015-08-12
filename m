@@ -1,91 +1,47 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v7 5/5] samples/bpf: example of get selected PMU counter
- value
-Date: Tue, 11 Aug 2015 18:59:46 -0700
-Message-ID: <55CAA892.80403@plumgrid.com>
-References: <1438844556-27064-1-git-send-email-xiakaixu@huawei.com>
- <1438844556-27064-6-git-send-email-xiakaixu@huawei.com>
+From: Jonathan Maxwell <jmaxwell37@gmail.com>
+Subject: Re: [PATCH net] netconsole: Check for carrier before calling netpoll_send_udp()
+Date: Wed, 12 Aug 2015 13:06:10 +1000
+Message-ID: <CAGHK07AWDvE6=3f5bWnWaz0GmTNSYB7y4vNWfrT=-1jLUH1hmg@mail.gmail.com>
+References: <1439256746-7953-1-git-send-email-jmaxwell37@gmail.com>
+	<20150810.212256.1658635789817625453.davem@davemloft.net>
+	<CAGHK07DgBuVk==rJrc2gWa311DCMJK9NdDDk8OJAfRb=YLigBg@mail.gmail.com>
+	<20150811.102521.448694660627631235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: wangnan0@huawei.com, linux-kernel@vger.kernel.org,
-	pi3orama@163.com, hekuang@huawei.com, netdev@vger.kernel.org
-To: Kaixu Xia <xiakaixu@huawei.com>, daniel@iogearbox.net
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jon Maxwell <jmaxwell@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:33983 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411AbbHLB7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 21:59:48 -0400
-Received: by iodb91 with SMTP id b91so6367448iod.1
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2015 18:59:48 -0700 (PDT)
-In-Reply-To: <1438844556-27064-6-git-send-email-xiakaixu@huawei.com>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:33893 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932265AbbHLDGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2015 23:06:11 -0400
+In-Reply-To: <20150811.102521.448694660627631235.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/6/15 12:02 AM, Kaixu Xia wrote:
-> This is a simple example and shows how to use the new ability
-> to get the selected Hardware PMU counter value.
->
-> Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
-> ---
->   samples/bpf/Makefile       |  4 +++
->   samples/bpf/bpf_helpers.h  |  2 ++
->   samples/bpf/tracex6_kern.c | 26 ++++++++++++++++++
->   samples/bpf/tracex6_user.c | 68 +++++++++++++++++++++++++++++++++++=
-+++++++++++
+> I personally think that drivers need to synchronize such things
+> internally.  They are the only entity which knows when it's "OK"
+> to do whatever the netpoll method does, and they are also the only
+> entity which can properly synchronize such checks.
 
-1.
-I see a bunch of warnings building it:
-   HOSTCC  samples/bpf/tracex6_user.o
-=2E./samples/bpf/tracex6_user.c: In function =91test_bpf_perf_event=92:
-=2E./samples/bpf/tracex6_user.c:49:2: warning: passing argument 1 of=20
-=91close=92 makes integer from pointer without a cast [enabled by defau=
-lt]
-In file included from ../samples/bpf/tracex6_user.c:2:0:
-/usr/include/unistd.h:354:12: note: expected =91int=92 but argument is =
-of=20
-type =91int *=92
-=2E./samples/bpf/tracex6_user.c:20:16: warning: unused variable =91valu=
-e=92=20
-[-Wunused-variable]
-=2E./samples/bpf/tracex6_user.c:42:8: warning: ignoring return value of=
-=20
-=91system=92, declared with attribute warn_unused_result [-Wunused-resu=
-lt]
-=2E./samples/bpf/tracex6_user.c:43:8: warning: ignoring return value of=
-=20
-=91system=92, declared with attribute warn_unused_result [-Wunused-resu=
-lt]
-=2E./samples/bpf/tracex6_user.c:44:8: warning: ignoring return value of=
-=20
-=91system=92, declared with attribute warn_unused_result [-Wunused-resu=
-lt]
-   HOSTLD  samples/bpf/tracex6
-   HOSTCC  samples/bpf/lathist_user.o
-   HOSTLD  samples/bpf/lathist
-clang  -nostdinc -isystem /usr/lib/gcc/x86_64-linux-gnu/4.7/include=20
--I../arch/x86/include -Iarch/x86/include/generated/uapi=20
--Iarch/x86/include/generated  -I../include -Iinclude=20
--I../arch/x86/include/uapi -Iarch/x86/include/generated/uapi=20
--I../include/uapi -Iinclude/generated/uapi -include=20
-=2E./include/linux/kconfig.h  \
-		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
-		-O2 -emit-llvm -c ../samples/bpf/tracex6_kern.c -o -|=20
-=2E./tools/bpf/llvm/bld/Debug+Asserts/bin/llc -march=3Dbpf -filetype=3D=
-obj -o=20
-samples/bpf/tracex6_kern.o
-=2E./samples/bpf/tracex6_kern.c:13:22: warning: declaration of 'struct=20
-pt_regs' will not be visible outside of this function [-Wvisibility]
-int bpf_prog1(struct pt_regs *ctx)
+Thanks agreed. I am testing the following ixgbe patch on my reproducer
+that  checks for resetting/removing/down state flags in ixgbe_poll() and
+bails if true. It does that check in other ixgbe routines as well. It's working
+fine so far. We will need to do something similar for vmxnet3 as well and
+possibly other drivers.
 
-Please fix.
+--- a/drivers/net/ixgbe/ixgbe_main.c 2015-08-10 17:13:02.899400508 +1000
++++ b/drivers/net/ixgbe/ixgbe_main.c.patch 2015-08-12 11:34:49.951053887 +1000
+@@ -2672,6 +2672,11 @@
+  int per_ring_budget;
+  bool clean_complete = true;
 
-2.
-the example is incomplete.
-Please add read_trace_pipe() otherwise it exits without printing
-anything useful.
-
-3.
-please replace ls and pwd with ls > /dev/null
-the spam on the screen is unnecessary.
++ if (test_bit(__IXGBE_DOWN, &adapter->state) ||
++    test_bit(__IXGBE_REMOVING, &adapter->state) ||
++    test_bit(__IXGBE_RESETTING, &adapter->state))
++ return budget;
++
+ #ifdef CONFIG_IXGBE_DCA
+  if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
+  ixgbe_update_dca(q_vector);
