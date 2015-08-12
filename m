@@ -1,94 +1,107 @@
-From: Liviu Dudau <Liviu.Dudau@arm.com>
-Subject: Re: [PATCH v2 net-next] sky2: use random address if EEPROM is bad
-Date: Wed, 12 Aug 2015 10:30:05 +0100
-Message-ID: <20150812093005.GV20890@e106497-lin.cambridge.arm.com>
-References: <55C2AB51.1040409@gmail.com>
- <1439303756-30333-1-git-send-email-Liviu.Dudau@arm.com>
- <20150811100132.49229f86@urahara>
+From: Kaixu Xia <xiakaixu@huawei.com>
+Subject: [PATCH net-next] bpf: fix build warnings and add function read_trace_pipe()
+Date: Wed, 12 Aug 2015 09:37:53 +0000
+Message-ID: <1439372273-69958-1-git-send-email-xiakaixu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Mirko Lindner <mlindner@marvell.com>,
-	"ryan.harkin@linaro.org" <ryan.harkin@linaro.org>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<wangnan0@huawei.com>, <pi3orama@163.com>, <xiakaixu@huawei.com>
+To: <daniel@iogearbox.net>, <davem@davemloft.net>, <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150811100132.49229f86@urahara>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 11, 2015 at 06:01:32PM +0100, Stephen Hemminger wrote:
-> On Tue, 11 Aug 2015 15:35:56 +0100
-> Liviu Dudau <Liviu.Dudau@arm.com> wrote:
->=20
-> > On some embedded systems the EEPROM does not contain a valid MAC ad=
-dress.
-> > In that case it is better to fallback to a generated mac address an=
-d
-> > let init scripts fix the value later.
-> >=20
-> > Reported-by: Liviu Dudau <Liviu.Dudau@arm.com>
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> > [Changed handcoded setup to use eth_hw_addr_random() instead]
-> > Signed-off-by: Liviu Dudau <Liviu.Dudau@arm.com>
-> > ---
-> > I have tested this on my Juno platform and I can successfully do an=
- nfsroot boot.
-> >=20
-> > Best regards,
-> > Liviu
-> >=20
-> >  drivers/net/ethernet/marvell/sky2.c | 7 +++++++
-> >  1 file changed, 7 insertions(+)
-> >=20
-> > diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethe=
-rnet/marvell/sky2.c
-> > index d9f4498..c309879 100644
-> > --- a/drivers/net/ethernet/marvell/sky2.c
-> > +++ b/drivers/net/ethernet/marvell/sky2.c
-> > @@ -4819,6 +4819,13 @@ static struct net_device *sky2_init_netdev(s=
-truct sky2_hw *hw, unsigned port,
-> >  		memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8,
-> >  			      ETH_ALEN);
-> > =20
-> > +	/* if the address is invalid, use a random value */
-> > +	if (!is_valid_ether_addr(dev->dev_addr)) {
-> > +		netdev_warn(dev,
-> > +			"Invalid MAC address, defaulting to random\n");
-> > +		eth_hw_addr_random(dev);
-> > +	}
-> > +
-> >  	return dev;
-> >  }
-> > =20
->=20
-> This is not enough, you need to program the hardware with the new ran=
-dom MAC
-> address. The easiest way is calling sky2_set_mac_address, but you nee=
-d to convert
-> the address from array back to sockaddr.
->=20
+There are two improvements in this patch:
+ 1. Fix the build warnings;
+ 2. Add function read_trace_pipe() to print the result on
+    the screen;
 
-OK, I am a bit confused as to why sky2_set_mac_address is needed here, =
-as this was not
-required by the existing function. Given that in my tests I get a rando=
-m MAC address
-assigned every time to the device and I can see the same MAC address wi=
-th ifconfig, how
-can I test the effect of sky2_set_mac_address if I add it?
+Before this patch, we can get the result through /sys/kernel/de
+bug/tracing/trace_pipe and get nothing on the screen.
+By applying this patch, the result can be printed on the screen.
+  $ ./tracex6
+	...
+         tracex6-705   [003] d..1   131.428593: : CPU-3   19981414
+            sshd-683   [000] d..1   131.428727: : CPU-0   221682321
+            sshd-683   [000] d..1   131.428821: : CPU-0   221808766
+            sshd-683   [000] d..1   131.428950: : CPU-0   221982984
+            sshd-683   [000] d..1   131.429045: : CPU-0   222111851
+         tracex6-705   [003] d..1   131.429168: : CPU-3   20757551
+            sshd-683   [000] d..1   131.429170: : CPU-0   222281240
+            sshd-683   [000] d..1   131.429261: : CPU-0   222403340
+            sshd-683   [000] d..1   131.429378: : CPU-0   222561024
+	...
 
-Best regards,
-Liviu
+Signed-off-by: Kaixu Xia <xiakaixu@huawei.com>
+---
+ samples/bpf/tracex6_kern.c |  1 +
+ samples/bpf/tracex6_user.c | 22 +++++++++++++---------
+ 2 files changed, 14 insertions(+), 9 deletions(-)
 
---=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-| I would like to |
-| fix the world,  |
-| but they're not |
-| giving me the   |
- \ source code!  /
-  ---------------
-    =C2=AF\_(=E3=83=84)_/=C2=AF
+diff --git a/samples/bpf/tracex6_kern.c b/samples/bpf/tracex6_kern.c
+index 23d1cff..be479c4 100644
+--- a/samples/bpf/tracex6_kern.c
++++ b/samples/bpf/tracex6_kern.c
+@@ -1,3 +1,4 @@
++#include <linux/ptrace.h>
+ #include <linux/version.h>
+ #include <uapi/linux/bpf.h>
+ #include "bpf_helpers.h"
+diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
+index 928f05e..8ea4976 100644
+--- a/samples/bpf/tracex6_user.c
++++ b/samples/bpf/tracex6_user.c
+@@ -17,8 +17,7 @@ static void test_bpf_perf_event(void)
+ {
+ 	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+ 	int *pmu_fd = malloc(nr_cpus * sizeof(int));
+-	unsigned long value;
+-	int i;
++	int status, i;
+ 
+ 	struct perf_event_attr attr_insn_pmu = {
+ 		.freq = 0,
+@@ -32,22 +31,26 @@ static void test_bpf_perf_event(void)
+ 
+ 	for (i = 0; i < nr_cpus; i++) {
+ 		pmu_fd[i] = perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
+-		if (pmu_fd[i] < 0)
++		if (pmu_fd[i] < 0) {
+ 			printf("event syscall failed\n");
++			goto exit;
++		}
+ 
+ 		bpf_update_elem(map_fd[0], &i, &pmu_fd[i], BPF_ANY);
+ 		ioctl(pmu_fd[i], PERF_EVENT_IOC_ENABLE, 0);
+ 	}
+ 
+-	system("ls");
+-	system("pwd");
+-	system("sleep 2");
++	status = system("ls > /dev/null");
++	if (status)
++		goto exit;
++	status = system("sleep 2");
++	if (status)
++		goto exit;
+ 
++exit:
+ 	for (i = 0; i < nr_cpus; i++)
+ 		close(pmu_fd[i]);
+-
+-	close(map_fd);
+-
++	close(map_fd[0]);
+ 	free(pmu_fd);
+ }
+ 
+@@ -63,6 +66,7 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	test_bpf_perf_event();
++	read_trace_pipe();
+ 
+ 	return 0;
+ }
+-- 
+1.8.3.4
