@@ -1,53 +1,63 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/4] batman-adv: fix kernel crash due to missing NULL
- checks
-Date: Wed, 12 Aug 2015 08:44:53 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB7939D@AcuExch.aculab.com>
-References: <1438779107-12665-1-git-send-email-antonio@meshcoding.com>
- <1438779107-12665-3-git-send-email-antonio@meshcoding.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB737B7@AcuExch.aculab.com>
- <55CA2605.1070201@meshcoding.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: dhcp nfsroot booting failure on bb white
+Date: Wed, 12 Aug 2015 14:22:53 +0530
+Message-ID: <55CB0965.9020300@ti.com>
+References: <20150812083629.GA778@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"b.a.t.m.a.n@lists.open-mesh.org" <b.a.t.m.a.n@lists.open-mesh.org>,
-	"Marek Lindner" <mareklindner@neomailbox.ch>
-To: 'Antonio Quartulli' <antonio@meshcoding.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Alexander Aring <alex.aring@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.182]:65027 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752510AbbHLIrU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 04:47:20 -0400
-In-Reply-To: <55CA2605.1070201@meshcoding.com>
-Content-Language: en-US
+Received: from bear.ext.ti.com ([192.94.94.41]:43324 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753755AbbHLIxD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2015 04:53:03 -0400
+In-Reply-To: <20150812083629.GA778@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli
-> Sent: 11 August 2015 17:43
-> On 05/08/15 15:15, David Laight wrote:
-> > So is this test just hiding anoter bug somewhere??
+On Wednesday 12 August 2015 02:06 PM, Alexander Aring wrote:
+> Hi,
 > 
-> Hi David and thanks for your feedback.
+> my beaglebone (white edition) fails to boot via dhcp and nfsroot. The
+> last messages which I see are:
 > 
-> The point is that we got several bug reports of kernel crashes due to
-> NULL pointer deferences in these lines and after having debugged this
-> problem for quite a while we preferred to move on and propose this patch.
-
-That is what I thought.
-
-> Still, I am personally debugging this part of the code to understand if
-> we really have something wrong or if this NULL pointer is something we
-> should expect (and therefore check).
+> ...
+> [    2.970593] Sending DHCP requests .
+> [    5.996876] cpsw 4a100000.ethernet eth0: Link is Up - 100Mbps/Full -
+> flow control off
 > 
-> For the time being we think this patch is better than having horrible
-> kernel crashes, but I hope to come to a definitive conclusion soon.
+> 
+> then it stucks forever. I reverted the recently cpsw patches:
+> 
+> 32a7432c0fb8b0117961bdc7ab256667d039de16 ("drivers: net: cpsw: add
+> separate napi for tx")
+> 
+> d354eb85d61803e07831b68d1985cd9cfe2f8b59 ("drivers: net: cpsw:
+> dual_emac: simplify napi usage")
+> 
+> 870915feabdc3af5f0ebb72d1fcf96bff01837b0 ("drivers: net: cpsw: remove
+> disable_irq/enable_irq as irq can be masked from cpsw itself")
+> 
+> 
+> I did a test after each revert, I finally figured out that after reverting
+> the last patch:
+> 
+> 870915feabdc3af5f0ebb72d1fcf96bff01837b0 ("drivers: net: cpsw: remove
+> disable_irq/enable_irq as irq can be masked from cpsw itself")
+> 
+> it worked again to boot via dhcp nfsroot.
+> 
+> 
+> My bootparameters are:
+> 
+> commandline: console=ttyO0,115200n8 console=ttyO0,115200n8 ip=dhcp
+> root=/dev/nfs nfsroot=$IP:$NFS_EXPORT,v3,tcp
+> 
 
-If you don't know why you are seeing the NULL pointer then you are
-just papering over some cracks and it is likely that something
-is really badly wrong somewhere (ie missing locking).
-This could easily mean that there are some much harder to find
-bugs lurking there.
+I am already looking into it. Will submit a fix soon. The issue is with
+AM335x PG1.0 as there is a errata in CPSW interrupts, PG2.x and other
+SoCs are working fine.
 
-	David
+Regards
+Mugunthan V N
