@@ -1,285 +1,111 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 3/3] mpls: add multipath route support
-Date: Wed, 12 Aug 2015 20:18:55 +0100
-Message-ID: <55CB9C1F.7000702@brocade.com>
-References: <1439329548-50935-4-git-send-email-roopa@cumulusnetworks.com>
+From: linux@eikelenboom.it
+Subject: Linux 4.2-rc6 regression: RIP: e030:[<ffffffff8110fb18>]
+ [<ffffffff8110fb18>] =?UTF-8?Q?detach=5Fif=5Fpending+=30x=31=38/=30x=38?=
+ =?UTF-8?Q?=30?=
+Date: Wed, 12 Aug 2015 21:19:38 +0200
+Message-ID: <7c39e6332aae572372108d5fd68c503b@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <ebiederm@xmission.com>, <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:21605 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750826AbbHLTTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 15:19:10 -0400
-In-Reply-To: <1439329548-50935-4-git-send-email-roopa@cumulusnetworks.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:56047 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751321AbbHLTYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 15:24:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/08/15 22:45, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> Adds support for MPLS multipath routes.
-> supports parse/fill of RTA_MULTIPATH netlink attribute
-> for multipath routes similar to ipv4 fib. Mostly based on
-> multipath handling in ipv4 fib code.
->
-> The multipath route nexthop selection algorithm is the same
-> code as in ipv4 fib.
->
-> This patch also adds new functions to parse multipath attributes
-> from route config into mpls_nhlfe.
->
-> note that it also simplifies mpls_route_update. Removes handling
-> route updates based on dev argument. The reason for
-> doing that is, the function was not being used for route updates
-> based on dev and if we do need to support route updates based
-> on dev in the future it will have to be done differently.
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->   net/mpls/af_mpls.c  |  378 +++++++++++++++++++++++++++++++++++++++++----------
->   net/mpls/internal.h |   19 +++
->   2 files changed, 323 insertions(+), 74 deletions(-)
->
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index eb089ef..de5ae29 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -19,10 +19,12 @@
->   #include <net/ipv6.h>
->   #include <net/addrconf.h>
->   #endif
-> +#include <net/nexthop.h>
->   #include "internal.h"
->
->   static int zero = 0;
->   static int label_limit = (1 << 20) - 1;
-> +static DEFINE_SPINLOCK(mpls_multipath_lock);
->
->   static void rtmsg_lfib(int event, u32 label, struct mpls_route *rt,
->   		       struct nlmsghdr *nlh, struct net *net, u32 portid,
-> @@ -51,10 +53,10 @@ bool mpls_output_possible(const struct net_device *dev)
->   }
->   EXPORT_SYMBOL_GPL(mpls_output_possible);
->
-> -static unsigned int mpls_rt_header_size(const struct mpls_route *rt)
-> +static unsigned int mpls_nhlfe_header_size(const struct mpls_nhlfe *nhlfe)
->   {
->   	/* The size of the layer 2.5 labels to be added for this route */
-> -	return rt->rt_nh->nh_labels * sizeof(struct mpls_shim_hdr);
-> +	return nhlfe->nh_labels * sizeof(struct mpls_shim_hdr);
->   }
->
->   unsigned int mpls_dev_mtu(const struct net_device *dev)
-> @@ -76,7 +78,52 @@ bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
->   }
->   EXPORT_SYMBOL_GPL(mpls_pkt_too_big);
->
-> -static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
-> +/* This is a cut/copy/modify from fib_select_multipath */
-> +static void mpls_select_multipath(struct mpls_route *rt, int *nhidx)
-> +{
-> +	int w;
-> +
-> +	spin_lock_bh(&mpls_multipath_lock);
-> +	if (rt->rt_power <= 0) {
-> +		int power = 0;
-> +
-> +		change_nexthops(rt) {
-> +			power += nhlfe->nh_weight;
-> +			nhlfe->nh_power = nhlfe->nh_weight;
-> +		} endfor_nexthops(rt);
-> +		rt->rt_power = power;
-> +		if (power <= 0) {
-> +			spin_unlock_bh(&mpls_multipath_lock);
-> +			/* Race condition: route has just become dead. */
-> +			*nhidx = 0;
-> +			return;
-> +		}
-> +	}
-> +
-> +	/* w should be random number [0..rt->rt_power-1],
-> +	 * it is pretty bad approximation.
-> +	 */
-> +	w = jiffies % rt->rt_power;
-> +
-> +	change_nexthops(rt) {
-> +		if (nhlfe->nh_power) {
-> +			w -= nhlfe->nh_power;
-> +			if (w <= 0) {
-> +				nhlfe->nh_power--;
-> +				rt->rt_power--;
-> +				*nhidx = nhsel;
-> +				spin_unlock_bh(&mpls_multipath_lock);
-> +				return;
-> +			}
-> +		}
-> +	} endfor_nexthops(rt);
-> +
-> +	/* Race condition: route has just become dead. */
-> +	*nhidx = 0;
-> +	spin_unlock_bh(&mpls_multipath_lock);
-> +}
+Hi,
 
-If we were to do flow-based hashing then this would also avoid the 
-locking required here.
+On my box running Xen with a 4.2-rc6 kernel i still get this splat in 
+dom0,
+which crashes the box.
+(i reported a similar splat before (at rc4) here, 
+http://www.spinics.net/lists/netdev/msg337570.html)
 
-> +
-> +static bool mpls_egress(struct mpls_nhlfe *nhlfe, struct sk_buff *skb,
->   			struct mpls_entry_decoded dec)
->   {
->   	enum mpls_payload_type payload_type;
-> @@ -95,7 +142,7 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
->   	if (!pskb_may_pull(skb, 12))
->   		return false;
->
-> -	payload_type = rt->rt_nh->nh_payload_type;
-> +	payload_type = nhlfe->nh_payload_type;
->   	if (payload_type == MPT_UNSPEC)
->   		payload_type = ip_hdr(skb)->version;
->
-> @@ -130,6 +177,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->   	struct net *net = dev_net(dev);
->   	struct mpls_shim_hdr *hdr;
->   	struct mpls_route *rt;
-> +	struct mpls_nhlfe *nhlfe;
->   	struct mpls_entry_decoded dec;
->   	struct net_device *out_dev;
->   	struct mpls_dev *mdev;
-> @@ -137,6 +185,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->   	unsigned int new_header_size;
->   	unsigned int mtu;
->   	int err;
-> +	int nhidx;
->
->   	/* Careful this entire function runs inside of an rcu critical section */
->
-> @@ -167,9 +216,12 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->   	if (!rt)
->   		goto drop;
->
-> +	mpls_select_multipath(rt, &nhidx);
-> +	nhlfe = &rt->rt_nh[nhidx];
+Never seen this one on 4.1, so it seems a regression.
 
-How about just returning the nexthop from mpls_select_multipath rather 
-than going via nhidx?
+--
+Sander
 
-> +
->   	/* Find the output device */
-> -	out_dev = rcu_dereference(rt->rt_nh->nh_dev);
-> -	if (!mpls_output_possible(out_dev))
-> +	out_dev = rcu_dereference(nhlfe->nh_dev);
-> +	if (!out_dev || !mpls_output_possible(out_dev))
->   		goto drop;
->
->   	if (skb_warn_if_lro(skb))
-...
-> @@ -796,6 +954,48 @@ int nla_get_labels(const struct nlattr *nla,
->   }
->   EXPORT_SYMBOL_GPL(nla_get_labels);
->
-> +int nla_get_via(const struct nlattr *nla, u8 *via_alen,
-> +		u8 *via_table, u8 via_addr[])
 
-This isn't used by any other source files so couldn't this be made static?
-
-> +{
-> +	struct rtvia *via = nla_data(nla);
-> +	int err = -EINVAL;
-> +	u8 alen;
-
-Should this be an int to avoid false negatives below for large values of 
-nla_len?
-
-> +
-> +	if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr))
-> +		goto errout;
-> +	alen = nla_len(nla) -
-> +			offsetof(struct rtvia, rtvia_addr);
-> +	if (alen > MAX_VIA_ALEN)
-> +		goto errout;
-> +
-> +	/* Validate the address family */
-> +	switch (via->rtvia_family) {
-> +	case AF_PACKET:
-> +		*via_table = NEIGH_LINK_TABLE;
-> +		break;
-> +	case AF_INET:
-> +		*via_table = NEIGH_ARP_TABLE;
-> +		if (alen != 4)
-> +			goto errout;
-> +		break;
-> +	case AF_INET6:
-> +		*via_table = NEIGH_ND_TABLE;
-> +		if (alen != 16)
-> +			goto errout;
-> +		break;
-> +	default:
-> +		/* Unsupported address family */
-> +		goto errout;
-> +	}
-> +
-> +	memcpy(via_addr, via->rtvia_addr, alen);
-> +	*via_alen = alen;
-> +	err = 0;
-> +
-> +errout:
-> +	return err;
-> +}
-> +
->   static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
->   			       struct mpls_route_config *cfg)
->   {
-> @@ -872,35 +1072,15 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
->   		}
->   		case RTA_VIA:
->   		{
-> -			struct rtvia *via = nla_data(nla);
-> -			if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr))
-> -				goto errout;
-> -			cfg->rc_via_alen   = nla_len(nla) -
-> -				offsetof(struct rtvia, rtvia_addr);
-> -			if (cfg->rc_via_alen > MAX_VIA_ALEN)
-> -				goto errout;
-> -
-> -			/* Validate the address family */
-> -			switch(via->rtvia_family) {
-> -			case AF_PACKET:
-> -				cfg->rc_via_table = NEIGH_LINK_TABLE;
-> -				break;
-> -			case AF_INET:
-> -				cfg->rc_via_table = NEIGH_ARP_TABLE;
-> -				if (cfg->rc_via_alen != 4)
-> -					goto errout;
-> -				break;
-> -			case AF_INET6:
-> -				cfg->rc_via_table = NEIGH_ND_TABLE;
-> -				if (cfg->rc_via_alen != 16)
-> -					goto errout;
-> -				break;
-> -			default:
-> -				/* Unsupported address family */
-> +			if (nla_get_via(nla, &cfg->rc_via_alen,
-> +					&cfg->rc_via_table, cfg->rc_via))
->   				goto errout;
-> -			}
-> -
-> -			memcpy(cfg->rc_via, via->rtvia_addr, cfg->rc_via_alen);
-> +			break;
-> +		}
-> +		case RTA_MULTIPATH:
-> +		{
-> +			cfg->rc_mp = nla_data(nla);
-> +			cfg->rc_mp_len = nla_len(nla);
->   			break;
->   		}
-
-Nit: these scope brackets can be removed here and now above for the 
-RTA_VIA case.
-
->   		default:
-
-Thanks,
-Rob
+[81133.193439] general protection fault: 0000 [#1] SMP
+[81133.204284] Modules linked in:
+[81133.214934] CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 
+4.2.0-rc6-20150811-linus-doflr+ #1
+[81133.225632] Hardware name: MSI MS-7640/890FXA-GD70 (MS-7640)  , BIOS 
+V1.8B1 09/13/2010
+[81133.236237] task: ffff880059b91580 ti: ffff880059bb4000 task.ti: 
+ffff880059bb4000
+[81133.246808] RIP: e030:[<ffffffff8110fb18>]  [<ffffffff8110fb18>] 
+detach_if_pending+0x18/0x80
+[81133.257354] RSP: e02b:ffff880059bb7848  EFLAGS: 00010086
+[81133.267749] RAX: ffff88004eddc7f0 RBX: ffff88000e20ae08 RCX: 
+dead000000200200
+[81133.278201] RDX: 0000000000000000 RSI: ffff88005f60e600 RDI: 
+ffff88000e20ae08
+[81133.288723] RBP: ffff880059bb7848 R08: 0000000000000001 R09: 
+0000000000000001
+[81133.298930] R10: 0000000000000003 R11: ffff88000e20ad68 R12: 
+0000000000000000
+[81133.308875] R13: 0000000101735569 R14: 0000000000015f90 R15: 
+ffff88005f60e600
+[81133.318845] FS:  00007f28c6f7c800(0000) GS:ffff88005f600000(0000) 
+knlGS:0000000000000000
+[81133.328864] CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
+[81133.338693] CR2: ffff8000007f6800 CR3: 000000003d55c000 CR4: 
+0000000000000660
+[81133.348462] Stack:
+[81133.358005]  ffff880059bb7898 ffffffff8110fe3f ffffffff810fc261 
+0000000000000200
+[81133.367682]  0000000000000003 ffff88000e20ad68 0000000000000000 
+ffff88005854d400
+[81133.377064]  0000000000015f90 0000000000000000 ffff880059bb78c8 
+ffffffff819b5243
+[81133.386374] Call Trace:
+[81133.395596]  [<ffffffff8110fe3f>] mod_timer_pending+0x3f/0xe0
+[81133.404999]  [<ffffffff810fc261>] ? 
+__raw_callee_save___pv_queued_spin_unlock+0x11/0x20
+[81133.414255]  [<ffffffff819b5243>] __nf_ct_refresh_acct+0xa3/0xb0
+[81133.423137]  [<ffffffff819bbe8b>] tcp_packet+0xb3b/0x1290
+[81133.431894]  [<ffffffff810cb8ca>] ? __local_bh_enable_ip+0x2a/0x90
+[81133.440622]  [<ffffffff819b4939>] ? 
+__nf_conntrack_find_get+0x129/0x2a0
+[81133.449339]  [<ffffffff819b682c>] nf_conntrack_in+0x29c/0x7c0
+[81133.457940]  [<ffffffff81a67181>] ipv4_conntrack_in+0x21/0x30
+[81133.466296]  [<ffffffff819aea1c>] nf_iterate+0x4c/0x80
+[81133.474401]  [<ffffffff819aeab4>] nf_hook_slow+0x64/0xc0
+[81133.482615]  [<ffffffff81a211ec>] ip_rcv+0x2ec/0x380
+[81133.490781]  [<ffffffff81a209f0>] ? 
+ip_local_deliver_finish+0x130/0x130
+[81133.498790]  [<ffffffff8197e140>] 
+__netif_receive_skb_core+0x2a0/0x970
+[81133.506714]  [<ffffffff81a56db8>] ? inet_gro_receive+0x1c8/0x200
+[81133.514609]  [<ffffffff81980705>] __netif_receive_skb+0x15/0x70
+[81133.522333]  [<ffffffff8198077e>] 
+netif_receive_skb_internal+0x1e/0x80
+[81133.529840]  [<ffffffff81980f3b>] napi_gro_receive+0x6b/0x90
+[81133.537173]  [<ffffffff81740fb6>] rtl8169_poll+0x2e6/0x600
+[81133.544444]  [<ffffffff810fc261>] ? 
+__raw_callee_save___pv_queued_spin_unlock+0x11/0x20
+[81133.551566]  [<ffffffff81981ad7>] net_rx_action+0x1f7/0x300
+[81133.558412]  [<ffffffff810cb6c3>] __do_softirq+0x103/0x210
+[81133.565353]  [<ffffffff810cb807>] run_ksoftirqd+0x37/0x60
+[81133.572359]  [<ffffffff810e4de0>] smpboot_thread_fn+0x130/0x190
+[81133.579215]  [<ffffffff810e4cb0>] ? sort_range+0x20/0x20
+[81133.586042]  [<ffffffff810e1fae>] kthread+0xee/0x110
+[81133.592792]  [<ffffffff810e1ec0>] ? 
+kthread_create_on_node+0x1b0/0x1b0
+[81133.599694]  [<ffffffff81af92df>] ret_from_fork+0x3f/0x70
+[81133.606662]  [<ffffffff810e1ec0>] ? 
+kthread_create_on_node+0x1b0/0x1b0
+[81133.613445] Code: 77 28 5d c3 66 66 66 66 66 66 2e 0f 1f 84 00 00 00 
+00 00 48 8b 47 08 55 48 89 e5 48 85 c0 74 6a 48 8b 0f 48 85 c9 48 89 08 
+74 04 <48> 89 41 08 84 d2 74 08 48 c7 47 08 00 00 00 00 f6 47 2a 10 48
+[81133.627196] RIP  [<ffffffff8110fb18>] detach_if_pending+0x18/0x80
+[81133.634036]  RSP <ffff880059bb7848>
+[81133.640817] ---[ end trace eaf596e1fcf6a591 ]---
+[81133.647521] Kernel panic - not syncing: Fatal exception in interrupt
