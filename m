@@ -1,82 +1,85 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH v2 0/2] net: thunder: Add ACPI support.
-Date: Wed, 12 Aug 2015 08:36:04 -0700
-Message-ID: <55CB67E4.8030001@caviumnetworks.com>
-References: <1439254717-2875-1-git-send-email-ddaney.cavm@gmail.com>
- <20150811.114908.1384923604512568161.davem@davemloft.net>
- <55CA5567.9010002@caviumnetworks.com>
- <20150812152337.GB5393@e104818-lin.cambridge.arm.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/6] dlm: use sctp 1-to-1 API
+Date: Wed, 12 Aug 2015 15:33:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB7979F@AcuExch.aculab.com>
+References: <cover.1439330654.git.marcelo.leitner@gmail.com>
+ <479a4fd07289ea9043d84a27d706cccd2c968fb0.1439330654.git.marcelo.leitner@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB794EB@AcuExch.aculab.com>
+ <55CB4729.2060203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <mark.rutland@arm.com>,
-	<linux-mips@linux-mips.org>, <rafael@kernel.org>,
-	<netdev@vger.kernel.org>, <david.daney@cavium.com>,
-	<linux-kernel@vger.kernel.org>, <tomasz.nowicki@linaro.org>,
-	<rrichter@cavium.com>, <linux-acpi@vger.kernel.org>,
-	<ddaney.cavm@gmail.com>, <sgoutham@cavium.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Catalin Marinas <catalin.marinas@arm.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Teigland <teigland@redhat.com>,
+	"tan.hu@zte.com.cn" <tan.hu@zte.com.cn>
+To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>,
+	"cluster-devel@redhat.com" <cluster-devel@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0089.outbound.protection.outlook.com ([157.56.111.89]:10496
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751083AbbHLPgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2015 11:36:11 -0400
-In-Reply-To: <20150812152337.GB5393@e104818-lin.cambridge.arm.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:53214 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753542AbbHLPgS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 11:36:18 -0400
+In-Reply-To: <55CB4729.2060203@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2015 08:23 AM, Catalin Marinas wrote:
-> On Tue, Aug 11, 2015 at 01:04:55PM -0700, David Daney wrote:
->> On 08/11/2015 11:49 AM, David Miller wrote:
->>> From: David Daney <ddaney.cavm@gmail.com>
->>> Date: Mon, 10 Aug 2015 17:58:35 -0700
->>>
->>>> Change from v1:  Drop PHY binding part, use fwnode_property* APIs.
->>>>
->>>> The first patch (1/2) rearranges the existing code a little with no
->>>> functional change to get ready for the second.  The second (2/2) does
->>>> the actual work of adding support to extract the needed information
->>> >from the ACPI tables.
->>>
->>> Series applied.
->>
->> Thank you very much.
->>
->>> In the future it might be better structured to try and get the OF
->>> node, and if that fails then try and use the ACPI method to obtain
->>> these values.
->>
->> Our current approach, as you can see in the patch, is the opposite.  If ACPI
->> is being used, prefer that over the OF device tree.
->>
->> You seem to be recommending precedence for OF.  It should be consistent
->> across all drivers/sub-systems, so do you really think that OF before ACPI
->> is the way to go?
->
-> On arm64 (unless you use a vendor kernel), DT takes precedence over ACPI
-> if both arm provided to the kernel (and it's a fair assumption given
-> that ACPI on ARM is still in the early days). You could also force ACPI
-> with acpi=force on the kernel cmd line and the arch code will not
-> unflatten the DT even if it is provided, therefore is_of_node(fwnode)
-> returning false.
->
-> I haven't looked at your driver in detail but something like AMD's
-> xgbe_probe() uses a single function for both DT and ACPI with
-> device_property_read_*() functions getting the information from the
-> correct place in either case. The ACPI vs DT precedence is handled by
-> the arch boot code, we never mix the two and confuse the drivers.
->
+From: Marcelo Ricardo Leitner
+> Sent: 12 August 2015 14:16
+> Em 12-08-2015 07:23, David Laight escreveu:
+> > From: Marcelo Ricardo Leitner
+> >> Sent: 11 August 2015 23:22
+> >> DLM is using 1-to-many API but in a 1-to-1 fashion. That is, it's not
+> >> needed but this causes it to use sctp_do_peeloff() to mimic an
+> >> kernel_accept() and this causes a symbol dependency on sctp module.
+> >>
+> >> By switching it to 1-to-1 API we can avoid this dependency and also
+> >> reduce quite a lot of SCTP-specific code in lowcomms.c.
+> > ...
+> >
+> > You still need to enable sctp notifications (I think the patch deleted
+> > that code).
+> > Otherwise you don't get any kind of indication if the remote system
+> > 'resets' (ie sends an new INIT chunk) on an existing connection.
+> 
+> Right, it would miss the restart event and could generate a corrupted
+> tx/rx buffers by glueing parts of old messages with new ones.
 
-My long term plan is to create something like 
-firmware_get_mac_address(), that would encapsulate  of_get_mac_address() 
-and the ACPI equivalent.
+Except that it is SCTP so you'd expect DATA chunks to contain entire
+messages and so get unexpected message sequences rather than corrupt
+messages.
+The problem is that the recovery is likely to be another reset.
+(Particularly with M3UA where the source and destination port numbers
+are likely to be the same and fixed.)
 
-Same for firmware_phy_find_device().
+> > It is probably enough to treat the MSG_NOTIFICATION as a fatal error
+> > and close the socket.
+> 
+> Just so we are on the same page, you mean that after accepting the new
+> association and enabling notifications on it, any further notification
+> on it can be treated as fatal errors, right? Seems reasonable to me.
 
-These would function as you suggest, but lacking this infrastructure, we 
-implemented this patch set instead.
+That's what I had to do.
+The far end will probably see an additional disconnect, but it shouldn't
+matter.
 
-Thanks,
-David Daney
+> > This is probably a bug in the sctp stack - if a connection is reset
+> > but the user hasn't requested notifications then it should be
+> > converted to a disconnect indication and a new incoming connection.
+> 
+> Maybe in such case resets shouldn't be allowed at all? Because unless it
+> happens on a moment of silence it will always lead to application buffer
+> corruption. Checked the RFCs now but couldn't find anything restricting
+> them to some condition.
+
+I certainly expected the 'reset' to cause an inwards abortive disconnect
+on the old socket and a new indication on the listening socket.
+I think (hope) that is what you get for a TCP SYN that matches an existing
+connection.
+
+In our case I think they were happening when the remote system was power
+cycled.
+
+	David
