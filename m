@@ -1,142 +1,156 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/4] cxgb4: Differentiates between TIDs being used in TCAM and HASH
-Date: Wed, 12 Aug 2015 16:55:05 +0530
-Message-ID: <1439378707-14462-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/4] cxgb4: Add some more details to sge qinfo
+Date: Wed, 12 Aug 2015 16:55:04 +0530
+Message-ID: <1439378707-14462-2-git-send-email-hariprasad@chelsio.com>
 References: <1439378707-14462-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:23201 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:7303 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750974AbbHLLZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 07:25:12 -0400
+	by vger.kernel.org with ESMTP id S1750767AbbHLLZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 07:25:07 -0400
 In-Reply-To: <1439378707-14462-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the tid info, differentiate from which region the TID is allocated
-from. It can be from TCAM region or HASH region.
+Adding more details to sge qinfo for debugging purpose.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 32 +++++++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |  9 ++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  1 +
- 3 files changed, 36 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 61 +++++++++++++++++++---
+ 1 file changed, 53 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 27e87b6..df6cba1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1654,20 +1654,25 @@ static void process_tid_release_list(struct work_struct *work)
-  */
- void cxgb4_remove_tid(struct tid_info *t, unsigned int chan, unsigned int tid)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index f65ab64..15d58c3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -1943,13 +1943,13 @@ static int sge_qinfo_show(struct seq_file *seq, void *v)
  {
--	void *old;
- 	struct sk_buff *skb;
- 	struct adapter *adap = container_of(t, struct adapter, tids);
+ 	struct adapter *adap = seq->private;
+ 	int eth_entries = DIV_ROUND_UP(adap->sge.ethqsets, 4);
+-	int toe_entries = DIV_ROUND_UP(adap->sge.ofldqsets, 4);
++	int iscsi_entries = DIV_ROUND_UP(adap->sge.ofldqsets, 4);
+ 	int rdma_entries = DIV_ROUND_UP(adap->sge.rdmaqs, 4);
+ 	int ciq_entries = DIV_ROUND_UP(adap->sge.rdmaciqs, 4);
+ 	int ctrl_entries = DIV_ROUND_UP(MAX_CTRL_QUEUES, 4);
+ 	int i, r = (uintptr_t)v - 1;
+-	int toe_idx = r - eth_entries;
+-	int rdma_idx = toe_idx - toe_entries;
++	int iscsi_idx = r - eth_entries;
++	int rdma_idx = iscsi_idx - iscsi_entries;
+ 	int ciq_idx = rdma_idx - rdma_entries;
+ 	int ctrl_idx =  ciq_idx - ciq_entries;
+ 	int fq_idx =  ctrl_idx - ctrl_entries;
+@@ -1965,8 +1965,12 @@ do { \
+ 		seq_putc(seq, '\n'); \
+ } while (0)
+ #define S(s, v) S3("s", s, v)
++#define T3(fmt_spec, s, v) S3(fmt_spec, s, tx[i].v)
+ #define T(s, v) S3("u", s, tx[i].v)
++#define TL(s, v) T3("lu", s, v)
++#define R3(fmt_spec, s, v) S3(fmt_spec, s, rx[i].v)
+ #define R(s, v) S3("u", s, rx[i].v)
++#define RL(s, v) R3("lu", s, v)
  
--	old = t->tid_tab[tid];
-+	WARN_ON(tid >= t->ntids);
+ 	if (r < eth_entries) {
+ 		int base_qset = r * 4;
+@@ -2005,12 +2009,30 @@ do { \
+ 		R("FL avail:", fl.avail);
+ 		R("FL PIDX:", fl.pidx);
+ 		R("FL CIDX:", fl.cidx);
+-	} else if (toe_idx < toe_entries) {
+-		const struct sge_ofld_rxq *rx = &adap->sge.ofldrxq[toe_idx * 4];
+-		const struct sge_ofld_txq *tx = &adap->sge.ofldtxq[toe_idx * 4];
+-		int n = min(4, adap->sge.ofldqsets - 4 * toe_idx);
++		RL("RxPackets:", stats.pkts);
++		RL("RxCSO:", stats.rx_cso);
++		RL("VLANxtract:", stats.vlan_ex);
++		RL("LROmerged:", stats.lro_merged);
++		RL("LROpackets:", stats.lro_pkts);
++		RL("RxDrops:", stats.rx_drops);
++		TL("TSO:", tso);
++		TL("TxCSO:", tx_cso);
++		TL("VLANins:", vlan_ins);
++		TL("TxQFull:", q.stops);
++		TL("TxQRestarts:", q.restarts);
++		TL("TxMapErr:", mapping_err);
++		RL("FLAllocErr:", fl.alloc_failed);
++		RL("FLLrgAlcErr:", fl.large_alloc_failed);
++		RL("FLStarving:", fl.starving);
 +
-+	if (t->tid_tab[tid]) {
-+		t->tid_tab[tid] = NULL;
-+		if (t->hash_base && (tid >= t->hash_base))
-+			atomic_dec(&t->hash_tids_in_use);
-+		else
-+			atomic_dec(&t->tids_in_use);
-+	}
++	} else if (iscsi_idx < iscsi_entries) {
++		const struct sge_ofld_rxq *rx =
++			&adap->sge.ofldrxq[iscsi_idx * 4];
++		const struct sge_ofld_txq *tx =
++			&adap->sge.ofldtxq[iscsi_idx * 4];
++		int n = min(4, adap->sge.ofldqsets - 4 * iscsi_idx);
+ 
+-		S("QType:", "TOE");
++		S("QType:", "iSCSI");
+ 		T("TxQ ID:", q.cntxt_id);
+ 		T("TxQ size:", q.size);
+ 		T("TxQ inuse:", q.in_use);
+@@ -2030,6 +2052,13 @@ do { \
+ 		R("FL avail:", fl.avail);
+ 		R("FL PIDX:", fl.pidx);
+ 		R("FL CIDX:", fl.cidx);
++		RL("RxPackets:", stats.pkts);
++		RL("RxImmPkts:", stats.imm);
++		RL("RxNoMem:", stats.nomem);
++		RL("FLAllocErr:", fl.alloc_failed);
++		RL("FLLrgAlcErr:", fl.large_alloc_failed);
++		RL("FLStarving:", fl.starving);
 +
- 	skb = alloc_skb(sizeof(struct cpl_tid_release), GFP_ATOMIC);
- 	if (likely(skb)) {
--		t->tid_tab[tid] = NULL;
- 		mk_tid_release(skb, chan, tid);
- 		t4_ofld_send(adap, skb);
- 	} else
- 		cxgb4_queue_tid_release(t, chan, tid);
--	if (old)
--		atomic_dec(&t->tids_in_use);
- }
- EXPORT_SYMBOL(cxgb4_remove_tid);
+ 	} else if (rdma_idx < rdma_entries) {
+ 		const struct sge_ofld_rxq *rx =
+ 				&adap->sge.rdmarxq[rdma_idx * 4];
+@@ -2052,6 +2081,13 @@ do { \
+ 		R("FL avail:", fl.avail);
+ 		R("FL PIDX:", fl.pidx);
+ 		R("FL CIDX:", fl.cidx);
++		RL("RxPackets:", stats.pkts);
++		RL("RxImmPkts:", stats.imm);
++		RL("RxNoMem:", stats.nomem);
++		RL("FLAllocErr:", fl.alloc_failed);
++		RL("FLLrgAlcErr:", fl.large_alloc_failed);
++		RL("FLStarving:", fl.starving);
++
+ 	} else if (ciq_idx < ciq_entries) {
+ 		const struct sge_ofld_rxq *rx = &adap->sge.rdmaciq[ciq_idx * 4];
+ 		int n = min(4, adap->sge.rdmaciqs - 4 * ciq_idx);
+@@ -2067,6 +2103,9 @@ do { \
+ 		S3("u", "Intr delay:", qtimer_val(adap, &rx[i].rspq));
+ 		S3("u", "Intr pktcnt:",
+ 		   adap->sge.counter_val[rx[i].rspq.pktcnt_idx]);
++		RL("RxAN:", stats.an);
++		RL("RxNoMem:", stats.nomem);
++
+ 	} else if (ctrl_idx < ctrl_entries) {
+ 		const struct sge_ctrl_txq *tx = &adap->sge.ctrlq[ctrl_idx * 4];
+ 		int n = min(4, adap->params.nports - 4 * ctrl_idx);
+@@ -2077,6 +2116,8 @@ do { \
+ 		T("TxQ inuse:", q.in_use);
+ 		T("TxQ CIDX:", q.cidx);
+ 		T("TxQ PIDX:", q.pidx);
++		TL("TxQFull:", q.stops);
++		TL("TxQRestarts:", q.restarts);
+ 	} else if (fq_idx == 0) {
+ 		const struct sge_rspq *evtq = &adap->sge.fw_evtq;
  
-@@ -1705,6 +1710,7 @@ static int tid_init(struct tid_info *t)
- 	t->afree = NULL;
- 	t->atids_in_use = 0;
- 	atomic_set(&t->tids_in_use, 0);
-+	atomic_set(&t->hash_tids_in_use, 0);
- 
- 	/* Setup the free list for atid_tab and clear the stid bitmap. */
- 	if (natids) {
-@@ -4814,6 +4820,22 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		adapter->params.offload = 0;
+@@ -2092,8 +2133,12 @@ do { \
+ 			   adap->sge.counter_val[evtq->pktcnt_idx]);
  	}
- 
-+	if (is_offload(adapter)) {
-+		if (t4_read_reg(adapter, LE_DB_CONFIG_A) & HASHEN_F) {
-+			u32 hash_base, hash_reg;
-+
-+			if (chip <= CHELSIO_T5) {
-+				hash_reg = LE_DB_TID_HASHBASE_A;
-+				hash_base = t4_read_reg(adapter, hash_reg);
-+				adapter->tids.hash_base = hash_base / 4;
-+			} else {
-+				hash_reg = T6_LE_DB_HASH_TID_BASE_A;
-+				hash_base = t4_read_reg(adapter, hash_reg);
-+				adapter->tids.hash_base = hash_base;
-+			}
-+		}
-+	}
-+
- 	/* See what interrupts we'll be using */
- 	if (msi > 1 && enable_msix(adapter) == 0)
- 		adapter->flags |= USING_MSIX;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index b27897d..f61fed1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -96,6 +96,7 @@ struct tid_info {
- 	unsigned long *stid_bmap;
- 	unsigned int nstids;
- 	unsigned int stid_base;
-+	unsigned int hash_base;
- 
- 	union aopen_entry *atid_tab;
- 	unsigned int natids;
-@@ -117,7 +118,10 @@ struct tid_info {
- 	spinlock_t stid_lock;
- 	unsigned int stids_in_use;
- 
-+	/* TIDs in the TCAM */
- 	atomic_t tids_in_use;
-+	/* TIDs in the HASH */
-+	atomic_t hash_tids_in_use;
- };
- 
- static inline void *lookup_tid(const struct tid_info *t, unsigned int tid)
-@@ -147,7 +151,10 @@ static inline void cxgb4_insert_tid(struct tid_info *t, void *data,
- 				    unsigned int tid)
- {
- 	t->tid_tab[tid] = data;
--	atomic_inc(&t->tids_in_use);
-+	if (t->hash_base && (tid >= t->hash_base))
-+		atomic_inc(&t->hash_tids_in_use);
-+	else
-+		atomic_inc(&t->tids_in_use);
+ #undef R
++#undef RL
+ #undef T
++#undef TL
+ #undef S
++#undef R3
++#undef T3
+ #undef S3
+ 	return 0;
  }
- 
- int cxgb4_alloc_atid(struct tid_info *t, void *data);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index e444dc4..365ebd5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2736,6 +2736,7 @@
- #define LE_DB_HASH_TBL_BASE_ADDR_A 0x19c30
- #define LE_DB_INT_CAUSE_A 0x19c3c
- #define LE_DB_TID_HASHBASE_A 0x19df8
-+#define T6_LE_DB_HASH_TID_BASE_A 0x19df8
- 
- #define HASHEN_S    20
- #define HASHEN_V(x) ((x) << HASHEN_S)
 -- 
 2.3.4
