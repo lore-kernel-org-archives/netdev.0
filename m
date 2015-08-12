@@ -1,42 +1,45 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 5/6] geneve: Consolidate Geneve functionality in
- single module.
-Date: Wed, 12 Aug 2015 14:55:35 -0700
-Message-ID: <CAEP_g=8zvvosyueA-gudpYq1pCi4dCusW33wcCscpga8JLWz-w@mail.gmail.com>
-References: <1439356673-21844-1-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: [PATCH 0/2] Enable smsc911x for use with ACPI
+Date: Wed, 12 Aug 2015 17:06:25 -0500
+Message-ID: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+Content-Type: text/plain; charset=WINDOWS-1252
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
+	rafael.j.wysocki@intel.com, grant.likely@linaro.org,
+	Suravee.Suthikulpanit@amd.com, Catalin.Marinas@arm.com,
+	Jeremy Linton <jeremy.linton@arm.com>
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:35196 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751093AbbHLVz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:55:56 -0400
-Received: by lbcbn3 with SMTP id bn3so17089946lbc.2
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 14:55:54 -0700 (PDT)
-In-Reply-To: <1439356673-21844-1-git-send-email-pshelar@nicira.com>
+Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:31549 "EHLO
+	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751554AbbHLWGt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 18:06:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 11, 2015 at 10:17 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index c18f9e6..0002ab7 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -181,7 +181,7 @@ config VXLAN
->
->  config GENEVE
->         tristate "Generic Network Virtualization Encapsulation netdev"
-> -       depends on INET && GENEVE_CORE
-> +       depends on INET
->         select NET_IP_TUNNEL
+This set of patches enables the front Ethernet port on the
+ARM Juno development platform when used with an ACPI enabled kernel.
 
-I think this now needs to select NET_UDP_TUNNEL instead of NET_IP_TUNNEL.
+These patches covert the of_property* calls in the driver to the
+DT/ACPI agnostic device_property* calls, and add the arm hardware
+id to the acpi_match_table.
 
-I would also drop "netdev" from the end of the title since there is no
-longer a split between the netdev and library.
+To support the above changes I copied a couple routines from
+of_net into the properties.c file, and modified them to
+be ACPI/DT agnostic. I'm not 100% sure this is the correct location
+for these functions. But I think they are required to avoid having
+a dozen different implementations scattered across assorted Ethernet
+adapters that are being enabled to use ACPI properties.
 
-The farther I go in the series, the more that I hope that we can avoid
-the use of collect_md_tun. It really seems to add a lot of special
-cases.
+Jeremy Linton (2):
+  Add a matching set of device_ functions for determining mac/phy
+  Convert smsc911x to use ACPI as well as DT
+
+ drivers/base/property.c              | 73 ++++++++++++++++++++++++++++++++=
+++++
+ drivers/net/ethernet/smsc/smsc911x.c | 48 +++++++++++-------------
+ include/linux/property.h             |  4 ++
+ 3 files changed, 99 insertions(+), 26 deletions(-)
+
+--=20
+2.4.3
