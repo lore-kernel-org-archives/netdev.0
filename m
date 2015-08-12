@@ -1,76 +1,45 @@
-From: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH V1 Resend 10/10] net: Drop unlikely before
-	IS_ERR(_OR_NULL)
-Date: Wed, 12 Aug 2015 15:59:47 +0530
-Message-ID: <173f4a88f99d366f195e253b940d31555b7a30b0.1439375087.git.viresh.kumar@linaro.org>
-References: <cover.1439375087.git.viresh.kumar@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- linaro-kernel-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Vlad Yasevich <vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "open list:SCTP PROTOCOL" <linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "open list:OPENVSWITCH" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1439375087.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-In-Reply-To: <cover.1439375087.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-References: <cover.1439375087.git.viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/4] Add some more debug info
+Date: Wed, 12 Aug 2015 16:55:03 +0530
+Message-ID: <1439378707-14462-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:24451 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750974AbbHLLZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 07:25:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SVNfRVJSKF9PUl9OVUxMKSBhbHJlYWR5IGNvbnRhaW4gYW4gJ3VubGlrZWx5JyBjb21waWxlciBm
-bGFnIGFuZCB0aGVyZQppcyBubyBuZWVkIHRvIGRvIHRoYXQgYWdhaW4gZnJvbSBpdHMgY2FsbGVy
-cy4gRHJvcCBpdC4KCkFja2VkLWJ5OiBOZWlsIEhvcm1hbiA8bmhvcm1hbkB0dXhkcml2ZXIuY29t
-PgpTaWduZWQtb2ZmLWJ5OiBWaXJlc2ggS3VtYXIgPHZpcmVzaC5rdW1hckBsaW5hcm8ub3JnPgot
-LS0KIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jIHwgMiArLQogbmV0L3NjdHAvc29ja2V0LmMg
-ICAgICAgICAgfCAyICstCiBuZXQvc29ja2V0LmMgICAgICAgICAgICAgICB8IDYgKysrLS0tCiAz
-IGZpbGVzIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKCmRpZmYgLS1n
-aXQgYS9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYyBiL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0
-aC5jCmluZGV4IGZmZTk4NGY1Yjk1Yy4uYTUxNWUzMzhjYWRlIDEwMDY0NAotLS0gYS9uZXQvb3Bl
-bnZzd2l0Y2gvZGF0YXBhdGguYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwpAQCAt
-MTE0Myw3ICsxMTQzLDcgQEAgc3RhdGljIGludCBvdnNfZmxvd19jbWRfc2V0KHN0cnVjdCBza19i
-dWZmICpza2IsIHN0cnVjdCBnZW5sX2luZm8gKmluZm8pCiAJCQkJCQlpbmZvLCBPVlNfRkxPV19D
-TURfTkVXLCBmYWxzZSwKIAkJCQkJCXVmaWRfZmxhZ3MpOwogCi0JCWlmICh1bmxpa2VseShJU19F
-UlIocmVwbHkpKSkgeworCQlpZiAoSVNfRVJSKHJlcGx5KSkgewogCQkJZXJyb3IgPSBQVFJfRVJS
-KHJlcGx5KTsKIAkJCWdvdG8gZXJyX3VubG9ja19vdnM7CiAJCX0KZGlmZiAtLWdpdCBhL25ldC9z
-Y3RwL3NvY2tldC5jIGIvbmV0L3NjdHAvc29ja2V0LmMKaW5kZXggMTdiZWYwMWI5YWEzLi44OTdj
-MDFjMDI5Y2EgMTAwNjQ0Ci0tLSBhL25ldC9zY3RwL3NvY2tldC5jCisrKyBiL25ldC9zY3RwL3Nv
-Y2tldC5jCkBAIC00NDc1LDcgKzQ0NzUsNyBAQCBzdGF0aWMgaW50IHNjdHBfZ2V0c29ja29wdF9w
-ZWVsb2ZmKHN0cnVjdCBzb2NrICpzaywgaW50IGxlbiwgY2hhciBfX3VzZXIgKm9wdHZhbAogCX0K
-IAogCW5ld2ZpbGUgPSBzb2NrX2FsbG9jX2ZpbGUobmV3c29jaywgMCwgTlVMTCk7Ci0JaWYgKHVu
-bGlrZWx5KElTX0VSUihuZXdmaWxlKSkpIHsKKwlpZiAoSVNfRVJSKG5ld2ZpbGUpKSB7CiAJCXB1
-dF91bnVzZWRfZmQocmV0dmFsKTsKIAkJc29ja19yZWxlYXNlKG5ld3NvY2spOwogCQlyZXR1cm4g
-UFRSX0VSUihuZXdmaWxlKTsKZGlmZiAtLWdpdCBhL25ldC9zb2NrZXQuYyBiL25ldC9zb2NrZXQu
-YwppbmRleCA5OTYzYTBiNTNhNjQuLmRkMmMyNDdjOTllMyAxMDA2NDQKLS0tIGEvbmV0L3NvY2tl
-dC5jCisrKyBiL25ldC9zb2NrZXQuYwpAQCAtMzczLDcgKzM3Myw3IEBAIHN0cnVjdCBmaWxlICpz
-b2NrX2FsbG9jX2ZpbGUoc3RydWN0IHNvY2tldCAqc29jaywgaW50IGZsYWdzLCBjb25zdCBjaGFy
-ICpkbmFtZSkKIAogCWZpbGUgPSBhbGxvY19maWxlKCZwYXRoLCBGTU9ERV9SRUFEIHwgRk1PREVf
-V1JJVEUsCiAJCSAgJnNvY2tldF9maWxlX29wcyk7Ci0JaWYgKHVubGlrZWx5KElTX0VSUihmaWxl
-KSkpIHsKKwlpZiAoSVNfRVJSKGZpbGUpKSB7CiAJCS8qIGRyb3AgZGVudHJ5LCBrZWVwIGlub2Rl
-ICovCiAJCWlob2xkKGRfaW5vZGUocGF0aC5kZW50cnkpKTsKIAkJcGF0aF9wdXQoJnBhdGgpOwpA
-QCAtMTMwMyw3ICsxMzAzLDcgQEAgU1lTQ0FMTF9ERUZJTkU0KHNvY2tldHBhaXIsIGludCwgZmFt
-aWx5LCBpbnQsIHR5cGUsIGludCwgcHJvdG9jb2wsCiAJfQogCiAJbmV3ZmlsZTEgPSBzb2NrX2Fs
-bG9jX2ZpbGUoc29jazEsIGZsYWdzLCBOVUxMKTsKLQlpZiAodW5saWtlbHkoSVNfRVJSKG5ld2Zp
-bGUxKSkpIHsKKwlpZiAoSVNfRVJSKG5ld2ZpbGUxKSkgewogCQllcnIgPSBQVFJfRVJSKG5ld2Zp
-bGUxKTsKIAkJZ290byBvdXRfcHV0X3VudXNlZF9ib3RoOwogCX0KQEAgLTE0NjcsNyArMTQ2Nyw3
-IEBAIFNZU0NBTExfREVGSU5FNChhY2NlcHQ0LCBpbnQsIGZkLCBzdHJ1Y3Qgc29ja2FkZHIgX191
-c2VyICosIHVwZWVyX3NvY2thZGRyLAogCQlnb3RvIG91dF9wdXQ7CiAJfQogCW5ld2ZpbGUgPSBz
-b2NrX2FsbG9jX2ZpbGUobmV3c29jaywgZmxhZ3MsIHNvY2stPnNrLT5za19wcm90X2NyZWF0b3It
-Pm5hbWUpOwotCWlmICh1bmxpa2VseShJU19FUlIobmV3ZmlsZSkpKSB7CisJaWYgKElTX0VSUihu
-ZXdmaWxlKSkgewogCQllcnIgPSBQVFJfRVJSKG5ld2ZpbGUpOwogCQlwdXRfdW51c2VkX2ZkKG5l
-d2ZkKTsKIAkJc29ja19yZWxlYXNlKG5ld3NvY2spOwotLSAKMi40LjAKCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9w
-ZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2
-Cg==
+Hi,
+
+This patch series adds the following.
+Add more info for sge_qinfo dump
+Differentiate tid and stids between different regions, and add a debugfs
+entry to dump all the tid info
+
+This patch series has been created against net-next tree and includes
+patches on cxgb4 driver.
+
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
+
+Thanks
+
+Hariprasad Shenai (4):
+  cxgb4: Add some more details to sge qinfo
+  cxgb4: Differentiates between TIDs being used in TCAM and HASH
+  cxgb4: Differentiate between stids between server and filter region
+  cxgb4: Add debugfs support to dump tid info
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c | 129 +++++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  47 ++++++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |  10 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   9 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   5 +
+ 5 files changed, 176 insertions(+), 24 deletions(-)
+
+-- 
+2.3.4
