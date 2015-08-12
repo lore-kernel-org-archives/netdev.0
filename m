@@ -1,7 +1,7 @@
 From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
-Date: Wed, 12 Aug 2015 17:06:27 -0500
-Message-ID: <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+Subject: [PATCH 1/2] Add a matching set of device_ functions for determining mac/phy
+Date: Wed, 12 Aug 2015 17:06:26 -0500
+Message-ID: <1439417187-21411-2-git-send-email-jeremy.linton@arm.com>
 References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
 Content-Type: text/plain; charset=WINDOWS-1252
 Content-Transfer-Encoding: quoted-printable
@@ -11,146 +11,138 @@ Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
 	Jeremy Linton <jeremy.linton@arm.com>
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:23302 "EHLO
+Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:60420 "EHLO
 	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751867AbbHLWGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 18:06:52 -0400
+	by vger.kernel.org with ESMTP id S1751617AbbHLWGu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 18:06:50 -0400
 In-Reply-To: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ACPI bindings for the smsc911x driver. Convert the DT specific calls
-to nonspecific device* calls, This allows the driver to work
-with both ACPI and DT configurations. Ethernet should now work when using
-ACPI on ARM Juno.
+OF has some helper functions for parsing MAC and PHY settings.
+In cases where the platform is providing this information rather
+than the device itself, there needs to be similar functions for ACPI.
+
+These functions are slightly modified versions of the ones in
+of_net which can use information provided via DT or ACPI.
 
 Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
 ---
- drivers/net/ethernet/smsc/smsc911x.c | 48 +++++++++++++++++---------------=
-----
- 1 file changed, 22 insertions(+), 26 deletions(-)
+ drivers/base/property.c  | 73 ++++++++++++++++++++++++++++++++++++++++++++=
+++++
+ include/linux/property.h |  4 +++
+ 2 files changed, 77 insertions(+)
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/sm=
-sc/smsc911x.c
-index 959aeea..0f21aa3 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -59,7 +59,9 @@
- #include <linux/of_device.h>
- #include <linux/of_gpio.h>
- #include <linux/of_net.h>
-+#include <linux/acpi.h>
- #include <linux/pm_runtime.h>
-+#include <linux/property.h>
+diff --git a/drivers/base/property.c b/drivers/base/property.c
+index f3f6d16..2e8cd14 100644
+--- a/drivers/base/property.c
++++ b/drivers/base/property.c
+@@ -16,6 +16,8 @@
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/property.h>
++#include <linux/etherdevice.h>
++#include <linux/phy.h>
 =20
- #include "smsc911x.h"
-=20
-@@ -2362,59 +2364,46 @@ static const struct smsc911x_ops shifted_smsc911x_o=
-ps =3D {
- =09.tx_writefifo =3D smsc911x_tx_writefifo_shift,
- };
-=20
--#ifdef CONFIG_OF
--static int smsc911x_probe_config_dt(struct smsc911x_platform_config *confi=
-g,
--=09=09=09=09    struct device_node *np)
-+static int smsc911x_probe_config(struct smsc911x_platform_config *config,
-+=09=09=09=09 struct device *dev)
- {
--=09const char *mac;
- =09u32 width =3D 0;
-=20
--=09if (!np)
-+=09if (!dev)
- =09=09return -ENODEV;
-=20
--=09config->phy_interface =3D of_get_phy_mode(np);
-+=09config->phy_interface =3D device_get_phy_mode(dev);
-=20
--=09mac =3D of_get_mac_address(np);
--=09if (mac)
--=09=09memcpy(config->mac, mac, ETH_ALEN);
-+=09device_get_mac_address(dev, config->mac, ETH_ALEN);
-=20
--=09of_property_read_u32(np, "reg-shift", &config->shift);
-+=09device_property_read_u32(dev, "reg-shift", &config->shift);
-=20
--=09of_property_read_u32(np, "reg-io-width", &width);
-+=09device_property_read_u32(dev, "reg-io-width", &width);
- =09if (width =3D=3D 4)
- =09=09config->flags |=3D SMSC911X_USE_32BIT;
- =09else
- =09=09config->flags |=3D SMSC911X_USE_16BIT;
-=20
--=09if (of_get_property(np, "smsc,irq-active-high", NULL))
-+=09if (device_property_present(dev, "smsc,irq-active-high"))
- =09=09config->irq_polarity =3D SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
-=20
--=09if (of_get_property(np, "smsc,irq-push-pull", NULL))
-+=09if (device_property_present(dev, "smsc,irq-push-pull"))
- =09=09config->irq_type =3D SMSC911X_IRQ_TYPE_PUSH_PULL;
-=20
--=09if (of_get_property(np, "smsc,force-internal-phy", NULL))
-+=09if (device_property_present(dev, "smsc,force-internal-phy"))
- =09=09config->flags |=3D SMSC911X_FORCE_INTERNAL_PHY;
-=20
--=09if (of_get_property(np, "smsc,force-external-phy", NULL))
-+=09if (device_property_present(dev, "smsc,force-external-phy"))
- =09=09config->flags |=3D SMSC911X_FORCE_EXTERNAL_PHY;
-=20
--=09if (of_get_property(np, "smsc,save-mac-address", NULL))
-+=09if (device_property_present(dev, "smsc,save-mac-address"))
- =09=09config->flags |=3D SMSC911X_SAVE_MAC_ADDRESS;
-=20
- =09return 0;
+ /**
+  * device_add_property_set - Add a collection of properties to a device ob=
+ject.
+@@ -533,3 +535,74 @@ bool device_dma_is_coherent(struct device *dev)
+ =09return coherent;
  }
--#else
--static inline int smsc911x_probe_config_dt(
--=09=09=09=09struct smsc911x_platform_config *config,
--=09=09=09=09struct device_node *np)
--{
--=09return -ENODEV;
--}
--#endif /* CONFIG_OF */
-=20
- static int smsc911x_drv_probe(struct platform_device *pdev)
- {
--=09struct device_node *np =3D pdev->dev.of_node;
- =09struct net_device *dev;
- =09struct smsc911x_data *pdata;
- =09struct smsc911x_platform_config *config =3D dev_get_platdata(&pdev->dev=
-);
-@@ -2478,7 +2467,7 @@ static int smsc911x_drv_probe(struct platform_device =
-*pdev)
- =09=09goto out_disable_resources;
- =09}
-=20
--=09retval =3D smsc911x_probe_config_dt(&pdata->config, np);
-+=09retval =3D smsc911x_probe_config(&pdata->config, &pdev->dev);
- =09if (retval && config) {
- =09=09/* copy config parameters across to pdata */
- =09=09memcpy(&pdata->config, config, sizeof(pdata->config));
-@@ -2654,6 +2643,12 @@ static const struct of_device_id smsc911x_dt_ids[] =
-=3D {
- MODULE_DEVICE_TABLE(of, smsc911x_dt_ids);
- #endif
-=20
-+static const struct acpi_device_id smsc911x_acpi_match[] =3D {
-+=09{ "ARMH9118", 0 },
-+=09{ }
-+};
-+MODULE_DEVICE_TABLE(acpi, smsc911x_acpi_match);
+ EXPORT_SYMBOL_GPL(device_dma_is_coherent);
 +
- static struct platform_driver smsc911x_driver =3D {
- =09.probe =3D smsc911x_drv_probe,
- =09.remove =3D smsc911x_drv_remove,
-@@ -2661,6 +2656,7 @@ static struct platform_driver smsc911x_driver =3D {
- =09=09.name=09=3D SMSC_CHIPNAME,
- =09=09.pm=09=3D SMSC911X_PM_OPS,
- =09=09.of_match_table =3D of_match_ptr(smsc911x_dt_ids),
-+=09=09.acpi_match_table =3D ACPI_PTR(smsc911x_acpi_match),
- =09},
- };
++/**
++ * device_get_phy_mode - Get phy mode for given device_node
++ * @dev:=09Pointer to the given device
++ *
++ * The function gets phy interface string from property 'phy-mode' or
++ * 'phy-connection-type', and return its index in phy_modes table, or errn=
+o in
++ * error case.
++ */
++int device_get_phy_mode(struct device *dev)
++{
++=09const char *pm;
++=09int err, i;
++
++=09err =3D device_property_read_string(dev, "phy-mode", &pm);
++=09if (err < 0)
++=09=09err =3D device_property_read_string(dev,
++=09=09=09=09=09=09  "phy-connection-type", &pm);
++=09if (err < 0)
++=09=09return err;
++
++=09for (i =3D 0; i < PHY_INTERFACE_MODE_MAX; i++)
++=09=09if (!strcasecmp(pm, phy_modes(i)))
++=09=09=09return i;
++
++=09return -ENODEV;
++}
++EXPORT_SYMBOL_GPL(device_get_phy_mode);
++
++static void *device_get_mac_addr(struct device *dev,
++=09=09=09=09 const char *name, char *addr,
++=09=09=09=09 int alen)
++{
++=09int ret =3D device_property_read_u8_array(dev, name, addr, alen);
++
++=09if (ret =3D=3D 0 && is_valid_ether_addr(addr))
++=09=09return addr;
++=09return NULL;
++}
++
++/**
++ * Search the device tree for the best MAC address to use.  'mac-address' =
+is
++ * checked first, because that is supposed to contain to "most recent" MAC
++ * address. If that isn't set, then 'local-mac-address' is checked next,
++ * because that is the default address.  If that isn't set, then the obsol=
+ete
++ * 'address' is checked, just in case we're using an old device tree.
++ *
++ * Note that the 'address' property is supposed to contain a virtual addre=
+ss of
++ * the register set, but some DTS files have redefined that property to be=
+ the
++ * MAC address.
++ *
++ * All-zero MAC addresses are rejected, because those could be properties =
+that
++ * exist in the device tree, but were not set by U-Boot.  For example, the
++ * DTS could define 'mac-address' and 'local-mac-address', with zero MAC
++ * addresses.  Some older U-Boots only initialized 'local-mac-address'.  I=
+n
++ * this case, the real MAC is in 'local-mac-address', and 'mac-address' ex=
+ists
++ * but is all zeros.
++*/
++void *device_get_mac_address(struct device *dev, char *addr, int alen)
++{
++=09addr =3D device_get_mac_addr(dev, "mac-address", addr, alen);
++=09if (addr)
++=09=09return addr;
++
++=09addr =3D device_get_mac_addr(dev, "local-mac-address", addr, alen);
++=09if (addr)
++=09=09return addr;
++
++=09return device_get_mac_addr(dev, "address", addr, alen);
++}
++EXPORT_SYMBOL(device_get_mac_address);
+diff --git a/include/linux/property.h b/include/linux/property.h
+index 76ebde9..a59c6ee 100644
+--- a/include/linux/property.h
++++ b/include/linux/property.h
+@@ -166,4 +166,8 @@ void device_add_property_set(struct device *dev, struct=
+ property_set *pset);
 =20
+ bool device_dma_is_coherent(struct device *dev);
+=20
++int device_get_phy_mode(struct device *dev);
++
++void *device_get_mac_address(struct device *dev, char *addr, int alen);
++
+ #endif /* _LINUX_PROPERTY_H_ */
 --=20
 2.4.3
