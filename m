@@ -1,78 +1,82 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv3 net-next 01/10] openvswitch: Serialize acts with original netlink len
-Date: Tue, 11 Aug 2015 15:59:12 -0700
-Message-ID: <1439333961-24474-2-git-send-email-joestringer@nicira.com>
-References: <1439333961-24474-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
-	jpettit@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	jesse@nicira.com, fwestpha@redhat.com, hannes@redhat.com,
-	tgraf@noironetworks.com
-To: netdev@vger.kernel.org
+From: Andrew Schwartzmeyer <andschwa@microsoft.com>
+Subject: [PATCH net-next 1/2] hv_netvsc: Set vRSS with num_chn in RNDIS filter
+Date: Tue, 11 Aug 2015 17:14:31 -0700
+Message-ID: <1439338472-21361-1-git-send-email-andschwa@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <kys@microsoft.com>, <andschwa@microsoft.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <haiyangz@microsoft.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439333961-24474-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Previously, we used the kernel-internal netlink actions length to
-calculate the size of messages to serialize back to userspace.
-However,the sw_flow_actions may not be formatted exactly the same as the
-actions on the wire, so store the original actions length when
-de-serializing and re-use the original length when serializing.
+Uses device_info->num_chn to pass user provided number of vRSS
+queues (from ethtool --set-channels) to rndis_filter_device_add. If
+nonzero and less than the maximum, set net_device->num_chn to the given
+value; else default to prior algorithm.
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
-v2: No change.
-v3: Preserve original length across buffer resize.
----
- net/openvswitch/datapath.c     | 2 +-
- net/openvswitch/flow.h         | 1 +
- net/openvswitch/flow_netlink.c | 2 ++
- 3 files changed, 4 insertions(+), 1 deletion(-)
+Always initialize struct device_info to 0, otherwise not all its fields
+are guaranteed to be 0, which is necessary when checking if num_chn has
+been purposefully set.
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index ffe984f..d5b5473 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -713,7 +713,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts,
- 
- 	/* OVS_FLOW_ATTR_ACTIONS */
- 	if (should_fill_actions(ufid_flags))
--		len += nla_total_size(acts->actions_len);
-+		len += nla_total_size(acts->orig_len);
- 
- 	return len
- 		+ nla_total_size(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index b62cdb3..082a87b 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -144,6 +144,7 @@ struct sw_flow_id {
- 
- struct sw_flow_actions {
- 	struct rcu_head rcu;
-+	size_t orig_len;	/* From flow_cmd_new netlink actions size */
- 	u32 actions_len;
- 	struct nlattr actions[];
+Signed-off-by: Andrew Schwartzmeyer <andschwa@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 1 +
+ drivers/net/hyperv/netvsc_drv.c   | 3 +++
+ drivers/net/hyperv/rndis_filter.c | 7 ++++++-
+ 3 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 5ce7020ca530..5fa98f599b3d 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -162,6 +162,7 @@ struct netvsc_device_info {
+ 	bool link_state;	/* 0 - link up, 1 - link down */
+ 	int  ring_size;
+ 	u32  max_num_vrss_chns;
++	u32  num_chn;
  };
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index a6eb77a..96cad8c 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -1619,6 +1619,7 @@ static struct nlattr *reserve_sfa_size(struct sw_flow_actions **sfa,
  
- 	memcpy(acts->actions, (*sfa)->actions, (*sfa)->actions_len);
- 	acts->actions_len = (*sfa)->actions_len;
-+	acts->orig_len = (*sfa)->orig_len;
- 	kfree(*sfa);
- 	*sfa = acts;
+ enum rndis_device_state {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 7b36d5fecc1f..21845202a52d 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -799,6 +799,8 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
  
-@@ -2223,6 +2224,7 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
- 	if (IS_ERR(*sfa))
- 		return PTR_ERR(*sfa);
+ 	ndevctx->device_ctx = hdev;
+ 	hv_set_drvdata(hdev, ndev);
++
++	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+ 	device_info.max_num_vrss_chns = max_num_vrss_chns;
+ 	rndis_filter_device_add(hdev, &device_info);
+@@ -1022,6 +1024,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 	net->needed_headroom = max_needed_headroom;
  
-+	(*sfa)->orig_len = nla_len(attr);
- 	err = __ovs_nla_copy_actions(attr, key, 0, sfa, key->eth.type,
- 				     key->eth.tci, log);
- 	if (err)
+ 	/* Notify the netvsc driver of the new device */
++	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+ 	device_info.max_num_vrss_chns = max_num_vrss_chns;
+ 	ret = rndis_filter_device_add(dev, &device_info);
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 9b8263db49cc..5931a799aa17 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1125,7 +1125,12 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	 */
+ 	node_cpu_mask = cpumask_of_node(cpu_to_node(dev->channel->target_cpu));
+ 	num_possible_rss_qs = cpumask_weight(node_cpu_mask);
+-	net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
++
++	/* We will use the given number of channels if available. */
++	if (device_info->num_chn && device_info->num_chn < net_device->max_chn)
++		net_device->num_chn = device_info->num_chn;
++	else
++		net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
+ 
+ 	num_rss_qs = net_device->num_chn - 1;
+ 	net_device->num_sc_offered = num_rss_qs;
 -- 
-2.1.4
+2.4.2
