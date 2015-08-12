@@ -1,41 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Panic with demuxed ipv4 multicast udp sockets on 4.0.4
-Date: Wed, 12 Aug 2015 11:05:53 -0700
-Message-ID: <1439402753.29802.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <2ddbe291fff643899849eb068ef219e0@svr-chch-ex1.atlnz.lc>
-	 <1438234969.20182.124.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1438235159.20182.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0dd213ace919410da723ac93892d1f4d@svr-chch-ex1.atlnz.lc>
-	 <1438337866.2748.5.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1438341449.2748.9.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0054031415584f58aeba627a5ca5aefc@svr-chch-ex1.atlnz.lc>
-	 <CALCkm3cqbST9ZDmnw4gnGyTFM2KZrPPd3+D4UxtP73yN8oMOJw@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 2/6] geneve: Make dst-port configurable.
+Date: Wed, 12 Aug 2015 11:13:31 -0700
+Message-ID: <CAEP_g=8dP-_jmcxL5o3=DC6H7pkhB8MOcrRuEsb37OxqoWzVDA@mail.gmail.com>
+References: <1439356660-21754-1-git-send-email-pshelar@nicira.com>
+ <CAEP_g=9biFJDxbAFMBB+mbttBnbEkykJx7z24HrhUdjA25YpNg@mail.gmail.com> <CALnjE+rAsxUjGa3FADsnW8ZJtBYMPHEcbWEDT4WpcM05ki7M=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Gregory Hoggarth <Gregory.Hoggarth@alliedtelesis.co.nz>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alex Gartrell <alexgartrell@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:33354 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751259AbbHLSFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 14:05:55 -0400
-Received: by pdrh1 with SMTP id h1so9848722pdr.0
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 11:05:54 -0700 (PDT)
-In-Reply-To: <CALCkm3cqbST9ZDmnw4gnGyTFM2KZrPPd3+D4UxtP73yN8oMOJw@mail.gmail.com>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:33414 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbbHLSNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 14:13:52 -0400
+Received: by lalv9 with SMTP id v9so13689283lal.0
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 11:13:50 -0700 (PDT)
+In-Reply-To: <CALnjE+rAsxUjGa3FADsnW8ZJtBYMPHEcbWEDT4WpcM05ki7M=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-08-12 at 09:13 -0700, Alex Gartrell wrote:
-> Hey Gregory,
-> 
-> On Sun, Aug 2, 2015 at 2:28 PM, Gregory Hoggarth
-> <Gregory.Hoggarth@alliedtelesis.co.nz> wrote:
-> > I will apply the new suggested patch, reverting previous patch, and test overnight and update tomorrow.
-> 
-> Did this solve your problem?  If not, would you mind sharing a repro?
-> 
+On Wed, Aug 12, 2015 at 10:57 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, Aug 12, 2015 at 10:00 AM, Jesse Gross <jesse@nicira.com> wrote:
+>> Not specific to this patch but I think that it will make things
+>> significantly easier in the future if changelink was implemented.
+>> VXLAN has the same issue as well.
+>
+> Do you mean allow dst-port configuration only through changelink()?
 
-https://www.mail-archive.com/netdev@vger.kernel.org/msg72736.html
+This would be in addition to the ability to change it at setup, as
+done by this patch.
+
+I think we should ideally allow all netlink configuration to be
+changed at runtime. Otherwise the only other choice is to delete and
+recreate the device, which is more disruptive.
