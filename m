@@ -1,40 +1,43 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH v2 net-next] documentation: bring vxlan documentation more
- up-to-date
-Date: Wed, 12 Aug 2015 10:32:15 -0700
-Message-ID: <55CB831F.9060900@infradead.org>
-References: <20150812172314.5C6862900958@tardy>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Use SK_MEM_QUANTUM as minimum for tcp/udp rmem/wmem
+Date: Wed, 12 Aug 2015 10:46:25 -0700
+Message-ID: <1439401585.29802.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1438806414-751067-1-git-send-email-calvinowens@fb.com>
+	 <20150809.224114.818332231954008575.davem@davemloft.net>
+	 <20150811033406.GA1136819@mail.thefacebook.com>
+	 <20150810.204630.1903301700926701432.davem@davemloft.net>
+	 <20150812045420.GA3908557@mail.thefacebook.com>
+	 <1439389261.29802.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALh4rZqte0muVz0YLBVnsb9xzMh-xjKG8wmbi9Yo=9ge6z90HQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Rick Jones <raj@tardy.usa.hp.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:52105 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932380AbbHLRcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 13:32:22 -0400
-In-Reply-To: <20150812172314.5C6862900958@tardy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Calvin Owens <calvinowens@fb.com>,
+	Sorin Dumitru <sdumitru@ixiacom.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Sorin Dumitru <sorin@returnze.ro>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALh4rZqte0muVz0YLBVnsb9xzMh-xjKG8wmbi9Yo=9ge6z90HQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/12/15 10:23, Rick Jones wrote:
-> From: Rick Jones <rick.jones2@hp.com>
+On Wed, 2015-08-12 at 20:00 +0300, Sorin Dumitru wrote:
+
+> Would clamping the values to a min value, like setsockopt(SO_SNDBUF)
+> does, be an option?
+> I still find it odd that SO_SNDBUF limits you, while the /proc
+> interface doesn't. If you think it's
+> too much, I'm ok with reverting it since it affects scripts.
 > 
-> A few things have changed since the previous version of the vxlan
-> documentation was written, so update it and correct some grammer and
+> On those arches where PAGE_SIZE == 64K(or > 16K) it looks like we have
+> tcp_wmem[1]
+> smaller than tcp_wmem[0]. Shouldn't we do something about this?
 
-if there are more updates:                                 grammar
+As long as we do not crash if/when root user changes /proc/sys/net
+settings, we are good.
 
-> such while we are at it.
-> 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
-> 
-> ---
-> 
-> v2: Stephen Hemminger feedback to include dstport 4789 in command line
->     example.  Also some further refinements from other sources.
-
-
--- 
-~Randy
+I would not care if performance is bad if root does something really
+stupid. root user is supposed to not mess things just for fun.
