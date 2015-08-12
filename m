@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] Add some more debug info
-Date: Wed, 12 Aug 2015 16:42:27 -0700 (PDT)
-Message-ID: <20150812.164227.416836629962402303.davem@davemloft.net>
-References: <1439378707-14462-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH v2 net-next] bpf: fix bpf_perf_event_read() loop upper
+ bound
+Date: Wed, 12 Aug 2015 16:43:13 -0700 (PDT)
+Message-ID: <20150812.164313.2165285978444550238.davem@davemloft.net>
+References: <1439391432-4690-1-git-send-email-weichunc@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Cc: netdev@vger.kernel.org, ast@plumgrid.com, xiakaixu@huawei.com
+To: weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60736 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60744 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837AbbHLXm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 19:42:28 -0400
-In-Reply-To: <1439378707-14462-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1751535AbbHLXnO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 19:43:14 -0400
+In-Reply-To: <1439391432-4690-1-git-send-email-weichunc@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Wed, 12 Aug 2015 16:55:03 +0530
+From: Wei-Chun Chao <weichunc@plumgrid.com>
+Date: Wed, 12 Aug 2015 07:57:12 -0700
 
-> This patch series adds the following.
-> Add more info for sge_qinfo dump
-> Differentiate tid and stids between different regions, and add a debugfs
-> entry to dump all the tid info
+> Verifier rejects programs incorrectly.
 > 
-> This patch series has been created against net-next tree and includes
-> patches on cxgb4 driver.
+> Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read()")
+> Cc: Kaixu Xia <xiakaixu@huawei.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
+> ---
 > 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
+> v2: better subject line
 
-Series applied, thanks.
+Applied, thanks.
