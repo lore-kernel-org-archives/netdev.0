@@ -1,58 +1,44 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: dsa: Do not override PHY interface if already
- configured
-Date: Wed, 12 Aug 2015 14:34:12 -0700
-Message-ID: <55CBBBD4.1080803@gmail.com>
-References: <1439063937-16316-1-git-send-email-f.fainelli@gmail.com> <20150812.143035.511637354777280164.davem@davemloft.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv3 net-next 05/10] openvswitch: Add conntrack action
+Date: Wed, 12 Aug 2015 14:38:07 -0700
+Message-ID: <CALnjE+rfLoNSfKWwa=8_4wVPu2NXHySv8UGgjF5f4u1o60xEZA@mail.gmail.com>
+References: <1439333961-24474-1-git-send-email-joestringer@nicira.com>
+	<1439333961-24474-6-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, linux@roeck-us.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34790 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbbHLVgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 17:36:35 -0400
-Received: by pawu10 with SMTP id u10so22562329paw.1
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 14:36:35 -0700 (PDT)
-In-Reply-To: <20150812.143035.511637354777280164.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Justin Pettit <jpettit@nicira.com>,
+	Andy Zhou <azhou@nicira.com>, Jesse Gross <jesse@nicira.com>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>,
+	Thomas Graf <tgraf@noironetworks.com>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439333961-24474-6-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/08/15 14:30, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Sat,  8 Aug 2015 12:58:57 -0700
-> 
->> In case we need to divert reads/writes using the slave MII bus, we may have
->> already fetched a valid PHY interface property from Device Tree, and that
->> mode is used by the PHY driver to make configuration decisions.
->>
->> If we could not fetch the "phy-mode" property, we will assign p->phy_interface
->> to PHY_INTERFACE_MODE_NA, such that we can actually check for that condition as
->> to whether or not we should override the interface value.
->>
->> Fixes: 19334920eaf7 ("net: dsa: Set valid phy interface type")
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->> Hi Guenter,
->>
->> Could you verify this does not break what you were trying to fix with your change?
->> I am fairly confident this will not because for "PHYs" built-into the switch port
->> we will not be able to fetch a "phy-mode" property from DT, so we will use
->> PHY_INTERFACE_MODE_NA, but here, we will re-assign them to PHY_INTERFACE_MODE_GMII
->> as before.
-> 
-> I was trying to wait for Guenter's testing before applying this, but it's been some
-> time already and it makes no sense to wait any longer.
+On Tue, Aug 11, 2015 at 3:59 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Expose the kernel connection tracker via OVS. Userspace components can
+> make use of the "ct()" action, followed by "recirculate", to populate
+> the conntracking state in the OVS flow key, and subsequently match on
+> that state.
+>
+> Example ODP flows allowing traffic from 1->2, only replies from 2->1:
+> in_port=1,tcp,action=ct(commit,zone=1),2
+> in_port=2,ct_state=-trk,tcp,action=ct(zone=1),recirc(1)
+> recirc_id=1,in_port=2,ct_state=+trk+est-new,tcp,action=1
+>
+> IP fragments are handled by transparently assembling them as part of the
+> ct action. The maximum received unit (MRU) size is tracked so that
+> refragmentation can occur during output.
+>
+> IP frag handling contributed by Andy Zhou.
+>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Signed-off-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
 
-I should be able to verify this myself in the future since I just setup
-a Marvell/DSA switch device here for testing.
-
-> 
-> Applied to 'net', thanks Florian.
-
-Could you also schedule this for -stable, at least 4.1 is affected by
-this change, thank you!
--- 
-Florian
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
