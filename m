@@ -1,7 +1,8 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net-next 2/2] ppp: implement x-netns support
-Date: Thu, 13 Aug 2015 15:28:20 +0200
-Message-ID: <27e1cd9ff2168fd6944995bd05954d42518da77b.1439471390.git.g.nault@alphalink.fr>
+Subject: [PATCH net-next 1/2] ppp: fix device unregistration upon netns
+ deletion
+Date: Thu, 13 Aug 2015 15:28:16 +0200
+Message-ID: <46f4dfd95c0d333ab20773d93b2a8526d642ed82.1439471390.git.g.nault@alphalink.fr>
 References: <cover.1439471390.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,93 +10,202 @@ Cc: David Miller <davem@davemloft.net>,
 	Paul Mackerras <paulus@samba.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:34730 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:34733 "EHLO
 	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751590AbbHMN21 (ORCPT
+	by vger.kernel.org with ESMTP id S1751906AbbHMN21 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 09:28:27 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1439471390.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Let packets move from one netns to the other at PPP encapsulation and
-decapsulation time.
+PPP devices may get automatically unregistered when their network
+namespace is getting removed. This happens if the ppp control plane
+daemon (e.g. pppd) exits while it is the last user of this namespace.
 
-PPP units and channels remain in the netns in which they were
-originally created. Only the net_device may move to a different
-namespace. Cross netns handling is thus transparent to lower PPP
-layers (PPPoE, L2TP, etc.).
+This leads to several races:
 
-PPP devices are automatically unregistered when their netns gets
-removed. So read() and poll() on the unit file descriptor will
-respectively receive EOF and POLLHUP. Channels aren't affected.
+  * ppp_exit_net() may destroy the per namespace idr (pn->units_idr)
+    before all file descriptors were released. Successive ppp_release()
+    calls may then cleanup PPP devices with ppp_shutdown_interface() and
+    try to use the already destroyed idr.
+
+  * Automatic device unregistration may also happen before the
+    ppp_release() call for that device gets executed. Once called on
+    the file owning the device, ppp_release() will then clean it up and
+    try to unregister it a second time.
+
+To fix these issues, operations defined in ppp_shutdown_interface() are
+moved to the PPP device's ndo_uninit() callback. This allows PPP
+devices to be properly cleaned up by unregister_netdev() and friends.
+So checking for ppp->owner is now an accurate test to decide if a PPP
+device should be unregistered.
+
+Setting ppp->owner is done in ppp_create_interface(), before device
+registration, in order to avoid unprotected modification of this field.
+
+Finally ppp_exit_net() now starts by unregistering all remaining PPP
+devices to ensure that none will get unregistered after the call to
+idr_destroy().
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- drivers/net/ppp/ppp_generic.c | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
+ drivers/net/ppp/ppp_generic.c | 79 +++++++++++++++++++++++--------------------
+ 1 file changed, 43 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 1dc478a..bdde5d8 100644
+index 9d15566..1dc478a 100644
 --- a/drivers/net/ppp/ppp_generic.c
 +++ b/drivers/net/ppp/ppp_generic.c
-@@ -283,6 +283,8 @@ static int unit_set(struct idr *p, void *ptr, int n);
- static void unit_put(struct idr *p, int n);
- static void *unit_find(struct idr *p, int n);
- 
-+static const struct net_device_ops ppp_netdev_ops;
-+
- static struct class *ppp_class;
- 
- /* per net-namespace data */
-@@ -919,13 +921,22 @@ static __net_init int ppp_init_net(struct net *net)
+@@ -269,9 +269,9 @@ static void ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound);
+ static void ppp_ccp_closed(struct ppp *ppp);
+ static struct compressor *find_compressor(int type);
+ static void ppp_get_stats(struct ppp *ppp, struct ppp_stats *st);
+-static struct ppp *ppp_create_interface(struct net *net, int unit, int *retp);
++static struct ppp *ppp_create_interface(struct net *net, int unit,
++					struct file *file, int *retp);
+ static void init_ppp_file(struct ppp_file *pf, int kind);
+-static void ppp_shutdown_interface(struct ppp *ppp);
+ static void ppp_destroy_interface(struct ppp *ppp);
+ static struct ppp *ppp_find_unit(struct ppp_net *pn, int unit);
+ static struct channel *ppp_find_channel(struct ppp_net *pn, int unit);
+@@ -392,8 +392,10 @@ static int ppp_release(struct inode *unused, struct file *file)
+ 		file->private_data = NULL;
+ 		if (pf->kind == INTERFACE) {
+ 			ppp = PF_TO_PPP(pf);
++			rtnl_lock();
+ 			if (file == ppp->owner)
+-				ppp_shutdown_interface(ppp);
++				unregister_netdevice(ppp->dev);
++			rtnl_unlock();
+ 		}
+ 		if (atomic_dec_and_test(&pf->refcnt)) {
+ 			switch (pf->kind) {
+@@ -593,8 +595,10 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 		mutex_lock(&ppp_mutex);
+ 		if (pf->kind == INTERFACE) {
+ 			ppp = PF_TO_PPP(pf);
++			rtnl_lock();
+ 			if (file == ppp->owner)
+-				ppp_shutdown_interface(ppp);
++				unregister_netdevice(ppp->dev);
++			rtnl_unlock();
+ 		}
+ 		if (atomic_long_read(&file->f_count) < 2) {
+ 			ppp_release(NULL, file);
+@@ -838,11 +842,10 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
+ 		/* Create a new ppp unit */
+ 		if (get_user(unit, p))
+ 			break;
+-		ppp = ppp_create_interface(net, unit, &err);
++		ppp = ppp_create_interface(net, unit, file, &err);
+ 		if (!ppp)
+ 			break;
+ 		file->private_data = &ppp->file;
+-		ppp->owner = file;
+ 		err = -EFAULT;
+ 		if (put_user(ppp->file.index, p))
+ 			break;
+@@ -916,6 +919,17 @@ static __net_init int ppp_init_net(struct net *net)
  static __net_exit void ppp_exit_net(struct net *net)
  {
  	struct ppp_net *pn = net_generic(net, ppp_net_id);
-+	struct net_device *dev;
-+	struct net_device *aux;
- 	struct ppp *ppp;
- 	LIST_HEAD(list);
- 	int id;
- 
- 	rtnl_lock();
-+	for_each_netdev_safe(net, dev, aux) {
-+		if (dev->netdev_ops == &ppp_netdev_ops)
-+			unregister_netdevice_queue(dev, &list);
++	struct ppp *ppp;
++	LIST_HEAD(list);
++	int id;
++
++	rtnl_lock();
++	idr_for_each_entry(&pn->units_idr, ppp, id) {
++		unregister_netdevice_queue(ppp->dev, &list);
 +	}
 +
- 	idr_for_each_entry(&pn->units_idr, ppp, id) {
--		unregister_netdevice_queue(ppp->dev, &list);
-+		/* Skip devices already unregistered by previous loop */
-+		if (!net_eq(dev_net(ppp->dev), net))
-+			unregister_netdevice_queue(ppp->dev, &list);
- 	}
++	unregister_netdevice_many(&list);
++	rtnl_unlock();
  
- 	unregister_netdevice_many(&list);
-@@ -1018,6 +1029,7 @@ ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	proto = npindex_to_proto[npi];
- 	put_unaligned_be16(proto, pp);
- 
-+	skb_scrub_packet(skb, !net_eq(ppp->ppp_net, dev_net(dev)));
- 	skb_queue_tail(&ppp->file.xq, skb);
- 	ppp_xmit_process(ppp);
- 	return NETDEV_TX_OK;
-@@ -1138,7 +1150,6 @@ static void ppp_setup(struct net_device *dev)
- 	dev->tx_queue_len = 3;
- 	dev->type = ARPHRD_PPP;
- 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
--	dev->features |= NETIF_F_NETNS_LOCAL;
- 	netif_keep_dst(dev);
+ 	idr_destroy(&pn->units_idr);
+ }
+@@ -1088,8 +1102,28 @@ static int ppp_dev_init(struct net_device *dev)
+ 	return 0;
  }
  
-@@ -1901,6 +1912,8 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
- 			skb->dev = ppp->dev;
- 			skb->protocol = htons(npindex_to_ethertype[npi]);
- 			skb_reset_mac_header(skb);
-+			skb_scrub_packet(skb, !net_eq(ppp->ppp_net,
-+						      dev_net(ppp->dev)));
- 			netif_rx(skb);
- 		}
- 	}
++static void ppp_dev_uninit(struct net_device *dev)
++{
++	struct ppp *ppp = netdev_priv(dev);
++	struct ppp_net *pn = ppp_pernet(ppp->ppp_net);
++
++	ppp_lock(ppp);
++	ppp->closing = 1;
++	ppp_unlock(ppp);
++
++	mutex_lock(&pn->all_ppp_mutex);
++	unit_put(&pn->units_idr, ppp->file.index);
++	mutex_unlock(&pn->all_ppp_mutex);
++
++	ppp->owner = NULL;
++
++	ppp->file.dead = 1;
++	wake_up_interruptible(&ppp->file.rwait);
++}
++
+ static const struct net_device_ops ppp_netdev_ops = {
+ 	.ndo_init	 = ppp_dev_init,
++	.ndo_uninit      = ppp_dev_uninit,
+ 	.ndo_start_xmit  = ppp_start_xmit,
+ 	.ndo_do_ioctl    = ppp_net_ioctl,
+ 	.ndo_get_stats64 = ppp_get_stats64,
+@@ -2667,8 +2701,8 @@ ppp_get_stats(struct ppp *ppp, struct ppp_stats *st)
+  * or if there is already a unit with the requested number.
+  * unit == -1 means allocate a new number.
+  */
+-static struct ppp *
+-ppp_create_interface(struct net *net, int unit, int *retp)
++static struct ppp *ppp_create_interface(struct net *net, int unit,
++					struct file *file, int *retp)
+ {
+ 	struct ppp *ppp;
+ 	struct ppp_net *pn;
+@@ -2688,6 +2722,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
+ 	ppp->mru = PPP_MRU;
+ 	init_ppp_file(&ppp->file, INTERFACE);
+ 	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
++	ppp->owner = file;
+ 	for (i = 0; i < NUM_NP; ++i)
+ 		ppp->npmode[i] = NPMODE_PASS;
+ 	INIT_LIST_HEAD(&ppp->channels);
+@@ -2776,34 +2811,6 @@ init_ppp_file(struct ppp_file *pf, int kind)
+ }
+ 
+ /*
+- * Take down a ppp interface unit - called when the owning file
+- * (the one that created the unit) is closed or detached.
+- */
+-static void ppp_shutdown_interface(struct ppp *ppp)
+-{
+-	struct ppp_net *pn;
+-
+-	pn = ppp_pernet(ppp->ppp_net);
+-	mutex_lock(&pn->all_ppp_mutex);
+-
+-	/* This will call dev_close() for us. */
+-	ppp_lock(ppp);
+-	if (!ppp->closing) {
+-		ppp->closing = 1;
+-		ppp_unlock(ppp);
+-		unregister_netdev(ppp->dev);
+-		unit_put(&pn->units_idr, ppp->file.index);
+-	} else
+-		ppp_unlock(ppp);
+-
+-	ppp->file.dead = 1;
+-	ppp->owner = NULL;
+-	wake_up_interruptible(&ppp->file.rwait);
+-
+-	mutex_unlock(&pn->all_ppp_mutex);
+-}
+-
+-/*
+  * Free the memory used by a ppp unit.  This is only called once
+  * there are no channels connected to the unit and no file structs
+  * that reference the unit.
 -- 
 2.5.0
