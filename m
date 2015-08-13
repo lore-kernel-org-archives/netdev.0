@@ -1,143 +1,71 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next 1/3] mpls: move mpls_route nexthop fields to
- a new nhlfe struct
-Date: Thu, 13 Aug 2015 15:01:54 +0100
-Message-ID: <55CCA352.70504@brocade.com>
-References: <1439329548-50935-2-git-send-email-roopa@cumulusnetworks.com> <55CB9B3B.1060809@brocade.com> <55CC0C23.2050901@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Problem with fragmented packets on tun/tap interface
+Date: Thu, 13 Aug 2015 07:18:22 -0700
+Message-ID: <1439475502.7960.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAPBAu3WwLLAYtRuxrA2uDF7J5-1FPfvJ-JVB1_WHNZdf1W_M=A@mail.gmail.com>
+	 <1438329395.2748.1.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAPBAu3V2Y56wnfgh1Y9gJ8XxVGEjZYaCXBNfg-uUOeYLy9NTrw@mail.gmail.com>
+	 <1438341695.2748.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAPBAu3VHtt5TDpvVNUkkQey2fjEYaDDSX8fwzwomyANtUhGQEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <ebiederm@xmission.com>,
-	<netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Prashant Upadhyaya <praupadhyaya@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:17457 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752726AbbHMOCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 10:02:07 -0400
-In-Reply-To: <55CC0C23.2050901@cumulusnetworks.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35847 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752373AbbHMOSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 10:18:25 -0400
+Received: by pacrr5 with SMTP id rr5so38371760pac.3
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 07:18:24 -0700 (PDT)
+In-Reply-To: <CAPBAu3VHtt5TDpvVNUkkQey2fjEYaDDSX8fwzwomyANtUhGQEg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13/08/15 04:16, roopa wrote:
-> On 8/12/15, 12:15 PM, Robert Shearman wrote:
->> On 11/08/15 22:45, Roopa Prabhu wrote:
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> moves mpls_route nexthop fields to a new mpls_nhlfe
->>> struct. mpls_nhlfe represents a mpls nexthop label forwarding entry.
->>> It prepares mpls route structure for multipath support.
->>>
->>> In the process moves mpls_route structure into internal.h.
->>
->> Is there a requirement for moving this and the new datastructures into
->> internal.h? I may have missed it, but I don't see any dependency on
->> this in this patch series.
->
-> No dependency really. In my initial implementation of iptunnels I had
-> some shared code and it had been in internal.h since then.
->   i don't share any of this with iptunnels now. But, if you see patch
-> 3/3, there is a lot more macros I add with struct nhlfe etc and it is
-> cleaner
-> to move all this to a header file than keeping it in the .c file.
+On Thu, 2015-08-13 at 12:52 +0530, Prashant Upadhyaya wrote:
 
-Ok, I have no strong preference.
+> 
+> Hi,
+> 
+> I think I have a clue to the root cause of my issue, but I do not know
+> a solution.
+> Let me describe what I think is the problem.
+> 
+> Fragmented packets enter into the kernel through eth0 and the kernel
+> starts assembling them.
+> Simultaneously, my packet socket implementation also injects the very
+> same packets into the kernel via the tap. The kernel sees them as
+> overlapped packets during assembly and drops the packets injected via
+> the tap.
+> Eventually when the assembly gets complete inside kernel for all the
+> packets which entered via eth0, the whole packet gets dropped due to
+> the iptables rules that I have set on eth0.
+> So naturally there is no response to the bigger ping, because
+> everything got dropped one way or the other.
+> 
+> When I do introduce the delays (and it turns out that the delay that
+> matters is when injecting via tap), the kernel has already completed
+> the assembly of the packets via eth0 (during the delay I introduce for
+> submission on tap), and then the submission via tap works well because
+> it undergoes a fresh assembly (and ofcourse it does not get dropped
+> because iptables drop rule is only on eth0)
+> 
+> Now then, the question is -- how do I prevent the kernel from trying
+> to assemble the packets arriving on eth0 and drop them right away even
+> before assembly is attempted. This way the same packet injected via
+> the tap would be the only one undergoing assembly and hopefully it
+> would work.
+> 
 
->>
->>> Moves some of the code from mpls_route_add into a separate mpls
->>> nhlfe build function. changed mpls_rt_alloc to take number of
->>> nexthops as argument.
->>>
->>> A mpls route can point to multiple mpls_nhlfe. This patch
->>> does not support multipath yet, hence the rest of the changes
->>> assume that a mpls route points to a single mpls_nhlfe
->>>
->>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> ---
->>>   net/mpls/af_mpls.c  |  225
->>> ++++++++++++++++++++++++++++-----------------------
->>>   net/mpls/internal.h |   35 ++++++++
->>>   2 files changed, 158 insertions(+), 102 deletions(-)
->>>
->>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->>> index 8c5707d..cf86e9d 100644
->>> --- a/net/mpls/af_mpls.c
->>> +++ b/net/mpls/af_mpls.c
->>> @@ -21,35 +21,6 @@
->>>   #endif
->>>   #include "internal.h"
->>>
->>> -#define LABEL_NOT_SPECIFIED (1<<20)
->>> -#define MAX_NEW_LABELS 2
->>> -
->>> -/* This maximum ha length copied from the definition of struct
->>> neighbour */
->>> -#define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
->>> -
->>> -enum mpls_payload_type {
->>> -    MPT_UNSPEC, /* IPv4 or IPv6 */
->>> -    MPT_IPV4 = 4,
->>> -    MPT_IPV6 = 6,
->>> -
->>> -    /* Other types not implemented:
->>> -     *  - Pseudo-wire with or without control word (RFC4385)
->>> -     *  - GAL (RFC5586)
->>> -     */
->>> -};
->>> -
->>> -struct mpls_route { /* next hop label forwarding entry */
->>> -    struct net_device __rcu *rt_dev;
->>> -    struct rcu_head        rt_rcu;
->>> -    u32            rt_label[MAX_NEW_LABELS];
->>> -    u8            rt_protocol; /* routing protocol that set this
->>> entry */
->>> -    u8                      rt_payload_type;
->>> -    u8            rt_labels;
->>> -    u8            rt_via_alen;
->>> -    u8            rt_via_table;
->>> -    u8            rt_via[0];
->>> -};
->>> -
->>>   static int zero = 0;
->>>   static int label_limit = (1 << 20) - 1;
->>>
->> ...
->>> @@ -281,13 +254,15 @@ struct mpls_route_config {
->>>       struct nl_info        rc_nlinfo;
->>>   };
->>>
->>> -static struct mpls_route *mpls_rt_alloc(size_t alen)
->>> +static struct mpls_route *mpls_rt_alloc(int num_nh)
->>>   {
->>>       struct mpls_route *rt;
->>>
->>> -    rt = kzalloc(sizeof(*rt) + alen, GFP_KERNEL);
->>> +    rt = kzalloc(sizeof(*rt) + (num_nh * sizeof(struct mpls_nhlfe)),
->>
->> How about this instead:
->>   offsetof(typeof(*rt), rt_nh[num_nh])
->> ?
->>
->> That way, you don't need to write out the type of rt_nh here.
-> I don't mind, but i followed existing convention for this (especially
-> the fib code).
-> would prefer keeping it the current way.
+Nice theory ! 
 
-I don't think we have to follow the ipv4 convention here, but again I 
-have no strong preference.
+What kind of iptables rule do you have to drop packets coming on eth0 ?
 
->>
->>> +             GFP_KERNEL);
->>>       if (rt)
->>> -        rt->rt_via_alen = alen;
->>> +        rt->rt_nhn = num_nh;
->>> +
->>>       return rt;
->>>   }
->>>
+Have you tried to install this rule in raw table, PREROUTING hook ?
 
-> Thanks for the review.
+This should work, because the defrag is attempted from
+ip_local_deliver() [ after raw table has given its verdict] , not from
+ip_rcv().
 
-Thank you for implementing this functionality.
-
-Rob
+iptables -t raw -I PREROUTING -i eth0 -j DROP
