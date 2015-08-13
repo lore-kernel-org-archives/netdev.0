@@ -1,59 +1,42 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH 1/3] net: make default tx_queue_len configurable
-Date: Thu, 13 Aug 2015 03:13:40 +0200
-Message-ID: <20150813011339.GF32353@orbit.nwl.cc>
-References: <1438203103-27013-2-git-send-email-phil@nwl.cc>
- <20150729210618.GF32705@breakpoint.cc>
- <20150729213428.GC15554@orbit.nwl.cc>
- <20150729.143731.834219016906219771.davem@davemloft.net>
- <20150811174807.3e00b4da@redhat.com>
- <20150811162335.GB32353@orbit.nwl.cc>
- <20150812011347.GA58200@Alexeis-MacBook-Pro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@davemloft.net>, fw@strlen.de,
-	netdev@vger.kernel.org, cwang@twopensource.com,
-	eric.dumazet@gmail.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next] rocker: print switch ID consistent with phys_switch_id sysfs node
+Date: Wed, 12 Aug 2015 18:44:13 -0700
+Message-ID: <1439430253-49275-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:60253 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750966AbbHMBNr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2015 21:13:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20150812011347.GA58200@Alexeis-MacBook-Pro.local>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35003 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240AbbHMBlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 21:41:45 -0400
+Received: by pacgr6 with SMTP id gr6so26098609pac.2
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 18:41:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 11, 2015 at 06:13:49PM -0700, Alexei Starovoitov wrote:
-> On Tue, Aug 11, 2015 at 06:23:35PM +0200, Phil Sutter wrote:
-> > 
-> > I have an unfinished solution in the oven, but being kept busy with
-> > other things for now. The action plan is as follows:
-> > 
-> > 1) Introduce IFF_NO_QUEUE net_device->priv_flag.
-> > 2) Have attach_default_qdiscs() and attach_one_default_qdisc() treat
-> >    IFF_NO_QUEUE as alternative to tx_queue_len == 0.
-> > 3) Add warning to register_netdevice() if tx_queue_len == 0.
-> > 4) Change virtual NIC drivers to set IFF_NO_QUEUE and leave tx_queue_len
-> >    alone.
-> > 5) Eventually drop all special handling for tx_queue_len == 0.
-> > 
-> > I am currently somewhere in 2) and need to implement 4) for veth as PoC to
-> > check if 2) suffices in all situations we want. Not sure if 3) is
-> > desireable at all or if there are valid cases for a literally zero
-> > length TX queue length.
-> 
-> sounds like you want to change default qdisc from pfifo_fast to noqueue
-> for veth, right?
-> In general 'changing the default' may be an acceptable thing, but then
-> it needs to strongly justified. How much performance does it bring?
-> Also why introduce the flag? Why not just add 'tx_queue_len = 0;' 
-> to veth_setup() like the whole bunch of devices do?
+From: Scott Feldman <sfeldma@gmail.com>
 
-A quick test on my local VM with veth and netperf (netserver and veth
-peer in different netns) I see an increase of about 5% of throughput
-when using noqueue instead of the default pfifo_fast.
+On sucessful probe, driver prints the switch ID.  This patch changes the
+format of the printed ID to match what's used in sysfs phys_switch_id node.
 
-Cheers, Phil
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ drivers/net/ethernet/rocker/rocker.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 619b2e2..d963cdc 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -5193,7 +5193,8 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		goto err_probe_ports;
+ 	}
+ 
+-	dev_info(&pdev->dev, "Rocker switch with id %016llx\n", rocker->hw.id);
++	dev_info(&pdev->dev, "Rocker switch with id %*phN\n",
++		 (int)sizeof(rocker->hw.id), &rocker->hw.id);
+ 
+ 	return 0;
+ 
+-- 
+1.7.10.4
