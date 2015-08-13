@@ -1,9 +1,8 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH RFC net 2/3] ipv6: Add rt6_make_pcpu_route()
-Date: Thu, 13 Aug 2015 00:58:02 -0700
-Message-ID: <1439452683-964514-3-git-send-email-kafai@fb.com>
+Subject: [PATCH RFC net 0/3] ipv6: Fix potential deadlock when creating pcpu rt
+Date: Thu, 13 Aug 2015 00:58:00 -0700
+Message-ID: <1439452683-964514-1-git-send-email-kafai@fb.com>
 References: <20150808100028.GA14897@sesse.net>
- <1439452683-964514-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -11,85 +10,38 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 To: netdev <netdev@vger.kernel.org>,
 	"Steinar H. Gunderson" <sgunderson@bigfoot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48194 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33090 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752301AbbHMH6e (ORCPT
+	by vger.kernel.org with ESMTP id S1752298AbbHMH6e (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 03:58:34 -0400
-Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7D7t7ml019779
+Received: from pps.filterd (m0044008 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7D7u0lf003072
 	for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 00:58:34 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1w8mj30a12-1
+	by mx0a-00082601.pphosted.com with ESMTP id 1w8pku8316-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 00:58:34 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 1785a324419111e5bea60002c992ebde-26ff92b0 for <netdev@vger.kernel.org>;	Thu,
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 1779737e419111e591130002c9521c9e-eb0626b0 for <netdev@vger.kernel.org>;	Thu,
  13 Aug 2015 00:58:32 -0700
-In-Reply-To: <1439452683-964514-1-git-send-email-kafai@fb.com>
+In-Reply-To: <20150808100028.GA14897@sesse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is a prep work for the potential deadlock.  The current
-rt6_get_pcpu_route() will also create a pcpu rt if one does not exist.
-This patch moves the pcpu rt creation logic into another function,
-rt6_make_pcpu_route().
+This patch series fixes a potential deadlock when creating a pcpu rt.
+It happens when dst_alloc() decided to run gc. Something like this:
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/route.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+read_lock(&table->tb6_lock);
+ip6_rt_pcpu_alloc()
+=> dst_alloc()
+=> ip6_dst_gc()
+=> write_lock(&table->tb6_lock); /* oops */
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c95c319..0a82653 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -993,13 +993,21 @@ static struct rt6_info *ip6_rt_pcpu_alloc(struct rt6_info *rt)
- /* It should be called with read_lock_bh(&tb6_lock) acquired */
- static struct rt6_info *rt6_get_pcpu_route(struct rt6_info *rt)
- {
--	struct rt6_info *pcpu_rt, *prev, **p;
-+	struct rt6_info *pcpu_rt, **p;
- 
- 	p = this_cpu_ptr(rt->rt6i_pcpu);
- 	pcpu_rt = *p;
- 
--	if (pcpu_rt)
--		goto done;
-+	if (pcpu_rt) {
-+		dst_hold(&pcpu_rt->dst);
-+		rt6_dst_from_metrics_check(pcpu_rt);
-+	}
-+	return pcpu_rt;
-+}
-+
-+static struct rt6_info *rt6_make_pcpu_route(struct rt6_info *rt)
-+{
-+	struct rt6_info *pcpu_rt, *prev, **p;
- 
- 	pcpu_rt = ip6_rt_pcpu_alloc(rt);
- 	if (!pcpu_rt) {
-@@ -1009,6 +1017,7 @@ static struct rt6_info *rt6_get_pcpu_route(struct rt6_info *rt)
- 		goto done;
- 	}
- 
-+	p = this_cpu_ptr(rt->rt6i_pcpu);
- 	prev = cmpxchg(p, NULL, pcpu_rt);
- 	if (prev) {
- 		/* If someone did it before us, return prev instead */
-@@ -1093,8 +1102,11 @@ redo_rt6_select:
- 		rt->dst.lastuse = jiffies;
- 		rt->dst.__use++;
- 		pcpu_rt = rt6_get_pcpu_route(rt);
--		read_unlock_bh(&table->tb6_lock);
- 
-+		if (!pcpu_rt)
-+			pcpu_rt = rt6_make_pcpu_route(rt);
-+
-+		read_unlock_bh(&table->tb6_lock);
- 		return pcpu_rt;
- 	}
- }
--- 
-1.8.1
+Patch 1 and 2 are some prep works.
+Patch 3 is the fix.
+
+Original report: https://bugzilla.kernel.org/show_bug.cgi?id=102291
+
+Steinar, the patches can also be applied to 4.2-rc5 (I just tried).
+Can you help to test them? Thanks!
