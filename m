@@ -1,52 +1,56 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 0/2] net: introduce IFF_NO_QUEUE as successor of zero tx_queue_len
-Date: Thu, 13 Aug 2015 19:01:05 +0200
-Message-ID: <1439485268-20953-1-git-send-email-phil@nwl.cc>
-Cc: brouer@redhat.com, alexei.starovoitov@gmail.com,
-	davem@davemloft.net, fw@strlen.de, cwang@twopensource.com,
-	eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:42807 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752202AbbHMRBK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2015 13:01:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] IGMP: Inhibit reports for local multicast groups
+Date: Thu, 13 Aug 2015 19:01:37 +0200
+Message-ID: <20150813170137.GE32627@lunn.ch>
+References: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
+ <20150812.164519.1783786478654950784.davem@davemloft.net>
+ <57f72e6a6f024628bd18ef4b139ac31e@EMEAWP-EXMB12.corp.brocade.com>
+ <20150813160626.GF32484@lunn.ch>
+ <b50a97f544f5437fb18df1cb5b6b6533@EMEAWP-EXMB12.corp.brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Philip Downey <pdowney@Brocade.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b50a97f544f5437fb18df1cb5b6b6533@EMEAWP-EXMB12.corp.brocade.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series adds a new private net_device flag indicating that a device may
-(and probably should) be used without a queueing discipline attached to it.
-This is already common practice for many virtual device types like e.g.
-loopback, VLAN (802.1Q) or bridges (802.1D). The reason for this is that these
-devices lack an underlying layer which could impose back pressure and therefore
-making a TX queue necessary to not slow down senders.
+On Thu, Aug 13, 2015 at 04:52:32PM +0000, Philip Downey wrote:
+> Hi Andrew
+> IGMP snooping is designed to prevent hosts on a local network from receiving traffic for a multicast group they have not explicitly joined.   Link-Local multicast traffic should not have an IGMP client since it is reserved for routing protocols.  One would expect that IGMP snooping needs to ignore local multicast traffic in the reserved range intended for routers since there should be no IGMP client to make "join" requests.
 
-Up to now, drivers being aware of the above applying to them set
-dev->tx_queue_len to zero to indicate no qdisc should be attached to the
-interface they drive and the kernel reacts upon this by assigning the noop
-qdisc instead of the default pfifo_fast. This implicit agreement though leads
-to an inconvenient situation once a user tries to attach a real qdisc to these
-devices, as the formerly special tx_queue_len value becomes a regular one,
-limiting the queue to zero packets and thus prevents any TX from happening. To
-overcome this, practically all qdisc implementations intercept and sanitize the
-malicious value.
+The point of this patch is that Linux is sending out group membership
+for these addresses, it is acting as a client. What happens with a
+switch which is applying IGMP snooping to link-local multicast groups?
+You turn on this feature, and you no longer get your routing protocol
+messages.
 
-With this series applied, drivers may signal the lack of need for a qdisc
-without having to tamper with tx_queue_len, making fallbacks in qdiscs and
-caveats in userspace unnecessary.
+I had a quick look at RFC 3376. The only mention i spotted for not
+sending IGMP messages is:
 
-Upon upstream acceptance, this series will be followed up by a set of patches
-converting device drivers, adding a warning so out-of-tree driver authors get
-aware of this change and dropping all special handling of tx_queue_len in
-net/sched/.
+   The all-systems multicast address, 224.0.0.1, is handled as a special
+   case.  On all systems -- that is all hosts and routers, including
+   multicast routers -- reception of packets destined to the all-systems
+   multicast address, from all sources, is permanently enabled on all
+   interfaces on which multicast reception is supported.  No IGMP
+   messages are ever sent regarding the all-systems multicast address.
 
-Phil Sutter (2):
-  net: declare new net_device priv_flag IFF_NO_QUEUE
-  net: sch_generic: react upon IFF_NO_QUEUE flag
+IGMP v2 has something similar:
 
- include/linux/netdevice.h | 3 +++
- net/sched/sch_generic.c   | 6 ++++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+   The all-systems group (address 224.0.0.1) is handled as a special
+   case.  The host starts in Idle Member state for that group on every
+   interface, never transitions to another state, and never sends a
+   report for that group.
 
--- 
-2.1.2
+But i did not find anything which says all other link-local addresses
+don't need member reports. Did i miss something?
+
+      Andrew
