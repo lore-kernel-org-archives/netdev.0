@@ -1,68 +1,61 @@
 From: Igor Plyatov <plyatov@gmail.com>
-Subject: [PATCH v2] net: phy: workaround for buggy cable detection by LAN8700 after cable plugging
-Date: Thu, 13 Aug 2015 22:18:34 +0300
-Message-ID: <1439493514-10793-1-git-send-email-plyatov@gmail.com>
-Cc: Igor Plyatov <plyatov@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, joe@perches.com, luwei.zhou@freescale.com,
-	richardcochran@gmail.com, davem@davemloft.net,
-	u.kleine-koenig@pengutronix.de, Fabio.Estevam@freescale.com,
-	LW@KARO-electronics.de, Frank.Li@freescale.com
+Subject: Re: [PATCH] net: phy: workaround for buggy cable detection by LAN8700
+ after cable plugging
+Date: Thu, 13 Aug 2015 22:23:09 +0300
+Message-ID: <55CCEE9D.7050302@gmail.com>
+References: <1439484648.4818.13.camel@perches.com>	<55CCCFDF.3090408@gmail.com>	<1439486115.27506.1.camel@perches.com> <20150813.113743.802151188971802087.davem@davemloft.net>
+Reply-To: plyatov@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	f.fainelli@gmail.com, luwei.zhou@freescale.com,
+	richardcochran@gmail.com, u.kleine-koenig@pengutronix.de,
+	Fabio.Estevam@freescale.com, LW@KARO-electronics.de,
+	Frank.Li@freescale.com
+To: David Miller <davem@davemloft.net>, joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150813.113743.802151188971802087.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Due to HW bug, LAN8700 sometimes does not detect presence of energy in the
-  Ethernet cable in Energy Detect Power-Down mode (e.g while EDPWRDOWN bit is
-  set, the ENERGYON bit does not asserted sometimes). This is a common bug of
-  LAN87xx family of PHY chips.
-* The lan87xx_read_status() was improved to acquire ENERGYON bit. Its previous
-  algorythm still not reliable on 100 % and sometimes skip cable plugging.
+Dear David and Joe,
 
-Signed-off-by: Igor Plyatov <plyatov@gmail.com>
----
- drivers/net/phy/smsc.c |   15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+thank you for patch review!
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index c0f6479..8559ff1 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -104,6 +104,7 @@ static int lan911x_config_init(struct phy_device *phydev)
- static int lan87xx_read_status(struct phy_device *phydev)
- {
- 	int err = genphy_read_status(phydev);
-+	int i;
- 
- 	if (!phydev->link) {
- 		/* Disable EDPD to wake up PHY */
-@@ -116,8 +117,16 @@ static int lan87xx_read_status(struct phy_device *phydev)
- 		if (rc < 0)
- 			return rc;
- 
--		/* Sleep 64 ms to allow ~5 link test pulses to be sent */
--		msleep(64);
-+		/* Wait max 640 ms to detect energy */
-+		for (i = 0; i < 64; i++) {
-+			/* Sleep to allow link test pulses to be sent */
-+			msleep(10);
-+			rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-+			if (rc < 0)
-+				return rc;
-+			if (rc & MII_LAN83C185_ENERGYON)
-+				break;
-+		};
- 
- 		/* Re-enable EDPD */
- 		rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-@@ -191,7 +200,7 @@ static struct phy_driver smsc_phy_driver[] = {
- 
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
--	.read_status	= genphy_read_status,
-+	.read_status	= lan87xx_read_status,
- 	.config_init	= smsc_phy_config_init,
- 	.soft_reset	= smsc_phy_reset,
- 
--- 
-1.7.9.5
+Please look at email with subject
+"[PATCH v2] net: phy: workaround for buggy cable detection by LAN8700 
+after cable plugging"
+
+Best wishes.
+--
+Igor Plyatov
+
+> From: Joe Perches <joe@perches.com>
+> Date: Thu, 13 Aug 2015 10:15:15 -0700
+>
+>> On Thu, 2015-08-13 at 20:11 +0300, Igor Plyatov wrote:
+>>>> On Thu, 2015-08-13 at 16:12 +0300, Igor Plyatov wrote:
+>>>>> * Due to HW bug, LAN8700 sometimes does not detect presence of energy in the
+>>>>>     Ethernet cable in Energy Detect Power-Down mode (e.g while EDPWRDOWN bit is
+>>>>>     set, the ENERGYON bit does not asserted sometimes). This is a common bug of
+>>>>>     LAN87xx family of PHY chips.
+>>>>> * The lan87xx_read_status() was improved to acquire ENERGYON bit. Its previous
+>>>>>     algorythm still not reliable on 100 % and sometimes skip cable plugging.
+>>>> []
+>>>>> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+>>>> []
+>>>>> @@ -104,10 +104,12 @@ static int lan911x_config_init(struct phy_device *phydev)
+>>>>>    static int lan87xx_read_status(struct phy_device *phydev)
+>>>>>    {
+>>>>>    	int err = genphy_read_status(phydev);
+>>>>> +	int rc;
+>>>> Is there a reason to move this declaration?
+>>> There is no strict requirement to move declaration of the rc.
+>>> It was made just to have all declarations easily visible.
+>> Generally it's better to have declarations
+>> in the minimal/narrowest scope possible.
+> Agreed, and it's %100 unrelated to the purpose of this patch so not
+> should be included for that reason as well.
+>
+> You will need to respin this patch with the variable moving elided.
