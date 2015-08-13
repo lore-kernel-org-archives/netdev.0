@@ -1,44 +1,60 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next 5/6] geneve: Consolidate Geneve functionality in
- single module.
-Date: Thu, 13 Aug 2015 15:37:03 -0700
-Message-ID: <CALnjE+qEMGh6kEwFpPUs+jL2cU4B0q95OyqA04e3sURQtGvXYw@mail.gmail.com>
-References: <1439356673-21844-1-git-send-email-pshelar@nicira.com>
-	<CAEP_g=8zvvosyueA-gudpYq1pCi4dCusW33wcCscpga8JLWz-w@mail.gmail.com>
-	<CALnjE+pzgLwWgqYjE2wwyvbLUQ9fkX+4VJo_Ow44pHV0hhRbGg@mail.gmail.com>
-	<CAEP_g=-BUb8Uyh3hYGt3b=J62fW9Kvm+yf3ySZwVOmMurKNf1g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] inet: fix potential deadlock in reqsk_queue_unlink()
+Date: Thu, 13 Aug 2015 15:44:51 -0700
+Message-ID: <1439505891.7960.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439222953.1084.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150810.211821.2246516216165801977.davem@davemloft.net>
+	 <1439497173.7960.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1439498674.7960.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:36108 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752768AbbHMWhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 18:37:04 -0400
-Received: by igxp17 with SMTP id p17so985155igx.1
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 15:37:03 -0700 (PDT)
-In-Reply-To: <CAEP_g=-BUb8Uyh3hYGt3b=J62fW9Kvm+yf3ySZwVOmMurKNf1g@mail.gmail.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:34720 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754186AbbHMWow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 18:44:52 -0400
+Received: by pdbfa8 with SMTP id fa8so24180480pdb.1
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 15:44:52 -0700 (PDT)
+In-Reply-To: <1439498674.7960.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2015 at 2:24 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Aug 12, 2015 at 4:33 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Wed, Aug 12, 2015 at 2:55 PM, Jesse Gross <jesse@nicira.com> wrote:
->>> The farther I go in the series, the more that I hope that we can avoid
->>> the use of collect_md_tun. It really seems to add a lot of special
->>> cases.
->>
->> Use of collect_md_tun allows us to avoid hash table lookup. thats why
->> I did it. Anyways we need a flag or pointer in geneve-sock structure
->> to locate tunnel metadata. I dont see how is it simple if
->> collect_md_tun is replaced with a flag.
->
-> It seems to me that this requires more bookkeeping to keep consistent
-> (a little in the code but mostly mentally) because collect_md_tun is a
-> separate concept that doesn't necessarily follow the same rules as
-> other tunnels. With VXLAN, I feel like I can mostly ignore this tunnel
-> since it isn't special in most ways with the exception of places where
-> it actually needs to do something different like allocate metadata.
+From: Eric Dumazet <edumazet@google.com>
 
-ok, I will update the patch.
+When replacing del_timer() with del_timer_sync(), I introduced
+a deadlock condition :
+
+reqsk_queue_unlink() is called from inet_csk_reqsk_queue_drop()
+
+inet_csk_reqsk_queue_drop() can be called from many contexts,
+one being the timer handler itself (reqsk_timer_handler()).
+
+In this case, del_timer_sync() loops forever.
+
+Simple fix is to test if timer is pending.
+
+Fixes: 2235f2ac75fd ("inet: fix races with reqsk timers")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+Sorry for this very embarrassing bug, I should have caught it in my
+tests :(
+
+ net/ipv4/inet_connection_sock.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 05e3145f7dc3..134957159c27 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -593,7 +593,7 @@ static bool reqsk_queue_unlink(struct request_sock_queue *queue,
+ 	}
+ 
+ 	spin_unlock(&queue->syn_wait_lock);
+-	if (del_timer_sync(&req->rsk_timer))
++	if (timer_pending(&req->rsk_timer) && del_timer_sync(&req->rsk_timer))
+ 		reqsk_put(req);
+ 	return found;
+ }
