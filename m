@@ -1,71 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Problem with fragmented packets on tun/tap interface
-Date: Thu, 13 Aug 2015 07:18:22 -0700
-Message-ID: <1439475502.7960.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAPBAu3WwLLAYtRuxrA2uDF7J5-1FPfvJ-JVB1_WHNZdf1W_M=A@mail.gmail.com>
-	 <1438329395.2748.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAPBAu3V2Y56wnfgh1Y9gJ8XxVGEjZYaCXBNfg-uUOeYLy9NTrw@mail.gmail.com>
-	 <1438341695.2748.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAPBAu3VHtt5TDpvVNUkkQey2fjEYaDDSX8fwzwomyANtUhGQEg@mail.gmail.com>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH 1/2] Add a matching set of device_ functions for
+ determining mac/phy
+Date: Thu, 13 Aug 2015 09:24:23 -0500
+Message-ID: <55CCA897.5080108@arm.com>
+References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+ <1439417187-21411-2-git-send-email-jeremy.linton@arm.com>
+ <55CC8613.1040709@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Prashant Upadhyaya <praupadhyaya@gmail.com>
+Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
+Content-Transfer-Encoding: 8BIT
+Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
+	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
+	Catalin Marinas <Catalin.Marinas@arm.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>
+To: Robin Murphy <Robin.Murphy@arm.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35847 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373AbbHMOSZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 10:18:25 -0400
-Received: by pacrr5 with SMTP id rr5so38371760pac.3
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 07:18:24 -0700 (PDT)
-In-Reply-To: <CAPBAu3VHtt5TDpvVNUkkQey2fjEYaDDSX8fwzwomyANtUhGQEg@mail.gmail.com>
+Received: from eu-smtp-delivery-143.mimecast.com ([207.82.80.143]:62270 "EHLO
+	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751590AbbHMOYa convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2015 10:24:30 -0400
+In-Reply-To: <55CC8613.1040709@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-08-13 at 12:52 +0530, Prashant Upadhyaya wrote:
+Hello Robin,
 
-> 
-> Hi,
-> 
-> I think I have a clue to the root cause of my issue, but I do not know
-> a solution.
-> Let me describe what I think is the problem.
-> 
-> Fragmented packets enter into the kernel through eth0 and the kernel
-> starts assembling them.
-> Simultaneously, my packet socket implementation also injects the very
-> same packets into the kernel via the tap. The kernel sees them as
-> overlapped packets during assembly and drops the packets injected via
-> the tap.
-> Eventually when the assembly gets complete inside kernel for all the
-> packets which entered via eth0, the whole packet gets dropped due to
-> the iptables rules that I have set on eth0.
-> So naturally there is no response to the bigger ping, because
-> everything got dropped one way or the other.
-> 
-> When I do introduce the delays (and it turns out that the delay that
-> matters is when injecting via tap), the kernel has already completed
-> the assembly of the packets via eth0 (during the delay I introduce for
-> submission on tap), and then the submission via tap works well because
-> it undergoes a fresh assembly (and ofcourse it does not get dropped
-> because iptables drop rule is only on eth0)
-> 
-> Now then, the question is -- how do I prevent the kernel from trying
-> to assemble the packets arriving on eth0 and drop them right away even
-> before assembly is attempted. This way the same packet injected via
-> the tap would be the only one undergoing assembly and hopefully it
-> would work.
-> 
+On 08/13/2015 06:57 AM, Robin Murphy wrote:
+>> +static void *device_get_mac_addr(struct device *dev,
+>> +				 const char *name, char *addr,
+>> +				 int alen)
+>> +{
+>> +	int ret = device_property_read_u8_array(dev, name, addr, alen);
+>> +
+>> +	if (ret == 0 && is_valid_ether_addr(addr))
+>> +		return addr;
+>> +	return NULL;
+>> +}
+>
+> Not sure I understand the logic here - "return the same thing we were
+> given if we updated it, or null if we didn't". It's only indicating
+> success/failure (the caller can perfectly well cast its own buffer to a
+> void * if it needs to), so why wouldn't you just return a normal int
+> error code?
 
-Nice theory ! 
 
-What kind of iptables rule do you have to drop packets coming on eth0 ?
+	No particular reason, other than initially I was trying to keep the 
+function as similar as possible to the one in of_net. AKA copy paste 
+job. I can convert the return types, but I was trying for a simple 
+function rename. That way the users of the of version could be converted 
+with relative ease, and the drivers which invented their own version of 
+these functions could be changed to use this instead. Of course, that 
+plan took a blow, when I added the addr/alen parameters.
 
-Have you tried to install this rule in raw table, PREROUTING hook ?
+	Same thing applies for the other function.
 
-This should work, because the defrag is attempted from
-ip_local_deliver() [ after raw table has given its verdict] , not from
-ip_rcv().
 
-iptables -t raw -I PREROUTING -i eth0 -j DROP
+	
