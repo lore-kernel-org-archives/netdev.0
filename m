@@ -1,200 +1,146 @@
-From: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
-Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
-Date: Thu, 13 Aug 2015 10:01:17 +0100
-Message-ID: <20150813090117.GA13833@red-moon>
-References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
- <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
- <20150813082759.GB5468@xora-haswell.xora.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeremy Linton <Jeremy.Linton@arm.com>,
-	"steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
-	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Graeme Gregory <gg@slimlogic.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:33572 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751006AbbHMJBO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2015 05:01:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20150813082759.GB5468@xora-haswell.xora.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH 2/2] mac80211: use DECLARE_EWMA
+Date: Thu, 13 Aug 2015 11:11:49 +0200
+Message-ID: <1439457109-21833-2-git-send-email-johannes@sipsolutions.net>
+References: <1439457109-21833-1-git-send-email-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1439457109-21833-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 13, 2015 at 09:27:59AM +0100, Graeme Gregory wrote:
-> On Wed, Aug 12, 2015 at 05:06:27PM -0500, Jeremy Linton wrote:
-> > Add ACPI bindings for the smsc911x driver. Convert the DT specific calls
-> > to nonspecific device* calls, This allows the driver to work
-> > with both ACPI and DT configurations. Ethernet should now work when using
-> > ACPI on ARM Juno.
+From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-Last sentence does not belong in the commit log.
+Instead of using the out-of-line average calculation, use the new
+DECLARE_EWMA() macro to declare a signal EWMA, and use that.
 
-> > 
-> > Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
-> 
-> The code looks fine to me.
-> 
-> Currently the compulsary DT properties seem to match the "approved" ACPI
-> NIC properties from here
-> 
-> http://www.uefi.org/sites/default/files/resources/nic-request-v2.pdf
+This actually *reduces* the code size slightly (on x86-64) while
+also reducing the station info size by 80 bytes.
 
-What about _DSD device specific properties (eg "smsc,save-mac-address") ?
-Are we taking 1:1 translation between DT and ACPI for granted ?
+Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ net/mac80211/Kconfig      | 1 -
+ net/mac80211/mesh_plink.c | 2 +-
+ net/mac80211/rx.c         | 4 ++--
+ net/mac80211/sta_info.c   | 9 +++++----
+ net/mac80211/sta_info.h   | 6 ++++--
+ 5 files changed, 12 insertions(+), 10 deletions(-)
 
-I thought some process must be put in place to define the corresponding
-bindings in ACPI before starting this mechanical translation or maybe
-I missed something, I would like to understand.
+diff --git a/net/mac80211/Kconfig b/net/mac80211/Kconfig
+index 086de496a4c1..3891cbd2adea 100644
+--- a/net/mac80211/Kconfig
++++ b/net/mac80211/Kconfig
+@@ -7,7 +7,6 @@ config MAC80211
+ 	select CRYPTO_CCM
+ 	select CRYPTO_GCM
+ 	select CRC32
+-	select AVERAGE
+ 	---help---
+ 	  This option enables the hardware independent IEEE 802.11
+ 	  networking stack.
+diff --git a/net/mac80211/mesh_plink.c b/net/mac80211/mesh_plink.c
+index 1a7d98398626..6fa6606fce55 100644
+--- a/net/mac80211/mesh_plink.c
++++ b/net/mac80211/mesh_plink.c
+@@ -64,7 +64,7 @@ static bool rssi_threshold_check(struct ieee80211_sub_if_data *sdata,
+ {
+ 	s32 rssi_threshold = sdata->u.mesh.mshcfg.rssi_threshold;
+ 	return rssi_threshold == 0 ||
+-	       (sta && (s8) -ewma_read(&sta->avg_signal) > rssi_threshold);
++	       (sta && (s8) -ewma_signal_read(&sta->avg_signal) > rssi_threshold);
+ }
+ 
+ /**
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 3a1462810c8e..e3cff02bde07 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -1428,7 +1428,7 @@ ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx)
+ 	sta->rx_bytes += rx->skb->len;
+ 	if (!(status->flag & RX_FLAG_NO_SIGNAL_VAL)) {
+ 		sta->last_signal = status->signal;
+-		ewma_add(&sta->avg_signal, -status->signal);
++		ewma_signal_add(&sta->avg_signal, -status->signal);
+ 	}
+ 
+ 	if (status->chains) {
+@@ -1440,7 +1440,7 @@ ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx)
+ 				continue;
+ 
+ 			sta->chain_signal_last[i] = signal;
+-			ewma_add(&sta->chain_signal_avg[i], -signal);
++			ewma_signal_add(&sta->chain_signal_avg[i], -signal);
+ 		}
+ 	}
+ 
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 9da7d2bc271a..dd9541c51de1 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -341,9 +341,9 @@ struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
+ 
+ 	ktime_get_ts(&uptime);
+ 	sta->last_connected = uptime.tv_sec;
+-	ewma_init(&sta->avg_signal, 1024, 8);
++	ewma_signal_init(&sta->avg_signal);
+ 	for (i = 0; i < ARRAY_SIZE(sta->chain_signal_avg); i++)
+-		ewma_init(&sta->chain_signal_avg[i], 1024, 8);
++		ewma_signal_init(&sta->chain_signal_avg[i]);
+ 
+ 	if (local->ops->wake_tx_queue) {
+ 		void *txq_data;
+@@ -1899,7 +1899,8 @@ void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
+ 		}
+ 
+ 		if (!(sinfo->filled & BIT(NL80211_STA_INFO_SIGNAL_AVG))) {
+-			sinfo->signal_avg = (s8) -ewma_read(&sta->avg_signal);
++			sinfo->signal_avg =
++				(s8) -ewma_signal_read(&sta->avg_signal);
+ 			sinfo->filled |= BIT(NL80211_STA_INFO_SIGNAL_AVG);
+ 		}
+ 	}
+@@ -1914,7 +1915,7 @@ void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
+ 		for (i = 0; i < ARRAY_SIZE(sinfo->chain_signal); i++) {
+ 			sinfo->chain_signal[i] = sta->chain_signal_last[i];
+ 			sinfo->chain_signal_avg[i] =
+-				(s8) -ewma_read(&sta->chain_signal_avg[i]);
++				(s8) -ewma_signal_read(&sta->chain_signal_avg[i]);
+ 		}
+ 	}
+ 
+diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
+index 6dcb33484eac..1c5333448bde 100644
+--- a/net/mac80211/sta_info.h
++++ b/net/mac80211/sta_info.h
+@@ -318,6 +318,8 @@ struct mesh_sta {
+ 	unsigned int fail_avg;
+ };
+ 
++DECLARE_EWMA(signal, 1024, 8)
++
+ /**
+  * struct sta_info - STA information
+  *
+@@ -460,12 +462,12 @@ struct sta_info {
+ 	unsigned long rx_fragments;
+ 	unsigned long rx_dropped;
+ 	int last_signal;
+-	struct ewma avg_signal;
++	struct ewma_signal avg_signal;
+ 	int last_ack_signal;
+ 
+ 	u8 chains;
+ 	s8 chain_signal_last[IEEE80211_MAX_CHAINS];
+-	struct ewma chain_signal_avg[IEEE80211_MAX_CHAINS];
++	struct ewma_signal chain_signal_avg[IEEE80211_MAX_CHAINS];
+ 
+ 	/* Plus 1 for non-QoS frames */
+ 	__le16 last_seq_ctrl[IEEE80211_NUM_TIDS + 1];
+-- 
+2.1.4
 
-How does the device specific _DSD definitions work in ACPI world ? Where
-are they published ? How will we translate those to DT bindings if there
-is need ?
-
-Lorenzo
-
-> Reviewed-by: Graeme Gregory <graeme.gregory@linaro.org>
-> 
-> Thanks
-> 
-> > ---
-> >  drivers/net/ethernet/smsc/smsc911x.c | 48 +++++++++++++++++-------------------
-> >  1 file changed, 22 insertions(+), 26 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> > index 959aeea..0f21aa3 100644
-> > --- a/drivers/net/ethernet/smsc/smsc911x.c
-> > +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> > @@ -59,7 +59,9 @@
-> >  #include <linux/of_device.h>
-> >  #include <linux/of_gpio.h>
-> >  #include <linux/of_net.h>
-> > +#include <linux/acpi.h>
-> >  #include <linux/pm_runtime.h>
-> > +#include <linux/property.h>
-> >  
-> >  #include "smsc911x.h"
-> >  
-> > @@ -2362,59 +2364,46 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
-> >  	.tx_writefifo = smsc911x_tx_writefifo_shift,
-> >  };
-> >  
-> > -#ifdef CONFIG_OF
-> > -static int smsc911x_probe_config_dt(struct smsc911x_platform_config *config,
-> > -				    struct device_node *np)
-> > +static int smsc911x_probe_config(struct smsc911x_platform_config *config,
-> > +				 struct device *dev)
-> >  {
-> > -	const char *mac;
-> >  	u32 width = 0;
-> >  
-> > -	if (!np)
-> > +	if (!dev)
-> >  		return -ENODEV;
-> >  
-> > -	config->phy_interface = of_get_phy_mode(np);
-> > +	config->phy_interface = device_get_phy_mode(dev);
-> >  
-> > -	mac = of_get_mac_address(np);
-> > -	if (mac)
-> > -		memcpy(config->mac, mac, ETH_ALEN);
-> > +	device_get_mac_address(dev, config->mac, ETH_ALEN);
-> >  
-> > -	of_property_read_u32(np, "reg-shift", &config->shift);
-> > +	device_property_read_u32(dev, "reg-shift", &config->shift);
-> >  
-> > -	of_property_read_u32(np, "reg-io-width", &width);
-> > +	device_property_read_u32(dev, "reg-io-width", &width);
-> >  	if (width == 4)
-> >  		config->flags |= SMSC911X_USE_32BIT;
-> >  	else
-> >  		config->flags |= SMSC911X_USE_16BIT;
-> >  
-> > -	if (of_get_property(np, "smsc,irq-active-high", NULL))
-> > +	if (device_property_present(dev, "smsc,irq-active-high"))
-> >  		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
-> >  
-> > -	if (of_get_property(np, "smsc,irq-push-pull", NULL))
-> > +	if (device_property_present(dev, "smsc,irq-push-pull"))
-> >  		config->irq_type = SMSC911X_IRQ_TYPE_PUSH_PULL;
-> >  
-> > -	if (of_get_property(np, "smsc,force-internal-phy", NULL))
-> > +	if (device_property_present(dev, "smsc,force-internal-phy"))
-> >  		config->flags |= SMSC911X_FORCE_INTERNAL_PHY;
-> >  
-> > -	if (of_get_property(np, "smsc,force-external-phy", NULL))
-> > +	if (device_property_present(dev, "smsc,force-external-phy"))
-> >  		config->flags |= SMSC911X_FORCE_EXTERNAL_PHY;
-> >  
-> > -	if (of_get_property(np, "smsc,save-mac-address", NULL))
-> > +	if (device_property_present(dev, "smsc,save-mac-address"))
-> >  		config->flags |= SMSC911X_SAVE_MAC_ADDRESS;
-> >  
-> >  	return 0;
-> >  }
-> > -#else
-> > -static inline int smsc911x_probe_config_dt(
-> > -				struct smsc911x_platform_config *config,
-> > -				struct device_node *np)
-> > -{
-> > -	return -ENODEV;
-> > -}
-> > -#endif /* CONFIG_OF */
-> >  
-> >  static int smsc911x_drv_probe(struct platform_device *pdev)
-> >  {
-> > -	struct device_node *np = pdev->dev.of_node;
-> >  	struct net_device *dev;
-> >  	struct smsc911x_data *pdata;
-> >  	struct smsc911x_platform_config *config = dev_get_platdata(&pdev->dev);
-> > @@ -2478,7 +2467,7 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
-> >  		goto out_disable_resources;
-> >  	}
-> >  
-> > -	retval = smsc911x_probe_config_dt(&pdata->config, np);
-> > +	retval = smsc911x_probe_config(&pdata->config, &pdev->dev);
-> >  	if (retval && config) {
-> >  		/* copy config parameters across to pdata */
-> >  		memcpy(&pdata->config, config, sizeof(pdata->config));
-> > @@ -2654,6 +2643,12 @@ static const struct of_device_id smsc911x_dt_ids[] = {
-> >  MODULE_DEVICE_TABLE(of, smsc911x_dt_ids);
-> >  #endif
-> >  
-> > +static const struct acpi_device_id smsc911x_acpi_match[] = {
-> > +	{ "ARMH9118", 0 },
-> > +	{ }
-> > +};
-> > +MODULE_DEVICE_TABLE(acpi, smsc911x_acpi_match);
-> > +
-> >  static struct platform_driver smsc911x_driver = {
-> >  	.probe = smsc911x_drv_probe,
-> >  	.remove = smsc911x_drv_remove,
-> > @@ -2661,6 +2656,7 @@ static struct platform_driver smsc911x_driver = {
-> >  		.name	= SMSC_CHIPNAME,
-> >  		.pm	= SMSC911X_PM_OPS,
-> >  		.of_match_table = of_match_ptr(smsc911x_dt_ids),
-> > +		.acpi_match_table = ACPI_PTR(smsc911x_acpi_match),
-> >  	},
-> >  };
-> >  
-> > -- 
-> > 2.4.3
-> > 
-> > 
-> > 
-> > _______________________________________________
-> > linux-arm-kernel mailing list
-> > linux-arm-kernel@lists.infradead.org
-> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
