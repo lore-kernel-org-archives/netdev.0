@@ -1,71 +1,64 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH] net: allow sleeping when modifying store_rps_map
-Date: Thu, 13 Aug 2015 11:46:19 -0700
-Message-ID: <CALx6S36f+fcuOQ1jjWvMG-c13Umj50V0RNyVaT+R+HOLKR3RVQ@mail.gmail.com>
-References: <1439488996-31227-1-git-send-email-sasha.levin@oracle.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 0/2] net: introduce IFF_NO_QUEUE as successor of zero
+ tx_queue_len
+Date: Thu, 13 Aug 2015 12:11:57 -0700
+Message-ID: <20150813121157.5166efb1@urahara>
+References: <1439485268-20953-1-git-send-email-phil@nwl.cc>
+	<20150813104950.1b8346f2@urahara>
+	<20150813204037.3c4e68a4@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439488996-31227-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
+	alexei.starovoitov@gmail.com, davem@davemloft.net, fw@strlen.de,
+	cwang@twopensource.com, eric.dumazet@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33750 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752061AbbHMTLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 15:11:47 -0400
+Received: by pabyb7 with SMTP id yb7so42959407pab.0
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 12:11:46 -0700 (PDT)
+In-Reply-To: <20150813204037.3c4e68a4@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2015 at 11:03 AM, Sasha Levin <sasha.levin@oracle.com> wrote:
-> Commit 10e4ea751 ("net: Fix race condition in store_rps_map") has moved the
-> manipulation of the rps_needed jump label under a spinlock. Since changing
-> the state of a jump label may sleep this is incorrect and causes warnings
-> during runtime.
->
-> Make rps_map_lock a mutex to allow sleeping under it.
->
-> Fixes: 10e4ea751 ("net: Fix race condition in store_rps_map")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-> ---
->  net/core/net-sysfs.c |    8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-> index 39ec694..b279077 100644
-> --- a/net/core/net-sysfs.c
-> +++ b/net/core/net-sysfs.c
-> @@ -689,7 +689,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
->         struct rps_map *old_map, *map;
->         cpumask_var_t mask;
->         int err, cpu, i;
-> -       static DEFINE_SPINLOCK(rps_map_lock);
-> +       static DEFINE_MUTEX(rps_map_mutex);
->
->         if (!capable(CAP_NET_ADMIN))
->                 return -EPERM;
-> @@ -722,9 +722,9 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
->                 map = NULL;
->         }
->
-> -       spin_lock(&rps_map_lock);
-> +       mutex_lock(&rps_map_mutex);
->         old_map = rcu_dereference_protected(queue->rps_map,
-> -                                           lockdep_is_held(&rps_map_lock));
-> +                                           mutex_is_locked(&rps_map_mutex));
->         rcu_assign_pointer(queue->rps_map, map);
->
->         if (map)
-> @@ -732,7 +732,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
->         if (old_map)
->                 static_key_slow_dec(&rps_needed);
->
-> -       spin_unlock(&rps_map_lock);
-> +       mutex_unlock(&rps_map_mutex);
->
->         if (old_map)
->                 kfree_rcu(old_map, rcu);
-> --
-> 1.7.10.4
->
+On Thu, 13 Aug 2015 20:40:37 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-Thanks Sasha!
+> On Thu, 13 Aug 2015 10:49:50 -0700
+> Stephen Hemminger <stephen@networkplumber.org> wrote:
+> 
+> > On Thu, 13 Aug 2015 19:01:05 +0200
+> > Phil Sutter <phil@nwl.cc> wrote:
+> > 
+> > > Up to now, drivers being aware of the above applying to them set
+> > > dev->tx_queue_len to zero to indicate no qdisc should be attached to the
+> > > interface they drive and the kernel reacts upon this by assigning the noop
+> > > qdisc instead of the default pfifo_fast. This implicit agreement though leads
+> > > to an inconvenient situation once a user tries to attach a real qdisc to these
+> > > devices, as the formerly special tx_queue_len value becomes a regular one,
+> > 
+> > So this is a workaround for user ignorance by introducing kernel API complexity.
+> > Before user sets qdisc, why don't they set tx queue length?
+> 
+> Please don't insist on keeping this broke interface... how should users
+> know that BEFORE adding a qdisc they MUST change the _device_ tx queue
+> length (not zero).
 
-Acked-by: Tom Herbert <tom@herbertland.com>
+Before setting any qdisc, they should set queue length anyway.
+
+>  Getting "back" to the original state, they MUST
+> change the device tx queue len back to zero BEFORE deleting the qdisc,
+> such that when assigning the default queue qdisc the system detects
+> this device can work without a qdisc.  Changing the tx queue len to
+> zero after the qdisc is deleted will have not effect. 
+> 
+> Listen to the description, that interface is broken. The kernel really
+> needs to hide these details from userspace.
+> 
+> It even allows you to misconfigure the kernel, by tricking the kernel
+> into assigning noqueue to physical devices that really need it.
+
+But adding a flag risks breaking external scripts.
