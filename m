@@ -1,211 +1,83 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net-next 1/2] ppp: fix device unregistration upon netns
- deletion
-Date: Thu, 13 Aug 2015 15:28:16 +0200
-Message-ID: <46f4dfd95c0d333ab20773d93b2a8526d642ed82.1439471390.git.g.nault@alphalink.fr>
-References: <cover.1439471390.git.g.nault@alphalink.fr>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next 0/3] mpls: multipath support
+Date: Thu, 13 Aug 2015 14:46:58 +0100
+Message-ID: <55CC9FD2.8090001@brocade.com>
+References: <1439329548-50935-1-git-send-email-roopa@cumulusnetworks.com>
+ <55CB82A6.8070800@brocade.com> <55CBFBD6.50603@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Paul Mackerras <paulus@samba.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <ebiederm@xmission.com>,
+	<netdev@vger.kernel.org>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:34733 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751906AbbHMN21 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 09:28:27 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1439471390.git.g.nault@alphalink.fr>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36508 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753045AbbHMNre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 09:47:34 -0400
+In-Reply-To: <55CBFBD6.50603@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PPP devices may get automatically unregistered when their network
-namespace is getting removed. This happens if the ppp control plane
-daemon (e.g. pppd) exits while it is the last user of this namespace.
+On 13/08/15 03:07, roopa wrote:
+> On 8/12/15, 10:30 AM, Robert Shearman wrote:
+>> On 11/08/15 22:45, Roopa Prabhu wrote:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
+>>> This patch series adds multipath support to mpls routes.
+>>>
+>>> resembles ipv4 multipath support. The multipath route nexthop
+>>> selection algorithm is the same code as in ipv4 fib code.
+>>>
+>>> I understand that the multipath algorithm in ipv4 is undergoing
+>>> some changes and will move mpls to similar algo if applicable once
+>>> those get merged.
+>>
+>> Is it necessary for the mpls patch selection algorithm to closely
+>> resemble the ipv4 one?
+> No, It is not necessary. I picked that because it was already there. And
+> I see that ipv4 is also getting some new multipath algorithms
+> (https://marc.info/?l=linux-api&m=143457208315573&w=2). I wanted to move
+> to the new RT_MP infra if that becomes applicable in the future.
 
-This leads to several races:
+The MPLS code doesn't have the binary compatibility requirement that the 
+IPv4 path does, so there isn't so much of a need for the algorithm to be 
+configurable, provided the default is reasonable. Unless you have a use 
+case in mind that would particularly suited to the round-robin algorithm?
 
-  * ppp_exit_net() may destroy the per namespace idr (pn->units_idr)
-    before all file descriptors were released. Successive ppp_release()
-    calls may then cleanup PPP devices with ppp_shutdown_interface() and
-    try to use the already destroyed idr.
+>
+>> A flow based algorithm would be much better for traffic that is
+>> sensitive to re-ordering (e.g TCP, L2VPN) and IMHO we should do this
+>> from the start for MPLS.
+>>
+>> I've also been looking at implementing this functionality. I've got a
+>> set of patches for this that I can send if you'd like.
+>
+> Definitely. But, It seems like you can also submit incremental patches
+> to mine. You can replace the current algo with a hash based with your
+> patches.
 
-  * Automatic device unregistration may also happen before the
-    ppp_release() call for that device gets executed. Once called on
-    the file owning the device, ppp_release() will then clean it up and
-    try to unregister it a second time.
+With a flow-based algorithm if there's no need to support weighted paths 
+then there's no need to iterate through the nexthops to work out which 
+one should be used and, therefore, there is a performance benefit.
 
-To fix these issues, operations defined in ppp_shutdown_interface() are
-moved to the PPP device's ndo_uninit() callback. This allows PPP
-devices to be properly cleaned up by unregister_netdev() and friends.
-So checking for ppp->owner is now an accurate test to decide if a PPP
-device should be unregistered.
+So my patches implement a flow-based path selection without support for 
+weighted paths. This is similar way to how the IPv6 path selection 
+works. The user can still do UCMP with this mechanism, but they have to 
+add the same nexthop multiple times. I don't know if this trade-off is 
+worth it, but the benefit is that we can always add support for weighted 
+paths in the future, whereas removing support for weighted paths would 
+be harder due to compatibility concerns.
 
-Setting ppp->owner is done in ppp_create_interface(), before device
-registration, in order to avoid unprotected modification of this field.
+Therefore, if I rebased my patches on top of yours I would be removing 
+code managing the weighting that you will have just added. Not sure if 
+that is desirable.
 
-Finally ppp_exit_net() now starts by unregistering all remaining PPP
-devices to ensure that none will get unregistered after the call to
-idr_destroy().
+> If that does not work for you and if you want me to merge with this
+> series that works too.
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- drivers/net/ppp/ppp_generic.c | 79 +++++++++++++++++++++++--------------------
- 1 file changed, 43 insertions(+), 36 deletions(-)
+I think that would work better. I'll send you a patch against your 
+current series.
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 9d15566..1dc478a 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -269,9 +269,9 @@ static void ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound);
- static void ppp_ccp_closed(struct ppp *ppp);
- static struct compressor *find_compressor(int type);
- static void ppp_get_stats(struct ppp *ppp, struct ppp_stats *st);
--static struct ppp *ppp_create_interface(struct net *net, int unit, int *retp);
-+static struct ppp *ppp_create_interface(struct net *net, int unit,
-+					struct file *file, int *retp);
- static void init_ppp_file(struct ppp_file *pf, int kind);
--static void ppp_shutdown_interface(struct ppp *ppp);
- static void ppp_destroy_interface(struct ppp *ppp);
- static struct ppp *ppp_find_unit(struct ppp_net *pn, int unit);
- static struct channel *ppp_find_channel(struct ppp_net *pn, int unit);
-@@ -392,8 +392,10 @@ static int ppp_release(struct inode *unused, struct file *file)
- 		file->private_data = NULL;
- 		if (pf->kind == INTERFACE) {
- 			ppp = PF_TO_PPP(pf);
-+			rtnl_lock();
- 			if (file == ppp->owner)
--				ppp_shutdown_interface(ppp);
-+				unregister_netdevice(ppp->dev);
-+			rtnl_unlock();
- 		}
- 		if (atomic_dec_and_test(&pf->refcnt)) {
- 			switch (pf->kind) {
-@@ -593,8 +595,10 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 		mutex_lock(&ppp_mutex);
- 		if (pf->kind == INTERFACE) {
- 			ppp = PF_TO_PPP(pf);
-+			rtnl_lock();
- 			if (file == ppp->owner)
--				ppp_shutdown_interface(ppp);
-+				unregister_netdevice(ppp->dev);
-+			rtnl_unlock();
- 		}
- 		if (atomic_long_read(&file->f_count) < 2) {
- 			ppp_release(NULL, file);
-@@ -838,11 +842,10 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
- 		/* Create a new ppp unit */
- 		if (get_user(unit, p))
- 			break;
--		ppp = ppp_create_interface(net, unit, &err);
-+		ppp = ppp_create_interface(net, unit, file, &err);
- 		if (!ppp)
- 			break;
- 		file->private_data = &ppp->file;
--		ppp->owner = file;
- 		err = -EFAULT;
- 		if (put_user(ppp->file.index, p))
- 			break;
-@@ -916,6 +919,17 @@ static __net_init int ppp_init_net(struct net *net)
- static __net_exit void ppp_exit_net(struct net *net)
- {
- 	struct ppp_net *pn = net_generic(net, ppp_net_id);
-+	struct ppp *ppp;
-+	LIST_HEAD(list);
-+	int id;
-+
-+	rtnl_lock();
-+	idr_for_each_entry(&pn->units_idr, ppp, id) {
-+		unregister_netdevice_queue(ppp->dev, &list);
-+	}
-+
-+	unregister_netdevice_many(&list);
-+	rtnl_unlock();
- 
- 	idr_destroy(&pn->units_idr);
- }
-@@ -1088,8 +1102,28 @@ static int ppp_dev_init(struct net_device *dev)
- 	return 0;
- }
- 
-+static void ppp_dev_uninit(struct net_device *dev)
-+{
-+	struct ppp *ppp = netdev_priv(dev);
-+	struct ppp_net *pn = ppp_pernet(ppp->ppp_net);
-+
-+	ppp_lock(ppp);
-+	ppp->closing = 1;
-+	ppp_unlock(ppp);
-+
-+	mutex_lock(&pn->all_ppp_mutex);
-+	unit_put(&pn->units_idr, ppp->file.index);
-+	mutex_unlock(&pn->all_ppp_mutex);
-+
-+	ppp->owner = NULL;
-+
-+	ppp->file.dead = 1;
-+	wake_up_interruptible(&ppp->file.rwait);
-+}
-+
- static const struct net_device_ops ppp_netdev_ops = {
- 	.ndo_init	 = ppp_dev_init,
-+	.ndo_uninit      = ppp_dev_uninit,
- 	.ndo_start_xmit  = ppp_start_xmit,
- 	.ndo_do_ioctl    = ppp_net_ioctl,
- 	.ndo_get_stats64 = ppp_get_stats64,
-@@ -2667,8 +2701,8 @@ ppp_get_stats(struct ppp *ppp, struct ppp_stats *st)
-  * or if there is already a unit with the requested number.
-  * unit == -1 means allocate a new number.
-  */
--static struct ppp *
--ppp_create_interface(struct net *net, int unit, int *retp)
-+static struct ppp *ppp_create_interface(struct net *net, int unit,
-+					struct file *file, int *retp)
- {
- 	struct ppp *ppp;
- 	struct ppp_net *pn;
-@@ -2688,6 +2722,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
- 	ppp->mru = PPP_MRU;
- 	init_ppp_file(&ppp->file, INTERFACE);
- 	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
-+	ppp->owner = file;
- 	for (i = 0; i < NUM_NP; ++i)
- 		ppp->npmode[i] = NPMODE_PASS;
- 	INIT_LIST_HEAD(&ppp->channels);
-@@ -2776,34 +2811,6 @@ init_ppp_file(struct ppp_file *pf, int kind)
- }
- 
- /*
-- * Take down a ppp interface unit - called when the owning file
-- * (the one that created the unit) is closed or detached.
-- */
--static void ppp_shutdown_interface(struct ppp *ppp)
--{
--	struct ppp_net *pn;
--
--	pn = ppp_pernet(ppp->ppp_net);
--	mutex_lock(&pn->all_ppp_mutex);
--
--	/* This will call dev_close() for us. */
--	ppp_lock(ppp);
--	if (!ppp->closing) {
--		ppp->closing = 1;
--		ppp_unlock(ppp);
--		unregister_netdev(ppp->dev);
--		unit_put(&pn->units_idr, ppp->file.index);
--	} else
--		ppp_unlock(ppp);
--
--	ppp->file.dead = 1;
--	ppp->owner = NULL;
--	wake_up_interruptible(&ppp->file.rwait);
--
--	mutex_unlock(&pn->all_ppp_mutex);
--}
--
--/*
-  * Free the memory used by a ppp unit.  This is only called once
-  * there are no channels connected to the unit and no file structs
-  * that reference the unit.
--- 
-2.5.0
+Thanks,
+Rob
