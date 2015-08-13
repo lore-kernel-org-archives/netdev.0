@@ -1,60 +1,60 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH 1/3] net: make default tx_queue_len configurable
-Date: Thu, 13 Aug 2015 17:06:48 +0200
-Message-ID: <20150813150648.GG32353@orbit.nwl.cc>
-References: <1438203103-27013-2-git-send-email-phil@nwl.cc>
- <20150729210618.GF32705@breakpoint.cc>
- <20150729213428.GC15554@orbit.nwl.cc>
- <20150729.143731.834219016906219771.davem@davemloft.net>
- <20150811174807.3e00b4da@redhat.com>
- <20150811162335.GB32353@orbit.nwl.cc>
- <20150812011347.GA58200@Alexeis-MacBook-Pro.local>
- <20150813011339.GF32353@orbit.nwl.cc>
- <20150813151033.048d73b8@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] ipv4: off-by-one in continuation handling in
+ /proc/net/route
+Date: Thu, 13 Aug 2015 08:10:58 -0700
+Message-ID: <1439478658.7960.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439461267-10627-1-git-send-email-apw@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:33059 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751820AbbHMPGu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2015 11:06:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20150813151033.048d73b8@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andy Whitcroft <apw@canonical.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439461267-10627-1-git-send-email-apw@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 13, 2015 at 03:10:33PM +0200, Jesper Dangaard Brouer wrote:
+On Thu, 2015-08-13 at 11:21 +0100, Andy Whitcroft wrote:
+> When generating /proc/net/route we emit a header followed by a line for
+> each route.  When a short read is performed we will restart this process
+> based on the open file descriptor.  When calculating the start point we
+> fail to take into account that the 0th entry is the header.  This leads
+> us to skip the first entry when doing a continuation read.
 > 
-> On Thu, 13 Aug 2015 03:13:40 +0200 Phil Sutter <phil@nwl.cc> wrote:
+> This can be easily seen with the comparison below:
 > 
-> > On Tue, Aug 11, 2015 at 06:13:49PM -0700, Alexei Starovoitov wrote:
+>   while read l; do echo "$l"; done </proc/net/route >A
+>   cat /proc/net/route >B
+>   diff -bu A B | grep '^[+-]'
 > 
-> > > In general 'changing the default' may be an acceptable thing, but then
-> > > it needs to strongly justified. How much performance does it bring?
-> > 
-> > A quick test on my local VM with veth and netperf (netserver and veth
-> > peer in different netns) I see an increase of about 5% of throughput
-> > when using noqueue instead of the default pfifo_fast.
+> On my example machine I have approximatly 10KB of route output.  There we
+> see the very first non-title element is lost in the while read case,
+> and an entry around the 8K mark in the cat case:
 > 
-> Good that you can show 5% improvement with a single netperf flow.  We
-> are saving approx 6 atomic operations avoiding the qdisc code path.
+>   +wlan0 00000000 02021EAC 0003 0 0 400 00000000 0 0 0
+>   -tun1  00C0AC0A 00000000 0001 0 0 950 00C0FFFF 0 0 0
 > 
-> This fixes a scalability issue with veth. Thus, the real performance
-> boost will happen with multiple flows and multiple CPU cores in
-> action.  You can try with a multi core VM and use super_netperf.
+> Fix up the off-by-one when reaquiring position on continuation.
 > 
-> https://github.com/borkmann/stuff/blob/master/super_netperf
+> BugLink: http://bugs.launchpad.net/bugs/1483440
+> Signed-off-by: Andy Whitcroft <apw@canonical.com>
+> ---
+>  net/ipv4/fib_trie.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> 	From code inspection I belive this was introduced by the Fixes
+> 	below, but I have not tested this to confirm.
+> 
+> 	Fixes: 8be33e955cb9 ("ipv4: off-by-one in continuation handling in /proc/net/route")
 
-I actually used that on my VM as well, but the difference between a
-single and ten streams in parallel was negligible. In order to avoid
-tampering the results, I tested again on a physical system with four
-cores, ran each benchmark ten times and built an average over the
-results. This showed an increase in throughput of about 35% with a
-single stream and about 10% with ten streams in parallel. Not sure
-though why the improvement is bigger in the first case if there really
-is a scalability problem as you say.
+You probably meant
 
-Cheers, Phil
+Fixes: 8be33e955cb9 ("fib_trie: Fib walk rcu should take a tnode and key instead of a trie and a leaf")
+
+CC Alexander for review/comment
