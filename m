@@ -1,65 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] inet: fix races with reqsk timers
-Date: Thu, 13 Aug 2015 14:30:12 -0700
-Message-ID: <1439501412.7960.22.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1439222953.1084.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150810.211821.2246516216165801977.davem@davemloft.net>
-	 <1439497173.7960.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1439498674.7960.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <2FC70745-2105-465E-A82E-44D565A930F0@cumulusnetworks.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next] net: atl1c: add BQL support
+Date: Fri, 14 Aug 2015 00:16:48 +0200
+Message-ID: <20150813221648.GA25701@electric-eye.fr.zoreil.com>
+References: <55CAE130.8040406@gmail.com>
+ <20150812224020.GA31826@electric-eye.fr.zoreil.com>
+ <55CC2728.6020309@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ron Angeles <ronangeles@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34264 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932120AbbHMVaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 17:30:14 -0400
-Received: by paccq16 with SMTP id cq16so1651538pac.1
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 14:30:13 -0700 (PDT)
-In-Reply-To: <2FC70745-2105-465E-A82E-44D565A930F0@cumulusnetworks.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:37437 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbbHMWRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 18:17:09 -0400
+Content-Disposition: inline
+In-Reply-To: <55CC2728.6020309@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-08-14 at 00:13 +0300, Nikolay Aleksandrov wrote:
-> > On Aug 13, 2015, at 11:44 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> >=20
-> > On Thu, 2015-08-13 at 13:19 -0700, Eric Dumazet wrote:
-> >=20
-> >>=20
-> >> A caller handler can not call del_timer_sync()
-> >=20
-> > A timer handler can not call del_timer_sync()
-> >=20
-> > I am testing a minimal fix :
-> >=20
-> > diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connec=
-tion_sock.c
-> > index 05e3145f7dc3..134957159c27 100644
-> > --- a/net/ipv4/inet_connection_sock.c
-> > +++ b/net/ipv4/inet_connection_sock.c
-> > @@ -593,7 +593,7 @@ static bool reqsk_queue_unlink(struct request_s=
-ock_queue *queue,
-> > 	}
-> >=20
-> > 	spin_unlock(&queue->syn_wait_lock);
-> > -	if (del_timer_sync(&req->rsk_timer))
-> > +	if (timer_pending(&req->rsk_timer) && del_timer_sync(&req->rsk_ti=
-mer))
-> > 		reqsk_put(req);
-> > 	return found;
-> > }
-> >=20
-> >=20
->=20
-> Wouldn=E2=80=99t try_to_del_timer_sync(&req->rsk_timer) > 0 be better=
- ?
+Ron Angeles <ronangeles@gmail.com> :
+[...]
+> I only have one of these NICs and it is running on something critical
+> throughout the weekdays. I can try running these when I have time on a
+> weekend.
 
-I am not sure : there are contexts where we need to wait for the timer
-being completed (this was point of commit
-2235f2ac75fd2501c251b0b699a9632e80239a6d)
+Thanks, it would be perfect: I can't promise it won't crash.
 
-(problem is that timer handler can rearm itself)
+> Is there any particular way you would suggest testing? Would an
+> overnight smoke test with netperf suffice?
+
+Anything that changes timing, packet size, and plays with different
+contexts (link change, retrieve stats, etc.).
+
+I'll send an updated patchkit tomorrow. The xmit part is a bit different
+from what I'm used to.
+
+-- 
+Ueimor
