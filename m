@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next]  iproute2: Add support for VRF device
-Date: Thu, 13 Aug 2015 14:59:11 -0600
-Message-ID: <1439499551-90231-13-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 08/11] net: Use passed in table for nexthop lookups
+Date: Thu, 13 Aug 2015 14:59:07 -0600
+Message-ID: <1439499551-90231-9-git-send-email-dsa@cumulusnetworks.com>
 References: <1439499551-90231-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,165 +12,72 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:34009 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932208AbbHMVAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 17:00:17 -0400
-Received: by iodb91 with SMTP id b91so65291979iod.1
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 14:00:16 -0700 (PDT)
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:38516 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932184AbbHMVAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 17:00:07 -0400
+Received: by igfj19 with SMTP id j19so44909311igf.1
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 14:00:07 -0700 (PDT)
 In-Reply-To: <1439499551-90231-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow user to create a vrf device and specify its table binding.
-Based on the iplink_vlan implementation.
+If a user passes in a table for new routes use that table for nexthop
+lookups. Specifically, this solves the case where a connected route does
+not exist in the main table, but only another table and then a subsequent
+route is added with a next hop using the connected route. ie.,
 
-Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+$ ip route ls
+default via 10.0.2.2 dev eth0
+10.0.2.0/24 dev eth0  proto kernel  scope link  src 10.0.2.15
+169.254.0.0/16 dev eth0  scope link  metric 1003
+192.168.56.0/24 dev eth1  proto kernel  scope link  src 192.168.56.51
+
+$ ip route ls table 10
+1.1.1.0/24 dev eth2  scope link
+
+Without this patch adding a nexthop route fails:
+
+$ ip route add table 10 2.2.2.0/24 via 1.1.1.10
+RTNETLINK answers: Network is unreachable
+
+With this patch the route is added successfully.
+
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/linux/if_link.h |  8 +++++
- ip/Makefile             |  2 +-
- ip/iplink.c             |  2 +-
- ip/iplink_vrf.c         | 86 +++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 96 insertions(+), 2 deletions(-)
- create mode 100644 ip/iplink_vrf.c
+ net/ipv4/fib_semantics.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 4f0a558e8fcf..c8b569a79e80 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -339,6 +339,14 @@ enum macvlan_macaddr_mode {
- 
- #define MACVLAN_FLAG_NOPROMISC	1
- 
-+/* VRF section */
-+enum {
-+	IFLA_VRF_UNSPEC,
-+	IFLA_VRF_TABLE,
-+	__IFLA_VRF_MAX
-+};
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 85e9a8abf15c..b7f1d20a9615 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -691,6 +691,7 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 		}
+ 		rcu_read_lock();
+ 		{
++			struct fib_table *tbl = NULL;
+ 			struct flowi4 fl4 = {
+ 				.daddr = nh->nh_gw,
+ 				.flowi4_scope = cfg->fc_scope + 1,
+@@ -701,8 +702,16 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 			/* It is not necessary, but requires a bit of thinking */
+ 			if (fl4.flowi4_scope < RT_SCOPE_LINK)
+ 				fl4.flowi4_scope = RT_SCOPE_LINK;
+-			err = fib_lookup(net, &fl4, &res,
+-					 FIB_LOOKUP_IGNORE_LINKSTATE);
 +
-+#define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
- /* IPVLAN section */
- enum {
- 	IFLA_IPVLAN_UNSPEC,
-diff --git a/ip/Makefile b/ip/Makefile
-index 77653ecc5785..d8b38ac2e44b 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -7,7 +7,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
-     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o \
-     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
-     iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
--    iplink_geneve.o
-+    iplink_geneve.o iplink_vrf.o
- 
- RTMONOBJ=rtmon.o
- 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index edee0f7a3b07..e2183e89a7f6 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -94,7 +94,7 @@ void iplink_usage(void)
- 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
- 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
- 		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon |\n");
--		fprintf(stderr, "          bond_slave | ipvlan | geneve | bridge_slave }\n");
-+		fprintf(stderr, "          bond_slave | ipvlan | geneve | bridge_slave | vrf }\n");
- 	}
- 	exit(-1);
- }
-diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-new file mode 100644
-index 000000000000..913a2892c95b
---- /dev/null
-+++ b/ip/iplink_vrf.c
-@@ -0,0 +1,86 @@
-+/* iplink_vrf.c	VRF device support
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Shrijeet Mukherjee <shm@cumulusnetworks.com>
-+ */
++			if (cfg->fc_table)
++				tbl = fib_get_table(net, cfg->fc_table);
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/socket.h>
-+#include <linux/if_link.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void vrf_explain(FILE *f)
-+{
-+	fprintf(f, "Usage: ... vrf table TABLEID \n");
-+}
-+
-+static void explain(void)
-+{
-+	vrf_explain(stderr);
-+}
-+
-+static int table_arg(void)
-+{
-+	fprintf(stderr,"Error: argument of \"table\" must be 0-32767 and currently unused\n");
-+	return -1;
-+}
-+
-+static int vrf_parse_opt(struct link_util *lu, int argc, char **argv,
-+			    struct nlmsghdr *n)
-+{
-+	while (argc > 0) {
-+		if (matches(*argv, "table") == 0) {
-+			__u32 table;
-+
-+			NEXT_ARG();
-+
-+			table = atoi(*argv);
-+			if (table > 32767)
-+				return table_arg();
-+			addattr32(n, 1024, IFLA_VRF_TABLE, table);
-+		} else if (matches(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "vrf: unknown option \"%s\"?\n",
-+				*argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--, argv++;
-+	}
-+
-+	return 0;
-+}
-+
-+static void vrf_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
-+{
-+	if (!tb)
-+		return;
-+
-+	if (tb[IFLA_VRF_TABLE])
-+		fprintf(f, "table %u ", rta_getattr_u32(tb[IFLA_VRF_TABLE]));
-+}
-+
-+static void vrf_print_help(struct link_util *lu, int argc, char **argv,
-+			      FILE *f)
-+{
-+	vrf_explain(f);
-+}
-+
-+struct link_util vrf_link_util = {
-+	.id		= "vrf",
-+	.maxattr	= IFLA_VRF_MAX,
-+	.parse_opt	= vrf_parse_opt,
-+	.print_opt	= vrf_print_opt,
-+	.print_help	= vrf_print_help,
-+};
++			if (tbl)
++				err = fib_table_lookup(tbl, &fl4, &res,
++						   FIB_LOOKUP_IGNORE_LINKSTATE);
++			else
++				err = fib_lookup(net, &fl4, &res,
++						 FIB_LOOKUP_IGNORE_LINKSTATE);
+ 			if (err) {
+ 				rcu_read_unlock();
+ 				return err;
 -- 
 2.3.2 (Apple Git-55)
