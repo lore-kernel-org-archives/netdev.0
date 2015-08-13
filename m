@@ -1,283 +1,254 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 12 Aug 2015 23:06:12 -0700 (PDT)
-Message-ID: <20150812.230612.868690964421376371.davem@davemloft.net>
+From: vkochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 2/3] ip-link: fix and extend documentation
+Date: Thu, 13 Aug 2015 09:28:10 +0300
+Message-ID: <20150813062810.GA13296@vkochan>
+References: <1439409848-26464-1-git-send-email-pavlix@pavlix.net>
+ <1439409848-26464-2-git-send-email-pavlix@pavlix.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
-1) Workaround hw bug when acquiring PCI bos ownership of iwlwifi
-   devices, from Emmanuel Grumbach.
-
-2) Falling back to vmalloc in conntrack should not emit a warning,
-   from Pablo Neira Ayuso.
-
-3) Fix NULL deref when rtlwifi driver is used as an AP, from Luis
-   Felipe Dominguez Vega.
-
-4) Rocker doesn't free netdev on device removal, from Ido Schimmel.
-
-5) UDP multicast early sock demux has route handling races, from
-   Eric Dumazet.
-
-6) Fix L4 checksum handling in openvswitch, from Glenn Griffin.
-
-7) Fix use-after-free in skb_set_peeked, from Herbert Xu.
-
-8) Don't advertize NETIF_F_FRAGLIST in virtio_net driver, this can
-   lead to fraglists longer than the driver can support.  From Jason
-   Wang.
-
-9) Fix mlx5 on non-4k-pagesize systems, from Carol L Soto.
-
-10) Fix interrupt storm in bna driver, from Ivan Vecera.
-
-11) Don't propagate -EBUSY from netlink_insert(), from Daniel
-    Borkmann.
-
-12) Fix inet request sock leak, from Eric Dumazet.
-
-13) Fix TX interrupt masking and marking in TX descriptors of fs_enet
-    driver, from LEROY Christophe.
-
-14) Get rid of rule optimizer in gianfar driver, it's buggy and unlikely
-    to get fixed any time soon.  From Jakub Kicinski.
-
-Please pull, thanks a lot!
-
-The following changes since commit 7c764cec3703583247c4ab837c652975a3d41f4b:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-07-31 17:10:56 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net 
-
-for you to fetch changes up to e6d006938c9bda7ffd22af9d3e1257fd75941fb7:
-
-  cosa: missing error code on failure in probe() (2015-08-12 16:53:11 -0700)
-
-----------------------------------------------------------------
-Antonio Quartulli (1):
-      batman-adv: avoid DAT to mess up LAN state
-
-Avraham Stern (1):
-      iwlwifi: mvm: Fix regular scan priority
-
-Benjamin Poirier (1):
-      net-timestamp: Update skb_complete_tx_timestamp comment
-
-Carol L Soto (1):
-      net/mlx5_core: Set log_uar_page_sz for non 4K page size architecture
-
-Dan Carpenter (4):
-      netfilter: nf_conntrack: checking for IS_ERR() instead of NULL
-      rds: fix an integer overflow test in rds_info_getsockopt()
-      cxgb4: missing curly braces in t4_setup_debugfs()
-      cosa: missing error code on failure in probe()
-
-Daniel Borkmann (1):
-      netlink: make sure -EBUSY won't escape from netlink_insert
-
-David S. Miller (8):
-      Merge tag 'wireless-drivers-for-davem-2015-08-04' of git://git.kernel.org/.../kvalo/wireless-drivers
-      Merge branch 'be2net-fixes'
-      Merge tag 'batman-adv-fix-for-davem' of git://git.open-mesh.org/linux-merge
-      Merge branch 'mvpp2-fixes'
-      Merge branch 'bnx2x-fixes'
-      Merge git://git.kernel.org/.../pablo/nf
-      Merge branch 'for-upstream' of git://git.kernel.org/.../bluetooth/bluetooth
-      Merge branch 'gianfar-fixes'
-
-Emmanuel Grumbach (2):
-      iwlwifi: pcie: fix prepare card flow
-      iwlwifi: pcie: fix stuck queue detection for sleeping clients
-
-Eric Dumazet (4):
-      fq_codel: explicitly reset flows in ->reset()
-      udp: fix dst races with multicast early demux
-      inet: fix races with reqsk timers
-      inet: fix possible request socket leak
-
-Fabio Estevam (1):
-      mkiss: Fix error handling in mkiss_open()
-
-Florian Fainelli (1):
-      net: dsa: Do not override PHY interface if already configured
-
-Florian Westphal (1):
-      ipv6: don't reject link-local nexthop on other interface
-
-Glenn Griffin (1):
-      openvswitch: Fix L4 checksum handling when dealing with IP fragments
-
-Hauke Mehrtens (1):
-      b43: fix extpa_gain check for 2GHz
-
-Herbert Xu (1):
-      net: Fix skb_set_peeked use-after-free bug
-
-Ian Campbell (1):
-      net: thunderx: remove effective "default y" from Kconfig if ARCH_THUNDER=y
-
-Ido Schimmel (1):
-      rocker: free netdevice during netdevice removal
-
-Ivan Vecera (2):
-      r8169: enforce RX_MULTI_EN on rtl8168ep/8111ep chips
-      bna: fix interrupts storm caused by erroneous packets
-
-Jakub Kicinski (3):
-      gianfar: correct filer table writing
-      gianfar: correct list membership accounting
-      gianfar: remove faulty filer optimizer
-
-Jakub Pawlowski (1):
-      Bluetooth: fix MGMT_EV_NEW_LONG_TERM_KEY event
-
-Jason Wang (1):
-      virtio-net: drop NETIF_F_FRAGLIST
-
-Jia-Ju Bai (1):
-      3c59x: Fix resource leaks in vortex_open
-
-Joe Stringer (1):
-      netfilter: conntrack: Use flags in nf_ct_tmpl_alloc()
-
-Kalesh AP (3):
-      be2net: enable IFACE filters only after creating RXQs
-      be2net: post buffers before destroying RXQs in Lancer
-      be2net: protect eqo->affinity_mask from getting freed twice
-
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2015-07-30' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
-LEROY Christophe (2):
-      net: fs_enet: explicitly remove I flag on TX partial frames
-      net: fs_enet: mask interrupts for TX partial frames.
-
-Larry Finger (1):
-      rtlwifi: rtl8723be: Add module parameter for MSI interrupts
-
-Lucas Stach (1):
-      net: fec: fix initial runtime PM refcount
-
-Luis Felipe Dominguez Vega (1):
-      rtlwifi: Fix NULL dereference when PCI driver used as an AP
-
-Marcin Wojtas (3):
-      net: mvpp2: remove excessive spinlocks from driver initialization
-      net: mvpp2: enable proper per-CPU TX buffers unmapping
-      net: mvpp2: replace TX coalescing interrupts with hrtimer
-
-Marek Lindner (2):
-      batman-adv: fix kernel crash due to missing NULL checks
-      batman-adv: protect tt_local_entry from concurrent delete events
-
-Mathieu Olivari (1):
-      stmmac: dwmac-ipq806x: fix static checker warning
-
-Mike Looijmans (1):
-      rsi: Fix failure to load firmware after memory leak fix and fix the leak
-
-Nikolay Aleksandrov (2):
-      bridge: netlink: account for the IFLA_BRPORT_PROXYARP attribute size and policy
-      bridge: netlink: account for the IFLA_BRPORT_PROXYARP_WIFI attribute size and policy
-
-Oleg Nesterov (1):
-      net: pktgen: don't abuse current->state in pktgen_thread_worker()
-
-Pablo Neira Ayuso (1):
-      netfilter: nf_conntrack: silence warning on falling back to vmalloc()
-
-Phil Sutter (2):
-      netfilter: ip6t_SYNPROXY: fix NULL pointer dereference
-      netfilter: SYNPROXY: fix sending window update to client
-
-Ross Lagerwall (2):
-      xen-netback: Allocate fraglist early to avoid complex rollback
-      xen/netback: Wake dealloc thread after completing zerocopy work
-
-Simon Wunderlich (1):
-      batman-adv: initialize up/down values when adding a gateway
-
-Venkat Venkatsubra (1):
-      bonding: Gratuitous ARP gets dropped when first slave added
-
-WANG Cong (1):
-      act_mirred: avoid calling tcf_hash_release() when binding
-
-WingMan Kwok (1):
-      net: netcp: fix unused interface rx buffer size configuration
-
-Yuval Mintz (2):
-      bnx2x: Prevent null pointer dereference on SKB release
-      bnx2x: Free NVRAM lock at end of each page
-
- drivers/net/bonding/bond_main.c                       |   1 +
- drivers/net/ethernet/3com/3c59x.c                     |  17 ++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c       |   2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c   |  16 +++
- drivers/net/ethernet/brocade/bna/bnad.c               |   2 +-
- drivers/net/ethernet/cavium/Kconfig                   |   3 -
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c    |   3 +-
- drivers/net/ethernet/emulex/benet/be_cmds.h           |   5 +
- drivers/net/ethernet/emulex/benet/be_main.c           | 187 ++++++++++++++++++++++------------
- drivers/net/ethernet/freescale/fec_main.c             |   1 +
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c |   3 +-
- drivers/net/ethernet/freescale/fs_enet/mac-fec.c      |   2 +-
- drivers/net/ethernet/freescale/gianfar_ethtool.c      | 345 +-------------------------------------------------------------
- drivers/net/ethernet/marvell/mvpp2.c                  | 244 ++++++++++++++++++++++++++++++--------------
- drivers/net/ethernet/mellanox/mlx5/core/main.c        |   2 +
- drivers/net/ethernet/realtek/r8169.c                  |   4 +-
- drivers/net/ethernet/rocker/rocker.c                  |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c   |   4 +-
- drivers/net/ethernet/ti/netcp.h                       |   1 -
- drivers/net/ethernet/ti/netcp_core.c                  |  35 +++----
- drivers/net/hamradio/mkiss.c                          |   7 +-
- drivers/net/virtio_net.c                              |   4 +-
- drivers/net/wan/cosa.c                                |   3 +-
- drivers/net/wireless/b43/tables_nphy.c                |   2 +-
- drivers/net/wireless/iwlwifi/mvm/scan.c               |   2 +-
- drivers/net/wireless/iwlwifi/pcie/trans.c             |  22 +++-
- drivers/net/wireless/iwlwifi/pcie/tx.c                |  15 ++-
- drivers/net/wireless/rsi/rsi_91x_sdio_ops.c           |   8 +-
- drivers/net/wireless/rsi/rsi_91x_usb_ops.c            |   4 +
- drivers/net/wireless/rtlwifi/core.c                   |   7 +-
- drivers/net/wireless/rtlwifi/rtl8723be/sw.c           |   1 +
- drivers/net/xen-netback/interface.c                   |   6 ++
- drivers/net/xen-netback/netback.c                     |  62 +++++------
- include/linux/skbuff.h                                |   6 +-
- net/batman-adv/distributed-arp-table.c                |  18 +++-
- net/batman-adv/gateway_client.c                       |   2 +
- net/batman-adv/soft-interface.c                       |   3 +
- net/batman-adv/translation-table.c                    |  29 +++++-
- net/bluetooth/mgmt.c                                  |   2 +-
- net/bridge/br_netlink.c                               |   4 +
- net/core/datagram.c                                   |  13 +--
- net/core/pktgen.c                                     |   3 -
- net/core/request_sock.c                               |   8 +-
- net/dsa/slave.c                                       |   3 +-
- net/ipv4/inet_connection_sock.c                       |   2 +-
- net/ipv4/netfilter/ipt_SYNPROXY.c                     |   3 +-
- net/ipv4/tcp_ipv4.c                                   |   2 +-
- net/ipv4/udp.c                                        |  13 ++-
- net/ipv6/netfilter/ip6t_SYNPROXY.c                    |  19 ++--
- net/ipv6/route.c                                      |   6 +-
- net/ipv6/tcp_ipv6.c                                   |   2 +-
- net/netfilter/nf_conntrack_core.c                     |   8 +-
- net/netfilter/nf_synproxy_core.c                      |   4 +-
- net/netfilter/xt_CT.c                                 |   5 +-
- net/netlink/af_netlink.c                              |   5 +
- net/openvswitch/actions.c                             |  16 ++-
- net/rds/info.c                                        |   2 +-
- net/sched/act_mirred.c                                |   2 +
- net/sched/sch_fq_codel.c                              |  22 +++-
- 59 files changed, 590 insertions(+), 633 deletions(-)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Phil Sutter <psutter@redhat.com>,
+	Pavel =?utf-8?Q?=C5=A0imerda?= <psimerda@redhat.com>
+To: Pavel =?utf-8?Q?=C5=A0imerda?= <pavlix@pavlix.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:33648 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908AbbHMG2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 02:28:12 -0400
+Received: by lbbsx3 with SMTP id sx3so21555965lbb.0
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 23:28:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1439409848-26464-2-git-send-email-pavlix@pavlix.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, Aug 12, 2015 at 10:04:07PM +0200, Pavel =C5=A0imerda wrote:
+> From: Pavel =C5=A0imerda <psimerda@redhat.com>
+>=20
+>  * Add `can` to list of supported link types
+>  * Document `addrgenmode`
+>  * Document `link-netnsid`
+>  * Document VLAN link type
+>  * Improve VXLAN link type documentation
+>     - Fix VXLAN srcport/dstport docs
+>     - Document `udpcsum`, `udp6zerocsumtx` and `udp6zerocsumrx`
+> ---
+>  man/man8/ip-link.8.in | 112 ++++++++++++++++++++++++++++++++++++++++=
+++++++++--
+>  1 file changed, 108 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+> index 372e6c6..9ff9a23 100644
+> --- a/man/man8/ip-link.8.in
+> +++ b/man/man8/ip-link.8.in
+> @@ -143,9 +143,13 @@ ip-link \- network device configuration
+>  ] |
+>  .br
+>  .B master
+> -.IR DEVICE
+> +.IR DEVICE " |"
+>  .br
+> -.B nomaster
+> +.B nomaster " |"
+> +.br
+> +.B addrgenmode { eui64 | none }
+> +.br
+> +.B link-netnsid ID
+>  .BR " }"
+> =20
+> =20
+> @@ -185,6 +189,8 @@ Link types:
+>  .sp
+>  .B bond
+>  - Bonding device
+> +.B can
+> +- Controller Area Network interface
+>  .sp
+>  .B dummy
+>  - Dummy network interface
+> @@ -266,6 +272,66 @@ specifies the number of receive queues for new d=
+evice.
+>  specifies the desired index of the new virtual device. The link crea=
+tion fails, if the index is busy.
+> =20
+>  .TP
+> +VLAN Type Support
+> +For a link of type
+> +.I VLAN
+> +the following additional arguments are supported:
+> +
+> +.BI "ip link add
+> +.BI link " DEVICE "
+> +.BI name " NAME "
+> +.BI type " vlan "
+> +.R " [ "
+> +.BI protocol " VLAN_PROTO "
+> +.R " ] "
+> +.BI id " VLANID "
+> +.R " [ "
+> +.BR reorder_hdr " { " on " | " off " } "
+> +.R " ] "
+> +.R " [ "
+> +.BR gvrp " { " on " | " off " } "
+> +.R " ] "
+> +.R " [ "
+> +.BR mvrp " { " on " | " off " } "
+> +.R " ] "
+> +.R " [ "
+> +.BR loose_binding " { " on " | " off " } "
+> +.R " ] "
+> +.R " [ "
+> +.BI ingress-qos-map " QOS-MAP "
+> +.R " ] "
+> +.R " [ "
+> +.BI egress-qos-map " QOS-MAP "
+> +.R " ] "
+> +
+> +.in +8
+> +.sp
+> +.BI protocol " VLAN_PROTO "
+> +- either 802.1Q or 802.1ad.
+> +
+> +.BI id " VLANID "
+> +- specifies the VLAN Identifer to use. Note that numbers with a lead=
+ing " 0 " or " 0x " are interpreted as octal or hexadeimal, respectivel=
+y.
+> +
+> +.BR reorder_hdr " { " on " | " off " } "
+> +- specifies whether ethernet headers are reordered or not.
+May be it should have more detailed explanation like that this feature =
+is ON by default and what it affects on ?
+
+> +
+> +.BR gvrp " { " on " | " off " } "
+> +- specifies whether this VLAN should be registered using GARP VLAN R=
+egistration Protocol.
+> +
+> +.BR mvrp " { " on " | " off " } "
+> +- specifies whether this VLAN should be registered using Multiple VL=
+AN Registration Protocol.
+> +
+> +.BR loose_binding " { " on " | " off " } "
+> +- specifies whether the VLAN device state is bound to the physical d=
+evice state.
+May be add some little explanation that it means that if physical devic=
+e goes DOWN then the vlan device does the same ?
+
+> +
+> +.BI ingress-qos-map " QOS-MAP "
+> +- defines a mapping between priority code points on incoming frames.=
+  The format is FROM:TO with multiple mappings separated by spaces.
+Would it be useful if to add here explanation that under priority it me=
+ans skb->priority and may be some example how it can be set by iptable =
+CLASSIFY ?
+> +
+> +.BI egress-qos-map " QOS-MAP "
+> +- the same as ingress-qos-map but for outgoing frames.
+> +.in -8
+> +
+> +.TP
+>  VXLAN Type Support
+>  For a link of type
+>  .I VXLAN
+> @@ -284,7 +350,9 @@ the following additional arguments are supported:
+>  .R " ] [ "
+>  .BI tos " TOS "
+>  .R " ] [ "
+> -.BI port " MIN MAX "
+> +.BI dstport " PORT "
+> +.R " ] [ "
+> +.BI srcport " MIN MAX "
+>  .R " ] [ "
+>  .I "[no]learning "
+>  .R " ] [ "
+> @@ -296,6 +364,12 @@ the following additional arguments are supported=
+:
+>  .R " ] [ "
+>  .I "[no]l3miss "
+>  .R " ] [ "
+> +.I "[no]udpcsum "
+> +.R " ] [ "
+> +.I "[no]udp6zerocsumtx "
+> +.R " ] [ "
+> +.I "[no]udp6zerocsumrx "
+> +.R " ] [ "
+>  .BI ageing " SECONDS "
+>  .R " ] [ "
+>  .BI maxaddress " NUMBER "
+> @@ -340,7 +414,11 @@ parameter.
+>  - specifies the TOS value to use in outgoing packets.
+> =20
+>  .sp
+> -.BI port " MIN MAX"
+> +.BI dstport " PORT"
+> +- specifies the UDP destination port to communicate to the remote VX=
+LAN tunnel endpoint.
+> +
+> +.sp
+> +.BI srcport " MIN MAX"
+>  - specifies the range of port numbers to use as UDP
+>  source ports to communicate to the remote VXLAN tunnel endpoint.
+> =20
+> @@ -366,6 +444,18 @@ are entered into the VXLAN device forwarding dat=
+abase.
+>  - specifies if netlink IP ADDR miss notifications are generated.
+> =20
+>  .sp
+> +.I [no]udpcsum
+> +- specifies if UDP checksum is filled in
+> +
+> +.sp
+> +.I [no]udp6zerocsumtx
+> +- specifies if UDP checksum is filled in
+> +
+> +.sp
+> +.I [no]udp6zerocsumrx
+> +- specifies if UDP checksum is received
+> +
+> +.sp
+>  .BI ageing " SECONDS"
+>  - specifies the lifetime in seconds of FDB entries learnt by the ker=
+nel.
+> =20
+> @@ -751,6 +841,12 @@ tool can be used. But it allows to change networ=
+k namespace only for physical de
+>  give the device a symbolic name for easy reference.
+> =20
+>  .TP
+> +.BI group " GROUP"
+> +specify the group the device belongs to.
+> +The available groups are listed in file
+> +.BR "@SYSCONFDIR@/group" .
+> +
+> +.TP
+>  .BI vf " NUM"
+>  specify a Virtual Function device to be configured. The associated P=
+=46 device
+>  must be specified using the
+> @@ -829,6 +925,14 @@ set master device of the device (enslave device)=
+=2E
+>  .BI nomaster
+>  unset master device of the device (release device).
+> =20
+> +.TP
+> +.BR "addrgenmode eui64 " or " addrgenmode none"
+> +set IPv6 address generation mode
+> +
+> +.TP
+> +.BR "link-netnsid "
+> +set peer netnsid for a cross-netns interface
+> +
+>  .PP
+>  .B Warning:
+>  If multiple parameter changes are requested,
+> --=20
+> 2.4.1
+>=20
+
+I just added my IMHOs, so please ignore them if you think they are usel=
+ess.
+
+Regards,
