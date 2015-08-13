@@ -1,76 +1,74 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH] mm: make page pfmemalloc check more robust
-Date: Thu, 13 Aug 2015 11:31:41 +0200
-Message-ID: <20150813093140.GB31736@dhcp22.suse.cz>
-References: <1439456364-4530-1-git-send-email-mhocko@kernel.org>
- <55CC5FA0.300@suse.cz>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: Re: [Cluster-devel] [PATCH 4/6] dlm: use sctp 1-to-1 API
+Date: Thu, 13 Aug 2015 10:37:53 +0100
+Message-ID: <55CC6571.70009@redhat.com>
+References: <cover.1439330654.git.marcelo.leitner@gmail.com>
+ <479a4fd07289ea9043d84a27d706cccd2c968fb0.1439330654.git.marcelo.leitner@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB794EB@AcuExch.aculab.com>
+ <55CB4729.2060203@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB7979F@AcuExch.aculab.com>
+ <55CB778E.4050002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Mel Gorman <mgorman@suse.de>,
-	Jiri Bohac <jbohac@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <55CC5FA0.300@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"tan.hu@zte.com.cn" <tan.hu@zte.com.cn>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"cluster-devel@redhat.com" <cluster-devel@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53553 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751129AbbHMJh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2015 05:37:58 -0400
+In-Reply-To: <55CB778E.4050002@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 13-08-15 11:13:04, Vlastimil Babka wrote:
-> On 08/13/2015 10:58 AM, mhocko@kernel.org wrote:
-> >From: Michal Hocko <mhocko@suse.com>
-> >
-> >The patch c48a11c7ad26 ("netvm: propagate page->pfmemalloc to skb")
-> >added the checks for page->pfmemalloc to __skb_fill_page_desc():
-> >
-> >         if (page->pfmemalloc && !page->mapping)
-> >                 skb->pfmemalloc = true;
-> >
-> >It assumes page->mapping == NULL implies that page->pfmemalloc can be
-> >trusted.  However, __delete_from_page_cache() can set set page->mapping
-> >to NULL and leave page->index value alone. Due to being in union, a
-> >non-zero page->index will be interpreted as true page->pfmemalloc.
-> >
-> >So the assumption is invalid if the networking code can see such a
-> >page. And it seems it can. We have encountered this with a NFS over
-> >loopback setup when such a page is attached to a new skbuf. There is no
-> >copying going on in this case so the page confuses __skb_fill_page_desc
-> >which interprets the index as pfmemalloc flag and the network stack
-> >drops packets that have been allocated using the reserves unless they
-> >are to be queued on sockets handling the swapping which is the case here
-> 
->                                                             ^ not ?
+Hi,
 
-Dohh, you are right of course, updated...
+On 12/08/15 17:42, Marcelo Ricardo Leitner wrote:
+> Em 12-08-2015 12:33, David Laight escreveu:
+>> From: Marcelo Ricardo Leitner
+>>> Sent: 12 August 2015 14:16
+>>> Em 12-08-2015 07:23, David Laight escreveu:
+>>>> From: Marcelo Ricardo Leitner
+>>>>> Sent: 11 August 2015 23:22
+>>>>> DLM is using 1-to-many API but in a 1-to-1 fashion. That is, it's not
+>>>>> needed but this causes it to use sctp_do_peeloff() to mimic an
+>>>>> kernel_accept() and this causes a symbol dependency on sctp module.
+>>>>>
+>>>>> By switching it to 1-to-1 API we can avoid this dependency and also
+>>>>> reduce quite a lot of SCTP-specific code in lowcomms.c.
+>>>> ...
+>>>>
+>>>> You still need to enable sctp notifications (I think the patch deleted
+>>>> that code).
+>>>> Otherwise you don't get any kind of indication if the remote system
+>>>> 'resets' (ie sends an new INIT chunk) on an existing connection.
+>>>
+>>> Right, it would miss the restart event and could generate a corrupted
+>>> tx/rx buffers by glueing parts of old messages with new ones.
+>>
+>> Except that it is SCTP so you'd expect DATA chunks to contain entire
+>> messages and so get unexpected message sequences rather than corrupt
+>> messages.
+>
+> I was thinking on cases where the buf for recvmsg is not enough to 
+> hold the chunk, so that the remaining is left for another attempt 
+> (sctp_recvmsg, around line 2130), but sounds like we won't purge rx 
+> buffer when the reset happens so that doesn't matter. The association 
+> is replaced, but the buffers are kept.
+>
+> Out of order messages aren't a problem for dlm. It can recover from 
+> that just fine, as it doesn't have a specific handshake at beginning 
+> or something like that and upper layers are agnostic to that state 
+> transition (disconnect/reconnect/...), this should be fine.
+>
+I'm not sure thats true - DLM does rely on message ordering in some 
+cases in order to ensure correct functioning. So depending on how SCTP 
+is interfaced to DLM, it might potentially be an issue,
 
-> The full story (according to Jiri Bohac and my understanding, I don't know
-> much about netdev) is that the __skb_fill_page_desc() is invoked here during
-> *sending* and normally the skb->pfmemalloc would be ignored in the end. But
-> because it is a localhost connection, the receiving code will think it was a
-> memalloc allocation during receive, and then do the socket restriction.
-> 
-> Given that this apparently isn't the first case of this localhost issue, I
-> wonder if network code should just clear skb->pfmemalloc during send (or
-> maybe just send over localhost). That would be probably easier than
-> distinguish the __skb_fill_page_desc() callers for send vs receive.
-
-Maybe the networking code can behave "better" in this particular case
-but the core thing remains though. Relying on page->mapping as you have
-properly found out during the debugging cannot be used for the reliable
-detection of pfmemalloc. So I would argue that a more robust detection
-is really worthwhile. Note there are other places which even do not
-bother to test for mapping - maybe they are safe but I got lost quickly
-when trying to track the allocation source to be clear that nothing
-could have stepped in in the meantime.
--- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Steve.
