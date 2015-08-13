@@ -1,36 +1,43 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 0/2] net: introduce IFF_NO_QUEUE as successor of zero
- tx_queue_len
-Date: Thu, 13 Aug 2015 10:49:50 -0700
-Message-ID: <20150813104950.1b8346f2@urahara>
-References: <1439485268-20953-1-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com,
-	alexei.starovoitov@gmail.com, davem@davemloft.net, fw@strlen.de,
-	cwang@twopensource.com, eric.dumazet@gmail.com
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36850 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752210AbbHMRtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 13:49:42 -0400
-Received: by pacrr5 with SMTP id rr5so41873747pac.3
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 10:49:40 -0700 (PDT)
-In-Reply-To: <1439485268-20953-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH 2/6] ethernet/bnx2x: advertise LRO support in vlan_features
+Date: Thu, 13 Aug 2015 14:02:56 -0400
+Message-ID: <1439488980-44738-3-git-send-email-jarod@redhat.com>
+References: <1439488980-44738-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Ariel Elior <ariel.elior@qlogic.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439488980-44738-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Aug 2015 19:01:05 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+Without this, the presence of a bnx2x device in a bond will not trigger
+LRO support to be enabled at the bond level, even while it is enabled on
+the slave itself.
 
-> Up to now, drivers being aware of the above applying to them set
-> dev->tx_queue_len to zero to indicate no qdisc should be attached to the
-> interface they drive and the kernel reacts upon this by assigning the noop
-> qdisc instead of the default pfifo_fast. This implicit agreement though leads
-> to an inconvenient situation once a user tries to attach a real qdisc to these
-> devices, as the formerly special tx_queue_len value becomes a regular one,
+This change becomes necessary when NETIF_F_LRO is added to
+netdev_features.h's NETIF_F_ONE_FOR_ALL.
 
-So this is a workaround for user ignorance by introducing kernel API complexity.
-Before user sets qdisc, why don't they set tx queue length?
+CC: Ariel Elior <ariel.elior@qlogic.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index ad73a60..41dc066 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13083,7 +13083,8 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 	}
+ 
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
++		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA |
++		NETIF_F_LRO;
+ 
+ 	/* VF with OLD Hypervisor or old PF do not support filtering */
+ 	if (IS_PF(bp)) {
+-- 
+1.8.3.1
