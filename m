@@ -1,100 +1,57 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/7] net: dsa: mv88e6xxx: flush VTU and STU entries
-Date: Thu, 13 Aug 2015 12:52:18 -0400
-Message-ID: <1439484743-5126-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1439484743-5126-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"Chris Healy" <cphealy@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH 1/2] net: declare new net_device priv_flag IFF_NO_QUEUE
+Date: Thu, 13 Aug 2015 19:01:06 +0200
+Message-ID: <1439485268-20953-2-git-send-email-phil@nwl.cc>
+References: <1439485268-20953-1-git-send-email-phil@nwl.cc>
+Cc: brouer@redhat.com, alexei.starovoitov@gmail.com,
+	davem@davemloft.net, fw@strlen.de, cwang@twopensource.com,
+	eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:53728 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753192AbbHMQw3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 12:52:29 -0400
-In-Reply-To: <1439484743-5126-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:58888 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753271AbbHMRBK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2015 13:01:10 -0400
+In-Reply-To: <1439485268-20953-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement the VTU Flush operation (which also flushes the STU), so that
-warm boots won't preserved old entries.
+This private net_device flag can be set by drivers to inform that a
+device runs fine without a qdisc attached. This was formerly done by
+setting tx_queue_len to zero.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/dsa/mv88e6xxx.c | 34 ++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  2 ++
- 2 files changed, 36 insertions(+)
+ include/linux/netdevice.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 9978245..175353a 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1182,6 +1182,34 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
- 	return 0;
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 607b5f4..7ed6fb0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1262,6 +1262,7 @@ struct net_device_ops {
+  * @IFF_LIVE_ADDR_CHANGE: device supports hardware address
+  *	change when it's running
+  * @IFF_MACVLAN: Macvlan device
++ * @IFF_NO_QUEUE: device can run without qdisc attached
+  */
+ enum netdev_priv_flags {
+ 	IFF_802_1Q_VLAN			= 1<<0,
+@@ -1289,6 +1290,7 @@ enum netdev_priv_flags {
+ 	IFF_XMIT_DST_RELEASE_PERM	= 1<<22,
+ 	IFF_IPVLAN_MASTER		= 1<<23,
+ 	IFF_IPVLAN_SLAVE		= 1<<24,
++	IFF_NO_QUEUE			= 1<<25,
+ };
  
-+static int _mv88e6xxx_vtu_wait(struct dsa_switch *ds)
-+{
-+	return _mv88e6xxx_wait(ds, REG_GLOBAL, GLOBAL_VTU_OP,
-+			       GLOBAL_VTU_OP_BUSY);
-+}
-+
-+static int _mv88e6xxx_vtu_cmd(struct dsa_switch *ds, u16 op)
-+{
-+	int ret;
-+
-+	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_OP, op);
-+	if (ret < 0)
-+		return ret;
-+
-+	return _mv88e6xxx_vtu_wait(ds);
-+}
-+
-+static int _mv88e6xxx_vtu_stu_flush(struct dsa_switch *ds)
-+{
-+	int ret;
-+
-+	ret = _mv88e6xxx_vtu_wait(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_FLUSH_ALL);
-+}
-+
- static int _mv88e6xxx_atu_mac_write(struct dsa_switch *ds,
- 				    const unsigned char *addr)
- {
-@@ -2071,6 +2099,12 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
- 	/* Wait for the flush to complete. */
- 	mutex_lock(&ps->smi_mutex);
- 	ret = _mv88e6xxx_stats_wait(ds);
-+	if (ret < 0)
-+		goto unlock;
-+
-+	/* Clear all the VTU and STU entries */
-+	ret = _mv88e6xxx_vtu_stu_flush(ds);
-+unlock:
- 	mutex_unlock(&ps->smi_mutex);
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1316,6 +1318,7 @@ enum netdev_priv_flags {
+ #define IFF_XMIT_DST_RELEASE_PERM	IFF_XMIT_DST_RELEASE_PERM
+ #define IFF_IPVLAN_MASTER		IFF_IPVLAN_MASTER
+ #define IFF_IPVLAN_SLAVE		IFF_IPVLAN_SLAVE
++#define IFF_NO_QUEUE			IFF_NO_QUEUE
  
- 	return ret;
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 10fae32..76139ea 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -188,6 +188,8 @@
- #define GLOBAL_CONTROL_TCAM_EN		BIT(1)
- #define GLOBAL_CONTROL_EEPROM_DONE_EN	BIT(0)
- #define GLOBAL_VTU_OP		0x05
-+#define GLOBAL_VTU_OP_BUSY	BIT(15)
-+#define GLOBAL_VTU_OP_FLUSH_ALL		((0x01 << 12) | GLOBAL_VTU_OP_BUSY)
- #define GLOBAL_VTU_VID		0x06
- #define GLOBAL_VTU_DATA_0_3	0x07
- #define GLOBAL_VTU_DATA_4_7	0x08
+ /**
+  *	struct net_device - The DEVICE structure.
 -- 
-2.5.0
+2.1.2
