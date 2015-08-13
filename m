@@ -1,62 +1,234 @@
-From: Andy Whitcroft <apw@canonical.com>
-Subject: [PATCH 1/1] ipv4: off-by-one in continuation handling in /proc/net/route
-Date: Thu, 13 Aug 2015 11:21:07 +0100
-Message-ID: <1439461267-10627-1-git-send-email-apw@canonical.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andy Whitcroft <apw@canonical.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
+Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
+Date: Thu, 13 Aug 2015 11:30:08 +0100
+Message-ID: <20150813103008.GA13356@red-moon>
+References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+ <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+ <20150813082759.GB5468@xora-haswell.xora.org.uk>
+ <20150813090117.GA13833@red-moon>
+ <20150813093838.GC5468@xora-haswell.xora.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
+	Jeremy Linton <Jeremy.Linton@arm.com>,
+	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
+	Catalin Marinas <Catalin.Marinas@arm.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Graeme Gregory <gg@slimlogic.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from foss.arm.com ([217.140.101.70]:34037 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751773AbbHMKaH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2015 06:30:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20150813093838.GC5468@xora-haswell.xora.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When generating /proc/net/route we emit a header followed by a line for
-each route.  When a short read is performed we will restart this process
-based on the open file descriptor.  When calculating the start point we
-fail to take into account that the 0th entry is the header.  This leads
-us to skip the first entry when doing a continuation read.
+On Thu, Aug 13, 2015 at 10:38:38AM +0100, Graeme Gregory wrote:
+> On Thu, Aug 13, 2015 at 10:01:17AM +0100, Lorenzo Pieralisi wrote:
+> > On Thu, Aug 13, 2015 at 09:27:59AM +0100, Graeme Gregory wrote:
+> > > On Wed, Aug 12, 2015 at 05:06:27PM -0500, Jeremy Linton wrote:
+> > > > Add ACPI bindings for the smsc911x driver. Convert the DT specific calls
+> > > > to nonspecific device* calls, This allows the driver to work
+> > > > with both ACPI and DT configurations. Ethernet should now work when using
+> > > > ACPI on ARM Juno.
+> > 
+> > Last sentence does not belong in the commit log.
+> > 
+> > > > 
+> > > > Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+> > > 
+> > > The code looks fine to me.
+> > > 
+> > > Currently the compulsary DT properties seem to match the "approved" ACPI
+> > > NIC properties from here
+> > > 
+> > > http://www.uefi.org/sites/default/files/resources/nic-request-v2.pdf
+> > 
+> > What about _DSD device specific properties (eg "smsc,save-mac-address") ?
+> > Are we taking 1:1 translation between DT and ACPI for granted ?
+> > 
+> > I thought some process must be put in place to define the corresponding
+> > bindings in ACPI before starting this mechanical translation or maybe
+> > I missed something, I would like to understand.
+> > 
+> > How does the device specific _DSD definitions work in ACPI world ? Where
+> > are they published ? How will we translate those to DT bindings if there
+> > is need ?
+> > 
+> 
+> This I do not know as that discussion is still ongoing. But those
+> options are currently marked as optional so driver should not fail if
+> they are not present in ACPI.
 
-This can be easily seen with the comparison below:
+Well yes, but if they are present this patch uses them when booting
+with ACPI and that's what I am arguing about, because they are
+undocumented.
 
-  while read l; do echo "$l"; done </proc/net/route >A
-  cat /proc/net/route >B
-  diff -bu A B | grep '^[+-]'
+This discussion should be brought to completion, the _DSD usage and
+bindings sharing between DT and ACPI well defined before we can
+enable drivers to rely on properties that in ACPI world have no
+binding definition at all, if we go by this route we might end
+up having drivers reusing DT properties that have no reason whatsoever
+to exist in ACPI world.
 
-On my example machine I have approximatly 10KB of route output.  There we
-see the very first non-title element is lost in the while read case,
-and an entry around the 8K mark in the cat case:
+So, to make this clear, the _DSD usage must be documented and there
+has to be a way to define the related bindings in ACPI world so that
+driver code can be reviewed accordingly.
 
-  +wlan0 00000000 02021EAC 0003 0 0 400 00000000 0 0 0
-  -tun1  00C0AC0A 00000000 0001 0 0 950 00C0FFFF 0 0 0
+Lorenzo
 
-Fix up the off-by-one when reaquiring position on continuation.
-
-BugLink: http://bugs.launchpad.net/bugs/1483440
-Signed-off-by: Andy Whitcroft <apw@canonical.com>
----
- net/ipv4/fib_trie.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-	From code inspection I belive this was introduced by the Fixes
-	below, but I have not tested this to confirm.
-
-	Fixes: 8be33e955cb9 ("ipv4: off-by-one in continuation handling in /proc/net/route")
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 37c4bb8..b0c6258 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -2465,7 +2465,7 @@ static struct key_vector *fib_route_get_idx(struct fib_route_iter *iter,
- 		key = l->key + 1;
- 		iter->pos++;
- 
--		if (pos-- <= 0)
-+		if (--pos <= 0)
- 			break;
- 
- 		l = NULL;
--- 
-2.5.0
+> Graeme
+> 
+> > Lorenzo
+> > 
+> > > Reviewed-by: Graeme Gregory <graeme.gregory@linaro.org>
+> > > 
+> > > Thanks
+> > > 
+> > > > ---
+> > > >  drivers/net/ethernet/smsc/smsc911x.c | 48 +++++++++++++++++-------------------
+> > > >  1 file changed, 22 insertions(+), 26 deletions(-)
+> > > > 
+> > > > diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> > > > index 959aeea..0f21aa3 100644
+> > > > --- a/drivers/net/ethernet/smsc/smsc911x.c
+> > > > +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> > > > @@ -59,7 +59,9 @@
+> > > >  #include <linux/of_device.h>
+> > > >  #include <linux/of_gpio.h>
+> > > >  #include <linux/of_net.h>
+> > > > +#include <linux/acpi.h>
+> > > >  #include <linux/pm_runtime.h>
+> > > > +#include <linux/property.h>
+> > > >  
+> > > >  #include "smsc911x.h"
+> > > >  
+> > > > @@ -2362,59 +2364,46 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
+> > > >  	.tx_writefifo = smsc911x_tx_writefifo_shift,
+> > > >  };
+> > > >  
+> > > > -#ifdef CONFIG_OF
+> > > > -static int smsc911x_probe_config_dt(struct smsc911x_platform_config *config,
+> > > > -				    struct device_node *np)
+> > > > +static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+> > > > +				 struct device *dev)
+> > > >  {
+> > > > -	const char *mac;
+> > > >  	u32 width = 0;
+> > > >  
+> > > > -	if (!np)
+> > > > +	if (!dev)
+> > > >  		return -ENODEV;
+> > > >  
+> > > > -	config->phy_interface = of_get_phy_mode(np);
+> > > > +	config->phy_interface = device_get_phy_mode(dev);
+> > > >  
+> > > > -	mac = of_get_mac_address(np);
+> > > > -	if (mac)
+> > > > -		memcpy(config->mac, mac, ETH_ALEN);
+> > > > +	device_get_mac_address(dev, config->mac, ETH_ALEN);
+> > > >  
+> > > > -	of_property_read_u32(np, "reg-shift", &config->shift);
+> > > > +	device_property_read_u32(dev, "reg-shift", &config->shift);
+> > > >  
+> > > > -	of_property_read_u32(np, "reg-io-width", &width);
+> > > > +	device_property_read_u32(dev, "reg-io-width", &width);
+> > > >  	if (width == 4)
+> > > >  		config->flags |= SMSC911X_USE_32BIT;
+> > > >  	else
+> > > >  		config->flags |= SMSC911X_USE_16BIT;
+> > > >  
+> > > > -	if (of_get_property(np, "smsc,irq-active-high", NULL))
+> > > > +	if (device_property_present(dev, "smsc,irq-active-high"))
+> > > >  		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+> > > >  
+> > > > -	if (of_get_property(np, "smsc,irq-push-pull", NULL))
+> > > > +	if (device_property_present(dev, "smsc,irq-push-pull"))
+> > > >  		config->irq_type = SMSC911X_IRQ_TYPE_PUSH_PULL;
+> > > >  
+> > > > -	if (of_get_property(np, "smsc,force-internal-phy", NULL))
+> > > > +	if (device_property_present(dev, "smsc,force-internal-phy"))
+> > > >  		config->flags |= SMSC911X_FORCE_INTERNAL_PHY;
+> > > >  
+> > > > -	if (of_get_property(np, "smsc,force-external-phy", NULL))
+> > > > +	if (device_property_present(dev, "smsc,force-external-phy"))
+> > > >  		config->flags |= SMSC911X_FORCE_EXTERNAL_PHY;
+> > > >  
+> > > > -	if (of_get_property(np, "smsc,save-mac-address", NULL))
+> > > > +	if (device_property_present(dev, "smsc,save-mac-address"))
+> > > >  		config->flags |= SMSC911X_SAVE_MAC_ADDRESS;
+> > > >  
+> > > >  	return 0;
+> > > >  }
+> > > > -#else
+> > > > -static inline int smsc911x_probe_config_dt(
+> > > > -				struct smsc911x_platform_config *config,
+> > > > -				struct device_node *np)
+> > > > -{
+> > > > -	return -ENODEV;
+> > > > -}
+> > > > -#endif /* CONFIG_OF */
+> > > >  
+> > > >  static int smsc911x_drv_probe(struct platform_device *pdev)
+> > > >  {
+> > > > -	struct device_node *np = pdev->dev.of_node;
+> > > >  	struct net_device *dev;
+> > > >  	struct smsc911x_data *pdata;
+> > > >  	struct smsc911x_platform_config *config = dev_get_platdata(&pdev->dev);
+> > > > @@ -2478,7 +2467,7 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+> > > >  		goto out_disable_resources;
+> > > >  	}
+> > > >  
+> > > > -	retval = smsc911x_probe_config_dt(&pdata->config, np);
+> > > > +	retval = smsc911x_probe_config(&pdata->config, &pdev->dev);
+> > > >  	if (retval && config) {
+> > > >  		/* copy config parameters across to pdata */
+> > > >  		memcpy(&pdata->config, config, sizeof(pdata->config));
+> > > > @@ -2654,6 +2643,12 @@ static const struct of_device_id smsc911x_dt_ids[] = {
+> > > >  MODULE_DEVICE_TABLE(of, smsc911x_dt_ids);
+> > > >  #endif
+> > > >  
+> > > > +static const struct acpi_device_id smsc911x_acpi_match[] = {
+> > > > +	{ "ARMH9118", 0 },
+> > > > +	{ }
+> > > > +};
+> > > > +MODULE_DEVICE_TABLE(acpi, smsc911x_acpi_match);
+> > > > +
+> > > >  static struct platform_driver smsc911x_driver = {
+> > > >  	.probe = smsc911x_drv_probe,
+> > > >  	.remove = smsc911x_drv_remove,
+> > > > @@ -2661,6 +2656,7 @@ static struct platform_driver smsc911x_driver = {
+> > > >  		.name	= SMSC_CHIPNAME,
+> > > >  		.pm	= SMSC911X_PM_OPS,
+> > > >  		.of_match_table = of_match_ptr(smsc911x_dt_ids),
+> > > > +		.acpi_match_table = ACPI_PTR(smsc911x_acpi_match),
+> > > >  	},
+> > > >  };
+> > > >  
+> > > > -- 
+> > > > 2.4.3
+> > > > 
+> > > > 
+> > > > 
+> > > > _______________________________________________
+> > > > linux-arm-kernel mailing list
+> > > > linux-arm-kernel@lists.infradead.org
+> > > > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> > > 
+> > > _______________________________________________
+> > > linux-arm-kernel mailing list
+> > > linux-arm-kernel@lists.infradead.org
+> > > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> > > 
+> > 
+> > _______________________________________________
+> > linux-arm-kernel mailing list
+> > linux-arm-kernel@lists.infradead.org
+> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
