@@ -1,61 +1,50 @@
-From: Igor Plyatov <plyatov@gmail.com>
-Subject: Re: [PATCH] net: phy: workaround for buggy cable detection by LAN8700
- after cable plugging
-Date: Thu, 13 Aug 2015 22:23:09 +0300
-Message-ID: <55CCEE9D.7050302@gmail.com>
-References: <1439484648.4818.13.camel@perches.com>	<55CCCFDF.3090408@gmail.com>	<1439486115.27506.1.camel@perches.com> <20150813.113743.802151188971802087.davem@davemloft.net>
-Reply-To: plyatov@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, luwei.zhou@freescale.com,
-	richardcochran@gmail.com, u.kleine-koenig@pengutronix.de,
-	Fabio.Estevam@freescale.com, LW@KARO-electronics.de,
-	Frank.Li@freescale.com
-To: David Miller <davem@davemloft.net>, joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150813.113743.802151188971802087.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: [PATCH net-next] net: addr IFLA_OPERSTATE to netlink message for ipv6 ifinfo
+Date: Thu, 13 Aug 2015 15:26:35 -0400
+Message-ID: <1439493995-1079-1-git-send-email-gospo@cumulusnetworks.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f180.google.com ([209.85.160.180]:33667 "EHLO
+	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862AbbHMT2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 15:28:25 -0400
+Received: by ykaz130 with SMTP id z130so50389592yka.0
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 12:28:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear David and Joe,
+This is useful information to include in ipv6 netlink messages that
+report interface information.  IFLA_OPERSTATE is already included in
+ipv4 messages, but missing for ipv6.  This closes that gap.
 
-thank you for patch review!
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+---
+ net/ipv6/addrconf.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Please look at email with subject
-"[PATCH v2] net: phy: workaround for buggy cable detection by LAN8700 
-after cable plugging"
-
-Best wishes.
---
-Igor Plyatov
-
-> From: Joe Perches <joe@perches.com>
-> Date: Thu, 13 Aug 2015 10:15:15 -0700
->
->> On Thu, 2015-08-13 at 20:11 +0300, Igor Plyatov wrote:
->>>> On Thu, 2015-08-13 at 16:12 +0300, Igor Plyatov wrote:
->>>>> * Due to HW bug, LAN8700 sometimes does not detect presence of energy in the
->>>>>     Ethernet cable in Energy Detect Power-Down mode (e.g while EDPWRDOWN bit is
->>>>>     set, the ENERGYON bit does not asserted sometimes). This is a common bug of
->>>>>     LAN87xx family of PHY chips.
->>>>> * The lan87xx_read_status() was improved to acquire ENERGYON bit. Its previous
->>>>>     algorythm still not reliable on 100 % and sometimes skip cable plugging.
->>>> []
->>>>> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
->>>> []
->>>>> @@ -104,10 +104,12 @@ static int lan911x_config_init(struct phy_device *phydev)
->>>>>    static int lan87xx_read_status(struct phy_device *phydev)
->>>>>    {
->>>>>    	int err = genphy_read_status(phydev);
->>>>> +	int rc;
->>>> Is there a reason to move this declaration?
->>> There is no strict requirement to move declaration of the rc.
->>> It was made just to have all declarations easily visible.
->> Generally it's better to have declarations
->> in the minimal/narrowest scope possible.
-> Agreed, and it's %100 unrelated to the purpose of this patch so not
-> should be included for that reason as well.
->
-> You will need to respin this patch with the variable moving elided.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 53e3a9d..d119686 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4637,6 +4637,7 @@ static inline size_t inet6_if_nlmsg_size(void)
+ 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_ADDRESS */
+ 	       + nla_total_size(4) /* IFLA_MTU */
+ 	       + nla_total_size(4) /* IFLA_LINK */
++	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(inet6_ifla6_size()); /* IFLA_PROTINFO */
+ }
+ 
+@@ -4893,7 +4894,9 @@ static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev,
+ 	     nla_put(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr)) ||
+ 	    nla_put_u32(skb, IFLA_MTU, dev->mtu) ||
+ 	    (dev->ifindex != dev_get_iflink(dev) &&
+-	     nla_put_u32(skb, IFLA_LINK, dev_get_iflink(dev))))
++	     nla_put_u32(skb, IFLA_LINK, dev_get_iflink(dev))) ||
++	    nla_put_u8(skb, IFLA_OPERSTATE,
++		       netif_running(dev) ? dev->operstate : IF_OPER_DOWN))
+ 		goto nla_put_failure;
+ 	protoinfo = nla_nest_start(skb, IFLA_PROTINFO);
+ 	if (!protoinfo)
+-- 
+1.9.3
