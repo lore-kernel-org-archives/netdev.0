@@ -1,47 +1,38 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH 3/6] ethernet/ixgbe: advertise LRO support in vlan_features
-Date: Thu, 13 Aug 2015 14:02:57 -0400
-Message-ID: <1439488980-44738-4-git-send-email-jarod@redhat.com>
-References: <1439488980-44738-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439488980-44738-1-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] tcp: don't extend RTO on failed loss
+ probe attempts
+Date: Thu, 13 Aug 2015 11:07:36 -0700
+Message-ID: <1439489256.7960.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439403499-24774-1-git-send-email-ycheng@google.com>
+	 <1439403499-24774-2-git-send-email-ycheng@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:33736 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752584AbbHMSHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 14:07:39 -0400
+Received: by pdrh1 with SMTP id h1so22287182pdr.0
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 11:07:39 -0700 (PDT)
+In-Reply-To: <1439403499-24774-2-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Without this, the presence of a ixgbe device in a bond will not trigger
-LRO support to be enabled at the bond level, even while it is enabled on
-the slave itself.
+On Wed, 2015-08-12 at 11:18 -0700, Yuchung Cheng wrote:
+> If TLP was unable to send a probe, it extended the RTO to
+> now + icsk_rto. But extending the RTO makes little sense
+> if no TLP probe went out. With this commit, instead of
+> extending the RTO we re-arm it relative to the transmit time
+> of the write queue head.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+> ---
 
-This change becomes necessary when NETIF_F_LRO is added to
-netdev_features.h's NETIF_F_ONE_FOR_ALL.
-
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: intel-wired-lan@lists.osuosl.org
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3e6a931..0a6e4e1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8659,8 +8659,10 @@ skip_sriov:
- 
- 	if (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE)
- 		netdev->hw_features |= NETIF_F_LRO;
--	if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
-+	if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
- 		netdev->features |= NETIF_F_LRO;
-+		netdev->vlan_features |= NETIF_F_LRO;
-+	}
- 
- 	/* make sure the EEPROM is good */
- 	if (hw->eeprom.ops.validate_checksum(hw, NULL) < 0) {
--- 
-1.8.3.1
+Acked-by: Eric Dumazet <edumazet@google.com>
