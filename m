@@ -1,63 +1,53 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH 1/2] Add a matching set of device_ functions for
- determining mac/phy
-Date: Thu, 13 Aug 2015 09:24:23 -0500
-Message-ID: <55CCA897.5080108@arm.com>
-References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
- <1439417187-21411-2-git-send-email-jeremy.linton@arm.com>
- <55CC8613.1040709@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
-	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>
-To: Robin Murphy <Robin.Murphy@arm.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: [PATCH net-next v2 1/2] net: track link status of ipv6 nexthops
+Date: Thu, 13 Aug 2015 10:39:00 -0400
+Message-ID: <1439476741-952-1-git-send-email-gospo@cumulusnetworks.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu-smtp-delivery-143.mimecast.com ([207.82.80.143]:62270 "EHLO
-	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751590AbbHMOYa convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2015 10:24:30 -0400
-In-Reply-To: <55CC8613.1040709@arm.com>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:36494 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751931AbbHMOjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 10:39:39 -0400
+Received: by ykay144 with SMTP id y144so42633540yka.3
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 07:39:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Robin,
+Add support to track current link status of ipv6 nexthops to match
+recent changes that added support for ipv4 nexthops.  This takes a
+simple approach to track linkdown status for next-hops and simply
+checks the dev for the dst entry and sets proper flags that to be used
+in the netlink message.
 
-On 08/13/2015 06:57 AM, Robin Murphy wrote:
->> +static void *device_get_mac_addr(struct device *dev,
->> +				 const char *name, char *addr,
->> +				 int alen)
->> +{
->> +	int ret = device_property_read_u8_array(dev, name, addr, alen);
->> +
->> +	if (ret == 0 && is_valid_ether_addr(addr))
->> +		return addr;
->> +	return NULL;
->> +}
->
-> Not sure I understand the logic here - "return the same thing we were
-> given if we updated it, or null if we didn't". It's only indicating
-> success/failure (the caller can perfectly well cast its own buffer to a
-> void * if it needs to), so why wouldn't you just return a normal int
-> error code?
+v2: drop use of rt6i_nhflags since it is not needed right now
 
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+---
 
-	No particular reason, other than initially I was trying to keep the 
-function as similar as possible to the one in of_net. AKA copy paste 
-job. I can convert the return types, but I was trying for a simple 
-function rename. That way the users of the of version could be converted 
-with relative ease, and the drivers which invented their own version of 
-these functions could be changed to use this instead. Of course, that 
-plan took a blow, when I added the addr/alen parameters.
+I realize this patch might be a bit different expected based on
+conversations on netdev yesterday, but I got a few off-list
+communications that indicated a preference to not expand rt6_info at
+this time -- despite the fact that expansion will likely be needed for
+switchdev offload of ipv6 fib entries in the near future.
 
-	Same thing applies for the other function.
+ net/ipv6/route.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-
-	
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 54fccf0..26b51e1 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2885,6 +2885,8 @@ static int rt6_fill_node(struct net *net,
+ 	else
+ 		rtm->rtm_type = RTN_UNICAST;
+ 	rtm->rtm_flags = 0;
++	if (!netif_carrier_ok(rt->dst.dev))
++		rtm->rtm_flags |= RTNH_F_LINKDOWN;
+ 	rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+ 	rtm->rtm_protocol = rt->rt6i_protocol;
+ 	if (rt->rt6i_flags & RTF_DYNAMIC)
+-- 
+1.9.3
