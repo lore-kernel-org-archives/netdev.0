@@ -1,56 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] IGMP: Inhibit reports for local multicast groups
-Date: Thu, 13 Aug 2015 19:01:37 +0200
-Message-ID: <20150813170137.GE32627@lunn.ch>
-References: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
- <20150812.164519.1783786478654950784.davem@davemloft.net>
- <57f72e6a6f024628bd18ef4b139ac31e@EMEAWP-EXMB12.corp.brocade.com>
- <20150813160626.GF32484@lunn.ch>
- <b50a97f544f5437fb18df1cb5b6b6533@EMEAWP-EXMB12.corp.brocade.com>
+From: Igor Plyatov <plyatov@gmail.com>
+Subject: Re: [PATCH] net: phy: workaround for buggy cable detection by LAN8700
+ after cable plugging
+Date: Thu, 13 Aug 2015 20:11:59 +0300
+Message-ID: <55CCCFDF.3090408@gmail.com>
+References: <1439471556-13760-1-git-send-email-plyatov@gmail.com> <1439484648.4818.13.camel@perches.com>
+Reply-To: plyatov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Philip Downey <pdowney@Brocade.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	f.fainelli@gmail.com, luwei.zhou@freescale.com,
+	richardcochran@gmail.com, davem@davemloft.net,
+	u.kleine-koenig@pengutronix.de, Fabio.Estevam@freescale.com,
+	LW@KARO-electronics.de, Frank.Li@freescale.com
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <b50a97f544f5437fb18df1cb5b6b6533@EMEAWP-EXMB12.corp.brocade.com>
+In-Reply-To: <1439484648.4818.13.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 13, 2015 at 04:52:32PM +0000, Philip Downey wrote:
-> Hi Andrew
-> IGMP snooping is designed to prevent hosts on a local network from receiving traffic for a multicast group they have not explicitly joined.   Link-Local multicast traffic should not have an IGMP client since it is reserved for routing protocols.  One would expect that IGMP snooping needs to ignore local multicast traffic in the reserved range intended for routers since there should be no IGMP client to make "join" requests.
+Dear Joe,
 
-The point of this patch is that Linux is sending out group membership
-for these addresses, it is acting as a client. What happens with a
-switch which is applying IGMP snooping to link-local multicast groups?
-You turn on this feature, and you no longer get your routing protocol
-messages.
+> On Thu, 2015-08-13 at 16:12 +0300, Igor Plyatov wrote:
+>> * Due to HW bug, LAN8700 sometimes does not detect presence of energy in the
+>>    Ethernet cable in Energy Detect Power-Down mode (e.g while EDPWRDOWN bit is
+>>    set, the ENERGYON bit does not asserted sometimes). This is a common bug of
+>>    LAN87xx family of PHY chips.
+>> * The lan87xx_read_status() was improved to acquire ENERGYON bit. Its previous
+>>    algorythm still not reliable on 100 % and sometimes skip cable plugging.
+> []
+>> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+> []
+>> @@ -104,10 +104,12 @@ static int lan911x_config_init(struct phy_device *phydev)
+>>   static int lan87xx_read_status(struct phy_device *phydev)
+>>   {
+>>   	int err = genphy_read_status(phydev);
+>> +	int rc;
+> Is there a reason to move this declaration?
 
-I had a quick look at RFC 3376. The only mention i spotted for not
-sending IGMP messages is:
+There is no strict requirement to move declaration of the rc.
+It was made just to have all declarations easily visible.
 
-   The all-systems multicast address, 224.0.0.1, is handled as a special
-   case.  On all systems -- that is all hosts and routers, including
-   multicast routers -- reception of packets destined to the all-systems
-   multicast address, from all sources, is permanently enabled on all
-   interfaces on which multicast reception is supported.  No IGMP
-   messages are ever sent regarding the all-systems multicast address.
+>> +	int i;
+>>   
+>>   	if (!phydev->link) {
+>>   		/* Disable EDPD to wake up PHY */
+>> -		int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+>> +		rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+>>   		if (rc < 0)
+>>   			return rc;
+>>   
+>
 
-IGMP v2 has something similar:
-
-   The all-systems group (address 224.0.0.1) is handled as a special
-   case.  The host starts in Idle Member state for that group on every
-   interface, never transitions to another state, and never sends a
-   report for that group.
-
-But i did not find anything which says all other link-local addresses
-don't need member reports. Did i miss something?
-
-      Andrew
+Best wishes
+--
+Igor Plyatov
