@@ -1,79 +1,71 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next] rocker: hook ndo_neigh_destroy to cleanup neigh refs in driver
-Date: Wed, 12 Aug 2015 18:45:25 -0700
-Message-ID: <1439430325-49311-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us
-To: netdev@vger.kernel.org
+From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
+Subject: RE: [PATCH iproute2] ip: replace exit with return
+Date: Thu, 13 Aug 2015 09:47:07 +0800
+Message-ID: <000001d0d569$f7d9e8c0$e78dba40$@cmss.chinamobile.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: 7bit
+To: "'David Laight'" <David.Laight@ACULAB.COM>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35586 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751714AbbHMBmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 21:42:36 -0400
-Received: by pacgr6 with SMTP id gr6so26112350pac.2
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 18:42:35 -0700 (PDT)
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:9808 "EHLO
+	cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240AbbHMBrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 21:47:17 -0400
+Content-Language: zh-cn
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+> 
+> From: netdev-owner@vger.kernel.org
+> > Sent: 11 August 2015 10:40
+> > In our manual, we have this description of 'EXIT STATUS':
+> > Exit status is 0 if command was successful, and 1 if there is a syntax
+> > error.
+> >
+> > But we exit in command functions with code -1 when there is a syntax
+error.
+> > It's better to use return.
+> 
+> Eh?
+> Using exit() makes it much more obvious that the program is going to exit.
+> 
+> I've not looked at the call site (I'm not entirely sure where this code is
+in the
+> source tree), but main() shouldn't return -1 any more than exit(-1) is
+invalid.
+> The domain for both is 0..127.
+> So the code should be using a valid value.
 
-Rocker driver tracks arp_tbl neighs to resolve IPv4 route nexthops.  The
-driver uses NETEVENT_NEIGH_UPDATE for neigh adds and updates, but there is
-no event when the neigh is removed from the device (such as when the device
-goes admin down).  This patches hooks ndo_neigh_destroy so the driver can
-know when a neigh is removed from the device.  In response, the driver will
-purge the neigh entry from its internal tbl.
+1. Using exit(-1) will make program exit with -1. 
+    With return -1, the do_cmd() function will make sure 1 is returned.  
+	do_cmd()
+	{
+		xxxx
+		return -(c->func(argc-1, argv+1));
+		xxxx
+	}
+2.  Replace with return will confirm with manual description like I said in
+last mail.
 
-I didn't find an in-tree users of ndo_neigh_destroy, so I'm not sure if
-this ndo is vestigial or if there are out-of-tree users.  In any case, it
-does what I need here.  An alternative design would be to generate
-NETEVENT_NEIGH_UPDATE event when neigh is being destroyed, setting state to
-NUD_NONE so driver knows neigh entry is dead.
-
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- Documentation/networking/switchdev.txt |    3 ++-
- drivers/net/ethernet/rocker/rocker.c   |   11 +++++++++++
- 2 files changed, 13 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-index 9825f32..476df04 100644
---- a/Documentation/networking/switchdev.txt
-+++ b/Documentation/networking/switchdev.txt
-@@ -367,4 +367,5 @@ driver's rocker_port_ipv4_resolve() for an example.
- 
- The driver can monitor for updates to arp_tbl using the netevent notifier
- NETEVENT_NEIGH_UPDATE.  The device can be programmed with resolved nexthops
--for the routes as arp_tbl updates.
-+for the routes as arp_tbl updates.  The driver implements ndo_neigh_destroy
-+to know when arp_tbl neighbor entries are purged from the port.
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index af05075..619b2e2 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4264,6 +4264,16 @@ static int rocker_port_change_proto_down(struct net_device *dev,
- 	return 0;
- }
- 
-+static void rocker_port_neigh_destroy(struct neighbour *n)
-+{
-+	struct rocker_port *rocker_port = netdev_priv(n->dev);
-+	int flags = ROCKER_OP_FLAG_REMOVE | ROCKER_OP_FLAG_NOWAIT;
-+	__be32 ip_addr = *(__be32 *)n->primary_key;
-+
-+	rocker_port_ipv4_neigh(rocker_port, SWITCHDEV_TRANS_NONE,
-+			       flags, ip_addr, n->ha);
-+}
-+
- static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_open			= rocker_port_open,
- 	.ndo_stop			= rocker_port_stop,
-@@ -4278,6 +4288,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_fdb_dump			= switchdev_port_fdb_dump,
- 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
- 	.ndo_change_proto_down		= rocker_port_change_proto_down,
-+	.ndo_neigh_destroy		= rocker_port_neigh_destroy,
- };
- 
- /********************
--- 
-1.7.10.4
+BRs,
+Zhang
+> 
+> ...
+> > diff --git a/ip/ipaddress.c b/ip/ipaddress.c index b7b4e3e..6d29a69
+> > 100644
+> > --- a/ip/ipaddress.c
+> > +++ b/ip/ipaddress.c
+> > @@ -1879,5 +1879,5 @@ int do_ipaddr(int argc, char **argv)
+> >  	if (matches(*argv, "help") == 0)
+> >  		usage();
+> >  	fprintf(stderr, "Command \"%s\" is unknown, try \"ip addr
+help\".\n",
+> *argv);
+> > -	exit(-1);
+> > +	return -1;
+> >  }
+> ...
+> 
+> 	David
