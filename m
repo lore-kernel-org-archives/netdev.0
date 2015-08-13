@@ -1,43 +1,60 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH 2/6] ethernet/bnx2x: advertise LRO support in vlan_features
-Date: Thu, 13 Aug 2015 14:02:56 -0400
-Message-ID: <1439488980-44738-3-git-send-email-jarod@redhat.com>
-References: <1439488980-44738-1-git-send-email-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	Ariel Elior <ariel.elior@qlogic.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] net: allow sleeping when modifying store_rps_map
+Date: Thu, 13 Aug 2015 14:03:16 -0400
+Message-ID: <1439488996-31227-1-git-send-email-sasha.levin@oracle.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: tom@herbertland.com, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439488980-44738-1-git-send-email-jarod@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Without this, the presence of a bnx2x device in a bond will not trigger
-LRO support to be enabled at the bond level, even while it is enabled on
-the slave itself.
+Commit 10e4ea751 ("net: Fix race condition in store_rps_map") has moved the
+manipulation of the rps_needed jump label under a spinlock. Since changing
+the state of a jump label may sleep this is incorrect and causes warnings
+during runtime.
 
-This change becomes necessary when NETIF_F_LRO is added to
-netdev_features.h's NETIF_F_ONE_FOR_ALL.
+Make rps_map_lock a mutex to allow sleeping under it.
 
-CC: Ariel Elior <ariel.elior@qlogic.com>
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
+Fixes: 10e4ea751 ("net: Fix race condition in store_rps_map")
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/core/net-sysfs.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index ad73a60..41dc066 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13083,7 +13083,8 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 39ec694..b279077 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -689,7 +689,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
+ 	struct rps_map *old_map, *map;
+ 	cpumask_var_t mask;
+ 	int err, cpu, i;
+-	static DEFINE_SPINLOCK(rps_map_lock);
++	static DEFINE_MUTEX(rps_map_mutex);
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+@@ -722,9 +722,9 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
+ 		map = NULL;
  	}
  
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
--		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
-+		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA |
-+		NETIF_F_LRO;
+-	spin_lock(&rps_map_lock);
++	mutex_lock(&rps_map_mutex);
+ 	old_map = rcu_dereference_protected(queue->rps_map,
+-					    lockdep_is_held(&rps_map_lock));
++					    mutex_is_locked(&rps_map_mutex));
+ 	rcu_assign_pointer(queue->rps_map, map);
  
- 	/* VF with OLD Hypervisor or old PF do not support filtering */
- 	if (IS_PF(bp)) {
+ 	if (map)
+@@ -732,7 +732,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
+ 	if (old_map)
+ 		static_key_slow_dec(&rps_needed);
+ 
+-	spin_unlock(&rps_map_lock);
++	mutex_unlock(&rps_map_mutex);
+ 
+ 	if (old_map)
+ 		kfree_rcu(old_map, rcu);
 -- 
-1.8.3.1
+1.7.10.4
