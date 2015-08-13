@@ -1,40 +1,44 @@
-From: Stuart Yoder <stuart.yoder@freescale.com>
-Subject: [PATCH] net/fsl: simplify Kconfig dependency list for fsl networking
-Date: Thu, 13 Aug 2015 17:01:59 -0500
-Message-ID: <1439503319-25453-1-git-send-email-stuart.yoder@freescale.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next 5/6] geneve: Consolidate Geneve functionality in
+ single module.
+Date: Thu, 13 Aug 2015 15:37:03 -0700
+Message-ID: <CALnjE+qEMGh6kEwFpPUs+jL2cU4B0q95OyqA04e3sURQtGvXYw@mail.gmail.com>
+References: <1439356673-21844-1-git-send-email-pshelar@nicira.com>
+	<CAEP_g=8zvvosyueA-gudpYq1pCi4dCusW33wcCscpga8JLWz-w@mail.gmail.com>
+	<CALnjE+pzgLwWgqYjE2wwyvbLUQ9fkX+4VJo_Ow44pHV0hhRbGg@mail.gmail.com>
+	<CAEP_g=-BUb8Uyh3hYGt3b=J62fW9Kvm+yf3ySZwVOmMurKNf1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<scottwood@freescale.com>,
-	Stuart Yoder <stuart.yoder@freescale.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:36108 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752768AbbHMWhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 18:37:04 -0400
+Received: by igxp17 with SMTP id p17so985155igx.1
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 15:37:03 -0700 (PDT)
+In-Reply-To: <CAEP_g=-BUb8Uyh3hYGt3b=J62fW9Kvm+yf3ySZwVOmMurKNf1g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-make the list of Kconfig dependencies for Freescale
-networking more general. Simplify to supported
-architectures: ARM, ARM64, PPC, M68K
+On Thu, Aug 13, 2015 at 2:24 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Wed, Aug 12, 2015 at 4:33 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Wed, Aug 12, 2015 at 2:55 PM, Jesse Gross <jesse@nicira.com> wrote:
+>>> The farther I go in the series, the more that I hope that we can avoid
+>>> the use of collect_md_tun. It really seems to add a lot of special
+>>> cases.
+>>
+>> Use of collect_md_tun allows us to avoid hash table lookup. thats why
+>> I did it. Anyways we need a flag or pointer in geneve-sock structure
+>> to locate tunnel metadata. I dont see how is it simple if
+>> collect_md_tun is replaced with a flag.
+>
+> It seems to me that this requires more bookkeeping to keep consistent
+> (a little in the code but mostly mentally) because collect_md_tun is a
+> separate concept that doesn't necessarily follow the same rules as
+> other tunnels. With VXLAN, I feel like I can mostly ignore this tunnel
+> since it isn't special in most ways with the exception of places where
+> it actually needs to do something different like allocate metadata.
 
-Signed-off-by: Stuart Yoder <stuart.yoder@freescale.com>
----
- drivers/net/ethernet/freescale/Kconfig | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index ff76d4e..70782d7 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -5,9 +5,7 @@
- config NET_VENDOR_FREESCALE
- 	bool "Freescale devices"
- 	default y
--	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
--		   M523x || M527x || M5272 || M528x || M520x || M532x || \
--		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM)
-+	depends on M68K || PPC || ARM || ARM64
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 
--- 
-2.3.3
+ok, I will update the patch.
