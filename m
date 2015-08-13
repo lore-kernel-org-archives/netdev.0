@@ -1,52 +1,74 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [net-next PATCH 3/3] ARM: dts: am33xx: update cpsw compatible
-Date: Thu, 13 Aug 2015 02:56:14 -0700
-Message-ID: <20150813095613.GC4215@atomide.com>
-References: <1439373175-8650-1-git-send-email-mugunthanvnm@ti.com>
- <1439373175-8650-4-git-send-email-mugunthanvnm@ti.com>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH] mm: make page pfmemalloc check more robust
+Date: Thu, 13 Aug 2015 11:00:02 +0100
+Message-ID: <20150813100002.GA9854@suse.de>
+References: <1439456364-4530-1-git-send-email-mhocko@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-omap@vger.kernel.org,
-	"David S . Miller" <davem@davemloft.net>, alex.aring@gmail.com
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from muru.com ([72.249.23.125]:44114 "EHLO muru.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884AbbHMJ4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2015 05:56:18 -0400
+Content-Type: text/plain; charset=iso-8859-15
+Cc: linux-mm@kvack.org, Vlastimil Babka <vbabka@suse.cz>,
+	Jiri Bohac <jbohac@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Michal Hocko <mhocko@suse.com>
+To: mhocko@kernel.org
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <1439373175-8650-4-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1439456364-4530-1-git-send-email-mhocko@kernel.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-* Mugunthan V N <mugunthanvnm@ti.com> [150812 02:56]:
-> CPSW driver has been updated with compatibles for enabling errata
-> workarounds. So updating cpsw compatibles.
+On Thu, Aug 13, 2015 at 10:58:54AM +0200, mhocko@kernel.org wrote:
+> From: Michal Hocko <mhocko@suse.com>
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-
-This too:
-
-Acked-by: Tony Lindgren <tony@atomide.com>
-
-> ---
->  arch/arm/boot/dts/am33xx.dtsi | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> The patch c48a11c7ad26 ("netvm: propagate page->pfmemalloc to skb")
+> added the checks for page->pfmemalloc to __skb_fill_page_desc():
 > 
-> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-> index 21fcc44..8b59c86 100644
-> --- a/arch/arm/boot/dts/am33xx.dtsi
-> +++ b/arch/arm/boot/dts/am33xx.dtsi
-> @@ -700,7 +700,7 @@
->  		};
->  
->  		mac: ethernet@4a100000 {
-> -			compatible = "ti,cpsw";
-> +			compatible = "ti,am335x-cpsw","ti,cpsw";
->  			ti,hwmods = "cpgmac0";
->  			clocks = <&cpsw_125mhz_gclk>, <&cpsw_cpts_rft_clk>;
->  			clock-names = "fck", "cpts";
-> -- 
-> 2.5.0.234.gefc8a62
+>         if (page->pfmemalloc && !page->mapping)
+>                 skb->pfmemalloc = true;
 > 
+> It assumes page->mapping == NULL implies that page->pfmemalloc can be
+> trusted.  However, __delete_from_page_cache() can set set page->mapping
+> to NULL and leave page->index value alone. Due to being in union, a
+> non-zero page->index will be interpreted as true page->pfmemalloc.
+> 
+> So the assumption is invalid if the networking code can see such a
+> page. And it seems it can. We have encountered this with a NFS over
+> loopback setup when such a page is attached to a new skbuf. There is no
+> copying going on in this case so the page confuses __skb_fill_page_desc
+> which interprets the index as pfmemalloc flag and the network stack
+> drops packets that have been allocated using the reserves unless they
+> are to be queued on sockets handling the swapping which is the case here
+> and that leads to hangs when the nfs client waits for a response from
+> the server which has been dropped and thus never arrive.
+> 
+> The struct page is already heavily packed so rather than finding
+> another hole to put it in, let's do a trick instead. We can reuse the
+> index again but define it to an impossible value (-1UL). This is the
+> page index so it should never see the value that large. Replace all
+> direct users of page->pfmemalloc by page_is_pfmemalloc which will
+> hide this nastiness from unspoiled eyes.
+> 
+> The information will get lost if somebody wants to use page->index
+> obviously but that was the case before and the original code expected
+> that the information should be persisted somewhere else if that is
+> really needed (e.g. what SLAB and SLUB do).
+> 
+> Fixes: c48a11c7ad26 ("netvm: propagate page->pfmemalloc to skb")
+> Cc: stable # 3.6+
+> Debugged-by: Vlastimil Babka <vbabka@suse.com>
+> Debugged-by: Jiri Bohac <jbohac@suse.com>
+> Signed-off-by: Michal Hocko <mhocko@suse.com>
+
+Acked-by: Mel Gorman <mgorman@suse.de>
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
