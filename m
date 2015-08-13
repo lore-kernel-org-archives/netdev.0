@@ -1,52 +1,77 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [patch -next] bpf: off by one in check_map_func_compatibility()
-Date: Thu, 13 Aug 2015 22:31:50 +0200
-Message-ID: <55CCFEB6.3080502@iogearbox.net>
-References: <20150813202747.GA6478@mwanda>
+From: Aurelien Jarno <aurelien@aurel32.net>
+Subject: Re: [PATCH 6/6] MIPS: net: BPF: Introduce BPF ASM helpers
+Date: Thu, 13 Aug 2015 22:42:46 +0200
+Message-ID: <20150813204246.GA24857@aurel32.net>
+References: <1433415376-20952-1-git-send-email-markos.chandras@imgtec.com>
+ <1433415376-20952-7-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Kaixu Xia <xiakaixu@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53530 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbbHMUb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 16:31:57 -0400
-In-Reply-To: <20150813202747.GA6478@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@plumgrid.com>,
+        Daniel Borkmann <dborkman@redhat.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        linux-kernel@vger.kernel.org, debian-kernel@lists.debian.org
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <1433415376-20952-7-git-send-email-markos.chandras@imgtec.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On 08/13/2015 10:27 PM, Dan Carpenter wrote:
-> The loop iterates one space too far, so we might read beyond the end of
-> the func_limit[] array.
->
-> Fixes: 35578d798400 ('bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+On 2015-06-04 11:56, Markos Chandras wrote:
+> This commit introduces BPF ASM helpers for MIPS and MIPS64 kernels.
+> The purpose of this patch is to twofold:
+> 
+> 1) We are now able to handle negative offsets instead of either
+> falling back to the interpreter or to simply not do anything and
+> bail out.
+> 
+> 2) Optimize reads from the packet header instead of calling the C
+> helpers
+> 
+> Because of this patch, we are now able to get rid of quite a bit of
+> code in the JIT generation process by using MIPS optimized assembly
+> code. The new assembly code makes the test_bpf testsuite happy with
+> all 60 test passing successfully compared to the previous
+> implementation where 2 tests were failing.
+> Doing some basic analysis in the results between the old
+> implementation and the new one we can obtain the following
+> summary running current mainline on an ER8 board (+/- 30us delta is
+> ignored to prevent noise from kernel scheduling or IRQ latencies):
+> 
+> Summary: 22 tests are faster, 7 are slower and 47 saw no improvement
+> 
+> with the most notable improvement being the tcpdump tests. The 7 tests
+> that seem to be a bit slower is because they all follow the slow path
+> (bpf_internal_load_pointer_neg_helper) which is meant to be slow so
+> that's not a problem.
+> 
+> Cc: netdev@vger.kernel.org
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+> ---
+> I have uploaded the script and the bpf result files in my LMO webspace
+> in case you want to have a look. I didn't paste them in here because they
+> are nearly 200 lines. Simply download all 3 files and run './bpf_analysis.py'
 
-Thanks for the fix, Dan!
+This patch relies on R2 instructions, and thus the Linux kernel fails to
+build when targetting non-R2 CPUs. See for example:
 
-There's however already one queued up here:
+https://buildd.debian.org/status/fetch.php?pkg=linux&arch=mipsel&ver=4.2%7Erc6-1%7Eexp1&stamp=1439480000
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=140d8b335a9beb234fd0ed9a15aa6a47f47fd771
-
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index 48e1c71..ed12e38 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -853,7 +853,7 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
->   	if (!map)
->   		return 0;
->
-> -	for (i = 0; i <= ARRAY_SIZE(func_limit); i++) {
-> +	for (i = 0; i < ARRAY_SIZE(func_limit); i++) {
->   		bool_map = (map->map_type == func_limit[i].map_type);
->   		bool_func = (func_id == func_limit[i].func_id);
->   		/* only when map & func pair match it can continue.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-- 
+Aurelien Jarno                          GPG: 4096R/1DDD8C9B
+aurelien@aurel32.net                 http://www.aurel32.net
