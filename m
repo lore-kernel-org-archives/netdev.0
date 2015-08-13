@@ -1,40 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next] net: atl1c: add BQL support
-Date: Fri, 14 Aug 2015 00:16:48 +0200
-Message-ID: <20150813221648.GA25701@electric-eye.fr.zoreil.com>
-References: <55CAE130.8040406@gmail.com>
- <20150812224020.GA31826@electric-eye.fr.zoreil.com>
- <55CC2728.6020309@gmail.com>
+From: Stuart Yoder <stuart.yoder@freescale.com>
+Subject: [PATCH] net/fsl: simplify Kconfig dependency list for fsl networking
+Date: Thu, 13 Aug 2015 17:01:59 -0500
+Message-ID: <1439503319-25453-1-git-send-email-stuart.yoder@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ron Angeles <ronangeles@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37437 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752083AbbHMWRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 18:17:09 -0400
-Content-Disposition: inline
-In-Reply-To: <55CC2728.6020309@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<scottwood@freescale.com>,
+	Stuart Yoder <stuart.yoder@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ron Angeles <ronangeles@gmail.com> :
-[...]
-> I only have one of these NICs and it is running on something critical
-> throughout the weekdays. I can try running these when I have time on a
-> weekend.
+make the list of Kconfig dependencies for Freescale
+networking more general. Simplify to supported
+architectures: ARM, ARM64, PPC, M68K
 
-Thanks, it would be perfect: I can't promise it won't crash.
+Signed-off-by: Stuart Yoder <stuart.yoder@freescale.com>
+---
+ drivers/net/ethernet/freescale/Kconfig | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-> Is there any particular way you would suggest testing? Would an
-> overnight smoke test with netperf suffice?
-
-Anything that changes timing, packet size, and plays with different
-contexts (link change, retrieve stats, etc.).
-
-I'll send an updated patchkit tomorrow. The xmit part is a bit different
-from what I'm used to.
-
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index ff76d4e..70782d7 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -5,9 +5,7 @@
+ config NET_VENDOR_FREESCALE
+ 	bool "Freescale devices"
+ 	default y
+-	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
+-		   M523x || M527x || M5272 || M528x || M520x || M532x || \
+-		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM)
++	depends on M68K || PPC || ARM || ARM64
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
+ 
 -- 
-Ueimor
+2.3.3
