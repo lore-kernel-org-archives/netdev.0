@@ -1,23 +1,42 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [V2] rtlwifi: misspelled code and comments corrected.
-Date: Thu, 13 Aug 2015 12:23:23 +0000 (UTC)
-Message-ID: <20150813122323.667BB140226@smtp.codeaurora.org>
-References: <1428857988-17932-1-git-send-email-pch851130@gmail.com>
+Subject: Re: ath9k_htc: match wait_for_completion_timeout return type
+Date: Thu, 13 Aug 2015 12:25:33 +0000 (UTC)
+Message-ID: <20150813122533.52E091402D5@smtp.codeaurora.org>
+References: <1431617394-30725-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	pch851130@gmail.com, linville@tuxdriver.com, Julia.Lawall@lip6.fr,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Cheolhyun Park <pch851130@gmail.com>
+Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	linux-wireless@vger.kernel.org, ath9k-devel@venema.h4ckr.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Nicholas Mc Guire <hofrat@osadl.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1428857988-17932-1-git-send-email-pch851130@gmail.com>
+In-Reply-To: <1431617394-30725-1-git-send-email-hofrat@osadl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> Signed-off-by: Cheolhyun Park <pch851130@gmail.com>
+> Return type of wait_for_completion_timeout is unsigned long not int.
+> As time_left is exclusively used for wait_for_completion_timeout here its
+> type is simply changed to unsigned long.
+> 
+> API conformance testing for completions with coccinelle spatches are being
+> used to locate API usage inconsistencies:
+> ./drivers/net/wireless/ath/ath9k/htc_hst.c:171
+> 	int return assigned to unsigned long
+> ./drivers/net/wireless/ath/ath9k/htc_hst.c:277
+> 	int return assigned to unsigned long
+> ./drivers/net/wireless/ath/ath9k/htc_hst.c:206
+> 	int return assigned to unsigned long
+> 
+> Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+> CONFIG_ATH9K_HTC=m
+> 
+> Patch is against 4.1-rc3 (localversion-next is -next-20150514)
+> 
+> 
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 
 Thanks, applied to wireless-drivers-next.git.
 
