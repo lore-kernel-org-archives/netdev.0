@@ -1,68 +1,56 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] igbvf: clear buffer_info->dma after
-	dma_unmap_single()
-Date: Thu, 13 Aug 2015 01:48:30 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81AE47C6@ORSMSX101.amr.corp.intel.com>
-References: <1438846337-6164-1-git-send-email-sassmann@kpanic.de>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/3] mpls: multipath support
+Date: Wed, 12 Aug 2015 19:07:18 -0700
+Message-ID: <55CBFBD6.50603@cumulusnetworks.com>
+References: <1439329548-50935-1-git-send-email-roopa@cumulusnetworks.com> <55CB82A6.8070800@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stefan Assmann <sassmann@kpanic.de>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ebiederm@xmission.com, netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:49504 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751137AbbHMBsc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 21:48:32 -0400
-In-Reply-To: <1438846337-6164-1-git-send-email-sassmann@kpanic.de>
-Content-Language: en-US
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34070 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751784AbbHMCHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2015 22:07:21 -0400
+Received: by pawu10 with SMTP id u10so26657018paw.1
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2015 19:07:21 -0700 (PDT)
+In-Reply-To: <55CB82A6.8070800@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Stefan Assmann
-> Sent: Thursday, August 06, 2015 12:32 AM
-> To: intel-wired-lan@lists.osuosl.org
-> Cc: netdev@vger.kernel.org; sassmann@kpanic.de
-> Subject: [Intel-wired-lan] [PATCH] igbvf: clear buffer_info->dma after
-> dma_unmap_single()
-> 
-> The driver doesn't clear buffer_info->dma after calling
-> dma_unmap_single() in all cases. This has been discovered by changing
-> the mtu twice, which caused the following backtrace.
-> 
-> [   68.569280] WARNING: CPU: 2 PID: 1860 at drivers/iommu/intel-
-> iommu.c:3517 intel_unmap+0x20c/0x220()
-> [   68.579392] Driver unmaps unmatched page at PFN fffc2a40
-> [   68.585322] Modules linked in: igbvf ipt_MASQUERADE
-> nf_nat_masquerade_ipv4 iptable_nat nf_nat_ipv4 nf_nat kvm_intel kvm igb
-> megs
-> [   68.599163] CPU: 2 PID: 1860 Comm: ifconfig Not tainted 4.2.0-rc4+ #147
-> [   68.606543] Hardware name: IBM  -[546025Z]-/00Y7630, BIOS -[VVE134TUS-
-> 1.51]- 10/17/2013
-> [   68.615473]  0000000000000dbd ffff88046441bb08 ffffffff81a5ad0b
-> ffffffff81e2f9ea
-> [   68.623775]  ffff88046441bb58 ffff88046441bb48 ffffffff81056b55
-> ffff88047fc583c0
-> [   68.632075]  0000000000000000 ffff880469a8e600 00000000fffc2a40
-> ffff880465b32098
-> [   68.640375] Call Trace:
-> [   68.643109]  [<ffffffff81a5ad0b>] dump_stack+0x48/0x5d
-> [   68.648844]  [<ffffffff81056b55>] warn_slowpath_common+0x95/0xe0
-> [   68.655549]  [<ffffffff81056c56>] warn_slowpath_fmt+0x46/0x70
-> [   68.661960]  [<ffffffff8158a614>] ? find_iova+0x54/0x90
-> [   68.667791]  [<ffffffff815988dc>] intel_unmap+0x20c/0x220
-> [   68.673815]  [<ffffffff8159891e>] intel_unmap_page+0xe/0x10
-> [   68.680038]  [<ffffffffa0067536>] igbvf_clean_rx_ring+0x96/0x370
-> [igbvf]
-> [   68.687516]  [<ffffffffa0067915>] igbvf_down+0x105/0x110 [igbvf]
-> [   68.694219]  [<ffffffffa0067beb>] igbvf_change_mtu+0x16b/0x180 [igbvf]
-> [...]
-> 
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->  drivers/net/ethernet/intel/igbvf/netdev.c | 1 +
->  1 file changed, 1 insertion(+)
+On 8/12/15, 10:30 AM, Robert Shearman wrote:
+> On 11/08/15 22:45, Roopa Prabhu wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch series adds multipath support to mpls routes.
+>>
+>> resembles ipv4 multipath support. The multipath route nexthop
+>> selection algorithm is the same code as in ipv4 fib code.
+>>
+>> I understand that the multipath algorithm in ipv4 is undergoing
+>> some changes and will move mpls to similar algo if applicable once
+>> those get merged.
+>
+> Is it necessary for the mpls patch selection algorithm to closely 
+> resemble the ipv4 one? 
+No, It is not necessary. I picked that because it was already there. And 
+I see that ipv4 is also getting some new multipath algorithms
+(https://marc.info/?l=linux-api&m=143457208315573&w=2). I wanted to move 
+to the new RT_MP infra if that becomes applicable in the future.
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> A flow based algorithm would be much better for traffic that is 
+> sensitive to re-ordering (e.g TCP, L2VPN) and IMHO we should do this 
+> from the start for MPLS.
+>
+> I've also been looking at implementing this functionality. I've got a 
+> set of patches for this that I can send if you'd like.
+
+Definitely. But, It seems like you can also submit incremental patches 
+to mine. You can replace the current algo with a hash based with your 
+patches.
+If that does not work for you and if you want me to merge with this 
+series that works too.
+
+Thanks!,
+Roopa
