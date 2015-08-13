@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 06/11] net: Fix up inet_addr_type checks
-Date: Thu, 13 Aug 2015 14:59:05 -0600
-Message-ID: <1439499551-90231-7-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 01/11] net: Introduce VRF related flags and helpers
+Date: Thu, 13 Aug 2015 14:59:00 -0600
+Message-ID: <1439499551-90231-2-git-send-email-dsa@cumulusnetworks.com>
 References: <1439499551-90231-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,252 +12,258 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:33587 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932174AbbHMVAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 17:00:02 -0400
-Received: by igfj19 with SMTP id j19so8312099igf.0
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 14:00:02 -0700 (PDT)
+Received: from mail-io0-f180.google.com ([209.85.223.180]:33200 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932090AbbHMU7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 16:59:52 -0400
+Received: by iods203 with SMTP id s203so65575246iod.0
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 13:59:51 -0700 (PDT)
 In-Reply-To: <1439499551-90231-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently inet_addr_type and inet_dev_addr_type expect local addresses
-to be in the local table. With the VRF device local routes for devices
-associated with a VRF will be in the table associated with the VRF.
-Provide an alternate inet_addr lookup to use a specific table rather
-than defaulting to the local table.
+Add a VRF_MASTER flag for interfaces and helper functions for determining
+if a device is a VRF_MASTER.
 
-inet_addr_type_dev_table keeps the same semantics as inet_addr_type but
-if the passed in device is enslaved to a VRF then the table for that VRF
-is used for the lookup.
+Add link attribute for passing VRF_TABLE id.
 
+Add vrf_ptr to netdevice.
+
+Add various macros for determining if a device is a VRF device, the index
+of the master VRF device and table associated with VRF device.
+
+Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/route.h      |  3 +++
- net/ipv4/af_inet.c       | 13 ++++++++++++-
- net/ipv4/arp.c           | 15 +++++++++------
- net/ipv4/fib_frontend.c  | 25 ++++++++++++++++++++++---
- net/ipv4/fib_semantics.c |  6 ++++--
- net/ipv4/icmp.c          |  5 +++--
- 6 files changed, 53 insertions(+), 14 deletions(-)
+ include/linux/netdevice.h    |  20 +++++++
+ include/net/vrf.h            | 139 +++++++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/if_link.h |   9 +++
+ 3 files changed, 168 insertions(+)
+ create mode 100644 include/net/vrf.h
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 6ba681f0b98d..6dda2c1bf8c6 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -192,6 +192,9 @@ unsigned int inet_addr_type(struct net *net, __be32 addr);
- unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id);
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr);
-+unsigned int inet_addr_type_dev_table(struct net *net,
-+				      const struct net_device *dev,
-+				      __be32 addr);
- void ip_rt_multicast_event(struct in_device *);
- int ip_rt_ioctl(struct net *, unsigned int cmd, void __user *arg);
- void ip_rt_get_source(u8 *src, struct sk_buff *skb, struct rtable *rt);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index cc4e498a0ccf..c8b855882fa5 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -119,6 +119,7 @@
- #ifdef CONFIG_IP_MROUTE
- #include <linux/mroute.h>
- #endif
-+#include <net/vrf.h>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 607b5f41f46f..f7a6ef2fae3a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1289,6 +1289,7 @@ enum netdev_priv_flags {
+ 	IFF_XMIT_DST_RELEASE_PERM	= 1<<22,
+ 	IFF_IPVLAN_MASTER		= 1<<23,
+ 	IFF_IPVLAN_SLAVE		= 1<<24,
++	IFF_VRF_MASTER			= 1<<25,
+ };
  
+ #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+@@ -1316,6 +1317,7 @@ enum netdev_priv_flags {
+ #define IFF_XMIT_DST_RELEASE_PERM	IFF_XMIT_DST_RELEASE_PERM
+ #define IFF_IPVLAN_MASTER		IFF_IPVLAN_MASTER
+ #define IFF_IPVLAN_SLAVE		IFF_IPVLAN_SLAVE
++#define IFF_VRF_MASTER			IFF_VRF_MASTER
  
- /* The inetsw table contains everything that inet_create needs to
-@@ -427,6 +428,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	struct net *net = sock_net(sk);
- 	unsigned short snum;
- 	int chk_addr_ret;
-+	int tb_id = RT_TABLE_LOCAL;
- 	int err;
- 
- 	/* If the socket has its own bind function then use it. (RAW) */
-@@ -448,7 +450,16 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			goto out;
- 	}
- 
--	chk_addr_ret = inet_addr_type(net, addr->sin_addr.s_addr);
-+	if (sk->sk_bound_dev_if) {
-+		struct net_device *dev;
-+
-+		rcu_read_lock();
-+		dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
-+		if (dev)
-+			tb_id = vrf_dev_table_rcu(dev) ? : tb_id;
-+		rcu_read_unlock();
-+	}
-+	chk_addr_ret = inet_addr_type_table(net, addr->sin_addr.s_addr, tb_id);
- 
- 	/* Not specified by any standard per-se, however it breaks too
- 	 * many applications when removed.  It is unfortunate since
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 34a308573f4b..30409b75e925 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -233,7 +233,7 @@ static int arp_constructor(struct neighbour *neigh)
- 		return -EINVAL;
- 	}
- 
--	neigh->type = inet_addr_type(dev_net(dev), addr);
-+	neigh->type = inet_addr_type_dev_table(dev_net(dev), dev, addr);
- 
- 	parms = in_dev->arp_parms;
- 	__neigh_parms_put(neigh->parms);
-@@ -343,7 +343,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 	switch (IN_DEV_ARP_ANNOUNCE(in_dev)) {
- 	default:
- 	case 0:		/* By default announce any local IP */
--		if (skb && inet_addr_type(dev_net(dev),
-+		if (skb && inet_addr_type_dev_table(dev_net(dev), dev,
- 					  ip_hdr(skb)->saddr) == RTN_LOCAL)
- 			saddr = ip_hdr(skb)->saddr;
- 		break;
-@@ -351,7 +351,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 		if (!skb)
- 			break;
- 		saddr = ip_hdr(skb)->saddr;
--		if (inet_addr_type(dev_net(dev), saddr) == RTN_LOCAL) {
-+		if (inet_addr_type_dev_table(dev_net(dev), dev,
-+					     saddr) == RTN_LOCAL) {
- 			/* saddr should be known to target */
- 			if (inet_addr_onlink(in_dev, target, saddr))
- 				break;
-@@ -751,7 +752,7 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
- 	/* Special case: IPv4 duplicate address detection packet (RFC2131) */
- 	if (sip == 0) {
- 		if (arp->ar_op == htons(ARPOP_REQUEST) &&
--		    inet_addr_type(net, tip) == RTN_LOCAL &&
-+		    inet_addr_type_dev_table(net, dev, tip) == RTN_LOCAL &&
- 		    !arp_ignore(in_dev, sip, tip))
- 			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
- 				 dev->dev_addr, sha);
-@@ -811,16 +812,18 @@ static int arp_process(struct sock *sk, struct sk_buff *skb)
- 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
- 
- 	if (IN_DEV_ARP_ACCEPT(in_dev)) {
-+		unsigned int addr_type = inet_addr_type_dev_table(net, dev, sip);
-+
- 		/* Unsolicited ARP is not accepted by default.
- 		   It is possible, that this option should be enabled for some
- 		   devices (strip is candidate)
- 		 */
- 		is_garp = arp->ar_op == htons(ARPOP_REQUEST) && tip == sip &&
--			  inet_addr_type(net, sip) == RTN_UNICAST;
-+			  addr_type == RTN_UNICAST;
- 
- 		if (!n &&
- 		    ((arp->ar_op == htons(ARPOP_REPLY)  &&
--		      inet_addr_type(net, sip) == RTN_UNICAST) || is_garp))
-+				addr_type == RTN_UNICAST) || is_garp))
- 			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
- 	}
- 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index b11321a8e58d..c55723ec4c3e 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -260,6 +260,19 @@ unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
+ /**
+  *	struct net_device - The DEVICE structure.
+@@ -1432,6 +1434,7 @@ enum netdev_priv_flags {
+  *	@dn_ptr:	DECnet specific data
+  *	@ip6_ptr:	IPv6 specific data
+  *	@ax25_ptr:	AX.25 specific data
++ *	@vrf_ptr:	VRF specific data
+  *	@ieee80211_ptr:	IEEE 802.11 specific data, assign before registering
+  *
+  *	@last_rx:	Time of last Rx
+@@ -1650,6 +1653,7 @@ struct net_device {
+ 	struct dn_dev __rcu     *dn_ptr;
+ 	struct inet6_dev __rcu	*ip6_ptr;
+ 	void			*ax25_ptr;
++	struct net_vrf_dev __rcu *vrf_ptr;
+ 	struct wireless_dev	*ieee80211_ptr;
+ 	struct wpan_dev		*ieee802154_ptr;
+ #if IS_ENABLED(CONFIG_MPLS_ROUTING)
+@@ -3808,6 +3812,22 @@ static inline bool netif_supports_nofcs(struct net_device *dev)
+ 	return dev->priv_flags & IFF_SUPP_NOFCS;
  }
- EXPORT_SYMBOL(inet_dev_addr_type);
  
-+/* inet_addr_type with dev == NULL but using the table from a dev
-+ * if one is associated
-+ */
-+unsigned int inet_addr_type_dev_table(struct net *net,
-+				      const struct net_device *dev,
-+				      __be32 addr)
++static inline bool netif_is_vrf(const struct net_device *dev)
 +{
-+	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
-+
-+	return __inet_dev_addr_type(net, NULL, addr, rt_table);
++	return dev->priv_flags & IFF_VRF_MASTER;
 +}
-+EXPORT_SYMBOL(inet_addr_type_dev_table);
 +
- __be32 fib_compute_spec_dst(struct sk_buff *skb)
++static inline bool netif_index_is_vrf(struct net *net, int ifindex)
++{
++	struct net_device *dev = dev_get_by_index_rcu(net, ifindex);
++	bool rc = false;
++
++	if (dev)
++		rc = netif_is_vrf(dev);
++
++	return rc;
++}
++
+ /* This device needs to keep skb dst for qdisc enqueue or ndo_start_xmit() */
+ static inline void netif_keep_dst(struct net_device *dev)
  {
- 	struct net_device *dev = skb->dev;
-@@ -510,9 +523,12 @@ static int rtentry_to_fib_config(struct net *net, int cmd, struct rtentry *rt,
- 
- 	addr = sk_extract_addr(&rt->rt_gateway);
- 	if (rt->rt_gateway.sa_family == AF_INET && addr) {
-+		unsigned int addr_type;
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+new file mode 100644
+index 000000000000..0484d29d4589
+--- /dev/null
++++ b/include/net/vrf.h
+@@ -0,0 +1,139 @@
++/*
++ * include/net/net_vrf.h - adds vrf dev structure definitions
++ * Copyright (c) 2015 Cumulus Networks
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
 +
- 		cfg->fc_gw = addr;
-+		addr_type = inet_addr_type_table(net, addr, cfg->fc_table);
- 		if (rt->rt_flags & RTF_GATEWAY &&
--		    inet_addr_type(net, addr) == RTN_UNICAST)
-+		    addr_type == RTN_UNICAST)
- 			cfg->fc_scope = RT_SCOPE_UNIVERSE;
- 	}
- 
-@@ -984,11 +1000,14 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
- 			fib_magic(RTM_DELROUTE, RTN_BROADCAST, any, 32, prim);
- 	}
- 	if (!(ok & LOCAL_OK)) {
-+		unsigned int addr_type;
++#ifndef __LINUX_NET_VRF_H
++#define __LINUX_NET_VRF_H
 +
- 		fib_magic(RTM_DELROUTE, RTN_LOCAL, ifa->ifa_local, 32, prim);
++struct net_vrf_dev {
++	struct rcu_head		rcu;
++	int                     ifindex; /* ifindex of master dev */
++	u32                     tb_id;   /* table id for VRF */
++};
++
++struct slave {
++	struct list_head	list;
++	struct net_device	*dev;
++};
++
++struct slave_queue {
++	struct list_head	all_slaves;
++	int			num_slaves;
++};
++
++struct net_vrf {
++	struct slave_queue	queue;
++	struct rtable           *rth;
++	u32			tb_id;
++};
++
++
++#if IS_ENABLED(CONFIG_NET_VRF)
++/* called with rcu_read_lock() */
++static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
++{
++	struct net_vrf_dev *vrf_ptr;
++	int ifindex = 0;
++
++	if (!dev)
++		return 0;
++
++	if (netif_is_vrf(dev))
++		ifindex = dev->ifindex;
++	else {
++		vrf_ptr = rcu_dereference(dev->vrf_ptr);
++		if (vrf_ptr)
++			ifindex = vrf_ptr->ifindex;
++	}
++
++	return ifindex;
++}
++
++/* called with rcu_read_lock */
++static inline int vrf_dev_table_rcu(const struct net_device *dev)
++{
++	int tb_id = 0;
++
++	if (dev) {
++		struct net_vrf_dev *vrf_ptr;
++
++		vrf_ptr = rcu_dereference(dev->vrf_ptr);
++		if (vrf_ptr)
++			tb_id = vrf_ptr->tb_id;
++	}
++	return tb_id;
++}
++
++static inline int vrf_dev_table(const struct net_device *dev)
++{
++	int tb_id;
++
++	rcu_read_lock();
++	tb_id = vrf_dev_table_rcu(dev);
++	rcu_read_unlock();
++
++	return tb_id;
++}
++
++/* called with rtnl */
++static inline int vrf_dev_table_rtnl(const struct net_device *dev)
++{
++	int tb_id = 0;
++
++	if (dev) {
++		struct net_vrf_dev *vrf_ptr;
++
++		vrf_ptr = rtnl_dereference(dev->vrf_ptr);
++		if (vrf_ptr)
++			tb_id = vrf_ptr->tb_id;
++	}
++	return tb_id;
++}
++
++/* caller has already checked netif_is_vrf(dev) */
++static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
++{
++	struct rtable *rth = ERR_PTR(-ENETUNREACH);
++	struct net_vrf *vrf = netdev_priv(dev);
++
++	if (vrf) {
++		rth = vrf->rth;
++		atomic_inc(&rth->dst.__refcnt);
++	}
++	return rth;
++}
++
++#else
++static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
++{
++	return 0;
++}
++
++static inline int vrf_dev_table_rcu(const struct net_device *dev)
++{
++	return 0;
++}
++
++static inline int vrf_dev_table(const struct net_device *dev)
++{
++	return 0;
++}
++
++static inline int vrf_dev_table_rtnl(const struct net_device *dev)
++{
++	return 0;
++}
++
++static inline struct rtable *vrf_dev_get_rth(const struct net_device *dev)
++{
++	return ERR_PTR(-ENETUNREACH);
++}
++#endif
++
++#endif /* __LINUX_NET_VRF_H */
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index d450be36add2..313c305fd1ad 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -341,6 +341,15 @@ enum macvlan_macaddr_mode {
  
- 		/* Check, that this local address finally disappeared. */
--		if (gone &&
--		    inet_addr_type(dev_net(dev), ifa->ifa_local) != RTN_LOCAL) {
-+		addr_type = inet_addr_type_dev_table(dev_net(dev), dev,
-+						     ifa->ifa_local);
-+		if (gone && addr_type != RTN_LOCAL) {
- 			/* And the last, but not the least thing.
- 			 * We must flush stray FIB entries.
- 			 *
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 558e196bae0f..410ddb67221e 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -670,16 +670,18 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
- 		struct fib_result res;
+ #define MACVLAN_FLAG_NOPROMISC	1
  
- 		if (nh->nh_flags & RTNH_F_ONLINK) {
-+			unsigned int addr_type;
- 
- 			if (cfg->fc_scope >= RT_SCOPE_LINK)
- 				return -EINVAL;
--			if (inet_addr_type(net, nh->nh_gw) != RTN_UNICAST)
--				return -EINVAL;
- 			dev = __dev_get_by_index(net, nh->nh_oif);
- 			if (!dev)
- 				return -ENODEV;
- 			if (!(dev->flags & IFF_UP))
- 				return -ENETDOWN;
-+			addr_type = inet_addr_type_dev_table(net, dev, nh->nh_gw);
-+			if (addr_type != RTN_UNICAST)
-+				return -EINVAL;
- 			if (!netif_carrier_ok(dev))
- 				nh->nh_flags |= RTNH_F_LINKDOWN;
- 			nh->nh_dev = dev;
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 1164fc4ce3bc..c6f1ce149ffb 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -484,7 +484,8 @@ static struct rtable *icmp_route_lookup(struct net *net,
- 	if (err)
- 		goto relookup_failed;
- 
--	if (inet_addr_type(net, fl4_dec.saddr) == RTN_LOCAL) {
-+	if (inet_addr_type_dev_table(net, skb_in->dev,
-+				     fl4_dec.saddr) == RTN_LOCAL) {
- 		rt2 = __ip_route_output_key(net, &fl4_dec);
- 		if (IS_ERR(rt2))
- 			err = PTR_ERR(rt2);
-@@ -833,7 +834,7 @@ static bool icmp_unreach(struct sk_buff *skb)
- 	 */
- 
- 	if (!net->ipv4.sysctl_icmp_ignore_bogus_error_responses &&
--	    inet_addr_type(net, iph->daddr) == RTN_BROADCAST) {
-+	    inet_addr_type_dev_table(net, skb->dev, iph->daddr) == RTN_BROADCAST) {
- 		net_warn_ratelimited("%pI4 sent an invalid ICMP type %u, code %u error to a broadcast: %pI4 on %s\n",
- 				     &ip_hdr(skb)->saddr,
- 				     icmph->type, icmph->code,
++/* VRF section */
++enum {
++	IFLA_VRF_UNSPEC,
++	IFLA_VRF_TABLE,
++	__IFLA_VRF_MAX
++};
++
++#define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
++
+ /* IPVLAN section */
+ enum {
+ 	IFLA_IPVLAN_UNSPEC,
 -- 
 2.3.2 (Apple Git-55)
