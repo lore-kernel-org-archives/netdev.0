@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/7] net: dsa: add support for switchdev VLAN objects
-Date: Thu, 13 Aug 2015 12:52:17 -0400
-Message-ID: <1439484743-5126-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/7] net: dsa: mv88e6xxx: add VLAN support to FDB dump
+Date: Thu, 13 Aug 2015 12:52:20 -0400
+Message-ID: <1439484743-5126-5-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1439484743-5126-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -18,241 +18,88 @@ In-Reply-To: <1439484743-5126-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add new functions in DSA drivers to access hardware VLAN entries through
-SWITCHDEV_OBJ_PORT_VLAN objects:
+Add an helper function to read the next valid VLAN entry for a given
+port. It is used in the VID to FID conversion function to retrieve the
+forwarding database assigned to a given VLAN port.
 
- - port_pvid_get() and vlan_getnext() to dump a VLAN
- - port_vlan_del() to exclude a port from a VLAN
- - port_pvid_set() and port_vlan_add() to join a port to a VLAN
-
-The DSA infrastructure will ensure that each VLAN of the given range
-does not already belong to another bridge. If it does, it will fallback
-to software VLAN and won't program the hardware.
+Finally update the FDB getnext operation to iterate on the next valid
+port VLAN when the end of the current database is reached.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h |  11 ++++
- net/dsa/slave.c   | 158 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 169 insertions(+)
+ drivers/net/dsa/mv88e6xxx.c | 42 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 40 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 6356f43..bd9b765 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -298,6 +298,17 @@ struct dsa_switch_driver {
- 				   u8 state);
- 
- 	/*
-+	 * VLAN support
-+	 */
-+	int	(*port_pvid_get)(struct dsa_switch *ds, int port, u16 *pvid);
-+	int	(*port_pvid_set)(struct dsa_switch *ds, int port, u16 pvid);
-+	int	(*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
-+				 bool untagged);
-+	int	(*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
-+	int	(*vlan_getnext)(struct dsa_switch *ds, u16 *vid,
-+				unsigned long *ports, unsigned long *untagged);
-+
-+	/*
- 	 * Forwarding database
- 	 */
- 	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 2767584..880ead7 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -200,6 +200,152 @@ out:
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index ecdd9da..6c86bad 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1307,6 +1307,29 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds, u16 vid,
  	return 0;
  }
  
-+static int dsa_bridge_check_vlan_range(struct dsa_switch *ds,
-+				       const struct net_device *bridge,
-+				       u16 vid_begin, u16 vid_end)
++static int _mv88e6xxx_port_vtu_getnext(struct dsa_switch *ds, int port, u16 vid,
++				       struct mv88e6xxx_vtu_stu_entry *entry)
 +{
-+	struct dsa_slave_priv *p;
-+	struct net_device *dev, *vlan_br;
-+	DECLARE_BITMAP(members, DSA_MAX_PORTS);
-+	DECLARE_BITMAP(untagged, DSA_MAX_PORTS);
-+	u16 vid;
-+	int member, err;
-+
-+	if (!ds->drv->vlan_getnext || !vid_begin)
-+		return -EOPNOTSUPP;
-+
-+	vid = vid_begin - 1;
++	int err;
 +
 +	do {
-+		err = ds->drv->vlan_getnext(ds, &vid, members, untagged);
-+		if (err)
-+			break;
++		if (vid == 4095)
++			return -ENOENT;
 +
-+		if (vid > vid_end)
-+			break;
-+
-+		member = find_first_bit(members, DSA_MAX_PORTS);
-+		if (member == DSA_MAX_PORTS)
-+			continue;
-+
-+		dev = ds->ports[member];
-+		p = netdev_priv(dev);
-+		vlan_br = p->bridge_dev;
-+		if (vlan_br == bridge)
-+			continue;
-+
-+		netdev_dbg(vlan_br, "hardware VLAN %d already in use\n", vid);
-+		return -EOPNOTSUPP;
-+	} while (vid < vid_end);
-+
-+	return err == -ENOENT ? 0 : err;
-+}
-+
-+static int dsa_slave_port_vlan_add(struct net_device *dev,
-+				   struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	u16 vid;
-+	int err;
-+
-+	switch (obj->trans) {
-+	case SWITCHDEV_TRANS_PREPARE:
-+		if (!ds->drv->port_vlan_add || !ds->drv->port_pvid_set)
-+			return -EOPNOTSUPP;
-+
-+		/* If the requested port doesn't belong to the same bridge as
-+		 * the VLAN members, fallback to software VLAN (hopefully).
-+		 */
-+		err = dsa_bridge_check_vlan_range(ds, p->bridge_dev,
-+						  vlan->vid_begin,
-+						  vlan->vid_end);
++		err = _mv88e6xxx_vtu_getnext(ds, vid, entry);
 +		if (err)
 +			return err;
-+		break;
-+	case SWITCHDEV_TRANS_COMMIT:
-+		for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-+			err = ds->drv->port_vlan_add(ds, p->port, vid,
-+						     vlan->flags &
-+						     BRIDGE_VLAN_INFO_UNTAGGED);
-+			if (!err && vlan->flags & BRIDGE_VLAN_INFO_PVID)
-+				err = ds->drv->port_pvid_set(ds, p->port, vid);
-+			if (err)
-+				return err;
-+		}
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
++
++		if (!entry->valid)
++			return -ENOENT;
++
++		vid = entry->vid;
++	} while (entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_TAGGED &&
++		 entry->data[port] != GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED);
 +
 +	return 0;
 +}
 +
-+static int dsa_slave_port_vlan_del(struct net_device *dev,
-+				   struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	u16 vid;
+ int mv88e6xxx_vlan_getnext(struct dsa_switch *ds, u16 *vid,
+ 			   unsigned long *ports, unsigned long *untagged)
+ {
+@@ -1421,10 +1444,19 @@ static int _mv88e6xxx_atu_load(struct dsa_switch *ds,
+ static int _mv88e6xxx_port_vid_to_fid(struct dsa_switch *ds, int port, u16 vid)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_vtu_stu_entry vlan;
 +	int err;
-+
-+	if (!ds->drv->port_vlan_del)
-+		return -EOPNOTSUPP;
-+
-+	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
-+		err = ds->drv->port_vlan_del(ds, p->port, vid);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static int dsa_slave_port_vlan_dump(struct net_device *dev,
-+				    struct switchdev_obj *obj)
-+{
-+	struct switchdev_obj_vlan *vlan = &obj->u.vlan;
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	DECLARE_BITMAP(members, DSA_MAX_PORTS);
-+	DECLARE_BITMAP(untagged, DSA_MAX_PORTS);
-+	u16 pvid, vid = 0;
-+	int err;
-+
-+	if (!ds->drv->vlan_getnext || !ds->drv->port_pvid_get)
-+		return -EOPNOTSUPP;
-+
-+	err = ds->drv->port_pvid_get(ds, p->port, &pvid);
+ 
+ 	if (vid == 0)
+ 		return ps->fid[port];
+ 
++	err = _mv88e6xxx_port_vtu_getnext(ds, port, vid - 1, &vlan);
 +	if (err)
 +		return err;
 +
-+	for (;;) {
-+		err = ds->drv->vlan_getnext(ds, &vid, members, untagged);
-+		if (err)
-+			break;
++	if (vlan.vid == vid)
++		return vlan.fid;
 +
-+		if (!test_bit(p->port, members))
-+			continue;
-+
-+		memset(vlan, 0, sizeof(*vlan));
-+		vlan->vid_begin = vlan->vid_end = vid;
-+
-+		if (vid == pvid)
-+			vlan->flags |= BRIDGE_VLAN_INFO_PVID;
-+
-+		if (test_bit(p->port, untagged))
-+			vlan->flags |= BRIDGE_VLAN_INFO_UNTAGGED;
-+
-+		err = obj->cb(dev, obj);
-+		if (err)
-+			break;
-+	}
-+
-+	return err == -ENOENT ? 0 : err;
-+}
-+
- static int dsa_slave_port_fdb_add(struct net_device *dev,
- 				  struct switchdev_obj *obj)
- {
-@@ -341,6 +487,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 	case SWITCHDEV_OBJ_PORT_FDB:
- 		err = dsa_slave_port_fdb_add(dev, obj);
- 		break;
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlan_add(dev, obj);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -358,6 +507,9 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
- 	case SWITCHDEV_OBJ_PORT_FDB:
- 		err = dsa_slave_port_fdb_del(dev, obj);
- 		break;
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlan_del(dev, obj);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -375,6 +527,9 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
- 	case SWITCHDEV_OBJ_PORT_FDB:
- 		err = dsa_slave_port_fdb_dump(dev, obj);
- 		break;
-+	case SWITCHDEV_OBJ_PORT_VLAN:
-+		err = dsa_slave_port_vlan_dump(dev, obj);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -794,6 +949,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
- 	.ndo_poll_controller	= dsa_slave_poll_controller,
- #endif
-+	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
-+	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
-+	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- };
+ 	return -ENOENT;
+ }
  
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
+@@ -1548,8 +1580,14 @@ int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
+ 
+ 	do {
+ 		if (is_broadcast_ether_addr(addr)) {
+-			ret = -ENOENT;
+-			goto unlock;
++			struct mv88e6xxx_vtu_stu_entry vtu;
++
++			ret = _mv88e6xxx_port_vtu_getnext(ds, port, *vid, &vtu);
++			if (ret < 0)
++				goto unlock;
++
++			*vid = vtu.vid;
++			fid = vtu.fid;
+ 		}
+ 
+ 		ret = _mv88e6xxx_atu_getnext(ds, fid, addr, &next);
 -- 
 2.5.0
