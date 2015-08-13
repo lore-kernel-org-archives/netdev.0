@@ -1,60 +1,46 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] net: allow sleeping when modifying store_rps_map
-Date: Thu, 13 Aug 2015 14:03:16 -0400
-Message-ID: <1439488996-31227-1-git-send-email-sasha.levin@oracle.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <sasha.levin@oracle.com>
-To: tom@herbertland.com, davem@davemloft.net
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH 6/6] ethernet/s2io: advertise what hw supports in vlan_features
+Date: Thu, 13 Aug 2015 14:03:00 -0400
+Message-ID: <1439488980-44738-7-git-send-email-jarod@redhat.com>
+References: <1439488980-44738-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>, Jon Mason <jdmason@kudzu.us>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439488980-44738-1-git-send-email-jarod@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 10e4ea751 ("net: Fix race condition in store_rps_map") has moved the
-manipulation of the rps_needed jump label under a spinlock. Since changing
-the state of a jump label may sleep this is incorrect and causes warnings
-during runtime.
+For some reason, the s2io driver has never filled in vlan_features. If
+that's fully intentional, then this patch should be dropped. If its not,
+then this patch is necessary to maintain some functionality of slave s2io
+devices in a bonding group.
 
-Make rps_map_lock a mutex to allow sleeping under it.
+Without this, the presence of a s2io device in a bond will not trigger
+LRO support to be enabled at the bond level, even while it is enabled on
+the slave itself.
 
-Fixes: 10e4ea751 ("net: Fix race condition in store_rps_map")
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+This change becomes necessary when NETIF_F_LRO is added to
+netdev_features.h's NETIF_F_ONE_FOR_ALL.
+
+CC: Jon Mason <jdmason@kudzu.us>
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- net/core/net-sysfs.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/neterion/s2io.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 39ec694..b279077 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -689,7 +689,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
- 	struct rps_map *old_map, *map;
- 	cpumask_var_t mask;
- 	int err, cpu, i;
--	static DEFINE_SPINLOCK(rps_map_lock);
-+	static DEFINE_MUTEX(rps_map_mutex);
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
-@@ -722,9 +722,9 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
- 		map = NULL;
- 	}
- 
--	spin_lock(&rps_map_lock);
-+	mutex_lock(&rps_map_mutex);
- 	old_map = rcu_dereference_protected(queue->rps_map,
--					    lockdep_is_held(&rps_map_lock));
-+					    mutex_is_locked(&rps_map_mutex));
- 	rcu_assign_pointer(queue->rps_map, map);
- 
- 	if (map)
-@@ -732,7 +732,7 @@ static ssize_t store_rps_map(struct netdev_rx_queue *queue,
- 	if (old_map)
- 		static_key_slow_dec(&rps_needed);
- 
--	spin_unlock(&rps_map_lock);
-+	mutex_unlock(&rps_map_mutex);
- 
- 	if (old_map)
- 		kfree_rcu(old_map, rcu);
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 2d1b942..8bbf540 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -7922,6 +7922,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 		NETIF_F_RXCSUM | NETIF_F_LRO;
+ 	dev->features |= dev->hw_features |
+ 		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
++	dev->vlan_features |= dev->hw_features;
+ 	if (sp->device_type & XFRAME_II_DEVICE) {
+ 		dev->hw_features |= NETIF_F_UFO;
+ 		if (ufo)
 -- 
-1.7.10.4
+1.8.3.1
