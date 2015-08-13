@@ -1,56 +1,76 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2/5] net: rfkill: add rfkill_find_type function
-Date: Thu, 13 Aug 2015 11:27:46 +0200
-Message-ID: <1439458066.2114.13.camel@sipsolutions.net>
-References: <1438781947-7952-1-git-send-email-heikki.krogerus@linux.intel.com>
-	 <1438781947-7952-3-git-send-email-heikki.krogerus@linux.intel.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH] mm: make page pfmemalloc check more robust
+Date: Thu, 13 Aug 2015 11:31:41 +0200
+Message-ID: <20150813093140.GB31736@dhcp22.suse.cz>
+References: <1439456364-4530-1-git-send-email-mhocko@kernel.org>
+ <55CC5FA0.300@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-tegra@vger.kernel.org
-To: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438781947-7952-3-git-send-email-heikki.krogerus@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, Mel Gorman <mgorman@suse.de>,
+	Jiri Bohac <jbohac@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <55CC5FA0.300@suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-08-05 at 16:39 +0300, Heikki Krogerus wrote:
+On Thu 13-08-15 11:13:04, Vlastimil Babka wrote:
+> On 08/13/2015 10:58 AM, mhocko@kernel.org wrote:
+> >From: Michal Hocko <mhocko@suse.com>
+> >
+> >The patch c48a11c7ad26 ("netvm: propagate page->pfmemalloc to skb")
+> >added the checks for page->pfmemalloc to __skb_fill_page_desc():
+> >
+> >         if (page->pfmemalloc && !page->mapping)
+> >                 skb->pfmemalloc = true;
+> >
+> >It assumes page->mapping == NULL implies that page->pfmemalloc can be
+> >trusted.  However, __delete_from_page_cache() can set set page->mapping
+> >to NULL and leave page->index value alone. Due to being in union, a
+> >non-zero page->index will be interpreted as true page->pfmemalloc.
+> >
+> >So the assumption is invalid if the networking code can see such a
+> >page. And it seems it can. We have encountered this with a NFS over
+> >loopback setup when such a page is attached to a new skbuf. There is no
+> >copying going on in this case so the page confuses __skb_fill_page_desc
+> >which interprets the index as pfmemalloc flag and the network stack
+> >drops packets that have been allocated using the reserves unless they
+> >are to be queued on sockets handling the swapping which is the case here
 > 
-> +static const char *rfkill_types[NUM_RFKILL_TYPES] = {
-> +	[RFKILL_TYPE_WLAN]	= "wlan",
-> +	[RFKILL_TYPE_BLUETOOTH]	= "bluetooth",
-> +	[RFKILL_TYPE_UWB]	= "ultrawideband",
-> +	[RFKILL_TYPE_WIMAX]	= "wimax",
-> +	[RFKILL_TYPE_WWAN]	= "wwan",
-> +	[RFKILL_TYPE_GPS]	= "gps",
-> +	[RFKILL_TYPE_FM]	= "fm",
-> +	[RFKILL_TYPE_NFC]	= "nfc",
-> +};
-> +
-> +enum rfkill_type rfkill_find_type(const char *name)
-> +{
-> +	int i;
-> +
-> +	BUILD_BUG_ON(NUM_RFKILL_TYPES != RFKILL_TYPE_NFC + 1);
+>                                                             ^ not ?
+
+Dohh, you are right of course, updated...
+
+> The full story (according to Jiri Bohac and my understanding, I don't know
+> much about netdev) is that the __skb_fill_page_desc() is invoked here during
+> *sending* and normally the skb->pfmemalloc would be ignored in the end. But
+> because it is a localhost connection, the receiving code will think it was a
+> memalloc allocation during receive, and then do the socket restriction.
 > 
-That BUILD_BUG_ON() is now less useful - previously it pointed to the
-code that needed to change, now you're left wondering if you don't look
-up since it isn't quite that obvious from the code what this does.
+> Given that this apparently isn't the first case of this localhost issue, I
+> wonder if network code should just clear skb->pfmemalloc during send (or
+> maybe just send over localhost). That would be probably easier than
+> distinguish the __skb_fill_page_desc() callers for send vs receive.
 
-Something like
+Maybe the networking code can behave "better" in this particular case
+but the core thing remains though. Relying on page->mapping as you have
+properly found out during the debugging cannot be used for the reliable
+detection of pfmemalloc. So I would argue that a more robust detection
+is really worthwhile. Note there are other places which even do not
+bother to test for mapping - maybe they are safe but I got lost quickly
+when trying to track the allocation source to be clear that nothing
+could have stepped in in the meantime.
+-- 
+Michal Hocko
+SUSE Labs
 
-	BUILD_BUG_ON(rfkill_types[NUM_RFKILL_TYPES - 1] == NULL);
-
-would be better. As we only add here, that would be safe enough - I've
-done something similar in the past that a bit more complicated.
-
-With that and the static inline fixed (which maybe you could even
-remove) I'm fine with all these rfkill patches, but I'm not sure how to
-merge them since they affect all kinds of other trees. If desired, I
-can apply them, but an ACK from the tegra maintainer would be good :)
-
-johannes
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
