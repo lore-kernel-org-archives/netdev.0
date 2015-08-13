@@ -1,308 +1,200 @@
-From: mhocko@kernel.org
-Subject: [PATCH] mm: make page pfmemalloc check more robust
-Date: Thu, 13 Aug 2015 10:58:54 +0200
-Message-ID: <1439456364-4530-1-git-send-email-mhocko@kernel.org>
-Cc: Mel Gorman <mgorman@suse.de>,
-	Vlastimil Babka <vbabka@suse.cz>,
-	Jiri Bohac <jbohac@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Michal Hocko <mhocko@suse.com>
-To: <linux-mm@kvack.org>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
+Subject: Re: [PATCH 2/2] Convert smsc911x to use ACPI as well as DT
+Date: Thu, 13 Aug 2015 10:01:17 +0100
+Message-ID: <20150813090117.GA13833@red-moon>
+References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
+ <1439417187-21411-3-git-send-email-jeremy.linton@arm.com>
+ <20150813082759.GB5468@xora-haswell.xora.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeremy Linton <Jeremy.Linton@arm.com>,
+	"steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
+	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
+	Catalin Marinas <Catalin.Marinas@arm.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Graeme Gregory <gg@slimlogic.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from foss.arm.com ([217.140.101.70]:33572 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751006AbbHMJBO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2015 05:01:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20150813082759.GB5468@xora-haswell.xora.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Hocko <mhocko@suse.com>
+On Thu, Aug 13, 2015 at 09:27:59AM +0100, Graeme Gregory wrote:
+> On Wed, Aug 12, 2015 at 05:06:27PM -0500, Jeremy Linton wrote:
+> > Add ACPI bindings for the smsc911x driver. Convert the DT specific calls
+> > to nonspecific device* calls, This allows the driver to work
+> > with both ACPI and DT configurations. Ethernet should now work when using
+> > ACPI on ARM Juno.
 
-The patch c48a11c7ad26 ("netvm: propagate page->pfmemalloc to skb")
-added the checks for page->pfmemalloc to __skb_fill_page_desc():
+Last sentence does not belong in the commit log.
 
-        if (page->pfmemalloc && !page->mapping)
-                skb->pfmemalloc = true;
+> > 
+> > Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+> 
+> The code looks fine to me.
+> 
+> Currently the compulsary DT properties seem to match the "approved" ACPI
+> NIC properties from here
+> 
+> http://www.uefi.org/sites/default/files/resources/nic-request-v2.pdf
 
-It assumes page->mapping == NULL implies that page->pfmemalloc can be
-trusted.  However, __delete_from_page_cache() can set set page->mapping
-to NULL and leave page->index value alone. Due to being in union, a
-non-zero page->index will be interpreted as true page->pfmemalloc.
+What about _DSD device specific properties (eg "smsc,save-mac-address") ?
+Are we taking 1:1 translation between DT and ACPI for granted ?
 
-So the assumption is invalid if the networking code can see such a
-page. And it seems it can. We have encountered this with a NFS over
-loopback setup when such a page is attached to a new skbuf. There is no
-copying going on in this case so the page confuses __skb_fill_page_desc
-which interprets the index as pfmemalloc flag and the network stack
-drops packets that have been allocated using the reserves unless they
-are to be queued on sockets handling the swapping which is the case here
-and that leads to hangs when the nfs client waits for a response from
-the server which has been dropped and thus never arrive.
+I thought some process must be put in place to define the corresponding
+bindings in ACPI before starting this mechanical translation or maybe
+I missed something, I would like to understand.
 
-The struct page is already heavily packed so rather than finding
-another hole to put it in, let's do a trick instead. We can reuse the
-index again but define it to an impossible value (-1UL). This is the
-page index so it should never see the value that large. Replace all
-direct users of page->pfmemalloc by page_is_pfmemalloc which will
-hide this nastiness from unspoiled eyes.
+How does the device specific _DSD definitions work in ACPI world ? Where
+are they published ? How will we translate those to DT bindings if there
+is need ?
 
-The information will get lost if somebody wants to use page->index
-obviously but that was the case before and the original code expected
-that the information should be persisted somewhere else if that is
-really needed (e.g. what SLAB and SLUB do).
+Lorenzo
 
-Fixes: c48a11c7ad26 ("netvm: propagate page->pfmemalloc to skb")
-Cc: stable # 3.6+
-Debugged-by: Vlastimil Babka <vbabka@suse.com>
-Debugged-by: Jiri Bohac <jbohac@suse.com>
-Signed-off-by: Michal Hocko <mhocko@suse.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c     |  2 +-
- drivers/net/ethernet/intel/igb/igb_main.c         |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  2 +-
- include/linux/mm.h                                | 28 +++++++++++++++++++++++
- include/linux/mm_types.h                          |  9 --------
- include/linux/skbuff.h                            | 14 ++++--------
- mm/page_alloc.c                                   |  9 +++++---
- mm/slab.c                                         |  4 ++--
- mm/slub.c                                         |  2 +-
- net/core/skbuff.c                                 |  2 +-
- 11 files changed, 47 insertions(+), 29 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 982fdcdc795b..b5b2925103ec 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -216,7 +216,7 @@ static void fm10k_reuse_rx_page(struct fm10k_ring *rx_ring,
- 
- static inline bool fm10k_page_is_reserved(struct page *page)
- {
--	return (page_to_nid(page) != numa_mem_id()) || page->pfmemalloc;
-+	return (page_to_nid(page) != numa_mem_id()) || page_is_pfmemalloc(page);
- }
- 
- static bool fm10k_can_reuse_rx_page(struct fm10k_rx_buffer *rx_buffer,
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 2f70a9b152bd..830466c49987 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6566,7 +6566,7 @@ static void igb_reuse_rx_page(struct igb_ring *rx_ring,
- 
- static inline bool igb_page_is_reserved(struct page *page)
- {
--	return (page_to_nid(page) != numa_mem_id()) || page->pfmemalloc;
-+	return (page_to_nid(page) != numa_mem_id()) || page_is_pfmemalloc(page);
- }
- 
- static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 9aa6104e34ea..ae21e0b06c3a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1832,7 +1832,7 @@ static void ixgbe_reuse_rx_page(struct ixgbe_ring *rx_ring,
- 
- static inline bool ixgbe_page_is_reserved(struct page *page)
- {
--	return (page_to_nid(page) != numa_mem_id()) || page->pfmemalloc;
-+	return (page_to_nid(page) != numa_mem_id()) || page_is_pfmemalloc(page);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index e71cdde9cb01..1d7b00b038a2 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -765,7 +765,7 @@ static void ixgbevf_reuse_rx_page(struct ixgbevf_ring *rx_ring,
- 
- static inline bool ixgbevf_page_is_reserved(struct page *page)
- {
--	return (page_to_nid(page) != numa_mem_id()) || page->pfmemalloc;
-+	return (page_to_nid(page) != numa_mem_id()) || page_is_pfmemalloc(page);
- }
- 
- /**
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 2e872f92dbac..bf6f117fcf4d 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -1003,6 +1003,34 @@ static inline int page_mapped(struct page *page)
- }
- 
- /*
-+ * Return true only if the page has been allocated with
-+ * ALLOC_NO_WATERMARKS and the low watermark was not
-+ * met implying that the system is under some pressure.
-+ */
-+static inline bool page_is_pfmemalloc(struct page *page)
-+{
-+	/*
-+	 * Page index cannot be this large so this must be
-+	 * a pfmemalloc page.
-+	 */
-+	return page->index == -1UL;
-+}
-+
-+/*
-+ * Only to be called by the page allocator on a freshly allocated
-+ * page.
-+ */
-+static inline void set_page_pfmemalloc(struct page *page)
-+{
-+	page->index = -1UL;
-+}
-+
-+static inline void clear_page_pfmemalloc(struct page *page)
-+{
-+	page->index = 0;
-+}
-+
-+/*
-  * Different kinds of faults, as returned by handle_mm_fault().
-  * Used to decide whether a process gets delivered SIGBUS or
-  * just gets major/minor fault counters bumped up.
-diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-index 0038ac7466fd..15549578d559 100644
---- a/include/linux/mm_types.h
-+++ b/include/linux/mm_types.h
-@@ -63,15 +63,6 @@ struct page {
- 		union {
- 			pgoff_t index;		/* Our offset within mapping. */
- 			void *freelist;		/* sl[aou]b first free object */
--			bool pfmemalloc;	/* If set by the page allocator,
--						 * ALLOC_NO_WATERMARKS was set
--						 * and the low watermark was not
--						 * met implying that the system
--						 * is under some pressure. The
--						 * caller should try ensure
--						 * this page is only used to
--						 * free other pages.
--						 */
- 		};
- 
- 		union {
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index d6cdd6e87d53..6dcee34a476f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1602,20 +1602,16 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
- 	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
- 	/*
--	 * Propagate page->pfmemalloc to the skb if we can. The problem is
--	 * that not all callers have unique ownership of the page. If
--	 * pfmemalloc is set, we check the mapping as a mapping implies
--	 * page->index is set (index and pfmemalloc share space).
--	 * If it's a valid mapping, we cannot use page->pfmemalloc but we
--	 * do not lose pfmemalloc information as the pages would not be
--	 * allocated using __GFP_MEMALLOC.
-+	 * Propagate page pfmemalloc to the skb if we can. The problem is
-+	 * that not all callers have unique ownership of the page but rely
-+	 * on page_is_pfmemalloc doing the right thing(tm).
- 	 */
- 	frag->page.p		  = page;
- 	frag->page_offset	  = off;
- 	skb_frag_size_set(frag, size);
- 
- 	page = compound_head(page);
--	if (page->pfmemalloc && !page->mapping)
-+	if (page_is_pfmemalloc(page))
- 		skb->pfmemalloc	= true;
- }
- 
-@@ -2263,7 +2259,7 @@ static inline struct page *dev_alloc_page(void)
- static inline void skb_propagate_pfmemalloc(struct page *page,
- 					     struct sk_buff *skb)
- {
--	if (page && page->pfmemalloc)
-+	if (page_is_pfmemalloc(page))
- 		skb->pfmemalloc = true;
- }
- 
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index beda41710802..a0e65dc89784 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -1343,12 +1343,15 @@ static int prep_new_page(struct page *page, unsigned int order, gfp_t gfp_flags,
- 	set_page_owner(page, order, gfp_flags);
- 
- 	/*
--	 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was necessary to
-+	 * page is set pfmemalloc when ALLOC_NO_WATERMARKS was necessary to
- 	 * allocate the page. The expectation is that the caller is taking
- 	 * steps that will free more memory. The caller should avoid the page
- 	 * being used for !PFMEMALLOC purposes.
- 	 */
--	page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
-+	if (alloc_flags & ALLOC_NO_WATERMARKS)
-+		set_page_pfmemalloc(page);
-+	else
-+		clear_page_pfmemalloc(page);
- 
- 	return 0;
- }
-@@ -3345,7 +3348,7 @@ void *__alloc_page_frag(struct page_frag_cache *nc,
- 		atomic_add(size - 1, &page->_count);
- 
- 		/* reset page count bias and offset to start of new frag */
--		nc->pfmemalloc = page->pfmemalloc;
-+		nc->pfmemalloc = page_is_pfmemalloc(page);
- 		nc->pagecnt_bias = size;
- 		nc->offset = size;
- 	}
-diff --git a/mm/slab.c b/mm/slab.c
-index 200e22412a16..bbd0b47dc6a9 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -1603,7 +1603,7 @@ static struct page *kmem_getpages(struct kmem_cache *cachep, gfp_t flags,
- 	}
- 
- 	/* Record if ALLOC_NO_WATERMARKS was set when allocating the slab */
--	if (unlikely(page->pfmemalloc))
-+	if (page_is_pfmemalloc(page))
- 		pfmemalloc_active = true;
- 
- 	nr_pages = (1 << cachep->gfporder);
-@@ -1614,7 +1614,7 @@ static struct page *kmem_getpages(struct kmem_cache *cachep, gfp_t flags,
- 		add_zone_page_state(page_zone(page),
- 			NR_SLAB_UNRECLAIMABLE, nr_pages);
- 	__SetPageSlab(page);
--	if (page->pfmemalloc)
-+	if (page_is_pfmemalloc(page))
- 		SetPageSlabPfmemalloc(page);
- 
- 	if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
-diff --git a/mm/slub.c b/mm/slub.c
-index 816df0016555..0eacabff35ab 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -1427,7 +1427,7 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
- 	inc_slabs_node(s, page_to_nid(page), page->objects);
- 	page->slab_cache = s;
- 	__SetPageSlab(page);
--	if (page->pfmemalloc)
-+	if (page_is_pfmemalloc)
- 		SetPageSlabPfmemalloc(page);
- 
- 	start = page_address(page);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b6a19ca0f99e..6bb3d82c9bbe 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -340,7 +340,7 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
- 
- 	if (skb && frag_size) {
- 		skb->head_frag = 1;
--		if (virt_to_head_page(data)->pfmemalloc)
-+		if (page_is_pfmemalloc(virt_to_head_page(data)))
- 			skb->pfmemalloc = 1;
- 	}
- 	return skb;
--- 
-2.5.0
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> Reviewed-by: Graeme Gregory <graeme.gregory@linaro.org>
+> 
+> Thanks
+> 
+> > ---
+> >  drivers/net/ethernet/smsc/smsc911x.c | 48 +++++++++++++++++-------------------
+> >  1 file changed, 22 insertions(+), 26 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> > index 959aeea..0f21aa3 100644
+> > --- a/drivers/net/ethernet/smsc/smsc911x.c
+> > +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> > @@ -59,7 +59,9 @@
+> >  #include <linux/of_device.h>
+> >  #include <linux/of_gpio.h>
+> >  #include <linux/of_net.h>
+> > +#include <linux/acpi.h>
+> >  #include <linux/pm_runtime.h>
+> > +#include <linux/property.h>
+> >  
+> >  #include "smsc911x.h"
+> >  
+> > @@ -2362,59 +2364,46 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
+> >  	.tx_writefifo = smsc911x_tx_writefifo_shift,
+> >  };
+> >  
+> > -#ifdef CONFIG_OF
+> > -static int smsc911x_probe_config_dt(struct smsc911x_platform_config *config,
+> > -				    struct device_node *np)
+> > +static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+> > +				 struct device *dev)
+> >  {
+> > -	const char *mac;
+> >  	u32 width = 0;
+> >  
+> > -	if (!np)
+> > +	if (!dev)
+> >  		return -ENODEV;
+> >  
+> > -	config->phy_interface = of_get_phy_mode(np);
+> > +	config->phy_interface = device_get_phy_mode(dev);
+> >  
+> > -	mac = of_get_mac_address(np);
+> > -	if (mac)
+> > -		memcpy(config->mac, mac, ETH_ALEN);
+> > +	device_get_mac_address(dev, config->mac, ETH_ALEN);
+> >  
+> > -	of_property_read_u32(np, "reg-shift", &config->shift);
+> > +	device_property_read_u32(dev, "reg-shift", &config->shift);
+> >  
+> > -	of_property_read_u32(np, "reg-io-width", &width);
+> > +	device_property_read_u32(dev, "reg-io-width", &width);
+> >  	if (width == 4)
+> >  		config->flags |= SMSC911X_USE_32BIT;
+> >  	else
+> >  		config->flags |= SMSC911X_USE_16BIT;
+> >  
+> > -	if (of_get_property(np, "smsc,irq-active-high", NULL))
+> > +	if (device_property_present(dev, "smsc,irq-active-high"))
+> >  		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+> >  
+> > -	if (of_get_property(np, "smsc,irq-push-pull", NULL))
+> > +	if (device_property_present(dev, "smsc,irq-push-pull"))
+> >  		config->irq_type = SMSC911X_IRQ_TYPE_PUSH_PULL;
+> >  
+> > -	if (of_get_property(np, "smsc,force-internal-phy", NULL))
+> > +	if (device_property_present(dev, "smsc,force-internal-phy"))
+> >  		config->flags |= SMSC911X_FORCE_INTERNAL_PHY;
+> >  
+> > -	if (of_get_property(np, "smsc,force-external-phy", NULL))
+> > +	if (device_property_present(dev, "smsc,force-external-phy"))
+> >  		config->flags |= SMSC911X_FORCE_EXTERNAL_PHY;
+> >  
+> > -	if (of_get_property(np, "smsc,save-mac-address", NULL))
+> > +	if (device_property_present(dev, "smsc,save-mac-address"))
+> >  		config->flags |= SMSC911X_SAVE_MAC_ADDRESS;
+> >  
+> >  	return 0;
+> >  }
+> > -#else
+> > -static inline int smsc911x_probe_config_dt(
+> > -				struct smsc911x_platform_config *config,
+> > -				struct device_node *np)
+> > -{
+> > -	return -ENODEV;
+> > -}
+> > -#endif /* CONFIG_OF */
+> >  
+> >  static int smsc911x_drv_probe(struct platform_device *pdev)
+> >  {
+> > -	struct device_node *np = pdev->dev.of_node;
+> >  	struct net_device *dev;
+> >  	struct smsc911x_data *pdata;
+> >  	struct smsc911x_platform_config *config = dev_get_platdata(&pdev->dev);
+> > @@ -2478,7 +2467,7 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+> >  		goto out_disable_resources;
+> >  	}
+> >  
+> > -	retval = smsc911x_probe_config_dt(&pdata->config, np);
+> > +	retval = smsc911x_probe_config(&pdata->config, &pdev->dev);
+> >  	if (retval && config) {
+> >  		/* copy config parameters across to pdata */
+> >  		memcpy(&pdata->config, config, sizeof(pdata->config));
+> > @@ -2654,6 +2643,12 @@ static const struct of_device_id smsc911x_dt_ids[] = {
+> >  MODULE_DEVICE_TABLE(of, smsc911x_dt_ids);
+> >  #endif
+> >  
+> > +static const struct acpi_device_id smsc911x_acpi_match[] = {
+> > +	{ "ARMH9118", 0 },
+> > +	{ }
+> > +};
+> > +MODULE_DEVICE_TABLE(acpi, smsc911x_acpi_match);
+> > +
+> >  static struct platform_driver smsc911x_driver = {
+> >  	.probe = smsc911x_drv_probe,
+> >  	.remove = smsc911x_drv_remove,
+> > @@ -2661,6 +2656,7 @@ static struct platform_driver smsc911x_driver = {
+> >  		.name	= SMSC_CHIPNAME,
+> >  		.pm	= SMSC911X_PM_OPS,
+> >  		.of_match_table = of_match_ptr(smsc911x_dt_ids),
+> > +		.acpi_match_table = ACPI_PTR(smsc911x_acpi_match),
+> >  	},
+> >  };
+> >  
+> > -- 
+> > 2.4.3
+> > 
+> > 
+> > 
+> > _______________________________________________
+> > linux-arm-kernel mailing list
+> > linux-arm-kernel@lists.infradead.org
+> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
