@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 02/11] net: Use VRF device index for lookups on RX
-Date: Thu, 13 Aug 2015 14:59:01 -0600
-Message-ID: <1439499551-90231-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 03/11] net: Use VRF device index for lookups on TX
+Date: Thu, 13 Aug 2015 14:59:02 -0600
+Message-ID: <1439499551-90231-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1439499551-90231-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, jtoppins@cumulusnetworks.com,
@@ -12,80 +12,121 @@ Cc: shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
 	David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:35155 "EHLO
-	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932164AbbHMU7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 16:59:53 -0400
-Received: by iodt126 with SMTP id t126so65744876iod.2
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 13:59:53 -0700 (PDT)
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:38365 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753756AbbHMU74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 16:59:56 -0400
+Received: by igfj19 with SMTP id j19so44905225igf.1
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 13:59:55 -0700 (PDT)
 In-Reply-To: <1439499551-90231-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On ingress use index of VRF master device for route lookups if real device
-is enslaved. Rules are expected to be installed for the VRF device to
-direct lookups to a specific table.
+As with ingress use the index of VRF master device for route lookups on
+egress. However, the oif should only be used to direct the lookups to a
+specific table. Routes in the table are not based on the VRF device but
+rather interfaces that are part of the VRF so do not consider the oif for
+lookups within the table. The FLOWI_FLAG_VRFSRC is used to control this
+latter part.
 
 Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/fib_frontend.c | 8 +++++++-
- net/ipv4/route.c        | 3 ++-
- 2 files changed, 9 insertions(+), 2 deletions(-)
+ include/net/flow.h  | 1 +
+ include/net/route.h | 3 +++
+ net/ipv4/fib_trie.c | 7 +++++--
+ net/ipv4/icmp.c     | 4 ++++
+ net/ipv4/route.c    | 5 +++++
+ 5 files changed, 18 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 6b98de0d7949..d8ced1d89f1b 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -45,6 +45,7 @@
- #include <net/ip_fib.h>
- #include <net/rtnetlink.h>
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 3098ae33a178..f305588fc162 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -33,6 +33,7 @@ struct flowi_common {
+ 	__u8	flowic_flags;
+ #define FLOWI_FLAG_ANYSRC		0x01
+ #define FLOWI_FLAG_KNOWN_NH		0x02
++#define FLOWI_FLAG_VRFSRC		0x04
+ 	__u32	flowic_secid;
+ 	struct flowi_tunnel flowic_tun_key;
+ };
+diff --git a/include/net/route.h b/include/net/route.h
+index 2d45f419477f..94189d4bd899 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -251,6 +251,9 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32
+ 	if (inet_sk(sk)->transparent)
+ 		flow_flags |= FLOWI_FLAG_ANYSRC;
+ 
++	if (netif_index_is_vrf(sock_net(sk), oif))
++		flow_flags |= FLOWI_FLAG_VRFSRC;
++
+ 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
+ 			   protocol, flow_flags, dst, src, dport, sport);
+ }
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 37c4bb89a708..1243c79cb5b0 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1423,8 +1423,11 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
+ 			    nh->nh_flags & RTNH_F_LINKDOWN &&
+ 			    !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
+ 				continue;
+-			if (flp->flowi4_oif && flp->flowi4_oif != nh->nh_oif)
+-				continue;
++			if (!(flp->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
++				if (flp->flowi4_oif &&
++				    flp->flowi4_oif != nh->nh_oif)
++					continue;
++			}
+ 
+ 			if (!(fib_flags & FIB_LOOKUP_NOREF))
+ 				atomic_inc(&fi->fib_clntref);
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index c0556f1e4bf0..1164fc4ce3bc 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -96,6 +96,7 @@
  #include <net/xfrm.h>
+ #include <net/inet_common.h>
+ #include <net/ip_fib.h>
 +#include <net/vrf.h>
  
- #ifndef CONFIG_IP_MULTIPLE_TABLES
- 
-@@ -309,7 +310,9 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 	bool dev_match;
- 
- 	fl4.flowi4_oif = 0;
--	fl4.flowi4_iif = oif ? : LOOPBACK_IFINDEX;
-+	fl4.flowi4_iif = vrf_master_ifindex_rcu(dev);
-+	if (!fl4.flowi4_iif)
-+		fl4.flowi4_iif = oif ? : LOOPBACK_IFINDEX;
- 	fl4.daddr = src;
- 	fl4.saddr = dst;
- 	fl4.flowi4_tos = tos;
-@@ -339,6 +342,9 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 		if (nh->nh_dev == dev) {
- 			dev_match = true;
- 			break;
-+		} else if (vrf_master_ifindex_rcu(nh->nh_dev) == dev->ifindex) {
-+			dev_match = true;
-+			break;
- 		}
- 	}
- #else
+ /*
+  *	Build xmit assembly blocks
+@@ -425,6 +426,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	fl4.flowi4_mark = mark;
+ 	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
+ 	fl4.flowi4_proto = IPPROTO_ICMP;
++	fl4.flowi4_oif = vrf_master_ifindex_rcu(skb->dev) ? : skb->dev->ifindex;
+ 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
+ 	rt = ip_route_output_key(net, &fl4);
+ 	if (IS_ERR(rt))
+@@ -458,6 +460,8 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	fl4->flowi4_proto = IPPROTO_ICMP;
+ 	fl4->fl4_icmp_type = type;
+ 	fl4->fl4_icmp_code = code;
++	fl4->flowi4_oif = vrf_master_ifindex_rcu(skb_in->dev) ? : skb_in->dev->ifindex;
++
+ 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
+ 	rt = __ip_route_output_key(net, fl4);
+ 	if (IS_ERR(rt))
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 18fd7c9095c7..c26ff1f7067d 100644
+index c26ff1f7067d..2c89d294b669 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -112,6 +112,7 @@
- #endif
- #include <net/secure_seq.h>
- #include <net/ip_tunnels.h>
-+#include <net/vrf.h>
+@@ -2131,6 +2131,11 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 				fl4->saddr = inet_select_addr(dev_out, 0,
+ 							      RT_SCOPE_HOST);
+ 		}
++		if (netif_is_vrf(dev_out) &&
++		    !(fl4->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
++			rth = vrf_dev_get_rth(dev_out);
++			goto out;
++		}
+ 	}
  
- #define RT_FL_TOS(oldflp4) \
- 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
-@@ -1726,7 +1727,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	 *	Now we are ready to route packet.
- 	 */
- 	fl4.flowi4_oif = 0;
--	fl4.flowi4_iif = dev->ifindex;
-+	fl4.flowi4_iif = vrf_master_ifindex_rcu(dev) ? : dev->ifindex;
- 	fl4.flowi4_mark = skb->mark;
- 	fl4.flowi4_tos = tos;
- 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
+ 	if (!fl4->daddr) {
 -- 
 2.3.2 (Apple Git-55)
