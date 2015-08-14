@@ -1,32 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rocker: add debugfs support to dump internal
- tables
-Date: Thu, 13 Aug 2015 21:29:57 -0700 (PDT)
-Message-ID: <20150813.212957.728663371213139326.davem@davemloft.net>
-References: <1439480116-41701-1-git-send-email-sfeldma@gmail.com>
-	<20150813084639.2571eef0@urahara>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: Re: [PATCH] iwlwifi: out-of-bounds access in iwl_init_sband_channels
+Date: Fri, 14 Aug 2015 04:31:55 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E7EA2CE@hasmsx107.ger.corp.intel.com>
+References: <1439512532-7901-1-git-send-email-adrien+dev@schischi.me>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41412 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367AbbHNE36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 00:29:58 -0400
-In-Reply-To: <20150813084639.2571eef0@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Adrien Schildknecht <adrien+dev@schischi.me>,
+	"Berg, Johannes" <johannes.berg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 13 Aug 2015 08:46:39 -0700
+Hi,
 
-> Looks good.
-> A couple caveats about debugfs.
-> 1) Don't use it for API's not available elsewhere. You don't want it to become
->    a stable API which other tools get tied too.
-> 2) Best to make it an optional config option (dependent on DEBUGFS)
->    that way it is possible to have rocker support w/o having DEBUGF configured.
+On 08/14/2015 03:36 AM, Adrien Schildknecht wrote:
+> Both loops of this function compare data from the 'chan' array and then
+> check if the index is valid.
+> 
+> The 2 conditions should be inverted to avoid an out-of-bounds access.
+> 
 
-Agreed, especially about making it optional and depend upon DEBUGFS.
+Was that found by a static analyzer or any other automated tool, or was
+that the result of your very careful review?
+
+> Signed-off-by: Adrien Schildknecht <adrien+dev@schischi.me>
+> ---
+>  drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c b/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
+> index 21302b6..acc3d18 100644
+> --- a/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
+> @@ -713,12 +713,12 @@ int iwl_init_sband_channels(struct iwl_nvm_data *data,
+>  	struct ieee80211_channel *chan = &data->channels[0];
+>  	int n = 0, idx = 0;
+>  
+> -	while (chan->band != band && idx < n_channels)
+> +	while (idx < n_channels && chan->band != band)
+>  		chan = &data->channels[++idx];
+>  
+>  	sband->channels = &data->channels[idx];
+>  
+> -	while (chan->band == band && idx < n_channels) {
+> +	while (idx < n_channels && chan->band == band) {
+>  		chan = &data->channels[++idx];
+>  		n++;
+>  	}
+> 
+
+Looks fine - I'll pick it up.
