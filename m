@@ -1,58 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/2] net: ipv6 sysctl option to ignore
- routes when nexthop link is down
-Date: Thu, 13 Aug 2015 21:27:48 -0700 (PDT)
-Message-ID: <20150813.212748.1239473674146629403.davem@davemloft.net>
-References: <1439476741-952-1-git-send-email-gospo@cumulusnetworks.com>
-	<1439476741-952-2-git-send-email-gospo@cumulusnetworks.com>
+From: <shh.xie@gmail.com>
+Subject: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
+Date: Fri, 14 Aug 2015 12:23:40 +0800
+Message-ID: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
-To: gospo@cumulusnetworks.com
+Content-Type: text/plain
+Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41405 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020AbbHNE1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 00:27:48 -0400
-In-Reply-To: <1439476741-952-2-git-send-email-gospo@cumulusnetworks.com>
+Received: from mail-by2on0084.outbound.protection.outlook.com ([207.46.100.84]:55664
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752070AbbHNE3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2015 00:29:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Date: Thu, 13 Aug 2015 10:39:01 -0400
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-> Like the ipv4 patch with a similar title, this adds a sysctl to allow
-> the user to change routing behavior based on whether or not the
-> interface associated with the nexthop was an up or down link.  The
-> default setting preserves the current behavior, but anyone that enables
-> it will notice that nexthops on down interfaces will no longer be
-> selected:
-> 
-> net.ipv6.conf.all.ignore_routes_with_linkdown = 0
-> net.ipv6.conf.default.ignore_routes_with_linkdown = 0
-> net.ipv6.conf.lo.ignore_routes_with_linkdown = 0
-> ...
-> 
-> When the above sysctls are set, not only will link status be reported to
-> userspace, but an indication that a nexthop is dead and will not be used
-> is also reported.
-> 
-> 1000::/8 via 7000::2 dev p7p1  metric 1024 dead linkdown  pref medium
-> 1000::/8 via 8000::2 dev p8p1  metric 1024  pref medium
-> 7000::/8 dev p7p1  proto kernel  metric 256 dead linkdown  pref medium
-> 8000::/8 dev p8p1  proto kernel  metric 256  pref medium
-> 9000::/8 via 8000::2 dev p8p1  metric 2048  pref medium
-> 9000::/8 via 7000::2 dev p7p1  metric 1024 dead linkdown  pref medium
-> fe80::/64 dev p7p1  proto kernel  metric 256 dead linkdown  pref medium
-> fe80::/64 dev p8p1  proto kernel  metric 256  pref medium
-> 
-> This also adds devconf support and notification when sysctl values
-> change.
-> 
-> v2: drop use of rt6i_nhflags since it is not needed right now
-> 
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Signed-off-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+Currently, if phy state is PHY_RUNNING, we always register a CHANGE
+when phy works in polling or interrupt ignored, this will make the
+adjust_link being called even the phy link did Not changed.
 
-Applied.
+checking the phy link to make sure the link did changed before we
+register a CHANGE, if link did not changed, we do nothing.
+
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+ drivers/net/phy/phy.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 84b1fba..d972851 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -814,6 +814,7 @@ void phy_state_machine(struct work_struct *work)
+ 	bool needs_aneg = false, do_suspend = false;
+ 	enum phy_state old_state;
+ 	int err = 0;
++	int old_link;
+ 
+ 	mutex_lock(&phydev->lock);
+ 
+@@ -899,11 +900,18 @@ void phy_state_machine(struct work_struct *work)
+ 		phydev->adjust_link(phydev->attached_dev);
+ 		break;
+ 	case PHY_RUNNING:
+-		/* Only register a CHANGE if we are
+-		 * polling or ignoring interrupts
++		/* Only register a CHANGE if we are polling or ignoring
++		 * interrupts and link changed since latest checking.
+ 		 */
+-		if (!phy_interrupt_is_valid(phydev))
+-			phydev->state = PHY_CHANGELINK;
++		if (!phy_interrupt_is_valid(phydev)) {
++			old_link = phydev->link;
++			err = phy_read_status(phydev);
++			if (err)
++				break;
++
++			if (old_link != phydev->link)
++				phydev->state = PHY_CHANGELINK;
++		}
+ 		break;
+ 	case PHY_CHANGELINK:
+ 		err = phy_read_status(phydev);
+-- 
+2.1.0.27.g96db324
