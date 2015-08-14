@@ -1,91 +1,76 @@
-From: =?UTF-8?Q?S=C3=A9bastien_Bocahu?= <sbu@reportlinker.com>
-Subject: Re: Linux kernel commit breaks IPMI on iface downing
-Date: Fri, 14 Aug 2015 11:22:22 +0200
-Message-ID: <CAJPaPGUsyHwaaTuUGcV5BMsSDcw1T7XQ9GVy5KwsMao3k8u+Kg@mail.gmail.com>
-References: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
- <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Peter Chen <peter.chen@freescale.com>
+Subject: Re: [PATCH 1/1] Revert "net: fec: Ensure clocks are enabled while
+ using mdio bus"
+Date: Fri, 14 Aug 2015 16:14:45 +0800
+Message-ID: <20150814081444.GD11072@shlinux2>
+References: <1439531254-13128-1-git-send-email-peter.chen@freescale.com>
+ <1439540577.13210.25.camel@pengutronix.de>
+ <BN3PR0301MB08490760B426D4889AFF2434817C0@BN3PR0301MB0849.namprd03.prod.outlook.com>
+ <1439540853.13210.26.camel@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: harish.patil@qlogic.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Duan Andy <fugang.duan@freescale.com>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	Fabio Estevam <Fabio.Estevam@freescale.com>,
+	"tyler.baker@linaro.org" <tyler.baker@linaro.org>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:33462 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289AbbHNJWo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 05:22:44 -0400
-Received: by lalv9 with SMTP id v9so40477640lal.0
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 02:22:42 -0700 (PDT)
-In-Reply-To: <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from mail-by2on0134.outbound.protection.outlook.com ([207.46.100.134]:6869
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754001AbbHNJZk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2015 05:25:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1439540853.13210.26.camel@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The BNX2 firmware has already been updated to the latest version
-available from Dell.
+On Fri, Aug 14, 2015 at 10:27:33AM +0200, Lucas Stach wrote:
+> Am Freitag, den 14.08.2015, 08:25 +0000 schrieb Peter Chen:
+> >  
+> > > 
+> > > Am Freitag, den 14.08.2015, 13:47 +0800 schrieb Peter Chen:
+> > > > It causes the i.mx6sx sdb board hang when using nfsroot during boots
+> > > > up at v4.2-rc6.
+> > > >
+> > > > This reverts commit 8fff755e9f8d0f70a595e79f248695ce6aef5cc3.
+> > > >
+> > > > Cc: netdev@vger.kernel.org
+> > > > Cc: Fugang Duan <B38611@freescale.com>
+> > > > Cc: shawn.guo@linaro.org
+> > > > Cc: fabio.estevam@freescale.com
+> > > > Cc: tyler.baker@linaro.org
+> > > > Cc: Lucas Stach <l.stach@pengutronix.de>
+> > > > Cc: Andrew Lunn <andrew@lunn.ch>
+> > > > Signed-off-by: Peter Chen <peter.chen@freescale.com>
+> > > > ---
+> > > >
+> > > > According to Fugang Duan, the i.mx series has different clock control
+> > > > sequence among SoCs, this patch may only consider certain SoCs.
+> > > >
+> > > Sorry, but NACK.
+> > > 
+> > > Please test current mainline (what will become v4.2-rc7). There is already a
+> > > patch in that fixes i.MX27 and probably fixes the same problem on i.MX6SX.
+> > > 
+> > 
+> > Would you help point to me which commit and at which tree?
+> > 
+> Mainline, so Linus Torvalds tree.
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=14d2b7c1a96ef37eb571599c73d4a1a606b964d6
 
-root@debian:~# ethtool -i eth0 | grep firmware
-firmware-version: 6.4.5 bc 5.2.3 NCSI 2.0.11
+It fixes my imx6sx-sdb board. It is interesting that there was
+no problem for some platforms, but with problem for others.
+Your fix is a common runtime PM fix.
 
-2015-08-14 3:30 GMT+02:00 Michael Chan <mchan@broadcom.com>:
-> +netdev and Harish who is the current maintainer of bnx2 at qlogic.
->
-> The patch in question effectively just removes the
-> bnx2_set_power_state() call during "ip link set down".  If there is
-> IPMI, the firmware should know the link needs to stay up when the dri=
-ver
-> resets the device during bnx2_close().  This should be a very common
-> scenario.  Please provide the firmware versions to Harish with ethtoo=
-l
-> -i.  Perhaps upgrading the firmware can resolve this issue.
->
-> On Thu, 2015-08-13 at 15:47 +0200, S=C3=A9bastien Bocahu wrote:
->> Hi,
->>
->> Being unable to install Debian Jessie via IPMI on mainstream Dell R4=
-10
->> servers that used to be well supported by Debian Wheezy, I tracked t=
-he
->> problem down to a specific commit in the Linux kernel, specifically =
-in
->> the bnx2 driver.
->> The issue is that "ip link set eth0 down" takes the Ethernet part of
->> the BMC down (shared NIC for BMC+eth0), cutting off the IPMI session=
-=2E
->> The BMC gets back only after power cycling.
->>
->> Hardware: Dell R410 w/ a Broadcom 5716 NIC:
->> Ethernet controller: Broadcom Corporation NetXtreme II BCM5716 Gigab=
-it
->> Ethernet (rev 20)  )
->> Part number: BCM95716C1
->> Vendor specific: 6.4.5 (Firmware has been updated to the latest
->> version available by Dell's support website)
->>
->> I built many kernels to track which change caused the issue and it
->> seems that's :
->> 25bfb1dd4ba3b2d9a49ce9d9b0cd7be1840e15ed (bnx2: Add pci shutdown han=
-dler.)
->>
->> Before, 'ip link set eth0 down' would just cause 2/3s of packet loss
->> but IPMI would still be working afterwards.
->>
->> I'm available for more informations and/or testing if needed.
->>
->> Thanks !
->>
->>
->>
->
->
+Again, why we need this as a bug-fix, not but as new feature for next
+rc1?
 
+-- 
 
-
---=20
-S=C3=A9bastien Bocahu
-IT infrastructure manager
-
-4, Rue Montrochet - 69002 - Lyon, France
-
-+33 (0)437651704 - Phone
-ReportLinker.com
+Best Regards,
+Peter Chen
