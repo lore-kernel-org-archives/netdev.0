@@ -1,236 +1,212 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next 1/4] packet: add BPF fanout mode
-Date: Fri, 14 Aug 2015 11:50:24 -0400
-Message-ID: <1439567427-19504-2-git-send-email-willemb@google.com>
-References: <1439567427-19504-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, edumazet@google.com, dborkman@redhat.com,
-	ast@plumgrid.com, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:33178 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755515AbbHNPuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 11:50:35 -0400
-Received: by qkfj126 with SMTP id j126so26883854qkf.0
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 08:50:34 -0700 (PDT)
-In-Reply-To: <1439567427-19504-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211-next 2015-08-14
+Date: Fri, 14 Aug 2015 17:54:36 +0200
+Message-ID: <1439567676.2072.1.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+Hi,
 
-Add a fanout mode that accepts a BPF program to select a socket.
+And, in addition to the fix before, I have a -next pull request. It's
+actually quite big since I hadn't wanted to send one just before my
+vacation.
 
-This avoids having to keep adding special case fanout modes. One
-example use case is application layer load balancing. The QUIC
-protocol, for instance, encodes a connection ID in UDP payload.
+Let me know if there are any issues.
 
-Also add socket option SOL_PACKET/PACKET_FANOUT_DATA that updates data
-associated with the socket group. Fanout mode PACKET_FANOUT_BPF is the
-only user so far.
+johannes
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/uapi/linux/if_packet.h |  2 +
- net/packet/af_packet.c         | 97 +++++++++++++++++++++++++++++++++++++++++-
- net/packet/internal.h          |  5 ++-
- 3 files changed, 102 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index d3d715f8c..d41280a 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -55,6 +55,7 @@ struct sockaddr_ll {
- #define PACKET_TX_HAS_OFF		19
- #define PACKET_QDISC_BYPASS		20
- #define PACKET_ROLLOVER_STATS		21
-+#define PACKET_FANOUT_DATA		22
- 
- #define PACKET_FANOUT_HASH		0
- #define PACKET_FANOUT_LB		1
-@@ -62,6 +63,7 @@ struct sockaddr_ll {
- #define PACKET_FANOUT_ROLLOVER		3
- #define PACKET_FANOUT_RND		4
- #define PACKET_FANOUT_QM		5
-+#define PACKET_FANOUT_BPF		6
- #define PACKET_FANOUT_FLAG_ROLLOVER	0x1000
- #define PACKET_FANOUT_FLAG_DEFRAG	0x8000
- 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b5afe53..80d68c9 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -92,6 +92,7 @@
- #ifdef CONFIG_INET
- #include <net/inet_common.h>
- #endif
-+#include <linux/bpf.h>
- 
- #include "internal.h"
- 
-@@ -1410,6 +1411,22 @@ static unsigned int fanout_demux_qm(struct packet_fanout *f,
- 	return skb_get_queue_mapping(skb) % num;
- }
- 
-+static unsigned int fanout_demux_bpf(struct packet_fanout *f,
-+				     struct sk_buff *skb,
-+				     unsigned int num)
-+{
-+	struct bpf_prog *prog;
-+	unsigned int ret = 0;
-+
-+	rcu_read_lock();
-+	prog = rcu_dereference(f->bpf_prog);
-+	if (prog)
-+		ret = BPF_PROG_RUN(prog, skb) % num;
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
- static bool fanout_has_flag(struct packet_fanout *f, u16 flag)
- {
- 	return f->flags & (flag >> 8);
-@@ -1454,6 +1471,9 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- 	case PACKET_FANOUT_ROLLOVER:
- 		idx = fanout_demux_rollover(f, skb, 0, false, num);
- 		break;
-+	case PACKET_FANOUT_BPF:
-+		idx = fanout_demux_bpf(f, skb, num);
-+		break;
- 	}
- 
- 	if (fanout_has_flag(f, PACKET_FANOUT_FLAG_ROLLOVER))
-@@ -1502,6 +1522,72 @@ static bool match_fanout_group(struct packet_type *ptype, struct sock *sk)
- 	return false;
- }
- 
-+static void fanout_init_data(struct packet_fanout *f)
-+{
-+	switch (f->type) {
-+	case PACKET_FANOUT_LB:
-+		atomic_set(&f->rr_cur, 0);
-+		break;
-+	case PACKET_FANOUT_BPF:
-+		RCU_INIT_POINTER(f->bpf_prog, NULL);
-+		break;
-+	}
-+}
-+
-+static void __fanout_set_data_bpf(struct packet_fanout *f, struct bpf_prog *new)
-+{
-+	struct bpf_prog *old;
-+
-+	spin_lock(&f->lock);
-+	old = rcu_dereference_protected(f->bpf_prog, lockdep_is_held(&f->lock));
-+	rcu_assign_pointer(f->bpf_prog, new);
-+	spin_unlock(&f->lock);
-+
-+	if (old) {
-+		synchronize_net();
-+		bpf_prog_destroy(old);
-+	}
-+}
-+
-+static int fanout_set_data_bpf(struct packet_fanout *f, char __user *data,
-+			       unsigned int len)
-+{
-+	struct bpf_prog *new;
-+	struct sock_fprog fprog;
-+	int ret;
-+
-+	if (len != sizeof(fprog))
-+		return -EINVAL;
-+	if (copy_from_user(&fprog, data, len))
-+		return -EFAULT;
-+
-+	ret = bpf_prog_create_from_user(&new, &fprog, NULL);
-+	if (ret)
-+		return ret;
-+
-+	__fanout_set_data_bpf(f, new);
-+	return 0;
-+}
-+
-+static int fanout_set_data(struct packet_fanout *f, char __user *data,
-+			   unsigned int len)
-+{
-+	switch (f->type) {
-+	case PACKET_FANOUT_BPF:
-+		return fanout_set_data_bpf(f, data, len);
-+	default:
-+		return -EINVAL;
-+	};
-+}
-+
-+static void fanout_release_data(struct packet_fanout *f)
-+{
-+	switch (f->type) {
-+	case PACKET_FANOUT_BPF:
-+		__fanout_set_data_bpf(f, NULL);
-+	};
-+}
-+
- static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- {
- 	struct packet_sock *po = pkt_sk(sk);
-@@ -1519,6 +1605,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	case PACKET_FANOUT_CPU:
- 	case PACKET_FANOUT_RND:
- 	case PACKET_FANOUT_QM:
-+	case PACKET_FANOUT_BPF:
- 		break;
- 	default:
- 		return -EINVAL;
-@@ -1561,10 +1648,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		match->id = id;
- 		match->type = type;
- 		match->flags = flags;
--		atomic_set(&match->rr_cur, 0);
- 		INIT_LIST_HEAD(&match->list);
- 		spin_lock_init(&match->lock);
- 		atomic_set(&match->sk_ref, 0);
-+		fanout_init_data(match);
- 		match->prot_hook.type = po->prot_hook.type;
- 		match->prot_hook.dev = po->prot_hook.dev;
- 		match->prot_hook.func = packet_rcv_fanout;
-@@ -1610,6 +1697,7 @@ static void fanout_release(struct sock *sk)
- 	if (atomic_dec_and_test(&f->sk_ref)) {
- 		list_del(&f->list);
- 		dev_remove_pack(&f->prot_hook);
-+		fanout_release_data(f);
- 		kfree(f);
- 	}
- 	mutex_unlock(&fanout_mutex);
-@@ -3529,6 +3617,13 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 
- 		return fanout_add(sk, val & 0xffff, val >> 16);
- 	}
-+	case PACKET_FANOUT_DATA:
-+	{
-+		if (!po->fanout)
-+			return -EINVAL;
-+
-+		return fanout_set_data(po->fanout, optval, optlen);
-+	}
- 	case PACKET_TX_HAS_OFF:
- 	{
- 		unsigned int val;
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index e20b3e8..9ee4631 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -79,7 +79,10 @@ struct packet_fanout {
- 	u16			id;
- 	u8			type;
- 	u8			flags;
--	atomic_t		rr_cur;
-+	union {
-+		atomic_t		rr_cur;
-+		struct bpf_prog __rcu	*bpf_prog;
-+	};
- 	struct list_head	list;
- 	struct sock		*arr[PACKET_FANOUT_MAX];
- 	spinlock_t		lock;
--- 
-2.5.0.276.gf5e568e
+The following changes since commit 923b352f19d9ea971ae2536eab55f5fc9e95fedf:
+
+  cfg80211: use RTNL locked reg_can_beacon for IR-relaxation (2015-07-17 15:02:02 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2015-08-14
+
+for you to fetch changes up to 8f9c98df949333f08b74e5df1caacf7e2c5e8552:
+
+  mac80211: fix BIT position for TDLS WIDE extended cap (2015-08-14 17:49:53 +0200)
+
+----------------------------------------------------------------
+Another pull request for the next cycle, this time with quite
+a bit of content:
+ * mesh fixes/improvements from Alexis, Bob, Chun-Yeow and Jesse
+ * TDLS higher bandwidth support (Arik)
+ * OCB fixes from Bertold Van den Bergh
+ * suspend/resume fixes from Eliad
+ * dynamic SMPS support for minstrel-HT (Krishna Chaitanya)
+ * VHT bitrate mask support (Lorenzo Bianconi)
+ * better regulatory support for 5/10 MHz channels (Matthias May)
+ * basic support for MU-MIMO to avoid the multi-vif issue (Sara Sharon)
+along with a number of other cleanups.
+
+----------------------------------------------------------------
+Alexis Green (1):
+      mac80211: mesh: add missing case to PERR processing
+
+Arik Nemtsov (5):
+      mac80211: define TDLS wider BW support bits
+      mac80211: upgrade BW of TDLS peers when possible
+      mac80211: TDLS: correctly configure SMPS state
+      mac80211: TDLS: handle chan-switch in RTNL locked work
+      mac80211: TDLS: deny ch-switch req on disallowed channels
+
+Bertold Van den Bergh (4):
+      nl80211: Allow setting multicast rate on OCB interfaces
+      mac80211: Set txrc.bss to true for OCB interfaces
+      mac80211: Only accept data frames in OCB mode
+      mac80211: Make OCB mode set BSSID
+
+Bob Copeland (4):
+      mac80211: enable assoc check for mesh interfaces
+      mac80211: reorder mesh_plink to remove forward decl
+      mac80211: mesh: separate plid and aid concepts
+      mac80211: select an AID when creating new mesh STAs
+
+Chun-Yeow Yeoh (1):
+      mac80211: mesh process the target only subfield for mesh hwmp
+
+Dan Carpenter (1):
+      mac80211: remove always true condition
+
+Denys Vlasenko (2):
+      mac80211: deinline drv_sta_state
+      mac80211: deinline rate_control_rate_init, rate_control_rate_update
+
+Eliad Peller (2):
+      mac80211: clear local->in_reconfig on reconfig error
+      mac80211: clear local->suspended before calling drv_resume()
+
+Emmanuel Grumbach (1):
+      mac80211: fix BIT position for TDLS WIDE extended cap
+
+Geert Uytterhoeven (1):
+      rfkill: Allow compile test of GPIO consumers if !GPIOLIB
+
+Jesse Jones (2):
+      mac80211: mesh: don't invalidate SN on discovery failure
+      mac80211: mac80211: Check SN for deactivated mpaths
+
+Johannes Berg (26):
+      mac80211: remove exposing 'mfp' to drivers
+      mac80211: rename 'sta_inf' variable to more common 'sta'
+      mac80211: remove sta_info.gtk_idx
+      mac80211: remove short frame test and counter
+      mac80211: move ieee80211_get_bssid into RX file
+      mac80211: fix comment referring to RX queue
+      mac80211: don't store napi struct
+      mac80211: remove zero-length A-MPDU subframe reporting
+      mac80211: remove key TX/RX counter
+      mac80211: support device/driver PN check for CCMP/GCMP
+      mac80211: duplicate station's MAC address for hash table
+      mac80211: remove IEEE80211_RX_FRAGMENTED
+      mac80211: move mesh related station fields to own struct
+      mac80211: move mesh STA parameters code to own function
+      mac80211: allow passing NULL to ieee80211_vif_to_wdev()
+      mac80211_hwsim: support wider TDLS bandwidth
+      mac80211: add pointer for driver use to key
+      mac80211: mesh: move fail_avg into mesh struct
+      mac80211: shrink struct ieee80211_fragment_entry
+      cfg80211: allow mgmt_frame_register callback to sleep
+      mac80211: account TX MSDUs properly with segmentation offload
+      Merge branch 'mac80211' into mac80211-next
+      iwlwifi: mvm: don't set K1/K2 for AES-CMAC
+      mac80211: remove ieee80211_aes_cmac_calculate_k1_k2()
+      average: provide macro to create static EWMA
+      mac80211: use DECLARE_EWMA
+
+John Linville (1):
+      wireless: remove superfluous if statement in regulatory code
+
+Krishna Chaitanya (1):
+      mac80211: minstrel_ht: handle peers in dynamic SMPS
+
+Lorenzo Bianconi (4):
+      mac80211: remove ieee80211_tx_info from rate_control_apply_mask signature
+      mac80211: remove ieee80211_tx_rate dependency in rate mask code
+      mac80211: define rate_control_apply_mask_ratetbl()
+      mac80211: add rate mask logic for vht rates
+
+Matthias May (1):
+      cfg80211: regulatory: handle 5 and 10 MHz channels properly
+
+Michal Kazior (1):
+      cfg80211: propagate set_wiphy failure to userspace
+
+Sara Sharon (1):
+      mac80211: Add support for declaring MU-MIMO capability
+
+Su Kang Yin (1):
+      mac80211_hwsim: unregister genetlink family properly
+
+Wojciech Dubowik (1):
+      mac80211: avoid unnecessary beacon deref on CSA counter update
+
+ drivers/net/wireless/iwlwifi/dvm/dev.h        |   2 +
+ drivers/net/wireless/iwlwifi/dvm/main.c       |   3 +-
+ drivers/net/wireless/iwlwifi/dvm/rx.c         |   2 +-
+ drivers/net/wireless/iwlwifi/mvm/fw-api-sta.h |   4 +-
+ drivers/net/wireless/iwlwifi/mvm/mvm.h        |   1 +
+ drivers/net/wireless/iwlwifi/mvm/ops.c        |   3 +-
+ drivers/net/wireless/iwlwifi/mvm/rx.c         |   2 +-
+ drivers/net/wireless/iwlwifi/mvm/sta.c        |   2 -
+ drivers/net/wireless/mac80211_hwsim.c         |   5 +-
+ include/linux/average.h                       |  39 +++
+ include/linux/ieee80211.h                     |   2 +-
+ include/net/cfg80211.h                        |   3 +-
+ include/net/mac80211.h                        |  69 +++---
+ net/mac80211/Kconfig                          |   1 -
+ net/mac80211/Makefile                         |   1 +
+ net/mac80211/aes_cmac.c                       |  17 --
+ net/mac80211/cfg.c                            | 161 ++++++++-----
+ net/mac80211/chan.c                           |  31 ++-
+ net/mac80211/debugfs.c                        |   2 +-
+ net/mac80211/debugfs_key.c                    |   2 -
+ net/mac80211/debugfs_netdev.c                 |  34 +++
+ net/mac80211/driver-ops.c                     |  41 ++++
+ net/mac80211/driver-ops.h                     |  29 +--
+ net/mac80211/ieee80211_i.h                    |  42 ++--
+ net/mac80211/iface.c                          |  16 +-
+ net/mac80211/key.c                            |   1 -
+ net/mac80211/key.h                            |   3 -
+ net/mac80211/main.c                           |  17 +-
+ net/mac80211/mesh.c                           |   2 +-
+ net/mac80211/mesh_hwmp.c                      |  80 ++++---
+ net/mac80211/mesh_plink.c                     | 326 ++++++++++++++------------
+ net/mac80211/mesh_ps.c                        |  42 ++--
+ net/mac80211/mesh_sync.c                      |  16 +-
+ net/mac80211/mlme.c                           |  61 +++--
+ net/mac80211/ocb.c                            |   2 +-
+ net/mac80211/rate.c                           | 310 ++++++++++++++++++------
+ net/mac80211/rate.h                           |  60 +----
+ net/mac80211/rc80211_minstrel_ht.c            |   8 +-
+ net/mac80211/rx.c                             | 101 +++++---
+ net/mac80211/sta_info.c                       |  52 ++--
+ net/mac80211/sta_info.h                       | 120 ++++++----
+ net/mac80211/status.c                         |   5 +-
+ net/mac80211/tdls.c                           | 242 ++++++++++++++++---
+ net/mac80211/tx.c                             |  35 +--
+ net/mac80211/util.c                           |  75 ++----
+ net/mac80211/vht.c                            |  34 ++-
+ net/mac80211/wpa.c                            |  83 ++++---
+ net/rfkill/Kconfig                            |   3 +-
+ net/wireless/core.c                           |   5 +
+ net/wireless/core.h                           |   5 +
+ net/wireless/mlme.c                           |  75 ++++--
+ net/wireless/nl80211.c                        |   4 +-
+ net/wireless/rdev-ops.h                       |   2 +
+ net/wireless/reg.c                            |  73 ++++--
+ 54 files changed, 1510 insertions(+), 846 deletions(-)
+ create mode 100644 net/mac80211/driver-ops.c
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
