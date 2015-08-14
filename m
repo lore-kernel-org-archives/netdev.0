@@ -1,46 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] average: provide macro to create static EWMA
-Date: Thu, 13 Aug 2015 17:26:55 -0700 (PDT)
-Message-ID: <20150813.172655.794541030036505262.davem@davemloft.net>
-References: <1439457109-21833-1-git-send-email-johannes@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC net 0/3] ipv6: Fix potential deadlock when creating
+ pcpu rt
+Date: Thu, 13 Aug 2015 17:29:09 -0700 (PDT)
+Message-ID: <20150813.172909.51308259033338222.davem@davemloft.net>
+References: <20150808100028.GA14897@sesse.net>
+	<1439452683-964514-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1439457109-21833-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sgunderson@bigfoot.com,
+	hannes@stressinduktion.org, kernel-team@fb.com
+To: kafai@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40348 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753233AbbHNA3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 20:29:10 -0400
+In-Reply-To: <1439452683-964514-1-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Thu, 13 Aug 2015 11:11:48 +0200
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Thu, 13 Aug 2015 00:58:00 -0700
 
-> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> This patch series fixes a potential deadlock when creating a pcpu rt.
+> It happens when dst_alloc() decided to run gc. Something like this:
 > 
-> Having the EWMA parameters stored in the runtime struct imposes
-> memory requirements for the constant values that could just be
-> inlined in the code. This particularly makes sense if there are
-> a lot of such structs, for example in mac80211 in the station
-> table where each station has a number of these in an array, and
-> there can be many stations.
+> read_lock(&table->tb6_lock);
+> ip6_rt_pcpu_alloc()
+> => dst_alloc()
+> => ip6_dst_gc()
+> => write_lock(&table->tb6_lock); /* oops */
 > 
-> Provide a macro DECLARE_EWMA() that declares the necessary struct
-> and inline functions to access it with the parameters hard-coded;
-> using this also means the user no longer needs to 'select AVERAGE'
-> as it's entirely self-contained.
+> Patch 1 and 2 are some prep works.
+> Patch 3 is the fix.
 > 
-> In the mac80211 case, on x86-64, this actually slightly *reduces*
-> code size, while also saving 80 bytes of runtime memory per sta.
+> Original report: https://bugzilla.kernel.org/show_bug.cgi?id=102291
 > 
-> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
-> As the next patch relies on this, I'll take this through my tree
-> unless I hear objections.
+> Steinar, the patches can also be applied to 4.2-rc5 (I just tried).
+> Can you help to test them? Thanks!
 
-This looks fine to me.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This series looks fine to me.
