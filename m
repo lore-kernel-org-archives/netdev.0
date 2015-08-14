@@ -1,74 +1,209 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 0/2] net: introduce IFF_NO_QUEUE as successor of zero
- tx_queue_len
-Date: Fri, 14 Aug 2015 10:41:53 +0200
-Message-ID: <20150814084153.GI32353@orbit.nwl.cc>
-References: <1439485268-20953-1-git-send-email-phil@nwl.cc>
- <20150813104950.1b8346f2@urahara>
- <20150813204037.3c4e68a4@redhat.com>
- <20150813121157.5166efb1@urahara>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net v2] ppp: fix device unregistration upon netns deletion
+Date: Fri, 14 Aug 2015 10:42:56 +0200
+Message-ID: <47412a6103a73f33a6c167c86ee5790577c0a0ec.1439541453.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com, davem@davemloft.net, fw@strlen.de,
-	cwang@twopensource.com, eric.dumazet@gmail.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David Miller <davem@davemloft.net>,
+	Paul Mackerras <paulus@samba.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:59069 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932366AbbHNIlz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 04:41:55 -0400
+Received: from zimbra.alphalink.fr ([217.15.80.77]:60010 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752744AbbHNInH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 04:43:07 -0400
 Content-Disposition: inline
-In-Reply-To: <20150813121157.5166efb1@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2015 at 12:11:57PM -0700, Stephen Hemminger wrote:
-> On Thu, 13 Aug 2015 20:40:37 +0200
-> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> 
-> > On Thu, 13 Aug 2015 10:49:50 -0700
-> > Stephen Hemminger <stephen@networkplumber.org> wrote:
-> > 
-> > > On Thu, 13 Aug 2015 19:01:05 +0200
-> > > Phil Sutter <phil@nwl.cc> wrote:
-> > > 
-> > > > Up to now, drivers being aware of the above applying to them set
-> > > > dev->tx_queue_len to zero to indicate no qdisc should be attached to the
-> > > > interface they drive and the kernel reacts upon this by assigning the noop
-> > > > qdisc instead of the default pfifo_fast. This implicit agreement though leads
-> > > > to an inconvenient situation once a user tries to attach a real qdisc to these
-> > > > devices, as the formerly special tx_queue_len value becomes a regular one,
-> > > 
-> > > So this is a workaround for user ignorance by introducing kernel API complexity.
-> > > Before user sets qdisc, why don't they set tx queue length?
-> > 
-> > Please don't insist on keeping this broke interface... how should users
-> > know that BEFORE adding a qdisc they MUST change the _device_ tx queue
-> > length (not zero).
-> 
-> Before setting any qdisc, they should set queue length anyway.
+PPP devices may get automatically unregistered when their network
+namespace is getting removed. This happens if the ppp control plane
+daemon (e.g. pppd) exits while it is the last user of this namespace.
 
-Probably, yes. But if they don't, it depends on the interface driver
-whether they're screwed or not. In my opinion, this inconsistency alone
-is worth fixing.
+This leads to several races:
 
-> >  Getting "back" to the original state, they MUST
-> > change the device tx queue len back to zero BEFORE deleting the qdisc,
-> > such that when assigning the default queue qdisc the system detects
-> > this device can work without a qdisc.  Changing the tx queue len to
-> > zero after the qdisc is deleted will have not effect. 
-> > 
-> > Listen to the description, that interface is broken. The kernel really
-> > needs to hide these details from userspace.
-> > 
-> > It even allows you to misconfigure the kernel, by tricking the kernel
-> > into assigning noqueue to physical devices that really need it.
-> 
-> But adding a flag risks breaking external scripts.
+  * ppp_exit_net() may destroy the per namespace idr (pn->units_idr)
+    before all file descriptors were released. Successive ppp_release()
+    calls may then cleanup PPP devices with ppp_shutdown_interface() and
+    try to use the already destroyed idr.
 
-Could you please elaborate on this? As far as I can tell, introducing a
-separate flag is the only solution *not* breaking existing scripts. So
-if you see the rub, I would like to know where exactly it is.
+  * Automatic device unregistration may also happen before the
+    ppp_release() call for that device gets executed. Once called on
+    the file owning the device, ppp_release() will then clean it up and
+    try to unregister it a second time.
 
-Cheers, Phil
+To fix these issues, operations defined in ppp_shutdown_interface() are
+moved to the PPP device's ndo_uninit() callback. This allows PPP
+devices to be properly cleaned up by unregister_netdev() and friends.
+So checking for ppp->owner is now an accurate test to decide if a PPP
+device should be unregistered.
+
+Setting ppp->owner is done in ppp_create_interface(), before device
+registration, in order to avoid unprotected modification of this field.
+
+Finally, ppp_exit_net() now starts by unregistering all remaining PPP
+devices to ensure that none will get unregistered after the call to
+idr_destroy().
+
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+v2: remove unnecessary curly braces in idr_for_each_entry()
+
+ drivers/net/ppp/ppp_generic.c | 78 +++++++++++++++++++++++--------------------
+ 1 file changed, 42 insertions(+), 36 deletions(-)
+
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 9d15566..fa8f504 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -269,9 +269,9 @@ static void ppp_ccp_peek(struct ppp *ppp, struct sk_buff *skb, int inbound);
+ static void ppp_ccp_closed(struct ppp *ppp);
+ static struct compressor *find_compressor(int type);
+ static void ppp_get_stats(struct ppp *ppp, struct ppp_stats *st);
+-static struct ppp *ppp_create_interface(struct net *net, int unit, int *retp);
++static struct ppp *ppp_create_interface(struct net *net, int unit,
++					struct file *file, int *retp);
+ static void init_ppp_file(struct ppp_file *pf, int kind);
+-static void ppp_shutdown_interface(struct ppp *ppp);
+ static void ppp_destroy_interface(struct ppp *ppp);
+ static struct ppp *ppp_find_unit(struct ppp_net *pn, int unit);
+ static struct channel *ppp_find_channel(struct ppp_net *pn, int unit);
+@@ -392,8 +392,10 @@ static int ppp_release(struct inode *unused, struct file *file)
+ 		file->private_data = NULL;
+ 		if (pf->kind == INTERFACE) {
+ 			ppp = PF_TO_PPP(pf);
++			rtnl_lock();
+ 			if (file == ppp->owner)
+-				ppp_shutdown_interface(ppp);
++				unregister_netdevice(ppp->dev);
++			rtnl_unlock();
+ 		}
+ 		if (atomic_dec_and_test(&pf->refcnt)) {
+ 			switch (pf->kind) {
+@@ -593,8 +595,10 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 		mutex_lock(&ppp_mutex);
+ 		if (pf->kind == INTERFACE) {
+ 			ppp = PF_TO_PPP(pf);
++			rtnl_lock();
+ 			if (file == ppp->owner)
+-				ppp_shutdown_interface(ppp);
++				unregister_netdevice(ppp->dev);
++			rtnl_unlock();
+ 		}
+ 		if (atomic_long_read(&file->f_count) < 2) {
+ 			ppp_release(NULL, file);
+@@ -838,11 +842,10 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
+ 		/* Create a new ppp unit */
+ 		if (get_user(unit, p))
+ 			break;
+-		ppp = ppp_create_interface(net, unit, &err);
++		ppp = ppp_create_interface(net, unit, file, &err);
+ 		if (!ppp)
+ 			break;
+ 		file->private_data = &ppp->file;
+-		ppp->owner = file;
+ 		err = -EFAULT;
+ 		if (put_user(ppp->file.index, p))
+ 			break;
+@@ -916,6 +919,16 @@ static __net_init int ppp_init_net(struct net *net)
+ static __net_exit void ppp_exit_net(struct net *net)
+ {
+ 	struct ppp_net *pn = net_generic(net, ppp_net_id);
++	struct ppp *ppp;
++	LIST_HEAD(list);
++	int id;
++
++	rtnl_lock();
++	idr_for_each_entry(&pn->units_idr, ppp, id)
++		unregister_netdevice_queue(ppp->dev, &list);
++
++	unregister_netdevice_many(&list);
++	rtnl_unlock();
+ 
+ 	idr_destroy(&pn->units_idr);
+ }
+@@ -1088,8 +1101,28 @@ static int ppp_dev_init(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void ppp_dev_uninit(struct net_device *dev)
++{
++	struct ppp *ppp = netdev_priv(dev);
++	struct ppp_net *pn = ppp_pernet(ppp->ppp_net);
++
++	ppp_lock(ppp);
++	ppp->closing = 1;
++	ppp_unlock(ppp);
++
++	mutex_lock(&pn->all_ppp_mutex);
++	unit_put(&pn->units_idr, ppp->file.index);
++	mutex_unlock(&pn->all_ppp_mutex);
++
++	ppp->owner = NULL;
++
++	ppp->file.dead = 1;
++	wake_up_interruptible(&ppp->file.rwait);
++}
++
+ static const struct net_device_ops ppp_netdev_ops = {
+ 	.ndo_init	 = ppp_dev_init,
++	.ndo_uninit      = ppp_dev_uninit,
+ 	.ndo_start_xmit  = ppp_start_xmit,
+ 	.ndo_do_ioctl    = ppp_net_ioctl,
+ 	.ndo_get_stats64 = ppp_get_stats64,
+@@ -2667,8 +2700,8 @@ ppp_get_stats(struct ppp *ppp, struct ppp_stats *st)
+  * or if there is already a unit with the requested number.
+  * unit == -1 means allocate a new number.
+  */
+-static struct ppp *
+-ppp_create_interface(struct net *net, int unit, int *retp)
++static struct ppp *ppp_create_interface(struct net *net, int unit,
++					struct file *file, int *retp)
+ {
+ 	struct ppp *ppp;
+ 	struct ppp_net *pn;
+@@ -2688,6 +2721,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
+ 	ppp->mru = PPP_MRU;
+ 	init_ppp_file(&ppp->file, INTERFACE);
+ 	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
++	ppp->owner = file;
+ 	for (i = 0; i < NUM_NP; ++i)
+ 		ppp->npmode[i] = NPMODE_PASS;
+ 	INIT_LIST_HEAD(&ppp->channels);
+@@ -2776,34 +2810,6 @@ init_ppp_file(struct ppp_file *pf, int kind)
+ }
+ 
+ /*
+- * Take down a ppp interface unit - called when the owning file
+- * (the one that created the unit) is closed or detached.
+- */
+-static void ppp_shutdown_interface(struct ppp *ppp)
+-{
+-	struct ppp_net *pn;
+-
+-	pn = ppp_pernet(ppp->ppp_net);
+-	mutex_lock(&pn->all_ppp_mutex);
+-
+-	/* This will call dev_close() for us. */
+-	ppp_lock(ppp);
+-	if (!ppp->closing) {
+-		ppp->closing = 1;
+-		ppp_unlock(ppp);
+-		unregister_netdev(ppp->dev);
+-		unit_put(&pn->units_idr, ppp->file.index);
+-	} else
+-		ppp_unlock(ppp);
+-
+-	ppp->file.dead = 1;
+-	ppp->owner = NULL;
+-	wake_up_interruptible(&ppp->file.rwait);
+-
+-	mutex_unlock(&pn->all_ppp_mutex);
+-}
+-
+-/*
+  * Free the memory used by a ppp unit.  This is only called once
+  * there are no channels connected to the unit and no file structs
+  * that reference the unit.
+-- 
+2.5.0
