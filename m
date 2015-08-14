@@ -1,52 +1,116 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/5] net: add Hisilicon Network Subsystem support (config and documents)
-Date: Fri, 14 Aug 2015 22:49:50 +0200
-Message-ID: <1536926.jEJjsM70Lj@wuerfel>
-References: <1439548222-231611-1-git-send-email-liguozhu@hisilicon.com> <1439548222-231611-2-git-send-email-liguozhu@hisilicon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	catalin.marinas@arm.com, will.deacon@arm.com,
-	Yisen.Zhuang@huawei.com, davem@davemloft.net,
-	paul.gortmaker@windriver.com, dingtianhong@huawei.com,
-	zhangfei.gao@linaro.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, linuxarm@huawei.com,
-	salil.mehta@huawei.com, huangdaode@hisilicon.com,
-	Kenneth Lee <liguozhu@huawei.com>
-To: Kenneth Lee <liguozhu@hisilicon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439548222-231611-2-git-send-email-liguozhu@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ajit Kumar Khaparde <ajit.khaparde@avagotech.com>
+Subject: Re: [PATCH net] be2net: avoid vxlan offloading on multichannel configs
+Date: Fri, 14 Aug 2015 15:53:44 -0500
+Message-ID: <38C4B766-86B4-4EE8-94D8-851CC99950A7@avagotech.com>
+References: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2102\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Ivan Vecera <ivecera@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:35960 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735AbbHNUxr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 16:53:47 -0400
+Received: by pdco4 with SMTP id o4so34982056pdc.3
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 13:53:46 -0700 (PDT)
+In-Reply-To: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 14 August 2015 18:30:18 Kenneth Lee wrote:
-> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> new file mode 100644
-> index 0000000..5ab6969
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
-> @@ -0,0 +1,14 @@
-> +Hisilicon Network Subsystem NIC controller
-> +
-> +Required properties:
-> +- compatible: hisilicon,hns-nic
-> +- ae-name: accelerator name who provide this interface
-> +- ae-opts: options (string) to the accelerator. e.g. the index interface
-> +
-> +Example:
-> +
-> +       ethernet@0{
-> +               compatible = "hisilicon,hns-nic";
-> +               ae-name = "soc0-n4";
-> +               ae-opts = "0";
-> +       };
+
+> On Aug 14, 2015, at 3:30 PM, Ivan Vecera <ivecera@redhat.com> wrote:
 > 
+> VxLAN offloading is not functional if the NIC is running in multichannel
+> mode (UMC, FLEX-10, VNIC...). Enabling this additionally kills whole
+> connectivity through the NIC and the device needs to be down and up to
+> restore it. The firmware should take care about it and does not allow
+> the conversion of interface to tunnel type (be_cmd_manage_iface) or should
+> support VxLAN offloading if multichannel config is enabled.
+> I have tested this on the latest available firmware (10.6.144.21).
+> 
+> Result:
+> [root@sm-04 ~]# ip link set enp5s0f0 up[root@sm-04 ~]# ip addr add 172.30.10.50/24 dev enp5s0f0
+> [root@sm-04 ~]# ping -c 3 172.30.10.254PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
+> 64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.317 ms
+> 64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.187 ms
+> 64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.188 ms
+> 
+> --- 172.30.10.254 ping statistics ---
+> 3 packets transmitted, 3 received, 0% packet loss, time 2000ms
+> rtt min/avg/max/mdev = 0.187/0.230/0.317/0.063 ms
+> [root@sm-04 ~]# ip link add link enp5s0f0 vxlan10 type vxlan id 10 remote 172.30.10.60 dstport 4789
+> [root@sm-04 ~]# ip link set vxlan10 up
+> [ 7900.442811] be2net 0000:05:00.0: Enabled VxLAN offloads for UDP port 4789
+> [ 7900.455722] be2net 0000:05:00.1: Enabled VxLAN offloads for UDP port 4789
+> [ 7900.468635] be2net 0000:05:00.2: Enabled VxLAN offloads for UDP port 4789
+> [ 7900.481553] be2net 0000:05:00.3: Enabled VxLAN offloads for UDP port 4789
+> [root@sm-04 ~]# ping -c 3 172.30.10.254
+> PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
+> 
+> --- 172.30.10.254 ping statistics ---
+> 3 packets transmitted, 0 received, 100% packet loss, time 1999ms
+> 
+> [root@sm-04 ~]# ip link set vxlan10 down
+> [ 7959.434093] be2net 0000:05:00.0: Disabled VxLAN offloads for UDP port 4789
+> [ 7959.444792] be2net 0000:05:00.1: Disabled VxLAN offloads for UDP port 4789
+> [ 7959.455592] be2net 0000:05:00.2: Disabled VxLAN offloads for UDP port 4789
+> [ 7959.466416] be2net 0000:05:00.3: Disabled VxLAN offloads for UDP port 4789
+> [root@sm-04 ~]# ip link del vxlan10
+> [root@sm-04 ~]# ping -c 3 172.30.10.254
+> PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
+> 
+> --- 172.30.10.254 ping statistics ---
+> 3 packets transmitted, 0 received, 100% packet loss, time 1999ms
+> 
+> [root@sm-04 ~]# ip link set enp5s0f0 down
+> [root@sm-04 ~]# ip link set enp5s0f0 up
+> [ 8071.019003] be2net 0000:05:00.0 enp5s0f0: Link is Up
+> [root@sm-04 ~]# ping -c 3 172.30.10.254
+> PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
+> 64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.318 ms
+> 64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.196 ms
+> 64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.194 ms
+> 
+> --- 172.30.10.254 ping statistics ---
+> 3 packets transmitted, 3 received, 0% packet loss, time 2000ms
+> rtt min/avg/max/mdev = 0.194/0.236/0.318/0.057 ms
+> 
+> Cc: Sathya Perla <sathya.perla@avagotech.com>
+> Cc: Ajit Khaparde <ajit.khaparde@avagotech.com>
+> Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
+> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Acked-by: Ajit Khaparde <ajit.khaparde@avagotech.com>
 
-These properties look very unconventional. What are the valid strings
-for ae-name and ae-opts? It looks like the latter is just a number,
-so why not use an integer property?
-
-	Arnd
+ 
+> ---
+> drivers/net/ethernet/emulex/benet/be_main.c | 4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index c28e3bf..6ca693b 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -5174,7 +5174,7 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+> 	struct device *dev = &adapter->pdev->dev;
+> 	int status;
+> 
+> -	if (lancer_chip(adapter) || BEx_chip(adapter))
+> +	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+> 		return;
+> 
+> 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
+> @@ -5221,7 +5221,7 @@ static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+> {
+> 	struct be_adapter *adapter = netdev_priv(netdev);
+> 
+> -	if (lancer_chip(adapter) || BEx_chip(adapter))
+> +	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+> 		return;
+> 
+> 	if (adapter->vxlan_port != port)
+> -- 
+> 2.4.6
+> 
