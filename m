@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: allow sleeping when modifying store_rps_map
-Date: Thu, 13 Aug 2015 21:41:07 -0700 (PDT)
-Message-ID: <20150813.214107.830938216718961195.davem@davemloft.net>
-References: <1439488996-31227-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH net-next] net: addr IFLA_OPERSTATE to netlink message
+ for ipv6 ifinfo
+Date: Thu, 13 Aug 2015 22:35:52 -0700 (PDT)
+Message-ID: <20150813.223552.31424816194826779.davem@davemloft.net>
+References: <1439493995-1079-1-git-send-email-gospo@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
+Cc: netdev@vger.kernel.org
+To: gospo@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41558 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41657 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752640AbbHNE4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 00:56:18 -0400
-In-Reply-To: <1439488996-31227-1-git-send-email-sasha.levin@oracle.com>
+	with ESMTP id S1751311AbbHNFfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 01:35:55 -0400
+In-Reply-To: <1439493995-1079-1-git-send-email-gospo@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Thu, 13 Aug 2015 14:03:16 -0400
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Date: Thu, 13 Aug 2015 15:26:35 -0400
 
-> Commit 10e4ea751 ("net: Fix race condition in store_rps_map") has moved the
-> manipulation of the rps_needed jump label under a spinlock. Since changing
-> the state of a jump label may sleep this is incorrect and causes warnings
-> during runtime.
+> This is useful information to include in ipv6 netlink messages that
+> report interface information.  IFLA_OPERSTATE is already included in
+> ipv4 messages, but missing for ipv6.  This closes that gap.
 > 
-> Make rps_map_lock a mutex to allow sleeping under it.
-> 
-> Fixes: 10e4ea751 ("net: Fix race condition in store_rps_map")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 
-Applied, thanks.
+Applied, thanks Andy.
