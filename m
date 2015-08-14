@@ -1,307 +1,44 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH 1/1] Revert "net: fec: Ensure clocks are enabled while
- using mdio bus"
-Date: Fri, 14 Aug 2015 10:27:33 +0200
-Message-ID: <1439540853.13210.26.camel@pengutronix.de>
-References: <1439531254-13128-1-git-send-email-peter.chen@freescale.com>
-	 <1439540577.13210.25.camel@pengutronix.de>
-	 <BN3PR0301MB08490760B426D4889AFF2434817C0@BN3PR0301MB0849.namprd03.prod.outlook.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: GCOV_PROFILE_ALL breaks BUILD_BUG_ON(!is_power_of_2(8))
+Date: Fri, 14 Aug 2015 10:29:04 +0200
+Message-ID: <1439540944.2091.10.camel@sipsolutions.net>
+References: <1439457109-21833-1-git-send-email-johannes@sipsolutions.net>
+	 (sfid-20150813_111207_653261_1F4C7F80)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Duan Andy <fugang.duan@freescale.com>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	"tyler.baker@linaro.org" <tyler.baker@linaro.org>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Peter Chen <Peter.Chen@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:41157 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751255AbbHNI1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 04:27:37 -0400
-In-Reply-To: <BN3PR0301MB08490760B426D4889AFF2434817C0@BN3PR0301MB0849.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439457109-21833-1-git-send-email-johannes@sipsolutions.net> (sfid-20150813_111207_653261_1F4C7F80)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Freitag, den 14.08.2015, 08:25 +0000 schrieb Peter Chen:
->  
-> > 
-> > Am Freitag, den 14.08.2015, 13:47 +0800 schrieb Peter Chen:
-> > > It causes the i.mx6sx sdb board hang when using nfsroot during boots
-> > > up at v4.2-rc6.
-> > >
-> > > This reverts commit 8fff755e9f8d0f70a595e79f248695ce6aef5cc3.
-> > >
-> > > Cc: netdev@vger.kernel.org
-> > > Cc: Fugang Duan <B38611@freescale.com>
-> > > Cc: shawn.guo@linaro.org
-> > > Cc: fabio.estevam@freescale.com
-> > > Cc: tyler.baker@linaro.org
-> > > Cc: Lucas Stach <l.stach@pengutronix.de>
-> > > Cc: Andrew Lunn <andrew@lunn.ch>
-> > > Signed-off-by: Peter Chen <peter.chen@freescale.com>
-> > > ---
-> > >
-> > > According to Fugang Duan, the i.mx series has different clock control
-> > > sequence among SoCs, this patch may only consider certain SoCs.
-> > >
-> > Sorry, but NACK.
-> > 
-> > Please test current mainline (what will become v4.2-rc7). There is already a
-> > patch in that fixes i.MX27 and probably fixes the same problem on i.MX6SX.
-> > 
-> 
-> Would you help point to me which commit and at which tree?
-> 
-Mainline, so Linus Torvalds tree.
++linux-kernel
 
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=14d2b7c1a96ef37eb571599c73d4a1a606b964d6
-
-Regards,
-Lucas
-
-> Peter
-> 
-> > >  drivers/net/ethernet/freescale/fec_main.c | 89
-> > > +++++--------------------------
-> > >  1 file changed, 13 insertions(+), 76 deletions(-)
-> > >
-> > > diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> > > b/drivers/net/ethernet/freescale/fec_main.c
-> > > index 32e3807c..5e8b837 100644
-> > > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > > @@ -24,7 +24,6 @@
-> > >  #include <linux/module.h>
-> > >  #include <linux/kernel.h>
-> > >  #include <linux/string.h>
-> > > -#include <linux/pm_runtime.h>
-> > >  #include <linux/ptrace.h>
-> > >  #include <linux/errno.h>
-> > >  #include <linux/ioport.h>
-> > > @@ -78,7 +77,6 @@ static void fec_enet_itr_coal_init(struct net_device
-> > *ndev);
-> > >  #define FEC_ENET_RAEM_V	0x8
-> > >  #define FEC_ENET_RAFL_V	0x8
-> > >  #define FEC_ENET_OPD_V	0xFFF0
-> > > -#define FEC_MDIO_PM_TIMEOUT  100 /* ms */
-> > >
-> > >  static struct platform_device_id fec_devtype[] = {
-> > >  	{
-> > > @@ -1769,13 +1767,7 @@ static void fec_enet_adjust_link(struct
-> > > net_device *ndev)  static int fec_enet_mdio_read(struct mii_bus *bus,
-> > > int mii_id, int regnum)  {
-> > >  	struct fec_enet_private *fep = bus->priv;
-> > > -	struct device *dev = &fep->pdev->dev;
-> > >  	unsigned long time_left;
-> > > -	int ret = 0;
-> > > -
-> > > -	ret = pm_runtime_get_sync(dev);
-> > > -	if (IS_ERR_VALUE(ret))
-> > > -		return ret;
-> > >
-> > >  	fep->mii_timeout = 0;
-> > >  	init_completion(&fep->mdio_done);
-> > > @@ -1791,30 +1783,18 @@ static int fec_enet_mdio_read(struct mii_bus
-> > *bus, int mii_id, int regnum)
-> > >  	if (time_left == 0) {
-> > >  		fep->mii_timeout = 1;
-> > >  		netdev_err(fep->netdev, "MDIO read timeout\n");
-> > > -		ret = -ETIMEDOUT;
-> > > -		goto out;
-> > > +		return -ETIMEDOUT;
-> > >  	}
-> > >
-> > > -	ret = FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-> > > -
-> > > -out:
-> > > -	pm_runtime_mark_last_busy(dev);
-> > > -	pm_runtime_put_autosuspend(dev);
-> > > -
-> > > -	return ret;
-> > > +	/* return value */
-> > > +	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-> > >  }
-> > >
-> > >  static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
-> > >  			   u16 value)
-> > >  {
-> > >  	struct fec_enet_private *fep = bus->priv;
-> > > -	struct device *dev = &fep->pdev->dev;
-> > >  	unsigned long time_left;
-> > > -	int ret = 0;
-> > > -
-> > > -	ret = pm_runtime_get_sync(dev);
-> > > -	if (IS_ERR_VALUE(ret))
-> > > -		return ret;
-> > >
-> > >  	fep->mii_timeout = 0;
-> > >  	init_completion(&fep->mdio_done);
-> > > @@ -1831,13 +1811,10 @@ static int fec_enet_mdio_write(struct mii_bus
-> > *bus, int mii_id, int regnum,
-> > >  	if (time_left == 0) {
-> > >  		fep->mii_timeout = 1;
-> > >  		netdev_err(fep->netdev, "MDIO write timeout\n");
-> > > -		ret  = -ETIMEDOUT;
-> > > +		return -ETIMEDOUT;
-> > >  	}
-> > >
-> > > -	pm_runtime_mark_last_busy(dev);
-> > > -	pm_runtime_put_autosuspend(dev);
-> > > -
-> > > -	return ret;
-> > > +	return 0;
-> > >  }
-> > >
-> > >  static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
-> > > @@ -1849,6 +1826,9 @@ static int fec_enet_clk_enable(struct net_device
-> > *ndev, bool enable)
-> > >  		ret = clk_prepare_enable(fep->clk_ahb);
-> > >  		if (ret)
-> > >  			return ret;
-> > > +		ret = clk_prepare_enable(fep->clk_ipg);
-> > > +		if (ret)
-> > > +			goto failed_clk_ipg;
-> > >  		if (fep->clk_enet_out) {
-> > >  			ret = clk_prepare_enable(fep->clk_enet_out);
-> > >  			if (ret)
-> > > @@ -1872,6 +1852,7 @@ static int fec_enet_clk_enable(struct net_device
-> > *ndev, bool enable)
-> > >  		}
-> > >  	} else {
-> > >  		clk_disable_unprepare(fep->clk_ahb);
-> > > +		clk_disable_unprepare(fep->clk_ipg);
-> > >  		if (fep->clk_enet_out)
-> > >  			clk_disable_unprepare(fep->clk_enet_out);
-> > >  		if (fep->clk_ptp) {
-> > > @@ -1893,6 +1874,8 @@ failed_clk_ptp:
-> > >  	if (fep->clk_enet_out)
-> > >  		clk_disable_unprepare(fep->clk_enet_out);
-> > >  failed_clk_enet_out:
-> > > +		clk_disable_unprepare(fep->clk_ipg);
-> > > +failed_clk_ipg:
-> > >  		clk_disable_unprepare(fep->clk_ahb);
-> > >
-> > >  	return ret;
-> > > @@ -2864,14 +2847,10 @@ fec_enet_open(struct net_device *ndev)
-> > >  	struct fec_enet_private *fep = netdev_priv(ndev);
-> > >  	int ret;
-> > >
-> > > -	ret = pm_runtime_get_sync(&fep->pdev->dev);
-> > > -	if (IS_ERR_VALUE(ret))
-> > > -		return ret;
-> > > -
-> > >  	pinctrl_pm_select_default_state(&fep->pdev->dev);
-> > >  	ret = fec_enet_clk_enable(ndev, true);
-> > >  	if (ret)
-> > > -		goto clk_enable;
-> > > +		return ret;
-> > >
-> > >  	/* I should reset the ring buffers here, but I don't yet know
-> > >  	 * a simple way to do that.
-> > > @@ -2902,9 +2881,6 @@ err_enet_mii_probe:
-> > >  	fec_enet_free_buffers(ndev);
-> > >  err_enet_alloc:
-> > >  	fec_enet_clk_enable(ndev, false);
-> > > -clk_enable:
-> > > -	pm_runtime_mark_last_busy(&fep->pdev->dev);
-> > > -	pm_runtime_put_autosuspend(&fep->pdev->dev);
-> > >  	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
-> > >  	return ret;
-> > >  }
-> > > @@ -2927,9 +2903,6 @@ fec_enet_close(struct net_device *ndev)
-> > >
-> > >  	fec_enet_clk_enable(ndev, false);
-> > >  	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
-> > > -	pm_runtime_mark_last_busy(&fep->pdev->dev);
-> > > -	pm_runtime_put_autosuspend(&fep->pdev->dev);
-> > > -
-> > >  	fec_enet_free_buffers(ndev);
-> > >
-> > >  	return 0;
-> > > @@ -3415,10 +3388,6 @@ fec_probe(struct platform_device *pdev)
-> > >  	if (ret)
-> > >  		goto failed_clk;
-> > >
-> > > -	ret = clk_prepare_enable(fep->clk_ipg);
-> > > -	if (ret)
-> > > -		goto failed_clk_ipg;
-> > > -
-> > >  	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
-> > >  	if (!IS_ERR(fep->reg_phy)) {
-> > >  		ret = regulator_enable(fep->reg_phy); @@ -3431,11 +3400,6
-> > @@
-> > > fec_probe(struct platform_device *pdev)
-> > >  		fep->reg_phy = NULL;
-> > >  	}
-> > >
-> > > -	pm_runtime_set_autosuspend_delay(&pdev->dev,
-> > FEC_MDIO_PM_TIMEOUT);
-> > > -	pm_runtime_use_autosuspend(&pdev->dev);
-> > > -	pm_runtime_set_active(&pdev->dev);
-> > > -	pm_runtime_enable(&pdev->dev);
-> > > -
-> > >  	fec_reset_phy(pdev);
-> > >
-> > >  	if (fep->bufdesc_ex)
-> > > @@ -3483,10 +3447,6 @@ fec_probe(struct platform_device *pdev)
-> > >
-> > >  	fep->rx_copybreak = COPYBREAK_DEFAULT;
-> > >  	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
-> > > -
-> > > -	pm_runtime_mark_last_busy(&pdev->dev);
-> > > -	pm_runtime_put_autosuspend(&pdev->dev);
-> > > -
-> > >  	return 0;
-> > >
-> > >  failed_register:
-> > > @@ -3498,8 +3458,6 @@ failed_init:
-> > >  	if (fep->reg_phy)
-> > >  		regulator_disable(fep->reg_phy);
-> > >  failed_regulator:
-> > > -	clk_disable_unprepare(fep->clk_ipg);
-> > > -failed_clk_ipg:
-> > >  	fec_enet_clk_enable(ndev, false);
-> > >  failed_clk:
-> > >  failed_phy:
-> > > @@ -3609,28 +3567,7 @@ failed_clk:
-> > >  	return ret;
-> > >  }
-> > >
-> > > -static int __maybe_unused fec_runtime_suspend(struct device *dev) -{
-> > > -	struct net_device *ndev = dev_get_drvdata(dev);
-> > > -	struct fec_enet_private *fep = netdev_priv(ndev);
-> > > -
-> > > -	clk_disable_unprepare(fep->clk_ipg);
-> > > -
-> > > -	return 0;
-> > > -}
-> > > -
-> > > -static int __maybe_unused fec_runtime_resume(struct device *dev) -{
-> > > -	struct net_device *ndev = dev_get_drvdata(dev);
-> > > -	struct fec_enet_private *fep = netdev_priv(ndev);
-> > > -
-> > > -	return clk_prepare_enable(fep->clk_ipg);
-> > > -}
-> > > -
-> > > -static const struct dev_pm_ops fec_pm_ops = {
-> > > -	SET_SYSTEM_SLEEP_PM_OPS(fec_suspend, fec_resume)
-> > > -	SET_RUNTIME_PM_OPS(fec_runtime_suspend, fec_runtime_resume,
-> > NULL)
-> > > -};
-> > > +static SIMPLE_DEV_PM_OPS(fec_pm_ops, fec_suspend, fec_resume);
-> > >
-> > >  static struct platform_driver fec_driver = {
-> > >  	.driver	= {
-> > 
-> > --
-> > Pengutronix e.K.             | Lucas Stach                 |
-> > Industrial Linux Solutions   | http://www.pengutronix.de/  |
+> +#define DECLARE_EWMA(name, _factor, _weight)> 	> 	> 	> 	> \
+> +> 	> struct ewma_##name {> 	> 	> 	> 	> 	> 	> \
+> +> 	> 	> unsigned long internal;> 	> 	> 	> 	> 	> \
+> +> 	> };> 	> 	> 	> 	> 	> 	> 	> 	> \
+> +> 	> static inline void ewma_##name##_init(struct ewma_##name *e)> 	> \
+> +> 	> {> 	> 	> 	> 	> 	> 	> 	> 	> \
+> +> 	> 	> BUILD_BUG_ON(!__builtin_constant_p(_factor));> 	> 	> \
+> +> 	> 	> BUILD_BUG_ON(!__builtin_constant_p(_weight));> 	> 	> \
+> +> 	> 	> BUILD_BUG_ON(!is_power_of_2(_factor));> 	> 	> 	> \
+> +> 	> 	> BUILD_BUG_ON(!is_power_of_2(_weight));> 	> 	> 	> \
 > 
 
--- 
-Pengutronix e.K.             | Lucas Stach                 |
-Industrial Linux Solutions   | http://www.pengutronix.de/  |
+So this seemed fine to me, but for some reason the compiler is saying
+the BUILD_BUG_ON(!is_power_of_2(x)) fails, if and only if (!)
+CONFIG_GCOV_PROFILE_ALL is enabled, which seems to boil down to the
+compiler option -fprofile-arcs.
+
+I'm going to replace this with just the code itself, i.e.
+
+                /* both must be a power of 2 */
+                BUILD_BUG_ON(_factor & (_factor - 1));
+                BUILD_BUG_ON(_weight & (_weight - 1));
+
+but should I have expected this?
+
+johannes
