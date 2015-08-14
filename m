@@ -1,43 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] ppp: implement x-netns support
-Date: Thu, 13 Aug 2015 21:20:04 -0700 (PDT)
-Message-ID: <20150813.212004.553374390201687089.davem@davemloft.net>
-References: <cover.1439471390.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH net] gianfar: Restore link state settings after MAC
+ reset
+Date: Thu, 13 Aug 2015 21:26:41 -0700 (PDT)
+Message-ID: <20150813.212641.807345031571015710.davem@davemloft.net>
+References: <1439473837-30442-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org
-To: g.nault@alphalink.fr
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41346 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41397 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027AbbHNEUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 00:20:05 -0400
-In-Reply-To: <cover.1439471390.git.g.nault@alphalink.fr>
+	with ESMTP id S1751660AbbHNE0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 00:26:42 -0400
+In-Reply-To: <1439473837-30442-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Thu, 13 Aug 2015 15:28:02 +0200
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Thu, 13 Aug 2015 16:50:37 +0300
 
-> This series allows PPP devices to reside in a different netns from the
-> PPP unit/channels. Packets only cross netns boundaries when they're
-> transmitted between the net_device and the PPP unit (units and channels
-> always remain in their creation namespace).
-> So only PPP units need to handle cross namespace operations. Channels
-> and lower layer protocols aren't affected.
+> There are some MAC registers that need to be kept in sync
+> with the link state parameters, see adjust_link().
+> However, after a MAC soft reset default values for
+> these registers are assumed.  In some cases (excepting
+> if down/ if up for example) adjust_link() does not see
+> that these values were reset to default because the
+> priv->old* link parameters were left unchanged.
+> So, reset the priv->old* link params as well during a
+> MAC reset to let adjust_link() restore the MAC link
+> settings to the actual link state values.
 > 
-> Patch #1 is a bug fix for an existing namespace deletion bug and has
-> been separetly sent to net.
-> Patch #2 is the actual x-netns implementation.
+> Fixes following case, for example:
+> Setting link to 100M, changing MTU (implies MAC reset),
+> link state remains unchanged to 100M but MAC registers
+> were reset to default (1G) breaking the connectivity w/
+> the PHY.  Closing and re-opening the interface would
+> restore the MAC link parameters to the correct values.
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-Patch #1 needs to be respun with the change I requested.
-
-And this is not the way to submit things that have dependencies
-upon bug fixes.
-
-First you submit the bug fix only.  Then you wait for the fix to
-propragate from 'net' into 'net-next', and then you can submit
-your feature patch which depends upon the fix.
-
-Thank you.
+Applied, thanks.
