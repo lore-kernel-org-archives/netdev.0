@@ -1,72 +1,101 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 08/10] batman-adv: protect tt request from double deletion
-Date: Fri, 14 Aug 2015 22:57:12 +0200
-Message-ID: <1439585834-26564-9-git-send-email-antonio__13465.531069278$1439585922$gmane$org@meshcoding.com>
+Subject: [PATCH 03/10] batman-adv: Make DAT capability changes atomic
+Date: Fri, 14 Aug 2015 22:57:07 +0200
+Message-ID: <1439585834-26564-4-git-send-email-antonio__40751.0761557662$1439585926$gmane$org@meshcoding.com>
 References: <1439585834-26564-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:9934 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:22140 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752206AbbHNU5l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 16:57:41 -0400
+	id S1751896AbbHNU5d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2015 16:57:33 -0400
 In-Reply-To: <1439585834-26564-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <mareklindner@neomailbox.ch>
+=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 
-The list_del() calls were changed to list_del_init() to prevent
-an accidental double deletion in batadv_tt_req_node_new().
+Bitwise OR/AND assignments in C aren't guaranteed to be atomic. One
+OGM handler might undo the set/clear of a specific bit from another
+handler run in between.
 
+=46ix this by using the atomic set_bit()/clear_bit()/test_bit() functio=
+ns.
+
+=46ixes: 17cf0ea455f1 ("batman-adv: tvlv - add distributed arp table co=
+ntainer")
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/translation-table.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ net/batman-adv/distributed-arp-table.c | 7 ++++---
+ net/batman-adv/types.h                 | 4 ++--
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 1573489..cd35bb8 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -2196,7 +2196,7 @@ static void batadv_tt_req_list_free(struct batadv_priv *bat_priv)
- 	spin_lock_bh(&bat_priv->tt.req_list_lock);
- 
- 	list_for_each_entry_safe(node, safe, &bat_priv->tt.req_list, list) {
--		list_del(&node->list);
-+		list_del_init(&node->list);
- 		kfree(node);
- 	}
- 
-@@ -2232,7 +2232,7 @@ static void batadv_tt_req_purge(struct batadv_priv *bat_priv)
- 	list_for_each_entry_safe(node, safe, &bat_priv->tt.req_list, list) {
- 		if (batadv_has_timed_out(node->issued_at,
- 					 BATADV_TT_REQUEST_TIMEOUT)) {
--			list_del(&node->list);
-+			list_del_init(&node->list);
- 			kfree(node);
- 		}
- 	}
-@@ -2514,7 +2514,8 @@ out:
- 		batadv_hardif_free_ref(primary_if);
- 	if (ret && tt_req_node) {
- 		spin_lock_bh(&bat_priv->tt.req_list_lock);
--		list_del(&tt_req_node->list);
-+		/* list_del_init() verifies tt_req_node still is in the list */
-+		list_del_init(&tt_req_node->list);
- 		spin_unlock_bh(&bat_priv->tt.req_list_lock);
- 		kfree(tt_req_node);
- 	}
-@@ -2951,7 +2952,7 @@ static void batadv_handle_tt_response(struct batadv_priv *bat_priv,
- 	list_for_each_entry_safe(node, safe, &bat_priv->tt.req_list, list) {
- 		if (!batadv_compare_eth(node->addr, resp_src))
- 			continue;
--		list_del(&node->list);
-+		list_del_init(&node->list);
- 		kfree(node);
- 	}
- 
--- 
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/di=
+stributed-arp-table.c
+index fb54e6a..1cfba20 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -19,6 +19,7 @@
+ #include "main.h"
+=20
+ #include <linux/atomic.h>
++#include <linux/bitops.h>
+ #include <linux/byteorder/generic.h>
+ #include <linux/errno.h>
+ #include <linux/etherdevice.h>
+@@ -453,7 +454,7 @@ static bool batadv_is_orig_node_eligible(struct bat=
+adv_dat_candidate *res,
+ 	int j;
+=20
+ 	/* check if orig node candidate is running DAT */
+-	if (!(candidate->capabilities & BATADV_ORIG_CAPA_HAS_DAT))
++	if (!test_bit(BATADV_ORIG_CAPA_HAS_DAT, &candidate->capabilities))
+ 		goto out;
+=20
+ 	/* Check if this node has already been selected... */
+@@ -713,9 +714,9 @@ static void batadv_dat_tvlv_ogm_handler_v1(struct b=
+atadv_priv *bat_priv,
+ 					   uint16_t tvlv_value_len)
+ {
+ 	if (flags & BATADV_TVLV_HANDLER_OGM_CIFNOTFND)
+-		orig->capabilities &=3D ~BATADV_ORIG_CAPA_HAS_DAT;
++		clear_bit(BATADV_ORIG_CAPA_HAS_DAT, &orig->capabilities);
+ 	else
+-		orig->capabilities |=3D BATADV_ORIG_CAPA_HAS_DAT;
++		set_bit(BATADV_ORIG_CAPA_HAS_DAT, &orig->capabilities);
+ }
+=20
+ /**
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 67d6348..29fd625 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -273,7 +273,7 @@ struct batadv_orig_node {
+ 	struct hlist_node mcast_want_all_ipv4_node;
+ 	struct hlist_node mcast_want_all_ipv6_node;
+ #endif
+-	uint8_t capabilities;
++	unsigned long capabilities;
+ 	uint8_t capa_initialized;
+ 	atomic_t last_ttvn;
+ 	unsigned char *tt_buff;
+@@ -313,7 +313,7 @@ struct batadv_orig_node {
+  *  (=3D orig node announces a tvlv of type BATADV_TVLV_MCAST)
+  */
+ enum batadv_orig_capabilities {
+-	BATADV_ORIG_CAPA_HAS_DAT =3D BIT(0),
++	BATADV_ORIG_CAPA_HAS_DAT,
+ 	BATADV_ORIG_CAPA_HAS_NC =3D BIT(1),
+ 	BATADV_ORIG_CAPA_HAS_TT =3D BIT(2),
+ 	BATADV_ORIG_CAPA_HAS_MCAST =3D BIT(3),
+--=20
 2.5.0
