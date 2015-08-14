@@ -1,105 +1,77 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] be2net: avoid vxlan offloading on multichannel configs
-Date: Fri, 14 Aug 2015 22:30:01 +0200
-Message-ID: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
-Cc: Sathya Perla <sathya.perla@avagotech.com>,
-	Ajit Khaparde <ajit.khaparde@avagotech.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
-To: netdev@vger.kernel.org
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [B.A.T.M.A.N.] [PATCH 03/10] batman-adv: Make DAT capability
+ changes atomic
+Date: Fri, 14 Aug 2015 22:49:03 +0200
+Message-ID: <55CE543F.1040507@meshcoding.com>
+References: <1439310948-32426-1-git-send-email-antonio@meshcoding.com>
+ <1439310948-32426-4-git-send-email-antonio@meshcoding.com>
+ <55CA4ED2.9070207@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="kQ9ve6Ta7MphAO311GseuLWkaBxBHSxUa"
+Cc: The list for a Better Approach To Mobile Ad-hoc
+	 Networking <b.a.t.m.a.n@lists.open-mesh.org>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Marek Lindner <mareklindner@neomailbox.ch>
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38620 "EHLO mx1.redhat.com"
+Received: from s1.neomailbox.net ([5.148.176.57]:11096 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751587AbbHNUaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 16:30:00 -0400
+	id S1751803AbbHNUtV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2015 16:49:21 -0400
+In-Reply-To: <55CA4ED2.9070207@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VxLAN offloading is not functional if the NIC is running in multichannel
-mode (UMC, FLEX-10, VNIC...). Enabling this additionally kills whole
-connectivity through the NIC and the device needs to be down and up to
-restore it. The firmware should take care about it and does not allow
-the conversion of interface to tunnel type (be_cmd_manage_iface) or should
-support VxLAN offloading if multichannel config is enabled.
-I have tested this on the latest available firmware (10.6.144.21).
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--kQ9ve6Ta7MphAO311GseuLWkaBxBHSxUa
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Result:
-[root@sm-04 ~]# ip link set enp5s0f0 up[root@sm-04 ~]# ip addr add 172.30.10.50/24 dev enp5s0f0
-[root@sm-04 ~]# ping -c 3 172.30.10.254PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
-64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.317 ms
-64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.187 ms
-64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.188 ms
 
- --- 172.30.10.254 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2000ms
-rtt min/avg/max/mdev = 0.187/0.230/0.317/0.063 ms
-[root@sm-04 ~]# ip link add link enp5s0f0 vxlan10 type vxlan id 10 remote 172.30.10.60 dstport 4789
-[root@sm-04 ~]# ip link set vxlan10 up
-[ 7900.442811] be2net 0000:05:00.0: Enabled VxLAN offloads for UDP port 4789
-[ 7900.455722] be2net 0000:05:00.1: Enabled VxLAN offloads for UDP port 4789
-[ 7900.468635] be2net 0000:05:00.2: Enabled VxLAN offloads for UDP port 4789
-[ 7900.481553] be2net 0000:05:00.3: Enabled VxLAN offloads for UDP port 4789
-[root@sm-04 ~]# ping -c 3 172.30.10.254
-PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
 
- --- 172.30.10.254 ping statistics ---
-3 packets transmitted, 0 received, 100% packet loss, time 1999ms
+On 11/08/15 21:36, Sergei Shtylyov wrote:
+>>       /* check if orig node candidate is running DAT */
+>> -    if (!(candidate->capabilities & BATADV_ORIG_CAPA_HAS_DAT))
+>> +    if (!(test_bit(BATADV_ORIG_CAPA_HAS_DAT, &candidate->capabilities=
+)))
+>=20
+>    () around the tst_bit() call not needed.
 
-[root@sm-04 ~]# ip link set vxlan10 down
-[ 7959.434093] be2net 0000:05:00.0: Disabled VxLAN offloads for UDP port 4789
-[ 7959.444792] be2net 0000:05:00.1: Disabled VxLAN offloads for UDP port 4789
-[ 7959.455592] be2net 0000:05:00.2: Disabled VxLAN offloads for UDP port 4789
-[ 7959.466416] be2net 0000:05:00.3: Disabled VxLAN offloads for UDP port 4789
-[root@sm-04 ~]# ip link del vxlan10
-[root@sm-04 ~]# ping -c 3 172.30.10.254
-PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
+Thanks for the hint Sergei. Even if I don't remember having seen any
+complaint from checkpatch.pl about this.
 
- --- 172.30.10.254 ping statistics ---
-3 packets transmitted, 0 received, 100% packet loss, time 1999ms
+I'll resend the pull request with this fixed patches.
 
-[root@sm-04 ~]# ip link set enp5s0f0 down
-[root@sm-04 ~]# ip link set enp5s0f0 up
-[ 8071.019003] be2net 0000:05:00.0 enp5s0f0: Link is Up
-[root@sm-04 ~]# ping -c 3 172.30.10.254
-PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
-64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.318 ms
-64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.196 ms
-64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.194 ms
+Cheers,
 
- --- 172.30.10.254 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2000ms
-rtt min/avg/max/mdev = 0.194/0.236/0.318/0.057 ms
 
-Cc: Sathya Perla <sathya.perla@avagotech.com>
-Cc: Ajit Khaparde <ajit.khaparde@avagotech.com>
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+--=20
+Antonio Quartulli
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index c28e3bf..6ca693b 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5174,7 +5174,7 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
- 	struct device *dev = &adapter->pdev->dev;
- 	int status;
- 
--	if (lancer_chip(adapter) || BEx_chip(adapter))
-+	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
- 		return;
- 
- 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
-@@ -5221,7 +5221,7 @@ static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
--	if (lancer_chip(adapter) || BEx_chip(adapter))
-+	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
- 		return;
- 
- 	if (adapter->vxlan_port != port)
--- 
-2.4.6
+
+--kQ9ve6Ta7MphAO311GseuLWkaBxBHSxUa
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJVzlRDAAoJEOb/4TMchkvflXUQAJQNP6eSYmtjrT1JKZP3Mq/L
+5jN7e2/isNccOxUeFKIfPiM0KFTb+gt2nlr7dx2V1l9R4SITVqWpuDR2wSwu3Imj
+75MpHxir5K7IEaWJcTqK2UpahEOHR+elBLhb0//VfAIopOBpJ1ZUv00m54Xa8Pq7
++7YR3vp29OgkZb0U2STxVeN0PF6wAp7mWqJyfDlaUysSGOhJsWwJE0vk1eAHnpyE
+sCOdcCAYJSF/6WtiN1e7ybCBb78kf2Lv1wj/nZind8nn4KkaVt0NCEqdrTJANGsa
+VURIeEe8bsliwYBKO3JUIe2kEhHydwSwL9VLrrRFAt57OeWZHeAD/f+mIUZvcNZn
+Mh4V5WCCSCC3lcdHTWgMBAkJ3bFGHPvqo5+xV9P72YtmYkRyGEQBq0nFn3s0mFhF
+dOgyhHmXV4y1b1kDb/9EoMGvpkzPL0R/VU5f+CWQj088/awCcOUvCQM7VD4Il5aO
+iTS2kyB+zgi8cOKpQlCGT4m11kT6P88XYtCV2cu+KBovL5dxVcmgssxRSCNQpbe6
+dWNXgp5gD5zOVYyFOvOc8etPGhHAHxa5oOXO9sh8NABU2dakNR1ibJaKnR2F57Gi
+JNOKZOCfhpmx+BHUK5zzTVMg7KJSxOD37VeTcbVfejdSbQRO26clAfOyPxaTSd+p
+f1Mx8yf4DiJFXMqG/WJr
+=IzXs
+-----END PGP SIGNATURE-----
+
+--kQ9ve6Ta7MphAO311GseuLWkaBxBHSxUa--
