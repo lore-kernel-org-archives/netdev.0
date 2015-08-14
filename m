@@ -1,55 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix wrong skb_get() usage / crash in
- IGMP/MLD parsing code
-Date: Thu, 13 Aug 2015 17:11:01 -0700 (PDT)
-Message-ID: <20150813.171101.925018652514860039.davem@davemloft.net>
-References: <1439438047-19441-1-git-send-email-linus.luessing@c0d3.blue>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] average: provide macro to create static EWMA
+Date: Thu, 13 Aug 2015 17:26:55 -0700 (PDT)
+Message-ID: <20150813.172655.794541030036505262.davem@davemloft.net>
+References: <1439457109-21833-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org, bblanco@plumgrid.com,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	alexei.starovoitov@gmail.com
-To: linus.luessing@c0d3.blue
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1439438047-19441-1-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1439457109-21833-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@c0d3.blue>
-Date: Thu, 13 Aug 2015 05:54:07 +0200
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Thu, 13 Aug 2015 11:11:48 +0200
 
-> The recent refactoring of the IGMP and MLD parsing code into
-> ipv6_mc_check_mld() / ip_mc_check_igmp() introduced a potential crash=
- /
-> BUG() invocation for bridges:
-> =
+> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> 
+> Having the EWMA parameters stored in the runtime struct imposes
+> memory requirements for the constant values that could just be
+> inlined in the code. This particularly makes sense if there are
+> a lot of such structs, for example in mac80211 in the station
+> table where each station has a number of these in an array, and
+> there can be many stations.
+> 
+> Provide a macro DECLARE_EWMA() that declares the necessary struct
+> and inline functions to access it with the parameters hard-coded;
+> using this also means the user no longer needs to 'select AVERAGE'
+> as it's entirely self-contained.
+> 
+> In the mac80211 case, on x86-64, this actually slightly *reduces*
+> code size, while also saving 80 bytes of runtime memory per sta.
+> 
+> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+> As the next patch relies on this, I'll take this through my tree
+> unless I hear objections.
 
-> I wrongly assumed that skb_get() could be used as a simple reference
-> counter for an skb which is not the case. skb_get() bears additional
-> semantics, a user count. This leads to a BUG() invocation in
-> pskb_expand_head() / kernel panic if pskb_may_pull() is called on an =
-skb
-> with a user count greater than one - unfortunately the refactoring di=
-d
-> just that.
-> =
-
-> Fixing this by removing the skb_get() call and changing the API: The
-> caller of ipv6_mc_check_mld() / ip_mc_check_igmp() now needs to
-> additionally check whether the returned skb_trimmed is a clone.
-> =
-
-> Fixes: 9afd85c9e455 ("net: Export IGMP/MLD message validation code")
-> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
-> Signed-off-by: Linus L=FCssing <linus.luessing@c0d3.blue>
-
-Applied, thanks.
+This looks fine to me.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
