@@ -1,35 +1,45 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [PATCH iproute2] utils: add missing return value
-Date: Fri, 14 Aug 2015 01:36:20 +0000
-Message-ID: <1439516180-19076-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: netdev@vger.kernel.org
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [net-next PATCH] net: fix endian check warning in etherdevice.h
+Date: Thu, 13 Aug 2015 18:34:03 -0700
+Message-ID: <20150814013403.20350.45692.stgit@jbrandeb-hsm1.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2860 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754302AbbHNBdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 21:33:12 -0400
+Received: from mga03.intel.com ([134.134.136.65]:60154 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751952AbbHNBeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2015 21:34:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing return value to fix warnings
+Sparse builds have been warning for a really long time now
+that etherdevice.h has a conversion that is unsafe.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+  include/linux/etherdevice.h:79:32: warning: restricted __be16 degrades to integer
+
+This code change fixes the issue and generates the exact
+same assembly before/after (checked on x86_64)
+
+Fixes: 2c722fe1c821 (etherdevice: Optimize a few is_<foo>_ether_addr functions)
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Joe Perches <joe@perches.com>
 ---
- include/utils.h | 2 +-
+ include/linux/etherdevice.h |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index 95d162c..0c57ccd 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -137,7 +137,7 @@ const char *mpls_ntop(int af, const void *addr, char *str, size_t len);
- int mpls_pton(int af, const char *src, void *addr);
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index 9012f87..eb049c6 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -76,7 +76,7 @@ static inline bool is_link_local_ether_addr(const u8 *addr)
  
- extern int __iproute2_hz_internal;
--__get_hz(void);
-+int __get_hz(void);
- 
- static __inline__ int get_hz(void)
- {
--- 
-1.8.3.1
+ #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+ 	return (((*(const u32 *)addr) ^ (*(const u32 *)b)) |
+-		((a[2] ^ b[2]) & m)) == 0;
++		(__force int)((a[2] ^ b[2]) & m)) == 0;
+ #else
+ 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | ((a[2] ^ b[2]) & m)) == 0;
+ #endif
