@@ -1,51 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2015-08-14
-Date: Fri, 14 Aug 2015 13:20:26 +0200
-Message-ID: <1439551226.2091.13.camel@sipsolutions.net>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH] mm: make page pfmemalloc check more robust
+Date: Fri, 14 Aug 2015 15:26:45 +0200
+Message-ID: <55CDEC95.5050307@suse.cz>
+References: <1439456364-4530-1-git-send-email-mhocko@kernel.org>
+ <55CC5FA0.300@suse.cz>
+ <1439476856.7960.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:54743 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754917AbbHNLUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 07:20:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mhocko@kernel.org, linux-mm@kvack.org, Mel Gorman <mgorman@suse.de>,
+ Jiri Bohac <jbohac@suse.cz>, Andrew Morton <akpm@linux-foundation.org>,
+ "David S. Miller" <davem@davemloft.net>, LKML
+ <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+ Michal Hocko <mhocko@suse.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1439476856.7960.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On 08/13/2015 04:40 PM, Eric Dumazet wrote:
+> On Thu, 2015-08-13 at 11:13 +0200, Vlastimil Babka wrote:
+>
+>> Given that this apparently isn't the first case of this localhost issue,
+>> I wonder if network code should just clear skb->pfmemalloc during send
+>> (or maybe just send over localhost). That would be probably easier than
+>> distinguish the __skb_fill_page_desc() callers for send vs receive.
+>
+> Would this still needed after this patch ?
 
-I'm back from vacation, and found a single bugfix waiting. It's in this
-pull request, but I'm not quite up to speed as to what's happening with
-the release. If it goes in, great; if not I've already tagged it with
-Cc stable anyway.
+Not until another corner case is discovered :) Or something passes a 
+genuine pfmemalloc page to a socket (sending contents of some slab 
+objects perhaps, where the slab page was allocated as pfmemalloc? Dunno 
+if that can happen right now).
 
-Thanks,
-johannes
+> It is sad we do not have a SNMP counter to at least count how often we
+> drop skb because pfmemalloc is set.
+>
+> I'll provide such a patch.
+>
+>
 
-
-
-The following changes since commit 923b352f19d9ea971ae2536eab55f5fc9e95fedf:
-
-  cfg80211: use RTNL locked reg_can_beacon for IR-relaxation (2015-07-17 15:02:02 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2015-08-14
-
-for you to fetch changes up to f5eeb5fa191fd7b634cbc4883ac58f3b2184dbc5:
-
-  mac80211: fix invalid read in minstrel_sort_best_tp_rates() (2015-08-13 13:52:34 +0200)
-
-----------------------------------------------------------------
-We have a single bugfix for an invalid memory read.
-
-----------------------------------------------------------------
-Adrien Schildknecht (1):
-      mac80211: fix invalid read in minstrel_sort_best_tp_rates()
-
- net/mac80211/rc80211_minstrel.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
