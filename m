@@ -1,49 +1,36 @@
-From: Adrien Schildknecht <adrien+dev@schischi.me>
-Subject: Re: [PATCH] iwlwifi: out-of-bounds access in
- iwl_init_sband_channels
-Date: Fri, 14 Aug 2015 09:04:08 +0200
-Message-ID: <20150814090408.1521e8fe.adrien+dev@schischi.me>
-References: <1439512532-7901-1-git-send-email-adrien+dev@schischi.me>
-	<0BA3FCBA62E2DC44AF3030971E174FB32E7EA2CE@hasmsx107.ger.corp.intel.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/3] lwt: Add support to redirect dst.input
+Date: Fri, 14 Aug 2015 00:07:13 -0700
+Message-ID: <55CD93A1.9010606@cumulusnetworks.com>
+References: <1439484843-3848061-1-git-send-email-tom@herbertland.com> <1439484843-3848061-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Berg, Johannes" <johannes.berg@intel.com>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, tgraf@suug.ch,
+	kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:37821 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373AbbHNHES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 03:04:18 -0400
-Received: by wibhh20 with SMTP id hh20so10460138wib.0
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 00:04:16 -0700 (PDT)
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32E7EA2CE@hasmsx107.ger.corp.intel.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36045 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752426AbbHNHHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 03:07:15 -0400
+Received: by pacrr5 with SMTP id rr5so54536765pac.3
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 00:07:14 -0700 (PDT)
+In-Reply-To: <1439484843-3848061-2-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 8/13/15, 9:54 AM, Tom Herbert wrote:
+> This patch adds the capability to redirect dst input in the same way
+> that dst output is redirected by LWT.
+>
+> Also, save the original dst.input and and dst.out when setting up
+> lwtunnel redirection. These can be called by the client as a pass-
+> through.
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> -
+LGTM. Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> On 08/14/2015 03:36 AM, Adrien Schildknecht wrote:
-> > Both loops of this function compare data from the 'chan' array and
-> > then check if the index is valid.
-> > 
-> > The 2 conditions should be inverted to avoid an out-of-bounds
-> > access.
-> > 
-> 
-> Was that found by a static analyzer or any other automated tool, or
-> was that the result of your very careful review?
-
-The error has been reported by KASan:
-==================================================================
-BUG: KASan: out of bounds access in iwl_init_sband_channels+0x207/0x260 [iwlwifi] at addr ffff8800c2d0aac8
-Read of size 4 by task modprobe/329
-==================================================================
-
--- 
-Adrien Schildknecht
+thanks,
+Roopa
