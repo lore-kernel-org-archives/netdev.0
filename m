@@ -1,81 +1,61 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/7] net: dsa: add support for switchdev VLAN
- objects
-Date: Fri, 14 Aug 2015 02:55:23 +0200
-Message-ID: <20150814005523.GA5596@lunn.ch>
-References: <1439484743-5126-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1439484743-5126-2-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20150813201608.GI32627@lunn.ch>
- <20150813210156.GA21039@ketchup.touchtunes.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: [PATCH/RFC] openvswitch: Retain parsed IPv6 header fields
+	in flow on error skipping extension headers
+Date: Fri, 14 Aug 2015 10:30:13 +0900
+Message-ID: <1439515813-29406-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, Chris Healy <cphealy@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150813210156.GA21039@ketchup.touchtunes.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 13, 2015 at 05:01:57PM -0400, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> On 15-08-13 22:16:08, Andrew Lunn wrote:
-> > On Thu, Aug 13, 2015 at 12:52:17PM -0400, Vivien Didelot wrote:
-> > > Add new functions in DSA drivers to access hardware VLAN entries through
-> > > SWITCHDEV_OBJ_PORT_VLAN objects:
-> > > 
-> > >  - port_pvid_get() and vlan_getnext() to dump a VLAN
-> > >  - port_vlan_del() to exclude a port from a VLAN
-> > >  - port_pvid_set() and port_vlan_add() to join a port to a VLAN
-> > > 
-> > > The DSA infrastructure will ensure that each VLAN of the given range
-> > > does not already belong to another bridge. If it does, it will fallback
-> > > to software VLAN and won't program the hardware.
-> > > 
-> > > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> > > ---
-> > >  include/net/dsa.h |  11 ++++
-> > >  net/dsa/slave.c   | 158 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-> > >  2 files changed, 169 insertions(+)
-> > > 
-> > > diff --git a/include/net/dsa.h b/include/net/dsa.h
-> > > index 6356f43..bd9b765 100644
-> > > --- a/include/net/dsa.h
-> > > +++ b/include/net/dsa.h
-> > > @@ -298,6 +298,17 @@ struct dsa_switch_driver {
-> > >  				   u8 state);
-> > >  
-> > >  	/*
-> > > +	 * VLAN support
-> > > +	 */
-> > > +	int	(*port_pvid_get)(struct dsa_switch *ds, int port, u16 *pvid);
-> > > +	int	(*port_pvid_set)(struct dsa_switch *ds, int port, u16 pvid);
-> > > +	int	(*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
-> > > +				 bool untagged);
-> > > +	int	(*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
-> > > @@ -794,6 +949,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
-> > >  	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
-> > >  	.ndo_poll_controller	= dsa_slave_poll_controller,
-> > >  #endif
-> > > +	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
-> > > +	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
-> > > +	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
-> > >  };
-> > 
-> > Do these changes belong here?
-> 
-> Yes, these are used by switchdev to access bridge requests and exchange
-> SWITCHDEV_OBJ_PORT_VLAN objects with DSA, through the its switchdev_ops.
-
-O.K, so if a v2 is needed, please mention this in the change log. It
-was not obvious to me.
-
-    Thanks
-	Andrew
+V2hlbiBhbiBlcnJvciBvY2N1cnMgc2tpcHBpbmcgSVB2NiBleHRlbnNpb24gaGVhZGVycyByZXRh
+aW4gdGhlIGFscmVhZHkKcGFyc2VkIElQIHByb3RvY29sIGFuZCBJUHY2IGFkZHJlc3NlcyBpbiB0
+aGUgZmxvdy4gQWxzbyBhc3N1bWUgdGhhdCB0aGUKcGFja2V0IGlzIG5vdCBhIGZyYWdtZW50IGlu
+IHRoZSBhYnNlbmNlIG9mIGluZm9ybWF0aW9uIHRvIHRoZSBjb250cmFyeTsKdGhhdCBpcyBhbHdh
+eXMgdXNlIHRoZSBmcmFnX29mZiB2YWx1ZSBzZXQgYnkgaXB2Nl9za2lwX2V4dGhkcigpLgoKVGhp
+cyBhbGxvd3MgbWF0Y2hpbmcgb24gdGhlIElQIHByb3RvY29sIGFuZCBJUHY2IGFkZHJlc3NlcyBv
+ZiBwYWNrZXRzCndpdGggbWFsZm9ybWVkIGV4dGVuc2lvbiBoZWFkZXJzLgoKU2lnbmVkLW9mZi1i
+eTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4KCi0tLQoKKiBTb21l
+IGNvbnNpZGVyYXRpb24gc2hvdWxkIGJlIGdpdmVuIHRvIHVud2FudGVkIHNpZGUgZWZmZWN0cyBv
+ZiB0aGlzIHBhdGNoCiAgYXMgaXQgYWZmZWN0cyB0aGUgaGFuZGxpbmcgb2YgbWFsZm9ybWVkIHBh
+Y2tldHMuCgpTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25v
+bWUuY29tPgotLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgfCAxMSArKysrKysrLS0tLQogMSBm
+aWxlIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
+YS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwppbmRleCA4
+ZGIyMmVmNzM2MjYuLjNjNTMzNmM1ZDRlYSAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zs
+b3cuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCkBAIC0yNzEsOCArMjcxLDYgQEAgc3Rh
+dGljIGludCBwYXJzZV9pcHY2aGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBzd19mbG93
+X2tleSAqa2V5KQogCWtleS0+aXB2Ni5hZGRyLmRzdCA9IG5oLT5kYWRkcjsKIAogCXBheWxvYWRf
+b2ZzID0gaXB2Nl9za2lwX2V4dGhkcihza2IsIHBheWxvYWRfb2ZzLCAmbmV4dGhkciwgJmZyYWdf
+b2ZmKTsKLQlpZiAodW5saWtlbHkocGF5bG9hZF9vZnMgPCAwKSkKLQkJcmV0dXJuIC1FSU5WQUw7
+CiAKIAlpZiAoZnJhZ19vZmYpIHsKIAkJaWYgKGZyYWdfb2ZmICYgaHRvbnMofjB4NykpCkBAIC0y
+ODMsNiArMjgxLDEzIEBAIHN0YXRpYyBpbnQgcGFyc2VfaXB2NmhkcihzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSkKIAkJa2V5LT5pcC5mcmFnID0gT1ZTX0ZSQUdf
+VFlQRV9OT05FOwogCX0KIAorCS8qIERlbGF5ZWQgaGFuZGxpbmcgb2YgZXJyb3IgaW4gaXB2Nl9z
+a2lwX2V4dGhkcigpIGFzIGl0CisJICogYWx3YXlzIHNldHMgZnJhZ19vZmYgdG8gYSB2YWxpZCB2
+YWx1ZSB3aGljaCBtYXkgYmUKKwkgKiB1c2VkIHRvIHNldCBrZXktPmlwLmZyYWcgYWJvdmUuCisJ
+ICovCisJaWYgKHVubGlrZWx5KHBheWxvYWRfb2ZzIDwgMCkpCisJCXJldHVybiAtRUlOVkFMOwor
+CiAJbmhfbGVuID0gcGF5bG9hZF9vZnMgLSBuaF9vZnM7CiAJc2tiX3NldF90cmFuc3BvcnRfaGVh
+ZGVyKHNrYiwgbmhfb2ZzICsgbmhfbGVuKTsKIAlrZXktPmlwLnByb3RvID0gbmV4dGhkcjsKQEAg
+LTYyMiw4ICs2MjcsNiBAQCBzdGF0aWMgaW50IGtleV9leHRyYWN0KHN0cnVjdCBza19idWZmICpz
+a2IsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5KQogCiAJCW5oX2xlbiA9IHBhcnNlX2lwdjZoZHIo
+c2tiLCBrZXkpOwogCQlpZiAodW5saWtlbHkobmhfbGVuIDwgMCkpIHsKLQkJCW1lbXNldCgma2V5
+LT5pcCwgMCwgc2l6ZW9mKGtleS0+aXApKTsKLQkJCW1lbXNldCgma2V5LT5pcHY2LmFkZHIsIDAs
+IHNpemVvZihrZXktPmlwdjYuYWRkcikpOwogCQkJaWYgKG5oX2xlbiA9PSAtRUlOVkFMKSB7CiAJ
+CQkJc2tiLT50cmFuc3BvcnRfaGVhZGVyID0gc2tiLT5uZXR3b3JrX2hlYWRlcjsKIAkJCQllcnJv
+ciA9IDA7Ci0tIAoyLjEuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
+dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
