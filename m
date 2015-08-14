@@ -1,61 +1,66 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: [PATCH/RFC] openvswitch: Retain parsed IPv6 header fields
-	in flow on error skipping extension headers
-Date: Fri, 14 Aug 2015 10:30:13 +0900
-Message-ID: <1439515813-29406-1-git-send-email-simon.horman@netronome.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: Linux kernel commit breaks IPMI on iface downing
+Date: Thu, 13 Aug 2015 18:30:34 -0700
+Message-ID: <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=cp1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?S=E9bastien?= Bocahu <sbu@reportlinker.com>,
+	<harish.patil@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:7300 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751622AbbHNBaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 21:30:35 -0400
+In-Reply-To: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-V2hlbiBhbiBlcnJvciBvY2N1cnMgc2tpcHBpbmcgSVB2NiBleHRlbnNpb24gaGVhZGVycyByZXRh
-aW4gdGhlIGFscmVhZHkKcGFyc2VkIElQIHByb3RvY29sIGFuZCBJUHY2IGFkZHJlc3NlcyBpbiB0
-aGUgZmxvdy4gQWxzbyBhc3N1bWUgdGhhdCB0aGUKcGFja2V0IGlzIG5vdCBhIGZyYWdtZW50IGlu
-IHRoZSBhYnNlbmNlIG9mIGluZm9ybWF0aW9uIHRvIHRoZSBjb250cmFyeTsKdGhhdCBpcyBhbHdh
-eXMgdXNlIHRoZSBmcmFnX29mZiB2YWx1ZSBzZXQgYnkgaXB2Nl9za2lwX2V4dGhkcigpLgoKVGhp
-cyBhbGxvd3MgbWF0Y2hpbmcgb24gdGhlIElQIHByb3RvY29sIGFuZCBJUHY2IGFkZHJlc3NlcyBv
-ZiBwYWNrZXRzCndpdGggbWFsZm9ybWVkIGV4dGVuc2lvbiBoZWFkZXJzLgoKU2lnbmVkLW9mZi1i
-eTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4KCi0tLQoKKiBTb21l
-IGNvbnNpZGVyYXRpb24gc2hvdWxkIGJlIGdpdmVuIHRvIHVud2FudGVkIHNpZGUgZWZmZWN0cyBv
-ZiB0aGlzIHBhdGNoCiAgYXMgaXQgYWZmZWN0cyB0aGUgaGFuZGxpbmcgb2YgbWFsZm9ybWVkIHBh
-Y2tldHMuCgpTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25v
-bWUuY29tPgotLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgfCAxMSArKysrKysrLS0tLQogMSBm
-aWxlIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
-YS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwppbmRleCA4
-ZGIyMmVmNzM2MjYuLjNjNTMzNmM1ZDRlYSAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Zs
-b3cuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCkBAIC0yNzEsOCArMjcxLDYgQEAgc3Rh
-dGljIGludCBwYXJzZV9pcHY2aGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBzd19mbG93
-X2tleSAqa2V5KQogCWtleS0+aXB2Ni5hZGRyLmRzdCA9IG5oLT5kYWRkcjsKIAogCXBheWxvYWRf
-b2ZzID0gaXB2Nl9za2lwX2V4dGhkcihza2IsIHBheWxvYWRfb2ZzLCAmbmV4dGhkciwgJmZyYWdf
-b2ZmKTsKLQlpZiAodW5saWtlbHkocGF5bG9hZF9vZnMgPCAwKSkKLQkJcmV0dXJuIC1FSU5WQUw7
-CiAKIAlpZiAoZnJhZ19vZmYpIHsKIAkJaWYgKGZyYWdfb2ZmICYgaHRvbnMofjB4NykpCkBAIC0y
-ODMsNiArMjgxLDEzIEBAIHN0YXRpYyBpbnQgcGFyc2VfaXB2NmhkcihzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSkKIAkJa2V5LT5pcC5mcmFnID0gT1ZTX0ZSQUdf
-VFlQRV9OT05FOwogCX0KIAorCS8qIERlbGF5ZWQgaGFuZGxpbmcgb2YgZXJyb3IgaW4gaXB2Nl9z
-a2lwX2V4dGhkcigpIGFzIGl0CisJICogYWx3YXlzIHNldHMgZnJhZ19vZmYgdG8gYSB2YWxpZCB2
-YWx1ZSB3aGljaCBtYXkgYmUKKwkgKiB1c2VkIHRvIHNldCBrZXktPmlwLmZyYWcgYWJvdmUuCisJ
-ICovCisJaWYgKHVubGlrZWx5KHBheWxvYWRfb2ZzIDwgMCkpCisJCXJldHVybiAtRUlOVkFMOwor
-CiAJbmhfbGVuID0gcGF5bG9hZF9vZnMgLSBuaF9vZnM7CiAJc2tiX3NldF90cmFuc3BvcnRfaGVh
-ZGVyKHNrYiwgbmhfb2ZzICsgbmhfbGVuKTsKIAlrZXktPmlwLnByb3RvID0gbmV4dGhkcjsKQEAg
-LTYyMiw4ICs2MjcsNiBAQCBzdGF0aWMgaW50IGtleV9leHRyYWN0KHN0cnVjdCBza19idWZmICpz
-a2IsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5KQogCiAJCW5oX2xlbiA9IHBhcnNlX2lwdjZoZHIo
-c2tiLCBrZXkpOwogCQlpZiAodW5saWtlbHkobmhfbGVuIDwgMCkpIHsKLQkJCW1lbXNldCgma2V5
-LT5pcCwgMCwgc2l6ZW9mKGtleS0+aXApKTsKLQkJCW1lbXNldCgma2V5LT5pcHY2LmFkZHIsIDAs
-IHNpemVvZihrZXktPmlwdjYuYWRkcikpOwogCQkJaWYgKG5oX2xlbiA9PSAtRUlOVkFMKSB7CiAJ
-CQkJc2tiLT50cmFuc3BvcnRfaGVhZGVyID0gc2tiLT5uZXR3b3JrX2hlYWRlcjsKIAkJCQllcnJv
-ciA9IDA7Ci0tIAoyLjEuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
-dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
++netdev and Harish who is the current maintainer of bnx2 at qlogic.
+
+The patch in question effectively just removes the
+bnx2_set_power_state() call during "ip link set down".  If there is
+IPMI, the firmware should know the link needs to stay up when the drive=
+r
+resets the device during bnx2_close().  This should be a very common
+scenario.  Please provide the firmware versions to Harish with ethtool
+-i.  Perhaps upgrading the firmware can resolve this issue.
+
+On Thu, 2015-08-13 at 15:47 +0200, S=E9bastien Bocahu wrote:=20
+> Hi,
+>=20
+> Being unable to install Debian Jessie via IPMI on mainstream Dell R41=
+0
+> servers that used to be well supported by Debian Wheezy, I tracked th=
+e
+> problem down to a specific commit in the Linux kernel, specifically i=
+n
+> the bnx2 driver.
+> The issue is that "ip link set eth0 down" takes the Ethernet part of
+> the BMC down (shared NIC for BMC+eth0), cutting off the IPMI session.
+> The BMC gets back only after power cycling.
+>=20
+> Hardware: Dell R410 w/ a Broadcom 5716 NIC:
+> Ethernet controller: Broadcom Corporation NetXtreme II BCM5716 Gigabi=
+t
+> Ethernet (rev 20)  )
+> Part number: BCM95716C1
+> Vendor specific: 6.4.5 (Firmware has been updated to the latest
+> version available by Dell's support website)
+>=20
+> I built many kernels to track which change caused the issue and it
+> seems that's :
+> 25bfb1dd4ba3b2d9a49ce9d9b0cd7be1840e15ed (bnx2: Add pci shutdown hand=
+ler.)
+>=20
+> Before, 'ip link set eth0 down' would just cause 2/3s of packet loss
+> but IPMI would still be working afterwards.
+>=20
+> I'm available for more informations and/or testing if needed.
+>=20
+> Thanks !
+>=20
+>=20
+>=20
