@@ -1,114 +1,82 @@
-From: Philip Downey <pdowney@Brocade.com>
-Subject: RE: [PATCH] IGMP: Inhibit reports for local multicast groups
-Date: Fri, 14 Aug 2015 08:56:56 +0000
-Message-ID: <b74d1e7c6693479bb9caf0c3fef5d7a2@EMEAWP-EXMB12.corp.brocade.com>
-References: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
- <20150812.164519.1783786478654950784.davem@davemloft.net>
- <57f72e6a6f024628bd18ef4b139ac31e@EMEAWP-EXMB12.corp.brocade.com>
- <20150813160626.GF32484@lunn.ch>
- <b50a97f544f5437fb18df1cb5b6b6533@EMEAWP-EXMB12.corp.brocade.com>
- <20150813170137.GE32627@lunn.ch>
+From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Subject: Re: [PATCHv1 net-next 0/5] netlink: mmap: kernel panic and some
+ issues
+Date: Fri, 14 Aug 2015 17:58:07 +0900
+Message-ID: <20150814085807.GA30443@gmail.com>
+References: <20150722131730.GA18037@gmail.com>
+ <20150812082824.GA13385@gmail.com>
+ <20150812.163819.620222685130362816.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150813170137.GE32627@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, fw@strlen.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:35780 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753327AbbHNI6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 04:58:13 -0400
+Received: by pdrg1 with SMTP id g1so29279806pdr.2
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 01:58:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150812.163819.620222685130362816.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew
-Answers inline...
+ Hi,
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Thursday, August 13, 2015 6:02 PM
-> To: Philip Downey
-> Cc: David Miller; kuznet@ms2.inr.ac.ru; jmorris@namei.org; yoshfuji@linux-
-> ipv6.org; kaber@trash.net; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org
-> Subject: Re: [PATCH] IGMP: Inhibit reports for local multicast groups
-> 
-> On Thu, Aug 13, 2015 at 04:52:32PM +0000, Philip Downey wrote:
-> > Hi Andrew
-> > IGMP snooping is designed to prevent hosts on a local network from
-> receiving traffic for a multicast group they have not explicitly joined.   Link-
-> Local multicast traffic should not have an IGMP client since it is reserved for
-> routing protocols.  One would expect that IGMP snooping needs to ignore
-> local multicast traffic in the reserved range intended for routers since there
-> should be no IGMP client to make "join" requests.
-> 
-> The point of this patch is that Linux is sending out group membership for
-> these addresses, it is acting as a client. What happens with a switch which is
-> applying IGMP snooping to link-local multicast groups?
-> You turn on this feature, and you no longer get your routing protocol
-> messages.
+Thank you for taking your time.
+Please let me explain these with code samples on gist.
+I can not describe and arrange it well, sorry.
+ 
+    normal socket nflog sample:
+    https://gist.github.com/chamaken/dc0f80c14862e8061c06/raw/2d6da8fff31ef61af77e68713fdb1d71978746a6/nflog.c
 
-It is expected that link-local multicast is always forwarded by switches otherwise routers may not function correctly.
+set iptables
 
->From the relevant RFC:
+    iptables -A INPUT -p icmp --icmp-type echo-request \
+        -j NFLOG --nflog-group 2 --nflog-threshold 4
 
-RFC 4541     IGMP and MLD Snooping Switches Considerations      May 2006
+monitor nlmon (like netsniff-ng), run this sample and
+ping -i 0.2 -c 10 from another hosts. This sample only shows receive
+size and nlmsg_type. Same things can be done with rx mmaped socket.
 
+    rx only mmaped nflog sample:
+    https://gist.github.com/chamaken/dc0f80c14862e8061c06/raw/2d6da8fff31ef61af77e68713fdb1d71978746a6/rxring-nflog.c
 
-2.1.2. Data Forwarding Rules
+This sample gets a panic if monitoring nlmon.
 
+    panic message:
+    https://gist.github.com/chamaken/dc0f80c14862e8061c06/raw/2d6da8fff31ef61af77e68713fdb1d71978746a6/mmaped_netlink_panic
 
-   1) Packets with a destination IP address outside 224.0.0.X which are
-      not IGMP should be forwarded according to group-based port
-      membership tables and must also be forwarded on router ports.
+I think it's because of accessing a skb_shared_info when releasing
+skb, although mmaped netlink skb does not have a skb_shared_info. I
+tried to fix this at patch 1 and 2 by introducing helper function
+which will not access a skb_shared_info.
 
-      This is the main IGMP snooping functionality for the data path.
-      One approach that an implementation could take would be to
-      maintain separate membership and multicast router tables in
-      software and then "merge" these tables into a forwarding cache.
+And I think nm_status should be set to UNUSED when releasing it so
+also tried to fix it patch 3.
 
-   2) Packets with a destination IP (DIP) address in the 224.0.0.X range
-      which are not IGMP must be forwarded on all ports.
+----
 
-      This recommendation is based on the fact that many host systems do
-      not send Join IP multicast addresses in this range before sending
-      or listening to IP multicast packets.  Furthermore, since the
-      224.0.0.X address range is defined as link-local (not to be
-      routed), it seems unnecessary to keep the state for each address
-      in this range.  Additionally, some routers operate in the
-      224.0.0.X address range without issuing IGMP Joins, and these
-      applications would break if the switch were to prune them due to
-      not having seen a Join Group message from the router.
+With both tx/rx mmaped,
 
-> 
-> I had a quick look at RFC 3376. The only mention i spotted for not sending
-> IGMP messages is:
-> 
->    The all-systems multicast address, 224.0.0.1, is handled as a special
->    case.  On all systems -- that is all hosts and routers, including
->    multicast routers -- reception of packets destined to the all-systems
->    multicast address, from all sources, is permanently enabled on all
->    interfaces on which multicast reception is supported.  No IGMP
->    messages are ever sent regarding the all-systems multicast address.
-> 
-> IGMP v2 has something similar:
-> 
->    The all-systems group (address 224.0.0.1) is handled as a special
->    case.  The host starts in Idle Member state for that group on every
->    interface, never transitions to another state, and never sends a
->    report for that group.
-> 
-> But i did not find anything which says all other link-local addresses don't
-> need member reports. Did i miss something?
+    both tx/rx mmaped nflog sample:
+    https://gist.github.com/chamaken/dc0f80c14862e8061c06/raw/2d6da8fff31ef61af77e68713fdb1d71978746a6/ring-nflog.c
 
-No you did not miss anything - that is correct.
-However, the RFCs don't really cover the behavior of routers well in some areas.   Routing protocols which use the 224.0.0.x address space do not need IGMP therefore it makes no sense to distribute membership reports for these groups.  A router which receives an IGMP membership report which includes groups from this reserved address range will ignore it -and probably generate debug messages highlighting an invalid address.
+This sample will not work, since msg->msg_iter.type in
+netlink_sendmsg() is set to 1 (WRITE) when this sample calls
+sendto(). patch 4 fix this by accepting it.
 
-Regards
+----
 
-Philip
-> 
->       Andrew
+After applying patch 1 and 2, rx only sample can work but it behaves
+differ from normal one. patch 5 may fix this.
+
+And it also works well with my another code which set frame
+nm_status to SKIP and passes it to worker threads and the worker
+threads set status to UNUSED, even though ring becomes full.
+
+That my another code may set UNUSED status in random, not
+sequensially, so that it seems I need to check whole ring.
+
+Thanks,
