@@ -1,50 +1,53 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH v2] e1000e: Modify tx/rx
- configurations to	avoid null pointer dereferences in e1000_open
-Date: Fri, 14 Aug 2015 23:28:36 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81AE74F9@ORSMSX101.amr.corp.intel.com>
-References: <1438769770-8887-1-git-send-email-baijiaju1990@163.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG net-next] infamous dev refcnt leak... again.
+Date: Fri, 14 Aug 2015 16:31:32 -0700
+Message-ID: <1439595092.7507.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439586894.7507.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1439594063.7507.11.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <55CE7776.5000706@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jia-Ju Bai <baijiaju1990@163.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438769770-8887-1-git-send-email-baijiaju1990@163.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34107 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735AbbHNXbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 19:31:33 -0400
+Received: by pdbfa8 with SMTP id fa8so35594302pdb.1
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 16:31:33 -0700 (PDT)
+In-Reply-To: <55CE7776.5000706@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Jia-Ju Bai
-> Sent: Wednesday, August 05, 2015 3:16 AM
-> To: Kirsher, Jeffrey T; Brandeburg, Jesse
-> Cc: netdev@vger.kernel.org; Jia-Ju Bai; intel-wired-lan@lists.osuosl.org;
-> linux-kernel@vger.kernel.org
-> Subject: [Intel-wired-lan] [PATCH v2] e1000e: Modify tx/rx configurations
-> to avoid null pointer dereferences in e1000_open
+On Fri, 2015-08-14 at 17:19 -0600, David Ahern wrote:
+> On 8/14/15 5:14 PM, Eric Dumazet wrote:
+> > On Fri, 2015-08-14 at 14:14 -0700, Eric Dumazet wrote:
+> >> While rebooting host running latest net-next
+> >>
+> >>   unregister_netdevice: waiting for eth0 to become free. Usage count = 4
+> >>
+> >> Oh well...
+> >>
+> >
+> > It looks like David Ahern recent changes uncover a bug ?
+> >
+> > Not clear which commit is at fault.
+> >
+> > Maybe 3bfd847203c6d89532f836ad3f5b4ff4ced26dd9 ?
+> >
+> > Somehow a down device can be found.
 > 
-> When e1000e_setup_rx_resources is failed in e1000_open,
-> e1000e_free_tx_resources in "err_setup_rx" segment is executed.
-> "writel(0, tx_ring->head)" statement in e1000_clean_tx_ring
-> in e1000e_free_tx_resources will cause a null poonter dereference(crash),
-> because "tx_ring->head" is only assigned in e1000_configure_tx
-> in e1000_configure, but it is after e1000e_setup_rx_resources.
-> 
-> This patch moves head/tail register writing to e1000_configure_tx/rx,
-> which can fix this problem. It is inspired by igb_configure_tx_ring
-> in the igb driver.
-> 
-> Specially, thank Alexander Duyck for his valuable suggestion.
-> 
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |   24 ++++++++++++-----------
-> -
->  1 file changed, 12 insertions(+), 12 deletions(-)
+> Can you elaborate on what you are doing to see the refcnt leak? I have 
+> not seen that at all. I have to leave for soccer carpool in 45 minutes 
+> or so, but can take a look this weekend.
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+
+I simply reboot my host. eth0 device can not be dismantled and block the
+reboot, I gave to reset the host.
+
+I get the issue every time.
+
+I confirm reverting 3bfd847203c6d89532f836ad3f5b4ff4ced26dd9
+removes the issue for me.
