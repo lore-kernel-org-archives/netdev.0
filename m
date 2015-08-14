@@ -1,58 +1,91 @@
-From: Adrien Schildknecht <adrien+dev@schischi.me>
-Subject: [PATCH v2] iwlwifi: out-of-bounds access in iwl_init_sband_channels
-Date: Fri, 14 Aug 2015 11:05:46 +0200
-Message-ID: <1439543146-18938-1-git-send-email-adrien+dev@schischi.me>
-References: <87h9o2l4ts.fsf@kamboji.qca.qualcomm.com>
-Cc: ilw@linux.intel.com, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Adrien Schildknecht <adrien+dev@schischi.me>
-To: johannes.berg@intel.com, emmanuel.grumbach@intel.com
+From: =?UTF-8?Q?S=C3=A9bastien_Bocahu?= <sbu@reportlinker.com>
+Subject: Re: Linux kernel commit breaks IPMI on iface downing
+Date: Fri, 14 Aug 2015 11:22:22 +0200
+Message-ID: <CAJPaPGUsyHwaaTuUGcV5BMsSDcw1T7XQ9GVy5KwsMao3k8u+Kg@mail.gmail.com>
+References: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
+ <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: harish.patil@qlogic.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:35190 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754396AbbHNJGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 05:06:02 -0400
-Received: by wicne3 with SMTP id ne3so11893611wic.0
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 02:06:00 -0700 (PDT)
-In-Reply-To: <87h9o2l4ts.fsf@kamboji.qca.qualcomm.com>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:33462 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753289AbbHNJWo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 05:22:44 -0400
+Received: by lalv9 with SMTP id v9so40477640lal.0
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 02:22:42 -0700 (PDT)
+In-Reply-To: <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-KASan error report:
-==================================================================
-BUG: KASan: out of bounds access in iwl_init_sband_channels+0x207/0x260 [iwlwifi] at addr ffff8800c2d0aac8
-Read of size 4 by task modprobe/329
-==================================================================
+The BNX2 firmware has already been updated to the latest version
+available from Dell.
 
-Both loops of this function compare data from the 'chan' array and then
-check if the index is valid.
+root@debian:~# ethtool -i eth0 | grep firmware
+firmware-version: 6.4.5 bc 5.2.3 NCSI 2.0.11
 
-The 2 conditions should be inverted to avoid an out-of-bounds access.
+2015-08-14 3:30 GMT+02:00 Michael Chan <mchan@broadcom.com>:
+> +netdev and Harish who is the current maintainer of bnx2 at qlogic.
+>
+> The patch in question effectively just removes the
+> bnx2_set_power_state() call during "ip link set down".  If there is
+> IPMI, the firmware should know the link needs to stay up when the dri=
+ver
+> resets the device during bnx2_close().  This should be a very common
+> scenario.  Please provide the firmware versions to Harish with ethtoo=
+l
+> -i.  Perhaps upgrading the firmware can resolve this issue.
+>
+> On Thu, 2015-08-13 at 15:47 +0200, S=C3=A9bastien Bocahu wrote:
+>> Hi,
+>>
+>> Being unable to install Debian Jessie via IPMI on mainstream Dell R4=
+10
+>> servers that used to be well supported by Debian Wheezy, I tracked t=
+he
+>> problem down to a specific commit in the Linux kernel, specifically =
+in
+>> the bnx2 driver.
+>> The issue is that "ip link set eth0 down" takes the Ethernet part of
+>> the BMC down (shared NIC for BMC+eth0), cutting off the IPMI session=
+=2E
+>> The BMC gets back only after power cycling.
+>>
+>> Hardware: Dell R410 w/ a Broadcom 5716 NIC:
+>> Ethernet controller: Broadcom Corporation NetXtreme II BCM5716 Gigab=
+it
+>> Ethernet (rev 20)  )
+>> Part number: BCM95716C1
+>> Vendor specific: 6.4.5 (Firmware has been updated to the latest
+>> version available by Dell's support website)
+>>
+>> I built many kernels to track which change caused the issue and it
+>> seems that's :
+>> 25bfb1dd4ba3b2d9a49ce9d9b0cd7be1840e15ed (bnx2: Add pci shutdown han=
+dler.)
+>>
+>> Before, 'ip link set eth0 down' would just cause 2/3s of packet loss
+>> but IPMI would still be working afterwards.
+>>
+>> I'm available for more informations and/or testing if needed.
+>>
+>> Thanks !
+>>
+>>
+>>
+>
+>
 
-Signed-off-by: Adrien Schildknecht <adrien+dev@schischi.me>
----
- drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c b/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
-index 21302b6..acc3d18 100644
---- a/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
-@@ -713,12 +713,12 @@ int iwl_init_sband_channels(struct iwl_nvm_data *data,
- 	struct ieee80211_channel *chan = &data->channels[0];
- 	int n = 0, idx = 0;
- 
--	while (chan->band != band && idx < n_channels)
-+	while (idx < n_channels && chan->band != band)
- 		chan = &data->channels[++idx];
- 
- 	sband->channels = &data->channels[idx];
- 
--	while (chan->band == band && idx < n_channels) {
-+	while (idx < n_channels && chan->band == band) {
- 		chan = &data->channels[++idx];
- 		n++;
- 	}
--- 
-2.5.0
+
+--=20
+S=C3=A9bastien Bocahu
+IT infrastructure manager
+
+4, Rue Montrochet - 69002 - Lyon, France
+
++33 (0)437651704 - Phone
+ReportLinker.com
