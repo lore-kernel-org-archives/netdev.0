@@ -1,50 +1,67 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH 1/2] Add a matching set of device_ functions for
- determining mac/phy
-Date: Fri, 14 Aug 2015 10:55:53 -0500
-Message-ID: <55CE0F89.2040200@arm.com>
-References: <1439417187-21411-1-git-send-email-jeremy.linton@arm.com>
- <1439417187-21411-2-git-send-email-jeremy.linton@arm.com>
- <55CBC524.4070101@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 102861] New: soft lockup with "inet: fix races with reqsk
+ timers"
+Date: Fri, 14 Aug 2015 08:57:09 -0700
+Message-ID: <20150814085709.2348c2c1@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: "steve.glendinning@shawell.net" <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>,
-	"suravee.suthikulpanit@amd.com" <suravee.suthikulpanit@amd.com>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:20239 "EHLO
-	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755204AbbHNP4A convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 11:56:00 -0400
-In-Reply-To: <55CBC524.4070101@gmail.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33993 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755204AbbHNP47 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 11:56:59 -0400
+Received: by paccq16 with SMTP id cq16so18928584pac.1
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 08:56:59 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by smtp.gmail.com with ESMTPSA id u10sm6461571pdp.85.2015.08.14.08.56.58
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 14 Aug 2015 08:56:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2015 05:13 PM, Florian Fainelli wrote:
-> On 12/08/15 15:06, Jeremy Linton wrote:
->> +
->> +static void *device_get_mac_addr(struct device *dev,
->> +				 const char *name, char *addr,
->> +				 int alen)
->> +{
->> +	int ret = device_property_read_u8_array(dev, name, addr, alen);
->> +
->> +	if (ret == 0 && is_valid_ether_addr(addr))
->> +		return addr;
->> +	return NULL;
->
-> The DT counterpart has an additional check on the properly length to be
-> ETH_ALEN, you might want to have such check here for consistency and
-> correctness.
 
-I will add it back,
 
-Thanks,
+Begin forwarded message:
+
+Date: Fri, 14 Aug 2015 14:32:56 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 102861] New: soft lockup with "inet: fix races with reqsk timers"
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=102861
+
+            Bug ID: 102861
+           Summary: soft lockup with "inet: fix races with reqsk timers"
+           Product: Networking
+           Version: 2.5
+    Kernel Version: net-next d52736e2
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: andreas.reis@gmail.com
+        Regression: No
+
+Created attachment 184921
+  --> https://bugzilla.kernel.org/attachment.cgi?id=184921&action=edit
+dmesg picture
+
+Happens withing 10min while eg. torrenting. net-next from a few days ago was
+fine.
+
+Picture as ssh hangs and dmesg to disk lands in nirvana instead.
+
+Checked via reverting this commit, which allowed me to merrily torrent without
+lockup again. This does not 100% prove that it was actually the cause, ofc.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
