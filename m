@@ -1,61 +1,105 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/4] packet: add eBPF fanout mode
-Date: Fri, 14 Aug 2015 21:46:36 +0200
-Message-ID: <55CE459C.9030800@iogearbox.net>
-References: <1439567427-19504-1-git-send-email-willemb@google.com> <1439567427-19504-3-git-send-email-willemb@google.com> <55CE1F54.7090109@plumgrid.com> <55CE3B11.40406@iogearbox.net> <CA+FuTSd1Ltxp-kcZtEjM41F7MaNXJZw4ruKnFPnhub9pMeeEcA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Willem de Bruijn <willemb@google.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net] be2net: avoid vxlan offloading on multichannel configs
+Date: Fri, 14 Aug 2015 22:30:01 +0200
+Message-ID: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
+Cc: Sathya Perla <sathya.perla@avagotech.com>,
+	Ajit Khaparde <ajit.khaparde@avagotech.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53253 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751136AbbHNTql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 15:46:41 -0400
-In-Reply-To: <CA+FuTSd1Ltxp-kcZtEjM41F7MaNXJZw4ruKnFPnhub9pMeeEcA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38620 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751587AbbHNUaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2015 16:30:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/14/2015 09:27 PM, Willem de Bruijn wrote:
-...
->> Btw, in case someone sets sock_flag(sk, SOCK_FILTER_LOCKED),
->> perhaps we should also apply it on fanout?
->
-> Good point. With classic bpf, packet access control is fully
-> enforced in per-socket filters, but playing with load balancing
-> filters could allow an adversary to infer some information
-> about the dropped packets*. With eBPF and maps, access
-> is even more direct. Let's support locking of fanout filters in
-> place.
+VxLAN offloading is not functional if the NIC is running in multichannel
+mode (UMC, FLEX-10, VNIC...). Enabling this additionally kills whole
+connectivity through the NIC and the device needs to be down and up to
+restore it. The firmware should take care about it and does not allow
+the conversion of interface to tunnel type (be_cmd_manage_iface) or should
+support VxLAN offloading if multichannel config is enabled.
+I have tested this on the latest available firmware (10.6.144.21).
 
-Right, a process could share a map between the fanout lb filter
-and actual sk filter, i.e. to look up how much actually passed
-through on the later sk level filter, and use that information
-in addition for its lb decisions.
+Result:
+[root@sm-04 ~]# ip link set enp5s0f0 up[root@sm-04 ~]# ip addr add 172.30.10.50/24 dev enp5s0f0
+[root@sm-04 ~]# ping -c 3 172.30.10.254PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
+64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.317 ms
+64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.187 ms
+64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.188 ms
 
-> I intend to test the existing socket flag. No need to add a
-> separate flag for the fanout group, as far as I can see.
+ --- 172.30.10.254 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2000ms
+rtt min/avg/max/mdev = 0.187/0.230/0.317/0.063 ms
+[root@sm-04 ~]# ip link add link enp5s0f0 vxlan10 type vxlan id 10 remote 172.30.10.60 dstport 4789
+[root@sm-04 ~]# ip link set vxlan10 up
+[ 7900.442811] be2net 0000:05:00.0: Enabled VxLAN offloads for UDP port 4789
+[ 7900.455722] be2net 0000:05:00.1: Enabled VxLAN offloads for UDP port 4789
+[ 7900.468635] be2net 0000:05:00.2: Enabled VxLAN offloads for UDP port 4789
+[ 7900.481553] be2net 0000:05:00.3: Enabled VxLAN offloads for UDP port 4789
+[root@sm-04 ~]# ping -c 3 172.30.10.254
+PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
 
-Agreed, should be okay.
+ --- 172.30.10.254 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 1999ms
 
-Thanks Willem!
+[root@sm-04 ~]# ip link set vxlan10 down
+[ 7959.434093] be2net 0000:05:00.0: Disabled VxLAN offloads for UDP port 4789
+[ 7959.444792] be2net 0000:05:00.1: Disabled VxLAN offloads for UDP port 4789
+[ 7959.455592] be2net 0000:05:00.2: Disabled VxLAN offloads for UDP port 4789
+[ 7959.466416] be2net 0000:05:00.3: Disabled VxLAN offloads for UDP port 4789
+[root@sm-04 ~]# ip link del vxlan10
+[root@sm-04 ~]# ping -c 3 172.30.10.254
+PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
 
-> (*) I noticed that a similar unintended effect also causes the
-> PACKET_FANOUT_LB selftest to be flaky: filters on the
-> sockets ensure that the test only reads expected packets.
-> But, all traffic makes it through packet_rcv_fanout. Packets
-> that are later dropped by sk_filter have already incremented
-> rr_cur. Worst case, with 2 sockets and each accepted packet
-> interleaved with a dropped packet, all packets are queued on
-> only one socket. Test flakiness is fixed, e.g., by running in a
-> private network namespace. The implementation behavior
-> may be unexpected in other, production, environments.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+ --- 172.30.10.254 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 1999ms
+
+[root@sm-04 ~]# ip link set enp5s0f0 down
+[root@sm-04 ~]# ip link set enp5s0f0 up
+[ 8071.019003] be2net 0000:05:00.0 enp5s0f0: Link is Up
+[root@sm-04 ~]# ping -c 3 172.30.10.254
+PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
+64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.318 ms
+64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.196 ms
+64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.194 ms
+
+ --- 172.30.10.254 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2000ms
+rtt min/avg/max/mdev = 0.194/0.236/0.318/0.057 ms
+
+Cc: Sathya Perla <sathya.perla@avagotech.com>
+Cc: Ajit Khaparde <ajit.khaparde@avagotech.com>
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
+Cc: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index c28e3bf..6ca693b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -5174,7 +5174,7 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 	struct device *dev = &adapter->pdev->dev;
+ 	int status;
+ 
+-	if (lancer_chip(adapter) || BEx_chip(adapter))
++	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+ 		return;
+ 
+ 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
+@@ -5221,7 +5221,7 @@ static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (lancer_chip(adapter) || BEx_chip(adapter))
++	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+ 		return;
+ 
+ 	if (adapter->vxlan_port != port)
+-- 
+2.4.6
