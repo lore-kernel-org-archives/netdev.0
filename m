@@ -1,222 +1,188 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] lwtunnel: rename ip lwtunnel attributes
-Date: Fri, 14 Aug 2015 16:40:40 +0200
-Message-ID: <f6abe6522e88ea21d2ccf6e50f9e563fdf8f3a37.1439563196.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next 3/4] selftests/net: test bpf fanout mode
+Date: Fri, 14 Aug 2015 11:50:26 -0400
+Message-ID: <1439567427-19504-4-git-send-email-willemb@google.com>
+References: <1439567427-19504-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, edumazet@google.com, dborkman@redhat.com,
+	ast@plumgrid.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41261 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754158AbbHNOlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 10:41:05 -0400
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:35450 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755534AbbHNPug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 11:50:36 -0400
+Received: by qkbm65 with SMTP id m65so26826817qkb.2
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 08:50:36 -0700 (PDT)
+In-Reply-To: <1439567427-19504-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We already have IFLA_IPTUN_ netlink attributes. The IP_TUN_ attributes look
-very similar, yet they serve very different purpose. This is confusing for
-anyone trying to implement a user space tool supporting lwt.
+From: Willem de Bruijn <willemb@google.com>
 
-As the IP_TUN_ attributes are used only for the lightweight tunnels, prefix
-them with LWTUNNEL_IP_ instead to make their purpose clear. Also, it's more
-logical to have them in lwtunnel.h together with the encap enum.
+Test PACKET_FANOUT_BPF by inserting a BPF program that selects a
+socket by payload. Requires modifying the test program to send
+packets with multiple payloads.
 
-Fixes: 3093fbe7ff4b ("route: Per route IP tunnel metadata via lightweight tunnel")
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Also fix a bug in testing the return value of mmap()
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
-These are still in net-next only, thus it's safe to change them.
+ tools/testing/selftests/net/psock_fanout.c | 16 ++++++++++++----
+ tools/testing/selftests/net/psock_lib.h    | 29 +++++++++++++++++++++--------
+ 2 files changed, 33 insertions(+), 12 deletions(-)
 
-It's still a bit weird these attributes are in RTA_ENCAP, perhaps we should
-also rename RTA_ENCAP to RTA_LWT_ENCAP or similar?
----
- include/uapi/linux/lwtunnel.h  | 14 +++++++
- include/uapi/linux/rtnetlink.h | 15 --------
- net/ipv4/ip_tunnel_core.c      | 86 +++++++++++++++++++++---------------------
- 3 files changed, 57 insertions(+), 58 deletions(-)
-
-diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
-index 31377bbea3f8..3bf223bc2367 100644
---- a/include/uapi/linux/lwtunnel.h
-+++ b/include/uapi/linux/lwtunnel.h
-@@ -12,5 +12,19 @@ enum lwtunnel_encap_types {
+diff --git a/tools/testing/selftests/net/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
+index 08c2a36..7270132 100644
+--- a/tools/testing/selftests/net/psock_fanout.c
++++ b/tools/testing/selftests/net/psock_fanout.c
+@@ -19,6 +19,7 @@
+  *   - PACKET_FANOUT_LB
+  *   - PACKET_FANOUT_CPU
+  *   - PACKET_FANOUT_ROLLOVER
++ *   - PACKET_FANOUT_BPF
+  *
+  * Todo:
+  * - functionality: PACKET_FANOUT_FLAG_DEFRAG
+@@ -115,8 +116,8 @@ static char *sock_fanout_open_ring(int fd)
  
- #define LWTUNNEL_ENCAP_MAX (__LWTUNNEL_ENCAP_MAX - 1)
+ 	ring = mmap(0, req.tp_block_size * req.tp_block_nr,
+ 		    PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+-	if (!ring) {
+-		fprintf(stderr, "packetsock ring mmap\n");
++	if (ring == MAP_FAILED) {
++		perror("packetsock ring mmap");
+ 		exit(1);
+ 	}
  
-+enum lwtunnel_ip_t {
-+	LWTUNNEL_IP_UNSPEC,
-+	LWTUNNEL_IP_ID,
-+	LWTUNNEL_IP_DST,
-+	LWTUNNEL_IP_SRC,
-+	LWTUNNEL_IP_TTL,
-+	LWTUNNEL_IP_TOS,
-+	LWTUNNEL_IP_SPORT,
-+	LWTUNNEL_IP_DPORT,
-+	LWTUNNEL_IP_FLAGS,
-+	__LWTUNNEL_IP_MAX,
-+};
+@@ -209,6 +210,7 @@ static int test_datapath(uint16_t typeflags, int port_off,
+ {
+ 	const int expect0[] = { 0, 0 };
+ 	char *rings[2];
++	uint8_t type = typeflags & 0xFF;
+ 	int fds[2], fds_udp[2][2], ret;
+ 
+ 	fprintf(stderr, "test: datapath 0x%hx\n", typeflags);
+@@ -219,6 +221,9 @@ static int test_datapath(uint16_t typeflags, int port_off,
+ 		fprintf(stderr, "ERROR: failed open\n");
+ 		exit(1);
+ 	}
++	if (type == PACKET_FANOUT_BPF)
++		sock_setfilter(fds[0], SOL_PACKET, PACKET_FANOUT_DATA);
 +
-+#define LWTUNNEL_IP_MAX (__LWTUNNEL_IP_MAX - 1)
+ 	rings[0] = sock_fanout_open_ring(fds[0]);
+ 	rings[1] = sock_fanout_open_ring(fds[1]);
+ 	pair_udp_open(fds_udp[0], PORT_BASE);
+@@ -227,11 +232,11 @@ static int test_datapath(uint16_t typeflags, int port_off,
  
- #endif /* _UAPI_LWTUNNEL_H_ */
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 47d24cb3fbc1..0d3d3cc43356 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -286,21 +286,6 @@ enum rt_class_t {
+ 	/* Send data, but not enough to overflow a queue */
+ 	pair_udp_send(fds_udp[0], 15);
+-	pair_udp_send(fds_udp[1], 5);
++	pair_udp_send_char(fds_udp[1], 5, DATA_CHAR_1);
+ 	ret = sock_fanout_read(fds, rings, expect1);
  
- /* Routing message attributes */
+ 	/* Send more data, overflow the queue */
+-	pair_udp_send(fds_udp[0], 15);
++	pair_udp_send_char(fds_udp[0], 15, DATA_CHAR_1);
+ 	/* TODO: ensure consistent order between expect1 and expect2 */
+ 	ret |= sock_fanout_read(fds, rings, expect2);
  
--enum ip_tunnel_t {
--	IP_TUN_UNSPEC,
--	IP_TUN_ID,
--	IP_TUN_DST,
--	IP_TUN_SRC,
--	IP_TUN_TTL,
--	IP_TUN_TOS,
--	IP_TUN_SPORT,
--	IP_TUN_DPORT,
--	IP_TUN_FLAGS,
--	__IP_TUN_MAX,
--};
--
--#define IP_TUN_MAX (__IP_TUN_MAX - 1)
--
- enum rtattr_type_t {
- 	RTA_UNSPEC,
- 	RTA_DST,
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 5512f4e4ec1b..fd6319681c50 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -192,15 +192,15 @@ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
- }
- EXPORT_SYMBOL_GPL(ip_tunnel_get_stats64);
+@@ -275,6 +280,7 @@ int main(int argc, char **argv)
+ 	const int expect_rb[2][2]	= { { 15, 5 },  { 20, 15 } };
+ 	const int expect_cpu0[2][2]	= { { 20, 0 },  { 20, 0 } };
+ 	const int expect_cpu1[2][2]	= { { 0, 20 },  { 0, 20 } };
++	const int expect_bpf[2][2]	= { { 15, 5 },  { 15, 20 } };
+ 	int port_off = 2, tries = 5, ret;
  
--static const struct nla_policy ip_tun_policy[IP_TUN_MAX + 1] = {
--	[IP_TUN_ID]		= { .type = NLA_U64 },
--	[IP_TUN_DST]		= { .type = NLA_U32 },
--	[IP_TUN_SRC]		= { .type = NLA_U32 },
--	[IP_TUN_TTL]		= { .type = NLA_U8 },
--	[IP_TUN_TOS]		= { .type = NLA_U8 },
--	[IP_TUN_SPORT]		= { .type = NLA_U16 },
--	[IP_TUN_DPORT]		= { .type = NLA_U16 },
--	[IP_TUN_FLAGS]		= { .type = NLA_U16 },
-+static const struct nla_policy ip_tun_policy[LWTUNNEL_IP_MAX + 1] = {
-+	[LWTUNNEL_IP_ID]	= { .type = NLA_U64 },
-+	[LWTUNNEL_IP_DST]	= { .type = NLA_U32 },
-+	[LWTUNNEL_IP_SRC]	= { .type = NLA_U32 },
-+	[LWTUNNEL_IP_TTL]	= { .type = NLA_U8 },
-+	[LWTUNNEL_IP_TOS]	= { .type = NLA_U8 },
-+	[LWTUNNEL_IP_SPORT]	= { .type = NLA_U16 },
-+	[LWTUNNEL_IP_DPORT]	= { .type = NLA_U16 },
-+	[LWTUNNEL_IP_FLAGS]	= { .type = NLA_U16 },
- };
+ 	test_control_single();
+@@ -295,6 +301,8 @@ int main(int argc, char **argv)
+ 			     port_off, expect_lb[0], expect_lb[1]);
+ 	ret |= test_datapath(PACKET_FANOUT_ROLLOVER,
+ 			     port_off, expect_rb[0], expect_rb[1]);
++	ret |= test_datapath(PACKET_FANOUT_BPF,
++			     port_off, expect_bpf[0], expect_bpf[1]);
  
- static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
-@@ -208,10 +208,10 @@ static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
+ 	set_cpuaffinity(0);
+ 	ret |= test_datapath(PACKET_FANOUT_CPU, port_off,
+diff --git a/tools/testing/selftests/net/psock_lib.h b/tools/testing/selftests/net/psock_lib.h
+index 37da54a..24bc7ec 100644
+--- a/tools/testing/selftests/net/psock_lib.h
++++ b/tools/testing/selftests/net/psock_lib.h
+@@ -30,6 +30,7 @@
+ 
+ #define DATA_LEN			100
+ #define DATA_CHAR			'a'
++#define DATA_CHAR_1			'b'
+ 
+ #define PORT_BASE			8000
+ 
+@@ -37,29 +38,36 @@
+ # define __maybe_unused		__attribute__ ((__unused__))
+ #endif
+ 
+-static __maybe_unused void pair_udp_setfilter(int fd)
++static __maybe_unused void sock_setfilter(int fd, int lvl, int optnum)
  {
- 	struct ip_tunnel_info *tun_info;
- 	struct lwtunnel_state *new_state;
--	struct nlattr *tb[IP_TUN_MAX + 1];
-+	struct nlattr *tb[LWTUNNEL_IP_MAX + 1];
- 	int err;
+ 	struct sock_filter bpf_filter[] = {
+ 		{ 0x80, 0, 0, 0x00000000 },  /* LD  pktlen		      */
+-		{ 0x35, 0, 5, DATA_LEN   },  /* JGE DATA_LEN  [f goto nomatch]*/
++		{ 0x35, 0, 4, DATA_LEN   },  /* JGE DATA_LEN  [f goto nomatch]*/
+ 		{ 0x30, 0, 0, 0x00000050 },  /* LD  ip[80]		      */
+-		{ 0x15, 0, 3, DATA_CHAR  },  /* JEQ DATA_CHAR [f goto nomatch]*/
+-		{ 0x30, 0, 0, 0x00000051 },  /* LD  ip[81]		      */
+-		{ 0x15, 0, 1, DATA_CHAR  },  /* JEQ DATA_CHAR [f goto nomatch]*/
++		{ 0x15, 1, 0, DATA_CHAR  },  /* JEQ DATA_CHAR   [t goto match]*/
++		{ 0x15, 0, 1, DATA_CHAR_1},  /* JEQ DATA_CHAR_1 [t goto match]*/
+ 		{ 0x06, 0, 0, 0x00000060 },  /* RET match	              */
+ 		{ 0x06, 0, 0, 0x00000000 },  /* RET no match		      */
+ 	};
+ 	struct sock_fprog bpf_prog;
  
--	err = nla_parse_nested(tb, IP_TUN_MAX, attr, ip_tun_policy);
-+	err = nla_parse_nested(tb, LWTUNNEL_IP_MAX, attr, ip_tun_policy);
- 	if (err < 0)
- 		return err;
- 
-@@ -223,29 +223,29 @@ static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
- 
- 	tun_info = lwt_tun_info(new_state);
- 
--	if (tb[IP_TUN_ID])
--		tun_info->key.tun_id = nla_get_u64(tb[IP_TUN_ID]);
-+	if (tb[LWTUNNEL_IP_ID])
-+		tun_info->key.tun_id = nla_get_u64(tb[LWTUNNEL_IP_ID]);
- 
--	if (tb[IP_TUN_DST])
--		tun_info->key.ipv4_dst = nla_get_be32(tb[IP_TUN_DST]);
-+	if (tb[LWTUNNEL_IP_DST])
-+		tun_info->key.ipv4_dst = nla_get_be32(tb[LWTUNNEL_IP_DST]);
- 
--	if (tb[IP_TUN_SRC])
--		tun_info->key.ipv4_src = nla_get_be32(tb[IP_TUN_SRC]);
-+	if (tb[LWTUNNEL_IP_SRC])
-+		tun_info->key.ipv4_src = nla_get_be32(tb[LWTUNNEL_IP_SRC]);
- 
--	if (tb[IP_TUN_TTL])
--		tun_info->key.ipv4_ttl = nla_get_u8(tb[IP_TUN_TTL]);
-+	if (tb[LWTUNNEL_IP_TTL])
-+		tun_info->key.ipv4_ttl = nla_get_u8(tb[LWTUNNEL_IP_TTL]);
- 
--	if (tb[IP_TUN_TOS])
--		tun_info->key.ipv4_tos = nla_get_u8(tb[IP_TUN_TOS]);
-+	if (tb[LWTUNNEL_IP_TOS])
-+		tun_info->key.ipv4_tos = nla_get_u8(tb[LWTUNNEL_IP_TOS]);
- 
--	if (tb[IP_TUN_SPORT])
--		tun_info->key.tp_src = nla_get_be16(tb[IP_TUN_SPORT]);
-+	if (tb[LWTUNNEL_IP_SPORT])
-+		tun_info->key.tp_src = nla_get_be16(tb[LWTUNNEL_IP_SPORT]);
- 
--	if (tb[IP_TUN_DPORT])
--		tun_info->key.tp_dst = nla_get_be16(tb[IP_TUN_DPORT]);
-+	if (tb[LWTUNNEL_IP_DPORT])
-+		tun_info->key.tp_dst = nla_get_be16(tb[LWTUNNEL_IP_DPORT]);
- 
--	if (tb[IP_TUN_FLAGS])
--		tun_info->key.tun_flags = nla_get_u16(tb[IP_TUN_FLAGS]);
-+	if (tb[LWTUNNEL_IP_FLAGS])
-+		tun_info->key.tun_flags = nla_get_u16(tb[LWTUNNEL_IP_FLAGS]);
- 
- 	tun_info->mode = IP_TUNNEL_INFO_TX;
- 	tun_info->options = NULL;
-@@ -261,14 +261,14 @@ static int ip_tun_fill_encap_info(struct sk_buff *skb,
- {
- 	struct ip_tunnel_info *tun_info = lwt_tun_info(lwtstate);
- 
--	if (nla_put_u64(skb, IP_TUN_ID, tun_info->key.tun_id) ||
--	    nla_put_be32(skb, IP_TUN_DST, tun_info->key.ipv4_dst) ||
--	    nla_put_be32(skb, IP_TUN_SRC, tun_info->key.ipv4_src) ||
--	    nla_put_u8(skb, IP_TUN_TOS, tun_info->key.ipv4_tos) ||
--	    nla_put_u8(skb, IP_TUN_TTL, tun_info->key.ipv4_ttl) ||
--	    nla_put_u16(skb, IP_TUN_SPORT, tun_info->key.tp_src) ||
--	    nla_put_u16(skb, IP_TUN_DPORT, tun_info->key.tp_dst) ||
--	    nla_put_u16(skb, IP_TUN_FLAGS, tun_info->key.tun_flags))
-+	if (nla_put_u64(skb, LWTUNNEL_IP_ID, tun_info->key.tun_id) ||
-+	    nla_put_be32(skb, LWTUNNEL_IP_DST, tun_info->key.ipv4_dst) ||
-+	    nla_put_be32(skb, LWTUNNEL_IP_SRC, tun_info->key.ipv4_src) ||
-+	    nla_put_u8(skb, LWTUNNEL_IP_TOS, tun_info->key.ipv4_tos) ||
-+	    nla_put_u8(skb, LWTUNNEL_IP_TTL, tun_info->key.ipv4_ttl) ||
-+	    nla_put_u16(skb, LWTUNNEL_IP_SPORT, tun_info->key.tp_src) ||
-+	    nla_put_u16(skb, LWTUNNEL_IP_DPORT, tun_info->key.tp_dst) ||
-+	    nla_put_u16(skb, LWTUNNEL_IP_FLAGS, tun_info->key.tun_flags))
- 		return -ENOMEM;
- 
- 	return 0;
-@@ -276,14 +276,14 @@ static int ip_tun_fill_encap_info(struct sk_buff *skb,
- 
- static int ip_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
- {
--	return nla_total_size(8)	/* IP_TUN_ID */
--		+ nla_total_size(4)	/* IP_TUN_DST */
--		+ nla_total_size(4)	/* IP_TUN_SRC */
--		+ nla_total_size(1)	/* IP_TUN_TOS */
--		+ nla_total_size(1)	/* IP_TUN_TTL */
--		+ nla_total_size(2)	/* IP_TUN_SPORT */
--		+ nla_total_size(2)	/* IP_TUN_DPORT */
--		+ nla_total_size(2);	/* IP_TUN_FLAGS */
-+	return nla_total_size(8)	/* LWTUNNEL_IP_ID */
-+		+ nla_total_size(4)	/* LWTUNNEL_IP_DST */
-+		+ nla_total_size(4)	/* LWTUNNEL_IP_SRC */
-+		+ nla_total_size(1)	/* LWTUNNEL_IP_TOS */
-+		+ nla_total_size(1)	/* LWTUNNEL_IP_TTL */
-+		+ nla_total_size(2)	/* LWTUNNEL_IP_SPORT */
-+		+ nla_total_size(2)	/* LWTUNNEL_IP_DPORT */
-+		+ nla_total_size(2);	/* LWTUNNEL_IP_FLAGS */
++	if (lvl == SOL_PACKET && optnum == PACKET_FANOUT_DATA)
++		bpf_filter[5].code = 0x16;   /* RET A			      */
++
+ 	bpf_prog.filter = bpf_filter;
+ 	bpf_prog.len = sizeof(bpf_filter) / sizeof(struct sock_filter);
+-	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf_prog,
++	if (setsockopt(fd, lvl, optnum, &bpf_prog,
+ 		       sizeof(bpf_prog))) {
+ 		perror("setsockopt SO_ATTACH_FILTER");
+ 		exit(1);
+ 	}
  }
  
- static const struct lwtunnel_encap_ops ip_tun_lwt_ops = {
++static __maybe_unused void pair_udp_setfilter(int fd)
++{
++	sock_setfilter(fd, SOL_SOCKET, SO_ATTACH_FILTER);
++}
++
+ static __maybe_unused void pair_udp_open(int fds[], uint16_t port)
+ {
+ 	struct sockaddr_in saddr, daddr;
+@@ -96,11 +104,11 @@ static __maybe_unused void pair_udp_open(int fds[], uint16_t port)
+ 	}
+ }
+ 
+-static __maybe_unused void pair_udp_send(int fds[], int num)
++static __maybe_unused void pair_udp_send_char(int fds[], int num, char payload)
+ {
+ 	char buf[DATA_LEN], rbuf[DATA_LEN];
+ 
+-	memset(buf, DATA_CHAR, sizeof(buf));
++	memset(buf, payload, sizeof(buf));
+ 	while (num--) {
+ 		/* Should really handle EINTR and EAGAIN */
+ 		if (write(fds[0], buf, sizeof(buf)) != sizeof(buf)) {
+@@ -118,6 +126,11 @@ static __maybe_unused void pair_udp_send(int fds[], int num)
+ 	}
+ }
+ 
++static __maybe_unused void pair_udp_send(int fds[], int num)
++{
++	return pair_udp_send_char(fds, num, DATA_CHAR);
++}
++
+ static __maybe_unused void pair_udp_close(int fds[])
+ {
+ 	close(fds[0]);
 -- 
-1.8.3.1
+2.5.0.276.gf5e568e
