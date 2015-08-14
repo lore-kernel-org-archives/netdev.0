@@ -1,45 +1,35 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH net-next 0/2] ppp: implement x-netns support
-Date: Fri, 14 Aug 2015 10:51:31 +0200
-Message-ID: <20150814085131.GD2825@alphalink.fr>
-References: <cover.1439471390.git.g.nault@alphalink.fr>
- <20150813.212004.553374390201687089.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] net: ethernet: micrel: fix an error code
+Date: Fri, 14 Aug 2015 11:54:59 +0300
+Message-ID: <20150814085459.GC30728@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, paulus@samba.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:60422 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753327AbbHNIvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 04:51:41 -0400
+Cc: Vinod Koul <vinod.koul@intel.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Vinod Koul <vinod.koul@intel.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150813.212004.553374390201687089.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 13, 2015 at 09:20:04PM -0700, David Miller wrote:
-> From: Guillaume Nault <g.nault@alphalink.fr>
-> Date: Thu, 13 Aug 2015 15:28:02 +0200
-> 
-> > This series allows PPP devices to reside in a different netns from the
-> > PPP unit/channels. Packets only cross netns boundaries when they're
-> > transmitted between the net_device and the PPP unit (units and channels
-> > always remain in their creation namespace).
-> > So only PPP units need to handle cross namespace operations. Channels
-> > and lower layer protocols aren't affected.
-> > 
-> > Patch #1 is a bug fix for an existing namespace deletion bug and has
-> > been separetly sent to net.
-> > Patch #2 is the actual x-netns implementation.
-> 
-> Patch #1 needs to be respun with the change I requested.
-> 
-Ok, done.
+The dma_mapping_error() function returns true or false.  We should
+return -ENOMEM if it there is a dma mapping error.
 
-> And this is not the way to submit things that have dependencies
-> upon bug fixes.
-> 
-Will do. I was actually unsure about how to handle this case.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Thanks.
+diff --git a/drivers/net/ethernet/micrel/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
+index f78909a..09d2e16 100644
+--- a/drivers/net/ethernet/micrel/ks8842.c
++++ b/drivers/net/ethernet/micrel/ks8842.c
+@@ -952,9 +952,8 @@ static int ks8842_alloc_dma_bufs(struct net_device *netdev)
+ 
+ 	sg_dma_address(&tx_ctl->sg) = dma_map_single(adapter->dev,
+ 		tx_ctl->buf, DMA_BUFFER_SIZE, DMA_TO_DEVICE);
+-	err = dma_mapping_error(adapter->dev,
+-		sg_dma_address(&tx_ctl->sg));
+-	if (err) {
++	if (dma_mapping_error(adapter->dev, sg_dma_address(&tx_ctl->sg))) {
++		err = -ENOMEM;
+ 		sg_dma_address(&tx_ctl->sg) = 0;
+ 		goto err;
+ 	}
