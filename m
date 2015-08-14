@@ -1,46 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rocker: hook ndo_neigh_destroy to cleanup
- neigh refs in driver
-Date: Thu, 13 Aug 2015 17:07:02 -0700 (PDT)
-Message-ID: <20150813.170702.2090658035067871522.davem@davemloft.net>
-References: <1439430325-49311-1-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH] net: fix wrong skb_get() usage / crash in
+ IGMP/MLD parsing code
+Date: Thu, 13 Aug 2015 17:11:01 -0700 (PDT)
+Message-ID: <20150813.171101.925018652514860039.davem@davemloft.net>
+References: <1439438047-19441-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40195 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754558AbbHNAHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 20:07:03 -0400
-In-Reply-To: <1439430325-49311-1-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org, bblanco@plumgrid.com,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	alexei.starovoitov@gmail.com
+To: linus.luessing@c0d3.blue
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1439438047-19441-1-git-send-email-linus.luessing@c0d3.blue>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: sfeldma@gmail.com
-Date: Wed, 12 Aug 2015 18:45:25 -0700
+From: Linus L=FCssing <linus.luessing@c0d3.blue>
+Date: Thu, 13 Aug 2015 05:54:07 +0200
 
-> From: Scott Feldman <sfeldma@gmail.com>
-> 
-> Rocker driver tracks arp_tbl neighs to resolve IPv4 route nexthops.  The
-> driver uses NETEVENT_NEIGH_UPDATE for neigh adds and updates, but there is
-> no event when the neigh is removed from the device (such as when the device
-> goes admin down).  This patches hooks ndo_neigh_destroy so the driver can
-> know when a neigh is removed from the device.  In response, the driver will
-> purge the neigh entry from its internal tbl.
-> 
-> I didn't find an in-tree users of ndo_neigh_destroy, so I'm not sure if
-> this ndo is vestigial or if there are out-of-tree users.  In any case, it
-> does what I need here.  An alternative design would be to generate
-> NETEVENT_NEIGH_UPDATE event when neigh is being destroyed, setting state to
-> NUD_NONE so driver knows neigh entry is dead.
-> 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> The recent refactoring of the IGMP and MLD parsing code into
+> ipv6_mc_check_mld() / ip_mc_check_igmp() introduced a potential crash=
+ /
+> BUG() invocation for bridges:
+> =
 
-Also applied.
+> I wrongly assumed that skb_get() could be used as a simple reference
+> counter for an skb which is not the case. skb_get() bears additional
+> semantics, a user count. This leads to a BUG() invocation in
+> pskb_expand_head() / kernel panic if pskb_may_pull() is called on an =
+skb
+> with a user count greater than one - unfortunately the refactoring di=
+d
+> just that.
+> =
 
-->ndo_neigh_destroy() is there simply for completeness.  If anyone
-needed to manage neigh's they likely would have private software state
-assosciated with entries they would need to release when the neigh
-object is going away.
+> Fixing this by removing the skb_get() call and changing the API: The
+> caller of ipv6_mc_check_mld() / ip_mc_check_igmp() now needs to
+> additionally check whether the returned skb_trimmed is a clone.
+> =
+
+> Fixes: 9afd85c9e455 ("net: Export IGMP/MLD message validation code")
+> Reported-by: Brenden Blanco <bblanco@plumgrid.com>
+> Signed-off-by: Linus L=FCssing <linus.luessing@c0d3.blue>
+
+Applied, thanks.
