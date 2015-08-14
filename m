@@ -1,54 +1,51 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH] iproute2: Extend bridge command to configure ageing
- interval on bridge devices.
-Date: Fri, 14 Aug 2015 13:11:55 +0200
-Message-ID: <20150814111155.GC21759@unicorn.suse.cz>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1FA4@SJEXCHMB14.corp.ad.broadcom.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2015-08-14
+Date: Fri, 14 Aug 2015 13:20:26 +0200
+Message-ID: <1439551226.2091.13.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Premkumar Jonnala <pjonnala@broadcom.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:43141 "EHLO mx2.suse.de"
+Received: from s3.sipsolutions.net ([5.9.151.49]:54743 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754009AbbHNLL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 07:11:58 -0400
-Content-Disposition: inline
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1FA4@SJEXCHMB14.corp.ad.broadcom.com>
+	id S1754917AbbHNLUa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2015 07:20:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 14, 2015 at 09:50:02AM +0000, Premkumar Jonnala wrote:
-> Extend bridge command to configure and retrieve ageing interval for bridge
-> devices.  Netlink messaging is used to configure and retrieve the ageing
-> interval.
-> 
-> Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
-> 
-...
-> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-> index a78f0b3..abc9617 100644
-> --- a/include/linux/rtnetlink.h
-> +++ b/include/linux/rtnetlink.h
-> @@ -139,6 +139,13 @@ enum {
->  	RTM_GETNSID = 90,
->  #define RTM_GETNSID RTM_GETNSID
->  
-> +	RTM_SETAGEING = 92,
-> +#define RTM_SETAGEING RTM_SETAGEING
-> +	RTM_SETDEFAULTAGEING = 93,
-> +#define RTM_SETDEFAULTAGEING RTM_SETDEFAULTAGEING
-> +	RTM_GETAGEING = 94,
-> +#define RTM_GETAGEING RTM_GETAGEING
-> +
->  	__RTM_MAX,
->  #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
->  };
-> --
+Hi Dave,
 
-As far as I can see, this depends on a kernel patch which is still under
-review (in particular, adding these new message types was objected to).
-I would suggest to wait with submission of the iproute2 patch until
-relevant kernel changes are accepted.
+I'm back from vacation, and found a single bugfix waiting. It's in this
+pull request, but I'm not quite up to speed as to what's happening with
+the release. If it goes in, great; if not I've already tagged it with
+Cc stable anyway.
 
-                                                          Michal Kubecek
+Thanks,
+johannes
+
+
+
+The following changes since commit 923b352f19d9ea971ae2536eab55f5fc9e95fedf:
+
+  cfg80211: use RTNL locked reg_can_beacon for IR-relaxation (2015-07-17 15:02:02 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2015-08-14
+
+for you to fetch changes up to f5eeb5fa191fd7b634cbc4883ac58f3b2184dbc5:
+
+  mac80211: fix invalid read in minstrel_sort_best_tp_rates() (2015-08-13 13:52:34 +0200)
+
+----------------------------------------------------------------
+We have a single bugfix for an invalid memory read.
+
+----------------------------------------------------------------
+Adrien Schildknecht (1):
+      mac80211: fix invalid read in minstrel_sort_best_tp_rates()
+
+ net/mac80211/rc80211_minstrel.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
