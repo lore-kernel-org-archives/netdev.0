@@ -1,48 +1,35 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH] mm: make page pfmemalloc check more robust
-Date: Fri, 14 Aug 2015 15:26:45 +0200
-Message-ID: <55CDEC95.5050307@suse.cz>
-References: <1439456364-4530-1-git-send-email-mhocko@kernel.org>
- <55CC5FA0.300@suse.cz>
- <1439476856.7960.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] IGMP: Inhibit reports for local multicast groups
+Date: Fri, 14 Aug 2015 15:35:12 +0200
+Message-ID: <20150814133512.GL32627@lunn.ch>
+References: <1439396033-6264-1-git-send-email-pdowney@brocade.com>
+ <20150812.164519.1783786478654950784.davem@davemloft.net>
+ <57f72e6a6f024628bd18ef4b139ac31e@EMEAWP-EXMB12.corp.brocade.com>
+ <20150813160626.GF32484@lunn.ch>
+ <b50a97f544f5437fb18df1cb5b6b6533@EMEAWP-EXMB12.corp.brocade.com>
+ <20150813170137.GE32627@lunn.ch>
+ <b74d1e7c6693479bb9caf0c3fef5d7a2@EMEAWP-EXMB12.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mhocko@kernel.org, linux-mm@kvack.org, Mel Gorman <mgorman@suse.de>,
- Jiri Bohac <jbohac@suse.cz>, Andrew Morton <akpm@linux-foundation.org>,
- "David S. Miller" <davem@davemloft.net>, LKML
- <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
- Michal Hocko <mhocko@suse.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1439476856.7960.8.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Philip Downey <pdowney@Brocade.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b74d1e7c6693479bb9caf0c3fef5d7a2@EMEAWP-EXMB12.corp.brocade.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/13/2015 04:40 PM, Eric Dumazet wrote:
-> On Thu, 2015-08-13 at 11:13 +0200, Vlastimil Babka wrote:
->
->> Given that this apparently isn't the first case of this localhost issue,
->> I wonder if network code should just clear skb->pfmemalloc during send
->> (or maybe just send over localhost). That would be probably easier than
->> distinguish the __skb_fill_page_desc() callers for send vs receive.
->
-> Would this still needed after this patch ?
+Hi Philip
 
-Not until another corner case is discovered :) Or something passes a 
-genuine pfmemalloc page to a socket (sending contents of some slab 
-objects perhaps, where the slab page was allocated as pfmemalloc? Dunno 
-if that can happen right now).
+So with a bit of poking and prodding, we have a much better
+understanding as to why this is O.K. Maybe your next patch can quote
+the relevant RFCs and have a much fuller commit message?
 
-> It is sad we do not have a SNMP counter to at least count how often we
-> drop skb because pfmemalloc is set.
->
-> I'll provide such a patch.
->
->
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks
+	Andrew
