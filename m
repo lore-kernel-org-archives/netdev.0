@@ -1,116 +1,125 @@
-From: Ajit Kumar Khaparde <ajit.khaparde@avagotech.com>
-Subject: Re: [PATCH net] be2net: avoid vxlan offloading on multichannel configs
-Date: Fri, 14 Aug 2015 15:53:44 -0500
-Message-ID: <38C4B766-86B4-4EE8-94D8-851CC99950A7@avagotech.com>
-References: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2102\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Ivan Vecera <ivecera@redhat.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: pull request: batman-adv 20150814
+Date: Fri, 14 Aug 2015 22:57:04 +0200
+Message-ID: <1439585834-26564-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:35960 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735AbbHNUxr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 16:53:47 -0400
-Received: by pdco4 with SMTP id o4so34982056pdc.3
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 13:53:46 -0700 (PDT)
-In-Reply-To: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
+Received: from s1.neomailbox.net ([5.148.176.57]:29480 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751524AbbHNU51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2015 16:57:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
-> On Aug 14, 2015, at 3:30 PM, Ivan Vecera <ivecera@redhat.com> wrote:
-> 
-> VxLAN offloading is not functional if the NIC is running in multichannel
-> mode (UMC, FLEX-10, VNIC...). Enabling this additionally kills whole
-> connectivity through the NIC and the device needs to be down and up to
-> restore it. The firmware should take care about it and does not allow
-> the conversion of interface to tunnel type (be_cmd_manage_iface) or should
-> support VxLAN offloading if multichannel config is enabled.
-> I have tested this on the latest available firmware (10.6.144.21).
-> 
-> Result:
-> [root@sm-04 ~]# ip link set enp5s0f0 up[root@sm-04 ~]# ip addr add 172.30.10.50/24 dev enp5s0f0
-> [root@sm-04 ~]# ping -c 3 172.30.10.254PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
-> 64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.317 ms
-> 64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.187 ms
-> 64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.188 ms
-> 
-> --- 172.30.10.254 ping statistics ---
-> 3 packets transmitted, 3 received, 0% packet loss, time 2000ms
-> rtt min/avg/max/mdev = 0.187/0.230/0.317/0.063 ms
-> [root@sm-04 ~]# ip link add link enp5s0f0 vxlan10 type vxlan id 10 remote 172.30.10.60 dstport 4789
-> [root@sm-04 ~]# ip link set vxlan10 up
-> [ 7900.442811] be2net 0000:05:00.0: Enabled VxLAN offloads for UDP port 4789
-> [ 7900.455722] be2net 0000:05:00.1: Enabled VxLAN offloads for UDP port 4789
-> [ 7900.468635] be2net 0000:05:00.2: Enabled VxLAN offloads for UDP port 4789
-> [ 7900.481553] be2net 0000:05:00.3: Enabled VxLAN offloads for UDP port 4789
-> [root@sm-04 ~]# ping -c 3 172.30.10.254
-> PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
-> 
-> --- 172.30.10.254 ping statistics ---
-> 3 packets transmitted, 0 received, 100% packet loss, time 1999ms
-> 
-> [root@sm-04 ~]# ip link set vxlan10 down
-> [ 7959.434093] be2net 0000:05:00.0: Disabled VxLAN offloads for UDP port 4789
-> [ 7959.444792] be2net 0000:05:00.1: Disabled VxLAN offloads for UDP port 4789
-> [ 7959.455592] be2net 0000:05:00.2: Disabled VxLAN offloads for UDP port 4789
-> [ 7959.466416] be2net 0000:05:00.3: Disabled VxLAN offloads for UDP port 4789
-> [root@sm-04 ~]# ip link del vxlan10
-> [root@sm-04 ~]# ping -c 3 172.30.10.254
-> PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
-> 
-> --- 172.30.10.254 ping statistics ---
-> 3 packets transmitted, 0 received, 100% packet loss, time 1999ms
-> 
-> [root@sm-04 ~]# ip link set enp5s0f0 down
-> [root@sm-04 ~]# ip link set enp5s0f0 up
-> [ 8071.019003] be2net 0000:05:00.0 enp5s0f0: Link is Up
-> [root@sm-04 ~]# ping -c 3 172.30.10.254
-> PING 172.30.10.254 (172.30.10.254) 56(84) bytes of data.
-> 64 bytes from 172.30.10.254: icmp_seq=1 ttl=64 time=0.318 ms
-> 64 bytes from 172.30.10.254: icmp_seq=2 ttl=64 time=0.196 ms
-> 64 bytes from 172.30.10.254: icmp_seq=3 ttl=64 time=0.194 ms
-> 
-> --- 172.30.10.254 ping statistics ---
-> 3 packets transmitted, 3 received, 0% packet loss, time 2000ms
-> rtt min/avg/max/mdev = 0.194/0.236/0.318/0.057 ms
-> 
-> Cc: Sathya Perla <sathya.perla@avagotech.com>
-> Cc: Ajit Khaparde <ajit.khaparde@avagotech.com>
-> Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
-> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-Acked-by: Ajit Khaparde <ajit.khaparde@avagotech.com>
+this is our first batch intended for net-next/linux-4.3 (resent after
+fixing the parenthesis as reported by Sergei).
 
- 
-> ---
-> drivers/net/ethernet/emulex/benet/be_main.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index c28e3bf..6ca693b 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -5174,7 +5174,7 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
-> 	struct device *dev = &adapter->pdev->dev;
-> 	int status;
-> 
-> -	if (lancer_chip(adapter) || BEx_chip(adapter))
-> +	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
-> 		return;
-> 
-> 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
-> @@ -5221,7 +5221,7 @@ static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
-> {
-> 	struct be_adapter *adapter = netdev_priv(netdev);
-> 
-> -	if (lancer_chip(adapter) || BEx_chip(adapter))
-> +	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
-> 		return;
-> 
-> 	if (adapter->vxlan_port != port)
-> -- 
-> 2.4.6
-> 
+Here you have all those non-critical fixes/changes that we couldn't
+merge into the net tree as it was already too late in the release
+cycle.
+
+This is a summary of what each patch does:
+
+- patch 1 by Sven Eckelmann is changing the way the GW metric is
+computed so that the resulting operation does not make use of
+divisions and also does not lead to any data type promotion. This is
+a requirement for patch 2;
+- patch 2 by Ruben Wisniewski is changing the type of the variable used
+in the same GW metric computation as patch 1 to uint64_t so that potent=
+ial
+integer overflows are prevented. Thanks to Sven's patch above no 64bit
+division will be involved;
+- patches 3, 4, 5 and 6 by Linus L=C3=BCssing are converting plain bitw=
+ise
+operations on capability bits to set/clear/test_bit() in order to ensur=
+e
+their atomicity and prevent potential race conditions;
+- patch 7, also by Linus, is making the multicast TVLV parsing routine
+thread-safe in order to prevent potential race conditions upon receptio=
+n
+of two OGMs from the same originator at the same time;
+- patch 8 by Marek Lindner prevents potential double deletions
+of TT Request objects from its lists which would lead to a kernel crash=
+=2E
+- patch 9 by Simon Wunderlich is ensuring that no enqueued packet is le=
+aked
+when an interface is deactivated;
+- patch 10 by Linus L=C3=BCssing is setting the network header in the s=
+kb struct
+right after a packet was delivered to the batman virtual interface so t=
+hat
+subsequent call to ip/ipv6_hdr() do not crash.
+
+
+Please pull or let me know of any problem!
+
+Thanks a lot David,
+	Antonio
+
+
+
+The following changes since commit 07a51cd3794960548627a27aae68c1446341=
+db32:
+
+  vxlan: fix fdb_dump index calculation (2015-08-10 21:15:18 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 53cf037bf846417fd92dc92ddf97267f69b110f4=
+:
+
+  batman-adv: Fix potentially broken skb network header access (2015-08=
+-14 22:52:10 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- avoid integer overflow in GW selection routine
+- prevent race condition by making capability bit changes atomic (use
+  clear/set/test_bit)
+- fix synchronization issue in mcast tvlv handler
+- fix crash on double list removal of TT Request objects
+- fix leak by puring packets enqueued for sending upon iface removal
+- ensure network header pointer is set in skb
+
+----------------------------------------------------------------
+Linus L=C3=BCssing (6):
+      batman-adv: Make DAT capability changes atomic
+      batman-adv: Make NC capability changes atomic
+      batman-adv: Make TT capability changes atomic
+      batman-adv: Make MCAST capability changes atomic
+      batman-adv: Fix potential synchronization issues in mcast tvlv ha=
+ndler
+      batman-adv: Fix potentially broken skb network header access
+
+Marek Lindner (1):
+      batman-adv: protect tt request from double deletion
+
+Ruben Wisniewski (1):
+      batman-adv: Avoid u32 overflow during gateway select
+
+Simon Wunderlich (1):
+      batman-adv: remove broadcast packets scheduled for purged outgoin=
+g if
+
+Sven Eckelmann (1):
+      batman-adv: Replace gw_reselect divisor with simple shift
+
+ net/batman-adv/distributed-arp-table.c |  7 +--
+ net/batman-adv/gateway_client.c        |  8 +---
+ net/batman-adv/multicast.c             | 81 +++++++++++++++++++++++++-=
+--------
+ net/batman-adv/network-coding.c        |  7 +--
+ net/batman-adv/originator.c            |  5 +++
+ net/batman-adv/send.c                  |  3 +-
+ net/batman-adv/soft-interface.c        |  7 ++-
+ net/batman-adv/translation-table.c     | 17 ++++---
+ net/batman-adv/types.h                 | 15 ++++---
+ 9 files changed, 102 insertions(+), 48 deletions(-)
