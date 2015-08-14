@@ -1,94 +1,49 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH 1/6] net/bonding: enable LRO if one device supports it
-Date: Fri, 14 Aug 2015 08:56:22 +0200
-Message-ID: <20150814065622.GA21759@unicorn.suse.cz>
-References: <1439488980-44738-1-git-send-email-jarod@redhat.com>
- <1439488980-44738-2-git-send-email-jarod@redhat.com>
+From: Adrien Schildknecht <adrien+dev@schischi.me>
+Subject: Re: [PATCH] iwlwifi: out-of-bounds access in
+ iwl_init_sband_channels
+Date: Fri, 14 Aug 2015 09:04:08 +0200
+Message-ID: <20150814090408.1521e8fe.adrien+dev@schischi.me>
+References: <1439512532-7901-1-git-send-email-adrien+dev@schischi.me>
+	<0BA3FCBA62E2DC44AF3030971E174FB32E7EA2CE@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Tom Herbert <therbert@google.com>,
-	Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1439488980-44738-2-git-send-email-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:37821 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752373AbbHNHES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 03:04:18 -0400
+Received: by wibhh20 with SMTP id hh20so10460138wib.0
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 00:04:16 -0700 (PDT)
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32E7EA2CE@hasmsx107.ger.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2015 at 02:02:55PM -0400, Jarod Wilson wrote:
-> Currently, all bonding devices come up, and claim to have LRO support,
-> which ethtool will let you toggle on and off, even if none of the
-> underlying hardware devices actually support it. While the bonding driver
-> takes precautions for slaves that don't support all features, this is at
-> least a little bit misleading to users.
+Hi,
+
+> On 08/14/2015 03:36 AM, Adrien Schildknecht wrote:
+> > Both loops of this function compare data from the 'chan' array and
+> > then check if the index is valid.
+> > 
+> > The 2 conditions should be inverted to avoid an out-of-bounds
+> > access.
+> > 
 > 
-> If we add NETIF_F_LRO to the NETIF_F_ONE_FOR_ALL flags in
-> netdev_features.h, then netdev_features_increment() will only enable LRO
-> if 1) its listed in the device's feature mask and 2) if there's actually a
-> slave present that supports the feature.
-> 
-> Note that this is going to require some follow-up patches, as not all LRO
-> capable device drivers are currently properly reporting LRO support in
-> their vlan_features, which is where the bonding driver picks up
-> device-specific features.
-> 
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Jiri Pirko <jiri@resnulli.us>
-> CC: Tom Herbert <therbert@google.com>
-> CC: Scott Feldman <sfeldma@gmail.com>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
->  include/linux/netdev_features.h | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-> index 9672781..6440bf1 100644
-> --- a/include/linux/netdev_features.h
-> +++ b/include/linux/netdev_features.h
-> @@ -159,7 +159,8 @@ enum {
->   */
->  #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
->  				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
-> -				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
-> +				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
-> +				 NETIF_F_LRO)
->  
->  /*
->   * If one device doesn't support one of these features, then disable it
-> -- 
+> Was that found by a static analyzer or any other automated tool, or
+> was that the result of your very careful review?
 
-I don't think this is going to work the way you expect. Assume we have a
-non-LRO eth1 and LRO capable eth2. If we enslave eth1 first, bond will
-lose NETIF_F_LRO so that while enslaving eth2, bond_enslave() does run
+The error has been reported by KASan:
+==================================================================
+BUG: KASan: out of bounds access in iwl_init_sband_channels+0x207/0x260 [iwlwifi] at addr ffff8800c2d0aac8
+Read of size 4 by task modprobe/329
+==================================================================
 
-	if (!(bond_dev->features & NETIF_F_LRO))
-		dev_disable_lro(slave_dev);
-
-and disable LRO on eth2 even before computing the bond features so that
-in the end, all three interfaces end up with disabled LRO. If you add
-the slaves in the opposite order, you end up with eth2 and bond having
-LRO enabled. IMHO features should not depend on the order in which
-slaves are added into the bond.
-
-You would need to remove the code quoted above to make things work the
-way you want (or move it after the call to bond_compute_features() which
-is effectively the same). But then the result would be even worse:
-adding a LRO-capable slave to a bond having dev_disable_lro() called on
-it would not disable LRO on that slave, possibly (or rather likely)
-causing communication breakage.
-
-I believe NETIF_F_LRO in its original sense should be only considered
-for physical devices; even if it's not explicitely said in the commit
-message, the logic behind fbe168ba91f7 ("net: generic dev_disable_lro()
-stacked device handling") is that for stacked devices like bond or team,
-NETIF_F_LRO means "allow slaves to use LRO if they can and want" while
-its absence means "disable LRO on all slaves". If you wanted NETIF_F_LRO
-for a bond to mean "there is at least one LRO capable slave", you would
-need a new flag for the "LRO should be disabled for all lower devices"
-state. I don't think it's worth the effort.
-
-                                                         Michal Kubecek
+-- 
+Adrien Schildknecht
