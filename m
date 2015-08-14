@@ -1,79 +1,24 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 10/10] batman-adv: Fix potentially broken skb network header access
-Date: Fri, 14 Aug 2015 22:57:14 +0200
-Message-ID: <1439585834-26564-11-git-send-email-antonio__247.288883156394$1439586096$gmane$org@meshcoding.com>
-References: <1439585834-26564-1-git-send-email-antonio@meshcoding.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG net-next] infamous dev refcnt leak... again.
+Date: Fri, 14 Aug 2015 14:14:54 -0700
+Message-ID: <1439586894.7507.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:18169 "EHLO s1.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751722AbbHNVBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2015 17:01:16 -0400
-In-Reply-To: <1439585834-26564-1-git-send-email-antonio@meshcoding.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:35943 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940AbbHNVO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 17:14:56 -0400
+Received: by pdco4 with SMTP id o4so35125958pdc.3
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 14:14:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+While rebooting host running latest net-next
 
-The two commits noted below added calls to ip_hdr() and ipv6_hdr(). The=
-y
-need a correctly set skb network header.
+ unregister_netdevice: waiting for eth0 to become free. Usage count = 4
 
-Unfortunately we cannot rely on the device drivers to set it for us.
-Therefore setting it in the beginning of the according ndo_start_xmit
-handler.
-
-=46ixes: 1d8ab8d3c176 ("batman-adv: Modified forwarding behaviour for m=
-ulticast packets")
-=46ixes: ab49886e3da7 ("batman-adv: Add IPv4 link-local/IPv6-ll-all-nod=
-es multicast support")
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
- net/batman-adv/soft-interface.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-inte=
-rface.c
-index c002961..926292d 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -202,6 +202,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
- 	int gw_mode;
- 	enum batadv_forw_mode forw_mode;
- 	struct batadv_orig_node *mcast_single_orig =3D NULL;
-+	int network_offset =3D ETH_HLEN;
-=20
- 	if (atomic_read(&bat_priv->mesh_state) !=3D BATADV_MESH_ACTIVE)
- 		goto dropped;
-@@ -214,14 +215,18 @@ static int batadv_interface_tx(struct sk_buff *sk=
-b,
- 	case ETH_P_8021Q:
- 		vhdr =3D vlan_eth_hdr(skb);
-=20
--		if (vhdr->h_vlan_encapsulated_proto !=3D ethertype)
-+		if (vhdr->h_vlan_encapsulated_proto !=3D ethertype) {
-+			network_offset +=3D VLAN_HLEN;
- 			break;
-+		}
-=20
- 		/* fall through */
- 	case ETH_P_BATMAN:
- 		goto dropped;
- 	}
-=20
-+	skb_set_network_header(skb, network_offset);
-+
- 	if (batadv_bla_tx(bat_priv, skb, vid))
- 		goto dropped;
-=20
---=20
-2.5.0
+Oh well...
