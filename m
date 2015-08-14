@@ -1,53 +1,94 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] average: provide macro to create static EWMA
-Date: Fri, 14 Aug 2015 08:44:12 +0200
-Message-ID: <1439534652.2091.0.camel@sipsolutions.net>
-References: <1439457109-21833-1-git-send-email-johannes@sipsolutions.net>
-	 <20150813.172655.794541030036505262.davem@davemloft.net>
-	 (sfid-20150814_022700_456030_2C423706)
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH 1/6] net/bonding: enable LRO if one device supports it
+Date: Fri, 14 Aug 2015 08:56:22 +0200
+Message-ID: <20150814065622.GA21759@unicorn.suse.cz>
+References: <1439488980-44738-1-git-send-email-jarod@redhat.com>
+ <1439488980-44738-2-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150813.172655.794541030036505262.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (sfid-20150814_022700_456030_2C423706)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Tom Herbert <therbert@google.com>,
+	Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1439488980-44738-2-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-08-13 at 17:26 -0700, David Miller wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date: Thu, 13 Aug 2015 11:11:48 +0200
+On Thu, Aug 13, 2015 at 02:02:55PM -0400, Jarod Wilson wrote:
+> Currently, all bonding devices come up, and claim to have LRO support,
+> which ethtool will let you toggle on and off, even if none of the
+> underlying hardware devices actually support it. While the bonding driver
+> takes precautions for slaves that don't support all features, this is at
+> least a little bit misleading to users.
 > 
-> > From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> > 
-> > Having the EWMA parameters stored in the runtime struct imposes
-> > memory requirements for the constant values that could just be
-> > inlined in the code. This particularly makes sense if there are
-> > a lot of such structs, for example in mac80211 in the station
-> > table where each station has a number of these in an array, and
-> > there can be many stations.
-> > 
-> > Provide a macro DECLARE_EWMA() that declares the necessary struct
-> > and inline functions to access it with the parameters hard-coded;
-> > using this also means the user no longer needs to 'select AVERAGE'
-> > as it's entirely self-contained.
-> > 
-> > In the mac80211 case, on x86-64, this actually slightly *reduces*
-> > code size, while also saving 80 bytes of runtime memory per sta.
-> > 
-> > Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> > ---
-> > As the next patch relies on this, I'll take this through my tree
-> > unless I hear objections.
+> If we add NETIF_F_LRO to the NETIF_F_ONE_FOR_ALL flags in
+> netdev_features.h, then netdev_features_increment() will only enable LRO
+> if 1) its listed in the device's feature mask and 2) if there's actually a
+> slave present that supports the feature.
 > 
-> This looks fine to me.
+> Note that this is going to require some follow-up patches, as not all LRO
+> capable device drivers are currently properly reporting LRO support in
+> their vlan_features, which is where the bonding driver picks up
+> device-specific features.
 > 
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: Tom Herbert <therbert@google.com>
+> CC: Scott Feldman <sfeldma@gmail.com>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+>  include/linux/netdev_features.h | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> index 9672781..6440bf1 100644
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -159,7 +159,8 @@ enum {
+>   */
+>  #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
+>  				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
+> -				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
+> +				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
+> +				 NETIF_F_LRO)
+>  
+>  /*
+>   * If one device doesn't support one of these features, then disable it
+> -- 
 
-Thanks, I've applied both.
+I don't think this is going to work the way you expect. Assume we have a
+non-LRO eth1 and LRO capable eth2. If we enslave eth1 first, bond will
+lose NETIF_F_LRO so that while enslaving eth2, bond_enslave() does run
 
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	if (!(bond_dev->features & NETIF_F_LRO))
+		dev_disable_lro(slave_dev);
+
+and disable LRO on eth2 even before computing the bond features so that
+in the end, all three interfaces end up with disabled LRO. If you add
+the slaves in the opposite order, you end up with eth2 and bond having
+LRO enabled. IMHO features should not depend on the order in which
+slaves are added into the bond.
+
+You would need to remove the code quoted above to make things work the
+way you want (or move it after the call to bond_compute_features() which
+is effectively the same). But then the result would be even worse:
+adding a LRO-capable slave to a bond having dev_disable_lro() called on
+it would not disable LRO on that slave, possibly (or rather likely)
+causing communication breakage.
+
+I believe NETIF_F_LRO in its original sense should be only considered
+for physical devices; even if it's not explicitely said in the commit
+message, the logic behind fbe168ba91f7 ("net: generic dev_disable_lro()
+stacked device handling") is that for stacked devices like bond or team,
+NETIF_F_LRO means "allow slaves to use LRO if they can and want" while
+its absence means "disable LRO on all slaves". If you wanted NETIF_F_LRO
+for a bond to mean "there is at least one LRO capable slave", you would
+need a new flag for the "LRO should be disabled for all lower devices"
+state. I don't think it's worth the effort.
+
+                                                         Michal Kubecek
