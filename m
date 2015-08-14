@@ -1,45 +1,67 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v2 net 0/3] ipv6: Fix a potential deadlock when creating pcpu rt
-Date: Fri, 14 Aug 2015 11:05:51 -0700
-Message-ID: <1439575554-3823839-1-git-send-email-kafai@fb.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next 2/4] packet: add eBPF fanout mode
+Date: Fri, 14 Aug 2015 14:47:35 -0400
+Message-ID: <CA+FuTSfinkPAJKDZ9BmY_dLo60mdVFJ=B7xc4CN+SUwShoxFxg@mail.gmail.com>
+References: <1439567427-19504-1-git-send-email-willemb@google.com>
+ <1439567427-19504-3-git-send-email-willemb@google.com> <55CE1F54.7090109@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Steinar H. Gunderson" <sgunderson@bigfoot.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	FB Kernel Team <kernel-team@fb.com>
-To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:26090 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754730AbbHNSVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 14:21:09 -0400
-Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7EIL3WV024619
-	for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 11:21:09 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1w9m8m86e9-5
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 11:21:09 -0700
-Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- 21cc24c242b111e5aa2524be05956610-583f52b0 for <netdev@vger.kernel.org>;	Fri,
- 14 Aug 2015 11:20:24 -0700
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:35066 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736AbbHNSsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 14:48:05 -0400
+Received: by ykbi184 with SMTP id i184so12313778ykb.2
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 11:48:04 -0700 (PDT)
+In-Reply-To: <55CE1F54.7090109@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1 -> v2:
-A minor change in the commit message of patch 2.
+On Fri, Aug 14, 2015 at 1:03 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On 8/14/15 8:50 AM, Willem de Bruijn wrote:
+>>
+>> +static int fanout_set_data_ebpf(struct packet_fanout *f, char __user
+>> *data,
+>> +                               unsigned int len)
+>> +{
+>> +       struct bpf_prog *new;
+>> +       u32 fd;
+>> +
+>> +       if (len != sizeof(fd))
+>> +               return -EINVAL;
+>> +       if (copy_from_user(&fd, data, len))
+>> +               return -EFAULT;
+>> +
+>> +       new = bpf_prog_get(fd);
+>> +       if (IS_ERR(new))
+>> +               return PTR_ERR(new);
+>> +
+>> +       __fanout_set_data_bpf(f, new);
+>> +       return 0;
+>> +}
+>
+>
+> all looks great except in the above the check:
+>         if (new->type != BPF_PROG_TYPE_SOCKET_FILTER) {
+>                 bpf_prog_put(new);
+>                 return -EINVAL;
+>         }
+> is missing. Otherwise user will be able to attach programs
+> of wrong types to fanout.
 
-This patch series fixes a potential deadlock when creating a pcpu rt.
-It happens when dst_alloc() decided to run gc. Something like this:
+Ai, good point!
 
-read_lock(&table->tb6_lock);
-ip6_rt_pcpu_alloc()
-=> dst_alloc()
-=> ip6_dst_gc()
-=> write_lock(&table->tb6_lock); /* oops */
+> Also instead of:
+>  #define PACKET_FANOUT_BPF              6
+>  #define PACKET_FANOUT_EBPF             7
+>
+> I would call them FANOUT_CBPF and FANOUT_EBPF to be unambiguous.
+> This is how bpf manpage distinguishes them.
+>
 
-Patch 1 and 2 are some prep works.
-Patch 3 is the fix.
-
-Original report: https://bugzilla.kernel.org/show_bug.cgi?id=102291
+Sounds good. I'll make both changes in v2. Thanks for reviewing, Alexei.
