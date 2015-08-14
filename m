@@ -1,50 +1,81 @@
-From: Adrien Schildknecht <adrien+dev@schischi.me>
-Subject: [PATCH] iwlwifi: out-of-bounds access in iwl_init_sband_channels
-Date: Fri, 14 Aug 2015 02:35:32 +0200
-Message-ID: <1439512532-7901-1-git-send-email-adrien+dev@schischi.me>
-Cc: ilw@linux.intel.com, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Adrien Schildknecht <adrien+dev@schischi.me>
-To: johannes.berg@intel.com, emmanuel.grumbach@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:35333 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbbHNAgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2015 20:36:04 -0400
-Received: by wicne3 with SMTP id ne3so2776456wic.0
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2015 17:36:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/7] net: dsa: add support for switchdev VLAN
+ objects
+Date: Fri, 14 Aug 2015 02:55:23 +0200
+Message-ID: <20150814005523.GA5596@lunn.ch>
+References: <1439484743-5126-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1439484743-5126-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20150813201608.GI32627@lunn.ch>
+ <20150813210156.GA21039@ketchup.touchtunes.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, Chris Healy <cphealy@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150813210156.GA21039@ketchup.touchtunes.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Both loops of this function compare data from the 'chan' array and then
-check if the index is valid.
+On Thu, Aug 13, 2015 at 05:01:57PM -0400, Vivien Didelot wrote:
+> Hi Andrew,
+> 
+> On 15-08-13 22:16:08, Andrew Lunn wrote:
+> > On Thu, Aug 13, 2015 at 12:52:17PM -0400, Vivien Didelot wrote:
+> > > Add new functions in DSA drivers to access hardware VLAN entries through
+> > > SWITCHDEV_OBJ_PORT_VLAN objects:
+> > > 
+> > >  - port_pvid_get() and vlan_getnext() to dump a VLAN
+> > >  - port_vlan_del() to exclude a port from a VLAN
+> > >  - port_pvid_set() and port_vlan_add() to join a port to a VLAN
+> > > 
+> > > The DSA infrastructure will ensure that each VLAN of the given range
+> > > does not already belong to another bridge. If it does, it will fallback
+> > > to software VLAN and won't program the hardware.
+> > > 
+> > > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> > > ---
+> > >  include/net/dsa.h |  11 ++++
+> > >  net/dsa/slave.c   | 158 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+> > >  2 files changed, 169 insertions(+)
+> > > 
+> > > diff --git a/include/net/dsa.h b/include/net/dsa.h
+> > > index 6356f43..bd9b765 100644
+> > > --- a/include/net/dsa.h
+> > > +++ b/include/net/dsa.h
+> > > @@ -298,6 +298,17 @@ struct dsa_switch_driver {
+> > >  				   u8 state);
+> > >  
+> > >  	/*
+> > > +	 * VLAN support
+> > > +	 */
+> > > +	int	(*port_pvid_get)(struct dsa_switch *ds, int port, u16 *pvid);
+> > > +	int	(*port_pvid_set)(struct dsa_switch *ds, int port, u16 pvid);
+> > > +	int	(*port_vlan_add)(struct dsa_switch *ds, int port, u16 vid,
+> > > +				 bool untagged);
+> > > +	int	(*port_vlan_del)(struct dsa_switch *ds, int port, u16 vid);
+> > > @@ -794,6 +949,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+> > >  	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
+> > >  	.ndo_poll_controller	= dsa_slave_poll_controller,
+> > >  #endif
+> > > +	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+> > > +	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+> > > +	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+> > >  };
+> > 
+> > Do these changes belong here?
+> 
+> Yes, these are used by switchdev to access bridge requests and exchange
+> SWITCHDEV_OBJ_PORT_VLAN objects with DSA, through the its switchdev_ops.
 
-The 2 conditions should be inverted to avoid an out-of-bounds access.
+O.K, so if a v2 is needed, please mention this in the change log. It
+was not obvious to me.
 
-Signed-off-by: Adrien Schildknecht <adrien+dev@schischi.me>
----
- drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c b/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
-index 21302b6..acc3d18 100644
---- a/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-eeprom-parse.c
-@@ -713,12 +713,12 @@ int iwl_init_sband_channels(struct iwl_nvm_data *data,
- 	struct ieee80211_channel *chan = &data->channels[0];
- 	int n = 0, idx = 0;
- 
--	while (chan->band != band && idx < n_channels)
-+	while (idx < n_channels && chan->band != band)
- 		chan = &data->channels[++idx];
- 
- 	sband->channels = &data->channels[idx];
- 
--	while (chan->band == band && idx < n_channels) {
-+	while (idx < n_channels && chan->band == band) {
- 		chan = &data->channels[++idx];
- 		n++;
- 	}
--- 
-2.5.0
+    Thanks
+	Andrew
