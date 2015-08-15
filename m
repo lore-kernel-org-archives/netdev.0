@@ -1,130 +1,49 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH 1/4 net-next] enic: move struct definition from .c to .h file
-Date: Sun, 16 Aug 2015 01:44:51 +0530
-Message-ID: <1439669694-21744-2-git-send-email-_govind@gmx.com>
-References: <1439669694-21744-1-git-send-email-_govind@gmx.com>
+Subject: [PATCH 0/4 net-next] enic: add devcmd2
+Date: Sun, 16 Aug 2015 01:44:50 +0530
+Message-ID: <1439669694-21744-1-git-send-email-_govind@gmx.com>
 Cc: nalreddy@cisco.com, ssujith@cisco.com, benve@cisco.com,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:60381 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.20]:49949 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753332AbbHOUPk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Aug 2015 16:15:40 -0400
-In-Reply-To: <1439669694-21744-1-git-send-email-_govind@gmx.com>
+	id S1753332AbbHOUPc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Aug 2015 16:15:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the structure definitions are in .c file to make them private to
-that file. This patch moves the struct definition to .h file, So that their
-definitions are accessible from other files.
+This series adds new devcmd2 support. The first two patches are code
+refactoring.
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/vnic_dev.c | 39 -----------------------------
- drivers/net/ethernet/cisco/enic/vnic_dev.h | 40 +++++++++++++++++++++++++++++-
- 2 files changed, 39 insertions(+), 40 deletions(-)
+devcmd is an interface for driver to communicate with fw/adaptor. It
+involves writing data to hardware registers and waiting for the result.
+This mechanism does not scale well. The queuing of "no wait" devcmds is
+done in firmware memory rather than on the host. Firmware memory is a
+rather more scarce and valuable resource than host memory. A devcmd storm
+from one vf can disrupt the service on other pf/vf. The lack of flow
+control allows for possible denial of server from one VM to another.
+Devcmd2 uses work queue to post the devcmds, just like tx work queue. This
+allows better flow control.
 
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index 62f7b7b..b239cfd 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -29,45 +29,6 @@
- #include "vnic_dev.h"
- #include "vnic_stats.h"
- 
--enum vnic_proxy_type {
--	PROXY_NONE,
--	PROXY_BY_BDF,
--	PROXY_BY_INDEX,
--};
--
--struct vnic_res {
--	void __iomem *vaddr;
--	dma_addr_t bus_addr;
--	unsigned int count;
--};
--
--struct vnic_intr_coal_timer_info {
--	u32 mul;
--	u32 div;
--	u32 max_usec;
--};
--
--struct vnic_dev {
--	void *priv;
--	struct pci_dev *pdev;
--	struct vnic_res res[RES_TYPE_MAX];
--	enum vnic_dev_intr_mode intr_mode;
--	struct vnic_devcmd __iomem *devcmd;
--	struct vnic_devcmd_notify *notify;
--	struct vnic_devcmd_notify notify_copy;
--	dma_addr_t notify_pa;
--	u32 notify_sz;
--	dma_addr_t linkstatus_pa;
--	struct vnic_stats *stats;
--	dma_addr_t stats_pa;
--	struct vnic_devcmd_fw_info *fw_info;
--	dma_addr_t fw_info_pa;
--	enum vnic_proxy_type proxy;
--	u32 proxy_index;
--	u64 args[VNIC_DEVCMD_NARGS];
--	struct vnic_intr_coal_timer_info intr_coal_timer_info;
--};
--
- #define VNIC_MAX_RES_HDR_SIZE \
- 	(sizeof(struct vnic_resource_header) + \
- 	sizeof(struct vnic_resource) * RES_TYPE_MAX)
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.h b/drivers/net/ethernet/cisco/enic/vnic_dev.h
-index 1fb214e..90bca09 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.h
-@@ -70,7 +70,45 @@ struct vnic_dev_ring {
- 	unsigned int desc_avail;
- };
- 
--struct vnic_dev;
-+enum vnic_proxy_type {
-+	PROXY_NONE,
-+	PROXY_BY_BDF,
-+	PROXY_BY_INDEX,
-+};
-+
-+struct vnic_res {
-+	void __iomem *vaddr;
-+	dma_addr_t bus_addr;
-+	unsigned int count;
-+};
-+
-+struct vnic_intr_coal_timer_info {
-+	u32 mul;
-+	u32 div;
-+	u32 max_usec;
-+};
-+
-+struct vnic_dev {
-+	void *priv;
-+	struct pci_dev *pdev;
-+	struct vnic_res res[RES_TYPE_MAX];
-+	enum vnic_dev_intr_mode intr_mode;
-+	struct vnic_devcmd __iomem *devcmd;
-+	struct vnic_devcmd_notify *notify;
-+	struct vnic_devcmd_notify notify_copy;
-+	dma_addr_t notify_pa;
-+	u32 notify_sz;
-+	dma_addr_t linkstatus_pa;
-+	struct vnic_stats *stats;
-+	dma_addr_t stats_pa;
-+	struct vnic_devcmd_fw_info *fw_info;
-+	dma_addr_t fw_info_pa;
-+	enum vnic_proxy_type proxy;
-+	u32 proxy_index;
-+	u64 args[VNIC_DEVCMD_NARGS];
-+	struct vnic_intr_coal_timer_info intr_coal_timer_info;
-+};
-+
- struct vnic_stats;
- 
- void *vnic_dev_priv(struct vnic_dev *vdev);
+Govindarajulu Varadarajan (4):
+  enic: move struct definition from .c to .h file
+  enic: use netdev_<foo> or dev_<foo> instead of pr_<foo>
+  enic: add devcmd2 resources
+  enic: add devcmd2
+
+ drivers/net/ethernet/cisco/enic/enic.h          |  21 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c     |   5 +
+ drivers/net/ethernet/cisco/enic/vnic_cq.c       |   3 +-
+ drivers/net/ethernet/cisco/enic/vnic_dev.c      | 275 ++++++++++++++++++------
+ drivers/net/ethernet/cisco/enic/vnic_dev.h      |  44 +++-
+ drivers/net/ethernet/cisco/enic/vnic_devcmd.h   |  28 +++
+ drivers/net/ethernet/cisco/enic/vnic_intr.c     |   3 +-
+ drivers/net/ethernet/cisco/enic/vnic_resource.h |   7 +
+ drivers/net/ethernet/cisco/enic/vnic_rq.c       |   6 +-
+ drivers/net/ethernet/cisco/enic/vnic_wq.c       |  31 ++-
+ drivers/net/ethernet/cisco/enic/vnic_wq.h       |  17 ++
+ 11 files changed, 357 insertions(+), 83 deletions(-)
+
 -- 
 2.5.0
