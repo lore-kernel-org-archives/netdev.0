@@ -1,123 +1,188 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v2 2/4] packet: add extended BPF fanout mode
-Date: Fri, 14 Aug 2015 22:31:35 -0400
-Message-ID: <1439605897-28311-3-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v2 3/4] selftests/net: test classic bpf fanout mode
+Date: Fri, 14 Aug 2015 22:31:36 -0400
+Message-ID: <1439605897-28311-4-git-send-email-willemb@google.com>
 References: <1439605897-28311-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, edumazet@google.com, daniel@iogearbox.net,
 	ast@plumgrid.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:33531 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752723AbbHOCbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 22:31:42 -0400
-Received: by qged69 with SMTP id d69so63051666qge.0
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 19:31:41 -0700 (PDT)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:34565 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752113AbbHOCbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 22:31:43 -0400
+Received: by qkcs67 with SMTP id s67so31537019qkc.1
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 19:31:42 -0700 (PDT)
 In-Reply-To: <1439605897-28311-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Add fanout mode PACKET_FANOUT_EBPF that accepts an en extended BPF
-program to select a socket.
+Test PACKET_FANOUT_CBPF by inserting a cBPF program that selects a
+socket by payload. Requires modifying the test program to send
+packets with multiple payloads.
 
-Update the internal eBPF program by passing to socket option
-SOL_PACKET/PACKET_FANOUT_DATA a file descriptor returned by bpf().
+Also fix a bug in testing the return value of mmap()
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/uapi/linux/if_packet.h |  1 +
- net/packet/af_packet.c         | 31 +++++++++++++++++++++++++++++++
- 2 files changed, 32 insertions(+)
+ tools/testing/selftests/net/psock_fanout.c | 16 ++++++++++++----
+ tools/testing/selftests/net/psock_lib.h    | 29 +++++++++++++++++++++--------
+ 2 files changed, 33 insertions(+), 12 deletions(-)
 
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index a4bb16f..9e7edfd 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -64,6 +64,7 @@ struct sockaddr_ll {
- #define PACKET_FANOUT_RND		4
- #define PACKET_FANOUT_QM		5
- #define PACKET_FANOUT_CBPF		6
-+#define PACKET_FANOUT_EBPF		7
- #define PACKET_FANOUT_FLAG_ROLLOVER	0x1000
- #define PACKET_FANOUT_FLAG_DEFRAG	0x8000
+diff --git a/tools/testing/selftests/net/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
+index 08c2a36..baf46a2 100644
+--- a/tools/testing/selftests/net/psock_fanout.c
++++ b/tools/testing/selftests/net/psock_fanout.c
+@@ -19,6 +19,7 @@
+  *   - PACKET_FANOUT_LB
+  *   - PACKET_FANOUT_CPU
+  *   - PACKET_FANOUT_ROLLOVER
++ *   - PACKET_FANOUT_CBPF
+  *
+  * Todo:
+  * - functionality: PACKET_FANOUT_FLAG_DEFRAG
+@@ -115,8 +116,8 @@ static char *sock_fanout_open_ring(int fd)
  
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8869d07..7b8e39a 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1472,6 +1472,7 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- 		idx = fanout_demux_rollover(f, skb, 0, false, num);
- 		break;
- 	case PACKET_FANOUT_CBPF:
-+	case PACKET_FANOUT_EBPF:
- 		idx = fanout_demux_bpf(f, skb, num);
- 		break;
+ 	ring = mmap(0, req.tp_block_size * req.tp_block_nr,
+ 		    PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+-	if (!ring) {
+-		fprintf(stderr, "packetsock ring mmap\n");
++	if (ring == MAP_FAILED) {
++		perror("packetsock ring mmap");
+ 		exit(1);
  	}
-@@ -1529,6 +1530,7 @@ static void fanout_init_data(struct packet_fanout *f)
- 		atomic_set(&f->rr_cur, 0);
- 		break;
- 	case PACKET_FANOUT_CBPF:
-+	case PACKET_FANOUT_EBPF:
- 		RCU_INIT_POINTER(f->bpf_prog, NULL);
- 		break;
+ 
+@@ -209,6 +210,7 @@ static int test_datapath(uint16_t typeflags, int port_off,
+ {
+ 	const int expect0[] = { 0, 0 };
+ 	char *rings[2];
++	uint8_t type = typeflags & 0xFF;
+ 	int fds[2], fds_udp[2][2], ret;
+ 
+ 	fprintf(stderr, "test: datapath 0x%hx\n", typeflags);
+@@ -219,6 +221,9 @@ static int test_datapath(uint16_t typeflags, int port_off,
+ 		fprintf(stderr, "ERROR: failed open\n");
+ 		exit(1);
  	}
-@@ -1571,12 +1573,39 @@ static int fanout_set_data_cbpf(struct packet_sock *po, char __user *data,
- 	return 0;
++	if (type == PACKET_FANOUT_CBPF)
++		sock_setfilter(fds[0], SOL_PACKET, PACKET_FANOUT_DATA);
++
+ 	rings[0] = sock_fanout_open_ring(fds[0]);
+ 	rings[1] = sock_fanout_open_ring(fds[1]);
+ 	pair_udp_open(fds_udp[0], PORT_BASE);
+@@ -227,11 +232,11 @@ static int test_datapath(uint16_t typeflags, int port_off,
+ 
+ 	/* Send data, but not enough to overflow a queue */
+ 	pair_udp_send(fds_udp[0], 15);
+-	pair_udp_send(fds_udp[1], 5);
++	pair_udp_send_char(fds_udp[1], 5, DATA_CHAR_1);
+ 	ret = sock_fanout_read(fds, rings, expect1);
+ 
+ 	/* Send more data, overflow the queue */
+-	pair_udp_send(fds_udp[0], 15);
++	pair_udp_send_char(fds_udp[0], 15, DATA_CHAR_1);
+ 	/* TODO: ensure consistent order between expect1 and expect2 */
+ 	ret |= sock_fanout_read(fds, rings, expect2);
+ 
+@@ -275,6 +280,7 @@ int main(int argc, char **argv)
+ 	const int expect_rb[2][2]	= { { 15, 5 },  { 20, 15 } };
+ 	const int expect_cpu0[2][2]	= { { 20, 0 },  { 20, 0 } };
+ 	const int expect_cpu1[2][2]	= { { 0, 20 },  { 0, 20 } };
++	const int expect_bpf[2][2]	= { { 15, 5 },  { 15, 20 } };
+ 	int port_off = 2, tries = 5, ret;
+ 
+ 	test_control_single();
+@@ -295,6 +301,8 @@ int main(int argc, char **argv)
+ 			     port_off, expect_lb[0], expect_lb[1]);
+ 	ret |= test_datapath(PACKET_FANOUT_ROLLOVER,
+ 			     port_off, expect_rb[0], expect_rb[1]);
++	ret |= test_datapath(PACKET_FANOUT_CBPF,
++			     port_off, expect_bpf[0], expect_bpf[1]);
+ 
+ 	set_cpuaffinity(0);
+ 	ret |= test_datapath(PACKET_FANOUT_CPU, port_off,
+diff --git a/tools/testing/selftests/net/psock_lib.h b/tools/testing/selftests/net/psock_lib.h
+index 37da54a..24bc7ec 100644
+--- a/tools/testing/selftests/net/psock_lib.h
++++ b/tools/testing/selftests/net/psock_lib.h
+@@ -30,6 +30,7 @@
+ 
+ #define DATA_LEN			100
+ #define DATA_CHAR			'a'
++#define DATA_CHAR_1			'b'
+ 
+ #define PORT_BASE			8000
+ 
+@@ -37,29 +38,36 @@
+ # define __maybe_unused		__attribute__ ((__unused__))
+ #endif
+ 
+-static __maybe_unused void pair_udp_setfilter(int fd)
++static __maybe_unused void sock_setfilter(int fd, int lvl, int optnum)
+ {
+ 	struct sock_filter bpf_filter[] = {
+ 		{ 0x80, 0, 0, 0x00000000 },  /* LD  pktlen		      */
+-		{ 0x35, 0, 5, DATA_LEN   },  /* JGE DATA_LEN  [f goto nomatch]*/
++		{ 0x35, 0, 4, DATA_LEN   },  /* JGE DATA_LEN  [f goto nomatch]*/
+ 		{ 0x30, 0, 0, 0x00000050 },  /* LD  ip[80]		      */
+-		{ 0x15, 0, 3, DATA_CHAR  },  /* JEQ DATA_CHAR [f goto nomatch]*/
+-		{ 0x30, 0, 0, 0x00000051 },  /* LD  ip[81]		      */
+-		{ 0x15, 0, 1, DATA_CHAR  },  /* JEQ DATA_CHAR [f goto nomatch]*/
++		{ 0x15, 1, 0, DATA_CHAR  },  /* JEQ DATA_CHAR   [t goto match]*/
++		{ 0x15, 0, 1, DATA_CHAR_1},  /* JEQ DATA_CHAR_1 [t goto match]*/
+ 		{ 0x06, 0, 0, 0x00000060 },  /* RET match	              */
+ 		{ 0x06, 0, 0, 0x00000000 },  /* RET no match		      */
+ 	};
+ 	struct sock_fprog bpf_prog;
+ 
++	if (lvl == SOL_PACKET && optnum == PACKET_FANOUT_DATA)
++		bpf_filter[5].code = 0x16;   /* RET A			      */
++
+ 	bpf_prog.filter = bpf_filter;
+ 	bpf_prog.len = sizeof(bpf_filter) / sizeof(struct sock_filter);
+-	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf_prog,
++	if (setsockopt(fd, lvl, optnum, &bpf_prog,
+ 		       sizeof(bpf_prog))) {
+ 		perror("setsockopt SO_ATTACH_FILTER");
+ 		exit(1);
+ 	}
  }
  
-+static int fanout_set_data_ebpf(struct packet_sock *po, char __user *data,
-+				unsigned int len)
++static __maybe_unused void pair_udp_setfilter(int fd)
 +{
-+	struct bpf_prog *new;
-+	u32 fd;
-+
-+	if (sock_flag(&po->sk, SOCK_FILTER_LOCKED))
-+		return -EPERM;
-+	if (len != sizeof(fd))
-+		return -EINVAL;
-+	if (copy_from_user(&fd, data, len))
-+		return -EFAULT;
-+
-+	new = bpf_prog_get(fd);
-+	if (IS_ERR(new))
-+		return PTR_ERR(new);
-+	if (new->type != BPF_PROG_TYPE_SOCKET_FILTER) {
-+		bpf_prog_put(new);
-+		return -EINVAL;
-+	}
-+
-+	__fanout_set_data_bpf(po->fanout, new);
-+	return 0;
++	sock_setfilter(fd, SOL_SOCKET, SO_ATTACH_FILTER);
 +}
 +
- static int fanout_set_data(struct packet_sock *po, char __user *data,
- 			   unsigned int len)
+ static __maybe_unused void pair_udp_open(int fds[], uint16_t port)
  {
- 	switch (po->fanout->type) {
- 	case PACKET_FANOUT_CBPF:
- 		return fanout_set_data_cbpf(po, data, len);
-+	case PACKET_FANOUT_EBPF:
-+		return fanout_set_data_ebpf(po, data, len);
- 	default:
- 		return -EINVAL;
- 	};
-@@ -1586,6 +1615,7 @@ static void fanout_release_data(struct packet_fanout *f)
- {
- 	switch (f->type) {
- 	case PACKET_FANOUT_CBPF:
-+	case PACKET_FANOUT_EBPF:
- 		__fanout_set_data_bpf(f, NULL);
- 	};
+ 	struct sockaddr_in saddr, daddr;
+@@ -96,11 +104,11 @@ static __maybe_unused void pair_udp_open(int fds[], uint16_t port)
+ 	}
  }
-@@ -1608,6 +1638,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	case PACKET_FANOUT_RND:
- 	case PACKET_FANOUT_QM:
- 	case PACKET_FANOUT_CBPF:
-+	case PACKET_FANOUT_EBPF:
- 		break;
- 	default:
- 		return -EINVAL;
+ 
+-static __maybe_unused void pair_udp_send(int fds[], int num)
++static __maybe_unused void pair_udp_send_char(int fds[], int num, char payload)
+ {
+ 	char buf[DATA_LEN], rbuf[DATA_LEN];
+ 
+-	memset(buf, DATA_CHAR, sizeof(buf));
++	memset(buf, payload, sizeof(buf));
+ 	while (num--) {
+ 		/* Should really handle EINTR and EAGAIN */
+ 		if (write(fds[0], buf, sizeof(buf)) != sizeof(buf)) {
+@@ -118,6 +126,11 @@ static __maybe_unused void pair_udp_send(int fds[], int num)
+ 	}
+ }
+ 
++static __maybe_unused void pair_udp_send(int fds[], int num)
++{
++	return pair_udp_send_char(fds, num, DATA_CHAR);
++}
++
+ static __maybe_unused void pair_udp_close(int fds[])
+ {
+ 	close(fds[0]);
 -- 
 2.5.0.276.gf5e568e
