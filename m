@@ -1,239 +1,116 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v2 1/4] packet: add classic BPF fanout mode
-Date: Fri, 14 Aug 2015 22:31:34 -0400
-Message-ID: <1439605897-28311-2-git-send-email-willemb@google.com>
-References: <1439605897-28311-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, edumazet@google.com, daniel@iogearbox.net,
-	ast@plumgrid.com, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 04/11] udp: Handle VRF device in sendmsg
+Date: Fri, 14 Aug 2015 20:16:16 -0700
+Message-ID: <CALx6S36MAQRgEqcJbTO_m6eMEAzoJ6k3o67z7EgLa3BjUg6MbQ@mail.gmail.com>
+References: <1439499551-90231-1-git-send-email-dsa@cumulusnetworks.com>
+	<1439499551-90231-5-git-send-email-dsa@cumulusnetworks.com>
+	<CALx6S34ymDARX9EjCUZtHzd=+iUpry5WbCR4axXSDFBhVSTDUw@mail.gmail.com>
+	<CAJmoNQGorXyd_vjigkJGntdNMmwMhL8AUfxA+s98uaY9ia73Gw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jon Toppins <jtoppins@cumulusnetworks.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>, svaidya@brocade.com
+To: Shrijeet Mukherjee <shm@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:34067 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbbHOCbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 22:31:41 -0400
-Received: by qgeg42 with SMTP id g42so63801377qge.1
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 19:31:41 -0700 (PDT)
-In-Reply-To: <1439605897-28311-1-git-send-email-willemb@google.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:33805 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305AbbHODQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2015 23:16:17 -0400
+Received: by iodb91 with SMTP id b91so102918023iod.1
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2015 20:16:17 -0700 (PDT)
+In-Reply-To: <CAJmoNQGorXyd_vjigkJGntdNMmwMhL8AUfxA+s98uaY9ia73Gw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On Fri, Aug 14, 2015 at 10:58 AM, Shrijeet Mukherjee
+<shm@cumulusnetworks.com> wrote:
+>
+>
+> On Fri, Aug 14, 2015 at 9:27 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>
+>> On Thu, Aug 13, 2015 at 1:59 PM, David Ahern <dsa@cumulusnetworks.com>
+>> wrote:
+>> > For unconnected UDP sockets using a VRF device lookup source address
+>> > based on VRF table. This allows the UDP header to be properly setup
+>> > before showing up at the VRF device via the dst.
+>> >
+>> > Signed-off-by: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+>> > Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>> > ---
+>> >  net/ipv4/udp.c | 22 +++++++++++++++++++++-
+>> >  1 file changed, 21 insertions(+), 1 deletion(-)
+>> >
+>> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+>> > index 83aa604f9273..7af5052e3b1f 100644
+>> > --- a/net/ipv4/udp.c
+>> > +++ b/net/ipv4/udp.c
+>> > @@ -1013,11 +1013,31 @@ int udp_sendmsg(struct sock *sk, struct msghdr
+>> > *msg, size_t len)
+>> >
+>> >         if (!rt) {
+>> >                 struct net *net = sock_net(sk);
+>> > +               __u8 flow_flags = inet_sk_flowi_flags(sk);
+>> >
+>> >                 fl4 = &fl4_stack;
+>> > +
+>> > +               /* unconnected socket. If output device is enslaved to a
+>> > VRF
+>> > +                * device lookup source address from VRF table. This
+>> > mimics
+>> > +                * behavior of ip_route_connect{_init}.
+>> > +                */
+>> > +               if (netif_index_is_vrf(net, ipc.oif)) {
+>> > +                       flowi4_init_output(fl4, ipc.oif, sk->sk_mark,
+>> > tos,
+>> > +                                          RT_SCOPE_UNIVERSE,
+>> > sk->sk_protocol,
+>> > +                                          (flow_flags |
+>> > FLOWI_FLAG_VRFSRC),
+>> > +                                          faddr, saddr, dport,
+>> > +                                          inet->inet_sport);
+>> > +
+>> > +                       rt = ip_route_output_flow(net, fl4, sk);
+>> > +                       if (!IS_ERR(rt)) {
+>> > +                               saddr = fl4->saddr;
+>> > +                               ip_rt_put(rt);
+>> > +                       }
+>> > +               }
+>> > +
+>>
+>> I really don't like this. It seems like you're putting device specific
+>> code in a critical L4 data path function. Also, does ipv6/udp.c need
+>> be updated similarly? Why can't VRF be abstracted out in routing
+>> lookups?
+>
+>
+> Tom,
+>
+> Did not have a better way to make this work. The point of the VRF driver was
+> to be completely transparent for anything other routing lookups. Modifying
+> the header in the driver means that fragmentation etc will have trouble.
+>
+> So this code really just makes the saddr evaluation before we enter the udp
+> code path and is similar to what the tcp side does. If you have a suggestion
+> on a different and hopefully consistent way to do with tcp and ipv6, that
+> would be preferable.
 
-Add fanout mode PACKET_FANOUT_CBPF that accepts a classic BPF program
-to select a socket.
+At least collect this code into one (static inline) function to better
+minimize the code churn in udp. If this is general functionality that
+can be used by other drivers then abstract it out as such. Also, if
+the VRF driver is not configured it seems like this code should
+compiled out. As it stands now "if (netif_index_is_vrf(net, ipc.oif))
+{" adds a conditional to every call of udp_sendmsg rather or not we
+are using VRF :-(.
 
-This avoids having to keep adding special case fanout modes. One
-example use case is application layer load balancing. The QUIC
-protocol, for instance, encodes a connection ID in UDP payload.
-
-Also add socket option SOL_PACKET/PACKET_FANOUT_DATA that updates data
-associated with the socket group. Fanout mode PACKET_FANOUT_CBPF is the
-only user so far.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/uapi/linux/if_packet.h |  2 +
- net/packet/af_packet.c         | 99 +++++++++++++++++++++++++++++++++++++++++-
- net/packet/internal.h          |  5 ++-
- 3 files changed, 104 insertions(+), 2 deletions(-)
-
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index d3d715f8c..a4bb16f 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -55,6 +55,7 @@ struct sockaddr_ll {
- #define PACKET_TX_HAS_OFF		19
- #define PACKET_QDISC_BYPASS		20
- #define PACKET_ROLLOVER_STATS		21
-+#define PACKET_FANOUT_DATA		22
- 
- #define PACKET_FANOUT_HASH		0
- #define PACKET_FANOUT_LB		1
-@@ -62,6 +63,7 @@ struct sockaddr_ll {
- #define PACKET_FANOUT_ROLLOVER		3
- #define PACKET_FANOUT_RND		4
- #define PACKET_FANOUT_QM		5
-+#define PACKET_FANOUT_CBPF		6
- #define PACKET_FANOUT_FLAG_ROLLOVER	0x1000
- #define PACKET_FANOUT_FLAG_DEFRAG	0x8000
- 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b5afe53..8869d07 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -92,6 +92,7 @@
- #ifdef CONFIG_INET
- #include <net/inet_common.h>
- #endif
-+#include <linux/bpf.h>
- 
- #include "internal.h"
- 
-@@ -1410,6 +1411,22 @@ static unsigned int fanout_demux_qm(struct packet_fanout *f,
- 	return skb_get_queue_mapping(skb) % num;
- }
- 
-+static unsigned int fanout_demux_bpf(struct packet_fanout *f,
-+				     struct sk_buff *skb,
-+				     unsigned int num)
-+{
-+	struct bpf_prog *prog;
-+	unsigned int ret = 0;
-+
-+	rcu_read_lock();
-+	prog = rcu_dereference(f->bpf_prog);
-+	if (prog)
-+		ret = BPF_PROG_RUN(prog, skb) % num;
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
- static bool fanout_has_flag(struct packet_fanout *f, u16 flag)
- {
- 	return f->flags & (flag >> 8);
-@@ -1454,6 +1471,9 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- 	case PACKET_FANOUT_ROLLOVER:
- 		idx = fanout_demux_rollover(f, skb, 0, false, num);
- 		break;
-+	case PACKET_FANOUT_CBPF:
-+		idx = fanout_demux_bpf(f, skb, num);
-+		break;
- 	}
- 
- 	if (fanout_has_flag(f, PACKET_FANOUT_FLAG_ROLLOVER))
-@@ -1502,6 +1522,74 @@ static bool match_fanout_group(struct packet_type *ptype, struct sock *sk)
- 	return false;
- }
- 
-+static void fanout_init_data(struct packet_fanout *f)
-+{
-+	switch (f->type) {
-+	case PACKET_FANOUT_LB:
-+		atomic_set(&f->rr_cur, 0);
-+		break;
-+	case PACKET_FANOUT_CBPF:
-+		RCU_INIT_POINTER(f->bpf_prog, NULL);
-+		break;
-+	}
-+}
-+
-+static void __fanout_set_data_bpf(struct packet_fanout *f, struct bpf_prog *new)
-+{
-+	struct bpf_prog *old;
-+
-+	spin_lock(&f->lock);
-+	old = rcu_dereference_protected(f->bpf_prog, lockdep_is_held(&f->lock));
-+	rcu_assign_pointer(f->bpf_prog, new);
-+	spin_unlock(&f->lock);
-+
-+	if (old) {
-+		synchronize_net();
-+		bpf_prog_destroy(old);
-+	}
-+}
-+
-+static int fanout_set_data_cbpf(struct packet_sock *po, char __user *data,
-+				unsigned int len)
-+{
-+	struct bpf_prog *new;
-+	struct sock_fprog fprog;
-+	int ret;
-+
-+	if (sock_flag(&po->sk, SOCK_FILTER_LOCKED))
-+		return -EPERM;
-+	if (len != sizeof(fprog))
-+		return -EINVAL;
-+	if (copy_from_user(&fprog, data, len))
-+		return -EFAULT;
-+
-+	ret = bpf_prog_create_from_user(&new, &fprog, NULL);
-+	if (ret)
-+		return ret;
-+
-+	__fanout_set_data_bpf(po->fanout, new);
-+	return 0;
-+}
-+
-+static int fanout_set_data(struct packet_sock *po, char __user *data,
-+			   unsigned int len)
-+{
-+	switch (po->fanout->type) {
-+	case PACKET_FANOUT_CBPF:
-+		return fanout_set_data_cbpf(po, data, len);
-+	default:
-+		return -EINVAL;
-+	};
-+}
-+
-+static void fanout_release_data(struct packet_fanout *f)
-+{
-+	switch (f->type) {
-+	case PACKET_FANOUT_CBPF:
-+		__fanout_set_data_bpf(f, NULL);
-+	};
-+}
-+
- static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- {
- 	struct packet_sock *po = pkt_sk(sk);
-@@ -1519,6 +1607,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	case PACKET_FANOUT_CPU:
- 	case PACKET_FANOUT_RND:
- 	case PACKET_FANOUT_QM:
-+	case PACKET_FANOUT_CBPF:
- 		break;
- 	default:
- 		return -EINVAL;
-@@ -1561,10 +1650,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		match->id = id;
- 		match->type = type;
- 		match->flags = flags;
--		atomic_set(&match->rr_cur, 0);
- 		INIT_LIST_HEAD(&match->list);
- 		spin_lock_init(&match->lock);
- 		atomic_set(&match->sk_ref, 0);
-+		fanout_init_data(match);
- 		match->prot_hook.type = po->prot_hook.type;
- 		match->prot_hook.dev = po->prot_hook.dev;
- 		match->prot_hook.func = packet_rcv_fanout;
-@@ -1610,6 +1699,7 @@ static void fanout_release(struct sock *sk)
- 	if (atomic_dec_and_test(&f->sk_ref)) {
- 		list_del(&f->list);
- 		dev_remove_pack(&f->prot_hook);
-+		fanout_release_data(f);
- 		kfree(f);
- 	}
- 	mutex_unlock(&fanout_mutex);
-@@ -3529,6 +3619,13 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 
- 		return fanout_add(sk, val & 0xffff, val >> 16);
- 	}
-+	case PACKET_FANOUT_DATA:
-+	{
-+		if (!po->fanout)
-+			return -EINVAL;
-+
-+		return fanout_set_data(po, optval, optlen);
-+	}
- 	case PACKET_TX_HAS_OFF:
- 	{
- 		unsigned int val;
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index e20b3e8..9ee4631 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -79,7 +79,10 @@ struct packet_fanout {
- 	u16			id;
- 	u8			type;
- 	u8			flags;
--	atomic_t		rr_cur;
-+	union {
-+		atomic_t		rr_cur;
-+		struct bpf_prog __rcu	*bpf_prog;
-+	};
- 	struct list_head	list;
- 	struct sock		*arr[PACKET_FANOUT_MAX];
- 	spinlock_t		lock;
--- 
-2.5.0.276.gf5e568e
+Tom
