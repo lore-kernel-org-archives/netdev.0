@@ -1,61 +1,41 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] net: Updates to netif_index_is_vrf
-Date: Sun, 16 Aug 2015 07:49:20 -0600
-Message-ID: <1439732960-3302-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: eric.dumazet@gmail.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34104 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144AbbHPNta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2015 09:49:30 -0400
-Received: by paccq16 with SMTP id cq16so46178274pac.1
-        for <netdev@vger.kernel.org>; Sun, 16 Aug 2015 06:49:30 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] rhashtable-test: extend to test concurrency
+Date: Sun, 16 Aug 2015 17:02:44 +0200
+Message-ID: <20150816150244.GA6844@pox.localdomain>
+References: <1439591835-30357-1-git-send-email-phil@nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1439591835-30357-1-git-send-email-phil@nwl.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As Eric noted netif_index_is_vrf is not called with rcu_read_lock held,
-so wrap the dev_get_by_index_rcu in rcu_read_lock and unlock.
+On 08/15/15 at 12:37am, Phil Sutter wrote:
+> After having tested insertion, lookup, table walk and removal, spawn a
+> number of threads running operations on the same rhashtable. Each of
+> them will:
+> 
+> 1) insert it's own set of objects,
+> 2) lookup every successfully inserted object and finally
+> 3) remove objects in several rounds until all of them have been removed,
+>    making sure the remaining ones are still found after each round.
+> 
+> This should put a good amount of load onto the system and due to
+> synchronising thread startup via two semaphores also extensive
+> concurrent table access.
+> 
+> The default number of ten threads returned within half a second on my
+> local VM with two cores. Running 200 threads took about four seconds. If
+> slow systems suffer too much from this though, the default could be
+> lowered or even set to zero so this extended test does not run at all by
+> default.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-If VRF is not enabled or oif is 0 skip the device lookup. In both cases
-index cannot be the VRF master.
+Looks great. A default of 10 makes sense as well. Thanks a lot!
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-v2:
-- per Florian's suggestion keep the dev_get_by_index_rcu and wrap with
-  rcu_read_lock/unlock versus moving to dev_get_by_index with dev_hold/put
-
- include/linux/netdevice.h | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f7a6ef2fae3a..2d3cd86c5618 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3819,12 +3819,22 @@ static inline bool netif_is_vrf(const struct net_device *dev)
- 
- static inline bool netif_index_is_vrf(struct net *net, int ifindex)
- {
--	struct net_device *dev = dev_get_by_index_rcu(net, ifindex);
- 	bool rc = false;
- 
-+#if IS_ENABLED(CONFIG_NET_VRF)
-+	struct net_device *dev;
-+
-+	if (ifindex == 0)
-+		return false;
-+
-+	rcu_read_lock();
-+
-+	dev = dev_get_by_index_rcu(net, ifindex);
- 	if (dev)
- 		rc = netif_is_vrf(dev);
- 
-+	rcu_read_unlock();
-+#endif
- 	return rc;
- }
- 
--- 
-2.3.2 (Apple Git-55)
+Acked-by: Thomas Graf <tgraf@suug.ch>
