@@ -1,56 +1,96 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: Updates to netif_index_is_vrf
-Date: Sat, 15 Aug 2015 18:09:53 -0600
-Message-ID: <1439683793-2999-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: eric.dumazet@gmail.com, David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: Move VRF change to udp_sendmsg to inlined function
+Date: Sat, 15 Aug 2015 18:11:59 -0600
+Message-ID: <1439683919-3066-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:38860 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251AbbHPAKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Aug 2015 20:10:03 -0400
-Received: by igfj19 with SMTP id j19so33758338igf.1
-        for <netdev@vger.kernel.org>; Sat, 15 Aug 2015 17:10:02 -0700 (PDT)
+Received: from mail-io0-f172.google.com ([209.85.223.172]:34661 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752040AbbHPAMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Aug 2015 20:12:06 -0400
+Received: by iodb91 with SMTP id b91so117567359iod.1
+        for <netdev@vger.kernel.org>; Sat, 15 Aug 2015 17:12:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As Eric noted netif_index_is_vrf is not called with rcu_read_lock held,
-so use dev_get_by_index instead of dev_get_by_index_rcu.
+Functionally equivalent, but as an inlined function with VRF config
+check it completely compiles out if VRF is not enabled.
 
-If VRF is not enabled or oif is 0 skip the device lookup.
-
+Suggested-by: Tom Herbert <tom@herbertland.com>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/linux/netdevice.h | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
+ net/ipv4/udp.c | 44 ++++++++++++++++++++++++--------------------
+ 1 file changed, 24 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f7a6ef2fae3a..dca36a618781 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3819,12 +3819,20 @@ static inline bool netif_is_vrf(const struct net_device *dev)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index c0a15e7f359f..384f8d918033 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -873,6 +873,27 @@ int udp_push_pending_frames(struct sock *sk)
+ }
+ EXPORT_SYMBOL(udp_push_pending_frames);
  
- static inline bool netif_index_is_vrf(struct net *net, int ifindex)
- {
--	struct net_device *dev = dev_get_by_index_rcu(net, ifindex);
- 	bool rc = false;
- 
--	if (dev)
--		rc = netif_is_vrf(dev);
++/* unconnected socket. If output device is enslaved to a VRF
++ * device lookup source address from VRF table. This mimics
++ * behavior of ip_route_connect{_init}.
++ */
++static inline void udp_sendmsg_vrf_saddr(struct net *net, struct flowi4 *fl4,
++					 int oif, struct sock *sk)
++{
 +#if IS_ENABLED(CONFIG_NET_VRF)
-+	struct net_device *dev;
++	if (netif_index_is_vrf(net, oif)) {
++		__u8 flow_flags = fl4->flowi4_flags;
++		struct rtable *rt;
 +
-+	if (ifindex == 0)
-+		return false;
- 
-+	dev = dev_get_by_index(net, ifindex);
-+	if (dev) {
-+		rc = netif_is_vrf(dev);
-+		dev_put(dev);
++		fl4->flowi4_flags = flow_flags | FLOWI_FLAG_VRFSRC;
++		rt = ip_route_output_flow(net, fl4, sk);
++		if (!IS_ERR(rt))
++			ip_rt_put(rt);
++		fl4->flowi4_flags = flow_flags;
 +	}
 +#endif
- 	return rc;
- }
++}
++
+ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+@@ -1013,33 +1034,16 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
  
+ 	if (!rt) {
+ 		struct net *net = sock_net(sk);
+-		__u8 flow_flags = inet_sk_flowi_flags(sk);
+ 
+ 		fl4 = &fl4_stack;
+ 
+-		/* unconnected socket. If output device is enslaved to a VRF
+-		 * device lookup source address from VRF table. This mimics
+-		 * behavior of ip_route_connect{_init}.
+-		 */
+-		if (netif_index_is_vrf(net, ipc.oif)) {
+-			flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
+-					   RT_SCOPE_UNIVERSE, sk->sk_protocol,
+-					   (flow_flags | FLOWI_FLAG_VRFSRC),
+-					   faddr, saddr, dport,
+-					   inet->inet_sport);
+-
+-			rt = ip_route_output_flow(net, fl4, sk);
+-			if (!IS_ERR(rt)) {
+-				saddr = fl4->saddr;
+-				ip_rt_put(rt);
+-			}
+-		}
+-
+ 		flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
+ 				   RT_SCOPE_UNIVERSE, sk->sk_protocol,
+-				   flow_flags,
++				   inet_sk_flowi_flags(sk),
+ 				   faddr, saddr, dport, inet->inet_sport);
+ 
++		udp_sendmsg_vrf_saddr(net, fl4, ipc.oif, sk);
++
+ 		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
+ 		rt = ip_route_output_flow(net, fl4, sk);
+ 		if (IS_ERR(rt)) {
 -- 
 2.3.2 (Apple Git-55)
