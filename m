@@ -1,34 +1,28 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v2 2/4] packet: add extended BPF fanout mode
-Date: Sat, 15 Aug 2015 21:58:41 -0700
-Message-ID: <55D01881.1010004@plumgrid.com>
-References: <1439605897-28311-1-git-send-email-willemb@google.com>
- <1439605897-28311-3-git-send-email-willemb@google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: recent updates to networking (26b552e0a85ba7e74d384a9624d83118d38071f7)
+ cause softlocks
+Date: Sat, 15 Aug 2015 22:18:18 -0700
+Message-ID: <CAM_iQpXYP7eBomhz_AZjs5aPm764Vm3xoCc82WSL+PubyFtaAA@mail.gmail.com>
+References: <55CFF387.2000107@jons.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, daniel@iogearbox.net
-To: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34980 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750705AbbHPE6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2015 00:58:43 -0400
-Received: by pacgr6 with SMTP id gr6so85190195pac.2
-        for <netdev@vger.kernel.org>; Sat, 15 Aug 2015 21:58:43 -0700 (PDT)
-In-Reply-To: <1439605897-28311-3-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jon Christopherson <jon@jons.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55CFF387.2000107@jons.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/14/15 7:31 PM, Willem de Bruijn wrote:
-> From: Willem de Bruijn<willemb@google.com>
->
-> Add fanout mode PACKET_FANOUT_EBPF that accepts an en extended BPF
-> program to select a socket.
->
-> Update the internal eBPF program by passing to socket option
-> SOL_PACKET/PACKET_FANOUT_DATA a file descriptor returned by bpf().
->
-> Signed-off-by: Willem de Bruijn<willemb@google.com>
+(CC'ing netdev)
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+On Sat, Aug 15, 2015 at 7:20 PM, Jon Christopherson <jon@jons.org> wrote:
+> Hello All,
+>
+> the recent commit (26b552e0a85ba7e74d384a9624d83118d38071f7) causes
+> softlocks on my system using the e1000e driver. Kernel builds before this
+> commit do not experience the behavior. I have opened a bug report here:
+> https://bugzilla.kernel.org/show_bug.cgi?id=102911 with more details.
+>
+
+The commit you refer is a merge commit...
