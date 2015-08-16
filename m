@@ -1,41 +1,56 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] ipv4: fix refcount leak in fib_check_nh()
-Date: Sat, 15 Aug 2015 14:36:09 -0600
-Message-ID: <55CFA2B9.50207@cumulusnetworks.com>
-References: <1439586894.7507.5.camel@edumazet-glaptop2.roam.corp.google.com>	 <1439594063.7507.11.camel@edumazet-glaptop2.roam.corp.google.com>	 <55CE7776.5000706@cumulusnetworks.com>	 <1439595092.7507.14.camel@edumazet-glaptop2.roam.corp.google.com> <1439661247.7258.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: Updates to netif_index_is_vrf
+Date: Sat, 15 Aug 2015 18:09:53 -0600
+Message-ID: <1439683793-2999-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: eric.dumazet@gmail.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33561 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876AbbHOUgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Aug 2015 16:36:12 -0400
-Received: by pabyb7 with SMTP id yb7so80603042pab.0
-        for <netdev@vger.kernel.org>; Sat, 15 Aug 2015 13:36:12 -0700 (PDT)
-In-Reply-To: <1439661247.7258.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:38860 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751251AbbHPAKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Aug 2015 20:10:03 -0400
+Received: by igfj19 with SMTP id j19so33758338igf.1
+        for <netdev@vger.kernel.org>; Sat, 15 Aug 2015 17:10:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/15/15 11:54 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> fib_lookup() forces FIB_LOOKUP_NOREF flag, while fib_table_lookup()
-> does not.
->
-> This patch solves the typical message at reboot time or device
-> dismantle :
->
-> unregister_netdevice: waiting for eth0 to become free. Usage count = 4
->
-> Fixes: 3bfd847203c6 ("net: Use passed in table for nexthop lookups")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: David Ahern <dsa@cumulusnetworks.com>
+As Eric noted netif_index_is_vrf is not called with rcu_read_lock held,
+so use dev_get_by_index instead of dev_get_by_index_rcu.
 
-Still puzzled why I was not seeing the refcnt problem at reboot though I 
-did see the extra dev_hold when I instrumented the hold and put. 
-Anyways, thanks for resolving, Eric.
+If VRF is not enabled or oif is 0 skip the device lookup.
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/linux/netdevice.h | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f7a6ef2fae3a..dca36a618781 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3819,12 +3819,20 @@ static inline bool netif_is_vrf(const struct net_device *dev)
+ 
+ static inline bool netif_index_is_vrf(struct net *net, int ifindex)
+ {
+-	struct net_device *dev = dev_get_by_index_rcu(net, ifindex);
+ 	bool rc = false;
+ 
+-	if (dev)
+-		rc = netif_is_vrf(dev);
++#if IS_ENABLED(CONFIG_NET_VRF)
++	struct net_device *dev;
++
++	if (ifindex == 0)
++		return false;
+ 
++	dev = dev_get_by_index(net, ifindex);
++	if (dev) {
++		rc = netif_is_vrf(dev);
++		dev_put(dev);
++	}
++#endif
+ 	return rc;
+ }
+ 
+-- 
+2.3.2 (Apple Git-55)
