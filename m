@@ -1,54 +1,37 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] net: Updates to netif_index_is_vrf
-Date: Sun, 16 Aug 2015 02:39:26 +0200
-Message-ID: <20150816003926.GA31357@breakpoint.cc>
-References: <1439683793-2999-1-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH] ethtool: Dump eeprom info for soldered on modules
+Date: Sun, 16 Aug 2015 04:05:18 +0200
+Message-ID: <1439690718-10040-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Ben Hutchings <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34183 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751350AbbHPAj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Aug 2015 20:39:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1439683793-2999-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:60221 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751749AbbHPCMi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Aug 2015 22:12:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Ahern <dsa@cumulusnetworks.com> wrote:
-> As Eric noted netif_index_is_vrf is not called with rcu_read_lock held,
-> so use dev_get_by_index instead of dev_get_by_index_rcu.
-> 
-> If VRF is not enabled or oif is 0 skip the device lookup.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Modules which are soldered onto the motherboard may also use the sff8079
+EEPROM format. Dump these in the same way as SFP modules.
 
-Why not
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ sfpid.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->  static inline bool netif_index_is_vrf(struct net *net, int ifindex)
->  {
-> -	struct net_device *dev = dev_get_by_index_rcu(net, ifindex);
->  	bool rc = false;
->  
-> -	if (dev)
-> -		rc = netif_is_vrf(dev);
-> +#if IS_ENABLED(CONFIG_NET_VRF)
-> +	struct net_device *dev;
-> +
-> +	if (ifindex == 0)
-> +		return false;
-
-	rcu_read_lock();
-
-	dev = dev_get_by_index_rcu(net, ifindex);
-	if (dev)
-		rc = netif_is_vrf(dev);
-
-	rcu_read_unlock();
-
-> +#endif
->  	return rc;
-
-instead?
+diff --git a/sfpid.c b/sfpid.c
+index b1a5044..0b5cd62 100644
+--- a/sfpid.c
++++ b/sfpid.c
+@@ -401,7 +401,7 @@ static void sff8079_show_options(const __u8 *id)
+ void sff8079_show_all(const __u8 *id)
+ {
+ 	sff8079_show_identifier(id);
+-	if ((id[0] == 0x03) && (id[1] == 0x04)) {
++	if (((id[0] == 0x02) || (id[0] == 0x03)) && (id[1] == 0x04)) {
+ 		sff8079_show_ext_identifier(id);
+ 		sff8079_show_connector(id);
+ 		sff8079_show_transceiver(id);
+-- 
+2.1.4
