@@ -1,37 +1,40 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH] ethtool: Dump eeprom info for soldered on modules
-Date: Sun, 16 Aug 2015 04:05:18 +0200
-Message-ID: <1439690718-10040-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Ben Hutchings <bwh@kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next v2 1/4] packet: add classic BPF fanout mode
+Date: Sat, 15 Aug 2015 21:58:23 -0700
+Message-ID: <55D0186F.7080906@plumgrid.com>
+References: <1439605897-28311-1-git-send-email-willemb@google.com>
+ <1439605897-28311-2-git-send-email-willemb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com, daniel@iogearbox.net
+To: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60221 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751749AbbHPCMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Aug 2015 22:12:38 -0400
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:35005 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750705AbbHPE60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2015 00:58:26 -0400
+Received: by pdrg1 with SMTP id g1so44096198pdr.2
+        for <netdev@vger.kernel.org>; Sat, 15 Aug 2015 21:58:25 -0700 (PDT)
+In-Reply-To: <1439605897-28311-2-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Modules which are soldered onto the motherboard may also use the sff8079
-EEPROM format. Dump these in the same way as SFP modules.
+On 8/14/15 7:31 PM, Willem de Bruijn wrote:
+> From: Willem de Bruijn<willemb@google.com>
+>
+> Add fanout mode PACKET_FANOUT_CBPF that accepts a classic BPF program
+> to select a socket.
+>
+> This avoids having to keep adding special case fanout modes. One
+> example use case is application layer load balancing. The QUIC
+> protocol, for instance, encodes a connection ID in UDP payload.
+>
+> Also add socket option SOL_PACKET/PACKET_FANOUT_DATA that updates data
+> associated with the socket group. Fanout mode PACKET_FANOUT_CBPF is the
+> only user so far.
+>
+> Signed-off-by: Willem de Bruijn<willemb@google.com>
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- sfpid.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/sfpid.c b/sfpid.c
-index b1a5044..0b5cd62 100644
---- a/sfpid.c
-+++ b/sfpid.c
-@@ -401,7 +401,7 @@ static void sff8079_show_options(const __u8 *id)
- void sff8079_show_all(const __u8 *id)
- {
- 	sff8079_show_identifier(id);
--	if ((id[0] == 0x03) && (id[1] == 0x04)) {
-+	if (((id[0] == 0x02) || (id[0] == 0x03)) && (id[1] == 0x04)) {
- 		sff8079_show_ext_identifier(id);
- 		sff8079_show_connector(id);
- 		sff8079_show_transceiver(id);
--- 
-2.1.4
+bpf bits looks good.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
