@@ -1,98 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux 4.2-rc6 regression: RIP: e030:[<ffffffff8110fb18>]
- [<ffffffff8110fb18>] detach_if_pending+0x18/0x80
-Date: Mon, 17 Aug 2015 10:18:48 -0700
-Message-ID: <1439831928.32680.11.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <7c39e6332aae572372108d5fd68c503b@eikelenboom.it>
-	 <1439412094.29802.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0de9f30086ee2e662bdafee61d24b3c1@eikelenboom.it>
-	 <20150812.144040.1151964094247340464.davem@davemloft.net>
-	 <b5e9ffc27531e98bc2ac1e28d6a3d0f0@eikelenboom.it>
-	 <1439419279.29802.25.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <3b284689aaa1573610c0e388e66e756a@eikelenboom.it>
-	 <1439591965.7507.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <963062024.20150817110956@eikelenboom.it>
-	 <1439818633.7258.16.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <196897465.20150817154802@eikelenboom.it> <55D1E97B.6090309@jons.org>
-	 <1439821307.7258.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <373726164.20150817162534@eikelenboom.it>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2: Fix bandwidth allocation for some MF
+ modes
+Date: Mon, 17 Aug 2015 10:28:10 -0700 (PDT)
+Message-ID: <20150817.102810.1079283414308199235.davem@davemloft.net>
+References: <1439789305-4643-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jon Christopherson <jon@jons.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, david.vrabel@citrix.com
-To: Sander Eikelenboom <linux@eikelenboom.it>,
-	Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <373726164.20150817162534@eikelenboom.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35119 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757AbbHQR2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 13:28:14 -0400
+In-Reply-To: <1439789305-4643-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Mon, 17 Aug 2015 08:28:25 +0300
 
-On Mon, 2015-08-17 at 16:25 +0200, Sander Eikelenboom wrote:
-> Monday, August 17, 2015, 4:21:47 PM, you wrote:
+> Management firmware tells driver in case bandwidth configuration for
+> a specific function exists, but [regretably] the same field has different
+> meanings depending on the multi-function mode - it can either be
+> a percentile value or an actual speed.
 > 
-> > On Mon, 2015-08-17 at 09:02 -0500, Jon Christopherson wrote:
-> >> This is very similar to the behavior I am seeing in this bug:
-> >> 
-> >> https://bugzilla.kernel.org/show_bug.cgi?id=102911
+> For newer multi-function modes current logic is incorrect -
+> driver understands values as actual speeds instead of percentages,
+> causing the resulting chip configuration to be incorrect.
 > 
-> > OK, but have you applied the fix ?
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> ---
+> Hi Dave,
 > 
-> > http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
+> This is actually a bug fix - but as some of the targeted multi-function
+> modes exists only in 'net-next' at this time, I'm designating this fix
+> to 'net-next' as well.
 > 
-> > It will be part of net iteration from David Miller to Linus Torvald.
-> 
-> 
-> I did have that patch in for my last report.
-> But i don't think he had (looking at the second part of his oops).
->  
+> Please consider applying this one.
 
-Then can you try following fix as well ?
-
-Thanks !
-
-[PATCH] timer: fix a race in __mod_timer()
-
-lock_timer_base() can not catch following :
-
-CPU1 ( in __mod_timer()
-timer->flags |= TIMER_MIGRATING;
-spin_unlock(&base->lock);
-base = new_base;
-spin_lock(&base->lock);
-timer->flags &= ~TIMER_BASEMASK;
-                                  CPU2 (in lock_timer_base())
-                                  see timer base is cpu0 base
-                                  spin_lock_irqsave(&base->lock, *flags);
-                                  if (timer->flags == tf)
-                                       return base; // oops, wrong base
-timer->flags |= base->cpu // too late
-
-We must write timer->flags in one go, otherwise we can fool other cpus.
-
-Fixes: bc7a34b8b9eb ("timer: Reduce timer migration overhead if disabled")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
----
- kernel/time/timer.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/kernel/time/timer.c b/kernel/time/timer.c
-index 5e097fa9faf7..84190f02b521 100644
---- a/kernel/time/timer.c
-+++ b/kernel/time/timer.c
-@@ -807,8 +807,8 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
- 			spin_unlock(&base->lock);
- 			base = new_base;
- 			spin_lock(&base->lock);
--			timer->flags &= ~TIMER_BASEMASK;
--			timer->flags |= base->cpu;
-+			WRITE_ONCE(timer->flags,
-+				   (timer->flags & ~TIMER_BASEMASK) | base->cpu);
- 		}
- 	}
- 
+Applied to net-next, thanks.
