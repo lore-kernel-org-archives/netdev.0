@@ -1,69 +1,39 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH] iproute2: Extend bridge command to configure ageing
- interval on bridge devices.
-Date: Mon, 17 Aug 2015 04:44:26 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E2283@SJEXCHMB14.corp.ad.broadcom.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1FA4@SJEXCHMB14.corp.ad.broadcom.com>
- <20150814111155.GC21759@unicorn.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv4: fix refcount leak in fib_check_nh()
+Date: Sun, 16 Aug 2015 22:14:53 -0700 (PDT)
+Message-ID: <20150816.221453.687679180841395897.davem@davemloft.net>
+References: <55CE7776.5000706@cumulusnetworks.com>
+	<1439595092.7507.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1439661247.7258.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:32036 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326AbbHQEo3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 00:44:29 -0400
-In-Reply-To: <20150814111155.GC21759@unicorn.suse.cz>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:60286 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbbHQFO5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 01:14:57 -0400
+In-Reply-To: <1439661247.7258.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Michal,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 15 Aug 2015 10:54:07 -0700
 
-Thank you for your comments.  I will wait for the review comments on kernel changes, and repost this patch after that.
-
--Prem
-
------Original Message-----
-From: Michal Kubecek [mailto:mkubecek@suse.cz] 
-Sent: Friday, August 14, 2015 4:42 PM
-To: Premkumar Jonnala
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH] iproute2: Extend bridge command to configure ageing interval on bridge devices.
-
-On Fri, Aug 14, 2015 at 09:50:02AM +0000, Premkumar Jonnala wrote:
-> Extend bridge command to configure and retrieve ageing interval for bridge
-> devices.  Netlink messaging is used to configure and retrieve the ageing
-> interval.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
+> fib_lookup() forces FIB_LOOKUP_NOREF flag, while fib_table_lookup()
+> does not.
 > 
-...
-> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-> index a78f0b3..abc9617 100644
-> --- a/include/linux/rtnetlink.h
-> +++ b/include/linux/rtnetlink.h
-> @@ -139,6 +139,13 @@ enum {
->  	RTM_GETNSID = 90,
->  #define RTM_GETNSID RTM_GETNSID
->  
-> +	RTM_SETAGEING = 92,
-> +#define RTM_SETAGEING RTM_SETAGEING
-> +	RTM_SETDEFAULTAGEING = 93,
-> +#define RTM_SETDEFAULTAGEING RTM_SETDEFAULTAGEING
-> +	RTM_GETAGEING = 94,
-> +#define RTM_GETAGEING RTM_GETAGEING
-> +
->  	__RTM_MAX,
->  #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
->  };
-> --
+> This patch solves the typical message at reboot time or device
+> dismantle :
+> 
+> unregister_netdevice: waiting for eth0 to become free. Usage count = 4
+> 
+> Fixes: 3bfd847203c6 ("net: Use passed in table for nexthop lookups")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: David Ahern <dsa@cumulusnetworks.com>
 
-As far as I can see, this depends on a kernel patch which is still under
-review (in particular, adding these new message types was objected to).
-I would suggest to wait with submission of the iproute2 patch until
-relevant kernel changes are accepted.
-
-                                                          Michal Kubecek
+Applied, thanks Eric.
