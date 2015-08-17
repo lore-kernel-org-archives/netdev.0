@@ -1,144 +1,67 @@
-From: Uwe Koziolek <uwe.koziolek@redknee.com>
-Subject: Re: [PATCH] net/bonding: send arp in interval if no active slave
-Date: Mon, 17 Aug 2015 20:56:36 +0200
-Message-ID: <55D22E64.6020807@redknee.com>
-References: <1439828583-27325-1-git-send-email-jarod@redhat.com> <20150817165500.GA21512@vps.falico.eu> <55D215F7.3080905@redhat.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Linux 4.2-rc6 regression: RIP: e030:[<ffffffff8110fb18>]
+ [<ffffffff8110fb18>] detach_if_pending+0x18/0x80
+Date: Mon, 17 Aug 2015 21:13:35 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1508172112370.3873@nanos>
+References: <7c39e6332aae572372108d5fd68c503b@eikelenboom.it>  <1439412094.29802.21.camel@edumazet-glaptop2.roam.corp.google.com>  <0de9f30086ee2e662bdafee61d24b3c1@eikelenboom.it>  <20150812.144040.1151964094247340464.davem@davemloft.net>
+ <b5e9ffc27531e98bc2ac1e28d6a3d0f0@eikelenboom.it>  <1439419279.29802.25.camel@edumazet-glaptop2.roam.corp.google.com>  <3b284689aaa1573610c0e388e66e756a@eikelenboom.it>  <1439591965.7507.6.camel@edumazet-glaptop2.roam.corp.google.com>
+ <963062024.20150817110956@eikelenboom.it>  <1439818633.7258.16.camel@edumazet-glaptop2.roam.corp.google.com>  <196897465.20150817154802@eikelenboom.it> <55D1E97B.6090309@jons.org>  <1439821307.7258.20.camel@edumazet-glaptop2.roam.corp.google.com>
+ <373726164.20150817162534@eikelenboom.it> <1439831928.32680.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	<netdev@vger.kernel.org>
-To: Jarod Wilson <jarod@redhat.com>,
-	Veaceslav Falico <vfalico@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0128.outbound.protection.outlook.com ([65.55.169.128]:21904
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750936AbbHQTLu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2015 15:11:50 -0400
-In-Reply-To: <55D215F7.3080905@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sander Eikelenboom <linux@eikelenboom.it>,
+	Jon Christopherson <jon@jons.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, david.vrabel@citrix.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439831928.32680.11.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On2015-08-17 07:12 PM,Jarod Wilson wrote:
-> On 2015-08-17 12:55 PM, Veaceslav Falico wrote:
->> On Mon, Aug 17, 2015 at 12:23:03PM -0400, Jarod Wilson wrote:
->>> From: Uwe Koziolek <uwe.koziolek@redknee.com>
->>>
->>> With some very finicky switch hardware, active backup bonding can get
->>> into
->>> a situation where we play ping-pong between interfaces, trying to 
->>> get one
->>> to come up as the active slave. There seems to be an issue with the
->>> switch's arp replies either taking too long, or simply getting lost,
->>> so we
->>> wind up unable to get any interface up and active. Sometimes, the issue
->>> sorts itself out after a while, sometimes it doesn't.
->>>
->>> Testing with num_grat_arp has proven fruitless, but sending an 
->>> additional
->>> arp on curr_arp_slave if we're still in the arp_interval timeslice in
->>> bond_ab_arp_probe(), has shown to produce 100% reliability in testing
->>> with
->>> this hardware combination.
->>
->> Sorry, I don't understand the logic of why it works, and what exactly 
->> are
->> we fixiing here.
->>
->> It also breaks completely the logic for link state management in case 
->> of no
->> current active slave for 2*arp_interval.
->>
->> Could you please elaborate what exactly is fixed here, and how it 
->> works? :)
->
-> I can either duplicate some information from the bug, or Uwe can, to 
-> illustrate the exact nature of the problem.
->
->> p.s. num_grat_arp maybe could help?
->
-> That was my thought as well, but as I understand it, that route was 
-> explored, and it didn't help any. I don't actually have a reproducer 
-> setup of my own, unfortunately, so I'm kind of caught in the middle 
-> here...
->
-> Uwe, can you perhaps further enlighten us as to what num_grat_arp 
-> settings were tried that didn't help? I'm still of the mind that if 
-> num_grat_arp *didn't* help, we probably need to do something keyed off 
-> num_grat_arp.
-The bonding slaves are connected to high available switches, each of the 
-slaves is connected to a different switch. If the bond is starting, only 
-the selected slave sends one arp-request. If a matching arp_response was 
-received, this slave and the bond is going into state up, sending the 
-gratitious arps...
-But if you got no arp reply the next slave was selected.
-With most of the newer switches, not overloaded, or with other software 
-bugs, or with a single switch configuration, you would get a arp 
-response on the first arp request.
-But in case of high availability configuration with non perfect switches 
-like HP ProCurve 54xx, also with some Cisco models, you may not get a 
-response on the first arp request.
+On Mon, 17 Aug 2015, Eric Dumazet wrote:
+> [PATCH] timer: fix a race in __mod_timer()
+> 
+> lock_timer_base() can not catch following :
+> 
+> CPU1 ( in __mod_timer()
+> timer->flags |= TIMER_MIGRATING;
+> spin_unlock(&base->lock);
+> base = new_base;
+> spin_lock(&base->lock);
+> timer->flags &= ~TIMER_BASEMASK;
+>                                   CPU2 (in lock_timer_base())
+>                                   see timer base is cpu0 base
+>                                   spin_lock_irqsave(&base->lock, *flags);
+>                                   if (timer->flags == tf)
+>                                        return base; // oops, wrong base
+> timer->flags |= base->cpu // too late
+> 
+> We must write timer->flags in one go, otherwise we can fool other cpus.
+> 
+> Fixes: bc7a34b8b9eb ("timer: Reduce timer migration overhead if disabled")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> ---
+>  kernel/time/timer.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/kernel/time/timer.c b/kernel/time/timer.c
+> index 5e097fa9faf7..84190f02b521 100644
+> --- a/kernel/time/timer.c
+> +++ b/kernel/time/timer.c
+> @@ -807,8 +807,8 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
+>  			spin_unlock(&base->lock);
+>  			base = new_base;
+>  			spin_lock(&base->lock);
+> -			timer->flags &= ~TIMER_BASEMASK;
+> -			timer->flags |= base->cpu;
+> +			WRITE_ONCE(timer->flags,
+> +				   (timer->flags & ~TIMER_BASEMASK) | base->cpu);
 
-I have seen network snoops, there the switches are not responding to the 
-first arp request on slave 1, the second arp request was sent on slave 2 
-but the response was received on slave one,  and all following arp 
-requests are anwsered on the wrong slave for a longer time.
+Duh, yes. Picking it up for timers/urgent.
 
-The proposed change sents up to 3 arp requests on a down bond using the 
-same slave, delayed by arp_interval.
-Using problematic switches i have seen the the arp response on the right 
-slave at latest on the second arp request. So the bond is going into 
-state up.
+Thanks for spotting it.
 
-How does it works:
-The bonds in up state are handled on the beginning of bond_ab_arp_probe 
-procedure, the other part of this procedure is handling the slave change.
-The proposed change is bypassing the slave change for 2 additional calls 
-of bond_ab_arp_probe.
-Now the retries are not only for an up bond available, they are also 
-implemented for a down bond.
-
-The num_grat_arp has no chance to solve the problem. The num_grat_arp is 
-only used, if a different slave is going active.
-But in our case, the bonding slaves are not going into the state active 
-for a longer time.
->
->>> [jarod: manufacturing of changelog]
->>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
->>> CC: Veaceslav Falico <vfalico@gmail.com>
->>> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
->>> CC: netdev@vger.kernel.org
->>> Signed-off-by: Uwe Koziolek <uwe.koziolek@redknee.com>
->>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
->>> ---
->>> drivers/net/bonding/bond_main.c | 5 +++++
->>> 1 file changed, 5 insertions(+)
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c
->>> b/drivers/net/bonding/bond_main.c
->>> index 0c627b4..60b9483 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -2794,6 +2794,11 @@ static bool bond_ab_arp_probe(struct bonding
->>> *bond)
->>>             return should_notify_rtnl;
->>>     }
->>>
->>> +    if (bond_time_in_interval(bond, curr_arp_slave->last_link_up, 
->>> 2)) {
->>> +        bond_arp_send_all(bond, curr_arp_slave);
->>> +        return should_notify_rtnl;
->>> +    }
->>> +
->>>     bond_set_slave_inactive_flags(curr_arp_slave,
->>> BOND_SLAVE_NOTIFY_LATER);
->>>
->>>     bond_for_each_slave_rcu(bond, slave, iter) {
->>> -- 
->>> 1.8.3.1
->>>
->
->
+       tglx
