@@ -1,112 +1,71 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: Linux 4.2-rc6 regression: RIP: e030:[<ffffffff8110fb18>]
- [<ffffffff8110fb18>] =?UTF-8?Q?detach=5Fif=5Fpending+=30x=31=38/=30x=38?=
- =?UTF-8?Q?=30?=
-Date: Mon, 17 Aug 2015 20:27:42 +0200
-Message-ID: <ae0cbd0dc71333ea44e4e756c8a004b3@eikelenboom.it>
-References: <7c39e6332aae572372108d5fd68c503b@eikelenboom.it>
- <1439412094.29802.21.camel@edumazet-glaptop2.roam.corp.google.com>
- <0de9f30086ee2e662bdafee61d24b3c1@eikelenboom.it>
- <20150812.144040.1151964094247340464.davem@davemloft.net>
- <b5e9ffc27531e98bc2ac1e28d6a3d0f0@eikelenboom.it>
- <1439419279.29802.25.camel@edumazet-glaptop2.roam.corp.google.com>
- <3b284689aaa1573610c0e388e66e756a@eikelenboom.it>
- <1439591965.7507.6.camel@edumazet-glaptop2.roam.corp.google.com>
- <963062024.20150817110956@eikelenboom.it>
- <1439818633.7258.16.camel@edumazet-glaptop2.roam.corp.google.com>
- <196897465.20150817154802@eikelenboom.it> <55D1E97B.6090309@jons.org>
- <1439821307.7258.20.camel@edumazet-glaptop2.roam.corp.google.com>
- <373726164.20150817162534@eikelenboom.it>
- <1439831928.32680.11.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH/RFC] openvswitch: Retain parsed IPv6 header fields in flow
+ on error skipping extension headers
+Date: Mon, 17 Aug 2015 11:33:59 -0700
+Message-ID: <CALnjE+owxmLQXLZoAU4oNXToDA1hb4uvr8nj9KXCiKgcRhEOvQ@mail.gmail.com>
+References: <1439515813-29406-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Jon Christopherson <jon@jons.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, david.vrabel@citrix.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:51051 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbbHQSd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 14:33:28 -0400
-In-Reply-To: <1439831928.32680.11.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:33978 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751297AbbHQSeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 14:34:00 -0400
+Received: by iodb91 with SMTP id b91so161240476iod.1
+        for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 11:33:59 -0700 (PDT)
+In-Reply-To: <1439515813-29406-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015-08-17 19:18, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> On Mon, 2015-08-17 at 16:25 +0200, Sander Eikelenboom wrote:
->> Monday, August 17, 2015, 4:21:47 PM, you wrote:
->> 
->> > On Mon, 2015-08-17 at 09:02 -0500, Jon Christopherson wrote:
->> >> This is very similar to the behavior I am seeing in this bug:
->> >>
->> >> https://bugzilla.kernel.org/show_bug.cgi?id=102911
->> 
->> > OK, but have you applied the fix ?
->> 
->> > http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
->> 
->> > It will be part of net iteration from David Miller to Linus Torvald.
->> 
->> 
->> I did have that patch in for my last report.
->> But i don't think he had (looking at the second part of his oops).
->> 
-> 
-> Then can you try following fix as well ?
-> 
-> Thanks !
-
-Running now :)
-
-
-> 
-> [PATCH] timer: fix a race in __mod_timer()
-> 
-> lock_timer_base() can not catch following :
-> 
-> CPU1 ( in __mod_timer()
-> timer->flags |= TIMER_MIGRATING;
-> spin_unlock(&base->lock);
-> base = new_base;
-> spin_lock(&base->lock);
-> timer->flags &= ~TIMER_BASEMASK;
->                                   CPU2 (in lock_timer_base())
->                                   see timer base is cpu0 base
->                                   spin_lock_irqsave(&base->lock, 
-> *flags);
->                                   if (timer->flags == tf)
->                                        return base; // oops, wrong base
-> timer->flags |= base->cpu // too late
-> 
-> We must write timer->flags in one go, otherwise we can fool other cpus.
-> 
-> Fixes: bc7a34b8b9eb ("timer: Reduce timer migration overhead if 
-> disabled")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
+On Thu, Aug 13, 2015 at 6:30 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> When an error occurs skipping IPv6 extension headers retain the already
+> parsed IP protocol and IPv6 addresses in the flow. Also assume that the
+> packet is not a fragment in the absence of information to the contrary;
+> that is always use the frag_off value set by ipv6_skip_exthdr().
+>
+> This allows matching on the IP protocol and IPv6 addresses of packets
+> with malformed extension headers.
+>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>
 > ---
->  kernel/time/timer.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/kernel/time/timer.c b/kernel/time/timer.c
-> index 5e097fa9faf7..84190f02b521 100644
-> --- a/kernel/time/timer.c
-> +++ b/kernel/time/timer.c
-> @@ -807,8 +807,8 @@ __mod_timer(struct timer_list *timer, unsigned long 
-> expires,
->  			spin_unlock(&base->lock);
->  			base = new_base;
->  			spin_lock(&base->lock);
-> -			timer->flags &= ~TIMER_BASEMASK;
-> -			timer->flags |= base->cpu;
-> +			WRITE_ONCE(timer->flags,
-> +				   (timer->flags & ~TIMER_BASEMASK) | base->cpu);
->  		}
->  	}
+>
+> * Some consideration should be given to unwanted side effects of this patch
+>   as it affects the handling of malformed packets.
+>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+>  net/openvswitch/flow.c | 11 +++++++----
+>  1 file changed, 7 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+> index 8db22ef73626..3c5336c5d4ea 100644
+> --- a/net/openvswitch/flow.c
+> +++ b/net/openvswitch/flow.c
+> @@ -271,8 +271,6 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
+>         key->ipv6.addr.dst = nh->daddr;
+>
+>         payload_ofs = ipv6_skip_exthdr(skb, payload_ofs, &nexthdr, &frag_off);
+> -       if (unlikely(payload_ofs < 0))
+> -               return -EINVAL;
+>
+>         if (frag_off) {
+>                 if (frag_off & htons(~0x7))
+> @@ -283,6 +281,13 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
+>                 key->ip.frag = OVS_FRAG_TYPE_NONE;
+>         }
+>
+> +       /* Delayed handling of error in ipv6_skip_exthdr() as it
+> +        * always sets frag_off to a valid value which may be
+> +        * used to set key->ip.frag above.
+> +        */
+> +       if (unlikely(payload_ofs < 0))
+> +               return -EINVAL;
+> +
+check_header() function called above also return -EINVAL, That could
+confuse caller checking for error code. So we need different error
+code here.
