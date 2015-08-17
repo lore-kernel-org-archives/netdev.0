@@ -1,33 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: phy: workaround for buggy cable detection by
- LAN8700 after cable plugging
-Date: Mon, 17 Aug 2015 14:28:34 -0700 (PDT)
-Message-ID: <20150817.142834.960620594778281556.davem@davemloft.net>
-References: <1439572262-10705-1-git-send-email-plyatov@gmail.com>
+Subject: Re: [PATCH net] be2net: avoid vxlan offloading on multichannel
+ configs
+Date: Mon, 17 Aug 2015 14:30:26 -0700 (PDT)
+Message-ID: <20150817.143026.37154503480355591.davem@davemloft.net>
+References: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, joe@perches.com, luwei.zhou@freescale.com,
-	richardcochran@gmail.com, u.kleine-koenig@pengutronix.de,
-	Fabio.Estevam@freescale.com, LW@KARO-electronics.de,
-	Frank.Li@freescale.com, mhei@heimpold.de
-To: plyatov@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439572262-10705-1-git-send-email-plyatov@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sathya.perla@avagotech.com,
+	ajit.khaparde@avagotech.com, padmanabh.ratnakar@avagotech.com,
+	sriharsha.basavapatna@avagotech.com
+To: ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36458 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbbHQVa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 17:30:27 -0400
+In-Reply-To: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Igor Plyatov <plyatov@gmail.com>
-Date: Fri, 14 Aug 2015 20:11:02 +0300
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Fri, 14 Aug 2015 22:30:01 +0200
 
-> * Due to HW bug, LAN8700 sometimes does not detect presence of energy in the
->   Ethernet cable in Energy Detect Power-Down mode (e.g while EDPWRDOWN bit is
->   set, the ENERGYON bit does not asserted sometimes). This is a common bug of
->   LAN87xx family of PHY chips.
-> * The lan87xx_read_status() was improved to acquire ENERGYON bit. Its previous
->   algorythm still not reliable on 100 % and sometimes skip cable plugging.
-> 
-> Signed-off-by: Igor Plyatov <plyatov@gmail.com>
+> VxLAN offloading is not functional if the NIC is running in multichannel
+> mode (UMC, FLEX-10, VNIC...). Enabling this additionally kills whole
+> connectivity through the NIC and the device needs to be down and up to
+> restore it. The firmware should take care about it and does not allow
+> the conversion of interface to tunnel type (be_cmd_manage_iface) or should
+> support VxLAN offloading if multichannel config is enabled.
+> I have tested this on the latest available firmware (10.6.144.21).
+ ...
+> Cc: Sathya Perla <sathya.perla@avagotech.com>
+> Cc: Ajit Khaparde <ajit.khaparde@avagotech.com>
+> Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
+> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
 Applied, thanks.
