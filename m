@@ -1,40 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rhashtable-test: extend to test concurrency
-Date: Mon, 17 Aug 2015 14:32:52 -0700 (PDT)
-Message-ID: <20150817.143252.890116643769336637.davem@davemloft.net>
-References: <1439591835-30357-1-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: phil@nwl.cc
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439591835-30357-1-git-send-email-phil@nwl.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v1 0/2] drivers: net: xgene: Add TSO support
+Date: Mon, 17 Aug 2015 14:33:03 -0700
+Message-ID: <1439847185-22046-1-git-send-email-isubramanian@apm.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	kchudgar@apm.com, patches@apm.com,
+	Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:34723 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751295AbbHQVdZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 17:33:25 -0400
+Received: by pdbfa8 with SMTP id fa8so59847767pdb.1
+        for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 14:33:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Sat, 15 Aug 2015 00:37:15 +0200
+Adding TSO support
 
-> After having tested insertion, lookup, table walk and removal, spawn a
-> number of threads running operations on the same rhashtable. Each of
-> them will:
-> 
-> 1) insert it's own set of objects,
-> 2) lookup every successfully inserted object and finally
-> 3) remove objects in several rounds until all of them have been removed,
->    making sure the remaining ones are still found after each round.
-> 
-> This should put a good amount of load onto the system and due to
-> synchronising thread startup via two semaphores also extensive
-> concurrent table access.
-> 
-> The default number of ten threads returned within half a second on my
-> local VM with two cores. Running 200 threads took about four seconds. If
-> slow systems suffer too much from this though, the default could be
-> lowered or even set to zero so this extended test does not run at all by
-> default.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+iperf Tx data rate without TSO: 3.42 Gbps
+                      with TSO: 9.41 Gbps
 
-Applied, thank you.
+v1
+* Initial version
+
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+---
+
+Iyappan Subramanian (2):
+  drivers: net: xgene: Preparatory patch for TSO support
+  drivers: net: xgene: Adding support for TSO
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  16 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 260 ++++++++++++++++++++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  12 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |   8 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |   2 +
+ 5 files changed, 272 insertions(+), 26 deletions(-)
+
+-- 
+1.9.1
