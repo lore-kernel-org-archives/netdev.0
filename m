@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: don't sanity check non-existing TLV (NL
- compat)
-Date: Mon, 17 Aug 2015 10:43:13 -0700 (PDT)
-Message-ID: <20150817.104313.662767041806663657.davem@davemloft.net>
-References: <1439813710-11322-1-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: [PATCH net-next v2 2/3] net: Add
+ inet_proto_csum_replace_by_diff utility function
+Date: Mon, 17 Aug 2015 10:50:03 -0700 (PDT)
+Message-ID: <20150817.105003.893987124294009114.davem@davemloft.net>
+References: <1439830611-22898-1-git-send-email-tom@herbertland.com>
+	<1439830611-22898-3-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: richard.alpe@ericsson.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35265 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35317 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbbHQRnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 13:43:14 -0400
-In-Reply-To: <1439813710-11322-1-git-send-email-richard.alpe@ericsson.com>
+	with ESMTP id S1750710AbbHQRuF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 13:50:05 -0400
+In-Reply-To: <1439830611-22898-3-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <richard.alpe@ericsson.com>
-Date: Mon, 17 Aug 2015 14:15:10 +0200
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 17 Aug 2015 09:56:50 -0700
 
-> From: Richard Alpe <richard.alpe@ericsson.com>
-> 
-> A zero length payload means that no TLV (Type Length Value) data has
-> been passed. Prior to this patch a non-existing TLV could be sanity
-> checked with TLV_OK() resulting in random behavior where a user
-> sending an empty message occasionally got a incorrect "operation not
-> supported" message back.
-> 
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+> +void inet_proto_csum_replace_by_diff(__sum16 *sum, struct sk_buff *skb,
+> +				     __wsum diff, int pseudohdr);
+ ...
+> +void inet_proto_csum_replace_by_diff(__sum16 *sum, struct sk_buff *skb,
+> +				     __wsum diff, int pseudohdr)
 
-Applied, thanks.
+Please make 'pseudohdr' a bool.
+
+Thanks.
