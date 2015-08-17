@@ -1,46 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net/wireless: enable wiphy device to suspend/resume
- asynchronously
-Date: Mon, 17 Aug 2015 09:29:13 +0200
-Message-ID: <1439796553.2451.1.camel@sipsolutions.net>
-References: <55B9B3BA.6080406@linux.intel.com>
-	 <CANUX_P3PMsvWCWWciwCsRvf5PqLVEK9d9S=2Gbq+EotVGffEow@mail.gmail.com>
-	 <55D13D66.1050500@linux.intel.com>
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Subject: RE: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
+Date: Mon, 17 Aug 2015 07:29:47 +0000
+Message-ID: <BLUPR03MB14754DA59F09B9EE7F6434FEE2790@BLUPR03MB1475.namprd03.prod.outlook.com>
+References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
+ <55CE1EFD.9090505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Florian Fainelli <f.fainelli@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
-	Emmanuel Grumbach <egrumbach@gmail.com>
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:43082 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750775AbbHQH3W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2015 03:29:22 -0400
-In-Reply-To: <55D13D66.1050500@linux.intel.com>
+Received: from mail-bn1bon0115.outbound.protection.outlook.com ([157.56.111.115]:22880
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753237AbbHQH3u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Aug 2015 03:29:50 -0400
+In-Reply-To: <55CE1EFD.9090505@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-08-17 at 09:48 +0800, Fu, Zhonghui wrote:
-> 
-> The suspend/resume timing of wiphy device and related devices will be 
-> ensured by their parent/child relationship. So, enabling wiphy device 
-> to suspend/resume asynchronously does not change any  dependency. It 
-> can only take advantage of multicore and improve system 
-> suspend/resume speed.
-> 
-
-You're going to have to explain that to me, because I don't see that.
-All I see is that when looking at a device, if async is possible, it
-gets added to an async work, and if async is not possible then it gets
-done immediately. Even putting aside the question of whether or not
-async is ordered or not (I don't know), if the wiphy is async and the
-PCI (or other bus) device isn't, then it seems they could get handled
-out of order, no? Or is there some magic code somewhere that I'm
-missing that explicitly waits for the async of the parent/child
-relationship?
-
-johannes
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
+YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFNhdHVyZGF5LCBBdWd1c3QgMTUs
+IDIwMTUgMTowMiBBTQ0KPiBUbzogc2hoLnhpZUBnbWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IFhpZSBTaGFvaHVpLUIyMTk4OQ0KPiBT
+dWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IHBoeTogZml4IFBIWV9SVU5OSU5HIGluIHBoeV9zdGF0
+ZV9tYWNoaW5lDQo+IA0KPiBMZSAwOC8xMy8xNSAyMToyMywgc2hoLnhpZUBnbWFpbC5jb20gYSDD
+qWNyaXQgOg0KPiA+IEZyb206IFNoYW9odWkgWGllIDxTaGFvaHVpLlhpZUBmcmVlc2NhbGUuY29t
+Pg0KPiA+DQo+ID4gQ3VycmVudGx5LCBpZiBwaHkgc3RhdGUgaXMgUEhZX1JVTk5JTkcsIHdlIGFs
+d2F5cyByZWdpc3RlciBhIENIQU5HRQ0KPiA+IHdoZW4gcGh5IHdvcmtzIGluIHBvbGxpbmcgb3Ig
+aW50ZXJydXB0IGlnbm9yZWQsIHRoaXMgd2lsbCBtYWtlIHRoZQ0KPiA+IGFkanVzdF9saW5rIGJl
+aW5nIGNhbGxlZCBldmVuIHRoZSBwaHkgbGluayBkaWQgTm90IGNoYW5nZWQuDQo+IA0KPiBSaWdo
+dCwgd2hpY2ggaXMgd2h5IG1vc3QgZHJpdmVycyBkbyBpbXBsZW1lbnQgYSBjYWNoaW5nIHNjaGVt
+ZS4NCj4gDQo+ID4NCj4gPiBjaGVja2luZyB0aGUgcGh5IGxpbmsgdG8gbWFrZSBzdXJlIHRoZSBs
+aW5rIGRpZCBjaGFuZ2VkIGJlZm9yZSB3ZQ0KPiA+IHJlZ2lzdGVyIGEgQ0hBTkdFLCBpZiBsaW5r
+IGRpZCBub3QgY2hhbmdlZCwgd2UgZG8gbm90aGluZy4NCj4gDQo+IFdpdGggeW91ciBjaGFuZ2Ug
+d2Ugd2lsbCBlbmQtdXAgd2l0aCB2aXJ0dWFsbHkgcG9sbGluZyBhIFBIWSB0d2ljZSBhcyBmYXN0
+IGFzIHdlDQo+IHVzZWQgdG8gd2l0aCB0aGUgUlVOTklORyAtPiBDSEFOR0VMSU5LIC0+IFJVTk5J
+TkcgdHJhbnNpdGlvbiAoY3VycmVudCBzdGF0ZQ0KPiB0cmFuc2l0aW9ucyksIA0KW1MuSF0gWWVz
+LiBJZiB0aGUgbGluayBkaWQgY2hhbmdlZCwgd2UnbGwgcG9sbGluZyB0aGUgUEhZIHN0YXR1cyB0
+d2ljZSB3aXRoIG15IGNoYW5nZSwgDQpidXQgaWYgdGhlIGxpbmsgZGlkIG5vdCBjaGFuZ2VkLCB3
+ZSdsbCBvbmx5IG5lZWQgcG9sbGluZyB0aGUgUEhZIHN0YXR1cyB3aXRob3V0IA0KY2FsbGluZyBh
+ZGp1c3RfbGluaywgZm9yIHBoeV9zdGF0ZV9tYWNoaW5lIHdvcmtzIGluIHBvbGxpbmcgbW9kZSBh
+dCBmcmVxdWVuY3kgb2YgSFosDQptYW55IGFkanVzdF9saW5rIGNhbiBiZSBzYXZlZC4NCg0KPiB3
+aGljaCBpcyBwcm9iYWJseSBmaW5lLCBidXQgcHV0cyBhIGJpdCBtb3JlIHByZXNzdXJlIG9uIHRo
+ZSAoc2xvdykNCj4gTURJTyBidXMgc2luY2Ugd2UgZW5kLXVwIHdpdGggdHdvIGFkZGl0aW9uYWwg
+cmVhZHMgdG8gbGF0Y2ggdGhlIGxpbmsgc3RhdHVzDQo+IHJlZ2lzdGVyLg0KW1MuSF0gWWVzLCBi
+dXQgYWRqdXN0X2xpbmsgaW4gbW9zdCBkcml2ZXIgaXMgbW9yZSBjb21wbGV4IHRoYW4gcmVhZGlu
+ZyBQSFkgc3RhdHVzLg0KQW5kIHRoZSBsaW5rIHdvbid0IGJlIGNoYW5nZWQgdmVyeSBmcmVxdWVu
+dGx5Lg0KDQo+IA0KPiBQUzogSSB3b3VsZCBhcHByZWNpYXRlIGlmIHlvdSBjb3VsZCBDQyBtZSBv
+biBmdXR1cmUgbGlicGh5IHN1Ym1pc3Npb25zLg0KW1MuSF0gT0suIA0KVGhhbmtzIGZvciByZXZp
+ZXdpbmchDQoNClNoYW9odWkNCg==
