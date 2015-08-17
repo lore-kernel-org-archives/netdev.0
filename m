@@ -1,30 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth-next 2015-08-16
-Date: Mon, 17 Aug 2015 15:41:38 -0700 (PDT)
-Message-ID: <20150817.154138.1969837298406715589.davem@davemloft.net>
-References: <20150816060528.GA13052@t440s.P-661HNU-F1>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] Driver updates 16-Aug-2015
+Date: Mon, 17 Aug 2015 15:51:56 -0700 (PDT)
+Message-ID: <20150817.155156.1053449259012567792.davem@davemloft.net>
+References: <1439730292-29617-1-git-send-email-achiad@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150816060528.GA13052-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, ogerlitz@mellanox.com,
+	saeedm@mellanox.com, talal@mellanox.com
+To: achiad@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36796 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbbHQWv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 18:51:57 -0400
+In-Reply-To: <1439730292-29617-1-git-send-email-achiad@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Sun, 16 Aug 2015 09:05:28 +0300
+From: Achiad Shochat <achiad@mellanox.com>
+Date: Sun, 16 Aug 2015 16:04:44 +0300
 
-> Here's what's likely the last bluetooth-next pull request for 4.3:
+> This patchset contains bug fixes, new RSS and pause parameters ethtool
+> options, and support for RX CHECKSUM_COMPLETE.
 > 
->  - 6lowpan/802.15.4 refactoring, cleanups & fixes
->  - Document 6lowpan netdev usage in Documentation/networking/6lowpan.txt
->  - Support for UART based QCA Bluetooth controllers
->  - Power management support for Broeadcom Bluetooth controllers
->  - Change LE connection initiation to always use passive scanning first
->  - Support for new Silicon Wave USB ID
-> 
-> Please let me know if there are any issues pulling. Thanks.
+> Patchset was applied and tested over commit adc6310 ("Merge branch
+> 'mv88e6xxx-switchdev-fdb'").
 
-Pulled, thanks Johan.
+Series applied, thank you.
