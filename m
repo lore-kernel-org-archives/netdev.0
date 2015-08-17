@@ -1,56 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 3/3] dsa: mv88e6xxx: Set DSA mode based on chip abilities
-Date: Mon, 17 Aug 2015 23:52:52 +0200
-Message-ID: <1439848372-4055-4-git-send-email-andrew@lunn.ch>
-References: <1439848372-4055-1-git-send-email-andrew@lunn.ch>
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60902 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751387AbbHQWAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2015 18:00:45 -0400
-In-Reply-To: <1439848372-4055-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF
+ is configured or used
+Date: Mon, 17 Aug 2015 15:14:56 -0700
+Message-ID: <55D25CE0.6040203@roeck-us.net>
+References: <1439844336-21596-1-git-send-email-linux@roeck-us.net> <55D24FEE.8040505@arm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jeremy Linton <jeremy.linton@arm.com>,
+	Steve Glendinning <steve.glendinning@shawell.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55D24FEE.8040505@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Older devices only support a single DSA frame format, where as newer
-devices have two. Take this into account when configuring a DSA port.
-The port needs to be in plain old DSA mode, since this is a DSA link,
-where as the newer format can be used for the CPU port.
+On 08/17/2015 02:19 PM, Jeremy Linton wrote:
+> On 08/17/2015 03:45 PM, Guenter Roeck wrote:
+>> Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
+>> the call to smsc911x_probe_config() unconditional, and no longer fails if
+>> there is no device node. device_get_phy_mode() is called unconditionally,
+>> and if there is no phy node configured returns an error code. This error
+>> code is assigned to phy_interface, and interpreted elsewhere in the code
+>> as valid phy mode. This in turn causes qemu to crash when running a
+>> variant of realview_pb_defconfig.
+>
+> Thanks for catching that! I have a couple other minor cleanups per the reviewers.
+>
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+One nitpick I noticed after sending my patch: dev can never be NULL in
+smsc911x_probe_config(), so it does not really make sense to check if it is NULL.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 486e9792fc05..2ab3f9810593 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1987,12 +1987,15 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 				reg |= PORT_CONTROL_EGRESS_ADD_TAG;
- 		}
- 	}
--	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
--	    mv88e6xxx_6165_family(ds) || mv88e6xxx_6097_family(ds) ||
--	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6065_family(ds) ||
--	    mv88e6xxx_6320_family(ds)) {
--		if (dsa_is_dsa_port(ds, port))
-+	if (dsa_is_dsa_port(ds, port)) {
-+		if (mv88e6xxx_6095_family(ds) || mv88e6xxx_6185_family(ds))
-+			reg |= PORT_CONTROL_DSA_TAG;
-+		if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
-+		    mv88e6xxx_6165_family(ds) || mv88e6xxx_6097_family(ds) ||
-+		    mv88e6xxx_6320_family(ds)) {
- 			reg |= PORT_CONTROL_FRAME_MODE_DSA;
-+		}
-+
- 		if (port == dsa_upstream_port(ds))
- 			reg |= PORT_CONTROL_FORWARD_UNKNOWN |
- 				PORT_CONTROL_FORWARD_UNKNOWN_MC;
--- 
-2.5.0
+Guenter
