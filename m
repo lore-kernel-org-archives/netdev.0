@@ -1,29 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qmi_wwan: add HP lt4111 LTE/EV-DO/HSPA+ Gobi 4G
- Module
-Date: Mon, 17 Aug 2015 15:40:40 -0700 (PDT)
-Message-ID: <20150817.154040.411943397069848716.davem@davemloft.net>
-References: <1439683950-11429-1-git-send-email-david.ward@ll.mit.edu>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2015-08-16
+Date: Mon, 17 Aug 2015 15:41:38 -0700 (PDT)
+Message-ID: <20150817.154138.1969837298406715589.davem@davemloft.net>
+References: <20150816060528.GA13052@t440s.P-661HNU-F1>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.ward@ll.mit.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36740 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750875AbbHQWkl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 18:40:41 -0400
-In-Reply-To: <1439683950-11429-1-git-send-email-david.ward@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150816060528.GA13052-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ward <david.ward@ll.mit.edu>
-Date: Sat, 15 Aug 2015 20:12:30 -0400
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sun, 16 Aug 2015 09:05:28 +0300
 
-> This is an HP-branded Sierra Wireless EM7355:
-> https://bugzilla.redhat.com/show_bug.cgi?id=1223646#c2
+> Here's what's likely the last bluetooth-next pull request for 4.3:
 > 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+>  - 6lowpan/802.15.4 refactoring, cleanups & fixes
+>  - Document 6lowpan netdev usage in Documentation/networking/6lowpan.txt
+>  - Support for UART based QCA Bluetooth controllers
+>  - Power management support for Broeadcom Bluetooth controllers
+>  - Change LE connection initiation to always use passive scanning first
+>  - Support for new Silicon Wave USB ID
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied, thanks.
+Pulled, thanks Johan.
