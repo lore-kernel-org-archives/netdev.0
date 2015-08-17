@@ -1,47 +1,55 @@
-From: Vinod Koul <vinod.koul@intel.com>
-Subject: Re: [patch] net: ethernet: micrel: fix an error code
-Date: Mon, 17 Aug 2015 13:54:11 +0530
-Message-ID: <20150817082411.GN13546@localhost>
-References: <20150814085459.GC30728@mwanda>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] net/wireless: enable wiphy device to suspend/resume asynchronously
+Date: Mon, 17 Aug 2015 10:46:15 +0200
+Message-ID: <55D19F57.4070605@broadcom.com>
+References: <55B9B3BA.6080406@linux.intel.com>	 <CANUX_P3PMsvWCWWciwCsRvf5PqLVEK9d9S=2Gbq+EotVGffEow@mail.gmail.com>	 <55D13D66.1050500@linux.intel.com> <1439796553.2451.1.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:12265 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750881AbbHQIWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2015 04:22:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20150814085459.GC30728@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
+	Emmanuel Grumbach <egrumbach@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439796553.2451.1.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 14, 2015 at 11:54:59AM +0300, Dan Carpenter wrote:
-> The dma_mapping_error() function returns true or false.  We should
-> return -ENOMEM if it there is a dma mapping error.
++ Rafael
 
-Looks good to me, but should be sent to net folks now me :)
+On 08/17/2015 09:29 AM, Johannes Berg wrote:
+> On Mon, 2015-08-17 at 09:48 +0800, Fu, Zhonghui wrote:
+>>
+>> The suspend/resume timing of wiphy device and related devices will be
+>> ensured by their parent/child relationship. So, enabling wiphy device
+>> to suspend/resume asynchronously does not change any  dependency. It
+>> can only take advantage of multicore and improve system
+>> suspend/resume speed.
+>>
+>
+> You're going to have to explain that to me, because I don't see that.
+> All I see is that when looking at a device, if async is possible, it
+> gets added to an async work, and if async is not possible then it gets
+> done immediately. Even putting aside the question of whether or not
+> async is ordered or not (I don't know), if the wiphy is async and the
+> PCI (or other bus) device isn't, then it seems they could get handled
+> out of order, no? Or is there some magic code somewhere that I'm
+> missing that explicitly waits for the async of the parent/child
+> relationship?
 
--- 
-~Vinod
- 
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/drivers/net/ethernet/micrel/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
-> index f78909a..09d2e16 100644
-> --- a/drivers/net/ethernet/micrel/ks8842.c
-> +++ b/drivers/net/ethernet/micrel/ks8842.c
-> @@ -952,9 +952,8 @@ static int ks8842_alloc_dma_bufs(struct net_device *netdev)
->  
->  	sg_dma_address(&tx_ctl->sg) = dma_map_single(adapter->dev,
->  		tx_ctl->buf, DMA_BUFFER_SIZE, DMA_TO_DEVICE);
-> -	err = dma_mapping_error(adapter->dev,
-> -		sg_dma_address(&tx_ctl->sg));
-> -	if (err) {
-> +	if (dma_mapping_error(adapter->dev, sg_dma_address(&tx_ctl->sg))) {
-> +		err = -ENOMEM;
->  		sg_dma_address(&tx_ctl->sg) = 0;
->  		goto err;
->  	}
+This patch got me worried as well. Can't find the magic either. Maybe 
+Rafael can give some hints here.
+
+Regards,
+Arend
+
+> johannes
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
