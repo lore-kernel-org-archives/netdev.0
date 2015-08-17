@@ -1,40 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] be2net: avoid vxlan offloading on multichannel
- configs
-Date: Mon, 17 Aug 2015 14:30:26 -0700 (PDT)
-Message-ID: <20150817.143026.37154503480355591.davem@davemloft.net>
-References: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 20150814
+Date: Mon, 17 Aug 2015 14:32:08 -0700 (PDT)
+Message-ID: <20150817.143208.1125830096583650201.davem@davemloft.net>
+References: <1439585834-26564-1-git-send-email-antonio@meshcoding.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@avagotech.com,
-	ajit.khaparde@avagotech.com, padmanabh.ratnakar@avagotech.com,
-	sriharsha.basavapatna@avagotech.com
-To: ivecera@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36458 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050AbbHQVa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 17:30:27 -0400
-In-Reply-To: <1439584201-8699-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1439585834-26564-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Fri, 14 Aug 2015 22:30:01 +0200
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Date: Fri, 14 Aug 2015 22:57:04 +0200
 
-> VxLAN offloading is not functional if the NIC is running in multichannel
-> mode (UMC, FLEX-10, VNIC...). Enabling this additionally kills whole
-> connectivity through the NIC and the device needs to be down and up to
-> restore it. The firmware should take care about it and does not allow
-> the conversion of interface to tunnel type (be_cmd_manage_iface) or should
-> support VxLAN offloading if multichannel config is enabled.
-> I have tested this on the latest available firmware (10.6.144.21).
- ...
-> Cc: Sathya Perla <sathya.perla@avagotech.com>
-> Cc: Ajit Khaparde <ajit.khaparde@avagotech.com>
-> Cc: Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>
-> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> this is our first batch intended for net-next/linux-4.3 (resent after
+> fixing the parenthesis as reported by Sergei).
 
-Applied, thanks.
+Pulled, thanks Antonio.
