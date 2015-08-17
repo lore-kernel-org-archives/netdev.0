@@ -1,510 +1,205 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
- bridges and switch devices.
-Date: Mon, 17 Aug 2015 10:41:14 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E2389@SJEXCHMB14.corp.ad.broadcom.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <55CD8DDB.5080001@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH net-next] r8169: Add tx_buf_sz and rx_buf_coef on rtl_cfg_info
+Date: Mon, 17 Aug 2015 14:10:46 +0300
+Message-ID: <1439809846-3002-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:39504 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754341AbbHQKlQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 06:41:16 -0400
-In-Reply-To: <55CD8DDB.5080001@cumulusnetworks.com>
-Content-Language: en-US
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:36529 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073AbbHQLK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 07:10:58 -0400
+Received: by wicja10 with SMTP id ja10so67522893wic.1
+        for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 04:10:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Roopa,
+Put rx_buf_sz on rtl_cfg_info structure and add new
+ parameter  rx_buf_coef.Param rx_buf_sz may be different by nic's and same
+ rx_buf_coef On RTL 8101 series rx_buf_coef is not equal with  rx_buf_sz.
+ Add --whitespace=warn on git
 
-Thank you for the comments.  Some thoughts/comments on IFLA_BR_AGEING_TIME.
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 
-1. Ageing interval using IFLA_BR_AGEING_TIME is set using 'ip link ..' command.  Shouldn't
-bridge command be more appropriate for this?  The earlier patch seems to allow configuration of
-other bridge related parameters using 'ip link' command.  
-
-> ip link set dev br0 type bridge priority 10
-> ip link set dev br0 type bridge ageing_time 10
-> ip link set dev br0 type bridge stp_state 1
-
-2. Another change as part of the proposed patch is to propagate the ageing interval to switchdev
-devices so that hardware based aging can be setup correctly.
-
-3. 'ip link' command doesn't seem to do any checks on the values given for ageing.  IEEE 802.1d 
-Recommends that the time be between 10 sec and 1M seconds.
-
-4. The ageing timer in kernel isn't restarted until the next expiry.  While this doesn't cause any
-harm, it may be nice if the timer is restarted upon configuration change immediately.  
-
-5. Also, similar to #3 above, the kernel doesn't check for any valid values of ageing time that 
-it receives via netlink.
-
--Prem
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of roopa
-Sent: Friday, August 14, 2015 12:13 PM
-To: Premkumar Jonnala
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for bridges and switch devices.
-
-On 8/13/15, 11:23 PM, Premkumar Jonnala wrote:
-> Bridge devices have ageing interval used to age out MAC addresses
-> from FDB.  This ageing interval was not configuratble.
->
-> Enable netlink based configuration of ageing interval for bridges and
-> switch devices.  The ageing interval changes the timer used to purge
-> inactive FDB entries in bridges.  The ageing interval config is
-> propagated to switch devices, so that platform or hardware based
-> ageing works according to configuration.
->
-> Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
-
-How is this different from netlink attribute IFLA_BR_AGEING_TIME ?
->
-> ---
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 607b5f4..e3b0c45 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1053,7 +1053,16 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->    *	This function is used to pass protocol port error state information
->    *	to the switch driver. The switch driver can react to the proto_down
->    *      by doing a phys down on the associated switch port.
-> - *
-> + * int (*ndo_bridge_setageing)(const struct net_device *dev,
-> + *			       int ageing_interval);
-> + *     Called to set FDB aging interval for a given bridge device.
-> + * int (*ndo_bridge_getageing_nl)(struct sk_buff *skb,
-> + *				const struct net_device *dev,
-> + *				struct netlink_callback *cb);
-> + *     Called to return the ageing interval for the given bridge device,
-> + *     in a format suitable for netlink messaging.
-> + * int (*ndo_bridge_getageing)(const struct net_device *dev);
-> + *     Called to retrieve the ageing interval for the given bridge device.
->    */
->   struct net_device_ops {
->   	int			(*ndo_init)(struct net_device *dev);
-> @@ -1226,6 +1235,13 @@ struct net_device_ops {
->   	int			(*ndo_get_iflink)(const struct net_device *dev);
->   	int			(*ndo_change_proto_down)(struct net_device *dev,
->   							 bool proto_down);
-> +	int	(*ndo_bridge_setageing)(const struct net_device *dev,
-> +					int ageing_interval);
-> +	int	(*ndo_bridge_getageing_nl)(struct sk_buff *skb,
-> +					   const struct net_device *dev,
-> +					   struct netlink_callback *cb);
-> +
-> +	int	(*ndo_bridge_getageing)(const struct net_device *dev);
->   };
->   
-you cannot add new ndo's for each of these. It should be covered as part of
-existing br_link_ops
-
->   /**
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index 89da893..7186fea 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -129,6 +129,10 @@ int switchdev_port_attr_get(struct net_device *dev,
->   			    struct switchdev_attr *attr);
->   int switchdev_port_attr_set(struct net_device *dev,
->   			    struct switchdev_attr *attr);
-> +int netdev_switch_ageing_set(struct net_device *dev, int ageing_interval);
-> +int netdev_switch_ageing_get(struct sk_buff *skb,
-> +			     const struct net_device *dev,
-> +			     struct netlink_callback *cb);
->   int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj);
->   int switchdev_port_obj_del(struct net_device *dev, struct switchdev_obj *obj);
->   int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj);
-> @@ -163,6 +167,17 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
->   
->   #else
->   
-> +static inline int netdev_switch_ageing_set(struct net_device *dev,
-> +					int ageing_interval)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
-> +static inline int netdev_switch_ageing_get(struct net_device *dev)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
->   static inline int switchdev_port_attr_get(struct net_device *dev,
->   					  struct switchdev_attr *attr)
->   {
-> diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-> index 3635b77..a32ab4d 100644
-> --- a/include/uapi/linux/if_bridge.h
-> +++ b/include/uapi/linux/if_bridge.h
-> @@ -199,4 +199,23 @@ enum {
->   };
->   #define MDBA_SET_ENTRY_MAX (__MDBA_SET_ENTRY_MAX - 1)
->   
-> +struct admsg {
-> +	__u8 adm_family;
-> +	__u8 adm_pad1;
-> +	__u16 adm_pad2;
-> +	__s32 adm_ifindex;
-> +	__u16 adm_ageing_interval;
-> +};
-> +
-> +/* The value of this macro is based on the value recommended by IEEE
-> + * standard 802.1d.
-> + */
-> +#define MIN_AGEING_INTERVAL_SECS (10)
-> +
-> +/* The value of DEFAULT_AGEING_INTERVAL_SECS is the default ageing
-> + * interval that was used in br_device.c.  This default value is also
-> + * recommended by IEEE Standard 802.1d.
-> + */
-> +#define DEFAULT_AGEING_INTERVAL_SECS (300)
-> +
->   #endif /* _UAPI_LINUX_IF_BRIDGE_H */
-> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-> index 47d24cb..9321818 100644
-> --- a/include/uapi/linux/rtnetlink.h
-> +++ b/include/uapi/linux/rtnetlink.h
-> @@ -139,6 +139,13 @@ enum {
->   	RTM_GETNSID = 90,
->   #define RTM_GETNSID RTM_GETNSID
->   
-> +	RTM_SETAGEING = 92,
-> +#define RTM_SETAGEING RTM_SETAGEING
-> +	RTM_SETDEFAULTAGEING = 93,
-> +#define RTM_SETDEFAULTAGEING RTM_SETDEFAULTAGEING
-> +	RTM_GETAGEING = 94,
-> +#define RTM_GETAGEING RTM_GETAGEING
-> +
-
-you cannot add a new RTM message for a single attribute either.
->   	__RTM_MAX,
->   #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
->   };
-> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> index 4ff77a1..2c81190 100644
-> --- a/net/bridge/br_device.c
-> +++ b/net/bridge/br_device.c
-> @@ -18,6 +18,7 @@
->   #include <linux/ethtool.h>
->   #include <linux/list.h>
->   #include <linux/netfilter_bridge.h>
-> +#include <net/netlink.h>
->   
->   #include <asm/uaccess.h>
->   #include "br_private.h"
-> @@ -309,6 +310,43 @@ static int br_del_slave(struct net_device *dev, struct net_device *slave_dev)
->   	return br_del_if(br, slave_dev);
->   }
->   
-> +static int br_setageing(const struct net_device *dev, int ageing_interval)
-> +{
-> +	struct net_bridge *br = netdev_priv(dev);
-> +
-> +	return br_fdb_setageing(br, ageing_interval);
-> +}
-> +
-> +static int br_getageing(const struct net_device *dev)
-> +{
-> +	struct net_bridge *br = netdev_priv(dev);
-> +
-> +	return br->ageing_time / HZ;
-> +}
-> +
-> +static int br_getageing_nl(struct sk_buff *skb,
-> +			   const struct net_device *dev,
-> +			   struct netlink_callback *cb)
-> +{
-> +	struct nlmsghdr *nlhdr;
-> +	struct admsg *amsg;
-> +
-> +	struct net_bridge *br = netdev_priv(dev);
-> +
-> +	nlhdr = nlmsg_put(skb, NETLINK_CB(cb->skb).portid,
-> +			  cb->nlh->nlmsg_seq, RTM_GETAGEING, sizeof(*amsg), 0);
-> +	if (!nlhdr)
-> +		return -EMSGSIZE;
-> +
-> +	amsg = nlmsg_data(nlhdr);
-> +
-> +	amsg->adm_family = AF_BRIDGE;
-> +	amsg->adm_ifindex = dev->ifindex;
-> +	amsg->adm_ageing_interval = br->ageing_time / HZ;
-> +
-> +	return 0;
-> +}
-> +
->   static const struct ethtool_ops br_ethtool_ops = {
->   	.get_drvinfo    = br_getinfo,
->   	.get_link	= ethtool_op_get_link,
-> @@ -339,6 +377,9 @@ static const struct net_device_ops br_netdev_ops = {
->   	.ndo_bridge_getlink	 = br_getlink,
->   	.ndo_bridge_setlink	 = br_setlink,
->   	.ndo_bridge_dellink	 = br_dellink,
-> +	.ndo_bridge_setageing    = br_setageing,
-> +	.ndo_bridge_getageing_nl = br_getageing_nl,
-> +	.ndo_bridge_getageing    = br_getageing,
->   };
->   
->   static void br_dev_free(struct net_device *dev)
-> @@ -391,7 +432,7 @@ void br_dev_setup(struct net_device *dev)
->   	br->bridge_max_age = br->max_age = 20 * HZ;
->   	br->bridge_hello_time = br->hello_time = 2 * HZ;
->   	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
-> -	br->ageing_time = 300 * HZ;
-> +	br->ageing_time = DEFAULT_AGEING_INTERVAL_SECS * HZ;
->   
->   	br_netfilter_rtable_init(br);
->   	br_stp_timer_init(br);
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 9e9875d..c46f734 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -283,6 +283,25 @@ out:
->   	spin_unlock_bh(&br->hash_lock);
->   }
->   
-> +int br_fdb_setageing(struct net_bridge *br, int ageing_interval)
-> +{
-> +	unsigned long next_timer;
-> +	unsigned long exp_time;
-> +
-> +	if (ageing_interval < MIN_AGEING_INTERVAL_SECS)
-> +		return -EINVAL;
-> +
-> +	br->ageing_time = ageing_interval * HZ;
-> +
-> +	next_timer = jiffies + hold_time(br);
-> +	exp_time = br->gc_timer.expires;
-> +
-> +	if (exp_time > next_timer)
-> +		mod_timer(&br->gc_timer, round_jiffies_up(next_timer));
-> +
-> +	return 0;
-> +}
-> +
->   void br_fdb_cleanup(unsigned long _data)
->   {
->   	struct net_bridge *br = (struct net_bridge *)_data;
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 3ad1290..b745e06 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -410,6 +410,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
->   			      const unsigned char *addr, u16 vid);
->   int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
->   			      const unsigned char *addr, u16 vid);
-> +int br_fdb_setageing(struct net_bridge *br, int ageing_interval);
->   
->   /* br_forward.c */
->   void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 5fb4af2..e7c6197 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -3277,6 +3277,128 @@ out:
->   	return err;
->   }
->   
-> +static int configure_ageing_interval(struct net_device  *dev, int interval)
-> +{
-> +	int err = -EOPNOTSUPP;
-> +	int old_ageing_timer = -1;
-> +	const struct net_device_ops *ops = dev->netdev_ops;
-> +
-> +	if (ops->ndo_bridge_getageing)
-> +		old_ageing_timer = ops->ndo_bridge_getageing(dev);
-> +
-> +	if (ops->ndo_bridge_setageing)
-> +		err = ops->ndo_bridge_setageing(dev, interval);
-> +
-> +	if (!err) {
-> +		err = netdev_switch_ageing_set(dev, interval);
-> +
-> +		if (err == -EOPNOTSUPP)
-> +			return 0;
-> +
-> +		if (err && (old_ageing_timer >= MIN_AGEING_INTERVAL_SECS))
-> +			ops->ndo_bridge_setageing(dev, old_ageing_timer);
-> +	}
-> +
-> +	return err;
-> +}
-> +
-> +static int rtnl_bridge_setageing(struct sk_buff *skb, struct nlmsghdr *nlh)
-> +{
-> +	struct net *net = sock_net(skb->sk);
-> +	struct admsg *adm;
-> +	struct net_device *dev;
-> +	int err;
-> +	struct nlattr *tb[NDA_MAX + 1];
-> +
-> +	err = nlmsg_parse(nlh, sizeof(*adm), tb, NDA_MAX, NULL);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	adm = nlmsg_data(nlh);
-> +	if (adm->adm_ifindex == 0)
-> +		return -EINVAL;
-> +
-> +	dev = __dev_get_by_index(net, adm->adm_ifindex);
-> +	if (!dev)
-> +		return -ENODEV;
-> +
-> +	err = -EOPNOTSUPP;
-> +
-> +	if (!(dev->priv_flags & IFF_EBRIDGE))
-> +		return err;
-> +
-> +	err = configure_ageing_interval(dev, adm->adm_ageing_interval);
-> +
-> +	return err;
-> +}
-> +
-> +static int rtnl_bridge_setdefaultageing(struct sk_buff *skb,
-> +					struct nlmsghdr *nlh)
-> +{
-> +	struct net *net = sock_net(skb->sk);
-> +	struct admsg *adm;
-> +	struct net_device *dev;
-> +	int err;
-> +	struct nlattr *tb[NDA_MAX + 1];
-> +
-> +	err = nlmsg_parse(nlh, sizeof(*adm), tb, NDA_MAX, NULL);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	adm = nlmsg_data(nlh);
-> +	if (adm->adm_ifindex == 0)
-> +		return -EINVAL;
-> +
-> +	dev = __dev_get_by_index(net, adm->adm_ifindex);
-> +	if (!dev)
-> +		return -ENODEV;
-> +
-> +	err = -EOPNOTSUPP;
-> +
-> +	if (!(dev->priv_flags & IFF_EBRIDGE))
-> +		return err;
-> +
-> +	err = configure_ageing_interval(dev, DEFAULT_AGEING_INTERVAL_SECS);
-> +
-> +	return err;
-> +}
-> +
-> +static int rtnl_bridge_getageing(struct sk_buff *skb,
-> +				 struct netlink_callback *cb)
-> +{
-> +	struct net *net = sock_net(skb->sk);
-> +	struct admsg *adm;
-> +	struct net_device *dev;
-> +	int err;
-> +	struct nlattr *tb[NDA_MAX + 1];
-> +
-> +	err = nlmsg_parse(cb->nlh, sizeof(*adm), tb, NDA_MAX, NULL);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	adm = nlmsg_data(cb->nlh);
-> +	if (adm->adm_ifindex == 0)
-> +		return -EINVAL;
-> +
-> +	dev = __dev_get_by_index(net, adm->adm_ifindex);
-> +	if (!dev)
-> +		return -ENODEV;
-> +
-> +	err = -EOPNOTSUPP;
-> +
-> +	if (!(dev->priv_flags & IFF_EBRIDGE))
-> +		return err;
-> +
-> +	if (dev->netdev_ops->ndo_bridge_getageing_nl)
-> +		err = dev->netdev_ops->ndo_bridge_getageing_nl(skb, dev, cb);
-> +
-> +	if (err)
-> +		return err;
-> +
-> +	cb->args[0] = 1;
-> +	return 0;
-> +}
-> +
->   /* Process one rtnetlink message. */
->   
->   static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-> @@ -3427,5 +3549,11 @@ void __init rtnetlink_init(void)
->   	rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, rtnl_bridge_getlink, NULL);
->   	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL, NULL);
->   	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
-> +	rtnl_register(PF_BRIDGE, RTM_GETAGEING, NULL,
-> +		      rtnl_bridge_getageing, NULL);
-> +	rtnl_register(PF_BRIDGE, RTM_SETAGEING,
-> +		      rtnl_bridge_setageing, NULL, NULL);
-> +	rtnl_register(PF_BRIDGE, RTM_SETDEFAULTAGEING,
-> +		      rtnl_bridge_setdefaultageing, NULL, NULL);
->   }
->   
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 33bafa2..501e892 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -1142,3 +1142,34 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
->   	dev->offload_fwd_mark = mark;
->   }
->   EXPORT_SYMBOL_GPL(switchdev_port_fwd_mark_set);
-> +
-> +int netdev_switch_ageing_set(struct net_device *dev,
-> +			     int ageing_interval)
-> +{
-> +	int err = 0;
-> +
-> +	struct net_device *pd;
-> +	struct list_head *iter;
-> +
-> +	netdev_for_each_lower_dev(dev, pd, iter) {
-> +		if (!pd || !pd->netdev_ops ||
-> +		    !pd->netdev_ops->ndo_bridge_setageing)
-> +			continue;
-> +
-> +		err = pd->netdev_ops->ndo_bridge_setageing(pd,
-> +							ageing_interval);
-> +		if (err)
-> +			return err;
-> +	}
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(netdev_switch_ageing_set);
-> +
-> +int netdev_switch_ageing_get(struct sk_buff *skb,
-> +			     const struct net_device *dev,
-> +			     struct netlink_callback *cb)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +EXPORT_SYMBOL_GPL(netdev_switch_ageing_get);
-> diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-> index 2bbb418..e29836e 100644
-> --- a/security/selinux/nlmsgtab.c
-> +++ b/security/selinux/nlmsgtab.c
-> @@ -154,7 +154,7 @@ int selinux_nlmsg_lookup(u16 sclass, u16 nlmsg_type, u32 *perm)
->   	switch (sclass) {
->   	case SECCLASS_NETLINK_ROUTE_SOCKET:
->   		/* RTM_MAX always point to RTM_SETxxxx, ie RTM_NEWxxx + 3 */
-> -		BUILD_BUG_ON(RTM_MAX != (RTM_NEWNSID + 3));
-> +		BUILD_BUG_ON(RTM_MAX != (RTM_SETAGEING + 3));
->   		err = nlmsg_perm(nlmsg_type, perm, nlmsg_route_perms,
->   				 sizeof(nlmsg_route_perms));
->   		break;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 6882eab..fecb7c9 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -344,7 +344,7 @@ static const struct pci_device_id rtl8169_pci_tbl[] = {
+ 
+ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+ 
+-static int rx_buf_sz = 16383;
++//static int rx_buf_sz = 16383;
+ static int use_dac;
+ static struct {
+ 	u32 msg_enable;
+@@ -784,6 +784,8 @@ struct rtl8169_private {
+ 	u16 cp_cmd;
+ 
+ 	u16 event_slow;
++        u16 rx_buf_sz;
++        u16 rx_buf_coef;
+ 
+ 	struct mdio_ops {
+ 		void (*write)(struct rtl8169_private *, int, int);
+@@ -5321,7 +5323,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, NoEarlyTx);
+ 
+-	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+ 
+ 	if (tp->mac_version == RTL_GIGA_MAC_VER_01 ||
+ 	    tp->mac_version == RTL_GIGA_MAC_VER_02 ||
+@@ -6229,7 +6231,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
+ 
+-	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+ 
+ 	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
+ 
+@@ -6523,7 +6525,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
+ 
+-	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+ 
+ 	tp->cp_cmd &= ~R810X_CPCMD_QUIRK_MASK;
+ 	RTL_W16(CPlusCmd, tp->cp_cmd);
+@@ -6609,7 +6611,7 @@ static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
+ static void rtl8169_free_rx_databuff(struct rtl8169_private *tp,
+ 				     void **data_buff, struct RxDesc *desc)
+ {
+-	dma_unmap_single(&tp->pci_dev->dev, le64_to_cpu(desc->addr), rx_buf_sz,
++	dma_unmap_single(&tp->pci_dev->dev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
+ 			 DMA_FROM_DEVICE);
+ 
+ 	kfree(*data_buff);
+@@ -6617,21 +6619,22 @@ static void rtl8169_free_rx_databuff(struct rtl8169_private *tp,
+ 	rtl8169_make_unusable_by_asic(desc);
+ }
+ 
+-static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz)
++static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz,
++                                        u32 rx_buf_coef)
+ {
+ 	u32 eor = le32_to_cpu(desc->opts1) & RingEnd;
+ 
+ 	/* Force memory writes to complete before releasing descriptor */
+ 	dma_wmb();
+ 
+-	desc->opts1 = cpu_to_le32(DescOwn | eor | rx_buf_sz);
++	desc->opts1 = cpu_to_le32(DescOwn | eor | (rx_buf_sz & rx_buf_coef));
+ }
+ 
+ static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
+-				       u32 rx_buf_sz)
++				       u32 rx_buf_sz, u32 rx_buf_coef)
+ {
+ 	desc->addr = cpu_to_le64(mapping);
+-	rtl8169_mark_to_asic(desc, rx_buf_sz);
++	rtl8169_mark_to_asic(desc, rx_buf_sz, rx_buf_coef);
+ }
+ 
+ static inline void *rtl8169_align(void *data)
+@@ -6648,18 +6651,18 @@ static struct sk_buff *rtl8169_alloc_rx_data(struct rtl8169_private *tp,
+ 	struct net_device *dev = tp->dev;
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 
+-	data = kmalloc_node(rx_buf_sz, GFP_KERNEL, node);
++	data = kmalloc_node(tp->rx_buf_sz, GFP_KERNEL, node);
+ 	if (!data)
+ 		return NULL;
+ 
+ 	if (rtl8169_align(data) != data) {
+ 		kfree(data);
+-		data = kmalloc_node(rx_buf_sz + 15, GFP_KERNEL, node);
++		data = kmalloc_node(tp->rx_buf_sz + 15, GFP_KERNEL, node);
+ 		if (!data)
+ 			return NULL;
+ 	}
+ 
+-	mapping = dma_map_single(d, rtl8169_align(data), rx_buf_sz,
++	mapping = dma_map_single(d, rtl8169_align(data), tp->rx_buf_sz,
+ 				 DMA_FROM_DEVICE);
+ 	if (unlikely(dma_mapping_error(d, mapping))) {
+ 		if (net_ratelimit())
+@@ -6667,7 +6670,7 @@ static struct sk_buff *rtl8169_alloc_rx_data(struct rtl8169_private *tp,
+ 		goto err_out;
+ 	}
+ 
+-	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
++	rtl8169_map_to_asic(desc, mapping, tp->rx_buf_sz, tp->rx_buf_coef);
+ 	return data;
+ 
+ err_out:
+@@ -6785,7 +6788,8 @@ static void rtl_reset_work(struct rtl8169_private *tp)
+ 	rtl8169_hw_reset(tp);
+ 
+ 	for (i = 0; i < NUM_RX_DESC; i++)
+-		rtl8169_mark_to_asic(tp->RxDescArray + i, rx_buf_sz);
++		rtl8169_mark_to_asic(tp->RxDescArray + i, tp->rx_buf_sz,
++                                     tp->rx_buf_coef);
+ 
+ 	rtl8169_tx_clear(tp);
+ 	rtl8169_init_ring_indexes(tp);
+@@ -7368,7 +7372,7 @@ process_pkt:
+ 		}
+ release_descriptor:
+ 		desc->opts2 = 0;
+-		rtl8169_mark_to_asic(desc, rx_buf_sz);
++		rtl8169_mark_to_asic(desc, tp->rx_buf_sz, tp->rx_buf_coef);
+ 	}
+ 
+ 	count = cur_rx - tp->cur_rx;
+@@ -7929,6 +7933,8 @@ static const struct rtl_cfg_info {
+ 	unsigned int region;
+ 	unsigned int align;
+ 	u16 event_slow;
++        u16 rx_buf_sz;
++        u16 rx_buf_coef;
+ 	unsigned features;
+ 	u8 default_ver;
+ } rtl_cfg_infos [] = {
+@@ -7937,6 +7943,8 @@ static const struct rtl_cfg_info {
+ 		.region		= 1,
+ 		.align		= 0,
+ 		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver,
++                .rx_buf_sz      = 16383,
++                .rx_buf_coef    = 0x3fff,
+ 		.features	= RTL_FEATURE_GMII,
+ 		.default_ver	= RTL_GIGA_MAC_VER_01,
+ 	},
+@@ -7945,6 +7953,8 @@ static const struct rtl_cfg_info {
+ 		.region		= 2,
+ 		.align		= 8,
+ 		.event_slow	= SYSErr | LinkChg | RxOverflow,
++                .rx_buf_sz      = 16383,
++                .rx_buf_coef    = 0x3fff,
+ 		.features	= RTL_FEATURE_GMII | RTL_FEATURE_MSI,
+ 		.default_ver	= RTL_GIGA_MAC_VER_11,
+ 	},
+@@ -7952,6 +7962,8 @@ static const struct rtl_cfg_info {
+ 		.hw_start	= rtl_hw_start_8101,
+ 		.region		= 2,
+ 		.align		= 8,
++                .rx_buf_sz      = 16000,
++                .rx_buf_coef    = 0x1ff8,
+                 .event_slow	= LinkChg | RxOverflow | RxFIFOOver | PCSTimeout,
+ 		.features	= RTL_FEATURE_MSI,
+ 		.default_ver	= RTL_GIGA_MAC_VER_13,
+@@ -8307,6 +8319,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	tp->hw_start = cfg->hw_start;
+ 	tp->event_slow = cfg->event_slow;
++        tp->rx_buf_sz = cfg->rx_buf_sz;
++        tp->rx_buf_coef = cfg->rx_buf_coef;
+ 
+ 	tp->opts1_mask = (tp->mac_version != RTL_GIGA_MAC_VER_01) ?
+ 		~(RxBOVF | RxFOVF) : ~0;
+-- 
+2.1.4
