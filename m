@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4 net-next] enic: add devcmd2
-Date: Mon, 17 Aug 2015 15:38:32 -0700 (PDT)
-Message-ID: <20150817.153832.1220000969996122058.davem@davemloft.net>
-References: <1439669694-21744-1-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH] net: Move VRF change to udp_sendmsg to inlined function
+Date: Mon, 17 Aug 2015 15:39:00 -0700 (PDT)
+Message-ID: <20150817.153900.1442076757786419108.davem@davemloft.net>
+References: <1439683919-3066-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nalreddy@cisco.com, ssujith@cisco.com,
-	benve@cisco.com
-To: _govind@gmx.com
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36728 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36732 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbbHQWif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 18:38:35 -0400
-In-Reply-To: <1439669694-21744-1-git-send-email-_govind@gmx.com>
+	with ESMTP id S1751447AbbHQWjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 18:39:01 -0400
+In-Reply-To: <1439683919-3066-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Sun, 16 Aug 2015 01:44:50 +0530
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Sat, 15 Aug 2015 18:11:59 -0600
 
-> This series adds new devcmd2 support. The first two patches are code
-> refactoring.
+> Functionally equivalent, but as an inlined function with VRF config
+> check it completely compiles out if VRF is not enabled.
 > 
-> devcmd is an interface for driver to communicate with fw/adaptor. It
-> involves writing data to hardware registers and waiting for the result.
-> This mechanism does not scale well. The queuing of "no wait" devcmds is
-> done in firmware memory rather than on the host. Firmware memory is a
-> rather more scarce and valuable resource than host memory. A devcmd storm
-> from one vf can disrupt the service on other pf/vf. The lack of flow
-> control allows for possible denial of server from one VM to another.
-> Devcmd2 uses work queue to post the devcmds, just like tx work queue. This
-> allows better flow control.
+> Suggested-by: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Series applied, thanks.
+Please do not use the 'inline' keyword for functions in foo.c files,
+let the compiler decide.
