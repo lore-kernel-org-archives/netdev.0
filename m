@@ -1,7 +1,7 @@
 From: Jiang Liu <jiang.liu@linux.intel.com>
-Subject: [Patch V3 5/9] i40e: Use numa_mem_id() to better support memoryless node
-Date: Mon, 17 Aug 2015 11:19:02 +0800
-Message-ID: <1439781546-7217-6-git-send-email-jiang.liu@linux.intel.com>
+Subject: [Patch V3 6/9] i40evf: Use numa_mem_id() to better support memoryless node
+Date: Mon, 17 Aug 2015 11:19:03 +0800
+Message-ID: <1439781546-7217-7-git-send-email-jiang.liu@linux.intel.com>
 References: <1439781546-7217-1-git-send-email-jiang.liu@linux.intel.com>
 Cc: Jiang Liu <jiang.liu@linux.intel.com>,
 	Tony Luck <tony.luck@intel.com>,
@@ -41,14 +41,14 @@ This change should only affect performance.
 
 Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c |    2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 9a4f2bc70cd2..a8f618cb8eb0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1516,7 +1516,7 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 395f32f226c0..19ca96d8bd97 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1003,7 +1003,7 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
  	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
  	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
  	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
