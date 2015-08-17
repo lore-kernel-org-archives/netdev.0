@@ -1,71 +1,55 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH/RFC] openvswitch: Retain parsed IPv6 header fields in flow
- on error skipping extension headers
-Date: Mon, 17 Aug 2015 11:33:59 -0700
-Message-ID: <CALnjE+owxmLQXLZoAU4oNXToDA1hb4uvr8nj9KXCiKgcRhEOvQ@mail.gmail.com>
-References: <1439515813-29406-1-git-send-email-simon.horman@netronome.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] net: introduce IFF_NO_QUEUE as successor of zero
+ tx_queue_len
+Date: Mon, 17 Aug 2015 11:51:04 -0700 (PDT)
+Message-ID: <20150817.115104.47255555484332113.davem@davemloft.net>
+References: <1439485268-20953-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brouer@redhat.com,
+	alexei.starovoitov@gmail.com, fw@strlen.de, cwang@twopensource.com,
+	eric.dumazet@gmail.com
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:33978 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297AbbHQSeA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 14:34:00 -0400
-Received: by iodb91 with SMTP id b91so161240476iod.1
-        for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 11:33:59 -0700 (PDT)
-In-Reply-To: <1439515813-29406-1-git-send-email-simon.horman@netronome.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35539 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbbHQSvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 14:51:07 -0400
+In-Reply-To: <1439485268-20953-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2015 at 6:30 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> When an error occurs skipping IPv6 extension headers retain the already
-> parsed IP protocol and IPv6 addresses in the flow. Also assume that the
-> packet is not a fragment in the absence of information to the contrary;
-> that is always use the frag_off value set by ipv6_skip_exthdr().
->
-> This allows matching on the IP protocol and IPv6 addresses of packets
-> with malformed extension headers.
->
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
->
-> ---
->
-> * Some consideration should be given to unwanted side effects of this patch
->   as it affects the handling of malformed packets.
->
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> ---
->  net/openvswitch/flow.c | 11 +++++++----
->  1 file changed, 7 insertions(+), 4 deletions(-)
->
-> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> index 8db22ef73626..3c5336c5d4ea 100644
-> --- a/net/openvswitch/flow.c
-> +++ b/net/openvswitch/flow.c
-> @@ -271,8 +271,6 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
->         key->ipv6.addr.dst = nh->daddr;
->
->         payload_ofs = ipv6_skip_exthdr(skb, payload_ofs, &nexthdr, &frag_off);
-> -       if (unlikely(payload_ofs < 0))
-> -               return -EINVAL;
->
->         if (frag_off) {
->                 if (frag_off & htons(~0x7))
-> @@ -283,6 +281,13 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
->                 key->ip.frag = OVS_FRAG_TYPE_NONE;
->         }
->
-> +       /* Delayed handling of error in ipv6_skip_exthdr() as it
-> +        * always sets frag_off to a valid value which may be
-> +        * used to set key->ip.frag above.
-> +        */
-> +       if (unlikely(payload_ofs < 0))
-> +               return -EINVAL;
-> +
-check_header() function called above also return -EINVAL, That could
-confuse caller checking for error code. So we need different error
-code here.
+From: Phil Sutter <phil@nwl.cc>
+Date: Thu, 13 Aug 2015 19:01:05 +0200
+
+> This series adds a new private net_device flag indicating that a device may
+> (and probably should) be used without a queueing discipline attached to it.
+> This is already common practice for many virtual device types like e.g.
+> loopback, VLAN (802.1Q) or bridges (802.1D). The reason for this is that these
+> devices lack an underlying layer which could impose back pressure and therefore
+> making a TX queue necessary to not slow down senders.
+> 
+> Up to now, drivers being aware of the above applying to them set
+> dev->tx_queue_len to zero to indicate no qdisc should be attached to the
+> interface they drive and the kernel reacts upon this by assigning the noop
+> qdisc instead of the default pfifo_fast. This implicit agreement though leads
+> to an inconvenient situation once a user tries to attach a real qdisc to these
+> devices, as the formerly special tx_queue_len value becomes a regular one,
+> limiting the queue to zero packets and thus prevents any TX from happening. To
+> overcome this, practically all qdisc implementations intercept and sanitize the
+> malicious value.
+> 
+> With this series applied, drivers may signal the lack of need for a qdisc
+> without having to tamper with tx_queue_len, making fallbacks in qdiscs and
+> caveats in userspace unnecessary.
+> 
+> Upon upstream acceptance, this series will be followed up by a set of patches
+> converting device drivers, adding a warning so out-of-tree driver authors get
+> aware of this change and dropping all special handling of tx_queue_len in
+> net/sched/.
+
+Series applied, thanks.
+
+Since the VRF changes went in right before this, I had to bump the IFF_NO_QUEUE
+value to use bit 26 instead of bit 25.
