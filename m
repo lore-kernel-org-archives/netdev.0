@@ -1,86 +1,40 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next] bnx2: Fix bandwidth allocation for some MF modes
-Date: Mon, 17 Aug 2015 08:28:25 +0300
-Message-ID: <1439789305-4643-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Noam Camus <noamc@ezchip.com>
+Subject: [v1 0/6] *** nps_enet fixups ***
+Date: Mon, 17 Aug 2015 08:58:33 +0300
+Message-ID: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:57811 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750710AbbHQF2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 01:28:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <Alexey.Brodkin@synopsys.com>,
+	<vgupta@synopsys.com>, <talz@ezchip.com>,
+	Noam Camus <noamc@ezchip.com>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Management firmware tells driver in case bandwidth configuration for
-a specific function exists, but [regretably] the same field has different
-meanings depending on the multi-function mode - it can either be
-a percentile value or an actual speed.
+From: Noam Camus <noamc@ezchip.com>
 
-For newer multi-function modes current logic is incorrect -
-driver understands values as actual speeds instead of percentages,
-causing the resulting chip configuration to be incorrect.
+This patch set is a bunch of fixes to make nps_enet work correctly with
+all platforms, i.e. real device, emulation system, and simulation system.
+The main trigger for this patch set was that in our emulation system
+the TX end interrupt is "edge-sensitive" and therefore we cannot use the
+cause register since it is not sticky.
+Also:
+TX is handled during HW interrupt context and not NAPI job.
+race with TX done was fixed.
+added acknowledge for TX when device is "level sensitive".
+enable drop of control frames which is not needed for regular usage.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
-Hi Dave,
+So most of this patch set is about TX handling, which is now more complete.
 
-This is actually a bug fix - but as some of the targeted multi-function
-modes exists only in 'net-next' at this time, I'm designating this fix
-to 'net-next' as well.
+Noam Camus (6):
+  NET: nps_enet: replace use of cause register
+  NET: nps_enet: reduce processing latency.
+  NET: nps_enet: TX done race condition
+  NET: nps_enet: drop control frames
+  NET: nps_enet: TX done acknowledge.
+  NET: nps_enet: minor namespace cleanup
 
-Please consider applying this one.
-
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      | 4 ++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 +-
- 3 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 5762c48..e28c90c 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2571,6 +2571,10 @@ void bnx2x_notify_link_changed(struct bnx2x *bp);
- 			(IS_MF_SD_STORAGE_PERSONALITY_ONLY(bp) ||	\
- 			 IS_MF_SI_STORAGE_PERSONALITY_ONLY(bp))
- 
-+/* Determines whether BW configuration arrives in 100Mb units or in
-+ * percentages from actual physical link speed.
-+ */
-+#define IS_MF_PERCENT_BW(bp) (IS_MF_SI(bp) || IS_MF_UFP(bp) || IS_MF_BD(bp))
- 
- #define SET_FLAG(value, mask, flag) \
- 	do {\
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index a2bb1f0..44173be 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1190,7 +1190,7 @@ u16 bnx2x_get_mf_speed(struct bnx2x *bp)
- 		/* Calculate the current MAX line speed limit for the MF
- 		 * devices
- 		 */
--		if (IS_MF_SI(bp))
-+		if (IS_MF_PERCENT_BW(bp))
- 			line_speed = (line_speed * maxCfg) / 100;
- 		else { /* SD mode */
- 			u16 vn_max_rate = maxCfg * 100;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index ad73a60..eafd25d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -2494,7 +2494,7 @@ static void bnx2x_calc_vn_max(struct bnx2x *bp, int vn,
- 	else {
- 		u32 maxCfg = bnx2x_extract_max_cfg(bp, vn_cfg);
- 
--		if (IS_MF_SI(bp)) {
-+		if (IS_MF_PERCENT_BW(bp)) {
- 			/* maxCfg in percents of linkspeed */
- 			vn_max_rate = (bp->link_vars.line_speed * maxCfg) / 100;
- 		} else /* SD modes */
--- 
-1.9.3
+ drivers/net/ethernet/ezchip/nps_enet.c |   44 +++++++++++++++++--------------
+ drivers/net/ethernet/ezchip/nps_enet.h |   20 --------------
+ 2 files changed, 24 insertions(+), 40 deletions(-)
