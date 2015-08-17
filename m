@@ -1,45 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v1 0/6] *** nps_enet fixups ***
-Date: Mon, 17 Aug 2015 10:36:07 -0700 (PDT)
-Message-ID: <20150817.103607.1737876155019074073.davem@davemloft.net>
-References: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alexey.Brodkin@synopsys.com, vgupta@synopsys.com, talz@ezchip.com
-To: noamc@ezchip.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH net-next] r8169: Replace TX_DMA_BURST
+Date: Mon, 17 Aug 2015 20:42:22 +0300
+Message-ID: <1439833342-2948-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:36328 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750867AbbHQRmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 13:42:36 -0400
+Received: by wicja10 with SMTP id ja10so76034577wic.1
+        for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 10:42:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Noam Camus <noamc@ezchip.com>
-Date: Mon, 17 Aug 2015 08:58:33 +0300
+Replace TX_DMA_BURST with 3 wich corespond on 128
+ descriptors  send on Tx burst DMA .Packet size consist in unit of 128
+ descriptors.  Ensure to  keep this units grouped
 
-> This patch set is a bunch of fixes to make nps_enet work correctly with
-> all platforms, i.e. real device, emulation system, and simulation system.
-> The main trigger for this patch set was that in our emulation system
-> the TX end interrupt is "edge-sensitive" and therefore we cannot use the
-> cause register since it is not sticky.
-> Also:
-> TX is handled during HW interrupt context and not NAPI job.
-> race with TX done was fixed.
-> added acknowledge for TX when device is "level sensitive".
-> enable drop of control frames which is not needed for regular usage.
-> 
-> So most of this patch set is about TX handling, which is now more complete.
 
-You should not move TX completion out of NAPI handling, NAPI poll is
-exactly where it belongs.
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 
-If you handle it in hardware interrupt context you have to use
-dev_kfree_skb_irq() which defers the operation to software interrupt
-context anyways and is thus expensive.
-
-Whereas if you keep TX completion in your NAPI handler the kfree is
-handled synchronously and efficiently, as well as making SKB's
-potentially available for RX reclaim.
-
-I'm not applying this series, you are doing with TX handling exactly
-what we tell people not to do.
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index fecb7c9..1994ccb 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -85,7 +85,7 @@
+ static const int multicast_filter_limit = 32;
+ 
+ #define MAX_READ_REQUEST_SHIFT	12
+-#define TX_DMA_BURST	7	/* Maximum PCI burst, '7' is unlimited */
++#define TX_DMA_BURST	3	/* Maximum PCI burst, '7' is unlimited */
+ #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
+ 
+ #define R8169_REGS_SIZE		256
+-- 
+2.1.4
