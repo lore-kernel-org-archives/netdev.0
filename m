@@ -1,32 +1,43 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF is
- configured or used
-Date: Mon, 17 Aug 2015 16:19:42 -0500
-Message-ID: <55D24FEE.8040505@arm.com>
-References: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/4] packet: add cBPF and eBPF fanout modes
+Date: Mon, 17 Aug 2015 14:23:13 -0700 (PDT)
+Message-ID: <20150817.142313.1118336177187820064.davem@davemloft.net>
+References: <1439605897-28311-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, daniel@iogearbox.net,
+	ast@plumgrid.com
+To: willemb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36365 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbbHQVXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 17:23:15 -0400
+In-Reply-To: <1439605897-28311-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2015 03:45 PM, Guenter Roeck wrote:
-> Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
-> the call to smsc911x_probe_config() unconditional, and no longer fails if
-> there is no device node. device_get_phy_mode() is called unconditionally,
-> and if there is no phy node configured returns an error code. This error
-> code is assigned to phy_interface, and interpreted elsewhere in the code
-> as valid phy mode. This in turn causes qemu to crash when running a
-> variant of realview_pb_defconfig.
+From: Willem de Bruijn <willemb@google.com>
+Date: Fri, 14 Aug 2015 22:31:33 -0400
 
-Thanks for catching that! I have a couple other minor cleanups per the 
-reviewers.
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> Allow programmable fanout modes. Support both classical BPF programs
+> passed directly and extended BPF programs passed by file descriptor.
+> 
+> One use case is packet steering by deep packet inspection, for
+> instance for packet steering by application layer header fields.
+> 
+> Separate the configuration of the fanout mode and the configuration
+> of the program, to allow dynamic updates to the latter at runtime.
+> 
+> Changes
+>   v1 -> v2:
+>     - follow SO_LOCK_FILTER semantics on filter updates
+>     - only accept eBPF programs of type BPF_PROG_TYPE_SOCKET_FILTER
+>     - rename PACKET_FANOUT_BPF to PACKET_FANOUT_CBPF to match
+>       man 2 bpf usage: "classic" vs. "extended" BPF.
 
-
-         Jeremy
+Series applied, although I hope that synchronize_net() doesn't become
+a scalability issue in some workload in the future.
