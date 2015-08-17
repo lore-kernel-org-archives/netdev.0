@@ -1,32 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 20150814
-Date: Mon, 17 Aug 2015 14:32:08 -0700 (PDT)
-Message-ID: <20150817.143208.1125830096583650201.davem@davemloft.net>
-References: <1439585834-26564-1-git-send-email-antonio@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rhashtable-test: extend to test concurrency
+Date: Mon, 17 Aug 2015 14:32:52 -0700 (PDT)
+Message-ID: <20150817.143252.890116643769336637.davem@davemloft.net>
+References: <1439591835-30357-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1439585834-26564-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: tgraf@suug.ch, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: phil@nwl.cc
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439591835-30357-1-git-send-email-phil@nwl.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Date: Fri, 14 Aug 2015 22:57:04 +0200
+From: Phil Sutter <phil@nwl.cc>
+Date: Sat, 15 Aug 2015 00:37:15 +0200
 
-> this is our first batch intended for net-next/linux-4.3 (resent after
-> fixing the parenthesis as reported by Sergei).
+> After having tested insertion, lookup, table walk and removal, spawn a
+> number of threads running operations on the same rhashtable. Each of
+> them will:
+> 
+> 1) insert it's own set of objects,
+> 2) lookup every successfully inserted object and finally
+> 3) remove objects in several rounds until all of them have been removed,
+>    making sure the remaining ones are still found after each round.
+> 
+> This should put a good amount of load onto the system and due to
+> synchronising thread startup via two semaphores also extensive
+> concurrent table access.
+> 
+> The default number of ten threads returned within half a second on my
+> local VM with two cores. Running 200 threads took about four seconds. If
+> slow systems suffer too much from this though, the default could be
+> lowered or even set to zero so this extended test does not run at all by
+> default.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Pulled, thanks Antonio.
+Applied, thank you.
