@@ -1,105 +1,94 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2 1/2] virtio-net: rephrase devconf fields description
-Date: Mon, 17 Aug 2015 10:43:46 +0800
-Message-ID: <55D14A62.2060408@redhat.com>
-References: <1439732494-29765-1-git-send-email-victork@redhat.com> <1439732494-29765-2-git-send-email-victork@redhat.com>
+Subject: Re: [PATCH v2 2/2] virtio-net: add default_mtu configuration field
+Date: Mon, 17 Aug 2015 11:07:15 +0800
+Message-ID: <55D14FE3.8040307@redhat.com>
+References: <1439732494-29765-1-git-send-email-victork@redhat.com>
+	<1439732494-29765-3-git-send-email-victork@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Victor Kaplansky <victork@redhat.com>,
-	virtio-dev@lists.oasis-open.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54856 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751440AbbHQCnu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Aug 2015 22:43:50 -0400
-In-Reply-To: <1439732494-29765-2-git-send-email-victork@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	mst@redhat.com
+To: Victor Kaplansky <victork@redhat.com>, virtio-dev@lists.oasis-open.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1439732494-29765-3-git-send-email-victork@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 
 
 On 08/16/2015 09:42 PM, Victor Kaplansky wrote:
-> Clarify general description of the mac, status and
-> max_virtqueue_pairs fields. Specifically, the old description is
-> vague about configuration layout and fields offsets when some of
-> the fields are non valid.
+> Sometimes it is essential for libvirt to be able to configure MTU
+> on guest's NICs to a value different from 1500.
 >
-> Also clarify that validity of two status bits depends on two
-> different feature flags.
+> The change adds a new field to configuration area of network
+> devices. It will be used to pass initial MTU from the device to
+> the driver, and to pass modified MTU from driver to the device
+> when a new MTU is assigned by the guest OS.
+>
+> In addition, in order to support backward and forward
+> compatibility, we introduce a new feature bit called
+> VIRTIO_NET_F_DEFAULT_MTU.
+>
+> Added conformance statements for a device and a driver.
 >
 > Signed-off-by: Victor Kaplansky <victork@redhat.com>
+>
+>     Signed-off-by: Victor Kaplansky <victork@redhat.com>
 > ---
->  content.tex | 42 +++++++++++++++++++++++++++++++-----------
->  1 file changed, 31 insertions(+), 11 deletions(-)
+>  content.tex | 25 +++++++++++++++++++++++++
+>  1 file changed, 25 insertions(+)
 >
 > diff --git a/content.tex b/content.tex
-> index d989d98..342183b 100644
+> index 342183b..439d005 100644
 > --- a/content.tex
 > +++ b/content.tex
-> @@ -3115,23 +3115,14 @@ were needed.
->  \subsection{Device configuration layout}\label{sec:Device Types / Network Device / Device configuration layout}
->  \label{sec:Device Types / Block Device / Feature bits / Device configuration layout}
+> @@ -3078,6 +3078,12 @@ features.
 >  
-> -Three driver-read-only configuration fields are currently defined. The \field{mac} address field
-> -always exists (though is only valid if VIRTIO_NET_F_MAC is set), and
-> -\field{status} only exists if VIRTIO_NET_F_STATUS is set. Two
-> -read-only bits (for the driver) are currently defined for the status field:
-> -VIRTIO_NET_S_LINK_UP and VIRTIO_NET_S_ANNOUNCE.
+>  \item[VIRTIO_NET_F_CTRL_MAC_ADDR(23)] Set MAC address through control
+>      channel.
 > +
-> +The following configuration fields are currently defined:
+> +\item[VIRTIO_NET_F_DEFAULT_MTU(24)] Default MTU is supported.  If
+> +    offered by the device, device advises driver about initial MTU to
+> +    be used. If negotiated, the driver uses \field{default_mtu} as
+> +    an initial value and reports MTU changes to the device.
+> +
+>  \end{description}
 >  
->  \begin{lstlisting}
->  #define VIRTIO_NET_S_LINK_UP     1
->  #define VIRTIO_NET_S_ANNOUNCE    2
->  \end{lstlisting}
->  
-> -The following driver-read-only field, \field{max_virtqueue_pairs} only exists if
-> -VIRTIO_NET_F_MQ is set. This field specifies the maximum number
-> -of each of transmit and receive virtqueues (receiveq1\ldots receiveqN
-> -and transmitq1\ldots transmitqN respectively) that can be configured once VIRTIO_NET_F_MQ
-> -is negotiated.
-> -
->  \begin{lstlisting}
->  struct virtio_net_config {
+>  \subsubsection{Feature bit requirements}\label{sec:Device Types / Network Device / Feature bits / Feature bit requirements}
+> @@ -3128,6 +3134,7 @@ struct virtio_net_config {
 >          u8 mac[6];
-> @@ -3140,6 +3131,35 @@ struct virtio_net_config {
+>          le16 status;
+>          le16 max_virtqueue_pairs;
+> +        le16 default_mtu;
+
+Looks like "mtu" is ok, consider we use "mac" instead of "default_mac".
+
 >  };
 >  \end{lstlisting}
 >  
-> +\field{mac}, \field{status}, \field{max_virtqueue_pairs} are
-> +driver-read-only. \field{default_mtu} can also be written
-> +by the driver after negotiation.
-> +
-> +\begin{description}
-> +\item [\field{mac}] is MAC address assigned by the device and is valid
-> +    only if VIRTIO_NET_F_MAC is offered.
-> +
-> +\item [\field{status}] consists of two driver-read-only status bits:
-> +
-> +\begin{description}
-> +
-> +\item VIRTIO_NET_S_LINK_UP is valid if VIRTIO_NET_F_STATUS is
-> +    offered.
-> +
-> +\item VIRTIO_NET_S_ANNOUNCE is valid if
-> +    VIRTIO_NET_F_GUEST_ANNOUNCE is offered.
-> +
-> +\end{description}
-> +
-> +\item [\field{max_virtqueue_pairs}] tells the driver the maximum
-> +    number of each of virtqueues (receiveq1\ldots receiveqN and
-> +    transmitq1\ldots transmitqN respectively) that can be configured
-> +    on the device once VIRTIO_NET_F_MQ is negotiated.
-> +    \field{max_virtqueue_pairs} is valid only if VIRTIO_NET_F_MQ is
-> +    set and can be read by the driver.
+> @@ -3158,6 +3165,15 @@ by the driver after negotiation.
+>      \field{max_virtqueue_pairs} is valid only if VIRTIO_NET_F_MQ is
+>      set and can be read by the driver.
+>  
+> +\item [\field{default_mtu}] is a hint to the driver set by the
+> +    device. It is valid during feature negotiation only if
+> +    VIRTIO_NET_F_DEFAULT_MTU is offered and holds the initial value
+> +    of MTU to be used by the driver. If VIRTIO_NET_F_DEFAULT_MTU is
+> +    negotiated, the driver uses the \field{default_mtu} as an initial
+> +    value, and also reports MTU changes to the device by writes to
+> +    \field{default_mtu}.  Such reporting can be used for debugging,
+> +    or it can be used for tunning MTU along the network.
 > +
 
-Hi:
-
-I don't get the point that adding "can be read by the driver". Looks
-like it's hard for hypervisor to detect this?
-
-Thanks
+I vaguely remember that config is read only in some arch or transport
+and that's why we introduce another vq cmd to confirm the announcement.
+Probably we should do same for this?
