@@ -1,30 +1,37 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF is
- configured or used
-Date: Mon, 17 Aug 2015 17:35:00 -0500
-Message-ID: <55D26194.5060702@arm.com>
-References: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
- <55D24FEE.8040505@arm.com> <55D25CE0.6040203@roeck-us.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4 net-next] enic: add devcmd2
+Date: Mon, 17 Aug 2015 15:38:32 -0700 (PDT)
+Message-ID: <20150817.153832.1220000969996122058.davem@davemloft.net>
+References: <1439669694-21744-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55D25CE0.6040203@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nalreddy@cisco.com, ssujith@cisco.com,
+	benve@cisco.com
+To: _govind@gmx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36728 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbbHQWif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 18:38:35 -0400
+In-Reply-To: <1439669694-21744-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2015 05:14 PM, Guenter Roeck wrote:
-> One nitpick I noticed after sending my patch: dev can never be NULL in
-> smsc911x_probe_config(), so it does not really make sense to check if it is NULL.
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Sun, 16 Aug 2015 01:44:50 +0530
 
-No, it doesn't... it should really be something like
+> This series adds new devcmd2 support. The first two patches are code
+> refactoring.
+> 
+> devcmd is an interface for driver to communicate with fw/adaptor. It
+> involves writing data to hardware registers and waiting for the result.
+> This mechanism does not scale well. The queuing of "no wait" devcmds is
+> done in firmware memory rather than on the host. Firmware memory is a
+> rather more scarce and valuable resource than host memory. A devcmd storm
+> from one vf can disrupt the service on other pf/vf. The lack of flow
+> control allows for possible denial of server from one VM to another.
+> Devcmd2 uses work queue to post the devcmds, just like tx work queue. This
+> allows better flow control.
 
-if (dev_fwnode(dev))
-
-But dev_fwnode is static inline in property.c, and i'm pretty sure that 
-still isn't 100% correct.The best plan might just be to remove the 
-check, and abort on failure to find the phy property per your patch.
+Series applied, thanks.
