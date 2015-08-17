@@ -1,133 +1,54 @@
-From: Alexandre Courbot <gnurou@gmail.com>
-Subject: Re: [PATCH v3] MIPS: Remove all the uses of custom gpio.h
-Date: Mon, 17 Aug 2015 16:41:37 +0900
-Message-ID: <CAAVeFuK00Gp5mbXAMYp0dM0AmHjeY76jS9CYNJqRS720F1zbDA@mail.gmail.com>
-References: <1438678305-25524-1-git-send-email-albeu@free.fr>
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Subject: RE: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
+Date: Mon, 17 Aug 2015 07:48:32 +0000
+Message-ID: <BLUPR03MB1475F50C5CA05DD25ABA729DE2790@BLUPR03MB1475.namprd03.prod.outlook.com>
+References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
+ <55CE1EFD.9090505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-mips <linux-mips@linux-mips.org>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Tejun Heo <tj@kernel.org>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Florian Fainelli <florian@openwrt.org>,
-	Manuel Lauss <manuel.lauss@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	Daniel Walter <dwalter@google.com>,
-	Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Huacai Chen <chenhc@lemote.com>,
-	James Hartley <james.hartley@imgtec.com>,
-	Andrew Bresticker <abrestic@chromium.org>,
-	Paul Burton <paul.burton@imgtec.com>,
-	Lars-Peter Clausen <lars@metafoo.de>,
-	Brian Norris <computersforpeace@gmail.com>,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	Wolfram Sang <wsa@the-dreams.de>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Simo
-To: Alban Bedel <albeu@free.fr>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <1438678305-25524-1-git-send-email-albeu@free.fr>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0132.outbound.protection.outlook.com ([157.56.111.132]:18688
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750985AbbHQHsf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Aug 2015 03:48:35 -0400
+In-Reply-To: <55CE1EFD.9090505@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 4, 2015 at 5:50 PM, Alban Bedel <albeu@free.fr> wrote:
-> Currently CONFIG_ARCH_HAVE_CUSTOM_GPIO_H is defined for all MIPS
-> machines, and each machine type provides its own gpio.h. However
-> only a handful really implement the GPIO API, most just forward
-> everythings to gpiolib.
->
-> The Alchemy machine is notable as it provides a system to allow
-> implementing the GPIO API at the board level. But it is not used by
-> any board currently supported, so it can also be removed.
->
-> For most machine types we can just remove the custom gpio.h, as well
-> as the custom wrappers if some exists. Some of the code found in
-> the wrappers must be moved to the respective GPIO driver.
->
-> A few more fixes are need in some drivers as they rely on linux/gpio.h
-> to provides some machine specific definitions, or used asm/gpio.h
-> instead of linux/gpio.h for the gpio API.
->
-> Signed-off-by: Alban Bedel <albeu@free.fr>
-> ---
->
-> This patch is based on my previous serie:
-> "MIPS: ath79: Move the GPIO driver to drivers/gpio".
->
-> It supercede my previous patch named:
-> "MIPS: Remove most of the custom gpio.h"
->
-> Changelog:
-> v3: * Add the missing includes to fix the build on jz4740 machines
-> v2: * Don't remove AR7_GPIO_MAX and TITAN_GPIO_MAX, that's for another
->       patch
-> v1: * Fixed gpio_to_irq on jz4740 and rb532
->     * Cleaned up alchemy as well
->     * Removed asm/gpio.h
->
-> For testing I tried to build all mips defconfig, however my toolchain
-> couldn't handle a few configs: ip28 malta_qemu_32r6 maltasmvp_eva
-> sead3micro. If somebody can test these that would be more than welcome.
->
-> Now a few stats about the state of CONFIG_ARCH_HAVE_CUSTOM_GPIO_H
-> after appling this patch. Of the 31 supportd arch, 15 still have
-> asm/gpio.h, of these 9 are just a "#warning Include linux/gpio.h
-> instead of asm/gpio.h". So we have 6 arch left: arm, avr32, blackfin,
-> m68k, sh and unicore32. But only m68k and unicore32 really provides
-> custom wrappers, all the others only forward to gpiolib.
->
-> On the drivers side we only have 13 occurences of '#include
-> <asm/gpio.h>' left, mostly in drivers used on ARM SoC.
->
-> So the work left to phase out the legacy GPIO is really not that much
-> anymore.
->
-> Alban
-> ---
->  arch/mips/Kconfig                               |   1 -
->  arch/mips/alchemy/Kconfig                       |   7 --
->  arch/mips/alchemy/board-gpr.c                   |   1 +
->  arch/mips/alchemy/board-mtx1.c                  |   1 +
->  arch/mips/alchemy/common/Makefile               |   7 +-
->  arch/mips/alchemy/devboards/db1000.c            |   1 +
->  arch/mips/alchemy/devboards/db1300.c            |   1 +
->  arch/mips/alchemy/devboards/db1550.c            |   1 +
->  arch/mips/alchemy/devboards/pm.c                |   2 +-
->  arch/mips/ar7/gpio.c                            |   5 +-
->  arch/mips/ar7/platform.c                        |   1 -
->  arch/mips/ar7/setup.c                           |   1 -
->  arch/mips/include/asm/gpio.h                    |   6 -
->  arch/mips/include/asm/mach-ar7/ar7.h            |   4 +
->  arch/mips/include/asm/mach-ar7/gpio.h           |  41 -------
->  arch/mips/include/asm/mach-ath25/gpio.h         |  16 ---
->  arch/mips/include/asm/mach-ath79/gpio.h         |  26 -----
->  arch/mips/include/asm/mach-au1x00/gpio-au1000.h | 148 ++----------------------
->  arch/mips/include/asm/mach-au1x00/gpio.h        |  86 --------------
->  arch/mips/include/asm/mach-bcm47xx/gpio.h       |  17 ---
->  arch/mips/include/asm/mach-bcm63xx/gpio.h       |  15 ---
->  arch/mips/include/asm/mach-cavium-octeon/gpio.h |  21 ----
->  arch/mips/include/asm/mach-generic/gpio.h       |  21 ----
->  arch/mips/include/asm/mach-jz4740/gpio.h        |   2 -
->  arch/mips/include/asm/mach-lantiq/gpio.h        |  13 ---
->  arch/mips/include/asm/mach-loongson64/gpio.h    |  36 ------
->  arch/mips/include/asm/mach-pistachio/gpio.h     |  21 ----
->  arch/mips/include/asm/mach-rc32434/gpio.h       |  12 --
->  arch/mips/jz4740/board-qi_lb60.c                |   1 +
->  arch/mips/jz4740/gpio.c                         |  21 ++--
->  arch/mips/pci/pci-lantiq.c                      |   1 -
->  arch/mips/rb532/devices.c                       |   1 +
->  arch/mips/rb532/gpio.c                          |   6 +
->  arch/mips/txx9/generic/setup.c                  |  16 ---
->  drivers/ata/pata_rb532_cf.c                     |   3 +-
->  drivers/gpio/gpio-ath79.c                       |  32 -----
->  drivers/input/misc/rb532_button.c               |   1 +
->  drivers/net/ethernet/ti/cpmac.c                 |   2 +
->  38 files changed, 47 insertions(+), 551 deletions(-)
-
-Acked-by: Alexandre Courbot <acourbot@nvidia.com>
-
-Great cleanup job!
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
+YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFNhdHVyZGF5LCBBdWd1c3QgMTUs
+IDIwMTUgMTowMiBBTQ0KPiBUbzogc2hoLnhpZUBnbWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IFhpZSBTaGFvaHVpLUIyMTk4OQ0KPiBT
+dWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IHBoeTogZml4IFBIWV9SVU5OSU5HIGluIHBoeV9zdGF0
+ZV9tYWNoaW5lDQo+IA0KPiBMZSAwOC8xMy8xNSAyMToyMywgc2hoLnhpZUBnbWFpbC5jb20gYSDD
+qWNyaXQgOg0KPiA+IEZyb206IFNoYW9odWkgWGllIDxTaGFvaHVpLlhpZUBmcmVlc2NhbGUuY29t
+Pg0KPiA+DQo+ID4gQ3VycmVudGx5LCBpZiBwaHkgc3RhdGUgaXMgUEhZX1JVTk5JTkcsIHdlIGFs
+d2F5cyByZWdpc3RlciBhIENIQU5HRQ0KPiA+IHdoZW4gcGh5IHdvcmtzIGluIHBvbGxpbmcgb3Ig
+aW50ZXJydXB0IGlnbm9yZWQsIHRoaXMgd2lsbCBtYWtlIHRoZQ0KPiA+IGFkanVzdF9saW5rIGJl
+aW5nIGNhbGxlZCBldmVuIHRoZSBwaHkgbGluayBkaWQgTm90IGNoYW5nZWQuDQo+IA0KPiBSaWdo
+dCwgd2hpY2ggaXMgd2h5IG1vc3QgZHJpdmVycyBkbyBpbXBsZW1lbnQgYSBjYWNoaW5nIHNjaGVt
+ZS4NCj4gDQo+ID4NCj4gPiBjaGVja2luZyB0aGUgcGh5IGxpbmsgdG8gbWFrZSBzdXJlIHRoZSBs
+aW5rIGRpZCBjaGFuZ2VkIGJlZm9yZSB3ZQ0KPiA+IHJlZ2lzdGVyIGEgQ0hBTkdFLCBpZiBsaW5r
+IGRpZCBub3QgY2hhbmdlZCwgd2UgZG8gbm90aGluZy4NCj4gDQo+IFdpdGggeW91ciBjaGFuZ2Ug
+d2Ugd2lsbCBlbmQtdXAgd2l0aCB2aXJ0dWFsbHkgcG9sbGluZyBhIFBIWSB0d2ljZSBhcyBmYXN0
+IGFzIHdlDQo+IHVzZWQgdG8gd2l0aCB0aGUgUlVOTklORyAtPiBDSEFOR0VMSU5LIC0+IFJVTk5J
+TkcgdHJhbnNpdGlvbiAoY3VycmVudCBzdGF0ZQ0KPiB0cmFuc2l0aW9ucyksIHdoaWNoIGlzIHBy
+b2JhYmx5IGZpbmUsIGJ1dCBwdXRzIGEgYml0IG1vcmUgcHJlc3N1cmUgb24gdGhlIChzbG93KQ0K
+PiBNRElPIGJ1cyBzaW5jZSB3ZSBlbmQtdXAgd2l0aCB0d28gYWRkaXRpb25hbCByZWFkcyB0byBs
+YXRjaCB0aGUgbGluayBzdGF0dXMNCj4gcmVnaXN0ZXIuDQpbUy5IXSBIb3cgYWJvdXQgcHV0IHRo
+ZSBsaW5rIGNoZWNraW5nIGluIHN0YXRlIFBIWV9DSEFOR0VMSU5LLCBpZiB0aGUgbGluayBkaWQg
+Y2hhbmdlZCwNCkNvbnRpbnVlIHRvIG9yaWdpbmFsIGhhbmRsZSwgaWYgdGhlIGxpbmsgZGlkIG5v
+dCBjaGFuZ2VkLCBtb2RpZnkgdGhlIHN0YXRlIHRvIFBIWV9SVU5OSU5HPw0KDQogICAgICAgIGNh
+c2UgUEhZX0NIQU5HRUxJTks6DQorICAgICAgICAgICAgICAgb2xkX2xpbmsgPSBwaHlkZXYtPmxp
+bms7DQogICAgICAgICAgICAgICAgZXJyID0gcGh5X3JlYWRfc3RhdHVzKHBoeWRldik7DQogICAg
+ICAgICAgICAgICAgaWYgKGVycikNCiAgICAgICAgICAgICAgICAgICAgICAgIGJyZWFrOw0KIA0K
+KyAgICAgICAgICAgICAgIGlmIChvbGRfbGluayA9PSBwaHlkZXYtPmxpbmspIHsNCisgICAgICAg
+ICAgICAgICAgICAgICAgIHBoeWRldi0+c3RhdGUgPSBQSFlfUlVOTklORzsNCisgICAgICAgICAg
+ICAgICAgICAgICAgIGJyZWFrOw0KKyAgICAgICAgICAgICAgIH0NCisNCg0KVGhhbmtzIQ0KU2hh
+b2h1aQ0K
