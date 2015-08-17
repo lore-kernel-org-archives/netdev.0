@@ -1,55 +1,230 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: introduce IFF_NO_QUEUE as successor of zero
- tx_queue_len
-Date: Mon, 17 Aug 2015 11:51:04 -0700 (PDT)
-Message-ID: <20150817.115104.47255555484332113.davem@davemloft.net>
-References: <1439485268-20953-1-git-send-email-phil@nwl.cc>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next v3 1/4] lwt: Add support to redirect dst.input
+Date: Mon, 17 Aug 2015 11:59:14 -0700
+Message-ID: <1439837957-673905-2-git-send-email-tom@herbertland.com>
+References: <1439837957-673905-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com,
-	alexei.starovoitov@gmail.com, fw@strlen.de, cwang@twopensource.com,
-	eric.dumazet@gmail.com
-To: phil@nwl.cc
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35539 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbbHQSvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 14:51:07 -0400
-In-Reply-To: <1439485268-20953-1-git-send-email-phil@nwl.cc>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41776 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750759AbbHQS7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 14:59:32 -0400
+Received: from pps.filterd (m0044008 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7HIweBM004190
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 11:59:31 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1wbmfr050f-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 11:59:31 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 16cbdcda451211e5889a0002c9521c9e-a3bfa2b0 for <netdev@vger.kernel.org>;	Mon,
+ 17 Aug 2015 11:59:30 -0700
+In-Reply-To: <1439837957-673905-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Thu, 13 Aug 2015 19:01:05 +0200
+This patch adds the capability to redirect dst input in the same way
+that dst output is redirected by LWT.
 
-> This series adds a new private net_device flag indicating that a device may
-> (and probably should) be used without a queueing discipline attached to it.
-> This is already common practice for many virtual device types like e.g.
-> loopback, VLAN (802.1Q) or bridges (802.1D). The reason for this is that these
-> devices lack an underlying layer which could impose back pressure and therefore
-> making a TX queue necessary to not slow down senders.
-> 
-> Up to now, drivers being aware of the above applying to them set
-> dev->tx_queue_len to zero to indicate no qdisc should be attached to the
-> interface they drive and the kernel reacts upon this by assigning the noop
-> qdisc instead of the default pfifo_fast. This implicit agreement though leads
-> to an inconvenient situation once a user tries to attach a real qdisc to these
-> devices, as the formerly special tx_queue_len value becomes a regular one,
-> limiting the queue to zero packets and thus prevents any TX from happening. To
-> overcome this, practically all qdisc implementations intercept and sanitize the
-> malicious value.
-> 
-> With this series applied, drivers may signal the lack of need for a qdisc
-> without having to tamper with tx_queue_len, making fallbacks in qdiscs and
-> caveats in userspace unnecessary.
-> 
-> Upon upstream acceptance, this series will be followed up by a set of patches
-> converting device drivers, adding a warning so out-of-tree driver authors get
-> aware of this change and dropping all special handling of tx_queue_len in
-> net/sched/.
+Also, save the original dst.input and and dst.out when setting up
+lwtunnel redirection. These can be called by the client as a pass-
+through.
 
-Series applied, thanks.
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/net/lwtunnel.h | 30 ++++++++++++++++++++++++++-
+ net/core/lwtunnel.c    | 55 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/route.c       |  8 +++++++-
+ net/ipv6/route.c       |  8 +++++++-
+ 4 files changed, 98 insertions(+), 3 deletions(-)
 
-Since the VRF changes went in right before this, I had to bump the IFF_NO_QUEUE
-value to use bit 26 instead of bit 25.
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index 33bd309..e25b60e 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -11,12 +11,15 @@
+ #define LWTUNNEL_HASH_SIZE   (1 << LWTUNNEL_HASH_BITS)
+ 
+ /* lw tunnel state flags */
+-#define LWTUNNEL_STATE_OUTPUT_REDIRECT 0x1
++#define LWTUNNEL_STATE_OUTPUT_REDIRECT	BIT(0)
++#define LWTUNNEL_STATE_INPUT_REDIRECT	BIT(1)
+ 
+ struct lwtunnel_state {
+ 	__u16		type;
+ 	__u16		flags;
+ 	atomic_t	refcnt;
++	int		(*orig_output)(struct sock *sk, struct sk_buff *skb);
++	int		(*orig_input)(struct sk_buff *);
+ 	int             len;
+ 	__u8            data[0];
+ };
+@@ -25,6 +28,7 @@ struct lwtunnel_encap_ops {
+ 	int (*build_state)(struct net_device *dev, struct nlattr *encap,
+ 			   struct lwtunnel_state **ts);
+ 	int (*output)(struct sock *sk, struct sk_buff *skb);
++	int (*input)(struct sk_buff *skb);
+ 	int (*fill_encap)(struct sk_buff *skb,
+ 			  struct lwtunnel_state *lwtstate);
+ 	int (*get_encap_size)(struct lwtunnel_state *lwtstate);
+@@ -58,6 +62,13 @@ static inline bool lwtunnel_output_redirect(struct lwtunnel_state *lwtstate)
+ 	return false;
+ }
+ 
++static inline bool lwtunnel_input_redirect(struct lwtunnel_state *lwtstate)
++{
++	if (lwtstate && (lwtstate->flags & LWTUNNEL_STATE_INPUT_REDIRECT))
++		return true;
++
++	return false;
++}
+ int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
+ 			   unsigned int num);
+ int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
+@@ -72,6 +83,8 @@ struct lwtunnel_state *lwtunnel_state_alloc(int hdr_len);
+ int lwtunnel_cmp_encap(struct lwtunnel_state *a, struct lwtunnel_state *b);
+ int lwtunnel_output(struct sock *sk, struct sk_buff *skb);
+ int lwtunnel_output6(struct sock *sk, struct sk_buff *skb);
++int lwtunnel_input(struct sk_buff *skb);
++int lwtunnel_input6(struct sk_buff *skb);
+ 
+ #else
+ 
+@@ -90,6 +103,11 @@ static inline bool lwtunnel_output_redirect(struct lwtunnel_state *lwtstate)
+ 	return false;
+ }
+ 
++static inline bool lwtunnel_input_redirect(struct lwtunnel_state *lwtstate)
++{
++	return false;
++}
++
+ static inline int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
+ 					 unsigned int num)
+ {
+@@ -142,6 +160,16 @@ static inline int lwtunnel_output6(struct sock *sk, struct sk_buff *skb)
+ 	return -EOPNOTSUPP;
+ }
+ 
++static inline int lwtunnel_input(struct sk_buff *skb)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int lwtunnel_input6(struct sk_buff *skb)
++{
++	return -EOPNOTSUPP;
++}
++
+ #endif
+ 
+ #endif /* __NET_LWTUNNEL_H */
+diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+index 5d6d8e3..3331585 100644
+--- a/net/core/lwtunnel.c
++++ b/net/core/lwtunnel.c
+@@ -241,3 +241,58 @@ int lwtunnel_output(struct sock *sk, struct sk_buff *skb)
+ 	return __lwtunnel_output(sk, skb, lwtstate);
+ }
+ EXPORT_SYMBOL(lwtunnel_output);
++
++int __lwtunnel_input(struct sk_buff *skb,
++		     struct lwtunnel_state *lwtstate)
++{
++	const struct lwtunnel_encap_ops *ops;
++	int ret = -EINVAL;
++
++	if (!lwtstate)
++		goto drop;
++
++	if (lwtstate->type == LWTUNNEL_ENCAP_NONE ||
++	    lwtstate->type > LWTUNNEL_ENCAP_MAX)
++		return 0;
++
++	ret = -EOPNOTSUPP;
++	rcu_read_lock();
++	ops = rcu_dereference(lwtun_encaps[lwtstate->type]);
++	if (likely(ops && ops->input))
++		ret = ops->input(skb);
++	rcu_read_unlock();
++
++	if (ret == -EOPNOTSUPP)
++		goto drop;
++
++	return ret;
++
++drop:
++	kfree_skb(skb);
++
++	return ret;
++}
++
++int lwtunnel_input6(struct sk_buff *skb)
++{
++	struct rt6_info *rt = (struct rt6_info *)skb_dst(skb);
++	struct lwtunnel_state *lwtstate = NULL;
++
++	if (rt)
++		lwtstate = rt->rt6i_lwtstate;
++
++	return __lwtunnel_input(skb, lwtstate);
++}
++EXPORT_SYMBOL(lwtunnel_input6);
++
++int lwtunnel_input(struct sk_buff *skb)
++{
++	struct rtable *rt = (struct rtable *)skb_dst(skb);
++	struct lwtunnel_state *lwtstate = NULL;
++
++	if (rt)
++		lwtstate = rt->rt_lwtstate;
++
++	return __lwtunnel_input(skb, lwtstate);
++}
++EXPORT_SYMBOL(lwtunnel_input);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 2c89d29..2403e85 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1631,8 +1631,14 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->dst.output = ip_output;
+ 
+ 	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
+-	if (lwtunnel_output_redirect(rth->rt_lwtstate))
++	if (lwtunnel_output_redirect(rth->rt_lwtstate)) {
++		rth->rt_lwtstate->orig_output = rth->dst.output;
+ 		rth->dst.output = lwtunnel_output;
++	}
++	if (lwtunnel_input_redirect(rth->rt_lwtstate)) {
++		rth->rt_lwtstate->orig_input = rth->dst.input;
++		rth->dst.input = lwtunnel_input;
++	}
+ 	skb_dst_set(skb, &rth->dst);
+ out:
+ 	err = 0;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 1c0217e..c373304 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1785,8 +1785,14 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		if (err)
+ 			goto out;
+ 		rt->rt6i_lwtstate = lwtstate_get(lwtstate);
+-		if (lwtunnel_output_redirect(rt->rt6i_lwtstate))
++		if (lwtunnel_output_redirect(rt->rt6i_lwtstate)) {
++			rt->rt6i_lwtstate->orig_output = rt->dst.output;
+ 			rt->dst.output = lwtunnel_output6;
++		}
++		if (lwtunnel_input_redirect(rt->rt6i_lwtstate)) {
++			rt->rt6i_lwtstate->orig_input = rt->dst.input;
++			rt->dst.input = lwtunnel_input6;
++		}
+ 	}
+ 
+ 	ipv6_addr_prefix(&rt->rt6i_dst.addr, &cfg->fc_dst, cfg->fc_dst_len);
+-- 
+1.8.1
