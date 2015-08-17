@@ -1,43 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2: Fix bandwidth allocation for some MF
- modes
-Date: Mon, 17 Aug 2015 10:28:10 -0700 (PDT)
-Message-ID: <20150817.102810.1079283414308199235.davem@davemloft.net>
-References: <1439789305-4643-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [v1 0/6] *** nps_enet fixups ***
+Date: Mon, 17 Aug 2015 10:36:07 -0700 (PDT)
+Message-ID: <20150817.103607.1737876155019074073.davem@davemloft.net>
+References: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35119 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757AbbHQR2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 13:28:14 -0400
-In-Reply-To: <1439789305-4643-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alexey.Brodkin@synopsys.com, vgupta@synopsys.com, talz@ezchip.com
+To: noamc@ezchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Mon, 17 Aug 2015 08:28:25 +0300
+From: Noam Camus <noamc@ezchip.com>
+Date: Mon, 17 Aug 2015 08:58:33 +0300
 
-> Management firmware tells driver in case bandwidth configuration for
-> a specific function exists, but [regretably] the same field has different
-> meanings depending on the multi-function mode - it can either be
-> a percentile value or an actual speed.
+> This patch set is a bunch of fixes to make nps_enet work correctly with
+> all platforms, i.e. real device, emulation system, and simulation system.
+> The main trigger for this patch set was that in our emulation system
+> the TX end interrupt is "edge-sensitive" and therefore we cannot use the
+> cause register since it is not sticky.
+> Also:
+> TX is handled during HW interrupt context and not NAPI job.
+> race with TX done was fixed.
+> added acknowledge for TX when device is "level sensitive".
+> enable drop of control frames which is not needed for regular usage.
 > 
-> For newer multi-function modes current logic is incorrect -
-> driver understands values as actual speeds instead of percentages,
-> causing the resulting chip configuration to be incorrect.
-> 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> ---
-> Hi Dave,
-> 
-> This is actually a bug fix - but as some of the targeted multi-function
-> modes exists only in 'net-next' at this time, I'm designating this fix
-> to 'net-next' as well.
-> 
-> Please consider applying this one.
+> So most of this patch set is about TX handling, which is now more complete.
 
-Applied to net-next, thanks.
+You should not move TX completion out of NAPI handling, NAPI poll is
+exactly where it belongs.
+
+If you handle it in hardware interrupt context you have to use
+dev_kfree_skb_irq() which defers the operation to software interrupt
+context anyways and is thus expensive.
+
+Whereas if you keep TX completion in your NAPI handler the kfree is
+handled synchronously and efficiently, as well as making SKB's
+potentially available for RX reclaim.
+
+I'm not applying this series, you are doing with TX handling exactly
+what we tell people not to do.
