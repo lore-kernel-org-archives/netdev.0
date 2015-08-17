@@ -1,52 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 4/4] net: Identifier Locator Addressing
- module
-Date: Mon, 17 Aug 2015 12:09:33 -0700 (PDT)
-Message-ID: <20150817.120933.1027656588494926587.davem@davemloft.net>
-References: <1439837957-673905-1-git-send-email-tom@herbertland.com>
-	<1439837957-673905-5-git-send-email-tom@herbertland.com>
+Subject: Re: [PATCH] Revert "net: limit tcp/udp rmem/wmem to
+ SOCK_{RCV,SND}BUF_MIN"
+Date: Mon, 17 Aug 2015 12:11:14 -0700 (PDT)
+Message-ID: <20150817.121114.1040758760525721568.davem@davemloft.net>
+References: <20150810.204630.1903301700926701432.davem@davemloft.net>
+	<20150812045420.GA3908557@mail.thefacebook.com>
+	<20150813212134.GA3070917@mail.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35624 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751625AbbHQTJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 15:09:34 -0400
-In-Reply-To: <1439837957-673905-5-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com, sorin@returnze.ro
+To: calvinowens@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150813212134.GA3070917@mail.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Mon, 17 Aug 2015 11:59:17 -0700
+From: Calvin Owens <calvinowens@fb.com>
+Date: Thu, 13 Aug 2015 14:21:34 -0700
 
-> +static int ila_build_state(struct net_device *dev, struct nlattr *nla,
-> +			   struct lwtunnel_state **ts)
-> +{
-> +	struct ila_params *p;
-> +	struct nlattr *tb[ILA_ATTR_MAX + 1];
-> +	size_t encap_len = sizeof(*p);
-> +	struct lwtunnel_state *newts;
-> +	int ret;
-> +
-> +	ret = nla_parse_nested(tb, ILA_ATTR_MAX, nla,
-> +			       ila_nl_policy);
-> +	if (ret < 0)
-> +		return ret;
-> +
-> +	newts = lwtunnel_state_alloc(encap_len);
-> +	if (!newts)
-> +		return -ENOMEM;
-> +
-> +	newts->len = encap_len;
-> +	p = ila_params_lwtunnel(newts);
-> +
-> +	if (!tb[ILA_ATTR_LOCATOR])
-> +		return -EINVAL;
+> Commit 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to
+> SOCK_{RCV,SND}BUF_MIN") modified four sysctls to enforce that the values
+> written to them are not less than SOCK_MIN_{RCV,SND}BUF.
+> 
+> That change causes 4096 to no longer be accepted as a valid value for
+> 'min' in tcp_wmem and udp_wmem_min. 4096 has been the default for both
+> of those sysctls for a long time, and unfortunately seems to be an
+> extremely popular setting. This change breaks a large number of sysctl
+> configurations at Facebook.
+> 
+> That commit referred to b1cb59cf2efe7971 ("net: sysctl_net_core: check
+> SNDBUF and RCVBUF for min length"), which choose to use the SOCK_MIN
+> constants as the lower limits to avoid nasty bugs. But AFAICS, a limit
+> of SOCK_MIN_SNDBUF isn't necessary to do that: the BUG_ON cited in the
+> commit message seems to have happened because unix_stream_sendmsg()
+> expects a minimum of a full page (ie SK_MEM_QUANTUM) and the math broke,
+> not because it had less than SOCK_MIN_SNDBUF allocated.
+> 
+> This particular issue doesn't seem to affect TCP however: using a
+> setting of "1 1 1" for tcp_{r,w}mem works, although it's obviously
+> suboptimal. SK_MEM_QUANTUM would be a nice minimum, but it's 64K on
+> some archs, so there would still be breakage.
+> 
+> Since a value of one doesn't seem to cause any problems, we can drop the
+> minimum 8133534c added to fix this.
+> 
+> This reverts commit 8133534c760d4083f79d2cde42c636ccc0b2792e.
+> 
+> Fixes: 8133534c760d4083 ("net: limit tcp/udp rmem/wmem to SOCK_MIN...")
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Sorin Dumitru <sorin@returnze.ro>
+> Signed-off-by: Calvin Owens <calvinowens@fb.com>
 
-This final error check leaks 'newts'.
-
-You should probably just validate that ILA_ATTR_LOCATOR is present
-before allocating any resources at all.
+Applied, thanks.
