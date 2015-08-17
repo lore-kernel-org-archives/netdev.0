@@ -1,700 +1,107 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2] rocker: add debugfs support to dump internal
- tables
-Date: Mon, 17 Aug 2015 08:36:22 +0200
-Message-ID: <20150817063622.GC2171@nanopsycho.orion>
-References: <1439782326-14996-1-git-send-email-sfeldma@gmail.com>
+From: "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>
+Subject: =?gb2312?B?tPC4tDogW1BBVENIIDEvNV0gbmV0OiBhZGQgSGlzaWxpY29uIE5ldHdvcmsg?=
+ =?gb2312?Q?Subsystem_support_(config_and_documents)?=
+Date: Mon, 17 Aug 2015 01:28:07 +0000
+Message-ID: <161EFA05D917D0419F95C4CAEEF86C1094E95FAA@SZXEMA504-MBS.china.huawei.com>
+References: <1439548222-231611-1-git-send-email-liguozhu@hisilicon.com>
+ <1439548222-231611-2-git-send-email-liguozhu@hisilicon.com>
+ <1536926.jEJjsM70Lj@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:38336 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751447AbbHQGgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 02:36:25 -0400
-Received: by wicja10 with SMTP id ja10so71427281wic.1
-        for <netdev@vger.kernel.org>; Sun, 16 Aug 2015 23:36:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1439782326-14996-1-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
+ "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ Salil Mehta <salil.mehta@huawei.com>,
+ "pawel.moll@arm.com" <pawel.moll@arm.com>,
+ "ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+ "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+ Dingtianhong <dingtianhong@huawei.com>,
+ "will.deacon@arm.com" <will.deacon@arm.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Linuxarm <linuxarm@huawei.com>,
+ "paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
+ "robh+dt@kernel.org" <robh+dt@kernel.org>,
+ huangdaode <huangdaode@hisilicon.com>,
+ "galak@codeaurora.org" <galak@codeaurora.org>,
+ "zhangfei.gao@linaro.org" <zhangfei.gao@linaro.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "Zhuangyuzeng \(Yisen\)" <yisen.zhuang@huawei.com>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1536926.jEJjsM70Lj@wuerfel>
+Content-Language: zh-CN
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Aug 17, 2015 at 05:32:06AM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->> tree /sys/kernel/debug/rocker
->/sys/kernel/debug/rocker
->=E2=94=94=E2=94=80=E2=94=80 5254001235010000
->    =E2=94=9C=E2=94=80=E2=94=80 fdb_tbl
->    =E2=94=9C=E2=94=80=E2=94=80 internal_vlan_tbl
->    =E2=94=9C=E2=94=80=E2=94=80 neigh_tbl
->    =E2=94=9C=E2=94=80=E2=94=80 of_dpa_flow_tbl
->    =E2=94=94=E2=94=80=E2=94=80 of_dpa_group_tbl
->
->1 directory, 5 files
->
->> cat /sys/kernel/debug/rocker/5254001235010000/internal_vlan_tbl
->ifindex 5 ref_count 1 vlan 3843
->ifindex 7 ref_count 2 vlan 3840
->ifindex 4 ref_count 1 vlan 3842
->
->> cat /sys/kernel/debug/rocker/5254001235010000/fdb_tbl
->learned 1 pport 1 addr 00:02:00:00:02:00 vlan 3840
->learned 1 pport 2 addr 00:02:00:00:03:00 vlan 3840
->
->> cat /sys/kernel/debug/rocker/5254001235010000/neigh_tbl
->11.0.0.9 dev sw1p2 ref_count 3 index 1 dst 00:02:00:00:01:00 ttl_check=
- 1
->11.0.0.1 dev sw1p1 ref_count 3 index 0 dst 00:02:00:00:00:00 ttl_check=
- 1
->
->> cat /sys/kernel/debug/rocker/5254001235010000/of_dpa_flow_tbl
->cmd 3 cookie 15 priority 3  tbl acl            in_pport 2 01:80:c2:00:=
-00:00/ff:ff:ff:ff:ff:f0 eth_type 0x0000 vlan_id 3841 ip proto 0/0 ip to=
-s 0/0 group_id 0x0f010000
->cmd 3 cookie 2  priority 0  tbl term_mac       in_pport 1 eth_type 0x0=
-800 52:54:00:12:35:01 vlan_id 3840 goto_tbl ucast_routing copy_to_cpu 0
->cmd 3 cookie 1f priority 3  tbl bridge         00:02:00:00:00:00 vlan_=
-id 3840 tunnel_id 0 goto_tbl acl group_id 0x00000000 copy_to_cpu 0
->cmd 3 cookie 4  priority 1  tbl vlan           in_pport 2 vlan_id 0 go=
-to_tbl term_mac untagged 1 new_vlan_id 3841
->cmd 3 cookie 20 priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-1 goto_tbl acl group_id 0x20000000
->cmd 3 cookie 21 priority 3  tbl bridge         00:02:00:00:01:00 vlan_=
-id 3841 tunnel_id 0 goto_tbl acl group_id 0x00000000 copy_to_cpu 0
->cmd 3 cookie 16 priority 2  tbl acl            in_pport 2 eth_type 0x0=
-806 vlan_id 3841 ip proto 0/0 ip tos 0/0 group_id 0x0f010000
->cmd 3 cookie 12 priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-0 goto_tbl acl group_id 0x0f000000
->cmd 3 cookie 9  priority 3  tbl acl            in_pport 1 01:80:c2:00:=
-00:00/ff:ff:ff:ff:ff:f0 eth_type 0x0000 vlan_id 3840 ip proto 0/0 ip to=
-s 0/0 group_id 0x0f000000
->cmd 3 cookie 6  priority 0  tbl term_mac       in_pport 2 eth_type 0x8=
-6dd 52:54:00:12:35:02 vlan_id 3841 goto_tbl ucast_routing copy_to_cpu 0
->cmd 4 cookie 0  priority 1  tbl ig_port        in_pport 0/0xffff0000 g=
-oto_tbl vlan
->cmd 4 cookie e  priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-3 goto_tbl acl group_id 0x0f000000
->cmd 3 cookie 1  priority 1  tbl vlan           in_pport 1 vlan_id 0 go=
-to_tbl term_mac untagged 1 new_vlan_id 3840
->cmd 3 cookie 24 priority 20 tbl ucast_routing  eth_type 0x0800 11.0.0.=
-4/255.255.255.252 goto_tbl acl group_id 0x20000000
->cmd 4 cookie 14 priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-10 goto_tbl acl group_id 0x0f010000
->cmd 3 cookie 2c priority 20 tbl ucast_routing  eth_type 0x0800 12.0.0.=
-4 goto_tbl acl group_id 0x20000001
->cmd 3 cookie 17 priority 1  tbl term_mac       in_pport 2 eth_type 0x0=
-800 01:00:5e:00:00:00/ff:ff:ff:80:00:00 vlan_id 3841 goto_tbl mcast_rou=
-ting copy_to_cpu 1
->cmd 3 cookie 26 priority 20 tbl ucast_routing  eth_type 0x0800 12.0.0.=
-3 goto_tbl acl group_id 0x20000000
->cmd 3 cookie 2e priority 30 tbl ucast_routing  eth_type 0x0800 12.0.0.=
-2 goto_tbl acl group_id 0x0f010000
->cmd 3 cookie 22 priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-9 goto_tbl acl group_id 0x20000001
->cmd 3 cookie 1c priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-8/255.255.255.252 goto_tbl acl group_id 0x0f010000
->cmd 3 cookie 18 priority 1  tbl term_mac       in_pport 2 eth_type 0x8=
-6dd 33:33:00:00:00:00/ff:ff:00:00:00:00 vlan_id 3841 goto_tbl mcast_rou=
-ting copy_to_cpu 1
->cmd 3 cookie 5  priority 0  tbl term_mac       in_pport 2 eth_type 0x0=
-800 52:54:00:12:35:02 vlan_id 3841 goto_tbl ucast_routing copy_to_cpu 0
->cmd 3 cookie a  priority 2  tbl acl            in_pport 1 eth_type 0x0=
-806 vlan_id 3840 ip proto 0/0 ip tos 0/0 group_id 0x0f000000
->cmd 4 cookie 1a priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-11 goto_tbl acl group_id 0x0f010000
->cmd 3 cookie 1e priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-8 goto_tbl acl group_id 0x0f010000
->cmd 3 cookie 3  priority 0  tbl term_mac       in_pport 1 eth_type 0x8=
-6dd 52:54:00:12:35:01 vlan_id 3840 goto_tbl ucast_routing copy_to_cpu 0
->cmd 3 cookie b  priority 1  tbl term_mac       in_pport 1 eth_type 0x0=
-800 01:00:5e:00:00:00/ff:ff:ff:80:00:00 vlan_id 3840 goto_tbl mcast_rou=
-ting copy_to_cpu 1
->cmd 4 cookie 8  priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-2 goto_tbl acl group_id 0x0f000000
->cmd 3 cookie 10 priority 0  tbl ucast_routing  eth_type 0x0800 11.0.0.=
-0/255.255.255.252 goto_tbl acl group_id 0x0f000000
->cmd 3 cookie 28 priority 20 tbl ucast_routing  eth_type 0x0800 11.0.0.=
-12/255.255.255.252 goto_tbl acl group_id 0x20000001
->cmd 3 cookie c  priority 1  tbl term_mac       in_pport 1 eth_type 0x8=
-6dd 33:33:00:00:00:00/ff:ff:00:00:00:00 vlan_id 3840 goto_tbl mcast_rou=
-ting copy_to_cpu 1
->
->> cat /sys/kernel/debug/rocker/5254001235010000/of_dpa_group_tbl
->cmd 7 group_id 0x0f000000 (L2 interface vlan 3840 port 0) pop_vlan 1
->cmd 7 group_id 0x0f010000 (L2 interface vlan 3841 port 0) pop_vlan 1
->cmd 7 group_id 0x20000000 (L3 unicast index 0) src 52:54:00:12:35:01 d=
-st 00:02:00:00:00:00 vlan 3840 ttl_check 1 group_id 0x0f000001
->cmd 7 group_id 0x0f010002 (L2 interface vlan 3841 port 2) pop_vlan 1
->cmd 7 group_id 0x0f000001 (L2 interface vlan 3840 port 1) pop_vlan 1
->cmd 8 group_id 0x20000001 (L3 unicast index 1) src 52:54:00:12:35:02 d=
-st 00:02:00:00:01:00 vlan 3841 ttl_check 1 group_id 0x0f010002
->
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->---
->v2: wrap feature with CONFIG_ROCKER_DEBUGFS to allow config-time
->    enable/disable
->
-> drivers/net/ethernet/rocker/Kconfig  |    8 +
-> drivers/net/ethernet/rocker/rocker.c |  397 +++++++++++++++++++++++++=
-+++++++++
-> drivers/net/ethernet/rocker/rocker.h |    2 +-
-> 3 files changed, 406 insertions(+), 1 deletion(-)
->
->diff --git a/drivers/net/ethernet/rocker/Kconfig b/drivers/net/etherne=
-t/rocker/Kconfig
->index b9952ef..8fcbcff 100644
->--- a/drivers/net/ethernet/rocker/Kconfig
->+++ b/drivers/net/ethernet/rocker/Kconfig
->@@ -24,4 +24,12 @@ config ROCKER
-> 	  To compile this driver as a module, choose M here: the
-> 	  module will be called rocker.
->=20
->+config ROCKER_DEBUGFS
->+	bool "Enable debugfs for rocker"
->+	depends on ROCKER=20
->+	depends on DEBUG_FS
-
-Is this necessary? Why don't just ignore retvals of debugfs_create_dir
-and such functions?
-
-
->+	---help---
->+	Choose Y to enable debugfs view of rocker driver's internal data
->+	structures.
->+
-> endif # NET_VENDOR_ROCKER
->diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethern=
-et/rocker/rocker.c
->index a7cb74a..e30e2c2 100644
->--- a/drivers/net/ethernet/rocker/rocker.c
->+++ b/drivers/net/ethernet/rocker/rocker.c
->@@ -18,6 +18,8 @@
-> #include <linux/spinlock.h>
-> #include <linux/hashtable.h>
-> #include <linux/crc32.h>
->+#include <linux/debugfs.h>
->+#include <linux/seq_file.h>
-> #include <linux/sort.h>
-> #include <linux/random.h>
-> #include <linux/netdevice.h>
->@@ -43,6 +45,10 @@
->=20
-> static const char rocker_driver_name[] =3D "rocker";
->=20
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+static struct dentry *rocker_dbg_root;
->+#endif
->+
-> static const struct pci_device_id rocker_pci_id_table[] =3D {
-> 	{PCI_VDEVICE(REDHAT, PCI_DEVICE_ID_REDHAT_ROCKER), 0},
-> 	{0, }
->@@ -238,6 +244,9 @@ struct rocker {
-> 	struct {
-> 		u64 id;
-> 	} hw;
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+	struct dentry *dbg_dir;
->+#endif
-> 	spinlock_t cmd_ring_lock;		/* for cmd ring accesses */
-> 	struct rocker_dma_ring_info cmd_ring;
-> 	struct rocker_dma_ring_info event_ring;
->@@ -2363,22 +2372,357 @@ static int rocker_cmd_group_tbl_del(const str=
-uct rocker_port *rocker_port,
->  * Flow, group, FDB, internal VLAN and neigh tables
->  ***************************************************/
->=20
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+static int dbg_of_dpa_flow_tbl_read(struct seq_file *file, void *data=
-)
->+{
->+	struct rocker *rocker =3D file->private;
->+	struct rocker_flow_tbl_entry *entry;
->+	unsigned long flags;
->+	int bkt;
->+
->+	char *tbl_id_to_str(enum rocker_of_dpa_table_id tbl_id)
->+	{
->+		switch (tbl_id) {
->+		case ROCKER_OF_DPA_TABLE_ID_INGRESS_PORT:
->+			return "ig_port";
->+		case ROCKER_OF_DPA_TABLE_ID_VLAN:
->+			return "vlan";
->+		case ROCKER_OF_DPA_TABLE_ID_TERMINATION_MAC:
->+			return "term_mac";
->+		case ROCKER_OF_DPA_TABLE_ID_UNICAST_ROUTING:
->+			return "ucast_routing";
->+		case ROCKER_OF_DPA_TABLE_ID_MULTICAST_ROUTING:
->+			return "mcast_routing";
->+		case ROCKER_OF_DPA_TABLE_ID_BRIDGING:
->+			return "bridge";
->+		case ROCKER_OF_DPA_TABLE_ID_ACL_POLICY:
->+			return "acl";
->+		}
->+		return "unknown";
->+	}
->+
->+	spin_lock_irqsave(&rocker->flow_tbl_lock, flags);
->+
->+	hash_for_each(rocker->flow_tbl, bkt, entry, entry) {
->+		struct rocker_flow_tbl_key *key =3D &entry->key;
->+
->+		seq_printf(file, "cmd %d cookie %llx\tpriority %-3d tbl %-15s",
->+			   entry->cmd, entry->cookie,
->+			   key->priority,
->+			   tbl_id_to_str(key->tbl_id));
->+		switch (key->tbl_id) {
->+		case ROCKER_OF_DPA_TABLE_ID_INGRESS_PORT:
->+			seq_printf(file, "in_pport %d",
->+				   key->ig_port.in_pport);
->+			if (key->ig_port.in_pport_mask !=3D 0xffffffff)
->+				seq_printf(file, "/0x%08x",
->+					   key->ig_port.in_pport_mask);
->+			seq_printf(file, " goto_tbl %s\n",
->+				   tbl_id_to_str(key->ig_port.goto_tbl));
->+			break;
->+		case ROCKER_OF_DPA_TABLE_ID_VLAN:
->+			seq_printf(file, "in_pport %d vlan_id %d",
->+				   key->vlan.in_pport,
->+				   be16_to_cpu(key->vlan.vlan_id));
->+			if (key->vlan.vlan_id_mask !=3D 0xffff)
->+				seq_printf(file, "/0x%04x",
->+					   be16_to_cpu(key->vlan.vlan_id_mask));
->+			seq_printf(file, " goto_tbl %s untagged %d new_vlan_id %d\n",
->+				   tbl_id_to_str(key->vlan.goto_tbl),
->+				   key->vlan.untagged,
->+				   be16_to_cpu(key->vlan.new_vlan_id));
->+			break;
->+		case ROCKER_OF_DPA_TABLE_ID_TERMINATION_MAC:
->+			seq_printf(file, "in_pport %d",
->+				   key->term_mac.in_pport);
->+			if (key->term_mac.in_pport_mask !=3D 0xffffffff)
->+				seq_printf(file, "/0x%08x",
->+					   key->term_mac.in_pport_mask);
->+			seq_printf(file, " eth_type 0x%04x %pM",
->+				   be16_to_cpu(key->term_mac.eth_type),
->+				   key->term_mac.eth_dst);
->+			if (!is_broadcast_ether_addr(
->+			    key->term_mac.eth_dst_mask))
->+				seq_printf(file, "/%pM",
->+					   key->term_mac.eth_dst_mask);
->+			seq_printf(file, " vlan_id %d",
->+				   be16_to_cpu(key->term_mac.vlan_id));
->+			if (key->term_mac.vlan_id_mask !=3D 0xffff)
->+				seq_printf(file, "/0x%04x",
->+					   be16_to_cpu(
->+					   key->term_mac.vlan_id_mask));
->+			seq_printf(file, " goto_tbl %s copy_to_cpu %d\n",
->+				   tbl_id_to_str(key->term_mac.goto_tbl),
->+				   key->term_mac.copy_to_cpu);
->+			break;
->+		case ROCKER_OF_DPA_TABLE_ID_UNICAST_ROUTING:
->+			seq_printf(file, "eth_type 0x%04x %pI4",
->+				   be16_to_cpu(key->ucast_routing.eth_type),
->+				   &key->ucast_routing.dst4);
->+			if (key->ucast_routing.dst4_mask !=3D 0xffffffff)
->+				seq_printf(file, "/%pI4",
->+					   &key->ucast_routing.dst4_mask);
->+			seq_printf(file, " goto_tbl %s group_id 0x%08x\n",
->+				   tbl_id_to_str(key->ucast_routing.goto_tbl),
->+				   key->ucast_routing.group_id);
->+			break;
->+		case ROCKER_OF_DPA_TABLE_ID_BRIDGING:
->+			if (key->bridge.has_eth_dst) {
->+				seq_printf(file, "%pM",
->+					   key->bridge.eth_dst);
->+				if (key->bridge.has_eth_dst_mask)
->+					seq_printf(file, "/%pM ",
->+						   key->bridge.eth_dst_mask);
->+				else
->+					seq_puts(file, " ");
->+			}
->+			seq_printf(file, "vlan_id %d tunnel_id %d goto_tbl %s group_id 0x%=
-08x copy_to_cpu %d\n",
->+				   be16_to_cpu(key->bridge.vlan_id),
->+				   key->bridge.tunnel_id,
->+				   tbl_id_to_str(key->bridge.goto_tbl),
->+				   key->bridge.group_id,
->+				   key->bridge.copy_to_cpu);
->+			break;
->+		case ROCKER_OF_DPA_TABLE_ID_ACL_POLICY:
->+			seq_printf(file, "in_pport %d",
->+				   key->acl.in_pport);
->+			if (key->acl.in_pport_mask !=3D 0xffffffff)
->+				seq_printf(file, "/0x%08x",
->+					   key->acl.in_pport_mask);
->+			if (!is_zero_ether_addr(key->acl.eth_src)) {
->+				seq_printf(file, " %pM",
->+					   key->acl.eth_src);
->+				if (!is_broadcast_ether_addr(
->+				    key->acl.eth_src_mask))
->+					seq_printf(file, "/%pM",
->+						   key->acl.eth_src_mask);
->+			}
->+			if (!is_zero_ether_addr(key->acl.eth_dst)) {
->+				seq_printf(file, " %pM",
->+					   key->acl.eth_dst);
->+				if (!is_broadcast_ether_addr(
->+				    key->acl.eth_dst_mask))
->+					seq_printf(file, "/%pM",
->+						   key->acl.eth_dst_mask);
->+			}
->+			seq_printf(file, " eth_type 0x%04x",
->+				   be16_to_cpu(key->acl.eth_type));
->+			seq_printf(file, " vlan_id %d",
->+				   be16_to_cpu(key->acl.vlan_id));
->+			if (key->acl.vlan_id_mask !=3D 0xffff)
->+				seq_printf(file, "/0x%04x",
->+					   be16_to_cpu(key->acl.vlan_id_mask));
->+			seq_printf(file, " ip proto %d", key->acl.ip_proto);
->+			if (key->acl.ip_proto_mask !=3D 0xff)
->+				seq_printf(file, "/%d", key->acl.ip_proto_mask);
->+			seq_printf(file, " ip tos %d", key->acl.ip_tos);
->+			if (key->acl.ip_tos_mask !=3D 0xff)
->+				seq_printf(file, "/%d", key->acl.ip_tos_mask);
->+			seq_printf(file, " group_id 0x%08x\n",
->+				   key->acl.group_id);
->+			break;
->+		default:
->+			seq_puts(file, "\n");
->+			break;
->+		}
->+	}
->+
->+	spin_unlock_irqrestore(&rocker->flow_tbl_lock, flags);
->+
->+	return 0;
->+}
->+
->+static int dbg_of_dpa_group_tbl_read(struct seq_file *file, void *dat=
-a)
->+{
->+	struct rocker *rocker =3D file->private;
->+	struct rocker_group_tbl_entry *entry;
->+	unsigned long flags;
->+	u32 *group_id;
->+	int bkt;
->+	int i;
->+
->+	spin_lock_irqsave(&rocker->group_tbl_lock, flags);
->+
->+	hash_for_each(rocker->group_tbl, bkt, entry, entry) {
->+		seq_printf(file, "cmd %d group_id 0x%08x",
->+			   entry->cmd, entry->group_id);
->+		switch (ROCKER_GROUP_TYPE_GET(entry->group_id)) {
->+		case ROCKER_OF_DPA_GROUP_TYPE_L2_INTERFACE:
->+			seq_printf(file, " (L2 interface vlan %d port %d)",
->+				   ROCKER_GROUP_VLAN_GET(entry->group_id),
->+				   ROCKER_GROUP_PORT_GET(entry->group_id));
->+			seq_printf(file, " pop_vlan %d",
->+				   entry->l2_interface.pop_vlan);
->+			break;
->+		case ROCKER_OF_DPA_GROUP_TYPE_L2_REWRITE:
->+			seq_printf(file, " (L2 rewrite index %d)",
->+				   ROCKER_GROUP_INDEX_LONG_GET(
->+				   entry->group_id));
->+			if (!is_zero_ether_addr(entry->l2_rewrite.eth_src))
->+				seq_printf(file, " src %pM",
->+					   entry->l2_rewrite.eth_src);
->+			if (!is_zero_ether_addr(entry->l2_rewrite.eth_dst))
->+				seq_printf(file, " dst %pM",
->+					   entry->l2_rewrite.eth_dst);
->+			if (entry->l2_rewrite.vlan_id)
->+				seq_printf(file, " vlan %d",
->+					   be16_to_cpu(
->+					   entry->l2_rewrite.vlan_id));
->+			seq_printf(file, " group_id 0x%08x",
->+				   entry->l2_rewrite.group_id);
->+			break;
->+		case ROCKER_OF_DPA_GROUP_TYPE_L2_FLOOD:
->+			seq_printf(file, " (L2 flood vlan %d index %d)",
->+				   ROCKER_GROUP_VLAN_GET(entry->group_id),
->+				   ROCKER_GROUP_INDEX_GET(entry->group_id));
->+			break;
->+		case ROCKER_OF_DPA_GROUP_TYPE_L2_MCAST:
->+			seq_printf(file, " (L2 multicast vlan %d index %d)",
->+				   ROCKER_GROUP_VLAN_GET(entry->group_id),
->+				   ROCKER_GROUP_INDEX_GET(entry->group_id));
->+			break;
->+		case ROCKER_OF_DPA_GROUP_TYPE_L3_UCAST:
->+			seq_printf(file, " (L3 unicast index %d)",
->+				   ROCKER_GROUP_INDEX_LONG_GET(
->+				   entry->group_id));
->+			if (!is_zero_ether_addr(entry->l3_unicast.eth_src))
->+				seq_printf(file, " src %pM",
->+					   entry->l3_unicast.eth_src);
->+			if (!is_zero_ether_addr(entry->l3_unicast.eth_dst))
->+				seq_printf(file, " dst %pM",
->+					   entry->l3_unicast.eth_dst);
->+			if (entry->l3_unicast.vlan_id)
->+				seq_printf(file, " vlan %d",
->+					   be16_to_cpu(
->+					   entry->l3_unicast.vlan_id));
->+			seq_printf(file, " ttl_check %d",
->+				   entry->l3_unicast.ttl_check);
->+			seq_printf(file, " group_id 0x%08x",
->+				   entry->l3_unicast.group_id);
->+			break;
->+		}
->+		for (i =3D 0, group_id =3D entry->group_ids;
->+		     i < entry->group_count;
->+		     i++, group_id++)
->+			seq_printf(file, "%s0x%08x%s",
->+				   i =3D=3D 0 ? " {" : " ",
->+				   *group_id,
->+				   i + 1 =3D=3D entry->group_count ? "}" : "");
->+		seq_puts(file, "\n");
->+	}
->+
->+	spin_unlock_irqrestore(&rocker->group_tbl_lock, flags);
->+
->+	return 0;
->+}
->+
->+static int dbg_fdb_tbl_read(struct seq_file *file, void *data)
->+{
->+	struct rocker *rocker =3D file->private;
->+	struct rocker_fdb_tbl_entry *entry;
->+	unsigned long flags;
->+	int bkt;
->+
->+	spin_lock_irqsave(&rocker->fdb_tbl_lock, flags);
->+
->+	hash_for_each(rocker->fdb_tbl, bkt, entry, entry)
->+		seq_printf(file, "learned %d pport %d addr %pM vlan %d\n",
->+			   entry->learned, entry->key.pport,
->+			   entry->key.addr, be16_to_cpu(entry->key.vlan_id));
->+
->+	spin_unlock_irqrestore(&rocker->fdb_tbl_lock, flags);
->+
->+	return 0;
->+}
->+
->+static int dbg_internal_vlan_tbl_read(struct seq_file *file, void *da=
-ta)
->+{
->+	struct rocker *rocker =3D file->private;
->+	struct rocker_internal_vlan_tbl_entry *entry;
->+	unsigned long flags;
->+	int bkt;
->+
->+	spin_lock_irqsave(&rocker->internal_vlan_tbl_lock, flags);
->+
->+	hash_for_each(rocker->internal_vlan_tbl, bkt, entry, entry)
->+		seq_printf(file, "ifindex %d ref_count %d vlan %d\n",
->+			   entry->ifindex, entry->ref_count,
->+			   be16_to_cpu(entry->vlan_id));
->+
->+	spin_unlock_irqrestore(&rocker->internal_vlan_tbl_lock, flags);
->+
->+	return 0;
->+}
->+
->+static int dbg_neigh_tbl_read(struct seq_file *file, void *data)
->+{
->+	struct rocker *rocker =3D file->private;
->+	struct rocker_neigh_tbl_entry *entry;
->+	unsigned long flags;
->+	int bkt;
->+
->+	spin_lock_irqsave(&rocker->neigh_tbl_lock, flags);
->+
->+	hash_for_each(rocker->neigh_tbl, bkt, entry, entry)
->+		seq_printf(file, "%pI4 dev %s ref_count %d index %d dst %pM ttl_che=
-ck %d\n",
->+			   &entry->ip_addr, entry->dev->name, entry->ref_count,
->+			   entry->index, entry->eth_dst, entry->ttl_check);
->+
->+	spin_unlock_irqrestore(&rocker->neigh_tbl_lock, flags);
->+
->+	return 0;
->+}
->+
->+#define ROCKER_DBG_TBL(name) \
->+	static int dbg_##name##_open(struct inode *inode, struct file *f) \
->+	{                                                                 \
->+		struct rocker *rocker =3D inode->i_private;                 \
->+		return single_open(f, dbg_##name##_read, rocker);         \
->+	}                                                                 \
->+	static const struct file_operations dbg_##name##_ops =3D {          =
-\
->+		.owner =3D THIS_MODULE,                                     \
->+		.open =3D dbg_##name##_open,                                \
->+		.release =3D single_release,                                \
->+		.read =3D seq_read,                                         \
->+		.llseek =3D seq_lseek                                       \
->+	}
->+
->+ROCKER_DBG_TBL(of_dpa_flow_tbl);
->+ROCKER_DBG_TBL(of_dpa_group_tbl);
->+ROCKER_DBG_TBL(fdb_tbl);
->+ROCKER_DBG_TBL(internal_vlan_tbl);
->+ROCKER_DBG_TBL(neigh_tbl);
->+#endif	/* CONFIG_ROCKER_DEBUGFS */
->+
-> static int rocker_init_tbls(struct rocker *rocker)
-> {
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+#define ROCKER_CREATE_DBG_FILE(name)                                 =
-     \
->+	debugfs_create_file(#name, S_IRUGO, rocker->dbg_dir, rocker,      \
->+			    &dbg_##name##_ops)
->+#else
->+#define ROCKER_CREATE_DBG_FILE(name) do { } while (0)
->+#endif
->+
-> 	hash_init(rocker->flow_tbl);
-> 	spin_lock_init(&rocker->flow_tbl_lock);
->+	ROCKER_CREATE_DBG_FILE(of_dpa_flow_tbl);
->=20
-> 	hash_init(rocker->group_tbl);
-> 	spin_lock_init(&rocker->group_tbl_lock);
->+	ROCKER_CREATE_DBG_FILE(of_dpa_group_tbl);
->=20
-> 	hash_init(rocker->fdb_tbl);
-> 	spin_lock_init(&rocker->fdb_tbl_lock);
->+	ROCKER_CREATE_DBG_FILE(fdb_tbl);
->=20
-> 	hash_init(rocker->internal_vlan_tbl);
-> 	spin_lock_init(&rocker->internal_vlan_tbl_lock);
->+	ROCKER_CREATE_DBG_FILE(internal_vlan_tbl);
->=20
-> 	hash_init(rocker->neigh_tbl);
-> 	spin_lock_init(&rocker->neigh_tbl_lock);
->+	ROCKER_CREATE_DBG_FILE(neigh_tbl);
->=20
-> 	return 0;
-> }
->@@ -5090,6 +5434,27 @@ static void rocker_msix_fini(const struct rocke=
-r *rocker)
-> 	kfree(rocker->msix_entries);
-> }
->=20
->+static int rocker_probe_debugfs_init(struct rocker *rocker)
->+{
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+	char dbg_dir_name[sizeof(rocker->hw.id) * 2 + 1];
->+
->+	sprintf(dbg_dir_name, "%*phN", (int)sizeof(rocker->hw.id),
->+		&rocker->hw.id);
->+	rocker->dbg_dir =3D debugfs_create_dir(dbg_dir_name, rocker_dbg_root=
-);
->+	if (!rocker->dbg_dir)
->+		return -ENOMEM;
->+#endif
->+	return 0;
->+}
->+
->+static void rocker_probe_debugfs_fini(struct rocker *rocker)
->+{
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+	debugfs_remove_recursive(rocker->dbg_dir);
->+#endif
->+}
->+
-> static int rocker_probe(struct pci_dev *pdev, const struct pci_device=
-_id *id)
-> {
-> 	struct rocker *rocker;
->@@ -5182,6 +5547,12 @@ static int rocker_probe(struct pci_dev *pdev, c=
-onst struct pci_device_id *id)
->=20
-> 	rocker->hw.id =3D rocker_read64(rocker, SWITCH_ID);
->=20
->+	err =3D rocker_probe_debugfs_init(rocker);
->+	if (err) {
->+		dev_err(&pdev->dev, "cannot init debugfs\n");
->+		goto err_dbg_dir;
->+	}
->+
-> 	err =3D rocker_init_tbls(rocker);
-> 	if (err) {
-> 		dev_err(&pdev->dev, "cannot init rocker tables\n");
->@@ -5202,6 +5573,8 @@ static int rocker_probe(struct pci_dev *pdev, co=
-nst struct pci_device_id *id)
-> err_probe_ports:
-> 	rocker_free_tbls(rocker);
-> err_init_tbls:
->+	rocker_probe_debugfs_fini(rocker);
->+err_dbg_dir:
-> 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
-> err_request_event_irq:
-> 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_CMD), rocker);
->@@ -5228,6 +5601,7 @@ static void rocker_remove(struct pci_dev *pdev)
-> 	struct rocker *rocker =3D pci_get_drvdata(pdev);
->=20
-> 	rocker_free_tbls(rocker);
->+	rocker_probe_debugfs_fini(rocker);
-> 	rocker_write32(rocker, CONTROL, ROCKER_CONTROL_RESET);
-> 	rocker_remove_ports(rocker);
-> 	free_irq(rocker_msix_vector(rocker, ROCKER_MSIX_VEC_EVENT), rocker);
->@@ -5426,18 +5800,40 @@ static struct notifier_block rocker_netevent_n=
-b __read_mostly =3D {
->  * Module init and exit
->  ***********************/
->=20
->+static int rocker_debugfs_init(void)
->+{
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+	rocker_dbg_root =3D debugfs_create_dir(rocker_driver_name, NULL);
->+	if (!rocker_dbg_root)
->+		return -ENOMEM;
->+#endif
->+	return 0;
->+}
->+
->+static void rocker_debugfs_fini(void)
->+{
->+#ifdef CONFIG_ROCKER_DEBUGFS
->+	debugfs_remove_recursive(rocker_dbg_root);
->+#endif
->+}
->+
-> static int __init rocker_module_init(void)
-> {
-> 	int err;
->=20
-> 	register_netdevice_notifier(&rocker_netdevice_nb);
-> 	register_netevent_notifier(&rocker_netevent_nb);
->+	err =3D rocker_debugfs_init();
->+	if (err)
->+		goto err_debugfs;
-> 	err =3D pci_register_driver(&rocker_pci_driver);
-> 	if (err)
-> 		goto err_pci_register_driver;
-> 	return 0;
->=20
-> err_pci_register_driver:
->+	rocker_debugfs_fini();
->+err_debugfs:
-> 	unregister_netevent_notifier(&rocker_netevent_nb);
-> 	unregister_netdevice_notifier(&rocker_netdevice_nb);
-> 	return err;
->@@ -5445,6 +5841,7 @@ err_pci_register_driver:
->=20
-> static void __exit rocker_module_exit(void)
-> {
->+	rocker_debugfs_fini();
-> 	unregister_netevent_notifier(&rocker_netevent_nb);
-> 	unregister_netdevice_notifier(&rocker_netdevice_nb);
-> 	pci_unregister_driver(&rocker_pci_driver);
->diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethern=
-et/rocker/rocker.h
->index 12490b2..0eacc53 100644
->--- a/drivers/net/ethernet/rocker/rocker.h
->+++ b/drivers/net/ethernet/rocker/rocker.h
->@@ -419,7 +419,7 @@ enum rocker_of_dpa_overlay_type {
-> #define ROCKER_GROUP_TYPE_SET(type) \
-> 	(((type) << ROCKER_GROUP_TYPE_SHIFT) & ROCKER_GROUP_TYPE_MASK)
-> #define ROCKER_GROUP_VLAN_GET(group_id) \
->-	(((group_id) & ROCKER_GROUP_VLAN_ID_MASK) >> ROCKER_GROUP_VLAN_ID_SH=
-IFT)
->+	(((group_id) & ROCKER_GROUP_VLAN_MASK) >> ROCKER_GROUP_VLAN_SHIFT)
-> #define ROCKER_GROUP_VLAN_SET(vlan_id) \
-> 	(((vlan_id) << ROCKER_GROUP_VLAN_SHIFT) & ROCKER_GROUP_VLAN_MASK)
-> #define ROCKER_GROUP_PORT_GET(group_id) \
->--=20
->1.7.10.4
->
+VGhhbmtzLCBBcm5kLiANCg0KUmVnYXJkaW5nIHRoZSBhZS1uYW1lOiBpdCBpcyB0aGUgbmFtZSBv
+ZiB0aGUgQWNjZWxlcmF0aW9uIEVuZ2luZS4gSXQgaXMgcHJvdmlkZWQgYnkgdGhlIEJJT1MgYWNj
+b3JkaW5nIHRvIHRoZSBwb3NpdGlvbiBhbmQgdGhlIGZlYXR1cmUgZW5hYmxlZCBvZiB0aGUgSVAu
+IFNvICJzb2MwIiBtZWFucyBpdCBpcyBvbiBTb0MgTm8uIDAsIHdoaWxlICJuNCIgbWVhbnMgaXQg
+aXMgcnVubmluZyBvbiAiTm9uLWRzYWYgbW9kZSA0Ii4gSWRlYWxseSwgd2Ugc2hvdWxkIHNldHVw
+IHRoZSBydWxlIHRvIG5hbWUgaXQuIEJ1dCBhcyBJIHNhaWQgaW4gdGhlIHBhdGNoc2V0LCB0aGUg
+SVAgaXMgb3JpZ2luYWwgZGVzaWduZWQgZm9yIGEgYmFyZSBtZXRhbCBzb2x1dGlvbiwgaXQgaXMg
+d29ydGhsZXNzIHRvIGV4cG9ydCBhbGwgbW9kZXMgYW5kIHdlIGFyZSBwbGFubmluZyB0byBhZGQg
+bW9yZSBtb2RlIGZvciBMaW51eCBpdHNlbGYgaW4gdGhlIElQIGluIGZ1dHVyZSB2ZXJzaW9uLiBT
+byBJIHRoaW5rIHRoZSBiZXR0ZXIgd2F5IGlzIHRvIGxlYXZlIGl0IGFzIGEgIm5hbWUiIGJ1dCBh
+ZGQgbW9yZSBtZWFuaW5nIGluIHRoZSBmdXR1cmUuDQoNClJlZ2FyZGluZyB0aGUgYWUtb3B0czog
+aXQgaXMgdGhlIGluaXRpYWwgdmFsdWUgZm9yIHRoZSBBRSdzIHJ1bnRpbWUgb3B0aW9ucywgQ3Vy
+cmVudGx5LCB3ZSBoYXZlIG9ubHkgInBvcnQgbnVtYmVyIiAodGhlcmUgYXJlIDZYR0UrMkdFIHBv
+cnQgZm9yIGEgRFNBRiBBRSkgYXMgb3B0aW9uLiBCdXQgZm9yIGZ1dHVyZSB2ZXJzaW9uLCB3ZSB3
+aWxsIGFkZCBvdGhlciBvcHRpb25zIHN1Y2ggYXMgImVuYWJsZSBTcGFubmluZyBUcmVlIFByb3Rv
+Y29sIGFsZ29yaXRobSkiIGFuZCBzbyBvbi4gDQoNClNob3VsZCBJIGFkZCB0aGVzZSBiYWNrZ3Jv
+dW5kIHRvIHNvbWV3aGVyZT8NCg0KQmVzdCBSZWdhcmRzDQotS2VubmV0aCBMZWUgKEhpc2lsaWNv
+bikNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18NCrG+08q8/rywxuS4vbz+uqzT0Luqzqq5q8u+tcSxo8Pc0MXPoqOsvfbP3tPat6LLzbj4
+yc/D5rXY1rfW0MHQs/a1xLj2yMu78si61+mho737DQrWucjOus7G5Mv7yMvS1MjOus7Qzsq9yrnT
+w6OosPzAqLWrsrvP3tPayKuyv7vysr+31rXY0LnCtqGiuLTWxqGiu/LJoreio6mxvtPKvP7W0A0K
+tcTQxc+ioaPI57n7xPq07crVwcuxvtPKvP6jrMfrxPrBory0tee7sLvy08q8/s2o1qq3orz+yMuy
+osm+s/2xvtPKvP6joQ0KVGhpcyBlLW1haWwgYW5kIGl0cyBhdHRhY2htZW50cyBjb250YWluIGNv
+bmZpZGVudGlhbCBpbmZvcm1hdGlvbiBmcm9tIEhVQVdFSSwgd2hpY2ggDQppcyBpbnRlbmRlZCBv
+bmx5IGZvciB0aGUgcGVyc29uIG9yIGVudGl0eSB3aG9zZSBhZGRyZXNzIGlzIGxpc3RlZCBhYm92
+ZS4gQW55IHVzZSBvZiB0aGUgDQppbmZvcm1hdGlvbiBjb250YWluZWQgaGVyZWluIGluIGFueSB3
+YXkgKGluY2x1ZGluZywgYnV0IG5vdCBsaW1pdGVkIHRvLCB0b3RhbCBvciBwYXJ0aWFsIA0KZGlz
+Y2xvc3VyZSwgcmVwcm9kdWN0aW9uLCBvciBkaXNzZW1pbmF0aW9uKSBieSBwZXJzb25zIG90aGVy
+IHRoYW4gdGhlIGludGVuZGVkIA0KcmVjaXBpZW50KHMpIGlzIHByb2hpYml0ZWQuIElmIHlvdSBy
+ZWNlaXZlIHRoaXMgZS1tYWlsIGluIGVycm9yLCBwbGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgYnkg
+DQpwaG9uZSBvciBlbWFpbCBpbW1lZGlhdGVseSBhbmQgZGVsZXRlIGl0IQ0KDQoNCg0KDQotLS0t
+LdPKvP7Urbz+LS0tLS0NCreivP7IyzogQXJuZCBCZXJnbWFubiBbbWFpbHRvOmFybmRAYXJuZGIu
+ZGVdIA0Kt6LLzcqxvOQ6IDIwMTXE6jjUwjE1yNUgNDo1MA0KytW8/sjLOiBMaWd1b3podSAoS2Vu
+bmV0aCkNCrOty806IHJvYmgrZHRAa2VybmVsLm9yZzsgcGF3ZWwubW9sbEBhcm0uY29tOyBtYXJr
+LnJ1dGxhbmRAYXJtLmNvbTsgaWpjK2RldmljZXRyZWVAaGVsbGlvbi5vcmcudWs7IGdhbGFrQGNv
+ZGVhdXJvcmEub3JnOyBjYXRhbGluLm1hcmluYXNAYXJtLmNvbTsgd2lsbC5kZWFjb25AYXJtLmNv
+bTsgWmh1YW5neXV6ZW5nIChZaXNlbik7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IHBhdWwuZ29ydG1h
+a2VyQHdpbmRyaXZlci5jb207IERpbmd0aWFuaG9uZzsgemhhbmdmZWkuZ2FvQGxpbmFyby5vcmc7
+IGRldmljZXRyZWVAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
+OyBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IExpbnV4YXJtOyBTYWxpbCBNZWh0YTsgaHVhbmdkYW9kZTsgTGlndW96aHUgKEtlbm5l
+dGgpDQrW98ziOiBSZTogW1BBVENIIDEvNV0gbmV0OiBhZGQgSGlzaWxpY29uIE5ldHdvcmsgU3Vi
+c3lzdGVtIHN1cHBvcnQgKGNvbmZpZyBhbmQgZG9jdW1lbnRzKQ0KDQpPbiBGcmlkYXkgMTQgQXVn
+dXN0IDIwMTUgMTg6MzA6MTggS2VubmV0aCBMZWUgd3JvdGU6DQo+IGRpZmYgLS1naXQgYS9Eb2N1
+bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2hpc2lsaWNvbi1obnMtbmljLnR4dCBi
+L0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvaGlzaWxpY29uLWhucy1uaWMu
+dHh0DQo+IG5ldyBmaWxlIG1vZGUgMTAwNjQ0DQo+IGluZGV4IDAwMDAwMDAuLjVhYjY5NjkNCj4g
+LS0tIC9kZXYvbnVsbA0KPiArKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3Mv
+bmV0L2hpc2lsaWNvbi1obnMtbmljLnR4dA0KPiBAQCAtMCwwICsxLDE0IEBADQo+ICtIaXNpbGlj
+b24gTmV0d29yayBTdWJzeXN0ZW0gTklDIGNvbnRyb2xsZXINCj4gKw0KPiArUmVxdWlyZWQgcHJv
+cGVydGllczoNCj4gKy0gY29tcGF0aWJsZTogaGlzaWxpY29uLGhucy1uaWMNCj4gKy0gYWUtbmFt
+ZTogYWNjZWxlcmF0b3IgbmFtZSB3aG8gcHJvdmlkZSB0aGlzIGludGVyZmFjZQ0KPiArLSBhZS1v
+cHRzOiBvcHRpb25zIChzdHJpbmcpIHRvIHRoZSBhY2NlbGVyYXRvci4gZS5nLiB0aGUgaW5kZXgg
+aW50ZXJmYWNlDQo+ICsNCj4gK0V4YW1wbGU6DQo+ICsNCj4gKyAgICAgICBldGhlcm5ldEAwew0K
+PiArICAgICAgICAgICAgICAgY29tcGF0aWJsZSA9ICJoaXNpbGljb24saG5zLW5pYyI7DQo+ICsg
+ICAgICAgICAgICAgICBhZS1uYW1lID0gInNvYzAtbjQiOw0KPiArICAgICAgICAgICAgICAgYWUt
+b3B0cyA9ICIwIjsNCj4gKyAgICAgICB9Ow0KPiANCg0KVGhlc2UgcHJvcGVydGllcyBsb29rIHZl
+cnkgdW5jb252ZW50aW9uYWwuIFdoYXQgYXJlIHRoZSB2YWxpZCBzdHJpbmdzDQpmb3IgYWUtbmFt
+ZSBhbmQgYWUtb3B0cz8gSXQgbG9va3MgbGlrZSB0aGUgbGF0dGVyIGlzIGp1c3QgYSBudW1iZXIs
+DQpzbyB3aHkgbm90IHVzZSBhbiBpbnRlZ2VyIHByb3BlcnR5Pw0KDQoJQXJuZA0KX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBt
+YWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9s
+aXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
