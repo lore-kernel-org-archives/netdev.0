@@ -1,8 +1,9 @@
 From: Noam Camus <noamc@ezchip.com>
-Subject: [v1 1/6] NET: nps_enet: replace use of cause register
-Date: Mon, 17 Aug 2015 08:58:34 +0300
-Message-ID: <1439791119-26892-2-git-send-email-noamc@ezchip.com>
+Subject: [v1 2/6] NET: nps_enet: reduce processing latency.
+Date: Mon, 17 Aug 2015 08:58:35 +0300
+Message-ID: <1439791119-26892-3-git-send-email-noamc@ezchip.com>
 References: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
+ <1439791119-26892-2-git-send-email-noamc@ezchip.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <Alexey.Brodkin@synopsys.com>,
@@ -10,82 +11,65 @@ Cc: <davem@davemloft.net>, <Alexey.Brodkin@synopsys.com>,
 	Noam Camus <noamc@ezchip.com>
 To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
+In-Reply-To: <1439791119-26892-2-git-send-email-noamc@ezchip.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Noam Camus <noamc@ezchip.com>
 
-When interrupt is received we read directly from control
-register for RX/TX instead of reading cause register
-since this register fails to indicate TX done when
-TX interrupt is "edge mode".
+TX handler is minimalistic and there is no need to schedule
+a NAPI job.
+Tx done will be processed during hardware interrupt context.
 
 Signed-off-by: Noam Camus <noamc@ezchip.com>
 ---
- drivers/net/ethernet/ezchip/nps_enet.c |    9 +++++----
- drivers/net/ethernet/ezchip/nps_enet.h |   20 --------------------
- 2 files changed, 5 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/ezchip/nps_enet.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
-index 24a85b2..0e652b4 100644
+index 0e652b4..af72181 100644
 --- a/drivers/net/ethernet/ezchip/nps_enet.c
 +++ b/drivers/net/ethernet/ezchip/nps_enet.c
-@@ -211,12 +211,13 @@ static irqreturn_t nps_enet_irq_handler(s32 irq, void *dev_instance)
- {
+@@ -159,7 +159,7 @@ static void nps_enet_tx_handler(struct net_device *ndev)
+ 	}
+ 
+ 	if (priv->tx_skb) {
+-		dev_kfree_skb(priv->tx_skb);
++		dev_kfree_skb_irq(priv->tx_skb);
+ 		priv->tx_skb = NULL;
+ 	}
+ 
+@@ -185,7 +185,6 @@ static int nps_enet_poll(struct napi_struct *napi, int budget)
+ 
+ 	buf_int_enable.rx_rdy = NPS_ENET_ENABLE;
+ 	buf_int_enable.tx_done = NPS_ENET_ENABLE;
+-	nps_enet_tx_handler(ndev);
+ 	work_done = nps_enet_rx_handler(ndev);
+ 	if (work_done < budget) {
+ 		napi_complete(napi);
+@@ -212,14 +211,18 @@ static irqreturn_t nps_enet_irq_handler(s32 irq, void *dev_instance)
  	struct net_device *ndev = dev_instance;
  	struct nps_enet_priv *priv = netdev_priv(ndev);
--	struct nps_enet_buf_int_cause buf_int_cause;
-+	struct nps_enet_rx_ctl rx_ctrl;
-+	struct nps_enet_tx_ctl tx_ctrl;
+ 	struct nps_enet_rx_ctl rx_ctrl;
+-	struct nps_enet_tx_ctl tx_ctrl;
  
--	buf_int_cause.value =
--			nps_enet_reg_get(priv, NPS_ENET_REG_BUF_INT_CAUSE);
+-	rx_ctrl.value = nps_enet_reg_get(priv, NPS_ENET_REG_RX_CTL);
+-	tx_ctrl.value = nps_enet_reg_get(priv, NPS_ENET_REG_TX_CTL);
++	nps_enet_tx_handler(ndev);
+ 
+-	if ((!tx_ctrl.ct && priv->tx_packet_sent) || rx_ctrl.cr)
 +	rx_ctrl.value = nps_enet_reg_get(priv, NPS_ENET_REG_RX_CTL);
-+	tx_ctrl.value = nps_enet_reg_get(priv, NPS_ENET_REG_TX_CTL);
- 
--	if (buf_int_cause.tx_done || buf_int_cause.rx_rdy)
-+	if ((!tx_ctrl.ct && priv->tx_packet_sent) || rx_ctrl.cr)
++	if (rx_ctrl.cr)
  		if (likely(napi_schedule_prep(&priv->napi))) {
- 			nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE, 0);
+-			nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE, 0);
++			struct nps_enet_buf_int_enable buf_int_enable;
++
++			buf_int_enable.rx_rdy = NPS_ENET_DISABLE;
++			buf_int_enable.tx_done = NPS_ENET_ENABLE;
++			nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE,
++					 buf_int_enable.value);
  			__napi_schedule(&priv->napi);
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.h b/drivers/net/ethernet/ezchip/nps_enet.h
-index fc45c9d..6703674 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.h
-+++ b/drivers/net/ethernet/ezchip/nps_enet.h
-@@ -36,7 +36,6 @@
- #define NPS_ENET_REG_RX_CTL		0x810
- #define NPS_ENET_REG_RX_BUF		0x818
- #define NPS_ENET_REG_BUF_INT_ENABLE	0x8C0
--#define NPS_ENET_REG_BUF_INT_CAUSE	0x8C4
- #define NPS_ENET_REG_GE_MAC_CFG_0	0x1000
- #define NPS_ENET_REG_GE_MAC_CFG_1	0x1004
- #define NPS_ENET_REG_GE_MAC_CFG_2	0x1008
-@@ -108,25 +107,6 @@ struct nps_enet_buf_int_enable {
- 	};
- };
+ 		}
  
--/* Interrupt cause for data buffer events register */
--struct nps_enet_buf_int_cause {
--	union {
--		/* tx_done: Interrupt in the case when current frame was
--		 *          read from TX buffer.
--		 * rx_rdy:  Interrupt in the case when new frame is ready
--		 *          in RX buffer.
--		 */
--		struct {
--			u32
--			__reserved:30,
--			tx_done:1,
--			rx_rdy:1;
--		};
--
--		u32 value;
--	};
--};
--
- /* Gbps Eth MAC Configuration 0 register */
- struct nps_enet_ge_mac_cfg_0 {
- 	union {
 -- 
 1.7.1
