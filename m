@@ -1,68 +1,105 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH] net/wireless: enable wiphy device to suspend/resume asynchronously
-Date: Mon, 17 Aug 2015 09:48:22 +0800
-Message-ID: <55D13D66.1050500@linux.intel.com>
-References: <55B9B3BA.6080406@linux.intel.com> <CANUX_P3PMsvWCWWciwCsRvf5PqLVEK9d9S=2Gbq+EotVGffEow@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2 1/2] virtio-net: rephrase devconf fields description
+Date: Mon, 17 Aug 2015 10:43:46 +0800
+Message-ID: <55D14A62.2060408@redhat.com>
+References: <1439732494-29765-1-git-send-email-victork@redhat.com> <1439732494-29765-2-git-send-email-victork@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Emmanuel Grumbach <egrumbach@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANUX_P3PMsvWCWWciwCsRvf5PqLVEK9d9S=2Gbq+EotVGffEow@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Victor Kaplansky <victork@redhat.com>,
+	virtio-dev@lists.oasis-open.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54856 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751440AbbHQCnu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Aug 2015 22:43:50 -0400
+In-Reply-To: <1439732494-29765-2-git-send-email-victork@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-On 2015/7/30 13:55, Emmanuel Grumbach wrote:
-> On Thu, Jul 30, 2015 at 8:18 AM, Fu, Zhonghui
-> <zhonghui.fu@linux.intel.com> wrote:
->> Enable wiphy device to suspend/resume asynchronously. This can improve
->> system suspend/resume speed.
->>
-> How will that impact the timing with respect to the suspend call
-> coming from the bus?
-> I think that a few drivers rely on the suspend call of the wiphy
-> device happening before the suspend call to the bus device.
-> Not sure though.
-
-Sorry for late reply.
-
-The suspend/resume timing of wiphy device and related devices will be ensured by their parent/child relationship. So, enabling wiphy device to suspend/resume asynchronously does not change any  dependency. It can only take advantage of multicore and improve system suspend/resume speed.
-
-
-Thanks,
-Zhonghui
+On 08/16/2015 09:42 PM, Victor Kaplansky wrote:
+> Clarify general description of the mac, status and
+> max_virtqueue_pairs fields. Specifically, the old description is
+> vague about configuration layout and fields offsets when some of
+> the fields are non valid.
 >
->> Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
->> ---
->>  net/wireless/core.c |    1 +
->>  1 files changed, 1 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/wireless/core.c b/net/wireless/core.c
->> index 2a0bbd2..bc5e68f 100644
->> --- a/net/wireless/core.c
->> +++ b/net/wireless/core.c
->> @@ -416,6 +416,7 @@ use_default_name:
->>         device_initialize(&rdev->wiphy.dev);
->>         rdev->wiphy.dev.class = &ieee80211_class;
->>         rdev->wiphy.dev.platform_data = rdev;
->> +       device_enable_async_suspend(&rdev->wiphy.dev);
->>
->>         INIT_LIST_HEAD(&rdev->destroy_list);
->>         spin_lock_init(&rdev->destroy_list_lock);
->> -- 1.7.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Also clarify that validity of two status bits depends on two
+> different feature flags.
+>
+> Signed-off-by: Victor Kaplansky <victork@redhat.com>
+> ---
+>  content.tex | 42 +++++++++++++++++++++++++++++++-----------
+>  1 file changed, 31 insertions(+), 11 deletions(-)
+>
+> diff --git a/content.tex b/content.tex
+> index d989d98..342183b 100644
+> --- a/content.tex
+> +++ b/content.tex
+> @@ -3115,23 +3115,14 @@ were needed.
+>  \subsection{Device configuration layout}\label{sec:Device Types / Network Device / Device configuration layout}
+>  \label{sec:Device Types / Block Device / Feature bits / Device configuration layout}
+>  
+> -Three driver-read-only configuration fields are currently defined. The \field{mac} address field
+> -always exists (though is only valid if VIRTIO_NET_F_MAC is set), and
+> -\field{status} only exists if VIRTIO_NET_F_STATUS is set. Two
+> -read-only bits (for the driver) are currently defined for the status field:
+> -VIRTIO_NET_S_LINK_UP and VIRTIO_NET_S_ANNOUNCE.
+> +
+> +The following configuration fields are currently defined:
+>  
+>  \begin{lstlisting}
+>  #define VIRTIO_NET_S_LINK_UP     1
+>  #define VIRTIO_NET_S_ANNOUNCE    2
+>  \end{lstlisting}
+>  
+> -The following driver-read-only field, \field{max_virtqueue_pairs} only exists if
+> -VIRTIO_NET_F_MQ is set. This field specifies the maximum number
+> -of each of transmit and receive virtqueues (receiveq1\ldots receiveqN
+> -and transmitq1\ldots transmitqN respectively) that can be configured once VIRTIO_NET_F_MQ
+> -is negotiated.
+> -
+>  \begin{lstlisting}
+>  struct virtio_net_config {
+>          u8 mac[6];
+> @@ -3140,6 +3131,35 @@ struct virtio_net_config {
+>  };
+>  \end{lstlisting}
+>  
+> +\field{mac}, \field{status}, \field{max_virtqueue_pairs} are
+> +driver-read-only. \field{default_mtu} can also be written
+> +by the driver after negotiation.
+> +
+> +\begin{description}
+> +\item [\field{mac}] is MAC address assigned by the device and is valid
+> +    only if VIRTIO_NET_F_MAC is offered.
+> +
+> +\item [\field{status}] consists of two driver-read-only status bits:
+> +
+> +\begin{description}
+> +
+> +\item VIRTIO_NET_S_LINK_UP is valid if VIRTIO_NET_F_STATUS is
+> +    offered.
+> +
+> +\item VIRTIO_NET_S_ANNOUNCE is valid if
+> +    VIRTIO_NET_F_GUEST_ANNOUNCE is offered.
+> +
+> +\end{description}
+> +
+> +\item [\field{max_virtqueue_pairs}] tells the driver the maximum
+> +    number of each of virtqueues (receiveq1\ldots receiveqN and
+> +    transmitq1\ldots transmitqN respectively) that can be configured
+> +    on the device once VIRTIO_NET_F_MQ is negotiated.
+> +    \field{max_virtqueue_pairs} is valid only if VIRTIO_NET_F_MQ is
+> +    set and can be read by the driver.
+> +
+
+Hi:
+
+I don't get the point that adding "can be read by the driver". Looks
+like it's hard for hypervisor to detect this?
+
+Thanks
