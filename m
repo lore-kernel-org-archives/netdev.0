@@ -1,212 +1,133 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net-next] r8169: Add tx_buf_sz and rx_buf_coef on
- rtl_cfg_info
-Date: Mon, 17 Aug 2015 15:46:39 +0200
-Message-ID: <55D1E5BF.7000808@redhat.com>
-References: <1439809846-3002-1-git-send-email-corcodel.marian@gmail.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: Linux 4.2-rc6 regression: RIP: e030:[<ffffffff8110fb18>] [<ffffffff8110fb18>] detach_if_pending+0x18/0x80
+Date: Mon, 17 Aug 2015 15:48:02 +0200
+Message-ID: <196897465.20150817154802@eikelenboom.it>
+References: <7c39e6332aae572372108d5fd68c503b@eikelenboom.it> <1439412094.29802.21.camel@edumazet-glaptop2.roam.corp.google.com> <0de9f30086ee2e662bdafee61d24b3c1@eikelenboom.it> <20150812.144040.1151964094247340464.davem@davemloft.net> <b5e9ffc27531e98bc2ac1e28d6a3d0f0@eikelenboom.it> <1439419279.29802.25.camel@edumazet-glaptop2.roam.corp.google.com> <3b284689aaa1573610c0e388e66e756a@eikelenboom.it> <1439591965.7507.6.camel@edumazet-glaptop2.roam.corp.google.com> <963062024.20150817110956@eikelenboom.it> <1439818633.7258.16.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Corcodel Marian <corcodel.marian@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52522 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750961AbbHQNqe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2015 09:46:34 -0400
-In-Reply-To: <1439809846-3002-1-git-send-email-corcodel.marian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 17.8.2015 13:10, Corcodel Marian wrote:
-> Put rx_buf_sz on rtl_cfg_info structure and add new
->   parameter  rx_buf_coef.Param rx_buf_sz may be different by nic's and same
->   rx_buf_coef On RTL 8101 series rx_buf_coef is not equal with  rx_buf_sz.
->   Add --whitespace=warn on git
->
-> Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
->
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 6882eab..fecb7c9 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -344,7 +344,7 @@ static const struct pci_device_id rtl8169_pci_tbl[] = {
->
->   MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
->
-> -static int rx_buf_sz = 16383;
-> +//static int rx_buf_sz = 16383;
->   static int use_dac;
->   static struct {
->   	u32 msg_enable;
-> @@ -784,6 +784,8 @@ struct rtl8169_private {
->   	u16 cp_cmd;
->
->   	u16 event_slow;
-> +        u16 rx_buf_sz;
-> +        u16 rx_buf_coef;
->
->   	struct mdio_ops {
->   		void (*write)(struct rtl8169_private *, int, int);
-> @@ -5321,7 +5323,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
->
->   	RTL_W8(EarlyTxThres, NoEarlyTx);
->
-> -	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
-> +	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
->
->   	if (tp->mac_version == RTL_GIGA_MAC_VER_01 ||
->   	    tp->mac_version == RTL_GIGA_MAC_VER_02 ||
-> @@ -6229,7 +6231,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
->
->   	RTL_W8(MaxTxPacketSize, TxPacketMax);
->
-> -	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
-> +	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
->
->   	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
->
-> @@ -6523,7 +6525,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
->
->   	RTL_W8(MaxTxPacketSize, TxPacketMax);
->
-> -	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
-> +	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
->
->   	tp->cp_cmd &= ~R810X_CPCMD_QUIRK_MASK;
->   	RTL_W16(CPlusCmd, tp->cp_cmd);
-> @@ -6609,7 +6611,7 @@ static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
->   static void rtl8169_free_rx_databuff(struct rtl8169_private *tp,
->   				     void **data_buff, struct RxDesc *desc)
->   {
-> -	dma_unmap_single(&tp->pci_dev->dev, le64_to_cpu(desc->addr), rx_buf_sz,
-> +	dma_unmap_single(&tp->pci_dev->dev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
->   			 DMA_FROM_DEVICE);
->
->   	kfree(*data_buff);
-> @@ -6617,21 +6619,22 @@ static void rtl8169_free_rx_databuff(struct rtl8169_private *tp,
->   	rtl8169_make_unusable_by_asic(desc);
->   }
->
-> -static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz)
-> +static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz,
-> +                                        u32 rx_buf_coef)
->   {
->   	u32 eor = le32_to_cpu(desc->opts1) & RingEnd;
->
->   	/* Force memory writes to complete before releasing descriptor */
->   	dma_wmb();
->
-> -	desc->opts1 = cpu_to_le32(DescOwn | eor | rx_buf_sz);
-> +	desc->opts1 = cpu_to_le32(DescOwn | eor | (rx_buf_sz & rx_buf_coef));
->   }
->
->   static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
-> -				       u32 rx_buf_sz)
-> +				       u32 rx_buf_sz, u32 rx_buf_coef)
->   {
->   	desc->addr = cpu_to_le64(mapping);
-> -	rtl8169_mark_to_asic(desc, rx_buf_sz);
-> +	rtl8169_mark_to_asic(desc, rx_buf_sz, rx_buf_coef);
->   }
->
->   static inline void *rtl8169_align(void *data)
-> @@ -6648,18 +6651,18 @@ static struct sk_buff *rtl8169_alloc_rx_data(struct rtl8169_private *tp,
->   	struct net_device *dev = tp->dev;
->   	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
->
-> -	data = kmalloc_node(rx_buf_sz, GFP_KERNEL, node);
-> +	data = kmalloc_node(tp->rx_buf_sz, GFP_KERNEL, node);
->   	if (!data)
->   		return NULL;
->
->   	if (rtl8169_align(data) != data) {
->   		kfree(data);
-> -		data = kmalloc_node(rx_buf_sz + 15, GFP_KERNEL, node);
-> +		data = kmalloc_node(tp->rx_buf_sz + 15, GFP_KERNEL, node);
->   		if (!data)
->   			return NULL;
->   	}
->
-> -	mapping = dma_map_single(d, rtl8169_align(data), rx_buf_sz,
-> +	mapping = dma_map_single(d, rtl8169_align(data), tp->rx_buf_sz,
->   				 DMA_FROM_DEVICE);
->   	if (unlikely(dma_mapping_error(d, mapping))) {
->   		if (net_ratelimit())
-> @@ -6667,7 +6670,7 @@ static struct sk_buff *rtl8169_alloc_rx_data(struct rtl8169_private *tp,
->   		goto err_out;
->   	}
->
-> -	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
-> +	rtl8169_map_to_asic(desc, mapping, tp->rx_buf_sz, tp->rx_buf_coef);
->   	return data;
->
->   err_out:
-> @@ -6785,7 +6788,8 @@ static void rtl_reset_work(struct rtl8169_private *tp)
->   	rtl8169_hw_reset(tp);
->
->   	for (i = 0; i < NUM_RX_DESC; i++)
-> -		rtl8169_mark_to_asic(tp->RxDescArray + i, rx_buf_sz);
-> +		rtl8169_mark_to_asic(tp->RxDescArray + i, tp->rx_buf_sz,
-> +                                     tp->rx_buf_coef);
->
->   	rtl8169_tx_clear(tp);
->   	rtl8169_init_ring_indexes(tp);
-> @@ -7368,7 +7372,7 @@ process_pkt:
->   		}
->   release_descriptor:
->   		desc->opts2 = 0;
-> -		rtl8169_mark_to_asic(desc, rx_buf_sz);
-> +		rtl8169_mark_to_asic(desc, tp->rx_buf_sz, tp->rx_buf_coef);
->   	}
->
->   	count = cur_rx - tp->cur_rx;
-> @@ -7929,6 +7933,8 @@ static const struct rtl_cfg_info {
->   	unsigned int region;
->   	unsigned int align;
->   	u16 event_slow;
-> +        u16 rx_buf_sz;
-> +        u16 rx_buf_coef;
->   	unsigned features;
->   	u8 default_ver;
->   } rtl_cfg_infos [] = {
-> @@ -7937,6 +7943,8 @@ static const struct rtl_cfg_info {
->   		.region		= 1,
->   		.align		= 0,
->   		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver,
-> +                .rx_buf_sz      = 16383,
-> +                .rx_buf_coef    = 0x3fff,
->   		.features	= RTL_FEATURE_GMII,
->   		.default_ver	= RTL_GIGA_MAC_VER_01,
->   	},
-> @@ -7945,6 +7953,8 @@ static const struct rtl_cfg_info {
->   		.region		= 2,
->   		.align		= 8,
->   		.event_slow	= SYSErr | LinkChg | RxOverflow,
-> +                .rx_buf_sz      = 16383,
-> +                .rx_buf_coef    = 0x3fff,
->   		.features	= RTL_FEATURE_GMII | RTL_FEATURE_MSI,
->   		.default_ver	= RTL_GIGA_MAC_VER_11,
->   	},
-> @@ -7952,6 +7962,8 @@ static const struct rtl_cfg_info {
->   		.hw_start	= rtl_hw_start_8101,
->   		.region		= 2,
->   		.align		= 8,
-> +                .rx_buf_sz      = 16000,
-> +                .rx_buf_coef    = 0x1ff8,
-
-Where are these values coming from?
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	<david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439818633.7258.16.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
->                   .event_slow	= LinkChg | RxOverflow | RxFIFOOver | PCSTimeout,
->   		.features	= RTL_FEATURE_MSI,
->   		.default_ver	= RTL_GIGA_MAC_VER_13,
-> @@ -8307,6 +8319,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->
->   	tp->hw_start = cfg->hw_start;
->   	tp->event_slow = cfg->event_slow;
-> +        tp->rx_buf_sz = cfg->rx_buf_sz;
-> +        tp->rx_buf_coef = cfg->rx_buf_coef;
->
->   	tp->opts1_mask = (tp->mac_version != RTL_GIGA_MAC_VER_01) ?
->   		~(RxBOVF | RxFOVF) : ~0;
->
+Monday, August 17, 2015, 3:37:13 PM, you wrote:
+
+> On Mon, 2015-08-17 at 11:09 +0200, Sander Eikelenboom wrote:
+>> Saturday, August 15, 2015, 12:39:25 AM, you wrote:
+>> 
+>> > On Sat, 2015-08-15 at 00:09 +0200, Sander Eikelenboom wrote:
+>> >> On 2015-08-13 00:41, Eric Dumazet wrote:
+>> >> > On Wed, 2015-08-12 at 23:46 +0200, Sander Eikelenboom wrote:
+>> >> > 
+>> >> >> Thanks for the reminder, but luckily i was aware of that,
+>> >> >> seen enough of your replies asking for patches to be resubmitted
+>> >> >> against "the other tree" ;)
+>> >> >> Kernel with patch is currently running so fingers crossed.
+>> >> > 
+>> >> > Thanks for testing. I am definitely interested knowing your results.
+>> >> 
+>> >> Hmm it seems now commit 83fccfc3940c4a2db90fd7e7079f5b465cd8c6af is 
+>> >> breaking things
+>> >> (have to test if a revert helps) i get this in some guests:
+>> 
+>> 
+>> > Yes, this was fixed by :
+>> > http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
+>> 
+>> 
+>> Hi Eric,
+>> 
+>> With that patch i had a crash again this night, see below.
+>> 
+>> --
+>> Sander
+>> 
+>> [177459.188808] general protection fault: 0000 [#1] SMP 
+>> [177459.199746] Modules linked in:
+>> [177459.210540] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.2.0-rc6-20150815-linus-doflr-net+ #1
+>> [177459.221441] Hardware name: MSI MS-7640/890FXA-GD70 (MS-7640)  , BIOS V1.8B1 09/13/2010
+>> [177459.232247] task: ffffffff8221a580 ti: ffffffff82200000 task.ti: ffffffff82200000
+>> [177459.242931] RIP: e030:[<ffffffff8110eb58>]  [<ffffffff8110eb58>] detach_if_pending+0x18/0x80
+>> [177459.253503] RSP: e02b:ffff88005f6039d8  EFLAGS: 00010086
+>> [177459.264051] RAX: ffff8800584d6580 RBX: ffff880004901420 RCX: dead000000200200
+>> [177459.274599] RDX: 0000000000000000 RSI: ffff88005f60e5c0 RDI: ffff880004901420
+>> [177459.285122] RBP: ffff88005f6039d8 R08: 0000000000000001 R09: 0000000000000000
+>> [177459.295286] R10: 0000000000000003 R11: ffff880004901394 R12: 0000000000000003
+>> [177459.305388] R13: 000000010ae47040 R14: 0000000007b98a00 R15: ffff88005f60e5c0
+>> [177459.315345] FS:  00007f51317ec700(0000) GS:ffff88005f600000(0000) knlGS:0000000000000000
+>> [177459.325340] CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
+>> [177459.335217] CR2: 00000000010f8000 CR3: 000000002a154000 CR4: 0000000000000660
+>> [177459.345129] Stack:
+>> [177459.354783]  ffff88005f603a28 ffffffff8110ee7f ffffffff810fb261 0000000000000200
+>> [177459.364505]  0000000000000003 ffff880004901380 0000000000000003 ffff8800567d0d00
+>> [177459.374064]  0000000007b98a00 0000000000000000 ffff88005f603a58 ffffffff819b3eb3
+>> [177459.383532] Call Trace:
+>> [177459.392878]  <IRQ> 
+>> [177459.392935]  [<ffffffff8110ee7f>] mod_timer_pending+0x3f/0xe0
+>> [177459.411058]  [<ffffffff810fb261>] ? __raw_callee_save___pv_queued_spin_unlock+0x11/0x20
+>> [177459.419876]  [<ffffffff819b3eb3>] __nf_ct_refresh_acct+0xa3/0xb0
+>> [177459.428642]  [<ffffffff819baafb>] tcp_packet+0xb3b/0x1290
+>> [177459.437285]  [<ffffffff81a2535e>] ? ip_output+0x5e/0xc0
+>> [177459.445845]  [<ffffffff810ca8ca>] ? __local_bh_enable_ip+0x2a/0x90
+>> [177459.454331]  [<ffffffff819b35a9>] ? __nf_conntrack_find_get+0x129/0x2a0
+>> [177459.462642]  [<ffffffff819b549c>] nf_conntrack_in+0x29c/0x7c0
+>> [177459.470711]  [<ffffffff81a65e9c>] ipv4_conntrack_local+0x4c/0x50
+>> [177459.478753]  [<ffffffff819ad67c>] nf_iterate+0x4c/0x80
+>> [177459.486726]  [<ffffffff81102437>] ? generic_handle_irq+0x27/0x40
+>> [177459.494634]  [<ffffffff819ad714>] nf_hook_slow+0x64/0xc0
+>> [177459.502486]  [<ffffffff81a22d40>] __ip_local_out_sk+0x90/0xa0
+>> [177459.510248]  [<ffffffff81a22c40>] ? ip_forward_options+0x1a0/0x1a0
+>> [177459.517782]  [<ffffffff81a22d66>] ip_local_out_sk+0x16/0x40
+>> [177459.525044]  [<ffffffff81a2343d>] ip_queue_xmit+0x14d/0x350
+>> [177459.532247]  [<ffffffff81a3ae7e>] tcp_transmit_skb+0x48e/0x960
+>> [177459.539413]  [<ffffffff81a3cddb>] tcp_xmit_probe_skb+0xdb/0xf0
+>> [177459.546389]  [<ffffffff81a3dffb>] tcp_write_wakeup+0x5b/0x150
+>> [177459.553061]  [<ffffffff81a3e51b>] tcp_keepalive_timer+0x1fb/0x230
+>> [177459.559761]  [<ffffffff81a3e320>] ? tcp_init_xmit_timers+0x20/0x20
+>> [177459.566447]  [<ffffffff8110f3c7>] call_timer_fn.isra.27+0x17/0x80
+>> [177459.573121]  [<ffffffff81a3e320>] ? tcp_init_xmit_timers+0x20/0x20
+>> [177459.579778]  [<ffffffff8110f55d>] run_timer_softirq+0x12d/0x200
+>> [177459.586448]  [<ffffffff810ca6c3>] __do_softirq+0x103/0x210
+>> [177459.593138]  [<ffffffff810ca9cb>] irq_exit+0x4b/0xa0
+>> [177459.599783]  [<ffffffff814f05d4>] xen_evtchn_do_upcall+0x34/0x50
+>> [177459.606300]  [<ffffffff81af93ae>] xen_do_hypervisor_callback+0x1e/0x40
+>> [177459.612583]  <EOI> 
+>> [177459.612637]  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
+>> [177459.625010]  [<ffffffff810013aa>] ? xen_hypercall_sched_op+0xa/0x20
+>> [177459.631157]  [<ffffffff81008d60>] ? xen_safe_halt+0x10/0x20
+>> [177459.637158]  [<ffffffff810188d3>] ? default_idle+0x13/0x20
+>> [177459.643072]  [<ffffffff81018e1a>] ? arch_cpu_idle+0xa/0x10
+>> [177459.648809]  [<ffffffff810f8e7e>] ? default_idle_call+0x2e/0x50
+>> [177459.654650]  [<ffffffff810f9112>] ? cpu_startup_entry+0x272/0x2e0
+>> [177459.660488]  [<ffffffff81ae79f7>] ? rest_init+0x77/0x80
+>> [177459.666297]  [<ffffffff82312f58>] ? start_kernel+0x43b/0x448
+>> [177459.672092]  [<ffffffff823124ef>] ? x86_64_start_reservations+0x2a/0x2c
+>> [177459.677800]  [<ffffffff82316008>] ? xen_start_kernel+0x550/0x55c
+>> [177459.683451] Code: 77 28 5d c3 66 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 48 8b 47 08 55 48 89 e5 48 85 c0 74 6a 48 8b 0f 48 85 c9 48 89 08 74 04 <48> 89 41 08 84 d2 74 08 48 c7 47 08 00 00 00 00 f6 47 2a 10 48 
+>> [177459.695332] RIP  [<ffffffff8110eb58>] detach_if_pending+0x18/0x80
+>> [177459.701154]  RSP <ffff88005f6039d8>
+>> (XEN) [2015-08-17 00:11:51.426] Hardware Dom0 crashed: rebooting machine in 5 seconds.
+>> 
+
+
+> might be conntracking related then.
+> You might try :
+
+> 1) reproduce the issue without conntracking.
+Will see if i can do that.
+
+> 2) bisect the bug
+Hmm that's  going to be quite painful, since i don't have an immediate 
+and reliable testcase (running for "about two days" doessn't qualify).
+Especially since there are all kinds of other known bugs in between. 
+
+> Thanks.
+
+--
+Sander
