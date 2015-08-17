@@ -1,53 +1,70 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH net-next v5 00/11] ipv6: Only create RTF_CACHE route after
- encountering pmtu exception
-Date: Mon, 17 Aug 2015 11:43:20 +0200
-Message-ID: <55D1ACB8.3040500@ahsoftware.de>
-References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
- <55B89C14.2070700@ahsoftware.de> <55BA1144.9090203@ahsoftware.de>
- <55CEEECA.8000702@ahsoftware.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Kernel Team <Kernel-team@fb.com>, stable@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Martin KaFai Lau <kafai@fb.com>, netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55CEEECA.8000702@ahsoftware.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH net-next]:r8169: Add and modify some parameters
+Date: Mon, 17 Aug 2015 13:26:14 +0300
+Message-ID: <1439807174-2702-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:34157 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750937AbbHQK02 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 06:26:28 -0400
+Received: by wicne3 with SMTP id ne3so70886321wic.1
+        for <netdev@vger.kernel.org>; Mon, 17 Aug 2015 03:26:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 15.08.2015 um 09:48 schrieb Alexander Holler:
-> Am 30.07.2015 um 13:57 schrieb Alexander Holler:
->> Am 29.07.2015 um 11:25 schrieb Alexander Holler:
->>> Am 23.05.2015 um 05:55 schrieb Martin KaFai Lau:
+Set InterFrame Gap time as largest posible for comp.   Add
+ InterFrameGap2 bit set on start.
 
-> To complete the discussion, that "annoying behaviour" is also a big
-> information leak.
->
-> Because routes aren't considered confidential and aren't subject to
-> privacy, that broken behaviour enabled *everyone* on the same system to
-> see *all* the remote IPv6 systems to which there have been connection
-> establishment tries.
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 
-Just in case I haven't described the problem I see clearly enough:
-
-"Everyone" means everything (other SW) too, and if "Happy_Eyeballs" 
-algorithms are used (see RFC 6555), this also affects systems which only 
-have an IPv4 connection to the world, as long as IPv6 is enabled.
-
-That means it does not only affect multiuser systems and the current 
-behaviour of kernels < 4.2 renders e.g. the private mode of most 
-browsers somewhat useless too (in regard to protection against other SW 
-and/or users running on the same system).
-
-That's why I vote to check out if it's possible/reasonable to backport 
-this series to the stable kernels.
-
-Regards,
-
-Alexander Holler
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index eb2d2a4..ea0f327 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -86,7 +86,8 @@ static const int multicast_filter_limit = 32;
+ 
+ #define MAX_READ_REQUEST_SHIFT	12
+ #define TX_DMA_BURST	7	/* Maximum PCI burst, '7' is unlimited */
+-#define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
++#define InterFrameGap	0x02	/* 2 means InterFrameGap = the largest one */
++#define InterFrameGap2	0x80000
+ 
+ #define R8169_REGS_SIZE		256
+ #define R8169_NAPI_WEIGHT	64
+@@ -5180,7 +5181,7 @@ static void rtl_set_rx_tx_config_registers(struct rtl8169_private *tp)
+ 
+ 	/* Set DMA burst size and Interframe Gap Time */
+ 	RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
+-		(InterFrameGap << TxInterFrameGapShift));
++		(InterFrameGap << TxInterFrameGapShift) | InterFrameGap2);
+ }
+ 
+ static void rtl_hw_start(struct net_device *dev)
+@@ -7470,15 +7471,22 @@ static int rtl8169_poll(struct napi_struct *napi, int budget)
+ 	u16 enable_mask = RTL_EVENT_NAPI | tp->event_slow;
+ 	int work_done= 0;
+ 	u16 status;
++        int tx_force = 1;
+ 
+ 	status = rtl_get_events(tp);
+ 	rtl_ack_events(tp, status & ~tp->event_slow);
+-
++       if (netif_running(dev)) {
+ 	if (status & RTL_EVENT_NAPI_RX)
+ 		work_done = rtl_rx(dev, tp, (u32) budget);
++                
+ 
+ 	if (status & RTL_EVENT_NAPI_TX)
+ 		rtl_tx(dev, tp);
++         else if (tx_force == 1) {
++                mdelay(10);
++                rtl_tx(dev, tp);
++         }
++        }
+ 
+ 	if (status & tp->event_slow) {
+ 		enable_mask &= ~tp->event_slow;
+-- 
+2.1.4
