@@ -1,107 +1,50 @@
-From: "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>
-Subject: =?gb2312?B?tPC4tDogW1BBVENIIDEvNV0gbmV0OiBhZGQgSGlzaWxpY29uIE5ldHdvcmsg?=
- =?gb2312?Q?Subsystem_support_(config_and_documents)?=
-Date: Mon, 17 Aug 2015 01:28:07 +0000
-Message-ID: <161EFA05D917D0419F95C4CAEEF86C1094E95FAA@SZXEMA504-MBS.china.huawei.com>
-References: <1439548222-231611-1-git-send-email-liguozhu@hisilicon.com>
- <1439548222-231611-2-git-send-email-liguozhu@hisilicon.com>
- <1536926.jEJjsM70Lj@wuerfel>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 0/2] net: introduce IFF_NO_QUEUE as successor of zero
+ tx_queue_len
+Date: Mon, 17 Aug 2015 08:51:21 +0200
+Message-ID: <20150817085121.419a1d28@redhat.com>
+References: <1439485268-20953-1-git-send-email-phil@nwl.cc>
+	<20150813104950.1b8346f2@urahara>
+	<20150813204037.3c4e68a4@redhat.com>
+	<20150813121157.5166efb1@urahara>
+	<20150814084153.GI32353@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- Salil Mehta <salil.mehta@huawei.com>,
- "pawel.moll@arm.com" <pawel.moll@arm.com>,
- "ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
- "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
- Dingtianhong <dingtianhong@huawei.com>,
- "will.deacon@arm.com" <will.deacon@arm.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Linuxarm <linuxarm@huawei.com>,
- "paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
- "robh+dt@kernel.org" <robh+dt@kernel.org>,
- huangdaode <huangdaode@hisilicon.com>,
- "galak@codeaurora.org" <galak@codeaurora.org>,
- "zhangfei.gao@linaro.org" <zhangfei.gao@linaro.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "Zhuangyuzeng \(Yisen\)" <yisen.zhuang@huawei.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1536926.jEJjsM70Lj@wuerfel>
-Content-Language: zh-CN
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+	davem@davemloft.net, fw@strlen.de, cwang@twopensource.com,
+	eric.dumazet@gmail.com
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57943 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750774AbbHQGvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Aug 2015 02:51:25 -0400
+In-Reply-To: <20150814084153.GI32353@orbit.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzLCBBcm5kLiANCg0KUmVnYXJkaW5nIHRoZSBhZS1uYW1lOiBpdCBpcyB0aGUgbmFtZSBv
-ZiB0aGUgQWNjZWxlcmF0aW9uIEVuZ2luZS4gSXQgaXMgcHJvdmlkZWQgYnkgdGhlIEJJT1MgYWNj
-b3JkaW5nIHRvIHRoZSBwb3NpdGlvbiBhbmQgdGhlIGZlYXR1cmUgZW5hYmxlZCBvZiB0aGUgSVAu
-IFNvICJzb2MwIiBtZWFucyBpdCBpcyBvbiBTb0MgTm8uIDAsIHdoaWxlICJuNCIgbWVhbnMgaXQg
-aXMgcnVubmluZyBvbiAiTm9uLWRzYWYgbW9kZSA0Ii4gSWRlYWxseSwgd2Ugc2hvdWxkIHNldHVw
-IHRoZSBydWxlIHRvIG5hbWUgaXQuIEJ1dCBhcyBJIHNhaWQgaW4gdGhlIHBhdGNoc2V0LCB0aGUg
-SVAgaXMgb3JpZ2luYWwgZGVzaWduZWQgZm9yIGEgYmFyZSBtZXRhbCBzb2x1dGlvbiwgaXQgaXMg
-d29ydGhsZXNzIHRvIGV4cG9ydCBhbGwgbW9kZXMgYW5kIHdlIGFyZSBwbGFubmluZyB0byBhZGQg
-bW9yZSBtb2RlIGZvciBMaW51eCBpdHNlbGYgaW4gdGhlIElQIGluIGZ1dHVyZSB2ZXJzaW9uLiBT
-byBJIHRoaW5rIHRoZSBiZXR0ZXIgd2F5IGlzIHRvIGxlYXZlIGl0IGFzIGEgIm5hbWUiIGJ1dCBh
-ZGQgbW9yZSBtZWFuaW5nIGluIHRoZSBmdXR1cmUuDQoNClJlZ2FyZGluZyB0aGUgYWUtb3B0czog
-aXQgaXMgdGhlIGluaXRpYWwgdmFsdWUgZm9yIHRoZSBBRSdzIHJ1bnRpbWUgb3B0aW9ucywgQ3Vy
-cmVudGx5LCB3ZSBoYXZlIG9ubHkgInBvcnQgbnVtYmVyIiAodGhlcmUgYXJlIDZYR0UrMkdFIHBv
-cnQgZm9yIGEgRFNBRiBBRSkgYXMgb3B0aW9uLiBCdXQgZm9yIGZ1dHVyZSB2ZXJzaW9uLCB3ZSB3
-aWxsIGFkZCBvdGhlciBvcHRpb25zIHN1Y2ggYXMgImVuYWJsZSBTcGFubmluZyBUcmVlIFByb3Rv
-Y29sIGFsZ29yaXRobSkiIGFuZCBzbyBvbi4gDQoNClNob3VsZCBJIGFkZCB0aGVzZSBiYWNrZ3Jv
-dW5kIHRvIHNvbWV3aGVyZT8NCg0KQmVzdCBSZWdhcmRzDQotS2VubmV0aCBMZWUgKEhpc2lsaWNv
-bikNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18NCrG+08q8/rywxuS4vbz+uqzT0Luqzqq5q8u+tcSxo8Pc0MXPoqOsvfbP3tPat6LLzbj4
-yc/D5rXY1rfW0MHQs/a1xLj2yMu78si61+mho737DQrWucjOus7G5Mv7yMvS1MjOus7Qzsq9yrnT
-w6OosPzAqLWrsrvP3tPayKuyv7vysr+31rXY0LnCtqGiuLTWxqGiu/LJoreio6mxvtPKvP7W0A0K
-tcTQxc+ioaPI57n7xPq07crVwcuxvtPKvP6jrMfrxPrBory0tee7sLvy08q8/s2o1qq3orz+yMuy
-osm+s/2xvtPKvP6joQ0KVGhpcyBlLW1haWwgYW5kIGl0cyBhdHRhY2htZW50cyBjb250YWluIGNv
-bmZpZGVudGlhbCBpbmZvcm1hdGlvbiBmcm9tIEhVQVdFSSwgd2hpY2ggDQppcyBpbnRlbmRlZCBv
-bmx5IGZvciB0aGUgcGVyc29uIG9yIGVudGl0eSB3aG9zZSBhZGRyZXNzIGlzIGxpc3RlZCBhYm92
-ZS4gQW55IHVzZSBvZiB0aGUgDQppbmZvcm1hdGlvbiBjb250YWluZWQgaGVyZWluIGluIGFueSB3
-YXkgKGluY2x1ZGluZywgYnV0IG5vdCBsaW1pdGVkIHRvLCB0b3RhbCBvciBwYXJ0aWFsIA0KZGlz
-Y2xvc3VyZSwgcmVwcm9kdWN0aW9uLCBvciBkaXNzZW1pbmF0aW9uKSBieSBwZXJzb25zIG90aGVy
-IHRoYW4gdGhlIGludGVuZGVkIA0KcmVjaXBpZW50KHMpIGlzIHByb2hpYml0ZWQuIElmIHlvdSBy
-ZWNlaXZlIHRoaXMgZS1tYWlsIGluIGVycm9yLCBwbGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgYnkg
-DQpwaG9uZSBvciBlbWFpbCBpbW1lZGlhdGVseSBhbmQgZGVsZXRlIGl0IQ0KDQoNCg0KDQotLS0t
-LdPKvP7Urbz+LS0tLS0NCreivP7IyzogQXJuZCBCZXJnbWFubiBbbWFpbHRvOmFybmRAYXJuZGIu
-ZGVdIA0Kt6LLzcqxvOQ6IDIwMTXE6jjUwjE1yNUgNDo1MA0KytW8/sjLOiBMaWd1b3podSAoS2Vu
-bmV0aCkNCrOty806IHJvYmgrZHRAa2VybmVsLm9yZzsgcGF3ZWwubW9sbEBhcm0uY29tOyBtYXJr
-LnJ1dGxhbmRAYXJtLmNvbTsgaWpjK2RldmljZXRyZWVAaGVsbGlvbi5vcmcudWs7IGdhbGFrQGNv
-ZGVhdXJvcmEub3JnOyBjYXRhbGluLm1hcmluYXNAYXJtLmNvbTsgd2lsbC5kZWFjb25AYXJtLmNv
-bTsgWmh1YW5neXV6ZW5nIChZaXNlbik7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IHBhdWwuZ29ydG1h
-a2VyQHdpbmRyaXZlci5jb207IERpbmd0aWFuaG9uZzsgemhhbmdmZWkuZ2FvQGxpbmFyby5vcmc7
-IGRldmljZXRyZWVAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
-OyBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7IExpbnV4YXJtOyBTYWxpbCBNZWh0YTsgaHVhbmdkYW9kZTsgTGlndW96aHUgKEtlbm5l
-dGgpDQrW98ziOiBSZTogW1BBVENIIDEvNV0gbmV0OiBhZGQgSGlzaWxpY29uIE5ldHdvcmsgU3Vi
-c3lzdGVtIHN1cHBvcnQgKGNvbmZpZyBhbmQgZG9jdW1lbnRzKQ0KDQpPbiBGcmlkYXkgMTQgQXVn
-dXN0IDIwMTUgMTg6MzA6MTggS2VubmV0aCBMZWUgd3JvdGU6DQo+IGRpZmYgLS1naXQgYS9Eb2N1
-bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2hpc2lsaWNvbi1obnMtbmljLnR4dCBi
-L0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvaGlzaWxpY29uLWhucy1uaWMu
-dHh0DQo+IG5ldyBmaWxlIG1vZGUgMTAwNjQ0DQo+IGluZGV4IDAwMDAwMDAuLjVhYjY5NjkNCj4g
-LS0tIC9kZXYvbnVsbA0KPiArKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3Mv
-bmV0L2hpc2lsaWNvbi1obnMtbmljLnR4dA0KPiBAQCAtMCwwICsxLDE0IEBADQo+ICtIaXNpbGlj
-b24gTmV0d29yayBTdWJzeXN0ZW0gTklDIGNvbnRyb2xsZXINCj4gKw0KPiArUmVxdWlyZWQgcHJv
-cGVydGllczoNCj4gKy0gY29tcGF0aWJsZTogaGlzaWxpY29uLGhucy1uaWMNCj4gKy0gYWUtbmFt
-ZTogYWNjZWxlcmF0b3IgbmFtZSB3aG8gcHJvdmlkZSB0aGlzIGludGVyZmFjZQ0KPiArLSBhZS1v
-cHRzOiBvcHRpb25zIChzdHJpbmcpIHRvIHRoZSBhY2NlbGVyYXRvci4gZS5nLiB0aGUgaW5kZXgg
-aW50ZXJmYWNlDQo+ICsNCj4gK0V4YW1wbGU6DQo+ICsNCj4gKyAgICAgICBldGhlcm5ldEAwew0K
-PiArICAgICAgICAgICAgICAgY29tcGF0aWJsZSA9ICJoaXNpbGljb24saG5zLW5pYyI7DQo+ICsg
-ICAgICAgICAgICAgICBhZS1uYW1lID0gInNvYzAtbjQiOw0KPiArICAgICAgICAgICAgICAgYWUt
-b3B0cyA9ICIwIjsNCj4gKyAgICAgICB9Ow0KPiANCg0KVGhlc2UgcHJvcGVydGllcyBsb29rIHZl
-cnkgdW5jb252ZW50aW9uYWwuIFdoYXQgYXJlIHRoZSB2YWxpZCBzdHJpbmdzDQpmb3IgYWUtbmFt
-ZSBhbmQgYWUtb3B0cz8gSXQgbG9va3MgbGlrZSB0aGUgbGF0dGVyIGlzIGp1c3QgYSBudW1iZXIs
-DQpzbyB3aHkgbm90IHVzZSBhbiBpbnRlZ2VyIHByb3BlcnR5Pw0KDQoJQXJuZA0KX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBt
-YWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9s
-aXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
+
+On Fri, 14 Aug 2015 10:41:53 +0200 Phil Sutter <phil@nwl.cc> wrote:
+
+> On Thu, Aug 13, 2015 at 12:11:57PM -0700, Stephen Hemminger wrote:
+[...]
+> > 
+> > But adding a flag risks breaking external scripts.
+> 
+> Could you please elaborate on this? As far as I can tell, introducing a
+> separate flag is the only solution *not* breaking existing scripts. So
+> if you see the rub, I would like to know where exactly it is.
+
+I agree with Phil.  AFAIC see this approach does not break existing
+scripts.
+
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
