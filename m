@@ -1,89 +1,68 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] inet: Move VRF table lookup to inlined function
-Date: Sun, 16 Aug 2015 17:13:27 -0600
-Message-ID: <1439766807-3821-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33988 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751348AbbHPXNe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2015 19:13:34 -0400
-Received: by paccq16 with SMTP id cq16so51217314pac.1
-        for <netdev@vger.kernel.org>; Sun, 16 Aug 2015 16:13:33 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Subject: Re: [PATCH] net/wireless: enable wiphy device to suspend/resume asynchronously
+Date: Mon, 17 Aug 2015 09:48:22 +0800
+Message-ID: <55D13D66.1050500@linux.intel.com>
+References: <55B9B3BA.6080406@linux.intel.com> <CANUX_P3PMsvWCWWciwCsRvf5PqLVEK9d9S=2Gbq+EotVGffEow@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Emmanuel Grumbach <egrumbach@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANUX_P3PMsvWCWWciwCsRvf5PqLVEK9d9S=2Gbq+EotVGffEow@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Table lookup compiles out when VRF is not enabled.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/vrf.h  | 24 ++++++++++++++++++++++++
- net/ipv4/af_inet.c | 10 +---------
- 2 files changed, 25 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/vrf.h b/include/net/vrf.h
-index 0484d29d4589..40e3793c7a05 100644
---- a/include/net/vrf.h
-+++ b/include/net/vrf.h
-@@ -81,6 +81,25 @@ static inline int vrf_dev_table(const struct net_device *dev)
- 	return tb_id;
- }
- 
-+static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
-+{
-+	struct net_device *dev;
-+	int tb_id = 0;
-+
-+	if (!ifindex)
-+		return 0;
-+
-+	rcu_read_lock();
-+
-+	dev = dev_get_by_index_rcu(net, ifindex);
-+	if (dev)
-+		tb_id = vrf_dev_table_rcu(dev);
-+
-+	rcu_read_unlock();
-+
-+	return tb_id;
-+}
-+
- /* called with rtnl */
- static inline int vrf_dev_table_rtnl(const struct net_device *dev)
- {
-@@ -125,6 +144,11 @@ static inline int vrf_dev_table(const struct net_device *dev)
- 	return 0;
- }
- 
-+static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
-+{
-+	return 0;
-+}
-+
- static inline int vrf_dev_table_rtnl(const struct net_device *dev)
- {
- 	return 0;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index c8b855882fa5..675e88cac2b4 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -450,15 +450,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			goto out;
- 	}
- 
--	if (sk->sk_bound_dev_if) {
--		struct net_device *dev;
--
--		rcu_read_lock();
--		dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
--		if (dev)
--			tb_id = vrf_dev_table_rcu(dev) ? : tb_id;
--		rcu_read_unlock();
--	}
-+	tb_id = vrf_dev_table_ifindex(net, sk->sk_bound_dev_if) ? : tb_id;
- 	chk_addr_ret = inet_addr_type_table(net, addr->sin_addr.s_addr, tb_id);
- 
- 	/* Not specified by any standard per-se, however it breaks too
--- 
-2.3.2 (Apple Git-55)
+On 2015/7/30 13:55, Emmanuel Grumbach wrote:
+> On Thu, Jul 30, 2015 at 8:18 AM, Fu, Zhonghui
+> <zhonghui.fu@linux.intel.com> wrote:
+>> Enable wiphy device to suspend/resume asynchronously. This can improve
+>> system suspend/resume speed.
+>>
+> How will that impact the timing with respect to the suspend call
+> coming from the bus?
+> I think that a few drivers rely on the suspend call of the wiphy
+> device happening before the suspend call to the bus device.
+> Not sure though.
+
+Sorry for late reply.
+
+The suspend/resume timing of wiphy device and related devices will be ensured by their parent/child relationship. So, enabling wiphy device to suspend/resume asynchronously does not change any  dependency. It can only take advantage of multicore and improve system suspend/resume speed.
+
+
+Thanks,
+Zhonghui
+>
+>> Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+>> ---
+>>  net/wireless/core.c |    1 +
+>>  1 files changed, 1 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/wireless/core.c b/net/wireless/core.c
+>> index 2a0bbd2..bc5e68f 100644
+>> --- a/net/wireless/core.c
+>> +++ b/net/wireless/core.c
+>> @@ -416,6 +416,7 @@ use_default_name:
+>>         device_initialize(&rdev->wiphy.dev);
+>>         rdev->wiphy.dev.class = &ieee80211_class;
+>>         rdev->wiphy.dev.platform_data = rdev;
+>> +       device_enable_async_suspend(&rdev->wiphy.dev);
+>>
+>>         INIT_LIST_HEAD(&rdev->destroy_list);
+>>         spin_lock_init(&rdev->destroy_list_lock);
+>> -- 1.7.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
