@@ -1,93 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] inet: fix potential deadlock in reqsk_queue_unlink()
-Date: Tue, 18 Aug 2015 06:36:43 -0700
-Message-ID: <1439905003.6443.2.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1439222953.1084.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150810.211821.2246516216165801977.davem@davemloft.net>
-	 <1439497173.7960.13.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1439498674.7960.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1439505891.7960.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CB7E6FA@AcuExch.aculab.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [net-next RFC] net: ipv4: Send IGMP messages from highest scoped
+ address
+Date: Tue, 18 Aug 2015 15:36:41 +0200
+Message-ID: <20150818133641.GB4381@lunn.ch>
+References: <1439827764-29129-1-git-send-email-andrew@lunn.ch>
+ <20150817.213158.1038537149649115817.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33547 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbbHRNgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 09:36:46 -0400
-Received: by pabyb7 with SMTP id yb7so133158232pab.0
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 06:36:45 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB7E6FA@AcuExch.aculab.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:32999 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752043AbbHRNn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 09:43:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20150817.213158.1038537149649115817.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-08-18 at 11:04 +0000, David Laight wrote:
-> From: Eric Dumazet
-> > Sent: 13 August 2015 23:45
-> > When replacing del_timer() with del_timer_sync(), I introduced
-> > a deadlock condition :
-> > 
-> > reqsk_queue_unlink() is called from inet_csk_reqsk_queue_drop()
-> > 
-> > inet_csk_reqsk_queue_drop() can be called from many contexts,
-> > one being the timer handler itself (reqsk_timer_handler()).
-> > 
-> > In this case, del_timer_sync() loops forever.
-> > 
-> > Simple fix is to test if timer is pending.
+On Mon, Aug 17, 2015 at 09:31:58PM -0700, David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Mon, 17 Aug 2015 18:09:24 +0200
 > 
-> Doesn't that mean you fail to wait for the timer function
-> to finish if you are calling from a different context?
-
-No, this is the purpose of del_timer_sync()
-
+> > This is RFC because i personally don't know if this is the best fix.
+> > The patch restores previous behavior, while still keeping the bug fix.
+> > 
+> > It is not obvious what is the correct source address for an IGMP
+> > message when an interface has multiple addresses. IGMP messages are
+> > sent either spontaneously, or as a result of a query. It could be
+> > argued that when replying to a query, an address take from the same
+> > subnet as the querier should be used. Doing this adds complexity for a
+> > corner case which does not seem to effect people. In the spontaneous
+> > case, there is no such hint, so an address has to be picked some other
+> > way. Taking the highest scope address seems reasonable, and works for
+> > me.
 > 
-> What you need to know is whether the current context
-> is that running the timer itself.
-> In which case you need to mark the timer 'to be deleted'
-> and actually delete it when the timer function returns.
-> (so other code can still wait for completion.)
+> Yes, unfortunately almost no guidance is given in this area in the
+> various RFCs.
+> 
+> Except that one recommended way to avoid forged IGMPs is to reject
+> any IGMP that has a source address no on that interface's subnet.
+> 
+> And if people actually do that, then the link scope address is the
+> best address to use and that is what we do now if I understand things
+> correctly.
 
-Please read del_timer_sync() documentation and/or implementation if you
-have doubts.
+Hi David
 
-/**
- * del_timer_sync - deactivate a timer and wait for the handler to finish.
- * @timer: the timer to be deactivated
- *
- * This function only differs from del_timer() on SMP: besides deactivating
- * the timer it also makes sure the handler has finished executing on other
- * CPUs.
- *
- * Synchronization rules: Callers must prevent restarting of the timer,
- * otherwise this function is meaningless. It must not be called from
- * interrupt contexts unless the timer is an irqsafe one. The caller must
- * not hold locks which would prevent completion of the timer's
- * handler. The timer's handler must not call add_timer_on(). Upon exit the
- * timer is not queued and the handler is not running on any CPU.
- *
- * Note: For !irqsafe timers, you must not hold locks that are held in
- *   interrupt context while calling this function. Even if the lock has
- *   nothing to do with the timer in question.  Here's why:
- *
- *    CPU0                             CPU1
- *    ----                             ----
- *                                   <SOFTIRQ>
- *                                   call_timer_fn();
- *                                     base->running_timer = mytimer;
- *  spin_lock_irq(somelock);
- *                                     <IRQ>
- *                                        spin_lock(somelock);
- *  del_timer_sync(mytimer);
- *   while (base->running_timer == mytimer);
- *
- * Now del_timer_sync() will never return and never release somelock.
- * The interrupt on the other CPU is waiting to grab somelock but
- * it has interrupted the softirq that CPU0 is waiting to finish.
- *
- * The function returns whether it has deactivated a pending timer or not.
- */
+We currently take the first address from the interface which is scope
+link or higher.
+
+Historically, the global scope address would of been used, but my
+previous fix, which stopped it taking a global scope address from a
+different interface altogether under some conditions, changed this
+behaviour.
+
+The first address from the interface, then broke one of my use
+case. The querier is only in one of the subnets on this interface, and
+using an address from the global scope address range. It then drops
+the membership reports when they are sent from the first address on
+the interface. This is why i want to restore the previous behaviour,
+take the global scope address from this interface.
+
+The patch works for me and is restoring previous behaviour, but is
+that sufficient to make it correct?
+
+     Andrew
