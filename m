@@ -1,87 +1,196 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv4 net-next 00/10] OVS conntrack support
-Date: Tue, 18 Aug 2015 16:39:38 -0700
-Message-ID: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv4 net-next 02/10] openvswitch: Move MASKED* macros to datapath.h
+Date: Tue, 18 Aug 2015 16:39:40 -0700
+Message-ID: <1439941188-19293-3-git-send-email-joestringer@nicira.com>
+References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
 Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
 	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
 	jpettit@nicira.com, jesse@nicira.com
 To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The goal of this series is to allow OVS to send packets through the Linux
-kernel connection tracker, and subsequently match on fields populated by
-conntrack.
+This will allow the ovs-conntrack code to reuse these macros.
 
-This version addresses the feedback from v3, primarily shifting the masked
-set of connmark and connlabel to nest under the conntrack action. This
-simplifies the API from the perspective of the SET_FIELD actions by not
-requiring special-casing for these fields. The fields are still maskable, but
-must be set as part of conntrack action execution. Some related refactoring and
-code simplifications have been rolled in due to these changes as well.
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v4: Add ack.
+---
+ net/openvswitch/actions.c  | 52 ++++++++++++++++++++++------------------------
+ net/openvswitch/datapath.h |  4 ++++
+ 2 files changed, 29 insertions(+), 27 deletions(-)
 
-This functionality is enabled through the CONFIG_OPENVSWITCH_CONNTRACK option.
-
-The branch below has been updated with the corresponding userspace pieces:
-https://github.com/joestringer/ovs dev/ct_20150818
-
-v4: Shift ability to set ct_mark/ct_label into ACTION_ATTR_CT.
-    Streamline fetching/setting conntrack fields.
-    Update some documentation.
-    Add acks from v2/v3 review.
-
-v3: Better handling of skb->dst in output/fragmentation
-    Address cases involving l2 metadata and checksums
-    Make MRU types more consistent
-    Better cleanup in error paths
-    Fix sparse warnings
-
-v2: Split out per-netns connlabel width setting functions
-    Simplify reference tracking in output path.
-    Handle output cases where flow key is invalidated by prior push/pop
-    Store entire L2 header to apply to fragments
-    Various bits of refactoring, comments, styles, log improvements
-    Defer patch to scrub skb
-    Rebase
-
-v1: First non-RFC post.
-    Fragment handling.
-    Conntrack label support.
-
-Joe Stringer (10):
-  openvswitch: Serialize acts with original netlink len
-  openvswitch: Move MASKED* macros to datapath.h
-  ipv6: Export nf_ct_frag6_gather()
-  dst: Add __skb_dst_copy() variation
-  openvswitch: Add conntrack action
-  openvswitch: Allow matching on conntrack mark
-  netfilter: Always export nf_connlabels_replace()
-  netfilter: connlabels: Export setting connlabel length
-  openvswitch: Allow matching on conntrack label
-  openvswitch: Allow attaching helpers to ct action
-
- include/net/dst.h                           |   9 +-
- include/net/netfilter/nf_conntrack_labels.h |   4 +
- include/uapi/linux/openvswitch.h            |  58 +++
- net/ipv6/netfilter/nf_conntrack_reasm.c     |   1 +
- net/netfilter/nf_conntrack_labels.c         |  34 +-
- net/netfilter/xt_connlabel.c                |  16 +-
- net/openvswitch/Kconfig                     |  11 +
- net/openvswitch/Makefile                    |   2 +
- net/openvswitch/actions.c                   | 229 +++++++--
- net/openvswitch/conntrack.c                 | 713 ++++++++++++++++++++++++++++
- net/openvswitch/conntrack.h                 |  92 ++++
- net/openvswitch/datapath.c                  |  74 ++-
- net/openvswitch/datapath.h                  |  12 +
- net/openvswitch/flow.c                      |   2 +
- net/openvswitch/flow.h                      |   9 +
- net/openvswitch/flow_netlink.c              | 103 +++-
- net/openvswitch/flow_netlink.h              |   4 +-
- net/openvswitch/vport.c                     |   1 +
- 18 files changed, 1293 insertions(+), 81 deletions(-)
- create mode 100644 net/openvswitch/conntrack.c
- create mode 100644 net/openvswitch/conntrack.h
-
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 14da52d..11643fa 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -185,10 +185,6 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	return 0;
+ }
+ 
+-/* 'KEY' must not have any bits set outside of the 'MASK' */
+-#define MASKED(OLD, KEY, MASK) ((KEY) | ((OLD) & ~(MASK)))
+-#define SET_MASKED(OLD, KEY, MASK) ((OLD) = MASKED(OLD, KEY, MASK))
+-
+ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		    const __be32 *mpls_lse, const __be32 *mask)
+ {
+@@ -201,7 +197,7 @@ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		return err;
+ 
+ 	stack = (__be32 *)skb_mpls_header(skb);
+-	lse = MASKED(*stack, *mpls_lse, *mask);
++	lse = OVS_MASKED(*stack, *mpls_lse, *mask);
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+ 		__be32 diff[] = { ~(*stack), lse };
+ 
+@@ -244,9 +240,9 @@ static void ether_addr_copy_masked(u8 *dst_, const u8 *src_, const u8 *mask_)
+ 	const u16 *src = (const u16 *)src_;
+ 	const u16 *mask = (const u16 *)mask_;
+ 
+-	SET_MASKED(dst[0], src[0], mask[0]);
+-	SET_MASKED(dst[1], src[1], mask[1]);
+-	SET_MASKED(dst[2], src[2], mask[2]);
++	OVS_SET_MASKED(dst[0], src[0], mask[0]);
++	OVS_SET_MASKED(dst[1], src[1], mask[1]);
++	OVS_SET_MASKED(dst[2], src[2], mask[2]);
+ }
+ 
+ static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *flow_key,
+@@ -338,10 +334,10 @@ static void update_ipv6_checksum(struct sk_buff *skb, u8 l4_proto,
+ static void mask_ipv6_addr(const __be32 old[4], const __be32 addr[4],
+ 			   const __be32 mask[4], __be32 masked[4])
+ {
+-	masked[0] = MASKED(old[0], addr[0], mask[0]);
+-	masked[1] = MASKED(old[1], addr[1], mask[1]);
+-	masked[2] = MASKED(old[2], addr[2], mask[2]);
+-	masked[3] = MASKED(old[3], addr[3], mask[3]);
++	masked[0] = OVS_MASKED(old[0], addr[0], mask[0]);
++	masked[1] = OVS_MASKED(old[1], addr[1], mask[1]);
++	masked[2] = OVS_MASKED(old[2], addr[2], mask[2]);
++	masked[3] = OVS_MASKED(old[3], addr[3], mask[3]);
+ }
+ 
+ static void set_ipv6_addr(struct sk_buff *skb, u8 l4_proto,
+@@ -358,15 +354,15 @@ static void set_ipv6_addr(struct sk_buff *skb, u8 l4_proto,
+ static void set_ipv6_fl(struct ipv6hdr *nh, u32 fl, u32 mask)
+ {
+ 	/* Bits 21-24 are always unmasked, so this retains their values. */
+-	SET_MASKED(nh->flow_lbl[0], (u8)(fl >> 16), (u8)(mask >> 16));
+-	SET_MASKED(nh->flow_lbl[1], (u8)(fl >> 8), (u8)(mask >> 8));
+-	SET_MASKED(nh->flow_lbl[2], (u8)fl, (u8)mask);
++	OVS_SET_MASKED(nh->flow_lbl[0], (u8)(fl >> 16), (u8)(mask >> 16));
++	OVS_SET_MASKED(nh->flow_lbl[1], (u8)(fl >> 8), (u8)(mask >> 8));
++	OVS_SET_MASKED(nh->flow_lbl[2], (u8)fl, (u8)mask);
+ }
+ 
+ static void set_ip_ttl(struct sk_buff *skb, struct iphdr *nh, u8 new_ttl,
+ 		       u8 mask)
+ {
+-	new_ttl = MASKED(nh->ttl, new_ttl, mask);
++	new_ttl = OVS_MASKED(nh->ttl, new_ttl, mask);
+ 
+ 	csum_replace2(&nh->check, htons(nh->ttl << 8), htons(new_ttl << 8));
+ 	nh->ttl = new_ttl;
+@@ -392,7 +388,7 @@ static int set_ipv4(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 	 * makes sense to check if the value actually changed.
+ 	 */
+ 	if (mask->ipv4_src) {
+-		new_addr = MASKED(nh->saddr, key->ipv4_src, mask->ipv4_src);
++		new_addr = OVS_MASKED(nh->saddr, key->ipv4_src, mask->ipv4_src);
+ 
+ 		if (unlikely(new_addr != nh->saddr)) {
+ 			set_ip_addr(skb, nh, &nh->saddr, new_addr);
+@@ -400,7 +396,7 @@ static int set_ipv4(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		}
+ 	}
+ 	if (mask->ipv4_dst) {
+-		new_addr = MASKED(nh->daddr, key->ipv4_dst, mask->ipv4_dst);
++		new_addr = OVS_MASKED(nh->daddr, key->ipv4_dst, mask->ipv4_dst);
+ 
+ 		if (unlikely(new_addr != nh->daddr)) {
+ 			set_ip_addr(skb, nh, &nh->daddr, new_addr);
+@@ -488,7 +484,8 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		    *(__be32 *)nh & htonl(IPV6_FLOWINFO_FLOWLABEL);
+ 	}
+ 	if (mask->ipv6_hlimit) {
+-		SET_MASKED(nh->hop_limit, key->ipv6_hlimit, mask->ipv6_hlimit);
++		OVS_SET_MASKED(nh->hop_limit, key->ipv6_hlimit,
++			       mask->ipv6_hlimit);
+ 		flow_key->ip.ttl = nh->hop_limit;
+ 	}
+ 	return 0;
+@@ -517,8 +514,8 @@ static int set_udp(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 
+ 	uh = udp_hdr(skb);
+ 	/* Either of the masks is non-zero, so do not bother checking them. */
+-	src = MASKED(uh->source, key->udp_src, mask->udp_src);
+-	dst = MASKED(uh->dest, key->udp_dst, mask->udp_dst);
++	src = OVS_MASKED(uh->source, key->udp_src, mask->udp_src);
++	dst = OVS_MASKED(uh->dest, key->udp_dst, mask->udp_dst);
+ 
+ 	if (uh->check && skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		if (likely(src != uh->source)) {
+@@ -558,12 +555,12 @@ static int set_tcp(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		return err;
+ 
+ 	th = tcp_hdr(skb);
+-	src = MASKED(th->source, key->tcp_src, mask->tcp_src);
++	src = OVS_MASKED(th->source, key->tcp_src, mask->tcp_src);
+ 	if (likely(src != th->source)) {
+ 		set_tp_port(skb, &th->source, src, &th->check);
+ 		flow_key->tp.src = src;
+ 	}
+-	dst = MASKED(th->dest, key->tcp_dst, mask->tcp_dst);
++	dst = OVS_MASKED(th->dest, key->tcp_dst, mask->tcp_dst);
+ 	if (likely(dst != th->dest)) {
+ 		set_tp_port(skb, &th->dest, dst, &th->check);
+ 		flow_key->tp.dst = dst;
+@@ -590,8 +587,8 @@ static int set_sctp(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 	old_csum = sh->checksum;
+ 	old_correct_csum = sctp_compute_cksum(skb, sctphoff);
+ 
+-	sh->source = MASKED(sh->source, key->sctp_src, mask->sctp_src);
+-	sh->dest = MASKED(sh->dest, key->sctp_dst, mask->sctp_dst);
++	sh->source = OVS_MASKED(sh->source, key->sctp_src, mask->sctp_src);
++	sh->dest = OVS_MASKED(sh->dest, key->sctp_dst, mask->sctp_dst);
+ 
+ 	new_csum = sctp_compute_cksum(skb, sctphoff);
+ 
+@@ -770,12 +767,13 @@ static int execute_masked_set_action(struct sk_buff *skb,
+ 
+ 	switch (nla_type(a)) {
+ 	case OVS_KEY_ATTR_PRIORITY:
+-		SET_MASKED(skb->priority, nla_get_u32(a), *get_mask(a, u32 *));
++		OVS_SET_MASKED(skb->priority, nla_get_u32(a),
++			       *get_mask(a, u32 *));
+ 		flow_key->phy.priority = skb->priority;
+ 		break;
+ 
+ 	case OVS_KEY_ATTR_SKB_MARK:
+-		SET_MASKED(skb->mark, nla_get_u32(a), *get_mask(a, u32 *));
++		OVS_SET_MASKED(skb->mark, nla_get_u32(a), *get_mask(a, u32 *));
+ 		flow_key->phy.skb_mark = skb->mark;
+ 		break;
+ 
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 6b28c5c..487a85f 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -200,6 +200,10 @@ void ovs_dp_notify_wq(struct work_struct *work);
+ int action_fifos_init(void);
+ void action_fifos_exit(void);
+ 
++/* 'KEY' must not have any bits set outside of the 'MASK' */
++#define OVS_MASKED(OLD, KEY, MASK) ((KEY) | ((OLD) & ~(MASK)))
++#define OVS_SET_MASKED(OLD, KEY, MASK) ((OLD) = OVS_MASKED(OLD, KEY, MASK))
++
+ #define OVS_NLERR(logging_allowed, fmt, ...)			\
+ do {								\
+ 	if (logging_allowed && net_ratelimit())			\
 -- 
 2.1.4
