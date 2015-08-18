@@ -1,240 +1,116 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next] bnx2x: Add vxlan RSS support
-Date: Tue, 18 Aug 2015 10:22:59 +0300
-Message-ID: <1439882579-16136-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH 1/6] net/bonding: enable LRO if one device supports it
+Date: Tue, 18 Aug 2015 09:45:12 +0200
+Message-ID: <20150818074512.GA4563@unicorn.suse.cz>
+References: <1439488980-44738-1-git-send-email-jarod@redhat.com>
+ <1439488980-44738-2-git-send-email-jarod@redhat.com>
+ <20150814065622.GA21759@unicorn.suse.cz>
+ <55CE7C8F.8070702@redhat.com>
+ <55D24CFA.4000307@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>,
-	Rajesh Borundia <Rajesh.Borundia@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:16439 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750916AbbHRHXt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 03:23:49 -0400
+Received: from mx2.suse.de ([195.135.220.15]:40809 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751440AbbHRHpP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 03:45:15 -0400
+Content-Disposition: inline
+In-Reply-To: <55D24CFA.4000307@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <Rajesh.Borundia@qlogic.com>
+On Mon, Aug 17, 2015 at 05:07:06PM -0400, Jarod Wilson wrote:
+> On 2015-08-14 7:41 PM, Jarod Wilson wrote:
+> >
+> >Yeah, my thinking was that it should mean "there's at least one lro
+> >capable slave". If we just leave things the way they are though, I think
+> >its confusing on the user side -- it was one of our QE people who
+> >reported confusion being able to toggle lro on a bond when none of the
+> >slaves supported it. And there's also the inconsistency among devices
+> >that support lro in their vlan_features. So I think *something* should
+> >still be done here to make things clearer and more consistent, but I'll
+> >have to ponder that next week, since its beyond quitting time on Friday
+> >already. :)
+> >
+> >Oh, last thought: the comment above #define NETIF_F_ONE_FOR_ALL is
+> >partly to blame for my not thinking harder and trying inverted ordering
+> >of slave additions:
+> >
+> >/*
+> >  * If one device supports one of these features, then enable them
+> >  * for all in netdev_increment_features.
+> >  */
+> >
+> >This clearly seems to fall down in the lro case. :)
+> 
+> Similarly, adding LRO to NETIF_F_ALL_FOR_ALL, even a bond with only
+> LRO-capable hardware, I'm seeing the bond wind up without LRO and it
+> can't be toggled on.
 
-Latest FW submission added some vxlan offload capabilities to our device.
-This patch adds the ability to connect to the vxlan NDOs and configure
-the UDP port associated with it in the HW.
+I still believe the very idea of computing bond's NETIF_F_LRO from its
+slaves - or, more generally, upper device from lower devices - is wrong.
+This makes very good sense for e.g. TSO where lower device is processing
+packets passed to it by the lower devices. Then it makes sense to
+propagate the information whether the physical device on the bottom can
+process those packets (OK, TSO is perhaps not the best example here as
+we can always emulate it in software and still gain some performance).
 
-The device would now be capable of performing RSS according to the
-inner headers of the vxlan packets.
+However, with LRO, the situation is exactly the opposite: packets are
+produced at the bottom device in the hierarchy and passed up; and
+somewhere on the higher level we may hit a reason why LRO should be
+disabled (bridged device, IPv6 forwarding enabled, device in a netns
+with IPv4 forwarding enabled). This hierarchy may be quite complicated,
+I've seen things like a bond with a vlan on top of it and a macvlan on
+top of the vlan which was then moved into a different netns (LXC
+container). LRO related issues in setups like this were the reason for
+529d04895446 and eventually fbe168ba91f7.
 
-Signed-off-by: Rajesh Borundia <Rajesh.Borundia@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
-Hi Dave,
+I agree that current state is not perfect but I don't think creating an
+artificial value of NETIF_F_LRO composed of slave values for a bond (and
+probably also a team, for consistency) is going to help. I would see
+more sense in rethinking the current concept of deriving all upper
+device's features from its lower devices and completing the two classes
+we already have:
 
-Please consider applying this to 'net-next'.
+  - NETIF_F_ONE_FOR_ALL: propagated up, OR-ed
+  - NETIF_F_ALL_FOR_ALL: propagated up, AND-ed
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/Kconfig            |  10 +++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 109 +++++++++++++++++++++++
- 4 files changed, 123 insertions(+)
+by two new classes:
 
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index 8be9eab..e930aa9 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -139,6 +139,16 @@ config BNX2X_SRIOV
- 	  Virtualization support in the 578xx and 57712 products. This
- 	  allows for virtual function acceleration in virtual environments.
- 
-+config BNX2X_VXLAN
-+	bool "Virtual eXtensible Local Area Network support"
-+	default n
-+	depends on BNX2X && VXLAN && !(BNX2X=y && VXLAN=m)
-+	---help---
-+	  This enables hardward offload support for VXLAN protocol over the
-+	  NetXtremeII series adapters.
-+	  Say Y here if you want to enable hardware offload support for
-+	  Virtual eXtensible Local Area Network (VXLAN) in the driver.
-+
- config BGMAC
- 	tristate "BCMA bus GBit core support"
- 	depends on BCMA_HOST_SOC && HAS_DMA && (BCM47XX || ARCH_BCM_5301X)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 5762c48..cbd6e25 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1392,6 +1392,8 @@ enum sp_rtnl_flag {
- 	BNX2X_SP_RTNL_HYPERVISOR_VLAN,
- 	BNX2X_SP_RTNL_TX_STOP,
- 	BNX2X_SP_RTNL_GET_DRV_VERSION,
-+	BNX2X_SP_RTNL_ADD_VXLAN_PORT,
-+	BNX2X_SP_RTNL_DEL_VXLAN_PORT,
- };
- 
- enum bnx2x_iov_flag {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index e18a0e4..d276de3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -967,6 +967,8 @@ static inline int bnx2x_func_start(struct bnx2x *bp)
- 	else /* CHIP_IS_E1X */
- 		start_params->network_cos_mode = FW_WRR;
- 
-+	start_params->vxlan_dst_port = cpu_to_le16(bp->vxlan_dst_port);
-+
- 	start_params->inner_rss = 1;
- 
- 	if (IS_MF_UFP(bp) && BNX2X_IS_MF_SD_PROTOCOL_FCOE(bp)) {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index ad73a60..5c00350 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -10075,6 +10075,81 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
- 	}
- }
- 
-+#ifdef CONFIG_BNX2X_VXLAN
-+static int bnx2x_vxlan_port_update(struct bnx2x *bp, u16 port)
-+{
-+	struct bnx2x_func_switch_update_params *switch_update_params;
-+	struct bnx2x_func_state_params func_params = {NULL};
-+	int rc;
-+
-+	switch_update_params = &func_params.params.switch_update;
-+
-+	/* Prepare parameters for function state transitions */
-+	__set_bit(RAMROD_COMP_WAIT, &func_params.ramrod_flags);
-+	__set_bit(RAMROD_RETRY, &func_params.ramrod_flags);
-+
-+	func_params.f_obj = &bp->func_obj;
-+	func_params.cmd = BNX2X_F_CMD_SWITCH_UPDATE;
-+
-+	/* Function parameters */
-+	__set_bit(BNX2X_F_UPDATE_TUNNEL_CFG_CHNG,
-+		  &switch_update_params->changes);
-+	switch_update_params->vxlan_dst_port = port;
-+	rc = bnx2x_func_state_change(bp, &func_params);
-+	if (rc)
-+		BNX2X_ERR("failed to change vxlan dst port to %d (rc = 0x%x)\n",
-+			  port, rc);
-+	return rc;
-+}
-+
-+static void __bnx2x_add_vxlan_port(struct bnx2x *bp, u16 port)
-+{
-+	if (!netif_running(bp->dev))
-+		return;
-+
-+	if (bp->vxlan_dst_port || !IS_PF(bp)) {
-+		DP(BNX2X_MSG_SP, "Vxlan destination port limit reached\n");
-+		return;
-+	}
-+
-+	bp->vxlan_dst_port = port;
-+	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_ADD_VXLAN_PORT, 0);
-+}
-+
-+static void bnx2x_add_vxlan_port(struct net_device *netdev,
-+				 sa_family_t sa_family, __be16 port)
-+{
-+	struct bnx2x *bp = netdev_priv(netdev);
-+	u16 t_port = ntohs(port);
-+
-+	__bnx2x_add_vxlan_port(bp, t_port);
-+}
-+
-+static void __bnx2x_del_vxlan_port(struct bnx2x *bp, u16 port)
-+{
-+	if (!bp->vxlan_dst_port || bp->vxlan_dst_port != port || !IS_PF(bp)) {
-+		DP(BNX2X_MSG_SP, "Invalid vxlan port\n");
-+		return;
-+	}
-+
-+	if (netif_running(bp->dev)) {
-+		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_DEL_VXLAN_PORT, 0);
-+	} else {
-+		bp->vxlan_dst_port = 0;
-+		netdev_info(bp->dev, "Deleted vxlan dest port %d", port);
-+	}
-+}
-+
-+static void bnx2x_del_vxlan_port(struct net_device *netdev,
-+				 sa_family_t sa_family, __be16 port)
-+{
-+	struct bnx2x *bp = netdev_priv(netdev);
-+	u16 t_port = ntohs(port);
-+
-+	__bnx2x_del_vxlan_port(bp, t_port);
-+}
-+#endif
-+
- static int bnx2x_close(struct net_device *dev);
- 
- /* bnx2x_nic_unload() flushes the bnx2x_wq, thus reset task is
-@@ -10083,6 +10158,9 @@ static int bnx2x_close(struct net_device *dev);
- static void bnx2x_sp_rtnl_task(struct work_struct *work)
- {
- 	struct bnx2x *bp = container_of(work, struct bnx2x, sp_rtnl_task.work);
-+#ifdef CONFIG_BNX2X_VXLAN
-+	u16 port;
-+#endif
- 
- 	rtnl_lock();
- 
-@@ -10181,6 +10259,27 @@ sp_rtnl_not_reset:
- 			       &bp->sp_rtnl_state))
- 		bnx2x_update_mng_version(bp);
- 
-+#ifdef CONFIG_BNX2X_VXLAN
-+	port = bp->vxlan_dst_port;
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_ADD_VXLAN_PORT,
-+			       &bp->sp_rtnl_state)) {
-+		if (!bnx2x_vxlan_port_update(bp, port))
-+			netdev_info(bp->dev, "Added vxlan dest port %d", port);
-+		else
-+			bp->vxlan_dst_port = 0;
-+	}
-+
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_DEL_VXLAN_PORT,
-+			       &bp->sp_rtnl_state)) {
-+		if (!bnx2x_vxlan_port_update(bp, 0)) {
-+			netdev_info(bp->dev,
-+				    "Deleted vxlan dest port %d", port);
-+			bp->vxlan_dst_port = 0;
-+			vxlan_get_rx_port(bp->dev);
-+		}
-+	}
-+#endif
-+
- 	/* work which needs rtnl lock not-taken (as it takes the lock itself and
- 	 * can be called from other contexts as well)
- 	 */
-@@ -12379,6 +12478,12 @@ static int bnx2x_open(struct net_device *dev)
- 	rc = bnx2x_nic_load(bp, LOAD_OPEN);
- 	if (rc)
- 		return rc;
-+
-+#ifdef CONFIG_BNX2X_VXLAN
-+	if (IS_PF(bp))
-+		vxlan_get_rx_port(dev);
-+#endif
-+
- 	return 0;
- }
- 
-@@ -12894,6 +12999,10 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
- 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
- 	.ndo_features_check	= bnx2x_features_check,
-+#ifdef CONFIG_BNX2X_VXLAN
-+	.ndo_add_vxlan_port	= bnx2x_add_vxlan_port,
-+	.ndo_del_vxlan_port	= bnx2x_del_vxlan_port,
-+#endif
- };
- 
- static int bnx2x_set_coherency_mask(struct bnx2x *bp)
--- 
-1.9.3
+  - propagated down, OR-ed
+  - propagated down, AND-ed
+
+NETIF_F_LRO should IMHO fall into the last class. I don't have an
+example of a flag belonging to third class from the top of my head
+but there may also be one (GRO, perhaps?). Such change would, of course,
+require careful planning and testing to avoid regressions.
+
+> I think the answer here (which to be fair, Nik suggested originally to
+> me when I inherited this bug from him) is indeed to simply remove LRO
+> from BOND_VLAN_FEATURES. Leave it fixed off for the bond itself, which
+> should then turn it off for underlying devices via fbe168ba91f7 by
+> default. If the user goes and turns it back on for the underlying
+> devices individually, that's their prerogative. They keep both halves
+> if it breaks.
+> 
+> Does that sound sane?
+
+If I understand the code correctly, this would mean bond would have
+NETIF_F_LRO always disabled in its dev->features so that any slave would
+end up with disabled LRO after bond_enslave(). While this would be less
+of a problem than LRO enabled when it shouldn't, it would cause a
+performance penalty in the cases when there is no reason to disable LRO
+(end hosts without any virtualization or other bridging or forwarding).
+
+So the distribution init scripts (or management daemons like wicked or
+systemd-networkd) would have to handle the LRO reenabling somehow. And
+they would have trouble checking whether to do reenable LRO or not as
+bond would stop keeping the state information whether dev_disable_lro()
+was called for it or not (we must not reenable LRO if it was).
+
+                                                         Michal Kubecek
