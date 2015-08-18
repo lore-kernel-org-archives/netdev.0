@@ -1,57 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8169:Set RxConfig on same func. with TxConfig
-Date: Tue, 18 Aug 2015 12:42:32 -0700 (PDT)
-Message-ID: <20150818.124232.176851590301929849.davem@davemloft.net>
-References: <1439925021-5772-1-git-send-email-corcodel.marian@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] vrf: vrf_master_ifindex_rcu is not always called
+ with rcu read lock
+Date: Tue, 18 Aug 2015 13:45:20 -0600
+Message-ID: <55D38B50.1030004@cumulusnetworks.com>
+References: <1439914666-7561-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: corcodel.marian@gmail.com
+Cc: shm@cumulusnetworks.com, davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41887 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752891AbbHRTmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 15:42:35 -0400
-In-Reply-To: <1439925021-5772-1-git-send-email-corcodel.marian@gmail.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:35316 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965AbbHRTpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 15:45:22 -0400
+Received: by iodt126 with SMTP id t126so202919803iod.2
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 12:45:21 -0700 (PDT)
+In-Reply-To: <1439914666-7561-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Date: Tue, 18 Aug 2015 22:10:21 +0300
+On 8/18/15 10:17 AM, Nikolay Aleksandrov wrote:
+> diff --git a/include/net/vrf.h b/include/net/vrf.h
+> index 40e3793c7a05..22dfe2195092 100644
+> --- a/include/net/vrf.h
+> +++ b/include/net/vrf.h
+> @@ -35,7 +35,6 @@ struct net_vrf {
+>
+>
+>   #if IS_ENABLED(CONFIG_NET_VRF)
+> -/* called with rcu_read_lock() */
+>   static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
+>   {
+>   	struct net_vrf_dev *vrf_ptr;
+> @@ -44,12 +43,14 @@ static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
+>   	if (!dev)
+>   		return 0;
+>
+> -	if (netif_is_vrf(dev))
+> +	if (netif_is_vrf(dev)) {
+>   		ifindex = dev->ifindex;
+> -	else {
+> +	} else {
+> +		rcu_read_lock();
+>   		vrf_ptr = rcu_dereference(dev->vrf_ptr);
+>   		if (vrf_ptr)
+>   			ifindex = vrf_ptr->ifindex;
+> +		rcu_read_unlock();
+>   	}
+>
+>   	return ifindex;
+>
 
->  Add set DMA burst size and  Rx FIFO threshold on RxConfig  
->   register to function rtl_set_rx_tx_config_register.
-> 
-> 
-> Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+The intent of the _rcu in the name is to mean it is called with 
+rcu_read_lock held which is the case for __fib_validate_source and 
+ip_route_input_slow. It looks like the icmp callers (icmp_reply and 
+icmp_route_lookup) are the exceptions. For those create a
 
-I would like to politely ask you to stop submitting these r8169 patches
-right now.
+static inline int vrf_master_ifindex(const struct net_device *dev)
+{
 
-Your method of handling your patch submissions is not acceptable and
-is scarily wasting developer resources every single day.
+}
 
-When people give you feedback about why your patch is not correct, or
-ask you questions, you often do not respond.  Or, if you do respond,
-you give a very small response that do not actually answer the
-question given to you.
-
-When people give feedback to your patch, you _MUST_ engage in a
-coherent full conversation with the person giving you feedback.
-
-It is not acceptable to just ignore what that person tells you,
-or to be quiet.  You cannot just keep throwing patches blindly
-to this mailing list.
-
-It is especially not acceptable to ignore feedback, and then keep
-submitting more and more patches.  This is the worst thing in the
-world that you can do.
-
-You are creating a situation where the people trying to help you by
-reviewing your work feel like they are wasting their time.
-
-Furthermore, you haven't answered the most basic question we have
-asked you.  Where are all of these r1869 patches coming from?  What is
-the reason why you are looking into all of the r8169 issues all of a
-sudden?  It looks very random and strange to all of us.
+that does the rcu lock/unlock and calls vrf_master_ifindex_rcu in between.
