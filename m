@@ -1,69 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [net-next RFC] net: ipv4: Send IGMP messages from highest scoped
- address
-Date: Tue, 18 Aug 2015 15:36:41 +0200
-Message-ID: <20150818133641.GB4381@lunn.ch>
-References: <1439827764-29129-1-git-send-email-andrew@lunn.ch>
- <20150817.213158.1038537149649115817.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] inet: fix potential deadlock in reqsk_queue_unlink()
+Date: Tue, 18 Aug 2015 13:57:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB7E83F@AcuExch.aculab.com>
+References: <1439222953.1084.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150810.211821.2246516216165801977.davem@davemloft.net>
+	 <1439497173.7960.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1439498674.7960.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1439505891.7960.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB7E6FA@AcuExch.aculab.com>
+ <1439905003.6443.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:32999 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752043AbbHRNn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 09:43:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20150817.213158.1038537149649115817.davem@davemloft.net>
+Received: from smtp-out4.electric.net ([192.162.216.189]:57048 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753139AbbHROA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 10:00:27 -0400
+In-Reply-To: <1439905003.6443.2.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 17, 2015 at 09:31:58PM -0700, David Miller wrote:
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Mon, 17 Aug 2015 18:09:24 +0200
-> 
-> > This is RFC because i personally don't know if this is the best fix.
-> > The patch restores previous behavior, while still keeping the bug fix.
-> > 
-> > It is not obvious what is the correct source address for an IGMP
-> > message when an interface has multiple addresses. IGMP messages are
-> > sent either spontaneously, or as a result of a query. It could be
-> > argued that when replying to a query, an address take from the same
-> > subnet as the querier should be used. Doing this adds complexity for a
-> > corner case which does not seem to effect people. In the spontaneous
-> > case, there is no such hint, so an address has to be picked some other
-> > way. Taking the highest scope address seems reasonable, and works for
-> > me.
-> 
-> Yes, unfortunately almost no guidance is given in this area in the
-> various RFCs.
-> 
-> Except that one recommended way to avoid forged IGMPs is to reject
-> any IGMP that has a source address no on that interface's subnet.
-> 
-> And if people actually do that, then the link scope address is the
-> best address to use and that is what we do now if I understand things
-> correctly.
-
-Hi David
-
-We currently take the first address from the interface which is scope
-link or higher.
-
-Historically, the global scope address would of been used, but my
-previous fix, which stopped it taking a global scope address from a
-different interface altogether under some conditions, changed this
-behaviour.
-
-The first address from the interface, then broke one of my use
-case. The querier is only in one of the subnets on this interface, and
-using an address from the global scope address range. It then drops
-the membership reports when they are sent from the first address on
-the interface. This is why i want to restore the previous behaviour,
-take the global scope address from this interface.
-
-The patch works for me and is restoring previous behaviour, but is
-that sufficient to make it correct?
-
-     Andrew
+RnJvbTogRXJpYyBEdW1hemV0IA0KPiBTZW50OiAxOCBBdWd1c3QgMjAxNSAxNDozNw0KPiBPbiBU
+dWUsIDIwMTUtMDgtMTggYXQgMTE6MDQgKzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBG
+cm9tOiBFcmljIER1bWF6ZXQNCj4gPiA+IFNlbnQ6IDEzIEF1Z3VzdCAyMDE1IDIzOjQ1DQo+ID4g
+PiBXaGVuIHJlcGxhY2luZyBkZWxfdGltZXIoKSB3aXRoIGRlbF90aW1lcl9zeW5jKCksIEkgaW50
+cm9kdWNlZA0KPiA+ID4gYSBkZWFkbG9jayBjb25kaXRpb24gOg0KPiA+ID4NCj4gPiA+IHJlcXNr
+X3F1ZXVlX3VubGluaygpIGlzIGNhbGxlZCBmcm9tIGluZXRfY3NrX3JlcXNrX3F1ZXVlX2Ryb3Ao
+KQ0KPiA+ID4NCj4gPiA+IGluZXRfY3NrX3JlcXNrX3F1ZXVlX2Ryb3AoKSBjYW4gYmUgY2FsbGVk
+IGZyb20gbWFueSBjb250ZXh0cywNCj4gPiA+IG9uZSBiZWluZyB0aGUgdGltZXIgaGFuZGxlciBp
+dHNlbGYgKHJlcXNrX3RpbWVyX2hhbmRsZXIoKSkuDQo+ID4gPg0KPiA+ID4gSW4gdGhpcyBjYXNl
+LCBkZWxfdGltZXJfc3luYygpIGxvb3BzIGZvcmV2ZXIuDQo+ID4gPg0KPiA+ID4gU2ltcGxlIGZp
+eCBpcyB0byB0ZXN0IGlmIHRpbWVyIGlzIHBlbmRpbmcuDQo+ID4NCj4gPiBEb2Vzbid0IHRoYXQg
+bWVhbiB5b3UgZmFpbCB0byB3YWl0IGZvciB0aGUgdGltZXIgZnVuY3Rpb24NCj4gPiB0byBmaW5p
+c2ggaWYgeW91IGFyZSBjYWxsaW5nIGZyb20gYSBkaWZmZXJlbnQgY29udGV4dD8NCj4gDQo+IE5v
+LCB0aGlzIGlzIHRoZSBwdXJwb3NlIG9mIGRlbF90aW1lcl9zeW5jKCkNCg0KSSB3YXNuJ3Qgd29y
+cmllZCBhYm91dCBkZWxfdGltZXJfc3luYygpLg0KVGhlIHByb2JsZW0gaXMgdGhlIGNhbGwgdG8g
+dGltZXJfcGVuZGluZygpLg0KDQpJZiB0aGUgdGltZXIgaGFzIGp1c3QgZXhwaXJlZCwgYW5kIHRo
+ZSB0aW1lb3V0IGZ1bmN0aW9uIGlzIHJ1bm5pbmcNCihvbiBhbm90aGVyIGNwdSkgdGhlbiB0aW1l
+cl9wZW5kaW5nKCkgd2lsbCByZXR1cm4gZmFsc2UuDQpTbyBhbnkgdGlkeXVwIHBhdGggKGFwYXJ0
+IGZyb20gdGhhdCBjYWxsZWQgYnkgdGhlIHRpbWVvdXQgZnVuY3Rpb24gaXRzZWxmKQ0Kd2lsbCBm
+YWlsIHRvIHdhaXQgZm9yIHRoZSBmdW5jdGlvbiB0byBmaW5pc2guDQoNClNvLCBpbiBlZmZlY3Qs
+IHlvdSd2ZSBjb252ZXJ0ZWQgdGhlIGNvZGUgYmFjayBpbnRvIGEgY2FsbCB0byBkZWxfdGltZXIo
+KS4NCg0KdGltZXJfcGVuZGluZygpIHNob3VsZCBwcm9iYWJseSBuZXZlciBiZSBjYWxsZWQgd2l0
+aG91dCB0aGUgcmVsZXZhbnQNCnRpbWVyIGxvY2sgaGVscCAtIGJlY2F1c2UgdGhlIHJlc3VsdCBp
+cyBzdGFsZS4NCg0KCURhdmlkDQoNCg==
