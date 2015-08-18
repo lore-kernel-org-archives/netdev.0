@@ -1,128 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Tue, 18 Aug 2015 14:25:06 -0700 (PDT)
-Message-ID: <20150818.142506.1284308583301450628.davem@davemloft.net>
-References: <20150818183917.457b2586@canb.auug.org.au>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Add values missing in @get_stats64 from HW
+ counters
+Date: Tue, 18 Aug 2015 23:40:17 +0200
+Message-ID: <20150818214017.GA14914@electric-eye.fr.zoreil.com>
+References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, _govind@gmx.com, nalreddy@cisco.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150818183917.457b2586@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	Ivan Vecera <ivecera@redhat.com>
+To: Corinna Vinschen <vinschen@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46855 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751321AbbHRVk7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 17:40:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 18 Aug 2015 18:39:17 +1000
+Corinna Vinschen <vinschen@redhat.com> :
+> The r8169 driver collects statistical information returned by
+> @get_stats64 by counting them in the driver itself, even though many
+> (but not all) of the values are already collected by tally counters
+> (TCs) in the NIC.  Some of these TC values are not returned by
+> @get_stats64.  Especially the received multicast packages are missing
+> from /proc/net/dev.
+> Rectify this by fetching the TCs and returning them from
+> rtl8169_get_stats64.
 
-> drivers/net/built-in.o: In function `.vnic_wq_devcmd2_alloc':
-> (.text+0x49fe40): multiple definition of `.vnic_wq_devcmd2_alloc'
-> drivers/scsi/built-in.o:(.text+0xb4318): first defined here
-> drivers/net/built-in.o:(.opd+0x2af00): multiple definition of `vnic_wq_devcmd2_alloc'
-> drivers/scsi/built-in.o:(.opd+0xad70): first defined here
-> drivers/net/built-in.o: In function `.vnic_wq_init_start':
-> (.text+0x49f9c0): multiple definition of `.vnic_wq_init_start'
-> drivers/scsi/built-in.o:(.text+0xb3b58): first defined here
-> drivers/net/built-in.o:(.opd+0x2ae88): multiple definition of `vnic_wq_init_start'
-> drivers/scsi/built-in.o:(.opd+0xace0): first defined here
+It is not exactly a some / many / not all / confused [*] picture
+- get_stats64 provides software managed values
+- ethtool provides hardware only values
 
-I've committed the following to fix this:
+[*] ok, rx_missed is kinda special.
 
-====================
-[PATCH] enic: Fix namespace pollution causing build errors.
+> The counters collected in the driver obviously disappear as soon as t=
+he
+> driver is unloaded so after a driver is loaded the counters always st=
+art
+> at 0.  The TCs are only reset by a power cycle and there's no known w=
+ay
+> to reset them programatically. Without further considerations the val=
+ues
+> collected by the driver would not match up against the TC values.
 
-drivers/net/built-in.o: In function `.vnic_wq_devcmd2_alloc':
-(.text+0x49fe40): multiple definition of `.vnic_wq_devcmd2_alloc'
-drivers/scsi/built-in.o:(.text+0xb4318): first defined here
-drivers/net/built-in.o:(.opd+0x2af00): multiple definition of `vnic_wq_devcmd2_alloc'
-drivers/scsi/built-in.o:(.opd+0xad70): first defined here
-drivers/net/built-in.o: In function `.vnic_wq_init_start':
-(.text+0x49f9c0): multiple definition of `.vnic_wq_init_start'
-drivers/scsi/built-in.o:(.text+0xb3b58): first defined here
-drivers/net/built-in.o:(.opd+0x2ae88): multiple definition of `vnic_wq_init_start'
-drivers/scsi/built-in.o:(.opd+0xace0): first defined here
+I'd rather:
+1. keep software and hardware stats separated
+2. push to userspace the responsibility to offset device specific hardw=
+are
+   values jumps
 
-Rename these to 'enic_*' to avoid the conflict with the functiosn of
-the same name in the snic scsi driver.
+My 0.02 =E2=82=AC.
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/cisco/enic/vnic_dev.c | 4 ++--
- drivers/net/ethernet/cisco/enic/vnic_wq.c  | 6 +++---
- drivers/net/ethernet/cisco/enic/vnic_wq.h  | 4 ++--
- 3 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index 9f6c641..19a49a6 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -388,7 +388,7 @@ static int vnic_dev_init_devcmd2(struct vnic_dev *vdev)
- 
- 	vdev->devcmd2->color = 1;
- 	vdev->devcmd2->result_size = DEVCMD2_RING_SIZE;
--	err = vnic_wq_devcmd2_alloc(vdev, &vdev->devcmd2->wq, DEVCMD2_RING_SIZE,
-+	err = enic_wq_devcmd2_alloc(vdev, &vdev->devcmd2->wq, DEVCMD2_RING_SIZE,
- 				    DEVCMD2_DESC_SIZE);
- 	if (err)
- 		goto err_free_devcmd2;
-@@ -400,7 +400,7 @@ static int vnic_dev_init_devcmd2(struct vnic_dev *vdev)
- 		return -ENODEV;
- 	}
- 
--	vnic_wq_init_start(&vdev->devcmd2->wq, 0, fetch_index, fetch_index, 0,
-+	enic_wq_init_start(&vdev->devcmd2->wq, 0, fetch_index, fetch_index, 0,
- 			   0);
- 	vnic_wq_enable(&vdev->devcmd2->wq);
- 
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.c b/drivers/net/ethernet/cisco/enic/vnic_wq.c
-index 627f3b1..05ad16a 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_wq.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_wq.c
-@@ -114,7 +114,7 @@ int vnic_wq_alloc(struct vnic_dev *vdev, struct vnic_wq *wq, unsigned int index,
- 	return 0;
- }
- 
--int vnic_wq_devcmd2_alloc(struct vnic_dev *vdev, struct vnic_wq *wq,
-+int enic_wq_devcmd2_alloc(struct vnic_dev *vdev, struct vnic_wq *wq,
- 			  unsigned int desc_count, unsigned int desc_size)
- {
- 	int err;
-@@ -131,7 +131,7 @@ int vnic_wq_devcmd2_alloc(struct vnic_dev *vdev, struct vnic_wq *wq,
- 	return err;
- }
- 
--void vnic_wq_init_start(struct vnic_wq *wq, unsigned int cq_index,
-+void enic_wq_init_start(struct vnic_wq *wq, unsigned int cq_index,
- 			unsigned int fetch_index, unsigned int posted_index,
- 			unsigned int error_interrupt_enable,
- 			unsigned int error_interrupt_offset)
-@@ -158,7 +158,7 @@ void vnic_wq_init(struct vnic_wq *wq, unsigned int cq_index,
- 	unsigned int error_interrupt_enable,
- 	unsigned int error_interrupt_offset)
- {
--	vnic_wq_init_start(wq, cq_index, 0, 0,
-+	enic_wq_init_start(wq, cq_index, 0, 0,
- 		error_interrupt_enable,
- 		error_interrupt_offset);
- }
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-index c9b25d3..8944af9 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_wq.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-@@ -185,9 +185,9 @@ void vnic_wq_enable(struct vnic_wq *wq);
- int vnic_wq_disable(struct vnic_wq *wq);
- void vnic_wq_clean(struct vnic_wq *wq,
- 	void (*buf_clean)(struct vnic_wq *wq, struct vnic_wq_buf *buf));
--int vnic_wq_devcmd2_alloc(struct vnic_dev *vdev, struct vnic_wq *wq,
-+int enic_wq_devcmd2_alloc(struct vnic_dev *vdev, struct vnic_wq *wq,
- 			  unsigned int desc_count, unsigned int desc_size);
--void vnic_wq_init_start(struct vnic_wq *wq, unsigned int cq_index,
-+void enic_wq_init_start(struct vnic_wq *wq, unsigned int cq_index,
- 			unsigned int fetch_index, unsigned int posted_index,
- 			unsigned int error_interrupt_enable,
- 			unsigned int error_interrupt_offset);
--- 
-2.1.0
+--=20
+Ueimor
