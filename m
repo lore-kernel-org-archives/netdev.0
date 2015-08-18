@@ -1,52 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3] rocker: add debugfs support to dump internal
- tables
-Date: Tue, 18 Aug 2015 09:52:49 +0200
-Message-ID: <20150818075249.GC2200@nanopsycho.orion>
-References: <1439850977-31079-1-git-send-email-sfeldma@gmail.com>
- <20150818055555.GA2200@nanopsycho.orion>
- <CAE4R7bDy4zQ9=20Q6su+q4+kb+B25Kk7MOZyuEbBLBv9YSdnFA@mail.gmail.com>
- <20150818064829.GB2200@nanopsycho.orion>
- <CAE4R7bCKMzfi0b4ZpDeFpaRpDJzZemU=kmKXO3C96yK=wgc_UA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH 02/21] net: dummy: convert to using IFF_NO_QUEUE
+Date: Tue, 18 Aug 2015 10:30:30 +0200
+Message-ID: <1439886649-24166-3-git-send-email-phil@nwl.cc>
+References: <1439886649-24166-1-git-send-email-phil@nwl.cc>
+ <1439886649-24166-2-git-send-email-phil@nwl.cc>
+Cc: brouer@redhat.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:35435 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751282AbbHRHww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 03:52:52 -0400
-Received: by wicne3 with SMTP id ne3so88027768wic.0
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 00:52:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bCKMzfi0b4ZpDeFpaRpDJzZemU=kmKXO3C96yK=wgc_UA@mail.gmail.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:60208 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750950AbbHRIav (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 04:30:51 -0400
+In-Reply-To: <1439886649-24166-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Aug 18, 2015 at 09:21:15AM CEST, sfeldma@gmail.com wrote:
->On Mon, Aug 17, 2015 at 11:48 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Tue, Aug 18, 2015 at 08:14:48AM CEST, sfeldma@gmail.com wrote:
->>>On Mon, Aug 17, 2015 at 10:55 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Tue, Aug 18, 2015 at 12:36:17AM CEST, sfeldma@gmail.com wrote:
->>>>>From: Scott Feldman <sfeldma@gmail.com>
->>>>
->>>> <snip>
->>>>
->>>>>+      rocker->dbg_dir = debugfs_create_dir(dbg_dir_name, rocker_dbg_root);
->>>>>+      if (!rocker->dbg_dir)
->>>>
->>>> You still check the retval here and
->>>
->>>It's OK.  See include/linux/debugfs.h when CONFIG_DEBUG_FS=n.
->>>debugfs_create_dir() returns ERR_PTR(-ENODEV), which is !NULL.
->>
->> Does not make sense to check it for NULL then. It is never NULL...
->
->It can be NULL when CONFIG_DEBUG_FS=y.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ drivers/net/dummy.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-You are right, this inconsistency looks odd to me though.
-
-Anyway,
-
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 49adbf1..815eb94 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -144,10 +144,9 @@ static void dummy_setup(struct net_device *dev)
+ 	dev->destructor = free_netdev;
+ 
+ 	/* Fill in device structure with ethernet-generic values. */
+-	dev->tx_queue_len = 0;
+ 	dev->flags |= IFF_NOARP;
+ 	dev->flags &= ~IFF_MULTICAST;
+-	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
++	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
+ 	dev->features	|= NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO;
+ 	dev->features	|= NETIF_F_HW_CSUM | NETIF_F_HIGHDMA | NETIF_F_LLTX;
+ 	eth_hw_addr_random(dev);
+-- 
+2.1.2
