@@ -1,66 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] igbvf: clear buffer_info->dma after dma_unmap_single()
-Date: Tue, 18 Aug 2015 14:09:19 -0700
-Message-ID: <1439932162-1995-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] igb: Teardown SR-IOV before unregister_netdev()
+Date: Tue, 18 Aug 2015 14:09:13 -0700
+Message-ID: <1439932162-1995-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1439932162-1995-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alex Williamson <alex.williamson@redhat.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9866 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:5294 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753950AbbHRVJc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 17:09:32 -0400
+	id S1753531AbbHRVJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 17:09:27 -0400
 In-Reply-To: <1439932162-1995-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@kpanic.de>
+From: Alex Williamson <alex.williamson@redhat.com>
 
-The driver doesn't clear buffer_info->dma after calling
-dma_unmap_single() in all cases. This has been discovered by changing
-the mtu twice, which caused the following backtrace.
+When the .remove() callback for a PF is called, SR-IOV support for the
+device is disabled, which requires unbinding and removing the VFs.
+The VFs may be in-use either by the host kernel or userspace, such as
+assigned to a VM through vfio-pci.  In this latter case, the VFs may
+be removed either by shutting down the VM or hot-unplugging the
+devices from the VM.  Unfortunately in the case of a Windows 2012 R2
+guest, hot-unplug is broken due to the ordering of the PF driver
+teardown.  Disabling SR-IOV prior to unregister_netdev() avoids this
+issue.
 
-[   68.569280] WARNING: CPU: 2 PID: 1860 at drivers/iommu/intel-iommu.c:3517 intel_unmap+0x20c/0x220()
-[   68.579392] Driver unmaps unmatched page at PFN fffc2a40
-[   68.585322] Modules linked in: igbvf ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat nf_nat_ipv4 nf_nat kvm_intel kvm igb megs
-[   68.599163] CPU: 2 PID: 1860 Comm: ifconfig Not tainted 4.2.0-rc4+ #147
-[   68.606543] Hardware name: IBM  -[546025Z]-/00Y7630, BIOS -[VVE134TUS-1.51]- 10/17/2013
-[   68.615473]  0000000000000dbd ffff88046441bb08 ffffffff81a5ad0b ffffffff81e2f9ea
-[   68.623775]  ffff88046441bb58 ffff88046441bb48 ffffffff81056b55 ffff88047fc583c0
-[   68.632075]  0000000000000000 ffff880469a8e600 00000000fffc2a40 ffff880465b32098
-[   68.640375] Call Trace:
-[   68.643109]  [<ffffffff81a5ad0b>] dump_stack+0x48/0x5d
-[   68.648844]  [<ffffffff81056b55>] warn_slowpath_common+0x95/0xe0
-[   68.655549]  [<ffffffff81056c56>] warn_slowpath_fmt+0x46/0x70
-[   68.661960]  [<ffffffff8158a614>] ? find_iova+0x54/0x90
-[   68.667791]  [<ffffffff815988dc>] intel_unmap+0x20c/0x220
-[   68.673815]  [<ffffffff8159891e>] intel_unmap_page+0xe/0x10
-[   68.680038]  [<ffffffffa0067536>] igbvf_clean_rx_ring+0x96/0x370 [igbvf]
-[   68.687516]  [<ffffffffa0067915>] igbvf_down+0x105/0x110 [igbvf]
-[   68.694219]  [<ffffffffa0067beb>] igbvf_change_mtu+0x16b/0x180 [igbvf]
-[...]
-
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+Acked-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 95af14e..686fa71 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -319,6 +319,7 @@ static bool igbvf_clean_rx_irq(struct igbvf_adapter *adapter,
- 			dma_unmap_single(&pdev->dev, buffer_info->dma,
- 					 adapter->rx_ps_hdr_size,
- 					 DMA_FROM_DEVICE);
-+			buffer_info->dma = 0;
- 			skb_put(skb, hlen);
- 		}
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 67ac0ea..8d22298 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2809,14 +2809,14 @@ static void igb_remove(struct pci_dev *pdev)
+ 	 */
+ 	igb_release_hw_control(adapter);
  
+-	unregister_netdev(netdev);
+-
+-	igb_clear_interrupt_scheme(adapter);
+-
+ #ifdef CONFIG_PCI_IOV
+ 	igb_disable_sriov(pdev);
+ #endif
+ 
++	unregister_netdev(netdev);
++
++	igb_clear_interrupt_scheme(adapter);
++
+ 	pci_iounmap(pdev, hw->hw_addr);
+ 	if (hw->flash_address)
+ 		iounmap(hw->flash_address);
 -- 
 2.4.3
