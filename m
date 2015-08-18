@@ -1,66 +1,58 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v3] rocker: add debugfs support to dump internal
- tables
-Date: Tue, 18 Aug 2015 16:01:56 +0200
-Message-ID: <20150818140156.GE4381@lunn.ch>
-References: <1439850977-31079-1-git-send-email-sfeldma@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] inet: fix potential deadlock in reqsk_queue_unlink()
+Date: Tue, 18 Aug 2015 07:25:16 -0700
+Message-ID: <1439907916.6443.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439222953.1084.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150810.211821.2246516216165801977.davem@davemloft.net>
+	 <1439497173.7960.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1439498674.7960.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1439505891.7960.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB7E6FA@AcuExch.aculab.com>
+	 <1439905003.6443.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB7E83F@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@resnulli.us
-To: sfeldma@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:33010 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751594AbbHROJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 10:09:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1439850977-31079-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33291 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752292AbbHROZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 10:25:19 -0400
+Received: by pabyb7 with SMTP id yb7so133979550pab.0
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 07:25:18 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB7E83F@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 17, 2015 at 03:36:17PM -0700, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
+On Tue, 2015-08-18 at 13:57 +0000, David Laight wrote:
+> s the purpose of del_timer_sync()
 > 
-> > tree /sys/kernel/debug/rocker
-> /sys/kernel/debug/rocker
-> ????????? 5254001235010000
->     ????????? fdb_tbl
->     ????????? internal_vlan_tbl
->     ????????? neigh_tbl
->     ????????? of_dpa_flow_tbl
->     ????????? of_dpa_group_tbl
+> I wasn't worried about del_timer_sync().
+> The problem is the call to timer_pending().
 > 
-> 1 directory, 5 files
+> If the timer has just expired, and the timeout function is running
+> (on another cpu) then timer_pending() will return false.
+
+This case is not a problem. refcount will be properly handled. No leak,
+no reuse, no crash.
+
+
+> So any tidyup path (apart from that called by the timeout function itself)
+> will fail to wait for the function to finish.
 > 
-> > cat /sys/kernel/debug/rocker/5254001235010000/internal_vlan_tbl
-> ifindex 5 ref_count 1 vlan 3843
-> ifindex 7 ref_count 2 vlan 3840
-> ifindex 4 ref_count 1 vlan 3842
+> So, in effect, you've converted the code back into a call to del_timer().
+
+This is fine.
+
 > 
-> > cat /sys/kernel/debug/rocker/5254001235010000/fdb_tbl
-> learned 1 pport 1 addr 00:02:00:00:02:00 vlan 3840
-> learned 1 pport 2 addr 00:02:00:00:03:00 vlan 3840
-> 
-> > cat /sys/kernel/debug/rocker/5254001235010000/neigh_tbl
-> 11.0.0.9 dev sw1p2 ref_count 3 index 1 dst 00:02:00:00:01:00 ttl_check 1
-> 11.0.0.1 dev sw1p1 ref_count 3 index 0 dst 00:02:00:00:00:00 ttl_check 1
+> timer_pending() should probably never be called without the relevant
+> timer lock help - because the result is stale.
 
-Hi Scott
+Thats absolutely not true. Please read again timer code and linux code,
+you'll see lot of timer uses without a lock being held (unserialized use
+of timers)
 
-David is not so keen no debugfs stuff. He already NACKed adding more
-than what is currently in DSA:
-
-https://lkml.org/lkml/2015/7/11/8
-
-I think the key thing from David's message is:
-
-> Fetching information should be done by well typed, generic,
-> interfaces that apply to any similar device or object.
-
-So rather than splattering rocker stuff in debugfs, we should really
-be thinking about an interface which works well for both Rocker and
-DSA, i.e. generic, and keeps David happy by being typed.
-
-No idea what that actually is, not thought about it yet.
-
-     Andrew
+This is why we have mod_timer_pending() for example.
