@@ -1,41 +1,36 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [Patch V3 4/9] openvswitch: Replace cpu_to_node() with
- cpu_to_mem() to support memoryless node
-Date: Mon, 17 Aug 2015 17:14:08 -0700
-Message-ID: <CALnjE+pTMo2E2CSswzbSeTPONvUQ8d_+Z1UbGVKMEZcSCjtA=A@mail.gmail.com>
-References: <1439781546-7217-1-git-send-email-jiang.liu@linux.intel.com>
-	<1439781546-7217-5-git-send-email-jiang.liu@linux.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1 2/2] drivers: net: xgene: Adding support for TSO
+Date: Mon, 17 Aug 2015 17:27:11 -0700 (PDT)
+Message-ID: <20150817.172711.1231947431645678967.davem@davemloft.net>
+References: <1439847185-22046-1-git-send-email-isubramanian@apm.com>
+	<1439847185-22046-3-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mgorman@suse.de>,
-	David Rientjes <rientjes@google.com>, Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>, "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
-	Tang Chen <tangchen@cn.fujitsu.com>, Tejun Heo <tj@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org,
-	linux-hotplug@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	x86@kernel.org, netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jiang Liu <jiang.liu@linux.intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1439781546-7217-5-git-send-email-jiang.liu@linux.intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	kchudgar@apm.com, patches@apm.com
+To: isubramanian@apm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37161 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751124AbbHRA1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2015 20:27:14 -0400
+In-Reply-To: <1439847185-22046-3-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 16, 2015 at 8:19 PM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
-> Function ovs_flow_stats_update() allocates memory with __GFP_THISNODE
-> flag set, which may cause permanent memory allocation failure on
-> memoryless node. So replace cpu_to_node() with cpu_to_mem() to better
-> support memoryless node. For node with memory, cpu_to_mem() is the same
-> as cpu_to_node().
->
-> This change only affects performance and shouldn't affect functionality.
->
-> Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Mon, 17 Aug 2015 14:33:05 -0700
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+> +			/* HW requires all header resides in the first buffer */
+> +			if (skb_is_nonlinear(skb) &&
+> +			    (skb_headlen(skb) < hdr_len)) {
+> +				netdev_warn(ndev, "Headers are required to reside in header buffer\n");
+> +				dev_kfree_skb(skb);
+> +				return 0;
+> +			}
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+You can't just drop the packet in this situation.
+
+Instead, you must at least try to linearize the header to fit your
+needs.
