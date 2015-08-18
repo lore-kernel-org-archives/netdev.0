@@ -1,42 +1,40 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 05/21] net: nlmon: convert to using IFF_NO_QUEUE
-Date: Tue, 18 Aug 2015 10:30:33 +0200
-Message-ID: <1439886649-24166-6-git-send-email-phil@nwl.cc>
-References: <1439886649-24166-1-git-send-email-phil@nwl.cc>
- <1439886649-24166-2-git-send-email-phil@nwl.cc>
- <1439886649-24166-3-git-send-email-phil@nwl.cc>
- <1439886649-24166-4-git-send-email-phil@nwl.cc>
- <1439886649-24166-5-git-send-email-phil@nwl.cc>
-Cc: brouer@redhat.com, davem@davemloft.net,
-	Daniel Borkmann <dborkman@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:60620 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751690AbbHRIaw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 04:30:52 -0400
-In-Reply-To: <1439886649-24166-5-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Tue, 18 Aug 2015 18:39:17 +1000
+Message-ID: <20150818183917.457b2586@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	N V V Satyanarayana Reddy <nalreddy@cisco.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
-Cc: Daniel Borkmann <dborkman@redhat.com>
----
- drivers/net/nlmon.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi all,
 
-diff --git a/drivers/net/nlmon.c b/drivers/net/nlmon.c
-index 34924df..7b7c70e 100644
---- a/drivers/net/nlmon.c
-+++ b/drivers/net/nlmon.c
-@@ -130,7 +130,7 @@ static const struct net_device_ops nlmon_ops = {
- static void nlmon_setup(struct net_device *dev)
- {
- 	dev->type = ARPHRD_NETLINK;
--	dev->tx_queue_len = 0;
-+	dev->priv_flags |= IFF_NO_QUEUE;
- 
- 	dev->netdev_ops	= &nlmon_ops;
- 	dev->ethtool_ops = &nlmon_ethtool_ops;
+After merging the net-next tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
+
+drivers/net/built-in.o: In function `.vnic_wq_devcmd2_alloc':
+(.text+0x49fe40): multiple definition of `.vnic_wq_devcmd2_alloc'
+drivers/scsi/built-in.o:(.text+0xb4318): first defined here
+drivers/net/built-in.o:(.opd+0x2af00): multiple definition of `vnic_wq_devcmd2_alloc'
+drivers/scsi/built-in.o:(.opd+0xad70): first defined here
+drivers/net/built-in.o: In function `.vnic_wq_init_start':
+(.text+0x49f9c0): multiple definition of `.vnic_wq_init_start'
+drivers/scsi/built-in.o:(.text+0xb3b58): first defined here
+drivers/net/built-in.o:(.opd+0x2ae88): multiple definition of `vnic_wq_init_start'
+drivers/scsi/built-in.o:(.opd+0xace0): first defined here
+
+Caused by commit
+
+  373fb0873d43 ("enic: add devcmd2")
+
+I have reverted that commit for today.
+
 -- 
-2.1.2
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
