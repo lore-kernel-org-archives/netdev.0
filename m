@@ -1,44 +1,43 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
- bridges and switch devices.
-Date: Tue, 18 Aug 2015 04:54:53 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F919413D1D@HASMSX110.ger.corp.intel.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <55CD8DDB.5080001@cumulusnetworks.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E2389@SJEXCHMB14.corp.ad.broadcom.com>
+From: Noam Camus <noamc@ezchip.com>
+Subject: RE: [v1 0/6] *** nps_enet fixups ***
+Date: Tue, 18 Aug 2015 05:04:20 +0000
+Message-ID: <DB4PR02MB2725A45B664C42E3AB7B98ED6780@DB4PR02MB272.eurprd02.prod.outlook.com>
+References: <1439791119-26892-1-git-send-email-noamc@ezchip.com>
+ <20150817.103607.1737876155019074073.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Premkumar Jonnala <pjonnala@broadcom.com>,
-	roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19115 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936AbbHREy5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 00:54:57 -0400
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E2389@SJEXCHMB14.corp.ad.broadcom.com>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Alexey.Brodkin@synopsys.com" <Alexey.Brodkin@synopsys.com>,
+	"vgupta@synopsys.com" <vgupta@synopsys.com>,
+	Tal Zilcer <talz@ezchip.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150817.103607.1737876155019074073.davem@davemloft.net>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Monday, August 17, 2015 8:36 PM
 
-First, I agree about the need to propagate the ageing interval to switchdev devices, so that hardware based aging can be setup correctly.
 
-Second, in this occasion, I want to mention the need to 
-turn off bridge ageing in the kernel as part of using switchdev devices. This is mentioned in
-https://kernel.googlesource.com/pub/scm/linux/kernel/git/davem/net-next/+/master/Documentation/networking/switchdev.txt:
+> You should not move TX completion out of NAPI handling, NAPI poll is exactly where it belongs.
+>
+> If you handle it in hardware interrupt context you have to use
+> dev_kfree_skb_irq() which defers the operation to software interrupt context anyways and is thus expensive.
 
-...
-XXX: how to turn off ageing in kernel on a per-port basis or
-otherwise prevent the kernel from ageing out the FDB entry?
-...
+> Whereas if you keep TX completion in your NAPI handler the kfree is handled synchronously and efficiently, as well as making SKB's potentially available for RX reclaim.
 
-One can think of the option of using value 0 of the ageing interval as an indication to turn off bridge ageing in the kernel, and any other value bigger than MIN_AGEING_INTERVAL_SECS to turn on bridge ageing.
+I followed "Hardware Architecture" section from:
+http://www.linuxfoundation.org/collaborate/workgroups/networking/napi
+and came up with "reduce processing latency" idea.
 
-As another option for a *per-port* boolean flag for enabling/disabling ageing, one can think of adding an IFLA_BRPORT_AGEING bool flag (and BR_AGEING) for IFLA_PROTINFO.
+Anyway, I will restore TX completion back to NAPI poll.
 
-Regards,
-Rami Rosen
-Intel Corporation
+> I'm not applying this series, you are doing with TX handling exactly what we tell people not to do.
+
+I will come up with revised series in v2.
+
+Noam
