@@ -1,7 +1,7 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 18/21] net: caif: convert to using IFF_NO_QUEUE
-Date: Tue, 18 Aug 2015 10:30:46 +0200
-Message-ID: <1439886649-24166-19-git-send-email-phil@nwl.cc>
+Subject: [PATCH 21/21] net: sched: drop all special handling of tx_queue_len == 0
+Date: Tue, 18 Aug 2015 10:30:49 +0200
+Message-ID: <1439886649-24166-22-git-send-email-phil@nwl.cc>
 References: <1439886649-24166-1-git-send-email-phil@nwl.cc>
  <1439886649-24166-2-git-send-email-phil@nwl.cc>
  <1439886649-24166-3-git-send-email-phil@nwl.cc>
@@ -20,92 +20,119 @@ References: <1439886649-24166-1-git-send-email-phil@nwl.cc>
  <1439886649-24166-16-git-send-email-phil@nwl.cc>
  <1439886649-24166-17-git-send-email-phil@nwl.cc>
  <1439886649-24166-18-git-send-email-phil@nwl.cc>
+ <1439886649-24166-19-git-send-email-phil@nwl.cc>
+ <1439886649-24166-20-git-send-email-phil@nwl.cc>
+ <1439886649-24166-21-git-send-email-phil@nwl.cc>
 Cc: brouer@redhat.com, davem@davemloft.net,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+	Jamal Hadi Salim <jhs@mojatatu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:51357 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:48564 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751119AbbHRIa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 04:30:56 -0400
-In-Reply-To: <1439886649-24166-18-git-send-email-phil@nwl.cc>
+	id S1752136AbbHRIa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 04:30:57 -0400
+In-Reply-To: <1439886649-24166-21-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
-Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
----
- drivers/net/caif/caif_hsi.c    | 2 +-
- drivers/net/caif/caif_serial.c | 2 +-
- drivers/net/caif/caif_spi.c    | 2 +-
- drivers/net/wan/hdlc_fr.c      | 2 +-
- net/caif/caif_dev.c            | 2 +-
- 5 files changed, 5 insertions(+), 5 deletions(-)
+Those were all workarounds for the formerly double meaning of
+tx_queue_len, which broke scheduling algorithms if untreated.
 
-diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
-index b3b922a..615c65d 100644
---- a/drivers/net/caif/caif_hsi.c
-+++ b/drivers/net/caif/caif_hsi.c
-@@ -1120,7 +1120,7 @@ static void cfhsi_setup(struct net_device *dev)
- 	dev->type = ARPHRD_CAIF;
- 	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
- 	dev->mtu = CFHSI_MAX_CAIF_FRAME_SZ;
--	dev->tx_queue_len = 0;
-+	dev->priv_flags |= IFF_NO_QUEUE;
- 	dev->destructor = free_netdev;
- 	dev->netdev_ops = &cfhsi_netdevops;
- 	for (i = 0; i < CFHSI_PRIO_LAST; ++i)
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-index 9da0653..c2dea49 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -427,7 +427,7 @@ static void caifdev_setup(struct net_device *dev)
- 	dev->type = ARPHRD_CAIF;
- 	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
- 	dev->mtu = CAIF_MAX_MTU;
--	dev->tx_queue_len = 0;
-+	dev->priv_flags |= IFF_NO_QUEUE;
- 	dev->destructor = free_netdev;
- 	skb_queue_head_init(&serdev->head);
- 	serdev->common.link_select = CAIF_LINK_LOW_LATENCY;
-diff --git a/drivers/net/caif/caif_spi.c b/drivers/net/caif/caif_spi.c
-index 72ea9ff..de39620 100644
---- a/drivers/net/caif/caif_spi.c
-+++ b/drivers/net/caif/caif_spi.c
-@@ -710,7 +710,7 @@ static void cfspi_setup(struct net_device *dev)
- 	dev->netdev_ops = &cfspi_ops;
- 	dev->type = ARPHRD_CAIF;
- 	dev->flags = IFF_NOARP | IFF_POINTOPOINT;
--	dev->tx_queue_len = 0;
-+	dev->priv_flags |= IFF_NO_QUEUE;
- 	dev->mtu = SPI_MAX_PAYLOAD_SIZE;
- 	dev->destructor = free_netdev;
- 	skb_queue_head_init(&cfspi->qhead);
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index 3ebed1c..e92aaf6 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -1096,7 +1096,7 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
- 	}
- 	dev->netdev_ops = &pvc_ops;
- 	dev->mtu = HDLC_MAX_MTU;
--	dev->tx_queue_len = 0;
-+	dev->priv_flags |= IFF_NO_QUEUE;
- 	dev->ml_priv = pvc;
+Now that all in-tree drivers have been converted away from setting
+tx_queue_len = 0, it should be safe to drop these workarounds for
+categorically broken setups.
+
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/sch_fifo.c | 2 +-
+ net/sched/sch_gred.c | 8 +++-----
+ net/sched/sch_htb.c  | 6 ++----
+ net/sched/sch_plug.c | 8 ++------
+ net/sched/sch_sfb.c  | 2 +-
+ 5 files changed, 9 insertions(+), 17 deletions(-)
+
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index 2e2398c..2177eac 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -54,7 +54,7 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+ 	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
  
- 	if (register_netdevice(dev) != 0) {
-diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-index edbca46..d730a0f 100644
---- a/net/caif/caif_dev.c
-+++ b/net/caif/caif_dev.c
-@@ -177,7 +177,7 @@ static int transmit(struct cflayer *layer, struct cfpkt *pkt)
- 	skb->protocol = htons(ETH_P_CAIF);
+ 	if (opt == NULL) {
+-		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
++		u32 limit = qdisc_dev(sch)->tx_queue_len;
  
- 	/* Check if we need to handle xoff */
--	if (likely(caifd->netdev->tx_queue_len == 0))
-+	if (likely(caifd->netdev->priv_flags & IFF_NO_QUEUE))
- 		goto noxoff;
+ 		if (is_bfifo)
+ 			limit *= psched_mtu(qdisc_dev(sch));
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index abb9f2f..8010510 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -512,11 +512,9 @@ static int gred_init(struct Qdisc *sch, struct nlattr *opt)
  
- 	if (unlikely(caifd->xoff))
+ 	if (tb[TCA_GRED_LIMIT])
+ 		sch->limit = nla_get_u32(tb[TCA_GRED_LIMIT]);
+-	else {
+-		u32 qlen = qdisc_dev(sch)->tx_queue_len ? : 1;
+-
+-		sch->limit = qlen * psched_mtu(qdisc_dev(sch));
+-	}
++	else
++		sch->limit = qdisc_dev(sch)->tx_queue_len
++		             * psched_mtu(qdisc_dev(sch));
+ 
+ 	return gred_change_table_def(sch, tb[TCA_GRED_DPS]);
+ }
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index f1acb0f..cf4b0f8 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1048,11 +1048,9 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	if (tb[TCA_HTB_DIRECT_QLEN])
+ 		q->direct_qlen = nla_get_u32(tb[TCA_HTB_DIRECT_QLEN]);
+-	else {
++	else
+ 		q->direct_qlen = qdisc_dev(sch)->tx_queue_len;
+-		if (q->direct_qlen < 2)	/* some devices have zero tx_queue_len */
+-			q->direct_qlen = 2;
+-	}
++
+ 	if ((q->rate2quantum = gopt->rate2quantum) < 1)
+ 		q->rate2quantum = 1;
+ 	q->defcls = gopt->defcls;
+diff --git a/net/sched/sch_plug.c b/net/sched/sch_plug.c
+index ade9445..5abfe44 100644
+--- a/net/sched/sch_plug.c
++++ b/net/sched/sch_plug.c
+@@ -130,12 +130,8 @@ static int plug_init(struct Qdisc *sch, struct nlattr *opt)
+ 	q->unplug_indefinite = false;
+ 
+ 	if (opt == NULL) {
+-		/* We will set a default limit of 100 pkts (~150kB)
+-		 * in case tx_queue_len is not available. The
+-		 * default value is completely arbitrary.
+-		 */
+-		u32 pkt_limit = qdisc_dev(sch)->tx_queue_len ? : 100;
+-		q->limit = pkt_limit * psched_mtu(qdisc_dev(sch));
++		q->limit = qdisc_dev(sch)->tx_queue_len
++		           * psched_mtu(qdisc_dev(sch));
+ 	} else {
+ 		struct tc_plug_qopt *ctl = nla_data(opt);
+ 
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 4b81519..dcdff5c 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -502,7 +502,7 @@ static int sfb_change(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	limit = ctl->limit;
+ 	if (limit == 0)
+-		limit = max_t(u32, qdisc_dev(sch)->tx_queue_len, 1);
++		limit = qdisc_dev(sch)->tx_queue_len;
+ 
+ 	child = fifo_create_dflt(sch, &pfifo_qdisc_ops, limit);
+ 	if (IS_ERR(child))
 -- 
 2.1.2
