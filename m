@@ -1,76 +1,69 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 12/13] ipv6: route: extend flow representation with tunnel key
-Date: Tue, 18 Aug 2015 22:33:21 +0200
-Message-ID: <4dfcc3c6f48e4fbbc1df83e5dd15e29904469741.1439929916.git.jbenc@redhat.com>
-References: <cover.1439929916.git.jbenc@redhat.com>
+Subject: [PATCH net-next 00/13] lwtunnel: per route ipv6 support for vxlan
+Date: Tue, 18 Aug 2015 22:33:09 +0200
+Message-ID: <cover.1439929916.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46936 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46042 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753413AbbHRUdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 16:33:54 -0400
-In-Reply-To: <cover.1439929916.git.jbenc@redhat.com>
+	id S1750903AbbHRUdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 16:33:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use flowi_tunnel in flowi6 similarly to what is done with IPv4.
-This complements commit 1b7179d3adff ("route: Extend flow representation
-with tunnel key").
+This series enables IPv6 tunnels based on lwtunnel infrastructure. Only
+vxlan is supported for now.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- include/net/flow.h | 1 +
- net/ipv6/route.c   | 6 ++++++
- 2 files changed, 7 insertions(+)
+Tested in all combinations of IPv4 over IPv6, IPv6 over IPv4 and IPv6 over
+IPv6. Applies on top of the two generic/IPv4 fixes I posted earlier today.
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index f305588fc162..9e0297c4c11d 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -130,6 +130,7 @@ struct flowi6 {
- #define flowi6_proto		__fl_common.flowic_proto
- #define flowi6_flags		__fl_common.flowic_flags
- #define flowi6_secid		__fl_common.flowic_secid
-+#define flowi6_tun_key		__fl_common.flowic_tun_key
- 	struct in6_addr		daddr;
- 	struct in6_addr		saddr;
- 	__be32			flowlabel;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c4f3b9fcca9d..6c0fe4c7ce8d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -54,11 +54,13 @@
- #include <net/tcp.h>
- #include <linux/rtnetlink.h>
- #include <net/dst.h>
-+#include <net/dst_metadata.h>
- #include <net/xfrm.h>
- #include <net/netevent.h>
- #include <net/netlink.h>
- #include <net/nexthop.h>
- #include <net/lwtunnel.h>
-+#include <net/ip_tunnels.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -1131,6 +1133,7 @@ void ip6_route_input(struct sk_buff *skb)
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
- 	struct net *net = dev_net(skb->dev);
- 	int flags = RT6_LOOKUP_F_HAS_SADDR;
-+	struct ip_tunnel_info *tun_info;
- 	struct flowi6 fl6 = {
- 		.flowi6_iif = skb->dev->ifindex,
- 		.daddr = iph->daddr,
-@@ -1140,6 +1143,9 @@ void ip6_route_input(struct sk_buff *skb)
- 		.flowi6_proto = iph->nexthdr,
- 	};
- 
-+	tun_info = skb_tunnel_info(skb);
-+	if (tun_info && tun_info->mode == IP_TUNNEL_INFO_RX)
-+		fl6.flowi6_tun_key.tun_id = tun_info->key.tun_id;
- 	skb_dst_drop(skb);
- 	skb_dst_set(skb, ip6_route_input_lookup(net, skb->dev, &fl6, flags));
- }
+Jiri Benc (13):
+  ip_tunnels: remove custom alignment and packing
+  ip_tunnels: use u8/u16/u32
+  ip_tunnels: use offsetofend
+  ip_tunnels: add IPv6 addresses to ip_tunnel_key
+  ip_tunnels: use tos and ttl fields also for IPv6
+  route: move lwtunnel state to dst_entry
+  ipv6: drop metadata dst in ip6_route_input
+  ipv6: ndisc: inherit metadata dst when creating ndisc requests
+  vxlan: provide access function for vxlan socket address family
+  vxlan: do not shadow flags variable
+  vxlan: metadata based tunneling for IPv6
+  ipv6: route: extend flow representation with tunnel key
+  ipv6: route: per route IP tunnel metadata via lightweight tunnel
+
+ drivers/net/vrf.c              |   1 -
+ drivers/net/vxlan.c            |  89 +++++++++++++++++--------------
+ include/net/dst.h              |   3 +-
+ include/net/dst_metadata.h     |  15 ++----
+ include/net/flow.h             |   1 +
+ include/net/ip6_fib.h          |   1 -
+ include/net/ip_tunnels.h       |  49 ++++++++++-------
+ include/net/lwtunnel.h         |  12 -----
+ include/net/ndisc.h            |   3 +-
+ include/net/route.h            |   1 -
+ include/net/vxlan.h            |   5 ++
+ include/uapi/linux/lwtunnel.h  |  16 ++++++
+ net/core/dst.c                 |   3 ++
+ net/core/filter.c              |   6 +--
+ net/core/lwtunnel.c            |  70 ++++--------------------
+ net/ipv4/ip_gre.c              |  20 +++----
+ net/ipv4/ip_tunnel_core.c      | 118 ++++++++++++++++++++++++++++++++++++++---
+ net/ipv4/route.c               |  20 +++----
+ net/ipv6/addrconf.c            |   2 +-
+ net/ipv6/ila.c                 |  14 ++---
+ net/ipv6/ip6_fib.c             |   1 -
+ net/ipv6/ndisc.c               |  10 ++--
+ net/ipv6/route.c               |  29 ++++++----
+ net/mpls/mpls_iptunnel.c       |   7 +--
+ net/openvswitch/flow_netlink.c |  28 +++++-----
+ net/openvswitch/flow_table.c   |   2 +-
+ net/openvswitch/vport-geneve.c |   4 +-
+ net/openvswitch/vport-netdev.c |   2 +-
+ net/openvswitch/vport.c        |   6 +--
+ net/openvswitch/vport.h        |   6 +--
+ 30 files changed, 311 insertions(+), 233 deletions(-)
+
 -- 
 1.8.3.1
