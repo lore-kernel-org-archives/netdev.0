@@ -1,61 +1,48 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: [net-next]: unable to add routes to tables
-Date: Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
-Message-ID: <1029376325.2912846.1439917035503.JavaMail.zimbra@tpip.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [net-next]: unable to add routes to tables
+Date: Tue, 18 Aug 2015 11:05:51 -0600
+Message-ID: <55D365EF.9040106@cumulusnetworks.com>
+References: <1029376325.2912846.1439917035503.JavaMail.zimbra@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: Andreas Schultz <aschultz@tpip.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:60015 "EHLO mail.tpip.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753500AbbHRQ5X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 12:57:23 -0400
-Received: from office.tpip.net (office.tpip.net [92.43.51.2])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.tpip.net (Postfix) with ESMTPS id 65B0E4F404
-	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 16:57:20 +0000 (UTC)
-Received: from localhost (localhost [127.0.0.1])
-	by office.tpip.net (Postfix) with ESMTP id 56CFBA2F1D
-	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:57:16 +0200 (CEST)
-Received: from office.tpip.net ([127.0.0.1])
-	by localhost (office.tpip.net [127.0.0.1]) (amavisd-new, port 10032)
-	with ESMTP id 4FIr4Tt9h3ZJ for <netdev@vger.kernel.org>;
-	Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
-Received: from localhost (localhost [127.0.0.1])
-	by office.tpip.net (Postfix) with ESMTP id 990E8A2F31
-	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
-Received: from office.tpip.net ([127.0.0.1])
-	by localhost (office.tpip.net [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id SthI14RFWUC6 for <netdev@vger.kernel.org>;
-	Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
-Received: from office.tpip.net (office.tpip.net [92.43.51.2])
-	by office.tpip.net (Postfix) with ESMTP id 8488CA2F1D
-	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36254 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753358AbbHRRF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 13:05:56 -0400
+Received: by iodv127 with SMTP id v127so181094531iod.3
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 10:05:56 -0700 (PDT)
+In-Reply-To: <1029376325.2912846.1439917035503.JavaMail.zimbra@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 8/18/15 10:57 AM, Andreas Schultz wrote:
+> Hi,
+>
+> It seems that the policy for adding routes to tables has changed between
+> Linux 4.2-rc6 and net-next.
+>
+> In Linux main line (tested up to 4.2-rc6), with this main routing table:
+> # ip route show table main
+> ...
+> 172.28.0.0/24 dev vnf-xe1p0  proto kernel  scope link  src 172.28.0.16
+>
+> and an empty table 100, this works:
+>
+> # ip route add 10.0.0.0/8 via 172.28.0.32 table 100 dev vnf-xe1p0
+>
+> With net-next at commit d52736e24fe2e927c26817256f8d1a3c8b5d51a0, the
+> same command leads to an:
+>
+> # ip route add 10.0.0.0/8 via 172.28.0.32 table 100 dev vnf-xe1p0
+> RTNETLINK answers: Resource temporarily unavailable
+>
+> Is this expected behavior?
 
-It seems that the policy for adding routes to tables has changed between
-Linux 4.2-rc6 and net-next.
+That's going to be due to 3bfd847203c6d89532f836ad3f5b4ff4ced26dd9.
 
-In Linux main line (tested up to 4.2-rc6), with this main routing table:
-# ip route show table main
-...
-172.28.0.0/24 dev vnf-xe1p0  proto kernel  scope link  src 172.28.0.16 
+I'll fix.
 
-and an empty table 100, this works:
-
-# ip route add 10.0.0.0/8 via 172.28.0.32 table 100 dev vnf-xe1p0
-
-With net-next at commit d52736e24fe2e927c26817256f8d1a3c8b5d51a0, the
-same command leads to an:
-
-# ip route add 10.0.0.0/8 via 172.28.0.32 table 100 dev vnf-xe1p0
-RTNETLINK answers: Resource temporarily unavailable
-
-Is this expected behavior?
-
-Andreas
+David
