@@ -1,42 +1,51 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 01/13] ip_tunnels: remove custom alignment and packing
-Date: Tue, 18 Aug 2015 22:33:10 +0200
-Message-ID: <f075c16aefc0a7a769642a5af2174c9f1656a825.1439929916.git.jbenc@redhat.com>
+Subject: [PATCH net-next 10/13] vxlan: do not shadow flags variable
+Date: Tue, 18 Aug 2015 22:33:19 +0200
+Message-ID: <c89ec26c7a2684fdf642583f309877bd80ade35b.1439929916.git.jbenc@redhat.com>
 References: <cover.1439929916.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42385 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46925 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576AbbHRUdn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 16:33:43 -0400
+	id S1753094AbbHRUdw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 16:33:52 -0400
 In-Reply-To: <cover.1439929916.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The custom alignment of struct ip_tunnel_key is unnecessary. In struct
-sw_flow_key, it starts at offset 256, in struct ip_tunnel_info it's the
-first field.
-
-The structure is also packed even without the __packed keyword.
+The 'flags' variable is already defined in the outer scope.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- include/net/ip_tunnels.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/vxlan.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 984dbfa15e13..81cf11c931e4 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -36,7 +36,7 @@ struct ip_tunnel_key {
- 	__u8			ipv4_ttl;
- 	__be16			tp_src;
- 	__be16			tp_dst;
--} __packed __aligned(4); /* Minimize padding. */
-+};
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index d5ca1d7e0b81..d0caac63231c 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2025,7 +2025,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	} else {
+ 		struct dst_entry *ndst;
+ 		struct flowi6 fl6;
+-		u32 flags;
++		u32 rt6i_flags;
  
- /* Indicates whether the tunnel info structure represents receive
-  * or transmit tunnel parameters.
+ 		memset(&fl6, 0, sizeof(fl6));
+ 		fl6.flowi6_oif = rdst ? rdst->remote_ifindex : 0;
+@@ -2050,9 +2050,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 
+ 		/* Bypass encapsulation if the destination is local */
+-		flags = ((struct rt6_info *)ndst)->rt6i_flags;
+-		if (flags & RTF_LOCAL &&
+-		    !(flags & (RTCF_BROADCAST | RTCF_MULTICAST))) {
++		rt6i_flags = ((struct rt6_info *)ndst)->rt6i_flags;
++		if (rt6i_flags & RTF_LOCAL &&
++		    !(rt6i_flags & (RTCF_BROADCAST | RTCF_MULTICAST))) {
+ 			struct vxlan_dev *dst_vxlan;
+ 
+ 			dst_release(ndst);
 -- 
 1.8.3.1
