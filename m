@@ -1,63 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next:master 894/905]
- drivers/net/ethernet/cisco/enic/vnic_dev.c:1095:13: sparse: incorrect type
- in assignment (different address spaces)
-Date: Mon, 17 Aug 2015 21:25:31 -0700 (PDT)
-Message-ID: <20150817.212531.304390415873448459.davem@davemloft.net>
-References: <201508180929.kFax186R%fengguang.wu@intel.com>
+Subject: Re: [net-next RFC] net: ipv4: Send IGMP messages from highest
+ scoped address
+Date: Mon, 17 Aug 2015 21:31:58 -0700 (PDT)
+Message-ID: <20150817.213158.1038537149649115817.davem@davemloft.net>
+References: <1439827764-29129-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: _govind@gmx.com, kbuild-all@01.org, nalreddy@cisco.com,
-	netdev@vger.kernel.org
-To: fengguang.wu@intel.com
+Cc: netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37747 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37777 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750865AbbHREZc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 00:25:32 -0400
-In-Reply-To: <201508180929.kFax186R%fengguang.wu@intel.com>
+	with ESMTP id S1750927AbbHREb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 00:31:59 -0400
+In-Reply-To: <1439827764-29129-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kbuild test robot <fengguang.wu@intel.com>
-Date: Tue, 18 Aug 2015 09:07:32 +0800
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Mon, 17 Aug 2015 18:09:24 +0200
 
-> sparse warnings: (new ones prefixed by >>)
+> This is RFC because i personally don't know if this is the best fix.
+> The patch restores previous behavior, while still keeping the bug fix.
 > 
->>> drivers/net/ethernet/cisco/enic/vnic_dev.c:1095:13: sparse: incorrect type in assignment (different address spaces)
->    drivers/net/ethernet/cisco/enic/vnic_dev.c:1095:13:    expected void *res
->    drivers/net/ethernet/cisco/enic/vnic_dev.c:1095:13:    got void [noderef] <asn:2>*
-> 
+> It is not obvious what is the correct source address for an IGMP
+> message when an interface has multiple addresses. IGMP messages are
+> sent either spontaneously, or as a result of a query. It could be
+> argued that when replying to a query, an address take from the same
+> subnet as the querier should be used. Doing this adds complexity for a
+> corner case which does not seem to effect people. In the spontaneous
+> case, there is no such hint, so an address has to be picked some other
+> way. Taking the highest scope address seems reasonable, and works for
+> me.
 
-Thanks, I've committed the following:
+Yes, unfortunately almost no guidance is given in this area in the
+various RFCs.
 
-====================
-[PATCH] enic: Fix sparse warning in vnic_devcmd_init().
+Except that one recommended way to avoid forged IGMPs is to reject
+any IGMP that has a source address no on that interface's subnet.
 
->> drivers/net/ethernet/cisco/enic/vnic_dev.c:1095:13: sparse: incorrect type in assignment (different address spaces)
-   drivers/net/ethernet/cisco/enic/vnic_dev.c:1095:13:    expected void *res
-   drivers/net/ethernet/cisco/enic/vnic_dev.c:1095:13:    got void [noderef] <asn:2>*
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/cisco/enic/vnic_dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index ff2da7e..9f6c641 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -1089,8 +1089,8 @@ EXPORT_SYMBOL(vnic_dev_get_pdev);
- 
- int vnic_devcmd_init(struct vnic_dev *vdev)
- {
-+	void __iomem *res;
- 	int err;
--	void *res;
- 
- 	res = vnic_dev_get_res(vdev, RES_TYPE_DEVCMD2, 0);
- 	if (res) {
--- 
-2.1.0
+And if people actually do that, then the link scope address is the
+best address to use and that is what we do now if I understand things
+correctly.
