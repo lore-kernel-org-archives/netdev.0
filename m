@@ -1,143 +1,66 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: [PATCH] r8169: Add values missing in @get_stats64 from HW counters
-Date: Tue, 18 Aug 2015 11:04:24 +0200
-Message-ID: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
-Cc: nic_swsd@realtek.com, Francois Romieu <romieu@fr.zoreil.com>,
-	Ivan Vecera <ivecera@redhat.com>
-To: netdev@vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
+ bridges and switch devices.
+Date: Tue, 18 Aug 2015 11:28:26 +0200
+Message-ID: <20150818092826.GB4563@unicorn.suse.cz>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
+ <55CD8DDB.5080001@cumulusnetworks.com>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E2389@SJEXCHMB14.corp.ad.broadcom.com>
+ <9B0331B6EBBD0E4684FBFAEDA55776F919413D1D@HASMSX110.ger.corp.intel.com>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E2730@SJEXCHMB14.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rosen, Rami" <rami.rosen@intel.com>,
+	roopa <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Premkumar Jonnala <pjonnala@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:34833 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751616AbbHRJXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 05:23:43 -0400
+Received: from mx2.suse.de ([195.135.220.15]:47378 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750950AbbHRJ2b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 05:28:31 -0400
+Content-Disposition: inline
+In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E2730@SJEXCHMB14.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The r8169 driver collects statistical information returned by
-@get_stats64 by counting them in the driver itself, even though many
-(but not all) of the values are already collected by tally counters
-(TCs) in the NIC.  Some of these TC values are not returned by
-@get_stats64.  Especially the received multicast packages are missing
-from /proc/net/dev.
+On Tue, Aug 18, 2015 at 09:08:42AM +0000, Premkumar Jonnala wrote:
+> > -----Original Message-----
+> > From: Rosen, Rami [mailto:rami.rosen@intel.com]
+> > Sent: Tuesday, August 18, 2015 10:25 AM
+> > To: Premkumar Jonnala; roopa
+> > Cc: netdev@vger.kernel.org
+> > Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for bridges
+> > and switch devices.
+> > 
+> > Hi,
+> > 
+> > First, I agree about the need to propagate the ageing interval to switchdev
+> > devices, so that hardware based aging can be setup correctly.
+> > 
+> > Second, in this occasion, I want to mention the need to
+> > turn off bridge ageing in the kernel as part of using switchdev devices. This is
+> > mentioned in
+> > https://kernel.googlesource.com/pub/scm/linux/kernel/git/davem/net-
+> > next/+/master/Documentation/networking/switchdev.txt:
+> > 
+> > ...
+> > XXX: how to turn off ageing in kernel on a per-port basis or
+> > otherwise prevent the kernel from ageing out the FDB entry?
+> > ...
+> > 
+> > One can think of the option of using value 0 of the ageing interval as an
+> > indication to turn off bridge ageing in the kernel, and any other value bigger
+> > than MIN_AGEING_INTERVAL_SECS to turn on bridge ageing.
+> 
+> I recall that there was a patch proposed to prevent ageing of fdb entried by bridge in kernel,
+> when the fdb entry was added due to notification by switch device.  Please see:
+> http://www.spinics.net/lists/netdev/msg314770.html
+> 
+> Somehow the patch is not visible in the net-next pull.
 
-Rectify this by fetching the TCs and returning them from
-rtl8169_get_stats64.
+It has been reverted by commit 3fcf90111887 as requested by
 
-The counters collected in the driver obviously disappear as soon as the
-driver is unloaded so after a driver is loaded the counters always start
-at 0.  The TCs are only reset by a power cycle and there's no known way
-to reset them programatically.  Without further considerations the values
-collected by the driver would not match up against the TC values.
+  http://www.spinics.net/lists/netdev/msg315236.html
 
-Therefore introduce an addition to the rtl8169_private struct and a
-function rtl8169_init_tc_counter_offset to store the TCs at first
-rtl_open.  Use these values as offsets in rtl8169_get_stats64.
-
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
----
- drivers/net/ethernet/realtek/r8169.c | 62 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 62 insertions(+)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index f790f61..e7c7955 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -747,6 +747,14 @@ struct rtl8169_counters {
- 	__le16	tx_underun;
- };
- 
-+struct rtl8169_tc_offsets {
-+	bool	inited;
-+	__le64	tx_errors;
-+	__le32	tx_multi_collision;
-+	__le32	rx_multicast;
-+	__le16	tx_aborted;
-+};
-+
- enum rtl_flag {
- 	RTL_FLAG_TASK_ENABLED,
- 	RTL_FLAG_TASK_SLOW_PENDING,
-@@ -824,6 +832,7 @@ struct rtl8169_private {
- 
- 	struct mii_if_info mii;
- 	struct rtl8169_counters counters;
-+	struct rtl8169_tc_offsets tc_offset;
- 	u32 saved_wolopts;
- 	u32 opts1_mask;
- 
-@@ -2220,6 +2229,38 @@ static void rtl8169_update_counters(struct net_device *dev)
- 	dma_free_coherent(d, sizeof(*counters), counters, paddr);
- }
- 
-+static void rtl8169_init_tc_counter_offset(struct net_device *dev)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+
-+	/*
-+	 * rtl8169_init_tc_counter_offset is called from rtl_open.  The tally
-+	 * counters are only reset by a power cycle, while the counter values
-+	 * collected by the driver are reset at every driver unload/load cycle.
-+	 * There's also no (documented?) way to reset the tally counters
-+	 * programatically.
-+	 *
-+	 * To make sure the HW values returned by @get_stats64 match the SW
-+	 * values, we collect the initial values at first open(*) and use them
-+	 * as offsets to normalize the values returned by @get_stats64.
-+	 *
-+	 * (*) We can't call rtl8169_init_tc_counter_offset from rtl_init_one
-+	 * for the reason stated in rtl8169_update_counters; CmdRxEnb is only
-+	 * set at open time by rtl_hw_start.
-+	 */
-+
-+	if (tp->tc_offset.inited)
-+		return;
-+
-+	rtl8169_update_counters(dev);
-+
-+	tp->tc_offset.tx_errors = tp->counters.tx_errors;
-+	tp->tc_offset.tx_multi_collision = tp->counters.tx_multi_collision;
-+	tp->tc_offset.rx_multicast = tp->counters.rx_multicast;
-+	tp->tc_offset.tx_aborted = tp->counters.tx_aborted;
-+	tp->tc_offset.inited = true;
-+}
-+
- static void rtl8169_get_ethtool_stats(struct net_device *dev,
- 				      struct ethtool_stats *stats, u64 *data)
- {
-@@ -7631,6 +7672,8 @@ static int rtl_open(struct net_device *dev)
- 
- 	rtl_hw_start(dev);
- 
-+	rtl8169_init_tc_counter_offset(dev);
-+
- 	netif_start_queue(dev);
- 
- 	rtl_unlock_work(tp);
-@@ -7689,6 +7732,25 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	stats->rx_fifo_errors	= dev->stats.rx_fifo_errors;
- 	stats->rx_missed_errors = dev->stats.rx_missed_errors;
- 
-+	/*
-+	 * Fetch additonal counter values missing in stats collected by driver
-+	 * from tally counters.
-+	 */
-+	rtl8169_update_counters(dev);
-+
-+	/*
-+	 * Subtract values fetched during initalization.
-+	 * See rtl8169_init_tc_counter_offset for a description why we do that.
-+	 */
-+	stats->tx_errors = le64_to_cpu(tp->counters.tx_errors) -
-+		le64_to_cpu(tp->tc_offset.tx_errors);
-+	stats->collisions = le32_to_cpu(tp->counters.tx_multi_collision) -
-+		le32_to_cpu(tp->tc_offset.tx_multi_collision);
-+	stats->multicast = le32_to_cpu(tp->counters.rx_multicast) -
-+		le32_to_cpu(tp->tc_offset.rx_multicast);
-+	stats->tx_aborted_errors = le16_to_cpu(tp->counters.tx_aborted) -
-+		le16_to_cpu(tp->tc_offset.tx_aborted);
-+
- 	return stats;
- }
- 
--- 
-2.1.0
+Michal Kubecek
