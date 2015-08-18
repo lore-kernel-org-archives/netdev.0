@@ -1,49 +1,169 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] vrf: vrf_master_ifindex_rcu is not always called with rcu read lock
-Date: Tue, 18 Aug 2015 23:24:27 +0300
-Message-ID: <8DFB69F7-1CA6-4855-9C16-75919563E26C@cumulusnetworks.com>
-References: <1439914666-7561-1-git-send-email-razor@blackwall.org> <1439921754-19715-1-git-send-email-razor@blackwall.org> <55D39128.1040804@cumulusnetworks.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	davem@davemloft.net
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next v3] vrf: vrf_master_ifindex_rcu is not always called with rcu read lock
+Date: Tue, 18 Aug 2015 21:40:16 +0300
+Message-ID: <1439923216-25295-1-git-send-email-razor@blackwall.org>
+References: <1439914666-7561-1-git-send-email-razor@blackwall.org>
+Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:34619 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903AbbHRUYc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 16:24:32 -0400
-Received: by wicne3 with SMTP id ne3so109970184wic.1
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 13:24:30 -0700 (PDT)
-In-Reply-To: <55D39128.1040804@cumulusnetworks.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:35561 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbbHRU34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 16:29:56 -0400
+Received: by wicne3 with SMTP id ne3so104413624wic.0
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 13:29:55 -0700 (PDT)
+In-Reply-To: <1439914666-7561-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-> On Aug 18, 2015, at 11:10 PM, David Ahern <dsa@cumulusnetworks.com> w=
-rote:
->=20
-> On 8/18/15 12:15 PM, Nikolay Aleksandrov wrote:
->> diff --git a/include/net/vrf.h b/include/net/vrf.h
->> index 3bb4af462ed6..b039850a94a3 100644
->> --- a/include/net/vrf.h
->> +++ b/include/net/vrf.h
->> @@ -34,7 +34,6 @@ struct net_vrf {
->>=20
->>=20
->>  #if IS_ENABLED(CONFIG_NET_VRF)
->> -/* called with rcu_read_lock() */
->>  static inline int vrf_master_ifindex_rcu(const struct net_device *d=
-ev)
->>  {
->>  	struct net_vrf_dev *vrf_ptr;
->=20
-> That comment is true for this version.
->=20
-> David
->=20
+While running net-next I hit this:
+[  634.073119] ===============================
+[  634.073150] [ INFO: suspicious RCU usage. ]
+[  634.073182] 4.2.0-rc6+ #45 Not tainted
+[  634.073213] -------------------------------
+[  634.073244] include/net/vrf.h:38 suspicious rcu_dereference_check()
+usage!
+[  634.073274]
+               other info that might help us debug this:
 
-It is, but as we established the name implies the same. Anyway I=92ll p=
-ost a v3 and
-keep it.
+[  634.073307]
+               rcu_scheduler_active = 1, debug_locks = 1
+[  634.073338] 2 locks held by swapper/0/0:
+[  634.073369]  #0:  (((&n->timer))){+.-...}, at: [<ffffffff8112bc35>]
+call_timer_fn+0x5/0x480
+[  634.073412]  #1:  (slock-AF_INET){+.-...}, at: [<ffffffff8174f0f5>]
+icmp_send+0x155/0x5f0
+[  634.073450]
+               stack backtrace:
+[  634.073483] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.2.0-rc6+ #45
+[  634.073514] Hardware name: innotek GmbH VirtualBox/VirtualBox, BIOS
+VirtualBox 12/01/2006
+[  634.073545]  0000000000000000 0593ba8242d9ace4 ffff88002fc03b48
+ffffffff81803f1b
+[  634.073612]  0000000000000000 ffffffff81e12500 ffff88002fc03b78
+ffffffff811003c5
+[  634.073642]  0000000000000000 ffff88002ec4e600 ffffffff81f00f80
+ffff88002fc03cf0
+[  634.073669] Call Trace:
+[  634.073694]  <IRQ>  [<ffffffff81803f1b>] dump_stack+0x4c/0x65
+[  634.073728]  [<ffffffff811003c5>] lockdep_rcu_suspicious+0xc5/0x100
+[  634.073763]  [<ffffffff8174eb56>] icmp_route_lookup+0x176/0x5c0
+[  634.073793]  [<ffffffff8174f2fb>] ? icmp_send+0x35b/0x5f0
+[  634.073818]  [<ffffffff8174f274>] ? icmp_send+0x2d4/0x5f0
+[  634.073844]  [<ffffffff8174f3ce>] icmp_send+0x42e/0x5f0
+[  634.073873]  [<ffffffff8170b662>] ipv4_link_failure+0x22/0xa0
+[  634.073899]  [<ffffffff8174bdda>] arp_error_report+0x3a/0x80
+[  634.073926]  [<ffffffff816d6100>] ? neigh_lookup+0x2c0/0x2c0
+[  634.073952]  [<ffffffff816d396e>] neigh_invalidate+0x8e/0x110
+[  634.073984]  [<ffffffff816d62ae>] neigh_timer_handler+0x1ae/0x290
+[  634.074013]  [<ffffffff816d6100>] ? neigh_lookup+0x2c0/0x2c0
+[  634.074013]  [<ffffffff8112bce3>] call_timer_fn+0xb3/0x480
+[  634.074013]  [<ffffffff8112bc35>] ? call_timer_fn+0x5/0x480
+[  634.074013]  [<ffffffff816d6100>] ? neigh_lookup+0x2c0/0x2c0
+[  634.074013]  [<ffffffff8112c2bc>] run_timer_softirq+0x20c/0x430
+[  634.074013]  [<ffffffff810af50e>] __do_softirq+0xde/0x630
+[  634.074013]  [<ffffffff810afc97>] irq_exit+0x117/0x120
+[  634.074013]  [<ffffffff81810976>] smp_apic_timer_interrupt+0x46/0x60
+[  634.074013]  [<ffffffff8180e950>] apic_timer_interrupt+0x70/0x80
+[  634.074013]  <EOI>  [<ffffffff8106b9d6>] ? native_safe_halt+0x6/0x10
+[  634.074013]  [<ffffffff81101d8d>] ? trace_hardirqs_on+0xd/0x10
+[  634.074013]  [<ffffffff81027d43>] default_idle+0x23/0x200
+[  634.074013]  [<ffffffff8102852f>] arch_cpu_idle+0xf/0x20
+[  634.074013]  [<ffffffff810f89ba>] default_idle_call+0x2a/0x40
+[  634.074013]  [<ffffffff810f8dcc>] cpu_startup_entry+0x39c/0x4c0
+[  634.074013]  [<ffffffff817f9cad>] rest_init+0x13d/0x150
+[  634.074013]  [<ffffffff81f69038>] start_kernel+0x4a8/0x4c9
+[  634.074013]  [<ffffffff81f68120>] ?
+early_idt_handler_array+0x120/0x120
+[  634.074013]  [<ffffffff81f68339>] x86_64_start_reservations+0x2a/0x2c
+[  634.074013]  [<ffffffff81f68485>] x86_64_start_kernel+0x14a/0x16d
+
+It would seem vrf_master_ifindex_rcu() can be called without RCU held in
+other contexts as well so introduce a new helper which acquires rcu and
+returns the ifindex.
+Also add curly braces around both the "if" and "else" parts as per the
+style guide.
+
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v3: keep the rcu comment above vrf_master_ifindex_rcu()
+v2: use a new helper that acquires and releases rcu instead
+
+ include/net/vrf.h | 20 ++++++++++++++++++--
+ net/ipv4/icmp.c   |  4 ++--
+ 2 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+index 3bb4af462ed6..5bfb16237fd7 100644
+--- a/include/net/vrf.h
++++ b/include/net/vrf.h
+@@ -43,9 +43,9 @@ static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
+ 	if (!dev)
+ 		return 0;
+ 
+-	if (netif_is_vrf(dev))
++	if (netif_is_vrf(dev)) {
+ 		ifindex = dev->ifindex;
+-	else {
++	} else {
+ 		vrf_ptr = rcu_dereference(dev->vrf_ptr);
+ 		if (vrf_ptr)
+ 			ifindex = vrf_ptr->ifindex;
+@@ -54,6 +54,17 @@ static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
+ 	return ifindex;
+ }
+ 
++static inline int vrf_master_ifindex(const struct net_device *dev)
++{
++	int ifindex;
++
++	rcu_read_lock();
++	ifindex = vrf_master_ifindex_rcu(dev);
++	rcu_read_unlock();
++
++	return ifindex;
++}
++
+ /* called with rcu_read_lock */
+ static inline int vrf_dev_table_rcu(const struct net_device *dev)
+ {
+@@ -133,6 +144,11 @@ static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
+ 	return 0;
+ }
+ 
++static inline int vrf_master_ifindex(const struct net_device *dev)
++{
++	return 0;
++}
++
+ static inline int vrf_dev_table_rcu(const struct net_device *dev)
+ {
+ 	return 0;
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index c6f1ce149ffb..f16488efa1c8 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -426,7 +426,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	fl4.flowi4_mark = mark;
+ 	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
+ 	fl4.flowi4_proto = IPPROTO_ICMP;
+-	fl4.flowi4_oif = vrf_master_ifindex_rcu(skb->dev) ? : skb->dev->ifindex;
++	fl4.flowi4_oif = vrf_master_ifindex(skb->dev) ? : skb->dev->ifindex;
+ 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
+ 	rt = ip_route_output_key(net, &fl4);
+ 	if (IS_ERR(rt))
+@@ -460,7 +460,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	fl4->flowi4_proto = IPPROTO_ICMP;
+ 	fl4->fl4_icmp_type = type;
+ 	fl4->fl4_icmp_code = code;
+-	fl4->flowi4_oif = vrf_master_ifindex_rcu(skb_in->dev) ? : skb_in->dev->ifindex;
++	fl4->flowi4_oif = vrf_master_ifindex(skb_in->dev) ? : skb_in->dev->ifindex;
+ 
+ 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
+ 	rt = __ip_route_output_key(net, fl4);
+-- 
+2.4.3
