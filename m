@@ -1,157 +1,77 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 11/13] vxlan: metadata based tunneling for IPv6
-Date: Tue, 18 Aug 2015 22:33:20 +0200
-Message-ID: <9e37d7b6c5882ba12ebd31478d434d482fbebf97.1439929916.git.jbenc@redhat.com>
+Subject: [PATCH net-next 09/13] vxlan: provide access function for vxlan socket address family
+Date: Tue, 18 Aug 2015 22:33:18 +0200
+Message-ID: <a07e8ad2f7cfc3153d569a2b3f366bf17b2f348a.1439929916.git.jbenc@redhat.com>
 References: <cover.1439929916.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44410 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46916 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753437AbbHRUdx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 16:33:53 -0400
+	id S1753413AbbHRUdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 16:33:51 -0400
 In-Reply-To: <cover.1439929916.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support metadata based (formerly flow based) tunneling also for IPv6.
-This complements commit ee122c79d422 ("vxlan: Flow based tunneling").
-
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/vxlan.c | 69 +++++++++++++++++++++++++++++++----------------------
- 1 file changed, 40 insertions(+), 29 deletions(-)
+ drivers/net/vxlan.c | 8 ++++----
+ include/net/vxlan.h | 5 +++++
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d0caac63231c..671f06781bb1 100644
+index e4b8ab63d0fa..d5ca1d7e0b81 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -1269,17 +1269,27 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+@@ -236,7 +236,7 @@ static struct vxlan_sock *vxlan_find_sock(struct net *net, sa_family_t family,
+ 
+ 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
+ 		if (inet_sk(vs->sock->sk)->inet_sport == port &&
+-		    inet_sk(vs->sock->sk)->sk.sk_family == family &&
++		    vxlan_get_sk_family(vs) == family &&
+ 		    vs->flags == flags)
+ 			return vs;
  	}
- 
- 	if (vxlan_collect_metadata(vs)) {
--		const struct iphdr *iph = ip_hdr(skb);
--
- 		tun_dst = metadata_dst_alloc(sizeof(*md), GFP_ATOMIC);
- 		if (!tun_dst)
- 			goto drop;
- 
- 		info = &tun_dst->u.tun_info;
--		info->key.u.ipv4.src = iph->saddr;
--		info->key.u.ipv4.dst = iph->daddr;
--		info->key.tos = iph->tos;
--		info->key.ttl = iph->ttl;
-+		if (vxlan_get_sk_family(vs) == AF_INET) {
-+			const struct iphdr *iph = ip_hdr(skb);
-+
-+			info->key.u.ipv4.src = iph->saddr;
-+			info->key.u.ipv4.dst = iph->daddr;
-+			info->key.tos = iph->tos;
-+			info->key.ttl = iph->ttl;
-+		} else {
-+			const struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+
-+			info->key.u.ipv6.src = ip6h->saddr;
-+			info->key.u.ipv6.dst = ip6h->daddr;
-+			info->key.tos = ipv6_get_dsfield(ip6h);
-+			info->key.ttl = ip6h->hop_limit;
-+		}
-+
- 		info->key.tp_src = udp_hdr(skb)->source;
- 		info->key.tp_dst = udp_hdr(skb)->dest;
- 
-@@ -1894,6 +1904,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	struct ip_tunnel_info *info;
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct sock *sk = vxlan->vn_sock->sock->sk;
-+	unsigned short family = vxlan_get_sk_family(vxlan->vn_sock);
- 	struct rtable *rt = NULL;
- 	const struct iphdr *old_iph;
- 	struct flowi4 fl4;
-@@ -1908,7 +1919,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+@@ -625,7 +625,7 @@ static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+ 	struct net_device *dev;
+ 	struct sock *sk = vs->sock->sk;
+ 	struct net *net = sock_net(sk);
+-	sa_family_t sa_family = sk->sk_family;
++	sa_family_t sa_family = vxlan_get_sk_family(vs);
+ 	__be16 port = inet_sk(sk)->inet_sport;
  	int err;
- 	u32 flags = vxlan->flags;
  
--	/* FIXME: Support IPv6 */
- 	info = skb_tunnel_info(skb);
+@@ -650,7 +650,7 @@ static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
+ 	struct net_device *dev;
+ 	struct sock *sk = vs->sock->sk;
+ 	struct net *net = sock_net(sk);
+-	sa_family_t sa_family = sk->sk_family;
++	sa_family_t sa_family = vxlan_get_sk_family(vs);
+ 	__be16 port = inet_sk(sk)->inet_sport;
  
- 	if (rdst) {
-@@ -1924,8 +1934,11 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
- 		vni = be64_to_cpu(info->key.tun_id);
--		remote_ip.sin.sin_family = AF_INET;
--		remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
-+		remote_ip.sa.sa_family = family;
-+		if (family == AF_INET)
-+			remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
-+		else
-+			remote_ip.sin6.sin6_addr = info->key.u.ipv6.dst;
- 		dst = &remote_ip;
- 	}
- 
-@@ -1951,23 +1964,24 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	src_port = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
- 				     vxlan->cfg.port_max, true);
- 
-+	if (info) {
-+		if (info->key.tun_flags & TUNNEL_CSUM)
-+			flags |= VXLAN_F_UDP_CSUM;
-+		else
-+			flags &= ~VXLAN_F_UDP_CSUM;
-+
-+		ttl = info->key.ttl;
-+		tos = info->key.tos;
-+
-+		if (info->options_len)
-+			md = ip_tunnel_info_opts(info, sizeof(*md));
-+	} else {
-+		md->gbp = skb->mark;
-+	}
-+
- 	if (dst->sa.sa_family == AF_INET) {
--		if (info) {
--			if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
--				df = htons(IP_DF);
--			if (info->key.tun_flags & TUNNEL_CSUM)
--				flags |= VXLAN_F_UDP_CSUM;
--			else
--				flags &= ~VXLAN_F_UDP_CSUM;
--
--			ttl = info->key.ttl;
--			tos = info->key.tos;
--
--			if (info->options_len)
--				md = ip_tunnel_info_opts(info, sizeof(*md));
--		} else {
--			md->gbp = skb->mark;
--		}
-+		if (info && (info->key.tun_flags & TUNNEL_DONT_FRAGMENT))
-+			df = htons(IP_DF);
- 
- 		memset(&fl4, 0, sizeof(fl4));
- 		fl4.flowi4_oif = rdst ? rdst->remote_ifindex : 0;
-@@ -2066,12 +2080,10 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	rcu_read_lock();
+@@ -2390,7 +2390,7 @@ void vxlan_get_rx_port(struct net_device *dev)
+ 	for (i = 0; i < PORT_HASH_SIZE; ++i) {
+ 		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
+ 			port = inet_sk(vs->sock->sk)->inet_sport;
+-			sa_family = vs->sock->sk->sk_family;
++			sa_family = vxlan_get_sk_family(vs);
+ 			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
+ 							    port);
  		}
- 
- 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
--		md->gbp = skb->mark;
--
- 		err = vxlan6_xmit_skb(ndst, sk, skb, dev, &fl6.saddr, &fl6.daddr,
- 				      0, ttl, src_port, dst_port, htonl(vni << 8), md,
- 				      !net_eq(vxlan->net, dev_net(vxlan->dev)),
--				      vxlan->flags);
-+				      flags);
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index e4534f1b2d8c..43677e6b9c43 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -241,3 +241,8 @@ static inline void vxlan_get_rx_port(struct net_device *netdev)
+ }
  #endif
- 	}
- 
-@@ -2104,7 +2116,6 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct vxlan_rdst *rdst, *fdst = NULL;
- 	struct vxlan_fdb *f;
- 
--	/* FIXME: Support IPv6 */
- 	info = skb_tunnel_info(skb);
- 
- 	skb_reset_mac_header(skb);
+ #endif
++
++static inline unsigned short vxlan_get_sk_family(struct vxlan_sock *vs)
++{
++	return vs->sock->sk->sk_family;
++}
 -- 
 1.8.3.1
