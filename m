@@ -1,79 +1,62 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] lwtunnel: fix memory leak
-Date: Tue, 18 Aug 2015 18:41:13 +0200
-Message-ID: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next] lwtunnel: ip tunnel: fix multiple routes with different encap
+Date: Tue, 18 Aug 2015 18:42:09 +0200
+Message-ID: <fe9cdcf34e26de1e9107f964c3e6612dcaf13662.1439916029.git.jbenc@redhat.com>
+References: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
+Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51350 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33671 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753751AbbHRQlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 12:41:25 -0400
+	id S1753342AbbHRQm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 12:42:29 -0400
+In-Reply-To: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The built lwtunnel_state struct has to be freed after comparison.
+Currently, two routes going through the same tunnel interface are considered
+the same even when they are routed to a different host after encapsulation.
+This causes all routes added after the first one to have incorrect
+encapsulation parameters.
 
-Fixes: 571e722676fe3 ("ipv4: support for fib route lwtunnel encap attributes")
+This is nicely visible by doing:
+
+  # ip r a 192.168.1.2/32 dev vxlan0 tunnel dst 10.0.0.2
+  # ip r a 192.168.1.3/32 dev vxlan0 tunnel dst 10.0.0.3
+  # ip r
+  [...]
+  192.168.1.2/32 tunnel id 0 src 0.0.0.0 dst 10.0.0.2 [...]
+  192.168.1.3/32 tunnel id 0 src 0.0.0.0 dst 10.0.0.2 [...]
+
+Implement the missing comparison function.
+
+Fixes: 3093fbe7ff4bc ("route: Per route IP tunnel metadata via lightweight tunnel")
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- include/net/lwtunnel.h   |  7 ++++++-
- net/ipv4/fib_semantics.c | 10 ++++++----
- 2 files changed, 12 insertions(+), 5 deletions(-)
+ net/ipv4/ip_tunnel_core.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-index e25b60eb262d..34fd8f70c2ca 100644
---- a/include/net/lwtunnel.h
-+++ b/include/net/lwtunnel.h
-@@ -36,6 +36,11 @@ struct lwtunnel_encap_ops {
- };
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index fd6319681c50..1c2389d582a6 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -286,10 +286,17 @@ static int ip_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
+ 		+ nla_total_size(2);	/* LWTUNNEL_IP_FLAGS */
+ }
  
- #ifdef CONFIG_LWTUNNEL
-+static inline void lwtstate_free(struct lwtunnel_state *lws)
++static int ip_tun_cmp_encap(struct lwtunnel_state *a, struct lwtunnel_state *b)
 +{
-+	kfree(lws);
++	return memcmp(lwt_tun_info(a), lwt_tun_info(b),
++		      sizeof(struct ip_tunnel_info));
 +}
 +
- static inline struct lwtunnel_state *
- lwtstate_get(struct lwtunnel_state *lws)
- {
-@@ -51,7 +56,7 @@ static inline void lwtstate_put(struct lwtunnel_state *lws)
- 		return;
+ static const struct lwtunnel_encap_ops ip_tun_lwt_ops = {
+ 	.build_state = ip_tun_build_state,
+ 	.fill_encap = ip_tun_fill_encap_info,
+ 	.get_encap_size = ip_tun_encap_nlsize,
++	.cmp_encap = ip_tun_cmp_encap,
+ };
  
- 	if (atomic_dec_and_test(&lws->refcnt))
--		kfree(lws);
-+		lwtstate_free(lws);
- }
- 
- static inline bool lwtunnel_output_redirect(struct lwtunnel_state *lwtstate)
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index c8025851dac7..d5253071f71f 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -539,7 +539,7 @@ int fib_encap_match(struct net *net, u16 encap_type,
- {
- 	struct lwtunnel_state *lwtstate;
- 	struct net_device *dev = NULL;
--	int ret;
-+	int ret, result = 0;
- 
- 	if (encap_type == LWTUNNEL_ENCAP_NONE)
- 		return 0;
-@@ -548,10 +548,12 @@ int fib_encap_match(struct net *net, u16 encap_type,
- 		dev = __dev_get_by_index(net, oif);
- 	ret = lwtunnel_build_state(dev, encap_type,
- 				   encap, &lwtstate);
--	if (!ret)
--		return lwtunnel_cmp_encap(lwtstate, nh->nh_lwtstate);
-+	if (!ret) {
-+		result = lwtunnel_cmp_encap(lwtstate, nh->nh_lwtstate);
-+		lwtstate_free(lwtstate);
-+	}
- 
--	return 0;
-+	return result;
- }
- 
- int fib_nh_match(struct fib_config *cfg, struct fib_info *fi)
+ void __init ip_tunnel_core_init(void)
 -- 
 1.8.3.1
