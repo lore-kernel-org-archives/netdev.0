@@ -1,66 +1,51 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 904/905]
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c:173:44: sparse: incorrect
- type in argument 1 (different base types)
-Date: Tue, 18 Aug 2015 09:16:07 +0800
-Message-ID: <201508180905.SEDw6zal%fengguang.wu@intel.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 18 Aug 2015 12:35:16 +1000
+Message-ID: <20150818123516.23d5120f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: Achiad Shochat <achiad@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:23991 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751011AbbHRBNA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2015 21:13:00 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Ward <david.ward@ll.mit.edu>,
+	Pieter Hollants <pieter@hollants.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   9cd3778cd7e8f165675705511cfcd4ea6eb88d27
-commit: bbceefce9adfc9cf7b4110727c96c841ba8c7964 [904/905] net/mlx5e: Support RX CHECKSUM_COMPLETE
-reproduce:
-  # apt-get install sparse
-  git checkout bbceefce9adfc9cf7b4110727c96c841ba8c7964
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+Hi all,
 
+Today's linux-next merge of the net-next tree got a conflict in:
 
-sparse warnings: (new ones prefixed by >>)
+  drivers/net/usb/qmi_wwan.c
 
->> drivers/net/ethernet/mellanox/mlx5/core/en_rx.c:173:44: sparse: incorrect type in argument 1 (different base types)
-   drivers/net/ethernet/mellanox/mlx5/core/en_rx.c:173:44:    expected restricted __sum16 [usertype] n
-   drivers/net/ethernet/mellanox/mlx5/core/en_rx.c:173:44:    got restricted __be16 [usertype] check_sum
+between commit:
 
-vim +173 drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+  a8079092c1bb ("net: qmi_wwan: add HP lt4111 LTE/EV-DO/HSPA+ Gobi 4G Module")
 
-   157	
-   158		return (ethertype == htons(ETH_P_IP) || ethertype == htons(ETH_P_IPV6));
-   159	}
-   160	
-   161	static inline void mlx5e_handle_csum(struct net_device *netdev,
-   162					     struct mlx5_cqe64 *cqe,
-   163					     struct mlx5e_rq *rq,
-   164					     struct sk_buff *skb)
-   165	{
-   166		if (unlikely(!(netdev->features & NETIF_F_RXCSUM)))
-   167			goto csum_none;
-   168	
-   169		if (likely(cqe->hds_ip_ext & CQE_L4_OK)) {
-   170			skb->ip_summed = CHECKSUM_UNNECESSARY;
-   171		} else if (is_first_ethertype_ip(skb)) {
-   172			skb->ip_summed = CHECKSUM_COMPLETE;
- > 173			skb->csum = csum_unfold(cqe->check_sum);
-   174			rq->stats.csum_sw++;
-   175		} else {
-   176			goto csum_none;
-   177		}
-   178	
-   179		return;
-   180	
-   181	csum_none:
+from the net tree and commit:
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+  2070c48cf2b7 ("qmi_wwan: Add support for Dell Wireless 5809e 4G Modem")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/usb/qmi_wwan.c
+index 64a60afbe50c,1f7a7cd97e50..000000000000
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@@ -785,7 -785,7 +785,8 @@@ static const struct usb_device_id produ
+  	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card */
+  	{QMI_FIXED_INTF(0x413c, 0x81a8, 8)},	/* Dell Wireless 5808 Gobi(TM) 4G LTE Mobile Broadband Card */
+  	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) 4G LTE Mobile Broadband Card */
++ 	{QMI_FIXED_INTF(0x413c, 0x81b1, 8)},	/* Dell Wireless 5809e Gobi(TM) 4G LTE Mobile Broadband Card */
+ +	{QMI_FIXED_INTF(0x03f0, 0x4e1d, 8)},	/* HP lt4111 LTE/EV-DO/HSPA+ Gobi 4G Module */
+  	{QMI_FIXED_INTF(0x03f0, 0x581d, 4)},	/* HP lt4112 LTE/HSPA+ Gobi 4G Module (Huawei me906e) */
+  
+  	/* 4. Gobi 1000 devices */
