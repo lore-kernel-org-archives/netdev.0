@@ -1,58 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Add values missing in @get_stats64 from HW
- counters
-Date: Tue, 18 Aug 2015 23:40:17 +0200
-Message-ID: <20150818214017.GA14914@electric-eye.fr.zoreil.com>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	Ivan Vecera <ivecera@redhat.com>
-To: Corinna Vinschen <vinschen@redhat.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCHv4 net-next 03/10] ipv6: Export nf_ct_frag6_gather()
+Date: Tue, 18 Aug 2015 16:39:41 -0700
+Message-ID: <1439941188-19293-4-git-send-email-joestringer@nicira.com>
+References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
+Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
+	jpettit@nicira.com, jesse@nicira.com
+To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46855 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751321AbbHRVk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 17:40:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35553 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752034AbbHRXmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 19:42:35 -0400
+Received: by pacgr6 with SMTP id gr6so142894803pac.2
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 16:42:34 -0700 (PDT)
+In-Reply-To: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corinna Vinschen <vinschen@redhat.com> :
-> The r8169 driver collects statistical information returned by
-> @get_stats64 by counting them in the driver itself, even though many
-> (but not all) of the values are already collected by tally counters
-> (TCs) in the NIC.  Some of these TC values are not returned by
-> @get_stats64.  Especially the received multicast packages are missing
-> from /proc/net/dev.
-> Rectify this by fetching the TCs and returning them from
-> rtl8169_get_stats64.
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v4: Add ack.
+---
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-It is not exactly a some / many / not all / confused [*] picture
-- get_stats64 provides software managed values
-- ethtool provides hardware only values
-
-[*] ok, rx_missed is kinda special.
-
-> The counters collected in the driver obviously disappear as soon as t=
-he
-> driver is unloaded so after a driver is loaded the counters always st=
-art
-> at 0.  The TCs are only reset by a power cycle and there's no known w=
-ay
-> to reset them programatically. Without further considerations the val=
-ues
-> collected by the driver would not match up against the TC values.
-
-I'd rather:
-1. keep software and hardware stats separated
-2. push to userspace the responsibility to offset device specific hardw=
-are
-   values jumps
-
-My 0.02 =E2=82=AC.
-
---=20
-Ueimor
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index 6d02498..701cd2b 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -633,6 +633,7 @@ ret_orig:
+ 	kfree_skb(clone);
+ 	return skb;
+ }
++EXPORT_SYMBOL_GPL(nf_ct_frag6_gather);
+ 
+ void nf_ct_frag6_consume_orig(struct sk_buff *skb)
+ {
+-- 
+2.1.4
