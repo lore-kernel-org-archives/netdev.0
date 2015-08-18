@@ -1,70 +1,99 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: e1000e driver - commit  37b12910 needs to be in Linus tree..
-Date: Tue, 18 Aug 2015 11:32:31 -0400
-Message-ID: <2887.1439911951@turing-police.cc.vt.edu>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1439911951_2177P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v2] net: Move VRF change to udp_sendmsg to function
+Date: Tue, 18 Aug 2015 09:38:29 -0600
+Message-ID: <1439912309-5726-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: tom@herbertland.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound.smtp.vt.edu ([198.82.183.121]:35219 "EHLO
-	omr2.cc.vt.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753332AbbHRPcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 11:32:42 -0400
+Received: from mail-io0-f176.google.com ([209.85.223.176]:34474 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751634AbbHRPjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 11:39:13 -0400
+Received: by iodb91 with SMTP id b91so193121364iod.1
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 08:39:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1439911951_2177P
-Content-Type: text/plain; charset=us-ascii
+Functionally equivalent, but as a separate function with VRF config
+check. After 2f52bdcf6ba ("net: Updates to netif_index_is_vrf") function
+completely compiles out if VRF is not enabled; additional CONFIG
+check is not needed.
 
-Hate to bother everybody, but we're at -rc7..
+Suggested-by: Tom Herbert <tom@herbertland.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v2
+- removed inline per Dave's comment
+- removed IS_ENABLED(CONFIG_NET_VRF) check; no longer needed after 2f52bdcf6ba
 
-Commit 83129b37ef is still in Linus's tree.  This one causes a crash
-on my Dell Latitude after 4 hours uptime.
+ net/ipv4/udp.c | 43 +++++++++++++++++++++++--------------------
+ 1 file changed, 23 insertions(+), 20 deletions(-)
 
-commit 83129b37ef35bb6a7f01c060129736a8db5d31c4
-Author: Yanir Lubetkin <yanirx.lubetkin@intel.com>
-Date:   Tue Jun 2 17:05:45 2015 +0300
-
-    e1000e: fix systim issues
-
-Commit 37b12910dd fixes it, but is *NOT* in Linus's tree yet.
-
-commit 37b12910dd11d9ab969f2c310dc9160b7f3e3405
-Author: Raanan Avargil <raanan.avargil@intel.com>
-Date:   Sun Jul 19 16:33:20 2015 +0300
-
-    e1000e: Fix tight loop implementation of systime read algorithm
-
-Can we do something to get this fix in-tree, or revert the problem commit?
-
-
-
-
---==_Exmh_1439911951_2177P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBVdNQDwdmEQWDXROgAQJGwQ//QmQncD6Xknd7BnINjTvhCP4UoxuhDfaS
-73/6tDQPPzsOe3zQMKaFTrnLcHbXmeyzS6TGj/MRSZCUhuTWaPOqoH+bt/fzffX/
-5hoJuFTeQqHpaGu6+qQFJKXTesjbUaNa67RSfF0yzkd/8Wc0q3vqqTLuUB4rSqz/
-wxbiFaoXjeh7k1qy13aXsg83WbObqrDOj0nf49y1/ErLVawaBLJUZKyuurMhyn2A
-0S3et4EX9SBzRIU2pWFoDs5Osurzg2MTzSsf6Tkei7pdSspCy95LCIXdCOqIoCnt
-NlPLOU1GBh+yVY0P0YSRT9dDr4wh84RNSVLyhvl41TdWjmu++eeZE06rHksur3AP
-HG/wT3WzoDYRqopCA5TBLU3kRbjxW9Jt5ZFTbBVN6GhWyYr6nq+Fw/E8JCIdK+lD
-i9GLcKZv1diCJRhUOGdlahS2sj9SnuKu7CAHapHPcF7jq7TYlUhW/ovyXJMR1DOw
-JCz8GnFRndXj8nslOHJv/UNHMZRmI7qwZtDI309SJLmL7ljlAf9RBJKCYJP9xKb+
-VKfEWaDmAejUzxVMHz+akQ9nTgBzoxTR+DBwNwNSeaHZLqXZzYCfrbSOH1EGc5x1
-B/MF3Q4/6xHgDaJlZPePHtM4va0+otSh5Hvxv6lQSAdnyHk3o/glieHKt/DbUlIE
-R5mrolCH58o=
-=Nvuf
------END PGP SIGNATURE-----
-
---==_Exmh_1439911951_2177P--
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index c0a15e7f359f..76c5e5e945f8 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -873,6 +873,24 @@ int udp_push_pending_frames(struct sock *sk)
+ }
+ EXPORT_SYMBOL(udp_push_pending_frames);
+ 
++/* unconnected socket. If output device is enslaved to a VRF
++ * device lookup source address from VRF table.
++ */
++static void udp_sendmsg_vrf_saddr(struct net *net, struct flowi4 *fl4,
++				   int oif, struct sock *sk)
++{
++	if (netif_index_is_vrf(net, oif)) {
++		__u8 flow_flags = fl4->flowi4_flags;
++		struct rtable *rt;
++
++		fl4->flowi4_flags = flow_flags | FLOWI_FLAG_VRFSRC;
++		rt = ip_route_output_flow(net, fl4, sk);
++		if (!IS_ERR(rt))
++			ip_rt_put(rt);
++		fl4->flowi4_flags = flow_flags;
++	}
++}
++
+ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+@@ -1013,33 +1033,16 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 
+ 	if (!rt) {
+ 		struct net *net = sock_net(sk);
+-		__u8 flow_flags = inet_sk_flowi_flags(sk);
+ 
+ 		fl4 = &fl4_stack;
+ 
+-		/* unconnected socket. If output device is enslaved to a VRF
+-		 * device lookup source address from VRF table. This mimics
+-		 * behavior of ip_route_connect{_init}.
+-		 */
+-		if (netif_index_is_vrf(net, ipc.oif)) {
+-			flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
+-					   RT_SCOPE_UNIVERSE, sk->sk_protocol,
+-					   (flow_flags | FLOWI_FLAG_VRFSRC),
+-					   faddr, saddr, dport,
+-					   inet->inet_sport);
+-
+-			rt = ip_route_output_flow(net, fl4, sk);
+-			if (!IS_ERR(rt)) {
+-				saddr = fl4->saddr;
+-				ip_rt_put(rt);
+-			}
+-		}
+-
+ 		flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
+ 				   RT_SCOPE_UNIVERSE, sk->sk_protocol,
+-				   flow_flags,
++				   inet_sk_flowi_flags(sk),
+ 				   faddr, saddr, dport, inet->inet_sport);
+ 
++		udp_sendmsg_vrf_saddr(net, fl4, ipc.oif, sk);
++
+ 		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
+ 		rt = ip_route_output_flow(net, fl4, sk);
+ 		if (IS_ERR(rt)) {
+-- 
+2.3.2 (Apple Git-55)
