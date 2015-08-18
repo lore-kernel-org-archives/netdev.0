@@ -1,43 +1,69 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] ixgbe: TRIVIAL fix up double 'the' and comment style
-Date: Tue, 18 Aug 2015 14:09:22 -0700
-Message-ID: <1439932162-1995-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] ixgbe: Simplify port-specific macros
+Date: Tue, 18 Aug 2015 14:09:21 -0700
+Message-ID: <1439932162-1995-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1439932162-1995-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:63944 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:52395 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752868AbbHRVJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753545AbbHRVJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Aug 2015 17:09:28 -0400
 In-Reply-To: <1439932162-1995-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Simplify port-specific macros by eliminating explicit comparison
+with 0. More importantly, enclose formal parameter in parens to
+eliminate the risk of an operator precedence surprise.
+
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3e6a931..7906234 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -248,8 +248,7 @@ static void ixgbe_check_minimum_link(struct ixgbe_adapter *adapter,
- 	enum pcie_link_width width = PCIE_LNK_WIDTH_UNKNOWN;
- 	struct pci_dev *pdev;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index b6f424f..4615a94 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
--	/* determine whether to use the the parent device
--	 */
-+	/* determine whether to use the parent device */
- 	if (ixgbe_pcie_from_parent(&adapter->hw))
- 		pdev = adapter->pdev->bus->parent->self;
- 	else
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2014 Intel Corporation.
++  Copyright(c) 1999 - 2015 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -3462,14 +3462,14 @@ struct ixgbe_info {
+ #define IXGBE_ERR_HOST_INTERFACE_COMMAND        -33
+ #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
+ 
+-#define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P == 0) ? (0x4010) : (0x8010))
+-#define IXGBE_KRM_LINK_CTRL_1(P)	((P == 0) ? (0x420C) : (0x820C))
+-#define IXGBE_KRM_DSP_TXFFE_STATE_4(P)	((P == 0) ? (0x4634) : (0x8634))
+-#define IXGBE_KRM_DSP_TXFFE_STATE_5(P)	((P == 0) ? (0x4638) : (0x8638))
+-#define IXGBE_KRM_RX_TRN_LINKUP_CTRL(P)	((P == 0) ? (0x4B00) : (0x8B00))
+-#define IXGBE_KRM_PMD_DFX_BURNIN(P)	((P == 0) ? (0x4E00) : (0x8E00))
+-#define IXGBE_KRM_TX_COEFF_CTRL_1(P)	((P == 0) ? (0x5520) : (0x9520))
+-#define IXGBE_KRM_RX_ANA_CTL(P)		((P == 0) ? (0x5A00) : (0x9A00))
++#define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P) ? 0x8010 : 0x4010)
++#define IXGBE_KRM_LINK_CTRL_1(P)	((P) ? 0x820C : 0x420C)
++#define IXGBE_KRM_DSP_TXFFE_STATE_4(P)	((P) ? 0x8634 : 0x4634)
++#define IXGBE_KRM_DSP_TXFFE_STATE_5(P)	((P) ? 0x8638 : 0x4638)
++#define IXGBE_KRM_RX_TRN_LINKUP_CTRL(P)	((P) ? 0x8B00 : 0x4B00)
++#define IXGBE_KRM_PMD_DFX_BURNIN(P)	((P) ? 0x8E00 : 0x4E00)
++#define IXGBE_KRM_TX_COEFF_CTRL_1(P)	((P) ? 0x9520 : 0x5520)
++#define IXGBE_KRM_RX_ANA_CTL(P)		((P) ? 0x9A00 : 0x5A00)
+ 
+ #define IXGBE_KRM_PORT_CAR_GEN_CTRL_NELB_32B		(1 << 9)
+ #define IXGBE_KRM_PORT_CAR_GEN_CTRL_NELB_KRPCS		(1 << 11)
 -- 
 2.4.3
