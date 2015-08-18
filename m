@@ -1,62 +1,61 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] lwtunnel: ip tunnel: fix multiple routes with different encap
-Date: Tue, 18 Aug 2015 18:42:09 +0200
-Message-ID: <fe9cdcf34e26de1e9107f964c3e6612dcaf13662.1439916029.git.jbenc@redhat.com>
-References: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [net-next]: unable to add routes to tables
+Date: Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
+Message-ID: <1029376325.2912846.1439917035503.JavaMail.zimbra@tpip.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33671 "EHLO mx1.redhat.com"
+Received: from mail.tpip.net ([92.43.49.48]:60015 "EHLO mail.tpip.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753342AbbHRQm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 12:42:29 -0400
-In-Reply-To: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
+	id S1753500AbbHRQ5X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 12:57:23 -0400
+Received: from office.tpip.net (office.tpip.net [92.43.51.2])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.tpip.net (Postfix) with ESMTPS id 65B0E4F404
+	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 16:57:20 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+	by office.tpip.net (Postfix) with ESMTP id 56CFBA2F1D
+	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:57:16 +0200 (CEST)
+Received: from office.tpip.net ([127.0.0.1])
+	by localhost (office.tpip.net [127.0.0.1]) (amavisd-new, port 10032)
+	with ESMTP id 4FIr4Tt9h3ZJ for <netdev@vger.kernel.org>;
+	Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
+Received: from localhost (localhost [127.0.0.1])
+	by office.tpip.net (Postfix) with ESMTP id 990E8A2F31
+	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
+Received: from office.tpip.net ([127.0.0.1])
+	by localhost (office.tpip.net [127.0.0.1]) (amavisd-new, port 10026)
+	with ESMTP id SthI14RFWUC6 for <netdev@vger.kernel.org>;
+	Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
+Received: from office.tpip.net (office.tpip.net [92.43.51.2])
+	by office.tpip.net (Postfix) with ESMTP id 8488CA2F1D
+	for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:57:15 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, two routes going through the same tunnel interface are considered
-the same even when they are routed to a different host after encapsulation.
-This causes all routes added after the first one to have incorrect
-encapsulation parameters.
+Hi,
 
-This is nicely visible by doing:
+It seems that the policy for adding routes to tables has changed between
+Linux 4.2-rc6 and net-next.
 
-  # ip r a 192.168.1.2/32 dev vxlan0 tunnel dst 10.0.0.2
-  # ip r a 192.168.1.3/32 dev vxlan0 tunnel dst 10.0.0.3
-  # ip r
-  [...]
-  192.168.1.2/32 tunnel id 0 src 0.0.0.0 dst 10.0.0.2 [...]
-  192.168.1.3/32 tunnel id 0 src 0.0.0.0 dst 10.0.0.2 [...]
+In Linux main line (tested up to 4.2-rc6), with this main routing table:
+# ip route show table main
+...
+172.28.0.0/24 dev vnf-xe1p0  proto kernel  scope link  src 172.28.0.16 
 
-Implement the missing comparison function.
+and an empty table 100, this works:
 
-Fixes: 3093fbe7ff4bc ("route: Per route IP tunnel metadata via lightweight tunnel")
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- net/ipv4/ip_tunnel_core.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+# ip route add 10.0.0.0/8 via 172.28.0.32 table 100 dev vnf-xe1p0
 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index fd6319681c50..1c2389d582a6 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -286,10 +286,17 @@ static int ip_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
- 		+ nla_total_size(2);	/* LWTUNNEL_IP_FLAGS */
- }
- 
-+static int ip_tun_cmp_encap(struct lwtunnel_state *a, struct lwtunnel_state *b)
-+{
-+	return memcmp(lwt_tun_info(a), lwt_tun_info(b),
-+		      sizeof(struct ip_tunnel_info));
-+}
-+
- static const struct lwtunnel_encap_ops ip_tun_lwt_ops = {
- 	.build_state = ip_tun_build_state,
- 	.fill_encap = ip_tun_fill_encap_info,
- 	.get_encap_size = ip_tun_encap_nlsize,
-+	.cmp_encap = ip_tun_cmp_encap,
- };
- 
- void __init ip_tunnel_core_init(void)
--- 
-1.8.3.1
+With net-next at commit d52736e24fe2e927c26817256f8d1a3c8b5d51a0, the
+same command leads to an:
+
+# ip route add 10.0.0.0/8 via 172.28.0.32 table 100 dev vnf-xe1p0
+RTNETLINK answers: Resource temporarily unavailable
+
+Is this expected behavior?
+
+Andreas
