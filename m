@@ -1,51 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 18 Aug 2015 12:35:16 +1000
-Message-ID: <20150818123516.23d5120f@canb.auug.org.au>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] e100: Release skb when DMA mapping is
+	failed in e100_xmit_prepare
+Date: Tue, 18 Aug 2015 02:54:01 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81AE8727@ORSMSX101.amr.corp.intel.com>
+References: <1438569648-20469-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Ward <david.ward@ll.mit.edu>,
-	Pieter Hollants <pieter@hollants.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jia-Ju Bai <baijiaju1990@163.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438569648-20469-1-git-send-email-baijiaju1990@163.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+> Behalf Of Jia-Ju Bai
+> Sent: Sunday, August 02, 2015 7:41 PM
+> To: Kirsher, Jeffrey T; Brandeburg, Jesse
+> Cc: netdev@vger.kernel.org; Jia-Ju Bai; intel-wired-lan@lists.osuosl.org;
+> linux-kernel@vger.kernel.org
+> Subject: [Intel-wired-lan] [PATCH] e100: Release skb when DMA mapping is
+> failed in e100_xmit_prepare
+> 
+> When pci_dma_mapping_error in e100_xmit_prepare is failed, the skb buffer
+> allocated by netdev_alloc_skb_ip_align in e100_rx_alloc_skb is not
+> released, which causes a possible resource leak.
+> This patch adds error handling code to fix it.
+> 
+> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+> ---
+>  drivers/net/ethernet/intel/e100.c |    5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  drivers/net/usb/qmi_wwan.c
-
-between commit:
-
-  a8079092c1bb ("net: qmi_wwan: add HP lt4111 LTE/EV-DO/HSPA+ Gobi 4G Module")
-
-from the net tree and commit:
-
-  2070c48cf2b7 ("qmi_wwan: Add support for Dell Wireless 5809e 4G Modem")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/usb/qmi_wwan.c
-index 64a60afbe50c,1f7a7cd97e50..000000000000
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@@ -785,7 -785,7 +785,8 @@@ static const struct usb_device_id produ
-  	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card */
-  	{QMI_FIXED_INTF(0x413c, 0x81a8, 8)},	/* Dell Wireless 5808 Gobi(TM) 4G LTE Mobile Broadband Card */
-  	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) 4G LTE Mobile Broadband Card */
-+ 	{QMI_FIXED_INTF(0x413c, 0x81b1, 8)},	/* Dell Wireless 5809e Gobi(TM) 4G LTE Mobile Broadband Card */
- +	{QMI_FIXED_INTF(0x03f0, 0x4e1d, 8)},	/* HP lt4111 LTE/EV-DO/HSPA+ Gobi 4G Module */
-  	{QMI_FIXED_INTF(0x03f0, 0x581d, 4)},	/* HP lt4112 LTE/HSPA+ Gobi 4G Module (Huawei me906e) */
-  
-  	/* 4. Gobi 1000 devices */
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
