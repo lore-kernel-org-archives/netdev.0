@@ -1,32 +1,124 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] lwtunnel: fix memory leak
-Date: Tue, 18 Aug 2015 11:17:47 -0700
-Message-ID: <55D376CB.1040905@cumulusnetworks.com>
-References: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next] vrf: vrf_master_ifindex_rcu is not always called with rcu read lock
+Date: Tue, 18 Aug 2015 19:17:46 +0300
+Message-ID: <1439914666-7561-1-git-send-email-razor@blackwall.org>
+Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33169 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752701AbbHRSRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 14:17:50 -0400
-Received: by pabyb7 with SMTP id yb7so137955649pab.0
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 11:17:49 -0700 (PDT)
-In-Reply-To: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:36660 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752701AbbHRSSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 14:18:08 -0400
+Received: by wicja10 with SMTP id ja10so101496045wic.1
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 11:18:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/18/15, 9:41 AM, Jiri Benc wrote:
-> The built lwtunnel_state struct has to be freed after comparison.
->
-> Fixes: 571e722676fe3 ("ipv4: support for fib route lwtunnel encap attributes")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
->
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-looks like this was introduced in my last version when i decided to drop 
-the get/put of lwtstate here. Thanks!
+While running net-next I hit this:
+[  634.073119] ===============================
+[  634.073150] [ INFO: suspicious RCU usage. ]
+[  634.073182] 4.2.0-rc6+ #45 Not tainted
+[  634.073213] -------------------------------
+[  634.073244] include/net/vrf.h:38 suspicious rcu_dereference_check()
+usage!
+[  634.073274]
+               other info that might help us debug this:
+
+[  634.073307]
+               rcu_scheduler_active = 1, debug_locks = 1
+[  634.073338] 2 locks held by swapper/0/0:
+[  634.073369]  #0:  (((&n->timer))){+.-...}, at: [<ffffffff8112bc35>]
+call_timer_fn+0x5/0x480
+[  634.073412]  #1:  (slock-AF_INET){+.-...}, at: [<ffffffff8174f0f5>]
+icmp_send+0x155/0x5f0
+[  634.073450]
+               stack backtrace:
+[  634.073483] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.2.0-rc6+ #45
+[  634.073514] Hardware name: innotek GmbH VirtualBox/VirtualBox, BIOS
+VirtualBox 12/01/2006
+[  634.073545]  0000000000000000 0593ba8242d9ace4 ffff88002fc03b48
+ffffffff81803f1b
+[  634.073612]  0000000000000000 ffffffff81e12500 ffff88002fc03b78
+ffffffff811003c5
+[  634.073642]  0000000000000000 ffff88002ec4e600 ffffffff81f00f80
+ffff88002fc03cf0
+[  634.073669] Call Trace:
+[  634.073694]  <IRQ>  [<ffffffff81803f1b>] dump_stack+0x4c/0x65
+[  634.073728]  [<ffffffff811003c5>] lockdep_rcu_suspicious+0xc5/0x100
+[  634.073763]  [<ffffffff8174eb56>] icmp_route_lookup+0x176/0x5c0
+[  634.073793]  [<ffffffff8174f2fb>] ? icmp_send+0x35b/0x5f0
+[  634.073818]  [<ffffffff8174f274>] ? icmp_send+0x2d4/0x5f0
+[  634.073844]  [<ffffffff8174f3ce>] icmp_send+0x42e/0x5f0
+[  634.073873]  [<ffffffff8170b662>] ipv4_link_failure+0x22/0xa0
+[  634.073899]  [<ffffffff8174bdda>] arp_error_report+0x3a/0x80
+[  634.073926]  [<ffffffff816d6100>] ? neigh_lookup+0x2c0/0x2c0
+[  634.073952]  [<ffffffff816d396e>] neigh_invalidate+0x8e/0x110
+[  634.073984]  [<ffffffff816d62ae>] neigh_timer_handler+0x1ae/0x290
+[  634.074013]  [<ffffffff816d6100>] ? neigh_lookup+0x2c0/0x2c0
+[  634.074013]  [<ffffffff8112bce3>] call_timer_fn+0xb3/0x480
+[  634.074013]  [<ffffffff8112bc35>] ? call_timer_fn+0x5/0x480
+[  634.074013]  [<ffffffff816d6100>] ? neigh_lookup+0x2c0/0x2c0
+[  634.074013]  [<ffffffff8112c2bc>] run_timer_softirq+0x20c/0x430
+[  634.074013]  [<ffffffff810af50e>] __do_softirq+0xde/0x630
+[  634.074013]  [<ffffffff810afc97>] irq_exit+0x117/0x120
+[  634.074013]  [<ffffffff81810976>] smp_apic_timer_interrupt+0x46/0x60
+[  634.074013]  [<ffffffff8180e950>] apic_timer_interrupt+0x70/0x80
+[  634.074013]  <EOI>  [<ffffffff8106b9d6>] ? native_safe_halt+0x6/0x10
+[  634.074013]  [<ffffffff81101d8d>] ? trace_hardirqs_on+0xd/0x10
+[  634.074013]  [<ffffffff81027d43>] default_idle+0x23/0x200
+[  634.074013]  [<ffffffff8102852f>] arch_cpu_idle+0xf/0x20
+[  634.074013]  [<ffffffff810f89ba>] default_idle_call+0x2a/0x40
+[  634.074013]  [<ffffffff810f8dcc>] cpu_startup_entry+0x39c/0x4c0
+[  634.074013]  [<ffffffff817f9cad>] rest_init+0x13d/0x150
+[  634.074013]  [<ffffffff81f69038>] start_kernel+0x4a8/0x4c9
+[  634.074013]  [<ffffffff81f68120>] ?
+early_idt_handler_array+0x120/0x120
+[  634.074013]  [<ffffffff81f68339>] x86_64_start_reservations+0x2a/0x2c
+[  634.074013]  [<ffffffff81f68485>] x86_64_start_kernel+0x14a/0x16d
+
+It would seem vrf_master_ifindex_rcu() can be called without RCU held in
+other contexts as well so to be sure acquire rcu before dereferencing the
+vrf ptr.
+Also add curly braces around both the "if" and "else" parts as per the
+style guide.
+
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ include/net/vrf.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+index 40e3793c7a05..22dfe2195092 100644
+--- a/include/net/vrf.h
++++ b/include/net/vrf.h
+@@ -35,7 +35,6 @@ struct net_vrf {
+ 
+ 
+ #if IS_ENABLED(CONFIG_NET_VRF)
+-/* called with rcu_read_lock() */
+ static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
+ {
+ 	struct net_vrf_dev *vrf_ptr;
+@@ -44,12 +43,14 @@ static inline int vrf_master_ifindex_rcu(const struct net_device *dev)
+ 	if (!dev)
+ 		return 0;
+ 
+-	if (netif_is_vrf(dev))
++	if (netif_is_vrf(dev)) {
+ 		ifindex = dev->ifindex;
+-	else {
++	} else {
++		rcu_read_lock();
+ 		vrf_ptr = rcu_dereference(dev->vrf_ptr);
+ 		if (vrf_ptr)
+ 			ifindex = vrf_ptr->ifindex;
++		rcu_read_unlock();
+ 	}
+ 
+ 	return ifindex;
+-- 
+2.4.3
