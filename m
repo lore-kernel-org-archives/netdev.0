@@ -1,7 +1,7 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 20/21] net: warn if drivers set tx_queue_len = 0
-Date: Tue, 18 Aug 2015 10:30:48 +0200
-Message-ID: <1439886649-24166-21-git-send-email-phil@nwl.cc>
+Subject: [PATCH 14/21] net: hostap: convert to using IFF_NO_QUEUE
+Date: Tue, 18 Aug 2015 10:30:42 +0200
+Message-ID: <1439886649-24166-15-git-send-email-phil@nwl.cc>
 References: <1439886649-24166-1-git-send-email-phil@nwl.cc>
  <1439886649-24166-2-git-send-email-phil@nwl.cc>
  <1439886649-24166-3-git-send-email-phil@nwl.cc>
@@ -16,48 +16,44 @@ References: <1439886649-24166-1-git-send-email-phil@nwl.cc>
  <1439886649-24166-12-git-send-email-phil@nwl.cc>
  <1439886649-24166-13-git-send-email-phil@nwl.cc>
  <1439886649-24166-14-git-send-email-phil@nwl.cc>
- <1439886649-24166-15-git-send-email-phil@nwl.cc>
- <1439886649-24166-16-git-send-email-phil@nwl.cc>
- <1439886649-24166-17-git-send-email-phil@nwl.cc>
- <1439886649-24166-18-git-send-email-phil@nwl.cc>
- <1439886649-24166-19-git-send-email-phil@nwl.cc>
- <1439886649-24166-20-git-send-email-phil@nwl.cc>
-Cc: brouer@redhat.com, davem@davemloft.net
+Cc: brouer@redhat.com, davem@davemloft.net, Jouni Malinen <j@w1.fi>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:39580 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:39336 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752134AbbHRIa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752108AbbHRIa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Aug 2015 04:30:56 -0400
-In-Reply-To: <1439886649-24166-20-git-send-email-phil@nwl.cc>
+In-Reply-To: <1439886649-24166-14-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to the introduction of IFF_NO_QUEUE, there is a better way for
-drivers to indicate that no qdisc should be attached by default. Though,
-the old convention can't be dropped since ignoring that setting would
-break drivers still using it. Instead, add a warning so out-of-tree
-driver maintainers get a chance to adjust their code before we finally
-get rid of any special handling of tx_queue_len == 0.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
+Cc: Jouni Malinen <j@w1.fi>
 ---
- net/core/dev.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/wireless/hostap/hostap_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4870c35..b1f3f48 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6997,6 +6997,9 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 	dev->priv_flags = IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM;
- 	setup(dev);
+diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
+index 01de1a3..80d4228 100644
+--- a/drivers/net/wireless/hostap/hostap_main.c
++++ b/drivers/net/wireless/hostap/hostap_main.c
+@@ -865,7 +865,7 @@ void hostap_setup_dev(struct net_device *dev, local_info_t *local,
  
-+	if (!dev->tx_queue_len)
-+		printk(KERN_WARNING "%s uses DEPRECATED zero tx_queue_len - convert driver to use IFF_NO_QUEUE instead.\n", name);
-+
- 	dev->num_tx_queues = txqs;
- 	dev->real_num_tx_queues = txqs;
- 	if (netif_alloc_netdev_queues(dev))
+ 	switch(type) {
+ 	case HOSTAP_INTERFACE_AP:
+-		dev->tx_queue_len = 0;	/* use main radio device queue */
++		dev->priv_flags |= IFF_NO_QUEUE;	/* use main radio device queue */
+ 		dev->netdev_ops = &hostap_mgmt_netdev_ops;
+ 		dev->type = ARPHRD_IEEE80211;
+ 		dev->header_ops = &hostap_80211_ops;
+@@ -874,7 +874,7 @@ void hostap_setup_dev(struct net_device *dev, local_info_t *local,
+ 		dev->netdev_ops = &hostap_master_ops;
+ 		break;
+ 	default:
+-		dev->tx_queue_len = 0;	/* use main radio device queue */
++		dev->priv_flags |= IFF_NO_QUEUE;	/* use main radio device queue */
+ 		dev->netdev_ops = &hostap_netdev_ops;
+ 	}
+ 
 -- 
 2.1.2
