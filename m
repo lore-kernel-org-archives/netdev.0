@@ -1,44 +1,47 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: start t5 timer only when peer.rwnd == 0 and in SHUTDOWN_PENDING
-Date: Wed, 19 Aug 2015 12:39:06 +0800
-Message-ID: <b28d94a321679707da72c7a1d52fc49fbb3bcea3.1439959146.git.lucien.xin@gmail.com>
-Cc: mleitner@redhat.com, tgraf@infradead.org, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v1 0/6] Add fec1 and fec2 support for i.MX7d sdb board
+Date: Wed, 19 Aug 2015 13:33:58 +0800
+Message-ID: <1439962444-27486-1-git-send-email-b38611@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<b38611@freescale.com>
+To: <shawnguo@kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:33457 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750815AbbHSEjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 00:39:09 -0400
-Received: by pdrh1 with SMTP id h1so76853094pdr.0
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 21:39:09 -0700 (PDT)
+Received: from mail-by2on0129.outbound.protection.outlook.com ([207.46.100.129]:57062
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751023AbbHSFei (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 01:34:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-when A send a data to B, A close() to be in SHUTDOWN_PENDING state,
-but B neither claim his rwnd is 0 nor SACK this data, then A keep
-retransmiting this data. it should send abord after Max.Retrans
-times, only when peer.rwnd == 0 and more than Max.Retrans times, it
-will start t5 timer.
+The patch series is to add fec support for i.MX7d sdb board. Since i.MX7d fec ip is
+the same as i.MX6SX, so there have no change for driver itself.
 
-Fixes: f8d960524 ("sctp: Enforce retransmission limit during shutdown")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/sm_statefuns.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Patch#1: add bcm54220 PHY ID entry into brcmphy.h file.
+Patch#2: add new iomux-gpr file to define iomux-gpr register and field for i.MX7d.
+Patch#3: i.MX7d sdb board install bcm54220 phy, i.MX7d arm2 board install AR8031 phy.
+	 For the two phys, there needs extra phy setting, so package the setting to fixup.
+Patch#4~6: Add fec dts node and pinmux setting in dts file.
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 3ee27b7..7d9380c 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -5412,7 +5412,8 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(struct net *net,
- 	SCTP_INC_STATS(net, SCTP_MIB_T3_RTX_EXPIREDS);
- 
- 	if (asoc->overall_error_count >= asoc->max_retrans) {
--		if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
-+		if (!q->asoc->peer.rwnd &&
-+			asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
- 			/*
- 			 * We are here likely because the receiver had its rwnd
- 			 * closed for a while and we have not been able to
+
+Fugang Duan (6):
+  net: phy: broadcom: add bcm54220 phy ID
+  ARM: imx7d: add imx7d iomux-gpr field define
+  ARM: imx: add enet init for i.MX7D platform
+  ARM: dts: imx: pinfunc: add GPIO1 pin define for i.MX7d
+  ARM: dts: imx7d: add fec1 and fec2 support for i.MX7d soc
+  ARM: dts: imx7d-sdb: add fec1 and fec2 support
+
+ arch/arm/boot/dts/imx7d-pinfunc.h          | 115 +++++++++++++++++++++++++++++
+ arch/arm/boot/dts/imx7d-sdb.dts            |  76 ++++++++++++++++++-
+ arch/arm/boot/dts/imx7d.dtsi               |  36 +++++++++
+ arch/arm/mach-imx/mach-imx7d.c             |  75 ++++++++++++++++++-
+ include/linux/brcmphy.h                    |   1 +
+ include/linux/mfd/syscon/imx7-iomuxc-gpr.h |  49 ++++++++++++
+ 6 files changed, 349 insertions(+), 3 deletions(-)
+ create mode 100644 include/linux/mfd/syscon/imx7-iomuxc-gpr.h
+
 -- 
-2.1.0
+1.9.1
