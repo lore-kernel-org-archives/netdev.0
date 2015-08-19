@@ -1,94 +1,85 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH] r8169: Add values missing in @get_stats64 from HW
- counters
-Date: Wed, 19 Aug 2015 16:24:16 +0200
-Message-ID: <20150819142416.GA26271@calimero.vinschen.de>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
- <20150818214017.GA14914@electric-eye.fr.zoreil.com>
- <0835B3720019904CB8F7AA43166CEEB2F4B846@RTITMBSV03.realtek.com.tw>
- <20150819091318.GV17917@calimero.vinschen.de>
- <0835B3720019904CB8F7AA43166CEEB2F4BF49@RTITMBSV03.realtek.com.tw>
- <20150819130744.GA24832@calimero.vinschen.de>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 3/3] iwlwifi: mvm: transfer the truesize to the last
+ TSO segment
+Date: Wed, 19 Aug 2015 07:24:26 -0700
+Message-ID: <1439994266.6610.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="opJtzjQTFsWo+cga"
-To: Hayes Wang <hayeswang@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>, Ivan Vecera <ivecera@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:58459 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753926AbbHSOYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 10:24:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20150819130744.GA24832@calimero.vinschen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1439989181-4444-4-git-send-email-emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+On Wed, 2015-08-19 at 15:59 +0300, Emmanuel Grumbach wrote:
+> This allows to release the backpressure on the socket only
+> when the last segment is released.
+> Now the truesize looks like this:
+> if the truesize of the original skb is 65420, all the
+> segments will have a truesize of 704 (skb itself) and the
+> last one will have 65420.
+> 
+> Change-Id: I3c894cf2afc0aedfe7b2a5b992ba41653ff79c0e
+> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/wireless/iwlwifi/mvm/tx.c | 17 ++++++++++++++++-
+>  1 file changed, 16 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/iwlwifi/mvm/tx.c b/drivers/net/wireless/iwlwifi/mvm/tx.c
+> index 5046833..046e50d 100644
+> --- a/drivers/net/wireless/iwlwifi/mvm/tx.c
+> +++ b/drivers/net/wireless/iwlwifi/mvm/tx.c
+> @@ -764,7 +764,7 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
+>  	bool ipv6 = skb_shinfo(skb_gso)->gso_type & SKB_GSO_TCPV6;
+>  	struct iwl_lso_splitter s = {};
+>  	struct page *hdr_page;
+> -	unsigned int mpdu_sz;
+> +	unsigned int mpdu_sz, sum_truesize = 0;
+>  	u8 *hdr_page_pos, *qc, tid;
+>  	int i, ret;
+>  
+> @@ -898,6 +898,7 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
+>  						mpdu_sz, tcp_hdrlen(skb_gso));
+>  
+>  	__skb_queue_tail(mpdus_skb, skb_gso);
+> +	sum_truesize += skb_gso->truesize;
+>  
+>  	/* mss bytes have been consumed from the data */
+>  	s.gso_payload_pos = s.mss;
+> @@ -1034,6 +1035,20 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
+>  		}
+>  
+>  		__skb_queue_tail(mpdus_skb, skb);
+> +		sum_truesize += skb->truesize;
+> +	}
+> +
+> +	/* Release the backpressure on the socket only when
+> +	 * the last segment is released.
+> +	 */
+> +	if (skb_gso->destructor == sock_wfree) {
+> +		struct sk_buff *tail = mpdus_skb->prev;
+> +
+> +		swap(tail->truesize, skb_gso->truesize);
+> +		swap(tail->destructor, skb_gso->destructor);
+> +		swap(tail->sk, skb_gso->sk);
+> +                atomic_add(sum_truesize - skb_gso->truesize,
+> +                           &skb_gso->sk->sk_wmem_alloc);
+>  	}
+>  
+>  	ret = 0;
+
+Using existing net/core/tso.c helpers would avoid using this.
+
+(BTW TCP packets do not have sock_wfree as destructor but tcp_wfree(),
+yet we want backpressure mostly for TCP stack (TCP Small Queues))
 
 
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Aug 19 15:07, Corinna Vinschen wrote:
-> On Aug 19 09:31, Hayes Wang wrote:
-> > Corinna Vinschen [mailto:vinschen@redhat.com]
-> > > Sent: Wednesday, August 19, 2015 5:13 PM
-> > [...]
-> > > > It could be cleared by setting bit 0, such as rtl_tally_reset() of =
-r8152.
-> > >=20
-> > > Is it safe to assume that this is implemented in all NICs covered by =
-r8169?=20
-> >=20
-> > It is supported from RTL8111C. That is, RTL_GIGA_MAC_VER_19 and later.
->=20
-> Thanks.  In that case I would prefer the same generic method for all
-> chip versions, so I'd opt for storing the offset values at rtl_open
-> time as my patch is doing right now.  Is that acceptable?
->=20
-> If so, wouldn't it make even more sense to use the hardware collected
-> information in @get_stats64 throughout, except for the numbers collected
-> *only* in software? =20
->=20
-> I would be willing to propose a matching patch.
-
-It just occured to me that the combination of resetting the counters on
-post-RTL_GIGA_MAC_VER_19 chips plus offset handling would be quite
-nice, because it would reset also the small 16 and 32 bit counters.
-
-So I'd like to propose a patch which combines both techniques, if that's
-an acceptable way to go forward.
-
-Btw., does setting the reset bit in CounterAddrLow work the same way as
-setting the CounterDump flag?  I.e, does the driver have to wait for the
-hardware to set the bit to 0 again to be sure the reset is finished?
-
-
-Thanks in advance,
-Corinna
-
---opJtzjQTFsWo+cga
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJV1JGQAAoJEPU2Bp2uRE+gxrsP/iPOzdSvwRuRjShjWJNO2qbJ
-yS+ftyNjGNeNiRt1GF7n4/fGJtWqo0qASXJFcjTg0j7l9WLlkXfrw3tq2BFXjoC8
-nMp4nNH0meMjcOqM/ibIGVgo5jG+pWQ+Xtj/kV12vQRUIz8veyDfIk8CvDj4LPsu
-+oQ0zqORrZlwedW1J8/BYQTaaxNrfNilq/dyGGrbVummKe/t7S71iGn8hbgL/Gsa
-bghZK7qA/SSHU919cNBtKOkJ3LbeAmBylHMDPrFArFoPf/DhSN3LaZ/MPVDltBZA
-khkSR0C8V7CAQC2Yn0RaiN5tHluz0HRS2CDOFQ9O5nsiZlnSMk6Vbt9CQlJs2hpP
-Da068Kin50myVuiUsDpQtGVUG0H81AQKHiKf0L/dPVzyA1zkMERru9aYoUfKYtbp
-j/xKSYkFbwDHCEVhZhV52AD/2ltmm9bUJaPuTZ1VPkWZgMXiY6kAKPs/it72yqED
-IyLqdBPGqfdRVDmwk/elr/SIG6CQrrLmL+FYLFVgwVW6BrM2HBgmCCZbXw6aGeE4
-hsvStyBhRogbkRKC4UuqU6rqPLhWRLFCQuvtBV+UbMyczIH06JI4/pqTtqGRiwqX
-0cVOg2g0sAhamI1feWiaxLHQ3iqCmUBruv8OfGRK7YI9bLDeOYELOeR0DPmaObS2
-gGjntDPS17pfvQsJC48u
-=YNfq
------END PGP SIGNATURE-----
-
---opJtzjQTFsWo+cga--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
