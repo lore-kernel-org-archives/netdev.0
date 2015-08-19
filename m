@@ -1,71 +1,100 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 7/9] geneve: Consolidate Geneve functionality
- in single module.
-Date: Wed, 19 Aug 2015 13:14:34 -0700
-Message-ID: <CALnjE+qQiYozh6epodtHs1pk=1gq=68wdm71Jzv7pWqTDV9bow@mail.gmail.com>
-References: <1439845905-31666-1-git-send-email-pshelar@nicira.com>
-	<1439845905-31666-8-git-send-email-pshelar@nicira.com>
-	<CAEP_g=_4FHejf_qfXbXzO3kyx1WJ2ssOY9OMF=vySFNu-CPOqA@mail.gmail.com>
-	<CALnjE+ojRD_QKY3A9EomCg6yZ2BR+jiSFjndzN+U+8aBP2b7GQ@mail.gmail.com>
-	<CAEP_g=8Wq1jmrWT6a9K55JJsMNxw+Rw0h2zDby_HR6b12LJ5+w@mail.gmail.com>
-	<CALnjE+rmdPOAFo876pZr-vtr=YmGZopSNPC02Qb3J0Wx3GBz1w@mail.gmail.com>
-	<CAEP_g=9U_DtUrHpbASu+RJ5kZQmjXsysBX5DQWVMrj69KcnHYw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] vrf: plug skb leaks
+Date: Wed, 19 Aug 2015 23:17:27 +0300
+Message-ID: <B23BDD39-42FF-49D6-8515-680F9D5F3970@cumulusnetworks.com>
+References: <1439953949-23736-1-git-send-email-razor@blackwall.org> <55D4B935.5090400@cumulusnetworks.com> <CABQ03vHefGG1yM6CPM2Xosa_MgxfgO0YK9EeqmHAQLZUWsh8Uw@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shm@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:32973 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbbHSUOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 16:14:35 -0400
-Received: by iods203 with SMTP id s203so22670741iod.0
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 13:14:34 -0700 (PDT)
-In-Reply-To: <CAEP_g=9U_DtUrHpbASu+RJ5kZQmjXsysBX5DQWVMrj69KcnHYw@mail.gmail.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:34484 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751887AbbHSURa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 16:17:30 -0400
+Received: by wicne3 with SMTP id ne3so136198748wic.1
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 13:17:29 -0700 (PDT)
+In-Reply-To: <CABQ03vHefGG1yM6CPM2Xosa_MgxfgO0YK9EeqmHAQLZUWsh8Uw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 12:50 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Aug 19, 2015 at 11:49 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Wed, Aug 19, 2015 at 11:37 AM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Wed, Aug 19, 2015 at 11:29 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>> On Wed, Aug 19, 2015 at 11:18 AM, Jesse Gross <jesse@nicira.com> wrote:
->>>>> My guess is that if the issue from the earlier patch about overlapping
->>>>> collect_md tunnels is fixed then that might allow us to simplify
->>>>> things a little further, since for those tunnels we can assume there
->>>>> is a 1:1 mapping between collect_md tunnels and sockets.
->>>>
->>>> I dont see how it would be different. Can you elaborate on this ?
->>>
->>> Mostly just conceptually simpler. Right now it looks like we are doing
->>> some kind of refcounting between devices and tunnels in
->>> geneve_open/stop (I know it's not really but it appears like that in
->>> some ways.) We could just directly assign collect_md in geneve_open()
->>> and do nothing at all in geneve_stop().
->>
->> If you look at next patch, I have changed geneve_open and stop
->> further. The change is geneve_open adds tunnel to hash table so that
->> only device which are open are in hash table. Since geneve_open and
->> stop is common for both type of tunnel I do not think there can be any
->> changes even after avoiding overlapping tunnel types in given socket.
->
-> I guess I'm not sure why with the later changes it would be
-> incompatible. All I'm talking about is something pretty small:
->
-> geneve_open:
->         if (geneve->collect_md)
->                 gs->collect_md = true;
-> to
->                 gs->collect_md = geneve->collect_md;
->
-> geneve_close:
-> remove
->         if (geneve->collect_md)
->                 gs->collect_md = false;
-> since the socket is about to be freed anyways.
->
-> It's not very different in practice but it looks less like refcounting
-> and more like a 1:1 mapping.
 
-ok, I thought you were talking about socket refcounting. I will make
-the changes.
+> On Aug 19, 2015, at 8:27 PM, Nikolay Aleksandrov <nikolay@cumulusnetw=
+orks.com> wrote:
+>=20
+>=20
+> On Aug 19, 2015 20:13, "David Ahern" <dsa@cumulusnetworks.com> wrote:
+> >
+> > Hi Nikolay:
+> >
+> >
+> > On 8/18/15 8:12 PM, Nikolay Aleksandrov wrote:
+> >>
+> >> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+> >> index ed208317cbb5..4aa06450fafa 100644
+> >> --- a/drivers/net/vrf.c
+> >> +++ b/drivers/net/vrf.c
+> >> @@ -97,6 +97,12 @@ static bool is_ip_rx_frame(struct sk_buff *skb)
+> >>         return false;
+> >>   }
+> >>
+> >> +static void vrf_tx_error(struct net_device *vrf_dev, struct sk_bu=
+ff *skb)
+> >> +{
+> >> +       vrf_dev->stats.tx_errors++;
+> >> +       kfree_skb(skb);
+> >> +}
+> >> +
+> >>   /* note: already called with rcu_read_lock */
+> >>   static rx_handler_result_t vrf_handle_frame(struct sk_buff **psk=
+b)
+> >>   {
+> >> @@ -149,7 +155,8 @@ static struct rtnl_link_stats64 *vrf_get_stats=
+64(struct net_device *dev,
+> >>   static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
+> >>                                            struct net_device *dev)
+> >>   {
+> >> -       return 0;
+> >> +       vrf_tx_error(dev, skb);
+> >> +       return NET_XMIT_DROP;
+> >>   }
+> >>
+> >>   static int vrf_send_v4_prep(struct sk_buff *skb, struct flowi4 *=
+fl4,
+> >> @@ -206,8 +213,7 @@ static netdev_tx_t vrf_process_v4_outbound(str=
+uct sk_buff *skb,
+> >>   out:
+> >>         return ret;
+> >>   err:
+> >> -       vrf_dev->stats.tx_errors++;
+> >> -       kfree_skb(skb);
+> >> +       vrf_tx_error(vrf_dev, skb);
+> >>         goto out;
+> >>   }
+> >>
+> >> @@ -219,6 +225,7 @@ static netdev_tx_t is_ip_tx_frame(struct sk_bu=
+ff *skb, struct net_device *dev)
+> >>         case htons(ETH_P_IPV6):
+> >>                 return vrf_process_v6_outbound(skb, dev);
+> >>         default:
+> >> +               vrf_tx_error(dev, skb);
+> >>                 return NET_XMIT_DROP;
+> >>         }
+> >>   }
+> >>
+> >
+> > Would be simpler to do the vrf_tx_error at the end of is_ip_tx_fram=
+e() if ret =3D=3D NET_XMIT_DROP.
+> >
+> > David
+> >
+>=20
+> Sure, that will work too.
+>=20
+
+Actually no, this will not work because ip_local_out() can return NET_X=
+MIT_DROP and the packet
+can already be dropped. I=E2=80=99d prefer to keep these cases separate=
+ and explicit as they are in my patch.
