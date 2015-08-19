@@ -1,33 +1,35 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next 04/13] ip_tunnels: add IPv6 addresses to
- ip_tunnel_key
-Date: Wed, 19 Aug 2015 11:55:00 -0700
-Message-ID: <20150819185459.GA1634@Alexeis-MacBook-Pro-3.local>
-References: <cover.1439978875.git.jbenc@redhat.com>
- <18de52560d526d1a92cc042eb74f9dc7892c50ae.1439978875.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Jiri Benc <jbenc@redhat.com>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: [RFC/PATCH] xgene mac/phy cleanup
+Date: Wed, 19 Aug 2015 13:56:41 -0500
+Message-ID: <1440010602-5860-1-git-send-email-jeremy.linton@arm.com>
+Content-Type: text/plain; charset=WINDOWS-1252
+Content-Transfer-Encoding: quoted-printable
+Cc: stripathi@apm.com, kchudgar@apm.com,
+	brian.brooks.arm@vger.kernel.org, netdev@vger.kernel.org,
+	jeremy.linton@arm.com
+To: isubramanian@apm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35698 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926AbbHSSzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 14:55:03 -0400
-Received: by pacdd16 with SMTP id dd16so511287pac.2
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 11:55:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <18de52560d526d1a92cc042eb74f9dc7892c50ae.1439978875.git.jbenc@redhat.com>
+Received: from eu-smtp-delivery-143.mimecast.com ([146.101.78.143]:34544 "EHLO
+	eu-smtp-delivery-143.mimecast.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750867AbbHSS4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 14:56:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 12:09:54PM +0200, Jiri Benc wrote:
-> Add the IPv6 addresses as an union with IPv4 ones. When using IPv4, the
-> newly introduced padding after the IPv4 addresses needs to be zeroed out.
-> 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> v1->v2: Fix incorrect IP_TUNNEL_KEY_IPV4_PAD_LEN calculation, thanks to
-> Alexei.
+This patch converts the xgene driver to use some common ACPI/DT agnostic
+functions for retrieving MAC and PHY settings. I don't have a way to test
+them at the moment, so if someone can verify they work that would be great.
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+BTW: These patches are against net-next.
+
+Thanks,
+
+Jeremy Linton (1):
+  net: xgene Remove xgene specific phy and MAC lookup functions
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 38 ++------------------=
+----
+ 1 file changed, 2 insertions(+), 36 deletions(-)
+
+--=20
+2.4.3
