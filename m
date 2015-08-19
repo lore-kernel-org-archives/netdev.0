@@ -1,72 +1,164 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC v2 3/3] iwlwifi: mvm: transfer the truesize to the last TSO
- segment
-Date: Wed, 19 Aug 2015 22:10:13 +0300
-Message-ID: <55D4D495.9070705@cogentembedded.com>
-References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
- <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ido@wizery.com, netdev@vger.kernel.org
-To: Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	linux-wireless@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 01/15] netfilter: nft_counter: convert it to use per-cpu counters
+Date: Wed, 19 Aug 2015 21:18:17 +0200
+Message-ID: <1440011911-4359-2-git-send-email-pablo@netfilter.org>
+References: <1440011911-4359-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:35906 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751119AbbHSTKS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:10:18 -0400
-Received: by lagz9 with SMTP id z9so9093088lag.3
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:10:16 -0700 (PDT)
-In-Reply-To: <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
+Received: from mail.us.es ([193.147.175.20]:44876 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751634AbbHSTMc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 15:12:32 -0400
+In-Reply-To: <1440011911-4359-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This patch converts the existing seqlock to per-cpu counters.
 
-On 08/19/2015 03:59 PM, Emmanuel Grumbach wrote:
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Suggested-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nft_counter.c |   97 ++++++++++++++++++++++++++++++-------------
+ 1 file changed, 69 insertions(+), 28 deletions(-)
 
-> This allows to release the backpressure on the socket only
-> when the last segment is released.
-> Now the truesize looks like this:
-> if the truesize of the original skb is 65420, all the
-> segments will have a truesize of 704 (skb itself) and the
-> last one will have 65420.
->
-> Change-Id: I3c894cf2afc0aedfe7b2a5b992ba41653ff79c0e
-> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-> ---
->   drivers/net/wireless/iwlwifi/mvm/tx.c | 17 ++++++++++++++++-
->   1 file changed, 16 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/iwlwifi/mvm/tx.c b/drivers/net/wireless/iwlwifi/mvm/tx.c
-> index 5046833..046e50d 100644
-> --- a/drivers/net/wireless/iwlwifi/mvm/tx.c
-> +++ b/drivers/net/wireless/iwlwifi/mvm/tx.c
-[...]
-> @@ -1034,6 +1035,20 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
->   		}
->
->   		__skb_queue_tail(mpdus_skb, skb);
-> +		sum_truesize += skb->truesize;
-> +	}
-> +
-> +	/* Release the backpressure on the socket only when
-> +	 * the last segment is released.
-> +	 */
-> +	if (skb_gso->destructor == sock_wfree) {
-> +		struct sk_buff *tail = mpdus_skb->prev;
-> +
-> +		swap(tail->truesize, skb_gso->truesize);
-> +		swap(tail->destructor, skb_gso->destructor);
-> +		swap(tail->sk, skb_gso->sk);
-> +                atomic_add(sum_truesize - skb_gso->truesize,
-
-    Please indent using tabs, not spaces.
-
-> +                           &skb_gso->sk->sk_wmem_alloc);
->   	}
->
->   	ret = 0;
-
-MBR, Sergei
+diff --git a/net/netfilter/nft_counter.c b/net/netfilter/nft_counter.c
+index 1759123..1067fb4 100644
+--- a/net/netfilter/nft_counter.c
++++ b/net/netfilter/nft_counter.c
+@@ -18,39 +18,59 @@
+ #include <net/netfilter/nf_tables.h>
+ 
+ struct nft_counter {
+-	seqlock_t	lock;
+ 	u64		bytes;
+ 	u64		packets;
+ };
+ 
++struct nft_counter_percpu {
++	struct nft_counter	counter;
++	struct u64_stats_sync	syncp;
++};
++
++struct nft_counter_percpu_priv {
++	struct nft_counter_percpu __percpu *counter;
++};
++
+ static void nft_counter_eval(const struct nft_expr *expr,
+ 			     struct nft_regs *regs,
+ 			     const struct nft_pktinfo *pkt)
+ {
+-	struct nft_counter *priv = nft_expr_priv(expr);
+-
+-	write_seqlock_bh(&priv->lock);
+-	priv->bytes += pkt->skb->len;
+-	priv->packets++;
+-	write_sequnlock_bh(&priv->lock);
++	struct nft_counter_percpu_priv *priv = nft_expr_priv(expr);
++	struct nft_counter_percpu *this_cpu;
++
++	local_bh_disable();
++	this_cpu = this_cpu_ptr(priv->counter);
++	u64_stats_update_begin(&this_cpu->syncp);
++	this_cpu->counter.bytes += pkt->skb->len;
++	this_cpu->counter.packets++;
++	u64_stats_update_end(&this_cpu->syncp);
++	local_bh_enable();
+ }
+ 
+ static int nft_counter_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ {
+-	struct nft_counter *priv = nft_expr_priv(expr);
++	struct nft_counter_percpu_priv *priv = nft_expr_priv(expr);
++	struct nft_counter_percpu *cpu_stats;
++	struct nft_counter total;
++	u64 bytes, packets;
+ 	unsigned int seq;
+-	u64 bytes;
+-	u64 packets;
+-
+-	do {
+-		seq = read_seqbegin(&priv->lock);
+-		bytes	= priv->bytes;
+-		packets	= priv->packets;
+-	} while (read_seqretry(&priv->lock, seq));
+-
+-	if (nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(bytes)))
+-		goto nla_put_failure;
+-	if (nla_put_be64(skb, NFTA_COUNTER_PACKETS, cpu_to_be64(packets)))
++	int cpu;
++
++	memset(&total, 0, sizeof(total));
++	for_each_possible_cpu(cpu) {
++		cpu_stats = per_cpu_ptr(priv->counter, cpu);
++		do {
++			seq	= u64_stats_fetch_begin_irq(&cpu_stats->syncp);
++			bytes	= cpu_stats->counter.bytes;
++			packets	= cpu_stats->counter.packets;
++		} while (u64_stats_fetch_retry_irq(&cpu_stats->syncp, seq));
++
++		total.packets += packets;
++		total.bytes += bytes;
++	}
++
++	if (nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes)) ||
++	    nla_put_be64(skb, NFTA_COUNTER_PACKETS, cpu_to_be64(total.packets)))
+ 		goto nla_put_failure;
+ 	return 0;
+ 
+@@ -67,23 +87,44 @@ static int nft_counter_init(const struct nft_ctx *ctx,
+ 			    const struct nft_expr *expr,
+ 			    const struct nlattr * const tb[])
+ {
+-	struct nft_counter *priv = nft_expr_priv(expr);
++	struct nft_counter_percpu_priv *priv = nft_expr_priv(expr);
++	struct nft_counter_percpu __percpu *cpu_stats;
++	struct nft_counter_percpu *this_cpu;
++
++	cpu_stats = netdev_alloc_pcpu_stats(struct nft_counter_percpu);
++	if (cpu_stats == NULL)
++		return ENOMEM;
++
++	preempt_disable();
++	this_cpu = this_cpu_ptr(cpu_stats);
++	if (tb[NFTA_COUNTER_PACKETS]) {
++	        this_cpu->counter.packets =
++			be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_PACKETS]));
++	}
++	if (tb[NFTA_COUNTER_BYTES]) {
++		this_cpu->counter.bytes =
++			be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_BYTES]));
++	}
++	preempt_enable();
++	priv->counter = cpu_stats;
++	return 0;
++}
+ 
+-	if (tb[NFTA_COUNTER_PACKETS])
+-	        priv->packets = be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_PACKETS]));
+-	if (tb[NFTA_COUNTER_BYTES])
+-		priv->bytes = be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_BYTES]));
++static void nft_counter_destroy(const struct nft_ctx *ctx,
++				const struct nft_expr *expr)
++{
++	struct nft_counter_percpu_priv *priv = nft_expr_priv(expr);
+ 
+-	seqlock_init(&priv->lock);
+-	return 0;
++	free_percpu(priv->counter);
+ }
+ 
+ static struct nft_expr_type nft_counter_type;
+ static const struct nft_expr_ops nft_counter_ops = {
+ 	.type		= &nft_counter_type,
+-	.size		= NFT_EXPR_SIZE(sizeof(struct nft_counter)),
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_counter_percpu_priv)),
+ 	.eval		= nft_counter_eval,
+ 	.init		= nft_counter_init,
++	.destroy	= nft_counter_destroy,
+ 	.dump		= nft_counter_dump,
+ };
+ 
+-- 
+1.7.10.4
