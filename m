@@ -1,128 +1,86 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/4] virtio_net: use DECLARE_EWMA
-Date: Wed, 19 Aug 2015 09:48:40 +0200
-Message-ID: <1439970520.2089.1.camel@sipsolutions.net>
-References: <1439970382-6170-1-git-send-email-johannes@sipsolutions.net>
-	 <1439970382-6170-2-git-send-email-johannes@sipsolutions.net>
-	 (sfid-20150819_094648_500906_0B582087)
+From: Eugene Shatokhin <eugene.shatokhin-irhHPgl+04UvJsYlp49lxw@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
+Date: Wed, 19 Aug 2015 10:57:09 +0300
+Message-ID: <55D436D5.6010105@rosalab.ru>
+References: <55CE1D7E.2070400@rosalab.ru>
+ <1439571516-11862-1-git-send-email-eugene.shatokhin@rosalab.ru>
+ <20150818.185407.1667358232705414236.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:56391 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752813AbbHSHsp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 03:48:45 -0400
-In-Reply-To: <1439970382-6170-2-git-send-email-johannes@sipsolutions.net> (sfid-20150819_094648_500906_0B582087)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: oneukum-IBi9RG/b67k@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150818.185407.1667358232705414236.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sorry, forgot to Cc Michael and the virt list - patch reproduced below
-in full.
+19.08.2015 04:54, David Miller =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> From: Eugene Shatokhin <eugene.shatokhin-irhHPgl+04UvJsYlp49lxw@public.gmane.org>
+> Date: Fri, 14 Aug 2015 19:58:36 +0300
+>
+>> 2. The second race is on dev->flags.
+>>
+>> dev->flags is set to 0 here:
+>> *0  usbnet_stop (usbnet.c:816)
+>>      /* deferred work (task, timer, softirq) must also stop.
+>>       * can't flush_scheduled_work() until we drop rtnl (later),
+>>       * else workers could deadlock; so make workers a NOP.
+>>       */
+>>      dev->flags =3D 0;
+>>      del_timer_sync (&dev->delay);
+>>      tasklet_kill (&dev->bh);
+>>
+>> And here, the code clears EVENT_RX_KILL bit in dev->flags, which may
+>> execute concurrently with the above operation:
+>> *0 clear_bit (bitops.h:113, inlined)
+>> *1 usbnet_bh (usbnet.c:1475)
+>>      /* restart RX again after disabling due to high error rate */
+>>      clear_bit(EVENT_RX_KILL, &dev->flags);
+>>
+>> It seems, setting dev->flags to 0 is not necessarily atomic w.r.t.
+>> clear_bit() and other bit operations with dev->flags. It is safer to
+>> make it atomic and this way, make the race harmless.
+>>
+>> While at it, the checking of EVENT_NO_RUNTIME_PM bit of dev->flags i=
+n
+>> usbnet_stop() was fixed too: the bit should be checked before dev->f=
+lags
+>> is cleared.
+>
+> The fix for this is excessive.
+>
+> Instead of all of this madness, looping over expensive clear_bit()
+> atomics, just do whatever it takes to make sure that usbnet_bh() is
+> quiesced and cannot execute any more.  Then you can safely clear
+> dev->flags normally.
+>
 
-johannes
+If I understand it correctly, it is to make sure usbnet_bh() is not=20
+scheduled again that dev->flags should be set to 0 first, one way or=20
+another. That is what this madness is for.
 
->From 22500fbcf722748fe3471b2e4c6156db47aade15 Mon Sep 17 00:00:00 2001
-From: Johannes Berg <johannes.berg@intel.com>
-Date: Wed, 19 Aug 2015 09:25:18 +0200
-Subject: [PATCH] virtio_net: use DECLARE_EWMA
+tasklet_kill() will wait then for the already running instance of=20
+usbnet_bh() (if one is running). After that, it is guaranteed BH is not=
+=20
+running and will not be re-scheduled.
 
-Instead of using the out-of-line EWMA calculation, use DECLARE_EWMA()
-to create static inlines. On x86/64 this results in no change in code
-size for me, but reduces the struct receive_queue size by the two
-unsigned long values that store the parameters.
+As for the performance concerns, I doubt that usbnet_stop() is anywhere=
+=20
+on the critical path. I have been testing this patch for some time and=20
+haven't seen any new performance issues with it yet.
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- drivers/net/Kconfig      |  1 -
- drivers/net/virtio_net.c | 22 +++++++++++-----------
- 2 files changed, 11 insertions(+), 12 deletions(-)
+If needed, it is possible to measure and compare the time needed for=20
+usbnet_stop() before and after this patch and try to estimate the impac=
+t=20
+of this on the overall performance.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index e58468b02987..f50373645ab4 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -282,7 +282,6 @@ config VETH
- config VIRTIO_NET
- 	tristate "Virtio network driver"
- 	depends on VIRTIO
--	select AVERAGE
- 	---help---
- 	  This is the virtual network driver for virtio.  It can be used with
- 	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 546b669fbfdd..9b950f2db836 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -40,12 +40,12 @@ module_param(gso, bool, 0444);
- #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
- #define GOOD_COPY_LEN	128
- 
--/* Weight used for the RX packet size EWMA. The average packet size is used to
-- * determine the packet buffer size when refilling RX rings. As the entire RX
-- * ring may be refilled at once, the weight is chosen so that the EWMA will be
-- * insensitive to short-term, transient changes in packet size.
-+/* RX packet size EWMA. The average packet size is used to determine the packet
-+ * buffer size when refilling RX rings. As the entire RX ring may be refilled
-+ * at once, the weight is chosen so that the EWMA will be insensitive to short-
-+ * term, transient changes in packet size.
-  */
--#define RECEIVE_AVG_WEIGHT 64
-+DECLARE_EWMA(pkt_len, 1, 64)
- 
- /* Minimum alignment for mergeable packet buffers. */
- #define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, 256)
-@@ -85,7 +85,7 @@ struct receive_queue {
- 	struct page *pages;
- 
- 	/* Average packet length for mergeable receive buffers. */
--	struct ewma mrg_avg_pkt_len;
-+	struct ewma_pkt_len mrg_avg_pkt_len;
- 
- 	/* Page frag for packet buffer allocation. */
- 	struct page_frag alloc_frag;
-@@ -407,7 +407,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		}
- 	}
- 
--	ewma_add(&rq->mrg_avg_pkt_len, head_skb->len);
-+	ewma_pkt_len_add(&rq->mrg_avg_pkt_len, head_skb->len);
- 	return head_skb;
- 
- err_skb:
-@@ -600,12 +600,12 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
- 	return err;
- }
- 
--static unsigned int get_mergeable_buf_len(struct ewma *avg_pkt_len)
-+static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
- {
- 	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
- 	unsigned int len;
- 
--	len = hdr_len + clamp_t(unsigned int, ewma_read(avg_pkt_len),
-+	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
- 			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
- 	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
- }
-@@ -1615,7 +1615,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 		napi_hash_add(&vi->rq[i].napi);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
--		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
-+		ewma_pkt_len_init(&vi->rq[i].mrg_avg_pkt_len);
- 		sg_init_table(vi->sq[i].sg, ARRAY_SIZE(vi->sq[i].sg));
- 	}
- 
-@@ -1658,7 +1658,7 @@ static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
- {
- 	struct virtnet_info *vi = netdev_priv(queue->dev);
- 	unsigned int queue_index = get_netdev_rx_queue_index(queue);
--	struct ewma *avg;
-+	struct ewma_pkt_len *avg;
- 
- 	BUG_ON(queue_index >= vi->max_queue_pairs);
- 	avg = &vi->rq[queue_index].mrg_avg_pkt_len;
+Regards,
+Eugene
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
