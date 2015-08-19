@@ -1,27 +1,50 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH] r8169: Add values missing in @get_stats64 from HW counters
-Date: Wed, 19 Aug 2015 02:51:43 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2F4B846@RTITMBSV03.realtek.com.tw>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
- <20150818214017.GA14914@electric-eye.fr.zoreil.com>
+From: Andrew Schwartzmeyer <andschwa@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Fix dereference of nvdev before check
+Date: Tue, 18 Aug 2015 20:06:32 -0700
+Message-ID: <1439953592-8210-1-git-send-email-andschwa@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>, Ivan Vecera <ivecera@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Corinna Vinschen <vinschen@redhat.com>
+Content-Type: text/plain
+Cc: <haiyangz@microsoft.com>, <andschwa@microsoft.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:39385 "EHLO
-	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751336AbbHSCv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 22:51:57 -0400
-In-Reply-To: <20150818214017.GA14914@electric-eye.fr.zoreil.com>
-Content-Language: zh-TW
+Received: from mail-bl2on0119.outbound.protection.outlook.com ([65.55.169.119]:41517
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751797AbbHSDGl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2015 23:06:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wy4uLl0NCj4gPiBUaGUgVENzIGFyZSBvbmx5IHJlc2V0IGJ5IGEgcG93ZXIgY3ljbGUgYW5kIHRo
-ZXJlJ3Mgbm8ga25vd24gd2F5DQo+ID4gdG8gcmVzZXQgdGhlbSBwcm9ncmFtYXRpY2FsbHkuDQoN
-Ckl0IGNvdWxkIGJlIGNsZWFyZWQgYnkgc2V0dGluZyBiaXQgMCwgc3VjaCBhcyBydGxfdGFsbHlf
-cmVzZXQoKSBvZiByODE1Mi4NCg0KQmVzdCBSZWdhcmRzLA0KSGF5ZXMNCg0K
+Passes static analysis by Smatch.
+
+Signed-off-by: Andrew Schwartzmeyer <andschwa@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index f3b9d3eb753b..2990024b90f9 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -777,14 +777,17 @@ static int netvsc_set_channels(struct net_device *net,
+ 	struct hv_device *dev = net_device_ctx->device_ctx;
+ 	struct netvsc_device *nvdev = hv_get_drvdata(dev);
+ 	struct netvsc_device_info device_info;
+-	const u32 num_chn = nvdev->num_chn;
+-	const u32 max_chn = min_t(u32, nvdev->max_chn, num_online_cpus());
++	u32 num_chn;
++	u32 max_chn;
+ 	int ret = 0;
+ 	bool recovering = false;
+ 
+ 	if (!nvdev || nvdev->destroy)
+ 		return -ENODEV;
+ 
++	num_chn = nvdev->num_chn;
++	max_chn = min_t(u32, nvdev->max_chn, num_online_cpus());
++
+ 	if (nvdev->nvsp_version < NVSP_PROTOCOL_VERSION_5) {
+ 		pr_info("vRSS unsupported before NVSP Version 5\n");
+ 		return -EINVAL;
+-- 
+2.5.0
