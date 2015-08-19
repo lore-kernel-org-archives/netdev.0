@@ -1,67 +1,41 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 269/271]
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h:970:38: sparse: incorrect
- type in assignment (different base types)
-Date: Wed, 19 Aug 2015 11:41:06 +0800
-Message-ID: <201508191103.5pFJR3w3%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	netdev@vger.kernel.org
-To: Rajesh Borundia <Rajesh.Borundia@qlogic.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: donot reset the overall_error_count in SHUTDOWN_RECEIVE state
+Date: Wed, 19 Aug 2015 12:38:03 +0800
+Message-ID: <9750de643075d301d80229898eacb0d921349f73.1439959083.git.lucien.xin@gmail.com>
+Cc: mleitner@redhat.com, tgraf@infradead.org, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:21037 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751759AbbHSDpT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2015 23:45:19 -0400
-Content-Disposition: inline
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36489 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750804AbbHSEiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 00:38:09 -0400
+Received: by pawq9 with SMTP id q9so51301704paw.3
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 21:38:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   c938a003448063382e0575aee2d381d4cd7aec34
-commit: f34fa14cc033239037622dbe84faf53923bb7e74 [269/271] bnx2x: Add vxlan RSS support
-reproduce:
-  # apt-get install sparse
-  git checkout f34fa14cc033239037622dbe84faf53923bb7e74
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+commit f8d960524 fix the 0 peer.rwnd issue in SHUTDOWN_PENING state
+through not reseting the overall_error_count when recevie a heartbeat,
+but the same issue also exists in SHUTDOWN_RECEIVE state.
 
-
-sparse warnings: (new ones prefixed by >>)
-
->> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h:970:38: sparse: incorrect type in assignment (different base types)
-   drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h:970:38:    expected unsigned short [unsigned] [usertype] vxlan_dst_port
-   drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h:970:38:    got restricted __le16 [usertype] <noident>
-
-vim +970 drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-
-   954			start_params->c2s_pri_valid = 1;
-   955	
-   956			DP(NETIF_MSG_IFUP,
-   957			   "Inner-to-Outer priority: %02x %02x %02x %02x %02x %02x %02x %02x [Default %02x]\n",
-   958			   start_params->c2s_pri[0], start_params->c2s_pri[1],
-   959			   start_params->c2s_pri[2], start_params->c2s_pri[3],
-   960			   start_params->c2s_pri[4], start_params->c2s_pri[5],
-   961			   start_params->c2s_pri[6], start_params->c2s_pri[7],
-   962			   start_params->c2s_pri_default);
-   963		}
-   964	
-   965		if (CHIP_IS_E2(bp) || CHIP_IS_E3(bp))
-   966			start_params->network_cos_mode = STATIC_COS;
-   967		else /* CHIP_IS_E1X */
-   968			start_params->network_cos_mode = FW_WRR;
-   969	
- > 970		start_params->vxlan_dst_port = cpu_to_le16(bp->vxlan_dst_port);
-   971	
-   972		start_params->inner_rss = 1;
-   973	
-   974		if (IS_MF_UFP(bp) && BNX2X_IS_MF_SD_PROTOCOL_FCOE(bp)) {
-   975			start_params->class_fail_ethtype = ETH_P_FIP;
-   976			start_params->class_fail = 1;
-   977			start_params->no_added_tags = 1;
-   978		}
-
+Fixes: f8d960524 ("sctp: Enforce retransmission limit during shutdown")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+ net/sctp/sm_sideeffect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index fef2acd..85e6f03 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -702,7 +702,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
+ 	 * outstanding data and rely on the retransmission limit be reached
+ 	 * to shutdown the association.
+ 	 */
+-	if (t->asoc->state != SCTP_STATE_SHUTDOWN_PENDING)
++	if (t->asoc->state < SCTP_STATE_SHUTDOWN_PENDING)
+ 		t->asoc->overall_error_count = 0;
+ 
+ 	/* Clear the hb_sent flag to signal that we had a good
+-- 
+2.1.0
