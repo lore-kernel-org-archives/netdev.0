@@ -1,64 +1,155 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2 7/9] geneve: Consolidate Geneve functionality
- in single module.
-Date: Wed, 19 Aug 2015 12:50:36 -0700
-Message-ID: <CAEP_g=9U_DtUrHpbASu+RJ5kZQmjXsysBX5DQWVMrj69KcnHYw@mail.gmail.com>
-References: <1439845905-31666-1-git-send-email-pshelar@nicira.com>
- <1439845905-31666-8-git-send-email-pshelar@nicira.com> <CAEP_g=_4FHejf_qfXbXzO3kyx1WJ2ssOY9OMF=vySFNu-CPOqA@mail.gmail.com>
- <CALnjE+ojRD_QKY3A9EomCg6yZ2BR+jiSFjndzN+U+8aBP2b7GQ@mail.gmail.com>
- <CAEP_g=8Wq1jmrWT6a9K55JJsMNxw+Rw0h2zDby_HR6b12LJ5+w@mail.gmail.com> <CALnjE+rmdPOAFo876pZr-vtr=YmGZopSNPC02Qb3J0Wx3GBz1w@mail.gmail.com>
+From: Loganaden Velvindron <logan@elandsys.com>
+Subject: [PATCH net-next] 3c59x: Add BQL support for 3c59x ethernet driver.
+Date: Wed, 19 Aug 2015 13:06:42 -0700
+Message-ID: <20150819200642.GA13590@mx.elandsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:34801 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbbHSTu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:50:57 -0400
-Received: by lbbtg9 with SMTP id tg9so10379626lbb.1
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:50:56 -0700 (PDT)
-In-Reply-To: <CALnjE+rmdPOAFo876pZr-vtr=YmGZopSNPC02Qb3J0Wx3GBz1w@mail.gmail.com>
+Received: from ns1.qubic.net ([208.69.177.116]:56600 "EHLO mx.elandsys.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751574AbbHSUGo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 16:06:44 -0400
+Received: from mx.elandsys.com (IDENT:logan@localhost [127.0.0.1])
+	by mx.elandsys.com (8.14.5/8.14.5) with ESMTP id t7JK6gmq009232
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 13:06:43 -0700 (PDT)
+Received: (from logan@localhost)
+	by mx.elandsys.com (8.14.5/8.14.5/Submit) id t7JK6g3B024039
+	for netdev@vger.kernel.org; Wed, 19 Aug 2015 13:06:42 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 11:49 AM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, Aug 19, 2015 at 11:37 AM, Jesse Gross <jesse@nicira.com> wrote:
->> On Wed, Aug 19, 2015 at 11:29 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Wed, Aug 19, 2015 at 11:18 AM, Jesse Gross <jesse@nicira.com> wrote:
->>>> My guess is that if the issue from the earlier patch about overlapping
->>>> collect_md tunnels is fixed then that might allow us to simplify
->>>> things a little further, since for those tunnels we can assume there
->>>> is a 1:1 mapping between collect_md tunnels and sockets.
->>>
->>> I dont see how it would be different. Can you elaborate on this ?
->>
->> Mostly just conceptually simpler. Right now it looks like we are doing
->> some kind of refcounting between devices and tunnels in
->> geneve_open/stop (I know it's not really but it appears like that in
->> some ways.) We could just directly assign collect_md in geneve_open()
->> and do nothing at all in geneve_stop().
->
-> If you look at next patch, I have changed geneve_open and stop
-> further. The change is geneve_open adds tunnel to hash table so that
-> only device which are open are in hash table. Since geneve_open and
-> stop is common for both type of tunnel I do not think there can be any
-> changes even after avoiding overlapping tunnel types in given socket.
+---
+ drivers/net/ethernet/3com/3c59x.c | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
 
-I guess I'm not sure why with the later changes it would be
-incompatible. All I'm talking about is something pretty small:
-
-geneve_open:
-        if (geneve->collect_md)
-                gs->collect_md = true;
-to
-                gs->collect_md = geneve->collect_md;
-
-geneve_close:
-remove
-        if (geneve->collect_md)
-                gs->collect_md = false;
-since the socket is about to be freed anyways.
-
-It's not very different in practice but it looks less like refcounting
-and more like a 1:1 mapping.
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 753887d..2839af0 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -1726,6 +1726,7 @@ vortex_up(struct net_device *dev)
+ 	if (vp->cb_fn_base)			/* The PCMCIA people are idiots.  */
+ 		iowrite32(0x8000, vp->cb_fn_base + 4);
+ 	netif_start_queue (dev);
++	netdev_reset_queue(dev);
+ err_out:
+ 	return err;
+ }
+@@ -1935,16 +1936,18 @@ static void vortex_tx_timeout(struct net_device *dev)
+ 		if (vp->cur_tx - vp->dirty_tx > 0  &&  ioread32(ioaddr + DownListPtr) == 0)
+ 			iowrite32(vp->tx_ring_dma + (vp->dirty_tx % TX_RING_SIZE) * sizeof(struct boom_tx_desc),
+ 				 ioaddr + DownListPtr);
+-		if (vp->cur_tx - vp->dirty_tx < TX_RING_SIZE)
++		if (vp->cur_tx - vp->dirty_tx < TX_RING_SIZE) {
+ 			netif_wake_queue (dev);
++			netdev_reset_queue (dev);
++		}
+ 		if (vp->drv_flags & IS_BOOMERANG)
+ 			iowrite8(PKT_BUF_SZ>>8, ioaddr + TxFreeThreshold);
+ 		iowrite16(DownUnstall, ioaddr + EL3_CMD);
+ 	} else {
+ 		dev->stats.tx_dropped++;
+ 		netif_wake_queue(dev);
++		netdev_reset_queue(dev);
+ 	}
+-
+ 	/* Issue Tx Enable */
+ 	iowrite16(TxEnable, ioaddr + EL3_CMD);
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+@@ -2063,6 +2066,7 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 	void __iomem *ioaddr = vp->ioaddr;
++	int skblen = skb->len;
+ 
+ 	/* Put out the doubleword header... */
+ 	iowrite32(skb->len, ioaddr + TX_FIFO);
+@@ -2094,6 +2098,7 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
+ 
++	netdev_sent_queue(dev, skblen);
+ 
+ 	/* Clear the Tx status stack. */
+ 	{
+@@ -2125,6 +2130,7 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	void __iomem *ioaddr = vp->ioaddr;
+ 	/* Calculate the next Tx descriptor entry. */
+ 	int entry = vp->cur_tx % TX_RING_SIZE;
++	int skblen = skb->len;
+ 	struct boom_tx_desc *prev_entry = &vp->tx_ring[(vp->cur_tx-1) % TX_RING_SIZE];
+ 	unsigned long flags;
+ 	dma_addr_t dma_addr;
+@@ -2230,6 +2236,8 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	vp->cur_tx++;
++	netdev_sent_queue(dev, skblen);
++
+ 	if (vp->cur_tx - vp->dirty_tx > TX_RING_SIZE - 1) {
+ 		netif_stop_queue (dev);
+ 	} else {					/* Clear previous interrupt enable. */
+@@ -2267,6 +2275,7 @@ vortex_interrupt(int irq, void *dev_id)
+ 	int status;
+ 	int work_done = max_interrupt_work;
+ 	int handled = 0;
++	unsigned int bytes_compl = 0, pkts_compl = 0;
+ 
+ 	ioaddr = vp->ioaddr;
+ 	spin_lock(&vp->lock);
+@@ -2314,6 +2323,8 @@ vortex_interrupt(int irq, void *dev_id)
+ 			if (ioread16(ioaddr + Wn7_MasterStatus) & 0x1000) {
+ 				iowrite16(0x1000, ioaddr + Wn7_MasterStatus); /* Ack the event. */
+ 				pci_unmap_single(VORTEX_PCI(vp), vp->tx_skb_dma, (vp->tx_skb->len + 3) & ~3, PCI_DMA_TODEVICE);
++				pkts_compl++;
++				bytes_compl += vp->tx_skb->len;
+ 				dev_kfree_skb_irq(vp->tx_skb); /* Release the transferred buffer */
+ 				if (ioread16(ioaddr + TxFree) > 1536) {
+ 					/*
+@@ -2358,6 +2369,7 @@ vortex_interrupt(int irq, void *dev_id)
+ 		iowrite16(AckIntr | IntReq | IntLatch, ioaddr + EL3_CMD);
+ 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & (IntLatch | RxComplete));
+ 
++	netdev_completed_queue(dev, pkts_compl, bytes_compl);
+ 	spin_unlock(&vp->window_lock);
+ 
+ 	if (vortex_debug > 4)
+@@ -2382,6 +2394,7 @@ boomerang_interrupt(int irq, void *dev_id)
+ 	int status;
+ 	int work_done = max_interrupt_work;
+ 	int handled = 0;
++	unsigned int bytes_compl = 0, pkts_compl = 0;
+ 
+ 	ioaddr = vp->ioaddr;
+ 
+@@ -2455,6 +2468,8 @@ boomerang_interrupt(int irq, void *dev_id)
+ 					pci_unmap_single(VORTEX_PCI(vp),
+ 						le32_to_cpu(vp->tx_ring[entry].addr), skb->len, PCI_DMA_TODEVICE);
+ #endif
++					pkts_compl++;
++					bytes_compl += skb->len;
+ 					dev_kfree_skb_irq(skb);
+ 					vp->tx_skbuff[entry] = NULL;
+ 				} else {
+@@ -2495,6 +2510,7 @@ boomerang_interrupt(int irq, void *dev_id)
+ 			iowrite32(0x8000, vp->cb_fn_base + 4);
+ 
+ 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & IntLatch);
++	netdev_completed_queue(dev, pkts_compl, bytes_compl);
+ 
+ 	if (vortex_debug > 4)
+ 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
+@@ -2696,7 +2712,8 @@ vortex_down(struct net_device *dev, int final_down)
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 	void __iomem *ioaddr = vp->ioaddr;
+ 
+-	netif_stop_queue (dev);
++	netdev_reset_queue(dev);
++	netif_stop_queue(dev);
+ 
+ 	del_timer_sync(&vp->rx_oom_timer);
+ 	del_timer_sync(&vp->timer);
+-- 
+2.4.5
