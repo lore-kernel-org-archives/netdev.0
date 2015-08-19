@@ -1,46 +1,46 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 20/21] net: warn if drivers set tx_queue_len = 0
-Date: Wed, 19 Aug 2015 23:04:43 +0200
-Message-ID: <20150819210409.C5BF82137D@mail.nwl.cc>
-References: <1439886649-24166-17-git-send-email-phil@nwl.cc>
- <1439886649-24166-18-git-send-email-phil@nwl.cc>
- <1439886649-24166-19-git-send-email-phil@nwl.cc>
- <1439886649-24166-20-git-send-email-phil@nwl.cc>
- <1439886649-24166-21-git-send-email-phil@nwl.cc>
- <1439909248.6443.19.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150819183924.GA12537@orbit.nwl.cc>
- <20150819202104.GB12537@orbit.nwl.cc>
- <1440016319.6610.28.camel@edumazet-glaptop2.roam.corp.google.com>
- <1440016420.6610.29.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netlink_route kernel data dump size increased
+Date: Wed, 19 Aug 2015 14:17:27 -0700
+Message-ID: <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, brouer@redhat.com, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: tej parkash <parkash.tej@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:51695 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752183AbbHSVEL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 17:04:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1440016420.6610.29.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33037 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751437AbbHSVR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 17:17:29 -0400
+Received: by padfo6 with SMTP id fo6so5070810pad.0
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 14:17:28 -0700 (PDT)
+In-Reply-To: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 01:33:40PM -0700, Eric Dumazet wrote:
-> On Wed, 2015-08-19 at 13:31 -0700, Eric Dumazet wrote:
+On Wed, 2015-08-19 at 23:41 +0530, tej parkash wrote:
+> All,
 > 
-> > lpaa5:~# tc qd sh dev eth1
-> > qdisc mq 0: root 
-> > qdisc fq 0: parent :4 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
-> > qdisc fq 0: parent :3 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
-> > qdisc fq 0: parent :2 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
-> > qdisc fq 0: parent :1 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
+> We are running application on Linux Kernel 3.10 to collect network
+> interface information using  NETLINK_ROUTE protocol. earlier (kernel
+> 2.6.32) we were having 8K buffer allocated to collect all data but
+> with new kernel (3.10) we are seeing read socket error, as buffer size
+> is not sufficient for all network dump data.
 > 
-> Well, it seems I just leaked fact that we use 3-bands in our fq
-> implementation ;)
+> We want to understand that if the userspace buffer limit increased to
+> 16K or we need some other mechanism to collect the data in 8K chuck.
+> or Is there any other way application can use NETLINK_ROUTE  protocol,
+> so that it will not break the application if data size gets increased
+> in future.
+> 
+> I did some some browsing and found some link but they were not very conclusive.
+> http://www.spinics.net/lists/netdev/msg162185.html
+> 
+> Appreciate for any kind of help or pointers here
+> 
 
-The problem with subtle details is they cease to be if pointed out. In
-another episode I was about to ask who the ominous "we" are, but then I
-noticed your mail's message ID. :)
+This sounds like a bug that might have been fixed later.
 
-Cheers, Phil
+User space is not required to switch to 16KB, although it is recommended
+to reduce number of syscalls.
