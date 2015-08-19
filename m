@@ -1,80 +1,64 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v3] rocker: add debugfs support to dump internal tables
-Date: Wed, 19 Aug 2015 12:46:11 -0700
-Message-ID: <CAE4R7bB1SopU3dFpA4fGUrSD-x70f=NMsQofMoO=DC+ZzaurFQ@mail.gmail.com>
-References: <CAE4R7bAwuZkoOqO1eA9pWQ35UPiSs7-Fm+AaedVU1wwiRZ=Jwg@mail.gmail.com>
- <20150818181930.GK4381@lunn.ch> <CAE4R7bA621-ySQuOJ_kLTSju7ZwD3Ur4oSAS0JCE4EjzEsRr7Q@mail.gmail.com>
- <20150818.134720.1520233036019988872.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v2 7/9] geneve: Consolidate Geneve functionality
+ in single module.
+Date: Wed, 19 Aug 2015 12:50:36 -0700
+Message-ID: <CAEP_g=9U_DtUrHpbASu+RJ5kZQmjXsysBX5DQWVMrj69KcnHYw@mail.gmail.com>
+References: <1439845905-31666-1-git-send-email-pshelar@nicira.com>
+ <1439845905-31666-8-git-send-email-pshelar@nicira.com> <CAEP_g=_4FHejf_qfXbXzO3kyx1WJ2ssOY9OMF=vySFNu-CPOqA@mail.gmail.com>
+ <CALnjE+ojRD_QKY3A9EomCg6yZ2BR+jiSFjndzN+U+8aBP2b7GQ@mail.gmail.com>
+ <CAEP_g=8Wq1jmrWT6a9K55JJsMNxw+Rw0h2zDby_HR6b12LJ5+w@mail.gmail.com> <CALnjE+rmdPOAFo876pZr-vtr=YmGZopSNPC02Qb3J0Wx3GBz1w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, "andrew@lunn.ch" <andrew@lunn.ch>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:33163 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751553AbbHSTqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:46:31 -0400
-Received: by obbhe7 with SMTP id he7so13802964obb.0
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:46:30 -0700 (PDT)
-In-Reply-To: <20150818.134720.1520233036019988872.davem@davemloft.net>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:34801 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751486AbbHSTu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:50:57 -0400
+Received: by lbbtg9 with SMTP id tg9so10379626lbb.1
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:50:56 -0700 (PDT)
+In-Reply-To: <CALnjE+rmdPOAFo876pZr-vtr=YmGZopSNPC02Qb3J0Wx3GBz1w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 18, 2015 at 1:47 PM, David Miller <davem@davemloft.net> wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
-> Date: Tue, 18 Aug 2015 13:37:56 -0700
->
-
->>>> > Hi Scott
->>>> >
->>>> > David is not so keen no debugfs stuff. He already NACKed adding more
->>>> > than what is currently in DSA:
->>>> >
->>>> > https://lkml.org/lkml/2015/7/11/8
->>>>
->>>> That patch added writable debugfs files, which I can see might be used
->>>> as a back-door to program hardware.  That does seem bad.
+On Wed, Aug 19, 2015 at 11:49 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, Aug 19, 2015 at 11:37 AM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Wed, Aug 19, 2015 at 11:29 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>> On Wed, Aug 19, 2015 at 11:18 AM, Jesse Gross <jesse@nicira.com> wrote:
+>>>> My guess is that if the issue from the earlier patch about overlapping
+>>>> collect_md tunnels is fixed then that might allow us to simplify
+>>>> things a little further, since for those tunnels we can assume there
+>>>> is a 1:1 mapping between collect_md tunnels and sockets.
 >>>
->>> I fully agreed with respect to write. But if you read the whole
->>> message, David is also not happy with read only.
->>>
->>> I think before you spend too much more time on this, you need some
->>> indication from David if he is going to merge it or not.
+>>> I dont see how it would be different. Can you elaborate on this ?
 >>
->> David, please give us guidance on debugfs in drivers/net.  Is there
->> some criteria we can define to know when it's OK to use debugfs?
+>> Mostly just conceptually simpler. Right now it looks like we are doing
+>> some kind of refcounting between devices and tunnels in
+>> geneve_open/stop (I know it's not really but it appears like that in
+>> some ways.) We could just directly assign collect_md in geneve_open()
+>> and do nothing at all in geneve_stop().
 >
-> The less you use it the better, seriously.
->
-> I see some drivers where the foo_debugfs.c file is larger than the rest
-> of the driver.  Once people start using it, it's like crack, and they
-> dump every single debugging widget they found useful at some point into
-> there.
->
-> This is not what we want.  Most things I see in debugfs support was
-> probably useful for debugging one particular bug but then it was never
-> really useful again in the future.  Those kinds of things can be done
-> locally in someone's tree.
->
-> I often see various kinds of "statistics" ending up in these things,
-> or register dumps, both of which are 'ethtool' or similar material.
+> If you look at next patch, I have changed geneve_open and stop
+> further. The change is geneve_open adds tunnel to hash table so that
+> only device which are open are in hash table. Since geneve_open and
+> stop is common for both type of tunnel I do not think there can be any
+> changes even after avoiding overlapping tunnel types in given socket.
 
-# git grep debugfs_create drivers/net
+I guess I'm not sure why with the later changes it would be
+incompatible. All I'm talking about is something pretty small:
 
-^^^  this is scary.  I see some crazy things being done here.   The
-writable nodes look like workaround driver/device bugs or to provide
-backdoor interfaces that don't exist natively.
+geneve_open:
+        if (geneve->collect_md)
+                gs->collect_md = true;
+to
+                gs->collect_md = geneve->collect_md;
 
-I say we clean up this mess.  Just eliminating the writable files
-would force bugs to get fixed and get new interfaces defined.  And
-replace readable files when interface exist (stats/reg).  Finally,
-look for readable files that can be converted to new shared common
-interfaces.  What's left should be read-only (S_IRUGO) files (no
-binary blobs) containing data unique for driver/device useful for
-field troubleshooting.
+geneve_close:
+remove
+        if (geneve->collect_md)
+                gs->collect_md = false;
+since the socket is about to be freed anyways.
 
-I'm motivated.  Next net-next cycle I'm going to go down the list with
-a big eraser.  I'm sure I'll be a popular guy.
-
--scott
+It's not very different in practice but it looks less like refcounting
+and more like a 1:1 mapping.
