@@ -1,66 +1,52 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 04/13] ip_tunnels: add IPv6 addresses to
- ip_tunnel_key
-Date: Wed, 19 Aug 2015 10:09:30 +0200
-Message-ID: <20150819100930.2dd9eb59@griffin>
-References: <cover.1439929916.git.jbenc@redhat.com>
-	<199ae8362eabd65661ab145e9bfc281c5f5470ad.1439929916.git.jbenc@redhat.com>
-	<20150819003632.GA989@Alexeis-MacBook-Pro-2.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 3/3] qeth: no write permission for readonly sysattr
+Date: Wed, 19 Aug 2015 10:20:54 +0200
+Message-ID: <1439972454-64347-4-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1439972454-64347-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ursula.braun@de.ibm.com, ubraun@linux.vnet.ibm.com,
+	Lakhvich Dmitriy <ldmitriy@ru.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39589 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753191AbbHSIJe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 04:09:34 -0400
-In-Reply-To: <20150819003632.GA989@Alexeis-MacBook-Pro-2.local>
+Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:55588 "EHLO
+	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753335AbbHSIVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 04:21:12 -0400
+Received: from /spool/local
+	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+	Wed, 19 Aug 2015 09:21:10 +0100
+In-Reply-To: <1439972454-64347-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 18 Aug 2015 17:36:32 -0700, Alexei Starovoitov wrote:
-> please add commit message. +47 -32 cannot be empty.
+From: Lakhvich Dmitriy <ldmitriy@ru.ibm.com>
 
-The patch seemed rather trivial to me (it's basically "->key.ipv4_" to
-"->keu.u.ipv4." conversion plus one new memset) but sure, I'll add a
-few words.
+User is not allowed to write into bridge_state sysfs file.
+Fixed attribute not mislead the user
 
-It probably does not qualify as trivial if one can make a bug in it :-)
+Signed-off-by: Lakhvich Dmitriy <ldmitriy@ru.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Reported-by: Peter Oberparleiter <oberpar@linux.vnet.ibm.com>
+Reviewed-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Reviewed-by: Thomas Richter <tmricht@de.ibm.com>
+---
+ drivers/s390/net/qeth_l2_sys.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> > +/* Used to memset ipv4 address padding. */
-> > +#define IP_TUNNEL_KEY_IPV4_PAD	offsetofend(struct ip_tunnel_key, u.ipv4.dst)
-> > +#define IP_TUNNEL_KEY_IPV4_PAD_LEN				\
-> > +	(FIELD_SIZEOF(struct ip_tunnel_key, u) - IP_TUNNEL_KEY_IPV4_PAD)
-> > +
-> >  struct ip_tunnel_key {
-> >  	__be64			tun_id;
-> > -	__be32			ipv4_src;
-> > -	__be32			ipv4_dst;
-> > +	union {
-> > +		struct {
-> > +			__be32	src;
-> > +			__be32	dst;
-> > +		} ipv4;
-> > +		struct {
-> > +			struct in6_addr src;
-> > +			struct in6_addr dst;
-> > +		} ipv6;
-> > +	} u;
-> ...
-> > +	tun_info->key.u.ipv4.src = saddr;
-> > +	tun_info->key.u.ipv4.dst = daddr;
-> > +	memset((unsigned char *)&tun_info->key + IP_TUNNEL_KEY_IPV4_PAD,
-> > +	       0, IP_TUNNEL_KEY_IPV4_PAD_LEN);
-> 
-> the math looks wrong.
-> IP_TUNNEL_KEY_IPV4_PAD_LEN = sizeof(u) - offsetofend(u.ipv4.dst)
-> 8 byte mistake?
-
-Yes, thanks a lot for catching this.
-
- Jiri
-
+diff --git a/drivers/s390/net/qeth_l2_sys.c b/drivers/s390/net/qeth_l2_sys.c
+index 52673cd..692db49 100644
+--- a/drivers/s390/net/qeth_l2_sys.c
++++ b/drivers/s390/net/qeth_l2_sys.c
+@@ -109,7 +109,7 @@ static ssize_t qeth_bridge_port_state_show(struct device *dev,
+ 	return qeth_bridge_port_role_state_show(dev, attr, buf, 1);
+ }
+ 
+-static DEVICE_ATTR(bridge_state, 0644, qeth_bridge_port_state_show,
++static DEVICE_ATTR(bridge_state, 0444, qeth_bridge_port_state_show,
+ 		   NULL);
+ 
+ static ssize_t qeth_bridgeport_hostnotification_show(struct device *dev,
 -- 
-Jiri Benc
+2.3.8
