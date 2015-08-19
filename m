@@ -1,60 +1,35 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] veth: replace iflink by a dedicated symlink in sysfs
-Date: Wed, 19 Aug 2015 18:33:14 +0200
-Message-ID: <55D4AFCA.7080300@6wind.com>
-References: <87fv3ier4s.fsf@zoro.exoscale.ch>	<1439966648-26195-1-git-send-email-vincent@bernat.im>	<1439966648-26195-2-git-send-email-vincent@bernat.im>	<20150819130013.1a847627@griffin> <87bne38oj7.fsf@zoro.exoscale.ch>	<20150819143800.6863fa3b@griffin> <8737zf8mwd.fsf@zoro.exoscale.ch>
-Reply-To: nicolas.dichtel@6wind.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2 net-next 06/13] route: move lwtunnel state to dst_entry
+Date: Wed, 19 Aug 2015 18:38:31 +0200
+Message-ID: <20150819163831.GF3635@pox.localdomain>
+References: <cover.1439978875.git.jbenc@redhat.com>
+ <cb74c3206e0747bd3b1efddd766bb9421aa06ebc.1439978875.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vincent Bernat <vincent@bernat.im>, Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:36427 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749AbbHSQdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 12:33:37 -0400
-Received: by pdbmi9 with SMTP id mi9so3330368pdb.3
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 09:33:37 -0700 (PDT)
-In-Reply-To: <8737zf8mwd.fsf@zoro.exoscale.ch>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:36955 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752354AbbHSQid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 12:38:33 -0400
+Received: by wibhh20 with SMTP id hh20so13512198wib.0
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 09:38:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <cb74c3206e0747bd3b1efddd766bb9421aa06ebc.1439978875.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 19/08/2015 14:48, Vincent Bernat a =C3=A9crit :
->   =E2=9D=A6 19 ao=C3=BBt 2015 14:38 +0200, Jiri Benc <jbenc@redhat.co=
-m> :
->
->>> That's the main goal of this patch: advertising the peer link as
->>> IFLA_LINK attribute triggers an infinite loop in userland software =
-when
->>> they follow iflink to discover network devices topology. iflink has
->>> always been the index of a lower device. If a sysfs symbolic link i=
-s not
->>> good enough, I can propose a new IFLA_PEER attribute instead.
->>
->> This would cause regression and break applications for those of us w=
-ho
->> started relying on the netnsid feature to match interfaces across ne=
-t
->> name spaces.
->
-> Yes. Unfortunately.
->
->> This is tough. If you're going to do such thing, you would at least
->> need to also introduce IFLA_PEER_NETNSID.
-Probably better to introduce veth netlink attribute then, something lik=
-e
-IFLA_VETH_PEER and keeps IFLA_LINK_NETNSID.
+On 08/19/15 at 12:09pm, Jiri Benc wrote:
+> Currently, the lwtunnel state resides in per-protocol data. This is
+> a problem if we encapsulate ipv6 traffic in an ipv4 tunnel (or vice versa).
+> The xmit function of the tunnel does not know whether the packet has been
+> routed to it by ipv4 or ipv6, yet it needs the lwtstate data. Moving the
+> lwtstate data to dst_entry makes such inter-protocol tunneling possible.
+> 
+> As a bonus, this brings a nice diffstat.
+> 
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
->
-> Yes I can.
->
-> In my opinion, the change of semantics of IFLA_LINK is a break of
-> API. However, I can live with it since it's easy to workaround it. It
-> just seemed easier to start the discussion with a patch.
->
-I also don't know what is the best way to handle this. veth advertises
-its peer via IFLA_LINK since 4.1, so it's too late to change it for thi=
-s
-release.
+Acked-by: Thomas Graf <tgraf@suug.ch>
