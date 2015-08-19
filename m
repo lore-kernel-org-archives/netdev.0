@@ -1,7 +1,7 @@
 From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v1 3/6] ARM: imx: add enet init for i.MX7D platform
-Date: Wed, 19 Aug 2015 13:34:01 +0800
-Message-ID: <1439962444-27486-4-git-send-email-b38611@freescale.com>
+Subject: [PATCH v1 6/6] ARM: dts: imx7d-sdb: add fec1 and fec2 support
+Date: Wed, 19 Aug 2015 13:34:04 +0800
+Message-ID: <1439962444-27486-7-git-send-email-b38611@freescale.com>
 References: <1439962444-27486-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,119 +9,122 @@ Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
 	<b38611@freescale.com>
 To: <shawnguo@kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0132.outbound.protection.outlook.com ([65.55.169.132]:10592
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1bon0146.outbound.protection.outlook.com ([157.56.111.146]:29184
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752409AbbHSFel (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 01:34:41 -0400
+	id S1752433AbbHSFep (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 01:34:45 -0400
 In-Reply-To: <1439962444-27486-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add enet phy fixup, clock source init for i.MX7D platform.
+Enable fec1 and fec2 for i.MX7d-sdb board.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 ---
- arch/arm/mach-imx/mach-imx7d.c | 75 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 73 insertions(+), 2 deletions(-)
+ arch/arm/boot/dts/imx7d-sdb.dts | 76 ++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 75 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm/mach-imx/mach-imx7d.c b/arch/arm/mach-imx/mach-imx7d.c
-index 4d4a190..67d7939 100644
---- a/arch/arm/mach-imx/mach-imx7d.c
-+++ b/arch/arm/mach-imx/mach-imx7d.c
-@@ -5,13 +5,83 @@
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
--#include <linux/irqchip.h>
--#include <linux/of_platform.h>
- #include <asm/mach/arch.h>
- #include <asm/mach/map.h>
-+#include <linux/brcmphy.h>
-+#include <linux/irqchip.h>
-+#include <linux/mfd/syscon.h>
-+#include <linux/mfd/syscon/imx7-iomuxc-gpr.h>
-+#include <linux/of_platform.h>
-+#include <linux/regmap.h>
+diff --git a/arch/arm/boot/dts/imx7d-sdb.dts b/arch/arm/boot/dts/imx7d-sdb.dts
+index 4d1a4b9..7d3e980 100644
+--- a/arch/arm/boot/dts/imx7d-sdb.dts
++++ b/arch/arm/boot/dts/imx7d-sdb.dts
+@@ -101,6 +101,45 @@
+ 	arm-supply = <&sw1a_reg>;
+ };
  
- #include "common.h"
++&fec1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_enet1>;
++	assigned-clocks = <&clks IMX7D_ENET1_TIME_ROOT_SRC>,
++			  <&clks IMX7D_ENET1_TIME_ROOT_CLK>;
++	assigned-clock-parents = <&clks IMX7D_PLL_ENET_MAIN_100M_CLK>;
++	assigned-clock-rates = <0>, <100000000>;
++	phy-mode = "rgmii";
++	phy-handle = <&ethphy0>;
++	fsl,magic-packet;
++	status = "okay";
++
++	mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		ethphy0: ethernet-phy@0 {
++			reg = <0>;
++		};
++
++		ethphy1: ethernet-phy@1 {
++			reg = <1>;
++		};
++	};
++};
++
++&fec2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_enet2>;
++	assigned-clocks = <&clks IMX7D_ENET2_TIME_ROOT_SRC>,
++			  <&clks IMX7D_ENET2_TIME_ROOT_CLK>;
++	assigned-clock-parents = <&clks IMX7D_PLL_ENET_MAIN_100M_CLK>;
++	assigned-clock-rates = <0>, <100000000>;
++	phy-mode = "rgmii";
++	phy-handle = <&ethphy1>;
++	fsl,magic-packet;
++	status = "okay";
++};
++
+ &i2c1 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pinctrl_i2c1>;
+@@ -246,6 +285,42 @@
+ 	pinctrl-0 = <&pinctrl_hog>;
  
-+static int ar8031_phy_fixup(struct phy_device *dev)
-+{
-+	u16 val;
+ 	imx7d-sdb {
++		pinctrl_enet1: enet1grp {
++			fsl,pins = <
++				MX7D_PAD_GPIO1_IO10__ENET1_MDIO			0x3
++				MX7D_PAD_GPIO1_IO11__ENET1_MDC			0x3
++				MX7D_PAD_ENET1_RGMII_TXC__ENET1_RGMII_TXC	0x1
++				MX7D_PAD_ENET1_RGMII_TD0__ENET1_RGMII_TD0	0x1
++				MX7D_PAD_ENET1_RGMII_TD1__ENET1_RGMII_TD1	0x1
++				MX7D_PAD_ENET1_RGMII_TD2__ENET1_RGMII_TD2	0x1
++				MX7D_PAD_ENET1_RGMII_TD3__ENET1_RGMII_TD3	0x1
++				MX7D_PAD_ENET1_RGMII_TX_CTL__ENET1_RGMII_TX_CTL	0x1
++				MX7D_PAD_ENET1_RGMII_RXC__ENET1_RGMII_RXC	0x1
++				MX7D_PAD_ENET1_RGMII_RD0__ENET1_RGMII_RD0	0x1
++				MX7D_PAD_ENET1_RGMII_RD1__ENET1_RGMII_RD1	0x1
++				MX7D_PAD_ENET1_RGMII_RD2__ENET1_RGMII_RD2	0x1
++				MX7D_PAD_ENET1_RGMII_RD3__ENET1_RGMII_RD3	0x1
++				MX7D_PAD_ENET1_RGMII_RX_CTL__ENET1_RGMII_RX_CTL	0x1
++			>;
++		};
 +
-+	/* Set RGMII IO voltage to 1.8V */
-+	phy_write(dev, 0x1d, 0x1f);
-+	phy_write(dev, 0x1e, 0x8);
++		pinctrl_enet2: enet2grp {
++			fsl,pins = <
++				MX7D_PAD_EPDC_GDSP__ENET2_RGMII_TXC		0x1
++				MX7D_PAD_EPDC_SDCE2__ENET2_RGMII_TD0		0x1
++				MX7D_PAD_EPDC_SDCE3__ENET2_RGMII_TD1		0x1
++				MX7D_PAD_EPDC_GDCLK__ENET2_RGMII_TD2		0x1
++				MX7D_PAD_EPDC_GDOE__ENET2_RGMII_TD3		0x1
++				MX7D_PAD_EPDC_GDRL__ENET2_RGMII_TX_CTL		0x1
++				MX7D_PAD_EPDC_SDCE1__ENET2_RGMII_RXC		0x1
++				MX7D_PAD_EPDC_SDCLK__ENET2_RGMII_RD0		0x1
++				MX7D_PAD_EPDC_SDLE__ENET2_RGMII_RD1		0x1
++				MX7D_PAD_EPDC_SDOE__ENET2_RGMII_RD2		0x1
++				MX7D_PAD_EPDC_SDSHR__ENET2_RGMII_RD3		0x1
++				MX7D_PAD_EPDC_SDCE0__ENET2_RGMII_RX_CTL		0x1
++			>;
++		};
 +
-+	/* disable phy AR8031 SmartEEE function. */
-+	phy_write(dev, 0xd, 0x3);
-+	phy_write(dev, 0xe, 0x805d);
-+	phy_write(dev, 0xd, 0x4003);
-+	val = phy_read(dev, 0xe);
-+	val &= ~(0x1 << 8);
-+	phy_write(dev, 0xe, val);
-+
-+	/* introduce tx clock delay */
-+	phy_write(dev, 0x1d, 0x5);
-+	val = phy_read(dev, 0x1e);
-+	val |= 0x0100;
-+	phy_write(dev, 0x1e, val);
-+
-+	return 0;
-+}
-+
-+static int bcm54220_phy_fixup(struct phy_device *dev)
-+{
-+	/* enable RXC skew select RGMII copper mode */
-+	phy_write(dev, 0x1e, 0x21);
-+	phy_write(dev, 0x1f, 0x7ea8);
-+	phy_write(dev, 0x1e, 0x2f);
-+	phy_write(dev, 0x1f, 0x71b7);
-+
-+	return 0;
-+}
-+
-+#define PHY_ID_AR8031   0x004dd074
-+static void __init imx7d_enet_phy_init(void)
-+{
-+	if (IS_BUILTIN(CONFIG_PHYLIB)) {
-+		phy_register_fixup_for_uid(PHY_ID_AR8031, 0xffffffff,
-+					   ar8031_phy_fixup);
-+		phy_register_fixup_for_uid(PHY_ID_BCM54220, 0xffffffff,
-+					   bcm54220_phy_fixup);
-+	}
-+}
-+
-+static void __init imx7d_enet_clk_sel(void)
-+{
-+	struct regmap *gpr;
-+
-+	gpr = syscon_regmap_lookup_by_compatible("fsl,imx7d-iomuxc-gpr");
-+	if (!IS_ERR(gpr)) {
-+		regmap_update_bits(gpr, IOMUXC_GPR1, IMX7D_GPR1_ENET_TX_CLK_SEL_MASK, 0);
-+		regmap_update_bits(gpr, IOMUXC_GPR1, IMX7D_GPR1_ENET_CLK_DIR_MASK, 0);
-+	} else {
-+		pr_err("failed to find fsl,imx7d-iomux-gpr regmap\n");
-+	}
-+}
-+
-+static inline void imx7d_enet_init(void)
-+{
-+	imx7d_enet_phy_init();
-+	imx7d_enet_clk_sel();
-+}
-+
- static void __init imx7d_init_machine(void)
- {
- 	struct device *parent;
-@@ -22,6 +92,7 @@ static void __init imx7d_init_machine(void)
+ 		pinctrl_hog: hoggrp {
+ 			fsl,pins = <
+ 				MX7D_PAD_UART3_CTS_B__GPIO4_IO7		0x14
+@@ -281,7 +356,6 @@
+ 			>;
+ 		};
  
- 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
- 	imx_anatop_init();
-+	imx7d_enet_init();
- }
- 
- static void __init imx7d_init_irq(void)
+-
+ 		pinctrl_uart1: uart1grp {
+ 			fsl,pins = <
+ 				MX7D_PAD_UART1_TX_DATA__UART1_DCE_TX	0x79
 -- 
 1.9.1
