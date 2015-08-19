@@ -1,29 +1,29 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH] ip-address.8.in: fix BNF syntax error
-Date: Wed, 19 Aug 2015 16:34:56 -0700
-Message-ID: <20150819163456.51fa9883@uryu.home.lan>
-References: <9e56e3790a284b4199fa408d7e73d2a2@HQ1WP-EXMB11.corp.brocade.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip-link: cut one level indentation
+Date: Wed, 19 Aug 2015 16:35:22 -0700
+Message-ID: <20150819163522.02298204@uryu.home.lan>
+References: <1439522021-22613-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:25653 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750874AbbHSXfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 19:35:05 -0400
-In-Reply-To: <9e56e3790a284b4199fa408d7e73d2a2@HQ1WP-EXMB11.corp.brocade.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:32982 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874AbbHSXf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 19:35:26 -0400
+Received: by pdrh1 with SMTP id h1so6883224pdr.0
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 16:35:26 -0700 (PDT)
+In-Reply-To: <1439522021-22613-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 18 Aug 2015 16:11:12 +0000
-Phil Sutter <phil@nwl.cc> wrote:
+On Fri, 14 Aug 2015 03:13:41 +0000
+Zhang Shengju <zhangshengju@cmss.chinamobile.com> wrote:
 
-> The previous man page fixup introduced a syntax error due to missing
-> opening bracket, which might crash some humanoid BNF parsers.
+> Cut one level indentation to make things easier to read.
 > 
-> Fixes: 4e972d5 ("ip-address: fix and extend documentation")
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 
-Both applied thanks.
+Applied
