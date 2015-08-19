@@ -1,46 +1,64 @@
-From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Subject: [PATCH] usbnet: dereference after null check in usbnet_start_xmit()
- and __usbnet_read_cmd()
-Date: Wed, 19 Aug 2015 11:21:35 +0000 (GMT)
-Message-ID: <907196681.281711439983295252.JavaMail.weblogic@ep2mlwas02b>
-Reply-To: vivek.bhagat@samsung.com
+From: Victor Kaplansky <victork@redhat.com>
+Subject: Re: [PATCH v2 2/2] virtio-net: add default_mtu configuration field
+Date: Wed, 19 Aug 2015 14:31:59 +0300
+Message-ID: <20150819140836-mutt-send-email-victork@redhat.com>
+References: <1439732494-29765-1-git-send-email-victork@redhat.com>
+ <1439732494-29765-3-git-send-email-victork@redhat.com>
+ <55D14FE3.8040307@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: nitin.j@samsung.com, hemanshu.s@samsung.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: virtio-dev@lists.oasis-open.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:44484 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753796AbbHSLVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 07:21:36 -0400
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0NTB02S0KU7ZIOE0@mailout2.samsung.com> for
- netdev@vger.kernel.org; Wed, 19 Aug 2015 20:21:35 +0900 (KST)
-MIME-version: 1.0
+Received: from mx1.redhat.com ([209.132.183.28]:58867 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752483AbbHSLcC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 07:32:02 -0400
+Content-Disposition: inline
+In-Reply-To: <55D14FE3.8040307@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dXNibmV0X3N0YXJ0X3htaXQoKSAtIElmIGluZm8tPnR4X2ZpeHVwIGlzIG5vdCBkZWZpbmVkIGJ5
-IGNsYXNzIGRyaXZlciwKTlVMTCBjaGVjayBkb2VzIG5vdCBoYXBwZW4gZm9yIHNrYiBwb2ludGVy
-IGFuZCBsZWFkcyB0byBOVUxMIGRlcmVmZXJlbmNlLgpfX3VzYm5ldF9yZWFkX2NtZCgpIC0gaWYg
-ZGF0YSBwb2ludGVyIGlzIHBhc3NlZCBhcyBOVUxMLCBtZW1jcHkgd2lsbApkZXJlZmVyZW5jZSBO
-VUxMIHBvaW50ZXIuCgpTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFnYXQgPHZpdmVrLmJo
-YWdhdEBzYW1zdW5nLmNvbT4KLS0tCiBkcml2ZXJzL25ldC91c2IvdXNibmV0LmMgfCAgICA1ICsr
-KystCiAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZm
-IC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL3VzYm5ldC5jIGIvZHJpdmVycy9uZXQvdXNiL3VzYm5l
-dC5jCmluZGV4IDNjODZiMTAuLmVjNGQyMjQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi91
-c2JuZXQuYworKysgYi9kcml2ZXJzL25ldC91c2IvdXNibmV0LmMKQEAgLTEyOTQsNiArMTI5NCw4
-IEBAIG5ldGRldl90eF90IHVzYm5ldF9zdGFydF94bWl0IChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAog
-CiAJaWYgKHNrYikKIAkJc2tiX3R4X3RpbWVzdGFtcChza2IpOworCWVsc2UKKwkJZ290byBkcm9w
-OwogCiAJLy8gc29tZSBkZXZpY2VzIHdhbnQgZnVua3kgVVNCLWxldmVsIGZyYW1pbmcsIGZvcgog
-CS8vIHdpbjMyIGRyaXZlciAodXN1YWxseSkgYW5kL29yIGhhcmR3YXJlIHF1aXJrcwpAQCAtMTkw
-Niw3ICsxOTA4LDggQEAgc3RhdGljIGludCBfX3VzYm5ldF9yZWFkX2NtZChzdHJ1Y3QgdXNibmV0
-ICpkZXYsIHU4IGNtZCwgdTggcmVxdHlwZSwKIAkJYnVmID0ga21hbGxvYyhzaXplLCBHRlBfS0VS
-TkVMKTsKIAkJaWYgKCFidWYpCiAJCQlnb3RvIG91dDsKLQl9CisJfSBlbHNlCisJCWdvdG8gb3V0
-OwogCiAJZXJyID0gdXNiX2NvbnRyb2xfbXNnKGRldi0+dWRldiwgdXNiX3JjdmN0cmxwaXBlKGRl
-di0+dWRldiwgMCksCiAJCQkgICAgICBjbWQsIHJlcXR5cGUsIHZhbHVlLCBpbmRleCwgYnVmLCBz
-aXplLAotLSAKMS43LjkuNQ==
+On Mon, Aug 17, 2015 at 11:07:15AM +0800, Jason Wang wrote:
+> 
+> 
+> On 08/16/2015 09:42 PM, Victor Kaplansky wrote:
+> > @@ -3128,6 +3134,7 @@ struct virtio_net_config {
+> >          u8 mac[6];
+> >          le16 status;
+> >          le16 max_virtqueue_pairs;
+> > +        le16 default_mtu;
+> 
+> Looks like "mtu" is ok, consider we use "mac" instead of "default_mac".
+
+Good point. I'll change the name in the next version of the patch.
+
+> 
+> >  };
+> >  \end{lstlisting}
+> >  
+> > @@ -3158,6 +3165,15 @@ by the driver after negotiation.
+> >      \field{max_virtqueue_pairs} is valid only if VIRTIO_NET_F_MQ is
+> >      set and can be read by the driver.
+> >  
+> > +\item [\field{default_mtu}] is a hint to the driver set by the
+> > +    device. It is valid during feature negotiation only if
+> > +    VIRTIO_NET_F_DEFAULT_MTU is offered and holds the initial value
+> > +    of MTU to be used by the driver. If VIRTIO_NET_F_DEFAULT_MTU is
+> > +    negotiated, the driver uses the \field{default_mtu} as an initial
+> > +    value, and also reports MTU changes to the device by writes to
+> > +    \field{default_mtu}.  Such reporting can be used for debugging,
+> > +    or it can be used for tunning MTU along the network.
+> > +
+> 
+> I vaguely remember that config is read only in some arch or transport
+> and that's why we introduce another vq cmd to confirm the announcement.
+> Probably we should do same for this?
+
+If so, we need to add one more feature bit to confirm the ability
+of the driver to report MTU, or we can weaken the requirement in
+conformance statement and write "the driver may report the MTU".
+What do you say?
+
+-- Victor
