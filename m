@@ -1,68 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 04/13] ip_tunnels: add IPv6 addresses to
- ip_tunnel_key
-Date: Tue, 18 Aug 2015 17:36:32 -0700
-Message-ID: <20150819003632.GA989@Alexeis-MacBook-Pro-2.local>
-References: <cover.1439929916.git.jbenc@redhat.com>
- <199ae8362eabd65661ab145e9bfc281c5f5470ad.1439929916.git.jbenc@redhat.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v2 5/9] geneve: Add support to collect tunnel metadata.
+Date: Tue, 18 Aug 2015 18:07:28 -0700
+Message-ID: <CAEP_g=-gJeMDi_agxOmuvhvLwKpQeQZAmy55MWenvr_1bwt2Gg@mail.gmail.com>
+References: <1439845905-31666-1-git-send-email-pshelar@nicira.com> <1439845905-31666-6-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36320 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbbHSAgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 20:36:36 -0400
-Received: by pawq9 with SMTP id q9so46841845paw.3
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 17:36:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <199ae8362eabd65661ab145e9bfc281c5f5470ad.1439929916.git.jbenc@redhat.com>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:34530 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750822AbbHSBHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 21:07:49 -0400
+Received: by ykdt205 with SMTP id t205so177177498ykd.1
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:07:48 -0700 (PDT)
+In-Reply-To: <1439845905-31666-6-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 18, 2015 at 10:33:13PM +0200, Jiri Benc wrote:
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
->  drivers/net/vxlan.c            |  6 +++---
->  include/net/ip_tunnels.h       | 23 +++++++++++++++++++----
->  net/core/filter.c              |  4 ++--
->  net/ipv4/ip_gre.c              | 10 +++++-----
->  net/ipv4/ip_tunnel_core.c      |  8 ++++----
->  net/openvswitch/flow_netlink.c | 18 +++++++++---------
->  net/openvswitch/flow_table.c   |  2 +-
->  net/openvswitch/vport-geneve.c |  2 +-
->  net/openvswitch/vport.c        |  2 +-
->  net/openvswitch/vport.h        |  4 ++--
->  10 files changed, 47 insertions(+), 32 deletions(-)
+On Mon, Aug 17, 2015 at 2:11 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+> index 546494d..cb2d874 100644
+> --- a/drivers/net/geneve.c
+> +++ b/drivers/net/geneve.c
+> +static int geneve_configure(struct net *net, struct net_device *dev,
+> +                           __be32 rem_addr, __u32 vni, __u8 ttl, __u8 tos,
+> +                           __u16 dst_port, bool metadata)
+[...]
+> -       if (!data[IFLA_GENEVE_ID] || !data[IFLA_GENEVE_REMOTE])
+> -               return -EINVAL;
+> +       if (metadata && rtnl_dereference(gn->collect_md_tun))
+> +               return -EEXIST;
 
-please add commit message. +47 -32 cannot be empty.
-
-> +/* Used to memset ipv4 address padding. */
-> +#define IP_TUNNEL_KEY_IPV4_PAD	offsetofend(struct ip_tunnel_key, u.ipv4.dst)
-> +#define IP_TUNNEL_KEY_IPV4_PAD_LEN				\
-> +	(FIELD_SIZEOF(struct ip_tunnel_key, u) - IP_TUNNEL_KEY_IPV4_PAD)
-> +
->  struct ip_tunnel_key {
->  	__be64			tun_id;
-> -	__be32			ipv4_src;
-> -	__be32			ipv4_dst;
-> +	union {
-> +		struct {
-> +			__be32	src;
-> +			__be32	dst;
-> +		} ipv4;
-> +		struct {
-> +			struct in6_addr src;
-> +			struct in6_addr dst;
-> +		} ipv6;
-> +	} u;
-...
-> +	tun_info->key.u.ipv4.src = saddr;
-> +	tun_info->key.u.ipv4.dst = daddr;
-> +	memset((unsigned char *)&tun_info->key + IP_TUNNEL_KEY_IPV4_PAD,
-> +	       0, IP_TUNNEL_KEY_IPV4_PAD_LEN);
-
-the math looks wrong.
-IP_TUNNEL_KEY_IPV4_PAD_LEN = sizeof(u) - offsetofend(u.ipv4.dst)
-8 byte mistake?
+This will allow you to configure a collect_md_tun devices and normal
+devices on top of each other, even though the latter will never get
+hit in that situation.
