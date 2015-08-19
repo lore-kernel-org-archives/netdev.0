@@ -1,76 +1,48 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] vrf: plug skb leaks
-Date: Wed, 19 Aug 2015 10:13:25 -0700
-Message-ID: <55D4B935.5090400@cumulusnetworks.com>
-References: <1439953949-23736-1-git-send-email-razor@blackwall.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC v2 0/3] add TSO / A-MSDU TX for iwlwifi
+Date: Wed, 19 Aug 2015 10:19:37 -0700
+Message-ID: <1440004777.6610.23.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439993647.6610.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E8250B6@hasmsx107.ger.corp.intel.com>
+	 <1440000515.6610.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E825167@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shm@cumulusnetworks.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"ido@wizery.com" <ido@wizery.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34727 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751839AbbHSRN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 13:13:29 -0400
-Received: by paccq16 with SMTP id cq16so7259884pac.1
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 10:13:28 -0700 (PDT)
-In-Reply-To: <1439953949-23736-1-git-send-email-razor@blackwall.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35283 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751823AbbHSRTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 13:19:39 -0400
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32E825167@hasmsx107.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Nikolay:
+On Wed, 2015-08-19 at 17:00 +0000, Grumbach, Emmanuel wrote:
+> 
+> On 08/19/2015 07:08 PM, Eric Dumazet wrote:
+> > On Wed, 2015-08-19 at 15:07 +0000, Grumbach, Emmanuel wrote:
+> > 
+> >> I'll look at it.
+> >> I was almost starting to implement that but then I thought with another
+> >> (good?) reason to use LSO. LSO gives me the guarantee that the packet is
+> >> directed to one peer, which might not be the case with xmit_more since
+> >> we have one Qdisc for several clients in case we are in AP mode.
+> >> Building an A-MSDU for several clients is not possible, at least not for
+> >> several client in the L2 (different MAC addresses).
+> >> LSO avoids this problem completely.
+> > 
+> > Then, simply calling skb_gso_segment() from the driver might be enough,
+> > and less work for you.
+> > 
+> > This would even support TSO on IPv6
+> > 
+> 
+> Well... I did take care of IPv6.
 
-On 8/18/15 8:12 PM, Nikolay Aleksandrov wrote:
-> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-> index ed208317cbb5..4aa06450fafa 100644
-> --- a/drivers/net/vrf.c
-> +++ b/drivers/net/vrf.c
-> @@ -97,6 +97,12 @@ static bool is_ip_rx_frame(struct sk_buff *skb)
->   	return false;
->   }
->
-> +static void vrf_tx_error(struct net_device *vrf_dev, struct sk_buff *skb)
-> +{
-> +	vrf_dev->stats.tx_errors++;
-> +	kfree_skb(skb);
-> +}
-> +
->   /* note: already called with rcu_read_lock */
->   static rx_handler_result_t vrf_handle_frame(struct sk_buff **pskb)
->   {
-> @@ -149,7 +155,8 @@ static struct rtnl_link_stats64 *vrf_get_stats64(struct net_device *dev,
->   static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
->   					   struct net_device *dev)
->   {
-> -	return 0;
-> +	vrf_tx_error(dev, skb);
-> +	return NET_XMIT_DROP;
->   }
->
->   static int vrf_send_v4_prep(struct sk_buff *skb, struct flowi4 *fl4,
-> @@ -206,8 +213,7 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
->   out:
->   	return ret;
->   err:
-> -	vrf_dev->stats.tx_errors++;
-> -	kfree_skb(skb);
-> +	vrf_tx_error(vrf_dev, skb);
->   	goto out;
->   }
->
-> @@ -219,6 +225,7 @@ static netdev_tx_t is_ip_tx_frame(struct sk_buff *skb, struct net_device *dev)
->   	case htons(ETH_P_IPV6):
->   		return vrf_process_v6_outbound(skb, dev);
->   	default:
-> +		vrf_tx_error(dev, skb);
->   		return NET_XMIT_DROP;
->   	}
->   }
->
-
-Would be simpler to do the vrf_tx_error at the end of is_ip_tx_frame() 
-if ret == NET_XMIT_DROP.
-
-David
+net/core/tso.c does not yet handle IPv6
