@@ -1,56 +1,42 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: donot reset the overall_error_count in
- SHUTDOWN_RECEIVE state
-Date: Wed, 19 Aug 2015 14:58:37 -0300
-Message-ID: <20150819175837.GQ1097@localhost.localdomain>
-References: <9750de643075d301d80229898eacb0d921349f73.1439959083.git.lucien.xin@gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 0/3] add TSO / A-MSDU TX for iwlwifi
+Date: Wed, 19 Aug 2015 11:01:27 -0700
+Message-ID: <1440007287.6610.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439993647.6610.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E8250B6@hasmsx107.ger.corp.intel.com>
+	 <1440000515.6610.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E825167@hasmsx107.ger.corp.intel.com>
+	 <1440004777.6610.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E825252@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, tgraf@infradead.org,
-	davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47063 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750921AbbHSR6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 13:58:40 -0400
-Content-Disposition: inline
-In-Reply-To: <9750de643075d301d80229898eacb0d921349f73.1439959083.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32E825252-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 19, 2015 at 12:38:03PM +0800, Xin Long wrote:
-> commit f8d960524 fix the 0 peer.rwnd issue in SHUTDOWN_PENING state
-> through not reseting the overall_error_count when recevie a heartbeat,
-> but the same issue also exists in SHUTDOWN_RECEIVE state.
-
-Please fix the typos on changelog, specially when regarding symbols so
-searching for them later is more successful.
-
-Also, to make changelog closer to the actual change, explaining why it's
-okay to include the other states in there too would be good, as you're
-including not only SHUTDOWN_RECEIVE but also SHUTDOWN_SENT and
-SHUTDOWN_ACK_SENT.
-
-> Fixes: f8d960524 ("sctp: Enforce retransmission limit during shutdown")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/sm_sideeffect.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+On Wed, 2015-08-19 at 17:56 +0000, Grumbach, Emmanuel wrote:
 > 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index fef2acd..85e6f03 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -702,7 +702,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
->  	 * outstanding data and rely on the retransmission limit be reached
->  	 * to shutdown the association.
->  	 */
-> -	if (t->asoc->state != SCTP_STATE_SHUTDOWN_PENDING)
-> +	if (t->asoc->state < SCTP_STATE_SHUTDOWN_PENDING)
->  		t->asoc->overall_error_count = 0;
->  
->  	/* Clear the hb_sent flag to signal that we had a good
-> -- 
-> 2.1.0
-> 
+
+> So I feel that making net/core/tso.c more complicated just because of
+> our craziness seems an overkill to me.
+> I'll try a bit harder to see how I can use net/core/tso.c, but I have to
+> say I am pessimistic.
+
+net/core/tso.c is WIP, feel free to expand it to make it more generic
+and meet your needs.
+
+The point is : we want a core infrastructure, not something that each
+individual driver implements in ~500 lines of code :(
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
