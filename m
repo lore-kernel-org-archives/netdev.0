@@ -1,113 +1,284 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH] r8169: Add values missing in @get_stats64 from HW
- counters
-Date: Wed, 19 Aug 2015 11:10:37 +0200
-Message-ID: <20150819091037.GU17917@calimero.vinschen.de>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
- <20150818214017.GA14914@electric-eye.fr.zoreil.com>
- <20150818.190537.1494539251161022002.davem@davemloft.net>
+From: Premkumar Jonnala <pjonnala@broadcom.com>
+Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
+ bridges and switch devices.
+Date: Wed, 19 Aug 2015 09:34:30 +0000
+Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
+ <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="UExESr5xZTMxdOWv"
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org, nic_swsd@realtek.com,
-	ivecera@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:53258 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752623AbbHSJdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 05:33:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20150818.190537.1494539251161022002.davem@davemloft.net>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:50965 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753096AbbHSJed convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 05:34:33 -0400
+In-Reply-To: <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello Scott,
 
---UExESr5xZTMxdOWv
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Thank you for the diff and comments.   Please see my comments inline.
 
-On Aug 18 19:05, David Miller wrote:
-> From: Francois Romieu <romieu@fr.zoreil.com>
-> Date: Tue, 18 Aug 2015 23:40:17 +0200
->=20
-> > Corinna Vinschen <vinschen@redhat.com> :
-> >> The r8169 driver collects statistical information returned by
-> >> @get_stats64 by counting them in the driver itself, even though many
-> >> (but not all) of the values are already collected by tally counters
-> >> (TCs) in the NIC.  Some of these TC values are not returned by
-> >> @get_stats64.  Especially the received multicast packages are missing
-> >> from /proc/net/dev.
-> >> Rectify this by fetching the TCs and returning them from
-> >> rtl8169_get_stats64.
-> >=20
-> > It is not exactly a some / many / not all / confused [*] picture
-> > - get_stats64 provides software managed values
-> > - ethtool provides hardware only values
-> >=20
-> > [*] ok, rx_missed is kinda special.
-> >=20
-> >> The counters collected in the driver obviously disappear as soon as the
-> >> driver is unloaded so after a driver is loaded the counters always sta=
-rt
-> >> at 0.  The TCs are only reset by a power cycle and there's no known way
-> >> to reset them programatically. Without further considerations the valu=
-es
-> >> collected by the driver would not match up against the TC values.
-> >=20
-> > I'd rather:
-> > 1. keep software and hardware stats separated
-> > 2. push to userspace the responsibility to offset device specific hardw=
-are
-> >    values jumps
-> >=20
-> > My 0.02 =E2=82=AC.
->=20
-> Any value that is provided by ->get_stats64() should be provided by whate=
-ver
-> mechanism is available and determined to be "prudent" for the device in
-> question.  If the device is not tracking the event, this means pure softw=
-are
-> counters.
->=20
-> If the device tracks the event, you should attempt to use the hardware
-> facility to provide the ->get_stats64() values.
->=20
-> If the hardware provides counters not starting at zero on driver load,
-> one option to handle that is to load the initial values of all of
-> those counters and calculate diffs at ->get_stats64() time.
+> -----Original Message-----
+> From: Scott Feldman [mailto:sfeldma@gmail.com]
+> Sent: Tuesday, August 18, 2015 12:48 PM
+> To: Premkumar Jonnala
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for bridges
+> and switch devices.
+> 
+> 
+> 
+> On Fri, 14 Aug 2015, Premkumar Jonnala wrote:
+> 
+> > Bridge devices have ageing interval used to age out MAC addresses
+> > from FDB.  This ageing interval was not configuratble.
+> >
+> > Enable netlink based configuration of ageing interval for bridges and
+> > switch devices.  The ageing interval changes the timer used to purge
+> > inactive FDB entries in bridges.  The ageing interval config is
+> > propagated to switch devices, so that platform or hardware based
+> > ageing works according to configuration.
+> >
+> > Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
+> 
+> Hi Premkumar,
+> 
+> I agree with Roopa that we should use existing IFLA_BR_AGEING_TIME.
 
-That's what my code is doing, just for a limited set of values.
+What is the motivation for using 'ip link' command to configure bridge attributes?  IMHO,
+bridge command is better suited for that. 
 
-I was already wondering why some values available in the hardware tally
-counters are additionally counted in software.  I was planning to
-propose to use the hardware counters in @get_stats64 in the first place
-and only count values in the driver which are not provided by the
-hardware
+> 
+> I hope you don't mind if share a patch for setting bridge-level attributes
+> down to the switch hardware ports.  It uses the switchdev_port_attr_set()
+> call on the bridge interface itself when any IFLA_BR_xxx attribute is set
+> via netlink.   switchdev_port_attr_set() will do a recursive walk of all
+> lower devs from the bridge, stopping at each to set the attribute.  I
+> added one small tweak to switchdev_port_attr_set() to allow skipping over
+> ports that return -EOPNOTSUPP.  The advantage to using
+> switchdev_port_attr_set() is it automatically knows how to find the leaf
+> ports in a stacked driver setup, and it uses the prepare/commit
+> transaction model to make sure all ports can support new attr setting
+> before committing setting to hardware.
+> 
+> I gave an example using rocker to set IFLA_BR_AGEING_TIME.  It's stubbed
+> out, but you get the idea.  Other IFLA_BR_xxx attrs can be added to this
+> model.
+> 
+> Does this look like something that would work?  If so, would you mind
+> running with this patch and maybe even extending it for other IFLA_BR_xxx
+> attrs?
 
+Sure, let me go with this patch.  Couple of comments inline.
 
-Corinna
+> 
+> Again, I hope I'm not stepping on toes here by rewriting your patch, but
+> it was the best way to communicate the idea of how to use the switchdev
+> frame work for these bridge attrs.
+> 
+> -scott
+> 
+> 
+> 
+> 
+> diff --git a/drivers/net/ethernet/rocker/rocker.c
+> b/drivers/net/ethernet/rocker/rocker.c
+> index 0cc9e8f..830f8e6 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -4680,6 +4680,24 @@ static int rocker_port_brport_flags_set(struct
+> rocker_port *rocker_port,
+>   	return err;
+>   }
+> 
+> +static int rocker_port_bridge_set(struct rocker_port *rocker_port,
+> +				  enum switchdev_trans trans,
+> +				  struct switchdev_attr_bridge *bridge)
+> +{
+> +	switch (bridge->attr) {
+> +	case IFLA_BR_AGEING_TIME:
+> +		{
+> +			u32 ageing_time = bridge->val;
+> +			/* XXX push ageing_time down to device */
+> +		}
+> +		break;
+> +	default:
+> +		return -EOPNOTSUPP;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>   static int rocker_port_attr_set(struct net_device *dev,
+>   				struct switchdev_attr *attr)
+>   {
+> @@ -4707,6 +4725,10 @@ static int rocker_port_attr_set(struct net_device
+> *dev,
+>   		err = rocker_port_brport_flags_set(rocker_port, attr->trans,
+>   						   attr->u.brport_flags);
+>   		break;
+> +	case SWITCHDEV_ATTR_BRIDGE:
+> +		err = rocker_port_bridge_set(rocker_port, attr->trans,
+> +					     &attr->u.bridge);
+> +		break;
+>   	default:
+>   		err = -EOPNOTSUPP;
+>   		break;
+> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+> index 319baab..22a6dbe 100644
+> --- a/include/net/switchdev.h
+> +++ b/include/net/switchdev.h
+> @@ -15,6 +15,7 @@
+>   #include <linux/notifier.h>
+> 
+>   #define SWITCHDEV_F_NO_RECURSE		BIT(0)
+> +#define SWITCHDEV_F_SKIP_EOPNOTSUPP	BIT(1)
+> 
+>   enum switchdev_trans {
+>   	SWITCHDEV_TRANS_NONE,
+> @@ -28,6 +29,7 @@ enum switchdev_attr_id {
+>   	SWITCHDEV_ATTR_PORT_PARENT_ID,
+>   	SWITCHDEV_ATTR_PORT_STP_STATE,
+>   	SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS,
+> +	SWITCHDEV_ATTR_BRIDGE,
+>   };
+> 
+>   struct switchdev_attr {
+> @@ -38,6 +40,10 @@ struct switchdev_attr {
+>   		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID
+> */
+>   		u8 stp_state;				/* PORT_STP_STATE
+> */
+>   		unsigned long brport_flags;		/*
+> PORT_BRIDGE_FLAGS */
+> +		struct switchdev_attr_bridge {		/* BRIDGE */
+> +			enum ifla_br attr;
+> +			u32 val;
+> +		} bridge;
+>   	} u;
+>   };
+> 
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index ff659f0..0630053 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -222,7 +222,7 @@ enum in6_addr_gen_mode {
+> 
+>   /* Bridge section */
+> 
+> -enum {
+> +enum ifla_br {
+>   	IFLA_BR_UNSPEC,
+>   	IFLA_BR_FORWARD_DELAY,
+>   	IFLA_BR_HELLO_TIME,
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 0f2408f..01401ea 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -759,9 +759,9 @@ static int br_changelink(struct net_device *brdev, struct
+> nlattr *tb[],
+>   	}
+> 
+>   	if (data[IFLA_BR_AGEING_TIME]) {
+> -		u32 ageing_time = nla_get_u32(data[IFLA_BR_AGEING_TIME]);
 
---UExESr5xZTMxdOWv
-Content-Type: application/pgp-signature
+Should we do some range checking here to ensure that the value is within a certain range.
+IEEE 802.1d recommends that the ageing time be between 10 sec and 1 million seconds.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+> -
+> -		br->ageing_time = clock_t_to_jiffies(ageing_time);
+> +		err = br_set_ageing_time(br,
+> nla_get_u32(data[IFLA_BR_AGEING_TIME]));
+> +		if (err)
+> +			return err;
+>   	}
+> 
+>   	if (data[IFLA_BR_STP_STATE]) {
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 3d95647..9807a6f 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -807,6 +807,7 @@ void __br_set_forward_delay(struct net_bridge *br,
+> unsigned long t);
+>   int br_set_forward_delay(struct net_bridge *br, unsigned long x);
+>   int br_set_hello_time(struct net_bridge *br, unsigned long x);
+>   int br_set_max_age(struct net_bridge *br, unsigned long x);
+> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time);
+> 
+> 
+>   /* br_stp_if.c */
+> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+> index ed74ffa..5de27bc 100644
+> --- a/net/bridge/br_stp.c
+> +++ b/net/bridge/br_stp.c
+> @@ -566,6 +566,25 @@ int br_set_max_age(struct net_bridge *br, unsigned
+> long val)
+> 
+>   }
+> 
+> +int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
+> +{
+> +	struct switchdev_attr attr = {
+> +		.id = SWITCHDEV_ATTR_BRIDGE,
+> +		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
+> +		.u.bridge.attr = IFLA_BR_AGEING_TIME,
+> +		.u.bridge.val = ageing_time,
+> +	};
+> +	int err;
+> +
+> +	err = switchdev_port_attr_set(br->dev, &attr);
+> +	if (err)
+> +		return err;
+> +
+> +	br->ageing_time = clock_t_to_jiffies(ageing_time);
 
-iQIcBAEBCAAGBQJV1EgNAAoJEPU2Bp2uRE+gKbUP/jncZJDJhLgzt7H6nbzHLGTs
-EY2CRHGXqeFzrqh50fEueekk05Jx9BKzNQUZxuerz950mZSNc9BpMkPZaLbip/Ka
-dI8NZwjY9eIQ8wg/X+NNrQnoYw/FqfSBsm9Q97jjJAiEdHzeUqlEx2mcqNUEH7oQ
-cUVPKgFlXtbJiCAxePYhoNXvW2VIbOJJuvvhlYuaYhnKL+v0nmX7DERa9MaZlwrW
-4aRDU6DFXgqeK2zPSWZ3HLvjAIedIzOnT2cES+fB4fa71fg5/v9Jxgp1jYcj849z
-/vQug88GVyxrPpknWTXNi/sYxiGVDYtSnfYP0tb9LlAvtYlNI0ok40UIaiedGcB+
-o4ThINe1GIo4OCO40EFs3MbH3G/+AEKgjR5pYcwwDlfotCgFsRwcLp4uGHpDpSBq
-gme5KO5LAFe2cw2/7Ir2BFeyA5viuys1b4hwHXFJMlM5bz5QsxZAPLsMtEzauJp3
-b2r/pB2dUMgT0iB//Z+VqBNEoT9bB3SfdwrJkW4hvu2K8myr/PWvP5Bkbe/xF1SA
-dKo+Jr6nNb9cbRjd5FNHbIksnSovHH5URjuNr0kNkwVPXUt9bUpc+r607OuybxPQ
-EKd9Wlpj3I5JsKavxhdOFGkEr4vA5TbTa7ocps2NKkzZAGwjwJnvwteOFn9vntEJ
-Hf7ZOez9CMeh7+pgmIa+
-=lenh
------END PGP SIGNATURE-----
+Should we restart the timer here the new time takes effect?
 
---UExESr5xZTMxdOWv--
+> +
+> +	return 0;
+> +}
+> +
+>   void __br_set_forward_delay(struct net_bridge *br, unsigned long t)
+>   {
+>   	br->bridge_forward_delay = t;
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index 16c1c43..b990301 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -73,7 +73,7 @@ static int __switchdev_port_attr_set(struct net_device
+> *dev,
+>   		return ops->switchdev_port_attr_set(dev, attr);
+> 
+>   	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
+> -		return err;
+> +		goto done;
+> 
+>   	/* Switch device port(s) may be stacked under
+>   	 * bond/team/vlan dev, so recurse down to set attr on
+> @@ -82,10 +82,17 @@ static int __switchdev_port_attr_set(struct net_device
+> *dev,
+> 
+>   	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>   		err = __switchdev_port_attr_set(lower_dev, attr);
+> +		if (err == -EOPNOTSUPP &&
+> +		    attr->flags & SWITCHDEV_F_SKIP_EOPNOTSUPP)
+> +			continue;
+>   		if (err)
+>   			break;
+>   	}
+> 
+> +done:
+> +	if (err == -EOPNOTSUPP && attr->flags &
+> SWITCHDEV_F_SKIP_EOPNOTSUPP)
+> +		err = 0;
+> +
+>   	return err;
+>   }
+
+-Prem
