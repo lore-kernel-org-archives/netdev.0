@@ -1,47 +1,76 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: mv88e6xxx: set 802.1Q mode to Fallback
-Date: Wed, 19 Aug 2015 18:54:55 -0400
-Message-ID: <1440024895-22803-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv4 net-next 10/10] openvswitch: Allow attaching helpers to
+ ct action
+Date: Wed, 19 Aug 2015 15:57:40 -0700
+Message-ID: <CALnjE+p7WH53qx4=OBpFAT-CDRMbuUx1c_RspQYqBdBbG1=LjA@mail.gmail.com>
+References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
+	<1439941188-19293-11-git-send-email-joestringer@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439941188-19293-11-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current Secure port mode requires the port-based VLANs to also be
-valid in the 802.1Q VLAN Table Unit. The current hardware bridging
-support only configures the port-based VLANs, thus is broken.
+On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Add support for using conntrack helpers to assist protocol detection.
+> The new OVS_CT_ATTR_HELPER attribute of the ct action specifies a helper
+> to be used for this connection.
+>
+> Example ODP flows allowing FTP connections from ports 1->2:
+> in_port=1,tcp,action=ct(helper=ftp,commit),2
+> in_port=2,tcp,ct_state=-trk,action=ct(),recirc(1)
+> recirc_id=1,in_port=2,tcp,ct_state=+trk-new+est,action=1
+> recirc_id=1,in_port=2,tcp,ct_state=+trk+rel,action=1
+>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> ---
+> v2-v3: No change.
+> v4: Change error code for unknown helper ENOENT->EINVAL.
 
-A new patchset is required to adapt the hardware bridging code to fully
-support the Secure port mode.
+I got following compilation warning :
 
-In the meantime, change the 802.1Q mode of every ports to Fallback,
-which filtering is more permissive, and doesn't add this restriction to
-handle port-based and tagged-based VLANs.
+net/openvswitch/conntrack.c:352:42: error: incompatible types in
+comparison expression (different address spaces)
 
-Fixes: 8efdda4a1b60 ("net: dsa: mv88e6xxx: use port 802.1Q mode Secure")
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> ---
+>  include/uapi/linux/openvswitch.h |   3 ++
+>  net/openvswitch/conntrack.c      | 109 ++++++++++++++++++++++++++++++++++++++-
+>  2 files changed, 110 insertions(+), 2 deletions(-)
+>
+...
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index dee71fa..91d7e0a 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2091,7 +2091,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
- 	}
- 
--	reg |= PORT_CONTROL_2_8021Q_SECURE;
-+	reg |= PORT_CONTROL_2_8021Q_FALLBACK;
- 
- 	if (reg) {
- 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
--- 
-2.5.0
+> +static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
+> +                            const struct sw_flow_key *key, bool log)
+> +{
+> +       struct nf_conntrack_helper *helper;
+> +       struct nf_conn_help *help;
+> +
+> +       helper = nf_conntrack_helper_try_module_get(name, info->family,
+> +                                                   key->ip.proto);
+> +       if (!helper) {
+> +               OVS_NLERR(log, "Unknown helper \"%s\"", name);
+> +               return -EINVAL;
+> +       }
+> +
+> +       help = nf_ct_helper_ext_add(info->ct, helper, GFP_KERNEL);
+> +       if (!help) {
+> +               module_put(helper->me);
+> +               return -ENOMEM;
+> +       }
+> +
+> +       help->helper = helper;
+helper is rcu pointer so need to use rcu API to set the value. I know
+it is not required here, but it is still cleaner to use the API.
+
+> +       info->helper = helper;
+> +       return 0;
+> +}
+> +
