@@ -1,54 +1,72 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH] veth: replace iflink by a dedicated symlink in sysfs
-Date: Wed, 19 Aug 2015 14:48:18 +0200
-Message-ID: <8737zf8mwd.fsf@zoro.exoscale.ch>
-References: <87fv3ier4s.fsf@zoro.exoscale.ch>
-	<1439966648-26195-1-git-send-email-vincent@bernat.im>
-	<1439966648-26195-2-git-send-email-vincent@bernat.im>
-	<20150819130013.1a847627@griffin> <87bne38oj7.fsf@zoro.exoscale.ch>
-	<20150819143800.6863fa3b@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:40076 "EHLO bart.luffy.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753789AbbHSMsV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 08:48:21 -0400
-In-Reply-To: <20150819143800.6863fa3b@griffin> (Jiri Benc's message of "Wed,
-	19 Aug 2015 14:38:00 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [RFC v2 0/3] add TSO / A-MSDU TX for iwlwifi
+Date: Wed, 19 Aug 2015 15:59:38 +0300
+Message-ID: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+Cc: ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 19 ao=C3=BBt 2015 14:38 +0200, Jiri Benc <jbenc@redhat.com>=C2=
-=A0:
+We enable TSO to get a lot of data at once to build A-MSDUs.
+Our hardware doesn't have (yet) TCP CSUM offload, so we do
+it manually. TSO won't be enabled on hardware that don't
+support CSUM offload in release code, computing TCP CSUM
+in the driver is just a way to start coding the flows.
+This is why the "CSUM offload" implementation in the driver
+in so bad in terms of efficiency. I preferred to have the
+flows as close as they will be when the hardware will be
+able to the CSUM than to try to seek efficiency.
+The hardware that will have CSUM offload will still require
+the driver to split the skb in software including the
+IP / TCP header copy and update etc...
 
->> That's the main goal of this patch: advertising the peer link as
->> IFLA_LINK attribute triggers an infinite loop in userland software w=
-hen
->> they follow iflink to discover network devices topology. iflink has
->> always been the index of a lower device. If a sysfs symbolic link is=
- not
->> good enough, I can propose a new IFLA_PEER attribute instead.
->
-> This would cause regression and break applications for those of us wh=
-o
-> started relying on the netnsid feature to match interfaces across net
-> name spaces.
+We could have enabled A-MSDU based on xmit-more, but the
+rationale of using LSO is that when using pfifo-fast,
+the Qdisc gets one packet and dequeues is straight away
+which limits the possibility to get a lot of packets at
+once. (Am I right here?).
 
-Yes. Unfortunately.
+A note about A-MSDUs for non-wireless people:
+*********************************************
+An A-MSDU is a aggregated frame. It is one big 802.11
+packet that contains several subframes. Each subframe
+is a TCP segment. One A-MSDU is represented by one single
+skb which means that we need to copy / duplicate the TCP
+/ IP / SNAP headers in one single skb. This is why those
+headers are copied to a separate page: that page is added
+multiple times to the skb with different offsets. Each
+subframes needs at least 2 frags: 1 for the headers, 1 (or
+more) for the payload.
 
-> This is tough. If you're going to do such thing, you would at least
-> need to also introduce IFLA_PEER_NETNSID.
+I am quite a newbie in skb handling, so I guess that this
+code can be improved. I have tested it decently using iperf,
+but this doesn't mean that there are no issues using other
+applications. We are enabling pktgen on TCP (using patches
+that were sent a year ago or so) to test the different
+layouts of the skb (payload partition amongst the header
+and the different frags).
 
-Yes I can.
+I'll be very happy to get comments on that code, this is
+why I am sending it to netdev as well since the TSO experts
+are there :)
 
-In my opinion, the change of semantics of IFLA_LINK is a break of
-API. However, I can live with it since it's easy to workaround it. It
-just seemed easier to start the discussion with a patch.
---=20
-Parenthesise to avoid ambiguity.
-            - The Elements of Programming Style (Kernighan & Plauger)
+Emmanuel Grumbach (3):
+  iwlwifi: mvm: add real TSO implementation
+  iwlwifi: mvm: allow to create A-MSDUs from a large send
+  iwlwifi: mvm: transfer the truesize to the last TSO segment
+
+ drivers/net/wireless/iwlwifi/mvm/mac80211.c |   3 +-
+ drivers/net/wireless/iwlwifi/mvm/sta.c      |   4 +-
+ drivers/net/wireless/iwlwifi/mvm/sta.h      |   6 +-
+ drivers/net/wireless/iwlwifi/mvm/tx.c       | 669 ++++++++++++++++++++++++++--
+ 4 files changed, 647 insertions(+), 35 deletions(-)
+
+-- 
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
