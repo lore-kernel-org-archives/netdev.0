@@ -1,89 +1,68 @@
-From: "Patil, Kiran" <kiran.patil@intel.com>
-Subject: RE: [Intel-wired-lan] [Patch V3 5/9] i40e: Use numa_mem_id() to
- better	support memoryless node
-Date: Wed, 19 Aug 2015 22:38:09 +0000
-Message-ID: <4197C471DCF8714FBA1FE32565271C148FFFF4D3@ORSMSX103.amr.corp.intel.com>
-References: <1439781546-7217-1-git-send-email-jiang.liu@linux.intel.com>
- <1439781546-7217-6-git-send-email-jiang.liu@linux.intel.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v2 9/9] geneve: Implement rtnl changelink
+Date: Wed, 19 Aug 2015 15:39:22 -0700
+Message-ID: <CAEP_g=_j_DzjJaSX6ou57+OGe2qNpo9EDSM7ES9i9iiGmYE3qA@mail.gmail.com>
+References: <1439845905-31666-1-git-send-email-pshelar@nicira.com>
+ <1439845905-31666-10-git-send-email-pshelar@nicira.com> <CAEP_g=8w4wYxFMvZcxUiCMpW5qT5ZMY0JQ9oJ=pxeK4E8Jpudw@mail.gmail.com>
+ <CALnjE+qRTFXono-qTknRkREWRJnVp1qJQMnDCy7ODqGu-9xRhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Luck, Tony" <tony.luck@intel.com>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>,
-	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>, "intel-wired-lan@lists.osuosl.org"
-	<intel-wired-lan@lists.osuosl.org>
-To: Jiang Liu <jiang.liu@linux.intel.com>, Andrew Morton
-	<akpm@linux-foundation.org>, Mel Gorman <mgorman@suse.de>, David Rientjes
-	<rientjes@google.com>, Mike Galbraith <umgwanakikbuti@gmail.com>, "Peter
- Zijlstra" <peterz@infradead.org>, "Wysocki, Rafael J"
-	<rafael.j.wysocki@intel.com>, Tang Chen <tangchen@cn.fujitsu.com>, Tejun Heo
-	<tj@kernel.org>, "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>, "Nelson, Shannon"
-	<shannon.nelson@intel.com>, "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>, "Vick, Matthew"
-	<matthew.vick@intel.com>, "Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1439781546-7217-6-git-send-email-jiang.liu@linux.intel.com>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:33956 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752074AbbHSWjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 18:39:43 -0400
+Received: by lbbtg9 with SMTP id tg9so12745197lbb.1
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 15:39:42 -0700 (PDT)
+In-Reply-To: <CALnjE+qRTFXono-qTknRkREWRJnVp1qJQMnDCy7ODqGu-9xRhQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Kiran Patil <kiran.patil@intel.com>
+On Wed, Aug 19, 2015 at 1:12 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, Aug 19, 2015 at 12:40 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Mon, Aug 17, 2015 at 2:11 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+>>> index e47cdd9..0d7fbef 100644
+>>> --- a/drivers/net/geneve.c
+>>> +++ b/drivers/net/geneve.c
+>>>         geneve->remote.sin_addr.s_addr = rem_addr;
+>>>         if (IN_MULTICAST(ntohl(geneve->remote.sin_addr.s_addr)))
+>>>                 return -EINVAL;
+>>>
+>>> +       u32_to_vni(vni, geneve->vni);
+>>>         list_for_each_entry(t, &gn->geneve_list, next) {
+>>>                 if (!memcmp(geneve->vni, t->vni, sizeof(t->vni)) &&
+>>>                     rem_addr == t->remote.sin_addr.s_addr &&
+>>
+>> I'm not sure that these types of operations are safe if the device is
+>> already running. We first overwrite the remote value and then we do
+>> error checking but that means that if there is an error, then the
+>> device will be left in a broken state. Don't we also need to update
+>> the hash table if some of these parameters change?
+>>
+> ok, I will stop device before making changes. that way we can add it
+> to hash table.
 
------Original Message-----
-From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On =
-Behalf Of Jiang Liu
-Sent: Sunday, August 16, 2015 8:19 PM
-To: Andrew Morton; Mel Gorman; David Rientjes; Mike Galbraith; Peter Zijlst=
-ra; Wysocki, Rafael J; Tang Chen; Tejun Heo; Kirsher, Jeffrey T; Brandeburg=
-, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald C; Vick, Matth=
-ew; Ronciak, John; Williams, Mitch A
-Cc: Luck, Tony; netdev@vger.kernel.org; x86@kernel.org; linux-hotplug@vger.=
-kernel.org; linux-kernel@vger.kernel.org; linux-mm@kvack.org; intel-wired-l=
-an@lists.osuosl.org; Jiang Liu
-Subject: [Intel-wired-lan] [Patch V3 5/9] i40e: Use numa_mem_id() to better=
- support memoryless node
+I think we should still strive to make changes as minimally disruptive
+as possible. At least some changes can still be done safely at runtime
+so it would be nice to be able to handle those cleanly.
 
-Function i40e_clean_rx_irq() tries to reuse memory pages allocated from the=
- nearest node. To better support memoryless node, use
-numa_mem_id() instead of numa_node_id() to get the nearest node with memory=
-.
+>>> +static int geneve_changelink(struct net_device *dev,
+>>> +                            struct nlattr *tb[], struct nlattr *data[])
+>>> +{
+>> [...]
+>>> -       if (data[IFLA_GENEVE_PORT])
+>>> -               dst_port = nla_get_u16(data[IFLA_GENEVE_PORT]);
+>>> +       if (geneve->sock && (dst_port != ntohs(geneve->dst_port) ||
+>>> +                            metadata != geneve->collect_md)) {
+>>
+>> It seems like in an ideal world, we wouldn't need to recreate the
+>> socket if metadata collection changed (assuming that there are no new
+>> conflicts).
+>
+> To keep changelink simple I am thinking of disallowing metadata changes.
 
-This change should only affect performance.
-
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethe=
-rnet/intel/i40e/i40e_txrx.c
-index 9a4f2bc70cd2..a8f618cb8eb0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1516,7 +1516,7 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_=
-ring, int budget)
- 	unsigned int total_rx_bytes =3D 0, total_rx_packets =3D 0;
- 	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
- 	u16 cleaned_count =3D I40E_DESC_UNUSED(rx_ring);
--	const int current_node =3D numa_node_id();
-+	const int current_node =3D numa_mem_id();
- 	struct i40e_vsi *vsi =3D rx_ring->vsi;
- 	u16 i =3D rx_ring->next_to_clean;
- 	union i40e_rx_desc *rx_desc;
---
-1.7.10.4
-
-_______________________________________________
-Intel-wired-lan mailing list
-Intel-wired-lan@lists.osuosl.org
-http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I guess I would rather allow it but make changes slower than disallow
+it. That way it is easier to improve in the future if necessary.
