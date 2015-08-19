@@ -1,40 +1,26 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: Clarification on rtnetlink requests
-Date: Wed, 19 Aug 2015 19:03:33 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D8EBC6C0@nice.asicdesigners.com>
-References: <CALj-AT+z+Mv5ZUZWDDxquaZKu3o5qstuarz-qLcx80CH_n7LGQ@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v2 8/9] geneve: Move device hash table to geneve socket.
+Date: Wed, 19 Aug 2015 12:05:10 -0700
+Message-ID: <CAEP_g=9YtQyCdsNqB=ULGcLuH_Sr_skx7e4QeSzOAA+ZkVeB5w@mail.gmail.com>
+References: <1439845905-31666-1-git-send-email-pshelar@nicira.com> <1439845905-31666-9-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: David Chappelle <chappedm@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:30185 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751146AbbHSTDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:03:37 -0400
-In-Reply-To: <CALj-AT+z+Mv5ZUZWDDxquaZKu3o5qstuarz-qLcx80CH_n7LGQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:32780 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbbHSTFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:05:32 -0400
+Received: by lbbsx3 with SMTP id sx3so9589486lbb.0
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:05:31 -0700 (PDT)
+In-Reply-To: <1439845905-31666-9-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+IG93bmVyQHZnZXIua2VybmVsLm9yZ10gT24g
-QmVoYWxmIE9mIERhdmlkIENoYXBwZWxsZQ0KPiBTZW50OiBXZWRuZXNkYXksIEF1Z3VzdCAxOSwg
-MjAxNSA4OjA1IEFNDQo+IFRvOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IENs
-YXJpZmljYXRpb24gb24gcnRuZXRsaW5rIHJlcXVlc3RzDQo+IA0KPiBJIGFtIGEgYml0IGNvbmZ1
-c2VkIHdpdGggcmVzcGVjdCB0byB0aGUgc3RydWN0dXJlIG9mIHJ0bmV0bGluayByZXF1ZXN0cy4N
-Cj4gSXQgc2VlbXMgdGhhdCBpbiBzb21lIGNpcmN1bXN0YW5jZXMgYSByZXF1ZXN0IGNhbiBsb29r
-IGxpa2U6DQo+IA0KPiAgICAgc3RydWN0IHJlcXVlc3QNCj4gICAgIHsNCj4gICAgICAgICBzdHJ1
-Y3Qgbmxtc2doZHIgaGVhZGVyOw0KPiAgICAgICAgIHN0cnVjdCBydGdlbm1zZyBib2R5Ow0KPiAg
-ICAgfTsNCj4gDQo+IGFuZCBpbiBvdGhlciBjYXNlcyBpdCBjYW4gbG9vayBsaWtlOg0KPiANCj4g
-ICAgIHN0cnVjdCByZXF1ZXN0DQo+ICAgICB7DQo+ICAgICAgICAgc3RydWN0IG5sbXNnaGRyIGhl
-YWRlcjsNCj4gICAgICAgICBzdHJ1Y3QgaWZpbmZvbXNnIGJvZHk7DQo+ICAgICB9Ow0KPiANCj4g
-SG93IGRvIEkga25vdyB3aGljaCBvbmUgdG8gdXNlIHdoZW4gc2VuZGluZyBSVE1fR0VUTElOSyBh
-bmQNCj4gUlRNX0dFVEFERFIgcmVxdWVzdHM/IEZ1cnRoZXJtb3JlLCBpdCBhbHNvIHNlZW1zIHRo
-YXQgJ3N0cnVjdCBydGF0dHInDQo+IGNhbiBiZSBzcGVjaWZpZWQgYXQgdGhlIGVuZCBvZiB0aGUg
-cmVxdWVzdCBhcyB3ZWxsLiBJcyB0aGVyZSBhbnkNCj4gZG9jdW1lbnRhdGlvbiB0aGF0IGRlc2Ny
-aWJlcyB0aGlzLg0KDQpSVE1fR0VUTElOSyB1c2VzIGlmaW5mb21zZyBhbmQgUlRNX0dFVEFERFIg
-dXNlcyBpZmFkZHJtc2csIHNlZSBtYW4gNyBydG5ldGxpbmsuIHN0cnVjdCAgcnRnZW5tc2cgaXMg
-anVzdCBhIGdlbmVyaWMgdHlwZSwgbG9vayBhdCBpbmNsdWRlL2xpbnV4L3J0bmV0bGluay5oDQot
-QW5pc2gNCg0K
+On Mon, Aug 17, 2015 at 2:11 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> This change simplifies Geneve Tunnel hash table management.
+>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+
+Reviewed-by: Jesse Gross <jesse@nicira.com>
