@@ -1,28 +1,48 @@
-From: Adrien Schildknecht <adrien+dev-Yk6CzqVXkG6lnMjI0IkVqw@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: rtl8192cu: Add new device ID
-Date: Wed, 19 Aug 2015 16:27:09 +0200
-Message-ID: <20150819162709.5138f8cc.adrien+dev@schischi.me>
-References: <1439992291-24912-1-git-send-email-adrien+dev@schischi.me>
-	<55D48EB5.604@lwfinger.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv1 net-next 0/5] netlink: mmap: kernel panic and some issues
+Date: Wed, 19 Aug 2015 16:29:32 +0200
+Message-ID: <55D492CC.6010602@iogearbox.net>
+References: <20150814085807.GA30443@gmail.com>	<55CDBC84.8020605@iogearbox.net>	<55CDC51D.1060204@iogearbox.net> <20150817.140222.1763422851882964859.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, marex-ynQEQJNshbs@public.gmane.org, fzuuzf-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <55D48EB5.604-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: chamaken@gmail.com, netdev@vger.kernel.org, fw@strlen.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38474 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658AbbHSO3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 10:29:38 -0400
+In-Reply-To: <20150817.140222.1763422851882964859.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Has this ID been tested with the Netgear device?
-Yes, I have been using the device and the patch for 2 days.
+On 08/17/2015 11:02 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Fri, 14 Aug 2015 12:38:21 +0200
+>
+>> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+>> index 67d2104..4307446 100644
+>> --- a/net/netlink/af_netlink.c
+>> +++ b/net/netlink/af_netlink.c
+>> @@ -238,6 +238,13 @@ static void __netlink_deliver_tap(struct sk_buff
+>> *skb)
+>>
+>>   static void netlink_deliver_tap(struct sk_buff *skb)
+>>   {
+>> +	/* Netlink mmaped skbs must not access shared info, and thus
+>> +	 * are not allowed to be cloned. For now, just don't allow
+>> +	 * them to get inspected by taps.
+>> +	 */
+>> +	if (netlink_skb_is_mmaped(skb))
+>> +		return;
+>> +
+>
+> I would seriously rather see us do an expensive full copy of the SKB
+> than to have traffic which is unexpectedly invisible to taps.
 
--- 
-Adrien Schildknecht
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Do you mean generically as we do in TX path, or only in this
+particular scenario?
+
+Thanks,
+Daniel
