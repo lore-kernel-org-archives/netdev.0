@@ -1,25 +1,47 @@
-From: Alex Gartrell <alexgartrell@gmail.com>
-Subject: Re: [PATCH] net: Provide lwtstate_free for non-lwt config
-Date: Wed, 19 Aug 2015 15:41:46 -0700
-Message-ID: <CALCkm3fQCR7vTFUTX1n2rDED9Wkc_5_pKt7JiU35x7CdgQGCnQ@mail.gmail.com>
-References: <1440022566-4081118-1-git-send-email-agartrell@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, jbenc@redhat.com,
-	roopa@cumulusnetworks.com, netdev <netdev@vger.kernel.org>
-To: Alex Gartrell <agartrell@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:35124 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165AbbHSWmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 18:42:07 -0400
-Received: by qkbm65 with SMTP id m65so8142918qkb.2
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 15:42:05 -0700 (PDT)
-In-Reply-To: <1440022566-4081118-1-git-send-email-agartrell@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: set 802.1Q mode to Fallback
+Date: Wed, 19 Aug 2015 18:54:55 -0400
+Message-ID: <1440024895-22803-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 19, 2015 at 3:16 PM, Alex Gartrell <agartrell@fb.com> wrote:
-> Fixes: df383e624 ("lwtunnel: fix memory leak")
+The current Secure port mode requires the port-based VLANs to also be
+valid in the 802.1Q VLAN Table Unit. The current hardware bridging
+support only configures the port-based VLANs, thus is broken.
 
-Ah sorry, this is PATCH net-next, obviously :/
+A new patchset is required to adapt the hardware bridging code to fully
+support the Secure port mode.
+
+In the meantime, change the 802.1Q mode of every ports to Fallback,
+which filtering is more permissive, and doesn't add this restriction to
+handle port-based and tagged-based VLANs.
+
+Fixes: 8efdda4a1b60 ("net: dsa: mv88e6xxx: use port 802.1Q mode Secure")
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index dee71fa..91d7e0a 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2091,7 +2091,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+ 	}
+ 
+-	reg |= PORT_CONTROL_2_8021Q_SECURE;
++	reg |= PORT_CONTROL_2_8021Q_FALLBACK;
+ 
+ 	if (reg) {
+ 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port),
+-- 
+2.5.0
