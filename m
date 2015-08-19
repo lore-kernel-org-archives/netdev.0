@@ -1,62 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v1 1/6] net: phy: broadcom: add bcm54220 phy ID
-Date: Wed, 19 Aug 2015 14:28:54 -0700
-Message-ID: <CAGVrzcak2u_kBg1o061OO0UK8sdrXaKF+-7eREwByD-dQ1r1XQ@mail.gmail.com>
-References: <1439962444-27486-1-git-send-email-b38611@freescale.com> <1439962444-27486-2-git-send-email-b38611@freescale.com>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: [PATCH] net: Provide lwtstate_free for non-lwt config
+Date: Wed, 19 Aug 2015 15:16:06 -0700
+Message-ID: <1440022566-4081118-1-git-send-email-agartrell@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: shawnguo@kernel.org, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Fugang Duan <b38611@freescale.com>
+Content-Type: text/plain
+Cc: <jbenc@redhat.com>, <roopa@cumulusnetworks.com>,
+	<netdev@vger.kernel.org>, Alex Gartrell <agartrell@fb.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:36046 "EHLO
-	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751525AbbHSV3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 17:29:35 -0400
-Received: by iodv127 with SMTP id v127so24743047iod.3
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 14:29:34 -0700 (PDT)
-In-Reply-To: <1439962444-27486-2-git-send-email-b38611@freescale.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36809 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752358AbbHSWQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 18:16:10 -0400
+Received: from pps.filterd (m0044008 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7JMFbMP002719
+	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 15:16:10 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1wd0hfgcpm-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 15:16:10 -0700
+Received: from facebook.com (2401:db00:20:7017:face:0:13:0)	by
+ mx-out.facebook.com (10.103.99.99) with ESMTP	id
+ e466a7ca46bf11e5b29a0002c9dfb610-543f12b0 for <netdev@vger.kernel.org>;	Wed,
+ 19 Aug 2015 15:16:08 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-08-18 22:33 GMT-07:00 Fugang Duan <b38611@freescale.com>:
-> Add bcm54220 phy ID entry.
+Fixes: df383e624 ("lwtunnel: fix memory leak")
 
-This change itself is fine, but looking at the rest of your changes,
-we are not adding an entry for this PHY in drivers/net/phy/broadcom.c,
-which means that we will bind to the Generic PHY driver, and so this
-looks sufficient, even with your fixup done in the subsequent patch.
+Signed-off-by: Alex Gartrell <agartrell@fb.com>
+---
+ include/net/lwtunnel.h | 4 ++++
+ 1 file changed, 4 insertions(+)
 
->
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-> ---
->  include/linux/brcmphy.h | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-> index 697ca77..20bed15 100644
-> --- a/include/linux/brcmphy.h
-> +++ b/include/linux/brcmphy.h
-> @@ -16,6 +16,7 @@
->  #define PHY_ID_BCM5482                 0x0143bcb0
->  #define PHY_ID_BCM5411                 0x00206070
->  #define PHY_ID_BCM5421                 0x002060e0
-> +#define PHY_ID_BCM54220                        0x600d8589
->  #define PHY_ID_BCM5464                 0x002060b0
->  #define PHY_ID_BCM5461                 0x002060c0
->  #define PHY_ID_BCM54616S               0x03625d10
-> --
-> 1.9.1
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
-
-
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index 34fd8f7..cfee539 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -93,6 +93,10 @@ int lwtunnel_input6(struct sk_buff *skb);
+ 
+ #else
+ 
++static inline void lwtstate_free(struct lwtunnel_state *lws)
++{
++}
++
+ static inline struct lwtunnel_state *
+ lwtstate_get(struct lwtunnel_state *lws)
+ {
 -- 
-Florian
+Alex Gartrell <agartrell@fb.com>
