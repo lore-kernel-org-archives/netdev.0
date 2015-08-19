@@ -1,59 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Problem with fragmented packets on tun/tap interface
-Date: Wed, 19 Aug 2015 07:31:13 -0700
-Message-ID: <1439994673.6610.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAPBAu3WwLLAYtRuxrA2uDF7J5-1FPfvJ-JVB1_WHNZdf1W_M=A@mail.gmail.com>
-	 <1438329395.2748.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAPBAu3V2Y56wnfgh1Y9gJ8XxVGEjZYaCXBNfg-uUOeYLy9NTrw@mail.gmail.com>
-	 <1438341695.2748.11.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAPBAu3VHtt5TDpvVNUkkQey2fjEYaDDSX8fwzwomyANtUhGQEg@mail.gmail.com>
-	 <1439475502.7960.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAPBAu3W0xb9xffmgCMGgBPRN5xBc0D6E0GFhVNYXsLida+_WoA@mail.gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: rtl8192cu: Add new device ID
+Date: Wed, 19 Aug 2015 09:42:16 -0500
+Message-ID: <55D495C8.6030906@lwfinger.net>
+References: <1439992291-24912-1-git-send-email-adrien+dev@schischi.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Prashant Upadhyaya <praupadhyaya@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Adrien Schildknecht <adrien+dev@schischi.me>,
+	chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
+	linville@tuxdriver.com, marex@denx.de, fzuuzf@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35399 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932191AbbHSObQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 10:31:16 -0400
-Received: by pacgr6 with SMTP id gr6so4450139pac.2
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 07:31:16 -0700 (PDT)
-In-Reply-To: <CAPBAu3W0xb9xffmgCMGgBPRN5xBc0D6E0GFhVNYXsLida+_WoA@mail.gmail.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:33013 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752192AbbHSOmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 10:42:25 -0400
+In-Reply-To: <1439992291-24912-1-git-send-email-adrien+dev@schischi.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-08-19 at 15:44 +0530, Prashant Upadhyaya wrote:
+On 08/19/2015 08:51 AM, Adrien Schildknecht wrote:
+> The v2 of NetGear WNA1000M uses a different idProduct: USB ID 0846:9043
+>
+> Signed-off-by: Adrien Schildknecht <adrien+dev@schischi.me>
 
+Add a "Cc: Stable <stable@vger.kernel.org>" line here. That way the new ID will 
+be available with older kernels.
 
-> Hi Eric,
-> 
-> For some reason, the dropping in the raw table does not work for me
-> for the usecase, though I recognize that the raw table operations
-> theory, when matched with my usecase theory, is the apparent solution.
-> 
-> I think the reason is that I use packet sockets with defrag option on
-> so that it can select the right queue for load balancing purposes.
-> 
-> Anyway, not disappointed with the above, I stuck to my theory and
-> tried a simple approach. To tie-break the reassembly/defrag done by
-> the kernel from the packets from the eth0 and the packets submitted
-> from tap (via application), I made a small change in the application.
-> I detected that the packets are fragmented in the app, and bumped up
-> the 'Identification' field in the IP header and re-checksummed the IP
-> header and then submitted it to tap. Since reassembly/defrag is done
-> on the basis of srcip, destip, protocol and Identification field
-> tupple from IP header, I expected it to work and it does !
-> 
-> So there we are, I have a nice little solution in place which suits me.
+The new line exceeds 80 characters. You might abbreviate Netgear as NG.
 
-Another idea would have to put your tap device and ethernet device in
-different namespaces, as the defrag unit is namespace aware.
+When you resubmit, do so as "[PATCH V2]".
 
-Looks like eth0 could be put in a completely new namespace as it holds
-no IP address ?
+Thanks,
 
-ip netns add eth0ns
-ip link set eth0 netns eth0ns
+Larry
+
+> ---
+>   drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+> index 23806c2..8b4238a 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+> @@ -321,6 +321,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
+>   	{RTL_USB_DEVICE(0x07b8, 0x8188, rtl92cu_hal_cfg)}, /*Abocom - Abocom*/
+>   	{RTL_USB_DEVICE(0x07b8, 0x8189, rtl92cu_hal_cfg)}, /*Funai - Abocom*/
+>   	{RTL_USB_DEVICE(0x0846, 0x9041, rtl92cu_hal_cfg)}, /*NetGear WNA1000M*/
+> +	{RTL_USB_DEVICE(0x0846, 0x9043, rtl92cu_hal_cfg)}, /*NetGear WNA1000Mv2*/
+>   	{RTL_USB_DEVICE(0x0b05, 0x17ba, rtl92cu_hal_cfg)}, /*ASUS-Edimax*/
+>   	{RTL_USB_DEVICE(0x0bda, 0x5088, rtl92cu_hal_cfg)}, /*Thinkware-CC&C*/
+>   	{RTL_USB_DEVICE(0x0df6, 0x0052, rtl92cu_hal_cfg)}, /*Sitecom - Edimax*/
+>
