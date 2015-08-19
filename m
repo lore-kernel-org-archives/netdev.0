@@ -1,51 +1,45 @@
-From: Muthoot@vger.kernel.org, Finance@vger.kernel.org
-Subject: my subject
-Date: Wed, 19 Aug 2015 07:36:56 +0530
-Message-ID: <HK2PR06MB040451F7CDE13301404A606BB8670@HK2PR06MB0404.apcprd06.prod.outlook.com>
-Reply-To: <muthootfinanccehome@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net] batman-adv: Fix memory leak on tt
+ add with invalid vlan
+Date: Tue, 18 Aug 2015 19:08:40 -0700 (PDT)
+Message-ID: <20150818.190840.1520518833381816197.davem@davemloft.net>
+References: <1439897821-7480-1-git-send-email-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pu1apc01hn0249.outbound.protection.outlook.com ([104.47.126.249]:48640
-	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751599AbbHSCH0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 22:07:26 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1439897821-7480-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Be informed that Muthoot Finance give out Guarantee Business Loans, Aut=
-omobile Purchase Loans, House Purchase Loans, Personal Loans at 3% inte=
-rest rate, for more info email: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Estar informado de que Muthoot Finanzas Dar a conocer Garanta de negoci=
-os Prstamos, Prstamos de Automviles Compra, Casa Compra prstamos, prsta=
-mos personales a tasa de inters del 3%, para obtener ms informacin emai=
-l: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Assunto: meu tema Ser informado de que Muthoot Finance dar empr?stimos =
-de Garantia de Neg?cios, Automobile Os empr?stimos Purchase, Casa empr?=
-stimos Purchase, empr?stimos pessoais na taxa de juros de 3%, para mais=
- informa??es e-mail: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Nous portons ? votre connaissance que Muthoot Finance vous donne des pr=
-?ts d=E2=80=99affaires, pour l=E2=80=99achat des automobiles, des maiso=
-ns, des pr?ts personnels, tous pour un taux d'int?r?ts de 3%, pour plus=
- des d?tails consultez: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Byt informovan?, ?e Muthoot Financie rozd?vat z?rucnej podnikatelsk?ch =
-?verov, automobilov? N?kup p??iciek, ?verov na b?vanie, osobn? p??icky =
-vo v??ke 3% ?rokovou sadzbou, pre viac inform?ci? e-mail: muthootfinanc=
-cehome@gmail.com
-=3D=3D=3D=3D
-Wir teilen mit, dass Muthoot Finance Firmen-Darlehen, Darlehen zur Ansc=
-haffung von Kfz-Fahrzeugen, Erwerb von Immobilien sowie pers?nliche Dar=
-lehen zu 3% effektiven Jahreszins anbietet, weitere Informationen erhal=
-ten Sie per E-Mail: muthootfinanccehome@gmail.com
-=3D=3D=3D=3D
-Det opplyses om at Muthoot Finance gir ut garanti Business l?n, Automob=
-ile kj?pe l?n, hus kj?pe l?n, personlige l?n p? 3% rente, for mer info =
-e-post: muthootfinanccehome@gmail.com
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Date: Tue, 18 Aug 2015 13:37:01 +0200
+
+> The object tt_local is allocated with kmalloc and not initialized when the
+> function batadv_tt_local_add checks for the vlan. But this function can
+> only cleanup the object when the (not yet initialized) reference counter of
+> the object is 1. This is unlikely and thus the object would leak when the
+> vlan could not be found.
+> 
+> Instead the uninitialized object tt_local has to be freed manually and the
+> pointer has to set to NULL to avoid calling the function which would try to
+> decrement the reference counter of the not existing object.
+> 
+> CID: 1316518
+> Fixes: 354136bcc3c4 ("batman-adv: fix kernel crash due to missing NULL checks")
+> Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+
+Applied, thanks.
