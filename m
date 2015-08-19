@@ -1,44 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] lwtunnel: ip tunnel: fix multiple routes with
- different encap
-Date: Tue, 18 Aug 2015 19:11:35 -0700 (PDT)
-Message-ID: <20150818.191135.1217710280336001449.davem@davemloft.net>
-References: <54251151b649756a3aa6f30c8fafe2357150f5ee.1439916029.git.jbenc@redhat.com>
-	<fe9cdcf34e26de1e9107f964c3e6612dcaf13662.1439916029.git.jbenc@redhat.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH] r8169: Add values missing in @get_stats64 from HW counters
+Date: Wed, 19 Aug 2015 02:51:43 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2F4B846@RTITMBSV03.realtek.com.tw>
+References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
+ <20150818214017.GA14914@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: jbenc@redhat.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>, Ivan Vecera <ivecera@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Corinna Vinschen <vinschen@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43485 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbbHSCLf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 22:11:35 -0400
-In-Reply-To: <fe9cdcf34e26de1e9107f964c3e6612dcaf13662.1439916029.git.jbenc@redhat.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:39385 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751336AbbHSCv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 22:51:57 -0400
+In-Reply-To: <20150818214017.GA14914@electric-eye.fr.zoreil.com>
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue, 18 Aug 2015 18:42:09 +0200
-
-> Currently, two routes going through the same tunnel interface are considered
-> the same even when they are routed to a different host after encapsulation.
-> This causes all routes added after the first one to have incorrect
-> encapsulation parameters.
-> 
-> This is nicely visible by doing:
-> 
->   # ip r a 192.168.1.2/32 dev vxlan0 tunnel dst 10.0.0.2
->   # ip r a 192.168.1.3/32 dev vxlan0 tunnel dst 10.0.0.3
->   # ip r
->   [...]
->   192.168.1.2/32 tunnel id 0 src 0.0.0.0 dst 10.0.0.2 [...]
->   192.168.1.3/32 tunnel id 0 src 0.0.0.0 dst 10.0.0.2 [...]
-> 
-> Implement the missing comparison function.
-> 
-> Fixes: 3093fbe7ff4bc ("route: Per route IP tunnel metadata via lightweight tunnel")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-
-Applied.
+Wy4uLl0NCj4gPiBUaGUgVENzIGFyZSBvbmx5IHJlc2V0IGJ5IGEgcG93ZXIgY3ljbGUgYW5kIHRo
+ZXJlJ3Mgbm8ga25vd24gd2F5DQo+ID4gdG8gcmVzZXQgdGhlbSBwcm9ncmFtYXRpY2FsbHkuDQoN
+Ckl0IGNvdWxkIGJlIGNsZWFyZWQgYnkgc2V0dGluZyBiaXQgMCwgc3VjaCBhcyBydGxfdGFsbHlf
+cmVzZXQoKSBvZiByODE1Mi4NCg0KQmVzdCBSZWdhcmRzLA0KSGF5ZXMNCg0K
