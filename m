@@ -1,46 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink_route kernel data dump size increased
-Date: Wed, 19 Aug 2015 14:17:27 -0700
-Message-ID: <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv4 net-next 09/10] openvswitch: Allow matching on conntrack label
+Date: Wed, 19 Aug 2015 14:24:54 -0700
+Message-ID: <CALnjE+qVd=7ZdHXvVmOcHSEcFN2RxNrSwB7bck5=8P4oxdRnew@mail.gmail.com>
+References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
+	<1439941188-19293-10-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: tej parkash <parkash.tej@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33037 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437AbbHSVR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 17:17:29 -0400
-Received: by padfo6 with SMTP id fo6so5070810pad.0
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 14:17:28 -0700 (PDT)
-In-Reply-To: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439941188-19293-10-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-08-19 at 23:41 +0530, tej parkash wrote:
-> All,
-> 
-> We are running application on Linux Kernel 3.10 to collect network
-> interface information using  NETLINK_ROUTE protocol. earlier (kernel
-> 2.6.32) we were having 8K buffer allocated to collect all data but
-> with new kernel (3.10) we are seeing read socket error, as buffer size
-> is not sufficient for all network dump data.
-> 
-> We want to understand that if the userspace buffer limit increased to
-> 16K or we need some other mechanism to collect the data in 8K chuck.
-> or Is there any other way application can use NETLINK_ROUTE  protocol,
-> so that it will not break the application if data size gets increased
-> in future.
-> 
-> I did some some browsing and found some link but they were not very conclusive.
-> http://www.spinics.net/lists/netdev/msg162185.html
-> 
-> Appreciate for any kind of help or pointers here
-> 
+On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> =
+wrote:
+> Allow matching and setting the conntrack label field. As with ct_mark=
+,
+> this is populated by executing the CT action, and is a writable field=
+=2E
+> Specifying a label and optional mask allows the label to be modified,
+> which takes effect on the entry found by the lookup of the CT action.
+>
+> E.g.: actions:ct(zone=3D1,label=3D1)
+>
+> This will perform conntrack lookup in zone 1, then modify the label f=
+or
+> that entry. The conntrack entry itself must be committed using the
+> "commit" flag in the conntrack action flags for this change to persis=
+t.
+>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+I got compilation error after applying this patch:
+net/openvswitch/conntrack.c: In function =E2=80=98ovs_ct_init=E2=80=99:
+net/openvswitch/conntrack.c:713: error: expected =E2=80=98)=E2=80=99 be=
+fore =E2=80=98;=E2=80=99 token
+net/openvswitch/conntrack.c:715: error: expected expression before =E2=80=
+=98}=E2=80=99 token
 
-This sounds like a bug that might have been fixed later.
+> ---
+> v2: Split out setting the connlabel size for the current namespace.
+> v3: No change.
+> v4: Only allow setting label via ct action.
+>     Update documentation.
+> ---
+=2E..
+>                                   type);
+> @@ -432,6 +521,10 @@ bool ovs_ct_verify(enum ovs_key_attr attr)
+>         if (attr & OVS_KEY_ATTR_CT_MARK)
+>                 return true;
+>  #endif
+> +#ifdef CONFIG_NF_CONNTRACK_LABELS
+> +       if (attr & OVS_KEY_ATTR_CT_LABEL)
+> +               return true;
+> +#endif
+>
+OVS_KEY_ATTR_CT_LABEL is not bit field so bitwise AND operation does
+not work here. This applies to all check done in this function.
 
-User space is not required to switch to 16KB, although it is recommended
-to reduce number of syscalls.
+>         return false;
+>  }
+> @@ -508,8 +601,12 @@ void ovs_ct_free_action(const struct nlattr *a)
+>
+>  void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
+>  {
+> +       unsigned int n_bits =3D sizeof(struct ovs_key_ct_label) * BIT=
+S_PER_BYTE;
+> +
+>         data->xt_v4 =3D !nf_ct_l3proto_try_module_get(PF_INET);
+>         data->xt_v6 =3D !nf_ct_l3proto_try_module_get(PF_INET6);
+> +       if (nf_connlabels_get(net, n_bits);
+> +               OVS_NLERR(true, "Failed to set connlabel length");
+>  }
+>
+In case of error should we reject conntrack label actions? Otherwise
+user will never see any error. But action could drop packets.
+
+>  void ovs_ct_exit(struct net *net, struct ovs_ct_perdp_data *data)
+> @@ -518,4 +615,5 @@ void ovs_ct_exit(struct net *net, struct ovs_ct_p=
+erdp_data *data)
+>                 nf_ct_l3proto_module_put(PF_INET);
+>         if (data->xt_v6)
+>                 nf_ct_l3proto_module_put(PF_INET6);
+> +       nf_connlabels_put(net);
+>  }
