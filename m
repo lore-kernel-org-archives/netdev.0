@@ -1,27 +1,68 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2 4/9] geneve: Make dst-port configurable.
-Date: Tue, 18 Aug 2015 17:27:14 -0700
-Message-ID: <CAEP_g=8bAqZxdjKAX+AsuA0+xnoYMv27Ny0Kp0y5oUUgNGStyQ@mail.gmail.com>
-References: <1439845905-31666-1-git-send-email-pshelar@nicira.com> <1439845905-31666-5-git-send-email-pshelar@nicira.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 04/13] ip_tunnels: add IPv6 addresses to
+ ip_tunnel_key
+Date: Tue, 18 Aug 2015 17:36:32 -0700
+Message-ID: <20150819003632.GA989@Alexeis-MacBook-Pro-2.local>
+References: <cover.1439929916.git.jbenc@redhat.com>
+ <199ae8362eabd65661ab145e9bfc281c5f5470ad.1439929916.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:33386 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbbHSA1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 20:27:36 -0400
-Received: by lbbsx3 with SMTP id sx3so113582996lbb.0
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 17:27:34 -0700 (PDT)
-In-Reply-To: <1439845905-31666-5-git-send-email-pshelar@nicira.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36320 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079AbbHSAgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 20:36:36 -0400
+Received: by pawq9 with SMTP id q9so46841845paw.3
+        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 17:36:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <199ae8362eabd65661ab145e9bfc281c5f5470ad.1439929916.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 17, 2015 at 2:11 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> Add netlink interface to configure Geneve UDP port number.
-> So that user can configure it for a Gevene device.
->
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+On Tue, Aug 18, 2015 at 10:33:13PM +0200, Jiri Benc wrote:
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+>  drivers/net/vxlan.c            |  6 +++---
+>  include/net/ip_tunnels.h       | 23 +++++++++++++++++++----
+>  net/core/filter.c              |  4 ++--
+>  net/ipv4/ip_gre.c              | 10 +++++-----
+>  net/ipv4/ip_tunnel_core.c      |  8 ++++----
+>  net/openvswitch/flow_netlink.c | 18 +++++++++---------
+>  net/openvswitch/flow_table.c   |  2 +-
+>  net/openvswitch/vport-geneve.c |  2 +-
+>  net/openvswitch/vport.c        |  2 +-
+>  net/openvswitch/vport.h        |  4 ++--
+>  10 files changed, 47 insertions(+), 32 deletions(-)
 
-Reviewed-by: Jesse Gross <jesse@nicira.com>
+please add commit message. +47 -32 cannot be empty.
+
+> +/* Used to memset ipv4 address padding. */
+> +#define IP_TUNNEL_KEY_IPV4_PAD	offsetofend(struct ip_tunnel_key, u.ipv4.dst)
+> +#define IP_TUNNEL_KEY_IPV4_PAD_LEN				\
+> +	(FIELD_SIZEOF(struct ip_tunnel_key, u) - IP_TUNNEL_KEY_IPV4_PAD)
+> +
+>  struct ip_tunnel_key {
+>  	__be64			tun_id;
+> -	__be32			ipv4_src;
+> -	__be32			ipv4_dst;
+> +	union {
+> +		struct {
+> +			__be32	src;
+> +			__be32	dst;
+> +		} ipv4;
+> +		struct {
+> +			struct in6_addr src;
+> +			struct in6_addr dst;
+> +		} ipv6;
+> +	} u;
+...
+> +	tun_info->key.u.ipv4.src = saddr;
+> +	tun_info->key.u.ipv4.dst = daddr;
+> +	memset((unsigned char *)&tun_info->key + IP_TUNNEL_KEY_IPV4_PAD,
+> +	       0, IP_TUNNEL_KEY_IPV4_PAD_LEN);
+
+the math looks wrong.
+IP_TUNNEL_KEY_IPV4_PAD_LEN = sizeof(u) - offsetofend(u.ipv4.dst)
+8 byte mistake?
