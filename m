@@ -1,109 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] vrf: plug skb leaks
-Date: Wed, 19 Aug 2015 14:00:09 -0700
-Message-ID: <55D4EE59.6030109@cumulusnetworks.com>
-References: <1439953949-23736-1-git-send-email-razor@blackwall.org> <55D4B935.5090400@cumulusnetworks.com> <CABQ03vHefGG1yM6CPM2Xosa_MgxfgO0YK9EeqmHAQLZUWsh8Uw@mail.gmail.com> <B23BDD39-42FF-49D6-8515-680F9D5F3970@cumulusnetworks.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 20/21] net: warn if drivers set tx_queue_len = 0
+Date: Wed, 19 Aug 2015 23:04:43 +0200
+Message-ID: <20150819210409.C5BF82137D@mail.nwl.cc>
+References: <1439886649-24166-17-git-send-email-phil@nwl.cc>
+ <1439886649-24166-18-git-send-email-phil@nwl.cc>
+ <1439886649-24166-19-git-send-email-phil@nwl.cc>
+ <1439886649-24166-20-git-send-email-phil@nwl.cc>
+ <1439886649-24166-21-git-send-email-phil@nwl.cc>
+ <1439909248.6443.19.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150819183924.GA12537@orbit.nwl.cc>
+ <20150819202104.GB12537@orbit.nwl.cc>
+ <1440016319.6610.28.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1440016420.6610.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shm@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, brouer@redhat.com, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:34449 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752030AbbHSVAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 17:00:12 -0400
-Received: by pdbfa8 with SMTP id fa8so5525484pdb.1
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 14:00:11 -0700 (PDT)
-In-Reply-To: <B23BDD39-42FF-49D6-8515-680F9D5F3970@cumulusnetworks.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:51695 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752183AbbHSVEL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 17:04:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1440016420.6610.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/19/15 1:17 PM, Nikolay Aleksandrov wrote:
->
->> On Aug 19, 2015, at 8:27 PM, Nikolay Aleksandrov <nikolay@cumulusnet=
-works.com> wrote:
->>
->>
->> On Aug 19, 2015 20:13, "David Ahern" <dsa@cumulusnetworks.com> wrote=
-:
->>>
->>> Hi Nikolay:
->>>
->>>
->>> On 8/18/15 8:12 PM, Nikolay Aleksandrov wrote:
->>>>
->>>> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
->>>> index ed208317cbb5..4aa06450fafa 100644
->>>> --- a/drivers/net/vrf.c
->>>> +++ b/drivers/net/vrf.c
->>>> @@ -97,6 +97,12 @@ static bool is_ip_rx_frame(struct sk_buff *skb)
->>>>          return false;
->>>>    }
->>>>
->>>> +static void vrf_tx_error(struct net_device *vrf_dev, struct sk_bu=
-ff *skb)
->>>> +{
->>>> +       vrf_dev->stats.tx_errors++;
->>>> +       kfree_skb(skb);
->>>> +}
->>>> +
->>>>    /* note: already called with rcu_read_lock */
->>>>    static rx_handler_result_t vrf_handle_frame(struct sk_buff **ps=
-kb)
->>>>    {
->>>> @@ -149,7 +155,8 @@ static struct rtnl_link_stats64 *vrf_get_stats=
-64(struct net_device *dev,
->>>>    static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
->>>>                                             struct net_device *dev=
-)
->>>>    {
->>>> -       return 0;
->>>> +       vrf_tx_error(dev, skb);
->>>> +       return NET_XMIT_DROP;
->>>>    }
->>>>
->>>>    static int vrf_send_v4_prep(struct sk_buff *skb, struct flowi4 =
-*fl4,
->>>> @@ -206,8 +213,7 @@ static netdev_tx_t vrf_process_v4_outbound(str=
-uct sk_buff *skb,
->>>>    out:
->>>>          return ret;
->>>>    err:
->>>> -       vrf_dev->stats.tx_errors++;
->>>> -       kfree_skb(skb);
->>>> +       vrf_tx_error(vrf_dev, skb);
->>>>          goto out;
->>>>    }
->>>>
->>>> @@ -219,6 +225,7 @@ static netdev_tx_t is_ip_tx_frame(struct sk_bu=
-ff *skb, struct net_device *dev)
->>>>          case htons(ETH_P_IPV6):
->>>>                  return vrf_process_v6_outbound(skb, dev);
->>>>          default:
->>>> +               vrf_tx_error(dev, skb);
->>>>                  return NET_XMIT_DROP;
->>>>          }
->>>>    }
->>>>
->>>
->>> Would be simpler to do the vrf_tx_error at the end of is_ip_tx_fram=
-e() if ret =3D=3D NET_XMIT_DROP.
->>>
->>> David
->>>
->>
->> Sure, that will work too.
->>
->
-> Actually no, this will not work because ip_local_out() can return NET=
-_XMIT_DROP and the packet
-> can already be dropped. I=E2=80=99d prefer to keep these cases separa=
-te and explicit as they are in my patch.
->
+On Wed, Aug 19, 2015 at 01:33:40PM -0700, Eric Dumazet wrote:
+> On Wed, 2015-08-19 at 13:31 -0700, Eric Dumazet wrote:
+> 
+> > lpaa5:~# tc qd sh dev eth1
+> > qdisc mq 0: root 
+> > qdisc fq 0: parent :4 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
+> > qdisc fq 0: parent :3 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
+> > qdisc fq 0: parent :2 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
+> > qdisc fq 0: parent :1 limit 10000p flow_limit 1000p buckets 1024 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3028 initial_quantum 15140 
+> 
+> Well, it seems I just leaked fact that we use 3-bands in our fq
+> implementation ;)
 
-ok. Then the patch looks good to me.
+The problem with subtle details is they cease to be if pointed out. In
+another episode I was about to ask who the ominous "we" are, but then I
+noticed your mail's message ID. :)
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Cheers, Phil
