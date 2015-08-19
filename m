@@ -1,92 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
-Date: Wed, 19 Aug 2015 12:54:29 +0200
-Message-ID: <87k2sreefu.fsf@nemi.mork.no>
-References: <55CE1D7E.2070400@rosalab.ru>
-	<1439571516-11862-1-git-send-email-eugene.shatokhin@rosalab.ru>
-	<20150818.185407.1667358232705414236.davem@davemloft.net>
-	<55D436D5.6010105@rosalab.ru>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH] veth: replace iflink by a dedicated symlink in sysfs
+Date: Wed, 19 Aug 2015 13:00:13 +0200
+Message-ID: <20150819130013.1a847627@griffin>
+References: <87fv3ier4s.fsf@zoro.exoscale.ch>
+	<1439966648-26195-1-git-send-email-vincent@bernat.im>
+	<1439966648-26195-2-git-send-email-vincent@bernat.im>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, oneukum@suse.com,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55D436D5.6010105@rosalab.ru> (Eugene Shatokhin's message of
-	"Wed, 19 Aug 2015 10:57:09 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Vincent Bernat <vincent@bernat.im>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51709 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751786AbbHSLAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 07:00:16 -0400
+In-Reply-To: <1439966648-26195-2-git-send-email-vincent@bernat.im>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
+On Wed, 19 Aug 2015 08:44:08 +0200, Vincent Bernat wrote:
+> While the documentation doesn't say exactly what kind of relationship
+> iflink should represent, until a45253, only lower devices were
+> advertised this way. While veth cannot have a lower device, using iflink
+> to advertise the peer may create infinite loops in programs using iflink
+> to discover device topology.
+> 
+> Instead of advertising the peer link with iflink, a symbolic link "peer"
+> is added to each peer.
 
-> 19.08.2015 04:54, David Miller =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
->> Date: Fri, 14 Aug 2015 19:58:36 +0300
->>
->>> 2. The second race is on dev->flags.
->>>
->>> dev->flags is set to 0 here:
->>> *0  usbnet_stop (usbnet.c:816)
->>>      /* deferred work (task, timer, softirq) must also stop.
->>>       * can't flush_scheduled_work() until we drop rtnl (later),
->>>       * else workers could deadlock; so make workers a NOP.
->>>       */
->>>      dev->flags =3D 0;
->>>      del_timer_sync (&dev->delay);
->>>      tasklet_kill (&dev->bh);
->>>
->>> And here, the code clears EVENT_RX_KILL bit in dev->flags, which ma=
-y
->>> execute concurrently with the above operation:
->>> *0 clear_bit (bitops.h:113, inlined)
->>> *1 usbnet_bh (usbnet.c:1475)
->>>      /* restart RX again after disabling due to high error rate */
->>>      clear_bit(EVENT_RX_KILL, &dev->flags);
->>>
->>> It seems, setting dev->flags to 0 is not necessarily atomic w.r.t.
->>> clear_bit() and other bit operations with dev->flags. It is safer t=
-o
->>> make it atomic and this way, make the race harmless.
->>>
->>> While at it, the checking of EVENT_NO_RUNTIME_PM bit of dev->flags =
-in
->>> usbnet_stop() was fixed too: the bit should be checked before dev->=
-flags
->>> is cleared.
->>
->> The fix for this is excessive.
->>
->> Instead of all of this madness, looping over expensive clear_bit()
->> atomics, just do whatever it takes to make sure that usbnet_bh() is
->> quiesced and cannot execute any more.  Then you can safely clear
->> dev->flags normally.
->>
->
-> If I understand it correctly, it is to make sure usbnet_bh() is not
-> scheduled again that dev->flags should be set to 0 first, one way or
-> another. That is what this madness is for.
+By removing veth_get_iflink, you're also stopping IFLA_LINK being
+advertised in netlink messages, which consequently makes impossible to
+reliably match veth peers across name spaces again. This would be a
+huge step backwards.
 
-Assuming there is a race which may reorder these, exactly what
-difference does it make wrt EVENT_RX_KILL if you do
+ Jiri
 
-a)  clear_bit(EVENT_RX_KILL, &dev->flags);
-    dev->flags =3D 0;
-
-or
-
-b)  dev->flags =3D 0;
-    clear_bit(EVENT_RX_KILL, &dev->flags);
-
-
-AFAICS, the result will be a cleared EVENT_RX_KILL bit in either case.
-
-
-The EVENT_NO_RUNTIME_PM bug should definitely be fixed.  Please split
-that out as a separate fix.  It's a separate issue, and should be
-backported to all maintained stable releases it applies to (anything
-from v3.8 and newer)
-
-
-Bj=C3=B8rn
+-- 
+Jiri Benc
