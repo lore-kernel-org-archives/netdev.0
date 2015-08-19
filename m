@@ -1,52 +1,89 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: [PATCH] net: Provide lwtstate_free for non-lwt config
-Date: Wed, 19 Aug 2015 15:16:06 -0700
-Message-ID: <1440022566-4081118-1-git-send-email-agartrell@fb.com>
+From: "Patil, Kiran" <kiran.patil@intel.com>
+Subject: RE: [Intel-wired-lan] [Patch V3 5/9] i40e: Use numa_mem_id() to
+ better	support memoryless node
+Date: Wed, 19 Aug 2015 22:38:09 +0000
+Message-ID: <4197C471DCF8714FBA1FE32565271C148FFFF4D3@ORSMSX103.amr.corp.intel.com>
+References: <1439781546-7217-1-git-send-email-jiang.liu@linux.intel.com>
+ <1439781546-7217-6-git-send-email-jiang.liu@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jbenc@redhat.com>, <roopa@cumulusnetworks.com>,
-	<netdev@vger.kernel.org>, Alex Gartrell <agartrell@fb.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36809 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752358AbbHSWQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 18:16:10 -0400
-Received: from pps.filterd (m0044008 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7JMFbMP002719
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 15:16:10 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1wd0hfgcpm-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 15:16:10 -0700
-Received: from facebook.com (2401:db00:20:7017:face:0:13:0)	by
- mx-out.facebook.com (10.103.99.99) with ESMTP	id
- e466a7ca46bf11e5b29a0002c9dfb610-543f12b0 for <netdev@vger.kernel.org>;	Wed,
- 19 Aug 2015 15:16:08 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Luck, Tony" <tony.luck@intel.com>, "netdev@vger.kernel.org"
+	<netdev@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>, "intel-wired-lan@lists.osuosl.org"
+	<intel-wired-lan@lists.osuosl.org>
+To: Jiang Liu <jiang.liu@linux.intel.com>, Andrew Morton
+	<akpm@linux-foundation.org>, Mel Gorman <mgorman@suse.de>, David Rientjes
+	<rientjes@google.com>, Mike Galbraith <umgwanakikbuti@gmail.com>, "Peter
+ Zijlstra" <peterz@infradead.org>, "Wysocki, Rafael J"
+	<rafael.j.wysocki@intel.com>, Tang Chen <tangchen@cn.fujitsu.com>, Tejun Heo
+	<tj@kernel.org>, "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>, "Nelson, Shannon"
+	<shannon.nelson@intel.com>, "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>, "Vick, Matthew"
+	<matthew.vick@intel.com>, "Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1439781546-7217-6-git-send-email-jiang.liu@linux.intel.com>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Fixes: df383e624 ("lwtunnel: fix memory leak")
+Acked-by: Kiran Patil <kiran.patil@intel.com>
 
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On =
+Behalf Of Jiang Liu
+Sent: Sunday, August 16, 2015 8:19 PM
+To: Andrew Morton; Mel Gorman; David Rientjes; Mike Galbraith; Peter Zijlst=
+ra; Wysocki, Rafael J; Tang Chen; Tejun Heo; Kirsher, Jeffrey T; Brandeburg=
+, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald C; Vick, Matth=
+ew; Ronciak, John; Williams, Mitch A
+Cc: Luck, Tony; netdev@vger.kernel.org; x86@kernel.org; linux-hotplug@vger.=
+kernel.org; linux-kernel@vger.kernel.org; linux-mm@kvack.org; intel-wired-l=
+an@lists.osuosl.org; Jiang Liu
+Subject: [Intel-wired-lan] [Patch V3 5/9] i40e: Use numa_mem_id() to better=
+ support memoryless node
+
+Function i40e_clean_rx_irq() tries to reuse memory pages allocated from the=
+ nearest node. To better support memoryless node, use
+numa_mem_id() instead of numa_node_id() to get the nearest node with memory=
+.
+
+This change should only affect performance.
+
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- include/net/lwtunnel.h | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-index 34fd8f7..cfee539 100644
---- a/include/net/lwtunnel.h
-+++ b/include/net/lwtunnel.h
-@@ -93,6 +93,10 @@ int lwtunnel_input6(struct sk_buff *skb);
- 
- #else
- 
-+static inline void lwtstate_free(struct lwtunnel_state *lws)
-+{
-+}
-+
- static inline struct lwtunnel_state *
- lwtstate_get(struct lwtunnel_state *lws)
- {
--- 
-Alex Gartrell <agartrell@fb.com>
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethe=
+rnet/intel/i40e/i40e_txrx.c
+index 9a4f2bc70cd2..a8f618cb8eb0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1516,7 +1516,7 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_=
+ring, int budget)
+ 	unsigned int total_rx_bytes =3D 0, total_rx_packets =3D 0;
+ 	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
+ 	u16 cleaned_count =3D I40E_DESC_UNUSED(rx_ring);
+-	const int current_node =3D numa_node_id();
++	const int current_node =3D numa_mem_id();
+ 	struct i40e_vsi *vsi =3D rx_ring->vsi;
+ 	u16 i =3D rx_ring->next_to_clean;
+ 	union i40e_rx_desc *rx_desc;
+--
+1.7.10.4
+
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
