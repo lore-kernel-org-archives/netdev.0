@@ -1,68 +1,71 @@
 From: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [RFC v2 0/3] add TSO / A-MSDU TX for iwlwifi
-Date: Wed, 19 Aug 2015 15:59:38 +0300
-Message-ID: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+Subject: [RFC v2 3/3] iwlwifi: mvm: transfer the truesize to the last TSO segment
+Date: Wed, 19 Aug 2015 15:59:41 +0300
+Message-ID: <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
+References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
 Cc: ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1439989181-4444-1-git-send-email-emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-We enable TSO to get a lot of data at once to build A-MSDUs.
-Our hardware doesn't have (yet) TCP CSUM offload, so we do
-it manually. TSO won't be enabled on hardware that don't
-support CSUM offload in release code, computing TCP CSUM
-in the driver is just a way to start coding the flows.
-This is why the "CSUM offload" implementation in the driver
-in so bad in terms of efficiency. I preferred to have the
-flows as close as they will be when the hardware will be
-able to the CSUM than to try to seek efficiency.
-The hardware that will have CSUM offload will still require
-the driver to split the skb in software including the
-IP / TCP header copy and update etc...
+This allows to release the backpressure on the socket only
+when the last segment is released.
+Now the truesize looks like this:
+if the truesize of the original skb is 65420, all the
+segments will have a truesize of 704 (skb itself) and the
+last one will have 65420.
 
-We could have enabled A-MSDU based on xmit-more, but the
-rationale of using LSO is that when using pfifo-fast,
-the Qdisc gets one packet and dequeues is straight away
-which limits the possibility to get a lot of packets at
-once. (Am I right here?).
+Change-Id: I3c894cf2afc0aedfe7b2a5b992ba41653ff79c0e
+Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/iwlwifi/mvm/tx.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
-A note about A-MSDUs for non-wireless people:
-*********************************************
-An A-MSDU is a aggregated frame. It is one big 802.11
-packet that contains several subframes. Each subframe
-is a TCP segment. One A-MSDU is represented by one single
-skb which means that we need to copy / duplicate the TCP
-/ IP / SNAP headers in one single skb. This is why those
-headers are copied to a separate page: that page is added
-multiple times to the skb with different offsets. Each
-subframes needs at least 2 frags: 1 for the headers, 1 (or
-more) for the payload.
-
-I am quite a newbie in skb handling, so I guess that this
-code can be improved. I have tested it decently using iperf,
-but this doesn't mean that there are no issues using other
-applications. We are enabling pktgen on TCP (using patches
-that were sent a year ago or so) to test the different
-layouts of the skb (payload partition amongst the header
-and the different frags).
-
-I'll be very happy to get comments on that code, this is
-why I am sending it to netdev as well since the TSO experts
-are there :)
-
-Emmanuel Grumbach (3):
-  iwlwifi: mvm: add real TSO implementation
-  iwlwifi: mvm: allow to create A-MSDUs from a large send
-  iwlwifi: mvm: transfer the truesize to the last TSO segment
-
- drivers/net/wireless/iwlwifi/mvm/mac80211.c |   3 +-
- drivers/net/wireless/iwlwifi/mvm/sta.c      |   4 +-
- drivers/net/wireless/iwlwifi/mvm/sta.h      |   6 +-
- drivers/net/wireless/iwlwifi/mvm/tx.c       | 669 ++++++++++++++++++++++++++--
- 4 files changed, 647 insertions(+), 35 deletions(-)
-
+diff --git a/drivers/net/wireless/iwlwifi/mvm/tx.c b/drivers/net/wireless/iwlwifi/mvm/tx.c
+index 5046833..046e50d 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/tx.c
++++ b/drivers/net/wireless/iwlwifi/mvm/tx.c
+@@ -764,7 +764,7 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
+ 	bool ipv6 = skb_shinfo(skb_gso)->gso_type & SKB_GSO_TCPV6;
+ 	struct iwl_lso_splitter s = {};
+ 	struct page *hdr_page;
+-	unsigned int mpdu_sz;
++	unsigned int mpdu_sz, sum_truesize = 0;
+ 	u8 *hdr_page_pos, *qc, tid;
+ 	int i, ret;
+ 
+@@ -898,6 +898,7 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
+ 						mpdu_sz, tcp_hdrlen(skb_gso));
+ 
+ 	__skb_queue_tail(mpdus_skb, skb_gso);
++	sum_truesize += skb_gso->truesize;
+ 
+ 	/* mss bytes have been consumed from the data */
+ 	s.gso_payload_pos = s.mss;
+@@ -1034,6 +1035,20 @@ static int iwl_mvm_tx_tso(struct iwl_mvm *mvm, struct sk_buff *skb_gso,
+ 		}
+ 
+ 		__skb_queue_tail(mpdus_skb, skb);
++		sum_truesize += skb->truesize;
++	}
++
++	/* Release the backpressure on the socket only when
++	 * the last segment is released.
++	 */
++	if (skb_gso->destructor == sock_wfree) {
++		struct sk_buff *tail = mpdus_skb->prev;
++
++		swap(tail->truesize, skb_gso->truesize);
++		swap(tail->destructor, skb_gso->destructor);
++		swap(tail->sk, skb_gso->sk);
++                atomic_add(sum_truesize - skb_gso->truesize,
++                           &skb_gso->sk->sk_wmem_alloc);
+ 	}
+ 
+ 	ret = 0;
 -- 
 2.1.4
 
