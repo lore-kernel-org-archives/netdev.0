@@ -1,55 +1,71 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH] veth: replace iflink by a dedicated symlink in sysfs
-Date: Wed, 19 Aug 2015 14:13:00 +0200
-Message-ID: <87bne38oj7.fsf@zoro.exoscale.ch>
-References: <87fv3ier4s.fsf@zoro.exoscale.ch>
-	<1439966648-26195-1-git-send-email-vincent@bernat.im>
-	<1439966648-26195-2-git-send-email-vincent@bernat.im>
-	<20150819130013.1a847627@griffin>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
+Date: Wed, 19 Aug 2015 14:31:12 +0200
+Message-ID: <877fore9yn.fsf@nemi.mork.no>
+References: <55CE1D7E.2070400@rosalab.ru>
+	<1439571516-11862-1-git-send-email-eugene.shatokhin@rosalab.ru>
+	<20150818.185407.1667358232705414236.davem@davemloft.net>
+	<55D436D5.6010105@rosalab.ru> <87k2sreefu.fsf@nemi.mork.no>
+	<55D46F85.50608@rosalab.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:39629 "EHLO bart.luffy.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753596AbbHSMXG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 08:23:06 -0400
-In-Reply-To: <20150819130013.1a847627@griffin> (Jiri Benc's message of "Wed,
-	19 Aug 2015 13:00:13 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, oneukum@suse.com,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55D46F85.50608@rosalab.ru> (Eugene Shatokhin's message of "Wed,
+	19 Aug 2015 14:59:01 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 19 ao=C3=BBt 2015 13:00 +0200, Jiri Benc <jbenc@redhat.com>=C2=
-=A0:
+Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
 
->> While the documentation doesn't say exactly what kind of relationshi=
-p
->> iflink should represent, until a45253, only lower devices were
->> advertised this way. While veth cannot have a lower device, using if=
-link
->> to advertise the peer may create infinite loops in programs using if=
-link
->> to discover device topology.
->>=20
->> Instead of advertising the peer link with iflink, a symbolic link "p=
-eer"
->> is added to each peer.
+> The problem is not in the reordering but rather in the fact that
+> "dev->flags =3D 0" is not necessarily atomic
+> w.r.t. "clear_bit(EVENT_RX_KILL, &dev->flags)", and vice versa.
 >
-> By removing veth_get_iflink, you're also stopping IFLA_LINK being
-> advertised in netlink messages, which consequently makes impossible t=
-o
-> reliably match veth peers across name spaces again. This would be a
-> huge step backwards.
+> So the following might be possible, although unlikely:
+>
+> CPU0             CPU1
+>                  clear_bit: read dev->flags
+>                  clear_bit: clear EVENT_RX_KILL in the read value
+>
+> dev->flags=3D0;
+>
+>                  clear_bit: write updated dev->flags
+>
+> As a result, dev->flags may become non-zero again.
 
-That's the main goal of this patch: advertising the peer link as
-IFLA_LINK attribute triggers an infinite loop in userland software when
-they follow iflink to discover network devices topology. iflink has
-always been the index of a lower device. If a sysfs symbolic link is no=
+Ah, right.  Thanks for explaining.
+
+> I cannot prove yet that this is an impossible situation. If anyone
+> can, please explain. If so, this part of the patch will not be needed=
+=2E
+
+I wonder if we could simply move the dev->flags =3D 0 down a few lines =
+to
+fix both issues?  It doesn't seem to do anything useful except for
+resetting the flags to a sane initial state after the device is down.
+
+Stopping the tasklet rescheduling etc depends only on netif_running(),
+which will be false when usbnet_stop is called.  There is no need to
+touch dev->flags for this to happen.
+
+>> The EVENT_NO_RUNTIME_PM bug should definitely be fixed.  Please spli=
 t
-good enough, I can propose a new IFLA_PEER attribute instead.
---=20
-How apt the poor are to be proud.
-		-- William Shakespeare, "Twelfth-Night"
+>> that out as a separate fix.  It's a separate issue, and should be
+>> backported to all maintained stable releases it applies to (anything
+>> from v3.8 and newer)
+>
+> Yes, that makes sense. However, this fix was originally provided by
+> Oliver Neukum rather than me, so I would like to hear his opinion as
+> well first.
+
+If what I write above is correct (please help me verify...), then maybe
+it does make sense to do these together anyway.
+
+
+
+Bj=C3=B8rn
