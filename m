@@ -1,42 +1,81 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v2 0/3] add TSO / A-MSDU TX for iwlwifi
-Date: Wed, 19 Aug 2015 11:01:27 -0700
-Message-ID: <1440007287.6610.25.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
-	 <1439993647.6610.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0BA3FCBA62E2DC44AF3030971E174FB32E8250B6@hasmsx107.ger.corp.intel.com>
-	 <1440000515.6610.20.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0BA3FCBA62E2DC44AF3030971E174FB32E825167@hasmsx107.ger.corp.intel.com>
-	 <1440004777.6610.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0BA3FCBA62E2DC44AF3030971E174FB32E825252@hasmsx107.ger.corp.intel.com>
+From: "Wilson, Daniel G" <daniel.wilson@intel.com>
+Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
+ bridges and switch devices.
+Date: Wed, 19 Aug 2015 18:02:58 +0000
+Message-ID: <91179B48C1F7014B86296413F181061E3D56B6E1@FMSMSX114.amr.corp.intel.com>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
+ <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32E825252-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>,
+	Premkumar Jonnala <pjonnala@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:29477 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751440AbbHSSDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 14:03:07 -0400
+In-Reply-To: <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-08-19 at 17:56 +0000, Grumbach, Emmanuel wrote:
-> 
-
-> So I feel that making net/core/tso.c more complicated just because of
-> our craziness seems an overkill to me.
-> I'll try a bit harder to see how I can use net/core/tso.c, but I have to
-> say I am pessimistic.
-
-net/core/tso.c is WIP, feel free to expand it to make it more generic
-and meet your needs.
-
-The point is : we want a core infrastructure, not something that each
-individual driver implements in ~500 lines of code :(
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIFNjb3R0IEZlbGRtYW4NCj4gU2VudDogV2VkbmVzZGF5LCBBdWd1c3QgMTksIDIwMTUg
+MTI6NTQgUE0NCj4gVG86IFByZW1rdW1hciBKb25uYWxhDQo+IENjOiBuZXRkZXZAdmdlci5rZXJu
+ZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogRW5hYmxlIGNvbmZpZ3VyYXRp
+b24gb2YgYWdlaW5nIGludGVydmFsIGZvciBicmlkZ2VzDQo+IGFuZCBzd2l0Y2ggZGV2aWNlcy4N
+Cj4gDQo+IE9uIFdlZCwgQXVnIDE5LCAyMDE1IGF0IDI6MzQgQU0sIFByZW1rdW1hciBKb25uYWxh
+DQo+IDxwam9ubmFsYUBicm9hZGNvbS5jb20+IHdyb3RlOg0KPiA+IEhlbGxvIFNjb3R0LA0KPiA+
+DQo+ID4gVGhhbmsgeW91IGZvciB0aGUgZGlmZiBhbmQgY29tbWVudHMuICAgUGxlYXNlIHNlZSBt
+eSBjb21tZW50cyBpbmxpbmUuDQo+ID4NCj4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
+Cj4gPj4gRnJvbTogU2NvdHQgRmVsZG1hbiBbbWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiA+
+PiBTZW50OiBUdWVzZGF5LCBBdWd1c3QgMTgsIDIwMTUgMTI6NDggUE0NCj4gPj4gVG86IFByZW1r
+dW1hciBKb25uYWxhDQo+ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4+IFN1Ympl
+Y3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogRW5hYmxlIGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5nIGlu
+dGVydmFsDQo+ID4+IGZvciBicmlkZ2VzIGFuZCBzd2l0Y2ggZGV2aWNlcy4NCj4gPj4NCj4gPj4N
+Cj4gPj4NCj4gPj4gT24gRnJpLCAxNCBBdWcgMjAxNSwgUHJlbWt1bWFyIEpvbm5hbGEgd3JvdGU6
+DQo+ID4+DQo+ID4+ID4gQnJpZGdlIGRldmljZXMgaGF2ZSBhZ2VpbmcgaW50ZXJ2YWwgdXNlZCB0
+byBhZ2Ugb3V0IE1BQyBhZGRyZXNzZXMNCj4gPj4gPiBmcm9tIEZEQi4gIFRoaXMgYWdlaW5nIGlu
+dGVydmFsIHdhcyBub3QgY29uZmlndXJhdGJsZS4NCj4gPj4gPg0KPiA+PiA+IEVuYWJsZSBuZXRs
+aW5rIGJhc2VkIGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5nIGludGVydmFsIGZvciBicmlkZ2VzDQo+
+ID4+ID4gYW5kIHN3aXRjaCBkZXZpY2VzLiAgVGhlIGFnZWluZyBpbnRlcnZhbCBjaGFuZ2VzIHRo
+ZSB0aW1lciB1c2VkIHRvDQo+ID4+ID4gcHVyZ2UgaW5hY3RpdmUgRkRCIGVudHJpZXMgaW4gYnJp
+ZGdlcy4gIFRoZSBhZ2VpbmcgaW50ZXJ2YWwgY29uZmlnDQo+ID4+ID4gaXMgcHJvcGFnYXRlZCB0
+byBzd2l0Y2ggZGV2aWNlcywgc28gdGhhdCBwbGF0Zm9ybSBvciBoYXJkd2FyZSBiYXNlZA0KPiA+
+PiA+IGFnZWluZyB3b3JrcyBhY2NvcmRpbmcgdG8gY29uZmlndXJhdGlvbi4NCj4gPj4gPg0KPiA+
+PiA+IFNpZ25lZC1vZmYtYnk6IFByZW1rdW1hciBKb25uYWxhIDxwam9ubmFsYUBicm9hZGNvbS5j
+b20+DQo+ID4+DQo+ID4+IEhpIFByZW1rdW1hciwNCj4gPj4NCj4gPj4gSSBhZ3JlZSB3aXRoIFJv
+b3BhIHRoYXQgd2Ugc2hvdWxkIHVzZSBleGlzdGluZyBJRkxBX0JSX0FHRUlOR19USU1FLg0KPiA+
+DQo+ID4gV2hhdCBpcyB0aGUgbW90aXZhdGlvbiBmb3IgdXNpbmcgJ2lwIGxpbmsnIGNvbW1hbmQg
+dG8gY29uZmlndXJlIGJyaWRnZQ0KPiA+IGF0dHJpYnV0ZXM/ICBJTUhPLCBicmlkZ2UgY29tbWFu
+ZCBpcyBiZXR0ZXIgc3VpdGVkIGZvciB0aGF0Lg0KPiANCj4gQ2FuIHlvdSBleHRlbmQgYnJpZGdl
+IGNvbW1hbmQgdG8gYWxsb3cgc2V0dGluZy9nZXR0aW5nIHRoZXNlIGJyaWRnZSBhdHRycz8NCj4g
+TG9va3MgbGlrZSB5b3UgY29uc3RydWN0IGEgUlRNX05FV0xJTksgSUZMQV9JTkZPX0RBVEEgbXNn
+LiAgTm8gY2hhbmdlcw0KPiBuZWVkZWQgdG8gdGhlIGtlcm5lbC4NCj4gDQo+IGJyaWRnZSBsaW5r
+IHNldCBkZXYgYnIwIGFnZWluZ190aW1lIDEwMDANCj4gDQo+ICAtLW9yLS0NCj4gDQo+IGlwIGxp
+bmsgc2V0IGRldiBicjAgdHlwZSBicmlkZ2UgYWdlaW5nX3RpbWUgMTAwMA0KDQpCZWluZyBhYmxl
+IHRvIHNldCB0aGVzZSBhdHRyaWJ1dGVzIHZpYSBib3RoIGJyaWRnZSBhbmQgaXAgd291bGQgYmUg
+Z3JlYXQuDQoNCj4gPj4gK2ludCBicl9zZXRfYWdlaW5nX3RpbWUoc3RydWN0IG5ldF9icmlkZ2Ug
+KmJyLCB1MzIgYWdlaW5nX3RpbWUpIHsNCj4gPj4gKyAgICAgc3RydWN0IHN3aXRjaGRldl9hdHRy
+IGF0dHIgPSB7DQo+ID4+ICsgICAgICAgICAgICAgLmlkID0gU1dJVENIREVWX0FUVFJfQlJJREdF
+LA0KPiA+PiArICAgICAgICAgICAgIC5mbGFncyA9IFNXSVRDSERFVl9GX1NLSVBfRU9QTk9UU1VQ
+UCwNCj4gPj4gKyAgICAgICAgICAgICAudS5icmlkZ2UuYXR0ciA9IElGTEFfQlJfQUdFSU5HX1RJ
+TUUsDQo+ID4+ICsgICAgICAgICAgICAgLnUuYnJpZGdlLnZhbCA9IGFnZWluZ190aW1lLA0KPiA+
+PiArICAgICB9Ow0KPiA+PiArICAgICBpbnQgZXJyOw0KPiA+PiArDQo+ID4+ICsgICAgIGVyciA9
+IHN3aXRjaGRldl9wb3J0X2F0dHJfc2V0KGJyLT5kZXYsICZhdHRyKTsNCj4gPj4gKyAgICAgaWYg
+KGVycikNCj4gPj4gKyAgICAgICAgICAgICByZXR1cm4gZXJyOw0KPiA+PiArDQo+ID4+ICsgICAg
+IGJyLT5hZ2VpbmdfdGltZSA9IGNsb2NrX3RfdG9famlmZmllcyhhZ2VpbmdfdGltZSk7DQo+ID4N
+Cj4gPiBTaG91bGQgd2UgcmVzdGFydCB0aGUgdGltZXIgaGVyZSB0aGUgbmV3IHRpbWUgdGFrZXMg
+ZWZmZWN0Pw0KPiANCj4gSSBkb24ndCBrbm93Li4uSSBqdXN0IGNvcGllZCB3aGF0IHRoZSBvcmln
+aW5hbCBjb2RlIGRpZC4gIElmIGl0IGRvZXMgbmVlZCB0byBiZQ0KPiByZXN0YXJ0ZWQsIGJyZWFr
+IHRoYXQgb3V0IGFzIGEgc2VwYXJhdGUgcGF0Y2guDQoNCkluIG15IG9waW5pb24sIHllcywgdGhl
+IHRpbWVyIHNob3VsZCBiZSByZXN0YXJ0ZWQuIElmIHRoZSB0aW1lciBoYWQgYmVlbiBzZXQgdG8g
+MSBtaWxsaW9uIHNlY29uZHMgYW5kIGlzIGJlaW5nIGNoYW5nZWQgdG8gMSBtaW51dGUsIHlvdSB3
+b3VsZG4ndCB3YW50IHRvIHdhaXQgZm9yIHRoZSAxLW1pbGxpb24tc2Vjb25kICB0aW1lciB0byBl
+eHBpcmUgYmVmb3JlIHJlc2V0dGluZyBpdCB0byB0aGUgbmV3bHktY29uZmlndXJlZCAxLW1pbnV0
+ZSB0aW1lciB2YWx1ZS4NCg0KRGFuLg0KDQo=
