@@ -1,67 +1,80 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2 9/9] geneve: Implement rtnl changelink
-Date: Wed, 19 Aug 2015 12:40:45 -0700
-Message-ID: <CAEP_g=8w4wYxFMvZcxUiCMpW5qT5ZMY0JQ9oJ=pxeK4E8Jpudw@mail.gmail.com>
-References: <1439845905-31666-1-git-send-email-pshelar@nicira.com> <1439845905-31666-10-git-send-email-pshelar@nicira.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v3] rocker: add debugfs support to dump internal tables
+Date: Wed, 19 Aug 2015 12:46:11 -0700
+Message-ID: <CAE4R7bB1SopU3dFpA4fGUrSD-x70f=NMsQofMoO=DC+ZzaurFQ@mail.gmail.com>
+References: <CAE4R7bAwuZkoOqO1eA9pWQ35UPiSs7-Fm+AaedVU1wwiRZ=Jwg@mail.gmail.com>
+ <20150818181930.GK4381@lunn.ch> <CAE4R7bA621-ySQuOJ_kLTSju7ZwD3Ur4oSAS0JCE4EjzEsRr7Q@mail.gmail.com>
+ <20150818.134720.1520233036019988872.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+Cc: Netdev <netdev@vger.kernel.org>, "andrew@lunn.ch" <andrew@lunn.ch>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:33510 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751910AbbHSTlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:41:06 -0400
-Received: by lbbsx3 with SMTP id sx3so10176775lbb.0
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:41:04 -0700 (PDT)
-In-Reply-To: <1439845905-31666-10-git-send-email-pshelar@nicira.com>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:33163 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553AbbHSTqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:46:31 -0400
+Received: by obbhe7 with SMTP id he7so13802964obb.0
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:46:30 -0700 (PDT)
+In-Reply-To: <20150818.134720.1520233036019988872.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 17, 2015 at 2:11 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index e47cdd9..0d7fbef 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> -static int geneve_configure(struct net *net, struct net_device *dev,
-> -                           __be32 rem_addr, __u32 vni, __u8 ttl, __u8 tos,
-> -                           __u16 dst_port, bool metadata)
-> +static int __geneve_configure(struct net *net, struct net_device *dev,
-> +                             __be32 rem_addr, __u32 vni, __u8 ttl, __u8 tos,
-> +                             __u16 dst_port, bool metadata)
->  {
-[...]
->         geneve->net = net;
->         geneve->dev = dev;
-
-I guess this stuff should really be in geneve_configure() - it seems a
-bit odd to change it for a running device (even if it shouldn't
-change).
-
->         geneve->remote.sin_addr.s_addr = rem_addr;
->         if (IN_MULTICAST(ntohl(geneve->remote.sin_addr.s_addr)))
->                 return -EINVAL;
+On Tue, Aug 18, 2015 at 1:47 PM, David Miller <davem@davemloft.net> wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> Date: Tue, 18 Aug 2015 13:37:56 -0700
 >
-> +       u32_to_vni(vni, geneve->vni);
->         list_for_each_entry(t, &gn->geneve_list, next) {
->                 if (!memcmp(geneve->vni, t->vni, sizeof(t->vni)) &&
->                     rem_addr == t->remote.sin_addr.s_addr &&
 
-I'm not sure that these types of operations are safe if the device is
-already running. We first overwrite the remote value and then we do
-error checking but that means that if there is an error, then the
-device will be left in a broken state. Don't we also need to update
-the hash table if some of these parameters change?
+>>>> > Hi Scott
+>>>> >
+>>>> > David is not so keen no debugfs stuff. He already NACKed adding more
+>>>> > than what is currently in DSA:
+>>>> >
+>>>> > https://lkml.org/lkml/2015/7/11/8
+>>>>
+>>>> That patch added writable debugfs files, which I can see might be used
+>>>> as a back-door to program hardware.  That does seem bad.
+>>>
+>>> I fully agreed with respect to write. But if you read the whole
+>>> message, David is also not happy with read only.
+>>>
+>>> I think before you spend too much more time on this, you need some
+>>> indication from David if he is going to merge it or not.
+>>
+>> David, please give us guidance on debugfs in drivers/net.  Is there
+>> some criteria we can define to know when it's OK to use debugfs?
+>
+> The less you use it the better, seriously.
+>
+> I see some drivers where the foo_debugfs.c file is larger than the rest
+> of the driver.  Once people start using it, it's like crack, and they
+> dump every single debugging widget they found useful at some point into
+> there.
+>
+> This is not what we want.  Most things I see in debugfs support was
+> probably useful for debugging one particular bug but then it was never
+> really useful again in the future.  Those kinds of things can be done
+> locally in someone's tree.
+>
+> I often see various kinds of "statistics" ending up in these things,
+> or register dumps, both of which are 'ethtool' or similar material.
 
-> +static int geneve_changelink(struct net_device *dev,
-> +                            struct nlattr *tb[], struct nlattr *data[])
-> +{
-[...]
-> -       if (data[IFLA_GENEVE_PORT])
-> -               dst_port = nla_get_u16(data[IFLA_GENEVE_PORT]);
-> +       if (geneve->sock && (dst_port != ntohs(geneve->dst_port) ||
-> +                            metadata != geneve->collect_md)) {
+# git grep debugfs_create drivers/net
 
-It seems like in an ideal world, we wouldn't need to recreate the
-socket if metadata collection changed (assuming that there are no new
-conflicts).
+^^^  this is scary.  I see some crazy things being done here.   The
+writable nodes look like workaround driver/device bugs or to provide
+backdoor interfaces that don't exist natively.
+
+I say we clean up this mess.  Just eliminating the writable files
+would force bugs to get fixed and get new interfaces defined.  And
+replace readable files when interface exist (stats/reg).  Finally,
+look for readable files that can be converted to new shared common
+interfaces.  What's left should be read-only (S_IRUGO) files (no
+binary blobs) containing data unique for driver/device useful for
+field troubleshooting.
+
+I'm motivated.  Next net-next cycle I'm going to go down the list with
+a big eraser.  I'm sure I'll be a popular guy.
+
+-scott
