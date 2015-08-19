@@ -1,48 +1,63 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next] bnx2x: Fix vxlan endianity issue
-Date: Wed, 19 Aug 2015 10:21:58 +0300
-Message-ID: <1439968918-4608-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH] lwtunnel: Fix the sparse warnings in fib_encap_match
+Date: Wed, 19 Aug 2015 15:33:29 +0800
+Message-ID: <1439969609-11189-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, <Rajesh.Borundia@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <jbenc@redhat.com>,
+	<fengguang.wu@intel.com>, <kbuild-all@01.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:22675 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752562AbbHSH2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 03:28:12 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:36862 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752643AbbHSHdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 03:33:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit f34fa14cc033 ("bnx2x: Add vxlan RSS support") has introduced an
-endianity issue when passing the vxlan UDP port to the HW.
+When CONFIG_LWTUNNEL config is not enabled, the lwtstate_free() is not
+declared in lwtunnel.h at all. However, even in this case, the function
+is still referenced in fib_semantics.c so that there appears the
+following sparse warnings:
 
-Reported-by: <fengguang.wu@intel.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+net/ipv4/fib_semantics.c:553:17: error: undefined identifier 'lwtstate_=
+free'
+  CC      net/ipv4/fib_semantics.o
+  net/ipv4/fib_semantics.c: In function =E2=80=98fib_encap_match=E2=80=99=
+:
+  net/ipv4/fib_semantics.c:553:3: error: implicit declaration of functi=
+on =E2=80=98lwtstate_free=E2=80=99 [-Werror=3Dimplicit-function-declara=
+tion]
+  cc1: some warnings being treated as errors
+  make[1]: *** [net/ipv4/fib_semantics.o] Error 1
+  make: *** [net/ipv4/fib_semantics.o] Error 2
+
+To eliminate the error, we define an empty function for lwtstate_free()
+in lwtunnel.h when CONFIG_LWTUNNEL is disabled.
+
+=46ixes: df383e6240ef ("lwtunnel: fix memory leak")
+Cc: Jiri Benc <jbenc@redhat.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
-Hi Dave,
+ include/net/lwtunnel.h |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-Please apply this to 'net-next'.
-
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index d276de3..b7d32e8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -967,7 +967,7 @@ static inline int bnx2x_func_start(struct bnx2x *bp)
- 	else /* CHIP_IS_E1X */
- 		start_params->network_cos_mode = FW_WRR;
- 
--	start_params->vxlan_dst_port = cpu_to_le16(bp->vxlan_dst_port);
-+	start_params->vxlan_dst_port = bp->vxlan_dst_port;
- 
- 	start_params->inner_rss = 1;
- 
--- 
-1.9.3
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index 34fd8f7..cfee539 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -93,6 +93,10 @@ int lwtunnel_input6(struct sk_buff *skb);
+=20
+ #else
+=20
++static inline void lwtstate_free(struct lwtunnel_state *lws)
++{
++}
++
+ static inline struct lwtunnel_state *
+ lwtstate_get(struct lwtunnel_state *lws)
+ {
+--=20
+1.7.9.5
