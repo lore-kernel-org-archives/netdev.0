@@ -1,37 +1,53 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2 5/9] geneve: Add support to collect tunnel metadata.
-Date: Tue, 18 Aug 2015 18:07:28 -0700
-Message-ID: <CAEP_g=-gJeMDi_agxOmuvhvLwKpQeQZAmy55MWenvr_1bwt2Gg@mail.gmail.com>
-References: <1439845905-31666-1-git-send-email-pshelar@nicira.com> <1439845905-31666-6-git-send-email-pshelar@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
+Date: Tue, 18 Aug 2015 18:54:07 -0700 (PDT)
+Message-ID: <20150818.185407.1667358232705414236.davem@davemloft.net>
+References: <55CE1D7E.2070400@rosalab.ru>
+	<1439571516-11862-1-git-send-email-eugene.shatokhin@rosalab.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:34530 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbbHSBHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2015 21:07:49 -0400
-Received: by ykdt205 with SMTP id t205so177177498ykd.1
-        for <netdev@vger.kernel.org>; Tue, 18 Aug 2015 18:07:48 -0700 (PDT)
-In-Reply-To: <1439845905-31666-6-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: oneukum@suse.com, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: eugene.shatokhin@rosalab.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1439571516-11862-1-git-send-email-eugene.shatokhin@rosalab.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 17, 2015 at 2:11 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index 546494d..cb2d874 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> +static int geneve_configure(struct net *net, struct net_device *dev,
-> +                           __be32 rem_addr, __u32 vni, __u8 ttl, __u8 tos,
-> +                           __u16 dst_port, bool metadata)
-[...]
-> -       if (!data[IFLA_GENEVE_ID] || !data[IFLA_GENEVE_REMOTE])
-> -               return -EINVAL;
-> +       if (metadata && rtnl_dereference(gn->collect_md_tun))
-> +               return -EEXIST;
+From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Date: Fri, 14 Aug 2015 19:58:36 +0300
 
-This will allow you to configure a collect_md_tun devices and normal
-devices on top of each other, even though the latter will never get
-hit in that situation.
+> 2. The second race is on dev->flags.
+> 
+> dev->flags is set to 0 here:
+> *0  usbnet_stop (usbnet.c:816)
+>     /* deferred work (task, timer, softirq) must also stop.
+>      * can't flush_scheduled_work() until we drop rtnl (later),
+>      * else workers could deadlock; so make workers a NOP.
+>      */
+>     dev->flags = 0;
+>     del_timer_sync (&dev->delay);
+>     tasklet_kill (&dev->bh);
+> 
+> And here, the code clears EVENT_RX_KILL bit in dev->flags, which may
+> execute concurrently with the above operation:
+> *0 clear_bit (bitops.h:113, inlined)
+> *1 usbnet_bh (usbnet.c:1475)
+>     /* restart RX again after disabling due to high error rate */
+>     clear_bit(EVENT_RX_KILL, &dev->flags);
+> 
+> It seems, setting dev->flags to 0 is not necessarily atomic w.r.t.
+> clear_bit() and other bit operations with dev->flags. It is safer to
+> make it atomic and this way, make the race harmless.
+> 
+> While at it, the checking of EVENT_NO_RUNTIME_PM bit of dev->flags in
+> usbnet_stop() was fixed too: the bit should be checked before dev->flags
+> is cleared.
+
+The fix for this is excessive.
+
+Instead of all of this madness, looping over expensive clear_bit()
+atomics, just do whatever it takes to make sure that usbnet_bh() is
+quiesced and cannot execute any more.  Then you can safely clear
+dev->flags normally.
