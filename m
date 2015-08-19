@@ -1,72 +1,38 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net-next 3/4] vrf: move vrf_insert_slave so we can drop a goto label
-Date: Wed, 19 Aug 2015 06:27:09 +0300
-Message-ID: <1439954830-24947-4-git-send-email-razor@blackwall.org>
-References: <1439954830-24947-1-git-send-email-razor@blackwall.org>
-Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: David Chappelle <chappedm@gmail.com>
+Subject: Clarification on rtnetlink requests
+Date: Wed, 19 Aug 2015 11:05:03 -0400
+Message-ID: <CALj-AT+z+Mv5ZUZWDDxquaZKu3o5qstuarz-qLcx80CH_n7LGQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:36738 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753462AbbHSPAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 11:00:50 -0400
-Received: by wicja10 with SMTP id ja10so122563287wic.1
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 08:00:49 -0700 (PDT)
-In-Reply-To: <1439954830-24947-1-git-send-email-razor@blackwall.org>
+Received: from mail-yk0-f174.google.com ([209.85.160.174]:36765 "EHLO
+	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932109AbbHSPFE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 11:05:04 -0400
+Received: by ykfw73 with SMTP id w73so7672504ykf.3
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 08:05:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+I am a bit confused with respect to the structure of rtnetlink requests.
+It seems that in some circumstances a request can look like:
 
-We can simplify do_vrf_add_slave by moving vrf_insert_slave in the end
-of the enslaving and thus eliminate an error goto label. It always
-succeeds and isn't needed before that anyway.
+    struct request
+    {
+        struct nlmsghdr header;
+        struct rtgenmsg body;
+    };
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- drivers/net/vrf.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+and in other cases it can look like:
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 9907550ff640..4825c65c62fd 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -363,15 +363,13 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 	vrf_ptr->ifindex = dev->ifindex;
- 	vrf_ptr->tb_id = vrf->tb_id;
- 
--	__vrf_insert_slave(queue, slave);
--
- 	/* register the packet handler for slave ports */
- 	ret = netdev_rx_handler_register(port_dev, vrf_handle_frame, dev);
- 	if (ret) {
- 		netdev_err(port_dev,
- 			   "Device %s failed to register rx_handler\n",
- 			   port_dev->name);
--		goto out_remove;
-+		goto out_fail;
- 	}
- 
- 	ret = netdev_master_upper_dev_link(port_dev, dev);
-@@ -379,7 +377,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 		goto out_unregister;
- 
- 	port_dev->flags |= IFF_SLAVE;
--
-+	__vrf_insert_slave(queue, slave);
- 	rcu_assign_pointer(port_dev->vrf_ptr, vrf_ptr);
- 	cycle_netdev(port_dev);
- 
-@@ -387,8 +385,6 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 
- out_unregister:
- 	netdev_rx_handler_unregister(port_dev);
--out_remove:
--	__vrf_remove_slave(queue, slave);
- out_fail:
- 	kfree(vrf_ptr);
- 	kfree(slave);
--- 
-2.4.3
+    struct request
+    {
+        struct nlmsghdr header;
+        struct ifinfomsg body;
+    };
+
+How do I know which one to use when sending RTM_GETLINK and
+RTM_GETADDR requests? Furthermore, it also seems that 'struct rtattr'
+can be specified at the end of the request as well. Is there any
+documentation that describes this.
