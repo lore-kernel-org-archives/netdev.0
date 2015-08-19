@@ -1,34 +1,40 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next 11/13] vxlan: metadata based tunneling for
- IPv6
-Date: Wed, 19 Aug 2015 12:01:30 -0700
-Message-ID: <20150819190129.GB1634@Alexeis-MacBook-Pro-3.local>
-References: <cover.1439978875.git.jbenc@redhat.com>
- <d07be028321109caf87da0cf00f3ae9c9ac94f63.1439978875.git.jbenc@redhat.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: RE: Clarification on rtnetlink requests
+Date: Wed, 19 Aug 2015 19:03:33 +0000
+Message-ID: <525DB349B3FB5444AE057A887CB2A8D8EBC6C0@nice.asicdesigners.com>
+References: <CALj-AT+z+Mv5ZUZWDDxquaZKu3o5qstuarz-qLcx80CH_n7LGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: David Chappelle <chappedm@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33347 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877AbbHSTBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:01:32 -0400
-Received: by padfo6 with SMTP id fo6so2891988pad.0
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 12:01:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <d07be028321109caf87da0cf00f3ae9c9ac94f63.1439978875.git.jbenc@redhat.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:30185 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146AbbHSTDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 15:03:37 -0400
+In-Reply-To: <CALj-AT+z+Mv5ZUZWDDxquaZKu3o5qstuarz-qLcx80CH_n7LGQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 12:10:01PM +0200, Jiri Benc wrote:
-> Support metadata based (formerly flow based) tunneling also for IPv6.
-> This complements commit ee122c79d422 ("vxlan: Flow based tunneling").
-> 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
->  drivers/net/vxlan.c | 69 +++++++++++++++++++++++++++++++----------------------
->  1 file changed, 40 insertions(+), 29 deletions(-)
-
-Looks good.
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtDQo+IG93bmVyQHZnZXIua2VybmVsLm9yZ10gT24g
+QmVoYWxmIE9mIERhdmlkIENoYXBwZWxsZQ0KPiBTZW50OiBXZWRuZXNkYXksIEF1Z3VzdCAxOSwg
+MjAxNSA4OjA1IEFNDQo+IFRvOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IENs
+YXJpZmljYXRpb24gb24gcnRuZXRsaW5rIHJlcXVlc3RzDQo+IA0KPiBJIGFtIGEgYml0IGNvbmZ1
+c2VkIHdpdGggcmVzcGVjdCB0byB0aGUgc3RydWN0dXJlIG9mIHJ0bmV0bGluayByZXF1ZXN0cy4N
+Cj4gSXQgc2VlbXMgdGhhdCBpbiBzb21lIGNpcmN1bXN0YW5jZXMgYSByZXF1ZXN0IGNhbiBsb29r
+IGxpa2U6DQo+IA0KPiAgICAgc3RydWN0IHJlcXVlc3QNCj4gICAgIHsNCj4gICAgICAgICBzdHJ1
+Y3Qgbmxtc2doZHIgaGVhZGVyOw0KPiAgICAgICAgIHN0cnVjdCBydGdlbm1zZyBib2R5Ow0KPiAg
+ICAgfTsNCj4gDQo+IGFuZCBpbiBvdGhlciBjYXNlcyBpdCBjYW4gbG9vayBsaWtlOg0KPiANCj4g
+ICAgIHN0cnVjdCByZXF1ZXN0DQo+ICAgICB7DQo+ICAgICAgICAgc3RydWN0IG5sbXNnaGRyIGhl
+YWRlcjsNCj4gICAgICAgICBzdHJ1Y3QgaWZpbmZvbXNnIGJvZHk7DQo+ICAgICB9Ow0KPiANCj4g
+SG93IGRvIEkga25vdyB3aGljaCBvbmUgdG8gdXNlIHdoZW4gc2VuZGluZyBSVE1fR0VUTElOSyBh
+bmQNCj4gUlRNX0dFVEFERFIgcmVxdWVzdHM/IEZ1cnRoZXJtb3JlLCBpdCBhbHNvIHNlZW1zIHRo
+YXQgJ3N0cnVjdCBydGF0dHInDQo+IGNhbiBiZSBzcGVjaWZpZWQgYXQgdGhlIGVuZCBvZiB0aGUg
+cmVxdWVzdCBhcyB3ZWxsLiBJcyB0aGVyZSBhbnkNCj4gZG9jdW1lbnRhdGlvbiB0aGF0IGRlc2Ny
+aWJlcyB0aGlzLg0KDQpSVE1fR0VUTElOSyB1c2VzIGlmaW5mb21zZyBhbmQgUlRNX0dFVEFERFIg
+dXNlcyBpZmFkZHJtc2csIHNlZSBtYW4gNyBydG5ldGxpbmsuIHN0cnVjdCAgcnRnZW5tc2cgaXMg
+anVzdCBhIGdlbmVyaWMgdHlwZSwgbG9vayBhdCBpbmNsdWRlL2xpbnV4L3J0bmV0bGluay5oDQot
+QW5pc2gNCg0K
