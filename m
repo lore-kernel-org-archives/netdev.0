@@ -1,46 +1,33 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 7/9] geneve: Consolidate Geneve functionality
- in single module.
-Date: Wed, 19 Aug 2015 11:49:32 -0700
-Message-ID: <CALnjE+rmdPOAFo876pZr-vtr=YmGZopSNPC02Qb3J0Wx3GBz1w@mail.gmail.com>
-References: <1439845905-31666-1-git-send-email-pshelar@nicira.com>
-	<1439845905-31666-8-git-send-email-pshelar@nicira.com>
-	<CAEP_g=_4FHejf_qfXbXzO3kyx1WJ2ssOY9OMF=vySFNu-CPOqA@mail.gmail.com>
-	<CALnjE+ojRD_QKY3A9EomCg6yZ2BR+jiSFjndzN+U+8aBP2b7GQ@mail.gmail.com>
-	<CAEP_g=8Wq1jmrWT6a9K55JJsMNxw+Rw0h2zDby_HR6b12LJ5+w@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next 04/13] ip_tunnels: add IPv6 addresses to
+ ip_tunnel_key
+Date: Wed, 19 Aug 2015 11:55:00 -0700
+Message-ID: <20150819185459.GA1634@Alexeis-MacBook-Pro-3.local>
+References: <cover.1439978875.git.jbenc@redhat.com>
+ <18de52560d526d1a92cc042eb74f9dc7892c50ae.1439978875.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:34799 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752101AbbHSSte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 14:49:34 -0400
-Received: by igui7 with SMTP id i7so115145934igu.1
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 11:49:33 -0700 (PDT)
-In-Reply-To: <CAEP_g=8Wq1jmrWT6a9K55JJsMNxw+Rw0h2zDby_HR6b12LJ5+w@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35698 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750926AbbHSSzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 14:55:03 -0400
+Received: by pacdd16 with SMTP id dd16so511287pac.2
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 11:55:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <18de52560d526d1a92cc042eb74f9dc7892c50ae.1439978875.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 11:37 AM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Aug 19, 2015 at 11:29 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Wed, Aug 19, 2015 at 11:18 AM, Jesse Gross <jesse@nicira.com> wrote:
->>> My guess is that if the issue from the earlier patch about overlapping
->>> collect_md tunnels is fixed then that might allow us to simplify
->>> things a little further, since for those tunnels we can assume there
->>> is a 1:1 mapping between collect_md tunnels and sockets.
->>
->> I dont see how it would be different. Can you elaborate on this ?
->
-> Mostly just conceptually simpler. Right now it looks like we are doing
-> some kind of refcounting between devices and tunnels in
-> geneve_open/stop (I know it's not really but it appears like that in
-> some ways.) We could just directly assign collect_md in geneve_open()
-> and do nothing at all in geneve_stop().
+On Wed, Aug 19, 2015 at 12:09:54PM +0200, Jiri Benc wrote:
+> Add the IPv6 addresses as an union with IPv4 ones. When using IPv4, the
+> newly introduced padding after the IPv4 addresses needs to be zeroed out.
+> 
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+> v1->v2: Fix incorrect IP_TUNNEL_KEY_IPV4_PAD_LEN calculation, thanks to
+> Alexei.
 
-If you look at next patch, I have changed geneve_open and stop
-further. The change is geneve_open adds tunnel to hash table so that
-only device which are open are in hash table. Since geneve_open and
-stop is common for both type of tunnel I do not think there can be any
-changes even after avoiding overlapping tunnel types in given socket.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
