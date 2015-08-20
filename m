@@ -1,58 +1,37 @@
-From: Mrs Hisham Latifa <mrspauline.douglas723@gmail.com>
-Subject: My Beloved!
-Date: Thu, 20 Aug 2015 10:33:34 -0700
-Message-ID: <CAEEhY4MmH7mTLQfdDHdqDVdA6M3_BP3zm1n91GQj9yK_Qs5A6A@mail.gmail.com>
-Reply-To: mrshishamlati2014bf@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to
+ htons
+Date: Thu, 20 Aug 2015 10:58:10 -0700 (PDT)
+Message-ID: <20150820.105810.2093197275802835044.davem@davemloft.net>
+References: <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CB8054E@AcuExch.aculab.com>
+	<1440078822.685.11.camel@BR9GV9YG.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@ACULAB.COM, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com,
+	vthakkar1994@gmail.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f196.google.com ([209.85.213.196]:35520 "EHLO
-	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016AbbHTRdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 13:33:35 -0400
-Received: by igcse8 with SMTP id se8so4025814igc.2
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 10:33:34 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:56160 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbbHTR6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 13:58:12 -0400
+In-Reply-To: <1440078822.685.11.camel@BR9GV9YG.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--- 
-My Beloved!
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Thu, 20 Aug 2015 15:53:42 +0200
 
-Peace be Upon You
+> qeth is an s390-driver, and s390 is a big-endian architecture. Thus
+> arguments valid for little-endian do not apply to qeth-code.
 
-I am glad to know you, but God knows you better and he knows why he
-has directed me to you at this point in time so do not be afraid.
+You can not throw out generally good tree-wide conventions just because
+it happens to work on your platform.
 
-I am Mrs. Hisham Latifa, and I have been suffering from ovarian cancer
-disease and the doctor says that I have just short time to leave. I am
-from (Paris) France but based in Africa Burkina Faso since eight years
-ago as a business woman dealing with gold exportation.
-
-Now that I am about to end the race like this, without any family
-members and no child. I have $3 Million US DOLLARS in Africa
-Development Bank (ADB) Burkina Faso which I instructed the bank to
-give (St Andrews Missionary Home) in Burkina Faso. But my mind is not
-at rest because I am writing this letter now through the help of my
-computer beside my sick bed.
-
-I also have ($4.5 Million) at United Global Security Company (UGSC)
-here in Burkina Faso and I instructed the Company to release the box
-to the first foreigner that will apply to the Company after I have
-gone that they should release the boxes to him/her, but you will
-assure me that you will take 50% of the money and give 50% to the
-orphanages home in your country for my heart to rest with GOD.
-
-As soon as I receive your reply I shall give you the contact of the
-Company in Burkina Faso if you can do this return back to me
-immediately before death cross my way so that I will send to you a
-copy of my international passport which you will show to the Company
-to make the Company know that I instructed you to contact them for the
-release of my fund to you, so that you can fulfill my dream of
-building an orphanage home in your country.
-Please respond.
-
-Yours Dying Sister
-Mrs. Hisham Latifa
-
-+226 639 875 70
+In fact, I would be really thrilled if some of this code could be compiled
+on other platforms via COMPILE_TEST or similar, especially the socket code
+and drivers.
