@@ -1,42 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2.2 04/22] fjes: platform_driver's .probe and .remove
- routine
-Date: Thu, 20 Aug 2015 15:51:28 -0700 (PDT)
-Message-ID: <20150820.155128.302382371842900422.davem@davemloft.net>
-References: <1440060306-13040-1-git-send-email-izumi.taku@jp.fujitsu.com>
-	<1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
-	<1440060386-13189-4-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: Re: [PATCH net-next] 3c59x: Add BQL support for 3c59x ethernet
+ driver.
+Date: Thu, 20 Aug 2015 15:52:40 -0700 (PDT)
+Message-ID: <20150820.155240.1253988932306535592.davem@davemloft.net>
+References: <20150819200642.GA13590@mx.elandsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
-	dvhart@infradead.org, rkhan@redhat.com,
-	alexander.h.duyck@redhat.com, linux-acpi@vger.kernel.org,
-	joe@perches.com, sergei.shtylyov@cogentembedded.com,
-	stephen@networkplumber.org, yasu.isimatu@gmail.com
-To: izumi.taku@jp.fujitsu.com
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <1440060386-13189-4-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: logan@elandsys.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57712 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611AbbHTWwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 18:52:41 -0400
+In-Reply-To: <20150819200642.GA13590@mx.elandsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Date: Thu, 20 Aug 2015 17:46:08 +0900
 
-> +
-> +err_register:
-> +	fjes_hw_exit(&adapter->hw);
-> +err_hw_init:
-> +err_sw_init:
-> +	free_netdev(netdev);
-> +err_alloc_netdev:
-> +	return err;
+This is not a proper submission.
 
-Having multiple code labels in the same exact spot is suboptimal.
-
-Instead, name the labels such that they describe the first cleanup
-action they will perform, instead of the context in which they are
-jumped to from.
-
-So "err_hw_exit:", "err_free_netdev", and "err_out:" would be
-appropriate.
+You must at the very least provide an appropriate signoff in the
+commit message of your change.
