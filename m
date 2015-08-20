@@ -1,49 +1,51 @@
-From: "Charles (Chas) Williams" <3chas3@gmail.com>
-Subject: xen-netfront: bug with napi_synchronize()
-Date: Thu, 20 Aug 2015 16:50:01 -0400
-Message-ID: <1440103801.2546.14.camel@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to
+ htons
+Date: Thu, 20 Aug 2015 13:56:36 -0700 (PDT)
+Message-ID: <20150820.135636.273361607490862959.davem@davemloft.net>
+References: <1440078822.685.11.camel@BR9GV9YG.de.ibm.com>
+	<20150820.105810.2093197275802835044.davem@davemloft.net>
+	<CAK-LDbKJwjgOSgva-4yUay-wOXqAtS=tn-soE9H5xvMQMV56wA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org
-To: netdev@vger.kernel.org
+Cc: ubraun@linux.vnet.ibm.com, David.Laight@aculab.com,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ursula.braun@de.ibm.com
+To: vthakkar1994@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:32966 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751761AbbHTUuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 16:50:04 -0400
-Received: by qged69 with SMTP id d69so35673142qge.0
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 13:50:03 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:57127 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107AbbHTU4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 16:56:39 -0400
+In-Reply-To: <CAK-LDbKJwjgOSgva-4yUay-wOXqAtS=tn-soE9H5xvMQMV56wA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have seen some hangs in recent versions of the xen-netfront driver.
-If I unload or unbind the driver immediately befor bringing up the
-interface, I get a hang as show in the traceback here.
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Date: Fri, 21 Aug 2015 00:28:59 +0530
 
+> On Thu, Aug 20, 2015 at 11:28 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+>> Date: Thu, 20 Aug 2015 15:53:42 +0200
+>>
+>>> qeth is an s390-driver, and s390 is a big-endian architecture. Thus
+>>> arguments valid for little-endian do not apply to qeth-code.
+>>
+>> You can not throw out generally good tree-wide conventions just because
+>> it happens to work on your platform.
+>>
+>> In fact, I would be really thrilled if some of this code could be compiled
+>> on other platforms via COMPILE_TEST or similar, especially the socket code
+>> and drivers.
+> 
+> I have test-compiled this patch on little-endian architecture. I used
+> this script for cross compilation:
+> https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross
 
-...
-[  194.037351]  [<ffffffff810ae1a7>] ? msleep+0x27/0x30
-[  194.037358]  [<ffffffffa004b48a>] ? xennet_disconnect_backend+0xfa/0x390 [xen_netfront]
-[  194.037364]  [<ffffffffa004b789>] ? xennet_remove+0x19/0x60 [xen_netfront]
-[  194.037368]  [<ffffffff8132971b>] ? xenbus_dev_remove+0x4b/0xa0
-[  194.037375]  [<ffffffff8137bf41>] ? __device_release_driver+0x81/0x120
-[  194.037378]  [<ffffffff8137bffd>] ? device_release_driver+0x1d/0x30
-[  194.037382]  [<ffffffff8137b340>] ? unbind_store+0xf0/0x150
-...
+If you cross compiled "from" a little endian architecture, that doesn't
+mean anything.
 
-This offset in xennet_disconnect_backend is approximately in the area
-of napi_synchronize().  napi_synchronize() does contain an msleep()
-and nothing else would really sleep in this routine.
-
-                queue->tx_evtchn = queue->rx_evtchn = 0;
-                queue->tx_irq = queue->rx_irq = 0;
-
-                napi_synchronize(&queue->napi);
-
-                xennet_release_tx_bufs(queue);
-                xennet_release_rx_bufs(queue);
-
-Since I never started the interface, I know napi_enable() was never
-called on queue->napi.  However, what is the expected behavior for
-napi_synchronize() on something that was never enabled/disabled?
+What matters is if you compiled this code "targetting" a little-endian
+architecture which currently is not possible.
