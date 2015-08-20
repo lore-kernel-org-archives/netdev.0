@@ -1,88 +1,88 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: bcmgenet: fix uncleaned dma flags
-Date: Thu, 20 Aug 2015 15:04:57 -0700
-Message-ID: <55D64F09.1090802@gmail.com>
-References: <1440040627-59949-1-git-send-email-jaedon.shin@gmail.com>
+From: Clemens Gruber <clemens.gruber@pqgruber.com>
+Subject: RX packet loss on i.MX6Q running 4.2-rc7
+Date: Fri, 21 Aug 2015 00:30:50 +0200
+Message-ID: <20150820223049.GA20710@pqgruber.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Jaedon Shin <jaedon.shin@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:35550 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752107AbbHTWHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 18:07:20 -0400
-Received: by pdob1 with SMTP id b1so18699332pdo.2
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 15:07:19 -0700 (PDT)
-In-Reply-To: <1440040627-59949-1-git-send-email-jaedon.shin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Russell King <rmk+kernel@arm.linux.org.uk>,
+	Marek Vasut <marex@denx.de>,
+	Duan Andy <fugang.duan@freescale.com>,
+	Nimrod Andy <B38611@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Eric Nelson <eric.nelson@boundarydevices.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Uwe =?utf-8?Q?Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Lothar =?utf-8?Q?Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Clemens Gruber <clemens.gruber@pqgruber.com>
+To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 19/08/15 20:17, Jaedon Shin wrote:
-> Clean the dma flags of multiq ring buffer int the interface stop
-> process. This patch fixes that the genet is not running while the
-> interface is re-enabled.
-> 
-> $ ifup eth0 - running after booting
-> $ ifdown eth0
-> $ ifup eth0 - not running and occur tx_timeout
-> 
-> The bcmgenet_dma_disable() in bcmgenet_open() do clean ring16 dma flag
-> only. If the genet has multiq, the dma register is not cleaned. and
-> bcmgenet_init_dma() is not done correctly. in case
-> GENET_V2(tx_queues=4), tdma_ctrl has 0x1e after running
-> bcmgenet_dma_disable().
+Hi,
 
-It sounds like this should be moved to bcmgenet_dma_disable() where we
-are already modifying DMA_CTRL and returning a dma_ctrl value back to
-the caller, or at the very last bcmgenet_dma_teardown().
+I am experiencing massive RX packet loss on my i.MX6Q (Chip rev 1.3) on Linux
+4.2-rc7 with a Marvell 88E1510 Gigabit Ethernet PHY connected over RGMII.
+I noticed it when doing an UDP benchmark with iperf3. When sending UDP packets
+from a Debian PC to the i.MX6 with a rate of 100 Mbit/s, 99% of the packets are
+lost. With a rate of 10 Mbit/s, we are still losing 93% of all packets. TCP RX
+does suffer from packet loss too, but still achieves about 211 Mbit/s.
+TX is not affected.
 
-Thanks!
+Steps to reproduce:
+On the i.MX6: iperf3 -s
+On a desktop PC:  iperf3 -b 10M -u -c MX6IP
 
-> 
-> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 16 ++++++++++++++++
->  1 file changed, 16 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 64c1e9db6b0b..81bde6fa70b7 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -2174,6 +2174,8 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
->  
->  static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
->  {
-> +	u32 dma_ctrl;
-> +	u32 reg;
->  	int i;
->  
->  	bcmgenet_fini_rx_napi(priv);
-> @@ -2182,6 +2184,20 @@ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
->  	/* disable DMA */
->  	bcmgenet_dma_teardown(priv);
->  
-> +	dma_ctrl = 0;
-> +	for (i = 0; i < priv->hw_params->rx_queues; i++)
-> +		dma_ctrl |= (1 << (i + DMA_RING_BUF_EN_SHIFT));
-> +	reg = bcmgenet_rdma_readl(priv, DMA_CTRL);
-> +	reg &= ~dma_ctrl;
-> +	bcmgenet_rdma_writel(priv, reg, DMA_CTRL);
-> +
-> +	dma_ctrl = 0;
-> +	for (i = 0; i < priv->hw_params->tx_queues; i++)
-> +		dma_ctrl |= (1 << (i + DMA_RING_BUF_EN_SHIFT));
-> +	reg = bcmgenet_tdma_readl(priv, DMA_CTRL);
-> +	reg &= ~dma_ctrl;
-> +	bcmgenet_tdma_writel(priv, reg, DMA_CTRL);
-> +
->  	for (i = 0; i < priv->num_tx_bds; i++) {
->  		if (priv->tx_cbs[i].skb != NULL) {
->  			dev_kfree_skb(priv->tx_cbs[i].skb);
-> 
+The iperf3 results:
+[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total
+[  4]   0.00-10.00  sec  11.8 MBytes  9.90 Mbits/sec  0.687 ms  1397/1497 (93%)
 
+During the 10 Mbit UDP test, the IEEE_rx_macerr counter increased to 5371.
+ifconfig eth0 shows:
+ RX packets:9216 errors:5248 dropped:170 overruns:5248 frame:5248
+ TX packets:83 errors:0 dropped:0 overruns:0 carrier:0
+ collisions:0
 
--- 
-Florian
+Here are the TCP results with iperf3 -c MX6IP:
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec   252 MBytes   211 Mbits/sec  4343             sender
+[  4]   0.00-10.00  sec   251 MBytes   211 Mbits/sec                  receiver
+
+During the TCP test, IEEE_rx_macerr increased to 4059.
+ifconfig eth0 shows:
+RX packets:186368 errors:4206 dropped:50 overruns:4206 frame:4206
+TX packets:41861 errors:0 dropped:0 overruns:0 carrier:0
+collisions:0
+
+Freescale errata entry ERR004512 did mention a RX FIFO overrun. Is this related?
+
+Forcing pause frames via ethtool -A eth0 rx on tx on, does not improve it:
+Same amount of UDP packet loss with reduced TCP throughput of 190 Mbit/s.
+IEEE_rx_macerr increased up to 5232 during UDP 10Mbit and up to 4270 for TCP.
+
+I am already using the MX6QDL_PAD_GPIO_6__ENET_IRQ workaround, which solved the
+ping latency issues from ERR006687 but not the packet loss problem.
+
+I read through the mailing list archives and found a discussion between Russell
+King, Marek Vasut, Eric Nelson, Fugang Duan and others about a similar problem.
+I therefore added you and contributors to fec_main.c to the CC.
+
+One suggestion I found, was adding udelay(210); to fec_enet_rx():
+https://lkml.org/lkml/2014/8/22/88
+But this also did not reduce the packet loss. (I added it to the fec_enet_rx
+function just before return pkt_received; but I still got 93% packet loss)
+
+Does anyone have the equipment/setup to trace an i.MX6Q during UDP RX traffic
+from iperf3 to find the root cause of this packet loss problem?
+
+What else could we do to fix this?
+
+Thanks,
+Clemens
