@@ -1,94 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/16] i40e: Fix legacy interrupt mode in the driver
-Date: Wed, 19 Aug 2015 17:57:56 -0700
-Message-ID: <1440032286-30054-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/16] i40e: don't degrade __le16
+Date: Wed, 19 Aug 2015 17:57:52 -0700
+Message-ID: <1440032286-30054-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25933 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:40611 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751804AbbHTA6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 20:58:09 -0400
+	id S1751779AbbHTA6I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 20:58:08 -0400
 In-Reply-To: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch fixes the driver flow to take into account legacy interrupts.
-Over time we added code that assumes MSIX is the only mode that the
-driver runs in. It also enables a legacy workaround to trigger SWINT
-when the TX ring has non-cache aligned descriptors pending and interrupts
-are disabled.
+Sparse cries when we compare an __le16 to a u16, almost like it cares
+about architectures other than x86. Weird. Use the le16_to_cpu macro to
+make it stop crying.
 
-We work with a single vector in MSI mode too, so apply the same
-restrictions as Legacy.
-
-Change-ID: I826ddff1f9bd45d2dbe11f56a3ddcef0dbf42563
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Id068f4d7868a2d3df234a791a76d15938f37db35
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 2 ++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 5 +++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 07a25d0..81db94b 100644
+index 6a6694f..1cd5269 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1480,7 +1480,10 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
- 	 * vectors available and so we need to lower the used
- 	 * q count.
- 	 */
--	qcount = min_t(int, vsi->alloc_queue_pairs, pf->num_lan_msix);
-+	if (pf->flags & I40E_FLAG_MSIX_ENABLED)
-+		qcount = min_t(int, vsi->alloc_queue_pairs, pf->num_lan_msix);
-+	else
-+		qcount = vsi->alloc_queue_pairs;
- 	num_tc_qps = qcount / numtc;
- 	num_tc_qps = min_t(int, num_tc_qps, i40e_pf_get_max_q_per_tc(pf));
+@@ -1255,6 +1255,8 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi, u8 *macaddr,
+ 	struct i40e_mac_filter *f;
  
-@@ -1544,7 +1547,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
- 	if ((vsi->type == I40E_VSI_MAIN) && (numtc == 1)) {
- 		if (vsi->req_queue_pairs > 0)
- 			vsi->num_queue_pairs = vsi->req_queue_pairs;
--		else
-+		else if (pf->flags & I40E_FLAG_MSIX_ENABLED)
- 			vsi->num_queue_pairs = pf->num_lan_msix;
+ 	list_for_each_entry(f, &vsi->mac_filter_list, list) {
++		if (vsi->info.pvid)
++			f->vlan = le16_to_cpu(vsi->info.pvid);
+ 		if (!i40e_find_filter(vsi, macaddr, f->vlan,
+ 				      is_vf, is_netdev)) {
+ 			if (!i40e_add_filter(vsi, macaddr, f->vlan,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 8a7607c..70a6fb1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2106,11 +2106,12 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+ 		goto error_pvid;
  	}
  
-@@ -3367,7 +3370,7 @@ static irqreturn_t i40e_fdir_clean_ring(int irq, void *data)
-  * @v_idx: vector index
-  * @qp_idx: queue pair index
-  **/
--static void map_vector_to_qp(struct i40e_vsi *vsi, int v_idx, int qp_idx)
-+static void i40e_map_vector_to_qp(struct i40e_vsi *vsi, int v_idx, int qp_idx)
- {
- 	struct i40e_q_vector *q_vector = vsi->q_vectors[v_idx];
- 	struct i40e_ring *tx_ring = vsi->tx_rings[qp_idx];
-@@ -3421,7 +3424,7 @@ static void i40e_vsi_map_rings_to_vectors(struct i40e_vsi *vsi)
- 		q_vector->tx.ring = NULL;
+-	if (vsi->info.pvid == (vlan_id | (qos << I40E_VLAN_PRIORITY_SHIFT)))
++	if (le16_to_cpu(vsi->info.pvid) ==
++	    (vlan_id | (qos << I40E_VLAN_PRIORITY_SHIFT)))
+ 		/* duplicate request, so just return success */
+ 		goto error_pvid;
  
- 		while (num_ringpairs--) {
--			map_vector_to_qp(vsi, v_start, qp_idx);
-+			i40e_map_vector_to_qp(vsi, v_start, qp_idx);
- 			qp_idx++;
- 			qp_remaining--;
- 		}
-@@ -8750,6 +8753,11 @@ static int i40e_vsi_setup_vectors(struct i40e_vsi *vsi)
- 		goto vector_setup_out;
- 	}
- 
-+	/* In Legacy mode, we do not have to get any other vector since we
-+	 * piggyback on the misc/ICR0 for queue interrupts.
-+	*/
-+	if (!(pf->flags & I40E_FLAG_MSIX_ENABLED))
-+		return ret;
- 	if (vsi->num_q_vectors)
- 		vsi->base_vector = i40e_get_lump(pf, pf->irq_pile,
- 						 vsi->num_q_vectors, vsi->idx);
+-	if (vsi->info.pvid == 0 && i40e_is_vsi_in_vlan(vsi)) {
++	if (le16_to_cpu(vsi->info.pvid) == 0 && i40e_is_vsi_in_vlan(vsi)) {
+ 		dev_err(&pf->pdev->dev,
+ 			"VF %d has already configured VLAN filters and the administrator is requesting a port VLAN override.\nPlease unload and reload the VF driver for this change to take effect.\n",
+ 			vf_id);
 -- 
 2.4.3
