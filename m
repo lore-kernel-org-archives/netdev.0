@@ -1,101 +1,104 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
- bridges and switch devices.
-Date: Thu, 20 Aug 2015 06:20:18 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E30F1@SJEXCHMB14.corp.ad.broadcom.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E308A@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bC4aJuk6rFThp-EAmKLkm8QRKXS2EtFF0uauCDUV5WufA@mail.gmail.com>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 3/3] iwlwifi: mvm: transfer the truesize to the last
+ TSO segment
+Date: Thu, 20 Aug 2015 06:21:44 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8257BD@hasmsx107.ger.corp.intel.com>
+References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439994266.6610.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E8253CF@hasmsx107.ger.corp.intel.com>
+ <1440016762.6610.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:43333 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751283AbbHTGUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 02:20:23 -0400
-In-Reply-To: <CAE4R7bC4aJuk6rFThp-EAmKLkm8QRKXS2EtFF0uauCDUV5WufA@mail.gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Sharon, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2NvdHQgRmVsZG1hbiBb
-bWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgQXVndXN0IDIwLCAy
-MDE1IDExOjA5IEFNDQo+IFRvOiBQcmVta3VtYXIgSm9ubmFsYQ0KPiBDYzogbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBicmlkZ2U6IEVuYWJsZSBjb25maWd1
-cmF0aW9uIG9mIGFnZWluZyBpbnRlcnZhbCBmb3IgYnJpZGdlcw0KPiBhbmQgc3dpdGNoIGRldmlj
-ZXMuDQo+IA0KPiBPbiBXZWQsIEF1ZyAxOSwgMjAxNSBhdCAxMDoxMiBQTSwgUHJlbWt1bWFyIEpv
-bm5hbGENCj4gPHBqb25uYWxhQGJyb2FkY29tLmNvbT4gd3JvdGU6DQo+ID4NCj4gPg0KPiA+PiAt
-LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBTY290dCBGZWxkbWFuIFttYWls
-dG86c2ZlbGRtYUBnbWFpbC5jb21dDQo+ID4+IFNlbnQ6IFRodXJzZGF5LCBBdWd1c3QgMjAsIDIw
-MTUgMTA6MzEgQU0NCj4gPj4gVG86IFByZW1rdW1hciBKb25uYWxhDQo+ID4+IENjOiBuZXRkZXZA
-dmdlci5rZXJuZWwub3JnDQo+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogRW5hYmxl
-IGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5nIGludGVydmFsIGZvcg0KPiBicmlkZ2VzDQo+ID4+IGFu
-ZCBzd2l0Y2ggZGV2aWNlcy4NCj4gPj4NCj4gPj4gT24gV2VkLCBBdWcgMTksIDIwMTUgYXQgOTo1
-NiBQTSwgUHJlbWt1bWFyIEpvbm5hbGENCj4gPj4gPHBqb25uYWxhQGJyb2FkY29tLmNvbT4gd3Jv
-dGU6DQo+ID4+ID4gVGhhbmsgeW91IFNjb3R0LiAgUGxlYXNlIHNlZSBpbmxpbmUuDQo+ID4+ID4N
-Cj4gPj4gPj4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gPj4gPj4gRnJvbTog
-U2NvdHQgRmVsZG1hbiBbbWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiA+PiA+PiA+PiBTZW50
-OiBUdWVzZGF5LCBBdWd1c3QgMTgsIDIwMTUgMTI6NDggUE0NCj4gPj4gPj4gPj4gVG86IFByZW1r
-dW1hciBKb25uYWxhDQo+ID4+ID4+ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4+
-ID4+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogRW5hYmxlIGNvbmZpZ3VyYXRpb24g
-b2YgYWdlaW5nIGludGVydmFsIGZvcg0KPiA+PiA+PiBicmlkZ2VzDQo+ID4+ID4+ID4+IGFuZCBz
-d2l0Y2ggZGV2aWNlcy4NCj4gPj4gPj4gPj4NCj4gPj4gPj4gPj4NCj4gPj4gPj4gPj4NCj4gPj4g
-Pj4gPj4gT24gRnJpLCAxNCBBdWcgMjAxNSwgUHJlbWt1bWFyIEpvbm5hbGEgd3JvdGU6DQo+ID4+
-ID4+ID4+DQo+ID4+ID4+ID4+ID4gQnJpZGdlIGRldmljZXMgaGF2ZSBhZ2VpbmcgaW50ZXJ2YWwg
-dXNlZCB0byBhZ2Ugb3V0IE1BQyBhZGRyZXNzZXMNCj4gPj4gPj4gPj4gPiBmcm9tIEZEQi4gIFRo
-aXMgYWdlaW5nIGludGVydmFsIHdhcyBub3QgY29uZmlndXJhdGJsZS4NCj4gPj4gPj4gPj4gPg0K
-PiA+PiA+PiA+PiA+IEVuYWJsZSBuZXRsaW5rIGJhc2VkIGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5n
-IGludGVydmFsIGZvciBicmlkZ2VzIGFuZA0KPiA+PiA+PiA+PiA+IHN3aXRjaCBkZXZpY2VzLiAg
-VGhlIGFnZWluZyBpbnRlcnZhbCBjaGFuZ2VzIHRoZSB0aW1lciB1c2VkIHRvIHB1cmdlDQo+ID4+
-ID4+ID4+ID4gaW5hY3RpdmUgRkRCIGVudHJpZXMgaW4gYnJpZGdlcy4gIFRoZSBhZ2VpbmcgaW50
-ZXJ2YWwgY29uZmlnIGlzDQo+ID4+ID4+ID4+ID4gcHJvcGFnYXRlZCB0byBzd2l0Y2ggZGV2aWNl
-cywgc28gdGhhdCBwbGF0Zm9ybSBvciBoYXJkd2FyZSBiYXNlZA0KPiA+PiA+PiA+PiA+IGFnZWlu
-ZyB3b3JrcyBhY2NvcmRpbmcgdG8gY29uZmlndXJhdGlvbi4NCj4gPj4gPj4gPj4gPg0KPiA+PiA+
-PiA+PiA+IFNpZ25lZC1vZmYtYnk6IFByZW1rdW1hciBKb25uYWxhIDxwam9ubmFsYUBicm9hZGNv
-bS5jb20+DQo+ID4+ID4+ID4+DQo+ID4+ID4+ID4+IEhpIFByZW1rdW1hciwNCj4gPj4gPj4gPj4N
-Cj4gPj4gPj4gPj4gSSBhZ3JlZSB3aXRoIFJvb3BhIHRoYXQgd2Ugc2hvdWxkIHVzZSBleGlzdGlu
-Zw0KPiBJRkxBX0JSX0FHRUlOR19USU1FLg0KPiA+PiA+PiA+DQo+ID4+ID4+ID4gV2hhdCBpcyB0
-aGUgbW90aXZhdGlvbiBmb3IgdXNpbmcgJ2lwIGxpbmsnIGNvbW1hbmQgdG8gY29uZmlndXJlIGJy
-aWRnZQ0KPiA+PiA+PiBhdHRyaWJ1dGVzPyAgSU1ITywNCj4gPj4gPj4gPiBicmlkZ2UgY29tbWFu
-ZCBpcyBiZXR0ZXIgc3VpdGVkIGZvciB0aGF0Lg0KPiA+PiA+Pg0KPiA+PiA+PiBDYW4geW91IGV4
-dGVuZCBicmlkZ2UgY29tbWFuZCB0byBhbGxvdyBzZXR0aW5nL2dldHRpbmcgdGhlc2UgYnJpZGdl
-DQo+ID4+ID4+IGF0dHJzPyAgTG9va3MgbGlrZSB5b3UgY29uc3RydWN0IGEgUlRNX05FV0xJTksg
-SUZMQV9JTkZPX0RBVEEgbXNnLg0KPiBObw0KPiA+PiA+PiBjaGFuZ2VzIG5lZWRlZCB0byB0aGUg
-a2VybmVsLg0KPiA+PiA+Pg0KPiA+PiA+PiBicmlkZ2UgbGluayBzZXQgZGV2IGJyMCBhZ2Vpbmdf
-dGltZSAxMDAwDQo+ID4+ID4+DQo+ID4+ID4+ICAtLW9yLS0NCj4gPj4gPj4NCj4gPj4gPj4gaXAg
-bGluayBzZXQgZGV2IGJyMCB0eXBlIGJyaWRnZSBhZ2VpbmdfdGltZSAxMDAwDQo+ID4+ID4NCj4g
-Pj4gPiBJJ2QgcHJlZmVyIHRvIGRlcHJlY2F0ZS9yZW1vdmUgYWxsIHRoZSA2IG9wdGlvbnMgb24g
-dGhlICdpcCBsaW5rJyBjb21tYW5kDQo+IGFuZA0KPiA+PiBtb3ZlIHRoZW0gdG8gJ2JyaWRnZScg
-Y29tbWFuZC4NCj4gPj4NCj4gPj4gV2UncmUgcHJvYmFibHkgc3R1Y2sgd2l0aCB0aGUgJ2lwIGxp
-bmsnIGNvbW1hbmRzLCBzaW5jZSB0aGV5J3JlDQo+ID4+IGFscmVhZHkgcmVsZWFzZSBpbiB0aGUg
-d2lsZCBhbmQgZm9sa3MgbWF5IGhhdmUgZGVwZW5kZW5jeSBvbiB0aGVtLg0KPiA+PiBIb3dldmVy
-LCB3aGVuIGxvb2tpbmcgYXQgaXByb3V0ZTIgY29kZSwgbG9vayBmb3Igb3Bwb3J0dW5pdHkgdG8g
-dXNlDQo+ID4+IHNhbWUgY29kZSBmb3IgYm90aCBwYXRocy4NCj4gPg0KPiA+IE9rLiAgVGhlbiB3
-ZSBjYW4gaGF2ZSBib3RoIGlwIGFuZCBicmlkZ2UgY29tbWFuZHMgc3VwcG9ydGluZyB0aGVzZSBv
-cHRpb25zLA0KPiBhbmQgZnJlZXplIHRoZSAnaXAgbGluaycgY29tbWFuZCBhcyBpdA0KPiA+IGV4
-aXN0cyB0b2RheS4gIEFueSBuZXcgb3B0aW9ucyBpbiBmdXR1cmUgc2hvdWxkIGJlIGFkZGVkIHRv
-IHRoZSBicmlkZ2UNCj4gY29tbWFuZC4gIERvZXMgdGhhdCBzb3VuZCBva2F5Pw0KPiANCj4gSXQg
-d291bGQgYmUgaWRlYWwgaWYgYm90aCBjb21tYW5kIHBhdGhzIHVzZSBzYW1lIGNvZGUgc28gbmV3
-IG9wdGlvbnMNCj4gd29yayB3aXRoIGVpdGhlciBjb21tYW5kLiAgVGhlcmUgYXJlIG90aGVyIGV4
-YW1wbGVzIHdoZXJlIHNoYXJlZCBjb2RlDQo+IGFwcHJvYWNoIGNvdWxkIGJlIHVzZWQgdG8gY3Jl
-YXRlIHN5bm9ueW1vdXMgY29tbWFuZHM6DQo+IA0KPiBpcCBsaW5rIGFkZCBuYW1lIGJyMCB0eXBl
-IGJyaWRnZSAgICAgICAtLW9yLS0gYnJpZGdlIGFkZCBkZXYgYnIwDQo+IGlwIGxpbmsgZGVsIGJy
-MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAtLW9yLS0gYnJpZGdlIGRlbCBkZXYg
-YnIwDQo+IGlwIGxpbmsgc2V0IGRldiBzdzFwMSBtYXN0ZXIgYnIwICAgICAgIC0tb3ItLSBicmlk
-Z2UgbGluayBhZGQgZGV2IHN3MXAxIGJyMA0KPiBpcCBsaW5rIHNldCBkZXYgc3cxcDEgbm9tYXN0
-ZXIgYnIwICAgIC0tb3ItLSBicmlkZ2UgbGluayBkZWwgc3cxcDENCj4gDQo+IFRoZXJlIGlzIHNv
-bWUgcHJlY2VkZW5jZSBvZiBzeW5vbnltb3VzIGJyaWRnZSBjb21tYW5kczoNCj4gDQo+IGlwIGxp
-bmsgc2V0IGRldiBzdzFwMSB0eXBlIGJyaWRnZV9zbGF2ZSBmbG9vZCBvbg0KPiAtLW9yLS0NCj4g
-YnJpZGdlIGxpbmsgc2V0IGRldiBzdzFwMSBmbG9vZCBvbg0KPiANCj4gQnV0IEkgZG9uJ3Qga25v
-dyBpZiB0aGUgc2FtZSBjb2RlIHBhdGggaXMgdXNlZCBmb3IgYm90aCBvZiB0aGVzZS4gIChJdCBz
-aG91bGQpLg0KDQpTb3VuZHMgcmVhc29uYWJsZS4gIEknbGwgdHJ5IHRvIGZvbGxvdyB0aGlzIGFw
-cHJvYWNoIC0gd2l0aCBjb2RlIHNoYXJpbmcgcmVxdWlyZW1lbnQgaW4gbWluZC4NCg0KLVByZW0N
-Cj4gDQo+IC1zY290dA0K
+
+
+On 08/19/2015 11:39 PM, Eric Dumazet wrote:
+> On Wed, 2015-08-19 at 19:17 +0000, Grumbach, Emmanuel wrote:
+> 
+>> Hm.. how would net/core/tso.c avoid this?
+> 
+> Because a driver using these helpers keep around the original LSO packet
+> and frees it normally at TX completion time.
+> 
+
+Which is why I can't really use it. The complexity is that I have to
+(ieee802.11 specification) split an LSO is several 802.11 packets. The
+maximal 802.11 packet I can send under ideal condition is 11K long or
+so. So I *must* generate several 802.11 frames from one single LSO
+packet. OTOH, I can have more than MSS bytes in a 802.11 A-MSDU.
+
+Maybe what would help would be to be able to dynamically change the
+maximal size of an LSO packet. That would allow the wifi driver to
+ensure that the LSO can fit in a single 802.11 packet. Note that since
+the maximal length of the A-MSDU can vary based on link conditions
+(since there is only one CRC for the whole A-MSDU, you don't want long
+A-MSDUs in bad link conditions) the driver would need to be able to tell
+the TCP stack to modify the length of an LSO packet.
+To me, this sounds to be ... an overkill?
+
+I'll sum up all this considerations in the v3 I'll send later today.
+
+>> I can't see anything related to truesize there.
+>> Note that this work since it is guaranteed that we release the skbs in
+>> order.
+>>
+>>>
+>>> (BTW TCP packets do not have sock_wfree as destructor but tcp_wfree(),
+>>> yet we want backpressure mostly for TCP stack (TCP Small Queues))
+>>>
+>>>
+>>
+>> I am not sure I follow here.
+>> You want me to test:
+>> if (skb_gso->destructor == tcp_wfree) ?
+> 
+> 
+> Yes.
+> 
+> Look for example at tcp_gso_segment() (called from skb_gso_segment())
+> 
+> copy_destructor = gso_skb->destructor == tcp_wfree;
+> ...
+>         /* Following permits TCP Small Queues to work well with GSO :
+>          * The callback to TCP stack will be called at the time last frag
+>          * is freed at TX completion, and not right now when gso_skb
+>          * is freed by GSO engine
+>          */
+>         if (copy_destructor) {
+>                 swap(gso_skb->sk, skb->sk);
+>                 swap(gso_skb->destructor, skb->destructor);
+>                 sum_truesize += skb->truesize;
+>                 atomic_add(sum_truesize - gso_skb->truesize,
+>                            &skb->sk->sk_wmem_alloc);
+>         }
+> 
+> 
+>>
+>> I checked that code using iperf and saw that I don't get into this if,
+>> but I (probably wrongly) assumed that other applications would set a
+>> flag on the socket (forgive my ignorance) that would make this if be taken.
+> 
+> If you do not see skb->destructor == tcp_wfree, then something is
+> definitely wrong on your setup.
+> 
+
+I'll check this today. Thanks.
+
+> 
+> 
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
