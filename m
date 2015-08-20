@@ -1,43 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers-next 2015-08-19
-Date: Thu, 20 Aug 2015 14:14:30 -0700 (PDT)
-Message-ID: <20150820.141430.1615778147705552773.davem@davemloft.net>
-References: <87pp2ja6ar.fsf@kamboji.qca.qualcomm.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v1 0/6] Add fec1 and fec2 support for i.MX7d sdb board
+Date: Thu, 20 Aug 2015 14:14:24 -0700
+Message-ID: <55D64330.4020503@gmail.com>
+References: <1439962444-27486-1-git-send-email-b38611@freescale.com> <20150820.140531.1320709021949935376.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: kvalo@codeaurora.org
+Cc: netdev@vger.kernel.org, shawnguo@kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>, b38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57227 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752679AbbHTVOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 17:14:31 -0400
-In-Reply-To: <87pp2ja6ar.fsf@kamboji.qca.qualcomm.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:35073 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525AbbHTVQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 17:16:49 -0400
+Received: by pdob1 with SMTP id b1so18315081pdo.2
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 14:16:49 -0700 (PDT)
+In-Reply-To: <20150820.140531.1320709021949935376.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Wed, 19 Aug 2015 14:03:56 +0300
+On 20/08/15 14:05, David Miller wrote:
+> From: Fugang Duan <b38611@freescale.com>
+> Date: Wed, 19 Aug 2015 13:33:58 +0800
+> 
+>> The patch series is to add fec support for i.MX7d sdb board. Since i.MX7d fec ip is
+>> the same as i.MX6SX, so there have no change for driver itself.
+>>
+>> Patch#1: add bcm54220 PHY ID entry into brcmphy.h file.
+> 
+> This is completely, and utterly, pointless.
+> 
+> The only reason a PHY ID should be defined in brcmphy.h is so that it can
+> be used in the broadcom.c PHY driver or similar.
+> 
+> If there is no user in the tree, there is no reason to add it to the
+> header file.
 
-> here's one more pull request for 4.3. More info in the signed tag below.
-> 
-> This time I had to merge mac80211-next.git due to some iwlwifi
-> dependencies and apparently that broke git-request-pull's diffstat
-> again, it was showing changes which were not really coming from my tree.
-> I think that's just a bug in my old git and really should update the
-> tool. This time I just fixed the diffstat manually.
-> 
-> But please be extra careful with this pull request and please let me
-> know if you have any problems.
-> 
-> The following changes since commit 8f9c98df949333f08b74e5df1caacf7e2c5e8552:
-> 
->   mac80211: fix BIT position for TDLS WIDE extended cap (2015-08-14 17:49:53 +0200)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git tags/wireless-drivers-next-for-davem-2015-08-19
+There is a valid reason for which you may have a PHY id, which is
+defining a PHY fixup in your platform code like Andy is doing, however,
+this should not be used in conjunction with the Generic PHY driver,
+because this driver has absolutely no clue about your PHY fixup, and
+this could create at best inconsistencies in how the fixup is managed
+later on.
 
-Pulled, thanks.  I'll double check what I got to make sure it isn't
-unexpected.
+At the very least, I would like to see a change to
+drivers/net/phy/broadcom.c which identifies this PHY id, and eventually
+just invokes the genphy_* functions where relevant.
+-- 
+Florian
