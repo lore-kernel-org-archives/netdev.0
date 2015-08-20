@@ -1,72 +1,39 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH v3 net-next 00/13] lwtunnel: per route ipv6 support for vxlan
-Date: Thu, 20 Aug 2015 13:56:19 +0200
-Message-ID: <cover.1440071726.git.jbenc@redhat.com>
+Subject: [PATCH v3 net-next 03/13] ip_tunnels: use offsetofend
+Date: Thu, 20 Aug 2015 13:56:22 +0200
+Message-ID: <fe4eaf42e3f4de5ba162c8b8dd44d6d2dbc5140d.1440071726.git.jbenc@redhat.com>
+References: <cover.1440071726.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42643 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40599 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751363AbbHTL5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 07:57:16 -0400
+	id S1751363AbbHTL5T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2015 07:57:19 -0400
+In-Reply-To: <cover.1440071726.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v3: Moved LWTUNNEL_ENCAP_IP6 definition in patch 13.
-v2: Fixed issues in patch 4 pointed out by Alexei.
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/net/ip_tunnels.h | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-This series enables IPv6 tunnels based on lwtunnel infrastructure. Only
-vxlan is supported for now.
-
-Tested in all combinations of IPv4 over IPv6, IPv6 over IPv4 and IPv6 over
-IPv6.
-
-Jiri Benc (13):
-  ip_tunnels: remove custom alignment and packing
-  ip_tunnels: use u8/u16/u32
-  ip_tunnels: use offsetofend
-  ip_tunnels: add IPv6 addresses to ip_tunnel_key
-  ip_tunnels: use tos and ttl fields also for IPv6
-  route: move lwtunnel state to dst_entry
-  ipv6: drop metadata dst in ip6_route_input
-  ipv6: ndisc: inherit metadata dst when creating ndisc requests
-  vxlan: provide access function for vxlan socket address family
-  vxlan: do not shadow flags variable
-  vxlan: metadata based tunneling for IPv6
-  ipv6: route: extend flow representation with tunnel key
-  ipv6: route: per route IP tunnel metadata via lightweight tunnel
-
- drivers/net/vrf.c              |   1 -
- drivers/net/vxlan.c            |  89 +++++++++++++++++--------------
- include/net/dst.h              |   3 +-
- include/net/dst_metadata.h     |  15 ++----
- include/net/flow.h             |   1 +
- include/net/ip6_fib.h          |   1 -
- include/net/ip_tunnels.h       |  50 ++++++++++-------
- include/net/lwtunnel.h         |  12 -----
- include/net/ndisc.h            |   3 +-
- include/net/route.h            |   1 -
- include/net/vxlan.h            |   5 ++
- include/uapi/linux/lwtunnel.h  |  16 ++++++
- net/core/dst.c                 |   3 ++
- net/core/filter.c              |   6 +--
- net/core/lwtunnel.c            |  70 ++++--------------------
- net/ipv4/ip_gre.c              |  20 +++----
- net/ipv4/ip_tunnel_core.c      | 118 ++++++++++++++++++++++++++++++++++++++---
- net/ipv4/route.c               |  20 +++----
- net/ipv6/addrconf.c            |   2 +-
- net/ipv6/ila.c                 |  14 ++---
- net/ipv6/ip6_fib.c             |   1 -
- net/ipv6/ndisc.c               |  10 ++--
- net/ipv6/route.c               |  29 ++++++----
- net/mpls/mpls_iptunnel.c       |   7 +--
- net/openvswitch/flow_netlink.c |  28 +++++-----
- net/openvswitch/flow_table.c   |   2 +-
- net/openvswitch/vport-geneve.c |   4 +-
- net/openvswitch/vport-netdev.c |   2 +-
- net/openvswitch/vport.c        |   6 +--
- net/openvswitch/vport.h        |   6 +--
- 30 files changed, 312 insertions(+), 233 deletions(-)
-
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index ca173f22f07f..cc3b39e9010b 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -23,9 +23,7 @@
+ #define IPTUNNEL_ERR_TIMEO	(30*HZ)
+ 
+ /* Used to memset ip_tunnel padding. */
+-#define IP_TUNNEL_KEY_SIZE					\
+-	(offsetof(struct ip_tunnel_key, tp_dst) +		\
+-	 FIELD_SIZEOF(struct ip_tunnel_key, tp_dst))
++#define IP_TUNNEL_KEY_SIZE	offsetofend(struct ip_tunnel_key, tp_dst)
+ 
+ struct ip_tunnel_key {
+ 	__be64			tun_id;
 -- 
 1.8.3.1
