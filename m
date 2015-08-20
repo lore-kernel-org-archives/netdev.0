@@ -1,82 +1,77 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
  bridges and switch devices.
-Date: Thu, 20 Aug 2015 04:56:16 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
+Date: Wed, 19 Aug 2015 22:00:36 -0700
+Message-ID: <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com>
 References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
+ <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net> <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com> <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+To: Premkumar Jonnala <pjonnala@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:17026 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772AbbHTE4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 00:56:19 -0400
-In-Reply-To: <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:34807 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750772AbbHTFA4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:00:56 -0400
+Received: by oiey141 with SMTP id y141so16377941oie.1
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 22:00:56 -0700 (PDT)
+In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhhbmsgeW91IFNjb3R0LiAgUGxlYXNlIHNlZSBpbmxpbmUuDQoNCj4gPj4gLS0tLS1PcmlnaW5h
-bCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogU2NvdHQgRmVsZG1hbiBbbWFpbHRvOnNmZWxkbWFA
-Z21haWwuY29tXQ0KPiA+PiBTZW50OiBUdWVzZGF5LCBBdWd1c3QgMTgsIDIwMTUgMTI6NDggUE0N
-Cj4gPj4gVG86IFByZW1rdW1hciBKb25uYWxhDQo+ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnDQo+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogRW5hYmxlIGNvbmZpZ3VyYXRp
-b24gb2YgYWdlaW5nIGludGVydmFsIGZvcg0KPiBicmlkZ2VzDQo+ID4+IGFuZCBzd2l0Y2ggZGV2
-aWNlcy4NCj4gPj4NCj4gPj4NCj4gPj4NCj4gPj4gT24gRnJpLCAxNCBBdWcgMjAxNSwgUHJlbWt1
-bWFyIEpvbm5hbGEgd3JvdGU6DQo+ID4+DQo+ID4+ID4gQnJpZGdlIGRldmljZXMgaGF2ZSBhZ2Vp
-bmcgaW50ZXJ2YWwgdXNlZCB0byBhZ2Ugb3V0IE1BQyBhZGRyZXNzZXMNCj4gPj4gPiBmcm9tIEZE
-Qi4gIFRoaXMgYWdlaW5nIGludGVydmFsIHdhcyBub3QgY29uZmlndXJhdGJsZS4NCj4gPj4gPg0K
-PiA+PiA+IEVuYWJsZSBuZXRsaW5rIGJhc2VkIGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5nIGludGVy
-dmFsIGZvciBicmlkZ2VzIGFuZA0KPiA+PiA+IHN3aXRjaCBkZXZpY2VzLiAgVGhlIGFnZWluZyBp
-bnRlcnZhbCBjaGFuZ2VzIHRoZSB0aW1lciB1c2VkIHRvIHB1cmdlDQo+ID4+ID4gaW5hY3RpdmUg
-RkRCIGVudHJpZXMgaW4gYnJpZGdlcy4gIFRoZSBhZ2VpbmcgaW50ZXJ2YWwgY29uZmlnIGlzDQo+
-ID4+ID4gcHJvcGFnYXRlZCB0byBzd2l0Y2ggZGV2aWNlcywgc28gdGhhdCBwbGF0Zm9ybSBvciBo
-YXJkd2FyZSBiYXNlZA0KPiA+PiA+IGFnZWluZyB3b3JrcyBhY2NvcmRpbmcgdG8gY29uZmlndXJh
-dGlvbi4NCj4gPj4gPg0KPiA+PiA+IFNpZ25lZC1vZmYtYnk6IFByZW1rdW1hciBKb25uYWxhIDxw
-am9ubmFsYUBicm9hZGNvbS5jb20+DQo+ID4+DQo+ID4+IEhpIFByZW1rdW1hciwNCj4gPj4NCj4g
-Pj4gSSBhZ3JlZSB3aXRoIFJvb3BhIHRoYXQgd2Ugc2hvdWxkIHVzZSBleGlzdGluZyBJRkxBX0JS
-X0FHRUlOR19USU1FLg0KPiA+DQo+ID4gV2hhdCBpcyB0aGUgbW90aXZhdGlvbiBmb3IgdXNpbmcg
-J2lwIGxpbmsnIGNvbW1hbmQgdG8gY29uZmlndXJlIGJyaWRnZQ0KPiBhdHRyaWJ1dGVzPyAgSU1I
-TywNCj4gPiBicmlkZ2UgY29tbWFuZCBpcyBiZXR0ZXIgc3VpdGVkIGZvciB0aGF0Lg0KPiANCj4g
-Q2FuIHlvdSBleHRlbmQgYnJpZGdlIGNvbW1hbmQgdG8gYWxsb3cgc2V0dGluZy9nZXR0aW5nIHRo
-ZXNlIGJyaWRnZQ0KPiBhdHRycz8gIExvb2tzIGxpa2UgeW91IGNvbnN0cnVjdCBhIFJUTV9ORVdM
-SU5LIElGTEFfSU5GT19EQVRBIG1zZy4gIE5vDQo+IGNoYW5nZXMgbmVlZGVkIHRvIHRoZSBrZXJu
-ZWwuDQo+IA0KPiBicmlkZ2UgbGluayBzZXQgZGV2IGJyMCBhZ2VpbmdfdGltZSAxMDAwDQo+IA0K
-PiAgLS1vci0tDQo+IA0KPiBpcCBsaW5rIHNldCBkZXYgYnIwIHR5cGUgYnJpZGdlIGFnZWluZ190
-aW1lIDEwMDANCg0KSSdkIHByZWZlciB0byBkZXByZWNhdGUvcmVtb3ZlIGFsbCB0aGUgNiBvcHRp
-b25zIG9uIHRoZSAnaXAgbGluaycgY29tbWFuZCBhbmQgbW92ZSB0aGVtIHRvICdicmlkZ2UnIGNv
-bW1hbmQuICANCg0KPiANCj4gPj4gZGlmZiAtLWdpdCBhL25ldC9icmlkZ2UvYnJfbmV0bGluay5j
-IGIvbmV0L2JyaWRnZS9icl9uZXRsaW5rLmMNCj4gPj4gaW5kZXggMGYyNDA4Zi4uMDE0MDFlYSAx
-MDA2NDQNCj4gPj4gLS0tIGEvbmV0L2JyaWRnZS9icl9uZXRsaW5rLmMNCj4gPj4gKysrIGIvbmV0
-L2JyaWRnZS9icl9uZXRsaW5rLmMNCj4gPj4gQEAgLTc1OSw5ICs3NTksOSBAQCBzdGF0aWMgaW50
-IGJyX2NoYW5nZWxpbmsoc3RydWN0IG5ldF9kZXZpY2UgKmJyZGV2LA0KPiBzdHJ1Y3QNCj4gPj4g
-bmxhdHRyICp0YltdLA0KPiA+PiAgICAgICB9DQo+ID4+DQo+ID4+ICAgICAgIGlmIChkYXRhW0lG
-TEFfQlJfQUdFSU5HX1RJTUVdKSB7DQo+ID4+IC0gICAgICAgICAgICAgdTMyIGFnZWluZ190aW1l
-ID0gbmxhX2dldF91MzIoZGF0YVtJRkxBX0JSX0FHRUlOR19USU1FXSk7DQo+ID4NCj4gPiBTaG91
-bGQgd2UgZG8gc29tZSByYW5nZSBjaGVja2luZyBoZXJlIHRvIGVuc3VyZSB0aGF0IHRoZSB2YWx1
-ZSBpcyB3aXRoaW4gYQ0KPiBjZXJ0YWluIHJhbmdlLg0KPiA+IElFRUUgODAyLjFkIHJlY29tbWVu
-ZHMgdGhhdCB0aGUgYWdlaW5nIHRpbWUgYmUgYmV0d2VlbiAxMCBzZWMgYW5kIDEgbWlsbGlvbg0K
-PiBzZWNvbmRzLg0KPiANCj4gU3VyZSwgYnV0IG1ha2UgdGhhdCBhIHNlcGFyYXRlIHBhdGNoLg0K
-DQpTdXJlLg0KDQo+IA0KPiA+PiAraW50IGJyX3NldF9hZ2VpbmdfdGltZShzdHJ1Y3QgbmV0X2Jy
-aWRnZSAqYnIsIHUzMiBhZ2VpbmdfdGltZSkNCj4gPj4gK3sNCj4gPj4gKyAgICAgc3RydWN0IHN3
-aXRjaGRldl9hdHRyIGF0dHIgPSB7DQo+ID4+ICsgICAgICAgICAgICAgLmlkID0gU1dJVENIREVW
-X0FUVFJfQlJJREdFLA0KPiA+PiArICAgICAgICAgICAgIC5mbGFncyA9IFNXSVRDSERFVl9GX1NL
-SVBfRU9QTk9UU1VQUCwNCj4gPj4gKyAgICAgICAgICAgICAudS5icmlkZ2UuYXR0ciA9IElGTEFf
-QlJfQUdFSU5HX1RJTUUsDQo+ID4+ICsgICAgICAgICAgICAgLnUuYnJpZGdlLnZhbCA9IGFnZWlu
-Z190aW1lLA0KPiA+PiArICAgICB9Ow0KPiA+PiArICAgICBpbnQgZXJyOw0KPiA+PiArDQo+ID4+
-ICsgICAgIGVyciA9IHN3aXRjaGRldl9wb3J0X2F0dHJfc2V0KGJyLT5kZXYsICZhdHRyKTsNCj4g
-Pj4gKyAgICAgaWYgKGVycikNCj4gPj4gKyAgICAgICAgICAgICByZXR1cm4gZXJyOw0KPiA+PiAr
-DQo+ID4+ICsgICAgIGJyLT5hZ2VpbmdfdGltZSA9IGNsb2NrX3RfdG9famlmZmllcyhhZ2Vpbmdf
-dGltZSk7DQo+ID4NCj4gPiBTaG91bGQgd2UgcmVzdGFydCB0aGUgdGltZXIgaGVyZSB0aGUgbmV3
-IHRpbWUgdGFrZXMgZWZmZWN0Pw0KPiANCj4gSSBkb24ndCBrbm93Li4uSSBqdXN0IGNvcGllZCB3
-aGF0IHRoZSBvcmlnaW5hbCBjb2RlIGRpZC4gIElmIGl0IGRvZXMNCj4gbmVlZCB0byBiZSByZXN0
-YXJ0ZWQsIGJyZWFrIHRoYXQgb3V0IGFzIGEgc2VwYXJhdGUgcGF0Y2guDQoNClRoZXJlIGlzIGFu
-b3RoZXIgY29tbWVudCBvbiB0aGlzIHRocmVhZCB3aGVyZSBpdCB3YXMgc3VnZ2VzdGVkIHRoYXQg
-d2UgcmVzdGFydCB0aGUgdGltZXIuICBJIHdpbGwNCm1ha2UgdGhlIGNoYW5nZSBpbiBhIHNlcGFy
-YXRlIHBhdGNoLg0KDQotUHJlbQ0KDQo+IA0KPiAtc2NvdHQNCg==
+On Wed, Aug 19, 2015 at 9:56 PM, Premkumar Jonnala
+<pjonnala@broadcom.com> wrote:
+> Thank you Scott.  Please see inline.
+>
+>> >> -----Original Message-----
+>> >> From: Scott Feldman [mailto:sfeldma@gmail.com]
+>> >> Sent: Tuesday, August 18, 2015 12:48 PM
+>> >> To: Premkumar Jonnala
+>> >> Cc: netdev@vger.kernel.org
+>> >> Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
+>> bridges
+>> >> and switch devices.
+>> >>
+>> >>
+>> >>
+>> >> On Fri, 14 Aug 2015, Premkumar Jonnala wrote:
+>> >>
+>> >> > Bridge devices have ageing interval used to age out MAC addresses
+>> >> > from FDB.  This ageing interval was not configuratble.
+>> >> >
+>> >> > Enable netlink based configuration of ageing interval for bridges and
+>> >> > switch devices.  The ageing interval changes the timer used to purge
+>> >> > inactive FDB entries in bridges.  The ageing interval config is
+>> >> > propagated to switch devices, so that platform or hardware based
+>> >> > ageing works according to configuration.
+>> >> >
+>> >> > Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
+>> >>
+>> >> Hi Premkumar,
+>> >>
+>> >> I agree with Roopa that we should use existing IFLA_BR_AGEING_TIME.
+>> >
+>> > What is the motivation for using 'ip link' command to configure bridge
+>> attributes?  IMHO,
+>> > bridge command is better suited for that.
+>>
+>> Can you extend bridge command to allow setting/getting these bridge
+>> attrs?  Looks like you construct a RTM_NEWLINK IFLA_INFO_DATA msg.  No
+>> changes needed to the kernel.
+>>
+>> bridge link set dev br0 ageing_time 1000
+>>
+>>  --or--
+>>
+>> ip link set dev br0 type bridge ageing_time 1000
+>
+> I'd prefer to deprecate/remove all the 6 options on the 'ip link' command and move them to 'bridge' command.
+
+We're probably stuck with the 'ip link' commands, since they're
+already release in the wild and folks may have dependency on them.
+However, when looking at iproute2 code, look for opportunity to use
+same code for both paths.
+
+-scott
