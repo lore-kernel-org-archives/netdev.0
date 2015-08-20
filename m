@@ -1,65 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to
- htons
-Date: Thu, 20 Aug 2015 11:51:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB8054E@AcuExch.aculab.com>
-References: <1439972454-64347-1-git-send-email-ubraun@linux.vnet.ibm.com>
-	 <1439972454-64347-3-git-send-email-ubraun@linux.vnet.ibm.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CB804CD@AcuExch.aculab.com>
- <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
-	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-	"ursula.braun@de.ibm.com" <ursula.braun@de.ibm.com>,
-	Vaishali Thakkar <vthakkar1994@gmail.com>
-To: 'Ursula Braun' <ubraun@linux.vnet.ibm.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH v3 net-next 01/13] ip_tunnels: remove custom alignment and packing
+Date: Thu, 20 Aug 2015 13:56:20 +0200
+Message-ID: <ce00a0e6593f431c4d663c5c1f767fc29eb1f7c7.1440071726.git.jbenc@redhat.com>
+References: <cover.1440071726.git.jbenc@redhat.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:56400 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203AbbHTLyQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 07:54:16 -0400
-In-Reply-To: <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:48072 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751569AbbHTL5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2015 07:57:17 -0400
+In-Reply-To: <cover.1440071726.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVXJzdWxhIEJyYXVuIFttYWlsdG86dWJyYXVuQGxpbnV4LnZuZXQuaWJtLmNvbV0NCj4g
-U2VudDogMjAgQXVndXN0IDIwMTUgMTI6NDQNCj4gT24gVGh1LCAyMDE1LTA4LTIwIGF0IDEwOjQ2
-ICswMDAwLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gRnJvbTogVXJzdWxhIEJyYXVuDQo+ID4g
-PiBTZW50OiAxOSBBdWd1c3QgMjAxNSAwOToyMQ0KPiA+ID4gSW4gbGl0dGxlIGVuZGlhbiBjYXNl
-cywgdGhlIG1hY3JvIGh0b25zIHVuZm9sZHMgdG8gX19zd2FiMTYgd2hpY2gNCj4gPiA+IHByb3Zp
-ZGVzIHNwZWNpYWwgY2FzZSBmb3IgY29uc3RhbnRzLiBJbiBiaWcgZW5kaWFuIGNhc2VzLA0KPiA+
-ID4gX19jb25zdGFudF9odG9ucyBhbmQgaHRvbnMgZXhwYW5kIGRpcmVjdGx5IHRvIHRoZSBzYW1l
-IGV4cHJlc3Npb24uDQo+ID4gPiBTbywgcmVwbGFjZSBfX2NvbnN0YW50X2h0b25zIHdpdGggaHRv
-bnMgd2l0aCB0aGUgZ29hbCBvZiBnZXR0aW5nDQo+ID4gPiByaWQgb2YgdGhlIGRlZmluaXRpb24g
-b2YgX19jb25zdGFudF9odG9ucyBjb21wbGV0ZWx5Lg0KPiA+IC4uLg0KPiA+ID4gZGlmZiAtLWdp
-dCBhL2RyaXZlcnMvczM5MC9uZXQvcWV0aF9sM19tYWluLmMgYi9kcml2ZXJzL3MzOTAvbmV0L3Fl
-dGhfbDNfbWFpbi5jDQo+ID4gPiBpbmRleCA3MGViMmY2Li5lY2ZlNjIyIDEwMDY0NA0KPiA+ID4g
-LS0tIGEvZHJpdmVycy9zMzkwL25ldC9xZXRoX2wzX21haW4uYw0KPiA+ID4gKysrIGIvZHJpdmVy
-cy9zMzkwL25ldC9xZXRoX2wzX21haW4uYw0KPiA+ID4gQEAgLTE4ODcsMTMgKzE4ODcsMTMgQEAg
-c3RhdGljIGlubGluZSBpbnQgcWV0aF9sM19yZWJ1aWxkX3NrYihzdHJ1Y3QgcWV0aF9jYXJkICpj
-YXJkLA0KPiA+ID4gIAkJY2FzZSBRRVRIX0NBU1RfTVVMVElDQVNUOg0KPiA+ID4gIAkJCXN3aXRj
-aCAocHJvdCkgew0KPiA+ID4gICNpZmRlZiBDT05GSUdfUUVUSF9JUFY2DQo+ID4gPiAtCQkJY2Fz
-ZSBfX2NvbnN0YW50X2h0b25zKEVUSF9QX0lQVjYpOg0KPiA+ID4gKwkJCWNhc2UgaHRvbnMoRVRI
-X1BfSVBWNik6DQo+ID4NCj4gPiBJIGRpZG4ndCB0aGluayBodG9ucygpIHdhcyAnY29uc3RhbnQg
-ZW5vdWdoJyB0byBiZSB1c2VkIGFzIGEgY2FzZSBsYWJlbC4NCj4gPg0KPiA+IFVzaW5nIGJ5dGVz
-d2FwcGVkIGNvbnN0YW50cyBpbiBhIGNhc2Ugc3RhdGVtZW50IGNhbiBjaGFuZ2UgaXQgZnJvbSBi
-ZWluZw0KPiA+IGltcGxlbWVudGVkIGFzIGEganVtcCB0YWJsZSB0byBhIGJyYW5jaCB0cmVlLg0K
-PiA+IFRoaXMgbWlnaHQgYmUgbW9yZSBleHBlbnNpdmUgdGhhbiBieXRlc3dhcHBpbmcgdGhlIHZh
-bHVlIChldmVuIG9uIHN5c3RlbXMNCj4gPiB0aGF0IGRvbid0IGhhdmUgY2hlYXAgYnl0ZXN3YXAg
-aW5zdHJ1Y3Rpb25zKS4NCj4gPg0KPiA+IAlEYXZpZA0KPiA+DQo+IEZvciBiaWcgZW5kaWFuIHN5
-c3RlbXMgYm90aCBfX2NvbnN0YW50X2h0b25zKHgpIGFuZCBodG9ucyh4KSBhcmUNCj4gcmVzb2x2
-ZWQgdG8gKChfX2ZvcmNlIF9fYmUxNikoX191MTYpKHgpKS4gVGh1cyBJIGRvIG5vdCBzZWUgYSBy
-ZWFzb24gdG8NCj4gcmVqZWN0IHRoZSBwYXRjaCBwcm9wb3NhbCBmcm9tIFZhaXNoYWxpIFRoYWtr
-YXIuDQoNCkxvb2sgYXQgYSBsaXR0bGUtZW5kaWFuIG9uZSAoZWcgYW1kNjQpLg0KSSB0aGluayB5
-b3UnbGwgZmluZCBhIEMgPzogZXhwcmVzc2lvbiB0aGF0IHVzZXMgX19idWlsdGluX2NvbnN0YW50
-KCkgdG8NCnNlbGVjdCBiZXR3ZWVuIGFuIGV4cHJlc3Npb24gdGhlIGNvbXBpbGVyIGNhbiBldmFs
-dWF0ZSBhbmQgYSBjYWxsIHRvIGFuDQppbmxpbmUgZnVuY3Rpb24gdGhhdCB1c2VzIHNvbWUgYXBw
-cm9wcmlhdGUgYXNtLg0KVGhlIGxhdHRlciBpc24ndCBhIGNvbXBpbGUtdGltZSBjb25zdGFudCBz
-byBjYW4ndCBiZSB1c2VkIGFzIGEgY2FzZQ0KbGFiZWwgb3IgYXMgYW4gaW5pdGlhbGlzZXIuDQoN
-CglEYXZpZA0KDQoNCg==
+The custom alignment of struct ip_tunnel_key is unnecessary. In struct
+sw_flow_key, it starts at offset 256, in struct ip_tunnel_info it's the
+first field.
+
+The structure is also packed even without the __packed keyword.
+
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/net/ip_tunnels.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 984dbfa15e13..81cf11c931e4 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -36,7 +36,7 @@ struct ip_tunnel_key {
+ 	__u8			ipv4_ttl;
+ 	__be16			tp_src;
+ 	__be16			tp_dst;
+-} __packed __aligned(4); /* Minimize padding. */
++};
+ 
+ /* Indicates whether the tunnel info structure represents receive
+  * or transmit tunnel parameters.
+-- 
+1.8.3.1
