@@ -1,73 +1,50 @@
-From: Premkumar Jonnala <pjonnala@broadcom.com>
-Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
- bridges and switch devices.
-Date: Thu, 20 Aug 2015 05:12:16 +0000
-Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E308A@SJEXCHMB14.corp.ad.broadcom.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 13/13] ipv6: route: per route IP tunnel
+ metadata via lightweight tunnel
+Date: Wed, 19 Aug 2015 22:15:33 -0700 (PDT)
+Message-ID: <20150819.221533.1044691669375994723.davem@davemloft.net>
+References: <55D45A0A.7010100@miraclelinux.com>
+	<20150819123151.3802e8f3@griffin>
+	<55D53B72.70403@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jbenc@redhat.com, netdev@vger.kernel.org, tgraf@suug.ch
+To: hideaki.yoshifuji@miraclelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:33083 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbbHTFMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:12:20 -0400
-In-Reply-To: <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:52089 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751286AbbHTFPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:15:36 -0400
+In-Reply-To: <55D53B72.70403@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2NvdHQgRmVsZG1hbiBb
-bWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgQXVndXN0IDIwLCAy
-MDE1IDEwOjMxIEFNDQo+IFRvOiBQcmVta3VtYXIgSm9ubmFsYQ0KPiBDYzogbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBicmlkZ2U6IEVuYWJsZSBjb25maWd1
-cmF0aW9uIG9mIGFnZWluZyBpbnRlcnZhbCBmb3IgYnJpZGdlcw0KPiBhbmQgc3dpdGNoIGRldmlj
-ZXMuDQo+IA0KPiBPbiBXZWQsIEF1ZyAxOSwgMjAxNSBhdCA5OjU2IFBNLCBQcmVta3VtYXIgSm9u
-bmFsYQ0KPiA8cGpvbm5hbGFAYnJvYWRjb20uY29tPiB3cm90ZToNCj4gPiBUaGFuayB5b3UgU2Nv
-dHQuICBQbGVhc2Ugc2VlIGlubGluZS4NCj4gPg0KPiA+PiA+PiAtLS0tLU9yaWdpbmFsIE1lc3Nh
-Z2UtLS0tLQ0KPiA+PiA+PiBGcm9tOiBTY290dCBGZWxkbWFuIFttYWlsdG86c2ZlbGRtYUBnbWFp
-bC5jb21dDQo+ID4+ID4+IFNlbnQ6IFR1ZXNkYXksIEF1Z3VzdCAxOCwgMjAxNSAxMjo0OCBQTQ0K
-PiA+PiA+PiBUbzogUHJlbWt1bWFyIEpvbm5hbGENCj4gPj4gPj4gQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmcNCj4gPj4gPj4gU3ViamVjdDogUmU6IFtQQVRDSF0gYnJpZGdlOiBFbmFibGUgY29u
-ZmlndXJhdGlvbiBvZiBhZ2VpbmcgaW50ZXJ2YWwgZm9yDQo+ID4+IGJyaWRnZXMNCj4gPj4gPj4g
-YW5kIHN3aXRjaCBkZXZpY2VzLg0KPiA+PiA+Pg0KPiA+PiA+Pg0KPiA+PiA+Pg0KPiA+PiA+PiBP
-biBGcmksIDE0IEF1ZyAyMDE1LCBQcmVta3VtYXIgSm9ubmFsYSB3cm90ZToNCj4gPj4gPj4NCj4g
-Pj4gPj4gPiBCcmlkZ2UgZGV2aWNlcyBoYXZlIGFnZWluZyBpbnRlcnZhbCB1c2VkIHRvIGFnZSBv
-dXQgTUFDIGFkZHJlc3Nlcw0KPiA+PiA+PiA+IGZyb20gRkRCLiAgVGhpcyBhZ2VpbmcgaW50ZXJ2
-YWwgd2FzIG5vdCBjb25maWd1cmF0YmxlLg0KPiA+PiA+PiA+DQo+ID4+ID4+ID4gRW5hYmxlIG5l
-dGxpbmsgYmFzZWQgY29uZmlndXJhdGlvbiBvZiBhZ2VpbmcgaW50ZXJ2YWwgZm9yIGJyaWRnZXMg
-YW5kDQo+ID4+ID4+ID4gc3dpdGNoIGRldmljZXMuICBUaGUgYWdlaW5nIGludGVydmFsIGNoYW5n
-ZXMgdGhlIHRpbWVyIHVzZWQgdG8gcHVyZ2UNCj4gPj4gPj4gPiBpbmFjdGl2ZSBGREIgZW50cmll
-cyBpbiBicmlkZ2VzLiAgVGhlIGFnZWluZyBpbnRlcnZhbCBjb25maWcgaXMNCj4gPj4gPj4gPiBw
-cm9wYWdhdGVkIHRvIHN3aXRjaCBkZXZpY2VzLCBzbyB0aGF0IHBsYXRmb3JtIG9yIGhhcmR3YXJl
-IGJhc2VkDQo+ID4+ID4+ID4gYWdlaW5nIHdvcmtzIGFjY29yZGluZyB0byBjb25maWd1cmF0aW9u
-Lg0KPiA+PiA+PiA+DQo+ID4+ID4+ID4gU2lnbmVkLW9mZi1ieTogUHJlbWt1bWFyIEpvbm5hbGEg
-PHBqb25uYWxhQGJyb2FkY29tLmNvbT4NCj4gPj4gPj4NCj4gPj4gPj4gSGkgUHJlbWt1bWFyLA0K
-PiA+PiA+Pg0KPiA+PiA+PiBJIGFncmVlIHdpdGggUm9vcGEgdGhhdCB3ZSBzaG91bGQgdXNlIGV4
-aXN0aW5nIElGTEFfQlJfQUdFSU5HX1RJTUUuDQo+ID4+ID4NCj4gPj4gPiBXaGF0IGlzIHRoZSBt
-b3RpdmF0aW9uIGZvciB1c2luZyAnaXAgbGluaycgY29tbWFuZCB0byBjb25maWd1cmUgYnJpZGdl
-DQo+ID4+IGF0dHJpYnV0ZXM/ICBJTUhPLA0KPiA+PiA+IGJyaWRnZSBjb21tYW5kIGlzIGJldHRl
-ciBzdWl0ZWQgZm9yIHRoYXQuDQo+ID4+DQo+ID4+IENhbiB5b3UgZXh0ZW5kIGJyaWRnZSBjb21t
-YW5kIHRvIGFsbG93IHNldHRpbmcvZ2V0dGluZyB0aGVzZSBicmlkZ2UNCj4gPj4gYXR0cnM/ICBM
-b29rcyBsaWtlIHlvdSBjb25zdHJ1Y3QgYSBSVE1fTkVXTElOSyBJRkxBX0lORk9fREFUQSBtc2cu
-ICBObw0KPiA+PiBjaGFuZ2VzIG5lZWRlZCB0byB0aGUga2VybmVsLg0KPiA+Pg0KPiA+PiBicmlk
-Z2UgbGluayBzZXQgZGV2IGJyMCBhZ2VpbmdfdGltZSAxMDAwDQo+ID4+DQo+ID4+ICAtLW9yLS0N
-Cj4gPj4NCj4gPj4gaXAgbGluayBzZXQgZGV2IGJyMCB0eXBlIGJyaWRnZSBhZ2VpbmdfdGltZSAx
-MDAwDQo+ID4NCj4gPiBJJ2QgcHJlZmVyIHRvIGRlcHJlY2F0ZS9yZW1vdmUgYWxsIHRoZSA2IG9w
-dGlvbnMgb24gdGhlICdpcCBsaW5rJyBjb21tYW5kIGFuZA0KPiBtb3ZlIHRoZW0gdG8gJ2JyaWRn
-ZScgY29tbWFuZC4NCj4gDQo+IFdlJ3JlIHByb2JhYmx5IHN0dWNrIHdpdGggdGhlICdpcCBsaW5r
-JyBjb21tYW5kcywgc2luY2UgdGhleSdyZQ0KPiBhbHJlYWR5IHJlbGVhc2UgaW4gdGhlIHdpbGQg
-YW5kIGZvbGtzIG1heSBoYXZlIGRlcGVuZGVuY3kgb24gdGhlbS4NCj4gSG93ZXZlciwgd2hlbiBs
-b29raW5nIGF0IGlwcm91dGUyIGNvZGUsIGxvb2sgZm9yIG9wcG9ydHVuaXR5IHRvIHVzZQ0KPiBz
-YW1lIGNvZGUgZm9yIGJvdGggcGF0aHMuDQoNCk9rLiAgVGhlbiB3ZSBjYW4gaGF2ZSBib3RoIGlw
-IGFuZCBicmlkZ2UgY29tbWFuZHMgc3VwcG9ydGluZyB0aGVzZSBvcHRpb25zLCBhbmQgZnJlZXpl
-IHRoZSAnaXAgbGluaycgY29tbWFuZCBhcyBpdA0KZXhpc3RzIHRvZGF5LiAgQW55IG5ldyBvcHRp
-b25zIGluIGZ1dHVyZSBzaG91bGQgYmUgYWRkZWQgdG8gdGhlIGJyaWRnZSBjb21tYW5kLiAgRG9l
-cyB0aGF0IHNvdW5kIG9rYXk/DQoNCi1QcmVtDQoNCj4gDQo+IC1zY290dA0K
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Date: Thu, 20 Aug 2015 11:29:06 +0900
+
+> Jiri Benc wrote:
+>> On Wed, 19 Aug 2015 19:27:22 +0900, YOSHIFUJI Hideaki wrote:
+>>>> You're right generally. But this one should be okay and I did this
+>>>> deliberately: the patch adding LWTUNNEL_ENCAP_ILA was merged two days
+>>>> ago, is in net-next only, is not used by anything in user space yet.
+>>>> And I think it's better to have LWTUNNEL_ENCAP_IP and
+>>>> LWTUNNEL_ENCAP_IP6 without anything in between.
+>>>
+>>> I do think you should have some descriptions.
+>> 
+>> Sorry, I meant to put this into the description but forget to add it
+>> after the rebase on top of ILA (as the patchset conflicted with the ILA
+>> work and was developed in parallel).
+>>
+>> Are you okay with inserting LWTUNNEL_ENCAP_IP6 before
+>> LWTUNNEL_ENCAP_ILA? If so, I'll resend with the explanation added.
+> 
+> Well, I think we should always avoid adding new entries into the
+> middle of enums because it will make bisecting more complex or more
+> difficult for example even if it *seems* that we have no users yet and
+> the risk is not so high.
+> 
+> Dave?
+
+Agreed.
