@@ -1,79 +1,52 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next v3 0/3] gro: Fixes for tunnels and GRO
-Date: Wed, 19 Aug 2015 17:07:31 -0700
-Message-ID: <1440029254-1551546-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next v3 3/3] fou: Do WARN_ON_ONCE in gue_gro_receive for bad proto callbacks
+Date: Wed, 19 Aug 2015 17:07:34 -0700
+Message-ID: <1440029254-1551546-4-git-send-email-tom@herbertland.com>
+References: <1440029254-1551546-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47038 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751364AbbHTAHw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 20:07:52 -0400
-Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7K05WAh021648
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 17:07:51 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49114 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751855AbbHTAH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 20:07:59 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7K02geg024845
+	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 17:07:58 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1wd2v306mv-1
+	by mx0b-00082601.pphosted.com with ESMTP id 1wd2px8dpe-2
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 17:07:51 -0700
+	for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 17:07:58 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.223.100.97) with ESMTP	id
- 7df2a38046cf11e5bbd524be0593f280-d5bfa2b0 for <netdev@vger.kernel.org>;	Wed,
- 19 Aug 2015 17:07:49 -0700
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 82914b9e46cf11e584500002c9521c9e-a43fb2b0 for <netdev@vger.kernel.org>;	Wed,
+ 19 Aug 2015 17:07:56 -0700
+In-Reply-To: <1440029254-1551546-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set addresses some issue related to tunneling and GRO:
+Do WARN_ON_ONCE instead of WARN_ON in gue_gro_receive when the offload
+callcaks are bad (either don't exist or gro_receive is not specified).
 
-- Fix remote checksum offload to properly deal with frag0 in GRO.
-- Add support for GRO at VXLAN tunnel (call gro_cells)
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ net/ipv4/fou.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Testing: Ran one netperf TCP_STREAM to highlight impact of different
-configurations:
-
-GUE
-  Zero UDP checksum
-    4628.42 MBps
-  UDP checksums enabled
-    6800.51 MBps
-  UDP checksums and remote checksum offload
-    7663.82 MBps
-  UDP checksums and remote checksum offload using no-partial
-    7287.25 MBps
-
-VXLAN
-  Zero UDP checksum
-    4112.02
-  UDP checksums enabled
-    6785.80 MBps
-  UDP checksums and remote checksum offload
-    7075.56 MBps
-    
-v2:
-  - Drop "gro: Pull headers into skb head for 1st skb in gro list"
-    from patch set
-  - In vxlan_remcsum and gue_remcsum return immediately if remcsum
-    processing was already done
-  - Add gro callbacks for sit offload
-  - Use WARN_ON_ONCE if we get a GUE protocol that does not have
-    GRO offload support
-
-v3:
-  - Don't restore gro callbacks for sit offload
-
-
-Tom Herbert (3):
-  gro: Fix remcsum offload to deal with frags in GRO
-  vxlan: GRO support at tunnel layer
-  fou: Do WARN_ON_ONCE in gue_gro_receive for bad proto callbacks
-
- drivers/net/vxlan.c       | 32 ++++++++++++++++----------------
- include/linux/netdevice.h | 44 ++++++++++++++++++++++++++++++++------------
- include/net/vxlan.h       |  1 +
- net/ipv4/fou.c            | 30 +++++++++++++-----------------
- 4 files changed, 62 insertions(+), 45 deletions(-)
-
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index eb11f95..2d1646c 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -347,7 +347,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
+ 	rcu_read_lock();
+ 	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
+ 	ops = rcu_dereference(offloads[guehdr->proto_ctype]);
+-	if (WARN_ON(!ops || !ops->callbacks.gro_receive))
++	if (WARN_ON_ONCE(!ops || !ops->callbacks.gro_receive))
+ 		goto out_unlock;
+ 
+ 	pp = ops->callbacks.gro_receive(head, skb);
 -- 
 1.8.1
