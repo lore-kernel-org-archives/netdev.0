@@ -1,61 +1,112 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 19 Aug 2015 22:16:40 -0700 (PDT)
-Message-ID: <20150819.221640.338059561382705752.davem@davemloft.net>
-References: <20150820125734.51414bd0@canb.auug.org.au>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
+ bridges and switch devices.
+Date: Wed, 19 Aug 2015 22:38:31 -0700
+Message-ID: <CAE4R7bC4aJuk6rFThp-EAmKLkm8QRKXS2EtFF0uauCDUV5WufA@mail.gmail.com>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
+ <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net> <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com> <77EF4405DD4BB54AACCE7DB593DF6A9A9E308A@SJEXCHMB14.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jbenc@redhat.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150820125734.51414bd0@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Premkumar Jonnala <pjonnala@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:35401 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbbHTFiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:38:52 -0400
+Received: by obbwr7 with SMTP id wr7so23594215obb.2
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 22:38:51 -0700 (PDT)
+In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E308A@SJEXCHMB14.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3RlcGhlbiBSb3Rod2VsbCA8c2ZyQGNhbmIuYXV1Zy5vcmcuYXU+DQpEYXRlOiBUaHUs
-IDIwIEF1ZyAyMDE1IDEyOjU3OjM0ICsxMDAwDQoNCj4gQWZ0ZXIgbWVyZ2luZyB0aGUgbmV0LW5l
-eHQgdHJlZSwgdG9kYXkncyBsaW51eC1uZXh0IGJ1aWxkIChhcm0NCj4gbXVsdGlfdjdfZGVmY29u
-ZmlnKSBmYWlsZWQgbGlrZSB0aGlzOg0KPiANCj4gbmV0L2lwdjQvZmliX3NlbWFudGljcy5jOiBJ
-biBmdW5jdGlvbiAnZmliX2VuY2FwX21hdGNoJzoNCj4gbmV0L2lwdjQvZmliX3NlbWFudGljcy5j
-OjU1MzozOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24gJ2x3dHN0YXRl
-X2ZyZWUnIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KPiAgICBsd3Rz
-dGF0ZV9mcmVlKGx3dHN0YXRlKTsNCj4gICAgXg0KPiANCj4gQ2F1c2VkIGJ5IGNvbW1pdA0KPiAN
-Cj4gICBkZjM4M2U2MjQwZWYgKCJsd3R1bm5lbDogZml4IG1lbW9yeSBsZWFrIikNCj4gDQo+IENP
-TkZJR19MV1RVTk5FTCBpcyBub3Qgc2V0IGZvciB0aGlzIGJ1aWxkLg0KPiANCj4gSSByZXZlcnRl
-ZCB0aGF0IGNvbW1pdCBmb3IgdG9kYXkuDQoNCk91Z2h0IHRvIGFscmVhZHkgYmUgZml4ZWQgYnk6
-DQoNCj09PT09PT09PT09PT09PT09PT09DQpGcm9tIDgyNGU3MzgzZTkyODE1Y2I1OTE3OTNjNzRj
-YzgzNmFhNTE2NWY3ZjggTW9uIFNlcCAxNyAwMDowMDowMCAyMDAxDQpGcm9tOiBZaW5nIFh1ZSA8
-eWluZy54dWVAd2luZHJpdmVyLmNvbT4NCkRhdGU6IFdlZCwgMTkgQXVnIDIwMTUgMTU6NDY6MTcg
-KzA4MDANClN1YmplY3Q6IFtQQVRDSCAxLzJdIGx3dHVubmVsOiBGaXggdGhlIHNwYXJzZSB3YXJu
-aW5ncyBpbiBmaWJfZW5jYXBfbWF0Y2gNCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6
-IHRleHQvcGxhaW47IGNoYXJzZXQ9VVRGLTgNCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDhi
-aXQNCg0KV2hlbiBDT05GSUdfTFdUVU5ORUwgY29uZmlnIGlzIG5vdCBlbmFibGVkLCB0aGUgbHd0
-c3RhdGVfZnJlZSgpIGlzIG5vdA0KZGVjbGFyZWQgaW4gbHd0dW5uZWwuaCBhdCBhbGwuIEhvd2V2
-ZXIsIGV2ZW4gaW4gdGhpcyBjYXNlLCB0aGUgZnVuY3Rpb24NCmlzIHN0aWxsIHJlZmVyZW5jZWQg
-aW4gZmliX3NlbWFudGljcy5jIHNvIHRoYXQgdGhlcmUgYXBwZWFycyB0aGUNCmZvbGxvd2luZyBz
-cGFyc2Ugd2FybmluZ3M6DQoNCm5ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYzo1NTM6MTc6IGVycm9y
-OiB1bmRlZmluZWQgaWRlbnRpZmllciAnbHd0c3RhdGVfZnJlZScNCiAgQ0MgICAgICBuZXQvaXB2
-NC9maWJfc2VtYW50aWNzLm8NCiAgbmV0L2lwdjQvZmliX3NlbWFudGljcy5jOiBJbiBmdW5jdGlv
-biChZmliX2VuY2FwX21hdGNoojoNCiAgbmV0L2lwdjQvZmliX3NlbWFudGljcy5jOjU1MzozOiBl
-cnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWx3dHN0YXRlX2ZyZWWiIFst
-V2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KICBjYzE6IHNvbWUgd2Fybmlu
-Z3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCiAgbWFrZVsxXTogKioqIFtuZXQvaXB2NC9maWJf
-c2VtYW50aWNzLm9dIEVycm9yIDENCiAgbWFrZTogKioqIFtuZXQvaXB2NC9maWJfc2VtYW50aWNz
-Lm9dIEVycm9yIDINCg0KVG8gZWxpbWluYXRlIHRoZSBlcnJvciwgd2UgZGVmaW5lIGFuIGVtcHR5
-IGZ1bmN0aW9uIGZvciBsd3RzdGF0ZV9mcmVlKCkNCmluIGx3dHVubmVsLmggd2hlbiBDT05GSUdf
-TFdUVU5ORUwgaXMgZGlzYWJsZWQuDQoNCkZpeGVzOiBkZjM4M2U2MjQwZWYgKCJsd3R1bm5lbDog
-Zml4IG1lbW9yeSBsZWFrIikNCkNjOiBKaXJpIEJlbmMgPGpiZW5jQHJlZGhhdC5jb20+DQpSZXBv
-cnRlZC1ieToga2J1aWxkIHRlc3Qgcm9ib3QgPGZlbmdndWFuZy53dUBpbnRlbC5jb20+DQpTaWdu
-ZWQtb2ZmLWJ5OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJpdmVyLmNvbT4NCkFja2VkLWJ5OiBK
-aXJpIEJlbmMgPGpiZW5jQHJlZGhhdC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxs
-ZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBpbmNsdWRlL25ldC9sd3R1bm5lbC5oIHwg
-NCArKysrDQogMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQ0KDQpkaWZmIC0tZ2l0IGEv
-aW5jbHVkZS9uZXQvbHd0dW5uZWwuaCBiL2luY2x1ZGUvbmV0L2x3dHVubmVsLmgNCmluZGV4IDM0
-ZmQ4ZjcuLmNmZWU1MzkgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL25ldC9sd3R1bm5lbC5oDQorKysg
-Yi9pbmNsdWRlL25ldC9sd3R1bm5lbC5oDQpAQCAtOTMsNiArOTMsMTAgQEAgaW50IGx3dHVubmVs
-X2lucHV0NihzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsNCiANCiAjZWxzZQ0KIA0KK3N0YXRpYyBpbmxp
-bmUgdm9pZCBsd3RzdGF0ZV9mcmVlKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHdzKQ0KK3sNCit9
-DQorDQogc3RhdGljIGlubGluZSBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKg0KIGx3dHN0YXRlX2dl
-dChzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3cykNCiB7DQotLSANCjIuMS4wDQoNCg==
+On Wed, Aug 19, 2015 at 10:12 PM, Premkumar Jonnala
+<pjonnala@broadcom.com> wrote:
+>
+>
+>> -----Original Message-----
+>> From: Scott Feldman [mailto:sfeldma@gmail.com]
+>> Sent: Thursday, August 20, 2015 10:31 AM
+>> To: Premkumar Jonnala
+>> Cc: netdev@vger.kernel.org
+>> Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for bridges
+>> and switch devices.
+>>
+>> On Wed, Aug 19, 2015 at 9:56 PM, Premkumar Jonnala
+>> <pjonnala@broadcom.com> wrote:
+>> > Thank you Scott.  Please see inline.
+>> >
+>> >> >> -----Original Message-----
+>> >> >> From: Scott Feldman [mailto:sfeldma@gmail.com]
+>> >> >> Sent: Tuesday, August 18, 2015 12:48 PM
+>> >> >> To: Premkumar Jonnala
+>> >> >> Cc: netdev@vger.kernel.org
+>> >> >> Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
+>> >> bridges
+>> >> >> and switch devices.
+>> >> >>
+>> >> >>
+>> >> >>
+>> >> >> On Fri, 14 Aug 2015, Premkumar Jonnala wrote:
+>> >> >>
+>> >> >> > Bridge devices have ageing interval used to age out MAC addresses
+>> >> >> > from FDB.  This ageing interval was not configuratble.
+>> >> >> >
+>> >> >> > Enable netlink based configuration of ageing interval for bridges and
+>> >> >> > switch devices.  The ageing interval changes the timer used to purge
+>> >> >> > inactive FDB entries in bridges.  The ageing interval config is
+>> >> >> > propagated to switch devices, so that platform or hardware based
+>> >> >> > ageing works according to configuration.
+>> >> >> >
+>> >> >> > Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
+>> >> >>
+>> >> >> Hi Premkumar,
+>> >> >>
+>> >> >> I agree with Roopa that we should use existing IFLA_BR_AGEING_TIME.
+>> >> >
+>> >> > What is the motivation for using 'ip link' command to configure bridge
+>> >> attributes?  IMHO,
+>> >> > bridge command is better suited for that.
+>> >>
+>> >> Can you extend bridge command to allow setting/getting these bridge
+>> >> attrs?  Looks like you construct a RTM_NEWLINK IFLA_INFO_DATA msg.  No
+>> >> changes needed to the kernel.
+>> >>
+>> >> bridge link set dev br0 ageing_time 1000
+>> >>
+>> >>  --or--
+>> >>
+>> >> ip link set dev br0 type bridge ageing_time 1000
+>> >
+>> > I'd prefer to deprecate/remove all the 6 options on the 'ip link' command and
+>> move them to 'bridge' command.
+>>
+>> We're probably stuck with the 'ip link' commands, since they're
+>> already release in the wild and folks may have dependency on them.
+>> However, when looking at iproute2 code, look for opportunity to use
+>> same code for both paths.
+>
+> Ok.  Then we can have both ip and bridge commands supporting these options, and freeze the 'ip link' command as it
+> exists today.  Any new options in future should be added to the bridge command.  Does that sound okay?
+
+It would be ideal if both command paths use same code so new options
+work with either command.  There are other examples where shared code
+approach could be used to create synonymous commands:
+
+ip link add name br0 type bridge       --or-- bridge add dev br0
+ip link del br0                                  --or-- bridge del dev br0
+ip link set dev sw1p1 master br0       --or-- bridge link add dev sw1p1 br0
+ip link set dev sw1p1 nomaster br0    --or-- bridge link del sw1p1
+
+There is some precedence of synonymous bridge commands:
+
+ip link set dev sw1p1 type bridge_slave flood on
+--or--
+bridge link set dev sw1p1 flood on
+
+But I don't know if the same code path is used for both of these.  (It should).
+
+-scott
