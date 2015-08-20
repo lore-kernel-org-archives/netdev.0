@@ -1,82 +1,121 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv4 net-next 09/10] openvswitch: Allow matching on conntrack label
-Date: Thu, 20 Aug 2015 12:13:59 -0700
-Message-ID: <CANr6G5xYJaEYsS9u9YZmz=mxEoknHiCp1FxWVtS69YCEbrfYSA@mail.gmail.com>
-References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
- <1439941188-19293-10-git-send-email-joestringer@nicira.com>
- <CALnjE+qVd=7ZdHXvVmOcHSEcFN2RxNrSwB7bck5=8P4oxdRnew@mail.gmail.com>
- <CANr6G5yp1cj6GuhXDU6jvpaYAzb20-aiTUrpPLrBQAStwxpDVA@mail.gmail.com> <CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH v2 2/2] virtio-net: add default_mtu configuration field
+Date: Thu, 20 Aug 2015 16:31:01 -0300
+Message-ID: <20150820193101.GA2208@x240.home>
+References: <1439732494-29765-1-git-send-email-victork@redhat.com>
+ <1439732494-29765-3-git-send-email-victork@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	Justin Pettit <jpettit@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: virtio-dev@lists.oasis-open.org, mst@redhat.com,
+	jasowang@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Victor Kaplansky <victork@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sender163-mail.zoho.com ([74.201.84.163]:25816 "EHLO
+	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582AbbHTTbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 15:31:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1439732494-29765-3-git-send-email-victork@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20 August 2015 at 08:45, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, Aug 19, 2015 at 4:04 PM, Joe Stringer <joestringer@nicira.com> wrote:
->> Thanks for the review,
->>
->> On 19 August 2015 at 14:24, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>>> Allow matching and setting the conntrack label field. As with ct_mark,
->>>> this is populated by executing the CT action, and is a writable field.
->>>> Specifying a label and optional mask allows the label to be modified,
->>>> which takes effect on the entry found by the lookup of the CT action.
->>>>
->>>> E.g.: actions:ct(zone=1,label=1)
->>>>
->>>> This will perform conntrack lookup in zone 1, then modify the label for
->>>> that entry. The conntrack entry itself must be committed using the
->>>> "commit" flag in the conntrack action flags for this change to persist.
->>>>
->
->>
->>>>         return false;
->>>>  }
->>>> @@ -508,8 +601,12 @@ void ovs_ct_free_action(const struct nlattr *a)
->>>>
->>>>  void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
->>>>  {
->>>> +       unsigned int n_bits = sizeof(struct ovs_key_ct_label) * BITS_PER_BYTE;
->>>> +
->>>>         data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
->>>>         data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
->>>> +       if (nf_connlabels_get(net, n_bits);
->>>> +               OVS_NLERR(true, "Failed to set connlabel length");
->>>>  }
->>>>
->>> In case of error should we reject conntrack label actions? Otherwise
->>> user will never see any error. But action could drop packets.
->>
->> I suspect that currently errors would be seen from ovs_ct_set_label():
->>
->>>.......if (!cl || cl->words * sizeof(long) < OVS_CT_LABEL_LEN)
->>>.......>.......return -ENOSPC;
->>
->> So, for cmd_execute, userspace would see this. For regular handling,
->> pipeline processing would stop (so, drop).
->>
->> However, I agree it would be more friendly to have the attribute
->> rejected up-front. Just means we'll pass the datapath all the way
->> down:
->> ovs_nla_get_match()
->> --> ovs_key_from_nlattrs()
->> --> metadata_from_nlattrs()
->> --> ovs_ct_verify()
+On Sun, Aug 16, 2015 at 04:42:25PM +0300, Victor Kaplansky wrote:
+> Sometimes it is essential for libvirt to be able to configure MTU
+> on guest's NICs to a value different from 1500.
+> 
+> The change adds a new field to configuration area of network
+> devices. It will be used to pass initial MTU from the device to
+> the driver, and to pass modified MTU from driver to the device
+> when a new MTU is assigned by the guest OS.
+> 
+> In addition, in order to support backward and forward
+> compatibility, we introduce a new feature bit called
+> VIRTIO_NET_F_DEFAULT_MTU.
+> 
+> Added conformance statements for a device and a driver.
+> 
+> Signed-off-by: Victor Kaplansky <victork@redhat.com>
+> 
+>     Signed-off-by: Victor Kaplansky <victork@redhat.com>
+> ---
+>  content.tex | 25 +++++++++++++++++++++++++
+>  1 file changed, 25 insertions(+)
+> 
+> diff --git a/content.tex b/content.tex
+> index 342183b..439d005 100644
+> --- a/content.tex
+> +++ b/content.tex
+> @@ -3078,6 +3078,12 @@ features.
+>  
+>  \item[VIRTIO_NET_F_CTRL_MAC_ADDR(23)] Set MAC address through control
+>      channel.
+> +
+> +\item[VIRTIO_NET_F_DEFAULT_MTU(24)] Default MTU is supported.  If
+> +    offered by the device, device advises driver about initial MTU to
+> +    be used. If negotiated, the driver uses \field{default_mtu} as
+> +    an initial value and reports MTU changes to the device.
+> +
+>  \end{description}
+>  
+>  \subsubsection{Feature bit requirements}\label{sec:Device Types / Network Device / Feature bits / Feature bit requirements}
+> @@ -3128,6 +3134,7 @@ struct virtio_net_config {
+>          u8 mac[6];
+>          le16 status;
+>          le16 max_virtqueue_pairs;
+> +        le16 default_mtu;
+>  };
+>  \end{lstlisting}
+>  
+> @@ -3158,6 +3165,15 @@ by the driver after negotiation.
+>      \field{max_virtqueue_pairs} is valid only if VIRTIO_NET_F_MQ is
+>      set and can be read by the driver.
+>  
+> +\item [\field{default_mtu}] is a hint to the driver set by the
+> +    device. It is valid during feature negotiation only if
+> +    VIRTIO_NET_F_DEFAULT_MTU is offered and holds the initial value
+> +    of MTU to be used by the driver. If VIRTIO_NET_F_DEFAULT_MTU is
+> +    negotiated, the driver uses the \field{default_mtu} as an initial
+> +    value, and also reports MTU changes to the device by writes to
+> +    \field{default_mtu}.  Such reporting can be used for debugging,
 
-Incidentally, we generally don't have the datapath by this point
-(ovs_nla_get_match()). There'd need to be a bit of rearranging in the
-ovs_flow_cmd_* functions, which would include holding the locks for
-longer. Given that the two most common cases are that either A) The
-kernel is configured with connlabel support, and built with support
-for at least 128 bits of label, or B) the kernel is configured without
-connlabel, and this is handled already in ovs_ct_verify(), I don't
-think it's worth making this particular change.
+As already said, it's better to change to 'mtu' since changes can
+be reported back by writing to the field.
+
+fbl
+
+> +    or it can be used for tunning MTU along the network.
+> +
+>  \end{description}
+>  
+>  \devicenormative{\subsubsection}{Device configuration layout}{Device Types / Network Device / Device configuration layout}
+> @@ -3165,6 +3181,9 @@ by the driver after negotiation.
+>  The device MUST set \field{max_virtqueue_pairs} to between 1 and 0x8000 inclusive,
+>  if it offers VIRTIO_NET_F_MQ.
+>  
+> +The device MUST set \field{default_mtu} to between 68 and 65535
+> +inclusive, if it offers VIRTIO_NET_F_DEFAULT_MTU.
+> +
+>  \drivernormative{\subsubsection}{Device configuration layout}{Device Types / Network Device / Device configuration layout}
+>  
+>  A driver SHOULD negotiate VIRTIO_NET_F_MAC if the device offers it.
+> @@ -3177,6 +3196,12 @@ If the driver does not negotiate the VIRTIO_NET_F_STATUS feature, it SHOULD
+>  assume the link is active, otherwise it SHOULD read the link status from
+>  the bottom bit of \field{status}.
+>  
+> +A driver SHOULD negotiate VIRTIO_NET_F_DEFAULT_MTU if the device
+> +offers it.  If the driver negotiates the VIRTIO_NET_F_DEFAULT_MTU
+> +feature, the driver MUST use \field{default_mtu} as an initial value
+> +for MTU and the driver MUST report the value of MTU to
+> +\field{default_mtu} when MTU is modified by the guest.
+> +
+>  \subsubsection{Legacy Interface: Device configuration layout}\label{sec:Device Types / Network Device / Device configuration layout / Legacy Interface: Device configuration layout}
+>  \label{sec:Device Types / Block Device / Feature bits / Device configuration layout / Legacy Interface: Device configuration layout}
+>  When using the legacy interface, transitional devices and drivers
+> -- 
+> --Victor
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
