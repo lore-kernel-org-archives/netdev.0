@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2.2 19/22] fjes: update_zone_task
-Date: Thu, 20 Aug 2015 17:46:23 +0900
-Message-ID: <1440060386-13189-19-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2.2 18/22] fjes: unshare_watch_task
+Date: Thu, 20 Aug 2015 17:46:22 +0900
+Message-ID: <1440060386-13189-18-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1440060306-13040-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
@@ -10,274 +10,203 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwym03.jp.fujitsu.com ([211.128.242.42]:42554 "EHLO
+	mgwym03.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753135AbbHTIvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 04:51:46 -0400
 In-Reply-To: <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds update_zone_task.
-Zoning information can be changed by user.
-This task is used to monitor if zoning information is
-changed or not.
+This patch adds unshare_watch_task.
+Shared buffer's status can be changed into unshared.
+This task is used to monitor shared buffer's status.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes_hw.c   | 171 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/fjes/fjes_hw.h   |   1 +
- drivers/net/fjes/fjes_main.c |  14 ++++
- 3 files changed, 186 insertions(+)
+ drivers/net/fjes/fjes.h      |   3 ++
+ drivers/net/fjes/fjes_main.c | 126 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 129 insertions(+)
 
-diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-index 46e114c..4588ef3 100644
---- a/drivers/net/fjes/fjes_hw.c
-+++ b/drivers/net/fjes/fjes_hw.c
-@@ -22,6 +22,8 @@
- #include "fjes_hw.h"
- #include "fjes.h"
+diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
+index d31d4c3..57feee8 100644
+--- a/drivers/net/fjes/fjes.h
++++ b/drivers/net/fjes/fjes.h
+@@ -59,6 +59,9 @@ struct fjes_adapter {
+ 	struct work_struct tx_stall_task;
+ 	struct work_struct raise_intr_rxdata_task;
  
-+static void fjes_hw_update_zone_task(struct work_struct *);
++	struct work_struct unshare_watch_task;
++	unsigned long unshare_watch_bitmask;
 +
- /* supported MTU list */
- const u32 fjes_support_mtu[] = {
- 	FJES_MTU_DEFINE(8 * 1024),
-@@ -322,6 +324,8 @@ int fjes_hw_init(struct fjes_hw *hw)
+ 	struct delayed_work interrupt_watch_task;
+ 	bool interrupt_watch_enable;
  
- 	fjes_hw_set_irqmask(hw, REG_ICTL_MASK_ALL, true);
- 
-+	INIT_WORK(&hw->update_zone_task, fjes_hw_update_zone_task);
-+
- 	mutex_init(&hw->hw_info.lock);
- 
- 	hw->max_epid = fjes_hw_get_max_epid(hw);
-@@ -349,6 +353,8 @@ void fjes_hw_exit(struct fjes_hw *hw)
- 	}
- 
- 	fjes_hw_cleanup(hw);
-+
-+	cancel_work_sync(&hw->update_zone_task);
- }
- 
- static enum fjes_dev_command_response_e
-@@ -914,3 +920,168 @@ int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *epbh,
- 	return 0;
- }
- 
-+static void fjes_hw_update_zone_task(struct work_struct *work)
-+{
-+	struct fjes_hw *hw = container_of(work,
-+			struct fjes_hw, update_zone_task);
-+	struct fjes_adapter *adapter = (struct fjes_adapter *)hw->back;
-+	struct net_device *netdev = adapter->netdev;
-+	int ret;
-+	int epidx;
-+	enum ep_partner_status pstatus;
-+	unsigned long share_bit = 0;
-+	unsigned long unshare_bit = 0;
-+	unsigned long irq_bit = 0;
-+	union fjes_device_command_res *res_buf = hw->hw_info.res_buf;
-+	struct my_s {u8 es_status; u8 zone; } *info =
-+		(struct my_s *)&res_buf->info.info;
-+
-+	mutex_lock(&hw->hw_info.lock);
-+
-+	ret = fjes_hw_request_info(hw);
-+	switch (ret) {
-+	case -ENOMSG:
-+	case -EBUSY:
-+	default:
-+		if (!work_pending(&adapter->force_close_task)) {
-+			adapter->force_reset = true;
-+			schedule_work(&adapter->force_close_task);
-+		}
-+		break;
-+
-+	case 0:
-+
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+			if (epidx == hw->my_epid) {
-+				hw->ep_shm_info[epidx].es_status =
-+					info[epidx].es_status;
-+				hw->ep_shm_info[epidx].zone =
-+					info[epidx].zone;
-+				continue;
-+			}
-+
-+			pstatus = fjes_hw_get_partner_ep_status(hw, epidx);
-+			switch (pstatus) {
-+			case EP_PARTNER_UNSHARE:
-+			default:
-+				if ((info[epidx].zone !=
-+					FJES_ZONING_ZONE_TYPE_NONE) &&
-+				    (info[epidx].es_status ==
-+					FJES_ZONING_STATUS_ENABLE) &&
-+				    (info[epidx].zone ==
-+					info[hw->my_epid].zone))
-+					set_bit(epidx, &share_bit);
-+				else
-+					set_bit(epidx, &unshare_bit);
-+				break;
-+
-+			case EP_PARTNER_COMPLETE:
-+			case EP_PARTNER_WAITING:
-+				if ((info[epidx].zone ==
-+					FJES_ZONING_ZONE_TYPE_NONE) ||
-+				    (info[epidx].es_status !=
-+					FJES_ZONING_STATUS_ENABLE) ||
-+				    (info[epidx].zone !=
-+					info[hw->my_epid].zone)) {
-+					set_bit(epidx,
-+						&adapter->unshare_watch_bitmask);
-+					set_bit(epidx,
-+						&hw->hw_info.buffer_unshare_reserve_bit);
-+				}
-+				break;
-+
-+			case EP_PARTNER_SHARED:
-+				if ((info[epidx].zone ==
-+					FJES_ZONING_ZONE_TYPE_NONE) ||
-+				    (info[epidx].es_status !=
-+					FJES_ZONING_STATUS_ENABLE) ||
-+				    (info[epidx].zone !=
-+					info[hw->my_epid].zone))
-+					set_bit(epidx, &irq_bit);
-+				break;
-+			}
-+		}
-+
-+		hw->ep_shm_info[epidx].es_status = info[epidx].es_status;
-+		hw->ep_shm_info[epidx].zone = info[epidx].zone;
-+
-+		break;
-+	}
-+
-+	mutex_unlock(&hw->hw_info.lock);
-+
-+	for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+		if (epidx == hw->my_epid)
-+			continue;
-+
-+		if (test_bit(epidx, &share_bit)) {
-+			fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+					    netdev->dev_addr, netdev->mtu);
-+
-+			mutex_lock(&hw->hw_info.lock);
-+
-+			ret = fjes_hw_register_buff_addr(
-+				hw, epidx, &hw->ep_shm_info[epidx]);
-+
-+			switch (ret) {
-+			case 0:
-+				break;
-+			case -ENOMSG:
-+			case -EBUSY:
-+			default:
-+				if (!work_pending(&adapter->force_close_task)) {
-+					adapter->force_reset = true;
-+					schedule_work(
-+					  &adapter->force_close_task);
-+				}
-+				break;
-+			}
-+			mutex_unlock(&hw->hw_info.lock);
-+		}
-+
-+		if (test_bit(epidx, &unshare_bit)) {
-+			mutex_lock(&hw->hw_info.lock);
-+
-+			ret = fjes_hw_unregister_buff_addr(hw, epidx);
-+
-+			switch (ret) {
-+			case 0:
-+				break;
-+			case -ENOMSG:
-+			case -EBUSY:
-+			default:
-+				if (!work_pending(&adapter->force_close_task)) {
-+					adapter->force_reset = true;
-+					schedule_work(
-+					  &adapter->force_close_task);
-+				}
-+				break;
-+			}
-+
-+			mutex_unlock(&hw->hw_info.lock);
-+
-+			if (ret == 0)
-+				fjes_hw_setup_epbuf(
-+					&hw->ep_shm_info[epidx].tx,
-+					netdev->dev_addr, netdev->mtu);
-+		}
-+
-+		if (test_bit(epidx, &irq_bit)) {
-+			fjes_hw_raise_interrupt(hw, epidx,
-+						REG_ICTL_MASK_TXRX_STOP_REQ);
-+
-+			set_bit(epidx, &hw->txrx_stop_req_bit);
-+			hw->ep_shm_info[epidx].tx.
-+				info->v1i.rx_status |=
-+					FJES_RX_STOP_REQ_REQUEST;
-+			set_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit);
-+		}
-+	}
-+
-+	if (irq_bit || adapter->unshare_watch_bitmask) {
-+		if (!work_pending(&adapter->unshare_watch_task))
-+			queue_work(adapter->control_wq,
-+				   &adapter->unshare_watch_task);
-+	}
-+}
-+
-diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
-index 2fcbfeb..fe51041 100644
---- a/drivers/net/fjes/fjes_hw.h
-+++ b/drivers/net/fjes/fjes_hw.h
-@@ -282,6 +282,7 @@ struct fjes_hw {
- 
- 	unsigned long txrx_stop_req_bit;
- 	unsigned long epstop_req_bit;
-+	struct work_struct update_zone_task;
- 
- 	int my_epid;
- 	int max_epid;
 diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index e31a229..615c1ef 100644
+index 3a8cc5b..e31a229 100644
 --- a/drivers/net/fjes/fjes_main.c
 +++ b/drivers/net/fjes/fjes_main.c
-@@ -315,6 +315,8 @@ static int fjes_close(struct net_device *netdev)
+@@ -73,6 +73,7 @@ static int fjes_remove(struct platform_device *);
+ static int fjes_sw_init(struct fjes_adapter *);
+ static void fjes_netdev_setup(struct net_device *);
+ static void fjes_irq_watch_task(struct work_struct *);
++static void fjes_watch_unshare_task(struct work_struct *);
+ static void fjes_rx_irq(struct fjes_adapter *, int);
+ static int fjes_poll(struct napi_struct *, int);
+ 
+@@ -309,6 +310,8 @@ static int fjes_close(struct net_device *netdev)
+ 	fjes_free_irq(adapter);
+ 
+ 	cancel_delayed_work_sync(&adapter->interrupt_watch_task);
++	cancel_work_sync(&adapter->unshare_watch_task);
++	adapter->unshare_watch_bitmask = 0;
  	cancel_work_sync(&adapter->raise_intr_rxdata_task);
  	cancel_work_sync(&adapter->tx_stall_task);
  
-+	cancel_work_sync(&hw->update_zone_task);
-+
- 	fjes_hw_wait_epstop(hw);
+@@ -1028,6 +1031,8 @@ static int fjes_probe(struct platform_device *plat_dev)
+ 	INIT_WORK(&adapter->tx_stall_task, fjes_tx_stall_task);
+ 	INIT_WORK(&adapter->raise_intr_rxdata_task,
+ 		  fjes_raise_intr_rxdata_task);
++	INIT_WORK(&adapter->unshare_watch_task, fjes_watch_unshare_task);
++	adapter->unshare_watch_bitmask = 0;
  
- 	fjes_free_resources(adapter);
-@@ -819,6 +821,15 @@ static int fjes_vlan_rx_kill_vid(struct net_device *netdev,
- 	return 0;
+ 	INIT_DELAYED_WORK(&adapter->interrupt_watch_task, fjes_irq_watch_task);
+ 	adapter->interrupt_watch_enable = false;
+@@ -1073,6 +1078,7 @@ static int fjes_remove(struct platform_device *plat_dev)
+ 	struct fjes_hw *hw = &adapter->hw;
+ 
+ 	cancel_delayed_work_sync(&adapter->interrupt_watch_task);
++	cancel_work_sync(&adapter->unshare_watch_task);
+ 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
+ 	cancel_work_sync(&adapter->tx_stall_task);
+ 	if (adapter->control_wq)
+@@ -1132,6 +1138,126 @@ static void fjes_irq_watch_task(struct work_struct *work)
+ 	}
  }
  
-+static void fjes_update_zone_irq(struct fjes_adapter *adapter,
-+				 int src_epid)
++static void fjes_watch_unshare_task(struct work_struct *work)
 +{
-+	struct fjes_hw *hw = &adapter->hw;
++	struct fjes_adapter *adapter =
++	container_of(work, struct fjes_adapter, unshare_watch_task);
 +
-+	if (!work_pending(&hw->update_zone_task))
-+		queue_work(adapter->control_wq, &hw->update_zone_task);
++	struct fjes_hw *hw = &adapter->hw;
++	struct net_device *netdev = adapter->netdev;
++	int epidx;
++	int max_epid, my_epid;
++	unsigned long unshare_watch_bitmask;
++	int wait_time = 0;
++	int is_shared;
++	int stop_req, stop_req_done;
++	int unshare_watch, unshare_reserve;
++	int ret;
++
++	my_epid = hw->my_epid;
++	max_epid = hw->max_epid;
++
++	unshare_watch_bitmask = adapter->unshare_watch_bitmask;
++	adapter->unshare_watch_bitmask = 0;
++
++	while ((unshare_watch_bitmask || hw->txrx_stop_req_bit) &&
++	       (wait_time < 3000)) {
++		for (epidx = 0; epidx < hw->max_epid; epidx++) {
++			if (epidx == hw->my_epid)
++				continue;
++
++			is_shared = fjes_hw_epid_is_shared(hw->hw_info.share,
++							   epidx);
++
++			stop_req = test_bit(epidx, &hw->txrx_stop_req_bit);
++
++			stop_req_done = hw->ep_shm_info[epidx].rx.info->v1i.rx_status &
++					FJES_RX_STOP_REQ_DONE;
++
++			unshare_watch = test_bit(epidx, &unshare_watch_bitmask);
++
++			unshare_reserve = test_bit(epidx,
++						   &hw->hw_info.buffer_unshare_reserve_bit);
++
++			if ((!stop_req ||
++			     (is_shared && (!is_shared || !stop_req_done))) &&
++			    (is_shared || !unshare_watch || !unshare_reserve))
++				continue;
++
++			mutex_lock(&hw->hw_info.lock);
++			ret = fjes_hw_unregister_buff_addr(hw, epidx);
++			switch (ret) {
++			case 0:
++				break;
++			case -ENOMSG:
++			case -EBUSY:
++			default:
++				if (!work_pending(
++					&adapter->force_close_task)) {
++					adapter->force_reset = true;
++					schedule_work(
++						&adapter->force_close_task);
++				}
++				break;
++			}
++			mutex_unlock(&hw->hw_info.lock);
++
++			fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
++					    netdev->dev_addr, netdev->mtu);
++
++			clear_bit(epidx, &hw->txrx_stop_req_bit);
++			clear_bit(epidx, &unshare_watch_bitmask);
++			clear_bit(epidx,
++				  &hw->hw_info.buffer_unshare_reserve_bit);
++		}
++
++		msleep(100);
++		wait_time += 100;
++	}
++
++	if (hw->hw_info.buffer_unshare_reserve_bit) {
++		for (epidx = 0; epidx < hw->max_epid; epidx++) {
++			if (epidx == hw->my_epid)
++				continue;
++
++			if (test_bit(epidx,
++				     &hw->hw_info.buffer_unshare_reserve_bit)) {
++				mutex_lock(&hw->hw_info.lock);
++
++				ret = fjes_hw_unregister_buff_addr(hw, epidx);
++				switch (ret) {
++				case 0:
++					break;
++				case -ENOMSG:
++				case -EBUSY:
++				default:
++					if (!work_pending(
++						&adapter->force_close_task)) {
++						adapter->force_reset = true;
++						schedule_work(
++							&adapter->force_close_task);
++					}
++					break;
++				}
++				mutex_unlock(&hw->hw_info.lock);
++
++				fjes_hw_setup_epbuf(
++					&hw->ep_shm_info[epidx].tx,
++					netdev->dev_addr, netdev->mtu);
++
++				clear_bit(epidx, &hw->txrx_stop_req_bit);
++				clear_bit(epidx, &unshare_watch_bitmask);
++				clear_bit(epidx, &hw->hw_info.buffer_unshare_reserve_bit);
++			}
++
++			if (test_bit(epidx, &unshare_watch_bitmask)) {
++				hw->ep_shm_info[epidx].tx.info->v1i.rx_status &=
++						~FJES_RX_STOP_REQ_DONE;
++			}
++		}
++	}
 +}
 +
- static irqreturn_t fjes_intr(int irq, void *data)
+ /* fjes_init_module - Driver Registration Routine */
+ static int __init fjes_init_module(void)
  {
- 	struct fjes_adapter *adapter = data;
-@@ -832,6 +843,9 @@ static irqreturn_t fjes_intr(int irq, void *data)
- 		if (icr & REG_ICTL_MASK_RX_DATA)
- 			fjes_rx_irq(adapter, icr & REG_IS_MASK_EPID);
- 
-+		if (icr & REG_ICTL_MASK_INFO_UPDATE)
-+			fjes_update_zone_irq(adapter, icr & REG_IS_MASK_EPID);
-+
- 		ret = IRQ_HANDLED;
- 	} else {
- 		ret = IRQ_NONE;
 -- 
 1.8.3.1
-
