@@ -1,42 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND net-next] lwtunnel: Fix the sparse warnings in
- fib_encap_match
-Date: Wed, 19 Aug 2015 17:39:06 -0700 (PDT)
-Message-ID: <20150819.173906.397363174611794943.davem@davemloft.net>
-References: <1439970377-13032-1-git-send-email-ying.xue@windriver.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: DEBUG_LOCKS_WARN_ON(in_interrupt()) triggering in socket code
+Date: Thu, 20 Aug 2015 02:39:03 +0200
+Message-ID: <CAHmME9p06qf36RPtROF767c5p37PggN12bSa9u8ZXgGGThA4BQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, jbenc@redhat.com, fengguang.wu@intel.com,
-	kbuild-all@01.org
-To: ying.xue@windriver.com
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50982 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbbHTAZL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 20:25:11 -0400
-In-Reply-To: <1439970377-13032-1-git-send-email-ying.xue@windriver.com>
+Received: from frisell.zx2c4.com ([192.95.5.64]:58302 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751058AbbHTAjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 20:39:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+DQpEYXRlOiBXZWQsIDE5IEF1
-ZyAyMDE1IDE1OjQ2OjE3ICswODAwDQoNCj4gV2hlbiBDT05GSUdfTFdUVU5ORUwgY29uZmlnIGlz
-IG5vdCBlbmFibGVkLCB0aGUgbHd0c3RhdGVfZnJlZSgpIGlzIG5vdA0KPiBkZWNsYXJlZCBpbiBs
-d3R1bm5lbC5oIGF0IGFsbC4gSG93ZXZlciwgZXZlbiBpbiB0aGlzIGNhc2UsIHRoZSBmdW5jdGlv
-bg0KPiBpcyBzdGlsbCByZWZlcmVuY2VkIGluIGZpYl9zZW1hbnRpY3MuYyBzbyB0aGF0IHRoZXJl
-IGFwcGVhcnMgdGhlDQo+IGZvbGxvd2luZyBzcGFyc2Ugd2FybmluZ3M6DQo+IA0KPiBuZXQvaXB2
-NC9maWJfc2VtYW50aWNzLmM6NTUzOjE3OiBlcnJvcjogdW5kZWZpbmVkIGlkZW50aWZpZXIgJ2x3
-dHN0YXRlX2ZyZWUnDQo+ICAgQ0MgICAgICBuZXQvaXB2NC9maWJfc2VtYW50aWNzLm8NCj4gICBu
-ZXQvaXB2NC9maWJfc2VtYW50aWNzLmM6IEluIGZ1bmN0aW9uIKFmaWJfZW5jYXBfbWF0Y2iiOg0K
-PiAgIG5ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYzo1NTM6MzogZXJyb3I6IGltcGxpY2l0IGRlY2xh
-cmF0aW9uIG9mIGZ1bmN0aW9uIKFsd3RzdGF0ZV9mcmVloiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5j
-dGlvbi1kZWNsYXJhdGlvbl0NCj4gICBjYzE6IHNvbWUgd2FybmluZ3MgYmVpbmcgdHJlYXRlZCBh
-cyBlcnJvcnMNCj4gICBtYWtlWzFdOiAqKiogW25ldC9pcHY0L2ZpYl9zZW1hbnRpY3Mub10gRXJy
-b3IgMQ0KPiAgIG1ha2U6ICoqKiBbbmV0L2lwdjQvZmliX3NlbWFudGljcy5vXSBFcnJvciAyDQo+
-IA0KPiBUbyBlbGltaW5hdGUgdGhlIGVycm9yLCB3ZSBkZWZpbmUgYW4gZW1wdHkgZnVuY3Rpb24g
-Zm9yIGx3dHN0YXRlX2ZyZWUoKQ0KPiBpbiBsd3R1bm5lbC5oIHdoZW4gQ09ORklHX0xXVFVOTkVM
-IGlzIGRpc2FibGVkLg0KPiANCj4gRml4ZXM6IGRmMzgzZTYyNDBlZiAoImx3dHVubmVsOiBmaXgg
-bWVtb3J5IGxlYWsiKQ0KPiBDYzogSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPg0KPiBSZXBv
-cnRlZC1ieToga2J1aWxkIHRlc3Qgcm9ib3QgPGZlbmdndWFuZy53dUBpbnRlbC5jb20+DQo+IFNp
-Z25lZC1vZmYtYnk6IFlpbmcgWHVlIDx5aW5nLnh1ZUB3aW5kcml2ZXIuY29tPg0KPiBBY2tlZC1i
-eTogSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPg0KDQpBcHBsaWVkLCB0aGFua3MuDQo=
+Hi folks,
+
+In setting up a socket, there are two functions I make use of that in
+turn wind up calling static_key_slow_inc: setup_udp_tunnel_sock and
+sk_set_memalloc. These both make use of static_key_slow_inc because
+they selectively enable certain important code paths.
+
+This is all fine, except it poses some problems when calling these
+functions inside of .ndo_open. In that case, I get ugly (debug)
+warnings like this:
+
+WARNING: CPU: 1 PID: 2002 at kernel/locking/mutex.c:526
+mutex_lock_nested+0x39b/0x3b0()
+DEBUG_LOCKS_WARN_ON(in_interrupt())
+ [<ffffffff81621d0e>] dump_stack+0x45/0x57
+ [<ffffffff810505ca>] warn_slowpath_common+0x8a/0xc0
+ [<ffffffff81050655>] warn_slowpath_fmt+0x55/0x70
+ [<ffffffff8162513b>] mutex_lock_nested+0x39b/0x3b0
+ [<ffffffff8113d699>] static_key_slow_inc+0x59/0xc0
+ [<ffffffff8154ebc0>] udp_encap_enable+0x20/0x30
+ [<ffffffff8157a885>] setup_udp_tunnel_sock+0x55/0x70
+ [<ffffffff816028ac>] socket_init+0x1cc/0x3a0
+ [<ffffffff81600341>] open+0x21/0x1b0
+ [<ffffffff81476af0>] __dev_open+0xb0/0x110
+ [<ffffffff81476e01>] __dev_change_flags+0xa1/0x160
+ [<ffffffff81476ee9>] dev_change_flags+0x29/0x70
+ [<ffffffff8148652a>] do_setlink+0x5da/0xa80
+ [<ffffffff81487bed>] rtnl_newlink+0x50d/0x8a0
+ [<ffffffff81485141>] rtnetlink_rcv_msg+0xa1/0x240
+ [<ffffffff8149f1fb>] netlink_rcv_skb+0x9b/0xc0
+ [<ffffffff8148508e>] rtnetlink_rcv+0x2e/0x40
+ [<ffffffff8149ec3f>] netlink_unicast+0x16f/0x200
+ [<ffffffff8149f009>] netlink_sendmsg+0x339/0x380
+ [<ffffffff814559d9>] ___sys_sendmsg+0x2f9/0x310
+ [<ffffffff814566d7>] __sys_sendmsg+0x57/0xa0
+ [<ffffffff81456732>] SyS_sendmsg+0x12/0x20
+ [<ffffffff816295b2>] entry_SYSCALL_64_fastpath+0x16/0x7a
+
+The reason is that the static key code makes use of mutexes. And the
+mutex debug code ensures that in_interrupt() is zero; otherwise it
+prints that warning. In this case, in_interrupt() has a value of 512.
+
+So, questions:
+
+1. Is the best thing to do just move my socket creation routine into a
+workqueue, and avoid this issue all together?
+2. Is it, in fact, incorrect to check for in_interrupt(), and the
+debug assertion is actually wrong?
+3. Is it a bug that in_interrupt() is returning non-zero in relation
+to a syscall?
+
+Thanks,
+Jason
