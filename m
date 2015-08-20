@@ -1,103 +1,69 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/16] i40e/i40evf: add VIRTCHNL_VF_OFFLOAD flag
-Date: Wed, 19 Aug 2015 17:58:04 -0700
-Message-ID: <1440032286-30054-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/16] i40e: Remove redundant and unneeded messages
+Date: Wed, 19 Aug 2015 17:58:03 -0700
+Message-ID: <1440032286-30054-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jingjing Wu <jingjing.wu@intel.com>,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:24462 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:25933 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752106AbbHTA6L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752105AbbHTA6L (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 19 Aug 2015 20:58:11 -0400
 In-Reply-To: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Add virtual channel offload capability to support RX polling mode in the
-VF.
+The kernel notifies all VXLAN capable registered drivers, i.e. any
+driver that implements ndo_add_vxlan_port(), of the addition of a
+port so that the driver can track which ports are in use.  There's
+no need to log this - it just fills the system log with useless and
+irksome noise.
 
-Change-ID: Ib643ae2a7506dfc75fc489fc207493fabefa4832
-Signed-off-by: Jingjing Wu <jingjing.wu@intel.com>
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Also, when failing to init SR-IOV interfaces the driver was printing the
+same message twice. Just remove the inner printk and let the outer message
+catch enable as well as the other failures.
+
+Change-ID: Id5ecb1d425c2a357ee2bc1635dab24553831dade
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_register.h    |  7 +++++++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |  1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 ++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  1 +
- 4 files changed, 21 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 2 --
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 --
+ 2 files changed, 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
-index acae6c74..dc0402f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_register.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
-@@ -873,6 +873,13 @@
- #define I40E_PFINT_CEQCTL_CAUSE_ENA_MASK I40E_MASK(0x1, I40E_PFINT_CEQCTL_CAUSE_ENA_SHIFT)
- #define I40E_PFINT_CEQCTL_INTEVENT_SHIFT 31
- #define I40E_PFINT_CEQCTL_INTEVENT_MASK I40E_MASK(0x1, I40E_PFINT_CEQCTL_INTEVENT_SHIFT)
-+#define I40E_GLINT_CTL 0x0003F800 /* Reset: CORER */
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_PF0_SHIFT 0
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_PF0_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_PF0_SHIFT)
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_VF0_SHIFT 1
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_VF0_SHIFT)
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_N_SHIFT 2
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_N_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_N_SHIFT)
- #define I40E_PFINT_DYN_CTL0 0x00038480 /* Reset: PFR */
- #define I40E_PFINT_DYN_CTL0_INTENA_SHIFT 0
- #define I40E_PFINT_DYN_CTL0_INTENA_MASK I40E_MASK(0x1, I40E_PFINT_DYN_CTL0_INTENA_SHIFT)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-index a7ab463..0f8d415 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-@@ -152,6 +152,7 @@ struct i40e_virtchnl_vsi_resource {
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG	0x00000010
- #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 8422f8a..3879e72 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8020,8 +8020,6 @@ static void i40e_add_vxlan_port(struct net_device *netdev,
+ 	pf->vxlan_ports[next_idx] = port;
+ 	pf->pending_vxlan_bitmap |= BIT_ULL(next_idx);
+ 	pf->flags |= I40E_FLAG_VXLAN_FILTER_SYNC;
+-
+-	dev_info(&pf->pdev->dev, "adding vxlan port %d\n", ntohs(port));
+ }
  
- struct i40e_virtchnl_vf_resource {
- 	u16 num_vsis;
+ /**
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index ca7a568..d99c116 100644
+index 70a6fb1..ca7a568 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -335,6 +335,18 @@ static void i40e_config_irq_link_list(struct i40e_vf *vf, u16 vsi_id,
- 		wr32(hw, reg_idx, reg);
- 	}
- 
-+	/* if the vf is running in polling mode and using interrupt zero,
-+	 * need to disable auto-mask on enabling zero interrupt for VFs.
-+	 */
-+	if ((vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING) &&
-+	    (vector_id == 0)) {
-+		reg = rd32(hw, I40E_GLINT_CTL);
-+		if (!(reg & I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK)) {
-+			reg |= I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK;
-+			wr32(hw, I40E_GLINT_CTL, reg);
-+		}
-+	}
-+
- irq_list_done:
- 	i40e_flush(hw);
- }
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-index 1e89dea..e6db20e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-@@ -152,6 +152,7 @@ struct i40e_virtchnl_vsi_resource {
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG	0x00000010
- #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
- 
- struct i40e_virtchnl_vf_resource {
- 	u16 num_vsis;
+@@ -921,8 +921,6 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 	if (pci_num_vf(pf->pdev) != num_alloc_vfs) {
+ 		ret = pci_enable_sriov(pf->pdev, num_alloc_vfs);
+ 		if (ret) {
+-			dev_err(&pf->pdev->dev,
+-				"Failed to enable SR-IOV, error %d.\n", ret);
+ 			pf->num_alloc_vfs = 0;
+ 			goto err_iov;
+ 		}
 -- 
 2.4.3
