@@ -1,106 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates 2015-08-19
-Date: Wed, 19 Aug 2015 17:57:50 -0700
-Message-ID: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+Subject: [net-next 06/16] i40e: Fix legacy interrupt mode in the driver
+Date: Wed, 19 Aug 2015 17:57:56 -0700
+Message-ID: <1440032286-30054-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37880 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:25933 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751683AbbHTA6H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 20:58:07 -0400
+	id S1751804AbbHTA6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 20:58:09 -0400
+In-Reply-To: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Anjali provides a fix for i40e where the part is not receiving multicast
-or VLAN tagged packets when in promiscuous mode.  This can occur when a
-software bridge is created on top of the device.  Added a new header for
-helper functions for both the PF and VF drivers.  Fixed the legacy and MSI
-interrupt mode in the driver, which was non-existent before since we
-were assuming MSIX was the only mode that the driver ran in.  Fixed the
-i40evf driver, where the wrong defines were getting used in the VF
-driver.
+This patch fixes the driver flow to take into account legacy interrupts.
+Over time we added code that assumes MSIX is the only mode that the
+driver runs in. It also enables a legacy workaround to trigger SWINT
+when the TX ring has non-cache aligned descriptors pending and interrupts
+are disabled.
 
-Mitch fixes a sparse warning about comparing __le16 to u16 so use
-le16_to_cpu() to resolve the warning.  Also fixed a dyslexic spelling
-of invalid.
+We work with a single vector in MSI mode too, so apply the same
+restrictions as Legacy.
 
-Shannon adds port.crc_errors to receive CRC error counter, since it
-is a receive counter.
+Change-ID: I826ddff1f9bd45d2dbe11f56a3ddcef0dbf42563
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-Catherine provides a fix to move the stopping of the service task and
-flow director to i40e_shutdown() instead of i40e_suspend().
-
-Greg fixes the ethtool offline diagnostic with netqueues, which just need
-to be treated the same as virtual functions when someone wants to run the
-ethtool offline diagnostic test.  Also fixed up code comments for the
-i40e ethtool diagnostic test function.  Cleans up redundant and unneeded
-messages, since the kernel notifies all VXLAN capable registered drivers,
-so no need to log this.
-
-Neerav adds the ability to update statistics per VEB per traffic class
-and dump it via ethtool.
-
-Jingjing adds support for virtual channel offload to support receive
-polling mode in the VF driver.
-
-The following are changes since commit def63be85fe774477fb66043003e5b2ee748c4fa:
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-Anjali Singhai Jain (6):
-  i40e: Set defport behavior for the Main VSI when in promiscuous mode
-  i40e/i40evf: Move helper functions to a header file
-  i40e: Fix legacy interrupt mode in the driver
-  i40evf: Use the correct defines to match the VF registers
-  i40evf: Remove PF specific register definitions from the VF
-  i40e/i40evf: add VIRTCHNL_VF_OFFLOAD flag
-
-Catherine Sullivan (2):
-  i40e: Move function calls to i40e_shutdown instead of i40e_suspend
-  i40e/i40evf: Bump i40e to 1.3.9 and i40evf to 1.3.5
-
-Greg Rose (3):
-  i40e: Fix ethtool offline diagnostic with netqueues
-  i40e: Fix comment for ethtool diagnostic link test
-  i40e: Remove redundant and unneeded messages
-
-Mitch Williams (2):
-  i40e: don't degrade __le16
-  i40e: correct spelling error
-
-Neerav Parikh (2):
-  i40e/i40evf: Add capability to gather VEB per TC stats
-  i40e/i40evf: Cache the CEE TLV status returned from firmware
-
-Shannon Nelson (1):
-  i40e: add RX to port CRC errors label
-
- drivers/net/ethernet/intel/i40e/i40e.h             |    3 +
- drivers/net/ethernet/intel/i40e/i40e_dcb.c         |    4 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   54 +-
- drivers/net/ethernet/intel/i40e/i40e_helper.h      |  102 +
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  180 +-
- drivers/net/ethernet/intel/i40e/i40e_register.h    |    7 +
- drivers/net/ethernet/intel/i40e/i40e_type.h        |    9 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |    1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   19 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |   17 +-
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |    2 +-
- drivers/net/ethernet/intel/i40evf/i40e_helper.h    |  102 +
- drivers/net/ethernet/intel/i40evf/i40e_register.h  | 3093 --------------------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   28 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |    9 +
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |    1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  122 +-
- 17 files changed, 427 insertions(+), 3326 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_helper.h
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_helper.h
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 07a25d0..81db94b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1480,7 +1480,10 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 	 * vectors available and so we need to lower the used
+ 	 * q count.
+ 	 */
+-	qcount = min_t(int, vsi->alloc_queue_pairs, pf->num_lan_msix);
++	if (pf->flags & I40E_FLAG_MSIX_ENABLED)
++		qcount = min_t(int, vsi->alloc_queue_pairs, pf->num_lan_msix);
++	else
++		qcount = vsi->alloc_queue_pairs;
+ 	num_tc_qps = qcount / numtc;
+ 	num_tc_qps = min_t(int, num_tc_qps, i40e_pf_get_max_q_per_tc(pf));
+ 
+@@ -1544,7 +1547,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 	if ((vsi->type == I40E_VSI_MAIN) && (numtc == 1)) {
+ 		if (vsi->req_queue_pairs > 0)
+ 			vsi->num_queue_pairs = vsi->req_queue_pairs;
+-		else
++		else if (pf->flags & I40E_FLAG_MSIX_ENABLED)
+ 			vsi->num_queue_pairs = pf->num_lan_msix;
+ 	}
+ 
+@@ -3367,7 +3370,7 @@ static irqreturn_t i40e_fdir_clean_ring(int irq, void *data)
+  * @v_idx: vector index
+  * @qp_idx: queue pair index
+  **/
+-static void map_vector_to_qp(struct i40e_vsi *vsi, int v_idx, int qp_idx)
++static void i40e_map_vector_to_qp(struct i40e_vsi *vsi, int v_idx, int qp_idx)
+ {
+ 	struct i40e_q_vector *q_vector = vsi->q_vectors[v_idx];
+ 	struct i40e_ring *tx_ring = vsi->tx_rings[qp_idx];
+@@ -3421,7 +3424,7 @@ static void i40e_vsi_map_rings_to_vectors(struct i40e_vsi *vsi)
+ 		q_vector->tx.ring = NULL;
+ 
+ 		while (num_ringpairs--) {
+-			map_vector_to_qp(vsi, v_start, qp_idx);
++			i40e_map_vector_to_qp(vsi, v_start, qp_idx);
+ 			qp_idx++;
+ 			qp_remaining--;
+ 		}
+@@ -8750,6 +8753,11 @@ static int i40e_vsi_setup_vectors(struct i40e_vsi *vsi)
+ 		goto vector_setup_out;
+ 	}
+ 
++	/* In Legacy mode, we do not have to get any other vector since we
++	 * piggyback on the misc/ICR0 for queue interrupts.
++	*/
++	if (!(pf->flags & I40E_FLAG_MSIX_ENABLED))
++		return ret;
+ 	if (vsi->num_q_vectors)
+ 		vsi->base_vector = i40e_get_lump(pf, pf->irq_pile,
+ 						 vsi->num_q_vectors, vsi->idx);
 -- 
 2.4.3
