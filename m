@@ -1,61 +1,50 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH v1 1/6] net: phy: broadcom: add bcm54220 phy ID
-Date: Thu, 20 Aug 2015 01:16:40 +0000
-Message-ID: <BN3PR0301MB12198F2E8A1D508EE4FB0419F5660@BN3PR0301MB1219.namprd03.prod.outlook.com>
-References: <1439962444-27486-1-git-send-email-b38611@freescale.com>
- <1439962444-27486-2-git-send-email-b38611@freescale.com>
- <CAGVrzcak2u_kBg1o061OO0UK8sdrXaKF+-7eREwByD-dQ1r1XQ@mail.gmail.com>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH v2 net-next 13/13] ipv6: route: per route IP tunnel metadata
+ via lightweight tunnel
+Date: Thu, 20 Aug 2015 11:29:06 +0900
+Message-ID: <55D53B72.70403@miraclelinux.com>
+References: <cover.1439978875.git.jbenc@redhat.com>	<0694438feae2730b0bd3354b5e977bc9d6a5a192.1439978875.git.jbenc@redhat.com>	<55D457B1.2080105@miraclelinux.com>	<20150819122034.5d904d8b@griffin>	<55D45A0A.7010100@miraclelinux.com> <20150819123151.3802e8f3@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "shawnguo@kernel.org" <shawnguo@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Jiri Benc <jbenc@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0141.outbound.protection.outlook.com ([207.46.100.141]:51520
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751463AbbHTBQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 21:16:45 -0400
-In-Reply-To: <CAGVrzcak2u_kBg1o061OO0UK8sdrXaKF+-7eREwByD-dQ1r1XQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:32867 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874AbbHTC3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 22:29:11 -0400
+Received: by pdrh1 with SMTP id h1so8421543pdr.0
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 19:29:10 -0700 (PDT)
+In-Reply-To: <20150819123151.3802e8f3@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFRodXJz
-ZGF5LCBBdWd1c3QgMjAsIDIwMTUgNToyOSBBTQ0KPiBUbzogRHVhbiBGdWdhbmctQjM4NjExDQo+
-IENjOiBzaGF3bmd1b0BrZXJuZWwub3JnOyBEYXZpZCBNaWxsZXI7IG5ldGRldjsgbGludXgtYXJt
-LQ0KPiBrZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHYx
-IDEvNl0gbmV0OiBwaHk6IGJyb2FkY29tOiBhZGQgYmNtNTQyMjAgcGh5IElEDQo+IA0KPiAyMDE1
-LTA4LTE4IDIyOjMzIEdNVC0wNzowMCBGdWdhbmcgRHVhbiA8YjM4NjExQGZyZWVzY2FsZS5jb20+
-Og0KPiA+IEFkZCBiY201NDIyMCBwaHkgSUQgZW50cnkuDQo+IA0KPiBUaGlzIGNoYW5nZSBpdHNl
-bGYgaXMgZmluZSwgYnV0IGxvb2tpbmcgYXQgdGhlIHJlc3Qgb2YgeW91ciBjaGFuZ2VzLCB3ZQ0K
-PiBhcmUgbm90IGFkZGluZyBhbiBlbnRyeSBmb3IgdGhpcyBQSFkgaW4gZHJpdmVycy9uZXQvcGh5
-L2Jyb2FkY29tLmMsIHdoaWNoDQo+IG1lYW5zIHRoYXQgd2Ugd2lsbCBiaW5kIHRvIHRoZSBHZW5l
-cmljIFBIWSBkcml2ZXIsIGFuZCBzbyB0aGlzIGxvb2tzDQo+IHN1ZmZpY2llbnQsIGV2ZW4gd2l0
-aCB5b3VyIGZpeHVwIGRvbmUgaW4gdGhlIHN1YnNlcXVlbnQgcGF0Y2guDQo+IA0KDQpUaGFua3Mg
-Zm9yIHlvdXIgY29tbWVudC4NCg0KWWVzLCBmb3IgdGhlIHBoeSwgdGhlIGRyaXZlciB1c2UgZ2Vu
-ZXJpYyBwaHkgZHJpdmVyLiANCkkgc2VlIGFsbCBCcm9hZGNvbSBwaHkgSUQgYXJlIGRlZmluZWQg
-aW4gdGhpcyBmaWxlLCB3ZSBzaG91bGRuJ3QgZGVmaW5lIG5ldyBwaHkgaWQgaW4gb3RoZXIgcGxh
-Y2UuDQpXaGVuIHRoZSBwaHkgaXMgdXNlZCBtb3JlIHBvcHVsYXIsIEkgdGhpbmsgdGhlIHBhdGNo
-IGlzIHZlcnkgcmVhc29uYWJsZS4NCg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogRnVnYW5nIER1
-YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPiA+IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L2Jy
-Y21waHkuaCB8IDEgKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykNCj4gPg0K
-PiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2JyY21waHkuaCBiL2luY2x1ZGUvbGludXgv
-YnJjbXBoeS5oIGluZGV4DQo+ID4gNjk3Y2E3Ny4uMjBiZWQxNSAxMDA2NDQNCj4gPiAtLS0gYS9p
-bmNsdWRlL2xpbnV4L2JyY21waHkuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGludXgvYnJjbXBoeS5o
-DQo+ID4gQEAgLTE2LDYgKzE2LDcgQEANCj4gPiAgI2RlZmluZSBQSFlfSURfQkNNNTQ4MiAgICAg
-ICAgICAgICAgICAgMHgwMTQzYmNiMA0KPiA+ICAjZGVmaW5lIFBIWV9JRF9CQ001NDExICAgICAg
-ICAgICAgICAgICAweDAwMjA2MDcwDQo+ID4gICNkZWZpbmUgUEhZX0lEX0JDTTU0MjEgICAgICAg
-ICAgICAgICAgIDB4MDAyMDYwZTANCj4gPiArI2RlZmluZSBQSFlfSURfQkNNNTQyMjAgICAgICAg
-ICAgICAgICAgICAgICAgICAweDYwMGQ4NTg5DQo+ID4gICNkZWZpbmUgUEhZX0lEX0JDTTU0NjQg
-ICAgICAgICAgICAgICAgIDB4MDAyMDYwYjANCj4gPiAgI2RlZmluZSBQSFlfSURfQkNNNTQ2MSAg
-ICAgICAgICAgICAgICAgMHgwMDIwNjBjMA0KPiA+ICAjZGVmaW5lIFBIWV9JRF9CQ001NDYxNlMg
-ICAgICAgICAgICAgICAweDAzNjI1ZDEwDQo+ID4gLS0NCj4gPiAxLjkuMQ0KPiA+DQo+ID4NCj4g
-PiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0KPiA+IGxp
-bnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0DQo+ID4gbGludXgtYXJtLWtlcm5lbEBsaXN0cy5p
-bmZyYWRlYWQub3JnDQo+ID4gaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0
-aW5mby9saW51eC1hcm0ta2VybmVsDQo+IA0KPiANCj4gDQo+IC0tDQo+IEZsb3JpYW4NCg==
+Jiri Benc wrote:
+> On Wed, 19 Aug 2015 19:27:22 +0900, YOSHIFUJI Hideaki wrote:
+>>> You're right generally. But this one should be okay and I did this
+>>> deliberately: the patch adding LWTUNNEL_ENCAP_ILA was merged two days
+>>> ago, is in net-next only, is not used by anything in user space yet.
+>>> And I think it's better to have LWTUNNEL_ENCAP_IP and
+>>> LWTUNNEL_ENCAP_IP6 without anything in between.
+>>
+>> I do think you should have some descriptions.
+> 
+> Sorry, I meant to put this into the description but forget to add it
+> after the rebase on top of ILA (as the patchset conflicted with the ILA
+> work and was developed in parallel).
+>
+> Are you okay with inserting LWTUNNEL_ENCAP_IP6 before
+> LWTUNNEL_ENCAP_ILA? If so, I'll resend with the explanation added.
+
+Well, I think we should always avoid adding new entries into the
+middle of enums because it will make bisecting more complex or more
+difficult for example even if it *seems* that we have no users yet and
+the risk is not so high.
+
+Dave?
+
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
