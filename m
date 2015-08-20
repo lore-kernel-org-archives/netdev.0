@@ -1,69 +1,81 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH] netcp:Fix error checking in the function gbe_open
-Date: Thu, 20 Aug 2015 18:05:16 -0400
-Message-ID: <55D64F1C.3070509@ti.com>
-References: <1438280850-9613-1-git-send-email-xerofoify@gmail.com> <55BA7EA3.9020204@ti.com> <55CCB713.8000406@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: nick <xerofoify@gmail.com>, <w-kwok2@ti.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55CCB713.8000406@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH ipsec-next v2] xfrm: Use VRF master index if output device is enslaved
+Date: Thu, 20 Aug 2015 15:06:30 -0700
+Message-ID: <1440108390-10192-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: steffen.klassert@secunet.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34343 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553AbbHTWGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 18:06:37 -0400
+Received: by paom9 with SMTP id m9so3332690pao.1
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 15:06:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/13/2015 11:26 AM, nick wrote:
->
->
-> On 2015-07-30 03:44 PM, Murali Karicheri wrote:
->> On 07/30/2015 02:27 PM, Nicholas Krause wrote:
->>> This fixes error checking in the function gbe_open by checking if
->>> the function netcp_register_txhook has failed by returning a error
->>> code and if so jump to the goto label fail for handling internal
->>> failures in this function.
->>>
->>> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
->>> ---
->>>    drivers/net/ethernet/ti/netcp_ethss.c | 6 ++++--
->>>    1 file changed, 4 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
->>> index 9b7e0a3..e81e66b 100644
->>> --- a/drivers/net/ethernet/ti/netcp_ethss.c
->>> +++ b/drivers/net/ethernet/ti/netcp_ethss.c
->>> @@ -2257,8 +2257,10 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
->>>        if (ret)
->>>            goto fail;
->>>
->>> -    netcp_register_txhook(netcp, GBE_TXHOOK_ORDER, gbe_tx_hook,
->>> -                  gbe_intf);
->>> +    ret = netcp_register_txhook(netcp, GBE_TXHOOK_ORDER, gbe_tx_hook,
->>> +                    gbe_intf);
->>> +    if (ret)
->>> +        goto fail;
->>>
->>>        slave->open = true;
->>>        netcp_ethss_update_link_state(gbe_dev, slave, ndev);
->>>
->> Acked-by: Murali Karicheri <m-karicheri2@ti.com>
->>
-> Murali,
-> I was wondering if this patch is being merged as I haven't seen in move into David's network
-> tree with the merged of your driver's tree.
-> Nick
->
->
-Nick,
+Directs route lookups to VRF table. Compiles out if NET_VRF is not
+enabled. With this patch able to successfully bring up ipsec tunnels
+in VRFs, even with duplicate network configuration.
 
-Not sure what else I need to do to get it applied to net repo.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v2
+- use vrf_master_ifindex rather than vrf_master_ifindex_rcu
 
-David,
+ net/ipv4/xfrm4_policy.c | 7 +++++--
+ net/ipv6/xfrm6_policy.c | 7 +++++--
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-Can this be applied to net/master ?
-
-Thanks
-
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 55b3c0f4dde5..35757f6af2d5 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -15,6 +15,7 @@
+ #include <net/dst.h>
+ #include <net/xfrm.h>
+ #include <net/ip.h>
++#include <net/vrf.h>
+ 
+ static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
+ 
+@@ -107,8 +108,10 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 	struct flowi4 *fl4 = &fl->u.ip4;
+ 	int oif = 0;
+ 
+-	if (skb_dst(skb))
+-		oif = skb_dst(skb)->dev->ifindex;
++	if (skb_dst(skb)) {
++		oif = vrf_master_ifindex(skb_dst(skb)->dev) ?
++			: skb_dst(skb)->dev->ifindex;
++	}
+ 
+ 	memset(fl4, 0, sizeof(struct flowi4));
+ 	fl4->flowi4_mark = skb->mark;
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index a74013d3eceb..4a88b89becf5 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -20,6 +20,7 @@
+ #include <net/ip.h>
+ #include <net/ipv6.h>
+ #include <net/ip6_route.h>
++#include <net/vrf.h>
+ #if IS_ENABLED(CONFIG_IPV6_MIP6)
+ #include <net/mip6.h>
+ #endif
+@@ -131,8 +132,10 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 
+ 	nexthdr = nh[nhoff];
+ 
+-	if (skb_dst(skb))
+-		oif = skb_dst(skb)->dev->ifindex;
++	if (skb_dst(skb)) {
++		oif = vrf_master_ifindex(skb_dst(skb)->dev) ?
++			: skb_dst(skb)->dev->ifindex;
++	}
+ 
+ 	memset(fl6, 0, sizeof(struct flowi6));
+ 	fl6->flowi6_mark = skb->mark;
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+2.3.2 (Apple Git-55)
