@@ -1,78 +1,112 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH v3 net-next 09/13] vxlan: provide access function for vxlan socket address family
-Date: Thu, 20 Aug 2015 13:56:28 +0200
-Message-ID: <fe951df7957476dd3c48d1755b03f12991011fac.1440071726.git.jbenc@redhat.com>
+Subject: [PATCH v3 net-next 08/13] ipv6: ndisc: inherit metadata dst when creating ndisc requests
+Date: Thu, 20 Aug 2015 13:56:27 +0200
+Message-ID: <c7a02abf797d98a696ba998a6af03edc1882135b.1440071726.git.jbenc@redhat.com>
 References: <cover.1440071726.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37578 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42677 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752041AbbHTL50 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 07:57:26 -0400
+	id S1752027AbbHTL5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2015 07:57:25 -0400
 In-Reply-To: <cover.1440071726.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If output device wants to see the dst, inherit the dst of the original skb
+in the ndisc request.
+
+This is an IPv6 counterpart of commit 0accfc268f4d ("arp: Inherit metadata
+dst when creating ARP requests").
+
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 Acked-by: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/vxlan.c | 8 ++++----
- include/net/vxlan.h | 5 +++++
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ include/net/ndisc.h |  3 ++-
+ net/ipv6/addrconf.c |  2 +-
+ net/ipv6/ndisc.c    | 10 +++++++---
+ net/ipv6/route.c    |  2 +-
+ 4 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 93613ffd8d7e..070149f77072 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -236,7 +236,7 @@ static struct vxlan_sock *vxlan_find_sock(struct net *net, sa_family_t family,
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index b3a7751251b4..aba5695fadb0 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -182,7 +182,8 @@ int ndisc_rcv(struct sk_buff *skb);
  
- 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
- 		if (inet_sk(vs->sock->sk)->inet_sport == port &&
--		    inet_sk(vs->sock->sk)->sk.sk_family == family &&
-+		    vxlan_get_sk_family(vs) == family &&
- 		    vs->flags == flags)
- 			return vs;
- 	}
-@@ -625,7 +625,7 @@ static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
- 	struct net_device *dev;
- 	struct sock *sk = vs->sock->sk;
- 	struct net *net = sock_net(sk);
--	sa_family_t sa_family = sk->sk_family;
-+	sa_family_t sa_family = vxlan_get_sk_family(vs);
- 	__be16 port = inet_sk(sk)->inet_sport;
- 	int err;
+ void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
+ 		   const struct in6_addr *solicit,
+-		   const struct in6_addr *daddr, const struct in6_addr *saddr);
++		   const struct in6_addr *daddr, const struct in6_addr *saddr,
++		   struct sk_buff *oskb);
  
-@@ -650,7 +650,7 @@ static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
- 	struct net_device *dev;
- 	struct sock *sk = vs->sock->sk;
- 	struct net *net = sock_net(sk);
--	sa_family_t sa_family = sk->sk_family;
-+	sa_family_t sa_family = vxlan_get_sk_family(vs);
- 	__be16 port = inet_sk(sk)->inet_sport;
+ void ndisc_send_rs(struct net_device *dev,
+ 		   const struct in6_addr *saddr, const struct in6_addr *daddr);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 59242399b0b5..0f08d3b9e238 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3656,7 +3656,7 @@ static void addrconf_dad_work(struct work_struct *w)
  
- 	rcu_read_lock();
-@@ -2390,7 +2390,7 @@ void vxlan_get_rx_port(struct net_device *dev)
- 	for (i = 0; i < PORT_HASH_SIZE; ++i) {
- 		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
- 			port = inet_sk(vs->sock->sk)->inet_sport;
--			sa_family = vs->sock->sk->sk_family;
-+			sa_family = vxlan_get_sk_family(vs);
- 			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
- 							    port);
- 		}
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index e4534f1b2d8c..43677e6b9c43 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -241,3 +241,8 @@ static inline void vxlan_get_rx_port(struct net_device *netdev)
- }
- #endif
- #endif
+ 	/* send a neighbour solicitation for our addr */
+ 	addrconf_addr_solict_mult(&ifp->addr, &mcaddr);
+-	ndisc_send_ns(ifp->idev->dev, NULL, &ifp->addr, &mcaddr, &in6addr_any);
++	ndisc_send_ns(ifp->idev->dev, NULL, &ifp->addr, &mcaddr, &in6addr_any, NULL);
+ out:
+ 	in6_ifa_put(ifp);
+ 	rtnl_unlock();
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index b3054611f88a..13d3c2beb93e 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -553,7 +553,8 @@ static void ndisc_send_unsol_na(struct net_device *dev)
+ 
+ void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
+ 		   const struct in6_addr *solicit,
+-		   const struct in6_addr *daddr, const struct in6_addr *saddr)
++		   const struct in6_addr *daddr, const struct in6_addr *saddr,
++		   struct sk_buff *oskb)
+ {
+ 	struct sk_buff *skb;
+ 	struct in6_addr addr_buf;
+@@ -589,6 +590,9 @@ void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
+ 		ndisc_fill_addr_option(skb, ND_OPT_SOURCE_LL_ADDR,
+ 				       dev->dev_addr);
+ 
++	if (!(dev->priv_flags & IFF_XMIT_DST_RELEASE) && oskb)
++		skb_dst_copy(skb, oskb);
 +
-+static inline unsigned short vxlan_get_sk_family(struct vxlan_sock *vs)
-+{
-+	return vs->sock->sk->sk_family;
-+}
+ 	ndisc_send_skb(skb, daddr, saddr);
+ }
+ 
+@@ -675,12 +679,12 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 				  "%s: trying to ucast probe in NUD_INVALID: %pI6\n",
+ 				  __func__, target);
+ 		}
+-		ndisc_send_ns(dev, neigh, target, target, saddr);
++		ndisc_send_ns(dev, neigh, target, target, saddr, skb);
+ 	} else if ((probes -= NEIGH_VAR(neigh->parms, APP_PROBES)) < 0) {
+ 		neigh_app_ns(neigh);
+ 	} else {
+ 		addrconf_addr_solict_mult(target, &mcaddr);
+-		ndisc_send_ns(dev, NULL, target, &mcaddr, saddr);
++		ndisc_send_ns(dev, NULL, target, &mcaddr, saddr, skb);
+ 	}
+ }
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 0947ad0b3de8..c4f3b9fcca9d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -538,7 +538,7 @@ static void rt6_probe_deferred(struct work_struct *w)
+ 		container_of(w, struct __rt6_probe_work, work);
+ 
+ 	addrconf_addr_solict_mult(&work->target, &mcaddr);
+-	ndisc_send_ns(work->dev, NULL, &work->target, &mcaddr, NULL);
++	ndisc_send_ns(work->dev, NULL, &work->target, &mcaddr, NULL, NULL);
+ 	dev_put(work->dev);
+ 	kfree(work);
+ }
 -- 
 1.8.3.1
