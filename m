@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to
- htons
-Date: Thu, 20 Aug 2015 10:58:10 -0700 (PDT)
-Message-ID: <20150820.105810.2093197275802835044.davem@davemloft.net>
-References: <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB8054E@AcuExch.aculab.com>
-	<1440078822.685.11.camel@BR9GV9YG.de.ibm.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next v2 0/2] ila: Precompute checksums
+Date: Thu, 20 Aug 2015 11:22:36 -0700
+Message-ID: <1440094958-1808151-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com,
-	vthakkar1994@gmail.com
-To: ubraun@linux.vnet.ibm.com
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56160 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239AbbHTR6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 13:58:12 -0400
-In-Reply-To: <1440078822.685.11.camel@BR9GV9YG.de.ibm.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:12384 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752244AbbHTSWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 14:22:49 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7KIJn0a014518
+	for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 11:22:48 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1wdh2u0h8r-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 11:22:48 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.223.101.97) with ESMTP	id
+ 74143650476811e5bde424be0595f910-6e7f32b0 for <netdev@vger.kernel.org>;	Thu,
+ 20 Aug 2015 11:22:45 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Thu, 20 Aug 2015 15:53:42 +0200
+This patch set:
+ - Adds argument ot LWT build_state that holds a pointer to the fib
+   configuration being applied to the new route
+ - Adds support in ILA to precompute checksum difference for
+   performance optimization
 
-> qeth is an s390-driver, and s390 is a big-endian architecture. Thus
-> arguments valid for little-endian do not apply to qeth-code.
+v2:
+ Move return argument in build_state to end of arguments
 
-You can not throw out generally good tree-wide conventions just because
-it happens to work on your platform.
+Tom Herbert (2):
+  lwt: Add cfg argumnt to build_state
+  ila: Precompute checksum difference for translations
 
-In fact, I would be really thrilled if some of this code could be compiled
-on other platforms via COMPILE_TEST or similar, especially the socket code
-and drivers.
+ include/net/lwtunnel.h    |  5 ++++-
+ net/core/lwtunnel.c       |  5 +++--
+ net/ipv4/fib_semantics.c  | 15 +++++++++------
+ net/ipv4/ip_tunnel_core.c |  1 +
+ net/ipv6/ila.c            | 19 +++++++++++++++++++
+ net/ipv6/route.c          |  3 ++-
+ net/mpls/mpls_iptunnel.c  |  1 +
+ 7 files changed, 39 insertions(+), 10 deletions(-)
+
+-- 
+1.8.1
