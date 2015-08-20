@@ -1,17 +1,17 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next RFC 07/10] raw: enable sendmsg zerocopy with hdrincl
-Date: Thu, 20 Aug 2015 10:36:46 -0400
-Message-ID: <1440081408-12302-8-git-send-email-willemb@google.com>
+Subject: [PATCH net-next RFC 08/10] packet: enable sendmsg zerocopy
+Date: Thu, 20 Aug 2015 10:36:47 -0400
+Message-ID: <1440081408-12302-9-git-send-email-willemb@google.com>
 References: <1440081408-12302-1-git-send-email-willemb@google.com>
 Cc: mst@redhat.com, jasowang@redhat.com,
 	Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:35193 "EHLO
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:36478 "EHLO
 	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752750AbbHTOg5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 10:36:57 -0400
-Received: by qkbm65 with SMTP id m65so16086809qkb.2
+	with ESMTP id S1752662AbbHTOg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 10:36:58 -0400
+Received: by qkep139 with SMTP id p139so16167970qke.3
         for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 07:36:57 -0700 (PDT)
 In-Reply-To: <1440081408-12302-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,115 +19,110 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Add MSG_ZEROCOPY support to inet/raw when passing IP_HDRINCL
-
-Tested:
-  raw loopback test //net/socket:snd_zerocopy_lo -r -z passes:
-
-  without zerocopy (-r):
-    rx=69348 (4327 MB) tx=69348 txc=0
-    rx=145590 (9085 MB) tx=145590 txc=0
-    rx=219210 (13679 MB) tx=219210 txc=0
-    rx=293688 (18327 MB) tx=293688 txc=0
-
-  with zerocopy (-r -z):
-    rx=258132 (16108 MB) tx=258132 txc=258122
-    rx=541266 (33777 MB) tx=541266 txc=541256
-    rx=822606 (51334 MB) tx=822606 txc=822596
-    rx=1105776 (69005 MB) tx=1105776 txc=1105766
-
-  raw hdrincl loopback test //net/socket:snd_zerocopy_lo -R -z passes:
-
-  without zerocopy (-R):
-    rx=101904 (6359 MB) tx=101904 txc=0
-    rx=215256 (13432 MB) tx=215256 txc=0
-    rx=328584 (20505 MB) tx=328584 txc=0
-    rx=442008 (27583 MB) tx=442008 txc=0
-
-  with zerocopy (-R -z):
-    rx=265398 (16562 MB) tx=265398 txc=265392
-    rx=558744 (34868 MB) tx=558744 txc=558738
-    rx=853308 (53250 MB) tx=853308 txc=853302
-    rx=1148142 (71649 MB) tx=1148142 txc=1148136
+Support MSG_ZEROCOPY on PF_PACKET transmission.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/ipv4/raw.c | 28 +++++++++++++++++++++++-----
- 1 file changed, 23 insertions(+), 5 deletions(-)
+ net/packet/af_packet.c | 45 +++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 35 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 561cd4b..c4fa57d 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -347,7 +347,7 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 	unsigned int iphlen;
- 	int err;
- 	struct rtable *rt = *rtp;
--	int hlen, tlen;
-+	int hlen, tlen, linear;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b5afe53..8c5588b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2476,28 +2476,47 @@ out:
  
- 	if (length > rt->dst.dev->mtu) {
- 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
-@@ -359,8 +359,14 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+ static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
+ 				        size_t reserve, size_t len,
+-				        size_t linear, int noblock,
++					size_t linear, int flags,
+ 				        int *err)
+ {
+ 	struct sk_buff *skb;
++	size_t data_len;
  
- 	hlen = LL_RESERVED_SPACE(rt->dst.dev);
- 	tlen = rt->dst.dev->needed_tailroom;
-+	linear = length;
-+
-+	if (flags & MSG_ZEROCOPY && length &&
-+	    sock_can_zerocopy(sk, rt, CHECKSUM_UNNECESSARY))
-+		linear = min_t(int, length, MAX_HEADER);
-+
- 	skb = sock_alloc_send_skb(sk,
--				  length + hlen + tlen + 15,
-+				  linear + hlen + tlen + 15,
- 				  flags & MSG_DONTWAIT, &err);
- 	if (!skb)
- 		goto error;
-@@ -373,15 +379,14 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 
- 	skb_reset_network_header(skb);
- 	iph = ip_hdr(skb);
--	skb_put(skb, length);
-+	skb_put(skb, linear);
- 
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
--
- 	skb->transport_header = skb->network_header;
- 	err = -EFAULT;
--	if (memcpy_from_msg(iph, msg, length))
-+	if (memcpy_from_msg(iph, msg, linear))
- 		goto error_free;
- 
- 	iphlen = iph->ihl * 4;
-@@ -397,6 +402,17 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 	if (iphlen > length)
- 		goto error_free;
- 
-+	if (length != linear) {
-+		size_t datalen = length - linear;
-+
-+		if (!skb_zerocopy_alloc(skb, datalen))
-+			goto error_zcopy;
-+		err = skb_zerocopy_add_frags_iter(sk, skb, &msg->msg_iter,
-+						  datalen, skb_uarg(skb));
-+		if (err != datalen)
-+			goto error_zcopy;
+-	/* Under a page?  Don't bother with paged skb. */
+-	if (prepad + len < PAGE_SIZE || !linear)
+-		linear = len;
++	if (flags & MSG_ZEROCOPY) {
++		/* Minimize linear, but respect header lower bound */
++		linear = min(len, max_t(size_t, linear, MAX_HEADER));
++		data_len = 0;
++	} else {
++		/* Under a page? Don't bother with paged skb. */
++		if (prepad + len < PAGE_SIZE || !linear)
++			linear = len;
++		data_len = len - linear;
 +	}
-+
- 	if (iphlen >= sizeof(*iph)) {
- 		if (!iph->saddr)
- 			iph->saddr = fl4->saddr;
-@@ -420,6 +436,8 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- out:
- 	return 0;
  
-+error_zcopy:
+-	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
+-				   err, 0);
++	skb = sock_alloc_send_pskb(sk, prepad + linear, data_len,
++				   flags & MSG_DONTWAIT, err, 0);
+ 	if (!skb)
+ 		return NULL;
+ 
+ 	skb_reserve(skb, reserve);
+ 	skb_put(skb, linear);
+-	skb->data_len = len - linear;
+-	skb->len += len - linear;
++	skb->data_len = data_len;
++	skb->len += data_len;
+ 
+ 	return skb;
+ }
+ 
++static int packet_zerocopy_sg_from_iovec(struct sk_buff *skb,
++					 struct msghdr *msg, size_t size)
++{
++	if (zerocopy_sg_from_iter(skb, &msg->msg_iter))
++		return -EIO;
++	if (!skb_zerocopy_alloc(skb, size))
++		return -ENOMEM;
++
++	return 0;
++}
++
+ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ {
+ 	struct sock *sk = sock->sk;
+@@ -2515,6 +2534,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	int hlen, tlen;
+ 	int extra_len = 0;
+ 	ssize_t n;
++	bool zerocopy = msg->msg_flags & MSG_ZEROCOPY;
+ 
+ 	/*
+ 	 *	Get and verify the address.
+@@ -2611,7 +2631,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	tlen = dev->needed_tailroom;
+ 	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len,
+ 			       __virtio16_to_cpu(false, vnet_hdr.hdr_len),
+-			       msg->msg_flags & MSG_DONTWAIT, &err);
++			       msg->msg_flags, &err);
+ 	if (skb == NULL)
+ 		goto out_unlock;
+ 
+@@ -2628,7 +2648,11 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	}
+ 
+ 	/* Returns -EFAULT on error */
+-	err = skb_copy_datagram_from_iter(skb, offset, &msg->msg_iter, len);
++	if (zerocopy)
++		err = packet_zerocopy_sg_from_iovec(skb, msg, len);
++	else
++		err = skb_copy_datagram_from_iter(skb, offset, &msg->msg_iter,
++						  len);
+ 	if (err)
+ 		goto out_free;
+ 
+@@ -2690,6 +2714,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	return len;
+ 
+ out_free:
 +	sock_zerocopy_put_abort(skb_zcopy(skb));
- error_free:
  	kfree_skb(skb);
- error:
+ out_unlock:
+ 	if (dev)
 -- 
 2.5.0.276.gf5e568e
