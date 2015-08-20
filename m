@@ -1,39 +1,52 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH v3 net-next 03/13] ip_tunnels: use offsetofend
-Date: Thu, 20 Aug 2015 13:56:22 +0200
-Message-ID: <fe4eaf42e3f4de5ba162c8b8dd44d6d2dbc5140d.1440071726.git.jbenc@redhat.com>
+Subject: [PATCH v3 net-next 10/13] vxlan: do not shadow flags variable
+Date: Thu, 20 Aug 2015 13:56:29 +0200
+Message-ID: <5edac8e42eb17b12522f05635edec33e6bb39394.1440071726.git.jbenc@redhat.com>
 References: <cover.1440071726.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40599 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53431 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751363AbbHTL5T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 07:57:19 -0400
+	id S1752066AbbHTL51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2015 07:57:27 -0400
 In-Reply-To: <cover.1440071726.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The 'flags' variable is already defined in the outer scope.
+
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 Acked-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/net/ip_tunnels.h | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/vxlan.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index ca173f22f07f..cc3b39e9010b 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -23,9 +23,7 @@
- #define IPTUNNEL_ERR_TIMEO	(30*HZ)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 070149f77072..2c1abf95c17d 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2025,7 +2025,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	} else {
+ 		struct dst_entry *ndst;
+ 		struct flowi6 fl6;
+-		u32 flags;
++		u32 rt6i_flags;
  
- /* Used to memset ip_tunnel padding. */
--#define IP_TUNNEL_KEY_SIZE					\
--	(offsetof(struct ip_tunnel_key, tp_dst) +		\
--	 FIELD_SIZEOF(struct ip_tunnel_key, tp_dst))
-+#define IP_TUNNEL_KEY_SIZE	offsetofend(struct ip_tunnel_key, tp_dst)
+ 		memset(&fl6, 0, sizeof(fl6));
+ 		fl6.flowi6_oif = rdst ? rdst->remote_ifindex : 0;
+@@ -2050,9 +2050,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		}
  
- struct ip_tunnel_key {
- 	__be64			tun_id;
+ 		/* Bypass encapsulation if the destination is local */
+-		flags = ((struct rt6_info *)ndst)->rt6i_flags;
+-		if (flags & RTF_LOCAL &&
+-		    !(flags & (RTCF_BROADCAST | RTCF_MULTICAST))) {
++		rt6i_flags = ((struct rt6_info *)ndst)->rt6i_flags;
++		if (rt6i_flags & RTF_LOCAL &&
++		    !(rt6i_flags & (RTCF_BROADCAST | RTCF_MULTICAST))) {
+ 			struct vxlan_dev *dst_vxlan;
+ 
+ 			dst_release(ndst);
 -- 
 1.8.3.1
