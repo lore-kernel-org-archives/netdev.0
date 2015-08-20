@@ -1,442 +1,188 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/16] i40e/i40evf: Move helper functions to a header file
-Date: Wed, 19 Aug 2015 17:57:54 -0700
-Message-ID: <1440032286-30054-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/16] i40evf: Use the correct defines to match the VF registers
+Date: Wed, 19 Aug 2015 17:58:01 -0700
+Message-ID: <1440032286-30054-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:40611 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:10447 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752062AbbHTA6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 20:58:09 -0400
+	id S1752104AbbHTA6L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 20:58:11 -0400
 In-Reply-To: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-A new header file i40e_helper.h is added to both the PF and VF driver
-with functions used by both drivers.
+Use CTLN1 instead of CTLN for the VF relative register space.
 
-Change-ID: I3c6daedc2ff6f32bc7624bf5eaef05899d35f28b
+Change-ID: Iefba63faf0307af55fec8dbb64f26059f7d91318
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_helper.h   | 102 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c     |  72 +----------------
- drivers/net/ethernet/intel/i40evf/i40e_helper.h | 102 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40evf_main.c |  80 +------------------
- 4 files changed, 206 insertions(+), 150 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_helper.h
- create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_helper.h
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c   | 28 +++++++++---------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 38 ++++++++++++-------------
+ 2 files changed, 33 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_helper.h b/drivers/net/ethernet/intel/i40e/i40e_helper.h
-new file mode 100644
-index 0000000..0eb1c75
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40e/i40e_helper.h
-@@ -0,0 +1,102 @@
-+/*******************************************************************************
-+ *
-+ * Intel Ethernet Controller XL710 Family Linux Driver
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ ******************************************************************************/
-+
-+#ifndef _I40E_HELPER_H_
-+#define _I40E_HELPER_H_
-+
-+/**
-+ * i40e_allocate_dma_mem_d - OS specific memory alloc for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to fill out
-+ * @size: size of memory requested
-+ * @alignment: what to align the allocation to
-+ **/
-+inline int i40e_allocate_dma_mem_d(struct i40e_hw *hw,
-+				   struct i40e_dma_mem *mem,
-+				   u64 size, u32 alignment)
-+{
-+	struct i40e_pf *nf = (struct i40e_pf *)hw->back;
-+
-+	mem->size = ALIGN(size, alignment);
-+	mem->va = dma_zalloc_coherent(&nf->pdev->dev, mem->size,
-+				      &mem->pa, GFP_KERNEL);
-+	if (!mem->va)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40e_free_dma_mem_d - OS specific memory free for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to free
-+ **/
-+inline int i40e_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
-+{
-+	struct i40e_pf *nf = (struct i40e_pf *)hw->back;
-+
-+	dma_free_coherent(&nf->pdev->dev, mem->size, mem->va, mem->pa);
-+	mem->va = NULL;
-+	mem->pa = 0;
-+	mem->size = 0;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40e_allocate_virt_mem_d - OS specific memory alloc for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to fill out
-+ * @size: size of memory requested
-+ **/
-+inline int i40e_allocate_virt_mem_d(struct i40e_hw *hw,
-+				    struct i40e_virt_mem *mem,
-+				    u32 size)
-+{
-+	mem->size = size;
-+	mem->va = kzalloc(size, GFP_KERNEL);
-+
-+	if (!mem->va)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40e_free_virt_mem_d - OS specific memory free for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to free
-+ **/
-+inline int i40e_free_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem)
-+{
-+	/* it's ok to kfree a NULL pointer */
-+	kfree(mem->va);
-+	mem->va = NULL;
-+	mem->size = 0;
-+
-+	return 0;
-+}
-+#endif /* _I40E_HELPER_H_ */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1cd5269..8a5c8ec 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -26,6 +26,7 @@
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 7309479..7e91d82 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1293,17 +1293,17 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
+ 		old_itr = q_vector->rx.itr;
+ 		i40e_set_new_dynamic_itr(&q_vector->rx);
+ 		if (old_itr != q_vector->rx.itr) {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-			I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++			I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 			(I40E_RX_ITR <<
+-				I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT) |
++				I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
+ 			(q_vector->rx.itr <<
+-				I40E_VFINT_DYN_CTLN_INTERVAL_SHIFT);
++				I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
+ 		} else {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-			I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++			I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 			(I40E_ITR_NONE <<
+-				I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT);
++				I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT);
+ 		}
+ 		if (!test_bit(__I40E_DOWN, &vsi->state))
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(vector - 1), val);
+@@ -1315,18 +1315,18 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
+ 		old_itr = q_vector->tx.itr;
+ 		i40e_set_new_dynamic_itr(&q_vector->tx);
+ 		if (old_itr != q_vector->tx.itr) {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-				I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++				I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 				(I40E_TX_ITR <<
+-				   I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT) |
++				   I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
+ 				(q_vector->tx.itr <<
+-				   I40E_VFINT_DYN_CTLN_INTERVAL_SHIFT);
++				   I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
  
- /* Local includes */
- #include "i40e.h"
-+#include "i40e_helper.h"
- #include "i40e_diag.h"
- #ifdef CONFIG_I40E_VXLAN
- #include <net/vxlan.h>
-@@ -95,77 +96,6 @@ MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
- 
- /**
-- * i40e_allocate_dma_mem_d - OS specific memory alloc for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to fill out
-- * @size: size of memory requested
-- * @alignment: what to align the allocation to
-- **/
--int i40e_allocate_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem,
--			    u64 size, u32 alignment)
--{
--	struct i40e_pf *pf = (struct i40e_pf *)hw->back;
--
--	mem->size = ALIGN(size, alignment);
--	mem->va = dma_zalloc_coherent(&pf->pdev->dev, mem->size,
--				      &mem->pa, GFP_KERNEL);
--	if (!mem->va)
--		return -ENOMEM;
--
--	return 0;
--}
--
--/**
-- * i40e_free_dma_mem_d - OS specific memory free for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to free
-- **/
--int i40e_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
--{
--	struct i40e_pf *pf = (struct i40e_pf *)hw->back;
--
--	dma_free_coherent(&pf->pdev->dev, mem->size, mem->va, mem->pa);
--	mem->va = NULL;
--	mem->pa = 0;
--	mem->size = 0;
--
--	return 0;
--}
--
--/**
-- * i40e_allocate_virt_mem_d - OS specific memory alloc for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to fill out
-- * @size: size of memory requested
-- **/
--int i40e_allocate_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem,
--			     u32 size)
--{
--	mem->size = size;
--	mem->va = kzalloc(size, GFP_KERNEL);
--
--	if (!mem->va)
--		return -ENOMEM;
--
--	return 0;
--}
--
--/**
-- * i40e_free_virt_mem_d - OS specific memory free for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to free
-- **/
--int i40e_free_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem)
--{
--	/* it's ok to kfree a NULL pointer */
--	kfree(mem->va);
--	mem->va = NULL;
--	mem->size = 0;
--
--	return 0;
--}
--
--/**
-  * i40e_get_lump - find a lump of free generic resource
-  * @pf: board private structure
-  * @pile: the pile of resource to search
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_helper.h b/drivers/net/ethernet/intel/i40evf/i40e_helper.h
-new file mode 100644
-index 0000000..6e88a3b
---- /dev/null
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_helper.h
-@@ -0,0 +1,102 @@
-+/*******************************************************************************
-+ *
-+ * Intel Ethernet Controller XL710 Family Linux Driver
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ *
-+ * The full GNU General Public License is included in this distribution in
-+ * the file called "COPYING".
-+ *
-+ * Contact Information:
-+ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ ******************************************************************************/
-+
-+#ifndef _I40E_HELPER_H_
-+#define _I40E_HELPER_H_
-+
-+/**
-+ * i40evf_allocate_dma_mem_d - OS specific memory alloc for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to fill out
-+ * @size: size of memory requested
-+ * @alignment: what to align the allocation to
-+ **/
-+inline int i40evf_allocate_dma_mem_d(struct i40e_hw *hw,
-+				     struct i40e_dma_mem *mem,
-+				     u64 size, u32 alignment)
-+{
-+	struct i40evf_adapter *nf = (struct i40evf_adapter *)hw->back;
-+
-+	mem->size = ALIGN(size, alignment);
-+	mem->va = dma_zalloc_coherent(&nf->pdev->dev, mem->size,
-+				      &mem->pa, GFP_KERNEL);
-+	if (!mem->va)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40evf_free_dma_mem_d - OS specific memory free for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to free
-+ **/
-+inline int i40evf_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
-+{
-+	struct i40evf_adapter *nf = (struct i40evf_adapter *)hw->back;
-+
-+	dma_free_coherent(&nf->pdev->dev, mem->size, mem->va, mem->pa);
-+	mem->va = NULL;
-+	mem->pa = 0;
-+	mem->size = 0;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40evf_allocate_virt_mem_d - OS specific memory alloc for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to fill out
-+ * @size: size of memory requested
-+ **/
-+inline int i40evf_allocate_virt_mem_d(struct i40e_hw *hw,
-+				      struct i40e_virt_mem *mem,
-+				      u32 size)
-+{
-+	mem->size = size;
-+	mem->va = kzalloc(size, GFP_KERNEL);
-+
-+	if (!mem->va)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40evf_free_virt_mem_d - OS specific memory free for shared code
-+ * @hw:   pointer to the HW structure
-+ * @mem:  ptr to mem struct to free
-+ **/
-+inline int i40evf_free_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem)
-+{
-+	/* it's ok to kfree a NULL pointer */
-+	kfree(mem->va);
-+	mem->va = NULL;
-+	mem->size = 0;
-+
-+	return 0;
-+}
-+#endif /* _I40E_HELPER_H_ */
+ 		} else {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-				I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++				I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 				(I40E_ITR_NONE <<
+-				   I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT);
++				   I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT);
+ 		}
+ 		if (!test_bit(__I40E_DOWN, &vsi->state))
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(vector - 1), val);
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 2a6063a..4f3f603 100644
+index 4f3f603..956affb 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -25,6 +25,7 @@
-  ******************************************************************************/
+@@ -126,7 +126,7 @@ static void i40evf_misc_irq_enable(struct i40evf_adapter *adapter)
  
- #include "i40evf.h"
-+#include "i40e_helper.h"
- #include "i40e_prototype.h"
- static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter);
- static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter);
-@@ -62,85 +63,6 @@ MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
+ 	wr32(hw, I40E_VFINT_DYN_CTL01, I40E_VFINT_DYN_CTL01_INTENA_MASK |
+ 				       I40E_VFINT_DYN_CTL01_ITR_INDX_MASK);
+-	wr32(hw, I40E_VFINT_ICR0_ENA1, I40E_VFINT_ICR0_ENA_ADMINQ_MASK);
++	wr32(hw, I40E_VFINT_ICR0_ENA1, I40E_VFINT_ICR0_ENA1_ADMINQ_MASK);
  
- /**
-- * i40evf_allocate_dma_mem_d - OS specific memory alloc for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to fill out
-- * @size: size of memory requested
-- * @alignment: what to align the allocation to
-- **/
--i40e_status i40evf_allocate_dma_mem_d(struct i40e_hw *hw,
--				      struct i40e_dma_mem *mem,
--				      u64 size, u32 alignment)
--{
--	struct i40evf_adapter *adapter = (struct i40evf_adapter *)hw->back;
--
--	if (!mem)
--		return I40E_ERR_PARAM;
--
--	mem->size = ALIGN(size, alignment);
--	mem->va = dma_alloc_coherent(&adapter->pdev->dev, mem->size,
--				     (dma_addr_t *)&mem->pa, GFP_KERNEL);
--	if (mem->va)
--		return 0;
--	else
--		return I40E_ERR_NO_MEMORY;
--}
--
--/**
-- * i40evf_free_dma_mem_d - OS specific memory free for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to free
-- **/
--i40e_status i40evf_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
--{
--	struct i40evf_adapter *adapter = (struct i40evf_adapter *)hw->back;
--
--	if (!mem || !mem->va)
--		return I40E_ERR_PARAM;
--	dma_free_coherent(&adapter->pdev->dev, mem->size,
--			  mem->va, (dma_addr_t)mem->pa);
--	return 0;
--}
--
--/**
-- * i40evf_allocate_virt_mem_d - OS specific memory alloc for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to fill out
-- * @size: size of memory requested
-- **/
--i40e_status i40evf_allocate_virt_mem_d(struct i40e_hw *hw,
--				       struct i40e_virt_mem *mem, u32 size)
--{
--	if (!mem)
--		return I40E_ERR_PARAM;
--
--	mem->size = size;
--	mem->va = kzalloc(size, GFP_KERNEL);
--
--	if (mem->va)
--		return 0;
--	else
--		return I40E_ERR_NO_MEMORY;
--}
--
--/**
-- * i40evf_free_virt_mem_d - OS specific memory free for shared code
-- * @hw:   pointer to the HW structure
-- * @mem:  ptr to mem struct to free
-- **/
--i40e_status i40evf_free_virt_mem_d(struct i40e_hw *hw,
--				   struct i40e_virt_mem *mem)
--{
--	if (!mem)
--		return I40E_ERR_PARAM;
--
--	/* it's ok to kfree a NULL pointer */
--	kfree(mem->va);
--
--	return 0;
--}
--
--/**
-  * i40evf_debug_d - OS dependent version of debug printing
-  * @hw:  pointer to the HW structure
-  * @mask: debug level mask
+ 	/* read flush */
+ 	rd32(hw, I40E_VFGEN_RSTAT);
+@@ -167,7 +167,7 @@ void i40evf_irq_enable_queues(struct i40evf_adapter *adapter, u32 mask)
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(i - 1),
+ 			     I40E_VFINT_DYN_CTLN1_INTENA_MASK |
+ 			     I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK |
+-			     I40E_VFINT_DYN_CTLN_CLEARPBA_MASK);
++			     I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK);
+ 		}
+ 	}
+ }
+@@ -185,17 +185,17 @@ static void i40evf_fire_sw_int(struct i40evf_adapter *adapter, u32 mask)
+ 
+ 	if (mask & 1) {
+ 		dyn_ctl = rd32(hw, I40E_VFINT_DYN_CTL01);
+-		dyn_ctl |= I40E_VFINT_DYN_CTLN_SWINT_TRIG_MASK |
++		dyn_ctl |= I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
+ 			   I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK |
+-			   I40E_VFINT_DYN_CTLN_CLEARPBA_MASK;
++			   I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK;
+ 		wr32(hw, I40E_VFINT_DYN_CTL01, dyn_ctl);
+ 	}
+ 	for (i = 1; i < adapter->num_msix_vectors; i++) {
+ 		if (mask & BIT(i)) {
+ 			dyn_ctl = rd32(hw, I40E_VFINT_DYN_CTLN1(i - 1));
+-			dyn_ctl |= I40E_VFINT_DYN_CTLN_SWINT_TRIG_MASK |
++			dyn_ctl |= I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
+ 				   I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK |
+-				   I40E_VFINT_DYN_CTLN_CLEARPBA_MASK;
++				   I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK;
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(i - 1), dyn_ctl);
+ 		}
+ 	}
+@@ -235,7 +235,7 @@ static irqreturn_t i40evf_msix_aq(int irq, void *data)
+ 
+ 
+ 	val = rd32(hw, I40E_VFINT_DYN_CTL01);
+-	val = val | I40E_PFINT_DYN_CTL0_CLEARPBA_MASK;
++	val = val | I40E_VFINT_DYN_CTL01_CLEARPBA_MASK;
+ 	wr32(hw, I40E_VFINT_DYN_CTL01, val);
+ 
+ 	/* schedule work on the private workqueue */
+@@ -1701,34 +1701,34 @@ static void i40evf_adminq_task(struct work_struct *work)
+ 	/* check for error indications */
+ 	val = rd32(hw, hw->aq.arq.len);
+ 	oldval = val;
+-	if (val & I40E_VF_ARQLEN_ARQVFE_MASK) {
++	if (val & I40E_VF_ARQLEN1_ARQVFE_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ARQ VF Error detected\n");
+-		val &= ~I40E_VF_ARQLEN_ARQVFE_MASK;
++		val &= ~I40E_VF_ARQLEN1_ARQVFE_MASK;
+ 	}
+-	if (val & I40E_VF_ARQLEN_ARQOVFL_MASK) {
++	if (val & I40E_VF_ARQLEN1_ARQOVFL_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ARQ Overflow Error detected\n");
+-		val &= ~I40E_VF_ARQLEN_ARQOVFL_MASK;
++		val &= ~I40E_VF_ARQLEN1_ARQOVFL_MASK;
+ 	}
+-	if (val & I40E_VF_ARQLEN_ARQCRIT_MASK) {
++	if (val & I40E_VF_ARQLEN1_ARQCRIT_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ARQ Critical Error detected\n");
+-		val &= ~I40E_VF_ARQLEN_ARQCRIT_MASK;
++		val &= ~I40E_VF_ARQLEN1_ARQCRIT_MASK;
+ 	}
+ 	if (oldval != val)
+ 		wr32(hw, hw->aq.arq.len, val);
+ 
+ 	val = rd32(hw, hw->aq.asq.len);
+ 	oldval = val;
+-	if (val & I40E_VF_ATQLEN_ATQVFE_MASK) {
++	if (val & I40E_VF_ATQLEN1_ATQVFE_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ASQ VF Error detected\n");
+-		val &= ~I40E_VF_ATQLEN_ATQVFE_MASK;
++		val &= ~I40E_VF_ATQLEN1_ATQVFE_MASK;
+ 	}
+-	if (val & I40E_VF_ATQLEN_ATQOVFL_MASK) {
++	if (val & I40E_VF_ATQLEN1_ATQOVFL_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ASQ Overflow Error detected\n");
+-		val &= ~I40E_VF_ATQLEN_ATQOVFL_MASK;
++		val &= ~I40E_VF_ATQLEN1_ATQOVFL_MASK;
+ 	}
+-	if (val & I40E_VF_ATQLEN_ATQCRIT_MASK) {
++	if (val & I40E_VF_ATQLEN1_ATQCRIT_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ASQ Critical Error detected\n");
+-		val &= ~I40E_VF_ATQLEN_ATQCRIT_MASK;
++		val &= ~I40E_VF_ATQLEN1_ATQCRIT_MASK;
+ 	}
+ 	if (oldval != val)
+ 		wr32(hw, hw->aq.asq.len, val);
 -- 
 2.4.3
