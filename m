@@ -1,104 +1,101 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/3] tipc: interrupt link
-	synchronization when a link goes down
-Date: Thu, 20 Aug 2015 02:12:55 -0400
-Message-ID: <1440051176-32672-3-git-send-email-jon.maloy@ericsson.com>
-References: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
+From: Premkumar Jonnala <pjonnala@broadcom.com>
+Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
+ bridges and switch devices.
+Date: Thu, 20 Aug 2015 06:20:18 +0000
+Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E30F1@SJEXCHMB14.corp.ad.broadcom.com>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
+ <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E308A@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bC4aJuk6rFThp-EAmKLkm8QRKXS2EtFF0uauCDUV5WufA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:43333 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751283AbbHTGUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 02:20:23 -0400
+In-Reply-To: <CAE4R7bC4aJuk6rFThp-EAmKLkm8QRKXS2EtFF0uauCDUV5WufA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When we introduced the new link failover/synch mechanism
-in commit 6e498158a827fd515b514842e9a06bdf0f75ab86
-("tipc: move link synch and failover to link aggregation level"),
-we missed the case when the non-tunnel link goes down during the link
-synchronization period. In this case the tunnel link will remain in
-state LINK_SYNCHING, something leading to unpredictable behavior when
-the failover procedure is initiated.
-
-In this commit, we ensure that the node and remaining link goes
-back to regular communication state (SELF_UP_PEER_UP/LINK_ESTABLISHED)
-when one of the parallel links goes down. We also ensure that we don't
-re-enter synch mode if subsequent SYNCH packets arrive on the remaining
-link.
-
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c |  2 +-
- net/tipc/node.c | 11 ++++++++---
- 2 files changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index f067e54..7058c86 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -351,11 +351,11 @@ int tipc_link_fsm_evt(struct tipc_link *l, int evt)
- 			l->state = LINK_RESET;
- 			break;
- 		case LINK_ESTABLISH_EVT:
-+		case LINK_SYNCH_END_EVT:
- 			break;
- 		case LINK_SYNCH_BEGIN_EVT:
- 			l->state = LINK_SYNCHING;
- 			break;
--		case LINK_SYNCH_END_EVT:
- 		case LINK_FAILOVER_BEGIN_EVT:
- 		case LINK_FAILOVER_END_EVT:
- 		default:
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 004834b..937cc61 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -423,6 +423,8 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
- 
- 	/* There is still a working link => initiate failover */
- 	tnl = node_active_link(n, 0);
-+	tipc_link_fsm_evt(tnl, LINK_SYNCH_END_EVT);
-+	tipc_node_fsm_evt(n, NODE_SYNCH_END_EVT);
- 	n->sync_point = tnl->rcv_nxt + (U16_MAX / 2 - 1);
- 	tipc_link_tnl_prepare(l, tnl, FAILOVER_MSG, xmitq);
- 	tipc_link_reset(l);
-@@ -1140,6 +1142,10 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
- 		return true;
- 	}
- 
-+	/* No synching needed if only one link */
-+	if (!pl || !tipc_link_is_up(pl))
-+		return true;
-+
- 	/* Initiate or update synch mode if applicable */
- 	if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG)) {
- 		syncpt = iseqno + exp_pkts - 1;
-@@ -1158,9 +1164,8 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
- 
- 	/* Open tunnel link when parallel link reaches synch point */
- 	if ((n->state == NODE_SYNCHING) && tipc_link_is_synching(l)) {
--		if (pl)
--			dlv_nxt = mod(pl->rcv_nxt - skb_queue_len(pl->inputq));
--		if (!pl || more(dlv_nxt, n->sync_point)) {
-+		dlv_nxt = pl->rcv_nxt - mod(skb_queue_len(pl->inputq));
-+		if (more(dlv_nxt, n->sync_point)) {
- 			tipc_link_fsm_evt(l, LINK_SYNCH_END_EVT);
- 			tipc_node_fsm_evt(n, NODE_SYNCH_END_EVT);
- 			return true;
--- 
-1.9.1
-
-
-------------------------------------------------------------------------------
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2NvdHQgRmVsZG1hbiBb
+bWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgQXVndXN0IDIwLCAy
+MDE1IDExOjA5IEFNDQo+IFRvOiBQcmVta3VtYXIgSm9ubmFsYQ0KPiBDYzogbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBicmlkZ2U6IEVuYWJsZSBjb25maWd1
+cmF0aW9uIG9mIGFnZWluZyBpbnRlcnZhbCBmb3IgYnJpZGdlcw0KPiBhbmQgc3dpdGNoIGRldmlj
+ZXMuDQo+IA0KPiBPbiBXZWQsIEF1ZyAxOSwgMjAxNSBhdCAxMDoxMiBQTSwgUHJlbWt1bWFyIEpv
+bm5hbGENCj4gPHBqb25uYWxhQGJyb2FkY29tLmNvbT4gd3JvdGU6DQo+ID4NCj4gPg0KPiA+PiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBTY290dCBGZWxkbWFuIFttYWls
+dG86c2ZlbGRtYUBnbWFpbC5jb21dDQo+ID4+IFNlbnQ6IFRodXJzZGF5LCBBdWd1c3QgMjAsIDIw
+MTUgMTA6MzEgQU0NCj4gPj4gVG86IFByZW1rdW1hciBKb25uYWxhDQo+ID4+IENjOiBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnDQo+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogRW5hYmxl
+IGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5nIGludGVydmFsIGZvcg0KPiBicmlkZ2VzDQo+ID4+IGFu
+ZCBzd2l0Y2ggZGV2aWNlcy4NCj4gPj4NCj4gPj4gT24gV2VkLCBBdWcgMTksIDIwMTUgYXQgOTo1
+NiBQTSwgUHJlbWt1bWFyIEpvbm5hbGENCj4gPj4gPHBqb25uYWxhQGJyb2FkY29tLmNvbT4gd3Jv
+dGU6DQo+ID4+ID4gVGhhbmsgeW91IFNjb3R0LiAgUGxlYXNlIHNlZSBpbmxpbmUuDQo+ID4+ID4N
+Cj4gPj4gPj4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gPj4gPj4gRnJvbTog
+U2NvdHQgRmVsZG1hbiBbbWFpbHRvOnNmZWxkbWFAZ21haWwuY29tXQ0KPiA+PiA+PiA+PiBTZW50
+OiBUdWVzZGF5LCBBdWd1c3QgMTgsIDIwMTUgMTI6NDggUE0NCj4gPj4gPj4gPj4gVG86IFByZW1r
+dW1hciBKb25uYWxhDQo+ID4+ID4+ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4+
+ID4+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGJyaWRnZTogRW5hYmxlIGNvbmZpZ3VyYXRpb24g
+b2YgYWdlaW5nIGludGVydmFsIGZvcg0KPiA+PiA+PiBicmlkZ2VzDQo+ID4+ID4+ID4+IGFuZCBz
+d2l0Y2ggZGV2aWNlcy4NCj4gPj4gPj4gPj4NCj4gPj4gPj4gPj4NCj4gPj4gPj4gPj4NCj4gPj4g
+Pj4gPj4gT24gRnJpLCAxNCBBdWcgMjAxNSwgUHJlbWt1bWFyIEpvbm5hbGEgd3JvdGU6DQo+ID4+
+ID4+ID4+DQo+ID4+ID4+ID4+ID4gQnJpZGdlIGRldmljZXMgaGF2ZSBhZ2VpbmcgaW50ZXJ2YWwg
+dXNlZCB0byBhZ2Ugb3V0IE1BQyBhZGRyZXNzZXMNCj4gPj4gPj4gPj4gPiBmcm9tIEZEQi4gIFRo
+aXMgYWdlaW5nIGludGVydmFsIHdhcyBub3QgY29uZmlndXJhdGJsZS4NCj4gPj4gPj4gPj4gPg0K
+PiA+PiA+PiA+PiA+IEVuYWJsZSBuZXRsaW5rIGJhc2VkIGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5n
+IGludGVydmFsIGZvciBicmlkZ2VzIGFuZA0KPiA+PiA+PiA+PiA+IHN3aXRjaCBkZXZpY2VzLiAg
+VGhlIGFnZWluZyBpbnRlcnZhbCBjaGFuZ2VzIHRoZSB0aW1lciB1c2VkIHRvIHB1cmdlDQo+ID4+
+ID4+ID4+ID4gaW5hY3RpdmUgRkRCIGVudHJpZXMgaW4gYnJpZGdlcy4gIFRoZSBhZ2VpbmcgaW50
+ZXJ2YWwgY29uZmlnIGlzDQo+ID4+ID4+ID4+ID4gcHJvcGFnYXRlZCB0byBzd2l0Y2ggZGV2aWNl
+cywgc28gdGhhdCBwbGF0Zm9ybSBvciBoYXJkd2FyZSBiYXNlZA0KPiA+PiA+PiA+PiA+IGFnZWlu
+ZyB3b3JrcyBhY2NvcmRpbmcgdG8gY29uZmlndXJhdGlvbi4NCj4gPj4gPj4gPj4gPg0KPiA+PiA+
+PiA+PiA+IFNpZ25lZC1vZmYtYnk6IFByZW1rdW1hciBKb25uYWxhIDxwam9ubmFsYUBicm9hZGNv
+bS5jb20+DQo+ID4+ID4+ID4+DQo+ID4+ID4+ID4+IEhpIFByZW1rdW1hciwNCj4gPj4gPj4gPj4N
+Cj4gPj4gPj4gPj4gSSBhZ3JlZSB3aXRoIFJvb3BhIHRoYXQgd2Ugc2hvdWxkIHVzZSBleGlzdGlu
+Zw0KPiBJRkxBX0JSX0FHRUlOR19USU1FLg0KPiA+PiA+PiA+DQo+ID4+ID4+ID4gV2hhdCBpcyB0
+aGUgbW90aXZhdGlvbiBmb3IgdXNpbmcgJ2lwIGxpbmsnIGNvbW1hbmQgdG8gY29uZmlndXJlIGJy
+aWRnZQ0KPiA+PiA+PiBhdHRyaWJ1dGVzPyAgSU1ITywNCj4gPj4gPj4gPiBicmlkZ2UgY29tbWFu
+ZCBpcyBiZXR0ZXIgc3VpdGVkIGZvciB0aGF0Lg0KPiA+PiA+Pg0KPiA+PiA+PiBDYW4geW91IGV4
+dGVuZCBicmlkZ2UgY29tbWFuZCB0byBhbGxvdyBzZXR0aW5nL2dldHRpbmcgdGhlc2UgYnJpZGdl
+DQo+ID4+ID4+IGF0dHJzPyAgTG9va3MgbGlrZSB5b3UgY29uc3RydWN0IGEgUlRNX05FV0xJTksg
+SUZMQV9JTkZPX0RBVEEgbXNnLg0KPiBObw0KPiA+PiA+PiBjaGFuZ2VzIG5lZWRlZCB0byB0aGUg
+a2VybmVsLg0KPiA+PiA+Pg0KPiA+PiA+PiBicmlkZ2UgbGluayBzZXQgZGV2IGJyMCBhZ2Vpbmdf
+dGltZSAxMDAwDQo+ID4+ID4+DQo+ID4+ID4+ICAtLW9yLS0NCj4gPj4gPj4NCj4gPj4gPj4gaXAg
+bGluayBzZXQgZGV2IGJyMCB0eXBlIGJyaWRnZSBhZ2VpbmdfdGltZSAxMDAwDQo+ID4+ID4NCj4g
+Pj4gPiBJJ2QgcHJlZmVyIHRvIGRlcHJlY2F0ZS9yZW1vdmUgYWxsIHRoZSA2IG9wdGlvbnMgb24g
+dGhlICdpcCBsaW5rJyBjb21tYW5kDQo+IGFuZA0KPiA+PiBtb3ZlIHRoZW0gdG8gJ2JyaWRnZScg
+Y29tbWFuZC4NCj4gPj4NCj4gPj4gV2UncmUgcHJvYmFibHkgc3R1Y2sgd2l0aCB0aGUgJ2lwIGxp
+bmsnIGNvbW1hbmRzLCBzaW5jZSB0aGV5J3JlDQo+ID4+IGFscmVhZHkgcmVsZWFzZSBpbiB0aGUg
+d2lsZCBhbmQgZm9sa3MgbWF5IGhhdmUgZGVwZW5kZW5jeSBvbiB0aGVtLg0KPiA+PiBIb3dldmVy
+LCB3aGVuIGxvb2tpbmcgYXQgaXByb3V0ZTIgY29kZSwgbG9vayBmb3Igb3Bwb3J0dW5pdHkgdG8g
+dXNlDQo+ID4+IHNhbWUgY29kZSBmb3IgYm90aCBwYXRocy4NCj4gPg0KPiA+IE9rLiAgVGhlbiB3
+ZSBjYW4gaGF2ZSBib3RoIGlwIGFuZCBicmlkZ2UgY29tbWFuZHMgc3VwcG9ydGluZyB0aGVzZSBv
+cHRpb25zLA0KPiBhbmQgZnJlZXplIHRoZSAnaXAgbGluaycgY29tbWFuZCBhcyBpdA0KPiA+IGV4
+aXN0cyB0b2RheS4gIEFueSBuZXcgb3B0aW9ucyBpbiBmdXR1cmUgc2hvdWxkIGJlIGFkZGVkIHRv
+IHRoZSBicmlkZ2UNCj4gY29tbWFuZC4gIERvZXMgdGhhdCBzb3VuZCBva2F5Pw0KPiANCj4gSXQg
+d291bGQgYmUgaWRlYWwgaWYgYm90aCBjb21tYW5kIHBhdGhzIHVzZSBzYW1lIGNvZGUgc28gbmV3
+IG9wdGlvbnMNCj4gd29yayB3aXRoIGVpdGhlciBjb21tYW5kLiAgVGhlcmUgYXJlIG90aGVyIGV4
+YW1wbGVzIHdoZXJlIHNoYXJlZCBjb2RlDQo+IGFwcHJvYWNoIGNvdWxkIGJlIHVzZWQgdG8gY3Jl
+YXRlIHN5bm9ueW1vdXMgY29tbWFuZHM6DQo+IA0KPiBpcCBsaW5rIGFkZCBuYW1lIGJyMCB0eXBl
+IGJyaWRnZSAgICAgICAtLW9yLS0gYnJpZGdlIGFkZCBkZXYgYnIwDQo+IGlwIGxpbmsgZGVsIGJy
+MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAtLW9yLS0gYnJpZGdlIGRlbCBkZXYg
+YnIwDQo+IGlwIGxpbmsgc2V0IGRldiBzdzFwMSBtYXN0ZXIgYnIwICAgICAgIC0tb3ItLSBicmlk
+Z2UgbGluayBhZGQgZGV2IHN3MXAxIGJyMA0KPiBpcCBsaW5rIHNldCBkZXYgc3cxcDEgbm9tYXN0
+ZXIgYnIwICAgIC0tb3ItLSBicmlkZ2UgbGluayBkZWwgc3cxcDENCj4gDQo+IFRoZXJlIGlzIHNv
+bWUgcHJlY2VkZW5jZSBvZiBzeW5vbnltb3VzIGJyaWRnZSBjb21tYW5kczoNCj4gDQo+IGlwIGxp
+bmsgc2V0IGRldiBzdzFwMSB0eXBlIGJyaWRnZV9zbGF2ZSBmbG9vZCBvbg0KPiAtLW9yLS0NCj4g
+YnJpZGdlIGxpbmsgc2V0IGRldiBzdzFwMSBmbG9vZCBvbg0KPiANCj4gQnV0IEkgZG9uJ3Qga25v
+dyBpZiB0aGUgc2FtZSBjb2RlIHBhdGggaXMgdXNlZCBmb3IgYm90aCBvZiB0aGVzZS4gIChJdCBz
+aG91bGQpLg0KDQpTb3VuZHMgcmVhc29uYWJsZS4gIEknbGwgdHJ5IHRvIGZvbGxvdyB0aGlzIGFw
+cHJvYWNoIC0gd2l0aCBjb2RlIHNoYXJpbmcgcmVxdWlyZW1lbnQgaW4gbWluZC4NCg0KLVByZW0N
+Cj4gDQo+IC1zY290dA0K
