@@ -1,61 +1,89 @@
-From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Subject: [PATCH net] netlink: mmap: fix tx type check
-Date: Thu, 20 Aug 2015 12:43:53 +0900
-Message-ID: <20150820034353.GA728@gmail.com>
-References: <20150722131730.GA18037@gmail.com>
- <20150812082824.GA13385@gmail.com>
- <20150812.163819.620222685130362816.davem@davemloft.net>
- <20150814085807.GA30443@gmail.com>
- <55CDBC84.8020605@iogearbox.net>
- <55CDC51D.1060204@iogearbox.net>
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Subject: Re^2:: [PATCH] usbnet: dereference after null check in
+ usbnet_start_xmit() and __usbnet_read_cmd()
+Date: Thu, 20 Aug 2015 03:59:15 +0000 (GMT)
+Message-ID: <140453008.311141440043155179.JavaMail.weblogic@ep2mlwas02d>
+Reply-To: vivek.bhagat@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>, fw@strlen.de
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nitin Jhanwar <nitin.j@samsung.com>,
+	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>
+To: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33541 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbbHTDn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 23:43:59 -0400
-Received: by padfo6 with SMTP id fo6so11640369pad.0
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 20:43:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55CDC51D.1060204@iogearbox.net>
+Received: from mailout2.samsung.com ([203.254.224.25]:41339 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751462AbbHTD7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 23:59:20 -0400
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NTD01IND4ESE650@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Thu, 20 Aug 2015 12:59:16 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I can't send netlink message via mmaped netlink socket since
-
-    commit: a8866ff6a5bce7d0ec465a63bc482a85c09b0d39
-    netlink: make the check for "send from tx_ring" deterministic
-
-msg->msg_iter.type is set to WRITE (1) at
-
-    SYSCALL_DEFINE6(sendto, ...
-        import_single_range(WRITE, ...
-            iov_iter_init(1, WRITE, ...
-
-call path, so that we need to check the type by iter_is_iovec()
-to accept the WRITE.
-
-Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
----
- net/netlink/af_netlink.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 85ccd8b..4444687 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2456,7 +2456,7 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 	 * sendmsg(), but that's what we've got...
- 	 */
- 	if (netlink_tx_is_mmaped(sk) &&
--	    msg->msg_iter.type == ITER_IOVEC &&
-+	    iter_is_iovec(&msg->msg_iter) &&
- 	    msg->msg_iter.nr_segs == 1 &&
- 	    msg->msg_iter.iov->iov_base == NULL) {
- 		err = netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group,
--- 
-1.7.10.4
+RGVhciBCam9ybiwNCg0KPj4gVGhpcyBpcyB3cm9uZy4gIFRoZXJlIGFyZSB1c2JuZXQgbWluaWRy
+aXZlcnMgZGVwZW5kaW5nIG9uIGluZm8tPnR4X2ZpeHVwDQo+PiBiZWluZyBjYWxsZWQgd2l0aCBh
+IE5VTEwgc2tiLg0KSSBhbSB1c2luZyBheDg4MTc5XzE3OGEgZHJpdmVyIGFuZCBub3QgZmFtaWxp
+YXIgd2l0aCB1c2JuZXQgbWluaWRyaXZlcnMuDQpXaGVuIGF4ODgxNzlfdHhfZml4dXAoKSBpcyBj
+YWxsZWQgd2l0aCBOVUxMIHNrYiBmcm9tDQp1c2JuZXRfc3RhcnRfeG1pdCgpLCBJIGdldCBhIGtl
+cm5lbCBjcmFzaC4NCiAgICBCYWNrdHJhY2U6DQogICAgMDk6MTQ6NTY5PlswLTU1My41NTk4XSBb
+PGJlZmFhMTk0Pl0gKGF4ODgxNzlfdHhfZml4dXArMHgwLzB4MTZjIFtheDg4MTc5XzE3OGFdKSBm
+cm9tIFs8YmVmZWY3YTg+XSAodXNibmV0X3N0YXJ0X3htaXQrMHhhDQogICAgMDk6MTQ6NTY5PjAv
+MHg0MjAgW3VzYm5ldF0pDQogICAgMDk6MTQ6NTcwPlswLTU1My41NzExXSAgcjY6Y2I1ZWMyODAg
+cjU6MDAwMDAwMDAgcjQ6Y2I1ZWJkNDANCiAgICAwOToxNDo1NzI+WzAtNTUzLjU3NTVdIFs8YmVm
+ZWY3MDg+XSAodXNibmV0X3N0YXJ0X3htaXQrMHgwLzB4NDIwIFt1c2JuZXRdKSBmcm9tIFs8YzA0
+MDAwNDA+XSAoZGV2X2hhcmRfc3RhcnRfeG1pdCsweDJlYy8NCiAgICAwOToxNDo1NzI+MHg1NTgp
+DQogICAgMDk6MTQ6NTcyPlswLTU1My41ODU4XSBbPGMwM2ZmZDU0Pl0gKGRldl9oYXJkX3N0YXJ0
+X3htaXQrMHgwLzB4NTU4KQ0KSW4gY2FzZSBza2IgTlVMTCBjaGVjayBjYW4gbm90IGJlIGFkZGVk
+IGluIHVzYm5ldF9zdGFydF94bWl0KCkNCnRoZW4gTlVMTCBjaGVjayBpcyByZXF1aXJlZCBpbiBh
+eDg4MTc5X3R4X2ZpeHVwKCkgb3IgYXNpeF90eF9maXh1cCgpLg0KDQo+PiBUaGlzIGlzIGFsc28g
+d3JvbmcuICBJdCBtYWtlcyBfX3VzYm5ldF9yZWFkX2NtZCgpIHJldHVybiAtRU5PTUVNIGlmDQo+
+PiBjYWxsZWQgd2l0aCBhIE5VTEwgZGF0YSBwb2ludGVyLg0KPj5ObyBtZW1jcHkgd2lsbCBoYXBw
+ZW4gaW4gdGhpcyBjYXNlIGJlY2F1c2UgdXNiX2NvbnRyb2xfbXNnDQo+PmNhbiBvbmx5IHJldHVy
+biAwIG9yIGFuIGVycm9yDQpZZXMsIHNvbWUgb2YgdGhlIFVTQiBjb250cm9sIG1lc3NhZ2UgaXMg
+c2VudCBmcm9tIGhvc3QgdG8gZ2FkZ2V0IHdpdGhvdXQNCmV4cGVjdGluZyBhbnkgZGF0YSBpbiBy
+ZXR1cm4uIFRoaXMgaXMgbXkgbWlzdGFrZS4gSSBhcG9sb2dpc2UgZm9yIHRoaXMuDQoNCg0KQmVz
+dCBSZWdhcmRzLA0KVml2ZWsNCg0KLS0tLS0tLSBPcmlnaW5hbCBNZXNzYWdlIC0tLS0tLS0NClNl
+bmRlciA6IEJqw7hybiBNb3JrPGJqb3JuQG1vcmsubm8+DQpEYXRlIDogQXVnIDE5LCAyMDE1IDE3
+OjIxIChHTVQrMDU6MzApDQpUaXRsZSA6IFJlOiBbUEFUQ0hdIHVzYm5ldDogZGVyZWZlcmVuY2Ug
+YWZ0ZXIgbnVsbCBjaGVjayBpbiB1c2JuZXRfc3RhcnRfeG1pdCgpIGFuZCBfX3VzYm5ldF9yZWFk
+X2NtZCgpDQoNClZpdmVrIEt1bWFyIEJoYWdhdCB3cml0ZXM6DQoNCj4gdXNibmV0X3N0YXJ0X3ht
+aXQoKSAtIElmIGluZm8tPnR4X2ZpeHVwIGlzIG5vdCBkZWZpbmVkIGJ5IGNsYXNzIGRyaXZlciwN
+Cj4gTlVMTCBjaGVjayBkb2VzIG5vdCBoYXBwZW4gZm9yIHNrYiBwb2ludGVyIGFuZCBsZWFkcyB0
+byBOVUxMIGRlcmVmZXJlbmNlLg0KPiBfX3VzYm5ldF9yZWFkX2NtZCgpIC0gaWYgZGF0YSBwb2lu
+dGVyIGlzIHBhc3NlZCBhcyBOVUxMLCBtZW1jcHkgd2lsbA0KPiBkZXJlZmVyZW5jZSBOVUxMIHBv
+aW50ZXIuDQoNClRoYXQncyB0d28gY29tcGxldGVseSBkaWZmZXJlbnQgaXNzdWVzLiAgTWl4aW5n
+IHRoZW0gaW4gYSBzaW5nbGUgcGF0Y2gNCmlzIG9ubHkgY29uZnVzaW5nIHRoaW5ncy4NCg0KDQo+
+IFNpZ25lZC1vZmYtYnk6IFZpdmVrIEt1bWFyIEJoYWdhdCANCj4gLS0tDQo+ICBkcml2ZXJzL25l
+dC91c2IvdXNibmV0LmMgfCAgICA1ICsrKystDQo+ICAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRp
+b25zKCspLCAxIGRlbGV0aW9uKC0pDQo+DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC91c2Iv
+dXNibmV0LmMgYi9kcml2ZXJzL25ldC91c2IvdXNibmV0LmMNCj4gaW5kZXggM2M4NmIxMC4uZWM0
+ZDIyNCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvdXNiL3VzYm5ldC5jDQo+ICsrKyBiL2Ry
+aXZlcnMvbmV0L3VzYi91c2JuZXQuYw0KPiBAQCAtMTI5NCw2ICsxMjk0LDggQEAgbmV0ZGV2X3R4
+X3QgdXNibmV0X3N0YXJ0X3htaXQgKHN0cnVjdCBza19idWZmICpza2IsDQo+ICANCj4gICBpZiAo
+c2tiKQ0KPiAgIHNrYl90eF90aW1lc3RhbXAoc2tiKTsNCj4gKyBlbHNlDQo+ICsgZ290byBkcm9w
+Ow0KPiAgDQo+ICAgLy8gc29tZSBkZXZpY2VzIHdhbnQgZnVua3kgVVNCLWxldmVsIGZyYW1pbmcs
+IGZvcg0KPiAgIC8vIHdpbjMyIGRyaXZlciAodXN1YWxseSkgYW5kL29yIGhhcmR3YXJlIHF1aXJr
+cw0KDQoNClRoaXMgaXMgd3JvbmcuICBUaGVyZSBhcmUgdXNibmV0IG1pbmlkcml2ZXJzIGRlcGVu
+ZGluZyBvbiBpbmZvLT50eF9maXh1cA0KYmVpbmcgY2FsbGVkIHdpdGggYSBOVUxMIHNrYi4NCg0K
+DQo+IEBAIC0xOTA2LDcgKzE5MDgsOCBAQCBzdGF0aWMgaW50IF9fdXNibmV0X3JlYWRfY21kKHN0
+cnVjdCB1c2JuZXQgKmRldiwgdTggY21kLCB1OCByZXF0eXBlLA0KPiAgIGJ1ZiA9IGttYWxsb2Mo
+c2l6ZSwgR0ZQX0tFUk5FTCk7DQo+ICAgaWYgKCFidWYpDQo+ICAgZ290byBvdXQ7DQo+IC0gfQ0K
+PiArIH0gZWxzZQ0KPiArIGdvdG8gb3V0Ow0KPiAgDQo+ICAgZXJyID0gdXNiX2NvbnRyb2xfbXNn
+KGRldi0+dWRldiwgdXNiX3JjdmN0cmxwaXBlKGRldi0+dWRldiwgMCksDQo+ICAgICAgICAgY21k
+LCByZXF0eXBlLCB2YWx1ZSwgaW5kZXgsIGJ1Ziwgc2l6ZSwNCg0KDQpUaGlzIGlzIGFsc28gd3Jv
+bmcuICBJdCBtYWtlcyBfX3VzYm5ldF9yZWFkX2NtZCgpIHJldHVybiAtRU5PTUVNIGlmDQpjYWxs
+ZWQgd2l0aCBhIE5VTEwgZGF0YSBwb2ludGVyLiAgSSBkb24ndCBrbm93IGlmIGl0IGlzIHVzZWQs
+IGJ1dCBpdCdzDQpwZXJmZWN0bHkgdmFsaWQgdG8gY2FsbCBfX3VzYm5ldF9yZWFkX2NtZCgpIHdp
+dGggZGF0YSA9PSBOVUxMIGlmDQpzaXplID09IDAuIE5vIG1lbWNweSB3aWxsIGhhcHBlbiBpbiB0
+aGlzIGNhc2UgYmVjYXVzZSB1c2JfY29udHJvbF9tc2cNCmNhbiBvbmx5IHJldHVybiAwIG9yIGFu
+IGVycm9yDQoNClBsZWFzZSBkb24ndCBzdWJtaXQgYW55IG1vcmUgc3VjaCBwYXRjaGVzIHdpdGhv
+dXQgcHJvcGVyIGp1c3RpZmljYXRpb24uDQpZb3UgY2Fubm90IHRydXN0IHRoYXQgc29tZW9uZSB3
+aWxsIGFjdHVhbGx5IHRha2UgdGhlIHRpbWUgdG8gc2FuaXR5DQpjaGVjayB5b3VyIGNoYW5nZXMu
+ICBQYXRjaGVzIGNsYWltaW5nIHRvIGZpeCBhIE5VTEwgZGVyZWZlcmVuY2Ugc2hvdWxkDQphdCBs
+ZWFzdCBwcm92aWRlIGFuIG9vcHMuDQoNCg0KQmrDuHJu
