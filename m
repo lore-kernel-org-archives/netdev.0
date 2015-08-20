@@ -1,68 +1,82 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: Re^2:: [PATCH] usbnet: dereference after null check in usbnet_start_xmit() and __usbnet_read_cmd()
-Date: Thu, 20 Aug 2015 09:16:31 +0200
-Message-ID: <87zj1mctv4.fsf@nemi.mork.no>
-References: <140453008.311141440043155179.JavaMail.weblogic@ep2mlwas02d>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 3/3] iwlwifi: mvm: transfer the truesize to the last
+ TSO segment
+Date: Thu, 20 Aug 2015 07:21:33 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E825B80@hasmsx107.ger.corp.intel.com>
+References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439994266.6610.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E8253CF@hasmsx107.ger.corp.intel.com>
+ <1440016762.6610.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nitin Jhanwar <nitin.j@samsung.com>,
-	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>
-To: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:57907 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751670AbbHTHQp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 03:16:45 -0400
-In-Reply-To: <140453008.311141440043155179.JavaMail.weblogic@ep2mlwas02d>
-	(Vivek Kumar Bhagat's message of "Thu, 20 Aug 2015 03:59:15 +0000
-	(GMT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Vivek Kumar Bhagat <vivek.bhagat@samsung.com> writes:
-
-> Dear Bjorn,
->
->>> This is wrong.  There are usbnet minidrivers depending on info->tx_=
-fixup
->>> being called with a NULL skb.
-> I am using ax88179_178a driver and not familiar with usbnet minidrive=
-rs.
-> When ax88179_tx_fixup() is called with NULL skb from
-> usbnet_start_xmit(), I get a kernel crash.
->     Backtrace:
->     09:14:569>[0-553.5598] [<befaa194>] (ax88179_tx_fixup+0x0/0x16c [=
-ax88179_178a]) from [<befef7a8>] (usbnet_start_xmit+0xa
->     09:14:569>0/0x420 [usbnet])
->     09:14:570>[0-553.5711]  r6:cb5ec280 r5:00000000 r4:cb5ebd40
->     09:14:572>[0-553.5755] [<befef708>] (usbnet_start_xmit+0x0/0x420 =
-[usbnet]) from [<c0400040>] (dev_hard_start_xmit+0x2ec/
->     09:14:572>0x558)
->     09:14:572>[0-553.5858] [<c03ffd54>] (dev_hard_start_xmit+0x0/0x55=
-8)
-> In case skb NULL check can not be added in usbnet_start_xmit()
-> then NULL check is required in ax88179_tx_fixup() or asix_tx_fixup().
-
-Yes.
-
-Or you could add the check to usbnet_start_xmit() if you remove the ugl=
-y
-hack in the minidrivers calling usbnet_start_xmit with skb =3D=3D NULL =
-first.
-This is cdc_ncm and those depending on cdc_ncm.
-
-But it would also be interesting to know why ax88179_tx_fixup() is
-called with a NULL skb. I believe this should not happen.  Do you have
-any idea?
-
-cdc_ncm, which is the driver depending on the NULL skb input, will
-explicitly call
-  usbnet_start_xmit(NULL, dev->net);
-
-I don't know any other way this could happen.
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
 
-Bj=C3=B8rn
+On 08/19/2015 11:39 PM, Eric Dumazet wrote:
+> On Wed, 2015-08-19 at 19:17 +0000, Grumbach, Emmanuel wrote:
+> 
+>> Hm.. how would net/core/tso.c avoid this?
+> 
+> Because a driver using these helpers keep around the original LSO packet
+> and frees it normally at TX completion time.
+> 
+>> I can't see anything related to truesize there.
+>> Note that this work since it is guaranteed that we release the skbs in
+>> order.
+>>
+>>>
+>>> (BTW TCP packets do not have sock_wfree as destructor but tcp_wfree(),
+>>> yet we want backpressure mostly for TCP stack (TCP Small Queues))
+>>>
+>>>
+>>
+>> I am not sure I follow here.
+>> You want me to test:
+>> if (skb_gso->destructor == tcp_wfree) ?
+> 
+> 
+> Yes.
+> 
+> Look for example at tcp_gso_segment() (called from skb_gso_segment())
+> 
+> copy_destructor = gso_skb->destructor == tcp_wfree;
+> ...
+>         /* Following permits TCP Small Queues to work well with GSO :
+>          * The callback to TCP stack will be called at the time last frag
+>          * is freed at TX completion, and not right now when gso_skb
+>          * is freed by GSO engine
+>          */
+>         if (copy_destructor) {
+>                 swap(gso_skb->sk, skb->sk);
+>                 swap(gso_skb->destructor, skb->destructor);
+>                 sum_truesize += skb->truesize;
+>                 atomic_add(sum_truesize - gso_skb->truesize,
+>                            &skb->sk->sk_wmem_alloc);
+>         }
+> 
+> 
+>>
+>> I checked that code using iperf and saw that I don't get into this if,
+>> but I (probably wrongly) assumed that other applications would set a
+>> flag on the socket (forgive my ignorance) that would make this if be taken.
+> 
+> If you do not see skb->destructor == tcp_wfree, then something is
+> definitely wrong on your setup.
+> 
+
+tcp_wfree isn't exported. I can change that. It will be a challenge for
+backport though. Hm....
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
