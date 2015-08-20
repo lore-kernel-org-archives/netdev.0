@@ -1,75 +1,90 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH v3 net-next 02/13] ip_tunnels: use u8/u16/u32
-Date: Thu, 20 Aug 2015 13:56:21 +0200
-Message-ID: <dc25219e409fae2e363c25caa3b9a098bcc4ee81.1440071726.git.jbenc@redhat.com>
-References: <cover.1440071726.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2015-05-06
+Date: Thu, 20 Aug 2015 14:13:53 +0200
+Message-ID: <55D5C481.5050200@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="JdnlapuHAVimrSVojdbKec3F3wuTGOhDM"
+Cc: linux-can@vger.kernel.org, davem@davemloft.net,
+	kernel@pengutronix.de, David Jander <david@protonic.nl>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40594 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751898AbbHTL5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 07:57:18 -0400
-In-Reply-To: <cover.1440071726.git.jbenc@redhat.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:60302 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448AbbHTMOH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 08:14:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ip_tunnels.h include file uses mixture of __u16 and u16 (etc.) types.
-Unify it to the non-underscore variants.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--JdnlapuHAVimrSVojdbKec3F3wuTGOhDM
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Hello David,
+
+this is a pull request of a two patches for net-next.
+
+The first patch is by Nik Nyby and fixes a typo in a function name. The
+second patch by Lucas Stach demotes register output to debug level.
+
+regards,
+Marc
+
 ---
- include/net/ip_tunnels.h | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 81cf11c931e4..ca173f22f07f 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -32,8 +32,8 @@ struct ip_tunnel_key {
- 	__be32			ipv4_src;
- 	__be32			ipv4_dst;
- 	__be16			tun_flags;
--	__u8			ipv4_tos;
--	__u8			ipv4_ttl;
-+	u8			ipv4_tos;
-+	u8			ipv4_ttl;
- 	__be16			tp_src;
- 	__be16			tp_dst;
- };
-@@ -64,8 +64,8 @@ struct ip_tunnel_6rd_parm {
- #endif
- 
- struct ip_tunnel_encap {
--	__u16			type;
--	__u16			flags;
-+	u16			type;
-+	u16			flags;
- 	__be16			sport;
- 	__be16			dport;
- };
-@@ -95,8 +95,8 @@ struct ip_tunnel {
- 					 * arrived */
- 
- 	/* These four fields used only by GRE */
--	__u32		i_seqno;	/* The last seen seqno	*/
--	__u32		o_seqno;	/* The last output seqno */
-+	u32		i_seqno;	/* The last seen seqno	*/
-+	u32		o_seqno;	/* The last output seqno */
- 	int		tun_hlen;	/* Precalculated header length */
- 	int		mlink;
- 
-@@ -273,8 +273,8 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
- 
- int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
- int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
--		  __be32 src, __be32 dst, __u8 proto,
--		  __u8 tos, __u8 ttl, __be16 df, bool xnet);
-+		  __be32 src, __be32 dst, u8 proto,
-+		  u8 tos, u8 ttl, __be16 df, bool xnet);
- 
- struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb, bool gre_csum,
- 					 int gso_type_mask);
--- 
-1.8.3.1
+The following changes since commit 824e7383e92815cb591793c74cc836aa5165f7=
+f8:
+
+  lwtunnel: Fix the sparse warnings in fib_encap_match (2015-08-19 17:37:=
+51 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.3-20150820
+
+for you to fetch changes up to 7a4b6c860e7268a79545c30882928b234dd1655d:
+
+  can: flexcan: demote register output to debug level (2015-08-20 10:52:5=
+4 +0200)
+
+----------------------------------------------------------------
+linux-can-next-for-4.3-20150820
+
+----------------------------------------------------------------
+Lucas Stach (1):
+      can: flexcan: demote register output to debug level
+
+Nik Nyby (1):
+      can: gs_usb: Fix typo in function name
+
+ drivers/net/can/flexcan.c    | 2 +-
+ drivers/net/can/usb/gs_usb.c | 8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--JdnlapuHAVimrSVojdbKec3F3wuTGOhDM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJV1cSCAAoJEP5prqPJtc/Hu5MH/A+fpojzSs4HTcypxoLMxk+e
+3PEjQgUwH4aOwxu9Oq06+OQIw/ImjQs92KgM0jcyLQPfruqV5w3QbhOw5VwbnZyS
+K1jUA7rTz97vGh27HZk65lgkUifvgGdgHCfPSSsgt+lwIFBbOflkiva1hP2Gsair
+t8+LAdBU0RdZRMlfum7H1jiZTMAuVhaCBioEzqNNUeev3YpQr0E1wr9/+z4rqV63
+Yzrtjlb4RY76RR7DD3xd5Ej06YwVqcBdYC+Zw37hi32yOlZYmfDoJ8SZVce+f+BB
+UyaT5o79/jKsnynKx2LiccoNAABfPREikfWE7hF4TFQHH8rtbK9rZMcz54Y1idc=
+=+ZS/
+-----END PGP SIGNATURE-----
+
+--JdnlapuHAVimrSVojdbKec3F3wuTGOhDM--
