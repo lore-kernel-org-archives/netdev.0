@@ -1,89 +1,97 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v2 3/3] iwlwifi: mvm: transfer the truesize to the last
- TSO segment
-Date: Thu, 20 Aug 2015 07:40:08 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E825C41@hasmsx107.ger.corp.intel.com>
-References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
-	 <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
-	 <1439994266.6610.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <0BA3FCBA62E2DC44AF3030971E174FB32E8253CF@hasmsx107.ger.corp.intel.com>
- <1440016762.6610.33.camel@edumazet-glaptop2.roam.corp.google.com>
- <0BA3FCBA62E2DC44AF3030971E174FB32E825B80@hasmsx107.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [RFC v3 0/3] add TSO / A-MSDU TX for iwlwifi
+Date: Thu, 20 Aug 2015 11:15:41 +0300
+Message-ID: <1440058544-20342-1-git-send-email-emmanuel.grumbach@intel.com>
+Cc: sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+An A-MSDU is a 802.11 frame that comprises several L3
+segments:
+Each subframe has a ETH / SNAP / IP / TCP header (in case 
+TCP is used of course). Each subframe has no 802.11
+limitation on its length (only the MSS limitation), but
+the whole A-MSDU has a size limit both in number of
+subframes, and in bytes. In the best conditions, the
+A-MSDU is unlimited in number of subframes, and can be up
+to 11K byte long. An A-MSDU has only one WiFi MAC address,
+and hence, each A-MSDU can be sent to only one WiFi peer.
 
+There a 2 ways to get A-MSDU:
+ * xmit_more
+ * LSO
+ * LSO + skb_gso_segment
 
-On 08/20/2015 10:21 AM, Grumbach, Emmanuel wrote:
-> 
-> 
-> On 08/19/2015 11:39 PM, Eric Dumazet wrote:
->> On Wed, 2015-08-19 at 19:17 +0000, Grumbach, Emmanuel wrote:
->>
->>> Hm.. how would net/core/tso.c avoid this?
->>
->> Because a driver using these helpers keep around the original LSO packet
->> and frees it normally at TX completion time.
->>
->>> I can't see anything related to truesize there.
->>> Note that this work since it is guaranteed that we release the skbs in
->>> order.
->>>
->>>>
->>>> (BTW TCP packets do not have sock_wfree as destructor but tcp_wfree(),
->>>> yet we want backpressure mostly for TCP stack (TCP Small Queues))
->>>>
->>>>
->>>
->>> I am not sure I follow here.
->>> You want me to test:
->>> if (skb_gso->destructor == tcp_wfree) ?
->>
->>
->> Yes.
->>
->> Look for example at tcp_gso_segment() (called from skb_gso_segment())
->>
->> copy_destructor = gso_skb->destructor == tcp_wfree;
->> ...
->>         /* Following permits TCP Small Queues to work well with GSO :
->>          * The callback to TCP stack will be called at the time last frag
->>          * is freed at TX completion, and not right now when gso_skb
->>          * is freed by GSO engine
->>          */
->>         if (copy_destructor) {
->>                 swap(gso_skb->sk, skb->sk);
->>                 swap(gso_skb->destructor, skb->destructor);
->>                 sum_truesize += skb->truesize;
->>                 atomic_add(sum_truesize - gso_skb->truesize,
->>                            &skb->sk->sk_wmem_alloc);
->>         }
->>
->>
->>>
->>> I checked that code using iperf and saw that I don't get into this if,
->>> but I (probably wrongly) assumed that other applications would set a
->>> flag on the socket (forgive my ignorance) that would make this if be taken.
->>
->> If you do not see skb->destructor == tcp_wfree, then something is
->> definitely wrong on your setup.
->>
-> 
-> tcp_wfree isn't exported. I can change that. It will be a challenge for
-> backport though. Hm....
-> 
+The problem with xmit_more is that in AP mode, the Qdisc
+can have packets for several L2 clients which makes is
+harder to use since as stated above, an A-MSDU can be sent
+to one single WiFi peer.
 
-But you seem to say that gso_skb->destructor *should* point to
-tcp_wfree, so maybe testing gso_skb->destructor isn't NULL is good enough?
+The problem with LSO is that the LSO packet is very likely
+to be way bigger than the maximal A-MSDU length. This means
+that a single LSO packet will generate several WiFi packets.
+>From an arch point of view, having different WiFi packets
+sitting in one single skb is a problem, so we need to create
+several skbs out of one single LSO packet. This makes the
+usage of currently existing helpers (net/core/tso.c) very
+hard.
+
+Using LSO and skb_gso_segment is a bit wasteful since we
+don't need an skb for each MSS, so that we would have to
+reassemble the segs into one single packet. This is
+sub-efficient.
+
+Out of the two aforementioned ways, I chose to work with
+LSO and implemented the segmentation in the driver itself.
+While this code can technically be made driver agnostic,
+the trend in the industry seems to show that more and more
+vendors split the buffers in the firmware, so that I don't
+expect to see any new devices coming up with the same
+behavior as ours. I did take a look on currently existing
+drivers and they already do the work in firmware.
+If someone in linux-wireless thinks that this code can
+serve his purposes, please speak up. All you'd need is to
+support TX_CSUM and SG.
+
+The additional headers needed (SNAP / IP / TCP) are copied
+and updated on a page which is allocated in xmit. This is
+supposed to very cheap. I add skb frags from that page to 
+add the skb. Since I can have several 802.11 packets from a
+single LSO packet, I allocated skb's on the way if needed.
+
+I am quite a newbie in skb handling, so I guess that this
+code can be improved. I have tested it decently using iperf,
+but this doesn't mean that there are no issues using other
+applications. We are enabling pktgen on TCP (using patches
+that were sent a year ago or so) to test the different
+layouts of the skb (payload partition amongst the header
+and the different frags).
+
+Changes since v2:
+*****************
+   + I fixed the whitespace problem spotted by Sergei.
+   + I changed the D'tor check for truesize accounting.
+     Since the D'tor seems to be set to tcp_wfree if it
+     exists, I just the D'tor not being NULL.
+
+Emmanuel Grumbach (3):
+  iwlwifi: mvm: add real TSO implementation
+  iwlwifi: mvm: allow to create A-MSDUs from a large send
+  iwlwifi: mvm: transfer the truesize to the last TSO segment
+
+ drivers/net/wireless/iwlwifi/mvm/mac80211.c |   3 +-
+ drivers/net/wireless/iwlwifi/mvm/sta.c      |   4 +-
+ drivers/net/wireless/iwlwifi/mvm/sta.h      |   6 +-
+ drivers/net/wireless/iwlwifi/mvm/tx.c       | 669 ++++++++++++++++++++++++++--
+ 4 files changed, 647 insertions(+), 35 deletions(-)
+
+-- 
+2.1.4
+
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
