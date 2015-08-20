@@ -1,93 +1,35 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv4 net-next 09/10] openvswitch: Allow matching on conntrack label
-Date: Thu, 20 Aug 2015 14:01:00 -0700
-Message-ID: <CALnjE+qPfACh-ykS6HWSmLVQF=sJRrQfA231urskMB01eW=qNA@mail.gmail.com>
-References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
-	<1439941188-19293-10-git-send-email-joestringer@nicira.com>
-	<CALnjE+qVd=7ZdHXvVmOcHSEcFN2RxNrSwB7bck5=8P4oxdRnew@mail.gmail.com>
-	<CANr6G5yp1cj6GuhXDU6jvpaYAzb20-aiTUrpPLrBQAStwxpDVA@mail.gmail.com>
-	<CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
-	<CANr6G5xYJaEYsS9u9YZmz=mxEoknHiCp1FxWVtS69YCEbrfYSA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v1 0/6] Add fec1 and fec2 support for i.MX7d sdb board
+Date: Thu, 20 Aug 2015 14:05:31 -0700 (PDT)
+Message-ID: <20150820.140531.1320709021949935376.davem@davemloft.net>
+References: <1439962444-27486-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	Justin Pettit <jpettit@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANr6G5xYJaEYsS9u9YZmz=mxEoknHiCp1FxWVtS69YCEbrfYSA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shawnguo@kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: b38611@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57189 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751849AbbHTVFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 17:05:32 -0400
+In-Reply-To: <1439962444-27486-1-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 20, 2015 at 12:13 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> On 20 August 2015 at 08:45, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Wed, Aug 19, 2015 at 4:04 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>> Thanks for the review,
->>>
->>> On 19 August 2015 at 14:24, Pravin Shelar <pshelar@nicira.com> wrote:
->>>> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>>>> Allow matching and setting the conntrack label field. As with ct_mark,
->>>>> this is populated by executing the CT action, and is a writable field.
->>>>> Specifying a label and optional mask allows the label to be modified,
->>>>> which takes effect on the entry found by the lookup of the CT action.
->>>>>
->>>>> E.g.: actions:ct(zone=1,label=1)
->>>>>
->>>>> This will perform conntrack lookup in zone 1, then modify the label for
->>>>> that entry. The conntrack entry itself must be committed using the
->>>>> "commit" flag in the conntrack action flags for this change to persist.
->>>>>
->>
->>>
->>>>>         return false;
->>>>>  }
->>>>> @@ -508,8 +601,12 @@ void ovs_ct_free_action(const struct nlattr *a)
->>>>>
->>>>>  void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
->>>>>  {
->>>>> +       unsigned int n_bits = sizeof(struct ovs_key_ct_label) * BITS_PER_BYTE;
->>>>> +
->>>>>         data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
->>>>>         data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
->>>>> +       if (nf_connlabels_get(net, n_bits);
->>>>> +               OVS_NLERR(true, "Failed to set connlabel length");
->>>>>  }
->>>>>
->>>> In case of error should we reject conntrack label actions? Otherwise
->>>> user will never see any error. But action could drop packets.
->>>
->>> I suspect that currently errors would be seen from ovs_ct_set_label():
->>>
->>>>.......if (!cl || cl->words * sizeof(long) < OVS_CT_LABEL_LEN)
->>>>.......>.......return -ENOSPC;
->>>
->>> So, for cmd_execute, userspace would see this. For regular handling,
->>> pipeline processing would stop (so, drop).
->>>
->>> However, I agree it would be more friendly to have the attribute
->>> rejected up-front. Just means we'll pass the datapath all the way
->>> down:
->>> ovs_nla_get_match()
->>> --> ovs_key_from_nlattrs()
->>> --> metadata_from_nlattrs()
->>> --> ovs_ct_verify()
->
-> Incidentally, we generally don't have the datapath by this point
-> (ovs_nla_get_match()). There'd need to be a bit of rearranging in the
-> ovs_flow_cmd_* functions, which would include holding the locks for
-> longer. Given that the two most common cases are that either A) The
-> kernel is configured with connlabel support, and built with support
-> for at least 128 bits of label, or B) the kernel is configured without
-> connlabel, and this is handled already in ovs_ct_verify(), I don't
-> think it's worth making this particular change.
+From: Fugang Duan <b38611@freescale.com>
+Date: Wed, 19 Aug 2015 13:33:58 +0800
 
-Actually I do not see need for this to be per datapath property.
-infact there is no need to have struct ovs_ct_perdp_data.
-ovs_ct_init can be called from ovs-module init.
-nf-connlabel bit length is per net-namespace property. So
-nf_connlabels_get()  should be called from ovs namespace init. This
-way you can move xt_label flag to ovs_net. ovs_net can be accessed
-from ovs_flow_cmd_* functions.
+> The patch series is to add fec support for i.MX7d sdb board. Since i.MX7d fec ip is
+> the same as i.MX6SX, so there have no change for driver itself.
+> 
+> Patch#1: add bcm54220 PHY ID entry into brcmphy.h file.
+
+This is completely, and utterly, pointless.
+
+The only reason a PHY ID should be defined in brcmphy.h is so that it can
+be used in the broadcom.c PHY driver or similar.
+
+If there is no user in the tree, there is no reason to add it to the
+header file.
