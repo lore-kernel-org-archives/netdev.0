@@ -1,75 +1,104 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/3] tipc: eliminate risk of premature link setup during failover
-Date: Thu, 20 Aug 2015 02:12:54 -0400
-Message-ID: <1440051176-32672-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 2/3] tipc: interrupt link
+	synchronization when a link goes down
+Date: Thu, 20 Aug 2015 02:12:55 -0400
+Message-ID: <1440051176-32672-3-git-send-email-jon.maloy@ericsson.com>
 References: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:44748 "EHLO
-	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752287AbbHTGNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 02:13:35 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-When a link goes down, and there is still a working link towards its
-destination node, a failover is initiated, and the failed link is not
-allowed to re-establish until that procedure is finished. To ensure
-this, the concerned link endpoints are set to state LINK_FAILINGOVER,
-and the node endpoints to NODE_FAILINGOVER during the failover period.
+When we introduced the new link failover/synch mechanism
+in commit 6e498158a827fd515b514842e9a06bdf0f75ab86
+("tipc: move link synch and failover to link aggregation level"),
+we missed the case when the non-tunnel link goes down during the link
+synchronization period. In this case the tunnel link will remain in
+state LINK_SYNCHING, something leading to unpredictable behavior when
+the failover procedure is initiated.
 
-However, if the link reset is due to a disabled bearer, the corres-
-ponding link endpoint is deleted, and only the node endpoint knows
-about the ongoing failover. Now, if the disabled bearer is re-enabled
-during the failover period, the discovery mechanism may create a new
-link endpoint that is ready to be established, despite that this is not
-permitted. This situation may cause both the ongoing failover and any
-subsequent link synchronization to fail.
-
-In this commit, we ensure that a newly created link goes directly to
-state LINK_FAILINGOVER if the corresponding node state is
-NODE_FAILINGOVER. This eliminates the problem described above.
-
-Furthermore, we tighten the criteria for which packets are allowed
-to end a failover state in the function tipc_node_check_state().
-By checking that the receiving link is up and running, instead of just
-checking that it is not in failover mode, we eliminate the risk that
-protocol packets from the re-created link may cause the failover to
-be prematurely terminated.
+In this commit, we ensure that the node and remaining link goes
+back to regular communication state (SELF_UP_PEER_UP/LINK_ESTABLISHED)
+when one of the parallel links goes down. We also ensure that we don't
+re-enter synch mode if subsequent SYNCH packets arrive on the remaining
+link.
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/node.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/tipc/link.c |  2 +-
+ net/tipc/node.c | 11 ++++++++---
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index f067e54..7058c86 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -351,11 +351,11 @@ int tipc_link_fsm_evt(struct tipc_link *l, int evt)
+ 			l->state = LINK_RESET;
+ 			break;
+ 		case LINK_ESTABLISH_EVT:
++		case LINK_SYNCH_END_EVT:
+ 			break;
+ 		case LINK_SYNCH_BEGIN_EVT:
+ 			l->state = LINK_SYNCHING;
+ 			break;
+-		case LINK_SYNCH_END_EVT:
+ 		case LINK_FAILOVER_BEGIN_EVT:
+ 		case LINK_FAILOVER_END_EVT:
+ 		default:
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 7c19164..004834b 100644
+index 004834b..937cc61 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -565,6 +565,8 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 			goto exit;
- 		}
- 		tipc_link_reset(l);
-+		if (n->state == NODE_FAILINGOVER)
-+			tipc_link_fsm_evt(l, LINK_FAILOVER_BEGIN_EVT);
- 		le->link = l;
- 		n->link_cnt++;
- 		tipc_node_calculate_timer(n, l);
-@@ -1129,7 +1131,7 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+@@ -423,6 +423,8 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
+ 
+ 	/* There is still a working link => initiate failover */
+ 	tnl = node_active_link(n, 0);
++	tipc_link_fsm_evt(tnl, LINK_SYNCH_END_EVT);
++	tipc_node_fsm_evt(n, NODE_SYNCH_END_EVT);
+ 	n->sync_point = tnl->rcv_nxt + (U16_MAX / 2 - 1);
+ 	tipc_link_tnl_prepare(l, tnl, FAILOVER_MSG, xmitq);
+ 	tipc_link_reset(l);
+@@ -1140,6 +1142,10 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+ 		return true;
  	}
  
- 	/* Open parallel link when tunnel link reaches synch point */
--	if ((n->state == NODE_FAILINGOVER) && !tipc_link_is_failingover(l)) {
-+	if ((n->state == NODE_FAILINGOVER) && tipc_link_is_up(l)) {
- 		if (!more(rcv_nxt, n->sync_point))
++	/* No synching needed if only one link */
++	if (!pl || !tipc_link_is_up(pl))
++		return true;
++
+ 	/* Initiate or update synch mode if applicable */
+ 	if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG)) {
+ 		syncpt = iseqno + exp_pkts - 1;
+@@ -1158,9 +1164,8 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+ 
+ 	/* Open tunnel link when parallel link reaches synch point */
+ 	if ((n->state == NODE_SYNCHING) && tipc_link_is_synching(l)) {
+-		if (pl)
+-			dlv_nxt = mod(pl->rcv_nxt - skb_queue_len(pl->inputq));
+-		if (!pl || more(dlv_nxt, n->sync_point)) {
++		dlv_nxt = pl->rcv_nxt - mod(skb_queue_len(pl->inputq));
++		if (more(dlv_nxt, n->sync_point)) {
+ 			tipc_link_fsm_evt(l, LINK_SYNCH_END_EVT);
+ 			tipc_node_fsm_evt(n, NODE_SYNCH_END_EVT);
  			return true;
- 		tipc_node_fsm_evt(n, NODE_FAILOVER_END_EVT);
 -- 
 1.9.1
+
+
+------------------------------------------------------------------------------
