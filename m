@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2.2 20/22] fjes: epstop_task
-Date: Thu, 20 Aug 2015 17:46:24 +0900
-Message-ID: <1440060386-13189-20-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2.2 22/22] fjes: ethtool support
+Date: Thu, 20 Aug 2015 17:46:26 +0900
+Message-ID: <1440060386-13189-22-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1440060306-13040-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
@@ -10,108 +10,196 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm04.jp.fujitsu.com ([202.219.69.171]:37427 "EHLO
-	mgwkm04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752912AbbHTIvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 04:51:48 -0400
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
 In-Reply-To: <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds epstop_task.
-This task is used to process other receiver's
-cancellation request.
+This patch adds implementation for ethtool support.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes_hw.c   | 30 ++++++++++++++++++++++++++++++
- drivers/net/fjes/fjes_hw.h   |  1 +
- drivers/net/fjes/fjes_main.c |  1 +
- 3 files changed, 32 insertions(+)
+ drivers/net/fjes/Makefile       |   2 +-
+ drivers/net/fjes/fjes.h         |   2 +
+ drivers/net/fjes/fjes_ethtool.c | 135 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/fjes/fjes_main.c    |   1 +
+ 4 files changed, 139 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/fjes/fjes_ethtool.c
 
-diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-index 4588ef3..ada0b9e 100644
---- a/drivers/net/fjes/fjes_hw.c
-+++ b/drivers/net/fjes/fjes_hw.c
-@@ -23,6 +23,7 @@
- #include "fjes.h"
+diff --git a/drivers/net/fjes/Makefile b/drivers/net/fjes/Makefile
+index a67f65d8..8ca4de0 100644
+--- a/drivers/net/fjes/Makefile
++++ b/drivers/net/fjes/Makefile
+@@ -27,5 +27,5 @@
  
- static void fjes_hw_update_zone_task(struct work_struct *);
-+static void fjes_hw_epstop_task(struct work_struct *);
+ obj-$(CONFIG_FUJITSU_ES) += fjes.o
  
- /* supported MTU list */
- const u32 fjes_support_mtu[] = {
-@@ -325,6 +326,7 @@ int fjes_hw_init(struct fjes_hw *hw)
- 	fjes_hw_set_irqmask(hw, REG_ICTL_MASK_ALL, true);
+-fjes-objs := fjes_main.o fjes_hw.o
++fjes-objs := fjes_main.o fjes_hw.o fjes_ethtool.o
  
- 	INIT_WORK(&hw->update_zone_task, fjes_hw_update_zone_task);
-+	INIT_WORK(&hw->epstop_task, fjes_hw_epstop_task);
+diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
+index 57feee8..a592fe2 100644
+--- a/drivers/net/fjes/fjes.h
++++ b/drivers/net/fjes/fjes.h
+@@ -72,4 +72,6 @@ extern char fjes_driver_name[];
+ extern char fjes_driver_version[];
+ extern const u32 fjes_support_mtu[];
  
- 	mutex_init(&hw->hw_info.lock);
- 
-@@ -355,6 +357,7 @@ void fjes_hw_exit(struct fjes_hw *hw)
- 	fjes_hw_cleanup(hw);
- 
- 	cancel_work_sync(&hw->update_zone_task);
-+	cancel_work_sync(&hw->epstop_task);
- }
- 
- static enum fjes_dev_command_response_e
-@@ -1085,3 +1088,30 @@ static void fjes_hw_update_zone_task(struct work_struct *work)
- 	}
- }
- 
-+static void fjes_hw_epstop_task(struct work_struct *work)
++void fjes_set_ethtool_ops(struct net_device *);
++
+ #endif /* FJES_H_ */
+diff --git a/drivers/net/fjes/fjes_ethtool.c b/drivers/net/fjes/fjes_ethtool.c
+new file mode 100644
+index 0000000..c69be42
+--- /dev/null
++++ b/drivers/net/fjes/fjes_ethtool.c
+@@ -0,0 +1,135 @@
++/*
++ *  FUJITSU Extended Socket Network Device driver
++ *  Copyright (c) 2015 FUJITSU LIMITED
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, see <http://www.gnu.org/licenses/>.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ */
++
++/* ethtool support for fjes */
++
++#include <linux/vmalloc.h>
++#include <linux/netdevice.h>
++#include <linux/ethtool.h>
++#include <linux/platform_device.h>
++
++#include "fjes.h"
++
++struct fjes_stats {
++	char stat_string[ETH_GSTRING_LEN];
++	int sizeof_stat;
++	int stat_offset;
++};
++
++#define FJES_STAT(name, stat) { \
++	.stat_string = name, \
++	.sizeof_stat = FIELD_SIZEOF(struct fjes_adapter, stat), \
++	.stat_offset = offsetof(struct fjes_adapter, stat) \
++}
++
++static const struct fjes_stats fjes_gstrings_stats[] = {
++	FJES_STAT("rx_packets", stats64.rx_packets),
++	FJES_STAT("tx_packets", stats64.tx_packets),
++	FJES_STAT("rx_bytes", stats64.rx_bytes),
++	FJES_STAT("tx_bytes", stats64.rx_bytes),
++	FJES_STAT("rx_dropped", stats64.rx_dropped),
++	FJES_STAT("tx_dropped", stats64.tx_dropped),
++};
++
++static void fjes_get_ethtool_stats(struct net_device *netdev,
++				   struct ethtool_stats *stats, u64 *data)
 +{
-+	struct fjes_hw *hw = container_of(work, struct fjes_hw, epstop_task);
-+	struct fjes_adapter *adapter = (struct fjes_adapter *)hw->back;
-+	int epid_bit;
-+	unsigned long remain_bit;
++	struct fjes_adapter *adapter = netdev_priv(netdev);
++	int i;
++	char *p;
 +
-+	while ((remain_bit = hw->epstop_req_bit)) {
-+		for (epid_bit = 0; remain_bit; remain_bit >>= 1, epid_bit++) {
-+			if (remain_bit & 1) {
-+				hw->ep_shm_info[epid_bit].
-+					tx.info->v1i.rx_status |=
-+						FJES_RX_STOP_REQ_DONE;
-+
-+				clear_bit(epid_bit, &hw->epstop_req_bit);
-+				set_bit(epid_bit,
-+					&adapter->unshare_watch_bitmask);
-+
-+				if (!work_pending(&adapter->unshare_watch_task))
-+					queue_work(
-+						adapter->control_wq,
-+						&adapter->unshare_watch_task);
-+			}
-+		}
++	for (i = 0; i < ARRAY_SIZE(fjes_gstrings_stats); i++) {
++		p = (char *)adapter + fjes_gstrings_stats[i].stat_offset;
++		data[i] = (fjes_gstrings_stats[i].sizeof_stat == sizeof(u64))
++			? *(u64 *)p : *(u32 *)p;
 +	}
 +}
 +
-diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
-index fe51041..4d3184a 100644
---- a/drivers/net/fjes/fjes_hw.h
-+++ b/drivers/net/fjes/fjes_hw.h
-@@ -283,6 +283,7 @@ struct fjes_hw {
- 	unsigned long txrx_stop_req_bit;
- 	unsigned long epstop_req_bit;
- 	struct work_struct update_zone_task;
-+	struct work_struct epstop_task;
- 
- 	int my_epid;
- 	int max_epid;
++static void fjes_get_strings(struct net_device *netdev,
++			     u32 stringset, u8 *data)
++{
++	u8 *p = data;
++	int i;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < ARRAY_SIZE(fjes_gstrings_stats); i++) {
++			memcpy(p, fjes_gstrings_stats[i].stat_string,
++			       ETH_GSTRING_LEN);
++			p += ETH_GSTRING_LEN;
++		}
++		break;
++	}
++}
++
++static int fjes_get_sset_count(struct net_device *netdev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(fjes_gstrings_stats);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void fjes_get_drvinfo(struct net_device *netdev,
++			     struct ethtool_drvinfo *drvinfo)
++{
++	struct fjes_adapter *adapter = netdev_priv(netdev);
++	struct platform_device *plat_dev = adapter->plat_dev;
++
++	strlcpy(drvinfo->driver, fjes_driver_name, sizeof(drvinfo->driver));
++	strlcpy(drvinfo->version, fjes_driver_version,
++		sizeof(drvinfo->version));
++
++	strlcpy(drvinfo->fw_version, "none", sizeof(drvinfo->fw_version));
++	snprintf(drvinfo->bus_info, sizeof(drvinfo->bus_info),
++		 "platform:%s", plat_dev->name);
++	drvinfo->regdump_len = 0;
++	drvinfo->eedump_len = 0;
++}
++
++static int fjes_get_settings(struct net_device *netdev,
++			     struct ethtool_cmd *ecmd)
++{
++	ecmd->supported = 0;
++	ecmd->advertising = 0;
++	ecmd->duplex = DUPLEX_FULL;
++	ecmd->autoneg = AUTONEG_DISABLE;
++	ecmd->transceiver = XCVR_DUMMY1;
++	ecmd->port = PORT_NONE;
++	ethtool_cmd_speed_set(ecmd, 20000);	/* 20Gb/s */
++
++	return 0;
++}
++
++static const struct ethtool_ops fjes_ethtool_ops = {
++		.get_settings		= fjes_get_settings,
++		.get_drvinfo		= fjes_get_drvinfo,
++		.get_ethtool_stats = fjes_get_ethtool_stats,
++		.get_strings      = fjes_get_strings,
++		.get_sset_count   = fjes_get_sset_count,
++};
++
++void fjes_set_ethtool_ops(struct net_device *netdev)
++{
++	netdev->ethtool_ops = &fjes_ethtool_ops;
++}
 diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index 615c1ef..faaf2ed 100644
+index ba7e607..d2228cb 100644
 --- a/drivers/net/fjes/fjes_main.c
 +++ b/drivers/net/fjes/fjes_main.c
-@@ -316,6 +316,7 @@ static int fjes_close(struct net_device *netdev)
- 	cancel_work_sync(&adapter->tx_stall_task);
+@@ -1206,6 +1206,7 @@ static void fjes_netdev_setup(struct net_device *netdev)
  
- 	cancel_work_sync(&hw->update_zone_task);
-+	cancel_work_sync(&hw->epstop_task);
- 
- 	fjes_hw_wait_epstop(hw);
- 
+ 	netdev->watchdog_timeo = FJES_TX_RETRY_INTERVAL;
+ 	netdev->netdev_ops = &fjes_netdev_ops;
++	fjes_set_ethtool_ops(netdev);
+ 	netdev->mtu = fjes_support_mtu[0];
+ 	netdev->flags |= IFF_BROADCAST;
+ 	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_CTAG_FILTER;
 -- 
 1.8.3.1
