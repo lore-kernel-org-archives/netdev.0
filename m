@@ -1,71 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/16] i40e: Fix ethtool offline diagnostic with netqueues
-Date: Wed, 19 Aug 2015 17:57:57 -0700
-Message-ID: <1440032286-30054-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/16] i40e/i40evf: Bump i40e to 1.3.9 and i40evf to 1.3.5
+Date: Wed, 19 Aug 2015 17:58:06 -0700
+Message-ID: <1440032286-30054-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25933 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:1225 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751601AbbHTA6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 20:58:09 -0400
+	id S1752144AbbHTA6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 20:58:16 -0400
 In-Reply-To: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Treat netqueues the same way we do virtual functions when someone wants to
-run the ethtool offline diagnostic test.
+Bump version and update the copyright year for i40evf.
 
-Change-ID: Id48d2b933f1fd0db7be06305a93c6ebe3dc821f5
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Change-ID: Iddb81b9dba09f0dc57ab54937b5821ecdd721ff6
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index d6c7eb7..230d127 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1559,6 +1559,21 @@ static inline bool i40e_active_vfs(struct i40e_pf *pf)
- 	return false;
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3879e72..047c57e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -40,7 +40,7 @@ static const char i40e_driver_string[] =
  
-+static inline bool i40e_active_vmdqs(struct i40e_pf *pf)
-+{
-+	struct i40e_vsi **vsi = pf->vsi;
-+	int i;
-+
-+	for (i = 0; i < pf->num_alloc_vsi; i++) {
-+		if (!vsi[i])
-+			continue;
-+		if (vsi[i]->type == I40E_VSI_VMDQ2)
-+			return true;
-+	}
-+
-+	return false;
-+}
-+
- static void i40e_diag_test(struct net_device *netdev,
- 			   struct ethtool_test *eth_test, u64 *data)
- {
-@@ -1572,9 +1587,9 @@ static void i40e_diag_test(struct net_device *netdev,
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 6
++#define DRV_VERSION_BUILD 9
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 956affb..3fd1c23 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -35,10 +35,10 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
- 		set_bit(__I40E_TESTING, &pf->state);
+-#define DRV_VERSION "1.3.2"
++#define DRV_VERSION "1.3.5"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+-	"Copyright (c) 2013 - 2014 Intel Corporation.";
++	"Copyright (c) 2013 - 2015 Intel Corporation.";
  
--		if (i40e_active_vfs(pf)) {
-+		if (i40e_active_vfs(pf) || i40e_active_vmdqs(pf)) {
- 			dev_warn(&pf->pdev->dev,
--				 "Please take active VFS offline and restart the adapter before running NIC diagnostics\n");
-+				 "Please take active VFs and Netqueues offline and restart the adapter before running NIC diagnostics\n");
- 			data[I40E_ETH_TEST_REG]		= 1;
- 			data[I40E_ETH_TEST_EEPROM]	= 1;
- 			data[I40E_ETH_TEST_INTR]	= 1;
+ /* i40evf_pci_tbl - PCI Device ID Table
+  *
 -- 
 2.4.3
