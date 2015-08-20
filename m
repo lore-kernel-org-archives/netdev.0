@@ -1,93 +1,47 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next v2 2/2] ila: Precompute checksum difference for translations
-Date: Thu, 20 Aug 2015 11:22:38 -0700
-Message-ID: <1440094958-1808151-3-git-send-email-tom@herbertland.com>
-References: <1440094958-1808151-1-git-send-email-tom@herbertland.com>
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: Re: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to htons
+Date: Fri, 21 Aug 2015 00:28:59 +0530
+Message-ID: <CAK-LDbKJwjgOSgva-4yUay-wOXqAtS=tn-soE9H5xvMQMV56wA@mail.gmail.com>
+References: <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CB8054E@AcuExch.aculab.com>
+	<1440078822.685.11.camel@BR9GV9YG.de.ibm.com>
+	<20150820.105810.2093197275802835044.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ursula Braun <ubraun@linux.vnet.ibm.com>, David.Laight@aculab.com,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48519 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750986AbbHTS0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 14:26:48 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t7KINGnm032660
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 11:26:47 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1wdj1egpnb-3
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 11:26:47 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- 779a477e476811e593e90002c991e86a-f5bfb2b0 for <netdev@vger.kernel.org>;	Thu,
- 20 Aug 2015 11:22:51 -0700
-In-Reply-To: <1440094958-1808151-1-git-send-email-tom@herbertland.com>
+Received: from mail-yk0-f178.google.com ([209.85.160.178]:36296 "EHLO
+	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986AbbHTS7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 14:59:00 -0400
+In-Reply-To: <20150820.105810.2093197275802835044.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the ILA build state for LWT compute the checksum difference to apply
-to transport checksums that include the IPv6 pseudo header. The
-difference is between the route destination (from fib6_config) and the
-locator to write.
+On Thu, Aug 20, 2015 at 11:28 PM, David Miller <davem@davemloft.net> wrote:
+> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> Date: Thu, 20 Aug 2015 15:53:42 +0200
+>
+>> qeth is an s390-driver, and s390 is a big-endian architecture. Thus
+>> arguments valid for little-endian do not apply to qeth-code.
+>
+> You can not throw out generally good tree-wide conventions just because
+> it happens to work on your platform.
+>
+> In fact, I would be really thrilled if some of this code could be compiled
+> on other platforms via COMPILE_TEST or similar, especially the socket code
+> and drivers.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/ipv6/ila.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+I have test-compiled this patch on little-endian architecture. I used
+this script for cross compilation:
+https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross
 
-diff --git a/net/ipv6/ila.c b/net/ipv6/ila.c
-index 1c48e46..a99a609 100644
---- a/net/ipv6/ila.c
-+++ b/net/ipv6/ila.c
-@@ -14,6 +14,8 @@
- 
- struct ila_params {
- 	__be64 locator;
-+	__be64 locator_match;
-+	__wsum csum_diff;
- };
- 
- static inline struct ila_params *ila_params_lwtunnel(
-@@ -33,6 +35,9 @@ static inline __wsum compute_csum_diff8(const __be32 *from, const __be32 *to)
- 
- static inline __wsum get_csum_diff(struct ipv6hdr *ip6h, struct ila_params *p)
- {
-+	if (*(__be64 *)&ip6h->daddr == p->locator_match)
-+		return p->csum_diff;
-+	else
- 		return compute_csum_diff8((__be32 *)&ip6h->daddr,
- 					  (__be32 *)&p->locator);
- }
-@@ -136,8 +141,12 @@ static int ila_build_state(struct net_device *dev, struct nlattr *nla,
- 	struct nlattr *tb[ILA_ATTR_MAX + 1];
- 	size_t encap_len = sizeof(*p);
- 	struct lwtunnel_state *newts;
-+	const struct fib6_config *cfg6 = cfg;
- 	int ret;
- 
-+	if (family != AF_INET6)
-+		return -EINVAL;
-+
- 	ret = nla_parse_nested(tb, ILA_ATTR_MAX, nla,
- 			       ila_nl_policy);
- 	if (ret < 0)
-@@ -155,6 +164,15 @@ static int ila_build_state(struct net_device *dev, struct nlattr *nla,
- 
- 	p->locator = (__force __be64)nla_get_u64(tb[ILA_ATTR_LOCATOR]);
- 
-+	if (cfg6->fc_dst_len > sizeof(__be64)) {
-+		/* Precompute checksum difference for translation since we
-+		 * know both the old locator and the new one.
-+		 */
-+		p->locator_match = *(__be64 *)&cfg6->fc_dst;
-+		p->csum_diff = compute_csum_diff8(
-+			(__be32 *)&p->locator_match, (__be32 *)&p->locator);
-+	}
-+
- 	newts->type = LWTUNNEL_ENCAP_ILA;
- 	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
- 			LWTUNNEL_STATE_INPUT_REDIRECT;
+And it worked fine for me.
+
 -- 
-1.8.1
+Vaishali
