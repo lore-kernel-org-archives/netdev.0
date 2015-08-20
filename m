@@ -1,7 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 0/3] tipc: fix link failover/synch problems
-Date: Thu, 20 Aug 2015 02:12:53 -0400
-Message-ID: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/3] tipc: fix stale link problem during synchronization
+Date: Thu, 20 Aug 2015 02:12:56 -0400
+Message-ID: <1440051176-32672-4-git-send-email-jon.maloy@ericsson.com>
+References: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -9,26 +10,105 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:44739 "EHLO
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:44786 "EHLO
 	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752268AbbHTGNd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 02:13:33 -0400
+	by vger.kernel.org with ESMTP id S1752301AbbHTGNi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 02:13:38 -0400
+In-Reply-To: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We fix three problems with the new link failover/synch implementation,
-which was introduced earlier in this release cycle. They are all related
-to situations where there is a very short interval between the disabling
-and enabling of interfaces.
+Recent changes to the link synchronization means that we can now just
+drop packets arriving on the synchronizing link before the synch point
+is reached. This has lead to significant simplifications to the
+implementation, but also turns out to have a flip side that we need
+to consider.
 
-Jon Maloy (3):
-  tipc: eliminate risk of premature link setup during failover
-  tipc: interrupt link synchronization when a link goes down
-  tipc: fix stale link problem during synchronization
+Under unlucky circumstances, the two endpoints may end up
+repeatedly dropping each other's packets, while immediately
+asking for retransmission of the same packets, just to drop
+them once more. This pattern will eventually be broken when
+the synch point is reached on the other link, but before that,
+the endpoints may have arrived at the retransmission limit
+(stale counter) that indicates that the link should be broken.
+We see this happen at rare occasions.
 
- net/tipc/link.c |  5 +++--
- net/tipc/node.c | 27 +++++++++++++++++++++------
- 2 files changed, 24 insertions(+), 8 deletions(-)
+The fix for this is to not ask for retransmissions when a link is in
+state LINK_SYNCHING. The fact that the link has reached this state
+means that it has already received the first SYNCH packet, and that it
+knows the synch point. Hence, it doesn't need any more packets until the
+other link has reached the synch point, whereafter it can go ahead and
+ask for the missing packets.
 
+However, because of the reduced traffic on the synching link that
+follows this change, it may now take longer to discover that the
+synch point has been reached. We compensate for this by letting all
+packets, on any of the links, trig a check for synchronization
+termination. This is possible because the packets themselves don't
+contain any information that is needed for discovering this condition.
+
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/link.c |  3 ++-
+ net/tipc/node.c | 12 ++++++++++--
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 7058c86..75db07c 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1330,6 +1330,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
+ 	u16 peers_snd_nxt =  msg_next_sent(hdr);
+ 	u16 peers_tol = msg_link_tolerance(hdr);
+ 	u16 peers_prio = msg_linkprio(hdr);
++	u16 rcv_nxt = l->rcv_nxt;
+ 	char *if_name;
+ 	int rc = 0;
+ 
+@@ -1393,7 +1394,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
+ 			break;
+ 
+ 		/* Send NACK if peer has sent pkts we haven't received yet */
+-		if (more(peers_snd_nxt, l->rcv_nxt))
++		if (more(peers_snd_nxt, rcv_nxt) && !tipc_link_is_synching(l))
+ 			rcvgap = peers_snd_nxt - l->rcv_nxt;
+ 		if (rcvgap || (msg_probe(hdr)))
+ 			tipc_link_build_proto_msg(l, STATE_MSG, 0, rcvgap,
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 937cc61..703875f 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1079,7 +1079,7 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+ 	u16 exp_pkts = msg_msgcnt(hdr);
+ 	u16 rcv_nxt, syncpt, dlv_nxt;
+ 	int state = n->state;
+-	struct tipc_link *l, *pl = NULL;
++	struct tipc_link *l, *tnl, *pl = NULL;
+ 	struct tipc_media_addr *maddr;
+ 	int i, pb_id;
+ 
+@@ -1164,12 +1164,20 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+ 
+ 	/* Open tunnel link when parallel link reaches synch point */
+ 	if ((n->state == NODE_SYNCHING) && tipc_link_is_synching(l)) {
++		if (tipc_link_is_synching(l)) {
++			tnl = l;
++		} else {
++			tnl = pl;
++			pl = l;
++		}
+ 		dlv_nxt = pl->rcv_nxt - mod(skb_queue_len(pl->inputq));
+ 		if (more(dlv_nxt, n->sync_point)) {
+-			tipc_link_fsm_evt(l, LINK_SYNCH_END_EVT);
++			tipc_link_fsm_evt(tnl, LINK_SYNCH_END_EVT);
+ 			tipc_node_fsm_evt(n, NODE_SYNCH_END_EVT);
+ 			return true;
+ 		}
++		if (l == pl)
++			return true;
+ 		if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG))
+ 			return true;
+ 		if (usr == LINK_PROTOCOL)
 -- 
 1.9.1
