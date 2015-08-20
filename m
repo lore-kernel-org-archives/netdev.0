@@ -1,43 +1,52 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
- bridges and switch devices.
-Date: Thu, 20 Aug 2015 08:45:55 +0200
-Message-ID: <20150820064555.GB11515@unicorn.suse.cz>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
- <91179B48C1F7014B86296413F181061E3D56B6E1@FMSMSX114.amr.corp.intel.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E3076@SJEXCHMB14.corp.ad.broadcom.com>
- <20150820063019.GA11515@unicorn.suse.cz>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E3114@SJEXCHMB14.corp.ad.broadcom.com>
+From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Subject: [PATCH net] netlink: mmap: fix status setting in skb destructor
+Date: Thu, 20 Aug 2015 16:07:33 +0900
+Message-ID: <20150820070733.GA3711@gmail.com>
+References: <20150722131730.GA18037@gmail.com>
+ <20150812082824.GA13385@gmail.com>
+ <20150812.163819.620222685130362816.davem@davemloft.net>
+ <20150814085807.GA30443@gmail.com>
+ <55CDBC84.8020605@iogearbox.net>
+ <55CDC51D.1060204@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Wilson, Daniel G" <daniel.wilson@intel.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Premkumar Jonnala <pjonnala@broadcom.com>
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, fw@strlen.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:34310 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751835AbbHTGp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 02:45:57 -0400
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33943 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbbHTHHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 03:07:38 -0400
+Received: by pacrn3 with SMTP id rn3so782112pac.1
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 00:07:38 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E3114@SJEXCHMB14.corp.ad.broadcom.com>
+In-Reply-To: <55CDC51D.1060204@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 20, 2015 at 06:40:01AM +0000, Premkumar Jonnala wrote:
-> > From: Michal Kubecek [mailto:mkubecek@suse.cz]
-> > 
-> > This would break existing scripts using ip to set the parameter. Is the
-> > possibility to use any of the two really that bad?
-> 
-> There was another email on this thread where Scott indicated existence
-> of other commands where both ip and bridge are available, and they are
-> for the same function.
+I don't know the intension of setting VALID status in the skb
+destructor. But I think it need to be set UNUSED status in case of
+error then release skb, or rx ring might be filled with RESERVED
+frames.
 
-Yes, I already noticed it. I'm sorry, I should have checked the whole
-thread before replying.
+Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+---
+ net/netlink/af_netlink.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-                                                       Michal Kubecek
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index e6134f4..85ccd8b 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -864,7 +864,7 @@ static void netlink_skb_destructor(struct sk_buff *skb)
+ 		} else {
+ 			if (!(NETLINK_CB(skb).flags & NETLINK_SKB_DELIVERED)) {
+ 				hdr->nm_len = 0;
+-				netlink_set_status(hdr, NL_MMAP_STATUS_VALID);
++				netlink_set_status(hdr, NL_MMAP_STATUS_UNUSED);
+ 			}
+ 			ring = &nlk_sk(sk)->rx_ring;
+ 		}
+-- 
+1.7.10.4
