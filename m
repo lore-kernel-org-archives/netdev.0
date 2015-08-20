@@ -1,121 +1,83 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [PATCH v2 2/2] virtio-net: add default_mtu configuration field
-Date: Thu, 20 Aug 2015 16:31:01 -0300
-Message-ID: <20150820193101.GA2208@x240.home>
-References: <1439732494-29765-1-git-send-email-victork@redhat.com>
- <1439732494-29765-3-git-send-email-victork@redhat.com>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 3/3] iwlwifi: mvm: transfer the truesize to the last
+ TSO segment
+Date: Thu, 20 Aug 2015 19:34:53 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32E8266E6@hasmsx107.ger.corp.intel.com>
+References: <1439989181-4444-1-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439989181-4444-4-git-send-email-emmanuel.grumbach@intel.com>
+	 <1439994266.6610.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E8253CF@hasmsx107.ger.corp.intel.com>
+	 <1440016762.6610.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <0BA3FCBA62E2DC44AF3030971E174FB32E8257BD@hasmsx107.ger.corp.intel.com>
+ <1440076269.6610.39.camel@edumazet-glaptop2.roam.corp.google.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB32E82654B@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtio-dev@lists.oasis-open.org, mst@redhat.com,
-	jasowang@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Victor Kaplansky <victork@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender163-mail.zoho.com ([74.201.84.163]:25816 "EHLO
-	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbbHTTbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 15:31:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1439732494-29765-3-git-send-email-victork@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org" <ido-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Sharon, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 16, 2015 at 04:42:25PM +0300, Victor Kaplansky wrote:
-> Sometimes it is essential for libvirt to be able to configure MTU
-> on guest's NICs to a value different from 1500.
-> 
-> The change adds a new field to configuration area of network
-> devices. It will be used to pass initial MTU from the device to
-> the driver, and to pass modified MTU from driver to the device
-> when a new MTU is assigned by the guest OS.
-> 
-> In addition, in order to support backward and forward
-> compatibility, we introduce a new feature bit called
-> VIRTIO_NET_F_DEFAULT_MTU.
-> 
-> Added conformance statements for a device and a driver.
-> 
-> Signed-off-by: Victor Kaplansky <victork@redhat.com>
-> 
->     Signed-off-by: Victor Kaplansky <victork@redhat.com>
-> ---
->  content.tex | 25 +++++++++++++++++++++++++
->  1 file changed, 25 insertions(+)
-> 
-> diff --git a/content.tex b/content.tex
-> index 342183b..439d005 100644
-> --- a/content.tex
-> +++ b/content.tex
-> @@ -3078,6 +3078,12 @@ features.
->  
->  \item[VIRTIO_NET_F_CTRL_MAC_ADDR(23)] Set MAC address through control
->      channel.
-> +
-> +\item[VIRTIO_NET_F_DEFAULT_MTU(24)] Default MTU is supported.  If
-> +    offered by the device, device advises driver about initial MTU to
-> +    be used. If negotiated, the driver uses \field{default_mtu} as
-> +    an initial value and reports MTU changes to the device.
-> +
->  \end{description}
->  
->  \subsubsection{Feature bit requirements}\label{sec:Device Types / Network Device / Feature bits / Feature bit requirements}
-> @@ -3128,6 +3134,7 @@ struct virtio_net_config {
->          u8 mac[6];
->          le16 status;
->          le16 max_virtqueue_pairs;
-> +        le16 default_mtu;
->  };
->  \end{lstlisting}
->  
-> @@ -3158,6 +3165,15 @@ by the driver after negotiation.
->      \field{max_virtqueue_pairs} is valid only if VIRTIO_NET_F_MQ is
->      set and can be read by the driver.
->  
-> +\item [\field{default_mtu}] is a hint to the driver set by the
-> +    device. It is valid during feature negotiation only if
-> +    VIRTIO_NET_F_DEFAULT_MTU is offered and holds the initial value
-> +    of MTU to be used by the driver. If VIRTIO_NET_F_DEFAULT_MTU is
-> +    negotiated, the driver uses the \field{default_mtu} as an initial
-> +    value, and also reports MTU changes to the device by writes to
-> +    \field{default_mtu}.  Such reporting can be used for debugging,
 
-As already said, it's better to change to 'mtu' since changes can
-be reported back by writing to the field.
 
-fbl
-
-> +    or it can be used for tunning MTU along the network.
-> +
->  \end{description}
->  
->  \devicenormative{\subsubsection}{Device configuration layout}{Device Types / Network Device / Device configuration layout}
-> @@ -3165,6 +3181,9 @@ by the driver after negotiation.
->  The device MUST set \field{max_virtqueue_pairs} to between 1 and 0x8000 inclusive,
->  if it offers VIRTIO_NET_F_MQ.
->  
-> +The device MUST set \field{default_mtu} to between 68 and 65535
-> +inclusive, if it offers VIRTIO_NET_F_DEFAULT_MTU.
-> +
->  \drivernormative{\subsubsection}{Device configuration layout}{Device Types / Network Device / Device configuration layout}
->  
->  A driver SHOULD negotiate VIRTIO_NET_F_MAC if the device offers it.
-> @@ -3177,6 +3196,12 @@ If the driver does not negotiate the VIRTIO_NET_F_STATUS feature, it SHOULD
->  assume the link is active, otherwise it SHOULD read the link status from
->  the bottom bit of \field{status}.
->  
-> +A driver SHOULD negotiate VIRTIO_NET_F_DEFAULT_MTU if the device
-> +offers it.  If the driver negotiates the VIRTIO_NET_F_DEFAULT_MTU
-> +feature, the driver MUST use \field{default_mtu} as an initial value
-> +for MTU and the driver MUST report the value of MTU to
-> +\field{default_mtu} when MTU is modified by the guest.
-> +
->  \subsubsection{Legacy Interface: Device configuration layout}\label{sec:Device Types / Network Device / Device configuration layout / Legacy Interface: Device configuration layout}
->  \label{sec:Device Types / Block Device / Feature bits / Device configuration layout / Legacy Interface: Device configuration layout}
->  When using the legacy interface, transitional devices and drivers
-> -- 
-> --Victor
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 08/20/2015 04:53 PM, Grumbach, Emmanuel wrote:
 > 
+> 
+> On 08/20/2015 04:11 PM, Eric Dumazet wrote:
+>> On Thu, 2015-08-20 at 06:21 +0000, Grumbach, Emmanuel wrote:
+>>>
+>>> On 08/19/2015 11:39 PM, Eric Dumazet wrote:
+>>>> On Wed, 2015-08-19 at 19:17 +0000, Grumbach, Emmanuel wrote:
+>>>>
+>>>>> Hm.. how would net/core/tso.c avoid this?
+>>>>
+>>>> Because a driver using these helpers keep around the original LSO packet
+>>>> and frees it normally at TX completion time.
+>>>>
+>>>
+>>> Which is why I can't really use it. The complexity is that I have to
+>>> (ieee802.11 specification) split an LSO is several 802.11 packets. The
+>>> maximal 802.11 packet I can send under ideal condition is 11K long or
+>>> so. So I *must* generate several 802.11 frames from one single LSO
+>>> packet. OTOH, I can have more than MSS bytes in a 802.11 A-MSDU.
+>>>
+>>
+>> Who said you had to free original packet ? Just keep it around.
+>>
+>> TCP will work better ( check skb_still_in_host_queue() helper if you
+>> want to know why)
+> 
+> I do keep the original skb: it becomes the first 802.11 packet generated
+> from that LSO skb. Thing is that it will be freed first and I wanted the
+> *last packet* to release the pressure on the socket.
+> So I guess that skb_still_in_host_queue will still find it and avoid
+> retransmissions at least until the first skb of the LSO is freed.
+> But unless you are fine with releasing the pressing on the socket as
+> soon as the *first* 802.11 skb is freed, I need that code.
+> 
+> I'll try to look at dev->gso_max_size that you mentioned below. This can
+> really be a game changer for me.
+> 
+
+
+Err... no :( It won't work for me because the MSS impacts the number of
+segments which in turns impact the number of time the headers have to be
+copied which impacts... the A-MSDU maximal size which must be bigger
+than gso_max_size. So basically, a connection parameter (MSS) impacts a
+device parameter (gso_max_size). Now, of course, I could give up on
+small MSS connections and skb_gso_segment() skbs whose MSS is smaller
+than the default. This means that I give up on LSO in certain cases...
+
+I will get back to the drawing board and check what I can do to use /
+enhance the core infra... But it will be hard to lose functionality /
+efficiency just to use the core infra...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
