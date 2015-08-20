@@ -1,96 +1,77 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv4 net-next 09/10] openvswitch: Allow matching on conntrack label
-Date: Thu, 20 Aug 2015 08:45:12 -0700
-Message-ID: <CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
-References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
-	<1439941188-19293-10-git-send-email-joestringer@nicira.com>
-	<CALnjE+qVd=7ZdHXvVmOcHSEcFN2RxNrSwB7bck5=8P4oxdRnew@mail.gmail.com>
-	<CANr6G5yp1cj6GuhXDU6jvpaYAzb20-aiTUrpPLrBQAStwxpDVA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	Justin Pettit <jpettit@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANr6G5yp1cj6GuhXDU6jvpaYAzb20-aiTUrpPLrBQAStwxpDVA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net af_key: Fix RCU splat
+Date: Thu, 20 Aug 2015 08:51:40 -0700
+Message-ID: <1440085900-8917-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: steffen.klassert@secunet.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36642 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864AbbHTPvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 11:51:45 -0400
+Received: by pawq9 with SMTP id q9so30918152paw.3
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 08:51:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 4:04 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> Thanks for the review,
->
-> On 19 August 2015 at 14:24, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>> Allow matching and setting the conntrack label field. As with ct_mark,
->>> this is populated by executing the CT action, and is a writable field.
->>> Specifying a label and optional mask allows the label to be modified,
->>> which takes effect on the entry found by the lookup of the CT action.
->>>
->>> E.g.: actions:ct(zone=1,label=1)
->>>
->>> This will perform conntrack lookup in zone 1, then modify the label for
->>> that entry. The conntrack entry itself must be committed using the
->>> "commit" flag in the conntrack action flags for this change to persist.
->>>
+Hit the following splat testing VRF change for ipsec:
 
->
->>>         return false;
->>>  }
->>> @@ -508,8 +601,12 @@ void ovs_ct_free_action(const struct nlattr *a)
->>>
->>>  void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
->>>  {
->>> +       unsigned int n_bits = sizeof(struct ovs_key_ct_label) * BITS_PER_BYTE;
->>> +
->>>         data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
->>>         data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
->>> +       if (nf_connlabels_get(net, n_bits);
->>> +               OVS_NLERR(true, "Failed to set connlabel length");
->>>  }
->>>
->> In case of error should we reject conntrack label actions? Otherwise
->> user will never see any error. But action could drop packets.
->
-> I suspect that currently errors would be seen from ovs_ct_set_label():
->
->>.......if (!cl || cl->words * sizeof(long) < OVS_CT_LABEL_LEN)
->>.......>.......return -ENOSPC;
->
-> So, for cmd_execute, userspace would see this. For regular handling,
-> pipeline processing would stop (so, drop).
->
-> However, I agree it would be more friendly to have the attribute
-> rejected up-front. Just means we'll pass the datapath all the way
-> down:
-> ovs_nla_get_match()
-> --> ovs_key_from_nlattrs()
-> --> metadata_from_nlattrs()
-> --> ovs_ct_verify()
->
-> And rather than simply reporting the error in ovs_ct_init() there,
-> we'll store the success condition something like:
->
-> @@ -721,8 +721,12 @@ void ovs_ct_init(struct net *net, struct
-> ovs_ct_perdp_data *data)
->
->         data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
->         data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
-> -       if (nf_connlabels_get(net, n_bits));
-> +       if (nf_connlabels_get(net, n_bits)) {
-> +               data->xt_label = false;
->                 OVS_NLERR(true, "Failed to set connlabel length");
-> +       } else {
-> +               data->xt_label = true;
-> +       }
->  }
->
->  void ovs_ct_exit(struct net *net, struct ovs_ct_perdp_data *data)
->
-> ovs_ct_exit() also needs to be updated to ensure that if this fails,
-> we don't try to put the connlabel use back.
+[  113.475692] ===============================
+[  113.476194] [ INFO: suspicious RCU usage. ]
+[  113.476667] 4.2.0-rc6-1+deb7u2+clUNRELEASED #3.2.65-1+deb7u2+clUNRELEASED Not tainted
+[  113.477545] -------------------------------
+[  113.478013] /work/monster-14/dsa/kernel.git/include/linux/rcupdate.h:568 Illegal context switch in RCU read-side critical section!
+[  113.479288]
+[  113.479288] other info that might help us debug this:
+[  113.479288]
+[  113.480207]
+[  113.480207] rcu_scheduler_active = 1, debug_locks = 1
+[  113.480931] 2 locks held by setkey/6829:
+[  113.481371]  #0:  (&net->xfrm.xfrm_cfg_mutex){+.+.+.}, at: [<ffffffff814e9887>] pfkey_sendmsg+0xfb/0x213
+[  113.482509]  #1:  (rcu_read_lock){......}, at: [<ffffffff814e767f>] rcu_read_lock+0x0/0x6e
+[  113.483509]
+[  113.483509] stack backtrace:
+[  113.484041] CPU: 0 PID: 6829 Comm: setkey Not tainted 4.2.0-rc6-1+deb7u2+clUNRELEASED #3.2.65-1+deb7u2+clUNRELEASED
+[  113.485422] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.7.5.1-0-g8936dbb-20141113_115728-nilsson.home.kraxel.org 04/01/2014
+[  113.486845]  0000000000000001 ffff88001d4c7a98 ffffffff81518af2 ffffffff81086962
+[  113.487732]  ffff88001d538480 ffff88001d4c7ac8 ffffffff8107ae75 ffffffff8180a154
+[  113.488628]  0000000000000b30 0000000000000000 00000000000000d0 ffff88001d4c7ad8
+[  113.489525] Call Trace:
+[  113.489813]  [<ffffffff81518af2>] dump_stack+0x4c/0x65
+[  113.490389]  [<ffffffff81086962>] ? console_unlock+0x3d6/0x405
+[  113.491039]  [<ffffffff8107ae75>] lockdep_rcu_suspicious+0xfa/0x103
+[  113.491735]  [<ffffffff81064032>] rcu_preempt_sleep_check+0x45/0x47
+[  113.492442]  [<ffffffff8106404d>] ___might_sleep+0x19/0x1c8
+[  113.493077]  [<ffffffff81064268>] __might_sleep+0x6c/0x82
+[  113.493681]  [<ffffffff81133190>] cache_alloc_debugcheck_before.isra.50+0x1d/0x24
+[  113.494508]  [<ffffffff81134876>] kmem_cache_alloc+0x31/0x18f
+[  113.495149]  [<ffffffff814012b5>] skb_clone+0x64/0x80
+[  113.495712]  [<ffffffff814e6f71>] pfkey_broadcast_one+0x3d/0xff
+[  113.496380]  [<ffffffff814e7b84>] pfkey_broadcast+0xb5/0x11e
+[  113.497024]  [<ffffffff814e82d1>] pfkey_register+0x191/0x1b1
+[  113.497653]  [<ffffffff814e9770>] pfkey_process+0x162/0x17e
+[  113.498274]  [<ffffffff814e9895>] pfkey_sendmsg+0x109/0x213
 
-Looks good.
+In pfkey_sendmsg the net mutex is taken and then pfkey_broadcast takes
+the RCU lock. Fix by using GFP_ATOMIC for the allocation flag.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/key/af_key.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index b397f0aa9005..73527e7dd247 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1670,7 +1670,7 @@ static int pfkey_register(struct sock *sk, struct sk_buff *skb, const struct sad
+ 		return -ENOBUFS;
+ 	}
+ 
+-	pfkey_broadcast(supp_skb, GFP_KERNEL, BROADCAST_REGISTERED, sk, sock_net(sk));
++	pfkey_broadcast(supp_skb, GFP_ATOMIC, BROADCAST_REGISTERED, sk, sock_net(sk));
+ 
+ 	return 0;
+ }
+-- 
+2.3.2 (Apple Git-55)
