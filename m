@@ -1,50 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 13/13] ipv6: route: per route IP tunnel
- metadata via lightweight tunnel
-Date: Wed, 19 Aug 2015 22:15:33 -0700 (PDT)
-Message-ID: <20150819.221533.1044691669375994723.davem@davemloft.net>
-References: <55D45A0A.7010100@miraclelinux.com>
-	<20150819123151.3802e8f3@griffin>
-	<55D53B72.70403@miraclelinux.com>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Wed, 19 Aug 2015 22:16:40 -0700 (PDT)
+Message-ID: <20150819.221640.338059561382705752.davem@davemloft.net>
+References: <20150820125734.51414bd0@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, netdev@vger.kernel.org, tgraf@suug.ch
-To: hideaki.yoshifuji@miraclelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52089 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbbHTFPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:15:36 -0400
-In-Reply-To: <55D53B72.70403@miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jbenc@redhat.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150820125734.51414bd0@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Date: Thu, 20 Aug 2015 11:29:06 +0900
-
-> Jiri Benc wrote:
->> On Wed, 19 Aug 2015 19:27:22 +0900, YOSHIFUJI Hideaki wrote:
->>>> You're right generally. But this one should be okay and I did this
->>>> deliberately: the patch adding LWTUNNEL_ENCAP_ILA was merged two days
->>>> ago, is in net-next only, is not used by anything in user space yet.
->>>> And I think it's better to have LWTUNNEL_ENCAP_IP and
->>>> LWTUNNEL_ENCAP_IP6 without anything in between.
->>>
->>> I do think you should have some descriptions.
->> 
->> Sorry, I meant to put this into the description but forget to add it
->> after the rebase on top of ILA (as the patchset conflicted with the ILA
->> work and was developed in parallel).
->>
->> Are you okay with inserting LWTUNNEL_ENCAP_IP6 before
->> LWTUNNEL_ENCAP_ILA? If so, I'll resend with the explanation added.
-> 
-> Well, I think we should always avoid adding new entries into the
-> middle of enums because it will make bisecting more complex or more
-> difficult for example even if it *seems* that we have no users yet and
-> the risk is not so high.
-> 
-> Dave?
-
-Agreed.
+RnJvbTogU3RlcGhlbiBSb3Rod2VsbCA8c2ZyQGNhbmIuYXV1Zy5vcmcuYXU+DQpEYXRlOiBUaHUs
+IDIwIEF1ZyAyMDE1IDEyOjU3OjM0ICsxMDAwDQoNCj4gQWZ0ZXIgbWVyZ2luZyB0aGUgbmV0LW5l
+eHQgdHJlZSwgdG9kYXkncyBsaW51eC1uZXh0IGJ1aWxkIChhcm0NCj4gbXVsdGlfdjdfZGVmY29u
+ZmlnKSBmYWlsZWQgbGlrZSB0aGlzOg0KPiANCj4gbmV0L2lwdjQvZmliX3NlbWFudGljcy5jOiBJ
+biBmdW5jdGlvbiAnZmliX2VuY2FwX21hdGNoJzoNCj4gbmV0L2lwdjQvZmliX3NlbWFudGljcy5j
+OjU1MzozOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24gJ2x3dHN0YXRl
+X2ZyZWUnIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KPiAgICBsd3Rz
+dGF0ZV9mcmVlKGx3dHN0YXRlKTsNCj4gICAgXg0KPiANCj4gQ2F1c2VkIGJ5IGNvbW1pdA0KPiAN
+Cj4gICBkZjM4M2U2MjQwZWYgKCJsd3R1bm5lbDogZml4IG1lbW9yeSBsZWFrIikNCj4gDQo+IENP
+TkZJR19MV1RVTk5FTCBpcyBub3Qgc2V0IGZvciB0aGlzIGJ1aWxkLg0KPiANCj4gSSByZXZlcnRl
+ZCB0aGF0IGNvbW1pdCBmb3IgdG9kYXkuDQoNCk91Z2h0IHRvIGFscmVhZHkgYmUgZml4ZWQgYnk6
+DQoNCj09PT09PT09PT09PT09PT09PT09DQpGcm9tIDgyNGU3MzgzZTkyODE1Y2I1OTE3OTNjNzRj
+YzgzNmFhNTE2NWY3ZjggTW9uIFNlcCAxNyAwMDowMDowMCAyMDAxDQpGcm9tOiBZaW5nIFh1ZSA8
+eWluZy54dWVAd2luZHJpdmVyLmNvbT4NCkRhdGU6IFdlZCwgMTkgQXVnIDIwMTUgMTU6NDY6MTcg
+KzA4MDANClN1YmplY3Q6IFtQQVRDSCAxLzJdIGx3dHVubmVsOiBGaXggdGhlIHNwYXJzZSB3YXJu
+aW5ncyBpbiBmaWJfZW5jYXBfbWF0Y2gNCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6
+IHRleHQvcGxhaW47IGNoYXJzZXQ9VVRGLTgNCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDhi
+aXQNCg0KV2hlbiBDT05GSUdfTFdUVU5ORUwgY29uZmlnIGlzIG5vdCBlbmFibGVkLCB0aGUgbHd0
+c3RhdGVfZnJlZSgpIGlzIG5vdA0KZGVjbGFyZWQgaW4gbHd0dW5uZWwuaCBhdCBhbGwuIEhvd2V2
+ZXIsIGV2ZW4gaW4gdGhpcyBjYXNlLCB0aGUgZnVuY3Rpb24NCmlzIHN0aWxsIHJlZmVyZW5jZWQg
+aW4gZmliX3NlbWFudGljcy5jIHNvIHRoYXQgdGhlcmUgYXBwZWFycyB0aGUNCmZvbGxvd2luZyBz
+cGFyc2Ugd2FybmluZ3M6DQoNCm5ldC9pcHY0L2ZpYl9zZW1hbnRpY3MuYzo1NTM6MTc6IGVycm9y
+OiB1bmRlZmluZWQgaWRlbnRpZmllciAnbHd0c3RhdGVfZnJlZScNCiAgQ0MgICAgICBuZXQvaXB2
+NC9maWJfc2VtYW50aWNzLm8NCiAgbmV0L2lwdjQvZmliX3NlbWFudGljcy5jOiBJbiBmdW5jdGlv
+biChZmliX2VuY2FwX21hdGNoojoNCiAgbmV0L2lwdjQvZmliX3NlbWFudGljcy5jOjU1MzozOiBl
+cnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goWx3dHN0YXRlX2ZyZWWiIFst
+V2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KICBjYzE6IHNvbWUgd2Fybmlu
+Z3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCiAgbWFrZVsxXTogKioqIFtuZXQvaXB2NC9maWJf
+c2VtYW50aWNzLm9dIEVycm9yIDENCiAgbWFrZTogKioqIFtuZXQvaXB2NC9maWJfc2VtYW50aWNz
+Lm9dIEVycm9yIDINCg0KVG8gZWxpbWluYXRlIHRoZSBlcnJvciwgd2UgZGVmaW5lIGFuIGVtcHR5
+IGZ1bmN0aW9uIGZvciBsd3RzdGF0ZV9mcmVlKCkNCmluIGx3dHVubmVsLmggd2hlbiBDT05GSUdf
+TFdUVU5ORUwgaXMgZGlzYWJsZWQuDQoNCkZpeGVzOiBkZjM4M2U2MjQwZWYgKCJsd3R1bm5lbDog
+Zml4IG1lbW9yeSBsZWFrIikNCkNjOiBKaXJpIEJlbmMgPGpiZW5jQHJlZGhhdC5jb20+DQpSZXBv
+cnRlZC1ieToga2J1aWxkIHRlc3Qgcm9ib3QgPGZlbmdndWFuZy53dUBpbnRlbC5jb20+DQpTaWdu
+ZWQtb2ZmLWJ5OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJpdmVyLmNvbT4NCkFja2VkLWJ5OiBK
+aXJpIEJlbmMgPGpiZW5jQHJlZGhhdC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxs
+ZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBpbmNsdWRlL25ldC9sd3R1bm5lbC5oIHwg
+NCArKysrDQogMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQ0KDQpkaWZmIC0tZ2l0IGEv
+aW5jbHVkZS9uZXQvbHd0dW5uZWwuaCBiL2luY2x1ZGUvbmV0L2x3dHVubmVsLmgNCmluZGV4IDM0
+ZmQ4ZjcuLmNmZWU1MzkgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL25ldC9sd3R1bm5lbC5oDQorKysg
+Yi9pbmNsdWRlL25ldC9sd3R1bm5lbC5oDQpAQCAtOTMsNiArOTMsMTAgQEAgaW50IGx3dHVubmVs
+X2lucHV0NihzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsNCiANCiAjZWxzZQ0KIA0KK3N0YXRpYyBpbmxp
+bmUgdm9pZCBsd3RzdGF0ZV9mcmVlKHN0cnVjdCBsd3R1bm5lbF9zdGF0ZSAqbHdzKQ0KK3sNCit9
+DQorDQogc3RhdGljIGlubGluZSBzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKg0KIGx3dHN0YXRlX2dl
+dChzdHJ1Y3QgbHd0dW5uZWxfc3RhdGUgKmx3cykNCiB7DQotLSANCjIuMS4wDQoNCg==
