@@ -1,222 +1,159 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH v3 net-next 05/13] ip_tunnels: use tos and ttl fields also for IPv6
-Date: Thu, 20 Aug 2015 13:56:24 +0200
-Message-ID: <1103ecde57cadb0e585ec590477a95da0a88fc20.1440071726.git.jbenc@redhat.com>
+Subject: [PATCH v3 net-next 11/13] vxlan: metadata based tunneling for IPv6
+Date: Thu, 20 Aug 2015 13:56:30 +0200
+Message-ID: <a2c9e91103f27d3cdbbbb3aa94f9e3a366627376.1440071726.git.jbenc@redhat.com>
 References: <cover.1440071726.git.jbenc@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42664 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37584 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751968AbbHTL5V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 07:57:21 -0400
+	id S1751363AbbHTL52 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2015 07:57:28 -0400
 In-Reply-To: <cover.1440071726.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rename the ipv4_tos and ipv4_ttl fields to just 'tos' and 'ttl', as they'll
-be used with IPv6 tunnels, too.
+Support metadata based (formerly flow based) tunneling also for IPv6.
+This complements commit ee122c79d422 ("vxlan: Flow based tunneling").
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 Acked-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- drivers/net/vxlan.c            |  8 ++++----
- include/net/ip_tunnels.h       |  8 ++++----
- net/ipv4/ip_gre.c              |  8 ++++----
- net/ipv4/ip_tunnel_core.c      |  8 ++++----
- net/openvswitch/flow_netlink.c | 10 +++++-----
- net/openvswitch/vport-geneve.c |  4 ++--
- net/openvswitch/vport.c        |  4 ++--
- net/openvswitch/vport.h        |  2 +-
- 8 files changed, 26 insertions(+), 26 deletions(-)
+ drivers/net/vxlan.c | 69 +++++++++++++++++++++++++++++++----------------------
+ 1 file changed, 40 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 30a7abcf2c09..ebeb3def06c5 100644
+index 2c1abf95c17d..54615bb9d916 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -1278,8 +1278,8 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+@@ -1269,17 +1269,27 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 	}
+ 
+ 	if (vxlan_collect_metadata(vs)) {
+-		const struct iphdr *iph = ip_hdr(skb);
+-
+ 		tun_dst = metadata_dst_alloc(sizeof(*md), GFP_ATOMIC);
+ 		if (!tun_dst)
+ 			goto drop;
+ 
  		info = &tun_dst->u.tun_info;
- 		info->key.u.ipv4.src = iph->saddr;
- 		info->key.u.ipv4.dst = iph->daddr;
--		info->key.ipv4_tos = iph->tos;
--		info->key.ipv4_ttl = iph->ttl;
-+		info->key.tos = iph->tos;
-+		info->key.ttl = iph->ttl;
+-		info->key.u.ipv4.src = iph->saddr;
+-		info->key.u.ipv4.dst = iph->daddr;
+-		info->key.tos = iph->tos;
+-		info->key.ttl = iph->ttl;
++		if (vxlan_get_sk_family(vs) == AF_INET) {
++			const struct iphdr *iph = ip_hdr(skb);
++
++			info->key.u.ipv4.src = iph->saddr;
++			info->key.u.ipv4.dst = iph->daddr;
++			info->key.tos = iph->tos;
++			info->key.ttl = iph->ttl;
++		} else {
++			const struct ipv6hdr *ip6h = ipv6_hdr(skb);
++
++			info->key.u.ipv6.src = ip6h->saddr;
++			info->key.u.ipv6.dst = ip6h->daddr;
++			info->key.tos = ipv6_get_dsfield(ip6h);
++			info->key.ttl = ip6h->hop_limit;
++		}
++
  		info->key.tp_src = udp_hdr(skb)->source;
  		info->key.tp_dst = udp_hdr(skb)->dest;
  
-@@ -1960,8 +1960,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			else
- 				flags &= ~VXLAN_F_UDP_CSUM;
+@@ -1894,6 +1904,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	struct ip_tunnel_info *info;
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct sock *sk = vxlan->vn_sock->sock->sk;
++	unsigned short family = vxlan_get_sk_family(vxlan->vn_sock);
+ 	struct rtable *rt = NULL;
+ 	const struct iphdr *old_iph;
+ 	struct flowi4 fl4;
+@@ -1908,7 +1919,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	int err;
+ 	u32 flags = vxlan->flags;
  
--			ttl = info->key.ipv4_ttl;
--			tos = info->key.ipv4_tos;
-+			ttl = info->key.ttl;
-+			tos = info->key.tos;
+-	/* FIXME: Support IPv6 */
+ 	info = skb_tunnel_info(skb);
  
- 			if (info->options_len)
- 				md = ip_tunnel_info_opts(info, sizeof(*md));
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 6a51371dad00..224e4ecec91b 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -44,8 +44,8 @@ struct ip_tunnel_key {
- 		} ipv6;
- 	} u;
- 	__be16			tun_flags;
--	u8			ipv4_tos;
--	u8			ipv4_ttl;
-+	u8			tos;		/* TOS for IPv4, TC for IPv6 */
-+	u8			ttl;		/* TTL for IPv4, HL for IPv6 */
- 	__be16			tp_src;
- 	__be16			tp_dst;
- };
-@@ -195,8 +195,8 @@ static inline void __ip_tunnel_info_init(struct ip_tunnel_info *tun_info,
- 	tun_info->key.u.ipv4.dst = daddr;
- 	memset((unsigned char *)&tun_info->key + IP_TUNNEL_KEY_IPV4_PAD,
- 	       0, IP_TUNNEL_KEY_IPV4_PAD_LEN);
--	tun_info->key.ipv4_tos = tos;
--	tun_info->key.ipv4_ttl = ttl;
-+	tun_info->key.tos = tos;
-+	tun_info->key.ttl = ttl;
- 	tun_info->key.tun_flags = tun_flags;
+ 	if (rdst) {
+@@ -1924,8 +1934,11 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
  
- 	/* For the tunnel types on the top of IPsec, the tp_src and tp_dst of
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index b7bb7d6aa7a8..5193618b2600 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -409,8 +409,8 @@ static int ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi)
- 			info = &tun_dst->u.tun_info;
- 			info->key.u.ipv4.src = iph->saddr;
- 			info->key.u.ipv4.dst = iph->daddr;
--			info->key.ipv4_tos = iph->tos;
--			info->key.ipv4_ttl = iph->ttl;
-+			info->key.tos = iph->tos;
-+			info->key.ttl = iph->ttl;
- 
- 			info->mode = IP_TUNNEL_INFO_RX;
- 			info->key.tun_flags = tpi->flags &
-@@ -529,7 +529,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev)
- 	memset(&fl, 0, sizeof(fl));
- 	fl.daddr = key->u.ipv4.dst;
- 	fl.saddr = key->u.ipv4.src;
--	fl.flowi4_tos = RT_TOS(key->ipv4_tos);
-+	fl.flowi4_tos = RT_TOS(key->tos);
- 	fl.flowi4_mark = skb->mark;
- 	fl.flowi4_proto = IPPROTO_GRE;
- 
-@@ -565,7 +565,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev)
- 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
- 	err = iptunnel_xmit(skb->sk, rt, skb, fl.saddr,
- 			    key->u.ipv4.dst, IPPROTO_GRE,
--			    key->ipv4_tos, key->ipv4_ttl, df, false);
-+			    key->tos, key->ttl, df, false);
- 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return;
- 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 93907d71cda6..f0514e39e57c 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -233,10 +233,10 @@ static int ip_tun_build_state(struct net_device *dev, struct nlattr *attr,
- 		tun_info->key.u.ipv4.src = nla_get_be32(tb[LWTUNNEL_IP_SRC]);
- 
- 	if (tb[LWTUNNEL_IP_TTL])
--		tun_info->key.ipv4_ttl = nla_get_u8(tb[LWTUNNEL_IP_TTL]);
-+		tun_info->key.ttl = nla_get_u8(tb[LWTUNNEL_IP_TTL]);
- 
- 	if (tb[LWTUNNEL_IP_TOS])
--		tun_info->key.ipv4_tos = nla_get_u8(tb[LWTUNNEL_IP_TOS]);
-+		tun_info->key.tos = nla_get_u8(tb[LWTUNNEL_IP_TOS]);
- 
- 	if (tb[LWTUNNEL_IP_SPORT])
- 		tun_info->key.tp_src = nla_get_be16(tb[LWTUNNEL_IP_SPORT]);
-@@ -264,8 +264,8 @@ static int ip_tun_fill_encap_info(struct sk_buff *skb,
- 	if (nla_put_u64(skb, LWTUNNEL_IP_ID, tun_info->key.tun_id) ||
- 	    nla_put_be32(skb, LWTUNNEL_IP_DST, tun_info->key.u.ipv4.dst) ||
- 	    nla_put_be32(skb, LWTUNNEL_IP_SRC, tun_info->key.u.ipv4.src) ||
--	    nla_put_u8(skb, LWTUNNEL_IP_TOS, tun_info->key.ipv4_tos) ||
--	    nla_put_u8(skb, LWTUNNEL_IP_TTL, tun_info->key.ipv4_ttl) ||
-+	    nla_put_u8(skb, LWTUNNEL_IP_TOS, tun_info->key.tos) ||
-+	    nla_put_u8(skb, LWTUNNEL_IP_TTL, tun_info->key.ttl) ||
- 	    nla_put_u16(skb, LWTUNNEL_IP_SPORT, tun_info->key.tp_src) ||
- 	    nla_put_u16(skb, LWTUNNEL_IP_DPORT, tun_info->key.tp_dst) ||
- 	    nla_put_u16(skb, LWTUNNEL_IP_FLAGS, tun_info->key.tun_flags))
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index a7f866374817..4e7a3f7facc2 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -542,11 +542,11 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 					nla_get_in_addr(a), is_mask);
- 			break;
- 		case OVS_TUNNEL_KEY_ATTR_TOS:
--			SW_FLOW_KEY_PUT(match, tun_key.ipv4_tos,
-+			SW_FLOW_KEY_PUT(match, tun_key.tos,
- 					nla_get_u8(a), is_mask);
- 			break;
- 		case OVS_TUNNEL_KEY_ATTR_TTL:
--			SW_FLOW_KEY_PUT(match, tun_key.ipv4_ttl,
-+			SW_FLOW_KEY_PUT(match, tun_key.ttl,
- 					nla_get_u8(a), is_mask);
- 			ttl = true;
- 			break;
-@@ -655,10 +655,10 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
- 	    nla_put_in_addr(skb, OVS_TUNNEL_KEY_ATTR_IPV4_DST,
- 			    output->u.ipv4.dst))
- 		return -EMSGSIZE;
--	if (output->ipv4_tos &&
--	    nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TOS, output->ipv4_tos))
-+	if (output->tos &&
-+	    nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TOS, output->tos))
- 		return -EMSGSIZE;
--	if (nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TTL, output->ipv4_ttl))
-+	if (nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TTL, output->ttl))
- 		return -EMSGSIZE;
- 	if ((output->tun_flags & TUNNEL_DONT_FRAGMENT) &&
- 	    nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT))
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 023813d05f88..d01bd6360970 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -203,8 +203,8 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
+ 		vni = be64_to_cpu(info->key.tun_id);
+-		remote_ip.sin.sin_family = AF_INET;
+-		remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
++		remote_ip.sa.sa_family = family;
++		if (family == AF_INET)
++			remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
++		else
++			remote_ip.sin6.sin6_addr = info->key.u.ipv6.dst;
+ 		dst = &remote_ip;
  	}
  
- 	err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
--			      tun_key->u.ipv4.dst, tun_key->ipv4_tos,
--			      tun_key->ipv4_ttl, df, sport, dport,
-+			      tun_key->u.ipv4.dst, tun_key->tos,
-+			      tun_key->ttl, df, sport, dport,
- 			      tun_key->tun_flags, vni, opts_len, opts,
- 			      !!(tun_key->tun_flags & TUNNEL_CSUM), false);
- 	if (err < 0)
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index a06adc72a58d..d73e5a16e7ca 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -604,8 +604,8 @@ int ovs_tunnel_get_egress_info(struct ip_tunnel_info *egress_tun_info,
- 	 */
- 	__ip_tunnel_info_init(egress_tun_info,
- 			      fl.saddr, tun_key->u.ipv4.dst,
--			      tun_key->ipv4_tos,
--			      tun_key->ipv4_ttl,
-+			      tun_key->tos,
-+			      tun_key->ttl,
- 			      tp_src, tp_dst,
- 			      tun_key->tun_id,
- 			      tun_key->tun_flags,
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 43d8f5a835cb..b88b3ee86f07 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -256,7 +256,7 @@ static inline struct rtable *ovs_tunnel_route_lookup(struct net *net,
- 	memset(fl, 0, sizeof(*fl));
- 	fl->daddr = key->u.ipv4.dst;
- 	fl->saddr = key->u.ipv4.src;
--	fl->flowi4_tos = RT_TOS(key->ipv4_tos);
-+	fl->flowi4_tos = RT_TOS(key->tos);
- 	fl->flowi4_mark = mark;
- 	fl->flowi4_proto = protocol;
+@@ -1951,23 +1964,24 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	src_port = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
+ 				     vxlan->cfg.port_max, true);
  
++	if (info) {
++		if (info->key.tun_flags & TUNNEL_CSUM)
++			flags |= VXLAN_F_UDP_CSUM;
++		else
++			flags &= ~VXLAN_F_UDP_CSUM;
++
++		ttl = info->key.ttl;
++		tos = info->key.tos;
++
++		if (info->options_len)
++			md = ip_tunnel_info_opts(info, sizeof(*md));
++	} else {
++		md->gbp = skb->mark;
++	}
++
+ 	if (dst->sa.sa_family == AF_INET) {
+-		if (info) {
+-			if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
+-				df = htons(IP_DF);
+-			if (info->key.tun_flags & TUNNEL_CSUM)
+-				flags |= VXLAN_F_UDP_CSUM;
+-			else
+-				flags &= ~VXLAN_F_UDP_CSUM;
+-
+-			ttl = info->key.ttl;
+-			tos = info->key.tos;
+-
+-			if (info->options_len)
+-				md = ip_tunnel_info_opts(info, sizeof(*md));
+-		} else {
+-			md->gbp = skb->mark;
+-		}
++		if (info && (info->key.tun_flags & TUNNEL_DONT_FRAGMENT))
++			df = htons(IP_DF);
+ 
+ 		memset(&fl4, 0, sizeof(fl4));
+ 		fl4.flowi4_oif = rdst ? rdst->remote_ifindex : 0;
+@@ -2066,12 +2080,10 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 
+ 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
+-		md->gbp = skb->mark;
+-
+ 		err = vxlan6_xmit_skb(ndst, sk, skb, dev, &fl6.saddr, &fl6.daddr,
+ 				      0, ttl, src_port, dst_port, htonl(vni << 8), md,
+ 				      !net_eq(vxlan->net, dev_net(vxlan->dev)),
+-				      vxlan->flags);
++				      flags);
+ #endif
+ 	}
+ 
+@@ -2104,7 +2116,6 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct vxlan_rdst *rdst, *fdst = NULL;
+ 	struct vxlan_fdb *f;
+ 
+-	/* FIXME: Support IPv6 */
+ 	info = skb_tunnel_info(skb);
+ 
+ 	skb_reset_mac_header(skb);
 -- 
 1.8.3.1
