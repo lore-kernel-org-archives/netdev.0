@@ -1,47 +1,82 @@
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Subject: Re: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to htons
-Date: Fri, 21 Aug 2015 00:28:59 +0530
-Message-ID: <CAK-LDbKJwjgOSgva-4yUay-wOXqAtS=tn-soE9H5xvMQMV56wA@mail.gmail.com>
-References: <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB8054E@AcuExch.aculab.com>
-	<1440078822.685.11.camel@BR9GV9YG.de.ibm.com>
-	<20150820.105810.2093197275802835044.davem@davemloft.net>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCHv4 net-next 09/10] openvswitch: Allow matching on conntrack label
+Date: Thu, 20 Aug 2015 12:13:59 -0700
+Message-ID: <CANr6G5xYJaEYsS9u9YZmz=mxEoknHiCp1FxWVtS69YCEbrfYSA@mail.gmail.com>
+References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
+ <1439941188-19293-10-git-send-email-joestringer@nicira.com>
+ <CALnjE+qVd=7ZdHXvVmOcHSEcFN2RxNrSwB7bck5=8P4oxdRnew@mail.gmail.com>
+ <CANr6G5yp1cj6GuhXDU6jvpaYAzb20-aiTUrpPLrBQAStwxpDVA@mail.gmail.com> <CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Ursula Braun <ubraun@linux.vnet.ibm.com>, David.Laight@aculab.com,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f178.google.com ([209.85.160.178]:36296 "EHLO
-	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986AbbHTS7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 14:59:00 -0400
-In-Reply-To: <20150820.105810.2093197275802835044.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 20, 2015 at 11:28 PM, David Miller <davem@davemloft.net> wrote:
-> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-> Date: Thu, 20 Aug 2015 15:53:42 +0200
+On 20 August 2015 at 08:45, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, Aug 19, 2015 at 4:04 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>> Thanks for the review,
+>>
+>> On 19 August 2015 at 14:24, Pravin Shelar <pshelar@nicira.com> wrote:
+>>> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>> Allow matching and setting the conntrack label field. As with ct_mark,
+>>>> this is populated by executing the CT action, and is a writable field.
+>>>> Specifying a label and optional mask allows the label to be modified,
+>>>> which takes effect on the entry found by the lookup of the CT action.
+>>>>
+>>>> E.g.: actions:ct(zone=1,label=1)
+>>>>
+>>>> This will perform conntrack lookup in zone 1, then modify the label for
+>>>> that entry. The conntrack entry itself must be committed using the
+>>>> "commit" flag in the conntrack action flags for this change to persist.
+>>>>
 >
->> qeth is an s390-driver, and s390 is a big-endian architecture. Thus
->> arguments valid for little-endian do not apply to qeth-code.
->
-> You can not throw out generally good tree-wide conventions just because
-> it happens to work on your platform.
->
-> In fact, I would be really thrilled if some of this code could be compiled
-> on other platforms via COMPILE_TEST or similar, especially the socket code
-> and drivers.
+>>
+>>>>         return false;
+>>>>  }
+>>>> @@ -508,8 +601,12 @@ void ovs_ct_free_action(const struct nlattr *a)
+>>>>
+>>>>  void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
+>>>>  {
+>>>> +       unsigned int n_bits = sizeof(struct ovs_key_ct_label) * BITS_PER_BYTE;
+>>>> +
+>>>>         data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
+>>>>         data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
+>>>> +       if (nf_connlabels_get(net, n_bits);
+>>>> +               OVS_NLERR(true, "Failed to set connlabel length");
+>>>>  }
+>>>>
+>>> In case of error should we reject conntrack label actions? Otherwise
+>>> user will never see any error. But action could drop packets.
+>>
+>> I suspect that currently errors would be seen from ovs_ct_set_label():
+>>
+>>>.......if (!cl || cl->words * sizeof(long) < OVS_CT_LABEL_LEN)
+>>>.......>.......return -ENOSPC;
+>>
+>> So, for cmd_execute, userspace would see this. For regular handling,
+>> pipeline processing would stop (so, drop).
+>>
+>> However, I agree it would be more friendly to have the attribute
+>> rejected up-front. Just means we'll pass the datapath all the way
+>> down:
+>> ovs_nla_get_match()
+>> --> ovs_key_from_nlattrs()
+>> --> metadata_from_nlattrs()
+>> --> ovs_ct_verify()
 
-I have test-compiled this patch on little-endian architecture. I used
-this script for cross compilation:
-https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross
-
-And it worked fine for me.
-
--- 
-Vaishali
+Incidentally, we generally don't have the datapath by this point
+(ovs_nla_get_match()). There'd need to be a bit of rearranging in the
+ovs_flow_cmd_* functions, which would include holding the locks for
+longer. Given that the two most common cases are that either A) The
+kernel is configured with connlabel support, and built with support
+for at least 128 bits of label, or B) the kernel is configured without
+connlabel, and this is handled already in ovs_ct_verify(), I don't
+think it's worth making this particular change.
