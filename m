@@ -1,77 +1,50 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
- bridges and switch devices.
-Date: Wed, 19 Aug 2015 22:00:36 -0700
-Message-ID: <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net> <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com> <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
+From: Noam Camus <noamc@ezchip.com>
+Subject: [v2 0/5] *** nps_enet fixups ***
+Date: Thu, 20 Aug 2015 08:00:00 +0300
+Message-ID: <1440046805-24459-1-git-send-email-noamc@ezchip.com>
+References: <20150817.103607.1737876155019074073.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Premkumar Jonnala <pjonnala@broadcom.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <Alexey.Brodkin@synopsys.com>,
+	<vgupta@synopsys.com>, <talz@ezchip.com>,
+	Noam Camus <noamc@ezchip.com>
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:34807 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772AbbHTFA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:00:56 -0400
-Received: by oiey141 with SMTP id y141so16377941oie.1
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 22:00:56 -0700 (PDT)
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
+Received: from mail-db3on0074.outbound.protection.outlook.com ([157.55.234.74]:30892
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750879AbbHTFFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2015 01:05:22 -0400
+In-Reply-To: <20150817.103607.1737876155019074073.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 9:56 PM, Premkumar Jonnala
-<pjonnala@broadcom.com> wrote:
-> Thank you Scott.  Please see inline.
->
->> >> -----Original Message-----
->> >> From: Scott Feldman [mailto:sfeldma@gmail.com]
->> >> Sent: Tuesday, August 18, 2015 12:48 PM
->> >> To: Premkumar Jonnala
->> >> Cc: netdev@vger.kernel.org
->> >> Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
->> bridges
->> >> and switch devices.
->> >>
->> >>
->> >>
->> >> On Fri, 14 Aug 2015, Premkumar Jonnala wrote:
->> >>
->> >> > Bridge devices have ageing interval used to age out MAC addresses
->> >> > from FDB.  This ageing interval was not configuratble.
->> >> >
->> >> > Enable netlink based configuration of ageing interval for bridges and
->> >> > switch devices.  The ageing interval changes the timer used to purge
->> >> > inactive FDB entries in bridges.  The ageing interval config is
->> >> > propagated to switch devices, so that platform or hardware based
->> >> > ageing works according to configuration.
->> >> >
->> >> > Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
->> >>
->> >> Hi Premkumar,
->> >>
->> >> I agree with Roopa that we should use existing IFLA_BR_AGEING_TIME.
->> >
->> > What is the motivation for using 'ip link' command to configure bridge
->> attributes?  IMHO,
->> > bridge command is better suited for that.
->>
->> Can you extend bridge command to allow setting/getting these bridge
->> attrs?  Looks like you construct a RTM_NEWLINK IFLA_INFO_DATA msg.  No
->> changes needed to the kernel.
->>
->> bridge link set dev br0 ageing_time 1000
->>
->>  --or--
->>
->> ip link set dev br0 type bridge ageing_time 1000
->
-> I'd prefer to deprecate/remove all the 6 options on the 'ip link' command and move them to 'bridge' command.
+From: Noam Camus <noamc@ezchip.com>
 
-We're probably stuck with the 'ip link' commands, since they're
-already release in the wild and folks may have dependency on them.
-However, when looking at iproute2 code, look for opportunity to use
-same code for both paths.
+Change v2
+TX done is handled back with NAPI poll.
 
--scott
+Change v1
+This patch set is a bunch of fixes to make nps_enet work correctly with
+all platforms, i.e. real device, emulation system, and simulation system.
+The main trigger for this patch set was that in our emulation system
+the TX end interrupt is "edge-sensitive" and therefore we cannot use the
+cause register since it is not sticky.
+Also:
+TX is handled during HW interrupt context and not NAPI job.
+race with TX done was fixed.
+added acknowledge for TX when device is "level sensitive".
+enable drop of control frames which is not needed for regular usage.
+
+So most of this patch set is about TX handling, which is now more complete.
+
+Noam Camus (5):
+  NET: nps_enet: replace use of cause register
+  NET: nps_enet: TX done race condition
+  NET: nps_enet: drop control frames
+  NET: nps_enet: TX done acknowledge.
+  NET: nps_enet: minor namespace cleanup
+
+ drivers/net/ethernet/ezchip/nps_enet.c |   37 ++++++++++++++++---------------
+ drivers/net/ethernet/ezchip/nps_enet.h |   20 -----------------
+ 2 files changed, 19 insertions(+), 38 deletions(-)
