@@ -1,62 +1,98 @@
-From: tej parkash <parkash.tej@gmail.com>
-Subject: Re: netlink_route kernel data dump size increased
-Date: Thu, 20 Aug 2015 11:21:01 +0530
-Message-ID: <CAM1L+iDUXKSMndnyS+TM3brjxFQU5a0ZRN-SW0JMKLJ+B23OaA@mail.gmail.com>
-References: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
- <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Subject: [PATCH net] netlink: rx mmap: fix POLLIN condition
+Date: Thu, 20 Aug 2015 14:54:47 +0900
+Message-ID: <20150820055447.GA2656@gmail.com>
+References: <20150722131730.GA18037@gmail.com>
+ <20150812082824.GA13385@gmail.com>
+ <20150812.163819.620222685130362816.davem@davemloft.net>
+ <20150814085807.GA30443@gmail.com>
+ <55CDBC84.8020605@iogearbox.net>
+ <55CDC51D.1060204@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, fw@strlen.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36764 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544AbbHTFvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:51:41 -0400
-Received: by pawq9 with SMTP id q9so20089986paw.3
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 22:51:40 -0700 (PDT)
-In-Reply-To: <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35060 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751585AbbHTFyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:54:53 -0400
+Received: by pacdd16 with SMTP id dd16so11770444pac.2
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 22:54:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <55CDC51D.1060204@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 20, 2015 at 2:47 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-08-19 at 23:41 +0530, tej parkash wrote:
->> All,
->>
->> We are running application on Linux Kernel 3.10 to collect network
->> interface information using  NETLINK_ROUTE protocol. earlier (kernel
->> 2.6.32) we were having 8K buffer allocated to collect all data but
->> with new kernel (3.10) we are seeing read socket error, as buffer size
->> is not sufficient for all network dump data.
->>
->> We want to understand that if the userspace buffer limit increased to
->> 16K or we need some other mechanism to collect the data in 8K chuck.
->> or Is there any other way application can use NETLINK_ROUTE  protocol,
->> so that it will not break the application if data size gets increased
->> in future.
->>
->> I did some some browsing and found some link but they were not very conclusive.
->> http://www.spinics.net/lists/netdev/msg162185.html
->>
->> Appreciate for any kind of help or pointers here
->>
->
-> This sounds like a bug that might have been fixed later.
+Now poll() returns immediately after setting kernel current frame
+(ring->head) to SKIP from user space even if there are no new
+frames. And in a case of all frames is VALID, user space program
+unintensionally sets (only) kernel current frame to UNUSED, then
+calls poll(), it will not return immediately even though there are
+VALID frames.
 
-Ok, let me see if I could find related fix in later kernels.  If you
-have any other pointers here please let me know.
+To avoid situations like above, I think we need to scan all frames
+to find a VALID frame at poll() like netlink_alloc_skb(),
+netlink_forward_ring() finding an UNUSED frame at skb allocation.
 
->
-> User space is not required to switch to 16KB, although it is recommended
-> to reduce number of syscalls.
+Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+---
+ net/netlink/af_netlink.c |   28 ++++++++++++++++------------
+ 1 file changed, 16 insertions(+), 12 deletions(-)
 
-
-Are you saying that we should bring back the fix to 3.10 kernel rather
-increasing user space buffer size to 16KB. I assume that would be
-right way to handle it. But do we have any issue if we just increase
-the buffer size to 16KB (e.g without fix, 16KB may also not be
-sufficient sometime, etc)
-
-
->
->
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 4444687..c65ec2e 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -593,16 +593,6 @@ netlink_current_frame(const struct netlink_ring *ring,
+ 	return netlink_lookup_frame(ring, ring->head, status);
+ }
+ 
+-static struct nl_mmap_hdr *
+-netlink_previous_frame(const struct netlink_ring *ring,
+-		       enum nl_mmap_status status)
+-{
+-	unsigned int prev;
+-
+-	prev = ring->head ? ring->head - 1 : ring->frame_max;
+-	return netlink_lookup_frame(ring, prev, status);
+-}
+-
+ static void netlink_increment_head(struct netlink_ring *ring)
+ {
+ 	ring->head = ring->head != ring->frame_max ? ring->head + 1 : 0;
+@@ -623,6 +613,21 @@ static void netlink_forward_ring(struct netlink_ring *ring)
+ 	} while (ring->head != head);
+ }
+ 
++static bool netlink_has_valid_frame(struct netlink_ring *ring)
++{
++	unsigned int head = ring->head, pos = head;
++	const struct nl_mmap_hdr *hdr;
++
++	do {
++		hdr = __netlink_lookup_frame(ring, pos);
++		if (hdr->nm_status == NL_MMAP_STATUS_VALID)
++			return true;
++		pos = pos != 0 ? pos - 1 : ring->frame_max;
++	} while (pos != head);
++
++	return false;
++}
++
+ static bool netlink_dump_space(struct netlink_sock *nlk)
+ {
+ 	struct netlink_ring *ring = &nlk->rx_ring;
+@@ -670,8 +675,7 @@ static unsigned int netlink_poll(struct file *file, struct socket *sock,
+ 
+ 	spin_lock_bh(&sk->sk_receive_queue.lock);
+ 	if (nlk->rx_ring.pg_vec) {
+-		netlink_forward_ring(&nlk->rx_ring);
+-		if (!netlink_previous_frame(&nlk->rx_ring, NL_MMAP_STATUS_UNUSED))
++		if (netlink_has_valid_frame(&nlk->rx_ring))
+ 			mask |= POLLIN | POLLRDNORM;
+ 	}
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
+-- 
+1.7.10.4
