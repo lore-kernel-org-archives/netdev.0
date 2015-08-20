@@ -1,55 +1,100 @@
-From: Noam Camus <noamc@ezchip.com>
-Subject: [v2 5/5] NET: nps_enet: minor namespace cleanup
-Date: Thu, 20 Aug 2015 08:00:05 +0300
-Message-ID: <1440046805-24459-6-git-send-email-noamc@ezchip.com>
-References: <20150817.103607.1737876155019074073.davem@davemloft.net>
- <1440046805-24459-1-git-send-email-noamc@ezchip.com>
- <1440046805-24459-2-git-send-email-noamc@ezchip.com>
- <1440046805-24459-3-git-send-email-noamc@ezchip.com>
- <1440046805-24459-4-git-send-email-noamc@ezchip.com>
- <1440046805-24459-5-git-send-email-noamc@ezchip.com>
+From: Premkumar Jonnala <pjonnala@broadcom.com>
+Subject: RE: [PATCH] bridge: Enable configuration of ageing interval for
+ bridges and switch devices.
+Date: Thu, 20 Aug 2015 05:08:51 +0000
+Message-ID: <77EF4405DD4BB54AACCE7DB593DF6A9A9E3076@SJEXCHMB14.corp.ad.broadcom.com>
+References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
+ <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net>
+ <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
+ <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
+ <91179B48C1F7014B86296413F181061E3D56B6E1@FMSMSX114.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <Alexey.Brodkin@synopsys.com>,
-	<vgupta@synopsys.com>, <talz@ezchip.com>,
-	Noam Camus <noamc@ezchip.com>
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440046805-24459-5-git-send-email-noamc@ezchip.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Wilson, Daniel G" <daniel.wilson@intel.com>,
+	Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:25083 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750792AbbHTFIx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:08:53 -0400
+In-Reply-To: <91179B48C1F7014B86296413F181061E3D56B6E1@FMSMSX114.amr.corp.intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Noam Camus <noamc@ezchip.com>
-
-We define buf_int_enable in the minimal namespace it is used.
-Signed-off-by: Noam Camus <noamc@ezchip.com>
----
- drivers/net/ethernet/ezchip/nps_enet.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/ezchip/nps_enet.c b/drivers/net/ethernet/ezchip/nps_enet.c
-index 69b9129..63c2bcf 100644
---- a/drivers/net/ethernet/ezchip/nps_enet.c
-+++ b/drivers/net/ethernet/ezchip/nps_enet.c
-@@ -179,15 +179,16 @@ static int nps_enet_poll(struct napi_struct *napi, int budget)
- {
- 	struct net_device *ndev = napi->dev;
- 	struct nps_enet_priv *priv = netdev_priv(ndev);
--	struct nps_enet_buf_int_enable buf_int_enable;
- 	u32 work_done;
- 
--	buf_int_enable.rx_rdy = NPS_ENET_ENABLE;
--	buf_int_enable.tx_done = NPS_ENET_ENABLE;
- 	nps_enet_tx_handler(ndev);
- 	work_done = nps_enet_rx_handler(ndev);
- 	if (work_done < budget) {
-+		struct nps_enet_buf_int_enable buf_int_enable;
-+
- 		napi_complete(napi);
-+		buf_int_enable.rx_rdy = NPS_ENET_ENABLE;
-+		buf_int_enable.tx_done = NPS_ENET_ENABLE;
- 		nps_enet_reg_set(priv, NPS_ENET_REG_BUF_INT_ENABLE,
- 				 buf_int_enable.value);
- 	}
--- 
-1.7.1
+SGkgRGFuaWVsLA0KDQpUaGFuayB5b3UgZm9yIHRoZSBjb21tZW50cy4gIFBsZWFzZSBzZWUgaW5s
+aW5lLg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFdpbHNvbiwgRGFu
+aWVsIEcgW21haWx0bzpkYW5pZWwud2lsc29uQGludGVsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5
+LCBBdWd1c3QgMTksIDIwMTUgMTE6MzMgUE0NCj4gVG86IFNjb3R0IEZlbGRtYW47IFByZW1rdW1h
+ciBKb25uYWxhDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJFOiBb
+UEFUQ0hdIGJyaWRnZTogRW5hYmxlIGNvbmZpZ3VyYXRpb24gb2YgYWdlaW5nIGludGVydmFsIGZv
+ciBicmlkZ2VzDQo+IGFuZCBzd2l0Y2ggZGV2aWNlcy4NCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBN
+ZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWls
+dG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+ID4gT24gQmVoYWxmIE9mIFNj
+b3R0IEZlbGRtYW4NCj4gPiBTZW50OiBXZWRuZXNkYXksIEF1Z3VzdCAxOSwgMjAxNSAxMjo1NCBQ
+TQ0KPiA+IFRvOiBQcmVta3VtYXIgSm9ubmFsYQ0KPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+ID4gU3ViamVjdDogUmU6IFtQQVRDSF0gYnJpZGdlOiBFbmFibGUgY29uZmlndXJhdGlv
+biBvZiBhZ2VpbmcgaW50ZXJ2YWwgZm9yDQo+IGJyaWRnZXMNCj4gPiBhbmQgc3dpdGNoIGRldmlj
+ZXMuDQo+ID4NCj4gPiBPbiBXZWQsIEF1ZyAxOSwgMjAxNSBhdCAyOjM0IEFNLCBQcmVta3VtYXIg
+Sm9ubmFsYQ0KPiA+IDxwam9ubmFsYUBicm9hZGNvbS5jb20+IHdyb3RlOg0KPiA+ID4gSGVsbG8g
+U2NvdHQsDQo+ID4gPg0KPiA+ID4gVGhhbmsgeW91IGZvciB0aGUgZGlmZiBhbmQgY29tbWVudHMu
+ICAgUGxlYXNlIHNlZSBteSBjb21tZW50cyBpbmxpbmUuDQo+ID4gPg0KPiA+ID4+IC0tLS0tT3Jp
+Z2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPj4gRnJvbTogU2NvdHQgRmVsZG1hbiBbbWFpbHRvOnNm
+ZWxkbWFAZ21haWwuY29tXQ0KPiA+ID4+IFNlbnQ6IFR1ZXNkYXksIEF1Z3VzdCAxOCwgMjAxNSAx
+Mjo0OCBQTQ0KPiA+ID4+IFRvOiBQcmVta3VtYXIgSm9ubmFsYQ0KPiA+ID4+IENjOiBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnDQo+ID4gPj4gU3ViamVjdDogUmU6IFtQQVRDSF0gYnJpZGdlOiBFbmFi
+bGUgY29uZmlndXJhdGlvbiBvZiBhZ2VpbmcgaW50ZXJ2YWwNCj4gPiA+PiBmb3IgYnJpZGdlcyBh
+bmQgc3dpdGNoIGRldmljZXMuDQo+ID4gPj4NCj4gPiA+Pg0KPiA+ID4+DQo+ID4gPj4gT24gRnJp
+LCAxNCBBdWcgMjAxNSwgUHJlbWt1bWFyIEpvbm5hbGEgd3JvdGU6DQo+ID4gPj4NCj4gPiA+PiA+
+IEJyaWRnZSBkZXZpY2VzIGhhdmUgYWdlaW5nIGludGVydmFsIHVzZWQgdG8gYWdlIG91dCBNQUMg
+YWRkcmVzc2VzDQo+ID4gPj4gPiBmcm9tIEZEQi4gIFRoaXMgYWdlaW5nIGludGVydmFsIHdhcyBu
+b3QgY29uZmlndXJhdGJsZS4NCj4gPiA+PiA+DQo+ID4gPj4gPiBFbmFibGUgbmV0bGluayBiYXNl
+ZCBjb25maWd1cmF0aW9uIG9mIGFnZWluZyBpbnRlcnZhbCBmb3IgYnJpZGdlcw0KPiA+ID4+ID4g
+YW5kIHN3aXRjaCBkZXZpY2VzLiAgVGhlIGFnZWluZyBpbnRlcnZhbCBjaGFuZ2VzIHRoZSB0aW1l
+ciB1c2VkIHRvDQo+ID4gPj4gPiBwdXJnZSBpbmFjdGl2ZSBGREIgZW50cmllcyBpbiBicmlkZ2Vz
+LiAgVGhlIGFnZWluZyBpbnRlcnZhbCBjb25maWcNCj4gPiA+PiA+IGlzIHByb3BhZ2F0ZWQgdG8g
+c3dpdGNoIGRldmljZXMsIHNvIHRoYXQgcGxhdGZvcm0gb3IgaGFyZHdhcmUgYmFzZWQNCj4gPiA+
+PiA+IGFnZWluZyB3b3JrcyBhY2NvcmRpbmcgdG8gY29uZmlndXJhdGlvbi4NCj4gPiA+PiA+DQo+
+ID4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBQcmVta3VtYXIgSm9ubmFsYSA8cGpvbm5hbGFAYnJvYWRj
+b20uY29tPg0KPiA+ID4+DQo+ID4gPj4gSGkgUHJlbWt1bWFyLA0KPiA+ID4+DQo+ID4gPj4gSSBh
+Z3JlZSB3aXRoIFJvb3BhIHRoYXQgd2Ugc2hvdWxkIHVzZSBleGlzdGluZyBJRkxBX0JSX0FHRUlO
+R19USU1FLg0KPiA+ID4NCj4gPiA+IFdoYXQgaXMgdGhlIG1vdGl2YXRpb24gZm9yIHVzaW5nICdp
+cCBsaW5rJyBjb21tYW5kIHRvIGNvbmZpZ3VyZSBicmlkZ2UNCj4gPiA+IGF0dHJpYnV0ZXM/ICBJ
+TUhPLCBicmlkZ2UgY29tbWFuZCBpcyBiZXR0ZXIgc3VpdGVkIGZvciB0aGF0Lg0KPiA+DQo+ID4g
+Q2FuIHlvdSBleHRlbmQgYnJpZGdlIGNvbW1hbmQgdG8gYWxsb3cgc2V0dGluZy9nZXR0aW5nIHRo
+ZXNlIGJyaWRnZSBhdHRycz8NCj4gPiBMb29rcyBsaWtlIHlvdSBjb25zdHJ1Y3QgYSBSVE1fTkVX
+TElOSyBJRkxBX0lORk9fREFUQSBtc2cuICBObyBjaGFuZ2VzDQo+ID4gbmVlZGVkIHRvIHRoZSBr
+ZXJuZWwuDQo+ID4NCj4gPiBicmlkZ2UgbGluayBzZXQgZGV2IGJyMCBhZ2VpbmdfdGltZSAxMDAw
+DQo+ID4NCj4gPiAgLS1vci0tDQo+ID4NCj4gPiBpcCBsaW5rIHNldCBkZXYgYnIwIHR5cGUgYnJp
+ZGdlIGFnZWluZ190aW1lIDEwMDANCg0KSU1ITywgd2Ugc2hvdWxkIGNob29zZSBvbmx5IG9uZSBj
+b21tYW5kLiAgT3RoZXJ3aXNlLCB3ZSdkIGhhdmUgdG8gc3BlbmQgZWZmb3J0IGluIHRyeWluZyB0
+byBrZWVwIGJvdGggdGhlIGNvbW1hbmRzIGluIHN5bmMuDQpNeSB2b3RlIHdvdWxkIGJlIGZvciB0
+aGUgYnJpZGdlIGNvbW1hbmQgLSBzaW5jZSB0aGUgb3B0aW9ucy9wYXJhbWV0ZXJzIGFyZSByZWxh
+dGVkIHRvIGJyaWRnZXMuICBJZiB0aGVyZSBpcyBubyBvYmplY3Rpb24sDQpJJ2xsIG1vdmUgYWxs
+IHRoZSBicmlkZ2Ugb3B0aW9ucyBmcm9tICdpcCBsaW5rJyBjb21tYW5kIHRvICdicmlkZ2UnIGNv
+bW1hbmQuDQoNCj4gDQo+IEJlaW5nIGFibGUgdG8gc2V0IHRoZXNlIGF0dHJpYnV0ZXMgdmlhIGJv
+dGggYnJpZGdlIGFuZCBpcCB3b3VsZCBiZSBncmVhdC4NCj4gDQo+ID4gPj4gK2ludCBicl9zZXRf
+YWdlaW5nX3RpbWUoc3RydWN0IG5ldF9icmlkZ2UgKmJyLCB1MzIgYWdlaW5nX3RpbWUpIHsNCj4g
+PiA+PiArICAgICBzdHJ1Y3Qgc3dpdGNoZGV2X2F0dHIgYXR0ciA9IHsNCj4gPiA+PiArICAgICAg
+ICAgICAgIC5pZCA9IFNXSVRDSERFVl9BVFRSX0JSSURHRSwNCj4gPiA+PiArICAgICAgICAgICAg
+IC5mbGFncyA9IFNXSVRDSERFVl9GX1NLSVBfRU9QTk9UU1VQUCwNCj4gPiA+PiArICAgICAgICAg
+ICAgIC51LmJyaWRnZS5hdHRyID0gSUZMQV9CUl9BR0VJTkdfVElNRSwNCj4gPiA+PiArICAgICAg
+ICAgICAgIC51LmJyaWRnZS52YWwgPSBhZ2VpbmdfdGltZSwNCj4gPiA+PiArICAgICB9Ow0KPiA+
+ID4+ICsgICAgIGludCBlcnI7DQo+ID4gPj4gKw0KPiA+ID4+ICsgICAgIGVyciA9IHN3aXRjaGRl
+dl9wb3J0X2F0dHJfc2V0KGJyLT5kZXYsICZhdHRyKTsNCj4gPiA+PiArICAgICBpZiAoZXJyKQ0K
+PiA+ID4+ICsgICAgICAgICAgICAgcmV0dXJuIGVycjsNCj4gPiA+PiArDQo+ID4gPj4gKyAgICAg
+YnItPmFnZWluZ190aW1lID0gY2xvY2tfdF90b19qaWZmaWVzKGFnZWluZ190aW1lKTsNCj4gPiA+
+DQo+ID4gPiBTaG91bGQgd2UgcmVzdGFydCB0aGUgdGltZXIgaGVyZSB0aGUgbmV3IHRpbWUgdGFr
+ZXMgZWZmZWN0Pw0KPiA+DQo+ID4gSSBkb24ndCBrbm93Li4uSSBqdXN0IGNvcGllZCB3aGF0IHRo
+ZSBvcmlnaW5hbCBjb2RlIGRpZC4gIElmIGl0IGRvZXMgbmVlZCB0byBiZQ0KPiA+IHJlc3RhcnRl
+ZCwgYnJlYWsgdGhhdCBvdXQgYXMgYSBzZXBhcmF0ZSBwYXRjaC4NCj4gDQo+IEluIG15IG9waW5p
+b24sIHllcywgdGhlIHRpbWVyIHNob3VsZCBiZSByZXN0YXJ0ZWQuIElmIHRoZSB0aW1lciBoYWQg
+YmVlbiBzZXQgdG8gMQ0KPiBtaWxsaW9uIHNlY29uZHMgYW5kIGlzIGJlaW5nIGNoYW5nZWQgdG8g
+MSBtaW51dGUsIHlvdSB3b3VsZG4ndCB3YW50IHRvIHdhaXQgZm9yDQo+IHRoZSAxLW1pbGxpb24t
+c2Vjb25kICB0aW1lciB0byBleHBpcmUgYmVmb3JlIHJlc2V0dGluZyBpdCB0byB0aGUgbmV3bHkt
+Y29uZmlndXJlZA0KPiAxLW1pbnV0ZSB0aW1lciB2YWx1ZS4NCg0KSSBhZ3JlZSB3aXRoIHlvdSB0
+b3RhbGx5LiAgVGhpcyBpcyBleGFjdGx5IHRoZSByZWFzb24gSSB3YW50IHRvIHJlc3RhcnQgdGhl
+IHRpbWVyLiAgSSdsbA0KbWFrZSB0aGUgY2hhbmdlcyBhbmQgcG9zdCB0aGUgcGF0Y2guDQoNCi1Q
+cmVtDQoNCj4gDQo+IERhbi4NCg0K
