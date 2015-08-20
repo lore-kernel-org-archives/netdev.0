@@ -1,127 +1,442 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/16] i40e: Set defport behavior for the Main VSI when in promiscuous mode
-Date: Wed, 19 Aug 2015 17:57:51 -0700
-Message-ID: <1440032286-30054-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/16] i40e/i40evf: Move helper functions to a header file
+Date: Wed, 19 Aug 2015 17:57:54 -0700
+Message-ID: <1440032286-30054-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, stable <stable@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37880 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:40611 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751691AbbHTA6I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 20:58:08 -0400
+	id S1752062AbbHTA6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 20:58:09 -0400
 In-Reply-To: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-This fixes bugs where the port is not receiving multicast or vlan tagged
-packets when in promiscuous mode. This can occur when a SW bridge is
-created on top of the device.
+A new header file i40e_helper.h is added to both the PF and VF driver
+with functions used by both drivers.
 
-This also fixes issues where the promiscuous behavior setting was not
-being preserved across a reset caused by features being enabled or
-disabled.
-
-We are using defport instead of doing a true promiscuous mode because we do
-not need to receive the SRIOV or VMDq VSI directed traffic which would suck
-up bandwidth and is really not intended for the SW bridge.
-
-In addition, with defport we get VLAN promiscuous behavior which is not
-possible from the VSI level promiscuous setting.
-
-Change-ID: Ie21985eac32d5af1c02e9d71c6430a90d5bab40f
-CC: stable <stable@vger.kernel.org>
+Change-ID: I3c6daedc2ff6f32bc7624bf5eaef05899d35f28b
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 42 ++++++++++++++++++++++-------
- 2 files changed, 33 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_helper.h   | 102 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |  72 +----------------
+ drivers/net/ethernet/intel/i40evf/i40e_helper.h | 102 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |  80 +------------------
+ 4 files changed, 206 insertions(+), 150 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_helper.h
+ create mode 100644 drivers/net/ethernet/intel/i40evf/i40e_helper.h
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 0f97883..7a55bca 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -372,6 +372,7 @@ struct i40e_pf {
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *i40e_dbg_pf;
- #endif /* CONFIG_DEBUG_FS */
-+	bool cur_promisc;
- 
- 	u16 instance; /* A unique number per i40e_pf instance in the system */
- 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_helper.h b/drivers/net/ethernet/intel/i40e/i40e_helper.h
+new file mode 100644
+index 0000000..0eb1c75
+--- /dev/null
++++ b/drivers/net/ethernet/intel/i40e/i40e_helper.h
+@@ -0,0 +1,102 @@
++/*******************************************************************************
++ *
++ * Intel Ethernet Controller XL710 Family Linux Driver
++ * Copyright(c) 2013 - 2015 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
++
++#ifndef _I40E_HELPER_H_
++#define _I40E_HELPER_H_
++
++/**
++ * i40e_allocate_dma_mem_d - OS specific memory alloc for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to fill out
++ * @size: size of memory requested
++ * @alignment: what to align the allocation to
++ **/
++inline int i40e_allocate_dma_mem_d(struct i40e_hw *hw,
++				   struct i40e_dma_mem *mem,
++				   u64 size, u32 alignment)
++{
++	struct i40e_pf *nf = (struct i40e_pf *)hw->back;
++
++	mem->size = ALIGN(size, alignment);
++	mem->va = dma_zalloc_coherent(&nf->pdev->dev, mem->size,
++				      &mem->pa, GFP_KERNEL);
++	if (!mem->va)
++		return -ENOMEM;
++
++	return 0;
++}
++
++/**
++ * i40e_free_dma_mem_d - OS specific memory free for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to free
++ **/
++inline int i40e_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
++{
++	struct i40e_pf *nf = (struct i40e_pf *)hw->back;
++
++	dma_free_coherent(&nf->pdev->dev, mem->size, mem->va, mem->pa);
++	mem->va = NULL;
++	mem->pa = 0;
++	mem->size = 0;
++
++	return 0;
++}
++
++/**
++ * i40e_allocate_virt_mem_d - OS specific memory alloc for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to fill out
++ * @size: size of memory requested
++ **/
++inline int i40e_allocate_virt_mem_d(struct i40e_hw *hw,
++				    struct i40e_virt_mem *mem,
++				    u32 size)
++{
++	mem->size = size;
++	mem->va = kzalloc(size, GFP_KERNEL);
++
++	if (!mem->va)
++		return -ENOMEM;
++
++	return 0;
++}
++
++/**
++ * i40e_free_virt_mem_d - OS specific memory free for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to free
++ **/
++inline int i40e_free_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem)
++{
++	/* it's ok to kfree a NULL pointer */
++	kfree(mem->va);
++	mem->va = NULL;
++	mem->size = 0;
++
++	return 0;
++}
++#endif /* _I40E_HELPER_H_ */
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3bb832a..6a6694f 100644
+index 1cd5269..8a5c8ec 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1906,15 +1906,36 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 		cur_promisc = (!!(vsi->current_netdev_flags & IFF_PROMISC) ||
- 			       test_bit(__I40E_FILTER_OVERFLOW_PROMISC,
- 					&vsi->state));
--		ret = i40e_aq_set_vsi_unicast_promiscuous(&vsi->back->hw,
--							  vsi->seid,
--							  cur_promisc, NULL);
--		if (ret)
--			dev_info(&pf->pdev->dev,
--				 "set uni promisc failed, err %s, aq_err %s\n",
--				 i40e_stat_str(&pf->hw, ret),
--				 i40e_aq_str(&pf->hw,
--					     pf->hw.aq.asq_last_status));
-+		if (vsi->type == I40E_VSI_MAIN && pf->lan_veb != I40E_NO_VEB) {
-+			/* set defport ON for Main VSI instead of true promisc
-+			 * this way we will get all unicast/multicast and vlan
-+			 * promisc behavior but will not get VF or VMDq traffic
-+			 * replicated on the Main VSI.
-+			 */
-+			if (pf->cur_promisc != cur_promisc) {
-+				pf->cur_promisc = cur_promisc;
-+				i40e_do_reset_safe(pf,
-+						BIT(__I40E_PF_RESET_REQUESTED));
-+			}
-+		} else {
-+			ret = i40e_aq_set_vsi_unicast_promiscuous(&vsi->back->hw,
-+								  vsi->seid,
-+								  cur_promisc,
-+								  NULL);
-+			if (ret)
-+				dev_info(&pf->pdev->dev,
-+					 "set uni promisc failed, err %d, aq_err %d\n",
-+					 ret, pf->hw.aq.asq_last_status);
-+			ret = i40e_aq_set_vsi_multicast_promiscuous(
-+								&vsi->back->hw,
-+								vsi->seid,
-+								cur_promisc,
-+								NULL);
-+			if (ret)
-+				dev_info(&pf->pdev->dev,
-+					 "set multicast promisc failed, err %d, aq_err %d\n",
-+					 ret, pf->hw.aq.asq_last_status);
-+		}
- 		ret = i40e_aq_set_vsi_broadcast(&vsi->back->hw,
- 						vsi->seid,
- 						cur_promisc, NULL);
-@@ -3970,6 +3991,7 @@ static void i40e_vsi_close(struct i40e_vsi *vsi)
- 	i40e_vsi_free_irq(vsi);
- 	i40e_vsi_free_tx_resources(vsi);
- 	i40e_vsi_free_rx_resources(vsi);
-+	vsi->current_netdev_flags = 0;
- }
+@@ -26,6 +26,7 @@
+ 
+ /* Local includes */
+ #include "i40e.h"
++#include "i40e_helper.h"
+ #include "i40e_diag.h"
+ #ifdef CONFIG_I40E_VXLAN
+ #include <net/vxlan.h>
+@@ -95,77 +96,6 @@ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
  
  /**
-@@ -9278,7 +9300,7 @@ void i40e_veb_release(struct i40e_veb *veb)
- static int i40e_add_veb(struct i40e_veb *veb, struct i40e_vsi *vsi)
- {
- 	struct i40e_pf *pf = veb->pf;
--	bool is_default = false;
-+	bool is_default = veb->pf->cur_promisc;
- 	bool is_cloud = false;
- 	int ret;
+- * i40e_allocate_dma_mem_d - OS specific memory alloc for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to fill out
+- * @size: size of memory requested
+- * @alignment: what to align the allocation to
+- **/
+-int i40e_allocate_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem,
+-			    u64 size, u32 alignment)
+-{
+-	struct i40e_pf *pf = (struct i40e_pf *)hw->back;
+-
+-	mem->size = ALIGN(size, alignment);
+-	mem->va = dma_zalloc_coherent(&pf->pdev->dev, mem->size,
+-				      &mem->pa, GFP_KERNEL);
+-	if (!mem->va)
+-		return -ENOMEM;
+-
+-	return 0;
+-}
+-
+-/**
+- * i40e_free_dma_mem_d - OS specific memory free for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to free
+- **/
+-int i40e_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
+-{
+-	struct i40e_pf *pf = (struct i40e_pf *)hw->back;
+-
+-	dma_free_coherent(&pf->pdev->dev, mem->size, mem->va, mem->pa);
+-	mem->va = NULL;
+-	mem->pa = 0;
+-	mem->size = 0;
+-
+-	return 0;
+-}
+-
+-/**
+- * i40e_allocate_virt_mem_d - OS specific memory alloc for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to fill out
+- * @size: size of memory requested
+- **/
+-int i40e_allocate_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem,
+-			     u32 size)
+-{
+-	mem->size = size;
+-	mem->va = kzalloc(size, GFP_KERNEL);
+-
+-	if (!mem->va)
+-		return -ENOMEM;
+-
+-	return 0;
+-}
+-
+-/**
+- * i40e_free_virt_mem_d - OS specific memory free for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to free
+- **/
+-int i40e_free_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem)
+-{
+-	/* it's ok to kfree a NULL pointer */
+-	kfree(mem->va);
+-	mem->va = NULL;
+-	mem->size = 0;
+-
+-	return 0;
+-}
+-
+-/**
+  * i40e_get_lump - find a lump of free generic resource
+  * @pf: board private structure
+  * @pile: the pile of resource to search
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_helper.h b/drivers/net/ethernet/intel/i40evf/i40e_helper.h
+new file mode 100644
+index 0000000..6e88a3b
+--- /dev/null
++++ b/drivers/net/ethernet/intel/i40evf/i40e_helper.h
+@@ -0,0 +1,102 @@
++/*******************************************************************************
++ *
++ * Intel Ethernet Controller XL710 Family Linux Driver
++ * Copyright(c) 2013 - 2015 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
++
++#ifndef _I40E_HELPER_H_
++#define _I40E_HELPER_H_
++
++/**
++ * i40evf_allocate_dma_mem_d - OS specific memory alloc for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to fill out
++ * @size: size of memory requested
++ * @alignment: what to align the allocation to
++ **/
++inline int i40evf_allocate_dma_mem_d(struct i40e_hw *hw,
++				     struct i40e_dma_mem *mem,
++				     u64 size, u32 alignment)
++{
++	struct i40evf_adapter *nf = (struct i40evf_adapter *)hw->back;
++
++	mem->size = ALIGN(size, alignment);
++	mem->va = dma_zalloc_coherent(&nf->pdev->dev, mem->size,
++				      &mem->pa, GFP_KERNEL);
++	if (!mem->va)
++		return -ENOMEM;
++
++	return 0;
++}
++
++/**
++ * i40evf_free_dma_mem_d - OS specific memory free for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to free
++ **/
++inline int i40evf_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
++{
++	struct i40evf_adapter *nf = (struct i40evf_adapter *)hw->back;
++
++	dma_free_coherent(&nf->pdev->dev, mem->size, mem->va, mem->pa);
++	mem->va = NULL;
++	mem->pa = 0;
++	mem->size = 0;
++
++	return 0;
++}
++
++/**
++ * i40evf_allocate_virt_mem_d - OS specific memory alloc for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to fill out
++ * @size: size of memory requested
++ **/
++inline int i40evf_allocate_virt_mem_d(struct i40e_hw *hw,
++				      struct i40e_virt_mem *mem,
++				      u32 size)
++{
++	mem->size = size;
++	mem->va = kzalloc(size, GFP_KERNEL);
++
++	if (!mem->va)
++		return -ENOMEM;
++
++	return 0;
++}
++
++/**
++ * i40evf_free_virt_mem_d - OS specific memory free for shared code
++ * @hw:   pointer to the HW structure
++ * @mem:  ptr to mem struct to free
++ **/
++inline int i40evf_free_virt_mem_d(struct i40e_hw *hw, struct i40e_virt_mem *mem)
++{
++	/* it's ok to kfree a NULL pointer */
++	kfree(mem->va);
++	mem->va = NULL;
++	mem->size = 0;
++
++	return 0;
++}
++#endif /* _I40E_HELPER_H_ */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 2a6063a..4f3f603 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -25,6 +25,7 @@
+  ******************************************************************************/
  
+ #include "i40evf.h"
++#include "i40e_helper.h"
+ #include "i40e_prototype.h"
+ static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter);
+ static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter);
+@@ -62,85 +63,6 @@ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
+ /**
+- * i40evf_allocate_dma_mem_d - OS specific memory alloc for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to fill out
+- * @size: size of memory requested
+- * @alignment: what to align the allocation to
+- **/
+-i40e_status i40evf_allocate_dma_mem_d(struct i40e_hw *hw,
+-				      struct i40e_dma_mem *mem,
+-				      u64 size, u32 alignment)
+-{
+-	struct i40evf_adapter *adapter = (struct i40evf_adapter *)hw->back;
+-
+-	if (!mem)
+-		return I40E_ERR_PARAM;
+-
+-	mem->size = ALIGN(size, alignment);
+-	mem->va = dma_alloc_coherent(&adapter->pdev->dev, mem->size,
+-				     (dma_addr_t *)&mem->pa, GFP_KERNEL);
+-	if (mem->va)
+-		return 0;
+-	else
+-		return I40E_ERR_NO_MEMORY;
+-}
+-
+-/**
+- * i40evf_free_dma_mem_d - OS specific memory free for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to free
+- **/
+-i40e_status i40evf_free_dma_mem_d(struct i40e_hw *hw, struct i40e_dma_mem *mem)
+-{
+-	struct i40evf_adapter *adapter = (struct i40evf_adapter *)hw->back;
+-
+-	if (!mem || !mem->va)
+-		return I40E_ERR_PARAM;
+-	dma_free_coherent(&adapter->pdev->dev, mem->size,
+-			  mem->va, (dma_addr_t)mem->pa);
+-	return 0;
+-}
+-
+-/**
+- * i40evf_allocate_virt_mem_d - OS specific memory alloc for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to fill out
+- * @size: size of memory requested
+- **/
+-i40e_status i40evf_allocate_virt_mem_d(struct i40e_hw *hw,
+-				       struct i40e_virt_mem *mem, u32 size)
+-{
+-	if (!mem)
+-		return I40E_ERR_PARAM;
+-
+-	mem->size = size;
+-	mem->va = kzalloc(size, GFP_KERNEL);
+-
+-	if (mem->va)
+-		return 0;
+-	else
+-		return I40E_ERR_NO_MEMORY;
+-}
+-
+-/**
+- * i40evf_free_virt_mem_d - OS specific memory free for shared code
+- * @hw:   pointer to the HW structure
+- * @mem:  ptr to mem struct to free
+- **/
+-i40e_status i40evf_free_virt_mem_d(struct i40e_hw *hw,
+-				   struct i40e_virt_mem *mem)
+-{
+-	if (!mem)
+-		return I40E_ERR_PARAM;
+-
+-	/* it's ok to kfree a NULL pointer */
+-	kfree(mem->va);
+-
+-	return 0;
+-}
+-
+-/**
+  * i40evf_debug_d - OS dependent version of debug printing
+  * @hw:  pointer to the HW structure
+  * @mask: debug level mask
 -- 
 2.4.3
