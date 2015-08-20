@@ -1,112 +1,62 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
- bridges and switch devices.
-Date: Wed, 19 Aug 2015 22:38:31 -0700
-Message-ID: <CAE4R7bC4aJuk6rFThp-EAmKLkm8QRKXS2EtFF0uauCDUV5WufA@mail.gmail.com>
-References: <77EF4405DD4BB54AACCE7DB593DF6A9A9E1E8D@SJEXCHMB14.corp.ad.broadcom.com>
- <alpine.DEB.2.02.1508172358470.13562@rocker1.rocker.net> <77EF4405DD4BB54AACCE7DB593DF6A9A9E2BFE@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bD-r1=xo2+HMKdPpf7A3Vd7SXYsxm=xC0oNANtuG+F4iw@mail.gmail.com>
- <77EF4405DD4BB54AACCE7DB593DF6A9A9E303A@SJEXCHMB14.corp.ad.broadcom.com>
- <CAE4R7bAFsi0AL2EyTLQRgKLEBO_G4QYXd554uo+tx8OoWnkDuw@mail.gmail.com> <77EF4405DD4BB54AACCE7DB593DF6A9A9E308A@SJEXCHMB14.corp.ad.broadcom.com>
+From: tej parkash <parkash.tej@gmail.com>
+Subject: Re: netlink_route kernel data dump size increased
+Date: Thu, 20 Aug 2015 11:21:01 +0530
+Message-ID: <CAM1L+iDUXKSMndnyS+TM3brjxFQU5a0ZRN-SW0JMKLJ+B23OaA@mail.gmail.com>
+References: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
+ <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Premkumar Jonnala <pjonnala@broadcom.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:35401 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751291AbbHTFiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:38:52 -0400
-Received: by obbwr7 with SMTP id wr7so23594215obb.2
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 22:38:51 -0700 (PDT)
-In-Reply-To: <77EF4405DD4BB54AACCE7DB593DF6A9A9E308A@SJEXCHMB14.corp.ad.broadcom.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36764 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544AbbHTFvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 01:51:41 -0400
+Received: by pawq9 with SMTP id q9so20089986paw.3
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 22:51:40 -0700 (PDT)
+In-Reply-To: <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2015 at 10:12 PM, Premkumar Jonnala
-<pjonnala@broadcom.com> wrote:
->
->
->> -----Original Message-----
->> From: Scott Feldman [mailto:sfeldma@gmail.com]
->> Sent: Thursday, August 20, 2015 10:31 AM
->> To: Premkumar Jonnala
->> Cc: netdev@vger.kernel.org
->> Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for bridges
->> and switch devices.
+On Thu, Aug 20, 2015 at 2:47 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-08-19 at 23:41 +0530, tej parkash wrote:
+>> All,
 >>
->> On Wed, Aug 19, 2015 at 9:56 PM, Premkumar Jonnala
->> <pjonnala@broadcom.com> wrote:
->> > Thank you Scott.  Please see inline.
->> >
->> >> >> -----Original Message-----
->> >> >> From: Scott Feldman [mailto:sfeldma@gmail.com]
->> >> >> Sent: Tuesday, August 18, 2015 12:48 PM
->> >> >> To: Premkumar Jonnala
->> >> >> Cc: netdev@vger.kernel.org
->> >> >> Subject: Re: [PATCH] bridge: Enable configuration of ageing interval for
->> >> bridges
->> >> >> and switch devices.
->> >> >>
->> >> >>
->> >> >>
->> >> >> On Fri, 14 Aug 2015, Premkumar Jonnala wrote:
->> >> >>
->> >> >> > Bridge devices have ageing interval used to age out MAC addresses
->> >> >> > from FDB.  This ageing interval was not configuratble.
->> >> >> >
->> >> >> > Enable netlink based configuration of ageing interval for bridges and
->> >> >> > switch devices.  The ageing interval changes the timer used to purge
->> >> >> > inactive FDB entries in bridges.  The ageing interval config is
->> >> >> > propagated to switch devices, so that platform or hardware based
->> >> >> > ageing works according to configuration.
->> >> >> >
->> >> >> > Signed-off-by: Premkumar Jonnala <pjonnala@broadcom.com>
->> >> >>
->> >> >> Hi Premkumar,
->> >> >>
->> >> >> I agree with Roopa that we should use existing IFLA_BR_AGEING_TIME.
->> >> >
->> >> > What is the motivation for using 'ip link' command to configure bridge
->> >> attributes?  IMHO,
->> >> > bridge command is better suited for that.
->> >>
->> >> Can you extend bridge command to allow setting/getting these bridge
->> >> attrs?  Looks like you construct a RTM_NEWLINK IFLA_INFO_DATA msg.  No
->> >> changes needed to the kernel.
->> >>
->> >> bridge link set dev br0 ageing_time 1000
->> >>
->> >>  --or--
->> >>
->> >> ip link set dev br0 type bridge ageing_time 1000
->> >
->> > I'd prefer to deprecate/remove all the 6 options on the 'ip link' command and
->> move them to 'bridge' command.
+>> We are running application on Linux Kernel 3.10 to collect network
+>> interface information using  NETLINK_ROUTE protocol. earlier (kernel
+>> 2.6.32) we were having 8K buffer allocated to collect all data but
+>> with new kernel (3.10) we are seeing read socket error, as buffer size
+>> is not sufficient for all network dump data.
 >>
->> We're probably stuck with the 'ip link' commands, since they're
->> already release in the wild and folks may have dependency on them.
->> However, when looking at iproute2 code, look for opportunity to use
->> same code for both paths.
+>> We want to understand that if the userspace buffer limit increased to
+>> 16K or we need some other mechanism to collect the data in 8K chuck.
+>> or Is there any other way application can use NETLINK_ROUTE  protocol,
+>> so that it will not break the application if data size gets increased
+>> in future.
+>>
+>> I did some some browsing and found some link but they were not very conclusive.
+>> http://www.spinics.net/lists/netdev/msg162185.html
+>>
+>> Appreciate for any kind of help or pointers here
+>>
 >
-> Ok.  Then we can have both ip and bridge commands supporting these options, and freeze the 'ip link' command as it
-> exists today.  Any new options in future should be added to the bridge command.  Does that sound okay?
+> This sounds like a bug that might have been fixed later.
 
-It would be ideal if both command paths use same code so new options
-work with either command.  There are other examples where shared code
-approach could be used to create synonymous commands:
+Ok, let me see if I could find related fix in later kernels.  If you
+have any other pointers here please let me know.
 
-ip link add name br0 type bridge       --or-- bridge add dev br0
-ip link del br0                                  --or-- bridge del dev br0
-ip link set dev sw1p1 master br0       --or-- bridge link add dev sw1p1 br0
-ip link set dev sw1p1 nomaster br0    --or-- bridge link del sw1p1
+>
+> User space is not required to switch to 16KB, although it is recommended
+> to reduce number of syscalls.
 
-There is some precedence of synonymous bridge commands:
 
-ip link set dev sw1p1 type bridge_slave flood on
---or--
-bridge link set dev sw1p1 flood on
+Are you saying that we should bring back the fix to 3.10 kernel rather
+increasing user space buffer size to 16KB. I assume that would be
+right way to handle it. But do we have any issue if we just increase
+the buffer size to 16KB (e.g without fix, 16KB may also not be
+sufficient sometime, etc)
 
-But I don't know if the same code path is used for both of these.  (It should).
 
--scott
+>
+>
