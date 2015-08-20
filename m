@@ -1,73 +1,61 @@
-From: Jaedon Shin <jaedon.shin@gmail.com>
-Subject: [PATCH] net: bcmgenet: fix uncleaned dma flags
-Date: Thu, 20 Aug 2015 12:17:07 +0900
-Message-ID: <1440040627-59949-1-git-send-email-jaedon.shin@gmail.com>
-Cc: Jaedon Shin <jaedon.shin@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
+From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Subject: [PATCH net] netlink: mmap: fix tx type check
+Date: Thu, 20 Aug 2015 12:43:53 +0900
+Message-ID: <20150820034353.GA728@gmail.com>
+References: <20150722131730.GA18037@gmail.com>
+ <20150812082824.GA13385@gmail.com>
+ <20150812.163819.620222685130362816.davem@davemloft.net>
+ <20150814085807.GA30443@gmail.com>
+ <55CDBC84.8020605@iogearbox.net>
+ <55CDC51D.1060204@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, fw@strlen.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35699 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874AbbHTDSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 23:18:48 -0400
-Received: by pacdd16 with SMTP id dd16so8860261pac.2
-        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 20:18:48 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33541 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106AbbHTDn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2015 23:43:59 -0400
+Received: by padfo6 with SMTP id fo6so11640369pad.0
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2015 20:43:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <55CDC51D.1060204@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clean the dma flags of multiq ring buffer int the interface stop
-process. This patch fixes that the genet is not running while the
-interface is re-enabled.
+I can't send netlink message via mmaped netlink socket since
 
-$ ifup eth0 - running after booting
-$ ifdown eth0
-$ ifup eth0 - not running and occur tx_timeout
+    commit: a8866ff6a5bce7d0ec465a63bc482a85c09b0d39
+    netlink: make the check for "send from tx_ring" deterministic
 
-The bcmgenet_dma_disable() in bcmgenet_open() do clean ring16 dma flag
-only. If the genet has multiq, the dma register is not cleaned. and
-bcmgenet_init_dma() is not done correctly. in case
-GENET_V2(tx_queues=4), tdma_ctrl has 0x1e after running
-bcmgenet_dma_disable().
+msg->msg_iter.type is set to WRITE (1) at
 
-Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
+    SYSCALL_DEFINE6(sendto, ...
+        import_single_range(WRITE, ...
+            iov_iter_init(1, WRITE, ...
+
+call path, so that we need to check the type by iter_is_iovec()
+to accept the WRITE.
+
+Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ net/netlink/af_netlink.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 64c1e9db6b0b..81bde6fa70b7 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2174,6 +2174,8 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
- 
- static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
- {
-+	u32 dma_ctrl;
-+	u32 reg;
- 	int i;
- 
- 	bcmgenet_fini_rx_napi(priv);
-@@ -2182,6 +2184,20 @@ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
- 	/* disable DMA */
- 	bcmgenet_dma_teardown(priv);
- 
-+	dma_ctrl = 0;
-+	for (i = 0; i < priv->hw_params->rx_queues; i++)
-+		dma_ctrl |= (1 << (i + DMA_RING_BUF_EN_SHIFT));
-+	reg = bcmgenet_rdma_readl(priv, DMA_CTRL);
-+	reg &= ~dma_ctrl;
-+	bcmgenet_rdma_writel(priv, reg, DMA_CTRL);
-+
-+	dma_ctrl = 0;
-+	for (i = 0; i < priv->hw_params->tx_queues; i++)
-+		dma_ctrl |= (1 << (i + DMA_RING_BUF_EN_SHIFT));
-+	reg = bcmgenet_tdma_readl(priv, DMA_CTRL);
-+	reg &= ~dma_ctrl;
-+	bcmgenet_tdma_writel(priv, reg, DMA_CTRL);
-+
- 	for (i = 0; i < priv->num_tx_bds; i++) {
- 		if (priv->tx_cbs[i].skb != NULL) {
- 			dev_kfree_skb(priv->tx_cbs[i].skb);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 85ccd8b..4444687 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2456,7 +2456,7 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 	 * sendmsg(), but that's what we've got...
+ 	 */
+ 	if (netlink_tx_is_mmaped(sk) &&
+-	    msg->msg_iter.type == ITER_IOVEC &&
++	    iter_is_iovec(&msg->msg_iter) &&
+ 	    msg->msg_iter.nr_segs == 1 &&
+ 	    msg->msg_iter.iov->iov_base == NULL) {
+ 		err = netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group,
 -- 
-2.5.0
+1.7.10.4
