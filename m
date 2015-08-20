@@ -1,42 +1,55 @@
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Subject: [PATCH, net-next] r8169: Disable some bits on pcie
-Date: Thu, 20 Aug 2015 13:12:33 +0300
-Message-ID: <1440065553-15028-1-git-send-email-corcodel.marian@gmail.com>
-Cc: Corcodel Marian <corcodel.marian@gmail.com>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to
+ htons
+Date: Thu, 20 Aug 2015 10:46:43 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB804CD@AcuExch.aculab.com>
+References: <1439972454-64347-1-git-send-email-ubraun@linux.vnet.ibm.com>
+ <1439972454-64347-3-git-send-email-ubraun@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
+	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+	"ursula.braun@de.ibm.com" <ursula.braun@de.ibm.com>,
+	Vaishali Thakkar <vthakkar1994@gmail.com>
+To: 'Ursula Braun' <ubraun@linux.vnet.ibm.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:36741 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752317AbbHTKMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 06:12:46 -0400
-Received: by wicja10 with SMTP id ja10so141229409wic.1
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 03:12:45 -0700 (PDT)
+Received: from smtp-out6.electric.net ([192.162.217.191]:64870 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751741AbbHTKtk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 06:49:40 -0400
+In-Reply-To: <1439972454-64347-3-git-send-email-ubraun@linux.vnet.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Disable legacy interrupt on pci express interface use msi 
- disable some bits from pci express interface wich is not   need on this nic.
+From: Ursula Braun
+> Sent: 19 August 2015 09:21
+> In little endian cases, the macro htons unfolds to __swab16 which
+> provides special case for constants. In big endian cases,
+> __constant_htons and htons expand directly to the same expression.
+> So, replace __constant_htons with htons with the goal of getting
+> rid of the definition of __constant_htons completely.
+...
+> diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+> index 70eb2f6..ecfe622 100644
+> --- a/drivers/s390/net/qeth_l3_main.c
+> +++ b/drivers/s390/net/qeth_l3_main.c
+> @@ -1887,13 +1887,13 @@ static inline int qeth_l3_rebuild_skb(struct qeth_card *card,
+>  		case QETH_CAST_MULTICAST:
+>  			switch (prot) {
+>  #ifdef CONFIG_QETH_IPV6
+> -			case __constant_htons(ETH_P_IPV6):
+> +			case htons(ETH_P_IPV6):
 
+I didn't think htons() was 'constant enough' to be used as a case label.
 
-Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+Using byteswapped constants in a case statement can change it from being
+implemented as a jump table to a branch tree.
+This might be more expensive than byteswapping the value (even on systems
+that don't have cheap byteswap instructions).
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 6d16de3..b1fb54f 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -8164,6 +8164,13 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (!pci_is_pcie(pdev))
- 		netif_info(tp, probe, dev, "not PCI Express\n");
- 
-+	if (pci_is_pcie(pdev))
-+		pci_write_config_word(pdev, PCI_COMMAND, ~(PCI_COMMAND_FAST_BACK | PCI_COMMAND_WAIT |
-+					PCI_COMMAND_VGA_PALETTE | PCI_COMMAND_INVALIDATE | PCI_COMMAND_SPECIAL));
-+
-+	if (pci_is_pcie(pdev))
-+		pci_intx(pdev, 0);
-+
- 	/* Identify chip attached to board */
- 	rtl8169_get_mac_version(tp, dev, cfg->default_ver);
- 
--- 
-2.1.4
+	David
