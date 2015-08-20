@@ -1,52 +1,68 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 07/18] net: ks8851: Export OF module alias information
-Date: Thu, 20 Aug 2015 09:07:20 +0200
-Message-ID: <1440054451-1223-8-git-send-email-javier@osg.samsung.com>
-References: <1440054451-1223-1-git-send-email-javier@osg.samsung.com>
-Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440054451-1223-1-git-send-email-javier@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: Re^2:: [PATCH] usbnet: dereference after null check in usbnet_start_xmit() and __usbnet_read_cmd()
+Date: Thu, 20 Aug 2015 09:16:31 +0200
+Message-ID: <87zj1mctv4.fsf@nemi.mork.no>
+References: <140453008.311141440043155179.JavaMail.weblogic@ep2mlwas02d>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nitin Jhanwar <nitin.j@samsung.com>,
+	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>
+To: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:57907 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751670AbbHTHQp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 03:16:45 -0400
+In-Reply-To: <140453008.311141440043155179.JavaMail.weblogic@ep2mlwas02d>
+	(Vivek Kumar Bhagat's message of "Thu, 20 Aug 2015 03:59:15 +0000
+	(GMT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SPI core always reports the MODALIAS uevent as "spi:<modalias>"
-regardless of the mechanism that was used to register the device
-(i.e: OF or board code) and the table that is used later to match
-the driver with the device (i.e: SPI id table or OF match table).
+Vivek Kumar Bhagat <vivek.bhagat@samsung.com> writes:
 
-So drivers needs to export the SPI id table and this be built into
-the module or udev won't have the necessary information to autoload
-the needed driver module when the device is added.
+> Dear Bjorn,
+>
+>>> This is wrong.  There are usbnet minidrivers depending on info->tx_=
+fixup
+>>> being called with a NULL skb.
+> I am using ax88179_178a driver and not familiar with usbnet minidrive=
+rs.
+> When ax88179_tx_fixup() is called with NULL skb from
+> usbnet_start_xmit(), I get a kernel crash.
+>     Backtrace:
+>     09:14:569>[0-553.5598] [<befaa194>] (ax88179_tx_fixup+0x0/0x16c [=
+ax88179_178a]) from [<befef7a8>] (usbnet_start_xmit+0xa
+>     09:14:569>0/0x420 [usbnet])
+>     09:14:570>[0-553.5711]  r6:cb5ec280 r5:00000000 r4:cb5ebd40
+>     09:14:572>[0-553.5755] [<befef708>] (usbnet_start_xmit+0x0/0x420 =
+[usbnet]) from [<c0400040>] (dev_hard_start_xmit+0x2ec/
+>     09:14:572>0x558)
+>     09:14:572>[0-553.5858] [<c03ffd54>] (dev_hard_start_xmit+0x0/0x55=
+8)
+> In case skb NULL check can not be added in usbnet_start_xmit()
+> then NULL check is required in ax88179_tx_fixup() or asix_tx_fixup().
 
-But this means that OF-only drivers needs to have both OF and SPI id
-tables that have to be kept in sync and also the dev node compatible
-manufacturer prefix is stripped when reporting the MODALIAS. Which can
-lead to issues if two vendors use the same SPI device name for example.
+Yes.
 
-To avoid the above, the SPI core behavior may be changed in the future
-to not require an SPI device table for OF-only drivers and report the
-OF module alias. So, it's better to also export the OF table even when
-is unused now to prevent breaking module loading when the core changes.
+Or you could add the check to usbnet_start_xmit() if you remove the ugl=
+y
+hack in the minidrivers calling usbnet_start_xmit with skb =3D=3D NULL =
+first.
+This is cdc_ncm and those depending on cdc_ncm.
 
-Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
----
+But it would also be interesting to know why ax88179_tx_fixup() is
+called with a NULL skb. I believe this should not happen.  Do you have
+any idea?
 
- drivers/net/ethernet/micrel/ks8851.c | 1 +
- 1 file changed, 1 insertion(+)
+cdc_ncm, which is the driver depending on the NULL skb input, will
+explicitly call
+  usbnet_start_xmit(NULL, dev->net);
 
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index 66d4ab703f45..60f43ec22175 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -1601,6 +1601,7 @@ static const struct of_device_id ks8851_match_table[] = {
- 	{ .compatible = "micrel,ks8851" },
- 	{ }
- };
-+MODULE_DEVICE_TABLE(of, ks8851_match_table);
- 
- static struct spi_driver ks8851_driver = {
- 	.driver = {
--- 
-2.4.3
+I don't know any other way this could happen.
+
+
+
+Bj=C3=B8rn
