@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2.2 15/22] fjes: net_device_ops.ndo_vlan_rx_add/kill_vid
-Date: Thu, 20 Aug 2015 17:46:19 +0900
-Message-ID: <1440060386-13189-15-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2.2 11/22] fjes: NAPI polling function
+Date: Thu, 20 Aug 2015 17:46:15 +0900
+Message-ID: <1440060386-13189-11-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1440060306-13040-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
@@ -11,139 +11,327 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:29254 "EHLO
-	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753113AbbHTIvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 04:51:42 -0400
+Received: from mgwym01.jp.fujitsu.com ([211.128.242.40]:32678 "EHLO
+	mgwym01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752993AbbHTIvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 04:51:37 -0400
 In-Reply-To: <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds net_device_ops.ndo_vlan_rx_add_vid and
-net_device_ops.ndo_vlan_rx_kill_vid callback.
+This patch adds NAPI polling function and receive related work.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes_hw.c   | 27 +++++++++++++++++++++++++++
- drivers/net/fjes/fjes_hw.h   |  2 ++
- drivers/net/fjes/fjes_main.c | 40 ++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 69 insertions(+)
+ drivers/net/fjes/fjes_hw.c   |  40 ++++++++++
+ drivers/net/fjes/fjes_hw.h   |   5 ++
+ drivers/net/fjes/fjes_main.c | 172 ++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 215 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-index ae7b7cd..46e114c 100644
+index 4965791..ae7b7cd 100644
 --- a/drivers/net/fjes/fjes_hw.c
 +++ b/drivers/net/fjes/fjes_hw.c
-@@ -825,6 +825,33 @@ bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
+@@ -825,6 +825,46 @@ bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
  	return ret;
  }
  
-+bool fjes_hw_set_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
++bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *epbh)
 +{
 +	union ep_buffer_info *info = epbh->info;
-+	int i;
 +
-+	for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
-+		if (info->v1i.vlan_id[i] == 0) {
-+			info->v1i.vlan_id[i] = vlan_id;
-+			return true;
-+		}
-+	}
-+	return false;
++	if (info->v1i.count_max == 0)
++		return true;
++
++	return EP_RING_EMPTY(info->v1i.head, info->v1i.tail,
++			     info->v1i.count_max);
 +}
 +
-+void fjes_hw_del_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
++void *fjes_hw_epbuf_rx_curpkt_get_addr(struct epbuf_handler *epbh,
++				       size_t *psize)
 +{
 +	union ep_buffer_info *info = epbh->info;
-+	int i;
++	struct esmem_frame *ring_frame;
++	void *frame;
 +
-+	if (0 != vlan_id) {
-+		for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++) {
-+			if (vlan_id == info->v1i.vlan_id[i])
-+				info->v1i.vlan_id[i] = 0;
-+		}
-+	}
++	ring_frame = (struct esmem_frame *)&(epbh->ring[EP_RING_INDEX
++					     (info->v1i.head,
++					      info->v1i.count_max) *
++					     info->v1i.frame_max]);
++
++	*psize = (size_t)ring_frame->frame_size;
++
++	frame = ring_frame->frame_data;
++
++	return frame;
 +}
 +
- bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *epbh)
++void fjes_hw_epbuf_rx_curpkt_drop(struct epbuf_handler *epbh)
++{
++	union ep_buffer_info *info = epbh->info;
++
++	if (fjes_hw_epbuf_rx_is_empty(epbh))
++		return;
++
++	EP_RING_INDEX_INC(epbh->info->v1i.head, info->v1i.count_max);
++}
++
+ int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *epbh,
+ 			      void *frame, size_t size)
  {
- 	union ep_buffer_info *info = epbh->info;
 diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
-index 0b43bc3..2fcbfeb 100644
+index 2b49421..0b43bc3 100644
 --- a/drivers/net/fjes/fjes_hw.h
 +++ b/drivers/net/fjes/fjes_hw.h
-@@ -322,6 +322,8 @@ int fjes_hw_epid_is_shared(struct fjes_device_shared_info *, int);
+@@ -69,6 +69,8 @@ struct fjes_hw;
+ 	((_num) = EP_RING_INDEX((_num) + 1, (_max)))
+ #define EP_RING_FULL(_head, _tail, _max)				\
+ 	(0 == EP_RING_INDEX(((_tail) - (_head)), (_max)))
++#define EP_RING_EMPTY(_head, _tail, _max) \
++	(1 == EP_RING_INDEX(((_tail) - (_head)), (_max)))
+ 
+ #define FJES_MTU_TO_BUFFER_SIZE(mtu) \
+ 	(ETH_HLEN + VLAN_HLEN + (mtu) + ETH_FCS_LEN)
+@@ -320,6 +322,9 @@ int fjes_hw_epid_is_shared(struct fjes_device_shared_info *, int);
  bool fjes_hw_check_epbuf_version(struct epbuf_handler *, u32);
  bool fjes_hw_check_mtu(struct epbuf_handler *, u32);
  bool fjes_hw_check_vlan_id(struct epbuf_handler *, u16);
-+bool fjes_hw_set_vlan_id(struct epbuf_handler *, u16);
-+void fjes_hw_del_vlan_id(struct epbuf_handler *, u16);
- bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *);
- void *fjes_hw_epbuf_rx_curpkt_get_addr(struct epbuf_handler *, size_t *);
- void fjes_hw_epbuf_rx_curpkt_drop(struct epbuf_handler *);
++bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *);
++void *fjes_hw_epbuf_rx_curpkt_get_addr(struct epbuf_handler *, size_t *);
++void fjes_hw_epbuf_rx_curpkt_drop(struct epbuf_handler *);
+ int fjes_hw_epbuf_tx_pkt_send(struct epbuf_handler *, void *, size_t);
+ 
+ #endif /* FJES_HW_H_ */
 diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index c611c58..1bb9347 100644
+index 8cc687e..186197d 100644
 --- a/drivers/net/fjes/fjes_main.c
 +++ b/drivers/net/fjes/fjes_main.c
-@@ -58,6 +58,8 @@ static irqreturn_t fjes_intr(int, void*);
- static struct rtnl_link_stats64 *
- fjes_get_stats64(struct net_device *, struct rtnl_link_stats64 *);
- static int fjes_change_mtu(struct net_device *, int);
-+static int fjes_vlan_rx_add_vid(struct net_device *, __be16 proto, u16);
-+static int fjes_vlan_rx_kill_vid(struct net_device *, __be16 proto, u16);
- static void fjes_tx_retry(struct net_device *);
+@@ -66,6 +66,9 @@ static int fjes_remove(struct platform_device *);
+ static int fjes_sw_init(struct fjes_adapter *);
+ static void fjes_netdev_setup(struct net_device *);
  
- static int fjes_acpi_add(struct acpi_device *);
-@@ -226,6 +228,8 @@ static const struct net_device_ops fjes_netdev_ops = {
- 	.ndo_get_stats64	= fjes_get_stats64,
- 	.ndo_change_mtu		= fjes_change_mtu,
- 	.ndo_tx_timeout		= fjes_tx_retry,
-+	.ndo_vlan_rx_add_vid	= fjes_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid = fjes_vlan_rx_kill_vid,
- };
++static void fjes_rx_irq(struct fjes_adapter *, int);
++static int fjes_poll(struct napi_struct *, int);
++
+ static const struct acpi_device_id fjes_acpi_ids[] = {
+ 	{"PNP0C02", 0},
+ 	{"", 0},
+@@ -235,6 +238,8 @@ static int fjes_open(struct net_device *netdev)
+ 	hw->txrx_stop_req_bit = 0;
+ 	hw->epstop_req_bit = 0;
  
- /* fjes_open - Called when a network interface is made active */
-@@ -753,6 +757,42 @@ static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
- 	return -EINVAL;
++	napi_enable(&adapter->napi);
++
+ 	fjes_hw_capture_interrupt_status(hw);
+ 
+ 	result = fjes_request_irq(adapter);
+@@ -250,6 +255,7 @@ static int fjes_open(struct net_device *netdev)
+ 
+ err_req_irq:
+ 	fjes_free_irq(adapter);
++	napi_disable(&adapter->napi);
+ 
+ err_setup_res:
+ 	fjes_free_resources(adapter);
+@@ -268,6 +274,8 @@ static int fjes_close(struct net_device *netdev)
+ 
+ 	fjes_hw_raise_epstop(hw);
+ 
++	napi_disable(&adapter->napi);
++
+ 	for (epidx = 0; epidx < hw->max_epid; epidx++) {
+ 		if (epidx == hw->my_epid)
+ 			continue;
+@@ -703,14 +711,168 @@ static irqreturn_t fjes_intr(int irq, void *data)
+ 
+ 	icr = fjes_hw_capture_interrupt_status(hw);
+ 
+-	if (icr & REG_IS_MASK_IS_ASSERT)
++	if (icr & REG_IS_MASK_IS_ASSERT) {
++		if (icr & REG_ICTL_MASK_RX_DATA)
++			fjes_rx_irq(adapter, icr & REG_IS_MASK_EPID);
++
+ 		ret = IRQ_HANDLED;
+-	else
++	} else {
+ 		ret = IRQ_NONE;
++	}
+ 
+ 	return ret;
  }
  
-+static int fjes_vlan_rx_add_vid(struct net_device *netdev,
-+				__be16 proto, u16 vid)
++static int fjes_rxframe_search_exist(struct fjes_adapter *adapter,
++				     int start_epid)
 +{
-+	struct fjes_adapter *adapter = netdev_priv(netdev);
-+	bool ret = true;
-+	int epid;
++	struct fjes_hw *hw = &adapter->hw;
++	int cur_epid;
++	int max_epid;
++	int i;
++	enum ep_partner_status pstatus;
 +
-+	for (epid = 0; epid < adapter->hw.max_epid; epid++) {
-+		if (epid == adapter->hw.my_epid)
++	max_epid = hw->max_epid;
++	start_epid = (start_epid + 1 + max_epid) % max_epid;
++
++	for (i = 0; i < max_epid; i++) {
++		cur_epid = (start_epid + i) % max_epid;
++		if (cur_epid == hw->my_epid)
 +			continue;
 +
-+		if (!fjes_hw_check_vlan_id(
-+			&adapter->hw.ep_shm_info[epid].tx, vid))
-+			ret = fjes_hw_set_vlan_id(
-+				&adapter->hw.ep_shm_info[epid].tx, vid);
++		pstatus = fjes_hw_get_partner_ep_status(hw, cur_epid);
++		if (pstatus == EP_PARTNER_SHARED) {
++			if (!fjes_hw_epbuf_rx_is_empty(
++				&hw->ep_shm_info[cur_epid].rx))
++				return cur_epid;
++		}
 +	}
-+
-+	return ret ? 0 : -ENOSPC;
++	return -1;
 +}
 +
-+static int fjes_vlan_rx_kill_vid(struct net_device *netdev,
-+				 __be16 proto, u16 vid)
++static void *fjes_rxframe_get(struct fjes_adapter *adapter, size_t *psize,
++			      int *cur_epid)
 +{
-+	struct fjes_adapter *adapter = netdev_priv(netdev);
-+	int epid;
++	void *frame;
 +
-+	for (epid = 0; epid < adapter->hw.max_epid; epid++) {
-+		if (epid == adapter->hw.my_epid)
++	*cur_epid = fjes_rxframe_search_exist(adapter, *cur_epid);
++	if (*cur_epid < 0)
++		return NULL;
++
++	frame =
++	fjes_hw_epbuf_rx_curpkt_get_addr(
++		&adapter->hw.ep_shm_info[*cur_epid].rx, psize);
++
++	return frame;
++}
++
++static void fjes_rxframe_release(struct fjes_adapter *adapter, int cur_epid)
++{
++	fjes_hw_epbuf_rx_curpkt_drop(&adapter->hw.ep_shm_info[cur_epid].rx);
++}
++
++static void fjes_rx_irq(struct fjes_adapter *adapter, int src_epid)
++{
++	struct fjes_hw *hw = &adapter->hw;
++
++	fjes_hw_set_irqmask(hw, REG_ICTL_MASK_RX_DATA, true);
++
++	adapter->unset_rx_last = true;
++	napi_schedule(&adapter->napi);
++}
++
++static int fjes_poll(struct napi_struct *napi, int budget)
++{
++	struct fjes_adapter *adapter =
++			container_of(napi, struct fjes_adapter, napi);
++	struct fjes_hw *hw = &adapter->hw;
++	struct net_device *netdev = napi->dev;
++	int work_done = 0;
++	struct sk_buff *skb;
++	void *frame;
++	size_t frame_len;
++	int cur_epid = 0;
++	int epidx = 0;
++
++	for (epidx = 0; epidx < hw->max_epid; epidx++) {
++		if (epidx == hw->my_epid)
 +			continue;
 +
-+		fjes_hw_del_vlan_id(&adapter->hw.ep_shm_info[epid].tx, vid);
++		adapter->hw.ep_shm_info[epidx].tx.info->v1i.rx_status |=
++			FJES_RX_POLL_WORK;
 +	}
 +
-+	return 0;
++	while (work_done < budget) {
++		prefetch(&adapter->hw);
++		frame = fjes_rxframe_get(adapter, &frame_len, &cur_epid);
++
++		if (frame) {
++			skb = napi_alloc_skb(napi, frame_len);
++			if (!skb) {
++				adapter->stats64.rx_dropped += 1;
++				hw->ep_shm_info[cur_epid].net_stats
++							 .rx_dropped += 1;
++				adapter->stats64.rx_errors += 1;
++				hw->ep_shm_info[cur_epid].net_stats
++							 .rx_errors += 1;
++			} else {
++				memcpy(skb_put(skb, frame_len),
++				       frame, frame_len);
++				skb->protocol = eth_type_trans(skb, netdev);
++				skb->ip_summed = CHECKSUM_UNNECESSARY;
++
++				netif_receive_skb(skb);
++
++				work_done++;
++
++				adapter->stats64.rx_packets += 1;
++				hw->ep_shm_info[cur_epid].net_stats
++							 .rx_packets += 1;
++				adapter->stats64.rx_bytes += frame_len;
++				hw->ep_shm_info[cur_epid].net_stats
++							 .rx_bytes += frame_len;
++
++				if (is_multicast_ether_addr(
++					((struct ethhdr *)frame)->h_dest)) {
++					adapter->stats64.multicast += 1;
++					hw->ep_shm_info[cur_epid].net_stats
++								 .multicast += 1;
++				}
++			}
++
++			fjes_rxframe_release(adapter, cur_epid);
++			adapter->unset_rx_last = true;
++		} else {
++			break;
++		}
++	}
++
++	if (work_done < budget) {
++		napi_complete(napi);
++
++		if (adapter->unset_rx_last) {
++			adapter->rx_last_jiffies = jiffies;
++			adapter->unset_rx_last = false;
++		}
++
++		if (((long)jiffies - (long)adapter->rx_last_jiffies) < 3) {
++			napi_reschedule(napi);
++		} else {
++			for (epidx = 0; epidx < hw->max_epid; epidx++) {
++				if (epidx == hw->my_epid)
++					continue;
++				adapter->hw.ep_shm_info[epidx]
++					   .tx.info->v1i.rx_status &=
++						~FJES_RX_POLL_WORK;
++			}
++
++			fjes_hw_set_irqmask(hw, REG_ICTL_MASK_RX_DATA, false);
++		}
++	}
++
++	return work_done;
 +}
 +
- static irqreturn_t fjes_intr(int irq, void *data)
+ /* fjes_probe - Device Initialization Routine */
+ static int fjes_probe(struct platform_device *plat_dev)
  {
- 	struct fjes_adapter *adapter = data;
+@@ -800,6 +962,8 @@ static int fjes_remove(struct platform_device *plat_dev)
+ 
+ 	fjes_hw_exit(hw);
+ 
++	netif_napi_del(&adapter->napi);
++
+ 	free_netdev(netdev);
+ 
+ 	return 0;
+@@ -807,6 +971,10 @@ static int fjes_remove(struct platform_device *plat_dev)
+ 
+ static int fjes_sw_init(struct fjes_adapter *adapter)
+ {
++	struct net_device *netdev = adapter->netdev;
++
++	netif_napi_add(netdev, &adapter->napi, fjes_poll, 64);
++
+ 	return 0;
+ }
+ 
 -- 
 1.8.3.1
