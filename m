@@ -1,50 +1,65 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH] veth: replace iflink by a dedicated symlink in sysfs
-Date: Thu, 20 Aug 2015 13:53:07 +0200
-Message-ID: <20150820135307.3ce12f69@griffin>
-References: <87fv3ier4s.fsf@zoro.exoscale.ch>
-	<1439966648-26195-1-git-send-email-vincent@bernat.im>
-	<1439966648-26195-2-git-send-email-vincent@bernat.im>
-	<20150819130013.1a847627@griffin>
-	<87bne38oj7.fsf@zoro.exoscale.ch>
-	<20150819143800.6863fa3b@griffin>
-	<8737zf8mwd.fsf@zoro.exoscale.ch>
-	<55D4AFCA.7080300@6wind.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/3] qeth: Convert use of __constant_htons to
+ htons
+Date: Thu, 20 Aug 2015 11:51:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB8054E@AcuExch.aculab.com>
+References: <1439972454-64347-1-git-send-email-ubraun@linux.vnet.ibm.com>
+	 <1439972454-64347-3-git-send-email-ubraun@linux.vnet.ibm.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB804CD@AcuExch.aculab.com>
+ <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Vincent Bernat <vincent@bernat.im>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
+	"heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+	"ursula.braun@de.ibm.com" <ursula.braun@de.ibm.com>,
+	Vaishali Thakkar <vthakkar1994@gmail.com>
+To: 'Ursula Braun' <ubraun@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36601 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751203AbbHTLxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 07:53:10 -0400
-In-Reply-To: <55D4AFCA.7080300@6wind.com>
+Received: from smtp-out6.electric.net ([192.162.217.184]:56400 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203AbbHTLyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 07:54:16 -0400
+In-Reply-To: <1440071036.685.7.camel@BR9GV9YG.de.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Aug 2015 18:33:14 +0200, Nicolas Dichtel wrote:
-> Probably better to introduce veth netlink attribute then, something like
-> IFLA_VETH_PEER and keeps IFLA_LINK_NETNSID.
-
-I'd prefer IFLA_PEER. More generic attribute will be helpful should we
-introduce an interface similar to veth in the future.
-
-Also, I'd not combine IFLA_LINK_NETNSID with IFLA_PEER. There might
-very well be an interface in the future that will need both IFLA_LINK and
-IFLA_PEER and this would just create a confusion. It may be unlikely
-but the attributes are cheap and it doesn't make sense to design uAPI
-in a way that might bring problems in the future.
-
-> I also don't know what is the best way to handle this. veth advertises
-> its peer via IFLA_LINK since 4.1, so it's too late to change it for this
-> release.
-
-Apparently we need to pick our poison. Either way, we break something.
-
- Jiri
-
--- 
-Jiri Benc
+RnJvbTogVXJzdWxhIEJyYXVuIFttYWlsdG86dWJyYXVuQGxpbnV4LnZuZXQuaWJtLmNvbV0NCj4g
+U2VudDogMjAgQXVndXN0IDIwMTUgMTI6NDQNCj4gT24gVGh1LCAyMDE1LTA4LTIwIGF0IDEwOjQ2
+ICswMDAwLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gRnJvbTogVXJzdWxhIEJyYXVuDQo+ID4g
+PiBTZW50OiAxOSBBdWd1c3QgMjAxNSAwOToyMQ0KPiA+ID4gSW4gbGl0dGxlIGVuZGlhbiBjYXNl
+cywgdGhlIG1hY3JvIGh0b25zIHVuZm9sZHMgdG8gX19zd2FiMTYgd2hpY2gNCj4gPiA+IHByb3Zp
+ZGVzIHNwZWNpYWwgY2FzZSBmb3IgY29uc3RhbnRzLiBJbiBiaWcgZW5kaWFuIGNhc2VzLA0KPiA+
+ID4gX19jb25zdGFudF9odG9ucyBhbmQgaHRvbnMgZXhwYW5kIGRpcmVjdGx5IHRvIHRoZSBzYW1l
+IGV4cHJlc3Npb24uDQo+ID4gPiBTbywgcmVwbGFjZSBfX2NvbnN0YW50X2h0b25zIHdpdGggaHRv
+bnMgd2l0aCB0aGUgZ29hbCBvZiBnZXR0aW5nDQo+ID4gPiByaWQgb2YgdGhlIGRlZmluaXRpb24g
+b2YgX19jb25zdGFudF9odG9ucyBjb21wbGV0ZWx5Lg0KPiA+IC4uLg0KPiA+ID4gZGlmZiAtLWdp
+dCBhL2RyaXZlcnMvczM5MC9uZXQvcWV0aF9sM19tYWluLmMgYi9kcml2ZXJzL3MzOTAvbmV0L3Fl
+dGhfbDNfbWFpbi5jDQo+ID4gPiBpbmRleCA3MGViMmY2Li5lY2ZlNjIyIDEwMDY0NA0KPiA+ID4g
+LS0tIGEvZHJpdmVycy9zMzkwL25ldC9xZXRoX2wzX21haW4uYw0KPiA+ID4gKysrIGIvZHJpdmVy
+cy9zMzkwL25ldC9xZXRoX2wzX21haW4uYw0KPiA+ID4gQEAgLTE4ODcsMTMgKzE4ODcsMTMgQEAg
+c3RhdGljIGlubGluZSBpbnQgcWV0aF9sM19yZWJ1aWxkX3NrYihzdHJ1Y3QgcWV0aF9jYXJkICpj
+YXJkLA0KPiA+ID4gIAkJY2FzZSBRRVRIX0NBU1RfTVVMVElDQVNUOg0KPiA+ID4gIAkJCXN3aXRj
+aCAocHJvdCkgew0KPiA+ID4gICNpZmRlZiBDT05GSUdfUUVUSF9JUFY2DQo+ID4gPiAtCQkJY2Fz
+ZSBfX2NvbnN0YW50X2h0b25zKEVUSF9QX0lQVjYpOg0KPiA+ID4gKwkJCWNhc2UgaHRvbnMoRVRI
+X1BfSVBWNik6DQo+ID4NCj4gPiBJIGRpZG4ndCB0aGluayBodG9ucygpIHdhcyAnY29uc3RhbnQg
+ZW5vdWdoJyB0byBiZSB1c2VkIGFzIGEgY2FzZSBsYWJlbC4NCj4gPg0KPiA+IFVzaW5nIGJ5dGVz
+d2FwcGVkIGNvbnN0YW50cyBpbiBhIGNhc2Ugc3RhdGVtZW50IGNhbiBjaGFuZ2UgaXQgZnJvbSBi
+ZWluZw0KPiA+IGltcGxlbWVudGVkIGFzIGEganVtcCB0YWJsZSB0byBhIGJyYW5jaCB0cmVlLg0K
+PiA+IFRoaXMgbWlnaHQgYmUgbW9yZSBleHBlbnNpdmUgdGhhbiBieXRlc3dhcHBpbmcgdGhlIHZh
+bHVlIChldmVuIG9uIHN5c3RlbXMNCj4gPiB0aGF0IGRvbid0IGhhdmUgY2hlYXAgYnl0ZXN3YXAg
+aW5zdHJ1Y3Rpb25zKS4NCj4gPg0KPiA+IAlEYXZpZA0KPiA+DQo+IEZvciBiaWcgZW5kaWFuIHN5
+c3RlbXMgYm90aCBfX2NvbnN0YW50X2h0b25zKHgpIGFuZCBodG9ucyh4KSBhcmUNCj4gcmVzb2x2
+ZWQgdG8gKChfX2ZvcmNlIF9fYmUxNikoX191MTYpKHgpKS4gVGh1cyBJIGRvIG5vdCBzZWUgYSBy
+ZWFzb24gdG8NCj4gcmVqZWN0IHRoZSBwYXRjaCBwcm9wb3NhbCBmcm9tIFZhaXNoYWxpIFRoYWtr
+YXIuDQoNCkxvb2sgYXQgYSBsaXR0bGUtZW5kaWFuIG9uZSAoZWcgYW1kNjQpLg0KSSB0aGluayB5
+b3UnbGwgZmluZCBhIEMgPzogZXhwcmVzc2lvbiB0aGF0IHVzZXMgX19idWlsdGluX2NvbnN0YW50
+KCkgdG8NCnNlbGVjdCBiZXR3ZWVuIGFuIGV4cHJlc3Npb24gdGhlIGNvbXBpbGVyIGNhbiBldmFs
+dWF0ZSBhbmQgYSBjYWxsIHRvIGFuDQppbmxpbmUgZnVuY3Rpb24gdGhhdCB1c2VzIHNvbWUgYXBw
+cm9wcmlhdGUgYXNtLg0KVGhlIGxhdHRlciBpc24ndCBhIGNvbXBpbGUtdGltZSBjb25zdGFudCBz
+byBjYW4ndCBiZSB1c2VkIGFzIGEgY2FzZQ0KbGFiZWwgb3IgYXMgYW4gaW5pdGlhbGlzZXIuDQoN
+CglEYXZpZA0KDQoNCg==
