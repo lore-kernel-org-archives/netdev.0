@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2.2 17/22] fjes: force_close_task
-Date: Thu, 20 Aug 2015 17:46:21 +0900
-Message-ID: <1440060386-13189-17-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2.2 20/22] fjes: epstop_task
+Date: Thu, 20 Aug 2015 17:46:24 +0900
+Message-ID: <1440060386-13189-20-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1440060306-13040-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
@@ -11,72 +11,107 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm02.jp.fujitsu.com ([202.219.69.169]:22748 "EHLO
-	mgwkm02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbbHTIvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 04:51:44 -0400
+Received: from mgwkm04.jp.fujitsu.com ([202.219.69.171]:37427 "EHLO
+	mgwkm04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912AbbHTIvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 04:51:48 -0400
 In-Reply-To: <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds force_close_task.
-This task is used to close network device forcibly.
+This patch adds epstop_task.
+This task is used to process other receiver's
+cancellation request.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes.h      |  1 +
- drivers/net/fjes/fjes_main.c | 13 +++++++++++++
- 2 files changed, 14 insertions(+)
+ drivers/net/fjes/fjes_hw.c   | 30 ++++++++++++++++++++++++++++++
+ drivers/net/fjes/fjes_hw.h   |  1 +
+ drivers/net/fjes/fjes_main.c |  1 +
+ 3 files changed, 32 insertions(+)
 
-diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
-index 1743dbb..d31d4c3 100644
---- a/drivers/net/fjes/fjes.h
-+++ b/drivers/net/fjes/fjes.h
-@@ -47,6 +47,7 @@ struct fjes_adapter {
- 	unsigned long rx_last_jiffies;
- 	bool unset_rx_last;
+diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
+index 4588ef3..ada0b9e 100644
+--- a/drivers/net/fjes/fjes_hw.c
++++ b/drivers/net/fjes/fjes_hw.c
+@@ -23,6 +23,7 @@
+ #include "fjes.h"
  
-+	struct work_struct force_close_task;
- 	bool force_reset;
- 	bool open_guard;
+ static void fjes_hw_update_zone_task(struct work_struct *);
++static void fjes_hw_epstop_task(struct work_struct *);
  
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index 2bf9f71..3a8cc5b 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -54,6 +54,7 @@ static void fjes_free_resources(struct fjes_adapter *);
- static netdev_tx_t fjes_xmit_frame(struct sk_buff *, struct net_device *);
- static void fjes_raise_intr_rxdata_task(struct work_struct *);
- static void fjes_tx_stall_task(struct work_struct *);
-+static void fjes_force_close_task(struct work_struct *);
- static irqreturn_t fjes_intr(int, void*);
- static struct rtnl_link_stats64 *
- fjes_get_stats64(struct net_device *, struct rtnl_link_stats64 *);
-@@ -494,6 +495,17 @@ static void fjes_tx_stall_task(struct work_struct *work)
- 	queue_work(adapter->txrx_wq, &adapter->tx_stall_task);
+ /* supported MTU list */
+ const u32 fjes_support_mtu[] = {
+@@ -325,6 +326,7 @@ int fjes_hw_init(struct fjes_hw *hw)
+ 	fjes_hw_set_irqmask(hw, REG_ICTL_MASK_ALL, true);
+ 
+ 	INIT_WORK(&hw->update_zone_task, fjes_hw_update_zone_task);
++	INIT_WORK(&hw->epstop_task, fjes_hw_epstop_task);
+ 
+ 	mutex_init(&hw->hw_info.lock);
+ 
+@@ -355,6 +357,7 @@ void fjes_hw_exit(struct fjes_hw *hw)
+ 	fjes_hw_cleanup(hw);
+ 
+ 	cancel_work_sync(&hw->update_zone_task);
++	cancel_work_sync(&hw->epstop_task);
  }
  
-+static void fjes_force_close_task(struct work_struct *work)
+ static enum fjes_dev_command_response_e
+@@ -1085,3 +1088,30 @@ static void fjes_hw_update_zone_task(struct work_struct *work)
+ 	}
+ }
+ 
++static void fjes_hw_epstop_task(struct work_struct *work)
 +{
-+	struct fjes_adapter *adapter = container_of(work,
-+			struct fjes_adapter, force_close_task);
-+	struct net_device *netdev = adapter->netdev;
++	struct fjes_hw *hw = container_of(work, struct fjes_hw, epstop_task);
++	struct fjes_adapter *adapter = (struct fjes_adapter *)hw->back;
++	int epid_bit;
++	unsigned long remain_bit;
 +
-+	rtnl_lock();
-+	dev_close(netdev);
-+	rtnl_unlock();
++	while ((remain_bit = hw->epstop_req_bit)) {
++		for (epid_bit = 0; remain_bit; remain_bit >>= 1, epid_bit++) {
++			if (remain_bit & 1) {
++				hw->ep_shm_info[epid_bit].
++					tx.info->v1i.rx_status |=
++						FJES_RX_STOP_REQ_DONE;
++
++				clear_bit(epid_bit, &hw->epstop_req_bit);
++				set_bit(epid_bit,
++					&adapter->unshare_watch_bitmask);
++
++				if (!work_pending(&adapter->unshare_watch_task))
++					queue_work(
++						adapter->control_wq,
++						&adapter->unshare_watch_task);
++			}
++		}
++	}
 +}
 +
- static void fjes_raise_intr_rxdata_task(struct work_struct *work)
- {
- 	struct fjes_adapter *adapter = container_of(work,
-@@ -1006,6 +1018,7 @@ static int fjes_probe(struct platform_device *plat_dev)
- 	if (err)
- 		goto err_sw_init;
+diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
+index fe51041..4d3184a 100644
+--- a/drivers/net/fjes/fjes_hw.h
++++ b/drivers/net/fjes/fjes_hw.h
+@@ -283,6 +283,7 @@ struct fjes_hw {
+ 	unsigned long txrx_stop_req_bit;
+ 	unsigned long epstop_req_bit;
+ 	struct work_struct update_zone_task;
++	struct work_struct epstop_task;
  
-+	INIT_WORK(&adapter->force_close_task, fjes_force_close_task);
- 	adapter->force_reset = false;
- 	adapter->open_guard = false;
+ 	int my_epid;
+ 	int max_epid;
+diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+index 615c1ef..faaf2ed 100644
+--- a/drivers/net/fjes/fjes_main.c
++++ b/drivers/net/fjes/fjes_main.c
+@@ -316,6 +316,7 @@ static int fjes_close(struct net_device *netdev)
+ 	cancel_work_sync(&adapter->tx_stall_task);
+ 
+ 	cancel_work_sync(&hw->update_zone_task);
++	cancel_work_sync(&hw->epstop_task);
+ 
+ 	fjes_hw_wait_epstop(hw);
  
 -- 
 1.8.3.1
