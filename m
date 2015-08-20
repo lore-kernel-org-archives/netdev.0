@@ -1,45 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/16] i40e: add RX to port CRC errors label
-Date: Wed, 19 Aug 2015 17:57:53 -0700
-Message-ID: <1440032286-30054-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH v1 1/6] net: phy: broadcom: add bcm54220 phy ID
+Date: Thu, 20 Aug 2015 01:16:40 +0000
+Message-ID: <BN3PR0301MB12198F2E8A1D508EE4FB0419F5660@BN3PR0301MB1219.namprd03.prod.outlook.com>
+References: <1439962444-27486-1-git-send-email-b38611@freescale.com>
+ <1439962444-27486-2-git-send-email-b38611@freescale.com>
+ <CAGVrzcak2u_kBg1o061OO0UK8sdrXaKF+-7eREwByD-dQ1r1XQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "shawnguo@kernel.org" <shawnguo@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37880 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751864AbbHTA6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Aug 2015 20:58:09 -0400
-In-Reply-To: <1440032286-30054-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-by2on0141.outbound.protection.outlook.com ([207.46.100.141]:51520
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751463AbbHTBQp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2015 21:16:45 -0400
+In-Reply-To: <CAGVrzcak2u_kBg1o061OO0UK8sdrXaKF+-7eREwByD-dQ1r1XQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
-
-The port.crc_errors is really an RX counter, so let's mark it as such.
-
-Change-ID: I179afd3f8a95d45229bb4163a6aeb01f0d2d250b
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 83d41c2..d6c7eb7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -114,7 +114,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
- 	I40E_PF_STAT("rx_dropped", stats.eth.rx_discards),
- 	I40E_PF_STAT("tx_dropped_link_down", stats.tx_dropped_link_down),
--	I40E_PF_STAT("crc_errors", stats.crc_errors),
-+	I40E_PF_STAT("rx_crc_errors", stats.crc_errors),
- 	I40E_PF_STAT("illegal_bytes", stats.illegal_bytes),
- 	I40E_PF_STAT("mac_local_faults", stats.mac_local_faults),
- 	I40E_PF_STAT("mac_remote_faults", stats.mac_remote_faults),
--- 
-2.4.3
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFRodXJz
+ZGF5LCBBdWd1c3QgMjAsIDIwMTUgNToyOSBBTQ0KPiBUbzogRHVhbiBGdWdhbmctQjM4NjExDQo+
+IENjOiBzaGF3bmd1b0BrZXJuZWwub3JnOyBEYXZpZCBNaWxsZXI7IG5ldGRldjsgbGludXgtYXJt
+LQ0KPiBrZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHYx
+IDEvNl0gbmV0OiBwaHk6IGJyb2FkY29tOiBhZGQgYmNtNTQyMjAgcGh5IElEDQo+IA0KPiAyMDE1
+LTA4LTE4IDIyOjMzIEdNVC0wNzowMCBGdWdhbmcgRHVhbiA8YjM4NjExQGZyZWVzY2FsZS5jb20+
+Og0KPiA+IEFkZCBiY201NDIyMCBwaHkgSUQgZW50cnkuDQo+IA0KPiBUaGlzIGNoYW5nZSBpdHNl
+bGYgaXMgZmluZSwgYnV0IGxvb2tpbmcgYXQgdGhlIHJlc3Qgb2YgeW91ciBjaGFuZ2VzLCB3ZQ0K
+PiBhcmUgbm90IGFkZGluZyBhbiBlbnRyeSBmb3IgdGhpcyBQSFkgaW4gZHJpdmVycy9uZXQvcGh5
+L2Jyb2FkY29tLmMsIHdoaWNoDQo+IG1lYW5zIHRoYXQgd2Ugd2lsbCBiaW5kIHRvIHRoZSBHZW5l
+cmljIFBIWSBkcml2ZXIsIGFuZCBzbyB0aGlzIGxvb2tzDQo+IHN1ZmZpY2llbnQsIGV2ZW4gd2l0
+aCB5b3VyIGZpeHVwIGRvbmUgaW4gdGhlIHN1YnNlcXVlbnQgcGF0Y2guDQo+IA0KDQpUaGFua3Mg
+Zm9yIHlvdXIgY29tbWVudC4NCg0KWWVzLCBmb3IgdGhlIHBoeSwgdGhlIGRyaXZlciB1c2UgZ2Vu
+ZXJpYyBwaHkgZHJpdmVyLiANCkkgc2VlIGFsbCBCcm9hZGNvbSBwaHkgSUQgYXJlIGRlZmluZWQg
+aW4gdGhpcyBmaWxlLCB3ZSBzaG91bGRuJ3QgZGVmaW5lIG5ldyBwaHkgaWQgaW4gb3RoZXIgcGxh
+Y2UuDQpXaGVuIHRoZSBwaHkgaXMgdXNlZCBtb3JlIHBvcHVsYXIsIEkgdGhpbmsgdGhlIHBhdGNo
+IGlzIHZlcnkgcmVhc29uYWJsZS4NCg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogRnVnYW5nIER1
+YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPiA+IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L2Jy
+Y21waHkuaCB8IDEgKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykNCj4gPg0K
+PiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2JyY21waHkuaCBiL2luY2x1ZGUvbGludXgv
+YnJjbXBoeS5oIGluZGV4DQo+ID4gNjk3Y2E3Ny4uMjBiZWQxNSAxMDA2NDQNCj4gPiAtLS0gYS9p
+bmNsdWRlL2xpbnV4L2JyY21waHkuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGludXgvYnJjbXBoeS5o
+DQo+ID4gQEAgLTE2LDYgKzE2LDcgQEANCj4gPiAgI2RlZmluZSBQSFlfSURfQkNNNTQ4MiAgICAg
+ICAgICAgICAgICAgMHgwMTQzYmNiMA0KPiA+ICAjZGVmaW5lIFBIWV9JRF9CQ001NDExICAgICAg
+ICAgICAgICAgICAweDAwMjA2MDcwDQo+ID4gICNkZWZpbmUgUEhZX0lEX0JDTTU0MjEgICAgICAg
+ICAgICAgICAgIDB4MDAyMDYwZTANCj4gPiArI2RlZmluZSBQSFlfSURfQkNNNTQyMjAgICAgICAg
+ICAgICAgICAgICAgICAgICAweDYwMGQ4NTg5DQo+ID4gICNkZWZpbmUgUEhZX0lEX0JDTTU0NjQg
+ICAgICAgICAgICAgICAgIDB4MDAyMDYwYjANCj4gPiAgI2RlZmluZSBQSFlfSURfQkNNNTQ2MSAg
+ICAgICAgICAgICAgICAgMHgwMDIwNjBjMA0KPiA+ICAjZGVmaW5lIFBIWV9JRF9CQ001NDYxNlMg
+ICAgICAgICAgICAgICAweDAzNjI1ZDEwDQo+ID4gLS0NCj4gPiAxLjkuMQ0KPiA+DQo+ID4NCj4g
+PiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0KPiA+IGxp
+bnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0DQo+ID4gbGludXgtYXJtLWtlcm5lbEBsaXN0cy5p
+bmZyYWRlYWQub3JnDQo+ID4gaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0
+aW5mby9saW51eC1hcm0ta2VybmVsDQo+IA0KPiANCj4gDQo+IC0tDQo+IEZsb3JpYW4NCg==
