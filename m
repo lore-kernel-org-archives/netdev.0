@@ -1,7 +1,7 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v2.2 09/22] fjes: raise_intr_rxdata_task
-Date: Thu, 20 Aug 2015 17:46:13 +0900
-Message-ID: <1440060386-13189-9-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2.2 03/22] fjes: Hardware cleanup routine
+Date: Thu, 20 Aug 2015 17:46:07 +0900
+Message-ID: <1440060386-13189-3-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1440060306-13040-1-git-send-email-izumi.taku@jp.fujitsu.com>
  <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
@@ -10,149 +10,140 @@ Cc: platform-driver-x86@vger.kernel.org, dvhart@infradead.org,
 	sergei.shtylyov@cogentembedded.com, stephen@networkplumber.org,
 	yasu.isimatu@gmail.com, Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwym04.jp.fujitsu.com ([211.128.242.43]:53197 "EHLO
+	mgwym04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752352AbbHTIv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 04:51:29 -0400
 In-Reply-To: <1440060386-13189-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch add raise_intr_rxdata_task.
-Extended Socket Network Device is shared memory
-based, so someone's transmission denotes other's
-reception. In order to notify receivers, sender
-has to raise interruption of receivers.
-raise_intr_rxdata_task does this work.
+This patch adds hardware cleanup routine to be
+invoked at driver's .remove routine.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes.h      |  4 +++
- drivers/net/fjes/fjes_main.c | 64 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 68 insertions(+)
+ drivers/net/fjes/fjes_hw.c | 66 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/fjes/fjes_hw.h |  1 +
+ 2 files changed, 67 insertions(+)
 
-diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
-index 7af4304..8e9899e 100644
---- a/drivers/net/fjes/fjes.h
-+++ b/drivers/net/fjes/fjes.h
-@@ -50,6 +50,10 @@ struct fjes_adapter {
- 
- 	bool irq_registered;
- 
-+	struct workqueue_struct *txrx_wq;
-+
-+	struct work_struct raise_intr_rxdata_task;
-+
- 	struct fjes_hw hw;
- };
- 
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index be14e66..8d67097 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -52,6 +52,7 @@ static int fjes_close(struct net_device *);
- static int fjes_setup_resources(struct fjes_adapter *);
- static void fjes_free_resources(struct fjes_adapter *);
- static netdev_tx_t fjes_xmit_frame(struct sk_buff *, struct net_device *);
-+static void fjes_raise_intr_rxdata_task(struct work_struct *);
- static irqreturn_t fjes_intr(int, void*);
- 
- static int fjes_acpi_add(struct acpi_device *);
-@@ -276,6 +277,8 @@ static int fjes_close(struct net_device *netdev)
- 
- 	fjes_free_irq(adapter);
- 
-+	cancel_work_sync(&adapter->raise_intr_rxdata_task);
-+
- 	fjes_hw_wait_epstop(hw);
- 
- 	fjes_free_resources(adapter);
-@@ -404,6 +407,55 @@ static void fjes_free_resources(struct fjes_adapter *adapter)
- 	}
+diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
+index e94538f..abe583e 100644
+--- a/drivers/net/fjes/fjes_hw.c
++++ b/drivers/net/fjes/fjes_hw.c
+@@ -56,6 +56,12 @@ static u8 *fjes_hw_iomap(struct fjes_hw *hw)
+ 	return base;
  }
  
-+static void fjes_raise_intr_rxdata_task(struct work_struct *work)
++static void fjes_hw_iounmap(struct fjes_hw *hw)
 +{
-+	struct fjes_adapter *adapter = container_of(work,
-+			struct fjes_adapter, raise_intr_rxdata_task);
-+	struct fjes_hw *hw = &adapter->hw;
-+	int epid;
-+	int max_epid, my_epid;
-+	enum ep_partner_status pstatus;
-+
-+	my_epid = hw->my_epid;
-+	max_epid = hw->max_epid;
-+
-+	for (epid = 0; epid < max_epid; epid++)
-+		hw->ep_shm_info[epid].tx_status_work = 0;
-+
-+	for (epid = 0; epid < max_epid; epid++) {
-+		if (epid == my_epid)
-+			continue;
-+
-+		pstatus = fjes_hw_get_partner_ep_status(hw, epid);
-+		if (pstatus == EP_PARTNER_SHARED) {
-+			hw->ep_shm_info[epid].tx_status_work =
-+				hw->ep_shm_info[epid].tx.info->v1i.tx_status;
-+
-+			if (hw->ep_shm_info[epid].tx_status_work ==
-+				FJES_TX_DELAY_SEND_PENDING) {
-+				hw->ep_shm_info[epid].tx.info->v1i.tx_status =
-+					FJES_TX_DELAY_SEND_NONE;
-+			}
-+		}
-+	}
-+
-+	for (epid = 0; epid < max_epid; epid++) {
-+		if (epid == my_epid)
-+			continue;
-+
-+		pstatus = fjes_hw_get_partner_ep_status(hw, epid);
-+		if ((hw->ep_shm_info[epid].tx_status_work ==
-+		     FJES_TX_DELAY_SEND_PENDING) &&
-+		    (pstatus == EP_PARTNER_SHARED) &&
-+		    !(hw->ep_shm_info[epid].rx.info->v1i.rx_status)) {
-+			fjes_hw_raise_interrupt(hw, epid,
-+						REG_ICTL_MASK_RX_DATA);
-+		}
-+	}
-+
-+	usleep_range(500, 1000);
++	iounmap(hw->base);
++	release_mem_region(hw->hw_res.start, hw->hw_res.size);
 +}
 +
- static int fjes_tx_send(struct fjes_adapter *adapter, int dest,
- 			void *data, size_t len)
+ int fjes_hw_reset(struct fjes_hw *hw)
  {
-@@ -416,6 +468,9 @@ static int fjes_tx_send(struct fjes_adapter *adapter, int dest,
+ 	int timeout;
+@@ -109,6 +115,12 @@ static int fjes_hw_alloc_shared_status_region(struct fjes_hw *hw)
+ 	return 0;
+ }
  
- 	adapter->hw.ep_shm_info[dest].tx.info->v1i.tx_status =
- 		FJES_TX_DELAY_SEND_PENDING;
-+	if (!work_pending(&adapter->raise_intr_rxdata_task))
-+		queue_work(adapter->txrx_wq,
-+			   &adapter->raise_intr_rxdata_task);
- 
- 	retval = 0;
- 	return retval;
-@@ -629,6 +684,11 @@ static int fjes_probe(struct platform_device *plat_dev)
- 	adapter->force_reset = false;
- 	adapter->open_guard = false;
- 
-+	adapter->txrx_wq = create_workqueue(DRV_NAME "/txrx");
++static void fjes_hw_free_shared_status_region(struct fjes_hw *hw)
++{
++	kfree(hw->hw_info.share);
++	hw->hw_info.share = NULL;
++}
 +
-+	INIT_WORK(&adapter->raise_intr_rxdata_task,
-+		  fjes_raise_intr_rxdata_task);
-+
- 	res = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
- 	hw->hw_res.start = res->start;
- 	hw->hw_res.size = res->end - res->start + 1;
-@@ -669,6 +729,10 @@ static int fjes_remove(struct platform_device *plat_dev)
- 	struct fjes_adapter *adapter = netdev_priv(netdev);
- 	struct fjes_hw *hw = &adapter->hw;
+ static int fjes_hw_alloc_epbuf(struct epbuf_handler *epbh)
+ {
+ 	void *mem;
+@@ -126,6 +138,18 @@ static int fjes_hw_alloc_epbuf(struct epbuf_handler *epbh)
+ 	return 0;
+ }
  
-+	cancel_work_sync(&adapter->raise_intr_rxdata_task);
-+	if (adapter->txrx_wq)
-+		destroy_workqueue(adapter->txrx_wq);
++static void fjes_hw_free_epbuf(struct epbuf_handler *epbh)
++{
++	if (epbh->buffer)
++		vfree(epbh->buffer);
 +
- 	unregister_netdev(netdev);
++	epbh->buffer = NULL;
++	epbh->size = 0;
++
++	epbh->info = NULL;
++	epbh->ring = NULL;
++}
++
+ void fjes_hw_setup_epbuf(struct epbuf_handler *epbh, u8 *mac_addr, u32 mtu)
+ {
+ 	union ep_buffer_info *info = epbh->info;
+@@ -258,6 +282,32 @@ static int fjes_hw_setup(struct fjes_hw *hw)
+ 	return 0;
+ }
  
- 	fjes_hw_exit(hw);
++static void fjes_hw_cleanup(struct fjes_hw *hw)
++{
++	int epidx;
++
++	if (!hw->ep_shm_info)
++		return;
++
++	fjes_hw_free_shared_status_region(hw);
++
++	kfree(hw->hw_info.req_buf);
++	hw->hw_info.req_buf = NULL;
++
++	kfree(hw->hw_info.res_buf);
++	hw->hw_info.res_buf = NULL;
++
++	for (epidx = 0; epidx < hw->max_epid ; epidx++) {
++		if (epidx == hw->my_epid)
++			continue;
++		fjes_hw_free_epbuf(&hw->ep_shm_info[epidx].tx);
++		fjes_hw_free_epbuf(&hw->ep_shm_info[epidx].rx);
++	}
++
++	kfree(hw->ep_shm_info);
++	hw->ep_shm_info = NULL;
++}
++
+ int fjes_hw_init(struct fjes_hw *hw)
+ {
+ 	int ret;
+@@ -285,6 +335,22 @@ int fjes_hw_init(struct fjes_hw *hw)
+ 	return ret;
+ }
+ 
++void fjes_hw_exit(struct fjes_hw *hw)
++{
++	int ret;
++
++	if (hw->base) {
++		ret = fjes_hw_reset(hw);
++		if (ret)
++			pr_err("%s: reset error", __func__);
++
++		fjes_hw_iounmap(hw);
++		hw->base = NULL;
++	}
++
++	fjes_hw_cleanup(hw);
++}
++
+ void fjes_hw_set_irqmask(struct fjes_hw *hw,
+ 			 enum REG_ICTL_MASK intr_mask, bool mask)
+ {
+diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
+index 836ebe2..1b3e9ca 100644
+--- a/drivers/net/fjes/fjes_hw.h
++++ b/drivers/net/fjes/fjes_hw.h
+@@ -241,6 +241,7 @@ struct fjes_hw {
+ };
+ 
+ int fjes_hw_init(struct fjes_hw *);
++void fjes_hw_exit(struct fjes_hw *);
+ int fjes_hw_reset(struct fjes_hw *);
+ 
+ void fjes_hw_init_command_registers(struct fjes_hw *,
 -- 
 1.8.3.1
-
