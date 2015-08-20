@@ -1,41 +1,65 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH ipsec-next v2] xfrm: Use VRF master index if output device is enslaved
-Date: Fri, 21 Aug 2015 02:11:21 +0300
-Message-ID: <E97BEDFF-A3B2-41B4-A669-969E7052C75E@cumulusnetworks.com>
-References: <1440108390-10192-1-git-send-email-dsa@cumulusnetworks.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=us-ascii
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net af_key: Fix RCU splat
+Date: Thu, 20 Aug 2015 16:36:50 -0700
+Message-ID: <1440113810.6610.70.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1440085900-8917-1-git-send-email-dsa@cumulusnetworks.com>
+	 <1440089462.6610.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <55D65B5E.4080407@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
 To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:35508 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823AbbHTXLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 19:11:24 -0400
-Received: by wicne3 with SMTP id ne3so2378109wic.0
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 16:11:23 -0700 (PDT)
-In-Reply-To: <1440108390-10192-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:35965 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751699AbbHTXgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 19:36:53 -0400
+Received: by pdbmi9 with SMTP id mi9so19363614pdb.3
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 16:36:52 -0700 (PDT)
+In-Reply-To: <55D65B5E.4080407@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2015-08-20 at 15:57 -0700, David Ahern wrote:
+> On 8/20/15 9:51 AM, Eric Dumazet wrote:
+> > On Thu, 2015-08-20 at 08:51 -0700, David Ahern wrote:
+> >> Hit the following splat testing VRF change for ipsec:
 
-> On Aug 21, 2015, at 1:06 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> 
-> Directs route lookups to VRF table. Compiles out if NET_VRF is not
-> enabled. With this patch able to successfully bring up ipsec tunnels
-> in VRFs, even with duplicate network configuration.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - use vrf_master_ifindex rather than vrf_master_ifindex_rcu
-> 
-> net/ipv4/xfrm4_policy.c | 7 +++++--
-> net/ipv6/xfrm6_policy.c | 7 +++++--
-> 2 files changed, 10 insertions(+), 4 deletions(-)
-> 
+...
 
-Looks good to me,
+> >>
+> >> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> >> index b397f0aa9005..73527e7dd247 100644
+> >> --- a/net/key/af_key.c
+> >> +++ b/net/key/af_key.c
+> >> @@ -1670,7 +1670,7 @@ static int pfkey_register(struct sock *sk, struct sk_buff *skb, const struct sad
+> >>   		return -ENOBUFS;
+> >>   	}
+> >>
+> >> -	pfkey_broadcast(supp_skb, GFP_KERNEL, BROADCAST_REGISTERED, sk, sock_net(sk));
+> >> +	pfkey_broadcast(supp_skb, GFP_ATOMIC, BROADCAST_REGISTERED, sk, sock_net(sk));
+> >>
+> >>   	return 0;
+> >>   }
+> >
+> > I would rather remove the useless rcu locking from pfkey_broadcast() if
+> > a mutex properly protects the thing.
+> 
+> rcu_read_lock was added by Stephen with 7f6b9dbd5afbd. It does not 
+> appear the net->xfrm.xfrm_cfg_mutex mutex added by 283bc9f35bbbc 
+> properly covers the locking. ie., the rcu_read_lock is needed.
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Then please cook a complete patch, and add a 'Fixes: ...' tag
+
+
+# git grep -n pfkey_broadcast|grep GFP_KERNEL
+net/key/af_key.c:336:	pfkey_broadcast(skb, GFP_KERNEL, BROADCAST_ONE, sk, sock_net(sk));
+net/key/af_key.c:1368:	pfkey_broadcast(resp_skb, GFP_KERNEL, BROADCAST_ONE, sk, net);
+net/key/af_key.c:1673:	pfkey_broadcast(supp_skb, GFP_KERNEL, BROADCAST_REGISTERED, sk, sock_net(sk));
+net/key/af_key.c:1850:	pfkey_broadcast(skb, GFP_KERNEL, BROADCAST_ALL, NULL, sock_net(sk));
+net/key/af_key.c:2773:	pfkey_broadcast(skb_clone(skb, GFP_KERNEL), GFP_KERNEL,
+
+Presumably we should remove "gfp_t allocation" pfkey_broadcast() argument
+if we need to use GFP_ATOMIC in all cases.
