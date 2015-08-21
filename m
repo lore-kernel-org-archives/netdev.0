@@ -1,113 +1,94 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/15] netfilter: nft_limit: convert to token-based limiting at nanosecond granularity
-Date: Fri, 21 Aug 2015 06:32:35 +0200
-Message-ID: <1440131564-8807-7-git-send-email-pablo@netfilter.org>
-References: <1440131564-8807-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48141 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751674AbbHUE1R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2015 00:27:17 -0400
-In-Reply-To: <1440131564-8807-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Nettleton <jon.nettleton@gmail.com>
+Subject: Re: RX packet loss on i.MX6Q running 4.2-rc7
+Date: Fri, 21 Aug 2015 06:49:20 +0200
+Message-ID: <CALHpu37TYT8bL3BmaNhYCukiJQrMPMgmwXFToGH6Y7xRRrPJ-Q@mail.gmail.com>
+References: <20150820223049.GA20710@pqgruber.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, Marek Vasut <marex@denx.de>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Nimrod Andy <B38611@freescale.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Eric Nelson <eric.nelson@boundarydevices.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	=?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	Duan Andy <fugang.duan@freescale.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	=?UTF-8?Q?Lothar_Wa=C3=9Fmann?= <LW@karo-electronics.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Lucas Stach <l.stach@pengutronix.de>
+To: Clemens Gruber <clemens.gruber@pqgruber.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150820223049.GA20710@pqgruber.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rework the limit expression to use a token-based limiting approach that refills
-the bucket gradually. The tokens are calculated at nanosecond granularity
-instead jiffies to improve precision.
+On Fri, Aug 21, 2015 at 12:30 AM, Clemens Gruber
+<clemens.gruber@pqgruber.com> wrote:
+> Hi,
+>
+> I am experiencing massive RX packet loss on my i.MX6Q (Chip rev 1.3) on Linux
+> 4.2-rc7 with a Marvell 88E1510 Gigabit Ethernet PHY connected over RGMII.
+> I noticed it when doing an UDP benchmark with iperf3. When sending UDP packets
+> from a Debian PC to the i.MX6 with a rate of 100 Mbit/s, 99% of the packets are
+> lost. With a rate of 10 Mbit/s, we are still losing 93% of all packets. TCP RX
+> does suffer from packet loss too, but still achieves about 211 Mbit/s.
+> TX is not affected.
+>
+> Steps to reproduce:
+> On the i.MX6: iperf3 -s
+> On a desktop PC:  iperf3 -b 10M -u -c MX6IP
+>
+> The iperf3 results:
+> [ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total
+> [  4]   0.00-10.00  sec  11.8 MBytes  9.90 Mbits/sec  0.687 ms  1397/1497 (93%)
+>
+> During the 10 Mbit UDP test, the IEEE_rx_macerr counter increased to 5371.
+> ifconfig eth0 shows:
+>  RX packets:9216 errors:5248 dropped:170 overruns:5248 frame:5248
+>  TX packets:83 errors:0 dropped:0 overruns:0 carrier:0
+>  collisions:0
+>
+> Here are the TCP results with iperf3 -c MX6IP:
+> [ ID] Interval           Transfer     Bandwidth       Retr
+> [  4]   0.00-10.00  sec   252 MBytes   211 Mbits/sec  4343             sender
+> [  4]   0.00-10.00  sec   251 MBytes   211 Mbits/sec                  receiver
+>
+> During the TCP test, IEEE_rx_macerr increased to 4059.
+> ifconfig eth0 shows:
+> RX packets:186368 errors:4206 dropped:50 overruns:4206 frame:4206
+> TX packets:41861 errors:0 dropped:0 overruns:0 carrier:0
+> collisions:0
+>
+> Freescale errata entry ERR004512 did mention a RX FIFO overrun. Is this related?
+>
+> Forcing pause frames via ethtool -A eth0 rx on tx on, does not improve it:
+> Same amount of UDP packet loss with reduced TCP throughput of 190 Mbit/s.
+> IEEE_rx_macerr increased up to 5232 during UDP 10Mbit and up to 4270 for TCP.
+>
+> I am already using the MX6QDL_PAD_GPIO_6__ENET_IRQ workaround, which solved the
+> ping latency issues from ERR006687 but not the packet loss problem.
+>
+> I read through the mailing list archives and found a discussion between Russell
+> King, Marek Vasut, Eric Nelson, Fugang Duan and others about a similar problem.
+> I therefore added you and contributors to fec_main.c to the CC.
+>
+> One suggestion I found, was adding udelay(210); to fec_enet_rx():
+> https://lkml.org/lkml/2014/8/22/88
+> But this also did not reduce the packet loss. (I added it to the fec_enet_rx
+> function just before return pkt_received; but I still got 93% packet loss)
+>
+> Does anyone have the equipment/setup to trace an i.MX6Q during UDP RX traffic
+> from iperf3 to find the root cause of this packet loss problem?
+>
+> What else could we do to fix this?
+>
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nft_limit.c |   42 ++++++++++++++++++++++++++----------------
- 1 file changed, 26 insertions(+), 16 deletions(-)
+This is a bug in iperf3's UDP tests.  Do the same test with iperf2 and
+you will see expected performance.  I believe there is a bug open in
+github about it.
 
-diff --git a/net/netfilter/nft_limit.c b/net/netfilter/nft_limit.c
-index d0788e1..c79703e 100644
---- a/net/netfilter/nft_limit.c
-+++ b/net/netfilter/nft_limit.c
-@@ -20,10 +20,11 @@
- static DEFINE_SPINLOCK(limit_lock);
- 
- struct nft_limit {
-+	u64		last;
- 	u64		tokens;
-+	u64		tokens_max;
- 	u64		rate;
--	u64		unit;
--	unsigned long	stamp;
-+	u64		nsecs;
- };
- 
- static void nft_limit_pkts_eval(const struct nft_expr *expr,
-@@ -31,18 +32,23 @@ static void nft_limit_pkts_eval(const struct nft_expr *expr,
- 				const struct nft_pktinfo *pkt)
- {
- 	struct nft_limit *priv = nft_expr_priv(expr);
-+	u64 now, tokens, cost = div_u64(priv->nsecs, priv->rate);
-+	s64 delta;
- 
- 	spin_lock_bh(&limit_lock);
--	if (time_after_eq(jiffies, priv->stamp)) {
--		priv->tokens = priv->rate;
--		priv->stamp = jiffies + priv->unit * HZ;
--	}
--
--	if (priv->tokens >= 1) {
--		priv->tokens--;
-+	now = ktime_get_ns();
-+	tokens = priv->tokens + now - priv->last;
-+	if (tokens > priv->tokens_max)
-+		tokens = priv->tokens_max;
-+
-+	priv->last = now;
-+	delta = tokens - cost;
-+	if (delta >= 0) {
-+		priv->tokens = delta;
- 		spin_unlock_bh(&limit_lock);
- 		return;
- 	}
-+	priv->tokens = tokens;
- 	spin_unlock_bh(&limit_lock);
- 
- 	regs->verdict.code = NFT_BREAK;
-@@ -58,25 +64,29 @@ static int nft_limit_init(const struct nft_ctx *ctx,
- 			  const struct nlattr * const tb[])
- {
- 	struct nft_limit *priv = nft_expr_priv(expr);
-+	u64 unit;
- 
- 	if (tb[NFTA_LIMIT_RATE] == NULL ||
- 	    tb[NFTA_LIMIT_UNIT] == NULL)
- 		return -EINVAL;
- 
--	priv->rate   = be64_to_cpu(nla_get_be64(tb[NFTA_LIMIT_RATE]));
--	priv->unit   = be64_to_cpu(nla_get_be64(tb[NFTA_LIMIT_UNIT]));
--	priv->stamp  = jiffies + priv->unit * HZ;
--	priv->tokens = priv->rate;
-+	priv->rate = be64_to_cpu(nla_get_be64(tb[NFTA_LIMIT_RATE]));
-+	unit = be64_to_cpu(nla_get_be64(tb[NFTA_LIMIT_UNIT]));
-+	priv->nsecs = unit * NSEC_PER_SEC;
-+	if (priv->rate == 0 || priv->nsecs < unit)
-+		return -EOVERFLOW;
-+	priv->tokens = priv->tokens_max = priv->nsecs;
-+	priv->last = ktime_get_ns();
- 	return 0;
- }
- 
- static int nft_limit_dump(struct sk_buff *skb, const struct nft_expr *expr)
- {
- 	const struct nft_limit *priv = nft_expr_priv(expr);
-+	u64 secs = div_u64(priv->nsecs, NSEC_PER_SEC);
- 
--	if (nla_put_be64(skb, NFTA_LIMIT_RATE, cpu_to_be64(priv->rate)))
--		goto nla_put_failure;
--	if (nla_put_be64(skb, NFTA_LIMIT_UNIT, cpu_to_be64(priv->unit)))
-+	if (nla_put_be64(skb, NFTA_LIMIT_RATE, cpu_to_be64(priv->rate)) ||
-+	    nla_put_be64(skb, NFTA_LIMIT_UNIT, cpu_to_be64(secs)))
- 		goto nla_put_failure;
- 	return 0;
- 
--- 
-1.7.10.4
+-Jon
