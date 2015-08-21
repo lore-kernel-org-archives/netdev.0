@@ -1,48 +1,147 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next RFC 00/10] socket sendmsg MSG_ZEROCOPY
-Date: Thu, 20 Aug 2015 22:49:25 -0400
-Message-ID: <CA+FuTSfA=_1VPFbUAh+5_+Xa_UxuTiFgGPGVRzfEtZLkvW6a9g@mail.gmail.com>
-References: <1440081408-12302-1-git-send-email-willemb@google.com> <20150820.155647.106500427975157613.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f180.google.com ([209.85.160.180]:34179 "EHLO
-	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752416AbbHUCt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 22:49:56 -0400
-Received: by ykdt205 with SMTP id t205so58370780ykd.1
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 19:49:55 -0700 (PDT)
-In-Reply-To: <20150820.155647.106500427975157613.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/15] Netfilter updates for net-next
+Date: Fri, 21 Aug 2015 06:32:29 +0200
+Message-ID: <1440131564-8807-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 20, 2015 at 6:56 PM, David Miller <davem@davemloft.net> wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> Date: Thu, 20 Aug 2015 10:36:39 -0400
->
->> Datapath integrity does not otherwise depend on payload, with three
->> exceptions: checksums, optional sk_filter/tc u32/.. and device +
->> driver logic. The effect of wrong checksums is limited to the
->> misbehaving process. Filters may have to be addressed by inserting a
->> preventative skb_copy_ubufs(). Device drivers can be whitelisted,
->> similar to scatter-gather support (NETIF_F_SG).
->
-> Consider a userland NFS implementation sending over loopback while
-> constantly modifying the page.  The sunrpc code could be tricked into
-> seeing one thing during validation of the RPC headers then doing
-> another after the user makes changes.
->
-> I really don't think this is completely safe as-is.
+Hi David,
 
-Sunrpc is a great counter example. Anything that calls
-kernel_recvmsg may be problematic, I guess. Copying when
-passing to kernel sockets would plug that class of issues.
+This is second pull request includes the conflict resolution patch that
+resulted from the updates that we got for the conntrack template through
+kmalloc. No changes with regards to the previously sent 15 patches.
 
-But there may still be others. Most obvious use case for copy
-avoidance is pure device transmit. Excluding loopback may be
-a reasonable way to initially limit the attack surface. With a flag
-NETIF_F_ZC not supported on lo.
+The following patchset contains Netfilter updates for your net-next tree, they
+are:
+
+1) Rework the existing nf_tables counter expression to make it per-cpu.
+
+2) Prepare and factor out common packet duplication code from the TEE target so
+   it can be reused from the new dup expression.
+
+3) Add the new dup expression for the nf_tables IPv4 and IPv6 families.
+
+4) Convert the nf_tables limit expression to use a token-based approach with
+   64-bits precision.
+
+5) Enhance the nf_tables limit expression to support limiting at packet byte.
+   This comes after several preparation patches.
+
+6) Add a burst parameter to indicate the amount of packets or bytes that can
+   exceed the limiting.
+
+7) Add netns support to nfacct, from Andreas Schultz.
+
+8) Pass the nf_conn_zone structure instead of the zone ID in nf_tables to allow
+   accessing more zone specific information, from Daniel Borkmann.
+
+9) Allow to define zone per-direction to support netns containers with
+   overlapping network addressing, also from Daniel.
+
+10) Extend the CT target to allow setting the zone based on the skb->mark as a
+   way to support simple mappings from iptables, also from Daniel.
+
+11) Make the nf_tables payload expression aware of the fact that VLAN offload
+    may have removed a vlan header, from Florian Westphal.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 938049e18dca57bcd2f93986fc1cbb5a83cdf027:
+
+  net: xgene Remove xgene specific phy and MAC lookup functions (2015-08-20 14:43:49 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to 81bf1c64e7fe08f956c74fe2b0f1fa6eb163bd91:
+
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next (2015-08-21 06:09:05 +0200)
+
+----------------------------------------------------------------
+
+Andreas Schultz (1):
+      netfilter: nfacct: per network namespace support
+
+Daniel Borkmann (3):
+      netfilter: nf_conntrack: push zone object into functions
+      netfilter: nf_conntrack: add direction support for zones
+      netfilter: nf_conntrack: add efficient mark to zone mapping
+
+Florian Westphal (1):
+      netfilter: nft_payload: work around vlan header stripping
+
+Pablo Neira Ayuso (11):
+      netfilter: nft_counter: convert it to use per-cpu counters
+      netfilter: xt_TEE: get rid of WITH_CONNTRACK definition
+      netfilter: factor out packet duplication for IPv4/IPv6
+      netfilter: nf_tables: add nft_dup expression
+      netfilter: nft_limit: rename to nft_limit_pkts
+      netfilter: nft_limit: convert to token-based limiting at nanosecond granularity
+      netfilter: nft_limit: factor out shared code with per-byte limiting
+      netfilter: nft_limit: add burst parameter
+      netfilter: nft_limit: constant token cost per packet
+      netfilter: nft_limit: add per-byte limiting
+      Merge branch 'master' of git://git.kernel.org/.../davem/net-next
+
+ include/linux/netfilter/nfnetlink_acct.h	    |	 3 +-
+ include/net/net_namespace.h			    |	 3 +
+ include/net/netfilter/ipv4/nf_dup_ipv4.h	    |	 7 +
+ include/net/netfilter/ipv6/nf_dup_ipv6.h	    |	 7 +
+ include/net/netfilter/nf_conntrack.h		    |	10 +-
+ include/net/netfilter/nf_conntrack_core.h	    |	 3 +-
+ include/net/netfilter/nf_conntrack_expect.h	    |	11 +-
+ include/net/netfilter/nf_conntrack_zones.h	    |	99 ++++++++-
+ include/net/netfilter/nft_dup.h		    |	 9 +
+ include/uapi/linux/netfilter/nf_tables.h	    |	23 ++
+ include/uapi/linux/netfilter/nfnetlink_conntrack.h |	 1 +
+ include/uapi/linux/netfilter/xt_CT.h		    |	 8 +-
+ net/ipv4/netfilter/Kconfig			    |	12 ++
+ net/ipv4/netfilter/Makefile			    |	 3 +
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |	 2 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c	    |	 4 +-
+ net/ipv4/netfilter/nf_defrag_ipv4.c		    |	17 +-
+ net/ipv4/netfilter/nf_dup_ipv4.c		    |  120 +++++++++++
+ net/ipv4/netfilter/nft_dup_ipv4.c		    |  110 ++++++++++
+ net/ipv6/netfilter/Kconfig			    |	12 ++
+ net/ipv6/netfilter/Makefile			    |	 3 +
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |	 2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c     |	 5 +-
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c	    |	18 +-
+ net/ipv6/netfilter/nf_dup_ipv6.c		    |	96 +++++++++
+ net/ipv6/netfilter/nft_dup_ipv6.c		    |  108 ++++++++++
+ net/netfilter/Kconfig				    |	 2 +
+ net/netfilter/ipvs/ip_vs_nfct.c		    |	 2 +-
+ net/netfilter/nf_conntrack_core.c		    |  134 ++++++------
+ net/netfilter/nf_conntrack_expect.c		    |	21 +-
+ net/netfilter/nf_conntrack_netlink.c		    |  228 ++++++++++++++------
+ net/netfilter/nf_conntrack_pptp.c		    |	 3 +-
+ net/netfilter/nf_conntrack_standalone.c	    |	39 +++-
+ net/netfilter/nf_nat_core.c			    |	24 ++-
+ net/netfilter/nf_synproxy_core.c		    |	 4 +-
+ net/netfilter/nfnetlink_acct.c			    |	71 ++++--
+ net/netfilter/nft_counter.c			    |	97 ++++++---
+ net/netfilter/nft_limit.c			    |  188 ++++++++++++----
+ net/netfilter/nft_payload.c			    |	57 ++++-
+ net/netfilter/xt_CT.c				    |	26 ++-
+ net/netfilter/xt_TEE.c				    |  160 +-------------
+ net/netfilter/xt_connlimit.c			    |	 9 +-
+ net/netfilter/xt_nfacct.c			    |	 2 +-
+ net/sched/act_connmark.c			    |	 6 +-
+ 44 files changed, 1319 insertions(+), 450 deletions(-)
+ create mode 100644 include/net/netfilter/ipv4/nf_dup_ipv4.h
+ create mode 100644 include/net/netfilter/ipv6/nf_dup_ipv6.h
+ create mode 100644 include/net/netfilter/nft_dup.h
+ create mode 100644 net/ipv4/netfilter/nf_dup_ipv4.c
+ create mode 100644 net/ipv4/netfilter/nft_dup_ipv4.c
+ create mode 100644 net/ipv6/netfilter/nf_dup_ipv6.c
+ create mode 100644 net/ipv6/netfilter/nft_dup_ipv6.c
