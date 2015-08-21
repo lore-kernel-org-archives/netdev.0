@@ -1,56 +1,53 @@
 From: Duan Andy <fugang.duan@freescale.com>
 Subject: RE: [PATCH v1 0/6] Add fec1 and fec2 support for i.MX7d sdb board
-Date: Fri, 21 Aug 2015 23:48:10 +0000
-Message-ID: <BN3PR0301MB1219287CCC621469BA444143F5650@BN3PR0301MB1219.namprd03.prod.outlook.com>
+Date: Fri, 21 Aug 2015 23:49:41 +0000
+Message-ID: <BN3PR0301MB1219615039D291CCCD751B2EF5650@BN3PR0301MB1219.namprd03.prod.outlook.com>
 References: <1439962444-27486-1-git-send-email-b38611@freescale.com>
  <20150820.140531.1320709021949935376.davem@davemloft.net>
- <55D64330.4020503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawnguo@kernel.org" <shawnguo@kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shawnguo@kernel.org" <shawnguo@kernel.org>,
 	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0116.outbound.protection.outlook.com ([207.46.100.116]:49888
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0106.outbound.protection.outlook.com ([65.55.169.106]:44702
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751707AbbHUXsS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2015 19:48:18 -0400
-In-Reply-To: <55D64330.4020503@gmail.com>
+	id S1750970AbbHUXtn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 19:49:43 -0400
+In-Reply-To: <20150820.140531.1320709021949935376.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+DQo+IFNlbnQ6IEZy
-aWRheSwgQXVndXN0IDIxLCAyMDE1IDU6MTQgQU0NCj4gVG86IERhdmlkIE1pbGxlcjsgRHVhbiBG
-dWdhbmctQjM4NjExDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBzaGF3bmd1b0BrZXJu
-ZWwub3JnOyBsaW51eC1hcm0tDQo+IGtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnDQo+IFN1Ympl
-Y3Q6IFJlOiBbUEFUQ0ggdjEgMC82XSBBZGQgZmVjMSBhbmQgZmVjMiBzdXBwb3J0IGZvciBpLk1Y
-N2Qgc2RiDQo+IGJvYXJkDQo+IA0KPiBPbiAyMC8wOC8xNSAxNDowNSwgRGF2aWQgTWlsbGVyIHdy
-b3RlOg0KPiA+IEZyb206IEZ1Z2FuZyBEdWFuIDxiMzg2MTFAZnJlZXNjYWxlLmNvbT4NCj4gPiBE
-YXRlOiBXZWQsIDE5IEF1ZyAyMDE1IDEzOjMzOjU4ICswODAwDQo+ID4NCj4gPj4gVGhlIHBhdGNo
-IHNlcmllcyBpcyB0byBhZGQgZmVjIHN1cHBvcnQgZm9yIGkuTVg3ZCBzZGIgYm9hcmQuIFNpbmNl
-DQo+ID4+IGkuTVg3ZCBmZWMgaXAgaXMgdGhlIHNhbWUgYXMgaS5NWDZTWCwgc28gdGhlcmUgaGF2
-ZSBubyBjaGFuZ2UgZm9yDQo+IGRyaXZlciBpdHNlbGYuDQo+ID4+DQo+ID4+IFBhdGNoIzE6IGFk
-ZCBiY201NDIyMCBQSFkgSUQgZW50cnkgaW50byBicmNtcGh5LmggZmlsZS4NCj4gPg0KPiA+IFRo
-aXMgaXMgY29tcGxldGVseSwgYW5kIHV0dGVybHksIHBvaW50bGVzcy4NCj4gPg0KPiA+IFRoZSBv
-bmx5IHJlYXNvbiBhIFBIWSBJRCBzaG91bGQgYmUgZGVmaW5lZCBpbiBicmNtcGh5LmggaXMgc28g
-dGhhdCBpdA0KPiA+IGNhbiBiZSB1c2VkIGluIHRoZSBicm9hZGNvbS5jIFBIWSBkcml2ZXIgb3Ig
-c2ltaWxhci4NCj4gPg0KPiA+IElmIHRoZXJlIGlzIG5vIHVzZXIgaW4gdGhlIHRyZWUsIHRoZXJl
-IGlzIG5vIHJlYXNvbiB0byBhZGQgaXQgdG8gdGhlDQo+ID4gaGVhZGVyIGZpbGUuDQo+IA0KPiBU
-aGVyZSBpcyBhIHZhbGlkIHJlYXNvbiBmb3Igd2hpY2ggeW91IG1heSBoYXZlIGEgUEhZIGlkLCB3
-aGljaCBpcw0KPiBkZWZpbmluZyBhIFBIWSBmaXh1cCBpbiB5b3VyIHBsYXRmb3JtIGNvZGUgbGlr
-ZSBBbmR5IGlzIGRvaW5nLCBob3dldmVyLA0KPiB0aGlzIHNob3VsZCBub3QgYmUgdXNlZCBpbiBj
-b25qdW5jdGlvbiB3aXRoIHRoZSBHZW5lcmljIFBIWSBkcml2ZXIsDQo+IGJlY2F1c2UgdGhpcyBk
-cml2ZXIgaGFzIGFic29sdXRlbHkgbm8gY2x1ZSBhYm91dCB5b3VyIFBIWSBmaXh1cCwgYW5kIHRo
-aXMNCj4gY291bGQgY3JlYXRlIGF0IGJlc3QgaW5jb25zaXN0ZW5jaWVzIGluIGhvdyB0aGUgZml4
-dXAgaXMgbWFuYWdlZCBsYXRlciBvbi4NCj4gDQo+IEF0IHRoZSB2ZXJ5IGxlYXN0LCBJIHdvdWxk
-IGxpa2UgdG8gc2VlIGEgY2hhbmdlIHRvDQo+IGRyaXZlcnMvbmV0L3BoeS9icm9hZGNvbS5jIHdo
-aWNoIGlkZW50aWZpZXMgdGhpcyBQSFkgaWQsIGFuZCBldmVudHVhbGx5DQo+IGp1c3QgaW52b2tl
-cyB0aGUgZ2VucGh5XyogZnVuY3Rpb25zIHdoZXJlIHJlbGV2YW50Lg0KPiAtLQ0KPiBGbG9yaWFu
-DQoNCkkgd2lsbCB0cnkgdG8gYWRkIHRoZSBwaHkgc3VwcG9ydCBpbiBCcm9hZGNvbSBwaHkgZHJp
-dmVyLiBUaGFua3MgZm9yIHlvdXIgY29tbWVudHMuDQoNClJlZ2FyZHMsDQpBbmR5DQo=
+From: David Miller <davem@davemloft.net> Sent: Friday, August 21, 2015 5:06 AM
+> To: Duan Fugang-B38611
+> Cc: shawnguo@kernel.org; linux-arm-kernel@lists.infradead.org;
+> netdev@vger.kernel.org
+> Subject: Re: [PATCH v1 0/6] Add fec1 and fec2 support for i.MX7d sdb
+> board
+> 
+> From: Fugang Duan <b38611@freescale.com>
+> Date: Wed, 19 Aug 2015 13:33:58 +0800
+> 
+> > The patch series is to add fec support for i.MX7d sdb board. Since
+> > i.MX7d fec ip is the same as i.MX6SX, so there have no change for
+> driver itself.
+> >
+> > Patch#1: add bcm54220 PHY ID entry into brcmphy.h file.
+> 
+> This is completely, and utterly, pointless.
+> 
+> The only reason a PHY ID should be defined in brcmphy.h is so that it can
+> be used in the broadcom.c PHY driver or similar.
+> 
+> If there is no user in the tree, there is no reason to add it to the
+> header file.
+
+Ok, I will try to add the phy support in Broadcom phy driver. Thanks for your comment.
+
+Regards,
+Andy
