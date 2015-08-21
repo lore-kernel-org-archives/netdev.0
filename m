@@ -1,119 +1,102 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: [GIT] [4.3] NFC update
-Date: Fri, 21 Aug 2015 01:39:08 +0200
-Message-ID: <20150820233908.GA1988@zurbaran.home>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCHv4 net-next 09/10] openvswitch: Allow matching on conntrack label
+Date: Thu, 20 Aug 2015 17:40:10 -0700
+Message-ID: <CANr6G5zABA0z2GDuwhCJgDZsmyaeVLS7HdT0ateVr-kNNgqQcQ@mail.gmail.com>
+References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
+ <1439941188-19293-10-git-send-email-joestringer@nicira.com>
+ <CALnjE+qVd=7ZdHXvVmOcHSEcFN2RxNrSwB7bck5=8P4oxdRnew@mail.gmail.com>
+ <CANr6G5yp1cj6GuhXDU6jvpaYAzb20-aiTUrpPLrBQAStwxpDVA@mail.gmail.com>
+ <CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
+ <CANr6G5xYJaEYsS9u9YZmz=mxEoknHiCp1FxWVtS69YCEbrfYSA@mail.gmail.com> <CALnjE+qPfACh-ykS6HWSmLVQF=sJRrQfA231urskMB01eW=qNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux NFC <linux-nfc@lists.01.org>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:63405 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752690AbbHTXjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2015 19:39:09 -0400
-Content-Disposition: inline
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:33954 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302AbbHUAkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 20:40:31 -0400
+Received: by ykdt205 with SMTP id t205so56106349ykd.1
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 17:40:30 -0700 (PDT)
+In-Reply-To: <CALnjE+qPfACh-ykS6HWSmLVQF=sJRrQfA231urskMB01eW=qNA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On 20 August 2015 at 14:01, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Thu, Aug 20, 2015 at 12:13 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>> On 20 August 2015 at 08:45, Pravin Shelar <pshelar@nicira.com> wrote:
+>>> On Wed, Aug 19, 2015 at 4:04 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>> Thanks for the review,
+>>>>
+>>>> On 19 August 2015 at 14:24, Pravin Shelar <pshelar@nicira.com> wrote:
+>>>>> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>>>> Allow matching and setting the conntrack label field. As with ct_mark,
+>>>>>> this is populated by executing the CT action, and is a writable field.
+>>>>>> Specifying a label and optional mask allows the label to be modified,
+>>>>>> which takes effect on the entry found by the lookup of the CT action.
+>>>>>>
+>>>>>> E.g.: actions:ct(zone=1,label=1)
+>>>>>>
+>>>>>> This will perform conntrack lookup in zone 1, then modify the label for
+>>>>>> that entry. The conntrack entry itself must be committed using the
+>>>>>> "commit" flag in the conntrack action flags for this change to persist.
+>>>>>>
+>>>
+>>>>
+>>>>>>         return false;
+>>>>>>  }
+>>>>>> @@ -508,8 +601,12 @@ void ovs_ct_free_action(const struct nlattr *a)
+>>>>>>
+>>>>>>  void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
+>>>>>>  {
+>>>>>> +       unsigned int n_bits = sizeof(struct ovs_key_ct_label) * BITS_PER_BYTE;
+>>>>>> +
+>>>>>>         data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
+>>>>>>         data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
+>>>>>> +       if (nf_connlabels_get(net, n_bits);
+>>>>>> +               OVS_NLERR(true, "Failed to set connlabel length");
+>>>>>>  }
+>>>>>>
+>>>>> In case of error should we reject conntrack label actions? Otherwise
+>>>>> user will never see any error. But action could drop packets.
+>>>>
+>>>> I suspect that currently errors would be seen from ovs_ct_set_label():
+>>>>
+>>>>>.......if (!cl || cl->words * sizeof(long) < OVS_CT_LABEL_LEN)
+>>>>>.......>.......return -ENOSPC;
+>>>>
+>>>> So, for cmd_execute, userspace would see this. For regular handling,
+>>>> pipeline processing would stop (so, drop).
+>>>>
+>>>> However, I agree it would be more friendly to have the attribute
+>>>> rejected up-front. Just means we'll pass the datapath all the way
+>>>> down:
+>>>> ovs_nla_get_match()
+>>>> --> ovs_key_from_nlattrs()
+>>>> --> metadata_from_nlattrs()
+>>>> --> ovs_ct_verify()
+>>
+>> Incidentally, we generally don't have the datapath by this point
+>> (ovs_nla_get_match()). There'd need to be a bit of rearranging in the
+>> ovs_flow_cmd_* functions, which would include holding the locks for
+>> longer. Given that the two most common cases are that either A) The
+>> kernel is configured with connlabel support, and built with support
+>> for at least 128 bits of label, or B) the kernel is configured without
+>> connlabel, and this is handled already in ovs_ct_verify(), I don't
+>> think it's worth making this particular change.
+>
+> Actually I do not see need for this to be per datapath property.
+> infact there is no need to have struct ovs_ct_perdp_data.
+> ovs_ct_init can be called from ovs-module init.
+> nf-connlabel bit length is per net-namespace property. So
+> nf_connlabels_get()  should be called from ovs namespace init. This
+> way you can move xt_label flag to ovs_net. ovs_net can be accessed
+> from ovs_flow_cmd_* functions.
 
-This is the NFC pull request for 4.3.
-With this one we have:
-
-- A new driver for Samsung's S3FWRN5 NFC chipset. In order to
-  properly support this driver, a few NCI core routines needed
-  to be exported. Future drivers like Intel's Fields Peak will
-  benefit from this.
-
-- SPI support as a physical transport for STM st21nfcb.
-
-- An additional netlink API for sending replies back to userspace
-  from vendor commands.
-
-- 2 small fixes for TI's trf7970a
-
-- A few st-nci fixes.
-
-
-The following changes since commit d52736e24fe2e927c26817256f8d1a3c8b5d51a0:
-
-  Merge branch 'vrf-lite' (2015-08-13 22:43:22 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/sameo/nfc-next.git tags/nfc-next-4.3-1
-
-for you to fetch changes up to 29e76924cf087bc6a9114a9244828fd13ae959bb:
-
-  nfc: netlink: Add capability to reply to vendor_cmd with data (2015-08-20 22:00:11 +0200)
-
-----------------------------------------------------------------
-Christophe Ricard (14):
-      nfc: st-nci: Remove duplicate file platform_data/st_nci.h
-      nfc: st-nci: Fix typo when changing from st21nfcb to st-nci
-      nfc: st-nci: Fix non accurate comment for st_nci_i2c_read
-      NFC: st21nfca: fix use of uninitialized variables in error path
-      NFC: st-nci: fix use of uninitialized variables in error path
-      nfc: st-nci: Remove data from ack_pending_q when receiving a SYNC_ACK
-      nfc: st-nci: Free data with irrelevant NDLC PCB_SYNC value
-      nfc: st-nci: Add spi phy support for st21nfcb
-      nfc: st-nci: Add device tree documentation for spi phy
-      nfc: st-nci: Remove pr_err in rcv_queue when ndlc header is unknown
-      nfc: netlink: Add check on NFC_ATTR_VENDOR_DATA
-      nfc: netlink: Warning fix
-      nfc: nci: hci: Add check on skb nci_hci_send_cmd parameter
-      nfc: netlink: Add capability to reply to vendor_cmd with data
-
-Mark Greer (2):
-      NFC: trf7970a: SDD_EN is bit 5 not bit 3
-      NFC: trf7970a: Add NULL check to clear up smatch warning
-
-Robert Baldyga (3):
-      NFC: nci: Add post_setup handler
-      NFC: nci: export nci_core_reset and nci_core_init
-      nfc: s3fwrn5: Add driver for Samsung S3FWRN5 NFC Chip
-
- .../devicetree/bindings/net/nfc/s3fwrn5.txt        |  27 ++
- .../net/nfc/{st-nci.txt => st-nci-i2c.txt}         |   0
- .../devicetree/bindings/net/nfc/st-nci-spi.txt     |  31 ++
- MAINTAINERS                                        |   6 +
- drivers/nfc/Kconfig                                |   1 +
- drivers/nfc/Makefile                               |   1 +
- drivers/nfc/s3fwrn5/Kconfig                        |  19 +
- drivers/nfc/s3fwrn5/Makefile                       |  11 +
- drivers/nfc/s3fwrn5/core.c                         | 219 +++++++++
- drivers/nfc/s3fwrn5/firmware.c                     | 511 +++++++++++++++++++++
- drivers/nfc/s3fwrn5/firmware.h                     | 111 +++++
- drivers/nfc/s3fwrn5/i2c.c                          | 306 ++++++++++++
- drivers/nfc/s3fwrn5/nci.c                          | 165 +++++++
- drivers/nfc/s3fwrn5/nci.h                          |  89 ++++
- drivers/nfc/s3fwrn5/s3fwrn5.h                      |  99 ++++
- drivers/nfc/st-nci/Kconfig                         |  11 +
- drivers/nfc/st-nci/Makefile                        |   3 +
- drivers/nfc/st-nci/i2c.c                           |  23 +-
- drivers/nfc/st-nci/ndlc.c                          |   7 +-
- drivers/nfc/st-nci/spi.c                           | 392 ++++++++++++++++
- drivers/nfc/st-nci/st-nci_se.c                     |   8 +-
- drivers/nfc/st21nfca/st21nfca.c                    |  11 +-
- drivers/nfc/trf7970a.c                             |   6 +-
- include/linux/platform_data/st_nci.h               |  29 --
- include/net/nfc/nci_core.h                         |   3 +
- include/net/nfc/nfc.h                              |  41 ++
- net/nfc/nci/core.c                                 |  18 +
- net/nfc/nci/hci.c                                  |   2 +-
- net/nfc/netlink.c                                  |  91 +++-
- 29 files changed, 2180 insertions(+), 61 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/nfc/s3fwrn5.txt
- rename Documentation/devicetree/bindings/net/nfc/{st-nci.txt => st-nci-i2c.txt} (100%)
- create mode 100644 Documentation/devicetree/bindings/net/nfc/st-nci-spi.txt
- create mode 100644 drivers/nfc/s3fwrn5/Kconfig
- create mode 100644 drivers/nfc/s3fwrn5/Makefile
- create mode 100644 drivers/nfc/s3fwrn5/core.c
- create mode 100644 drivers/nfc/s3fwrn5/firmware.c
- create mode 100644 drivers/nfc/s3fwrn5/firmware.h
- create mode 100644 drivers/nfc/s3fwrn5/i2c.c
- create mode 100644 drivers/nfc/s3fwrn5/nci.c
- create mode 100644 drivers/nfc/s3fwrn5/nci.h
- create mode 100644 drivers/nfc/s3fwrn5/s3fwrn5.h
- create mode 100644 drivers/nfc/st-nci/spi.c
- delete mode 100644 include/linux/platform_data/st_nci.h
+That sounds like a tidier approach, I'll roll it into the next version.
