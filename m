@@ -1,34 +1,125 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [lkp] [rhashtable] 9d901bc0515: WARNING: CPU: 0 PID: 1 at
- arch/x86/mm/ioremap.c:63 __ioremap_check_ram+0x6a/0x99()
-Date: Fri, 21 Aug 2015 15:22:29 +0800
-Message-ID: <20150821072229.GA6166@gondor.apana.org.au>
-References: <87fv3dkwgw.fsf@yhuang-dev.intel.com>
- <20150821064207.GA5835@gondor.apana.org.au>
- <1440140982.8683.32.camel@intel.com>
+From: <shh.xie@gmail.com>
+Subject: [PATCH] net: phy: add interrupt support for aquantia phy
+Date: Fri, 21 Aug 2015 15:29:29 +0800
+Message-ID: <1440142169-37100-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkp@01.org, LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Huang Ying <ying.huang@intel.com>
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:47931 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752347AbbHUHWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 03:22:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1440140982.8683.32.camel@intel.com>
+Received: from mail-bl2on0062.outbound.protection.outlook.com ([65.55.169.62]:41191
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751803AbbHUHvG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2015 03:51:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 21, 2015 at 03:09:42PM +0800, Huang Ying wrote:
-> 
-> Sorry, my fault.  There are OOM for parent commit too, just some dmesg
-> difference, which I miss understood.  Please ignore this report.  I
-> will be more careful next time.
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-Thanks for the confirmation.
+By implementing config_intr & ack_interrupt, now the phy can support
+link connect/disconnect interrupt.
+
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+ drivers/net/phy/aquantia.c | 49 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
+
+diff --git a/drivers/net/phy/aquantia.c b/drivers/net/phy/aquantia.c
+index 73d347d..d6111af 100644
+--- a/drivers/net/phy/aquantia.c
++++ b/drivers/net/phy/aquantia.c
+@@ -44,6 +44,43 @@ static int aquantia_aneg_done(struct phy_device *phydev)
+ 	return (reg < 0) ? reg : (reg & BMSR_ANEGCOMPLETE);
+ }
+ 
++static int aquantia_config_intr(struct phy_device *phydev)
++{
++	int err;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
++		err = phy_write_mmd(phydev, MDIO_MMD_AN, 0xd401, 1);
++		if (err < 0)
++			return err;
++
++		err = phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xff00, 1);
++		if (err < 0)
++			return err;
++
++		err = phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xff01, 0x1001);
++	} else {
++		err = phy_write_mmd(phydev, MDIO_MMD_AN, 0xd401, 0);
++		if (err < 0)
++			return err;
++
++		err = phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xff00, 0);
++		if (err < 0)
++			return err;
++
++		err = phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xff01, 0);
++	}
++
++	return err;
++}
++
++static int aquantia_ack_interrupt(struct phy_device *phydev)
++{
++	int reg;
++
++	reg = phy_read_mmd(phydev, MDIO_MMD_AN, 0xcc01);
++	return (reg < 0) ? reg : 0;
++}
++
+ static int aquantia_read_status(struct phy_device *phydev)
+ {
+ 	int reg;
+@@ -85,8 +122,11 @@ static struct phy_driver aquantia_driver[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Aquantia AQ1202",
+ 	.features	= PHY_AQUANTIA_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.aneg_done	= aquantia_aneg_done,
+ 	.config_aneg    = aquantia_config_aneg,
++	.config_intr	= aquantia_config_intr,
++	.ack_interrupt	= aquantia_ack_interrupt,
+ 	.read_status	= aquantia_read_status,
+ 	.driver		= { .owner = THIS_MODULE,},
+ },
+@@ -95,8 +135,11 @@ static struct phy_driver aquantia_driver[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Aquantia AQ2104",
+ 	.features	= PHY_AQUANTIA_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.aneg_done	= aquantia_aneg_done,
+ 	.config_aneg    = aquantia_config_aneg,
++	.config_intr	= aquantia_config_intr,
++	.ack_interrupt	= aquantia_ack_interrupt,
+ 	.read_status	= aquantia_read_status,
+ 	.driver		= { .owner = THIS_MODULE,},
+ },
+@@ -105,8 +148,11 @@ static struct phy_driver aquantia_driver[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Aquantia AQR105",
+ 	.features	= PHY_AQUANTIA_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.aneg_done	= aquantia_aneg_done,
+ 	.config_aneg    = aquantia_config_aneg,
++	.config_intr	= aquantia_config_intr,
++	.ack_interrupt	= aquantia_ack_interrupt,
+ 	.read_status	= aquantia_read_status,
+ 	.driver		= { .owner = THIS_MODULE,},
+ },
+@@ -115,8 +161,11 @@ static struct phy_driver aquantia_driver[] = {
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Aquantia AQR405",
+ 	.features	= PHY_AQUANTIA_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
+ 	.aneg_done	= aquantia_aneg_done,
+ 	.config_aneg    = aquantia_config_aneg,
++	.config_intr	= aquantia_config_intr,
++	.ack_interrupt	= aquantia_ack_interrupt,
+ 	.read_status	= aquantia_read_status,
+ 	.driver		= { .owner = THIS_MODULE,},
+ },
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.0.27.g96db324
