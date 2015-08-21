@@ -1,42 +1,57 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [PATCH 0/4 net-next] enic: add devcmd2
-Date: Fri, 21 Aug 2015 17:19:03 +0000
-Message-ID: <253CF818969A9240AB2054BF91F2C2BC301A082C@ORSMSX114.amr.corp.intel.com>
-References: <1439669694-21744-1-git-send-email-_govind@gmx.com>
- <20150817.153832.1220000969996122058.davem@davemloft.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv4 net-next 10/10] openvswitch: Allow attaching helpers to
+ ct action
+Date: Fri, 21 Aug 2015 10:39:58 -0700
+Message-ID: <CALnjE+oodxeS5R2-RxUjAnUr88sEdKcmNiOpeS8gYeQ84aAvuA@mail.gmail.com>
+References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
+	<1439941188-19293-11-git-send-email-joestringer@nicira.com>
+	<CALnjE+p7WH53qx4=OBpFAT-CDRMbuUx1c_RspQYqBdBbG1=LjA@mail.gmail.com>
+	<CANr6G5xXdRynesVyQhpRXgcDbpFvrC421QiAq7x1rWAf0Vv3Aw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nalreddy@cisco.com" <nalreddy@cisco.com>,
-	"ssujith@cisco.com" <ssujith@cisco.com>,
-	"benve@cisco.com" <benve@cisco.com>
-To: David Miller <davem@davemloft.net>,
-	"_govind@gmx.com" <_govind@gmx.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56804 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751344AbbHURTG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 13:19:06 -0400
-In-Reply-To: <20150817.153832.1220000969996122058.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34555 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609AbbHURj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 13:39:59 -0400
+Received: by igui7 with SMTP id i7so22973895igu.1
+        for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 10:39:58 -0700 (PDT)
+In-Reply-To: <CANr6G5xXdRynesVyQhpRXgcDbpFvrC421QiAq7x1rWAf0Vv3Aw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series introduces a compile error
-drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_probe':
-drivers/net/ethernet/cisco/enic/enic_main.c:2490:3: error: label 'err_out_vnic_unregister' used but not defined
-   goto err_out_vnic_unregister;
-   ^
-scripts/Makefile.build:258: recipe for target 'drivers/net/ethernet/cisco/enic/enic_main.o' failed
-make[5]: *** [drivers/net/ethernet/cisco/enic/enic_main.o] Error 1
-scripts/Makefile.build:403: recipe for target 'drivers/net/ethernet/cisco/enic' failed
-make[4]: *** [drivers/net/ethernet/cisco/enic] Error 2
-
-Commit that introduced the issue:
-
-commit 373fb0873d4325a7afa04aec29ced0c122d1f8a9
-Author: Govindarajulu Varadarajan <_govind@gmx.com>
-Date:   Sun Aug 16 01:44:54 2015 +0530
-
-    enic: add devcmd2
+On Thu, Aug 20, 2015 at 5:47 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> On 19 August 2015 at 15:57, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>>> Add support for using conntrack helpers to assist protocol detection.
+>>> The new OVS_CT_ATTR_HELPER attribute of the ct action specifies a helper
+>>> to be used for this connection.
+>>>
+>>> Example ODP flows allowing FTP connections from ports 1->2:
+>>> in_port=1,tcp,action=ct(helper=ftp,commit),2
+>>> in_port=2,tcp,ct_state=-trk,action=ct(),recirc(1)
+>>> recirc_id=1,in_port=2,tcp,ct_state=+trk-new+est,action=1
+>>> recirc_id=1,in_port=2,tcp,ct_state=+trk+rel,action=1
+>>>
+>>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+>>> ---
+>>> v2-v3: No change.
+>>> v4: Change error code for unknown helper ENOENT->EINVAL.
+>>
+>> I got following compilation warning :
+>>
+>> net/openvswitch/conntrack.c:352:42: error: incompatible types in
+>> comparison expression (different address spaces)
+>
+> Is this made available via another sparse flag? It looks like it's
+> related to the __rcu as you've mentioned below, but I'm not seeing
+> this (latest sparse, gcc-4.9.2)
+>
+You need to enable RCU space checker in kernel config.
