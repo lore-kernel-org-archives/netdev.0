@@ -1,58 +1,31 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Bug in tc of iproute2 ? Deleting single filter, deletes all the
- filters (apart from hashtable 800::) ...
-Date: Fri, 21 Aug 2015 10:38:37 +0530
-Message-ID: <CAA5aLPhvdcYS4R_Ke0-JOgZTgiL0XpaQYwBopjPD1rvahyVonw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next RFC 00/10] socket sendmsg MSG_ZEROCOPY
+Date: Thu, 20 Aug 2015 22:17:59 -0700 (PDT)
+Message-ID: <20150820.221759.895380909053732965.davem@davemloft.net>
+References: <1440081408-12302-1-git-send-email-willemb@google.com>
+	<20150820.155647.106500427975157613.davem@davemloft.net>
+	<CA+FuTSfA=_1VPFbUAh+5_+Xa_UxuTiFgGPGVRzfEtZLkvW6a9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:34896 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058AbbHUFIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 01:08:38 -0400
-Received: by obbwr7 with SMTP id wr7so50429936obb.2
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 22:08:38 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:59250 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302AbbHUFSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 01:18:02 -0400
+In-Reply-To: <CA+FuTSfA=_1VPFbUAh+5_+Xa_UxuTiFgGPGVRzfEtZLkvW6a9g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When I am trying to  delete a single tc filter, it deleting all the
-filters with the same priority/preference. i.e. it is ignoring the
-handle specified.
+From: Willem de Bruijn <willemb@google.com>
+Date: Thu, 20 Aug 2015 22:49:25 -0400
 
-But, When I am deleting in hashtable 800: it is deleting only the
-specified filter.
+> But there may still be others. Most obvious use case for copy
+> avoidance is pure device transmit. Excluding loopback may be
+> a reasonable way to initially limit the attack surface. With a flag
+> NETIF_F_ZC not supported on lo.
 
-For example, following set of commands  create a hashtable 15: and add
-2 filters to it.
-
-tc filter add dev eth0 parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
-tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:2 u32
-ht 15:2: match ip src 10.0.0.2 flowid 1:10
-tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
-ht 15:2: match ip src 10.0.0.3 flowid 1:10
-
-Now following command DELETES ALL THE FILTERS, though it should only
-delete FILTER 15:2:3 !
-tc filter del dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
-
-O/p of tc filter show eth0 is this case is blank. As all filters are deleted.
-
-
-However, similar commands when executed for hashtable 800: is deleting
-only the specified filter
-tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
-ht 800:0: match ip src 10.0.0.2 flowid 1:10
-tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:3 u32
-ht 800:0: match ip src 10.0.0.3 flowid 1:10
-
-tc filter del dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
-
-Above mentioned command only deletes single filter.
-O/p of tc filter show eth0 is 2nd case is
-
-filter parent 1: protocol ip pref 5 u32
-filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
-filter parent 1: protocol ip pref 5 u32 fh 800::3 order 3 key ht 800
-bkt 0 flowid 1:10
-  match 0a000003/ffffffff at 12
+Good luck avoiding every case where a packet can be looped back into
+the machine in some way.  A simple device flag is not going to do it.
