@@ -1,55 +1,56 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH] phylib: Make PHYs children of their MDIO bus, not the bus' parent.
-Date: Fri, 21 Aug 2015 16:16:03 -0700
-Message-ID: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: David Daney <david.daney@cavium.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH v1 0/6] Add fec1 and fec2 support for i.MX7d sdb board
+Date: Fri, 21 Aug 2015 23:48:10 +0000
+Message-ID: <BN3PR0301MB1219287CCC621469BA444143F5650@BN3PR0301MB1219.namprd03.prod.outlook.com>
+References: <1439962444-27486-1-git-send-email-b38611@freescale.com>
+ <20150820.140531.1320709021949935376.davem@davemloft.net>
+ <55D64330.4020503@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawnguo@kernel.org" <shawnguo@kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:35977 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbbHUXQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 19:16:12 -0400
+Received: from mail-by2on0116.outbound.protection.outlook.com ([207.46.100.116]:49888
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751707AbbHUXsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2015 19:48:18 -0400
+In-Reply-To: <55D64330.4020503@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
-
-commit 18ee49ddb0d2 ("phylib: rename mii_bus::dev to mii_bus::parent")
-changed the parent of PHY devices from the bus to the bus parent.
-
-Then, commit 4dea547fef1b ("phylib: rework to prepare for OF
-registration of PHYs") moved the code into phy_device.c
-
-At this point, it is somewhat unclear why the change was seen as
-necessary.  But, when we look at the device model tree in
-/sys/devices, it is clearly incorrect.  The PHYs should be children of
-their MDIO bus.
-
-Change the PHY's parent device to be the MDIO bus device.
-
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/phy/phy_device.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 0302483..55f0178 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -176,7 +176,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 	if (c45_ids)
- 		dev->c45_ids = *c45_ids;
- 	dev->bus = bus;
--	dev->dev.parent = bus->parent;
-+	dev->dev.parent = &bus->dev;
- 	dev->dev.bus = &mdio_bus_type;
- 	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
- 	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
--- 
-1.7.11.7
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+DQo+IFNlbnQ6IEZy
+aWRheSwgQXVndXN0IDIxLCAyMDE1IDU6MTQgQU0NCj4gVG86IERhdmlkIE1pbGxlcjsgRHVhbiBG
+dWdhbmctQjM4NjExDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBzaGF3bmd1b0BrZXJu
+ZWwub3JnOyBsaW51eC1hcm0tDQo+IGtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnDQo+IFN1Ympl
+Y3Q6IFJlOiBbUEFUQ0ggdjEgMC82XSBBZGQgZmVjMSBhbmQgZmVjMiBzdXBwb3J0IGZvciBpLk1Y
+N2Qgc2RiDQo+IGJvYXJkDQo+IA0KPiBPbiAyMC8wOC8xNSAxNDowNSwgRGF2aWQgTWlsbGVyIHdy
+b3RlOg0KPiA+IEZyb206IEZ1Z2FuZyBEdWFuIDxiMzg2MTFAZnJlZXNjYWxlLmNvbT4NCj4gPiBE
+YXRlOiBXZWQsIDE5IEF1ZyAyMDE1IDEzOjMzOjU4ICswODAwDQo+ID4NCj4gPj4gVGhlIHBhdGNo
+IHNlcmllcyBpcyB0byBhZGQgZmVjIHN1cHBvcnQgZm9yIGkuTVg3ZCBzZGIgYm9hcmQuIFNpbmNl
+DQo+ID4+IGkuTVg3ZCBmZWMgaXAgaXMgdGhlIHNhbWUgYXMgaS5NWDZTWCwgc28gdGhlcmUgaGF2
+ZSBubyBjaGFuZ2UgZm9yDQo+IGRyaXZlciBpdHNlbGYuDQo+ID4+DQo+ID4+IFBhdGNoIzE6IGFk
+ZCBiY201NDIyMCBQSFkgSUQgZW50cnkgaW50byBicmNtcGh5LmggZmlsZS4NCj4gPg0KPiA+IFRo
+aXMgaXMgY29tcGxldGVseSwgYW5kIHV0dGVybHksIHBvaW50bGVzcy4NCj4gPg0KPiA+IFRoZSBv
+bmx5IHJlYXNvbiBhIFBIWSBJRCBzaG91bGQgYmUgZGVmaW5lZCBpbiBicmNtcGh5LmggaXMgc28g
+dGhhdCBpdA0KPiA+IGNhbiBiZSB1c2VkIGluIHRoZSBicm9hZGNvbS5jIFBIWSBkcml2ZXIgb3Ig
+c2ltaWxhci4NCj4gPg0KPiA+IElmIHRoZXJlIGlzIG5vIHVzZXIgaW4gdGhlIHRyZWUsIHRoZXJl
+IGlzIG5vIHJlYXNvbiB0byBhZGQgaXQgdG8gdGhlDQo+ID4gaGVhZGVyIGZpbGUuDQo+IA0KPiBU
+aGVyZSBpcyBhIHZhbGlkIHJlYXNvbiBmb3Igd2hpY2ggeW91IG1heSBoYXZlIGEgUEhZIGlkLCB3
+aGljaCBpcw0KPiBkZWZpbmluZyBhIFBIWSBmaXh1cCBpbiB5b3VyIHBsYXRmb3JtIGNvZGUgbGlr
+ZSBBbmR5IGlzIGRvaW5nLCBob3dldmVyLA0KPiB0aGlzIHNob3VsZCBub3QgYmUgdXNlZCBpbiBj
+b25qdW5jdGlvbiB3aXRoIHRoZSBHZW5lcmljIFBIWSBkcml2ZXIsDQo+IGJlY2F1c2UgdGhpcyBk
+cml2ZXIgaGFzIGFic29sdXRlbHkgbm8gY2x1ZSBhYm91dCB5b3VyIFBIWSBmaXh1cCwgYW5kIHRo
+aXMNCj4gY291bGQgY3JlYXRlIGF0IGJlc3QgaW5jb25zaXN0ZW5jaWVzIGluIGhvdyB0aGUgZml4
+dXAgaXMgbWFuYWdlZCBsYXRlciBvbi4NCj4gDQo+IEF0IHRoZSB2ZXJ5IGxlYXN0LCBJIHdvdWxk
+IGxpa2UgdG8gc2VlIGEgY2hhbmdlIHRvDQo+IGRyaXZlcnMvbmV0L3BoeS9icm9hZGNvbS5jIHdo
+aWNoIGlkZW50aWZpZXMgdGhpcyBQSFkgaWQsIGFuZCBldmVudHVhbGx5DQo+IGp1c3QgaW52b2tl
+cyB0aGUgZ2VucGh5XyogZnVuY3Rpb25zIHdoZXJlIHJlbGV2YW50Lg0KPiAtLQ0KPiBGbG9yaWFu
+DQoNCkkgd2lsbCB0cnkgdG8gYWRkIHRoZSBwaHkgc3VwcG9ydCBpbiBCcm9hZGNvbSBwaHkgZHJp
+dmVyLiBUaGFua3MgZm9yIHlvdXIgY29tbWVudHMuDQoNClJlZ2FyZHMsDQpBbmR5DQo=
