@@ -1,37 +1,57 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [net-next PATCH 0/3] net: sched: allow switching qdisc to noqueue intuitively
-Date: Fri, 21 Aug 2015 17:58:05 +0200
-Message-ID: <1440172688-2163-1-git-send-email-phil@nwl.cc>
+Subject: [net-next PATCH 1/3] net: sched: make noqueue_qdisc non-static
+Date: Fri, 21 Aug 2015 17:58:06 +0200
+Message-ID: <1440172688-2163-2-git-send-email-phil@nwl.cc>
+References: <1440172688-2163-1-git-send-email-phil@nwl.cc>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com, brouer@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:52820 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([176.31.251.142]:40999 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753856AbbHUP6K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752811AbbHUP6K (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 21 Aug 2015 11:58:10 -0400
+In-Reply-To: <1440172688-2163-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series improves the integration of the noqueue qdisc to become the
-fallback queueing if no other is attached to an interface. Before it was rather
-an add-on, a simpler alternative to a FIFO if no congestion is expected or
-possible. It has become the default qdisc for virtual interfaces, and could be
-attached by this mechanism only (through removing the root qdisc after having
-set tx_queue_len to zero for interfaces not defaulting to noqueue otherwise).
+This needs to be referenced from within net/sched/sched_api.c later.
 
-This series does not change the default qdisc chosen for new interfaces, but
-upon removal of the root qdisc from an interface, the kernel won't fall back to
-the default but to noqueue instead.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ include/net/sch_generic.h | 1 +
+ net/sched/sch_generic.c   | 3 +--
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Phil Sutter (3):
-  net: sched: make noqueue_qdisc non-static
-  net: sched: allocate a handle to default qdiscs
-  net: sched: fall back to noqueue when removing root qdisc
-
- include/net/sch_generic.h |  2 ++
- net/sched/sch_api.c       |  5 +++--
- net/sched/sch_generic.c   | 12 ++++++++----
- 3 files changed, 13 insertions(+), 6 deletions(-)
-
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 2eab08c..4495193 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -337,6 +337,7 @@ static inline void sch_tree_unlock(const struct Qdisc *q)
+ #define tcf_tree_unlock(tp)	sch_tree_unlock((tp)->q)
+ 
+ extern struct Qdisc noop_qdisc;
++extern struct Qdisc noqueue_qdisc;
+ extern struct Qdisc_ops noop_qdisc_ops;
+ extern struct Qdisc_ops pfifo_fast_ops;
+ extern struct Qdisc_ops mq_qdisc_ops;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 942fea8..1fb65f9 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -425,13 +425,12 @@ static struct Qdisc_ops noqueue_qdisc_ops __read_mostly = {
+ 	.owner		=	THIS_MODULE,
+ };
+ 
+-static struct Qdisc noqueue_qdisc;
+ static struct netdev_queue noqueue_netdev_queue = {
+ 	.qdisc		=	&noqueue_qdisc,
+ 	.qdisc_sleeping	=	&noqueue_qdisc,
+ };
+ 
+-static struct Qdisc noqueue_qdisc = {
++struct Qdisc noqueue_qdisc = {
+ 	.enqueue	=	NULL,
+ 	.dequeue	=	noop_dequeue,
+ 	.flags		=	TCQ_F_BUILTIN,
 -- 
 2.1.2
