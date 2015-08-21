@@ -1,71 +1,59 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv4 net-next 10/10] openvswitch: Allow attaching helpers to
- ct action
-Date: Thu, 20 Aug 2015 17:47:14 -0700
-Message-ID: <CANr6G5xXdRynesVyQhpRXgcDbpFvrC421QiAq7x1rWAf0Vv3Aw@mail.gmail.com>
-References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
- <1439941188-19293-11-git-send-email-joestringer@nicira.com> <CALnjE+p7WH53qx4=OBpFAT-CDRMbuUx1c_RspQYqBdBbG1=LjA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	Justin Pettit <jpettit@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALnjE+p7WH53qx4=OBpFAT-CDRMbuUx1c_RspQYqBdBbG1=LjA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: bcmgenet: Avoid sleeping in bcmgenet_timeout
+Date: Thu, 20 Aug 2015 18:04:22 -0700
+Message-ID: <1440119062-19677-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:33409 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150AbbHUBGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 21:06:45 -0400
+Received: by pdrh1 with SMTP id h1so20446336pdr.0
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 18:06:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19 August 2015 at 15:57, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
->> Add support for using conntrack helpers to assist protocol detection.
->> The new OVS_CT_ATTR_HELPER attribute of the ct action specifies a helper
->> to be used for this connection.
->>
->> Example ODP flows allowing FTP connections from ports 1->2:
->> in_port=1,tcp,action=ct(helper=ftp,commit),2
->> in_port=2,tcp,ct_state=-trk,action=ct(),recirc(1)
->> recirc_id=1,in_port=2,tcp,ct_state=+trk-new+est,action=1
->> recirc_id=1,in_port=2,tcp,ct_state=+trk+rel,action=1
->>
->> Signed-off-by: Joe Stringer <joestringer@nicira.com>
->> ---
->> v2-v3: No change.
->> v4: Change error code for unknown helper ENOENT->EINVAL.
->
-> I got following compilation warning :
->
-> net/openvswitch/conntrack.c:352:42: error: incompatible types in
-> comparison expression (different address spaces)
+bcmgenet_timeout() executes in atomic context, yet we will invoke
+napi_disable() which does sleep. Looking back at the changes, disabling
+TX napi and re-enabling it is completely useless, since we reclaim all
+TX buffers and re-enable interrupts, and wake up the TX queues.
 
-Is this made available via another sparse flag? It looks like it's
-related to the __rcu as you've mentioned below, but I'm not seeing
-this (latest sparse, gcc-4.9.2)
+Fixes: 13ea657806cf ("net: bcmgenet: improve TX timeout")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Hi David,
 
->> +static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
->> +                            const struct sw_flow_key *key, bool log)
->> +{
->> +       struct nf_conntrack_helper *helper;
->> +       struct nf_conn_help *help;
->> +
->> +       helper = nf_conntrack_helper_try_module_get(name, info->family,
->> +                                                   key->ip.proto);
->> +       if (!helper) {
->> +               OVS_NLERR(log, "Unknown helper \"%s\"", name);
->> +               return -EINVAL;
->> +       }
->> +
->> +       help = nf_ct_helper_ext_add(info->ct, helper, GFP_KERNEL);
->> +       if (!help) {
->> +               module_put(helper->me);
->> +               return -ENOMEM;
->> +       }
->> +
->> +       help->helper = helper;
-> helper is rcu pointer so need to use rcu API to set the value. I know
-> it is not required here, but it is still cleaner to use the API.
+Sorry this is caming very late, if this does not make it to 4.2, can you
+queue this for the 4.2.1 stable tree when it shows up?
 
-Will update, thanks.
+Thank you!
+
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 64c1e9db6b0b..12a020c105bb 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2820,8 +2820,6 @@ static void bcmgenet_timeout(struct net_device *dev)
+ 
+ 	netif_dbg(priv, tx_err, dev, "bcmgenet_timeout\n");
+ 
+-	bcmgenet_disable_tx_napi(priv);
+-
+ 	for (q = 0; q < priv->hw_params->tx_queues; q++)
+ 		bcmgenet_dump_tx_queue(&priv->tx_rings[q]);
+ 	bcmgenet_dump_tx_queue(&priv->tx_rings[DESC_INDEX]);
+@@ -2837,8 +2835,6 @@ static void bcmgenet_timeout(struct net_device *dev)
+ 	bcmgenet_intrl2_0_writel(priv, int0_enable, INTRL2_CPU_MASK_CLEAR);
+ 	bcmgenet_intrl2_1_writel(priv, int1_enable, INTRL2_CPU_MASK_CLEAR);
+ 
+-	bcmgenet_enable_tx_napi(priv);
+-
+ 	dev->trans_start = jiffies;
+ 
+ 	dev->stats.tx_errors++;
+-- 
+2.1.0
