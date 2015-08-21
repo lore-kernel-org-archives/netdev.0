@@ -1,38 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [lkp] [rhashtable] 9d901bc0515: WARNING: CPU: 0 PID: 1 at
- arch/x86/mm/ioremap.c:63 __ioremap_check_ram+0x6a/0x99()
-Date: Fri, 21 Aug 2015 14:42:07 +0800
-Message-ID: <20150821064207.GA5835@gondor.apana.org.au>
-References: <87fv3dkwgw.fsf@yhuang-dev.intel.com>
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: Re: Bug in tc of iproute2 ? Deleting single filter, deletes all the
+ filters (apart from hashtable 800::) ...
+Date: Fri, 21 Aug 2015 12:38:13 +0530
+Message-ID: <CAA5aLPiBCGUUoQD+7U-j+EW_uiUOvm1TAD8nd481Fuk7RnnhEw@mail.gmail.com>
+References: <CAA5aLPhvdcYS4R_Ke0-JOgZTgiL0XpaQYwBopjPD1rvahyVonw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkp@01.org, LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: kernel test robot <ying.huang@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87fv3dkwgw.fsf@yhuang-dev.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:32965 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750798AbbHUHIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 03:08:14 -0400
+Received: by oio137 with SMTP id 137so37095160oio.0
+        for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 00:08:13 -0700 (PDT)
+In-Reply-To: <CAA5aLPhvdcYS4R_Ke0-JOgZTgiL0XpaQYwBopjPD1rvahyVonw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 21, 2015 at 02:05:19PM +0800, kernel test robot wrote:
-> FYI, we noticed the below changes on
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
-> commit 9d901bc05153bbf33b5da2cd6266865e531f0545 ("rhashtable: Free bucket tables asynchronously after rehash")
-> 
-> With the commit, the possibility of OOM is increased under our boot testing.
+I actually posted this on lartc first. But then it was suggested to
+post it over here as you guys might be able to guide better.
 
-Can you gather some stats on how much memory rhashtable is actually
-using? With that kernel you've probably got only one rhashtable user
-which is netlink.
+Please help ...
 
-Bear in mind that this is a fairly low-memory machine (< 300M) so
-it's not clear to me that this patch is the root cause of your OOM
-problem.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Fri, Aug 21, 2015 at 10:38 AM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
+> When I am trying to  delete a single tc filter, it deleting all the
+> filters with the same priority/preference. i.e. it is ignoring the
+> handle specified.
+>
+> But, When I am deleting in hashtable 800: it is deleting only the
+> specified filter.
+>
+> For example, following set of commands  create a hashtable 15: and add
+> 2 filters to it.
+>
+> tc filter add dev eth0 parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:2 u32
+> ht 15:2: match ip src 10.0.0.2 flowid 1:10
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
+> ht 15:2: match ip src 10.0.0.3 flowid 1:10
+>
+> Now following command DELETES ALL THE FILTERS, though it should only
+> delete FILTER 15:2:3 !
+> tc filter del dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
+>
+> O/p of tc filter show eth0 is this case is blank. As all filters are deleted.
+>
+>
+> However, similar commands when executed for hashtable 800: is deleting
+> only the specified filter
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
+> ht 800:0: match ip src 10.0.0.2 flowid 1:10
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:3 u32
+> ht 800:0: match ip src 10.0.0.3 flowid 1:10
+>
+> tc filter del dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
+>
+> Above mentioned command only deletes single filter.
+> O/p of tc filter show eth0 is 2nd case is
+>
+> filter parent 1: protocol ip pref 5 u32
+> filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
+> filter parent 1: protocol ip pref 5 u32 fh 800::3 order 3 key ht 800
+> bkt 0 flowid 1:10
+>   match 0a000003/ffffffff at 12
