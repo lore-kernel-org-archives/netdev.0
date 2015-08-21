@@ -1,9 +1,10 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv4 net-next 06/10] openvswitch: Allow matching on conntrack mark
-Date: Thu, 20 Aug 2015 17:41:00 -0700
-Message-ID: <CANr6G5zvBft2JZM8N0ZNLFZHufPrEVNri_tg2wX-jJBEim0LcA@mail.gmail.com>
+Subject: Re: [PATCHv4 net-next 10/10] openvswitch: Allow attaching helpers to
+ ct action
+Date: Thu, 20 Aug 2015 17:47:14 -0700
+Message-ID: <CANr6G5xXdRynesVyQhpRXgcDbpFvrC421QiAq7x1rWAf0Vv3Aw@mail.gmail.com>
 References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
- <1439941188-19293-7-git-send-email-joestringer@nicira.com> <CALnjE+r9_WHdHNZOBaNDGApPD1mJsGorU5HfqQ2eJfsL+hPAeA@mail.gmail.com>
+ <1439941188-19293-11-git-send-email-joestringer@nicira.com> <CALnjE+p7WH53qx4=OBpFAT-CDRMbuUx1c_RspQYqBdBbG1=LjA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
@@ -14,68 +15,57 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Jesse Gross <jesse@nicira.com>
 To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALnjE+r9_WHdHNZOBaNDGApPD1mJsGorU5HfqQ2eJfsL+hPAeA@mail.gmail.com>
+In-Reply-To: <CALnjE+p7WH53qx4=OBpFAT-CDRMbuUx1c_RspQYqBdBbG1=LjA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 19 August 2015 at 13:47, Pravin Shelar <pshelar@nicira.com> wrote:
+On 19 August 2015 at 15:57, Pravin Shelar <pshelar@nicira.com> wrote:
 > On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
->> Allow matching and setting the conntrack mark field. As with conntrack
->> state and zone, these are populated when the CT action is executed,
->> and are made available for matching via RECIRC. To write to this field,
->> a value and optional mark can be passed as part of the conntrack action.
+>> Add support for using conntrack helpers to assist protocol detection.
+>> The new OVS_CT_ATTR_HELPER attribute of the ct action specifies a helper
+>> to be used for this connection.
 >>
->> E.g.: actions:ct(zone=0),ct(zone=1,mark=1)
+>> Example ODP flows allowing FTP connections from ports 1->2:
+>> in_port=1,tcp,action=ct(helper=ftp,commit),2
+>> in_port=2,tcp,ct_state=-trk,action=ct(),recirc(1)
+>> recirc_id=1,in_port=2,tcp,ct_state=+trk-new+est,action=1
+>> recirc_id=1,in_port=2,tcp,ct_state=+trk+rel,action=1
 >>
->> This will perform conntrack lookup in zone 0, then lookup in zone 1,
->> then modify the mark for the entry in zone 1. The conntrack entry itself
->> must be committed using the "commit" flag in the conntrack action flags
->> for this change to persist.
->>
->> Signed-off-by: Justin Pettit <jpettit@nicira.com>
 >> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 >> ---
->> v1-v3: No change.
->> v4: Only allow setting conntrack mark via ct action.
->>     Documentation tweaks.
->> ---
->>  include/uapi/linux/openvswitch.h |  5 ++++
->>  net/openvswitch/actions.c        |  1 +
->>  net/openvswitch/conntrack.c      | 61 ++++++++++++++++++++++++++++++++++++++--
->>  net/openvswitch/conntrack.h      |  1 +
->>  net/openvswitch/flow.h           |  1 +
->>  net/openvswitch/flow_netlink.c   | 15 +++++++++-
->>  6 files changed, 80 insertions(+), 4 deletions(-)
->>
->> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
->> index 55f5997..7a185b5 100644
->> --- a/include/uapi/linux/openvswitch.h
->> +++ b/include/uapi/linux/openvswitch.h
->> @@ -325,6 +325,7 @@ enum ovs_key_attr {
->>                                  * the accepted length of the array. */
->>         OVS_KEY_ATTR_CT_STATE,  /* u8 bitmask of OVS_CS_F_* */
->>         OVS_KEY_ATTR_CT_ZONE,   /* u16 connection tracking zone. */
->> +       OVS_KEY_ATTR_CT_MARK,   /* u32 connection tracking mark */
->>
->>  #ifdef __KERNEL__
->>         OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ip_tunnel_info */
->> @@ -613,11 +614,15 @@ struct ovs_action_hash {
->>   * enum ovs_ct_attr - Attributes for %OVS_ACTION_ATTR_CT action.
->>   * @OVS_CT_ATTR_FLAGS: u32 connection tracking flags.
->>   * @OVS_CT_ATTR_ZONE: u16 connection tracking zone.
->> + * @OVS_CT_ATTR_MARK: u32 value followed by u32 mask. For each bit set in the
->> + * mask, the corresponding bit in the value is copied to the connection
->> + * tracking mark field in the connection.
->>   */
->>  enum ovs_ct_attr {
->>         OVS_CT_ATTR_UNSPEC,
->>         OVS_CT_ATTR_FLAGS,      /* u8 bitmask of OVS_CT_F_*. */
->>         OVS_CT_ATTR_ZONE,       /* u16 zone id. */
->> +       OVS_CT_ATTR_MARK,       /* mark to associate with this connection. */
->>         __OVS_CT_ATTR_MAX
->>  };
->>
-> ovs_ct_action_to_attr() is not updated to return complete datapath
-> action back to userpsace. same issue exist in set label patch.
+>> v2-v3: No change.
+>> v4: Change error code for unknown helper ENOENT->EINVAL.
+>
+> I got following compilation warning :
+>
+> net/openvswitch/conntrack.c:352:42: error: incompatible types in
+> comparison expression (different address spaces)
 
-Fixed, thanks for the review.
+Is this made available via another sparse flag? It looks like it's
+related to the __rcu as you've mentioned below, but I'm not seeing
+this (latest sparse, gcc-4.9.2)
+
+>> +static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
+>> +                            const struct sw_flow_key *key, bool log)
+>> +{
+>> +       struct nf_conntrack_helper *helper;
+>> +       struct nf_conn_help *help;
+>> +
+>> +       helper = nf_conntrack_helper_try_module_get(name, info->family,
+>> +                                                   key->ip.proto);
+>> +       if (!helper) {
+>> +               OVS_NLERR(log, "Unknown helper \"%s\"", name);
+>> +               return -EINVAL;
+>> +       }
+>> +
+>> +       help = nf_ct_helper_ext_add(info->ct, helper, GFP_KERNEL);
+>> +       if (!help) {
+>> +               module_put(helper->me);
+>> +               return -ENOMEM;
+>> +       }
+>> +
+>> +       help->helper = helper;
+> helper is rcu pointer so need to use rcu API to set the value. I know
+> it is not required here, but it is still cleaner to use the API.
+
+Will update, thanks.
