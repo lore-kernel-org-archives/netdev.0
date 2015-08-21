@@ -1,13 +1,9 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCHv4 net-next 09/10] openvswitch: Allow matching on conntrack label
-Date: Thu, 20 Aug 2015 17:40:10 -0700
-Message-ID: <CANr6G5zABA0z2GDuwhCJgDZsmyaeVLS7HdT0ateVr-kNNgqQcQ@mail.gmail.com>
+Subject: Re: [PATCHv4 net-next 06/10] openvswitch: Allow matching on conntrack mark
+Date: Thu, 20 Aug 2015 17:41:00 -0700
+Message-ID: <CANr6G5zvBft2JZM8N0ZNLFZHufPrEVNri_tg2wX-jJBEim0LcA@mail.gmail.com>
 References: <1439941188-19293-1-git-send-email-joestringer@nicira.com>
- <1439941188-19293-10-git-send-email-joestringer@nicira.com>
- <CALnjE+qVd=7ZdHXvVmOcHSEcFN2RxNrSwB7bck5=8P4oxdRnew@mail.gmail.com>
- <CANr6G5yp1cj6GuhXDU6jvpaYAzb20-aiTUrpPLrBQAStwxpDVA@mail.gmail.com>
- <CALnjE+qRcS861657sOL8oXU=VsnyiSH4XsO+oukmxoa38NVa-A@mail.gmail.com>
- <CANr6G5xYJaEYsS9u9YZmz=mxEoknHiCp1FxWVtS69YCEbrfYSA@mail.gmail.com> <CALnjE+qPfACh-ykS6HWSmLVQF=sJRrQfA231urskMB01eW=qNA@mail.gmail.com>
+ <1439941188-19293-7-git-send-email-joestringer@nicira.com> <CALnjE+r9_WHdHNZOBaNDGApPD1mJsGorU5HfqQ2eJfsL+hPAeA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
@@ -17,86 +13,69 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Justin Pettit <jpettit@nicira.com>,
 	Jesse Gross <jesse@nicira.com>
 To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:33954 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751302AbbHUAkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 20:40:31 -0400
-Received: by ykdt205 with SMTP id t205so56106349ykd.1
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 17:40:30 -0700 (PDT)
-In-Reply-To: <CALnjE+qPfACh-ykS6HWSmLVQF=sJRrQfA231urskMB01eW=qNA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALnjE+r9_WHdHNZOBaNDGApPD1mJsGorU5HfqQ2eJfsL+hPAeA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 20 August 2015 at 14:01, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Thu, Aug 20, 2015 at 12:13 PM, Joe Stringer <joestringer@nicira.com> wrote:
->> On 20 August 2015 at 08:45, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Wed, Aug 19, 2015 at 4:04 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>>> Thanks for the review,
->>>>
->>>> On 19 August 2015 at 14:24, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
->>>>>> Allow matching and setting the conntrack label field. As with ct_mark,
->>>>>> this is populated by executing the CT action, and is a writable field.
->>>>>> Specifying a label and optional mask allows the label to be modified,
->>>>>> which takes effect on the entry found by the lookup of the CT action.
->>>>>>
->>>>>> E.g.: actions:ct(zone=1,label=1)
->>>>>>
->>>>>> This will perform conntrack lookup in zone 1, then modify the label for
->>>>>> that entry. The conntrack entry itself must be committed using the
->>>>>> "commit" flag in the conntrack action flags for this change to persist.
->>>>>>
->>>
->>>>
->>>>>>         return false;
->>>>>>  }
->>>>>> @@ -508,8 +601,12 @@ void ovs_ct_free_action(const struct nlattr *a)
->>>>>>
->>>>>>  void ovs_ct_init(struct net *net, struct ovs_ct_perdp_data *data)
->>>>>>  {
->>>>>> +       unsigned int n_bits = sizeof(struct ovs_key_ct_label) * BITS_PER_BYTE;
->>>>>> +
->>>>>>         data->xt_v4 = !nf_ct_l3proto_try_module_get(PF_INET);
->>>>>>         data->xt_v6 = !nf_ct_l3proto_try_module_get(PF_INET6);
->>>>>> +       if (nf_connlabels_get(net, n_bits);
->>>>>> +               OVS_NLERR(true, "Failed to set connlabel length");
->>>>>>  }
->>>>>>
->>>>> In case of error should we reject conntrack label actions? Otherwise
->>>>> user will never see any error. But action could drop packets.
->>>>
->>>> I suspect that currently errors would be seen from ovs_ct_set_label():
->>>>
->>>>>.......if (!cl || cl->words * sizeof(long) < OVS_CT_LABEL_LEN)
->>>>>.......>.......return -ENOSPC;
->>>>
->>>> So, for cmd_execute, userspace would see this. For regular handling,
->>>> pipeline processing would stop (so, drop).
->>>>
->>>> However, I agree it would be more friendly to have the attribute
->>>> rejected up-front. Just means we'll pass the datapath all the way
->>>> down:
->>>> ovs_nla_get_match()
->>>> --> ovs_key_from_nlattrs()
->>>> --> metadata_from_nlattrs()
->>>> --> ovs_ct_verify()
+On 19 August 2015 at 13:47, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Tue, Aug 18, 2015 at 4:39 PM, Joe Stringer <joestringer@nicira.com> wrote:
+>> Allow matching and setting the conntrack mark field. As with conntrack
+>> state and zone, these are populated when the CT action is executed,
+>> and are made available for matching via RECIRC. To write to this field,
+>> a value and optional mark can be passed as part of the conntrack action.
 >>
->> Incidentally, we generally don't have the datapath by this point
->> (ovs_nla_get_match()). There'd need to be a bit of rearranging in the
->> ovs_flow_cmd_* functions, which would include holding the locks for
->> longer. Given that the two most common cases are that either A) The
->> kernel is configured with connlabel support, and built with support
->> for at least 128 bits of label, or B) the kernel is configured without
->> connlabel, and this is handled already in ovs_ct_verify(), I don't
->> think it's worth making this particular change.
->
-> Actually I do not see need for this to be per datapath property.
-> infact there is no need to have struct ovs_ct_perdp_data.
-> ovs_ct_init can be called from ovs-module init.
-> nf-connlabel bit length is per net-namespace property. So
-> nf_connlabels_get()  should be called from ovs namespace init. This
-> way you can move xt_label flag to ovs_net. ovs_net can be accessed
-> from ovs_flow_cmd_* functions.
+>> E.g.: actions:ct(zone=0),ct(zone=1,mark=1)
+>>
+>> This will perform conntrack lookup in zone 0, then lookup in zone 1,
+>> then modify the mark for the entry in zone 1. The conntrack entry itself
+>> must be committed using the "commit" flag in the conntrack action flags
+>> for this change to persist.
+>>
+>> Signed-off-by: Justin Pettit <jpettit@nicira.com>
+>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+>> ---
+>> v1-v3: No change.
+>> v4: Only allow setting conntrack mark via ct action.
+>>     Documentation tweaks.
+>> ---
+>>  include/uapi/linux/openvswitch.h |  5 ++++
+>>  net/openvswitch/actions.c        |  1 +
+>>  net/openvswitch/conntrack.c      | 61 ++++++++++++++++++++++++++++++++++++++--
+>>  net/openvswitch/conntrack.h      |  1 +
+>>  net/openvswitch/flow.h           |  1 +
+>>  net/openvswitch/flow_netlink.c   | 15 +++++++++-
+>>  6 files changed, 80 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+>> index 55f5997..7a185b5 100644
+>> --- a/include/uapi/linux/openvswitch.h
+>> +++ b/include/uapi/linux/openvswitch.h
+>> @@ -325,6 +325,7 @@ enum ovs_key_attr {
+>>                                  * the accepted length of the array. */
+>>         OVS_KEY_ATTR_CT_STATE,  /* u8 bitmask of OVS_CS_F_* */
+>>         OVS_KEY_ATTR_CT_ZONE,   /* u16 connection tracking zone. */
+>> +       OVS_KEY_ATTR_CT_MARK,   /* u32 connection tracking mark */
+>>
+>>  #ifdef __KERNEL__
+>>         OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ip_tunnel_info */
+>> @@ -613,11 +614,15 @@ struct ovs_action_hash {
+>>   * enum ovs_ct_attr - Attributes for %OVS_ACTION_ATTR_CT action.
+>>   * @OVS_CT_ATTR_FLAGS: u32 connection tracking flags.
+>>   * @OVS_CT_ATTR_ZONE: u16 connection tracking zone.
+>> + * @OVS_CT_ATTR_MARK: u32 value followed by u32 mask. For each bit set in the
+>> + * mask, the corresponding bit in the value is copied to the connection
+>> + * tracking mark field in the connection.
+>>   */
+>>  enum ovs_ct_attr {
+>>         OVS_CT_ATTR_UNSPEC,
+>>         OVS_CT_ATTR_FLAGS,      /* u8 bitmask of OVS_CT_F_*. */
+>>         OVS_CT_ATTR_ZONE,       /* u16 zone id. */
+>> +       OVS_CT_ATTR_MARK,       /* mark to associate with this connection. */
+>>         __OVS_CT_ATTR_MAX
+>>  };
+>>
+> ovs_ct_action_to_attr() is not updated to return complete datapath
+> action back to userpsace. same issue exist in set label patch.
 
-That sounds like a tidier approach, I'll roll it into the next version.
+Fixed, thanks for the review.
