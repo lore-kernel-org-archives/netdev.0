@@ -1,109 +1,69 @@
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Subject: Re: RX packet loss on i.MX6Q running 4.2-rc7
-Date: Fri, 21 Aug 2015 10:53:42 +0200
-Message-ID: <20150821085342.GA9849@pqgruber.com>
-References: <20150820223049.GA20710@pqgruber.com>
- <CALHpu37TYT8bL3BmaNhYCukiJQrMPMgmwXFToGH6Y7xRRrPJ-Q@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: DEBUG_LOCKS_WARN_ON(in_interrupt()) triggering in socket code
+Date: Fri, 21 Aug 2015 11:18:58 +0200
+Message-ID: <CAHmME9qfvVbDuadThepz_37esYu-kFiUOeVoxpEmFn9doiEctg@mail.gmail.com>
+References: <CAHmME9p06qf36RPtROF767c5p37PggN12bSa9u8ZXgGGThA4BQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, Marek Vasut <marex@denx.de>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Nimrod Andy <B38611@freescale.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Eric Nelson <eric.nelson@boundarydevices.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Uwe =?utf-8?Q?Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	Duan Andy <fugang.duan@freescale.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Lothar =?utf-8?Q?Wa=C3=9Fmann?= <LW@karo-electronics.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lucas Stach <l.stach@pengutronix.de>
-To: Jon Nettleton <jon.nettleton@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALHpu37TYT8bL3BmaNhYCukiJQrMPMgmwXFToGH6Y7xRRrPJ-Q@mail.gmail.com>
+In-Reply-To: <CAHmME9p06qf36RPtROF767c5p37PggN12bSa9u8ZXgGGThA4BQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 21, 2015 at 06:49:20AM +0200, Jon Nettleton wrote:
-> On Fri, Aug 21, 2015 at 12:30 AM, Clemens Gruber
-> <clemens.gruber@pqgruber.com> wrote:
-> > Hi,
-> >
-> > I am experiencing massive RX packet loss on my i.MX6Q (Chip rev 1.3) on Linux
-> > 4.2-rc7 with a Marvell 88E1510 Gigabit Ethernet PHY connected over RGMII.
-> > I noticed it when doing an UDP benchmark with iperf3. When sending UDP packets
-> > from a Debian PC to the i.MX6 with a rate of 100 Mbit/s, 99% of the packets are
-> > lost. With a rate of 10 Mbit/s, we are still losing 93% of all packets. TCP RX
-> > does suffer from packet loss too, but still achieves about 211 Mbit/s.
-> > TX is not affected.
-> >
-> > Steps to reproduce:
-> > On the i.MX6: iperf3 -s
-> > On a desktop PC:  iperf3 -b 10M -u -c MX6IP
-> >
-> > The iperf3 results:
-> > [ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total
-> > [  4]   0.00-10.00  sec  11.8 MBytes  9.90 Mbits/sec  0.687 ms  1397/1497 (93%)
-> >
-> > During the 10 Mbit UDP test, the IEEE_rx_macerr counter increased to 5371.
-> > ifconfig eth0 shows:
-> >  RX packets:9216 errors:5248 dropped:170 overruns:5248 frame:5248
-> >  TX packets:83 errors:0 dropped:0 overruns:0 carrier:0
-> >  collisions:0
-> >
-> > Here are the TCP results with iperf3 -c MX6IP:
-> > [ ID] Interval           Transfer     Bandwidth       Retr
-> > [  4]   0.00-10.00  sec   252 MBytes   211 Mbits/sec  4343             sender
-> > [  4]   0.00-10.00  sec   251 MBytes   211 Mbits/sec                  receiver
-> >
-> > During the TCP test, IEEE_rx_macerr increased to 4059.
-> > ifconfig eth0 shows:
-> > RX packets:186368 errors:4206 dropped:50 overruns:4206 frame:4206
-> > TX packets:41861 errors:0 dropped:0 overruns:0 carrier:0
-> > collisions:0
-> >
-> > Freescale errata entry ERR004512 did mention a RX FIFO overrun. Is this related?
-> >
-> > Forcing pause frames via ethtool -A eth0 rx on tx on, does not improve it:
-> > Same amount of UDP packet loss with reduced TCP throughput of 190 Mbit/s.
-> > IEEE_rx_macerr increased up to 5232 during UDP 10Mbit and up to 4270 for TCP.
-> >
-> > I am already using the MX6QDL_PAD_GPIO_6__ENET_IRQ workaround, which solved the
-> > ping latency issues from ERR006687 but not the packet loss problem.
-> >
-> > I read through the mailing list archives and found a discussion between Russell
-> > King, Marek Vasut, Eric Nelson, Fugang Duan and others about a similar problem.
-> > I therefore added you and contributors to fec_main.c to the CC.
-> >
-> > One suggestion I found, was adding udelay(210); to fec_enet_rx():
-> > https://lkml.org/lkml/2014/8/22/88
-> > But this also did not reduce the packet loss. (I added it to the fec_enet_rx
-> > function just before return pkt_received; but I still got 93% packet loss)
-> >
-> > Does anyone have the equipment/setup to trace an i.MX6Q during UDP RX traffic
-> > from iperf3 to find the root cause of this packet loss problem?
-> >
-> > What else could we do to fix this?
-> >
-> 
-> This is a bug in iperf3's UDP tests.  Do the same test with iperf2 and
-> you will see expected performance.  I believe there is a bug open in
-> github about it.
-> 
-> -Jon
+Bueller? ... Bueller?
 
-Thank you, Jon.
-You are right: With iperf2 I get the following results:
-10 Mbit/s: 0% packet loss
-50 Mbit/s: 0.045% packet loss
-100 Mbit/s: 0.31% packet loss
-200 Mbit/s: 0.64% packet loss
-
-Much better! :)
-
-Cheers,
-Clemens
+On Thu, Aug 20, 2015 at 2:39 AM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+> Hi folks,
+>
+> In setting up a socket, there are two functions I make use of that in
+> turn wind up calling static_key_slow_inc: setup_udp_tunnel_sock and
+> sk_set_memalloc. These both make use of static_key_slow_inc because
+> they selectively enable certain important code paths.
+>
+> This is all fine, except it poses some problems when calling these
+> functions inside of .ndo_open. In that case, I get ugly (debug)
+> warnings like this:
+>
+> WARNING: CPU: 1 PID: 2002 at kernel/locking/mutex.c:526
+> mutex_lock_nested+0x39b/0x3b0()
+> DEBUG_LOCKS_WARN_ON(in_interrupt())
+>  [<ffffffff81621d0e>] dump_stack+0x45/0x57
+>  [<ffffffff810505ca>] warn_slowpath_common+0x8a/0xc0
+>  [<ffffffff81050655>] warn_slowpath_fmt+0x55/0x70
+>  [<ffffffff8162513b>] mutex_lock_nested+0x39b/0x3b0
+>  [<ffffffff8113d699>] static_key_slow_inc+0x59/0xc0
+>  [<ffffffff8154ebc0>] udp_encap_enable+0x20/0x30
+>  [<ffffffff8157a885>] setup_udp_tunnel_sock+0x55/0x70
+>  [<ffffffff816028ac>] socket_init+0x1cc/0x3a0
+>  [<ffffffff81600341>] open+0x21/0x1b0
+>  [<ffffffff81476af0>] __dev_open+0xb0/0x110
+>  [<ffffffff81476e01>] __dev_change_flags+0xa1/0x160
+>  [<ffffffff81476ee9>] dev_change_flags+0x29/0x70
+>  [<ffffffff8148652a>] do_setlink+0x5da/0xa80
+>  [<ffffffff81487bed>] rtnl_newlink+0x50d/0x8a0
+>  [<ffffffff81485141>] rtnetlink_rcv_msg+0xa1/0x240
+>  [<ffffffff8149f1fb>] netlink_rcv_skb+0x9b/0xc0
+>  [<ffffffff8148508e>] rtnetlink_rcv+0x2e/0x40
+>  [<ffffffff8149ec3f>] netlink_unicast+0x16f/0x200
+>  [<ffffffff8149f009>] netlink_sendmsg+0x339/0x380
+>  [<ffffffff814559d9>] ___sys_sendmsg+0x2f9/0x310
+>  [<ffffffff814566d7>] __sys_sendmsg+0x57/0xa0
+>  [<ffffffff81456732>] SyS_sendmsg+0x12/0x20
+>  [<ffffffff816295b2>] entry_SYSCALL_64_fastpath+0x16/0x7a
+>
+> The reason is that the static key code makes use of mutexes. And the
+> mutex debug code ensures that in_interrupt() is zero; otherwise it
+> prints that warning. In this case, in_interrupt() has a value of 512.
+>
+> So, questions:
+>
+> 1. Is the best thing to do just move my socket creation routine into a
+> workqueue, and avoid this issue all together?
+> 2. Is it, in fact, incorrect to check for in_interrupt(), and the
+> debug assertion is actually wrong?
+> 3. Is it a bug that in_interrupt() is returning non-zero in relation
+> to a syscall?
+>
+> Thanks,
+> Jason
