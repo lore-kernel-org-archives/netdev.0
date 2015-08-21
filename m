@@ -1,59 +1,42 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH 2/3] net: sched: allocate a handle to default
- qdiscs
-Date: Fri, 21 Aug 2015 19:08:13 +0200
-Message-ID: <20150821170813.GA26535@orbit.nwl.cc>
-References: <1440172688-2163-1-git-send-email-phil@nwl.cc>
- <1440172688-2163-3-git-send-email-phil@nwl.cc>
- <1440173698.6610.78.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH 0/4 net-next] enic: add devcmd2
+Date: Fri, 21 Aug 2015 17:19:03 +0000
+Message-ID: <253CF818969A9240AB2054BF91F2C2BC301A082C@ORSMSX114.amr.corp.intel.com>
+References: <1439669694-21744-1-git-send-email-_govind@gmx.com>
+ <20150817.153832.1220000969996122058.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nalreddy@cisco.com" <nalreddy@cisco.com>,
+	"ssujith@cisco.com" <ssujith@cisco.com>,
+	"benve@cisco.com" <benve@cisco.com>
+To: David Miller <davem@davemloft.net>,
+	"_govind@gmx.com" <_govind@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:57896 "EHLO mail.nwl.cc"
+Received: from mga11.intel.com ([192.55.52.93]:56804 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751428AbbHURIP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2015 13:08:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1440173698.6610.78.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S1751344AbbHURTG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 13:19:06 -0400
+In-Reply-To: <20150817.153832.1220000969996122058.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 21, 2015 at 09:14:58AM -0700, Eric Dumazet wrote:
-[...]
-> > diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> > index 1fb65f9..ab614ee 100644
-> > --- a/net/sched/sch_generic.c
-> > +++ b/net/sched/sch_generic.c
-> > @@ -634,6 +634,11 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
-> >  	if (IS_ERR(sch))
-> >  		goto errout;
-> >  	sch->parent = parentid;
-> > +#ifdef CONFIG_NET_SCHED
-> > +	sch->handle = qdisc_alloc_handle(dev_queue->dev);
-> > +	if (!sch->handle)
-> > +		goto errout;
-> > +#endif
-> >  
-> >  	if (!ops->init || ops->init(sch, NULL) == 0)
-> >  		return sch;
-> 
-> This might break HTB setups with more than 32768 classes ?
+This series introduces a compile error
+drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_probe':
+drivers/net/ethernet/cisco/enic/enic_main.c:2490:3: error: label 'err_out_vnic_unregister' used but not defined
+   goto err_out_vnic_unregister;
+   ^
+scripts/Makefile.build:258: recipe for target 'drivers/net/ethernet/cisco/enic/enic_main.o' failed
+make[5]: *** [drivers/net/ethernet/cisco/enic/enic_main.o] Error 1
+scripts/Makefile.build:403: recipe for target 'drivers/net/ethernet/cisco/enic' failed
+make[4]: *** [drivers/net/ethernet/cisco/enic] Error 2
 
-Urgh. Thanks for noticing this!
+Commit that introduced the issue:
 
-> The pfifo qdisc that gets attached had no handle.
+commit 373fb0873d4325a7afa04aec29ced0c122d1f8a9
+Author: Govindarajulu Varadarajan <_govind@gmx.com>
+Date:   Sun Aug 16 01:44:54 2015 +0530
 
-Yes, looks like I need to leave qdisc_create_dflt() alone. It is
-possible, by doing the above twice in sch_generic.c (once in
-attach_one_default_qdisc(), and in attach_default_qdiscs() as well).
-
-> qdisc_alloc_handle() has a limited range.
-
-Yes, I noticed this. Handles aren't reused in a running system either,
-which might contribute to this problem in other situations.
-
-V2 will follow, thanks again.
-
-Cheers, Phil
+    enic: add devcmd2
