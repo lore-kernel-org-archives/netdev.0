@@ -1,59 +1,101 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: bcmgenet: Avoid sleeping in bcmgenet_timeout
-Date: Thu, 20 Aug 2015 18:04:22 -0700
-Message-ID: <1440119062-19677-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Jaedon Shin <jaedon.shin@gmail.com>
+Subject: Re: [PATCH] net: bcmgenet: fix uncleaned dma flags
+Date: Fri, 21 Aug 2015 10:12:21 +0900
+Message-ID: <D93181E5-EDC1-4192-B8EA-7209646DA963@gmail.com>
+References: <1440040627-59949-1-git-send-email-jaedon.shin@gmail.com> <55D64F09.1090802@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:33409 "EHLO
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:35043 "EHLO
 	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbbHUBGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 21:06:45 -0400
-Received: by pdrh1 with SMTP id h1so20446336pdr.0
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 18:06:44 -0700 (PDT)
+	with ESMTP id S1751432AbbHUBM2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2015 21:12:28 -0400
+Received: by pdob1 with SMTP id b1so20166306pdo.2
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2015 18:12:27 -0700 (PDT)
+In-Reply-To: <55D64F09.1090802@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bcmgenet_timeout() executes in atomic context, yet we will invoke
-napi_disable() which does sleep. Looking back at the changes, disabling
-TX napi and re-enabling it is completely useless, since we reclaim all
-TX buffers and re-enable interrupts, and wake up the TX queues.
+> 2015. 8. 21., =BF=C0=C0=FC 7:04, Florian Fainelli <f.fainelli@gmail.c=
+om> =C0=DB=BC=BA:
+>=20
+> On 19/08/15 20:17, Jaedon Shin wrote:
+>> Clean the dma flags of multiq ring buffer int the interface stop
+>> process. This patch fixes that the genet is not running while the
+>> interface is re-enabled.
+>>=20
+>> $ ifup eth0 - running after booting
+>> $ ifdown eth0
+>> $ ifup eth0 - not running and occur tx_timeout
+>>=20
+>> The bcmgenet_dma_disable() in bcmgenet_open() do clean ring16 dma fl=
+ag
+>> only. If the genet has multiq, the dma register is not cleaned. and
+>> bcmgenet_init_dma() is not done correctly. in case
+>> GENET_V2(tx_queues=3D4), tdma_ctrl has 0x1e after running
+>> bcmgenet_dma_disable().
+>=20
+> It sounds like this should be moved to bcmgenet_dma_disable() where w=
+e
+> are already modifying DMA_CTRL and returning a dma_ctrl value back to
+> the caller, or at the very last bcmgenet_dma_teardown().
+>=20
+> Thanks!
+>=20
 
-Fixes: 13ea657806cf ("net: bcmgenet: improve TX timeout")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Hi David,
+I will send the changes immediately.
 
-Sorry this is caming very late, if this does not make it to 4.2, can you
-queue this for the 4.2.1 stable tree when it shows up?
+Thanks.
 
-Thank you!
-
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 ----
- 1 file changed, 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 64c1e9db6b0b..12a020c105bb 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2820,8 +2820,6 @@ static void bcmgenet_timeout(struct net_device *dev)
- 
- 	netif_dbg(priv, tx_err, dev, "bcmgenet_timeout\n");
- 
--	bcmgenet_disable_tx_napi(priv);
--
- 	for (q = 0; q < priv->hw_params->tx_queues; q++)
- 		bcmgenet_dump_tx_queue(&priv->tx_rings[q]);
- 	bcmgenet_dump_tx_queue(&priv->tx_rings[DESC_INDEX]);
-@@ -2837,8 +2835,6 @@ static void bcmgenet_timeout(struct net_device *dev)
- 	bcmgenet_intrl2_0_writel(priv, int0_enable, INTRL2_CPU_MASK_CLEAR);
- 	bcmgenet_intrl2_1_writel(priv, int1_enable, INTRL2_CPU_MASK_CLEAR);
- 
--	bcmgenet_enable_tx_napi(priv);
--
- 	dev->trans_start = jiffies;
- 
- 	dev->stats.tx_errors++;
--- 
-2.1.0
+>>=20
+>> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
+>> ---
+>> drivers/net/ethernet/broadcom/genet/bcmgenet.c | 16 ++++++++++++++++
+>> 1 file changed, 16 insertions(+)
+>>=20
+>> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/driver=
+s/net/ethernet/broadcom/genet/bcmgenet.c
+>> index 64c1e9db6b0b..81bde6fa70b7 100644
+>> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> @@ -2174,6 +2174,8 @@ static int bcmgenet_dma_teardown(struct bcmgen=
+et_priv *priv)
+>>=20
+>> static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+>> {
+>> +	u32 dma_ctrl;
+>> +	u32 reg;
+>> 	int i;
+>>=20
+>> 	bcmgenet_fini_rx_napi(priv);
+>> @@ -2182,6 +2184,20 @@ static void bcmgenet_fini_dma(struct bcmgenet=
+_priv *priv)
+>> 	/* disable DMA */
+>> 	bcmgenet_dma_teardown(priv);
+>>=20
+>> +	dma_ctrl =3D 0;
+>> +	for (i =3D 0; i < priv->hw_params->rx_queues; i++)
+>> +		dma_ctrl |=3D (1 << (i + DMA_RING_BUF_EN_SHIFT));
+>> +	reg =3D bcmgenet_rdma_readl(priv, DMA_CTRL);
+>> +	reg &=3D ~dma_ctrl;
+>> +	bcmgenet_rdma_writel(priv, reg, DMA_CTRL);
+>> +
+>> +	dma_ctrl =3D 0;
+>> +	for (i =3D 0; i < priv->hw_params->tx_queues; i++)
+>> +		dma_ctrl |=3D (1 << (i + DMA_RING_BUF_EN_SHIFT));
+>> +	reg =3D bcmgenet_tdma_readl(priv, DMA_CTRL);
+>> +	reg &=3D ~dma_ctrl;
+>> +	bcmgenet_tdma_writel(priv, reg, DMA_CTRL);
+>> +
+>> 	for (i =3D 0; i < priv->num_tx_bds; i++) {
+>> 		if (priv->tx_cbs[i].skb !=3D NULL) {
+>> 			dev_kfree_skb(priv->tx_cbs[i].skb);
+>>=20
+>=20
+>=20
+> --=20
+> Florian
