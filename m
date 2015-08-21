@@ -1,82 +1,85 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] route: fix breakage after moving lwtunnel state
-Date: Fri, 21 Aug 2015 12:41:14 +0200
-Message-ID: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
-To: netdev@vger.kernel.org
+From: Tomas Papan <tomas.papan@gmail.com>
+Subject: Re: e1000e: possible reggresion?
+Date: Fri, 21 Aug 2015 12:48:42 +0200
+Message-ID: <CAMGsXDQa=NR3qUd4xJpSNcS2myF+n9P_A-zvyKQYjjE5XN2zCA@mail.gmail.com>
+References: <665F7BF9-6041-4E7D-8A37-1B87770F9FAA@gmail.com>
+	<1440102551.6610.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44773 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753440AbbHUKlb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2015 06:41:31 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id BC75AA89
-	for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 10:41:31 +0000 (UTC)
-Received: from griffin.upir.cz (ovpn-116-73.ams2.redhat.com [10.36.116.73])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t7LAfUHh003469
-	for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 06:41:31 -0400
+Received: from mail-io0-f175.google.com ([209.85.223.175]:34081 "EHLO
+	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752624AbbHUKsm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 06:48:42 -0400
+Received: by iodb91 with SMTP id b91so76854428iod.1
+        for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 03:48:42 -0700 (PDT)
+In-Reply-To: <1440102551.6610.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__recnt and related fields need to be in its own cacheline for performance
-reasons. Commit 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
-broke that on 32bit archs, causing BUILD_BUG_ON in dst_hold to be triggered.
+Hi Eric,
 
-This patch fixes the breakage by moving the lwtunnel state to the end of
-dst_entry on 32bit archs. Unfortunately, this makes it share the cacheline
-with __refcnt and may affect performance, thus further patches may be
-needed.
+It was probalby it. Uptime 5+ hours and no problem.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Fixes: 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
-I'm working on this, I'm going to grab performance numbers with this patch
-applied and work on follow up patches as necessary. Until then, this patch
-at least fixes the 32bit build.
+Thanks for the hint, I was compiling linus tree yesterday around 12:00 =
+UTC,
+your change was added later.
 
-I'm very sorry for the breakage. I tried to build the patchset with various
-configs (IPv6 off, lwtunnel off, etc.) but obviously did not test on 32bit.
-I have no excuse for this, I should have tested it, the #ifdef was very
-obvious.
----
- include/net/dst.h | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Regards
+Tomas
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 0a9a723f6c19..ef8f1d43a203 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -44,7 +44,6 @@ struct dst_entry {
- #else
- 	void			*__pad1;
- #endif
--	struct lwtunnel_state   *lwtstate;
- 	int			(*input)(struct sk_buff *);
- 	int			(*output)(struct sock *sk, struct sk_buff *skb);
- 
-@@ -85,11 +84,12 @@ struct dst_entry {
- 	__u32			__pad2;
- #endif
- 
-+#ifdef CONFIG_64BIT
-+	struct lwtunnel_state   *lwtstate;
- 	/*
- 	 * Align __refcnt to a 64 bytes alignment
- 	 * (L1_CACHE_SIZE would be too much)
- 	 */
--#ifdef CONFIG_64BIT
- 	long			__pad_to_align_refcnt[1];
- #endif
- 	/*
-@@ -99,6 +99,9 @@ struct dst_entry {
- 	atomic_t		__refcnt;	/* client references	*/
- 	int			__use;
- 	unsigned long		lastuse;
-+#ifndef CONFIG_64BIT
-+	struct lwtunnel_state   *lwtstate;
-+#endif
- 	union {
- 		struct dst_entry	*next;
- 		struct rtable __rcu	*rt_next;
--- 
-1.8.3.1
+On Thu, Aug 20, 2015 at 10:29 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> On Thu, 2015-08-20 at 21:37 +0200, Tomas Papan wrote:
+>> Hi there,
+>>
+>> I=E2=80=99m observing a freeze with the recent kernel (4.2-rc7). Unf=
+ortunately I can=E2=80=99t preserver the full traces.
+>> There is nothing in the messages after reboot, I was just lucky one =
+time to see it when tail -f /var/log/messages was running.
+>> This is the only line which I was able to get:
+>>       eth1 (e1000e): transmit queue 0 timed out
+>>
+>> I=E2=80=99ve got this message in the past, but the ethtool -K eth1 t=
+so off solved that. I=E2=80=99m always running
+>> this command at the boot time since then. There is no issue with 4.2=
+-rc4. It is hard to bisect,
+>> because this machine is used as headless server and it happens rando=
+mly (usually within 2 hours).
+>>
+>> Do you have any idea how to trace it or what can I do?
+>> Please keep me on CC since I=E2=80=99m not subscribed on this list
+>>
+>> Regards
+>> Tomas
+>
+> I would pull latest tree from Linus and pray the bug was fixed.
+>
+> My feeling is that you hit the issue fixed with
+>
+> commit 83fccfc3940c4a2db90fd7e7079f5b465cd8c6af
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Thu Aug 13 15:44:51 2015 -0700
+>
+>     inet: fix potential deadlock in reqsk_queue_unlink()
+>
+>     When replacing del_timer() with del_timer_sync(), I introduced
+>     a deadlock condition :
+>
+>     reqsk_queue_unlink() is called from inet_csk_reqsk_queue_drop()
+>
+>     inet_csk_reqsk_queue_drop() can be called from many contexts,
+>     one being the timer handler itself (reqsk_timer_handler()).
+>
+>     In this case, del_timer_sync() loops forever.
+>
+>     Simple fix is to test if timer is pending.
+>
+>     Fixes: 2235f2ac75fd ("inet: fix races with reqsk timers")
+>     Signed-off-by: Eric Dumazet <edumazet@google.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>
