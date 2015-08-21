@@ -1,102 +1,55 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH v2 net-next] r8169: Add values missing in @get_stats64
- from HW counters
-Date: Sat, 22 Aug 2015 00:07:56 +0200
-Message-ID: <20150821220756.GI19683@calimero.vinschen.de>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
- <1440151756-18165-1-git-send-email-vinschen@redhat.com>
- <20150821193926.GA16437@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="3O1VwFp74L81IIeR"
-Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
-	Ivan Vecera <ivecera@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	nic_swsd <nic_swsd@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH] phylib: Make PHYs children of their MDIO bus, not the bus' parent.
+Date: Fri, 21 Aug 2015 16:16:03 -0700
+Message-ID: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: David Daney <david.daney@cavium.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:37850 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbbHUWH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 18:07:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20150821193926.GA16437@electric-eye.fr.zoreil.com>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:35977 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbbHUXQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 19:16:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Daney <david.daney@cavium.com>
 
---3O1VwFp74L81IIeR
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+commit 18ee49ddb0d2 ("phylib: rename mii_bus::dev to mii_bus::parent")
+changed the parent of PHY devices from the bus to the bus parent.
 
-On Aug 21 21:39, Francois Romieu wrote:
-> Corinna Vinschen <vinschen@redhat.com> :
-> [...]
-> > diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-> > index f790f61..f26a48d 100644
-> > --- a/drivers/net/ethernet/realtek/r8169.c
-> > +++ b/drivers/net/ethernet/realtek/r8169.c
-> [...]
-> > @@ -2179,6 +2191,47 @@ static int rtl8169_get_sset_count(struct net_dev=
-ice *dev, int sset)
-> >  	}
-> >  }
-> > =20
-> > +DECLARE_RTL_COND(rtl_reset_counters_cond)
-> > +{
-> > +	void __iomem *ioaddr =3D tp->mmio_addr;
-> > +
-> > +	return RTL_R32(CounterAddrLow) & CounterReset;
-> > +}
-> > +
-> > +static void rtl8169_reset_counters(struct net_device *dev)
-> > +{
->=20
-> rtl8169_reset_counters duplicates most of rtl8169_update_counters. Please
-> factor out the dma_alloc + parametrized CounterAddrLow write + cleanup.
+Then, commit 4dea547fef1b ("phylib: rework to prepare for OF
+registration of PHYs") moved the code into phy_device.c
 
-Ok, will do.
+At this point, it is somewhat unclear why the change was seen as
+necessary.  But, when we look at the device model tree in
+/sys/devices, it is clearly incorrect.  The PHYs should be children of
+their MDIO bus.
 
-> > +	rtl8169_reset_counters(dev);
-> > +
-> > +	rtl8169_update_counters(dev);
->=20
->=20
-> The code should propagate failure when both rtl8169_reset_counters and
-> rtl8169_update_counters fail.
+Change the PHY's parent device to be the MDIO bus device.
 
-This one I don't understand.  Neither failing to reset the counters nor
-failing to update the counters is fatal for the driver.  So far the
-(unchanged) rtl8169_update_counters doesn't even print a log message,
-while a failing reset in rtl8169_reset_counters now does.
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/net/phy/phy_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Why is that not sufficent?
-
-
-Thanks,
-Corinna
-
---3O1VwFp74L81IIeR
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJV16E8AAoJEPU2Bp2uRE+gj3IP/2Li0lqTcmvg4fSQqSPqjWb4
-Lzz8aq9Auv8liFlwxDSx7Z6m9c/nhbxp8tEO2OvEGHmg+m2PiVW18h3iVlnrRxHr
-gLS8vbd5WkzfTednACzGac8w5/MHVvMCwhJ2Kq9qNlXdaMg1OgS0a72dXnNDJnbe
-IufKrw1wevxYd57WuvREGHOLHb3SaiKD7yP6paC60594PZHVFeEgElVMKoqFuvsM
-Av0qu5+WCT9ZsGHMQhY+xUfZtNlXxPxpr5gymKDoTYW+8zODfK6rERljQ8xnlVdw
-CGScj7a3Ay3wBaod3p1SEA92EYEsj3btMKw2NHAnHNsysxzq6ZDuVfIy4vJx9HtH
-4eA+JlY449QvGvx/6aorXiOu5PATpF0DeD3WPqYQ4/AdyF54l2NzTQ5OV3DQ2Pay
-XluwGi42crpSex+V4kadz/6TcpL7eIEvs65qUl3gOM560RgsqMu0uEyFF0K/yKkB
-C/DooyRg8f3dqenMd5uDUHfS88VfBMPg+JNerjzeGmyWjMGN77dys5wJVwapOTQC
-z5Ysa7YAKtlxhBRjLl9ZsEozw5kDXb7ULoniMZXgtcHdSO6/MD7YE7aG0ka2VF/m
-RRiZooQsrmoAZHdm6mJ/nvuEN4XhI3KXmkax0WKv9G6ntgJAnmBKF2IDkgls1UE9
-/cBx0yAycrZP4klP5ox0
-=pZpx
------END PGP SIGNATURE-----
-
---3O1VwFp74L81IIeR--
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 0302483..55f0178 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -176,7 +176,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+ 	if (c45_ids)
+ 		dev->c45_ids = *c45_ids;
+ 	dev->bus = bus;
+-	dev->dev.parent = bus->parent;
++	dev->dev.parent = &bus->dev;
+ 	dev->dev.bus = &mdio_bus_type;
+ 	dev->irq = bus->irq != NULL ? bus->irq[addr] : PHY_POLL;
+ 	dev_set_name(&dev->dev, PHY_ID_FMT, bus->id, addr);
+-- 
+1.7.11.7
