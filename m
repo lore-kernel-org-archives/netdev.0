@@ -1,196 +1,171 @@
 From: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Subject: [PATCH v3 3/4] Add support for driver cross-timestamp to PTP_SYS_OFFSET ioctl
-Date: Fri, 21 Aug 2015 11:52:07 -0700
-Message-ID: <1440183128-1384-4-git-send-email-christopher.s.hall@intel.com>
+Subject: [PATCH v3 1/4] Add correlated clocksource deriving system time from an auxiliary clocksource
+Date: Fri, 21 Aug 2015 11:52:05 -0700
+Message-ID: <1440183128-1384-2-git-send-email-christopher.s.hall@intel.com>
 References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
 Cc: richardcochran@gmail.com, x86@kernel.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org, peterz@infradead.org,
-	Christopher Hall <christopher.s.hall@intel.com>
+	"Christopher S. Hall" <christopher.s.hall@intel.com>
 To: jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
 	tglx@linutronix.de, john.stultz@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39052 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752661AbbHVBwv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2015 21:52:51 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christopher Hall <christopher.s.hall@intel.com>
+Add struct correlated_cs with pointer to original clocksource and
+	function pointer to convert correlated clocksource to the original
 
-This patch allows system and device time ("cross-timestamp") to be
-performed by the driver. Currently, the cross-timestamping is performed
-in the PTP_SYS_OFFSET ioctl.  The PTP clock driver reads gettimeofday()
-and the gettime64() callback provided by the driver. The cross-timestamp
-is best effort where the latency between the capture of system time
-(getnstimeofday()) and the device time (driver callback) may be
-significant.
-
-This patch adds an additional callback getsynctime64(). Which will be
-called when the driver is able to perform a more accurate, implementation
-specific cross-timestamping.  For example, future network devices that
-implement PCIE PTM will be able to precisely correlate the device clock
-with the system clock with virtually zero latency between captures.
-This added callback can be used by the driver to expose this functionality.
-
-The callback, getsynctime64(), will only be called when defined and
-n_samples == 1 because the driver returns only 1 cross-timestamp where
-multiple samples cannot be chained together.
-
-This patch also adds to the capabilities ioctl (PTP_CLOCK_GETCAPS),
-allowing applications to query whether or not drivers implement the
-getsynctime callback, providing more precise cross timestamping.
-
-Commit Details:
-
-Added additional callback to ptp_clock_info:
-
-* getsynctime64()
-
-This takes 2 arguments referring to system and device time
-
-With this callback drivers may provide both system time and device time
-to ensure precise correlation
-
-Modified PTP_SYS_OFFSET ioctl in PTP clock driver to use the above
-callback if it's available
-
-Added capability (PTP_CLOCK_GETCAPS) for checking whether driver supports
-cross timestamping
-
-Added check for cross timestamping flag to testptp.c
+Add get_correlated_timestamp() function which given specific correlated_cs
+	and correlated_ts convert correlated counter value to system time
 
 Signed-off-by: Christopher S. Hall <christopher.s.hall@intel.com>
 ---
- Documentation/ptp/testptp.c      |  6 ++++--
- drivers/ptp/ptp_chardev.c        | 29 +++++++++++++++++++++--------
- include/linux/ptp_clock_kernel.h |  7 +++++++
- include/uapi/linux/ptp_clock.h   |  4 +++-
- 4 files changed, 35 insertions(+), 11 deletions(-)
+ include/linux/clocksource.h | 33 +++++++++++++++++++++++
+ include/linux/timekeeping.h |  4 +++
+ kernel/time/timekeeping.c   | 65 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 102 insertions(+)
 
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-index 2bc8abc..8004efd 100644
---- a/Documentation/ptp/testptp.c
-+++ b/Documentation/ptp/testptp.c
-@@ -276,13 +276,15 @@ int main(int argc, char *argv[])
- 			       "  %d external time stamp channels\n"
- 			       "  %d programmable periodic signals\n"
- 			       "  %d pulse per second\n"
--			       "  %d programmable pins\n",
-+			       "  %d programmable pins\n"
-+			       "  %d cross timestamping\n",
- 			       caps.max_adj,
- 			       caps.n_alarm,
- 			       caps.n_ext_ts,
- 			       caps.n_per_out,
- 			       caps.pps,
--			       caps.n_pins);
-+			       caps.n_pins,
-+			       caps.cross_timestamping);
- 		}
- 	}
+diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
+index 278dd27..4bedadb 100644
+--- a/include/linux/clocksource.h
++++ b/include/linux/clocksource.h
+@@ -258,4 +258,37 @@ void acpi_generic_timer_init(void);
+ static inline void acpi_generic_timer_init(void) { }
+ #endif
  
-diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
-index da7bae9..392ccfa 100644
---- a/drivers/ptp/ptp_chardev.c
-+++ b/drivers/ptp/ptp_chardev.c
-@@ -124,7 +124,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
- 	struct ptp_clock_info *ops = ptp->info;
- 	struct ptp_clock_time *pct;
--	struct timespec64 ts;
-+	struct timespec64 ts, systs;
- 	int enable, err = 0;
- 	unsigned int i, pin_index;
++/*
++ * struct correlated_cs - Descriptor for a clocksource correlated to another
++ *	clocksource
++ * @related_cs:		Pointer to the related timekeeping clocksource
++ * @convert:		Conversion function to convert a timestamp from
++ *			the correlated clocksource to cycles of the related
++ *			timekeeping clocksource
++ */
++struct correlated_cs {
++	struct clocksource	*related_cs;
++	u64			(*convert)(struct correlated_cs *cs,
++					   u64 cycles);
++};
++
++struct correlated_ts;
++
++/**
++ * struct correlated_ts - Descriptor for taking a correlated time stamp
++ * @get_ts:		Function to read out a synced system and device
++ *			timestamp
++ * @system_ts:		The raw system clock timestamp
++ * @device_ts:		The raw device timestamp
++ * @system_real:	@system_ts converted to CLOCK_REALTIME
++ * @system_raw:		@system_ts converted to CLOCK_MONOTONIC_RAW
++ */
++struct correlated_ts {
++	int			(*get_ts)(struct correlated_ts *ts);
++	u64			system_ts;
++	u64			device_ts;
++	ktime_t			system_real;
++	ktime_t			system_raw;
++	void			*private;
++};
+ #endif /* _LINUX_CLOCKSOURCE_H */
+diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+index 6e191e4..a9e1a2d 100644
+--- a/include/linux/timekeeping.h
++++ b/include/linux/timekeeping.h
+@@ -258,6 +258,10 @@ extern void timekeeping_inject_sleeptime64(struct timespec64 *delta);
+  */
+ extern void getnstime_raw_and_real(struct timespec *ts_raw,
+ 				   struct timespec *ts_real);
++struct correlated_ts;
++struct correlated_cs;
++extern int get_correlated_timestamp(struct correlated_ts *crt,
++				    struct correlated_cs *crs);
  
-@@ -138,6 +138,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 		caps.n_per_out = ptp->info->n_per_out;
- 		caps.pps = ptp->info->pps;
- 		caps.n_pins = ptp->info->n_pins;
-+		caps.cross_timestamping = ptp->info->getsynctime64 != NULL;
- 		if (copy_to_user((void __user *)arg, &caps, sizeof(caps)))
- 			err = -EFAULT;
- 		break;
-@@ -196,19 +197,31 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 			break;
- 		}
- 		pct = &sysoff->ts[0];
--		for (i = 0; i < sysoff->n_samples; i++) {
--			getnstimeofday64(&ts);
-+		if (ptp->info->getsynctime64 && sysoff->n_samples == 1 &&
-+		    ptp->info->getsynctime64(ptp->info, &ts, &systs) == 0) {
-+			pct->sec = systs.tv_sec;
-+			pct->nsec = systs.tv_nsec;
-+			pct++;
- 			pct->sec = ts.tv_sec;
- 			pct->nsec = ts.tv_nsec;
- 			pct++;
--			ptp->info->gettime64(ptp->info, &ts);
-+			pct->sec = systs.tv_sec;
-+			pct->nsec = systs.tv_nsec;
-+		} else {
-+			for (i = 0; i < sysoff->n_samples; i++) {
-+				getnstimeofday64(&ts);
-+				pct->sec = ts.tv_sec;
-+				pct->nsec = ts.tv_nsec;
-+				pct++;
-+				ptp->info->gettime64(ptp->info, &ts);
-+				pct->sec = ts.tv_sec;
-+				pct->nsec = ts.tv_nsec;
-+				pct++;
-+			}
-+			getnstimeofday64(&ts);
- 			pct->sec = ts.tv_sec;
- 			pct->nsec = ts.tv_nsec;
--			pct++;
- 		}
--		getnstimeofday64(&ts);
--		pct->sec = ts.tv_sec;
--		pct->nsec = ts.tv_nsec;
- 		if (copy_to_user((void __user *)arg, sysoff, sizeof(*sysoff)))
- 			err = -EFAULT;
- 		break;
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index b8b7306..8c43345 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -67,6 +67,11 @@ struct ptp_clock_request {
-  * @gettime64:  Reads the current time from the hardware clock.
-  *              parameter ts: Holds the result.
-  *
-+ * @getsynctime64:  Reads the current time from the hardware clock and system
-+ *                  clock simultaneously.
-+ *                  parameter dev: Holds the device time
-+ *                  parameter sys: Holds the system time
+ /*
+  * Persistent clock related interfaces
+diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+index bca3667..90a7c6f 100644
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -312,6 +312,19 @@ static inline s64 timekeeping_get_ns(struct tk_read_base *tkr)
+ 	return nsec + arch_gettimeoffset();
+ }
+ 
++static inline s64 timekeeping_convert_to_ns(struct tk_read_base *tkr,
++					    cycle_t cycles)
++{
++	cycle_t delta;
++	s64 nsec;
++
++	/* calculate the delta since the last update_wall_time */
++	delta = clocksource_delta(cycles, tkr->cycle_last, tkr->mask);
++
++	nsec = delta * tkr->mult + tkr->xtime_nsec;
++	return nsec >> tkr->shift;
++}
++
+ /**
+  * update_fast_timekeeper - Update the fast and NMI safe monotonic timekeeper.
+  * @tkr: Timekeeping readout base from which we take the update
+@@ -885,6 +898,58 @@ EXPORT_SYMBOL(getnstime_raw_and_real);
+ #endif /* CONFIG_NTP_PPS */
+ 
+ /**
++ * get_correlated_timestamp - Get a correlated timestamp
 + *
-  * @settime64:  Set the current time on the hardware clock.
-  *              parameter ts: Time value to set.
++ * Reads a timestamp from a device and correlates it to system time
++ */
++int get_correlated_timestamp(struct correlated_ts *crt,
++			     struct correlated_cs *crs)
++{
++	struct timekeeper *tk = &tk_core.timekeeper;
++	unsigned long seq;
++	cycles_t cycles;
++	ktime_t base;
++	s64 nsecs;
++	int ret;
++
++	do {
++		seq = read_seqcount_begin(&tk_core.seq);
++		/*
++		 * Verify that the correlated clocksoure is related to
++		 * the currently installed timekeeper clocksoure
++		 */
++		if (tk->tkr_mono.clock != crs->related_cs)
++			return -ENODEV;
++
++		/*
++		 * Try to get a timestamp from the device.
++		 */
++		ret = crt->get_ts(crt);
++		if (ret)
++			return ret;
++
++		/*
++		 * Convert the timestamp to timekeeper clock cycles
++		 */
++		cycles = crs->convert(crs, crt->system_ts);
++
++		/* Convert to clock realtime */
++		base = ktime_add(tk->tkr_mono.base,
++				 tk_core.timekeeper.offs_real);
++		nsecs = timekeeping_convert_to_ns(&tk->tkr_mono, cycles);
++		crt->system_real = ktime_add_ns(base, nsecs);
++
++		/* Convert to clock raw monotonic */
++		base = tk->tkr_raw.base;
++		nsecs = timekeeping_convert_to_ns(&tk->tkr_raw, cycles);
++		crt->system_raw = ktime_add_ns(base, nsecs);
++
++	} while (read_seqcount_retry(&tk_core.seq, seq));
++	return 0;
++}
++EXPORT_SYMBOL(get_correlated_timestamp);
++
++/**
+  * do_gettimeofday - Returns the time of day in a timeval
+  * @tv:		pointer to the timeval to be set
   *
-@@ -105,6 +110,8 @@ struct ptp_clock_info {
- 	int (*adjfreq)(struct ptp_clock_info *ptp, s32 delta);
- 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
- 	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
-+	int (*getsynctime64)(struct ptp_clock_info *ptp, struct timespec64 *dev,
-+			struct timespec64 *sys);
- 	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
- 	int (*enable)(struct ptp_clock_info *ptp,
- 		      struct ptp_clock_request *request, int on);
-diff --git a/include/uapi/linux/ptp_clock.h b/include/uapi/linux/ptp_clock.h
-index f0b7bfe..ffb2635 100644
---- a/include/uapi/linux/ptp_clock.h
-+++ b/include/uapi/linux/ptp_clock.h
-@@ -51,7 +51,9 @@ struct ptp_clock_caps {
- 	int n_per_out; /* Number of programmable periodic signals. */
- 	int pps;       /* Whether the clock supports a PPS callback. */
- 	int n_pins;    /* Number of input/output pins. */
--	int rsv[14];   /* Reserved for future use. */
-+	/* Whether the clock supports precise system-device cross timestamps */
-+	int cross_timestamping;
-+	int rsv[13];   /* Reserved for future use. */
- };
- 
- struct ptp_extts_request {
 -- 
 2.1.4
