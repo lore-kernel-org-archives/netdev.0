@@ -1,26 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next:master 1179/1189] include/linux/compiler.h:447:38:
- error: call to '__compiletime_assert_243' declared with attribute error:
- BUILD_BUG_ON failed: offsetof(struct dst_entry, __refcnt) & 63
-Date: Thu, 20 Aug 2015 23:26:50 -0700 (PDT)
-Message-ID: <20150820.232650.1503466109554752010.davem@davemloft.net>
-References: <201508211329.x7P0JrxH%fengguang.wu@intel.com>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 791/1189] net/ipv4/netfilter/nft_dup_ipv4.c:29:37:
+ sparse: incorrect type in initializer (different base types)
+Date: Fri, 21 Aug 2015 14:29:15 +0800
+Message-ID: <201508211410.93yao6GX%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, kbuild-all@01.org, netdev@vger.kernel.org
-To: fengguang.wu@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59544 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752044AbbHUG0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 02:26:53 -0400
-In-Reply-To: <201508211329.x7P0JrxH%fengguang.wu@intel.com>
+Received: from mga14.intel.com ([192.55.52.115]:56962 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754070AbbHUG1W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2015 02:27:22 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   a9e01ed986aa80d3092134428f453072752da223
+commit: d877f07112f1e5a247c6b585c971a93895c9f738 [791/1189] netfilter: nf_tables: add nft_dup expression
+reproduce:
+  # apt-get install sparse
+  git checkout d877f07112f1e5a247c6b585c971a93895c9f738
+  make ARCH=x86_64 allmodconfig
+  make C=1 CF=-D__CHECK_ENDIAN__
 
-Yeah, I should have predicted this would happen on 32-bit builds when I saw
-the adjustment of __pad_to_align_refcnt[] for 64-bit.
 
-Jiri, you might not have any reasonable options to fix this I'm afraid.
+sparse warnings: (new ones prefixed by >>)
+
+>> net/ipv4/netfilter/nft_dup_ipv4.c:29:37: sparse: incorrect type in initializer (different base types)
+   net/ipv4/netfilter/nft_dup_ipv4.c:29:37:    expected restricted __be32 [usertype] s_addr
+   net/ipv4/netfilter/nft_dup_ipv4.c:29:37:    got unsigned int [unsigned] <noident>
+
+vim +29 net/ipv4/netfilter/nft_dup_ipv4.c
+
+    13	#include <linux/netfilter.h>
+    14	#include <linux/netfilter/nf_tables.h>
+    15	#include <net/netfilter/nf_tables.h>
+    16	#include <net/netfilter/ipv4/nf_dup_ipv4.h>
+    17	
+    18	struct nft_dup_ipv4 {
+    19		enum nft_registers	sreg_addr:8;
+    20		enum nft_registers	sreg_dev:8;
+    21	};
+    22	
+    23	static void nft_dup_ipv4_eval(const struct nft_expr *expr,
+    24				      struct nft_regs *regs,
+    25				      const struct nft_pktinfo *pkt)
+    26	{
+    27		struct nft_dup_ipv4 *priv = nft_expr_priv(expr);
+    28		struct in_addr gw = {
+  > 29			.s_addr = regs->data[priv->sreg_addr],
+    30		};
+    31		int oif = regs->data[priv->sreg_dev];
+    32	
+    33		nf_dup_ipv4(pkt->skb, pkt->ops->hooknum, &gw, oif);
+    34	}
+    35	
+    36	static int nft_dup_ipv4_init(const struct nft_ctx *ctx,
+    37				     const struct nft_expr *expr,
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
