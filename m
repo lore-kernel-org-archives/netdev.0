@@ -1,61 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4 net-next] enic: add devcmd2
-Date: Fri, 21 Aug 2015 11:40:02 -0700 (PDT)
-Message-ID: <20150821.114002.1509234742678813994.davem@davemloft.net>
-References: <1439669694-21744-1-git-send-email-_govind@gmx.com>
-	<20150817.153832.1220000969996122058.davem@davemloft.net>
-	<253CF818969A9240AB2054BF91F2C2BC301A082C@ORSMSX114.amr.corp.intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: bcmgenet: fix uncleaned dma flags
+Date: Fri, 21 Aug 2015 11:26:00 -0700
+Message-ID: <55D76D38.9090500@gmail.com>
+References: <1440119306-6789-1-git-send-email-jaedon.shin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: _govind@gmx.com, netdev@vger.kernel.org, nalreddy@cisco.com,
-	ssujith@cisco.com, benve@cisco.com
-To: jesse.brandeburg@intel.com
+To: Jaedon Shin <jaedon.shin@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34315 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602AbbHUS0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 14:26:02 -0400
-In-Reply-To: <253CF818969A9240AB2054BF91F2C2BC301A082C@ORSMSX114.amr.corp.intel.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34577 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751344AbbHUS2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 14:28:24 -0400
+Received: by pdbfa8 with SMTP id fa8so29281620pdb.1
+        for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 11:28:24 -0700 (PDT)
+In-Reply-To: <1440119306-6789-1-git-send-email-jaedon.shin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Fri, 21 Aug 2015 17:19:03 +0000
+On 20/08/15 18:08, Jaedon Shin wrote:
+> Clean the dma flags of multiq ring buffer int the interface stop
+> process. This patch fixes that the genet is not running while the
+> interface is re-enabled.
+> 
+> $ ifup eth0 - running after booting
+> $ ifdown eth0
+> $ ifup eth0 - not running and occur tx_timeout
+> 
+> The bcmgenet_dma_disable() in bcmgenet_open() do clean ring16 dma flag
+> only. If the genet has multiq, the dma register is not cleaned. and
+> bcmgenet_init_dma() is not done correctly. in case
+> GENET_V2(tx_queues=4), tdma_ctrl has 0x1e after running
+> bcmgenet_dma_disable().
+> 
+> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
 
-> This series introduces a compile error
-> drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_probe':
-> drivers/net/ethernet/cisco/enic/enic_main.c:2490:3: error: label 'err_out_vnic_unregister' used but not defined
->    goto err_out_vnic_unregister;
->    ^
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Thanks I'm about to push the following to fix this:
-
-====================
-[PATCH] enic: Fix build failure with SRIOV disabled.
-
-err_out_vnic_unregister is used regardless of whether
-SRIOV is enabled or not.
-
-Reported-by: Jesse Brandeburg <jesse.brangeburg@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/cisco/enic/enic_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index cb1fdc3..3352d02 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2663,8 +2663,8 @@ err_out_disable_sriov_pp:
- 		pci_disable_sriov(pdev);
- 		enic->priv_flags &= ~ENIC_SRIOV_ENABLED;
- 	}
--err_out_vnic_unregister:
- #endif
-+err_out_vnic_unregister:
- 	vnic_dev_unregister(enic->vdev);
- err_out_iounmap:
- 	enic_iounmap(enic);
+Thanks!
 -- 
-1.7.10.4
+Florian
