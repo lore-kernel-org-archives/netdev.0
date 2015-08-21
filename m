@@ -1,50 +1,84 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2 net-next] tcp: fix slow start after idle vs TSO/GSO
-Date: Fri, 21 Aug 2015 21:43:22 -0400
-Message-ID: <CADVnQynwaW0DEJE+kiLeaJ59rBaZ-uE2dWOyx+RH-LXxTBr_Ug@mail.gmail.com>
-References: <1440090487.6610.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1440185400.6610.90.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:34601 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901AbbHVBnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 21:43:24 -0400
-Received: by obbfr1 with SMTP id fr1so72410022obb.1
-        for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 18:43:22 -0700 (PDT)
-In-Reply-To: <1440185400.6610.90.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Christopher S. Hall" <christopher.s.hall@intel.com>
+Subject: [PATCH v3 0/4] Patchset enabling hardware based cross-timestamps for next gen Intel platforms
+Date: Fri, 21 Aug 2015 11:52:04 -0700
+Message-ID: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
+Cc: richardcochran@gmail.com, x86@kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, peterz@infradead.org,
+	"Christopher S. Hall" <christopher.s.hall@intel.com>
+To: jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
+	tglx@linutronix.de, john.stultz@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 21, 2015 at 3:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> slow start after idle might reduce cwnd, but we perform this
-> after first packet was cooked and sent.
->
-> With TSO/GSO, it means that we might send a full TSO packet
-> even if cwnd should have been reduced to IW10.
->
-> Moving the SSAI check in skb_entail() makes sense, because
-> we slightly reduce number of times this check is done,
-> especially for large send() and TCP Small queue callbacks from
-> softirq context.
->
-> As Neal pointed out, we also need to perform the check
-> if/when receive window opens.
-...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> ---
+6th generation Intel platforms will have an Always Running
+Timer (ART) that always runs when the system is powered and
+is available to both the CPU and various on-board devices.
+Initially, those devices include audio and network.  The
+ART will give these devices the capability of precisely
+cross timestamping their local device clock with the system
+clock.  The ART is precisely related to the TSC by a ratio
+read from CPUID leaf 0x15.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+A device (such as the network controller) produces cross timestamps in 
+terms of the ART and the local device clock.  The ART value on its
+own isn't useful.
 
-Looks good to me. Thanks, Eric!
+The first two patches enable translation of ART to system time.
+The first patch adds the correlated clocksource concept which is
+an auxiliary clock directly relate-able to a clock registered as
+a clocksource. The second patch adds the Intel specific ART 
+correlated clocksource.
 
-neal
+The last two patches modify the PTP character driver to call a
+cross timestamp function (getsynctime()) in the driver when
+available and perform the cross timestamp in the e1000e driver.
+
+The patches taken together enable sub-microsecond cross timestamps
+between the system clock and network device clock
+
+Changelog since v2:
+
+Split out x86 architecture specific code from common timekeeping code
+	additions
+
+Split ART initialization between early TSC initialization and TSC
+	frequency refinement.  Now, cpu_has_art can be used in
+	driver initialization code
+
+Added e1000e PTP init code that detects presence of ART/spt disabling
+	cross timestamp if they're not available
+
+Added additional commenting in TSC/ART init code, minor renaming of
+	functions and variables for greater clarity
+
+Fixed a few formatting problems in e1000e driver patch
+
+
+Christopher Hall (2):
+  Add support for driver cross-timestamp to PTP_SYS_OFFSET ioctl
+  Enabling hardware supported PTP system/device crosstimestamping
+
+Christopher S. Hall (2):
+  Add correlated clocksource deriving system time from an auxiliary
+    clocksource
+  Added ART correlated clocksource and ART CPU feature
+
+ Documentation/ptp/testptp.c                 |  6 +-
+ arch/x86/include/asm/cpufeature.h           |  3 +-
+ arch/x86/include/asm/tsc.h                  |  2 +
+ arch/x86/kernel/tsc.c                       | 54 ++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/defines.h |  5 ++
+ drivers/net/ethernet/intel/e1000e/ptp.c     | 88 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/regs.h    |  4 ++
+ drivers/ptp/ptp_chardev.c                   | 29 +++++++---
+ include/linux/clocksource.h                 | 33 +++++++++++
+ include/linux/ptp_clock_kernel.h            |  7 +++
+ include/linux/timekeeping.h                 |  4 ++
+ include/uapi/linux/ptp_clock.h              |  4 +-
+ kernel/time/timekeeping.c                   | 65 +++++++++++++++++++++
+ 13 files changed, 292 insertions(+), 12 deletions(-)
+
+-- 
+2.1.4
