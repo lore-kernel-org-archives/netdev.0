@@ -1,114 +1,56 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v3 4/4] Enabling hardware supported PTP system/device
- crosstimestamping
-Date: Sat, 22 Aug 2015 22:46:19 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1508222233580.3873@nanos>
-References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com> <1440183128-1384-5-git-send-email-christopher.s.hall@intel.com>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [PATCH] veth: replace iflink by a dedicated symlink in sysfs
+Date: Sat, 22 Aug 2015 22:51:01 +0200
+Message-ID: <87si7bt5ca.fsf@zoro.exoscale.ch>
+References: <55D4AFCA.7080300@6wind.com> <20150820135307.3ce12f69@griffin>
+	<55D5E4AF.7020409@6wind.com>
+	<20150820.140734.195153496258370626.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	john.stultz@linaro.org, richardcochran@gmail.com, x86@kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, peterz@infradead.org
-To: "Christopher S. Hall" <christopher.s.hall@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440183128-1384-5-git-send-email-christopher.s.hall@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nicolas.dichtel@6wind.com, jbenc@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:54173 "EHLO bart.luffy.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750823AbbHVUvE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 16:51:04 -0400
+In-Reply-To: <20150820.140734.195153496258370626.davem@davemloft.net> (David
+	Miller's message of "Thu, 20 Aug 2015 14:07:34 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Aug 2015, Christopher S. Hall wrote:
-> From: Christopher Hall <christopher.s.hall@intel.com>
-> 
-> Add getsynctime() PTP device callback to cross timestamp system device
-> 	clock using ART	translation depends on platform being >= SPT
-> 	and having ART
-> 
-> getsynctime() reads ART (TSC-derived)/device cross timestamp and
-> 	converts to realtime/device time reporting cross timestamp to
-> 	PTP driver
+ =E2=9D=A6 20 ao=C3=BBt 2015 14:07 -0700, David Miller <davem@davemloft=
+=2Enet>=C2=A0:
 
-See patch 1/4
- 
-> index 25a0ad5..228f3f3 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ptp.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-> @@ -25,6 +25,8 @@
->   */
->  
->  #include "e1000.h"
-> +#include <asm/tsc.h>
-> +#include <linux/timekeeping.h>
+>>>> I also don't know what is the best way to handle this. veth advert=
+ises
+>>>> its peer via IFLA_LINK since 4.1, so it's too late to change it fo=
+r
+>>>> this
+>>>> release.
+>>>
+>>> Apparently we need to pick our poison. Either way, we break somethi=
+ng.
+>> Sure. I would prefer to have the same mechanism in all version, but =
+I
+>> can live with the other solution.
+>>=20
+>> David, any thoughts about this?
+>
+> You can't break the 4.1 semantics, it's in a released kernel and peop=
+le
+> _ARE_ using it.
 
-The usual way to order includes is:
-
-#include <linux/timekeeping.h>
-
-#include <asm/tsc.h>
-
-#include "e1000.h"
-
-> +/**
-> + * e1000e_phc_getsynctime - Reads the current time from the hardware clock and
-> + * correlated system time
-> + * @ptp: ptp clock structure
-> + * @devts: timespec structure to hold the current device time value
-> + * @systs: timespec structure to hold the current system time value
-> + *
-> + * Read device and system (ART) clock simultaneously and return the correct
-> + * clock values in ns after converting into a struct timespec.
-> + **/
-> +static int e1000e_phc_getsynctime(struct ptp_clock_info *ptp,
-> +				  struct timespec64 *devts,
-> +				  struct timespec64 *systs)
-> +{
-> +	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
-> +						     ptp_clock_info);
-> +	unsigned long flags;
-> +	u32 remainder;
-> +	struct correlated_ts art_correlated_ts;
-> +	u64 device_time;
-> +	int ret;
-> +
-> +	art_correlated_ts.get_ts = e1000e_phc_get_ts;
-> +	art_correlated_ts.private = adapter;
-> +	ret = get_correlated_timestamp(&art_correlated_ts,
-> +				       &art_timestamper);
-
-Pointless line break
-
-> +	if (ret != 0)
-> +		goto bail;
-
-What's the purpose of this goto?
-
-       if (ret)
-		return ret;
-
-is completely sufficient.
-
-> +
-> +	systs->tv_sec =
-> +		div_u64_rem(art_correlated_ts.system_real.tv64,
-> +			    NSEC_PER_SEC, &remainder);
-> +	systs->tv_nsec = remainder;
-
-ktime_to_timespec64() perhaps?
-
-And please move that conversion to the ptp ioctl
-
-> +	spin_lock_irqsave(&adapter->systim_lock, flags);
-> +	device_time = timecounter_cyc2time(&adapter->tc,
-> +					   art_correlated_ts.device_ts);
-
-....
-
-> +	/* CPU must have ART and GBe must be from Sunrise Point or greater */
-> +	if (hw->mac.type < e1000_pch_spt || !cpu_has_art)
-> +		adapter->ptp_clock_info.getsynctime64 = NULL;
-
-We do it the other way round. We leave the default NULL and update it
-if we detect the feature.
-
-Thanks,
-
-	tglx
+I had a look at what other kind of daemons may exploit the pre-4.1
+semantics (of not having an infinite loop when following iflink) and
+failed to find any other users than "lldpd". Other LLDP daemons (lldpad=
+,
+ladvd, openlldpd) have other ways to find the lower interface. I would
+also have thought that NetSNMP would use it to implement ifStackTable
+but it doesn't in fact implement this table.
+--=20
+It were not best that we should all think alike; it is difference of op=
+inion
+that makes horse-races.
+		-- Mark Twain, "Pudd'nhead Wilson's Calendar"
