@@ -1,64 +1,62 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 00/14] RDS: Assorted bug fixes
-Date: Sat, 22 Aug 2015 15:45:21 -0700
-Message-ID: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 03/14] RDS: destroy the ib state earlier during shutdown
+Date: Sat, 22 Aug 2015 15:45:24 -0700
+Message-ID: <1440283535-4800-4-git-send-email-santosh.shilimkar@oracle.com>
+References: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	ssantosh@kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We would like to improve RDS upstream support and in that context, I
-started playing with it.  But run into number of issues including as
-basic is RDS IB RDMA doesn't work. As part of the debug, I ended up
-creating the $subject series which has bunch of assorted fixes. At
-least with this series I can run RDS IB RDMA and other tests
-successfully.
+Destroy ib state early during shutdown. Otherwise we can get callbacks
+after the QP isn't really able to handle them.
 
-Some of these fixes have been done by Chris Meson, Andy Grover and
-Zach Brown while at Oracle. There are still more kinks with FMR and
-error handling and I plan to address them in a follow up series.
+Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+ net/rds/ib_cm.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-Series generated against Linus's master(v4.2-rc-7) but also applies
-against next-next cleanly. Its tested on Oracle hardware with IB
-fabric for both bcopy as well as RDMA mode. I don't have access
-to iWARP hardware so any testing help on iWARP hardware appreciated.
-
-Mukesh Kacker (1):
-  RDS: return EMSGSIZE for oversize requests before processing/queueing
-
-Santosh Shilimkar (13):
-  RDS: restore return value in rds_cmsg_rdma_args()
-  RDS: always free recv frag as we free its ring entry
-  RDS: destroy the ib state earlier during shutdown
-  RDS: don't update ip address tables if the address hasn't changed
-  RDS: make sure we post recv buffers
-  RDS: check for congestion updates during rds_send_xmit
-  RDS: add a sock_destruct callback debug aid
-  RDS: Mark message mapped before transmit
-  RDS: Make sure we do a signaled send for large-send
-  RDS: Fix assertion level from fatal to warning
-  RDS: Don't destroy the rdma id until after we're done using it
-  RDS: make sure rds_send_drop_to properly takes the m_rs_lock
-  RDS: check for valid cm_id before initiating connection
-
- net/rds/af_rds.c         |  9 ++++++
- net/rds/connection.c     |  2 ++
- net/rds/ib.h             |  2 +-
- net/rds/ib_cm.c          | 17 +++++++-----
- net/rds/ib_rdma.c        | 11 ++++++--
- net/rds/ib_recv.c        | 71 ++++++++++++++++++++++++++++++++++++++++++------
- net/rds/ib_send.c        |  5 ++++
- net/rds/rdma.c           |  4 ++-
- net/rds/rdma_transport.c | 15 ++++++++--
- net/rds/rds.h            |  1 +
- net/rds/send.c           | 54 ++++++++++++++++++++++++++----------
- 11 files changed, 153 insertions(+), 38 deletions(-)
-
-
-Regards,
-Santosh
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 0da2a45..8b40d3c 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -639,6 +639,16 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
+ 			   (atomic_read(&ic->i_signaled_sends) == 0));
+ 		tasklet_kill(&ic->i_recv_tasklet);
+ 
++		/* first destroy the ib state that generates callbacks */
++		if (ic->i_cm_id->qp)
++			rdma_destroy_qp(ic->i_cm_id);
++		if (ic->i_send_cq)
++			ib_destroy_cq(ic->i_send_cq);
++		if (ic->i_recv_cq)
++			ib_destroy_cq(ic->i_recv_cq);
++		rdma_destroy_id(ic->i_cm_id);
++
++		/* then free the resources that ib callbacks use */
+ 		if (ic->i_send_hdrs)
+ 			ib_dma_free_coherent(dev,
+ 					   ic->i_send_ring.w_nr *
+@@ -662,14 +672,6 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
+ 		if (ic->i_recvs)
+ 			rds_ib_recv_clear_ring(ic);
+ 
+-		if (ic->i_cm_id->qp)
+-			rdma_destroy_qp(ic->i_cm_id);
+-		if (ic->i_send_cq)
+-			ib_destroy_cq(ic->i_send_cq);
+-		if (ic->i_recv_cq)
+-			ib_destroy_cq(ic->i_recv_cq);
+-		rdma_destroy_id(ic->i_cm_id);
+-
+ 		/*
+ 		 * Move connection back to the nodev list.
+ 		 */
 -- 
 1.9.1
