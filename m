@@ -1,170 +1,123 @@
-From: Elad Raz <eladr@mellanox.com>
-Subject: [PATCH v2 net-next] netfilter: ipset: Fixing unnamed union init
-Date: Sat, 22 Aug 2015 08:44:11 +0300
-Message-ID: <1440222251-21132-1-git-send-email-eladr@mellanox.com>
-Cc: Elad Raz <eladr@mellanox.com>, Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Sergey Popovich <popovich_sergei@mail.ua>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Anton Danilov <littlesmilingcloud@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Akemi Yagi <amyagi@gmail.com>,
-	Cong Wang <cwang@twopensource.com>
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Vinson Lee <vlee@twopensource.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corinna Vinschen <vinschen@redhat.com>
+Subject: Re: [PATCH v2 net-next] r8169: Add values missing in @get_stats64
+ from HW counters
+Date: Sat, 22 Aug 2015 10:39:16 +0200
+Message-ID: <20150822083916.GA17408@calimero.vinschen.de>
+References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
+ <1440151756-18165-1-git-send-email-vinschen@redhat.com>
+ <20150821193926.GA16437@electric-eye.fr.zoreil.com>
+ <20150821220756.GI19683@calimero.vinschen.de>
+ <20150821235940.GA20313@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="u3/rZRmxL6MmkK24"
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
+	Ivan Vecera <ivecera@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	nic_swsd <nic_swsd@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-n.franken.de ([193.175.24.27]:50676 "EHLO
+	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753221AbbHVIjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 04:39:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20150821235940.GA20313@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In continue to proposed Vinson Lee's post [1], this patch fixes compilation
-issues founded at gcc 4.4.7. The initialization of .cidr field of unnamed
-unions causes compilation error in gcc 4.4.x.
 
-References
+--u3/rZRmxL6MmkK24
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Visible links
-[1] https://lkml.org/lkml/2015/7/5/74
+On Aug 22 01:59, Francois Romieu wrote:
+> Corinna Vinschen <vinschen@redhat.com> :
+> > On Aug 21 21:39, Francois Romieu wrote:
+> [...]
+> > > The code should propagate failure when both rtl8169_reset_counters and
+> > > rtl8169_update_counters fail.
+> >=20
+> > This one I don't understand.  Neither failing to reset the counters nor
+> > failing to update the counters is fatal for the driver.  So far the
+> > (unchanged) rtl8169_update_counters doesn't even print a log message,
+>=20
+> I wouldn't overestimate the value of log messages vs real status return.
+> Users can be quite unhappy with default settings that spam their logs
+> (it isn't a problem in open(), it's marginaly murphy plausible from
+> a periodic get_stats context).
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
----
- net/netfilter/ipset/ip_set_hash_netnet.c     | 20 ++++++++++++++++++--
- net/netfilter/ipset/ip_set_hash_netportnet.c | 20 ++++++++++++++++++--
- 2 files changed, 36 insertions(+), 4 deletions(-)
+That won't happen with the current patch because only
+rtl8169_reset_counters would print a log message, it's only called from
+open, and open occurs rather seldom.  Atop of that the code only tries
+to reset counters on HW supporting it, and only if resetting on the HW
+fails, there will be a log message at all.  There's no reasonable chance
+that failing to reset the counters will lead to log flooding.
 
-diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
-index 3c862c0..a93dfeb 100644
---- a/net/netfilter/ipset/ip_set_hash_netnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netnet.c
-@@ -131,6 +131,13 @@ hash_netnet4_data_next(struct hash_netnet4_elem *next,
- #define HOST_MASK	32
- #include "ip_set_hash_gen.h"
- 
-+static void
-+hash_netnet4_init(struct hash_netnet4_elem *e)
-+{
-+	e->cidr[0] = HOST_MASK;
-+	e->cidr[1] = HOST_MASK;
-+}
-+
- static int
- hash_netnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		  const struct xt_action_param *par,
-@@ -160,7 +167,7 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- {
- 	const struct hash_netnet *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
--	struct hash_netnet4_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
-+	struct hash_netnet4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	u32 ip = 0, ip_to = 0, last;
- 	u32 ip2 = 0, ip2_from = 0, ip2_to = 0, last2;
-@@ -169,6 +176,7 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	hash_netnet4_init(&e);
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
-@@ -357,6 +365,13 @@ hash_netnet6_data_next(struct hash_netnet4_elem *next,
- #define IP_SET_EMIT_CREATE
- #include "ip_set_hash_gen.h"
- 
-+static void
-+hash_netnet6_init(struct hash_netnet6_elem *e)
-+{
-+	e->cidr[0] = HOST_MASK;
-+	e->cidr[1] = HOST_MASK;
-+}
-+
- static int
- hash_netnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		  const struct xt_action_param *par,
-@@ -385,13 +400,14 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
- 	ipset_adtfn adtfn = set->variant->adt[adt];
--	struct hash_netnet6_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
-+	struct hash_netnet6_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	int ret;
- 
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	hash_netnet6_init(&e);
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
-diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
-index 0c68734..9a14c23 100644
---- a/net/netfilter/ipset/ip_set_hash_netportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
-@@ -142,6 +142,13 @@ hash_netportnet4_data_next(struct hash_netportnet4_elem *next,
- #define HOST_MASK	32
- #include "ip_set_hash_gen.h"
- 
-+static void
-+hash_netportnet4_init(struct hash_netportnet4_elem *e)
-+{
-+	e->cidr[0] = HOST_MASK;
-+	e->cidr[1] = HOST_MASK;
-+}
-+
- static int
- hash_netportnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		      const struct xt_action_param *par,
-@@ -175,7 +182,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- {
- 	const struct hash_netportnet *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
--	struct hash_netportnet4_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
-+	struct hash_netportnet4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	u32 ip = 0, ip_to = 0, ip_last, p = 0, port, port_to;
- 	u32 ip2_from = 0, ip2_to = 0, ip2_last, ip2;
-@@ -185,6 +192,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	hash_netportnet4_init(&e);
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
-@@ -412,6 +420,13 @@ hash_netportnet6_data_next(struct hash_netportnet4_elem *next,
- #define IP_SET_EMIT_CREATE
- #include "ip_set_hash_gen.h"
- 
-+static void
-+hash_netportnet6_init(struct hash_netportnet6_elem *e)
-+{
-+	e->cidr[0] = HOST_MASK;
-+	e->cidr[1] = HOST_MASK;
-+}
-+
- static int
- hash_netportnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		      const struct xt_action_param *par,
-@@ -445,7 +460,7 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- {
- 	const struct hash_netportnet *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
--	struct hash_netportnet6_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
-+	struct hash_netportnet6_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
- 	u32 port, port_to;
- 	bool with_ports = false;
-@@ -454,6 +469,7 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
-+	hash_netportnet6_init(&e);
- 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
- 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
--- 
-2.3.5
+> The driver can't propagate errors from the current get_stats context
+> where rtl8169_update_counters is used. However it can be done in
+> open().
+>=20
+> > while a failing reset in rtl8169_reset_counters now does.
+> >=20
+> > Why is that not sufficent?
+>=20
+> Because of the same reason(s) why this patch wants to improve things.
+>=20
+> It isn't a showstopper.
 
+I'm not trying to avoid work, I'm trying to understand.
+
+As far as I see it failing to reset the counters has no impact on the
+viability of the code.  It's still working with offsets and if the
+offset is 0 or non-0, the user space won't see the difference in the
+values returned by @get_stats64.  Successful resetting the counters is
+just a bonus.
+
+Considering that failing rtl8169_reset_counters or failing
+rtl8169_update_counters has no negative impact on open at all, the
+problem I have here is:
+
+What do you do with a return value from either one of these functions?
+
+rtl_open () {
+  [...]
+
+  if (!rtl8169_reset_counters (dev)) {
+    /* ??? */
+  }
+
+  if (!rtl8169_update_counters (dev)) {
+    /* ??? */
+  }
+
+  [...]
+}
+
+
+Thanks,
+Corinna
+
+--u3/rZRmxL6MmkK24
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJV2DU0AAoJEPU2Bp2uRE+ghkgP/2EXjMmpTtOrk3Qctc1KgxK1
+ui8P0sGq/mtDa55dO7MuAac76GCJKfs9N4V0kAee2mPBiNJlKt3bcOeP3/VTt8D3
+vx/JTmhVtSqApiMbZqrLPSNB/IhZlftcDbZKPvCIbZb5wJR06+Q+5yBsR9LT+ZiU
+GyU8T8jGIm9gCKPjdrboZx69gUqEZvHyQYh6gwhs8ozrxvlLit/A0bmjWDKEiwqo
+vq+txSJf5tze8B8xdd6V+vQ3LtnCFs1GHALGmsj32Jh+SdOJ8LCRcfoRyb/P6NlG
+qGR37qr8w/WMGbF6xd9/D3lZgoG6QRD7w2yzZO9cpl5DDUmDySjVvTXHzBEL7pcB
+HBYeYdfYS22cBJ8SbADNBXEdjJSLyzQM8m8b05wELQY5w68P1U6/IheDRxi9Xok+
+DEJHvw96rn5XyUU5BdI8j+IkuG2V79NlymJr6GH72c8LhK1WngyoID+qPZrdtjrH
+LG9KbKYCPNiWKfXu8Obz2YO7ZlJ+wjkVpsb2/FXO1AM0pPU7l3A363WPU+aTQAi2
+/qNqTngsLrINlMFiU1zdOT5NOpMLEK9tidbEwCFQN58V8q+oKtFRQyFRNw3wcQWx
+ToFOXrmRFMjHIeFxC77H5tfmtKkadldYM+IYmRK+Kob4dblNh84aJ5Huwbf2HUQO
+VW1LWOGP9Eq81YUNOyJq
+=2+NV
+-----END PGP SIGNATURE-----
+
+--u3/rZRmxL6MmkK24--
