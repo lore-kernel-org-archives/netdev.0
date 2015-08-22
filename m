@@ -1,12 +1,12 @@
 From: Nicholas Krause <xerofoify@gmail.com>
 Subject: [PATCH] bridge:Fix concurrent access issue in the function
 	brnf_get_logical_dev
-Date: Sat, 22 Aug 2015 00:47:26 -0400
-Message-ID: <1440218846-760-1-git-send-email-xerofoify@gmail.com>
-Cc: kadlec@blackhole.kfki.h, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
+Date: Sat, 22 Aug 2015 00:48:21 -0400
+Message-ID: <1440218901-814-1-git-send-email-xerofoify@gmail.com>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kaber@trash.net,
 	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, kaber@trash.net
+	kadlec@blackhole.kfki.hu, davem@davemloft.net
 To: pablo@netfilter.org
 Return-path: <bridge-bounces@lists.linux-foundation.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
