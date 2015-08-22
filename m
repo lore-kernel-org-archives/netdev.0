@@ -1,54 +1,40 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2 net-next] r8169: Add values missing in @get_stats64
- from HW counters
-Date: Sat, 22 Aug 2015 13:23:34 +0200
-Message-ID: <20150822112334.GB24519@electric-eye.fr.zoreil.com>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
- <1440151756-18165-1-git-send-email-vinschen@redhat.com>
- <20150821193926.GA16437@electric-eye.fr.zoreil.com>
- <20150821220756.GI19683@calimero.vinschen.de>
- <20150821235940.GA20313@electric-eye.fr.zoreil.com>
- <20150822083916.GA17408@calimero.vinschen.de>
+Subject: Re: ipg and dl2k mess
+Date: Sat, 22 Aug 2015 13:25:54 +0200
+Message-ID: <20150822112554.GC24519@electric-eye.fr.zoreil.com>
+References: <201508212224.00090.linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
-	Ivan Vecera <ivecera@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	nic_swsd <nic_swsd@realtek.com>
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>,
+	Sorbica Shieh <sorbica@icplus.com.tw>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:55305 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55312 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753525AbbHVLYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 07:24:07 -0400
+	with ESMTP id S1752426AbbHVL0b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 07:26:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20150822083916.GA17408@calimero.vinschen.de>
+In-Reply-To: <201508212224.00090.linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corinna Vinschen <vinschen@redhat.com> :
+Ondrej Zary <linux@rainbow-software.org> :
 [...]
-> That won't happen with the current patch because only
-> rtl8169_reset_counters would print a log message, it's only called from
-> open, and open occurs rather seldom.  Atop of that the code only tries
-> to reset counters on HW supporting it, and only if resetting on the HW
-> fails, there will be a log message at all.  There's no reasonable chance
-> that failing to reset the counters will lead to log flooding.
+> The patch below is enough to make my IP1000A card work with dl2k driver - no
+> more lost packets and hangs. Haven't tested gigabit speed yet - the PHY will
+> probably need some tweaking but that should be easy.
 
-Thanks for reformulating it. We are in violent agreement here.
+Neither dl2k nor ipg uses napi. They are a bit dusty.
 
-[...]
-> I'm not trying to avoid work, I'm trying to understand.
-> 
-> As far as I see it failing to reset the counters has no impact on the
-> viability of the code.  It's still working with offsets and if the
-> offset is 0 or non-0, the user space won't see the difference in the
-> values returned by @get_stats64.  Successful resetting the counters is
-> just a bonus.
+> So maybe we should add IP1000A support to dl2k and remove the broken ipg
+> driver.
 
-Sorry, my english was really bad:
+Do you mean to merge both ?
 
-the code should propagate failure when rtl8169_reset_counters and
-rtl8169_update_counters *simultaneously* fail.
+> Does anyone have HW to test?
+
+I have a PCI 32 IC Plus IP1000A at hand (courtesy of IC Plus Corp).
 
 -- 
 Ueimor
