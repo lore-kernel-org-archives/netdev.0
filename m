@@ -1,123 +1,136 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH v2 net-next] r8169: Add values missing in @get_stats64
- from HW counters
-Date: Sat, 22 Aug 2015 10:39:16 +0200
-Message-ID: <20150822083916.GA17408@calimero.vinschen.de>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
- <1440151756-18165-1-git-send-email-vinschen@redhat.com>
- <20150821193926.GA16437@electric-eye.fr.zoreil.com>
- <20150821220756.GI19683@calimero.vinschen.de>
- <20150821235940.GA20313@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="u3/rZRmxL6MmkK24"
-Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
-	Ivan Vecera <ivecera@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	nic_swsd <nic_swsd@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH,net-next] r8169: Change order to init regs
+Date: Sat, 22 Aug 2015 12:45:17 +0300
+Message-ID: <1440236717-30405-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:50676 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221AbbHVIjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 04:39:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20150821235940.GA20313@electric-eye.fr.zoreil.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35853 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753338AbbHVJp3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 05:45:29 -0400
+Received: by wicja10 with SMTP id ja10so32860922wic.1
+        for <netdev@vger.kernel.org>; Sat, 22 Aug 2015 02:45:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Disable writting on registers on probe stage because
+ register CplusCmd must init first.Here is order:  1. CplusCmd,  2. ChipCmd,  3.
+ Rest regs.  I split __rtl8169_set_features func for solve this issue.
 
---u3/rZRmxL6MmkK24
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 
-On Aug 22 01:59, Francois Romieu wrote:
-> Corinna Vinschen <vinschen@redhat.com> :
-> > On Aug 21 21:39, Francois Romieu wrote:
-> [...]
-> > > The code should propagate failure when both rtl8169_reset_counters and
-> > > rtl8169_update_counters fail.
-> >=20
-> > This one I don't understand.  Neither failing to reset the counters nor
-> > failing to update the counters is fatal for the driver.  So far the
-> > (unchanged) rtl8169_update_counters doesn't even print a log message,
->=20
-> I wouldn't overestimate the value of log messages vs real status return.
-> Users can be quite unhappy with default settings that spam their logs
-> (it isn't a problem in open(), it's marginaly murphy plausible from
-> a periodic get_stats context).
-
-That won't happen with the current patch because only
-rtl8169_reset_counters would print a log message, it's only called from
-open, and open occurs rather seldom.  Atop of that the code only tries
-to reset counters on HW supporting it, and only if resetting on the HW
-fails, there will be a log message at all.  There's no reasonable chance
-that failing to reset the counters will lead to log flooding.
-
-> The driver can't propagate errors from the current get_stats context
-> where rtl8169_update_counters is used. However it can be done in
-> open().
->=20
-> > while a failing reset in rtl8169_reset_counters now does.
-> >=20
-> > Why is that not sufficent?
->=20
-> Because of the same reason(s) why this patch wants to improve things.
->=20
-> It isn't a showstopper.
-
-I'm not trying to avoid work, I'm trying to understand.
-
-As far as I see it failing to reset the counters has no impact on the
-viability of the code.  It's still working with offsets and if the
-offset is 0 or non-0, the user space won't see the difference in the
-values returned by @get_stats64.  Successful resetting the counters is
-just a bonus.
-
-Considering that failing rtl8169_reset_counters or failing
-rtl8169_update_counters has no negative impact on open at all, the
-problem I have here is:
-
-What do you do with a return value from either one of these functions?
-
-rtl_open () {
-  [...]
-
-  if (!rtl8169_reset_counters (dev)) {
-    /* ??? */
-  }
-
-  if (!rtl8169_update_counters (dev)) {
-    /* ??? */
-  }
-
-  [...]
-}
-
-
-Thanks,
-Corinna
-
---u3/rZRmxL6MmkK24
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJV2DU0AAoJEPU2Bp2uRE+ghkgP/2EXjMmpTtOrk3Qctc1KgxK1
-ui8P0sGq/mtDa55dO7MuAac76GCJKfs9N4V0kAee2mPBiNJlKt3bcOeP3/VTt8D3
-vx/JTmhVtSqApiMbZqrLPSNB/IhZlftcDbZKPvCIbZb5wJR06+Q+5yBsR9LT+ZiU
-GyU8T8jGIm9gCKPjdrboZx69gUqEZvHyQYh6gwhs8ozrxvlLit/A0bmjWDKEiwqo
-vq+txSJf5tze8B8xdd6V+vQ3LtnCFs1GHALGmsj32Jh+SdOJ8LCRcfoRyb/P6NlG
-qGR37qr8w/WMGbF6xd9/D3lZgoG6QRD7w2yzZO9cpl5DDUmDySjVvTXHzBEL7pcB
-HBYeYdfYS22cBJ8SbADNBXEdjJSLyzQM8m8b05wELQY5w68P1U6/IheDRxi9Xok+
-DEJHvw96rn5XyUU5BdI8j+IkuG2V79NlymJr6GH72c8LhK1WngyoID+qPZrdtjrH
-LG9KbKYCPNiWKfXu8Obz2YO7ZlJ+wjkVpsb2/FXO1AM0pPU7l3A363WPU+aTQAi2
-/qNqTngsLrINlMFiU1zdOT5NOpMLEK9tidbEwCFQN58V8q+oKtFRQyFRNw3wcQWx
-ToFOXrmRFMjHIeFxC77H5tfmtKkadldYM+IYmRK+Kob4dblNh84aJ5Huwbf2HUQO
-VW1LWOGP9Eq81YUNOyJq
-=2+NV
------END PGP SIGNATURE-----
-
---u3/rZRmxL6MmkK24--
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index ea461fe..b0f7ed2 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -2057,6 +2057,48 @@ static void __rtl8169_set_features(struct net_device *dev,
+ 	RTL_R16(CPlusCmd);
+ }
+ 
++static void rtl8169_set_feat_part2(struct net_device *dev,
++				   netdev_features_t features)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	void __iomem *ioaddr = tp->mmio_addr;
++	
++
++
++	if (features & NETIF_F_RXCSUM)
++		tp->cp_cmd |= RxChkSum;
++	else
++		tp->cp_cmd &= ~RxChkSum;
++
++	if (features & NETIF_F_HW_VLAN_CTAG_RX)
++		tp->cp_cmd |= RxVlan;
++	else
++		tp->cp_cmd &= ~RxVlan;
++
++	tp->cp_cmd |= RTL_R16(CPlusCmd) & ~(RxVlan | RxChkSum);
++
++	RTL_W16(CPlusCmd, tp->cp_cmd);
++	RTL_R16(CPlusCmd);
++}
++
++static void rtl8169_set_feat_part1(struct net_device *dev,
++				   netdev_features_t features)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	void __iomem *ioaddr = tp->mmio_addr;
++	u32 rx_config;
++
++	rx_config = RTL_R32(RxConfig);
++	if (features & NETIF_F_RXALL)
++		rx_config |= (AcceptErr | AcceptRunt);
++	else
++		rx_config &= ~(AcceptErr | AcceptRunt);
++
++	RTL_W32(RxConfig, rx_config);
++
++
++}
++
+ static int rtl8169_set_features(struct net_device *dev,
+ 				netdev_features_t features)
+ {
+@@ -7604,6 +7646,7 @@ static int rtl_open(struct net_device *dev)
+ 	if (!tp->RxDescArray)
+ 		goto err_free_tx_0;
+ 
++	rtl8169_set_feat_part2(dev, dev->features);
+ 	retval = rtl8169_init_ring(dev);
+ 	if (retval < 0)
+ 		goto err_free_rx_1;
+@@ -7628,10 +7671,11 @@ static int rtl_open(struct net_device *dev)
+ 
+ 	rtl8169_init_phy(dev, tp);
+ 
+-	__rtl8169_set_features(dev, dev->features);
++	//__rtl8169_set_features(dev, dev->features);
+ 
+ 	rtl_pll_power_up(tp);
+-
++	rtl8169_set_feat_part1(dev, dev->features);
++	rtl_init_rxcfg(tp);
+ 	rtl_hw_start(dev);
+ 
+ 	netif_start_queue(dev);
+@@ -8178,13 +8222,13 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* Identify chip attached to board */
+ 	rtl8169_get_mac_version(tp, dev, cfg->default_ver);
+ 
+-	rtl_init_rxcfg(tp);
++	//rtl_init_rxcfg(tp);
+ 
+ 	rtl_irq_disable(tp);
+ 
+ 	rtl_hw_initialize(tp);
+ 
+-	rtl_hw_reset(tp);
++	//rtl_hw_reset(tp);
+ 
+ 	rtl_ack_events(tp, 0xffff);
+ 	if (!pci_is_pcie(pdev))
+@@ -8200,9 +8244,9 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	chipset = tp->mac_version;
+ 	tp->txd_version = rtl_chip_infos[chipset].txd_version;
+ 
+-	RTL_W8(Cfg9346, Cfg9346_Unlock);
++	/*RTL_W8(Cfg9346, Cfg9346_Unlock);
+ 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
+-	RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));
++	RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));*/
+ 	switch (tp->mac_version) {
+ 	case RTL_GIGA_MAC_VER_34:
+ 	case RTL_GIGA_MAC_VER_35:
+@@ -8234,7 +8278,7 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
+ 		tp->features |= RTL_FEATURE_WOL;
+ 	tp->features |= rtl_try_msi(tp, cfg);
+-	RTL_W8(Cfg9346, Cfg9346_Lock);
++	//RTL_W8(Cfg9346, Cfg9346_Lock);
+ 
+ 	if (rtl_tbi_enabled(tp)) {
+ 		tp->set_speed = rtl8169_set_speed_tbi;
+-- 
+2.1.4
