@@ -1,85 +1,52 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] route: fix a use-after-free
-Date: Tue, 25 Aug 2015 10:38:53 -0700
-Message-ID: <1440524333-5902-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: jbenc@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>,
-	Cong Wang <cwang@twopensource.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33298 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665AbbHYRjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 13:39:10 -0400
-Received: by pacti10 with SMTP id ti10so57647022pac.0
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 10:39:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: [PATCH] bridge:Fix concurrent access issue in the function
+	brnf_get_logical_dev
+Date: Sat, 22 Aug 2015 00:47:26 -0400
+Message-ID: <1440218846-760-1-git-send-email-xerofoify@gmail.com>
+Cc: kadlec@blackhole.kfki.h, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, kaber@trash.net
+To: pablo@netfilter.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the following crash:
+This fixes a concurrent access issue in the function brnf_get_logical_dev
+by properly locking with the function rcu_read_lock before calling the
+function vlan_find_dev_deep_rcu and unlocking after this function call
+as all callers of this function are required to do this in order to
+improve issues with concurrent access by other threads executing
+on this data structures simultaneously.
 
- general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
- CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.2.0-rc7+ #166
- Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
- task: ffff88010656d280 ti: ffff880106570000 task.ti: ffff880106570000
- RIP: 0010:[<ffffffff8182f91b>]  [<ffffffff8182f91b>] dst_destroy+0xa6/0xef
- RSP: 0018:ffff880107603e38  EFLAGS: 00010202
- RAX: 0000000000000001 RBX: ffff8800d225a000 RCX: ffffffff82250fd0
- RDX: 0000000000000001 RSI: ffffffff82250fd0 RDI: 6b6b6b6b6b6b6b6b
- RBP: ffff880107603e58 R08: 0000000000000001 R09: 0000000000000001
- R10: 000000000000b530 R11: ffff880107609000 R12: 0000000000000000
- R13: ffffffff82343c40 R14: 0000000000000000 R15: ffffffff8182fb4f
- FS:  0000000000000000(0000) GS:ffff880107600000(0000) knlGS:0000000000000000
- CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
- CR2: 00007fcabd9d3000 CR3: 00000000d7279000 CR4: 00000000000006e0
- Stack:
-  ffffffff82250fd0 ffff8801077d6f00 ffffffff82253c40 ffff8800d225a000
-  ffff880107603e68 ffffffff8182fb5d ffff880107603f08 ffffffff810d795e
-  ffffffff810d7648 ffff880106574000 ffff88010656d280 ffff88010656d280
- Call Trace:
-  <IRQ>
-  [<ffffffff8182fb5d>] dst_destroy_rcu+0xe/0x1d
-  [<ffffffff810d795e>] rcu_process_callbacks+0x618/0x7eb
-  [<ffffffff810d7648>] ? rcu_process_callbacks+0x302/0x7eb
-  [<ffffffff8182fb4f>] ? dst_gc_task+0x1eb/0x1eb
-  [<ffffffff8107e11b>] __do_softirq+0x178/0x39f
-  [<ffffffff8107e52e>] irq_exit+0x41/0x95
-  [<ffffffff81a4f215>] smp_apic_timer_interrupt+0x34/0x40
-  [<ffffffff81a4d5cd>] apic_timer_interrupt+0x6d/0x80
-  <EOI>
-  [<ffffffff8100b968>] ? default_idle+0x21/0x32
-  [<ffffffff8100b966>] ? default_idle+0x1f/0x32
-  [<ffffffff8100bf19>] arch_cpu_idle+0xf/0x11
-  [<ffffffff810b0bc7>] default_idle_call+0x1f/0x21
-  [<ffffffff810b0dce>] cpu_startup_entry+0x1ad/0x273
-  [<ffffffff8102fe67>] start_secondary+0x135/0x156
-
-dst is freed right before lwtstate_put(), this is not correct...
-
-Fixes: 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
-Acked-by: Jiri Benc <jbenc@redhat.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 ---
- net/core/dst.c | 3 ++-
+ net/bridge/br_netfilter_hooks.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 50dcdbb..477035e 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -262,11 +262,12 @@ struct dst_entry *dst_destroy(struct dst_entry * dst)
- 	if (dst->dev)
- 		dev_put(dst->dev);
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index c8b9bcf..73c84a8 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -428,9 +428,10 @@ static struct net_device *brnf_get_logical_dev(struct sk_buff *skb, const struct
+ 	if (brnf_pass_vlan_indev == 0 || !skb_vlan_tag_present(skb))
+ 		return br;
  
-+	lwtstate_put(dst->lwtstate);
-+
- 	if (dst->flags & DST_METADATA)
- 		kfree(dst);
- 	else
- 		kmem_cache_free(dst->ops->kmem_cachep, dst);
--	lwtstate_put(dst->lwtstate);
++	rcu_read_lock();
+ 	vlan = __vlan_find_dev_deep_rcu(br, skb->vlan_proto,
+ 				    skb_vlan_tag_get(skb) & VLAN_VID_MASK);
+-
++	rcu_read_unlock();
+ 	return vlan ? vlan : br;
+ }
  
- 	dst = child;
- 	if (dst) {
 -- 
-1.8.3.1
+2.1.4
