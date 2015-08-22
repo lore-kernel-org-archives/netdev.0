@@ -1,66 +1,64 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v3 3/4] Add support for driver cross-timestamp to
- PTP_SYS_OFFSET ioctl
-Date: Sat, 22 Aug 2015 23:17:18 +0200
-Message-ID: <20150822211718.GA8561@netboy>
-References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
- <1440183128-1384-4-git-send-email-christopher.s.hall@intel.com>
- <alpine.DEB.2.11.1508222226540.3873@nanos>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	john.stultz@linaro.org, x86@kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, peterz@infradead.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:38172 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750854AbbHVVRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 17:17:24 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.11.1508222226540.3873@nanos>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [PATCH 00/14] RDS: Assorted bug fixes
+Date: Sat, 22 Aug 2015 15:45:21 -0700
+Message-ID: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	ssantosh@kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 22, 2015 at 10:33:48PM +0200, Thomas Gleixner wrote:
-> > @@ -196,19 +197,31 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
-> >  			break;
-> >  		}
-> >  		pct = &sysoff->ts[0];
-> > -		for (i = 0; i < sysoff->n_samples; i++) {
-> > -			getnstimeofday64(&ts);
-> > +		if (ptp->info->getsynctime64 && sysoff->n_samples == 1 &&
-> 
-> The number of samples should be irrelevant for this sampling method.
+We would like to improve RDS upstream support and in that context, I
+started playing with it.  But run into number of issues including as
+basic is RDS IB RDMA doesn't work. As part of the debug, I ended up
+creating the $subject series which has bunch of assorted fixes. At
+least with this series I can run RDS IB RDMA and other tests
+successfully.
 
-Chris had send me a preview of this before he posted, so I can explain
-that test for one sample.
+Some of these fixes have been done by Chris Meson, Andy Grover and
+Zach Brown while at Oracle. There are still more kinks with FMR and
+error handling and I plan to address them in a follow up series.
 
-User space requests N (1 to 25) samples of the two clocks.  The kernel
-is supposed to deliver that many samples.  This has always been the
-documented behavior.  From ptp_clock.h:
+Series generated against Linus's master(v4.2-rc-7) but also applies
+against next-next cleanly. Its tested on Oracle hardware with IB
+fabric for both bcopy as well as RDMA mode. I don't have access
+to iWARP hardware so any testing help on iWARP hardware appreciated.
 
-  struct ptp_sys_offset {
-	unsigned int n_samples; /* Desired number of measurements. */
-	unsigned int rsv[3];    /* Reserved for future use. */
-	/*
-	 * Array of interleaved system/phc time stamps. The kernel
-	 * will provide 2*n_samples + 1 time stamps, with the last
-	 * one as a system time stamp.
-	 */
-	struct ptp_clock_time ts[2 * PTP_MAX_SAMPLES + 1];
-  };
+Mukesh Kacker (1):
+  RDS: return EMSGSIZE for oversize requests before processing/queueing
 
-So the kernel cannot simply change n_samples to 1.
+Santosh Shilimkar (13):
+  RDS: restore return value in rds_cmsg_rdma_args()
+  RDS: always free recv frag as we free its ring entry
+  RDS: destroy the ib state earlier during shutdown
+  RDS: don't update ip address tables if the address hasn't changed
+  RDS: make sure we post recv buffers
+  RDS: check for congestion updates during rds_send_xmit
+  RDS: add a sock_destruct callback debug aid
+  RDS: Mark message mapped before transmit
+  RDS: Make sure we do a signaled send for large-send
+  RDS: Fix assertion level from fatal to warning
+  RDS: Don't destroy the rdma id until after we're done using it
+  RDS: make sure rds_send_drop_to properly takes the m_rs_lock
+  RDS: check for valid cm_id before initiating connection
 
-I would prefer to have a new system call that compares any two posix
-clock_t, but that is of course more work.
+ net/rds/af_rds.c         |  9 ++++++
+ net/rds/connection.c     |  2 ++
+ net/rds/ib.h             |  2 +-
+ net/rds/ib_cm.c          | 17 +++++++-----
+ net/rds/ib_rdma.c        | 11 ++++++--
+ net/rds/ib_recv.c        | 71 ++++++++++++++++++++++++++++++++++++++++++------
+ net/rds/ib_send.c        |  5 ++++
+ net/rds/rdma.c           |  4 ++-
+ net/rds/rdma_transport.c | 15 ++++++++--
+ net/rds/rds.h            |  1 +
+ net/rds/send.c           | 54 ++++++++++++++++++++++++++----------
+ 11 files changed, 153 insertions(+), 38 deletions(-)
 
-Allowing n_samples=1 as a special case is a kind of overloading of the
-ioctl to support the new capability.  At least it preserves the
-behavior of the interface from the user's perspective.
 
-Thanks,
-Richard
+Regards,
+Santosh
+-- 
+1.9.1
