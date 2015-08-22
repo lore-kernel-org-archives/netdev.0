@@ -1,10 +1,10 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 13/14] RDS: return EMSGSIZE for oversize requests before processing/queueing
-Date: Sat, 22 Aug 2015 15:45:34 -0700
-Message-ID: <1440283535-4800-14-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 14/14] RDS: check for valid cm_id before initiating connection
+Date: Sat, 22 Aug 2015 15:45:35 -0700
+Message-ID: <1440283535-4800-15-git-send-email-santosh.shilimkar@oracle.com>
 References: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	ssantosh@kernel.org, Mukesh Kacker <mukesh.kacker@oracle.com>,
+	ssantosh@kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,67 +12,48 @@ In-Reply-To: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mukesh Kacker <mukesh.kacker@oracle.com>
+Connection could have been dropped while the route is being resolved
+so check for valid cm_id before initiating the connection.
 
-rds_send_queue_rm() allows for the "current datagram" being queued
-to exceed SO_SNDBUF thresholds by checking bytes queued without
-counting in length of current datagram. (Since sk_sndbuf is set
-to twice requested SO_SNDBUF value as a kernel heuristic this
-is usually fine!)
-
-If this "current datagram" squeezing past the threshold is itself
-many times the size of the sk_sndbuf threshold itself then even
-twice the SO_SNDBUF does not save us and it gets queued but
-cannot be transmitted. Threads block and deadlock and device
-becomes unusable. The check for this datagram not exceeding
-SNDBUF thresholds (EMSGSIZE) is not done on this datagram as
-that check is only done if queueing attempt fails.
-(Datagrams that follow this datagram fail queueing attempts, go
-through the check and eventually trip EMSGSIZE error but zero
-length datagrams silently fail!)
-
-This fix moves the check for datagrams exceeding SNDBUF limits
-before any processing or queueing is attempted and returns EMSGSIZE
-early in the rds_sndmsg() code. This change also ensures that all
-datagrams get checked for exceeding SNDBUF/sk_sndbuf size limits
-and the large datagrams that exceed those limits do not get to
-rds_send_queue_rm() code for processing.
-
-Signed-off-by: Mukesh Kacker <mukesh.kacker@oracle.com>
+Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/send.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ net/rds/rdma_transport.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index b0fe412..c2667bf 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -1015,6 +1015,11 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
- 		goto out;
- 	}
+diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
+index 2082408..b9b40af 100644
+--- a/net/rds/rdma_transport.c
++++ b/net/rds/rdma_transport.c
+@@ -34,6 +34,7 @@
+ #include <rdma/rdma_cm.h>
  
-+	if (payload_len > rds_sk_sndbuf(rs)) {
-+		ret = -EMSGSIZE;
-+		goto out;
-+	}
+ #include "rdma_transport.h"
++#include "ib.h"
+ 
+ static struct rdma_cm_id *rds_rdma_listen_id;
+ 
+@@ -82,8 +83,18 @@ int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
+ 		break;
+ 
+ 	case RDMA_CM_EVENT_ROUTE_RESOLVED:
+-		/* XXX worry about racing with listen acceptance */
+-		ret = trans->cm_initiate_connect(cm_id);
++		/* Connection could have been dropped so make sure the
++		 * cm_id is valid before proceeding
++		 */
++		if (conn) {
++			struct rds_ib_connection *ibic;
 +
- 	/* size of rm including all sgs */
- 	ret = rds_rm_size(msg, payload_len);
- 	if (ret < 0)
-@@ -1086,11 +1091,7 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
- 	while (!rds_send_queue_rm(rs, conn, rm, rs->rs_bound_port,
- 				  dport, &queued)) {
- 		rds_stats_inc(s_send_queue_full);
--		/* XXX make sure this is reasonable */
--		if (payload_len > rds_sk_sndbuf(rs)) {
--			ret = -EMSGSIZE;
--			goto out;
--		}
-+
- 		if (nonblock) {
- 			ret = -EAGAIN;
- 			goto out;
++			ibic = conn->c_transport_data;
++			if (ibic && ibic->i_cm_id == cm_id)
++				ret = trans->cm_initiate_connect(cm_id);
++			else
++				rds_conn_drop(conn);
++		}
+ 		break;
+ 
+ 	case RDMA_CM_EVENT_ESTABLISHED:
 -- 
 1.9.1
