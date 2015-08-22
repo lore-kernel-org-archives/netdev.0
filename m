@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 11/14] RDS: Don't destroy the rdma id until after we're done using it
-Date: Sat, 22 Aug 2015 15:45:32 -0700
-Message-ID: <1440283535-4800-12-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 04/14] RDS: don't update ip address tables if the address hasn't changed
+Date: Sat, 22 Aug 2015 15:45:25 -0700
+Message-ID: <1440283535-4800-5-git-send-email-santosh.shilimkar@oracle.com>
 References: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	ssantosh@kernel.org,
@@ -12,39 +12,40 @@ In-Reply-To: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <ssantosh@kernel.org>
+If the ip address tables hasn't changed, there is no need to remove
+them only to be added back again.
 
-During connection resets, we are destroying the rdma id too soon. We can't
-destroy it when it is still in use. So lets move rdma_destroy_id() after
-we clear the rings.
-
+Lets fix it.
 Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_cm.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/rds/ib_rdma.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index cb78da1..0443af7 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -646,7 +646,6 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
- 			ib_destroy_cq(ic->i_send_cq);
- 		if (ic->i_recv_cq)
- 			ib_destroy_cq(ic->i_recv_cq);
--		rdma_destroy_id(ic->i_cm_id);
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index 657ba9f..e49c956 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -151,12 +151,17 @@ int rds_ib_update_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
+ 	struct rds_ib_device *rds_ibdev_old;
  
- 		/* then free the resources that ib callbacks use */
- 		if (ic->i_send_hdrs)
-@@ -672,6 +671,8 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
- 		if (ic->i_recvs)
- 			rds_ib_recv_clear_ring(ic);
- 
-+		rdma_destroy_id(ic->i_cm_id);
+ 	rds_ibdev_old = rds_ib_get_device(ipaddr);
+-	if (rds_ibdev_old) {
++	if (!rds_ibdev_old)
++		return rds_ib_add_ipaddr(rds_ibdev, ipaddr);
 +
- 		/*
- 		 * Move connection back to the nodev list.
- 		 */
++	if (rds_ibdev_old != rds_ibdev) {
+ 		rds_ib_remove_ipaddr(rds_ibdev_old, ipaddr);
+ 		rds_ib_dev_put(rds_ibdev_old);
++		return rds_ib_add_ipaddr(rds_ibdev, ipaddr);
+ 	}
++	rds_ib_dev_put(rds_ibdev_old);
+ 
+-	return rds_ib_add_ipaddr(rds_ibdev, ipaddr);
++	return 0;
+ }
+ 
+ void rds_ib_add_conn(struct rds_ib_device *rds_ibdev, struct rds_connection *conn)
 -- 
 1.9.1
