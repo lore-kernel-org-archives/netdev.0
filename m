@@ -1,56 +1,66 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH] veth: replace iflink by a dedicated symlink in sysfs
-Date: Sat, 22 Aug 2015 22:51:01 +0200
-Message-ID: <87si7bt5ca.fsf@zoro.exoscale.ch>
-References: <55D4AFCA.7080300@6wind.com> <20150820135307.3ce12f69@griffin>
-	<55D5E4AF.7020409@6wind.com>
-	<20150820.140734.195153496258370626.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3 3/4] Add support for driver cross-timestamp to
+ PTP_SYS_OFFSET ioctl
+Date: Sat, 22 Aug 2015 23:17:18 +0200
+Message-ID: <20150822211718.GA8561@netboy>
+References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
+ <1440183128-1384-4-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1508222226540.3873@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nicolas.dichtel@6wind.com, jbenc@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
+	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
+	john.stultz@linaro.org, x86@kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, peterz@infradead.org
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:54173 "EHLO bart.luffy.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750823AbbHVUvE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 16:51:04 -0400
-In-Reply-To: <20150820.140734.195153496258370626.davem@davemloft.net> (David
-	Miller's message of "Thu, 20 Aug 2015 14:07:34 -0700 (PDT)")
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:38172 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750854AbbHVVRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 17:17:24 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.11.1508222226540.3873@nanos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- =E2=9D=A6 20 ao=C3=BBt 2015 14:07 -0700, David Miller <davem@davemloft=
-=2Enet>=C2=A0:
+On Sat, Aug 22, 2015 at 10:33:48PM +0200, Thomas Gleixner wrote:
+> > @@ -196,19 +197,31 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+> >  			break;
+> >  		}
+> >  		pct = &sysoff->ts[0];
+> > -		for (i = 0; i < sysoff->n_samples; i++) {
+> > -			getnstimeofday64(&ts);
+> > +		if (ptp->info->getsynctime64 && sysoff->n_samples == 1 &&
+> 
+> The number of samples should be irrelevant for this sampling method.
 
->>>> I also don't know what is the best way to handle this. veth advert=
-ises
->>>> its peer via IFLA_LINK since 4.1, so it's too late to change it fo=
-r
->>>> this
->>>> release.
->>>
->>> Apparently we need to pick our poison. Either way, we break somethi=
-ng.
->> Sure. I would prefer to have the same mechanism in all version, but =
-I
->> can live with the other solution.
->>=20
->> David, any thoughts about this?
->
-> You can't break the 4.1 semantics, it's in a released kernel and peop=
-le
-> _ARE_ using it.
+Chris had send me a preview of this before he posted, so I can explain
+that test for one sample.
 
-I had a look at what other kind of daemons may exploit the pre-4.1
-semantics (of not having an infinite loop when following iflink) and
-failed to find any other users than "lldpd". Other LLDP daemons (lldpad=
-,
-ladvd, openlldpd) have other ways to find the lower interface. I would
-also have thought that NetSNMP would use it to implement ifStackTable
-but it doesn't in fact implement this table.
---=20
-It were not best that we should all think alike; it is difference of op=
-inion
-that makes horse-races.
-		-- Mark Twain, "Pudd'nhead Wilson's Calendar"
+User space requests N (1 to 25) samples of the two clocks.  The kernel
+is supposed to deliver that many samples.  This has always been the
+documented behavior.  From ptp_clock.h:
+
+  struct ptp_sys_offset {
+	unsigned int n_samples; /* Desired number of measurements. */
+	unsigned int rsv[3];    /* Reserved for future use. */
+	/*
+	 * Array of interleaved system/phc time stamps. The kernel
+	 * will provide 2*n_samples + 1 time stamps, with the last
+	 * one as a system time stamp.
+	 */
+	struct ptp_clock_time ts[2 * PTP_MAX_SAMPLES + 1];
+  };
+
+So the kernel cannot simply change n_samples to 1.
+
+I would prefer to have a new system call that compares any two posix
+clock_t, but that is of course more work.
+
+Allowing n_samples=1 as a special case is a kind of overloading of the
+ioctl to support the new capability.  At least it preserves the
+behavior of the interface from the user's perspective.
+
+Thanks,
+Richard
