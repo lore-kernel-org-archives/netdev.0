@@ -1,10 +1,10 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 12/14] RDS: make sure rds_send_drop_to properly takes the m_rs_lock
-Date: Sat, 22 Aug 2015 15:45:33 -0700
-Message-ID: <1440283535-4800-13-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 13/14] RDS: return EMSGSIZE for oversize requests before processing/queueing
+Date: Sat, 22 Aug 2015 15:45:34 -0700
+Message-ID: <1440283535-4800-14-git-send-email-santosh.shilimkar@oracle.com>
 References: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	ssantosh@kernel.org,
+	ssantosh@kernel.org, Mukesh Kacker <mukesh.kacker@oracle.com>,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,52 +12,67 @@ In-Reply-To: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-rds_send_drop_to() is used during socket tear down to find all the
-messages on the socket and flush them .  It can race with the
-acking code unless it takes the m_rs_lock on each and every message.
+From: Mukesh Kacker <mukesh.kacker@oracle.com>
 
-This plugs a hole where we didn't take m_rs_lock on any message that
-didn't have the RDS_MSG_ON_CONN set.  Taking m_rs_lock avoids
-double frees and other memory corruptions as the ack code trusts
-the message m_rs pointer on a socket that had actually been freed.
+rds_send_queue_rm() allows for the "current datagram" being queued
+to exceed SO_SNDBUF thresholds by checking bytes queued without
+counting in length of current datagram. (Since sk_sndbuf is set
+to twice requested SO_SNDBUF value as a kernel heuristic this
+is usually fine!)
 
-We must take m_rs_lock to access m_rs.  Because of lock nesting and
-rs access, we also need to acquire rs_lock.
+If this "current datagram" squeezing past the threshold is itself
+many times the size of the sk_sndbuf threshold itself then even
+twice the SO_SNDBUF does not save us and it gets queued but
+cannot be transmitted. Threads block and deadlock and device
+becomes unusable. The check for this datagram not exceeding
+SNDBUF thresholds (EMSGSIZE) is not done on this datagram as
+that check is only done if queueing attempt fails.
+(Datagrams that follow this datagram fail queueing attempts, go
+through the check and eventually trip EMSGSIZE error but zero
+length datagrams silently fail!)
 
-Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
+This fix moves the check for datagrams exceeding SNDBUF limits
+before any processing or queueing is attempted and returns EMSGSIZE
+early in the rds_sndmsg() code. This change also ensures that all
+datagrams get checked for exceeding SNDBUF/sk_sndbuf size limits
+and the large datagrams that exceed those limits do not get to
+rds_send_queue_rm() code for processing.
+
+Signed-off-by: Mukesh Kacker <mukesh.kacker@oracle.com>
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/send.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ net/rds/send.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/net/rds/send.c b/net/rds/send.c
-index 96ae38d..b0fe412 100644
+index b0fe412..c2667bf 100644
 --- a/net/rds/send.c
 +++ b/net/rds/send.c
-@@ -778,8 +778,22 @@ void rds_send_drop_to(struct rds_sock *rs, struct sockaddr_in *dest)
- 	while (!list_empty(&list)) {
- 		rm = list_entry(list.next, struct rds_message, m_sock_item);
- 		list_del_init(&rm->m_sock_item);
--
- 		rds_message_wait(rm);
-+
-+		/* just in case the code above skipped this message
-+		 * because RDS_MSG_ON_CONN wasn't set, run it again here
-+		 * taking m_rs_lock is the only thing that keeps us
-+		 * from racing with ack processing.
-+		 */
-+		spin_lock_irqsave(&rm->m_rs_lock, flags);
-+
-+		spin_lock(&rs->rs_lock);
-+		__rds_send_complete(rs, rm, RDS_RDMA_CANCELED);
-+		spin_unlock(&rs->rs_lock);
-+
-+		rm->m_rs = NULL;
-+		spin_unlock_irqrestore(&rm->m_rs_lock, flags);
-+
- 		rds_message_put(rm);
+@@ -1015,6 +1015,11 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 		goto out;
  	}
- }
+ 
++	if (payload_len > rds_sk_sndbuf(rs)) {
++		ret = -EMSGSIZE;
++		goto out;
++	}
++
+ 	/* size of rm including all sgs */
+ 	ret = rds_rm_size(msg, payload_len);
+ 	if (ret < 0)
+@@ -1086,11 +1091,7 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 	while (!rds_send_queue_rm(rs, conn, rm, rs->rs_bound_port,
+ 				  dport, &queued)) {
+ 		rds_stats_inc(s_send_queue_full);
+-		/* XXX make sure this is reasonable */
+-		if (payload_len > rds_sk_sndbuf(rs)) {
+-			ret = -EMSGSIZE;
+-			goto out;
+-		}
++
+ 		if (nonblock) {
+ 			ret = -EAGAIN;
+ 			goto out;
 -- 
 1.9.1
