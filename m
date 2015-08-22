@@ -1,40 +1,19 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: ipg and dl2k mess
-Date: Sat, 22 Aug 2015 13:25:54 +0200
-Message-ID: <20150822112554.GC24519@electric-eye.fr.zoreil.com>
-References: <201508212224.00090.linux@rainbow-software.org>
+From: barr lewis <projectfiles003@gmail.com>
+Subject: Hi
+Date: Sat, 22 Aug 2015 11:34:38 +0000
+Message-ID: <CAJ9wv6sEmRd6ZHLOu_OPWnoR-Zg1JheBYSLocaa8jq7CFxfXZg@mail.gmail.com>
+Reply-To: product.file@voila.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>,
-	Sorbica Shieh <sorbica@icplus.com.tw>
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:55312 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752426AbbHVL0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 07:26:31 -0400
-Content-Disposition: inline
-In-Reply-To: <201508212224.00090.linux@rainbow-software.org>
+Received: from mail-la0-f68.google.com ([209.85.215.68]:35857 "EHLO
+	mail-la0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752426AbbHVLel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2015 07:34:41 -0400
+Received: by labd1 with SMTP id d1so4733545lab.3
+        for <netdev@vger.kernel.org>; Sat, 22 Aug 2015 04:34:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ondrej Zary <linux@rainbow-software.org> :
-[...]
-> The patch below is enough to make my IP1000A card work with dl2k driver - no
-> more lost packets and hangs. Haven't tested gigabit speed yet - the PHY will
-> probably need some tweaking but that should be easy.
-
-Neither dl2k nor ipg uses napi. They are a bit dusty.
-
-> So maybe we should add IP1000A support to dl2k and remove the broken ipg
-> driver.
-
-Do you mean to merge both ?
-
-> Does anyone have HW to test?
-
-I have a PCI 32 IC Plus IP1000A at hand (courtesy of IC Plus Corp).
-
--- 
-Ueimor
+let us talk
