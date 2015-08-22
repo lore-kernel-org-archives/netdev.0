@@ -1,8 +1,9 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: refine pacing rate determination
-Date: Fri, 21 Aug 2015 21:22:46 -0400
-Message-ID: <CADVnQymkAxnhA19GGQ9LkhgoQu=2vzE069766x3-3zMvp5-Rwg@mail.gmail.com>
-References: <1440203882.29244.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next] tcp: fix slow start after idle vs TSO/GSO
+Date: Fri, 21 Aug 2015 21:43:22 -0400
+Message-ID: <CADVnQynwaW0DEJE+kiLeaJ59rBaZ-uE2dWOyx+RH-LXxTBr_Ug@mail.gmail.com>
+References: <1440090487.6610.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1440185400.6610.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
@@ -10,43 +11,40 @@ Cc: David Miller <davem@davemloft.net>,
 	Yuchung Cheng <ycheng@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:34838 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbbHVBWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 21:22:47 -0400
-Received: by oiew67 with SMTP id w67so51398470oie.2
-        for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 18:22:46 -0700 (PDT)
-In-Reply-To: <1440203882.29244.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:34601 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752901AbbHVBnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2015 21:43:24 -0400
+Received: by obbfr1 with SMTP id fr1so72410022obb.1
+        for <netdev@vger.kernel.org>; Fri, 21 Aug 2015 18:43:22 -0700 (PDT)
+In-Reply-To: <1440185400.6610.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 21, 2015 at 8:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, Aug 21, 2015 at 3:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > From: Eric Dumazet <edumazet@google.com>
 >
-> When TCP pacing was added back in linux-3.12, we chose
-> to apply a fixed ratio of 200 % against current rate,
-> to allow probing for optimal throughput even during
-> slow start phase, where cwnd can be doubled every other gRTT.
+> slow start after idle might reduce cwnd, but we perform this
+> after first packet was cooked and sent.
 >
-> At Google, we found it was better applying a different ratio
-> while in Congestion Avoidance phase.
-> This ratio was set to 120 %.
+> With TSO/GSO, it means that we might send a full TSO packet
+> even if cwnd should have been reduced to IW10.
 >
-> We've used the normal tcp_in_slow_start() helper for a while,
-> then tuned the condition to select the conservative ratio
-> as soon as cwnd >= ssthresh/2 :
+> Moving the SSAI check in skb_entail() makes sense, because
+> we slightly reduce number of times this check is done,
+> especially for large send() and TCP Small queue callbacks from
+> softirq context.
 >
-> - After cwnd reduction, it is safer to ramp up more slowly,
->   as we approach optimal cwnd.
-> - Initial ramp up (ssthresh == INFINITY) still allows doubling
->   cwnd every other RTT.
->
+> As Neal pointed out, we also need to perform the check
+> if/when receive window opens.
+...
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 > Cc: Neal Cardwell <ncardwell@google.com>
 > Cc: Yuchung Cheng <ycheng@google.com>
+> ---
 
 Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Looks great to me. Thanks, Eric!
+Looks good to me. Thanks, Eric!
 
 neal
