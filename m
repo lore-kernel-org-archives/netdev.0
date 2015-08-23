@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: set 802.1Q mode to
- Fallback
-Date: Sun, 23 Aug 2015 15:54:52 -0700 (PDT)
-Message-ID: <20150823.155452.256034175915598661.davem@davemloft.net>
-References: <1440024895-22803-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net/xen-netfront: only clean up queues if
+ present
+Date: Sun, 23 Aug 2015 15:56:36 -0700 (PDT)
+Message-ID: <20150823.155636.530305773311103437.davem@davemloft.net>
+References: <1440026060.2546.9.camel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, linux@roeck-us.net, andrew@lunn.ch,
-	f.fainelli@gmail.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440024895-22803-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: 3chas3@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47006 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753711AbbHWW4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 18:56:37 -0400
+In-Reply-To: <1440026060.2546.9.camel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed, 19 Aug 2015 18:54:55 -0400
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Date: Wed, 19 Aug 2015 19:14:20 -0400
 
-> The current Secure port mode requires the port-based VLANs to also be
-> valid in the 802.1Q VLAN Table Unit. The current hardware bridging
-> support only configures the port-based VLANs, thus is broken.
+> From: Chas Williams <3chas3@gmail.com>
 > 
-> A new patchset is required to adapt the hardware bridging code to fully
-> support the Secure port mode.
+> If you simply load and unload the module without starting the interfaces,
+> the queues are never created and you get a bad pointer dereference.
 > 
-> In the meantime, change the 802.1Q mode of every ports to Fallback,
-> which filtering is more permissive, and doesn't add this restriction to
-> handle port-based and tagged-based VLANs.
-> 
-> Fixes: 8efdda4a1b60 ("net: dsa: mv88e6xxx: use port 802.1Q mode Secure")
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Signed-off-by: Chas Williams <3chas3@gmail.com>
 
-Applied, thanks.
+Applied, thanks Chas.
