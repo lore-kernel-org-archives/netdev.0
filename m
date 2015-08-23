@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: mmap: fix tx type check
-Date: Sun, 23 Aug 2015 16:06:15 -0700 (PDT)
-Message-ID: <20150823.160615.1547348326644209495.davem@davemloft.net>
-References: <55CDBC84.8020605@iogearbox.net>
-	<55CDC51D.1060204@iogearbox.net>
-	<20150820034353.GA728@gmail.com>
+Subject: Re: [v2 0/5] *** nps_enet fixups ***
+Date: Sun, 23 Aug 2015 16:09:09 -0700 (PDT)
+Message-ID: <20150823.160909.2083002924709478558.davem@davemloft.net>
+References: <20150817.103607.1737876155019074073.davem@davemloft.net>
+	<1440046805-24459-1-git-send-email-noamc@ezchip.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, fw@strlen.de
-To: chamaken@gmail.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alexey.Brodkin@synopsys.com, vgupta@synopsys.com, talz@ezchip.com
+To: noamc@ezchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47040 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47058 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751273AbbHWXGQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:06:16 -0400
-In-Reply-To: <20150820034353.GA728@gmail.com>
+	with ESMTP id S1753219AbbHWXJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:09:10 -0400
+In-Reply-To: <1440046805-24459-1-git-send-email-noamc@ezchip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Date: Thu, 20 Aug 2015 12:43:53 +0900
+From: Noam Camus <noamc@ezchip.com>
+Date: Thu, 20 Aug 2015 08:00:00 +0300
 
-> I can't send netlink message via mmaped netlink socket since
+> Change v2
+> TX done is handled back with NAPI poll.
 > 
->     commit: a8866ff6a5bce7d0ec465a63bc482a85c09b0d39
->     netlink: make the check for "send from tx_ring" deterministic
+> Change v1
+> This patch set is a bunch of fixes to make nps_enet work correctly with
+> all platforms, i.e. real device, emulation system, and simulation system.
+> The main trigger for this patch set was that in our emulation system
+> the TX end interrupt is "edge-sensitive" and therefore we cannot use the
+> cause register since it is not sticky.
+> Also:
+> TX is handled during HW interrupt context and not NAPI job.
+> race with TX done was fixed.
+> added acknowledge for TX when device is "level sensitive".
+> enable drop of control frames which is not needed for regular usage.
 > 
-> msg->msg_iter.type is set to WRITE (1) at
-> 
->     SYSCALL_DEFINE6(sendto, ...
->         import_single_range(WRITE, ...
->             iov_iter_init(1, WRITE, ...
-> 
-> call path, so that we need to check the type by iter_is_iovec()
-> to accept the WRITE.
-> 
-> Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+> So most of this patch set is about TX handling, which is now more complete.
 
-Applied, thanks.
+Series applied, thank you.
