@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net af_key: Fix RCU splat
-Date: Sun, 23 Aug 2015 16:48:21 -0700 (PDT)
-Message-ID: <20150823.164821.642841258349384154.davem@davemloft.net>
-References: <1440085900-8917-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel
+ state
+Date: Sun, 23 Aug 2015 16:51:03 -0700 (PDT)
+Message-ID: <20150823.165103.2104601245219561984.davem@davemloft.net>
+References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47193 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47198 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500AbbHWXsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:48:22 -0400
-In-Reply-To: <1440085900-8917-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1753356AbbHWXvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:51:04 -0400
+In-Reply-To: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu, 20 Aug 2015 08:51:40 -0700
+From: Jiri Benc <jbenc@redhat.com>
+Date: Fri, 21 Aug 2015 12:41:14 +0200
 
-> @@ -1670,7 +1670,7 @@ static int pfkey_register(struct sock *sk, struct sk_buff *skb, const struct sad
->  		return -ENOBUFS;
->  	}
->  
-> -	pfkey_broadcast(supp_skb, GFP_KERNEL, BROADCAST_REGISTERED, sk, sock_net(sk));
-> +	pfkey_broadcast(supp_skb, GFP_ATOMIC, BROADCAST_REGISTERED, sk, sock_net(sk));
+> @@ -99,6 +99,9 @@ struct dst_entry {
+>  	atomic_t		__refcnt;	/* client references	*/
+>  	int			__use;
+>  	unsigned long		lastuse;
+> +#ifndef CONFIG_64BIT
+> +	struct lwtunnel_state   *lwtstate;
+> +#endif
+>  	union {
+>  		struct dst_entry	*next;
+>  		struct rtable __rcu	*rt_next;
 
-As Eric alluded to, the gfp_t argument is totally pointless.
+I'm going to apply this to fix the build error without reverting your
+change entirely, but this is really an undesirable solution.
 
-It is used inside of pfkey_broadcast() via calls to pfkey_broadcast_one() inside of
-an RCU protected area _CREATED_ by pfkey_broadcast() itself.
-
-Therefore it could never possibly honor a sleeping gfp_t flag, and GFP_ATOMIC must
-always be used.
-
-So just get rid of it and use GFP_ATOMIC unconditionally.
+This cache line of the SKB is for write heavy members of struct
+dst_entry and so if you put a read-mostly member here it's going to
+result in performance problems.
