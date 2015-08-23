@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 0/5] *** nps_enet fixups ***
-Date: Sun, 23 Aug 2015 16:09:09 -0700 (PDT)
-Message-ID: <20150823.160909.2083002924709478558.davem@davemloft.net>
-References: <20150817.103607.1737876155019074073.davem@davemloft.net>
-	<1440046805-24459-1-git-send-email-noamc@ezchip.com>
+Subject: Re: [PATCH net-next 0/3] tipc: fix link failover/synch problems
+Date: Sun, 23 Aug 2015 16:15:01 -0700 (PDT)
+Message-ID: <20150823.161501.1555147023417416861.davem@davemloft.net>
+References: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alexey.Brodkin@synopsys.com, vgupta@synopsys.com, talz@ezchip.com
-To: noamc@ezchip.com
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47058 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47091 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753219AbbHWXJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:09:10 -0400
-In-Reply-To: <1440046805-24459-1-git-send-email-noamc@ezchip.com>
+	with ESMTP id S932066AbbHWXPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:15:03 -0400
+In-Reply-To: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Noam Camus <noamc@ezchip.com>
-Date: Thu, 20 Aug 2015 08:00:00 +0300
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Thu, 20 Aug 2015 02:12:53 -0400
 
-> Change v2
-> TX done is handled back with NAPI poll.
-> 
-> Change v1
-> This patch set is a bunch of fixes to make nps_enet work correctly with
-> all platforms, i.e. real device, emulation system, and simulation system.
-> The main trigger for this patch set was that in our emulation system
-> the TX end interrupt is "edge-sensitive" and therefore we cannot use the
-> cause register since it is not sticky.
-> Also:
-> TX is handled during HW interrupt context and not NAPI job.
-> race with TX done was fixed.
-> added acknowledge for TX when device is "level sensitive".
-> enable drop of control frames which is not needed for regular usage.
-> 
-> So most of this patch set is about TX handling, which is now more complete.
+> We fix three problems with the new link failover/synch implementation,
+> which was introduced earlier in this release cycle. They are all related
+> to situations where there is a very short interval between the disabling
+> and enabling of interfaces.
 
-Series applied, thank you.
+Series applied, thanks Jon.
