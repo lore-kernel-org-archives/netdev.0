@@ -1,66 +1,66 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 6/9] dsa: mv88e6xxx: Set the RGMII delay based
- on phy interface
-Date: Sun, 23 Aug 2015 23:10:14 +0200
-Message-ID: <20150823211014.GC20710@lunn.ch>
+Subject: Re: [PATCH net-next 4/9] net: dsa: Allow configuration of CPU & DSA
+ port speeds/duplex
+Date: Sun, 23 Aug 2015 23:24:04 +0200
+Message-ID: <20150823212404.GD20710@lunn.ch>
 References: <1440323220-20438-1-git-send-email-andrew@lunn.ch>
- <1440323220-20438-7-git-send-email-andrew@lunn.ch>
- <55DA1471.2080905@gmail.com>
+ <1440323220-20438-5-git-send-email-andrew@lunn.ch>
+ <55DA1340.9080604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38237 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:38243 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752759AbbHWVRj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Aug 2015 17:17:39 -0400
+	id S1751612AbbHWVb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Aug 2015 17:31:29 -0400
 Content-Disposition: inline
-In-Reply-To: <55DA1471.2080905@gmail.com>
+In-Reply-To: <55DA1340.9080604@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 23, 2015 at 11:44:01AM -0700, Florian Fainelli wrote:
-> Le 08/23/15 02:46, Andrew Lunn a =E9crit :
-> > Some Marvell switches allow the RGMII Rx and Tx clock to be delayed
-> > when the port is using RGMII. Have the adjust_link function look at
-> > the phy interface type and enable this delay as requested.
-> >=20
-> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> > ---
-> >  drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
-> >  drivers/net/dsa/mv88e6xxx.h |  2 ++
-> >  2 files changed, 12 insertions(+)
-> >=20
-> > diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xx=
-x.c
-> > index 7901db6503b4..f5af368751b2 100644
-> > --- a/drivers/net/dsa/mv88e6xxx.c
-> > +++ b/drivers/net/dsa/mv88e6xxx.c
-> > @@ -612,6 +612,16 @@ void mv88e6xxx_adjust_link(struct dsa_switch *=
-ds, int port,
-> >  	if (phydev->duplex =3D=3D DUPLEX_FULL)
-> >  		reg |=3D PORT_PCS_CTRL_DUPLEX_FULL;
-> > =20
-> > +	if ((mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds)) &&
-> > +	    (port >=3D ps->num_ports - 2)) {
->=20
-> Are we positive that the last two ports of a switch are going to be
-> RGMII capable or is this something that should be moved to Device Tre=
-e /
-> platform data to account for different switch families? Maybe having =
-a
-> bitmask of RGMII capable ports stored in "ps" would be good enough?
+> > +		port_dn = cd->port_dn[port];
+> > +		if (of_phy_is_fixed_link(port_dn)) {
+> > +			ret = of_phy_register_fixed_link(port_dn);
+> > +			if (ret) {
+> > +				netdev_err(master,
+> > +					   "failed to register fixed PHY\n");
+> > +				return ret;
+> > +			}
+> > +			phydev = of_phy_find_device(port_dn);
+> > +			genphy_config_init(phydev);
+> > +			genphy_read_status(phydev);
+> > +			if (ds->drv->adjust_link)
+> > +				ds->drv->adjust_link(ds, port, phydev);
+> 
+> This kind of hack here because what you really need is just the link
+> parameters, but you cannot obtain such information without first
+> configuring the PHY up to a certain point in genphy_config_init(), and
+> then have genphy_read_status() copy these values in your phydev structure.
+> 
+> Maybe we should really consider something like this after all:
+> 
+> https://lkml.org/lkml/2015/8/5/490
 
 Hi Florian
 
-=46or these two families, this is correct. And it is a property of the
-switch, not the board, so should not be in DT. Other families are
-different. Older ones are Fast Ethernet only. Some don't have any
-RGMII ports, etc. It could be with time, this condition gets messy, at
-which point, a bitmask in ps would make sense. But is it justified
-now?
+This half solves the problem. The nice thing about using the
+fixed_link, is that i can just call the adjust_link function with it.
+The fixed_phy_status cannot be passed directly to adjust_link. Some
+code refactoring or duplication would be needed.
+ 
+> Or maybe, we should really introduce this "cpu" network device after all
+> with a dropping xmit function, such that we get ethtool counters to work
+> on it, and we can also attach it to a PHY device to configure link
+> parameters?
 
-Thanks
+I keep humming and harring about this. I don't really like the idea of
+having an interface which you cannot send/receive packets. Yet it
+solves a number of problems like this, and gives you access to
+statistics and registers in the usual way. If we do it for the CPU
+port, we should also do it for the DSA ports. And we probably want the
+call for up to return -ENOSUP, just to make it clear it cannot be used
+for anything.
+
       Andrew
