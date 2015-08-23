@@ -1,25 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2015-05-06
-Date: Sun, 23 Aug 2015 16:29:01 -0700 (PDT)
-Message-ID: <20150823.162901.103058802759255902.davem@davemloft.net>
-References: <55D5C481.5050200@pengutronix.de>
+Subject: Re: [PATCH] net af_key: Fix RCU splat
+Date: Sun, 23 Aug 2015 16:48:21 -0700 (PDT)
+Message-ID: <20150823.164821.642841258349384154.davem@davemloft.net>
+References: <1440085900-8917-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, david@protonic.nl
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <55D5C481.5050200@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47193 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752500AbbHWXsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:48:22 -0400
+In-Reply-To: <1440085900-8917-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 20 Aug 2015 14:13:53 +0200
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu, 20 Aug 2015 08:51:40 -0700
 
-> this is a pull request of a two patches for net-next.
-> 
-> The first patch is by Nik Nyby and fixes a typo in a function name. The
-> second patch by Lucas Stach demotes register output to debug level.
+> @@ -1670,7 +1670,7 @@ static int pfkey_register(struct sock *sk, struct sk_buff *skb, const struct sad
+>  		return -ENOBUFS;
+>  	}
+>  
+> -	pfkey_broadcast(supp_skb, GFP_KERNEL, BROADCAST_REGISTERED, sk, sock_net(sk));
+> +	pfkey_broadcast(supp_skb, GFP_ATOMIC, BROADCAST_REGISTERED, sk, sock_net(sk));
 
-Pulled, thanks Marc.
+As Eric alluded to, the gfp_t argument is totally pointless.
+
+It is used inside of pfkey_broadcast() via calls to pfkey_broadcast_one() inside of
+an RCU protected area _CREATED_ by pfkey_broadcast() itself.
+
+Therefore it could never possibly honor a sleeping gfp_t flag, and GFP_ATOMIC must
+always be used.
+
+So just get rid of it and use GFP_ATOMIC unconditionally.
