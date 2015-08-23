@@ -1,17 +1,12 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 10/11] ah6: fix error return code
-Date: Sun, 23 Aug 2015 02:11:21 +0200
-Message-ID: <1440288682-12732-11-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 05/11] mlxsw: fix error return code
+Date: Sun, 23 Aug 2015 02:11:16 +0200
+Message-ID: <1440288682-12732-6-git-send-email-Julia.Lawall@lip6.fr>
 References: <1440288682-12732-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: kernel-janitors@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: Jiri Pirko <jiri@mellanox.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1440288682-12732-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -45,22 +40,18 @@ ret = 0
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/ipv6/ah6.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/pci.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index ed7d4e3..0630a4d 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -577,8 +577,10 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	work_iph = ah_alloc_tmp(ahash, nfrags + sglists, hdr_len +
- 				ahp->icv_trunc_len + seqhi_len);
--	if (!work_iph)
-+	if (!work_iph) {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index a34f474..045f98f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -1726,6 +1726,7 @@ static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 						mlxsw_pci_dbg_root);
+ 	if (!mlxsw_pci->dbg_dir) {
+ 		dev_err(&pdev->dev, "Failed to create debugfs dir\n");
 +		err = -ENOMEM;
- 		goto out;
-+	}
+ 		goto err_dbg_create_dir;
+ 	}
  
- 	auth_data = ah_tmp_auth((u8 *)work_iph, hdr_len);
- 	seqhi = (__be32 *)(auth_data + ahp->icv_trunc_len);
