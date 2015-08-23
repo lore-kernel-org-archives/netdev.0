@@ -1,72 +1,71 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v3 3/4] Add support for driver cross-timestamp to
- PTP_SYS_OFFSET ioctl
-Date: Sun, 23 Aug 2015 10:15:00 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1508231011360.3873@nanos>
-References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com> <1440183128-1384-4-git-send-email-christopher.s.hall@intel.com> <alpine.DEB.2.11.1508222226540.3873@nanos> <20150822211718.GA8561@netboy>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	john.stultz@linaro.org, x86@kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, peterz@infradead.org
-To: Richard Cochran <richardcochran@gmail.com>
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH, net-next] r8169: Keep writting on ChipCmd reg. close
+Date: Sun, 23 Aug 2015 12:41:14 +0300
+Message-ID: <1440322874-14980-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:43440 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962AbbHWIPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 04:15:43 -0400
-In-Reply-To: <20150822211718.GA8561@netboy>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:33070 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751462AbbHWJl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 05:41:27 -0400
+Received: by wijp15 with SMTP id p15so52136733wij.0
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 02:41:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Aug 2015, Richard Cochran wrote:
-> On Sat, Aug 22, 2015 at 10:33:48PM +0200, Thomas Gleixner wrote:
-> > > @@ -196,19 +197,31 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
-> > >  			break;
-> > >  		}
-> > >  		pct = &sysoff->ts[0];
-> > > -		for (i = 0; i < sysoff->n_samples; i++) {
-> > > -			getnstimeofday64(&ts);
-> > > +		if (ptp->info->getsynctime64 && sysoff->n_samples == 1 &&
-> > 
-> > The number of samples should be irrelevant for this sampling method.
-> 
-> Chris had send me a preview of this before he posted, so I can explain
-> that test for one sample.
-> 
-> User space requests N (1 to 25) samples of the two clocks.  The kernel
-> is supposed to deliver that many samples.  This has always been the
-> documented behavior.  From ptp_clock.h:
-> 
->   struct ptp_sys_offset {
-> 	unsigned int n_samples; /* Desired number of measurements. */
-> 	unsigned int rsv[3];    /* Reserved for future use. */
-> 	/*
-> 	 * Array of interleaved system/phc time stamps. The kernel
-> 	 * will provide 2*n_samples + 1 time stamps, with the last
-> 	 * one as a system time stamp.
-> 	 */
-> 	struct ptp_clock_time ts[2 * PTP_MAX_SAMPLES + 1];
->   };
-> 
-> So the kernel cannot simply change n_samples to 1.
-> 
-> I would prefer to have a new system call that compares any two posix
-> clock_t, but that is of course more work.
-> 
-> Allowing n_samples=1 as a special case is a kind of overloading of the
-> ioctl to support the new capability.  At least it preserves the
-> behavior of the interface from the user's perspective.
+Keep writting on ChipCmd register close and execute before 
+ writting on any decriptors.On close the interface same rule.
 
-So why can't you take N samples from the synced hardware? It does not
-make any sense to me to switch to the imprecise mode if nsamples > 1.
 
-You can also provide a new IOCTL PTP_SYS_OFFSET_PRECISE which returns
--ENOSYS if hardware timestamping is not available and avoid the whole
-nsamples dance for the case where we can get precise timestamps.
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 
-Thanks,
-
-	tglx
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b0f7ed2..2ee8bca 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6616,7 +6616,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 
+ 	RTL_W16(IntrMitigate, 0x0000);
+ 
+-	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
++	//RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ 
+ 	rtl_set_rx_mode(dev);
+ 
+@@ -7563,7 +7563,7 @@ static void rtl8169_down(struct net_device *dev)
+ 	napi_disable(&tp->napi);
+ 	netif_stop_queue(dev);
+ 
+-	rtl8169_hw_reset(tp);
++	//rtl8169_hw_reset(tp);
+ 	/*
+ 	 * At this point device interrupts can not be enabled in any function,
+ 	 * as netif_running is not true (rtl8169_interrupt, rtl8169_reset_task)
+@@ -7585,12 +7585,15 @@ static int rtl8169_close(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	struct pci_dev *pdev = tp->pci_dev;
++	void __iomem *ioaddr = tp->mmio_addr;
+ 
+ 	pm_runtime_get_sync(&pdev->dev);
+ 
+ 	/* Update counters before going down */
+ 	rtl8169_update_counters(dev);
+ 	rtl8169_irq_mask_and_ack(tp);
++	rtl_hw_reset(tp);
++	RTL_W8(ChipCmd, ~(CmdTxEnb | CmdRxEnb));
+ 
+ 	rtl_lock_work(tp);
+ 	clear_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
+@@ -7646,6 +7649,8 @@ static int rtl_open(struct net_device *dev)
+ 	if (!tp->RxDescArray)
+ 		goto err_free_tx_0;
+ 
++	rtl_hw_reset(tp);
++	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);	
+ 	rtl8169_set_feat_part2(dev, dev->features);
+ 	retval = rtl8169_init_ring(dev);
+ 	if (retval < 0)
+-- 
+2.1.4
