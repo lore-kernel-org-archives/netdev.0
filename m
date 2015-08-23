@@ -1,47 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 05/11] mlxsw: fix error return code
-Date: Sun, 23 Aug 2015 20:52:26 +0200
-Message-ID: <20150823185226.GA2396@nanopsycho.orion>
-References: <1440288682-12732-1-git-send-email-Julia.Lawall@lip6.fr>
- <1440288682-12732-6-git-send-email-Julia.Lawall@lip6.fr>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH v2 3/3] net: sched: fall back to noqueue when
+ removing root qdisc
+Date: Sun, 23 Aug 2015 20:53:57 +0200
+Message-ID: <20150823205357.5df72804@redhat.com>
+References: <1440202856-1645-1-git-send-email-phil@nwl.cc>
+	<1440202856-1645-4-git-send-email-phil@nwl.cc>
+	<20150823204442.2e032436@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>, kernel-janitors@vger.kernel.org,
-	Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1440288682-12732-6-git-send-email-Julia.Lawall@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, brouer@redhat.com
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59595 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752734AbbHWSyA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Aug 2015 14:54:00 -0400
+In-Reply-To: <20150823204442.2e032436@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sun, Aug 23, 2015 at 02:11:16AM CEST, Julia.Lawall@lip6.fr wrote:
->Return a negative error code on failure.
->
->A simplified version of the semantic match that finds this problem is as
->follows: (http://coccinelle.lip6.fr/)
->
->// <smpl>
->@@
->identifier ret; expression e1,e2;
->@@
->(
->if (\(ret < 0\|ret != 0\))
-> { ... return ret; }
->|
->ret = 0
->)
->... when != ret = e1
->    when != &ret
->*if(...)
->{
->  ... when != ret = e2
->      when forall
-> return ret;
->}
->// </smpl>
->
->Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+On Sun, 23 Aug 2015 20:44:42 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+> On Sat, 22 Aug 2015 02:20:56 +0200
+> Phil Sutter <phil@nwl.cc> wrote:
+> 
+> > When removing the root qdisc, the interface should fall back to noqueue
+> > as the 'real' minimal qdisc instead of the default one. 
+> 
+> I worry this behavior could break existing scripts.
+
+You would break OpenWRT package "qos-scripts", specifically:
+ https://github.com/openwrt-mirror/openwrt/blob/master/package/network/config/qos-scripts/files/usr/bin/qos-stop
+
+Which cleans-up/clear the qdisc setup by removing the root qdisc,
+assuming and depending on the default qdisc is re-assigned.
+
+
+> I prefer the idea of allowing tc command to assign noqueue (to any
+> device).  This makes the action explicit for the user, instead of being
+> a side-effect of removing a qdisc. (and does not break backward compat)
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
