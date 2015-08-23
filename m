@@ -1,118 +1,114 @@
-From: Achiad Shochat <achiad@mellanox.com>
-Subject: [PATCH net-next] net/mlx5e: Avoid accessing NULL pointer at ndo_select_queue
-Date: Sun, 23 Aug 2015 16:12:14 +0300
-Message-ID: <1440335534-31279-1-git-send-email-achiad@mellanox.com>
-Cc: netdev@vger.kernel.org, Achiad <achiad@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] inetpeer: remove dead code
+Date: Sun, 23 Aug 2015 08:21:22 -0600
+Message-ID: <1440339682-15934-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37378 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752366AbbHWNOw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Aug 2015 09:14:52 -0400
+Received: from mail-io0-f172.google.com ([209.85.223.172]:32786 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752602AbbHWOW2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 10:22:28 -0400
+Received: by iods203 with SMTP id s203so124364420iod.0
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 07:22:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rana Shahout <ranas@mellanox.com>
+Remove various inlined functions not referenced in the kernel.
 
-To avoid multiply/division operations on the data path,
-we hold a {channel, tc}==>txq mapping table.
-We held this mapping table inside the channel object that is
-being destroyed upon some configuration operations (e.g MTU change).
-So in case ndo_select_queue occurs during such a configuration operation,
-it may access a NULL channel pointer, resulting in kernel panic.
-To fix this issue we moved the {channel, tc}==>txq mapping table
-outside the channel object so that it will be available also
-during such configuration operations.
-
-
-Signed-off-by: Rana Shahout <ranas@mellanox.com>
-
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
-Hi Dave,
+ include/net/inetpeer.h | 67 --------------------------------------------------
+ 1 file changed, 67 deletions(-)
 
-This patch fixes a bug in the mlx5 Ethernet driver that causes
-a kernel panic due to a NULL pointer access upon the select_queue
-callback, in cause it happens in congestion with certain configuration
-operations.
-
-The path was applied and tested over commit dc25b25 ("Merge
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net").
-
-Thanks,
-Achiad
-
- drivers/net/ethernet/mellanox/mlx5/core/en.h      | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 8 ++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 2 +-
- 3 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 27ca459..0983a20 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -405,7 +405,6 @@ struct mlx5e_channel {
- 	__be32                     mkey_be;
- 	u8                         num_tc;
- 	unsigned long              flags;
--	int                        tc_to_txq_map[MLX5E_MAX_NUM_TC];
+diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+index d5332ddcea3f..002f0bd27001 100644
+--- a/include/net/inetpeer.h
++++ b/include/net/inetpeer.h
+@@ -65,71 +65,12 @@ struct inet_peer_base {
+ 	int			total;
+ };
  
- 	/* control */
- 	struct mlx5e_priv         *priv;
-@@ -475,6 +474,7 @@ struct mlx5e_priv {
- 	/* priv data path fields - start */
- 	int                        default_vlan_prio;
- 	struct mlx5e_sq            **txq_to_sq_map;
-+	int channeltc_to_txq_map[MLX5E_MAX_NUM_CHANNELS][MLX5E_MAX_NUM_TC];
- 	/* priv data path fields - end */
+-#define INETPEER_BASE_BIT	0x1UL
+-
+-static inline struct inet_peer *inetpeer_ptr(unsigned long val)
+-{
+-	BUG_ON(val & INETPEER_BASE_BIT);
+-	return (struct inet_peer *) val;
+-}
+-
+-static inline struct inet_peer_base *inetpeer_base_ptr(unsigned long val)
+-{
+-	if (!(val & INETPEER_BASE_BIT))
+-		return NULL;
+-	val &= ~INETPEER_BASE_BIT;
+-	return (struct inet_peer_base *) val;
+-}
+-
+-static inline bool inetpeer_ptr_is_peer(unsigned long val)
+-{
+-	return !(val & INETPEER_BASE_BIT);
+-}
+-
+-static inline void __inetpeer_ptr_set_peer(unsigned long *val, struct inet_peer *peer)
+-{
+-	/* This implicitly clears INETPEER_BASE_BIT */
+-	*val = (unsigned long) peer;
+-}
+-
+-static inline bool inetpeer_ptr_set_peer(unsigned long *ptr, struct inet_peer *peer)
+-{
+-	unsigned long val = (unsigned long) peer;
+-	unsigned long orig = *ptr;
+-
+-	if (!(orig & INETPEER_BASE_BIT) ||
+-	    cmpxchg(ptr, orig, val) != orig)
+-		return false;
+-	return true;
+-}
+-
+-static inline void inetpeer_init_ptr(unsigned long *ptr, struct inet_peer_base *base)
+-{
+-	*ptr = (unsigned long) base | INETPEER_BASE_BIT;
+-}
+-
+-static inline void inetpeer_transfer_peer(unsigned long *to, unsigned long *from)
+-{
+-	unsigned long val = *from;
+-
+-	*to = val;
+-	if (inetpeer_ptr_is_peer(val)) {
+-		struct inet_peer *peer = inetpeer_ptr(val);
+-		atomic_inc(&peer->refcnt);
+-	}
+-}
+-
+ void inet_peer_base_init(struct inet_peer_base *);
  
- 	unsigned long              state;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 55166dd..59874d6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -949,13 +949,13 @@ static void mlx5e_close_sqs(struct mlx5e_channel *c)
- 		mlx5e_close_sq(&c->sq[tc]);
- }
+ void inet_initpeers(void) __init;
  
--static void mlx5e_build_tc_to_txq_map(struct mlx5e_channel *c,
--				      int num_channels)
-+static void mlx5e_build_channeltc_to_txq_map(struct mlx5e_priv *priv, int ix)
- {
- 	int i;
+ #define INETPEER_METRICS_NEW	(~(u32) 0)
  
- 	for (i = 0; i < MLX5E_MAX_NUM_TC; i++)
--		c->tc_to_txq_map[i] = c->ix + i * num_channels;
-+		priv->channeltc_to_txq_map[ix][i] =
-+			ix + i * priv->params.num_channels;
- }
+-static inline bool inet_metrics_new(const struct inet_peer *p)
+-{
+-	return p->metrics[RTAX_LOCK-1] == INETPEER_METRICS_NEW;
+-}
+-
+ /* can be called with or without local BH being disabled */
+ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
+ 			       const struct inetpeer_addr *daddr,
+@@ -163,12 +104,4 @@ bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout);
  
- static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
-@@ -979,7 +979,7 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	c->mkey_be  = cpu_to_be32(priv->mr.key);
- 	c->num_tc   = priv->params.num_tc;
+ void inetpeer_invalidate_tree(struct inet_peer_base *);
  
--	mlx5e_build_tc_to_txq_map(c, priv->params.num_channels);
-+	mlx5e_build_channeltc_to_txq_map(priv, ix);
- 
- 	netif_napi_add(netdev, &c->napi, mlx5e_napi_poll, 64);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 64380bc..b73672f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -106,7 +106,7 @@ u16 mlx5e_select_queue(struct net_device *dev, struct sk_buff *skb,
- 		 priv->default_vlan_prio;
- 	int tc = netdev_get_prio_tc_map(dev, up);
- 
--	return priv->channel[channel_ix]->tc_to_txq_map[tc];
-+	return priv->channeltc_to_txq_map[channel_ix][tc];
- }
- 
- static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
+-/*
+- * temporary check to make sure we dont access rid, tcp_ts,
+- * tcp_ts_stamp if no refcount is taken on inet_peer
+- */
+-static inline void inet_peer_refcheck(const struct inet_peer *p)
+-{
+-	WARN_ON_ONCE(atomic_read(&p->refcnt) <= 0);
+-}
+ #endif /* _NET_INETPEER_H */
 -- 
-1.8.3.1
+2.3.2 (Apple Git-55)
