@@ -1,46 +1,49 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v3 3/4] Add support for driver cross-timestamp to
- PTP_SYS_OFFSET ioctl
-Date: Sun, 23 Aug 2015 13:25:56 +0200
-Message-ID: <20150823112556.GA8569@localhost.localdomain>
-References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
- <1440183128-1384-4-git-send-email-christopher.s.hall@intel.com>
- <alpine.DEB.2.11.1508222226540.3873@nanos>
- <20150822211718.GA8561@netboy>
- <alpine.DEB.2.11.1508231011360.3873@nanos>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Christopher S. Hall" <christopher.s.hall@intel.com>,
-	jeffrey.t.kirsher@intel.com, hpa@zytor.com, mingo@redhat.com,
-	john.stultz@linaro.org, x86@kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, peterz@infradead.org
-To: Thomas Gleixner <tglx@linutronix.de>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net v2] sctp: donot reset the overall_error_count in SHUTDOWN_RECEIVE state
+Date: Sun, 23 Aug 2015 19:30:15 +0800
+Message-ID: <46eeeb896c5be2523e3d978d4a7ea9907d4301ee.1440329415.git.lucien.xin@gmail.com>
+Cc: mleitner@redhat.com, tgraf@infradead.org, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:33845 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916AbbHWL0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 07:26:03 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.11.1508231011360.3873@nanos>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33037 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752245AbbHWLaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 07:30:22 -0400
+Received: by pacti10 with SMTP id ti10so2374031pac.0
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 04:30:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 23, 2015 at 10:15:00AM +0200, Thomas Gleixner wrote:
-> So why can't you take N samples from the synced hardware? It does not
-> make any sense to me to switch to the imprecise mode if nsamples > 1.
+commit f8d960524 fix the 0 peer.rwnd issue in SHUTDOWN_PENDING state through
+not reseting the overall_error_count when receive a heartbeat, but the same
+issue also exists in SHUTDOWN_RECEIVE state.
 
-Ok, then I prefer to leave this "imprecise" method in place and ...
+so we change the condition to state < SCTP_STATE_SHUTDOWN_PENDING to reset the
+overall_error_count when receive a heartbeat, which can avoid the issue happen
+in SCTP_STATE_SHUTDOWN_RECEIVE.
+
+as to SCTP_STATE_SHUTDOWN_ACK_SENT and SCTP_STATE_SHUTDOWN_SENT state, with
+this patch, it will not be affected by the heartbeat, cause these two states
+have been taken charge of by t2 timer.
+
+Fixes: f8d960524 ("sctp: Enforce retransmission limit during shutdown")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/sm_sideeffect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index fef2acd..85e6f03 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -702,7 +702,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
+ 	 * outstanding data and rely on the retransmission limit be reached
+ 	 * to shutdown the association.
+ 	 */
+-	if (t->asoc->state != SCTP_STATE_SHUTDOWN_PENDING)
++	if (t->asoc->state < SCTP_STATE_SHUTDOWN_PENDING)
+ 		t->asoc->overall_error_count = 0;
  
-> You can also provide a new IOCTL PTP_SYS_OFFSET_PRECISE which returns
-> -ENOSYS if hardware timestamping is not available and avoid the whole
-> nsamples dance for the case where we can get precise timestamps.
-
-have this for the new way.
-
-By keeping the imprecise method, we will be able to run both methods
-on the new hardware.  That will help to quantify how imprecise the old
-method is.
-
-Thanks,
-Richard
+ 	/* Clear the hb_sent flag to signal that we had a good
+-- 
+2.1.0
