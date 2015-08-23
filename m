@@ -1,33 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 5/9] net: dsa: Allow DSA and CPU ports to have
- a phy-mode property
-Date: Sun, 23 Aug 2015 11:44:33 -0700
-Message-ID: <55DA1491.2070900@gmail.com>
-References: <1440323220-20438-1-git-send-email-andrew@lunn.ch> <1440323220-20438-6-git-send-email-andrew@lunn.ch>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH v2 3/3] net: sched: fall back to noqueue when
+ removing root qdisc
+Date: Sun, 23 Aug 2015 20:44:42 +0200
+Message-ID: <20150823204442.2e032436@redhat.com>
+References: <1440202856-1645-1-git-send-email-phil@nwl.cc>
+	<1440202856-1645-4-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, brouer@redhat.com
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:34601 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752389AbbHWSof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 14:44:35 -0400
-Received: by oiey141 with SMTP id y141so68232587oie.1
-        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 11:44:34 -0700 (PDT)
-In-Reply-To: <1440323220-20438-6-git-send-email-andrew@lunn.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:58704 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752389AbbHWSoo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Aug 2015 14:44:44 -0400
+In-Reply-To: <1440202856-1645-4-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/23/15 02:46, Andrew Lunn a =C3=A9crit :
-> It can be useful for DSA and CPU ports to have a phy-mode property, i=
-n
-> particular to specify RGMII delays. Parse the property and set it in
-> the fixed-link phydev.
->=20
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+On Sat, 22 Aug 2015 02:20:56 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
---=20
-=46lorian
+> When removing the root qdisc, the interface should fall back to noqueue
+> as the 'real' minimal qdisc instead of the default one. 
+
+I worry this behavior could break existing scripts.
+
+I prefer the idea of allowing tc command to assign noqueue (to any
+device).  This makes the action explicit for the user, instead of being
+a side-effect of removing a qdisc. (and does not break backward compat)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
