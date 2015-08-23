@@ -1,210 +1,62 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [RFC, RFT PATCH 1/2] dl2k: Add support for IP1000A-based cards
-Date: Sun, 23 Aug 2015 23:06:27 +0200
-Message-ID: <1440363988-12325-1-git-send-email-linux@rainbow-software.org>
-Cc: Kernel development list <linux-kernel@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Sorbica Shieh <sorbica@icplus.com.tw>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 9/9] phy: fixed_phy: Set phy capabilities even
+ when link is down
+Date: Sun, 23 Aug 2015 23:02:14 +0200
+Message-ID: <20150823210214.GB20710@lunn.ch>
+References: <1440323220-20438-1-git-send-email-andrew@lunn.ch>
+ <1440323220-20438-10-git-send-email-andrew@lunn.ch>
+ <55DA1387.9020009@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:38233 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753235AbbHWVJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Aug 2015 17:09:40 -0400
+Content-Disposition: inline
+In-Reply-To: <55DA1387.9020009@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for IP1000A chips to dl2k driver.
-IP1000A chip looks like a TC9020 with integrated PHY.
+On Sun, Aug 23, 2015 at 11:40:07AM -0700, Florian Fainelli wrote:
+> Le 08/23/15 02:47, Andrew Lunn a =E9crit :
+> > What features a phy supports is masked in genphy_config_init() by
+> > looking at the PHYs BMSR register.
+> >=20
+> > If the link is down, fixed_phy_update_regs() will only set the auto=
+-
+> > negotiation capable bit in BMSR. Thus genphy_config_init() comes to
+> > the conclusion the PHY can only perform 10/Half, and masks out the
+> > higher speed features. If however the link it up, BMSR is set to
+> > indicate the speed the PHY is capable of auto-negotiating, and
+> > genphy_config_init() does not mask out the high speed features.
+> >=20
+> > To fix this, when the link is down, have fixed_phy_update_regs() le=
+ave
+> > the link status and auto-negotiation complete bit unset, but set al=
+l
+> > the other bits depending on the fixed phy speed.
+>=20
+> This kinds of revert what Staas did in commit
+> 868a4215be9a6d80548ccb74763b883dc99d32a2 ("net: phy: fixed_phy: handl=
+e
+> link-down case"). When the link is down, it does not seem to me like =
+we
+> can rely on the previous speed and duplex parameters to be considered=
+ valid.
 
-Tested with Asus NX1101.
+I must admit to not spending the time needed to understand what all
+these bits mean. Are they what we are advertising we are capable off,
+or what we have negotiated.
 
----
- drivers/net/ethernet/dlink/Kconfig |    5 ++--
- drivers/net/ethernet/dlink/dl2k.c  |   51 +++++++++++++++++++++++++++++++++---
- drivers/net/ethernet/dlink/dl2k.h  |   15 ++++++++++-
- 3 files changed, 65 insertions(+), 6 deletions(-)
+We definitely should not be configuring the phy layer on what we have
+negotiated in the past. But what we are advertising should be a good
+indication of what we are capable of. Maybe this function needs to set
+the advertised features separate from negotiated features? If the link
+is down, leave the negotiated at 10/Half, but set the advertised
+features based on the fixed-link settings?
 
-diff --git a/drivers/net/ethernet/dlink/Kconfig b/drivers/net/ethernet/dlink/Kconfig
-index f6e858d..ebdc832 100644
---- a/drivers/net/ethernet/dlink/Kconfig
-+++ b/drivers/net/ethernet/dlink/Kconfig
-@@ -17,15 +17,16 @@ config NET_VENDOR_DLINK
- if NET_VENDOR_DLINK
- 
- config DL2K
--	tristate "DL2000/TC902x-based Gigabit Ethernet support"
-+	tristate "DL2000/TC902x/IP1000A-based Gigabit Ethernet support"
- 	depends on PCI
- 	select CRC32
- 	---help---
--	  This driver supports DL2000/TC902x-based Gigabit ethernet cards,
-+	  This driver supports DL2000/TC902x/IP1000A-based Gigabit ethernet cards,
- 	  which includes
- 	  D-Link DGE-550T Gigabit Ethernet Adapter.
- 	  D-Link DL2000-based Gigabit Ethernet Adapter.
- 	  Sundance/Tamarack TC902x Gigabit Ethernet Adapter.
-+	  ICPlus IP1000A-based cards
- 
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called dl2k.
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index cf0a5fc..c8a1cfd 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -253,6 +253,18 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_out_unmap_rx;
- 
-+	if (np->chip_id == CHIP_IP1000A &&
-+	    (np->pdev->revision == 0x40 || np->pdev->revision == 0x41)) {
-+		/* PHY magic taken from ipg driver */
-+		mii_write(dev, np->phy_addr, 31, 0x0001);
-+		mii_write(dev, np->phy_addr, 27, 0x01e0);
-+		mii_write(dev, np->phy_addr, 31, 0x0002);
-+		mii_write(dev, np->phy_addr, 27, 0xeb8e);
-+		mii_write(dev, np->phy_addr, 31, 0x0000);
-+		mii_write(dev, np->phy_addr, 30, 0x005e);
-+		mii_write(dev, np->phy_addr, 9, 0x0700);
-+	}
-+
- 	/* Fiber device? */
- 	np->phy_media = (dr16(ASICCtrl) & PhyMedia) ? 1 : 0;
- 	np->link_status = 0;
-@@ -361,6 +373,11 @@ parse_eeprom (struct net_device *dev)
- 	for (i = 0; i < 6; i++)
- 		dev->dev_addr[i] = psrom->mac_addr[i];
- 
-+	if (np->chip_id == CHIP_IP1000A) {
-+		np->led_mode = psrom->led_mode;
-+		return 0;
-+	}
-+
- 	if (np->pdev->vendor != PCI_VENDOR_ID_DLINK) {
- 		return 0;
- 	}
-@@ -406,6 +423,28 @@ parse_eeprom (struct net_device *dev)
- 	return 0;
- }
- 
-+static void rio_set_led_mode(struct net_device *dev)
-+{
-+	struct netdev_private *np = netdev_priv(dev);
-+	void __iomem *ioaddr = np->ioaddr;
-+	u32 mode;
-+
-+	if (np->chip_id != CHIP_IP1000A)
-+		return;
-+
-+	mode = dr32(ASICCtrl);
-+	mode &= ~(IPG_AC_LED_MODE_BIT_1 | IPG_AC_LED_MODE | IPG_AC_LED_SPEED);
-+
-+	if ((np->led_mode & 0x03) > 1)
-+		mode |= IPG_AC_LED_MODE_BIT_1;
-+	if ((np->led_mode & 0x01) == 1)
-+		mode |= IPG_AC_LED_MODE;
-+	if ((np->led_mode & 0x08) == 8)
-+		mode |= IPG_AC_LED_SPEED;
-+
-+	dw32(ASICCtrl, mode);
-+}
-+
- static int
- rio_open (struct net_device *dev)
- {
-@@ -424,6 +463,8 @@ rio_open (struct net_device *dev)
- 	     GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset);
- 	mdelay(10);
- 
-+	rio_set_led_mode(dev);
-+
- 	/* DebugCtrl bit 4, 5, 9 must set */
- 	dw32(DebugCtrl, dr32(DebugCtrl) | 0x0230);
- 
-@@ -433,9 +474,10 @@ rio_open (struct net_device *dev)
- 
- 	alloc_list (dev);
- 
--	/* Get station address */
--	for (i = 0; i < 6; i++)
--		dw8(StationAddr0 + i, dev->dev_addr[i]);
-+	/* Set station address */
-+	for (i = 0; i < 3; i++)
-+		dw16(StationAddr0 + 2 * i,
-+		     cpu_to_le16(((u16 *)dev->dev_addr)[i]));
- 
- 	set_multicast (dev);
- 	if (np->coalesce) {
-@@ -780,6 +822,7 @@ tx_error (struct net_device *dev, int tx_status)
- 				break;
- 			mdelay (1);
- 		}
-+		rio_set_led_mode(dev);
- 		rio_free_tx (dev, 1);
- 		/* Reset TFDListPtr */
- 		dw32(TFDListPtr0, np->tx_ring_dma +
-@@ -799,6 +842,7 @@ tx_error (struct net_device *dev, int tx_status)
- 				break;
- 			mdelay (1);
- 		}
-+		rio_set_led_mode(dev);
- 		/* Let TxStartThresh stay default value */
- 	}
- 	/* Maximum Collisions */
-@@ -965,6 +1009,7 @@ rio_error (struct net_device *dev, int int_status)
- 			dev->name, int_status);
- 		dw16(ASICCtrl + 2, GlobalReset | HostReset);
- 		mdelay (500);
-+		rio_set_led_mode(dev);
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/dlink/dl2k.h b/drivers/net/ethernet/dlink/dl2k.h
-index 23c07b0..8f4f612 100644
---- a/drivers/net/ethernet/dlink/dl2k.h
-+++ b/drivers/net/ethernet/dlink/dl2k.h
-@@ -211,6 +211,10 @@ enum ASICCtrl_HiWord_bits {
- 	ResetBusy = 0x0400,
- };
- 
-+#define IPG_AC_LED_MODE		BIT(14)
-+#define IPG_AC_LED_SPEED	BIT(27)
-+#define IPG_AC_LED_MODE_BIT_1	BIT(29)
-+
- /* Transmit Frame Control bits */
- enum TFC_bits {
- 	DwordAlign = 0x00000000,
-@@ -332,7 +336,10 @@ typedef struct t_SROM {
- 	u16 asic_ctrl;		/* 0x02 */
- 	u16 sub_vendor_id;	/* 0x04 */
- 	u16 sub_system_id;	/* 0x06 */
--	u16 reserved1[12];	/* 0x08-0x1f */
-+	u16 pci_base_1;		/* 0x08 (IP1000A only) */
-+	u16 pci_base_2;		/* 0x0a (IP1000A only) */
-+	u16 led_mode;		/* 0x0c (IP1000A only) */
-+	u16 reserved1[9];	/* 0x0e-0x1f */
- 	u8 mac_addr[6];		/* 0x20-0x25 */
- 	u8 reserved2[10];	/* 0x26-0x2f */
- 	u8 sib[204];		/* 0x30-0xfb */
-@@ -397,6 +404,7 @@ struct netdev_private {
- 	u16 advertising;	/* NWay media advertisement */
- 	u16 negotiate;		/* Negotiated media */
- 	int phy_addr;		/* PHY addresses. */
-+	u16 led_mode;		/* LED mode read from EEPROM (IP1000A only) */
- };
- 
- /* The station address location in the EEPROM. */
-@@ -407,10 +415,15 @@ struct netdev_private {
-         class_mask              of the class are honored during the comparison.
-         driver_data             Data private to the driver.
- */
-+#define CHIP_IP1000A	1
- 
- static const struct pci_device_id rio_pci_tbl[] = {
- 	{0x1186, 0x4000, PCI_ANY_ID, PCI_ANY_ID, },
- 	{0x13f0, 0x1021, PCI_ANY_ID, PCI_ANY_ID, },
-+	{ PCI_VDEVICE(SUNDANCE,	0x1023), CHIP_IP1000A },
-+	{ PCI_VDEVICE(SUNDANCE,	0x2021), CHIP_IP1000A },
-+	{ PCI_VDEVICE(DLINK,	0x9021), CHIP_IP1000A },
-+	{ PCI_VDEVICE(DLINK,	0x4020), CHIP_IP1000A },
- 	{ }
- };
- MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
--- 
-Ondrej Zary
+	 Andrew
