@@ -1,52 +1,38 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH v2 3/3] net: sched: fall back to noqueue when
- removing root qdisc
-Date: Sun, 23 Aug 2015 20:53:57 +0200
-Message-ID: <20150823205357.5df72804@redhat.com>
-References: <1440202856-1645-1-git-send-email-phil@nwl.cc>
-	<1440202856-1645-4-git-send-email-phil@nwl.cc>
-	<20150823204442.2e032436@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 3/9] phy: fixed_phy: Set supported speed in phydev
+Date: Sun, 23 Aug 2015 11:54:16 -0700
+Message-ID: <55DA16D8.9040304@gmail.com>
+References: <1440323220-20438-1-git-send-email-andrew@lunn.ch> <1440323220-20438-4-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, brouer@redhat.com
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59595 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734AbbHWSyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Aug 2015 14:54:00 -0400
-In-Reply-To: <20150823204442.2e032436@redhat.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:32952 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752635AbbHWSyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 14:54:18 -0400
+Received: by obbhe7 with SMTP id he7so96424045obb.0
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 11:54:17 -0700 (PDT)
+In-Reply-To: <1440323220-20438-4-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 23 Aug 2015 20:44:42 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+Le 08/23/15 02:46, Andrew Lunn a =C3=A9crit :
+> Set the supported field of the phydev to indicate the speed features
+> of the phy. If the phy is never attached to a netdev, but used in an
+> adjust_link() function, the speed will be incorrectly evaluated to
+> 10/half rather than the correct speed/duplex.
 
-> On Sat, 22 Aug 2015 02:20:56 +0200
-> Phil Sutter <phil@nwl.cc> wrote:
-> 
-> > When removing the root qdisc, the interface should fall back to noqueue
-> > as the 'real' minimal qdisc instead of the default one. 
-> 
-> I worry this behavior could break existing scripts.
+As mentioned in patch 4, the behavior is not really specified before yo=
+u
+attach to the PHY device, and therefore configured by the PHY library,
+still:
 
-You would break OpenWRT package "qos-scripts", specifically:
- https://github.com/openwrt-mirror/openwrt/blob/master/package/network/config/qos-scripts/files/usr/bin/qos-stop
+>=20
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Which cleans-up/clear the qdisc setup by removing the root qdisc,
-assuming and depending on the default qdisc is re-assigned.
-
-
-> I prefer the idea of allowing tc command to assign noqueue (to any
-> device).  This makes the action explicit for the user, instead of being
-> a side-effect of removing a qdisc. (and does not break backward compat)
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+--=20
+=46lorian
