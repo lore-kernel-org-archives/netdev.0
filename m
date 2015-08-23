@@ -1,71 +1,176 @@
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Subject: [PATCH, net-next] r8169: Keep writting on ChipCmd reg. close
-Date: Sun, 23 Aug 2015 12:41:14 +0300
-Message-ID: <1440322874-14980-1-git-send-email-corcodel.marian@gmail.com>
-Cc: Corcodel Marian <corcodel.marian@gmail.com>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 2/9] dsa: mv88e6xxx: Allow speed/duplex of port to be configured
+Date: Sun, 23 Aug 2015 11:46:53 +0200
+Message-ID: <1440323220-20438-3-git-send-email-andrew@lunn.ch>
+References: <1440323220-20438-1-git-send-email-andrew@lunn.ch>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:33070 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbbHWJl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 05:41:27 -0400
-Received: by wijp15 with SMTP id p15so52136733wij.0
-        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 02:41:25 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:38069 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751971AbbHWJyp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Aug 2015 05:54:45 -0400
+In-Reply-To: <1440323220-20438-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keep writting on ChipCmd register close and execute before 
- writting on any decriptors.On close the interface same rule.
+The current code sets user ports to perform auto negotiation using the
+phy. CPU and DSA ports are configured to full duplex and maximum speed
+the switch supports.
 
+There are however use cases where the CPU has a slower port, and when
+user ports have SFP modules with fixed speed. In these cases, port
+settings to be read from a fixed_phy devices. The switch driver then
+needs to implement the adjust_link op, so the port settings can be
+set.
 
-Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6123_61_65.c |  1 +
+ drivers/net/dsa/mv88e6131.c       |  1 +
+ drivers/net/dsa/mv88e6171.c       |  1 +
+ drivers/net/dsa/mv88e6352.c       |  1 +
+ drivers/net/dsa/mv88e6xxx.c       | 58 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h       |  2 ++
+ 6 files changed, 64 insertions(+)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b0f7ed2..2ee8bca 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6616,7 +6616,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index 71a29a7ce538..3de2a6d73fdc 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -129,6 +129,7 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
++	.adjust_link		= mv88e6xxx_adjust_link,
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp		= mv88e6xxx_get_temp,
+ #endif
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 32f4a08e9bc9..3e8386529965 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -182,6 +182,7 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
++	.adjust_link		= mv88e6xxx_adjust_link,
+ };
  
- 	RTL_W16(IntrMitigate, 0x0000);
+ MODULE_ALIAS("platform:mv88e6085");
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 735f04cd83ee..d54b7400e8d8 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -108,6 +108,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
++	.adjust_link		= mv88e6xxx_adjust_link,
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp               = mv88e6xxx_get_temp,
+ #endif
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 14b71779df99..1f5129c105fb 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -328,6 +328,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
++	.adjust_link		= mv88e6xxx_adjust_link,
+ 	.set_eee		= mv88e6xxx_set_eee,
+ 	.get_eee		= mv88e6xxx_get_eee,
+ #ifdef CONFIG_NET_DSA_HWMON
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 2ab3f9810593..7901db6503b4 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -14,6 +14,7 @@
+ #include <linux/debugfs.h>
+ #include <linux/delay.h>
+ #include <linux/etherdevice.h>
++#include <linux/ethtool.h>
+ #include <linux/if_bridge.h>
+ #include <linux/jiffies.h>
+ #include <linux/list.h>
+@@ -560,6 +561,63 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
+ 	return false;
+ }
  
--	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-+	//RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 
- 	rtl_set_rx_mode(dev);
- 
-@@ -7563,7 +7563,7 @@ static void rtl8169_down(struct net_device *dev)
- 	napi_disable(&tp->napi);
- 	netif_stop_queue(dev);
- 
--	rtl8169_hw_reset(tp);
-+	//rtl8169_hw_reset(tp);
- 	/*
- 	 * At this point device interrupts can not be enabled in any function,
- 	 * as netif_running is not true (rtl8169_interrupt, rtl8169_reset_task)
-@@ -7585,12 +7585,15 @@ static int rtl8169_close(struct net_device *dev)
++/* We expect the switch to perform auto negotiation if there is a real
++ * phy. However, in the case of a fixed link phy, we force the port
++ * settings from the fixed link settings.
++ */
++void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
++			   struct phy_device *phydev)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	u32 ret, reg;
++
++	if (!phy_is_pseudo_fixed_link(phydev))
++		return;
++
++	mutex_lock(&ps->smi_mutex);
++
++	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
++	if (ret < 0)
++		goto out;
++
++	reg = ret & ~(PORT_PCS_CTRL_LINK_UP |
++		      PORT_PCS_CTRL_FORCE_LINK |
++		      PORT_PCS_CTRL_DUPLEX_FULL |
++		      PORT_PCS_CTRL_FORCE_DUPLEX |
++		      PORT_PCS_CTRL_UNFORCED);
++
++	reg |= PORT_PCS_CTRL_FORCE_LINK;
++	if (phydev->link)
++			reg |= PORT_PCS_CTRL_LINK_UP;
++
++	if (mv88e6xxx_6065_family(ds) && phydev->speed > SPEED_100)
++		goto out;
++
++	switch (phydev->speed) {
++	case SPEED_1000:
++		reg |= PORT_PCS_CTRL_1000;
++		break;
++	case SPEED_100:
++		reg |= PORT_PCS_CTRL_100;
++		break;
++	case SPEED_10:
++		reg |= PORT_PCS_CTRL_10;
++		break;
++	default:
++		pr_info("Unknown speed");
++		goto out;
++	}
++
++	reg |= PORT_PCS_CTRL_FORCE_DUPLEX;
++	if (phydev->duplex == DUPLEX_FULL)
++		reg |= PORT_PCS_CTRL_DUPLEX_FULL;
++
++	_mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_PCS_CTRL, reg);
++
++out:
++	mutex_unlock(&ps->smi_mutex);
++}
++
+ /* Must be called with SMI mutex held */
+ static int _mv88e6xxx_stats_wait(struct dsa_switch *ds)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	struct pci_dev *pdev = tp->pci_dev;
-+	void __iomem *ioaddr = tp->mmio_addr;
- 
- 	pm_runtime_get_sync(&pdev->dev);
- 
- 	/* Update counters before going down */
- 	rtl8169_update_counters(dev);
- 	rtl8169_irq_mask_and_ack(tp);
-+	rtl_hw_reset(tp);
-+	RTL_W8(ChipCmd, ~(CmdTxEnb | CmdRxEnb));
- 
- 	rtl_lock_work(tp);
- 	clear_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
-@@ -7646,6 +7649,8 @@ static int rtl_open(struct net_device *dev)
- 	if (!tp->RxDescArray)
- 		goto err_free_tx_0;
- 
-+	rtl_hw_reset(tp);
-+	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);	
- 	rtl8169_set_feat_part2(dev, dev->features);
- 	retval = rtl8169_init_ring(dev);
- 	if (retval < 0)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 72ca887feb0d..79003c55fe62 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -446,6 +446,8 @@ void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
+ 				 uint64_t *data);
+ int mv88e6xxx_get_sset_count(struct dsa_switch *ds);
+ int mv88e6xxx_get_sset_count_basic(struct dsa_switch *ds);
++void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
++			   struct phy_device *phydev);
+ int mv88e6xxx_get_regs_len(struct dsa_switch *ds, int port);
+ void mv88e6xxx_get_regs(struct dsa_switch *ds, int port,
+ 			struct ethtool_regs *regs, void *_p);
 -- 
-2.1.4
+2.5.0
