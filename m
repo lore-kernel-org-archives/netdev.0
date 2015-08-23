@@ -1,76 +1,82 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] vrf: Add ethernet header for pass through VRF device
-Date: Sun, 23 Aug 2015 12:41:00 -0600
-Message-ID: <1440355260-16528-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: shm@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 6/9] dsa: mv88e6xxx: Set the RGMII delay based
+ on phy interface
+Date: Sun, 23 Aug 2015 11:44:01 -0700
+Message-ID: <55DA1471.2080905@gmail.com>
+References: <1440323220-20438-1-git-send-email-andrew@lunn.ch> <1440323220-20438-7-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:34191 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752389AbbHWSlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 14:41:35 -0400
-Received: by iodb91 with SMTP id b91so127110350iod.1
-        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 11:41:35 -0700 (PDT)
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:35067 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752389AbbHWSoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 14:44:04 -0400
+Received: by obbwr7 with SMTP id wr7so96325922obb.2
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 11:44:02 -0700 (PDT)
+In-Reply-To: <1440323220-20438-7-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The change to use a custom dst broke tcpdump captures on the VRF device:
+Le 08/23/15 02:46, Andrew Lunn a =C3=A9crit :
+> Some Marvell switches allow the RGMII Rx and Tx clock to be delayed
+> when the port is using RGMII. Have the adjust_link function look at
+> the phy interface type and enable this delay as requested.
+>=20
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
+>  drivers/net/dsa/mv88e6xxx.h |  2 ++
+>  2 files changed, 12 insertions(+)
+>=20
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.=
+c
+> index 7901db6503b4..f5af368751b2 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -612,6 +612,16 @@ void mv88e6xxx_adjust_link(struct dsa_switch *ds=
+, int port,
+>  	if (phydev->duplex =3D=3D DUPLEX_FULL)
+>  		reg |=3D PORT_PCS_CTRL_DUPLEX_FULL;
+> =20
+> +	if ((mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds)) &&
+> +	    (port >=3D ps->num_ports - 2)) {
 
-$ tcpdump -n -i vrf10
-...
-05:32:29.009362 IP 10.2.1.254 > 10.2.1.2: ICMP echo request, id 21989, seq 1, length 64
-05:32:29.009855 00:00:40:01:8d:36 > 45:00:00:54:d6:6f, ethertype Unknown (0x0a02), length 84:
-	0x0000:  0102 0a02 01fe 0000 9181 55e5 0001 bd11  ..........U.....
-	0x0010:  da55 0000 0000 bb5d 0700 0000 0000 1011  .U.....]........
-	0x0020:  1213 1415 1617 1819 1a1b 1c1d 1e1f 2021  ...............!
-	0x0030:  2223 2425 2627 2829 2a2b 2c2d 2e2f 3031  "#$%&'()*+,-./01
-	0x0040:  3233 3435 3637                           234567
+Are we positive that the last two ports of a switch are going to be
+RGMII capable or is this something that should be moved to Device Tree =
+/
+platform data to account for different switch families? Maybe having a
+bitmask of RGMII capable ports stored in "ps" would be good enough?
 
-Local packets going through the VRF device are missing an ethernet header.
-Fix by adding one and then stripping it off before pushing back to the IP
-stack. With this patch you get the expected dumps:
+> +		if (phydev->interface =3D=3D PHY_INTERFACE_MODE_RGMII_RXID)
+> +			reg |=3D PORT_PCS_CTRL_RGMII_DELAY_RXCLK;
+> +		if (phydev->interface =3D=3D PHY_INTERFACE_MODE_RGMII_TXID)
+> +			reg |=3D PORT_PCS_CTRL_RGMII_DELAY_TXCLK;
+> +		if (phydev->interface =3D=3D PHY_INTERFACE_MODE_RGMII_ID)
+> +			reg |=3D (PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
+> +				PORT_PCS_CTRL_RGMII_DELAY_TXCLK);
+> +	}
+>  	_mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_PCS_CTRL, reg);
+> =20
+>  out:
+> diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.=
+h
+> index 79003c55fe62..9b6f3d9d5ae1 100644
+> --- a/drivers/net/dsa/mv88e6xxx.h
+> +++ b/drivers/net/dsa/mv88e6xxx.h
+> @@ -46,6 +46,8 @@
+>  #define PORT_STATUS_TX_PAUSED	BIT(5)
+>  #define PORT_STATUS_FLOW_CTRL	BIT(4)
+>  #define PORT_PCS_CTRL		0x01
+> +#define PORT_PCS_CTRL_RGMII_DELAY_RXCLK	BIT(15)
+> +#define PORT_PCS_CTRL_RGMII_DELAY_TXCLK	BIT(14)
+>  #define PORT_PCS_CTRL_FC		BIT(7)
+>  #define PORT_PCS_CTRL_FORCE_FC		BIT(6)
+>  #define PORT_PCS_CTRL_LINK_UP		BIT(5)
+>=20
 
-...
-05:36:15.713944 IP 10.2.1.254 > 10.2.1.2: ICMP echo request, id 23795, seq 1, length 64
-05:36:15.714160 IP 10.2.1.2 > 10.2.1.254: ICMP echo reply, id 23795, seq 1, length 64
-...
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
-
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index dbeffe789185..e5c792e4c224 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -219,6 +219,9 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
- 
- static netdev_tx_t is_ip_tx_frame(struct sk_buff *skb, struct net_device *dev)
- {
-+	/* strip the ethernet header added for pass through VRF device */
-+	__skb_pull(skb, skb_network_offset(skb));
-+
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
- 		return vrf_process_v4_outbound(skb, dev);
-@@ -250,6 +253,17 @@ static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- static netdev_tx_t vrf_finish(struct sock *sk, struct sk_buff *skb)
- {
-+	int err;
-+
-+	__skb_pull(skb, skb_network_offset(skb));
-+	err = dev_hard_header(skb, skb->dev, ntohs(skb->protocol),
-+			      NULL, NULL, skb->len);
-+
-+	if (err < 0) {
-+		vrf_tx_error(skb->dev, skb);
-+		return -EINVAL;
-+	}
-+
- 	return dev_queue_xmit(skb);
- }
- 
--- 
-2.3.2 (Apple Git-55)
+--=20
+=46lorian
