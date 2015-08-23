@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] tipc: fix link failover/synch problems
-Date: Sun, 23 Aug 2015 16:15:01 -0700 (PDT)
-Message-ID: <20150823.161501.1555147023417416861.davem@davemloft.net>
-References: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: pull-request: can-next 2015-05-06
+Date: Sun, 23 Aug 2015 16:29:01 -0700 (PDT)
+Message-ID: <20150823.162901.103058802759255902.davem@davemloft.net>
+References: <55D5C481.5050200@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47091 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932066AbbHWXPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 19:15:03 -0400
-In-Reply-To: <1440051176-32672-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, david@protonic.nl
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <55D5C481.5050200@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 20 Aug 2015 02:12:53 -0400
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 20 Aug 2015 14:13:53 +0200
 
-> We fix three problems with the new link failover/synch implementation,
-> which was introduced earlier in this release cycle. They are all related
-> to situations where there is a very short interval between the disabling
-> and enabling of interfaces.
+> this is a pull request of a two patches for net-next.
+> 
+> The first patch is by Nik Nyby and fixes a typo in a function name. The
+> second patch by Lucas Stach demotes register output to debug level.
 
-Series applied, thanks Jon.
+Pulled, thanks Marc.
