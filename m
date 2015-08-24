@@ -1,56 +1,46 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: iproute2: Behavioural Bug?
-Date: Tue, 25 Aug 2015 01:22:29 +0200
-Message-ID: <20150824232229.GC5905@breakpoint.cc>
-References: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2 net-next] r8169: Add values missing in @get_stats64
+ from HW counters
+Date: Tue, 25 Aug 2015 01:33:46 +0200
+Message-ID: <20150824233346.GA30812@electric-eye.fr.zoreil.com>
+References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
+ <1440151756-18165-1-git-send-email-vinschen@redhat.com>
+ <20150821193926.GA16437@electric-eye.fr.zoreil.com>
+ <20150821220756.GI19683@calimero.vinschen.de>
+ <20150821235940.GA20313@electric-eye.fr.zoreil.com>
+ <20150822083916.GA17408@calimero.vinschen.de>
+ <20150822112334.GB24519@electric-eye.fr.zoreil.com>
+ <20150824073348.GL19683@calimero.vinschen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	xiyou.wangcong@gmail.com
-To: Akshat Kakkar <akshat.1984@gmail.com>
+To: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
+	Ivan Vecera <ivecera@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	nic_swsd <nic_swsd@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50224 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750993AbbHXXWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 19:22:31 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59602 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbbHXXeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 19:34:23 -0400
 Content-Disposition: inline
-In-Reply-To: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
+In-Reply-To: <20150824073348.GL19683@calimero.vinschen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Akshat Kakkar <akshat.1984@gmail.com> wrote:
+Corinna Vinschen <vinschen@redhat.com> :
+> On Aug 22 13:23, Francois Romieu wrote:
+[...]
+> > Sorry, my english was really bad:
+> > 
+> > the code should propagate failure when rtl8169_reset_counters and
+> > rtl8169_update_counters *simultaneously* fail.
+> 
+> Uhm... sorry, but that still doesn't answer the question.  As you can
+> see in my patch, the initalization at open time is already encapsulated
+> in a function rtl8169_init_counter_offsets. 
 
-[ CC Cong ]
+I have read your patch, I have already answered the question and I have
+already said that it wasn't a showstopper.
 
-> When I am trying to delete a single tc filter (i.e. specifying its
-> handle), it is deleting all the
-> filters with the same priority/preference. i.e. it is ignoring the
-> handle specified.
-> 
-> But, When I am doing similar activity in hashtable 800: it is deleting only the
-> specified filter, i.e. it is behaving as expected.
-> 
-> I am unable to comprehend the reason for this difference in behaviour.
-> 
-> Infact, in kernel 2.6.32 all is working as expected. However, in
-> kernel 3.1 and 4.1 it is having the behaviour as mentioned above.
-> 
-> For example, following set of commands  create a hashtable 15: and add
-> 2 filters to it.
-> 
-> tc filter add dev eth0 parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
-> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:2 u32
-> ht 15:2: match ip src 10.0.0.2 flowid 1:10
-> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
-> ht 15:2: match ip src 10.0.0.3 flowid 1:10
-> 
-> Now following command DELETES ALL THE FILTERS, though it should only
-> delete FILTER 15:2:3 !
-> tc filter del dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
-> 
-> O/p of tc filter show eth0 is this case is blank. As all filters are deleted.
-
-Happens since
-
-1e052be69d045c8d0f82ff1116fd3e5a79661745
-("net_sched: destroy proto tp when all filters are gone").
+-- 
+Ueimor
