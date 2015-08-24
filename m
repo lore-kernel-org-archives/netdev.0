@@ -1,66 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 9/9] phy: fixed_phy: Set phy capabilities even
- when link is down
-Date: Mon, 24 Aug 2015 18:32:30 +0200
-Message-ID: <20150824163230.GB6781@lunn.ch>
-References: <1440323220-20438-1-git-send-email-andrew@lunn.ch>
- <1440323220-20438-10-git-send-email-andrew@lunn.ch>
- <55DA1387.9020009@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] vrf: rename the framework to mrf
+Date: Mon, 24 Aug 2015 18:40:55 +0200
+Message-ID: <55DB4917.1010307@6wind.com>
+References: <1440259820-7875-1-git-send-email-nicolas.dichtel@6wind.com> <20150822.104721.739206355128347497.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
+	dsa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38707 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751150AbbHXQj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2015 12:39:57 -0400
-Content-Disposition: inline
-In-Reply-To: <55DA1387.9020009@gmail.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35586 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751150AbbHXQk6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 12:40:58 -0400
+Received: by wicne3 with SMTP id ne3so77590843wic.0
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 09:40:57 -0700 (PDT)
+In-Reply-To: <20150822.104721.739206355128347497.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 23, 2015 at 11:40:07AM -0700, Florian Fainelli wrote:
-> Le 08/23/15 02:47, Andrew Lunn a =E9crit :
-> > What features a phy supports is masked in genphy_config_init() by
-> > looking at the PHYs BMSR register.
-> >=20
-> > If the link is down, fixed_phy_update_regs() will only set the auto=
--
-> > negotiation capable bit in BMSR. Thus genphy_config_init() comes to
-> > the conclusion the PHY can only perform 10/Half, and masks out the
-> > higher speed features. If however the link it up, BMSR is set to
-> > indicate the speed the PHY is capable of auto-negotiating, and
-> > genphy_config_init() does not mask out the high speed features.
-> >=20
-> > To fix this, when the link is down, have fixed_phy_update_regs() le=
-ave
-> > the link status and auto-negotiation complete bit unset, but set al=
-l
-> > the other bits depending on the fixed phy speed.
->=20
-> This kinds of revert what Staas did in commit
-> 868a4215be9a6d80548ccb74763b883dc99d32a2 ("net: phy: fixed_phy: handl=
-e
-> link-down case"). When the link is down, it does not seem to me like =
-we
-> can rely on the previous speed and duplex parameters to be considered=
- valid.
->=20
-> Your change does fix a valid use case though... humm.
+Le 22/08/2015 19:47, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Sat, 22 Aug 2015 18:10:20 +0200
+>
+>> This patch renames the recently added vrf driver. 'VRF' term is very
+>> generic and there is no clear definition of it.
+>> For example, someone may expect more isolation and uses network name=
+spaces
+>> to implement VRF,
+>
+> This is a rediculous argument.
+>
+> Does someone using VRF on a Cisco box expect Linux namespaces to be u=
+sed?
+>
+> Sorry, this is not going to get applied.
+>
+I spent some time today to check threads on this topic on Quagga and on=
+ netdev
+and I digged into the VRF-lite's commercial documentations. I finally a=
+gree
+with you, let's drop this patch.
 
-Hi Florian
 
-I took at look at Staas fix, and read a bit about what the different
-bits mean. I've reworked the patch. I now always set the local phy
-capabilities in BMSR, but only set the negotiated speed and link
-partner capabilities if the link it up. I also don't error out on
-speed=3D0, unless the link is up.
-
-This works for my use case, and hopefully also Staas.
-
-I will post the new version when we have come to a conclusion about
-other open issues.
-
-      Andrew
+Nicolas
