@@ -1,72 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 6/9] dsa: mv88e6xxx: Set the RGMII delay based
- on phy interface
-Date: Mon, 24 Aug 2015 10:01:38 -0700
-Message-ID: <55DB4DF2.7020502@gmail.com>
-References: <1440323220-20438-1-git-send-email-andrew@lunn.ch> <1440323220-20438-7-git-send-email-andrew@lunn.ch> <55DA1471.2080905@gmail.com> <20150823211014.GC20710@lunn.ch>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Low throughput in VMs using VxLAN
+Date: Mon, 24 Aug 2015 10:27:00 -0700
+Message-ID: <55DB53E4.4010105@hp.com>
+References: <CAOoYtEtnvYKcs7s0Bmv+7+L0=nhXdJfeC2uSZa8Nz9i_+jy2Vw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Santosh R <skrastapur@gmail.com>, netdev@vger.kernel.org,
+	tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33579 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754030AbbHXREI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:04:08 -0400
-Received: by pdrh1 with SMTP id h1so56546408pdr.0
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 10:04:08 -0700 (PDT)
-In-Reply-To: <20150823211014.GC20710@lunn.ch>
+Received: from g9t5009.houston.hp.com ([15.240.92.67]:58790 "EHLO
+	g9t5009.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbbHXR1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:27:05 -0400
+In-Reply-To: <CAOoYtEtnvYKcs7s0Bmv+7+L0=nhXdJfeC2uSZa8Nz9i_+jy2Vw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/08/15 14:10, Andrew Lunn wrote:
-> On Sun, Aug 23, 2015 at 11:44:01AM -0700, Florian Fainelli wrote:
->> Le 08/23/15 02:46, Andrew Lunn a =C3=A9crit :
->>> Some Marvell switches allow the RGMII Rx and Tx clock to be delayed
->>> when the port is using RGMII. Have the adjust_link function look at
->>> the phy interface type and enable this delay as requested.
->>>
->>> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
->>> ---
->>>  drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
->>>  drivers/net/dsa/mv88e6xxx.h |  2 ++
->>>  2 files changed, 12 insertions(+)
->>>
->>> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xx=
-x.c
->>> index 7901db6503b4..f5af368751b2 100644
->>> --- a/drivers/net/dsa/mv88e6xxx.c
->>> +++ b/drivers/net/dsa/mv88e6xxx.c
->>> @@ -612,6 +612,16 @@ void mv88e6xxx_adjust_link(struct dsa_switch *=
-ds, int port,
->>>  	if (phydev->duplex =3D=3D DUPLEX_FULL)
->>>  		reg |=3D PORT_PCS_CTRL_DUPLEX_FULL;
->>> =20
->>> +	if ((mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds)) &&
->>> +	    (port >=3D ps->num_ports - 2)) {
->>
->> Are we positive that the last two ports of a switch are going to be
->> RGMII capable or is this something that should be moved to Device Tr=
-ee /
->> platform data to account for different switch families? Maybe having=
- a
->> bitmask of RGMII capable ports stored in "ps" would be good enough?
->=20
-> Hi Florian
->=20
-> For these two families, this is correct. And it is a property of the
-> switch, not the board, so should not be in DT. Other families are
-> different. Older ones are Fast Ethernet only. Some don't have any
-> RGMII ports, etc. It could be with time, this condition gets messy, a=
-t
-> which point, a bitmask in ps would make sense. But is it justified
-> now?
+On 08/24/2015 09:19 AM, Santosh R wrote:
+>   Hi,
+>
+>     Earlier I was seeing lower throughput in VMs using VxLan as GRO was
+> not happening in VM.
+> Tom Herbert suggested to use "vxlan: GRO support at tunnel layer" patch series.
+> With today's net-next (4.2.0-rc7) in host and VM, I could see GRO
+> happening for vxlan, macvtap and virtual interface in VM.
+> The throughput is still low between VMs (around 4Gbps compared to
+> 9Gbps without VxLAN).
 
-Sure, I think for now this patch is good as-is, I was mostly curious
-whether the assumption about the last 2 ports of the switch being RGMII
-would hold for a while, and it looks like it will. With that:
+Out of curiosity, have you tried tweaking gro_flush_timeout 
+(gro_flush_interval?) for the VMs eth interface?  Say perhaps a value of 
+1000?  (I'm assuming the VM is using virtio_net) Does the behaviour 
+change if vhost-net is loaded into the host and used by the VM?
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
---=20
-=46lorian
+rick jones
+
+For completeness, it would also be good to compare the likes of netperf 
+TCP_RR between VxLAN and without.
