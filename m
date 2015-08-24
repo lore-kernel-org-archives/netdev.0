@@ -1,10 +1,9 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] sctp: asconf process should treat multiple address
- parameter as unrecognized parameter
-Date: Mon, 24 Aug 2015 13:49:45 -0400
-Message-ID: <55DB5939.8030902@redhat.com>
-References: <13ab95079875febb3985b32d0fdaf587c6de1973.1440410850.git.lucien.xin@gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] sctp: partial chunk should be drop without sending
+ abort packet
+Date: Mon, 24 Aug 2015 14:01:30 -0400
+Message-ID: <55DB5BFA.3020405@gmail.com>
+References: <88918657d985bc0e55e64ca232dcd5f2b76b7cb4.1440410910.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -12,59 +11,55 @@ Cc: mleitner@redhat.com, davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>,
 	network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33123 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751115AbbHXRtq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2015 13:49:46 -0400
-In-Reply-To: <13ab95079875febb3985b32d0fdaf587c6de1973.1440410850.git.lucien.xin@gmail.com>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:34225 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbbHXSBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 14:01:33 -0400
+Received: by qkfh127 with SMTP id h127so79526308qkf.1
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 11:01:32 -0700 (PDT)
+In-Reply-To: <88918657d985bc0e55e64ca232dcd5f2b76b7cb4.1440410910.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2015 06:07 AM, Xin Long wrote:
-> currently, we sctp_walk_params(), if we encounter the address parameter, we will
-> skip them, we do not care about how many addr params are there.
+On 08/24/2015 06:08 AM, Xin Long wrote:
+> as RFC 4960, 6.10 said, *if the receiver detects a partial chunk, it MUST drop
+> the chunk*, we should not send the abort. but if we put this discard to inside
+> state machine, it will send abort.
 > 
-> but the params of ASCONF chunk should consist of one *Address Parameter* and one
-> or more *ASCONF Parameters*.
-> 
-> so we will process multiple address parameters as unrecognized parameter and
-> send error cause to peer.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/sm_make_chunk.c | 12 ++++++++++--
->  1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index 06320c8..0ee5ca7 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -3217,10 +3217,18 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
->  
->  	/* Process the TLVs contained within the ASCONF chunk. */
->  	sctp_walk_params(param, addip, addip_hdr.params) {
-> -		/* Skip preceeding address parameters. */
-> +		/* Skip preceeding address parameters.
-> +		 * process multi-addrparam as unrecognized parameters
-> +		 */
->  		if (param.p->type == SCTP_PARAM_IPV4_ADDRESS ||
-> -		    param.p->type == SCTP_PARAM_IPV6_ADDRESS)
-> +		    param.p->type == SCTP_PARAM_IPV6_ADDRESS) {
-> +			if(param.addr != addr_param) {
-> +				all_param_pass = false;
-> +				sctp_add_asconf_response(asconf_ack, 0,
-> +					SCTP_ERROR_UNKNOWN_PARAM, param.v);
-> +			}
->  			continue;
-> +		}
->  
 
-I think it would be much better to catch this in the validation stage.
-If an implementation inserts multiple address parameters, we don't really know
-which one we should be using.
+Actually, silently dropping this is _very_ bad.  There reason is that you've already
+processed the leading chunks and may have potentially queued a response...  Now, you
+reach the end of the packet and find that the last chunk is partial.  You end up
+dropping the packet, but still handing the responses.  This actually lead to some very
+interesting issues we were seeing.
+
+It is better to terminate the association in this case.
 
 -vlad
 
->  		err_code = sctp_process_asconf_param(asoc, asconf,
->  						     param.addip);
+> so we just drop the partial chunk there, never let this chunk go into the state
+> machine.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/inqueue.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+> index 7e8a16c..a22ca57 100644
+> --- a/net/sctp/inqueue.c
+> +++ b/net/sctp/inqueue.c
+> @@ -183,9 +183,9 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
+>  		/* This is not a singleton */
+>  		chunk->singleton = 0;
+>  	} else if (chunk->chunk_end > skb_tail_pointer(chunk->skb)) {
+> -		/* Discard inside state machine. */
+> -		chunk->pdiscard = 1;
+> -		chunk->chunk_end = skb_tail_pointer(chunk->skb);
+> +		sctp_chunk_free(chunk);
+> +		chunk = queue->in_progress = NULL;
+> +		return NULL;
+>  	} else {
+>  		/* We are at the end of the packet, so mark the chunk
+>  		 * in case we need to send a SACK.
 > 
