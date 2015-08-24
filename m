@@ -1,63 +1,42 @@
-From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Subject: [PATCH 1/2] usbnet: Get EVENT_NO_RUNTIME_PM bit before it is cleared
-Date: Mon, 24 Aug 2015 23:13:42 +0300
-Message-ID: <1440447223-15945-2-git-send-email-eugene.shatokhin@rosalab.ru>
-References: <55AD3A41.2040100@rosalab.ru>
- <1440447223-15945-1-git-send-email-eugene.shatokhin@rosalab.ru>
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-To: Oliver Neukum <oneukum@suse.de>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440447223-15945-1-git-send-email-eugene.shatokhin@rosalab.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] udp_offload: Allow device GRO without
+ checksum-complete
+Date: Mon, 24 Aug 2015 13:15:28 -0700
+Message-ID: <1440447328.8932.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1440444853-614524-1-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	sramamur@linux.vnet.ibm.com, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34252 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754626AbbHXUPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 16:15:31 -0400
+Received: by pabzx8 with SMTP id zx8so13947347pab.1
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 13:15:30 -0700 (PDT)
+In-Reply-To: <1440444853-614524-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is needed to check EVENT_NO_RUNTIME_PM bit of dev->flags in
-usbnet_stop(), but its value should be read before it is cleared
-when dev->flags is set to 0.
+On Mon, 2015-08-24 at 12:34 -0700, Tom Herbert wrote:
 
-The problem was spotted and the fix was provided by
-Oliver Neukum <oneukum@suse.de>.
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index c0a15e7..1d91227 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -130,6 +130,9 @@ EXPORT_SYMBOL(sysctl_udp_wmem_min);
+>  atomic_long_t udp_memory_allocated;
+>  EXPORT_SYMBOL(udp_memory_allocated);
+>  
+> +int sysctl_udp_gro_nocsum_ok;
+> +EXPORT_SYMBOL(sysctl_udp_gro_nocsum_ok);
+> +
 
-Signed-off-by: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
----
- drivers/net/usb/usbnet.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+1) Why is this exported ?
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 3c86b10..e049857 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -778,7 +778,7 @@ int usbnet_stop (struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
- 	struct driver_info	*info = dev->driver_info;
--	int			retval, pm;
-+	int			retval, pm, mpn;
- 
- 	clear_bit(EVENT_DEV_OPEN, &dev->flags);
- 	netif_stop_queue (net);
-@@ -809,6 +809,8 @@ int usbnet_stop (struct net_device *net)
- 
- 	usbnet_purge_paused_rxq(dev);
- 
-+	mpn = !test_and_clear_bit(EVENT_NO_RUNTIME_PM, &dev->flags);
-+
- 	/* deferred work (task, timer, softirq) must also stop.
- 	 * can't flush_scheduled_work() until we drop rtnl (later),
- 	 * else workers could deadlock; so make workers a NOP.
-@@ -819,8 +821,7 @@ int usbnet_stop (struct net_device *net)
- 	if (!pm)
- 		usb_autopm_put_interface(dev->intf);
- 
--	if (info->manage_power &&
--	    !test_and_clear_bit(EVENT_NO_RUNTIME_PM, &dev->flags))
-+	if (info->manage_power && mpn)
- 		info->manage_power(dev, 0);
- 	else
- 		usb_autopm_put_interface(dev->intf);
--- 
-2.3.2
+2) I do not believe it is specific to UDP path.
+
+  We could have the same sysctl for GRE or IPIP or XXX encaps ?
