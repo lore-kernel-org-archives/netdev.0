@@ -1,41 +1,61 @@
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Subject: [PATCH, net-next] r8169:  On RTL 8101 series bit SYSErr is reserved.
-Date: Mon, 24 Aug 2015 21:12:53 +0300
-Message-ID: <1440439973-7400-1-git-send-email-corcodel.marian@gmail.com>
-Cc: Corcodel Marian <corcodel.marian@gmail.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2] sctp: start t5 timer only when peer.rwnd is 0
+ and local.state is SHUTDOWN_PENDING
+Date: Mon, 24 Aug 2015 14:13:38 -0400
+Message-ID: <55DB5ED2.1050702@redhat.com>
+References: <e5d77a8d7c30ccbcc113506837ae7b8e90625046.1440329440.git.lucien.xin@gmail.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: mleitner@redhat.com, tgraf@infradead.org, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:34788 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753993AbbHXSNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 14:13:07 -0400
-Received: by widdq5 with SMTP id dq5so58064719wid.1
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 11:13:05 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:52394 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751235AbbHXSNk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Aug 2015 14:13:40 -0400
+In-Reply-To: <e5d77a8d7c30ccbcc113506837ae7b8e90625046.1440329440.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On RTL 8101 series bit SYSErr is reserved.
+On 08/23/2015 07:30 AM, Xin Long wrote:
+> when A sends a data to B, then A close() and enter into SHUTDOWN_PENDING state,
+> if B neither claim his rwnd is 0 nor send SACK for this data, A will keep
+> retransmitting this data util t5 timeout, Max.Retrans times can't work anymore,
+> which is bad.
+> 
+> if B's rwnd is not 0, it should send abord after Max.Retrans times, only when
+> B's rwnd == 0 and A's retransmitting beyonds Max.Retrans times, A will start
+> t5 timer, which is also commit f8d960524 means, but it lacks the condition
+> peer.rwnd == 0.
+> 
+> Fixes: f8d960524 ("sctp: Enforce retransmission limit during shutdown")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_statefuns.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index 3ee27b7..deb9eab 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -5412,7 +5412,8 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(struct net *net,
+>  	SCTP_INC_STATS(net, SCTP_MIB_T3_RTX_EXPIREDS);
+>  
+>  	if (asoc->overall_error_count >= asoc->max_retrans) {
+> -		if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
+> +		if (!q->asoc->peer.rwnd &&
+> +		    asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
+>  			/*
+>  			 * We are here likely because the receiver had its rwnd
+>  			 * closed for a while and we have not been able to
+> 
 
-Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+This may not work as expected.  peer.rwnd is the calculated peer window, but it
+also gets updated when we receive sacks.  So there is no way to tell that
+the current windows is 0 because peer told us, or because we sent data to make 0
+and the peer hasn't responded.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 5693e65..32d2072 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -8256,6 +8256,14 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
- 	RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));*/
- 	switch (tp->mac_version) {
-+	case RTL_GIGA_MAC_VER_07:
-+	case RTL_GIGA_MAC_VER_08:
-+	case RTL_GIGA_MAC_VER_09:
-+	case RTL_GIGA_MAC_VER_10:
-+	case RTL_GIGA_MAC_VER_13:
-+	case RTL_GIGA_MAC_VER_16:
-+		pci_write_config_word(pdev, PCI_COMMAND, ~PCI_COMMAND_SERR); 
-+		break;
- 	case RTL_GIGA_MAC_VER_34:
- 	case RTL_GIGA_MAC_VER_35:
- 	case RTL_GIGA_MAC_VER_36:
--- 
-2.1.4
+-vlad
