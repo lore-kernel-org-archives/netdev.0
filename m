@@ -1,65 +1,41 @@
-From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
-Date: Mon, 24 Aug 2015 21:12:26 +0300
-Message-ID: <55DB5E8A.9040108@rosalab.ru>
-References: <55D436D5.6010105@rosalab.ru> <87k2sreefu.fsf@nemi.mork.no>
- <55D46F85.50608@rosalab.ru>
- <20150824.104328.554582952440857559.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bjorn@mork.no, oneukum@suse.com, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150824.104328.554582952440857559.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH, net-next] r8169:  On RTL 8101 series bit SYSErr is reserved.
+Date: Mon, 24 Aug 2015 21:12:53 +0300
+Message-ID: <1440439973-7400-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:34788 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753993AbbHXSNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 14:13:07 -0400
+Received: by widdq5 with SMTP id dq5so58064719wid.1
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 11:13:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-24.08.2015 20:43, David Miller =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-> Date: Wed, 19 Aug 2015 14:59:01 +0300
->
->> So the following might be possible, although unlikely:
->>
->> CPU0             CPU1
->>                   clear_bit: read dev->flags
->>                   clear_bit: clear EVENT_RX_KILL in the read value
->>
->> dev->flags=3D0;
->>
->>                   clear_bit: write updated dev->flags
->>
->> As a result, dev->flags may become non-zero again.
->
-> Is this really possible?
+On RTL 8101 series bit SYSErr is reserved.
 
-On x86, it is not possible, so this is not a problem. Perhaps, for ARM=20
-too. As for the other architectures supported by the kernel - not sure,=
-=20
-no common guarantees, it seems. Anyway, this is not a critical issue, I=
-=20
-agree.
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 
-OK, let us leave things as they are for this one and fix the rest.
-
->
-> Stores really are "atomic" in the sense that the do their update
-> in one indivisible operation.
->
-> Atomic operations like clear_bit also will behave that way.
->
-> If a clear_bit is in progress, the "dev->flags=3D0" store will not be
-> able to grab the cache line exclusively until the clear_bit is done.
->
-> So I think the above sequent of events is completely impossible.  Onc=
-e
-> a clear_bit starts, a write by another foreign agent on the bus is
-> absolutely impossible to legally occur until the clear_bit completes.
->
-> I think this is a non-issue.
->
-
-Regards,
-Eugene
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 5693e65..32d2072 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -8256,6 +8256,14 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
+ 	RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));*/
+ 	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_07:
++	case RTL_GIGA_MAC_VER_08:
++	case RTL_GIGA_MAC_VER_09:
++	case RTL_GIGA_MAC_VER_10:
++	case RTL_GIGA_MAC_VER_13:
++	case RTL_GIGA_MAC_VER_16:
++		pci_write_config_word(pdev, PCI_COMMAND, ~PCI_COMMAND_SERR); 
++		break;
+ 	case RTL_GIGA_MAC_VER_34:
+ 	case RTL_GIGA_MAC_VER_35:
+ 	case RTL_GIGA_MAC_VER_36:
+-- 
+2.1.4
