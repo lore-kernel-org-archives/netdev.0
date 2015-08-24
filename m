@@ -1,187 +1,56 @@
-From: Philip Downey <pdowney@brocade.com>
-Subject: [PATCH] IGMP: Inhibit reports for local multicast groups
-Date: Mon, 24 Aug 2015 12:39:17 +0100
-Message-ID: <1c262ff7179d56eefb2c723538d1daaa88892730.1440415003.git.pdowney@brocade.com>
-References: <1>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] sctp: asconf's process should verify address
+ parameter is in the beginning
+Date: Mon, 24 Aug 2015 15:13:03 +0300
+Message-ID: <55DB0A4F.8090004@cogentembedded.com>
+References: <87d339ea910a3665c9376b6ba69b003af967c6d1.1440410878.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Philip Downey <pdowney@brocade.com>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mleitner@redhat.com, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:33461 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753929AbbHXMNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 08:13:04 -0400
+Received: by lalv9 with SMTP id v9so75841428lal.0
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 05:13:02 -0700 (PDT)
+In-Reply-To: <87d339ea910a3665c9376b6ba69b003af967c6d1.1440410878.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The range of addresses between 224.0.0.0 and 224.0.0.255 inclusive, is
-reserved for the use of routing protocols and other low-level topology
-discovery or maintenance protocols, such as gateway discovery and
-group membership reporting.  Multicast routers should not forward any
-multicast datagram with destination addresses in this range,
-regardless of its TTL.
+Hello.
 
-Currently, IGMP reports are generated for this reserved range of
-addresses even though a router will ignore this information since it
-has no purpose.  However, the presence of reserved group addresses in
-an IGMP membership report uses up network bandwidth and can also
-obscure addresses of interest when inspecting membership reports using
-packet inspection or debug messages.
+On 8/24/2015 1:07 PM, Xin Long wrote:
 
-Although the RFCs for the various version of IGMP (e.g.RFC 3376 for
-v3) do not specify that the reserved addresses be excluded from
-membership reports, it should do no harm in doing so.  In particular
-there should be no adverse effect in any IGMP snooping functionality
-since 224.0.0.x is specifically excluded as per RFC 4541 (IGMP and MLD
-Snooping Switches Considerations) section 2.1.2. Data Forwarding
-Rules:
+> in sctp_process_asconf(), we get address parameter from the beginning of the
+> addip params. but we never check if it's really there. if the addr param is not
+> there, it still can pass sctp_verify_asconf(), then to be handled by
+> sctp_process_asconf(), it will not be safe.
+>
+> so add a code in sctp_verify_asconf() to check the address parameter is in the
+> beginning, or return false to send abort.
+>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>   net/sctp/sm_make_chunk.c | 8 ++++++++
+>   1 file changed, 8 insertions(+)
 
-    2) Packets with a destination IP (DIP) address in the 224.0.0.X
-       range which are not IGMP must be forwarded on all ports.
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 0ee5ca7..a2a72d5 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -3122,6 +3122,14 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
+>   	union sctp_params param;
+>   	bool addr_param_seen = false;
+>
+> +	if(addr_param_needed){
 
-IGMP reports for local multicast groups can now be optionally
-inhibited by means of a system control variable (by setting the value
-to zero) e.g.:
-    echo 0 > /proc/sys/net/ipv4/igmp_link_local_reports
+    Space needed after *if*. Please run your patches thru 
+scripts/checkpatch.pl before posting.
 
-To retain backwards compatibility the previous behaviour is retained
-by default on system boot or reverted by setting the value back to
-non-zero e.g.:
-    echo 1 >  /proc/sys/net/ipv4/igmp_link_local_reports
+[...]
 
-Signed-off-by: Philip Downey <pdowney@brocade.com>
----
- include/linux/igmp.h       |    1 +
- net/ipv4/igmp.c            |   29 ++++++++++++++++++++++++++++-
- net/ipv4/sysctl_net_ipv4.c |    7 +++++++
- 3 files changed, 36 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/igmp.h b/include/linux/igmp.h
-index 193ad48..e3e0dae 100644
---- a/include/linux/igmp.h
-+++ b/include/linux/igmp.h
-@@ -37,6 +37,7 @@ static inline struct igmpv3_query *
- 	return (struct igmpv3_query *)skb_transport_header(skb);
- }
- 
-+extern int sysctl_igmp_link_local_reports;
- extern int sysctl_igmp_max_memberships;
- extern int sysctl_igmp_max_msf;
- extern int sysctl_igmp_qrv;
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 9fdfd9d..a3df89d 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -110,6 +110,15 @@
- #define IP_MAX_MEMBERSHIPS	20
- #define IP_MAX_MSF		10
- 
-+/* IGMP reports for link-local multicast groups are enabled by default */
-+#define IGMP_ENABLE_LLM         1
-+
-+int sysctl_igmp_link_local_reports __read_mostly = IGMP_ENABLE_LLM;
-+
-+#define IGMP_INHIBIT_LINK_LOCAL_REPORTS(_ipaddr) \
-+	(ipv4_is_local_multicast(_ipaddr) && \
-+	 (sysctl_igmp_link_local_reports == 0))
-+
- #ifdef CONFIG_IP_MULTICAST
- /* Parameter names and values are taken from igmp-v2-06 draft */
- 
-@@ -437,6 +446,8 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ip_mc_list *pmc,
- 
- 	if (pmc->multiaddr == IGMP_ALL_HOSTS)
- 		return skb;
-+	if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(pmc->multiaddr))
-+		return skb;
- 
- 	isquery = type == IGMPV3_MODE_IS_INCLUDE ||
- 		  type == IGMPV3_MODE_IS_EXCLUDE;
-@@ -545,6 +556,8 @@ static int igmpv3_send_report(struct in_device *in_dev, struct ip_mc_list *pmc)
- 		for_each_pmc_rcu(in_dev, pmc) {
- 			if (pmc->multiaddr == IGMP_ALL_HOSTS)
- 				continue;
-+			if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(pmc->multiaddr))
-+				continue;
- 			spin_lock_bh(&pmc->lock);
- 			if (pmc->sfcount[MCAST_EXCLUDE])
- 				type = IGMPV3_MODE_IS_EXCLUDE;
-@@ -678,7 +691,11 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
- 
- 	if (type == IGMPV3_HOST_MEMBERSHIP_REPORT)
- 		return igmpv3_send_report(in_dev, pmc);
--	else if (type == IGMP_HOST_LEAVE_MESSAGE)
-+
-+	if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(group))
-+		return 0;
-+
-+	if (type == IGMP_HOST_LEAVE_MESSAGE)
- 		dst = IGMP_ALL_ROUTER;
- 	else
- 		dst = group;
-@@ -851,6 +868,8 @@ static bool igmp_heard_report(struct in_device *in_dev, __be32 group)
- 
- 	if (group == IGMP_ALL_HOSTS)
- 		return false;
-+	if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(group))
-+		return false;
- 
- 	rcu_read_lock();
- 	for_each_pmc_rcu(in_dev, im) {
-@@ -957,6 +976,8 @@ static bool igmp_heard_query(struct in_device *in_dev, struct sk_buff *skb,
- 			continue;
- 		if (im->multiaddr == IGMP_ALL_HOSTS)
- 			continue;
-+		if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(im->multiaddr))
-+			continue;
- 		spin_lock_bh(&im->lock);
- 		if (im->tm_running)
- 			im->gsquery = im->gsquery && mark;
-@@ -1181,6 +1202,8 @@ static void igmp_group_dropped(struct ip_mc_list *im)
- #ifdef CONFIG_IP_MULTICAST
- 	if (im->multiaddr == IGMP_ALL_HOSTS)
- 		return;
-+	if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(im->multiaddr))
-+		return;
- 
- 	reporter = im->reporter;
- 	igmp_stop_timer(im);
-@@ -1213,6 +1236,8 @@ static void igmp_group_added(struct ip_mc_list *im)
- #ifdef CONFIG_IP_MULTICAST
- 	if (im->multiaddr == IGMP_ALL_HOSTS)
- 		return;
-+	if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(im->multiaddr))
-+		return;
- 
- 	if (in_dev->dead)
- 		return;
-@@ -1518,6 +1543,8 @@ static void ip_mc_rejoin_groups(struct in_device *in_dev)
- 	for_each_pmc_rtnl(in_dev, im) {
- 		if (im->multiaddr == IGMP_ALL_HOSTS)
- 			continue;
-+		if (IGMP_INHIBIT_LINK_LOCAL_REPORTS(im->multiaddr))
-+			continue;
- 
- 		/* a failover is happening and switches
- 		 * must be notified immediately
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 0330ab2..157c25a 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -910,6 +910,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{
-+		.procname	= "igmp_link_local_reports",
-+		.data		= &sysctl_igmp_link_local_reports,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- 	{ }
- };
- 
--- 
-1.7.10.4
+MBR, Sergei
