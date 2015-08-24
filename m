@@ -1,296 +1,241 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH v3 net-next 6/8] openvswitch: Use Geneve device.
-Date: Mon, 24 Aug 2015 10:43:13 -0700
-Message-ID: <1440438195-5695-7-git-send-email-pshelar@nicira.com>
+Subject: [PATCH v3 net-next 3/8] tunnel: introduce udp_tun_rx_dst()
+Date: Mon, 24 Aug 2015 10:43:10 -0700
+Message-ID: <1440438195-5695-4-git-send-email-pshelar@nicira.com>
 References: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
 Cc: Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35671 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754065AbbHXRn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:43:29 -0400
-Received: by pacdd16 with SMTP id dd16so101893766pac.2
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 10:43:29 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36567 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753447AbbHXRnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:43:25 -0400
+Received: by pacgr6 with SMTP id gr6so1075234pac.3
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 10:43:24 -0700 (PDT)
 In-Reply-To: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With help of tunnel metadata mode OVS can directly use
-Geneve devices to implement Geneve tunnels.
-This patch removes all of the OVS specific Geneve code
-and make OVS use a Geneve net_device. Basic geneve vport
-is still there to handle compatibility with current
-userspace application.
+Introduce function udp_tun_rx_dst() to initialize tunnel dst on
+receive path.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-Reviewed-by: Jesse Gross <jesse@nicira.com>
 ---
- net/openvswitch/Kconfig        |    2 +-
- net/openvswitch/vport-geneve.c |  179 +++++++--------------------------------
- 2 files changed, 33 insertions(+), 148 deletions(-)
+Rebased to support ipv6 tun-dst.
+---
+ drivers/net/vxlan.c        |   29 ++------------------
+ include/net/dst_metadata.h |   61 ++++++++++++++++++++++++++++++++++++++++++++
+ include/net/udp_tunnel.h   |    4 +++
+ net/ipv4/ip_gre.c          |   21 +++-----------
+ net/ipv4/udp_tunnel.c      |   25 +++++++++++++++++-
+ 5 files changed, 97 insertions(+), 43 deletions(-)
 
-diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-index 422dc05..87b98c0 100644
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@ -59,7 +59,7 @@ config OPENVSWITCH_VXLAN
- config OPENVSWITCH_GENEVE
- 	tristate "Open vSwitch Geneve tunneling support"
- 	depends on OPENVSWITCH
--	depends on GENEVE_CORE
-+	depends on GENEVE
- 	default OPENVSWITCH
- 	---help---
- 	  If you say Y here, then the Open vSwitch will be able create geneve vport.
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index d01bd63..fa37c95 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -26,95 +26,44 @@
- 
- #include "datapath.h"
- #include "vport.h"
-+#include "vport-netdev.h"
- 
- static struct vport_ops ovs_geneve_vport_ops;
--
- /**
-  * struct geneve_port - Keeps track of open UDP ports
-- * @gs: The socket created for this port number.
-- * @name: vport name.
-+ * @dst_port: destination port.
-  */
- struct geneve_port {
--	struct geneve_sock *gs;
--	char name[IFNAMSIZ];
-+	u16 port_no;
- };
- 
--static LIST_HEAD(geneve_ports);
--
- static inline struct geneve_port *geneve_vport(const struct vport *vport)
- {
- 	return vport_priv(vport);
- }
- 
--/* Convert 64 bit tunnel ID to 24 bit VNI. */
--static void tunnel_id_to_vni(__be64 tun_id, __u8 *vni)
--{
--#ifdef __BIG_ENDIAN
--	vni[0] = (__force __u8)(tun_id >> 16);
--	vni[1] = (__force __u8)(tun_id >> 8);
--	vni[2] = (__force __u8)tun_id;
--#else
--	vni[0] = (__force __u8)((__force u64)tun_id >> 40);
--	vni[1] = (__force __u8)((__force u64)tun_id >> 48);
--	vni[2] = (__force __u8)((__force u64)tun_id >> 56);
--#endif
--}
--
--/* Convert 24 bit VNI to 64 bit tunnel ID. */
--static __be64 vni_to_tunnel_id(const __u8 *vni)
--{
--#ifdef __BIG_ENDIAN
--	return (vni[0] << 16) | (vni[1] << 8) | vni[2];
--#else
--	return (__force __be64)(((__force u64)vni[0] << 40) |
--				((__force u64)vni[1] << 48) |
--				((__force u64)vni[2] << 56));
--#endif
--}
--
--static void geneve_rcv(struct geneve_sock *gs, struct sk_buff *skb)
--{
--	struct vport *vport = gs->rcv_data;
--	struct genevehdr *geneveh = geneve_hdr(skb);
--	int opts_len;
--	struct ip_tunnel_info tun_info;
--	__be64 key;
--	__be16 flags;
--
--	opts_len = geneveh->opt_len * 4;
--
--	flags = TUNNEL_KEY | TUNNEL_GENEVE_OPT |
--		(udp_hdr(skb)->check != 0 ? TUNNEL_CSUM : 0) |
--		(geneveh->oam ? TUNNEL_OAM : 0) |
--		(geneveh->critical ? TUNNEL_CRIT_OPT : 0);
--
--	key = vni_to_tunnel_id(geneveh->vni);
--
--	ip_tunnel_info_init(&tun_info, ip_hdr(skb),
--			    udp_hdr(skb)->source, udp_hdr(skb)->dest,
--			    key, flags, geneveh->options, opts_len);
--
--	ovs_vport_receive(vport, skb, &tun_info);
--}
--
- static int geneve_get_options(const struct vport *vport,
- 			      struct sk_buff *skb)
- {
- 	struct geneve_port *geneve_port = geneve_vport(vport);
--	struct inet_sock *sk = inet_sk(geneve_port->gs->sock->sk);
- 
--	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, ntohs(sk->inet_sport)))
-+	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, geneve_port->port_no))
- 		return -EMSGSIZE;
- 	return 0;
- }
- 
--static void geneve_tnl_destroy(struct vport *vport)
-+static int geneve_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
-+				      struct ip_tunnel_info *egress_tun_info)
- {
- 	struct geneve_port *geneve_port = geneve_vport(vport);
-+	struct net *net = ovs_dp_get_net(vport->dp);
-+	__be16 dport = htons(geneve_port->port_no);
-+	__be16 sport = udp_flow_src_port(net, skb, 1, USHRT_MAX, true);
- 
--	geneve_sock_release(geneve_port->gs);
--
--	ovs_vport_deferred_free(vport);
-+	return ovs_tunnel_get_egress_info(egress_tun_info,
-+					  ovs_dp_get_net(vport->dp),
-+					  OVS_CB(skb)->egress_tun_info,
-+					  IPPROTO_UDP, skb->mark, sport, dport);
- }
- 
- static struct vport *geneve_tnl_create(const struct vport_parms *parms)
-@@ -122,11 +71,11 @@ static struct vport *geneve_tnl_create(const struct vport_parms *parms)
- 	struct net *net = ovs_dp_get_net(parms->dp);
- 	struct nlattr *options = parms->options;
- 	struct geneve_port *geneve_port;
--	struct geneve_sock *gs;
-+	struct net_device *dev;
- 	struct vport *vport;
- 	struct nlattr *a;
--	int err;
- 	u16 dst_port;
-+	int err;
- 
- 	if (!options) {
- 		err = -EINVAL;
-@@ -148,104 +97,40 @@ static struct vport *geneve_tnl_create(const struct vport_parms *parms)
- 		return vport;
- 
- 	geneve_port = geneve_vport(vport);
--	strncpy(geneve_port->name, parms->name, IFNAMSIZ);
-+	geneve_port->port_no = dst_port;
- 
--	gs = geneve_sock_add(net, htons(dst_port), geneve_rcv, vport, true, 0);
--	if (IS_ERR(gs)) {
-+	rtnl_lock();
-+	dev = geneve_dev_create_fb(net, parms->name, NET_NAME_USER, dst_port);
-+	if (IS_ERR(dev)) {
-+		rtnl_unlock();
- 		ovs_vport_free(vport);
--		return (void *)gs;
-+		return ERR_CAST(dev);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 61b457b..5b4cf66 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1264,36 +1264,13 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
  	}
--	geneve_port->gs = gs;
  
-+	dev_change_flags(dev, dev->flags | IFF_UP);
-+	rtnl_unlock();
- 	return vport;
- error:
- 	return ERR_PTR(err);
- }
+ 	if (vxlan_collect_metadata(vs)) {
+-		tun_dst = metadata_dst_alloc(sizeof(*md), GFP_ATOMIC);
++		tun_dst = udp_tun_rx_dst(skb, vxlan_get_sk_family(vs), TUNNEL_KEY,
++					 cpu_to_be64(vni >> 8), sizeof(*md));
++
+ 		if (!tun_dst)
+ 			goto drop;
  
--static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
-+static struct vport *geneve_create(const struct vport_parms *parms)
+ 		info = &tun_dst->u.tun_info;
+-		if (vxlan_get_sk_family(vs) == AF_INET) {
+-			const struct iphdr *iph = ip_hdr(skb);
+-
+-			info->key.u.ipv4.src = iph->saddr;
+-			info->key.u.ipv4.dst = iph->daddr;
+-			info->key.tos = iph->tos;
+-			info->key.ttl = iph->ttl;
+-		} else {
+-			const struct ipv6hdr *ip6h = ipv6_hdr(skb);
+-
+-			info->key.u.ipv6.src = ip6h->saddr;
+-			info->key.u.ipv6.dst = ip6h->daddr;
+-			info->key.tos = ipv6_get_dsfield(ip6h);
+-			info->key.ttl = ip6h->hop_limit;
+-		}
+-
+-		info->key.tp_src = udp_hdr(skb)->source;
+-		info->key.tp_dst = udp_hdr(skb)->dest;
+-
+-		info->mode = IP_TUNNEL_INFO_RX;
+-		info->key.tun_flags = TUNNEL_KEY;
+-		info->key.tun_id = cpu_to_be64(vni >> 8);
+-		if (udp_hdr(skb)->check != 0)
+-			info->key.tun_flags |= TUNNEL_CSUM;
+-
+ 		md = ip_tunnel_info_opts(info, sizeof(*md));
+ 	} else {
+ 		memset(md, 0, sizeof(*md));
+diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
+index 2cb52d5..60c0332 100644
+--- a/include/net/dst_metadata.h
++++ b/include/net/dst_metadata.h
+@@ -48,4 +48,65 @@ static inline bool skb_valid_dst(const struct sk_buff *skb)
+ struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags);
+ struct metadata_dst __percpu *metadata_dst_alloc_percpu(u8 optslen, gfp_t flags);
+ 
++static inline struct metadata_dst *tun_rx_dst(__be16 flags,
++					      __be64 tunnel_id, int md_size)
++{
++	struct metadata_dst *tun_dst;
++	struct ip_tunnel_info *info;
++
++	tun_dst = metadata_dst_alloc(md_size, GFP_ATOMIC);
++	if (!tun_dst)
++		return NULL;
++
++	info = &tun_dst->u.tun_info;
++	info->mode = IP_TUNNEL_INFO_RX;
++	info->key.tun_flags = flags;
++	info->key.tun_id = tunnel_id;
++	info->key.tp_src = 0;
++	info->key.tp_dst = 0;
++	return tun_dst;
++}
++
++static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
++						 __be16 flags,
++						 __be64 tunnel_id,
++						 int md_size)
++{
++	const struct iphdr *iph = ip_hdr(skb);
++	struct metadata_dst *tun_dst;
++	struct ip_tunnel_info *info;
++
++	tun_dst = tun_rx_dst(flags, tunnel_id, md_size);
++	if (!tun_dst)
++		return NULL;
++
++	info = &tun_dst->u.tun_info;
++	info->key.u.ipv4.src = iph->saddr;
++	info->key.u.ipv4.dst = iph->daddr;
++	info->key.tos = iph->tos;
++	info->key.ttl = iph->ttl;
++	return tun_dst;
++}
++
++static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
++						 __be16 flags,
++						 __be64 tunnel_id,
++						 int md_size)
++{
++	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
++	struct metadata_dst *tun_dst;
++	struct ip_tunnel_info *info;
++
++	tun_dst = tun_rx_dst(flags, tunnel_id, md_size);
++	if (!tun_dst)
++		return NULL;
++
++	info = &tun_dst->u.tun_info;
++	info->key.u.ipv6.src = ip6h->saddr;
++	info->key.u.ipv6.dst = ip6h->daddr;
++	info->key.tos = ipv6_get_dsfield(ip6h);
++	info->key.ttl = ip6h->hop_limit;
++	return tun_dst;
++}
++
+ #endif /* __NET_DST_METADATA_H */
+diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+index c491c12..35041d0 100644
+--- a/include/net/udp_tunnel.h
++++ b/include/net/udp_tunnel.h
+@@ -93,6 +93,10 @@ int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
+ 
+ void udp_tunnel_sock_release(struct socket *sock);
+ 
++struct metadata_dst *udp_tun_rx_dst(struct sk_buff *skb, unsigned short family,
++				    __be16 flags, __be64 tunnel_id,
++				    int md_size);
++
+ static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
+ 							 bool udp_csum)
  {
--	const struct ip_tunnel_key *tun_key;
--	struct ip_tunnel_info *tun_info;
--	struct net *net = ovs_dp_get_net(vport->dp);
--	struct geneve_port *geneve_port = geneve_vport(vport);
--	__be16 dport = inet_sk(geneve_port->gs->sock->sk)->inet_sport;
--	__be16 sport;
--	struct rtable *rt;
--	struct flowi4 fl;
--	u8 vni[3], opts_len, *opts;
--	__be16 df;
--	int err;
--
--	tun_info = OVS_CB(skb)->egress_tun_info;
--	if (unlikely(!tun_info)) {
--		err = -EINVAL;
--		goto error;
--	}
--
--	tun_key = &tun_info->key;
--	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_UDP);
--	if (IS_ERR(rt)) {
--		err = PTR_ERR(rt);
--		goto error;
--	}
--
--	df = tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
--	sport = udp_flow_src_port(net, skb, 1, USHRT_MAX, true);
--	tunnel_id_to_vni(tun_key->tun_id, vni);
--	skb->ignore_df = 1;
--
--	if (tun_key->tun_flags & TUNNEL_GENEVE_OPT) {
--		opts = (u8 *)tun_info->options;
--		opts_len = tun_info->options_len;
--	} else {
--		opts = NULL;
--		opts_len = 0;
--	}
--
--	err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
--			      tun_key->u.ipv4.dst, tun_key->tos,
--			      tun_key->ttl, df, sport, dport,
--			      tun_key->tun_flags, vni, opts_len, opts,
--			      !!(tun_key->tun_flags & TUNNEL_CSUM), false);
--	if (err < 0)
--		ip_rt_put(rt);
--	return err;
--
--error:
--	kfree_skb(skb);
--	return err;
--}
--
--static const char *geneve_get_name(const struct vport *vport)
--{
--	struct geneve_port *geneve_port = geneve_vport(vport);
--
--	return geneve_port->name;
--}
-+	struct vport *vport;
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 1bf3281..faf1cde 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -400,25 +400,14 @@ static int ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi)
+ 	if (tunnel) {
+ 		skb_pop_mac_header(skb);
+ 		if (tunnel->collect_md) {
+-			struct ip_tunnel_info *info;
++			__be16 flags;
++			__be64 tun_id;
  
--static int geneve_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
--				      struct ip_tunnel_info *egress_tun_info)
--{
--	struct geneve_port *geneve_port = geneve_vport(vport);
--	struct net *net = ovs_dp_get_net(vport->dp);
--	__be16 dport = inet_sk(geneve_port->gs->sock->sk)->inet_sport;
--	__be16 sport = udp_flow_src_port(net, skb, 1, USHRT_MAX, true);
-+	vport = geneve_tnl_create(parms);
-+	if (IS_ERR(vport))
-+		return vport;
+-			tun_dst = metadata_dst_alloc(0, GFP_ATOMIC);
++			flags = tpi->flags & (TUNNEL_CSUM | TUNNEL_KEY);
++			tun_id = key_to_tunnel_id(tpi->key);
++			tun_dst = ip_tun_rx_dst(skb, flags, tun_id, 0);
+ 			if (!tun_dst)
+ 				return PACKET_REJECT;
+-
+-			info = &tun_dst->u.tun_info;
+-			info->key.u.ipv4.src = iph->saddr;
+-			info->key.u.ipv4.dst = iph->daddr;
+-			info->key.tos = iph->tos;
+-			info->key.ttl = iph->ttl;
+-
+-			info->mode = IP_TUNNEL_INFO_RX;
+-			info->key.tun_flags = tpi->flags &
+-					      (TUNNEL_CSUM | TUNNEL_KEY);
+-			info->key.tun_id = key_to_tunnel_id(tpi->key);
+-
+-			info->key.tp_src = 0;
+-			info->key.tp_dst = 0;
+ 		}
  
--	/* Get tp_src and tp_dst, refert to geneve_build_header().
--	 */
--	return ovs_tunnel_get_egress_info(egress_tun_info,
--					  ovs_dp_get_net(vport->dp),
--					  OVS_CB(skb)->egress_tun_info,
--					  IPPROTO_UDP, skb->mark, sport, dport);
-+	return ovs_netdev_link(vport, parms->name);
+ 		ip_tunnel_rcv(tunnel, skb, tpi, tun_dst, log_ecn_error);
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index 933ea90..aba4286 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -4,9 +4,10 @@
+ #include <linux/udp.h>
+ #include <linux/types.h>
+ #include <linux/kernel.h>
++#include <net/dst_metadata.h>
++#include <net/net_namespace.h>
+ #include <net/udp.h>
+ #include <net/udp_tunnel.h>
+-#include <net/net_namespace.h>
+ 
+ int udp_sock_create4(struct net *net, struct udp_port_cfg *cfg,
+ 		     struct socket **sockp)
+@@ -103,4 +104,26 @@ void udp_tunnel_sock_release(struct socket *sock)
  }
+ EXPORT_SYMBOL_GPL(udp_tunnel_sock_release);
  
- static struct vport_ops ovs_geneve_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_GENEVE,
--	.create		= geneve_tnl_create,
--	.destroy	= geneve_tnl_destroy,
--	.get_name	= geneve_get_name,
-+	.create		= geneve_create,
-+	.destroy	= ovs_netdev_tunnel_destroy,
- 	.get_options	= geneve_get_options,
--	.send		= geneve_tnl_send,
-+	.send		= ovs_netdev_send,
- 	.owner          = THIS_MODULE,
- 	.get_egress_tun_info	= geneve_get_egress_tun_info,
- };
++struct metadata_dst *udp_tun_rx_dst(struct sk_buff *skb,  unsigned short family,
++				    __be16 flags, __be64 tunnel_id, int md_size)
++{
++	struct metadata_dst *tun_dst;
++	struct ip_tunnel_info *info;
++
++	if (family == AF_INET)
++		tun_dst = ip_tun_rx_dst(skb, flags, tunnel_id, md_size);
++	else
++		tun_dst = ipv6_tun_rx_dst(skb, flags, tunnel_id, md_size);
++	if (!tun_dst)
++		return NULL;
++
++	info = &tun_dst->u.tun_info;
++	info->key.tp_src = udp_hdr(skb)->source;
++	info->key.tp_dst = udp_hdr(skb)->dest;
++	if (udp_hdr(skb)->check)
++		info->key.tun_flags |= TUNNEL_CSUM;
++	return tun_dst;
++}
++EXPORT_SYMBOL_GPL(udp_tun_rx_dst);
++
+ MODULE_LICENSE("GPL");
 -- 
 1.7.1
