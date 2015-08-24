@@ -1,38 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Fix RCU splat in af_key
-Date: Mon, 24 Aug 2015 14:49:35 -0700 (PDT)
-Message-ID: <20150824.144935.2073501948858391876.davem@davemloft.net>
-References: <1440451037-18564-1-git-send-email-dsa@cumulusnetworks.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v3 net-next 3/8] tunnel: introduce udp_tun_rx_dst()
+Date: Mon, 24 Aug 2015 15:02:22 -0700
+Message-ID: <CAEP_g=89gLLPVhZLhxi2G5=rFy9Vt6k2v66UQc6c6tYj5pJqbA@mail.gmail.com>
+References: <1440438195-5695-1-git-send-email-pshelar@nicira.com> <1440438195-5695-4-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52830 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554AbbHXVti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 17:49:38 -0400
-In-Reply-To: <1440451037-18564-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:34072 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbbHXWCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 18:02:43 -0400
+Received: by laba3 with SMTP id a3so86749229lab.1
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 15:02:41 -0700 (PDT)
+In-Reply-To: <1440438195-5695-4-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon, 24 Aug 2015 15:17:17 -0600
+On Mon, Aug 24, 2015 at 10:43 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> Introduce function udp_tun_rx_dst() to initialize tunnel dst on
+> receive path.
+>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-> Hit the following splat testing VRF change for ipsec:
- ...
-> In pfkey_sendmsg the net mutex is taken and then pfkey_broadcast takes
-> the RCU lock.
-> 
-> Since pfkey_broadcast takes the RCU lock the allocation argument is
-> pointless since GFP_ATOMIC must be used between the rcu_read_{,un}lock.
-> The one call outside of rcu can be done with GFP_KERNEL.
-> 
-> Fixes: 7f6b9dbd5afbd ("af_key: locking change")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - removed allocation arg and hardcoded to GFP_ATOMIC during rcu locking
-
-Applied, thanks David.
+Reviewed-by: Jesse Gross <jesse@nicira.com>
