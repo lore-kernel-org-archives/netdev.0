@@ -1,71 +1,71 @@
-From: "Hall, Christopher S" <christopher.s.hall@intel.com>
-Subject: RE: [PATCH v3 3/4] Add support for driver cross-timestamp to
- PTP_SYS_OFFSET ioctl
-Date: Mon, 24 Aug 2015 20:16:51 +0000
-Message-ID: <B79D786B7111A34A8CF09F833429C493A90AD3C6@ORSMSX109.amr.corp.intel.com>
-References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
- <1440183128-1384-4-git-send-email-christopher.s.hall@intel.com>
- <alpine.DEB.2.11.1508222226540.3873@nanos> <20150822211718.GA8561@netboy>
- <alpine.DEB.2.11.1508231011360.3873@nanos>
- <20150823112556.GA8569@localhost.localdomain>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next 2/2] lan78xx: update eee code
+Date: Mon, 24 Aug 2015 20:35:59 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D54955F@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D5480D9@CHN-SV-EXMX02.mchp-main.com>
+ <55D79E93.8040404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"peterz@infradead.org" <peterz@infradead.org>
-To: 'Richard Cochran' <richardcochran@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150823112556.GA8569@localhost.localdomain>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <f.fainelli@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:26302 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750942AbbHXUgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 16:36:03 -0400
+In-Reply-To: <55D79E93.8040404@gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Sunday, August 23, 2015 4:26 AM
-> To: Thomas Gleixner
-> Cc: Hall, Christopher S; Kirsher, Jeffrey T; hpa@zytor.com;
-> mingo@redhat.com; john.stultz@linaro.org; x86@kernel.org; linux-
-> kernel@vger.kernel.org; netdev@vger.kernel.org; intel-wired-
-> lan@lists.osuosl.org; peterz@infradead.org
-> Subject: Re: [PATCH v3 3/4] Add support for driver cross-timestamp to
-> PTP_SYS_OFFSET ioctl
-> 
-> On Sun, Aug 23, 2015 at 10:15:00AM +0200, Thomas Gleixner wrote:
-> > So why can't you take N samples from the synced hardware? It does not
-> > make any sense to me to switch to the imprecise mode if nsamples > 1.
-> 
-> Ok, then I prefer to leave this "imprecise" method in place and ...
-> 
-> > You can also provide a new IOCTL PTP_SYS_OFFSET_PRECISE which returns
-> > -ENOSYS if hardware timestamping is not available and avoid the whole
-> > nsamples dance for the case where we can get precise timestamps.
-> 
-> have this for the new way.
-> 
-> By keeping the imprecise method, we will be able to run both methods
-> on the new hardware.  That will help to quantify how imprecise the old
-> method is.
-
-This means: remove code changes from the PTP_SYS_OFFSET ioctl and call getsynctime64() from a new ioctl PTP_SYS_OFFSET_PRECISE.  Right?
-
-And use the same type (struct ptp_sys_offset) for the new ioctl?  Or should a new simplified struct be used? Such as:
-
-struct precise_ptp_sys_offset {
-	struct ptp_clock_time device;
-	struct ptp_clock_time system;
-};
-
-Does it make sense to keep the "cross-timestamp" capabilities flag as-is?
-
-> 
-> Thanks,
-> Richard
+SGkgRmxvcmlhbiwNCg0KVGhhbmtzIGZvciBjb21tZW50cy4NCldpbGwgdXBkYXRlIHRvIHV0aWxp
+emUgcGh5bGliLg0KDQotIFdvb2p1bmcNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0K
+PiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFttYWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+
+IFNlbnQ6IEZyaWRheSwgQXVndXN0IDIxLCAyMDE1IDU6NTcgUE0NCj4gVG86IFdvb2p1bmcgSHVo
+IC0gQzIxNjk5OyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMi8yXSBsYW43OHh4OiB1cGRhdGUg
+ZWVlIGNvZGUNCj4gDQo+IE9uIDIxLzA4LzE1IDE0OjQxLCBXb29qdW5nLkh1aEBtaWNyb2NoaXAu
+Y29tIHdyb3RlOg0KPiA+IFBhdGNoIHRvIHBkYXRlIEVFRSBjb2RlLg0KPiANCj4gVGhpcyByZWFs
+bHkgZGVzZXJ2ZXMgYSBiZXR0ZXIgZXhwbGFuYXRpb24gb2Ygd2hhdCBpcyBpdCB0aGF0IHlvdSBh
+cmUNCj4gZml4aW5nIGhlcmUuDQo+IA0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogV29vanVuZyBI
+dWggPHdvb2p1bmcuaHVoQG1pY3JvY2hpcC5jb20+DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0
+L3VzYi9sYW43OHh4LmMgfCA0NCArKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0t
+LS0NCj4gLS0tLS0NCj4gPiAgZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguaCB8IDIyICsrKysrKysr
+KysrLS0tLS0tLS0tLS0NCj4gPiAgMiBmaWxlcyBjaGFuZ2VkLCAzNSBpbnNlcnRpb25zKCspLCAz
+MSBkZWxldGlvbnMoLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC91c2IvbGFu
+Nzh4eC5jIGIvZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguYw0KPiA+IGluZGV4IDRiY2JmMjguLmFm
+MTAyYjAgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguYw0KPiA+ICsr
+KyBiL2RyaXZlcnMvbmV0L3VzYi9sYW43OHh4LmMNCj4gPiBAQCAtMTI5NiwzOCArMTI5NiwzNyBA
+QCBzdGF0aWMgaW50IGxhbjc4eHhfZ2V0X2VlZShzdHJ1Y3QgbmV0X2RldmljZQ0KPiAqbmV0LCBz
+dHJ1Y3QgZXRodG9vbF9lZWUgKmVkYXRhKQ0KPiA+ICAJaWYgKHJldCA8IDApDQo+ID4gIAkJcmV0
+dXJuIHJldDsNCj4gPg0KPiA+ICsJYnVmID0gbGFuNzh4eF9tbWRfcmVhZChkZXYtPm5ldCwgZGV2
+LT5taWkucGh5X2lkLA0KPiA+ICsJCQkgICAgICAgUEhZX01NRF9ERVZfNywgUEhZX0VFRV9BRFZF
+UlRJU0VNRU5UKTsNCj4gPiArCWFkdiA9IG1tZF9lZWVfYWR2X3RvX2V0aHRvb2xfYWR2X3QoYnVm
+KTsNCj4gPiArCWJ1ZiA9IGxhbjc4eHhfbW1kX3JlYWQoZGV2LT5uZXQsIGRldi0+bWlpLnBoeV9p
+ZCwNCj4gPiArCQkJICAgICAgIFBIWV9NTURfREVWXzcsDQo+IFBIWV9FRUVfTFBfQURWRVJUSVNF
+TUVOVCk7DQo+ID4gKwlscGFkdiA9IG1tZF9lZWVfYWR2X3RvX2V0aHRvb2xfYWR2X3QoYnVmKTsN
+Cj4gDQo+IENvbnNpZGVyaW5nIHlvdXIgZnVuY3Rpb24gc2lnbmF0dXJlcywgaXQgc291bmRzIGxp
+a2UgeW91IHNob3VsZA0KPiBpbXBsZW1lbnQgYSBsaWJwaHkgZHJpdmVyIGFuZCB5b3UgY291bGQg
+Z2V0IHRoaW5ncyBsaWtlIHBoeV9pbml0X2VlZSgpDQo+IGZvciBmcmVlLg0KPiANCj4gW3NuaXBd
+DQo+IA0KPiA+ICAJLyogZW5hYmxlIFBIWSBpbnRlcnJ1cHRzICovDQo+ID4gIAlyZXQgPSBsYW43
+OHh4X3JlYWRfcmVnKGRldiwgSU5UX0VQX0NUTCwgJmJ1Zik7DQo+ID4gIAlidWYgfD0gSU5UX0VO
+UF9QSFlfSU5UOw0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC91c2IvbGFuNzh4eC5oIGIv
+ZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguaA0KPiA+IGluZGV4IGFlNzU2MmUuLjk1ZTcyMWIgMTAw
+NjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguaA0KPiA+ICsrKyBiL2RyaXZl
+cnMvbmV0L3VzYi9sYW43OHh4LmgNCj4gPiBAQCAtMTA0NywyMyArMTA0NywyMyBAQA0KPiA+ICAj
+ZGVmaW5lIFBIWV9NTURfREVWXzMJCQkJMw0KPiA+DQo+ID4gICNkZWZpbmUgUEhZX0VFRV9QQ1Nf
+U1RBVFVTCQkJKDB4MSkNCj4gPiAtI2RlZmluZSBQSFlfRUVFX1BDU19TVEFUVVNfVFhfTFBJX1JD
+VkRfDQo+IAkoKFdPUkQpMHgwODAwKQ0KPiA+IC0jZGVmaW5lIFBIWV9FRUVfUENTX1NUQVRVU19S
+WF9MUElfUkNWRF8NCj4gCSgoV09SRCkweDA0MDApDQo+ID4gLSNkZWZpbmUgUEhZX0VFRV9QQ1Nf
+U1RBVFVTX1RYX0xQSV9JTkRfDQo+IAkoKFdPUkQpMHgwMjAwKQ0KPiA+IC0jZGVmaW5lIFBIWV9F
+RUVfUENTX1NUQVRVU19SWF9MUElfSU5EXw0KPiAJKChXT1JEKTB4MDEwMCkNCj4gPiAtI2RlZmlu
+ZSBQSFlfRUVFX1BDU19TVEFUVVNfUENTX1JDVl9MTktfU1RTXw0KPiAJKChXT1JEKTB4MDAwNCkN
+Cj4gPiArI2RlZmluZSBQSFlfRUVFX1BDU19TVEFUVVNfVFhfTFBJX1JDVkRfCQkoMHgwODAwKQ0K
+PiA+ICsjZGVmaW5lIFBIWV9FRUVfUENTX1NUQVRVU19SWF9MUElfUkNWRF8JCSgweDA0MDApDQo+
+ID4gKyNkZWZpbmUgUEhZX0VFRV9QQ1NfU1RBVFVTX1RYX0xQSV9JTkRfCQkoMHgwMjAwKQ0KPiA+
+ICsjZGVmaW5lIFBIWV9FRUVfUENTX1NUQVRVU19SWF9MUElfSU5EXwkJKDB4MDEwMCkNCj4gPiAr
+I2RlZmluZSBQSFlfRUVFX1BDU19TVEFUVVNfUENTX1JDVl9MTktfU1RTXwkoMHgwMDA0KQ0KPiAN
+Cj4gQ2FuIHlvdSBsb29rIGF0IHVwZGF0aW5nIGluY2x1ZGUvdWFwaS9saW51eC9tZGlvLmggd2l0
+aCB0aGUgbWlzc2luZw0KPiByZWdpc3RlcnMgZm9yIHlvdXIgdXNlIGNhc2UgaW5zdGVhZCBvZiBy
+ZXBsaWNhdGluZyB0aGlzIGluIGEgZHJpdmVyPw0KPiAtLQ0KPiBGbG9yaWFuDQo=
