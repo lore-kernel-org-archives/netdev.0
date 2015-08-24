@@ -1,37 +1,57 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [net-next PATCH 1/3] drivers: net: cpsw: add am335x errata workarround
- for interrutps
-Date: Mon, 24 Aug 2015 15:34:24 +0530
-Message-ID: <55DAEC28.3030107@ti.com>
-References: <1439373175-8650-1-git-send-email-mugunthanvnm@ti.com> <1439373175-8650-2-git-send-email-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	Tony Lindgren <tony@atomide.com>, <alex.aring@gmail.com>
-To: Mugunthan V N <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: asconf process should treat multiple address parameter as unrecognized parameter
+Date: Mon, 24 Aug 2015 18:07:30 +0800
+Message-ID: <13ab95079875febb3985b32d0fdaf587c6de1973.1440410850.git.lucien.xin@gmail.com>
+Cc: mleitner@redhat.com, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:44219 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932738AbbHXKEc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2015 06:04:32 -0400
-In-Reply-To: <1439373175-8650-2-git-send-email-mugunthanvnm@ti.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35481 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753652AbbHXKHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 06:07:36 -0400
+Received: by pacdd16 with SMTP id dd16so93854571pac.2
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 03:07:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Mugunthan,
+currently, we sctp_walk_params(), if we encounter the address parameter, we will
+skip them, we do not care about how many addr params are there.
 
-On Wednesday 12 August 2015 03:22 PM, Mugunthan V N wrote:
-> +static const struct of_device_id cpsw_of_mtable[] = {
-> +	{ .compatible = "ti,cpsw", .data = &cpsw_devtype[CPSW], },
+but the params of ASCONF chunk should consist of one *Address Parameter* and one
+or more *ASCONF Parameters*.
 
-> +	{ .compatible = "ti,am335x-cpsw", .data = &cpsw_devtype[AM335X_CPSW], },
-> +	{ .compatible = "ti,am4372-cpsw", .data = &cpsw_devtype[AM4372_CPSW], },
-> +	{ .compatible = "ti,dra7-cpsw", .data = &cpsw_devtype[DRA7_CPSW], },
+so we will process multiple address parameters as unrecognized parameter and
+send error cause to peer.
 
-I do not see documentation added for these compatibles. Since the series
-is already applied, can you send additional patches adding documentation?
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/sm_make_chunk.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-Thanks,
-Sekhar
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 06320c8..0ee5ca7 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3217,10 +3217,18 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
+ 
+ 	/* Process the TLVs contained within the ASCONF chunk. */
+ 	sctp_walk_params(param, addip, addip_hdr.params) {
+-		/* Skip preceeding address parameters. */
++		/* Skip preceeding address parameters.
++		 * process multi-addrparam as unrecognized parameters
++		 */
+ 		if (param.p->type == SCTP_PARAM_IPV4_ADDRESS ||
+-		    param.p->type == SCTP_PARAM_IPV6_ADDRESS)
++		    param.p->type == SCTP_PARAM_IPV6_ADDRESS) {
++			if(param.addr != addr_param) {
++				all_param_pass = false;
++				sctp_add_asconf_response(asconf_ack, 0,
++					SCTP_ERROR_UNKNOWN_PARAM, param.v);
++			}
+ 			continue;
++		}
+ 
+ 		err_code = sctp_process_asconf_param(asoc, asconf,
+ 						     param.addip);
+-- 
+2.1.0
