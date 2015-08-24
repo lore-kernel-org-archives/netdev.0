@@ -1,40 +1,51 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] inetpeer: Add support for VRFs
-Date: Sun, 23 Aug 2015 20:01:34 -0600
-Message-ID: <55DA7AFE.5040301@cumulusnetworks.com>
-References: <1440339964-16075-1-git-send-email-dsa@cumulusnetworks.com> <20150824001514.GD21926@pox.localdomain>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Mon, 24 Aug 2015 13:21:11 +1000
+Message-ID: <20150824132111.534ddea7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37980 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753322AbbHXCBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2015 22:01:41 -0400
-Received: by igfj19 with SMTP id j19so46629892igf.1
-        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 19:01:41 -0700 (PDT)
-In-Reply-To: <20150824001514.GD21926@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Benc <jbenc@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/23/15 6:15 PM, Thomas Graf wrote:
-> On 08/23/15 at 08:26am, David Ahern wrote:
->> inetpeer caches based on address only, so duplicate IP addresses within
->> a namespace return the same cached entry. Similar to IP fragments handle
->> duplicate addresses across VRFs by adding the VRF master device index to
->> the lookup.
->
-> We have a lot of other places which use the address only. Are you
-> going to add the VRF id to all these places as well?
->
+Hi all,
 
-If appropriate, yes. I have fixed IP fragments and this patch fixes 
-inetpeer cache. In both cases (L3 artifacts) the vrf device index 
-provides the means to uniquely identify duplicate IP addresses within a 
-namespace. If you know of other code that might be impacted I will 
-investigate and fix as needed.
+After merging the net-next tree, today's linux-next build (arm
+multi_v7_defconfig) failed like this:
 
-Thanks,
-David
+In function 'dst_hold',
+    inlined from '__ipv6_dev_ac_dec' at /home/sfr/next/next/net/ipv6/anycast.c:328:2:
+/home/sfr/next/next/include/linux/compiler.h:447:38: error: call to '__compiletime_assert_243' declared with attribute error: BUILD_BUG_ON failed: offsetof(struct dst_entry, __refcnt) & 63
+  _compiletime_assert(condition, msg, __compiletime_assert_, __LINE__)
+                                      ^
+/home/sfr/next/next/include/linux/compiler.h:430:4: note: in definition of macro '__compiletime_assert'
+    prefix ## suffix();    \
+    ^
+/home/sfr/next/next/include/linux/compiler.h:447:2: note: in expansion of macro '_compiletime_assert'
+  _compiletime_assert(condition, msg, __compiletime_assert_, __LINE__)
+  ^
+/home/sfr/next/next/include/linux/bug.h:50:37: note: in expansion of macro 'compiletime_assert'
+ #define BUILD_BUG_ON_MSG(cond, msg) compiletime_assert(!(cond), msg)
+                                     ^
+/home/sfr/next/next/include/linux/bug.h:74:2: note: in expansion of macro 'BUILD_BUG_ON_MSG'
+  BUILD_BUG_ON_MSG(condition, "BUILD_BUG_ON failed: " #condition)
+  ^
+/home/sfr/next/next/include/net/dst.h:243:2: note: in expansion of macro 'BUILD_BUG_ON'
+  BUILD_BUG_ON(offsetof(struct dst_entry, __refcnt) & 63);
+  ^
+
+And many more :-(
+
+Caused by commit
+
+  61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
+
+I have used the net-next tree from next-20150821 for today.
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
