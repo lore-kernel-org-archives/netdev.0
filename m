@@ -1,298 +1,121 @@
 From: Corinna Vinschen <vinschen@redhat.com>
-Subject: [PATCH v3 net-next] r8169: Add values missing in @get_stats64 from HW counters
-Date: Mon, 24 Aug 2015 12:27:53 +0200
-Message-ID: <1440412073-8567-1-git-send-email-vinschen@redhat.com>
+Subject: Re: [PATCH v2 net-next] r8169: Add values missing in @get_stats64
+ from HW counters
+Date: Mon, 24 Aug 2015 12:29:35 +0200
+Message-ID: <20150824102935.GM19683@calimero.vinschen.de>
 References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
-Cc: Hayes Wang <hayeswang@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
+ <1440151756-18165-1-git-send-email-vinschen@redhat.com>
+ <20150821193926.GA16437@electric-eye.fr.zoreil.com>
+ <20150821220756.GI19683@calimero.vinschen.de>
+ <20150821235940.GA20313@electric-eye.fr.zoreil.com>
+ <20150822083916.GA17408@calimero.vinschen.de>
+ <20150822112334.GB24519@electric-eye.fr.zoreil.com>
+ <20150824073348.GL19683@calimero.vinschen.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="dMyqICaxQaaUjrCL"
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Hayes Wang <hayeswang@realtek.com>,
 	Ivan Vecera <ivecera@redhat.com>,
 	David Miller <davem@davemloft.net>,
 	nic_swsd <nic_swsd@realtek.com>
-To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:49949 "EHLO
+Received: from mail-n.franken.de ([193.175.24.27]:41695 "EHLO
 	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422AbbHXK17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 06:27:59 -0400
-In-Reply-To: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
+	with ESMTP id S1751079AbbHXK3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 06:29:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20150824073348.GL19683@calimero.vinschen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The r8169 driver collects statistical information returned by
-@get_stats64 by counting them in the driver itself, even though many
-(but not all) of the values are already collected by tally counters
-(TCs) in the NIC.  Some of these TC values are not returned by
-@get_stats64.  Especially the received multicast packages are missing
-from /proc/net/dev.
 
-Rectify this by fetching the TCs and returning them from
-rtl8169_get_stats64.
+--dMyqICaxQaaUjrCL
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The counters collected in the driver obviously disappear as soon as the
-driver is unloaded so after a driver is loaded the counters always start
-at 0. The TCs on the other hand are only reset by a power cycle.  Without
-further considerations the values collected by the driver would not match
-up against the TC values.
+On Aug 24 09:33, Corinna Vinschen wrote:
+> On Aug 22 13:23, Francois Romieu wrote:
+> > Corinna Vinschen <vinschen@redhat.com> :
+> > [...]
+> > > That won't happen with the current patch because only
+> > > rtl8169_reset_counters would print a log message, it's only called fr=
+om
+> > > open, and open occurs rather seldom.  Atop of that the code only tries
+> > > to reset counters on HW supporting it, and only if resetting on the HW
+> > > fails, there will be a log message at all.  There's no reasonable cha=
+nce
+> > > that failing to reset the counters will lead to log flooding.
+> >=20
+> > Thanks for reformulating it. We are in violent agreement here.
+> >=20
+> > [...]
+> > > I'm not trying to avoid work, I'm trying to understand.
+> > >=20
+> > > As far as I see it failing to reset the counters has no impact on the
+> > > viability of the code.  It's still working with offsets and if the
+> > > offset is 0 or non-0, the user space won't see the difference in the
+> > > values returned by @get_stats64.  Successful resetting the counters is
+> > > just a bonus.
+> >=20
+> > Sorry, my english was really bad:
+> >=20
+> > the code should propagate failure when rtl8169_reset_counters and
+> > rtl8169_update_counters *simultaneously* fail.
+>=20
+> Uhm... sorry, but that still doesn't answer the question.  As you can
+> see in my patch, the initalization at open time is already encapsulated
+> in a function rtl8169_init_counter_offsets.=20
+>=20
+> Assuming rtl8169_init_counter_offsets returns -1 if both functions,
+> rtl8169_reset_counters and rtl8169_update_counters fail.
+>=20
+> Then... what?
+>=20
+> Not being able to reset or update the counters is still not at all fatal
+> for the operation of the NIC as a whole and rtl_open in particular:
+>=20
+>   rtl_open()
+>   {
+>     [...]
+>=20
+>     /* This is non-fatal. */
+>     if (!rtl8169_init_counter_offsets ()) {
+>=20
+> 	  /* What to do here??? */
+>=20
+>     }
+>=20
+>     [...]
+>   }
 
-This patch introduces a new function rtl8169_reset_counters which
-resets the TCs.  Also, since rtl8169_reset_counters shares most of
-its code with rtl8169_update_counters, refactor the shared code into
-two new functions  rtl8169_map_counters and rtl8169_unmap_counters.
+Never mind, I rearranged the code so that the warning is now printed
+in rtl_open.  All functions related to the counter reset/update are
+now bool functions.  I just sent a v3 patch.
 
-Unfortunately chip versions prior to RTL_GIGA_MAC_VER_19 don't allow
-to reset the TCs programatically.  Therefore introduce an addition to
-the rtl8169_private struct and a function rtl8169_init_counter_offsets
-to store the TCs at first rtl_open.  Use these values as offsets in
-rtl8169_get_stats64.  Propagate a failure to reset *and* update the
-counters up to rtl_open and emit a warning message, if so.
 
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
----
- drivers/net/ethernet/realtek/r8169.c | 165 +++++++++++++++++++++++++++++++----
- 1 file changed, 150 insertions(+), 15 deletions(-)
+Corinna
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index f790f61..1e4322c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -637,6 +637,9 @@ enum rtl_register_content {
- 	/* _TBICSRBit */
- 	TBILinkOK	= 0x02000000,
- 
-+	/* ResetCounterCommand */
-+	CounterReset	= 0x1,
-+
- 	/* DumpCounterCommand */
- 	CounterDump	= 0x8,
- 
-@@ -747,6 +750,14 @@ struct rtl8169_counters {
- 	__le16	tx_underun;
- };
- 
-+struct rtl8169_tc_offsets {
-+	bool	inited;
-+	__le64	tx_errors;
-+	__le32	tx_multi_collision;
-+	__le32	rx_multicast;
-+	__le16	tx_aborted;
-+};
-+
- enum rtl_flag {
- 	RTL_FLAG_TASK_ENABLED,
- 	RTL_FLAG_TASK_SLOW_PENDING,
-@@ -824,6 +835,7 @@ struct rtl8169_private {
- 
- 	struct mii_if_info mii;
- 	struct rtl8169_counters counters;
-+	struct rtl8169_tc_offsets tc_offset;
- 	u32 saved_wolopts;
- 	u32 opts1_mask;
- 
-@@ -2179,6 +2191,73 @@ static int rtl8169_get_sset_count(struct net_device *dev, int sset)
- 	}
- }
- 
-+static struct rtl8169_counters *rtl8169_map_counters(struct net_device *dev,
-+						     dma_addr_t *paddr,
-+						     u32 counter_cmd)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	struct device *d = &tp->pci_dev->dev;
-+	struct rtl8169_counters *counters;
-+	u32 cmd;
-+
-+	counters = dma_alloc_coherent(d, sizeof(*counters), paddr, GFP_KERNEL);
-+	if (counters) {
-+		RTL_W32(CounterAddrHigh, (u64)*paddr >> 32);
-+		cmd = (u64)*paddr & DMA_BIT_MASK(32);
-+		RTL_W32(CounterAddrLow, cmd);
-+		RTL_W32(CounterAddrLow, cmd | counter_cmd);
-+	}
-+	return counters;
-+}
-+
-+static void rtl8169_unmap_counters (struct net_device *dev,
-+				    dma_addr_t paddr,
-+				    struct rtl8169_counters *counters)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	struct device *d = &tp->pci_dev->dev;
-+
-+	RTL_W32(CounterAddrLow, 0);
-+	RTL_W32(CounterAddrHigh, 0);
-+
-+	dma_free_coherent(d, sizeof(*counters), counters, paddr);
-+}
-+
-+DECLARE_RTL_COND(rtl_reset_counters_cond)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	return RTL_R32(CounterAddrLow) & CounterReset;
-+}
-+
-+static bool rtl8169_reset_counters(struct net_device *dev)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	struct rtl8169_counters *counters;
-+	dma_addr_t paddr;
-+	bool ret = true;
-+
-+	/*
-+	 * Versions prior to RTL_GIGA_MAC_VER_19 don't support resetting the
-+	 * tally counters.
-+	 */
-+	if (tp->mac_version < RTL_GIGA_MAC_VER_19)
-+		return true;
-+
-+	counters = rtl8169_map_counters(dev, &paddr, CounterReset);
-+	if (!counters)
-+		return false;
-+
-+	if (!rtl_udelay_loop_wait_low(tp, &rtl_reset_counters_cond, 10, 1000))
-+		ret = false;
-+
-+	rtl8169_unmap_counters(dev, paddr, counters);
-+
-+	return ret;
-+}
-+
- DECLARE_RTL_COND(rtl_counters_cond)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -2186,38 +2265,72 @@ DECLARE_RTL_COND(rtl_counters_cond)
- 	return RTL_R32(CounterAddrLow) & CounterDump;
- }
- 
--static void rtl8169_update_counters(struct net_device *dev)
-+static bool rtl8169_update_counters(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
--	struct device *d = &tp->pci_dev->dev;
- 	struct rtl8169_counters *counters;
- 	dma_addr_t paddr;
--	u32 cmd;
-+	bool ret = true;
- 
- 	/*
- 	 * Some chips are unable to dump tally counters when the receiver
- 	 * is disabled.
- 	 */
- 	if ((RTL_R8(ChipCmd) & CmdRxEnb) == 0)
--		return;
-+		return true;
- 
--	counters = dma_alloc_coherent(d, sizeof(*counters), &paddr, GFP_KERNEL);
-+	counters = rtl8169_map_counters(dev, &paddr, CounterDump);
- 	if (!counters)
--		return;
--
--	RTL_W32(CounterAddrHigh, (u64)paddr >> 32);
--	cmd = (u64)paddr & DMA_BIT_MASK(32);
--	RTL_W32(CounterAddrLow, cmd);
--	RTL_W32(CounterAddrLow, cmd | CounterDump);
-+		return false;
- 
- 	if (rtl_udelay_loop_wait_low(tp, &rtl_counters_cond, 10, 1000))
- 		memcpy(&tp->counters, counters, sizeof(*counters));
-+	else
-+		ret = false;
- 
--	RTL_W32(CounterAddrLow, 0);
--	RTL_W32(CounterAddrHigh, 0);
-+	rtl8169_unmap_counters(dev, paddr, counters);
- 
--	dma_free_coherent(d, sizeof(*counters), counters, paddr);
-+	return ret;
-+}
-+
-+static bool rtl8169_init_counter_offsets(struct net_device *dev)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	bool ret = false;
-+
-+	/*
-+	 * rtl8169_init_counter_offsets is called from rtl_open.  On chip
-+	 * versions prior to RTL_GIGA_MAC_VER_19 the tally counters are only
-+	 * reset by a power cycle, while the counter values collected by the
-+	 * driver are reset at every driver unload/load cycle.
-+	 *
-+	 * To make sure the HW values returned by @get_stats64 match the SW
-+	 * values, we collect the initial values at first open(*) and use them
-+	 * as offsets to normalize the values returned by @get_stats64.
-+	 *
-+	 * (*) We can't call rtl8169_init_counter_offsets from rtl_init_one
-+	 * for the reason stated in rtl8169_update_counters; CmdRxEnb is only
-+	 * set at open time by rtl_hw_start.
-+	 */
-+
-+	if (tp->tc_offset.inited)
-+		return true;
-+
-+	/* If both, reset and update fail, propagate to caller. */
-+	if (rtl8169_reset_counters(dev))
-+		ret = true;
-+
-+	if (rtl8169_update_counters(dev))
-+		ret = true;
-+
-+	tp->tc_offset.tx_errors = tp->counters.tx_errors;
-+	tp->tc_offset.tx_multi_collision = tp->counters.tx_multi_collision;
-+	tp->tc_offset.rx_multicast = tp->counters.rx_multicast;
-+	tp->tc_offset.tx_aborted = tp->counters.tx_aborted;
-+	tp->tc_offset.inited = true;
-+
-+	return ret;
- }
- 
- static void rtl8169_get_ethtool_stats(struct net_device *dev,
-@@ -7544,7 +7657,7 @@ static int rtl8169_close(struct net_device *dev)
- 
- 	pm_runtime_get_sync(&pdev->dev);
- 
--	/* Update counters before going down */
-+	/* update counters before going down */
- 	rtl8169_update_counters(dev);
- 
- 	rtl_lock_work(tp);
-@@ -7631,6 +7744,9 @@ static int rtl_open(struct net_device *dev)
- 
- 	rtl_hw_start(dev);
- 
-+	if (!rtl8169_init_counter_offsets(dev))
-+		netif_warn(tp, hw, dev, "counter reset/update failed\n");
-+
- 	netif_start_queue(dev);
- 
- 	rtl_unlock_work(tp);
-@@ -7689,6 +7805,25 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	stats->rx_fifo_errors	= dev->stats.rx_fifo_errors;
- 	stats->rx_missed_errors = dev->stats.rx_missed_errors;
- 
-+	/*
-+	 * Fetch additonal counter values missing in stats collected by driver
-+	 * from tally counters.
-+	 */
-+	rtl8169_update_counters(dev);
-+
-+	/*
-+	 * Subtract values fetched during initalization.
-+	 * See rtl8169_init_counter_offsets for a description why we do that.
-+	 */
-+	stats->tx_errors = le64_to_cpu(tp->counters.tx_errors) -
-+		le64_to_cpu(tp->tc_offset.tx_errors);
-+	stats->collisions = le32_to_cpu(tp->counters.tx_multi_collision) -
-+		le32_to_cpu(tp->tc_offset.tx_multi_collision);
-+	stats->multicast = le32_to_cpu(tp->counters.rx_multicast) -
-+		le32_to_cpu(tp->tc_offset.rx_multicast);
-+	stats->tx_aborted_errors = le16_to_cpu(tp->counters.tx_aborted) -
-+		le16_to_cpu(tp->tc_offset.tx_aborted);
-+
- 	return stats;
- }
- 
--- 
-2.1.0
+--dMyqICaxQaaUjrCL
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJV2vIPAAoJEPU2Bp2uRE+gxhEP/19+cVCZ3rVzOX296AcXEODl
+oTTbMmmiOR9cZXjwOI9RIpMsC7dcN+iAeFJvbrh50Koxs8vz6F8dh/zHM9StjwVB
+1fnZD0q/+nAVjOrjXCmmyMOkaakLaRGY6t7Ou4uEmS2NHlpKhKspgCUoCRYuwKdF
+SvSO+PQKXyRh2hUyy8W2nfygI6dLJ7t4jysH7awvzeGYhm5CeLiXjk9NQrbSmAtl
+iPgyS1/QXfjpr3T4tjLZgOxtZNwerUpjrci05CEc5BwBzie5gzRU4mPVRl5RhHnr
+nrSefY7BVAVeS6ZQGuvJaJIQFz96WZEFRI4z4kCoMhzOYf1A0SxEjzFsO2Av7HlG
+XEJtJQ9CtDpQMqRzqiWLI+LjMHiljkvTn0CZzWy9K7MmfJ89TPYOrbGX+o4Z4qfZ
+rgTULUcvjjDaxeso3WmVNPjrCR+MWnriCpHxQpfrX6jAlZ+JRf4Jh9MU4FsGphrv
+pK5dFlVG1B5S4OMbfX1nFXyTTDSLzAoV6BcLWq54tJbJDEkZgQlRtiIizo/LyzQ3
+6TzzIyHjjjD3iBG6iuQCgqxyxnqiA46qepONB5EGwNAVVIP3tFNyokLmv3P0azRW
+vicDB27YB13I80cuAzqZp2JY1I2nCfPU9AAXtUrUP8JYvkG5dENYoyzvICnLpjCF
+Sf+JCTrHwAy1pQHKtmar
+=1Pab
+-----END PGP SIGNATURE-----
+
+--dMyqICaxQaaUjrCL--
