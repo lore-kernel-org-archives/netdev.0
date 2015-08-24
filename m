@@ -1,19 +1,31 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: iproute2 : Bug found. How to report ?
-Date: Mon, 24 Aug 2015 11:40:10 +0530
-Message-ID: <CAA5aLPh64cgnYcsz9xLQ3xkS5pcU0huxX7dt60+Fh0gQANxK2A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: add interrupt support for aquantia phy
+Date: Sun, 23 Aug 2015 23:14:41 -0700 (PDT)
+Message-ID: <20150823.231441.842232304669266968.davem@davemloft.net>
+References: <1440142169-37100-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	Shaohui.Xie@freescale.com
+To: shh.xie@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:34050 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777AbbHXGKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 02:10:11 -0400
-Received: by oiey141 with SMTP id y141so73999909oie.1
-        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 23:10:11 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:48538 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751475AbbHXGOm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 02:14:42 -0400
+In-Reply-To: <1440142169-37100-1-git-send-email-shh.xie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
-A behavioural bug has been found in iproute2. How and where should I report it?
+From: <shh.xie@gmail.com>
+Date: Fri, 21 Aug 2015 15:29:29 +0800
+
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> 
+> By implementing config_intr & ack_interrupt, now the phy can support
+> link connect/disconnect interrupt.
+> 
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+
+Applied to net-next, thanks.
