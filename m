@@ -1,39 +1,66 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Low throughput in VMs using VxLAN
-Date: Mon, 24 Aug 2015 10:27:00 -0700
-Message-ID: <55DB53E4.4010105@hp.com>
-References: <CAOoYtEtnvYKcs7s0Bmv+7+L0=nhXdJfeC2uSZa8Nz9i_+jy2Vw@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] sctp: asconf's process should verify address parameter
+ is in the beginning
+Date: Mon, 24 Aug 2015 13:33:48 -0400
+Message-ID: <55DB557C.6090506@redhat.com>
+References: <87d339ea910a3665c9376b6ba69b003af967c6d1.1440410878.git.lucien.xin@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: Santosh R <skrastapur@gmail.com>, netdev@vger.kernel.org,
-	tom@herbertland.com
+Cc: mleitner@redhat.com, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t5009.houston.hp.com ([15.240.92.67]:58790 "EHLO
-	g9t5009.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbbHXR1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:27:05 -0400
-In-Reply-To: <CAOoYtEtnvYKcs7s0Bmv+7+L0=nhXdJfeC2uSZa8Nz9i_+jy2Vw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39431 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932242AbbHXRdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Aug 2015 13:33:51 -0400
+In-Reply-To: <87d339ea910a3665c9376b6ba69b003af967c6d1.1440410878.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2015 09:19 AM, Santosh R wrote:
->   Hi,
->
->     Earlier I was seeing lower throughput in VMs using VxLan as GRO was
-> not happening in VM.
-> Tom Herbert suggested to use "vxlan: GRO support at tunnel layer" patch series.
-> With today's net-next (4.2.0-rc7) in host and VM, I could see GRO
-> happening for vxlan, macvtap and virtual interface in VM.
-> The throughput is still low between VMs (around 4Gbps compared to
-> 9Gbps without VxLAN).
+On 08/24/2015 06:07 AM, Xin Long wrote:
+> in sctp_process_asconf(), we get address parameter from the beginning of the
+> addip params. but we never check if it's really there. if the addr param is not
+> there, it still can pass sctp_verify_asconf(), then to be handled by
+> sctp_process_asconf(), it will not be safe.
+> 
+> so add a code in sctp_verify_asconf() to check the address parameter is in the
+> beginning, or return false to send abort.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_make_chunk.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 0ee5ca7..a2a72d5 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -3122,6 +3122,14 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
+>  	union sctp_params param;
+>  	bool addr_param_seen = false;
+>  
+> +	if(addr_param_needed){
+> +		/* Ensure the address parameter is in the beginning */
+> +		param.v = chunk->skb->data + sizeof(sctp_addiphdr_t);
+> +		if (param.p->type != SCTP_PARAM_IPV4_ADDRESS &&
+> +		    param.p->type != SCTP_PARAM_IPV6_ADDRESS)
+> +			return false;
+> +	}
+> +
 
-Out of curiosity, have you tried tweaking gro_flush_timeout 
-(gro_flush_interval?) for the VMs eth interface?  Say perhaps a value of 
-1000?  (I'm assuming the VM is using virtio_net) Does the behaviour 
-change if vhost-net is loaded into the host and used by the VM?
+Sorry, you can't do that directly without a lot more checks.  The parameer
+may be only only partial, or may not be there at all.  You'd end up looking
+at wrong mememory.
 
-rick jones
+A better way would be to set the addr_param_seen only when looking at
+the first parameter (addip_hdr.params).
 
-For completeness, it would also be good to compare the likes of netperf 
-TCP_RR between VxLAN and without.
+-vlad
+
+>  	sctp_walk_params(param, addip, addip_hdr.params) {
+>  		size_t length = ntohs(param.p->length);
+>  
+> 
