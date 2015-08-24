@@ -1,59 +1,59 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH net] sctp: partial chunk should be drop without sending
- abort packet
-Date: Mon, 24 Aug 2015 09:47:13 -0300
-Message-ID: <20150824124713.GZ1097@localhost.localdomain>
-References: <88918657d985bc0e55e64ca232dcd5f2b76b7cb4.1440410910.git.lucien.xin@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net v2] sctp: start t5 timer only when peer.rwnd is 0 and
+ local.state is SHUTDOWN_PENDING
+Date: Mon, 24 Aug 2015 10:01:46 -0300
+Message-ID: <20150824130146.GA1097@localhost.localdomain>
+References: <e5d77a8d7c30ccbcc113506837ae7b8e90625046.1440329440.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net
+Cc: network dev <netdev@vger.kernel.org>, tgraf@infradead.org,
+	davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44689 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49531 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752475AbbHXMrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2015 08:47:15 -0400
+	id S1752475AbbHXNBs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Aug 2015 09:01:48 -0400
 Content-Disposition: inline
-In-Reply-To: <88918657d985bc0e55e64ca232dcd5f2b76b7cb4.1440410910.git.lucien.xin@gmail.com>
+In-Reply-To: <e5d77a8d7c30ccbcc113506837ae7b8e90625046.1440329440.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 06:08:30PM +0800, Xin Long wrote:
-> as RFC 4960, 6.10 said, *if the receiver detects a partial chunk, it MUST drop
-> the chunk*, we should not send the abort. but if we put this discard to inside
-> state machine, it will send abort.
+On Sun, Aug 23, 2015 at 07:30:40PM +0800, Xin Long wrote:
+> when A sends a data to B, then A close() and enter into SHUTDOWN_PENDING state,
+> if B neither claim his rwnd is 0 nor send SACK for this data, A will keep
+> retransmitting this data util t5 timeout, Max.Retrans times can't work anymore,
+> which is bad.
 > 
-> so we just drop the partial chunk there, never let this chunk go into the state
-> machine.
+> if B's rwnd is not 0, it should send abord after Max.Retrans times, only when
+> B's rwnd == 0 and A's retransmitting beyonds Max.Retrans times, A will start
+> t5 timer, which is also commit f8d960524 means, but it lacks the condition
+> peer.rwnd == 0.
 > 
+> Fixes: f8d960524 ("sctp: Enforce retransmission limit during shutdown")
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
+
+You still have typos on changelog, but at least not on keywords.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+
 > ---
-
-This is basically reverting a chunk of Daniel's and Vlad's 26b87c788100
-("net: sctp: fix remote memory pressure from excessive queueing") .
-Isn't it going to re-introduce the initial issue then?
-
-
->  net/sctp/inqueue.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+>  net/sctp/sm_statefuns.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
-> index 7e8a16c..a22ca57 100644
-> --- a/net/sctp/inqueue.c
-> +++ b/net/sctp/inqueue.c
-> @@ -183,9 +183,9 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
->  		/* This is not a singleton */
->  		chunk->singleton = 0;
->  	} else if (chunk->chunk_end > skb_tail_pointer(chunk->skb)) {
-> -		/* Discard inside state machine. */
-> -		chunk->pdiscard = 1;
-> -		chunk->chunk_end = skb_tail_pointer(chunk->skb);
-> +		sctp_chunk_free(chunk);
-> +		chunk = queue->in_progress = NULL;
-> +		return NULL;
->  	} else {
->  		/* We are at the end of the packet, so mark the chunk
->  		 * in case we need to send a SACK.
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index 3ee27b7..deb9eab 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -5412,7 +5412,8 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(struct net *net,
+>  	SCTP_INC_STATS(net, SCTP_MIB_T3_RTX_EXPIREDS);
+>  
+>  	if (asoc->overall_error_count >= asoc->max_retrans) {
+> -		if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
+> +		if (!q->asoc->peer.rwnd &&
+> +		    asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
+>  			/*
+>  			 * We are here likely because the receiver had its rwnd
+>  			 * closed for a while and we have not been able to
 > -- 
 > 2.1.0
 > 
