@@ -1,58 +1,69 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next] macvtap/macvlan: use IFF_NO_QUEUE
-Date: Mon, 24 Aug 2015 16:33:12 +0800
-Message-ID: <1440405192-25926-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Vladislav Yasevich <vyasevic@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45536 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751475AbbHXIdT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2015 04:33:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Re: [PATCH] net: sun4i-emac: Claim emac sram
+Date: Mon, 24 Aug 2015 11:17:43 +0200
+Message-ID: <55DAE137.4040306@redhat.com>
+References: <1440354698-11144-1-git-send-email-hdegoede@redhat.com>
+ <20150824074605.GF2413@lukather>
+Reply-To: hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Jelle van der Waa <jelle-oJJ1AqDjjO4@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-sunxi+bncBDRZXY4CYYORBO6C5OXAKGQEDYZU23Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <20150824074605.GF2413@lukather>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <http://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-For macvlan, switch to use IFF_NO_QUEUE instead of tx_queue_len = 0.
+Hi,
 
-For macvtap, after commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
-("macvtap: Add support of packet capture on macvtap
-device."). Multiqueue macvtap suffers from single qdisc lock
-contention. This is because macvtap claims a non zero tx_queue_len and
-it reuses this value as it socket receive queue size.Thanks to
-IFF_NO_QUEUE, we can remove the lock contention without breaking
-existing socket receive queue length logic.
+On 24-08-15 09:46, Maxime Ripard wrote:
+> Hi Hans,
+>
+> On Sun, Aug 23, 2015 at 08:31:38PM +0200, Hans de Goede wrote:
+>> Claim the emac sram ourselves, rather then relying on the bootloader
+>> having mapped the sram to the emac controller during boot.
+>>
+>> Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> ---
+>>   drivers/net/ethernet/allwinner/sun4i-emac.c | 13 +++++++++++--
+>>   1 file changed, 11 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+>> index bab01c84..48ce83e 100644
+>> --- a/drivers/net/ethernet/allwinner/sun4i-emac.c
+>> +++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+>> @@ -28,6 +28,7 @@
+>>   #include <linux/of_platform.h>
+>>   #include <linux/platform_device.h>
+>>   #include <linux/phy.h>
+>> +#include <linux/soc/sunxi/sunxi_sram.h>
+>>
+>>   #include "sun4i-emac.h"
+>>
+>> @@ -857,11 +858,17 @@ static int emac_probe(struct platform_device *pdev)
+>>
+>>   	clk_prepare_enable(db->clk);
+>>
+>> +	ret = sunxi_sram_claim(&pdev->dev);
+>> +	if (ret) {
+>> +		dev_err(&pdev->dev, "Error couldn't map SRAM to device\n");
+>> +		goto out;
+>
+> Shouldn't you disable you clock too?
 
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Vladislav Yasevich <vyasevic@redhat.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/macvlan.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+You're right, but that is a pre-existing problem, iow an unrelated issue.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 47da435..09d8718 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1056,7 +1056,7 @@ void macvlan_common_setup(struct net_device *dev)
- 
- 	dev->priv_flags	       &= ~IFF_TX_SKB_SHARING;
- 	netif_keep_dst(dev);
--	dev->priv_flags	       |= IFF_UNICAST_FLT;
-+	dev->priv_flags	       |= IFF_UNICAST_FLT | IFF_NO_QUEUE;
- 	dev->netdev_ops		= &macvlan_netdev_ops;
- 	dev->destructor		= free_netdev;
- 	dev->header_ops		= &macvlan_hard_header_ops;
-@@ -1067,7 +1067,6 @@ EXPORT_SYMBOL_GPL(macvlan_common_setup);
- static void macvlan_setup(struct net_device *dev)
- {
- 	macvlan_common_setup(dev);
--	dev->tx_queue_len	= 0;
- }
- 
- static int macvlan_port_create(struct net_device *dev)
--- 
-2.1.4
+I've put doing a follow-up patch for this on my todo list.
+
+Regards,
+
+Hans
