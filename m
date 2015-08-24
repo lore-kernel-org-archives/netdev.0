@@ -1,53 +1,38 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH iproute2] add support for brief output for link and
- addresses
-Date: Mon, 24 Aug 2015 14:08:29 -0700
-Message-ID: <20150824140829.7d014d87@urahara>
-References: <9a703fa7b69649518cbe0341ff261fe2@HQ1WP-EXMB11.corp.brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 00/22] FUJITSU Extended Socket network device driver
+Date: Mon, 24 Aug 2015 14:10:32 -0700 (PDT)
+Message-ID: <20150824.141032.405416417791540419.davem@davemloft.net>
+References: <1440145680-15851-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:29269 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751554AbbHXVIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 17:08:22 -0400
-In-Reply-To: <9a703fa7b69649518cbe0341ff261fe2@HQ1WP-EXMB11.corp.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
+	dvhart@infradead.org, rkhan@redhat.com,
+	alexander.h.duyck@redhat.com, linux-acpi@vger.kernel.org,
+	joe@perches.com, sergei.shtylyov@cogentembedded.com,
+	stephen@networkplumber.org, yasu.isimatu@gmail.com
+To: izumi.taku@jp.fujitsu.com
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <1440145680-15851-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Aug 2015 20:41:16 +0000
-Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Date: Fri, 21 Aug 2015 17:28:00 +0900
 
-> This adds support for slightly less output than is normally provided by
-> 'ip link show' and 'ip addr show'.  This is a bit better when you have a
-> host with lots of interfaces.  Sample output:
+> This patchsets adds FUJITSU Extended Socket network device driver.
+> Extended Socket network device is a shared memory based high-speed
+> network interface between Extended Partitions of PRIMEQUEST 2000 E2
+> series.
 > 
-> $ ip -br link show
-> lo               UNKNOWN  00:00:00:00:00:00  <LOOPBACK,UP,LOWER_UP>
-> p7p1             UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
-> p8p1             DOWN     08:00:27:dc:d8:ca  <NO-CARRIER,BROADCAST,MULTICAST,UP>
-> p9p1             UP       08:00:27:76:d9:75  <BROADCAST,MULTICAST,UP,LOWER_UP>
-> p7p1.100@p7p1    UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
+> You can get some information about Extended Partition and Extended
+> Socket by referring the following manual.
 > 
-> $ ip -br -4 addr show
-> lo               UNKNOWN  127.0.0.1/8
-> p7p1             UP       70.0.0.1/24
-> p8p1             DOWN     80.0.0.1/24
-> p7p1.100@p7p1    UP       200.0.0.1/24
+> http://globalsp.ts.fujitsu.com/dmsp/Publications/public/CA92344-0537.pdf
+>     3.2.1 Extended Partitioning
+>     3.2.2 Extended Socke
 > 
-> $ ip -br -6 addr show
-> lo               UNKNOWN  ::1/128
-> p7p1             UP       7000::1/8 fe80::a00:27ff:fe9d:629f/64
-> p8p1             DOWN     8000::1/8
-> p9p1             UP       fe80::a00:27ff:fe76:d975/64
-> p7p1.100@p7p1    UP       fe80::a00:27ff:fe9d:629f/64
-> 
-> $ ip -br  addr show p7p1
-> p7p1             UP       70.0.0.1/24 7000::1/8 fe80::a00:27ff:fe9d:629f/64
-> 
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> v2.2 -> v3:
+>    - Fix up according to David's comment (No functional change)
 
-Cool, we could colorize this as well :-)
+Series applied, thank you.
