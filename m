@@ -1,115 +1,32 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: iproute2: Behavioural Bug?
-Date: Mon, 24 Aug 2015 22:17:48 +0300
-Message-ID: <20150824191748.GA28975@angus-think.lan>
-References: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] 3c59x: Add BQL support for 3c59x ethernet
+ driver.
+Date: Mon, 24 Aug 2015 12:21:33 -0700 (PDT)
+Message-ID: <20150824.122133.2245430155371881390.davem@davemloft.net>
+References: <20150821022218.GA15519@mx.elandsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: Akshat Kakkar <akshat.1984@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: logan@elandsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:33022 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751948AbbHXTUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 15:20:38 -0400
-Received: by wijp15 with SMTP id p15so87208820wij.0
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 12:20:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52110 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300AbbHXTVe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 15:21:34 -0400
+In-Reply-To: <20150821022218.GA15519@mx.elandsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 02:00:29PM +0530, Akshat Kakkar wrote:
-> When I am trying to delete a single tc filter (i.e. specifying its
-> handle), it is deleting all the
-> filters with the same priority/preference. i.e. it is ignoring the
-> handle specified.
+From: Loganaden Velvindron <logan@elandsys.com>
+Date: Thu, 20 Aug 2015 19:22:18 -0700
+
+> This BQL patch is based on work done by Tino Reichardt.
 > 
-> But, When I am doing similar activity in hashtable 800: it is deleting only the
-> specified filter, i.e. it is behaving as expected.
-> 
-> I am unable to comprehend the reason for this difference in behaviour.
-> 
-> Infact, in kernel 2.6.32 all is working as expected. However, in
-> kernel 3.1 and 4.1 it is having the behaviour as mentioned above.
-> 
-> For example, following set of commands  create a hashtable 15: and add
-> 2 filters to it.
-> 
-> tc filter add dev eth0 parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
-> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:2 u32
-> ht 15:2: match ip src 10.0.0.2 flowid 1:10
-> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
-> ht 15:2: match ip src 10.0.0.3 flowid 1:10
-> 
-> Now following command DELETES ALL THE FILTERS, though it should only
-> delete FILTER 15:2:3 !
-> tc filter del dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
-> 
-> O/p of tc filter show eth0 is this case is blank. As all filters are deleted.
+> Tested on 0000:05:00.0: 3Com PCI 3c905C Tornado at ffffc90000e6e000 by running
+> Flent several times.
 > 
 > 
-> However, similar commands when executed for hashtable 800: is deleting
-> only the specified filter
-> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
-> ht 800:0: match ip src 10.0.0.2 flowid 1:10
-> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:3 u32
-> ht 800:0: match ip src 10.0.0.3 flowid 1:10
-> 
-> tc filter del dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
-> 
-> Above mentioned command only deletes single filter.
-> O/p of tc filter show eth0 is 2nd case is
-> 
-> filter parent 1: protocol ip pref 5 u32
-> filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
-> filter parent 1: protocol ip pref 5 u32 fh 800::3 order 3 key ht 800
-> bkt 0 flowid 1:10
->   match 0a000003/ffffffff at 12
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Signed-off-by: Loganaden Velvindron <logan@elandsys.com>
 
-Hi,
-
-Thats what I got using this script where I copied your commands:
-
-----------------------------------
-#!/bin/bash
-
-DEV=dummy0
-
-ip link del $DEV 2> /dev/null
-
-ip link add dev $DEV type dummy
-
-tc qdisc add dev $DEV root handle 1: htb
-
-tc filter add dev $DEV parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
-tc filter add dev $DEV protocol ip parent 1: prio 5 handle 15:2:2 u32 ht 15:2: match ip src 10.0.0.2 flowid 1:10
-tc filter add dev $DEV protocol ip parent 1: prio 5 handle 15:2:3 u32 ht 15:2: match ip src 10.0.0.3 flowid 1:10
-
-tc filter del dev $DEV protocol ip parent 1: prio 5 handle 15:2:3 u32
-
-tc filter show dev $DEV
-# ---------------------------------
-
-Result is:
-
-filter parent 1: protocol ip pref 5 u32 
-filter parent 1: protocol ip pref 5 u32 fh 15: ht divisor 256 
-filter parent 1: protocol ip pref 5 u32 fh 15:2:2 order 2 key ht 15 bkt 2 flowid 1:10 
-  match 0a000002/ffffffff at 12
-filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1 
-
-Some additional info:
-
-# tc -V
-tc utility, iproute2-ss150413
-
-# uname -a
-Linux angus-think 4.0.4-2-ARCH #1 SMP PREEMPT Fri May 22 03:05:23 UTC 2015 x86_64 GNU/Linux
-
-Regards,
-Vadim Kochan
+Applied, thanks.
