@@ -1,87 +1,53 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2] usbnet: Fix a race between usbnet_stop() and the BH
-Date: Mon, 24 Aug 2015 23:01:12 +0200
-Message-ID: <87k2sk9zaf.fsf@nemi.mork.no>
-References: <55AD3A41.2040100@rosalab.ru>
-	<1440447223-15945-1-git-send-email-eugene.shatokhin@rosalab.ru>
-	<1440447223-15945-3-git-send-email-eugene.shatokhin@rosalab.ru>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [PATCH iproute2] add support for brief output for link and
+ addresses
+Date: Mon, 24 Aug 2015 14:08:29 -0700
+Message-ID: <20150824140829.7d014d87@urahara>
+References: <9a703fa7b69649518cbe0341ff261fe2@HQ1WP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum@suse.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440447223-15945-3-git-send-email-eugene.shatokhin@rosalab.ru>
-	(Eugene Shatokhin's message of "Mon, 24 Aug 2015 23:13:43 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:29269 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751554AbbHXVIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 17:08:22 -0400
+In-Reply-To: <9a703fa7b69649518cbe0341ff261fe2@HQ1WP-EXMB11.corp.brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
+On Mon, 24 Aug 2015 20:41:16 +0000
+Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
 
-> The race may happen when a device (e.g. YOTA 4G LTE Modem) is
-> unplugged while the system is downloading a large file from the Net.
->
-> Hardware breakpoints and Kprobes with delays were used to confirm tha=
-t
-> the race does actually happen.
->
-> The race is on skb_queue ('next' pointer) between usbnet_stop()
-> and rx_complete(), which, in turn, calls usbnet_bh().
->
-> Here is a part of the call stack with the code where the changes to t=
-he
-> queue happen. The line numbers are for the kernel 4.1.0:
->
-> *0 __skb_unlink (skbuff.h:1517)
->     prev->next =3D next;
-> *1 defer_bh (usbnet.c:430)
->     spin_lock_irqsave(&list->lock, flags);
->     old_state =3D entry->state;
->     entry->state =3D state;
->     __skb_unlink(skb, list);
->     spin_unlock(&list->lock);
->     spin_lock(&dev->done.lock);
->     __skb_queue_tail(&dev->done, skb);
->     if (dev->done.qlen =3D=3D 1)
->         tasklet_schedule(&dev->bh);
->     spin_unlock_irqrestore(&dev->done.lock, flags);
-> *2 rx_complete (usbnet.c:640)
->     state =3D defer_bh(dev, skb, &dev->rxq, state);
->
-> At the same time, the following code repeatedly checks if the queue i=
-s
-> empty and reads these values concurrently with the above changes:
->
-> *0  usbnet_terminate_urbs (usbnet.c:765)
->     /* maybe wait for deletions to finish. */
->     while (!skb_queue_empty(&dev->rxq)
->         && !skb_queue_empty(&dev->txq)
->         && !skb_queue_empty(&dev->done)) {
->             schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
->             set_current_state(TASK_UNINTERRUPTIBLE);
->             netif_dbg(dev, ifdown, dev->net,
->                   "waited for %d urb completions\n", temp);
->     }
-> *1  usbnet_stop (usbnet.c:806)
->     if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
->         usbnet_terminate_urbs(dev);
->
-> As a result, it is possible, for example, that the skb is removed fro=
-m
-> dev->rxq by __skb_unlink() before the check
-> "!skb_queue_empty(&dev->rxq)" in usbnet_terminate_urbs() is made. It =
-is
-> also possible in this case that the skb is added to dev->done queue
-> after "!skb_queue_empty(&dev->done)" is checked. So
-> usbnet_terminate_urbs() may stop waiting and return while dev->done
-> queue still has an item.
+> This adds support for slightly less output than is normally provided by
+> 'ip link show' and 'ip addr show'.  This is a bit better when you have a
+> host with lots of interfaces.  Sample output:
+> 
+> $ ip -br link show
+> lo               UNKNOWN  00:00:00:00:00:00  <LOOPBACK,UP,LOWER_UP>
+> p7p1             UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
+> p8p1             DOWN     08:00:27:dc:d8:ca  <NO-CARRIER,BROADCAST,MULTICAST,UP>
+> p9p1             UP       08:00:27:76:d9:75  <BROADCAST,MULTICAST,UP,LOWER_UP>
+> p7p1.100@p7p1    UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
+> 
+> $ ip -br -4 addr show
+> lo               UNKNOWN  127.0.0.1/8
+> p7p1             UP       70.0.0.1/24
+> p8p1             DOWN     80.0.0.1/24
+> p7p1.100@p7p1    UP       200.0.0.1/24
+> 
+> $ ip -br -6 addr show
+> lo               UNKNOWN  ::1/128
+> p7p1             UP       7000::1/8 fe80::a00:27ff:fe9d:629f/64
+> p8p1             DOWN     8000::1/8
+> p9p1             UP       fe80::a00:27ff:fe76:d975/64
+> p7p1.100@p7p1    UP       fe80::a00:27ff:fe9d:629f/64
+> 
+> $ ip -br  addr show p7p1
+> p7p1             UP       70.0.0.1/24 7000::1/8 fe80::a00:27ff:fe9d:629f/64
+> 
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 
-Exactly what problem will that result in?  The tasklet_kill() will wait
-for the processing of the single element done queue, and everything wil=
-l
-be fine.  Or?
-
-
-Bj=C3=B8rn
+Cool, we could colorize this as well :-)
