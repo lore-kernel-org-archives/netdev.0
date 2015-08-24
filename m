@@ -1,53 +1,189 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH, net-next] r8169: On RTL 8101 series bit SYSErr is
- reserved.
-Date: Mon, 24 Aug 2015 11:38:18 -0700 (PDT)
-Message-ID: <20150824.113818.620937362100781821.davem@davemloft.net>
-References: <1440439973-7400-1-git-send-email-corcodel.marian@gmail.com>
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: Re: [PATCH v3 01/10] ss: rooted out ss type declarations for output
+ formatters
+Date: Mon, 24 Aug 2015 20:40:59 +0200
+Message-ID: <55DB653B.2020503@gmx.net>
+References: <1440103221-21854-1-git-send-email-matthias.tafelmeier@gmx.net>	<1440103221-21854-2-git-send-email-matthias.tafelmeier@gmx.net> <20150823100758.74a626d4@urahara>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: corcodel.marian@gmail.com
+Content-Type: multipart/mixed;
+ boundary="------------020504040906050009050601"
+Cc: netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
+	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51897 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755184AbbHXSiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 14:38:20 -0400
-In-Reply-To: <1440439973-7400-1-git-send-email-corcodel.marian@gmail.com>
+Received: from mout.gmx.net ([212.227.15.19]:53131 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753974AbbHXSlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Aug 2015 14:41:32 -0400
+In-Reply-To: <20150823100758.74a626d4@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Corcodel Marian <corcodel.marian@gmail.com>
-Date: Mon, 24 Aug 2015 21:12:53 +0300
+This is a multi-part message in MIME format.
+--------------020504040906050009050601
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 5693e65..32d2072 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -8256,6 +8256,14 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
->  	RTL_W8(Config5, RTL_R8(Config5) & (BWF | MWF | UWF | LanWake | PMEStatus));*/
->  	switch (tp->mac_version) {
-> +	case RTL_GIGA_MAC_VER_07:
-> +	case RTL_GIGA_MAC_VER_08:
-> +	case RTL_GIGA_MAC_VER_09:
-> +	case RTL_GIGA_MAC_VER_10:
-> +	case RTL_GIGA_MAC_VER_13:
-> +	case RTL_GIGA_MAC_VER_16:
-> +		pci_write_config_word(pdev, PCI_COMMAND, ~PCI_COMMAND_SERR); 
+-----BEGIN PGP MESSAGE-----
+Charset: windows-1252
+Version: GnuPG v1
 
-You're writing all sorts of bits you definitely don't want to set here.
+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
+0QaIN1IfbZZp8dtPwXejMI5yXXf3aw==
+=M0SM
+-----END PGP MESSAGE-----
 
-Furthermore, there is no need to clear a bit that shouldn't be set
-in the first place.
+--------------020504040906050009050601
+Content-Type: application/pgp-keys;
+ name="0x8ADF343B.asc"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+ filename="0x8ADF343B.asc"
 
-Your patches are really full of major errors, and unsuitable for
-upstream.
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1
 
-Yes, all of them.
+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
+x8nHnDFf8DVp5coDq4WJDkHBs7p71w=3D=3D
+=3D67S5
+-----END PGP PUBLIC KEY BLOCK-----
 
-So please stop posting your r8169 changes here, because if you don't
-care if your patches get included or not, then you should not be
-posting them here.  This isn't a place to just dump ramdom patches,
-sorry.
+--------------020504040906050009050601--
