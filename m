@@ -1,159 +1,115 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH v4 11/11] mtrr: bury MTRR - unexport mtrr_add() and mtrr_del()
-Date: Mon, 24 Aug 2015 12:13:33 -0700
-Message-ID: <1440443613-13696-12-git-send-email-mcgrof@do-not-panic.com>
-References: <1440443613-13696-1-git-send-email-mcgrof@do-not-panic.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: iproute2: Behavioural Bug?
+Date: Mon, 24 Aug 2015 22:17:48 +0300
+Message-ID: <20150824191748.GA28975@angus-think.lan>
+References: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bp@suse.de, bhelgaas@google.com, tomi.valkeinen@ti.com,
-	airlied@linux.ie, linux-fbdev@vger.kernel.org, luto@amacapital.net,
-	vinod.koul@intel.com, dan.j.williams@intel.com, toshi.kani@hp.com,
-	benh@kernel.crashing.org, mst@redhat.com,
-	akpm@linux-foundation.org, daniel.vetter@ffwll.ch,
-	konrad.wilk@oracle.com, x86@kernel.org,
-	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
-	xen-devel@lists.xensource.com,
-	"Luis R. Rodriguez" <mcgrof@suse.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Dave Hansen <dave.hansen@linux.intel.com>,
-	Suresh Siddha <sbsiddha@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>, Juergen Gross <jgross@suse.com>,
-	Dave Airlie <airlied@redhat.com>,
-	Antonino Daplas <adaplas@gmail.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	=?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?= <syrjala@sci.fi
-To: mingo@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440443613-13696-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: Akshat Kakkar <akshat.1984@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33022 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751948AbbHXTUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 15:20:38 -0400
+Received: by wijp15 with SMTP id p15so87208820wij.0
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 12:20:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Luis R. Rodriguez" <mcgrof@suse.com>
+On Mon, Aug 24, 2015 at 02:00:29PM +0530, Akshat Kakkar wrote:
+> When I am trying to delete a single tc filter (i.e. specifying its
+> handle), it is deleting all the
+> filters with the same priority/preference. i.e. it is ignoring the
+> handle specified.
+> 
+> But, When I am doing similar activity in hashtable 800: it is deleting only the
+> specified filter, i.e. it is behaving as expected.
+> 
+> I am unable to comprehend the reason for this difference in behaviour.
+> 
+> Infact, in kernel 2.6.32 all is working as expected. However, in
+> kernel 3.1 and 4.1 it is having the behaviour as mentioned above.
+> 
+> For example, following set of commands  create a hashtable 15: and add
+> 2 filters to it.
+> 
+> tc filter add dev eth0 parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:2 u32
+> ht 15:2: match ip src 10.0.0.2 flowid 1:10
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
+> ht 15:2: match ip src 10.0.0.3 flowid 1:10
+> 
+> Now following command DELETES ALL THE FILTERS, though it should only
+> delete FILTER 15:2:3 !
+> tc filter del dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
+> 
+> O/p of tc filter show eth0 is this case is blank. As all filters are deleted.
+> 
+> 
+> However, similar commands when executed for hashtable 800: is deleting
+> only the specified filter
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
+> ht 800:0: match ip src 10.0.0.2 flowid 1:10
+> tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:3 u32
+> ht 800:0: match ip src 10.0.0.3 flowid 1:10
+> 
+> tc filter del dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
+> 
+> Above mentioned command only deletes single filter.
+> O/p of tc filter show eth0 is 2nd case is
+> 
+> filter parent 1: protocol ip pref 5 u32
+> filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
+> filter parent 1: protocol ip pref 5 u32 fh 800::3 order 3 key ht 800
+> bkt 0 flowid 1:10
+>   match 0a000003/ffffffff at 12
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-The crusade to replace mtrr_add() with architecture agnostic
-arch_phys_wc_add() is complete, this will ensure write-combining
-implementations (PAT on x86) is taken advantage instead of using
-MTRR. With the crusade done now, hide direct MTRR access for
-drivers.
+Hi,
 
-Update x86 documentation on MTRR to reflect the completion of the
-phasing out of direct access to MTRR, also add a note on platform
-firmware code use of MTRRs based on the obituary discussion of
-MTRRs on Linux [0].
+Thats what I got using this script where I copied your commands:
 
-[0] http://lkml.kernel.org/r/1438991330.3109.196.camel@hp.com
+----------------------------------
+#!/bin/bash
 
-Cc: Toshi Kani <toshi.kani@hp.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Borislav Petkov <bp@suse.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Suresh Siddha <sbsiddha@gmail.com>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Juergen Gross <jgross@suse.com>
-Cc: Daniel Vetter <daniel.vetter@ffwll.ch>
-Cc: Andy Lutomirski <luto@amacapital.net>
-Cc: Dave Airlie <airlied@redhat.com>
-Cc: Antonino Daplas <adaplas@gmail.com>
-Cc: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
-Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>
-Cc: Ville Syrj=C3=A4l=C3=A4 <syrjala@sci.fi>
-Cc: Mel Gorman <mgorman@suse.de>
-Cc: Vlastimil Babka <vbabka@suse.cz>
-Cc: Davidlohr Bueso <dbueso@suse.de>
-Cc: Doug Ledford <dledford@redhat.com>
-Cc: Andy Walls <awalls@md.metrocast.net>
-Cc: x86@kernel.org
-Cc: netdev@vger.kernel.org
-Cc: linux-media@vger.kernel.org
-Cc: linux-fbdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
----
- Documentation/x86/mtrr.txt      | 20 ++++++++++++++++----
- arch/x86/kernel/cpu/mtrr/main.c |  2 --
- 2 files changed, 16 insertions(+), 6 deletions(-)
+DEV=dummy0
 
-diff --git a/Documentation/x86/mtrr.txt b/Documentation/x86/mtrr.txt
-index 860bc3adc223..8a0bdb6e7370 100644
---- a/Documentation/x86/mtrr.txt
-+++ b/Documentation/x86/mtrr.txt
-@@ -6,10 +6,22 @@ Luis R. Rodriguez <mcgrof@do-not-panic.com> - April 9=
-, 2015
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D
- Phasing out MTRR use
-=20
--MTRR use is replaced on modern x86 hardware with PAT. Over time the on=
-ly type
--of effective MTRR that is expected to be supported will be for write-c=
-ombining.
--As MTRR use is phased out device drivers should use arch_phys_wc_add()=
- to make
--MTRR effective on non-PAT systems while a no-op on PAT enabled systems=
-=2E
-+MTRR use is replaced on modern x86 hardware with PAT. Direct MTRR use =
-by
-+drivers on Linux is now completely phased out, device drivers should u=
-se
-+arch_phys_wc_add() in combination with ioremap_wc() to make MTRR effec=
-tive on
-+non-PAT systems while a no-op but equally effective on PAT enabled sys=
-tems.
-+
-+Even if Linux does not use MTRR directly some x86 platform firmware ma=
-y still
-+set up MTRRs early before booting the OS, they do this as some platfor=
-m
-+firmware may still have implemented access to MTRRs which would be con=
-trolled
-+and handled by the platform firmware directly. An example of platform =
-use of
-+MTRR is through the use of SMI handlers, one case could be for fan con=
-trol,
-+the platform code would need uncachable access to some of its fan cont=
-rol
-+registers. Such platform access does not need any Operating System MTR=
-R code in
-+place other than mtrr_type_lookup() to ensure any OS specific mapping =
-requests
-+are aligned with platform MTRR setup. If MTRRs are only set up by the =
-platform
-+firmware code though and the OS does not make any specific MTRR mappin=
-g
-+requests mtrr_type_lookup() should always return MTRR_TYPE_INVALID.
-=20
- For details refer to Documentation/x86/pat.txt.
-=20
-diff --git a/arch/x86/kernel/cpu/mtrr/main.c b/arch/x86/kernel/cpu/mtrr=
-/main.c
-index e7ed0d8ebacb..f891b4750f04 100644
---- a/arch/x86/kernel/cpu/mtrr/main.c
-+++ b/arch/x86/kernel/cpu/mtrr/main.c
-@@ -448,7 +448,6 @@ int mtrr_add(unsigned long base, unsigned long size=
-, unsigned int type,
- 	return mtrr_add_page(base >> PAGE_SHIFT, size >> PAGE_SHIFT, type,
- 			     increment);
- }
--EXPORT_SYMBOL(mtrr_add);
-=20
- /**
-  * mtrr_del_page - delete a memory type region
-@@ -537,7 +536,6 @@ int mtrr_del(int reg, unsigned long base, unsigned =
-long size)
- 		return -EINVAL;
- 	return mtrr_del_page(reg, base >> PAGE_SHIFT, size >> PAGE_SHIFT);
- }
--EXPORT_SYMBOL(mtrr_del);
-=20
- /**
-  * arch_phys_wc_add - add a WC MTRR and handle errors if PAT is unavai=
-lable
---=20
-2.4.3
+ip link del $DEV 2> /dev/null
+
+ip link add dev $DEV type dummy
+
+tc qdisc add dev $DEV root handle 1: htb
+
+tc filter add dev $DEV parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
+tc filter add dev $DEV protocol ip parent 1: prio 5 handle 15:2:2 u32 ht 15:2: match ip src 10.0.0.2 flowid 1:10
+tc filter add dev $DEV protocol ip parent 1: prio 5 handle 15:2:3 u32 ht 15:2: match ip src 10.0.0.3 flowid 1:10
+
+tc filter del dev $DEV protocol ip parent 1: prio 5 handle 15:2:3 u32
+
+tc filter show dev $DEV
+# ---------------------------------
+
+Result is:
+
+filter parent 1: protocol ip pref 5 u32 
+filter parent 1: protocol ip pref 5 u32 fh 15: ht divisor 256 
+filter parent 1: protocol ip pref 5 u32 fh 15:2:2 order 2 key ht 15 bkt 2 flowid 1:10 
+  match 0a000002/ffffffff at 12
+filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1 
+
+Some additional info:
+
+# tc -V
+tc utility, iproute2-ss150413
+
+# uname -a
+Linux angus-think 4.0.4-2-ARCH #1 SMP PREEMPT Fri May 22 03:05:23 UTC 2015 x86_64 GNU/Linux
+
+Regards,
+Vadim Kochan
