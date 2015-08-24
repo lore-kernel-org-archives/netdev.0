@@ -1,35 +1,39 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next] MAINTAINERS: update vmxnet3 driver maintainer
-Date: Mon, 24 Aug 2015 14:24:11 -0700
-Message-ID: <1440451451-13702-1-git-send-email-skhare@vmware.com>
-Cc: skhare@vmware.com
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sbhatewara@vmware.com, pv-drivers@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: Fix RCU splat in af_key
+Date: Mon, 24 Aug 2015 14:28:06 -0700
+Message-ID: <1440451686.8932.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1440451037-18564-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:35786 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386AbbHXV2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 17:28:08 -0400
+Received: by pdob1 with SMTP id b1so57753389pdo.2
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 14:28:08 -0700 (PDT)
+In-Reply-To: <1440451037-18564-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Shreyas Bhatewara would no longer maintain the vmxnet3 driver. Taking over
-the role of vmxnet3 maintainer.
+On Mon, 2015-08-24 at 15:17 -0600, David Ahern wrote:
+> Hit the following splat testing VRF change for ipsec:
 
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
-Signed off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> In pfkey_sendmsg the net mutex is taken and then pfkey_broadcast takes
+> the RCU lock.
+> 
+> Since pfkey_broadcast takes the RCU lock the allocation argument is
+> pointless since GFP_ATOMIC must be used between the rcu_read_{,un}lock.
+> The one call outside of rcu can be done with GFP_KERNEL.
+> 
+> Fixes: 7f6b9dbd5afbd ("af_key: locking change")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> v2
+> - removed allocation arg and hardcoded to GFP_ATOMIC during rcu locking
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4e6dcb6..2963a89 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -11053,7 +11053,7 @@ F:	drivers/input/mouse/vmmouse.c
- F:	drivers/input/mouse/vmmouse.h
- 
- VMWARE VMXNET3 ETHERNET DRIVER
--M:	Shreyas Bhatewara <sbhatewara@vmware.com>
-+M:	Shrikrishna Khare <skhare@vmware.com>
- M:	"VMware, Inc." <pv-drivers@vmware.com>
- L:	netdev@vger.kernel.org
- S:	Maintained
--- 
-1.8.5.6
+Acked-by: Eric Dumazet <edumazet@google.com>
