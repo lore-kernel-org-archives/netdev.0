@@ -1,72 +1,64 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] net: sun4i-emac: Claim emac sram
-Date: Mon, 24 Aug 2015 09:46:05 +0200
-Message-ID: <20150824074605.GF2413@lukather>
-References: <1440354698-11144-1-git-send-email-hdegoede@redhat.com>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: iproute2: Behavioural Bug?
+Date: Mon, 24 Aug 2015 14:00:29 +0530
+Message-ID: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Y1L3PTX8QE8cb2T+"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jelle van der Waa <jelle-oJJ1AqDjjO4@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBPUX5OXAKGQE6BGJBPI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1440354698-11144-1-git-send-email-hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
-
---Y1L3PTX8QE8cb2T+
 Content-Type: text/plain; charset=UTF-8
-Content-Disposition: inline
+Cc: stephen@networkplumber.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:35737 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932174AbbHXIa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 04:30:29 -0400
+Received: by obbwr7 with SMTP id wr7so106999741obb.2
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 01:30:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hans,
+When I am trying to delete a single tc filter (i.e. specifying its
+handle), it is deleting all the
+filters with the same priority/preference. i.e. it is ignoring the
+handle specified.
 
-On Sun, Aug 23, 2015 at 08:31:38PM +0200, Hans de Goede wrote:
-> Claim the emac sram ourselves, rather then relying on the bootloader
-> having mapped the sram to the emac controller during boot.
-> 
-> Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/ethernet/allwinner/sun4i-emac.c | 13 +++++++++++--
->  1 file changed, 11 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-> index bab01c84..48ce83e 100644
-> --- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-> +++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-> @@ -28,6 +28,7 @@
->  #include <linux/of_platform.h>
->  #include <linux/platform_device.h>
->  #include <linux/phy.h>
-> +#include <linux/soc/sunxi/sunxi_sram.h>
->  
->  #include "sun4i-emac.h"
->  
-> @@ -857,11 +858,17 @@ static int emac_probe(struct platform_device *pdev)
->  
->  	clk_prepare_enable(db->clk);
->  
-> +	ret = sunxi_sram_claim(&pdev->dev);
-> +	if (ret) {
-> +		dev_err(&pdev->dev, "Error couldn't map SRAM to device\n");
-> +		goto out;
+But, When I am doing similar activity in hashtable 800: it is deleting only the
+specified filter, i.e. it is behaving as expected.
 
-Shouldn't you disable you clock too?
+I am unable to comprehend the reason for this difference in behaviour.
 
-Thanks,
-Maxime
+Infact, in kernel 2.6.32 all is working as expected. However, in
+kernel 3.1 and 4.1 it is having the behaviour as mentioned above.
 
--- 
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
---Y1L3PTX8QE8cb2T+--
+For example, following set of commands  create a hashtable 15: and add
+2 filters to it.
+
+tc filter add dev eth0 parent 1:0 prio 5 handle 15: protocol ip u32 divisor 256
+tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:2 u32
+ht 15:2: match ip src 10.0.0.2 flowid 1:10
+tc filter add dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
+ht 15:2: match ip src 10.0.0.3 flowid 1:10
+
+Now following command DELETES ALL THE FILTERS, though it should only
+delete FILTER 15:2:3 !
+tc filter del dev eth0 protocol ip parent 1: prio 5 handle 15:2:3 u32
+
+O/p of tc filter show eth0 is this case is blank. As all filters are deleted.
+
+
+However, similar commands when executed for hashtable 800: is deleting
+only the specified filter
+tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
+ht 800:0: match ip src 10.0.0.2 flowid 1:10
+tc filter add dev eth0 protocol ip parent 1: prio 5 handle 800:0:3 u32
+ht 800:0: match ip src 10.0.0.3 flowid 1:10
+
+tc filter del dev eth0 protocol ip parent 1: prio 5 handle 800:0:2 u32
+
+Above mentioned command only deletes single filter.
+O/p of tc filter show eth0 is 2nd case is
+
+filter parent 1: protocol ip pref 5 u32
+filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
+filter parent 1: protocol ip pref 5 u32 fh 800::3 order 3 key ht 800
+bkt 0 flowid 1:10
+  match 0a000003/ffffffff at 12
