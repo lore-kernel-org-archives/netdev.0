@@ -1,38 +1,283 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 00/22] FUJITSU Extended Socket network device driver
-Date: Mon, 24 Aug 2015 14:10:32 -0700 (PDT)
-Message-ID: <20150824.141032.405416417791540419.davem@davemloft.net>
-References: <1440145680-15851-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
-	dvhart@infradead.org, rkhan@redhat.com,
-	alexander.h.duyck@redhat.com, linux-acpi@vger.kernel.org,
-	joe@perches.com, sergei.shtylyov@cogentembedded.com,
-	stephen@networkplumber.org, yasu.isimatu@gmail.com
-To: izumi.taku@jp.fujitsu.com
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <1440145680-15851-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH v2] net: Fix RCU splat in af_key
+Date: Mon, 24 Aug 2015 15:17:17 -0600
+Message-ID: <1440451037-18564-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:34682 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296AbbHXVRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 17:17:54 -0400
+Received: by iodb91 with SMTP id b91so163850015iod.1
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 14:17:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Date: Fri, 21 Aug 2015 17:28:00 +0900
+Hit the following splat testing VRF change for ipsec:
 
-> This patchsets adds FUJITSU Extended Socket network device driver.
-> Extended Socket network device is a shared memory based high-speed
-> network interface between Extended Partitions of PRIMEQUEST 2000 E2
-> series.
-> 
-> You can get some information about Extended Partition and Extended
-> Socket by referring the following manual.
-> 
-> http://globalsp.ts.fujitsu.com/dmsp/Publications/public/CA92344-0537.pdf
->     3.2.1 Extended Partitioning
->     3.2.2 Extended Socke
-> 
-> v2.2 -> v3:
->    - Fix up according to David's comment (No functional change)
+[  113.475692] ===============================
+[  113.476194] [ INFO: suspicious RCU usage. ]
+[  113.476667] 4.2.0-rc6-1+deb7u2+clUNRELEASED #3.2.65-1+deb7u2+clUNRELEASED Not tainted
+[  113.477545] -------------------------------
+[  113.478013] /work/monster-14/dsa/kernel.git/include/linux/rcupdate.h:568 Illegal context switch in RCU read-side critical section!
+[  113.479288]
+[  113.479288] other info that might help us debug this:
+[  113.479288]
+[  113.480207]
+[  113.480207] rcu_scheduler_active = 1, debug_locks = 1
+[  113.480931] 2 locks held by setkey/6829:
+[  113.481371]  #0:  (&net->xfrm.xfrm_cfg_mutex){+.+.+.}, at: [<ffffffff814e9887>] pfkey_sendmsg+0xfb/0x213
+[  113.482509]  #1:  (rcu_read_lock){......}, at: [<ffffffff814e767f>] rcu_read_lock+0x0/0x6e
+[  113.483509]
+[  113.483509] stack backtrace:
+[  113.484041] CPU: 0 PID: 6829 Comm: setkey Not tainted 4.2.0-rc6-1+deb7u2+clUNRELEASED #3.2.65-1+deb7u2+clUNRELEASED
+[  113.485422] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.7.5.1-0-g8936dbb-20141113_115728-nilsson.home.kraxel.org 04/01/2014
+[  113.486845]  0000000000000001 ffff88001d4c7a98 ffffffff81518af2 ffffffff81086962
+[  113.487732]  ffff88001d538480 ffff88001d4c7ac8 ffffffff8107ae75 ffffffff8180a154
+[  113.488628]  0000000000000b30 0000000000000000 00000000000000d0 ffff88001d4c7ad8
+[  113.489525] Call Trace:
+[  113.489813]  [<ffffffff81518af2>] dump_stack+0x4c/0x65
+[  113.490389]  [<ffffffff81086962>] ? console_unlock+0x3d6/0x405
+[  113.491039]  [<ffffffff8107ae75>] lockdep_rcu_suspicious+0xfa/0x103
+[  113.491735]  [<ffffffff81064032>] rcu_preempt_sleep_check+0x45/0x47
+[  113.492442]  [<ffffffff8106404d>] ___might_sleep+0x19/0x1c8
+[  113.493077]  [<ffffffff81064268>] __might_sleep+0x6c/0x82
+[  113.493681]  [<ffffffff81133190>] cache_alloc_debugcheck_before.isra.50+0x1d/0x24
+[  113.494508]  [<ffffffff81134876>] kmem_cache_alloc+0x31/0x18f
+[  113.495149]  [<ffffffff814012b5>] skb_clone+0x64/0x80
+[  113.495712]  [<ffffffff814e6f71>] pfkey_broadcast_one+0x3d/0xff
+[  113.496380]  [<ffffffff814e7b84>] pfkey_broadcast+0xb5/0x11e
+[  113.497024]  [<ffffffff814e82d1>] pfkey_register+0x191/0x1b1
+[  113.497653]  [<ffffffff814e9770>] pfkey_process+0x162/0x17e
+[  113.498274]  [<ffffffff814e9895>] pfkey_sendmsg+0x109/0x213
 
-Series applied, thank you.
+In pfkey_sendmsg the net mutex is taken and then pfkey_broadcast takes
+the RCU lock.
+
+Since pfkey_broadcast takes the RCU lock the allocation argument is
+pointless since GFP_ATOMIC must be used between the rcu_read_{,un}lock.
+The one call outside of rcu can be done with GFP_KERNEL.
+
+Fixes: 7f6b9dbd5afbd ("af_key: locking change")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v2
+- removed allocation arg and hardcoded to GFP_ATOMIC during rcu locking
+
+ net/key/af_key.c | 46 +++++++++++++++++++++++-----------------------
+ 1 file changed, 23 insertions(+), 23 deletions(-)
+
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index b397f0aa9005..83a70688784b 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -219,7 +219,7 @@ static int pfkey_broadcast_one(struct sk_buff *skb, struct sk_buff **skb2,
+ #define BROADCAST_ONE		1
+ #define BROADCAST_REGISTERED	2
+ #define BROADCAST_PROMISC_ONLY	4
+-static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
++static int pfkey_broadcast(struct sk_buff *skb,
+ 			   int broadcast_flags, struct sock *one_sk,
+ 			   struct net *net)
+ {
+@@ -244,7 +244,7 @@ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
+ 		 * socket.
+ 		 */
+ 		if (pfk->promisc)
+-			pfkey_broadcast_one(skb, &skb2, allocation, sk);
++			pfkey_broadcast_one(skb, &skb2, GFP_ATOMIC, sk);
+ 
+ 		/* the exact target will be processed later */
+ 		if (sk == one_sk)
+@@ -259,7 +259,7 @@ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
+ 				continue;
+ 		}
+ 
+-		err2 = pfkey_broadcast_one(skb, &skb2, allocation, sk);
++		err2 = pfkey_broadcast_one(skb, &skb2, GFP_ATOMIC, sk);
+ 
+ 		/* Error is cleare after succecful sending to at least one
+ 		 * registered KM */
+@@ -269,7 +269,7 @@ static int pfkey_broadcast(struct sk_buff *skb, gfp_t allocation,
+ 	rcu_read_unlock();
+ 
+ 	if (one_sk != NULL)
+-		err = pfkey_broadcast_one(skb, &skb2, allocation, one_sk);
++		err = pfkey_broadcast_one(skb, &skb2, GFP_KERNEL, one_sk);
+ 
+ 	kfree_skb(skb2);
+ 	kfree_skb(skb);
+@@ -292,7 +292,7 @@ static int pfkey_do_dump(struct pfkey_sock *pfk)
+ 		hdr = (struct sadb_msg *) pfk->dump.skb->data;
+ 		hdr->sadb_msg_seq = 0;
+ 		hdr->sadb_msg_errno = rc;
+-		pfkey_broadcast(pfk->dump.skb, GFP_ATOMIC, BROADCAST_ONE,
++		pfkey_broadcast(pfk->dump.skb, BROADCAST_ONE,
+ 				&pfk->sk, sock_net(&pfk->sk));
+ 		pfk->dump.skb = NULL;
+ 	}
+@@ -333,7 +333,7 @@ static int pfkey_error(const struct sadb_msg *orig, int err, struct sock *sk)
+ 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) /
+ 			     sizeof(uint64_t));
+ 
+-	pfkey_broadcast(skb, GFP_KERNEL, BROADCAST_ONE, sk, sock_net(sk));
++	pfkey_broadcast(skb, BROADCAST_ONE, sk, sock_net(sk));
+ 
+ 	return 0;
+ }
+@@ -1365,7 +1365,7 @@ static int pfkey_getspi(struct sock *sk, struct sk_buff *skb, const struct sadb_
+ 
+ 	xfrm_state_put(x);
+ 
+-	pfkey_broadcast(resp_skb, GFP_KERNEL, BROADCAST_ONE, sk, net);
++	pfkey_broadcast(resp_skb, BROADCAST_ONE, sk, net);
+ 
+ 	return 0;
+ }
+@@ -1452,7 +1452,7 @@ static int key_notify_sa(struct xfrm_state *x, const struct km_event *c)
+ 	hdr->sadb_msg_seq = c->seq;
+ 	hdr->sadb_msg_pid = c->portid;
+ 
+-	pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_ALL, NULL, xs_net(x));
++	pfkey_broadcast(skb, BROADCAST_ALL, NULL, xs_net(x));
+ 
+ 	return 0;
+ }
+@@ -1565,7 +1565,7 @@ static int pfkey_get(struct sock *sk, struct sk_buff *skb, const struct sadb_msg
+ 	out_hdr->sadb_msg_reserved = 0;
+ 	out_hdr->sadb_msg_seq = hdr->sadb_msg_seq;
+ 	out_hdr->sadb_msg_pid = hdr->sadb_msg_pid;
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ONE, sk, sock_net(sk));
++	pfkey_broadcast(out_skb, BROADCAST_ONE, sk, sock_net(sk));
+ 
+ 	return 0;
+ }
+@@ -1670,7 +1670,7 @@ static int pfkey_register(struct sock *sk, struct sk_buff *skb, const struct sad
+ 		return -ENOBUFS;
+ 	}
+ 
+-	pfkey_broadcast(supp_skb, GFP_KERNEL, BROADCAST_REGISTERED, sk, sock_net(sk));
++	pfkey_broadcast(supp_skb, BROADCAST_REGISTERED, sk, sock_net(sk));
+ 
+ 	return 0;
+ }
+@@ -1689,7 +1689,7 @@ static int unicast_flush_resp(struct sock *sk, const struct sadb_msg *ihdr)
+ 	hdr->sadb_msg_errno = (uint8_t) 0;
+ 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
+ 
+-	return pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_ONE, sk, sock_net(sk));
++	return pfkey_broadcast(skb, BROADCAST_ONE, sk, sock_net(sk));
+ }
+ 
+ static int key_notify_sa_flush(const struct km_event *c)
+@@ -1710,7 +1710,7 @@ static int key_notify_sa_flush(const struct km_event *c)
+ 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
+ 	hdr->sadb_msg_reserved = 0;
+ 
+-	pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_ALL, NULL, c->net);
++	pfkey_broadcast(skb, BROADCAST_ALL, NULL, c->net);
+ 
+ 	return 0;
+ }
+@@ -1767,7 +1767,7 @@ static int dump_sa(struct xfrm_state *x, int count, void *ptr)
+ 	out_hdr->sadb_msg_pid = pfk->dump.msg_portid;
+ 
+ 	if (pfk->dump.skb)
+-		pfkey_broadcast(pfk->dump.skb, GFP_ATOMIC, BROADCAST_ONE,
++		pfkey_broadcast(pfk->dump.skb, BROADCAST_ONE,
+ 				&pfk->sk, sock_net(&pfk->sk));
+ 	pfk->dump.skb = out_skb;
+ 
+@@ -1847,7 +1847,7 @@ static int pfkey_promisc(struct sock *sk, struct sk_buff *skb, const struct sadb
+ 		new_hdr->sadb_msg_errno = 0;
+ 	}
+ 
+-	pfkey_broadcast(skb, GFP_KERNEL, BROADCAST_ALL, NULL, sock_net(sk));
++	pfkey_broadcast(skb, BROADCAST_ALL, NULL, sock_net(sk));
+ 	return 0;
+ }
+ 
+@@ -2181,7 +2181,7 @@ static int key_notify_policy(struct xfrm_policy *xp, int dir, const struct km_ev
+ 	out_hdr->sadb_msg_errno = 0;
+ 	out_hdr->sadb_msg_seq = c->seq;
+ 	out_hdr->sadb_msg_pid = c->portid;
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ALL, NULL, xp_net(xp));
++	pfkey_broadcast(out_skb, BROADCAST_ALL, NULL, xp_net(xp));
+ 	return 0;
+ 
+ }
+@@ -2401,7 +2401,7 @@ static int key_pol_get_resp(struct sock *sk, struct xfrm_policy *xp, const struc
+ 	out_hdr->sadb_msg_errno = 0;
+ 	out_hdr->sadb_msg_seq = hdr->sadb_msg_seq;
+ 	out_hdr->sadb_msg_pid = hdr->sadb_msg_pid;
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ONE, sk, xp_net(xp));
++	pfkey_broadcast(out_skb, BROADCAST_ONE, sk, xp_net(xp));
+ 	err = 0;
+ 
+ out:
+@@ -2655,7 +2655,7 @@ static int dump_sp(struct xfrm_policy *xp, int dir, int count, void *ptr)
+ 	out_hdr->sadb_msg_pid = pfk->dump.msg_portid;
+ 
+ 	if (pfk->dump.skb)
+-		pfkey_broadcast(pfk->dump.skb, GFP_ATOMIC, BROADCAST_ONE,
++		pfkey_broadcast(pfk->dump.skb, BROADCAST_ONE,
+ 				&pfk->sk, sock_net(&pfk->sk));
+ 	pfk->dump.skb = out_skb;
+ 
+@@ -2708,7 +2708,7 @@ static int key_notify_policy_flush(const struct km_event *c)
+ 	hdr->sadb_msg_satype = SADB_SATYPE_UNSPEC;
+ 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
+ 	hdr->sadb_msg_reserved = 0;
+-	pfkey_broadcast(skb_out, GFP_ATOMIC, BROADCAST_ALL, NULL, c->net);
++	pfkey_broadcast(skb_out, BROADCAST_ALL, NULL, c->net);
+ 	return 0;
+ 
+ }
+@@ -2770,7 +2770,7 @@ static int pfkey_process(struct sock *sk, struct sk_buff *skb, const struct sadb
+ 	void *ext_hdrs[SADB_EXT_MAX];
+ 	int err;
+ 
+-	pfkey_broadcast(skb_clone(skb, GFP_KERNEL), GFP_KERNEL,
++	pfkey_broadcast(skb_clone(skb, GFP_KERNEL),
+ 			BROADCAST_PROMISC_ONLY, NULL, sock_net(sk));
+ 
+ 	memset(ext_hdrs, 0, sizeof(ext_hdrs));
+@@ -2992,7 +2992,7 @@ static int key_notify_sa_expire(struct xfrm_state *x, const struct km_event *c)
+ 	out_hdr->sadb_msg_seq = 0;
+ 	out_hdr->sadb_msg_pid = 0;
+ 
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_REGISTERED, NULL, xs_net(x));
++	pfkey_broadcast(out_skb, BROADCAST_REGISTERED, NULL, xs_net(x));
+ 	return 0;
+ }
+ 
+@@ -3182,7 +3182,7 @@ static int pfkey_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *t, struct
+ 		       xfrm_ctx->ctx_len);
+ 	}
+ 
+-	return pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_REGISTERED, NULL, xs_net(x));
++	return pfkey_broadcast(skb, BROADCAST_REGISTERED, NULL, xs_net(x));
+ }
+ 
+ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
+@@ -3380,7 +3380,7 @@ static int pfkey_send_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	n_port->sadb_x_nat_t_port_port = sport;
+ 	n_port->sadb_x_nat_t_port_reserved = 0;
+ 
+-	return pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_REGISTERED, NULL, xs_net(x));
++	return pfkey_broadcast(skb, BROADCAST_REGISTERED, NULL, xs_net(x));
+ }
+ 
+ #ifdef CONFIG_NET_KEY_MIGRATE
+@@ -3572,7 +3572,7 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	}
+ 
+ 	/* broadcast migrate message to sockets */
+-	pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_ALL, NULL, &init_net);
++	pfkey_broadcast(skb, BROADCAST_ALL, NULL, &init_net);
+ 
+ 	return 0;
+ 
+-- 
+2.3.2 (Apple Git-55)
