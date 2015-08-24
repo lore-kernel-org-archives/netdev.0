@@ -1,39 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: bcmgenet: fix uncleaned dma flags
-Date: Sun, 23 Aug 2015 23:00:57 -0700 (PDT)
-Message-ID: <20150823.230057.178618010826538491.davem@davemloft.net>
-References: <1440119306-6789-1-git-send-email-jaedon.shin@gmail.com>
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: iproute2 : Bug found. How to report ?
+Date: Mon, 24 Aug 2015 11:40:10 +0530
+Message-ID: <CAA5aLPh64cgnYcsz9xLQ3xkS5pcU0huxX7dt60+Fh0gQANxK2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, pgynther@google.com, netdev@vger.kernel.org
-To: jaedon.shin@gmail.com
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036AbbHXGA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 02:00:57 -0400
-In-Reply-To: <1440119306-6789-1-git-send-email-jaedon.shin@gmail.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:34050 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777AbbHXGKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 02:10:11 -0400
+Received: by oiey141 with SMTP id y141so73999909oie.1
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2015 23:10:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jaedon Shin <jaedon.shin@gmail.com>
-Date: Fri, 21 Aug 2015 10:08:26 +0900
-
-> Clean the dma flags of multiq ring buffer int the interface stop
-> process. This patch fixes that the genet is not running while the
-> interface is re-enabled.
-> 
-> $ ifup eth0 - running after booting
-> $ ifdown eth0
-> $ ifup eth0 - not running and occur tx_timeout
-> 
-> The bcmgenet_dma_disable() in bcmgenet_open() do clean ring16 dma flag
-> only. If the genet has multiq, the dma register is not cleaned. and
-> bcmgenet_init_dma() is not done correctly. in case
-> GENET_V2(tx_queues=4), tdma_ctrl has 0x1e after running
-> bcmgenet_dma_disable().
-> 
-> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
-
-Applied, thanks.
+Dear All,
+A behavioural bug has been found in iproute2. How and where should I report it?
