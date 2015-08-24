@@ -1,209 +1,72 @@
-From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
-Date: Mon, 24 Aug 2015 20:00:48 +0300
-Message-ID: <55DB4DC0.7030807@rosalab.ru>
-References: <55CE1D7E.2070400@rosalab.ru>
- <1439571516-11862-1-git-send-email-eugene.shatokhin@rosalab.ru>
- <20150818.185407.1667358232705414236.davem@davemloft.net>
- <55D436D5.6010105@rosalab.ru> <87k2sreefu.fsf@nemi.mork.no>
- <55D46F85.50608@rosalab.ru> <877fore9yn.fsf@nemi.mork.no>
- <55DB0C1C.5030607@rosalab.ru> <87io84byr8.fsf@nemi.mork.no>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 6/9] dsa: mv88e6xxx: Set the RGMII delay based
+ on phy interface
+Date: Mon, 24 Aug 2015 10:01:38 -0700
+Message-ID: <55DB4DF2.7020502@gmail.com>
+References: <1440323220-20438-1-git-send-email-andrew@lunn.ch> <1440323220-20438-7-git-send-email-andrew@lunn.ch> <55DA1471.2080905@gmail.com> <20150823211014.GC20710@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, oneukum@suse.com,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87io84byr8.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:33579 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754030AbbHXREI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:04:08 -0400
+Received: by pdrh1 with SMTP id h1so56546408pdr.0
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 10:04:08 -0700 (PDT)
+In-Reply-To: <20150823211014.GC20710@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-24.08.2015 16:29, Bj=C3=B8rn Mork =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
->
->> 19.08.2015 15:31, Bj=C3=B8rn Mork =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
+On 23/08/15 14:10, Andrew Lunn wrote:
+> On Sun, Aug 23, 2015 at 11:44:01AM -0700, Florian Fainelli wrote:
+>> Le 08/23/15 02:46, Andrew Lunn a =C3=A9crit :
+>>> Some Marvell switches allow the RGMII Rx and Tx clock to be delayed
+>>> when the port is using RGMII. Have the adjust_link function look at
+>>> the phy interface type and enable this delay as requested.
 >>>
->>>> The problem is not in the reordering but rather in the fact that
->>>> "dev->flags =3D 0" is not necessarily atomic
->>>> w.r.t. "clear_bit(EVENT_RX_KILL, &dev->flags)", and vice versa.
->>>>
->>>> So the following might be possible, although unlikely:
->>>>
->>>> CPU0             CPU1
->>>>                    clear_bit: read dev->flags
->>>>                    clear_bit: clear EVENT_RX_KILL in the read valu=
-e
->>>>
->>>> dev->flags=3D0;
->>>>
->>>>                    clear_bit: write updated dev->flags
->>>>
->>>> As a result, dev->flags may become non-zero again.
+>>> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+>>> ---
+>>>  drivers/net/dsa/mv88e6xxx.c | 10 ++++++++++
+>>>  drivers/net/dsa/mv88e6xxx.h |  2 ++
+>>>  2 files changed, 12 insertions(+)
 >>>
->>> Ah, right.  Thanks for explaining.
->>>
->>>> I cannot prove yet that this is an impossible situation. If anyone
->>>> can, please explain. If so, this part of the patch will not be nee=
-ded.
->>>
->>> I wonder if we could simply move the dev->flags =3D 0 down a few li=
-nes to
->>> fix both issues?  It doesn't seem to do anything useful except for
->>> resetting the flags to a sane initial state after the device is dow=
-n.
->>>
->>> Stopping the tasklet rescheduling etc depends only on netif_running=
-(),
->>> which will be false when usbnet_stop is called.  There is no need t=
-o
->>> touch dev->flags for this to happen.
+>>> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xx=
+x.c
+>>> index 7901db6503b4..f5af368751b2 100644
+>>> --- a/drivers/net/dsa/mv88e6xxx.c
+>>> +++ b/drivers/net/dsa/mv88e6xxx.c
+>>> @@ -612,6 +612,16 @@ void mv88e6xxx_adjust_link(struct dsa_switch *=
+ds, int port,
+>>>  	if (phydev->duplex =3D=3D DUPLEX_FULL)
+>>>  		reg |=3D PORT_PCS_CTRL_DUPLEX_FULL;
+>>> =20
+>>> +	if ((mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds)) &&
+>>> +	    (port >=3D ps->num_ports - 2)) {
 >>
->> That was one of the first ideas we discussed here. Unfortunately, it
->> is probably not so simple.
->>
->> Setting dev->flags to 0 makes some delayed operations do nothing and=
-,
->> among other things, not to reschedule usbnet_bh().
->
-> Yes, but I believe that is merely a side effect.  You should never ne=
-ed
-> to clear multiple flags to get the desired behaviour.
->
->> As you can see in drivers/net/usb/usbnet.c, usbnet_bh() can be calle=
-d
->> as a tasklet function and as a timer function in a number of
->> situations (look for the usage of dev->bh and dev->delay there).
->>
->> netif_running() is indeed false when usbnet_stop() runs, usbnet_stop=
-()
->> also disables Tx. This seems to be enough for many cases where
->> usbnet_bh() is scheduled, but I am not so sure about the remaining
->> ones, namely:
->>
->> 1. A work function, usbnet_deferred_kevent(), may reschedule
->> usbnet_bh(). Looks like the workqueue is only stopped in
->> usbnet_disconnect(), so a work item might be processed while
->> usbnet_stop() works. Setting dev->flags to 0 makes the work function
->> do nothing, by the way. See also the comment in usbnet_stop() about
->> this.
->>
->> A work item may be placed to this workqueue in a number of ways, by
->> both usbnet module and the mini-drivers. It is not too easy to track
->> all these situations.
->
-> That's an understatement :)
->
->
->
->> 2. rx_complete() and tx_complete() may schedule execution of
->> usbnet_bh() as a tasklet or a timer function. These two are URB
->> completion callbacks.
->>
->> It seems, new Rx and Tx URBs cannot be submitted when usbnet_stop()
->> clears dev->flags, indeed. But it does not prevent the completion
->> handlers for the previously submitted URBs from running concurrently
->> with usbnet_stop(). The latter waits for them to complete (via
->> usbnet_terminate_urbs(dev)) but only if FLAG_AVOID_UNLINK_URBS is no=
+>> Are we positive that the last two ports of a switch are going to be
+>> RGMII capable or is this something that should be moved to Device Tr=
+ee /
+>> platform data to account for different switch families? Maybe having=
+ a
+>> bitmask of RGMII capable ports stored in "ps" would be good enough?
+>=20
+> Hi Florian
+>=20
+> For these two families, this is correct. And it is a property of the
+> switch, not the board, so should not be in DT. Other families are
+> different. Older ones are Fast Ethernet only. Some don't have any
+> RGMII ports, etc. It could be with time, this condition gets messy, a=
 t
->> set in info->flags. rndis_wlan, however, sets this flag for a few
->> hardware models. So - no guarantees here as well.
->
-> FLAG_AVOID_UNLINK_URBS looks like it should be replaced by the newer
-> ability to keep the status urb active. I believe that must have been =
-the
-> real reason for adding it, based on the commit message and the effect
-> the flag will have:
->
->   commit 1487cd5e76337555737cbc55d7d83f41460d198f
->   Author: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
->   Date:   Thu Jul 30 19:41:20 2009 +0300
->
->      usbnet: allow "minidriver" to prevent urb unlinking on usbnet_st=
-op
->
->      rndis_wlan devices freeze after running usbnet_stop several time=
-s. It appears
->      that firmware freezes in state where it does not respond to any =
-RNDIS commands
->      and device have to be physically unplugged/replugged. This patch=
- lets
->      minidrivers to disable unlink_urbs on usbnet_stop through new in=
-fo flag.
->
->      Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
->      Cc: David Brownell <dbrownell@users.sourceforge.net>
->      Signed-off-by: John W. Linville <linville@tuxdriver.com>
->
->
->
-> The rx urbs will not be resubmitted in any case, and there are of cou=
-rse
-> no tx urbs being submitted.  So the only effect of this flag is on th=
-e
-> status/interrupt urb, which I can imagine some RNDIS devices wants
-> active all the time.
->
-> So FLAG_AVOID_UNLINK_URBS should probably be removed and replaced cal=
-ls
-> to usbnet_status_start() and usbnet_status_stop().  This will require
-> testing on some of the devices with the original firmware problem
-> however.
->
-> In any case: I do not think this flag should be considered when tryin=
-g
-> to make usbnet_stop behaviour saner.  It's only purpose is to
-> deliberately break usbnet_stop by not actually stopping.
->
->
->> If someone could list the particular bits of dev->flags that should =
-be
->> cleared to make sure no deferred call could reschedule usbnet_bh(),
->> etc... Well, it would be enough to clear these first and use
->> dev->flags =3D 0 later, after tasklet_kill() and del_timer_sync(). I
->> cannot point out these particular bits now.
->
->
-> I don't think any of the flags must be cleared.  The sequence
->
->          dev_close(dev->net);
-> 	usbnet_terminate_urbs(dev);
-> 	usbnet_purge_paused_rxq(dev);
-> 	del_timer_sync (&dev->delay);
-> 	tasklet_kill (&dev->bh);
->
-> should prevent any rescheduling of usbnet_bh
+> which point, a bitmask in ps would make sense. But is it justified
+> now?
 
-If so, then, I suppose, one could ignore that FLAG_AVOID_UNLINK_URBS fo=
-r=20
-now and just move dev->flags =3D 0 down as you suggested and as we thou=
-ght=20
-before.
+Sure, I think for now this patch is good as-is, I was mostly curious
+whether the assumption about the last 2 ports of the switch being RGMII
+would hold for a while, and it looks like it will. With that:
 
-The patch will become simpler, indeed.
-
->
->> Besides, it is possible, although unlikely, that new event bits will
->> be added to dev->flags in the future. And one will need to keep trac=
-k
->> of these to see if they should be cleared as well. I'd prever to pla=
-y
->> safer for now and clear them all.
->
-> I don't think we should ever make a flag which will _have_ to be rese=
-t
-> for usbnet_stop.  The only reason for clearing all flags is to reset =
-the
-> state before the next open.
->
-> Yes, I see that we currently need to clear EVENT_DEV_OPEN in
-> usbnet_stop, but I really don't see what this flag gives us which isn=
-'t
-> already provided by netif_running().  It looks like a duplicate.
->
-
-Regards,
-Eugene
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+--=20
+=46lorian
