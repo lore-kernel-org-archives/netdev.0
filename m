@@ -1,59 +1,75 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/3] mlxsw: adjust log messages level in __mlxsw_emad_transmit
-Date: Mon, 24 Aug 2015 16:45:47 +0200
-Message-ID: <1440427547-8539-4-git-send-email-jiri@resnulli.us>
-References: <1440427547-8539-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	ogerlitz@mellanox.com, Jiri Pirko <jiri@mellanox.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH] man ip-link: Add little explanations about VLAN qos map
+Date: Mon, 24 Aug 2015 17:57:06 +0300
+Message-ID: <1440428226-21092-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:34129 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754357AbbHXOpy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 10:45:54 -0400
-Received: by widdq5 with SMTP id dq5so52674323wid.1
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 07:45:53 -0700 (PDT)
-In-Reply-To: <1440427547-8539-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:36755 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754612AbbHXO74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 10:59:56 -0400
+Received: by wicja10 with SMTP id ja10so74700296wic.1
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 07:59:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Vadim Kochan <vadim4j@gmail.com>
 
-When transmit fails, it is an error, not a warning.
-Do not warn when timeout happens as that is handled by a counter.
+Add little more info about how to manually set priority by iptables,
+and some little clarifications about ingress/egress QoS mapping.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ man/man8/ip-link.8.in | 27 ++++++++++++++++++++++++---
+ 1 file changed, 24 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 6ee3f45..dfafb83 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -382,8 +382,8 @@ static int __mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index b9137fb..2283b71 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -349,10 +349,30 @@ where <phy_dev> is the physical device to which VLAN device is bound.
+ - specifies whether the VLAN device state is bound to the physical device state.
  
- 	err = mlxsw_core_skb_transmit(mlxsw_core->driver_priv, skb, tx_info);
- 	if (err) {
--		dev_warn(mlxsw_core->bus_info->dev, "Failed to transmit EMAD (tid=%llx)\n",
--			 mlxsw_core->emad.tid);
-+		dev_err(mlxsw_core->bus_info->dev, "Failed to transmit EMAD (tid=%llx)\n",
-+			mlxsw_core->emad.tid);
- 		dev_kfree_skb(skb);
- 		return err;
- 	}
-@@ -393,8 +393,8 @@ static int __mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
- 				 !(mlxsw_core->emad.trans_active),
- 				 msecs_to_jiffies(MLXSW_EMAD_TIMEOUT_MS));
- 	if (!ret) {
--		dev_warn(mlxsw_core->bus_info->dev, "EMAD timed-out (tid=%llx)\n",
--			 mlxsw_core->emad.tid);
-+		dev_dbg(mlxsw_core->bus_info->dev, "EMAD timed-out (tid=%llx)\n",
-+			mlxsw_core->emad.tid);
- 		mlxsw_core->emad.trans_active = false;
- 		mlxsw_core->emad.stats.timeouts++;
- 		return -EIO;
+ .BI ingress-qos-map " QOS-MAP "
+-- defines a mapping between priority code points on incoming frames.  The format is FROM:TO with multiple mappings separated by spaces.
++- defines a mapping of VLAN header prio field to the Linux internal packet
++priority on incoming frames. The format is FROM:TO with multiple mappings
++separated by spaces.
+ 
+ .BI egress-qos-map " QOS-MAP "
+-- the same as ingress-qos-map but for outgoing frames.
++- defines a mapping of Linux internal packet priority to VLAN header prio field
++but for outgoing frames. The format is the same as for ingress-qos-map.
++.in +4
++
++Linux packet priority can be set by
++.BR iptables "(8)":
++.in +4
++.sp
++.B iptables
++-t mangle -A POSTROUTING [...] -j CLASSIFY --set-class 0:4
++.sp
++.in -4
++and this "4" priority can be used in the egress qos mapping to set VLAN prio "5":
++.sp
++.in +4
++.B ip
++link set veth0.10 type vlan egress 4:5
++.in -4
++.in -4
+ .in -8
+ 
+ .TP
+@@ -1090,7 +1110,8 @@ IEEE 802.15.4 device wpan0.
+ .br
+ .BR ip (8),
+ .BR ip-netns (8),
+-.BR ethtool (8)
++.BR ethtool (8),
++.BR iptables (8)
+ 
+ .SH AUTHOR
+ Original Manpage by Michail Litvak <mci@owl.openwall.com>
 -- 
-1.9.3
+2.4.2
