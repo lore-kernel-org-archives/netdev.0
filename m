@@ -1,83 +1,296 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 4/9] net: dsa: Allow configuration of CPU & DSA
- port speeds/duplex
-Date: Mon, 24 Aug 2015 10:41:25 -0700
-Message-ID: <55DB5745.6010605@gmail.com>
-References: <1440323220-20438-1-git-send-email-andrew@lunn.ch> <1440323220-20438-5-git-send-email-andrew@lunn.ch> <55DA1340.9080604@gmail.com> <20150823212404.GD20710@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH v3 net-next 6/8] openvswitch: Use Geneve device.
+Date: Mon, 24 Aug 2015 10:43:13 -0700
+Message-ID: <1440438195-5695-7-git-send-email-pshelar@nicira.com>
+References: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33685 "EHLO
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35671 "EHLO
 	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbbHXRny (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:43:54 -0400
-Received: by pacti10 with SMTP id ti10so28808975pac.0
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 10:43:54 -0700 (PDT)
-In-Reply-To: <20150823212404.GD20710@lunn.ch>
+	with ESMTP id S1754065AbbHXRn3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 13:43:29 -0400
+Received: by pacdd16 with SMTP id dd16so101893766pac.2
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 10:43:29 -0700 (PDT)
+In-Reply-To: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/08/15 14:24, Andrew Lunn wrote:
->>> +		port_dn = cd->port_dn[port];
->>> +		if (of_phy_is_fixed_link(port_dn)) {
->>> +			ret = of_phy_register_fixed_link(port_dn);
->>> +			if (ret) {
->>> +				netdev_err(master,
->>> +					   "failed to register fixed PHY\n");
->>> +				return ret;
->>> +			}
->>> +			phydev = of_phy_find_device(port_dn);
->>> +			genphy_config_init(phydev);
->>> +			genphy_read_status(phydev);
->>> +			if (ds->drv->adjust_link)
->>> +				ds->drv->adjust_link(ds, port, phydev);
->>
->> This kind of hack here because what you really need is just the link
->> parameters, but you cannot obtain such information without first
->> configuring the PHY up to a certain point in genphy_config_init(), and
->> then have genphy_read_status() copy these values in your phydev structure.
->>
->> Maybe we should really consider something like this after all:
->>
->> https://lkml.org/lkml/2015/8/5/490
-> 
-> Hi Florian
-> 
-> This half solves the problem. The nice thing about using the
-> fixed_link, is that i can just call the adjust_link function with it.
-> The fixed_phy_status cannot be passed directly to adjust_link. Some
-> code refactoring or duplication would be needed.
+With help of tunnel metadata mode OVS can directly use
+Geneve devices to implement Geneve tunnels.
+This patch removes all of the OVS specific Geneve code
+and make OVS use a Geneve net_device. Basic geneve vport
+is still there to handle compatibility with current
+userspace application.
 
-Right, and using an adjust_link callback seems a little cleaner anyway
-since you get an abstracted PHY device to work with.
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Reviewed-by: Jesse Gross <jesse@nicira.com>
+---
+ net/openvswitch/Kconfig        |    2 +-
+ net/openvswitch/vport-geneve.c |  179 +++++++--------------------------------
+ 2 files changed, 33 insertions(+), 148 deletions(-)
 
->  
->> Or maybe, we should really introduce this "cpu" network device after all
->> with a dropping xmit function, such that we get ethtool counters to work
->> on it, and we can also attach it to a PHY device to configure link
->> parameters?
-> 
-> I keep humming and harring about this. I don't really like the idea of
-> having an interface which you cannot send/receive packets. Yet it
-> solves a number of problems like this, and gives you access to
-> statistics and registers in the usual way.
-
-Right that would be my primary motivation and use case as well.
-
-> If we do it for the CPU
-> port, we should also do it for the DSA ports. And we probably want the
-> call for up to return -ENOSUP, just to make it clear it cannot be used
-> for anything.
-
-We should definitively start a separate thread for this, as there might
-be real uses cases that are not yet covered that would need a network
-device.
-
-Let's go ahead with your patch for now:
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
+index 422dc05..87b98c0 100644
+--- a/net/openvswitch/Kconfig
++++ b/net/openvswitch/Kconfig
+@@ -59,7 +59,7 @@ config OPENVSWITCH_VXLAN
+ config OPENVSWITCH_GENEVE
+ 	tristate "Open vSwitch Geneve tunneling support"
+ 	depends on OPENVSWITCH
+-	depends on GENEVE_CORE
++	depends on GENEVE
+ 	default OPENVSWITCH
+ 	---help---
+ 	  If you say Y here, then the Open vSwitch will be able create geneve vport.
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index d01bd63..fa37c95 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -26,95 +26,44 @@
+ 
+ #include "datapath.h"
+ #include "vport.h"
++#include "vport-netdev.h"
+ 
+ static struct vport_ops ovs_geneve_vport_ops;
+-
+ /**
+  * struct geneve_port - Keeps track of open UDP ports
+- * @gs: The socket created for this port number.
+- * @name: vport name.
++ * @dst_port: destination port.
+  */
+ struct geneve_port {
+-	struct geneve_sock *gs;
+-	char name[IFNAMSIZ];
++	u16 port_no;
+ };
+ 
+-static LIST_HEAD(geneve_ports);
+-
+ static inline struct geneve_port *geneve_vport(const struct vport *vport)
+ {
+ 	return vport_priv(vport);
+ }
+ 
+-/* Convert 64 bit tunnel ID to 24 bit VNI. */
+-static void tunnel_id_to_vni(__be64 tun_id, __u8 *vni)
+-{
+-#ifdef __BIG_ENDIAN
+-	vni[0] = (__force __u8)(tun_id >> 16);
+-	vni[1] = (__force __u8)(tun_id >> 8);
+-	vni[2] = (__force __u8)tun_id;
+-#else
+-	vni[0] = (__force __u8)((__force u64)tun_id >> 40);
+-	vni[1] = (__force __u8)((__force u64)tun_id >> 48);
+-	vni[2] = (__force __u8)((__force u64)tun_id >> 56);
+-#endif
+-}
+-
+-/* Convert 24 bit VNI to 64 bit tunnel ID. */
+-static __be64 vni_to_tunnel_id(const __u8 *vni)
+-{
+-#ifdef __BIG_ENDIAN
+-	return (vni[0] << 16) | (vni[1] << 8) | vni[2];
+-#else
+-	return (__force __be64)(((__force u64)vni[0] << 40) |
+-				((__force u64)vni[1] << 48) |
+-				((__force u64)vni[2] << 56));
+-#endif
+-}
+-
+-static void geneve_rcv(struct geneve_sock *gs, struct sk_buff *skb)
+-{
+-	struct vport *vport = gs->rcv_data;
+-	struct genevehdr *geneveh = geneve_hdr(skb);
+-	int opts_len;
+-	struct ip_tunnel_info tun_info;
+-	__be64 key;
+-	__be16 flags;
+-
+-	opts_len = geneveh->opt_len * 4;
+-
+-	flags = TUNNEL_KEY | TUNNEL_GENEVE_OPT |
+-		(udp_hdr(skb)->check != 0 ? TUNNEL_CSUM : 0) |
+-		(geneveh->oam ? TUNNEL_OAM : 0) |
+-		(geneveh->critical ? TUNNEL_CRIT_OPT : 0);
+-
+-	key = vni_to_tunnel_id(geneveh->vni);
+-
+-	ip_tunnel_info_init(&tun_info, ip_hdr(skb),
+-			    udp_hdr(skb)->source, udp_hdr(skb)->dest,
+-			    key, flags, geneveh->options, opts_len);
+-
+-	ovs_vport_receive(vport, skb, &tun_info);
+-}
+-
+ static int geneve_get_options(const struct vport *vport,
+ 			      struct sk_buff *skb)
+ {
+ 	struct geneve_port *geneve_port = geneve_vport(vport);
+-	struct inet_sock *sk = inet_sk(geneve_port->gs->sock->sk);
+ 
+-	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, ntohs(sk->inet_sport)))
++	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, geneve_port->port_no))
+ 		return -EMSGSIZE;
+ 	return 0;
+ }
+ 
+-static void geneve_tnl_destroy(struct vport *vport)
++static int geneve_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
++				      struct ip_tunnel_info *egress_tun_info)
+ {
+ 	struct geneve_port *geneve_port = geneve_vport(vport);
++	struct net *net = ovs_dp_get_net(vport->dp);
++	__be16 dport = htons(geneve_port->port_no);
++	__be16 sport = udp_flow_src_port(net, skb, 1, USHRT_MAX, true);
+ 
+-	geneve_sock_release(geneve_port->gs);
+-
+-	ovs_vport_deferred_free(vport);
++	return ovs_tunnel_get_egress_info(egress_tun_info,
++					  ovs_dp_get_net(vport->dp),
++					  OVS_CB(skb)->egress_tun_info,
++					  IPPROTO_UDP, skb->mark, sport, dport);
+ }
+ 
+ static struct vport *geneve_tnl_create(const struct vport_parms *parms)
+@@ -122,11 +71,11 @@ static struct vport *geneve_tnl_create(const struct vport_parms *parms)
+ 	struct net *net = ovs_dp_get_net(parms->dp);
+ 	struct nlattr *options = parms->options;
+ 	struct geneve_port *geneve_port;
+-	struct geneve_sock *gs;
++	struct net_device *dev;
+ 	struct vport *vport;
+ 	struct nlattr *a;
+-	int err;
+ 	u16 dst_port;
++	int err;
+ 
+ 	if (!options) {
+ 		err = -EINVAL;
+@@ -148,104 +97,40 @@ static struct vport *geneve_tnl_create(const struct vport_parms *parms)
+ 		return vport;
+ 
+ 	geneve_port = geneve_vport(vport);
+-	strncpy(geneve_port->name, parms->name, IFNAMSIZ);
++	geneve_port->port_no = dst_port;
+ 
+-	gs = geneve_sock_add(net, htons(dst_port), geneve_rcv, vport, true, 0);
+-	if (IS_ERR(gs)) {
++	rtnl_lock();
++	dev = geneve_dev_create_fb(net, parms->name, NET_NAME_USER, dst_port);
++	if (IS_ERR(dev)) {
++		rtnl_unlock();
+ 		ovs_vport_free(vport);
+-		return (void *)gs;
++		return ERR_CAST(dev);
+ 	}
+-	geneve_port->gs = gs;
+ 
++	dev_change_flags(dev, dev->flags | IFF_UP);
++	rtnl_unlock();
+ 	return vport;
+ error:
+ 	return ERR_PTR(err);
+ }
+ 
+-static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
++static struct vport *geneve_create(const struct vport_parms *parms)
+ {
+-	const struct ip_tunnel_key *tun_key;
+-	struct ip_tunnel_info *tun_info;
+-	struct net *net = ovs_dp_get_net(vport->dp);
+-	struct geneve_port *geneve_port = geneve_vport(vport);
+-	__be16 dport = inet_sk(geneve_port->gs->sock->sk)->inet_sport;
+-	__be16 sport;
+-	struct rtable *rt;
+-	struct flowi4 fl;
+-	u8 vni[3], opts_len, *opts;
+-	__be16 df;
+-	int err;
+-
+-	tun_info = OVS_CB(skb)->egress_tun_info;
+-	if (unlikely(!tun_info)) {
+-		err = -EINVAL;
+-		goto error;
+-	}
+-
+-	tun_key = &tun_info->key;
+-	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_UDP);
+-	if (IS_ERR(rt)) {
+-		err = PTR_ERR(rt);
+-		goto error;
+-	}
+-
+-	df = tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
+-	sport = udp_flow_src_port(net, skb, 1, USHRT_MAX, true);
+-	tunnel_id_to_vni(tun_key->tun_id, vni);
+-	skb->ignore_df = 1;
+-
+-	if (tun_key->tun_flags & TUNNEL_GENEVE_OPT) {
+-		opts = (u8 *)tun_info->options;
+-		opts_len = tun_info->options_len;
+-	} else {
+-		opts = NULL;
+-		opts_len = 0;
+-	}
+-
+-	err = geneve_xmit_skb(geneve_port->gs, rt, skb, fl.saddr,
+-			      tun_key->u.ipv4.dst, tun_key->tos,
+-			      tun_key->ttl, df, sport, dport,
+-			      tun_key->tun_flags, vni, opts_len, opts,
+-			      !!(tun_key->tun_flags & TUNNEL_CSUM), false);
+-	if (err < 0)
+-		ip_rt_put(rt);
+-	return err;
+-
+-error:
+-	kfree_skb(skb);
+-	return err;
+-}
+-
+-static const char *geneve_get_name(const struct vport *vport)
+-{
+-	struct geneve_port *geneve_port = geneve_vport(vport);
+-
+-	return geneve_port->name;
+-}
++	struct vport *vport;
+ 
+-static int geneve_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
+-				      struct ip_tunnel_info *egress_tun_info)
+-{
+-	struct geneve_port *geneve_port = geneve_vport(vport);
+-	struct net *net = ovs_dp_get_net(vport->dp);
+-	__be16 dport = inet_sk(geneve_port->gs->sock->sk)->inet_sport;
+-	__be16 sport = udp_flow_src_port(net, skb, 1, USHRT_MAX, true);
++	vport = geneve_tnl_create(parms);
++	if (IS_ERR(vport))
++		return vport;
+ 
+-	/* Get tp_src and tp_dst, refert to geneve_build_header().
+-	 */
+-	return ovs_tunnel_get_egress_info(egress_tun_info,
+-					  ovs_dp_get_net(vport->dp),
+-					  OVS_CB(skb)->egress_tun_info,
+-					  IPPROTO_UDP, skb->mark, sport, dport);
++	return ovs_netdev_link(vport, parms->name);
+ }
+ 
+ static struct vport_ops ovs_geneve_vport_ops = {
+ 	.type		= OVS_VPORT_TYPE_GENEVE,
+-	.create		= geneve_tnl_create,
+-	.destroy	= geneve_tnl_destroy,
+-	.get_name	= geneve_get_name,
++	.create		= geneve_create,
++	.destroy	= ovs_netdev_tunnel_destroy,
+ 	.get_options	= geneve_get_options,
+-	.send		= geneve_tnl_send,
++	.send		= ovs_netdev_send,
+ 	.owner          = THIS_MODULE,
+ 	.get_egress_tun_info	= geneve_get_egress_tun_info,
+ };
 -- 
-Florian
+1.7.1
