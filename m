@@ -1,81 +1,59 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv5 net-next 01/10] openvswitch: Serialize acts with original netlink len
-Date: Mon, 24 Aug 2015 17:32:11 -0700
-Message-ID: <1440462740-23358-2-git-send-email-joestringer@nicira.com>
-References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
-	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
-	jpettit@nicira.com, jesse@nicira.com,
-	netfilter-devel@vger.kernel.org
-To: netdev@vger.kernel.org, pshelar@nicira.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] add support for brief output for link and
+ addresses
+Date: Mon, 24 Aug 2015 18:03:31 -0700
+Message-ID: <20150825010331.GL504@gospo.home.greyhouse.net>
+References: <9a703fa7b69649518cbe0341ff261fe2@HQ1WP-EXMB11.corp.brocade.com>
+ <20150824140829.7d014d87@urahara>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34283 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbbHYBDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 21:03:34 -0400
+Received: by pdbfa8 with SMTP id fa8so59745645pdb.1
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 18:03:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150824140829.7d014d87@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Previously, we used the kernel-internal netlink actions length to
-calculate the size of messages to serialize back to userspace.
-However,the sw_flow_actions may not be formatted exactly the same as the
-actions on the wire, so store the original actions length when
-de-serializing and re-use the original length when serializing.
+On Mon, Aug 24, 2015 at 02:08:29PM -0700, Stephen Hemminger wrote:
+> On Mon, 24 Aug 2015 20:41:16 +0000
+> Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
+> 
+> > This adds support for slightly less output than is normally provided by
+> > 'ip link show' and 'ip addr show'.  This is a bit better when you have a
+> > host with lots of interfaces.  Sample output:
+> > 
+> > $ ip -br link show
+> > lo               UNKNOWN  00:00:00:00:00:00  <LOOPBACK,UP,LOWER_UP>
+> > p7p1             UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
+> > p8p1             DOWN     08:00:27:dc:d8:ca  <NO-CARRIER,BROADCAST,MULTICAST,UP>
+> > p9p1             UP       08:00:27:76:d9:75  <BROADCAST,MULTICAST,UP,LOWER_UP>
+> > p7p1.100@p7p1    UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
+> > 
+> > $ ip -br -4 addr show
+> > lo               UNKNOWN  127.0.0.1/8
+> > p7p1             UP       70.0.0.1/24
+> > p8p1             DOWN     80.0.0.1/24
+> > p7p1.100@p7p1    UP       200.0.0.1/24
+> > 
+> > $ ip -br -6 addr show
+> > lo               UNKNOWN  ::1/128
+> > p7p1             UP       7000::1/8 fe80::a00:27ff:fe9d:629f/64
+> > p8p1             DOWN     8000::1/8
+> > p9p1             UP       fe80::a00:27ff:fe76:d975/64
+> > p7p1.100@p7p1    UP       fe80::a00:27ff:fe9d:629f/64
+> > 
+> > $ ip -br  addr show p7p1
+> > p7p1             UP       70.0.0.1/24 7000::1/8 fe80::a00:27ff:fe9d:629f/64
+> > 
+> > Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> 
+> Cool, we could colorize this as well :-)
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
----
-v2: No change.
-v3: Preserve original length across buffer resize.
-v4: Add ack.
-v5: No change.
----
- net/openvswitch/datapath.c     | 2 +-
- net/openvswitch/flow.h         | 1 +
- net/openvswitch/flow_netlink.c | 2 ++
- 3 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index ffe984f..d5b5473 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -713,7 +713,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts,
- 
- 	/* OVS_FLOW_ATTR_ACTIONS */
- 	if (should_fill_actions(ufid_flags))
--		len += nla_total_size(acts->actions_len);
-+		len += nla_total_size(acts->orig_len);
- 
- 	return len
- 		+ nla_total_size(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index b62cdb3..082a87b 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -144,6 +144,7 @@ struct sw_flow_id {
- 
- struct sw_flow_actions {
- 	struct rcu_head rcu;
-+	size_t orig_len;	/* From flow_cmd_new netlink actions size */
- 	u32 actions_len;
- 	struct nlattr actions[];
- };
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 4e7a3f7..c182b28 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -1619,6 +1619,7 @@ static struct nlattr *reserve_sfa_size(struct sw_flow_actions **sfa,
- 
- 	memcpy(acts->actions, (*sfa)->actions, (*sfa)->actions_len);
- 	acts->actions_len = (*sfa)->actions_len;
-+	acts->orig_len = (*sfa)->orig_len;
- 	kfree(*sfa);
- 	*sfa = acts;
- 
-@@ -2223,6 +2224,7 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
- 	if (IS_ERR(*sfa))
- 		return PTR_ERR(*sfa);
- 
-+	(*sfa)->orig_len = nla_len(attr);
- 	err = __ovs_nla_copy_actions(attr, key, 0, sfa, key->eth.type,
- 				     key->eth.tci, log);
- 	if (err)
--- 
-2.1.4
+Will do, v2 coming up!
