@@ -1,33 +1,26 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCHv5 net-next 06/10] openvswitch: Allow matching on
- conntrack mark
-Date: Tue, 25 Aug 2015 20:27:04 +0200
-Message-ID: <20150825182704.GK3707@pox.localdomain>
-References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
- <1440462740-23358-7-git-send-email-joestringer@nicira.com>
+Subject: Re: [PATCH] route: put lwstate before freeing dst to avoid use after
+ free
+Date: Tue, 25 Aug 2015 20:28:40 +0200
+Message-ID: <20150825182840.GL3707@pox.localdomain>
+References: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org, pablo@netfilter.org,
-	fwestpha@redhat.com, hannes@redhat.com, jpettit@nicira.com,
-	jesse@nicira.com, netfilter-devel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
+Cc: davem@davemloft.net, jbenc@redhat.com, roopa@cumulusnetworks.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1440462740-23358-7-git-send-email-joestringer@nicira.com>
+In-Reply-To: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/24/15 at 05:32pm, Joe Stringer wrote:
-> Allow matching and setting the ct_mark field. As with ct_state and
-> ct_zone, these fields are populated when the CT action is executed. To
-> write to this field, a value and mask can be specified as a nested
-> attribute under the CT action. This data is stored with the conntrack
-> entry, and is executed after the lookup occurs for the CT action. The
-> conntrack entry itself must be committed using the COMMIT flag in the CT
-> action flags for this change to persist.
+On 08/25/15 at 02:25pm, Sasha Levin wrote:
+> Commit 61adedf3 ("route: move lwtunnel state to dst_entry") is trying to
+> release lwstate after getting rid of dst, which causes a use-after-free
+> trying to access dst->lwstate.
 > 
-> Signed-off-by: Justin Pettit <jpettit@nicira.com>
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Fixes: 61adedf3 ("route: move lwtunnel state to dst_entry")
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
 Acked-by: Thomas Graf <tgraf@suug.ch>
