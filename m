@@ -1,25 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] RDS: Few more fixes
-Date: Tue, 25 Aug 2015 16:28:25 -0700 (PDT)
-Message-ID: <20150825.162825.340019700855987468.davem@davemloft.net>
-References: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH] net: phy: add locking to
+ phy_read_mmd_indirect()/phy_write_mmd_indirect()
+Date: Tue, 25 Aug 2015 16:31:16 -0700 (PDT)
+Message-ID: <20150825.163116.1229705242506716827.davem@davemloft.net>
+References: <E1ZU9vP-0004nN-LW@rmk-PC.arm.linux.org.uk>
+	<55DC76D8.4090500@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ssantosh@kernel.org
-To: santosh.shilimkar@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: rmk+kernel@arm.linux.org.uk, netdev@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60364 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755922AbbHYXbR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 19:31:17 -0400
+In-Reply-To: <55DC76D8.4090500@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Tue, 25 Aug 2015 12:01:57 -0700
+=46rom: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 25 Aug 2015 07:08:24 -0700
 
-> As indicated in the earlier series [1], this is a follow-up series which
-> addresses few issues around the RDS FMR code. With [1] and the subject
-> series, now I can run many parallel threads with multiple sockets with
-> N x N traffic. The stress tests has survived overnight runs.
+> Le 08/25/15 01:49, Russell King a =E9crit :
+>> The phy layer is missing locking for the above two functions - it
+>> has been observed that two threads (userspace and the phy worker
+>> thread) can race, entering the bus ->write or ->read functions
+>> simultaneously.
+>>=20
+>> This causes the FEC driver to initialise a completion while another
+>> thread is waiting on it or while the interrupt is calling complete()
+>> on it, which causes spinlock unlock-without-lock, spinlock lockups,
+>> and completion timeouts.
+>>=20
+>> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+>=20
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+> Fixes: a59a4d192 ("phy: add the EEE support and the way to access to =
+the
+> MMD registers.")
+> Fixes: 0c1d77dfb ("net: libphy: Add phy specific function to access m=
+md
+> phy registers")
 
-Series applied, thanks.
+Applied, thanks.
