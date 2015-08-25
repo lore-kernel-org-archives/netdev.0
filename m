@@ -1,38 +1,45 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: WARNING at net/ipv4/netfilter/ip_tables.c:530
-Date: Tue, 25 Aug 2015 20:31:27 +0200
-Message-ID: <20150825183127.GC5259@breakpoint.cc>
-References: <CAHA+R7NZrw-jc0r8HvhN7b6BmV32w+_ONZ9Ft8vJCgsF332AOA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] phylib: Make PHYs children of their MDIO bus, not the
+ bus' parent.
+Date: Tue, 25 Aug 2015 11:31:36 -0700 (PDT)
+Message-ID: <20150825.113136.806044696899448612.davem@davemloft.net>
+References: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	f.fainelli@gmail.com, david.daney@cavium.com,
+	buytenh@wantstofly.org, grant.likely@secretlab.ca
+To: ddaney.cavm@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51918 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751816AbbHYSba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:31:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7NZrw-jc0r8HvhN7b6BmV32w+_ONZ9Ft8vJCgsF332AOA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58743 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755732AbbHYSbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:31:37 -0400
+In-Reply-To: <1440198963-20080-1-git-send-email-ddaney.cavm@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <cwang@twopensource.com> wrote:
-> Your commit 98d1bd802cdbc8f56868fae51edec13e86b59515 (netfilter:
-> xtables: compute exact size needed for jumpstack) introduced the
-> following kernel warning during boot.
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Fri, 21 Aug 2015 16:16:03 -0700
+
+> From: David Daney <david.daney@cavium.com>
 > 
-> It looks like the if check inside mark_source_chains() isn't correct,
-> this causes calldepth not increased as expected, but I don't have time
-> to dig this.
+> commit 18ee49ddb0d2 ("phylib: rename mii_bus::dev to mii_bus::parent")
+> changed the parent of PHY devices from the bus to the bus parent.
 > 
-> Let me know if you need more information.
+> Then, commit 4dea547fef1b ("phylib: rework to prepare for OF
+> registration of PHYs") moved the code into phy_device.c
+> 
+> At this point, it is somewhat unclear why the change was seen as
+> necessary.  But, when we look at the device model tree in
+> /sys/devices, it is clearly incorrect.  The PHYs should be children of
+> their MDIO bus.
+> 
+> Change the PHY's parent device to be the MDIO bus device.
+> 
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Signed-off-by: David Daney <david.daney@cavium.com>
 
-No, Hannes reported something similar.
-
-I'm working on it.
-
-Thanks,
-Florian
+Applied, thanks.
