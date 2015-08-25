@@ -1,38 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: use reinit_completion() in mdio accessor
- functions
-Date: Tue, 25 Aug 2015 16:33:32 -0700 (PDT)
-Message-ID: <20150825.163332.1359468744424655533.davem@davemloft.net>
-References: <E1ZU9vV-0004nW-3C@rmk-PC.arm.linux.org.uk>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: tcp: add NV congestion control
+Date: Tue, 25 Aug 2015 16:33:50 -0700
+Message-ID: <1440545634-3901299-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: B38611@freescale.com, netdev@vger.kernel.org
-To: rmk+kernel@arm.linux.org.uk
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60388 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756357AbbHYXdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 19:33:33 -0400
-In-Reply-To: <E1ZU9vV-0004nW-3C@rmk-PC.arm.linux.org.uk>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:52058 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756250AbbHYXeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 19:34:23 -0400
+Received: from pps.filterd (m0004348 [127.0.0.1])
+	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t7PNY63T021681
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 16:34:23 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0004348.ppops.net with ESMTP id 1wh1pa81s2-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 16:34:23 -0700
+Received: from facebook.com (2401:db00:20:a00f:face:0:16:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ d007f11e4b8111e5ae5a0002c95209d8-9f7f3240 for <netdev@vger.kernel.org>;	Tue,
+ 25 Aug 2015 16:34:21 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Date: Tue, 25 Aug 2015 09:49:53 +0100
+Changes from v5: cleaning of NV code, changing some default parameters
 
-> Rather than re-initialising the entire completion on every mdio access,
-> use reinit_completion() which only resets the completion count.  This
-> avoids possible reinitialisation of the contained spinlock and waitqueue
-> while they may be in use (eg, mid-completion.)
-> 
-> Such an event could occur if there's a long delay in interrupt handling
-> causing the mdio accessor to time out, then a second access comes in
-> while the interrupt handler on a different CPU has called complete().
-> Another scenario where this has been observed is while locking has
-> been missing at the phy layer, allowing concurrent attempts to access
-> the MDIO bus.
-> 
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+I've run more extensive tests, I'm working on updating the NV website
+(http://www.brakmo.org/networking/tcp-nv/TCPNV.html) should be updated
+by tomorrow (8/26).
 
-Applied.
+The updated tests include Reno, Cubic, NV and CDG and include more types
+of traffic. Overview of results:
+1) NV has a little lower throughput (2-3% less) with small number of flows
+   as compared to Reno, Cubic and CDG
+2) NV is less fair with few flows but becomes more fair with more flows
+3) Less losses with NV (none in many cases) as compared to all others.
+   One exception is when things get very congested (64 flows into one
+   server), NV has 50% more losses than CDG, Cubic has 1.8x to 10x more
+   losses than CDG. Reno has about the same losses as CDG.
+4) In mixed traffic (1M and 10K RPCs), 10K flows achieve much higher
+   average throughput with NV than with the others (which are
+   very similar). In one example, 2 clients sending 1M and 10K to 2
+   servers, with NV 10K flows average 1Gbps and 1M flows 3.7Gbps,
+   whereas they average about 226Mbps and 4.4Gbps for Reno, Cubic and
+   CDG. They all have similar link utilization.
+
+Consists of the following patches:
+
+[RFC PATCH v6 net-next 1/4] tcp: replace cnt & rtt with struct in
+[RFC PATCH v6 net-next 2/4] tcp:  refactor struct tcp_skb_cb
+[RFC PATCH v6 net-next 3/4] tcp: add in_flight to tcp_skb_cb
+[RFC PATCH v6 net-next 4/4] tcp: add NV congestion control
+
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+
+include/net/tcp.h       |  20 ++-
+net/ipv4/Kconfig        |  16 ++
+net/ipv4/Makefile       |   1 +
+net/ipv4/tcp_bic.c      |   6 +-
+net/ipv4/tcp_cdg.c      |  14 +-
+net/ipv4/tcp_cubic.c    |   6 +-
+net/ipv4/tcp_htcp.c     |  10 +-
+net/ipv4/tcp_illinois.c |  20 +--
+net/ipv4/tcp_input.c    |  10 +-
+net/ipv4/tcp_lp.c       |   6 +-
+net/ipv4/tcp_nv.c       | 489 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+net/ipv4/tcp_output.c   |   4 +-
+net/ipv4/tcp_vegas.c    |   6 +-
+net/ipv4/tcp_vegas.h    |   2 +-
+net/ipv4/tcp_veno.c     |   7 +-
+net/ipv4/tcp_westwood.c |   7 +-
+net/ipv4/tcp_yeah.c     |   7 +-
+17 files changed, 580 insertions(+), 51 deletions(-)
