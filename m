@@ -1,26 +1,32 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] route: put lwstate before freeing dst to avoid use after
- free
-Date: Tue, 25 Aug 2015 20:28:40 +0200
-Message-ID: <20150825182840.GL3707@pox.localdomain>
-References: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCHv5 net-next 09/10] openvswitch: Allow matching on
+ conntrack label
+Date: Tue, 25 Aug 2015 20:29:59 +0200
+Message-ID: <20150825182959.GM3707@pox.localdomain>
+References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
+ <1440462740-23358-10-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jbenc@redhat.com, roopa@cumulusnetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
+Cc: netdev@vger.kernel.org, pshelar@nicira.com,
+	linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	fwestpha@redhat.com, hannes@redhat.com, jpettit@nicira.com,
+	jesse@nicira.com, netfilter-devel@vger.kernel.org
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
+In-Reply-To: <1440462740-23358-10-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/25/15 at 02:25pm, Sasha Levin wrote:
-> Commit 61adedf3 ("route: move lwtunnel state to dst_entry") is trying to
-> release lwstate after getting rid of dst, which causes a use-after-free
-> trying to access dst->lwstate.
+On 08/24/15 at 05:32pm, Joe Stringer wrote:
+> Allow matching and setting the ct_label field. As with ct_mark, this is
+> populated by executing the CT action. The label field may be modified by
+> specifying a label and mask nested under the CT action. It is stored as
+> metadata attached to the connection. Label modification occurs after
+> lookup, and will only persist when the conntrack entry is committed by
+> providing the COMMIT flag to the CT action. Labels are currently fixed
+> to 128 bits in size.
 > 
-> Fixes: 61adedf3 ("route: move lwtunnel state to dst_entry")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 
 Acked-by: Thomas Graf <tgraf@suug.ch>
