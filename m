@@ -1,57 +1,46 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: asconf process should treat multiple address
- parameter as unrecognized parameter
-Date: Tue, 25 Aug 2015 11:18:59 -0300
-Message-ID: <20150825141859.GE1873@localhost.localdomain>
-References: <13ab95079875febb3985b32d0fdaf587c6de1973.1440410850.git.lucien.xin@gmail.com>
- <55DB5939.8030902@redhat.com>
- <CADvbK_c0=B5A66gqMRAg1x7iqUb7NFzs5roNW6fxHzexXovT6g@mail.gmail.com>
- <CADvbK_cM2u452XWWdHggrCu7f+_v80Ucb3XMAJqeqCjBjwQjJw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevic@redhat.com, network dev <netdev@vger.kernel.org>,
-	davem <davem@davemloft.net>
-To: lucien xin <lucien.xin@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] ip6_gre: release cached dst on tunnel removal
+Date: Tue, 25 Aug 2015 16:20:34 +0200
+Message-ID: <1440512434-4488-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, huaibin Wang <huaibin.wang@6wind.com>,
+	Dmitry Kozlov <xeb@mail.ru>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36175 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755927AbbHYOTB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2015 10:19:01 -0400
-Content-Disposition: inline
-In-Reply-To: <CADvbK_cM2u452XWWdHggrCu7f+_v80Ucb3XMAJqeqCjBjwQjJw@mail.gmail.com>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:41319 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751286AbbHYOVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 10:21:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 25, 2015 at 08:43:10PM +0800, lucien xin wrote:
-> On Tue, Aug 25, 2015 at 8:39 PM, lucien xin <lucien.xin@gmail.com> wrote:
-> >>
-> >> I think it would be much better to catch this in the validation stage.
-> >> If an implementation inserts multiple address parameters, we don't really know
-> >> which one we should be using.
-> >>
-> >
-> > the params of ASCONF chunk should consist of one *Address Parameter* and one
-> > or more *ASCONF Parameters*. besides, the address parameter should be in the
-> > beginning. so the first one must be our choice.
+From: huaibin Wang <huaibin.wang@6wind.com>
 
-That's not necessarily true. You're assuming the first is the best but
-that's not ensured anywhere as RFC doesn't allow multiple parameteres in
-there.
+When a tunnel is deleted, the cached dst entry should be released.
 
-That also puts the entire asconf in question, because if it needed an
-address parameter and now it has many and you don't know which one you
-should use, you actually have none, and the needed parameter is thus
-missing.
+This problem may prevent the removal of a netns (seen with a x-netns IPv6
+gre tunnel):
+  unregister_netdevice: waiting for lo to become free. Usage count = 3
 
-> > if we cat this in the validation stage, I think it will be hard to treat it as a
-> > unrecognized parameter,
-> because *unrecognized parameter* cause packet need to be built in
-> sctp_process_asconf(),
-> as current linux's implementation.
+CC: Dmitry Kozlov <xeb@mail.ru>
+Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
+Signed-off-by: huaibin Wang <huaibin.wang@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/ip6_gre.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-I agree with Vlad, but yeah, it may make error reporting harder.
-Although I don't have any issue if we just fall through the current error
-handling for bad asconf chunks, which aborts the association due to
-param len violation. Vlad?
-
-  Marcelo
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index a38d3ac0f18f..69f4f689f06a 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -361,6 +361,7 @@ static void ip6gre_tunnel_uninit(struct net_device *dev)
+ 	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
+ 
+ 	ip6gre_tunnel_unlink(ign, t);
++	ip6_tnl_dst_reset(t);
+ 	dev_put(dev);
+ }
+ 
+-- 
+2.4.2
