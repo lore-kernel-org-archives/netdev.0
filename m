@@ -1,10 +1,10 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 3/6] RDS: fix fmr pool dirty_count
-Date: Tue, 25 Aug 2015 12:02:00 -0700
-Message-ID: <1440529323-4171-4-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [PATCH 2/6] RDS: Fix rds MR reference count in rds_rdma_unuse()
+Date: Tue, 25 Aug 2015 12:01:59 -0700
+Message-ID: <1440529323-4171-3-git-send-email-santosh.shilimkar@oracle.com>
 References: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	ssantosh@kernel.org, Wengang Wang <wen.gang.wang@oracle.com>,
+	ssantosh@kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,85 +12,78 @@ In-Reply-To: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wengang Wang <wen.gang.wang@oracle.com>
+rds_rdma_unuse() drops the mr reference count which it hasn't
+taken. Correct way of removing mr is to remove mr from the tree
+and then rdma_destroy_mr() it first, then rds_mr_put() to decrement
+its reference count. Whichever thread holds last reference will free
+the mr via rds_mr_put()
 
-In rds_ib_flush_mr_pool(), dirty_count accounts the clean ones
-which is wrong. This can lead to a negative dirty count value.
+This bug was triggering weird null pointer crashes. One if the trace
+for it is captured below.
 
-Lets fix it.
+BUG: unable to handle kernel NULL pointer dereference at
+0000000000000104
+IP: [<ffffffffa0899471>] rds_ib_free_mr+0x31/0x130 [rds_rdma]
+PGD 4366fa067 PUD 4366f9067 PMD 0
+Oops: 0000 [#1] SMP
 
-Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+[...]
+
+task: ffff88046da6a000 ti: ffff88046da6c000 task.ti: ffff88046da6c000
+RIP: 0010:[<ffffffffa0899471>]  [<ffffffffa0899471>]
+rds_ib_free_mr+0x31/0x130 [rds_rdma]
+RSP: 0018:ffff88046fa43bd8  EFLAGS: 00010286
+RAX: 0000000071d38b80 RBX: 0000000000000000 RCX: 0000000000000000
+RDX: 0000000000000001 RSI: 0000000000000000 RDI: ffff880079e7ff40
+RBP: ffff88046fa43bf8 R08: 0000000000000000 R09: 0000000000000000
+R10: ffff88046fa43ca8 R11: ffff88046a802ed8 R12: ffff880079e7fa40
+R13: 0000000000000000 R14: ffff880079e7ff40 R15: 0000000000000000
+FS:  0000000000000000(0000) GS:ffff88046fa40000(0000)
+knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000000000000104 CR3: 00000004366fb000 CR4: 00000000000006e0
+Stack:
+ ffff880079e7fa40 ffff880671d38f08 ffff880079e7ff40 0000000000000296
+ ffff88046fa43c28 ffffffffa087a38b ffff880079e7fa40 ffff880671d38f10
+ 0000000000000000 0000000000000292 ffff88046fa43c48 ffffffffa087a3b6
+Call Trace:
+ <IRQ>
+ [<ffffffffa087a38b>] rds_destroy_mr+0x8b/0xa0 [rds]
+ [<ffffffffa087a3b6>] __rds_put_mr_final+0x16/0x30 [rds]
+ [<ffffffffa087a492>] rds_rdma_unuse+0xc2/0x120 [rds]
+ [<ffffffffa08766d3>] rds_recv_incoming_exthdrs+0x83/0xa0 [rds]
+ [<ffffffffa0876782>] rds_recv_incoming+0x92/0x200 [rds]
+ [<ffffffffa0895269>] rds_ib_process_recv+0x259/0x320 [rds_rdma]
+ [<ffffffffa08962a8>] rds_ib_recv_tasklet_fn+0x1a8/0x490 [rds_rdma]
+ [<ffffffff810dcd78>] ? __remove_hrtimer+0x58/0x90
+ [<ffffffff810799e1>] tasklet_action+0xb1/0xc0
+ [<ffffffff81079b52>] __do_softirq+0xe2/0x290
+ [<ffffffff81079df6>] irq_exit+0xa6/0xb0
+ [<ffffffff81613915>] do_IRQ+0x65/0xf0
+ [<ffffffff816118ab>] common_interrupt+0x6b/0x6b
+
 Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_rdma.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ net/rds/rdma.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 7b7aac8..a275b7d 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -528,11 +528,13 @@ static inline unsigned int rds_ib_flush_goal(struct rds_ib_mr_pool *pool, int fr
- /*
-  * given an llist of mrs, put them all into the list_head for more processing
-  */
--static void llist_append_to_list(struct llist_head *llist, struct list_head *list)
-+static unsigned int llist_append_to_list(struct llist_head *llist,
-+					 struct list_head *list)
- {
- 	struct rds_ib_mr *ibmr;
- 	struct llist_node *node;
- 	struct llist_node *next;
-+	unsigned int count = 0;
+diff --git a/net/rds/rdma.c b/net/rds/rdma.c
+index c1df9b1..4c93bad 100644
+--- a/net/rds/rdma.c
++++ b/net/rds/rdma.c
+@@ -435,9 +435,10 @@ void rds_rdma_unuse(struct rds_sock *rs, u32 r_key, int force)
  
- 	node = llist_del_all(llist);
- 	while (node) {
-@@ -540,7 +542,9 @@ static void llist_append_to_list(struct llist_head *llist, struct list_head *lis
- 		ibmr = llist_entry(node, struct rds_ib_mr, llnode);
- 		list_add_tail(&ibmr->unmap_list, list);
- 		node = next;
-+		count++;
- 	}
-+	return count;
+ 	/* If the MR was marked as invalidate, this will
+ 	 * trigger an async flush. */
+-	if (zot_me)
++	if (zot_me) {
+ 		rds_destroy_mr(mr);
+-	rds_mr_put(mr);
++		rds_mr_put(mr);
++	}
  }
  
- /*
-@@ -581,7 +585,7 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 	LIST_HEAD(unmap_list);
- 	LIST_HEAD(fmr_list);
- 	unsigned long unpinned = 0;
--	unsigned int nfreed = 0, ncleaned = 0, free_goal;
-+	unsigned int nfreed = 0, dirty_to_clean = 0, free_goal;
- 	int ret = 0;
- 
- 	rds_ib_stats_inc(s_ib_rdma_mr_pool_flush);
-@@ -623,8 +627,8 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 	/* Get the list of all MRs to be dropped. Ordering matters -
- 	 * we want to put drop_list ahead of free_list.
- 	 */
--	llist_append_to_list(&pool->drop_list, &unmap_list);
--	llist_append_to_list(&pool->free_list, &unmap_list);
-+	dirty_to_clean = llist_append_to_list(&pool->drop_list, &unmap_list);
-+	dirty_to_clean += llist_append_to_list(&pool->free_list, &unmap_list);
- 	if (free_all)
- 		llist_append_to_list(&pool->clean_list, &unmap_list);
- 
-@@ -652,7 +656,6 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 			kfree(ibmr);
- 			nfreed++;
- 		}
--		ncleaned++;
- 	}
- 
- 	if (!list_empty(&unmap_list)) {
-@@ -678,7 +681,7 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
- 	}
- 
- 	atomic_sub(unpinned, &pool->free_pinned);
--	atomic_sub(ncleaned, &pool->dirty_count);
-+	atomic_sub(dirty_to_clean, &pool->dirty_count);
- 	atomic_sub(nfreed, &pool->item_count);
- 
- out:
+ void rds_rdma_free_op(struct rm_rdma_op *ro)
 -- 
 1.9.1
