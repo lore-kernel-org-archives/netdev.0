@@ -1,31 +1,36 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rsi: Fix possible leak when loading firmware
-Date: Tue, 25 Aug 2015 12:38:02 +0000 (UTC)
-Message-ID: <20150825123802.2C11B1405B0@smtp.codeaurora.org>
-References: <1440191666-5104-1-git-send-email-cengelma@gmx.at>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
+Date: Tue, 25 Aug 2015 14:36:38 +0200
+Message-ID: <1440506198.13824.5.camel@suse.com>
+References: <Pine.LNX.4.44L0.1508241419170.5935-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mike.looijmans@topic.nl, khoroshilov@ispras.ru,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Christian Engelmayer <cengelma@gmx.at>
-To: Christian Engelmayer <cengelma@gmx.at>
+Cc: David Miller <davem@davemloft.net>, eugene.shatokhin@rosalab.ru,
+	bjorn@mork.no, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Stern <stern@rowland.harvard.edu>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440191666-5104-1-git-send-email-cengelma@gmx.at>
+In-Reply-To: <Pine.LNX.4.44L0.1508241419170.5935-100000@iolanthe.rowland.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> Commit 5d5cd85ff441 ("rsi: Fix failure to load firmware after memory
-> leak fix and fix the leak") also added a check on the allocation of
-> DMA-accessible memory that may directly return. In that case the
-> already allocated firmware data is leaked. Make sure the data is
-> always freed correctly. Detected by Coverity CID 1316519.
+On Mon, 2015-08-24 at 14:21 -0400, Alan Stern wrote:
+> > In theory, an architecture could implement atomic bit operations
+> using 
+> > a spinlock to insure atomicity.  I don't know if any architectures
+> do 
+> > this, but if they do then the scenario above could arise.
 > 
-> Fixes: 5d5cd85ff441 ("rsi: Fix failure to load firmware after memory leak fix and fix the leak")
-> Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
+> Now that I see this in writing, I realize it's not possible after
+> all.  
+> clear_bit() et al. will work with a single unsigned long, which
+> doesn't
+> leave any place for spinlocks or other mechanisms.  I was thinking of 
+> atomic_t.
 
-Thanks, applied to wireless-drivers-next.git.
+Refuting yourself you are making the assumption that the lock has
+to be inside the data structure. That is not true.
 
-Kalle Valo
+	Regards
+		Oliver
