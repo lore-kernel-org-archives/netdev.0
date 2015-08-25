@@ -1,42 +1,56 @@
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: Re: [PATCH v3 01/10] ss: rooted out ss type declarations for output
- formatters
-Date: Tue, 25 Aug 2015 21:13:01 +0200
-Message-ID: <55DCBE3D.20206@gmx.net>
-References: <1440103221-21854-1-git-send-email-matthias.tafelmeier@gmx.net>	<1440103221-21854-2-git-send-email-matthias.tafelmeier@gmx.net> <20150823100758.74a626d4@urahara>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv5 net-next 03/10] ipv6: Export nf_ct_frag6_gather()
+Date: Tue, 25 Aug 2015 12:15:40 -0700
+Message-ID: <CALnjE+raAnSwWsvkVwYkt4qj1f1twN-fZnBGeh1WAuq5hrsGLg@mail.gmail.com>
+References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
+	<1440462740-23358-4-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
-	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, netfilter-devel@vger.kernel.org
+To: Joe Stringer <joestringer@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:56773 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751042AbbHYTNY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2015 15:13:24 -0400
-In-Reply-To: <20150823100758.74a626d4@urahara>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:33795 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753195AbbHYTPl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 15:15:41 -0400
+Received: by iodb91 with SMTP id b91so198386427iod.1
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 12:15:40 -0700 (PDT)
+In-Reply-To: <1440462740-23358-4-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2015 07:07 PM, Stephen Hemminger wrote:
-> On Thu, 20 Aug 2015 22:40:12 +0200
-> Matthias Tafelmeier <matthias.tafelmeier@gmx.net> wrote:
-> 
->> The prospected output formatters and ss do share type declarations like
->> slabstat or tcpstat so that the decision has been made to centralize
->> those declarations in ss_types.h.  Potential future declarations shall
->> be placed there. The latter should help amend the extent of ss.c as
->> well.
->>
->> Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
->> Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> 
-> I looked at this series, and was going to merge it but the code to do
-> json formatting gets really ugly. Please redo it with the json_writer
-> code I just added.
-> 
+On Mon, Aug 24, 2015 at 5:32 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Acked-by: Thomas Graf <tgraf@suug.ch>
+> Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
-Original: "See your point there. I will do that. Thanks."
+When I apply this patch I see empty commit msg. I think you need to
+add atleast a blank line after the subject.
 
-Had a glitch with my email-client. This time without PGP.
+> ---
+> v4: Add ack.
+> v5: No change.
+> ---
+>  net/ipv6/netfilter/nf_conntrack_reasm.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+> index 6d02498..701cd2b 100644
+> --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
+> +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+> @@ -633,6 +633,7 @@ ret_orig:
+>         kfree_skb(clone);
+>         return skb;
+>  }
+> +EXPORT_SYMBOL_GPL(nf_ct_frag6_gather);
+>
+>  void nf_ct_frag6_consume_orig(struct sk_buff *skb)
+>  {
+> --
+> 2.1.4
+>
