@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next] r8169: Add values missing in @get_stats64
- from HW counters
-Date: Tue, 25 Aug 2015 16:03:02 -0700 (PDT)
-Message-ID: <20150825.160302.947112090610933000.davem@davemloft.net>
-References: <20150825.141540.472110106537790402.davem@davemloft.net>
-	<20150825225406.GA24297@electric-eye.fr.zoreil.com>
-	<20150825.155921.399025256241133988.davem@davemloft.net>
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Subject: Re: [net-next:master 1267/1290] net/rds/ib_recv.c:382:28: sparse:
+ incorrect type in initializer (different base types)
+Date: Tue, 25 Aug 2015 16:03:57 -0700
+Message-ID: <55DCF45D.6080501@oracle.com>
+References: <201508260636.uzScUNFH%fengguang.wu@intel.com> <20150825.155500.290194488854444995.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vinschen@redhat.com, netdev@vger.kernel.org, hayeswang@realtek.com,
-	ivecera@redhat.com, nic_swsd@realtek.com
-To: romieu@fr.zoreil.com
+Cc: kbuild-all@01.org, ajaykumar.hotchandani@oracle.com,
+	ssantosh@kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60172 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114AbbHYXDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 19:03:04 -0400
-In-Reply-To: <20150825.155921.399025256241133988.davem@davemloft.net>
+Received: from userp1040.oracle.com ([156.151.31.81]:33294 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753186AbbHYXD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 19:03:56 -0400
+In-Reply-To: <20150825.155500.290194488854444995.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 25 Aug 2015 15:59:21 -0700 (PDT)
+On 8/25/15 3:55 PM, David Miller wrote:
+> From: kbuild test robot <fengguang.wu@intel.com>
+> Date: Wed, 26 Aug 2015 06:42:39 +0800
+>
+>> sparse warnings: (new ones prefixed by >>)
+>>
+>>>> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
+>>     net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
+>>     net/rds/ib_recv.c:382:28:    got restricted gfp_t
+>>     net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
+>
+> Fixed by:
+>
+> ====================
+> [PATCH] rds: Fix improper gfp_t usage.
+>
+>>> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
+>     net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
+>     net/rds/ib_recv.c:382:28:    got restricted gfp_t
+>     net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
+>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+Thanks Dave. I was just creating the patch after noticing
+the error from kbuild on my tree.
 
-> From: Francois Romieu <romieu@fr.zoreil.com>
-> Date: Wed, 26 Aug 2015 00:54:06 +0200
-> 
->>> Bringing the interface is brought down/up should not reset the
->>> counters.
->> 
->> Afaiks rtl8169_tc_offsets.inited in rtl8169_init_counter_offsets
->> takes care of it: it's set during the first open() after probe().
-> 
-> Ok, then it's fine.
-
-And as such I've applied this patch, thanks.
+Regards,
+Santosh
