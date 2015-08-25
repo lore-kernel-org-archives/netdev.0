@@ -1,52 +1,63 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net v2] sctp: asconf's process should verify address parameter is in the beginning
-Date: Tue, 25 Aug 2015 20:29:24 +0800
-Message-ID: <3ffe8f6b86e33c016dddec672fab23a206c21acf.1440505764.git.lucien.xin@gmail.com>
-Cc: mleitner@redhat.com, davem@davemloft.net, vyasevic@redhat.com
-To: network dev <netdev@vger.kernel.org>
+From: Achiad Shochat <achiad@mellanox.com>
+Subject: [PATCH net-next 0/4] net/mlx5e: Driver updates 25-Aug-2015
+Date: Tue, 25 Aug 2015 15:29:56 +0300
+Message-ID: <1440505800-5934-1-git-send-email-achiad@mellanox.com>
+Cc: netdev@vger.kernel.org, Achiad <achiad@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36233 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754002AbbHYM32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 08:29:28 -0400
-Received: by padfo6 with SMTP id fo6so6290410pad.3
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 05:29:27 -0700 (PDT)
+Received: from [193.47.165.129] ([193.47.165.129]:54932 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754083AbbHYMcJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2015 08:32:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-in sctp_process_asconf(), we get address parameter from the beginning of
-the addip params. but we never check if it's really there. if the addr
-param is not there, it still can pass sctp_verify_asconf(), then to be
-handled by sctp_process_asconf(), it will not be safe.
+Hi Dave,
 
-so add a code in sctp_verify_asconf() to check the address parameter is in
-the beginning, or return false to send abort.
+This small patchset contains:
 
-v1->v2:
- * put the check behind the params' length verify.
+Exposure of some mlx5_core access functions for mlx5_ib to use
+(Patch 1/4 - "Expose transobj APIs from mlx5 core").
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/sm_make_chunk.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+Error flow fix (2/4 - "Priv state flag not rolled-back upon netdev
+open error").
 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 06320c8..89a4d1c 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3166,6 +3166,13 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
- 		return false;
- 	if (!addr_param_needed && addr_param_seen)
- 		return false;
-+	if (addr_param_needed && addr_param_seen) {
-+		/* Ensure the address parameter is in the beginning */
-+		param.v = chunk->skb->data + sizeof(sctp_addiphdr_t);
-+		if (param.p->type != SCTP_PARAM_IPV4_ADDRESS &&
-+		    param.p->type != SCTP_PARAM_IPV6_ADDRESS)
-+			return false;
-+	}
- 	if (param.v != chunk->chunk_end)
- 		return false;
- 
+Small typo bug fixes (Patch 3/4 - "Fix struct type in the
+DESTROY_TIR/TIS device commands").
+
+A cosmetic cleanup removing a redundant "err" variable (Patch 4/4 -
+"Remove redundant "err" variable usage").
+
+The patchset was applied and tested over commit "net/mlx5e: Avoid
+accessing NULL pointer at ndo_select_queue" that I sent lately to the
+mailing list.
+
+Thanks,
+Achiad
+
+Achiad Shochat (2):
+  net/mlx5e: Priv state flag not rolled-back upon netdev open error
+  net/mlx5_core: Remove redundant "err" variable usage
+
+Saeed Mahameed (1):
+  net/mlx5_core: Fix struct type in the DESTROY_TIR/TIS device commands
+
+Yishai Hadas (1):
+  net/mlx5_core: Expose transobj APIs from mlx5 core
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  8 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     | 35 ++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c | 32 +++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.h | 72 ----------------------
+ 6 files changed, 48 insertions(+), 103 deletions(-)
+ delete mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.h
+
 -- 
-2.1.0
+1.8.3.1
