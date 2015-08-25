@@ -1,62 +1,39 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH v3] MIPS: Remove all the uses of custom gpio.h
-Date: Tue, 25 Aug 2015 16:32:09 +0200
-Message-ID: <CACRpkdYB7dJM8LNBqSt6sLm4xLdoVPvWEQ+Rix6=ihfoz2q_2g@mail.gmail.com>
-References: <1438678305-25524-1-git-send-email-albeu@free.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 0/2] Optimize the snmp stat aggregation for large
+ cpus
+Date: Tue, 25 Aug 2015 07:33:51 -0700
+Message-ID: <1440513231.8932.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <y>
+	 <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux MIPS <linux-mips@linux-mips.org>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-	Tejun Heo <tj@kernel.org>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Florian Fainelli <florian@openwrt.org>,
-	Manuel Lauss <manuel.lauss@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	Daniel Walter <dwalter@google.com>,
-	Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Huacai Chen <chenhc@lemote.com>,
-	James Hartley <james.hartley@imgtec.com>,
-	Andrew Bresticker <abrestic@chromium.org>,
-	Paul Burton <paul.burton@imgtec.com>,
-	Lars-Peter Clausen <lars@metafoo.de>,
-	Brian Norris <computersforpeace@gmail.com>,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	Wolfram Sang <wsa@the-dreams.de>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Simon Ho
-To: Alban Bedel <albeu@free.fr>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, jiri@resnulli.us,
+	edumazet@google.com, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
+	srikar@linux.vnet.ibm.com
+To: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1438678305-25524-1-git-send-email-albeu@free.fr>
+In-Reply-To: <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 4, 2015 at 10:50 AM, Alban Bedel <albeu@free.fr> wrote:
+On Tue, 2015-08-25 at 13:24 +0530, Raghavendra K T wrote:
+> While creating 1000 containers, perf is showing lot of time spent in
+> snmp_fold_field on a large cpu system.
+> 
+> The current patch tries to improve by reordering the statistics gathering.
+> 
+> Please note that similar overhead was also reported while creating
+> veth pairs  https://lkml.org/lkml/2013/3/19/556
+> 
+> Setup:
+> 160 cpu (20 core) baremetal powerpc system with 1TB memory
 
-> Currently CONFIG_ARCH_HAVE_CUSTOM_GPIO_H is defined for all MIPS
-> machines, and each machine type provides its own gpio.h. However
-> only a handful really implement the GPIO API, most just forward
-> everythings to gpiolib.
->
-> The Alchemy machine is notable as it provides a system to allow
-> implementing the GPIO API at the board level. But it is not used by
-> any board currently supported, so it can also be removed.
->
-> For most machine types we can just remove the custom gpio.h, as well
-> as the custom wrappers if some exists. Some of the code found in
-> the wrappers must be moved to the respective GPIO driver.
->
-> A few more fixes are need in some drivers as they rely on linux/gpio.h
-> to provides some machine specific definitions, or used asm/gpio.h
-> instead of linux/gpio.h for the gpio API.
->
-> Signed-off-by: Alban Bedel <albeu@free.fr>
-
-I bet I already ACKed this but anyways:
-Acked-by: Linus Walleij <linus.walleij@linaro.org>
-
-Yours,
-Linus Walleij
+I wonder if these kind of results would demonstrate cache coloring
+problems on this host. Looks like all the per cpu data are colliding on
+same cache lines.
