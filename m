@@ -1,47 +1,85 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] inetpeer: Add support for VRFs
-Date: Tue, 25 Aug 2015 19:37:42 +0200
-Message-ID: <20150825173742.GA3707@pox.localdomain>
-References: <1440339964-16075-1-git-send-email-dsa@cumulusnetworks.com>
- <20150824001514.GD21926@pox.localdomain>
- <55DA7AFE.5040301@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] route: fix a use-after-free
+Date: Tue, 25 Aug 2015 10:38:53 -0700
+Message-ID: <1440524333-5902-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: jbenc@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:35833 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400AbbHYRho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 13:37:44 -0400
-Received: by wicne3 with SMTP id ne3so22107251wic.0
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 10:37:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55DA7AFE.5040301@cumulusnetworks.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33298 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751665AbbHYRjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 13:39:10 -0400
+Received: by pacti10 with SMTP id ti10so57647022pac.0
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 10:39:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/15 at 08:01pm, David Ahern wrote:
-> On 8/23/15 6:15 PM, Thomas Graf wrote:
-> >On 08/23/15 at 08:26am, David Ahern wrote:
-> >>inetpeer caches based on address only, so duplicate IP addresses within
-> >>a namespace return the same cached entry. Similar to IP fragments handle
-> >>duplicate addresses across VRFs by adding the VRF master device index to
-> >>the lookup.
-> >
-> >We have a lot of other places which use the address only. Are you
-> >going to add the VRF id to all these places as well?
-> >
-> 
-> If appropriate, yes. I have fixed IP fragments and this patch fixes inetpeer
-> cache. In both cases (L3 artifacts) the vrf device index provides the means
-> to uniquely identify duplicate IP addresses within a namespace. If you know
-> of other code that might be impacted I will investigate and fix as needed.
+This patch fixes the following crash:
 
-OK, then the question is what do you consider appropriate? ;-) An obvious
-example is netfilter conntrack but eventually any decision based on an
-address would require the VRF id if you want to go all the way.
+ general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
+ CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.2.0-rc7+ #166
+ Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+ task: ffff88010656d280 ti: ffff880106570000 task.ti: ffff880106570000
+ RIP: 0010:[<ffffffff8182f91b>]  [<ffffffff8182f91b>] dst_destroy+0xa6/0xef
+ RSP: 0018:ffff880107603e38  EFLAGS: 00010202
+ RAX: 0000000000000001 RBX: ffff8800d225a000 RCX: ffffffff82250fd0
+ RDX: 0000000000000001 RSI: ffffffff82250fd0 RDI: 6b6b6b6b6b6b6b6b
+ RBP: ffff880107603e58 R08: 0000000000000001 R09: 0000000000000001
+ R10: 000000000000b530 R11: ffff880107609000 R12: 0000000000000000
+ R13: ffffffff82343c40 R14: 0000000000000000 R15: ffffffff8182fb4f
+ FS:  0000000000000000(0000) GS:ffff880107600000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+ CR2: 00007fcabd9d3000 CR3: 00000000d7279000 CR4: 00000000000006e0
+ Stack:
+  ffffffff82250fd0 ffff8801077d6f00 ffffffff82253c40 ffff8800d225a000
+  ffff880107603e68 ffffffff8182fb5d ffff880107603f08 ffffffff810d795e
+  ffffffff810d7648 ffff880106574000 ffff88010656d280 ffff88010656d280
+ Call Trace:
+  <IRQ>
+  [<ffffffff8182fb5d>] dst_destroy_rcu+0xe/0x1d
+  [<ffffffff810d795e>] rcu_process_callbacks+0x618/0x7eb
+  [<ffffffff810d7648>] ? rcu_process_callbacks+0x302/0x7eb
+  [<ffffffff8182fb4f>] ? dst_gc_task+0x1eb/0x1eb
+  [<ffffffff8107e11b>] __do_softirq+0x178/0x39f
+  [<ffffffff8107e52e>] irq_exit+0x41/0x95
+  [<ffffffff81a4f215>] smp_apic_timer_interrupt+0x34/0x40
+  [<ffffffff81a4d5cd>] apic_timer_interrupt+0x6d/0x80
+  <EOI>
+  [<ffffffff8100b968>] ? default_idle+0x21/0x32
+  [<ffffffff8100b966>] ? default_idle+0x1f/0x32
+  [<ffffffff8100bf19>] arch_cpu_idle+0xf/0x11
+  [<ffffffff810b0bc7>] default_idle_call+0x1f/0x21
+  [<ffffffff810b0dce>] cpu_startup_entry+0x1ad/0x273
+  [<ffffffff8102fe67>] start_secondary+0x135/0x156
 
-I see the advantages over netns based VRF right now due to the lightweight
-nature but if this turns out to require a new field in practically every
-address datastructure then that seems not what we want.
+dst is freed right before lwtstate_put(), this is not correct...
+
+Fixes: 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
+Acked-by: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
+---
+ net/core/dst.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 50dcdbb..477035e 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -262,11 +262,12 @@ struct dst_entry *dst_destroy(struct dst_entry * dst)
+ 	if (dst->dev)
+ 		dev_put(dst->dev);
+ 
++	lwtstate_put(dst->lwtstate);
++
+ 	if (dst->flags & DST_METADATA)
+ 		kfree(dst);
+ 	else
+ 		kmem_cache_free(dst->ops->kmem_cachep, dst);
+-	lwtstate_put(dst->lwtstate);
+ 
+ 	dst = child;
+ 	if (dst) {
+-- 
+1.8.3.1
