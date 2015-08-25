@@ -1,51 +1,96 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v3 net-next 7/8] geneve: Consolidate Geneve functionality
- in single module.
-Date: Tue, 25 Aug 2015 12:03:18 -0700
-Message-ID: <CAEP_g=84tg9nPE-PmmPF_rVW_0ctAmjZj-fxRP-Puf9=Da0++g@mail.gmail.com>
-References: <1440438195-5695-1-git-send-email-pshelar@nicira.com> <1440438195-5695-8-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:33661 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756162AbbHYTDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 15:03:40 -0400
-Received: by lbbsx3 with SMTP id sx3so106022018lbb.0
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 12:03:38 -0700 (PDT)
-In-Reply-To: <1440438195-5695-8-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [PATCH 3/6] RDS: fix fmr pool dirty_count
+Date: Tue, 25 Aug 2015 12:02:00 -0700
+Message-ID: <1440529323-4171-4-git-send-email-santosh.shilimkar@oracle.com>
+References: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	ssantosh@kernel.org, Wengang Wang <wen.gang.wang@oracle.com>,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 24, 2015 at 10:43 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index c05bc13..8eb875d 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -492,36 +813,36 @@ static int geneve_configure(struct net *net, struct net_device *dev,
-[...]
-> +       gs = geneve_find_sock(gn, geneve->dst_port);
-> +       if (gs) {
-> +               if (metadata) {
-> +                       if (gs->collect_md)
-> +                               return -EEXIST;
-> +                       else
-> +                               return -EPERM;
-> +               } else {
-> +                       if (gs->collect_md)
-> +                               return -EPERM;
-> +
-> +                       t = geneve_lookup(gn, htons(dst_port),
-> +                                         rem_addr, geneve->vni);
-> +                       if (t)
-> +                               return -EBUSY;
-> +               }
-> +       }
+From: Wengang Wang <wen.gang.wang@oracle.com>
 
-I like the new structure but unfortunately, I think there is a race.
-If two devices are created with conflicting configurations but neither
-is brought up then creation of both devices will succeed. However,
-when the second one is brought up, it will silently collide with the
-first.
+In rds_ib_flush_mr_pool(), dirty_count accounts the clean ones
+which is wrong. This can lead to a negative dirty count value.
+
+Lets fix it.
+
+Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
+Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+---
+ net/rds/ib_rdma.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index 7b7aac8..a275b7d 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -528,11 +528,13 @@ static inline unsigned int rds_ib_flush_goal(struct rds_ib_mr_pool *pool, int fr
+ /*
+  * given an llist of mrs, put them all into the list_head for more processing
+  */
+-static void llist_append_to_list(struct llist_head *llist, struct list_head *list)
++static unsigned int llist_append_to_list(struct llist_head *llist,
++					 struct list_head *list)
+ {
+ 	struct rds_ib_mr *ibmr;
+ 	struct llist_node *node;
+ 	struct llist_node *next;
++	unsigned int count = 0;
+ 
+ 	node = llist_del_all(llist);
+ 	while (node) {
+@@ -540,7 +542,9 @@ static void llist_append_to_list(struct llist_head *llist, struct list_head *lis
+ 		ibmr = llist_entry(node, struct rds_ib_mr, llnode);
+ 		list_add_tail(&ibmr->unmap_list, list);
+ 		node = next;
++		count++;
+ 	}
++	return count;
+ }
+ 
+ /*
+@@ -581,7 +585,7 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
+ 	LIST_HEAD(unmap_list);
+ 	LIST_HEAD(fmr_list);
+ 	unsigned long unpinned = 0;
+-	unsigned int nfreed = 0, ncleaned = 0, free_goal;
++	unsigned int nfreed = 0, dirty_to_clean = 0, free_goal;
+ 	int ret = 0;
+ 
+ 	rds_ib_stats_inc(s_ib_rdma_mr_pool_flush);
+@@ -623,8 +627,8 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
+ 	/* Get the list of all MRs to be dropped. Ordering matters -
+ 	 * we want to put drop_list ahead of free_list.
+ 	 */
+-	llist_append_to_list(&pool->drop_list, &unmap_list);
+-	llist_append_to_list(&pool->free_list, &unmap_list);
++	dirty_to_clean = llist_append_to_list(&pool->drop_list, &unmap_list);
++	dirty_to_clean += llist_append_to_list(&pool->free_list, &unmap_list);
+ 	if (free_all)
+ 		llist_append_to_list(&pool->clean_list, &unmap_list);
+ 
+@@ -652,7 +656,6 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
+ 			kfree(ibmr);
+ 			nfreed++;
+ 		}
+-		ncleaned++;
+ 	}
+ 
+ 	if (!list_empty(&unmap_list)) {
+@@ -678,7 +681,7 @@ static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool,
+ 	}
+ 
+ 	atomic_sub(unpinned, &pool->free_pinned);
+-	atomic_sub(ncleaned, &pool->dirty_count);
++	atomic_sub(dirty_to_clean, &pool->dirty_count);
+ 	atomic_sub(nfreed, &pool->item_count);
+ 
+ out:
+-- 
+1.9.1
