@@ -1,39 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 0/2] Optimize the snmp stat aggregation for large
- cpus
-Date: Tue, 25 Aug 2015 16:07:30 -0700 (PDT)
-Message-ID: <20150825.160730.1747721171751442778.davem@davemloft.net>
-References: <y>
-	<1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC, RFT PATCH 1/2] dl2k: Add support for IP1000A-based cards
+Date: Wed, 26 Aug 2015 01:08:02 +0200
+Message-ID: <20150825230802.GB24297@electric-eye.fr.zoreil.com>
+References: <1440363988-12325-1-git-send-email-linux@rainbow-software.org>
+ <20150825.140430.663421843230467362.davem@davemloft.net>
+ <201508252326.13784.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, jiri@resnulli.us, edumazet@google.com,
-	hannes@stressinduktion.org, tom@herbertland.com, azhou@nicira.com,
-	ebiederm@xmission.com, ipm@chirality.org.uk,
-	nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
-	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
-To: raghavendra.kt@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60215 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752105AbbHYXHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 19:07:31 -0400
-In-Reply-To: <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201508252326.13784.linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Date: Tue, 25 Aug 2015 13:24:24 +0530
+Ondrej Zary <linux@rainbow-software.org> :
+[...]
+> Actually, gigabit works with this patch. The "PHY magic" part contains 
+> mii_write(9, 0x0700) which makes gigabit work.
 
-> Please let me know if you have suggestions/comments.
+It'd be extatic if you could set mii->supports_gmii for the appropriate
+PHY so that dl2k.c::rio_get_settings returns sensible gigabit status
+(note: neither ipg.c nor dl2k.c currently does).
 
-Like Eric Dumazet said the idea is good but needs some adjustments.
-
-You might want to see whether a per-cpu work buffer works for this.
-
-It's extremely unfortunately that we can't depend upon the destination
-buffer being properly aligned, because we wouldn't need a temporary
-scratch area if it were aligned properly.
+-- 
+Ueimor
