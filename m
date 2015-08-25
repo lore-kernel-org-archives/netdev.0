@@ -1,38 +1,27 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 1/2] Documentation: networking: add a DSA
- document
-Date: Tue, 25 Aug 2015 14:34:50 -0400
-Message-ID: <20150825183450.GA6808@ketchup.mtl.sfl>
-References: <1440524435-8129-1-git-send-email-f.fainelli@gmail.com>
- <1440524435-8129-2-git-send-email-f.fainelli@gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next] vxlan: fix multiple inclusion of vxlan.h
+Date: Tue, 25 Aug 2015 11:45:34 -0700
+Message-ID: <CAHA+R7MDHpmsQ1vowC3CQ5Fsx8gn7JTAJPV__tS2CZWQ8LYmXA@mail.gmail.com>
+References: <27e0c4c1aec49f461ba96fac8c40f69b46ef06dd.1440520548.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
-	sfeldma@gmail.com, linux@roeck-us.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Mark Rustad <mark.d.rustad@intel.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:49215
-	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751865AbbHYSex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:34:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1440524435-8129-2-git-send-email-f.fainelli@gmail.com>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:34751 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750981AbbHYSpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:45:36 -0400
+Received: by lbbtg9 with SMTP id tg9so106207230lbb.1
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 11:45:34 -0700 (PDT)
+In-Reply-To: <27e0c4c1aec49f461ba96fac8c40f69b46ef06dd.1440520548.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15-08-25 10:40:34, Florian Fainelli wrote:
-> Describe how the DSA subsystem works, its design principles,
-> limitations, and describe in details how to implement a DSA switch
-> driver.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes in v2:
-> 
-> - fixing incomplete sentence in the SWITCHDEV paragraph
-> - fix spelling mistakes spotted by Andrew and Vivien
-> - add additional feedback from Vivien
-> - add a convergence TODO item between SWITCHDEV and DSA
-> - misc fixes and improvements
+On Tue, Aug 25, 2015 at 9:36 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> The vxlan_get_sk_family inline function was added after the last #endif,
+> making multiple inclusion of net/vxlan.h fail. Move it to the proper place.
+>
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Or move it even further into #if IS_ENABLED(CONFIG_VXLAN) ?
