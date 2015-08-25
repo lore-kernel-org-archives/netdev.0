@@ -1,36 +1,36 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH] usbnet: Fix two races between usbnet_stop() and the BH
-Date: Tue, 25 Aug 2015 14:36:38 +0200
-Message-ID: <1440506198.13824.5.camel@suse.com>
-References: <Pine.LNX.4.44L0.1508241419170.5935-100000@iolanthe.rowland.org>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: asconf process should treat multiple address
+ parameter as unrecognized parameter
+Date: Tue, 25 Aug 2015 20:39:24 +0800
+Message-ID: <CADvbK_c0=B5A66gqMRAg1x7iqUb7NFzs5roNW6fxHzexXovT6g@mail.gmail.com>
+References: <13ab95079875febb3985b32d0fdaf587c6de1973.1440410850.git.lucien.xin@gmail.com>
+	<55DB5939.8030902@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eugene.shatokhin@rosalab.ru,
-	bjorn@mork.no, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.44L0.1508241419170.5935-100000@iolanthe.rowland.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	davem <davem@davemloft.net>
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:34262 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752387AbbHYMjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 08:39:24 -0400
+Received: by oiey141 with SMTP id y141so99407462oie.1
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 05:39:24 -0700 (PDT)
+In-Reply-To: <55DB5939.8030902@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-08-24 at 14:21 -0400, Alan Stern wrote:
-> > In theory, an architecture could implement atomic bit operations
-> using 
-> > a spinlock to insure atomicity.  I don't know if any architectures
-> do 
-> > this, but if they do then the scenario above could arise.
-> 
-> Now that I see this in writing, I realize it's not possible after
-> all.  
-> clear_bit() et al. will work with a single unsigned long, which
-> doesn't
-> leave any place for spinlocks or other mechanisms.  I was thinking of 
-> atomic_t.
+>
+> I think it would be much better to catch this in the validation stage.
+> If an implementation inserts multiple address parameters, we don't really know
+> which one we should be using.
+>
 
-Refuting yourself you are making the assumption that the lock has
-to be inside the data structure. That is not true.
+the params of ASCONF chunk should consist of one *Address Parameter* and one
+or more *ASCONF Parameters*. besides, the address parameter should be in the
+beginning. so the first one must be our choice.
 
-	Regards
-		Oliver
+if we cat this in the validation stage, I think it will be hard to treat it as a
+unrecognized parameter,
