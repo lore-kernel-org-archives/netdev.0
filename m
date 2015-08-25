@@ -1,38 +1,58 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [net-next PATCH 1/3] drivers: net: cpsw: add am335x errata workarround
- for interrutps
-Date: Tue, 25 Aug 2015 11:47:33 +0530
-Message-ID: <55DC087D.4090604@ti.com>
-References: <1439373175-8650-1-git-send-email-mugunthanvnm@ti.com> <1439373175-8650-2-git-send-email-mugunthanvnm@ti.com> <55DAEC28.3030107@ti.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: pull-request: can 2015-08-24
+Date: Tue, 25 Aug 2015 08:49:15 +0200
+Message-ID: <55DC0FEB.2040403@pengutronix.de>
+References: <1440408003-13085-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	Tony Lindgren <tony@atomide.com>, <alex.aring@gmail.com>
-To: Sekhar Nori <nsekhar@ti.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:42440 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752825AbbHYGRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2015 02:17:42 -0400
-In-Reply-To: <55DAEC28.3030107@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5"
+Cc: davem@davemloft.net, kernel@pengutronix.de,
+	linux-can@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1440408003-13085-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 24 August 2015 03:34 PM, Sekhar Nori wrote:
-> Hi Mugunthan,
-> 
-> On Wednesday 12 August 2015 03:22 PM, Mugunthan V N wrote:
->> > +static const struct of_device_id cpsw_of_mtable[] = {
->> > +	{ .compatible = "ti,cpsw", .data = &cpsw_devtype[CPSW], },
->> > +	{ .compatible = "ti,am335x-cpsw", .data = &cpsw_devtype[AM335X_CPSW], },
->> > +	{ .compatible = "ti,am4372-cpsw", .data = &cpsw_devtype[AM4372_CPSW], },
->> > +	{ .compatible = "ti,dra7-cpsw", .data = &cpsw_devtype[DRA7_CPSW], },
-> I do not see documentation added for these compatibles. Since the series
-> is already applied, can you send additional patches adding documentation?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Will submit a patch ASAP
+On 08/24/2015 11:20 AM, Marc Kleine-Budde wrote:
+> Hello David,
+>=20
+> this is a pull request of one patch by me for the peak_usb driver. It f=
+ixes the
+> driver, so that non FD adapters don't provide CAN FD bittimings.
 
-Regards
-Mugunthan V N
+As there are some typos in the commit message I'll send an updated pull
+request. David, please don't pull this one.
+
+thanks,
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJV3A/rAAoJEP5prqPJtc/HFtQH/iWIzn7i01SUeSCFI0o4qR7X
+wcDY0kJe/Fi8wgob6A88fPIkxqON57BA7sqyQ6HNnQxoATNYaq3sRb+zPA3qC6M5
+Gm7FNKtNBfn15dpuuPBFjm0OHRqz7svHPQxsji7j1yEY9ArXQjBI0Qm9K2HFijNp
+okj9IKk3ofmunq/dkOpWZGThx60nJUpV2BLkZLGEEToMSFdg9GzD0VdHgD8/K/k7
+mJeSdjAg+B6fW273daM9yYL5x7CtYnpidUkek5pK/B/qF2+HMO4RQIxNuF57rTMR
+yP7I6cOQdCeCYKEqoWG14WYiW67J1N1tiYsBq/EvgEBo7u+xCaWM4zn2qbppo9E=
+=nQt+
+-----END PGP SIGNATURE-----
+
+--KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5--
