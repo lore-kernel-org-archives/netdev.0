@@ -1,59 +1,730 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v3 net-next 5/8] geneve: Add support to collect tunnel metadata.
-Date: Tue, 25 Aug 2015 09:50:32 -0700
-Message-ID: <CAEP_g=9Fpb9KOeqeeK_dbCdec8TvHm-iUZ4V_MWj1Mc21Qa9OQ@mail.gmail.com>
-References: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
- <1440438195-5695-6-git-send-email-pshelar@nicira.com> <CAEP_g=_iA6FA4wboFpd_dRXnhQs4u9H7XFv5ACopv-2gy6g5Ew@mail.gmail.com>
- <CALnjE+pH3es+bSjVTGohr4xNatB=BTXcVQg3DPLwzHCr6nbz4w@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/2] Documentation: networking: add a DSA
+ document
+Date: Tue, 25 Aug 2015 12:59:35 -0400
+Message-ID: <20150825165935.GA31769@ketchup.mtl.sfl>
+References: <1440510642-15588-1-git-send-email-f.fainelli@gmail.com>
+ <1440510642-15588-2-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, sfeldma@gmail.com,
+	linux@roeck-us.net, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:33506 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbbHYQuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 12:50:54 -0400
-Received: by lbbsx3 with SMTP id sx3so103666674lbb.0
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 09:50:52 -0700 (PDT)
-In-Reply-To: <CALnjE+pH3es+bSjVTGohr4xNatB=BTXcVQg3DPLwzHCr6nbz4w@mail.gmail.com>
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:44563
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755183AbbHYRHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 13:07:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1440510642-15588-2-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 7:15 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Mon, Aug 24, 2015 at 6:42 PM, Jesse Gross <jesse@nicira.com> wrote:
->> On Mon, Aug 24, 2015 at 10:43 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
->>> index 0a6d974..c05bc13 100644
->>> --- a/drivers/net/geneve.c
->>> +++ b/drivers/net/geneve.c
->>> @@ -141,10 +190,15 @@ drop:
->>>  /* Setup stats when device is created */
->>>  static int geneve_init(struct net_device *dev)
->>>  {
->>> +       struct geneve_dev *geneve = netdev_priv(dev);
->>> +
->>>         dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
->>>         if (!dev->tstats)
->>>                 return -ENOMEM;
->>>
->>> +       if (geneve->collect_md)
->>> +               dev->features |= NETIF_F_NETNS_LOCAL;
->>
->> I was going back and forth on whether this is the right thing to do.
->> Is it any weirder to allow this than to move a normal tunnel device
->> across namespaces?
->
-> Moving this device means moving all tunnels backed by this device
-> rather than specific tunnel device. Thats why it does not look right
-> to move such device.
+Hi Florian,
 
-I agree it seems weird in general. There were two things that made me wonder:
- * It doesn't appear that VXLAN or GRE do this.
- * The use case for moving a single tunnel to a different namespace is
-to have the device and socket live in different places. I guess
-conceptually this could apply to collect_md devices as well. (Maybe to
-have harder isolation between inside and outside the tunnel?)
+Thanks for writing this, that's really nice to read such a documentation!
 
-I'm not really sure what the best answer is but at least we should be
-consistent across tunnel types.
+Below are a couple of nitpicks.
+
+On 15-08-25 06:50:41, Florian Fainelli wrote:
+> Describe how the DSA subsystem works, its design principles,
+> limitations, and describe in details how to implement a DSA switch
+> driver.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  Documentation/networking/dsa/dsa.txt | 584 +++++++++++++++++++++++++++++++++++
+>  1 file changed, 584 insertions(+)
+>  create mode 100644 Documentation/networking/dsa/dsa.txt
+> 
+> diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+> new file mode 100644
+> index 0000000..2873309
+> --- /dev/null
+> +++ b/Documentation/networking/dsa/dsa.txt
+> @@ -0,0 +1,584 @@
+> +Distributed Switch Architecture
+> +===============================
+> +
+> +Introduction
+> +============
+> +
+> +This document describes the Distributed Switch Architecture (DSA) subsystem
+> +design principles, limitations, interactions with other subsystems, and how to
+> +develop drivers for this subsystem as well as a TODO for developers interested
+> +in joining the effort.
+> +
+> +Design principles
+> +=================
+> +
+> +The Distributed Switch Architecture is a subsystem which was primarily designed
+> +to support Marvell Ethernet switches (MV88E6xxx, aka Linkstreet product line)
+
+Just being picky: ... "(e.g. 88E6xxx, a.k.a. Link Street product line)"
+
+off-topic: I'm not a fan of the "xxx" notation. It is confusing and does not
+even cover all 6xxx devices (think 88E6171, 88E6123 or 88E6060). We should take
+note to turn mv88e6xxx.c into a module driver itself one day, and name it after
+a reference device, e.g. mv88e6352.c.
+
+> +using Linux, but has since evolved to support other vendors as well.
+> +
+> +An Ethernet switch is typically comprised of multiple front-panel ports, and one
+> +or more CPU or management port. The DSA subsystem currently relies on the
+> +presence of a management port connected to an Ethernet controller capable of
+> +receiving Ethernet frames from the switch. This is a very common setup for all
+> +kinds of Ethernet switches found in Small Home and Office products: routers,
+> +gateways, or even top-of-the rack switches. This host Ethernet controller will
+> +be later referred to as "master" and "cpu" in DSA terminology and code.
+> +
+> +The D in DSA stands for Distributed, because the subsytem has been designed with
+> +the abibility to configure and manage cascaded switches on top of each other
+> +using upstream and downstream Ethernet links between switches. These specific
+> +ports are referred to as "dsa" ports in DSA terminology and code. A collection
+> +of multiple switches connected to each other is called a "switch tree".
+> +
+> +For each front-panel port, DSA will create specialized network devices which are
+> +used as controlling and data-flowing endpoints for use by the Linux networking
+> +stack. These specialized network interfaces are referred to as "slave" network
+> +interfaces in DSA terminology and code.
+> +
+> +The ideal case for using DSA is when an Ethernet switch supports a "switch tag"
+> +which is a hardware feature making the switch insert a specific tag for each
+> +Ethernet frames it received to/from specific ports to help the management
+> +interface figure out:
+> +
+> +- what port is this frame coming from
+> +- what was the reason why this frame got forwarded
+> +- how to send CPU originated traffic to specific ports
+> +
+> +The subsystem does support switches not capable of inserting/stripping tags, but
+> +the features might be slightly limited in that case (traffic separation relies
+> +on Port-based VLAN ids).
+> +
+> +Note that DSA does not current create network interfaces for the "cpu" and "dsa"
+> +ports because:
+
+[...] does not currently* create [...]
+
+> +
+> +- the "cpu" port is the Ethernet switch facing side of the management
+> +  controller, and as such, would create a duplication of feature, since you
+> +  would get two interfaces for the same conduit: master netdev, and "cpu" netdev
+> +
+> +- the "dsa" port(s) are just conduits between two or more switches, and as such
+> +  cannot really be used as proper network interfaces either, only the
+> +  downstream, or the top-most upstream interface makes sense.
+> +
+> +Switch tagging protocols
+> +------------------------
+> +
+> +DSA currently supports 4 different tagging protocols, and a tag-less mode as
+> +well. The different protocols are implemented in:
+> +
+> +net/dsa/tag_trailer.c: Marvell's 4 bytes trailer mode
+> +net/dsa/tag_dsa.c: Marvell's 8 bytes original DSA tag
+> +net/dsa/tag_edsa.c: Marvell's 4 bytes enhanced DSA tag
+> +net/dsa/tag_brcm.c: Broadcom's 4 byte tag
+> +
+> +The exact format of the tag protocol is vendor specific, but in general, they
+> +all contain something which:
+> +
+> +- identifies which port the Ethernet frame came from/should be sent to
+> +- provides a reason why this frame was forwared to the management interface
+
+[...] was forwarded* [...]
+
+> +
+> +Master network devices
+> +----------------------
+> +
+> +Master network devices are regular, unmodified Linux network device drivers for
+> +the CPU/management Ethernet interface. Such a driver might occasionally need to
+> +know whether DSA is enabled (e.g: to enable/disable specific offload features),
+> +but the DSA subsystem has been proven to work with industry standard drivers:
+> +e1000e, mv643xx_eth etc.. without having to introduce modifications to these
+> +drivers. Such network device is also often refered to as a conduit network
+> +device since it acts as a pipe between the host processor and the hardware
+> +Ethernet switch.
+
+s/refered/referred/
+
+> +
+> +Networking stack hooks
+> +----------------------
+> +
+> +When a master netdev is used with DSA, a small hook in the networking stack is
+> +placed in order to have the DSA subsystem process the Ethernet switch specific
+> +tagging protocol. DSA accomplishes this by registering a specific (and fake)
+> +Ethernet type (later becoming skb->protocol) with the networking stack, this is
+> +also known as a ptype or packet_type. A typical Ethernet Frame receive sequence
+> +looks like this:
+> +
+> +Master network device device (e.g: e1000e):
+
+Redundant word "device".
+
+> +
+> +Receive interrupt fires:
+> +- receive function is invoked
+> +- basic packet processing is done: getting length, status etc..
+> +- packet is prepared to be processed by the Ethernet layer by calling
+> +  eth_type_trans
+> +
+> +net/ethernet/eth.c:
+> +
+> +eth_type_trans(skb, dev)
+> +	if (dev->dsa_ptr != NULL)
+> +		-> skb->protocol = ETH_P_XDSA
+> +
+> +drivers/net/ethernet/*:
+> +
+> +netif_receive_skb(skb)
+> +	-> iterate over registered packet_type
+> +		-> invoke handler for ETH_P_XDSA, calls dsa_switch_rcv()
+> +
+> +net/dsa/dsa.c:
+> +	-> dsa_switch_rcv()
+> +		-> invoke switch tag specific protocol handler in
+> +		   net/dsa/tag_*.c
+> +
+> +net/dsa/tag_*.c:
+> +	-> inspect and strip switch tag protocol to determine originating port
+> +	-> locate per-port network device
+> +	-> invoke eth_type_trans() with the DSA slave network device
+> +	-> invoked netif_receive_skb()
+> +
+> +Past this point, the DSA slave network devices get delivered regular Ethernet
+> +frames that can be processed by the networking stack.
+> +
+> +Slave network devices
+> +---------------------
+> +
+> +Slave network devices created by DSA are stacked on top of their master network
+> +device, each of these network interfaces will be responsible for being a
+> +controlling and data-flowing end-point for each front-panel port of the switch.
+> +These interfaces are specliazed in order to:
+
+[...] specialized* [...]
+
+> +
+> +- insert/remove the switch tag protocol (if it exists) when sending traffic
+> +  to/from specific switch ports
+> +- query the switch for ethtool operations: statistics, link state,
+> +  Wake-on-LAN, register dumps...
+> +- external/internal PHY management: link, auto-negotiation etc..
+> +
+> +This customization is achieved by inserting an additional layer and overriding,
+> +where specific the slave network device's ethtool_ops and net_device_ops
+> +functions.
+> +
+> +Upon frame transmission from these slave network devices, DSA will look up with
+
+I think you meant s/with/which/.
+
+> +switch tagging protocol is currently registered with these network devices, and
+> +invoke a specific transmit routine which takes care of adding the relevant
+> +switch tag in the Ethernet frames.
+> +
+> +These frames are then queued for transmission using the master network device
+> +ndo_start_xmit() function, since they contain the appropriate switch tag, the
+> +Ethernet switch will be able to process these incoming frames from the
+> +management interface and delivers these frames to the physical switch port.
+> +
+> +Graphical representation
+> +------------------------
+> +
+> +Summarized, this is basically how DSA looks like from a network device
+> +perspective:
+> +
+> +
+> +			|---------------------------
+> +			| CPU network device (eth0)|
+> +			----------------------------
+> +			| <tag added by switch     |
+> +			|                          |
+> +			|                          |
+> +			|        tag added by CPU> |
+> +		|--------------------------------------------|
+> +		| Switch driver				     |
+> +		|--------------------------------------------|
+> +                    ||        ||         ||
+> +		|-------|  |-------|  |-------|
+> +		| sw0p0 |  | sw0p1 |  | sw0p2 |
+> +		|-------|  |-------|  |-------|
+> +
+> +Slave MDIO bus
+> +--------------
+> +
+> +In order to be able to read to/from a switch PHYs built into it, DSA creates a
+
+I'd say "a switch PHY" or "switch PHYs".
+
+> +slave MDIO bus which allows a specific switch driver to divert and intercept
+> +MDIO reads/writes towards specific PHY addresses. In most MDIO-connected
+> +switches, these functions would utilize direct or indirect PHY addressing mode
+> +to return standard MII registers from the switch builtint PHYs, allowing the PHY
+
+s/builtint/built-in/
+
+> +library and/or to return link status, link partner pages, auto-negotiation
+> +results etc...
+> +
+> +For Ethernet switches which have both external and internal MDIO busses, the
+> +slave MII bus can be utilized to mux/demux MDIO reads and writes towards either
+> +internal or external MDIO devices this switch might be connected to: internal
+> +PHYs, external PHYs, or even external switches.
+> +
+> +Data structures
+> +---------------
+> +
+> +DSA data structures are defined in include/net/dsa.h as well as
+> +net/dsa/dsa_priv.h.
+> +
+> +dsa_chip_data: platform data configuration for a given switch device, this
+> +structure describes a switch device's parent device, its address, as well as
+> +various properties of its ports: names/labels, and finally a routing table
+> +indication (when cascading switches)
+> +
+> +dsa_platform_data: platform device configuration data which can reference a
+> +collection of dsa_chip_data structure sif multiples switches are cascaded, the
+
+s/sif/if/
+
+> +master network device this switch tree is attached to needs to be referenced
+> +
+> +dsa_switch_tree: structure assigned to the master network device under
+> +"dsa_ptr", this structure references a dsa_platform_data structure as well as
+> +the tagging protocol supported by the switch tree, and which receive/transmit
+> +function hooks should be invoked, information about the directly attached switch
+> +is also provided: CPU port. Finally, a collection of dsa_switch are referenced
+> +to address invididual switches in the tree.
+> +
+> +dsa_switch: structure describing a switch device in the tree, referencing a
+> +dsa_switch_tree as a backpointer, slave network devices, master network device,
+> +and a reference to the backing dsa_switch_driver
+> +
+> +dsa_switch_driver: structure referencing function pointers, see below for a full
+> +description.
+> +
+> +Design limitations
+> +==================
+> +
+> +DSA is a platform device driver
+> +-------------------------------
+> +
+> +DSA is implemented as a DSA platform device driver which is convenient because
+> +it will register the entire DSA switch tree attached to a master network device
+> +in one-shot, facilitating the device creation and simplyfing the device driver
+
+s/simplyfing/simplifying/
+
+> +model a bit, this comes however with a number of limitations:
+> +
+> +- building DSA and its switch drivers as modules is currently not working
+> +- the device driver parenting does not necessarily reflect the original
+> +  bus/device the switch can be created from
+> +- supportning non-MDIO and non-MMIO switches is currently not supported
+
+s/supportning/supporting/
+
+> +
+> +Limits on the number of devices and ports
+> +-----------------------------------------
+> +
+> +DSA currently limits the number of maximum switches within a tree to 4
+> +(DSA_MAX_SWITCHES), and the number of ports per switch to 12 (DSA_MAX_PORTS).
+> +These limits could be extended to support larger configurations would this need
+> +arise.
+> +
+> +Lack of CPU/DSA network devices
+> +-------------------------------
+> +
+> +DSA does not currently create slave network devices for the CPU or DSA ports, as
+> +described before. This might be an issue in the following cases:
+> +
+> +- inability to fetch switch CPU port statistics counters using ethtool, which
+> +  can make it harder to debug MDIO switch connected using xMII interfaces
+> +
+> +- inability to configure specific VLAN IDs / trunking VLANs between switches
+> +  when using a cascaded setup
+
+We can also mentioned the unability to configure the physical port (e.g. its
+speed and duplex mode) with standard tool such as ethtool, c.f. Andrew's patch:
+
+http://patchwork.ozlabs.org/patch/509806/
+
+> +
+> +Common pitfalls using DSA setups
+> +--------------------------------
+> +
+> +Once a master network device is configured to use DSA (dev->dsa_ptr becomes
+> +non-NULL), and the switch behind it expects a tagging protocol, this network
+> +interface can only exclusively be used as a conduit interface. Sending packets
+> +directly through this interface (e.g: opening a socket using this interface)
+> +will not make us go through the switch tagging protocol transmit function, so
+> +the Ethernet switch on the other end, expecting a tag will typically drop this
+> +frame.
+> +
+> +Slave network devices check that the master network device is UP before allowing
+> +you to administratively bring UP these slave network devices. A common
+> +configuration mistake is forgetting to bring UP the master network device first.
+> +
+> +Interactions with other subsystems
+> +==================================
+> +
+> +DSA currently leverages the following subsystems:
+> +
+> +- MDIO/PHY library: drivers/net/phy/phy.c, mdio_bus.c
+> +- Switchdev: net/switchdev/*
+> +- Device Tree for various of_* functions
+> +- HWMON: drivers/hwmon/*
+> +
+> +MDIO/PHY library
+> +----------------
+> +
+> +Slave network devices exposed by DSA may or may not be interfacing with PHY
+> +devices (struct phy_device as defined in include/linux/phy.h), but the DSA
+> +subsystem deals with all possible combinations:
+> +
+> +- internal PHY devices, built into the Ethernet switch hardware
+> +- external PHY devices, connected via an internal or external MDIO bus
+> +- internal PHY devices, connected vian an internal MDIO bus
+
+s/vian/via/
+
+> +- special, non-autonegotiated or non MDIO-managed PHY devices: SFPs, MoCA; aka
+> +  fixed PHYs
+> +
+> +The PHY configuration is done by the dsa_slave_phy_setup() function and the
+> +logic basically looks like this:
+> +
+> +- if Device Tree is used, the PHY device is looked up using the standard
+> +  "phy-handle" property, if found, this PHY device is created and registered
+> +  using of_phy_connect()
+> +
+> +- if Device Tree is used, and the PHY device is "fixed", that is, conforms to
+> +  the definition of a non-MDIO managed PHY as defined in
+> +  Documentation/devicetree/binding/net/fixed-link.txt, the PHY is the registered
+> +  and connected to using the special fixed MDIO bus driver transparently
+
+The file is Documentation/devicetree/bindings/net/fixed-link.txt (bindings*)
+
+> +
+> +- finally, if the PHY is built into the switch, as is very common with
+> +  standalone switch packages, the PHY is probed using the slave MII bus created
+> +  by DSA
+> +
+> +
+> +SWITCHDEV
+> +---------
+> +
+> +DSA directly utilizes SWITCHDEV when interfacing with the bridge layer, and more
+> +specifically with its VLAN filtering portion when configuring VLANs on top of
+> +per-port slave network devices. Since DSA primarily deals with MDIO-connected
+> +switch, although not exclusively, SWITCHDEV's commit/prepare/ phase
+
+switches* (plural); also missing end of sentence, as mentioned by Scott.
+
+> +
+> +Device Tree
+> +-----------
+> +
+> +DSA features a standardized binding which is documented in
+> +Documentation/devicetree/bindings/net/dsa/dsa.txt. PHY/MDIO library helper
+> +functions such as of_get_phy_mode(), of_phy_connect() are also used to query
+> +per-port PHY specific details: interface connection, MDIO bus location etc...
+> +
+> +HWMON
+> +-----
+> +
+> +Some switch drivers feature internal temperature sensors which are exposed as
+> +regular HWMON devices in /sys/class/hwmon/.
+> +
+> +Driver development
+> +==================
+> +
+> +DSA switch drivers need to implement a dsa_switch_driver structure which will
+> +contain the various members described below.
+> +
+> +register_switch_driver() registers this dsa_switch_driver in its internal list
+> +of drivers to probe for. unregister_switch_driver() does the exact opposite.
+> +
+> +Unless request differently by setting the priv_size member accordingly, DSA does
+> +not allocate any driver private context space.
+> +
+> +Switch configuration
+> +--------------------
+> +
+> +- priv_size: additional size needed by the switch driver for its private context
+> +
+> +- tag_protocol: this is to indicate what kind of tagging protocol is supported,
+> +  should be a valid value from the dsa_tag_protocol enum
+> +
+> +- probe: probe routine which will be invoked by the DSA platform device upon
+> +  registration to test for the presence/absence of a switch device. For MDIO
+> +  devices, it is recommended to issue a read towards internal registers using
+> +  the switch pseudo-PHY and return whether this is a supported device. For other
+> +  buses, return a non-NULL string
+> +
+> +- setup: setup function for the switch, this function is responsible for setting
+> +  up the dsa_switch_driver private structure with all it needs: register maps,
+> +  interrupts, mutexes, locks etc... This function is also expected to properly
+> +  configure the switch to separate all network interfaces from each other, that
+> +  is, they should be isolated by the switch hardware itself, typically by creating
+> +  a Port-based VLAN id for each port and allowing only the CPU port and the
+> +  specific port to be in the forwarding vector. Ports that are unused by the
+> +  platform should be disabled. Past this function, the switch is expected to be
+> +  fully configured and ready to service any kind of request. It is recommended
+
+s/service/serve/
+
+> +  to issue a software reset of the switch during this setup function in order to
+> +  avoid relying on what a previous software agent such as a bootloader/firmware
+> +  may have previously configured.
+> +
+> +- set_addr: Some switches require the programming of the management interface's
+> +  Ethernet MAC address, switch drivers can also disable aging of MAC addresses
+> +  on the management interface and "hardcode"/"force" this MAC address for the
+> +  CPU/management interface as an optimization
+> +
+> +PHY devices and link management
+> +-------------------------------
+> +
+> +- get_phy_flags: Some switches are interfaced to various kinds of Ethernet PHYs,
+> +  if the PHY library PHY driver needs to know about information it cannot obtain
+> +  on its own (e.g: coming from switch memory mapped registers), this function
+> +  should return a 32-bits bitmask of "flags", that is private between the switch
+> +  driver and the Ethernet PHY driver in drivers/net/phy/*.
+> +
+> +- phy_read: Function invoked by the DSA slave MDIO bus when attempting to read
+> +  the switch port MDIO registers. If unavailable, return 0xffff for each read.
+> +  For built-in switch Ethernet PHYs, this function should allow reading the link
+> +  status, auto-negotiation results, link partner pages etc...
+> +
+> +- phy_write: Function invoked by the DSA slave MDIO bus when attempting to write
+> +  to the switch port MDIO registers. If unavailable return a negative error
+> +  code.
+> +
+> +- poll_link: Function invoked by DSA to query the link state of the switch
+> +  built-int Ethernet PHYs, per port. This function is reponsible for calling
+
+s/built-int/built-in/
+
+> +  netif_carrier_{on,off} when appropriate, and can be used to poll all ports in
+> +  a single call. Executes from workqueue context.
+> +
+> +- adjust_link: Function invoked by the PHY library when a slave network device
+> +  is attached to a PHY device. This function is responsible for appropriately
+> +  configuring the switch port link parameters: speed, duplex, pause based on
+> +  what the phy_device is providing.
+> +
+> +- fixed_link_update: Function invoked by the PHY library, and specifically by
+> +  the fixed PHY driver asking the switch driver for link parameters that could
+> +  not be auto-negotiated, or obtained by reading the PHY registers through MDIO.
+> +  This is particularly useful for specific kinds of hardware such as QSGMII,
+> +  MoCA or other kinds of non-MDIO managed PHYs where out of band link
+> +  information is obtained
+> +
+> +Ethtool operations
+> +------------------
+> +
+> +- get_strings: ethtool function used to query the driver's strings, will
+> +  typically return statistics strings, private flags strings etc..
+> +
+> +- get_ethtool_stats: ethtool function used to query per-port statistics and
+> +  return their values. DSA overlays slave network devices general statistics:
+> +  RX/TX counters from the network device, with switch driver specific statistics
+> +  per port
+> +
+> +- get_sset_count: ethtool function used to query the number of statistics items
+> +
+> +- get_wol: ethtool function used to obtain Wake-on-LAN settings per-port, this
+> +  function may, for certain implementations also query the master network device
+> +  Wake-on-LAN settings if this interface needs to participate in Wake-on-LAN
+> +
+> +- set_wol: ethtool function used to configure Wake-on-LAN settings per-port,
+> +  direct counterpart to set_wol with similar restrictions
+> +
+> +- set_eee: ethtool function which is used to configure a switch port EEE (Green
+> +  Ethernet) settings, can optionally invoke the PHY library to enable EEE at the
+> +  PHY level if relevant. This function should enable EEE at the switch port MAC
+> +  controller and data-processing logic
+> +
+> +- get_eee: ethtool function which is used to query a switch port EEE settings,
+> +  this function should return the EEE state of the switch port MAC controller
+> +  and data-processing logic as well as query the PHY for its currently configured
+> +  EEE settings
+> +
+> +- get_eeprom_len: ethtool function returning for a given switch the EEPROM
+> +  length/size in bytes
+> +
+> +- get_eeprom: ethtool function returning for a given switch the EEPROM contents
+> +
+> +- set_eeprom: ethtool function writing specified data to a given switch EEPROM
+> +
+> +- get_regs_len: ethtool function returning the register length for a given
+> +  switch
+> +
+> +- get_regs: ethtool function returning the Ethernet switch internal register
+> +  contents. This function might require user-land code in ethtool to
+> +  pretty-print register values and registers
+> +
+> +Power management
+> +----------------
+> +
+> +- suspend: function invoked by the DSA platform device when the system goes to
+> +  suspend, should quiesce all Ethernet switch activity, but keep ports
+
+I think s/activity/activities/
+
+> +  participating in Wake-on-LAN active as well as additional wake-up logic if
+> +  supported
+> +
+> +- resume: function invoked by the DSA platform device when the system resumes,
+> +  should resume all Ethernet switch activity and re-configure the switch to be
+> +  in a fully active state
+> +
+> +- port_enable: function invoked by the DSA slave network device ndo_open
+> +  function when a port is administratively brought up, this function should be
+> +  fully enabling a given switch port. DSA takes care of marking the port with
+> +  BR_STATE_BLOCKING if the port is a bridge member, or BR_STATE_FORWARDING if it
+> +  was not, and propagating these changes down to the hardware
+> +
+> +- port_disable: function invoked by the DSA slave network device ndo_close
+> +  function when a port is administratively brought down, this function should be
+> +  fully disabling a given switch port. DSA takes care of marking the port with
+> +  BR_STATE_DISABLED and propagating changes to the hardware if this port is
+> +  disabled while being a bridge member
+> +
+> +Hardware monitoring
+> +-------------------
+> +
+> +These callbacks are only available if CONFIG_NET_DSA_HWMON is enabled:
+> +
+> +- get_temp: this function queries the given switch for its temperature
+> +
+> +- get_temp_limit: this function returns the switch;s current maximum temperature
+> +  limit
+
+s/;/'/
+
+> +
+> +- set_temp_limit: this function configures the maximum temperature limit allowed
+> +
+> +- get_temp_alarm: this function returns the critical temperature threshold
+> +  returning an alarm notification
+> +
+> +See Documentation/hwmon/sysfs-interface for details.
+> +
+> +Bridge layer
+> +------------
+> +
+> +- port_join_bridge: bridge layer function invoked when a given switch port is
+> +  added to a bridge, this function should be doing the necessary at the switch
+> +  level to permit the joining port from being added to the relevant logical
+> +  domain for it to ingress/egress traffic with other members of the bridge. DSA
+> +  does nothing but calculate a bitmask of switch ports currently members of the
+> +  specified bridge being requested the join
+> +
+> +- port_leave_bridge: bridge layer function invoked when a given switch port is
+> +  removed from a bridge, this function should be doing the necessary at the
+> +  switch level to deny the leaving port from ingress/egress traffic from the
+> +  remaining bridge members. When the port leaves the bridge, it should be aged
+> +  out at the switch hardware for the switch to (re) learn MAC addresses behind
+> +  this port. DSA calculates the bitmask of ports still members of the bridge
+> +  being left
+> +
+> +- port_stp_update: bridge layer function invoked when a given switch port STP
+> +  state is computed by the bridge layer and should be propagated to switch
+> +  hardware to forward/block/learn traffic. The switch driver is responsible for
+> +  computing a STP state change based on current and asked parameters and perform
+> +  the relevant aging based on the intersection results
+> +
+> +Bridge VLAN filtering
+> +---------------------
+> +
+> +- port_pvid_get: bridge layer function invoked when a Port-based VLAN id is
+> +  queried for the given switch port
+> +
+> +- port_pvid_set: bridge layer function invoked when a Port-based VLAN id needs
+> +  to be configured on the given switch port
+> +
+> +- port_vlan_add: bridge layer function invoked when a VLAN is configured
+> +  (taggedd or untagged) for the given switch port
+
+s/taggedd/tagged/
+
+> +
+> +- port_vlan_del: bridge layer function invoked when a VLAN is removed from the
+> +  given switch port
+> +
+> +- vlan_getnext: bridge layer function invoked to query the next configured VLAN
+> +  on the given switch port
+
+Nope, this function queries the next configured VLAN in the switch, i.e. returns
+bitmaps of members and untagged ports.
+
+> +
+> +- port_fdb_add: bridge layer function invoked when the bridge wants to install a
+> +  Forwarding Database entry, the switch hardware should be programmed with the
+> +  specified address in the specified VLAN id
+
+Yes, more specifically, it programs the hardware to map the specified address
+with the given port, in the forwarding database associated with this VLAN ID.
+
+Note: VLAN ID 0 means the port private database, in our case it will be its
+port-based VLAN, used by its associated bridge.
+
+> +
+> +- port_fdb_del: bridge layer function invoked when the bridge wants to remove a
+> +  Forwarding Database entry, the switch hardware should be programmed to delete
+> +  the specified MAC address from the specified VLAN id
+
+Again, delete the address if and only if it is mapped with the given port.
+
+> +
+> +TODO
+> +====
+> +
+> +DSA is currently implemented as a platform device driver which is far from ideal
+> +as was discussed in this thread:
+> +
+> +http://permalink.gmane.org/gmane.linux.network/329848
+> +
+> +This basically prevents the device driver model to be properly used and applied,
+> +and support non-MDIO, non-MMIO Ethernet connected switches.
+> +
+> +Another problem with the platform device driver approach is that it prevents the
+> +use of a modular switch module build due to a circular dependency, illustrated
+
+"modular switch build" or "switch module built"? I am not sure.
+
+> +here:
+> +
+> +http://comments.gmane.org/gmane.linux.network/345803
+> +
+> +Attempts of reworking this has been done here:
+> +
+> +https://lwn.net/Articles/643149/
+> +
+> +Other hanging fruits include:
+> +
+> +- making the number of ports fully dynamic and not dependent on DSA_MAX_PORTS
+> +- allowing more than one CPU/management interface:
+> +  http://comments.gmane.org/gmane.linux.network/365657
+> +- porting more drivers from other vendors:
+> +  http://comments.gmane.org/gmane.linux.network/365510
+
+Should we mention here the need to share a common L2 Ethernet switch framework
+with non-DSA switches, such as Rocker?
+
+If your respin a v2, you may consider the following points: 
+
+  - using "e.g." (dot after 'g')
+  - same goes for "a.k.a."
+  - "etc." (not extra perdiod needed)
+  - s/id/ID/
+
+Best,
+-v
