@@ -1,61 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCHv5 net-next 05/10] openvswitch: Add conntrack action
-Date: Tue, 25 Aug 2015 20:25:27 +0200
-Message-ID: <20150825182527.GJ3707@pox.localdomain>
-References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
- <1440462740-23358-6-git-send-email-joestringer@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org, pablo@netfilter.org,
-	fwestpha@redhat.com, hannes@redhat.com, jpettit@nicira.com,
-	jesse@nicira.com, netfilter-devel@vger.kernel.org,
-	Andy Zhou <azhou@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1440462740-23358-6-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] route: put lwstate before freeing dst to avoid use after free
+Date: Tue, 25 Aug 2015 14:25:14 -0400
+Message-ID: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
+Cc: jbenc@redhat.com, roopa@cumulusnetworks.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:35116 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755246AbbHYSZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:25:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/24/15 at 05:32pm, Joe Stringer wrote:
-> Expose the kernel connection tracker via OVS. Userspace components can
-> make use of the CT action to populate the connection state (ct_state)
-> field for a flow. This state can be subsequently matched.
-> 
-> Exposed connection states are OVS_CS_F_*:
-> - NEW (0x01) - Beginning of a new connection.
-> - ESTABLISHED (0x02) - Part of an existing connection.
-> - RELATED (0x04) - Related to an established connection.
-> - INVALID (0x20) - Could not track the connection for this packet.
-> - REPLY_DIR (0x40) - This packet is in the reply direction for the flow.
-> - TRACKED (0x80) - This packet has been sent through conntrack.
-> 
-> When the CT action is executed by itself, it will send the packet
-> through the connection tracker and populate the ct_state field with one
-> or more of the connection state flags above. The CT action will always
-> set the TRACKED bit.
-> 
-> When the COMMIT flag is passed to the conntrack action, this specifies
-> that information about the connection should be stored. This allows
-> subsequent packets for the same (or related) connections to be
-> correlated with this connection. Sending subsequent packets for the
-> connection through conntrack allows the connection tracker to consider
-> the packets as ESTABLISHED, RELATED, and/or REPLY_DIR.
-> 
-> The CT action may optionally take a zone to track the flow within. This
-> allows connections with the same 5-tuple to be kept logically separate
-> from connections in other zones. If the zone is specified, then the
-> "ct_zone" match field will be subsequently populated with the zone id.
-> 
-> IP fragments are handled by transparently assembling them as part of the
-> CT action. The maximum received unit (MRU) size is tracked so that
-> refragmentation can occur during output.
-> 
-> IP frag handling contributed by Andy Zhou.
-> 
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> Signed-off-by: Justin Pettit <jpettit@nicira.com>
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
+Commit 61adedf3 ("route: move lwtunnel state to dst_entry") is trying to
+release lwstate after getting rid of dst, which causes a use-after-free
+trying to access dst->lwstate.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Fixes: 61adedf3 ("route: move lwtunnel state to dst_entry")
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/core/dst.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 50dcdbb..477035e 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -262,11 +262,12 @@ again:
+ 	if (dst->dev)
+ 		dev_put(dst->dev);
+ 
++	lwtstate_put(dst->lwtstate);
++
+ 	if (dst->flags & DST_METADATA)
+ 		kfree(dst);
+ 	else
+ 		kmem_cache_free(dst->ops->kmem_cachep, dst);
+-	lwtstate_put(dst->lwtstate);
+ 
+ 	dst = child;
+ 	if (dst) {
+-- 
+1.7.10.4
