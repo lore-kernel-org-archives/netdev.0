@@ -1,52 +1,35 @@
-From: Nicholas Krause <xerofoify@gmail.com>
-Subject: [PATCH] bridge:Fix concurrent access issue in the function
-	brnf_get_logical_dev
-Date: Sat, 22 Aug 2015 00:48:21 -0400
-Message-ID: <1440218901-814-1-git-send-email-xerofoify@gmail.com>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net
-To: pablo@netfilter.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 0/2] Documentation: dsa
+Date: Tue, 25 Aug 2015 10:40:33 -0700
+Message-ID: <1440524435-8129-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com, sfeldma@gmail.com,
+	linux@roeck-us.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33954 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752402AbbHYRoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 13:44:22 -0400
+Received: by pabzx8 with SMTP id zx8so40175774pab.1
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 10:44:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes a concurrent access issue in the function brnf_get_logical_dev
-by properly locking with the function rcu_read_lock before calling the
-function vlan_find_dev_deep_rcu and unlocking after this function call
-as all callers of this function are required to do this in order to
-improve issues with concurrent access by other threads executing
-on this data structures simultaneously.
+Hi all,
 
-Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
----
- net/bridge/br_netfilter_hooks.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This patch series adds some documentation about DSA as a subsystem as well
+as the SF2 driver since it slightly diverges from your average DSA driver ;)
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index c8b9bcf..73c84a8 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -428,9 +428,10 @@ static struct net_device *brnf_get_logical_dev(struct sk_buff *skb, const struct
- 	if (brnf_pass_vlan_indev == 0 || !skb_vlan_tag_present(skb))
- 		return br;
- 
-+	rcu_read_lock();
- 	vlan = __vlan_find_dev_deep_rcu(br, skb->vlan_proto,
- 				    skb_vlan_tag_get(skb) & VLAN_VID_MASK);
--
-+	rcu_read_unlock();
- 	return vlan ? vlan : br;
- }
- 
+Florian Fainelli (2):
+  Documentation: networking: add a DSA document
+  Documentation: networking: dsa: Add Broadcom SF2 document
+
+ Documentation/networking/dsa/bcm_sf2.txt | 113 ++++++
+ Documentation/networking/dsa/dsa.txt     | 615 +++++++++++++++++++++++++++++++
+ 2 files changed, 728 insertions(+)
+ create mode 100644 Documentation/networking/dsa/bcm_sf2.txt
+ create mode 100644 Documentation/networking/dsa/dsa.txt
+
 -- 
-2.1.4
+2.1.0
