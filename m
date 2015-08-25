@@ -1,39 +1,40 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv5 net-next 06/10] openvswitch: Allow matching on conntrack mark
-Date: Tue, 25 Aug 2015 13:34:26 -0700
-Message-ID: <CALnjE+pPArMNOzzVNTPttSU=UjPFygC6-9KfWpFOqFfREHChHw@mail.gmail.com>
-References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
-	<1440462740-23358-7-git-send-email-joestringer@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/14] RDS: Assorted bug fixes
+Date: Tue, 25 Aug 2015 13:35:48 -0700 (PDT)
+Message-ID: <20150825.133548.569959758046728677.davem@davemloft.net>
+References: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	Justin Pettit <jpettit@nicira.com>,
-	Jesse Gross <jesse@nicira.com>, netfilter-devel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ssantosh@kernel.org
+To: santosh.shilimkar@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:32969 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755497AbbHYUe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 16:34:27 -0400
-Received: by igfj19 with SMTP id j19so21541815igf.0
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 13:34:27 -0700 (PDT)
-In-Reply-To: <1440462740-23358-7-git-send-email-joestringer@nicira.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59362 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755944AbbHYUfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 16:35:52 -0400
+In-Reply-To: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 5:32 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> Allow matching and setting the ct_mark field. As with ct_state and
-> ct_zone, these fields are populated when the CT action is executed. To
-> write to this field, a value and mask can be specified as a nested
-> attribute under the CT action. This data is stored with the conntrack
-> entry, and is executed after the lookup occurs for the CT action. The
-> conntrack entry itself must be committed using the COMMIT flag in the CT
-> action flags for this change to persist.
->
-> Signed-off-by: Justin Pettit <jpettit@nicira.com>
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Date: Sat, 22 Aug 2015 15:45:21 -0700
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+> We would like to improve RDS upstream support and in that context, I
+> started playing with it.  But run into number of issues including as
+> basic is RDS IB RDMA doesn't work. As part of the debug, I ended up
+> creating the $subject series which has bunch of assorted fixes. At
+> least with this series I can run RDS IB RDMA and other tests
+> successfully.
+> 
+> Some of these fixes have been done by Chris Meson, Andy Grover and
+> Zach Brown while at Oracle. There are still more kinks with FMR and
+> error handling and I plan to address them in a follow up series.
+> 
+> Series generated against Linus's master(v4.2-rc-7) but also applies
+> against next-next cleanly. Its tested on Oracle hardware with IB
+> fabric for both bcopy as well as RDMA mode. I don't have access
+> to iWARP hardware so any testing help on iWARP hardware appreciated.
+
+Series applied to net-next, thanks.
