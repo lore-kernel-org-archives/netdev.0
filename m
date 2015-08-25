@@ -1,29 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC, RFT PATCH 1/2] dl2k: Add support for IP1000A-based cards
-Date: Wed, 26 Aug 2015 01:08:02 +0200
-Message-ID: <20150825230802.GB24297@electric-eye.fr.zoreil.com>
-References: <1440363988-12325-1-git-send-email-linux@rainbow-software.org>
- <20150825.140430.663421843230467362.davem@davemloft.net>
- <201508252326.13784.linux@rainbow-software.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: can 2015-08-25
+Date: Tue, 25 Aug 2015 16:13:23 -0700 (PDT)
+Message-ID: <20150825.161323.872301837698928850.davem@davemloft.net>
+References: <1440485746-28027-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201508252326.13784.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1440485746-28027-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ondrej Zary <linux@rainbow-software.org> :
-[...]
-> Actually, gigabit works with this patch. The "PHY magic" part contains 
-> mii_write(9, 0x0700) which makes gigabit work.
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Tue, 25 Aug 2015 08:55:45 +0200
 
-It'd be extatic if you could set mii->supports_gmii for the appropriate
-PHY so that dl2k.c::rio_get_settings returns sensible gigabit status
-(note: neither ipg.c nor dl2k.c currently does).
+> this is the updated pull request of one patch by me for the peak_usb driver. It
+> fixes the driver, so that non FD adapters don't provide CAN FD bittimings.
+ ...
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.2-20150825
 
--- 
-Ueimor
+Pulled, thanks.
