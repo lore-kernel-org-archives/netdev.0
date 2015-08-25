@@ -1,41 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions
- statistics via debugfs
-Date: Tue, 25 Aug 2015 14:25:21 -0700 (PDT)
-Message-ID: <20150825.142521.1764936130530564868.davem@davemloft.net>
-References: <1440427547-8539-1-git-send-email-jiri@resnulli.us>
-	<1440427547-8539-3-git-send-email-jiri@resnulli.us>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [RFC, RFT PATCH 1/2] dl2k: Add support for IP1000A-based cards
+Date: Tue, 25 Aug 2015 23:26:13 +0200
+Message-ID: <201508252326.13784.linux@rainbow-software.org>
+References: <1440363988-12325-1-git-send-email-linux@rainbow-software.org> <20150825.140430.663421843230467362.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	ogerlitz@mellanox.com, jiri@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59771 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbbHYVZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:25:22 -0400
-In-Reply-To: <1440427547-8539-3-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	romieu@fr.zoreil.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150825.140430.663421843230467362.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 24 Aug 2015 16:45:46 +0200
+On Tuesday 25 August 2015 23:04:30 David Miller wrote:
+> From: Ondrej Zary <linux@rainbow-software.org>
+> Date: Sun, 23 Aug 2015 23:06:27 +0200
+>
+> > Add support for IP1000A chips to dl2k driver.
+> > IP1000A chip looks like a TC9020 with integrated PHY.
+> >
+> > Tested with Asus NX1101.
+>
+> You're saying the PHY support is incomplete, so gigabit isn't even
+> detected for these chips.
+>
+> So in a way this is a regression of sorts.
+>
+> Come back with these proposed changes once you have the PHY support
+> situation sorted out.
+>
+> Thanks.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Elad Raz <eladr@mellanox.com>
+Actually, gigabit works with this patch. The "PHY magic" part contains 
+mii_write(9, 0x0700) which makes gigabit work.
 
-Enough with this debugfs madness.
+BTW. D-Link DGE-550T is on the way so I'll test that too.
 
-Expose this stuff through standard interfaces.
-
-They are simple statistics for crying out loud!
-
-I'm not applying this, and I'm really getting irritated about how much
-garbage people put into debugfs when it has _NO_ business being there.
-
-Sorry.
+-- 
+Ondrej Zary
