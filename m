@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] sfc: Allow driver to cope with a lower
- number of VIs than it needs for RSS
-Date: Tue, 25 Aug 2015 11:14:49 -0700 (PDT)
-Message-ID: <20150825.111449.2276623889939482929.davem@davemloft.net>
-References: <55D6F2D7.4070707@solarflare.com>
+Subject: Re: [PATCH V4 net-next 0/2] net: implement SMC-R solution
+Date: Tue, 25 Aug 2015 11:18:49 -0700 (PDT)
+Message-ID: <20150825.111849.1251755515298926543.davem@davemloft.net>
+References: <20150726.161530.2192841818929026804.davem@davemloft.net>
+	<1440156629-35691-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
+Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, ursula.braun@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58646 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58662 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755497AbbHYSO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:14:56 -0400
-In-Reply-To: <55D6F2D7.4070707@solarflare.com>
+	with ESMTP id S1750981AbbHYSSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:18:50 -0400
+In-Reply-To: <1440156629-35691-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Fri, 21 Aug 2015 10:43:51 +0100
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Fri, 21 Aug 2015 13:30:27 +0200
 
-> @@ -115,7 +115,7 @@ static struct workqueue_struct *reset_workqueue;
->   *
->   * This is only used in MSI-X interrupt mode
->   */
-> -static bool separate_tx_channels;
-> +bool separate_tx_channels;
- ...
-> @@ -35,6 +35,7 @@ void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
->  int efx_setup_tc(struct net_device *net_dev, u8 num_tc);
->  unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
->  extern unsigned int efx_piobuf_size;
-> +extern bool separate_tx_channels;
+> this is V4 of my SMC-R patches:
+> Since you are asking for a solution "100% in our own separate module
+> with our own can of worms", we have to give up the transparent detection
+> whether a communication peer can do SMC-R or not (this has been the
+> purpose of the rejected TCP hooks). Instead, we want just the new
+> self-contained SMC-R socket family added to the kernel.
+> By the way, since August 2015 the SMC-R Informational RFC is no longer
+> a draft, but published as RFC7609.
 
-Once you put this into the global namespace, you should prefix it
-with "efx_*" or similar to avoid namespace pollution issues.
+The tcp_set_keepalive() layering hack is still beyond what I'm willing
+to apply, sorry.
+
+Also, as a coding style note, all of your code needs to be adjusted to
+declare local function variables in "reverse christimas tree" order,
+that is longest line to shortest.
