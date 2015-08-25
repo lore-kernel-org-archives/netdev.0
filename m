@@ -1,103 +1,57 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] net: phy: add locking to
- phy_read_mmd_indirect()/phy_write_mmd_indirect()
-Date: Tue, 25 Aug 2015 15:18:39 +0100
-Message-ID: <20150825141839.GS7557@n2100.arm.linux.org.uk>
-References: <E1ZU9vP-0004nN-LW@rmk-PC.arm.linux.org.uk>
- <55DC76D8.4090500@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: asconf process should treat multiple address
+ parameter as unrecognized parameter
+Date: Tue, 25 Aug 2015 11:18:59 -0300
+Message-ID: <20150825141859.GE1873@localhost.localdomain>
+References: <13ab95079875febb3985b32d0fdaf587c6de1973.1440410850.git.lucien.xin@gmail.com>
+ <55DB5939.8030902@redhat.com>
+ <CADvbK_c0=B5A66gqMRAg1x7iqUb7NFzs5roNW6fxHzexXovT6g@mail.gmail.com>
+ <CADvbK_cM2u452XWWdHggrCu7f+_v80Ucb3XMAJqeqCjBjwQjJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: vyasevic@redhat.com, network dev <netdev@vger.kernel.org>,
+	davem <davem@davemloft.net>
+To: lucien xin <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:55736 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755347AbbHYOSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 10:18:47 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:36175 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755927AbbHYOTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2015 10:19:01 -0400
 Content-Disposition: inline
-In-Reply-To: <55DC76D8.4090500@gmail.com>
+In-Reply-To: <CADvbK_cM2u452XWWdHggrCu7f+_v80Ucb3XMAJqeqCjBjwQjJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 25, 2015 at 07:08:24AM -0700, Florian Fainelli wrote:
-> Le 08/25/15 01:49, Russell King a =E9crit :
-> > The phy layer is missing locking for the above two functions - it
-> > has been observed that two threads (userspace and the phy worker
-> > thread) can race, entering the bus ->write or ->read functions
-> > simultaneously.
-> >=20
-> > This causes the FEC driver to initialise a completion while another
-> > thread is waiting on it or while the interrupt is calling complete(=
-)
-> > on it, which causes spinlock unlock-without-lock, spinlock lockups,
-> > and completion timeouts.
-> >=20
-> > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
->=20
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-> Fixes: a59a4d192 ("phy: add the EEE support and the way to access to =
-the
-> MMD registers.")
-> Fixes: 0c1d77dfb ("net: libphy: Add phy specific function to access m=
-md
-> phy registers")
+On Tue, Aug 25, 2015 at 08:43:10PM +0800, lucien xin wrote:
+> On Tue, Aug 25, 2015 at 8:39 PM, lucien xin <lucien.xin@gmail.com> wrote:
+> >>
+> >> I think it would be much better to catch this in the validation stage.
+> >> If an implementation inserts multiple address parameters, we don't really know
+> >> which one we should be using.
+> >>
+> >
+> > the params of ASCONF chunk should consist of one *Address Parameter* and one
+> > or more *ASCONF Parameters*. besides, the address parameter should be in the
+> > beginning. so the first one must be our choice.
 
-Thanks.  I'm assuming that davem will take the patch?
+That's not necessarily true. You're assuming the first is the best but
+that's not ensured anywhere as RFC doesn't allow multiple parameteres in
+there.
 
-> Thanks!
->=20
-> > ---
-> >  drivers/net/phy/phy.c | 16 ++++++++++++----
-> >  1 file changed, 12 insertions(+), 4 deletions(-)
-> >=20
-> > diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> > index 1e1fbb049ec6..34fe339f4e80 100644
-> > --- a/drivers/net/phy/phy.c
-> > +++ b/drivers/net/phy/phy.c
-> > @@ -1038,10 +1038,14 @@ int phy_read_mmd_indirect(struct phy_device=
- *phydev, int prtad,
-> >  	int value =3D -1;
-> > =20
-> >  	if (phydrv->read_mmd_indirect =3D=3D NULL) {
-> > -		mmd_phy_indirect(phydev->bus, prtad, devad, addr);
-> > +		struct mii_bus *bus =3D phydev->bus;
-> > +
-> > +		mutex_lock(&bus->mdio_lock);
-> > +		mmd_phy_indirect(bus, prtad, devad, addr);
-> > =20
-> >  		/* Read the content of the MMD's selected register */
-> > -		value =3D phydev->bus->read(phydev->bus, addr, MII_MMD_DATA);
-> > +		value =3D bus->read(bus, addr, MII_MMD_DATA);
-> > +		mutex_unlock(&bus->mdio_lock);
-> >  	} else {
-> >  		value =3D phydrv->read_mmd_indirect(phydev, prtad, devad, addr);
-> >  	}
-> > @@ -1071,10 +1075,14 @@ void phy_write_mmd_indirect(struct phy_devi=
-ce *phydev, int prtad,
-> >  	struct phy_driver *phydrv =3D phydev->drv;
-> > =20
-> >  	if (phydrv->write_mmd_indirect =3D=3D NULL) {
-> > -		mmd_phy_indirect(phydev->bus, prtad, devad, addr);
-> > +		struct mii_bus *bus =3D phydev->bus;
-> > +
-> > +		mutex_lock(&bus->mdio_lock);
-> > +		mmd_phy_indirect(bus, prtad, devad, addr);
-> > =20
-> >  		/* Write the data into MMD's selected register */
-> > -		phydev->bus->write(phydev->bus, addr, MII_MMD_DATA, data);
-> > +		bus->write(bus, addr, MII_MMD_DATA, data);
-> > +		mutex_unlock(&bus->mdio_lock);
-> >  	} else {
-> >  		phydrv->write_mmd_indirect(phydev, prtad, devad, addr, data);
-> >  	}
-> >=20
->=20
->=20
-> --=20
-> Florian
+That also puts the entire asconf in question, because if it needed an
+address parameter and now it has many and you don't know which one you
+should use, you actually have none, and the needed parameter is thus
+missing.
 
---=20
-=46TTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps u=
-p
-according to speedtest.net.
+> > if we cat this in the validation stage, I think it will be hard to treat it as a
+> > unrecognized parameter,
+> because *unrecognized parameter* cause packet need to be built in
+> sctp_process_asconf(),
+> as current linux's implementation.
+
+I agree with Vlad, but yeah, it may make error reporting harder.
+Although I don't have any issue if we just fall through the current error
+handling for bad asconf chunks, which aborts the association due to
+param len violation. Vlad?
+
+  Marcelo
