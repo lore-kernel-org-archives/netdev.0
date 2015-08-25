@@ -1,82 +1,88 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 1/2] Documentation: networking: add a DSA document
-Date: Tue, 25 Aug 2015 07:40:26 -0700
-Message-ID: <CAE4R7bBSfeaQ3eo0UyRRF_aFQkeCrSk0BHmH4-K2GW6XZBe6Ng@mail.gmail.com>
-References: <1440510642-15588-1-git-send-email-f.fainelli@gmail.com> <1440510642-15588-2-git-send-email-f.fainelli@gmail.com>
+From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC 2/2] net: Optimize snmp stat aggregation by walking
+ all the percpu data at once
+Date: Tue, 25 Aug 2015 21:17:18 +0530
+Message-ID: <55DC8E06.2040007@linux.vnet.ibm.com>
+References: <y> <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com> <1440489266-31127-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com> <1440512908.8932.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, "andrew@lunn.ch" <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:34954 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbbHYOkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 10:40:46 -0400
-Received: by obbwr7 with SMTP id wr7so143765092obb.2
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 07:40:45 -0700 (PDT)
-In-Reply-To: <1440510642-15588-2-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, jiri@resnulli.us,
+	edumazet@google.com, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
+	srikar@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440512908.8932.11.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 25, 2015 at 6:50 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Describe how the DSA subsystem works, its design principles,
-> limitations, and describe in details how to implement a DSA switch
-> driver.
+On 08/25/2015 07:58 PM, Eric Dumazet wrote:
+> On Tue, 2015-08-25 at 13:24 +0530, Raghavendra K T wrote:
+>> Docker container creation linearly increased from around 1.6 sec to 7.5 sec
+>> (at 1000 containers) and perf data showed 50% ovehead in snmp_fold_field.
+>>
+>> reason: currently __snmp6_fill_stats64 calls snmp_fold_field that walks
+>> through per cpu data of an item (iteratively for around 90 items).
+>>
+>> idea: This patch tries to aggregate the statistics by going through
+>> all the items of each cpu sequentially which is reducing cache
+>> misses.
+>>
+>> Docker creation got faster by more than 2x after the patch.
+>>
+>> Result:
+>>                         Before           After
+>> Docker creation time   6.836s           3.357s
+>> cache miss             2.7%             1.38%
+>>
+>> perf before:
+>>      50.73%  docker           [kernel.kallsyms]       [k] snmp_fold_field
+>>       9.07%  swapper          [kernel.kallsyms]       [k] snooze_loop
+>>       3.49%  docker           [kernel.kallsyms]       [k] veth_stats_one
+>>       2.85%  swapper          [kernel.kallsyms]       [k] _raw_spin_lock
+>>
+>> perf after:
+>>      10.56%  swapper          [kernel.kallsyms]     [k] snooze_loop
+>>       8.72%  docker           [kernel.kallsyms]     [k] snmp_get_cpu_field
+>>       7.59%  docker           [kernel.kallsyms]     [k] veth_stats_one
+>>       3.65%  swapper          [kernel.kallsyms]     [k] _raw_spin_lock
+>>
+>> Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+>> ---
+>>   net/ipv6/addrconf.c | 14 +++++++++++---
+>>   1 file changed, 11 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index 21c2c81..2ec905f 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -4624,16 +4624,24 @@ static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
+>>   }
+>>
+>>   static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
+>> -				      int items, int bytes, size_t syncpoff)
+>> +					int items, int bytes, size_t syncpoff)
+>>   {
+>> -	int i;
+>> +	int i, c;
+>> +	u64 *tmp;
+>>   	int pad = bytes - sizeof(u64) * items;
+>>   	BUG_ON(pad < 0);
+>>
+>> +	tmp = kcalloc(items, sizeof(u64), GFP_KERNEL);
+>> +
 >
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>
+> This is a great idea, but kcalloc()/kmalloc() can fail and you'll crash
+> the whole kernel at this point.
+>
 
-[cut]
-
-> +Interactions with other subsystems
-> +==================================
-> +
-> +DSA currently leverages the following subsystems:
-> +
-> +- MDIO/PHY library: drivers/net/phy/phy.c, mdio_bus.c
-> +- Switchdev: net/switchdev/*
-> +- Device Tree for various of_* functions
-> +- HWMON: drivers/hwmon/*
-> +
-> +MDIO/PHY library
-> +----------------
-> +
-> +Slave network devices exposed by DSA may or may not be interfacing with PHY
-> +devices (struct phy_device as defined in include/linux/phy.h), but the DSA
-> +subsystem deals with all possible combinations:
-> +
-> +- internal PHY devices, built into the Ethernet switch hardware
-> +- external PHY devices, connected via an internal or external MDIO bus
-> +- internal PHY devices, connected vian an internal MDIO bus
-> +- special, non-autonegotiated or non MDIO-managed PHY devices: SFPs, MoCA; aka
-> +  fixed PHYs
-> +
-> +The PHY configuration is done by the dsa_slave_phy_setup() function and the
-> +logic basically looks like this:
-> +
-> +- if Device Tree is used, the PHY device is looked up using the standard
-> +  "phy-handle" property, if found, this PHY device is created and registered
-> +  using of_phy_connect()
-> +
-> +- if Device Tree is used, and the PHY device is "fixed", that is, conforms to
-> +  the definition of a non-MDIO managed PHY as defined in
-> +  Documentation/devicetree/binding/net/fixed-link.txt, the PHY is the registered
-> +  and connected to using the special fixed MDIO bus driver transparently
-> +
-> +- finally, if the PHY is built into the switch, as is very common with
-> +  standalone switch packages, the PHY is probed using the slave MII bus created
-> +  by DSA
-> +
-> +
-> +SWITCHDEV
-> +---------
-> +
-> +DSA directly utilizes SWITCHDEV when interfacing with the bridge layer, and more
-> +specifically with its VLAN filtering portion when configuring VLANs on top of
-> +per-port slave network devices. Since DSA primarily deals with MDIO-connected
-> +switch, although not exclusively, SWITCHDEV's commit/prepare/ phase
-> +
-
-Missing rest of sentence.
+Good catch, and my bad. Though system is in bad memory condition,
+since fill_stat is not critical for the system do you think silently
+returning from here is a good idea?
+or do you think we should handle with -ENOMEM way up.?
