@@ -1,58 +1,50 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: pull-request: can 2015-08-24
-Date: Tue, 25 Aug 2015 08:49:15 +0200
-Message-ID: <55DC0FEB.2040403@pengutronix.de>
-References: <1440408003-13085-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5"
-Cc: davem@davemloft.net, kernel@pengutronix.de,
-	linux-can@vger.kernel.org
+Subject: pull-request: can 2015-08-25
+Date: Tue, 25 Aug 2015 08:55:45 +0200
+Message-ID: <1440485746-28027-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1440408003-13085-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49502 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545AbbHYGzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 02:55:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hello David,
 
-On 08/24/2015 11:20 AM, Marc Kleine-Budde wrote:
-> Hello David,
->=20
-> this is a pull request of one patch by me for the peak_usb driver. It f=
-ixes the
-> driver, so that non FD adapters don't provide CAN FD bittimings.
+this is the updated pull request of one patch by me for the peak_usb driver. It
+fixes the driver, so that non FD adapters don't provide CAN FD bittimings.
 
-As there are some typos in the commit message I'll send an updated pull
-request. David, please don't pull this one.
-
-thanks,
+regards,
 Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
+---
 
---KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+The following changes since commit b6df7d61c8776a882dd47ba4714d1445dd7ef2d9:
 
------BEGIN PGP SIGNATURE-----
+  net: bcmgenet: fix uncleaned dma flags (2015-08-23 23:00:41 -0700)
 
-iQEcBAEBCgAGBQJV3A/rAAoJEP5prqPJtc/HFtQH/iWIzn7i01SUeSCFI0o4qR7X
-wcDY0kJe/Fi8wgob6A88fPIkxqON57BA7sqyQ6HNnQxoATNYaq3sRb+zPA3qC6M5
-Gm7FNKtNBfn15dpuuPBFjm0OHRqz7svHPQxsji7j1yEY9ArXQjBI0Qm9K2HFijNp
-okj9IKk3ofmunq/dkOpWZGThx60nJUpV2BLkZLGEEToMSFdg9GzD0VdHgD8/K/k7
-mJeSdjAg+B6fW273daM9yYL5x7CtYnpidUkek5pK/B/qF2+HMO4RQIxNuF57rTMR
-yP7I6cOQdCeCYKEqoWG14WYiW67J1N1tiYsBq/EvgEBo7u+xCaWM4zn2qbppo9E=
-=nQt+
------END PGP SIGNATURE-----
+are available in the git repository at:
 
---KwJPf4aCWDnVN63mW6vWkxpcMbAI0GAB5--
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.2-20150825
+
+for you to fetch changes up to 06b23f7fbbf26a025fd68395c7586949db586b47:
+
+  can: pcan_usb: don't provide CAN FD bittimings by non-FD adapters (2015-08-25 08:50:00 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.2-20150825
+
+----------------------------------------------------------------
+Marc Kleine-Budde (1):
+      can: pcan_usb: don't provide CAN FD bittimings by non-FD adapters
+
+ drivers/net/can/usb/peak_usb/pcan_usb.c      | 24 +++----
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c |  4 +-
+ drivers/net/can/usb/peak_usb/pcan_usb_core.h |  4 +-
+ drivers/net/can/usb/peak_usb/pcan_usb_fd.c   | 96 +++++++++++++++-------------
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c  | 24 +++----
+ 5 files changed, 82 insertions(+), 70 deletions(-)
