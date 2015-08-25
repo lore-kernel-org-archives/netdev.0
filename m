@@ -1,53 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ipsec-next v2] xfrm: Use VRF master index if output
- device is enslaved
-Date: Tue, 25 Aug 2015 11:25:20 -0700 (PDT)
-Message-ID: <20150825.112520.1150630275289755593.davem@davemloft.net>
-References: <1440108390-10192-1-git-send-email-dsa@cumulusnetworks.com>
-	<E97BEDFF-A3B2-41B4-A669-969E7052C75E@cumulusnetworks.com>
-	<20150821203132.GA3589@secunet.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCHv5 net-next 05/10] openvswitch: Add conntrack action
+Date: Tue, 25 Aug 2015 20:25:27 +0200
+Message-ID: <20150825182527.GJ3707@pox.localdomain>
+References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
+ <1440462740-23358-6-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, dsa@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58696 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755497AbbHYSZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:25:22 -0400
-In-Reply-To: <20150821203132.GA3589@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, pshelar@nicira.com,
+	linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	fwestpha@redhat.com, hannes@redhat.com, jpettit@nicira.com,
+	jesse@nicira.com, netfilter-devel@vger.kernel.org,
+	Andy Zhou <azhou@nicira.com>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1440462740-23358-6-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 21 Aug 2015 22:31:32 +0200
-
-> On Fri, Aug 21, 2015 at 02:11:21AM +0300, Nikolay Aleksandrov wrote:
->> 
->> > On Aug 21, 2015, at 1:06 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> > 
->> > Directs route lookups to VRF table. Compiles out if NET_VRF is not
->> > enabled. With this patch able to successfully bring up ipsec tunnels
->> > in VRFs, even with duplicate network configuration.
->> > 
->> > Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->> > ---
->> > v2
->> > - use vrf_master_ifindex rather than vrf_master_ifindex_rcu
->> > 
->> > net/ipv4/xfrm4_policy.c | 7 +++++--
->> > net/ipv6/xfrm6_policy.c | 7 +++++--
->> > 2 files changed, 10 insertions(+), 4 deletions(-)
->> > 
->> 
->> Looks good to me,
->> 
->> Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On 08/24/15 at 05:32pm, Joe Stringer wrote:
+> Expose the kernel connection tracker via OVS. Userspace components can
+> make use of the CT action to populate the connection state (ct_state)
+> field for a flow. This state can be subsequently matched.
 > 
-> David, can you please take this directly into net-next?
+> Exposed connection states are OVS_CS_F_*:
+> - NEW (0x01) - Beginning of a new connection.
+> - ESTABLISHED (0x02) - Part of an existing connection.
+> - RELATED (0x04) - Related to an established connection.
+> - INVALID (0x20) - Could not track the connection for this packet.
+> - REPLY_DIR (0x40) - This packet is in the reply direction for the flow.
+> - TRACKED (0x80) - This packet has been sent through conntrack.
 > 
-> Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+> When the CT action is executed by itself, it will send the packet
+> through the connection tracker and populate the ct_state field with one
+> or more of the connection state flags above. The CT action will always
+> set the TRACKED bit.
+> 
+> When the COMMIT flag is passed to the conntrack action, this specifies
+> that information about the connection should be stored. This allows
+> subsequent packets for the same (or related) connections to be
+> correlated with this connection. Sending subsequent packets for the
+> connection through conntrack allows the connection tracker to consider
+> the packets as ESTABLISHED, RELATED, and/or REPLY_DIR.
+> 
+> The CT action may optionally take a zone to track the flow within. This
+> allows connections with the same 5-tuple to be kept logically separate
+> from connections in other zones. If the zone is specified, then the
+> "ct_zone" match field will be subsequently populated with the zone id.
+> 
+> IP fragments are handled by transparently assembling them as part of the
+> CT action. The maximum received unit (MRU) size is tracked so that
+> refragmentation can occur during output.
+> 
+> IP frag handling contributed by Andy Zhou.
+> 
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Signed-off-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
 
-Ok, done, thanks.
+Acked-by: Thomas Graf <tgraf@suug.ch>
