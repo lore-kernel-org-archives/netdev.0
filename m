@@ -1,69 +1,66 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH iproute2 v2] add support for brief output for link and
- addresses
-Date: Tue, 25 Aug 2015 13:56:19 -0700
-Message-ID: <20150825135619.4957d2ae@urahara>
-References: <1440465375-24493-1-git-send-email-gospo@cumulusnetworks.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: iproute2: Behavioural Bug?
+Date: Tue, 25 Aug 2015 14:00:27 -0700
+Message-ID: <CAHA+R7NNF2O3e==g_-MoFtaHg_G37jHBNPrui+RA5uJR8kjkjg@mail.gmail.com>
+References: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
+	<20150824232229.GC5905@breakpoint.cc>
+	<CAA5aLPj6Whq_U3VXx60J+b0rZFj9kucXy8H9NM9rYCTc9OPMoQ@mail.gmail.com>
+	<CAHA+R7OWyfupqmCk69ykN7TP+sMwUyVtFNX=Mr_Q9DCXRSx6fw@mail.gmail.com>
+	<CAA5aLPjLhLdp2QPMw-ZvNOVjsewnM3TqV4zHFfY2_HX0UOqoFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: multipart/mixed; boundary=089e0112d15e108a1c051e29064c
+Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Akshat Kakkar <akshat.1984@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:34558 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752059AbbHYU4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 16:56:17 -0400
-In-Reply-To: <1440465375-24493-1-git-send-email-gospo@cumulusnetworks.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:34067 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752059AbbHYVA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:00:29 -0400
+Received: by lbbtg9 with SMTP id tg9so108453305lbb.1
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 14:00:28 -0700 (PDT)
+In-Reply-To: <CAA5aLPjLhLdp2QPMw-ZvNOVjsewnM3TqV4zHFfY2_HX0UOqoFg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 24 Aug 2015 21:16:15 -0400
-Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
+--089e0112d15e108a1c051e29064c
+Content-Type: text/plain; charset=UTF-8
 
-> This adds support for slightly less output than is normally provided by
-> 'ip link show' and 'ip addr show'.  This is a bit better when you have a
-> host with lots of interfaces.  Sample output:
-> 
-> $ ip -br link show
-> lo               UNKNOWN  00:00:00:00:00:00  <LOOPBACK,UP,LOWER_UP>
-> p7p1             UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
-> p8p1             DOWN     08:00:27:dc:d8:ca  <NO-CARRIER,BROADCAST,MULTICAST,UP>
-> p9p1             UP       08:00:27:76:d9:75  <BROADCAST,MULTICAST,UP,LOWER_UP>
-> p7p1.100@p7p1    UP       08:00:27:9d:62:9f  <BROADCAST,MULTICAST,UP,LOWER_UP>
-> 
-> $ ip -br -4 addr show
-> lo               UNKNOWN  127.0.0.1/8
-> p7p1             UP       70.0.0.1/24
-> p8p1             DOWN     80.0.0.1/24
-> p7p1.100@p7p1    UP       200.0.0.1/24
-> 
-> $ ip -br -6 addr show
-> lo               UNKNOWN  ::1/128
-> p7p1             UP       7000::1/8 fe80::a00:27ff:fe9d:629f/64
-> p8p1             DOWN     8000::1/8
-> p9p1             UP       fe80::a00:27ff:fe76:d975/64
-> p7p1.100@p7p1    UP       fe80::a00:27ff:fe9d:629f/64
-> 
-> $ ip -br  addr show p7p1
-> p7p1             UP       70.0.0.1/24 7000::1/8 fe80::a00:27ff:fe9d:629f/64
-> 
-> v2: Now with color support!
-> 
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+(Cc'ing Jamal)
 
-Generally good idea but formatting is off.
-missing whitespace after mac address also LOWERLAYERDOWN is too long.
+On Tue, Aug 25, 2015 at 12:18 AM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
+> Well if that is the case, then just an additional information (which I
+> have initially mentioned though), if hashtable is 800, then behaviour
+> is correct i.e. deleting only a single filter but for hash tables
+> other than 800, the bug (if any) gets triggered.
+>
 
-$ ./ip/ip -br li show
-lo               UNKNOWN  00:00:00:00:00:00<LOOPBACK,UP,LOWER_UP>
-eth1             DOWN     00:25:90:86:b3:6b<BROADCAST,MULTICAST>
-eth0             UP       00:25:90:86:b3:6a<BROADCAST,MULTICAST,UP,LOWER_UP>
-eth2             DOWN     00:1b:21:a0:e7:06<NO-CARRIER,BROADCAST,MULTICAST,UP>
-virbr4@NONE      LOWERLAYERDOWN  52:54:00:e5:6c:94<NO-CARRIER,BROADCAST,MULTICAST,UP>
-virbr4-nic@NONE  DOWN     52:54:00:e5:6c:94<BROADCAST,MULTICAST>
-virbr0@NONE      UP       52:54:00:6b:fb:93<BROADCAST,MULTICAST,UP,LOWER_UP>
-virbr0-nic@NONE  DOWN     52:54:00:6b:fb:93<BROADCAST,MULTICAST>
-vnet0@NONE       UNKNOWN  fe:54:00:08:c5:41<BROADCAST,MULTICAST,UP,LOWER_UP>
-tun1@NONE        UNKNOWN  <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP>
-tun0@NONE        UNKNOWN  <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP>
+Hmm, I didn't read your initial email before my previous reply.
+
+But I bet you deleted the 800: filter _after_ deleting the 15: one?
+u32 hashtables are stateful, try the reverse order, I don't see
+any reason why 800: could be any special here, expect it is the
+default handle picked by kernel.
+
+The attached patch works for me, let me know if it works for you..
+
+--089e0112d15e108a1c051e29064c
+Content-Type: text/plain; charset=US-ASCII; name="u32.diff"
+Content-Disposition: attachment; filename="u32.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_idru41rb0
+
+ZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9jbHNfdTMyLmMgYi9uZXQvc2NoZWQvY2xzX3UzMi5jCmlu
+ZGV4IGNhYjllOWIuLmFjNWUwYWQgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9jbHNfdTMyLmMKKysr
+IGIvbmV0L3NjaGVkL2Nsc191MzIuYwpAQCAtNDk1LDYgKzQ5NSwyMCBAQCBzdGF0aWMgYm9vbCB1
+MzJfZGVzdHJveShzdHJ1Y3QgdGNmX3Byb3RvICp0cCwgYm9vbCBmb3JjZSkKIAlpZiAocm9vdF9o
+dCAmJiAtLXJvb3RfaHQtPnJlZmNudCA9PSAwKQogCQl1MzJfZGVzdHJveV9obm9kZSh0cCwgcm9v
+dF9odCk7CiAKKwlpZiAoIWZvcmNlKSB7CisJCXN0cnVjdCB0Y191X2hub2RlICpodDsKKworCQlp
+ZiAodHBfYy0+cmVmY250ID4gMSkKKwkJCXJldHVybiBmYWxzZTsKKwkJaWYgKHRwX2MtPnJlZmNu
+dCA9PSAxKSB7CisJCQlmb3IgKGh0ID0gcnRubF9kZXJlZmVyZW5jZSh0cF9jLT5obGlzdCk7CisJ
+CQkgICAgIGh0OworCQkJICAgICBodCA9IHJ0bmxfZGVyZWZlcmVuY2UoaHQtPm5leHQpKQorCQkJ
+CWlmICghaHRfZW1wdHkoaHQpKQorCQkJCQlyZXR1cm4gZmFsc2U7CisJCX0KKwl9CisKIAlpZiAo
+LS10cF9jLT5yZWZjbnQgPT0gMCkgewogCQlzdHJ1Y3QgdGNfdV9obm9kZSAqaHQ7CiAK
+--089e0112d15e108a1c051e29064c--
