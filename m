@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/14] RDS: Assorted bug fixes
-Date: Tue, 25 Aug 2015 13:35:48 -0700 (PDT)
-Message-ID: <20150825.133548.569959758046728677.davem@davemloft.net>
-References: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH 10/11] ah6: fix error return code
+Date: Tue, 25 Aug 2015 13:39:16 -0700 (PDT)
+Message-ID: <20150825.133916.2029552672054339969.davem@davemloft.net>
+References: <1440288682-12732-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1440288682-12732-11-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ssantosh@kernel.org
-To: santosh.shilimkar@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59362 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755944AbbHYUfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 16:35:52 -0400
-In-Reply-To: <1440283535-4800-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steffen.klassert@secunet.com, kernel-janitors@vger.kernel.org,
+	herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440288682-12732-11-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Sat, 22 Aug 2015 15:45:21 -0700
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Sun, 23 Aug 2015 02:11:21 +0200
 
-> We would like to improve RDS upstream support and in that context, I
-> started playing with it.  But run into number of issues including as
-> basic is RDS IB RDMA doesn't work. As part of the debug, I ended up
-> creating the $subject series which has bunch of assorted fixes. At
-> least with this series I can run RDS IB RDMA and other tests
-> successfully.
+> Return a negative error code on failure.
 > 
-> Some of these fixes have been done by Chris Meson, Andy Grover and
-> Zach Brown while at Oracle. There are still more kinks with FMR and
-> error handling and I plan to address them in a follow up series.
-> 
-> Series generated against Linus's master(v4.2-rc-7) but also applies
-> against next-next cleanly. Its tested on Oracle hardware with IB
-> fabric for both bcopy as well as RDMA mode. I don't have access
-> to iWARP hardware so any testing help on iWARP hardware appreciated.
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Series applied to net-next, thanks.
+Applied and as noticed by Herbert Xu I fixed up the net/ipv4/ah4.c case
+as well.
