@@ -1,46 +1,30 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] ip6_gre: release cached dst on tunnel removal
-Date: Tue, 25 Aug 2015 16:20:34 +0200
-Message-ID: <1440512434-4488-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, huaibin Wang <huaibin.wang@6wind.com>,
-	Dmitry Kozlov <xeb@mail.ru>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:41319 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbbHYOVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 10:21:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH 1/2] usbnet: Get EVENT_NO_RUNTIME_PM bit before it is
+ cleared
+Date: Tue, 25 Aug 2015 16:22:22 +0200
+Message-ID: <1440512542.13824.9.camel@suse.de>
+References: <55AD3A41.2040100@rosalab.ru>
+	 <1440447223-15945-1-git-send-email-eugene.shatokhin@rosalab.ru>
+	 <1440447223-15945-2-git-send-email-eugene.shatokhin@rosalab.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440447223-15945-2-git-send-email-eugene.shatokhin@rosalab.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: huaibin Wang <huaibin.wang@6wind.com>
-
-When a tunnel is deleted, the cached dst entry should be released.
-
-This problem may prevent the removal of a netns (seen with a x-netns IPv6
-gre tunnel):
-  unregister_netdevice: waiting for lo to become free. Usage count = 3
-
-CC: Dmitry Kozlov <xeb@mail.ru>
-Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
-Signed-off-by: huaibin Wang <huaibin.wang@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_gre.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index a38d3ac0f18f..69f4f689f06a 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -361,6 +361,7 @@ static void ip6gre_tunnel_uninit(struct net_device *dev)
- 	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
- 
- 	ip6gre_tunnel_unlink(ign, t);
-+	ip6_tnl_dst_reset(t);
- 	dev_put(dev);
- }
- 
--- 
-2.4.2
+On Mon, 2015-08-24 at 23:13 +0300, Eugene Shatokhin wrote:
+> It is needed to check EVENT_NO_RUNTIME_PM bit of dev->flags in
+> usbnet_stop(), but its value should be read before it is cleared
+> when dev->flags is set to 0.
+> 
+> The problem was spotted and the fix was provided by
+> Oliver Neukum <oneukum@suse.de>.
+> 
+> Signed-off-by: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Acked-by: Oliver Neukum <oneukum@suse.com>
