@@ -1,54 +1,68 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] vrf: Add ethernet header for pass through VRF
- device
-Date: Tue, 25 Aug 2015 15:37:55 -0700
-Message-ID: <55DCEE43.4000200@cumulusnetworks.com>
-References: <1440355260-16528-1-git-send-email-dsa@cumulusnetworks.com> <20150825.140220.156958823239060297.davem@davemloft.net>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 1267/1290] net/rds/ib_recv.c:382:28: sparse:
+ incorrect type in initializer (different base types)
+Date: Wed, 26 Aug 2015 06:42:39 +0800
+Message-ID: <201508260636.uzScUNFH%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org,
+	Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>,
+	Santosh Shilimkar <ssantosh@kernel.org>, netdev@vger.kernel.org
+To: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34639 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932595AbbHYWh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:37:57 -0400
-Received: by pabzx8 with SMTP id zx8so47016551pab.1
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 15:37:57 -0700 (PDT)
-In-Reply-To: <20150825.140220.156958823239060297.davem@davemloft.net>
+Received: from mga03.intel.com ([134.134.136.65]:62356 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751798AbbHYWjg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2015 18:39:36 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/25/15 2:02 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Sun, 23 Aug 2015 12:41:00 -0600
->
->> @@ -250,6 +253,17 @@ static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
->>
->>   static netdev_tx_t vrf_finish(struct sock *sk, struct sk_buff *skb)
->>   {
->> +	int err;
->> +
->> +	__skb_pull(skb, skb_network_offset(skb));
->> +	err = dev_hard_header(skb, skb->dev, ntohs(skb->protocol),
->> +			      NULL, NULL, skb->len);
->> +
->> +	if (err < 0) {
->> +		vrf_tx_error(skb->dev, skb);
->> +		return -EINVAL;
->> +	}
->> +
->>   	return dev_queue_xmit(skb);
->
-> This is expensive and rediculous to do for every TX frame.
->
-> You'll need to find another way.
->
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   04e1b7341dc33abe4dd3f761e2e9137701e55684
+commit: 73ce4317bf983282593aff710b112a7e705620c3 [1267/1290] RDS: make sure we post recv buffers
+reproduce:
+  # apt-get install sparse
+  git checkout 73ce4317bf983282593aff710b112a7e705620c3
+  make ARCH=x86_64 allmodconfig
+  make C=1 CF=-D__CHECK_ENDIAN__
 
-The packet is directed here from the IP layer via the custom dst, so 
-there is no L2 header on the skb. So while the push and pop of the 
-header seems silly it is part and parcel of the feature to run tcpdump 
-on the VRF device. I don't see how it could be done any other way.
 
-David
+sparse warnings: (new ones prefixed by >>)
+
+>> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
+   net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
+   net/rds/ib_recv.c:382:28:    got restricted gfp_t
+   net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
+
+vim +382 net/rds/ib_recv.c
+
+   366	}
+   367	
+   368	/*
+   369	 * This tries to allocate and post unused work requests after making sure that
+   370	 * they have all the allocations they need to queue received fragments into
+   371	 * sockets.
+   372	 *
+   373	 * -1 is returned if posting fails due to temporary resource exhaustion.
+   374	 */
+   375	void rds_ib_recv_refill(struct rds_connection *conn, int prefill, gfp_t gfp)
+   376	{
+   377		struct rds_ib_connection *ic = conn->c_transport_data;
+   378		struct rds_ib_recv_work *recv;
+   379		struct ib_recv_wr *failed_wr;
+   380		unsigned int posted = 0;
+   381		int ret = 0;
+ > 382		int can_wait = gfp & __GFP_WAIT;
+   383		u32 pos;
+   384	
+   385		/* the goal here is to just make sure that someone, somewhere
+   386		 * is posting buffers.  If we can't get the refill lock,
+   387		 * let them do their thing
+   388		 */
+   389		if (!acquire_refill(conn))
+   390			return;
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
