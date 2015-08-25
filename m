@@ -1,64 +1,109 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] macvtap/macvlan: use IFF_NO_QUEUE
-Date: Tue, 25 Aug 2015 13:17:30 +0300
-Message-ID: <20150825131608-mutt-send-email-mst@redhat.com>
-References: <1440405192-25926-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Vladislav Yasevich <vyasevic@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1440405192-25926-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: pull request: batman-adv 20150825
+Date: Tue, 25 Aug 2015 13:02:24 +0200
+Message-ID: <1440500559-28368-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s1.neomailbox.net ([5.148.176.57]:16094 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751087AbbHYLDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2015 07:03:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 04:33:12PM +0800, Jason Wang wrote:
-> For macvlan, switch to use IFF_NO_QUEUE instead of tx_queue_len = 0.
-> 
-> For macvtap, after commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
-> ("macvtap: Add support of packet capture on macvtap
-> device."). Multiqueue macvtap suffers from single qdisc lock
-> contention. This is because macvtap claims a non zero tx_queue_len and
-> it reuses this value as it socket receive queue size.Thanks to
-> IFF_NO_QUEUE, we can remove the lock contention without breaking
-> existing socket receive queue length logic.
-> 
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Vladislav Yasevich <vyasevic@redhat.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Hello David,
 
-Seems to make sense. Give me a day or two to get over the jet lag
-(and get out from under the pile of mail accumulated while I was traveling),
-I'll review properly and ack.
+here you have another batch intended for net-next/linux-4.3.
 
-> ---
->  drivers/net/macvlan.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index 47da435..09d8718 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -1056,7 +1056,7 @@ void macvlan_common_setup(struct net_device *dev)
->  
->  	dev->priv_flags	       &= ~IFF_TX_SKB_SHARING;
->  	netif_keep_dst(dev);
-> -	dev->priv_flags	       |= IFF_UNICAST_FLT;
-> +	dev->priv_flags	       |= IFF_UNICAST_FLT | IFF_NO_QUEUE;
->  	dev->netdev_ops		= &macvlan_netdev_ops;
->  	dev->destructor		= free_netdev;
->  	dev->header_ops		= &macvlan_hard_header_ops;
-> @@ -1067,7 +1067,6 @@ EXPORT_SYMBOL_GPL(macvlan_common_setup);
->  static void macvlan_setup(struct net_device *dev)
->  {
->  	macvlan_common_setup(dev);
-> -	dev->tx_queue_len	= 0;
->  }
->  
->  static int macvlan_port_create(struct net_device *dev)
-> -- 
-> 2.1.4
+Most of the patches are about code restyling and beautification,
+but we also a couple of non critical fixes which didn't make their
+way through net.
+
+
+Please pull or let me know of any problem!
+
+Thanks a lot,
+	Antonio
+
+The following changes since commit 56fff0a01fa056502a28d67cb5a2714d64780415:
+
+  Merge branch 'fjes' (2015-08-24 14:06:37 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 854d2a63de86a769db4dbed75b660f544b3c0c7a:
+
+  batman-adv: beautify supported routing algorithm list (2015-08-25 00:12:24 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- code restyling and beautification
+- use int kernel types instead of C99
+- update kereldoc
+- prevent potential hlist double deletion of VLAN objects
+- fix gw bandwidth calculation
+- convert list to hlist when needed
+- add lockdep_asserts calls in function with lock requirements
+  described in kerneldoc
+
+----------------------------------------------------------------
+Marek Lindner (6):
+      batman-adv: update kernel doc of batadv_tt_global_del_orig_entry()
+      batman-adv: rename batadv_new_tt_req_node to batadv_tt_req_node_new
+      batman-adv: convert orig_node->vlan_list to hlist
+      batman-adv: prevent potential hlist double deletion
+      batman-adv: convert bat_priv->tt.req_list to hlist
+      batman-adv: beautify supported routing algorithm list
+
+Sven Eckelmann (9):
+      batman-adv: Replace C99 int types with kernel type
+      batman-adv: Fix kerneldoc over 80 column lines
+      batman-adv: Remove multiple assignment per line
+      batman-adv: Remove batadv_ types forward declarations
+      batman-adv: Return EINVAL on invalid gw_bandwidth change
+      batman-adv: Fix gw_bandwidth calculation on 32 bit systems
+      batman-adv: Annotate deleting functions with external lock via lockdep
+      batman-adv: Add lockdep_asserts for documented external locks
+      batman-adv: Fix conditional statements indentation
+
+ net/batman-adv/bat_iv_ogm.c            | 102 +++++------
+ net/batman-adv/bitarray.c              |   6 +-
+ net/batman-adv/bitarray.h              |  10 +-
+ net/batman-adv/bridge_loop_avoidance.c |  78 ++++-----
+ net/batman-adv/bridge_loop_avoidance.h |   8 +-
+ net/batman-adv/debugfs.h               |   1 -
+ net/batman-adv/distributed-arp-table.c |  62 +++----
+ net/batman-adv/distributed-arp-table.h |   8 +-
+ net/batman-adv/fragmentation.c         |  13 +-
+ net/batman-adv/gateway_client.c        |  27 +--
+ net/batman-adv/gateway_client.h        |   2 +-
+ net/batman-adv/gateway_common.c        |  67 +++++--
+ net/batman-adv/gateway_common.h        |   1 -
+ net/batman-adv/hash.c                  |   6 +-
+ net/batman-adv/hash.h                  |  12 +-
+ net/batman-adv/icmp_socket.c           |   6 +-
+ net/batman-adv/icmp_socket.h           |   1 -
+ net/batman-adv/main.c                  |  84 ++++-----
+ net/batman-adv/main.h                  |  48 +++--
+ net/batman-adv/multicast.c             |  35 ++--
+ net/batman-adv/multicast.h             |   2 -
+ net/batman-adv/network-coding.c        |  55 +++---
+ net/batman-adv/network-coding.h        |   4 -
+ net/batman-adv/originator.c            |  22 +--
+ net/batman-adv/originator.h            |  11 +-
+ net/batman-adv/packet.h                | 204 +++++++++++-----------
+ net/batman-adv/routing.c               |  24 +--
+ net/batman-adv/routing.h               |   6 +-
+ net/batman-adv/send.c                  |   8 +-
+ net/batman-adv/send.h                  |  11 +-
+ net/batman-adv/soft-interface.c        |  26 ++-
+ net/batman-adv/soft-interface.h        |   4 -
+ net/batman-adv/sysfs.c                 |   4 +-
+ net/batman-adv/sysfs.h                 |   2 -
+ net/batman-adv/translation-table.c     | 308 ++++++++++++++++++---------------
+ net/batman-adv/translation-table.h     |  31 ++--
+ net/batman-adv/types.h                 | 113 ++++++------
+ 37 files changed, 733 insertions(+), 679 deletions(-)
