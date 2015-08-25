@@ -1,39 +1,42 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [PATCH 5/6] RDS: flush the FMR pool less often
-Date: Tue, 25 Aug 2015 12:02:02 -0700
-Message-ID: <1440529323-4171-6-git-send-email-santosh.shilimkar@oracle.com>
-References: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	ssantosh@kernel.org,
-	Santosh Shilimkar <santosh.shilimkar@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440529323-4171-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: Re: [PATCH v3 01/10] ss: rooted out ss type declarations for output
+ formatters
+Date: Tue, 25 Aug 2015 21:13:01 +0200
+Message-ID: <55DCBE3D.20206@gmx.net>
+References: <1440103221-21854-1-git-send-email-matthias.tafelmeier@gmx.net>	<1440103221-21854-2-git-send-email-matthias.tafelmeier@gmx.net> <20150823100758.74a626d4@urahara>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hagen@jauu.net, shemminger@osdl.org,
+	fw@strlen.de, edumazet@google.com, daniel@iogearbox.net
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:56773 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751042AbbHYTNY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2015 15:13:24 -0400
+In-Reply-To: <20150823100758.74a626d4@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-FMR flush is an expensive and time consuming operation. Reduce the
-frequency of FMR pool flush by 50% so that more FMR work gets accumulated
-for more efficient flushing.
+On 08/23/2015 07:07 PM, Stephen Hemminger wrote:
+> On Thu, 20 Aug 2015 22:40:12 +0200
+> Matthias Tafelmeier <matthias.tafelmeier@gmx.net> wrote:
+> 
+>> The prospected output formatters and ss do share type declarations like
+>> slabstat or tcpstat so that the decision has been made to centralize
+>> those declarations in ss_types.h.  Potential future declarations shall
+>> be placed there. The latter should help amend the extent of ss.c as
+>> well.
+>>
+>> Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+>> Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> 
+> I looked at this series, and was going to merge it but the code to do
+> json formatting gets really ugly. Please redo it with the json_writer
+> code I just added.
+> 
 
-Signed-off-by: Santosh Shilimkar <ssantosh@kernel.org>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
- net/rds/ib_rdma.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Original: "See your point there. I will do that. Thanks."
 
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 2ac78c9..e596dfb 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -737,7 +737,7 @@ void rds_ib_free_mr(void *trans_private, int invalidate)
- 
- 	/* If we've pinned too many pages, request a flush */
- 	if (atomic_read(&pool->free_pinned) >= pool->max_free_pinned ||
--	    atomic_read(&pool->dirty_count) >= pool->max_items / 10)
-+	    atomic_read(&pool->dirty_count) >= pool->max_items / 5)
- 		queue_delayed_work(rds_ib_fmr_wq, &pool->flush_worker, 10);
- 
- 	if (invalidate) {
--- 
-1.9.1
+Had a glitch with my email-client. This time without PGP.
