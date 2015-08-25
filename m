@@ -1,45 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: refine pacing rate determination
-Date: Tue, 25 Aug 2015 11:34:04 -0700 (PDT)
-Message-ID: <20150825.113404.916165871303626879.davem@davemloft.net>
-References: <1440203882.29244.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 1/2] Documentation: networking: add a DSA
+ document
+Date: Tue, 25 Aug 2015 14:34:50 -0400
+Message-ID: <20150825183450.GA6808@ketchup.mtl.sfl>
+References: <1440524435-8129-1-git-send-email-f.fainelli@gmail.com>
+ <1440524435-8129-2-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
+	sfeldma@gmail.com, linux@roeck-us.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58755 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754825AbbHYSeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:34:05 -0400
-In-Reply-To: <1440203882.29244.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:49215
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751865AbbHYSex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:34:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1440524435-8129-2-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 21 Aug 2015 17:38:02 -0700
+On 15-08-25 10:40:34, Florian Fainelli wrote:
+> Describe how the DSA subsystem works, its design principles,
+> limitations, and describe in details how to implement a DSA switch
+> driver.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> Changes in v2:
+> 
+> - fixing incomplete sentence in the SWITCHDEV paragraph
+> - fix spelling mistakes spotted by Andrew and Vivien
+> - add additional feedback from Vivien
+> - add a convergence TODO item between SWITCHDEV and DSA
+> - misc fixes and improvements
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When TCP pacing was added back in linux-3.12, we chose
-> to apply a fixed ratio of 200 % against current rate,
-> to allow probing for optimal throughput even during
-> slow start phase, where cwnd can be doubled every other gRTT.
-> 
-> At Google, we found it was better applying a different ratio
-> while in Congestion Avoidance phase.
-> This ratio was set to 120 %.
-> 
-> We've used the normal tcp_in_slow_start() helper for a while,
-> then tuned the condition to select the conservative ratio
-> as soon as cwnd >= ssthresh/2 :
-> 
-> - After cwnd reduction, it is safer to ramp up more slowly,
->   as we approach optimal cwnd.
-> - Initial ramp up (ssthresh == INFINITY) still allows doubling
->   cwnd every other RTT.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
