@@ -1,78 +1,35 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH] drivers: net: xgene: fix: Oops in linkwatch_fire_event
-Date: Tue, 25 Aug 2015 15:03:03 -0700
-Message-ID: <1440540183-11006-1-git-send-email-isubramanian@apm.com>
-Cc: dnelson@redhat.com, linux-arm-kernel@lists.infradead.org,
-	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 0/2] Documentation: dsa
+Date: Tue, 25 Aug 2015 15:33:12 -0700
+Message-ID: <1440541994-13662-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com, sfeldma@gmail.com,
+	linux@roeck-us.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:34798 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756289AbbHYWDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:03:23 -0400
-Received: by igui7 with SMTP id i7so23166750igu.1
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 15:03:22 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35233 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752860AbbHYWfn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:35:43 -0400
+Received: by pacdd16 with SMTP id dd16so137597229pac.2
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 15:35:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ 1065.801569] Internal error: Oops: 96000006 [#1] SMP
-...
-[ 1065.866655] Hardware name: AppliedMicro Mustang/Mustang, BIOS 1.1.0 Apr 22 2015
-[ 1065.873937] Workqueue: events_power_efficient phy_state_machine
-[ 1065.879837] task: fffffe01de105e80 ti: fffffe00bcf18000 task.ti: fffffe00bcf18000
-[ 1065.887288] PC is at linkwatch_fire_event+0xac/0xc0
-[ 1065.892141] LR is at linkwatch_fire_event+0xa0/0xc0
-[ 1065.896995] pc : [<fffffe000060284c>] lr : [<fffffe0000602840>] pstate: 200001c5
-[ 1065.904356] sp : fffffe00bcf1bd00
-...
-[ 1066.196813] Call Trace:
-[ 1066.199248] [<fffffe000060284c>] linkwatch_fire_event+0xac/0xc0
-[ 1066.205140] [<fffffe000061167c>] netif_carrier_off+0x54/0x64
-[ 1066.210773] [<fffffe00004f1654>] phy_state_machine+0x120/0x3bc
-[ 1066.216578] [<fffffe00000d8d10>] process_one_work+0x15c/0x3a8
-[ 1066.222296] [<fffffe00000d9090>] worker_thread+0x134/0x470
-[ 1066.227757] [<fffffe00000df014>] kthread+0xe0/0xf8
-[ 1066.232525] Code: 97f65ee9 f9420660 d538d082 8b000042 (885f7c40)
+Hi all,
 
-The fix is to call phy_disconnect() from xgene_enet_mdio_remove,
-which in turn call cancel_delayed_work_sync().
+This patch series adds some documentation about DSA as a subsystem as well
+as the SF2 driver since it slightly diverges from your average DSA driver ;)
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 3 +++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 5 +++--
- 2 files changed, 6 insertions(+), 2 deletions(-)
+Florian Fainelli (2):
+  Documentation: networking: add a DSA document
+  Documentation: networking: dsa: Add Broadcom SF2 document
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index a626c43..cfa3704 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -801,6 +801,9 @@ int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata)
- 
- void xgene_enet_mdio_remove(struct xgene_enet_pdata *pdata)
- {
-+	if (pdata->phy_dev)
-+		phy_disconnect(pdata->phy_dev);
-+
- 	mdiobus_unregister(pdata->mdio_bus);
- 	mdiobus_free(pdata->mdio_bus);
- 	pdata->mdio_bus = NULL;
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 299eb43..a02ea7f8 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1277,9 +1277,10 @@ static int xgene_enet_remove(struct platform_device *pdev)
- 	mac_ops->tx_disable(pdata);
- 
- 	xgene_enet_napi_del(pdata);
--	xgene_enet_mdio_remove(pdata);
--	xgene_enet_delete_desc_rings(pdata);
-+	if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII)
-+		xgene_enet_mdio_remove(pdata);
- 	unregister_netdev(ndev);
-+	xgene_enet_delete_desc_rings(pdata);
- 	pdata->port_ops->shutdown(pdata);
- 	free_netdev(ndev);
- 
+ Documentation/networking/dsa/bcm_sf2.txt | 113 ++++++
+ Documentation/networking/dsa/dsa.txt     | 615 +++++++++++++++++++++++++++++++
+ 2 files changed, 728 insertions(+)
+ create mode 100644 Documentation/networking/dsa/bcm_sf2.txt
+ create mode 100644 Documentation/networking/dsa/dsa.txt
+
 -- 
-1.9.1
+2.1.0
