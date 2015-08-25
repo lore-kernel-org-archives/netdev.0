@@ -1,7 +1,7 @@
 From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: [PATCH RFC 1/2] net: Introduce helper functions to get the per cpu data
-Date: Tue, 25 Aug 2015 13:24:25 +0530
-Message-ID: <1440489266-31127-2-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Subject: [PATCH RFC 2/2] net: Optimize snmp stat aggregation by walking all the percpu data at once
+Date: Tue, 25 Aug 2015 13:24:26 +0530
+Message-ID: <1440489266-31127-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 References: <y>
  <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Cc: <jiri@resnulli.us>, <edumazet@google.com>,
@@ -13,119 +13,76 @@ Cc: <jiri@resnulli.us>, <edumazet@google.com>,
 	<nacc@linux.vnet.ibm.com>, <srikar@linux.vnet.ibm.com>
 To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
 	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e18.ny.us.ibm.com ([129.33.205.208]:51004 "EHLO
-	e18.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755267AbbHYH5F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 03:57:05 -0400
-Received: from /spool/local
-	by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <raghavendra.kt@linux.vnet.ibm.com>;
-	Tue, 25 Aug 2015 03:57:04 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Docker container creation linearly increased from around 1.6 sec to 7.5 sec
+(at 1000 containers) and perf data showed 50% ovehead in snmp_fold_field.
+
+reason: currently __snmp6_fill_stats64 calls snmp_fold_field that walks
+through per cpu data of an item (iteratively for around 90 items).
+
+idea: This patch tries to aggregate the statistics by going through
+all the items of each cpu sequentially which is reducing cache
+misses.
+
+Docker creation got faster by more than 2x after the patch.
+
+Result:
+                       Before           After
+Docker creation time   6.836s           3.357s
+cache miss             2.7%             1.38%
+
+perf before:
+    50.73%  docker           [kernel.kallsyms]       [k] snmp_fold_field
+     9.07%  swapper          [kernel.kallsyms]       [k] snooze_loop
+     3.49%  docker           [kernel.kallsyms]       [k] veth_stats_one
+     2.85%  swapper          [kernel.kallsyms]       [k] _raw_spin_lock
+
+perf after:
+    10.56%  swapper          [kernel.kallsyms]     [k] snooze_loop
+     8.72%  docker           [kernel.kallsyms]     [k] snmp_get_cpu_field
+     7.59%  docker           [kernel.kallsyms]     [k] veth_stats_one
+     3.65%  swapper          [kernel.kallsyms]     [k] _raw_spin_lock
 
 Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
 ---
- include/net/ip.h   | 10 ++++++++++
- net/ipv4/af_inet.c | 41 +++++++++++++++++++++++++++--------------
- 2 files changed, 37 insertions(+), 14 deletions(-)
+ net/ipv6/addrconf.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index d5fe9f2..93bf12e 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -202,10 +202,20 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
- #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
- #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
- 
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offct);
- unsigned long snmp_fold_field(void __percpu *mib, int offt);
- #if BITS_PER_LONG==32
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset);
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
- #else
-+static inline u64  snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+					size_t syncp_offset)
-+{
-+	return snmp_get_cpu_field(mib, cpu, offct);
-+
-+}
-+
- static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
- {
- 	return snmp_fold_field(mib, offt);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 9532ee8..302e36b 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1448,38 +1448,51 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 21c2c81..2ec905f 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4624,16 +4624,24 @@ static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
  }
- EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
  
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
-+{
-+	return  *(((unsigned long *)per_cpu_ptr(mib, cpu)) + offt);
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field);
-+
- unsigned long snmp_fold_field(void __percpu *mib, int offt)
+ static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
+-				      int items, int bytes, size_t syncpoff)
++					int items, int bytes, size_t syncpoff)
  {
- 	unsigned long res = 0;
- 	int i;
+-	int i;
++	int i, c;
++	u64 *tmp;
+ 	int pad = bytes - sizeof(u64) * items;
+ 	BUG_ON(pad < 0);
  
- 	for_each_possible_cpu(i)
--		res += *(((unsigned long *) per_cpu_ptr(mib, i)) + offt);
-+		res += snmp_get_cpu_field(mib, i, offt);
- 	return res;
- }
- EXPORT_SYMBOL_GPL(snmp_fold_field);
- 
- #if BITS_PER_LONG==32
- 
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset)
-+{
-+	void *bhptr;
-+	struct u64_stats_sync *syncp;
-+	u64 v;
-+	unsigned int start;
++	tmp = kcalloc(items, sizeof(u64), GFP_KERNEL);
 +
-+	bhptr = per_cpu_ptr(mib, cpu);
-+	syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
-+	do {
-+		start = u64_stats_fetch_begin_irq(syncp);
-+		v = *(((u64 *)bhptr) + offt);
-+	} while (u64_stats_fetch_retry_irq(syncp, start));
+ 	/* Use put_unaligned() because stats may not be aligned for u64. */
+ 	put_unaligned(items, &stats[0]);
 +
-+	return v;
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field64);
++	for_each_possible_cpu(c)
++		for (i = 1; i < items; i++)
++			tmp[i] += snmp_get_cpu_field64(mib, c, i, syncpoff);
 +
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
- {
- 	u64 res = 0;
- 	int cpu;
+ 	for (i = 1; i < items; i++)
+-		put_unaligned(snmp_fold_field64(mib, i, syncpoff), &stats[i]);
++		put_unaligned(tmp[i], &stats[i]);
  
- 	for_each_possible_cpu(cpu) {
--		void *bhptr;
--		struct u64_stats_sync *syncp;
--		u64 v;
--		unsigned int start;
--
--		bhptr = per_cpu_ptr(mib, cpu);
--		syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
--		do {
--			start = u64_stats_fetch_begin_irq(syncp);
--			v = *(((u64 *) bhptr) + offt);
--		} while (u64_stats_fetch_retry_irq(syncp, start));
--
--		res += v;
-+		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
- 	}
- 	return res;
+ 	memset(&stats[items], 0, pad);
  }
 -- 
 1.7.11.7
