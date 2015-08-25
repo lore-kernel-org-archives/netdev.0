@@ -1,63 +1,26 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v3 net-next 7/8] geneve: Consolidate Geneve functionality
- in single module.
-Date: Tue, 25 Aug 2015 14:35:53 -0700
-Message-ID: <CAEP_g=8JuqwM=n9Bw5QSBt+g_cieSjUBuTTSkdQnwGsZJYFhkQ@mail.gmail.com>
-References: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
- <1440438195-5695-8-git-send-email-pshelar@nicira.com> <CAEP_g=84tg9nPE-PmmPF_rVW_0ctAmjZj-fxRP-Puf9=Da0++g@mail.gmail.com>
- <CALnjE+ri3yy7xS5NeS+FHzby4LH--6FAXbWS73CkiBYPfVMs4A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] MAINTAINERS: update vmxnet3 driver maintainer
+Date: Tue, 25 Aug 2015 14:46:36 -0700 (PDT)
+Message-ID: <20150825.144636.1212688528974468902.davem@davemloft.net>
+References: <1440451451-13702-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:36790 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756004AbbHYVgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:36:15 -0400
-Received: by lbbpu9 with SMTP id pu9so108543080lbb.3
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 14:36:13 -0700 (PDT)
-In-Reply-To: <CALnjE+ri3yy7xS5NeS+FHzby4LH--6FAXbWS73CkiBYPfVMs4A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sbhatewara@vmware.com, pv-drivers@vmware.com
+To: skhare@vmware.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440451451-13702-1-git-send-email-skhare@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 25, 2015 at 1:54 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Tue, Aug 25, 2015 at 12:03 PM, Jesse Gross <jesse@nicira.com> wrote:
->> On Mon, Aug 24, 2015 at 10:43 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
->>> index c05bc13..8eb875d 100644
->>> --- a/drivers/net/geneve.c
->>> +++ b/drivers/net/geneve.c
->>> @@ -492,36 +813,36 @@ static int geneve_configure(struct net *net, struct net_device *dev,
->> [...]
->>> +       gs = geneve_find_sock(gn, geneve->dst_port);
->>> +       if (gs) {
->>> +               if (metadata) {
->>> +                       if (gs->collect_md)
->>> +                               return -EEXIST;
->>> +                       else
->>> +                               return -EPERM;
->>> +               } else {
->>> +                       if (gs->collect_md)
->>> +                               return -EPERM;
->>> +
->>> +                       t = geneve_lookup(gn, htons(dst_port),
->>> +                                         rem_addr, geneve->vni);
->>> +                       if (t)
->>> +                               return -EBUSY;
->>> +               }
->>> +       }
->>
->> I like the new structure but unfortunately, I think there is a race.
->> If two devices are created with conflicting configurations but neither
->> is brought up then creation of both devices will succeed. However,
->> when the second one is brought up, it will silently collide with the
->> first.
->
-> geneve tunnel is added to hash table during configure time. So the
-> lookup does not have any dependency on device up or down state. The
-> Lookup and hash table updates are done under rtnl lock.
+From: Shrikrishna Khare <skhare@vmware.com>
+Date: Mon, 24 Aug 2015 14:24:11 -0700
 
-But the check for duplicates is contingent on finding a socket. If we
-configure two devices before calling geneve_open(), then there won't
-be a socket yet and therefore no check.
+> Shreyas Bhatewara would no longer maintain the vmxnet3 driver. Taking over
+> the role of vmxnet3 maintainer.
+> 
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> Signed off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+
+Applied, thanks.
