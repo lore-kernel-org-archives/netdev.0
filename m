@@ -1,54 +1,49 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v3 3/4] Add support for driver cross-timestamp to
- PTP_SYS_OFFSET ioctl
-Date: Tue, 25 Aug 2015 09:31:11 +0200
-Message-ID: <20150825073111.GB2016@localhost.localdomain>
-References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
- <1440183128-1384-4-git-send-email-christopher.s.hall@intel.com>
- <alpine.DEB.2.11.1508222226540.3873@nanos>
- <20150822211718.GA8561@netboy>
- <alpine.DEB.2.11.1508231011360.3873@nanos>
- <20150823112556.GA8569@localhost.localdomain>
- <B79D786B7111A34A8CF09F833429C493A90AD3C6@ORSMSX109.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"peterz@infradead.org" <peterz@infradead.org>
-To: "Hall, Christopher S" <christopher.s.hall@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <B79D786B7111A34A8CF09F833429C493A90AD3C6@ORSMSX109.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH] net: compile renesas directory if NET_VENDOR_RENESAS is configured
+Date: Tue, 25 Aug 2015 16:57:56 +0900
+Message-ID: <1440489476-26700-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms+renesas@verge.net.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:57231 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755279AbbHYH6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 03:58:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 08:16:51PM +0000, Hall, Christopher S wrote:
-> 
-> This means: remove code changes from the PTP_SYS_OFFSET ioctl and call getsynctime64() from a new ioctl PTP_SYS_OFFSET_PRECISE.  Right?
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-Yes.
- 
-> And use the same type (struct ptp_sys_offset) for the new ioctl?  Or should a new simplified struct be used? Such as:
-> 
-> struct precise_ptp_sys_offset {
-> 	struct ptp_clock_time device;
-> 	struct ptp_clock_time system;
-> };
+Currently the renesas ethernet driver directory is compiled if SH_ETH is
+configured rather than NET_VENDOR_RENESAS. Although incorrect that was
+quite harmless as until recently as SH_ETH configured the only driver in
+the renesas directory. However, as of c156633f1353 ("Renesas Ethernet AVB
+driver proper") the renesas directory includes another driver, configured
+by RAVB, and it makes little sense for it to have a hidden dependency on
+SH_ETH.
 
-I don't have a strong preference either way.  I would not mind reusing
-the existing struct.
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+[horms: rewrote changelog]
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+---
+ drivers/net/ethernet/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Does it make sense to keep the "cross-timestamp" capabilities flag as-is?
-
-Yes, indeed.
- 
-
-Thanks,
-Richard
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index f42177b11723..ddfc808110a1 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -65,7 +65,7 @@ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_QUALCOMM) += qualcomm/
+ obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
+-obj-$(CONFIG_SH_ETH) += renesas/
++obj-$(CONFIG_NET_VENDOR_RENESAS) += renesas/
+ obj-$(CONFIG_NET_VENDOR_RDC) += rdc/
+ obj-$(CONFIG_NET_VENDOR_ROCKER) += rocker/
+ obj-$(CONFIG_NET_VENDOR_SAMSUNG) += samsung/
+-- 
+2.1.4
