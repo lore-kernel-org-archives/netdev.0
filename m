@@ -1,58 +1,81 @@
-From: Christophe Ricard <christophe.ricard@gmail.com>
-Subject: Re: [RFC] netlink: netlink_ack send a capped message in case of error
-Date: Tue, 25 Aug 2015 21:22:28 +0200
-Message-ID: <55DCC074.3060907@gmail.com>
-References: <CAE4R7bAYUhbUoGK_M=USJW8pgWmBrKsNuzLFmY70aBzti53Vxg@mail.gmail.com>	<CALD+uuz7NHdWU0qqogu6_cs81Ng6gpcCPFUr4WUF+hpQPMaysg@mail.gmail.com>	<20150824185637.GA19923@salvia> <20150824.211921.944778094161045642.davem@davemloft.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv5 net-next 05/10] openvswitch: Add conntrack action
+Date: Tue, 25 Aug 2015 12:22:58 -0700
+Message-ID: <CALnjE+rA2k+VgYiA5ErYx_zW0NHaTTYXyBmg5mcRwo2NYy=ugQ@mail.gmail.com>
+References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
+	<1440462740-23358-6-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jbenc@redhat.com, sameo@linux.intel.com,
-	netdev@vger.kernel.org, christophe-h.ricard@st.com
-To: David Miller <davem@davemloft.net>, pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:37222 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751854AbbHYTWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 15:22:31 -0400
-Received: by widdq5 with SMTP id dq5so24099678wid.0
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 12:22:30 -0700 (PDT)
-In-Reply-To: <20150824.211921.944778094161045642.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	netfilter-devel@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440462740-23358-6-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David, Pablo,
-
-I gave try to your proposed patch.
-Changes in netlink_getsockopt and netlink_setsockopt are working fine.
-
-Changes in netlink_ack looks not to be addressing the correct socket.
-
-I will send an updated version in few minutes.
-
-Best Regards
-Christophe
-
-On 25/08/2015 06:19, David Miller wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date: Mon, 24 Aug 2015 20:56:37 +0200
+On Mon, Aug 24, 2015 at 5:32 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Expose the kernel connection tracker via OVS. Userspace components can
+> make use of the CT action to populate the connection state (ct_state)
+> field for a flow. This state can be subsequently matched.
 >
->> On Mon, Aug 24, 2015 at 10:08:22AM +0200, Christophe Ricard wrote:
->>> Hi Scott,
->>>
->>> I think i understand the potential limitation of my solution.
->>> I saw something was proposed by Jiri Benc who pushed an additional flag to
->>> tell if the payload can be ignored in case of an error.
->>> http://patchwork.ozlabs.org/patch/290976/
->>>
->>> Do you think this one is acceptable ? I am not sure to understand David
->>> last comment.
->> I think David suggests something like the (completely untested)
->> attached patch.
-> Yes, echo'ing the entire message back in an ACK is really pointless.
+> Exposed connection states are OVS_CS_F_*:
+> - NEW (0x01) - Beginning of a new connection.
+> - ESTABLISHED (0x02) - Part of an existing connection.
+> - RELATED (0x04) - Related to an established connection.
+> - INVALID (0x20) - Could not track the connection for this packet.
+> - REPLY_DIR (0x40) - This packet is in the reply direction for the flow.
+> - TRACKED (0x80) - This packet has been sent through conntrack.
 >
-> Especially since if the user really is interested in noticing ACKs
-> it can very easily keep the original request around and match on
-> sequence number, as Pablo's patch's commit message suggests.
+> When the CT action is executed by itself, it will send the packet
+> through the connection tracker and populate the ct_state field with one
+> or more of the connection state flags above. The CT action will always
+> set the TRACKED bit.
 >
-> We're stuck with the current behavior by default, but we can add the
-> new ACK feature to deal with the issue in the long term.
+> When the COMMIT flag is passed to the conntrack action, this specifies
+> that information about the connection should be stored. This allows
+> subsequent packets for the same (or related) connections to be
+> correlated with this connection. Sending subsequent packets for the
+> connection through conntrack allows the connection tracker to consider
+> the packets as ESTABLISHED, RELATED, and/or REPLY_DIR.
+>
+> The CT action may optionally take a zone to track the flow within. This
+> allows connections with the same 5-tuple to be kept logically separate
+> from connections in other zones. If the zone is specified, then the
+> "ct_zone" match field will be subsequently populated with the zone id.
+>
+> IP fragments are handled by transparently assembling them as part of the
+> CT action. The maximum received unit (MRU) size is tracked so that
+> refragmentation can occur during output.
+>
+> IP frag handling contributed by Andy Zhou.
+>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Signed-off-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+
+Patch looks good except one issue.
+
+When I turn off conntrack support (
+CONFIG_OPENVSWITCH_CONNTRACK) I got compilation error:
+
+net/openvswitch/datapath.o: In function `ovs_ct_fill_key':
+
+/home/pravin/linux/net-next/net/openvswitch/conntrack.h:69: multiple
+definition of `ovs_ct_fill_key'
+
+net/openvswitch/actions.o:/home/pravin/linux/net-next/net/openvswitch/conntrack.h:69:
+first defined here
+
+net/openvswitch/dp_notify.o: In function `ovs_ct_fill_key':
+
+/home/pravin/linux/net-next/net/openvswitch/conntrack.h:69: multiple
+definition of `ovs_ct_fill_key'
+
+net/openvswitch/actions.o:/home/pravin/linux/net-next/net/openvswitch/conntrack.h:69:
+first defined here
