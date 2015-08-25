@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable] Revert "dev: set iflink to 0 for virtual
- interfaces"
-Date: Tue, 25 Aug 2015 14:28:16 -0700 (PDT)
-Message-ID: <20150825.142816.387945796147348074.davem@davemloft.net>
-References: <20150825140958.0271ad4e@urahara>
+Subject: Re: [Patch net-next] route: fix a use-after-free
+Date: Tue, 25 Aug 2015 14:29:56 -0700 (PDT)
+Message-ID: <20150825.142956.598034581881826054.davem@davemloft.net>
+References: <1440524333-5902-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, jbenc@redhat.com, cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59795 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59800 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751865AbbHYV2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:28:18 -0400
-In-Reply-To: <20150825140958.0271ad4e@urahara>
+	with ESMTP id S1752291AbbHYV34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:29:56 -0400
+In-Reply-To: <1440524333-5902-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 25 Aug 2015 14:09:58 -0700
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 25 Aug 2015 10:38:53 -0700
 
-> Dave could you include this in next update to 4.1 stable update?
+> This patch fixes the following crash:
+ ...
+> dst is freed right before lwtstate_put(), this is not correct...
+> 
+> Fixes: 61adedf3e3f1 ("route: move lwtunnel state to dst_entry")
+> Acked-by: Jiri Benc <jbenc@redhat.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
 
-Queued up, thanks Stephen.
+Applied, thanks.
