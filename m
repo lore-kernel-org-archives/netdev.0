@@ -1,63 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next:master 1267/1290] net/rds/ib_recv.c:382:28: sparse:
- incorrect type in initializer (different base types)
-Date: Tue, 25 Aug 2015 15:55:00 -0700 (PDT)
-Message-ID: <20150825.155500.290194488854444995.davem@davemloft.net>
-References: <201508260636.uzScUNFH%fengguang.wu@intel.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH repost net-next] net: compile renesas directory if
+ NET_VENDOR_RENESAS is configured
+Date: Wed, 26 Aug 2015 08:55:39 +1000
+Message-ID: <20150825225539.GA30202@vergenet.net>
+References: <20150825080320.GA15681@vergenet.net>
+ <55DC2899.2050205@cogentembedded.com>
+ <55DCDB0D.8060201@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: santosh.shilimkar@oracle.com, kbuild-all@01.org,
-	ajaykumar.hotchandani@oracle.com, ssantosh@kernel.org,
-	netdev@vger.kernel.org
-To: fengguang.wu@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60128 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932072AbbHYWzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:55:01 -0400
-In-Reply-To: <201508260636.uzScUNFH%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55DCDB0D.8060201@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: kbuild test robot <fengguang.wu@intel.com>
-Date: Wed, 26 Aug 2015 06:42:39 +0800
-
-> sparse warnings: (new ones prefixed by >>)
+On Wed, Aug 26, 2015 at 12:15:57AM +0300, Sergei Shtylyov wrote:
+> On 08/25/2015 11:34 AM, Sergei Shtylyov wrote:
 > 
->>> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
->    net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
->    net/rds/ib_recv.c:382:28:    got restricted gfp_t
->    net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
+> >>From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >>
+> >>Currently the renesas ethernet driver directory is compiled if SH_ETH is
+> >>configured rather than NET_VENDOR_RENESAS. Although incorrect that was
+> >>quite harmless as until recently as SH_ETH configured the only driver in
+> >>the renesas directory. However, as of c156633f1353 ("Renesas Ethernet AVB
+> >>driver proper") the renesas directory includes another driver, configured
+> >>by RAVB, and it makes little sense for it to have a hidden dependency on
+> >>SH_ETH.
+> >>
+> >>Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >>[horms: rewrote changelog]
+> >>Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> >
+> >    Sorry about missing that when submitting the AVB driver.
+> 
+>    BTW, why against net-next? I consider this a fix.
 
-Fixed by:
-
-====================
-[PATCH] rds: Fix improper gfp_t usage.
-
->> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
-   net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
-   net/rds/ib_recv.c:382:28:    got restricted gfp_t
-   net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/rds/ib_recv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index 3afdcbd..ed9b41e 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -379,7 +379,7 @@ void rds_ib_recv_refill(struct rds_connection *conn, int prefill, gfp_t gfp)
- 	struct ib_recv_wr *failed_wr;
- 	unsigned int posted = 0;
- 	int ret = 0;
--	int can_wait = gfp & __GFP_WAIT;
-+	bool can_wait = !!(gfp & __GFP_WAIT);
- 	u32 pos;
- 
- 	/* the goal here is to just make sure that someone, somewhere
--- 
-2.1.0
+I wasn't sure which way to go and decided to err on the side of caution with a
+net-next submission. I have no objections to it being considered for next.
