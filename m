@@ -1,44 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] DSA port configuration and status
-Date: Tue, 25 Aug 2015 13:43:54 -0700 (PDT)
-Message-ID: <20150825.134354.1040055031224195146.davem@davemloft.net>
-References: <1440323220-20438-1-git-send-email-andrew@lunn.ch>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv5 net-next 09/10] openvswitch: Allow matching on conntrack label
+Date: Tue, 25 Aug 2015 13:44:58 -0700
+Message-ID: <CALnjE+ra1B=787WBEvn6FV=gvwqEn_k661mFEu_UHSQx+HbQYg@mail.gmail.com>
+References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
+	<1440462740-23358-10-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59416 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755944AbbHYUnz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 16:43:55 -0400
-In-Reply-To: <1440323220-20438-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>, netfilter-devel@vger.kernel.org
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440462740-23358-10-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sun, 23 Aug 2015 11:46:51 +0200
+On Mon, Aug 24, 2015 at 5:32 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Allow matching and setting the ct_label field. As with ct_mark, this is
+> populated by executing the CT action. The label field may be modified by
+> specifying a label and mask nested under the CT action. It is stored as
+> metadata attached to the connection. Label modification occurs after
+> lookup, and will only persist when the conntrack entry is committed by
+> providing the COMMIT flag to the CT action. Labels are currently fixed
+> to 128 bits in size.
+>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 
-> This patchset allows various switch port settings to be configured and
-> port status to be sampled. Some of these patches have been posted
-> before.
-> 
-> The first three patches provide infrastructure for configuring a
-> switch ports link speed and duplex from a fixed_link phy.
-> 
-> Patch four then uses this infrastructure to allow the CPU and DSA
-> ports of a switch to be configured using a fixed-link property in the
-> device tree.
-> 
-> Patches five and six allow a phy-mode property to be specified in the
-> device tree, and allow this to be used for configuring RGMII delays.
-> 
-> Patches seven through nine allow link status, for example that of an
-> SFP module, to be read from a gpio.
-> 
-> Please don't merge these patches until Florian Fainelli has reviewed
-> them.
-
-It looks to me like there will be at least one more revision to this
-series, so I'm not applying this version.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
