@@ -1,39 +1,38 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: iproute2: Behavioural Bug?
-Date: Mon, 24 Aug 2015 23:08:35 -0700
-Message-ID: <CAHA+R7OWyfupqmCk69ykN7TP+sMwUyVtFNX=Mr_Q9DCXRSx6fw@mail.gmail.com>
-References: <CAA5aLPjmomaEv28==0wxtwNeRUguXimJqyWCEFNt0jrOkZ9O7g@mail.gmail.com>
-	<20150824232229.GC5905@breakpoint.cc>
-	<CAA5aLPj6Whq_U3VXx60J+b0rZFj9kucXy8H9NM9rYCTc9OPMoQ@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH 1/3] drivers: net: cpsw: add am335x errata workarround
+ for interrutps
+Date: Tue, 25 Aug 2015 11:47:33 +0530
+Message-ID: <55DC087D.4090604@ti.com>
+References: <1439373175-8650-1-git-send-email-mugunthanvnm@ti.com> <1439373175-8650-2-git-send-email-mugunthanvnm@ti.com> <55DAEC28.3030107@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Akshat Kakkar <akshat.1984@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	Tony Lindgren <tony@atomide.com>, <alex.aring@gmail.com>
+To: Sekhar Nori <nsekhar@ti.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f182.google.com ([209.85.160.182]:35655 "EHLO
-	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754155AbbHYGIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 02:08:36 -0400
-Received: by ykbi184 with SMTP id i184so145808581ykb.2
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 23:08:36 -0700 (PDT)
-In-Reply-To: <CAA5aLPj6Whq_U3VXx60J+b0rZFj9kucXy8H9NM9rYCTc9OPMoQ@mail.gmail.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:42440 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752825AbbHYGRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2015 02:17:42 -0400
+In-Reply-To: <55DAEC28.3030107@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 10:14 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
-> Dear Florian,
->
-> There are two filters 15:2:2 and 15:2:3 and I have deleted only
-> 15:2:3, so 15:2:2 will still be there and hence this condition
-> "destroy proto tp when all filters are gone" should not be applicable
-> over here.
->
+On Monday 24 August 2015 03:34 PM, Sekhar Nori wrote:
+> Hi Mugunthan,
+> 
+> On Wednesday 12 August 2015 03:22 PM, Mugunthan V N wrote:
+>> > +static const struct of_device_id cpsw_of_mtable[] = {
+>> > +	{ .compatible = "ti,cpsw", .data = &cpsw_devtype[CPSW], },
+>> > +	{ .compatible = "ti,am335x-cpsw", .data = &cpsw_devtype[AM335X_CPSW], },
+>> > +	{ .compatible = "ti,am4372-cpsw", .data = &cpsw_devtype[AM4372_CPSW], },
+>> > +	{ .compatible = "ti,dra7-cpsw", .data = &cpsw_devtype[DRA7_CPSW], },
+> I do not see documentation added for these compatibles. Since the series
+> is already applied, can you send additional patches adding documentation?
 
-Florian is correct, it _does_ look like this is caused by my patch,
-I guess some check in u32_destroy() isn't correct.
+Will submit a patch ASAP
 
-It's late here, I will look into this tomorrow.
-
-Thanks for the report anyway!
+Regards
+Mugunthan V N
