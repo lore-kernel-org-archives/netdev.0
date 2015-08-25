@@ -1,99 +1,64 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v2] sctp: asconf's process should verify address parameter
- is in the beginning
-Date: Tue, 25 Aug 2015 12:03:59 -0400
-Message-ID: <55DC91EF.8030706@redhat.com>
-References: <3ffe8f6b86e33c016dddec672fab23a206c21acf.1440505764.git.lucien.xin@gmail.com> <20150825140113.GD1873@localhost.localdomain>
-Reply-To: vyasevic@redhat.com
+From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC 2/2] net: Optimize snmp stat aggregation by walking
+ all the percpu data at once
+Date: Tue, 25 Aug 2015 21:36:10 +0530
+Message-ID: <55DC9272.4050402@linux.vnet.ibm.com>
+References: <y> <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com> <1440489266-31127-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com> <1440512908.8932.11.camel@edumazet-glaptop2.roam.corp.google.com> <55DC8E06.2040007@linux.vnet.ibm.com> <1440518424.8932.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	network dev <netdev@vger.kernel.org>, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, jiri@resnulli.us,
+	edumazet@google.com, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
+	srikar@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46335 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754784AbbHYQED (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2015 12:04:03 -0400
-In-Reply-To: <20150825140113.GD1873@localhost.localdomain>
+Received: from e23smtp01.au.ibm.com ([202.81.31.143]:50835 "EHLO
+	e23smtp01.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755187AbbHYQJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 12:09:23 -0400
+Received: from /spool/local
+	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <raghavendra.kt@linux.vnet.ibm.com>;
+	Wed, 26 Aug 2015 02:09:20 +1000
+In-Reply-To: <1440518424.8932.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2015 10:01 AM, Marcelo Ricardo Leitner wrote:
-> On Tue, Aug 25, 2015 at 08:29:24PM +0800, Xin Long wrote:
->> in sctp_process_asconf(), we get address parameter from the beginning of
->> the addip params. but we never check if it's really there. if the addr
->> param is not there, it still can pass sctp_verify_asconf(), then to be
->> handled by sctp_process_asconf(), it will not be safe.
+On 08/25/2015 09:30 PM, Eric Dumazet wrote:
+> On Tue, 2015-08-25 at 21:17 +0530, Raghavendra K T wrote:
+>> On 08/25/2015 07:58 PM, Eric Dumazet wrote:
+>
+>>>
+>>>
+>>> This is a great idea, but kcalloc()/kmalloc() can fail and you'll crash
+>>> the whole kernel at this point.
+>>>
 >>
->> so add a code in sctp_verify_asconf() to check the address parameter is in
->> the beginning, or return false to send abort.
->>
->> v1->v2:
->>  * put the check behind the params' length verify.
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  net/sctp/sm_make_chunk.c | 7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
->> index 06320c8..89a4d1c 100644
->> --- a/net/sctp/sm_make_chunk.c
->> +++ b/net/sctp/sm_make_chunk.c
->> @@ -3166,6 +3166,13 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
->>  		return false;
->>  	if (!addr_param_needed && addr_param_seen)
->>  		return false;
->> +	if (addr_param_needed && addr_param_seen) {
->> +		/* Ensure the address parameter is in the beginning */
->> +		param.v = chunk->skb->data + sizeof(sctp_addiphdr_t);
-> 
-> Using param.v before the loop made sense but after the loop, it will
-> cause all packets that hits here to be reject due to the check below.
-> 
->> +		if (param.p->type != SCTP_PARAM_IPV4_ADDRESS &&
->> +		    param.p->type != SCTP_PARAM_IPV6_ADDRESS)
->> +			return false;
->> +	}
->>  	if (param.v != chunk->chunk_end)
->    this one    -----^
-> 
-> Maybe it's easier if you put this check inside the loop for each ipv4/6,
-> and check if it is the first parameter or not by mimicing the way
-> sctp_walk_params() finds the first chunk, it's just a pointer
-> derreference and that was already checked and performed to reach there.
-> 
-> (You can have some logic with addr_param_seen so you don't catch the
-> multiple parameters in there.)
+>> Good catch, and my bad. Though system is in bad memory condition,
+>> since fill_stat is not critical for the system do you think silently
+>> returning from here is a good idea?
+>> or do you think we should handle with -ENOMEM way up.?
+>
+> Hmm... presumably these 288 bytes could be allocated in
+> inet6_fill_ifla6_attrs() stack frame.
+>
+> Also it is weird we fill all these stats for a device we just created
+> and never enabled : initial stats are all 0 for them.
+>
 
-Exactly!
+Yes it is.. Initially I was even thinking
 
-something like this:
-	SCTP_PARAM_IPV4_ADDRESS:
-		if (param.v == addip->addip_hdr.params)
-			addr_param_seen = true;
+1. if we could disable the stat filling just after creation ( only
+allocate the space for statistics but do not fill).
 
-Thus making sure that the parameter as seen only when it's at the beginning...
+2. should we have a PROC_FS_NET_SNMP config which we can disable if not
+necessary.
 
-Then later we can do things like:
-	SCTP_PARAM_IPV4_ADDRESS:
-		if (addr_param_seen) {
-			/* peer placed multiple address parameters into the same
-			 * asconf. reject it.
-			 */
-			return false;
-		}
-
--vlad
-
-
-> 
->   Marcelo
-> 
->>  		return false;
->>  
->> -- 
->> 2.1.0
->>
+3. should we defer this snmp_fold_walk to a workqueue. (unfortunately
+there is not much to do after this stat filling which can run in
+parallel before we wait for completion.. or may be there is a way).
