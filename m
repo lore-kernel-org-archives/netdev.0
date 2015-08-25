@@ -1,46 +1,33 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] route: put lwstate before freeing dst to avoid use after free
-Date: Tue, 25 Aug 2015 14:25:14 -0400
-Message-ID: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
-Cc: jbenc@redhat.com, roopa@cumulusnetworks.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <sasha.levin@oracle.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:35116 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755246AbbHYSZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:25:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCHv5 net-next 06/10] openvswitch: Allow matching on
+ conntrack mark
+Date: Tue, 25 Aug 2015 20:27:04 +0200
+Message-ID: <20150825182704.GK3707@pox.localdomain>
+References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
+ <1440462740-23358-7-git-send-email-joestringer@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, pshelar@nicira.com,
+	linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	fwestpha@redhat.com, hannes@redhat.com, jpettit@nicira.com,
+	jesse@nicira.com, netfilter-devel@vger.kernel.org
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1440462740-23358-7-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 61adedf3 ("route: move lwtunnel state to dst_entry") is trying to
-release lwstate after getting rid of dst, which causes a use-after-free
-trying to access dst->lwstate.
+On 08/24/15 at 05:32pm, Joe Stringer wrote:
+> Allow matching and setting the ct_mark field. As with ct_state and
+> ct_zone, these fields are populated when the CT action is executed. To
+> write to this field, a value and mask can be specified as a nested
+> attribute under the CT action. This data is stored with the conntrack
+> entry, and is executed after the lookup occurs for the CT action. The
+> conntrack entry itself must be committed using the COMMIT flag in the CT
+> action flags for this change to persist.
+> 
+> Signed-off-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 
-Fixes: 61adedf3 ("route: move lwtunnel state to dst_entry")
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/core/dst.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 50dcdbb..477035e 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -262,11 +262,12 @@ again:
- 	if (dst->dev)
- 		dev_put(dst->dev);
- 
-+	lwtstate_put(dst->lwtstate);
-+
- 	if (dst->flags & DST_METADATA)
- 		kfree(dst);
- 	else
- 		kmem_cache_free(dst->ops->kmem_cachep, dst);
--	lwtstate_put(dst->lwtstate);
- 
- 	dst = child;
- 	if (dst) {
--- 
-1.7.10.4
+Acked-by: Thomas Graf <tgraf@suug.ch>
