@@ -1,43 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH repost net-next] net: compile renesas directory if
- NET_VENDOR_RENESAS is configured
-Date: Wed, 26 Aug 2015 08:55:39 +1000
-Message-ID: <20150825225539.GA30202@vergenet.net>
-References: <20150825080320.GA15681@vergenet.net>
- <55DC2899.2050205@cogentembedded.com>
- <55DCDB0D.8060201@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next] r8169: Add values missing in @get_stats64
+ from HW counters
+Date: Tue, 25 Aug 2015 15:59:21 -0700 (PDT)
+Message-ID: <20150825.155921.399025256241133988.davem@davemloft.net>
+References: <1440413559-9354-1-git-send-email-vinschen@redhat.com>
+	<20150825.141540.472110106537790402.davem@davemloft.net>
+	<20150825225406.GA24297@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55DCDB0D.8060201@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vinschen@redhat.com, netdev@vger.kernel.org, hayeswang@realtek.com,
+	ivecera@redhat.com, nic_swsd@realtek.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60150 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752311AbbHYW7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:59:23 -0400
+In-Reply-To: <20150825225406.GA24297@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 26, 2015 at 12:15:57AM +0300, Sergei Shtylyov wrote:
-> On 08/25/2015 11:34 AM, Sergei Shtylyov wrote:
-> 
-> >>From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >>
-> >>Currently the renesas ethernet driver directory is compiled if SH_ETH is
-> >>configured rather than NET_VENDOR_RENESAS. Although incorrect that was
-> >>quite harmless as until recently as SH_ETH configured the only driver in
-> >>the renesas directory. However, as of c156633f1353 ("Renesas Ethernet AVB
-> >>driver proper") the renesas directory includes another driver, configured
-> >>by RAVB, and it makes little sense for it to have a hidden dependency on
-> >>SH_ETH.
-> >>
-> >>Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >>[horms: rewrote changelog]
-> >>Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> >
-> >    Sorry about missing that when submitting the AVB driver.
-> 
->    BTW, why against net-next? I consider this a fix.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 26 Aug 2015 00:54:06 +0200
 
-I wasn't sure which way to go and decided to err on the side of caution with a
-net-next submission. I have no objections to it being considered for next.
+> David Miller <davem@davemloft.net> :
+> [...]
+>> Your counter offsets should be read at probe time, not open time.
+> 
+> It can be done but the "CmdRxEnb / rx traffic must be enabled" constraint
+> will make it a major pita. 
+> 
+> Reading counter offsets at the end of open() naturally solves this
+> constraint (retentive error unwinding in opne() stops being completely
+> trivial though :o/ ).
+
+So you can manage whether you've done the "once per device probe"
+counter reset, and act upon it at the end of ->open().
+
+>> Bringing the interface is brought down/up should not reset the
+>> counters.
+> 
+> Afaiks rtl8169_tc_offsets.inited in rtl8169_init_counter_offsets
+> takes care of it: it's set during the first open() after probe().
+
+Ok, then it's fine.
