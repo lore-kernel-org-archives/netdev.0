@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vrf: Add ethernet header for pass through VRF
- device
-Date: Tue, 25 Aug 2015 14:02:20 -0700 (PDT)
-Message-ID: <20150825.140220.156958823239060297.davem@davemloft.net>
-References: <1440355260-16528-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [RFC, RFT PATCH 1/2] dl2k: Add support for IP1000A-based cards
+Date: Tue, 25 Aug 2015 14:04:30 -0700 (PDT)
+Message-ID: <20150825.140430.663421843230467362.davem@davemloft.net>
+References: <1440363988-12325-1-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59530 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbbHYVCV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:02:21 -0400
-In-Reply-To: <1440355260-16528-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	romieu@fr.zoreil.com, sorbica@icplus.com.tw
+To: linux@rainbow-software.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440363988-12325-1-git-send-email-linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Sun, 23 Aug 2015 12:41:00 -0600
+From: Ondrej Zary <linux@rainbow-software.org>
+Date: Sun, 23 Aug 2015 23:06:27 +0200
 
-> @@ -250,6 +253,17 @@ static netdev_tx_t vrf_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  static netdev_tx_t vrf_finish(struct sock *sk, struct sk_buff *skb)
->  {
-> +	int err;
-> +
-> +	__skb_pull(skb, skb_network_offset(skb));
-> +	err = dev_hard_header(skb, skb->dev, ntohs(skb->protocol),
-> +			      NULL, NULL, skb->len);
-> +
-> +	if (err < 0) {
-> +		vrf_tx_error(skb->dev, skb);
-> +		return -EINVAL;
-> +	}
-> +
->  	return dev_queue_xmit(skb);
+> Add support for IP1000A chips to dl2k driver.
+> IP1000A chip looks like a TC9020 with integrated PHY.
+> 
+> Tested with Asus NX1101.
 
-This is expensive and rediculous to do for every TX frame.
+You're saying the PHY support is incomplete, so gigabit isn't even
+detected for these chips.
 
-You'll need to find another way.
+So in a way this is a regression of sorts.
+
+Come back with these proposed changes once you have the PHY support
+situation sorted out.
+
+Thanks.
