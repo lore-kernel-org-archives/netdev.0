@@ -1,45 +1,49 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH RFC 2/5] net: ipv4: Skip in_dev initialization for IFF_L2_ONLY interfaces
-Date: Tue, 25 Aug 2015 15:50:12 -0700
-Message-ID: <1440543015-14693-3-git-send-email-f.fainelli@gmail.com>
-References: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH RFC 0/5] net: L2 only interfaces
+Date: Tue, 25 Aug 2015 15:50:10 -0700
+Message-ID: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch, linux@roeck-us.net,
 	jiri@resnulli.us, sfeldma@gmail.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34022 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932072AbbHYWxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:53:50 -0400
-Received: by pabzx8 with SMTP id zx8so47371820pab.1
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 15:53:50 -0700 (PDT)
-In-Reply-To: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33994 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755685AbbHYWxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:53:48 -0400
+Received: by pabzx8 with SMTP id zx8so47371061pab.1
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 15:53:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IFF_L2_ONLY interfaces are Layer-2 only and do not support configuration
-of IPv4 addresses, nor the full IPv4 protocol stack. Do nothing for
-these interfaces.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/ipv4/devinet.c | 3 +++
- 1 file changed, 3 insertions(+)
+This patch series implements a L2 only interface concept which basically denies
+any kind of IP address configuration on these interfaces, but still allows them
+to be used as configuration end-points to keep using ethtool and friends.
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 2d9cb1748f81..30068754e821 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1383,6 +1383,9 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
- 	ASSERT_RTNL();
- 
- 	if (!in_dev) {
-+		if (dev->flags & IFF_L2_ONLY)
-+			goto out;
-+
- 		if (event == NETDEV_REGISTER) {
- 			in_dev = inetdev_init(dev);
- 			if (IS_ERR(in_dev))
+A cleaner approach might be to finally come up with the concept of net_port
+which a net_device would be a superset of, but this still raises tons of
+questions as to whether we should be modifying userland tools to be able to
+configure/query these interfaces. During all the switch talks/discussions last
+year, it seemed to me like th L2-only interface is closest we have to a
+"network port".
+
+Comments, flames, flying tomatoes welcome!
+
+Florian Fainelli (5):
+  net: add IFF_L2_ONLY flag
+  net: ipv4: Skip in_dev initialization for IFF_L2_ONLY interfaces
+  net: ipv6: Skip in6_dev initialization for IFF_L2_ONLY interfaces
+  net: dsa: Flag slave network devices with IFF_L2_ONLY
+  net: dsa: bcm_sf2: Allow disabling tagging protocol
+
+ drivers/net/dsa/bcm_sf2.c | 16 +++++++++++++---
+ include/uapi/linux/if.h   |  5 ++++-
+ net/dsa/slave.c           |  1 +
+ net/ipv4/devinet.c        |  3 +++
+ net/ipv6/addrconf.c       |  4 ++++
+ 5 files changed, 25 insertions(+), 4 deletions(-)
+
 -- 
 2.1.0
