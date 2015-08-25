@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: fix multiple inclusion of vxlan.h
-Date: Tue, 25 Aug 2015 14:32:26 -0700 (PDT)
-Message-ID: <20150825.143226.1387694042048934503.davem@davemloft.net>
-References: <27e0c4c1aec49f461ba96fac8c40f69b46ef06dd.1440520548.git.jbenc@redhat.com>
+Subject: Re: [PATCH net] ip6_gre: release cached dst on tunnel removal
+Date: Tue, 25 Aug 2015 14:34:01 -0700 (PDT)
+Message-ID: <20150825.143401.1316801578363855926.davem@davemloft.net>
+References: <1440512434-4488-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mark.d.rustad@intel.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, huaibin.wang@6wind.com, xeb@mail.ru
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59827 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59838 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751865AbbHYVc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:32:27 -0400
-In-Reply-To: <27e0c4c1aec49f461ba96fac8c40f69b46ef06dd.1440520548.git.jbenc@redhat.com>
+	with ESMTP id S1755749AbbHYVeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:34:02 -0400
+In-Reply-To: <1440512434-4488-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue, 25 Aug 2015 18:36:50 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 25 Aug 2015 16:20:34 +0200
 
-> The vxlan_get_sk_family inline function was added after the last #endif,
-> making multiple inclusion of net/vxlan.h fail. Move it to the proper place.
+> From: huaibin Wang <huaibin.wang@6wind.com>
 > 
-> Reported-by: Mark Rustad <mark.d.rustad@intel.com>
-> Fixes: 705cc62f6728c ("vxlan: provide access function for vxlan socket address family")
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> When a tunnel is deleted, the cached dst entry should be released.
+> 
+> This problem may prevent the removal of a netns (seen with a x-netns IPv6
+> gre tunnel):
+>   unregister_netdevice: waiting for lo to become free. Usage count = 3
+> 
+> CC: Dmitry Kozlov <xeb@mail.ru>
+> Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
+> Signed-off-by: huaibin Wang <huaibin.wang@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
