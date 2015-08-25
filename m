@@ -1,76 +1,64 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v2] enic: reduce ioread in devcmd2
-Date: Tue, 25 Aug 2015 14:15:11 +0530
-Message-ID: <1440492311-22950-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:64980 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752545AbbHYIpY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2015 04:45:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] macvtap/macvlan: use IFF_NO_QUEUE
+Date: Tue, 25 Aug 2015 13:17:30 +0300
+Message-ID: <20150825131608-mutt-send-email-mst@redhat.com>
+References: <1440405192-25926-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1440405192-25926-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-posted_index is RO in firmware. We need not do ioread everytime to get
-posted index. Store posted index locally.
+On Mon, Aug 24, 2015 at 04:33:12PM +0800, Jason Wang wrote:
+> For macvlan, switch to use IFF_NO_QUEUE instead of tx_queue_len = 0.
+> 
+> For macvtap, after commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
+> ("macvtap: Add support of packet capture on macvtap
+> device."). Multiqueue macvtap suffers from single qdisc lock
+> contention. This is because macvtap claims a non zero tx_queue_len and
+> it reuses this value as it socket receive queue size.Thanks to
+> IFF_NO_QUEUE, we can remove the lock contention without breaking
+> existing socket receive queue length logic.
+> 
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Vladislav Yasevich <vyasevic@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
-v2: initialize devcmd2->posted properly in vnic_dev_init_devcmd2
+Seems to make sense. Give me a day or two to get over the jet lag
+(and get out from under the pile of mail accumulated while I was traveling),
+I'll review properly and ack.
 
- drivers/net/ethernet/cisco/enic/vnic_dev.c | 8 +++++---
- drivers/net/ethernet/cisco/enic/vnic_wq.h  | 1 +
- 2 files changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index 19a49a6..a3badef 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -301,12 +301,12 @@ static int _vnic_dev_cmd2(struct vnic_dev *vdev, enum vnic_devcmd_cmd cmd,
- 	struct devcmd2_result *result = dc2c->result + dc2c->next_result;
- 	unsigned int i;
- 	int delay, err;
--	u32 fetch_index, posted, new_posted;
-+	u32 fetch_index, new_posted;
-+	u32 posted = dc2c->posted;
- 
--	posted = ioread32(&dc2c->wq_ctrl->posted_index);
- 	fetch_index = ioread32(&dc2c->wq_ctrl->fetch_index);
- 
--	if (posted == 0xFFFFFFFF || fetch_index == 0xFFFFFFFF)
-+	if (fetch_index == 0xFFFFFFFF)
- 		return -ENODEV;
- 
- 	new_posted = (posted + 1) % DEVCMD2_RING_SIZE;
-@@ -331,6 +331,7 @@ static int _vnic_dev_cmd2(struct vnic_dev *vdev, enum vnic_devcmd_cmd cmd,
- 	 */
- 	wmb();
- 	iowrite32(new_posted, &dc2c->wq_ctrl->posted_index);
-+	dc2c->posted = new_posted;
- 
- 	if (dc2c->cmd_ring[posted].flags & DEVCMD2_FNORESULT)
- 		return 0;
-@@ -402,6 +403,7 @@ static int vnic_dev_init_devcmd2(struct vnic_dev *vdev)
- 
- 	enic_wq_init_start(&vdev->devcmd2->wq, 0, fetch_index, fetch_index, 0,
- 			   0);
-+	vdev->devcmd2->posted = fetch_index;
- 	vnic_wq_enable(&vdev->devcmd2->wq);
- 
- 	err = vnic_dev_alloc_desc_ring(vdev, &vdev->devcmd2->results_ring,
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-index 8944af9..0120961 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_wq.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-@@ -97,6 +97,7 @@ struct devcmd2_controller {
- 	int color;
- 	struct vnic_dev_ring results_ring;
- 	struct vnic_wq wq;
-+	u32 posted;
- };
- 
- static inline unsigned int vnic_wq_desc_avail(struct vnic_wq *wq)
--- 
-2.5.0
+> ---
+>  drivers/net/macvlan.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 47da435..09d8718 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -1056,7 +1056,7 @@ void macvlan_common_setup(struct net_device *dev)
+>  
+>  	dev->priv_flags	       &= ~IFF_TX_SKB_SHARING;
+>  	netif_keep_dst(dev);
+> -	dev->priv_flags	       |= IFF_UNICAST_FLT;
+> +	dev->priv_flags	       |= IFF_UNICAST_FLT | IFF_NO_QUEUE;
+>  	dev->netdev_ops		= &macvlan_netdev_ops;
+>  	dev->destructor		= free_netdev;
+>  	dev->header_ops		= &macvlan_hard_header_ops;
+> @@ -1067,7 +1067,6 @@ EXPORT_SYMBOL_GPL(macvlan_common_setup);
+>  static void macvlan_setup(struct net_device *dev)
+>  {
+>  	macvlan_common_setup(dev);
+> -	dev->tx_queue_len	= 0;
+>  }
+>  
+>  static int macvlan_port_create(struct net_device *dev)
+> -- 
+> 2.1.4
