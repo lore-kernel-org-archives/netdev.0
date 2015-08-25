@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ppp: implement x-netns support
-Date: Tue, 25 Aug 2015 14:11:51 -0700 (PDT)
-Message-ID: <20150825.141151.1600040073857838816.davem@davemloft.net>
-References: <7bed7d73ab7508dd1898bcb83d9523772a89bcf9.1440408699.git.g.nault@alphalink.fr>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2 net-next] r8169: Add values missing in @get_stats64
+ from HW counters
+Date: Tue, 25 Aug 2015 23:14:50 +0200
+Message-ID: <20150825211450.GA22781@electric-eye.fr.zoreil.com>
+References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
+ <1440151756-18165-1-git-send-email-vinschen@redhat.com>
+ <20150821193926.GA16437@electric-eye.fr.zoreil.com>
+ <20150821220756.GI19683@calimero.vinschen.de>
+ <20150821235940.GA20313@electric-eye.fr.zoreil.com>
+ <20150822083916.GA17408@calimero.vinschen.de>
+ <20150822112334.GB24519@electric-eye.fr.zoreil.com>
+ <20150824073348.GL19683@calimero.vinschen.de>
+ <20150824233346.GA30812@electric-eye.fr.zoreil.com>
+ <20150825083916.GB5046@calimero.vinschen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org
-To: g.nault@alphalink.fr
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
+	Ivan Vecera <ivecera@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	nic_swsd <nic_swsd@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59693 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755847AbbHYVLw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:11:52 -0400
-In-Reply-To: <7bed7d73ab7508dd1898bcb83d9523772a89bcf9.1440408699.git.g.nault@alphalink.fr>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34198 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752896AbbHYVPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 17:15:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20150825083916.GB5046@calimero.vinschen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Mon, 24 Aug 2015 11:35:30 +0200
+Corinna Vinschen <vinschen@redhat.com> :
+[...]
+> Ok.  I hope v4 of the patch is ok?
 
-> Let packets move from one netns to the other at PPP encapsulation and
-> decapsulation time.
-> 
-> PPP units and channels remain in the netns in which they were
-> originally created. Only the net_device may move to a different
-> namespace. Cross netns handling is thus transparent to lower PPP
-> layers (PPPoE, L2TP, etc.).
-> 
-> PPP devices are automatically unregistered when their netns gets
-> removed. So read() and poll() on the unit file descriptor will
-> respectively receive EOF and POLLHUP. Channels aren't affected.
-> 
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-> ---
-> v2: rebase on top of net-next
+The whole map...unmap sequence - memcpy included - could be in a single
+function and the comments in the code are imho a bit verbose but it's
+good enough as is.
 
-Applied, thank you.
+-- 
+Ueimor
