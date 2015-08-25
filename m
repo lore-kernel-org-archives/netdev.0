@@ -1,68 +1,73 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 1267/1290] net/rds/ib_recv.c:382:28: sparse:
- incorrect type in initializer (different base types)
-Date: Wed, 26 Aug 2015 06:42:39 +0800
-Message-ID: <201508260636.uzScUNFH%fengguang.wu@intel.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] inetpeer: Add support for VRFs
+Date: Tue, 25 Aug 2015 15:41:36 -0700
+Message-ID: <55DCEF20.5080908@cumulusnetworks.com>
+References: <1440339964-16075-1-git-send-email-dsa@cumulusnetworks.com>	<20150824001514.GD21926@pox.localdomain>	<55DA7AFE.5040301@cumulusnetworks.com> <20150825.134759.1592811364914291771.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org,
-	Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>,
-	Santosh Shilimkar <ssantosh@kernel.org>, netdev@vger.kernel.org
-To: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, shm@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:62356 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751798AbbHYWjg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2015 18:39:36 -0400
-Content-Disposition: inline
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36129 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752105AbbHYWli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:41:38 -0400
+Received: by pacgr6 with SMTP id gr6so4553643pac.3
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 15:41:38 -0700 (PDT)
+In-Reply-To: <20150825.134759.1592811364914291771.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   04e1b7341dc33abe4dd3f761e2e9137701e55684
-commit: 73ce4317bf983282593aff710b112a7e705620c3 [1267/1290] RDS: make sure we post recv buffers
-reproduce:
-  # apt-get install sparse
-  git checkout 73ce4317bf983282593aff710b112a7e705620c3
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+On 8/25/15 1:47 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Sun, 23 Aug 2015 20:01:34 -0600
+>
+>> On 8/23/15 6:15 PM, Thomas Graf wrote:
+>>> On 08/23/15 at 08:26am, David Ahern wrote:
+>>>> inetpeer caches based on address only, so duplicate IP addresses
+>>>> within
+>>>> a namespace return the same cached entry. Similar to IP fragments
+>>>> handle
+>>>> duplicate addresses across VRFs by adding the VRF master device index
+>>>> to
+>>>> the lookup.
+>>>
+>>> We have a lot of other places which use the address only. Are you
+>>> going to add the VRF id to all these places as well?
+>>>
+>>
+>> If appropriate, yes. I have fixed IP fragments and this patch fixes
+>> inetpeer cache. In both cases (L3 artifacts) the vrf device index
+>> provides the means to uniquely identify duplicate IP addresses within
+>> a namespace. If you know of other code that might be impacted I will
+>> investigate and fix as needed.
+>
+> Anyways, what this inetpeer patch is doing is the wrong abstraction.
+>
+> The key is really "daddr + netdev" so make a helper that works using
+> those arguments.
 
+That's what I have here:
 
-sparse warnings: (new ones prefixed by >>)
+struct inetpeer_addr {
+         struct inetpeer_addr_base       addr;
+         __u16                           family;
+#if IS_ENABLED(CONFIG_NET_VRF)
+         int vif;
+#endif
+};
 
->> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
-   net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
-   net/rds/ib_recv.c:382:28:    got restricted gfp_t
-   net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
+the addr_compare then checks the vif (VRF device index) after the N-word 
+address compare.
 
-vim +382 net/rds/ib_recv.c
+>
+> Then it is clear as we propagate this around that addresses need to
+> be coupled with the device in question in order to be keyed properly.
+>
 
-   366	}
-   367	
-   368	/*
-   369	 * This tries to allocate and post unused work requests after making sure that
-   370	 * they have all the allocations they need to queue received fragments into
-   371	 * sockets.
-   372	 *
-   373	 * -1 is returned if posting fails due to temporary resource exhaustion.
-   374	 */
-   375	void rds_ib_recv_refill(struct rds_connection *conn, int prefill, gfp_t gfp)
-   376	{
-   377		struct rds_ib_connection *ic = conn->c_transport_data;
-   378		struct rds_ib_recv_work *recv;
-   379		struct ib_recv_wr *failed_wr;
-   380		unsigned int posted = 0;
-   381		int ret = 0;
- > 382		int can_wait = gfp & __GFP_WAIT;
-   383		u32 pos;
-   384	
-   385		/* the goal here is to just make sure that someone, somewhere
-   386		 * is posting buffers.  If we can't get the refill lock,
-   387		 * let them do their thing
-   388		 */
-   389		if (!acquire_refill(conn))
-   390			return;
+Meaning rename struct inetpeer_addr to struct inetpeer_key and 
+addr_compare to entry_compare or key_compare? Everything else still 
+treats the address + VRF device as the key.
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+David
