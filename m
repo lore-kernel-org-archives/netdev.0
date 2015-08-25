@@ -1,74 +1,83 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Question] Usage of dev_hold()/dev_put()
-Date: Tue, 25 Aug 2015 07:24:49 -0700
-Message-ID: <1440512689.8932.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <60A73B7A161A82449A7DB7B382BFD155371410A6@SZXEMA504-MBS.china.huawei.com>
+Subject: Re: [PATCH RFC 2/2] net: Optimize snmp stat aggregation by walking
+ all the percpu data at once
+Date: Tue, 25 Aug 2015 07:28:28 -0700
+Message-ID: <1440512908.8932.11.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <y>
+	 <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+	 <1440489266-31127-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Qinchuanyu <qinchuanyu@huawei.com>, Yewudi <yewudi@huawei.com>,
-	liuyongan 00175866 <l00175866@notesmail.huawei.com.cn>,
-	Wangbicheng <wangbicheng@huawei.com>,
-	Yan Chen <Y.Chen@huawei.com>
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:32858 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbbHYOYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 10:24:54 -0400
-Received: by pacti10 with SMTP id ti10so52739465pac.0
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 07:24:54 -0700 (PDT)
-In-Reply-To: <60A73B7A161A82449A7DB7B382BFD155371410A6@SZXEMA504-MBS.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, jiri@resnulli.us,
+	edumazet@google.com, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
+	srikar@linux.vnet.ibm.com
+To: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440489266-31127-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-08-25 at 08:28 +0000, Zhangjie (HZ) wrote:
-> Hi,
->=20
-> The comment of function dev_hold() and dev_put() are really simple.
->=20
-> Actually, I can=E2=80=99t find a rule to follow.
->=20
-> Where should I call dev_hold()/dev_put()?
->=20
-> Are they necessary during xmit or receive or only in register/release=
-?
->=20
-> I find that, for tap, it calls dev_hold()/dev_put() for every
-> tun_sendmsg/tun_recvmsg:
->=20
-> So, should I call dev_hold()/dev_put() for each quote, such like:
-> =E2=80=9Cskb->dev =3D dev=E2=80=9D ?
->=20
-> But, for physical nic, I can=E2=80=99t find dev_hold()/dev_put() duri=
-ng xmit
-> or receive.
->=20
-> What kind of scene is it necessary to call dev_hold()/dev_put()?
->=20
-> =20
->=20
-> Look forward for your feedback.=20
->=20
-> Thank you ! J
->=20
-> Zhangjie
->=20
->=20
-Please do not send HTML mails, otherwise they do not reach netdev
-mailing list
+On Tue, 2015-08-25 at 13:24 +0530, Raghavendra K T wrote:
+> Docker container creation linearly increased from around 1.6 sec to 7.5 sec
+> (at 1000 containers) and perf data showed 50% ovehead in snmp_fold_field.
+> 
+> reason: currently __snmp6_fill_stats64 calls snmp_fold_field that walks
+> through per cpu data of an item (iteratively for around 90 items).
+> 
+> idea: This patch tries to aggregate the statistics by going through
+> all the items of each cpu sequentially which is reducing cache
+> misses.
+> 
+> Docker creation got faster by more than 2x after the patch.
+> 
+> Result:
+>                        Before           After
+> Docker creation time   6.836s           3.357s
+> cache miss             2.7%             1.38%
+> 
+> perf before:
+>     50.73%  docker           [kernel.kallsyms]       [k] snmp_fold_field
+>      9.07%  swapper          [kernel.kallsyms]       [k] snooze_loop
+>      3.49%  docker           [kernel.kallsyms]       [k] veth_stats_one
+>      2.85%  swapper          [kernel.kallsyms]       [k] _raw_spin_lock
+> 
+> perf after:
+>     10.56%  swapper          [kernel.kallsyms]     [k] snooze_loop
+>      8.72%  docker           [kernel.kallsyms]     [k] snmp_get_cpu_field
+>      7.59%  docker           [kernel.kallsyms]     [k] veth_stats_one
+>      3.65%  swapper          [kernel.kallsyms]     [k] _raw_spin_lock
+> 
+> Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+> ---
+>  net/ipv6/addrconf.c | 14 +++++++++++---
+>  1 file changed, 11 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 21c2c81..2ec905f 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -4624,16 +4624,24 @@ static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
+>  }
+>  
+>  static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
+> -				      int items, int bytes, size_t syncpoff)
+> +					int items, int bytes, size_t syncpoff)
+>  {
+> -	int i;
+> +	int i, c;
+> +	u64 *tmp;
+>  	int pad = bytes - sizeof(u64) * items;
+>  	BUG_ON(pad < 0);
+>  
+> +	tmp = kcalloc(items, sizeof(u64), GFP_KERNEL);
+> +
 
-In general, you need to use dev_hold() for every reference on 'dev'
-stored in the object.
 
-However they are some paths were you do not need that : For example in
-transmit path, skb are stored either in a qdisc or device driver
-internal queue/ring. At device dismantle we properly delete all these
-skb, so we do not have to worry about used dev_hold()/dev_put() in
-transmit.
-
-In drivers/net/tun.c, the dev_hold()/dev_put() only is required so that
-device doesnt disappear between tun_get() and actual use of it after a
-potentially long copy from user space (that might trigger page faults)
+This is a great idea, but kcalloc()/kmalloc() can fail and you'll crash
+the whole kernel at this point.
