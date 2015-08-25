@@ -1,32 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCHv5 net-next 09/10] openvswitch: Allow matching on
- conntrack label
-Date: Tue, 25 Aug 2015 20:29:59 +0200
-Message-ID: <20150825182959.GM3707@pox.localdomain>
-References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
- <1440462740-23358-10-git-send-email-joestringer@nicira.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: WARNING at net/ipv4/netfilter/ip_tables.c:530
+Date: Tue, 25 Aug 2015 20:31:27 +0200
+Message-ID: <20150825183127.GC5259@breakpoint.cc>
+References: <CAHA+R7NZrw-jc0r8HvhN7b6BmV32w+_ONZ9Ft8vJCgsF332AOA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org, pablo@netfilter.org,
-	fwestpha@redhat.com, hannes@redhat.com, jpettit@nicira.com,
-	jesse@nicira.com, netfilter-devel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51918 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751816AbbHYSba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:31:30 -0400
 Content-Disposition: inline
-In-Reply-To: <1440462740-23358-10-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAHA+R7NZrw-jc0r8HvhN7b6BmV32w+_ONZ9Ft8vJCgsF332AOA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/24/15 at 05:32pm, Joe Stringer wrote:
-> Allow matching and setting the ct_label field. As with ct_mark, this is
-> populated by executing the CT action. The label field may be modified by
-> specifying a label and mask nested under the CT action. It is stored as
-> metadata attached to the connection. Label modification occurs after
-> lookup, and will only persist when the conntrack entry is committed by
-> providing the COMMIT flag to the CT action. Labels are currently fixed
-> to 128 bits in size.
+Cong Wang <cwang@twopensource.com> wrote:
+> Your commit 98d1bd802cdbc8f56868fae51edec13e86b59515 (netfilter:
+> xtables: compute exact size needed for jumpstack) introduced the
+> following kernel warning during boot.
 > 
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> It looks like the if check inside mark_source_chains() isn't correct,
+> this causes calldepth not increased as expected, but I don't have time
+> to dig this.
+> 
+> Let me know if you need more information.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+No, Hannes reported something similar.
+
+I'm working on it.
+
+Thanks,
+Florian
