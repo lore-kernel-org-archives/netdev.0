@@ -1,150 +1,75 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/2] Documentation: networking: dsa: Add Broadcom SF2 document
-Date: Tue, 25 Aug 2015 06:50:42 -0700
-Message-ID: <1440510642-15588-3-git-send-email-f.fainelli@gmail.com>
-References: <1440510642-15588-1-git-send-email-f.fainelli@gmail.com>
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-	sfeldma@gmail.com, linux@roeck-us.net, davem@davemloft.net,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net v2] sctp: asconf's process should verify address
+ parameter is in the beginning
+Date: Tue, 25 Aug 2015 11:01:13 -0300
+Message-ID: <20150825140113.GD1873@localhost.localdomain>
+References: <3ffe8f6b86e33c016dddec672fab23a206c21acf.1440505764.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
+	vyasevic@redhat.com
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:34384 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751316AbbHYNuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 09:50:51 -0400
-Received: by obbfr1 with SMTP id fr1so142008609obb.1
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 06:50:50 -0700 (PDT)
-In-Reply-To: <1440510642-15588-1-git-send-email-f.fainelli@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:52846 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752418AbbHYOBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2015 10:01:16 -0400
+Content-Disposition: inline
+In-Reply-To: <3ffe8f6b86e33c016dddec672fab23a206c21acf.1440505764.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a document describing the Broadcom Starfigther 2 switch hardware,
-its specifics, and how the driver is implemented and its specifics.
+On Tue, Aug 25, 2015 at 08:29:24PM +0800, Xin Long wrote:
+> in sctp_process_asconf(), we get address parameter from the beginning of
+> the addip params. but we never check if it's really there. if the addr
+> param is not there, it still can pass sctp_verify_asconf(), then to be
+> handled by sctp_process_asconf(), it will not be safe.
+> 
+> so add a code in sctp_verify_asconf() to check the address parameter is in
+> the beginning, or return false to send abort.
+> 
+> v1->v2:
+>  * put the check behind the params' length verify.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_make_chunk.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 06320c8..89a4d1c 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -3166,6 +3166,13 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
+>  		return false;
+>  	if (!addr_param_needed && addr_param_seen)
+>  		return false;
+> +	if (addr_param_needed && addr_param_seen) {
+> +		/* Ensure the address parameter is in the beginning */
+> +		param.v = chunk->skb->data + sizeof(sctp_addiphdr_t);
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- Documentation/networking/dsa/bcm_sf2.txt | 113 +++++++++++++++++++++++++++++++
- 1 file changed, 113 insertions(+)
- create mode 100644 Documentation/networking/dsa/bcm_sf2.txt
+Using param.v before the loop made sense but after the loop, it will
+cause all packets that hits here to be reject due to the check below.
 
-diff --git a/Documentation/networking/dsa/bcm_sf2.txt b/Documentation/networking/dsa/bcm_sf2.txt
-new file mode 100644
-index 0000000..7b1502b
---- /dev/null
-+++ b/Documentation/networking/dsa/bcm_sf2.txt
-@@ -0,0 +1,113 @@
-+Broadcom Starfighter 2 Ethernet switch driver
-+=============================================
-+
-+Broadcom's Starfighter 2 Ethernet switch hardware block is commonly found and
-+deployed in the following products:
-+
-+- xDSL gateways such as BCM63138
-+- streaming/multimedia Set Top Box such as BCM7445
-+- Cable Modem/residential gatewasy such as BCM7145/BCM3390
-+
-+The switch is typically deployed in a configuration involving between 5 to 13
-+ports, offering a range of built-in and customizable interfaces:
-+
-+- single integrated Gigabit PHY
-+- quad integrated Gigabit PHY
-+- quad external Gigabit PHY w/ MDIO multiplexer
-+- integrated MoCA PHY
-+- several external MII/RevMII/GMII/RGMII interfaces
-+
-+The switch also supports specific congestion control features which allow MoCA
-+fail-over not to loose packets during a MoCA role re-election, as well as out of
-+band back-pressure to the host CPU network interface when downstream interfaces
-+are connected at a lower speed.
-+
-+The switch hardware block is typically interfaces using MMIO accesses and
-+contains a bunch of sub-blocks/registers:
-+
-+SWITCH_CORE: common switch registers
-+SWITCH_REG: external interfaces switch register
-+SWITCH_MDIO: external MDIO bus controller (there is another one in SWITCH_CORE,
-+which is used for indirect PHY accesses)
-+SWITCH_INTRL2_0/1: Level-2 interrupt controllers
-+SWITCH_ACB: Admission control block
-+SWITCH_FCB: Fail-over control block
-+
-+Implementation details
-+======================
-+
-+The driver is located in drivers/net/dsa/bcm_sf2.c and is implemented as a DSA
-+driver, see Documentation/networking/dsa/dsa.txt for details on the subsytem and
-+what it provides.
-+
-+The SF2 switch is configured to enable a Broadcom specific 4-bytes switch tag
-+which gets inserted by the switch for every packet forwarded to the CPU
-+interface, conversely, the CPU network interface should insert a similar tag for
-+packets entering the CPU port. The tag format is described in
-+net/dsa/tag_brcm.c.
-+
-+Overall, the SF2 driver is a fairly regular DSA driver, there are a few
-+specifics covered below.
-+
-+Device Tree probing
-+-------------------
-+
-+The DSA platform device driver is probed using a specific compatible string
-+provided in net/dsa/dsa.c. The reason for that is because the DSA subsystem gets
-+registered as a platform device driver currently. DSA will provide the needed
-+device_node pointers which are then accessible by the switch driver setup
-+function to setup resources such as register ranges and interrupts. This
-+currently works very well because none of the of_* functions utilized by the
-+driver require a struct device to be bound to a struct device_node, but things
-+may change in the future.
-+
-+MDIO indirect accesses
-+----------------------
-+
-+Due to a limitation in how Broadcom switches have been designed, external
-+Broadcom switches connected to a SF2 require the use of the DSA slave MDIO bus
-+in order to properly configure them. By default, the SF2 pseudo-PHY address, and
-+an external switch pseudo-PHY address will both be snooping for incoming MDIO
-+transactions, since they are at the same address (30), resulting in some kind of
-+"double" programming. Using DSA, and setting ds->phys_mii_mask accordingly, we
-+selectively divert reads and writes towards external Broadcom switches
-+pseudo-PHY addresses. Newer revisions of the SF2 hardware have introduced a
-+configurable pseudo-PHY address which circumvents the initial design limitation.
-+
-+MoCA interfaces
-+---------------
-+
-+MoCA interfaces are fairly specific and require the use of a firmware blob which
-+gets loaded onto the MoCA processor(s) for packet processing. The switch
-+hardware contains logic which will assert/de-assert link states accordingly for
-+the MoCA interface whenever the MoCA coaxial cable gets disconnected or the
-+firmware gets reloaded. The SF2 driver relies on such events to properly set its
-+MoCA interface carrier state and properly report this to the networking stack.
-+
-+The MoCA interfaces are supported using the PHY library's fixed PHY/emulated PHY
-+device and the switch driver registers a fixed_link_update callback for such
-+PHYs which reflects the link state obtained from the interrupt handler.
-+
-+
-+Power Management
-+----------------
-+
-+Whenever possible, the SF2 driver tries to minimize the overall switch power
-+consumption by applying a combination of:
-+
-+- turning off internal buffers/memories
-+- disabling packet processing logic
-+- putting integrated PHYs in IDDQ/low-power
-+- reducing the switch core clock based on the active port count
-+- enabling and advertising EEE
-+- turning off RGMII data processing logic when the link goes down
-+
-+Wake-on-LAN
-+-----------
-+
-+Wake-on-LAN is currently implemented by utilizing the host processor Ethernet
-+MAC controller wake-on logic. Whenever Wake-on-LAN is requested, an intersection
-+between the user request and the supported host Ethernet interface WoL
-+capabilities is done and the intersection result gets configured. During
-+system-wide suspend/resume, only ports not participating in Wake-on-LAN are
-+disabled.
--- 
-2.1.4
+> +		if (param.p->type != SCTP_PARAM_IPV4_ADDRESS &&
+> +		    param.p->type != SCTP_PARAM_IPV6_ADDRESS)
+> +			return false;
+> +	}
+>  	if (param.v != chunk->chunk_end)
+   this one    -----^
+
+Maybe it's easier if you put this check inside the loop for each ipv4/6,
+and check if it is the first parameter or not by mimicing the way
+sctp_walk_params() finds the first chunk, it's just a pointer
+derreference and that was already checked and performed to reach there.
+
+(You can have some logic with addr_param_seen so you don't catch the
+multiple parameters in there.)
+
+  Marcelo
+
+>  		return false;
+>  
+> -- 
+> 2.1.0
+> 
