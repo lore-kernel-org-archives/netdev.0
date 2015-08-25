@@ -1,46 +1,45 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCHv5 net-next 10/10] openvswitch: Allow attaching helpers to
- ct action
-Date: Tue, 25 Aug 2015 20:33:02 +0200
-Message-ID: <20150825183302.GN3707@pox.localdomain>
-References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
- <1440462740-23358-11-git-send-email-joestringer@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: refine pacing rate determination
+Date: Tue, 25 Aug 2015 11:34:04 -0700 (PDT)
+Message-ID: <20150825.113404.916165871303626879.davem@davemloft.net>
+References: <1440203882.29244.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org, pablo@netfilter.org,
-	fwestpha@redhat.com, hannes@redhat.com, jpettit@nicira.com,
-	jesse@nicira.com, netfilter-devel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1440462740-23358-11-git-send-email-joestringer@nicira.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58755 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754825AbbHYSeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 14:34:05 -0400
+In-Reply-To: <1440203882.29244.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/24/15 at 05:32pm, Joe Stringer wrote:
-> Add support for using conntrack helpers to assist protocol detection.
-> The new OVS_CT_ATTR_HELPER attribute of the CT action specifies a helper
-> to be used for this connection. If no helper is specified, then helpers
-> will be automatically applied as per the sysctl configuration of
-> net.netfilter.nf_conntrack_helper.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 21 Aug 2015 17:38:02 -0700
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The helper may be specified as part of the conntrack action, eg:
-> ct(helper=ftp). Initial packets for related connections should be
-> committed to allow later packets for the flow to be considered
-> established.
+> When TCP pacing was added back in linux-3.12, we chose
+> to apply a fixed ratio of 200 % against current rate,
+> to allow probing for optimal throughput even during
+> slow start phase, where cwnd can be doubled every other gRTT.
 > 
-> Example ovs-ofctl flows allowing FTP connections from ports 1->2:
-> in_port=1,tcp,action=ct(helper=ftp,commit),2
-> in_port=2,tcp,ct_state=-trk,action=ct(recirc)
-> in_port=2,tcp,ct_state=+trk-new+est,action=1
-> in_port=2,tcp,ct_state=+trk+rel,action=1
+> At Google, we found it was better applying a different ratio
+> while in Congestion Avoidance phase.
+> This ratio was set to 120 %.
+> 
+> We've used the normal tcp_in_slow_start() helper for a while,
+> then tuned the condition to select the conservative ratio
+> as soon as cwnd >= ssthresh/2 :
+> 
+> - After cwnd reduction, it is safer to ramp up more slowly,
+>   as we approach optimal cwnd.
+> - Initial ramp up (ssthresh == INFINITY) still allows doubling
+>   cwnd every other RTT.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Not subject to this patch but we may want to revisit the syntax of the
-state flags. It's neatly compressed like this but ct_state=untracked
-ct_state=related might be more readable. The +trk should be implicit
-for anything !untracked
-
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Applied.
