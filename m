@@ -1,48 +1,49 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH v3 net-next 5/8] geneve: Add support to collect tunnel metadata.
-Date: Mon, 24 Aug 2015 19:15:05 -0700
-Message-ID: <CALnjE+pH3es+bSjVTGohr4xNatB=BTXcVQg3DPLwzHCr6nbz4w@mail.gmail.com>
-References: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
-	<1440438195-5695-6-git-send-email-pshelar@nicira.com>
-	<CAEP_g=_iA6FA4wboFpd_dRXnhQs4u9H7XFv5ACopv-2gy6g5Ew@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] netlink: netlink_ack send a capped message in case of
+ error
+Date: Mon, 24 Aug 2015 21:19:21 -0700 (PDT)
+Message-ID: <20150824.211921.944778094161045642.davem@davemloft.net>
+References: <CAE4R7bAYUhbUoGK_M=USJW8pgWmBrKsNuzLFmY70aBzti53Vxg@mail.gmail.com>
+	<CALD+uuz7NHdWU0qqogu6_cs81Ng6gpcCPFUr4WUF+hpQPMaysg@mail.gmail.com>
+	<20150824185637.GA19923@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: christophe.ricard@gmail.com, sfeldma@gmail.com, jbenc@redhat.com,
+	sameo@linux.intel.com, netdev@vger.kernel.org,
+	christophe-h.ricard@st.com
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:35074 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754156AbbHYCPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 22:15:06 -0400
-Received: by iodt126 with SMTP id t126so171306055iod.2
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 19:15:05 -0700 (PDT)
-In-Reply-To: <CAEP_g=_iA6FA4wboFpd_dRXnhQs4u9H7XFv5ACopv-2gy6g5Ew@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54399 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750726AbbHYETZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 00:19:25 -0400
+In-Reply-To: <20150824185637.GA19923@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 6:42 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Mon, Aug 24, 2015 at 10:43 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
->> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
->> index 0a6d974..c05bc13 100644
->> --- a/drivers/net/geneve.c
->> +++ b/drivers/net/geneve.c
->> @@ -141,10 +190,15 @@ drop:
->>  /* Setup stats when device is created */
->>  static int geneve_init(struct net_device *dev)
->>  {
->> +       struct geneve_dev *geneve = netdev_priv(dev);
->> +
->>         dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
->>         if (!dev->tstats)
->>                 return -ENOMEM;
->>
->> +       if (geneve->collect_md)
->> +               dev->features |= NETIF_F_NETNS_LOCAL;
->
-> I was going back and forth on whether this is the right thing to do.
-> Is it any weirder to allow this than to move a normal tunnel device
-> across namespaces?
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 24 Aug 2015 20:56:37 +0200
 
-Moving this device means moving all tunnels backed by this device
-rather than specific tunnel device. Thats why it does not look right
-to move such device.
+> On Mon, Aug 24, 2015 at 10:08:22AM +0200, Christophe Ricard wrote:
+>> Hi Scott,
+>> 
+>> I think i understand the potential limitation of my solution.
+>> I saw something was proposed by Jiri Benc who pushed an additional flag to
+>> tell if the payload can be ignored in case of an error.
+>> http://patchwork.ozlabs.org/patch/290976/
+>> 
+>> Do you think this one is acceptable ? I am not sure to understand David
+>> last comment.
+> 
+> I think David suggests something like the (completely untested)
+> attached patch.
+
+Yes, echo'ing the entire message back in an ACK is really pointless.
+
+Especially since if the user really is interested in noticing ACKs
+it can very easily keep the original request around and match on
+sequence number, as Pablo's patch's commit message suggests.
+
+We're stuck with the current behavior by default, but we can add the
+new ACK feature to deal with the issue in the long term.
