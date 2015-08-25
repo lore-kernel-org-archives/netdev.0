@@ -1,46 +1,63 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v4 net-next] r8169: Add values missing in @get_stats64
- from HW counters
-Date: Wed, 26 Aug 2015 00:54:06 +0200
-Message-ID: <20150825225406.GA24297@electric-eye.fr.zoreil.com>
-References: <1439888664-28620-1-git-send-email-vinschen@redhat.com>
- <1440413559-9354-1-git-send-email-vinschen@redhat.com>
- <20150825.141540.472110106537790402.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next:master 1267/1290] net/rds/ib_recv.c:382:28: sparse:
+ incorrect type in initializer (different base types)
+Date: Tue, 25 Aug 2015 15:55:00 -0700 (PDT)
+Message-ID: <20150825.155500.290194488854444995.davem@davemloft.net>
+References: <201508260636.uzScUNFH%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vinschen@redhat.com, netdev@vger.kernel.org, hayeswang@realtek.com,
-	ivecera@redhat.com, nic_swsd@realtek.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: santosh.shilimkar@oracle.com, kbuild-all@01.org,
+	ajaykumar.hotchandani@oracle.com, ssantosh@kernel.org,
+	netdev@vger.kernel.org
+To: fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:34421 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752105AbbHYWyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:54:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20150825.141540.472110106537790402.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60128 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932072AbbHYWzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 18:55:01 -0400
+In-Reply-To: <201508260636.uzScUNFH%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-[...]
-> Your counter offsets should be read at probe time, not open time.
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Wed, 26 Aug 2015 06:42:39 +0800
 
-It can be done but the "CmdRxEnb / rx traffic must be enabled" constraint
-will make it a major pita. 
+> sparse warnings: (new ones prefixed by >>)
+> 
+>>> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
+>    net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
+>    net/rds/ib_recv.c:382:28:    got restricted gfp_t
+>    net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
 
-Reading counter offsets at the end of open() naturally solves this
-constraint (retentive error unwinding in opne() stops being completely
-trivial though :o/ ).
+Fixed by:
 
-> Bringing the interface is brought down/up should not reset the
-> counters.
+====================
+[PATCH] rds: Fix improper gfp_t usage.
 
-Afaiks rtl8169_tc_offsets.inited in rtl8169_init_counter_offsets
-takes care of it: it's set during the first open() after probe().
+>> net/rds/ib_recv.c:382:28: sparse: incorrect type in initializer (different base types)
+   net/rds/ib_recv.c:382:28:    expected int [signed] can_wait
+   net/rds/ib_recv.c:382:28:    got restricted gfp_t
+   net/rds/ib_recv.c:828:23: sparse: cast to restricted __le64
 
-Looking at it again, the patch directly stores 16 and 32 bit values
-in rtnl_link_stats64. Nobody should care about exact exceedingly high
-error count but rx_multicast ought to be accumulated.
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/rds/ib_recv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+index 3afdcbd..ed9b41e 100644
+--- a/net/rds/ib_recv.c
++++ b/net/rds/ib_recv.c
+@@ -379,7 +379,7 @@ void rds_ib_recv_refill(struct rds_connection *conn, int prefill, gfp_t gfp)
+ 	struct ib_recv_wr *failed_wr;
+ 	unsigned int posted = 0;
+ 	int ret = 0;
+-	int can_wait = gfp & __GFP_WAIT;
++	bool can_wait = !!(gfp & __GFP_WAIT);
+ 	u32 pos;
+ 
+ 	/* the goal here is to just make sure that someone, somewhere
 -- 
-Ueimor
+2.1.0
