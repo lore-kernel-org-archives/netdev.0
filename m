@@ -1,160 +1,148 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 2/2] Documentation: networking: dsa: Add
- Broadcom SF2 document
-Date: Tue, 25 Aug 2015 15:28:28 -0400
-Message-ID: <20150825192827.GA16488@ketchup.mtl.sfl>
-References: <1440524435-8129-1-git-send-email-f.fainelli@gmail.com>
- <1440524435-8129-3-git-send-email-f.fainelli@gmail.com>
- <55DCB836.4020802@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, andrew@lunn.ch, sfeldma@gmail.com,
-	linux@roeck-us.net,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Randy Dunlap <rdunlap@infradead.org>
+From: Christophe Ricard <christophe.ricard@gmail.com>
+Subject: [RFC v2] netlink: add NETLINK_CAP_ACK socket option
+Date: Tue, 25 Aug 2015 21:43:29 +0200
+Message-ID: <1440531809-26963-2-git-send-email-christophe-h.ricard@st.com>
+References: <1440531809-26963-1-git-send-email-christophe-h.ricard@st.com>
+Cc: netdev@vger.kernel.org,
+	Christophe Ricard <christophe-h.ricard@st.com>,
+	stable@vger.kernel.org
+To: pablo@netfilter.org, jbenc@redhat.com, sfeldma@gmail.com,
+	sameo@linux.intel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:52269
-	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751042AbbHYT2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 15:28:31 -0400
-Content-Disposition: inline
-In-Reply-To: <55DCB836.4020802@infradead.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:33207 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751631AbbHYTnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 15:43:37 -0400
+In-Reply-To: <1440531809-26963-1-git-send-email-christophe-h.ricard@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Since commit c05cdb1b864f ("netlink: allow large data transfers from
+user-space"), the kernel may fail to allocate the necessary room for the
+acknowledgment message back to userspace. This patch introduces a new
+socket option that trims off the payload of the original netlink message.
 
-If a respin is necessary for this 2/2 too, consider two nitpicks below.
+The netlink message header is still included, so the user can guess from
+the sequence number what is the message that has triggered the
+acknowledgment.
 
-On 15-08-25 11:47:18, Randy Dunlap wrote:
-> On 08/25/15 10:40, Florian Fainelli wrote:
-> > Add a document describing the Broadcom Starfigther 2 switch hardware,
-> > its specifics, and how the driver is implemented and its specifics.
+Cc: stable@vger.kernel.org
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Christophe Ricard <christophe-h.ricard@st.com>
+---
+ include/uapi/linux/netlink.h |  1 +
+ net/netlink/af_netlink.c     | 49 ++++++++++++++++++++++++++++++++------------
+ 2 files changed, 37 insertions(+), 13 deletions(-)
 
-Redundant "specifics" word.
-
-> > 
-> > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> > ---
-> >  Documentation/networking/dsa/bcm_sf2.txt | 113 +++++++++++++++++++++++++++++++
-> >  1 file changed, 113 insertions(+)
-> >  create mode 100644 Documentation/networking/dsa/bcm_sf2.txt
-> > 
-> > diff --git a/Documentation/networking/dsa/bcm_sf2.txt b/Documentation/networking/dsa/bcm_sf2.txt
-> > new file mode 100644
-> > index 000000000000..7b1502bb707d
-> > --- /dev/null
-> > +++ b/Documentation/networking/dsa/bcm_sf2.txt
-> > @@ -0,0 +1,113 @@
-> > +Broadcom Starfighter 2 Ethernet switch driver
-> > +=============================================
-> > +
-> > +Broadcom's Starfighter 2 Ethernet switch hardware block is commonly found and
-> > +deployed in the following products:
-> > +
-> > +- xDSL gateways such as BCM63138
-> > +- streaming/multimedia Set Top Box such as BCM7445
-> > +- Cable Modem/residential gatewasy such as BCM7145/BCM3390
-
-                               gateway
-
-> > +
-> > +The switch is typically deployed in a configuration involving between 5 to 13
-> > +ports, offering a range of built-in and customizable interfaces:
-> > +
-> > +- single integrated Gigabit PHY
-> > +- quad integrated Gigabit PHY
-> > +- quad external Gigabit PHY w/ MDIO multiplexer
-> > +- integrated MoCA PHY
-> > +- several external MII/RevMII/GMII/RGMII interfaces
-> > +
-> > +The switch also supports specific congestion control features which allow MoCA
-> 
-> what is MoCA?  Maybe answer in "MoCA interfaces" section.
-> 
-> > +fail-over not to loose packets during a MoCA role re-election, as well as out of
-> 
->                     lose
-> 
-> > +band back-pressure to the host CPU network interface when downstream interfaces
-> > +are connected at a lower speed.
-> > +
-> > +The switch hardware block is typically interfaces using MMIO accesses and
-> 
->                                           interfaced
-> or drop the "is"
-> 
-> > +contains a bunch of sub-blocks/registers:
-> > +
-> > +SWITCH_CORE: common switch registers
-> > +SWITCH_REG: external interfaces switch register
-> > +SWITCH_MDIO: external MDIO bus controller (there is another one in SWITCH_CORE,
-> > +which is used for indirect PHY accesses)
-> > +SWITCH_INTRL2_0/1: Level-2 interrupt controllers
-> > +SWITCH_ACB: Admission control block
-> > +SWITCH_FCB: Fail-over control block
-> > +
-> > +Implementation details
-> > +======================
-> > +
-> > +The driver is located in drivers/net/dsa/bcm_sf2.c and is implemented as a DSA
-> > +driver, see Documentation/networking/dsa/dsa.txt for details on the subsytem and
-> 
-> s/,/;/
-> 
-> > +what it provides.
-> > +
-> > +The SF2 switch is configured to enable a Broadcom specific 4-bytes switch tag
-> > +which gets inserted by the switch for every packet forwarded to the CPU
-> > +interface, conversely, the CPU network interface should insert a similar tag for
-> > +packets entering the CPU port. The tag format is described in
-> > +net/dsa/tag_brcm.c.
-> > +
-> > +Overall, the SF2 driver is a fairly regular DSA driver, there are a few
-> 
->                          s/,/;/ here.....................^
-> 
-> > +specifics covered below.
-> > +
-> > +Device Tree probing
-> > +-------------------
-> > +
-> > +The DSA platform device driver is probed using a specific compatible string
-> > +provided in net/dsa/dsa.c. The reason for that is because the DSA subsystem gets
-> > +registered as a platform device driver currently. DSA will provide the needed
-> > +device_node pointers which are then accessible by the switch driver setup
-> > +function to setup resources such as register ranges and interrupts. This
-> > +currently works very well because none of the of_* functions utilized by the
-> > +driver require a struct device to be bound to a struct device_node, but things
-> > +may change in the future.
-> > +
-> > +MDIO indirect accesses
-> > +----------------------
-> > +
-> > +Due to a limitation in how Broadcom switches have been designed, external
-> > +Broadcom switches connected to a SF2 require the use of the DSA slave MDIO bus
-> > +in order to properly configure them. By default, the SF2 pseudo-PHY address, and
-> > +an external switch pseudo-PHY address will both be snooping for incoming MDIO
-> > +transactions, since they are at the same address (30), resulting in some kind of
-> > +"double" programming. Using DSA, and setting ds->phys_mii_mask accordingly, we
-> > +selectively divert reads and writes towards external Broadcom switches
-> > +pseudo-PHY addresses. Newer revisions of the SF2 hardware have introduced a
-> > +configurable pseudo-PHY address which circumvents the initial design limitation.
-> > +
-> > +MoCA interfaces
-> > +---------------
-> > +
-> > +MoCA interfaces are fairly specific and require the use of a firmware blob which
-> > +gets loaded onto the MoCA processor(s) for packet processing. The switch
-> > +hardware contains logic which will assert/de-assert link states accordingly for
-> > +the MoCA interface whenever the MoCA coaxial cable gets disconnected or the
-> > +firmware gets reloaded. The SF2 driver relies on such events to properly set its
-> > +MoCA interface carrier state and properly report this to the networking stack.
-> > +
-> > +The MoCA interfaces are supported using the PHY library's fixed PHY/emulated PHY
-> > +device and the switch driver registers a fixed_link_update callback for such
-> > +PHYs which reflects the link state obtained from the interrupt handler.
-
-Best,
--v
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index cf6a65c..6f3fe16 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -110,6 +110,7 @@ struct nlmsgerr {
+ #define NETLINK_TX_RING			7
+ #define NETLINK_LISTEN_ALL_NSID		8
+ #define NETLINK_LIST_MEMBERSHIPS	9
++#define NETLINK_CAP_ACK			10
+ 
+ struct nl_pktinfo {
+ 	__u32	group;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 67d2104..8dff29c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -84,6 +84,7 @@ struct listeners {
+ #define NETLINK_F_BROADCAST_SEND_ERROR	0x4
+ #define NETLINK_F_RECV_NO_ENOBUFS	0x8
+ #define NETLINK_F_LISTEN_ALL_NSID	0x10
++#define NETLINK_F_CAP_ACK		0x20
+ 
+ static inline int netlink_is_kernel(struct sock *sk)
+ {
+@@ -2258,6 +2259,13 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 			nlk->flags &= ~NETLINK_F_LISTEN_ALL_NSID;
+ 		err = 0;
+ 		break;
++	case NETLINK_CAP_ACK:
++		if (val)
++			nlk->flags |= NETLINK_F_CAP_ACK;
++		else
++			nlk->flags &= ~NETLINK_F_CAP_ACK;
++		err = 0;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -2332,6 +2340,16 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
+ 		netlink_table_ungrab();
+ 		break;
+ 	}
++	case NETLINK_CAP_ACK:
++		if (len < sizeof(int))
++			return -EINVAL;
++		len = sizeof(int);
++		val = nlk->flags & NETLINK_F_CAP_ACK ? 1 : 0;
++		if (put_user(len, optlen) ||
++		    put_user(val, optval))
++			return -EFAULT;
++		err = 0;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -2869,28 +2887,33 @@ EXPORT_SYMBOL(__netlink_dump_start);
+ 
+ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+ {
++	struct netlink_sock *nlk;
+ 	struct sk_buff *skb;
+ 	struct nlmsghdr *rep;
+ 	struct nlmsgerr *errmsg;
+ 	size_t payload = sizeof(*errmsg);
++	struct sock *sk;
+ 
+-	/* error messages get the original request appened */
+-	if (err)
++	sk = netlink_lookup(sock_net(in_skb->sk),
++			    in_skb->sk->sk_protocol,
++			    NETLINK_CB(in_skb).portid);
++	if (!sk)
++		return;
++
++	nlk = nlk_sk(sk);
++
++	/* Error messages get the original request appended, unless the user
++	 * requests to cap the error message.
++	 */
++	if (!(nlk->flags & NETLINK_F_CAP_ACK) && err)
+ 		payload += nlmsg_len(nlh);
+ 
+ 	skb = netlink_alloc_skb(in_skb->sk, nlmsg_total_size(payload),
+ 				NETLINK_CB(in_skb).portid, GFP_KERNEL);
+ 	if (!skb) {
+-		struct sock *sk;
+-
+-		sk = netlink_lookup(sock_net(in_skb->sk),
+-				    in_skb->sk->sk_protocol,
+-				    NETLINK_CB(in_skb).portid);
+-		if (sk) {
+-			sk->sk_err = ENOBUFS;
+-			sk->sk_error_report(sk);
+-			sock_put(sk);
+-		}
++		sk->sk_err = ENOBUFS;
++		sk->sk_error_report(sk);
++		sock_put(sk);
+ 		return;
+ 	}
+ 
+@@ -2898,7 +2921,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+ 			  NLMSG_ERROR, payload, 0);
+ 	errmsg = nlmsg_data(rep);
+ 	errmsg->error = err;
+-	memcpy(&errmsg->msg, nlh, err ? nlh->nlmsg_len : sizeof(*nlh));
++	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
+ 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).portid, MSG_DONTWAIT);
+ }
+ EXPORT_SYMBOL(netlink_ack);
+-- 
+2.1.4
