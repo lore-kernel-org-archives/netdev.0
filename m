@@ -1,59 +1,81 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv5 net-next 04/10] dst: Add __skb_dst_copy() variation
-Date: Mon, 24 Aug 2015 17:32:14 -0700
-Message-ID: <1440462740-23358-5-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv5 net-next 01/10] openvswitch: Serialize acts with original netlink len
+Date: Mon, 24 Aug 2015 17:32:11 -0700
+Message-ID: <1440462740-23358-2-git-send-email-joestringer@nicira.com>
 References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
 Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
 	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
 	jpettit@nicira.com, jesse@nicira.com,
 	netfilter-devel@vger.kernel.org
 To: netdev@vger.kernel.org, pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:33836 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755021AbbHYAcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 20:32:32 -0400
-Received: by pdbfa8 with SMTP id fa8so59458755pdb.1
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 17:32:32 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This variation on skb_dst_copy() doesn't require two skbs.
+Previously, we used the kernel-internal netlink actions length to
+calculate the size of messages to serialize back to userspace.
+However,the sw_flow_actions may not be formatted exactly the same as the
+actions on the wire, so store the original actions length when
+de-serializing and re-use the original length when serializing.
 
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
 Acked-by: Pravin B Shelar <pshelar@nicira.com>
 ---
+v2: No change.
+v3: Preserve original length across buffer resize.
 v4: Add ack.
 v5: No change.
 ---
- include/net/dst.h | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ net/openvswitch/datapath.c     | 2 +-
+ net/openvswitch/flow.h         | 1 +
+ net/openvswitch/flow_netlink.c | 2 ++
+ 3 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 0a9a723..6f282e7 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -286,13 +286,18 @@ static inline void skb_dst_drop(struct sk_buff *skb)
- 	}
- }
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index ffe984f..d5b5473 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -713,7 +713,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts,
  
--static inline void skb_dst_copy(struct sk_buff *nskb, const struct sk_buff *oskb)
-+static inline void __skb_dst_copy(struct sk_buff *nskb, unsigned long refdst)
- {
--	nskb->_skb_refdst = oskb->_skb_refdst;
-+	nskb->_skb_refdst = refdst;
- 	if (!(nskb->_skb_refdst & SKB_DST_NOREF))
- 		dst_clone(skb_dst(nskb));
- }
+ 	/* OVS_FLOW_ATTR_ACTIONS */
+ 	if (should_fill_actions(ufid_flags))
+-		len += nla_total_size(acts->actions_len);
++		len += nla_total_size(acts->orig_len);
  
-+static inline void skb_dst_copy(struct sk_buff *nskb, const struct sk_buff *oskb)
-+{
-+	__skb_dst_copy(nskb, oskb->_skb_refdst);
-+}
-+
- /**
-  * skb_dst_force - makes sure skb dst is refcounted
-  * @skb: buffer
+ 	return len
+ 		+ nla_total_size(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index b62cdb3..082a87b 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -144,6 +144,7 @@ struct sw_flow_id {
+ 
+ struct sw_flow_actions {
+ 	struct rcu_head rcu;
++	size_t orig_len;	/* From flow_cmd_new netlink actions size */
+ 	u32 actions_len;
+ 	struct nlattr actions[];
+ };
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 4e7a3f7..c182b28 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -1619,6 +1619,7 @@ static struct nlattr *reserve_sfa_size(struct sw_flow_actions **sfa,
+ 
+ 	memcpy(acts->actions, (*sfa)->actions, (*sfa)->actions_len);
+ 	acts->actions_len = (*sfa)->actions_len;
++	acts->orig_len = (*sfa)->orig_len;
+ 	kfree(*sfa);
+ 	*sfa = acts;
+ 
+@@ -2223,6 +2224,7 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
+ 	if (IS_ERR(*sfa))
+ 		return PTR_ERR(*sfa);
+ 
++	(*sfa)->orig_len = nla_len(attr);
+ 	err = __ovs_nla_copy_actions(attr, key, 0, sfa, key->eth.type,
+ 				     key->eth.tci, log);
+ 	if (err)
 -- 
 2.1.4
