@@ -1,49 +1,131 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH] net: compile renesas directory if NET_VENDOR_RENESAS is configured
-Date: Tue, 25 Aug 2015 16:57:56 +0900
-Message-ID: <1440489476-26700-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms+renesas@verge.net.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
+From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Subject: [PATCH RFC 1/2] net: Introduce helper functions to get the per cpu data
+Date: Tue, 25 Aug 2015 13:24:25 +0530
+Message-ID: <1440489266-31127-2-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+References: <y>
+ <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Cc: <jiri@resnulli.us>, <edumazet@google.com>,
+	<hannes@stressinduktion.org>, <tom@herbertland.com>,
+	<azhou@nicira.com>, <ebiederm@xmission.com>,
+	<ipm@chirality.org.uk>, <nicolas.dichtel@6wind.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<raghavendra.kt@linux.vnet.ibm.com>, <anton@au1.ibm.com>,
+	<nacc@linux.vnet.ibm.com>, <srikar@linux.vnet.ibm.com>
+To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57231 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755279AbbHYH6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 03:58:05 -0400
+Received: from e18.ny.us.ibm.com ([129.33.205.208]:51004 "EHLO
+	e18.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755267AbbHYH5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 03:57:05 -0400
+Received: from /spool/local
+	by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <raghavendra.kt@linux.vnet.ibm.com>;
+	Tue, 25 Aug 2015 03:57:04 -0400
+In-Reply-To: <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-
-Currently the renesas ethernet driver directory is compiled if SH_ETH is
-configured rather than NET_VENDOR_RENESAS. Although incorrect that was
-quite harmless as until recently as SH_ETH configured the only driver in
-the renesas directory. However, as of c156633f1353 ("Renesas Ethernet AVB
-driver proper") the renesas directory includes another driver, configured
-by RAVB, and it makes little sense for it to have a hidden dependency on
-SH_ETH.
-
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-[horms: rewrote changelog]
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/ip.h   | 10 ++++++++++
+ net/ipv4/af_inet.c | 41 +++++++++++++++++++++++++++--------------
+ 2 files changed, 37 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index f42177b11723..ddfc808110a1 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -65,7 +65,7 @@ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_QUALCOMM) += qualcomm/
- obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
--obj-$(CONFIG_SH_ETH) += renesas/
-+obj-$(CONFIG_NET_VENDOR_RENESAS) += renesas/
- obj-$(CONFIG_NET_VENDOR_RDC) += rdc/
- obj-$(CONFIG_NET_VENDOR_ROCKER) += rocker/
- obj-$(CONFIG_NET_VENDOR_SAMSUNG) += samsung/
+diff --git a/include/net/ip.h b/include/net/ip.h
+index d5fe9f2..93bf12e 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -202,10 +202,20 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
+ #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
+ #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
+ 
++u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offct);
+ unsigned long snmp_fold_field(void __percpu *mib, int offt);
+ #if BITS_PER_LONG==32
++u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++			 size_t syncp_offset);
+ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
+ #else
++static inline u64  snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++					size_t syncp_offset)
++{
++	return snmp_get_cpu_field(mib, cpu, offct);
++
++}
++
+ static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
+ {
+ 	return snmp_fold_field(mib, offt);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 9532ee8..302e36b 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1448,38 +1448,51 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
+ }
+ EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
+ 
++u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
++{
++	return  *(((unsigned long *)per_cpu_ptr(mib, cpu)) + offt);
++}
++EXPORT_SYMBOL_GPL(snmp_get_cpu_field);
++
+ unsigned long snmp_fold_field(void __percpu *mib, int offt)
+ {
+ 	unsigned long res = 0;
+ 	int i;
+ 
+ 	for_each_possible_cpu(i)
+-		res += *(((unsigned long *) per_cpu_ptr(mib, i)) + offt);
++		res += snmp_get_cpu_field(mib, i, offt);
+ 	return res;
+ }
+ EXPORT_SYMBOL_GPL(snmp_fold_field);
+ 
+ #if BITS_PER_LONG==32
+ 
++u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++			 size_t syncp_offset)
++{
++	void *bhptr;
++	struct u64_stats_sync *syncp;
++	u64 v;
++	unsigned int start;
++
++	bhptr = per_cpu_ptr(mib, cpu);
++	syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
++	do {
++		start = u64_stats_fetch_begin_irq(syncp);
++		v = *(((u64 *)bhptr) + offt);
++	} while (u64_stats_fetch_retry_irq(syncp, start));
++
++	return v;
++}
++EXPORT_SYMBOL_GPL(snmp_get_cpu_field64);
++
+ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ {
+ 	u64 res = 0;
+ 	int cpu;
+ 
+ 	for_each_possible_cpu(cpu) {
+-		void *bhptr;
+-		struct u64_stats_sync *syncp;
+-		u64 v;
+-		unsigned int start;
+-
+-		bhptr = per_cpu_ptr(mib, cpu);
+-		syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
+-		do {
+-			start = u64_stats_fetch_begin_irq(syncp);
+-			v = *(((u64 *) bhptr) + offt);
+-		} while (u64_stats_fetch_retry_irq(syncp, start));
+-
+-		res += v;
++		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+ 	}
+ 	return res;
+ }
 -- 
-2.1.4
+1.7.11.7
