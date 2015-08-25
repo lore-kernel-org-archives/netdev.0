@@ -1,132 +1,204 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCH net-next 09/13] vxlan: provide access function for vxlan
- socket address family
-Date: Tue, 25 Aug 2015 00:34:18 +0000
-Message-ID: <E8BB0745-6652-4539-BE59-6E0DD0977B2F@intel.com>
-References: <cover.1439929916.git.jbenc@redhat.com>
- <a07e8ad2f7cfc3153d569a2b3f366bf17b2f348a.1439929916.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_4B838F2A-90D8-4DF0-8A2E-18A15FA469A2";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: Jiri Benc <jbenc@redhat.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCHv5 net-next 02/10] openvswitch: Move MASKED* macros to datapath.h
+Date: Mon, 24 Aug 2015 17:32:12 -0700
+Message-ID: <1440462740-23358-3-git-send-email-joestringer@nicira.com>
+References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
+Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
+	jpettit@nicira.com, jesse@nicira.com,
+	netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:64540 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754209AbbHYAeU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2015 20:34:20 -0400
-In-Reply-To: <a07e8ad2f7cfc3153d569a2b3f366bf17b2f348a.1439929916.git.jbenc@redhat.com>
-Content-Language: en-US
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:32957 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754943AbbHYAca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2015 20:32:30 -0400
+Received: by pdrh1 with SMTP id h1so60409598pdr.0
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2015 17:32:30 -0700 (PDT)
+In-Reply-To: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_4B838F2A-90D8-4DF0-8A2E-18A15FA469A2
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+This will allow the ovs-conntrack code to reuse these macros.
 
-> On Aug 18, 2015, at 1:33 PM, Jiri Benc <jbenc@redhat.com> wrote:
->=20
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> drivers/net/vxlan.c | 8 ++++----
-> include/net/vxlan.h | 5 +++++
-> 2 files changed, 9 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index e4b8ab63d0fa..d5ca1d7e0b81 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -236,7 +236,7 @@ static struct vxlan_sock *vxlan_find_sock(struct =
-net *net, sa_family_t family,
->=20
-> 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
-> 		if (inet_sk(vs->sock->sk)->inet_sport =3D=3D port &&
-> -		    inet_sk(vs->sock->sk)->sk.sk_family =3D=3D family &&
-> +		    vxlan_get_sk_family(vs) =3D=3D family &&
-> 		    vs->flags =3D=3D flags)
-> 			return vs;
-> 	}
-> @@ -625,7 +625,7 @@ static void vxlan_notify_add_rx_port(struct =
-vxlan_sock *vs)
-> 	struct net_device *dev;
-> 	struct sock *sk =3D vs->sock->sk;
-> 	struct net *net =3D sock_net(sk);
-> -	sa_family_t sa_family =3D sk->sk_family;
-> +	sa_family_t sa_family =3D vxlan_get_sk_family(vs);
-> 	__be16 port =3D inet_sk(sk)->inet_sport;
-> 	int err;
->=20
-> @@ -650,7 +650,7 @@ static void vxlan_notify_del_rx_port(struct =
-vxlan_sock *vs)
-> 	struct net_device *dev;
-> 	struct sock *sk =3D vs->sock->sk;
-> 	struct net *net =3D sock_net(sk);
-> -	sa_family_t sa_family =3D sk->sk_family;
-> +	sa_family_t sa_family =3D vxlan_get_sk_family(vs);
-> 	__be16 port =3D inet_sk(sk)->inet_sport;
->=20
-> 	rcu_read_lock();
-> @@ -2390,7 +2390,7 @@ void vxlan_get_rx_port(struct net_device *dev)
-> 	for (i =3D 0; i < PORT_HASH_SIZE; ++i) {
-> 		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
-> 			port =3D inet_sk(vs->sock->sk)->inet_sport;
-> -			sa_family =3D vs->sock->sk->sk_family;
-> +			sa_family =3D vxlan_get_sk_family(vs);
-> 			dev->netdev_ops->ndo_add_vxlan_port(dev, =
-sa_family,
-> 							    port);
-> 		}
-> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-> index e4534f1b2d8c..43677e6b9c43 100644
-> --- a/include/net/vxlan.h
-> +++ b/include/net/vxlan.h
-> @@ -241,3 +241,8 @@ static inline void vxlan_get_rx_port(struct =
-net_device *netdev)
-> }
-> #endif
-> #endif
-> +
-> +static inline unsigned short vxlan_get_sk_family(struct vxlan_sock =
-*vs)
-> +{
-> +	return vs->sock->sk->sk_family;
-> +}
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v4: Add ack.
+v5: No change.
+---
+ net/openvswitch/actions.c  | 52 ++++++++++++++++++++++------------------------
+ net/openvswitch/datapath.h |  4 ++++
+ 2 files changed, 29 insertions(+), 27 deletions(-)
 
-This causes build problems because vxlan_get_sk_family is not inside the =
-#endif
-protecting the file for multiple inclusion. Please put =
-vxlan_get_sk_family
-inside the last #endif.
-
---
-Mark Rustad, Networking Division, Intel Corporation
-
-
---Apple-Mail=_4B838F2A-90D8-4DF0-8A2E-18A15FA469A2
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJV27gJAAoJEDwO/+eO4+5uYI0P/i7+9aVGiKNL1NrwddGpjYET
-vOLdI9KqcLoGwBqHWtMkbeZi6uDdNyCm9+ZKp4wGFMfAZc4J5muODCO/1RQSUCi0
-d0yNwTd3imMVQ86oTTHGKEfVINoZcwToc3PCmPg0AMKhQTeDT9Bwz4MbsSVrHS9s
-Kb5EWSZ+jqr31EgYsgTkqeUntJyTZfLlIiu4ns28MzfUhDKTDmO36zLodQCRF7a1
-zSNMZTfho1Zf8nQSX6Sqvi04LZ5QyX0PxxF+8QpEENceGY7yEpmdCCLpwUITy0NH
-1mUcssdubrJZCjMRde8DqV8B/SwGiatLIY5kGQEcMB+dxpApwkIj/CrJF7Vx8GzI
-Fq3VwRGMFVIFYZykTTI9jik+Pex6jP6JCOjXPWV+/VvUqgq+UKRsDmpnXZwONs9w
-veicz4EcW4fNDSNkagOeNtT8dXVnuvhgU/bFIVqxuVErv6c9mKIiP52ayBxZjgDS
-JuLt9PVvlUT1T3Yiync/wfDEUzxM58Q2ruV3GyZxcYENj19GI5CU2CkJEfGkyV8E
-54KXR4hPYcgtS4YzqWF6gLknXgIQkENQJwTY1J7QrYeqdYGan2YBnG3hPMSxWndf
-Muwx3nhky4E0aYDSvoVSk4qoV4RYL0WJt6AV8Gti3IdvB96x+eDe1X/JwcOYiBl2
-/2Zl9I05Sw2sZU6jNP9B
-=ZoKx
------END PGP SIGNATURE-----
-
---Apple-Mail=_4B838F2A-90D8-4DF0-8A2E-18A15FA469A2--
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 4f42007..520438b 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -185,10 +185,6 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	return 0;
+ }
+ 
+-/* 'KEY' must not have any bits set outside of the 'MASK' */
+-#define MASKED(OLD, KEY, MASK) ((KEY) | ((OLD) & ~(MASK)))
+-#define SET_MASKED(OLD, KEY, MASK) ((OLD) = MASKED(OLD, KEY, MASK))
+-
+ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		    const __be32 *mpls_lse, const __be32 *mask)
+ {
+@@ -201,7 +197,7 @@ static int set_mpls(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		return err;
+ 
+ 	stack = (__be32 *)skb_mpls_header(skb);
+-	lse = MASKED(*stack, *mpls_lse, *mask);
++	lse = OVS_MASKED(*stack, *mpls_lse, *mask);
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+ 		__be32 diff[] = { ~(*stack), lse };
+ 
+@@ -244,9 +240,9 @@ static void ether_addr_copy_masked(u8 *dst_, const u8 *src_, const u8 *mask_)
+ 	const u16 *src = (const u16 *)src_;
+ 	const u16 *mask = (const u16 *)mask_;
+ 
+-	SET_MASKED(dst[0], src[0], mask[0]);
+-	SET_MASKED(dst[1], src[1], mask[1]);
+-	SET_MASKED(dst[2], src[2], mask[2]);
++	OVS_SET_MASKED(dst[0], src[0], mask[0]);
++	OVS_SET_MASKED(dst[1], src[1], mask[1]);
++	OVS_SET_MASKED(dst[2], src[2], mask[2]);
+ }
+ 
+ static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *flow_key,
+@@ -338,10 +334,10 @@ static void update_ipv6_checksum(struct sk_buff *skb, u8 l4_proto,
+ static void mask_ipv6_addr(const __be32 old[4], const __be32 addr[4],
+ 			   const __be32 mask[4], __be32 masked[4])
+ {
+-	masked[0] = MASKED(old[0], addr[0], mask[0]);
+-	masked[1] = MASKED(old[1], addr[1], mask[1]);
+-	masked[2] = MASKED(old[2], addr[2], mask[2]);
+-	masked[3] = MASKED(old[3], addr[3], mask[3]);
++	masked[0] = OVS_MASKED(old[0], addr[0], mask[0]);
++	masked[1] = OVS_MASKED(old[1], addr[1], mask[1]);
++	masked[2] = OVS_MASKED(old[2], addr[2], mask[2]);
++	masked[3] = OVS_MASKED(old[3], addr[3], mask[3]);
+ }
+ 
+ static void set_ipv6_addr(struct sk_buff *skb, u8 l4_proto,
+@@ -358,15 +354,15 @@ static void set_ipv6_addr(struct sk_buff *skb, u8 l4_proto,
+ static void set_ipv6_fl(struct ipv6hdr *nh, u32 fl, u32 mask)
+ {
+ 	/* Bits 21-24 are always unmasked, so this retains their values. */
+-	SET_MASKED(nh->flow_lbl[0], (u8)(fl >> 16), (u8)(mask >> 16));
+-	SET_MASKED(nh->flow_lbl[1], (u8)(fl >> 8), (u8)(mask >> 8));
+-	SET_MASKED(nh->flow_lbl[2], (u8)fl, (u8)mask);
++	OVS_SET_MASKED(nh->flow_lbl[0], (u8)(fl >> 16), (u8)(mask >> 16));
++	OVS_SET_MASKED(nh->flow_lbl[1], (u8)(fl >> 8), (u8)(mask >> 8));
++	OVS_SET_MASKED(nh->flow_lbl[2], (u8)fl, (u8)mask);
+ }
+ 
+ static void set_ip_ttl(struct sk_buff *skb, struct iphdr *nh, u8 new_ttl,
+ 		       u8 mask)
+ {
+-	new_ttl = MASKED(nh->ttl, new_ttl, mask);
++	new_ttl = OVS_MASKED(nh->ttl, new_ttl, mask);
+ 
+ 	csum_replace2(&nh->check, htons(nh->ttl << 8), htons(new_ttl << 8));
+ 	nh->ttl = new_ttl;
+@@ -392,7 +388,7 @@ static int set_ipv4(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 	 * makes sense to check if the value actually changed.
+ 	 */
+ 	if (mask->ipv4_src) {
+-		new_addr = MASKED(nh->saddr, key->ipv4_src, mask->ipv4_src);
++		new_addr = OVS_MASKED(nh->saddr, key->ipv4_src, mask->ipv4_src);
+ 
+ 		if (unlikely(new_addr != nh->saddr)) {
+ 			set_ip_addr(skb, nh, &nh->saddr, new_addr);
+@@ -400,7 +396,7 @@ static int set_ipv4(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		}
+ 	}
+ 	if (mask->ipv4_dst) {
+-		new_addr = MASKED(nh->daddr, key->ipv4_dst, mask->ipv4_dst);
++		new_addr = OVS_MASKED(nh->daddr, key->ipv4_dst, mask->ipv4_dst);
+ 
+ 		if (unlikely(new_addr != nh->daddr)) {
+ 			set_ip_addr(skb, nh, &nh->daddr, new_addr);
+@@ -488,7 +484,8 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		    *(__be32 *)nh & htonl(IPV6_FLOWINFO_FLOWLABEL);
+ 	}
+ 	if (mask->ipv6_hlimit) {
+-		SET_MASKED(nh->hop_limit, key->ipv6_hlimit, mask->ipv6_hlimit);
++		OVS_SET_MASKED(nh->hop_limit, key->ipv6_hlimit,
++			       mask->ipv6_hlimit);
+ 		flow_key->ip.ttl = nh->hop_limit;
+ 	}
+ 	return 0;
+@@ -517,8 +514,8 @@ static int set_udp(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 
+ 	uh = udp_hdr(skb);
+ 	/* Either of the masks is non-zero, so do not bother checking them. */
+-	src = MASKED(uh->source, key->udp_src, mask->udp_src);
+-	dst = MASKED(uh->dest, key->udp_dst, mask->udp_dst);
++	src = OVS_MASKED(uh->source, key->udp_src, mask->udp_src);
++	dst = OVS_MASKED(uh->dest, key->udp_dst, mask->udp_dst);
+ 
+ 	if (uh->check && skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		if (likely(src != uh->source)) {
+@@ -558,12 +555,12 @@ static int set_tcp(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		return err;
+ 
+ 	th = tcp_hdr(skb);
+-	src = MASKED(th->source, key->tcp_src, mask->tcp_src);
++	src = OVS_MASKED(th->source, key->tcp_src, mask->tcp_src);
+ 	if (likely(src != th->source)) {
+ 		set_tp_port(skb, &th->source, src, &th->check);
+ 		flow_key->tp.src = src;
+ 	}
+-	dst = MASKED(th->dest, key->tcp_dst, mask->tcp_dst);
++	dst = OVS_MASKED(th->dest, key->tcp_dst, mask->tcp_dst);
+ 	if (likely(dst != th->dest)) {
+ 		set_tp_port(skb, &th->dest, dst, &th->check);
+ 		flow_key->tp.dst = dst;
+@@ -590,8 +587,8 @@ static int set_sctp(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 	old_csum = sh->checksum;
+ 	old_correct_csum = sctp_compute_cksum(skb, sctphoff);
+ 
+-	sh->source = MASKED(sh->source, key->sctp_src, mask->sctp_src);
+-	sh->dest = MASKED(sh->dest, key->sctp_dst, mask->sctp_dst);
++	sh->source = OVS_MASKED(sh->source, key->sctp_src, mask->sctp_src);
++	sh->dest = OVS_MASKED(sh->dest, key->sctp_dst, mask->sctp_dst);
+ 
+ 	new_csum = sctp_compute_cksum(skb, sctphoff);
+ 
+@@ -770,12 +767,13 @@ static int execute_masked_set_action(struct sk_buff *skb,
+ 
+ 	switch (nla_type(a)) {
+ 	case OVS_KEY_ATTR_PRIORITY:
+-		SET_MASKED(skb->priority, nla_get_u32(a), *get_mask(a, u32 *));
++		OVS_SET_MASKED(skb->priority, nla_get_u32(a),
++			       *get_mask(a, u32 *));
+ 		flow_key->phy.priority = skb->priority;
+ 		break;
+ 
+ 	case OVS_KEY_ATTR_SKB_MARK:
+-		SET_MASKED(skb->mark, nla_get_u32(a), *get_mask(a, u32 *));
++		OVS_SET_MASKED(skb->mark, nla_get_u32(a), *get_mask(a, u32 *));
+ 		flow_key->phy.skb_mark = skb->mark;
+ 		break;
+ 
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 6b28c5c..487a85f 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -200,6 +200,10 @@ void ovs_dp_notify_wq(struct work_struct *work);
+ int action_fifos_init(void);
+ void action_fifos_exit(void);
+ 
++/* 'KEY' must not have any bits set outside of the 'MASK' */
++#define OVS_MASKED(OLD, KEY, MASK) ((KEY) | ((OLD) & ~(MASK)))
++#define OVS_SET_MASKED(OLD, KEY, MASK) ((OLD) = OVS_MASKED(OLD, KEY, MASK))
++
+ #define OVS_NLERR(logging_allowed, fmt, ...)			\
+ do {								\
+ 	if (logging_allowed && net_ratelimit())			\
+-- 
+2.1.4
