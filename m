@@ -1,56 +1,58 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv5 net-next 03/10] ipv6: Export nf_ct_frag6_gather()
-Date: Tue, 25 Aug 2015 12:15:40 -0700
-Message-ID: <CALnjE+raAnSwWsvkVwYkt4qj1f1twN-fZnBGeh1WAuq5hrsGLg@mail.gmail.com>
-References: <1440462740-23358-1-git-send-email-joestringer@nicira.com>
-	<1440462740-23358-4-git-send-email-joestringer@nicira.com>
+From: Christophe Ricard <christophe.ricard@gmail.com>
+Subject: Re: [RFC] netlink: netlink_ack send a capped message in case of error
+Date: Tue, 25 Aug 2015 21:22:28 +0200
+Message-ID: <55DCC074.3060907@gmail.com>
+References: <CAE4R7bAYUhbUoGK_M=USJW8pgWmBrKsNuzLFmY70aBzti53Vxg@mail.gmail.com>	<CALD+uuz7NHdWU0qqogu6_cs81Ng6gpcCPFUr4WUF+hpQPMaysg@mail.gmail.com>	<20150824185637.GA19923@salvia> <20150824.211921.944778094161045642.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	Justin Pettit <jpettit@nicira.com>,
-	Jesse Gross <jesse@nicira.com>, netfilter-devel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, jbenc@redhat.com, sameo@linux.intel.com,
+	netdev@vger.kernel.org, christophe-h.ricard@st.com
+To: David Miller <davem@davemloft.net>, pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:33795 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753195AbbHYTPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 15:15:41 -0400
-Received: by iodb91 with SMTP id b91so198386427iod.1
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 12:15:40 -0700 (PDT)
-In-Reply-To: <1440462740-23358-4-git-send-email-joestringer@nicira.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:37222 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbbHYTWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 15:22:31 -0400
+Received: by widdq5 with SMTP id dq5so24099678wid.0
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 12:22:30 -0700 (PDT)
+In-Reply-To: <20150824.211921.944778094161045642.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 5:32 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> Acked-by: Thomas Graf <tgraf@suug.ch>
-> Acked-by: Pravin B Shelar <pshelar@nicira.com>
+Hi David, Pablo,
 
-When I apply this patch I see empty commit msg. I think you need to
-add atleast a blank line after the subject.
+I gave try to your proposed patch.
+Changes in netlink_getsockopt and netlink_setsockopt are working fine.
 
-> ---
-> v4: Add ack.
-> v5: No change.
-> ---
->  net/ipv6/netfilter/nf_conntrack_reasm.c | 1 +
->  1 file changed, 1 insertion(+)
+Changes in netlink_ack looks not to be addressing the correct socket.
+
+I will send an updated version in few minutes.
+
+Best Regards
+Christophe
+
+On 25/08/2015 06:19, David Miller wrote:
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date: Mon, 24 Aug 2015 20:56:37 +0200
 >
-> diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-> index 6d02498..701cd2b 100644
-> --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-> +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-> @@ -633,6 +633,7 @@ ret_orig:
->         kfree_skb(clone);
->         return skb;
->  }
-> +EXPORT_SYMBOL_GPL(nf_ct_frag6_gather);
+>> On Mon, Aug 24, 2015 at 10:08:22AM +0200, Christophe Ricard wrote:
+>>> Hi Scott,
+>>>
+>>> I think i understand the potential limitation of my solution.
+>>> I saw something was proposed by Jiri Benc who pushed an additional flag to
+>>> tell if the payload can be ignored in case of an error.
+>>> http://patchwork.ozlabs.org/patch/290976/
+>>>
+>>> Do you think this one is acceptable ? I am not sure to understand David
+>>> last comment.
+>> I think David suggests something like the (completely untested)
+>> attached patch.
+> Yes, echo'ing the entire message back in an ACK is really pointless.
 >
->  void nf_ct_frag6_consume_orig(struct sk_buff *skb)
->  {
-> --
-> 2.1.4
+> Especially since if the user really is interested in noticing ACKs
+> it can very easily keep the original request around and match on
+> sequence number, as Pablo's patch's commit message suggests.
 >
+> We're stuck with the current behavior by default, but we can add the
+> new ACK feature to deal with the issue in the long term.
