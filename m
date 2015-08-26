@@ -1,45 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/14] i40e: add RX to port CRC errors label
-Date: Wed, 26 Aug 2015 15:49:21 -0700
-Message-ID: <1440629373-21287-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/14] i40e: don't degrade __le16
+Date: Wed, 26 Aug 2015 15:49:20 -0700
+Message-ID: <1440629373-21287-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:34139 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:12760 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753562AbbHZWtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752996AbbHZWtg (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 26 Aug 2015 18:49:36 -0400
 In-Reply-To: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The port.crc_errors is really an RX counter, so let's mark it as such.
+Sparse cries when we compare an __le16 to a u16, almost like it cares
+about architectures other than x86. Weird. Use the le16_to_cpu macro to
+make it stop crying.
 
-Change-ID: I179afd3f8a95d45229bb4163a6aeb01f0d2d250b
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Id068f4d7868a2d3df234a791a76d15938f37db35
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 2 ++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 5 +++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 83d41c2..d6c7eb7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -114,7 +114,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
- 	I40E_PF_STAT("rx_dropped", stats.eth.rx_discards),
- 	I40E_PF_STAT("tx_dropped_link_down", stats.tx_dropped_link_down),
--	I40E_PF_STAT("crc_errors", stats.crc_errors),
-+	I40E_PF_STAT("rx_crc_errors", stats.crc_errors),
- 	I40E_PF_STAT("illegal_bytes", stats.illegal_bytes),
- 	I40E_PF_STAT("mac_local_faults", stats.mac_local_faults),
- 	I40E_PF_STAT("mac_remote_faults", stats.mac_remote_faults),
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3bb832a..ded62eb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1255,6 +1255,8 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi, u8 *macaddr,
+ 	struct i40e_mac_filter *f;
+ 
+ 	list_for_each_entry(f, &vsi->mac_filter_list, list) {
++		if (vsi->info.pvid)
++			f->vlan = le16_to_cpu(vsi->info.pvid);
+ 		if (!i40e_find_filter(vsi, macaddr, f->vlan,
+ 				      is_vf, is_netdev)) {
+ 			if (!i40e_add_filter(vsi, macaddr, f->vlan,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 8a7607c..70a6fb1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2106,11 +2106,12 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+ 		goto error_pvid;
+ 	}
+ 
+-	if (vsi->info.pvid == (vlan_id | (qos << I40E_VLAN_PRIORITY_SHIFT)))
++	if (le16_to_cpu(vsi->info.pvid) ==
++	    (vlan_id | (qos << I40E_VLAN_PRIORITY_SHIFT)))
+ 		/* duplicate request, so just return success */
+ 		goto error_pvid;
+ 
+-	if (vsi->info.pvid == 0 && i40e_is_vsi_in_vlan(vsi)) {
++	if (le16_to_cpu(vsi->info.pvid) == 0 && i40e_is_vsi_in_vlan(vsi)) {
+ 		dev_err(&pf->pdev->dev,
+ 			"VF %d has already configured VLAN filters and the administrator is requesting a port VLAN override.\nPlease unload and reload the VF driver for this change to take effect.\n",
+ 			vf_id);
 -- 
 2.4.3
