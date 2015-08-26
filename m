@@ -1,49 +1,68 @@
-From: tej parkash <parkash.tej@gmail.com>
-Subject: Re: netlink_route kernel data dump size increased
-Date: Wed, 26 Aug 2015 06:28:53 +0530
-Message-ID: <CAM1L+iB-NsW8vC9QVyfa1rJWMu4gdT4u9NK5MJiipoeeWEhRzg@mail.gmail.com>
-References: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
- <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: dsa: fix EDSA frame from hwaccel frame
+Date: Tue, 25 Aug 2015 18:28:34 -0700
+Message-ID: <55DD1642.2020301@gmail.com>
+References: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36408 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbbHZA7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 20:59:33 -0400
-Received: by pacgr6 with SMTP id gr6so7931200pac.3
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 17:59:33 -0700 (PDT)
-In-Reply-To: <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 20, 2015 at 2:47 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-08-19 at 23:41 +0530, tej parkash wrote:
->> All,
->>
->> We are running application on Linux Kernel 3.10 to collect network
->> interface information using  NETLINK_ROUTE protocol. earlier (kernel
->> 2.6.32) we were having 8K buffer allocated to collect all data but
->> with new kernel (3.10) we are seeing read socket error, as buffer size
->> is not sufficient for all network dump data.
->>
->> We want to understand that if the userspace buffer limit increased to
->> 16K or we need some other mechanism to collect the data in 8K chuck.
->> or Is there any other way application can use NETLINK_ROUTE  protocol,
->> so that it will not break the application if data size gets increased
->> in future.
->>
->> I did some some browsing and found some link but they were not very conclusive.
->> http://www.spinics.net/lists/netdev/msg162185.html
->>
->> Appreciate for any kind of help or pointers here
->>
->
-> This sounds like a bug that might have been fixed later.
-https://lists.ubuntu.com/archives/kernel-team/2014-August/046758.html
+Le 08/03/15 23:35, Vivien Didelot a =C3=A9crit :
+> If the underlying network device features NETIF_F_HW_VLAN_CTAG_TX,
+> an EDSA frame is prepended with a 802.1q header once queued.
+>=20
+> To fix this, push the VLAN tag to the payload if present, before
+> checking the frame protocol.
 
-Is this the patch we are talking about?
-It is available from 3.13 kernel only.  Let me also verify it, if it
-is working for us.
+Makes sense, but you would want Andrew or Guenter to ack this patch.
+
+Thanks!
+
+>=20
+> [note: we may prefer to access directly VLAN TCI from hwaccel frames,
+> but this approach is simpler.]
+>=20
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  net/dsa/tag_edsa.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+>=20
+> diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
+> index 2288c80..3ada4eb 100644
+> --- a/net/dsa/tag_edsa.c
+> +++ b/net/dsa/tag_edsa.c
+> @@ -9,6 +9,7 @@
+>   */
+> =20
+>  #include <linux/etherdevice.h>
+> +#include <linux/if_vlan.h>
+>  #include <linux/list.h>
+>  #include <linux/slab.h>
+>  #include "dsa_priv.h"
+> @@ -21,6 +22,10 @@ static struct sk_buff *edsa_xmit(struct sk_buff *s=
+kb, struct net_device *dev)
+>  	struct dsa_slave_priv *p =3D netdev_priv(dev);
+>  	u8 *edsa_header;
+> =20
+> +	skb =3D vlan_hwaccel_push_inside(skb);
+> +	if (unlikely(!skb))
+> +		return NULL;
+> +
+>  	/*
+>  	 * Convert the outermost 802.1q tag to a DSA tag and prepend
+>  	 * a DSA ethertype field is the packet is tagged, or insert
+>=20
+
+
+--=20
+=46lorian
