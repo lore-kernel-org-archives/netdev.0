@@ -1,64 +1,69 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [v2] net: phy: fixed: propagate fixed link values to struct
-Date: Wed, 26 Aug 2015 11:48:05 -0700
-Message-ID: <55DE09E5.1080008@gmail.com>
-References: <1440601127-7663-1-git-send-email-madalin.bucur@freescale.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCHv6 net-next 05/10] openvswitch: Add conntrack action
+Date: Wed, 26 Aug 2015 11:55:56 -0700
+Message-ID: <CANr6G5w_e5QhxPLAR6UEvgDGUa7UCZUuBfABxPoS=zjrayUsjg@mail.gmail.com>
+References: <1440613913-10141-1-git-send-email-joestringer@nicira.com> <1440613913-10141-6-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Igal.Liberman@freescale.com, andrew@lunn.ch
-To: madalin.bucur@freescale.com, stsp@list.ru
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Florian Westphal <fwestpha@redhat.com>,
+	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Justin Pettit <jpettit@nicira.com>,
+	Jesse Gross <jesse@nicira.com>,
+	netfilter-devel@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34825 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751840AbbHZSue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:50:34 -0400
-In-Reply-To: <1440601127-7663-1-git-send-email-madalin.bucur@freescale.com>
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:34349 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753988AbbHZS4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:56:16 -0400
+Received: by ykdt205 with SMTP id t205so197605899ykd.1
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 11:56:15 -0700 (PDT)
+In-Reply-To: <1440613913-10141-6-git-send-email-joestringer@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/08/15 07:58, Madalin Bucur wrote:
-> The fixed link values parsed from the device tree are stored in
-> the struct fixed_phy member status. The struct phy_device members
-> speed, duplex were not updated.
+On 26 August 2015 at 11:31, Joe Stringer <joestringer@nicira.com> wrote:
+> Expose the kernel connection tracker via OVS. Userspace components can
+> make use of the CT action to populate the connection state (ct_state)
+> field for a flow. This state can be subsequently matched.
+>
+> Exposed connection states are OVS_CS_F_*:
+> - NEW (0x01) - Beginning of a new connection.
+> - ESTABLISHED (0x02) - Part of an existing connection.
+> - RELATED (0x04) - Related to an established connection.
+> - INVALID (0x20) - Could not track the connection for this packet.
+> - REPLY_DIR (0x40) - This packet is in the reply direction for the flow.
+> - TRACKED (0x80) - This packet has been sent through conntrack.
+>
+> When the CT action is executed by itself, it will send the packet
+> through the connection tracker and populate the ct_state field with one
+> or more of the connection state flags above. The CT action will always
+> set the TRACKED bit.
+>
+> When the COMMIT flag is passed to the conntrack action, this specifies
+> that information about the connection should be stored. This allows
+> subsequent packets for the same (or related) connections to be
+> correlated with this connection. Sending subsequent packets for the
+> connection through conntrack allows the connection tracker to consider
+> the packets as ESTABLISHED, RELATED, and/or REPLY_DIR.
+>
+> The CT action may optionally take a zone to track the flow within. This
+> allows connections with the same 5-tuple to be kept logically separate
+> from connections in other zones. If the zone is specified, then the
+> "ct_zone" match field will be subsequently populated with the zone id.
+>
+> IP fragments are handled by transparently assembling them as part of the
+> CT action. The maximum received unit (MRU) size is tracked so that
+> refragmentation can occur during output.
+>
+> IP frag handling contributed by Andy Zhou.
 
-Arguably you need to start the PHY state machine for this to work
-properly, but this looks fine to me.
+Based on original design by Justin Pettit.
 
-> 
-> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
-> v2: always setting phy->link, thanks Stas
-> 
->  drivers/net/phy/fixed_phy.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
-> 
-> diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-> index 479b93f..99d9bc1 100644
-> --- a/drivers/net/phy/fixed_phy.c
-> +++ b/drivers/net/phy/fixed_phy.c
-> @@ -292,6 +292,15 @@ struct phy_device *fixed_phy_register(unsigned int irq,
->  		return ERR_PTR(-EINVAL);
->  	}
->  
-> +	/* propagate the fixed link values to struct phy_device */
-> +	phy->link = status->link;
-> +	if (status->link) {
-> +		phy->speed = status->speed;
-> +		phy->duplex = status->duplex;
-> +		phy->pause = status->pause;
-> +		phy->asym_pause = status->asym_pause;
-> +	}
-> +
->  	of_node_get(np);
->  	phy->dev.of_node = np;
->  
-> 
-
-
--- 
-Florian
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Signed-off-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> Acked-by: Thomas Graf <tgraf@suug.ch>
