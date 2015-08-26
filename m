@@ -1,52 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v2] bridge: vlan: allow to suppress
- local mac install for all vlans
-Date: Tue, 25 Aug 2015 17:58:20 -0700
-Message-ID: <20150825175820.0b0538c1@urahara>
-References: <1440549295-3979-1-git-send-email-razor@blackwall.org>
+From: tej parkash <parkash.tej@gmail.com>
+Subject: Re: netlink_route kernel data dump size increased
+Date: Wed, 26 Aug 2015 06:28:53 +0530
+Message-ID: <CAM1L+iB-NsW8vC9QVyfa1rJWMu4gdT4u9NK5MJiipoeeWEhRzg@mail.gmail.com>
+References: <CAM1L+iBqypLJi2qD3Ncs_L+Lyi=ozRSciZvhBL5OzqjPFGfprg@mail.gmail.com>
+ <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org, wkok@cumulusnetworks.com, davem@davemloft.net
-To: Nikolay Aleksandrov <razor@blackwall.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1440549295-3979-1-git-send-email-razor@blackwall.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36408 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624AbbHZA7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 20:59:33 -0400
+Received: by pacgr6 with SMTP id gr6so7931200pac.3
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 17:59:33 -0700 (PDT)
+In-Reply-To: <1440019047.6610.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 25 Aug 2015 17:34:55 -0700
-Nikolay Aleksandrov <razor@blackwall.org> wrote:
+On Thu, Aug 20, 2015 at 2:47 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-08-19 at 23:41 +0530, tej parkash wrote:
+>> All,
+>>
+>> We are running application on Linux Kernel 3.10 to collect network
+>> interface information using  NETLINK_ROUTE protocol. earlier (kernel
+>> 2.6.32) we were having 8K buffer allocated to collect all data but
+>> with new kernel (3.10) we are seeing read socket error, as buffer size
+>> is not sufficient for all network dump data.
+>>
+>> We want to understand that if the userspace buffer limit increased to
+>> 16K or we need some other mechanism to collect the data in 8K chuck.
+>> or Is there any other way application can use NETLINK_ROUTE  protocol,
+>> so that it will not break the application if data size gets increased
+>> in future.
+>>
+>> I did some some browsing and found some link but they were not very conclusive.
+>> http://www.spinics.net/lists/netdev/msg162185.html
+>>
+>> Appreciate for any kind of help or pointers here
+>>
+>
+> This sounds like a bug that might have been fixed later.
+https://lists.ubuntu.com/archives/kernel-team/2014-August/046758.html
 
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 3d95647039d0..2bda472c5a6e 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -294,6 +294,7 @@ struct net_bridge
->  	u32				auto_cnt;
->  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
->  	u8				vlan_enabled;
-> +	bool				vlan_ignore_local_fdb;
-
-bool takes more space than u8.
-
-
->  	__be16				vlan_proto;
->  	u16				default_pvid;
->  	struct net_port_vlans __rcu	*vlan_info;
-
-> +int br_vlan_ignore_local_fdb_toggle(struct net_bridge *br, unsigned long val)
-> +{
-> +	br->vlan_ignore_local_fdb = val ? true : false;
-
-personal preference is for:
-	br->vlan_ignore_local_fdb = !!val;
+Is this the patch we are talking about?
+It is available from 3.13 kernel only.  Let me also verify it, if it
+is working for us.
