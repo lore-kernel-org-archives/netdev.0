@@ -1,35 +1,55 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH] route: put lwstate before freeing dst to avoid use
- after free
-Date: Wed, 26 Aug 2015 12:35:31 +0200
-Message-ID: <20150826123531.4f27f124@griffin>
-References: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [[net-next] lo uses DEPRECATED zero tx_queue_len - convert
+ driver to use IFF_NO_QUEUE instead
+Date: Wed, 26 Aug 2015 13:03:52 +0200
+Message-ID: <20150826110352.GA28613@orbit.nwl.cc>
+References: <CAMuHMdX6O3_wtWagwAKgVd=aifXjVd5rw8VczF18VS9+Mm30oQ@mail.gmail.com>
+ <20150826093426.GA20760@orbit.nwl.cc>
+ <CAMuHMdVFNnfDFO0Kqz=N3rFW7_3O8ha3Da80bMaEeVozducw9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, roopa@cumulusnetworks.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60495 "EHLO mx1.redhat.com"
+Received: from orbit.nwl.cc ([176.31.251.142]:46496 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754105AbbHZKfi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2015 06:35:38 -0400
-In-Reply-To: <1440527114-12746-1-git-send-email-sasha.levin@oracle.com>
+	id S1756038AbbHZLDy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2015 07:03:54 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdVFNnfDFO0Kqz=N3rFW7_3O8ha3Da80bMaEeVozducw9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 25 Aug 2015 14:25:14 -0400, Sasha Levin wrote:
-> Commit 61adedf3 ("route: move lwtunnel state to dst_entry") is trying to
-> release lwstate after getting rid of dst, which causes a use-after-free
-> trying to access dst->lwstate.
+Hi Geert,
+
+On Wed, Aug 26, 2015 at 12:16:47PM +0200, Geert Uytterhoeven wrote:
+> On Wed, Aug 26, 2015 at 11:34 AM, Phil Sutter <phil@nwl.cc> wrote:
+> > On Tue, Aug 25, 2015 at 01:16:41PM +0200, Geert Uytterhoeven wrote:
+> >> I don't know if this was reported before (I'm not subscribed to netdev), but
+> >> Google couldn't find it:
+> >>
+> >> lo uses DEPRECATED zero tx_queue_len - convert driver to use
+> >> IFF_NO_QUEUE instead
+> >
+> > This is fixed by commit e65db2b ("net: loopback: convert to using
+> > IFF_NO_QUEUE"), part of a bigger series converting drivers (see here:
+> > http://lists.openwall.net/netdev/2015/08/18/52).
 > 
-> Fixes: 61adedf3 ("route: move lwtunnel state to dst_entry")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> Strange, that commit is included in my tree, which is based on
+> https://git.kernel.org/cgit/linux/kernel/git/geert/renesas-drivers.git/
+> and includes net-next?
 
-Already fixed by e252b3d1a174 in net-next.
+I'm sorry, the above statement was too quickly put. Florian Westphal
+confirmed the problem you are seeing privately, and I can follow from
+looking at the code. Obviously I failed to notice that by using
+alloc_netdev instead of alloc_etherdev, there is a way for drivers to
+circumvent ether_setup completely which leaves tx_queue_len
+uninitialized (i.e., 0) and therefore triggers the warning.
 
- Jiri
+I'm yet unsure how to properly fix this issue, but moving the check to a
+more appropriate place is certainly advisable.
 
--- 
-Jiri Benc
+Thanks for pointing this out,
+
+Phil
