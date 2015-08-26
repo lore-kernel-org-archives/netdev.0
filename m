@@ -1,46 +1,35 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF is
- configured or used
-Date: Wed, 26 Aug 2015 10:48:36 -0700
-Message-ID: <20150826174835.GQ4215@atomide.com>
-References: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
- <20150826170410.GP4215@atomide.com>
- <55DDF7F8.2030304@arm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions
+ statistics via debugfs
+Date: Wed, 26 Aug 2015 10:49:06 -0700 (PDT)
+Message-ID: <20150826.104906.9246591425074015.davem@davemloft.net>
+References: <20150826055215.GA2215@nanopsycho.orion>
+	<20150825.230821.2162893312002303587.davem@davemloft.net>
+	<20150826073757.GB2215@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Jeremy Linton <jeremy.linton@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55DDF7F8.2030304@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	ogerlitz@mellanox.com, jiri@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36801 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754238AbbHZRtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 13:49:07 -0400
+In-Reply-To: <20150826073757.GB2215@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Jeremy Linton <jeremy.linton@arm.com> [150826 10:35]:
-> On 08/26/2015 12:04 PM, Tony Lindgren wrote:
-> >* Guenter Roeck <linux@roeck-us.net> [150817 13:48]:
-> >>Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
-> >Looks like this change makes at least omap boards using smsc911x
-> >fail with -22 for me in Linux next.
-> >
-> >Do any of the the device tree configured smsc911x devices actually
-> >have a phy configured?
-> 
-> Tony,
-> 
-> 	Looks like all the ones in the kernel boot/dts directory have a phy
-> including the omap3-lilly except for the ste-snowball.dts.
-> 
-> 	Do you have smsc,force-internal-phy set instead?
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 26 Aug 2015 09:37:57 +0200
 
-Hmm most of them are using omap-gpmc-smsc911x.dtsi and
-omap-gpmc-smsc9221.dtsi which are set up the same way as
-omap3-lilly. So no phy.
+> I don't think that are much more cases like this. Therefore I think that
+> for this cases, debugfs might be a good way to expose debugging stats.
 
-Regards,
+Scott wanted to do similar things in rocker.  DSA guys too.
 
-Tony
+Every switch device is going to have some kind of hierarchy like
+this, it's not a unique situation.
+
+So I don't buy the "this is a special situation" thing at all.
