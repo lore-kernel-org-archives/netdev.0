@@ -1,74 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: [TRIVIAL PATCH] smsc9194: Remove uncompilable #if 0'd use of pr_dbg
-Date: Wed, 26 Aug 2015 11:41:48 -0700
-Message-ID: <1440614508.2780.36.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 0/2] drivers: net: xgene: Add TSO support
+Date: Wed, 26 Aug 2015 11:48:04 -0700
+Message-ID: <1440614886-23566-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:32911 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751608AbbHZSr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:47:58 -0400
+Received: by pacti10 with SMTP id ti10so96589352pac.0
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 11:47:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-No pr_dbg method exists.
+Adding TSO support for 10GbE
 
-While this code is #if 0'd, it'd be nicer to
-use the generic hex_dump, so use it instead.
+iperf Tx data rate without TSO: 3.42 Gbps
+                      with TSO: 9.41 Gbps
 
-Signed-off-by: Joe Perches <joe@perches.com>
+v2: Address review comments from v1
+    - skb_linearize() if headers doesn't fit in 3 hardware buffers
+
+v1:
+* Initial version
+
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
 
-Or maybe just delete the driver altogether.
+Iyappan Subramanian (2):
+  drivers: net: xgene: Preparatory patch for TSO support
+  drivers: net: xgene: Adding support for TSO
 
-It'd probably be nice to one day create something
-like drivers/net/ethernet/obsolete and eventually
-kill off code for the stuff that hasn't been
-supported or sold in the last 20 years.
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  16 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 274 +++++++++++++++++++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  12 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |   8 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |   2 +
+ 5 files changed, 283 insertions(+), 29 deletions(-)
 
- drivers/net/ethernet/smsc/smc9194.c | 32 ++------------------------------
- 1 file changed, 2 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smc9194.c b/drivers/net/ethernet/smsc/smc9194.c
-index 67d9fde..94857c1 100644
---- a/drivers/net/ethernet/smsc/smc9194.c
-+++ b/drivers/net/ethernet/smsc/smc9194.c
-@@ -1031,36 +1031,8 @@ err_out:
- static void print_packet( byte * buf, int length )
- {
- #if 0
--	int i;
--	int remainder;
--	int lines;
--
--	pr_dbg("Packet of length %d\n", length);
--	lines = length / 16;
--	remainder = length % 16;
--
--	for ( i = 0; i < lines ; i ++ ) {
--		int cur;
--
--		printk(KERN_DEBUG);
--		for ( cur = 0; cur < 8; cur ++ ) {
--			byte a, b;
--
--			a = *(buf ++ );
--			b = *(buf ++ );
--			pr_cont("%02x%02x ", a, b);
--		}
--		pr_cont("\n");
--	}
--	printk(KERN_DEBUG);
--	for ( i = 0; i < remainder/2 ; i++ ) {
--		byte a, b;
--
--		a = *(buf ++ );
--		b = *(buf ++ );
--		pr_cont("%02x%02x ", a, b);
--	}
--	pr_cont("\n");
-+	print_hex_dump_dbg(DRV_NAME, DUMP_PREFIX_OFFSET, 16, 1,
-+			   buf, length, true);
- #endif
- }
- #endif
+-- 
+1.9.1
