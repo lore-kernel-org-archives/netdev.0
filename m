@@ -1,97 +1,37 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF is
- configured or used
-Date: Wed, 26 Aug 2015 10:57:11 -0700
-Message-ID: <20150826175710.GR4215@atomide.com>
-References: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
- <20150826170410.GP4215@atomide.com>
- <55DDF939.9050209@roeck-us.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next 0/6] rocker: make master change handling nicer
+Date: Wed, 26 Aug 2015 11:00:19 -0700
+Message-ID: <CAE4R7bAR_vTePkfCHrrZQ35URFbdKCsLrKM-H0icFUP2rs0VCA@mail.gmail.com>
+References: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeremy Linton <jeremy.linton@arm.com>,
-	linux-omap@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55DDF939.9050209@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:32830 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752855AbbHZSAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:00:39 -0400
+Received: by obbhe7 with SMTP id he7so178620307obb.0
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 11:00:38 -0700 (PDT)
+In-Reply-To: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Guenter Roeck <linux@roeck-us.net> [150826 10:40]:
-> Hi Tony,
-> 
-> On 08/26/2015 10:04 AM, Tony Lindgren wrote:
-> >Hi,
-> >
-> >* Guenter Roeck <linux@roeck-us.net> [150817 13:48]:
-> >>Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
-> >>the call to smsc911x_probe_config() unconditional, and no longer fails if
-> >>there is no device node. device_get_phy_mode() is called unconditionally,
-> >>and if there is no phy node configured returns an error code. This error
-> >>code is assigned to phy_interface, and interpreted elsewhere in the code
-> >>as valid phy mode. This in turn causes qemu to crash when running a
-> >>variant of realview_pb_defconfig.
-> >>
-> >>	qemu: hardware error: lan9118_read: Bad reg 0x86
-> >>
-> >>Fixes: 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT")
-> >>Cc: Jeremy Linton <jeremy.linton@arm.com>
-> >>Cc Graeme Gregory <graeme.gregory@linaro.org>
-> >>Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> >>---
-> >>  drivers/net/ethernet/smsc/smsc911x.c | 7 ++++++-
-> >>  1 file changed, 6 insertions(+), 1 deletion(-)
-> >>
-> >>diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> >>index 0f21aa3bb537..34f97684506b 100644
-> >>--- a/drivers/net/ethernet/smsc/smsc911x.c
-> >>+++ b/drivers/net/ethernet/smsc/smsc911x.c
-> >>@@ -2367,12 +2367,17 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
-> >>  static int smsc911x_probe_config(struct smsc911x_platform_config *config,
-> >>  				 struct device *dev)
-> >>  {
-> >>+	int phy_interface;
-> >>  	u32 width = 0;
-> >>
-> >>  	if (!dev)
-> >>  		return -ENODEV;
-> >>
-> >>-	config->phy_interface = device_get_phy_mode(dev);
-> >>+	phy_interface = device_get_phy_mode(dev);
-> >>+	if (phy_interface < 0)
-> >>+		return phy_interface;
-> >>+
-> >>+	config->phy_interface = phy_interface;
-> >>
-> >>  	device_get_mac_address(dev, config->mac, ETH_ALEN);
-> >
-> >Looks like this change makes at least omap boards using smsc911x
-> >fail with -22 for me in Linux next.
-> >
-> 
-> What do you see if you revert my patch ? It should assign -22, or its
-> unsigned representation, to phy_interface, which isn't such a good idea
-> either.
+On Wed, Aug 26, 2015 at 9:36 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> Jiri Pirko (6):
+>   net: introduce change upper device notifier change info
+>   net: add netif_is_bridge_master helper
+>   net: add netif_is_ovs_master helper with IFF_OPENVSWITCH private flag
+>   net: kill long time unused bonding private flags
+>   rocker: use new helper to figure out master kind
+>   rocker: use change upper info
 
-If I revert patch "smsc911x: Fix crash seen if neither ACPI nor OF is
-configured or used" things work as just assign config->phy_interface
-directly without returning early. It's -22 in that case also.
- 
-> >Do any of the the device tree configured smsc911x devices actually
-> >have a phy configured?
-> >
-> Good question, and beats me. Looking into the original code,
-> it didn't check for an error return from of_get_phy_mode() either,
-> and thus _would_ dutifully assign the error code to phy_interface.
-> Wonder how was this supposed to work to start with.
-> 
-> I'll do some debugging and try to find out what exactly is going on.
-
-Looks like adding "smsc,force-internal-phy" to omap-gpmc-smsc9221.dtsi
-does not help. Somehow the default behavior is now different.
-
-Regards,
-
-Tony
+Looks good Jiri, thanks for cleaning this up.  Only nit was about
+conserving netdev->priv_flags.   Using rtnl_link_ops->kind to
+determine netdev type scales better.
