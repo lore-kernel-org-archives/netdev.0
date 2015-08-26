@@ -1,66 +1,43 @@
-From: Mike Saal <msaal@qacafe.com>
-Subject: ss format bug
-Date: Wed, 26 Aug 2015 11:59:17 -0400
-Message-ID: <55DDE255.1010003@qacafe.com>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [v2] net: phy: fixed: propagate fixed link values to struct
+Date: Wed, 26 Aug 2015 16:12:43 +0000
+Message-ID: <BL2PR03MB545D559B9B04BFED6DE4266E6600@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1440601127-7663-1-git-send-email-madalin.bucur@freescale.com>
+ <55DDE079.7070401@list.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050601030602000906010902"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:35428 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756839AbbHZP7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 11:59:19 -0400
-Received: by qgj62 with SMTP id 62so128940131qgj.2
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 08:59:18 -0700 (PDT)
-Received: from chinacat.lan ([50.255.187.93])
-        by smtp.googlemail.com with ESMTPSA id t105sm16691270qgd.5.2015.08.26.08.59.17
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 26 Aug 2015 08:59:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Liberman Igal <Igal.Liberman@freescale.com>
+To: Stas Sergeev <stsp@list.ru>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55DDE079.7070401@list.ru>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050601030602000906010902
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Hi:
-
-I found a formatting bug in the 4.1.1 ss command. The following line was 
-incorrectly output due to passing a negative length to printf() when 
-displaying the local address. In this instance hostapd does a "bind to 
-device" on cdreth0 and then does a udp "in address any" port 67 bind. 
-Please note the whitespace between the '*' and ' %cdreth0:67'
-
-    'udp UNCONN 0 0 ** %cdreth0:67* *:* users:(("hostapd",pid=19241,fd=5))'
-
-Attached is my patch for the bug fix, it might be prudent to add more 
-guard code looking for negative length format codes.
-
-Sincerely, Mike
-
---------------050601030602000906010902
-Content-Type: text/x-patch;
- name="ss.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="ss.patch"
-
-diff -Nuar iproute2-4.1.1.orig/misc/ss.c iproute2-4.1.1/misc/ss.c
---- iproute2-4.1.1.orig/misc/ss.c	2015-07-06 17:57:34.000000000 -0400
-+++ iproute2-4.1.1/misc/ss.c	2015-08-20 10:37:17.615100588 -0400
-@@ -1023,6 +1023,8 @@
- 	if (ifindex) {
- 		ifname   = ll_index_to_name(ifindex);
- 		est_len -= strlen(ifname) + 1;  /* +1 for percent char */
-+		if (est_len < 0)
-+			est_len = 0;
- 	}
- 
- 	sock_addr_print_width(est_len, ap, ":", serv_width, resolve_service(port),
-
-
-
---------------050601030602000906010902--
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFzIFNlcmdlZXYgW21haWx0
+bzpzdHNwQGxpc3QucnVdDQo+IFNlbnQ6IFdlZG5lc2RheSwgQXVndXN0IDI2LCAyMDE1IDY6NTEg
+UE0NCj4gVG86IEJ1Y3VyIE1hZGFsaW4tQ3Jpc3RpYW4tQjMyNzE2IDxtYWRhbGluLmJ1Y3VyQGZy
+ZWVzY2FsZS5jb20+Ow0KPiBmLmZhaW5lbGxpQGdtYWlsLmNvbQ0KPiBDYzogbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgTGliZXJtYW4gSWdhbC0N
+Cj4gQjMxOTUwIDxJZ2FsLkxpYmVybWFuQGZyZWVzY2FsZS5jb20+DQo+IFN1YmplY3Q6IFJlOiBb
+djJdIG5ldDogcGh5OiBmaXhlZDogcHJvcGFnYXRlIGZpeGVkIGxpbmsgdmFsdWVzIHRvIHN0cnVj
+dA0KPiANCj4gMjYuMDguMjAxNSAxNzo1OCwgTWFkYWxpbiBCdWN1ciDQv9C40YjQtdGCOg0KPiA+
+IFRoZSBmaXhlZCBsaW5rIHZhbHVlcyBwYXJzZWQgZnJvbSB0aGUgZGV2aWNlIHRyZWUgYXJlIHN0
+b3JlZCBpbg0KPiA+IHRoZSBzdHJ1Y3QgZml4ZWRfcGh5IG1lbWJlciBzdGF0dXMuIFRoZSBzdHJ1
+Y3QgcGh5X2RldmljZSBtZW1iZXJzDQo+ID4gc3BlZWQsIGR1cGxleCB3ZXJlIG5vdCB1cGRhdGVk
+Lg0KPiANCj4gQUNLLCBidXQgSU1ITyBpdCB3aWxsIG1ha2UgbW9yZSBzZW5zZSBpZiB5b3UgaW5j
+bHVkZSB0aGF0DQo+IGludG8geW91ciB1cGNvbWluZyBwYXRjaCBzZXQgcmF0aGVyIHRoYW4gc2Vu
+ZGluZyBzZXBhcmF0ZWx5LA0KPiBhcyBvdGhlcndpc2UgdGhlcmUgaXMgc2ltcGx5IG5vIGluLWtl
+cm5lbCB1c2VycyBvZiB0aGF0IG5ldw0KPiBmdW5jdGlvbmFsaXR5IChhbGwgdGhlIGN1cnJlbnQg
+dXNlcnMgbGlrZWx5IGRvIG5vdCBhY2Nlc3MNCj4gdGhlc2UgZmllbGRzIGFzIGVhcmx5IGFzIHlv
+dSB3YW50IHRvLCBzbyB0aGV5IGRvbid0IGNhcmUpLg0KPiBJbiBhbnkgY2FzZSwgdGhlIHBhdGNo
+IGxvb2tzIGdvb2QgdG8gbWUgYW5kIHRoZSBwb2xpY3kgaXMNCj4gdXAgdG8gb3RoZXJzLg0KDQpH
+aXZlbiB0aGF0IGl0J3MgbW9yZSBvZiBhIGZpeCB0aGFuIGEgZmVhdHVyZSwgSSB0aGluayBpdCBj
+YW4gYmUgcGlja2VkIHVwIHNlcGFyYXRlDQpmcm9tIGEgY2VydGFpbiBkcml2ZXIgdGhhdCBhY2Nl
+c3NlcyB0aG9zZSBmaWVsZHMgZWFybHkgYnV0IEkgZ3Vlc3MgRmxvcmlhbiwgRGF2aWQNCndpbGwg
+ZGVjaWRlIHRoaXMuDQoNClRoYW5rcywNCk1hZGFsaW4NCg==
