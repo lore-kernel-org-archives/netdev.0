@@ -1,38 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH, net-next] r8169:Actually from r810x_pll_power_up
-Date: Wed, 26 Aug 2015 23:13:58 +0200
-Message-ID: <20150826211358.GA14167@electric-eye.fr.zoreil.com>
-References: <1440594505-2908-1-git-send-email-corcodel.marian@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH v3 net-next 8/8] geneve: Move device hash table to geneve
+ socket.
+Date: Wed, 26 Aug 2015 17:14:21 -0400
+Message-ID: <20150826211420.GE9495@tuxdriver.com>
+References: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
+ <1440438195-5695-9-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Corcodel Marian <corcodel.marian@gmail.com>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37338 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752568AbbHZVOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 17:14:22 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58501 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752644AbbHZVPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 17:15:11 -0400
 Content-Disposition: inline
-In-Reply-To: <1440594505-2908-1-git-send-email-corcodel.marian@gmail.com>
+In-Reply-To: <1440438195-5695-9-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corcodel Marian <corcodel.marian@gmail.com> :
-> Actually from r810x_pll_power_up function i removed function
->   r810x_phy_power_up because is two situation.One run from  rtl8169_p=
-hy_reset
->  wich already power on interface after reset MII_BMCR  and two i plac=
-ed
->  supplementary on __rtl8169_resume.
+On Mon, Aug 24, 2015 at 10:43:15AM -0700, Pravin B Shelar wrote:
+> This change simplifies Geneve Tunnel hash table management.
+> 
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Reviewed-by: Jesse Gross <jesse@nicira.com>
 
-r810x_phy_power_up and r810x_pll_power_up are dedicated to 810x chipset=
-s.
+Reviewed-by: John W. Linville <linville@tuxdriver.com>
 
-__rtl8169_resume is used by all chipsets.
-
-
---=20
-Ueimor
-
-C'est syst=C3=A9matiquement d=C3=A9bile mais c'est toujours inattendu.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
