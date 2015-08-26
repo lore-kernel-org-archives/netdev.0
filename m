@@ -1,81 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/14] i40e/i40evf: Cache the CEE TLV status returned from firmware
-Date: Wed, 26 Aug 2015 15:49:32 -0700
-Message-ID: <1440629373-21287-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/14] i40e/i40evf: add VIRTCHNL_VF_OFFLOAD flag
+Date: Wed, 26 Aug 2015 15:49:31 -0700
+Message-ID: <1440629373-21287-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jingjing Wu <jingjing.wu@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:12760 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:34139 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757010AbbHZWtj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752831AbbHZWtj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 26 Aug 2015 18:49:39 -0400
 In-Reply-To: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Store the CEE TLV status returned by firmware to allow drivers to dump that
-for debug purposes.
+Add virtual channel offload capability to support RX polling mode in the
+VF.
 
-Change-ID: Ie3c4cf8cebabee4f15e1e3fdc4fc8a68bbca40ee
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Change-ID: Ib643ae2a7506dfc75fc489fc207493fabefa4832
+Signed-off-by: Jingjing Wu <jingjing.wu@intel.com>
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_dcb.c    | 4 ++++
- drivers/net/ethernet/intel/i40e/i40e_type.h   | 1 +
- drivers/net/ethernet/intel/i40evf/i40e_type.h | 1 +
- 3 files changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_register.h    |  7 +++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 ++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  1 +
+ 4 files changed, 21 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-index 2547aa2..90de46a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-@@ -588,6 +588,8 @@ i40e_status i40e_get_dcb_config(struct i40e_hw *hw)
- 		if (!ret) {
- 			/* CEE mode */
- 			hw->local_dcbx_config.dcbx_mode = I40E_DCBX_MODE_CEE;
-+			hw->local_dcbx_config.tlv_status =
-+					le16_to_cpu(cee_v1_cfg.tlv_status);
- 			i40e_cee_to_dcb_v1_config(&cee_v1_cfg,
- 						  &hw->local_dcbx_config);
- 		}
-@@ -597,6 +599,8 @@ i40e_status i40e_get_dcb_config(struct i40e_hw *hw)
- 		if (!ret) {
- 			/* CEE mode */
- 			hw->local_dcbx_config.dcbx_mode = I40E_DCBX_MODE_CEE;
-+			hw->local_dcbx_config.tlv_status =
-+					le32_to_cpu(cee_cfg.tlv_status);
- 			i40e_cee_to_dcb_config(&cee_cfg,
- 					       &hw->local_dcbx_config);
- 		}
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index acb2aad..4842239 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -440,6 +440,7 @@ struct i40e_dcbx_config {
- #define I40E_DCBX_MODE_CEE	0x1
- #define I40E_DCBX_MODE_IEEE	0x2
- 	u32 numapps;
-+	u32 tlv_status; /* CEE mode TLV status */
- 	struct i40e_dcb_ets_config etscfg;
- 	struct i40e_dcb_ets_config etsrec;
- 	struct i40e_dcb_pfc_config pfc;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 1ab2498..24a2693 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -434,6 +434,7 @@ struct i40e_ieee_app_priority_table {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
+index acae6c74..dc0402f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
+@@ -873,6 +873,13 @@
+ #define I40E_PFINT_CEQCTL_CAUSE_ENA_MASK I40E_MASK(0x1, I40E_PFINT_CEQCTL_CAUSE_ENA_SHIFT)
+ #define I40E_PFINT_CEQCTL_INTEVENT_SHIFT 31
+ #define I40E_PFINT_CEQCTL_INTEVENT_MASK I40E_MASK(0x1, I40E_PFINT_CEQCTL_INTEVENT_SHIFT)
++#define I40E_GLINT_CTL 0x0003F800 /* Reset: CORER */
++#define I40E_GLINT_CTL_DIS_AUTOMASK_PF0_SHIFT 0
++#define I40E_GLINT_CTL_DIS_AUTOMASK_PF0_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_PF0_SHIFT)
++#define I40E_GLINT_CTL_DIS_AUTOMASK_VF0_SHIFT 1
++#define I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_VF0_SHIFT)
++#define I40E_GLINT_CTL_DIS_AUTOMASK_N_SHIFT 2
++#define I40E_GLINT_CTL_DIS_AUTOMASK_N_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_N_SHIFT)
+ #define I40E_PFINT_DYN_CTL0 0x00038480 /* Reset: PFR */
+ #define I40E_PFINT_DYN_CTL0_INTENA_SHIFT 0
+ #define I40E_PFINT_DYN_CTL0_INTENA_MASK I40E_MASK(0x1, I40E_PFINT_DYN_CTL0_INTENA_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+index a7ab463..0f8d415 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+@@ -152,6 +152,7 @@ struct i40e_virtchnl_vsi_resource {
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG	0x00000010
+ #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
++#define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
  
- struct i40e_dcbx_config {
- 	u32 numapps;
-+	u32 tlv_status; /* CEE mode TLV status */
- 	struct i40e_ieee_ets_config etscfg;
- 	struct i40e_ieee_ets_recommend etsrec;
- 	struct i40e_ieee_pfc_config pfc;
+ struct i40e_virtchnl_vf_resource {
+ 	u16 num_vsis;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index ca7a568..d99c116 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -335,6 +335,18 @@ static void i40e_config_irq_link_list(struct i40e_vf *vf, u16 vsi_id,
+ 		wr32(hw, reg_idx, reg);
+ 	}
+ 
++	/* if the vf is running in polling mode and using interrupt zero,
++	 * need to disable auto-mask on enabling zero interrupt for VFs.
++	 */
++	if ((vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING) &&
++	    (vector_id == 0)) {
++		reg = rd32(hw, I40E_GLINT_CTL);
++		if (!(reg & I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK)) {
++			reg |= I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK;
++			wr32(hw, I40E_GLINT_CTL, reg);
++		}
++	}
++
+ irq_list_done:
+ 	i40e_flush(hw);
+ }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+index 1e89dea..e6db20e 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+@@ -152,6 +152,7 @@ struct i40e_virtchnl_vsi_resource {
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG	0x00000010
+ #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
++#define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
+ 
+ struct i40e_virtchnl_vf_resource {
+ 	u16 num_vsis;
 -- 
 2.4.3
