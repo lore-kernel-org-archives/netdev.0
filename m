@@ -1,39 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: mmap: fix status setting in skb destructor
-Date: Tue, 25 Aug 2015 20:22:03 -0700 (PDT)
-Message-ID: <20150825.202203.408221873735724462.davem@davemloft.net>
-References: <55CDBC84.8020605@iogearbox.net>
-	<55CDC51D.1060204@iogearbox.net>
-	<20150820070733.GA3711@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, fw@strlen.de
-To: chamaken@gmail.com
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH RFC 0/5] net: L2 only interfaces
+Date: Tue, 25 Aug 2015 21:24:49 -0700
+Message-ID: <A41B4B28-7D28-4BFB-AD4F-508C24AB82CA@holtmann.org>
+References: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com> <20150825.171248.291365392844717283.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: f.fainelli@gmail.com, Network Development <netdev@vger.kernel.org>,
+	andrew@lunn.ch, Guenter Roeck <linux@roeck-us.net>,
+	jiri@resnulli.us, sfeldma@gmail.com
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32956 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751865AbbHZDWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 23:22:04 -0400
-In-Reply-To: <20150820070733.GA3711@gmail.com>
+Received: from senator.holtmann.net ([87.106.208.187]:38820 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794AbbHZEY6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 00:24:58 -0400
+In-Reply-To: <20150825.171248.291365392844717283.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Date: Thu, 20 Aug 2015 16:07:33 +0900
+Hi Dave,
 
-> I don't know the intension of setting VALID status in the skb
-> destructor. But I think it need to be set UNUSED status in case of
-> error then release skb, or rx ring might be filled with RESERVED
-> frames.
+>> This patch series implements a L2 only interface concept which
+>> basically denies any kind of IP address configuration on these
+>> interfaces, but still allows them to be used as configuration
+>> end-points to keep using ethtool and friends.
+>> 
+>> A cleaner approach might be to finally come up with the concept of
+>> net_port which a net_device would be a superset of, but this still
+>> raises tons of questions as to whether we should be modifying
+>> userland tools to be able to configure/query these
+>> interfaces. During all the switch talks/discussions last year, it
+>> seemed to me like th L2-only interface is closest we have to a
+>> "network port".
+>> 
+>> Comments, flames, flying tomatoes welcome!
 > 
-> Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+> Interesting, indeed.
+> 
+> Do you plan to extend this to defining a more minimal network device
+> sub-type as well?
+> 
+> Then we can pass "net_device_common" or whatever around as a common
+> base type of actual net device "implementations".
+> 
+> Or is you main goal just getting the L2-only semantic?
 
-I think the idea is to have the user process this "zero length" frame
-and advance the status itself.
+the other end of this could be also an IP only net_device where we do not have ethtool semantics.
 
-I think it is probably racy and problematic to have the kernel set a
-frame's state to UNUSED.  It is not a valid state transition for the
-kernel side of RX ring processing.
+We do have a need for a IPv6 only net_device when utilizing ARPHRD_6LOWPAN for 802.15.4 and Bluetooth LE. Skipping in_dev initialization there might be an interesting step towards that. Not sure how much entangled in_dev and in6_dev still are. If it works for IFF_L2_ONLY, it might work also in the other direction.
 
-Only the user can safely release ring entries back to the kernel.
+Regards
+
+Marcel
