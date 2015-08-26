@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/5] act_bpf: remove spinlock in fast path
-Date: Wed, 26 Aug 2015 11:02:00 -0700 (PDT)
-Message-ID: <20150826.110200.2304613258350642186.davem@davemloft.net>
-References: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions statistics
+ via debugfs
+Date: Wed, 26 Aug 2015 11:21:59 -0700
+Message-ID: <CAE4R7bDZqrgtzi5dAdCgSxy_hTHE9MPfD1WENX3ea7ZXps7+Mw@mail.gmail.com>
+References: <20150826055215.GA2215@nanopsycho.orion> <20150825.230821.2162893312002303587.davem@davemloft.net>
+ <20150826073757.GB2215@nanopsycho.orion> <20150826.104906.9246591425074015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, daniel@iogearbox.net, netdev@vger.kernel.org
-To: ast@plumgrid.com
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36887 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751919AbbHZSCB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:02:01 -0400
-In-Reply-To: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:36570 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751992AbbHZSWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:22:19 -0400
+Received: by obkg7 with SMTP id g7so178845403obk.3
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 11:22:18 -0700 (PDT)
+In-Reply-To: <20150826.104906.9246591425074015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue, 25 Aug 2015 20:06:30 -0700
+On Wed, Aug 26, 2015 at 10:49 AM, David Miller <davem@davemloft.net> wrote:
+> From: Jiri Pirko <jiri@resnulli.us>
+> Date: Wed, 26 Aug 2015 09:37:57 +0200
+>
+>> I don't think that are much more cases like this. Therefore I think that
+>> for this cases, debugfs might be a good way to expose debugging stats.
+>
+> Scott wanted to do similar things in rocker.  DSA guys too.
+>
+> Every switch device is going to have some kind of hierarchy like
+> this, it's not a unique situation.
 
-> v1 version had a race condition in cleanup path of bpf_prog.
-> I tried to fix it by adding new callback 'cleanup_rcu' to 'struct tcf_common'
-> and call it out of act_api cleanup path, but Daniel noticed
-> (thanks for the idea!) that most of the classifiers already do action cleanup
-> out of rcu callback.
-> So instead this set of patches converts tcindex and rsvp classifiers to call
-> tcf_exts_destroy() after rcu grace period and since action cleanup logic
-> in __tcf_hash_release() is only called when bind and refcnt goes to zero,
-> it's guaranteed that cleanup() callback is called from rcu callback.
-> More specifically:
-> patches 1 and 2 - simple fixes
-> patches 2 and 3 - convert tcf_exts_destroy in tcindex and rsvp to call_rcu
-> patch 5 - removes spin_lock from act_bpf
-> 
-> The cleanup of actions is now universally done after rcu grace period
-> and in the future we can drop (now unnecessary) call_rcu from tcf_hash_destroy()
-> patch 5 is using synchronize_rcu() in act_bpf replacement path, since it's
-> very rare and alternative of dynamically allocating 'struct tcf_bpf_cfg' just
-> to pass it to call_rcu looks even less appealing.
-
-Series applied, thanks Alexei.
+We've been able to get buy so far without a user-visible device for
+the switch.  The switch ports are represented by netdevs, so that's
+easy.  How can we create an object for the switch itself, so we can
+attach common interfaces for the user to dump switch-level stats or
+tables?   Using another netdev doesn't seem right.  Do we need a new
+device class for switches, and then create some common tool/interfaces
+for switch device class?
