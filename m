@@ -1,54 +1,84 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next 0/5] act_bpf: remove spinlock in fast path
-Date: Tue, 25 Aug 2015 20:06:30 -0700
-Message-ID: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v2 net-next 3/5] net_sched: convert tcindex to call tcf_exts_destroy from rcu callback
+Date: Tue, 25 Aug 2015 20:06:33 -0700
+Message-ID: <1440558395-7765-4-git-send-email-ast@plumgrid.com>
+References: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36590 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbbHZDGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 23:06:43 -0400
-Received: by pacgr6 with SMTP id gr6so11352964pac.3
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 20:06:42 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35414 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751816AbbHZDGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 23:06:45 -0400
+Received: by pacdd16 with SMTP id dd16so144535806pac.2
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 20:06:45 -0700 (PDT)
+In-Reply-To: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1 version had a race condition in cleanup path of bpf_prog.
-I tried to fix it by adding new callback 'cleanup_rcu' to 'struct tcf_common'
-and call it out of act_api cleanup path, but Daniel noticed
-(thanks for the idea!) that most of the classifiers already do action cleanup
-out of rcu callback.
-So instead this set of patches converts tcindex and rsvp classifiers to call
-tcf_exts_destroy() after rcu grace period and since action cleanup logic
-in __tcf_hash_release() is only called when bind and refcnt goes to zero,
-it's guaranteed that cleanup() callback is called from rcu callback.
-More specifically:
-patches 1 and 2 - simple fixes
-patches 2 and 3 - convert tcf_exts_destroy in tcindex and rsvp to call_rcu
-patch 5 - removes spin_lock from act_bpf
+Adjust destroy path of cls_tcindex to call tcf_exts_destroy() after
+rcu grace period.
 
-The cleanup of actions is now universally done after rcu grace period
-and in the future we can drop (now unnecessary) call_rcu from tcf_hash_destroy()
-patch 5 is using synchronize_rcu() in act_bpf replacement path, since it's
-very rare and alternative of dynamically allocating 'struct tcf_bpf_cfg' just
-to pass it to call_rcu looks even less appealing.
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ net/sched/cls_tcindex.c |   29 +++++++++++++++++++++++++----
+ 1 file changed, 25 insertions(+), 4 deletions(-)
 
-Alexei Starovoitov (5):
-  net_sched: make tcf_hash_destroy() static
-  net_sched: act_bpf: remove unnecessary copy
-  net_sched: convert tcindex to call tcf_exts_destroy from rcu callback
-  net_sched: convert rsvp to call tcf_exts_destroy from rcu callback
-  net_sched: act_bpf: remove spinlock in fast path
-
- include/net/act_api.h       |    1 -
- include/net/tc_act/tc_bpf.h |    2 +-
- net/sched/act_api.c         |    3 +--
- net/sched/act_bpf.c         |   38 ++++++++++++++++++++------------------
- net/sched/cls_rsvp.h        |   18 ++++++++++++++----
- net/sched/cls_tcindex.c     |   29 +++++++++++++++++++++++++----
- 6 files changed, 61 insertions(+), 30 deletions(-)
-
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index a557dbaf5afe..944c8ff45055 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -27,6 +27,7 @@
+ struct tcindex_filter_result {
+ 	struct tcf_exts		exts;
+ 	struct tcf_result	res;
++	struct rcu_head		rcu;
+ };
+ 
+ struct tcindex_filter {
+@@ -133,8 +134,23 @@ static int tcindex_init(struct tcf_proto *tp)
+ 	return 0;
+ }
+ 
+-static int
+-tcindex_delete(struct tcf_proto *tp, unsigned long arg)
++static void tcindex_destroy_rexts(struct rcu_head *head)
++{
++	struct tcindex_filter_result *r;
++
++	r = container_of(head, struct tcindex_filter_result, rcu);
++	tcf_exts_destroy(&r->exts);
++}
++
++static void tcindex_destroy_fexts(struct rcu_head *head)
++{
++	struct tcindex_filter *f = container_of(head, struct tcindex_filter, rcu);
++
++	tcf_exts_destroy(&f->result.exts);
++	kfree(f);
++}
++
++static int tcindex_delete(struct tcf_proto *tp, unsigned long arg)
+ {
+ 	struct tcindex_data *p = rtnl_dereference(tp->root);
+ 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) arg;
+@@ -162,9 +178,14 @@ found:
+ 		rcu_assign_pointer(*walk, rtnl_dereference(f->next));
+ 	}
+ 	tcf_unbind_filter(tp, &r->res);
+-	tcf_exts_destroy(&r->exts);
++	/* all classifiers are required to call tcf_exts_destroy() after rcu
++	 * grace period, since converted-to-rcu actions are relying on that
++	 * in cleanup() callback
++	 */
+ 	if (f)
+-		kfree_rcu(f, rcu);
++		call_rcu(&f->rcu, tcindex_destroy_fexts);
++	else
++		call_rcu(&r->rcu, tcindex_destroy_rexts);
+ 	return 0;
+ }
+ 
 -- 
 1.7.9.5
