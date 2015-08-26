@@ -1,54 +1,52 @@
-From: Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] mac80211: Do not use sizeof() on pointer type
-Date: Wed, 26 Aug 2015 12:22:14 +0200
-Message-ID: <1440584534-27251-1-git-send-email-thierry.reding@gmail.com>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC 0/2] Optimize the snmp stat aggregation for large
+ cpus
+Date: Wed, 26 Aug 2015 15:55:05 +0530
+Message-ID: <55DD9401.9090809@linux.vnet.ibm.com>
+References: <y> <1440489266-31127-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com> <20150825.160730.1747721171751442778.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jiri@resnulli.us, edumazet@google.com,
+	hannes@stressinduktion.org, tom@herbertland.com, azhou@nicira.com,
+	ebiederm@xmission.com, ipm@chirality.org.uk,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
+	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150825.160730.1747721171751442778.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+On 08/26/2015 04:37 AM, David Miller wrote:
+> From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+> Date: Tue, 25 Aug 2015 13:24:24 +0530
+>
+>> Please let me know if you have suggestions/comments.
+>
+> Like Eric Dumazet said the idea is good but needs some adjustments.
+>
+> You might want to see whether a per-cpu work buffer works for this.
 
-The rate_control_cap_mask() function takes a parameter mcs_mask, which
-GCC will take to be u8 * even though it was declared with a fixed size.
-This causes the following warning:
+sure, Let me know if I understood correctly,
 
-	net/mac80211/rate.c: In function 'rate_control_cap_mask':
-	net/mac80211/rate.c:719:25: warning: 'sizeof' on array function parameter 'mcs_mask' will return size of 'u8 * {aka unsigned char *}' [-Wsizeof-array-argument]
-	   for (i = 0; i < sizeof(mcs_mask); i++)
-	                         ^
-	net/mac80211/rate.c:684:10: note: declared here
-	       u8 mcs_mask[IEEE80211_HT_MCS_MASK_LEN],
-	          ^
+we allocate the temp buffer,
+we will have a  "add_this_cpu_data" function and do
 
-This can be easily fixed by using the IEEE80211_HT_MCS_MASK_LEN directly
-within the loop condition.
+for_each_online_cpu(cpu)
+                 smp_call_function_single(cpu, add_this_cpu_data, buffer, 1)
 
-Signed-off-by: Thierry Reding <treding-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
----
- net/mac80211/rate.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+if not could you please point to an example you had in mind.
 
-diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
-index 9857693b91ec..9ce8883d5f44 100644
---- a/net/mac80211/rate.c
-+++ b/net/mac80211/rate.c
-@@ -716,7 +716,7 @@ static bool rate_control_cap_mask(struct ieee80211_sub_if_data *sdata,
- 
- 		/* Filter out rates that the STA does not support */
- 		*mask &= sta->supp_rates[sband->band];
--		for (i = 0; i < sizeof(mcs_mask); i++)
-+		for (i = 0; i < IEEE80211_HT_MCS_MASK_LEN; i++)
- 			mcs_mask[i] &= sta->ht_cap.mcs.rx_mask[i];
- 
- 		sta_vht_cap = sta->vht_cap.vht_mcs.rx_mcs_map;
--- 
-2.4.5
+>
+> It's extremely unfortunately that we can't depend upon the destination
+> buffer being properly aligned, because we wouldn't need a temporary
+> scratch area if it were aligned properly.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+True, But I think for 64 bit cpus when (pad == 0) we can go ahead and
+use stats array directly and get rid of put_unaligned(). is it correct?
+
+(my internal initial patch had this version but thought it is ugly to
+have ifdef BITS_PER_LONG==64)
