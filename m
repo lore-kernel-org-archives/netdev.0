@@ -1,72 +1,96 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF is
- configured or used
-Date: Wed, 26 Aug 2015 10:04:10 -0700
-Message-ID: <20150826170410.GP4215@atomide.com>
-References: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next 3/6] net: add netif_is_ovs_master helper with
+ IFF_OPENVSWITCH private flag
+Date: Wed, 26 Aug 2015 10:24:55 -0700
+Message-ID: <55DDF667.20801@gmail.com>
+References: <1440606998-11072-1-git-send-email-jiri@resnulli.us> <1440606998-11072-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeremy Linton <jeremy.linton@arm.com>,
-	linux-omap@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, simon.horman@netronome.com,
+	Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36644 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbbHZR10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 13:27:26 -0400
+Received: by pacgr6 with SMTP id gr6so15084540pac.3
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 10:27:26 -0700 (PDT)
+In-Reply-To: <1440606998-11072-4-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-* Guenter Roeck <linux@roeck-us.net> [150817 13:48]:
-> Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
-> the call to smsc911x_probe_config() unconditional, and no longer fails if
-> there is no device node. device_get_phy_mode() is called unconditionally,
-> and if there is no phy node configured returns an error code. This error
-> code is assigned to phy_interface, and interpreted elsewhere in the code
-> as valid phy mode. This in turn causes qemu to crash when running a
-> variant of realview_pb_defconfig.
+On 26/08/15 09:36, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> 	qemu: hardware error: lan9118_read: Bad reg 0x86
+> Add this helper so code can easily figure out if netdev is openswitch.
 > 
-> Fixes: 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT")
-> Cc: Jeremy Linton <jeremy.linton@arm.com>
-> Cc Graeme Gregory <graeme.gregory@linaro.org>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 > ---
->  drivers/net/ethernet/smsc/smsc911x.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
+>  include/linux/netdevice.h            | 8 ++++++++
+>  net/openvswitch/vport-internal_dev.c | 2 +-
+>  2 files changed, 9 insertions(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> index 0f21aa3bb537..34f97684506b 100644
-> --- a/drivers/net/ethernet/smsc/smsc911x.c
-> +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> @@ -2367,12 +2367,17 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
->  static int smsc911x_probe_config(struct smsc911x_platform_config *config,
->  				 struct device *dev)
->  {
-> +	int phy_interface;
->  	u32 width = 0;
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index be625f4..0a884e6 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1264,6 +1264,7 @@ struct net_device_ops {
+>   * @IFF_MACVLAN: Macvlan device
+>   * @IFF_VRF_MASTER: device is a VRF master
+>   * @IFF_NO_QUEUE: device can run without qdisc attached
+> + * @IFF_VRF_OPENVSWITCH: device is a Open vSwitch master
+
+Typo, the flag you introduced is named IFF_OPENVSWITCH, not VFR_OPENSWITCH.
+
+>   */
+>  enum netdev_priv_flags {
+>  	IFF_802_1Q_VLAN			= 1<<0,
+> @@ -1293,6 +1294,7 @@ enum netdev_priv_flags {
+>  	IFF_IPVLAN_SLAVE		= 1<<24,
+>  	IFF_VRF_MASTER			= 1<<25,
+>  	IFF_NO_QUEUE			= 1<<26,
+> +	IFF_OPENVSWITCH			= 1<<27,
+>  };
 >  
->  	if (!dev)
->  		return -ENODEV;
+>  #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
+> @@ -1322,6 +1324,7 @@ enum netdev_priv_flags {
+>  #define IFF_IPVLAN_SLAVE		IFF_IPVLAN_SLAVE
+>  #define IFF_VRF_MASTER			IFF_VRF_MASTER
+>  #define IFF_NO_QUEUE			IFF_NO_QUEUE
+> +#define IFF_OPENVSWITCH			IFF_OPENVSWITCH
 >  
-> -	config->phy_interface = device_get_phy_mode(dev);
-> +	phy_interface = device_get_phy_mode(dev);
-> +	if (phy_interface < 0)
-> +		return phy_interface;
+>  /**
+>   *	struct net_device - The DEVICE structure.
+> @@ -3853,6 +3856,11 @@ static inline bool netif_is_bridge_master(const struct net_device *dev)
+>  	return dev->priv_flags & IFF_EBRIDGE;
+>  }
+>  
+> +static inline bool netif_is_ovs_master(const struct net_device *dev)
+> +{
+> +	return dev->priv_flags & IFF_OPENVSWITCH;
+> +}
 > +
-> +	config->phy_interface = phy_interface;
+>  static inline bool netif_index_is_vrf(struct net *net, int ifindex)
+>  {
+>  	bool rc = false;
+> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+> index c058bbf..80b3e12 100644
+> --- a/net/openvswitch/vport-internal_dev.c
+> +++ b/net/openvswitch/vport-internal_dev.c
+> @@ -135,7 +135,7 @@ static void do_setup(struct net_device *netdev)
+>  	netdev->netdev_ops = &internal_dev_netdev_ops;
 >  
->  	device_get_mac_address(dev, config->mac, ETH_ALEN);
+>  	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
+> -	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+> +	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_OPENVSWITCH;
+>  	netdev->destructor = internal_dev_destructor;
+>  	netdev->ethtool_ops = &internal_dev_ethtool_ops;
+>  	netdev->rtnl_link_ops = &internal_dev_link_ops;
+> 
 
-Looks like this change makes at least omap boards using smsc911x
-fail with -22 for me in Linux next.
 
-Do any of the the device tree configured smsc911x devices actually
-have a phy configured?
-
-Regards,
-
-Tony
+-- 
+Florian
