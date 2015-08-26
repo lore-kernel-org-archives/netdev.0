@@ -1,40 +1,46 @@
-From: Shaun Crampton <Shaun.Crampton@metaswitch.com>
-Subject: Re: ip_rcv_finish() NULL pointer and possibly related Oopses
-Date: Wed, 26 Aug 2015 13:01:12 +0000
-Message-ID: <D2037365.41362%Shaun.Crampton@metaswitch.com>
-References: <D2033B8F.4133C%Shaun.Crampton@metaswitch.com>
- <20150826074959.48aea34c@as>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Peter White <Peter.White@metaswitch.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chuck Ebbert <cebbert.lkml@gmail.com>
-To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150826074959.48aea34c@as>
-Content-Language: en-US
-Content-ID: <D1D3159EF73D324F97D25C9E09CB1FDF@metaswitch.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH, net-next] r8169:Actually from r810x_pll_power_up
+Date: Wed, 26 Aug 2015 16:08:25 +0300
+Message-ID: <1440594505-2908-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:36096 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751887AbbHZNIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 09:08:37 -0400
+Received: by wicja10 with SMTP id ja10so44139334wic.1
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 06:08:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Actually from r810x_pll_power_up function i removed function
+  r810x_phy_power_up because is two situation.One run from  rtl8169_phy_reset
+ wich already power on interface after reset MII_BMCR  and two i placed
+ supplementary on __rtl8169_resume.
 
->And the kernel thinks it's
->outside of any normal text section, so it does not try to dump any
->code from before the instruction pointer.
->
->   0:	48 8b 88 40 03 00 00 	mov    0x340(%rax),%rcx
->   7:	e8 1d dd dd ff       	callq  0xffffffffffdddd29
->   c:	5d                   	pop    %rbp
->   d:	c3                   	retq
->
->Did you write your own module loader or something?
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
 
-We certainly didn't but CoreOS may have.  I've asked CoreOS if they know
-what's going on.
-
-Are there any extra diagnostics I can gather from a CoreOS system to help
-figure out what's going on there?  Is there anything I can do to get more
-useful diagnostics when one of these failures occur?  As noted, I can
-reproduce the issue but it's expensive, requiring hundreds of VMs to
-hammer away for an hour or so.
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 91cf3a6..2d712a4 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4699,7 +4699,6 @@ static void r810x_pll_power_up(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 
+-	r810x_phy_power_up(tp);
+ 
+ 	switch (tp->mac_version) {
+ 	case RTL_GIGA_MAC_VER_07:
+@@ -7862,7 +7861,7 @@ static void __rtl8169_resume(struct net_device *dev)
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 
+ 	netif_device_attach(dev);
+-
++	r810x_phy_power_up(tp);	
+ 	rtl_pll_power_up(tp);
+ 
+ 	rtl_lock_work(tp);
+-- 
+2.1.4
