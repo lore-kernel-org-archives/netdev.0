@@ -1,92 +1,108 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel
- state
-Date: Wed, 26 Aug 2015 18:19:26 +0200
-Message-ID: <20150826181926.0444240f@griffin>
-References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
-	<20150823.165103.2104601245219561984.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/6] net: introduce change upper device notifier change info
+Date: Wed, 26 Aug 2015 18:36:33 +0200
+Message-ID: <1440606998-11072-2-git-send-email-jiri@resnulli.us>
+References: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sfeldma@gmail.com, simon.horman@netronome.com,
+	Jiri Pirko <jiri@mellanox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60981 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752794AbbHZQTa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2015 12:19:30 -0400
-In-Reply-To: <20150823.165103.2104601245219561984.davem@davemloft.net>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:38453 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752306AbbHZQgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 12:36:42 -0400
+Received: by wicja10 with SMTP id ja10so20598734wic.1
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 09:36:41 -0700 (PDT)
+In-Reply-To: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 23 Aug 2015 16:51:03 -0700 (PDT), David Miller wrote:
-> From: Jiri Benc <jbenc@redhat.com>
-> Date: Fri, 21 Aug 2015 12:41:14 +0200
-> 
-> > @@ -99,6 +99,9 @@ struct dst_entry {
-> >  	atomic_t		__refcnt;	/* client references	*/
-> >  	int			__use;
-> >  	unsigned long		lastuse;
-> > +#ifndef CONFIG_64BIT
-> > +	struct lwtunnel_state   *lwtstate;
-> > +#endif
-> >  	union {
-> >  		struct dst_entry	*next;
-> >  		struct rtable __rcu	*rt_next;
-> 
-> I'm going to apply this to fix the build error without reverting your
-> change entirely, but this is really an undesirable solution.
-> 
-> This cache line of the SKB is for write heavy members of struct
-> dst_entry and so if you put a read-mostly member here it's going to
-> result in performance problems.
+From: Jiri Pirko <jiri@mellanox.com>
 
-I've spent the last few days taking measurements using tbench (which was
-originally used for dst_entry reshuffling) and netperf (super_netperf
-with various number of concurrent TCP streams) on i686 and found no
-regression introduced by this.
+Add info that is passed along with NETDEV_CHANGEUPPER event.
 
-This looks somehow surprising until we look at where and how lwtstate is
-used. In non-tunnel case, it's either:
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/linux/netdevice.h |  7 +++++++
+ net/core/dev.c            | 16 ++++++++++++++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
-(1) used in netlink route notifications or
-(2) used together with the first few fields in struct rtable/rt6_info or
-(3) it's a skb_tunnel_info call.
-
-No more cases than those three. Of those, (1) is not of much concern.
-
-As for (2), the first few fields in struct rtable and struct rt6_info share
-the same cacheline with __refcnt, thus accessing the lwtstate makes no
-difference here.
-
-About (3), skb_tunnel_info is called from ip_route_input_slow and
-ip6_route_input. However, skb->dst is set only in case of a metadata
-dst_entry. In such case, tunnel info is fetched from metadata; otherwise,
-skb->dst is NULL. In either case, lwtstate is not accessed at all.
-
-This confirms what I measured - placing lwtstate in the same cacheline as
-__refcnt has no impact on performance in non-tunneling case.
-
-As for tunneling, I did not see any performance degradation after my patch
-in most cases. However, there were some cases where there was small
-degradation (<2%). I bisected it to the addition of IPv6 fields into
-ip_tunnel_key (i.e. commit c1ea5d672aaf). This is not much conclusive,
-though, the variation of the benchmark results was relatively high and this
-might be a noise. However, there's definitely room for performance
-improvement here, the lwtunnel vxlan throughput is at about ~40% of the
-non-vxlan throughput. I did not spend too much time on analyzing this, yet,
-but it's clear the dst_entry layout is not our biggest concern here.
-
-As the result, I think that the lwtstate field may stay where it is. For
-simplification of the code and to get rid of the #ifdefs, we can have it
-at the end of the struct also for 64bit case. Let me know if you prefer
-this, I'll submit a patch.
-
-Please let me know if you disagree with my analysis above.
-
-Thanks,
-
-  Jiri
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 6abe0d6..39f30da 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2127,6 +2127,13 @@ struct netdev_notifier_change_info {
+ 	unsigned int flags_changed;
+ };
+ 
++struct netdev_notifier_changeupper_info {
++	struct netdev_notifier_info info; /* must be first */
++	struct net_device *upper_dev; /* new upper dev */
++	bool master; /* is upper dev master */
++	bool linking; /* is the nofication for link or unlink */
++};
++
+ static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
+ 					     struct net_device *dev)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1f3f48..e7ef971 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5311,6 +5311,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 				   struct net_device *upper_dev, bool master,
+ 				   void *private)
+ {
++	struct netdev_notifier_changeupper_info changeupper_info;
+ 	struct netdev_adjacent *i, *j, *to_i, *to_j;
+ 	int ret = 0;
+ 
+@@ -5329,6 +5330,10 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	if (master && netdev_master_upper_dev_get(dev))
+ 		return -EBUSY;
+ 
++	changeupper_info.upper_dev = upper_dev;
++	changeupper_info.master = master;
++	changeupper_info.linking = true;
++
+ 	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
+ 						   master);
+ 	if (ret)
+@@ -5367,7 +5372,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 			goto rollback_lower_mesh;
+ 	}
+ 
+-	call_netdevice_notifiers(NETDEV_CHANGEUPPER, dev);
++	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
++				      &changeupper_info.info);
+ 	return 0;
+ 
+ rollback_lower_mesh:
+@@ -5462,9 +5468,14 @@ EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
+ void netdev_upper_dev_unlink(struct net_device *dev,
+ 			     struct net_device *upper_dev)
+ {
++	struct netdev_notifier_changeupper_info changeupper_info;
+ 	struct netdev_adjacent *i, *j;
+ 	ASSERT_RTNL();
+ 
++	changeupper_info.upper_dev = upper_dev;
++	changeupper_info.master = netdev_master_upper_dev_get(dev) == upper_dev;
++	changeupper_info.linking = false;
++
+ 	__netdev_adjacent_dev_unlink_neighbour(dev, upper_dev);
+ 
+ 	/* Here is the tricky part. We must remove all dev's lower
+@@ -5484,7 +5495,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list)
+ 		__netdev_adjacent_dev_unlink(dev, i->dev);
+ 
+-	call_netdevice_notifiers(NETDEV_CHANGEUPPER, dev);
++	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
++				      &changeupper_info.info);
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
 -- 
-Jiri Benc
+1.9.3
