@@ -1,77 +1,90 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH net] net: dsa: fix EDSA frame from hwaccel frame
-Date: Tue, 25 Aug 2015 18:37:45 -0700
-Message-ID: <20150826013745.GA1342@roeck-us.net>
-References: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <55DD1642.2020301@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 4/9] net: dsa: Allow configuration of CPU & DSA
+ port speeds/duplex
+Date: Tue, 25 Aug 2015 18:45:39 -0700
+Message-ID: <55DD1A43.4070606@gmail.com>
+References: <1440323220-20438-1-git-send-email-andrew@lunn.ch> <1440323220-20438-5-git-send-email-andrew@lunn.ch> <55DA1340.9080604@gmail.com> <20150823212404.GD20710@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55DD1642.2020301@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:34594 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859AbbHZBpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 21:45:41 -0400
+Received: by oiey141 with SMTP id y141so112578671oie.1
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 18:45:40 -0700 (PDT)
+In-Reply-To: <20150823212404.GD20710@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 25, 2015 at 06:28:34PM -0700, Florian Fainelli wrote:
-> Le 08/03/15 23:35, Vivien Didelot a =E9crit :
-> > If the underlying network device features NETIF_F_HW_VLAN_CTAG_TX,
-> > an EDSA frame is prepended with a 802.1q header once queued.
-> >=20
-> > To fix this, push the VLAN tag to the payload if present, before
-> > checking the frame protocol.
+Le 08/23/15 14:24, Andrew Lunn a =C3=A9crit :
+>>> +		port_dn =3D cd->port_dn[port];
+>>> +		if (of_phy_is_fixed_link(port_dn)) {
+>>> +			ret =3D of_phy_register_fixed_link(port_dn);
+>>> +			if (ret) {
+>>> +				netdev_err(master,
+>>> +					   "failed to register fixed PHY\n");
+>>> +				return ret;
+>>> +			}
+>>> +			phydev =3D of_phy_find_device(port_dn);
+>>> +			genphy_config_init(phydev);
+>>> +			genphy_read_status(phydev);
+>>> +			if (ds->drv->adjust_link)
+>>> +				ds->drv->adjust_link(ds, port, phydev);
+>>
+>> This kind of hack here because what you really need is just the link
+>> parameters, but you cannot obtain such information without first
+>> configuring the PHY up to a certain point in genphy_config_init(), a=
+nd
+>> then have genphy_read_status() copy these values in your phydev stru=
+cture.
+>>
+>> Maybe we should really consider something like this after all:
+>>
+>> https://lkml.org/lkml/2015/8/5/490
 >=20
-> Makes sense, but you would want Andrew or Guenter to ack this patch.
+> Hi Florian
 >=20
-I'll have to carve out some time soon to see if the current dsa code
-still works for me. Just don't know when and how to do that :-(
+> This half solves the problem. The nice thing about using the
+> fixed_link, is that i can just call the adjust_link function with it.
+> The fixed_phy_status cannot be passed directly to adjust_link. Some
+> code refactoring or duplication would be needed.
 
-Guenter
+BTW, this is really the reason why I was trying to push for having MDIO
+connected switches as PHY devices, because then you get the PHY library
+to calculate the advertised/supported intersection for you, and you
+could even imagine re-negotiating the CPU port link with the Ethernet M=
+AC.
 
-> Thanks!
+Maybe I should repost these patches some day once I can get that workin=
+g
+with multiple switches in a tree ;)
+
+> =20
+>> Or maybe, we should really introduce this "cpu" network device after=
+ all
+>> with a dropping xmit function, such that we get ethtool counters to =
+work
+>> on it, and we can also attach it to a PHY device to configure link
+>> parameters?
 >=20
-> >=20
-> > [note: we may prefer to access directly VLAN TCI from hwaccel frame=
-s,
-> > but this approach is simpler.]
-> >=20
-> > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> > ---
-> >  net/dsa/tag_edsa.c | 5 +++++
-> >  1 file changed, 5 insertions(+)
-> >=20
-> > diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-> > index 2288c80..3ada4eb 100644
-> > --- a/net/dsa/tag_edsa.c
-> > +++ b/net/dsa/tag_edsa.c
-> > @@ -9,6 +9,7 @@
-> >   */
-> > =20
-> >  #include <linux/etherdevice.h>
-> > +#include <linux/if_vlan.h>
-> >  #include <linux/list.h>
-> >  #include <linux/slab.h>
-> >  #include "dsa_priv.h"
-> > @@ -21,6 +22,10 @@ static struct sk_buff *edsa_xmit(struct sk_buff =
-*skb, struct net_device *dev)
-> >  	struct dsa_slave_priv *p =3D netdev_priv(dev);
-> >  	u8 *edsa_header;
-> > =20
-> > +	skb =3D vlan_hwaccel_push_inside(skb);
-> > +	if (unlikely(!skb))
-> > +		return NULL;
-> > +
-> >  	/*
-> >  	 * Convert the outermost 802.1q tag to a DSA tag and prepend
-> >  	 * a DSA ethertype field is the packet is tagged, or insert
-> >=20
+> I keep humming and harring about this. I don't really like the idea o=
+f
+> having an interface which you cannot send/receive packets. Yet it
+> solves a number of problems like this, and gives you access to
+> statistics and registers in the usual way. If we do it for the CPU
+> port, we should also do it for the DSA ports. And we probably want th=
+e
+> call for up to return -ENOSUP, just to make it clear it cannot be use=
+d
+> for anything.
 >=20
+>       Andrew
 >=20
-> --=20
-> Florian
+
+
+--=20
+=46lorian
