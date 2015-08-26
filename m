@@ -1,71 +1,72 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4: continue in debug mode, if probe fails
-Date: Wed, 26 Aug 2015 22:30:35 +0530
-Message-ID: <1440608435-12039-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21838 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932084AbbHZRAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 13:00:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF is
+ configured or used
+Date: Wed, 26 Aug 2015 10:04:10 -0700
+Message-ID: <20150826170410.GP4215@atomide.com>
+References: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeremy Linton <jeremy.linton@arm.com>,
+	linux-omap@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If adapter is flashed with incorrect firmware, probe can fail.
-If probe fails, continue in debug mode, so one can also use the debug
-interface to update the firmware via ethtool.
+Hi,
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+* Guenter Roeck <linux@roeck-us.net> [150817 13:48]:
+> Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
+> the call to smsc911x_probe_config() unconditional, and no longer fails if
+> there is no device node. device_get_phy_mode() is called unconditionally,
+> and if there is no phy node configured returns an error code. This error
+> code is assigned to phy_interface, and interpreted elsewhere in the code
+> as valid phy mode. This in turn causes qemu to crash when running a
+> variant of realview_pb_defconfig.
+> 
+> 	qemu: hardware error: lan9118_read: Bad reg 0x86
+> 
+> Fixes: 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT")
+> Cc: Jeremy Linton <jeremy.linton@arm.com>
+> Cc Graeme Gregory <graeme.gregory@linaro.org>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> ---
+>  drivers/net/ethernet/smsc/smsc911x.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 0f21aa3bb537..34f97684506b 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -2367,12 +2367,17 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
+>  static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+>  				 struct device *dev)
+>  {
+> +	int phy_interface;
+>  	u32 width = 0;
+>  
+>  	if (!dev)
+>  		return -ENODEV;
+>  
+> -	config->phy_interface = device_get_phy_mode(dev);
+> +	phy_interface = device_get_phy_mode(dev);
+> +	if (phy_interface < 0)
+> +		return phy_interface;
+> +
+> +	config->phy_interface = phy_interface;
+>  
+>  	device_get_mac_address(dev, config->mac, ETH_ALEN);
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index f35dd22..422765d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4726,12 +4726,13 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	setup_memwin(adapter);
- 	err = adap_init0(adapter);
-+	if (err)
-+		dev_err(&pdev->dev, "Adapter initialization failed, error %d.  "
-+			"Continuing in debug mode\n", -err);
- #ifdef CONFIG_DEBUG_FS
- 	bitmap_zero(adapter->sge.blocked_fl, adapter->sge.egr_sz);
- #endif
- 	setup_memwin_rdma(adapter);
--	if (err)
--		goto out_unmap_bar;
- 
- 	for_each_port(adapter, i) {
- 		struct net_device *netdev;
-@@ -4799,6 +4800,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * soon as the first register_netdev completes.
- 	 */
- 	cfg_queues(adapter);
-+	if (!(adapter->flags & FW_OK))
-+		goto fw_attach_fail;
- 
- 	adapter->l2t = t4_init_l2t(adapter->l2t_start, adapter->l2t_end);
- 	if (!adapter->l2t) {
-@@ -4851,6 +4854,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto out_free_dev;
- 
-+fw_attach_fail:
- 	/*
- 	 * The card is now ready to go.  If any errors occur during device
- 	 * registration we do not fail the whole card but rather proceed only
-@@ -4901,7 +4905,6 @@ sriov:
- 
-  out_free_dev:
- 	free_some_resources(adapter);
-- out_unmap_bar:
- 	if (!is_t4(adapter->params.chip))
- 		iounmap(adapter->bar2);
-  out_free_adapter:
--- 
-2.3.4
+Looks like this change makes at least omap boards using smsc911x
+fail with -22 for me in Linux next.
+
+Do any of the the device tree configured smsc911x devices actually
+have a phy configured?
+
+Regards,
+
+Tony
