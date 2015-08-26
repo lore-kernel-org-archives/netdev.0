@@ -1,32 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 5/5] net: dsa: bcm_sf2: Allow disabling tagging
- protocol
-Date: Tue, 25 Aug 2015 17:09:07 -0700 (PDT)
-Message-ID: <20150825.170907.650915573418643373.davem@davemloft.net>
-References: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com>
-	<1440543015-14693-6-git-send-email-f.fainelli@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] net: dsa: fix EDSA frame from hwaccel frame
+Date: Tue, 25 Aug 2015 20:11:32 -0400
+Message-ID: <20150826001132.GA15428@ketchup.mtl.sfl>
+References: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, linux@roeck-us.net,
-	jiri@resnulli.us, sfeldma@gmail.com
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60601 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755223AbbHZAJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 20:09:08 -0400
-In-Reply-To: <1440543015-14693-6-git-send-email-f.fainelli@gmail.com>
+Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:36256
+	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751816AbbHZALf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 20:11:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 25 Aug 2015 15:50:15 -0700
+Hi All,
 
->  	/* Enable Broadcom tags for IMP port */
->  	reg = core_readl(priv, CORE_BRCM_HDR_CTRL);
-> -	reg |= val;
-> +	if (!tagging_disabled)
+On Aug. Tuesday 04 (32) 02:35 AM, Vivien Didelot wrote:
+> If the underlying network device features NETIF_F_HW_VLAN_CTAG_TX,
+> an EDSA frame is prepended with a 802.1q header once queued.
+> 
+> To fix this, push the VLAN tag to the payload if present, before
+> checking the frame protocol.
+> 
+> [note: we may prefer to access directly VLAN TCI from hwaccel frames,
+> but this approach is simpler.]
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  net/dsa/tag_edsa.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
+> index 2288c80..3ada4eb 100644
+> --- a/net/dsa/tag_edsa.c
+> +++ b/net/dsa/tag_edsa.c
+> @@ -9,6 +9,7 @@
+>   */
+>  
+>  #include <linux/etherdevice.h>
+> +#include <linux/if_vlan.h>
+>  #include <linux/list.h>
+>  #include <linux/slab.h>
+>  #include "dsa_priv.h"
+> @@ -21,6 +22,10 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	struct dsa_slave_priv *p = netdev_priv(dev);
+>  	u8 *edsa_header;
+>  
+> +	skb = vlan_hwaccel_push_inside(skb);
+> +	if (unlikely(!skb))
+> +		return NULL;
+> +
+>  	/*
+>  	 * Convert the outermost 802.1q tag to a DSA tag and prepend
+>  	 * a DSA ethertype field is the packet is tagged, or insert
+> -- 
+> 2.4.6
+> 
 
-Just a pet-peeve of mine, I hate conditions that read as double
-negatives, like this one does.
+Did someone have a chance to give this a look?
+
+Thanks,
+-v
