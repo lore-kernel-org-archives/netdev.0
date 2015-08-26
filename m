@@ -1,62 +1,72 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next 1/5] net_sched: make tcf_hash_destroy() static
-Date: Tue, 25 Aug 2015 20:06:31 -0700
-Message-ID: <1440558395-7765-2-git-send-email-ast@plumgrid.com>
-References: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] netlink: rx mmap: fix POLLIN condition
+Date: Tue, 25 Aug 2015 20:17:12 -0700 (PDT)
+Message-ID: <20150825.201712.2151042716686513603.davem@davemloft.net>
+References: <55CDBC84.8020605@iogearbox.net>
+	<55CDC51D.1060204@iogearbox.net>
+	<20150820055447.GA2656@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, fw@strlen.de
+To: chamaken@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35387 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872AbbHZDGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 23:06:44 -0400
-Received: by pacdd16 with SMTP id dd16so144535149pac.2
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 20:06:43 -0700 (PDT)
-In-Reply-To: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32936 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920AbbHZDRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 23:17:16 -0400
+In-Reply-To: <20150820055447.GA2656@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcf_hash_destroy() used once. Make it static.
+From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Date: Thu, 20 Aug 2015 14:54:47 +0900
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- include/net/act_api.h |    1 -
- net/sched/act_api.c   |    3 +--
- 2 files changed, 1 insertion(+), 3 deletions(-)
+> Now poll() returns immediately after setting kernel current frame
+> (ring->head) to SKIP from user space even if there are no new
+> frames. And in a case of all frames is VALID, user space program
+> unintensionally sets (only) kernel current frame to UNUSED, then
+> calls poll(), it will not return immediately even though there are
+> VALID frames.
+> 
+> To avoid situations like above, I think we need to scan all frames
+> to find a VALID frame at poll() like netlink_alloc_skb(),
+> netlink_forward_ring() finding an UNUSED frame at skb allocation.
+> 
+> Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 4519c81304bd..9d446f136607 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -111,7 +111,6 @@ struct tc_action_ops {
- };
- 
- int tcf_hash_search(struct tc_action *a, u32 index);
--void tcf_hash_destroy(struct tc_action *a);
- u32 tcf_hash_new_index(struct tcf_hashinfo *hinfo);
- int tcf_hash_check(u32 index, struct tc_action *a, int bind);
- int tcf_hash_create(u32 index, struct nlattr *est, struct tc_action *a,
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index b087087ccfa9..06e7c4a37245 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -36,7 +36,7 @@ static void free_tcf(struct rcu_head *head)
- 	kfree(p);
- }
- 
--void tcf_hash_destroy(struct tc_action *a)
-+static void tcf_hash_destroy(struct tc_action *a)
- {
- 	struct tcf_common *p = a->priv;
- 	struct tcf_hashinfo *hinfo = a->ops->hinfo;
-@@ -52,7 +52,6 @@ void tcf_hash_destroy(struct tc_action *a)
- 	 */
- 	call_rcu(&p->tcfc_rcu, free_tcf);
- }
--EXPORT_SYMBOL(tcf_hash_destroy);
- 
- int __tcf_hash_release(struct tc_action *a, bool bind, bool strict)
- {
--- 
-1.7.9.5
+There seems to be a few issues here.
+
+Taking a look at netlink_forward_ring(), it appears buggy.
+
+	static void netlink_forward_ring(struct netlink_ring *ring)
+	{
+		unsigned int head = ring->head, pos = head;
+		const struct nl_mmap_hdr *hdr;
+
+		do {
+			hdr = __netlink_lookup_frame(ring, pos);
+			if (hdr->nm_status == NL_MMAP_STATUS_UNUSED)
+				break;
+			if (hdr->nm_status != NL_MMAP_STATUS_SKIP)
+				break;
+			netlink_increment_head(ring);
+		} while (ring->head != head);
+	}
+
+No matter what any of this code does, __netlink_lookup_frame() is always
+called with the same "pos" value.
+
+So, as far as I can tell, it will look at the same ring entry header over
+and over again, every time through this loop.
+
+netlink_increment_head() changes ring->head, but this has no influence
+upon the calculations made inside of __netlink_lookup_frame().
+
+So if netlink_forward_ring() _actually_ sees an entry that we should
+advance past, it will cycle through the whole ring, advancing ring->head
+until it equals the "ring->head != head" loop test fails.
+
+We should definitely fix this bug first.
+
+As per your patch, I wonder if a backwards scan would be faster.
