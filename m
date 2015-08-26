@@ -1,97 +1,88 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net v3] sctp: asconf's process should verify address parameter
- is in the beginning
-Date: Wed, 26 Aug 2015 17:37:16 -0400
-Message-ID: <55DE318C.6060708@redhat.com>
-References: <a4904b1345d0e96667e8608454c225ae038acbbe.1440621325.git.lucien.xin@gmail.com>	<55DE24AD.5090507@redhat.com>	<20150826205925.GL1873@localhost.localdomain> <CADvbK_eajEf2Hi_ysaH055g0VaVdMbuThg3At7e2JpkY9tHGLw@mail.gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH -next v2 2/2] smsc911x: Ignore error return from
+ device_get_phy_mode()
+Date: Wed, 26 Aug 2015 14:39:56 -0700
+Message-ID: <20150826213955.GV4215@atomide.com>
+References: <1440620445-14413-1-git-send-email-linux@roeck-us.net>
+ <1440620445-14413-2-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
-To: lucien xin <lucien.xin@gmail.com>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44568 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751934AbbHZVhX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2015 17:37:23 -0400
-In-Reply-To: <CADvbK_eajEf2Hi_ysaH055g0VaVdMbuThg3At7e2JpkY9tHGLw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	Jeremy Linton <jeremy.linton@arm.com>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1440620445-14413-2-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/26/2015 05:09 PM, lucien xin wrote:
-> On Thu, Aug 27, 2015 at 4:59 AM, Marcelo Ricardo Leitner
-> <mleitner@redhat.com> wrote:
->> On Wed, Aug 26, 2015 at 04:42:21PM -0400, Vlad Yasevich wrote:
->>> On 08/26/2015 04:35 PM, Xin Long wrote:
->>>> in sctp_process_asconf(), we get address parameter from the beginning of
->>>> the addip params. but we never check if it's really there. if the addr
->>>> param is not there, it still can pass sctp_verify_asconf(), then to be
->>>> handled by sctp_process_asconf(), it will not be safe.
->>>>
->>>> so add a code in sctp_verify_asconf() to check the address parameter is in
->>>> the beginning, or return false to send abort.
->>>>
->>>> v2->v3:
->>>>  * put the check in the loop, add the check for multiple address parameters.
->>>
->>>
->>> Please split the multiple address detection from first address detection.
->>> They are 2 different bugs and each one deserves a separate commit and
->>> changelog.
->>
->> See below, thx.
->>
->>>
->>> Thanks
->>> -vlad
->>>
->>>> v1->v2:
->>>>  * put the check behind the params' length verify.
->>>>
->>>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>>> ---
->>>>  net/sctp/sm_make_chunk.c | 14 ++++++++++++--
->>>>  1 file changed, 12 insertions(+), 2 deletions(-)
->>>>
->>>> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
->>>> index 06320c8..4068fe1 100644
->>>> --- a/net/sctp/sm_make_chunk.c
->>>> +++ b/net/sctp/sm_make_chunk.c
->>>> @@ -3130,14 +3130,24 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
->>>>             case SCTP_PARAM_ERR_CAUSE:
->>>>                     break;
->>>>             case SCTP_PARAM_IPV4_ADDRESS:
->>>> +                   if (addr_param_seen) {
->>>> +                           /* peer placed multiple address parameters into
->>>> +                            * the same asconf. reject it.
->>>> +                            */
->>>> +                           return false;
->>>> +                   }
->>>>                     if (length != sizeof(sctp_ipv4addr_param_t))
->>>>                             return false;
->>>> -                   addr_param_seen = true;
->>>> +                   if (param.v == addip->addip_hdr.params)
->>>> +                           addr_param_seen = true;
->>>>                     break;
->>
->> I know I had suggested using addr_param_seen to check for multiple
->> occurrences, but now realized we can simplify this with something like:
->>
->> +                       if (param.v != addip->addip_hdr.params)
->> +                               return false;
->>                         addr_param_seen = true;
->>
->> Then the check against addr_param_seen is not needed and do both checks
->> at once.
->>
-> looks nice, Vlad ?
+* Guenter Roeck <linux@roeck-us.net> [150826 13:24]:
+> Commit 62ee783bf1f8 ("smsc911x: Fix crash seen if neither ACPI nor OF is
+> configured or used") introduces an error check for the return value from
+> device_get_phy_mode() and bails out if there is an error. Unfortunately,
+> there are configurations where no phy is configured. Those configurations
+> now fail.
 > 
+> To fix the problem, accept error returns from device_get_phy_mode(),
+> and use the return value from device_property_read_u32() to determine
+> if there is a suitable firmware interface to read the configuration.
+> 
+> Fixes: 62ee783bf1f8 ("smsc911x: Fix crash seen if neither ACPI nor OF is configured or used")
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> ---
+> v2: Dropped RFC
+>     Removed check for -ENODATA
+>     Depends on patch 1/2
+> 
+> Tested with non-devicetree configuration. Should be tested with ACPI
+> and FDT configurations.
 
-yes.  This is fine too.  I think this kills 2 bugs with 1 patch...
+Thanks this fixes smsc911x regression in Linux next for me with FDT:
 
-If you go this route, make sure to document this well in the change log.
-
--vlad
+Tested-by: Tony Lindgren <tony@atomide.com>
+ 
+>  drivers/net/ethernet/smsc/smsc911x.c | 14 ++++++++------
+>  1 file changed, 8 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 6eef3251d833..c8b26259c9cf 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -2369,23 +2369,25 @@ static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+>  {
+>  	int phy_interface;
+>  	u32 width = 0;
+> +	int err;
+>  
+>  	phy_interface = device_get_phy_mode(dev);
+>  	if (phy_interface < 0)
+> -		return phy_interface;
+> -
+> +		phy_interface = PHY_INTERFACE_MODE_NA;
+>  	config->phy_interface = phy_interface;
+>  
+>  	device_get_mac_address(dev, config->mac, ETH_ALEN);
+>  
+> -	device_property_read_u32(dev, "reg-shift", &config->shift);
+> -
+> -	device_property_read_u32(dev, "reg-io-width", &width);
+> -	if (width == 4)
+> +	err = device_property_read_u32(dev, "reg-io-width", &width);
+> +	if (err == -ENXIO)
+> +		return err;
+> +	if (!err && width == 4)
+>  		config->flags |= SMSC911X_USE_32BIT;
+>  	else
+>  		config->flags |= SMSC911X_USE_16BIT;
+>  
+> +	device_property_read_u32(dev, "reg-shift", &config->shift);
+> +
+>  	if (device_property_present(dev, "smsc,irq-active-high"))
+>  		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+>  
+> -- 
+> 2.1.4
+> 
