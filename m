@@ -1,71 +1,47 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net] net: dsa: fix EDSA frame from hwaccel frame
-Date: Tue, 25 Aug 2015 20:11:32 -0400
-Message-ID: <20150826001132.GA15428@ketchup.mtl.sfl>
-References: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC 0/5] net: L2 only interfaces
+Date: Tue, 25 Aug 2015 17:12:48 -0700 (PDT)
+Message-ID: <20150825.171248.291365392844717283.davem@davemloft.net>
+References: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, linux@roeck-us.net,
+	jiri@resnulli.us, sfeldma@gmail.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:36256
-	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751816AbbHZALf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 20:11:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1438670111-31051-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751887AbbHZAMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 20:12:49 -0400
+In-Reply-To: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 25 Aug 2015 15:50:10 -0700
 
-On Aug. Tuesday 04 (32) 02:35 AM, Vivien Didelot wrote:
-> If the underlying network device features NETIF_F_HW_VLAN_CTAG_TX,
-> an EDSA frame is prepended with a 802.1q header once queued.
+> This patch series implements a L2 only interface concept which
+> basically denies any kind of IP address configuration on these
+> interfaces, but still allows them to be used as configuration
+> end-points to keep using ethtool and friends.
 > 
-> To fix this, push the VLAN tag to the payload if present, before
-> checking the frame protocol.
+> A cleaner approach might be to finally come up with the concept of
+> net_port which a net_device would be a superset of, but this still
+> raises tons of questions as to whether we should be modifying
+> userland tools to be able to configure/query these
+> interfaces. During all the switch talks/discussions last year, it
+> seemed to me like th L2-only interface is closest we have to a
+> "network port".
 > 
-> [note: we may prefer to access directly VLAN TCI from hwaccel frames,
-> but this approach is simpler.]
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  net/dsa/tag_edsa.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-> index 2288c80..3ada4eb 100644
-> --- a/net/dsa/tag_edsa.c
-> +++ b/net/dsa/tag_edsa.c
-> @@ -9,6 +9,7 @@
->   */
->  
->  #include <linux/etherdevice.h>
-> +#include <linux/if_vlan.h>
->  #include <linux/list.h>
->  #include <linux/slab.h>
->  #include "dsa_priv.h"
-> @@ -21,6 +22,10 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
->  	struct dsa_slave_priv *p = netdev_priv(dev);
->  	u8 *edsa_header;
->  
-> +	skb = vlan_hwaccel_push_inside(skb);
-> +	if (unlikely(!skb))
-> +		return NULL;
-> +
->  	/*
->  	 * Convert the outermost 802.1q tag to a DSA tag and prepend
->  	 * a DSA ethertype field is the packet is tagged, or insert
-> -- 
-> 2.4.6
-> 
+> Comments, flames, flying tomatoes welcome!
 
-Did someone have a chance to give this a look?
+Interesting, indeed.
 
-Thanks,
--v
+Do you plan to extend this to defining a more minimal network device
+sub-type as well?
+
+Then we can pass "net_device_common" or whatever around as a common
+base type of actual net device "implementations".
+
+Or is you main goal just getting the L2-only semantic?
