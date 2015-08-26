@@ -1,69 +1,45 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH v4 net-next 0/8] Geneve: Add support for tunnel metadata mode
-Date: Wed, 26 Aug 2015 14:54:31 -0700
-Message-ID: <1440626079-11689-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH v4 net-next 2/8] geneve: Use skb mark and protocol to lookup route.
+Date: Wed, 26 Aug 2015 14:54:33 -0700
+Message-ID: <1440626079-11689-3-git-send-email-pshelar@nicira.com>
+References: <1440626079-11689-1-git-send-email-pshelar@nicira.com>
 Cc: Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33676 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752482AbbHZVyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 17:54:43 -0400
-Received: by pacti10 with SMTP id ti10so883438pac.0
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 14:54:42 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33731 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753172AbbHZVyq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 17:54:46 -0400
+Received: by pacti10 with SMTP id ti10so884741pac.0
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 14:54:45 -0700 (PDT)
+In-Reply-To: <1440626079-11689-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patches adds support for Geneve tunnel metadata
-mode. OVS can make use of Geneve net-device with tunnel
-metadata API from kernel.
+On packet transmit path geneve need to lookup route. Following
+patch improves route lookup using more parameters.
 
-This also allows us to consolidate Geneve implementation
-from two kernel modules geneve_core and geneve to single
-geneve module. geneve_core module was targeted to share
-Geneve encap and decap code between Geneve netdevice and
-OVS Geneve tunnel implementation, Since OVS no longer
-needs these API, Geneve code can be consolidated into
-single geneve module.
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Reviewed-by: Jesse Gross <jesse@nicira.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: John W. Linville <linville@tuxdriver.com>
+---
+ drivers/net/geneve.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-v3-v4:
-- Drop NETIF_F_NETNS_LOCAL feature.
-- Fix geneve device newlink check
-
-v2-v3:
-- make tunnel medata device and regular device mutually exclusive.
-- Fix Kconfig dependency for Geneve.
-- Fix dst-port netlink encoding.
-- drop changelink patch.
-
-v1-v2:
-- Replaced per hash table tunnel pointer (metadata enabled) with flag.
-- Added support for changelink.
-- Improve geneve device route lookup with more parameters.
-
-Pravin B Shelar (8):
-  geneve: Initialize ethernet address in device setup.
-  geneve: Use skb mark and protocol to lookup route.
-  tunnel: introduce udp_tun_rx_dst()
-  geneve: Make dst-port configurable.
-  geneve: Add support to collect tunnel metadata.
-  openvswitch: Use Geneve device.
-  geneve: Consolidate Geneve functionality in single module.
-  geneve: Move device hash table to geneve socket.
-
- drivers/net/Kconfig            |    4 +-
- drivers/net/geneve.c           |  741 ++++++++++++++++++++++++++++++++++------
- drivers/net/vxlan.c            |   29 +--
- include/net/dst_metadata.h     |   61 ++++
- include/net/geneve.h           |   35 +--
- include/net/udp_tunnel.h       |    4 +
- include/uapi/linux/if_link.h   |    2 +
- net/ipv4/Kconfig               |   14 -
- net/ipv4/Makefile              |    1 -
- net/ipv4/geneve_core.c         |  447 ------------------------
- net/ipv4/ip_gre.c              |   21 +-
- net/ipv4/udp_tunnel.c          |   25 ++-
- net/openvswitch/Kconfig        |    2 +-
- net/openvswitch/vport-geneve.c |  179 ++--------
- 14 files changed, 771 insertions(+), 794 deletions(-)
- delete mode 100644 net/ipv4/geneve_core.c
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 95e9da0..3c5b2b1 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -202,6 +202,9 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	memset(&fl4, 0, sizeof(fl4));
+ 	fl4.flowi4_tos = RT_TOS(tos);
+ 	fl4.daddr = geneve->remote.sin_addr.s_addr;
++	fl4.flowi4_mark = skb->mark;
++	fl4.flowi4_proto = IPPROTO_UDP;
++
+ 	rt = ip_route_output_key(geneve->net, &fl4);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to %pI4\n", &fl4.daddr);
+-- 
+1.7.1
