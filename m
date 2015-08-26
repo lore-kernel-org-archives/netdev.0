@@ -1,45 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/14] i40e: correct spelling error
-Date: Wed, 26 Aug 2015 15:49:27 -0700
-Message-ID: <1440629373-21287-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/14] i40e: Fix comment for ethtool diagnostic link test
+Date: Wed, 26 Aug 2015 15:49:26 -0700
+Message-ID: <1440629373-21287-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:12760 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:63517 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756961AbbHZWti (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2015 18:49:38 -0400
+	id S1756947AbbHZWth (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2015 18:49:37 -0400
 In-Reply-To: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Turns out that 'inavlid' is an inavlid spelling for 'invalid'.
+The existing comment is incorrect.  Add new comment to point out that the
+PF reset does not affect link but if the reset is changed to a different
+type that does affect link then the link test would need to be moved to
+before the reset.
 
-Change-ID: Ie1fe2d0f8d1ba75ab880594875ec2e4152a76f61
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I28d786f46e9465860babdee61c1dba51016464df
+Reported-by: Jeremiah Kyle <jeremiah.kyle@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 62824f5..e972b5e 100644
+index 74c16a1..62824f5 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2546,7 +2546,7 @@ static int i40e_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-  * @indir: indirection table
-  * @key: hash key
-  *
-- * Returns -EINVAL if the table specifies an inavlid queue id, otherwise
-+ * Returns -EINVAL if the table specifies an invalid queue id, otherwise
-  * returns 0 after programming the table.
-  **/
- static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
+@@ -1626,11 +1626,13 @@ static void i40e_diag_test(struct net_device *netdev,
+ 			/* indicate we're in test mode */
+ 			dev_close(netdev);
+ 		else
++			/* This reset does not affect link - if it is
++			 * changed to a type of reset that does affect
++			 * link then the following link test would have
++			 * to be moved to before the reset
++			 */
+ 			i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
+ 
+-		/* Link test performed before hardware reset
+-		 * so autoneg doesn't interfere with test result
+-		 */
+ 		if (i40e_link_test(netdev, &data[I40E_ETH_TEST_LINK]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
 -- 
 2.4.3
