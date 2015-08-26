@@ -1,70 +1,56 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] bridge: vlan: allow to suppress
-	local mac install for all vlans
-Date: Tue, 25 Aug 2015 22:42:49 -0700
-Message-ID: <B58362A0-3860-42AB-A13A-8158891EC956@cumulusnetworks.com>
-References: <1440549295-3979-1-git-send-email-razor@blackwall.org>
-	<20150825175627.66ca9f30@urahara>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: vyasevic@redhat.com, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, wkok@cumulusnetworks.com, davem@davemloft.net
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150825175627.66ca9f30@urahara>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] macvtap/macvlan: use IFF_NO_QUEUE
+Date: Wed, 26 Aug 2015 13:45:30 +0800
+Message-ID: <55DD527A.8040806@redhat.com>
+References: <1440405192-25926-1-git-send-email-jasowang@redhat.com> <20150825131608-mutt-send-email-mst@redhat.com> <55DC51C1.5090201@redhat.com> <55DC98A3.7010601@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: vyasevic@redhat.com, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55DC98A3.7010601@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> On Aug 25, 2015, at 5:56 PM, Stephen Hemminger =
-<stephen@networkplumber.org> wrote:
->=20
-> On Tue, 25 Aug 2015 17:34:55 -0700
-> Nikolay Aleksandrov <razor@blackwall.org> wrote:
->=20
->> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>=20
->> This patch adds a new knob that, when enabled, allows to suppress the
->> installation of local fdb entries in newly created vlans. This could
->> pose a big scalability issue if we have a large number of ports and a
->> large number of vlans, e.g. in a 48 port device with 2000 vlans these
->> entries easily go up to 96000.
->> Note that packets for these macs are still received properly because =
-they
->> are added in vlan 0 as "own" macs and referenced when fdb lookup by =
-vlan
->> results in a miss.
->> Also note that vlan membership of ingress port and the bridge device
->> as egress are still being correctly enforced.
->>=20
->> The default (0/off) is keeping the current behaviour.
->>=20
->> Based on a patch by Wilson Kok (wkok@cumulusnetworks.com).
->=20
->=20
-> This is getting messy, but then again the bridge seems to have become
-> a ghetto for a long time. I would rather see the lookup code fixed so
-> that the fdb was correct.
 
-What do you mean by it is getting messy ? The entries (normally) are =
-being added to each
-vlan so there=E2=80=99s not much in terms of lookup that you can fix =
-except making the table bigger/better
-but that will be only a temporary win. If you elaborate on what you mean =
-by fdb code being fixed
-I could spend time and work on fixing it. If it is resizing the table so =
-it can handle 96k entries and
-probably using the rhashtable, that is what I have in mind too.
-I still think that it would be nice to have the option to avoid adding =
-the 96k entries in the first place
-and that space could be better utilized by real ones, which this option =
-does.
+On 08/26/2015 12:32 AM, Vlad Yasevich wrote:
+> On 08/25/2015 07:30 AM, Jason Wang wrote:
+>>
+>> On 08/25/2015 06:17 PM, Michael S. Tsirkin wrote:
+>>> On Mon, Aug 24, 2015 at 04:33:12PM +0800, Jason Wang wrote:
+>>>>> For macvlan, switch to use IFF_NO_QUEUE instead of tx_queue_len = 0.
+>>>>>
+>>>>> For macvtap, after commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
+>>>>> ("macvtap: Add support of packet capture on macvtap
+>>>>> device."). Multiqueue macvtap suffers from single qdisc lock
+>>>>> contention. This is because macvtap claims a non zero tx_queue_len and
+>>>>> it reuses this value as it socket receive queue size.Thanks to
+>>>>> IFF_NO_QUEUE, we can remove the lock contention without breaking
+>>>>> existing socket receive queue length logic.
+>>>>>
+>>>>> Cc: Patrick McHardy <kaber@trash.net>
+>>>>> Cc: Vladislav Yasevich <vyasevic@redhat.com>
+>>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>> Seems to make sense. Give me a day or two to get over the jet lag
+>>> (and get out from under the pile of mail accumulated while I was traveling),
+>>> I'll review properly and ack.
+>>>
+>> A note on this patch: only default qdisc were removed but we don't lose
+>> the ability to attach a qdisc to macvtap (though it may cause lock
+>> contention on multiqueue case).
+>>
+> Wouldn't that lock contention be solved if we really had multiple queues
+> for multi-queue macvtaps?
+>
+> -vlad
+
+Yes, but this introduce another layer of txq locks contention? And it
+also needs macvlan multiqueue support. We used to do something like this
+but switch to NETIF_F_LLTX finally. You may refer:
+
+2c11455321f37da6fe6cc36353149f9ac9183334 macvlan: add multiqueue capability
+8ffab51b3dfc54876f145f15b351c41f3f703195 macvlan: lockless tx path
