@@ -1,57 +1,52 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v3 net-next 1/8] geneve: Initialize ethernet address in
- device setup.
-Date: Wed, 26 Aug 2015 16:42:41 -0400
-Message-ID: <20150826204241.GB9495@tuxdriver.com>
-References: <1440438195-5695-1-git-send-email-pshelar@nicira.com>
- <1440438195-5695-2-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net v3] sctp: donot reset the overall_error_count in SHUTDOWN_RECEIVE state
+Date: Thu, 27 Aug 2015 04:52:20 +0800
+Message-ID: <5b69e6d52b777923b9224315d11adbf9bd24077e.1440622340.git.lucien.xin@gmail.com>
+Cc: mleitner@redhat.com, davem@davemloft.net, vyasevic@redhat.com
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58061 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752089AbbHZUpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 16:45:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1440438195-5695-2-git-send-email-pshelar@nicira.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35264 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750725AbbHZUw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 16:52:26 -0400
+Received: by pacdd16 with SMTP id dd16so171696139pac.2
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 13:52:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2015 at 10:43:08AM -0700, Pravin B Shelar wrote:
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> Reviewed-by: Jesse Gross <jesse@nicira.com>
-> Acked-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  drivers/net/geneve.c |    4 +---
->  1 files changed, 1 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index 897e1a3..95e9da0 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -297,6 +297,7 @@ static void geneve_setup(struct net_device *dev)
->  
->  	netif_keep_dst(dev);
->  	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
-> +	eth_hw_addr_random(dev);
->  }
->  
->  static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
-> @@ -364,9 +365,6 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
->  			return -EBUSY;
->  	}
->  
-> -	if (tb[IFLA_ADDRESS] == NULL)
-> -		eth_hw_addr_random(dev);
-> -
->  	err = register_netdevice(dev);
->  	if (err)
->  		return err;
+Commit f8d960524328 ("sctp: Enforce retransmission limit during shutdown")
+fixed a problem with excessive retransmissions in the SHUTDOWN_PENDING by not
+resetting the association overall_error_count.  This allowed the association
+to better enforce assoc.max_retrans limit.
 
-Acked-by: John W. Linville <linville@tuxdriver.com>
+However, the same issue still exists when the association is in SHUTDOWN_RECEIVED
+state.  In this state, HB-ACKs will continue to reset the overall_error_count
+for the association would extend the lifetime of association unnecessarily.
 
+This patch solves this by resetting the overall_error_count whenever the current
+state is small then SCTP_STATE_SHUTDOWN_PENDING.  As a small side-effect, we
+end up also handling SCTP_STATE_SHUTDOWN_ACK_SENT and SCTP_STATE_SHUTDOWN_SENT
+states, but they are not really impacted because we disable Heartbeats in those
+states.
+
+Fixes: Commit f8d960524328 ("sctp: Enforce retransmission limit during shutdown")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/sm_sideeffect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index fef2acd..85e6f03 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -702,7 +702,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
+ 	 * outstanding data and rely on the retransmission limit be reached
+ 	 * to shutdown the association.
+ 	 */
+-	if (t->asoc->state != SCTP_STATE_SHUTDOWN_PENDING)
++	if (t->asoc->state < SCTP_STATE_SHUTDOWN_PENDING)
+ 		t->asoc->overall_error_count = 0;
+ 
+ 	/* Clear the hb_sent flag to signal that we had a good
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+2.1.0
