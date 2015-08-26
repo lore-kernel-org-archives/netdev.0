@@ -1,75 +1,83 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] mac80211: Do not use sizeof() on pointer type
-Date: Wed, 26 Aug 2015 22:40:26 +0200
-Message-ID: <55DE243A.4000806@broadcom.com>
-References: <1440584534-27251-1-git-send-email-thierry.reding@gmail.com> <55DE203B.1030800@broadcom.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v3] sctp: asconf's process should verify address parameter
+ is in the beginning
+Date: Wed, 26 Aug 2015 16:42:21 -0400
+Message-ID: <55DE24AD.5090507@redhat.com>
+References: <a4904b1345d0e96667e8608454c225ae038acbbe.1440621325.git.lucien.xin@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Thierry Reding <thierry.reding@gmail.com>,
-	Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55DE203B.1030800@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mleitner@redhat.com, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57849 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752722AbbHZUmX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2015 16:42:23 -0400
+In-Reply-To: <a4904b1345d0e96667e8608454c225ae038acbbe.1440621325.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/26/2015 10:23 PM, Arend van Spriel wrote:
-> On 08/26/2015 12:22 PM, Thierry Reding wrote:
->> From: Thierry Reding <treding@nvidia.com>
->>
->> The rate_control_cap_mask() function takes a parameter mcs_mask, which
->> GCC will take to be u8 * even though it was declared with a fixed size.
->> This causes the following warning:
->>
->>     net/mac80211/rate.c: In function 'rate_control_cap_mask':
->>     net/mac80211/rate.c:719:25: warning: 'sizeof' on array function
->> parameter 'mcs_mask' will return size of 'u8 * {aka unsigned char *}'
->> [-Wsizeof-array-argument]
->>        for (i = 0; i < sizeof(mcs_mask); i++)
->>                              ^
->>     net/mac80211/rate.c:684:10: note: declared here
->>            u8 mcs_mask[IEEE80211_HT_MCS_MASK_LEN],
->>               ^
->>
->> This can be easily fixed by using the IEEE80211_HT_MCS_MASK_LEN directly
->> within the loop condition.
->
-> Or use ARRAY_SIZE(mcs_mask).
+On 08/26/2015 04:35 PM, Xin Long wrote:
+> in sctp_process_asconf(), we get address parameter from the beginning of
+> the addip params. but we never check if it's really there. if the addr
+> param is not there, it still can pass sctp_verify_asconf(), then to be
+> handled by sctp_process_asconf(), it will not be safe.
+> 
+> so add a code in sctp_verify_asconf() to check the address parameter is in
+> the beginning, or return false to send abort.
+> 
+> v2->v3:
+>  * put the check in the loop, add the check for multiple address parameters.
 
-Better not. Missed the 'function parameter' bit. Sorry for the noise.
 
-Regards,
-Arend
+Please split the multiple address detection from first address detection.
+They are 2 different bugs and each one deserves a separate commit and
+changelog.
 
-> Regards,
-> Arend
->
->> Signed-off-by: Thierry Reding <treding@nvidia.com>
->> ---
->>   net/mac80211/rate.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
->> index 9857693b91ec..9ce8883d5f44 100644
->> --- a/net/mac80211/rate.c
->> +++ b/net/mac80211/rate.c
->> @@ -716,7 +716,7 @@ static bool rate_control_cap_mask(struct
->> ieee80211_sub_if_data *sdata,
->>
->>           /* Filter out rates that the STA does not support */
->>           *mask &= sta->supp_rates[sband->band];
->> -        for (i = 0; i < sizeof(mcs_mask); i++)
->> +        for (i = 0; i < IEEE80211_HT_MCS_MASK_LEN; i++)
->>               mcs_mask[i] &= sta->ht_cap.mcs.rx_mask[i];
->>
->>           sta_vht_cap = sta->vht_cap.vht_mcs.rx_mcs_map;
->>
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe
-> linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+-vlad
+
+> v1->v2:
+>  * put the check behind the params' length verify.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  net/sctp/sm_make_chunk.c | 14 ++++++++++++--
+>  1 file changed, 12 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 06320c8..4068fe1 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -3130,14 +3130,24 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
+>  		case SCTP_PARAM_ERR_CAUSE:
+>  			break;
+>  		case SCTP_PARAM_IPV4_ADDRESS:
+> +			if (addr_param_seen) {
+> +				/* peer placed multiple address parameters into
+> +				 * the same asconf. reject it.
+> +				 */
+> +				return false;
+> +			}
+>  			if (length != sizeof(sctp_ipv4addr_param_t))
+>  				return false;
+> -			addr_param_seen = true;
+> +			if (param.v == addip->addip_hdr.params)
+> +				addr_param_seen = true;
+>  			break;
+>  		case SCTP_PARAM_IPV6_ADDRESS:
+> +			if (addr_param_seen)
+> +				return false;
+>  			if (length != sizeof(sctp_ipv6addr_param_t))
+>  				return false;
+> -			addr_param_seen = true;
+> +			if (param.v == addip->addip_hdr.params)
+> +				addr_param_seen = true;
+>  			break;
+>  		case SCTP_PARAM_ADD_IP:
+>  		case SCTP_PARAM_DEL_IP:
+> 
