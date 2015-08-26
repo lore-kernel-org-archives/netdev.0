@@ -1,63 +1,75 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCHv6 net-next 05/10] openvswitch: Add conntrack action
-Date: Wed, 26 Aug 2015 13:40:16 -0700
-Message-ID: <CALnjE+oSsOT+WZpfypkfEv0+w9QaC_bW-LnKsjaE6PUsv73P3A@mail.gmail.com>
-References: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
-	<1440613913-10141-6-git-send-email-joestringer@nicira.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] mac80211: Do not use sizeof() on pointer type
+Date: Wed, 26 Aug 2015 22:40:26 +0200
+Message-ID: <55DE243A.4000806@broadcom.com>
+References: <1440584534-27251-1-git-send-email-thierry.reding@gmail.com> <55DE203B.1030800@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, pablo <pablo@netfilter.org>,
-	Florian Westphal <fwestpha@redhat.com>,
-	Hannes Sowa <hannes@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	Justin Pettit <jpettit@nicira.com>,
-	Jesse Gross <jesse@nicira.com>,
-	netfilter-devel@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Thierry Reding <thierry.reding@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440613913-10141-6-git-send-email-joestringer@nicira.com>
+In-Reply-To: <55DE203B.1030800@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 26, 2015 at 11:31 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> Expose the kernel connection tracker via OVS. Userspace components can
-> make use of the CT action to populate the connection state (ct_state)
-> field for a flow. This state can be subsequently matched.
+On 08/26/2015 10:23 PM, Arend van Spriel wrote:
+> On 08/26/2015 12:22 PM, Thierry Reding wrote:
+>> From: Thierry Reding <treding@nvidia.com>
+>>
+>> The rate_control_cap_mask() function takes a parameter mcs_mask, which
+>> GCC will take to be u8 * even though it was declared with a fixed size.
+>> This causes the following warning:
+>>
+>>     net/mac80211/rate.c: In function 'rate_control_cap_mask':
+>>     net/mac80211/rate.c:719:25: warning: 'sizeof' on array function
+>> parameter 'mcs_mask' will return size of 'u8 * {aka unsigned char *}'
+>> [-Wsizeof-array-argument]
+>>        for (i = 0; i < sizeof(mcs_mask); i++)
+>>                              ^
+>>     net/mac80211/rate.c:684:10: note: declared here
+>>            u8 mcs_mask[IEEE80211_HT_MCS_MASK_LEN],
+>>               ^
+>>
+>> This can be easily fixed by using the IEEE80211_HT_MCS_MASK_LEN directly
+>> within the loop condition.
 >
-> Exposed connection states are OVS_CS_F_*:
-> - NEW (0x01) - Beginning of a new connection.
-> - ESTABLISHED (0x02) - Part of an existing connection.
-> - RELATED (0x04) - Related to an established connection.
-> - INVALID (0x20) - Could not track the connection for this packet.
-> - REPLY_DIR (0x40) - This packet is in the reply direction for the flow.
-> - TRACKED (0x80) - This packet has been sent through conntrack.
->
-> When the CT action is executed by itself, it will send the packet
-> through the connection tracker and populate the ct_state field with one
-> or more of the connection state flags above. The CT action will always
-> set the TRACKED bit.
->
-> When the COMMIT flag is passed to the conntrack action, this specifies
-> that information about the connection should be stored. This allows
-> subsequent packets for the same (or related) connections to be
-> correlated with this connection. Sending subsequent packets for the
-> connection through conntrack allows the connection tracker to consider
-> the packets as ESTABLISHED, RELATED, and/or REPLY_DIR.
->
-> The CT action may optionally take a zone to track the flow within. This
-> allows connections with the same 5-tuple to be kept logically separate
-> from connections in other zones. If the zone is specified, then the
-> "ct_zone" match field will be subsequently populated with the zone id.
->
-> IP fragments are handled by transparently assembling them as part of the
-> CT action. The maximum received unit (MRU) size is tracked so that
-> refragmentation can occur during output.
->
-> IP frag handling contributed by Andy Zhou.
->
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> Signed-off-by: Justin Pettit <jpettit@nicira.com>
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
-> Acked-by: Thomas Graf <tgraf@suug.ch>
+> Or use ARRAY_SIZE(mcs_mask).
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+Better not. Missed the 'function parameter' bit. Sorry for the noise.
+
+Regards,
+Arend
+
+> Regards,
+> Arend
+>
+>> Signed-off-by: Thierry Reding <treding@nvidia.com>
+>> ---
+>>   net/mac80211/rate.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
+>> index 9857693b91ec..9ce8883d5f44 100644
+>> --- a/net/mac80211/rate.c
+>> +++ b/net/mac80211/rate.c
+>> @@ -716,7 +716,7 @@ static bool rate_control_cap_mask(struct
+>> ieee80211_sub_if_data *sdata,
+>>
+>>           /* Filter out rates that the STA does not support */
+>>           *mask &= sta->supp_rates[sband->band];
+>> -        for (i = 0; i < sizeof(mcs_mask); i++)
+>> +        for (i = 0; i < IEEE80211_HT_MCS_MASK_LEN; i++)
+>>               mcs_mask[i] &= sta->ht_cap.mcs.rx_mask[i];
+>>
+>>           sta_vht_cap = sta->vht_cap.vht_mcs.rx_mcs_map;
+>>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe
+> linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
