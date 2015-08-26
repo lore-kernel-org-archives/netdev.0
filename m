@@ -1,124 +1,41 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: [PATCH RFC V2 1/2] net: Introduce helper functions to get the per cpu data
-Date: Wed, 26 Aug 2015 23:07:32 +0530
-Message-ID: <1440610653-14210-2-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-References: <y>
- <1440610653-14210-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Cc: <jiri@resnulli.us>, <edumazet@google.com>,
-	<hannes@stressinduktion.org>, <tom@herbertland.com>,
-	<azhou@nicira.com>, <ebiederm@xmission.com>,
-	<ipm@chirality.org.uk>, <nicolas.dichtel@6wind.com>,
-	<serge.hallyn@canonical.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<raghavendra.kt@linux.vnet.ibm.com>, <anton@au1.ibm.com>,
-	<nacc@linux.vnet.ibm.com>, <srikar@linux.vnet.ibm.com>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440610653-14210-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH, net-next] r8169:Correct value on r810x_phy_power_up
+ function
+Date: Wed, 26 Aug 2015 10:41:29 -0700 (PDT)
+Message-ID: <20150826.104129.894959895104249315.davem@davemloft.net>
+References: <1440591370-24649-1-git-send-email-corcodel.marian@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: corcodel.marian@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36699 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbbHZRlc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 13:41:32 -0400
+In-Reply-To: <1440591370-24649-1-git-send-email-corcodel.marian@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
----
- include/net/ip.h   | 10 ++++++++++
- net/ipv4/af_inet.c | 41 +++++++++++++++++++++++++++--------------
- 2 files changed, 37 insertions(+), 14 deletions(-)
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Date: Wed, 26 Aug 2015 15:16:10 +0300
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index d5fe9f2..93bf12e 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -202,10 +202,20 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
- #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
- #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
- 
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offct);
- unsigned long snmp_fold_field(void __percpu *mib, int offt);
- #if BITS_PER_LONG==32
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset);
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
- #else
-+static inline u64  snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+					size_t syncp_offset)
-+{
-+	return snmp_get_cpu_field(mib, cpu, offct);
-+
-+}
-+
- static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
- {
- 	return snmp_fold_field(mib, offt);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 9532ee8..302e36b 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1448,38 +1448,51 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
- }
- EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
- 
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
-+{
-+	return  *(((unsigned long *)per_cpu_ptr(mib, cpu)) + offt);
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field);
-+
- unsigned long snmp_fold_field(void __percpu *mib, int offt)
- {
- 	unsigned long res = 0;
- 	int i;
- 
- 	for_each_possible_cpu(i)
--		res += *(((unsigned long *) per_cpu_ptr(mib, i)) + offt);
-+		res += snmp_get_cpu_field(mib, i, offt);
- 	return res;
- }
- EXPORT_SYMBOL_GPL(snmp_fold_field);
- 
- #if BITS_PER_LONG==32
- 
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset)
-+{
-+	void *bhptr;
-+	struct u64_stats_sync *syncp;
-+	u64 v;
-+	unsigned int start;
-+
-+	bhptr = per_cpu_ptr(mib, cpu);
-+	syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
-+	do {
-+		start = u64_stats_fetch_begin_irq(syncp);
-+		v = *(((u64 *)bhptr) + offt);
-+	} while (u64_stats_fetch_retry_irq(syncp, start));
-+
-+	return v;
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field64);
-+
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
- {
- 	u64 res = 0;
- 	int cpu;
- 
- 	for_each_possible_cpu(cpu) {
--		void *bhptr;
--		struct u64_stats_sync *syncp;
--		u64 v;
--		unsigned int start;
--
--		bhptr = per_cpu_ptr(mib, cpu);
--		syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
--		do {
--			start = u64_stats_fetch_begin_irq(syncp);
--			v = *(((u64 *) bhptr) + offt);
--		} while (u64_stats_fetch_retry_irq(syncp, start));
--
--		res += v;
-+		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
- 	}
- 	return res;
- }
--- 
-1.7.11.7
+> Correct value on r810x_phy_power_up function normal clean 
+>  bit BMCR_PDOWN
+> 
+> Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index d6d39df..91cf3a6 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -4669,7 +4669,7 @@ static void r810x_phy_power_down(struct rtl8169_private *tp)
+>  static void r810x_phy_power_up(struct rtl8169_private *tp)
+>  {
+>  	rtl_writephy(tp, 0x1f, 0x0000);
+> -	rtl_writephy(tp, MII_BMCR, BMCR_ANENABLE);
+> +	rtl_writephy(tp, MII_BMCR, ~BMCR_PDOWN);
+
+This DOES NOT only clear BMCR_PDOWN, it sets every other bit in the
+register as well.
