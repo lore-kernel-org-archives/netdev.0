@@ -1,103 +1,188 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/14] i40e/i40evf: add VIRTCHNL_VF_OFFLOAD flag
-Date: Wed, 26 Aug 2015 15:49:31 -0700
-Message-ID: <1440629373-21287-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/14] i40evf: Use the correct defines to match the VF registers
+Date: Wed, 26 Aug 2015 15:49:28 -0700
+Message-ID: <1440629373-21287-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jingjing Wu <jingjing.wu@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:34139 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752831AbbHZWtj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2015 18:49:39 -0400
+	id S1756977AbbHZWti (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2015 18:49:38 -0400
 In-Reply-To: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Add virtual channel offload capability to support RX polling mode in the
-VF.
+Use CTLN1 instead of CTLN for the VF relative register space.
 
-Change-ID: Ib643ae2a7506dfc75fc489fc207493fabefa4832
-Signed-off-by: Jingjing Wu <jingjing.wu@intel.com>
+Change-ID: Iefba63faf0307af55fec8dbb64f26059f7d91318
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_register.h    |  7 +++++++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |  1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 12 ++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  1 +
- 4 files changed, 21 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c   | 28 +++++++++---------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 38 ++++++++++++-------------
+ 2 files changed, 33 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
-index acae6c74..dc0402f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_register.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
-@@ -873,6 +873,13 @@
- #define I40E_PFINT_CEQCTL_CAUSE_ENA_MASK I40E_MASK(0x1, I40E_PFINT_CEQCTL_CAUSE_ENA_SHIFT)
- #define I40E_PFINT_CEQCTL_INTEVENT_SHIFT 31
- #define I40E_PFINT_CEQCTL_INTEVENT_MASK I40E_MASK(0x1, I40E_PFINT_CEQCTL_INTEVENT_SHIFT)
-+#define I40E_GLINT_CTL 0x0003F800 /* Reset: CORER */
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_PF0_SHIFT 0
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_PF0_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_PF0_SHIFT)
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_VF0_SHIFT 1
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_VF0_SHIFT)
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_N_SHIFT 2
-+#define I40E_GLINT_CTL_DIS_AUTOMASK_N_MASK I40E_MASK(0x1, I40E_GLINT_CTL_DIS_AUTOMASK_N_SHIFT)
- #define I40E_PFINT_DYN_CTL0 0x00038480 /* Reset: PFR */
- #define I40E_PFINT_DYN_CTL0_INTENA_SHIFT 0
- #define I40E_PFINT_DYN_CTL0_INTENA_MASK I40E_MASK(0x1, I40E_PFINT_DYN_CTL0_INTENA_SHIFT)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-index a7ab463..0f8d415 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-@@ -152,6 +152,7 @@ struct i40e_virtchnl_vsi_resource {
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG	0x00000010
- #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 7309479..7e91d82 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1293,17 +1293,17 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
+ 		old_itr = q_vector->rx.itr;
+ 		i40e_set_new_dynamic_itr(&q_vector->rx);
+ 		if (old_itr != q_vector->rx.itr) {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-			I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++			I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 			(I40E_RX_ITR <<
+-				I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT) |
++				I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
+ 			(q_vector->rx.itr <<
+-				I40E_VFINT_DYN_CTLN_INTERVAL_SHIFT);
++				I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
+ 		} else {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-			I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++			I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 			(I40E_ITR_NONE <<
+-				I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT);
++				I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT);
+ 		}
+ 		if (!test_bit(__I40E_DOWN, &vsi->state))
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(vector - 1), val);
+@@ -1315,18 +1315,18 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
+ 		old_itr = q_vector->tx.itr;
+ 		i40e_set_new_dynamic_itr(&q_vector->tx);
+ 		if (old_itr != q_vector->tx.itr) {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-				I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++				I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 				(I40E_TX_ITR <<
+-				   I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT) |
++				   I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
+ 				(q_vector->tx.itr <<
+-				   I40E_VFINT_DYN_CTLN_INTERVAL_SHIFT);
++				   I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
  
- struct i40e_virtchnl_vf_resource {
- 	u16 num_vsis;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index ca7a568..d99c116 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -335,6 +335,18 @@ static void i40e_config_irq_link_list(struct i40e_vf *vf, u16 vsi_id,
- 		wr32(hw, reg_idx, reg);
+ 		} else {
+-			val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
+-				I40E_VFINT_DYN_CTLN_CLEARPBA_MASK |
++			val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
++				I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 				(I40E_ITR_NONE <<
+-				   I40E_VFINT_DYN_CTLN_ITR_INDX_SHIFT);
++				   I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT);
+ 		}
+ 		if (!test_bit(__I40E_DOWN, &vsi->state))
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(vector - 1), val);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 2a6063a..c2ba40f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -204,7 +204,7 @@ static void i40evf_misc_irq_enable(struct i40evf_adapter *adapter)
+ 
+ 	wr32(hw, I40E_VFINT_DYN_CTL01, I40E_VFINT_DYN_CTL01_INTENA_MASK |
+ 				       I40E_VFINT_DYN_CTL01_ITR_INDX_MASK);
+-	wr32(hw, I40E_VFINT_ICR0_ENA1, I40E_VFINT_ICR0_ENA_ADMINQ_MASK);
++	wr32(hw, I40E_VFINT_ICR0_ENA1, I40E_VFINT_ICR0_ENA1_ADMINQ_MASK);
+ 
+ 	/* read flush */
+ 	rd32(hw, I40E_VFGEN_RSTAT);
+@@ -245,7 +245,7 @@ void i40evf_irq_enable_queues(struct i40evf_adapter *adapter, u32 mask)
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(i - 1),
+ 			     I40E_VFINT_DYN_CTLN1_INTENA_MASK |
+ 			     I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK |
+-			     I40E_VFINT_DYN_CTLN_CLEARPBA_MASK);
++			     I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK);
+ 		}
  	}
- 
-+	/* if the vf is running in polling mode and using interrupt zero,
-+	 * need to disable auto-mask on enabling zero interrupt for VFs.
-+	 */
-+	if ((vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING) &&
-+	    (vector_id == 0)) {
-+		reg = rd32(hw, I40E_GLINT_CTL);
-+		if (!(reg & I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK)) {
-+			reg |= I40E_GLINT_CTL_DIS_AUTOMASK_VF0_MASK;
-+			wr32(hw, I40E_GLINT_CTL, reg);
-+		}
-+	}
-+
- irq_list_done:
- 	i40e_flush(hw);
  }
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-index 1e89dea..e6db20e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-@@ -152,6 +152,7 @@ struct i40e_virtchnl_vsi_resource {
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_REG	0x00000010
- #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
+@@ -263,17 +263,17 @@ static void i40evf_fire_sw_int(struct i40evf_adapter *adapter, u32 mask)
  
- struct i40e_virtchnl_vf_resource {
- 	u16 num_vsis;
+ 	if (mask & 1) {
+ 		dyn_ctl = rd32(hw, I40E_VFINT_DYN_CTL01);
+-		dyn_ctl |= I40E_VFINT_DYN_CTLN_SWINT_TRIG_MASK |
++		dyn_ctl |= I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
+ 			   I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK |
+-			   I40E_VFINT_DYN_CTLN_CLEARPBA_MASK;
++			   I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK;
+ 		wr32(hw, I40E_VFINT_DYN_CTL01, dyn_ctl);
+ 	}
+ 	for (i = 1; i < adapter->num_msix_vectors; i++) {
+ 		if (mask & BIT(i)) {
+ 			dyn_ctl = rd32(hw, I40E_VFINT_DYN_CTLN1(i - 1));
+-			dyn_ctl |= I40E_VFINT_DYN_CTLN_SWINT_TRIG_MASK |
++			dyn_ctl |= I40E_VFINT_DYN_CTLN1_SWINT_TRIG_MASK |
+ 				   I40E_VFINT_DYN_CTLN1_ITR_INDX_MASK |
+-				   I40E_VFINT_DYN_CTLN_CLEARPBA_MASK;
++				   I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK;
+ 			wr32(hw, I40E_VFINT_DYN_CTLN1(i - 1), dyn_ctl);
+ 		}
+ 	}
+@@ -313,7 +313,7 @@ static irqreturn_t i40evf_msix_aq(int irq, void *data)
+ 
+ 
+ 	val = rd32(hw, I40E_VFINT_DYN_CTL01);
+-	val = val | I40E_PFINT_DYN_CTL0_CLEARPBA_MASK;
++	val = val | I40E_VFINT_DYN_CTL01_CLEARPBA_MASK;
+ 	wr32(hw, I40E_VFINT_DYN_CTL01, val);
+ 
+ 	/* schedule work on the private workqueue */
+@@ -1779,34 +1779,34 @@ static void i40evf_adminq_task(struct work_struct *work)
+ 	/* check for error indications */
+ 	val = rd32(hw, hw->aq.arq.len);
+ 	oldval = val;
+-	if (val & I40E_VF_ARQLEN_ARQVFE_MASK) {
++	if (val & I40E_VF_ARQLEN1_ARQVFE_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ARQ VF Error detected\n");
+-		val &= ~I40E_VF_ARQLEN_ARQVFE_MASK;
++		val &= ~I40E_VF_ARQLEN1_ARQVFE_MASK;
+ 	}
+-	if (val & I40E_VF_ARQLEN_ARQOVFL_MASK) {
++	if (val & I40E_VF_ARQLEN1_ARQOVFL_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ARQ Overflow Error detected\n");
+-		val &= ~I40E_VF_ARQLEN_ARQOVFL_MASK;
++		val &= ~I40E_VF_ARQLEN1_ARQOVFL_MASK;
+ 	}
+-	if (val & I40E_VF_ARQLEN_ARQCRIT_MASK) {
++	if (val & I40E_VF_ARQLEN1_ARQCRIT_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ARQ Critical Error detected\n");
+-		val &= ~I40E_VF_ARQLEN_ARQCRIT_MASK;
++		val &= ~I40E_VF_ARQLEN1_ARQCRIT_MASK;
+ 	}
+ 	if (oldval != val)
+ 		wr32(hw, hw->aq.arq.len, val);
+ 
+ 	val = rd32(hw, hw->aq.asq.len);
+ 	oldval = val;
+-	if (val & I40E_VF_ATQLEN_ATQVFE_MASK) {
++	if (val & I40E_VF_ATQLEN1_ATQVFE_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ASQ VF Error detected\n");
+-		val &= ~I40E_VF_ATQLEN_ATQVFE_MASK;
++		val &= ~I40E_VF_ATQLEN1_ATQVFE_MASK;
+ 	}
+-	if (val & I40E_VF_ATQLEN_ATQOVFL_MASK) {
++	if (val & I40E_VF_ATQLEN1_ATQOVFL_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ASQ Overflow Error detected\n");
+-		val &= ~I40E_VF_ATQLEN_ATQOVFL_MASK;
++		val &= ~I40E_VF_ATQLEN1_ATQOVFL_MASK;
+ 	}
+-	if (val & I40E_VF_ATQLEN_ATQCRIT_MASK) {
++	if (val & I40E_VF_ATQLEN1_ATQCRIT_MASK) {
+ 		dev_info(&adapter->pdev->dev, "ASQ Critical Error detected\n");
+-		val &= ~I40E_VF_ATQLEN_ATQCRIT_MASK;
++		val &= ~I40E_VF_ATQLEN1_ATQCRIT_MASK;
+ 	}
+ 	if (oldval != val)
+ 		wr32(hw, hw->aq.asq.len, val);
 -- 
 2.4.3
