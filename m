@@ -1,60 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] sctp: donot reset the overall_error_count in
- SHUTDOWN_RECEIVE state
-Date: Tue, 25 Aug 2015 19:46:57 -0700 (PDT)
-Message-ID: <20150825.194657.206783179556219937.davem@davemloft.net>
-References: <46eeeb896c5be2523e3d978d4a7ea9907d4301ee.1440329415.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mleitner@redhat.com, tgraf@infradead.org,
-	vyasevich@gmail.com, nhorman@tuxdriver.com
-To: lucien.xin@gmail.com
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next 0/5] act_bpf: remove spinlock in fast path
+Date: Tue, 25 Aug 2015 20:06:30 -0700
+Message-ID: <1440558395-7765-1-git-send-email-ast@plumgrid.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32837 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920AbbHZCq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 22:46:58 -0400
-In-Reply-To: <46eeeb896c5be2523e3d978d4a7ea9907d4301ee.1440329415.git.lucien.xin@gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36590 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbbHZDGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2015 23:06:43 -0400
+Received: by pacgr6 with SMTP id gr6so11352964pac.3
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2015 20:06:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sun, 23 Aug 2015 19:30:15 +0800
+v1 version had a race condition in cleanup path of bpf_prog.
+I tried to fix it by adding new callback 'cleanup_rcu' to 'struct tcf_common'
+and call it out of act_api cleanup path, but Daniel noticed
+(thanks for the idea!) that most of the classifiers already do action cleanup
+out of rcu callback.
+So instead this set of patches converts tcindex and rsvp classifiers to call
+tcf_exts_destroy() after rcu grace period and since action cleanup logic
+in __tcf_hash_release() is only called when bind and refcnt goes to zero,
+it's guaranteed that cleanup() callback is called from rcu callback.
+More specifically:
+patches 1 and 2 - simple fixes
+patches 2 and 3 - convert tcf_exts_destroy in tcindex and rsvp to call_rcu
+patch 5 - removes spin_lock from act_bpf
 
-Vlad et al., please review.
+The cleanup of actions is now universally done after rcu grace period
+and in the future we can drop (now unnecessary) call_rcu from tcf_hash_destroy()
+patch 5 is using synchronize_rcu() in act_bpf replacement path, since it's
+very rare and alternative of dynamically allocating 'struct tcf_bpf_cfg' just
+to pass it to call_rcu looks even less appealing.
 
-> commit f8d960524 fix the 0 peer.rwnd issue in SHUTDOWN_PENDING state through
-> not reseting the overall_error_count when receive a heartbeat, but the same
-> issue also exists in SHUTDOWN_RECEIVE state.
-> 
-> so we change the condition to state < SCTP_STATE_SHUTDOWN_PENDING to reset the
-> overall_error_count when receive a heartbeat, which can avoid the issue happen
-> in SCTP_STATE_SHUTDOWN_RECEIVE.
-> 
-> as to SCTP_STATE_SHUTDOWN_ACK_SENT and SCTP_STATE_SHUTDOWN_SENT state, with
-> this patch, it will not be affected by the heartbeat, cause these two states
-> have been taken charge of by t2 timer.
-> 
-> Fixes: f8d960524 ("sctp: Enforce retransmission limit during shutdown")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/sm_sideeffect.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index fef2acd..85e6f03 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -702,7 +702,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
->  	 * outstanding data and rely on the retransmission limit be reached
->  	 * to shutdown the association.
->  	 */
-> -	if (t->asoc->state != SCTP_STATE_SHUTDOWN_PENDING)
-> +	if (t->asoc->state < SCTP_STATE_SHUTDOWN_PENDING)
->  		t->asoc->overall_error_count = 0;
->  
->  	/* Clear the hb_sent flag to signal that we had a good
-> -- 
-> 2.1.0
-> 
+Alexei Starovoitov (5):
+  net_sched: make tcf_hash_destroy() static
+  net_sched: act_bpf: remove unnecessary copy
+  net_sched: convert tcindex to call tcf_exts_destroy from rcu callback
+  net_sched: convert rsvp to call tcf_exts_destroy from rcu callback
+  net_sched: act_bpf: remove spinlock in fast path
+
+ include/net/act_api.h       |    1 -
+ include/net/tc_act/tc_bpf.h |    2 +-
+ net/sched/act_api.c         |    3 +--
+ net/sched/act_bpf.c         |   38 ++++++++++++++++++++------------------
+ net/sched/cls_rsvp.h        |   18 ++++++++++++++----
+ net/sched/cls_tcindex.c     |   29 +++++++++++++++++++++++++----
+ 6 files changed, 61 insertions(+), 30 deletions(-)
+
+-- 
+1.7.9.5
