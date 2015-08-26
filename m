@@ -1,45 +1,50 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv6 net-next 03/10] ipv6: Export nf_ct_frag6_gather()
-Date: Wed, 26 Aug 2015 11:31:46 -0700
-Message-ID: <1440613913-10141-4-git-send-email-joestringer@nicira.com>
+Subject: [PATCHv6 net-next 07/10] netfilter: Always export nf_connlabels_replace()
+Date: Wed, 26 Aug 2015 11:31:50 -0700
+Message-ID: <1440613913-10141-8-git-send-email-joestringer@nicira.com>
 References: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
 Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
 	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
 	jpettit@nicira.com, jesse@nicira.com,
 	netfilter-devel@vger.kernel.org
 To: netdev@vger.kernel.org, pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34159 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbbHZScE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:32:04 -0400
-Received: by pabzx8 with SMTP id zx8so78011262pab.1
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 11:32:03 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+The following patches will reuse this code from OVS.
 
 Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
 Acked-by: Pravin B Shelar <pshelar@nicira.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
 ---
-v4: Add ack.
-v5-v6: No change.
+v2-v4: No change.
+v5: Add acks.
+v6: No change.
 ---
- net/ipv6/netfilter/nf_conntrack_reasm.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/netfilter/nf_conntrack_labels.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 6d02498..701cd2b 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -633,6 +633,7 @@ ret_orig:
- 	kfree_skb(clone);
- 	return skb;
+diff --git a/net/netfilter/nf_conntrack_labels.c b/net/netfilter/nf_conntrack_labels.c
+index bb53f12..daa7c13 100644
+--- a/net/netfilter/nf_conntrack_labels.c
++++ b/net/netfilter/nf_conntrack_labels.c
+@@ -48,7 +48,6 @@ int nf_connlabel_set(struct nf_conn *ct, u16 bit)
  }
-+EXPORT_SYMBOL_GPL(nf_ct_frag6_gather);
+ EXPORT_SYMBOL_GPL(nf_connlabel_set);
  
- void nf_ct_frag6_consume_orig(struct sk_buff *skb)
+-#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ static void replace_u32(u32 *address, u32 mask, u32 new)
  {
+ 	u32 old, tmp;
+@@ -89,7 +88,6 @@ int nf_connlabels_replace(struct nf_conn *ct,
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(nf_connlabels_replace);
+-#endif
+ 
+ static struct nf_ct_ext_type labels_extend __read_mostly = {
+ 	.len    = sizeof(struct nf_conn_labels),
 -- 
 2.1.4
