@@ -1,43 +1,92 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [v2] net: phy: fixed: propagate fixed link values to struct
-Date: Wed, 26 Aug 2015 16:12:43 +0000
-Message-ID: <BL2PR03MB545D559B9B04BFED6DE4266E6600@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1440601127-7663-1-git-send-email-madalin.bucur@freescale.com>
- <55DDE079.7070401@list.ru>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel
+ state
+Date: Wed, 26 Aug 2015 18:19:26 +0200
+Message-ID: <20150826181926.0444240f@griffin>
+References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
+	<20150823.165103.2104601245219561984.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Liberman Igal <Igal.Liberman@freescale.com>
-To: Stas Sergeev <stsp@list.ru>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55DDE079.7070401@list.ru>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60981 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752794AbbHZQTa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2015 12:19:30 -0400
+In-Reply-To: <20150823.165103.2104601245219561984.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFzIFNlcmdlZXYgW21haWx0
-bzpzdHNwQGxpc3QucnVdDQo+IFNlbnQ6IFdlZG5lc2RheSwgQXVndXN0IDI2LCAyMDE1IDY6NTEg
-UE0NCj4gVG86IEJ1Y3VyIE1hZGFsaW4tQ3Jpc3RpYW4tQjMyNzE2IDxtYWRhbGluLmJ1Y3VyQGZy
-ZWVzY2FsZS5jb20+Ow0KPiBmLmZhaW5lbGxpQGdtYWlsLmNvbQ0KPiBDYzogbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgTGliZXJtYW4gSWdhbC0N
-Cj4gQjMxOTUwIDxJZ2FsLkxpYmVybWFuQGZyZWVzY2FsZS5jb20+DQo+IFN1YmplY3Q6IFJlOiBb
-djJdIG5ldDogcGh5OiBmaXhlZDogcHJvcGFnYXRlIGZpeGVkIGxpbmsgdmFsdWVzIHRvIHN0cnVj
-dA0KPiANCj4gMjYuMDguMjAxNSAxNzo1OCwgTWFkYWxpbiBCdWN1ciDQv9C40YjQtdGCOg0KPiA+
-IFRoZSBmaXhlZCBsaW5rIHZhbHVlcyBwYXJzZWQgZnJvbSB0aGUgZGV2aWNlIHRyZWUgYXJlIHN0
-b3JlZCBpbg0KPiA+IHRoZSBzdHJ1Y3QgZml4ZWRfcGh5IG1lbWJlciBzdGF0dXMuIFRoZSBzdHJ1
-Y3QgcGh5X2RldmljZSBtZW1iZXJzDQo+ID4gc3BlZWQsIGR1cGxleCB3ZXJlIG5vdCB1cGRhdGVk
-Lg0KPiANCj4gQUNLLCBidXQgSU1ITyBpdCB3aWxsIG1ha2UgbW9yZSBzZW5zZSBpZiB5b3UgaW5j
-bHVkZSB0aGF0DQo+IGludG8geW91ciB1cGNvbWluZyBwYXRjaCBzZXQgcmF0aGVyIHRoYW4gc2Vu
-ZGluZyBzZXBhcmF0ZWx5LA0KPiBhcyBvdGhlcndpc2UgdGhlcmUgaXMgc2ltcGx5IG5vIGluLWtl
-cm5lbCB1c2VycyBvZiB0aGF0IG5ldw0KPiBmdW5jdGlvbmFsaXR5IChhbGwgdGhlIGN1cnJlbnQg
-dXNlcnMgbGlrZWx5IGRvIG5vdCBhY2Nlc3MNCj4gdGhlc2UgZmllbGRzIGFzIGVhcmx5IGFzIHlv
-dSB3YW50IHRvLCBzbyB0aGV5IGRvbid0IGNhcmUpLg0KPiBJbiBhbnkgY2FzZSwgdGhlIHBhdGNo
-IGxvb2tzIGdvb2QgdG8gbWUgYW5kIHRoZSBwb2xpY3kgaXMNCj4gdXAgdG8gb3RoZXJzLg0KDQpH
-aXZlbiB0aGF0IGl0J3MgbW9yZSBvZiBhIGZpeCB0aGFuIGEgZmVhdHVyZSwgSSB0aGluayBpdCBj
-YW4gYmUgcGlja2VkIHVwIHNlcGFyYXRlDQpmcm9tIGEgY2VydGFpbiBkcml2ZXIgdGhhdCBhY2Nl
-c3NlcyB0aG9zZSBmaWVsZHMgZWFybHkgYnV0IEkgZ3Vlc3MgRmxvcmlhbiwgRGF2aWQNCndpbGwg
-ZGVjaWRlIHRoaXMuDQoNClRoYW5rcywNCk1hZGFsaW4NCg==
+On Sun, 23 Aug 2015 16:51:03 -0700 (PDT), David Miller wrote:
+> From: Jiri Benc <jbenc@redhat.com>
+> Date: Fri, 21 Aug 2015 12:41:14 +0200
+> 
+> > @@ -99,6 +99,9 @@ struct dst_entry {
+> >  	atomic_t		__refcnt;	/* client references	*/
+> >  	int			__use;
+> >  	unsigned long		lastuse;
+> > +#ifndef CONFIG_64BIT
+> > +	struct lwtunnel_state   *lwtstate;
+> > +#endif
+> >  	union {
+> >  		struct dst_entry	*next;
+> >  		struct rtable __rcu	*rt_next;
+> 
+> I'm going to apply this to fix the build error without reverting your
+> change entirely, but this is really an undesirable solution.
+> 
+> This cache line of the SKB is for write heavy members of struct
+> dst_entry and so if you put a read-mostly member here it's going to
+> result in performance problems.
+
+I've spent the last few days taking measurements using tbench (which was
+originally used for dst_entry reshuffling) and netperf (super_netperf
+with various number of concurrent TCP streams) on i686 and found no
+regression introduced by this.
+
+This looks somehow surprising until we look at where and how lwtstate is
+used. In non-tunnel case, it's either:
+
+(1) used in netlink route notifications or
+(2) used together with the first few fields in struct rtable/rt6_info or
+(3) it's a skb_tunnel_info call.
+
+No more cases than those three. Of those, (1) is not of much concern.
+
+As for (2), the first few fields in struct rtable and struct rt6_info share
+the same cacheline with __refcnt, thus accessing the lwtstate makes no
+difference here.
+
+About (3), skb_tunnel_info is called from ip_route_input_slow and
+ip6_route_input. However, skb->dst is set only in case of a metadata
+dst_entry. In such case, tunnel info is fetched from metadata; otherwise,
+skb->dst is NULL. In either case, lwtstate is not accessed at all.
+
+This confirms what I measured - placing lwtstate in the same cacheline as
+__refcnt has no impact on performance in non-tunneling case.
+
+As for tunneling, I did not see any performance degradation after my patch
+in most cases. However, there were some cases where there was small
+degradation (<2%). I bisected it to the addition of IPv6 fields into
+ip_tunnel_key (i.e. commit c1ea5d672aaf). This is not much conclusive,
+though, the variation of the benchmark results was relatively high and this
+might be a noise. However, there's definitely room for performance
+improvement here, the lwtunnel vxlan throughput is at about ~40% of the
+non-vxlan throughput. I did not spend too much time on analyzing this, yet,
+but it's clear the dst_entry layout is not our biggest concern here.
+
+As the result, I think that the lwtstate field may stay where it is. For
+simplification of the code and to get rid of the #ifdefs, we can have it
+at the end of the struct also for 64bit case. Let me know if you prefer
+this, I'll submit a patch.
+
+Please let me know if you disagree with my analysis above.
+
+Thanks,
+
+  Jiri
+
+-- 
+Jiri Benc
