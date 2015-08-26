@@ -1,38 +1,52 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel state
-Date: Thu, 27 Aug 2015 00:13:30 +0200
-Message-ID: <20150826221330.GB31292@pox.localdomain>
-References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
- <20150823.165103.2104601245219561984.davem@davemloft.net>
- <20150826181926.0444240f@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 0/5] net_sched: introduce static flags for qdisc's
+Date: Wed, 26 Aug 2015 15:41:22 -0700
+Message-ID: <1440628887-3504-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35001 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752563AbbHZWNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 18:13:32 -0400
-Received: by wicne3 with SMTP id ne3so57670484wic.0
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 15:13:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150826181926.0444240f@griffin>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36441 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752324AbbHZWld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 18:41:33 -0400
+Received: by pacgr6 with SMTP id gr6so1899886pac.3
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 15:41:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/26/15 at 06:19pm, Jiri Benc wrote:
-> might be a noise. However, there's definitely room for performance
-> improvement here, the lwtunnel vxlan throughput is at about ~40% of the
-> non-vxlan throughput. I did not spend too much time on analyzing this, yet,
-> but it's clear the dst_entry layout is not our biggest concern here.
+The main goal of this patchset is to improve the behavior of setting
+the default qdisc. Current behavior has no error check, no check for
+ingress and _can_ crash the kernel with some buggy implementation.
 
-I'm currently working on reducing the overhead for VXLAN and Gre and
-effectively Geneve once Pravin's work is in. The main disadvantage
-of lwt based flow tunneling is the additional fib_lookup() performed
-for each packet. It seems tempting to cache the tunnel endpoint dst in
-the lwt state of the overlay route. It will usually point to the same
-dst for every packet. The cache behaviour if dependant on no fib rules
-are and the route is a single nexthop route.
+We only have flags for each instance of qdisc's, for flags like
+if a qdisc is a fifo qdisc, they can simply be moved into qdisc->ops,
+as shown by patch 1, 2, 5. Patch 4 just uses this for error checking
+when setting default qdisc.
 
-Did you test with a card that features UDP encapsulation offloads?
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+---
+
+Cong Wang (5):
+  net_sched: move some qdisc flag into qdisc ops
+  net_sched: move TCQ_F_MQROOT into qdisc ops
+  net_sched: use a flag to indicate fifo qdiscs instead of the name
+  net_sched: forbid setting default qdisc to inappropriate ones
+  net_sched: move ingress flag into qdisc ops
+
+ include/net/sch_generic.h |  9 ++++++---
+ net/sched/sch_api.c       | 40 +++++++++++++++++++++++++++-------------
+ net/sched/sch_fifo.c      |  6 ++++--
+ net/sched/sch_fq.c        |  1 +
+ net/sched/sch_fq_codel.c  |  1 +
+ net/sched/sch_generic.c   | 11 ++++++-----
+ net/sched/sch_ingress.c   |  1 +
+ net/sched/sch_mq.c        |  2 +-
+ net/sched/sch_mqprio.c    |  2 +-
+ net/sched/sch_sfq.c       |  1 +
+ 10 files changed, 49 insertions(+), 25 deletions(-)
+
+-- 
+1.8.3.1
