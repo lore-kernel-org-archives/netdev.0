@@ -1,18 +1,18 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Subject: Re: [PATCH net-next v2] bridge: vlan: allow to suppress
 	local mac install for all vlans
-Date: Tue, 25 Aug 2015 22:28:16 -0700
-Message-ID: <E065D3DC-6CBC-4625-8800-5133E21C5483@cumulusnetworks.com>
+Date: Tue, 25 Aug 2015 22:42:49 -0700
+Message-ID: <B58362A0-3860-42AB-A13A-8158891EC956@cumulusnetworks.com>
 References: <1440549295-3979-1-git-send-email-razor@blackwall.org>
-	<20150825.194222.390859854071446877.davem@davemloft.net>
+	<20150825175627.66ca9f30@urahara>
 Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 Cc: vyasevic@redhat.com, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, wkok@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+	netdev@vger.kernel.org, wkok@cumulusnetworks.com, davem@davemloft.net
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150825.194222.390859854071446877.davem@davemloft.net>
+In-Reply-To: <20150825175627.66ca9f30@urahara>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -25,10 +25,11 @@ Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 
-> On Aug 25, 2015, at 7:42 PM, David Miller <davem@davemloft.net> wrote:
+> On Aug 25, 2015, at 5:56 PM, Stephen Hemminger =
+<stephen@networkplumber.org> wrote:
 >=20
-> From: Nikolay Aleksandrov <razor@blackwall.org>
-> Date: Tue, 25 Aug 2015 17:34:55 -0700
+> On Tue, 25 Aug 2015 17:34:55 -0700
+> Nikolay Aleksandrov <razor@blackwall.org> wrote:
 >=20
 >> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 >>=20
@@ -48,28 +49,22 @@ vlan
 >> The default (0/off) is keeping the current behaviour.
 >>=20
 >> Based on a patch by Wilson Kok (wkok@cumulusnetworks.com).
->>=20
->> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> ---
->> v2: Triple checked the timezone
 >=20
-> I'd rather we fix the essence of the scalability problem than add
-> more spaghetti code to the various bridge paths.
 >=20
-> Can we make the fdb entries smaller?
->=20
-> Can we enhance how we store such local entries such that they live in
-> a compact datastructure?  Perhaps the FDB can consist of a very dense
-> lookup mechanism for local stuff sitting alongside the current table.
+> This is getting messy, but then again the bridge seems to have become
+> a ghetto for a long time. I would rather see the lookup code fixed so
+> that the fdb was correct.
 
-Certainly, that should be done and I will look into it, but the essence =
-of this patch
-is a bit different. The problem here is not the size of the fdb entries, =
-it=E2=80=99s more the
-number of them - having 96000 entries (even if they were 1 byte ones) is =
-just way
-too much especially when the fdb hash size is small and static. We could =
-work on making
-it dynamic though, but still these type of local entries per vlan per =
-port can easily be avoided
-with this option.
+What do you mean by it is getting messy ? The entries (normally) are =
+being added to each
+vlan so there=E2=80=99s not much in terms of lookup that you can fix =
+except making the table bigger/better
+but that will be only a temporary win. If you elaborate on what you mean =
+by fdb code being fixed
+I could spend time and work on fixing it. If it is resizing the table so =
+it can handle 96k entries and
+probably using the rhashtable, that is what I have in mind too.
+I still think that it would be nice to have the option to avoid adding =
+the 96k entries in the first place
+and that space could be better utilized by real ones, which this option =
+does.
