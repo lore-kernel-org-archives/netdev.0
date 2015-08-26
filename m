@@ -1,276 +1,117 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCHv6 net-next 10/10] openvswitch: Allow attaching helpers to ct action
-Date: Wed, 26 Aug 2015 11:31:53 -0700
-Message-ID: <1440613913-10141-11-git-send-email-joestringer@nicira.com>
-References: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
-	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
-	jpettit@nicira.com, jesse@nicira.com,
-	netfilter-devel@vger.kernel.org
-To: netdev@vger.kernel.org, pshelar@nicira.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF
+ is configured or used
+Date: Wed, 26 Aug 2015 11:34:04 -0700
+Message-ID: <55DE069C.7000402@roeck-us.net>
+References: <1439844336-21596-1-git-send-email-linux@roeck-us.net> <20150826170410.GP4215@atomide.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeremy Linton <jeremy.linton@arm.com>,
+	linux-omap@vger.kernel.org
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:36145 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757061AbbHZSeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 14:34:07 -0400
+In-Reply-To: <20150826170410.GP4215@atomide.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for using conntrack helpers to assist protocol detection.
-The new OVS_CT_ATTR_HELPER attribute of the CT action specifies a helper
-to be used for this connection. If no helper is specified, then helpers
-will be automatically applied as per the sysctl configuration of
-net.netfilter.nf_conntrack_helper.
+On 08/26/2015 10:04 AM, Tony Lindgren wrote:
+> Hi,
+>
+> * Guenter Roeck <linux@roeck-us.net> [150817 13:48]:
+>> Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
+>> the call to smsc911x_probe_config() unconditional, and no longer fails if
+>> there is no device node. device_get_phy_mode() is called unconditionally,
+>> and if there is no phy node configured returns an error code. This error
+>> code is assigned to phy_interface, and interpreted elsewhere in the code
+>> as valid phy mode. This in turn causes qemu to crash when running a
+>> variant of realview_pb_defconfig.
+>>
+>> 	qemu: hardware error: lan9118_read: Bad reg 0x86
+>>
+>> Fixes: 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT")
+>> Cc: Jeremy Linton <jeremy.linton@arm.com>
+>> Cc Graeme Gregory <graeme.gregory@linaro.org>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>> ---
+>>   drivers/net/ethernet/smsc/smsc911x.c | 7 ++++++-
+>>   1 file changed, 6 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+>> index 0f21aa3bb537..34f97684506b 100644
+>> --- a/drivers/net/ethernet/smsc/smsc911x.c
+>> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+>> @@ -2367,12 +2367,17 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
+>>   static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+>>   				 struct device *dev)
+>>   {
+>> +	int phy_interface;
+>>   	u32 width = 0;
+>>
+>>   	if (!dev)
+>>   		return -ENODEV;
+>>
+>> -	config->phy_interface = device_get_phy_mode(dev);
+>> +	phy_interface = device_get_phy_mode(dev);
+>> +	if (phy_interface < 0)
+>> +		return phy_interface;
+>> +
+>> +	config->phy_interface = phy_interface;
+>>
+>>   	device_get_mac_address(dev, config->mac, ETH_ALEN);
+>
+> Looks like this change makes at least omap boards using smsc911x
+> fail with -22 for me in Linux next.
+>
+> Do any of the the device tree configured smsc911x devices actually
+> have a phy configured?
+>
 
-The helper may be specified as part of the conntrack action, eg:
-ct(helper=ftp). Initial packets for related connections should be
-committed to allow later packets for the flow to be considered
-established.
+Ok, this is more subtle than I thought.
 
-Example ovs-ofctl flows allowing FTP connections from ports 1->2:
-in_port=1,tcp,action=ct(helper=ftp,commit),2
-in_port=2,tcp,ct_state=-trk,action=ct(recirc)
-in_port=2,tcp,ct_state=+trk-new+est,action=1
-in_port=2,tcp,ct_state=+trk+rel,action=1
+Previously, the code would not attempt any devicetree configuration
+if devicetree was not configured.
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
----
-v2-v3: No change.
-v4: Change error code for unknown helper ENOENT->EINVAL.
-v5: Fix rcu access of helpers.
-    Rebase.
-v6: Add acks.
----
- include/uapi/linux/openvswitch.h |   3 ++
- net/openvswitch/conntrack.c      | 109 ++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 110 insertions(+), 2 deletions(-)
+Now it does.
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 9d52058..32e07d8 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -626,6 +626,7 @@ struct ovs_action_hash {
-  * @OVS_CT_ATTR_LABEL: %OVS_CT_LABEL_LEN value followed by %OVS_CT_LABEL_LEN
-  * mask. For each bit set in the mask, the corresponding bit in the value is
-  * copied to the connection tracking label field in the connection.
-+ * @OVS_CT_ATTR_HELPER: variable length string defining conntrack ALG.
-  */
- enum ovs_ct_attr {
- 	OVS_CT_ATTR_UNSPEC,
-@@ -633,6 +634,8 @@ enum ovs_ct_attr {
- 	OVS_CT_ATTR_ZONE,       /* u16 zone id. */
- 	OVS_CT_ATTR_MARK,       /* mark to associate with this connection. */
- 	OVS_CT_ATTR_LABEL,      /* label to associate with this connection. */
-+	OVS_CT_ATTR_HELPER,     /* netlink helper to assist detection of
-+				   related connections. */
- 	__OVS_CT_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index a0417fb..890d3ee 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -15,6 +15,7 @@
- #include <linux/openvswitch.h>
- #include <net/ip.h>
- #include <net/netfilter/nf_conntrack_core.h>
-+#include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_labels.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
-@@ -43,6 +44,7 @@ struct md_label {
- 
- /* Conntrack action context for execution. */
- struct ovs_conntrack_info {
-+	struct nf_conntrack_helper *helper;
- 	struct nf_conntrack_zone zone;
- 	struct nf_conn *ct;
- 	u32 flags;
-@@ -234,6 +236,51 @@ static int ovs_ct_set_label(struct sk_buff *skb, struct sw_flow_key *key,
- 	return 0;
- }
- 
-+/* 'skb' should already be pulled to nh_ofs. */
-+static int ovs_ct_helper(struct sk_buff *skb, u16 proto)
-+{
-+	const struct nf_conntrack_helper *helper;
-+	const struct nf_conn_help *help;
-+	enum ip_conntrack_info ctinfo;
-+	unsigned int protoff;
-+	struct nf_conn *ct;
-+
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (!ct || ctinfo == IP_CT_RELATED_REPLY)
-+		return NF_ACCEPT;
-+
-+	help = nfct_help(ct);
-+	if (!help)
-+		return NF_ACCEPT;
-+
-+	helper = rcu_dereference(help->helper);
-+	if (!helper)
-+		return NF_ACCEPT;
-+
-+	switch (proto) {
-+	case NFPROTO_IPV4:
-+		protoff = ip_hdrlen(skb);
-+		break;
-+	case NFPROTO_IPV6: {
-+		u8 nexthdr = ipv6_hdr(skb)->nexthdr;
-+		__be16 frag_off;
-+
-+		protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),
-+					   &nexthdr, &frag_off);
-+		if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
-+			pr_debug("proto header not found\n");
-+			return NF_ACCEPT;
-+		}
-+		break;
-+	}
-+	default:
-+		WARN_ONCE(1, "helper invoked on non-IP family!");
-+		return NF_DROP;
-+	}
-+
-+	return helper->help(skb, protoff, ct, ctinfo);
-+}
-+
- static int handle_fragments(struct net *net, struct sw_flow_key *key,
- 			    u16 zone, struct sk_buff *skb)
- {
-@@ -306,6 +353,13 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
- 		return false;
- 	if (!nf_ct_zone_equal_any(info->ct, nf_ct_zone(ct)))
- 		return false;
-+	if (info->helper) {
-+		struct nf_conn_help *help;
-+
-+		help = nf_ct_ext_find(ct, NF_CT_EXT_HELPER);
-+		if (help && rcu_access_pointer(help->helper) != info->helper)
-+			return false;
-+	}
- 
- 	return true;
- }
-@@ -334,6 +388,11 @@ static int __ovs_ct_lookup(struct net *net, const struct sw_flow_key *key,
- 		if (nf_conntrack_in(net, info->family, NF_INET_PRE_ROUTING,
- 				    skb) != NF_ACCEPT)
- 			return -ENOENT;
-+
-+		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
-+			WARN_ONCE(1, "helper rejected packet");
-+			return -EINVAL;
-+		}
- 	}
- 
- 	return 0;
-@@ -442,6 +501,30 @@ err:
- 	return err;
- }
- 
-+static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
-+			     const struct sw_flow_key *key, bool log)
-+{
-+	struct nf_conntrack_helper *helper;
-+	struct nf_conn_help *help;
-+
-+	helper = nf_conntrack_helper_try_module_get(name, info->family,
-+						    key->ip.proto);
-+	if (!helper) {
-+		OVS_NLERR(log, "Unknown helper \"%s\"", name);
-+		return -EINVAL;
-+	}
-+
-+	help = nf_ct_helper_ext_add(info->ct, helper, GFP_KERNEL);
-+	if (!help) {
-+		module_put(helper->me);
-+		return -ENOMEM;
-+	}
-+
-+	rcu_assign_pointer(help->helper, helper);
-+	info->helper = helper;
-+	return 0;
-+}
-+
- static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
- 	[OVS_CT_ATTR_FLAGS]	= { .minlen = sizeof(u32),
- 				    .maxlen = sizeof(u32) },
-@@ -451,10 +534,12 @@ static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
- 				    .maxlen = sizeof(struct md_mark) },
- 	[OVS_CT_ATTR_LABEL]	= { .minlen = sizeof(struct md_label),
- 				    .maxlen = sizeof(struct md_label) },
-+	[OVS_CT_ATTR_HELPER]	= { .minlen = 1,
-+				    .maxlen = NF_CT_HELPER_NAME_LEN }
- };
- 
- static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
--		    bool log)
-+		    const char **helper, bool log)
- {
- 	struct nlattr *a;
- 	int rem;
-@@ -502,6 +587,13 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
- 			break;
- 		}
- #endif
-+		case OVS_CT_ATTR_HELPER:
-+			*helper = nla_data(a);
-+			if (!memchr(*helper, '\0', nla_len(a))) {
-+				OVS_NLERR(log, "Invalid conntrack helper");
-+				return -EINVAL;
-+			}
-+			break;
- 		default:
- 			OVS_NLERR(log, "Unknown conntrack attr (%d)",
- 				  type);
-@@ -542,6 +634,7 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
- 		       struct sw_flow_actions **sfa,  bool log)
- {
- 	struct ovs_conntrack_info ct_info;
-+	const char *helper = NULL;
- 	u16 family;
- 	int err;
- 
-@@ -557,7 +650,7 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
- 	nf_ct_zone_init(&ct_info.zone, NF_CT_DEFAULT_ZONE_ID,
- 			NF_CT_DEFAULT_ZONE_DIR, 0);
- 
--	err = parse_ct(attr, &ct_info, log);
-+	err = parse_ct(attr, &ct_info, &helper, log);
- 	if (err)
- 		return err;
- 
-@@ -567,6 +660,11 @@ int ovs_ct_copy_action(struct net *net, const struct nlattr *attr,
- 		OVS_NLERR(log, "Failed to allocate conntrack template");
- 		return -ENOMEM;
- 	}
-+	if (helper) {
-+		err = ovs_ct_add_helper(&ct_info, helper, key, log);
-+		if (err)
-+			goto err_free_ct;
-+	}
- 
- 	err = ovs_nla_add_action(sfa, OVS_ACTION_ATTR_CT, &ct_info,
- 				 sizeof(ct_info), log);
-@@ -603,6 +701,11 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
- 	    nla_put(skb, OVS_CT_ATTR_LABEL, sizeof(ct_info->label),
- 		    &ct_info->label))
- 		return -EMSGSIZE;
-+	if (ct_info->helper) {
-+		if (nla_put_string(skb, OVS_CT_ATTR_HELPER,
-+				   ct_info->helper->name))
-+			return -EMSGSIZE;
-+	}
- 
- 	nla_nest_end(skb, start);
- 
-@@ -613,6 +716,8 @@ void ovs_ct_free_action(const struct nlattr *a)
- {
- 	struct ovs_conntrack_info *ct_info = nla_data(a);
- 
-+	if (ct_info->helper)
-+		module_put(ct_info->helper->me);
- 	if (ct_info->ct)
- 		nf_ct_put(ct_info->ct);
- }
--- 
-2.1.4
+The error return from device_get_phy_mode() isn't the actual problem.
+Apparently it doesn't really matter if a nonsensical value is assigned
+to phy_interface.
+
+The problem is that the reg-io-width property is obviously not present
+in the non-dt and non-acpi case. This overwrites the existing platform data
+configuration and selects 16 bit mode, to which the (simulated) hardware
+obviously reacts less than enthusiastic.
+
+Fixing this properly won't be easy. If the "reg-io-width" property
+is not present or wrong, the default register width is 16 bit. Obviously,
+if neither DT nor ACPI is available, it won't be present. This causes
+the crash I had observed.
+
+Bad part is that there does not seem to be a reliable means to detect
+that platform data should be used in that situation. Other device_get_XXX
+functions return -ENXIO if that happens, but not device_property_read_u32().
+It is _supposed_ to return it per its API, but it doesn't (it returns
+-ENODATA).
+
+We may need two separate patches, one to fix up device_property_read_u32()
+to return -ENXIO, and one to fix smsc911x_probe_config() to ignore the error
+from device_get_phy_mode(), and to bail out if device_property_read_u32()
+returns -ENXIO.
+
+The simpler alternative would be to check the return value from
+device_property_read_u32() for both -ENXIO and -ENODATA.
+This would make the code independent of the necessary core changes
+(which may take a while). I tested this variant, and it works, at least
+for the non-DT case.
+
+Does this make sense ?
+
+Thanks,
+Guenter
