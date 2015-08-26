@@ -1,67 +1,85 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC 0/5] net: L2 only interfaces
-Date: Wed, 26 Aug 2015 10:32:03 -0700
-Message-ID: <55DDF813.4030101@gmail.com>
-References: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com> <20150825.171248.291365392844717283.davem@davemloft.net>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF
+ is configured or used
+Date: Wed, 26 Aug 2015 10:36:57 -0700
+Message-ID: <55DDF939.9050209@roeck-us.net>
+References: <1439844336-21596-1-git-send-email-linux@roeck-us.net> <20150826170410.GP4215@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, linux@roeck-us.net,
-	jiri@resnulli.us, sfeldma@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:32859 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751958AbbHZRea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 13:34:30 -0400
-Received: by pacti10 with SMTP id ti10so94745255pac.0
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 10:34:29 -0700 (PDT)
-In-Reply-To: <20150825.171248.291365392844717283.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeremy Linton <jeremy.linton@arm.com>,
+	linux-omap@vger.kernel.org
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150826170410.GP4215@atomide.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 25/08/15 17:12, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Tue, 25 Aug 2015 15:50:10 -0700
-> 
->> This patch series implements a L2 only interface concept which
->> basically denies any kind of IP address configuration on these
->> interfaces, but still allows them to be used as configuration
->> end-points to keep using ethtool and friends.
+Hi Tony,
+
+On 08/26/2015 10:04 AM, Tony Lindgren wrote:
+> Hi,
+>
+> * Guenter Roeck <linux@roeck-us.net> [150817 13:48]:
+>> Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
+>> the call to smsc911x_probe_config() unconditional, and no longer fails if
+>> there is no device node. device_get_phy_mode() is called unconditionally,
+>> and if there is no phy node configured returns an error code. This error
+>> code is assigned to phy_interface, and interpreted elsewhere in the code
+>> as valid phy mode. This in turn causes qemu to crash when running a
+>> variant of realview_pb_defconfig.
 >>
->> A cleaner approach might be to finally come up with the concept of
->> net_port which a net_device would be a superset of, but this still
->> raises tons of questions as to whether we should be modifying
->> userland tools to be able to configure/query these
->> interfaces. During all the switch talks/discussions last year, it
->> seemed to me like th L2-only interface is closest we have to a
->> "network port".
+>> 	qemu: hardware error: lan9118_read: Bad reg 0x86
 >>
->> Comments, flames, flying tomatoes welcome!
-> 
-> Interesting, indeed.
-> 
-> Do you plan to extend this to defining a more minimal network device
-> sub-type as well?
-> 
-> Then we can pass "net_device_common" or whatever around as a common
-> base type of actual net device "implementations".
+>> Fixes: 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT")
+>> Cc: Jeremy Linton <jeremy.linton@arm.com>
+>> Cc Graeme Gregory <graeme.gregory@linaro.org>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>> ---
+>>   drivers/net/ethernet/smsc/smsc911x.c | 7 ++++++-
+>>   1 file changed, 6 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+>> index 0f21aa3bb537..34f97684506b 100644
+>> --- a/drivers/net/ethernet/smsc/smsc911x.c
+>> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+>> @@ -2367,12 +2367,17 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
+>>   static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+>>   				 struct device *dev)
+>>   {
+>> +	int phy_interface;
+>>   	u32 width = 0;
+>>
+>>   	if (!dev)
+>>   		return -ENODEV;
+>>
+>> -	config->phy_interface = device_get_phy_mode(dev);
+>> +	phy_interface = device_get_phy_mode(dev);
+>> +	if (phy_interface < 0)
+>> +		return phy_interface;
+>> +
+>> +	config->phy_interface = phy_interface;
+>>
+>>   	device_get_mac_address(dev, config->mac, ETH_ALEN);
+>
+> Looks like this change makes at least omap boards using smsc911x
+> fail with -22 for me in Linux next.
+>
 
-I am a little worried this is not going to scale well without
-introducing massive amounts of churn, but I am not opposed to the idea
-of having a common denominator structure which is either further
-specialized into a full-fledged net_device, or some other construct.
+What do you see if you revert my patch ? It should assign -22, or its
+unsigned representation, to phy_interface, which isn't such a good idea
+either.
 
-> 
-> Or is you main goal just getting the L2-only semantic?
+> Do any of the the device tree configured smsc911x devices actually
+> have a phy configured?
+>
+Good question, and beats me. Looking into the original code,
+it didn't check for an error return from of_get_phy_mode() either,
+and thus _would_ dutifully assign the error code to phy_interface.
+Wonder how was this supposed to work to start with.
 
-Yes, this was the main goal behind this submission, and see if there was
-something obviously wrong with doing that.
+I'll do some debugging and try to find out what exactly is going on.
 
-Now, based on the feedback, it seems like there is both interest and
-uses cases I had not initially thought about, like making this flag
-fully volatile.
-
-Thanks!
--- 
-Florian
+Guenter
