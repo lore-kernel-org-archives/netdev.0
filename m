@@ -1,62 +1,26 @@
-From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Subject: RE: [Question] Usage of dev_hold()/dev_put()
-Date: Wed, 26 Aug 2015 07:48:05 +0000
-Message-ID: <60A73B7A161A82449A7DB7B382BFD15537141B06@SZXEMA504-MBS.china.huawei.com>
-References: <60A73B7A161A82449A7DB7B382BFD155371410A6@SZXEMA504-MBS.china.huawei.com>
- <1440512689.8932.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next 1/5] net_sched: make tcf_hash_destroy() static
+Date: Wed, 26 Aug 2015 10:05:16 +0200
+Message-ID: <55DD733C.9080707@iogearbox.net>
+References: <1440558395-7765-1-git-send-email-ast@plumgrid.com> <1440558395-7765-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Qinchuanyu <qinchuanyu@huawei.com>, Yewudi <yewudi@huawei.com>,
-	liuyongan 00175866 <l00175866@notesmail.huawei.com.cn>,
-	Wangbicheng <wangbicheng@huawei.com>,
-	Yan Chen <Y.Chen@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:9538 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755474AbbHZHs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 03:48:27 -0400
-In-Reply-To: <1440512689.8932.9.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: zh-CN
+Received: from www62.your-server.de ([213.133.104.62]:53365 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752396AbbHZIFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 04:05:21 -0400
+In-Reply-To: <1440558395-7765-2-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RXJpYywNClRoYW5rIHlvdSBmb3IgeW91ciBwYXRpZW50IGFwcGx5Lg0KVGhlcmUgaXMgc3RpbGwg
-YSBxdWVzdGlvbiwgDQpJbiByZWNlaXZlIHBhdGgsIGRyaXZlciBkb2VzIG5vdCBjYWxsIGRldl9o
-b2xkKCksIHdoZW4gc2tiIGdvZXMgdG8gaG9zdCBzdGFjaywgc2tiLT5kZXYgaXMgbGlrZWx5IHRv
-IGJlIHVzZWQuIA0KSWYgZGV2aWNlIGlzIGRlc3Ryb3llZCBiZWZvcmUgdGhhdCwgaXQgc2VlbXMg
-ZGFuZ2Vyb3VzLg0KDQpUaGFuayB5b3UhDQpaaGFuZ2ppZQ0KLS0tLS1PcmlnaW5hbCBNZXNzYWdl
-LS0tLS0NCkZyb206IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21d
-IA0KU2VudDogVHVlc2RheSwgQXVndXN0IDI1LCAyMDE1IDEwOjI1IFBNDQpUbzogWmhhbmdqaWUg
-KEhaKQ0KQ2M6IEphc29uIFdhbmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFFpbmNodWFueXU7
-IFlld3VkaTsgbGl1eW9uZ2FuIDAwMTc1ODY2OyBXYW5nYmljaGVuZzsgWWFuIENoZW4NClN1Ympl
-Y3Q6IFJlOiBbUXVlc3Rpb25dIFVzYWdlIG9mIGRldl9ob2xkKCkvZGV2X3B1dCgpDQoNCk9uIFR1
-ZSwgMjAxNS0wOC0yNSBhdCAwODoyOCArMDAwMCwgWmhhbmdqaWUgKEhaKSB3cm90ZToNCj4gSGks
-DQo+IA0KPiBUaGUgY29tbWVudCBvZiBmdW5jdGlvbiBkZXZfaG9sZCgpIGFuZCBkZXZfcHV0KCkg
-YXJlIHJlYWxseSBzaW1wbGUuDQo+IA0KPiBBY3R1YWxseSwgSSBjYW7igJl0IGZpbmQgYSBydWxl
-IHRvIGZvbGxvdy4NCj4gDQo+IFdoZXJlIHNob3VsZCBJIGNhbGwgZGV2X2hvbGQoKS9kZXZfcHV0
-KCk/DQo+IA0KPiBBcmUgdGhleSBuZWNlc3NhcnkgZHVyaW5nIHhtaXQgb3IgcmVjZWl2ZSBvciBv
-bmx5IGluIHJlZ2lzdGVyL3JlbGVhc2U/DQo+IA0KPiBJIGZpbmQgdGhhdCwgZm9yIHRhcCwgaXQg
-Y2FsbHMgZGV2X2hvbGQoKS9kZXZfcHV0KCkgZm9yIGV2ZXJ5DQo+IHR1bl9zZW5kbXNnL3R1bl9y
-ZWN2bXNnOg0KPiANCj4gU28sIHNob3VsZCBJIGNhbGwgZGV2X2hvbGQoKS9kZXZfcHV0KCkgZm9y
-IGVhY2ggcXVvdGUsIHN1Y2ggbGlrZToNCj4g4oCcc2tiLT5kZXYgPSBkZXbigJ0gPw0KPiANCj4g
-QnV0LCBmb3IgcGh5c2ljYWwgbmljLCBJIGNhbuKAmXQgZmluZCBkZXZfaG9sZCgpL2Rldl9wdXQo
-KSBkdXJpbmcgeG1pdCANCj4gb3IgcmVjZWl2ZS4NCj4gDQo+IFdoYXQga2luZCBvZiBzY2VuZSBp
-cyBpdCBuZWNlc3NhcnkgdG8gY2FsbCBkZXZfaG9sZCgpL2Rldl9wdXQoKT8NCj4gDQo+ICANCj4g
-DQo+IExvb2sgZm9yd2FyZCBmb3IgeW91ciBmZWVkYmFjay4gDQo+IA0KPiBUaGFuayB5b3UgISBK
-DQo+IA0KPiBaaGFuZ2ppZQ0KPiANCj4gDQpQbGVhc2UgZG8gbm90IHNlbmQgSFRNTCBtYWlscywg
-b3RoZXJ3aXNlIHRoZXkgZG8gbm90IHJlYWNoIG5ldGRldiBtYWlsaW5nIGxpc3QNCg0KSW4gZ2Vu
-ZXJhbCwgeW91IG5lZWQgdG8gdXNlIGRldl9ob2xkKCkgZm9yIGV2ZXJ5IHJlZmVyZW5jZSBvbiAn
-ZGV2Jw0Kc3RvcmVkIGluIHRoZSBvYmplY3QuDQoNCkhvd2V2ZXIgdGhleSBhcmUgc29tZSBwYXRo
-cyB3ZXJlIHlvdSBkbyBub3QgbmVlZCB0aGF0IDogRm9yIGV4YW1wbGUgaW4gdHJhbnNtaXQgcGF0
-aCwgc2tiIGFyZSBzdG9yZWQgZWl0aGVyIGluIGEgcWRpc2Mgb3IgZGV2aWNlIGRyaXZlciBpbnRl
-cm5hbCBxdWV1ZS9yaW5nLiBBdCBkZXZpY2UgZGlzbWFudGxlIHdlIHByb3Blcmx5IGRlbGV0ZSBh
-bGwgdGhlc2Ugc2tiLCBzbyB3ZSBkbyBub3QgaGF2ZSB0byB3b3JyeSBhYm91dCB1c2VkIGRldl9o
-b2xkKCkvZGV2X3B1dCgpIGluIHRyYW5zbWl0Lg0KDQpJbiBkcml2ZXJzL25ldC90dW4uYywgdGhl
-IGRldl9ob2xkKCkvZGV2X3B1dCgpIG9ubHkgaXMgcmVxdWlyZWQgc28gdGhhdCBkZXZpY2UgZG9l
-c250IGRpc2FwcGVhciBiZXR3ZWVuIHR1bl9nZXQoKSBhbmQgYWN0dWFsIHVzZSBvZiBpdCBhZnRl
-ciBhIHBvdGVudGlhbGx5IGxvbmcgY29weSBmcm9tIHVzZXIgc3BhY2UgKHRoYXQgbWlnaHQgdHJp
-Z2dlciBwYWdlIGZhdWx0cykNCg0KDQoNCg==
+On 08/26/2015 05:06 AM, Alexei Starovoitov wrote:
+> tcf_hash_destroy() used once. Make it static.
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
