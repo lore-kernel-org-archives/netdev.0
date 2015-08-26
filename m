@@ -1,34 +1,62 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf-next] Second Round of IPVS Updates for v4.3
-Date: Wed, 26 Aug 2015 20:41:50 +0200
-Message-ID: <20150826184150.GA4470@salvia>
-References: <1440174222-12695-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49332 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752200AbbHZSfc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2015 14:35:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1440174222-12695-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCHv6 net-next 00/10] OVS conntrack support
+Date: Wed, 26 Aug 2015 11:31:43 -0700
+Message-ID: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
+Cc: linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
+	jpettit@nicira.com, jesse@nicira.com,
+	netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org, pshelar@nicira.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 21, 2015 at 09:23:38AM -0700, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider these IPVS Updates for v4.3.
-> 
-> I realise these are a little late in the cycle, so if you would prefer
-> me to repost them for v4.4 then just let me know.
+The goal of this series is to allow OVS to send packets through the Linux
+kernel connection tracker, and subsequently match on fields populated by
+conntrack. This functionality is enabled through a new
+CONFIG_OPENVSWITCH_CONNTRACK option.
 
-Pulled, thanks Simon.
+This version addresses the feedback from v5, primarily checking the behaviour
+is correct with different configurations such as disabling
+CONFIG_OPENVSWITCH_CONNTRACK or disabling individual conntrack features like
+connlabels.
 
-Let me see if this gets into this merge window, otherwise I'll keep it
-in my tree and will submit in the next merge window.
+The branch below has been updated with the corresponding userspace pieces:
+https://github.com/joestringer/ovs dev/ct_20150818
+
+Joe Stringer (10):
+  openvswitch: Serialize acts with original netlink len
+  openvswitch: Move MASKED* macros to datapath.h
+  ipv6: Export nf_ct_frag6_gather()
+  dst: Add __skb_dst_copy() variation
+  openvswitch: Add conntrack action
+  openvswitch: Allow matching on conntrack mark
+  netfilter: Always export nf_connlabels_replace()
+  netfilter: connlabels: Export setting connlabel length
+  openvswitch: Allow matching on conntrack label
+  openvswitch: Allow attaching helpers to ct action
+
+ include/net/dst.h                           |   9 +-
+ include/net/netfilter/nf_conntrack_labels.h |   4 +
+ include/uapi/linux/openvswitch.h            |  58 +++
+ net/ipv6/netfilter/nf_conntrack_reasm.c     |   1 +
+ net/netfilter/nf_conntrack_labels.c         |  34 +-
+ net/netfilter/xt_connlabel.c                |  16 +-
+ net/openvswitch/Kconfig                     |  11 +
+ net/openvswitch/Makefile                    |   2 +
+ net/openvswitch/actions.c                   | 229 +++++++--
+ net/openvswitch/conntrack.c                 | 744 ++++++++++++++++++++++++++++
+ net/openvswitch/conntrack.h                 |  86 ++++
+ net/openvswitch/datapath.c                  |  86 +++-
+ net/openvswitch/datapath.h                  |  13 +
+ net/openvswitch/flow.c                      |   6 +-
+ net/openvswitch/flow.h                      |  11 +-
+ net/openvswitch/flow_netlink.c              | 119 ++++-
+ net/openvswitch/flow_netlink.h              |  13 +-
+ net/openvswitch/vport.c                     |   1 +
+ 18 files changed, 1336 insertions(+), 107 deletions(-)
+ create mode 100644 net/openvswitch/conntrack.c
+ create mode 100644 net/openvswitch/conntrack.h
+
+-- 
+2.1.4
