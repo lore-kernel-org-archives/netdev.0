@@ -1,94 +1,92 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next] bridge: vlan: allow to suppress local mac install
- for all vlans
-Date: Wed, 26 Aug 2015 08:42:22 -0400
-Message-ID: <55DDB42E.5010802@redhat.com>
-References: <1440464127-27391-1-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net-next v2] bridge: vlan: allow to suppress local mac
+ install for all vlans
+Date: Wed, 26 Aug 2015 08:52:32 -0400
+Message-ID: <55DDB690.8060601@redhat.com>
+References: <1440549295-3979-1-git-send-email-razor@blackwall.org>	<20150825.194222.390859854071446877.davem@davemloft.net>	<E065D3DC-6CBC-4625-8800-5133E21C5483@cumulusnetworks.com> <CAN+pFwJKFeQJw_4mPEH5_WmHdBUn75FL+-Cq=YaR+FR-+cRfEw@mail.gmail.com>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: toshiaki.makita1@gmail.com, stephen@networkplumber.org,
-	bridge@lists.linux-foundation.org, wkok@cumulusnetworks.com,
-	davem@davemloft.net,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	toshiaki.makita1@gmail.com,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	bridge@lists.linux-foundation.org, wkok@cumulusnetworks.com
+To: B Viswanath <marichika4@gmail.com>,
 	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43057 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42372 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751798AbbHZMmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2015 08:42:25 -0400
-In-Reply-To: <1440464127-27391-1-git-send-email-razor@blackwall.org>
+	id S1755967AbbHZMwe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2015 08:52:34 -0400
+In-Reply-To: <CAN+pFwJKFeQJw_4mPEH5_WmHdBUn75FL+-Cq=YaR+FR-+cRfEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2015 08:55 PM, Nikolay Aleksandrov wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> This patch adds a new knob that, when enabled, allows to suppress the
-> installation of local fdb entries in newly created vlans. This could
-> pose a big scalability issue if we have a large number of ports and a
-> large number of vlans, e.g. in a 48 port device with 2000 vlans these
-> entries easily go up to 96000.
-> Note that packets for these macs are still received properly because they
-> are added in vlan 0 as "own" macs and referenced when fdb lookup by vlan
-> results in a miss.
-> Also note that vlan membership of ingress port and the bridge device
-> as egress are still being correctly enforced.
-> 
-> The default (0/off) is keeping the current behaviour.
-> 
-> Based on a patch by Wilson Kok (wkok@cumulusnetworks.com).
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> As usual I'll post iproute2 patch if this one gets accepted.
-> 
+On 08/26/2015 02:10 AM, B Viswanath wrote:
+>>>
+>>> I'd rather we fix the essence of the scalability problem than add
+>>> more spaghetti code to the various bridge paths.
+>>>
+>>> Can we make the fdb entries smaller?
+>>>
+>>> Can we enhance how we store such local entries such that they live =
+in
+>>> a compact datastructure?  Perhaps the FDB can consist of a very den=
+se
+>>> lookup mechanism for local stuff sitting alongside the current tabl=
+e.
+>>
+>> Certainly, that should be done and I will look into it, but the esse=
+nce of this patch
+>> is a bit different. The problem here is not the size of the fdb entr=
+ies, it=E2=80=99s more the
+>> number of them - having 96000 entries (even if they were 1 byte ones=
+) is just way
+>> too much especially when the fdb hash size is small and static. We c=
+ould work on making
+>> it dynamic though, but still these type of local entries per vlan pe=
+r port can easily be avoided
+>> with this option.
+>>
+>=20
+> I was wondering if it is possible to assign a vlan bitmap for the FDB
+> entry, instead of replicating the entry for each vlan. ( I believe
+> Roopa has done something similar, but not so sure). This means that
+> the number of FDB entries remain static for any number of vlans.
+>=20
+> I guess its more complicated than it sounds, but just wanted to know
+> if its feasible at all.
 
-... snip...
+I've actually had this done in one of the earlier attempts.  The issue =
+was how
+to compress it because there was absolutely no gain if you have a spars=
+e vlan bitmap.
 
-> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> index 3cef6892c0bb..f9efa1b07994 100644
-> --- a/net/bridge/br_vlan.c
-> +++ b/net/bridge/br_vlan.c
-> @@ -98,11 +98,12 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
->  			return err;
->  	}
->  
-> -	err = br_fdb_insert(br, p, dev->dev_addr, vid);
-> -	if (err) {
-> -		br_err(br, "failed insert local address into bridge "
-> -		       "forwarding table\n");
-> -		goto out_filt;
-> +	if (!br_vlan_ignore_local_fdb(br) || !v->port_idx) {
-> +		err = br_fdb_insert(br, p, dev->dev_addr, vid);
-> +		if (err) {
-> +			br_err(br, "failed insert local address into bridge forwarding table\n");
-> +			goto out_filt;
-> +		}
->  	}
->
+I even tried doing something along the lines of vlan_group array, but t=
+hat can
+explode to full size almost as fast.
 
-One question.  Does it make sense to push this down into br_fdb_insert?
-This patch prevents automatic entries from being added.  But what about
-manual entries for a local fdb?  The code in br_fdb_add() will still a
-vid 0 entry as well as entries for all vlans currently configured on the port.
+What actually worked better was a hash table of vlans where each entry =
+in the table
+contained a bunch of data one of which was a list of fdbs for a given v=
+lan.   It
+didn't replicate fdbs but simply referenced the ones we cared about and=
+ bumped the ref.
+
+However, this made vlan look-ups slower since we now had a hash instead=
+ of a bitmap lookup
+and Stephen rejected it.
 
 -vlad
 
->  	set_bit(vid, v->vlan_bitmap);
-> @@ -492,6 +493,13 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
->  	return 0;
->  }
->  
-> +int br_vlan_ignore_local_fdb_toggle(struct net_bridge *br, unsigned long val)
-> +{
-> +	br->vlan_ignore_local_fdb = val ? true : false;
-> +
-> +	return 0;
-> +}
-> +
->  int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
->  {
->  	int err = 0;
-> 
+>=20
+> Thanks
+> Vissu
+>=20
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
