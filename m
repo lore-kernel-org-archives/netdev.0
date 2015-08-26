@@ -1,67 +1,97 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH RFC 0/5] net: L2 only interfaces
-Date: Wed, 26 Aug 2015 10:56:09 -0700
-Message-ID: <BC7F5FFB-65E3-47A6-BB52-658DA32E1D48@holtmann.org>
-References: <1440543015-14693-1-git-send-email-f.fainelli@gmail.com> <20150825.171248.291365392844717283.davem@davemloft.net> <A41B4B28-7D28-4BFB-AD4F-508C24AB82CA@holtmann.org> <55DDF954.1000903@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH -next] smsc911x: Fix crash seen if neither ACPI nor OF is
+ configured or used
+Date: Wed, 26 Aug 2015 10:57:11 -0700
+Message-ID: <20150826175710.GR4215@atomide.com>
+References: <1439844336-21596-1-git-send-email-linux@roeck-us.net>
+ <20150826170410.GP4215@atomide.com>
+ <55DDF939.9050209@roeck-us.net>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>, andrew@lunn.ch,
-	Guenter Roeck <linux@roeck-us.net>,
-	Jiri Pirko <jiri@resnulli.us>, sfeldma@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:43221 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750836AbbHZR4n convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 13:56:43 -0400
-In-Reply-To: <55DDF954.1000903@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeremy Linton <jeremy.linton@arm.com>,
+	linux-omap@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55DDF939.9050209@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Florian,
-
->>>> This patch series implements a L2 only interface concept which
->>>> basically denies any kind of IP address configuration on these
->>>> interfaces, but still allows them to be used as configuration
->>>> end-points to keep using ethtool and friends.
->>>> 
->>>> A cleaner approach might be to finally come up with the concept of
->>>> net_port which a net_device would be a superset of, but this still
->>>> raises tons of questions as to whether we should be modifying
->>>> userland tools to be able to configure/query these
->>>> interfaces. During all the switch talks/discussions last year, it
->>>> seemed to me like th L2-only interface is closest we have to a
->>>> "network port".
->>>> 
->>>> Comments, flames, flying tomatoes welcome!
->>> 
->>> Interesting, indeed.
->>> 
->>> Do you plan to extend this to defining a more minimal network device
->>> sub-type as well?
->>> 
->>> Then we can pass "net_device_common" or whatever around as a common
->>> base type of actual net device "implementations".
->>> 
->>> Or is you main goal just getting the L2-only semantic?
->> 
->> the other end of this could be also an IP only net_device where we do not have ethtool semantics.
->> 
->> We do have a need for a IPv6 only net_device when utilizing ARPHRD_6LOWPAN for 802.15.4 and Bluetooth LE. Skipping in_dev initialization there might be an interesting step towards that. Not sure how much entangled in_dev and in6_dev still are. If it works for IFF_L2_ONLY, it might work also in the other direction.
+* Guenter Roeck <linux@roeck-us.net> [150826 10:40]:
+> Hi Tony,
 > 
-> Just out of curiosity, is the aim for IPv6 only net_device to be denying
-> any kind of IPv4 configuration/tools, or is it for performance purposes?
+> On 08/26/2015 10:04 AM, Tony Lindgren wrote:
+> >Hi,
+> >
+> >* Guenter Roeck <linux@roeck-us.net> [150817 13:48]:
+> >>Commit 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT") makes
+> >>the call to smsc911x_probe_config() unconditional, and no longer fails if
+> >>there is no device node. device_get_phy_mode() is called unconditionally,
+> >>and if there is no phy node configured returns an error code. This error
+> >>code is assigned to phy_interface, and interpreted elsewhere in the code
+> >>as valid phy mode. This in turn causes qemu to crash when running a
+> >>variant of realview_pb_defconfig.
+> >>
+> >>	qemu: hardware error: lan9118_read: Bad reg 0x86
+> >>
+> >>Fixes: 0b50dc4fc971 ("Convert smsc911x to use ACPI as well as DT")
+> >>Cc: Jeremy Linton <jeremy.linton@arm.com>
+> >>Cc Graeme Gregory <graeme.gregory@linaro.org>
+> >>Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> >>---
+> >>  drivers/net/ethernet/smsc/smsc911x.c | 7 ++++++-
+> >>  1 file changed, 6 insertions(+), 1 deletion(-)
+> >>
+> >>diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> >>index 0f21aa3bb537..34f97684506b 100644
+> >>--- a/drivers/net/ethernet/smsc/smsc911x.c
+> >>+++ b/drivers/net/ethernet/smsc/smsc911x.c
+> >>@@ -2367,12 +2367,17 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
+> >>  static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+> >>  				 struct device *dev)
+> >>  {
+> >>+	int phy_interface;
+> >>  	u32 width = 0;
+> >>
+> >>  	if (!dev)
+> >>  		return -ENODEV;
+> >>
+> >>-	config->phy_interface = device_get_phy_mode(dev);
+> >>+	phy_interface = device_get_phy_mode(dev);
+> >>+	if (phy_interface < 0)
+> >>+		return phy_interface;
+> >>+
+> >>+	config->phy_interface = phy_interface;
+> >>
+> >>  	device_get_mac_address(dev, config->mac, ETH_ALEN);
+> >
+> >Looks like this change makes at least omap boards using smsc911x
+> >fail with -22 for me in Linux next.
+> >
+> 
+> What do you see if you revert my patch ? It should assign -22, or its
+> unsigned representation, to phy_interface, which isn't such a good idea
+> either.
 
-when you have 6LoWPAN, then it would be actually good to forbid IPv4 configuration on these interface since they have no mapping whatsoever. Eventually it might allow us to decrease the size of the network stack for embedded sensor devices.
+If I revert patch "smsc911x: Fix crash seen if neither ACPI nor OF is
+configured or used" things work as just assign config->phy_interface
+directly without returning early. It's -22 in that case also.
+ 
+> >Do any of the the device tree configured smsc911x devices actually
+> >have a phy configured?
+> >
+> Good question, and beats me. Looking into the original code,
+> it didn't check for an error return from of_get_phy_mode() either,
+> and thus _would_ dutifully assign the error code to phy_interface.
+> Wonder how was this supposed to work to start with.
+> 
+> I'll do some debugging and try to find out what exactly is going on.
 
-> The IFF_L2_ONLY flag would probably need to mean something like
-> (IFF_NO_IPV4 | IFF_NO_IPV6) such that you could decide which one of the
-> two IP stacks you want to use, or none.
+Looks like adding "smsc,force-internal-phy" to omap-gpmc-smsc9221.dtsi
+does not help. Somehow the default behavior is now different.
 
-I think IFF_NO_IPV4 and IFF_NO_IPV6 instead of IFF_L2_ONLY sounds like a good idea.
+Regards,
 
-Regards
-
-Marcel
+Tony
