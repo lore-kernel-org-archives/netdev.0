@@ -1,8 +1,8 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH net-next v2] bridge: vlan: allow to suppress
  local mac install for all vlans
-Date: Tue, 25 Aug 2015 17:56:27 -0700
-Message-ID: <20150825175627.66ca9f30@urahara>
+Date: Tue, 25 Aug 2015 17:58:20 -0700
+Message-ID: <20150825175820.0b0538c1@urahara>
 References: <1440549295-3979-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -27,24 +27,26 @@ List-Id: netdev.vger.kernel.org
 On Tue, 25 Aug 2015 17:34:55 -0700
 Nikolay Aleksandrov <razor@blackwall.org> wrote:
 
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> This patch adds a new knob that, when enabled, allows to suppress the
-> installation of local fdb entries in newly created vlans. This could
-> pose a big scalability issue if we have a large number of ports and a
-> large number of vlans, e.g. in a 48 port device with 2000 vlans these
-> entries easily go up to 96000.
-> Note that packets for these macs are still received properly because they
-> are added in vlan 0 as "own" macs and referenced when fdb lookup by vlan
-> results in a miss.
-> Also note that vlan membership of ingress port and the bridge device
-> as egress are still being correctly enforced.
-> 
-> The default (0/off) is keeping the current behaviour.
-> 
-> Based on a patch by Wilson Kok (wkok@cumulusnetworks.com).
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 3d95647039d0..2bda472c5a6e 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -294,6 +294,7 @@ struct net_bridge
+>  	u32				auto_cnt;
+>  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+>  	u8				vlan_enabled;
+> +	bool				vlan_ignore_local_fdb;
+
+bool takes more space than u8.
 
 
-This is getting messy, but then again the bridge seems to have become
-a ghetto for a long time. I would rather see the lookup code fixed so
-that the fdb was correct.
+>  	__be16				vlan_proto;
+>  	u16				default_pvid;
+>  	struct net_port_vlans __rcu	*vlan_info;
+
+> +int br_vlan_ignore_local_fdb_toggle(struct net_bridge *br, unsigned long val)
+> +{
+> +	br->vlan_ignore_local_fdb = val ? true : false;
+
+personal preference is for:
+	br->vlan_ignore_local_fdb = !!val;
