@@ -1,57 +1,137 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net v4] sctp: asconf's process should verify address parameter is in the beginning
-Date: Thu, 27 Aug 2015 16:26:34 +0800
-Message-ID: <842bb5735d0ea0e632695f49dc85021faa176784.1440663994.git.lucien.xin@gmail.com>
-Cc: mleitner@redhat.com, davem@davemloft.net, vyasevic@redhat.com
-To: network dev <netdev@vger.kernel.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/2] Add new switchdev device class
+Date: Thu, 27 Aug 2015 01:23:53 -0700
+Message-ID: <CAE4R7bCo2GqEtXvZw9s9tiTPNLd_=9L_fGAGSJiNTiTDBYvQzw@mail.gmail.com>
+References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com> <55DEBDF4.8030301@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34270 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753673AbbH0I0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 04:26:41 -0400
-Received: by pabzx8 with SMTP id zx8so18056849pab.1
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 01:26:40 -0700 (PDT)
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:34772 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751563AbbH0IYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 04:24:13 -0400
+Received: by oiex83 with SMTP id x83so7105008oie.1
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 01:24:12 -0700 (PDT)
+In-Reply-To: <55DEBDF4.8030301@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-in sctp_process_asconf(), we get address parameter from the beginning of
-the addip params. but we never check if it's really there. if the addr
-param is not there, it still can pass sctp_verify_asconf(), then to be
-handled by sctp_process_asconf(), it will not be safe.
+On Thu, Aug 27, 2015 at 12:36 AM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> On 15-08-27 12:16 AM, sfeldma@gmail.com wrote:
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> In the switchdev model, we use netdevs to represent switchdev ports, but we
+>> have no representation for the switch itself.  So, introduce a new switchdev
+>> device class so we can define semantics and programming interfaces for the
+>> switch itself.  Switchdev device class isn't tied to any particular bus.
+>>
+>> This patch set is just the skeleton to get us started.  It adds the sysfs
+>> object registration for the new class and defines a class-level attr "foo".
+>> With the new class, we could hook PM functions, for example, to handle power
+>> transitions at the switch level.  I registered rocker and get:
+>>
+>>    $ ls /sys/class/switchdev/5254001235010000/
+>>    foo  power  subsystem  uevent
+>>
+>> So what next?  I'd rather not build APIs around sysfs, so we need a netlink API
+>> we can build on top of this.  It's not really rtnl.  Maybe genl would work?
+>> What ever it is, we'd need to teach iproute2 about a new 'switch' command.
+>>
+>> Netlink API would allow us to represent switch-wide objects such as registers,
+>> tables, stats, firmware, and maybe even control.  I think with with netlink
+>> TLVs, we can create a framework for these objects but still allow the switch
+>> driver provide switch-specific info.  For example, a table object:
+>>
+>
+> Hi Scott,
+>
+> I was going to take the flow-api presented in Feb and submitted
+> to netdev and get it up to date. I started doing this today should be
+> ready end of week.
+>
+>> [TABLES]
+>>       [TABLE]
+>>               [FIELDS]
+>>                       [FIELD]
+>>                               [ID, TYPE]
+>>               [DATA]
+>>                       [ID, VALUE]
+>>
+>
+> The structure I used previously which looks like your prototype I think,
+>
+>  (https://github.com/jrfastab/rocker-net-next/blob/master/include/uapi/linux/if_flow.h)
+>
+>  * [NFL_TABLE_IDENTIFIER_TYPE]
+>  * [NFL_TABLE_IDENTIFIER]
+>  * [NFL_TABLE_TABLES]
+>  *     [NFL_TABLE]
+>  *       [NFL_TABLE_ATTR_NAME]
+>  *       [NFL_TABLE_ATTR_UID]
+>  *       [NFL_TABLE_ATTR_SOURCE]
+>  *       [NFL_TABLE_ATTR_APPLY]
+>  *       [NFL_TABLE_ATTR_SIZE]
+>  *       [NFL_TABLE_ATTR_MATCHES]
+>  *         [NFL_FIELD_REF]
+>  *           [NFL_FIELD_REF_INSTANCE]
+>  *           [NFL_FIELD_REF_HEADER]
+>  *           [NFL_FIELD_REF_FIELD]
+>  *           [NFL_FIELD_REF_MASK]
+>  *           [NFL_FIELD_REF_TYPE]
+>  *         [...]
+>  *       [NFL_TABLE_ATTR_ACTIONS]
+>  *           [NFL_ACTION_ATTR_UID]
+>  *           [...]
+>  *     [NFL_TABLE]
+>  *       [...]
+>  *
+>
+> This is well-typed per Dave's comment. And because its Netlink based it
+> can be easily extended as needed. The above gives basic information on
+> the table. Sure it could stand to have some other entries in it but I
+> never needed them for my capabilities/resource discovery. We could argue
+> about removing some if they are too specific to my use cases.
 
-so add a code in sctp_verify_asconf() to check the address parameter is in
-the beginning, or return false to send abort.
+I was looking for something more generic.  Not quite as raw as ethtool
+reg dump, but not too rigid I have to bend the def of fields to make
+it work.  Maybe what I want is impossible.
 
-note that this can also detect multiple address parameters, and reject it.
+>> Maybe iproute2 has pretty-printers for specific switches like ethtool has for
+>> reg dumps.
+>>
+>> I don't know about how this overlaps with DSA platform_class.  Florian?
+>>
+>> Comments?
+>
+> A few other interesting (at least to me) structures you can find in the
+> if_flow.h header file give how the tables in the hardware are put
+> together. I found this really useful when trying to sort out where my
+> various ACLs/nexthop entries/etc were in the hardware order. This is
+> important to know for many cases. This is NFL_TABLE_GRAPH.
+>
+> Also I found being able to "know' what headers the hardware supports
+> to be very useful. For example I want/need to know if QinQ will work.
+> Or VXLAN/NSH, Geneve, etc. This is NFL_HEADER_GRAPH.
+>
+> Sure if_flow.h is a poor name and FlowAPI is probably not really great.
+> But both those names come from how I model the hardware as match action
+> tables. I can change those names to switchdev_resources or
+> switchdev_info if folks want.
+>
+> My point is the interface is generic and provides a common interface for
+> most hardware I've seen to date. Certainly curious if there is hardware
+> it doesn't map to. Although tables and pipelines seems fairly universal
+> for a large set of devices to me. Further it can be extended as needed.
+>
+> I'll drop the set_rule/del_rule parts to be merged with ebpf/tc/qdisc.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
----
- net/sctp/sm_make_chunk.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 06320c8..a655ddc 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3132,11 +3132,18 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
- 		case SCTP_PARAM_IPV4_ADDRESS:
- 			if (length != sizeof(sctp_ipv4addr_param_t))
- 				return false;
-+			/* ensure there is only one addr param and it's in the
-+			 * beginning of addip_hdr params, or we reject it.
-+			 */
-+			if (param.v != addip->addip_hdr.params)
-+				return false;
- 			addr_param_seen = true;
- 			break;
- 		case SCTP_PARAM_IPV6_ADDRESS:
- 			if (length != sizeof(sctp_ipv6addr_param_t))
- 				return false;
-+			if (param.v != addip->addip_hdr.params)
-+				return false;
- 			addr_param_seen = true;
- 			break;
- 		case SCTP_PARAM_ADD_IP:
--- 
-2.1.0
+Ya, you're talking about tables in hardware.  I just want to dump some
+driver-internal driver-specific data in tabular form to user-space so
+I can grep thru it and debug.
