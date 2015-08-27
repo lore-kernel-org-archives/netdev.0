@@ -1,111 +1,129 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 1/6] net: introduce change upper device notifier change info
-Date: Thu, 27 Aug 2015 09:31:18 +0200
-Message-ID: <1440660683-20086-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 6/6] rocker: use change upper info
+Date: Thu, 27 Aug 2015 09:31:23 +0200
+Message-ID: <1440660683-20086-7-git-send-email-jiri@resnulli.us>
 References: <1440660683-20086-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, simon.horman@netronome.com,
 	f.fainelli@gmail.com, Jiri Pirko <jiri@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:33693 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751061AbbH0Hb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:31:28 -0400
-Received: by wijn1 with SMTP id n1so46204231wij.0
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:31:26 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:34199 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751656AbbH0Hbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:31:34 -0400
+Received: by widdq5 with SMTP id dq5so68709065wid.1
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:31:32 -0700 (PDT)
 In-Reply-To: <1440660683-20086-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add info that is passed along with NETDEV_CHANGEUPPER event.
+Since now information about changed upper is passed along, benefit from
+that and use this info directly.
+
+This also fixes possible issues that could happen when non-master device
+is added (current code does not distinguish between master and non-master
+upper device).
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Acked-by: Scott Feldman <sfeldma@gmail.com
 ---
 v1->v2:
 - no change
 ---
- include/linux/netdevice.h |  7 +++++++
- net/core/dev.c            | 16 ++++++++++++++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c | 61 ++++++++++++++++++++++--------------
+ 1 file changed, 38 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6abe0d6..39f30da 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2127,6 +2127,13 @@ struct netdev_notifier_change_info {
- 	unsigned int flags_changed;
- };
- 
-+struct netdev_notifier_changeupper_info {
-+	struct netdev_notifier_info info; /* must be first */
-+	struct net_device *upper_dev; /* new upper dev */
-+	bool master; /* is upper dev master */
-+	bool linking; /* is the nofication for link or unlink */
-+};
-+
- static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
- 					     struct net_device *dev)
- {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b1f3f48..e7ef971 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5311,6 +5311,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 				   struct net_device *upper_dev, bool master,
- 				   void *private)
- {
-+	struct netdev_notifier_changeupper_info changeupper_info;
- 	struct netdev_adjacent *i, *j, *to_i, *to_j;
- 	int ret = 0;
- 
-@@ -5329,6 +5330,10 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	if (master && netdev_master_upper_dev_get(dev))
- 		return -EBUSY;
- 
-+	changeupper_info.upper_dev = upper_dev;
-+	changeupper_info.master = master;
-+	changeupper_info.linking = true;
-+
- 	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
- 						   master);
- 	if (ret)
-@@ -5367,7 +5372,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 			goto rollback_lower_mesh;
- 	}
- 
--	call_netdevice_notifiers(NETDEV_CHANGEUPPER, dev);
-+	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
-+				      &changeupper_info.info);
- 	return 0;
- 
- rollback_lower_mesh:
-@@ -5462,9 +5468,14 @@ EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
- void netdev_upper_dev_unlink(struct net_device *dev,
- 			     struct net_device *upper_dev)
- {
-+	struct netdev_notifier_changeupper_info changeupper_info;
- 	struct netdev_adjacent *i, *j;
- 	ASSERT_RTNL();
- 
-+	changeupper_info.upper_dev = upper_dev;
-+	changeupper_info.master = netdev_master_upper_dev_get(dev) == upper_dev;
-+	changeupper_info.linking = false;
-+
- 	__netdev_adjacent_dev_unlink_neighbour(dev, upper_dev);
- 
- 	/* Here is the tricky part. We must remove all dev's lower
-@@ -5484,7 +5495,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list)
- 		__netdev_adjacent_dev_unlink(dev, i->dev);
- 
--	call_netdevice_notifiers(NETDEV_CHANGEUPPER, dev);
-+	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
-+				      &changeupper_info.info);
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 62f383c..34ac41a 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -5326,46 +5326,61 @@ static int rocker_port_ovs_changed(struct rocker_port *rocker_port,
+ 	return err;
  }
- EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
+-static int rocker_port_master_changed(struct net_device *dev)
++static int rocker_port_master_linked(struct rocker_port *rocker_port,
++				     struct net_device *master)
++{
++	int err = 0;
++
++	if (netif_is_bridge_master(master))
++		err = rocker_port_bridge_join(rocker_port, master);
++	else if (netif_is_ovs_master(master))
++		err = rocker_port_ovs_changed(rocker_port, master);
++	return err;
++}
++
++static int rocker_port_master_unlinked(struct rocker_port *rocker_port)
+ {
+-	struct rocker_port *rocker_port = netdev_priv(dev);
+-	struct net_device *master = netdev_master_upper_dev_get(dev);
+ 	int err = 0;
+ 
+-	/* N.B: Do nothing if the type of master is not supported */
+-	if (master) {
+-		if (netif_is_bridge_master(master))
+-			err = rocker_port_bridge_join(rocker_port, master);
+-		else if (netif_is_ovs_master(master))
+-			err = rocker_port_ovs_changed(rocker_port, master);
+-	} else if (rocker_port_is_bridged(rocker_port)) {
++	if (rocker_port_is_bridged(rocker_port))
+ 		err = rocker_port_bridge_leave(rocker_port);
+-	} else if (rocker_port_is_ovsed(rocker_port)) {
++	else if (rocker_port_is_ovsed(rocker_port))
+ 		err = rocker_port_ovs_changed(rocker_port, NULL);
+-	}
+-
+ 	return err;
+ }
+ 
+ static int rocker_netdevice_event(struct notifier_block *unused,
+ 				  unsigned long event, void *ptr)
+ {
+-	struct net_device *dev;
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct netdev_notifier_changeupper_info *info;
++	struct rocker_port *rocker_port;
+ 	int err;
+ 
++	if (!rocker_port_dev_check(dev))
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_CHANGEUPPER:
+-		dev = netdev_notifier_info_to_dev(ptr);
+-		if (!rocker_port_dev_check(dev))
+-			return NOTIFY_DONE;
+-		err = rocker_port_master_changed(dev);
+-		if (err)
+-			netdev_warn(dev,
+-				    "failed to reflect master change (err %d)\n",
+-				    err);
++		info = ptr;
++		if (!info->master)
++			goto out;
++		rocker_port = netdev_priv(dev);
++		if (info->linking) {
++			err = rocker_port_master_linked(rocker_port,
++							info->upper_dev);
++			if (err)
++				netdev_warn(dev, "failed to reflect master linked (err %d)\n",
++					    err);
++		} else {
++			err = rocker_port_master_unlinked(rocker_port);
++			if (err)
++				netdev_warn(dev, "failed to reflect master unlinked (err %d)\n",
++					    err);
++		}
+ 		break;
+ 	}
+-
++out:
+ 	return NOTIFY_DONE;
+ }
  
 -- 
 1.9.3
