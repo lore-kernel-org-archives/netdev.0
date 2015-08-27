@@ -1,40 +1,32 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH net-next 1/1] lan78xx: Change default internal PHY ID to 1
-Date: Thu, 27 Aug 2015 18:01:17 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D54C326@CHN-SV-EXMX02.mchp-main.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v2] net: phy: fixed: propagate fixed link values to struct
+Date: Thu, 27 Aug 2015 11:25:10 -0700 (PDT)
+Message-ID: <20150827.112510.1634155959917737972.davem@davemloft.net>
+References: <1440601127-7663-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, stsp@list.ru, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Igal.Liberman@freescale.com
+To: madalin.bucur@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:55828 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751729AbbH0SBS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:01:18 -0400
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:45515 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751755AbbH0SZN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:25:13 -0400
+In-Reply-To: <1440601127-7663-1-git-send-email-madalin.bucur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change default internal PHY ID to 1.
+From: Madalin Bucur <madalin.bucur@freescale.com>
+Date: Wed, 26 Aug 2015 17:58:47 +0300
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
----
- drivers/net/usb/lan78xx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> The fixed link values parsed from the device tree are stored in
+> the struct fixed_phy member status. The struct phy_device members
+> speed, duplex were not updated.
+> 
+> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+> ---
+> v2: always setting phy->link, thanks Stas
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 39364a4..5197a5f 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -57,7 +57,7 @@
- #define DEFAULT_RX_CSUM_ENABLE		(true)
- #define DEFAULT_TSO_CSUM_ENABLE		(true)
- #define DEFAULT_VLAN_FILTER_ENABLE	(true)
--#define INTERNAL_PHY_ID			(2)	/* 2: GMII */
-+#define INTERNAL_PHY_ID			(1)
- #define TX_OVERHEAD			(8)
- #define RXW_PADDING			2
- 
--- 
-2.1.4
+Applied.
