@@ -1,48 +1,37 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net-next 0/2] OPENVSWITCH && !NETFILTER build fix.
-Date: Thu, 27 Aug 2015 15:25:44 -0700
-Message-ID: <1440714346-43304-1-git-send-email-joestringer@nicira.com>
+Subject: [PATCH net-next 2/2] openvswitch: Include ip6_fib.h.
+Date: Thu, 27 Aug 2015 15:25:46 -0700
+Message-ID: <1440714346-43304-3-git-send-email-joestringer@nicira.com>
+References: <1440714346-43304-1-git-send-email-joestringer@nicira.com>
 Cc: linux-kernel@vger.kernel.org, pshelar@nicira.com,
 	pablo@netfilter.org
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440714346-43304-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix issues reported by kbuild test robot:
+kbuild test robot reports that certain configurations will not
+automatically pick up on the "struct rt6_info" definition, so explicitly
+include the header for this structure.
 
-All error/warnings (new ones prefixed by >>):
+Fixes: 7f8a436 "openvswitch: Add conntrack action"
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+---
+ net/openvswitch/actions.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-   net/openvswitch/actions.c: In function 'ovs_fragment':
->> net/openvswitch/actions.c:705:16: error: implicit declaration of
-function 'nf_get_ipv6_ops' [-Werror=implicit-function-declaration]
-      const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
-                   ^
->> net/openvswitch/actions.c:705:37: warning: initialization makes
-pointer from integer without a cast
-      const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
-                                        ^
->> net/openvswitch/actions.c:707:19: error: storage size of 'ovs_rt'
-isn't known
-      struct rt6_info ovs_rt;
-                      ^
->> net/openvswitch/actions.c:724:8: error: dereferencing pointer to
-incomplete type
-      v6ops->fragment(skb->sk, skb, ovs_vport_output);
-           ^
->> net/openvswitch/actions.c:707:19: warning: unused variable 'ovs_rt'
-[-Wunused-variable]
-      struct rt6_info ovs_rt;
-                      ^
-   cc1: some warnings being treated as errors
-
-Joe Stringer (2):
-  netfilter: Define v6ops in !CONFIG_NETFILTER case.
-  openvswitch: Include ip6_fib.h.
-
- include/linux/netfilter_ipv6.h | 18 +++++++++---------
- net/openvswitch/actions.c      |  1 +
- 2 files changed, 10 insertions(+), 9 deletions(-)
-
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 736a113..4487543 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -33,6 +33,7 @@
+ #include <net/dst.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
++#include <net/ip6_fib.h>
+ #include <net/checksum.h>
+ #include <net/dsfield.h>
+ #include <net/mpls.h>
 -- 
 2.1.4
