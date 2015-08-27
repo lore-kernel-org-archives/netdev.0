@@ -1,137 +1,75 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/2] Add new switchdev device class
-Date: Thu, 27 Aug 2015 01:23:53 -0700
-Message-ID: <CAE4R7bCo2GqEtXvZw9s9tiTPNLd_=9L_fGAGSJiNTiTDBYvQzw@mail.gmail.com>
-References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com> <55DEBDF4.8030301@gmail.com>
+From: Neehal Rapet <ns1@cceeds.org>
+Subject: Paper Submission Last Date 29 Aug 2015
+Date: Thu, 27 Aug 2015 14:10:04 +0530
+Message-ID: <CADJHYJ32W+Sd8fqpdLT3ud1VY5H2Ny4_Z0MPCsJc9_tBppcvxg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: John Fastabend <john.fastabend@gmail.com>
+To: submit.ijntse@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:34772 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751563AbbH0IYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 04:24:13 -0400
-Received: by oiex83 with SMTP id x83so7105008oie.1
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 01:24:12 -0700 (PDT)
-In-Reply-To: <55DEBDF4.8030301@gmail.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:34596 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751850AbbH0IkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 04:40:06 -0400
+Received: by iodb91 with SMTP id b91so48959559iod.1
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 01:40:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 27, 2015 at 12:36 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 15-08-27 12:16 AM, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> In the switchdev model, we use netdevs to represent switchdev ports, but we
->> have no representation for the switch itself.  So, introduce a new switchdev
->> device class so we can define semantics and programming interfaces for the
->> switch itself.  Switchdev device class isn't tied to any particular bus.
->>
->> This patch set is just the skeleton to get us started.  It adds the sysfs
->> object registration for the new class and defines a class-level attr "foo".
->> With the new class, we could hook PM functions, for example, to handle power
->> transitions at the switch level.  I registered rocker and get:
->>
->>    $ ls /sys/class/switchdev/5254001235010000/
->>    foo  power  subsystem  uevent
->>
->> So what next?  I'd rather not build APIs around sysfs, so we need a netlink API
->> we can build on top of this.  It's not really rtnl.  Maybe genl would work?
->> What ever it is, we'd need to teach iproute2 about a new 'switch' command.
->>
->> Netlink API would allow us to represent switch-wide objects such as registers,
->> tables, stats, firmware, and maybe even control.  I think with with netlink
->> TLVs, we can create a framework for these objects but still allow the switch
->> driver provide switch-specific info.  For example, a table object:
->>
->
-> Hi Scott,
->
-> I was going to take the flow-api presented in Feb and submitted
-> to netdev and get it up to date. I started doing this today should be
-> ready end of week.
->
->> [TABLES]
->>       [TABLE]
->>               [FIELDS]
->>                       [FIELD]
->>                               [ID, TYPE]
->>               [DATA]
->>                       [ID, VALUE]
->>
->
-> The structure I used previously which looks like your prototype I think,
->
->  (https://github.com/jrfastab/rocker-net-next/blob/master/include/uapi/linux/if_flow.h)
->
->  * [NFL_TABLE_IDENTIFIER_TYPE]
->  * [NFL_TABLE_IDENTIFIER]
->  * [NFL_TABLE_TABLES]
->  *     [NFL_TABLE]
->  *       [NFL_TABLE_ATTR_NAME]
->  *       [NFL_TABLE_ATTR_UID]
->  *       [NFL_TABLE_ATTR_SOURCE]
->  *       [NFL_TABLE_ATTR_APPLY]
->  *       [NFL_TABLE_ATTR_SIZE]
->  *       [NFL_TABLE_ATTR_MATCHES]
->  *         [NFL_FIELD_REF]
->  *           [NFL_FIELD_REF_INSTANCE]
->  *           [NFL_FIELD_REF_HEADER]
->  *           [NFL_FIELD_REF_FIELD]
->  *           [NFL_FIELD_REF_MASK]
->  *           [NFL_FIELD_REF_TYPE]
->  *         [...]
->  *       [NFL_TABLE_ATTR_ACTIONS]
->  *           [NFL_ACTION_ATTR_UID]
->  *           [...]
->  *     [NFL_TABLE]
->  *       [...]
->  *
->
-> This is well-typed per Dave's comment. And because its Netlink based it
-> can be easily extended as needed. The above gives basic information on
-> the table. Sure it could stand to have some other entries in it but I
-> never needed them for my capabilities/resource discovery. We could argue
-> about removing some if they are too specific to my use cases.
+Calling Papers for Volume-2 Issue-2
 
-I was looking for something more generic.  Not quite as raw as ethtool
-reg dump, but not too rigid I have to bend the def of fields to make
-it work.  Maybe what I want is impossible.
+International Journal of New Technologies in Science and Engineering
+(IJNTSE - ISSN: 2349-0780) is an Academic Online 'Open to Use' Peer
+Reviewed International Journal which is approved by National Science
+Library (NSL), National Institute of Science Communication And
+Information Resources (NISCAIR), Council of Scientific and Industrial
+Research, New Delhi, India and ROAD directory of open access scholarly
+recourses. IJNTSE is peer reviewed online journal with a key objective
+to provide the academic and industrial community a medium for
+presenting original cutting edge research papers or work and opens to
+the world.
 
->> Maybe iproute2 has pretty-printers for specific switches like ethtool has for
->> reg dumps.
->>
->> I don't know about how this overlaps with DSA platform_class.  Florian?
->>
->> Comments?
->
-> A few other interesting (at least to me) structures you can find in the
-> if_flow.h header file give how the tables in the hardware are put
-> together. I found this really useful when trying to sort out where my
-> various ACLs/nexthop entries/etc were in the hardware order. This is
-> important to know for many cases. This is NFL_TABLE_GRAPH.
->
-> Also I found being able to "know' what headers the hardware supports
-> to be very useful. For example I want/need to know if QinQ will work.
-> Or VXLAN/NSH, Geneve, etc. This is NFL_HEADER_GRAPH.
->
-> Sure if_flow.h is a poor name and FlowAPI is probably not really great.
-> But both those names come from how I model the hardware as match action
-> tables. I can change those names to switchdev_resources or
-> switchdev_info if folks want.
->
-> My point is the interface is generic and provides a common interface for
-> most hardware I've seen to date. Certainly curious if there is hardware
-> it doesn't map to. Although tables and pipelines seems fairly universal
-> for a large set of devices to me. Further it can be extended as needed.
->
-> I'll drop the set_rule/del_rule parts to be merged with ebpf/tc/qdisc.
+Impact Factor: 6.02 for year 2014 to 2015.
 
-Ya, you're talking about tables in hardware.  I just want to dump some
-driver-internal driver-specific data in tabular form to user-space so
-I can grep thru it and debug.
+Frequency: 12 Issue per year (Monthly)
+Online paper submission and tracking facilities are available and
+Author login page is integrated to submission page.
+
+Receiving Papers for: Volume-2 Issue-2
+Last Date of Paper Submission: August 29th, 2015
+Date of Publication: 31st August to 2nd Sep. 2015 (Monthly)
+
+IJNTSE is also inviting proposals for Special Issue (SI) from
+potential Faculty Members.
+
+Benefits:
+As the Lead Guest Editor, you can
+1. Publish 1 paper for FREE in your Special Issue.
+2. Get extra rewards based on the number of papers charged in your
+Special Issues (May promote to permanent member in editorial Team).
+3. Receive the Certificate of Honor and a Letter of Thanks when the
+Special Issue is finished.
+4. Your brief bio-data with your photo (Maximum 5 pages) will be
+published along with your Special Issue.
+Responsibilities:
+As the Lead Guest Editor, you need to
+1. Organize a reviewer team to do the review work if there are
+manuscripts submitted to the Special Issue.
+2. Promote your Special Issue and invite authors to submit manuscripts.
+3. Make decisions on the acceptance or rejection of manuscripts.
+4. Cross-check the manuscripts and ensure their quality.
+5. Have to communicate in your group regarding this Special Issue by
+either email or any other way.
+Qualification:
+To become a Guest editor, one should have any one of the following
+qualification:
+1. Having Ph.D.
+2. Masters with minimum 5 years Experience in either Academic or Industry.
+3. Having minimum 12 years Teaching Experience with any Degree.
+
+For more details go to:
+http://www.docdroid.net/EHXcpel/8-volume-2-issue-2-aug-24.docx.html
+
+Editor In Chief
+
+International Journal of New Technologies in Science and Engineering
+(IJNTSE - ISSN: 2349-0780)
