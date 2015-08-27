@@ -1,153 +1,168 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC] openvswitch: Retain parsed IPv6 header fields in
- flow on error skipping extension headers
-Date: Thu, 27 Aug 2015 16:10:02 +0900
-Message-ID: <20150827070959.GA25311@vergenet.net>
-References: <1439515813-29406-1-git-send-email-simon.horman@netronome.com>
- <CALnjE+owxmLQXLZoAU4oNXToDA1hb4uvr8nj9KXCiKgcRhEOvQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Pravin Shelar <pshelar@nicira.com>
+From: sfeldma@gmail.com
+Subject: [RFC PATCH net-next 1/2] switchdev: create new switchdev device class
+Date: Thu, 27 Aug 2015 00:16:45 -0700
+Message-ID: <1440659806-56582-2-git-send-email-sfeldma@gmail.com>
+References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, davem@davemloft.net, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36228 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752398AbbH0HKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:10:13 -0400
-Received: by padfo6 with SMTP id fo6so793040pad.3
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:10:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALnjE+owxmLQXLZoAU4oNXToDA1hb4uvr8nj9KXCiKgcRhEOvQ@mail.gmail.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35565 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbbH0HOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:14:12 -0400
+Received: by pacdd16 with SMTP id dd16so15810298pac.2
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:14:12 -0700 (PDT)
+In-Reply-To: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pravin,
+From: Scott Feldman <sfeldma@gmail.com>
 
-On Mon, Aug 17, 2015 at 11:33:59AM -0700, Pravin Shelar wrote:
-> On Thu, Aug 13, 2015 at 6:30 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > When an error occurs skipping IPv6 extension headers retain the already
-> > parsed IP protocol and IPv6 addresses in the flow. Also assume that the
-> > packet is not a fragment in the absence of information to the contrary;
-> > that is always use the frag_off value set by ipv6_skip_exthdr().
-> >
-> > This allows matching on the IP protocol and IPv6 addresses of packets
-> > with malformed extension headers.
-> >
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> >
-> > ---
-> >
-> > * Some consideration should be given to unwanted side effects of this patch
-> >   as it affects the handling of malformed packets.
-> >
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> > ---
-> >  net/openvswitch/flow.c | 11 +++++++----
-> >  1 file changed, 7 insertions(+), 4 deletions(-)
-> >
-> > diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> > index 8db22ef73626..3c5336c5d4ea 100644
-> > --- a/net/openvswitch/flow.c
-> > +++ b/net/openvswitch/flow.c
-> > @@ -271,8 +271,6 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
-> >         key->ipv6.addr.dst = nh->daddr;
-> >
-> >         payload_ofs = ipv6_skip_exthdr(skb, payload_ofs, &nexthdr, &frag_off);
-> > -       if (unlikely(payload_ofs < 0))
-> > -               return -EINVAL;
-> >
-> >         if (frag_off) {
-> >                 if (frag_off & htons(~0x7))
-> > @@ -283,6 +281,13 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
-> >                 key->ip.frag = OVS_FRAG_TYPE_NONE;
-> >         }
-> >
-> > +       /* Delayed handling of error in ipv6_skip_exthdr() as it
-> > +        * always sets frag_off to a valid value which may be
-> > +        * used to set key->ip.frag above.
-> > +        */
-> > +       if (unlikely(payload_ofs < 0))
-> > +               return -EINVAL;
-> > +
-> check_header() function called above also return -EINVAL, That could
-> confuse caller checking for error code. So we need different error
-> code here.
-
-Thanks for pointing that out and sorry for taking so long to get back to
-you. How about something like this?
-
--- >8 --
-Subject: [PATCH v1.1] openvswitch: Retain parsed IPv6 header fields in flow on error skipping extension headers
-
-When an error occurs skipping IPv6 extension headers retain the already
-parsed IP protocol and IPv6 addresses in the flow. Also assume that the
-packet is not a fragment in the absence of information to the contrary;
-that is always use the frag_off value set by ipv6_skip_exthdr().
-
-This allows matching on the IP protocol and IPv6 addresses of packets
-with malformed extension headers.
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
-
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
+ include/net/switchdev.h   |   16 ++++++++++
+ net/switchdev/switchdev.c |   76 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 92 insertions(+)
 
-* Some consideration should be given to unwanted side effects of this patch
-  as it affects the handling of malformed packets.
-
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- net/openvswitch/flow.c | 21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
-
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 8db22ef73626..de4366f81b11 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -271,8 +271,6 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
- 	key->ipv6.addr.dst = nh->daddr;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 319baab..d61e73c 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -16,6 +16,11 @@
  
- 	payload_ofs = ipv6_skip_exthdr(skb, payload_ofs, &nexthdr, &frag_off);
--	if (unlikely(payload_ofs < 0))
--		return -EINVAL;
+ #define SWITCHDEV_F_NO_RECURSE		BIT(0)
  
- 	if (frag_off) {
- 		if (frag_off & htons(~0x7))
-@@ -283,6 +281,13 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
- 		key->ip.frag = OVS_FRAG_TYPE_NONE;
- 	}
- 
-+	/* Delayed handling of error in ipv6_skip_exthdr() as it
-+	 * always sets frag_off to a valid value which may be
-+	 * used to set key->ip.frag above.
-+	 */
-+	if (unlikely(payload_ofs < 0))
-+		return -EPROTO;
++struct switchdev {
++	struct device dev;
++	atomic_t foo;
++};
 +
- 	nh_len = payload_ofs - nh_ofs;
- 	skb_set_transport_header(skb, nh_ofs + nh_len);
- 	key->ip.proto = nexthdr;
-@@ -622,12 +627,16 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ enum switchdev_trans {
+ 	SWITCHDEV_TRANS_NONE,
+ 	SWITCHDEV_TRANS_PREPARE,
+@@ -126,6 +131,8 @@ switchdev_notifier_info_to_dev(const struct switchdev_notifier_info *info)
  
- 		nh_len = parse_ipv6hdr(skb, key);
- 		if (unlikely(nh_len < 0)) {
--			memset(&key->ip, 0, sizeof(key->ip));
--			memset(&key->ipv6.addr, 0, sizeof(key->ipv6.addr));
--			if (nh_len == -EINVAL) {
-+			switch (nh_len) {
-+			case -EINVAL:
-+				memset(&key->ip, 0, sizeof(key->ip));
-+				memset(&key->ipv6.addr, 0, sizeof(key->ipv6.addr));
-+				/* fall-through */
-+			case -EPROTO:
- 				skb->transport_header = skb->network_header;
- 				error = 0;
--			} else {
-+				break;
-+			default:
- 				error = nh_len;
- 			}
- 			return error;
+ #ifdef CONFIG_NET_SWITCHDEV
+ 
++int register_switchdev(struct switchdev *sdev, const char *name);
++void unregister_switchdev(struct switchdev *sdev);
+ int switchdev_port_attr_get(struct net_device *dev,
+ 			    struct switchdev_attr *attr);
+ int switchdev_port_attr_set(struct net_device *dev,
+@@ -164,6 +171,15 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 
+ #else
+ 
++static inline int register_switchdev(struct switchdev *sdev, const char *name)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void unregister_switchdev(struct switchdev *sdev)
++{
++}
++
+ static inline int switchdev_port_attr_get(struct net_device *dev,
+ 					  struct switchdev_attr *attr)
+ {
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 16c1c43..f705202 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/kernel.h>
++#include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/init.h>
+ #include <linux/mutex.h>
+@@ -19,6 +20,63 @@
+ #include <net/ip_fib.h>
+ #include <net/switchdev.h>
+ 
++#define to_switchdev(d) container_of(d, struct switchdev, dev)
++
++static void switchdev_release(struct device *dev)
++{
++}
++
++static ssize_t foo_show(struct device *dev, struct device_attribute *attr,
++			char *buf)
++{
++	struct switchdev *switchdev = to_switchdev(dev);
++
++	return sprintf(buf, "%d\n", atomic_read(&switchdev->foo));
++}
++
++static DEVICE_ATTR_RO(foo);
++
++static struct attribute *switchdev_attrs[] = {
++	&dev_attr_foo.attr
++};
++
++ATTRIBUTE_GROUPS(switchdev);
++
++static int switchdev_uevent(struct device *d, struct kobj_uevent_env *env)
++{
++	return 0;
++}
++
++static struct class switchdev_class = {
++	.name = "switchdev",
++	.dev_release = switchdev_release,
++	.dev_groups = switchdev_groups,
++	.dev_uevent = switchdev_uevent,
++};
++
++int register_switchdev(struct switchdev *sdev, const char *name)
++{
++	struct device *dev = &sdev->dev;
++	int err;
++
++	device_initialize(dev);
++
++	dev->class = &switchdev_class;
++
++	err = dev_set_name(dev, "%s", name);
++	if (err)
++		return err;
++
++	return device_add(dev);
++}
++EXPORT_SYMBOL_GPL(register_switchdev);
++
++void unregister_switchdev(struct switchdev *sdev)
++{
++	put_device(&sdev->dev);
++}
++EXPORT_SYMBOL_GPL(unregister_switchdev);
++
+ /**
+  *	switchdev_port_attr_get - Get port attribute
+  *
+@@ -1142,3 +1200,21 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 	dev->offload_fwd_mark = mark;
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_fwd_mark_set);
++
++static int __init switchdev_module_init(void)
++{
++	return class_register(&switchdev_class);
++}
++
++static void __exit switchdev_module_exit(void)
++{
++	class_unregister(&switchdev_class);
++}
++
++module_init(switchdev_module_init);
++module_exit(switchdev_module_exit);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
++MODULE_AUTHOR("Scott Feldman <sfeldma@gmail.com>");
++MODULE_DESCRIPTION("Ethernet switch device model");
 -- 
-2.1.4
+1.7.10.4
