@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: add support for %s specifier to
- bpf_trace_printk()
-Date: Thu, 27 Aug 2015 15:34:09 -0700 (PDT)
-Message-ID: <20150827.153409.893765406170260565.davem@davemloft.net>
-References: <1440656819-25622-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH v2 net-next] bridge: Add netlink support for
+ vlan_protocol attribute
+Date: Thu, 27 Aug 2015 15:35:44 -0700 (PDT)
+Message-ID: <20150827.153544.1324848960394791457.davem@davemloft.net>
+References: <1440657146-23437-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@kernel.org, rostedt@goodmis.org, wangnan0@huawei.com,
-	hekuang@huawei.com, daniel@iogearbox.net,
-	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440656819-25622-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1440657146-23437-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Wed, 26 Aug 2015 23:26:59 -0700
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Thu, 27 Aug 2015 15:32:26 +0900
 
-> +/* similar to strncpy_from_user() but with extra checks */
-> +static void probe_read_string(char *buf, int size, long unsafe_ptr)
-> +{
-> +	char dst[4];
-> +	int i = 0;
-> +
-> +	size--;
-> +	for (;;) {
-> +		if (probe_kernel_read(dst, (void *) unsafe_ptr, 4))
-> +			break;
+> This enables bridge vlan_protocol to be configured through netlink.
+> 
+> When CONFIG_BRIDGE_VLAN_FILTERING is disabled, kernel behaves the
+> same way as this feature is not implemented.
+> 
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+> v2: Fix u16 to __be16
 
-I don't think this does the right thing when the string is not a multiple
-of 3 and ends at the last byte of a page that ends a valid region of
-kernel memory.
-
-Seeing this kind of error makes me skeptical to the overall value of
-optimizing this :-/
+Applied, thank you.
