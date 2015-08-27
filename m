@@ -1,199 +1,192 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/3] mlxsw: Make mailboxes 4KB aligned
-Date: Thu, 27 Aug 2015 17:59:57 +0200
-Message-ID: <1440691197-25780-4-git-send-email-jiri@resnulli.us>
-References: <1440691197-25780-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	ogerlitz@mellanox.com, Jiri Pirko <jiri@mellanox.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:34759 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221AbbH0QAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 12:00:05 -0400
-Received: by widdq5 with SMTP id dq5so82538307wid.1
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 09:00:04 -0700 (PDT)
-In-Reply-To: <1440691197-25780-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Marineau <michael.marineau@coreos.com>
+Subject: Re: ip_rcv_finish() NULL pointer and possibly related Oopses
+Date: Thu, 27 Aug 2015 09:16:06 -0700
+Message-ID: <CAGr1u3vDQDj6rJYcx2vCsf9KkWf-X=qSh3QD-jAZf7hpUYaAyg@mail.gmail.com>
+References: <D2033B8F.4133C%Shaun.Crampton@metaswitch.com>
+	<20150826074959.48aea34c@as>
+	<CAGr1u3twv7KnXug3xZqL3X9NNpWBwGvw1RQpMHyqBmcC2ikamw@mail.gmail.com>
+	<1440680401.8932.39.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chuck Ebbert <cebbert.lkml@gmail.com>,
+	Shaun Crampton <Shaun.Crampton@metaswitch.com>,
+	linux-kernel@vger.kernel.org,
+	Peter White <Peter.White@metaswitch.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440680401.8932.39.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Thu, Aug 27, 2015 at 6:00 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> On Wed, 2015-08-26 at 13:54 -0700, Michael Marineau wrote:
+>> On Wed, Aug 26, 2015 at 4:49 AM, Chuck Ebbert <cebbert.lkml@gmail.co=
+m> wrote:
+>> > On Wed, 26 Aug 2015 08:46:59 +0000
+>> > Shaun Crampton <Shaun.Crampton@metaswitch.com> wrote:
+>> >
+>> >> Testing our app at scale on Google=C2=B9s GCE, running ~1000 Core=
+OS hosts: over
+>> >> approximately 1 hour, I see about 1 in 50 hosts hit one of the Oo=
+pses
+>> >> below and then reboot (I=C2=B9m not sure if the different oopses =
+are related to
+>> >> each other).
+>> >>
+>> >> The app is Project Calico, which is a datacenter networking fabri=
+c.
+>> >> calico-felix, the process named below, is our per-host agent.  Th=
+e
+>> >> per-host agent is responsible for reading the network information=
+ from a
+>> >> central server and applying "ip route=C2=B2 and "iptables" update=
+s to the
+>> >> kernel.  We=C2=B9re running on CoreOS, with about 100  docker con=
+tainers/veths
+>> >> pairs running on each host.  calico-felix is running inside one o=
+f those
+>> >> containers. We also run the BIRD BGP stack to redistribute routes=
+ around
+>> >> the datacenter.  The errors happen more frequently while Calico i=
+s under
+>> >> load.
+>> >>
+>> >> I=C2=B9m not sure where to go from here.  I can reproduce these i=
+ssues easily
+>> >> at that scale but I haven=C2=B9t managed to boil it down to a sma=
+ll-scale repro
+>> >> scenario for further investigation (yet).
+>> >>
+>> >
+>> > What in the world is going on with those call traces? E.g.:
+>> >
+>> >> [ 4513.712008]  <IRQ>
+>> >> [ 4513.712008]  [<ffffffff81486751>] ? ip_rcv_finish+0x81/0x360
+>> >> [ 4513.712008]  [<ffffffff814870e4>] ip_rcv+0x2a4/0x400
+>> >> [ 4513.712008]  [<ffffffff814866d0>] ? inet_del_offload+0x40/0x40
+>> >> [ 4513.712008]  [<ffffffff814491b3>] __netif_receive_skb_core+0x6=
+c3/0x9a0
+>> >> [ 4513.712008]  [<ffffffff8143b667>] ? build_skb+0x17/0x90
+>> >> [ 4513.712008]  [<ffffffff814494a8>] __netif_receive_skb+0x18/0x6=
+0
+>> >> [ 4513.712008]  [<ffffffff81449523>] netif_receive_skb_internal+0=
+x33/0xa0
+>> >> [ 4513.712008]  [<ffffffff814495ac>] netif_receive_skb_sk+0x1c/0x=
+70
+>> >> [ 4513.712008]  [<ffffffffa00f772b>] 0xffffffffa00f772b
+>> >> [ 4513.712008]  [<ffffffff814491b3>] ? __netif_receive_skb_core+0=
+x6c3/0x9a0
+>> >> [ 4513.712008]  [<ffffffffa00f7d81>] 0xffffffffa00f7d81
+>> >> [ 4513.712008]  [<ffffffff81449979>] net_rx_action+0x159/0x340
+>> >> [ 4513.712008]  [<ffffffff810715f4>] __do_softirq+0xf4/0x290
+>> >> [ 4513.712008]  [<ffffffff810719fd>] irq_exit+0xad/0xc0
+>> >> [ 4513.712008]  [<ffffffff815528ba>] do_IRQ+0x5a/0xf0
+>> >> [ 4513.712008]  [<ffffffff815507ae>] common_interrupt+0x6e/0x6e
+>> >> [ 4513.712008]  <EOI>
+>> >
+>> > There are two functions in the call trace that the kernel knows
+>> > nothing about. How did they get in there?
+>> >
+>> > And there is really executable code in there, as can be seen from =
+a
+>> > later trace:
+>> >
+>> >> [ 4123.003006]  <IRQ>
+>> >> [ 4123.003006]  [<ffffffff8147d477>] nf_iterate+0x57/0x80
+>> >> [ 4123.003006]  [<ffffffff8147d537>] nf_hook_slow+0x97/0x100
+>> >> [ 4123.003006]  [<ffffffff81486e32>] ip_local_deliver+0x92/0xa0
+>> >> [ 4123.003006]  [<ffffffff81486a30>] ? ip_rcv_finish+0x360/0x360
+>> >> [ 4123.003006]  [<ffffffff81486751>] ip_rcv_finish+0x81/0x360
+>> >> [ 4123.003006]  [<ffffffff814870e4>] ip_rcv+0x2a4/0x400
+>> >> [ 4123.003006]  [<ffffffff814866d0>] ? inet_del_offload+0x40/0x40
+>> >> [ 4123.003006]  [<ffffffff814491b3>] __netif_receive_skb_core+0x6=
+c3/0x9a0
+>> >> [ 4123.003006]  [<ffffffff8143b667>] ? build_skb+0x17/0x90
+>> >> [ 4123.003006]  [<ffffffff814494a8>] __netif_receive_skb+0x18/0x6=
+0
+>> >> [ 4123.003006]  [<ffffffff81449523>] netif_receive_skb_internal+0=
+x33/0xa0
+>> >> [ 4123.003006]  [<ffffffff814495ac>] netif_receive_skb_sk+0x1c/0x=
+70
+>> >> [ 4123.003006]  [<ffffffffa00d472b>] 0xffffffffa00d472b
+>> >> [ 4123.003006]  [<ffffffffa00d4d81>] 0xffffffffa00d4d81
+>> >> [ 4123.003006]  [<ffffffff81449979>] net_rx_action+0x159/0x340
+>> >> [ 4123.003006]  [<ffffffff810715f4>] __do_softirq+0xf4/0x290
+>> >> [ 4123.003006]  [<ffffffff810719fd>] irq_exit+0xad/0xc0
+>> >> [ 4123.003006]  [<ffffffff815528ba>] do_IRQ+0x5a/0xf0
+>> >> [ 4123.003006]  [<ffffffff815507ae>] common_interrupt+0x6e/0x6e
+>> >> [ 4123.003006]  <EOI>
+>> >> [ 4123.003006]  [<ffffffff81483a3d>] ? __ip_route_output_key+0x31=
+d/0x860
+>> >> [ 4123.003006]  [<ffffffff814e2e95>] ? xfrm_lookup_route+0x5/0x70
+>> >> [ 4123.003006]  [<ffffffff81484224>] ? ip_route_output_flow+0x54/=
+0x60
+>> >> [ 4123.003006]  [<ffffffff8148ca6a>] ip_queue_xmit+0x36a/0x3d0
+>> >> [ 4123.003006]  [<ffffffff814a4799>] tcp_transmit_skb+0x4b9/0x990
+>> >> [ 4123.003006]  [<ffffffff814a4d85>] tcp_write_xmit+0x115/0xe90
+>> >> [ 4123.003006]  [<ffffffff814a5d72>] __tcp_push_pending_frames+0x=
+32/0xd0
+>> >> [ 4123.003006]  [<ffffffff8149443f>] tcp_push+0xef/0x120
+>> >> [ 4123.003006]  [<ffffffff81497cb5>] tcp_sendmsg+0xc5/0xb20
+>> >> [ 4123.003006]  [<ffffffff810d74c9>] ? lock_hrtimer_base.isra.22+=
+0x29/0x50
+>> >> [ 4123.003006]  [<ffffffff814c2d04>] inet_sendmsg+0x64/0xa0
+>> >> [ 4123.003006]  [<ffffffff811e94b5>] ? __fget_light+0x25/0x70
+>> >> [ 4123.003006]  [<ffffffff8142d74d>] sock_sendmsg+0x3d/0x50
+>> >> [ 4123.003006]  [<ffffffff8142dc12>] SYSC_sendto+0x102/0x1a0
+>> >> [ 4123.003006]  [<ffffffff8110f864>] ? __audit_syscall_entry+0xb4=
+/0x110
+>> >> [ 4123.003006]  [<ffffffff810224fc>] ? do_audit_syscall_entry+0x6=
+c/0x70
+>> >> [ 4123.003006]  [<ffffffff81023cf3>] ?
+>> >> syscall_trace_enter_phase1+0x103/0x160
+>> >> [ 4123.003006]  [<ffffffff8142e75e>] SyS_sendto+0xe/0x10
+>> >> [ 4123.003006]  [<ffffffff8154fc6e>] system_call_fastpath+0x12/0x=
+71
+>> >> [ 4123.003006] Code: <48> 8b 88 40 03 00 00 e8 1d dd dd ff 5d c3 =
+0f 1f 00
+>> >> 41 83 b9 80 00
+>> >> [ 4123.003006] RIP  [<ffffffffa0233027>] 0xffffffffa0233027
+>> >> [ 4123.003006]  RSP <ffff88021fc03b58>
+>> >
+>> > Presumably the same two functions as before (loaded at a different
+>> > base address but same offsets, 0xd81 and 0x72b). And then nf_itera=
+te
+>> > call into another unknown function, and there really is code there
+>> > and it's consistent with the oops. And the kernel thinks it's
+>> > outside of any normal text section, so it does not try to dump any
+>> > code from before the instruction pointer.
+>> >
+>> >    0:   48 8b 88 40 03 00 00    mov    0x340(%rax),%rcx
+>> >    7:   e8 1d dd dd ff          callq  0xffffffffffdddd29
+>> >    c:   5d                      pop    %rbp
+>> >    d:   c3                      retq
+>> >
+>> > Did you write your own module loader or something?
+>>
+>> These are stock kernels, with the exception that we include the secu=
+re
+>> boot patch set:
+>> https://github.com/coreos/coreos-overlay/tree/master/sys-kernel/core=
+os-sources/files/4.1
+>> Been a while since kmod got updated so CoreOS is currently shipping
+>> with kmod-15 but beyond being a bit old there isn't anything special
+>> about the module loader.
+>>
+>> So nothing particularly magical going on here that I know of.
+>>
+>> For reference the original bug report includes a few more varieties =
+of
+>> stack traces: https://github.com/coreos/bugs/issues/435
+>
+> One of these traces mentions ipv4_dst_destroy()
+>
+> Make sure you backported commit
+> 10e2eb878f3ca07ac2f05fa5ca5e6c4c9174a27a
+> ("udp: fix dst races with multicast early demux")
 
-The HW-SW contract requires mailboxes passed to the firmware to be 4KB
-aligned. Previously, these mailboxes were mapped using streaming DMA
-routines, which do not guarantee the bus addresses to be 4KB aligned.
-Under certain conditions this constraint was indeed violated and errors
-were observed.
-
-By using consistent DMA mapping routines together with a mailbox size of
-4KB we are guaranteed not to violate the constraint.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/pci.c | 83 +++++++++++++++++++------------
- 1 file changed, 50 insertions(+), 33 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index 045f98f..462cea3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -46,6 +46,7 @@
- #include <linux/log2.h>
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-+#include <linux/string.h>
- 
- #include "pci.h"
- #include "core.h"
-@@ -174,6 +175,8 @@ struct mlxsw_pci {
- 		struct mlxsw_pci_mem_item *items;
- 	} fw_area;
- 	struct {
-+		struct mlxsw_pci_mem_item out_mbox;
-+		struct mlxsw_pci_mem_item in_mbox;
- 		struct mutex lock; /* Lock access to command registers */
- 		bool nopoll;
- 		wait_queue_head_t wait;
-@@ -1341,6 +1344,32 @@ static irqreturn_t mlxsw_pci_eq_irq_handler(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
-+static int mlxsw_pci_mbox_alloc(struct mlxsw_pci *mlxsw_pci,
-+				struct mlxsw_pci_mem_item *mbox)
-+{
-+	struct pci_dev *pdev = mlxsw_pci->pdev;
-+	int err = 0;
-+
-+	mbox->size = MLXSW_CMD_MBOX_SIZE;
-+	mbox->buf = pci_alloc_consistent(pdev, MLXSW_CMD_MBOX_SIZE,
-+					 &mbox->mapaddr);
-+	if (!mbox->buf) {
-+		dev_err(&pdev->dev, "Failed allocating memory for mailbox\n");
-+		err = -ENOMEM;
-+	}
-+
-+	return err;
-+}
-+
-+static void mlxsw_pci_mbox_free(struct mlxsw_pci *mlxsw_pci,
-+				struct mlxsw_pci_mem_item *mbox)
-+{
-+	struct pci_dev *pdev = mlxsw_pci->pdev;
-+
-+	pci_free_consistent(pdev, MLXSW_CMD_MBOX_SIZE, mbox->buf,
-+			    mbox->mapaddr);
-+}
-+
- static int mlxsw_pci_init(void *bus_priv, struct mlxsw_core *mlxsw_core,
- 			  const struct mlxsw_config_profile *profile)
- {
-@@ -1358,6 +1387,15 @@ static int mlxsw_pci_init(void *bus_priv, struct mlxsw_core *mlxsw_core,
- 	mbox = mlxsw_cmd_mbox_alloc();
- 	if (!mbox)
- 		return -ENOMEM;
-+
-+	err = mlxsw_pci_mbox_alloc(mlxsw_pci, &mlxsw_pci->cmd.in_mbox);
-+	if (err)
-+		goto mbox_put;
-+
-+	err = mlxsw_pci_mbox_alloc(mlxsw_pci, &mlxsw_pci->cmd.out_mbox);
-+	if (err)
-+		goto err_out_mbox_alloc;
-+
- 	err = mlxsw_cmd_query_fw(mlxsw_core, mbox);
- 	if (err)
- 		goto err_query_fw;
-@@ -1420,6 +1458,9 @@ err_fw_area_init:
- err_doorbell_page_bar:
- err_iface_rev:
- err_query_fw:
-+	mlxsw_pci_mbox_free(mlxsw_pci, &mlxsw_pci->cmd.out_mbox);
-+err_out_mbox_alloc:
-+	mlxsw_pci_mbox_free(mlxsw_pci, &mlxsw_pci->cmd.in_mbox);
- mbox_put:
- 	mlxsw_cmd_mbox_free(mbox);
- 	return err;
-@@ -1432,6 +1473,8 @@ static void mlxsw_pci_fini(void *bus_priv)
- 	free_irq(mlxsw_pci->msix_entry.vector, mlxsw_pci);
- 	mlxsw_pci_aqs_fini(mlxsw_pci);
- 	mlxsw_pci_fw_area_fini(mlxsw_pci);
-+	mlxsw_pci_mbox_free(mlxsw_pci, &mlxsw_pci->cmd.out_mbox);
-+	mlxsw_pci_mbox_free(mlxsw_pci, &mlxsw_pci->cmd.in_mbox);
- }
- 
- static struct mlxsw_pci_queue *
-@@ -1524,8 +1567,8 @@ static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
- 			      u8 *p_status)
- {
- 	struct mlxsw_pci *mlxsw_pci = bus_priv;
--	dma_addr_t in_mapaddr = 0;
--	dma_addr_t out_mapaddr = 0;
-+	dma_addr_t in_mapaddr = mlxsw_pci->cmd.in_mbox.mapaddr;
-+	dma_addr_t out_mapaddr = mlxsw_pci->cmd.out_mbox.mapaddr;
- 	bool evreq = mlxsw_pci->cmd.nopoll;
- 	unsigned long timeout = msecs_to_jiffies(MLXSW_PCI_CIR_TIMEOUT_MSECS);
- 	bool *p_wait_done = &mlxsw_pci->cmd.wait_done;
-@@ -1537,27 +1580,11 @@ static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
- 	if (err)
- 		return err;
- 
--	if (in_mbox) {
--		in_mapaddr = pci_map_single(mlxsw_pci->pdev, in_mbox,
--					    in_mbox_size, PCI_DMA_TODEVICE);
--		if (unlikely(pci_dma_mapping_error(mlxsw_pci->pdev,
--						   in_mapaddr))) {
--			err = -EIO;
--			goto err_in_mbox_map;
--		}
--	}
-+	if (in_mbox)
-+		memcpy(mlxsw_pci->cmd.in_mbox.buf, in_mbox, in_mbox_size);
- 	mlxsw_pci_write32(mlxsw_pci, CIR_IN_PARAM_HI, in_mapaddr >> 32);
- 	mlxsw_pci_write32(mlxsw_pci, CIR_IN_PARAM_LO, in_mapaddr);
- 
--	if (out_mbox) {
--		out_mapaddr = pci_map_single(mlxsw_pci->pdev, out_mbox,
--					     out_mbox_size, PCI_DMA_FROMDEVICE);
--		if (unlikely(pci_dma_mapping_error(mlxsw_pci->pdev,
--						   out_mapaddr))) {
--			err = -EIO;
--			goto err_out_mbox_map;
--		}
--	}
- 	mlxsw_pci_write32(mlxsw_pci, CIR_OUT_PARAM_HI, out_mapaddr >> 32);
- 	mlxsw_pci_write32(mlxsw_pci, CIR_OUT_PARAM_LO, out_mapaddr);
- 
-@@ -1601,7 +1628,7 @@ static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
- 	}
- 
- 	if (!err && out_mbox && out_mbox_direct) {
--		/* Some commands does not use output param as address to mailbox
-+		/* Some commands don't use output param as address to mailbox
- 		 * but they store output directly into registers. In that case,
- 		 * copy registers into mbox buffer.
- 		 */
-@@ -1615,19 +1642,9 @@ static int mlxsw_pci_cmd_exec(void *bus_priv, u16 opcode, u8 opcode_mod,
- 							   CIR_OUT_PARAM_LO));
- 			memcpy(out_mbox + sizeof(tmp), &tmp, sizeof(tmp));
- 		}
--	}
--
--	if (out_mapaddr)
--		pci_unmap_single(mlxsw_pci->pdev, out_mapaddr, out_mbox_size,
--				 PCI_DMA_FROMDEVICE);
--
--	/* fall through */
-+	} else if (!err && out_mbox)
-+		memcpy(out_mbox, mlxsw_pci->cmd.out_mbox.buf, out_mbox_size);
- 
--err_out_mbox_map:
--	if (in_mapaddr)
--		pci_unmap_single(mlxsw_pci->pdev, in_mapaddr, in_mbox_size,
--				 PCI_DMA_TODEVICE);
--err_in_mbox_map:
- 	mutex_unlock(&mlxsw_pci->cmd.lock);
- 
- 	return err;
--- 
-1.9.3
+Oh, interesting. Looks like that patch didn't get CC'd to stable
+though, is there a reason for that or just oversight?
