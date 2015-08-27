@@ -1,61 +1,67 @@
-From: messakahawai <samara.albon44@gmail.com>
-Subject: GREETINGS,
-Date: Thu, 27 Aug 2015 09:20:22 -0700
-Message-ID: <CALrpQDhHgUSt+gG6R=+_btm=2snm-jKct_K6TAcvvrNZSN3ByA@mail.gmail.com>
-Reply-To: messakahawai@gmail.com
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Subject: [PATCH net-next] net/xen-netfront: only napi_synchronize() if
+ running
+Date: Thu, 27 Aug 2015 12:28:46 -0400
+Message-ID: <1440692926.2546.31.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f196.google.com ([209.85.213.196]:36254 "EHLO
-	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752502AbbH0QUX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 12:20:23 -0400
-Received: by igcwe12 with SMTP id we12so4986478igc.3
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 09:20:22 -0700 (PDT)
+Received: from mail-yk0-f182.google.com ([209.85.160.182]:36708 "EHLO
+	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752648AbbH0Q2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 12:28:48 -0400
+Received: by ykfw73 with SMTP id w73so25618474ykf.3
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 09:28:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Chas Williams <3chas3@gmail.com>
 
-I am Mr. Messaka Hawai, from Burkina Faso in West African region. I
-work with the Islamic Development Bank(IDB) here in the nation. I am
-writing you from my office which will be of an immense benefit to both
-of us. In my department, being the accountant manager I discovered an
-abandoned sum of $8 million United States Dollars in an account that
-belongs to one of the bank late foreign customers, a German citizen
-who unfortunately lost his life in a plane crash. Now our bank has
-been waiting for any of the relatives to come-up for
+If an interface isn't running napi_synchronize() will hang forever.
 
-the claim but nobody has done that. I personally have been
-unsuccessful in locating the relatives for many
-years now, I seek your consent to present you as the next of kin
-/beneficiary to the deceased so that the proceeds of this account
-valued at $8 Million Dollars can be done and pay to you for both of
-This will be disbursed or shared between both of us in these us.
-percentages, 55% for me and 35% to you while 10% will be for expenses
-both parties might have incurred during the process of transferring.
+[  392.248403] rmmod           R  running task        0   359    343 0x00000000
+[  392.257671]  ffff88003760fc88 ffff880037193b40 ffff880037193160 ffff88003760fc88
+[  392.267644]  ffff880037610000 ffff88003760fcd8 0000000100014c22 ffffffff81f75c40
+[  392.277524]  0000000000bc7010 ffff88003760fca8 ffffffff81796927 ffffffff81f75c40
+[  392.287323] Call Trace:
+[  392.291599]  [<ffffffff81796927>] schedule+0x37/0x90
+[  392.298553]  [<ffffffff8179985b>] schedule_timeout+0x14b/0x280
+[  392.306421]  [<ffffffff810f91b9>] ? irq_free_descs+0x69/0x80
+[  392.314006]  [<ffffffff811084d0>] ? internal_add_timer+0xb0/0xb0
+[  392.322125]  [<ffffffff81109d07>] msleep+0x37/0x50
+[  392.329037]  [<ffffffffa00ec79a>] xennet_disconnect_backend.isra.24+0xda/0x390 [xen_netfront]
+[  392.339658]  [<ffffffffa00ecadc>] xennet_remove+0x2c/0x80 [xen_netfront]
+[  392.348516]  [<ffffffff81481c69>] xenbus_dev_remove+0x59/0xc0
+[  392.356257]  [<ffffffff814e7217>] __device_release_driver+0x87/0x120
+[  392.364645]  [<ffffffff814e7cf8>] driver_detach+0xb8/0xc0
+[  392.371989]  [<ffffffff814e6e69>] bus_remove_driver+0x59/0xe0
+[  392.379883]  [<ffffffff814e84f0>] driver_unregister+0x30/0x70
+[  392.387495]  [<ffffffff814814b2>] xenbus_unregister_driver+0x12/0x20
+[  392.395908]  [<ffffffffa00ed89b>] netif_exit+0x10/0x775 [xen_netfront]
+[  392.404877]  [<ffffffff81124e08>] SyS_delete_module+0x1d8/0x230
+[  392.412804]  [<ffffffff8179a8ee>] system_call_fastpath+0x12/0x71
 
-I have secured necessary information=E2=80=99s and the certificate of d=
-eposit
-that can be used to back up this claim we are making.
-All I require now is your honest Co-operation, Confidentiality and
-trust to enable us sees this transaction through. I guarantee you that
-this will be executed under a legitimate arrangement that will protect
-you from any breach of the law. Having gone through a methodical
-search, I decided to contact you so that you will find this proposal
-interesting. Please on your confirmation of this message and
-indicating your interest, I will
+Signed-off-by: Chas Williams <3chas3@gmail.com>
+---
+ drivers/net/xen-netfront.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-furnish you with more details and you can contact me through this
-myprivate E-mail address (messakahawai@gmail.com).Please i will like
-you to write me back through my Private email address as
-follows;(messakahawai@gmail.com) for further discussion.Pls do not
-forget to contact me through this mail, so that all the details
-concerning to the transaction can be giving to you.Endeavour to let me
-know your decision rather than to keep me waiting or exposing me.
-
-Regrds,
-
-Mr.Messaka Hawai
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index f948c46..5ff0cfd 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1348,7 +1348,8 @@ static void xennet_disconnect_backend(struct netfront_info *info)
+ 		queue->tx_evtchn = queue->rx_evtchn = 0;
+ 		queue->tx_irq = queue->rx_irq = 0;
+ 
+-		napi_synchronize(&queue->napi);
++		if (netif_running(info->netdev))
++			napi_synchronize(&queue->napi);
+ 
+ 		xennet_release_tx_bufs(queue);
+ 		xennet_release_rx_bufs(queue);
+-- 
+2.1.0
