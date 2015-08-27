@@ -1,50 +1,68 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel state
-Date: Thu, 27 Aug 2015 12:47:52 -0700
-Message-ID: <CALx6S36+e7O_n+UKvFO89goKoE2QV2EDa5CrzEU9eAoD13e-EQ@mail.gmail.com>
-References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
-	<20150823.165103.2104601245219561984.davem@davemloft.net>
-	<20150826181926.0444240f@griffin>
-	<20150826221330.GB31292@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Benc <jbenc@redhat.com>, David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+From: clsoto@linux.vnet.ibm.com
+Subject: [PATCH net-next 2/2] net/mlx4_core: Fix unintialized variable used in error path
+Date: Thu, 27 Aug 2015 14:43:26 -0500
+Message-ID: <1440704606-20452-2-git-send-email-clsoto@linux.vnet.ibm.com>
+References: <1440704606-20452-1-git-send-email-clsoto@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	brking@linux.vnet.ibm.com,
+	Carol L Soto <clsoto@linux.vnet.ibm.com>,
+	Matan Barak <matanb@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:38173 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051AbbH0Trx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 15:47:53 -0400
-Received: by igvb3 with SMTP id b3so1913148igv.1
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 12:47:53 -0700 (PDT)
-In-Reply-To: <20150826221330.GB31292@pox.localdomain>
+Received: from e24smtp01.br.ibm.com ([32.104.18.85]:37119 "EHLO
+	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752006AbbH0TsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 15:48:12 -0400
+Received: from /spool/local
+	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <wenxiong@us.ibm.com>;
+	Thu, 27 Aug 2015 16:48:11 -0300
+Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id D969B352009D
+	for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 15:46:59 -0400 (EDT)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay03.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t7RJkTiW11468946
+	for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 16:46:29 -0300
+Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t7RJm07u015996
+	for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 15:48:01 -0400
+In-Reply-To: <1440704606-20452-1-git-send-email-clsoto@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 26, 2015 at 3:13 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 08/26/15 at 06:19pm, Jiri Benc wrote:
->> might be a noise. However, there's definitely room for performance
->> improvement here, the lwtunnel vxlan throughput is at about ~40% of the
->> non-vxlan throughput. I did not spend too much time on analyzing this, yet,
->> but it's clear the dst_entry layout is not our biggest concern here.
->
-> I'm currently working on reducing the overhead for VXLAN and Gre and
-> effectively Geneve once Pravin's work is in. The main disadvantage
-> of lwt based flow tunneling is the additional fib_lookup() performed
-> for each packet. It seems tempting to cache the tunnel endpoint dst in
-> the lwt state of the overlay route. It will usually point to the same
-> dst for every packet. The cache behaviour if dependant on no fib rules
-> are and the route is a single nexthop route.
->
-Or set nexthop appropriately. This what we do for ILA. Works great
-without any other dst references, but might put to much weight in the
-administrator to configure nexthop per encapsulating destination.
+From: Carol L Soto <clsoto@linux.vnet.ibm.com>
 
-Tom
+The uninitialized value name in mlx4_en_activate_cq was used in order
+to print an error message. Fixing it by replacing it with cq->vector.
 
-> Did you test with a card that features UDP encapsulation offloads?
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Carol L Soto <clsoto@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 63769df..a1918e2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -100,7 +100,6 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int err = 0;
+-	char name[25];
+ 	int timestamp_en = 0;
+ 	bool assigned_eq = false;
+ 
+@@ -119,8 +118,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 			err = mlx4_assign_eq(mdev->dev, priv->port,
+ 					     &cq->vector);
+ 			if (err) {
+-				mlx4_err(mdev, "Failed assigning an EQ to %s\n",
+-					 name);
++				mlx4_err(mdev, "Failed assigning an EQ to CQ vector %d\n",
++					 cq->vector);
+ 				goto free_eq;
+ 			}
+ 
+-- 
+1.8.3.1
