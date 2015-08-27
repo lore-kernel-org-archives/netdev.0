@@ -1,78 +1,116 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [net-next PATCH 3/4] net: sched: register noqueue qdisc
-Date: Thu, 27 Aug 2015 21:21:38 +0200
-Message-ID: <1440703299-21243-4-git-send-email-phil@nwl.cc>
-References: <1440703299-21243-1-git-send-email-phil@nwl.cc>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, brouer@redhat.com,
-	geert@linux-m68k.org
-To: netdev@vger.kernel.org
+From: Christophe Ricard <christophe.ricard@gmail.com>
+Subject: [RFC v3] netlink: add NETLINK_CAP_ACK socket option
+Date: Thu, 27 Aug 2015 21:31:31 +0200
+Message-ID: <1440703891-9332-2-git-send-email-christophe-h.ricard@st.com>
+References: <1440703891-9332-1-git-send-email-christophe-h.ricard@st.com>
+Cc: netdev@vger.kernel.org, christophe-h.ricard@st.com,
+	christophe.ricard@gmail.com, stable@vger.kernel.org
+To: pablo@netfilter.org, jbenc@redhat.com, sfeldma@gmail.com,
+	sameo@linux.intel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:39735 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752254AbbH0TVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Aug 2015 15:21:41 -0400
-In-Reply-To: <1440703299-21243-1-git-send-email-phil@nwl.cc>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:34141 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492AbbH0Tbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 15:31:39 -0400
+In-Reply-To: <1440703891-9332-1-git-send-email-christophe-h.ricard@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This way users can attach noqueue just like any other qdisc using tc
-without having to mess with tx_queue_len first.
+Since commit c05cdb1b864f ("netlink: allow large data transfers from
+user-space"), the kernel may fail to allocate the necessary room for the
+acknowledgment message back to userspace. This patch introduces a new
+socket option that trims off the payload of the original netlink message.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+The netlink message header is still included, so the user can guess from
+the sequence number what is the message that has triggered the
+acknowledgment.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Christophe Ricard <christophe-h.ricard@st.com>
 ---
- include/net/sch_generic.h |  1 +
- net/sched/sch_api.c       |  1 +
- net/sched/sch_generic.c   | 12 +++++++++++-
- 3 files changed, 13 insertions(+), 1 deletion(-)
+ include/uapi/linux/netlink.h |  1 +
+ net/netlink/af_netlink.c     | 27 ++++++++++++++++++++++++---
+ 2 files changed, 25 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 2eab08c..444faa8 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -340,6 +340,7 @@ extern struct Qdisc noop_qdisc;
- extern struct Qdisc_ops noop_qdisc_ops;
- extern struct Qdisc_ops pfifo_fast_ops;
- extern struct Qdisc_ops mq_qdisc_ops;
-+extern struct Qdisc_ops noqueue_qdisc_ops;
- extern const struct Qdisc_ops *default_qdisc_ops;
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index cf6a65c..6f3fe16 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -110,6 +110,7 @@ struct nlmsgerr {
+ #define NETLINK_TX_RING			7
+ #define NETLINK_LISTEN_ALL_NSID		8
+ #define NETLINK_LIST_MEMBERSHIPS	9
++#define NETLINK_CAP_ACK			10
  
- struct Qdisc_class_common {
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index f06aa01..6a35551 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1947,6 +1947,7 @@ static int __init pktsched_init(void)
- 	register_qdisc(&bfifo_qdisc_ops);
- 	register_qdisc(&pfifo_head_drop_qdisc_ops);
- 	register_qdisc(&mq_qdisc_ops);
-+	register_qdisc(&noqueue_qdisc_ops);
+ struct nl_pktinfo {
+ 	__u32	group;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 67d2104..131d1a4 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -84,6 +84,7 @@ struct listeners {
+ #define NETLINK_F_BROADCAST_SEND_ERROR	0x4
+ #define NETLINK_F_RECV_NO_ENOBUFS	0x8
+ #define NETLINK_F_LISTEN_ALL_NSID	0x10
++#define NETLINK_F_CAP_ACK		0x20
  
- 	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_DELQDISC, tc_get_qdisc, NULL, NULL);
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index f501b74..d5c7c0d 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -416,9 +416,19 @@ struct Qdisc noop_qdisc = {
- };
- EXPORT_SYMBOL(noop_qdisc);
+ static inline int netlink_is_kernel(struct sock *sk)
+ {
+@@ -2258,6 +2259,13 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 			nlk->flags &= ~NETLINK_F_LISTEN_ALL_NSID;
+ 		err = 0;
+ 		break;
++	case NETLINK_CAP_ACK:
++		if (val)
++			nlk->flags |= NETLINK_F_CAP_ACK;
++		else
++			nlk->flags &= ~NETLINK_F_CAP_ACK;
++		err = 0;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -2332,6 +2340,16 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
+ 		netlink_table_ungrab();
+ 		break;
+ 	}
++	case NETLINK_CAP_ACK:
++		if (len < sizeof(int))
++			return -EINVAL;
++		len = sizeof(int);
++		val = nlk->flags & NETLINK_F_CAP_ACK ? 1 : 0;
++		if (put_user(len, optlen) ||
++		    put_user(val, optval))
++			return -EFAULT;
++		err = 0;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 	}
+@@ -2873,9 +2891,12 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+ 	struct nlmsghdr *rep;
+ 	struct nlmsgerr *errmsg;
+ 	size_t payload = sizeof(*errmsg);
++	struct netlink_sock *nlk = nlk_sk(NETLINK_CB(in_skb).sk);
  
--static struct Qdisc_ops noqueue_qdisc_ops __read_mostly = {
-+static int noqueue_init(struct Qdisc *qdisc, struct nlattr *opt)
-+{
-+	/* register_qdisc() assigns a default of noop_enqueue if unset,
-+	 * but __dev_queue_xmit() treats noqueue only as such
-+	 * if this is NULL - so clear it here. */
-+	qdisc->enqueue = NULL;
-+	return 0;
-+}
-+
-+struct Qdisc_ops noqueue_qdisc_ops __read_mostly = {
- 	.id		=	"noqueue",
- 	.priv_size	=	0,
-+	.init		=	noqueue_init,
- 	.enqueue	=	noop_enqueue,
- 	.dequeue	=	noop_dequeue,
- 	.peek		=	noop_dequeue,
+-	/* error messages get the original request appened */
+-	if (err)
++	/* Error messages get the original request appened, unless the user
++	 * requests to cap the error message.
++	 */
++	if (!(nlk->flags & NETLINK_F_CAP_ACK) && err)
+ 		payload += nlmsg_len(nlh);
+ 
+ 	skb = netlink_alloc_skb(in_skb->sk, nlmsg_total_size(payload),
+@@ -2898,7 +2919,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+ 			  NLMSG_ERROR, payload, 0);
+ 	errmsg = nlmsg_data(rep);
+ 	errmsg->error = err;
+-	memcpy(&errmsg->msg, nlh, err ? nlh->nlmsg_len : sizeof(*nlh));
++	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
+ 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).portid, MSG_DONTWAIT);
+ }
+ EXPORT_SYMBOL(netlink_ack);
 -- 
-2.1.2
+2.1.4
