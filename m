@@ -1,23 +1,27 @@
-From: lucien xin <lucien.xin@gmail.com>
-Subject: Re: [PATCH net v3] sctp: donot reset the overall_error_count in
- SHUTDOWN_RECEIVE state
-Date: Fri, 28 Aug 2015 05:03:07 +0800
-Message-ID: <CADvbK_ccBuRQBVe+gghiZxxYEuQSNue_WqdY2h4qNt1a8dG6JQ@mail.gmail.com>
-References: <5b69e6d52b777923b9224315d11adbf9bd24077e.1440622340.git.lucien.xin@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/14][pull request] Intel Wired LAN Driver
+ Updates 2015-08-26
+Date: Thu, 27 Aug 2015 14:06:23 -0700 (PDT)
+Message-ID: <20150827.140623.366697152550542717.davem@davemloft.net>
+References: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	davem <davem@davemloft.net>, Vlad Yasevich <vyasevic@redhat.com>
-To: network dev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:33221 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751563AbbH0VDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 17:03:08 -0400
-Received: by oigm66 with SMTP id m66so13912212oig.0
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 14:03:07 -0700 (PDT)
-In-Reply-To: <5b69e6d52b777923b9224315d11adbf9bd24077e.1440622340.git.lucien.xin@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46981 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182AbbH0VGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 17:06:24 -0400
+In-Reply-To: <1440629373-21287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi, Vlad, plz help to ACK this one
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 26 Aug 2015 15:49:19 -0700
+
+> This series contains updates to i40e and i40evf only.
+
+Pulled, thanks Jeff.
