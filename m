@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next 4/5] net_sched: forbid setting default qdisc
- to inappropriate ones
-Date: Thu, 27 Aug 2015 16:18:50 -0700 (PDT)
-Message-ID: <20150827.161850.712938458604844308.davem@davemloft.net>
-References: <CAM_iQpX4VFeEe4zGj0kx7x7q6GO7Kx+kKC2FW_CRiGSrk0aZVA@mail.gmail.com>
-	<20150827.154202.1831965840563413727.davem@davemloft.net>
-	<CAM_iQpWscW+F4pnDXwn6uVsyaxVrYmUL6c8YF4wam29Lb4SVvg@mail.gmail.com>
+Subject: Re: [PATCH net-next] bpf: add support for %s specifier to
+ bpf_trace_printk()
+Date: Thu, 27 Aug 2015 16:20:39 -0700 (PDT)
+Message-ID: <20150827.162039.1520656052011605652.davem@davemloft.net>
+References: <1440656819-25622-1-git-send-email-ast@plumgrid.com>
+	<20150827.153409.893765406170260565.davem@davemloft.net>
+	<55DF97E6.9050108@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-	stephen@networkplumber.org
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48126 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753403AbbH0XSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 19:18:51 -0400
-In-Reply-To: <CAM_iQpWscW+F4pnDXwn6uVsyaxVrYmUL6c8YF4wam29Lb4SVvg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo@kernel.org, rostedt@goodmis.org, wangnan0@huawei.com,
+	hekuang@huawei.com, daniel@iogearbox.net,
+	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55DF97E6.9050108@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 27 Aug 2015 15:47:55 -0700
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Thu, 27 Aug 2015 16:06:14 -0700
 
-> On Thu, Aug 27, 2015 at 3:42 PM, David Miller <davem@davemloft.net> wrote:
->> If you fix it properly, by making every qdisc capable of being ->init()'d
->> without explicit parameters, it will be the best behavior overall.
-> 
-> The problem is ->init() is not even called when setting it as default,
-> since setting a default qdisc doesn't need to create a qdisc. This is
-> why the flag has to be in ops->flags rather than qdisc->flags.
+> Fair or you still think it should be per byte copy?
 
-Just sounds like another shortcoming of how default qdiscs are handled,
-rather than a reason to not fix things properly.
+I'm terribly surprised we don't have an equivalent of strncpy()
+for unsafe kernel pointers.
+
+You probably won't be the last person to want this, and it's silly
+to optimize it in one place and then wait for cut&paste into the
+next guy.
