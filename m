@@ -1,88 +1,79 @@
-From: sfeldma@gmail.com
-Subject: [RFC PATCH net-next 2/2] rocker: register each switch as a switchdev
-Date: Thu, 27 Aug 2015 00:16:46 -0700
-Message-ID: <1440659806-56582-3-git-send-email-sfeldma@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH net-next 0/2] Add new switchdev device class
+Date: Thu, 27 Aug 2015 09:27:22 +0200
+Message-ID: <20150827072722.GJ2228@nanopsycho.orion>
 References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, davem@davemloft.net, f.fainelli@gmail.com,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, f.fainelli@gmail.com,
 	roopa@cumulusnetworks.com
-To: netdev@vger.kernel.org
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36730 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725AbbH0HON (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:14:13 -0400
-Received: by padfo6 with SMTP id fo6so915296pad.3
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:14:13 -0700 (PDT)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:33588 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbbH0H1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:27:25 -0400
+Received: by wijn1 with SMTP id n1so46100390wij.0
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:27:24 -0700 (PDT)
+Content-Disposition: inline
 In-Reply-To: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+Thu, Aug 27, 2015 at 09:16:44AM CEST, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
+>
+>In the switchdev model, we use netdevs to represent switchdev ports, but we
+>have no representation for the switch itself.  So, introduce a new switchdev
+>device class so we can define semantics and programming interfaces for the
+>switch itself.  Switchdev device class isn't tied to any particular bus.
+>
+>This patch set is just the skeleton to get us started.  It adds the sysfs
+>object registration for the new class and defines a class-level attr "foo".
+>With the new class, we could hook PM functions, for example, to handle power
+>transitions at the switch level.  I registered rocker and get:
+>
+>   $ ls /sys/class/switchdev/5254001235010000/
+>   foo  power  subsystem  uevent
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- drivers/net/ethernet/rocker/rocker.c |   23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
+No, please avoid adding anything to sysfs. If we need to add anything,
+lets make is accesible using Netlink only.
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index a7cb74a..9555ae4 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -233,6 +233,7 @@ struct rocker {
- 	struct pci_dev *pdev;
- 	u8 __iomem *hw_addr;
- 	struct msix_entry *msix_entries;
-+	struct switchdev switchdev;
- 	unsigned int port_count;
- 	struct rocker_port **ports;
- 	struct {
-@@ -5090,6 +5091,19 @@ static void rocker_msix_fini(const struct rocker *rocker)
- 	kfree(rocker->msix_entries);
- }
- 
-+static int rocker_probe_register_switchdev(struct rocker *rocker)
-+{
-+	char name[sizeof(rocker->hw.id) * 2 + 1];
-+
-+	sprintf(name, "%*phN", (int)sizeof(rocker->hw.id), &rocker->hw.id);
-+	return register_switchdev(&rocker->switchdev, name);
-+}
-+
-+static void rocker_probe_unregister_switchdev(struct rocker *rocker)
-+{
-+	unregister_switchdev(&rocker->switchdev);
-+}
-+
- static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- {
- 	struct rocker *rocker;
-@@ -5194,11 +5208,19 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 		goto err_probe_ports;
- 	}
- 
-+	err = rocker_probe_register_switchdev(rocker);
-+	if (err) {
-+		dev_err(&pdev->dev, "cannot register switchdev\n");
-+		goto err_register_switchdev;
-+	}
-+
- 	dev_info(&pdev->dev, "Rocker switch with id %*phN\n",
- 		 (int)sizeof(rocker->hw.id), &rocker->hw.id);
- 
- 	return 0;
- 
-+err_register_switchdev:
-+	rocker_remove_ports(rocker);
- err_probe_ports:
- 	rocker_free_tbls(rocker);
- err_init_tbls:
-@@ -5227,6 +5249,7 @@ static void rocker_remove(struct pci_dev *pdev)
- {
- 	struct rocker *rocker = pci_get_drvdata(pdev);
- 
-+	rocker_probe_unregister_switchdev(rocker);
- 	rocker_free_tbls(rocker);
- 	rocker_write32(rocker, CONTROL, ROCKER_CONTROL_RESET);
- 	rocker_remove_ports(rocker);
--- 
-1.7.10.4
+
+>
+>So what next?  I'd rather not build APIs around sysfs, so we need a netlink API
+>we can build on top of this.  It's not really rtnl.  Maybe genl would work?
+>What ever it is, we'd need to teach iproute2 about a new 'switch' command.
+>
+>Netlink API would allow us to represent switch-wide objects such as registers,
+>tables, stats, firmware, and maybe even control.  I think with with netlink
+>TLVs, we can create a framework for these objects but still allow the switch
+>driver provide switch-specific info.  For example, a table object:
+>
+>[TABLES]
+>	[TABLE]
+>		[FIELDS]
+>			[FIELD]
+>				[ID, TYPE]
+>		[DATA]
+>			[ID, VALUE]
+
+Alert! I feel that someone would like to abuse this iface for writing
+configuration through. This should be read-only by design. I also think
+that this should not be something switch-specific. I believe that NIC
+drivers would benefit from this iface as well when they want to expose
+something. I think we should use genl for this.
+
+
+>
+>Maybe iproute2 has pretty-printers for specific switches like ethtool has for
+>reg dumps.
+
+I feel like a lot of what you described overlaps with existing
+interfaces and tools. Why don't we just reuse that? For firmware for
+example, just take one of the ports. Same for stats (I plan to expose my
+mlxsw switch-wide stats in ethtool so they are accessible through every
+port netdevice).
+
+I still do not see the need for new device class. I have strong feeling
+that it should be avoided.
