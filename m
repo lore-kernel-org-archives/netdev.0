@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 0/3] mlxsw: small driver update
-Date: Thu, 27 Aug 2015 16:31:33 -0700 (PDT)
-Message-ID: <20150827.163133.1761754048800392361.davem@davemloft.net>
-References: <1440691197-25780-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [RFC v3] netlink: add NETLINK_CAP_ACK socket option
+Date: Thu, 27 Aug 2015 16:33:38 -0700 (PDT)
+Message-ID: <20150827.163338.2207468828490017383.davem@davemloft.net>
+References: <1440703891-9332-1-git-send-email-christophe-h.ricard@st.com>
+	<1440703891-9332-2-git-send-email-christophe-h.ricard@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	ogerlitz@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48217 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030AbbH0Xbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 19:31:34 -0400
-In-Reply-To: <1440691197-25780-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo@netfilter.org, jbenc@redhat.com, sfeldma@gmail.com,
+	sameo@linux.intel.com, netdev@vger.kernel.org,
+	christophe-h.ricard@st.com, stable@vger.kernel.org
+To: christophe.ricard@gmail.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1440703891-9332-2-git-send-email-christophe-h.ricard@st.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 27 Aug 2015 17:59:54 +0200
+From: Christophe Ricard <christophe.ricard@gmail.com>
+Date: Thu, 27 Aug 2015 21:31:31 +0200
 
-> Ido Schimmel (2):
->   mlxsw: Remove duplicate included header
->   mlxsw: Make mailboxes 4KB aligned
+> Since commit c05cdb1b864f ("netlink: allow large data transfers from
+> user-space"), the kernel may fail to allocate the necessary room for the
+> acknowledgment message back to userspace. This patch introduces a new
+> socket option that trims off the payload of the original netlink message.
 > 
-> Jiri Pirko (1):
->   mlxsw: adjust transmit fail log message level in __mlxsw_emad_transmit
+> The netlink message header is still included, so the user can guess from
+> the sequence number what is the message that has triggered the
+> acknowledgment.
+> 
+> Cc: stable@vger.kernel.org
 
-Series applied, thanks Jiri.
+Please do not CC: stable for networking changes, that is not how we handle
+-stable submissions.
+
+Instead, please just explicitly ask me to queue it up for -stable when
+you make a bonafide non-RFC submission of a change.
+
+Thanks.
