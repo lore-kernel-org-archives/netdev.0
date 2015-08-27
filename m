@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] sfc: only use vadaptor stats if firmware is
- capable
-Date: Thu, 27 Aug 2015 11:27:24 -0700 (PDT)
-Message-ID: <20150827.112724.2053504429646294443.davem@davemloft.net>
-References: <55DDDD97.90204@solarflare.com>
+Subject: Re: [PATCH] bgmac: support up to 3 cores (devices) on a bus
+Date: Thu, 27 Aug 2015 11:29:04 -0700 (PDT)
+Message-ID: <20150827.112904.2273619490566561555.davem@davemloft.net>
+References: <1440604425-11094-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hauke@hauke-m.de
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45557 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45573 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbbH0S1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:27:25 -0400
-In-Reply-To: <55DDDD97.90204@solarflare.com>
+	with ESMTP id S1751357AbbH0S3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:29:05 -0400
+In-Reply-To: <1440604425-11094-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Wed, 26 Aug 2015 16:39:03 +0100
+=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+Date: Wed, 26 Aug 2015 17:53:45 +0200
 
-> From: Bert Kenward <bkenward@solarflare.com>
-> 
-> Some of the stats handling code differs based on SR-IOV support,
-> and SRIOV support is only available if full-featured firmware is
-> used.
-> Do not use vadaptor stats if firmware mode is not set to
-> full-featured.
-> 
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> Broadcom buses may have more than 1 Ethernet device. This is used e.g=
+=2E
+> to have few interfaces connected to different switch ports. So far we
+> saw chipsets with only 2 devices (e.g. BCM4706) but recent ones have
+> up to 3 (e.g. Netgear R8000 uses 3rd interface for most of switch
+> traffic, lower interfaces are for some kind of offloading).
+>=20
+> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
 
-Applied, thank you.
+Applied to net-next, thanks.
