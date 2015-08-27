@@ -1,61 +1,79 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v4 net-next 7/8] geneve: Consolidate Geneve functionality
- in single module.
-Date: Wed, 26 Aug 2015 20:08:25 -0700
-Message-ID: <CAEP_g=-YCEE_0h11vpwbdPQwRJoNgg7GvNr4xRMrBmu403BiPg@mail.gmail.com>
-References: <1440626079-11689-1-git-send-email-pshelar@nicira.com> <1440626079-11689-8-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:33674 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751560AbbH0DIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 23:08:46 -0400
-Received: by labns7 with SMTP id ns7so3785852lab.0
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 20:08:45 -0700 (PDT)
-In-Reply-To: <1440626079-11689-8-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH -next v3 2/2] smsc911x: Ignore error return from device_get_phy_mode()
+Date: Wed, 26 Aug 2015 20:27:05 -0700
+Message-ID: <1440646025-18999-2-git-send-email-linux@roeck-us.net>
+References: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	Jeremy Linton <jeremy.linton@arm.com>, tony@atomide.com,
+	Guenter Roeck <linux@roeck-us.net>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Steve Glendinning <steve.glendinning@shawell.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 26, 2015 at 2:54 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index d05150c..a36a1de 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -138,16 +164,18 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
->                 opts = ip_tunnel_info_opts(&tun_dst->u.tun_info,
->                                            gnvh->opt_len * 4);
->                 memcpy(opts, gnvh->options, gnvh->opt_len * 4);
-> +               xnet = false;
->         } else {
->                 /* Drop packets w/ critical options,
->                  * since we don't support any...
->                  */
->                 if (gnvh->critical)
->                         goto drop;
-> +               xnet = !net_eq(geneve->net, dev_net(geneve->dev));
->         }
+Commit 62ee783bf1f8 ("smsc911x: Fix crash seen if neither ACPI nor OF is
+configured or used") introduces an error check for the return value from
+device_get_phy_mode() and bails out if there is an error. Unfortunately,
+there are configurations where no phy is configured. Those configurations
+now fail.
 
-Now that devices can be placed in any namespace, I think we can't
-assume that xnet is false in the first case.
+To fix the problem, accept error returns from device_get_phy_mode(),
+and use the return value from device_property_read_u32() to determine
+if there is a suitable firmware interface to read the configuration.
 
-> @@ -293,15 +615,13 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
-[...]
-> +               err = geneve_build_skb(rt, skb, key->tun_flags, vni,
-> +                                      info->options_len, opts, udp_csum);
-> +               if (unlikely(err))
-> +                       goto err;
-[...]
->  tx_error:
-> -       dev->stats.tx_errors++;
->         dev_kfree_skb(skb);
-> +err:
-> +       dev->stats.tx_errors++;
->         return NETDEV_TX_OK;
->  }
+Fixes: 62ee783bf1f8 ("smsc911x: Fix crash seen if neither ACPI nor OF is configured or used")
+Tested-by: Tony Lindgren <tony@atomide.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+v2: Dropped RFC
+    Removed check for -ENODATA
+    Depends on patch 1/2
+v3: Added Tony's Tested-by:
 
-I'm not sure that it makes sense to break out these error conditions -
-geneve_build_skb() doesn't free the skb, so it looks like there is a
-leak on failure.
+Tested with non-devicetree and devicetree configurations.
+Should be tested with ACPI configuration.
+
+ drivers/net/ethernet/smsc/smsc911x.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 6eef3251d833..c8b26259c9cf 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2369,23 +2369,25 @@ static int smsc911x_probe_config(struct smsc911x_platform_config *config,
+ {
+ 	int phy_interface;
+ 	u32 width = 0;
++	int err;
+ 
+ 	phy_interface = device_get_phy_mode(dev);
+ 	if (phy_interface < 0)
+-		return phy_interface;
+-
++		phy_interface = PHY_INTERFACE_MODE_NA;
+ 	config->phy_interface = phy_interface;
+ 
+ 	device_get_mac_address(dev, config->mac, ETH_ALEN);
+ 
+-	device_property_read_u32(dev, "reg-shift", &config->shift);
+-
+-	device_property_read_u32(dev, "reg-io-width", &width);
+-	if (width == 4)
++	err = device_property_read_u32(dev, "reg-io-width", &width);
++	if (err == -ENXIO)
++		return err;
++	if (!err && width == 4)
+ 		config->flags |= SMSC911X_USE_32BIT;
+ 	else
+ 		config->flags |= SMSC911X_USE_16BIT;
+ 
++	device_property_read_u32(dev, "reg-shift", &config->shift);
++
+ 	if (device_property_present(dev, "smsc,irq-active-high"))
+ 		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+ 
+-- 
+2.1.4
