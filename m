@@ -1,84 +1,199 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: Re: tcp: add NV congestion control
-Date: Thu, 27 Aug 2015 05:52:51 +0000
-Message-ID: <D203F1C4.733A%brakmo@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Team <Kernel-team@fb.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: Lawrence Brakmo <brakmo@fb.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55070 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752164AbbH0FxG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Aug 2015 01:53:06 -0400
-Content-Language: en-US
-Content-ID: <905C5EEA644DBD439521D1F7BFDF895D@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next] bridge: Add netlink support for
+	vlan_protocol attribute
+Date: Thu, 27 Aug 2015 15:00:05 +0900
+Message-ID: <1440655205-14247-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-The updated NV document with the new experiments and a table with all the
-experimental results are now available at
-(http://www.brakmo.org/networking/tcp-nv/TCPNV.html).
+This enables bridge vlan_protocol to be configured through netlink.
 
-- Lawrence
+When CONFIG_BRIDGE_VLAN_FILTERING is disabled, kernel behaves the
+same way as this feature is not implemented.
+
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_netlink.c      | 34 ++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h      |  1 +
+ net/bridge/br_vlan.c         | 35 +++++++++++++++++++++--------------
+ 4 files changed, 57 insertions(+), 14 deletions(-)
+
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 313c305..2d13dd4 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -231,6 +231,7 @@ enum {
+ 	IFLA_BR_STP_STATE,
+ 	IFLA_BR_PRIORITY,
+ 	IFLA_BR_VLAN_FILTERING,
++	IFLA_BR_VLAN_PROTOCOL,
+ 	__IFLA_BR_MAX,
+ };
  
-
-On 8/25/15, 4:33 PM, "Lawrence Brakmo" <brakmo@fb.com> wrote:
-
->Changes from v5: cleaning of NV code, changing some default parameters
->
->I've run more extensive tests, I'm working on updating the NV website
->(http://www.brakmo.org/networking/tcp-nv/TCPNV.html) should be updated
->by tomorrow (8/26).
->
->The updated tests include Reno, Cubic, NV and CDG and include more types
->of traffic. Overview of results:
->1) NV has a little lower throughput (2-3% less) with small number of flows
->   as compared to Reno, Cubic and CDG
->2) NV is less fair with few flows but becomes more fair with more flows
->3) Less losses with NV (none in many cases) as compared to all others.
->   One exception is when things get very congested (64 flows into one
->   server), NV has 50% more losses than CDG, Cubic has 1.8x to 10x more
->   losses than CDG. Reno has about the same losses as CDG.
->4) In mixed traffic (1M and 10K RPCs), 10K flows achieve much higher
->   average throughput with NV than with the others (which are
->   very similar). In one example, 2 clients sending 1M and 10K to 2
->   servers, with NV 10K flows average 1Gbps and 1M flows 3.7Gbps,
->   whereas they average about 226Mbps and 4.4Gbps for Reno, Cubic and
->   CDG. They all have similar link utilization.
->
->Consists of the following patches:
->
->[RFC PATCH v6 net-next 1/4] tcp: replace cnt & rtt with struct in
->[RFC PATCH v6 net-next 2/4] tcp:  refactor struct tcp_skb_cb
->[RFC PATCH v6 net-next 3/4] tcp: add in_flight to tcp_skb_cb
->[RFC PATCH v6 net-next 4/4] tcp: add NV congestion control
->
->Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
->
->include/net/tcp.h       |  20 ++-
->net/ipv4/Kconfig        |  16 ++
->net/ipv4/Makefile       |   1 +
->net/ipv4/tcp_bic.c      |   6 +-
->net/ipv4/tcp_cdg.c      |  14 +-
->net/ipv4/tcp_cubic.c    |   6 +-
->net/ipv4/tcp_htcp.c     |  10 +-
->net/ipv4/tcp_illinois.c |  20 +--
->net/ipv4/tcp_input.c    |  10 +-
->net/ipv4/tcp_lp.c       |   6 +-
->net/ipv4/tcp_nv.c       | 489
->++++++++++++++++++++++++++++++++++++++++++++++++++++++
->net/ipv4/tcp_output.c   |   4 +-
->net/ipv4/tcp_vegas.c    |   6 +-
->net/ipv4/tcp_vegas.h    |   2 +-
->net/ipv4/tcp_veno.c     |   7 +-
->net/ipv4/tcp_westwood.c |   7 +-
->net/ipv4/tcp_yeah.c     |   7 +-
->17 files changed, 580 insertions(+), 51 deletions(-)
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index dbcb194..9cea3cf 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -673,6 +673,21 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ 			return -EADDRNOTAVAIL;
+ 	}
+ 
++	if (!data)
++		return 0;
++
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	if (data[IFLA_BR_VLAN_PROTOCOL]) {
++		switch (nla_get_be16(data[IFLA_BR_VLAN_PROTOCOL])) {
++		case htons(ETH_P_8021Q):
++		case htons(ETH_P_8021AD):
++			break;
++		default:
++			return -EPROTONOSUPPORT;
++		}
++	}
++#endif
++
+ 	return 0;
+ }
+ 
+@@ -729,6 +744,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
+ 	[IFLA_BR_STP_STATE] = { .type = NLA_U32 },
+ 	[IFLA_BR_PRIORITY] = { .type = NLA_U16 },
+ 	[IFLA_BR_VLAN_FILTERING] = { .type = NLA_U8 },
++	[IFLA_BR_VLAN_PROTOCOL] = { .type = NLA_U16 },
+ };
+ 
+ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+@@ -784,6 +800,16 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 			return err;
+ 	}
+ 
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	if (data[IFLA_BR_VLAN_PROTOCOL]) {
++		u16 vlan_proto = nla_get_be16(data[IFLA_BR_VLAN_PROTOCOL]);
++
++		err = __br_vlan_set_proto(br, vlan_proto);
++		if (err)
++			return err;
++	}
++#endif
++
+ 	return 0;
+ }
+ 
+@@ -796,6 +822,9 @@ static size_t br_get_size(const struct net_device *brdev)
+ 	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_STP_STATE */
+ 	       nla_total_size(sizeof(u16)) +    /* IFLA_BR_PRIORITY */
+ 	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_VLAN_FILTERING */
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	       nla_total_size(sizeof(__be16)) +	/* IFLA_BR_VLAN_PROTOCOL */
++#endif
+ 	       0;
+ }
+ 
+@@ -819,6 +848,11 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	    nla_put_u8(skb, IFLA_BR_VLAN_FILTERING, vlan_enabled))
+ 		return -EMSGSIZE;
+ 
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	if (nla_put_be16(skb, IFLA_BR_VLAN_PROTOCOL, br->vlan_proto))
++		return -EMSGSIZE;
++#endif
++
+ 	return 0;
+ }
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 3d95647..19e8f79 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -616,6 +616,7 @@ bool br_vlan_find(struct net_bridge *br, u16 vid);
+ void br_recalculate_fwd_mask(struct net_bridge *br);
+ int __br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
+ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
++int __br_vlan_set_proto(struct net_bridge *br, __be16 proto);
+ int br_vlan_set_proto(struct net_bridge *br, unsigned long val);
+ int br_vlan_init(struct net_bridge *br);
+ int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val);
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 3cef689..3cd8cc9 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -492,23 +492,16 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
+ 	return 0;
+ }
+ 
+-int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
++int __br_vlan_set_proto(struct net_bridge *br, __be16 proto)
+ {
+ 	int err = 0;
+ 	struct net_bridge_port *p;
+ 	struct net_port_vlans *pv;
+-	__be16 proto, oldproto;
++	__be16 oldproto;
+ 	u16 vid, errvid;
+ 
+-	if (val != ETH_P_8021Q && val != ETH_P_8021AD)
+-		return -EPROTONOSUPPORT;
+-
+-	if (!rtnl_trylock())
+-		return restart_syscall();
+-
+-	proto = htons(val);
+ 	if (br->vlan_proto == proto)
+-		goto unlock;
++		return 0;
+ 
+ 	/* Add VLANs for the new proto to the device filter. */
+ 	list_for_each_entry(p, &br->port_list, list) {
+@@ -539,9 +532,7 @@ int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
+ 			vlan_vid_del(p->dev, oldproto, vid);
+ 	}
+ 
+-unlock:
+-	rtnl_unlock();
+-	return err;
++	return 0;
+ 
+ err_filt:
+ 	errvid = vid;
+@@ -557,7 +548,23 @@ err_filt:
+ 			vlan_vid_del(p->dev, proto, vid);
+ 	}
+ 
+-	goto unlock;
++	return err;
++}
++
++int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
++{
++	int err;
++
++	if (val != ETH_P_8021Q && val != ETH_P_8021AD)
++		return -EPROTONOSUPPORT;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	err = __br_vlan_set_proto(br, htons(val));
++	rtnl_unlock();
++
++	return err;
+ }
+ 
+ static bool vlan_default_pvid(struct net_port_vlans *pv, u16 vid)
+-- 
+1.8.1.2
