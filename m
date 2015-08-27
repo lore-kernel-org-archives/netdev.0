@@ -1,98 +1,50 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net-next 3/6] net: add netif_is_ovs_master helper with
- IFF_OPENVSWITCH private flag
-Date: Wed, 26 Aug 2015 23:23:13 -0700
-Message-ID: <CAE4R7bDokROc=9tWrS2wQ8HaYLMQVBDY5=X=p0YcxLodqfyw-A@mail.gmail.com>
-References: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
- <1440606998-11072-4-git-send-email-jiri@resnulli.us> <CAE4R7bA5S6WcycMxWXPyOWyA-dPVs4Jy6TS2hq2176FGC8BKbg@mail.gmail.com>
- <20150827054307.GC2228@nanopsycho.orion>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions statistics
+ via debugfs
+Date: Thu, 27 Aug 2015 08:27:04 +0200
+Message-ID: <20150827062704.GE2228@nanopsycho.orion>
+References: <20150826.104906.9246591425074015.davem@davemloft.net>
+ <CAE4R7bDZqrgtzi5dAdCgSxy_hTHE9MPfD1WENX3ea7ZXps7+Mw@mail.gmail.com>
+ <20150827054004.GA2228@nanopsycho.orion>
+ <20150826.230115.2076911912997875741.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, idosch@mellanox.com,
+	eladr@mellanox.com, ogerlitz@mellanox.com, jiri@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:33010 "EHLO
-	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752869AbbH0GXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 02:23:33 -0400
-Received: by oigm66 with SMTP id m66so391381oig.0
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 23:23:32 -0700 (PDT)
-In-Reply-To: <20150827054307.GC2228@nanopsycho.orion>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:34725 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912AbbH0G1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 02:27:07 -0400
+Received: by widdq5 with SMTP id dq5so67216291wid.1
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 23:27:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150826.230115.2076911912997875741.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 26, 2015 at 10:43 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Wed, Aug 26, 2015 at 07:43:18PM CEST, sfeldma@gmail.com wrote:
->>On Wed, Aug 26, 2015 at 9:36 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> Add this helper so code can easily figure out if netdev is openswitch.
->>>
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>> ---
->>>  include/linux/netdevice.h            | 8 ++++++++
->>>  net/openvswitch/vport-internal_dev.c | 2 +-
->>>  2 files changed, 9 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>> index be625f4..0a884e6 100644
->>> --- a/include/linux/netdevice.h
->>> +++ b/include/linux/netdevice.h
->>> @@ -1264,6 +1264,7 @@ struct net_device_ops {
->>>   * @IFF_MACVLAN: Macvlan device
->>>   * @IFF_VRF_MASTER: device is a VRF master
->>>   * @IFF_NO_QUEUE: device can run without qdisc attached
->>> + * @IFF_VRF_OPENVSWITCH: device is a Open vSwitch master
->>>   */
->>>  enum netdev_priv_flags {
->>>         IFF_802_1Q_VLAN                 = 1<<0,
->>> @@ -1293,6 +1294,7 @@ enum netdev_priv_flags {
->>>         IFF_IPVLAN_SLAVE                = 1<<24,
->>>         IFF_VRF_MASTER                  = 1<<25,
->>>         IFF_NO_QUEUE                    = 1<<26,
->>> +       IFF_OPENVSWITCH                 = 1<<27,
->>>  };
->>>
->>>  #define IFF_802_1Q_VLAN                        IFF_802_1Q_VLAN
->>> @@ -1322,6 +1324,7 @@ enum netdev_priv_flags {
->>>  #define IFF_IPVLAN_SLAVE               IFF_IPVLAN_SLAVE
->>>  #define IFF_VRF_MASTER                 IFF_VRF_MASTER
->>>  #define IFF_NO_QUEUE                   IFF_NO_QUEUE
->>> +#define IFF_OPENVSWITCH                        IFF_OPENVSWITCH
->>>
->>>  /**
->>>   *     struct net_device - The DEVICE structure.
->>> @@ -3853,6 +3856,11 @@ static inline bool netif_is_bridge_master(const struct net_device *dev)
->>>         return dev->priv_flags & IFF_EBRIDGE;
->>>  }
->>>
->>> +static inline bool netif_is_ovs_master(const struct net_device *dev)
->>> +{
->>> +       return dev->priv_flags & IFF_OPENVSWITCH;
->>> +}
->>
->>We're going to run out of priv_flags bits.  This flag doesn't seem
->>like something that will be checked lots of places.  How about using
->>rtnl_link_ops->kind to save a bit in priv_flags?
->>
->>static inline bool netif_is_ovs_master(const struct net_device *dev)
->>{
->>    return !strcmp(dev->rtnl_link_ops->kind, "openvswitch"));
->>}
+Thu, Aug 27, 2015 at 08:01:15AM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Thu, 27 Aug 2015 07:40:04 +0200
 >
-> There are lot of helpers like this for other soft-devices. I think that
-> is okay to have it this way. The thing is that sometimes you need to use
-> thi helper in fast path and in that case, you do not want to strcmp.
+>> Switch object itselt would not help you to expose rocker internals. I
+>> don't think that you can find generic way, same for all drivers, to
+>> expose internal tables and stuff. That is hw specific.
 >
-> There is plenty of priv_flags bits for now when I killed the bonding
-> stuff.
+>Tables are datastructures with names and types.
+>
+>Is it not possible to describe datastructures and their types with
+>user visible interfaces?
 
-Ya, but think about the bit: you (and others) used a bit in priv_flags
-to indicate the netdev type.  Can you add an enum field to
-rtnl_link_ops->type to indicate link type?  Then it's not a strcmp.
-You can write your helper using strcmp first, and then later migrate
-to using rtnl_link_ops->type.
+I'm not saying it is not possible, it certainly is. But I think that for
+example rocker internals have no value to default user, he should not
+care and he cannot find out what is going on there without knowledge or
+rocker.c code. The question is, do we need some standard interface to
+expose random debugging data? I don't think so, I think that debugfs is
+exactly the tool to be used in that case.
+
+>
+>Anyone against what I am saying right now is simply lazy.
+
+Not lazy, just thinking :)
