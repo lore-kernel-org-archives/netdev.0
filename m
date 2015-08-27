@@ -1,49 +1,38 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] bpf: add support for %s specifier to
- bpf_trace_printk()
-Date: Thu, 27 Aug 2015 16:06:14 -0700
-Message-ID: <55DF97E6.9050108@plumgrid.com>
-References: <1440656819-25622-1-git-send-email-ast@plumgrid.com>
- <20150827.153409.893765406170260565.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mingo@kernel.org, rostedt@goodmis.org, wangnan0@huawei.com,
-	hekuang@huawei.com, daniel@iogearbox.net,
-	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150827.153409.893765406170260565.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/5 v2] net: Refactor inetpeer cache and add support for VRFs
+Date: Thu, 27 Aug 2015 16:06:58 -0700
+Message-ID: <1440716823-19568-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35343 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753651AbbH0XHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 19:07:09 -0400
+Received: by pacdd16 with SMTP id dd16so40241996pac.2
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 16:07:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/27/15 3:34 PM, David Miller wrote:
-> From: Alexei Starovoitov <ast@plumgrid.com>
-> Date: Wed, 26 Aug 2015 23:26:59 -0700
->
->> +/* similar to strncpy_from_user() but with extra checks */
->> +static void probe_read_string(char *buf, int size, long unsafe_ptr)
->> +{
->> +	char dst[4];
->> +	int i = 0;
->> +
->> +	size--;
->> +	for (;;) {
->> +		if (probe_kernel_read(dst, (void *) unsafe_ptr, 4))
->> +			break;
->
-> I don't think this does the right thing when the string is not a multiple
-> of 3 and ends at the last byte of a page that ends a valid region of
-> kernel memory.
->
-> Seeing this kind of error makes me skeptical to the overall value of
-> optimizing this :-/
+Per Dave's comment on the version 1 patch adding VRF support to inetpeer
+cache by explicitly making the address + index a key. Refactored the
+inetpeer code in the process; mostly impacts the use by tcp_metrics.
 
-I've considered the case when first two bytes are valid, but the
-other two are in a different page. In such case the probe_read_string()
-will trim the string and won't be printing these two valid bytes.
-I think that's very rare, so I'm picking higher performance for common
-case. The strings over > 64 bytes also will be trimmed to 64.
-It's a debugging facility, so I felt that's ok.
-Fair or you still think it should be per byte copy?
+David Ahern (5):
+  net: Introduce ipv4_addr_hash and use it for tcp metrics
+  net: Add set,get helpers for inetpeer addresses
+  net: Add helper function to compare inetpeer addresses
+  net: Refactor inetpeer address struct
+  net: Add support for VRFs to inetpeer cache
+
+ include/net/inetpeer.h | 69 +++++++++++++++++++++++++++++++++++-------
+ include/net/ip.h       |  5 ++++
+ net/ipv4/icmp.c        |  3 +-
+ net/ipv4/inetpeer.c    | 20 ++-----------
+ net/ipv4/ip_fragment.c |  3 +-
+ net/ipv4/route.c       |  7 +++--
+ net/ipv4/tcp_metrics.c | 81 ++++++++++++++++++++------------------------------
+ 7 files changed, 108 insertions(+), 80 deletions(-)
+
+-- 
+1.9.1
