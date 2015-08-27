@@ -1,48 +1,59 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v4 net-next 7/8] geneve: Consolidate Geneve functionality
- in single module.
-Date: Wed, 26 Aug 2015 21:06:48 -0700
-Message-ID: <CAEP_g=9mn5_+JZKSh06m9qCNGjL83uSja39J85gjS4GCyM33Vw@mail.gmail.com>
-References: <1440626079-11689-1-git-send-email-pshelar@nicira.com>
- <1440626079-11689-8-git-send-email-pshelar@nicira.com> <CAEP_g=-YCEE_0h11vpwbdPQwRJoNgg7GvNr4xRMrBmu403BiPg@mail.gmail.com>
- <CALnjE+oYj=X0Vij_0StjDo7Cd9Fg++uh8EtSmnvYe4u3tOFhcQ@mail.gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] bridge: vlan: allow to suppress local mac
+ install for all vlans
+Date: Wed, 26 Aug 2015 21:57:19 -0700
+Message-ID: <55DE98AF.8000503@cumulusnetworks.com>
+References: <1440549295-3979-1-git-send-email-razor@blackwall.org> <20150825.194222.390859854071446877.davem@davemloft.net> <E065D3DC-6CBC-4625-8800-5133E21C5483@cumulusnetworks.com> <20150825.230641.773630246486190390.davem@davemloft.net> <AB16F445-DCA7-437E-B6E1-B70FDC63E55A@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vyasevic@redhat.com, toshiaki.makita1@gmail.com,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	wkok@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:36344 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235AbbH0EHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 00:07:09 -0400
-Received: by lbbpu9 with SMTP id pu9so3858071lbb.3
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 21:07:08 -0700 (PDT)
-In-Reply-To: <CALnjE+oYj=X0Vij_0StjDo7Cd9Fg++uh8EtSmnvYe4u3tOFhcQ@mail.gmail.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36308 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555AbbH0E5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 00:57:39 -0400
+Received: by pacgr6 with SMTP id gr6so11792308pac.3
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 21:57:38 -0700 (PDT)
+In-Reply-To: <AB16F445-DCA7-437E-B6E1-B70FDC63E55A@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 26, 2015 at 8:57 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, Aug 26, 2015 at 8:08 PM, Jesse Gross <jesse@nicira.com> wrote:
->> On Wed, Aug 26, 2015 at 2:54 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>> @@ -293,15 +615,13 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
->> [...]
->>> +               err = geneve_build_skb(rt, skb, key->tun_flags, vni,
->>> +                                      info->options_len, opts, udp_csum);
->>> +               if (unlikely(err))
->>> +                       goto err;
->> [...]
->>>  tx_error:
->>> -       dev->stats.tx_errors++;
->>>         dev_kfree_skb(skb);
->>> +err:
->>> +       dev->stats.tx_errors++;
->>>         return NETDEV_TX_OK;
->>>  }
+On 8/26/15, 4:33 AM, Nikolay Aleksandrov wrote:
+>> On Aug 25, 2015, at 11:06 PM, David Miller <davem@davemloft.net> wro=
+te:
 >>
->> I'm not sure that it makes sense to break out these error conditions -
->> geneve_build_skb() doesn't free the skb, so it looks like there is a
->> leak on failure.
+>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>> Date: Tue, 25 Aug 2015 22:28:16 -0700
+>>
+>>> Certainly, that should be done and I will look into it, but the
+>>> essence of this patch is a bit different. The problem here is not
+>>> the size of the fdb entries, it=E2=80=99s more the number of them -=
+ having
+>>> 96000 entries (even if they were 1 byte ones) is just way too much
+>>> especially when the fdb hash size is small and static. We could wor=
+k
+>>> on making it dynamic though, but still these type of local entries
+>>> per vlan per port can easily be avoided with this option.
+>> 96000 bits can be stored in 12k.  Get where I'm going with this?
+>>
+>> Look at the problem sideways.
+> Oh okay, I misunderstood your previous comment. I=E2=80=99ll look int=
+o that.
 >
-> It does frees skb. Which case are you looking at?
+I just wanted to add the other problems we have had with keeping these=20
+macs (mostly from userspace POV):
+- add/del netlink notification storms
+- and large netlink dumps
 
-Never mind, you're right.
+In addition to in-kernel optimizations, will be nice to have a solution=
+=20
+that reduces the burden on userspace. That will need a newer netlink=20
+dump format for fdbs. Considering all the changes needed, Nikolays patc=
+h=20
+seems less intrusive.
