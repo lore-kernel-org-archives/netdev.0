@@ -1,114 +1,68 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH -next v3 1/2] device property: Return -ENXIO if there is no suitable FW interface
-Date: Wed, 26 Aug 2015 20:27:04 -0700
-Message-ID: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	Jeremy Linton <jeremy.linton@arm.com>, tony@atomide.com,
-	Guenter Roeck <linux@roeck-us.net>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH v4 net-next 7/8] geneve: Consolidate Geneve functionality
+ in single module.
+Date: Wed, 26 Aug 2015 20:57:35 -0700
+Message-ID: <CALnjE+oYj=X0Vij_0StjDo7Cd9Fg++uh8EtSmnvYe4u3tOFhcQ@mail.gmail.com>
+References: <1440626079-11689-1-git-send-email-pshelar@nicira.com>
+	<1440626079-11689-8-git-send-email-pshelar@nicira.com>
+	<CAEP_g=-YCEE_0h11vpwbdPQwRJoNgg7GvNr4xRMrBmu403BiPg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:37308 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751507AbbH0D5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 23:57:35 -0400
+Received: by igui7 with SMTP id i7so27520488igu.0
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 20:57:35 -0700 (PDT)
+In-Reply-To: <CAEP_g=-YCEE_0h11vpwbdPQwRJoNgg7GvNr4xRMrBmu403BiPg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Return -ENXIO if device property array access functions don't find
-a suitable firmware interface.
+On Wed, Aug 26, 2015 at 8:08 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Wed, Aug 26, 2015 at 2:54 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+>> index d05150c..a36a1de 100644
+>> --- a/drivers/net/geneve.c
+>> +++ b/drivers/net/geneve.c
+>> @@ -138,16 +164,18 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
+>>                 opts = ip_tunnel_info_opts(&tun_dst->u.tun_info,
+>>                                            gnvh->opt_len * 4);
+>>                 memcpy(opts, gnvh->options, gnvh->opt_len * 4);
+>> +               xnet = false;
+>>         } else {
+>>                 /* Drop packets w/ critical options,
+>>                  * since we don't support any...
+>>                  */
+>>                 if (gnvh->critical)
+>>                         goto drop;
+>> +               xnet = !net_eq(geneve->net, dev_net(geneve->dev));
+>>         }
+>
+> Now that devices can be placed in any namespace, I think we can't
+> assume that xnet is false in the first case.
+>
+ok.
 
-This lets drivers decide if they should use available platform data
-instead.
+>> @@ -293,15 +615,13 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
+> [...]
+>> +               err = geneve_build_skb(rt, skb, key->tun_flags, vni,
+>> +                                      info->options_len, opts, udp_csum);
+>> +               if (unlikely(err))
+>> +                       goto err;
+> [...]
+>>  tx_error:
+>> -       dev->stats.tx_errors++;
+>>         dev_kfree_skb(skb);
+>> +err:
+>> +       dev->stats.tx_errors++;
+>>         return NETDEV_TX_OK;
+>>  }
+>
+> I'm not sure that it makes sense to break out these error conditions -
+> geneve_build_skb() doesn't free the skb, so it looks like there is a
+> leak on failure.
 
-Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
-v2: Added patch
-v3: Document that device_property_read_string_array and
-    device_property_read_string can also return -ENXIO.
-    Move check if there is pset data, and thus detection if there is
-    a suitable firmwawre interface, out of pset_prop_read_array into
-    the calling code.
-
- drivers/base/property.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/base/property.c b/drivers/base/property.c
-index 287704d680bf..caf937af98b3 100644
---- a/drivers/base/property.c
-+++ b/drivers/base/property.c
-@@ -156,6 +156,7 @@ EXPORT_SYMBOL_GPL(fwnode_property_present);
-  *	   %-ENODATA if the property does not have a value,
-  *	   %-EPROTO if the property is not an array of numbers,
-  *	   %-EOVERFLOW if the size of the property is not as expected.
-+ *	   %-ENXIO if no suitable firmware interface is present.
-  */
- int device_property_read_u8_array(struct device *dev, const char *propname,
- 				  u8 *val, size_t nval)
-@@ -180,6 +181,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u8_array);
-  *	   %-ENODATA if the property does not have a value,
-  *	   %-EPROTO if the property is not an array of numbers,
-  *	   %-EOVERFLOW if the size of the property is not as expected.
-+ *	   %-ENXIO if no suitable firmware interface is present.
-  */
- int device_property_read_u16_array(struct device *dev, const char *propname,
- 				   u16 *val, size_t nval)
-@@ -204,6 +206,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u16_array);
-  *	   %-ENODATA if the property does not have a value,
-  *	   %-EPROTO if the property is not an array of numbers,
-  *	   %-EOVERFLOW if the size of the property is not as expected.
-+ *	   %-ENXIO if no suitable firmware interface is present.
-  */
- int device_property_read_u32_array(struct device *dev, const char *propname,
- 				   u32 *val, size_t nval)
-@@ -228,6 +231,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u32_array);
-  *	   %-ENODATA if the property does not have a value,
-  *	   %-EPROTO if the property is not an array of numbers,
-  *	   %-EOVERFLOW if the size of the property is not as expected.
-+ *	   %-ENXIO if no suitable firmware interface is present.
-  */
- int device_property_read_u64_array(struct device *dev, const char *propname,
- 				   u64 *val, size_t nval)
-@@ -252,6 +256,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u64_array);
-  *	   %-ENODATA if the property does not have a value,
-  *	   %-EPROTO or %-EILSEQ if the property is not an array of strings,
-  *	   %-EOVERFLOW if the size of the property is not as expected.
-+ *	   %-ENXIO if no suitable firmware interface is present.
-  */
- int device_property_read_string_array(struct device *dev, const char *propname,
- 				      const char **val, size_t nval)
-@@ -273,6 +278,7 @@ EXPORT_SYMBOL_GPL(device_property_read_string_array);
-  *	   %-EINVAL if given arguments are not valid,
-  *	   %-ENODATA if the property does not have a value,
-  *	   %-EPROTO or %-EILSEQ if the property type is not a string.
-+ *	   %-ENXIO if no suitable firmware interface is present.
-  */
- int device_property_read_string(struct device *dev, const char *propname,
- 				const char **val)
-@@ -294,9 +300,11 @@ EXPORT_SYMBOL_GPL(device_property_read_string);
- 	else if (is_acpi_node(_fwnode_)) \
- 		_ret_ = acpi_dev_prop_read(to_acpi_node(_fwnode_), _propname_, \
- 					   _proptype_, _val_, _nval_); \
--	else \
-+	else if (is_pset(_fwnode_)) \
- 		_ret_ = pset_prop_read_array(to_pset(_fwnode_), _propname_, \
- 					     _proptype_, _val_, _nval_); \
-+	else \
-+		_ret_ = -ENXIO; \
- 	_ret_; \
- })
- 
-@@ -434,9 +442,10 @@ int fwnode_property_read_string_array(struct fwnode_handle *fwnode,
- 	else if (is_acpi_node(fwnode))
- 		return acpi_dev_prop_read(to_acpi_node(fwnode), propname,
- 					  DEV_PROP_STRING, val, nval);
--
--	return pset_prop_read_array(to_pset(fwnode), propname,
--				    DEV_PROP_STRING, val, nval);
-+	else if (is_pset(fwnode))
-+		return pset_prop_read_array(to_pset(fwnode), propname,
-+					    DEV_PROP_STRING, val, nval);
-+	return -ENXIO;
- }
- EXPORT_SYMBOL_GPL(fwnode_property_read_string_array);
- 
--- 
-2.1.4
+It does frees skb. Which case are you looking at?
