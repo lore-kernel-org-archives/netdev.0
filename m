@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: support up to 3 cores (devices) on a bus
-Date: Thu, 27 Aug 2015 11:29:04 -0700 (PDT)
-Message-ID: <20150827.112904.2273619490566561555.davem@davemloft.net>
-References: <1440604425-11094-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel
+ state
+Date: Thu, 27 Aug 2015 11:30:34 -0700 (PDT)
+Message-ID: <20150827.113034.516720424389108762.davem@davemloft.net>
+References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
+	<20150823.165103.2104601245219561984.davem@davemloft.net>
+	<20150826181926.0444240f@griffin>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45573 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45582 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357AbbH0S3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:29:05 -0400
-In-Reply-To: <1440604425-11094-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1752554AbbH0Sae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:30:34 -0400
+In-Reply-To: <20150826181926.0444240f@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Wed, 26 Aug 2015 17:53:45 +0200
+From: Jiri Benc <jbenc@redhat.com>
+Date: Wed, 26 Aug 2015 18:19:26 +0200
 
-> Broadcom buses may have more than 1 Ethernet device. This is used e.g=
-=2E
-> to have few interfaces connected to different switch ports. So far we
-> saw chipsets with only 2 devices (e.g. BCM4706) but recent ones have
-> up to 3 (e.g. Netgear R8000 uses 3rd interface for most of switch
-> traffic, lower interfaces are for some kind of offloading).
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> Please let me know if you disagree with my analysis above.
 
-Applied to net-next, thanks.
+I agree with your analysis, thanks for taking the time to investigate.
+
+As for the %40 degradation, as Thomas mentioned it's because of the
+extra FIB lookups.
