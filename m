@@ -1,106 +1,201 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 3/6] net: add netif_is_ovs_master helper with
- IFF_OPENVSWITCH private flag
-Date: Thu, 27 Aug 2015 08:30:51 +0200
-Message-ID: <20150827063051.GG2228@nanopsycho.orion>
-References: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
- <1440606998-11072-4-git-send-email-jiri@resnulli.us>
- <CAE4R7bA5S6WcycMxWXPyOWyA-dPVs4Jy6TS2hq2176FGC8BKbg@mail.gmail.com>
- <20150827054307.GC2228@nanopsycho.orion>
- <CAE4R7bDokROc=9tWrS2wQ8HaYLMQVBDY5=X=p0YcxLodqfyw-A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34755 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032AbbH0Gay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 02:30:54 -0400
-Received: by widdq5 with SMTP id dq5so67295159wid.1
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 23:30:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bDokROc=9tWrS2wQ8HaYLMQVBDY5=X=p0YcxLodqfyw-A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next] bridge: Add netlink support for
+	vlan_protocol attribute
+Date: Thu, 27 Aug 2015 15:32:26 +0900
+Message-ID: <1440657146-23437-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Aug 27, 2015 at 08:23:13AM CEST, sfeldma@gmail.com wrote:
->On Wed, Aug 26, 2015 at 10:43 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Wed, Aug 26, 2015 at 07:43:18PM CEST, sfeldma@gmail.com wrote:
->>>On Wed, Aug 26, 2015 at 9:36 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>> Add this helper so code can easily figure out if netdev is openswitch.
->>>>
->>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>> ---
->>>>  include/linux/netdevice.h            | 8 ++++++++
->>>>  net/openvswitch/vport-internal_dev.c | 2 +-
->>>>  2 files changed, 9 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>>> index be625f4..0a884e6 100644
->>>> --- a/include/linux/netdevice.h
->>>> +++ b/include/linux/netdevice.h
->>>> @@ -1264,6 +1264,7 @@ struct net_device_ops {
->>>>   * @IFF_MACVLAN: Macvlan device
->>>>   * @IFF_VRF_MASTER: device is a VRF master
->>>>   * @IFF_NO_QUEUE: device can run without qdisc attached
->>>> + * @IFF_VRF_OPENVSWITCH: device is a Open vSwitch master
->>>>   */
->>>>  enum netdev_priv_flags {
->>>>         IFF_802_1Q_VLAN                 = 1<<0,
->>>> @@ -1293,6 +1294,7 @@ enum netdev_priv_flags {
->>>>         IFF_IPVLAN_SLAVE                = 1<<24,
->>>>         IFF_VRF_MASTER                  = 1<<25,
->>>>         IFF_NO_QUEUE                    = 1<<26,
->>>> +       IFF_OPENVSWITCH                 = 1<<27,
->>>>  };
->>>>
->>>>  #define IFF_802_1Q_VLAN                        IFF_802_1Q_VLAN
->>>> @@ -1322,6 +1324,7 @@ enum netdev_priv_flags {
->>>>  #define IFF_IPVLAN_SLAVE               IFF_IPVLAN_SLAVE
->>>>  #define IFF_VRF_MASTER                 IFF_VRF_MASTER
->>>>  #define IFF_NO_QUEUE                   IFF_NO_QUEUE
->>>> +#define IFF_OPENVSWITCH                        IFF_OPENVSWITCH
->>>>
->>>>  /**
->>>>   *     struct net_device - The DEVICE structure.
->>>> @@ -3853,6 +3856,11 @@ static inline bool netif_is_bridge_master(const struct net_device *dev)
->>>>         return dev->priv_flags & IFF_EBRIDGE;
->>>>  }
->>>>
->>>> +static inline bool netif_is_ovs_master(const struct net_device *dev)
->>>> +{
->>>> +       return dev->priv_flags & IFF_OPENVSWITCH;
->>>> +}
->>>
->>>We're going to run out of priv_flags bits.  This flag doesn't seem
->>>like something that will be checked lots of places.  How about using
->>>rtnl_link_ops->kind to save a bit in priv_flags?
->>>
->>>static inline bool netif_is_ovs_master(const struct net_device *dev)
->>>{
->>>    return !strcmp(dev->rtnl_link_ops->kind, "openvswitch"));
->>>}
->>
->> There are lot of helpers like this for other soft-devices. I think that
->> is okay to have it this way. The thing is that sometimes you need to use
->> thi helper in fast path and in that case, you do not want to strcmp.
->>
->> There is plenty of priv_flags bits for now when I killed the bonding
->> stuff.
->
->Ya, but think about the bit: you (and others) used a bit in priv_flags
->to indicate the netdev type.  Can you add an enum field to
->rtnl_link_ops->type to indicate link type?  Then it's not a strcmp.
->You can write your helper using strcmp first, and then later migrate
->to using rtnl_link_ops->type.
+This enables bridge vlan_protocol to be configured through netlink.
 
+When CONFIG_BRIDGE_VLAN_FILTERING is disabled, kernel behaves the
+same way as this feature is not implemented.
 
-Also, dev can be multiple things, it can be bridge port and vlan dev at
-the same time. Flags are good for this.
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+v2: Fix u16 to __be16
+
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_netlink.c      | 34 ++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h      |  1 +
+ net/bridge/br_vlan.c         | 35 +++++++++++++++++++++--------------
+ 4 files changed, 57 insertions(+), 14 deletions(-)
+
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 313c305..2d13dd4 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -231,6 +231,7 @@ enum {
+ 	IFLA_BR_STP_STATE,
+ 	IFLA_BR_PRIORITY,
+ 	IFLA_BR_VLAN_FILTERING,
++	IFLA_BR_VLAN_PROTOCOL,
+ 	__IFLA_BR_MAX,
+ };
+ 
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index dbcb194..9cea3cf 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -673,6 +673,21 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ 			return -EADDRNOTAVAIL;
+ 	}
+ 
++	if (!data)
++		return 0;
++
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	if (data[IFLA_BR_VLAN_PROTOCOL]) {
++		switch (nla_get_be16(data[IFLA_BR_VLAN_PROTOCOL])) {
++		case htons(ETH_P_8021Q):
++		case htons(ETH_P_8021AD):
++			break;
++		default:
++			return -EPROTONOSUPPORT;
++		}
++	}
++#endif
++
+ 	return 0;
+ }
+ 
+@@ -729,6 +744,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
+ 	[IFLA_BR_STP_STATE] = { .type = NLA_U32 },
+ 	[IFLA_BR_PRIORITY] = { .type = NLA_U16 },
+ 	[IFLA_BR_VLAN_FILTERING] = { .type = NLA_U8 },
++	[IFLA_BR_VLAN_PROTOCOL] = { .type = NLA_U16 },
+ };
+ 
+ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+@@ -784,6 +800,16 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 			return err;
+ 	}
+ 
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	if (data[IFLA_BR_VLAN_PROTOCOL]) {
++		__be16 vlan_proto = nla_get_be16(data[IFLA_BR_VLAN_PROTOCOL]);
++
++		err = __br_vlan_set_proto(br, vlan_proto);
++		if (err)
++			return err;
++	}
++#endif
++
+ 	return 0;
+ }
+ 
+@@ -796,6 +822,9 @@ static size_t br_get_size(const struct net_device *brdev)
+ 	       nla_total_size(sizeof(u32)) +    /* IFLA_BR_STP_STATE */
+ 	       nla_total_size(sizeof(u16)) +    /* IFLA_BR_PRIORITY */
+ 	       nla_total_size(sizeof(u8)) +     /* IFLA_BR_VLAN_FILTERING */
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	       nla_total_size(sizeof(__be16)) +	/* IFLA_BR_VLAN_PROTOCOL */
++#endif
+ 	       0;
+ }
+ 
+@@ -819,6 +848,11 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	    nla_put_u8(skb, IFLA_BR_VLAN_FILTERING, vlan_enabled))
+ 		return -EMSGSIZE;
+ 
++#ifdef CONFIG_BRIDGE_VLAN_FILTERING
++	if (nla_put_be16(skb, IFLA_BR_VLAN_PROTOCOL, br->vlan_proto))
++		return -EMSGSIZE;
++#endif
++
+ 	return 0;
+ }
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 3d95647..19e8f79 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -616,6 +616,7 @@ bool br_vlan_find(struct net_bridge *br, u16 vid);
+ void br_recalculate_fwd_mask(struct net_bridge *br);
+ int __br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
+ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
++int __br_vlan_set_proto(struct net_bridge *br, __be16 proto);
+ int br_vlan_set_proto(struct net_bridge *br, unsigned long val);
+ int br_vlan_init(struct net_bridge *br);
+ int br_vlan_set_default_pvid(struct net_bridge *br, unsigned long val);
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 3cef689..3cd8cc9 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -492,23 +492,16 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
+ 	return 0;
+ }
+ 
+-int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
++int __br_vlan_set_proto(struct net_bridge *br, __be16 proto)
+ {
+ 	int err = 0;
+ 	struct net_bridge_port *p;
+ 	struct net_port_vlans *pv;
+-	__be16 proto, oldproto;
++	__be16 oldproto;
+ 	u16 vid, errvid;
+ 
+-	if (val != ETH_P_8021Q && val != ETH_P_8021AD)
+-		return -EPROTONOSUPPORT;
+-
+-	if (!rtnl_trylock())
+-		return restart_syscall();
+-
+-	proto = htons(val);
+ 	if (br->vlan_proto == proto)
+-		goto unlock;
++		return 0;
+ 
+ 	/* Add VLANs for the new proto to the device filter. */
+ 	list_for_each_entry(p, &br->port_list, list) {
+@@ -539,9 +532,7 @@ int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
+ 			vlan_vid_del(p->dev, oldproto, vid);
+ 	}
+ 
+-unlock:
+-	rtnl_unlock();
+-	return err;
++	return 0;
+ 
+ err_filt:
+ 	errvid = vid;
+@@ -557,7 +548,23 @@ err_filt:
+ 			vlan_vid_del(p->dev, proto, vid);
+ 	}
+ 
+-	goto unlock;
++	return err;
++}
++
++int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
++{
++	int err;
++
++	if (val != ETH_P_8021Q && val != ETH_P_8021AD)
++		return -EPROTONOSUPPORT;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	err = __br_vlan_set_proto(br, htons(val));
++	rtnl_unlock();
++
++	return err;
+ }
+ 
+ static bool vlan_default_pvid(struct net_port_vlans *pv, u16 vid)
+-- 
+1.8.1.2
