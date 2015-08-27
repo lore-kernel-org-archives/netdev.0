@@ -1,201 +1,151 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/5] net: Add set,get helpers for inetpeer addresses
-Date: Thu, 27 Aug 2015 16:07:00 -0700
-Message-ID: <1440716823-19568-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 5/5] net: Add support for VRFs to inetpeer cache
+Date: Thu, 27 Aug 2015 16:07:03 -0700
+Message-ID: <1440716823-19568-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1440716823-19568-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36158 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753651AbbH0XHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 19:07:12 -0400
-Received: by pacgr6 with SMTP id gr6so3524187pac.3
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 16:07:11 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33926 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753651AbbH0XHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 19:07:16 -0400
+Received: by pabzx8 with SMTP id zx8so40407693pab.1
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 16:07:15 -0700 (PDT)
 In-Reply-To: <1440716823-19568-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use inetpeer set,get helpers in tcp_metrics rather than peeking into
-the inetpeer_addr struct.
+inetpeer caches based on address only, so duplicate IP addresses within
+a namespace return the same cached entry. Enhance the ipv4 address key
+to contain both the IPv4 address and VRF device index.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/inetpeer.h | 23 ++++++++++++++++++
- net/ipv4/tcp_metrics.c | 65 +++++++++++++++++++++-----------------------------
- 2 files changed, 50 insertions(+), 38 deletions(-)
+ include/net/inetpeer.h | 17 ++++++++++++-----
+ net/ipv4/icmp.c        |  3 ++-
+ net/ipv4/ip_fragment.c |  3 ++-
+ net/ipv4/route.c       |  7 +++++--
+ 4 files changed, 21 insertions(+), 9 deletions(-)
 
 diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 002f0bd27001..f75b9e7036a2 100644
+index e34f98aa93b1..5ec3827b514d 100644
 --- a/include/net/inetpeer.h
 +++ b/include/net/inetpeer.h
-@@ -71,6 +71,29 @@ void inet_initpeers(void) __init;
+@@ -15,11 +15,17 @@
+ #include <net/ipv6.h>
+ #include <linux/atomic.h>
  
- #define INETPEER_METRICS_NEW	(~(u32) 0)
++/* IPv4 address key for cache lookups */
++struct ipv4_addr_key {
++	__be32	addr;
++	int	vif;
++};
++
+ #define INETPEER_MAXKEYSZ   (sizeof(struct in6_addr) / sizeof(u32))
  
-+static inline void inetpeer_set_addr_v4(struct inetpeer_addr *iaddr, __be32 ip)
-+{
-+	iaddr->addr.a4 = ip;
-+	iaddr->family = AF_INET;
-+}
-+
-+static inline __be32 inetpeer_get_addr_v4(struct inetpeer_addr *iaddr)
-+{
-+	return iaddr->addr.a4;
-+}
-+
-+static inline void inetpeer_set_addr_v6(struct inetpeer_addr *iaddr,
-+					struct in6_addr *in6)
-+{
-+	iaddr->addr.in6 = *in6;
-+	iaddr->family = AF_INET6;
-+}
-+
-+static inline struct in6_addr *inetpeer_get_addr_v6(struct inetpeer_addr *iaddr)
-+{
-+	return &iaddr->addr.in6;
-+}
-+
- /* can be called with or without local BH being disabled */
- struct inet_peer *inet_getpeer(struct inet_peer_base *base,
- 			       const struct inetpeer_addr *daddr,
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 3a4289268f97..4ef4dd4bf38c 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -247,14 +247,14 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 	daddr.family = req->rsk_ops->family;
- 	switch (daddr.family) {
- 	case AF_INET:
--		saddr.addr.a4 = inet_rsk(req)->ir_loc_addr;
--		daddr.addr.a4 = inet_rsk(req)->ir_rmt_addr;
-+		inetpeer_set_addr_v4(&saddr, inet_rsk(req)->ir_loc_addr);
-+		inetpeer_set_addr_v4(&daddr, inet_rsk(req)->ir_rmt_addr);
- 		hash = ipv4_addr_hash(inet_rsk(req)->ir_rmt_addr);
- 		break;
- #if IS_ENABLED(CONFIG_IPV6)
- 	case AF_INET6:
--		saddr.addr.in6 = inet_rsk(req)->ir_v6_loc_addr;
--		daddr.addr.in6 = inet_rsk(req)->ir_v6_rmt_addr;
-+		inetpeer_set_addr_v6(&saddr, &inet_rsk(req)->ir_v6_loc_addr);
-+		inetpeer_set_addr_v6(&daddr, &inet_rsk(req)->ir_v6_rmt_addr);
- 		hash = ipv6_addr_hash(&inet_rsk(req)->ir_v6_rmt_addr);
- 		break;
- #endif
-@@ -285,25 +285,19 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
+ struct inetpeer_addr {
+ 	union {
+-		__be32			a4;
++		struct ipv4_addr_key	a4;
+ 		struct in6_addr		a6;
+ 		u32			key[INETPEER_MAXKEYSZ];
+ 	};
+@@ -71,13 +77,13 @@ void inet_initpeers(void) __init;
+ 
+ static inline void inetpeer_set_addr_v4(struct inetpeer_addr *iaddr, __be32 ip)
+ {
+-	iaddr->a4 = ip;
++	iaddr->a4.addr = ip;
+ 	iaddr->family = AF_INET;
+ }
+ 
+ static inline __be32 inetpeer_get_addr_v4(struct inetpeer_addr *iaddr)
+ {
+-	return iaddr->a4;
++	return iaddr->a4.addr;
+ }
+ 
+ static inline void inetpeer_set_addr_v6(struct inetpeer_addr *iaddr,
+@@ -99,11 +105,12 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
+ 
+ static inline struct inet_peer *inet_getpeer_v4(struct inet_peer_base *base,
+ 						__be32 v4daddr,
+-						int create)
++						int vif, int create)
+ {
+ 	struct inetpeer_addr daddr;
+ 
+-	daddr.a4 = v4daddr;
++	daddr.a4.addr = v4daddr;
++	daddr.a4.vif = vif;
+ 	daddr.family = AF_INET;
+ 	return inet_getpeer(base, &daddr, create);
+ }
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index f16488efa1c8..79fe05befcae 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -309,9 +309,10 @@ static bool icmpv4_xrlim_allow(struct net *net, struct rtable *rt,
+ 
+ 	rc = false;
+ 	if (icmp_global_allow()) {
++		int vif = vrf_master_ifindex(dst->dev);
+ 		struct inet_peer *peer;
+ 
+-		peer = inet_getpeer_v4(net->ipv4.peers, fl4->daddr, 1);
++		peer = inet_getpeer_v4(net->ipv4.peers, fl4->daddr, vif, 1);
+ 		rc = inet_peer_xrlim_allow(peer,
+ 					   net->ipv4.sysctl_icmp_ratelimit);
+ 		if (peer)
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 15762e758861..fa7f15305f9a 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -151,7 +151,8 @@ static void ip4_frag_init(struct inet_frag_queue *q, const void *a)
+ 	qp->vif = arg->vif;
+ 	qp->user = arg->user;
+ 	qp->peer = sysctl_ipfrag_max_dist ?
+-		inet_getpeer_v4(net->ipv4.peers, arg->iph->saddr, 1) : NULL;
++		inet_getpeer_v4(net->ipv4.peers, arg->iph->saddr, arg->vif, 1) :
++		NULL;
+ }
+ 
+ static void ip4_frag_free(struct inet_frag_queue *q)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index f3087aaa6dd8..6b91879e9cbe 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -838,6 +838,7 @@ void ip_rt_send_redirect(struct sk_buff *skb)
+ 	struct inet_peer *peer;
  	struct net *net;
+ 	int log_martians;
++	int vif;
  
- 	if (tw->tw_family == AF_INET) {
--		saddr.family = AF_INET;
--		saddr.addr.a4 = tw->tw_rcv_saddr;
--		daddr.family = AF_INET;
--		daddr.addr.a4 = tw->tw_daddr;
-+		inetpeer_set_addr_v4(&saddr, tw->tw_rcv_saddr);
-+		inetpeer_set_addr_v4(&daddr, tw->tw_daddr);
- 		hash = ipv4_addr_hash(tw->tw_daddr);
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(rt->dst.dev);
+@@ -846,10 +847,11 @@ void ip_rt_send_redirect(struct sk_buff *skb)
+ 		return;
  	}
- #if IS_ENABLED(CONFIG_IPV6)
- 	else if (tw->tw_family == AF_INET6) {
- 		if (ipv6_addr_v4mapped(&tw->tw_v6_daddr)) {
--			saddr.family = AF_INET;
--			saddr.addr.a4 = tw->tw_rcv_saddr;
--			daddr.family = AF_INET;
--			daddr.addr.a4 = tw->tw_daddr;
-+			inetpeer_set_addr_v4(&saddr, tw->tw_rcv_saddr);
-+			inetpeer_set_addr_v4(&daddr, tw->tw_daddr);
- 			hash = ipv4_addr_hash(tw->tw_daddr);
- 		} else {
--			saddr.family = AF_INET6;
--			saddr.addr.in6 = tw->tw_v6_rcv_saddr;
--			daddr.family = AF_INET6;
--			daddr.addr.in6 = tw->tw_v6_daddr;
-+			inetpeer_set_addr_v6(&saddr, &tw->tw_v6_rcv_saddr);
-+			inetpeer_set_addr_v6(&daddr, &tw->tw_v6_daddr);
- 			hash = ipv6_addr_hash(&tw->tw_v6_daddr);
- 		}
- 	}
-@@ -335,25 +329,19 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 	struct net *net;
+ 	log_martians = IN_DEV_LOG_MARTIANS(in_dev);
++	vif = vrf_master_ifindex_rcu(rt->dst.dev);
+ 	rcu_read_unlock();
  
- 	if (sk->sk_family == AF_INET) {
--		saddr.family = AF_INET;
--		saddr.addr.a4 = inet_sk(sk)->inet_saddr;
--		daddr.family = AF_INET;
--		daddr.addr.a4 = inet_sk(sk)->inet_daddr;
-+		inetpeer_set_addr_v4(&saddr, inet_sk(sk)->inet_saddr);
-+		inetpeer_set_addr_v4(&daddr, inet_sk(sk)->inet_daddr);
- 		hash = ipv4_addr_hash(inet_sk(sk)->inet_daddr);
- 	}
- #if IS_ENABLED(CONFIG_IPV6)
- 	else if (sk->sk_family == AF_INET6) {
- 		if (ipv6_addr_v4mapped(&sk->sk_v6_daddr)) {
--			saddr.family = AF_INET;
--			saddr.addr.a4 = inet_sk(sk)->inet_saddr;
--			daddr.family = AF_INET;
--			daddr.addr.a4 = inet_sk(sk)->inet_daddr;
-+			inetpeer_set_addr_v4(&saddr, inet_sk(sk)->inet_saddr);
-+			inetpeer_set_addr_v4(&daddr, inet_sk(sk)->inet_daddr);
- 			hash = ipv4_addr_hash(inet_sk(sk)->inet_daddr);
- 		} else {
--			saddr.family = AF_INET6;
--			saddr.addr.in6 = sk->sk_v6_rcv_saddr;
--			daddr.family = AF_INET6;
--			daddr.addr.in6 = sk->sk_v6_daddr;
-+			inetpeer_set_addr_v6(&saddr, &sk->sk_v6_rcv_saddr);
-+			inetpeer_set_addr_v6(&daddr, &sk->sk_v6_daddr);
- 			hash = ipv6_addr_hash(&sk->sk_v6_daddr);
- 		}
- 	}
-@@ -796,18 +784,18 @@ static int tcp_metrics_fill_info(struct sk_buff *msg,
- 	switch (tm->tcpm_daddr.family) {
- 	case AF_INET:
- 		if (nla_put_in_addr(msg, TCP_METRICS_ATTR_ADDR_IPV4,
--				    tm->tcpm_daddr.addr.a4) < 0)
-+				    inetpeer_get_addr_v4(&tm->tcpm_daddr)) < 0)
- 			goto nla_put_failure;
- 		if (nla_put_in_addr(msg, TCP_METRICS_ATTR_SADDR_IPV4,
--				    tm->tcpm_saddr.addr.a4) < 0)
-+				    inetpeer_get_addr_v4(&tm->tcpm_saddr)) < 0)
- 			goto nla_put_failure;
+ 	net = dev_net(rt->dst.dev);
+-	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, 1);
++	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, vif, 1);
+ 	if (!peer) {
+ 		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST,
+ 			  rt_nexthop(rt, ip_hdr(skb)->daddr));
+@@ -938,7 +940,8 @@ static int ip_error(struct sk_buff *skb)
  		break;
- 	case AF_INET6:
- 		if (nla_put_in6_addr(msg, TCP_METRICS_ATTR_ADDR_IPV6,
--				     &tm->tcpm_daddr.addr.in6) < 0)
-+				     inetpeer_get_addr_v6(&tm->tcpm_daddr)) < 0)
- 			goto nla_put_failure;
- 		if (nla_put_in6_addr(msg, TCP_METRICS_ATTR_SADDR_IPV6,
--				     &tm->tcpm_saddr.addr.in6) < 0)
-+				     inetpeer_get_addr_v6(&tm->tcpm_saddr)) < 0)
- 			goto nla_put_failure;
- 		break;
- 	default:
-@@ -956,20 +944,21 @@ static int __parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
+ 	}
  
- 	a = info->attrs[v4];
- 	if (a) {
--		addr->family = AF_INET;
--		addr->addr.a4 = nla_get_in_addr(a);
-+		inetpeer_set_addr_v4(addr, nla_get_in_addr(a));
- 		if (hash)
--			*hash = ipv4_addr_hash(addr->addr.a4);
-+			*hash = ipv4_addr_hash(inetpeer_get_addr_v4(addr));
- 		return 0;
- 	}
- 	a = info->attrs[v6];
- 	if (a) {
-+		struct in6_addr in6;
-+
- 		if (nla_len(a) != sizeof(struct in6_addr))
- 			return -EINVAL;
--		addr->family = AF_INET6;
--		addr->addr.in6 = nla_get_in6_addr(a);
-+		in6 = nla_get_in6_addr(a);
-+		inetpeer_set_addr_v6(addr, &in6);
- 		if (hash)
--			*hash = ipv6_addr_hash(&addr->addr.in6);
-+			*hash = ipv6_addr_hash(inetpeer_get_addr_v6(addr));
- 		return 0;
- 	}
- 	return optional ? 1 : -EAFNOSUPPORT;
+-	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, 1);
++	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr,
++			       vrf_master_ifindex(skb->dev), 1);
+ 
+ 	send = true;
+ 	if (peer) {
 -- 
 1.9.1
