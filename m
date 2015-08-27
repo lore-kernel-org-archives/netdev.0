@@ -1,33 +1,58 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH -next v3 1/2] device property: Return -ENXIO if there is
- no suitable FW interface
-Date: Thu, 27 Aug 2015 10:32:07 -0500
-Message-ID: <55DF2D77.6050006@arm.com>
-References: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	"tony@atomide.com" <tony@atomide.com>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: Add netlink support for
+	vlan_protocol attribute
+Date: Thu, 27 Aug 2015 08:48:09 -0700
+Message-ID: <63AC6A69-F9A1-4A83-8EF7-D897243743B4@cumulusnetworks.com>
+References: <1440655205-14247-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	"David S . Miller" <davem@davemloft.net>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1440655205-14247-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 08/26/2015 10:27 PM, Guenter Roeck wrote:
-> Return -ENXIO if device property array access functions don't find
-> a suitable firmware interface.
->
-> This lets drivers decide if they should use available platform data
-> instead.
 
-Works fine on an ACPI based ARM system.
+> On Aug 26, 2015, at 11:00 PM, Toshiaki Makita =
+<makita.toshiaki@lab.ntt.co.jp> wrote:
+>=20
+> This enables bridge vlan_protocol to be configured through netlink.
+>=20
+> When CONFIG_BRIDGE_VLAN_FILTERING is disabled, kernel behaves the
+> same way as this feature is not implemented.
+>=20
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+> include/uapi/linux/if_link.h |  1 +
+> net/bridge/br_netlink.c      | 34 ++++++++++++++++++++++++++++++++++
+> net/bridge/br_private.h      |  1 +
+> net/bridge/br_vlan.c         | 35 +++++++++++++++++++++--------------
+> 4 files changed, 57 insertions(+), 14 deletions(-)
+>=20
 
-Thanks, for taking care of this.
+Nice, looks good. I have a similar patch as well and was going to ask =
+wouldn=E2=80=99t it be
+better to make empty stubs which return an error when vlan filtering =
+isn=E2=80=99t configured
+and drop the ifdefs in the netlink handling code ?
+Similar to how vlan_filtering netlink attribute is handled in commit:
+a7854037da00 ("bridge: netlink: add support for vlan_filtering =
+attribute=E2=80=9D)
 
-Tested-by: Jeremy Linton <jeremy.linton@arm.com>
+Potential problem would be the return of the protocol, but I think if 0 =
+is returned that
+can be handled.
+
+Cheers,
+ Nik
