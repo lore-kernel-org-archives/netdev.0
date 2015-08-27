@@ -1,71 +1,50 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC PATCH net-next 0/2] Add new switchdev device class
-Date: Thu, 27 Aug 2015 09:54:14 -0400
-Message-ID: <20150827135414.GA8113@tuxdriver.com>
-References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH net v2] sctp: start t5 timer only when peer.rwnd is 0 and
+ local.state is SHUTDOWN_PENDING
+Date: Thu, 27 Aug 2015 22:49:06 +0800
+Message-ID: <CADvbK_eZfJpQtvM_zTyS=3yTuCkdK0RM-zbMbFvUx5L-U9u5jQ@mail.gmail.com>
+References: <e5d77a8d7c30ccbcc113506837ae7b8e90625046.1440329440.git.lucien.xin@gmail.com>
+	<55DB5ED2.1050702@redhat.com>
+	<20150824183146.GB1873@localhost.localdomain>
+	<55DB644B.1090305@redhat.com>
+	<CADvbK_cZhT3crJhP-5HQVpm=iAYTCDkiBNnDNCibvfOvEyzN7w@mail.gmail.com>
+	<55DF10E6.3010007@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, davem@davemloft.net,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com
-To: sfeldma@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	network dev <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@infradead.org>, davem <davem@davemloft.net>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38580 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754130AbbH0OAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 10:00:17 -0400
-Content-Disposition: inline
-In-Reply-To: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:36113 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753220AbbH0OtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 10:49:06 -0400
+Received: by oibi18 with SMTP id i18so7309205oib.3
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 07:49:06 -0700 (PDT)
+In-Reply-To: <55DF10E6.3010007@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 27, 2015 at 12:16:44AM -0700, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
-> 
-> In the switchdev model, we use netdevs to represent switchdev ports, but we
-> have no representation for the switch itself.  So, introduce a new switchdev
-> device class so we can define semantics and programming interfaces for the
-> switch itself.  Switchdev device class isn't tied to any particular bus.
-> 
-> This patch set is just the skeleton to get us started.  It adds the sysfs
-> object registration for the new class and defines a class-level attr "foo".
-> With the new class, we could hook PM functions, for example, to handle power
-> transitions at the switch level.  I registered rocker and get:
-> 
->    $ ls /sys/class/switchdev/5254001235010000/
->    foo  power  subsystem  uevent
-> 
-> So what next?  I'd rather not build APIs around sysfs, so we need a netlink API
-> we can build on top of this.  It's not really rtnl.  Maybe genl would work?
-> What ever it is, we'd need to teach iproute2 about a new 'switch' command.
-> 
-> Netlink API would allow us to represent switch-wide objects such as registers,
-> tables, stats, firmware, and maybe even control.  I think with with netlink
-> TLVs, we can create a framework for these objects but still allow the switch
-> driver provide switch-specific info.  For example, a table object:
-> 
-> [TABLES]
-> 	[TABLE]
-> 		[FIELDS]
-> 			[FIELD]
-> 				[ID, TYPE]
-> 		[DATA]
-> 			[ID, VALUE]
-> 
-> Maybe iproute2 has pretty-printers for specific switches like ethtool has for
-> reg dumps.
-> 
-> I don't know about how this overlaps with DSA platform_class.  Florian?
-> 
-> Comments?
+>
+> So one potential way is to have peer.rwnd and peer.a_rwnd, where peer.a_rwnd is
+> the window advertised by peer and peer.rwnd and our estimation based on peer.a_rwnd.
+> This way we will always know where we stand.
+>
+> Although I am not sure yet if we want to grow the peer structure any more.
+>
+> Another way is to have an estimate or 0-window probe bit/flags one the send side
+> and set it when we do 0-window probe.  This way we'd know that when 0-window probe
+> bit is set, peer returned 0 window.
+>
+I think updating 0-window may happen in sctp_process_init() and
+sctp_outq_sack(),
+I don't think 0-window can be probed, cause unreachable and closing
+window both has
+no reply from peer. but we can update the 0-window bit in those two
+functions. I just do
+not know where there is a available bit we can use if won't change the
+peer structure.
 
-I think this makes a lot of sense, for many of the reasons you cite
-later in the thread.  Switches are complex devices with multiple
-facets that are difficult to map directly to existing abstractions
-without creating artificial adaptations or leaving something out.
-Giving the switch itself a representation in the device tree seems
-like the right way to go.
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+> Just some thoughts.
+> -vlad
