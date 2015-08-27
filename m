@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
- walking all the percpu data at once
-Date: Thu, 27 Aug 2015 11:38:23 -0700 (PDT)
-Message-ID: <20150827.113823.214019265460582055.davem@davemloft.net>
-References: <y>
-	<1440610653-14210-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-	<1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Subject: Re: [PATCHv6 net-next 00/10] OVS conntrack support
+Date: Thu, 27 Aug 2015 11:41:05 -0700 (PDT)
+Message-ID: <20150827.114105.1709123044511786497.davem@davemloft.net>
+References: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, jiri@resnulli.us, edumazet@google.com,
-	hannes@stressinduktion.org, tom@herbertland.com, azhou@nicira.com,
-	ebiederm@xmission.com, ipm@chirality.org.uk,
-	nicolas.dichtel@6wind.com, serge.hallyn@canonical.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
-	srikar@linux.vnet.ibm.com
-To: raghavendra.kt@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, pshelar@nicira.com,
+	linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
+	jpettit@nicira.com, jesse@nicira.com,
+	netfilter-devel@vger.kernel.org
+To: joestringer@nicira.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+In-Reply-To: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Date: Wed, 26 Aug 2015 23:07:33 +0530
+From: Joe Stringer <joestringer@nicira.com>
+Date: Wed, 26 Aug 2015 11:31:43 -0700
 
-> @@ -4641,10 +4647,12 @@ static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
->  static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
->  			     int bytes)
->  {
-> +	u64 buff[IPSTATS_MIB_MAX] = {0,};
-> +
->  	switch (attrtype) {
->  	case IFLA_INET6_STATS:
-> -		__snmp6_fill_stats64(stats, idev->stats.ipv6,
+> The goal of this series is to allow OVS to send packets through the Linux
+> kernel connection tracker, and subsequently match on fields populated by
+> conntrack. This functionality is enabled through a new
+> CONFIG_OPENVSWITCH_CONNTRACK option.
+> 
+> This version addresses the feedback from v5, primarily checking the behaviour
+> is correct with different configurations such as disabling
+> CONFIG_OPENVSWITCH_CONNTRACK or disabling individual conntrack features like
+> connlabels.
+> 
+> The branch below has been updated with the corresponding userspace pieces:
+> https://github.com/joestringer/ovs dev/ct_20150818
 
-I would suggest using an explicit memset() here, it makes the overhead incurred
-by this scheme clearer.
-
-Thanks.
+Series applied, thanks.
