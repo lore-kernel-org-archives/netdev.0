@@ -1,8 +1,7 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH -next v3 2/2] smsc911x: Ignore error return from device_get_phy_mode()
-Date: Wed, 26 Aug 2015 20:27:05 -0700
-Message-ID: <1440646025-18999-2-git-send-email-linux@roeck-us.net>
-References: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
+Subject: [PATCH -next v3 1/2] device property: Return -ENXIO if there is no suitable FW interface
+Date: Wed, 26 Aug 2015 20:27:04 -0700
+Message-ID: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
 	Jeremy Linton <jeremy.linton@arm.com>, tony@atomide.com,
@@ -10,70 +9,106 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Steve Glendinning <steve.glendinning@shawell.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440646025-18999-1-git-send-email-linux@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 62ee783bf1f8 ("smsc911x: Fix crash seen if neither ACPI nor OF is
-configured or used") introduces an error check for the return value from
-device_get_phy_mode() and bails out if there is an error. Unfortunately,
-there are configurations where no phy is configured. Those configurations
-now fail.
+Return -ENXIO if device property array access functions don't find
+a suitable firmware interface.
 
-To fix the problem, accept error returns from device_get_phy_mode(),
-and use the return value from device_property_read_u32() to determine
-if there is a suitable firmware interface to read the configuration.
+This lets drivers decide if they should use available platform data
+instead.
 
-Fixes: 62ee783bf1f8 ("smsc911x: Fix crash seen if neither ACPI nor OF is configured or used")
-Tested-by: Tony Lindgren <tony@atomide.com>
+Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
-v2: Dropped RFC
-    Removed check for -ENODATA
-    Depends on patch 1/2
-v3: Added Tony's Tested-by:
+v2: Added patch
+v3: Document that device_property_read_string_array and
+    device_property_read_string can also return -ENXIO.
+    Move check if there is pset data, and thus detection if there is
+    a suitable firmwawre interface, out of pset_prop_read_array into
+    the calling code.
 
-Tested with non-devicetree and devicetree configurations.
-Should be tested with ACPI configuration.
+ drivers/base/property.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
- drivers/net/ethernet/smsc/smsc911x.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 6eef3251d833..c8b26259c9cf 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -2369,23 +2369,25 @@ static int smsc911x_probe_config(struct smsc911x_platform_config *config,
- {
- 	int phy_interface;
- 	u32 width = 0;
-+	int err;
+diff --git a/drivers/base/property.c b/drivers/base/property.c
+index 287704d680bf..caf937af98b3 100644
+--- a/drivers/base/property.c
++++ b/drivers/base/property.c
+@@ -156,6 +156,7 @@ EXPORT_SYMBOL_GPL(fwnode_property_present);
+  *	   %-ENODATA if the property does not have a value,
+  *	   %-EPROTO if the property is not an array of numbers,
+  *	   %-EOVERFLOW if the size of the property is not as expected.
++ *	   %-ENXIO if no suitable firmware interface is present.
+  */
+ int device_property_read_u8_array(struct device *dev, const char *propname,
+ 				  u8 *val, size_t nval)
+@@ -180,6 +181,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u8_array);
+  *	   %-ENODATA if the property does not have a value,
+  *	   %-EPROTO if the property is not an array of numbers,
+  *	   %-EOVERFLOW if the size of the property is not as expected.
++ *	   %-ENXIO if no suitable firmware interface is present.
+  */
+ int device_property_read_u16_array(struct device *dev, const char *propname,
+ 				   u16 *val, size_t nval)
+@@ -204,6 +206,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u16_array);
+  *	   %-ENODATA if the property does not have a value,
+  *	   %-EPROTO if the property is not an array of numbers,
+  *	   %-EOVERFLOW if the size of the property is not as expected.
++ *	   %-ENXIO if no suitable firmware interface is present.
+  */
+ int device_property_read_u32_array(struct device *dev, const char *propname,
+ 				   u32 *val, size_t nval)
+@@ -228,6 +231,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u32_array);
+  *	   %-ENODATA if the property does not have a value,
+  *	   %-EPROTO if the property is not an array of numbers,
+  *	   %-EOVERFLOW if the size of the property is not as expected.
++ *	   %-ENXIO if no suitable firmware interface is present.
+  */
+ int device_property_read_u64_array(struct device *dev, const char *propname,
+ 				   u64 *val, size_t nval)
+@@ -252,6 +256,7 @@ EXPORT_SYMBOL_GPL(device_property_read_u64_array);
+  *	   %-ENODATA if the property does not have a value,
+  *	   %-EPROTO or %-EILSEQ if the property is not an array of strings,
+  *	   %-EOVERFLOW if the size of the property is not as expected.
++ *	   %-ENXIO if no suitable firmware interface is present.
+  */
+ int device_property_read_string_array(struct device *dev, const char *propname,
+ 				      const char **val, size_t nval)
+@@ -273,6 +278,7 @@ EXPORT_SYMBOL_GPL(device_property_read_string_array);
+  *	   %-EINVAL if given arguments are not valid,
+  *	   %-ENODATA if the property does not have a value,
+  *	   %-EPROTO or %-EILSEQ if the property type is not a string.
++ *	   %-ENXIO if no suitable firmware interface is present.
+  */
+ int device_property_read_string(struct device *dev, const char *propname,
+ 				const char **val)
+@@ -294,9 +300,11 @@ EXPORT_SYMBOL_GPL(device_property_read_string);
+ 	else if (is_acpi_node(_fwnode_)) \
+ 		_ret_ = acpi_dev_prop_read(to_acpi_node(_fwnode_), _propname_, \
+ 					   _proptype_, _val_, _nval_); \
+-	else \
++	else if (is_pset(_fwnode_)) \
+ 		_ret_ = pset_prop_read_array(to_pset(_fwnode_), _propname_, \
+ 					     _proptype_, _val_, _nval_); \
++	else \
++		_ret_ = -ENXIO; \
+ 	_ret_; \
+ })
  
- 	phy_interface = device_get_phy_mode(dev);
- 	if (phy_interface < 0)
--		return phy_interface;
+@@ -434,9 +442,10 @@ int fwnode_property_read_string_array(struct fwnode_handle *fwnode,
+ 	else if (is_acpi_node(fwnode))
+ 		return acpi_dev_prop_read(to_acpi_node(fwnode), propname,
+ 					  DEV_PROP_STRING, val, nval);
 -
-+		phy_interface = PHY_INTERFACE_MODE_NA;
- 	config->phy_interface = phy_interface;
- 
- 	device_get_mac_address(dev, config->mac, ETH_ALEN);
- 
--	device_property_read_u32(dev, "reg-shift", &config->shift);
--
--	device_property_read_u32(dev, "reg-io-width", &width);
--	if (width == 4)
-+	err = device_property_read_u32(dev, "reg-io-width", &width);
-+	if (err == -ENXIO)
-+		return err;
-+	if (!err && width == 4)
- 		config->flags |= SMSC911X_USE_32BIT;
- 	else
- 		config->flags |= SMSC911X_USE_16BIT;
- 
-+	device_property_read_u32(dev, "reg-shift", &config->shift);
-+
- 	if (device_property_present(dev, "smsc,irq-active-high"))
- 		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+-	return pset_prop_read_array(to_pset(fwnode), propname,
+-				    DEV_PROP_STRING, val, nval);
++	else if (is_pset(fwnode))
++		return pset_prop_read_array(to_pset(fwnode), propname,
++					    DEV_PROP_STRING, val, nval);
++	return -ENXIO;
+ }
+ EXPORT_SYMBOL_GPL(fwnode_property_read_string_array);
  
 -- 
 2.1.4
