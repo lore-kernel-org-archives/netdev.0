@@ -1,54 +1,51 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions statistics
- via debugfs
-Date: Thu, 27 Aug 2015 07:40:04 +0200
-Message-ID: <20150827054004.GA2228@nanopsycho.orion>
-References: <20150826055215.GA2215@nanopsycho.orion>
- <20150825.230821.2162893312002303587.davem@davemloft.net>
- <20150826073757.GB2215@nanopsycho.orion>
- <20150826.104906.9246591425074015.davem@davemloft.net>
- <CAE4R7bDZqrgtzi5dAdCgSxy_hTHE9MPfD1WENX3ea7ZXps7+Mw@mail.gmail.com>
+Subject: Re: [patch net-next 3/6] net: add netif_is_ovs_master helper with
+ IFF_OPENVSWITCH private flag
+Date: Thu, 27 Aug 2015 07:40:35 +0200
+Message-ID: <20150827054035.GB2228@nanopsycho.orion>
+References: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
+ <1440606998-11072-4-git-send-email-jiri@resnulli.us>
+ <55DDF667.20801@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, sfeldma@gmail.com, simon.horman@netronome.com,
 	Jiri Pirko <jiri@mellanox.com>
-To: Scott Feldman <sfeldma@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:33775 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709AbbH0FkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 01:40:08 -0400
-Received: by wijn1 with SMTP id n1so43792909wij.0
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 22:40:06 -0700 (PDT)
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:38835 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467AbbH0Fki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 01:40:38 -0400
+Received: by wicja10 with SMTP id ja10so33566327wic.1
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 22:40:37 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAE4R7bDZqrgtzi5dAdCgSxy_hTHE9MPfD1WENX3ea7ZXps7+Mw@mail.gmail.com>
+In-Reply-To: <55DDF667.20801@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 26, 2015 at 08:21:59PM CEST, sfeldma@gmail.com wrote:
->On Wed, Aug 26, 2015 at 10:49 AM, David Miller <davem@davemloft.net> wrote:
->> From: Jiri Pirko <jiri@resnulli.us>
->> Date: Wed, 26 Aug 2015 09:37:57 +0200
->>
->>> I don't think that are much more cases like this. Therefore I think that
->>> for this cases, debugfs might be a good way to expose debugging stats.
->>
->> Scott wanted to do similar things in rocker.  DSA guys too.
->>
->> Every switch device is going to have some kind of hierarchy like
->> this, it's not a unique situation.
+Wed, Aug 26, 2015 at 07:24:55PM CEST, f.fainelli@gmail.com wrote:
+>On 26/08/15 09:36, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> Add this helper so code can easily figure out if netdev is openswitch.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  include/linux/netdevice.h            | 8 ++++++++
+>>  net/openvswitch/vport-internal_dev.c | 2 +-
+>>  2 files changed, 9 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index be625f4..0a884e6 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -1264,6 +1264,7 @@ struct net_device_ops {
+>>   * @IFF_MACVLAN: Macvlan device
+>>   * @IFF_VRF_MASTER: device is a VRF master
+>>   * @IFF_NO_QUEUE: device can run without qdisc attached
+>> + * @IFF_VRF_OPENVSWITCH: device is a Open vSwitch master
 >
->We've been able to get buy so far without a user-visible device for
->the switch.  The switch ports are represented by netdevs, so that's
->easy.  How can we create an object for the switch itself, so we can
->attach common interfaces for the user to dump switch-level stats or
->tables?   Using another netdev doesn't seem right.  Do we need a new
->device class for switches, and then create some common tool/interfaces
->for switch device class?
+>Typo, the flag you introduced is named IFF_OPENVSWITCH, not VFR_OPENSWITCH.
 
-Switch object itselt would not help you to expose rocker internals. I
-don't think that you can find generic way, same for all drivers, to
-expose internal tables and stuff. That is hw specific.
+Oups, will fix. Thanks
