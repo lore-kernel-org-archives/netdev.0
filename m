@@ -1,36 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ip_rcv_finish() NULL pointer and possibly related Oopses
-Date: Thu, 27 Aug 2015 09:40:11 -0700 (PDT)
-Message-ID: <20150827.094011.2245604840519777428.davem@davemloft.net>
-References: <CAGr1u3twv7KnXug3xZqL3X9NNpWBwGvw1RQpMHyqBmcC2ikamw@mail.gmail.com>
-	<1440680401.8932.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAGr1u3vDQDj6rJYcx2vCsf9KkWf-X=qSh3QD-jAZf7hpUYaAyg@mail.gmail.com>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH net v2] sctp: start t5 timer only when peer.rwnd is 0 and
+ local.state is SHUTDOWN_PENDING
+Date: Fri, 28 Aug 2015 00:40:21 +0800
+Message-ID: <CADvbK_cb84dyjpnCQqgdryM7XcJ+GjBr1DmqFAgPEBX7d9aKvA@mail.gmail.com>
+References: <e5d77a8d7c30ccbcc113506837ae7b8e90625046.1440329440.git.lucien.xin@gmail.com>
+	<55DB5ED2.1050702@redhat.com>
+	<20150824183146.GB1873@localhost.localdomain>
+	<55DB644B.1090305@redhat.com>
+	<CADvbK_cZhT3crJhP-5HQVpm=iAYTCDkiBNnDNCibvfOvEyzN7w@mail.gmail.com>
+	<55DF10E6.3010007@redhat.com>
+	<CADvbK_eZfJpQtvM_zTyS=3yTuCkdK0RM-zbMbFvUx5L-U9u5jQ@mail.gmail.com>
+	<55DF2971.5080009@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, cebbert.lkml@gmail.com,
-	Shaun.Crampton@metaswitch.com, linux-kernel@vger.kernel.org,
-	Peter.White@metaswitch.com, netdev@vger.kernel.org
-To: michael.marineau@coreos.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGr1u3vDQDj6rJYcx2vCsf9KkWf-X=qSh3QD-jAZf7hpUYaAyg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	network dev <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@infradead.org>, davem <davem@davemloft.net>
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:35653 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbbH0QkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 12:40:22 -0400
+Received: by oigk185 with SMTP id k185so9136765oig.2
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 09:40:21 -0700 (PDT)
+In-Reply-To: <55DF2971.5080009@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Marineau <michael.marineau@coreos.com>
-Date: Thu, 27 Aug 2015 09:16:06 -0700
+>>>
+>>> So one potential way is to have peer.rwnd and peer.a_rwnd, where peer.a_rwnd is
+>>> the window advertised by peer and peer.rwnd and our estimation based on peer.a_rwnd.
+>>> This way we will always know where we stand.
+>>>
+>>> Although I am not sure yet if we want to grow the peer structure any more.
+>>>
+>>> Another way is to have an estimate or 0-window probe bit/flags one the send side
+>>> and set it when we do 0-window probe.  This way we'd know that when 0-window probe
+>>> bit is set, peer returned 0 window.
+>>>
+>> I think updating 0-window may happen in sctp_process_init() and
+>> sctp_outq_sack(),
+>> I don't think 0-window can be probed, cause unreachable and closing
+>> window both has
+>> no reply from peer. but we can update the 0-window bit in those two
+>> functions. I just do
+>> not know where there is a available bit we can use if won't change the
+>> peer structure.
+>
+> You can ignore INIT as the window will never be 0 (not allowed).
+>
+> The updates could happen at the end of sctp_outq_sack().   There some spare
+> bits in peer if you want to go that way.
+>
+I find this one *addip_disabled_mask*, but it's really bad to use it.
+we should put a extensible mask or point there before.
 
-> On Thu, Aug 27, 2015 at 6:00 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> Make sure you backported commit
->> 10e2eb878f3ca07ac2f05fa5ca5e6c4c9174a27a
->> ("udp: fix dst races with multicast early demux")
-> 
-> Oh, interesting. Looks like that patch didn't get CC'd to stable
-> though, is there a reason for that or just oversight?
-
-All networking bug fixes are submitted to -stable by hand by me at a
-time of my choosing.  We do not use the "CC: stable" facility, as I
-feel it pushes patches into -stable way too quickly and before the
-change gets sufficient exposure for regressions in Linus's tree.
-
-The patch in question got submitted last night.
+as to a_rwnd, it's a good idea, but if we just use it here, it may not be worth
+doing that. if there are a lot places need it, we can add it.
