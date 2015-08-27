@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions
- statistics via debugfs
-Date: Wed, 26 Aug 2015 23:01:15 -0700 (PDT)
-Message-ID: <20150826.230115.2076911912997875741.davem@davemloft.net>
-References: <20150826.104906.9246591425074015.davem@davemloft.net>
-	<CAE4R7bDZqrgtzi5dAdCgSxy_hTHE9MPfD1WENX3ea7ZXps7+Mw@mail.gmail.com>
-	<20150827054004.GA2228@nanopsycho.orion>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next] bridge: Add netlink support for
+ vlan_protocol attribute
+Date: Thu, 27 Aug 2015 15:22:45 +0900
+Message-ID: <55DEACB5.9050105@lab.ntt.co.jp>
+References: <1440655205-14247-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, idosch@mellanox.com,
-	eladr@mellanox.com, ogerlitz@mellanox.com, jiri@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40066 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753107AbbH0GBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 02:01:18 -0400
-In-Reply-To: <20150827054004.GA2228@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1440655205-14247-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 27 Aug 2015 07:40:04 +0200
+On 2015/08/27 15:00, Toshiaki Makita wrote:
+> This enables bridge vlan_protocol to be configured through netlink.
+> 
+> When CONFIG_BRIDGE_VLAN_FILTERING is disabled, kernel behaves the
+> same way as this feature is not implemented.
+> 
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+...
+>  static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+> @@ -784,6 +800,16 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+>  			return err;
+>  	}
+>  
+> +#ifdef CONFIG_BRIDGE_VLAN_FILTERING
+> +	if (data[IFLA_BR_VLAN_PROTOCOL]) {
+> +		u16 vlan_proto = nla_get_be16(data[IFLA_BR_VLAN_PROTOCOL]);
 
-> Switch object itselt would not help you to expose rocker internals. I
-> don't think that you can find generic way, same for all drivers, to
-> expose internal tables and stuff. That is hw specific.
+This u16 should have been __be16...
+Sorry, will send v2.
 
-Tables are datastructures with names and types.
-
-Is it not possible to describe datastructures and their types with
-user visible interfaces?
-
-Anyone against what I am saying right now is simply lazy.
+Toshiaki Makita
