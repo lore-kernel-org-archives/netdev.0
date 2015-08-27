@@ -1,8 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [patch net-next 3/6] net: add netif_is_ovs_master helper with
  IFF_OPENVSWITCH private flag
-Date: Thu, 27 Aug 2015 08:30:01 +0200
-Message-ID: <20150827063001.GF2228@nanopsycho.orion>
+Date: Thu, 27 Aug 2015 08:30:51 +0200
+Message-ID: <20150827063051.GG2228@nanopsycho.orion>
 References: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
  <1440606998-11072-4-git-send-email-jiri@resnulli.us>
  <CAE4R7bA5S6WcycMxWXPyOWyA-dPVs4Jy6TS2hq2176FGC8BKbg@mail.gmail.com>
@@ -17,12 +17,12 @@ Cc: Netdev <netdev@vger.kernel.org>,
 	Jiri Pirko <jiri@mellanox.com>
 To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:35408 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752999AbbH0GaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 02:30:04 -0400
-Received: by wicne3 with SMTP id ne3so64277161wic.0
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 23:30:03 -0700 (PDT)
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:34755 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032AbbH0Gay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 02:30:54 -0400
+Received: by widdq5 with SMTP id dq5so67295159wid.1
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 23:30:52 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <CAE4R7bDokROc=9tWrS2wQ8HaYLMQVBDY5=X=p0YcxLodqfyw-A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
@@ -101,6 +101,6 @@ Thu, Aug 27, 2015 at 08:23:13AM CEST, sfeldma@gmail.com wrote:
 >You can write your helper using strcmp first, and then later migrate
 >to using rtnl_link_ops->type.
 
-But how different this would be to the priv_flags? You have to have
-"central storage" for these types anyway, same as for flags. + it's one
-more pointer dereference and null check on fastpath.
+
+Also, dev can be multiple things, it can be bridge port and vlan dev at
+the same time. Flags are good for this.
