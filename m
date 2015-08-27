@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel
- state
-Date: Thu, 27 Aug 2015 11:30:34 -0700 (PDT)
-Message-ID: <20150827.113034.516720424389108762.davem@davemloft.net>
-References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
-	<20150823.165103.2104601245219561984.davem@davemloft.net>
-	<20150826181926.0444240f@griffin>
+Subject: Re: [PATCH net-next] cxgb4: continue in debug mode, if probe fails
+Date: Thu, 27 Aug 2015 11:36:05 -0700 (PDT)
+Message-ID: <20150827.113605.58103615206012304.davem@davemloft.net>
+References: <1440608435-12039-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45582 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45638 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752554AbbH0Sae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:30:34 -0400
-In-Reply-To: <20150826181926.0444240f@griffin>
+	with ESMTP id S1751602AbbH0SgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 14:36:06 -0400
+In-Reply-To: <1440608435-12039-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Wed, 26 Aug 2015 18:19:26 +0200
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed, 26 Aug 2015 22:30:35 +0530
 
-> Please let me know if you disagree with my analysis above.
+> If adapter is flashed with incorrect firmware, probe can fail.
+> If probe fails, continue in debug mode, so one can also use the debug
+> interface to update the firmware via ethtool.
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-I agree with your analysis, thanks for taking the time to investigate.
+If the init fails, there are all of these software datastructure that
+have not been allocated at all which ->open() blindly assumes it can
+dereference.
 
-As for the %40 degradation, as Thomas mentioned it's because of the
-extra FIB lookups.
+Sorry, you're going to have to do a lot more work than this to allow
+this situation to proceed.
