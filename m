@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions
- statistics via debugfs
-Date: Wed, 26 Aug 2015 17:26:27 -0700 (PDT)
-Message-ID: <20150826.172627.1308479737177053945.davem@davemloft.net>
-References: <20150826073757.GB2215@nanopsycho.orion>
-	<20150826.104906.9246591425074015.davem@davemloft.net>
-	<CAE4R7bDZqrgtzi5dAdCgSxy_hTHE9MPfD1WENX3ea7ZXps7+Mw@mail.gmail.com>
+Subject: Re: [PATCH net-next] vrf: Add ethernet header for pass through VRF
+ device
+Date: Wed, 26 Aug 2015 17:30:58 -0700 (PDT)
+Message-ID: <20150826.173058.1864374511836166828.davem@davemloft.net>
+References: <55DCEE43.4000200@cumulusnetworks.com>
+	<20150825.155108.983138344238637012.davem@davemloft.net>
+	<55DE152F.10701@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, idosch@mellanox.com,
-	eladr@mellanox.com, ogerlitz@mellanox.com, jiri@mellanox.com
-To: sfeldma@gmail.com
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38942 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38952 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751801AbbH0A0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 20:26:30 -0400
-In-Reply-To: <CAE4R7bDZqrgtzi5dAdCgSxy_hTHE9MPfD1WENX3ea7ZXps7+Mw@mail.gmail.com>
+	with ESMTP id S1751327AbbH0Aa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 20:30:59 -0400
+In-Reply-To: <55DE152F.10701@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-Date: Wed, 26 Aug 2015 11:21:59 -0700
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 26 Aug 2015 12:36:15 -0700
 
-> Using another netdev doesn't seem right.  Do we need a new device
-> class for switches, and then create some common tool/interfaces for
-> switch device class?
+> As such all we need is to push an eth header to the front of the skb
+> for 1 loop through the stack and eth_header via dev_hard_header with
+> NULL daddr is the simplest path to accomplish that. Any other path is
+> just extra overhead.
 
-This is probably what we will need to do.
+And dev_hard_header() is full of conditional code and partial stores,
+whereas the hard header cache is a _SINGLE UNCONDITIONAL MEMCPY_.
 
-There has also been a discussion lately about making light weight
-netdev objects, of which these new switch things can be a super-class
-of.
+You're making this data path more expensive than it needs to be just
+to placate features which in no way are default situations.
