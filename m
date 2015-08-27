@@ -1,70 +1,34 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH -next v2 1/2] device property: Return -ENXIO if there
- is no suitable FW interface
-Date: Wed, 26 Aug 2015 16:25:59 -0700
-Message-ID: <55DE4B07.503@roeck-us.net>
-References: <1440620445-14413-1-git-send-email-linux@roeck-us.net> <3249742.BGnB0hq1eB@vostro.rjw.lan>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-next] Second Round of IPVS Updates for v4.3
+Date: Thu, 27 Aug 2015 09:00:55 +0900
+Message-ID: <20150827000054.GD22263@verge.net.au>
+References: <1440174222-12695-1-git-send-email-horms@verge.net.au>
+ <20150826184150.GA4470@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	Jeremy Linton <jeremy.linton@arm.com>, tony@atomide.com
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:59550 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbbHZX0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2015 19:26:07 -0400
-In-Reply-To: <3249742.BGnB0hq1eB@vostro.rjw.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150826184150.GA4470@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/26/2015 04:37 PM, Rafael J. Wysocki wrote:
-> On Wednesday, August 26, 2015 01:20:44 PM Guenter Roeck wrote:
->> Return -ENXIO if device property array access functions don't find
->> a suitable firmware interface.
->>
->> This lets drivers decide if they should use available platform data
->> instead.
->>
->> Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
->> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
->> ---
->> v2: Added patch
->>
->>   drivers/base/property.c | 7 +++++++
->>   1 file changed, 7 insertions(+)
->>
->> diff --git a/drivers/base/property.c b/drivers/base/property.c
->> index 287704d680bf..9600b824d138 100644
->> --- a/drivers/base/property.c
->> +++ b/drivers/base/property.c
->> @@ -69,6 +69,9 @@ static int pset_prop_read_array(struct property_set *pset, const char *name,
->>   	struct property_entry *prop;
->>   	unsigned int item_size;
->>
->> +	if (!pset)
->> +		return -ENXIO;
->> +
->
-> This isn't exactly straightforward, because it relies on the fact that
-> pset_prop_read_array() is the last thing tried by FWNODE_PROP_READ_ARRAY()
-> and fwnode_property_read_string_array().  A comment about that might be
-> helpful.
->
-I see two options: Add a comment above, or change the calling code to
+On Wed, Aug 26, 2015 at 08:41:50PM +0200, Pablo Neira Ayuso wrote:
+> On Fri, Aug 21, 2015 at 09:23:38AM -0700, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > please consider these IPVS Updates for v4.3.
+> > 
+> > I realise these are a little late in the cycle, so if you would prefer
+> > me to repost them for v4.4 then just let me know.
+> 
+> Pulled, thanks Simon.
+> 
+> Let me see if this gets into this merge window, otherwise I'll keep it
+> in my tree and will submit in the next merge window.
 
-	...
-	else if (is_pset(fwnode))
-		return pset_prop_read_array(to_pset(fwnode), propname,
-                          	            DEV_PROP_STRING, val, nval);
-	return -ENXIO;
-
-which would make it obvious and avoid side effects if the code is changed
-later on. Would you be ok with this ?
-
-Thanks,
-Guenter
+Thanks, and sorry once again for being somewhat late.
