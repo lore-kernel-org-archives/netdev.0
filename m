@@ -1,62 +1,98 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel state
-Date: Thu, 27 Aug 2015 23:00:58 +0200
-Message-ID: <20150827210058.GB32206@pox.localdomain>
-References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
- <20150823.165103.2104601245219561984.davem@davemloft.net>
- <20150826181926.0444240f@griffin>
- <20150826221330.GB31292@pox.localdomain>
- <CALx6S36+e7O_n+UKvFO89goKoE2QV2EDa5CrzEU9eAoD13e-EQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@redhat.com>, David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] bridge: vlan: allow to suppress local mac install for all vlans
+Date: Thu, 27 Aug 2015 14:02:05 -0700
+Message-ID: <2125A434-6529-4D5A-BA6B-9F64C6B7A8C0@cumulusnetworks.com>
+References: <1440549295-3979-1-git-send-email-razor@blackwall.org> <20150825.194222.390859854071446877.davem@davemloft.net> <E065D3DC-6CBC-4625-8800-5133E21C5483@cumulusnetworks.com> <20150825.230641.773630246486190390.davem@davemloft.net> <AB16F445-DCA7-437E-B6E1-B70FDC63E55A@cumulusnetworks.com> <55DE98AF.8000503@cumulusnetworks.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vyasevic@redhat.com, toshiaki.makita1@gmail.com,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	wkok@cumulusnetworks.com
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:35369 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbbH0VBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 17:01:01 -0400
-Received: by wicne3 with SMTP id ne3so3682331wic.0
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 14:01:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S36+e7O_n+UKvFO89goKoE2QV2EDa5CrzEU9eAoD13e-EQ@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35206 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbbH0VCI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 17:02:08 -0400
+Received: by pacdd16 with SMTP id dd16so37381059pac.2
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 14:02:07 -0700 (PDT)
+In-Reply-To: <55DE98AF.8000503@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/27/15 at 12:47pm, Tom Herbert wrote:
-> On Wed, Aug 26, 2015 at 3:13 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> > On 08/26/15 at 06:19pm, Jiri Benc wrote:
-> >> might be a noise. However, there's definitely room for performance
-> >> improvement here, the lwtunnel vxlan throughput is at about ~40% of the
-> >> non-vxlan throughput. I did not spend too much time on analyzing this, yet,
-> >> but it's clear the dst_entry layout is not our biggest concern here.
-> >
-> > I'm currently working on reducing the overhead for VXLAN and Gre and
-> > effectively Geneve once Pravin's work is in. The main disadvantage
-> > of lwt based flow tunneling is the additional fib_lookup() performed
-> > for each packet. It seems tempting to cache the tunnel endpoint dst in
-> > the lwt state of the overlay route. It will usually point to the same
-> > dst for every packet. The cache behaviour if dependant on no fib rules
-> > are and the route is a single nexthop route.
-> >
-> Or set nexthop appropriately. This what we do for ILA. Works great
-> without any other dst references, but might put to much weight in the
-> administrator to configure nexthop per encapsulating destination.
 
-I assume you mean something like this, right?
+> On Aug 26, 2015, at 9:57 PM, roopa <roopa@cumulusnetworks.com> wrote:
+>=20
+> On 8/26/15, 4:33 AM, Nikolay Aleksandrov wrote:
+>>> On Aug 25, 2015, at 11:06 PM, David Miller <davem@davemloft.net> wr=
+ote:
+>>>=20
+>>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>> Date: Tue, 25 Aug 2015 22:28:16 -0700
+>>>=20
+>>>> Certainly, that should be done and I will look into it, but the
+>>>> essence of this patch is a bit different. The problem here is not
+>>>> the size of the fdb entries, it=E2=80=99s more the number of them =
+- having
+>>>> 96000 entries (even if they were 1 byte ones) is just way too much
+>>>> especially when the fdb hash size is small and static. We could wo=
+rk
+>>>> on making it dynamic though, but still these type of local entries
+>>>> per vlan per port can easily be avoided with this option.
+>>> 96000 bits can be stored in 12k.  Get where I'm going with this?
+>>>=20
+>>> Look at the problem sideways.
+>> Oh okay, I misunderstood your previous comment. I=E2=80=99ll look in=
+to that.
+>>=20
+> I just wanted to add the other problems we have had with keeping thes=
+e macs (mostly from userspace POV):
+> - add/del netlink notification storms
+> - and large netlink dumps
+>=20
+> In addition to in-kernel optimizations, will be nice to have a soluti=
+on that reduces the burden on userspace. That will need a newer netlink=
+ dump format for fdbs. Considering all the changes needed, Nikolays pat=
+ch seems less intrusive.
 
-        ip route [...] encap vxlan dst 10.1.1.1 dev eth0
+Right, we need to take these into account as well. I=E2=80=99ll continu=
+e the discussion on this (or restart it) because
+I looked into using a bitmap for the local entries only and while it fi=
+xes the scalability issue, it presents
+a few new ones which are mostly related to the fact that these entries =
+now exist only without a vlan
+and if a new mac comes along which matches one of these but is in a vla=
+n, the entry will get created
+in br_fdb_update() unless we add a second lookup, but that will slow do=
+wn the learning path.
+Also this change requires an update of every fdb function that uses the=
+ vid as a key (every fdb function?!)
+because now we can have the mac in two places instead of one which is a=
+ pretty big churn with lots
+of conditionals all over the place and I don=E2=80=99t like it. Adding =
+this complexity for the local addresses only
+seems like an overkill, so I think to drop this issue for now.
+This patch (that works around the initial problem) also has these issue=
+s.
+Note that one way to take care of this in a more straight-forward way w=
+ould be to have each entry
+with some sort of a bitmap (like Vlad has tried earlier) and then we ca=
+n combine the paths so most
+of these issues disappear, but that will not be easy as was already com=
+mented earlier. I=E2=80=99ve looked
+briefly into doing this with rhashtable so we can keep the memory footp=
+rint for each entry relatively
+small but it still affects the performance and we can have thousands of=
+ resizes happening.=20
 
-The IP metadata encap at FIB level is currently encap agnostic
-and requires an intermediate encap device which then defines the
-actual encap protocol:
+On the notification side if we can fix that, we can actually delete the=
+ 96000 entries without creating a
+huge notification storm and do a user-land workaround of the original i=
+ssue, so I=E2=80=99ll look into that next.
 
-        ip route overlay/prefix encap ip dst 10.1.1.1 dev vxlan0
-        ip route 10.1.1.1/prefix dev eth0
+Any comments or ideas are very welcome.
 
-I like it because we don't have to embed all the options as metadata
-and can still set the through the device. An option would also be
-to allow for both and add the following alternative:
-
-        ip route overlay/prefix encap ip type vxlan dst 10.1.1.1 dev eth0
+Thank you,
+ Nik
