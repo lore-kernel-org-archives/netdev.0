@@ -1,88 +1,111 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/6] net: add netif_is_ovs_master helper with IFF_OPENVSWITCH private flag
-Date: Thu, 27 Aug 2015 09:31:20 +0200
-Message-ID: <1440660683-20086-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 1/6] net: introduce change upper device notifier change info
+Date: Thu, 27 Aug 2015 09:31:18 +0200
+Message-ID: <1440660683-20086-2-git-send-email-jiri@resnulli.us>
 References: <1440660683-20086-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com, simon.horman@netronome.com,
 	f.fainelli@gmail.com, Jiri Pirko <jiri@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:34118 "EHLO
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:33693 "EHLO
 	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751061AbbH0Hba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:31:30 -0400
-Received: by widdq5 with SMTP id dq5so68707121wid.1
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:31:29 -0700 (PDT)
+	with ESMTP id S1751061AbbH0Hb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:31:28 -0400
+Received: by wijn1 with SMTP id n1so46204231wij.0
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:31:26 -0700 (PDT)
 In-Reply-To: <1440660683-20086-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add this helper so code can easily figure out if netdev is openswitch.
+Add info that is passed along with NETDEV_CHANGEUPPER event.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
 v1->v2:
-- fixed typo in comment pointed out by Florian
+- no change
 ---
- include/linux/netdevice.h            | 8 ++++++++
- net/openvswitch/vport-internal_dev.c | 2 +-
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h |  7 +++++++
+ net/core/dev.c            | 16 ++++++++++++++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index be625f4..6656a43 100644
+index 6abe0d6..39f30da 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1264,6 +1264,7 @@ struct net_device_ops {
-  * @IFF_MACVLAN: Macvlan device
-  * @IFF_VRF_MASTER: device is a VRF master
-  * @IFF_NO_QUEUE: device can run without qdisc attached
-+ * @IFF_OPENVSWITCH: device is a Open vSwitch master
-  */
- enum netdev_priv_flags {
- 	IFF_802_1Q_VLAN			= 1<<0,
-@@ -1293,6 +1294,7 @@ enum netdev_priv_flags {
- 	IFF_IPVLAN_SLAVE		= 1<<24,
- 	IFF_VRF_MASTER			= 1<<25,
- 	IFF_NO_QUEUE			= 1<<26,
-+	IFF_OPENVSWITCH			= 1<<27,
+@@ -2127,6 +2127,13 @@ struct netdev_notifier_change_info {
+ 	unsigned int flags_changed;
  };
  
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-@@ -1322,6 +1324,7 @@ enum netdev_priv_flags {
- #define IFF_IPVLAN_SLAVE		IFF_IPVLAN_SLAVE
- #define IFF_VRF_MASTER			IFF_VRF_MASTER
- #define IFF_NO_QUEUE			IFF_NO_QUEUE
-+#define IFF_OPENVSWITCH			IFF_OPENVSWITCH
- 
- /**
-  *	struct net_device - The DEVICE structure.
-@@ -3853,6 +3856,11 @@ static inline bool netif_is_bridge_master(const struct net_device *dev)
- 	return dev->priv_flags & IFF_EBRIDGE;
- }
- 
-+static inline bool netif_is_ovs_master(const struct net_device *dev)
-+{
-+	return dev->priv_flags & IFF_OPENVSWITCH;
-+}
++struct netdev_notifier_changeupper_info {
++	struct netdev_notifier_info info; /* must be first */
++	struct net_device *upper_dev; /* new upper dev */
++	bool master; /* is upper dev master */
++	bool linking; /* is the nofication for link or unlink */
++};
 +
- static inline bool netif_index_is_vrf(struct net *net, int ifindex)
+ static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
+ 					     struct net_device *dev)
  {
- 	bool rc = false;
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index c058bbf..80b3e12 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -135,7 +135,7 @@ static void do_setup(struct net_device *netdev)
- 	netdev->netdev_ops = &internal_dev_netdev_ops;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1f3f48..e7ef971 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5311,6 +5311,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 				   struct net_device *upper_dev, bool master,
+ 				   void *private)
+ {
++	struct netdev_notifier_changeupper_info changeupper_info;
+ 	struct netdev_adjacent *i, *j, *to_i, *to_j;
+ 	int ret = 0;
  
- 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
--	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
-+	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_OPENVSWITCH;
- 	netdev->destructor = internal_dev_destructor;
- 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
- 	netdev->rtnl_link_ops = &internal_dev_link_ops;
+@@ -5329,6 +5330,10 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	if (master && netdev_master_upper_dev_get(dev))
+ 		return -EBUSY;
+ 
++	changeupper_info.upper_dev = upper_dev;
++	changeupper_info.master = master;
++	changeupper_info.linking = true;
++
+ 	ret = __netdev_adjacent_dev_link_neighbour(dev, upper_dev, private,
+ 						   master);
+ 	if (ret)
+@@ -5367,7 +5372,8 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 			goto rollback_lower_mesh;
+ 	}
+ 
+-	call_netdevice_notifiers(NETDEV_CHANGEUPPER, dev);
++	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
++				      &changeupper_info.info);
+ 	return 0;
+ 
+ rollback_lower_mesh:
+@@ -5462,9 +5468,14 @@ EXPORT_SYMBOL(netdev_master_upper_dev_link_private);
+ void netdev_upper_dev_unlink(struct net_device *dev,
+ 			     struct net_device *upper_dev)
+ {
++	struct netdev_notifier_changeupper_info changeupper_info;
+ 	struct netdev_adjacent *i, *j;
+ 	ASSERT_RTNL();
+ 
++	changeupper_info.upper_dev = upper_dev;
++	changeupper_info.master = netdev_master_upper_dev_get(dev) == upper_dev;
++	changeupper_info.linking = false;
++
+ 	__netdev_adjacent_dev_unlink_neighbour(dev, upper_dev);
+ 
+ 	/* Here is the tricky part. We must remove all dev's lower
+@@ -5484,7 +5495,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list)
+ 		__netdev_adjacent_dev_unlink(dev, i->dev);
+ 
+-	call_netdevice_notifiers(NETDEV_CHANGEUPPER, dev);
++	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
++				      &changeupper_info.info);
+ }
+ EXPORT_SYMBOL(netdev_upper_dev_unlink);
+ 
 -- 
 1.9.3
