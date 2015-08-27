@@ -1,41 +1,43 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [patch net-next 3/6] net: add netif_is_ovs_master helper with
  IFF_OPENVSWITCH private flag
-Date: Thu, 27 Aug 2015 07:40:35 +0200
-Message-ID: <20150827054035.GB2228@nanopsycho.orion>
+Date: Thu, 27 Aug 2015 07:43:07 +0200
+Message-ID: <20150827054307.GC2228@nanopsycho.orion>
 References: <1440606998-11072-1-git-send-email-jiri@resnulli.us>
  <1440606998-11072-4-git-send-email-jiri@resnulli.us>
- <55DDF667.20801@gmail.com>
+ <CAE4R7bA5S6WcycMxWXPyOWyA-dPVs4Jy6TS2hq2176FGC8BKbg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, sfeldma@gmail.com, simon.horman@netronome.com,
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>,
 	Jiri Pirko <jiri@mellanox.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:38835 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752467AbbH0Fki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 01:40:38 -0400
-Received: by wicja10 with SMTP id ja10so33566327wic.1
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 22:40:37 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:35029 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549AbbH0FnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 01:43:10 -0400
+Received: by wicne3 with SMTP id ne3so63440207wic.0
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2015 22:43:08 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <55DDF667.20801@gmail.com>
+In-Reply-To: <CAE4R7bA5S6WcycMxWXPyOWyA-dPVs4Jy6TS2hq2176FGC8BKbg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 26, 2015 at 07:24:55PM CEST, f.fainelli@gmail.com wrote:
->On 26/08/15 09:36, Jiri Pirko wrote:
+Wed, Aug 26, 2015 at 07:43:18PM CEST, sfeldma@gmail.com wrote:
+>On Wed, Aug 26, 2015 at 9:36 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 >> From: Jiri Pirko <jiri@mellanox.com>
->> 
+>>
 >> Add this helper so code can easily figure out if netdev is openswitch.
->> 
+>>
 >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 >> ---
 >>  include/linux/netdevice.h            | 8 ++++++++
 >>  net/openvswitch/vport-internal_dev.c | 2 +-
 >>  2 files changed, 9 insertions(+), 1 deletion(-)
->> 
+>>
 >> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
 >> index be625f4..0a884e6 100644
 >> --- a/include/linux/netdevice.h
@@ -45,7 +47,46 @@ Wed, Aug 26, 2015 at 07:24:55PM CEST, f.fainelli@gmail.com wrote:
 >>   * @IFF_VRF_MASTER: device is a VRF master
 >>   * @IFF_NO_QUEUE: device can run without qdisc attached
 >> + * @IFF_VRF_OPENVSWITCH: device is a Open vSwitch master
+>>   */
+>>  enum netdev_priv_flags {
+>>         IFF_802_1Q_VLAN                 = 1<<0,
+>> @@ -1293,6 +1294,7 @@ enum netdev_priv_flags {
+>>         IFF_IPVLAN_SLAVE                = 1<<24,
+>>         IFF_VRF_MASTER                  = 1<<25,
+>>         IFF_NO_QUEUE                    = 1<<26,
+>> +       IFF_OPENVSWITCH                 = 1<<27,
+>>  };
+>>
+>>  #define IFF_802_1Q_VLAN                        IFF_802_1Q_VLAN
+>> @@ -1322,6 +1324,7 @@ enum netdev_priv_flags {
+>>  #define IFF_IPVLAN_SLAVE               IFF_IPVLAN_SLAVE
+>>  #define IFF_VRF_MASTER                 IFF_VRF_MASTER
+>>  #define IFF_NO_QUEUE                   IFF_NO_QUEUE
+>> +#define IFF_OPENVSWITCH                        IFF_OPENVSWITCH
+>>
+>>  /**
+>>   *     struct net_device - The DEVICE structure.
+>> @@ -3853,6 +3856,11 @@ static inline bool netif_is_bridge_master(const struct net_device *dev)
+>>         return dev->priv_flags & IFF_EBRIDGE;
+>>  }
+>>
+>> +static inline bool netif_is_ovs_master(const struct net_device *dev)
+>> +{
+>> +       return dev->priv_flags & IFF_OPENVSWITCH;
+>> +}
 >
->Typo, the flag you introduced is named IFF_OPENVSWITCH, not VFR_OPENSWITCH.
+>We're going to run out of priv_flags bits.  This flag doesn't seem
+>like something that will be checked lots of places.  How about using
+>rtnl_link_ops->kind to save a bit in priv_flags?
+>
+>static inline bool netif_is_ovs_master(const struct net_device *dev)
+>{
+>    return !strcmp(dev->rtnl_link_ops->kind, "openvswitch"));
+>}
 
-Oups, will fix. Thanks
+There are lot of helpers like this for other soft-devices. I think that
+is okay to have it this way. The thing is that sometimes you need to use
+thi helper in fast path and in that case, you do not want to strcmp.
+
+There is plenty of priv_flags bits for now when I killed the bonding
+stuff.
