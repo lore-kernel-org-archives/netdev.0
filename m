@@ -1,117 +1,140 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/6] net: kill long time unused bonding private flags
-Date: Thu, 27 Aug 2015 09:31:21 +0200
-Message-ID: <1440660683-20086-5-git-send-email-jiri@resnulli.us>
-References: <1440660683-20086-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, simon.horman@netronome.com,
-	f.fainelli@gmail.com, Jiri Pirko <jiri@mellanox.com>
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/2] Add new switchdev device class
+Date: Thu, 27 Aug 2015 00:36:20 -0700
+Message-ID: <55DEBDF4.8030301@gmail.com>
+References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, davem@davemloft.net, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com
+To: sfeldma@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:37208 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656AbbH0Hbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:31:31 -0400
-Received: by widdq5 with SMTP id dq5so35777409wid.0
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:31:30 -0700 (PDT)
-In-Reply-To: <1440660683-20086-1-git-send-email-jiri@resnulli.us>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:36315 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751061AbbH0HfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 03:35:02 -0400
+Received: by obkg7 with SMTP id g7so9333533obk.3
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 00:35:01 -0700 (PDT)
+In-Reply-To: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On 15-08-27 12:16 AM, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> In the switchdev model, we use netdevs to represent switchdev ports, but we
+> have no representation for the switch itself.  So, introduce a new switchdev
+> device class so we can define semantics and programming interfaces for the
+> switch itself.  Switchdev device class isn't tied to any particular bus.
+> 
+> This patch set is just the skeleton to get us started.  It adds the sysfs
+> object registration for the new class and defines a class-level attr "foo".
+> With the new class, we could hook PM functions, for example, to handle power
+> transitions at the switch level.  I registered rocker and get:
+> 
+>    $ ls /sys/class/switchdev/5254001235010000/
+>    foo  power  subsystem  uevent
+> 
+> So what next?  I'd rather not build APIs around sysfs, so we need a netlink API
+> we can build on top of this.  It's not really rtnl.  Maybe genl would work?
+> What ever it is, we'd need to teach iproute2 about a new 'switch' command.
+> 
+> Netlink API would allow us to represent switch-wide objects such as registers,
+> tables, stats, firmware, and maybe even control.  I think with with netlink
+> TLVs, we can create a framework for these objects but still allow the switch
+> driver provide switch-specific info.  For example, a table object:
+> 
 
-We don't use them for years, just kill them now.
+Hi Scott,
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
-v1->v2:
-- no change
----
- include/linux/netdevice.h | 57 +++++++++++++++++------------------------------
- 1 file changed, 21 insertions(+), 36 deletions(-)
+I was going to take the flow-api presented in Feb and submitted
+to netdev and get it up to date. I started doing this today should be
+ready end of week.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6656a43..88a0069 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1240,13 +1240,8 @@ struct net_device_ops {
-  *
-  * @IFF_802_1Q_VLAN: 802.1Q VLAN device
-  * @IFF_EBRIDGE: Ethernet bridging device
-- * @IFF_SLAVE_INACTIVE: bonding slave not the curr. active
-- * @IFF_MASTER_8023AD: bonding master, 802.3ad
-- * @IFF_MASTER_ALB: bonding master, balance-alb
-  * @IFF_BONDING: bonding master or slave
-- * @IFF_SLAVE_NEEDARP: need ARPs for validation
-  * @IFF_ISATAP: ISATAP interface (RFC4214)
-- * @IFF_MASTER_ARPMON: bonding master, ARP mon in use
-  * @IFF_WAN_HDLC: WAN HDLC device
-  * @IFF_XMIT_DST_RELEASE: dev_hard_start_xmit() is allowed to
-  *	release skb->dst
-@@ -1269,43 +1264,33 @@ struct net_device_ops {
- enum netdev_priv_flags {
- 	IFF_802_1Q_VLAN			= 1<<0,
- 	IFF_EBRIDGE			= 1<<1,
--	IFF_SLAVE_INACTIVE		= 1<<2,
--	IFF_MASTER_8023AD		= 1<<3,
--	IFF_MASTER_ALB			= 1<<4,
--	IFF_BONDING			= 1<<5,
--	IFF_SLAVE_NEEDARP		= 1<<6,
--	IFF_ISATAP			= 1<<7,
--	IFF_MASTER_ARPMON		= 1<<8,
--	IFF_WAN_HDLC			= 1<<9,
--	IFF_XMIT_DST_RELEASE		= 1<<10,
--	IFF_DONT_BRIDGE			= 1<<11,
--	IFF_DISABLE_NETPOLL		= 1<<12,
--	IFF_MACVLAN_PORT		= 1<<13,
--	IFF_BRIDGE_PORT			= 1<<14,
--	IFF_OVS_DATAPATH		= 1<<15,
--	IFF_TX_SKB_SHARING		= 1<<16,
--	IFF_UNICAST_FLT			= 1<<17,
--	IFF_TEAM_PORT			= 1<<18,
--	IFF_SUPP_NOFCS			= 1<<19,
--	IFF_LIVE_ADDR_CHANGE		= 1<<20,
--	IFF_MACVLAN			= 1<<21,
--	IFF_XMIT_DST_RELEASE_PERM	= 1<<22,
--	IFF_IPVLAN_MASTER		= 1<<23,
--	IFF_IPVLAN_SLAVE		= 1<<24,
--	IFF_VRF_MASTER			= 1<<25,
--	IFF_NO_QUEUE			= 1<<26,
--	IFF_OPENVSWITCH			= 1<<27,
-+	IFF_BONDING			= 1<<2,
-+	IFF_ISATAP			= 1<<3,
-+	IFF_WAN_HDLC			= 1<<4,
-+	IFF_XMIT_DST_RELEASE		= 1<<5,
-+	IFF_DONT_BRIDGE			= 1<<6,
-+	IFF_DISABLE_NETPOLL		= 1<<7,
-+	IFF_MACVLAN_PORT		= 1<<8,
-+	IFF_BRIDGE_PORT			= 1<<9,
-+	IFF_OVS_DATAPATH		= 1<<10,
-+	IFF_TX_SKB_SHARING		= 1<<11,
-+	IFF_UNICAST_FLT			= 1<<12,
-+	IFF_TEAM_PORT			= 1<<13,
-+	IFF_SUPP_NOFCS			= 1<<14,
-+	IFF_LIVE_ADDR_CHANGE		= 1<<15,
-+	IFF_MACVLAN			= 1<<16,
-+	IFF_XMIT_DST_RELEASE_PERM	= 1<<17,
-+	IFF_IPVLAN_MASTER		= 1<<18,
-+	IFF_IPVLAN_SLAVE		= 1<<19,
-+	IFF_VRF_MASTER			= 1<<20,
-+	IFF_NO_QUEUE			= 1<<21,
-+	IFF_OPENVSWITCH			= 1<<22,
- };
- 
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
- #define IFF_EBRIDGE			IFF_EBRIDGE
--#define IFF_SLAVE_INACTIVE		IFF_SLAVE_INACTIVE
--#define IFF_MASTER_8023AD		IFF_MASTER_8023AD
--#define IFF_MASTER_ALB			IFF_MASTER_ALB
- #define IFF_BONDING			IFF_BONDING
--#define IFF_SLAVE_NEEDARP		IFF_SLAVE_NEEDARP
- #define IFF_ISATAP			IFF_ISATAP
--#define IFF_MASTER_ARPMON		IFF_MASTER_ARPMON
- #define IFF_WAN_HDLC			IFF_WAN_HDLC
- #define IFF_XMIT_DST_RELEASE		IFF_XMIT_DST_RELEASE
- #define IFF_DONT_BRIDGE			IFF_DONT_BRIDGE
--- 
-1.9.3
+> [TABLES]
+> 	[TABLE]
+> 		[FIELDS]
+> 			[FIELD]
+> 				[ID, TYPE]
+> 		[DATA]
+> 			[ID, VALUE]
+> 
+
+The structure I used previously which looks like your prototype I think,
+
+ (https://github.com/jrfastab/rocker-net-next/blob/master/include/uapi/linux/if_flow.h)
+
+ * [NFL_TABLE_IDENTIFIER_TYPE]
+ * [NFL_TABLE_IDENTIFIER]
+ * [NFL_TABLE_TABLES]
+ *     [NFL_TABLE]
+ *	 [NFL_TABLE_ATTR_NAME]
+ *	 [NFL_TABLE_ATTR_UID]
+ *	 [NFL_TABLE_ATTR_SOURCE]
+ *	 [NFL_TABLE_ATTR_APPLY]
+ *	 [NFL_TABLE_ATTR_SIZE]
+ *	 [NFL_TABLE_ATTR_MATCHES]
+ *	   [NFL_FIELD_REF]
+ *	     [NFL_FIELD_REF_INSTANCE]
+ *	     [NFL_FIELD_REF_HEADER]
+ *	     [NFL_FIELD_REF_FIELD]
+ *	     [NFL_FIELD_REF_MASK]
+ *	     [NFL_FIELD_REF_TYPE]
+ *	   [...]
+ *	 [NFL_TABLE_ATTR_ACTIONS]
+ *	     [NFL_ACTION_ATTR_UID]
+ *	     [...]
+ *     [NFL_TABLE]
+ *       [...]
+ *
+
+This is well-typed per Dave's comment. And because its Netlink based it
+can be easily extended as needed. The above gives basic information on
+the table. Sure it could stand to have some other entries in it but I
+never needed them for my capabilities/resource discovery. We could argue
+about removing some if they are too specific to my use cases.
+
+> Maybe iproute2 has pretty-printers for specific switches like ethtool has for
+> reg dumps.
+> 
+> I don't know about how this overlaps with DSA platform_class.  Florian?
+> 
+> Comments?
+
+A few other interesting (at least to me) structures you can find in the
+if_flow.h header file give how the tables in the hardware are put
+together. I found this really useful when trying to sort out where my
+various ACLs/nexthop entries/etc were in the hardware order. This is
+important to know for many cases. This is NFL_TABLE_GRAPH.
+
+Also I found being able to "know' what headers the hardware supports
+to be very useful. For example I want/need to know if QinQ will work.
+Or VXLAN/NSH, Geneve, etc. This is NFL_HEADER_GRAPH.
+
+Sure if_flow.h is a poor name and FlowAPI is probably not really great.
+But both those names come from how I model the hardware as match action
+tables. I can change those names to switchdev_resources or
+switchdev_info if folks want.
+
+My point is the interface is generic and provides a common interface for
+most hardware I've seen to date. Certainly curious if there is hardware
+it doesn't map to. Although tables and pipelines seems fairly universal
+for a large set of devices to me. Further it can be extended as needed.
+
+I'll drop the set_rule/del_rule parts to be merged with ebpf/tc/qdisc.
+
+.John
+
+
+> 
+> 
+> Scott Feldman (2):
+>   switchdev: create new switchdev device class
+>   rocker: register each switch as a switchdev
+> 
+>  drivers/net/ethernet/rocker/rocker.c |   23 ++++++++++
+>  include/net/switchdev.h              |   16 +++++++
+>  net/switchdev/switchdev.c            |   76 ++++++++++++++++++++++++++++++++++
+>  3 files changed, 115 insertions(+)
+> 
