@@ -1,56 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next 4/5] net_sched: forbid setting default qdisc
- to inappropriate ones
-Date: Thu, 27 Aug 2015 15:30:46 -0700 (PDT)
-Message-ID: <20150827.153046.2021133935222197667.davem@davemloft.net>
-References: <1440628887-3504-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1440628887-3504-5-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-	stephen@networkplumber.org
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47709 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753682AbbH0Wau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 18:30:50 -0400
-In-Reply-To: <1440628887-3504-5-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCH net-next 0/2] OPENVSWITCH && !NETFILTER build fix.
+Date: Thu, 27 Aug 2015 15:25:44 -0700
+Message-ID: <1440714346-43304-1-git-send-email-joestringer@nicira.com>
+Cc: linux-kernel@vger.kernel.org, pshelar@nicira.com,
+	pablo@netfilter.org
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 26 Aug 2015 15:41:26 -0700
+Fix issues reported by kbuild test robot:
 
-> Currently there is no check for if a qdisc is appropriate
-> to be used as the default qdisc. This causes we get no
-> error even we set the default qdisc to an inappropriate one
-> but an error will be shown up later. This is not good.
-> 
-> Also, for qdisc's like HTB, kernel will just crash when
-> we use it as default qdisc, because some data structures are
-> not even initialized yet before checking opt == NULL, the cleanup
-> doing ->reset() or ->destroy() on them will just crash.
-> 
-> Let's fail as early as we can.
-> 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+All error/warnings (new ones prefixed by >>):
 
-I don't like this.
+   net/openvswitch/actions.c: In function 'ovs_fragment':
+>> net/openvswitch/actions.c:705:16: error: implicit declaration of
+function 'nf_get_ipv6_ops' [-Werror=implicit-function-declaration]
+      const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
+                   ^
+>> net/openvswitch/actions.c:705:37: warning: initialization makes
+pointer from integer without a cast
+      const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
+                                        ^
+>> net/openvswitch/actions.c:707:19: error: storage size of 'ovs_rt'
+isn't known
+      struct rt6_info ovs_rt;
+                      ^
+>> net/openvswitch/actions.c:724:8: error: dereferencing pointer to
+incomplete type
+      v6ops->fragment(skb->sk, skb, ovs_vport_output);
+           ^
+>> net/openvswitch/actions.c:707:19: warning: unused variable 'ovs_rt'
+[-Wunused-variable]
+      struct rt6_info ovs_rt;
+                      ^
+   cc1: some warnings being treated as errors
 
-The situation is that some sophisticated qdiscs can function without
-explicit parameters, some cannot.
+Joe Stringer (2):
+  netfilter: Define v6ops in !CONFIG_NETFILTER case.
+  openvswitch: Include ip6_fib.h.
 
-That is the problem you need to solve.  For example, if "opts" is NULL
-HTB should use a reasonable set of defaults instead of failing.
+ include/linux/netfilter_ipv6.h | 18 +++++++++---------
+ net/openvswitch/actions.c      |  1 +
+ 2 files changed, 10 insertions(+), 9 deletions(-)
 
-Furthermore, you can improve the behavior when this happens.
-
-When qdisc_create_dflt() returns NULL because ops->init() fails, do
-something reasonable.
-
-I'm not applying this patch series, it papers over the issue rather
-than actually addressing it properly.
+-- 
+2.1.4
