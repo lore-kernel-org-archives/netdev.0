@@ -1,98 +1,70 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/2] Add new switchdev device class
-Date: Thu, 27 Aug 2015 01:17:54 -0700
-Message-ID: <CAE4R7bALm24BpczxWjB8V0gUKL+jeE8v4kkDVcegHxm8TYmTYw@mail.gmail.com>
-References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com> <20150827072722.GJ2228@nanopsycho.orion>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH net v4] sctp: asconf's process should verify address
+ parameter is in the beginning
+Date: Thu, 27 Aug 2015 16:25:18 +0800
+Message-ID: <CADvbK_cf9_Y5eaKyA_3sdSHZMd6sc3KHLZ=zYjUxkY7OSR6VLg@mail.gmail.com>
+References: <e003fc0660f6b2eefd25618ea7a037e62952a54d.1440623004.git.lucien.xin@gmail.com>
+	<55DE30A8.7020402@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: network dev <netdev@vger.kernel.org>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	davem <davem@davemloft.net>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:36279 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753101AbbH0ISO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 04:18:14 -0400
-Received: by obkg7 with SMTP id g7so10050974obk.3
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 01:18:13 -0700 (PDT)
-In-Reply-To: <20150827072722.GJ2228@nanopsycho.orion>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:32968 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbbH0IZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 04:25:19 -0400
+Received: by oigm66 with SMTP id m66so1746430oig.0
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 01:25:18 -0700 (PDT)
+In-Reply-To: <55DE30A8.7020402@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 27, 2015 at 12:27 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Aug 27, 2015 at 09:16:44AM CEST, sfeldma@gmail.com wrote:
->>From: Scott Feldman <sfeldma@gmail.com>
+On Thu, Aug 27, 2015 at 5:33 AM, Vlad Yasevich <vyasevic@redhat.com> wrote:
+> On 08/26/2015 05:03 PM, Xin Long wrote:
+>> in sctp_process_asconf(), we get address parameter from the beginning of
+>> the addip params. but we never check if it's really there. if the addr
+>> param is not there, it still can pass sctp_verify_asconf(), then to be
+>> handled by sctp_process_asconf(), it will not be safe.
 >>
->>In the switchdev model, we use netdevs to represent switchdev ports, but we
->>have no representation for the switch itself.  So, introduce a new switchdev
->>device class so we can define semantics and programming interfaces for the
->>switch itself.  Switchdev device class isn't tied to any particular bus.
+>> so add detection in sctp_verify_asconf() to check the address parameter is in
+>> the beginning, or return false to send abort.
 >>
->>This patch set is just the skeleton to get us started.  It adds the sysfs
->>object registration for the new class and defines a class-level attr "foo".
->>With the new class, we could hook PM functions, for example, to handle power
->>transitions at the switch level.  I registered rocker and get:
->>
->>   $ ls /sys/class/switchdev/5254001235010000/
->>   foo  power  subsystem  uevent
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 >
-> No, please avoid adding anything to sysfs. If we need to add anything,
-> lets make is accesible using Netlink only.
-
-I see no harm in using the device model to define and new device class
-which just so happens to show up in sysfs.  What sysfs attrs get
-exposed is where we can have some discussion/rules.
-
->>So what next?  I'd rather not build APIs around sysfs, so we need a netlink API
->>we can build on top of this.  It's not really rtnl.  Maybe genl would work?
->>What ever it is, we'd need to teach iproute2 about a new 'switch' command.
->>
->>Netlink API would allow us to represent switch-wide objects such as registers,
->>tables, stats, firmware, and maybe even control.  I think with with netlink
->>TLVs, we can create a framework for these objects but still allow the switch
->>driver provide switch-specific info.  For example, a table object:
->>
->>[TABLES]
->>       [TABLE]
->>               [FIELDS]
->>                       [FIELD]
->>                               [ID, TYPE]
->>               [DATA]
->>                       [ID, VALUE]
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 >
-> Alert! I feel that someone would like to abuse this iface for writing
-> configuration through. This should be read-only by design. I also think
-> that this should not be something switch-specific. I believe that NIC
-> drivers would benefit from this iface as well when they want to expose
-> something. I think we should use genl for this.
-
-Read-only is fine.  Look, I'm just trying to dump rocker internal
-tables in some format I can grep outside the kernel.  The tables are
-get big and complicated fast and printk doesn't cut it.   I can use
-degugfs privately, but I need to be able to dump same for field
-troubleshooting.   I can't use debugfs, so I want some kind of
-XML-like dump facility.  It's going to have device-specific data, so
-I'm looking for an XML-like way to represent this data in netlink.
-
->>
->>Maybe iproute2 has pretty-printers for specific switches like ethtool has for
->>reg dumps.
+> -vlad
 >
-> I feel like a lot of what you described overlaps with existing
-> interfaces and tools. Why don't we just reuse that? For firmware for
-> example, just take one of the ports. Same for stats (I plan to expose my
-> mlxsw switch-wide stats in ethtool so they are accessible through every
-> port netdevice).
+>> ---
+>>  net/sctp/sm_make_chunk.c | 6 ++++--
+>>  1 file changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+>> index 06320c8..f3fc881 100644
+>> --- a/net/sctp/sm_make_chunk.c
+>> +++ b/net/sctp/sm_make_chunk.c
+>> @@ -3132,12 +3132,14 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
+>>               case SCTP_PARAM_IPV4_ADDRESS:
+>>                       if (length != sizeof(sctp_ipv4addr_param_t))
+>>                               return false;
+>> -                     addr_param_seen = true;
+>> +                     if (param.v == addip->addip_hdr.params)
+>> +                             addr_param_seen = true;
+>>                       break;
+>>               case SCTP_PARAM_IPV6_ADDRESS:
+>>                       if (length != sizeof(sctp_ipv6addr_param_t))
+>>                               return false;
+>> -                     addr_param_seen = true;
+>> +                     if (param.v == addip->addip_hdr.params)
+>> +                             addr_param_seen = true;
+>>                       break;
+>>               case SCTP_PARAM_ADD_IP:
+>>               case SCTP_PARAM_DEL_IP:
+>>
+>
 
-Port-centric stats are fine for port netdevs, but I'd like switch-wide
-stats to show up elsewhere.
-
-Thinking ahead: I'd like to put port into namespaces and I don't want
-to dump stats on a port and see stats on ports in other namespaces.
-
-> I still do not see the need for new device class. I have strong feeling
-> that it should be avoided.
-
-Ok
+let's forget this one, I will repost.
