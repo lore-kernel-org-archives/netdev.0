@@ -1,35 +1,38 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v5 net-next 7/8] geneve: Consolidate Geneve functionality
- in single module.
-Date: Thu, 27 Aug 2015 13:28:43 -0400
-Message-ID: <20150827172843.GB8113@tuxdriver.com>
-References: <1440658015-13028-1-git-send-email-pshelar@nicira.com>
- <1440658015-13028-8-git-send-email-pshelar@nicira.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [patch net-next v2 2/3] mlxsw: adjust transmit fail log message
+ level in __mlxsw_emad_transmit
+Date: Thu, 27 Aug 2015 10:56:20 -0700
+Message-ID: <1440698180.11525.98.camel@perches.com>
+References: <1440691197-25780-1-git-send-email-jiri@resnulli.us>
+	 <1440691197-25780-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, ogerlitz@mellanox.com,
+	Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41989 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbbH0RaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 13:30:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1440658015-13028-8-git-send-email-pshelar@nicira.com>
+Received: from smtprelay0095.hostedemail.com ([216.40.44.95]:58160 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751329AbbH0R4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 13:56:24 -0400
+In-Reply-To: <1440691197-25780-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 26, 2015 at 11:46:54PM -0700, Pravin B Shelar wrote:
-> geneve_core module handles send and receive functionality.
-> This way OVS could use the Geneve API. Now with use of
-> tunnel meatadata mode OVS can directly use Geneve netdevice.
-> So there is no need for separate module for Geneve. Following
-> patch consolidates Geneve protocol processing in single module.
-> 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+On Thu, 2015-08-27 at 17:59 +0200, Jiri Pirko wrote:
+> When transmit fails, it is an error, not a warning.
+[]
+> diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+[]
+> @@ -376,8 +376,8 @@ static int __mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
+>  
+>  	err = mlxsw_core_skb_transmit(mlxsw_core->driver_priv, skb, tx_info);
+>  	if (err) {
+> -		dev_warn(mlxsw_core->bus_info->dev, "Failed to transmit EMAD (tid=%llx)\n",
+> -			 mlxsw_core->emad.tid);
+> +		dev_err(mlxsw_core->bus_info->dev, "Failed to transmit EMAD (tid=%llx)\n",
+> +			mlxsw_core->emad.tid);
 
-Acked-by: John W. Linville <linville@tuxdriver.com>
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+dev_err_ratelimited?
