@@ -1,119 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 3/5] net: Add helper function to compare inetpeer addresses
-Date: Thu, 27 Aug 2015 14:16:31 -0700
-Message-ID: <1440710193-4824-4-git-send-email-dsa@cumulusnetworks.com>
-References: <1440710193-4824-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net v3] sctp: donot reset the overall_error_count in
+ SHUTDOWN_RECEIVE state
+Date: Thu, 27 Aug 2015 18:18:35 -0300
+Message-ID: <20150827211835.GQ1873@localhost.localdomain>
+References: <5b69e6d52b777923b9224315d11adbf9bd24077e.1440622340.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
+	vyasevic@redhat.com
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34938 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635AbbH0VR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 17:17:59 -0400
-Received: by pacdd16 with SMTP id dd16so37742708pac.2
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 14:17:59 -0700 (PDT)
-In-Reply-To: <1440710193-4824-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59071 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751942AbbH0VSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Aug 2015 17:18:37 -0400
+Content-Disposition: inline
+In-Reply-To: <5b69e6d52b777923b9224315d11adbf9bd24077e.1440622340.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_metrics and inetpeer both have functions to compare inetpeer
-addresses. Consolidate into 1 version.
+On Thu, Aug 27, 2015 at 04:52:20AM +0800, Xin Long wrote:
+> Commit f8d960524328 ("sctp: Enforce retransmission limit during shutdown")
+> fixed a problem with excessive retransmissions in the SHUTDOWN_PENDING by not
+> resetting the association overall_error_count.  This allowed the association
+> to better enforce assoc.max_retrans limit.
+> 
+> However, the same issue still exists when the association is in SHUTDOWN_RECEIVED
+> state.  In this state, HB-ACKs will continue to reset the overall_error_count
+> for the association would extend the lifetime of association unnecessarily.
+> 
+> This patch solves this by resetting the overall_error_count whenever the current
+> state is small then SCTP_STATE_SHUTDOWN_PENDING.  As a small side-effect, we
+> end up also handling SCTP_STATE_SHUTDOWN_ACK_SENT and SCTP_STATE_SHUTDOWN_SENT
+> states, but they are not really impacted because we disable Heartbeats in those
+> states.
+> 
+> Fixes: Commit f8d960524328 ("sctp: Enforce retransmission limit during shutdown")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/inetpeer.h | 16 ++++++++++++++++
- net/ipv4/inetpeer.c    | 20 ++------------------
- net/ipv4/tcp_metrics.c |  6 +-----
- 3 files changed, 19 insertions(+), 23 deletions(-)
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+thx
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index f75b9e7036a2..9d9b3446731d 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -121,6 +121,22 @@ static inline struct inet_peer *inet_getpeer_v6(struct inet_peer_base *base,
- 	return inet_getpeer(base, &daddr, create);
- }
- 
-+static inline int inetpeer_addr_cmp(const struct inetpeer_addr *a,
-+				    const struct inetpeer_addr *b)
-+{
-+	int i, n = (a->family == AF_INET ? 1 : 4);
-+
-+	for (i = 0; i < n; i++) {
-+		if (a->addr.a6[i] == b->addr.a6[i])
-+			continue;
-+		if ((__force u32)a->addr.a6[i] < (__force u32)b->addr.a6[i])
-+			return -1;
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
- /* can be called from BH context or outside */
- void inet_putpeer(struct inet_peer *p);
- bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout);
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 241afd743d2c..86fa45809540 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -157,22 +157,6 @@ void __init inet_initpeers(void)
- 	INIT_DEFERRABLE_WORK(&gc_work, inetpeer_gc_worker);
- }
- 
--static int addr_compare(const struct inetpeer_addr *a,
--			const struct inetpeer_addr *b)
--{
--	int i, n = (a->family == AF_INET ? 1 : 4);
--
--	for (i = 0; i < n; i++) {
--		if (a->addr.a6[i] == b->addr.a6[i])
--			continue;
--		if ((__force u32)a->addr.a6[i] < (__force u32)b->addr.a6[i])
--			return -1;
--		return 1;
--	}
--
--	return 0;
--}
--
- #define rcu_deref_locked(X, BASE)				\
- 	rcu_dereference_protected(X, lockdep_is_held(&(BASE)->lock.lock))
- 
-@@ -188,7 +172,7 @@ static int addr_compare(const struct inetpeer_addr *a,
- 	*stackptr++ = &_base->root;				\
- 	for (u = rcu_deref_locked(_base->root, _base);		\
- 	     u != peer_avl_empty;) {				\
--		int cmp = addr_compare(_daddr, &u->daddr);	\
-+		int cmp = inetpeer_addr_cmp(_daddr, &u->daddr);	\
- 		if (cmp == 0)					\
- 			break;					\
- 		if (cmp == -1)					\
-@@ -215,7 +199,7 @@ static struct inet_peer *lookup_rcu(const struct inetpeer_addr *daddr,
- 	int count = 0;
- 
- 	while (u != peer_avl_empty) {
--		int cmp = addr_compare(daddr, &u->daddr);
-+		int cmp = inetpeer_addr_cmp(daddr, &u->daddr);
- 		if (cmp == 0) {
- 			/* Before taking a reference, check if this entry was
- 			 * deleted (refcnt=-1)
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 4ef4dd4bf38c..c8cbc2b4b792 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -81,11 +81,7 @@ static void tcp_metric_set(struct tcp_metrics_block *tm,
- static bool addr_same(const struct inetpeer_addr *a,
- 		      const struct inetpeer_addr *b)
- {
--	if (a->family != b->family)
--		return false;
--	if (a->family == AF_INET)
--		return a->addr.a4 == b->addr.a4;
--	return ipv6_addr_equal(&a->addr.in6, &b->addr.in6);
-+	return inetpeer_addr_cmp(a, b) == 0;
- }
- 
- struct tcpm_hash_bucket {
--- 
-1.9.1
+> ---
+>  net/sctp/sm_sideeffect.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index fef2acd..85e6f03 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -702,7 +702,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
+>  	 * outstanding data and rely on the retransmission limit be reached
+>  	 * to shutdown the association.
+>  	 */
+> -	if (t->asoc->state != SCTP_STATE_SHUTDOWN_PENDING)
+> +	if (t->asoc->state < SCTP_STATE_SHUTDOWN_PENDING)
+>  		t->asoc->overall_error_count = 0;
+>  
+>  	/* Clear the hb_sent flag to signal that we had a good
+> -- 
+> 2.1.0
+> 
