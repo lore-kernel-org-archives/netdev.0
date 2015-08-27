@@ -1,151 +1,124 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 5/5] net: Add support for VRFs to inetpeer cache
-Date: Thu, 27 Aug 2015 14:16:33 -0700
-Message-ID: <1440710193-4824-6-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 4/5] net: Refactor inetpeer address struct
+Date: Thu, 27 Aug 2015 14:16:32 -0700
+Message-ID: <1440710193-4824-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1440710193-4824-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33353 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751794AbbH0VSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 17:18:02 -0400
-Received: by pacti10 with SMTP id ti10so38515142pac.0
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 14:18:01 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34746 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728AbbH0VSA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 17:18:00 -0400
+Received: by pabzx8 with SMTP id zx8so37912345pab.1
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 14:18:00 -0700 (PDT)
 In-Reply-To: <1440710193-4824-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inetpeer caches based on address only, so duplicate IP addresses within
-a namespace return the same cached entry. Enhance the ipv4 address key
-to contain both the IPv4 address and VRF device index.
+Move the inetpeer_addr_base union to inetpeer_addr and drop
+inetpeer_addr_base.
+
+Both the a6 and in6_addr overlays are not needed; drop the __be32 version
+and rename in6 to a6 for consistency with ipv4. Add a new u32 array to
+the union which removes the need for the typecast in the compare function
+and the use of a consistent arg for both ipv4 and ipv6 addresses which
+makes the compare function more readable.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/inetpeer.h | 17 ++++++++++++-----
- net/ipv4/icmp.c        |  3 ++-
- net/ipv4/ip_fragment.c |  3 ++-
- net/ipv4/route.c       |  7 +++++--
- 4 files changed, 21 insertions(+), 9 deletions(-)
+ include/net/inetpeer.h | 30 ++++++++++++++----------------
+ 1 file changed, 14 insertions(+), 16 deletions(-)
 
 diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index e96bada9d19a..b372004dca3e 100644
+index 9d9b3446731d..e96bada9d19a 100644
 --- a/include/net/inetpeer.h
 +++ b/include/net/inetpeer.h
-@@ -15,11 +15,17 @@
+@@ -15,16 +15,14 @@
  #include <net/ipv6.h>
  #include <linux/atomic.h>
  
-+/* IPv4 address key for cache lookups */
-+struct ipv4_addr_key {
-+	__be32 addr;
-+	int vif;
-+};
+-struct inetpeer_addr_base {
++#define INETPEER_MAXKEYSZ   (sizeof(struct in6_addr) / sizeof(u32))
 +
- #define INETPEER_MAXKEYSZ   (sizeof(struct in6_addr) / sizeof(u32))
- 
- struct inetpeer_addr {
++struct inetpeer_addr {
  	union {
--		__be32			a4;
-+		struct ipv4_addr_key	a4;
- 		struct in6_addr		a6;
- 		u32			key[INETPEER_MAXKEYSZ];
+ 		__be32			a4;
+-		__be32			a6[4];
+-		struct in6_addr		in6;
++		struct in6_addr		a6;
++		u32			key[INETPEER_MAXKEYSZ];
  	};
-@@ -71,13 +77,13 @@ void inet_initpeers(void) __init;
+-};
+-
+-struct inetpeer_addr {
+-	struct inetpeer_addr_base	addr;
+ 	__u16				family;
+ };
+ 
+@@ -73,25 +71,25 @@ void inet_initpeers(void) __init;
  
  static inline void inetpeer_set_addr_v4(struct inetpeer_addr *iaddr, __be32 ip)
  {
--	iaddr->a4 = ip;
-+	iaddr->a4.addr = ip;
+-	iaddr->addr.a4 = ip;
++	iaddr->a4 = ip;
  	iaddr->family = AF_INET;
  }
  
  static inline __be32 inetpeer_get_addr_v4(struct inetpeer_addr *iaddr)
  {
--	return iaddr->a4;
-+	return iaddr->a4.addr;
+-	return iaddr->addr.a4;
++	return iaddr->a4;
  }
  
  static inline void inetpeer_set_addr_v6(struct inetpeer_addr *iaddr,
-@@ -99,11 +105,12 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
+ 					struct in6_addr *in6)
+ {
+-	iaddr->addr.in6 = *in6;
++	iaddr->a6 = *in6;
+ 	iaddr->family = AF_INET6;
+ }
  
- static inline struct inet_peer *inet_getpeer_v4(struct inet_peer_base *base,
- 						__be32 v4daddr,
--						int create)
-+						int vif, int create)
+ static inline struct in6_addr *inetpeer_get_addr_v6(struct inetpeer_addr *iaddr)
+ {
+-	return &iaddr->addr.in6;
++	return &iaddr->a6;
+ }
+ 
+ /* can be called with or without local BH being disabled */
+@@ -105,7 +103,7 @@ static inline struct inet_peer *inet_getpeer_v4(struct inet_peer_base *base,
  {
  	struct inetpeer_addr daddr;
  
--	daddr.a4 = v4daddr;
-+	daddr.a4.addr = v4daddr;
-+	daddr.a4.vif = vif;
+-	daddr.addr.a4 = v4daddr;
++	daddr.a4 = v4daddr;
  	daddr.family = AF_INET;
  	return inet_getpeer(base, &daddr, create);
  }
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index f16488efa1c8..79fe05befcae 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -309,9 +309,10 @@ static bool icmpv4_xrlim_allow(struct net *net, struct rtable *rt,
+@@ -116,7 +114,7 @@ static inline struct inet_peer *inet_getpeer_v6(struct inet_peer_base *base,
+ {
+ 	struct inetpeer_addr daddr;
  
- 	rc = false;
- 	if (icmp_global_allow()) {
-+		int vif = vrf_master_ifindex(dst->dev);
- 		struct inet_peer *peer;
- 
--		peer = inet_getpeer_v4(net->ipv4.peers, fl4->daddr, 1);
-+		peer = inet_getpeer_v4(net->ipv4.peers, fl4->daddr, vif, 1);
- 		rc = inet_peer_xrlim_allow(peer,
- 					   net->ipv4.sysctl_icmp_ratelimit);
- 		if (peer)
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 15762e758861..fa7f15305f9a 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -151,7 +151,8 @@ static void ip4_frag_init(struct inet_frag_queue *q, const void *a)
- 	qp->vif = arg->vif;
- 	qp->user = arg->user;
- 	qp->peer = sysctl_ipfrag_max_dist ?
--		inet_getpeer_v4(net->ipv4.peers, arg->iph->saddr, 1) : NULL;
-+		inet_getpeer_v4(net->ipv4.peers, arg->iph->saddr, arg->vif, 1) :
-+		NULL;
+-	daddr.addr.in6 = *v6daddr;
++	daddr.a6 = *v6daddr;
+ 	daddr.family = AF_INET6;
+ 	return inet_getpeer(base, &daddr, create);
  }
+@@ -124,12 +122,12 @@ static inline struct inet_peer *inet_getpeer_v6(struct inet_peer_base *base,
+ static inline int inetpeer_addr_cmp(const struct inetpeer_addr *a,
+ 				    const struct inetpeer_addr *b)
+ {
+-	int i, n = (a->family == AF_INET ? 1 : 4);
++	int i, n = (a->family == AF_INET ? sizeof(a->a4) : sizeof(a->a6));
  
- static void ip4_frag_free(struct inet_frag_queue *q)
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 0b8a6531ef03..e1a60f6c1aad 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -838,6 +838,7 @@ void ip_rt_send_redirect(struct sk_buff *skb)
- 	struct inet_peer *peer;
- 	struct net *net;
- 	int log_martians;
-+	int vif;
- 
- 	rcu_read_lock();
- 	in_dev = __in_dev_get_rcu(rt->dst.dev);
-@@ -846,10 +847,11 @@ void ip_rt_send_redirect(struct sk_buff *skb)
- 		return;
+ 	for (i = 0; i < n; i++) {
+-		if (a->addr.a6[i] == b->addr.a6[i])
++		if (a->key[i] == b->key[i])
+ 			continue;
+-		if ((__force u32)a->addr.a6[i] < (__force u32)b->addr.a6[i])
++		if (a->key[i] < b->key[i])
+ 			return -1;
+ 		return 1;
  	}
- 	log_martians = IN_DEV_LOG_MARTIANS(in_dev);
-+	vif = vrf_master_ifindex_rcu(rt->dst.dev);
- 	rcu_read_unlock();
- 
- 	net = dev_net(rt->dst.dev);
--	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, 1);
-+	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, vif, 1);
- 	if (!peer) {
- 		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST,
- 			  rt_nexthop(rt, ip_hdr(skb)->daddr));
-@@ -938,7 +940,8 @@ static int ip_error(struct sk_buff *skb)
- 		break;
- 	}
- 
--	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr, 1);
-+	peer = inet_getpeer_v4(net->ipv4.peers, ip_hdr(skb)->saddr,
-+			       vrf_master_ifindex(skb->dev), 1);
- 
- 	send = true;
- 	if (peer) {
 -- 
 1.9.1
