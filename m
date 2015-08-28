@@ -1,23 +1,37 @@
-From: Tan Wong <srinu.meesala@iiserpune.ac.in>
-Subject: Re
-Date: Sat, 29 Aug 2015 02:05:22 +0530 (IST)
-Message-ID: <73923671.1905339.1440794122679.JavaMail.root__5731.71523069522$1440795082$gmane$org@iiserpune.ac.in>
-Reply-To: Tan Wong <tanwong726@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
+ walking all the percpu data at once
+Date: Fri, 28 Aug 2015 13:53:31 -0700
+Message-ID: <1440795211.11525.146.camel@perches.com>
+References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+	 <20150827.113823.214019265460582055.davem@davemloft.net>
+	 <55E00238.10909@linux.vnet.ibm.com>
+	 <20150828.112413.424099339331017970.davem@davemloft.net>
+	 <1440789654.11525.137.camel@perches.com>
+	 <1440794020.8932.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.iiserpune.ac.in ([210.212.192.141]:44071 "EHLO
-	zimbra.iiserpune.ac.in" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752481AbbH1Uuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 16:50:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	raghavendra.kt@linux.vnet.ibm.com, edumazet@google.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jiri@resnulli.us, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	serge.hallyn@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
+	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440794020.8932.45.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 2015-08-28 at 13:33 -0700, Eric Dumazet wrote:
+> We do not bother for small struct.
+> 
+> Here, the array is big enough that David prefers having an explicit
+> memset() so that it clearly shows that author of this code was aware of
+> this.
 
-
-I am Mr.Tan Wong director of operations, HangSeng Bank,Hong Kong.I have urgent and confidential business proposition involving transfer of $24,500,000.00 that will be of great benefit for both of us. I will give you more details as regards this transaction as soon as you notify me of your interest. Awaiting your urgent reply 
-
-Kind Regards
-Tan Wong
+It's 288 bytes on stack, maybe a kzalloc would be clearer too.
