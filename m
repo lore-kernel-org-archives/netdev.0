@@ -1,24 +1,36 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 0/2] Some phylib simplifications
-Date: Fri, 28 Aug 2015 21:33:43 +0300
-Message-ID: <2163825.63u61975nF@wasted.cogentembedded.com>
+Subject: [PATCH 1/2] phylib: simplify bogus phy_device_create() result
+Date: Fri, 28 Aug 2015 21:34:34 +0300
+Message-ID: <36033068.aJZvyM7bre@wasted.cogentembedded.com>
+References: <2163825.63u61975nF@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, f.fainelli@gmail.com
+Cc: f.fainelli@gmail.com, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2163825.63u61975nF@wasted.cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Get rid of the bogus string of type casts where ERR_PTR() is enough.
 
-   Here's 2 patches against DaveM's 'net-next.git' repo. We simplify a bogus
-string of type casts in the 1st patch and make the code respect some coding
-standards of the networking code in the 2nd one. I may follow with fixing of
-checkpatch.pl's complaints. if I have time..
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-[1/2] phylib: simplify bogus phy_device_create() result
-[2/2] phylib: simplify NULL checks
+---
+ drivers/net/phy/phy_device.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-MBR, Sergei
+Index: net-next/drivers/net/phy/phy_device.c
+===================================================================
+--- net-next.orig/drivers/net/phy/phy_device.c
++++ net-next/drivers/net/phy/phy_device.c
+@@ -157,7 +157,7 @@ struct phy_device *phy_device_create(str
+ 	/* We allocate the device, and initialize the default values */
+ 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+ 	if (NULL == dev)
+-		return (struct phy_device *)PTR_ERR((void *)-ENOMEM);
++		return ERR_PTR(-ENOMEM);
+ 
+ 	dev->dev.release = phy_device_release;
+ 
