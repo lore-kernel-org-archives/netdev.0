@@ -1,67 +1,42 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 7/9] netfilter: ip6t_REJECT: added missing icmpv6 codes
-Date: Sat, 29 Aug 2015 00:50:15 +0200
-Message-ID: <1440802217-13080-8-git-send-email-pablo@netfilter.org>
-References: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: [PATCH net-next] netpoll: warn on netpoll_send_udp users who haven't disabled irqs
+Date: Fri, 28 Aug 2015 15:44:25 -0700
+Message-ID: <1440801865-9626-1-git-send-email-razor@blackwall.org>
+Cc: davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36779 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753263AbbH1Woh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 18:44:37 -0400
+Received: by padhm10 with SMTP id hm10so20086298pad.3
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 15:44:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Herz <andi@geekosphere.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-RFC 4443 added two new codes values for ICMPv6 type 1:
+Make sure we catch future netpoll_send_udp users who use it without
+disabling irqs and also as a hint for poll_controller users.
 
- 5 - Source address failed ingress/egress policy
- 6 - Reject route to destination
-
-And RFC 7084 states in L-14 that IPv6 Router MUST send ICMPv6 Destination
-Unreachable with code 5 for packets forwarded to it that use an address
-from a prefix that has been invalidated.
-
-Codes 5 and 6 are more informative subsets of code 1.
-
-Signed-off-by: Andreas Herz <andi@geekosphere.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- include/uapi/linux/netfilter_ipv6/ip6t_REJECT.h |    4 +++-
- net/ipv6/netfilter/ip6t_REJECT.c                |    6 ++++++
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ net/core/netpoll.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/uapi/linux/netfilter_ipv6/ip6t_REJECT.h b/include/uapi/linux/netfilter_ipv6/ip6t_REJECT.h
-index 205ed62..cd2e940 100644
---- a/include/uapi/linux/netfilter_ipv6/ip6t_REJECT.h
-+++ b/include/uapi/linux/netfilter_ipv6/ip6t_REJECT.h
-@@ -10,7 +10,9 @@ enum ip6t_reject_with {
- 	IP6T_ICMP6_ADDR_UNREACH,
- 	IP6T_ICMP6_PORT_UNREACH,
- 	IP6T_ICMP6_ECHOREPLY,
--	IP6T_TCP_RESET
-+	IP6T_TCP_RESET,
-+	IP6T_ICMP6_POLICY_FAIL,
-+	IP6T_ICMP6_REJECT_ROUTE
- };
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index c126a878c47c..6aa3db8dfc3b 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -380,6 +380,8 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ 	static atomic_t ip_ident;
+ 	struct ipv6hdr *ip6h;
  
- struct ip6t_reject_info {
-diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
-index 567367a..0ed841a 100644
---- a/net/ipv6/netfilter/ip6t_REJECT.c
-+++ b/net/ipv6/netfilter/ip6t_REJECT.c
-@@ -63,6 +63,12 @@ reject_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 	case IP6T_TCP_RESET:
- 		nf_send_reset6(net, skb, par->hooknum);
- 		break;
-+	case IP6T_ICMP6_POLICY_FAIL:
-+		nf_send_unreach6(net, skb, ICMPV6_POLICY_FAIL, par->hooknum);
-+		break;
-+	case IP6T_ICMP6_REJECT_ROUTE:
-+		nf_send_unreach6(net, skb, ICMPV6_REJECT_ROUTE, par->hooknum);
-+		break;
- 	}
- 
- 	return NF_DROP;
++	WARN_ON_ONCE(!irqs_disabled());
++
+ 	udp_len = len + sizeof(*udph);
+ 	if (np->ipv6)
+ 		ip_len = udp_len + sizeof(*ip6h);
 -- 
-1.7.10.4
-
+2.4.3
