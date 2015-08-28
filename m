@@ -1,56 +1,37 @@
-From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Subject: [PATCH net] netlink: mmap: fix lookup frame position
-Date: Fri, 28 Aug 2015 16:05:20 +0900
-Message-ID: <20150828070520.GB32596@gmail.com>
-References: <55CDBC84.8020605@iogearbox.net>
- <55CDC51D.1060204@iogearbox.net>
- <20150820055447.GA2656@gmail.com>
- <20150825.201712.2151042716686513603.davem@davemloft.net>
- <20150828070058.GA32596@gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next v5 00/11] ipv6: Only create RTF_CACHE route
+ after encountering pmtu exception
+Date: Fri, 28 Aug 2015 00:36:38 -0700
+Message-ID: <20150828073429.GA67211@kafai-mba.gkf168.com>
+References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
+ <55B89C14.2070700@ahsoftware.de>
+ <55BA1144.9090203@ahsoftware.de>
+ <55CEEECA.8000702@ahsoftware.de>
+ <55D1ACB8.3040500@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, fw@strlen.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33308 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751054AbbH1HF0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 03:05:26 -0400
-Received: by padfo6 with SMTP id fo6so14455237pad.0
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 00:05:25 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Kernel Team <Kernel-team@fb.com>, <stable@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Alexander Holler <holler@ahsoftware.de>
+Return-path: <stable-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150828070058.GA32596@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <55D1ACB8.3040500@ahsoftware.de>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-__netlink_lookup_frame() was always called with the same "pos"
-value in netlink_forward_ring(). It will look at the same ring entry
-header over and over again, every time through this loop. Then cycle
-through the whole ring, advancing ring->head, not "pos" until it
-equals the "ring->head != head" loop test fails.
+On Mon, Aug 17, 2015 at 11:43:20AM +0200, Alexander Holler wrote:
+> That's why I vote to check out if it's possible/reasonable to backport this
+> series to the stable kernels.
+I have backported to 4.0.y without major issue, so possible.
 
-Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
----
- net/netlink/af_netlink.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I did try on 3.1x and gave up.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index a774985..39fa91f 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -610,11 +610,11 @@ static void netlink_increment_head(struct netlink_ring *ring)
- 
- static void netlink_forward_ring(struct netlink_ring *ring)
- {
--	unsigned int head = ring->head, pos = head;
-+	unsigned int head = ring->head;
- 	const struct nl_mmap_hdr *hdr;
- 
- 	do {
--		hdr = __netlink_lookup_frame(ring, pos);
-+		hdr = __netlink_lookup_frame(ring, ring->head);
- 		if (hdr->nm_status == NL_MMAP_STATUS_UNUSED)
- 			break;
- 		if (hdr->nm_status != NL_MMAP_STATUS_SKIP)
--- 
-1.7.10.4
+It is a lot of changes,  so I don't think it is a good idea for -stable.
+
+Thanks,
+Martin
