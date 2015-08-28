@@ -1,125 +1,33 @@
-From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Subject: Re: [PATCH 2/2] usbnet: Fix a race between usbnet_stop() and the BH
-Date: Fri, 28 Aug 2015 11:09:52 +0300
-Message-ID: <55E01750.4010202@rosalab.ru>
-References: <55AD3A41.2040100@rosalab.ru>
- <1440447223-15945-1-git-send-email-eugene.shatokhin@rosalab.ru>
- <1440447223-15945-3-git-send-email-eugene.shatokhin@rosalab.ru>
- <87k2sk9zaf.fsf@nemi.mork.no>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] route: fix breakage after moving lwtunnel
+ state
+Date: Fri, 28 Aug 2015 10:36:25 +0200
+Message-ID: <20150828103625.51502177@griffin>
+References: <a80cafb781c91314f90613c3e7d2ed4268eb4f06.1440153500.git.jbenc@redhat.com>
+	<20150823.165103.2104601245219561984.davem@davemloft.net>
+	<20150826181926.0444240f@griffin>
+	<20150826221330.GB31292@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum@suse.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from collab.rosalab.ru ([195.19.76.181]:46689 "EHLO
-	collab.rosalab.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751418AbbH1IJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 04:09:55 -0400
-In-Reply-To: <87k2sk9zaf.fsf@nemi.mork.no>
+Received: from mx1.redhat.com ([209.132.183.28]:38400 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751422AbbH1Ig3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Aug 2015 04:36:29 -0400
+In-Reply-To: <20150826221330.GB31292@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-25.08.2015 00:01, Bj=C3=B8rn Mork =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
->
->> The race may happen when a device (e.g. YOTA 4G LTE Modem) is
->> unplugged while the system is downloading a large file from the Net.
->>
->> Hardware breakpoints and Kprobes with delays were used to confirm th=
-at
->> the race does actually happen.
->>
->> The race is on skb_queue ('next' pointer) between usbnet_stop()
->> and rx_complete(), which, in turn, calls usbnet_bh().
->>
->> Here is a part of the call stack with the code where the changes to =
-the
->> queue happen. The line numbers are for the kernel 4.1.0:
->>
->> *0 __skb_unlink (skbuff.h:1517)
->>      prev->next =3D next;
->> *1 defer_bh (usbnet.c:430)
->>      spin_lock_irqsave(&list->lock, flags);
->>      old_state =3D entry->state;
->>      entry->state =3D state;
->>      __skb_unlink(skb, list);
->>      spin_unlock(&list->lock);
->>      spin_lock(&dev->done.lock);
->>      __skb_queue_tail(&dev->done, skb);
->>      if (dev->done.qlen =3D=3D 1)
->>          tasklet_schedule(&dev->bh);
->>      spin_unlock_irqrestore(&dev->done.lock, flags);
->> *2 rx_complete (usbnet.c:640)
->>      state =3D defer_bh(dev, skb, &dev->rxq, state);
->>
->> At the same time, the following code repeatedly checks if the queue =
-is
->> empty and reads these values concurrently with the above changes:
->>
->> *0  usbnet_terminate_urbs (usbnet.c:765)
->>      /* maybe wait for deletions to finish. */
->>      while (!skb_queue_empty(&dev->rxq)
->>          && !skb_queue_empty(&dev->txq)
->>          && !skb_queue_empty(&dev->done)) {
->>              schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
->>              set_current_state(TASK_UNINTERRUPTIBLE);
->>              netif_dbg(dev, ifdown, dev->net,
->>                    "waited for %d urb completions\n", temp);
->>      }
->> *1  usbnet_stop (usbnet.c:806)
->>      if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
->>          usbnet_terminate_urbs(dev);
->>
->> As a result, it is possible, for example, that the skb is removed fr=
-om
->> dev->rxq by __skb_unlink() before the check
->> "!skb_queue_empty(&dev->rxq)" in usbnet_terminate_urbs() is made. It=
- is
->> also possible in this case that the skb is added to dev->done queue
->> after "!skb_queue_empty(&dev->done)" is checked. So
->> usbnet_terminate_urbs() may stop waiting and return while dev->done
->> queue still has an item.
->
-> Exactly what problem will that result in?  The tasklet_kill() will wa=
-it
-> for the processing of the single element done queue, and everything w=
-ill
-> be fine.  Or?
+On Thu, 27 Aug 2015 00:13:30 +0200, Thomas Graf wrote:
+> Did you test with a card that features UDP encapsulation offloads?
 
-Given enough time, what prevents defer_bh() from calling=20
-tasklet_schedule(&dev->bh) *after* usbnet_stop() calls tasklet_kill()?
+No, I did not. I do have access to NICs supporting it but I think in
+this case, the numbers without vxlan offloading were more interesting.
 
-Consider the following situation (assuming '&&' are changed to '||' in=20
-that while loop in usbnet_terminate_urbs() as they should be):
+ Jiri
 
-CPU0                            CPU1
-usbnet_stop()                   defer_bh() with list =3D=3D dev->rxq
-   usbnet_terminate_urbs()
-                                 __skb_unlink() removes the last
-                                 skb from dev->rxq.
-                                 dev->rxq, dev->txq and dev->done
-                                 are now empty.
-   while (!skb_queue_empty()...)
-     The loop ends because all 3
-     queues are now empty.
-
-   usbnet_terminate_urbs() ends.
-
-usbnet_stop() continues:
-   usbnet_status_stop(dev);
-   ...
-   del_timer_sync (&dev->delay);
-   tasklet_kill (&dev->bh);
-                                 __skb_queue_tail(&dev->done, skb);
-                                 if (dev->done.qlen =3D=3D 1)
-                                   tasklet_schedule(&dev->bh);
-
-The BH is scheduled at this point, which is not what was intended. The=20
-race window is small, but still.
-
-Regards,
-Eugene
+-- 
+Jiri Benc
