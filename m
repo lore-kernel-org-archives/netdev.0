@@ -1,75 +1,90 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next 2/3] net: fib6: reduce identation in ip6_convert_metrics
-Date: Fri, 28 Aug 2015 14:11:08 +0200
-Message-ID: <1440763869-23067-3-git-send-email-fw@strlen.de>
-References: <1440763869-23067-1-git-send-email-fw@strlen.de>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-To: <netdev@vger.kernel.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next] macvtap/macvlan: use IFF_NO_QUEUE
+Date: Fri, 28 Aug 2015 08:25:54 -0400
+Message-ID: <55E05352.9040808@redhat.com>
+References: <1440405192-25926-1-git-send-email-jasowang@redhat.com> <20150825131608-mutt-send-email-mst@redhat.com> <55DC51C1.5090201@redhat.com> <55DC98A3.7010601@redhat.com> <55DD527A.8040806@redhat.com> <20150827134102-mutt-send-email-mst@redhat.com> <55DFCA7B.8050908@redhat.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:57667 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751759AbbH1MLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 08:11:20 -0400
-In-Reply-To: <1440763869-23067-1-git-send-email-fw@strlen.de>
+Received: from mx1.redhat.com ([209.132.183.28]:44468 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751844AbbH1MZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Aug 2015 08:25:56 -0400
+In-Reply-To: <55DFCA7B.8050908@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
+On 08/27/2015 10:42 PM, Jason Wang wrote:
+> 
+> 
+> On 08/27/2015 06:43 PM, Michael S. Tsirkin wrote:
+>> On Wed, Aug 26, 2015 at 01:45:30PM +0800, Jason Wang wrote:
+>>>
+>>> On 08/26/2015 12:32 AM, Vlad Yasevich wrote:
+>>>> On 08/25/2015 07:30 AM, Jason Wang wrote:
+>>>>> On 08/25/2015 06:17 PM, Michael S. Tsirkin wrote:
+>>>>>> On Mon, Aug 24, 2015 at 04:33:12PM +0800, Jason Wang wrote:
+>>>>>>>> For macvlan, switch to use IFF_NO_QUEUE instead of tx_queue_len = 0.
+>>>>>>>>
+>>>>>>>> For macvtap, after commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
+>>>>>>>> ("macvtap: Add support of packet capture on macvtap
+>>>>>>>> device."). Multiqueue macvtap suffers from single qdisc lock
+>>>>>>>> contention. This is because macvtap claims a non zero tx_queue_len and
+>>>>>>>> it reuses this value as it socket receive queue size.Thanks to
+>>>>>>>> IFF_NO_QUEUE, we can remove the lock contention without breaking
+>>>>>>>> existing socket receive queue length logic.
+>>>>>>>>
+>>>>>>>> Cc: Patrick McHardy <kaber@trash.net>
+>>>>>>>> Cc: Vladislav Yasevich <vyasevic@redhat.com>
+>>>>>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>>>>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>>>> Seems to make sense. Give me a day or two to get over the jet lag
+>>>>>> (and get out from under the pile of mail accumulated while I was traveling),
+>>>>>> I'll review properly and ack.
+>>>>>>
+>>>>> A note on this patch: only default qdisc were removed but we don't lose
+>>>>> the ability to attach a qdisc to macvtap (though it may cause lock
+>>>>> contention on multiqueue case).
+>>>>>
+>>>> Wouldn't that lock contention be solved if we really had multiple queues
+>>>> for multi-queue macvtaps?
+>>>>
+>>>> -vlad
+>>> Yes, but this introduce another layer of txq locks contention?
+>> I don't follow - why does it? Could you clarify please?
+> 
+> I believe Vlad wants to remove NETIF_F_LLTX. If yes, core will do an
+> extra tx lock at macvlan layer.
 
-Reduce the identation a bit, there's no need to artificically have
-it increased.
+No, I don't want to remove it.  In a sense, it would function similar to
+how it works when fwd_priv is populated.  I am still testing the code
+as it's showing some strange artifacts...  could be due to keeping LLTX.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- net/ipv6/route.c | 32 ++++++++++++++++----------------
- 1 file changed, 16 insertions(+), 16 deletions(-)
+-vlad
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index df3e353..56b2e71 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1711,26 +1711,26 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
- 
- 	nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
- 		int type = nla_type(nla);
-+		u32 val;
- 
--		if (type) {
--			u32 val;
--
--			if (unlikely(type > RTAX_MAX))
--				goto err;
--			if (type == RTAX_CC_ALGO) {
--				char tmp[TCP_CA_NAME_MAX];
-+		if (!type)
-+			continue;
-+		if (unlikely(type > RTAX_MAX))
-+			goto err;
- 
--				nla_strlcpy(tmp, nla, sizeof(tmp));
--				val = tcp_ca_get_key_by_name(tmp);
--				if (val == TCP_CA_UNSPEC)
--					goto err;
--			} else {
--				val = nla_get_u32(nla);
--			}
-+		if (type == RTAX_CC_ALGO) {
-+			char tmp[TCP_CA_NAME_MAX];
- 
--			mp[type - 1] = val;
--			__set_bit(type - 1, mxc->mx_valid);
-+			nla_strlcpy(tmp, nla, sizeof(tmp));
-+			val = tcp_ca_get_key_by_name(tmp);
-+			if (val == TCP_CA_UNSPEC)
-+				goto err;
-+		} else {
-+			val = nla_get_u32(nla);
- 		}
-+
-+		mp[type - 1] = val;
-+		__set_bit(type - 1, mxc->mx_valid);
- 	}
- 
- 	mxc->mx = mp;
--- 
-2.0.5
+> 
+>>
+>>> And it
+>>> also needs macvlan multiqueue support. We used to do something like this
+>>> but switch to NETIF_F_LLTX finally. You may refer:
+>>>
+>>> 2c11455321f37da6fe6cc36353149f9ac9183334 macvlan: add multiqueue capability
+>>> 8ffab51b3dfc54876f145f15b351c41f3f703195 macvlan: lockless tx path
+>> My concern is that the moment someone configures a non-standard qdisc
+>> scalability suddenly disappears. That would also be tricky to debug in the
+>> field as not a lot of developers use non-standard qdiscs.
+>> What do you think?
+> 
+> Probably not an issue. Non-standard qdisc may need be attached manually
+> after device creation, and we don't lose this ability with this patch.
+> (Unless somebody changes default_qdisc). Actually, user before
+> 6acf54f1cf0a6747bac9fea26f34cfc5a9029523 does not expect any qdisc work
+> for macvtap like other stacked devices. This patch also restore this.
+> 
+> 
