@@ -1,37 +1,23 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Force uninitialized state if FW in
- adapter is unsupported
-Date: Fri, 28 Aug 2015 13:49:20 -0700 (PDT)
-Message-ID: <20150828.134920.1789121714390550695.davem@davemloft.net>
-References: <1440740832-11958-1-git-send-email-hariprasad@chelsio.com>
+From: Tan Wong <srinu.meesala@iiserpune.ac.in>
+Subject: Re
+Date: Sat, 29 Aug 2015 02:05:22 +0530 (IST)
+Message-ID: <73923671.1905339.1440794122679.JavaMail.root__5731.71523069522$1440795082$gmane$org@iiserpune.ac.in>
+Reply-To: Tan Wong <tanwong726@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55773 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751995AbbH1UtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 16:49:21 -0400
-In-Reply-To: <1440740832-11958-1-git-send-email-hariprasad@chelsio.com>
+Received: from webmail.iiserpune.ac.in ([210.212.192.141]:44071 "EHLO
+	zimbra.iiserpune.ac.in" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752481AbbH1Uuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 16:50:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Fri, 28 Aug 2015 11:17:12 +0530
 
-> Forcing uninitialized state allows us to upgrade and reinitialize
-> the adapter.
-> 
->     FW_VERSION_T4 = 1.4.0.0
->     FW_VERSION_T5 = 0.0.0.0
->     FW_VERSION_T6 = 0.0.0.0
-> At this point driver supports above and greater than above version.
-> 
-> If FW in adapter < min FW_VERSION driver supports tries to upgrade the FW
-> If FW in adapter >= FW_VERSION driver supports then it follows normal path
-> 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Applied, thanks.
+I am Mr.Tan Wong director of operations, HangSeng Bank,Hong Kong.I have urgent and confidential business proposition involving transfer of $24,500,000.00 that will be of great benefit for both of us. I will give you more details as regards this transaction as soon as you notify me of your interest. Awaiting your urgent reply 
+
+Kind Regards
+Tan Wong
