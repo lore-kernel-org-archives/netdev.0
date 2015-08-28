@@ -1,117 +1,58 @@
-From: Christophe Ricard <christophe.ricard@gmail.com>
-Subject: [PATCH v4] netlink: add NETLINK_CAP_ACK socket option
-Date: Fri, 28 Aug 2015 07:07:48 +0200
-Message-ID: <1440738468-2374-2-git-send-email-christophe-h.ricard@st.com>
-References: <1440738468-2374-1-git-send-email-christophe-h.ricard@st.com>
-Cc: netdev@vger.kernel.org, christophe-h.ricard@st.com,
-	christophe.ricard@gmail.com
-To: pablo@netfilter.org, jbenc@redhat.com, sfeldma@gmail.com,
-	sameo@linux.intel.com, davem@davemloft.net
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: FIB tracepoints
+Date: Thu, 27 Aug 2015 22:12:01 -0700
+Message-ID: <55DFEDA1.2070903@cumulusnetworks.com>
+References: <1440737972-10468-1-git-send-email-dsa@cumulusnetworks.com>
+ <20150827.220538.2154843333132928646.davem@davemloft.net>
+ <55DFEC92.8050700@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:36489 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482AbbH1FHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 01:07:55 -0400
-Received: by wicgk12 with SMTP id gk12so9888661wic.1
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 22:07:55 -0700 (PDT)
-In-Reply-To: <1440738468-2374-1-git-send-email-christophe-h.ricard@st.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:32863 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750698AbbH1FMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 01:12:03 -0400
+Received: by padfo6 with SMTP id fo6so11199438pad.0
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 22:12:02 -0700 (PDT)
+In-Reply-To: <55DFEC92.8050700@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit c05cdb1b864f ("netlink: allow large data transfers from
-user-space"), the kernel may fail to allocate the necessary room for the
-acknowledgment message back to userspace. This patch introduces a new
-socket option that trims off the payload of the original netlink message.
+On 8/27/15 10:07 PM, David Ahern wrote:
+> On 8/27/15 10:05 PM, David Miller wrote:
+>> From: David Ahern <dsa@cumulusnetworks.com>
+>> Date: Thu, 27 Aug 2015 21:59:32 -0700
+>>
+>>> +        __array(    __u8,    src,    4    )
+>>> +        __array(    __u8,    dst,    4    )
+>>   ...
+>>> +        __array(    __u8,    src,    4    )
+>>
+>> Maybe there is something I don't understand about tracing, but why not
+>> use __u32?  If endianness types are the issue, just force cast it as
+>> needed.
+>>
+>> Using a memcpy() on a 4-byte array is kinda excessive.
+>>
+>
+> Silly trick need to use %pI4. ie., printing the addresses as strings vs.
+> hex.
 
-The netlink message header is still included, so the user can guess from
-the sequence number what is the message that has triggered the
-acknowledgment.
+perhaps an example helps:
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Christophe Ricard <christophe-h.ricard@st.com>
----
- include/uapi/linux/netlink.h |  1 +
- net/netlink/af_netlink.c     | 27 ++++++++++++++++++++++++---
- 2 files changed, 25 insertions(+), 3 deletions(-)
+swapper     0 [000]   406.447548: fib:fib_table_lookup: table 255 oif 0 
+iif 0 src 0.0.0.0 dst 2.1.1.2 tos 0 scope 0 flags 0
 
-diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-index cf6a65c..6f3fe16 100644
---- a/include/uapi/linux/netlink.h
-+++ b/include/uapi/linux/netlink.h
-@@ -110,6 +110,7 @@ struct nlmsgerr {
- #define NETLINK_TX_RING			7
- #define NETLINK_LISTEN_ALL_NSID		8
- #define NETLINK_LIST_MEMBERSHIPS	9
-+#define NETLINK_CAP_ACK			10
- 
- struct nl_pktinfo {
- 	__u32	group;
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 67d2104..131d1a4 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -84,6 +84,7 @@ struct listeners {
- #define NETLINK_F_BROADCAST_SEND_ERROR	0x4
- #define NETLINK_F_RECV_NO_ENOBUFS	0x8
- #define NETLINK_F_LISTEN_ALL_NSID	0x10
-+#define NETLINK_F_CAP_ACK		0x20
- 
- static inline int netlink_is_kernel(struct sock *sk)
- {
-@@ -2258,6 +2259,13 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 			nlk->flags &= ~NETLINK_F_LISTEN_ALL_NSID;
- 		err = 0;
- 		break;
-+	case NETLINK_CAP_ACK:
-+		if (val)
-+			nlk->flags |= NETLINK_F_CAP_ACK;
-+		else
-+			nlk->flags &= ~NETLINK_F_CAP_ACK;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-@@ -2332,6 +2340,16 @@ static int netlink_getsockopt(struct socket *sock, int level, int optname,
- 		netlink_table_ungrab();
- 		break;
- 	}
-+	case NETLINK_CAP_ACK:
-+		if (len < sizeof(int))
-+			return -EINVAL;
-+		len = sizeof(int);
-+		val = nlk->flags & NETLINK_F_CAP_ACK ? 1 : 0;
-+		if (put_user(len, optlen) ||
-+		    put_user(val, optval))
-+			return -EFAULT;
-+		err = 0;
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-@@ -2873,9 +2891,12 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
- 	struct nlmsghdr *rep;
- 	struct nlmsgerr *errmsg;
- 	size_t payload = sizeof(*errmsg);
-+	struct netlink_sock *nlk = nlk_sk(NETLINK_CB(in_skb).sk);
- 
--	/* error messages get the original request appened */
--	if (err)
-+	/* Error messages get the original request appened, unless the user
-+	 * requests to cap the error message.
-+	 */
-+	if (!(nlk->flags & NETLINK_F_CAP_ACK) && err)
- 		payload += nlmsg_len(nlh);
- 
- 	skb = netlink_alloc_skb(in_skb->sk, nlmsg_total_size(payload),
-@@ -2898,7 +2919,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
- 			  NLMSG_ERROR, payload, 0);
- 	errmsg = nlmsg_data(rep);
- 	errmsg->error = err;
--	memcpy(&errmsg->msg, nlh, err ? nlh->nlmsg_len : sizeof(*nlh));
-+	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
- 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).portid, MSG_DONTWAIT);
- }
- EXPORT_SYMBOL(netlink_ack);
--- 
-2.1.4
+If src and dst are u32's then they print as either 0x%x or %d which is 
+not intuitive. I added support to perf for the following printk formats 
+with 3d199b5be53:
+
+       %pi4 print an IPv4 address with leading zeros
+       %pI4 print an IPv4 address without leading zeros
+       %pi6 print an IPv6 address without colons
+       %pI6 print an IPv6 address with colons
+       %pI6c print an IPv6 address in compressed form with colons
+       %pISpc print an IP address from a sockaddr
