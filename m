@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@auriga.com>
-Subject: [PATCH net-next 4/8] net: thunderx: Receive hashing HW offload support
-Date: Fri, 28 Aug 2015 17:59:56 +0300
-Message-ID: <1440774004-27923-4-git-send-email-aleksey.makarov@auriga.com>
+Subject: [PATCH net-next 3/8] net: thunderx: mailboxes: remove code duplication
+Date: Fri, 28 Aug 2015 17:59:55 +0300
+Message-ID: <1440774004-27923-3-git-send-email-aleksey.makarov@auriga.com>
 References: <1440774004-27923-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,116 +29,134 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Adding support for receive hashing HW offload by using RSS_ALG
-and RSS_TAG fields of CQE_RX descriptor. Also removed dependency
-on minimum receive queue count to configure RSS so that hash is
-always generated.
+Use the nicvf_send_msg_to_pf() function in the mailbox code.
 
-This hash is used by RPS logic to distribute flows across multiple
-CPUs. Offload can be disabled via ethtool.
-
-Signed-off-by: Robert Richter <rrichter@cavium.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 14 ++++-----
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 35 ++++++++++++++++++++--
- 2 files changed, 39 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h        |  3 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 44 ++++++------------------
+ 2 files changed, 11 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index a961aa3..1eec2cd 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -525,17 +525,15 @@ static int nicvf_set_rxfh(struct net_device *dev, const u32 *indir,
- 	struct nicvf_rss_info *rss = &nic->rss_info;
- 	int idx;
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 58adfd6..a83f567 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -295,10 +295,9 @@ struct nicvf {
+ 	char			irq_name[NIC_VF_MSIX_VECTORS][20];
+ 	bool			irq_allocated[NIC_VF_MSIX_VECTORS];
  
--	if ((nic->qs->rq_cnt <= 1) || (nic->cpi_alg != CPI_ALG_NONE)) {
--		rss->enable = false;
--		rss->hash_bits = 0;
--		return -EIO;
--	}
--
--	/* We do not allow change in unsupported parameters */
- 	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
- 		return -EOPNOTSUPP;
+-	bool			pf_ready_to_rcv_msg;
++	/* VF <-> PF mailbox communication */
+ 	bool			pf_acked;
+ 	bool			pf_nacked;
+-	bool			bgx_stats_acked;
+ 	bool			set_mac_pending;
+ } ____cacheline_aligned_in_smp;
  
--	rss->enable = true;
-+	if (!rss->enable) {
-+		netdev_err(nic->netdev,
-+			   "RSS is disabled, cannot change settings\n");
-+		return -EIO;
-+	}
-+
- 	if (indir) {
- 		for (idx = 0; idx < rss->rss_size; idx++)
- 			rss->ind_tbl[idx] = indir[idx];
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index d4ad36e..afd8ad4 100644
+index 670ff9b..d4ad36e 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -313,7 +313,7 @@ static int nicvf_rss_init(struct nicvf *nic)
- 
- 	nicvf_get_rss_size(nic);
- 
--	if ((nic->qs->rq_cnt <= 1) || (cpi_alg != CPI_ALG_NONE)) {
-+	if (cpi_alg != CPI_ALG_NONE) {
- 		rss->enable = false;
- 		rss->hash_bits = 0;
- 		return 0;
-@@ -416,6 +416,34 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
- 	}
+@@ -105,7 +105,6 @@ u64 nicvf_queue_reg_read(struct nicvf *nic, u64 offset, u64 qidx)
  }
  
-+static inline void nicvf_set_rxhash(struct net_device *netdev,
-+				    struct cqe_rx_t *cqe_rx,
-+				    struct sk_buff *skb)
-+{
-+	u8 hash_type;
-+	u32 hash;
-+
-+	if (!(netdev->features & NETIF_F_RXHASH))
-+		return;
-+
-+	switch (cqe_rx->rss_alg) {
-+	case RSS_ALG_TCP_IP:
-+	case RSS_ALG_UDP_IP:
-+		hash_type = PKT_HASH_TYPE_L4;
-+		hash = cqe_rx->rss_tag;
-+		break;
-+	case RSS_ALG_IP:
-+		hash_type = PKT_HASH_TYPE_L3;
-+		hash = cqe_rx->rss_tag;
-+		break;
-+	default:
-+		hash_type = PKT_HASH_TYPE_NONE;
-+		hash = 0;
-+	}
-+
-+	skb_set_hash(skb, hash, hash_type);
-+}
-+
- static void nicvf_rcv_pkt_handler(struct net_device *netdev,
- 				  struct napi_struct *napi,
- 				  struct cmp_queue *cq,
-@@ -451,6 +479,8 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
+ /* VF -> PF mailbox communication */
+-
+ static void nicvf_write_to_mbx(struct nicvf *nic, union nic_mbx *mbx)
+ {
+ 	u64 *msg = (u64 *)mbx;
+@@ -147,26 +146,15 @@ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
+ */
+ static int nicvf_check_pf_ready(struct nicvf *nic)
+ {
+-	int timeout = 5000, sleep = 20;
+ 	union nic_mbx mbx = {};
  
- 	nicvf_set_rx_frame_cnt(nic, skb);
- 
-+	nicvf_set_rxhash(netdev, cqe_rx, skb);
+ 	mbx.msg.msg = NIC_MBOX_MSG_READY;
+-
+-	nic->pf_ready_to_rcv_msg = false;
+-
+-	nicvf_write_to_mbx(nic, &mbx);
+-
+-	while (!nic->pf_ready_to_rcv_msg) {
+-		msleep(sleep);
+-		if (nic->pf_ready_to_rcv_msg)
+-			break;
+-		timeout -= sleep;
+-		if (!timeout) {
+-			netdev_err(nic->netdev,
+-				   "PF didn't respond to READY msg\n");
+-			return 0;
+-		}
++	if (nicvf_send_msg_to_pf(nic, &mbx)) {
++		netdev_err(nic->netdev,
++			   "PF didn't respond to READY msg\n");
++		return 0;
+ 	}
 +
- 	skb_record_rx_queue(skb, cqe_rx->rq_idx);
- 	if (netdev->hw_features & NETIF_F_RXCSUM) {
- 		/* HW by default verifies TCP/UDP/SCTP checksums */
-@@ -1272,7 +1302,8 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_free_netdev;
+ 	return 1;
+ }
  
- 	netdev->features |= (NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
--			     NETIF_F_TSO | NETIF_F_GRO);
-+			     NETIF_F_TSO | NETIF_F_GRO | NETIF_F_RXHASH);
-+
- 	netdev->hw_features = netdev->features;
+@@ -197,7 +185,7 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 	netdev_dbg(nic->netdev, "Mbox message: msg: 0x%x\n", mbx.msg.msg);
+ 	switch (mbx.msg.msg) {
+ 	case NIC_MBOX_MSG_READY:
+-		nic->pf_ready_to_rcv_msg = true;
++		nic->pf_acked = true;
+ 		nic->vf_id = mbx.nic_cfg.vf_id & 0x7F;
+ 		nic->tns_mode = mbx.nic_cfg.tns_mode & 0x7F;
+ 		nic->node = mbx.nic_cfg.node_id;
+@@ -221,7 +209,6 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 	case NIC_MBOX_MSG_BGX_STATS:
+ 		nicvf_read_bgx_stats(nic, &mbx.bgx_stats);
+ 		nic->pf_acked = true;
+-		nic->bgx_stats_acked = true;
+ 		break;
+ 	case NIC_MBOX_MSG_BGX_LINK_CHANGE:
+ 		nic->pf_acked = true;
+@@ -1083,7 +1070,6 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ {
+ 	int stat = 0;
+ 	union nic_mbx mbx = {};
+-	int timeout;
  
- 	netdev->netdev_ops = &nicvf_netdev_ops;
+ 	if (!netif_running(nic->netdev))
+ 		return;
+@@ -1093,14 +1079,9 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ 	/* Rx stats */
+ 	mbx.bgx_stats.rx = 1;
+ 	while (stat < BGX_RX_STATS_COUNT) {
+-		nic->bgx_stats_acked = 0;
+ 		mbx.bgx_stats.idx = stat;
+-		nicvf_send_msg_to_pf(nic, &mbx);
+-		timeout = 0;
+-		while ((!nic->bgx_stats_acked) && (timeout < 10)) {
+-			msleep(2);
+-			timeout++;
+-		}
++		if (nicvf_send_msg_to_pf(nic, &mbx))
++			return;
+ 		stat++;
+ 	}
+ 
+@@ -1109,14 +1090,9 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ 	/* Tx stats */
+ 	mbx.bgx_stats.rx = 0;
+ 	while (stat < BGX_TX_STATS_COUNT) {
+-		nic->bgx_stats_acked = 0;
+ 		mbx.bgx_stats.idx = stat;
+-		nicvf_send_msg_to_pf(nic, &mbx);
+-		timeout = 0;
+-		while ((!nic->bgx_stats_acked) && (timeout < 10)) {
+-			msleep(2);
+-			timeout++;
+-		}
++		if (nicvf_send_msg_to_pf(nic, &mbx))
++			return;
+ 		stat++;
+ 	}
+ }
 -- 
 2.5.0
