@@ -1,53 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next 3/3] tcp: use dctcp if enabled on the route to
- the initiator
-Date: Fri, 28 Aug 2015 14:18:58 -0700 (PDT)
-Message-ID: <20150828.141858.298466824970321801.davem@davemloft.net>
-References: <1440763869-23067-1-git-send-email-fw@strlen.de>
-	<1440763869-23067-4-git-send-email-fw@strlen.de>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] IGMP: Inhibit reports for local multicast groups
+Date: Fri, 28 Aug 2015 14:19:56 -0700
+Message-ID: <CAHA+R7Mv=-QoeRuY1nPEV55o5MMekeW+GqOuU+dh18a_5+iYOg@mail.gmail.com>
+References: <6112e6ccb97c5015b6f8125d8c0f75c179b53198.1440689853.git.pdowney@brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55979 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752624AbbH1VS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 17:18:59 -0400
-In-Reply-To: <1440763869-23067-4-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Philip Downey <pdowney@brocade.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6112e6ccb97c5015b6f8125d8c0f75c179b53198.1440689853.git.pdowney@brocade.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 28 Aug 2015 14:11:09 +0200
+On Thu, Aug 27, 2015 at 8:46 AM, Philip Downey <pdowney@brocade.com> wrote:
+> IGMP reports for local multicast groups can now be optionally
+> inhibited by means of a system control variable (by setting the value
+> to zero) e.g.:
+>     echo 0 > /proc/sys/net/ipv4/igmp_link_local_mcast_reports
+>
+> To retain backwards compatibility the previous behaviour is retained
+> by default on system boot or reverted by setting the value back to
+> non-zero e.g.:
+>     echo 1 >  /proc/sys/net/ipv4/igmp_link_local_mcast_reports
+>
 
-> @@ -418,10 +418,13 @@ enum {
->  
->  #define RTAX_MAX (__RTAX_MAX - 1)
->  
-> -#define RTAX_FEATURE_ECN	0x00000001
-> -#define RTAX_FEATURE_SACK	0x00000002
-> -#define RTAX_FEATURE_TIMESTAMP	0x00000004
-> -#define RTAX_FEATURE_ALLFRAG	0x00000008
-> +#define RTAX_FEATURE_ECN	(1 << 0)
-> +#define RTAX_FEATURE_SACK	(1 << 1)
-> +#define RTAX_FEATURE_TIMESTAMP	(1 << 2)
-> +#define RTAX_FEATURE_ALLFRAG	(1 << 3)
-> +#define RTAX_FEATURE_ECN_CA	(1 << 4)
-> +
-> +#define RTAX_FEATURE_MASK_ECN	(RTAX_FEATURE_ECN | RTAX_FEATURE_ECN_CA)
-
-I don't know about this.
-
-You're adding a new user visible feature bit, but...
-
-The user can set it and silently the kernel will accept it, but this
-bit is ignored.
-
-Regardless of it's internal value, we never publish it to the user.
-
-This is just asking for trouble, and it's a bit sloppy if you ask me.
-
-I think you're going to need to hold this piece of state outside of
-the metric value, sorry.
+Please document it in Documentation/networking/ip-sysctl.txt.
