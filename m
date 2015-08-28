@@ -1,21 +1,19 @@
 From: Aleksey Makarov <aleksey.makarov@auriga.com>
-Subject: [PATCH net-next 3/8] net: thunderx: mailboxes: remove code duplication
-Date: Fri, 28 Aug 2015 17:59:55 +0300
-Message-ID: <1440774004-27923-3-git-send-email-aleksey.makarov@auriga.com>
-References: <1440774004-27923-1-git-send-email-aleksey.makarov@auriga.com>
+Subject: [PATCH net-next 1/8] net: thunderx: fix MAINTAINERS
+Date: Fri, 28 Aug 2015 17:59:53 +0300
+Message-ID: <1440774004-27923-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Aleksey Makarov <aleksey.makarov@auriga.com>,
- Robert Richter <rric@kernel.org>, David Daney <david.daney@cavium.com>,
+ David Daney <david.daney@cavium.com>,
  Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
  Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
- linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>,
+ linux-kernel@vger.kernel.org,
  Robert Richter <robert.richter@caviumnetworks.com>,
- Sunil Goutham <sgoutham@cavium.com>, linux-arm-kernel@lists.infradead.org
+ linux-arm-kernel@lists.infradead.org
 To: <netdev@vger.kernel.org>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1440774004-27923-1-git-send-email-aleksey.makarov@auriga.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -27,136 +25,35 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 
-Use the nicvf_send_msg_to_pf() function in the mailbox code.
+The liquidio and thunder drivers have different maintainers.
 
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h        |  3 +-
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 44 ++++++------------------
- 2 files changed, 11 insertions(+), 36 deletions(-)
+ MAINTAINERS | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 58adfd6..a83f567 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -295,10 +295,9 @@ struct nicvf {
- 	char			irq_name[NIC_VF_MSIX_VECTORS][20];
- 	bool			irq_allocated[NIC_VF_MSIX_VECTORS];
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4e6dcb6..43cf79e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -928,7 +928,7 @@ M:	Sunil Goutham <sgoutham@cavium.com>
+ M:	Robert Richter <rric@kernel.org>
+ L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+ S:	Supported
+-F:	drivers/net/ethernet/cavium/
++F:	drivers/net/ethernet/cavium/thunder/
  
--	bool			pf_ready_to_rcv_msg;
-+	/* VF <-> PF mailbox communication */
- 	bool			pf_acked;
- 	bool			pf_nacked;
--	bool			bgx_stats_acked;
- 	bool			set_mac_pending;
- } ____cacheline_aligned_in_smp;
+ ARM/CIRRUS LOGIC CLPS711X ARM ARCHITECTURE
+ M:	Alexander Shiyan <shc_work@mail.ru>
+@@ -2543,7 +2543,6 @@ M:     Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+ L:     netdev@vger.kernel.org
+ W:     http://www.cavium.com
+ S:     Supported
+-F:     drivers/net/ethernet/cavium/
+ F:     drivers/net/ethernet/cavium/liquidio/
  
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 670ff9b..d4ad36e 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -105,7 +105,6 @@ u64 nicvf_queue_reg_read(struct nicvf *nic, u64 offset, u64 qidx)
- }
- 
- /* VF -> PF mailbox communication */
--
- static void nicvf_write_to_mbx(struct nicvf *nic, union nic_mbx *mbx)
- {
- 	u64 *msg = (u64 *)mbx;
-@@ -147,26 +146,15 @@ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
- */
- static int nicvf_check_pf_ready(struct nicvf *nic)
- {
--	int timeout = 5000, sleep = 20;
- 	union nic_mbx mbx = {};
- 
- 	mbx.msg.msg = NIC_MBOX_MSG_READY;
--
--	nic->pf_ready_to_rcv_msg = false;
--
--	nicvf_write_to_mbx(nic, &mbx);
--
--	while (!nic->pf_ready_to_rcv_msg) {
--		msleep(sleep);
--		if (nic->pf_ready_to_rcv_msg)
--			break;
--		timeout -= sleep;
--		if (!timeout) {
--			netdev_err(nic->netdev,
--				   "PF didn't respond to READY msg\n");
--			return 0;
--		}
-+	if (nicvf_send_msg_to_pf(nic, &mbx)) {
-+		netdev_err(nic->netdev,
-+			   "PF didn't respond to READY msg\n");
-+		return 0;
- 	}
-+
- 	return 1;
- }
- 
-@@ -197,7 +185,7 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
- 	netdev_dbg(nic->netdev, "Mbox message: msg: 0x%x\n", mbx.msg.msg);
- 	switch (mbx.msg.msg) {
- 	case NIC_MBOX_MSG_READY:
--		nic->pf_ready_to_rcv_msg = true;
-+		nic->pf_acked = true;
- 		nic->vf_id = mbx.nic_cfg.vf_id & 0x7F;
- 		nic->tns_mode = mbx.nic_cfg.tns_mode & 0x7F;
- 		nic->node = mbx.nic_cfg.node_id;
-@@ -221,7 +209,6 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
- 	case NIC_MBOX_MSG_BGX_STATS:
- 		nicvf_read_bgx_stats(nic, &mbx.bgx_stats);
- 		nic->pf_acked = true;
--		nic->bgx_stats_acked = true;
- 		break;
- 	case NIC_MBOX_MSG_BGX_LINK_CHANGE:
- 		nic->pf_acked = true;
-@@ -1083,7 +1070,6 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
- {
- 	int stat = 0;
- 	union nic_mbx mbx = {};
--	int timeout;
- 
- 	if (!netif_running(nic->netdev))
- 		return;
-@@ -1093,14 +1079,9 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
- 	/* Rx stats */
- 	mbx.bgx_stats.rx = 1;
- 	while (stat < BGX_RX_STATS_COUNT) {
--		nic->bgx_stats_acked = 0;
- 		mbx.bgx_stats.idx = stat;
--		nicvf_send_msg_to_pf(nic, &mbx);
--		timeout = 0;
--		while ((!nic->bgx_stats_acked) && (timeout < 10)) {
--			msleep(2);
--			timeout++;
--		}
-+		if (nicvf_send_msg_to_pf(nic, &mbx))
-+			return;
- 		stat++;
- 	}
- 
-@@ -1109,14 +1090,9 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
- 	/* Tx stats */
- 	mbx.bgx_stats.rx = 0;
- 	while (stat < BGX_TX_STATS_COUNT) {
--		nic->bgx_stats_acked = 0;
- 		mbx.bgx_stats.idx = stat;
--		nicvf_send_msg_to_pf(nic, &mbx);
--		timeout = 0;
--		while ((!nic->bgx_stats_acked) && (timeout < 10)) {
--			msleep(2);
--			timeout++;
--		}
-+		if (nicvf_send_msg_to_pf(nic, &mbx))
-+			return;
- 		stat++;
- 	}
- }
+ CC2520 IEEE-802.15.4 RADIO DRIVER
 -- 
 2.5.0
