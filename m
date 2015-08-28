@@ -1,121 +1,44 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net v3] bonding: fix bond_poll_controller bh_enable warning
-Date: Fri, 28 Aug 2015 15:32:47 -0700
-Message-ID: <CAF2d9jiuEpRRdbW3V4Kiu0Z5N62C_5Zy08o9CHfOtTBZvMC-dg@mail.gmail.com>
-References: <69380EC5-CF63-48BE-AFCB-4F70E6869DFC@cumulusnetworks.com> <1440799532-9150-1-git-send-email-razor@blackwall.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2 net-next 4/4] vxlan: do not receive IPv4 packets on
+ IPv6 socket
+Date: Sat, 29 Aug 2015 00:39:29 +0200
+Message-ID: <20150828223929.GC32001@pox.localdomain>
+References: <cover.1440787600.git.jbenc@redhat.com>
+ <823880925bf39790189708fcb7f7158f21231237.1440787601.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: linux-netdev <netdev@vger.kernel.org>, 13806511171@163.com,
-	shemminger@linux-foundation.org, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com,
-	David Miller <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Nikolay Aleksandrov <razor@blackwall.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:33971 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752664AbbH1WdH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 18:33:07 -0400
-Received: by ykba134 with SMTP id a134so16764219ykb.1
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 15:33:06 -0700 (PDT)
-In-Reply-To: <1440799532-9150-1-git-send-email-razor@blackwall.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:36118 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752645AbbH1Wjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 18:39:31 -0400
+Received: by wicfv10 with SMTP id fv10so18473672wic.1
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 15:39:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <823880925bf39790189708fcb7f7158f21231237.1440787601.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 28, 2015 at 3:05 PM, Nikolay Aleksandrov
-<razor@blackwall.org> wrote:
->
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->
-> The problem is rcu_read_unlock_bh() which triggers a warning when irqs are
-> disabled. ndo_poll_controller should run with irqs disabled always so we
-> can drop the rcu_read_lock_bh.
->
-> [   98.502922] bond0: making interface eth1 the new active one
-> [   98.503039] ------------[ cut here ]------------
-> [   98.503039] WARNING: CPU: 0 PID: 1744 at kernel/softirq.c:150 __local_bh_enable_ip+0x96/0xc0()
-> [   98.503039] Modules linked in: bonding(OE) rpcsec_gss_krb5 nfsv4 dns_resolver nfs fscache netconsole ppdev joydev parport_pc serio_raw parport i2c_piix4 video acpi_cpufreq nfsd auth_rpcgss nfs_acl lockd grace sunrpc virtio_net e1000 ata_generic pcnet32 mii virtio_pci virtio_ring virtio pata_acpi
-> [   98.503039] CPU: 0 PID: 1744 Comm: ifenslave Tainted: G           OE   4.2.0-rc7+ #56
-> [   98.503039] Hardware name: innotek GmbH VirtualBox/VirtualBox, BIOS VirtualBox 12/01/2006
-> [   98.503039]  0000000000000000 00000000e96ba230 ffff880020c236b8 ffffffff8183f105
-> [   98.503039]  0000000000000000 0000000000000000 ffff880020c236f8 ffffffff810a9496
-> [   98.503039]  ffff88002ea99e08 0000000000000200 ffffffffa02a8e06 ffff88002ea99e08
-> [   98.503039] Call Trace:
-> [   98.503039]  [<ffffffff8183f105>] dump_stack+0x4c/0x65
-> [   98.503039]  [<ffffffff810a9496>] warn_slowpath_common+0x86/0xc0
-> [   98.503039]  [<ffffffffa02a8e06>] ? bond_poll_controller+0x146/0x250 [bonding]
-> [   98.503039]  [<ffffffff810a95ca>] warn_slowpath_null+0x1a/0x20
-> [   98.503039]  [<ffffffff810ae376>] __local_bh_enable_ip+0x96/0xc0
-> [   98.503039]  [<ffffffffa02a8e2f>] bond_poll_controller+0x16f/0x250 [bonding]
-> [   98.503039]  [<ffffffffa02a8cf3>] ? bond_poll_controller+0x33/0x250 [bonding]
-> [   98.503039]  [<ffffffff810feaed>] ? trace_hardirqs_off+0xd/0x10
-> [   98.503039]  [<ffffffff81848afb>] ? _raw_spin_unlock_irqrestore+0x5b/0x60
-> [   98.503039]  [<ffffffff816ec48e>] netpoll_poll_dev+0x6e/0x350
-> [   98.503039]  [<ffffffff816eb977>] ? netpoll_start_xmit+0x137/0x1d0
-> [   98.503039]  [<ffffffff816b2e8b>] ? __alloc_skb+0x5b/0x210
-> [   98.503039]  [<ffffffff816ec89d>] netpoll_send_skb_on_dev+0x12d/0x2a0
-> [   98.503039]  [<ffffffff816eccde>] netpoll_send_udp+0x2ce/0x430
-> [   98.503039]  [<ffffffffa0190850>] write_msg+0xb0/0xf0 [netconsole]
-> [   98.503039]  [<ffffffff81116b63>] call_console_drivers.constprop.25+0x133/0x260
-> [   98.503039]  [<ffffffff81117934>] console_unlock+0x2f4/0x580
-> [   98.503039]  [<ffffffff81117ea5>] ? vprintk_emit+0x2e5/0x630
-> [   98.503039]  [<ffffffff81117ee5>] vprintk_emit+0x325/0x630
-> [   98.503039]  [<ffffffff81118379>] vprintk_default+0x29/0x40
-> [   98.503039]  [<ffffffff8183de4f>] printk+0x55/0x6b
-> [   98.503039]  [<ffffffff816c754c>] __netdev_printk+0x16c/0x260
-> [   98.503039]  [<ffffffff816c7a12>] netdev_info+0x62/0x80
-> [   98.503039]  [<ffffffffa02ab464>] bond_change_active_slave+0x134/0x6a0 [bonding]
-> [   98.503039]  [<ffffffffa02aba95>] bond_select_active_slave+0xc5/0x310 [bonding]
-> [   98.503039]  [<ffffffffa02aeb78>] bond_enslave+0x1088/0x10c0 [bonding]
-> [   98.503039]  [<ffffffffa02af46b>] bond_do_ioctl+0x37b/0x400 [bonding]
-> [   98.503039]  [<ffffffff81101d8d>] ? trace_hardirqs_on+0xd/0x10
-> [   98.503039]  [<ffffffff816dc437>] ? rtnl_lock+0x17/0x20
-> [   98.503039]  [<ffffffff816e5fd1>] dev_ifsioc+0x331/0x3e0
-> [   98.503039]  [<ffffffff816e62dc>] dev_ioctl+0xec/0x6c0
-> [   98.503039]  [<ffffffff816a6c6a>] sock_do_ioctl+0x4a/0x60
-> [   98.503039]  [<ffffffff816a7300>] sock_ioctl+0x1c0/0x250
-> [   98.503039]  [<ffffffff81271bfe>] do_vfs_ioctl+0x2ee/0x540
-> [   98.503039]  [<ffffffff810fd943>] ? up_read+0x23/0x40
-> [   98.503039]  [<ffffffff81070993>] ? __do_page_fault+0x1d3/0x420
-> [   98.503039]  [<ffffffff8127e246>] ? __fget_light+0x66/0x90
-> [   98.503039]  [<ffffffff81271ec9>] SyS_ioctl+0x79/0x90
-> [   98.503039]  [<ffffffff8184936e>] entry_SYSCALL_64_fastpath+0x12/0x76
-> [   98.503039] ---[ end trace 00cfa804b0670051 ]---
->
-> Fixes: 616f45416ca0 ("bonding: implement bond_poll_controller()")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Acked-by: Mahesh Bandewar <maheshb@google.com>
-> ---
-> v3: After Dave made it clear that poll_controller should always be called
-> with interrupts disabled we can simply drop the rcu bh lock.
->
-I agree with Dave's logic and future users probably have to follow the
-same logic.
+On 08/28/15 at 08:48pm, Jiri Benc wrote:
+> By default (subject to the sysctl settings), IPv6 sockets listen also for
+> IPv4 traffic. Vxlan is not prepared for that and expects IPv6 header in
+> packets received through an IPv6 socket.
+> 
+> In addition, it's currently not possible to have both IPv4 and IPv6 vxlan
+> tunnel on the same port (unless bindv6only sysctl is enabled), as it's not
+> possible to create and bind both IPv4 and IPv6 vxlan interfaces and there's
+> no way to specify both IPv4 and IPv6 remote/group IP addresses.
+> 
+> Set IPV6_V6ONLY on vxlan sockets to fix both of these issues. This is not
+> done globally in udp_tunnel, as l2tp and tipc seems to work okay when
+> receiving IPv4 packets on IPv6 socket and people may rely on this behavior.
+> The other tunnels (geneve and fou) do not support IPv6.
+> 
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
->  drivers/net/bonding/bond_main.c | 2 --
->  1 file changed, 2 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index a98dd4f1b0e3..7ab72692d7fd 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -979,7 +979,6 @@ static void bond_poll_controller(struct net_device *bond_dev)
->                 if (bond_3ad_get_active_agg_info(bond, &ad_info))
->                         return;
->
-> -       rcu_read_lock_bh();
->         bond_for_each_slave_rcu(bond, slave, iter) {
->                 ops = slave->dev->netdev_ops;
->                 if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
-> @@ -1000,7 +999,6 @@ static void bond_poll_controller(struct net_device *bond_dev)
->                 ops->ndo_poll_controller(slave->dev);
->                 up(&ni->dev_lock);
->         }
-> -       rcu_read_unlock_bh();
->  }
->
->  static void bond_netpoll_cleanup(struct net_device *bond_dev)
-> --
-> 2.4.3
->
+Can we fix VXLAN instead? It should be possible to receive and send both
+v4 and v6 frames and represent it with metadata on a single socket.
+
+Maybe set the flag if IFLA_VXLAN_COLLECT_METADATA is not set?
