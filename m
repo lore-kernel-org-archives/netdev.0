@@ -1,55 +1,40 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/9] netfilter: xt_TEE: use IS_ENABLED(CONFIG_NF_DUP_IPV6)
-Date: Sat, 29 Aug 2015 00:50:14 +0200
-Message-ID: <1440802217-13080-7-git-send-email-pablo@netfilter.org>
-References: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: [PATCH v2 net-next] netfilter: ipset: Fixing unnamed union initg
+Date: Sat, 29 Aug 2015 00:59:43 +0200
+Message-ID: <20150828225943.GA22393@salvia>
+References: <1440222251-21132-1-git-send-email-eladr@mellanox.com>
+ <alpine.DEB.2.10.1508222006570.13403@blackhole.kfki.hu>
+ <20150822184448.GA3610@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Elad Raz <eladr@mellanox.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netfilter-devel@vger.kernel.org,
+	Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
+	Vinson Lee <vlee@twopensource.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Sergey Popovich <popovich_sergei@mail.ua>,
+	Anton Danilov <littlesmilingcloud@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Akemi Yagi <amyagi@gmail.com>,
+	Cong Wang <cwang@twopensource.com>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42584 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752645AbbH1Wx0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Aug 2015 18:53:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20150822184448.GA3610@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of IS_ENABLED(CONFIG_IPV6), otherwise we hit:
+On Sat, Aug 22, 2015 at 08:44:48PM +0200, Pablo Neira Ayuso wrote:
+[...]
+> I'll wait for some little time just in case someone raises any
+> concern.
 
-et/built-in.o: In function `tee_tg6':
->> xt_TEE.c:(.text+0x6cd8c): undefined reference to `nf_dup_ipv6'
-
-when:
-
- CONFIG_IPV6=y
- CONFIG_NF_DUP_IPV4=y
- # CONFIG_NF_DUP_IPV6 is not set
- CONFIG_NETFILTER_XT_TARGET_TEE=y
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_TEE.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
-index 49fee6a..fd980aa 100644
---- a/net/netfilter/xt_TEE.c
-+++ b/net/netfilter/xt_TEE.c
-@@ -37,7 +37,7 @@ tee_tg4(struct sk_buff *skb, const struct xt_action_param *par)
- 	return XT_CONTINUE;
- }
- 
--#if IS_ENABLED(CONFIG_IPV6)
-+#if IS_ENABLED(CONFIG_NF_DUP_IPV6)
- static unsigned int
- tee_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- {
-@@ -129,7 +129,7 @@ static struct xt_target tee_tg_reg[] __read_mostly = {
- 		.destroy    = tee_tg_destroy,
- 		.me         = THIS_MODULE,
- 	},
--#if IS_ENABLED(CONFIG_IPV6)
-+#if IS_ENABLED(CONFIG_NF_DUP_IPV6)
- 	{
- 		.name       = "TEE",
- 		.revision   = 1,
--- 
-1.7.10.4
-
+JFYI, I'll be passing up this patch to David via the nf tree soon.
+Thanks.
