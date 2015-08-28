@@ -1,34 +1,66 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/3] rhashtable-test: calculate max_entries value by
- default
-Date: Fri, 28 Aug 2015 13:11:53 +0200
-Message-ID: <20150828111153.GJ32206@pox.localdomain>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
+Date: Fri, 28 Aug 2015 13:13:20 +0200
+Message-ID: <20150828111320.GL20760@orbit.nwl.cc>
 References: <1440757685-14241-1-git-send-email-phil@nwl.cc>
- <1440757685-14241-3-git-send-email-phil@nwl.cc>
+ <1440757685-14241-2-git-send-email-phil@nwl.cc>
+ <20150828110929.GI32206@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
 	wfg@linux.intel.com, lkp@01.org
-To: Phil Sutter <phil@nwl.cc>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1440757685-14241-3-git-send-email-phil@nwl.cc>
+In-Reply-To: <20150828110929.GI32206@pox.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/28/15 at 12:28pm, Phil Sutter wrote:
-> A maximum table size of 64k entries is insufficient for the multiple
-> threads test even in default configuration (10 threads * 50000 objects =
-> 500000 objects in total). Since we know how many objects will be
-> inserted, calculate the max size unless overridden by parameter.
+On Fri, Aug 28, 2015 at 01:09:29PM +0200, Thomas Graf wrote:
+> On 08/28/15 at 12:28pm, Phil Sutter wrote:
+> > After adding cond_resched() calls to threadfunc(), a surprisingly high
+> > rate of insert failures occurred probably due to table resizes getting a
+> > better chance to run in background. To not soften up the remaining
+> > tests, retry inserts until they either succeed or fail permanently.
+> > 
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > ---
+> >  lib/test_rhashtable.c | 13 +++++++------
+> >  1 file changed, 7 insertions(+), 6 deletions(-)
+> > 
+> > diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+> > index 63654e3..093cf84 100644
+> > --- a/lib/test_rhashtable.c
+> > +++ b/lib/test_rhashtable.c
+> > @@ -244,7 +244,7 @@ static int thread_lookup_test(struct thread_data *tdata)
+> >  
+> >  static int threadfunc(void *data)
+> >  {
+> > -	int i, step, err = 0, insert_fails = 0;
+> > +	int i, step, err = 0, retries = 0;
+> >  	struct thread_data *tdata = data;
+> >  
+> >  	up(&prestart_sem);
+> > @@ -253,21 +253,22 @@ static int threadfunc(void *data)
+> >  
+> >  	for (i = 0; i < entries; i++) {
+> >  		tdata->objs[i].value = (tdata->id << 16) | i;
+> > +insert_retry:
+> >  		cond_resched();
+> >  		err = rhashtable_insert_fast(&ht, &tdata->objs[i].node,
+> >  		                             test_rht_params);
+> >  		if (err == -ENOMEM || err == -EBUSY) {
+> > -			tdata->objs[i].value = TEST_INSERT_FAIL;
+> > -			insert_fails++;
+> > +			retries++;
+> > +			goto insert_retry;
 > 
-> Note that specifying the exact number of objects upon table init won't
-> suffice as that value is being rounded down to the next power of two -
-> anticipate this by rounding up to the next power of two in beforehand.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Is it safe to retry indefinitely on ENOMEM? Retrying on EBUSY is
+> definitely an improvement and we should do the same in the non
+> threaded test as well.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Oh yes, that is definitely a bug. I will respin and add the same for the
+normal test, too.
 
-Thanks for doing this work.
+Thanks, Phil
