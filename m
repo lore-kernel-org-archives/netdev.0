@@ -1,46 +1,117 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next 0/3] tcp: receive-side per route dctcp handling
-Date: Fri, 28 Aug 2015 14:11:06 +0200
-Message-ID: <1440763869-23067-1-git-send-email-fw@strlen.de>
+Subject: [PATCH -next 1/3] net: fib: move metrics parsing to a helper
+Date: Fri, 28 Aug 2015 14:11:07 +0200
+Message-ID: <1440763869-23067-2-git-send-email-fw@strlen.de>
+References: <1440763869-23067-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:57665 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:57666 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751759AbbH1MLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 08:11:17 -0400
+	by vger.kernel.org with ESMTP id S1751727AbbH1MLS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 08:11:18 -0400
+In-Reply-To: <1440763869-23067-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the following case doesn't use DCTCP, even if it should:
+fib_create_info() is already quite large, so before adding more
+code to the metrics section move that to a helper, similar to
+ip6_convert_metrics.
 
-- responder has f.e. cubic as system wide default
-- 'ip route congctl dctcp $src' was set
+Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv4/fib_semantics.c | 71 ++++++++++++++++++++++++++++--------------------
+ 1 file changed, 41 insertions(+), 30 deletions(-)
 
-Then, DCTCP is NOT used if a DCTCP sender attempts to connect from a
-host in the $src range: ECT(0) is set, but listen_sk is not dctcp, so we
-fail the INET_ECN_is_not_ect sanity check.
-
-We also have to examine the dst used for the SYN/ACK reply to make this
-case work.
-
-In order to minimize additional cost, store the 'ecn is must have'
-information is the dst_features field.
-
-The set targets -next instead of -net since this doesn't seem to be a
-serious bug and to give the change more soak time until it hits linus tree.
-
-Daniel Borkmann (2):
-      net: fib6: reduce identation in ip6_convert_metrics
-      tcp: use dctcp if enabled on the route to the initiator
-
-Florian Westphal (1):
-      net: fib: move metrics parsing to a helper
-
- include/net/tcp.h              |  2 +-
- include/uapi/linux/rtnetlink.h | 11 +++---
- net/core/rtnetlink.c           |  4 +++
- net/ipv4/fib_semantics.c       | 78 ++++++++++++++++++++++++++----------------
- net/ipv4/tcp_cong.c            |  9 +++--
- net/ipv4/tcp_input.c           |  7 ++--
- net/ipv6/route.c               | 39 ++++++++++++---------
- 7 files changed, 94 insertions(+), 56 deletions(-)
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 1b2d011..88afbae 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -876,6 +876,44 @@ static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
+ 	return true;
+ }
+ 
++static int
++fib_convert_metrics(struct fib_info *fi, const struct fib_config *cfg)
++{
++	struct nlattr *nla;
++	int remaining;
++
++	if (!cfg->fc_mx)
++		return 0;
++
++	nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
++		int type = nla_type(nla);
++		u32 val;
++
++		if (!type)
++			continue;
++		if (type > RTAX_MAX)
++			return -EINVAL;
++
++		if (type == RTAX_CC_ALGO) {
++			char tmp[TCP_CA_NAME_MAX];
++
++			nla_strlcpy(tmp, nla, sizeof(tmp));
++			val = tcp_ca_get_key_by_name(tmp);
++			if (val == TCP_CA_UNSPEC)
++				return -EINVAL;
++		} else {
++			val = nla_get_u32(nla);
++		}
++		if (type == RTAX_ADVMSS && val > 65535 - 40)
++			val = 65535 - 40;
++		if (type == RTAX_MTU && val > 65535 - 15)
++			val = 65535 - 15;
++		fi->fib_metrics[type - 1] = val;
++	}
++
++	return 0;
++}
++
+ struct fib_info *fib_create_info(struct fib_config *cfg)
+ {
+ 	int err;
+@@ -948,36 +986,9 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 			goto failure;
+ 	} endfor_nexthops(fi)
+ 
+-	if (cfg->fc_mx) {
+-		struct nlattr *nla;
+-		int remaining;
+-
+-		nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
+-			int type = nla_type(nla);
+-
+-			if (type) {
+-				u32 val;
+-
+-				if (type > RTAX_MAX)
+-					goto err_inval;
+-				if (type == RTAX_CC_ALGO) {
+-					char tmp[TCP_CA_NAME_MAX];
+-
+-					nla_strlcpy(tmp, nla, sizeof(tmp));
+-					val = tcp_ca_get_key_by_name(tmp);
+-					if (val == TCP_CA_UNSPEC)
+-						goto err_inval;
+-				} else {
+-					val = nla_get_u32(nla);
+-				}
+-				if (type == RTAX_ADVMSS && val > 65535 - 40)
+-					val = 65535 - 40;
+-				if (type == RTAX_MTU && val > 65535 - 15)
+-					val = 65535 - 15;
+-				fi->fib_metrics[type - 1] = val;
+-			}
+-		}
+-	}
++	err = fib_convert_metrics(fi, cfg);
++	if (err)
++		goto failure;
+ 
+ 	if (cfg->fc_mp) {
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-- 
+2.0.5
