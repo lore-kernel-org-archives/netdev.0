@@ -1,41 +1,42 @@
-From: =?UTF-8?q?J=CE=B5an=20Sacren?= <sakiwit@gmail.com>
-Subject: [PATCH net-next] sock: fix kernel doc error
-Date: Thu, 27 Aug 2015 18:05:49 -0600
-Message-ID: <1440720349-10448-1-git-send-email-sakiwit@gmail.com>
-Cc: Hideo Aoki <haoki@redhat.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3] sctp: donot reset the overall_error_count in
+ SHUTDOWN_RECEIVE state
+Date: Thu, 27 Aug 2015 17:12:06 -0700 (PDT)
+Message-ID: <20150827.171206.1343630245407773111.davem@davemloft.net>
+References: <5b69e6d52b777923b9224315d11adbf9bd24077e.1440622340.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mleitner@redhat.com, vyasevic@redhat.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35038 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbbH1ACq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 20:02:46 -0400
-Received: by pacdd16 with SMTP id dd16so41554218pac.2
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 17:02:46 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:48495 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422AbbH1AMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 20:12:18 -0400
+In-Reply-To: <5b69e6d52b777923b9224315d11adbf9bd24077e.1440622340.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Sacren <sakiwit@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 27 Aug 2015 04:52:20 +0800
 
-The symbol '__sk_reclaim' is not present in the current tree. Apparently
-'__sk_reclaim' was meant to be '__sk_mem_reclaim', so fix it with the
-right symbol name for the kernel doc.
+> Commit f8d960524328 ("sctp: Enforce retransmission limit during shutdown")
+> fixed a problem with excessive retransmissions in the SHUTDOWN_PENDING by not
+> resetting the association overall_error_count.  This allowed the association
+> to better enforce assoc.max_retrans limit.
+> 
+> However, the same issue still exists when the association is in SHUTDOWN_RECEIVED
+> state.  In this state, HB-ACKs will continue to reset the overall_error_count
+> for the association would extend the lifetime of association unnecessarily.
+> 
+> This patch solves this by resetting the overall_error_count whenever the current
+> state is small then SCTP_STATE_SHUTDOWN_PENDING.  As a small side-effect, we
+> end up also handling SCTP_STATE_SHUTDOWN_ACK_SENT and SCTP_STATE_SHUTDOWN_SENT
+> states, but they are not really impacted because we disable Heartbeats in those
+> states.
+> 
+> Fixes: Commit f8d960524328 ("sctp: Enforce retransmission limit during shutdown")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-Cc: Hideo Aoki <haoki@redhat.com>
----
- net/core/sock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 193901d09757..ca2984afe16e 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2078,7 +2078,7 @@ suppress_allocation:
- EXPORT_SYMBOL(__sk_mem_schedule);
- 
- /**
-- *	__sk_reclaim - reclaim memory_allocated
-+ *	__sk_mem_reclaim - reclaim memory_allocated
-  *	@sk: socket
-  *	@amount: number of bytes (rounded down to a SK_MEM_QUANTUM multiple)
-  */
+Applied, thanks.
