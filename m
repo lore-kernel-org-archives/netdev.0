@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 8/9] Revert "netfilter: xtables: compute exact size needed for jumpstack"
-Date: Sat, 29 Aug 2015 00:50:16 +0200
-Message-ID: <1440802217-13080-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/9] ipvs: call rtnl_lock early
+Date: Sat, 29 Aug 2015 00:50:10 +0200
+Message-ID: <1440802217-13080-3-git-send-email-pablo@netfilter.org>
 References: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,281 +10,155 @@ In-Reply-To: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Julian Anastasov <ja@ssi.bg>
 
-This reverts commit 98d1bd802cdbc8f56868fae51edec13e86b59515.
+When the sync damon is started we need to hold rtnl
+lock while calling ip_mc_join_group. Currently, we have
+a wrong locking order because the correct one is
+rtnl_lock->__ip_vs_mutex. It is implied from the usage
+of __ip_vs_mutex in ip_vs_dst_event() which is called
+under rtnl lock during NETDEV_* notifications.
 
-mark_source_chains will not re-visit chains, so
+Fix the problem by calling rtnl_lock early only for the
+start_sync_thread call. As a bonus this fixes the usage
+__dev_get_by_name which was not called under rtnl lock.
 
-*filter
-:INPUT ACCEPT [365:25776]
-:FORWARD ACCEPT [0:0]
-:OUTPUT ACCEPT [217:45832]
-:t1 - [0:0]
-:t2 - [0:0]
-:t3 - [0:0]
-:t4 - [0:0]
--A t1 -i lo -j t2
--A t2 -i lo -j t3
--A t3 -i lo -j t4
-# -A INPUT -j t4
-# -A INPUT -j t3
-# -A INPUT -j t2
--A INPUT -j t1
-COMMIT
+This patch actually extends and depends on commit 54ff9ef36bdf
+("ipv4, ipv6: kill ip_mc_{join, leave}_group and
+ipv6_sock_mc_{join, drop}").
 
-Will compute a chain depth of 2 if the comments are removed.
-Revert back to counting the number of chains for the time being.
-
-Reported-by: Cong Wang <cwang@twopensource.com>
-Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/ipv4/netfilter/arp_tables.c |   19 +++++++------------
- net/ipv4/netfilter/ip_tables.c  |   28 ++++++++++------------------
- net/ipv6/netfilter/ip6_tables.c |   23 ++++++++---------------
- 3 files changed, 25 insertions(+), 45 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c  |   50 ++++++++++++++++++++++++++-------------
+ net/netfilter/ipvs/ip_vs_sync.c |    2 --
+ 2 files changed, 33 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index c416cb3..8f87fc3 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -367,13 +367,10 @@ static inline bool unconditional(const struct arpt_arp *arp)
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 24c5542..af0b69e 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2335,13 +2335,18 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 	    cmd == IP_VS_SO_SET_STOPDAEMON) {
+ 		struct ip_vs_daemon_user *dm = (struct ip_vs_daemon_user *)arg;
  
- /* Figures out from what hook each rule can be called: returns 0 if
-  * there are loops.  Puts hook bitmask in comefrom.
-- *
-- * Keeps track of largest call depth seen and stores it in newinfo->stacksize.
-  */
--static int mark_source_chains(struct xt_table_info *newinfo,
-+static int mark_source_chains(const struct xt_table_info *newinfo,
- 			      unsigned int valid_hooks, void *entry0)
+-		mutex_lock(&ipvs->sync_mutex);
+-		if (cmd == IP_VS_SO_SET_STARTDAEMON)
++		if (cmd == IP_VS_SO_SET_STARTDAEMON) {
++			rtnl_lock();
++			mutex_lock(&ipvs->sync_mutex);
+ 			ret = start_sync_thread(net, dm->state, dm->mcast_ifn,
+ 						dm->syncid);
+-		else
++			mutex_unlock(&ipvs->sync_mutex);
++			rtnl_unlock();
++		} else {
++			mutex_lock(&ipvs->sync_mutex);
+ 			ret = stop_sync_thread(net, dm->state);
+-		mutex_unlock(&ipvs->sync_mutex);
++			mutex_unlock(&ipvs->sync_mutex);
++		}
+ 		goto out_dec;
+ 	}
+ 
+@@ -3342,6 +3347,9 @@ nla_put_failure:
+ 
+ static int ip_vs_genl_new_daemon(struct net *net, struct nlattr **attrs)
  {
--	unsigned int calldepth, max_calldepth = 0;
- 	unsigned int hook;
++	struct netns_ipvs *ipvs = net_ipvs(net);
++	int ret;
++
+ 	if (!(attrs[IPVS_DAEMON_ATTR_STATE] &&
+ 	      attrs[IPVS_DAEMON_ATTR_MCAST_IFN] &&
+ 	      attrs[IPVS_DAEMON_ATTR_SYNC_ID]))
+@@ -3353,19 +3361,30 @@ static int ip_vs_genl_new_daemon(struct net *net, struct nlattr **attrs)
+ 	if (net_ipvs(net)->mixed_address_family_dests > 0)
+ 		return -EINVAL;
  
- 	/* No recursion; use packet counter to save back ptrs (reset
-@@ -389,7 +386,6 @@ static int mark_source_chains(struct xt_table_info *newinfo,
- 
- 		/* Set initial back pointer. */
- 		e->counters.pcnt = pos;
--		calldepth = 0;
- 
- 		for (;;) {
- 			const struct xt_standard_target *t
-@@ -444,8 +440,6 @@ static int mark_source_chains(struct xt_table_info *newinfo,
- 					(entry0 + pos + size);
- 				e->counters.pcnt = pos;
- 				pos += size;
--				if (calldepth > 0)
--					--calldepth;
- 			} else {
- 				int newpos = t->verdict;
- 
-@@ -460,10 +454,6 @@ static int mark_source_chains(struct xt_table_info *newinfo,
- 						return 0;
- 					}
- 
--					if (entry0 + newpos != arpt_next_entry(e) &&
--					    ++calldepth > max_calldepth)
--						max_calldepth = calldepth;
--
- 					/* This a jump; chase it. */
- 					duprintf("Jump rule %u -> %u\n",
- 						 pos, newpos);
-@@ -480,7 +470,6 @@ static int mark_source_chains(struct xt_table_info *newinfo,
- 		next:
- 		duprintf("Finished chain %u\n", hook);
- 	}
--	newinfo->stacksize = max_calldepth;
- 	return 1;
+-	return start_sync_thread(net,
+-				 nla_get_u32(attrs[IPVS_DAEMON_ATTR_STATE]),
+-				 nla_data(attrs[IPVS_DAEMON_ATTR_MCAST_IFN]),
+-				 nla_get_u32(attrs[IPVS_DAEMON_ATTR_SYNC_ID]));
++	rtnl_lock();
++	mutex_lock(&ipvs->sync_mutex);
++	ret = start_sync_thread(net,
++				nla_get_u32(attrs[IPVS_DAEMON_ATTR_STATE]),
++				nla_data(attrs[IPVS_DAEMON_ATTR_MCAST_IFN]),
++				nla_get_u32(attrs[IPVS_DAEMON_ATTR_SYNC_ID]));
++	mutex_unlock(&ipvs->sync_mutex);
++	rtnl_unlock();
++	return ret;
  }
  
-@@ -670,6 +659,9 @@ static int translate_table(struct xt_table_info *newinfo, void *entry0,
- 		if (ret != 0)
- 			break;
- 		++i;
-+		if (strcmp(arpt_get_target(iter)->u.user.name,
-+		    XT_ERROR_TARGET) == 0)
-+			++newinfo->stacksize;
- 	}
- 	duprintf("translate_table: ARPT_ENTRY_ITERATE gives %d\n", ret);
- 	if (ret != 0)
-@@ -1442,6 +1434,9 @@ static int translate_compat_table(const char *name,
- 			break;
- 		}
- 		++i;
-+		if (strcmp(arpt_get_target(iter1)->u.user.name,
-+		    XT_ERROR_TARGET) == 0)
-+			++newinfo->stacksize;
- 	}
- 	if (ret) {
- 		/*
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 787f99e..b0a86e7 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -443,15 +443,11 @@ ipt_do_table(struct sk_buff *skb,
- }
- 
- /* Figures out from what hook each rule can be called: returns 0 if
-- * there are loops.  Puts hook bitmask in comefrom.
-- *
-- * Keeps track of largest call depth seen and stores it in newinfo->stacksize.
-- */
-+   there are loops.  Puts hook bitmask in comefrom. */
- static int
--mark_source_chains(struct xt_table_info *newinfo,
-+mark_source_chains(const struct xt_table_info *newinfo,
- 		   unsigned int valid_hooks, void *entry0)
+ static int ip_vs_genl_del_daemon(struct net *net, struct nlattr **attrs)
  {
--	unsigned int calldepth, max_calldepth = 0;
- 	unsigned int hook;
++	struct netns_ipvs *ipvs = net_ipvs(net);
++	int ret;
++
+ 	if (!attrs[IPVS_DAEMON_ATTR_STATE])
+ 		return -EINVAL;
  
- 	/* No recursion; use packet counter to save back ptrs (reset
-@@ -465,7 +461,6 @@ mark_source_chains(struct xt_table_info *newinfo,
- 
- 		/* Set initial back pointer. */
- 		e->counters.pcnt = pos;
--		calldepth = 0;
- 
- 		for (;;) {
- 			const struct xt_standard_target *t
-@@ -527,9 +522,6 @@ mark_source_chains(struct xt_table_info *newinfo,
- 					(entry0 + pos + size);
- 				e->counters.pcnt = pos;
- 				pos += size;
--				WARN_ON_ONCE(calldepth == 0);
--				if (calldepth > 0)
--					--calldepth;
- 			} else {
- 				int newpos = t->verdict;
- 
-@@ -543,14 +535,9 @@ mark_source_chains(struct xt_table_info *newinfo,
- 								newpos);
- 						return 0;
- 					}
--					if (entry0 + newpos != ipt_next_entry(e) &&
--					    !(e->ip.flags & IPT_F_GOTO) &&
--					    ++calldepth > max_calldepth)
--						max_calldepth = calldepth;
--
- 					/* This a jump; chase it. */
--					duprintf("Jump rule %u -> %u, calldepth %d\n",
--						 pos, newpos, calldepth);
-+					duprintf("Jump rule %u -> %u\n",
-+						 pos, newpos);
- 				} else {
- 					/* ... this is a fallthru */
- 					newpos = pos + e->next_offset;
-@@ -564,7 +551,6 @@ mark_source_chains(struct xt_table_info *newinfo,
- 		next:
- 		duprintf("Finished chain %u\n", hook);
- 	}
--	newinfo->stacksize = max_calldepth;
- 	return 1;
+-	return stop_sync_thread(net,
+-				nla_get_u32(attrs[IPVS_DAEMON_ATTR_STATE]));
++	mutex_lock(&ipvs->sync_mutex);
++	ret = stop_sync_thread(net,
++			       nla_get_u32(attrs[IPVS_DAEMON_ATTR_STATE]));
++	mutex_unlock(&ipvs->sync_mutex);
++	return ret;
  }
  
-@@ -844,6 +830,9 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
- 		if (ret != 0)
- 			return ret;
- 		++i;
-+		if (strcmp(ipt_get_target(iter)->u.user.name,
-+		    XT_ERROR_TARGET) == 0)
-+			++newinfo->stacksize;
- 	}
+ static int ip_vs_genl_set_config(struct net *net, struct nlattr **attrs)
+@@ -3389,7 +3408,7 @@ static int ip_vs_genl_set_config(struct net *net, struct nlattr **attrs)
  
- 	if (i != repl->num_entries) {
-@@ -1759,6 +1748,9 @@ translate_compat_table(struct net *net,
- 		if (ret != 0)
- 			break;
- 		++i;
-+		if (strcmp(ipt_get_target(iter1)->u.user.name,
-+		    XT_ERROR_TARGET) == 0)
-+			++newinfo->stacksize;
- 	}
- 	if (ret) {
- 		/*
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 4e21f80..0771991 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -455,15 +455,11 @@ ip6t_do_table(struct sk_buff *skb,
- }
- 
- /* Figures out from what hook each rule can be called: returns 0 if
-- * there are loops.  Puts hook bitmask in comefrom.
-- *
-- * Keeps track of largest call depth seen and stores it in newinfo->stacksize.
-- */
-+   there are loops.  Puts hook bitmask in comefrom. */
- static int
--mark_source_chains(struct xt_table_info *newinfo,
-+mark_source_chains(const struct xt_table_info *newinfo,
- 		   unsigned int valid_hooks, void *entry0)
+ static int ip_vs_genl_set_daemon(struct sk_buff *skb, struct genl_info *info)
  {
--	unsigned int calldepth, max_calldepth = 0;
- 	unsigned int hook;
+-	int ret = 0, cmd;
++	int ret = -EINVAL, cmd;
+ 	struct net *net;
+ 	struct netns_ipvs *ipvs;
  
- 	/* No recursion; use packet counter to save back ptrs (reset
-@@ -477,7 +473,6 @@ mark_source_chains(struct xt_table_info *newinfo,
+@@ -3400,22 +3419,19 @@ static int ip_vs_genl_set_daemon(struct sk_buff *skb, struct genl_info *info)
+ 	if (cmd == IPVS_CMD_NEW_DAEMON || cmd == IPVS_CMD_DEL_DAEMON) {
+ 		struct nlattr *daemon_attrs[IPVS_DAEMON_ATTR_MAX + 1];
  
- 		/* Set initial back pointer. */
- 		e->counters.pcnt = pos;
--		calldepth = 0;
+-		mutex_lock(&ipvs->sync_mutex);
+ 		if (!info->attrs[IPVS_CMD_ATTR_DAEMON] ||
+ 		    nla_parse_nested(daemon_attrs, IPVS_DAEMON_ATTR_MAX,
+ 				     info->attrs[IPVS_CMD_ATTR_DAEMON],
+-				     ip_vs_daemon_policy)) {
+-			ret = -EINVAL;
++				     ip_vs_daemon_policy))
+ 			goto out;
+-		}
  
- 		for (;;) {
- 			const struct xt_standard_target *t
-@@ -539,8 +534,6 @@ mark_source_chains(struct xt_table_info *newinfo,
- 					(entry0 + pos + size);
- 				e->counters.pcnt = pos;
- 				pos += size;
--				if (calldepth > 0)
--					--calldepth;
- 			} else {
- 				int newpos = t->verdict;
- 
-@@ -554,11 +547,6 @@ mark_source_chains(struct xt_table_info *newinfo,
- 								newpos);
- 						return 0;
- 					}
--					if (entry0 + newpos != ip6t_next_entry(e) &&
--					    !(e->ipv6.flags & IP6T_F_GOTO) &&
--					    ++calldepth > max_calldepth)
--						max_calldepth = calldepth;
--
- 					/* This a jump; chase it. */
- 					duprintf("Jump rule %u -> %u\n",
- 						 pos, newpos);
-@@ -575,7 +563,6 @@ mark_source_chains(struct xt_table_info *newinfo,
- 		next:
- 		duprintf("Finished chain %u\n", hook);
+ 		if (cmd == IPVS_CMD_NEW_DAEMON)
+ 			ret = ip_vs_genl_new_daemon(net, daemon_attrs);
+ 		else
+ 			ret = ip_vs_genl_del_daemon(net, daemon_attrs);
+-out:
+-		mutex_unlock(&ipvs->sync_mutex);
  	}
--	newinfo->stacksize = max_calldepth;
- 	return 1;
++
++out:
+ 	return ret;
  }
  
-@@ -855,6 +842,9 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
- 		if (ret != 0)
- 			return ret;
- 		++i;
-+		if (strcmp(ip6t_get_target(iter)->u.user.name,
-+		    XT_ERROR_TARGET) == 0)
-+			++newinfo->stacksize;
- 	}
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index d99ad93..6bc6dca 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1405,11 +1405,9 @@ join_mcast_group(struct sock *sk, struct in_addr *addr, char *ifname)
  
- 	if (i != repl->num_entries) {
-@@ -1767,6 +1757,9 @@ translate_compat_table(struct net *net,
- 		if (ret != 0)
- 			break;
- 		++i;
-+		if (strcmp(ip6t_get_target(iter1)->u.user.name,
-+		    XT_ERROR_TARGET) == 0)
-+			++newinfo->stacksize;
- 	}
- 	if (ret) {
- 		/*
+ 	mreq.imr_ifindex = dev->ifindex;
+ 
+-	rtnl_lock();
+ 	lock_sock(sk);
+ 	ret = ip_mc_join_group(sk, &mreq);
+ 	release_sock(sk);
+-	rtnl_unlock();
+ 
+ 	return ret;
+ }
 -- 
 1.7.10.4
 
