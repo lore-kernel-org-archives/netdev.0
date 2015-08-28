@@ -1,141 +1,68 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v3 net-next 1/2] lib: introduce strncpy_from_unsafe()
-Date: Fri, 28 Aug 2015 15:56:22 -0700
-Message-ID: <1440802583-5020-2-git-send-email-ast@plumgrid.com>
-References: <1440802583-5020-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33149 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753359AbbH1W4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 18:56:37 -0400
-Received: by pacgr6 with SMTP id gr6so2763425pac.0
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 15:56:36 -0700 (PDT)
-In-Reply-To: <1440802583-5020-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
+ walking all the percpu data at once
+Date: Fri, 28 Aug 2015 16:12:57 -0700
+Message-ID: <1440803577.11525.182.camel@perches.com>
+References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+	 <20150827.113823.214019265460582055.davem@davemloft.net>
+	 <55E00238.10909@linux.vnet.ibm.com>
+	 <20150828.112413.424099339331017970.davem@davemloft.net>
+	 <1440789654.11525.137.camel@perches.com>
+	 <1440794020.8932.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440795211.11525.146.camel@perches.com>
+	 <1440795336.8932.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440796183.11525.153.camel@perches.com>
+	 <1440796487.8932.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440797172.11525.161.camel@perches.com>
+	 <1440800980.8932.66.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	raghavendra.kt@linux.vnet.ibm.com, edumazet@google.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jiri@resnulli.us, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	serge.hallyn@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
+	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440800980.8932.66.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-generalize FETCH_FUNC_NAME(memory, string) into
-strncpy_from_unsafe() and fix sparse warnings that were
-present in original implementation.
+On Fri, 2015-08-28 at 15:29 -0700, Eric Dumazet wrote:
+> On Fri, 2015-08-28 at 14:26 -0700, Joe Perches wrote:
+> 1) u64 array[XX] on stack is naturally aligned,
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- include/linux/uaccess.h     |    2 ++
- kernel/trace/trace_kprobe.c |   20 ++++----------------
- lib/strncpy_from_user.c     |   41 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 47 insertions(+), 16 deletions(-)
+Of course it is.
 
-diff --git a/include/linux/uaccess.h b/include/linux/uaccess.h
-index ae572c138607..d6f2c2c5b043 100644
---- a/include/linux/uaccess.h
-+++ b/include/linux/uaccess.h
-@@ -129,4 +129,6 @@ extern long __probe_kernel_read(void *dst, const void *src, size_t size);
- extern long notrace probe_kernel_write(void *dst, const void *src, size_t size);
- extern long notrace __probe_kernel_write(void *dst, const void *src, size_t size);
- 
-+extern long strncpy_from_unsafe(char *dst, const void *unsafe_addr, long count);
-+
- #endif		/* __LINUX_UACCESS_H__ */
-diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-index b7d0cdd9906c..c9956440d0e6 100644
---- a/kernel/trace/trace_kprobe.c
-+++ b/kernel/trace/trace_kprobe.c
-@@ -165,11 +165,9 @@ DEFINE_BASIC_FETCH_FUNCS(memory)
- static void FETCH_FUNC_NAME(memory, string)(struct pt_regs *regs,
- 					    void *addr, void *dest)
- {
--	long ret;
- 	int maxlen = get_rloc_len(*(u32 *)dest);
- 	u8 *dst = get_rloc_data(dest);
--	u8 *src = addr;
--	mm_segment_t old_fs = get_fs();
-+	long ret;
- 
- 	if (!maxlen)
- 		return;
-@@ -178,23 +176,13 @@ static void FETCH_FUNC_NAME(memory, string)(struct pt_regs *regs,
- 	 * Try to get string again, since the string can be changed while
- 	 * probing.
- 	 */
--	set_fs(KERNEL_DS);
--	pagefault_disable();
--
--	do
--		ret = __copy_from_user_inatomic(dst++, src++, 1);
--	while (dst[-1] && ret == 0 && src - (u8 *)addr < maxlen);
--
--	dst[-1] = '\0';
--	pagefault_enable();
--	set_fs(old_fs);
-+	ret = strncpy_from_unsafe(dst, addr, maxlen);
- 
- 	if (ret < 0) {	/* Failed to fetch string */
--		((u8 *)get_rloc_data(dest))[0] = '\0';
-+		dst[0] = '\0';
- 		*(u32 *)dest = make_data_rloc(0, get_rloc_offs(*(u32 *)dest));
- 	} else {
--		*(u32 *)dest = make_data_rloc(src - (u8 *)addr,
--					      get_rloc_offs(*(u32 *)dest));
-+		*(u32 *)dest = make_data_rloc(ret, get_rloc_offs(*(u32 *)dest));
- 	}
- }
- NOKPROBE_SYMBOL(FETCH_FUNC_NAME(memory, string));
-diff --git a/lib/strncpy_from_user.c b/lib/strncpy_from_user.c
-index e0af6ff73d14..ead8c4a068d1 100644
---- a/lib/strncpy_from_user.c
-+++ b/lib/strncpy_from_user.c
-@@ -112,3 +112,44 @@ long strncpy_from_user(char *dst, const char __user *src, long count)
- 	return -EFAULT;
- }
- EXPORT_SYMBOL(strncpy_from_user);
-+
-+/**
-+ * strncpy_from_unsafe: - Copy a NUL terminated string from unsafe address.
-+ * @dst:   Destination address, in kernel space.  This buffer must be at
-+ *         least @count bytes long.
-+ * @src:   Unsafe address.
-+ * @count: Maximum number of bytes to copy, including the trailing NUL.
-+ *
-+ * Copies a NUL-terminated string from unsafe address to kernel buffer.
-+ *
-+ * On success, returns the length of the string INCLUDING the trailing NUL.
-+ *
-+ * If access fails, returns -EFAULT (some data may have been copied
-+ * and the trailing NUL added).
-+ *
-+ * If @count is smaller than the length of the string, copies @count-1 bytes,
-+ * sets the last byte of @dst buffer to NUL and returns @count.
-+ */
-+long strncpy_from_unsafe(char *dst, const void *unsafe_addr, long count)
-+{
-+	mm_segment_t old_fs = get_fs();
-+	const void *src = unsafe_addr;
-+	long ret;
-+
-+	if (unlikely(count <= 0))
-+		return 0;
-+
-+	set_fs(KERNEL_DS);
-+	pagefault_disable();
-+
-+	do {
-+		ret = __copy_from_user_inatomic(dst++,
-+						(const void __user __force *)src++, 1);
-+	} while (dst[-1] && ret == 0 && src - unsafe_addr < count);
-+
-+	dst[-1] = '\0';
-+	pagefault_enable();
-+	set_fs(old_fs);
-+
-+	return ret < 0 ? ret : src - unsafe_addr;
-+}
--- 
-1.7.9.5
+> kzalloc() wont improve this at all. Not sure what you believe.
+
+An alloc would only reduce stack use.
+
+Copying into the buffer, then copying the buffer into the
+skb may be desirable on some arches though.
+
+> 2) put_unaligned() is basically a normal memory write on x86.
+>  memcpy(dst,src,...) will have a problem anyway on arches that care,
+> because src & dst wont have same alignment.
+
+OK, so all the world's an x86?
+
+On arm32, copying 288 bytes using nearly all aligned word
+transfers is generally faster than using only unsigned
+short transfers.
+
+> 288 bytes on stack in a leaf function in this path is totally fine, it
+> is not like we're calling ext4/xfs/nfs code after this point.
+
+Generally true.  It's always difficult to know how much
+stack has been consumed though and smaller stack frames
+are generally better.
+
+Anyway, the block copy from either the alloc'd or stack
+buffer amounts only to a slight performance improvement
+for arm32.  It doesn't really have much other utility.
