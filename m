@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 9/9] netfilter: reduce sparse warnings
-Date: Sat, 29 Aug 2015 00:50:17 +0200
-Message-ID: <1440802217-13080-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/9] netfilter: nf_dup: fix sparse warnings
+Date: Sat, 29 Aug 2015 00:50:13 +0200
+Message-ID: <1440802217-13080-6-git-send-email-pablo@netfilter.org>
 References: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,99 +10,49 @@ In-Reply-To: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+>> net/ipv4/netfilter/nft_dup_ipv4.c:29:37: sparse: incorrect type in initializer (different base types)
+   net/ipv4/netfilter/nft_dup_ipv4.c:29:37:    expected restricted __be32 [user type] s_addr
+   net/ipv4/netfilter/nft_dup_ipv4.c:29:37:    got unsigned int [unsigned] <noident>
 
-bridge/netfilter/ebtables.c:290:26: warning: incorrect type in assignment (different modifiers)
--> remove __pure annotation.
+>> net/ipv6/netfilter/nf_dup_ipv6.c:48:23: sparse: incorrect type in assignment (different base types)
+   net/ipv6/netfilter/nf_dup_ipv6.c:48:23:    expected restricted __be32 [addressable] [assigned] [usertype] flowlabel
+   net/ipv6/netfilter/nf_dup_ipv6.c:48:23:    got int
 
-ipv6/netfilter/ip6t_SYNPROXY.c:240:27: warning: cast from restricted __be16
--> switch ntohs to htons and vice versa.
-
-netfilter/core.c:391:30: warning: symbol 'nfq_ct_nat_hook' was not declared. Should it be static?
--> delete it, got removed
-
-net/netfilter/nf_synproxy_core.c:221:48: warning: cast to restricted __be32
--> Use __be32 instead of u32.
-
-Tested with objdiff that these changes do not affect generated code.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/ebtables.c    |    2 +-
- net/ipv6/netfilter/ip6t_SYNPROXY.c |    2 +-
- net/netfilter/core.c               |    3 ---
- net/netfilter/nf_synproxy_core.c   |    6 +++---
- 4 files changed, 5 insertions(+), 8 deletions(-)
+ net/ipv4/netfilter/nft_dup_ipv4.c |    2 +-
+ net/ipv6/netfilter/nf_dup_ipv6.c  |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 18ca4b2..48b6b01 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -176,7 +176,7 @@ ebt_basic_match(const struct ebt_entry *e, const struct sk_buff *skb,
- 	return 0;
- }
- 
--static inline __pure
-+static inline
- struct ebt_entry *ebt_next_entry(const struct ebt_entry *entry)
+diff --git a/net/ipv4/netfilter/nft_dup_ipv4.c b/net/ipv4/netfilter/nft_dup_ipv4.c
+index 25419fb..b45932d 100644
+--- a/net/ipv4/netfilter/nft_dup_ipv4.c
++++ b/net/ipv4/netfilter/nft_dup_ipv4.c
+@@ -26,7 +26,7 @@ static void nft_dup_ipv4_eval(const struct nft_expr *expr,
  {
- 	return (void *)entry + entry->next_offset;
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index ebbb754..1e4bf99 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -237,7 +237,7 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
- 	nth->ack_seq	= th->ack_seq;
- 	tcp_flag_word(nth) = TCP_FLAG_ACK;
- 	nth->doff	= tcp_hdr_size / 4;
--	nth->window	= ntohs(htons(th->window) >> opts->wscale);
-+	nth->window	= htons(ntohs(th->window) >> opts->wscale);
- 	nth->check	= 0;
- 	nth->urg_ptr	= 0;
+ 	struct nft_dup_ipv4 *priv = nft_expr_priv(expr);
+ 	struct in_addr gw = {
+-		.s_addr = regs->data[priv->sreg_addr],
++		.s_addr = (__force __be32)regs->data[priv->sreg_addr],
+ 	};
+ 	int oif = regs->data[priv->sreg_dev];
  
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 2a5a070..0b939b7 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -388,9 +388,6 @@ EXPORT_SYMBOL(nf_conntrack_destroy);
- struct nfq_ct_hook __rcu *nfq_ct_hook __read_mostly;
- EXPORT_SYMBOL_GPL(nfq_ct_hook);
+diff --git a/net/ipv6/netfilter/nf_dup_ipv6.c b/net/ipv6/netfilter/nf_dup_ipv6.c
+index d8ab654..c5c87e9 100644
+--- a/net/ipv6/netfilter/nf_dup_ipv6.c
++++ b/net/ipv6/netfilter/nf_dup_ipv6.c
+@@ -45,8 +45,8 @@ static bool nf_dup_ipv6_route(struct sk_buff *skb, const struct in6_addr *gw,
+ 		fl6.flowi6_oif = oif;
  
--struct nfq_ct_nat_hook __rcu *nfq_ct_nat_hook __read_mostly;
--EXPORT_SYMBOL_GPL(nfq_ct_nat_hook);
--
- #endif /* CONFIG_NF_CONNTRACK */
- 
- #ifdef CONFIG_NF_NAT_NEEDED
-diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
-index 8fbbdb0..888b955 100644
---- a/net/netfilter/nf_synproxy_core.c
-+++ b/net/netfilter/nf_synproxy_core.c
-@@ -188,7 +188,7 @@ unsigned int synproxy_tstamp_adjust(struct sk_buff *skb,
- 				    const struct nf_conn_synproxy *synproxy)
- {
- 	unsigned int optoff, optend;
--	u32 *ptr, old;
-+	__be32 *ptr, old;
- 
- 	if (synproxy->tsoff == 0)
- 		return 1;
-@@ -216,12 +216,12 @@ unsigned int synproxy_tstamp_adjust(struct sk_buff *skb,
- 			if (op[0] == TCPOPT_TIMESTAMP &&
- 			    op[1] == TCPOLEN_TIMESTAMP) {
- 				if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY) {
--					ptr = (u32 *)&op[2];
-+					ptr = (__be32 *)&op[2];
- 					old = *ptr;
- 					*ptr = htonl(ntohl(*ptr) -
- 						     synproxy->tsoff);
- 				} else {
--					ptr = (u32 *)&op[6];
-+					ptr = (__be32 *)&op[6];
- 					old = *ptr;
- 					*ptr = htonl(ntohl(*ptr) +
- 						     synproxy->tsoff);
+ 	fl6.daddr = *gw;
+-	fl6.flowlabel = ((iph->flow_lbl[0] & 0xF) << 16) |
+-			 (iph->flow_lbl[1] << 8) | iph->flow_lbl[2];
++	fl6.flowlabel = (__force __be32)(((iph->flow_lbl[0] & 0xF) << 16) |
++			(iph->flow_lbl[1] << 8) | iph->flow_lbl[2]);
+ 	dst = ip6_route_output(net, NULL, &fl6);
+ 	if (dst->error) {
+ 		dst_release(dst);
 -- 
 1.7.10.4
 
