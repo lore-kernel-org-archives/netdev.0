@@ -1,66 +1,70 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Fri, 28 Aug 2015 13:13:20 +0200
-Message-ID: <20150828111320.GL20760@orbit.nwl.cc>
-References: <1440757685-14241-1-git-send-email-phil@nwl.cc>
- <1440757685-14241-2-git-send-email-phil@nwl.cc>
- <20150828110929.GI32206@pox.localdomain>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 0/2] Add new switchdev device class
+Date: Fri, 28 Aug 2015 13:52:55 +0200
+Message-ID: <20150828115255.GC20774@lunn.ch>
+References: <1440659806-56582-1-git-send-email-sfeldma@gmail.com>
+ <20150827074525.GA8094@lunn.ch>
+ <CAE4R7bD0Ka0187Qq=+6cZL7UqgnxJASKL_6AmaC2z_jiF5Jp1w@mail.gmail.com>
+ <20150827090603.GC8094@lunn.ch>
+ <CAE4R7bCxb8Ni4b5=o80FG+iGEA_dtpefWm9o5eqqKLboC35stg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?iso-8859-1?B?Smk/P+0gUO1ya28=?= <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41554 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751844AbbH1MA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Aug 2015 08:00:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20150828110929.GI32206@pox.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAE4R7bCxb8Ni4b5=o80FG+iGEA_dtpefWm9o5eqqKLboC35stg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 28, 2015 at 01:09:29PM +0200, Thomas Graf wrote:
-> On 08/28/15 at 12:28pm, Phil Sutter wrote:
-> > After adding cond_resched() calls to threadfunc(), a surprisingly high
-> > rate of insert failures occurred probably due to table resizes getting a
-> > better chance to run in background. To not soften up the remaining
-> > tests, retry inserts until they either succeed or fail permanently.
-> > 
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > ---
-> >  lib/test_rhashtable.c | 13 +++++++------
-> >  1 file changed, 7 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
-> > index 63654e3..093cf84 100644
-> > --- a/lib/test_rhashtable.c
-> > +++ b/lib/test_rhashtable.c
-> > @@ -244,7 +244,7 @@ static int thread_lookup_test(struct thread_data *tdata)
-> >  
-> >  static int threadfunc(void *data)
-> >  {
-> > -	int i, step, err = 0, insert_fails = 0;
-> > +	int i, step, err = 0, retries = 0;
-> >  	struct thread_data *tdata = data;
-> >  
-> >  	up(&prestart_sem);
-> > @@ -253,21 +253,22 @@ static int threadfunc(void *data)
-> >  
-> >  	for (i = 0; i < entries; i++) {
-> >  		tdata->objs[i].value = (tdata->id << 16) | i;
-> > +insert_retry:
-> >  		cond_resched();
-> >  		err = rhashtable_insert_fast(&ht, &tdata->objs[i].node,
-> >  		                             test_rht_params);
-> >  		if (err == -ENOMEM || err == -EBUSY) {
-> > -			tdata->objs[i].value = TEST_INSERT_FAIL;
-> > -			insert_fails++;
-> > +			retries++;
-> > +			goto insert_retry;
+> So with kobj, a device can have a parent.  So I experimented with my
+> RFC patch and changed register_switchdev to take a parent switchdev
+> arg, which is NULL for leaf switchdevs:
 > 
-> Is it safe to retry indefinitely on ENOMEM? Retrying on EBUSY is
-> definitely an improvement and we should do the same in the non
-> threaded test as well.
+> int register_switchdev(struct switchdev *sdev, const char *name,
+>                        struct switchdev *parent)
+> {
+>         struct device *dev = &sdev->dev;
+>         int err;
+> 
+>         device_initialize(dev);
+> 
+>         dev->class = &switchdev_class;
+>         if (parent)
+>                 dev->parent = &parent->dev;
+> 
+>         err = dev_set_name(dev, "%s", name);
+>         if (err)
+>                 return err;
+> 
+>         return device_add(dev);
+> }
+ 
+...
 
-Oh yes, that is definitely a bug. I will respin and add the same for the
-normal test, too.
+> With this, we can stack switchdevs, I guess as high as we want.  Does
+> this look usable for DSA?   An attr set on the master would get pushed
+> down to the leaves.  We'd can do it with the same style of recursive
+> algos we use for switchdev port attrs.
 
-Thanks, Phil
+Since this is a file system, we are limited to trees. But the hardware
+is actually a graph. The interconnect points are ports on the switch,
+and possible trunks/bonds of ports. I doubt there is a nice way to
+represent this.
+
+So it probably makes sense to have the switch with the port to the
+host as the root of the tree, and all other switches are leafs of that
+root.
+
+How do you envisage addressing? I want to use netlink to read the
+global registers from a specific switch for example.
+
+       Andrew
