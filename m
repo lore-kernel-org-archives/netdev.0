@@ -1,68 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
- walking all the percpu data at once
-Date: Fri, 28 Aug 2015 16:12:57 -0700
-Message-ID: <1440803577.11525.182.camel@perches.com>
-References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-	 <20150827.113823.214019265460582055.davem@davemloft.net>
-	 <55E00238.10909@linux.vnet.ibm.com>
-	 <20150828.112413.424099339331017970.davem@davemloft.net>
-	 <1440789654.11525.137.camel@perches.com>
-	 <1440794020.8932.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1440795211.11525.146.camel@perches.com>
-	 <1440795336.8932.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1440796183.11525.153.camel@perches.com>
-	 <1440796487.8932.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1440797172.11525.161.camel@perches.com>
-	 <1440800980.8932.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next 4/5] net_sched: forbid setting default qdisc
+ to inappropriate ones
+Date: Fri, 28 Aug 2015 16:20:37 -0700 (PDT)
+Message-ID: <20150828.162037.473306692661391284.davem@davemloft.net>
+References: <CAM_iQpWap83uA1CsR5rryLEoc4ffrJp3+=zPs+uAAhAtkKtG_w@mail.gmail.com>
+	<20150827.212359.1624170801280596846.davem@davemloft.net>
+	<CAM_iQpVqgFMoKE8JGpHw3e+YTqRoVYADoKBprFaaV-Es=uDKdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	raghavendra.kt@linux.vnet.ibm.com, edumazet@google.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, jiri@resnulli.us, hannes@stressinduktion.org,
-	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
-	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
-	serge.hallyn@canonical.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
-	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440800980.8932.66.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+	stephen@networkplumber.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56604 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752725AbbH1XUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 19:20:40 -0400
+In-Reply-To: <CAM_iQpVqgFMoKE8JGpHw3e+YTqRoVYADoKBprFaaV-Es=uDKdQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-08-28 at 15:29 -0700, Eric Dumazet wrote:
-> On Fri, 2015-08-28 at 14:26 -0700, Joe Perches wrote:
-> 1) u64 array[XX] on stack is naturally aligned,
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 28 Aug 2015 14:39:45 -0700
 
-Of course it is.
+> If HTB is not a good example, as using HTB as default might
+> make some sense, please try ingress qdisc, no error at _any_ time,
+> and apparently defaulting to ingress is totally non-sense.
 
-> kzalloc() wont improve this at all. Not sure what you believe.
+I agree that ingress should have some special flag that prevents
+it from being an egress qdisc.
 
-An alloc would only reduce stack use.
-
-Copying into the buffer, then copying the buffer into the
-skb may be desirable on some arches though.
-
-> 2) put_unaligned() is basically a normal memory write on x86.
->  memcpy(dst,src,...) will have a problem anyway on arches that care,
-> because src & dst wont have same alignment.
-
-OK, so all the world's an x86?
-
-On arm32, copying 288 bytes using nearly all aligned word
-transfers is generally faster than using only unsigned
-short transfers.
-
-> 288 bytes on stack in a leaf function in this path is totally fine, it
-> is not like we're calling ext4/xfs/nfs code after this point.
-
-Generally true.  It's always difficult to know how much
-stack has been consumed though and smaller stack frames
-are generally better.
-
-Anyway, the block copy from either the alloc'd or stack
-buffer amounts only to a slight performance improvement
-for arm32.  It doesn't really have much other utility.
+But HTB definitely should be allowed.
