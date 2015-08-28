@@ -1,85 +1,116 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 05/10] batman-adv: rearrange batadv_neigh_node_new() arguments to follow convention
-Date: Fri, 28 Aug 2015 11:12:31 +0200
-Message-ID: <1440753156-7808-6-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 09/10] batman-adv: Add lower layer needed_(head|tail)room to own ones
+Date: Fri, 28 Aug 2015 11:12:35 +0200
+Message-ID: <1440753156-7808-10-git-send-email-antonio@meshcoding.com>
 References: <1440753156-7808-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
 	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:17465 "EHLO s1.neomailbox.net"
+Received: from s1.neomailbox.net ([5.148.176.57]:30229 "EHLO s1.neomailbox.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752339AbbH1JNz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Aug 2015 05:13:55 -0400
+	id S1752361AbbH1JOA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Aug 2015 05:14:00 -0400
 In-Reply-To: <1440753156-7808-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <mareklindner@neomailbox.ch>
+From: Sven Eckelmann <sven@narfation.org>
 
+The maximum of hard_header_len and maximum of all needed_(head|tail)room of
+all slave interfaces of a batman-adv device must be used to define the
+batman-adv device needed_(head|tail)room. This is required to avoid too
+small buffer problems when these slave devices try to send the encapsulated
+packet in a tx path without the possibility to resize the skbuff.
+
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Acked-by: Simon Wunderlich <sw@simonwunderlich.de>
 Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/bat_iv_ogm.c | 2 +-
- net/batman-adv/originator.c | 7 ++++---
- net/batman-adv/originator.h | 5 +++--
- 3 files changed, 8 insertions(+), 6 deletions(-)
+ net/batman-adv/hard-interface.c | 41 +++++++++++++++++++++++++++++++++++++++++
+ net/batman-adv/soft-interface.c |  2 --
+ 2 files changed, 41 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 5e93af4..912d9c3 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -298,7 +298,7 @@ batadv_iv_ogm_neigh_new(struct batadv_hard_iface *hard_iface,
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 0565b20..f11345e 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -252,6 +252,44 @@ static void batadv_check_known_mac_addr(const struct net_device *net_dev)
+ 	rcu_read_unlock();
+ }
+ 
++/**
++ * batadv_hardif_recalc_extra_skbroom() - Recalculate skbuff extra head/tailroom
++ * @soft_iface: netdev struct of the mesh interface
++ */
++static void batadv_hardif_recalc_extra_skbroom(struct net_device *soft_iface)
++{
++	const struct batadv_hard_iface *hard_iface;
++	unsigned short lower_header_len = ETH_HLEN;
++	unsigned short lower_headroom = 0;
++	unsigned short lower_tailroom = 0;
++	unsigned short needed_headroom;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(hard_iface, &batadv_hardif_list, list) {
++		if (hard_iface->if_status == BATADV_IF_NOT_IN_USE)
++			continue;
++
++		if (hard_iface->soft_iface != soft_iface)
++			continue;
++
++		lower_header_len = max_t(unsigned short, lower_header_len,
++					 hard_iface->net_dev->hard_header_len);
++
++		lower_headroom = max_t(unsigned short, lower_headroom,
++				       hard_iface->net_dev->needed_headroom);
++
++		lower_tailroom = max_t(unsigned short, lower_tailroom,
++				       hard_iface->net_dev->needed_tailroom);
++	}
++	rcu_read_unlock();
++
++	needed_headroom = lower_headroom + (lower_header_len - ETH_HLEN);
++	needed_headroom += batadv_max_header_len();
++
++	soft_iface->needed_headroom = needed_headroom;
++	soft_iface->needed_tailroom = lower_tailroom;
++}
++
+ int batadv_hardif_min_mtu(struct net_device *soft_iface)
  {
- 	struct batadv_neigh_node *neigh_node;
+ 	struct batadv_priv *bat_priv = netdev_priv(soft_iface);
+@@ -474,6 +512,8 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
+ 			   "Not using interface %s (retrying later): interface not active\n",
+ 			   hard_iface->net_dev->name);
  
--	neigh_node = batadv_neigh_node_new(hard_iface, neigh_addr, orig_node);
-+	neigh_node = batadv_neigh_node_new(orig_node, hard_iface, neigh_addr);
- 	if (!neigh_node)
- 		goto out;
++	batadv_hardif_recalc_extra_skbroom(soft_iface);
++
+ 	/* begin scheduling originator messages on that interface */
+ 	batadv_schedule_bat_ogm(hard_iface);
  
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index d6d9809..099a84a 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -444,16 +444,17 @@ out:
+@@ -529,6 +569,7 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
+ 	dev_put(hard_iface->soft_iface);
  
- /**
-  * batadv_neigh_node_new - create and init a new neigh_node object
-+ * @orig_node: originator object representing the neighbour
-  * @hard_iface: the interface where the neighbour is connected to
-  * @neigh_addr: the mac address of the neighbour interface
-- * @orig_node: originator object representing the neighbour
-  *
-  * Allocates a new neigh_node object and initialises all the generic fields.
-  * Returns the new object or NULL on failure.
-  */
- struct batadv_neigh_node *
--batadv_neigh_node_new(struct batadv_hard_iface *hard_iface,
--		      const u8 *neigh_addr, struct batadv_orig_node *orig_node)
-+batadv_neigh_node_new(struct batadv_orig_node *orig_node,
-+		      struct batadv_hard_iface *hard_iface,
-+		      const u8 *neigh_addr)
- {
- 	struct batadv_neigh_node *neigh_node;
+ 	netdev_upper_dev_unlink(hard_iface->net_dev, hard_iface->soft_iface);
++	batadv_hardif_recalc_extra_skbroom(hard_iface->soft_iface);
  
-diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
-index 3fc76f6..fde3438 100644
---- a/net/batman-adv/originator.h
-+++ b/net/batman-adv/originator.h
-@@ -46,8 +46,9 @@ batadv_neigh_node_get(const struct batadv_orig_node *orig_node,
- 		      const struct batadv_hard_iface *hard_iface,
- 		      const u8 *addr);
- struct batadv_neigh_node *
--batadv_neigh_node_new(struct batadv_hard_iface *hard_iface,
--		      const u8 *neigh_addr, struct batadv_orig_node *orig_node);
-+batadv_neigh_node_new(struct batadv_orig_node *orig_node,
-+		      struct batadv_hard_iface *hard_iface,
-+		      const u8 *neigh_addr);
- void batadv_neigh_node_free_ref(struct batadv_neigh_node *neigh_node);
- struct batadv_neigh_node *
- batadv_orig_router_get(struct batadv_orig_node *orig_node,
+ 	/* nobody uses this interface anymore */
+ 	if (!bat_priv->num_ifaces) {
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index d5c5ad9..ac4d08d 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -947,8 +947,6 @@ static void batadv_softif_init_early(struct net_device *dev)
+ 	 * have not been initialized yet
+ 	 */
+ 	dev->mtu = ETH_DATA_LEN;
+-	/* reserve more space in the skbuff for our header */
+-	dev->hard_header_len = batadv_max_header_len();
+ 
+ 	/* generate random address */
+ 	eth_hw_addr_random(dev);
 -- 
 2.5.0
