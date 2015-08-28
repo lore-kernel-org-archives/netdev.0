@@ -1,94 +1,52 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v2 net-next 1/2] lib: introduce strncpy_from_unsafe()
-Date: Fri, 28 Aug 2015 17:48:13 -0400
-Message-ID: <20150828174813.23e6e78b@gandalf.local.home>
-References: <1440791509-5450-1-git-send-email-ast@plumgrid.com>
-	<1440791509-5450-2-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Wang Nan <wangnan0@huawei.com>, He Kuang <hekuang@huawei.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440791509-5450-2-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Fri, 28 Aug 2015 12:51:48 -0700
-Alexei Starovoitov <ast@plumgrid.com> wrote:
-
->  EXPORT_SYMBOL(strncpy_from_user);
-> +
-> +/**
-> + * strncpy_from_unsafe: - Copy a NUL terminated string from unsafe address.
-> + * @dst:   Destination address, in kernel space.  This buffer must be at
-> + *         least @count bytes long.
-> + * @src:   Unsafe address.
-> + * @count: Maximum number of bytes to copy, including the trailing NUL.
-> + *
-> + * Copies a NUL-terminated string from unsafe address to kernel buffer.
-> + *
-> + * On success, returns the length of the string (not including the trailing
-> + * NUL).
-
-I think it includes the NUL.
-
-> + *
-> + * If access fails, returns -EFAULT (some data may have been copied).
-> + *
-> + * If @count is smaller than the length of the string, copies @count bytes
-> + * and returns @count.
-> + */
-> +long strncpy_from_unsafe(char *dst, const void *unsafe_addr, long count)
-> +{
-> +	mm_segment_t old_fs = get_fs();
-> +	const void *src = unsafe_addr;
-
-src = unsafe_addr = 0x100;
-
-*unsafe_addr = "1\0";
-
-> +	long ret;
-> +
-> +	if (unlikely(count <= 0))
-> +		return 0;
-> +
-> +	set_fs(KERNEL_DS);
-> +	pagefault_disable();
-> +
-> +	do {
-> +		ret = __copy_from_user_inatomic(dst++,
-> +						(const void __user __force *)src++, 1);
-
-First loop:
-
-  dst[-1] = '1'
-  src = 0x101
-
-Second loop:
-
-  dst[-1] = '\0'
-  src = 0x102
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net v2] bonding: fix bond_poll_controller bh_enable warning
+Date: Fri, 28 Aug 2015 14:59:40 -0700
+Message-ID: <69380EC5-CF63-48BE-AFCB-4F70E6869DFC@cumulusnetworks.com>
+References: <658DEBCA-6BE2-4388-AFE8-58C6A71029AC@cumulusnetworks.com> <1440782540-7876-1-git-send-email-razor@blackwall.org> <20150828.141351.2056521281131696426.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, 13806511171@163.com,
+	shemminger@linux-foundation.org, maheshb@google.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34045 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752552AbbH1V7n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 17:59:43 -0400
+Received: by pabzx8 with SMTP id zx8so75021760pab.1
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 14:59:43 -0700 (PDT)
+In-Reply-To: <20150828.141351.2056521281131696426.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> +	} while (dst[-1] && ret == 0 && src - unsafe_addr < count);
-> +
-> +	dst[-1] = '\0';
-> +	pagefault_enable();
-> +	set_fs(old_fs);
-> +
-> +	return ret < 0 ? ret : src - unsafe_addr;
+> On Aug 28, 2015, at 2:13 PM, David Miller <davem@davemloft.net> wrote:
+> 
+> From: Nikolay Aleksandrov <razor@blackwall.org>
+> Date: Fri, 28 Aug 2015 10:22:20 -0700
+> 
+>> The problem is rcu_read_unlock_bh() which triggers a warning when
+>> irqs are disabled.  ndo_poll_controller can run with bh enabled,
+>> disabled or irqs disabled so check if that is the case and acquire
+>> rcu_read_lock_bh only when not running with disabled irqs.
+> 
+> I would say that having hard irqs disabled is a strict requirement, as
+> per the debugging test in netpoll_send_skb_on_dev():
+> 
+> 	WARN_ON_ONCE(!irqs_disabled());
+> 
+> If you want to add the same check to netpoll_send_udp(), that's fine.
+> 
+> But what isn't fine is adding all of this conditional locking, we want
+> ->poll_controller() implementations to be able to depend upon the IRQ
+> environment they execute in, otherwise every single implementation
+> might need to have ugly conditional locking as well.
 
-  src - unsafe_addr = 0x102 - 0x100 = 2
+Great, that is what I wanted to know because I got confused by some older
+commits. This will simplify the fix and I will add the warn_on in netpoll_send_udp().
+v3 coming up
 
-Included the NUL.
-
--- Steve
-
-> +}
+Thank you,
+ Nik
