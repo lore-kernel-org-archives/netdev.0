@@ -1,40 +1,40 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: FIB tracepoints
-Date: Thu, 27 Aug 2015 22:07:30 -0700
-Message-ID: <55DFEC92.8050700@cumulusnetworks.com>
-References: <1440737972-10468-1-git-send-email-dsa@cumulusnetworks.com>
- <20150827.220538.2154843333132928646.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Christophe Ricard <christophe.ricard@gmail.com>
+Subject: [PATCH v4] netlink_ack: send a capped message in case of error
+Date: Fri, 28 Aug 2015 07:07:47 +0200
+Message-ID: <1440738468-2374-1-git-send-email-christophe-h.ricard@st.com>
+Cc: netdev@vger.kernel.org, christophe-h.ricard@st.com,
+	christophe.ricard@gmail.com
+To: pablo@netfilter.org, jbenc@redhat.com, sfeldma@gmail.com,
+	sameo@linux.intel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33331 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733AbbH1FHc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 01:07:32 -0400
-Received: by padfo6 with SMTP id fo6so11074342pad.0
-        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 22:07:32 -0700 (PDT)
-In-Reply-To: <20150827.220538.2154843333132928646.davem@davemloft.net>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38773 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482AbbH1FHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 01:07:54 -0400
+Received: by wicgk12 with SMTP id gk12so10103565wic.1
+        for <netdev@vger.kernel.org>; Thu, 27 Aug 2015 22:07:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/27/15 10:05 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Thu, 27 Aug 2015 21:59:32 -0700
->
->> +		__array(	__u8,	src,	4	)
->> +		__array(	__u8,	dst,	4	)
->   ...
->> +		__array(	__u8,	src,	4	)
->
-> Maybe there is something I don't understand about tracing, but why not
-> use __u32?  If endianness types are the issue, just force cast it as
-> needed.
->
-> Using a memcpy() on a 4-byte array is kinda excessive.
->
+Hi,
 
-Silly trick need to use %pI4. ie., printing the addresses as strings vs. 
-hex.
+After Jiri Benc feedback on my seconds proposal, please find a reworked patch still based on
+Pablo Neira Ayuso proposal. Compared to v3 i have removed Cc: stable@vger.kernel.org.
+
+Could you queue it up for -stable ?
+
+On this patch, I found the sender's socket was saved in netlink_unicast_kernel in NETLINK_CB(skb).sk.
+This information now prevent me to look up the socket for every ack.
+
+Best Regards
+Christophe
+
+Christophe Ricard (1):
+  netlink: add NETLINK_CAP_ACK socket option
+
+ include/uapi/linux/netlink.h |  1 +
+ net/netlink/af_netlink.c     | 27 ++++++++++++++++++++++++---
+ 2 files changed, 25 insertions(+), 3 deletions(-)
+
+-- 
+2.1.4
