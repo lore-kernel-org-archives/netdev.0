@@ -1,152 +1,455 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH v8 1/3] if_link: Add control trust VF
-Date: Fri, 28 Aug 2015 14:28:24 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A078939424F@ORSMSX108.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05F28E5B@BPXM14GP.gisp.nec.co.jp>
+From: Aleksey Makarov <aleksey.makarov@auriga.com>
+Subject: [PATCH net-next 2/8] net: thunderx: Add receive error stats reporting
+ via ethtool
+Date: Fri, 28 Aug 2015 17:59:54 +0300
+Message-ID: <1440774004-27923-2-git-send-email-aleksey.makarov@auriga.com>
+References: <1440774004-27923-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Linux Netdev List" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42988 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734AbbH1O2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Aug 2015 10:28:35 -0400
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05F28E5B@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Aleksey Makarov <aleksey.makarov@auriga.com>,
+ Robert Richter <rric@kernel.org>, David Daney <david.daney@cavium.com>,
+ Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
+ Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+ linux-kernel@vger.kernel.org,
+ Robert Richter <robert.richter@caviumnetworks.com>,
+ Sunil Goutham <sgoutham@cavium.com>, linux-arm-kernel@lists.infradead.org
+To: <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1440774004-27923-1-git-send-email-aleksey.makarov@auriga.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEhpcm9zaGkgU2hpbWFtb3Rv
-IFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEF1
-Z3VzdCAyNywgMjAxNSAxMTo1OCBQTQ0KPiBUbzogT3IgR2VybGl0ejsgQWxleGFuZGVyIER1eWNr
-OyBTa2lkbW9yZSwgRG9uYWxkIEM7IFJvc2UsIEdyZWdvcnkgVjsNCj4gS2lyc2hlciwgSmVmZnJl
-eSBUOyBpbnRlbC13aXJlZC1sYW5AbGlzdHMub3N1b3NsLm9yZzsgbmhvcm1hbkByZWRoYXQuY29t
-Ow0KPiBqb2dyZWVuZUByZWRoYXQuY29tOyBMaW51eCBOZXRkZXYgTGlzdDsgQ2hvaSwgU3kgSm9u
-ZzsgUm9ueSBFZnJhaW07IEVkd2FyZA0KPiBDcmVlOyBEYXZpZCBNaWxsZXI7IHNhc3NtYW5uQHJl
-ZGhhdC5jb20NCj4gU3ViamVjdDogW1BBVENIIHY4IDEvM10gaWZfbGluazogQWRkIGNvbnRyb2wg
-dHJ1c3QgVkYNCj4gDQo+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90b0BjdC5q
-cC5uZWMuY29tPg0KPiANCj4gQWRkIG5ldGxpbmsgZGlyZWN0aXZlcyBhbmQgbmRvIGVudHJ5IHRv
-IHRydXN0IFZGIHVzZXIuDQo+IA0KPiBUaGlzIGNvbnRyb2xzIHRoZSBzcGVjaWFsIHBlcm1pc3Np
-b24gb2YgVkYgdXNlci4NCj4gVGhlIGFkbWluaXN0cmF0b3Igd2lsbCBkZWRpY2F0ZWRseSB0cnVz
-dCBWRiB1c2VyIHRvIHVzZSBzb21lIGZlYXR1cmVzDQo+IHdoaWNoIGltcGFjdHMgc2VjdXJpdHkg
-YW5kL29yIHBlcmZvcm1hbmNlLg0KPiANCj4gVGhlIGFkbWluaXN0cmF0b3IgbmV2ZXIgdHVybiBp
-dCBvbiB1bmxlc3MgVkYgdXNlciBpcyBmdWxseSB0cnVzdGVkLg0KPiANCj4gU2lnbmVkLW9mZi1i
-eTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQo+IENDOiBD
-aG9pLCBTeSBKb25nIDxzeS5qb25nLmNob2lAaW50ZWwuY29tPj4gLS0tDQoNClRoYW5rIHlvdSBm
-b3IgcGVyc2lzdGluZyBpbiB0aGlzIQ0KDQpBY2tlZC1CeTogR3JlZyBSb3NlIDxncmVnb3J5LnYu
-cm9zZUBpbnRlbC5jb20+DQoNCkknbGwgbGVhdmUgdGhlIHBhdGNoZXMgZm9yIGl4Z2JlIHRvIERv
-biBTa2lkbW9yZSB0byByZXZpZXcuIA0KDQo+ICBpbmNsdWRlL2xpbnV4L2lmX2xpbmsuaCAgICAg
-IHwgIDEgKw0KPiAgaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCAgICB8ICAzICsrKw0KPiAgaW5j
-bHVkZS91YXBpL2xpbnV4L2lmX2xpbmsuaCB8ICA2ICsrKysrKw0KPiAgbmV0L2NvcmUvcnRuZXRs
-aW5rLmMgICAgICAgICB8IDI0ICsrKysrKysrKysrKysrKysrKysrKy0tLQ0KPiAgNCBmaWxlcyBj
-aGFuZ2VkLCAzMSBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdp
-dCBhL2luY2x1ZGUvbGludXgvaWZfbGluay5oIGIvaW5jbHVkZS9saW51eC9pZl9saW5rLmggaW5k
-ZXgNCj4gYWU1ZDBkMi4uZjkyM2QxNSAxMDA2NDQNCj4gLS0tIGEvaW5jbHVkZS9saW51eC9pZl9s
-aW5rLmgNCj4gKysrIGIvaW5jbHVkZS9saW51eC9pZl9saW5rLmgNCj4gQEAgLTI0LDUgKzI0LDYg
-QEAgc3RydWN0IGlmbGFfdmZfaW5mbyB7DQo+ICAJX191MzIgbWluX3R4X3JhdGU7DQo+ICAJX191
-MzIgbWF4X3R4X3JhdGU7DQo+ICAJX191MzIgcnNzX3F1ZXJ5X2VuOw0KPiArCV9fdTMyIHRydXN0
-ZWQ7DQo+ICB9Ow0KPiAgI2VuZGlmIC8qIF9MSU5VWF9JRl9MSU5LX0ggKi8NCj4gZGlmZiAtLWdp
-dCBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggYi9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5o
-IGluZGV4DQo+IDYxNjNlY2IuLjdkYjE5ZTcgMTAwNjQ0DQo+IC0tLSBhL2luY2x1ZGUvbGludXgv
-bmV0ZGV2aWNlLmgNCj4gKysrIGIvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaA0KPiBAQCAtODgw
-LDYgKzg4MCw3IEBAIHR5cGVkZWYgdTE2ICgqc2VsZWN0X3F1ZXVlX2ZhbGxiYWNrX3QpKHN0cnVj
-dA0KPiBuZXRfZGV2aWNlICpkZXYsDQo+ICAgKiBpbnQgKCpuZG9fc2V0X3ZmX3JhdGUpKHN0cnVj
-dCBuZXRfZGV2aWNlICpkZXYsIGludCB2ZiwgaW50DQo+IG1pbl90eF9yYXRlLA0KPiAgICoJCQkg
-IGludCBtYXhfdHhfcmF0ZSk7DQo+ICAgKiBpbnQgKCpuZG9fc2V0X3ZmX3Nwb29mY2hrKShzdHJ1
-Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdmYsIGJvb2wNCj4gc2V0dGluZyk7DQo+ICsgKiBpbnQg
-KCpuZG9fc2V0X3ZmX3RydXN0KShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdmYsIGJvb2wN
-Cj4gKyBzZXR0aW5nKTsNCj4gICAqIGludCAoKm5kb19nZXRfdmZfY29uZmlnKShzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2LA0KPiAgICoJCQkgICAgaW50IHZmLCBzdHJ1Y3QgaWZsYV92Zl9pbmZvICpp
-dmYpOw0KPiAgICogaW50ICgqbmRvX3NldF92Zl9saW5rX3N0YXRlKShzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqZGV2LCBpbnQgdmYsIGludA0KPiBsaW5rX3N0YXRlKTsgQEAgLTExMjEsNiArMTEyMiw4IEBA
-IHN0cnVjdCBuZXRfZGV2aWNlX29wcyB7DQo+ICAJCQkJCQkgICBpbnQgbWF4X3R4X3JhdGUpOw0K
-PiAgCWludAkJCSgqbmRvX3NldF92Zl9zcG9vZmNoaykoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwN
-Cj4gIAkJCQkJCSAgICAgICBpbnQgdmYsIGJvb2wgc2V0dGluZyk7DQo+ICsJaW50CQkJKCpuZG9f
-c2V0X3ZmX3RydXN0KShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiArCQkJCQkJICAgIGludCB2
-ZiwgYm9vbCBzZXR0aW5nKTsNCj4gIAlpbnQJCQkoKm5kb19nZXRfdmZfY29uZmlnKShzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2LA0KPiAgCQkJCQkJICAgICBpbnQgdmYsDQo+ICAJCQkJCQkgICAgIHN0
-cnVjdCBpZmxhX3ZmX2luZm8gKml2Zik7DQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGlu
-dXgvaWZfbGluay5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L2lmX2xpbmsuaA0KPiBpbmRleCAzMTNj
-MzA1Li4yZDZhYmQ0IDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvaWZfbGluay5o
-DQo+ICsrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9pZl9saW5rLmgNCj4gQEAgLTQ5OCw2ICs0OTgs
-NyBAQCBlbnVtIHsNCj4gIAkJCQkgKiBvbi9vZmYgc3dpdGNoDQo+ICAJCQkJICovDQo+ICAJSUZM
-QV9WRl9TVEFUUywJCS8qIG5ldHdvcmsgZGV2aWNlIHN0YXRpc3RpY3MgKi8NCj4gKwlJRkxBX1ZG
-X1RSVVNULAkJLyogVHJ1c3QgVkYgKi8NCj4gIAlfX0lGTEFfVkZfTUFYLA0KPiAgfTsNCj4gDQo+
-IEBAIC01NTksNiArNTYwLDExIEBAIGVudW0gew0KPiANCj4gICNkZWZpbmUgSUZMQV9WRl9TVEFU
-U19NQVggKF9fSUZMQV9WRl9TVEFUU19NQVggLSAxKQ0KPiANCj4gK3N0cnVjdCBpZmxhX3ZmX3Ry
-dXN0IHsNCj4gKwlfX3UzMiB2ZjsNCj4gKwlfX3UzMiBzZXR0aW5nOw0KPiArfTsNCj4gKw0KPiAg
-LyogVkYgcG9ydHMgbWFuYWdlbWVudCBzZWN0aW9uDQo+ICAgKg0KPiAgICoJTmVzdGVkIGxheW91
-dCBvZiBzZXQvZ2V0IG1zZyBpczoNCj4gZGlmZiAtLWdpdCBhL25ldC9jb3JlL3J0bmV0bGluay5j
-IGIvbmV0L2NvcmUvcnRuZXRsaW5rLmMgaW5kZXgNCj4gNzg4Y2VlZC4uMjgzNmJmMSAxMDA2NDQN
-Cj4gLS0tIGEvbmV0L2NvcmUvcnRuZXRsaW5rLmMNCj4gKysrIGIvbmV0L2NvcmUvcnRuZXRsaW5r
-LmMNCj4gQEAgLTgzMSw3ICs4MzEsOCBAQCBzdGF0aWMgaW5saW5lIGludCBydG5sX3ZmaW5mb19z
-aXplKGNvbnN0IHN0cnVjdA0KPiBuZXRfZGV2aWNlICpkZXYsDQo+ICAJCQkgLyogSUZMQV9WRl9T
-VEFUU19CUk9BRENBU1QgKi8NCj4gIAkJCSBubGFfdG90YWxfc2l6ZShzaXplb2YoX191NjQpKSAr
-DQo+ICAJCQkgLyogSUZMQV9WRl9TVEFUU19NVUxUSUNBU1QgKi8NCj4gLQkJCSBubGFfdG90YWxf
-c2l6ZShzaXplb2YoX191NjQpKSk7DQo+ICsJCQkgbmxhX3RvdGFsX3NpemUoc2l6ZW9mKF9fdTY0
-KSkgKw0KPiArCQkJIG5sYV90b3RhbF9zaXplKHNpemVvZihzdHJ1Y3QgaWZsYV92Zl90cnVzdCkp
-KTsNCj4gIAkJcmV0dXJuIHNpemU7DQo+ICAJfSBlbHNlDQo+ICAJCXJldHVybiAwOw0KPiBAQCAt
-MTE1NCw2ICsxMTU1LDcgQEAgc3RhdGljIGludCBydG5sX2ZpbGxfaWZpbmZvKHN0cnVjdCBza19i
-dWZmICpza2IsDQo+IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ICAJCQlzdHJ1Y3QgaWZsYV92
-Zl9saW5rX3N0YXRlIHZmX2xpbmtzdGF0ZTsNCj4gIAkJCXN0cnVjdCBpZmxhX3ZmX3Jzc19xdWVy
-eV9lbiB2Zl9yc3NfcXVlcnlfZW47DQo+ICAJCQlzdHJ1Y3QgaWZsYV92Zl9zdGF0cyB2Zl9zdGF0
-czsNCj4gKwkJCXN0cnVjdCBpZmxhX3ZmX3RydXN0IHZmX3RydXN0Ow0KPiANCj4gIAkJCS8qDQo+
-ICAJCQkgKiBOb3QgYWxsIFNSLUlPViBjYXBhYmxlIGRyaXZlcnMgc3VwcG9ydCB0aGUgQEAgLTEx
-NjMsNg0KPiArMTE2NSw3IEBAIHN0YXRpYyBpbnQgcnRubF9maWxsX2lmaW5mbyhzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiLCBzdHJ1Y3QNCj4gbmV0X2RldmljZSAqZGV2LA0KPiAgCQkJICovDQo+ICAJCQlp
-dmkuc3Bvb2ZjaGsgPSAtMTsNCj4gIAkJCWl2aS5yc3NfcXVlcnlfZW4gPSAtMTsNCj4gKwkJCWl2
-aS50cnVzdGVkID0gLTE7DQo+ICAJCQltZW1zZXQoaXZpLm1hYywgMCwgc2l6ZW9mKGl2aS5tYWMp
-KTsNCj4gIAkJCS8qIFRoZSBkZWZhdWx0IHZhbHVlIGZvciBWRiBsaW5rIHN0YXRlIGlzICJhdXRv
-Ig0KPiAgCQkJICogSUZMQV9WRl9MSU5LX1NUQVRFX0FVVE8gd2hpY2ggZXF1YWxzIHplcm8gQEAg
-LTExNzYsNw0KPiArMTE3OSw4IEBAIHN0YXRpYyBpbnQgcnRubF9maWxsX2lmaW5mbyhzdHJ1Y3Qg
-c2tfYnVmZiAqc2tiLCBzdHJ1Y3QNCj4gbmV0X2RldmljZSAqZGV2LA0KPiAgCQkJCXZmX3R4X3Jh
-dGUudmYgPQ0KPiAgCQkJCXZmX3Nwb29mY2hrLnZmID0NCj4gIAkJCQl2Zl9saW5rc3RhdGUudmYg
-PQ0KPiAtCQkJCXZmX3Jzc19xdWVyeV9lbi52ZiA9IGl2aS52ZjsNCj4gKwkJCQl2Zl9yc3NfcXVl
-cnlfZW4udmYgPQ0KPiArCQkJCXZmX3RydXN0LnZmID0gaXZpLnZmOw0KPiANCj4gIAkJCW1lbWNw
-eSh2Zl9tYWMubWFjLCBpdmkubWFjLCBzaXplb2YoaXZpLm1hYykpOw0KPiAgCQkJdmZfdmxhbi52
-bGFuID0gaXZpLnZsYW47DQo+IEBAIC0xMTg3LDYgKzExOTEsNyBAQCBzdGF0aWMgaW50IHJ0bmxf
-ZmlsbF9pZmluZm8oc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gc3RydWN0IG5ldF9kZXZpY2UgKmRl
-diwNCj4gIAkJCXZmX3Nwb29mY2hrLnNldHRpbmcgPSBpdmkuc3Bvb2ZjaGs7DQo+ICAJCQl2Zl9s
-aW5rc3RhdGUubGlua19zdGF0ZSA9IGl2aS5saW5rc3RhdGU7DQo+ICAJCQl2Zl9yc3NfcXVlcnlf
-ZW4uc2V0dGluZyA9IGl2aS5yc3NfcXVlcnlfZW47DQo+ICsJCQl2Zl90cnVzdC5zZXR0aW5nID0g
-aXZpLnRydXN0ZWQ7DQo+ICAJCQl2ZiA9IG5sYV9uZXN0X3N0YXJ0KHNrYiwgSUZMQV9WRl9JTkZP
-KTsNCj4gIAkJCWlmICghdmYpIHsNCj4gIAkJCQlubGFfbmVzdF9jYW5jZWwoc2tiLCB2ZmluZm8p
-Ow0KPiBAQCAtMTIwNCw3ICsxMjA5LDkgQEAgc3RhdGljIGludCBydG5sX2ZpbGxfaWZpbmZvKHN0
-cnVjdCBza19idWZmICpza2IsDQo+IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ICAJCQkJICAg
-ICZ2Zl9saW5rc3RhdGUpIHx8DQo+ICAJCQkgICAgbmxhX3B1dChza2IsIElGTEFfVkZfUlNTX1FV
-RVJZX0VOLA0KPiAgCQkJCSAgICBzaXplb2YodmZfcnNzX3F1ZXJ5X2VuKSwNCj4gLQkJCQkgICAg
-JnZmX3Jzc19xdWVyeV9lbikpDQo+ICsJCQkJICAgICZ2Zl9yc3NfcXVlcnlfZW4pIHx8DQo+ICsJ
-CQkgICAgbmxhX3B1dChza2IsIElGTEFfVkZfVFJVU1QsDQo+ICsJCQkJICAgIHNpemVvZih2Zl90
-cnVzdCksICZ2Zl90cnVzdCkpDQo+ICAJCQkJZ290byBubGFfcHV0X2ZhaWx1cmU7DQo+ICAJCQlt
-ZW1zZXQoJnZmX3N0YXRzLCAwLCBzaXplb2YodmZfc3RhdHMpKTsNCj4gIAkJCWlmIChkZXYtPm5l
-dGRldl9vcHMtPm5kb19nZXRfdmZfc3RhdHMpDQo+IEBAIC0xMzQxLDYgKzEzNDgsNyBAQCBzdGF0
-aWMgY29uc3Qgc3RydWN0IG5sYV9wb2xpY3kNCj4gaWZsYV92Zl9wb2xpY3lbSUZMQV9WRl9NQVgr
-MV0gPSB7DQo+ICAJW0lGTEFfVkZfTElOS19TVEFURV0JPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0
-IGlmbGFfdmZfbGlua19zdGF0ZSkNCj4gfSwNCj4gIAlbSUZMQV9WRl9SU1NfUVVFUllfRU5dCT0g
-eyAubGVuID0gc2l6ZW9mKHN0cnVjdA0KPiBpZmxhX3ZmX3Jzc19xdWVyeV9lbikgfSwNCj4gIAlb
-SUZMQV9WRl9TVEFUU10JCT0geyAudHlwZSA9IE5MQV9ORVNURUQgfSwNCj4gKwlbSUZMQV9WRl9U
-UlVTVF0JCT0geyAubGVuID0gc2l6ZW9mKHN0cnVjdCBpZmxhX3ZmX3RydXN0KSB9LA0KPiAgfTsN
-Cj4gDQo+ICBzdGF0aWMgY29uc3Qgc3RydWN0IG5sYV9wb2xpY3kgaWZsYV92Zl9zdGF0c19wb2xp
-Y3lbSUZMQV9WRl9TVEFUU19NQVggKw0KPiAxXSA9IHsgQEAgLTE1ODAsNiArMTU4OCwxNiBAQCBz
-dGF0aWMgaW50IGRvX3NldHZmaW5mbyhzdHJ1Y3QgbmV0X2RldmljZQ0KPiAqZGV2LCBzdHJ1Y3Qg
-bmxhdHRyICoqdGIpDQo+ICAJCQlyZXR1cm4gZXJyOw0KPiAgCX0NCj4gDQo+ICsJaWYgKHRiW0lG
-TEFfVkZfVFJVU1RdKSB7DQo+ICsJCXN0cnVjdCBpZmxhX3ZmX3RydXN0ICppdnQgPSBubGFfZGF0
-YSh0YltJRkxBX1ZGX1RSVVNUXSk7DQo+ICsNCj4gKwkJZXJyID0gLUVPUE5PVFNVUFA7DQo+ICsJ
-CWlmIChvcHMtPm5kb19zZXRfdmZfdHJ1c3QpDQo+ICsJCQllcnIgPSBvcHMtPm5kb19zZXRfdmZf
-dHJ1c3QoZGV2LCBpdnQtPnZmLCBpdnQtPnNldHRpbmcpOw0KPiArCQlpZiAoZXJyIDwgMCkNCj4g
-KwkJCXJldHVybiBlcnI7DQo+ICsJfQ0KPiArDQo+ICAJcmV0dXJuIGVycjsNCj4gIH0NCj4gDQo+
-IC0tDQo+IDEuOC4zLjENCg0K
+From: Sunil Goutham <sgoutham@cavium.com>
+
+Added ethtool support to dump receive packet error statistics reported
+in CQE. Also made some small fixes
+
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/thunder/nic.h          | 36 +++++++--
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 34 +++++++--
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 26 ++++---
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 86 +++++++---------------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 41 -----------
+ 5 files changed, 103 insertions(+), 120 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 8aee250..58adfd6 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -190,10 +190,10 @@ enum tx_stats_reg_offset {
+ };
+ 
+ struct nicvf_hw_stats {
+-	u64 rx_bytes_ok;
+-	u64 rx_ucast_frames_ok;
+-	u64 rx_bcast_frames_ok;
+-	u64 rx_mcast_frames_ok;
++	u64 rx_bytes;
++	u64 rx_ucast_frames;
++	u64 rx_bcast_frames;
++	u64 rx_mcast_frames;
+ 	u64 rx_fcs_errors;
+ 	u64 rx_l2_errors;
+ 	u64 rx_drop_red;
+@@ -204,6 +204,31 @@ struct nicvf_hw_stats {
+ 	u64 rx_drop_mcast;
+ 	u64 rx_drop_l3_bcast;
+ 	u64 rx_drop_l3_mcast;
++	u64 rx_bgx_truncated_pkts;
++	u64 rx_jabber_errs;
++	u64 rx_fcs_errs;
++	u64 rx_bgx_errs;
++	u64 rx_prel2_errs;
++	u64 rx_l2_hdr_malformed;
++	u64 rx_oversize;
++	u64 rx_undersize;
++	u64 rx_l2_len_mismatch;
++	u64 rx_l2_pclp;
++	u64 rx_ip_ver_errs;
++	u64 rx_ip_csum_errs;
++	u64 rx_ip_hdr_malformed;
++	u64 rx_ip_payload_malformed;
++	u64 rx_ip_ttl_errs;
++	u64 rx_l3_pclp;
++	u64 rx_l4_malformed;
++	u64 rx_l4_csum_errs;
++	u64 rx_udp_len_errs;
++	u64 rx_l4_port_errs;
++	u64 rx_tcp_flag_errs;
++	u64 rx_tcp_offset_errs;
++	u64 rx_l4_pclp;
++	u64 rx_truncated_pkts;
++
+ 	u64 tx_bytes_ok;
+ 	u64 tx_ucast_frames_ok;
+ 	u64 tx_bcast_frames_ok;
+@@ -222,6 +247,7 @@ struct nicvf_drv_stats {
+ 	u64 rx_frames_1518;
+ 	u64 rx_frames_jumbo;
+ 	u64 rx_drops;
++
+ 	/* Tx */
+ 	u64 tx_frames_ok;
+ 	u64 tx_drops;
+@@ -257,7 +283,7 @@ struct nicvf {
+ 	u32			cq_coalesce_usecs;
+ 
+ 	u32			msg_enable;
+-	struct nicvf_hw_stats   stats;
++	struct nicvf_hw_stats   hw_stats;
+ 	struct nicvf_drv_stats  drv_stats;
+ 	struct bgx_stats	bgx_stats;
+ 	struct work_struct	reset_task;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+index a4228e6..a961aa3 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+@@ -35,10 +35,10 @@ struct nicvf_stat {
+ }
+ 
+ static const struct nicvf_stat nicvf_hw_stats[] = {
+-	NICVF_HW_STAT(rx_bytes_ok),
+-	NICVF_HW_STAT(rx_ucast_frames_ok),
+-	NICVF_HW_STAT(rx_bcast_frames_ok),
+-	NICVF_HW_STAT(rx_mcast_frames_ok),
++	NICVF_HW_STAT(rx_bytes),
++	NICVF_HW_STAT(rx_ucast_frames),
++	NICVF_HW_STAT(rx_bcast_frames),
++	NICVF_HW_STAT(rx_mcast_frames),
+ 	NICVF_HW_STAT(rx_fcs_errors),
+ 	NICVF_HW_STAT(rx_l2_errors),
+ 	NICVF_HW_STAT(rx_drop_red),
+@@ -49,6 +49,30 @@ static const struct nicvf_stat nicvf_hw_stats[] = {
+ 	NICVF_HW_STAT(rx_drop_mcast),
+ 	NICVF_HW_STAT(rx_drop_l3_bcast),
+ 	NICVF_HW_STAT(rx_drop_l3_mcast),
++	NICVF_HW_STAT(rx_bgx_truncated_pkts),
++	NICVF_HW_STAT(rx_jabber_errs),
++	NICVF_HW_STAT(rx_fcs_errs),
++	NICVF_HW_STAT(rx_bgx_errs),
++	NICVF_HW_STAT(rx_prel2_errs),
++	NICVF_HW_STAT(rx_l2_hdr_malformed),
++	NICVF_HW_STAT(rx_oversize),
++	NICVF_HW_STAT(rx_undersize),
++	NICVF_HW_STAT(rx_l2_len_mismatch),
++	NICVF_HW_STAT(rx_l2_pclp),
++	NICVF_HW_STAT(rx_ip_ver_errs),
++	NICVF_HW_STAT(rx_ip_csum_errs),
++	NICVF_HW_STAT(rx_ip_hdr_malformed),
++	NICVF_HW_STAT(rx_ip_payload_malformed),
++	NICVF_HW_STAT(rx_ip_ttl_errs),
++	NICVF_HW_STAT(rx_l3_pclp),
++	NICVF_HW_STAT(rx_l4_malformed),
++	NICVF_HW_STAT(rx_l4_csum_errs),
++	NICVF_HW_STAT(rx_udp_len_errs),
++	NICVF_HW_STAT(rx_l4_port_errs),
++	NICVF_HW_STAT(rx_tcp_flag_errs),
++	NICVF_HW_STAT(rx_tcp_offset_errs),
++	NICVF_HW_STAT(rx_l4_pclp),
++	NICVF_HW_STAT(rx_truncated_pkts),
+ 	NICVF_HW_STAT(tx_bytes_ok),
+ 	NICVF_HW_STAT(tx_ucast_frames_ok),
+ 	NICVF_HW_STAT(tx_bcast_frames_ok),
+@@ -195,7 +219,7 @@ static void nicvf_get_ethtool_stats(struct net_device *netdev,
+ 	nicvf_update_lmac_stats(nic);
+ 
+ 	for (stat = 0; stat < nicvf_n_hw_stats; stat++)
+-		*(data++) = ((u64 *)&nic->stats)
++		*(data++) = ((u64 *)&nic->hw_stats)
+ 				[nicvf_hw_stats[stat].index];
+ 	for (stat = 0; stat < nicvf_n_drv_stats; stat++)
+ 		*(data++) = ((u64 *)&nic->drv_stats)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 3b90afb..670ff9b 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -456,6 +456,12 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
+ 			       skb->data, skb->len, true);
+ 	}
+ 
++	/* If error packet, drop it here */
++	if (err) {
++		dev_kfree_skb_any(skb);
++		return;
++	}
++
+ 	nicvf_set_rx_frame_cnt(nic, skb);
+ 
+ 	skb_record_rx_queue(skb, cqe_rx->rq_idx);
+@@ -1118,7 +1124,7 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ void nicvf_update_stats(struct nicvf *nic)
+ {
+ 	int qidx;
+-	struct nicvf_hw_stats *stats = &nic->stats;
++	struct nicvf_hw_stats *stats = &nic->hw_stats;
+ 	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
+ 	struct queue_set *qs = nic->qs;
+ 
+@@ -1127,14 +1133,16 @@ void nicvf_update_stats(struct nicvf *nic)
+ #define GET_TX_STATS(reg) \
+ 	nicvf_reg_read(nic, NIC_VNIC_TX_STAT_0_4 | (reg << 3))
+ 
+-	stats->rx_bytes_ok = GET_RX_STATS(RX_OCTS);
+-	stats->rx_ucast_frames_ok = GET_RX_STATS(RX_UCAST);
+-	stats->rx_bcast_frames_ok = GET_RX_STATS(RX_BCAST);
+-	stats->rx_mcast_frames_ok = GET_RX_STATS(RX_MCAST);
++	stats->rx_bytes = GET_RX_STATS(RX_OCTS);
++	stats->rx_ucast_frames = GET_RX_STATS(RX_UCAST);
++	stats->rx_bcast_frames = GET_RX_STATS(RX_BCAST);
++	stats->rx_mcast_frames = GET_RX_STATS(RX_MCAST);
+ 	stats->rx_fcs_errors = GET_RX_STATS(RX_FCS);
+ 	stats->rx_l2_errors = GET_RX_STATS(RX_L2ERR);
+ 	stats->rx_drop_red = GET_RX_STATS(RX_RED);
++	stats->rx_drop_red_bytes = GET_RX_STATS(RX_RED_OCTS);
+ 	stats->rx_drop_overrun = GET_RX_STATS(RX_ORUN);
++	stats->rx_drop_overrun_bytes = GET_RX_STATS(RX_ORUN_OCTS);
+ 	stats->rx_drop_bcast = GET_RX_STATS(RX_DRP_BCAST);
+ 	stats->rx_drop_mcast = GET_RX_STATS(RX_DRP_MCAST);
+ 	stats->rx_drop_l3_bcast = GET_RX_STATS(RX_DRP_L3BCAST);
+@@ -1146,9 +1154,6 @@ void nicvf_update_stats(struct nicvf *nic)
+ 	stats->tx_mcast_frames_ok = GET_TX_STATS(TX_MCAST);
+ 	stats->tx_drops = GET_TX_STATS(TX_DROP);
+ 
+-	drv_stats->rx_frames_ok = stats->rx_ucast_frames_ok +
+-				  stats->rx_bcast_frames_ok +
+-				  stats->rx_mcast_frames_ok;
+ 	drv_stats->tx_frames_ok = stats->tx_ucast_frames_ok +
+ 				  stats->tx_bcast_frames_ok +
+ 				  stats->tx_mcast_frames_ok;
+@@ -1167,14 +1172,15 @@ static struct rtnl_link_stats64 *nicvf_get_stats64(struct net_device *netdev,
+ 					    struct rtnl_link_stats64 *stats)
+ {
+ 	struct nicvf *nic = netdev_priv(netdev);
+-	struct nicvf_hw_stats *hw_stats = &nic->stats;
++	struct nicvf_hw_stats *hw_stats = &nic->hw_stats;
+ 	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
+ 
+ 	nicvf_update_stats(nic);
+ 
+-	stats->rx_bytes = hw_stats->rx_bytes_ok;
++	stats->rx_bytes = hw_stats->rx_bytes;
+ 	stats->rx_packets = drv_stats->rx_frames_ok;
+ 	stats->rx_dropped = drv_stats->rx_drops;
++	stats->multicast = hw_stats->rx_mcast_frames;
+ 
+ 	stats->tx_bytes = hw_stats->tx_bytes_ok;
+ 	stats->tx_packets = drv_stats->tx_frames_ok;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index ca4240a..4fc40d83 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1371,10 +1371,11 @@ void nicvf_update_sq_stats(struct nicvf *nic, int sq_idx)
+ int nicvf_check_cqe_rx_errs(struct nicvf *nic,
+ 			    struct cmp_queue *cq, struct cqe_rx_t *cqe_rx)
+ {
+-	struct cmp_queue_stats *stats = &cq->stats;
++	struct nicvf_hw_stats *stats = &nic->hw_stats;
++	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
+ 
+ 	if (!cqe_rx->err_level && !cqe_rx->err_opcode) {
+-		stats->rx.errop.good++;
++		drv_stats->rx_frames_ok++;
+ 		return 0;
+ 	}
+ 
+@@ -1384,111 +1385,78 @@ int nicvf_check_cqe_rx_errs(struct nicvf *nic,
+ 			   nic->netdev->name,
+ 			   cqe_rx->err_level, cqe_rx->err_opcode);
+ 
+-	switch (cqe_rx->err_level) {
+-	case CQ_ERRLVL_MAC:
+-		stats->rx.errlvl.mac_errs++;
+-		break;
+-	case CQ_ERRLVL_L2:
+-		stats->rx.errlvl.l2_errs++;
+-		break;
+-	case CQ_ERRLVL_L3:
+-		stats->rx.errlvl.l3_errs++;
+-		break;
+-	case CQ_ERRLVL_L4:
+-		stats->rx.errlvl.l4_errs++;
+-		break;
+-	}
+-
+ 	switch (cqe_rx->err_opcode) {
+ 	case CQ_RX_ERROP_RE_PARTIAL:
+-		stats->rx.errop.partial_pkts++;
++		stats->rx_bgx_truncated_pkts++;
+ 		break;
+ 	case CQ_RX_ERROP_RE_JABBER:
+-		stats->rx.errop.jabber_errs++;
++		stats->rx_jabber_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_RE_FCS:
+-		stats->rx.errop.fcs_errs++;
+-		break;
+-	case CQ_RX_ERROP_RE_TERMINATE:
+-		stats->rx.errop.terminate_errs++;
++		stats->rx_fcs_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_RE_RX_CTL:
+-		stats->rx.errop.bgx_rx_errs++;
++		stats->rx_bgx_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_PREL2_ERR:
+-		stats->rx.errop.prel2_errs++;
+-		break;
+-	case CQ_RX_ERROP_L2_FRAGMENT:
+-		stats->rx.errop.l2_frags++;
+-		break;
+-	case CQ_RX_ERROP_L2_OVERRUN:
+-		stats->rx.errop.l2_overruns++;
+-		break;
+-	case CQ_RX_ERROP_L2_PFCS:
+-		stats->rx.errop.l2_pfcs++;
+-		break;
+-	case CQ_RX_ERROP_L2_PUNY:
+-		stats->rx.errop.l2_puny++;
++		stats->rx_prel2_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_MAL:
+-		stats->rx.errop.l2_hdr_malformed++;
++		stats->rx_l2_hdr_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_OVERSIZE:
+-		stats->rx.errop.l2_oversize++;
++		stats->rx_oversize++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_UNDERSIZE:
+-		stats->rx.errop.l2_undersize++;
++		stats->rx_undersize++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_LENMISM:
+-		stats->rx.errop.l2_len_mismatch++;
++		stats->rx_l2_len_mismatch++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_PCLP:
+-		stats->rx.errop.l2_pclp++;
++		stats->rx_l2_pclp++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_NOT:
+-		stats->rx.errop.non_ip++;
++		stats->rx_ip_ver_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_CSUM_ERR:
+-		stats->rx.errop.ip_csum_err++;
++		stats->rx_ip_csum_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_MAL:
+-		stats->rx.errop.ip_hdr_malformed++;
++		stats->rx_ip_hdr_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_MALD:
+-		stats->rx.errop.ip_payload_malformed++;
++		stats->rx_ip_payload_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_HOP:
+-		stats->rx.errop.ip_hop_errs++;
+-		break;
+-	case CQ_RX_ERROP_L3_ICRC:
+-		stats->rx.errop.l3_icrc_errs++;
++		stats->rx_ip_ttl_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L3_PCLP:
+-		stats->rx.errop.l3_pclp++;
++		stats->rx_l3_pclp++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_MAL:
+-		stats->rx.errop.l4_malformed++;
++		stats->rx_l4_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_CHK:
+-		stats->rx.errop.l4_csum_errs++;
++		stats->rx_l4_csum_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_UDP_LEN:
+-		stats->rx.errop.udp_len_err++;
++		stats->rx_udp_len_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_PORT:
+-		stats->rx.errop.bad_l4_port++;
++		stats->rx_l4_port_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_TCP_FLAG:
+-		stats->rx.errop.bad_tcp_flag++;
++		stats->rx_tcp_flag_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_TCP_OFFSET:
+-		stats->rx.errop.tcp_offset_errs++;
++		stats->rx_tcp_offset_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_PCLP:
+-		stats->rx.errop.l4_pclp++;
++		stats->rx_l4_pclp++;
+ 		break;
+ 	case CQ_RX_ERROP_RBDR_TRUNC:
+-		stats->rx.errop.pkt_truncated++;
++		stats->rx_truncated_pkts++;
+ 		break;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index f0937b7..dc73872 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -181,47 +181,6 @@ enum CQ_TX_ERROP_E {
+ };
+ 
+ struct cmp_queue_stats {
+-	struct rx_stats {
+-		struct {
+-			u64 mac_errs;
+-			u64 l2_errs;
+-			u64 l3_errs;
+-			u64 l4_errs;
+-		} errlvl;
+-		struct {
+-			u64 good;
+-			u64 partial_pkts;
+-			u64 jabber_errs;
+-			u64 fcs_errs;
+-			u64 terminate_errs;
+-			u64 bgx_rx_errs;
+-			u64 prel2_errs;
+-			u64 l2_frags;
+-			u64 l2_overruns;
+-			u64 l2_pfcs;
+-			u64 l2_puny;
+-			u64 l2_hdr_malformed;
+-			u64 l2_oversize;
+-			u64 l2_undersize;
+-			u64 l2_len_mismatch;
+-			u64 l2_pclp;
+-			u64 non_ip;
+-			u64 ip_csum_err;
+-			u64 ip_hdr_malformed;
+-			u64 ip_payload_malformed;
+-			u64 ip_hop_errs;
+-			u64 l3_icrc_errs;
+-			u64 l3_pclp;
+-			u64 l4_malformed;
+-			u64 l4_csum_errs;
+-			u64 udp_len_err;
+-			u64 bad_l4_port;
+-			u64 bad_tcp_flag;
+-			u64 tcp_offset_errs;
+-			u64 l4_pclp;
+-			u64 pkt_truncated;
+-		} errop;
+-	} rx;
+ 	struct tx_stats {
+ 		u64 good;
+ 		u64 desc_fault;
+-- 
+2.5.0
