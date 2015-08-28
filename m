@@ -1,35 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v5 net-next 5/8] geneve: Add support to collect tunnel
- metadata.
-Date: Fri, 28 Aug 2015 12:22:13 +0200
-Message-ID: <20150828102213.GG32206@pox.localdomain>
-References: <1440658015-13028-1-git-send-email-pshelar@nicira.com>
- <1440658015-13028-6-git-send-email-pshelar@nicira.com>
- <20150827091854.GD18481@pox.localdomain>
- <CALnjE+pDWPEbuZ1--bk433x39BXvkf6ZcMcfhbg45DZBMV+HBQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34975 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751409AbbH1KWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 06:22:15 -0400
-Received: by wicne3 with SMTP id ne3so15788176wic.0
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 03:22:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALnjE+pDWPEbuZ1--bk433x39BXvkf6ZcMcfhbg45DZBMV+HBQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH 1/3] rhashtable-test: add cond_resched() to thread test
+Date: Fri, 28 Aug 2015 12:28:03 +0200
+Message-ID: <1440757685-14241-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, fengguang.wu@intel.com, wfg@linux.intel.com,
+	lkp@01.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/27/15 at 02:29pm, Pravin Shelar wrote:
-> On Thu, Aug 27, 2015 at 2:18 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> > It is slightly non obvious that introducing an error condition above
-> > this and before udp_tun_rx_dst() would introduce a memory leak. Other
-> > than this looks great now.
-> >
-> I can not move this into if condition block since skb-scrub-packet
-> drops skb dst entry.
+This should fix for soft lockup bugs triggered on slow systems.
 
-I understand, VXLAN does the same. A comment would help though.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ lib/test_rhashtable.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+index 8c1ad1c..63654e3 100644
+--- a/lib/test_rhashtable.c
++++ b/lib/test_rhashtable.c
+@@ -236,6 +236,8 @@ static int thread_lookup_test(struct thread_data *tdata)
+ 			       obj->value, key);
+ 			err++;
+ 		}
++
++		cond_resched();
+ 	}
+ 	return err;
+ }
+@@ -251,6 +253,7 @@ static int threadfunc(void *data)
+ 
+ 	for (i = 0; i < entries; i++) {
+ 		tdata->objs[i].value = (tdata->id << 16) | i;
++		cond_resched();
+ 		err = rhashtable_insert_fast(&ht, &tdata->objs[i].node,
+ 		                             test_rht_params);
+ 		if (err == -ENOMEM || err == -EBUSY) {
+@@ -285,6 +288,8 @@ static int threadfunc(void *data)
+ 				goto out;
+ 			}
+ 			tdata->objs[i].value = TEST_INSERT_FAIL;
++
++			cond_resched();
+ 		}
+ 		err = thread_lookup_test(tdata);
+ 		if (err) {
+-- 
+2.1.2
