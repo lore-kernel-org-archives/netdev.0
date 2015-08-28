@@ -1,37 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 20150828
-Date: Fri, 28 Aug 2015 13:44:07 -0700 (PDT)
-Message-ID: <20150828.134407.491380403486474879.davem@davemloft.net>
-References: <1440753156-7808-1-git-send-email-antonio@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: Force uninitialized state if FW in
+ adapter is unsupported
+Date: Fri, 28 Aug 2015 13:49:20 -0700 (PDT)
+Message-ID: <20150828.134920.1789121714390550695.davem@davemloft.net>
+References: <1440740832-11958-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1440753156-7808-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55773 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995AbbH1UtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 16:49:21 -0400
+In-Reply-To: <1440740832-11958-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Date: Fri, 28 Aug 2015 11:12:26 +0200
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri, 28 Aug 2015 11:17:12 +0530
 
-> this is our very last batch of patches intended for net-next/linux-4.3
+> Forcing uninitialized state allows us to upgrade and reinitialize
+> the adapter.
 > 
-> It includes again 2 non-critical fixes which we couldn't send to net
-> and then the rest is just code restyling and beautification. No
-> major behavioural change was introduced.
+>     FW_VERSION_T4 = 1.4.0.0
+>     FW_VERSION_T5 = 0.0.0.0
+>     FW_VERSION_T6 = 0.0.0.0
+> At this point driver supports above and greater than above version.
 > 
-> Please pull or let me know of any problem!
+> If FW in adapter < min FW_VERSION driver supports tries to upgrade the FW
+> If FW in adapter >= FW_VERSION driver supports then it follows normal path
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Pulled, thanks Antonio.
+Applied, thanks.
