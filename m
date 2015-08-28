@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@auriga.com>
-Subject: [PATCH net-next 5/8] net: thunderx: Support for HW VLAN stripping
-Date: Fri, 28 Aug 2015 17:59:57 +0300
-Message-ID: <1440774004-27923-5-git-send-email-aleksey.makarov@auriga.com>
+Subject: [PATCH net-next 8/8] net: thunderx: Support for internal loopback mode
+Date: Fri, 28 Aug 2015 18:00:00 +0300
+Message-ID: <1440774004-27923-8-git-send-email-aleksey.makarov@auriga.com>
 References: <1440774004-27923-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,176 +29,262 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-This patch configures HW to strip 802.1Q header if found in a
-receiving packet. The stripped VLAN ID and TCI information is
-passed on to software via CQE_RX. Also sets netdev's 'vlan_features'
-so that other HW offload features can be used for tagged packets.
+Support for setting VF's corresponding BGX LMAC in internal
+loopback mode. This mode can be used for verifying basic HW
+functionality such as packet I/O, RX checksum validation,
+CQ/RBDR interrupts, stats e.t.c. Useful when DUT has no external
+network connectivity.
 
-This offload feature can be enabled or disabled via ethtool.
+'loopback' mode can be enabled or disabled via ethtool.
 
-Network stack normally ignores RPS for 802.1Q packets and hence low
-throughput. With this offload enabled throughput for tagged packets
-will be almost same as normal packets.
-
-Note: This patch doesn't enable HW VLAN insertion for transmit packets.
+Note: This feature is not supported when no of VFs enabled are
+morethan no of physical interfaces i.e active BGX LMACs
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c     |  4 ++++
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 28 +++++++++++++++++++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 28 ++++++++++++++++++----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  2 ++
- 4 files changed, 55 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h         | 11 ++++++++
+ drivers/net/ethernet/cavium/thunder/nic_main.c    | 21 +++++++++++++++
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c  | 30 ++++++++++++++++++++++
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 31 +++++++++++++++++++++++
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h |  4 +++
+ 5 files changed, 97 insertions(+)
 
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 35b2ee1..d3950b2 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -265,6 +265,7 @@ struct nicvf {
+ 	u8			node;
+ 	u8			tns_mode:1;
+ 	u8			sqs_mode:1;
++	u8			loopback_supported:1;
+ 	u16			mtu;
+ 	struct queue_set	*qs;
+ #define	MAX_SQS_PER_VF_SINGLE_NODE		5
+@@ -344,6 +345,7 @@ struct nicvf {
+ #define	NIC_MBOX_MSG_NICVF_PTR		0x13	/* Send nicvf ptr to PF */
+ #define	NIC_MBOX_MSG_PNICVF_PTR		0x14	/* Get primary qset nicvf ptr */
+ #define	NIC_MBOX_MSG_SNICVF_PTR		0x15	/* Send sqet nicvf ptr to PVF */
++#define	NIC_MBOX_MSG_LOOPBACK		0x16	/* Set interface in loopback */
+ #define	NIC_MBOX_MSG_CFG_DONE		0xF0	/* VF configuration done */
+ #define	NIC_MBOX_MSG_SHUTDOWN		0xF1	/* VF is being shutdown */
+ 
+@@ -353,6 +355,7 @@ struct nic_cfg_msg {
+ 	u8    node_id;
+ 	u8    tns_mode:1;
+ 	u8    sqs_mode:1;
++	u8    loopback_supported:1;
+ 	u8    mac_addr[ETH_ALEN];
+ };
+ 
+@@ -452,6 +455,13 @@ struct nicvf_ptr {
+ 	u64   nicvf;
+ };
+ 
++/* Set interface in loopback mode */
++struct set_loopback {
++	u8    msg;
++	u8    vf_id;
++	bool  enable;
++};
++
+ /* 128 bit shared memory between PF and each VF */
+ union nic_mbx {
+ 	struct { u8 msg; }	msg;
+@@ -468,6 +478,7 @@ union nic_mbx {
+ 	struct bgx_link_status  link_status;
+ 	struct sqs_alloc        sqs_alloc;
+ 	struct nicvf_ptr	nicvf;
++	struct set_loopback	lbk;
+ };
+ 
+ #define NIC_NODE_ID_MASK	0x03
 diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 6e0c031..7dfec4a 100644
+index 51f3048..fd36820 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -329,6 +329,10 @@ static void nic_init_hw(struct nicpf *nic)
- 
- 	/* Timer config */
- 	nic_reg_write(nic, NIC_PF_INTR_TIMER_CFG, NICPF_CLK_PER_INT_TICK);
+@@ -154,6 +154,9 @@ static void nic_mbx_send_ready(struct nicpf *nic, int vf)
+ 	}
+ 	mbx.nic_cfg.sqs_mode = (vf >= nic->num_vf_en) ? true : false;
+ 	mbx.nic_cfg.node_id = nic->node;
 +
-+	/* Enable VLAN ethertype matching and stripping */
-+	nic_reg_write(nic, NIC_PF_RX_ETYPE_0_7,
-+		      (2 << 19) | (ETYPE_ALG_VLAN_STRIP << 16) | ETH_P_8021Q);
++	mbx.nic_cfg.loopback_supported = vf < MAX_LMAC;
++
+ 	nic_send_msg_to_vf(nic, vf, &mbx);
  }
  
- /* Channel parse index configuration */
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index afd8ad4..de51828 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -10,6 +10,7 @@
- #include <linux/interrupt.h>
- #include <linux/pci.h>
- #include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/log2.h>
-@@ -491,6 +492,11 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
- 
- 	skb->protocol = eth_type_trans(skb, netdev);
- 
-+	/* Check for stripped VLAN */
-+	if (cqe_rx->vlan_found && cqe_rx->vlan_stripped)
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-+				       ntohs((__force __be16)cqe_rx->vlan_tci));
-+
- 	if (napi && (netdev->features & NETIF_F_GRO))
- 		napi_gro_receive(napi, skb);
- 	else
-@@ -1220,6 +1226,18 @@ static void nicvf_reset_task(struct work_struct *work)
- 	nic->netdev->trans_start = jiffies;
+@@ -579,6 +582,21 @@ send_mbox:
+ 	nic_send_msg_to_vf(nic, sqs->vf_id, &mbx);
  }
  
-+static int nicvf_set_features(struct net_device *netdev,
-+			      netdev_features_t features)
++static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
 +{
-+	struct nicvf *nic = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
++	int bgx_idx, lmac_idx;
 +
-+	if (changed & NETIF_F_HW_VLAN_CTAG_RX)
-+		nicvf_config_vlan_stripping(nic, features);
++	if (lbk->vf_id > MAX_LMAC)
++		return -1;
++
++	bgx_idx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[lbk->vf_id]);
++	lmac_idx = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[lbk->vf_id]);
++
++	bgx_lmac_internal_loopback(nic->node, bgx_idx, lmac_idx, lbk->enable);
 +
 +	return 0;
 +}
 +
- static const struct net_device_ops nicvf_netdev_ops = {
- 	.ndo_open		= nicvf_open,
- 	.ndo_stop		= nicvf_stop,
-@@ -1228,6 +1246,7 @@ static const struct net_device_ops nicvf_netdev_ops = {
+ /* Interrupt handler to handle mailbox messages from VFs */
+ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
+ {
+@@ -702,6 +720,9 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
+ 	case NIC_MBOX_MSG_BGX_STATS:
+ 		nic_get_bgx_stats(nic, &mbx.bgx_stats);
+ 		goto unlock;
++	case NIC_MBOX_MSG_LOOPBACK:
++		ret = nic_config_loopback(nic, &mbx.lbk);
++		break;
+ 	default:
+ 		dev_err(&nic->pdev->dev,
+ 			"Invalid msg from VF%d, msg 0x%x\n", vf, mbx.msg.msg);
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 9a1091a..49228b6 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -202,6 +202,7 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 			ether_addr_copy(nic->netdev->dev_addr,
+ 					mbx.nic_cfg.mac_addr);
+ 		nic->sqs_mode = mbx.nic_cfg.sqs_mode;
++		nic->loopback_supported = mbx.nic_cfg.loopback_supported;
+ 		nic->link_up = false;
+ 		nic->duplex = 0;
+ 		nic->speed = 0;
+@@ -1404,6 +1405,30 @@ static void nicvf_reset_task(struct work_struct *work)
+ 	nic->netdev->trans_start = jiffies;
+ }
+ 
++static int nicvf_config_loopback(struct nicvf *nic,
++				 netdev_features_t features)
++{
++	union nic_mbx mbx = {};
++
++	mbx.lbk.msg = NIC_MBOX_MSG_LOOPBACK;
++	mbx.lbk.vf_id = nic->vf_id;
++	mbx.lbk.enable = (features & NETIF_F_LOOPBACK) != 0;
++
++	return nicvf_send_msg_to_pf(nic, &mbx);
++}
++
++static netdev_features_t nicvf_fix_features(struct net_device *netdev,
++					    netdev_features_t features)
++{
++	struct nicvf *nic = netdev_priv(netdev);
++
++	if ((features & NETIF_F_LOOPBACK) &&
++	    netif_running(netdev) && !nic->loopback_supported)
++		features &= ~NETIF_F_LOOPBACK;
++
++	return features;
++}
++
+ static int nicvf_set_features(struct net_device *netdev,
+ 			      netdev_features_t features)
+ {
+@@ -1413,6 +1438,9 @@ static int nicvf_set_features(struct net_device *netdev,
+ 	if (changed & NETIF_F_HW_VLAN_CTAG_RX)
+ 		nicvf_config_vlan_stripping(nic, features);
+ 
++	if ((changed & NETIF_F_LOOPBACK) && netif_running(netdev))
++		return nicvf_config_loopback(nic, features);
++
+ 	return 0;
+ }
+ 
+@@ -1424,6 +1452,7 @@ static const struct net_device_ops nicvf_netdev_ops = {
  	.ndo_set_mac_address	= nicvf_set_mac_address,
  	.ndo_get_stats64	= nicvf_get_stats64,
  	.ndo_tx_timeout         = nicvf_tx_timeout,
-+	.ndo_set_features       = nicvf_set_features,
++	.ndo_fix_features       = nicvf_fix_features,
+ 	.ndo_set_features       = nicvf_set_features,
  };
  
- static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-@@ -1301,10 +1320,13 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_free_netdev;
+@@ -1518,6 +1547,7 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	netdev->hw_features |= NETIF_F_RXHASH;
  
--	netdev->features |= (NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
--			     NETIF_F_TSO | NETIF_F_GRO | NETIF_F_RXHASH);
-+	netdev->hw_features = (NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
-+			       NETIF_F_TSO | NETIF_F_GRO |
-+			       NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_RXHASH);
-+
-+	netdev->features |= netdev->hw_features;
+ 	netdev->features |= netdev->hw_features;
++	netdev->hw_features |= NETIF_F_LOOPBACK;
  
--	netdev->hw_features = netdev->features;
-+	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+ 	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
  
- 	netdev->netdev_ops = &nicvf_netdev_ops;
- 	netdev->watchdog_timeo = NICVF_TX_TIMEOUT;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 4fc40d83..b294d67 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -475,6 +475,27 @@ static void nicvf_reclaim_rbdr(struct nicvf *nic,
- 		return;
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index 5e54186..574c492 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -329,6 +329,37 @@ static void bgx_flush_dmac_addrs(struct bgx *bgx, int lmac)
+ 	}
  }
  
-+void nicvf_config_vlan_stripping(struct nicvf *nic, netdev_features_t features)
++/* Configure BGX LMAC in internal loopback mode */
++void bgx_lmac_internal_loopback(int node, int bgx_idx,
++				int lmac_idx, bool enable)
 +{
-+	u64 rq_cfg;
-+	int sqs;
++	struct bgx *bgx;
++	struct lmac *lmac;
++	u64    cfg;
 +
-+	rq_cfg = nicvf_queue_reg_read(nic, NIC_QSET_RQ_GEN_CFG, 0);
++	bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
++	if (!bgx)
++		return;
 +
-+	/* Enable first VLAN stripping */
-+	if (features & NETIF_F_HW_VLAN_CTAG_RX)
-+		rq_cfg |= (1ULL << 25);
-+	else
-+		rq_cfg &= ~(1ULL << 25);
-+	nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0, rq_cfg);
-+
-+	/* Configure Secondary Qsets, if any */
-+	for (sqs = 0; sqs < nic->sqs_count; sqs++)
-+		if (nic->snicvf[sqs])
-+			nicvf_queue_reg_write(nic->snicvf[sqs],
-+					      NIC_QSET_RQ_GEN_CFG, 0, rq_cfg);
++	lmac = &bgx->lmac[lmac_idx];
++	if (lmac->is_sgmii) {
++		cfg = bgx_reg_read(bgx, lmac_idx, BGX_GMP_PCS_MRX_CTL);
++		if (enable)
++			cfg |= PCS_MRX_CTL_LOOPBACK1;
++		else
++			cfg &= ~PCS_MRX_CTL_LOOPBACK1;
++		bgx_reg_write(bgx, lmac_idx, BGX_GMP_PCS_MRX_CTL, cfg);
++	} else {
++		cfg = bgx_reg_read(bgx, lmac_idx, BGX_SPUX_CONTROL1);
++		if (enable)
++			cfg |= SPU_CTL_LOOPBACK;
++		else
++			cfg &= ~SPU_CTL_LOOPBACK;
++		bgx_reg_write(bgx, lmac_idx, BGX_SPUX_CONTROL1, cfg);
++	}
 +}
++EXPORT_SYMBOL(bgx_lmac_internal_loopback);
 +
- /* Configures receive queue */
- static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
- 				   int qidx, bool enable)
-@@ -524,7 +545,9 @@ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
- 	mbx.rq.cfg = (1ULL << 62) | (RQ_CQ_DROP << 8);
- 	nicvf_send_msg_to_pf(nic, &mbx);
+ static int bgx_lmac_sgmii_init(struct bgx *bgx, int lmacid)
+ {
+ 	u64 cfg;
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+index ba4f53b..07b7ec6 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+@@ -72,6 +72,7 @@
  
--	nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, qidx, 0x00);
-+	nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0, 0x00);
-+	if (!nic->sqs_mode)
-+		nicvf_config_vlan_stripping(nic, nic->netdev->features);
- 
- 	/* Enable Receive queue */
- 	rq_cfg.ena = 1;
-@@ -961,9 +984,6 @@ nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry,
- 
- 	/* Offload checksum calculation to HW */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		if (skb->protocol != htons(ETH_P_IP))
--			return;
--
- 		hdr->csum_l3 = 1; /* Enable IP csum calculation */
- 		hdr->l3_offset = skb_network_offset(skb);
- 		hdr->l4_offset = skb_transport_offset(skb);
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index dc73872..8b93dd6 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -306,6 +306,8 @@ struct queue_set {
- 
- #define	CQ_ERR_MASK	(CQ_WR_FULL | CQ_WR_DISABLE | CQ_WR_FAULT)
- 
-+void nicvf_config_vlan_stripping(struct nicvf *nic,
-+				 netdev_features_t features);
- int nicvf_set_qset_resources(struct nicvf *nic);
- int nicvf_config_data_transfer(struct nicvf *nic, bool enable);
- void nicvf_qset_config(struct nicvf *nic, bool enable);
+ #define BGX_SPUX_CONTROL1		0x10000
+ #define  SPU_CTL_LOW_POWER			BIT_ULL(11)
++#define  SPU_CTL_LOOPBACK			BIT_ULL(14)
+ #define  SPU_CTL_RESET				BIT_ULL(15)
+ #define BGX_SPUX_STATUS1		0x10008
+ #define  SPU_STATUS1_RCV_LNK			BIT_ULL(2)
+@@ -126,6 +127,7 @@
+ #define	 PCS_MRX_CTL_RST_AN			BIT_ULL(9)
+ #define	 PCS_MRX_CTL_PWR_DN			BIT_ULL(11)
+ #define	 PCS_MRX_CTL_AN_EN			BIT_ULL(12)
++#define	 PCS_MRX_CTL_LOOPBACK1			BIT_ULL(14)
+ #define	 PCS_MRX_CTL_RESET			BIT_ULL(15)
+ #define BGX_GMP_PCS_MRX_STATUS		0x30008
+ #define	 PCS_MRX_STATUS_AN_CPT			BIT_ULL(5)
+@@ -186,6 +188,8 @@ int bgx_get_lmac_count(int node, int bgx);
+ const u8 *bgx_get_lmac_mac(int node, int bgx_idx, int lmacid);
+ void bgx_set_lmac_mac(int node, int bgx_idx, int lmacid, const u8 *mac);
+ void bgx_get_lmac_link_state(int node, int bgx_idx, int lmacid, void *status);
++void bgx_lmac_internal_loopback(int node, int bgx_idx,
++				int lmac_idx, bool enable);
+ u64 bgx_get_rx_stats(int node, int bgx_idx, int lmac, int idx);
+ u64 bgx_get_tx_stats(int node, int bgx_idx, int lmac, int idx);
+ #define BGX_RX_STATS_COUNT 11
 -- 
 2.5.0
