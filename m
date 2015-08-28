@@ -1,37 +1,40 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next v5 00/11] ipv6: Only create RTF_CACHE route
- after encountering pmtu exception
-Date: Fri, 28 Aug 2015 00:36:38 -0700
-Message-ID: <20150828073429.GA67211@kafai-mba.gkf168.com>
-References: <1432353366-2296465-1-git-send-email-kafai@fb.com>
- <55B89C14.2070700@ahsoftware.de>
- <55BA1144.9090203@ahsoftware.de>
- <55CEEECA.8000702@ahsoftware.de>
- <55D1ACB8.3040500@ahsoftware.de>
+From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Subject: Re: [PATCH net] netlink: mmap: fix status setting in skb destructor
+Date: Fri, 28 Aug 2015 16:37:50 +0900
+Message-ID: <20150828073750.GA685@gmail.com>
+References: <55CDBC84.8020605@iogearbox.net>
+ <55CDC51D.1060204@iogearbox.net>
+ <20150820070733.GA3711@gmail.com>
+ <20150825.202203.408221873735724462.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Kernel Team <Kernel-team@fb.com>, <stable@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Alexander Holler <holler@ahsoftware.de>
-Return-path: <stable-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, fw@strlen.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34067 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751365AbbH1Hhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 03:37:55 -0400
+Received: by pabzx8 with SMTP id zx8so54168341pab.1
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 00:37:55 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <55D1ACB8.3040500@ahsoftware.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150825.202203.408221873735724462.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 17, 2015 at 11:43:20AM +0200, Alexander Holler wrote:
-> That's why I vote to check out if it's possible/reasonable to backport this
-> series to the stable kernels.
-I have backported to 4.0.y without major issue, so possible.
+On Tue, Aug 25, 2015 at 08:22:03PM -0700, David Miller wrote:
+> From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+> > I don't know the intension of setting VALID status in the skb
+> > destructor. But I think it need to be set UNUSED status in case of
+> 
+> I think the idea is to have the user process this "zero length" frame
+> and advance the status itself.
+> 
+> I think it is probably racy and problematic to have the kernel set a
+> frame's state to UNUSED.  It is not a valid state transition for the
+> kernel side of RX ring processing.
+> 
+> Only the user can safely release ring entries back to the kernel.
 
-I did try on 3.1x and gave up.
-
-It is a lot of changes,  so I don't think it is a good idea for -stable.
-
-Thanks,
-Martin
+I will just update the frame status to UNUSED and advance ring
+position in user space in case of nm_len == 0. Thank you.
