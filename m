@@ -1,44 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2 net-next 2/4] ip_tunnels: record IP version in tunnel
- info
-Date: Sat, 29 Aug 2015 00:24:11 +0200
-Message-ID: <20150828222411.GB32001@pox.localdomain>
-References: <cover.1440787600.git.jbenc@redhat.com>
- <5f1807433565275c8bf699c0495b66c620b274c7.1440787600.git.jbenc@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
+ walking all the percpu data at once
+Date: Fri, 28 Aug 2015 15:29:40 -0700
+Message-ID: <1440800980.8932.66.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+	 <20150827.113823.214019265460582055.davem@davemloft.net>
+	 <55E00238.10909@linux.vnet.ibm.com>
+	 <20150828.112413.424099339331017970.davem@davemloft.net>
+	 <1440789654.11525.137.camel@perches.com>
+	 <1440794020.8932.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440795211.11525.146.camel@perches.com>
+	 <1440795336.8932.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440796183.11525.153.camel@perches.com>
+	 <1440796487.8932.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440797172.11525.161.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:36190 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752481AbbH1WYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 18:24:14 -0400
-Received: by wicfv10 with SMTP id fv10so18303928wic.1
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 15:24:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5f1807433565275c8bf699c0495b66c620b274c7.1440787600.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	raghavendra.kt@linux.vnet.ibm.com, edumazet@google.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jiri@resnulli.us, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	serge.hallyn@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
+	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440797172.11525.161.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/28/15 at 08:48pm, Jiri Benc wrote:
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index e2dc9dac59e6..40164037928e 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -587,6 +587,8 @@ int ovs_tunnel_get_egress_info(struct ip_tunnel_info *egress_tun_info,
->  
->  	if (unlikely(!tun_info))
->  		return -EINVAL;
-> +	if (ip_tunnel_info_af(tun_info) != AF_INET)
-> +		return -EINVAL;
->  
->  	tun_key = &tun_info->key;
+On Fri, 2015-08-28 at 14:26 -0700, Joe Perches wrote:
 
-Are you sure this chunk is needed? It looks like OVS_CB()->egress_tun_info
-can only be set via execute_set_action() which can only be of a supported
-AF type.
+> Always a possibility, but I don't think so.
+> 
+> > put_unaligned is happening on a space allocated from rtnetlink skb, not
+> > the temp space needed to perform the per cpu folding.
+> 
+> That's why I suggested changing the snmp_fill_stats arguments.
+> 
+> If the naturally aligned allocated u64 array is used and then
+> copied as a block to the rtnetlink skb, I believe there's no
+> alignment issue that would require put_unaligned.
 
-Otherwise this looks great.
+1) u64 array[XX] on stack is naturally aligned,
+kzalloc() wont improve this at all. Not sure what you believe.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+2) put_unaligned() is basically a normal memory write on x86.
+ memcpy(dst,src,...) will have a problem anyway on arches that care,
+because src & dst wont have same alignment.
+
+288 bytes on stack in a leaf function in this path is totally fine, it
+is not like we're calling ext4/xfs/nfs code after this point.
