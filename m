@@ -1,42 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] sfc: Allow driver to cope with a lower
- number of VIs than it needs for RSS
-Date: Fri, 28 Aug 2015 13:54:07 -0700 (PDT)
-Message-ID: <20150828.135407.681828001083476161.davem@davemloft.net>
-References: <55E0301E.30009@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
+ walking all the percpu data at once
+Date: Fri, 28 Aug 2015 13:55:36 -0700
+Message-ID: <1440795336.8932.46.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+	 <20150827.113823.214019265460582055.davem@davemloft.net>
+	 <55E00238.10909@linux.vnet.ibm.com>
+	 <20150828.112413.424099339331017970.davem@davemloft.net>
+	 <1440789654.11525.137.camel@perches.com>
+	 <1440794020.8932.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440795211.11525.146.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55793 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752813AbbH1UyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 16:54:08 -0400
-In-Reply-To: <55E0301E.30009@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	raghavendra.kt@linux.vnet.ibm.com, edumazet@google.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jiri@resnulli.us, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	serge.hallyn@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
+	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440795211.11525.146.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Fri, 28 Aug 2015 10:55:42 +0100
+On Fri, 2015-08-28 at 13:53 -0700, Joe Perches wrote:
+> On Fri, 2015-08-28 at 13:33 -0700, Eric Dumazet wrote:
+> > We do not bother for small struct.
+> > 
+> > Here, the array is big enough that David prefers having an explicit
+> > memset() so that it clearly shows that author of this code was aware of
+> > this.
+> 
+> It's 288 bytes on stack, maybe a kzalloc would be clearer too.
 
-> Previously, the driver would refuse to load if it couldn't secure
-> enough VIs from the MC to fulfill its RSS requirements.
-> This was causing probe to fail on later functions in
-> configurations where we'd run out of VIs, such as having many
-> VFs.
-> 
-> This change allows the driver to load with fewer VIs, down to a
-> minimum of 2. A warning will be printed saying that RSS
-> requirements were not met, possibly affecting performance.
-> 
-> efx->max_tx_channels needs to be set to avoid going down the
-> failure path in efx_probe_nic() immediately in the loop after the
-> probe() NIC-type function.
-> Also, Set rc=ENOSPC when bombing out of efx_probe_nic due to lack
-> of VIs.
-> 
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+Could you read patch history and check why this has been rejected ?
 
-Applied, thanks.
+Thank you.
