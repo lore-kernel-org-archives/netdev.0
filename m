@@ -1,138 +1,73 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 10/10] batman-adv: turn batadv_neigh_node_get() into local function
-Date: Fri, 28 Aug 2015 11:12:36 +0200
-Message-ID: <1440753156-7808-11-git-send-email-antonio__3636.11823781884$1440754610$gmane$org@meshcoding.com>
-References: <1440753156-7808-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net v2] sctp: ASCONF-ACK with Unresolvable Address should be sent
+Date: Fri, 28 Aug 2015 17:45:58 +0800
+Message-ID: <bf1cc62ac51821f36b0e195fa610544d7c4808d7.1440755158.git.lucien.xin@gmail.com>
+Cc: mleitner@redhat.com, davem@davemloft.net, vyasevic@redhat.com
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1.neomailbox.net ([5.148.176.57]:39123 "EHLO s1.neomailbox.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751779AbbH1Jgg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Aug 2015 05:36:36 -0400
-In-Reply-To: <1440753156-7808-1-git-send-email-antonio@meshcoding.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35335 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648AbbH1JqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 05:46:04 -0400
+Received: by pacdd16 with SMTP id dd16so57591163pac.2
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 02:46:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <mareklindner@neomailbox.ch>
+RFC 5061:
+    This is an opaque integer assigned by the sender to identify each
+    request parameter.  The receiver of the ASCONF Chunk will copy this
+    32-bit value into the ASCONF Response Correlation ID field of the
+    ASCONF-ACK response parameter.  The sender of the ASCONF can use this
+    same value in the ASCONF-ACK to find which request the response is
+    for.  Note that the receiver MUST NOT change this 32-bit value.
 
-commit c214ebe1eb29 ("batman-adv: move neigh_node list add into
-batadv_neigh_node_new()") removed external calls to
-batadv_neigh_node_get().
+    Address Parameter: TLV
 
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+    This field contains an IPv4 or IPv6 address parameter, as described
+    in Section 3.3.2.1 of [RFC4960].
+
+ASCONF chunk with Error Cause Indication Parameter (Unresolvable Address)
+should be sent if the Delete IP Address is not part of the association.
+
+  Endpoint A                           Endpoint B
+  (ESTABLISHED)                        (ESTABLISHED)
+
+  ASCONF        ----------------->
+  (Delete IP Address)
+                <-----------------      ASCONF-ACK
+                                        (Unresolvable Address)
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/batman-adv/originator.c | 72 ++++++++++++++++++++++-----------------------
- net/batman-adv/originator.h |  4 ---
- 2 files changed, 36 insertions(+), 40 deletions(-)
+ net/sctp/sm_make_chunk.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 099a84a..7486df9 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -443,6 +443,42 @@ out:
- }
- 
- /**
-+ * batadv_neigh_node_get - retrieve a neighbour from the list
-+ * @orig_node: originator which the neighbour belongs to
-+ * @hard_iface: the interface where this neighbour is connected to
-+ * @addr: the address of the neighbour
-+ *
-+ * Looks for and possibly returns a neighbour belonging to this originator list
-+ * which is connected through the provided hard interface.
-+ * Returns NULL if the neighbour is not found.
-+ */
-+static struct batadv_neigh_node *
-+batadv_neigh_node_get(const struct batadv_orig_node *orig_node,
-+		      const struct batadv_hard_iface *hard_iface,
-+		      const u8 *addr)
-+{
-+	struct batadv_neigh_node *tmp_neigh_node, *res = NULL;
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 4068fe1..ce7f343 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3090,8 +3090,19 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+ 			sctp_assoc_set_primary(asoc, asconf->transport);
+ 			sctp_assoc_del_nonprimary_peers(asoc,
+ 							asconf->transport);
+-		} else
+-			sctp_assoc_del_peer(asoc, &addr);
++			return SCTP_ERROR_NO_ERROR;
++		}
 +
-+	rcu_read_lock();
-+	hlist_for_each_entry_rcu(tmp_neigh_node, &orig_node->neigh_list, list) {
-+		if (!batadv_compare_eth(tmp_neigh_node->addr, addr))
-+			continue;
++		/* If the address is not part of the association, the
++		 * ASCONF-ACK with Error Cause Indication Parameter
++		 * which including cause of Unresolvable Address should
++		 * be sent.
++		 */
++		peer = sctp_assoc_lookup_paddr(asoc, &addr);
++		if (!peer)
++			return SCTP_ERROR_DNS_FAILED;
 +
-+		if (tmp_neigh_node->if_incoming != hard_iface)
-+			continue;
-+
-+		if (!atomic_inc_not_zero(&tmp_neigh_node->refcount))
-+			continue;
-+
-+		res = tmp_neigh_node;
-+		break;
-+	}
-+	rcu_read_unlock();
-+
-+	return res;
-+}
-+
-+/**
-  * batadv_neigh_node_new - create and init a new neigh_node object
-  * @orig_node: originator object representing the neighbour
-  * @hard_iface: the interface where the neighbour is connected to
-@@ -496,42 +532,6 @@ out:
- }
- 
- /**
-- * batadv_neigh_node_get - retrieve a neighbour from the list
-- * @orig_node: originator which the neighbour belongs to
-- * @hard_iface: the interface where this neighbour is connected to
-- * @addr: the address of the neighbour
-- *
-- * Looks for and possibly returns a neighbour belonging to this originator list
-- * which is connected through the provided hard interface.
-- * Returns NULL if the neighbour is not found.
-- */
--struct batadv_neigh_node *
--batadv_neigh_node_get(const struct batadv_orig_node *orig_node,
--		      const struct batadv_hard_iface *hard_iface,
--		      const u8 *addr)
--{
--	struct batadv_neigh_node *tmp_neigh_node, *res = NULL;
--
--	rcu_read_lock();
--	hlist_for_each_entry_rcu(tmp_neigh_node, &orig_node->neigh_list, list) {
--		if (!batadv_compare_eth(tmp_neigh_node->addr, addr))
--			continue;
--
--		if (tmp_neigh_node->if_incoming != hard_iface)
--			continue;
--
--		if (!atomic_inc_not_zero(&tmp_neigh_node->refcount))
--			continue;
--
--		res = tmp_neigh_node;
--		break;
--	}
--	rcu_read_unlock();
--
--	return res;
--}
--
--/**
-  * batadv_orig_ifinfo_free_rcu - free the orig_ifinfo object
-  * @rcu: rcu pointer of the orig_ifinfo object
-  */
-diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
-index fde3438..fa18f9b 100644
---- a/net/batman-adv/originator.h
-+++ b/net/batman-adv/originator.h
-@@ -42,10 +42,6 @@ void batadv_orig_node_free_ref_now(struct batadv_orig_node *orig_node);
- struct batadv_orig_node *batadv_orig_node_new(struct batadv_priv *bat_priv,
- 					      const u8 *addr);
- struct batadv_neigh_node *
--batadv_neigh_node_get(const struct batadv_orig_node *orig_node,
--		      const struct batadv_hard_iface *hard_iface,
--		      const u8 *addr);
--struct batadv_neigh_node *
- batadv_neigh_node_new(struct batadv_orig_node *orig_node,
- 		      struct batadv_hard_iface *hard_iface,
- 		      const u8 *neigh_addr);
++		sctp_assoc_rm_peer(asoc, peer);
+ 		break;
+ 	case SCTP_PARAM_SET_PRIMARY:
+ 		/* ADDIP Section 4.2.4
 -- 
-2.5.0
+2.1.0
