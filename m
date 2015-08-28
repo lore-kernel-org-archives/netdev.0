@@ -1,52 +1,43 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH v2 net-next 0/4] tunnels: fix incorrect IPv4/v6 headers interpretation
-Date: Fri, 28 Aug 2015 20:48:18 +0200
-Message-ID: <cover.1440787600.git.jbenc@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>, Pravin Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: Tony Lindgren <tony@atomide.com>
+Subject: [PATCH] net/smsc911x: Fix deferred probe for interrupt
+Date: Fri, 28 Aug 2015 11:50:15 -0700
+Message-ID: <1440787815-24655-1-git-send-email-tony@atomide.com>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40371 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751872AbbH1StX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Aug 2015 14:49:23 -0400
+Received: from pmta2.delivery5.ore.mailhop.org ([54.186.218.12]:25000 "EHLO
+	pmta2.delivery5.ore.mailhop.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751725AbbH1SuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 14:50:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With tunneling, it is currently possible to get an IPv6 header and interpret
-it as an IPv4 header, or to interpret an IPv6 address as an IPv4 address
-(and vice versa). This leads to things like sending packets to incorrect
-address, IPv6 flow label being interpreted as IP packet length, etc.
+The interrupt handler may not be available when smsc911x probes if the
+interrupt handler is a GPIO controller for example. Let's fix that
+by adding handling for -EPROBE_DEFER.
 
-Fix several places where this can happen.
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+Signed-off-by: Tony Lindgren <tony@atomide.com>
+---
+ drivers/net/ethernet/smsc/smsc911x.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Most of this is net-next only. The third patch affects net, too, but it
-doesn't seem there's anything in user space that sets the attribute at all
-currently, thus net-next is fine.
-
-Changelog:
-v2: fixed geneve after incorrect rebase on top of Pravin's patches
-
-Jiri Benc (4):
-  ip_tunnels: convert the mode field of ip_tunnel_info to flags
-  ip_tunnels: record IP version in tunnel info
-  fou: reject IPv6 config
-  vxlan: do not receive IPv4 packets on IPv6 socket
-
- drivers/net/geneve.c       |  4 +++-
- drivers/net/vxlan.c        |  5 ++++-
- include/net/dst_metadata.h |  2 +-
- include/net/ip_tunnels.h   | 19 ++++++++++++-------
- include/net/udp_tunnel.h   |  3 ++-
- net/core/filter.c          |  2 ++
- net/ipv4/fou.c             |  2 +-
- net/ipv4/ip_gre.c          |  3 ++-
- net/ipv4/ip_tunnel_core.c  |  2 +-
- net/ipv4/route.c           |  2 +-
- net/ipv6/ip6_udp_tunnel.c  |  9 +++++++++
- net/ipv6/route.c           |  2 +-
- net/openvswitch/flow.c     |  2 ++
- net/openvswitch/vport.c    |  2 ++
- 14 files changed, 43 insertions(+), 16 deletions(-)
-
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 959aeea..cb9f166f 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2435,7 +2435,10 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+ 	res_size = resource_size(res);
+ 
+ 	irq = platform_get_irq(pdev, 0);
+-	if (irq <= 0) {
++	if (irq == -EPROBE_DEFER) {
++		retval = -EPROBE_DEFER;
++		goto out_0;
++	} else if (irq <= 0) {
+ 		pr_warn("Could not allocate irq resource\n");
+ 		retval = -ENODEV;
+ 		goto out_0;
 -- 
-1.8.3.1
+2.1.4
