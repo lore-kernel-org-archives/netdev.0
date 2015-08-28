@@ -1,65 +1,84 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 3/5] net: Add helper function to compare
- inetpeer addresses
-Date: Fri, 28 Aug 2015 14:03:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB8970A@AcuExch.aculab.com>
-References: <1440710193-4824-1-git-send-email-dsa@cumulusnetworks.com>
- <1440710193-4824-4-git-send-email-dsa@cumulusnetworks.com>
+From: Robert Dolca <robert.dolca@gmail.com>
+Subject: Re: [linux-nfc] [PATCH 1/8] NFC: NCI: Allow connection close with dev down
+Date: Fri, 28 Aug 2015 17:05:39 +0300
+Message-ID: <CAFPB+YfYBMd0Ubtt-EhuDuyAiy2orPnPNkwV_hs=JTmeKW_GaQ@mail.gmail.com>
+References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
+ <1424772112-27399-2-git-send-email-robert.dolca@intel.com>
+ <20150326002925.GA10954@ribalta.home> <CAFPB+Yc-+1s4Y1iWnnCHWjnk=U5Rq-6Wq-idtakCxju8pvYi4Q@mail.gmail.com>
+ <20150524170747.GB15886@ribalta.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'David Ahern' <dsa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.194]:50015 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752140AbbH1OET convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 10:04:19 -0400
-In-Reply-To: <1440710193-4824-4-git-send-email-dsa@cumulusnetworks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Robert Dolca <robert.dolca@intel.com>, linux-nfc@lists.01.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150524170747.GB15886@ribalta.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern
-> Sent: 27 August 2015 22:17
-ATCH net-next 3/5] net: Add helper function to compare inetpeer addresses
-> 
-> tcp_metrics and inetpeer both have functions to compare inetpeer
-> addresses. Consolidate into 1 version.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-...
-> diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-> index f75b9e7036a2..9d9b3446731d 100644
-> --- a/include/net/inetpeer.h
-> +++ b/include/net/inetpeer.h
-> @@ -121,6 +121,22 @@ static inline struct inet_peer *inet_getpeer_v6(struct inet_peer_base *base,
->  	return inet_getpeer(base, &daddr, create);
->  }
-> 
-> +static inline int inetpeer_addr_cmp(const struct inetpeer_addr *a,
-> +				    const struct inetpeer_addr *b)
-> +{
-> +	int i, n = (a->family == AF_INET ? 1 : 4);
-> +
-> +	for (i = 0; i < n; i++) {
-> +		if (a->addr.a6[i] == b->addr.a6[i])
-> +			continue;
-> +		if ((__force u32)a->addr.a6[i] < (__force u32)b->addr.a6[i])
-> +			return -1;
-> +		return 1;
-> +	}
-> +
-> +	return 0;
-> +}
+On Sun, May 24, 2015 at 8:07 PM, Samuel Ortiz <sameo@linux.intel.com> wrote:
+> Hi Robert,
+>
+> On Tue, Mar 31, 2015 at 05:03:42PM +0300, Robert Dolca wrote:
+>> On Thu, Mar 26, 2015 at 2:29 AM, Samuel Ortiz <sameo@linux.intel.com> wrote:
+>> > Hi Robert,
+>> >
+>> > On Tue, Feb 24, 2015 at 12:01:45PM +0200, Robert Dolca wrote:
+>> >> By calling __nci_request instead of nci_request allows the driver to use
+>> >> the function while initializing the device (setup stage)
+>> >>
+>> >> Signed-off-by: Robert Dolca <robert.dolca@intel.com>
+>> >> ---
+>> >>  net/nfc/nci/core.c | 2 +-
+>> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> >>
+>> >> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+>> >> index 9575a18..c4dd5d8 100644
+>> >> --- a/net/nfc/nci/core.c
+>> >> +++ b/net/nfc/nci/core.c
+>> >> @@ -558,7 +558,7 @@ static void nci_core_conn_close_req(struct nci_dev *ndev, unsigned long opt)
+>> >>
+>> >>  int nci_core_conn_close(struct nci_dev *ndev, u8 conn_id)
+>> >>  {
+>> >> -     return nci_request(ndev, nci_core_conn_close_req, conn_id,
+>> >> +     return __nci_request(ndev, nci_core_conn_close_req, conn_id,
+>> >>                               msecs_to_jiffies(NCI_CMD_TIMEOUT));
+>> > You're fixing your problem by removing the NCI request serialization and
+>> > removing the check for your device being UP.
+>> > I assume you need to open and close a proprietary connection from your
+>> > setup hook ? Then please extend nci_request() to check for both NCI_UP
+>> > and NCI_INIT.
+>>
+>> You are right, I am opening and closing a connection from the setup
+>> function. The setup is called by nci_open_device. At the beginning of
+>> nci_open_device, req_lock is being acquired and it is release at the
+>> end of the function. That means that when setup is being called
+>> req_lock is acuired. As you said I can modify nci_request to check for
+>> NCI_INIT but it tries to acquire req_lock and it can not succeed.
+> I see, I thought the issue was only about checking the NCI_* flags.
+>
+> As a short term solution, I propose you do the following:
+>
+> a) Export nci_core_conn_create_req, nci_core_conn_close_req and
+> __nci_request.
+> b) Call __nci_request() directly from your fdp_nci_close_conn() and
+> fdp_nci_create_conn() routines.
+>
+> The long term, scalable fix would be to implement and export an
+> __nci_send_cmd_sync() routine, that would transparently build an NCI
+> request and tail it to the ndev req skb queue, and put the caller on a
+> wait queue. The created request's response callback would then wake the
+> caller up.
 
-If the performance of this matters then I'd not use the loop for IPv4
-and use u64 comparisons (esp. on 64 bit systems) in an unrolled loop for IPv6.
-(Might need to worry about the alignment.)
+If nci_open_device would use another mutex instead of req_lock this
+wouldn't be necessary.
+I don't see any reason why nci_open_device should block the send
+queue. Of course, in nci_open_device all calls to __nci_request would
+have to be replaced with nci_request.
 
-I presume nothing cares that the ordering relation is endian dependant?
-With either byteswapping memory reads or a byteswapping instruction
-then an endian-independant ordering should be almost as quick.
+Samuel, would that be an acceptable solution?
 
-	David
+Regards,
+Robert
