@@ -1,160 +1,32 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/9] ipvs: Add ovf scheduler
-Date: Sat, 29 Aug 2015 00:50:09 +0200
-Message-ID: <1440802217-13080-2-git-send-email-pablo@netfilter.org>
-References: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42105 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753069AbbH1WoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Aug 2015 18:44:03 -0400
-In-Reply-To: <1440802217-13080-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
+Date: Sat, 29 Aug 2015 00:43:03 +0200
+Message-ID: <20150828224303.GD32001@pox.localdomain>
+References: <1440757685-14241-1-git-send-email-phil@nwl.cc>
+ <1440757685-14241-2-git-send-email-phil@nwl.cc>
+ <20150828110929.GI32206@pox.localdomain>
+ <20150828111320.GL20760@orbit.nwl.cc>
+ <20150828133437.GM20760@orbit.nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
+	wfg@linux.intel.com, lkp@01.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150828133437.GM20760@orbit.nwl.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Raducu Deaconu <rhadoo.io88@gmail.com>
+On 08/28/15 at 03:34pm, Phil Sutter wrote:
+> Quite ugly, IMHO: rhashtable_insert_fast() may return -ENOMEM as
+> non-permanent error, if allocation in GFP_ATOMIC failed. In this case,
+> allocation in GFP_KERNEL is retried by rht_deferred_worker(). Sadly,
+> there is no way to determine if that has already been tried and failed.
+> 
+> The thread test triggers GFP_ATOMIC allocation failure quite easily, so
+> I can't really just ignore this issue. :)
 
-The weighted overflow scheduling algorithm directs network connections
-to the server with the highest weight that is currently available
-and overflows to the next when active connections exceed the node's weight.
-
-Signed-off-by: Raducu Deaconu <rhadoo.io88@gmail.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/Kconfig     |   11 +++++
- net/netfilter/ipvs/Makefile    |    1 +
- net/netfilter/ipvs/ip_vs_ovf.c |   86 ++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 98 insertions(+)
- create mode 100644 net/netfilter/ipvs/ip_vs_ovf.c
-
-diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-index 3b6929d..b32fb0d 100644
---- a/net/netfilter/ipvs/Kconfig
-+++ b/net/netfilter/ipvs/Kconfig
-@@ -162,6 +162,17 @@ config  IP_VS_FO
- 	  If you want to compile it in kernel, say Y. To compile it as a
- 	  module, choose M here. If unsure, say N.
- 
-+config  IP_VS_OVF
-+	tristate "weighted overflow scheduling"
-+	---help---
-+	  The weighted overflow scheduling algorithm directs network
-+	  connections to the server with the highest weight that is
-+	  currently available and overflows to the next when active
-+	  connections exceed the node's weight.
-+
-+	  If you want to compile it in kernel, say Y. To compile it as a
-+	  module, choose M here. If unsure, say N.
-+
- config	IP_VS_LBLC
- 	tristate "locality-based least-connection scheduling"
- 	---help---
-diff --git a/net/netfilter/ipvs/Makefile b/net/netfilter/ipvs/Makefile
-index 38b2723..67f3f43 100644
---- a/net/netfilter/ipvs/Makefile
-+++ b/net/netfilter/ipvs/Makefile
-@@ -27,6 +27,7 @@ obj-$(CONFIG_IP_VS_WRR) += ip_vs_wrr.o
- obj-$(CONFIG_IP_VS_LC) += ip_vs_lc.o
- obj-$(CONFIG_IP_VS_WLC) += ip_vs_wlc.o
- obj-$(CONFIG_IP_VS_FO) += ip_vs_fo.o
-+obj-$(CONFIG_IP_VS_OVF) += ip_vs_ovf.o
- obj-$(CONFIG_IP_VS_LBLC) += ip_vs_lblc.o
- obj-$(CONFIG_IP_VS_LBLCR) += ip_vs_lblcr.o
- obj-$(CONFIG_IP_VS_DH) += ip_vs_dh.o
-diff --git a/net/netfilter/ipvs/ip_vs_ovf.c b/net/netfilter/ipvs/ip_vs_ovf.c
-new file mode 100644
-index 0000000..f7d62c3
---- /dev/null
-+++ b/net/netfilter/ipvs/ip_vs_ovf.c
-@@ -0,0 +1,86 @@
-+/*
-+ * IPVS:        Overflow-Connection Scheduling module
-+ *
-+ * Authors:     Raducu Deaconu <rhadoo_io@yahoo.com>
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Scheduler implements "overflow" loadbalancing according to number of active
-+ * connections , will keep all conections to the node with the highest weight
-+ * and overflow to the next node if the number of connections exceeds the node's
-+ * weight.
-+ * Note that this scheduler might not be suitable for UDP because it only uses
-+ * active connections
-+ *
-+ */
-+
-+#define KMSG_COMPONENT "IPVS"
-+#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
-+
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+
-+#include <net/ip_vs.h>
-+
-+/* OVF Connection scheduling  */
-+static struct ip_vs_dest *
-+ip_vs_ovf_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
-+		   struct ip_vs_iphdr *iph)
-+{
-+	struct ip_vs_dest *dest, *h = NULL;
-+	int hw = 0, w;
-+
-+	IP_VS_DBG(6, "ip_vs_ovf_schedule(): Scheduling...\n");
-+	/* select the node with highest weight, go to next in line if active
-+	* connections exceed weight
-+	*/
-+	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
-+		w = atomic_read(&dest->weight);
-+		if ((dest->flags & IP_VS_DEST_F_OVERLOAD) ||
-+		    atomic_read(&dest->activeconns) > w ||
-+		    w == 0)
-+			continue;
-+		if (!h || w > hw) {
-+			h = dest;
-+			hw = w;
-+		}
-+	}
-+
-+	if (h) {
-+		IP_VS_DBG_BUF(6, "OVF: server %s:%u active %d w %d\n",
-+			      IP_VS_DBG_ADDR(h->af, &h->addr),
-+			      ntohs(h->port),
-+			      atomic_read(&h->activeconns),
-+			      atomic_read(&h->weight));
-+		return h;
-+	}
-+
-+	ip_vs_scheduler_err(svc, "no destination available");
-+	return NULL;
-+}
-+
-+static struct ip_vs_scheduler ip_vs_ovf_scheduler = {
-+	.name =			"ovf",
-+	.refcnt =		ATOMIC_INIT(0),
-+	.module =		THIS_MODULE,
-+	.n_list =		LIST_HEAD_INIT(ip_vs_ovf_scheduler.n_list),
-+	.schedule =		ip_vs_ovf_schedule,
-+};
-+
-+static int __init ip_vs_ovf_init(void)
-+{
-+	return register_ip_vs_scheduler(&ip_vs_ovf_scheduler);
-+}
-+
-+static void __exit ip_vs_ovf_cleanup(void)
-+{
-+	unregister_ip_vs_scheduler(&ip_vs_ovf_scheduler);
-+	synchronize_rcu();
-+}
-+
-+module_init(ip_vs_ovf_init);
-+module_exit(ip_vs_ovf_cleanup);
-+MODULE_LICENSE("GPL");
--- 
-1.7.10.4
+Return EBUSY or ENOBUFS in the non-permanent case? It is definitely
+helpful if the API allows to differ between permanent and
+non-permanent errors.
