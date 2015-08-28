@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] openswitch: fix typo CONFIG_NF_CONNTRACK_LABEL
-Date: Fri, 28 Aug 2015 13:40:20 -0700 (PDT)
-Message-ID: <20150828.134020.1906259838454588931.davem@davemloft.net>
-References: <1440751196-25787-1-git-send-email-valentinrothberg@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 20150828
+Date: Fri, 28 Aug 2015 13:44:07 -0700 (PDT)
+Message-ID: <20150828.134407.491380403486474879.davem@davemloft.net>
+References: <1440753156-7808-1-git-send-email-antonio@meshcoding.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org,
-	linux-kernel@vger.kernel.org
-To: valentinrothberg@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440751196-25787-1-git-send-email-valentinrothberg@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1440753156-7808-1-git-send-email-antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Valentin Rothberg <valentinrothberg@gmail.com>
-Date: Fri, 28 Aug 2015 10:39:56 +0200
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Date: Fri, 28 Aug 2015 11:12:26 +0200
 
-> Fix typo in conntrack.c
-> s/CONFIG_NF_CONNTRACK_LABEL/CONFIG_NF_CONNTRACK_LABELS/
+> this is our very last batch of patches intended for net-next/linux-4.3
 > 
-> Signed-off-by: Valentin Rothberg <valentinrothberg@gmail.com>
-> ---
-> The typo was added by commmit c2ac66735870 ("openvswitch: Allow matching
-> on conntrack label").
-> I detected the issue scripts/checkkconfigsymbols.py
+> It includes again 2 non-critical fixes which we couldn't send to net
+> and then the rest is just code restyling and beautification. No
+> major behavioural change was introduced.
+> 
+> Please pull or let me know of any problem!
 
-Applied, thank you.
+Pulled, thanks Antonio.
