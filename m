@@ -1,74 +1,105 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] macvtap/macvlan: use IFF_NO_QUEUE
-Date: Fri, 28 Aug 2015 10:42:03 +0800
-Message-ID: <55DFCA7B.8050908@redhat.com>
-References: <1440405192-25926-1-git-send-email-jasowang@redhat.com> <20150825131608-mutt-send-email-mst@redhat.com> <55DC51C1.5090201@redhat.com> <55DC98A3.7010601@redhat.com> <55DD527A.8040806@redhat.com> <20150827134102-mutt-send-email-mst@redhat.com>
+From: Weilong Chen <chenweilong@huawei.com>
+Subject: Re: [PATCH net-next] net: Check frag_lists first to prevent data out
+ of order
+Date: Fri, 28 Aug 2015 11:35:40 +0800
+Message-ID: <55DFD70C.2030001@huawei.com>
+References: <1440636965-11552-1-git-send-email-chenweilong@huawei.com>
+ <1440641561.8932.36.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1440642184.8932.37.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150827134102-mutt-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <edumazet@google.com>,
+	<alexander.h.duyck@redhat.com>, <willemb@google.com>,
+	<hannes@stressinduktion.org>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:8980 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbbH1DgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Aug 2015 23:36:17 -0400
+In-Reply-To: <1440642184.8932.37.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Thanks for reply.
 
-
-On 08/27/2015 06:43 PM, Michael S. Tsirkin wrote:
-> On Wed, Aug 26, 2015 at 01:45:30PM +0800, Jason Wang wrote:
->>
->> On 08/26/2015 12:32 AM, Vlad Yasevich wrote:
->>> On 08/25/2015 07:30 AM, Jason Wang wrote:
->>>> On 08/25/2015 06:17 PM, Michael S. Tsirkin wrote:
->>>>> On Mon, Aug 24, 2015 at 04:33:12PM +0800, Jason Wang wrote:
->>>>>>> For macvlan, switch to use IFF_NO_QUEUE instead of tx_queue_len = 0.
->>>>>>>
->>>>>>> For macvtap, after commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
->>>>>>> ("macvtap: Add support of packet capture on macvtap
->>>>>>> device."). Multiqueue macvtap suffers from single qdisc lock
->>>>>>> contention. This is because macvtap claims a non zero tx_queue_len and
->>>>>>> it reuses this value as it socket receive queue size.Thanks to
->>>>>>> IFF_NO_QUEUE, we can remove the lock contention without breaking
->>>>>>> existing socket receive queue length logic.
->>>>>>>
->>>>>>> Cc: Patrick McHardy <kaber@trash.net>
->>>>>>> Cc: Vladislav Yasevich <vyasevic@redhat.com>
->>>>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
->>>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>>> Seems to make sense. Give me a day or two to get over the jet lag
->>>>> (and get out from under the pile of mail accumulated while I was traveling),
->>>>> I'll review properly and ack.
->>>>>
->>>> A note on this patch: only default qdisc were removed but we don't lose
->>>> the ability to attach a qdisc to macvtap (though it may cause lock
->>>> contention on multiqueue case).
->>>>
->>> Wouldn't that lock contention be solved if we really had multiple queues
->>> for multi-queue macvtaps?
+> On Wed, 2015-08-26 at 19:12 -0700, Eric Dumazet wrote:
+>> On Thu, 2015-08-27 at 08:56 +0800, chenweilong@huawei.com wrote:
+>>> From: Weilong Chen <chenweilong@huawei.com>
 >>>
->>> -vlad
->> Yes, but this introduce another layer of txq locks contention?
-> I don't follow - why does it? Could you clarify please?
-
-I believe Vlad wants to remove NETIF_F_LLTX. If yes, core will do an
-extra tx lock at macvlan layer.
-
->
->> And it
->> also needs macvlan multiqueue support. We used to do something like this
->> but switch to NETIF_F_LLTX finally. You may refer:
+>>> When try to merge several skbs to prior one, if the frag_list is
+>>> used and the the last one is a small packet, once the condition
+>>> "len <= skb_tailroom(to)" is satisfied, we will get a wrong
+>>> packet!
+>>> This patch just check frag_lists before the condtion to prevent
+>>> this from happening.
+>>>
+>>> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>>> ---
+>>>   net/core/skbuff.c | 6 +++---
+>>>   1 file changed, 3 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>>> index 8a725cc..d08edcb 100644
+>>> --- a/net/core/skbuff.c
+>>> +++ b/net/core/skbuff.c
+>>> @@ -4133,6 +4133,9 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+>>>   	if (skb_cloned(to))
+>>>   		return false;
+>>>
+>>> +	if (skb_has_frag_list(to) || skb_has_frag_list(from))
+>>> +		return false;
+>>> +
+>>>   	if (len <= skb_tailroom(to)) {
+>>>   		if (len)
+>>>   			BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
+>>> @@ -4140,9 +4143,6 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+>>>   		return true;
+>>>   	}
+>>>
+>>> -	if (skb_has_frag_list(to) || skb_has_frag_list(from))
+>>> -		return false;
+>>> -
+>>>   	if (skb_headlen(from) != 0) {
+>>>   		struct page *page;
+>>>   		unsigned int offset;
 >>
->> 2c11455321f37da6fe6cc36353149f9ac9183334 macvlan: add multiqueue capability
->> 8ffab51b3dfc54876f145f15b351c41f3f703195 macvlan: lockless tx path
-> My concern is that the moment someone configures a non-standard qdisc
-> scalability suddenly disappears. That would also be tricky to debug in the
-> field as not a lot of developers use non-standard qdiscs.
-> What do you think?
+>> Sigh.
+>>
+>> No idea what problem you tried to solve.
+>>
+>> This patch is not needed.
+>>
+>> If (len <= skb_tailroom()), then it is obviously correct to copy_bits()
+>> the bytes.
+>>
+>> Hints :
+>>
+>> - If @to has a fraglist, then skb_tailroom(to) is 0 so the copy can not
+>> be done.
 
-Probably not an issue. Non-standard qdisc may need be attached manually
-after device creation, and we don't lose this ability with this patch.
-(Unless somebody changes default_qdisc). Actually, user before
-6acf54f1cf0a6747bac9fea26f34cfc5a9029523 does not expect any qdisc work
-for macvtap like other stacked devices. This patch also restore this.
+How to make sure it?
+In my test, @to has a fraglist, but skb_tailroom(to) is not 0!
+The test is about tipc, the function tipc_buf_append will merge 3 skbs 
+to one:
+packet 1: len = 1420 skb_tailroom = 190
+packet 2: len = 1420
+	packet 2 will be add to 1' fraglist, but not update skb_tailroom
+packet 3: len = 60
+	Here's the error!
+
+>>
+>> - If @from has a fraglist, it is not relevant as we copy it into @to and
+>> will free @from.
+>
+> This is going to be a FAQ
+>
+> http://www.spinics.net/lists/netdev/msg315090.html
+>
+>
+>
+>
+>
+> .
+>
