@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] sh_eth: propagate platform_get_irq() error upstream
-Date: Fri, 28 Aug 2015 22:26:22 -0700 (PDT)
-Message-ID: <20150828.222622.1553006557820565400.davem@davemloft.net>
-References: <9944836.IRPmWk4iN8@wasted.cogentembedded.com>
-	<1774140.R12mtes975@wasted.cogentembedded.com>
+Subject: Re: [PATCH net v3] bonding: fix bond_poll_controller bh_enable
+ warning
+Date: Fri, 28 Aug 2015 22:26:45 -0700 (PDT)
+Message-ID: <20150828.222645.1574109168572497876.davem@davemloft.net>
+References: <69380EC5-CF63-48BE-AFCB-4F70E6869DFC@cumulusnetworks.com>
+	<1440799532-9150-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	horms@verge.net.au
-To: sergei.shtylyov@cogentembedded.com
+Cc: netdev@vger.kernel.org, 13806511171@163.com,
+	shemminger@linux-foundation.org, maheshb@google.com,
+	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com
+To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58281 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58302 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752626AbbH2F0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:26:23 -0400
-In-Reply-To: <1774140.R12mtes975@wasted.cogentembedded.com>
+	with ESMTP id S1752626AbbH2F0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:26:46 -0400
+In-Reply-To: <1440799532-9150-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 28 Aug 2015 16:56:01 +0300
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Fri, 28 Aug 2015 15:05:32 -0700
 
-> The driver overrides the error returned by platform_get_irq() with -ENODEV
-> which e.g. precludes the deferred  probing from working. Propagate the real
-> error code to the driver core instead.
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> The problem is rcu_read_unlock_bh() which triggers a warning when irqs are
+> disabled. ndo_poll_controller should run with irqs disabled always so we
+> can drop the rcu_read_lock_bh.
+ ...
+> Fixes: 616f45416ca0 ("bonding: implement bond_poll_controller()")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> v3: After Dave made it clear that poll_controller should always be called
+> with interrupts disabled we can simply drop the rcu bh lock.
 
 Applied.
