@@ -1,43 +1,31 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH net] sctp: Do not try to search for the transport twice
-Date: Fri, 28 Aug 2015 21:23:39 -0400
-Message-ID: <1440811419-12793-1-git-send-email-vyasevich@gmail.com>
-Cc: Vladislav Yasevich <vyasevich@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net-next 0/3] L3 RX handler
+Date: Fri, 28 Aug 2015 18:31:07 -0700
+Message-ID: <1440811867.8932.111.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:33970 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896AbbH2BXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 21:23:48 -0400
-Received: by qkfh127 with SMTP id h127so38199015qkf.1
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 18:23:47 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35119 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751565AbbH2BbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 21:31:09 -0400
+Received: by pacdd16 with SMTP id dd16so78808392pac.2
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 18:31:09 -0700 (PDT)
+In-Reply-To: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When removing an non-primary transport during ASCONF
-processing, we end up traversing the transport list
-twice: once in sctp_cmd_del_non_primary, and once in
-sctp_assoc_del_peer.  We can avoid the second
-search and call sctp_assoc_rm_peer() instead.
-Found by code inspection during code reviews.
+On Fri, 2015-08-28 at 17:34 -0700, David Ahern wrote:
+> Currently the VRF driver registers an Rx handler for enslaved devices.
+> The handler switches the skb->dev to the VRF device and sends it back for
+> another pass. While this works fine a side effect is that it bypasses
+> netfilter with the skb set to the original device.
+> 
 
-Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
----
- net/sctp/sm_sideeffect.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Arg ... yet another hook in packet processing fast path...
 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index fef2acd..1543cf8 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -954,7 +954,7 @@ static void sctp_cmd_del_non_primary(struct sctp_association *asoc)
- 		t = list_entry(pos, struct sctp_transport, transports);
- 		if (!sctp_cmp_addr_exact(&t->ipaddr,
- 					 &asoc->peer.primary_addr)) {
--			sctp_assoc_del_peer(asoc, &t->ipaddr);
-+			sctp_assoc_rm_peer(asoc, t);
- 		}
- 	}
- }
--- 
-1.9.3
+What are long term plans for VRF ? Will it stay VRF-Lite or what ?
