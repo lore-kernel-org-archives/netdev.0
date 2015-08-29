@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 0/3] L3 RX handler
-Date: Fri, 28 Aug 2015 22:14:17 -0700 (PDT)
-Message-ID: <20150828.221417.905062374709400810.davem@davemloft.net>
-References: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
-	<1440811867.8932.111.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] openvswitch: Fix conntrack compilation
+ without mark.
+Date: Fri, 28 Aug 2015 22:24:15 -0700 (PDT)
+Message-ID: <20150828.222415.229963880853834489.davem@davemloft.net>
+References: <1440814931-29059-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58230 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752332AbbH2FOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:14:18 -0400
-In-Reply-To: <1440811867.8932.111.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	simon.horman@netronome.com
+To: joestringer@nicira.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440814931-29059-1-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 28 Aug 2015 18:31:07 -0700
+From: Joe Stringer <joestringer@nicira.com>
+Date: Fri, 28 Aug 2015 19:22:11 -0700
 
-> On Fri, 2015-08-28 at 17:34 -0700, David Ahern wrote:
->> Currently the VRF driver registers an Rx handler for enslaved devices.
->> The handler switches the skb->dev to the VRF device and sends it back for
->> another pass. While this works fine a side effect is that it bypasses
->> netfilter with the skb set to the original device.
->> 
+> Fix build with !CONFIG_NF_CONNTRACK_MARK && CONFIG_OPENVSWITCH_CONNTRACK
 > 
-> Arg ... yet another hook in packet processing fast path...
-> 
-> What are long term plans for VRF ? Will it stay VRF-Lite or what ?
+> Fixes: 182e304 ("openvswitch: Allow matching on conntrack mark")
+> Reported-by: Simon Horman <simon.horman@netronome.com>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 
-+1
+Applied, thanks.
