@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] bonding: fix bond_poll_controller bh_enable
- warning
-Date: Fri, 28 Aug 2015 22:26:45 -0700 (PDT)
-Message-ID: <20150828.222645.1574109168572497876.davem@davemloft.net>
-References: <69380EC5-CF63-48BE-AFCB-4F70E6869DFC@cumulusnetworks.com>
-	<1440799532-9150-1-git-send-email-razor@blackwall.org>
+Subject: Re: [PATCH net] sctp: Do not try to search for the transport twice
+Date: Fri, 28 Aug 2015 22:26:53 -0700 (PDT)
+Message-ID: <20150828.222653.1927768559958135366.davem@davemloft.net>
+References: <1440811419-12793-1-git-send-email-vyasevich@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 13806511171@163.com,
-	shemminger@linux-foundation.org, maheshb@google.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com
-To: razor@blackwall.org
+Cc: netdev@vger.kernel.org
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58302 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58307 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752626AbbH2F0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:26:46 -0400
-In-Reply-To: <1440799532-9150-1-git-send-email-razor@blackwall.org>
+	with ESMTP id S1752626AbbH2F0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:26:54 -0400
+In-Reply-To: <1440811419-12793-1-git-send-email-vyasevich@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Date: Fri, 28 Aug 2015 15:05:32 -0700
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Fri, 28 Aug 2015 21:23:39 -0400
 
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> When removing an non-primary transport during ASCONF
+> processing, we end up traversing the transport list
+> twice: once in sctp_cmd_del_non_primary, and once in
+> sctp_assoc_del_peer.  We can avoid the second
+> search and call sctp_assoc_rm_peer() instead.
+> Found by code inspection during code reviews.
 > 
-> The problem is rcu_read_unlock_bh() which triggers a warning when irqs are
-> disabled. ndo_poll_controller should run with irqs disabled always so we
-> can drop the rcu_read_lock_bh.
- ...
-> Fixes: 616f45416ca0 ("bonding: implement bond_poll_controller()")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> v3: After Dave made it clear that poll_controller should always be called
-> with interrupts disabled we can simply drop the rcu bh lock.
+> Signed-off-by: Vladislav Yasevich <vyasevich@gmail.com>
 
 Applied.
