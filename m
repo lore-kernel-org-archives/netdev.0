@@ -1,37 +1,55 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by walking
- all the percpu data at once
-Date: Sat, 29 Aug 2015 13:23:13 +0530
-Message-ID: <55E164E9.4060700@linux.vnet.ibm.com>
-References: <55E00238.10909@linux.vnet.ibm.com> <20150828.112413.424099339331017970.davem@davemloft.net> <20150829025715.GA5546@linux.vnet.ibm.com> <20150828.221151.233357371571169851.davem@davemloft.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH v2 net-next 2/4] ip_tunnels: record IP version in tunnel
+ info
+Date: Sat, 29 Aug 2015 10:43:45 +0200
+Message-ID: <20150829104345.4b7f031c@griffin>
+References: <cover.1440787600.git.jbenc@redhat.com>
+	<5f1807433565275c8bf699c0495b66c620b274c7.1440787600.git.jbenc@redhat.com>
+	<20150828222411.GB32001@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, jiri@resnulli.us,
-	hannes@stressinduktion.org, tom@herbertland.com, azhou@nicira.com,
-	ebiederm@xmission.com, ipm@chirality.org.uk,
-	nicolas.dichtel@6wind.com, serge.hallyn@canonical.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
-	srikar@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150828.221151.233357371571169851.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33325 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751568AbbH2Int (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Aug 2015 04:43:49 -0400
+In-Reply-To: <20150828222411.GB32001@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/29/2015 10:41 AM, David Miller wrote:
-> From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-> Date: Sat, 29 Aug 2015 08:27:15 +0530
->
->> resending the patch with memset. Please let me know if you want to
->> resend all the patches.
->
-> Do not post patches as replies to existing discussion threads.
->
-> Instead, make a new, fresh, patch posting, updating the Subject line
-> as needed.
->
+On Sat, 29 Aug 2015 00:24:11 +0200, Thomas Graf wrote:
+> On 08/28/15 at 08:48pm, Jiri Benc wrote:
+> > diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+> > index e2dc9dac59e6..40164037928e 100644
+> > --- a/net/openvswitch/vport.c
+> > +++ b/net/openvswitch/vport.c
+> > @@ -587,6 +587,8 @@ int ovs_tunnel_get_egress_info(struct ip_tunnel_info *egress_tun_info,
+> >  
+> >  	if (unlikely(!tun_info))
+> >  		return -EINVAL;
+> > +	if (ip_tunnel_info_af(tun_info) != AF_INET)
+> > +		return -EINVAL;
+> >  
+> >  	tun_key = &tun_info->key;
+> 
+> Are you sure this chunk is needed? It looks like OVS_CB()->egress_tun_info
+> can only be set via execute_set_action() which can only be of a supported
+> AF type.
 
-Sure.
+It does no harm and I'm going to add IPv6 tunneling support to ovs
+soon. This is a nice reminder that this function is IPv4 only and needs
+to be extended.
+
+> Otherwise this looks great.
+> 
+> Acked-by: Thomas Graf <tgraf@suug.ch>
+
+Thanks!
+
+ Jiri
+
+-- 
+Jiri Benc
