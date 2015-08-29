@@ -1,50 +1,35 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC PATCH net-next 0/3] L3 RX handler
-Date: Fri, 28 Aug 2015 22:14:04 -0700 (PDT)
-Message-ID: <20150828.221404.100480720904987645.davem@davemloft.net>
+Date: Fri, 28 Aug 2015 22:14:17 -0700 (PDT)
+Message-ID: <20150828.221417.905062374709400810.davem@davemloft.net>
 References: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
+	<1440811867.8932.111.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58227 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58230 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752332AbbH2FOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:14:04 -0400
-In-Reply-To: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1752332AbbH2FOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:14:18 -0400
+In-Reply-To: <1440811867.8932.111.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Fri, 28 Aug 2015 17:34:20 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 28 Aug 2015 18:31:07 -0700
 
-> Currently the VRF driver registers an Rx handler for enslaved devices.
-> The handler switches the skb->dev to the VRF device and sends it back for
-> another pass. While this works fine a side effect is that it bypasses
-> netfilter with the skb set to the original device.
+> On Fri, 2015-08-28 at 17:34 -0700, David Ahern wrote:
+>> Currently the VRF driver registers an Rx handler for enslaved devices.
+>> The handler switches the skb->dev to the VRF device and sends it back for
+>> another pass. While this works fine a side effect is that it bypasses
+>> netfilter with the skb set to the original device.
+>> 
 > 
-> Looking at how to provide that feature a few options come to mind:
-> 1. Have the rx handler in the VRF driver duplicate some of the processing
->    of ip_rcv up to the NF_HOOK and then switch the skb->dev to vrf device.
+> Arg ... yet another hook in packet processing fast path...
 > 
-> 2. Run NF_HOOK in ip_rcv twice -- once with orig_dev and then again for dev.
-> 
-> 3. Introduce an L3 rx-handler that provides the option of hooking packets
->    at L3 rather than the current backlog loop.
-> 
-> This RFC looks at option 3. I wanted to get opinions on the approach
-> versus other options.
+> What are long term plans for VRF ? Will it stay VRF-Lite or what ?
 
-No way, this is not going to pass.
-
-I've been playing my trumpet supporting this work, but as time wears
-on and we are adding more and more hacks all over the tree I like this
-VRF infrastructure less and less.
-
-If you cannot figure out the right clean abstraction for what you want
-to do, SIT AND WAIT.  Think about it for a while instead of posting
-"yet another hook" type changes like this.
-
-Thanks.
++1
