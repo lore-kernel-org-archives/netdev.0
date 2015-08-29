@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] openvswitch: retain parsed IPv6 header fields in
- flow on error skipping extension headers
-Date: Sat, 29 Aug 2015 13:40:19 -0700 (PDT)
-Message-ID: <20150829.134019.1423323256685869514.davem@davemloft.net>
-References: <1440806541-22729-1-git-send-email-simon.horman@netronome.com>
+Subject: Re: [PATCH] geneve: Use GRO cells infrastructure.
+Date: Sat, 29 Aug 2015 13:45:37 -0700 (PDT)
+Message-ID: <20150829.134537.1296061605473806203.davem@davemloft.net>
+References: <1440806080-126757-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org
-To: simon.horman@netronome.com
+Cc: netdev@vger.kernel.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34690 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34711 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752310AbbH2UkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 16:40:22 -0400
-In-Reply-To: <1440806541-22729-1-git-send-email-simon.horman@netronome.com>
+	with ESMTP id S1752279AbbH2Upi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 16:45:38 -0400
+In-Reply-To: <1440806080-126757-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Sat, 29 Aug 2015 09:02:21 +0900
+From: Jesse Gross <jesse@nicira.com>
+Date: Fri, 28 Aug 2015 16:54:40 -0700
 
-> When an error occurs skipping IPv6 extension headers retain the already
-> parsed IP protocol and IPv6 addresses in the flow. Also assume that the
-> packet is not a fragment in the absence of information to the contrary;
-> that is always use the frag_off value set by ipv6_skip_exthdr().
+> Geneve can benefit from GRO at the device level in a manner similar
+> to other tunnels, especially as hardware offloads are still emerging.
 > 
-> This allows matching on the IP protocol and IPv6 addresses of packets
-> with malformed extension headers.
+> After this patch, aggregated frames are seen on the tunnel interface.
+> Single stream throughput nearly doubles in ideal circumstances (on
+> old hardware).
 > 
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
 
-Applied to net-next, thanks Simon.
+Applied, thanks Jesse.
+
+While reviewing this I noticed that the gro cells code goes through all
+of the trouble of allocating full per-cpu objects to manage the packet
+queuing and processing, but then it uses a full spinlock for protection.
+
+It ought to be sufficient to just block out BH processing or, at worst,
+local cpu interrupts, to protect the individual per-cpu cells.
