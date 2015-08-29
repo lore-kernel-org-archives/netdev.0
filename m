@@ -1,31 +1,391 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/3] L3 RX handler
-Date: Fri, 28 Aug 2015 18:31:07 -0700
-Message-ID: <1440811867.8932.111.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
+From: Alexey Klimov <klimov.linux@gmail.com>
+Subject: Re: [PATCH net-next 6/8] net: thunderx: Rework interrupt handler
+Date: Sat, 29 Aug 2015 04:44:59 +0300
+Message-ID: <CALW4P++2cG5epoit8BXBjp7Z2PK=P5wqbxkDqrt6kCa7SaZK+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35119 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751565AbbH2BbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 21:31:09 -0400
-Received: by pacdd16 with SMTP id dd16so78808392pac.2
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 18:31:09 -0700 (PDT)
-In-Reply-To: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Robert Richter <rric@kernel.org>,
+	David Daney <david.daney@cavium.com>,
+	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Robert Richter <robert.richter@caviumnetworks.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Aleksey Makarov <aleksey.makarov@auriga.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-08-28 at 17:34 -0700, David Ahern wrote:
-> Currently the VRF driver registers an Rx handler for enslaved devices.
-> The handler switches the skb->dev to the VRF device and sends it back for
-> another pass. While this works fine a side effect is that it bypasses
-> netfilter with the skb set to the original device.
-> 
+Hi Aleksey,
 
-Arg ... yet another hook in packet processing fast path...
+let me add few minor points below.
 
-What are long term plans for VRF ? Will it stay VRF-Lite or what ?
+On Fri, Aug 28, 2015 at 5:59 PM, Aleksey Makarov
+<aleksey.makarov@auriga.com> wrote:
+> From: Sunil Goutham <sgoutham@cavium.com>
+>
+> Rework interrupt handler to avoid checking IRQ affinity of
+> CQ interrupts. Now separate handlers are registered for each IRQ
+> including RBDR. Also register interrupt handlers for only those
+> which are being used.
+
+Also add nicvf_dump_intr_status() and use it in irq handler(s).
+I suggest to check and extend commit message and think about commit
+name. Maybe "net: thunderx: rework interrupt handling and
+registration" at least?
+
+Please consider possibility of splitting this patch into few patches too.
+
+>
+> Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+> Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+> ---
+>  drivers/net/ethernet/cavium/thunder/nic.h          |   1 +
+>  drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 172 ++++++++++++---------
+>  drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   2 +
+>  3 files changed, 103 insertions(+), 72 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+> index a83f567..89b997e 100644
+> --- a/drivers/net/ethernet/cavium/thunder/nic.h
+> +++ b/drivers/net/ethernet/cavium/thunder/nic.h
+> @@ -135,6 +135,7 @@
+>  #define        NICVF_TX_TIMEOUT                (50 * HZ)
+>
+>  struct nicvf_cq_poll {
+> +       struct  nicvf *nicvf;
+>         u8      cq_idx;         /* Completion queue index */
+>         struct  napi_struct napi;
+>  };
+> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+> index de51828..2198f61 100644
+> --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+> +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+> @@ -653,11 +653,20 @@ static void nicvf_handle_qs_err(unsigned long data)
+>         nicvf_enable_intr(nic, NICVF_INTR_QS_ERR, 0);
+>  }
+>
+> +static inline void nicvf_dump_intr_status(struct nicvf *nic)
+> +{
+> +       if (netif_msg_intr(nic))
+> +               netdev_info(nic->netdev, "%s: interrupt status 0x%llx\n",
+> +                           nic->netdev->name, nicvf_reg_read(nic, NIC_VF_INT));
+> +}
+
+Please check if you really need to mark this 'inline' here.
+
+>  static irqreturn_t nicvf_misc_intr_handler(int irq, void *nicvf_irq)
+>  {
+>         struct nicvf *nic = (struct nicvf *)nicvf_irq;
+>         u64 intr;
+>
+> +       nicvf_dump_intr_status(nic);
+> +
+>         intr = nicvf_reg_read(nic, NIC_VF_INT);
+>         /* Check for spurious interrupt */
+>         if (!(intr & NICVF_INTR_MBOX_MASK))
+> @@ -668,59 +677,58 @@ static irqreturn_t nicvf_misc_intr_handler(int irq, void *nicvf_irq)
+>         return IRQ_HANDLED;
+>  }
+>
+> -static irqreturn_t nicvf_intr_handler(int irq, void *nicvf_irq)
+> +static irqreturn_t nicvf_intr_handler(int irq, void *cq_irq)
+> +{
+> +       struct nicvf_cq_poll *cq_poll = (struct nicvf_cq_poll *)cq_irq;
+> +       struct nicvf *nic = cq_poll->nicvf;
+> +       int qidx = cq_poll->cq_idx;
+> +
+> +       nicvf_dump_intr_status(nic);
+> +
+> +       /* Disable interrupts */
+> +       nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
+> +
+> +       /* Schedule NAPI */
+> +       napi_schedule(&cq_poll->napi);
+> +
+> +       /* Clear interrupt */
+> +       nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
+> +
+> +       return IRQ_HANDLED;
+> +}
+
+You're not considering spurious irqs in all new irq handlers here and
+below and schedule napi/tasklets unconditionally. Is it correct?
+For me it looks like previous implementation relied on reading of
+NIC_VF_INT to understand irq type and what actions should be
+performed. It generally had idea that no interrupt might occur.
+
+
+> +
+> +static irqreturn_t nicvf_rbdr_intr_handler(int irq, void *nicvf_irq)
+>  {
+> -       u64 qidx, intr, clear_intr = 0;
+> -       u64 cq_intr, rbdr_intr, qs_err_intr;
+>         struct nicvf *nic = (struct nicvf *)nicvf_irq;
+> -       struct queue_set *qs = nic->qs;
+> -       struct nicvf_cq_poll *cq_poll = NULL;
+> +       u8 qidx;
+>
+> -       intr = nicvf_reg_read(nic, NIC_VF_INT);
+> -       if (netif_msg_intr(nic))
+> -               netdev_info(nic->netdev, "%s: interrupt status 0x%llx\n",
+> -                           nic->netdev->name, intr);
+> -
+> -       qs_err_intr = intr & NICVF_INTR_QS_ERR_MASK;
+> -       if (qs_err_intr) {
+> -               /* Disable Qset err interrupt and schedule softirq */
+> -               nicvf_disable_intr(nic, NICVF_INTR_QS_ERR, 0);
+> -               tasklet_hi_schedule(&nic->qs_err_task);
+> -               clear_intr |= qs_err_intr;
+> -       }
+>
+> -       /* Disable interrupts and start polling */
+> -       cq_intr = (intr & NICVF_INTR_CQ_MASK) >> NICVF_INTR_CQ_SHIFT;
+> -       for (qidx = 0; qidx < qs->cq_cnt; qidx++) {
+> -               if (!(cq_intr & (1 << qidx)))
+> -                       continue;
+> -               if (!nicvf_is_intr_enabled(nic, NICVF_INTR_CQ, qidx))
+> +       nicvf_dump_intr_status(nic);
+> +
+> +       /* Disable RBDR interrupt and schedule softirq */
+> +       for (qidx = 0; qidx < nic->qs->rbdr_cnt; qidx++) {
+> +               if (!nicvf_is_intr_enabled(nic, NICVF_INTR_RBDR, qidx))
+>                         continue;
+> +               nicvf_disable_intr(nic, NICVF_INTR_RBDR, qidx);
+> +               tasklet_hi_schedule(&nic->rbdr_task);
+> +               /* Clear interrupt */
+> +               nicvf_clear_intr(nic, NICVF_INTR_RBDR, qidx);
+> +       }
+>
+> -               nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
+> -               clear_intr |= ((1 << qidx) << NICVF_INTR_CQ_SHIFT);
+> +       return IRQ_HANDLED;
+> +}
+>
+> -               cq_poll = nic->napi[qidx];
+> -               /* Schedule NAPI */
+> -               if (cq_poll)
+> -                       napi_schedule(&cq_poll->napi);
+> -       }
+> +static irqreturn_t nicvf_qs_err_intr_handler(int irq, void *nicvf_irq)
+> +{
+> +       struct nicvf *nic = (struct nicvf *)nicvf_irq;
+>
+> -       /* Handle RBDR interrupts */
+> -       rbdr_intr = (intr & NICVF_INTR_RBDR_MASK) >> NICVF_INTR_RBDR_SHIFT;
+> -       if (rbdr_intr) {
+> -               /* Disable RBDR interrupt and schedule softirq */
+> -               for (qidx = 0; qidx < qs->rbdr_cnt; qidx++) {
+> -                       if (!nicvf_is_intr_enabled(nic, NICVF_INTR_RBDR, qidx))
+> -                               continue;
+> -                       nicvf_disable_intr(nic, NICVF_INTR_RBDR, qidx);
+> -                       tasklet_hi_schedule(&nic->rbdr_task);
+> -                       clear_intr |= ((1 << qidx) << NICVF_INTR_RBDR_SHIFT);
+> -               }
+> -       }
+> +       nicvf_dump_intr_status(nic);
+> +
+> +       /* Disable Qset err interrupt and schedule softirq */
+> +       nicvf_disable_intr(nic, NICVF_INTR_QS_ERR, 0);
+> +       tasklet_hi_schedule(&nic->qs_err_task);
+> +       nicvf_clear_intr(nic, NICVF_INTR_QS_ERR, 0);
+>
+> -       /* Clear interrupts */
+> -       nicvf_reg_write(nic, NIC_VF_INT, clear_intr);
+>         return IRQ_HANDLED;
+>  }
+>
+> @@ -754,7 +762,7 @@ static void nicvf_disable_msix(struct nicvf *nic)
+>
+>  static int nicvf_register_interrupts(struct nicvf *nic)
+>  {
+> -       int irq, free, ret = 0;
+> +       int irq, ret = 0;
+>         int vector;
+>
+>         for_each_cq_irq(irq)
+> @@ -769,44 +777,42 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+>                 sprintf(nic->irq_name[irq], "NICVF%d RBDR%d",
+>                         nic->vf_id, irq - NICVF_INTR_ID_RBDR);
+>
+> -       /* Register all interrupts except mailbox */
+> -       for (irq = 0; irq < NICVF_INTR_ID_SQ; irq++) {
+> +       /* Register CQ interrupts */
+> +       for (irq = 0; irq < nic->qs->cq_cnt; irq++) {
+>                 vector = nic->msix_entries[irq].vector;
+>                 ret = request_irq(vector, nicvf_intr_handler,
+> -                                 0, nic->irq_name[irq], nic);
+> +                                 0, nic->irq_name[irq], nic->napi[irq]);
+>                 if (ret)
+> -                       break;
+> +                       goto err;
+>                 nic->irq_allocated[irq] = true;
+>         }
+>
+> -       for (irq = NICVF_INTR_ID_SQ; irq < NICVF_INTR_ID_MISC; irq++) {
+> +       /* Register RBDR interrupt */
+> +       for (irq = NICVF_INTR_ID_RBDR;
+> +            irq < (NICVF_INTR_ID_RBDR + nic->qs->rbdr_cnt); irq++) {
+>                 vector = nic->msix_entries[irq].vector;
+> -               ret = request_irq(vector, nicvf_intr_handler,
+> +               ret = request_irq(vector, nicvf_rbdr_intr_handler,
+>                                   0, nic->irq_name[irq], nic);
+>                 if (ret)
+> -                       break;
+> +                       goto err;
+>                 nic->irq_allocated[irq] = true;
+>         }
+>
+> +       /* Register QS error interrupt */
+>         sprintf(nic->irq_name[NICVF_INTR_ID_QS_ERR],
+>                 "NICVF%d Qset error", nic->vf_id);
+> -       if (!ret) {
+> -               vector = nic->msix_entries[NICVF_INTR_ID_QS_ERR].vector;
+> -               irq = NICVF_INTR_ID_QS_ERR;
+> -               ret = request_irq(vector, nicvf_intr_handler,
+> -                                 0, nic->irq_name[irq], nic);
+> -               if (!ret)
+> -                       nic->irq_allocated[irq] = true;
+> -       }
+> +       irq = NICVF_INTR_ID_QS_ERR;
+> +       ret = request_irq(nic->msix_entries[irq].vector,
+> +                         nicvf_qs_err_intr_handler,
+> +                         0, nic->irq_name[irq], nic);
+> +       if (!ret)
+> +               nic->irq_allocated[irq] = true;
+>
+> -       if (ret) {
+> -               netdev_err(nic->netdev, "Request irq failed\n");
+> -               for (free = 0; free < irq; free++)
+> -                       free_irq(nic->msix_entries[free].vector, nic);
+> -               return ret;
+> -       }
+> +err:
+> +       if (ret)
+> +               netdev_err(nic->netdev, "request_irq failed, vector %d\n", irq);
+>
+> -       return 0;
+> +       return ret;
+>  }
+>
+>  static void nicvf_unregister_interrupts(struct nicvf *nic)
+> @@ -815,8 +821,14 @@ static void nicvf_unregister_interrupts(struct nicvf *nic)
+>
+>         /* Free registered interrupts */
+>         for (irq = 0; irq < nic->num_vec; irq++) {
+> -               if (nic->irq_allocated[irq])
+> +               if (!nic->irq_allocated[irq])
+> +                       continue;
+> +
+> +               if (irq < NICVF_INTR_ID_SQ)
+> +                       free_irq(nic->msix_entries[irq].vector, nic->napi[irq]);
+> +               else
+>                         free_irq(nic->msix_entries[irq].vector, nic);
+> +
+>                 nic->irq_allocated[irq] = false;
+>         }
+>
+> @@ -888,6 +900,20 @@ static netdev_tx_t nicvf_xmit(struct sk_buff *skb, struct net_device *netdev)
+>         return NETDEV_TX_OK;
+>  }
+>
+> +static inline void nicvf_free_cq_poll(struct nicvf *nic)
+> +{
+> +       struct nicvf_cq_poll *cq_poll = NULL;
+
+Please check if you really need initialize it to NULL here.
+
+> +       int qidx;
+> +
+> +       for (qidx = 0; qidx < nic->qs->cq_cnt; qidx++) {
+> +               cq_poll = nic->napi[qidx];
+> +               if (!cq_poll)
+> +                       continue;
+> +               nic->napi[qidx] = NULL;
+> +               kfree(cq_poll);
+> +       }
+> +}
+> +
+>  int nicvf_stop(struct net_device *netdev)
+>  {
+>         int irq, qidx;
+> @@ -922,7 +948,6 @@ int nicvf_stop(struct net_device *netdev)
+>                 cq_poll = nic->napi[qidx];
+>                 if (!cq_poll)
+>                         continue;
+> -               nic->napi[qidx] = NULL;
+>                 napi_synchronize(&cq_poll->napi);
+>                 /* CQ intr is enabled while napi_complete,
+>                  * so disable it now
+> @@ -931,7 +956,6 @@ int nicvf_stop(struct net_device *netdev)
+>                 nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
+>                 napi_disable(&cq_poll->napi);
+>                 netif_napi_del(&cq_poll->napi);
+> -               kfree(cq_poll);
+>         }
+>
+>         netif_tx_disable(netdev);
+> @@ -947,6 +971,8 @@ int nicvf_stop(struct net_device *netdev)
+>
+>         nicvf_unregister_interrupts(nic);
+>
+> +       nicvf_free_cq_poll(nic);
+> +
+>         return 0;
+>  }
+>
+> @@ -973,6 +999,7 @@ int nicvf_open(struct net_device *netdev)
+>                         goto napi_del;
+>                 }
+>                 cq_poll->cq_idx = qidx;
+> +               cq_poll->nicvf = nic;
+>                 netif_napi_add(netdev, &cq_poll->napi, nicvf_poll,
+>                                NAPI_POLL_WEIGHT);
+>                 napi_enable(&cq_poll->napi);
+> @@ -1040,6 +1067,8 @@ int nicvf_open(struct net_device *netdev)
+>  cleanup:
+>         nicvf_disable_intr(nic, NICVF_INTR_MBOX, 0);
+>         nicvf_unregister_interrupts(nic);
+> +       tasklet_kill(&nic->qs_err_task);
+> +       tasklet_kill(&nic->rbdr_task);
+>  napi_del:
+>         for (qidx = 0; qidx < qs->cq_cnt; qidx++) {
+>                 cq_poll = nic->napi[qidx];
+> @@ -1047,9 +1076,8 @@ napi_del:
+>                         continue;
+>                 napi_disable(&cq_poll->napi);
+>                 netif_napi_del(&cq_poll->napi);
+> -               kfree(cq_poll);
+> -               nic->napi[qidx] = NULL;
+>         }
+> +       nicvf_free_cq_poll(nic);
+>         return err;
+>  }
+>
+> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+> index 8b93dd6..c2ce270 100644
+> --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+> +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+> @@ -251,6 +251,8 @@ struct cmp_queue {
+>         void            *desc;
+>         struct q_desc_mem   dmem;
+>         struct cmp_queue_stats  stats;
+> +       int             irq;
+> +       cpumask_t       affinity_mask;
+>  } ____cacheline_aligned_in_smp;
+>
+>  struct snd_queue {
+> --
+> 2.5.0
+>
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+
+
+-- 
+Best regards, Klimov Alexey
