@@ -1,51 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC V3 2/2] net: Optimize snmp stat aggregation by
- walking all the percpu data at once
-Date: Sat, 29 Aug 2015 07:32:06 -0700
-Message-ID: <1440858726.8932.149.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <y>
-	 <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-	 <1440839278-21928-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next 0/3] L3 RX handler
+Date: Sat, 29 Aug 2015 08:05:45 -0700
+Message-ID: <55E1CA49.9040803@cumulusnetworks.com>
+References: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
+ <20150828.221404.100480720904987645.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, jiri@resnulli.us,
-	edumazet@google.com, hannes@stressinduktion.org,
-	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
-	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
-	serge.hallyn@canonical.com, joe@perches.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
-	srikar@linux.vnet.ibm.com
-To: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440839278-21928-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33787 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753385AbbH2PFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 11:05:46 -0400
+Received: by pacgr6 with SMTP id gr6so5777789pac.0
+        for <netdev@vger.kernel.org>; Sat, 29 Aug 2015 08:05:45 -0700 (PDT)
+In-Reply-To: <20150828.221404.100480720904987645.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-08-29 at 14:37 +0530, Raghavendra K T wrote:
+On 8/28/15 10:14 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Fri, 28 Aug 2015 17:34:20 -0700
+>
+>> Currently the VRF driver registers an Rx handler for enslaved devices.
+>> The handler switches the skb->dev to the VRF device and sends it back for
+>> another pass. While this works fine a side effect is that it bypasses
+>> netfilter with the skb set to the original device.
+>>
+>> Looking at how to provide that feature a few options come to mind:
+>> 1. Have the rx handler in the VRF driver duplicate some of the processing
+>>     of ip_rcv up to the NF_HOOK and then switch the skb->dev to vrf device.
+>>
+>> 2. Run NF_HOOK in ip_rcv twice -- once with orig_dev and then again for dev.
+>>
+>> 3. Introduce an L3 rx-handler that provides the option of hooking packets
+>>     at L3 rather than the current backlog loop.
+>>
+>> This RFC looks at option 3. I wanted to get opinions on the approach
+>> versus other options.
+>
+> No way, this is not going to pass.
 
->  
->  static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
-> -				      int items, int bytes, size_t syncpoff)
-> +					int items, int bytes, size_t syncpoff)
->  {
-> -	int i;
-> +	int i, c;
->  	int pad = bytes - sizeof(u64) * items;
-> +	u64 buff[items];
-> +
-
-One last comment : using variable length arrays is confusing for the
-reader, and sparse as well.
-
-$ make C=2 net/ipv6/addrconf.o
-...
-  CHECK   net/ipv6/addrconf.c
-net/ipv6/addrconf.c:4733:18: warning: Variable length array is used.
-net/ipv6/addrconf.c:4737:25: error: cannot size expression
-
-
-I suggest you remove 'items' parameter and replace it by
-IPSTATS_MIB_MAX, as __snmp6_fill_stats64() is called exactly once.
+I'll drop this option. Thanks for the quick response.
