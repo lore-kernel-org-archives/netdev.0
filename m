@@ -1,46 +1,34 @@
-From: Peter =?UTF-8?B?TsO4cmx1bmQ=?= <pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 0/3] ipv4: Hash-based multipath routing
-Date: Sat, 29 Aug 2015 22:31:15 +0200
-Message-ID: <20150829223115.523553db@tyr>
-References: <1440792050-2109-1-git-send-email-pch@ordbogen.com>
-	<20150829.131429.360433621593751136.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] openvswitch: retain parsed IPv6 header fields in
+ flow on error skipping extension headers
+Date: Sat, 29 Aug 2015 13:40:19 -0700 (PDT)
+Message-ID: <20150829.134019.1423323256685869514.davem@davemloft.net>
+References: <1440806541-22729-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
-	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
-	sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150829.131429.360433621593751136.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org
+To: simon.horman@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34690 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752310AbbH2UkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 16:40:22 -0400
+In-Reply-To: <1440806541-22729-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 29 Aug 2015 13:14:29 -0700 (PDT)
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+From: Simon Horman <simon.horman@netronome.com>
+Date: Sat, 29 Aug 2015 09:02:21 +0900
 
-> From: pch-chEQUL3jiZBWk0Htik3J/w@public.gmane.org
-> Date: Fri, 28 Aug 2015 22:00:47 +0200
+> When an error occurs skipping IPv6 extension headers retain the already
+> parsed IP protocol and IPv6 addresses in the flow. Also assume that the
+> packet is not a fragment in the absence of information to the contrary;
+> that is always use the frag_off value set by ipv6_skip_exthdr().
 > 
-> > When the routing cache was removed in 3.6, the IPv4 multipath
-> > algorithm changed from more or less being destination-based into
-> > being quasi-random per-packet scheduling. This increases the risk
-> > of out-of-order packets and makes it impossible to use multipath
-> > together with anycast services.
+> This allows matching on the IP protocol and IPv6 addresses of packets
+> with malformed extension headers.
 > 
-> Don't even try to be fancy.
-> 
-> Simply kill the round-robin stuff off completely, and make hash based
-> routing the one and only mode, no special configuration stuff
-> necessary.
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-I like the sound of that! Just to be clear - are you telling me to
-stick with L3 and skip the L4 part?
-
-> 
-> This puts ipv4 in line with ipv6, and nobody cares about the existing
-> round robin behavior at all.
-> 
-> Thanks.
+Applied to net-next, thanks Simon.
