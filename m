@@ -1,46 +1,124 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Sat, 29 Aug 2015 11:07:01 +0200
-Message-ID: <20150829090701.GN20760@orbit.nwl.cc>
-References: <1440757685-14241-1-git-send-email-phil@nwl.cc>
- <1440757685-14241-2-git-send-email-phil@nwl.cc>
- <20150828110929.GI32206@pox.localdomain>
- <20150828111320.GL20760@orbit.nwl.cc>
- <20150828133437.GM20760@orbit.nwl.cc>
- <20150828224303.GD32001@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Thomas Graf <tgraf@suug.ch>
+From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Subject: [PATCH RFC V3 1/2] net: Introduce helper functions to get the per cpu data
+Date: Sat, 29 Aug 2015 14:37:57 +0530
+Message-ID: <1440839278-21928-2-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+References: <y>
+ <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Cc: <jiri@resnulli.us>, <edumazet@google.com>,
+	<hannes@stressinduktion.org>, <tom@herbertland.com>,
+	<azhou@nicira.com>, <ebiederm@xmission.com>,
+	<ipm@chirality.org.uk>, <nicolas.dichtel@6wind.com>,
+	<serge.hallyn@canonical.com>, <joe@perches.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<raghavendra.kt@linux.vnet.ibm.com>, <anton@au1.ibm.com>,
+	<nacc@linux.vnet.ibm.com>, <srikar@linux.vnet.ibm.com>
+To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150828224303.GD32001@pox.localdomain>
+In-Reply-To: <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 29, 2015 at 12:43:03AM +0200, Thomas Graf wrote:
-> On 08/28/15 at 03:34pm, Phil Sutter wrote:
-> > Quite ugly, IMHO: rhashtable_insert_fast() may return -ENOMEM as
-> > non-permanent error, if allocation in GFP_ATOMIC failed. In this case,
-> > allocation in GFP_KERNEL is retried by rht_deferred_worker(). Sadly,
-> > there is no way to determine if that has already been tried and failed.
-> > 
-> > The thread test triggers GFP_ATOMIC allocation failure quite easily, so
-> > I can't really just ignore this issue. :)
-> 
-> Return EBUSY or ENOBUFS in the non-permanent case? It is definitely
-> helpful if the API allows to differ between permanent and
-> non-permanent errors.
+Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+---
+ include/net/ip.h   | 10 ++++++++++
+ net/ipv4/af_inet.c | 41 +++++++++++++++++++++++++++--------------
+ 2 files changed, 37 insertions(+), 14 deletions(-)
 
-Yes, indeed. Therefore rht_deferred_worker() needs to check the return
-value of rhashtable_expand(). The question is how to propagate the error
-condition, as the worker's return value is not being kept track of
-(function returns void even).
-
-Should we introduce a new field to struct rhashtable to track the
-internal state? This might allow to clean up some rather obscure tests,
-e.g. whether a table resize is in progress or not.
-
-Cheers, Phil
+diff --git a/include/net/ip.h b/include/net/ip.h
+index d5fe9f2..93bf12e 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -202,10 +202,20 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
+ #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
+ #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
+ 
++u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offct);
+ unsigned long snmp_fold_field(void __percpu *mib, int offt);
+ #if BITS_PER_LONG==32
++u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++			 size_t syncp_offset);
+ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
+ #else
++static inline u64  snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++					size_t syncp_offset)
++{
++	return snmp_get_cpu_field(mib, cpu, offct);
++
++}
++
+ static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
+ {
+ 	return snmp_fold_field(mib, offt);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 9532ee8..302e36b 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1448,38 +1448,51 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
+ }
+ EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
+ 
++u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
++{
++	return  *(((unsigned long *)per_cpu_ptr(mib, cpu)) + offt);
++}
++EXPORT_SYMBOL_GPL(snmp_get_cpu_field);
++
+ unsigned long snmp_fold_field(void __percpu *mib, int offt)
+ {
+ 	unsigned long res = 0;
+ 	int i;
+ 
+ 	for_each_possible_cpu(i)
+-		res += *(((unsigned long *) per_cpu_ptr(mib, i)) + offt);
++		res += snmp_get_cpu_field(mib, i, offt);
+ 	return res;
+ }
+ EXPORT_SYMBOL_GPL(snmp_fold_field);
+ 
+ #if BITS_PER_LONG==32
+ 
++u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++			 size_t syncp_offset)
++{
++	void *bhptr;
++	struct u64_stats_sync *syncp;
++	u64 v;
++	unsigned int start;
++
++	bhptr = per_cpu_ptr(mib, cpu);
++	syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
++	do {
++		start = u64_stats_fetch_begin_irq(syncp);
++		v = *(((u64 *)bhptr) + offt);
++	} while (u64_stats_fetch_retry_irq(syncp, start));
++
++	return v;
++}
++EXPORT_SYMBOL_GPL(snmp_get_cpu_field64);
++
+ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ {
+ 	u64 res = 0;
+ 	int cpu;
+ 
+ 	for_each_possible_cpu(cpu) {
+-		void *bhptr;
+-		struct u64_stats_sync *syncp;
+-		u64 v;
+-		unsigned int start;
+-
+-		bhptr = per_cpu_ptr(mib, cpu);
+-		syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
+-		do {
+-			start = u64_stats_fetch_begin_irq(syncp);
+-			v = *(((u64 *) bhptr) + offt);
+-		} while (u64_stats_fetch_retry_irq(syncp, start));
+-
+-		res += v;
++		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+ 	}
+ 	return res;
+ }
+-- 
+1.7.11.7
