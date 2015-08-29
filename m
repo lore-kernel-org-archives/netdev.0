@@ -1,76 +1,93 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCHv6 net-next 00/10] OVS conntrack support
-Date: Sat, 29 Aug 2015 08:57:28 +0900
-Message-ID: <20150828235725.GA22045@vergenet.net>
-References: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org, pablo@netfilter.org,
-	fwestpha@redhat.com, hannes@redhat.com, tgraf@suug.ch,
-	jpettit@nicira.com, jesse@nicira.com,
-	netfilter-devel@vger.kernel.org
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1440613913-10141-1-git-send-email-joestringer@nicira.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH v2] openvswitch: retain parsed IPv6 header fields in flow on error skipping extension headers
+Date: Sat, 29 Aug 2015 09:02:21 +0900
+Message-ID: <1440806541-22729-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Simon Horman <simon.horman@netronome.com>
+To: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36643 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbbH2ACb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 20:02:31 -0400
+Received: by padhm10 with SMTP id hm10so21560663pad.3
+        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 17:02:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 26, 2015 at 11:31:43AM -0700, Joe Stringer wrote:
-> The goal of this series is to allow OVS to send packets through the L=
-inux
-> kernel connection tracker, and subsequently match on fields populated=
- by
-> conntrack. This functionality is enabled through a new
-> CONFIG_OPENVSWITCH_CONNTRACK option.
->=20
-> This version addresses the feedback from v5, primarily checking the b=
-ehaviour
-> is correct with different configurations such as disabling
-> CONFIG_OPENVSWITCH_CONNTRACK or disabling individual conntrack featur=
-es like
-> connlabels.
->=20
-> The branch below has been updated with the corresponding userspace pi=
-eces:
-> https://github.com/joestringer/ovs dev/ct_20150818
+When an error occurs skipping IPv6 extension headers retain the already
+parsed IP protocol and IPv6 addresses in the flow. Also assume that the
+packet is not a fragment in the absence of information to the contrary;
+that is always use the frag_off value set by ipv6_skip_exthdr().
 
-Hi Joe,
+This allows matching on the IP protocol and IPv6 addresses of packets
+with malformed extension headers.
 
-Nice work getting this patchset in order.
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-I am seeing the following when compiling without NF_CONNTRACK_MARK set.
+---
 
-  CC [M]  net/openvswitch//conntrack.o
-net/openvswitch//conntrack.c: In function =E2=80=98__ovs_ct_update_key=E2=
-=80=99:
-net/openvswitch//conntrack.c:127:24: error: =E2=80=98const struct nf_co=
-nn=E2=80=99 has no member named =E2=80=98mark=E2=80=99
-  key->ct.mark =3D ct ? ct->mark : 0;
-                        ^
-net/openvswitch//conntrack.c: In function =E2=80=98ovs_ct_set_mark=E2=80=
-=99:
-net/openvswitch//conntrack.c:195:26: error: =E2=80=98struct nf_conn=E2=80=
-=99 has no member named =E2=80=98mark=E2=80=99
-  new_mark =3D ct_mark | (ct->mark & ~(mask));
-                          ^
-net/openvswitch//conntrack.c:196:8: error: =E2=80=98struct nf_conn=E2=80=
-=99 has no member named =E2=80=98mark=E2=80=99
-  if (ct->mark !=3D new_mark) {
-        ^
-net/openvswitch//conntrack.c:197:5: error: =E2=80=98struct nf_conn=E2=80=
-=99 has no member named =E2=80=98mark=E2=80=99
-   ct->mark =3D new_mark;
-     ^
-scripts/Makefile.build:258: recipe for target 'net/openvswitch//conntra=
-ck.o' failed
-make[1]: *** [net/openvswitch//conntrack.o] Error 1
-Makefile:1386: recipe for target '_module_net/openvswitch/' failed
-make: *** [_module_net/openvswitch/] Error 2
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+v2
+* As suggested by Pravin Shelar
+  - Use new errno for the case handled by this patch in order
+    to retain the old behaviour if the call to check_header()
+    in parse_ipv6hdr() returns -EINVAL, which it may.
+* Dropped RFC from prefix
+
+* Some consideration should be given to unwanted side effects of this patch
+  as it affects the handling of malformed packets.
+---
+ net/openvswitch/flow.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 5a3195e538ce..daf914ec58d0 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -272,8 +272,6 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
+ 	key->ipv6.addr.dst = nh->daddr;
+ 
+ 	payload_ofs = ipv6_skip_exthdr(skb, payload_ofs, &nexthdr, &frag_off);
+-	if (unlikely(payload_ofs < 0))
+-		return -EINVAL;
+ 
+ 	if (frag_off) {
+ 		if (frag_off & htons(~0x7))
+@@ -284,6 +282,13 @@ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key)
+ 		key->ip.frag = OVS_FRAG_TYPE_NONE;
+ 	}
+ 
++	/* Delayed handling of error in ipv6_skip_exthdr() as it
++	 * always sets frag_off to a valid value which may be
++	 * used to set key->ip.frag above.
++	 */
++	if (unlikely(payload_ofs < 0))
++		return -EPROTO;
++
+ 	nh_len = payload_ofs - nh_ofs;
+ 	skb_set_transport_header(skb, nh_ofs + nh_len);
+ 	key->ip.proto = nexthdr;
+@@ -623,12 +628,16 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
+ 
+ 		nh_len = parse_ipv6hdr(skb, key);
+ 		if (unlikely(nh_len < 0)) {
+-			memset(&key->ip, 0, sizeof(key->ip));
+-			memset(&key->ipv6.addr, 0, sizeof(key->ipv6.addr));
+-			if (nh_len == -EINVAL) {
++			switch (nh_len) {
++			case -EINVAL:
++				memset(&key->ip, 0, sizeof(key->ip));
++				memset(&key->ipv6.addr, 0, sizeof(key->ipv6.addr));
++				/* fall-through */
++			case -EPROTO:
+ 				skb->transport_header = skb->network_header;
+ 				error = 0;
+-			} else {
++				break;
++			default:
+ 				error = nh_len;
+ 			}
+ 			return error;
+-- 
+2.1.4
