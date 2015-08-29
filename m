@@ -1,114 +1,46 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: [PATCH RFC V3 2/2] net: Optimize snmp stat aggregation by walking all the percpu data at once
-Date: Sat, 29 Aug 2015 14:37:58 +0530
-Message-ID: <1440839278-21928-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-References: <y>
- <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Cc: <jiri@resnulli.us>, <edumazet@google.com>,
-	<hannes@stressinduktion.org>, <tom@herbertland.com>,
-	<azhou@nicira.com>, <ebiederm@xmission.com>,
-	<ipm@chirality.org.uk>, <nicolas.dichtel@6wind.com>,
-	<serge.hallyn@canonical.com>, <joe@perches.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<raghavendra.kt@linux.vnet.ibm.com>, <anton@au1.ibm.com>,
-	<nacc@linux.vnet.ibm.com>, <srikar@linux.vnet.ibm.com>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
+Date: Sat, 29 Aug 2015 11:07:01 +0200
+Message-ID: <20150829090701.GN20760@orbit.nwl.cc>
+References: <1440757685-14241-1-git-send-email-phil@nwl.cc>
+ <1440757685-14241-2-git-send-email-phil@nwl.cc>
+ <20150828110929.GI32206@pox.localdomain>
+ <20150828111320.GL20760@orbit.nwl.cc>
+ <20150828133437.GM20760@orbit.nwl.cc>
+ <20150828224303.GD32001@pox.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
+	wfg@linux.intel.com, lkp@01.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20150828224303.GD32001@pox.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Docker container creation linearly increased from around 1.6 sec to 7.5 sec
-(at 1000 containers) and perf data showed 50% ovehead in snmp_fold_field.
+On Sat, Aug 29, 2015 at 12:43:03AM +0200, Thomas Graf wrote:
+> On 08/28/15 at 03:34pm, Phil Sutter wrote:
+> > Quite ugly, IMHO: rhashtable_insert_fast() may return -ENOMEM as
+> > non-permanent error, if allocation in GFP_ATOMIC failed. In this case,
+> > allocation in GFP_KERNEL is retried by rht_deferred_worker(). Sadly,
+> > there is no way to determine if that has already been tried and failed.
+> > 
+> > The thread test triggers GFP_ATOMIC allocation failure quite easily, so
+> > I can't really just ignore this issue. :)
+> 
+> Return EBUSY or ENOBUFS in the non-permanent case? It is definitely
+> helpful if the API allows to differ between permanent and
+> non-permanent errors.
 
-reason: currently __snmp6_fill_stats64 calls snmp_fold_field that walks
-through per cpu data of an item (iteratively for around 36 items).
+Yes, indeed. Therefore rht_deferred_worker() needs to check the return
+value of rhashtable_expand(). The question is how to propagate the error
+condition, as the worker's return value is not being kept track of
+(function returns void even).
 
-idea: This patch tries to aggregate the statistics by going through
-all the items of each cpu sequentially which is reducing cache
-misses.
+Should we introduce a new field to struct rhashtable to track the
+internal state? This might allow to clean up some rather obscure tests,
+e.g. whether a table resize is in progress or not.
 
-Docker creation got faster by more than 2x after the patch.
-
-Result:
-                       Before           After
-Docker creation time   6.836s           3.25s
-cache miss             2.7%             1.41%
-
-perf before:
-    50.73%  docker           [kernel.kallsyms]       [k] snmp_fold_field
-     9.07%  swapper          [kernel.kallsyms]       [k] snooze_loop
-     3.49%  docker           [kernel.kallsyms]       [k] veth_stats_one
-     2.85%  swapper          [kernel.kallsyms]       [k] _raw_spin_lock
-
-perf after:
-    10.57%  docker           docker                [.] scanblock
-     8.37%  swapper          [kernel.kallsyms]     [k] snooze_loop
-     6.91%  docker           [kernel.kallsyms]     [k] snmp_get_cpu_field
-     6.67%  docker           [kernel.kallsyms]     [k] veth_stats_one
-
-changes/ideas suggested:
-Using buffer in stack (Eric), Usage of memset (David), Using memcpy in
-place of unaligned_put (Joe).
-
-Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
----
- net/ipv6/addrconf.c | 22 +++++++++++++---------
- 1 file changed, 13 insertions(+), 9 deletions(-)
-
-Changes in V3:
- - use memset to initialize temp buffer in leaf function. (David)
- - use memcpy to copy the buffer data to stat instead of unalign_pu (Joe)
- - Move buffer definition to leaf function __snmp6_fill_stats64() (Eric)
- -
-Changes in V2:
- - Allocate the stat calculation buffer in stack. (Eric)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 21c2c81..379619a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4624,18 +4624,22 @@ static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
- }
- 
- static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
--				      int items, int bytes, size_t syncpoff)
-+					int items, int bytes, size_t syncpoff)
- {
--	int i;
-+	int i, c;
- 	int pad = bytes - sizeof(u64) * items;
-+	u64 buff[items];
-+
- 	BUG_ON(pad < 0);
- 
--	/* Use put_unaligned() because stats may not be aligned for u64. */
--	put_unaligned(items, &stats[0]);
--	for (i = 1; i < items; i++)
--		put_unaligned(snmp_fold_field64(mib, i, syncpoff), &stats[i]);
-+	memset(buff, 0, sizeof(buff));
-+	buff[0] = items;
- 
--	memset(&stats[items], 0, pad);
-+	for_each_possible_cpu(c)
-+		for (i = 1; i < items; i++)
-+			buff[i] += snmp_get_cpu_field64(mib, c, i, syncpoff);
-+
-+	memcpy(stats, buff, items * sizeof(u64));
- }
- 
- static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
-@@ -4643,8 +4647,8 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
- {
- 	switch (attrtype) {
- 	case IFLA_INET6_STATS:
--		__snmp6_fill_stats64(stats, idev->stats.ipv6,
--				     IPSTATS_MIB_MAX, bytes, offsetof(struct ipstats_mib, syncp));
-+		__snmp6_fill_stats64(stats, idev->stats.ipv6, IPSTATS_MIB_MAX,
-+				     bytes, offsetof(struct ipstats_mib, syncp));
- 		break;
- 	case IFLA_INET6_ICMP6STATS:
- 		__snmp6_fill_statsdev(stats, idev->stats.icmpv6dev->mibs, ICMP6_MIB_MAX, bytes);
--- 
-1.7.11.7
+Cheers, Phil
