@@ -1,92 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [RFC PATCH net-next 3/3] net: Change VRF driver to use the new L3 RX handler
-Date: Fri, 28 Aug 2015 17:34:23 -0700
-Message-ID: <1440808463-14526-4-git-send-email-dsa@cumulusnetworks.com>
-References: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35196 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753128AbbH2Aee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 20:34:34 -0400
-Received: by pacdd16 with SMTP id dd16so77805485pac.2
-        for <netdev@vger.kernel.org>; Fri, 28 Aug 2015 17:34:33 -0700 (PDT)
-In-Reply-To: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
+ walking all the percpu data at once
+Date: Fri, 28 Aug 2015 17:35:24 -0700
+Message-ID: <1440808524.11525.189.camel@perches.com>
+References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+	 <20150827.113823.214019265460582055.davem@davemloft.net>
+	 <55E00238.10909@linux.vnet.ibm.com>
+	 <20150828.112413.424099339331017970.davem@davemloft.net>
+	 <1440789654.11525.137.camel@perches.com>
+	 <1440794020.8932.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440795211.11525.146.camel@perches.com>
+	 <1440795336.8932.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440796183.11525.153.camel@perches.com>
+	 <1440796487.8932.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440797172.11525.161.camel@perches.com>
+	 <1440800980.8932.66.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440803577.11525.182.camel@perches.com>
+	 <1440806774.8932.94.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	raghavendra.kt@linux.vnet.ibm.com, edumazet@google.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jiri@resnulli.us, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	serge.hallyn@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
+	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440806774.8932.94.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-By registering an L3 handler the VRF driver's rx handler does not need
-the L3 check. Once the skb->dev is switched to the VRF device the packet
-is reinjected to the stack and starts anew. This is required for the
-packet to get picked up at the packet socket level with the new
-device and continue up the stack hitting netfilter hooks as well.
+On Fri, 2015-08-28 at 17:06 -0700, Eric Dumazet wrote:
+> On Fri, 2015-08-28 at 16:12 -0700, Joe Perches wrote: 
+> > Generally true.  It's always difficult to know how much
+> > stack has been consumed though and smaller stack frames
+> > are generally better.
+[] 
+> So for a _leaf_ function, it is better to declare an automatic variable,
+> as you in fact reduce max stack depth.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c | 32 ++++++++++----------------------
- 1 file changed, 10 insertions(+), 22 deletions(-)
+That of course depends on what a "leaf" is and
+whether or not any other function call in the
+"leaf" consumes stack.
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index e7094fbd7568..3aa1a7db830c 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -88,16 +88,6 @@ static struct dst_ops vrf_dst_ops = {
- 	.default_advmss	= vrf_default_advmss,
- };
- 
--static bool is_ip_rx_frame(struct sk_buff *skb)
--{
--	switch (skb->protocol) {
--	case htons(ETH_P_IP):
--	case htons(ETH_P_IPV6):
--		return true;
--	}
--	return false;
--}
--
- static void vrf_tx_error(struct net_device *vrf_dev, struct sk_buff *skb)
- {
- 	vrf_dev->stats.tx_errors++;
-@@ -108,21 +98,19 @@ static void vrf_tx_error(struct net_device *vrf_dev, struct sk_buff *skb)
- static rx_handler_result_t vrf_handle_frame(struct sk_buff **pskb)
- {
- 	struct sk_buff *skb = *pskb;
-+	struct net_device *dev = vrf_master_get_rcu(skb->dev);
-+	struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
- 
--	if (is_ip_rx_frame(skb)) {
--		struct net_device *dev = vrf_master_get_rcu(skb->dev);
--		struct pcpu_dstats *dstats = this_cpu_ptr(dev->dstats);
-+	u64_stats_update_begin(&dstats->syncp);
-+	dstats->rx_pkts++;
-+	dstats->rx_bytes += skb->len;
-+	u64_stats_update_end(&dstats->syncp);
- 
--		u64_stats_update_begin(&dstats->syncp);
--		dstats->rx_pkts++;
--		dstats->rx_bytes += skb->len;
--		u64_stats_update_end(&dstats->syncp);
-+	skb->dev = dev;
- 
--		skb->dev = dev;
-+	netif_receive_skb(skb);
- 
--		return RX_HANDLER_ANOTHER;
--	}
--	return RX_HANDLER_PASS;
-+	return RX_HANDLER_CONSUMED;
- }
- 
- static struct rtnl_link_stats64 *vrf_get_stats64(struct net_device *dev,
-@@ -405,7 +393,7 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 	vrf_ptr->tb_id = vrf->tb_id;
- 
- 	/* register the packet handler for slave ports */
--	ret = netdev_rx_handler_register(port_dev, vrf_handle_frame, dev);
-+	ret = netdev_l3_rx_handler_register(port_dev, vrf_handle_frame, dev);
- 	if (ret) {
- 		netdev_err(port_dev,
- 			   "Device %s failed to register rx_handler\n",
--- 
-1.9.1
+inet6_fill_ifla6_attrs does call other functions
+(none of which has the stack frame size of k.alloc)
+
+> Not only it uses less kernel stack, it is also way faster, as you avoid
+> kmalloc()/kfree() overhead and reuse probably already hot cache lines in
+> kernel stack.
+
+yup.
+
+You'll also never neglect to free stack like the
+original RFC patch neglected to free the alloc.
+
+cheers, Joe
