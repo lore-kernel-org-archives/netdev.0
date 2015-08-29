@@ -1,124 +1,62 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: [PATCH RFC V3 1/2] net: Introduce helper functions to get the per cpu data
-Date: Sat, 29 Aug 2015 14:37:57 +0530
-Message-ID: <1440839278-21928-2-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-References: <y>
- <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Cc: <jiri@resnulli.us>, <edumazet@google.com>,
-	<hannes@stressinduktion.org>, <tom@herbertland.com>,
-	<azhou@nicira.com>, <ebiederm@xmission.com>,
-	<ipm@chirality.org.uk>, <nicolas.dichtel@6wind.com>,
-	<serge.hallyn@canonical.com>, <joe@perches.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<raghavendra.kt@linux.vnet.ibm.com>, <anton@au1.ibm.com>,
-	<nacc@linux.vnet.ibm.com>, <srikar@linux.vnet.ibm.com>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <corcodel.marian@gmail.com>
+Subject: [PATCH, net-next] r8169: Deny functions membet of array rtl_work
+Date: Sat, 29 Aug 2015 13:43:49 +0300
+Message-ID: <1440845029-3079-1-git-send-email-corcodel.marian@gmail.com>
+Cc: Corcodel Marian <corcodel.marian@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:35893 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751981AbbH2KoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 06:44:01 -0400
+Received: by wicfv10 with SMTP id fv10so25474956wic.1
+        for <netdev@vger.kernel.org>; Sat, 29 Aug 2015 03:44:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
----
- include/net/ip.h   | 10 ++++++++++
- net/ipv4/af_inet.c | 41 +++++++++++++++++++++++++++--------------
- 2 files changed, 37 insertions(+), 14 deletions(-)
+Deny functions member of array rtl_work to run when link  is
+ ok.After rtl8169_init_phy exist 10 sec  timeout.On many  cases link is ok and
+ no need to destroy all work.
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index d5fe9f2..93bf12e 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -202,10 +202,20 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
- #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
- #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
+Signed-off-by: Corcodel Marian <corcodel.marian@gmail.com>
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 2d712a4..fc2fe38 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4377,17 +4377,17 @@ static void rtl_phy_work(struct rtl8169_private *tp)
  
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offct);
- unsigned long snmp_fold_field(void __percpu *mib, int offt);
- #if BITS_PER_LONG==32
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset);
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
- #else
-+static inline u64  snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+					size_t syncp_offset)
-+{
-+	return snmp_get_cpu_field(mib, cpu, offct);
-+
-+}
-+
- static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
- {
- 	return snmp_fold_field(mib, offt);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 9532ee8..302e36b 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1448,38 +1448,51 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
- }
- EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
+ 	assert(tp->mac_version > RTL_GIGA_MAC_VER_01);
  
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
-+{
-+	return  *(((unsigned long *)per_cpu_ptr(mib, cpu)) + offt);
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field);
++	if (tp->link_ok(ioaddr))
++		return;
 +
- unsigned long snmp_fold_field(void __percpu *mib, int offt)
+ 	if (tp->phy_reset_pending(tp)) {
+ 		/*
+ 		 * A busy loop could burn quite a few cycles on nowadays CPU.
+ 		 * Let's delay the execution of the timer for a few ticks.
+ 		 */
+-		timeout = HZ/10;
+ 		goto out_mod_timer;
+ 	}
+ 
+-	if (tp->link_ok(ioaddr))
+-		return;
+ 
+ 	netif_dbg(tp, link, tp->dev, "PHY reset until link up\n");
+ 
+@@ -6890,8 +6890,12 @@ static void rtl8169_tx_clear(struct rtl8169_private *tp)
+ static void rtl_reset_work(struct rtl8169_private *tp)
  {
- 	unsigned long res = 0;
+ 	struct net_device *dev = tp->dev;
++	void __iomem *ioaddr = tp->mmio_addr;
  	int i;
  
- 	for_each_possible_cpu(i)
--		res += *(((unsigned long *) per_cpu_ptr(mib, i)) + offt);
-+		res += snmp_get_cpu_field(mib, i, offt);
- 	return res;
- }
- EXPORT_SYMBOL_GPL(snmp_fold_field);
- 
- #if BITS_PER_LONG==32
- 
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset)
-+{
-+	void *bhptr;
-+	struct u64_stats_sync *syncp;
-+	u64 v;
-+	unsigned int start;
++	if (tp->link_ok(ioaddr))
++		return;
 +
-+	bhptr = per_cpu_ptr(mib, cpu);
-+	syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
-+	do {
-+		start = u64_stats_fetch_begin_irq(syncp);
-+		v = *(((u64 *)bhptr) + offt);
-+	} while (u64_stats_fetch_retry_irq(syncp, start));
-+
-+	return v;
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field64);
-+
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
- {
- 	u64 res = 0;
- 	int cpu;
- 
- 	for_each_possible_cpu(cpu) {
--		void *bhptr;
--		struct u64_stats_sync *syncp;
--		u64 v;
--		unsigned int start;
--
--		bhptr = per_cpu_ptr(mib, cpu);
--		syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
--		do {
--			start = u64_stats_fetch_begin_irq(syncp);
--			v = *(((u64 *) bhptr) + offt);
--		} while (u64_stats_fetch_retry_irq(syncp, start));
--
--		res += v;
-+		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
- 	}
- 	return res;
- }
+ 	napi_disable(&tp->napi);
+ 	netif_stop_queue(dev);
+ 	synchronize_sched();
 -- 
-1.7.11.7
+2.1.4
