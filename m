@@ -1,105 +1,62 @@
-From: Konstantin Shemyak <konstantin@shemyak.com>
-Subject: [PATCH iproute2 v3] add 'vti'/'vti6' tunnel modes to ip-tunnel
- manual page
-Date: Sat, 29 Aug 2015 21:36:32 +0300
-Message-ID: <20150829213632.998f062fbc88b16c24757a92@shemyak.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next PATCH 3/4] net: sched: register noqueue qdisc
+Date: Sat, 29 Aug 2015 23:04:45 +0300
+Message-ID: <55E2105D.2060602@cogentembedded.com>
+References: <1440703299-21243-1-git-send-email-phil@nwl.cc>
+ <1440703299-21243-4-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, brouer@redhat.com,
+	geert@linux-m68k.org
+To: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:51582 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752736AbbH2Sgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 14:36:38 -0400
-Received: from homiemail-a23.g.dreamhost.com (sub3.mail.dreamhost.com [69.163.253.7])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 73530C1F4B
-	for <netdev@vger.kernel.org>; Sat, 29 Aug 2015 11:36:38 -0700 (PDT)
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:34500 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752204AbbH2UEs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 16:04:48 -0400
+Received: by lbbtg9 with SMTP id tg9so44950774lbb.1
+        for <netdev@vger.kernel.org>; Sat, 29 Aug 2015 13:04:46 -0700 (PDT)
+In-Reply-To: <1440703299-21243-4-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* "vti" and "vti6" tunnel modes added to ip-tunnel.8 manual page
-* Added "hoplimit" terminology for IPv6
-* Corrected usage line
-* Minor language fix
----
- man/man8/ip-tunnel.8 | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+Hello.
 
-diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
-index c97c28c..8b746cb 100644
---- a/man/man8/ip-tunnel.8
-+++ b/man/man8/ip-tunnel.8
-@@ -6,14 +6,12 @@ ip-tunnel - tunnel configuration
- .ad l
- .in +8
- .ti -8
--.B ip
--.RI "[ " OPTIONS " ]"
--.B tunnel
--.RI " { " COMMAND " | "
--.BR help " }"
-+.B ip tunnel help
- .sp
- .ti -8
--.BR "ip tunnel" " { " add " | " change " | " del " | " show " | " prl " }"
-+.BR "ip "
-+.RI "[ " OPTIONS " ]"
-+.BR "tunnel" " { " add " | " change " | " del " | " show " | " prl " }"
- .RI "[ " NAME " ]"
- .br
- .RB "[ " mode
-@@ -29,7 +27,7 @@ ip-tunnel - tunnel configuration
- .br
- .RB "[ " encaplimit
- .IR ELIM " ]"
--.RB "[ " ttl
-+.RB "[ " ttl "|" hoplimit
- .IR TTL " ]"
- .br
- .RB "[ " tos
-@@ -50,7 +48,7 @@ ip-tunnel - tunnel configuration
- 
- .ti -8
- .IR MODE " := "
--.RB " { " ipip " | " gre " | " sit " | " isatap " | " ip6ip6 " | " ipip6 " | " ip6gre " | " any " }"
-+.RB " { " ipip " | " gre " | " sit " | " isatap " | " vti " | " ip6ip6 " | " ipip6 " | " ip6gre " | " vti6 " | " any " }"
- 
- .ti -8
- .IR ADDR " := { " IP_ADDRESS " |"
-@@ -107,10 +105,10 @@ select the tunnel device name.
- set the tunnel mode. Available modes depend on the encapsulating address family.
- .br
- Modes for IPv4 encapsulation available:
--.BR ipip ", " sit ", " isatap " and " gre "."
-+.BR ipip ", " sit ", " isatap ", " vti ", and " gre "."
- .br
- Modes for IPv6 encapsulation available:
--.BR ip6ip6 ", " ipip6 ", " ip6gre ", and " any "."
-+.BR ip6ip6 ", " ipip6 ", " ip6gre ", " vti6 ", and " any "."
- 
- .TP
- .BI remote " ADDRESS"
-@@ -123,7 +121,9 @@ It must be an address on another interface of this host.
- 
- .TP
- .BI ttl " N"
--set a fixed TTL
-+.TP
-+.BI hoplimit " N"
-+set a fixed TTL (IPv4) or hoplimit (IPv6)
- .I N
- on tunneled packets.
- .I N
-@@ -218,7 +218,7 @@ The
- .B  seq
- flag is equivalent to the combination
- .BR "iseq oseq" .
--.B It isn't work. Don't use it.
-+.B It doesn't work. Don't use it.
- 
- .TP
- .BI encaplim " ELIM"
--- 
-1.9.1
+On 8/27/2015 10:21 PM, Phil Sutter wrote:
+
+> This way users can attach noqueue just like any other qdisc using tc
+> without having to mess with tx_queue_len first.
+>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>   include/net/sch_generic.h |  1 +
+>   net/sched/sch_api.c       |  1 +
+>   net/sched/sch_generic.c   | 12 +++++++++++-
+>   3 files changed, 13 insertions(+), 1 deletion(-)
+
+[...]
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index f501b74..d5c7c0d 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -416,9 +416,19 @@ struct Qdisc noop_qdisc = {
+>   };
+>   EXPORT_SYMBOL(noop_qdisc);
+>
+> -static struct Qdisc_ops noqueue_qdisc_ops __read_mostly = {
+> +static int noqueue_init(struct Qdisc *qdisc, struct nlattr *opt)
+> +{
+> +	/* register_qdisc() assigns a default of noop_enqueue if unset,
+> +	 * but __dev_queue_xmit() treats noqueue only as such
+> +	 * if this is NULL - so clear it here. */
+
+    The multi-line comments in the networking code should follow this style:
+
+/* bla
+  * bla
+  */
+
+[...]
+
+MBR, Sergei
