@@ -1,33 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: mmap: fix lookup frame position
-Date: Fri, 28 Aug 2015 22:26:03 -0700 (PDT)
-Message-ID: <20150828.222603.1259346863370445309.davem@davemloft.net>
-References: <20150825.201712.2151042716686513603.davem@davemloft.net>
-	<20150828070058.GA32596@gmail.com>
-	<20150828070520.GB32596@gmail.com>
+Subject: Re: [PATCH net v2] sctp: ASCONF-ACK with Unresolvable Address
+ should be sent
+Date: Fri, 28 Aug 2015 22:26:11 -0700 (PDT)
+Message-ID: <20150828.222611.1146631151814575971.davem@davemloft.net>
+References: <bf1cc62ac51821f36b0e195fa610544d7c4808d7.1440755158.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, fw@strlen.de
-To: chamaken@gmail.com
+Cc: netdev@vger.kernel.org, mleitner@redhat.com, vyasevic@redhat.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58268 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58272 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752533AbbH2F0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:26:04 -0400
-In-Reply-To: <20150828070520.GB32596@gmail.com>
+	with ESMTP id S1752533AbbH2F0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 01:26:12 -0400
+In-Reply-To: <bf1cc62ac51821f36b0e195fa610544d7c4808d7.1440755158.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Date: Fri, 28 Aug 2015 16:05:20 +0900
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 28 Aug 2015 17:45:58 +0800
 
-> __netlink_lookup_frame() was always called with the same "pos"
-> value in netlink_forward_ring(). It will look at the same ring entry
-> header over and over again, every time through this loop. Then cycle
-> through the whole ring, advancing ring->head, not "pos" until it
-> equals the "ring->head != head" loop test fails.
+> RFC 5061:
+>     This is an opaque integer assigned by the sender to identify each
+>     request parameter.  The receiver of the ASCONF Chunk will copy this
+>     32-bit value into the ASCONF Response Correlation ID field of the
+>     ASCONF-ACK response parameter.  The sender of the ASCONF can use this
+>     same value in the ASCONF-ACK to find which request the response is
+>     for.  Note that the receiver MUST NOT change this 32-bit value.
 > 
-> Signed-off-by: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+>     Address Parameter: TLV
+> 
+>     This field contains an IPv4 or IPv6 address parameter, as described
+>     in Section 3.3.2.1 of [RFC4960].
+> 
+> ASCONF chunk with Error Cause Indication Parameter (Unresolvable Address)
+> should be sent if the Delete IP Address is not part of the association.
+> 
+>   Endpoint A                           Endpoint B
+>   (ESTABLISHED)                        (ESTABLISHED)
+> 
+>   ASCONF        ----------------->
+>   (Delete IP Address)
+>                 <-----------------      ASCONF-ACK
+>                                         (Unresolvable Address)
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
 Applied.
