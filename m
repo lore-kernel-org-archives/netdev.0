@@ -1,37 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH, net-next] r8169: Deny functions membet of array rtl_work
-Date: Sat, 29 Aug 2015 13:26:30 +0200
-Message-ID: <20150829112630.GA8873@electric-eye.fr.zoreil.com>
-References: <1440845029-3079-1-git-send-email-corcodel.marian@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC V3 2/2] net: Optimize snmp stat aggregation by
+ walking all the percpu data at once
+Date: Sat, 29 Aug 2015 07:32:06 -0700
+Message-ID: <1440858726.8932.149.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <y>
+	 <1440839278-21928-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+	 <1440839278-21928-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Corcodel Marian <corcodel.marian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43754 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbbH2L0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 07:26:55 -0400
-Content-Disposition: inline
-In-Reply-To: <1440845029-3079-1-git-send-email-corcodel.marian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, jiri@resnulli.us,
+	edumazet@google.com, hannes@stressinduktion.org,
+	tom@herbertland.com, azhou@nicira.com, ebiederm@xmission.com,
+	ipm@chirality.org.uk, nicolas.dichtel@6wind.com,
+	serge.hallyn@canonical.com, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	anton@au1.ibm.com, nacc@linux.vnet.ibm.com,
+	srikar@linux.vnet.ibm.com
+To: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440839278-21928-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Corcodel Marian <corcodel.marian@gmail.com> :
-> Deny functions member of array rtl_work to run when link  is
-> ok.After rtl8169_init_phy exist 10 sec  timeout.On many  cases link is ok and
-> no need to destroy all work.
+On Sat, 2015-08-29 at 14:37 +0530, Raghavendra K T wrote:
 
-I won't figure what happens outside of the "many cases" statement.
+>  
+>  static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
+> -				      int items, int bytes, size_t syncpoff)
+> +					int items, int bytes, size_t syncpoff)
+>  {
+> -	int i;
+> +	int i, c;
+>  	int pad = bytes - sizeof(u64) * items;
+> +	u64 buff[items];
+> +
 
-rtl_reset_work is a hard reset. It isn't supposed to go shopping just
-because the link seems to be established. Moreover you don't explain why
-you need to vandalize rtl_phy_work (unrelated to any 10 sec timeout).
+One last comment : using variable length arrays is confusing for the
+reader, and sparse as well.
 
-As usual nobody knows how it was tested (suspend/resume, change location
-and port, etc.).
+$ make C=2 net/ipv6/addrconf.o
+...
+  CHECK   net/ipv6/addrconf.c
+net/ipv6/addrconf.c:4733:18: warning: Variable length array is used.
+net/ipv6/addrconf.c:4737:25: error: cannot size expression
 
-Please don't send me private only e-mail.
 
--- 
-Ueimor
+I suggest you remove 'items' parameter and replace it by
+IPSTATS_MIB_MAX, as __snmp6_fill_stats64() is called exactly once.
