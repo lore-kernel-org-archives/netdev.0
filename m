@@ -1,8 +1,8 @@
-From: Joe Perches <joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH RFC V2 2/2] net: Optimize snmp stat aggregation by
  walking all the percpu data at once
-Date: Fri, 28 Aug 2015 17:35:24 -0700
-Message-ID: <1440808524.11525.189.camel@perches.com>
+Date: Fri, 28 Aug 2015 17:59:51 -0700
+Message-ID: <1440809991.8932.97.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 	 <20150827.113823.214019265460582055.davem@davemloft.net>
 	 <55E00238.10909@linux.vnet.ibm.com>
@@ -17,8 +17,9 @@ References: <1440610653-14210-3-git-send-email-raghavendra.kt@linux.vnet.ibm.com
 	 <1440800980.8932.66.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <1440803577.11525.182.camel@perches.com>
 	 <1440806774.8932.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1440808524.11525.189.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	raghavendra.kt@linux.vnet.ibm.com, edumazet@google.com,
@@ -29,35 +30,26 @@ Cc: David Miller <davem@davemloft.net>,
 	serge.hallyn@canonical.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
 	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440806774.8932.94.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35071 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbbH2A7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Aug 2015 20:59:54 -0400
+In-Reply-To: <1440808524.11525.189.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-08-28 at 17:06 -0700, Eric Dumazet wrote:
-> On Fri, 2015-08-28 at 16:12 -0700, Joe Perches wrote: 
-> > Generally true.  It's always difficult to know how much
-> > stack has been consumed though and smaller stack frames
-> > are generally better.
-[] 
-> So for a _leaf_ function, it is better to declare an automatic variable,
-> as you in fact reduce max stack depth.
+On Fri, 2015-08-28 at 17:35 -0700, Joe Perches wrote:
 
-That of course depends on what a "leaf" is and
-whether or not any other function call in the
-"leaf" consumes stack.
+> That of course depends on what a "leaf" is and
+> whether or not any other function call in the
+> "leaf" consumes stack.
+> 
+> inet6_fill_ifla6_attrs does call other functions
+> (none of which has the stack frame size of k.alloc)
 
-inet6_fill_ifla6_attrs does call other functions
-(none of which has the stack frame size of k.alloc)
+Just define/use this automatic array in the damn leaf function.
 
-> Not only it uses less kernel stack, it is also way faster, as you avoid
-> kmalloc()/kfree() overhead and reuse probably already hot cache lines in
-> kernel stack.
-
-yup.
-
-You'll also never neglect to free stack like the
-original RFC patch neglected to free the alloc.
-
-cheers, Joe
+That should not be hard, and maybe no one will complain and we can
+work on more complex issues.
