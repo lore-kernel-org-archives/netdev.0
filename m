@@ -1,8 +1,9 @@
 From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: [PATCH RFC V4 0/2] Optimize the snmp stat aggregation for large cpus
-Date: Sun, 30 Aug 2015 11:29:40 +0530
-Message-ID: <1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Subject: [PATCH RFC V4 1/2] net: Introduce helper functions to get the per cpu data
+Date: Sun, 30 Aug 2015 11:29:41 +0530
+Message-ID: <1440914382-23126-2-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 References: <y>
+ <1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Cc: <jiri@resnulli.us>, <edumazet@google.com>,
 	<hannes@stressinduktion.org>, <tom@herbertland.com>,
 	<azhou@nicira.com>, <ebiederm@xmission.com>,
@@ -14,115 +15,110 @@ Cc: <jiri@resnulli.us>, <edumazet@google.com>,
 To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
 	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <y>
+In-Reply-To: <1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While creating 1000 containers, perf is showing lot of time spent in
-snmp_fold_field on a large cpu system.
+Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+---
+ include/net/ip.h   | 10 ++++++++++
+ net/ipv4/af_inet.c | 41 +++++++++++++++++++++++++++--------------
+ 2 files changed, 37 insertions(+), 14 deletions(-)
 
-The current patch tries to improve by reordering the statistics gathering.
-
-Please note that similar overhead was also reported while creating
-veth pairs  https://lkml.org/lkml/2013/3/19/556
-
-Changes in V4:
- - remove 'item' variable and use IPSTATS_MIB_MAX to avoid sparse
-   warning (Eric) also remove 'item' parameter (Joe)
- - add missing memset of padding. 
-
-Changes in V3:
- - use memset to initialize temp buffer in leaf function. (David)
- - use memcpy to copy the buffer data to stat instead of unalign_pu (Joe)
- - Move buffer definition to leaf function __snmp6_fill_stats64() (Eric)
- -
-Changes in V2:
- - Allocate the stat calculation buffer in stack. (Eric)
+diff --git a/include/net/ip.h b/include/net/ip.h
+index d5fe9f2..93bf12e 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -202,10 +202,20 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
+ #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
+ #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
  
-Setup:
-160 cpu (20 core) baremetal powerpc system with 1TB memory
-
-1000 docker containers was created with command
-docker run -itd  ubuntu:15.04  /bin/bash in loop
-
-observation:
-Docker container creation linearly increased from around 1.6 sec to 7.5 sec
-(at 1000 containers) perf data showed, creating veth interfaces resulting in
-the below code path was taking more time.
-
-rtnl_fill_ifinfo
-  -> inet6_fill_link_af
-    -> inet6_fill_ifla6_attrs
-      -> snmp_fold_field
-
-proposed idea:
- currently __snmp6_fill_stats64 calls snmp_fold_field that walks
-through per cpu data to of an item (iteratively for around 36 items).
- The patch tries to aggregate the statistics by going through
-all the items of each cpu sequentially which is reducing cache
-misses.
-
-Performance of docker creation improved by around more than 2x
-after the patch.
-
-before the patch: 
-================
-#time docker run -itd  ubuntu:15.04  /bin/bash
-3f45ba571a42e925c4ec4aaee0e48d7610a9ed82a4c931f83324d41822cf6617
-real	0m6.836s
-user	0m0.095s
-sys	0m0.011s
-
-perf record -a docker run -itd  ubuntu:15.04  /bin/bash
-=======================================================
-# Samples: 32K of event 'cycles'
-# Event count (approx.): 24688700190
-# Overhead  Command          Shared Object           Symbol                                                                                         
-# ........  ...............  ......................  ........................
-    50.73%  docker           [kernel.kallsyms]       [k] snmp_fold_field                                                                                                        
-     9.07%  swapper          [kernel.kallsyms]       [k] snooze_loop                                                                                                            
-     3.49%  docker           [kernel.kallsyms]       [k] veth_stats_one                                                                                                         
-     2.85%  swapper          [kernel.kallsyms]       [k] _raw_spin_lock                                                                                                         
-     1.37%  docker           docker                  [.] backtrace_qsort                                                                                                        
-     1.31%  docker           docker                  [.] strings.FieldsFunc                                                                      
-
-  cache-misses:  2.7%
-                                                      
-after the patch:
-=============
-#time docker run -itd  ubuntu:15.04  /bin/bash
-9178273e9df399c8290b6c196e4aef9273be2876225f63b14a60cf97eacfafb5
-real	0m3.249s
-user	0m0.088s
-sys	0m0.020s
-
-perf record -a docker run -itd  ubuntu:15.04  /bin/bash
-=======================================================
-# Samples: 18K of event 'cycles'
-# Event count (approx.): 13958958797
-# Overhead  Command          Shared Object         Symbol                                                                                
-# ........  ...............  ....................  ..........................
-    10.57%  docker           docker                [.] scanblock                                                                         
-     8.37%  swapper          [kernel.kallsyms]     [k] snooze_loop                                                                       
-     6.91%  docker           [kernel.kallsyms]     [k] snmp_get_cpu_field                                                                
-     6.67%  docker           [kernel.kallsyms]     [k] veth_stats_one                                                                    
-     3.96%  docker           docker                [.] runtime_MSpan_Sweep                                                               
-     2.47%  docker           docker                [.] strings.FieldsFunc                                                                
++u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offct);
+ unsigned long snmp_fold_field(void __percpu *mib, int offt);
+ #if BITS_PER_LONG==32
++u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++			 size_t syncp_offset);
+ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
+ #else
++static inline u64  snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++					size_t syncp_offset)
++{
++	return snmp_get_cpu_field(mib, cpu, offct);
++
++}
++
+ static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
+ {
+ 	return snmp_fold_field(mib, offt);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 9532ee8..302e36b 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1448,38 +1448,51 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
+ }
+ EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
  
-cache-misses: 1.41 %
-
-Please let me know if you have suggestions/comments.
-Thanks Eric, Joe and David for the comments.
-
-Raghavendra K T (2):
-  net: Introduce helper functions to get the per cpu data
-  net: Optimize snmp stat aggregation by walking all the percpu data at
-    once
-
- include/net/ip.h    | 10 ++++++++++
- net/ipv4/af_inet.c  | 41 +++++++++++++++++++++++++++--------------
- net/ipv6/addrconf.c | 26 ++++++++++++++++----------
- 3 files changed, 53 insertions(+), 24 deletions(-)
-
++u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
++{
++	return  *(((unsigned long *)per_cpu_ptr(mib, cpu)) + offt);
++}
++EXPORT_SYMBOL_GPL(snmp_get_cpu_field);
++
+ unsigned long snmp_fold_field(void __percpu *mib, int offt)
+ {
+ 	unsigned long res = 0;
+ 	int i;
+ 
+ 	for_each_possible_cpu(i)
+-		res += *(((unsigned long *) per_cpu_ptr(mib, i)) + offt);
++		res += snmp_get_cpu_field(mib, i, offt);
+ 	return res;
+ }
+ EXPORT_SYMBOL_GPL(snmp_fold_field);
+ 
+ #if BITS_PER_LONG==32
+ 
++u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
++			 size_t syncp_offset)
++{
++	void *bhptr;
++	struct u64_stats_sync *syncp;
++	u64 v;
++	unsigned int start;
++
++	bhptr = per_cpu_ptr(mib, cpu);
++	syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
++	do {
++		start = u64_stats_fetch_begin_irq(syncp);
++		v = *(((u64 *)bhptr) + offt);
++	} while (u64_stats_fetch_retry_irq(syncp, start));
++
++	return v;
++}
++EXPORT_SYMBOL_GPL(snmp_get_cpu_field64);
++
+ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ {
+ 	u64 res = 0;
+ 	int cpu;
+ 
+ 	for_each_possible_cpu(cpu) {
+-		void *bhptr;
+-		struct u64_stats_sync *syncp;
+-		u64 v;
+-		unsigned int start;
+-
+-		bhptr = per_cpu_ptr(mib, cpu);
+-		syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
+-		do {
+-			start = u64_stats_fetch_begin_irq(syncp);
+-			v = *(((u64 *) bhptr) + offt);
+-		} while (u64_stats_fetch_retry_irq(syncp, start));
+-
+-		res += v;
++		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+ 	}
+ 	return res;
+ }
 -- 
 1.7.11.7
