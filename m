@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@auriga.com>
-Subject: [PATCH net-next v2 5/8] net: thunderx: Support for HW VLAN stripping
-Date: Sun, 30 Aug 2015 12:29:13 +0300
-Message-ID: <1440926958-1874-6-git-send-email-aleksey.makarov@auriga.com>
+Subject: [PATCH net-next v2 6/8] net: thunderx: Rework interrupt handling
+Date: Sun, 30 Aug 2015 12:29:14 +0300
+Message-ID: <1440926958-1874-7-git-send-email-aleksey.makarov@auriga.com>
 References: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -23,176 +23,335 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-This patch configures HW to strip 802.1Q header if found in a
-receiving packet. The stripped VLAN ID and TCI information is
-passed on to software via CQE_RX. Also sets netdev's 'vlan_features'
-so that other HW offload features can be used for tagged packets.
-
-This offload feature can be enabled or disabled via ethtool.
-
-Network stack normally ignores RPS for 802.1Q packets and hence low
-throughput. With this offload enabled throughput for tagged packets
-will be almost same as normal packets.
-
-Note: This patch doesn't enable HW VLAN insertion for transmit packets.
+Rework interrupt handler to avoid checking IRQ affinity of
+CQ interrupts. Now separate handlers are registered for each IRQ
+including RBDR. Register interrupt handlers for only those
+which are being used. Add nicvf_dump_intr_status() and use it
+in irq handlers.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c     |  4 ++++
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 28 +++++++++++++++++++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 28 ++++++++++++++++++----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  2 ++
- 4 files changed, 55 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          |   1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 172 ++++++++++++---------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   1 +
+ 3 files changed, 102 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 6e0c031..7dfec4a 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -329,6 +329,10 @@ static void nic_init_hw(struct nicpf *nic)
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index a83f567..89b997e 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -135,6 +135,7 @@
+ #define	NICVF_TX_TIMEOUT		(50 * HZ)
  
- 	/* Timer config */
- 	nic_reg_write(nic, NIC_PF_INTR_TIMER_CFG, NICPF_CLK_PER_INT_TICK);
-+
-+	/* Enable VLAN ethertype matching and stripping */
-+	nic_reg_write(nic, NIC_PF_RX_ETYPE_0_7,
-+		      (2 << 19) | (ETYPE_ALG_VLAN_STRIP << 16) | ETH_P_8021Q);
- }
- 
- /* Channel parse index configuration */
+ struct nicvf_cq_poll {
++	struct  nicvf *nicvf;
+ 	u8	cq_idx;		/* Completion queue index */
+ 	struct	napi_struct napi;
+ };
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index afd8ad4..de51828 100644
+index de51828..85213f3 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -10,6 +10,7 @@
- #include <linux/interrupt.h>
- #include <linux/pci.h>
- #include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/log2.h>
-@@ -491,6 +492,11 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
- 
- 	skb->protocol = eth_type_trans(skb, netdev);
- 
-+	/* Check for stripped VLAN */
-+	if (cqe_rx->vlan_found && cqe_rx->vlan_stripped)
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-+				       ntohs((__force __be16)cqe_rx->vlan_tci));
-+
- 	if (napi && (netdev->features & NETIF_F_GRO))
- 		napi_gro_receive(napi, skb);
- 	else
-@@ -1220,6 +1226,18 @@ static void nicvf_reset_task(struct work_struct *work)
- 	nic->netdev->trans_start = jiffies;
+@@ -653,11 +653,20 @@ static void nicvf_handle_qs_err(unsigned long data)
+ 	nicvf_enable_intr(nic, NICVF_INTR_QS_ERR, 0);
  }
  
-+static int nicvf_set_features(struct net_device *netdev,
-+			      netdev_features_t features)
++static void nicvf_dump_intr_status(struct nicvf *nic)
 +{
-+	struct nicvf *nic = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
-+
-+	if (changed & NETIF_F_HW_VLAN_CTAG_RX)
-+		nicvf_config_vlan_stripping(nic, features);
-+
-+	return 0;
++	if (netif_msg_intr(nic))
++		netdev_info(nic->netdev, "%s: interrupt status 0x%llx\n",
++			    nic->netdev->name, nicvf_reg_read(nic, NIC_VF_INT));
 +}
 +
- static const struct net_device_ops nicvf_netdev_ops = {
- 	.ndo_open		= nicvf_open,
- 	.ndo_stop		= nicvf_stop,
-@@ -1228,6 +1246,7 @@ static const struct net_device_ops nicvf_netdev_ops = {
- 	.ndo_set_mac_address	= nicvf_set_mac_address,
- 	.ndo_get_stats64	= nicvf_get_stats64,
- 	.ndo_tx_timeout         = nicvf_tx_timeout,
-+	.ndo_set_features       = nicvf_set_features,
- };
+ static irqreturn_t nicvf_misc_intr_handler(int irq, void *nicvf_irq)
+ {
+ 	struct nicvf *nic = (struct nicvf *)nicvf_irq;
+ 	u64 intr;
  
- static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-@@ -1301,10 +1320,13 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_free_netdev;
- 
--	netdev->features |= (NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
--			     NETIF_F_TSO | NETIF_F_GRO | NETIF_F_RXHASH);
-+	netdev->hw_features = (NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
-+			       NETIF_F_TSO | NETIF_F_GRO |
-+			       NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_RXHASH);
++	nicvf_dump_intr_status(nic);
 +
-+	netdev->features |= netdev->hw_features;
- 
--	netdev->hw_features = netdev->features;
-+	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
- 
- 	netdev->netdev_ops = &nicvf_netdev_ops;
- 	netdev->watchdog_timeo = NICVF_TX_TIMEOUT;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 4fc40d83..b294d67 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -475,6 +475,27 @@ static void nicvf_reclaim_rbdr(struct nicvf *nic,
- 		return;
+ 	intr = nicvf_reg_read(nic, NIC_VF_INT);
+ 	/* Check for spurious interrupt */
+ 	if (!(intr & NICVF_INTR_MBOX_MASK))
+@@ -668,59 +677,58 @@ static irqreturn_t nicvf_misc_intr_handler(int irq, void *nicvf_irq)
+ 	return IRQ_HANDLED;
  }
  
-+void nicvf_config_vlan_stripping(struct nicvf *nic, netdev_features_t features)
+-static irqreturn_t nicvf_intr_handler(int irq, void *nicvf_irq)
++static irqreturn_t nicvf_intr_handler(int irq, void *cq_irq)
 +{
-+	u64 rq_cfg;
-+	int sqs;
++	struct nicvf_cq_poll *cq_poll = (struct nicvf_cq_poll *)cq_irq;
++	struct nicvf *nic = cq_poll->nicvf;
++	int qidx = cq_poll->cq_idx;
 +
-+	rq_cfg = nicvf_queue_reg_read(nic, NIC_QSET_RQ_GEN_CFG, 0);
++	nicvf_dump_intr_status(nic);
 +
-+	/* Enable first VLAN stripping */
-+	if (features & NETIF_F_HW_VLAN_CTAG_RX)
-+		rq_cfg |= (1ULL << 25);
-+	else
-+		rq_cfg &= ~(1ULL << 25);
-+	nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0, rq_cfg);
++	/* Disable interrupts */
++	nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
 +
-+	/* Configure Secondary Qsets, if any */
-+	for (sqs = 0; sqs < nic->sqs_count; sqs++)
-+		if (nic->snicvf[sqs])
-+			nicvf_queue_reg_write(nic->snicvf[sqs],
-+					      NIC_QSET_RQ_GEN_CFG, 0, rq_cfg);
++	/* Schedule NAPI */
++	napi_schedule(&cq_poll->napi);
++
++	/* Clear interrupt */
++	nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
++
++	return IRQ_HANDLED;
 +}
 +
- /* Configures receive queue */
- static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
- 				   int qidx, bool enable)
-@@ -524,7 +545,9 @@ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
- 	mbx.rq.cfg = (1ULL << 62) | (RQ_CQ_DROP << 8);
- 	nicvf_send_msg_to_pf(nic, &mbx);
++static irqreturn_t nicvf_rbdr_intr_handler(int irq, void *nicvf_irq)
+ {
+-	u64 qidx, intr, clear_intr = 0;
+-	u64 cq_intr, rbdr_intr, qs_err_intr;
+ 	struct nicvf *nic = (struct nicvf *)nicvf_irq;
+-	struct queue_set *qs = nic->qs;
+-	struct nicvf_cq_poll *cq_poll = NULL;
++	u8 qidx;
  
--	nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, qidx, 0x00);
-+	nicvf_queue_reg_write(nic, NIC_QSET_RQ_GEN_CFG, 0, 0x00);
-+	if (!nic->sqs_mode)
-+		nicvf_config_vlan_stripping(nic, nic->netdev->features);
- 
- 	/* Enable Receive queue */
- 	rq_cfg.ena = 1;
-@@ -961,9 +984,6 @@ nicvf_sq_add_hdr_subdesc(struct snd_queue *sq, int qentry,
- 
- 	/* Offload checksum calculation to HW */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		if (skb->protocol != htons(ETH_P_IP))
--			return;
+-	intr = nicvf_reg_read(nic, NIC_VF_INT);
+-	if (netif_msg_intr(nic))
+-		netdev_info(nic->netdev, "%s: interrupt status 0x%llx\n",
+-			    nic->netdev->name, intr);
 -
- 		hdr->csum_l3 = 1; /* Enable IP csum calculation */
- 		hdr->l3_offset = skb_network_offset(skb);
- 		hdr->l4_offset = skb_transport_offset(skb);
+-	qs_err_intr = intr & NICVF_INTR_QS_ERR_MASK;
+-	if (qs_err_intr) {
+-		/* Disable Qset err interrupt and schedule softirq */
+-		nicvf_disable_intr(nic, NICVF_INTR_QS_ERR, 0);
+-		tasklet_hi_schedule(&nic->qs_err_task);
+-		clear_intr |= qs_err_intr;
+-	}
+ 
+-	/* Disable interrupts and start polling */
+-	cq_intr = (intr & NICVF_INTR_CQ_MASK) >> NICVF_INTR_CQ_SHIFT;
+-	for (qidx = 0; qidx < qs->cq_cnt; qidx++) {
+-		if (!(cq_intr & (1 << qidx)))
+-			continue;
+-		if (!nicvf_is_intr_enabled(nic, NICVF_INTR_CQ, qidx))
++	nicvf_dump_intr_status(nic);
++
++	/* Disable RBDR interrupt and schedule softirq */
++	for (qidx = 0; qidx < nic->qs->rbdr_cnt; qidx++) {
++		if (!nicvf_is_intr_enabled(nic, NICVF_INTR_RBDR, qidx))
+ 			continue;
++		nicvf_disable_intr(nic, NICVF_INTR_RBDR, qidx);
++		tasklet_hi_schedule(&nic->rbdr_task);
++		/* Clear interrupt */
++		nicvf_clear_intr(nic, NICVF_INTR_RBDR, qidx);
++	}
+ 
+-		nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
+-		clear_intr |= ((1 << qidx) << NICVF_INTR_CQ_SHIFT);
++	return IRQ_HANDLED;
++}
+ 
+-		cq_poll = nic->napi[qidx];
+-		/* Schedule NAPI */
+-		if (cq_poll)
+-			napi_schedule(&cq_poll->napi);
+-	}
++static irqreturn_t nicvf_qs_err_intr_handler(int irq, void *nicvf_irq)
++{
++	struct nicvf *nic = (struct nicvf *)nicvf_irq;
+ 
+-	/* Handle RBDR interrupts */
+-	rbdr_intr = (intr & NICVF_INTR_RBDR_MASK) >> NICVF_INTR_RBDR_SHIFT;
+-	if (rbdr_intr) {
+-		/* Disable RBDR interrupt and schedule softirq */
+-		for (qidx = 0; qidx < qs->rbdr_cnt; qidx++) {
+-			if (!nicvf_is_intr_enabled(nic, NICVF_INTR_RBDR, qidx))
+-				continue;
+-			nicvf_disable_intr(nic, NICVF_INTR_RBDR, qidx);
+-			tasklet_hi_schedule(&nic->rbdr_task);
+-			clear_intr |= ((1 << qidx) << NICVF_INTR_RBDR_SHIFT);
+-		}
+-	}
++	nicvf_dump_intr_status(nic);
++
++	/* Disable Qset err interrupt and schedule softirq */
++	nicvf_disable_intr(nic, NICVF_INTR_QS_ERR, 0);
++	tasklet_hi_schedule(&nic->qs_err_task);
++	nicvf_clear_intr(nic, NICVF_INTR_QS_ERR, 0);
+ 
+-	/* Clear interrupts */
+-	nicvf_reg_write(nic, NIC_VF_INT, clear_intr);
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -754,7 +762,7 @@ static void nicvf_disable_msix(struct nicvf *nic)
+ 
+ static int nicvf_register_interrupts(struct nicvf *nic)
+ {
+-	int irq, free, ret = 0;
++	int irq, ret = 0;
+ 	int vector;
+ 
+ 	for_each_cq_irq(irq)
+@@ -769,44 +777,42 @@ static int nicvf_register_interrupts(struct nicvf *nic)
+ 		sprintf(nic->irq_name[irq], "NICVF%d RBDR%d",
+ 			nic->vf_id, irq - NICVF_INTR_ID_RBDR);
+ 
+-	/* Register all interrupts except mailbox */
+-	for (irq = 0; irq < NICVF_INTR_ID_SQ; irq++) {
++	/* Register CQ interrupts */
++	for (irq = 0; irq < nic->qs->cq_cnt; irq++) {
+ 		vector = nic->msix_entries[irq].vector;
+ 		ret = request_irq(vector, nicvf_intr_handler,
+-				  0, nic->irq_name[irq], nic);
++				  0, nic->irq_name[irq], nic->napi[irq]);
+ 		if (ret)
+-			break;
++			goto err;
+ 		nic->irq_allocated[irq] = true;
+ 	}
+ 
+-	for (irq = NICVF_INTR_ID_SQ; irq < NICVF_INTR_ID_MISC; irq++) {
++	/* Register RBDR interrupt */
++	for (irq = NICVF_INTR_ID_RBDR;
++	     irq < (NICVF_INTR_ID_RBDR + nic->qs->rbdr_cnt); irq++) {
+ 		vector = nic->msix_entries[irq].vector;
+-		ret = request_irq(vector, nicvf_intr_handler,
++		ret = request_irq(vector, nicvf_rbdr_intr_handler,
+ 				  0, nic->irq_name[irq], nic);
+ 		if (ret)
+-			break;
++			goto err;
+ 		nic->irq_allocated[irq] = true;
+ 	}
+ 
++	/* Register QS error interrupt */
+ 	sprintf(nic->irq_name[NICVF_INTR_ID_QS_ERR],
+ 		"NICVF%d Qset error", nic->vf_id);
+-	if (!ret) {
+-		vector = nic->msix_entries[NICVF_INTR_ID_QS_ERR].vector;
+-		irq = NICVF_INTR_ID_QS_ERR;
+-		ret = request_irq(vector, nicvf_intr_handler,
+-				  0, nic->irq_name[irq], nic);
+-		if (!ret)
+-			nic->irq_allocated[irq] = true;
+-	}
++	irq = NICVF_INTR_ID_QS_ERR;
++	ret = request_irq(nic->msix_entries[irq].vector,
++			  nicvf_qs_err_intr_handler,
++			  0, nic->irq_name[irq], nic);
++	if (!ret)
++		nic->irq_allocated[irq] = true;
+ 
+-	if (ret) {
+-		netdev_err(nic->netdev, "Request irq failed\n");
+-		for (free = 0; free < irq; free++)
+-			free_irq(nic->msix_entries[free].vector, nic);
+-		return ret;
+-	}
++err:
++	if (ret)
++		netdev_err(nic->netdev, "request_irq failed, vector %d\n", irq);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static void nicvf_unregister_interrupts(struct nicvf *nic)
+@@ -815,8 +821,14 @@ static void nicvf_unregister_interrupts(struct nicvf *nic)
+ 
+ 	/* Free registered interrupts */
+ 	for (irq = 0; irq < nic->num_vec; irq++) {
+-		if (nic->irq_allocated[irq])
++		if (!nic->irq_allocated[irq])
++			continue;
++
++		if (irq < NICVF_INTR_ID_SQ)
++			free_irq(nic->msix_entries[irq].vector, nic->napi[irq]);
++		else
+ 			free_irq(nic->msix_entries[irq].vector, nic);
++
+ 		nic->irq_allocated[irq] = false;
+ 	}
+ 
+@@ -888,6 +900,20 @@ static netdev_tx_t nicvf_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++static inline void nicvf_free_cq_poll(struct nicvf *nic)
++{
++	struct nicvf_cq_poll *cq_poll;
++	int qidx;
++
++	for (qidx = 0; qidx < nic->qs->cq_cnt; qidx++) {
++		cq_poll = nic->napi[qidx];
++		if (!cq_poll)
++			continue;
++		nic->napi[qidx] = NULL;
++		kfree(cq_poll);
++	}
++}
++
+ int nicvf_stop(struct net_device *netdev)
+ {
+ 	int irq, qidx;
+@@ -922,7 +948,6 @@ int nicvf_stop(struct net_device *netdev)
+ 		cq_poll = nic->napi[qidx];
+ 		if (!cq_poll)
+ 			continue;
+-		nic->napi[qidx] = NULL;
+ 		napi_synchronize(&cq_poll->napi);
+ 		/* CQ intr is enabled while napi_complete,
+ 		 * so disable it now
+@@ -931,7 +956,6 @@ int nicvf_stop(struct net_device *netdev)
+ 		nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
+ 		napi_disable(&cq_poll->napi);
+ 		netif_napi_del(&cq_poll->napi);
+-		kfree(cq_poll);
+ 	}
+ 
+ 	netif_tx_disable(netdev);
+@@ -947,6 +971,8 @@ int nicvf_stop(struct net_device *netdev)
+ 
+ 	nicvf_unregister_interrupts(nic);
+ 
++	nicvf_free_cq_poll(nic);
++
+ 	return 0;
+ }
+ 
+@@ -973,6 +999,7 @@ int nicvf_open(struct net_device *netdev)
+ 			goto napi_del;
+ 		}
+ 		cq_poll->cq_idx = qidx;
++		cq_poll->nicvf = nic;
+ 		netif_napi_add(netdev, &cq_poll->napi, nicvf_poll,
+ 			       NAPI_POLL_WEIGHT);
+ 		napi_enable(&cq_poll->napi);
+@@ -1040,6 +1067,8 @@ int nicvf_open(struct net_device *netdev)
+ cleanup:
+ 	nicvf_disable_intr(nic, NICVF_INTR_MBOX, 0);
+ 	nicvf_unregister_interrupts(nic);
++	tasklet_kill(&nic->qs_err_task);
++	tasklet_kill(&nic->rbdr_task);
+ napi_del:
+ 	for (qidx = 0; qidx < qs->cq_cnt; qidx++) {
+ 		cq_poll = nic->napi[qidx];
+@@ -1047,9 +1076,8 @@ napi_del:
+ 			continue;
+ 		napi_disable(&cq_poll->napi);
+ 		netif_napi_del(&cq_poll->napi);
+-		kfree(cq_poll);
+-		nic->napi[qidx] = NULL;
+ 	}
++	nicvf_free_cq_poll(nic);
+ 	return err;
+ }
+ 
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index dc73872..8b93dd6 100644
+index 8b93dd6..fb4957d 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -306,6 +306,8 @@ struct queue_set {
+@@ -251,6 +251,7 @@ struct cmp_queue {
+ 	void		*desc;
+ 	struct q_desc_mem   dmem;
+ 	struct cmp_queue_stats	stats;
++	int		irq;
+ } ____cacheline_aligned_in_smp;
  
- #define	CQ_ERR_MASK	(CQ_WR_FULL | CQ_WR_DISABLE | CQ_WR_FAULT)
- 
-+void nicvf_config_vlan_stripping(struct nicvf *nic,
-+				 netdev_features_t features);
- int nicvf_set_qset_resources(struct nicvf *nic);
- int nicvf_config_data_transfer(struct nicvf *nic, bool enable);
- void nicvf_qset_config(struct nicvf *nic, bool enable);
+ struct snd_queue {
 -- 
 2.5.0
