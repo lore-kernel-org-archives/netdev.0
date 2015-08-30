@@ -1,44 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: IPv6 xfrm GSO fragmentation bug
-Date: Sun, 30 Aug 2015 16:24:32 +0800
-Message-ID: <20150830082432.GA25588@gondor.apana.org.au>
+From: Aleksey Makarov <feumilieu@gmail.com>
+Subject: Re: [PATCH net-next 6/8] net: thunderx: Rework interrupt handler
+Date: Sun, 30 Aug 2015 12:20:38 +0300
+Message-ID: <55E2CAE6.1040305@auriga.com>
+References: <CALW4P++2cG5epoit8BXBjp7Z2PK=P5wqbxkDqrt6kCa7SaZK+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:35876 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751137AbbH3IYi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 04:24:38 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Robert Richter <rric@kernel.org>,
+	David Daney <david.daney@cavium.com>,
+	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Robert Richter <robert.richter@caviumnetworks.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Alexey Klimov <klimov.linux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALW4P++2cG5epoit8BXBjp7Z2PK=P5wqbxkDqrt6kCa7SaZK+g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Steffen:
+On 29.08.2015 04:44, Alexey Klimov wrote:
 
-I received a bug report regarding poor IPComp performance over
-IPv6:
+>> -static irqreturn_t nicvf_intr_handler(int irq, void *nicvf_irq)
+>> +static irqreturn_t nicvf_intr_handler(int irq, void *cq_irq)
+>> +{
+>> +       struct nicvf_cq_poll *cq_poll = (struct nicvf_cq_poll *)cq_irq;
+>> +       struct nicvf *nic = cq_poll->nicvf;
+>> +       int qidx = cq_poll->cq_idx;
+>> +
+>> +       nicvf_dump_intr_status(nic);
+>> +
+>> +       /* Disable interrupts */
+>> +       nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
+>> +
+>> +       /* Schedule NAPI */
+>> +       napi_schedule(&cq_poll->napi);
+>> +
+>> +       /* Clear interrupt */
+>> +       nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
+>> +
+>> +       return IRQ_HANDLED;
+>> +}
+>
+> You're not considering spurious irqs in all new irq handlers here and
+> below and schedule napi/tasklets unconditionally. Is it correct?
+> For me it looks like previous implementation relied on reading of
+> NIC_VF_INT to understand irq type and what actions should be
+> performed. It generally had idea that no interrupt might occur.
 
-	https://bugzilla.redhat.com/show_bug.cgi?id=1257952
+1. The previous version of the handler did not handle spurious 
+interrupts either.  Probably that means that the author of the patch 
+knows for sure that they do not happen.
 
-It appears to have been caused by
+2. Instead of reading the status register new version registers 
+different handlers for different irqs.  I don't see why it can be wrong.
 
-commit dd767856a36e00b631d65ebc4bb81b19915532d6
-Author: Steffen Klassert <steffen.klassert@secunet.com>
-Date:   Tue Oct 11 01:44:30 2011 +0000
+I am going to address your other suggestions in the next version of the 
+patchset.
 
-    xfrm6: Don't call icmpv6_send on local error
-
-which addded an MTU check without a GSO override.
-
-Fixing it obviously isn't difficult, but I am wondering why I
-can't find a corresponding patch for IPv4.  Do we need that check
-to be present in xfrm6_output at all? If we do why isn't it needed
-for IPv4 as well?
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thank you
+Aleksey Makarov
