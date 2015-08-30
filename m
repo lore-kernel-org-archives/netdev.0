@@ -1,27 +1,21 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] openvswitch: Cleanup post vport
- conversion.
-Date: Sat, 29 Aug 2015 19:07:49 -0700 (PDT)
-Message-ID: <20150829.190749.2268077603542859738.davem@davemloft.net>
-References: <1440895448-16363-1-git-send-email-pshelar@nicira.com>
+From: <jerryfunds4@unitedfunds.onmicrosoft.com>
+Subject: (unknown)
+Date: Sun, 30 Aug 2015 07:38:33 +0530
+Message-ID: <HK2PR02MB073883645B787113A924EC04B86C0@HK2PR02MB0738.apcprd02.prod.outlook.com>
+Reply-To: <j.funds2000000@inbox.lv>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36022 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753077AbbH3CHw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 22:07:52 -0400
-In-Reply-To: <1440895448-16363-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pu1apc01hn0216.outbound.protection.outlook.com ([104.47.126.216]:12320
+	"EHLO APC01-PU1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753077AbbH3CJC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Aug 2015 22:09:02 -0400
+Content-Description: Mail message body
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Sat, 29 Aug 2015 17:44:04 -0700
-
-> After converting all vport to netdev implmentations there
-> is no need for some of vport functionalify.
-
-Looks good, series applied, thanks.
+We Give Out Loans For 3% Interest Rate And We Offer Loans From $5,000 To $50,000,000.00, Are You Looking To Buy A House Car Or Company Or Start Up A Truck Company or Buy A Truck Or Personal Loans, Email Us At j.funds2000000@inbox.lv  With Amount Needed And Phone Number.
