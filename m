@@ -1,7 +1,8 @@
 From: Aleksey Makarov <aleksey.makarov@auriga.com>
-Subject: [PATCH net-next v2 0/8] net: thunderx: New features and fixes
-Date: Sun, 30 Aug 2015 12:29:08 +0300
-Message-ID: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
+Subject: [PATCH net-next v2 1/8] net: thunderx: fix MAINTAINERS
+Date: Sun, 30 Aug 2015 12:29:09 +0300
+Message-ID: <1440926958-1874-2-git-send-email-aleksey.makarov@auriga.com>
+References: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>,
@@ -10,41 +11,43 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Robert Richter <robert.richter@caviumnetworks.com>,
 	Aleksey Makarov <aleksey.makarov@auriga.com>,
 	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
-	Alexey Klimov <klimov.linux@gmail.com>
+	Alexey Klimov <klimov.linux@gmail.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v2:
-  - The unused affinity_mask field of the structure cmp_queue 
-  has been deleted. (thanks to David Miller)
-  - The unneeded initializers have been dropped. (thanks to Alexey Klimov)
-  - The commit message "net: thunderx: Rework interrupt handling"
-  has been fixed. (thanks to Alexey Klimov)
+From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 
-Aleksey Makarov (1):
-  net: thunderx: fix MAINTAINERS
+The liquidio and thunder drivers have different maintainers.
 
-Sunil Goutham (7):
-  net: thunderx: Add receive error stats reporting via ethtool
-  net: thunderx: mailboxes: remove code duplication
-  net: thunderx: Receive hashing HW offload support
-  net: thunderx: Support for HW VLAN stripping
-  net: thunderx: Rework interrupt handling
-  net: thunderx: Support for upto 96 queues for a VF
-  net: thunderx: Support for internal loopback mode
+Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+---
+ MAINTAINERS | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
- MAINTAINERS                                        |   3 +-
- drivers/net/ethernet/cavium/thunder/nic.h          |  93 +++-
- drivers/net/ethernet/cavium/thunder/nic_main.c     | 198 +++++++-
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 182 +++++--
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 541 +++++++++++++++------
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 144 +++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h |  44 +-
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |  31 ++
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |   4 +
- 9 files changed, 911 insertions(+), 329 deletions(-)
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4e6dcb6..43cf79e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -928,7 +928,7 @@ M:	Sunil Goutham <sgoutham@cavium.com>
+ M:	Robert Richter <rric@kernel.org>
+ L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+ S:	Supported
+-F:	drivers/net/ethernet/cavium/
++F:	drivers/net/ethernet/cavium/thunder/
+ 
+ ARM/CIRRUS LOGIC CLPS711X ARM ARCHITECTURE
+ M:	Alexander Shiyan <shc_work@mail.ru>
+@@ -2543,7 +2543,6 @@ M:     Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+ L:     netdev@vger.kernel.org
+ W:     http://www.cavium.com
+ S:     Supported
+-F:     drivers/net/ethernet/cavium/
+ F:     drivers/net/ethernet/cavium/liquidio/
+ 
+ CC2520 IEEE-802.15.4 RADIO DRIVER
 -- 
 2.5.0
