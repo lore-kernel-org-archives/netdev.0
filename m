@@ -1,53 +1,40 @@
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH v4 09/10] ss: fixed free on local array for valid json output
-Date: Sun, 30 Aug 2015 15:24:34 +0200
-Message-ID: <1440941075-26478-10-git-send-email-matthias.tafelmeier@gmx.net>
-References: <1440941075-26478-1-git-send-email-matthias.tafelmeier@gmx.net>
-Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
-	edumazet@google.com, daniel@iogearbox.net
+From: Ido Barkan <ibarkan@redhat.com>
+Subject: using iperf over a veth pair
+Date: Sun, 30 Aug 2015 16:49:21 +0300
+Message-ID: <CAFmWiaSu-Foij1EGm5kby7gjDd2qeaR5Fo1oAVus2GRmkEar7w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:57848 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753419AbbH3NZO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Aug 2015 09:25:14 -0400
-In-Reply-To: <1440941075-26478-1-git-send-email-matthias.tafelmeier@gmx.net>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33564 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753153AbbH3NtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 09:49:23 -0400
+Received: by wicpl12 with SMTP id pl12so8376002wic.0
+        for <netdev@vger.kernel.org>; Sun, 30 Aug 2015 06:49:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Minor fix to enable json output. Freeing of automatic char array name
-which will get freed after function stack cleanup. Another one after
-tcp_stats_fmt for freeing automatic tcpstats struct instance.
+Hi everyone,
+I am trying to use iperf over a veth pair. while iperf is pleased (it
+reports a  suspicious very high bandwidth), according to tcpdump, no
+traffic is going via the veth pair.
 
-Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- misc/ss.c | 6 ------
- 1 file changed, 6 deletions(-)
+Also 'ping -I' refuses to send a ping via my veth ('destination is
+unreachable' iirc).
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 6ff40a3..80aebe6 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1660,10 +1660,6 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 		s.segs_out = info->tcpi_segs_out;
- 		s.segs_in = info->tcpi_segs_in;
- 		tcp_stats_fmt(&s);
--		if (s.dctcp)
--			free(s.dctcp);
--		if (s.cong_alg)
--			free(s.cong_alg);
- 	}
- }
- 
-@@ -2362,8 +2358,6 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
- 	if (json_output)
- 		jsonw_end_object(json_wr);
- 
--	if (name)
--		free(name);
- 	return 0;
- }
- 
--- 
-1.9.1
+/sys/class/net../statistics also shows no high counters.
+
+Also, even when connecting to veth pairs to a Linux bridge and running
+iperf 'via the bridge', tcpdump on the bridge yields nothing.
+an important thing to noe here is that iperf api only accepts ip
+addresses, not interfaces.
+Routing ruls seems right, as they are automatically being created upon
+assigning ip addresses to the veth pair ends.
+
+Does the kernel short-circuits traffic here? How can I Tell it to pass
+traffic via my virtual devices?
+
+--
+Thanks,
+Ido Barkan
