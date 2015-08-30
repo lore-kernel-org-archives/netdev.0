@@ -1,124 +1,62 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: [PATCH RFC V4 1/2] net: Introduce helper functions to get the per cpu data
-Date: Sun, 30 Aug 2015 11:29:41 +0530
-Message-ID: <1440914382-23126-2-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-References: <y>
- <1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Cc: <jiri@resnulli.us>, <edumazet@google.com>,
-	<hannes@stressinduktion.org>, <tom@herbertland.com>,
-	<azhou@nicira.com>, <ebiederm@xmission.com>,
-	<ipm@chirality.org.uk>, <nicolas.dichtel@6wind.com>,
-	<serge.hallyn@canonical.com>, <joe@perches.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<raghavendra.kt@linux.vnet.ibm.com>, <anton@au1.ibm.com>,
-	<nacc@linux.vnet.ibm.com>, <srikar@linux.vnet.ibm.com>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: Fix IPv6 csum calculation
+Date: Sat, 29 Aug 2015 23:18:46 -0700
+Message-ID: <CAJ3xEMhAJ+p2qG4oeYe4kpGnzRPj30F886nuSyTjNSuiN1u4qw@mail.gmail.com>
+References: <1440790107-24268-1-git-send-email-clsoto@linux.vnet.ibm.com>
+	<1440791217.11525.141.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: clsoto@linux.vnet.ibm.com, David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>, brking@linux.vnet.ibm.com,
+	Amir Vadai <amirv@mellanox.com>,
+	Muhammad Mahajna <muhammadm@mellanox.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:36661 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853AbbH3GSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 02:18:47 -0400
+Received: by oibi18 with SMTP id i18so44327895oib.3
+        for <netdev@vger.kernel.org>; Sat, 29 Aug 2015 23:18:46 -0700 (PDT)
+In-Reply-To: <1440791217.11525.141.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
----
- include/net/ip.h   | 10 ++++++++++
- net/ipv4/af_inet.c | 41 +++++++++++++++++++++++++++--------------
- 2 files changed, 37 insertions(+), 14 deletions(-)
+On Fri, Aug 28, 2015 at 12:46 PM, Joe Perches <joe@perches.com> wrote:
+> On Fri, 2015-08-28 at 14:28 -0500, clsoto@linux.vnet.ibm.com wrote:
+>> From: Carol L Soto <clsoto@linux.vnet.ibm.com>
+>>
+>> Seeing this message with mlx4_eni with IPv6: hw csum failure
+>>
+>> Changing IPv6 csum calculation to be based on OFED 2.4 code.
+>> When calculate IPv6 csum based also on source and destination
+>> addresses.
+> []
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> []
+>> +static __wsum csum_ipv6_magic_nofold(const struct in6_addr *saddr,
+>> +                                  const struct in6_addr *daddr,
+>> +                                  __u32 len, unsigned short proto)
+>> +{
+>> +     __wsum res = 0;
+>> +
+>> +     res = csum_add(res, saddr->in6_u.u6_addr32[0]);
+>> +     res = csum_add(res, saddr->in6_u.u6_addr32[1]);
+>> +     res = csum_add(res, saddr->in6_u.u6_addr32[2]);
+>> +     res = csum_add(res, saddr->in6_u.u6_addr32[3]);
+>> +     res = csum_add(res, daddr->in6_u.u6_addr32[0]);
+>> +     res = csum_add(res, daddr->in6_u.u6_addr32[1]);
+>> +     res = csum_add(res, daddr->in6_u.u6_addr32[2]);
+>> +     res = csum_add(res, daddr->in6_u.u6_addr32[3]);
+>> +     res = csum_add(res, len);
+>> +     res = csum_add(res, htonl(proto));
+>
+> You should try running sparse on this code.
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index d5fe9f2..93bf12e 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -202,10 +202,20 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
- #define NET_ADD_STATS_BH(net, field, adnd) SNMP_ADD_STATS_BH((net)->mib.net_statistics, field, adnd)
- #define NET_ADD_STATS_USER(net, field, adnd) SNMP_ADD_STATS_USER((net)->mib.net_statistics, field, adnd)
- 
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offct);
- unsigned long snmp_fold_field(void __percpu *mib, int offt);
- #if BITS_PER_LONG==32
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset);
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t sync_off);
- #else
-+static inline u64  snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+					size_t syncp_offset)
-+{
-+	return snmp_get_cpu_field(mib, cpu, offct);
-+
-+}
-+
- static inline u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_off)
- {
- 	return snmp_fold_field(mib, offt);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 9532ee8..302e36b 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1448,38 +1448,51 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
- }
- EXPORT_SYMBOL_GPL(inet_ctl_sock_create);
- 
-+u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
-+{
-+	return  *(((unsigned long *)per_cpu_ptr(mib, cpu)) + offt);
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field);
-+
- unsigned long snmp_fold_field(void __percpu *mib, int offt)
- {
- 	unsigned long res = 0;
- 	int i;
- 
- 	for_each_possible_cpu(i)
--		res += *(((unsigned long *) per_cpu_ptr(mib, i)) + offt);
-+		res += snmp_get_cpu_field(mib, i, offt);
- 	return res;
- }
- EXPORT_SYMBOL_GPL(snmp_fold_field);
- 
- #if BITS_PER_LONG==32
- 
-+u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
-+			 size_t syncp_offset)
-+{
-+	void *bhptr;
-+	struct u64_stats_sync *syncp;
-+	u64 v;
-+	unsigned int start;
-+
-+	bhptr = per_cpu_ptr(mib, cpu);
-+	syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
-+	do {
-+		start = u64_stats_fetch_begin_irq(syncp);
-+		v = *(((u64 *)bhptr) + offt);
-+	} while (u64_stats_fetch_retry_irq(syncp, start));
-+
-+	return v;
-+}
-+EXPORT_SYMBOL_GPL(snmp_get_cpu_field64);
-+
- u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
- {
- 	u64 res = 0;
- 	int cpu;
- 
- 	for_each_possible_cpu(cpu) {
--		void *bhptr;
--		struct u64_stats_sync *syncp;
--		u64 v;
--		unsigned int start;
--
--		bhptr = per_cpu_ptr(mib, cpu);
--		syncp = (struct u64_stats_sync *)(bhptr + syncp_offset);
--		do {
--			start = u64_stats_fetch_begin_irq(syncp);
--			v = *(((u64 *) bhptr) + offt);
--		} while (u64_stats_fetch_retry_irq(syncp, start));
--
--		res += v;
-+		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
- 	}
- 	return res;
- }
--- 
-1.7.11.7
+
+Yep, if I remember correct, the patch is still under internal review
+with making sparse/smatch happy on it being a pending comment.
+
+
+Or.
