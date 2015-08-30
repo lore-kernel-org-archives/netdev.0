@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@auriga.com>
-Subject: [PATCH net-next v2 2/8] net: thunderx: Add receive error stats reporting via ethtool
-Date: Sun, 30 Aug 2015 12:29:10 +0300
-Message-ID: <1440926958-1874-3-git-send-email-aleksey.makarov@auriga.com>
+Subject: [PATCH net-next v2 3/8] net: thunderx: mailboxes: remove code duplication
+Date: Sun, 30 Aug 2015 12:29:11 +0300
+Message-ID: <1440926958-1874-4-git-send-email-aleksey.makarov@auriga.com>
 References: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,6 +13,7 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
 	Alexey Klimov <klimov.linux@gmail.com>,
 	Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <rrichter@cavium.com>,
 	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
 	Robert Richter <rric@kernel.org>
 To: <netdev@vger.kernel.org>
@@ -23,426 +24,134 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Added ethtool support to dump receive packet error statistics reported
-in CQE. Also made some small fixes
+Use the nicvf_send_msg_to_pf() function in the mailbox code.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          | 36 +++++++--
- .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 34 +++++++--
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 26 ++++---
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 86 +++++++---------------
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 41 -----------
- 5 files changed, 103 insertions(+), 120 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h        |  3 +-
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 44 ++++++------------------
+ 2 files changed, 11 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 8aee250..58adfd6 100644
+index 58adfd6..a83f567 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic.h
 +++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -190,10 +190,10 @@ enum tx_stats_reg_offset {
- };
+@@ -295,10 +295,9 @@ struct nicvf {
+ 	char			irq_name[NIC_VF_MSIX_VECTORS][20];
+ 	bool			irq_allocated[NIC_VF_MSIX_VECTORS];
  
- struct nicvf_hw_stats {
--	u64 rx_bytes_ok;
--	u64 rx_ucast_frames_ok;
--	u64 rx_bcast_frames_ok;
--	u64 rx_mcast_frames_ok;
-+	u64 rx_bytes;
-+	u64 rx_ucast_frames;
-+	u64 rx_bcast_frames;
-+	u64 rx_mcast_frames;
- 	u64 rx_fcs_errors;
- 	u64 rx_l2_errors;
- 	u64 rx_drop_red;
-@@ -204,6 +204,31 @@ struct nicvf_hw_stats {
- 	u64 rx_drop_mcast;
- 	u64 rx_drop_l3_bcast;
- 	u64 rx_drop_l3_mcast;
-+	u64 rx_bgx_truncated_pkts;
-+	u64 rx_jabber_errs;
-+	u64 rx_fcs_errs;
-+	u64 rx_bgx_errs;
-+	u64 rx_prel2_errs;
-+	u64 rx_l2_hdr_malformed;
-+	u64 rx_oversize;
-+	u64 rx_undersize;
-+	u64 rx_l2_len_mismatch;
-+	u64 rx_l2_pclp;
-+	u64 rx_ip_ver_errs;
-+	u64 rx_ip_csum_errs;
-+	u64 rx_ip_hdr_malformed;
-+	u64 rx_ip_payload_malformed;
-+	u64 rx_ip_ttl_errs;
-+	u64 rx_l3_pclp;
-+	u64 rx_l4_malformed;
-+	u64 rx_l4_csum_errs;
-+	u64 rx_udp_len_errs;
-+	u64 rx_l4_port_errs;
-+	u64 rx_tcp_flag_errs;
-+	u64 rx_tcp_offset_errs;
-+	u64 rx_l4_pclp;
-+	u64 rx_truncated_pkts;
-+
- 	u64 tx_bytes_ok;
- 	u64 tx_ucast_frames_ok;
- 	u64 tx_bcast_frames_ok;
-@@ -222,6 +247,7 @@ struct nicvf_drv_stats {
- 	u64 rx_frames_1518;
- 	u64 rx_frames_jumbo;
- 	u64 rx_drops;
-+
- 	/* Tx */
- 	u64 tx_frames_ok;
- 	u64 tx_drops;
-@@ -257,7 +283,7 @@ struct nicvf {
- 	u32			cq_coalesce_usecs;
+-	bool			pf_ready_to_rcv_msg;
++	/* VF <-> PF mailbox communication */
+ 	bool			pf_acked;
+ 	bool			pf_nacked;
+-	bool			bgx_stats_acked;
+ 	bool			set_mac_pending;
+ } ____cacheline_aligned_in_smp;
  
- 	u32			msg_enable;
--	struct nicvf_hw_stats   stats;
-+	struct nicvf_hw_stats   hw_stats;
- 	struct nicvf_drv_stats  drv_stats;
- 	struct bgx_stats	bgx_stats;
- 	struct work_struct	reset_task;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index a4228e6..a961aa3 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -35,10 +35,10 @@ struct nicvf_stat {
- }
- 
- static const struct nicvf_stat nicvf_hw_stats[] = {
--	NICVF_HW_STAT(rx_bytes_ok),
--	NICVF_HW_STAT(rx_ucast_frames_ok),
--	NICVF_HW_STAT(rx_bcast_frames_ok),
--	NICVF_HW_STAT(rx_mcast_frames_ok),
-+	NICVF_HW_STAT(rx_bytes),
-+	NICVF_HW_STAT(rx_ucast_frames),
-+	NICVF_HW_STAT(rx_bcast_frames),
-+	NICVF_HW_STAT(rx_mcast_frames),
- 	NICVF_HW_STAT(rx_fcs_errors),
- 	NICVF_HW_STAT(rx_l2_errors),
- 	NICVF_HW_STAT(rx_drop_red),
-@@ -49,6 +49,30 @@ static const struct nicvf_stat nicvf_hw_stats[] = {
- 	NICVF_HW_STAT(rx_drop_mcast),
- 	NICVF_HW_STAT(rx_drop_l3_bcast),
- 	NICVF_HW_STAT(rx_drop_l3_mcast),
-+	NICVF_HW_STAT(rx_bgx_truncated_pkts),
-+	NICVF_HW_STAT(rx_jabber_errs),
-+	NICVF_HW_STAT(rx_fcs_errs),
-+	NICVF_HW_STAT(rx_bgx_errs),
-+	NICVF_HW_STAT(rx_prel2_errs),
-+	NICVF_HW_STAT(rx_l2_hdr_malformed),
-+	NICVF_HW_STAT(rx_oversize),
-+	NICVF_HW_STAT(rx_undersize),
-+	NICVF_HW_STAT(rx_l2_len_mismatch),
-+	NICVF_HW_STAT(rx_l2_pclp),
-+	NICVF_HW_STAT(rx_ip_ver_errs),
-+	NICVF_HW_STAT(rx_ip_csum_errs),
-+	NICVF_HW_STAT(rx_ip_hdr_malformed),
-+	NICVF_HW_STAT(rx_ip_payload_malformed),
-+	NICVF_HW_STAT(rx_ip_ttl_errs),
-+	NICVF_HW_STAT(rx_l3_pclp),
-+	NICVF_HW_STAT(rx_l4_malformed),
-+	NICVF_HW_STAT(rx_l4_csum_errs),
-+	NICVF_HW_STAT(rx_udp_len_errs),
-+	NICVF_HW_STAT(rx_l4_port_errs),
-+	NICVF_HW_STAT(rx_tcp_flag_errs),
-+	NICVF_HW_STAT(rx_tcp_offset_errs),
-+	NICVF_HW_STAT(rx_l4_pclp),
-+	NICVF_HW_STAT(rx_truncated_pkts),
- 	NICVF_HW_STAT(tx_bytes_ok),
- 	NICVF_HW_STAT(tx_ucast_frames_ok),
- 	NICVF_HW_STAT(tx_bcast_frames_ok),
-@@ -195,7 +219,7 @@ static void nicvf_get_ethtool_stats(struct net_device *netdev,
- 	nicvf_update_lmac_stats(nic);
- 
- 	for (stat = 0; stat < nicvf_n_hw_stats; stat++)
--		*(data++) = ((u64 *)&nic->stats)
-+		*(data++) = ((u64 *)&nic->hw_stats)
- 				[nicvf_hw_stats[stat].index];
- 	for (stat = 0; stat < nicvf_n_drv_stats; stat++)
- 		*(data++) = ((u64 *)&nic->drv_stats)
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 3b90afb..670ff9b 100644
+index 670ff9b..d4ad36e 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -456,6 +456,12 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
- 			       skb->data, skb->len, true);
- 	}
+@@ -105,7 +105,6 @@ u64 nicvf_queue_reg_read(struct nicvf *nic, u64 offset, u64 qidx)
+ }
  
-+	/* If error packet, drop it here */
-+	if (err) {
-+		dev_kfree_skb_any(skb);
-+		return;
-+	}
-+
- 	nicvf_set_rx_frame_cnt(nic, skb);
- 
- 	skb_record_rx_queue(skb, cqe_rx->rq_idx);
-@@ -1118,7 +1124,7 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
- void nicvf_update_stats(struct nicvf *nic)
- {
- 	int qidx;
--	struct nicvf_hw_stats *stats = &nic->stats;
-+	struct nicvf_hw_stats *stats = &nic->hw_stats;
- 	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
- 	struct queue_set *qs = nic->qs;
- 
-@@ -1127,14 +1133,16 @@ void nicvf_update_stats(struct nicvf *nic)
- #define GET_TX_STATS(reg) \
- 	nicvf_reg_read(nic, NIC_VNIC_TX_STAT_0_4 | (reg << 3))
- 
--	stats->rx_bytes_ok = GET_RX_STATS(RX_OCTS);
--	stats->rx_ucast_frames_ok = GET_RX_STATS(RX_UCAST);
--	stats->rx_bcast_frames_ok = GET_RX_STATS(RX_BCAST);
--	stats->rx_mcast_frames_ok = GET_RX_STATS(RX_MCAST);
-+	stats->rx_bytes = GET_RX_STATS(RX_OCTS);
-+	stats->rx_ucast_frames = GET_RX_STATS(RX_UCAST);
-+	stats->rx_bcast_frames = GET_RX_STATS(RX_BCAST);
-+	stats->rx_mcast_frames = GET_RX_STATS(RX_MCAST);
- 	stats->rx_fcs_errors = GET_RX_STATS(RX_FCS);
- 	stats->rx_l2_errors = GET_RX_STATS(RX_L2ERR);
- 	stats->rx_drop_red = GET_RX_STATS(RX_RED);
-+	stats->rx_drop_red_bytes = GET_RX_STATS(RX_RED_OCTS);
- 	stats->rx_drop_overrun = GET_RX_STATS(RX_ORUN);
-+	stats->rx_drop_overrun_bytes = GET_RX_STATS(RX_ORUN_OCTS);
- 	stats->rx_drop_bcast = GET_RX_STATS(RX_DRP_BCAST);
- 	stats->rx_drop_mcast = GET_RX_STATS(RX_DRP_MCAST);
- 	stats->rx_drop_l3_bcast = GET_RX_STATS(RX_DRP_L3BCAST);
-@@ -1146,9 +1154,6 @@ void nicvf_update_stats(struct nicvf *nic)
- 	stats->tx_mcast_frames_ok = GET_TX_STATS(TX_MCAST);
- 	stats->tx_drops = GET_TX_STATS(TX_DROP);
- 
--	drv_stats->rx_frames_ok = stats->rx_ucast_frames_ok +
--				  stats->rx_bcast_frames_ok +
--				  stats->rx_mcast_frames_ok;
- 	drv_stats->tx_frames_ok = stats->tx_ucast_frames_ok +
- 				  stats->tx_bcast_frames_ok +
- 				  stats->tx_mcast_frames_ok;
-@@ -1167,14 +1172,15 @@ static struct rtnl_link_stats64 *nicvf_get_stats64(struct net_device *netdev,
- 					    struct rtnl_link_stats64 *stats)
- {
- 	struct nicvf *nic = netdev_priv(netdev);
--	struct nicvf_hw_stats *hw_stats = &nic->stats;
-+	struct nicvf_hw_stats *hw_stats = &nic->hw_stats;
- 	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
- 
- 	nicvf_update_stats(nic);
- 
--	stats->rx_bytes = hw_stats->rx_bytes_ok;
-+	stats->rx_bytes = hw_stats->rx_bytes;
- 	stats->rx_packets = drv_stats->rx_frames_ok;
- 	stats->rx_dropped = drv_stats->rx_drops;
-+	stats->multicast = hw_stats->rx_mcast_frames;
- 
- 	stats->tx_bytes = hw_stats->tx_bytes_ok;
- 	stats->tx_packets = drv_stats->tx_frames_ok;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index ca4240a..4fc40d83 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -1371,10 +1371,11 @@ void nicvf_update_sq_stats(struct nicvf *nic, int sq_idx)
- int nicvf_check_cqe_rx_errs(struct nicvf *nic,
- 			    struct cmp_queue *cq, struct cqe_rx_t *cqe_rx)
- {
--	struct cmp_queue_stats *stats = &cq->stats;
-+	struct nicvf_hw_stats *stats = &nic->hw_stats;
-+	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
- 
- 	if (!cqe_rx->err_level && !cqe_rx->err_opcode) {
--		stats->rx.errop.good++;
-+		drv_stats->rx_frames_ok++;
- 		return 0;
- 	}
- 
-@@ -1384,111 +1385,78 @@ int nicvf_check_cqe_rx_errs(struct nicvf *nic,
- 			   nic->netdev->name,
- 			   cqe_rx->err_level, cqe_rx->err_opcode);
- 
--	switch (cqe_rx->err_level) {
--	case CQ_ERRLVL_MAC:
--		stats->rx.errlvl.mac_errs++;
--		break;
--	case CQ_ERRLVL_L2:
--		stats->rx.errlvl.l2_errs++;
--		break;
--	case CQ_ERRLVL_L3:
--		stats->rx.errlvl.l3_errs++;
--		break;
--	case CQ_ERRLVL_L4:
--		stats->rx.errlvl.l4_errs++;
--		break;
--	}
+ /* VF -> PF mailbox communication */
 -
- 	switch (cqe_rx->err_opcode) {
- 	case CQ_RX_ERROP_RE_PARTIAL:
--		stats->rx.errop.partial_pkts++;
-+		stats->rx_bgx_truncated_pkts++;
+ static void nicvf_write_to_mbx(struct nicvf *nic, union nic_mbx *mbx)
+ {
+ 	u64 *msg = (u64 *)mbx;
+@@ -147,26 +146,15 @@ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
+ */
+ static int nicvf_check_pf_ready(struct nicvf *nic)
+ {
+-	int timeout = 5000, sleep = 20;
+ 	union nic_mbx mbx = {};
+ 
+ 	mbx.msg.msg = NIC_MBOX_MSG_READY;
+-
+-	nic->pf_ready_to_rcv_msg = false;
+-
+-	nicvf_write_to_mbx(nic, &mbx);
+-
+-	while (!nic->pf_ready_to_rcv_msg) {
+-		msleep(sleep);
+-		if (nic->pf_ready_to_rcv_msg)
+-			break;
+-		timeout -= sleep;
+-		if (!timeout) {
+-			netdev_err(nic->netdev,
+-				   "PF didn't respond to READY msg\n");
+-			return 0;
+-		}
++	if (nicvf_send_msg_to_pf(nic, &mbx)) {
++		netdev_err(nic->netdev,
++			   "PF didn't respond to READY msg\n");
++		return 0;
+ 	}
++
+ 	return 1;
+ }
+ 
+@@ -197,7 +185,7 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 	netdev_dbg(nic->netdev, "Mbox message: msg: 0x%x\n", mbx.msg.msg);
+ 	switch (mbx.msg.msg) {
+ 	case NIC_MBOX_MSG_READY:
+-		nic->pf_ready_to_rcv_msg = true;
++		nic->pf_acked = true;
+ 		nic->vf_id = mbx.nic_cfg.vf_id & 0x7F;
+ 		nic->tns_mode = mbx.nic_cfg.tns_mode & 0x7F;
+ 		nic->node = mbx.nic_cfg.node_id;
+@@ -221,7 +209,6 @@ static void  nicvf_handle_mbx_intr(struct nicvf *nic)
+ 	case NIC_MBOX_MSG_BGX_STATS:
+ 		nicvf_read_bgx_stats(nic, &mbx.bgx_stats);
+ 		nic->pf_acked = true;
+-		nic->bgx_stats_acked = true;
  		break;
- 	case CQ_RX_ERROP_RE_JABBER:
--		stats->rx.errop.jabber_errs++;
-+		stats->rx_jabber_errs++;
- 		break;
- 	case CQ_RX_ERROP_RE_FCS:
--		stats->rx.errop.fcs_errs++;
--		break;
--	case CQ_RX_ERROP_RE_TERMINATE:
--		stats->rx.errop.terminate_errs++;
-+		stats->rx_fcs_errs++;
- 		break;
- 	case CQ_RX_ERROP_RE_RX_CTL:
--		stats->rx.errop.bgx_rx_errs++;
-+		stats->rx_bgx_errs++;
- 		break;
- 	case CQ_RX_ERROP_PREL2_ERR:
--		stats->rx.errop.prel2_errs++;
--		break;
--	case CQ_RX_ERROP_L2_FRAGMENT:
--		stats->rx.errop.l2_frags++;
--		break;
--	case CQ_RX_ERROP_L2_OVERRUN:
--		stats->rx.errop.l2_overruns++;
--		break;
--	case CQ_RX_ERROP_L2_PFCS:
--		stats->rx.errop.l2_pfcs++;
--		break;
--	case CQ_RX_ERROP_L2_PUNY:
--		stats->rx.errop.l2_puny++;
-+		stats->rx_prel2_errs++;
- 		break;
- 	case CQ_RX_ERROP_L2_MAL:
--		stats->rx.errop.l2_hdr_malformed++;
-+		stats->rx_l2_hdr_malformed++;
- 		break;
- 	case CQ_RX_ERROP_L2_OVERSIZE:
--		stats->rx.errop.l2_oversize++;
-+		stats->rx_oversize++;
- 		break;
- 	case CQ_RX_ERROP_L2_UNDERSIZE:
--		stats->rx.errop.l2_undersize++;
-+		stats->rx_undersize++;
- 		break;
- 	case CQ_RX_ERROP_L2_LENMISM:
--		stats->rx.errop.l2_len_mismatch++;
-+		stats->rx_l2_len_mismatch++;
- 		break;
- 	case CQ_RX_ERROP_L2_PCLP:
--		stats->rx.errop.l2_pclp++;
-+		stats->rx_l2_pclp++;
- 		break;
- 	case CQ_RX_ERROP_IP_NOT:
--		stats->rx.errop.non_ip++;
-+		stats->rx_ip_ver_errs++;
- 		break;
- 	case CQ_RX_ERROP_IP_CSUM_ERR:
--		stats->rx.errop.ip_csum_err++;
-+		stats->rx_ip_csum_errs++;
- 		break;
- 	case CQ_RX_ERROP_IP_MAL:
--		stats->rx.errop.ip_hdr_malformed++;
-+		stats->rx_ip_hdr_malformed++;
- 		break;
- 	case CQ_RX_ERROP_IP_MALD:
--		stats->rx.errop.ip_payload_malformed++;
-+		stats->rx_ip_payload_malformed++;
- 		break;
- 	case CQ_RX_ERROP_IP_HOP:
--		stats->rx.errop.ip_hop_errs++;
--		break;
--	case CQ_RX_ERROP_L3_ICRC:
--		stats->rx.errop.l3_icrc_errs++;
-+		stats->rx_ip_ttl_errs++;
- 		break;
- 	case CQ_RX_ERROP_L3_PCLP:
--		stats->rx.errop.l3_pclp++;
-+		stats->rx_l3_pclp++;
- 		break;
- 	case CQ_RX_ERROP_L4_MAL:
--		stats->rx.errop.l4_malformed++;
-+		stats->rx_l4_malformed++;
- 		break;
- 	case CQ_RX_ERROP_L4_CHK:
--		stats->rx.errop.l4_csum_errs++;
-+		stats->rx_l4_csum_errs++;
- 		break;
- 	case CQ_RX_ERROP_UDP_LEN:
--		stats->rx.errop.udp_len_err++;
-+		stats->rx_udp_len_errs++;
- 		break;
- 	case CQ_RX_ERROP_L4_PORT:
--		stats->rx.errop.bad_l4_port++;
-+		stats->rx_l4_port_errs++;
- 		break;
- 	case CQ_RX_ERROP_TCP_FLAG:
--		stats->rx.errop.bad_tcp_flag++;
-+		stats->rx_tcp_flag_errs++;
- 		break;
- 	case CQ_RX_ERROP_TCP_OFFSET:
--		stats->rx.errop.tcp_offset_errs++;
-+		stats->rx_tcp_offset_errs++;
- 		break;
- 	case CQ_RX_ERROP_L4_PCLP:
--		stats->rx.errop.l4_pclp++;
-+		stats->rx_l4_pclp++;
- 		break;
- 	case CQ_RX_ERROP_RBDR_TRUNC:
--		stats->rx.errop.pkt_truncated++;
-+		stats->rx_truncated_pkts++;
- 		break;
+ 	case NIC_MBOX_MSG_BGX_LINK_CHANGE:
+ 		nic->pf_acked = true;
+@@ -1083,7 +1070,6 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ {
+ 	int stat = 0;
+ 	union nic_mbx mbx = {};
+-	int timeout;
+ 
+ 	if (!netif_running(nic->netdev))
+ 		return;
+@@ -1093,14 +1079,9 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ 	/* Rx stats */
+ 	mbx.bgx_stats.rx = 1;
+ 	while (stat < BGX_RX_STATS_COUNT) {
+-		nic->bgx_stats_acked = 0;
+ 		mbx.bgx_stats.idx = stat;
+-		nicvf_send_msg_to_pf(nic, &mbx);
+-		timeout = 0;
+-		while ((!nic->bgx_stats_acked) && (timeout < 10)) {
+-			msleep(2);
+-			timeout++;
+-		}
++		if (nicvf_send_msg_to_pf(nic, &mbx))
++			return;
+ 		stat++;
  	}
  
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index f0937b7..dc73872 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -181,47 +181,6 @@ enum CQ_TX_ERROP_E {
- };
- 
- struct cmp_queue_stats {
--	struct rx_stats {
--		struct {
--			u64 mac_errs;
--			u64 l2_errs;
--			u64 l3_errs;
--			u64 l4_errs;
--		} errlvl;
--		struct {
--			u64 good;
--			u64 partial_pkts;
--			u64 jabber_errs;
--			u64 fcs_errs;
--			u64 terminate_errs;
--			u64 bgx_rx_errs;
--			u64 prel2_errs;
--			u64 l2_frags;
--			u64 l2_overruns;
--			u64 l2_pfcs;
--			u64 l2_puny;
--			u64 l2_hdr_malformed;
--			u64 l2_oversize;
--			u64 l2_undersize;
--			u64 l2_len_mismatch;
--			u64 l2_pclp;
--			u64 non_ip;
--			u64 ip_csum_err;
--			u64 ip_hdr_malformed;
--			u64 ip_payload_malformed;
--			u64 ip_hop_errs;
--			u64 l3_icrc_errs;
--			u64 l3_pclp;
--			u64 l4_malformed;
--			u64 l4_csum_errs;
--			u64 udp_len_err;
--			u64 bad_l4_port;
--			u64 bad_tcp_flag;
--			u64 tcp_offset_errs;
--			u64 l4_pclp;
--			u64 pkt_truncated;
--		} errop;
--	} rx;
- 	struct tx_stats {
- 		u64 good;
- 		u64 desc_fault;
+@@ -1109,14 +1090,9 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ 	/* Tx stats */
+ 	mbx.bgx_stats.rx = 0;
+ 	while (stat < BGX_TX_STATS_COUNT) {
+-		nic->bgx_stats_acked = 0;
+ 		mbx.bgx_stats.idx = stat;
+-		nicvf_send_msg_to_pf(nic, &mbx);
+-		timeout = 0;
+-		while ((!nic->bgx_stats_acked) && (timeout < 10)) {
+-			msleep(2);
+-			timeout++;
+-		}
++		if (nicvf_send_msg_to_pf(nic, &mbx))
++			return;
+ 		stat++;
+ 	}
+ }
 -- 
 2.5.0
