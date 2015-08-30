@@ -1,7 +1,7 @@
 From: Aleksey Makarov <aleksey.makarov@auriga.com>
-Subject: [PATCH net-next v2 1/8] net: thunderx: fix MAINTAINERS
-Date: Sun, 30 Aug 2015 12:29:09 +0300
-Message-ID: <1440926958-1874-2-git-send-email-aleksey.makarov@auriga.com>
+Subject: [PATCH net-next v2 2/8] net: thunderx: Add receive error stats reporting via ethtool
+Date: Sun, 30 Aug 2015 12:29:10 +0300
+Message-ID: <1440926958-1874-3-git-send-email-aleksey.makarov@auriga.com>
 References: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,42 +12,437 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Aleksey Makarov <aleksey.makarov@auriga.com>,
 	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
 	Alexey Klimov <klimov.linux@gmail.com>,
-	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+	Sunil Goutham <sgoutham@cavium.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+	Robert Richter <rric@kernel.org>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-The liquidio and thunder drivers have different maintainers.
+Added ethtool support to dump receive packet error statistics reported
+in CQE. Also made some small fixes
 
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 Signed-off-by: Aleksey Makarov <aleksey.makarov@caviumnetworks.com>
 ---
- MAINTAINERS | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          | 36 +++++++--
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 34 +++++++--
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 26 ++++---
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 86 +++++++---------------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 41 -----------
+ 5 files changed, 103 insertions(+), 120 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4e6dcb6..43cf79e 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -928,7 +928,7 @@ M:	Sunil Goutham <sgoutham@cavium.com>
- M:	Robert Richter <rric@kernel.org>
- L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
- S:	Supported
--F:	drivers/net/ethernet/cavium/
-+F:	drivers/net/ethernet/cavium/thunder/
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 8aee250..58adfd6 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -190,10 +190,10 @@ enum tx_stats_reg_offset {
+ };
  
- ARM/CIRRUS LOGIC CLPS711X ARM ARCHITECTURE
- M:	Alexander Shiyan <shc_work@mail.ru>
-@@ -2543,7 +2543,6 @@ M:     Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
- L:     netdev@vger.kernel.org
- W:     http://www.cavium.com
- S:     Supported
--F:     drivers/net/ethernet/cavium/
- F:     drivers/net/ethernet/cavium/liquidio/
+ struct nicvf_hw_stats {
+-	u64 rx_bytes_ok;
+-	u64 rx_ucast_frames_ok;
+-	u64 rx_bcast_frames_ok;
+-	u64 rx_mcast_frames_ok;
++	u64 rx_bytes;
++	u64 rx_ucast_frames;
++	u64 rx_bcast_frames;
++	u64 rx_mcast_frames;
+ 	u64 rx_fcs_errors;
+ 	u64 rx_l2_errors;
+ 	u64 rx_drop_red;
+@@ -204,6 +204,31 @@ struct nicvf_hw_stats {
+ 	u64 rx_drop_mcast;
+ 	u64 rx_drop_l3_bcast;
+ 	u64 rx_drop_l3_mcast;
++	u64 rx_bgx_truncated_pkts;
++	u64 rx_jabber_errs;
++	u64 rx_fcs_errs;
++	u64 rx_bgx_errs;
++	u64 rx_prel2_errs;
++	u64 rx_l2_hdr_malformed;
++	u64 rx_oversize;
++	u64 rx_undersize;
++	u64 rx_l2_len_mismatch;
++	u64 rx_l2_pclp;
++	u64 rx_ip_ver_errs;
++	u64 rx_ip_csum_errs;
++	u64 rx_ip_hdr_malformed;
++	u64 rx_ip_payload_malformed;
++	u64 rx_ip_ttl_errs;
++	u64 rx_l3_pclp;
++	u64 rx_l4_malformed;
++	u64 rx_l4_csum_errs;
++	u64 rx_udp_len_errs;
++	u64 rx_l4_port_errs;
++	u64 rx_tcp_flag_errs;
++	u64 rx_tcp_offset_errs;
++	u64 rx_l4_pclp;
++	u64 rx_truncated_pkts;
++
+ 	u64 tx_bytes_ok;
+ 	u64 tx_ucast_frames_ok;
+ 	u64 tx_bcast_frames_ok;
+@@ -222,6 +247,7 @@ struct nicvf_drv_stats {
+ 	u64 rx_frames_1518;
+ 	u64 rx_frames_jumbo;
+ 	u64 rx_drops;
++
+ 	/* Tx */
+ 	u64 tx_frames_ok;
+ 	u64 tx_drops;
+@@ -257,7 +283,7 @@ struct nicvf {
+ 	u32			cq_coalesce_usecs;
  
- CC2520 IEEE-802.15.4 RADIO DRIVER
+ 	u32			msg_enable;
+-	struct nicvf_hw_stats   stats;
++	struct nicvf_hw_stats   hw_stats;
+ 	struct nicvf_drv_stats  drv_stats;
+ 	struct bgx_stats	bgx_stats;
+ 	struct work_struct	reset_task;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+index a4228e6..a961aa3 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
+@@ -35,10 +35,10 @@ struct nicvf_stat {
+ }
+ 
+ static const struct nicvf_stat nicvf_hw_stats[] = {
+-	NICVF_HW_STAT(rx_bytes_ok),
+-	NICVF_HW_STAT(rx_ucast_frames_ok),
+-	NICVF_HW_STAT(rx_bcast_frames_ok),
+-	NICVF_HW_STAT(rx_mcast_frames_ok),
++	NICVF_HW_STAT(rx_bytes),
++	NICVF_HW_STAT(rx_ucast_frames),
++	NICVF_HW_STAT(rx_bcast_frames),
++	NICVF_HW_STAT(rx_mcast_frames),
+ 	NICVF_HW_STAT(rx_fcs_errors),
+ 	NICVF_HW_STAT(rx_l2_errors),
+ 	NICVF_HW_STAT(rx_drop_red),
+@@ -49,6 +49,30 @@ static const struct nicvf_stat nicvf_hw_stats[] = {
+ 	NICVF_HW_STAT(rx_drop_mcast),
+ 	NICVF_HW_STAT(rx_drop_l3_bcast),
+ 	NICVF_HW_STAT(rx_drop_l3_mcast),
++	NICVF_HW_STAT(rx_bgx_truncated_pkts),
++	NICVF_HW_STAT(rx_jabber_errs),
++	NICVF_HW_STAT(rx_fcs_errs),
++	NICVF_HW_STAT(rx_bgx_errs),
++	NICVF_HW_STAT(rx_prel2_errs),
++	NICVF_HW_STAT(rx_l2_hdr_malformed),
++	NICVF_HW_STAT(rx_oversize),
++	NICVF_HW_STAT(rx_undersize),
++	NICVF_HW_STAT(rx_l2_len_mismatch),
++	NICVF_HW_STAT(rx_l2_pclp),
++	NICVF_HW_STAT(rx_ip_ver_errs),
++	NICVF_HW_STAT(rx_ip_csum_errs),
++	NICVF_HW_STAT(rx_ip_hdr_malformed),
++	NICVF_HW_STAT(rx_ip_payload_malformed),
++	NICVF_HW_STAT(rx_ip_ttl_errs),
++	NICVF_HW_STAT(rx_l3_pclp),
++	NICVF_HW_STAT(rx_l4_malformed),
++	NICVF_HW_STAT(rx_l4_csum_errs),
++	NICVF_HW_STAT(rx_udp_len_errs),
++	NICVF_HW_STAT(rx_l4_port_errs),
++	NICVF_HW_STAT(rx_tcp_flag_errs),
++	NICVF_HW_STAT(rx_tcp_offset_errs),
++	NICVF_HW_STAT(rx_l4_pclp),
++	NICVF_HW_STAT(rx_truncated_pkts),
+ 	NICVF_HW_STAT(tx_bytes_ok),
+ 	NICVF_HW_STAT(tx_ucast_frames_ok),
+ 	NICVF_HW_STAT(tx_bcast_frames_ok),
+@@ -195,7 +219,7 @@ static void nicvf_get_ethtool_stats(struct net_device *netdev,
+ 	nicvf_update_lmac_stats(nic);
+ 
+ 	for (stat = 0; stat < nicvf_n_hw_stats; stat++)
+-		*(data++) = ((u64 *)&nic->stats)
++		*(data++) = ((u64 *)&nic->hw_stats)
+ 				[nicvf_hw_stats[stat].index];
+ 	for (stat = 0; stat < nicvf_n_drv_stats; stat++)
+ 		*(data++) = ((u64 *)&nic->drv_stats)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 3b90afb..670ff9b 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -456,6 +456,12 @@ static void nicvf_rcv_pkt_handler(struct net_device *netdev,
+ 			       skb->data, skb->len, true);
+ 	}
+ 
++	/* If error packet, drop it here */
++	if (err) {
++		dev_kfree_skb_any(skb);
++		return;
++	}
++
+ 	nicvf_set_rx_frame_cnt(nic, skb);
+ 
+ 	skb_record_rx_queue(skb, cqe_rx->rq_idx);
+@@ -1118,7 +1124,7 @@ void nicvf_update_lmac_stats(struct nicvf *nic)
+ void nicvf_update_stats(struct nicvf *nic)
+ {
+ 	int qidx;
+-	struct nicvf_hw_stats *stats = &nic->stats;
++	struct nicvf_hw_stats *stats = &nic->hw_stats;
+ 	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
+ 	struct queue_set *qs = nic->qs;
+ 
+@@ -1127,14 +1133,16 @@ void nicvf_update_stats(struct nicvf *nic)
+ #define GET_TX_STATS(reg) \
+ 	nicvf_reg_read(nic, NIC_VNIC_TX_STAT_0_4 | (reg << 3))
+ 
+-	stats->rx_bytes_ok = GET_RX_STATS(RX_OCTS);
+-	stats->rx_ucast_frames_ok = GET_RX_STATS(RX_UCAST);
+-	stats->rx_bcast_frames_ok = GET_RX_STATS(RX_BCAST);
+-	stats->rx_mcast_frames_ok = GET_RX_STATS(RX_MCAST);
++	stats->rx_bytes = GET_RX_STATS(RX_OCTS);
++	stats->rx_ucast_frames = GET_RX_STATS(RX_UCAST);
++	stats->rx_bcast_frames = GET_RX_STATS(RX_BCAST);
++	stats->rx_mcast_frames = GET_RX_STATS(RX_MCAST);
+ 	stats->rx_fcs_errors = GET_RX_STATS(RX_FCS);
+ 	stats->rx_l2_errors = GET_RX_STATS(RX_L2ERR);
+ 	stats->rx_drop_red = GET_RX_STATS(RX_RED);
++	stats->rx_drop_red_bytes = GET_RX_STATS(RX_RED_OCTS);
+ 	stats->rx_drop_overrun = GET_RX_STATS(RX_ORUN);
++	stats->rx_drop_overrun_bytes = GET_RX_STATS(RX_ORUN_OCTS);
+ 	stats->rx_drop_bcast = GET_RX_STATS(RX_DRP_BCAST);
+ 	stats->rx_drop_mcast = GET_RX_STATS(RX_DRP_MCAST);
+ 	stats->rx_drop_l3_bcast = GET_RX_STATS(RX_DRP_L3BCAST);
+@@ -1146,9 +1154,6 @@ void nicvf_update_stats(struct nicvf *nic)
+ 	stats->tx_mcast_frames_ok = GET_TX_STATS(TX_MCAST);
+ 	stats->tx_drops = GET_TX_STATS(TX_DROP);
+ 
+-	drv_stats->rx_frames_ok = stats->rx_ucast_frames_ok +
+-				  stats->rx_bcast_frames_ok +
+-				  stats->rx_mcast_frames_ok;
+ 	drv_stats->tx_frames_ok = stats->tx_ucast_frames_ok +
+ 				  stats->tx_bcast_frames_ok +
+ 				  stats->tx_mcast_frames_ok;
+@@ -1167,14 +1172,15 @@ static struct rtnl_link_stats64 *nicvf_get_stats64(struct net_device *netdev,
+ 					    struct rtnl_link_stats64 *stats)
+ {
+ 	struct nicvf *nic = netdev_priv(netdev);
+-	struct nicvf_hw_stats *hw_stats = &nic->stats;
++	struct nicvf_hw_stats *hw_stats = &nic->hw_stats;
+ 	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
+ 
+ 	nicvf_update_stats(nic);
+ 
+-	stats->rx_bytes = hw_stats->rx_bytes_ok;
++	stats->rx_bytes = hw_stats->rx_bytes;
+ 	stats->rx_packets = drv_stats->rx_frames_ok;
+ 	stats->rx_dropped = drv_stats->rx_drops;
++	stats->multicast = hw_stats->rx_mcast_frames;
+ 
+ 	stats->tx_bytes = hw_stats->tx_bytes_ok;
+ 	stats->tx_packets = drv_stats->tx_frames_ok;
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index ca4240a..4fc40d83 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1371,10 +1371,11 @@ void nicvf_update_sq_stats(struct nicvf *nic, int sq_idx)
+ int nicvf_check_cqe_rx_errs(struct nicvf *nic,
+ 			    struct cmp_queue *cq, struct cqe_rx_t *cqe_rx)
+ {
+-	struct cmp_queue_stats *stats = &cq->stats;
++	struct nicvf_hw_stats *stats = &nic->hw_stats;
++	struct nicvf_drv_stats *drv_stats = &nic->drv_stats;
+ 
+ 	if (!cqe_rx->err_level && !cqe_rx->err_opcode) {
+-		stats->rx.errop.good++;
++		drv_stats->rx_frames_ok++;
+ 		return 0;
+ 	}
+ 
+@@ -1384,111 +1385,78 @@ int nicvf_check_cqe_rx_errs(struct nicvf *nic,
+ 			   nic->netdev->name,
+ 			   cqe_rx->err_level, cqe_rx->err_opcode);
+ 
+-	switch (cqe_rx->err_level) {
+-	case CQ_ERRLVL_MAC:
+-		stats->rx.errlvl.mac_errs++;
+-		break;
+-	case CQ_ERRLVL_L2:
+-		stats->rx.errlvl.l2_errs++;
+-		break;
+-	case CQ_ERRLVL_L3:
+-		stats->rx.errlvl.l3_errs++;
+-		break;
+-	case CQ_ERRLVL_L4:
+-		stats->rx.errlvl.l4_errs++;
+-		break;
+-	}
+-
+ 	switch (cqe_rx->err_opcode) {
+ 	case CQ_RX_ERROP_RE_PARTIAL:
+-		stats->rx.errop.partial_pkts++;
++		stats->rx_bgx_truncated_pkts++;
+ 		break;
+ 	case CQ_RX_ERROP_RE_JABBER:
+-		stats->rx.errop.jabber_errs++;
++		stats->rx_jabber_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_RE_FCS:
+-		stats->rx.errop.fcs_errs++;
+-		break;
+-	case CQ_RX_ERROP_RE_TERMINATE:
+-		stats->rx.errop.terminate_errs++;
++		stats->rx_fcs_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_RE_RX_CTL:
+-		stats->rx.errop.bgx_rx_errs++;
++		stats->rx_bgx_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_PREL2_ERR:
+-		stats->rx.errop.prel2_errs++;
+-		break;
+-	case CQ_RX_ERROP_L2_FRAGMENT:
+-		stats->rx.errop.l2_frags++;
+-		break;
+-	case CQ_RX_ERROP_L2_OVERRUN:
+-		stats->rx.errop.l2_overruns++;
+-		break;
+-	case CQ_RX_ERROP_L2_PFCS:
+-		stats->rx.errop.l2_pfcs++;
+-		break;
+-	case CQ_RX_ERROP_L2_PUNY:
+-		stats->rx.errop.l2_puny++;
++		stats->rx_prel2_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_MAL:
+-		stats->rx.errop.l2_hdr_malformed++;
++		stats->rx_l2_hdr_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_OVERSIZE:
+-		stats->rx.errop.l2_oversize++;
++		stats->rx_oversize++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_UNDERSIZE:
+-		stats->rx.errop.l2_undersize++;
++		stats->rx_undersize++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_LENMISM:
+-		stats->rx.errop.l2_len_mismatch++;
++		stats->rx_l2_len_mismatch++;
+ 		break;
+ 	case CQ_RX_ERROP_L2_PCLP:
+-		stats->rx.errop.l2_pclp++;
++		stats->rx_l2_pclp++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_NOT:
+-		stats->rx.errop.non_ip++;
++		stats->rx_ip_ver_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_CSUM_ERR:
+-		stats->rx.errop.ip_csum_err++;
++		stats->rx_ip_csum_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_MAL:
+-		stats->rx.errop.ip_hdr_malformed++;
++		stats->rx_ip_hdr_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_MALD:
+-		stats->rx.errop.ip_payload_malformed++;
++		stats->rx_ip_payload_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_IP_HOP:
+-		stats->rx.errop.ip_hop_errs++;
+-		break;
+-	case CQ_RX_ERROP_L3_ICRC:
+-		stats->rx.errop.l3_icrc_errs++;
++		stats->rx_ip_ttl_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L3_PCLP:
+-		stats->rx.errop.l3_pclp++;
++		stats->rx_l3_pclp++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_MAL:
+-		stats->rx.errop.l4_malformed++;
++		stats->rx_l4_malformed++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_CHK:
+-		stats->rx.errop.l4_csum_errs++;
++		stats->rx_l4_csum_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_UDP_LEN:
+-		stats->rx.errop.udp_len_err++;
++		stats->rx_udp_len_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_PORT:
+-		stats->rx.errop.bad_l4_port++;
++		stats->rx_l4_port_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_TCP_FLAG:
+-		stats->rx.errop.bad_tcp_flag++;
++		stats->rx_tcp_flag_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_TCP_OFFSET:
+-		stats->rx.errop.tcp_offset_errs++;
++		stats->rx_tcp_offset_errs++;
+ 		break;
+ 	case CQ_RX_ERROP_L4_PCLP:
+-		stats->rx.errop.l4_pclp++;
++		stats->rx_l4_pclp++;
+ 		break;
+ 	case CQ_RX_ERROP_RBDR_TRUNC:
+-		stats->rx.errop.pkt_truncated++;
++		stats->rx_truncated_pkts++;
+ 		break;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index f0937b7..dc73872 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -181,47 +181,6 @@ enum CQ_TX_ERROP_E {
+ };
+ 
+ struct cmp_queue_stats {
+-	struct rx_stats {
+-		struct {
+-			u64 mac_errs;
+-			u64 l2_errs;
+-			u64 l3_errs;
+-			u64 l4_errs;
+-		} errlvl;
+-		struct {
+-			u64 good;
+-			u64 partial_pkts;
+-			u64 jabber_errs;
+-			u64 fcs_errs;
+-			u64 terminate_errs;
+-			u64 bgx_rx_errs;
+-			u64 prel2_errs;
+-			u64 l2_frags;
+-			u64 l2_overruns;
+-			u64 l2_pfcs;
+-			u64 l2_puny;
+-			u64 l2_hdr_malformed;
+-			u64 l2_oversize;
+-			u64 l2_undersize;
+-			u64 l2_len_mismatch;
+-			u64 l2_pclp;
+-			u64 non_ip;
+-			u64 ip_csum_err;
+-			u64 ip_hdr_malformed;
+-			u64 ip_payload_malformed;
+-			u64 ip_hop_errs;
+-			u64 l3_icrc_errs;
+-			u64 l3_pclp;
+-			u64 l4_malformed;
+-			u64 l4_csum_errs;
+-			u64 udp_len_err;
+-			u64 bad_l4_port;
+-			u64 bad_tcp_flag;
+-			u64 tcp_offset_errs;
+-			u64 l4_pclp;
+-			u64 pkt_truncated;
+-		} errop;
+-	} rx;
+ 	struct tx_stats {
+ 		u64 good;
+ 		u64 desc_fault;
 -- 
 2.5.0
