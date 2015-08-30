@@ -1,63 +1,39 @@
-From: Aleksey Makarov <feumilieu@gmail.com>
-Subject: Re: [PATCH net-next 6/8] net: thunderx: Rework interrupt handler
-Date: Sun, 30 Aug 2015 12:20:38 +0300
-Message-ID: <55E2CAE6.1040305@auriga.com>
-References: <CALW4P++2cG5epoit8BXBjp7Z2PK=P5wqbxkDqrt6kCa7SaZK+g@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2 net-next 4/4] vxlan: do not receive IPv4 packets on
+ IPv6 socket
+Date: Sun, 30 Aug 2015 11:30:45 +0200
+Message-ID: <20150830093045.GA6393@pox.localdomain>
+References: <cover.1440787600.git.jbenc@redhat.com>
+ <823880925bf39790189708fcb7f7158f21231237.1440787601.git.jbenc@redhat.com>
+ <20150828223929.GC32001@pox.localdomain>
+ <20150829105544.33b7799f@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert Richter <rric@kernel.org>,
-	David Daney <david.daney@cavium.com>,
-	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
-	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Robert Richter <robert.richter@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Alexey Klimov <klimov.linux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALW4P++2cG5epoit8BXBjp7Z2PK=P5wqbxkDqrt6kCa7SaZK+g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:34621 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751706AbbH3Jas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 05:30:48 -0400
+Received: by wizs10 with SMTP id s10so4014417wiz.1
+        for <netdev@vger.kernel.org>; Sun, 30 Aug 2015 02:30:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150829105544.33b7799f@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29.08.2015 04:44, Alexey Klimov wrote:
+On 08/29/15 at 10:55am, Jiri Benc wrote:
+> On Sat, 29 Aug 2015 00:39:29 +0200, Thomas Graf wrote:
+> > Can we fix VXLAN instead? It should be possible to receive and send both
+> > v4 and v6 frames and represent it with metadata on a single socket.
+> 
+> That's actually what I intend to do next. But I need the flag and this
+> patch for that. If IPv6 is enabled, I'll open two sockets within a
+> single vxlan_sock for metadata based vxlan, IPv4 one and IPv6 one. It
+> would be easier to just open an IPv6 socket and receive both IPv4 and
+> IPv6 traffic through it but unfortunately, this depends on bindv6only
+> sysctl. We don't want to have IPv4 vxlan broken if bindv6only is set.
+> Therefore, we need two sockets, and the IPv6 one needs to be v6only.
 
->> -static irqreturn_t nicvf_intr_handler(int irq, void *nicvf_irq)
->> +static irqreturn_t nicvf_intr_handler(int irq, void *cq_irq)
->> +{
->> +       struct nicvf_cq_poll *cq_poll = (struct nicvf_cq_poll *)cq_irq;
->> +       struct nicvf *nic = cq_poll->nicvf;
->> +       int qidx = cq_poll->cq_idx;
->> +
->> +       nicvf_dump_intr_status(nic);
->> +
->> +       /* Disable interrupts */
->> +       nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
->> +
->> +       /* Schedule NAPI */
->> +       napi_schedule(&cq_poll->napi);
->> +
->> +       /* Clear interrupt */
->> +       nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
->> +
->> +       return IRQ_HANDLED;
->> +}
->
-> You're not considering spurious irqs in all new irq handlers here and
-> below and schedule napi/tasklets unconditionally. Is it correct?
-> For me it looks like previous implementation relied on reading of
-> NIC_VF_INT to understand irq type and what actions should be
-> performed. It generally had idea that no interrupt might occur.
-
-1. The previous version of the handler did not handle spurious 
-interrupts either.  Probably that means that the author of the patch 
-knows for sure that they do not happen.
-
-2. Instead of reading the status register new version registers 
-different handlers for different irqs.  I don't see why it can be wrong.
-
-I am going to address your other suggestions in the next version of the 
-patchset.
-
-Thank you
-Aleksey Makarov
+Awesome, sounds great.
