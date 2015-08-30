@@ -1,42 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH, net-next] r8169: Deny functions membet of array rtl_work
-Date: Sun, 30 Aug 2015 10:13:53 +0200
-Message-ID: <20150830081353.GA14599@electric-eye.fr.zoreil.com>
-References: <1440845029-3079-1-git-send-email-corcodel.marian@gmail.com>
- <20150829112630.GA8873@electric-eye.fr.zoreil.com>
- <CAGg4U=HQwGhQ95+FNumjLOH0m5Bnm8-3kOgfbMUGOV=Lzsyd6A@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: IPv6 xfrm GSO fragmentation bug
+Date: Sun, 30 Aug 2015 16:24:32 +0800
+Message-ID: <20150830082432.GA25588@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Marian Corcodel <corcodel.marian@gmail.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:44220 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752378AbbH3IOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 04:14:18 -0400
+Received: from helcar.hengli.com.au ([209.40.204.226]:35876 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751137AbbH3IYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 04:24:38 -0400
 Content-Disposition: inline
-In-Reply-To: <CAGg4U=HQwGhQ95+FNumjLOH0m5Bnm8-3kOgfbMUGOV=Lzsyd6A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marian Corcodel <corcodel.marian@gmail.com> :
-> Late may add another exceptions . Hard reset is also on close function
-> and probe function not need to be present after
-> link ok.rtl_reset_work figure like mirror on rtl_open with small exceptions.
-> 
-> 2015-08-29 14:26 GMT+03:00 Francois Romieu <romieu@fr.zoreil.com>:
-[...]
-> > Please don't send me private only e-mail.
+Hi Steffen:
 
-$ cat >> ~/.procmailrc<<EOD
+I received a bug report regarding poor IPComp performance over
+IPv6:
 
-:0:
-* From.*corcodel.marian@gmail.com
-/dev/null
+	https://bugzilla.redhat.com/show_bug.cgi?id=1257952
 
-EOD
+It appears to have been caused by
 
-Messages that make their way through mailing-lists will proceed normally.
+commit dd767856a36e00b631d65ebc4bb81b19915532d6
+Author: Steffen Klassert <steffen.klassert@secunet.com>
+Date:   Tue Oct 11 01:44:30 2011 +0000
 
+    xfrm6: Don't call icmpv6_send on local error
+
+which addded an MTU check without a GSO override.
+
+Fixing it obviously isn't difficult, but I am wondering why I
+can't find a corresponding patch for IPv4.  Do we need that check
+to be present in xfrm6_output at all? If we do why isn't it needed
+for IPv4 as well?
+
+Thanks,
 -- 
-Ueimor
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
