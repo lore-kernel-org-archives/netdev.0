@@ -1,43 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] geneve: Use GRO cells infrastructure.
-Date: Sun, 30 Aug 2015 08:55:56 -0700
-Message-ID: <1440950156.8932.154.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1440806080-126757-1-git-send-email-jesse@nicira.com>
-	 <20150829.134537.1296061605473806203.davem@davemloft.net>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH net-next 6/8] net: thunderx: Rework interrupt handler
+Date: Sun, 30 Aug 2015 22:01:04 +0530
+Message-ID: <CA+sq2CdEn4vq3FD5RyQwuagmE9TNu91XmamjEFLaF4SOyrp64A@mail.gmail.com>
+References: <CALW4P++2cG5epoit8BXBjp7Z2PK=P5wqbxkDqrt6kCa7SaZK+g@mail.gmail.com>
+	<55E2CAE6.1040305@auriga.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36643 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753497AbbH3Pz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 11:55:58 -0400
-Received: by pabpg12 with SMTP id pg12so5906786pab.3
-        for <netdev@vger.kernel.org>; Sun, 30 Aug 2015 08:55:57 -0700 (PDT)
-In-Reply-To: <20150829.134537.1296061605473806203.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexey Klimov <klimov.linux@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Robert Richter <rric@kernel.org>,
+	David Daney <david.daney@cavium.com>,
+	Sunil Goutham <Sunil.Goutham@caviumnetworks.com>,
+	Aleksey Makarov <aleksey.makarov@caviumnetworks.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Robert Richter <robert.richter@caviumnetworks.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	LAKML <linux-arm-kernel@lists.infradead.org>
+To: Aleksey Makarov <feumilieu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55E2CAE6.1040305@auriga.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2015-08-29 at 13:45 -0700, David Miller wrote:
+On Sun, Aug 30, 2015 at 2:50 PM, Aleksey Makarov <feumilieu@gmail.com> wrote:
+> On 29.08.2015 04:44, Alexey Klimov wrote:
+>
+>>> -static irqreturn_t nicvf_intr_handler(int irq, void *nicvf_irq)
+>>> +static irqreturn_t nicvf_intr_handler(int irq, void *cq_irq)
+>>> +{
+>>> +       struct nicvf_cq_poll *cq_poll = (struct nicvf_cq_poll *)cq_irq;
+>>> +       struct nicvf *nic = cq_poll->nicvf;
+>>> +       int qidx = cq_poll->cq_idx;
+>>> +
+>>> +       nicvf_dump_intr_status(nic);
+>>> +
+>>> +       /* Disable interrupts */
+>>> +       nicvf_disable_intr(nic, NICVF_INTR_CQ, qidx);
+>>> +
+>>> +       /* Schedule NAPI */
+>>> +       napi_schedule(&cq_poll->napi);
+>>> +
+>>> +       /* Clear interrupt */
+>>> +       nicvf_clear_intr(nic, NICVF_INTR_CQ, qidx);
+>>> +
+>>> +       return IRQ_HANDLED;
+>>> +}
+>>
+>>
+>> You're not considering spurious irqs in all new irq handlers here and
+>> below and schedule napi/tasklets unconditionally. Is it correct?
+>> For me it looks like previous implementation relied on reading of
+>> NIC_VF_INT to understand irq type and what actions should be
+>> performed. It generally had idea that no interrupt might occur.
+>
+>
+> 1. The previous version of the handler did not handle spurious interrupts
+> either.  Probably that means that the author of the patch knows for sure
+> that they do not happen.
 
-> 
-> While reviewing this I noticed that the gro cells code goes through all
-> of the trouble of allocating full per-cpu objects to manage the packet
-> queuing and processing, but then it uses a full spinlock for protection.
-> 
-> It ought to be sufficient to just block out BH processing or, at worst,
-> local cpu interrupts, to protect the individual per-cpu cells.
+Yes, no spurious interrupts are expected from hardware.
+Even if it does the NAPI poll routine will handle it as valid
+descriptor count would be zero.
+Don't think it makes sense to check for spurious interrupt upon every interrupt.
 
-Original commit envisioned a possible improvement of gro_cells in case a
-NIC receives all GRE traffic on a single RX queue.
+>
+> 2. Instead of reading the status register new version registers different
+> handlers for different irqs.  I don't see why it can be wrong.
 
-(If for example Toeplitz hash RSS looks at outer IP header, and all
-traffic is encapsulated with a constant tuple)
+Previous implementation results on scheduling multiple NAPI poll handlers
+on the same CPU even if IRQ's affinities are set to different CPUs.
+Hence they are seperated now.
 
-Idea was to add a mode where we could select a gro cell not based on
-current cpu number but a hash based on flow software flow dissection.
-
-If we do not plan to add this feature, we certainly can remove the
-spinlocks now we have per cpu cells.
+>
+> I am going to address your other suggestions in the next version of the
+> patchset.
+>
+> Thank you
+> Aleksey Makarov
+>
