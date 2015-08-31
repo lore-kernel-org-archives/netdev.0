@@ -1,52 +1,34 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next 0/3] L3 RX handler
-Date: Sun, 30 Aug 2015 21:59:23 -0600
-Message-ID: <55E3D11B.9050303@cumulusnetworks.com>
-References: <1440808463-14526-1-git-send-email-dsa@cumulusnetworks.com>
- <1440811867.8932.111.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150828.221417.905062374709400810.davem@davemloft.net>
- <55E1CDCB.2030205@cumulusnetworks.com>
- <CALx6S37JNtd-+A0pCTGGq=4oj_YoVHc0XZpX-tPzv9L8YvmGyg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC V4 0/2] Optimize the snmp stat aggregation for
+ large cpus
+Date: Sun, 30 Aug 2015 21:49:16 -0700 (PDT)
+Message-ID: <20150830.214916.1137167975405435830.davem@davemloft.net>
+References: <y>
+	<1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:36677 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751256AbbHaD70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 23:59:26 -0400
-Received: by iod35 with SMTP id 35so15664954iod.3
-        for <netdev@vger.kernel.org>; Sun, 30 Aug 2015 20:59:26 -0700 (PDT)
-In-Reply-To: <CALx6S37JNtd-+A0pCTGGq=4oj_YoVHc0XZpX-tPzv9L8YvmGyg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, jiri@resnulli.us, edumazet@google.com,
+	hannes@stressinduktion.org, tom@herbertland.com, azhou@nicira.com,
+	ebiederm@xmission.com, ipm@chirality.org.uk,
+	nicolas.dichtel@6wind.com, serge.hallyn@canonical.com,
+	joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
+	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
+To: raghavendra.kt@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Tom:
+From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
+Date: Sun, 30 Aug 2015 11:29:40 +0530
 
-On 8/29/15 12:02 PM, Tom Herbert wrote:
-> To begin with, can we abstract out the need for common code to know
-> about the VRF device (netif_index_is_vrf). Looking more closely at
-> udp_semdmsg code, there's seems to be some potential problems:
+> While creating 1000 containers, perf is showing lot of time spent in
+> snmp_fold_field on a large cpu system.
+> 
+> The current patch tries to improve by reordering the statistics gathering.
+ ...
 
-My intention to address your udp_sendmsg comment is to rip out the 
-change that was added and set the source address in the VRF device 
-driver. Doing so ...
-
->
-> 1) In the VRF case route lookup is being called twice for every
-> unconnected packet when going through vrf path :-(
-> 2) The "unconnected socket" comment is not incorrect, this path is
-> taken for connected sockets also before there is a cache route
-> 3) Looks like in VRF path the source address can be arbitrarily
-> overwritten in the case that it is non-zero (that is non-zero, but not
-> a connect socket).
-
-... fixes the above problems for non-VRF users completely. VRF users 
-will still have multiple lookups but that is by design.
-
-David
+Series applied, thanks.
