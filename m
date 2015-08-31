@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ip-tunnel: Use API to access tunnel metadata
- options.
-Date: Mon, 31 Aug 2015 12:29:11 -0700 (PDT)
-Message-ID: <20150831.122911.1625667885956647191.davem@davemloft.net>
-References: <1440983378-2107-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH 2/2] IGMP: Inhibit reports for local multicast groups -
+ DOCUMENT
+Date: Mon, 31 Aug 2015 12:30:52 -0700 (PDT)
+Message-ID: <20150831.123052.2026420716334269701.davem@davemloft.net>
+References: <d208b6d6990faa29d022fbdc03bd9968a458e250.1441016151.git.pdowney@brocade.com>
+	<dff26e321e8af946d1dd1899eef1327e64a517a3.1441016151.git.pdowney@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51318 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754158AbbHaT3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:29:12 -0400
-In-Reply-To: <1440983378-2107-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cwang@twopensource.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: pdowney@brocade.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <dff26e321e8af946d1dd1899eef1327e64a517a3.1441016151.git.pdowney@brocade.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Sun, 30 Aug 2015 18:09:38 -0700
+From: Philip Downey <pdowney@brocade.com>
+Date: Mon, 31 Aug 2015 11:30:38 +0100
 
-> Currently tun-info options pointer is used in few cases to
-> pass options around. But tunnel options can be accessed using
-> ip_tunnel_info_opts() API without using the pointer. Following
-> patch removes the redundant pointer and consistently make use
-> of API.
+> Document the addition of a new sysctl variable which controls the
+> generation of IGMP reports for link local multicast groups in the
+> 224.0.0.X range.
 > 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> IGMP reports for local multicast groups can now be optionally
+> inhibited by setting the value to zero e.g.:
+> echo 0 > /proc/sys/net/ipv4/igmp_link_local_mcast_reports
+> 
+> To retain backwards compatibility the previous behaviour is retained
+> by default on system boot or reverted by setting the value back to
+> non-zero.
+> 
+> Signed-off-by: Philip Downey <pdowney@brocade.com>
 
 Applied, thanks.
