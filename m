@@ -1,30 +1,60 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] ip-tunnel: Use API to access tunnel metadata options.
-Date: Mon, 31 Aug 2015 12:11:25 -0700
-Message-ID: <CAEP_g=_LCrnqHzOgAhTSmrUPxBDGGCOCcgB_QnC44v8WSnoj6Q@mail.gmail.com>
-References: <1440983378-2107-1-git-send-email-pshelar@nicira.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v4 10/10] ss: extended json_writer for hex field and
+ value output
+Date: Mon, 31 Aug 2015 12:20:04 -0700
+Message-ID: <20150831122004.3a3aba15@urahara>
+References: <1440941075-26478-1-git-send-email-matthias.tafelmeier@gmx.net>
+	<ec6b5a61cd6849f5bc3f1707fab052b6@HQ1WP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"shemminger@osdl.org" <shemminger@osdl.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:34427 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbbHaTLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:11:46 -0400
-Received: by lbbtg9 with SMTP id tg9so66218139lbb.1
-        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 12:11:45 -0700 (PDT)
-In-Reply-To: <1440983378-2107-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33505 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754000AbbHaTTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:19:53 -0400
+Received: by paczk9 with SMTP id zk9so206817pac.0
+        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 12:19:53 -0700 (PDT)
+In-Reply-To: <ec6b5a61cd6849f5bc3f1707fab052b6@HQ1WP-EXMB11.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 30, 2015 at 6:09 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> Currently tun-info options pointer is used in few cases to
-> pass options around. But tunnel options can be accessed using
-> ip_tunnel_info_opts() API without using the pointer. Following
-> patch removes the redundant pointer and consistently make use
-> of API.
->
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Reviewed-by: Jesse Gross <jesse@nicira.com>
+> diff --git a/lib/json_writer.c b/lib/json_writer.c
+> index 2af16e1..495ce57 100644
+> --- a/lib/json_writer.c
+> +++ b/lib/json_writer.c
+> @@ -22,6 +22,8 @@
+>  
+>  #include "json_writer.h"
+>  
+> +#define notused
+> +
+
+Gack. Just take out the #ifdef
+
+>  struct json_writer {
+>  	FILE		*out;	/* output file */
+>  	unsigned	depth;  /* nesting */
+> @@ -223,6 +225,14 @@ void jsonw_int(json_writer_t *self, int64_t num)
+>  	jsonw_printf(self, "%"PRId64, num);
+>  }
+>  
+> +void jsonw_hex(json_writer_t *self, uint64_t num)
+> +{
+> +	char tmp[17];
+> +
+> +	sprintf(tmp, "%"PRIx64, num);
+> +	jsonw_string(self, tmp);
+> +}
+> +
+
+No. JSON is a standard. The output has to be one of the formats in the
+standard. hex is a display issue not an encoding style.
