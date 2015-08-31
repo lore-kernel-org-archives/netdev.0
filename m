@@ -1,52 +1,43 @@
-From: Philip Downey <pdowney@brocade.com>
-Subject: [PATCH 2/2] IGMP: Inhibit reports for local multicast groups - DOCUMENT
-Date: Mon, 31 Aug 2015 11:30:38 +0100
-Message-ID: <dff26e321e8af946d1dd1899eef1327e64a517a3.1441016151.git.pdowney@brocade.com>
-References: <d208b6d6990faa29d022fbdc03bd9968a458e250.1441016151.git.pdowney@brocade.com>
+From: Philip Downey <pdowney@Brocade.com>
+Subject: RE: [PATCH] IGMP: Inhibit reports for local multicast groups
+Date: Mon, 31 Aug 2015 10:33:30 +0000
+Message-ID: <423f675f4cd049bc83a3920dd8a30c18@EMEAWP-EXMB12.corp.brocade.com>
+References: <6112e6ccb97c5015b6f8125d8c0f75c179b53198.1440689853.git.pdowney@brocade.com>
+ <CAHA+R7Mv=-QoeRuY1nPEV55o5MMekeW+GqOuU+dh18a_5+iYOg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Philip Downey <pdowney@brocade.com>
-To: <cwang@twopensource.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d208b6d6990faa29d022fbdc03bd9968a458e250.1441016151.git.pdowney@brocade.com>
+In-Reply-To: <CAHA+R7Mv=-QoeRuY1nPEV55o5MMekeW+GqOuU+dh18a_5+iYOg@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Document the addition of a new sysctl variable which controls the
-generation of IGMP reports for link local multicast groups in the
-224.0.0.X range.
-
-IGMP reports for local multicast groups can now be optionally
-inhibited by setting the value to zero e.g.:
-echo 0 > /proc/sys/net/ipv4/igmp_link_local_mcast_reports
-
-To retain backwards compatibility the previous behaviour is retained
-by default on system boot or reverted by setting the value back to
-non-zero.
-
-Signed-off-by: Philip Downey <pdowney@brocade.com>
----
- Documentation/networking/ip-sysctl.txt |    5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 5fae770..5f394d5 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1181,6 +1181,11 @@ tag - INTEGER
- 	Allows you to write a number, which can be used as required.
- 	Default value is 0.
- 
-+igmp_link_local_mcast_reports - BOOLEAN
-+	Enable IGMP reports for link local multicast groups in the
-+	224.0.0.X range.
-+	Default TRUE
-+
- Alexey Kuznetsov.
- kuznet@ms2.inr.ac.ru
- 
--- 
-1.7.10.4
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29uZyBXYW5nIFttYWls
+dG86Y3dhbmdAdHdvcGVuc291cmNlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBBdWd1c3QgMjgsIDIw
+MTUgMTA6MjAgUE0NCj4gVG86IFBoaWxpcCBEb3duZXkNCj4gQ2M6IERhdmlkIE1pbGxlcjsgQWxl
+eGV5IEt1em5ldHNvdjsgSmFtZXMgTW9ycmlzOyBIaWRlYWtpIFlPU0hJRlVKSTsgUGF0cmljaw0K
+PiBNY0hhcmR5OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBuZXRkZXYNCj4gU3ViamVj
+dDogUmU6IFtQQVRDSF0gSUdNUDogSW5oaWJpdCByZXBvcnRzIGZvciBsb2NhbCBtdWx0aWNhc3Qg
+Z3JvdXBzDQo+IA0KPiBPbiBUaHUsIEF1ZyAyNywgMjAxNSBhdCA4OjQ2IEFNLCBQaGlsaXAgRG93
+bmV5IDxwZG93bmV5QGJyb2NhZGUuY29tPg0KPiB3cm90ZToNCj4gPiBJR01QIHJlcG9ydHMgZm9y
+IGxvY2FsIG11bHRpY2FzdCBncm91cHMgY2FuIG5vdyBiZSBvcHRpb25hbGx5DQo+ID4gaW5oaWJp
+dGVkIGJ5IG1lYW5zIG9mIGEgc3lzdGVtIGNvbnRyb2wgdmFyaWFibGUgKGJ5IHNldHRpbmcgdGhl
+IHZhbHVlDQo+ID4gdG8gemVybykgZS5nLjoNCj4gPiAgICAgZWNobyAwID4gL3Byb2Mvc3lzL25l
+dC9pcHY0L2lnbXBfbGlua19sb2NhbF9tY2FzdF9yZXBvcnRzDQo+ID4NCj4gPiBUbyByZXRhaW4g
+YmFja3dhcmRzIGNvbXBhdGliaWxpdHkgdGhlIHByZXZpb3VzIGJlaGF2aW91ciBpcyByZXRhaW5l
+ZA0KPiA+IGJ5IGRlZmF1bHQgb24gc3lzdGVtIGJvb3Qgb3IgcmV2ZXJ0ZWQgYnkgc2V0dGluZyB0
+aGUgdmFsdWUgYmFjayB0bw0KPiA+IG5vbi16ZXJvIGUuZy46DQo+ID4gICAgIGVjaG8gMSA+ICAv
+cHJvYy9zeXMvbmV0L2lwdjQvaWdtcF9saW5rX2xvY2FsX21jYXN0X3JlcG9ydHMNCj4gPg0KPiAN
+Cj4gUGxlYXNlIGRvY3VtZW50IGl0IGluIERvY3VtZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNj
+dGwudHh0Lg0KVGhhbmtzIGZvciB0aGUgY29tbWVudC4NCkkgaGF2ZSBnZW5lcmF0ZWQgYSBuZXcg
+cGF0Y2ggZm9yIHRoZSBwcm9wb3NlZCBkb2N1bWVudGF0aW9uIGNoYW5nZS4NCkhvcGUgdGhpcyBp
+cyB0aGUgY29ycmVjdCB0aGluZyB0byBkby4NCg0KUmVnYXJkcw0KDQpQaGlsaXANCg==
