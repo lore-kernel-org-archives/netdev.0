@@ -1,41 +1,123 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Mon, 31 Aug 2015 13:00:12 +0200
-Message-ID: <20150831110012.GO20760@orbit.nwl.cc>
-References: <20150829090701.GN20760@orbit.nwl.cc>
- <20150830074717.GA25396@gondor.apana.org.au>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [net-next:master 1512/1524] net/ipv4/af_inet.c:1486:26: error:
+ 'offt' undeclared
+Date: Mon, 31 Aug 2015 12:25:09 +0000
+Message-ID: <BL2PR03MB5454539B9B4A98A341595B9E66B0@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <201508311307.3W9KBVXz%fengguang.wu@intel.com>
+ <20150830.224133.1682564292994363817.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150830074717.GA25396@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "fengguang.wu@intel.com" <fengguang.wu@intel.com>,
+	"kbuild-all@01.org" <kbuild-all@01.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"raghavendra.kt@linux.vnet.ibm.com"
+	<raghavendra.kt@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0130.outbound.protection.outlook.com ([157.56.110.130]:8064
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752276AbbHaMZM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 08:25:12 -0400
+In-Reply-To: <20150830.224133.1682564292994363817.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 30, 2015 at 03:47:17PM +0800, Herbert Xu wrote:
-> Phil Sutter <phil@nwl.cc> wrote:
-> >
-> > Should we introduce a new field to struct rhashtable to track the
-> > internal state? This might allow to clean up some rather obscure tests,
-> > e.g. whether a table resize is in progress or not.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> Subject: Re: [net-next:master 1512/1524] net/ipv4/af_inet.c:1486:26: error:
+> 'offt' undeclared
 > 
-> Why would we want to do that? The deferred expansion is done
-> on a best effort basis so its failure has nothing to do with
-> the failure of a subsequent insertion.
+> From: kbuild test robot <fengguang.wu@intel.com>
+> Date: Mon, 31 Aug 2015 13:06:10 +0800
+> 
+> >    net/ipv4/af_inet.c: In function 'snmp_get_cpu_field64':
+> >>> net/ipv4/af_inet.c:1486:26: error: 'offt' undeclared (first use in this
+> function)
+> >       v = *(((u64 *)bhptr) + offt);
+> >                              ^
+> >    net/ipv4/af_inet.c:1486:26: note: each undeclared identifier is reported
+> only once for each function it appears in
+> >    net/ipv4/af_inet.c: In function 'snmp_fold_field64':
+> >>> net/ipv4/af_inet.c:1499:39: error: 'offct' undeclared (first use in this
+> function)
+> >       res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+> >                                           ^
+> >>> net/ipv4/af_inet.c:1499:10: error: too many arguments to function
+> 'snmp_get_cpu_field'
+> >       res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+> >              ^
+> >    net/ipv4/af_inet.c:1455:5: note: declared here
+> >     u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
+> >         ^
+> >    net/ipv4/af_inet.c:1499: confused by earlier errors, bailing out
+> 
+> Thanks, this should fix it:
+> 
+> ====================
+> [PATCH] ipv4: Fix 32-bit build.
+> 
+>    net/ipv4/af_inet.c: In function 'snmp_get_cpu_field64':
+> >> net/ipv4/af_inet.c:1486:26: error: 'offt' undeclared (first use in this
+> function)
+>       v = *(((u64 *)bhptr) + offt);
+>                              ^
+>    net/ipv4/af_inet.c:1486:26: note: each undeclared identifier is reported
+> only once for each function it appears in
+>    net/ipv4/af_inet.c: In function 'snmp_fold_field64':
+> >> net/ipv4/af_inet.c:1499:39: error: 'offct' undeclared (first use in this
+> function)
+>       res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+>                                           ^
+> >> net/ipv4/af_inet.c:1499:10: error: too many arguments to function
+> 'snmp_get_cpu_field'
+>       res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+>              ^
+>    net/ipv4/af_inet.c:1455:5: note: declared here
+>     u64 snmp_get_cpu_field(void __percpu *mib, int cpu, int offt)
+>         ^
+> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/ipv4/af_inet.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 0c69c0b..c2d0ebc 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1471,7 +1471,7 @@ EXPORT_SYMBOL_GPL(snmp_fold_field);
+> 
+>  #if BITS_PER_LONG==32
+> 
+> -u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offct,
+> +u64 snmp_get_cpu_field64(void __percpu *mib, int cpu, int offt,
+>  			 size_t syncp_offset)
+>  {
+>  	void *bhptr;
+> @@ -1496,7 +1496,7 @@ u64 snmp_fold_field64(void __percpu *mib, int
+> offt, size_t syncp_offset)
+>  	int cpu;
+> 
+>  	for_each_possible_cpu(cpu) {
+> -		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
+> +		res += snmp_get_cpu_field(mib, cpu, offt, syncp_offset);
+>  	}
+>  	return res;
+>  }
+> --
+> 2.1.0
+> 
+> --
 
-The variable would be used to track if the worker has failed to allocate
-memory in background.
+Hi,
 
-Since the failing insertion will be retried, subsequent inserts are not
-necessary unrelated.
+shouldn't that be snmp_get_cpu_field64() ?
 
-> The insertion must have tried its own last-ditch synchronous
-> expansion and only fail if that fails.
+-		res += snmp_get_cpu_field(mib, cpu, offct, syncp_offset);
++		res += snmp_get_cpu_field64(mib, cpu, offt, syncp_offset);
 
-Who do you mean with "the insertion"? The user or the API?
-
-Cheers, Phil
+Madalin
