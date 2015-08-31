@@ -1,97 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] gro_cells: remove spinlock protecting receive
- queues
-Date: Mon, 31 Aug 2015 13:57:34 -0700
-Message-ID: <1441054654.8932.159.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34419 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753054AbbHaU5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 16:57:36 -0400
-Received: by pabzx8 with SMTP id zx8so150724639pab.1
-        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 13:57:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dave Hansen <dave@sr71.net>
+Subject: [PATCH] e1000: fix e1000e_disable_aspm_locked() warning
+Date: Mon, 31 Aug 2015 14:26:41 -0700
+Message-ID: <20150831212641.FA5D579A@viggo.jf.intel.com>
+Cc: dave.hansen@linux.intel.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, john.ronciak@intel.com,
+	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dave@sr71.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
 
-As David pointed out, spinlock are no longer needed
-to protect the per cpu queues used in gro cells infrastructure.
+From: Dave Hansen <dave.hansen@linux.intel.com>
 
-Also use new napi_complete_done() API so that gro_flush_timeout
-tweaks have an effect.
+I have a .config with CONFIG_PM disabled.  I get the following whenever
+compiling the e1000 driver:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+...net/ethernet/intel/e1000e/netdev.c:6450:13: warning: 'e1000e_disable_aspm_locked' defined but not used [-Wunused-function]
+ static void e1000e_disable_aspm_locked(struct pci_dev *pdev, u16 state)
+
+Looks like we just need to move e1000e_disable_aspm_locked() to
+be underneath the CONFIG_PM #ifdef.
+
+Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com> (supporter:INTEL ETHERNET DRIVERS)
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com> (reviewer)
+Cc: Shannon Nelson <shannon.nelson@intel.com> (reviewer)
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com> (reviewer)
+Cc: Don Skidmore <donald.c.skidmore@intel.com> (reviewer)
+Cc: Matthew Vick <matthew.vick@intel.com> (reviewer)
+Cc: John Ronciak <john.ronciak@intel.com> (reviewer)
+Cc: Mitch Williams <mitch.a.williams@intel.com> (reviewer)
+Cc: intel-wired-lan@lists.osuosl.org (open list:INTEL ETHERNET DRIVERS)
+Cc: netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
+Cc: linux-kernel@vger.kernel.org (open list)
 ---
- include/net/gro_cells.h |   18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
-index 0f712c0..cf6c745 100644
---- a/include/net/gro_cells.h
-+++ b/include/net/gro_cells.h
-@@ -32,37 +32,28 @@ static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *s
- 		return;
- 	}
- 
--	/* We run in BH context */
--	spin_lock(&cell->napi_skbs.lock);
--
- 	__skb_queue_tail(&cell->napi_skbs, skb);
- 	if (skb_queue_len(&cell->napi_skbs) == 1)
- 		napi_schedule(&cell->napi);
--
--	spin_unlock(&cell->napi_skbs.lock);
+ b/drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN drivers/net/ethernet/intel/e1000e/netdev.c~fix-e1000-warning drivers/net/ethernet/intel/e1000e/netdev.c
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c~fix-e1000-warning	2015-08-31 14:19:11.520115321 -0700
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c	2015-08-31 14:19:11.525115549 -0700
+@@ -6439,6 +6439,7 @@ static void e1000e_disable_aspm(struct p
+ 	__e1000e_disable_aspm(pdev, state, 0);
  }
  
--/* called unser BH context */
-+/* called under BH context */
- static inline int gro_cell_poll(struct napi_struct *napi, int budget)
++#ifdef CONFIG_PM
+ /**
+  * e1000e_disable_aspm_locked   Disable ASPM states.
+  * @pdev: pointer to PCI device struct
+@@ -6452,7 +6453,6 @@ static void e1000e_disable_aspm_locked(s
+ 	__e1000e_disable_aspm(pdev, state, 1);
+ }
+ 
+-#ifdef CONFIG_PM
+ static int __e1000_resume(struct pci_dev *pdev)
  {
- 	struct gro_cell *cell = container_of(napi, struct gro_cell, napi);
- 	struct sk_buff *skb;
- 	int work_done = 0;
- 
--	spin_lock(&cell->napi_skbs.lock);
- 	while (work_done < budget) {
- 		skb = __skb_dequeue(&cell->napi_skbs);
- 		if (!skb)
- 			break;
--		spin_unlock(&cell->napi_skbs.lock);
- 		napi_gro_receive(napi, skb);
- 		work_done++;
--		spin_lock(&cell->napi_skbs.lock);
- 	}
- 
- 	if (work_done < budget)
--		napi_complete(napi);
--	spin_unlock(&cell->napi_skbs.lock);
-+		napi_complete_done(napi, work_done);
- 	return work_done;
- }
- 
-@@ -77,7 +68,7 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
- 	for_each_possible_cpu(i) {
- 		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
- 
--		skb_queue_head_init(&cell->napi_skbs);
-+		__skb_queue_head_init(&cell->napi_skbs);
- 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
- 		napi_enable(&cell->napi);
- 	}
-@@ -92,8 +83,9 @@ static inline void gro_cells_destroy(struct gro_cells *gcells)
- 		return;
- 	for_each_possible_cpu(i) {
- 		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
-+
- 		netif_napi_del(&cell->napi);
--		skb_queue_purge(&cell->napi_skbs);
-+		__skb_queue_purge(&cell->napi_skbs);
- 	}
- 	free_percpu(gcells->cells);
- 	gcells->cells = NULL;
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+_
