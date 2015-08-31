@@ -1,146 +1,71 @@
-From: Alexey Kardashevskiy <aik@ozlabs.ru>
-Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Add port attribute when
- tracking counters"
-Date: Mon, 31 Aug 2015 12:39:50 +1000
-Message-ID: <55E3BE76.60801@ozlabs.ru>
-References: <1440770776-27951-1-git-send-email-aik@ozlabs.ru>
- <CAJ3xEMjbTFSKxURSuqFsjQNS6gJfdvgwo4NfYPrv2PrkgCt5YQ@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] macvtap/macvlan: use IFF_NO_QUEUE
+Date: Mon, 31 Aug 2015 10:45:57 +0800
+Message-ID: <55E3BFE5.2080208@redhat.com>
+References: <1440405192-25926-1-git-send-email-jasowang@redhat.com> <20150825131608-mutt-send-email-mst@redhat.com> <55DC51C1.5090201@redhat.com> <55DC98A3.7010601@redhat.com> <55DD527A.8040806@redhat.com> <20150827134102-mutt-send-email-mst@redhat.com> <55DFCA7B.8050908@redhat.com> <55E05352.9040808@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Eran Ben Elisha <eranbe@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Richard Yang <weiyang@linux.vnet.ibm.com>,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>,
-	Michael Ellerman <mpe@ellerman.id.au>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34660 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751898AbbHaCj6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Aug 2015 22:39:58 -0400
-Received: by pabzx8 with SMTP id zx8so122747162pab.1
-        for <netdev@vger.kernel.org>; Sun, 30 Aug 2015 19:39:57 -0700 (PDT)
-In-Reply-To: <CAJ3xEMjbTFSKxURSuqFsjQNS6gJfdvgwo4NfYPrv2PrkgCt5YQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: vyasevic@redhat.com, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55E05352.9040808@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/30/2015 04:28 PM, Or Gerlitz wrote:
-> On Fri, Aug 28, 2015 at 7:06 AM, Alexey Kardashevskiy <aik@ozlabs.ru> wrote:
->> 68230242cdb breaks SRIOV on POWER8 system. I am not really suggesting
->> reverting the patch, rather asking for a fix.
+
+
+On 08/28/2015 08:25 PM, Vlad Yasevich wrote:
+> On 08/27/2015 10:42 PM, Jason Wang wrote:
+>> > 
+>> > 
+>> > On 08/27/2015 06:43 PM, Michael S. Tsirkin wrote:
+>>> >> On Wed, Aug 26, 2015 at 01:45:30PM +0800, Jason Wang wrote:
+>>>> >>>
+>>>> >>> On 08/26/2015 12:32 AM, Vlad Yasevich wrote:
+>>>>> >>>> On 08/25/2015 07:30 AM, Jason Wang wrote:
+>>>>>> >>>>> On 08/25/2015 06:17 PM, Michael S. Tsirkin wrote:
+>>>>>>> >>>>>> On Mon, Aug 24, 2015 at 04:33:12PM +0800, Jason Wang wrote:
+>>>>>>>>> >>>>>>>> For macvlan, switch to use IFF_NO_QUEUE instead of tx_queue_len = 0.
+>>>>>>>>> >>>>>>>>
+>>>>>>>>> >>>>>>>> For macvtap, after commit 6acf54f1cf0a6747bac9fea26f34cfc5a9029523
+>>>>>>>>> >>>>>>>> ("macvtap: Add support of packet capture on macvtap
+>>>>>>>>> >>>>>>>> device."). Multiqueue macvtap suffers from single qdisc lock
+>>>>>>>>> >>>>>>>> contention. This is because macvtap claims a non zero tx_queue_len and
+>>>>>>>>> >>>>>>>> it reuses this value as it socket receive queue size.Thanks to
+>>>>>>>>> >>>>>>>> IFF_NO_QUEUE, we can remove the lock contention without breaking
+>>>>>>>>> >>>>>>>> existing socket receive queue length logic.
+>>>>>>>>> >>>>>>>>
+>>>>>>>>> >>>>>>>> Cc: Patrick McHardy <kaber@trash.net>
+>>>>>>>>> >>>>>>>> Cc: Vladislav Yasevich <vyasevic@redhat.com>
+>>>>>>>>> >>>>>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>>>>>>>>> >>>>>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>>>>> >>>>>> Seems to make sense. Give me a day or two to get over the jet lag
+>>>>>>> >>>>>> (and get out from under the pile of mail accumulated while I was traveling),
+>>>>>>> >>>>>> I'll review properly and ack.
+>>>>>>> >>>>>>
+>>>>>> >>>>> A note on this patch: only default qdisc were removed but we don't lose
+>>>>>> >>>>> the ability to attach a qdisc to macvtap (though it may cause lock
+>>>>>> >>>>> contention on multiqueue case).
+>>>>>> >>>>>
+>>>>> >>>> Wouldn't that lock contention be solved if we really had multiple queues
+>>>>> >>>> for multi-queue macvtaps?
+>>>>> >>>>
+>>>>> >>>> -vlad
+>>>> >>> Yes, but this introduce another layer of txq locks contention?
+>>> >> I don't follow - why does it? Could you clarify please?
+>> > 
+>> > I believe Vlad wants to remove NETIF_F_LLTX. If yes, core will do an
+>> > extra tx lock at macvlan layer.
+> No, I don't want to remove it.  In a sense, it would function similar to
+> how it works when fwd_priv is populated.  I am still testing the code
+> as it's showing some strange artifacts...  could be due to keeping LLTX.
 >
-> thanks for the detailed report, we will look into that.
+> -vlad
 >
-> Just to be sure, when going back in time, what is the latest upstream
-> version where
-> this system/config works okay? is that 4.1 or later?
 
-4.1 is good, 4.2 is not.
+I see. I'm ok to wait for your code. But if a patch of just two lines
+works, probably no need to try complex method.
 
-
->
->>
->> To reproduce it:
->>
->> 1. boot latest upstream kernel (v4.2-rc8 sha1 4941b8f, ppc64le)
->>
->> 2. Run:
->> sudo rmmod mlx4_en mlx4_ib mlx4_core
->> sudo modprobe mlx4_core num_vfs=4 probe_vf=4 port_type_array=2,2 debug_level=1
->>
->> 3. Run QEMU (just to give a complete picture):
->> /home/aik/qemu-system-ppc64 -enable-kvm -m 2048 -machine pseries \
->> -nodefaults \
->> -chardev stdio,id=id0,signal=off,mux=on \
->> -device spapr-vty,id=id1,chardev=id0,reg=0x71000100 \
->> -mon id=id2,chardev=id0,mode=readline -nographic -vga none \
->> -initrd dhclient.cpio -kernel vml400bedbg \
->> -device vfio-pci,id=id3,host=0003:03:00.1
->> What guest is used does not matter at all.
->>
->> 4. Wait till guest boots and then run:
->> dhclient
->> This assigns IPs to both interfaces just fine. This is essential -
->> if interface was not brought up since guest started, the bug does not appear.
->> If interface was up and then down, this still causes the problem
->> (less likely though).
->>
->> 5. Run in the guest: shutdown -h 0
->> Guest prints:
->> mlx4_en: eth0: Close port called
->> mlx4_en: eth1: Close port called
->> mlx4_core 0000:00:00.0: mlx4_shutdown was called
->> And then the host hangs. After 10-30 seconds the host console prints:
->> NMI watchdog: BUG: soft lockup - CPU#0 stuck for 22s! [qemu-system-ppc:5095]
->> OR
->> INFO: rcu_sched detected stalls on CPUs/tasks:
->> or some other random stuff but always related to some sort of lockup.
->> Backtraces are like these:
->>
->> [c000001e492a7ac0] [c000000000135b84] smp_call_function_many+0x2f4/0x3fable)
->> [c000001e492a7b40] [c000000000135db8] kick_all_cpus_sync+0x38/0x50
->> [c000001e492a7b60] [c000000000048f38] pmdp_huge_get_and_clear+0x48/0x70
->> [c000001e492a7b90] [c00000000023181c] change_huge_pmd+0xac/0x210
->> [c000001e492a7bf0] [c0000000001fb9e8] change_protection+0x678/0x720
->> [c000001e492a7d00] [c000000000217d38] change_prot_numa+0x28/0xa0
->> [c000001e492a7d30] [c0000000000e0e40] task_numa_work+0x2a0/0x370
->> [c000001e492a7db0] [c0000000000c5fb4] task_work_run+0xe4/0x160
->> [c000001e492a7e00] [c0000000000169a4] do_notify_resume+0x84/0x90
->> [c000001e492a7e30] [c0000000000098b8] ret_from_except_lite+0x64/0x68
->>
->> OR
->>
->> [c000001def1b7280] [c000000ff941d368] 0xc000000ff941d368 (unreliable)
->> [c000001def1b7450] [c00000000001512c] __switch_to+0x1fc/0x350
->> [c000001def1b7490] [c000001def1b74e0] 0xc000001def1b74e0
->> [c000001def1b74e0] [c00000000011a50c] try_to_del_timer_sync+0x5c/0x90
->> [c000001def1b7520] [c00000000011a590] del_timer_sync+0x50/0x70
->> [c000001def1b7550] [c0000000009136fc] schedule_timeout+0x15c/0x2b0
->> [c000001def1b7620] [c000000000910e6c] wait_for_common+0x12c/0x230
->> [c000001def1b7660] [c0000000000fa22c] up+0x4c/0x80
->> [c000001def1b76a0] [d000000016323e60] __mlx4_cmd+0x320/0x940 [mlx4_core]
->> [c000001def1b7760] [c000001def1b77a0] 0xc000001def1b77a0
->> [c000001def1b77f0] [d0000000163528b4] mlx4_2RST_QP_wrapper+0x154/0x1e0 [mlx4_core]
->> [c000001def1b7860] [d000000016324934] mlx4_master_process_vhcr+0x1b4/0x6c0 [mlx4_core]
->> [c000001def1b7930] [d000000016324170] __mlx4_cmd+0x630/0x940 [mlx4_core]
->> [c000001def1b79f0] [d000000016346fec] __mlx4_qp_modify.constprop.8+0x1ec/0x350 [mlx4_core]
->> [c000001def1b7ac0] [d000000016292228] mlx4_ib_destroy_qp+0xd8/0x5d0 [mlx4_ib]
->> [c000001def1b7b60] [d000000013c7305c] ib_destroy_qp+0x1cc/0x290 [ib_core]
->> [c000001def1b7bb0] [d000000016284548] destroy_pv_resources.isra.14.part.15+0x48/0xf0 [mlx4_ib]
->> [c000001def1b7be0] [d000000016284d28] mlx4_ib_tunnels_update+0x168/0x170 [mlx4_ib]
->> [c000001def1b7c20] [d0000000162876e0] mlx4_ib_tunnels_update_work+0x30/0x50 [mlx4_ib]
->> [c000001def1b7c50] [c0000000000c0d34] process_one_work+0x194/0x490
->> [c000001def1b7ce0] [c0000000000c11b0] worker_thread+0x180/0x5a0
->> [c000001def1b7d80] [c0000000000c8a0c] kthread+0x10c/0x130
->> [c000001def1b7e30] [c0000000000095a8] ret_from_kernel_thread+0x5c/0xb4
->>
->> i.e. may or may not mention mlx4.
->> The issue may not happen on a first try but maximum on the second.
->
-> so when you revert commit 68230242cdb on the host all works just fine?
-> what guest driver are you running?
-
-To be precise, I did checkout 68230242cdb, checked that it does not work, 
-then reverted 68230242cdb right there and checked that it works. I did not 
-try reverting later revisions yet.
-
-My guest kernel in this test has tag v4.0. I get the same effect with some 
-3.18 from Ubuntu 14.04 LTS so the guest kernel version does not make a 
-difference afaict.
-
-
-> This needs a fix, I don't think the right thing to do is just go and
-> revert the commit, if the right fix misses 4.2 we will get it there
-> through -stable
-
-v4.2 was just released :)
-
-
--- 
-Alexey
+Thanks
