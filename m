@@ -1,49 +1,48 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPv6 xfrm GSO fragmentation bug
-Date: Mon, 31 Aug 2015 09:19:16 +0200
-Message-ID: <20150831071916.GG25499@secunet.com>
-References: <20150830082432.GA25588@gondor.apana.org.au>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 2/2] usbnet: Fix a race between usbnet_stop() and the BH
+Date: Mon, 31 Aug 2015 09:32:54 +0200
+Message-ID: <87io7vzzdl.fsf@nemi.mork.no>
+References: <55AD3A41.2040100@rosalab.ru>
+	<1440447223-15945-1-git-send-email-eugene.shatokhin@rosalab.ru>
+	<1440447223-15945-3-git-send-email-eugene.shatokhin@rosalab.ru>
+	<87k2sk9zaf.fsf@nemi.mork.no> <55E01750.4010202@rosalab.ru>
+	<87mvxbzta9.fsf@nemi.mork.no> <55E03B28.6050305@rosalab.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:56510 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752531AbbHaHTT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Aug 2015 03:19:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20150830082432.GA25588@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oneukum@suse.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55E03B28.6050305@rosalab.ru> (Eugene Shatokhin's message of
+	"Fri, 28 Aug 2015 13:42:48 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 30, 2015 at 04:24:32PM +0800, Herbert Xu wrote:
-> Hi Steffen:
-> 
-> I received a bug report regarding poor IPComp performance over
-> IPv6:
-> 
-> 	https://bugzilla.redhat.com/show_bug.cgi?id=1257952
-> 
-> It appears to have been caused by
-> 
-> commit dd767856a36e00b631d65ebc4bb81b19915532d6
-> Author: Steffen Klassert <steffen.klassert@secunet.com>
-> Date:   Tue Oct 11 01:44:30 2011 +0000
-> 
->     xfrm6: Don't call icmpv6_send on local error
-> 
-> which addded an MTU check without a GSO override.
-> 
-> Fixing it obviously isn't difficult, but I am wondering why I
-> can't find a corresponding patch for IPv4.  Do we need that check
-> to be present in xfrm6_output at all? If we do why isn't it needed
-> for IPv4 as well?
+Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
+> 28.08.2015 11:55, Bj=C3=B8rn Mork =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>
+>> I guess you are right.  At least I cannot prove that you are not :)
+>>
+>> There is a bit too much complexity involved here for me...
+>
+> :-)
+>
+> Yes, it is quite complex.
+>
+> I admit, it was easier for me to find the races in usbnet (the tools
+> like KernelStrider and RaceHound do the dirty work) than to analyze
+> their consequences. The latter often requires some time and effort,
+> and so it did this time.
+>
+> Well, any objections to this patch?
 
-As far as I remember, this was to catch local message size
-errors before __xfrm6_output calls ip6_fragment which would
-use icmpv6_send for the error notification. IPv4 does not do
-fragmentation in the xfrm4_output functions, so this mtu
-check was not needed there.
+No objections from me.
 
-I think just adding the gso checks should be fine.
+But I would have liked it much better if the code became simpler instea=
+d
+of more complex.
+
+
+Bj=C3=B8rn
