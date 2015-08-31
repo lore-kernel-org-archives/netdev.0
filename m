@@ -1,50 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] tcp: receive-side per route dctcp
- handling
-Date: Mon, 31 Aug 2015 12:34:16 -0700 (PDT)
-Message-ID: <20150831.123416.266144212097794732.davem@davemloft.net>
-References: <cover.1441027533.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] lib: move strncpy_from_unsafe() into
+ mm/maccess.c
+Date: Mon, 31 Aug 2015 12:36:28 -0700 (PDT)
+Message-ID: <20150831.123628.1591879942458458246.davem@davemloft.net>
+References: <1441036630-10124-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51367 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbbHaTeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:34:17 -0400
-In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fengguang.wu@intel.com, linux@roeck-us.net, rostedt@goodmis.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441036630-10124-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon, 31 Aug 2015 15:58:43 +0200
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon, 31 Aug 2015 08:57:10 -0700
 
-> Original cover letter:
+> To fix build errors:
+> kernel/built-in.o: In function `bpf_trace_printk':
+> bpf_trace.c:(.text+0x11a254): undefined reference to `strncpy_from_unsafe'
+> kernel/built-in.o: In function `fetch_memory_string':
+> trace_kprobe.c:(.text+0x11acf8): undefined reference to `strncpy_from_unsafe'
 > 
->   Currently, the following case doesn't use DCTCP, even if it should:
+> move strncpy_from_unsafe() next to probe_kernel_read/write()
+> which use the same memory access style.
 > 
->     - responder has f.e. cubic as system wide default
->     - 'ip route congctl dctcp $src' was set
-> 
->   Then, DCTCP is NOT used if a DCTCP sender attempts to connect from a
->   host in the $src range: ECT(0) is set, but listen_sk is not dctcp, so
->   we fail the INET_ECN_is_not_ect sanity check.
-> 
->   We also have to examine the dst used for the SYN/ACK reply to make
->   this case work.
-> 
->   In order to minimize additional cost, store the 'ecn is must have'
->   information is the dst_features field.
-> 
->   The set targets -next instead of -net since this doesn't seem to be a
->   serious bug and to give the change more soak time until it hits linus
->   tree.
-> 
-> v1 -> v2:
->  - Addressed Dave's feedback, not exposing any bits to user space
->  - Added patch 3 to reject incorrect configurations
->  - Rest as is, rebased and retested
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Reported-by: Guenter Roeck <linux@roeck-us.net>
+> Fixes: 1a6877b9c0c2 ("lib: introduce strncpy_from_unsafe()")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> For configs without kprobes and bpf the cost of this unused function is
+> ~200 bytes which I think is a better trade off vs creating
+> new Kconfig selector just for this single function.
+> Another alternative is to move it to kernel/trace/trace_kprobe.c,
+> but then it will lose generality and probably should be removed
+> from include/linux/uaccess.h, so mm/maccess.c looks the best.
 
-Series applied, thanks Daniel.
+Ok, applied.
