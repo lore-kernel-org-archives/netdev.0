@@ -1,61 +1,80 @@
-From: Marius Tomaschewski <mt@suse.de>
-Subject: [PATCH] ipv6: send NEWLINK on RA managed/otherconf changes
-Date: Mon, 31 Aug 2015 15:59:22 +0200
-Message-ID: <20150831135922.GA24179@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Marius Tomaschewski <mt@suse.de>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2 3/4] fib, fib6: reject invalid feature bits
+Date: Mon, 31 Aug 2015 15:58:46 +0200
+Message-ID: <dc1d5ac80bd59a891ed2ce16040f154fd93e1d00.1441027533.git.daniel@iogearbox.net>
+References: <cover.1441027533.git.daniel@iogearbox.net>
+Cc: fw@strlen.de, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:54048 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752714AbbHaN73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Aug 2015 09:59:29 -0400
-Received: from relay2.suse.de (charybdis-ext.suse.de [195.135.220.254])
-	by mx2.suse.de (Postfix) with ESMTP id 1FD48ABC6
-	for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 13:59:28 +0000 (UTC)
-Content-Disposition: inline
+Received: from www62.your-server.de ([213.133.104.62]:34939 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753291AbbHaN6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 09:58:53 -0400
+In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
+References: <cover.1441027533.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The kernel is applying the RA managed/otherconf flags silently and
-forgets to send ifinfo notify to inform about their change when the
-router provides a zero reachable_time and retrans_timer as dnsmasq
-and many routers send it, which just means unspecified by this router
-and the host should continue using whatever value it is already using.
-Userspace may monitor the ifinfo notifications to activate dhcpv6.
+Feature bits that are invalid should not be accepted by the kernel,
+only the lower 4 bits may be configured, but not the remaining ones.
+Even from these 4, 2 of them are unused.
 
-Signed-off-by: Marius Tomaschewski <mt@suse.de>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ include/uapi/linux/rtnetlink.h | 11 +++++++----
+ net/ipv4/fib_semantics.c       |  2 ++
+ net/ipv6/route.c               |  2 ++
+ 3 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index c53331c..99ea9dd 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1074,6 +1074,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 	struct ndisc_options ndopts;
- 	int optlen;
- 	unsigned int pref = 0;
-+	__u32 old_if_flags;
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 0d3d3cc..7020247 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -418,10 +418,13 @@ enum {
  
- 	__u8 *opt = (__u8 *)(ra_msg + 1);
+ #define RTAX_MAX (__RTAX_MAX - 1)
  
-@@ -1144,6 +1145,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 	 * Remember the managed/otherconf flags from most recently
- 	 * received RA message (RFC 2462) -- yoshfuji
- 	 */
-+	old_if_flags = in6_dev->if_flags;
- 	in6_dev->if_flags = (in6_dev->if_flags & ~(IF_RA_MANAGED |
- 				IF_RA_OTHERCONF)) |
- 				(ra_msg->icmph.icmp6_addrconf_managed ?
-@@ -1151,6 +1153,9 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 				(ra_msg->icmph.icmp6_addrconf_other ?
- 					IF_RA_OTHERCONF : 0);
- 
-+	if (old_if_flags != in6_dev->if_flags)
-+		inet6_ifinfo_notify(RTM_NEWLINK, in6_dev);
+-#define RTAX_FEATURE_ECN	0x00000001
+-#define RTAX_FEATURE_SACK	0x00000002
+-#define RTAX_FEATURE_TIMESTAMP	0x00000004
+-#define RTAX_FEATURE_ALLFRAG	0x00000008
++#define RTAX_FEATURE_ECN	(1 << 0)
++#define RTAX_FEATURE_SACK	(1 << 1)
++#define RTAX_FEATURE_TIMESTAMP	(1 << 2)
++#define RTAX_FEATURE_ALLFRAG	(1 << 3)
 +
- 	if (!in6_dev->cnf.accept_ra_defrtr) {
- 		ND_PRINTK(2, info,
- 			  "RA: %s, defrtr is false for dev: %s\n",
++#define RTAX_FEATURE_MASK	(RTAX_FEATURE_ECN | RTAX_FEATURE_SACK | \
++				 RTAX_FEATURE_TIMESTAMP | RTAX_FEATURE_ALLFRAG)
+ 
+ struct rta_session {
+ 	__u8	proto;
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 88afbae..115a08e 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -908,6 +908,8 @@ fib_convert_metrics(struct fib_info *fi, const struct fib_config *cfg)
+ 			val = 65535 - 40;
+ 		if (type == RTAX_MTU && val > 65535 - 15)
+ 			val = 65535 - 15;
++		if (type == RTAX_FEATURES && (val & ~RTAX_FEATURE_MASK))
++			return -EINVAL;
+ 		fi->fib_metrics[type - 1] = val;
+ 	}
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 0261b72..8771530 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1728,6 +1728,8 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
+ 		} else {
+ 			val = nla_get_u32(nla);
+ 		}
++		if (type == RTAX_FEATURES && (val & ~RTAX_FEATURE_MASK))
++			goto err;
+ 
+ 		mp[type - 1] = val;
+ 		__set_bit(type - 1, mxc->mx_valid);
 -- 
-2.1.4
+1.9.3
