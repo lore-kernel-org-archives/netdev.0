@@ -1,37 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] IGMP: Inhibit reports for local multicast groups -
- DOCUMENT
-Date: Mon, 31 Aug 2015 12:30:52 -0700 (PDT)
-Message-ID: <20150831.123052.2026420716334269701.davem@davemloft.net>
-References: <d208b6d6990faa29d022fbdc03bd9968a458e250.1441016151.git.pdowney@brocade.com>
-	<dff26e321e8af946d1dd1899eef1327e64a517a3.1441016151.git.pdowney@brocade.com>
+Subject: Re: [PATCH net-next v2 0/4] tcp: receive-side per route dctcp
+ handling
+Date: Mon, 31 Aug 2015 12:34:16 -0700 (PDT)
+Message-ID: <20150831.123416.266144212097794732.davem@davemloft.net>
+References: <cover.1441027533.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: pdowney@brocade.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <dff26e321e8af946d1dd1899eef1327e64a517a3.1441016151.git.pdowney@brocade.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51367 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751577AbbHaTeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:34:17 -0400
+In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philip Downey <pdowney@brocade.com>
-Date: Mon, 31 Aug 2015 11:30:38 +0100
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 31 Aug 2015 15:58:43 +0200
 
-> Document the addition of a new sysctl variable which controls the
-> generation of IGMP reports for link local multicast groups in the
-> 224.0.0.X range.
+> Original cover letter:
 > 
-> IGMP reports for local multicast groups can now be optionally
-> inhibited by setting the value to zero e.g.:
-> echo 0 > /proc/sys/net/ipv4/igmp_link_local_mcast_reports
+>   Currently, the following case doesn't use DCTCP, even if it should:
 > 
-> To retain backwards compatibility the previous behaviour is retained
-> by default on system boot or reverted by setting the value back to
-> non-zero.
+>     - responder has f.e. cubic as system wide default
+>     - 'ip route congctl dctcp $src' was set
 > 
-> Signed-off-by: Philip Downey <pdowney@brocade.com>
+>   Then, DCTCP is NOT used if a DCTCP sender attempts to connect from a
+>   host in the $src range: ECT(0) is set, but listen_sk is not dctcp, so
+>   we fail the INET_ECN_is_not_ect sanity check.
+> 
+>   We also have to examine the dst used for the SYN/ACK reply to make
+>   this case work.
+> 
+>   In order to minimize additional cost, store the 'ecn is must have'
+>   information is the dst_features field.
+> 
+>   The set targets -next instead of -net since this doesn't seem to be a
+>   serious bug and to give the change more soak time until it hits linus
+>   tree.
+> 
+> v1 -> v2:
+>  - Addressed Dave's feedback, not exposing any bits to user space
+>  - Added patch 3 to reject incorrect configurations
+>  - Rest as is, rebased and retested
 
-Applied, thanks.
+Series applied, thanks Daniel.
