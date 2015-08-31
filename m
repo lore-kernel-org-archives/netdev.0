@@ -1,61 +1,65 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 1/2] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
-Date: Mon, 31 Aug 2015 15:44:54 -0500
-Message-ID: <1441053894.2718.54.camel@redhat.com>
-References: <1441048794-31237-1-git-send-email-linux@rainbow-software.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: Remove VRF change to udp_sendmsg
+Date: Mon, 31 Aug 2015 14:44:46 -0600
+Message-ID: <55E4BCBE.4070900@cumulusnetworks.com>
+References: <1441038580-44164-1-git-send-email-dsa@cumulusnetworks.com>
+ <20150831.124410.99199729741650263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441048794-31237-1-git-send-email-linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
+	tom@herbertland.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:35741 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753065AbbHaUo4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 16:44:56 -0400
+Received: by iog7 with SMTP id 7so48914716iog.2
+        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 13:44:55 -0700 (PDT)
+In-Reply-To: <20150831.124410.99199729741650263.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-08-31 at 21:19 +0200, Ondrej Zary wrote:
-> Handle IW_AUTH_ALG_OPEN_SYSTEM in set_auth.
-> This allows wpa_supplicant (and thus NetworkManager) to work with open APs.
-> 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> ---
->  drivers/net/wireless/airo.c |    7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-> index d0c97c2..2066a1f 100644
-> --- a/drivers/net/wireless/airo.c
-> +++ b/drivers/net/wireless/airo.c
-> @@ -6670,10 +6670,9 @@ static int airo_set_auth(struct net_device *dev,
->  		break;
->  
->  	case IW_AUTH_80211_AUTH_ALG: {
-> -			/* FIXME: What about AUTH_OPEN?  This API seems to
-> -			 * disallow setting our auth to AUTH_OPEN.
-> -			 */
-> -			if (param->value & IW_AUTH_ALG_SHARED_KEY) {
-> +			if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
-> +				local->config.authType = AUTH_OPEN;
-> +			} else if (param->value & IW_AUTH_ALG_SHARED_KEY) {
->  				local->config.authType = AUTH_SHAREDKEY;
->  			} else if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
->  				local->config.authType = AUTH_ENCRYPT;
+On 8/31/15 1:44 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Mon, 31 Aug 2015 09:29:40 -0700
+>
+>> Remove the VRF change in udp_sendmsg to set the source address. The VRF
+>> driver already has access to the packet on the TX path via the dst. It
+>> can be used to update the source address in the header.
+>>
+>> Update function based on OVS.
+>>
+>> Cc: Tom Herbert <tom@herbertland.com>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>
+> This is worse.
+>
+> You have the source address in the VRF driver's output routine in
+> fl4.saddr, just use it as-is.
 
-NAK; there are two problems with this patch.  First, there's already an
-if test for OPEN_SYSTEM which sets authType to AUTH_ENCRYPT.  Second,
-AUTH_OPEN means to disable encryption entirely.  The decision being made
-here is whether to use Shared Key or Open authentication, not whether
-encryption is being used or not.  Thus this patch would appear to break
-most WEP APs?
+The original saddr code in vrf_xmit was just wrong. It should not have 
+been there and was a leftover from early development days.
 
-Airo really wants to know the auth type *and* whether encryption will
-actually be used at the same time, and we don't have that information
-here.  I guess the only thing you can do here is call get_wep_key() for
-all the indexes and see if any keys are set, and if any keys are set,
-use AUTH_ENCRYPT.  If get_wep_key() returns -1 for all 4 indexes, use
-AUTH_OPEN.  But you have to make sure that this all gets protected by
-local->wep_capable and that you're not checking indexes above
-ai->max_wep_idx.  Yay airo!
+The saddr needs to be set in the dst output function (vrf_output) as I 
+did in this patch otherwise the packet hits the tcpdump tap with 
+potentially no source address.
 
-Dan
+>
+> You're adding even more route lookups, at least the existing code
+> just walks the device address less which is often cheaper than
+> a full-blown route lookup.
+>
+
+TCP (and connected sockets) do not hit this lookup in vrf_output.
+
+If anything I should be going straight to fib_table_lookup in the VRF 
+driver for this new lookup to get the source address. It knows the exact 
+table that should be used and hence can avoid the rules walk + local 
+table miss which happens using the ip_route_xxxxx functions as well as 
+the rth lookup/create which is not needed here.
+
+Opinions before I work on another version?
+
+David
