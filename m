@@ -1,170 +1,71 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net: Remove VRF change to udp_sendmsg
-Date: Mon, 31 Aug 2015 10:02:14 -0700
-Message-ID: <CALx6S379ZrcKdapJ0yRwzyW-ACY=45DcJnUNJ6mRZPjJAie1VA@mail.gmail.com>
-References: <1441038580-44164-1-git-send-email-dsa@cumulusnetworks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net/smsc911x: Fix deferred probe for interrupt
+Date: Mon, 31 Aug 2015 20:05:02 +0300
+Message-ID: <55E4893E.2010309@cogentembedded.com>
+References: <1440787815-24655-1-git-send-email-tony@atomide.com>
+ <55E22540.3060307@cogentembedded.com> <55E45E9E.1090900@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	Tony Lindgren <tony@atomide.com>,
+	David Miller <davem@davemloft.net>,
+	Geert Uytterhoeven <geert+renesas@glider.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:36861 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753481AbbHaRCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 13:02:15 -0400
-Received: by iod35 with SMTP id 35so35426089iod.3
-        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 10:02:14 -0700 (PDT)
-In-Reply-To: <1441038580-44164-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:35948 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753340AbbHaRFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 13:05:06 -0400
+Received: by labnh1 with SMTP id nh1so50444114lab.3
+        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 10:05:04 -0700 (PDT)
+In-Reply-To: <55E45E9E.1090900@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 31, 2015 at 9:29 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> Remove the VRF change in udp_sendmsg to set the source address. The VRF
-> driver already has access to the packet on the TX path via the dst. It
-> can be used to update the source address in the header.
->
+Hello.
 
-I don't understand this. The previous code was about selecting a
-source address for packets being sourced ed on a socket, but this new
-patch seems to essentially be doing SNAT in the VRF transmit path
-which  seems like a fundamentally different behavior. Is this really
-your intention?
+On 08/31/2015 05:03 PM, Grygorii Strashko wrote:
 
-Thanks,
-Tom
+>>> The interrupt handler may not be available when smsc911x probes if the
+>>> interrupt handler is a GPIO controller for example. Let's fix that
+>>> by adding handling for -EPROBE_DEFER.
+>>
+>>> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+>>> Signed-off-by: Tony Lindgren <tony@atomide.com>
+>>> ---
+>>>    drivers/net/ethernet/smsc/smsc911x.c | 5 ++++-
+>>>    1 file changed, 4 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/smsc/smsc911x.c
+>>> b/drivers/net/ethernet/smsc/smsc911x.c
+>>> index 959aeea..cb9f166f 100644
+>>> --- a/drivers/net/ethernet/smsc/smsc911x.c
+>>> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+>>> @@ -2435,7 +2435,10 @@ static int smsc911x_drv_probe(struct
+>>> platform_device *pdev)
+>>>        res_size = resource_size(res);
+>>>
+>>>        irq = platform_get_irq(pdev, 0);
+>>> -    if (irq <= 0) {
+>>> +    if (irq == -EPROBE_DEFER) {
+>>> +        retval = -EPROBE_DEFER;
+>>> +        goto out_0;
+>>> +    } else if (irq <= 0) {
+>>>            pr_warn("Could not allocate irq resource\n");
+>>>            retval = -ENODEV;
+>>
+>>      I'd propagate the error code from platfrom_get_irq() instead (in
+>> fact, I've submitted a couple of such patches yesterday and they have
+>> been already merged).
 
->
-> Cc: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  drivers/net/vrf.c | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++-----
->  net/ipv4/udp.c    | 18 ----------------
->  2 files changed, 58 insertions(+), 23 deletions(-)
->
-> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-> index e7094fbd7568..169418254636 100644
-> --- a/drivers/net/vrf.c
-> +++ b/drivers/net/vrf.c
-> @@ -160,6 +160,58 @@ static netdev_tx_t vrf_process_v6_outbound(struct sk_buff *skb,
->         return NET_XMIT_DROP;
->  }
->
-> +static void update_ipv4_saddr(struct sk_buff *skb, struct iphdr *iph,
-> +                             __be32 new_addr)
-> +{
-> +       int tlen = skb->len - skb_transport_offset(skb);
-> +
-> +       if (iph->protocol == IPPROTO_TCP) {
-> +               if (likely(tlen >= sizeof(struct tcphdr))) {
-> +                       inet_proto_csum_replace4(&tcp_hdr(skb)->check, skb,
-> +                                                iph->saddr, new_addr, 1);
-> +               }
-> +       } else if (iph->protocol == IPPROTO_UDP) {
-> +               if (likely(tlen >= sizeof(struct udphdr))) {
-> +                       struct udphdr *uh = udp_hdr(skb);
-> +
-> +                       if (uh->check || skb->ip_summed == CHECKSUM_PARTIAL) {
-> +                               inet_proto_csum_replace4(&uh->check, skb,
-> +                                                        iph->saddr, new_addr,
-> +                                                        1);
-> +                       if (!uh->check)
-> +                               uh->check = CSUM_MANGLED_0;
-> +                       }
-> +               }
-> +       }
-> +
-> +       csum_replace4(&iph->check, iph->saddr, new_addr);
-> +       skb_clear_hash(skb);
-> +       iph->saddr = new_addr;
-> +}
-> +
-> +static int vrf_set_ip_saddr(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +       struct iphdr *ip4h = ip_hdr(skb);
-> +       struct flowi4 fl4 = {
-> +               .flowi4_oif = dev->ifindex,
-> +               .flowi4_iif = LOOPBACK_IFINDEX,
-> +               .flowi4_tos = RT_TOS(ip4h->tos),
-> +               .flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_VRFSRC,
-> +               .daddr = ip4h->daddr,
-> +       };
-> +       struct rtable *rt;
-> +
-> +       rt = __ip_route_output_key(dev_net(dev), &fl4);
-> +       if (IS_ERR(rt))
-> +               return 1;
-> +
-> +       ip_rt_put(rt);
-> +
-> +       update_ipv4_saddr(skb, ip4h, fl4.saddr);
-> +
-> +       return 0;
-> +}
-> +
->  static int vrf_send_v4_prep(struct sk_buff *skb, struct flowi4 *fl4,
->                             struct net_device *vrf_dev)
->  {
-> @@ -200,11 +252,6 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
->         if (vrf_send_v4_prep(skb, &fl4, vrf_dev))
->                 goto err;
->
-> -       if (!ip4h->saddr) {
-> -               ip4h->saddr = inet_select_addr(skb_dst(skb)->dev, 0,
-> -                                              RT_SCOPE_LINK);
-> -       }
-> -
->         ret = ip_local_out(skb);
->         if (unlikely(net_xmit_eval(ret)))
->                 vrf_dev->stats.tx_errors++;
-> @@ -298,12 +345,18 @@ static int vrf_finish_output(struct sock *sk, struct sk_buff *skb)
->  static int vrf_output(struct sock *sk, struct sk_buff *skb)
->  {
->         struct net_device *dev = skb_dst(skb)->dev;
-> +       struct iphdr *iph = ip_hdr(skb);
->
->         IP_UPD_PO_STATS(dev_net(dev), IPSTATS_MIB_OUT, skb->len);
->
->         skb->dev = dev;
->         skb->protocol = htons(ETH_P_IP);
->
-> +       if (!iph->saddr && vrf_set_ip_saddr(skb, dev)) {
-> +               vrf_tx_error(dev, skb);
-> +               return -EINVAL;
-> +       }
-> +
->         return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, sk, skb,
->                             NULL, dev,
->                             vrf_finish_output,
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index c0a15e7f359f..ee3ba30f1ca5 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1017,24 +1017,6 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
->
->                 fl4 = &fl4_stack;
->
-> -               /* unconnected socket. If output device is enslaved to a VRF
-> -                * device lookup source address from VRF table. This mimics
-> -                * behavior of ip_route_connect{_init}.
-> -                */
-> -               if (netif_index_is_vrf(net, ipc.oif)) {
-> -                       flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
-> -                                          RT_SCOPE_UNIVERSE, sk->sk_protocol,
-> -                                          (flow_flags | FLOWI_FLAG_VRFSRC),
-> -                                          faddr, saddr, dport,
-> -                                          inet->inet_sport);
-> -
-> -                       rt = ip_route_output_flow(net, fl4, sk);
-> -                       if (!IS_ERR(rt)) {
-> -                               saddr = fl4->saddr;
-> -                               ip_rt_put(rt);
-> -                       }
-> -               }
-> -
->                 flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
->                                    RT_SCOPE_UNIVERSE, sk->sk_protocol,
->                                    flow_flags,
-> --
-> 1.9.1
->
+> Have you paid some attention on current platform_get_irq_() implementation?
+
+> The platform_get_irq() can return 0 in case of DT-boot.
+
+    This is what's indeed worth filtering out and converting to -ENODEV. ;-)
+But my patches just ignored this possibility. I'm not at all fond of Linus' 
+idea about IRQ0 being invalid, BTW...
+
+WBR, Sergei
