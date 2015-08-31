@@ -1,72 +1,61 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: vethpair creation performance, 3.14 versus 4.2.0
-Date: Mon, 31 Aug 2015 12:48:04 -0700
-Message-ID: <55E4AF74.7030107@hp.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/2] airo: fix IW_AUTH_ALG_OPEN_SYSTEM
+Date: Mon, 31 Aug 2015 15:44:54 -0500
+Message-ID: <1441053894.2718.54.camel@redhat.com>
+References: <1441048794-31237-1-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2354.austin.hp.com ([15.217.128.53]:58748 "EHLO
-	g2t2354.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752716AbbHaTsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:48:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441048794-31237-1-git-send-email-linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/29/2015 10:59 PM, Raghavendra K T wrote:
- > Please note that similar overhead was also reported while creating
- > veth pairs  https://lkml.org/lkml/2013/3/19/556
+On Mon, 2015-08-31 at 21:19 +0200, Ondrej Zary wrote:
+> Handle IW_AUTH_ALG_OPEN_SYSTEM in set_auth.
+> This allows wpa_supplicant (and thus NetworkManager) to work with open APs.
+> 
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> ---
+>  drivers/net/wireless/airo.c |    7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+> index d0c97c2..2066a1f 100644
+> --- a/drivers/net/wireless/airo.c
+> +++ b/drivers/net/wireless/airo.c
+> @@ -6670,10 +6670,9 @@ static int airo_set_auth(struct net_device *dev,
+>  		break;
+>  
+>  	case IW_AUTH_80211_AUTH_ALG: {
+> -			/* FIXME: What about AUTH_OPEN?  This API seems to
+> -			 * disallow setting our auth to AUTH_OPEN.
+> -			 */
+> -			if (param->value & IW_AUTH_ALG_SHARED_KEY) {
+> +			if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
+> +				local->config.authType = AUTH_OPEN;
+> +			} else if (param->value & IW_AUTH_ALG_SHARED_KEY) {
+>  				local->config.authType = AUTH_SHAREDKEY;
+>  			} else if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
+>  				local->config.authType = AUTH_ENCRYPT;
 
+NAK; there are two problems with this patch.  First, there's already an
+if test for OPEN_SYSTEM which sets authType to AUTH_ENCRYPT.  Second,
+AUTH_OPEN means to disable encryption entirely.  The decision being made
+here is whether to use Shared Key or Open authentication, not whether
+encryption is being used or not.  Thus this patch would appear to break
+most WEP APs?
 
-That got me curious, so I took the veth pair creation script from there, 
-and started running it out to 10K pairs, comparing a 3.14.44 kernel with 
-a 4.2.0-rc4+ from net-next and then net-next after pulling to get the 
-snmp stat aggregation perf change (4.2.0-rc8+).
+Airo really wants to know the auth type *and* whether encryption will
+actually be used at the same time, and we don't have that information
+here.  I guess the only thing you can do here is call get_wep_key() for
+all the indexes and see if any keys are set, and if any keys are set,
+use AUTH_ENCRYPT.  If get_wep_key() returns -1 for all 4 indexes, use
+AUTH_OPEN.  But you have to make sure that this all gets protected by
+local->wep_capable and that you're not checking indexes above
+ai->max_wep_idx.  Yay airo!
 
-Indeed, the 4.2.0-rc8+ kernel with the change was faster than the 
-4.2.0-rc4+ kernel without it, but both were slower than the 3.14.44 kernel.
-
-I've put a spreadsheet with the results at:
-
-ftp://ftp.netperf.org/vethpair/vethpair_compare.ods
-
-A perf top for the 4.20-rc8+ kernel from the net-next tree looks like 
-this out around 10K pairs:
-
-    PerfTop:   11155 irqs/sec  kernel:94.2%  exact:  0.0% [4000Hz 
-cycles],  (all, 32 CPUs)
--------------------------------------------------------------------------------
-
-     23.44%  [kernel]       [k] vsscanf
-      7.32%  [kernel]       [k] mutex_spin_on_owner.isra.4
-      5.63%  [kernel]       [k] __memcpy
-      5.27%  [kernel]       [k] __dev_alloc_name
-      3.46%  [kernel]       [k] format_decode
-      3.44%  [kernel]       [k] vsnprintf
-      3.16%  [kernel]       [k] acpi_os_write_port
-      2.71%  [kernel]       [k] number.isra.13
-      1.50%  [kernel]       [k] strncmp
-      1.21%  [kernel]       [k] _parse_integer
-      0.93%  [kernel]       [k] filemap_map_pages
-      0.82%  [kernel]       [k] put_dec_trunc8
-      0.82%  [kernel]       [k] unmap_single_vma
-      0.78%  [kernel]       [k] native_queued_spin_lock_slowpath
-      0.71%  [kernel]       [k] menu_select
-      0.65%  [kernel]       [k] clear_page
-      0.64%  [kernel]       [k] _raw_spin_lock
-      0.62%  [kernel]       [k] page_fault
-      0.60%  [kernel]       [k] find_busiest_group
-      0.53%  [kernel]       [k] snprintf
-      0.52%  [kernel]       [k] int_sqrt
-      0.46%  [kernel]       [k] simple_strtoull
-      0.44%  [kernel]       [k] page_remove_rmap
-
-My attempts to get a call-graph have been met with very limited success. 
-  Even though I've installed the dbg package from "make deb-pkg" the 
-symbol resolution doesn't seem to be working.
-
-happy benchmarking,
-
-rick jones
+Dan
