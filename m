@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: send NEWLINK on RA managed/otherconf changes
-Date: Mon, 31 Aug 2015 15:13:51 -0700 (PDT)
-Message-ID: <20150831.151351.228280334434841531.davem@davemloft.net>
-References: <20150831135922.GA24179@suse.de>
+Subject: Re: [PATCH net] sctp: support global vtag assochash and per
+ endpoint s(d)port assochash table
+Date: Mon, 31 Aug 2015 15:16:00 -0700 (PDT)
+Message-ID: <20150831.151600.1336251424367446992.davem@davemloft.net>
+References: <6d09d44f7972c5a5e458fc0eef98aa057896403d.1441043068.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mt@suse.de
+Cc: netdev@vger.kernel.org, mleitner@redhat.com, vyasevic@redhat.com,
+	daniel@iogearbox.net
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52356 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52362 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753347AbbHaWNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 18:13:54 -0400
-In-Reply-To: <20150831135922.GA24179@suse.de>
+	with ESMTP id S1752019AbbHaWQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 18:16:01 -0400
+In-Reply-To: <6d09d44f7972c5a5e458fc0eef98aa057896403d.1441043068.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marius Tomaschewski <mt@suse.de>
-Date: Mon, 31 Aug 2015 15:59:22 +0200
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue,  1 Sep 2015 01:44:28 +0800
 
-> The kernel is applying the RA managed/otherconf flags silently and
-> forgets to send ifinfo notify to inform about their change when the
-> router provides a zero reachable_time and retrans_timer as dnsmasq
-> and many routers send it, which just means unspecified by this router
-> and the host should continue using whatever value it is already using.
-> Userspace may monitor the ifinfo notifications to activate dhcpv6.
-> 
-> Signed-off-by: Marius Tomaschewski <mt@suse.de>
+> @@ -524,18 +524,16 @@ static inline int sctp_assoc_hashfn(struct net *net, __u16 lport, __u16 rport)
+>  {
+>  	int h = (lport << 16) + rport + net_hash_mix(net);
+>  	h ^= h>>8;
+> -	return h & (sctp_assoc_hashsize - 1);
+> +	return h & (256 - 1);
 
-Applied, but more ideally this function should emit only a single
-NEWLINK message rather than potentially 3.
+It is not acceptable to use a magic constant for the hash table size.
+You need to define this using a macro and use it consistently.
+
+Furthermore, you should be looking into dynamically sized
+hash tables because not everyone will need this many entries.
