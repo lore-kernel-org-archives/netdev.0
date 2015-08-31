@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC V4 0/2] Optimize the snmp stat aggregation for
- large cpus
-Date: Sun, 30 Aug 2015 21:49:16 -0700 (PDT)
-Message-ID: <20150830.214916.1137167975405435830.davem@davemloft.net>
-References: <y>
-	<1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next v2 0/8] net: thunderx: New features and fixes
+Date: Sun, 30 Aug 2015 21:54:26 -0700 (PDT)
+Message-ID: <20150830.215426.1263274449496319755.davem@davemloft.net>
+References: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, jiri@resnulli.us, edumazet@google.com,
-	hannes@stressinduktion.org, tom@herbertland.com, azhou@nicira.com,
-	ebiederm@xmission.com, ipm@chirality.org.uk,
-	nicolas.dichtel@6wind.com, serge.hallyn@canonical.com,
-	joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, anton@au1.ibm.com,
-	nacc@linux.vnet.ibm.com, srikar@linux.vnet.ibm.com
-To: raghavendra.kt@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1440914382-23126-1-git-send-email-raghavendra.kt@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, david.daney@cavium.com,
+	robert.richter@caviumnetworks.com,
+	Sunil.Goutham@caviumnetworks.com, klimov.linux@gmail.com
+To: aleksey.makarov@auriga.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46249 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771AbbHaEy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 00:54:27 -0400
+In-Reply-To: <1440926958-1874-1-git-send-email-aleksey.makarov@auriga.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Date: Sun, 30 Aug 2015 11:29:40 +0530
+From: Aleksey Makarov <aleksey.makarov@auriga.com>
+Date: Sun, 30 Aug 2015 12:29:08 +0300
 
-> While creating 1000 containers, perf is showing lot of time spent in
-> snmp_fold_field on a large cpu system.
-> 
-> The current patch tries to improve by reordering the statistics gathering.
- ...
+> v2:
+>   - The unused affinity_mask field of the structure cmp_queue 
+>   has been deleted. (thanks to David Miller)
+>   - The unneeded initializers have been dropped. (thanks to Alexey Klimov)
+>   - The commit message "net: thunderx: Rework interrupt handling"
+>   has been fixed. (thanks to Alexey Klimov)
 
 Series applied, thanks.
