@@ -1,48 +1,40 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2] usbnet: Fix a race between usbnet_stop() and the BH
-Date: Mon, 31 Aug 2015 09:32:54 +0200
-Message-ID: <87io7vzzdl.fsf@nemi.mork.no>
-References: <55AD3A41.2040100@rosalab.ru>
-	<1440447223-15945-1-git-send-email-eugene.shatokhin@rosalab.ru>
-	<1440447223-15945-3-git-send-email-eugene.shatokhin@rosalab.ru>
-	<87k2sk9zaf.fsf@nemi.mork.no> <55E01750.4010202@rosalab.ru>
-	<87mvxbzta9.fsf@nemi.mork.no> <55E03B28.6050305@rosalab.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPv6 xfrm GSO fragmentation bug
+Date: Mon, 31 Aug 2015 15:35:26 +0800
+Message-ID: <20150831073526.GA31958@gondor.apana.org.au>
+References: <20150830082432.GA25588@gondor.apana.org.au>
+ <20150831071916.GG25499@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum@suse.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55E03B28.6050305@rosalab.ru> (Eugene Shatokhin's message of
-	"Fri, 28 Aug 2015 13:42:48 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:32833 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751372AbbHaHfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 03:35:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20150831071916.GG25499@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
-> 28.08.2015 11:55, Bj=C3=B8rn Mork =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+On Mon, Aug 31, 2015 at 09:19:16AM +0200, Steffen Klassert wrote:
 >
->> I guess you are right.  At least I cannot prove that you are not :)
->>
->> There is a bit too much complexity involved here for me...
->
-> :-)
->
-> Yes, it is quite complex.
->
-> I admit, it was easier for me to find the races in usbnet (the tools
-> like KernelStrider and RaceHound do the dirty work) than to analyze
-> their consequences. The latter often requires some time and effort,
-> and so it did this time.
->
-> Well, any objections to this patch?
+> As far as I remember, this was to catch local message size
+> errors before __xfrm6_output calls ip6_fragment which would
+> use icmpv6_send for the error notification. IPv4 does not do
+> fragmentation in the xfrm4_output functions, so this mtu
+> check was not needed there.
+> 
+> I think just adding the gso checks should be fine.
 
-No objections from me.
+I see where the bug came from.  Indeed IPv6 does do fragmentation
+but only for tunnel mode.  While your patch added a check that also
+affected transport mode.  So in addition to the GSO fix we should
+also make the MTU check conditional to tunnel mode.
 
-But I would have liked it much better if the code became simpler instea=
-d
-of more complex.
-
-
-Bj=C3=B8rn
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
