@@ -1,47 +1,104 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: [PATCH net] mpls: fix mpls_net_init memory leak
-Date: Mon, 31 Aug 2015 10:44:19 -0700
-Message-ID: <1441043059-11984-1-git-send-email-razor@blackwall.org>
-Cc: ebiederm@xmission.com, roopa@cumulusnetworks.com,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35154 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753755AbbHaRom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 13:44:42 -0400
-Received: by pacdd16 with SMTP id dd16so146056302pac.2
-        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 10:44:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] mwifiex: Make mwifiex_dbg a function, reduce object size
+Date: Mon, 31 Aug 2015 10:46:45 -0700
+Message-ID: <1441043205.3276.28.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+The mwifiex_dbg macro has two tests that could be consolidated
+into a function reducing overall object size ~10KB (~4%).
 
-Fix a memory leak in the mpls netns init function in case of failure. If
-register_net_sysctl fails then we need to free the ctl_table.
+So convert the macro into a function.
 
-Fixes: 7720c01f3f59 ("mpls: Add a sysctl to control the size of the mpls label table")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+$ size drivers/net/wireless/mwifiex/built-in.o* (x86-64 defconfig)
+   text	   data	    bss	    dec	    hex	filename
+ 233102	   8628	   4809	 246539	  3c30b	drivers/net/wireless/mwifiex/built-in.o.new
+ 243949	   8628	   4809	 257386	  3ed6a	drivers/net/wireless/mwifiex/built-in.o.old
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/mpls/af_mpls.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/wireless/mwifiex/main.c | 20 ++++++++++++++++++++
+ drivers/net/wireless/mwifiex/main.h | 17 ++++++++---------
+ 2 files changed, 28 insertions(+), 9 deletions(-)
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 1f93a5978f2a..b1faa2dc0e6a 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -1066,8 +1066,10 @@ static int mpls_net_init(struct net *net)
- 
- 	table[0].data = net;
- 	net->mpls.ctl = register_net_sysctl(net, "net/mpls", table);
--	if (net->mpls.ctl == NULL)
-+	if (net->mpls.ctl == NULL) {
-+		kfree(table);
- 		return -ENOMEM;
-+	}
- 
- 	return 0;
+diff --git a/drivers/net/wireless/mwifiex/main.c b/drivers/net/wireless/mwifiex/main.c
+index 278dc94..4fa8ca3 100644
+--- a/drivers/net/wireless/mwifiex/main.c
++++ b/drivers/net/wireless/mwifiex/main.c
+@@ -1447,6 +1447,26 @@ exit_sem_err:
  }
--- 
-2.4.3
+ EXPORT_SYMBOL_GPL(mwifiex_remove_card);
+ 
++void _mwifiex_dbg(const struct mwifiex_adapter *adapter, int mask,
++		  const char *fmt, ...)
++{
++	struct va_format vaf;
++	va_list args;
++
++	if (!adapter->dev || !(adapter->debug_mask & mask))
++		return;
++
++	va_start(args, fmt);
++
++	vaf.fmt = fmt;
++	vaf.va = &args;
++
++	dev_info(adapter->dev, "%pV", &vaf);
++
++	va_end(args);
++}
++EXPORT_SYMBOL_GPL(_mwifiex_dbg);
++
+ /*
+  * This function initializes the module.
+  *
+diff --git a/drivers/net/wireless/mwifiex/main.h b/drivers/net/wireless/mwifiex/main.h
+index 6b95121..96663214 100644
+--- a/drivers/net/wireless/mwifiex/main.h
++++ b/drivers/net/wireless/mwifiex/main.h
+@@ -48,6 +48,9 @@
+ 
+ extern const char driver_version[];
+ 
++struct mwifiex_adapter;
++struct mwifiex_private;
++
+ enum {
+ 	MWIFIEX_ASYNC_CMD,
+ 	MWIFIEX_SYNC_CMD
+@@ -180,12 +183,11 @@ enum MWIFIEX_DEBUG_LEVEL {
+ 					MWIFIEX_DBG_FATAL | \
+ 					MWIFIEX_DBG_ERROR)
+ 
+-#define mwifiex_dbg(adapter, dbg_mask, fmt, args...)		\
+-do {								\
+-	if ((adapter)->debug_mask & MWIFIEX_DBG_##dbg_mask)	\
+-		if ((adapter)->dev)				\
+-			dev_info((adapter)->dev, fmt, ## args);	\
+-} while (0)
++__printf(3, 4)
++void _mwifiex_dbg(const struct mwifiex_adapter *adapter, int mask,
++		  const char *fmt, ...);
++#define mwifiex_dbg(adapter, mask, fmt, ...)				\
++	_mwifiex_dbg(adapter, MWIFIEX_DBG_##mask, fmt, ##__VA_ARGS__)
+ 
+ #define DEBUG_DUMP_DATA_MAX_LEN		128
+ #define mwifiex_dbg_dump(adapter, dbg_mask, str, buf, len)	\
+@@ -506,9 +508,6 @@ enum mwifiex_iface_work_flags {
+ 	MWIFIEX_IFACE_WORK_CARD_RESET,
+ };
+ 
+-struct mwifiex_adapter;
+-struct mwifiex_private;
+-
+ struct mwifiex_private {
+ 	struct mwifiex_adapter *adapter;
+ 	u8 bss_type;
