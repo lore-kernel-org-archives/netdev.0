@@ -1,69 +1,50 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net/smsc911x: Fix deferred probe for interrupt
-Date: Mon, 31 Aug 2015 17:03:10 +0300
-Message-ID: <55E45E9E.1090900@ti.com>
-References: <1440787815-24655-1-git-send-email-tony@atomide.com>
- <55E22540.3060307@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	Steve Glendinning <steve.glendinning@shawell.net>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Tony Lindgren <tony@atomide.com>,
-	David Miller <davem@davemloft.net>,
-	Geert Uytterhoeven <geert+renesas@glider.be>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [Patch v2 RFT net-next 7/9] dsa: mv88e6xxx: Don't poll forced interfaces for state changes
+Date: Mon, 31 Aug 2015 15:56:52 +0200
+Message-ID: <1441029414-20062-8-git-send-email-andrew@lunn.ch>
+References: <1441029414-20062-1-git-send-email-andrew@lunn.ch>
+Cc: Andrew Lunn <andrew@lunn.ch>
+To: netdev <netdev@vger.kernel.org>, Stas Sergeev <stsp@list.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:58725 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753578AbbHaODW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 10:03:22 -0400
-In-Reply-To: <55E22540.3060307@cogentembedded.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:42602 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751924AbbHaOEd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Aug 2015 10:04:33 -0400
+In-Reply-To: <1441029414-20062-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/30/2015 12:33 AM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 8/28/2015 9:50 PM, Tony Lindgren wrote:
-> 
->> The interrupt handler may not be available when smsc911x probes if the
->> interrupt handler is a GPIO controller for example. Let's fix that
->> by adding handling for -EPROBE_DEFER.
-> 
->> Cc: Steve Glendinning <steve.glendinning@shawell.net>
->> Signed-off-by: Tony Lindgren <tony@atomide.com>
->> ---
->>   drivers/net/ethernet/smsc/smsc911x.c | 5 ++++-
->>   1 file changed, 4 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/smsc/smsc911x.c 
->> b/drivers/net/ethernet/smsc/smsc911x.c
->> index 959aeea..cb9f166f 100644
->> --- a/drivers/net/ethernet/smsc/smsc911x.c
->> +++ b/drivers/net/ethernet/smsc/smsc911x.c
->> @@ -2435,7 +2435,10 @@ static int smsc911x_drv_probe(struct 
->> platform_device *pdev)
->>       res_size = resource_size(res);
->>
->>       irq = platform_get_irq(pdev, 0);
->> -    if (irq <= 0) {
->> +    if (irq == -EPROBE_DEFER) {
->> +        retval = -EPROBE_DEFER;
->> +        goto out_0;
->> +    } else if (irq <= 0) {
->>           pr_warn("Could not allocate irq resource\n");
->>           retval = -ENODEV;
-> 
->     I'd propagate the error code from platfrom_get_irq() instead (in 
-> fact, I've submitted a couple of such patches yesterday and they have 
-> been already merged).
+When polling for link status, don't consider ports which have a forced
+link. Such ports don't monitor their phy or may not even have a phy.
 
-Have you paid some attention on current platform_get_irq_() implementation?
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-The platform_get_irq() can return 0 in case of DT-boot.
-
-
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 90dee97ae793..6f13f7206762 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -395,6 +395,7 @@ void mv88e6xxx_poll_link(struct dsa_switch *ds)
+ 	for (i = 0; i < DSA_MAX_PORTS; i++) {
+ 		struct net_device *dev;
+ 		int uninitialized_var(port_status);
++		int pcs_ctrl;
+ 		int link;
+ 		int speed;
+ 		int duplex;
+@@ -404,6 +405,10 @@ void mv88e6xxx_poll_link(struct dsa_switch *ds)
+ 		if (dev == NULL)
+ 			continue;
+ 
++		pcs_ctrl = mv88e6xxx_reg_read(ds, REG_PORT(i), PORT_PCS_CTRL);
++		if (pcs_ctrl < 0 || pcs_ctrl & PORT_PCS_CTRL_FORCE_LINK)
++			continue;
++
+ 		link = 0;
+ 		if (dev->flags & IFF_UP) {
+ 			port_status = mv88e6xxx_reg_read(ds, REG_PORT(i),
 -- 
-regards,
--grygorii
+2.5.0
