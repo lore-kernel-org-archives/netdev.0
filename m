@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Remove VRF change to udp_sendmsg
-Date: Mon, 31 Aug 2015 12:44:10 -0700 (PDT)
-Message-ID: <20150831.124410.99199729741650263.davem@davemloft.net>
-References: <1441038580-44164-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] mpls: fix mpls_net_init memory leak
+Date: Mon, 31 Aug 2015 12:45:41 -0700 (PDT)
+Message-ID: <20150831.124541.1915347223923733397.davem@davemloft.net>
+References: <1441043059-11984-1-git-send-email-razor@blackwall.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com,
-	tom@herbertland.com
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
+To: razor@blackwall.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51515 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51523 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752508AbbHaToL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:44:11 -0400
-In-Reply-To: <1441038580-44164-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1754425AbbHaTpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 15:45:42 -0400
+In-Reply-To: <1441043059-11984-1-git-send-email-razor@blackwall.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon, 31 Aug 2015 09:29:40 -0700
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Date: Mon, 31 Aug 2015 10:44:19 -0700
 
-> Remove the VRF change in udp_sendmsg to set the source address. The VRF
-> driver already has access to the packet on the TX path via the dst. It
-> can be used to update the source address in the header.
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > 
-> Update function based on OVS.
+> Fix a memory leak in the mpls netns init function in case of failure. If
+> register_net_sysctl fails then we need to free the ctl_table.
 > 
-> Cc: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Fixes: 7720c01f3f59 ("mpls: Add a sysctl to control the size of the mpls label table")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-This is worse.
-
-You have the source address in the VRF driver's output routine in
-fl4.saddr, just use it as-is.
-
-You're adding even more route lookups, at least the existing code
-just walks the device address less which is often cheaper than
-a full-blown route lookup.
+Applied, thank you.
