@@ -1,121 +1,69 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 1/4] net: fib: move metrics parsing to a helper
-Date: Mon, 31 Aug 2015 15:58:44 +0200
-Message-ID: <3ec1a5b0e23646d67ef0c0375b8b19951b1fd2b9.1441027533.git.daniel@iogearbox.net>
-References: <cover.1441027533.git.daniel@iogearbox.net>
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH] net/smsc911x: Fix deferred probe for interrupt
+Date: Mon, 31 Aug 2015 17:03:10 +0300
+Message-ID: <55E45E9E.1090900@ti.com>
+References: <1440787815-24655-1-git-send-email-tony@atomide.com>
+ <55E22540.3060307@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Tony Lindgren <tony@atomide.com>,
+	David Miller <davem@davemloft.net>,
+	Geert Uytterhoeven <geert+renesas@glider.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34933 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289AbbHaN6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 09:58:53 -0400
-In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
-References: <cover.1441027533.git.daniel@iogearbox.net>
+Received: from devils.ext.ti.com ([198.47.26.153]:58725 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753578AbbHaODW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 10:03:22 -0400
+In-Reply-To: <55E22540.3060307@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+On 08/30/2015 12:33 AM, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 8/28/2015 9:50 PM, Tony Lindgren wrote:
+> 
+>> The interrupt handler may not be available when smsc911x probes if the
+>> interrupt handler is a GPIO controller for example. Let's fix that
+>> by adding handling for -EPROBE_DEFER.
+> 
+>> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+>> Signed-off-by: Tony Lindgren <tony@atomide.com>
+>> ---
+>>   drivers/net/ethernet/smsc/smsc911x.c | 5 ++++-
+>>   1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/smsc/smsc911x.c 
+>> b/drivers/net/ethernet/smsc/smsc911x.c
+>> index 959aeea..cb9f166f 100644
+>> --- a/drivers/net/ethernet/smsc/smsc911x.c
+>> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+>> @@ -2435,7 +2435,10 @@ static int smsc911x_drv_probe(struct 
+>> platform_device *pdev)
+>>       res_size = resource_size(res);
+>>
+>>       irq = platform_get_irq(pdev, 0);
+>> -    if (irq <= 0) {
+>> +    if (irq == -EPROBE_DEFER) {
+>> +        retval = -EPROBE_DEFER;
+>> +        goto out_0;
+>> +    } else if (irq <= 0) {
+>>           pr_warn("Could not allocate irq resource\n");
+>>           retval = -ENODEV;
+> 
+>     I'd propagate the error code from platfrom_get_irq() instead (in 
+> fact, I've submitted a couple of such patches yesterday and they have 
+> been already merged).
 
-fib_create_info() is already quite large, so before adding more
-code to the metrics section move that to a helper, similar to
-ip6_convert_metrics.
+Have you paid some attention on current platform_get_irq_() implementation?
 
-Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv4/fib_semantics.c | 71 ++++++++++++++++++++++++++++--------------------
- 1 file changed, 41 insertions(+), 30 deletions(-)
+The platform_get_irq() can return 0 in case of DT-boot.
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 1b2d011..88afbae 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -876,6 +876,44 @@ static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
- 	return true;
- }
- 
-+static int
-+fib_convert_metrics(struct fib_info *fi, const struct fib_config *cfg)
-+{
-+	struct nlattr *nla;
-+	int remaining;
-+
-+	if (!cfg->fc_mx)
-+		return 0;
-+
-+	nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
-+		int type = nla_type(nla);
-+		u32 val;
-+
-+		if (!type)
-+			continue;
-+		if (type > RTAX_MAX)
-+			return -EINVAL;
-+
-+		if (type == RTAX_CC_ALGO) {
-+			char tmp[TCP_CA_NAME_MAX];
-+
-+			nla_strlcpy(tmp, nla, sizeof(tmp));
-+			val = tcp_ca_get_key_by_name(tmp);
-+			if (val == TCP_CA_UNSPEC)
-+				return -EINVAL;
-+		} else {
-+			val = nla_get_u32(nla);
-+		}
-+		if (type == RTAX_ADVMSS && val > 65535 - 40)
-+			val = 65535 - 40;
-+		if (type == RTAX_MTU && val > 65535 - 15)
-+			val = 65535 - 15;
-+		fi->fib_metrics[type - 1] = val;
-+	}
-+
-+	return 0;
-+}
-+
- struct fib_info *fib_create_info(struct fib_config *cfg)
- {
- 	int err;
-@@ -948,36 +986,9 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 			goto failure;
- 	} endfor_nexthops(fi)
- 
--	if (cfg->fc_mx) {
--		struct nlattr *nla;
--		int remaining;
--
--		nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
--			int type = nla_type(nla);
--
--			if (type) {
--				u32 val;
--
--				if (type > RTAX_MAX)
--					goto err_inval;
--				if (type == RTAX_CC_ALGO) {
--					char tmp[TCP_CA_NAME_MAX];
--
--					nla_strlcpy(tmp, nla, sizeof(tmp));
--					val = tcp_ca_get_key_by_name(tmp);
--					if (val == TCP_CA_UNSPEC)
--						goto err_inval;
--				} else {
--					val = nla_get_u32(nla);
--				}
--				if (type == RTAX_ADVMSS && val > 65535 - 40)
--					val = 65535 - 40;
--				if (type == RTAX_MTU && val > 65535 - 15)
--					val = 65535 - 15;
--				fi->fib_metrics[type - 1] = val;
--			}
--		}
--	}
-+	err = fib_convert_metrics(fi, cfg);
-+	if (err)
-+		goto failure;
- 
- 	if (cfg->fc_mp) {
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
+
 -- 
-1.9.3
+regards,
+-grygorii
