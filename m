@@ -1,15 +1,14 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 3/4] fib, fib6: reject invalid feature bits
-Date: Mon, 31 Aug 2015 15:58:46 +0200
-Message-ID: <dc1d5ac80bd59a891ed2ce16040f154fd93e1d00.1441027533.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 1/4] net: fib: move metrics parsing to a helper
+Date: Mon, 31 Aug 2015 15:58:44 +0200
+Message-ID: <3ec1a5b0e23646d67ef0c0375b8b19951b1fd2b9.1441027533.git.daniel@iogearbox.net>
 References: <cover.1441027533.git.daniel@iogearbox.net>
-Cc: fw@strlen.de, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
+Cc: fw@strlen.de, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34939 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:34933 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753291AbbHaN6x (ORCPT
+	with ESMTP id S1753289AbbHaN6x (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 09:58:53 -0400
 In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1441027533.git.daniel@iogearbox.net>
@@ -17,64 +16,106 @@ References: <cover.1441027533.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Feature bits that are invalid should not be accepted by the kernel,
-only the lower 4 bits may be configured, but not the remaining ones.
-Even from these 4, 2 of them are unused.
+From: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+fib_create_info() is already quite large, so before adding more
+code to the metrics section move that to a helper, similar to
+ip6_convert_metrics.
+
+Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- include/uapi/linux/rtnetlink.h | 11 +++++++----
- net/ipv4/fib_semantics.c       |  2 ++
- net/ipv6/route.c               |  2 ++
- 3 files changed, 11 insertions(+), 4 deletions(-)
+ net/ipv4/fib_semantics.c | 71 ++++++++++++++++++++++++++++--------------------
+ 1 file changed, 41 insertions(+), 30 deletions(-)
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 0d3d3cc..7020247 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -418,10 +418,13 @@ enum {
- 
- #define RTAX_MAX (__RTAX_MAX - 1)
- 
--#define RTAX_FEATURE_ECN	0x00000001
--#define RTAX_FEATURE_SACK	0x00000002
--#define RTAX_FEATURE_TIMESTAMP	0x00000004
--#define RTAX_FEATURE_ALLFRAG	0x00000008
-+#define RTAX_FEATURE_ECN	(1 << 0)
-+#define RTAX_FEATURE_SACK	(1 << 1)
-+#define RTAX_FEATURE_TIMESTAMP	(1 << 2)
-+#define RTAX_FEATURE_ALLFRAG	(1 << 3)
-+
-+#define RTAX_FEATURE_MASK	(RTAX_FEATURE_ECN | RTAX_FEATURE_SACK | \
-+				 RTAX_FEATURE_TIMESTAMP | RTAX_FEATURE_ALLFRAG)
- 
- struct rta_session {
- 	__u8	proto;
 diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 88afbae..115a08e 100644
+index 1b2d011..88afbae 100644
 --- a/net/ipv4/fib_semantics.c
 +++ b/net/ipv4/fib_semantics.c
-@@ -908,6 +908,8 @@ fib_convert_metrics(struct fib_info *fi, const struct fib_config *cfg)
- 			val = 65535 - 40;
- 		if (type == RTAX_MTU && val > 65535 - 15)
- 			val = 65535 - 15;
-+		if (type == RTAX_FEATURES && (val & ~RTAX_FEATURE_MASK))
+@@ -876,6 +876,44 @@ static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
+ 	return true;
+ }
+ 
++static int
++fib_convert_metrics(struct fib_info *fi, const struct fib_config *cfg)
++{
++	struct nlattr *nla;
++	int remaining;
++
++	if (!cfg->fc_mx)
++		return 0;
++
++	nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
++		int type = nla_type(nla);
++		u32 val;
++
++		if (!type)
++			continue;
++		if (type > RTAX_MAX)
 +			return -EINVAL;
- 		fi->fib_metrics[type - 1] = val;
- 	}
++
++		if (type == RTAX_CC_ALGO) {
++			char tmp[TCP_CA_NAME_MAX];
++
++			nla_strlcpy(tmp, nla, sizeof(tmp));
++			val = tcp_ca_get_key_by_name(tmp);
++			if (val == TCP_CA_UNSPEC)
++				return -EINVAL;
++		} else {
++			val = nla_get_u32(nla);
++		}
++		if (type == RTAX_ADVMSS && val > 65535 - 40)
++			val = 65535 - 40;
++		if (type == RTAX_MTU && val > 65535 - 15)
++			val = 65535 - 15;
++		fi->fib_metrics[type - 1] = val;
++	}
++
++	return 0;
++}
++
+ struct fib_info *fib_create_info(struct fib_config *cfg)
+ {
+ 	int err;
+@@ -948,36 +986,9 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 			goto failure;
+ 	} endfor_nexthops(fi)
  
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0261b72..8771530 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1728,6 +1728,8 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
- 		} else {
- 			val = nla_get_u32(nla);
- 		}
-+		if (type == RTAX_FEATURES && (val & ~RTAX_FEATURE_MASK))
-+			goto err;
+-	if (cfg->fc_mx) {
+-		struct nlattr *nla;
+-		int remaining;
+-
+-		nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
+-			int type = nla_type(nla);
+-
+-			if (type) {
+-				u32 val;
+-
+-				if (type > RTAX_MAX)
+-					goto err_inval;
+-				if (type == RTAX_CC_ALGO) {
+-					char tmp[TCP_CA_NAME_MAX];
+-
+-					nla_strlcpy(tmp, nla, sizeof(tmp));
+-					val = tcp_ca_get_key_by_name(tmp);
+-					if (val == TCP_CA_UNSPEC)
+-						goto err_inval;
+-				} else {
+-					val = nla_get_u32(nla);
+-				}
+-				if (type == RTAX_ADVMSS && val > 65535 - 40)
+-					val = 65535 - 40;
+-				if (type == RTAX_MTU && val > 65535 - 15)
+-					val = 65535 - 15;
+-				fi->fib_metrics[type - 1] = val;
+-			}
+-		}
+-	}
++	err = fib_convert_metrics(fi, cfg);
++	if (err)
++		goto failure;
  
- 		mp[type - 1] = val;
- 		__set_bit(type - 1, mxc->mx_valid);
+ 	if (cfg->fc_mp) {
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
 -- 
 1.9.3
