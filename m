@@ -1,47 +1,49 @@
-From: Vinson Lee <vlee@twopensource.com>
-Subject: Re: [PATCH v2 net-next] netfilter: ipset: Fixing unnamed union initg
-Date: Mon, 31 Aug 2015 00:16:18 -0700
-Message-ID: <CAHTgTXU+A6Rg8oT0iUDCyTCRtTbBWEe9oDxCY6fEFNj-1v1-xA@mail.gmail.com>
-References: <1440222251-21132-1-git-send-email-eladr@mellanox.com>
-	<alpine.DEB.2.10.1508222006570.13403@blackhole.kfki.hu>
-	<20150822184448.GA3610@salvia>
-	<20150828225943.GA22393@salvia>
-	<CABA31DoF20veE1c_TxY_xZ=Zk0ThmwGCAthbLb8SJLu608rxHg@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: IPv6 xfrm GSO fragmentation bug
+Date: Mon, 31 Aug 2015 09:19:16 +0200
+Message-ID: <20150831071916.GG25499@secunet.com>
+References: <20150830082432.GA25588@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Akemi Yagi <amyagi@gmail.com>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Elad Raz <eladr@mellanox.com>, Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netfilter-devel@vger.kernel.org,
-	Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Patrick McHardy <kaber@trash.net>,
-	Sergey Popovich <popovich_sergei@mail.ua>,
-	Anton Danilov <littlesmilingcloud@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Alan Bartlett <ajb@elrepo.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CABA31DoF20veE1c_TxY_xZ=Zk0ThmwGCAthbLb8SJLu608rxHg@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:56510 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752531AbbHaHTT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Aug 2015 03:19:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20150830082432.GA25588@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 28, 2015 at 4:21 PM, Akemi Yagi <amyagi@gmail.com> wrote:
-> On Fri, Aug 28, 2015 at 3:59 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> On Sat, Aug 22, 2015 at 08:44:48PM +0200, Pablo Neira Ayuso wrote:
->> [...]
->>> I'll wait for some little time just in case someone raises any
->>> concern.
->>
->> JFYI, I'll be passing up this patch to David via the nf tree soon.
->> Thanks.
->
-> Thank you for pushing this forward.
->
-> Akemi
+On Sun, Aug 30, 2015 at 04:24:32PM +0800, Herbert Xu wrote:
+> Hi Steffen:
+> 
+> I received a bug report regarding poor IPComp performance over
+> IPv6:
+> 
+> 	https://bugzilla.redhat.com/show_bug.cgi?id=1257952
+> 
+> It appears to have been caused by
+> 
+> commit dd767856a36e00b631d65ebc4bb81b19915532d6
+> Author: Steffen Klassert <steffen.klassert@secunet.com>
+> Date:   Tue Oct 11 01:44:30 2011 +0000
+> 
+>     xfrm6: Don't call icmpv6_send on local error
+> 
+> which addded an MTU check without a GSO override.
+> 
+> Fixing it obviously isn't difficult, but I am wondering why I
+> can't find a corresponding patch for IPv4.  Do we need that check
+> to be present in xfrm6_output at all? If we do why isn't it needed
+> for IPv4 as well?
 
-Linux 4.2 was released without this patch. Please also backport it to
-the 4.2 stable branch.
+As far as I remember, this was to catch local message size
+errors before __xfrm6_output calls ip6_fragment which would
+use icmpv6_send for the error notification. IPv4 does not do
+fragmentation in the xfrm4_output functions, so this mtu
+check was not needed there.
+
+I think just adding the gso checks should be fine.
