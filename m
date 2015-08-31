@@ -1,43 +1,41 @@
-From: Philip Downey <pdowney@Brocade.com>
-Subject: RE: [PATCH] IGMP: Inhibit reports for local multicast groups
-Date: Mon, 31 Aug 2015 10:33:30 +0000
-Message-ID: <423f675f4cd049bc83a3920dd8a30c18@EMEAWP-EXMB12.corp.brocade.com>
-References: <6112e6ccb97c5015b6f8125d8c0f75c179b53198.1440689853.git.pdowney@brocade.com>
- <CAHA+R7Mv=-QoeRuY1nPEV55o5MMekeW+GqOuU+dh18a_5+iYOg@mail.gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
+Date: Mon, 31 Aug 2015 13:00:12 +0200
+Message-ID: <20150831110012.GO20760@orbit.nwl.cc>
+References: <20150829090701.GN20760@orbit.nwl.cc>
+ <20150830074717.GA25396@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
+	wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7Mv=-QoeRuY1nPEV55o5MMekeW+GqOuU+dh18a_5+iYOg@mail.gmail.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20150830074717.GA25396@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29uZyBXYW5nIFttYWls
-dG86Y3dhbmdAdHdvcGVuc291cmNlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBBdWd1c3QgMjgsIDIw
-MTUgMTA6MjAgUE0NCj4gVG86IFBoaWxpcCBEb3duZXkNCj4gQ2M6IERhdmlkIE1pbGxlcjsgQWxl
-eGV5IEt1em5ldHNvdjsgSmFtZXMgTW9ycmlzOyBIaWRlYWtpIFlPU0hJRlVKSTsgUGF0cmljaw0K
-PiBNY0hhcmR5OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBuZXRkZXYNCj4gU3ViamVj
-dDogUmU6IFtQQVRDSF0gSUdNUDogSW5oaWJpdCByZXBvcnRzIGZvciBsb2NhbCBtdWx0aWNhc3Qg
-Z3JvdXBzDQo+IA0KPiBPbiBUaHUsIEF1ZyAyNywgMjAxNSBhdCA4OjQ2IEFNLCBQaGlsaXAgRG93
-bmV5IDxwZG93bmV5QGJyb2NhZGUuY29tPg0KPiB3cm90ZToNCj4gPiBJR01QIHJlcG9ydHMgZm9y
-IGxvY2FsIG11bHRpY2FzdCBncm91cHMgY2FuIG5vdyBiZSBvcHRpb25hbGx5DQo+ID4gaW5oaWJp
-dGVkIGJ5IG1lYW5zIG9mIGEgc3lzdGVtIGNvbnRyb2wgdmFyaWFibGUgKGJ5IHNldHRpbmcgdGhl
-IHZhbHVlDQo+ID4gdG8gemVybykgZS5nLjoNCj4gPiAgICAgZWNobyAwID4gL3Byb2Mvc3lzL25l
-dC9pcHY0L2lnbXBfbGlua19sb2NhbF9tY2FzdF9yZXBvcnRzDQo+ID4NCj4gPiBUbyByZXRhaW4g
-YmFja3dhcmRzIGNvbXBhdGliaWxpdHkgdGhlIHByZXZpb3VzIGJlaGF2aW91ciBpcyByZXRhaW5l
-ZA0KPiA+IGJ5IGRlZmF1bHQgb24gc3lzdGVtIGJvb3Qgb3IgcmV2ZXJ0ZWQgYnkgc2V0dGluZyB0
-aGUgdmFsdWUgYmFjayB0bw0KPiA+IG5vbi16ZXJvIGUuZy46DQo+ID4gICAgIGVjaG8gMSA+ICAv
-cHJvYy9zeXMvbmV0L2lwdjQvaWdtcF9saW5rX2xvY2FsX21jYXN0X3JlcG9ydHMNCj4gPg0KPiAN
-Cj4gUGxlYXNlIGRvY3VtZW50IGl0IGluIERvY3VtZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNj
-dGwudHh0Lg0KVGhhbmtzIGZvciB0aGUgY29tbWVudC4NCkkgaGF2ZSBnZW5lcmF0ZWQgYSBuZXcg
-cGF0Y2ggZm9yIHRoZSBwcm9wb3NlZCBkb2N1bWVudGF0aW9uIGNoYW5nZS4NCkhvcGUgdGhpcyBp
-cyB0aGUgY29ycmVjdCB0aGluZyB0byBkby4NCg0KUmVnYXJkcw0KDQpQaGlsaXANCg==
+On Sun, Aug 30, 2015 at 03:47:17PM +0800, Herbert Xu wrote:
+> Phil Sutter <phil@nwl.cc> wrote:
+> >
+> > Should we introduce a new field to struct rhashtable to track the
+> > internal state? This might allow to clean up some rather obscure tests,
+> > e.g. whether a table resize is in progress or not.
+> 
+> Why would we want to do that? The deferred expansion is done
+> on a best effort basis so its failure has nothing to do with
+> the failure of a subsequent insertion.
+
+The variable would be used to track if the worker has failed to allocate
+memory in background.
+
+Since the failing insertion will be retried, subsequent inserts are not
+necessary unrelated.
+
+> The insertion must have tried its own last-ditch synchronous
+> expansion and only fail if that fails.
+
+Who do you mean with "the insertion"? The user or the API?
+
+Cheers, Phil
