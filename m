@@ -1,64 +1,34 @@
-From: Dave Hansen <dave@sr71.net>
-Subject: [PATCH] e1000: fix e1000e_disable_aspm_locked() warning
-Date: Mon, 31 Aug 2015 14:26:41 -0700
-Message-ID: <20150831212641.FA5D579A@viggo.jf.intel.com>
-Cc: dave.hansen@linux.intel.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: dave@sr71.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: vethpair creation performance, 3.14 versus 4.2.0
+Date: Mon, 31 Aug 2015 15:29:44 -0600
+Message-ID: <55E4C748.1070300@cumulusnetworks.com>
+References: <55E4AF74.7030107@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Rick Jones <rick.jones2@hp.com>,
+	Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:38729 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752178AbbHaV3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Aug 2015 17:29:47 -0400
+Received: by igbuu8 with SMTP id uu8so35517544igb.1
+        for <netdev@vger.kernel.org>; Mon, 31 Aug 2015 14:29:46 -0700 (PDT)
+In-Reply-To: <55E4AF74.7030107@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 8/31/15 1:48 PM, Rick Jones wrote:
+> My attempts to get a call-graph have been met with very limited success.
+>   Even though I've installed the dbg package from "make deb-pkg" the
+> symbol resolution doesn't seem to be working.
 
-From: Dave Hansen <dave.hansen@linux.intel.com>
+Looks like Debian does not enable framepointers by default:
 
-I have a .config with CONFIG_PM disabled.  I get the following whenever
-compiling the e1000 driver:
+$ grep FRAME /boot/config-3.2.0-4-amd64
+...
+# CONFIG_FRAME_POINTER is not set
 
-...net/ethernet/intel/e1000e/netdev.c:6450:13: warning: 'e1000e_disable_aspm_locked' defined but not used [-Wunused-function]
- static void e1000e_disable_aspm_locked(struct pci_dev *pdev, u16 state)
-
-Looks like we just need to move e1000e_disable_aspm_locked() to
-be underneath the CONFIG_PM #ifdef.
-
-Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com> (supporter:INTEL ETHERNET DRIVERS)
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com> (reviewer)
-Cc: Shannon Nelson <shannon.nelson@intel.com> (reviewer)
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com> (reviewer)
-Cc: Don Skidmore <donald.c.skidmore@intel.com> (reviewer)
-Cc: Matthew Vick <matthew.vick@intel.com> (reviewer)
-Cc: John Ronciak <john.ronciak@intel.com> (reviewer)
-Cc: Mitch Williams <mitch.a.williams@intel.com> (reviewer)
-Cc: intel-wired-lan@lists.osuosl.org (open list:INTEL ETHERNET DRIVERS)
-Cc: netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
-Cc: linux-kernel@vger.kernel.org (open list)
----
-
- b/drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN drivers/net/ethernet/intel/e1000e/netdev.c~fix-e1000-warning drivers/net/ethernet/intel/e1000e/netdev.c
---- a/drivers/net/ethernet/intel/e1000e/netdev.c~fix-e1000-warning	2015-08-31 14:19:11.520115321 -0700
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c	2015-08-31 14:19:11.525115549 -0700
-@@ -6439,6 +6439,7 @@ static void e1000e_disable_aspm(struct p
- 	__e1000e_disable_aspm(pdev, state, 0);
- }
- 
-+#ifdef CONFIG_PM
- /**
-  * e1000e_disable_aspm_locked   Disable ASPM states.
-  * @pdev: pointer to PCI device struct
-@@ -6452,7 +6453,6 @@ static void e1000e_disable_aspm_locked(s
- 	__e1000e_disable_aspm(pdev, state, 1);
- }
- 
--#ifdef CONFIG_PM
- static int __e1000_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-_
+Similar result for jessie.
