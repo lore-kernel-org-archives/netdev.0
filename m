@@ -1,76 +1,46 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net] skbuff: Fix skb checksum flag on skb pull
-Date: Tue, 1 Sep 2015 14:25:10 -0700
-Message-ID: <CALx6S34wyEBCMaQn_A+-O=s=d6vGwJL42Rw_2o92pgqhhGtkqA@mail.gmail.com>
-References: <1441061746-1492-1-git-send-email-pshelar@nicira.com>
-	<CALx6S34JrU5_S7wtSQsBHSVeUFjryHeJtGsCoZEdUtyy7F+__A@mail.gmail.com>
-	<CALnjE+q8N3y9D+9SVqm3w6f3KwBNtXW8A9RtVe5NFMA8aftbdA@mail.gmail.com>
-	<CALx6S36w0wYWXPwanxZeR=bdxHYZ=hOJFtk+j=jFAjmdgfDnRQ@mail.gmail.com>
-	<CALnjE+p0wa7ovOxn3E164GkZ35OLY-LM7-JA42E1K5AOycpZ0Q@mail.gmail.com>
-	<CALx6S360w+Y2BVj7Fv0dzmeivD2oO6NWaevMZyNB1kh7RrOgqw@mail.gmail.com>
-	<CALnjE+rVKBvP8eedf1+OZYc8uyPkyq6kiFzeyhjC3=9KhnoAow@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 3/3] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
+Date: Tue, 01 Sep 2015 14:26:58 -0700
+Message-ID: <1441142818.8932.185.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1441133703-1570969-1-git-send-email-kafai@fb.com>
+	 <1441133703-1570969-4-git-send-email-kafai@fb.com>
+	 <1441138460.8932.182.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150901205505.GA66075@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:32828 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752344AbbIAVZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:25:10 -0400
-Received: by igbkq10 with SMTP id kq10so11522638igb.0
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 14:25:10 -0700 (PDT)
-In-Reply-To: <CALnjE+rVKBvP8eedf1+OZYc8uyPkyq6kiFzeyhjC3=9KhnoAow@mail.gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35635 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750829AbbIAV1A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:27:00 -0400
+Received: by pacfv12 with SMTP id fv12so7985613pac.2
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 14:27:00 -0700 (PDT)
+In-Reply-To: <20150901205505.GA66075@kafai-mba.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 1, 2015 at 2:10 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Tue, Sep 1, 2015 at 12:55 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Tue, Sep 1, 2015 at 12:20 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Tue, Sep 1, 2015 at 7:19 AM, Tom Herbert <tom@herbertland.com> wrote:
->>>> On Mon, Aug 31, 2015 at 10:15 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>> On Mon, Aug 31, 2015 at 9:12 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>>>> On Mon, Aug 31, 2015 at 3:55 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>>>>>> VXLAN device can receive skb with checksum partial. But the checksum
->>>>>>> offset could be in outer header which is pulled on receive. Such skb
->>>>>>> can cause the panic when checksum is calculated on skb. Following patch
->>>>>>> fixes the bug by setting checksum unnecessary while pulling outer header.
->>>>>>>
->>>>>> Okay, I think I understand what you are doing. I suggest in the
->>>>>> openvswitch path, if there is a checksum CHECKSUM_PARTIAL that refers
->>>>>> to the outer headers which must have been verified at this point then
->>>>>> set to CHECKSUM_NONE-- assuming CHECKSUM_UNNECESSARY on the inner
->>>>>> header is not correct in this case. If the CHECKSUM_PARTIAL refers to
->>>>>> the inner header then you can call skb_checksum_help to resolve an
->>>>>> inner checksum.
->>>>>>
->>>>>
->>>>> That would be OVS specific fix, But I do see skb_checksum_help()
->>>>> called in multiple places outside OVS that could result in similar
->>>>> kernel panic. Therefore I want to solve it up in networking stack
->>>>> rather than in OVS.
->>>>>
->>>> Please try to reproduce this out of OVS from the top of the tree then
->>>> and report down exactly where panic is occurring the code. Unlike most
->>>> of the of the other cases where skb_checksum_help() is being called
->>>> this in the RX path so skb is probably not pulled over the checksum
->>>> offset for those. Even so, if the skb is pulled beyond the checksum
->>>> offset then this should result in a negative offset in
->>>> skb_checksum_start_offset(skb) which should be okay. It looks like
->>>> this in itself should not be causing your panic.
->>>>
->>>
->>> ip_do_fragment() also calls skb_checksum_help() that can results in
->>> similar panic. But it is not easy to reproduce it in this case due to
->>> call site is in exception path.
->>> The negative checksum offset can atleast cause assert failure in
->>> skb_checksum_help(). I will send patch to fix that.
->>
->> Which BUG_ON do you see is hitting?
->
-> BUG_ON(offset >= skb_headlen(skb));
-> where skb_headlen() returns unsigned int, therefore negative offset
-> cast to unsigned int.
+On Tue, 2015-09-01 at 13:55 -0700, Martin KaFai Lau wrote:
+> On Tue, Sep 01, 2015 at 01:14:20PM -0700, Eric Dumazet wrote:
+> > It should not be a problem. refcnt is taken when/if necessary (skb
+> > queued on a qdisc for example)
+> >
+> > We have other uses of skb_dst_set_noref()
+> >
+> > Please describe the problem ?
+> The current ip6_tnl_dst_get() does not take the dst refcnt.
+> 
+> If the dst is released after ip6_tnl_dst_get() and before
+> skb_dst_set_noref(), would it cause an issue?
 
-Thanks, looks like skb_headlen() needs to be case to int for this
-comparison. Does this fix your issue?
+We are under rcu here, and a dst in a cache is protected by RCU by
+definition.
+
+skb_dst_set_noref() has following debugging clause, does it trigger for
+you ?
+
+WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
