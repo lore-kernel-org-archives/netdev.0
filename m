@@ -1,82 +1,136 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] skbuff: Fix skb checksum flag on skb pull
-Date: Tue, 1 Sep 2015 16:37:41 -0700
-Message-ID: <CALnjE+qRdzB=GRuN8R2jNCt51=rsMOSQ8-xKZ4q3PQkT1ST5HQ@mail.gmail.com>
-References: <1441061746-1492-1-git-send-email-pshelar@nicira.com>
-	<CALx6S34JrU5_S7wtSQsBHSVeUFjryHeJtGsCoZEdUtyy7F+__A@mail.gmail.com>
-	<CALnjE+q8N3y9D+9SVqm3w6f3KwBNtXW8A9RtVe5NFMA8aftbdA@mail.gmail.com>
-	<CALx6S36w0wYWXPwanxZeR=bdxHYZ=hOJFtk+j=jFAjmdgfDnRQ@mail.gmail.com>
-	<CALnjE+p0wa7ovOxn3E164GkZ35OLY-LM7-JA42E1K5AOycpZ0Q@mail.gmail.com>
-	<CALx6S360w+Y2BVj7Fv0dzmeivD2oO6NWaevMZyNB1kh7RrOgqw@mail.gmail.com>
-	<CALnjE+rVKBvP8eedf1+OZYc8uyPkyq6kiFzeyhjC3=9KhnoAow@mail.gmail.com>
-	<CALx6S34wyEBCMaQn_A+-O=s=d6vGwJL42Rw_2o92pgqhhGtkqA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next:master 1560/1566] include/linux/compiler.h:447:38:
+ error: call to '__compiletime_assert_459' declared with attribute error:
+ BUILD_BUG_ON failed: FLOW_KEYS_HASH_OFFSET % sizeof(u32)
+Date: Tue, 01 Sep 2015 16:46:58 -0700 (PDT)
+Message-ID: <20150901.164658.1707886923140066882.davem@davemloft.net>
+References: <201509020744.JUqgE91v%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, kbuild-all@01.org, netdev@vger.kernel.org
+To: fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:32803 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbbIAXhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 19:37:42 -0400
-Received: by igbkq10 with SMTP id kq10so13432610igb.0
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 16:37:42 -0700 (PDT)
-In-Reply-To: <CALx6S34wyEBCMaQn_A+-O=s=d6vGwJL42Rw_2o92pgqhhGtkqA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33243 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbbIAXrC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 19:47:02 -0400
+In-Reply-To: <201509020744.JUqgE91v%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 1, 2015 at 2:25 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Tue, Sep 1, 2015 at 2:10 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Tue, Sep 1, 2015 at 12:55 PM, Tom Herbert <tom@herbertland.com> wrote:
->>> On Tue, Sep 1, 2015 at 12:20 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>> On Tue, Sep 1, 2015 at 7:19 AM, Tom Herbert <tom@herbertland.com> wrote:
->>>>> On Mon, Aug 31, 2015 at 10:15 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>>> On Mon, Aug 31, 2015 at 9:12 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>>>>> On Mon, Aug 31, 2015 at 3:55 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>>>>>>> VXLAN device can receive skb with checksum partial. But the checksum
->>>>>>>> offset could be in outer header which is pulled on receive. Such skb
->>>>>>>> can cause the panic when checksum is calculated on skb. Following patch
->>>>>>>> fixes the bug by setting checksum unnecessary while pulling outer header.
->>>>>>>>
->>>>>>> Okay, I think I understand what you are doing. I suggest in the
->>>>>>> openvswitch path, if there is a checksum CHECKSUM_PARTIAL that refers
->>>>>>> to the outer headers which must have been verified at this point then
->>>>>>> set to CHECKSUM_NONE-- assuming CHECKSUM_UNNECESSARY on the inner
->>>>>>> header is not correct in this case. If the CHECKSUM_PARTIAL refers to
->>>>>>> the inner header then you can call skb_checksum_help to resolve an
->>>>>>> inner checksum.
->>>>>>>
->>>>>>
->>>>>> That would be OVS specific fix, But I do see skb_checksum_help()
->>>>>> called in multiple places outside OVS that could result in similar
->>>>>> kernel panic. Therefore I want to solve it up in networking stack
->>>>>> rather than in OVS.
->>>>>>
->>>>> Please try to reproduce this out of OVS from the top of the tree then
->>>>> and report down exactly where panic is occurring the code. Unlike most
->>>>> of the of the other cases where skb_checksum_help() is being called
->>>>> this in the RX path so skb is probably not pulled over the checksum
->>>>> offset for those. Even so, if the skb is pulled beyond the checksum
->>>>> offset then this should result in a negative offset in
->>>>> skb_checksum_start_offset(skb) which should be okay. It looks like
->>>>> this in itself should not be causing your panic.
->>>>>
->>>>
->>>> ip_do_fragment() also calls skb_checksum_help() that can results in
->>>> similar panic. But it is not easy to reproduce it in this case due to
->>>> call site is in exception path.
->>>> The negative checksum offset can atleast cause assert failure in
->>>> skb_checksum_help(). I will send patch to fix that.
->>>
->>> Which BUG_ON do you see is hitting?
->>
->> BUG_ON(offset >= skb_headlen(skb));
->> where skb_headlen() returns unsigned int, therefore negative offset
->> cast to unsigned int.
->
-> Thanks, looks like skb_headlen() needs to be case to int for this
-> comparison. Does this fix your issue?
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Wed, 2 Sep 2015 07:19:48 +0800
 
-There are other function which takes len as unsigned int parameter,
-Need to fix those too. But even after this fix it would unnecessarily
-calculate checksum on packet. I want to avoid it.
+>    In function 'flow_keys_hash_start',
+>        inlined from 'flow_hash_from_keys' at net/core/flow_dissector.c:553:34:
+>>> include/linux/compiler.h:447:38: error: call to '__compiletime_assert_459' declared with attribute error: BUILD_BUG_ON failed: FLOW_KEYS_HASH_OFFSET % sizeof(u32)
+>      _compiletime_assert(condition, msg, __compiletime_assert_, __LINE__)
+
+This is why I hate C bit-fields.
+
+I'll fix this as follows, thanks:
+
+====================
+[PATCH] flow_dissector: Don't use bit fields.
+
+Just have a flags member instead.
+
+   In file included from include/linux/linkage.h:4:0,
+                    from include/linux/kernel.h:6,
+                    from net/core/flow_dissector.c:1:
+   In function 'flow_keys_hash_start',
+       inlined from 'flow_hash_from_keys' at net/core/flow_dissector.c:553:34:
+>> include/linux/compiler.h:447:38: error: call to '__compiletime_assert_459' declared with attribute error: BUILD_BUG_ON failed: FLOW_KEYS_HASH_OFFSET % sizeof(u32)
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/flow_dissector.h |  8 +++++---
+ net/core/flow_dissector.c    | 14 +++++++-------
+ 2 files changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index bddd108..8c8548c 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -12,11 +12,13 @@
+ struct flow_dissector_key_control {
+ 	u16	thoff;
+ 	u16	addr_type;
+-	u32	is_fragment:1;
+-	u32	first_frag:1;
+-	u32	encapsulation:1;
++	u32	flags;
+ };
+ 
++#define FLOW_DIS_IS_FRAGMENT	BIT(0)
++#define FLOW_DIS_FIRST_FRAG	BIT(1)
++#define FLOW_DIS_ENCAPSULATION	BIT(2)
++
+ /**
+  * struct flow_dissector_key_basic:
+  * @thoff: Transport header offset
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index b5633394..8d32020 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -189,12 +189,12 @@ ip:
+ 		key_control->addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+ 
+ 		if (ip_is_fragment(iph)) {
+-			key_control->is_fragment = 1;
++			key_control->flags |= FLOW_DIS_IS_FRAGMENT;
+ 
+ 			if (iph->frag_off & htons(IP_OFFSET)) {
+ 				goto out_good;
+ 			} else {
+-				key_control->first_frag = 1;
++				key_control->flags |= FLOW_DIS_FIRST_FRAG;
+ 				if (!(flags & FLOW_DISSECTOR_F_PARSE_1ST_FRAG))
+ 					goto out_good;
+ 			}
+@@ -398,7 +398,7 @@ ip_proto_again:
+ 			nhoff += sizeof(*eth);
+ 		}
+ 
+-		key_control->encapsulation = 1;
++		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+ 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+ 			goto out_good;
+ 
+@@ -434,12 +434,12 @@ ip_proto_again:
+ 		if (!fh)
+ 			goto out_bad;
+ 
+-		key_control->is_fragment = 1;
++		key_control->flags |= FLOW_DIS_IS_FRAGMENT;
+ 
+ 		nhoff += sizeof(_fh);
+ 
+ 		if (!(fh->frag_off & htons(IP6_OFFSET))) {
+-			key_control->first_frag = 1;
++			key_control->flags |= FLOW_DIS_FIRST_FRAG;
+ 			if (flags & FLOW_DISSECTOR_F_PARSE_1ST_FRAG) {
+ 				ip_proto = fh->nexthdr;
+ 				goto ip_proto_again;
+@@ -450,7 +450,7 @@ ip_proto_again:
+ 	case IPPROTO_IPIP:
+ 		proto = htons(ETH_P_IP);
+ 
+-		key_control->encapsulation = 1;
++		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+ 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+ 			goto out_good;
+ 
+@@ -458,7 +458,7 @@ ip_proto_again:
+ 	case IPPROTO_IPV6:
+ 		proto = htons(ETH_P_IPV6);
+ 
+-		key_control->encapsulation = 1;
++		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+ 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+ 			goto out_good;
+ 
+-- 
+2.1.0
