@@ -1,174 +1,180 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 3/4] net: {cls,act}_bpf: add helper for retrieving routing realms
-Date: Tue,  1 Sep 2015 18:34:24 +0200
-Message-ID: <c6f07f7e5060e04af93886c639291af4e4f4ae1c.1441123709.git.daniel@iogearbox.net>
-References: <cover.1441123709.git.daniel@iogearbox.net>
-Cc: john.fastabend@gmail.com, ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 1/2] net: Remove ndo_xmit_flush netdev operation, use
+ signalling instead.
+Date: Tue, 1 Sep 2015 12:49:02 -0400
+Message-ID: <CAP=VYLo0rNg627UAV4N-vCs6Mq7YCxOFpEFS=DyCxABTbV96UQ@mail.gmail.com>
+References: <20140825.163502.973913220915588977.davem@davemloft.net>
+ <55E549CE.4010509@windriver.com> <20150901.000051.2053259950492309439.davem@davemloft.net>
+ <55E54F5F.9040603@windriver.com> <55E56080.9020502@iogearbox.net> <55E56E0C.7060500@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, therbert@google.com,
+	jhs@mojatatu.com, hannes@stressinduktion.org, edumazet@google.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	rusty@rustcorp.com.au, brouer@redhat.com
+To: yzhu1 <Yanjun.Zhu@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49543 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753276AbbIAQeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 12:34:31 -0400
-In-Reply-To: <cover.1441123709.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1441123709.git.daniel@iogearbox.net>
-References: <cover.1441123709.git.daniel@iogearbox.net>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:35379 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752290AbbIAQte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 12:49:34 -0400
+Received: by lagj9 with SMTP id j9so1220452lag.2
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 09:49:32 -0700 (PDT)
+In-Reply-To: <55E56E0C.7060500@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using routing realms as part of the classifier is quite useful. It can
-be viewed as a tag for one or multiple routing entries (think of an
-analogy to net_cls cgroup for processes), set by user space routing
-daemons or via iproute2 as an indicator for traffic classifiers.
+On Tue, Sep 1, 2015 at 5:21 AM, yzhu1 <Yanjun.Zhu@windriver.com> wrote:
+> On 09/01/2015 04:23 PM, Daniel Borkmann wrote:
+>>
 
-In case we use a ->preclassify() handler, we can read them out for free,
-on other devices we need to indicate that the dst must be kept however
-until skb destruction.
+[...]
 
-Unlike actions, at least the classifier can keep track of it and enable
-netif_keep_dst() if necessary. tc actions don't have that possibility,
-but in case people know exactly what they are doing, it can be used
-from there as well (e.g. via preclassify()).
+>>
+>> As Dave said, please retest with something up to date, like 4.2 kernel,
+>> or latest -net git tree.
+>>
+>> Besides, the *upstream* xmit_more changes first went into 3.18 ...
+>> nearest git describe is at:
+>>
+>>   $ git describe 0b725a2ca61bedc33a2a63d0451d528b268cf975
+>>   v3.17-rc1-251-g0b725a2
+>>
+>> So, that only tells me, that you are reporting a possible bug based on
+>> some non-upstream kernel ... ? Thus, it's not even possible to verify
+>> if the actual backport was correct ?
+>
+>
+> Sorry. There is something wrong with backporting this patch.
 
-If a realm is set, the handler returns the non-zero realm. User space
-can set the full 32bit realm for the dst.
+Please note for the future that this was a completely unacceptable
+abuse of the upstream maintainers time by throwing this issue out
+there like you did.   These folks all operate assuming everyone
+is working on mainline master, and have no way to know what
+random commits are in a custom tree -- especially if it isn't even
+clear up front that it was a custom tree.   By not mentioning that,
+you implicitly are tricking the maintainers into helping you, even
+if that was not your actual intent.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
----
- include/linux/filter.h   |  3 ++-
- include/uapi/linux/bpf.h |  7 +++++++
- kernel/bpf/syscall.c     |  2 ++
- net/core/filter.c        | 22 ++++++++++++++++++++++
- net/sched/cls_bpf.c      |  9 ++++++---
- 5 files changed, 39 insertions(+), 4 deletions(-)
+If you see a problem, you need to ensure the problem exists on
+the latest mainline, and then you can also possibly investigate
+the specific commit at where it was added in mainline, to help
+better understand the issue.  If you haven't done that, then you
+can't be bothering the maintainers like this.  Please ensure this
+is well understood by yourself and any others who might also
+do the same by accident in the future.
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index bad618f..3d5fd24 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -328,7 +328,8 @@ struct bpf_prog {
- 	u16			pages;		/* Number of allocated pages */
- 	kmemcheck_bitfield_begin(meta);
- 	u16			jited:1,	/* Is our filter JIT'ed? */
--				gpl_compatible:1; /* Is filter GPL compatible? */
-+				gpl_compatible:1, /* Is filter GPL compatible? */
-+				dst_needed:1;	/* Do we need dst entry? */
- 	kmemcheck_bitfield_end(meta);
- 	u32			len;		/* Number of filter blocks */
- 	enum bpf_prog_type	type;		/* Type of BPF program */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 92a48e2..5ea72bb 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -272,6 +272,13 @@ enum bpf_func_id {
- 	BPF_FUNC_skb_get_tunnel_key,
- 	BPF_FUNC_skb_set_tunnel_key,
- 	BPF_FUNC_perf_event_read,	/* u64 bpf_perf_event_read(&map, index) */
-+
-+	/**
-+	 * bpf_get_route_realm(skb) - retrieve a dst's tclassid
-+	 * @skb: pointer to skb
-+	 * Return: realm if != 0
-+	 */
-+	BPF_FUNC_get_route_realm,
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 2ba2881..a12046b 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -398,6 +398,8 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
- 			 */
- 			BUG_ON(!prog->aux->ops->get_func_proto);
- 
-+			if (insn->imm == BPF_FUNC_get_route_realm)
-+				prog->dst_needed = 1;
- 			if (insn->imm == BPF_FUNC_tail_call) {
- 				/* mark bpf_tail_call as different opcode
- 				 * to avoid conditional branch in
-diff --git a/net/core/filter.c b/net/core/filter.c
-index e1c574c..3765ae1 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -49,6 +49,7 @@
- #include <net/sch_generic.h>
- #include <net/cls_cgroup.h>
- #include <net/dst_metadata.h>
-+#include <net/dst.h>
- 
- /**
-  *	sk_filter - run a packet through a socket filter
-@@ -1439,6 +1440,25 @@ static const struct bpf_func_proto bpf_get_cgroup_classid_proto = {
- 	.arg1_type      = ARG_PTR_TO_CTX,
- };
- 
-+static u64 bpf_get_route_realm(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+#ifdef CONFIG_IP_ROUTE_CLASSID
-+	const struct dst_entry *dst;
-+
-+	dst = skb_dst((struct sk_buff *) (unsigned long) r1);
-+	if (dst)
-+		return dst->tclassid;
-+#endif
-+	return 0;
-+}
-+
-+static const struct bpf_func_proto bpf_get_route_realm_proto = {
-+	.func           = bpf_get_route_realm,
-+	.gpl_only       = false,
-+	.ret_type       = RET_INTEGER,
-+	.arg1_type      = ARG_PTR_TO_CTX,
-+};
-+
- static u64 bpf_skb_vlan_push(u64 r1, u64 r2, u64 vlan_tci, u64 r4, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
-@@ -1607,6 +1627,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 		return &bpf_skb_get_tunnel_key_proto;
- 	case BPF_FUNC_skb_set_tunnel_key:
- 		return bpf_get_skb_set_tunnel_key_proto();
-+	case BPF_FUNC_get_route_realm:
-+		return &bpf_get_route_realm_proto;
- 	default:
- 		return sk_filter_func_proto(func_id);
- 	}
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index e5168f8..b6163b2 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -237,8 +237,8 @@ static int cls_bpf_prog_from_ops(struct nlattr **tb,
- 	return 0;
- }
- 
--static int cls_bpf_prog_from_efd(struct nlattr **tb,
--				 struct cls_bpf_prog *prog, u32 classid)
-+static int cls_bpf_prog_from_efd(struct nlattr **tb, struct cls_bpf_prog *prog,
-+				 u32 classid, const struct tcf_proto *tp)
- {
- 	struct bpf_prog *fp;
- 	char *name = NULL;
-@@ -272,6 +272,9 @@ static int cls_bpf_prog_from_efd(struct nlattr **tb,
- 	prog->filter = fp;
- 	prog->res.classid = classid;
- 
-+	if (fp->dst_needed && !tp->q->preclassify)
-+		netif_keep_dst(qdisc_dev(tp->q));
-+
- 	return 0;
- }
- 
-@@ -300,7 +303,7 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
- 	classid = nla_get_u32(tb[TCA_BPF_CLASSID]);
- 
- 	ret = is_bpf ? cls_bpf_prog_from_ops(tb, prog, classid) :
--		       cls_bpf_prog_from_efd(tb, prog, classid);
-+		       cls_bpf_prog_from_efd(tb, prog, classid, tp);
- 	if (ret < 0) {
- 		tcf_exts_destroy(&exts);
- 		return ret;
--- 
-1.9.3
+Thanks,
+Paul.
+--
+
+>
+> Thanks for your help.
+>
+> Zhu Yanjun
+>
+>
+>>
+>>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>>    Tx Queue <1>
+>>>    TDH <1a>
+>>>    TDT <1a>
+>>>    next_to_use <1d>
+>>>    next_to_clean <1a>
+>>> buffer_info[next_to_clean]
+>>>    time_stamp <ffffeb7d>
+>>>    next_to_watch <ffff88103ee711c0>
+>>>    jiffies <fffff324>
+>>>    desc.status <0>
+>>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>>    Tx Queue <1>
+>>>    TDH <1a>
+>>>    TDT <1a>
+>>>    next_to_use <1d>
+>>>    next_to_clean <1a>
+>>> buffer_info[next_to_clean]
+>>>    time_stamp <ffffeb7d>
+>>>    next_to_watch <ffff88103ee711c0>
+>>>    jiffies <fffffaf4>
+>>>    desc.status <0>
+>>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>>    Tx Queue <1>
+>>>    TDH <1a>
+>>>    TDT <1a>
+>>>    next_to_use <1d>
+>>>    next_to_clean <1a>
+>>> buffer_info[next_to_clean]
+>>>    time_stamp <ffffeb7d>
+>>>    next_to_watch <ffff88103ee711c0>
+>>>    jiffies <1000002c4>
+>>>    desc.status <0>
+>>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>>    Tx Queue <1>
+>>>    TDH <1a>
+>>>    TDT <1a>
+>>>    next_to_use <1d>------------[ cut here ]------------
+>>> WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
+>>> dev_watchdog+0x259/0x270()
+>>> NETDEV WATCHDOG: eth0 (igb): transmit queue 1 timed out
+>>> Modules linked in: x86_pkg_temp_thermal intel_powerclamp coretemp
+>>> crct10dif_pclmul crct10dif_common aesni_intel aes_x86_64 glue_helper lrw
+>>> gf128mul ablk_helper cryptd iTCO_wdt sb_edac iTCO_vendor_support ipmi_si
+>>> edac_core i2c_i801 lpc_ich ipmi_msghandler nfsd fuse
+>>> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.29ltsi-WR7.0.0.0_standard
+>>> #2
+>>> Hardware name: Intel Corporation S2600CP/S2600CP, BIOS
+>>> RMLSDP.86I.R4.26.D674.1304190022 04/19/2013
+>>>   0000000000000009 ffff88081f603da0 ffffffff81ab9bb8 ffff88081f603de8
+>>>   ffff88081f603dd8 ffffffff8104c64d 0000000000000001 ffff880812f6d940
+>>>   0000000000000000 ffff880813efc000 0000000000000008 ffff88081f603e38
+>>> Call Trace:
+>>>   <IRQ> [<ffffffff81ab9bb8>] dump_stack+0x4e/0x7a
+>>>   [<ffffffff8104c64d>] warn_slowpath_common+0x7d/0xa0
+>>>   [<ffffffff8104c6bc>] warn_slowpath_fmt+0x4c/0x50
+>>>   [<ffffffff81ac09c7>] ? _raw_spin_unlock+0x17/0x30
+>>>   [<ffffffff81998659>] dev_watchdog+0x259/0x270
+>>>   [<ffffffff81998400>] ? dev_graft_qdisc+0x80/0x80
+>>>   [<ffffffff810594cb>] call_timer_fn+0x3b/0x170
+>>>   [<ffffffff81998400>] ? dev_graft_qdisc+0x80/0x80
+>>>   [<ffffffff81059d64>] run_timer_softirq+0x1c4/0x2d0
+>>>   [<ffffffff81051557>] __do_softirq+0xb7/0x2e0
+>>>   [<ffffffff810518be>] irq_exit+0x7e/0xa0
+>>>   [<ffffffff81acae74>] smp_apic_timer_interrupt+0x44/0x50
+>>>   [<ffffffff81ac9c4a>] apic_timer_interrupt+0x6a/0x70
+>>>   <EOI> [<ffffffff81880706>] ? cpuidle_enter_state+0x46/0xb0
+>>>   [<ffffffff8188082c>] cpuidle_idle_call+0xbc/0x250
+>>>   [<ffffffff8100cdce>] arch_cpu_idle+0xe/0x20
+>>>   [<ffffffff810a2bb5>] cpu_startup_entry+0x185/0x290
+>>>   [<ffffffff81ab4424>] rest_init+0x84/0x90
+>>>   [<ffffffff82333d50>] start_kernel+0x3d6/0x3e3
+>>>   [<ffffffff82333495>] x86_64_start_reservations+0x2a/0x2c
+>>>   [<ffffffff8233358e>] x86_64_start_kernel+0xf7/0xfa
+>>> ---[ end trace 57ad9eaf9dd80dc2 ]---
+>>> igb 0000:09:00.0 eth0: Reset adapter
+>>> igb: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+>>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>>
+>>>    next_to_clean <1a>
+>>> buffer_info[next_to_clean]
+>>>    time_stamp <ffffeb7d>
+>>>    next_to_watch <ffff88103ee711c0>
+>>>    jiffies <100000a94>
+>>>    desc.status <0>
+>>>
+>>>
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>>
+>>
+>>
+>>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
