@@ -1,38 +1,58 @@
-From: John Nielsen <lists@jnielsen.net>
-Subject: Re: [PATCH net] vxlan: re-ignore EADDRINUSE from igmp_join
-Date: Tue, 1 Sep 2015 15:02:23 -0600
-Message-ID: <173BB23A-4D43-4B41-9082-4E1F5CC81B8A@jnielsen.net>
-References: <55DCB958.3080904@gmail.com> <78f32de72ff150f6a1260f44a409cfed915a17e1.1440544648.git.marcelo.leitner@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: footplus@gmail.com
+Subject: Prioritize a vlan on another
+Date: Tue, 1 Sep 2015 23:07:00 +0200
+Message-ID: <266BF78D-5C37-40E1-A065-1426CC2325E2@gmail.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail2.jnielsen.net ([50.114.224.20]:36145 "EHLO
-	webmail2.jnielsen.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755611AbbIAVCa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:02:30 -0400
-In-Reply-To: <78f32de72ff150f6a1260f44a409cfed915a17e1.1440544648.git.marcelo.leitner@gmail.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:35029 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751461AbbIAVHG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:07:06 -0400
+Received: by wicge5 with SMTP id ge5so20339523wic.0
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 14:07:04 -0700 (PDT)
+Received: from [192.168.240.101] (soy95-8-78-225-91-189.fbx.proxad.net. [78.225.91.189])
+        by smtp.gmail.com with ESMTPSA id o9sm28995686wja.29.2015.09.01.14.07.02
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
+        Tue, 01 Sep 2015 14:07:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Aug 25, 2015, at 5:22 PM, Marcelo Ricardo Leitner <marcelo.leitner@gmail.com> wrote:
+Hello,
 
-> Before 56ef9c909b40[1] it used to ignore all errors from igmp_join().
-> That commit enhanced that and made it error out whatever error happened
-> with igmp_join(), but that's not good because when using multicast
-> groups vxlan will try to join it multiple times if the socket is reused
-> and then the 2nd and further attempts will fail with EADDRINUSE.
-> 
-> As we don't track to which groups the socket is already subscribed, it's
-> okay to just ignore that error.
-> 
-> Fixes: 56ef9c909b40 ("vxlan: Move socket initialization to within rtnl scope")
-> Reported-by: John Nielsen <lists@jnielsen.net>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
-> 
-> John, please see how this goes for you. It worked in here.
+I'm not sure if this is the right place to ask this, but i'm stuck on a=
+ trafic priority problem since some time.
 
-Confirmed working here. Thanks again!
+I have 2 10Gb interfaces (bnx2x) bonded in a 802.3ad aggregate. On this=
+ aggregate, 2 vlans are configured (let's INT and EXT) I need to ensure=
+ that, when sending traffic at near line rate via EXT, all packets targ=
+eted to INT are sent in priority (dropping EXT traffic as needed).
+
+My devices have the mq qdisc by default (running CentOS 7, kernel 3.10)=
+=2E
+
+After googling for documentation about the mq qdisc, I saw it was a stu=
+b to have one root qdisc per tx queue, so I expected that below were st=
+andard pfifo_fast qdiscs and that I should be able to just mark traffic=
+ as Minimize-Delay via iptable's TOS target, but it seems that it has n=
+o visible effect when mq+pfifo_fast are in effect.
+
+I played with various qdiscs, and I think I got the right behavior when=
+ replacing the mq root qdisc by a prio qdisc (along with using TOS targ=
+et), but then I was loosing the per-queue lock aspect of the mq qdisc. =
+I did not manage to reproduce this with mq yet.
+
+Could you recommend a way of achieving my goal with the maximum perform=
+ance ?
+
+Should more details be needed about my setup, i'll collect and send the=
+m.
+
+Thanks for your help,
+
+Best regards,
+--=20
+Aur=C3=A9lien
