@@ -1,43 +1,44 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Tue, 1 Sep 2015 16:51:24 +0200
-Message-ID: <20150901145124.GC11564@pox.localdomain>
-References: <20150831110012.GO20760@orbit.nwl.cc>
- <20150901114300.GB12691@gondor.apana.org.au>
- <20150901124648.GA27550@orbit.nwl.cc>
- <20150901130057.GA13230@gondor.apana.org.au>
- <20150901134310.GB27550@orbit.nwl.cc>
- <20150901135019.GA13629@gondor.apana.org.au>
- <20150901135618.GD27550@orbit.nwl.cc>
- <20150901140341.GA13757@gondor.apana.org.au>
- <20150901141305.GA11564@pox.localdomain>
- <20150901141639.GA13856@gondor.apana.org.au>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] sctp: support global vtag assochash and per
+ endpoint s(d)port assochash table
+Date: Tue, 1 Sep 2015 14:53:38 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB8B410@AcuExch.aculab.com>
+References: <6d09d44f7972c5a5e458fc0eef98aa057896403d.1441043068.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "mleitner@redhat.com" <mleitner@redhat.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: 'Xin Long' <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:34296 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751610AbbIAOv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 10:51:27 -0400
-Received: by wicjd9 with SMTP id jd9so36069878wic.1
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 07:51:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150901141639.GA13856@gondor.apana.org.au>
+Received: from smtp-out4.electric.net ([192.162.216.183]:60286 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754368AbbIAOyS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 10:54:18 -0400
+In-Reply-To: <6d09d44f7972c5a5e458fc0eef98aa057896403d.1441043068.git.lucien.xin@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/15 at 10:16pm, Herbert Xu wrote:
-> On Tue, Sep 01, 2015 at 04:13:05PM +0200, Thomas Graf wrote:
-> >
-> > You can easily trigger this outside of the testsuite as well. Open
-> > 10K Netlink sockets in a loop and the creation of the sockets will
-> > fail way before memory pressure kicks in.
-> 
-> That means our implementation is buggy.  Do you have a test program?
+From: Xin Long
+> Sent: 31 August 2015 18:44
+>
+> for telecom center, the usual case is that a server is connected by thousands
+> of clients. but if the server with only one enpoint(udp style) use the same
+> sport and dport to communicate with every clients, and every assoc in server
+> will be hashed in the same chain of global assoc hashtable due to currently we
+> choose dport and sport as the hash key.
 
-1. The current in-kernel self-test
-2. bind_netlink.c: https://github.com/tgraf/rhashtable
+I'm not sure the above is true...
+
+Although a server might be connected to 1000s of clients, if the sctp
+'application' is M3UA then it is very likely that the source and
+destination ports for all the associations are all the same (2905).
+
+An M3UA application might also be written to use a single socket
+(eg: in order to reduce the number of fds and/or poll() list size).
+
+	David
