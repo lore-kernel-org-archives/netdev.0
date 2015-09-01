@@ -1,81 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phylib: fix device deletion order in mdiobus_unregister()
-Date: Tue, 1 Sep 2015 06:55:02 -0700
-Message-ID: <55E5AE36.7030906@gmail.com>
-References: <1441114565-2340-1-git-send-email-msalter@redhat.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
+Date: Tue, 1 Sep 2015 15:56:18 +0200
+Message-ID: <20150901135618.GD27550@orbit.nwl.cc>
+References: <20150829090701.GN20760@orbit.nwl.cc>
+ <20150830074717.GA25396@gondor.apana.org.au>
+ <20150831110012.GO20760@orbit.nwl.cc>
+ <20150901114300.GB12691@gondor.apana.org.au>
+ <20150901124648.GA27550@orbit.nwl.cc>
+ <20150901130057.GA13230@gondor.apana.org.au>
+ <20150901134310.GB27550@orbit.nwl.cc>
+ <20150901135019.GA13629@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, buytenh@wantstofly.org,
-	grant.likely@secretlab.ca
-To: Mark Salter <msalter@redhat.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
+	wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441114565-2340-1-git-send-email-msalter@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20150901135019.GA13629@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 09/01/15 06:36, Mark Salter a =C3=A9crit :
-> commit 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, n=
-ot
-> the bus' parent.") uncovered a problem in mdiobus_unregister() which
-> leads to this warning when I reboot an APM Mustang (arm64) platform:
->=20
->   WARNING: CPU: 7 PID: 4239 at fs/sysfs/group.c:224 sysfs_remove_grou=
-p+0xa0/0xa4()
->   sysfs group fffffe0000e07a10 not found for kobject 'xgene-mii-eth0:=
-03'
->   ...
->   CPU: 7 PID: 4239 Comm: reboot Tainted: G            E   4.2.0-0.18.=
-el7.test15.aarch64 #1
->   Hardware name: AppliedMicro Mustang/Mustang, BIOS 1.1.0 Aug 26 2015
->   Call Trace:
->   [<fffffe000009739c>] dump_backtrace+0x0/0x170
->   [<fffffe000009752c>] show_stack+0x20/0x2c
->   [<fffffe00007436f0>] dump_stack+0x78/0x9c
->   [<fffffe00000c2cb4>] warn_slowpath_common+0xa0/0xd8
->   [<fffffe00000c2d60>] warn_slowpath_fmt+0x74/0x88
->   [<fffffe0000293d3c>] sysfs_remove_group+0x9c/0xa4
->   [<fffffe00004a8bac>] dpm_sysfs_remove+0x5c/0x70
->   [<fffffe000049b388>] device_del+0x44/0x208
->   [<fffffe000049b578>] device_unregister+0x2c/0x7c
->   [<fffffe000050dc68>] mdiobus_unregister+0x48/0x94
->   [<fffffe000052afd0>] xgene_enet_mdio_remove+0x28/0x44
->   [<fffffe000052d3f0>] xgene_enet_remove+0xd0/0xd8
->   [<fffffe000052d424>] xgene_enet_shutdown+0x2c/0x3c
->   [<fffffe00004a204c>] platform_drv_shutdown+0x24/0x40
->   [<fffffe000049d4f4>] device_shutdown+0xf0/0x1b4
->   [<fffffe00000e31ec>] kernel_restart_prepare+0x40/0x4c
->   [<fffffe00000e32f8>] kernel_restart+0x1c/0x80
->   [<fffffe00000e3670>] SyS_reboot+0x17c/0x250
->=20
-> The problem is that mdiobus_unregister() deletes the bus device befor=
-e
-> unregistering the phy devices on the bus. This wasn't a problem befor=
-e
-> because the phys were not children of the bus:
->=20
->   /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0:03
->   /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0
->=20
-> But now that they are:
->=20
->   /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0/xgene-mii=
--eth0:03
->=20
-> when mdiobus_unregister deletes the bus device, the phy subdirs are
-> removed from sysfs also. So when the phys are unregistered afterward,
-> we get the warning. This patch changes the order so that phys are
-> unregistered before the bus device is deleted.
->=20
-> Signed-off-by: Mark Salter <msalter@redhat.com>
+On Tue, Sep 01, 2015 at 09:50:19PM +0800, Herbert Xu wrote:
+> On Tue, Sep 01, 2015 at 03:43:11PM +0200, Phil Sutter wrote:
+> >
+> > Hmm. Since memory allocation is first tried with GFP_ATOMIC set and upon
+> > failure retried in background, this seems like a situation which might
+> > happen during normal use. If that already indicates a severe problem,
+> > why retry in background at all?
+> 
+> It should be tried in the background first at 70% and only when
+> that fails would we hit the 100% case and then we will try it
+> with GFP_ATOMIC.  If that fails then the insertion will fail.
 
-=46ixes: 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, n=
-ot
-the bus' parent.")
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Ah, good to know. Thanks for clarifying this!
 
-Thanks!
---=20
-=46lorian
+Looking at rhashtable_test.c, I see the initial table size is 8 entries.
+70% of that is 5.6 entries, so background expansion is started after the
+6th entry has been added, right? Given there are 10 threads running
+which try to insert 50k entries at the same time, I don't think it's
+unlikely that three more entries are inserted before the background
+expansion completes.
+
+Cheers, Phil
