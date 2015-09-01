@@ -1,58 +1,71 @@
-From: footplus@gmail.com
-Subject: Prioritize a vlan on another
-Date: Tue, 1 Sep 2015 23:07:00 +0200
-Message-ID: <266BF78D-5C37-40E1-A065-1426CC2325E2@gmail.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] skbuff: Fix skb checksum flag on skb pull
+Date: Tue, 1 Sep 2015 14:10:45 -0700
+Message-ID: <CALnjE+rVKBvP8eedf1+OZYc8uyPkyq6kiFzeyhjC3=9KhnoAow@mail.gmail.com>
+References: <1441061746-1492-1-git-send-email-pshelar@nicira.com>
+	<CALx6S34JrU5_S7wtSQsBHSVeUFjryHeJtGsCoZEdUtyy7F+__A@mail.gmail.com>
+	<CALnjE+q8N3y9D+9SVqm3w6f3KwBNtXW8A9RtVe5NFMA8aftbdA@mail.gmail.com>
+	<CALx6S36w0wYWXPwanxZeR=bdxHYZ=hOJFtk+j=jFAjmdgfDnRQ@mail.gmail.com>
+	<CALnjE+p0wa7ovOxn3E164GkZ35OLY-LM7-JA42E1K5AOycpZ0Q@mail.gmail.com>
+	<CALx6S360w+Y2BVj7Fv0dzmeivD2oO6NWaevMZyNB1kh7RrOgqw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:35029 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461AbbIAVHG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:07:06 -0400
-Received: by wicge5 with SMTP id ge5so20339523wic.0
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 14:07:04 -0700 (PDT)
-Received: from [192.168.240.101] (soy95-8-78-225-91-189.fbx.proxad.net. [78.225.91.189])
-        by smtp.gmail.com with ESMTPSA id o9sm28995686wja.29.2015.09.01.14.07.02
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Tue, 01 Sep 2015 14:07:02 -0700 (PDT)
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:35934 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbbIAVKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:10:45 -0400
+Received: by igcrk20 with SMTP id rk20so11113234igc.1
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 14:10:45 -0700 (PDT)
+In-Reply-To: <CALx6S360w+Y2BVj7Fv0dzmeivD2oO6NWaevMZyNB1kh7RrOgqw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Tue, Sep 1, 2015 at 12:55 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Tue, Sep 1, 2015 at 12:20 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Tue, Sep 1, 2015 at 7:19 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Mon, Aug 31, 2015 at 10:15 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>>> On Mon, Aug 31, 2015 at 9:12 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> On Mon, Aug 31, 2015 at 3:55 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>>>>>> VXLAN device can receive skb with checksum partial. But the checksum
+>>>>>> offset could be in outer header which is pulled on receive. Such skb
+>>>>>> can cause the panic when checksum is calculated on skb. Following patch
+>>>>>> fixes the bug by setting checksum unnecessary while pulling outer header.
+>>>>>>
+>>>>> Okay, I think I understand what you are doing. I suggest in the
+>>>>> openvswitch path, if there is a checksum CHECKSUM_PARTIAL that refers
+>>>>> to the outer headers which must have been verified at this point then
+>>>>> set to CHECKSUM_NONE-- assuming CHECKSUM_UNNECESSARY on the inner
+>>>>> header is not correct in this case. If the CHECKSUM_PARTIAL refers to
+>>>>> the inner header then you can call skb_checksum_help to resolve an
+>>>>> inner checksum.
+>>>>>
+>>>>
+>>>> That would be OVS specific fix, But I do see skb_checksum_help()
+>>>> called in multiple places outside OVS that could result in similar
+>>>> kernel panic. Therefore I want to solve it up in networking stack
+>>>> rather than in OVS.
+>>>>
+>>> Please try to reproduce this out of OVS from the top of the tree then
+>>> and report down exactly where panic is occurring the code. Unlike most
+>>> of the of the other cases where skb_checksum_help() is being called
+>>> this in the RX path so skb is probably not pulled over the checksum
+>>> offset for those. Even so, if the skb is pulled beyond the checksum
+>>> offset then this should result in a negative offset in
+>>> skb_checksum_start_offset(skb) which should be okay. It looks like
+>>> this in itself should not be causing your panic.
+>>>
+>>
+>> ip_do_fragment() also calls skb_checksum_help() that can results in
+>> similar panic. But it is not easy to reproduce it in this case due to
+>> call site is in exception path.
+>> The negative checksum offset can atleast cause assert failure in
+>> skb_checksum_help(). I will send patch to fix that.
+>
+> Which BUG_ON do you see is hitting?
 
-I'm not sure if this is the right place to ask this, but i'm stuck on a=
- trafic priority problem since some time.
-
-I have 2 10Gb interfaces (bnx2x) bonded in a 802.3ad aggregate. On this=
- aggregate, 2 vlans are configured (let's INT and EXT) I need to ensure=
- that, when sending traffic at near line rate via EXT, all packets targ=
-eted to INT are sent in priority (dropping EXT traffic as needed).
-
-My devices have the mq qdisc by default (running CentOS 7, kernel 3.10)=
-=2E
-
-After googling for documentation about the mq qdisc, I saw it was a stu=
-b to have one root qdisc per tx queue, so I expected that below were st=
-andard pfifo_fast qdiscs and that I should be able to just mark traffic=
- as Minimize-Delay via iptable's TOS target, but it seems that it has n=
-o visible effect when mq+pfifo_fast are in effect.
-
-I played with various qdiscs, and I think I got the right behavior when=
- replacing the mq root qdisc by a prio qdisc (along with using TOS targ=
-et), but then I was loosing the per-queue lock aspect of the mq qdisc. =
-I did not manage to reproduce this with mq yet.
-
-Could you recommend a way of achieving my goal with the maximum perform=
-ance ?
-
-Should more details be needed about my setup, i'll collect and send the=
-m.
-
-Thanks for your help,
-
-Best regards,
---=20
-Aur=C3=A9lien
+BUG_ON(offset >= skb_headlen(skb));
+where skb_headlen() returns unsigned int, therefore negative offset
+cast to unsigned int.
