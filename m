@@ -1,46 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 3/3] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
-Date: Tue, 01 Sep 2015 14:26:58 -0700
-Message-ID: <1441142818.8932.185.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1441133703-1570969-1-git-send-email-kafai@fb.com>
-	 <1441133703-1570969-4-git-send-email-kafai@fb.com>
-	 <1441138460.8932.182.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150901205505.GA66075@kafai-mba.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3] net: Make table id type u32
+Date: Tue, 01 Sep 2015 14:35:00 -0700 (PDT)
+Message-ID: <20150901.143500.562734291499403639.davem@davemloft.net>
+References: <1441139195-29900-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35635 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829AbbIAV1A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:27:00 -0400
-Received: by pacfv12 with SMTP id fv12so7985613pac.2
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 14:27:00 -0700 (PDT)
-In-Reply-To: <20150901205505.GA66075@kafai-mba.local>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60888 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750969AbbIAVfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 17:35:04 -0400
+In-Reply-To: <1441139195-29900-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-09-01 at 13:55 -0700, Martin KaFai Lau wrote:
-> On Tue, Sep 01, 2015 at 01:14:20PM -0700, Eric Dumazet wrote:
-> > It should not be a problem. refcnt is taken when/if necessary (skb
-> > queued on a qdisc for example)
-> >
-> > We have other uses of skb_dst_set_noref()
-> >
-> > Please describe the problem ?
-> The current ip6_tnl_dst_get() does not take the dst refcnt.
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue,  1 Sep 2015 14:26:35 -0600
+
+> A number of VRF patches used 'int' for table id. It should be u32 to be
+> consistent with the rest of the stack.
 > 
-> If the dst is released after ip6_tnl_dst_get() and before
-> skb_dst_set_noref(), would it cause an issue?
+> Fixes:
+> 4e3c89920cd3a ("net: Introduce VRF related flags and helpers")
+> 15be405eb2ea9 ("net: Add inet_addr lookup by table")
+> 30bbaa1950055 ("net: Fix up inet_addr_type checks")
+> 021dd3b8a142d ("net: Add routes to the table associated with the device")
+> dc028da54ed35 ("inet: Move VRF table lookup to inlined function")
+> f6d3c19274c74 ("net: FIB tracepoints")
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> v3
+> - and the printk format specifier (thanks, Nikolay)
+> 
+> v2
+> - update tracepoint as well (thanks, Nikolay)
 
-We are under rcu here, and a dst in a cache is protected by RCU by
-definition.
-
-skb_dst_set_noref() has following debugging clause, does it trigger for
-you ?
-
-WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
+Applied, thanks.
