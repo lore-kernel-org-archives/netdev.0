@@ -1,45 +1,146 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Tue, 1 Sep 2015 22:03:41 +0800
-Message-ID: <20150901140341.GA13757@gondor.apana.org.au>
-References: <20150829090701.GN20760@orbit.nwl.cc>
- <20150830074717.GA25396@gondor.apana.org.au>
- <20150831110012.GO20760@orbit.nwl.cc>
- <20150901114300.GB12691@gondor.apana.org.au>
- <20150901124648.GA27550@orbit.nwl.cc>
- <20150901130057.GA13230@gondor.apana.org.au>
- <20150901134310.GB27550@orbit.nwl.cc>
- <20150901135019.GA13629@gondor.apana.org.au>
- <20150901135618.GD27550@orbit.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:46730 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287AbbIAODv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 10:03:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20150901135618.GD27550@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Subject: [PATCH] usbnet: Fix a race between usbnet_stop() and the BH
+Date: Tue,  1 Sep 2015 17:05:33 +0300
+Message-ID: <1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
+References: <1441094336.3328.1.camel@suse.com>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+To: Oliver Neukum <oneukum@suse.de>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441094336.3328.1.camel@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 01, 2015 at 03:56:18PM +0200, Phil Sutter wrote:
-> 
-> Looking at rhashtable_test.c, I see the initial table size is 8 entries.
-> 70% of that is 5.6 entries, so background expansion is started after the
-> 6th entry has been added, right? Given there are 10 threads running
-> which try to insert 50k entries at the same time, I don't think it's
-> unlikely that three more entries are inserted before the background
-> expansion completes.
+The race may happen when a device (e.g. YOTA 4G LTE Modem) is
+unplugged while the system is downloading a large file from the Net.
 
-Yes but in that case the GFP_ATOMIC allocation should work because
-the table is so small anyway.
+Hardware breakpoints and Kprobes with delays were used to confirm that
+the race does actually happen.
 
-Cheers,
+The race is on skb_queue ('next' pointer) between usbnet_stop()
+and rx_complete(), which, in turn, calls usbnet_bh().
+
+Here is a part of the call stack with the code where the changes to the
+queue happen. The line numbers are for the kernel 4.1.0:
+
+*0 __skb_unlink (skbuff.h:1517)
+    prev->next = next;
+*1 defer_bh (usbnet.c:430)
+    spin_lock_irqsave(&list->lock, flags);
+    old_state = entry->state;
+    entry->state = state;
+    __skb_unlink(skb, list);
+    spin_unlock(&list->lock);
+    spin_lock(&dev->done.lock);
+    __skb_queue_tail(&dev->done, skb);
+    if (dev->done.qlen == 1)
+        tasklet_schedule(&dev->bh);
+    spin_unlock_irqrestore(&dev->done.lock, flags);
+*2 rx_complete (usbnet.c:640)
+    state = defer_bh(dev, skb, &dev->rxq, state);
+
+At the same time, the following code repeatedly checks if the queue is
+empty and reads these values concurrently with the above changes:
+
+*0  usbnet_terminate_urbs (usbnet.c:765)
+    /* maybe wait for deletions to finish. */
+    while (!skb_queue_empty(&dev->rxq)
+        && !skb_queue_empty(&dev->txq)
+        && !skb_queue_empty(&dev->done)) {
+            schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
+            set_current_state(TASK_UNINTERRUPTIBLE);
+            netif_dbg(dev, ifdown, dev->net,
+                  "waited for %d urb completions\n", temp);
+    }
+*1  usbnet_stop (usbnet.c:806)
+    if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
+        usbnet_terminate_urbs(dev);
+
+As a result, it is possible, for example, that the skb is removed from
+dev->rxq by __skb_unlink() before the check
+"!skb_queue_empty(&dev->rxq)" in usbnet_terminate_urbs() is made. It is
+also possible in this case that the skb is added to dev->done queue
+after "!skb_queue_empty(&dev->done)" is checked. So
+usbnet_terminate_urbs() may stop waiting and return while dev->done
+queue still has an item.
+
+Locking in defer_bh() and usbnet_terminate_urbs() was revisited to avoid
+this race.
+
+Signed-off-by: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+---
+ drivers/net/usb/usbnet.c | 39 ++++++++++++++++++++++++++++-----------
+ 1 file changed, 28 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index e049857..b4cf107 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -428,12 +428,18 @@ static enum skb_state defer_bh(struct usbnet *dev, struct sk_buff *skb,
+ 	old_state = entry->state;
+ 	entry->state = state;
+ 	__skb_unlink(skb, list);
+-	spin_unlock(&list->lock);
+-	spin_lock(&dev->done.lock);
++
++	/* defer_bh() is never called with list == &dev->done.
++	 * spin_lock_nested() tells lockdep that it is OK to take
++	 * dev->done.lock here with list->lock held.
++	 */
++	spin_lock_nested(&dev->done.lock, SINGLE_DEPTH_NESTING);
++
+ 	__skb_queue_tail(&dev->done, skb);
+ 	if (dev->done.qlen == 1)
+ 		tasklet_schedule(&dev->bh);
+-	spin_unlock_irqrestore(&dev->done.lock, flags);
++	spin_unlock(&dev->done.lock);
++	spin_unlock_irqrestore(&list->lock, flags);
+ 	return old_state;
+ }
+ 
+@@ -749,6 +755,20 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
+ 
+ /*-------------------------------------------------------------------------*/
+ 
++static void wait_skb_queue_empty(struct sk_buff_head *q)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&q->lock, flags);
++	while (!skb_queue_empty(q)) {
++		spin_unlock_irqrestore(&q->lock, flags);
++		schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
++		set_current_state(TASK_UNINTERRUPTIBLE);
++		spin_lock_irqsave(&q->lock, flags);
++	}
++	spin_unlock_irqrestore(&q->lock, flags);
++}
++
+ // precondition: never called in_interrupt
+ static void usbnet_terminate_urbs(struct usbnet *dev)
+ {
+@@ -762,14 +782,11 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
+ 		unlink_urbs(dev, &dev->rxq);
+ 
+ 	/* maybe wait for deletions to finish. */
+-	while (!skb_queue_empty(&dev->rxq)
+-		&& !skb_queue_empty(&dev->txq)
+-		&& !skb_queue_empty(&dev->done)) {
+-			schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
+-			set_current_state(TASK_UNINTERRUPTIBLE);
+-			netif_dbg(dev, ifdown, dev->net,
+-				  "waited for %d urb completions\n", temp);
+-	}
++	wait_skb_queue_empty(&dev->rxq);
++	wait_skb_queue_empty(&dev->txq);
++	wait_skb_queue_empty(&dev->done);
++	netif_dbg(dev, ifdown, dev->net,
++		  "waited for %d urb completions\n", temp);
+ 	set_current_state(TASK_RUNNING);
+ 	remove_wait_queue(&dev->wait, &wait);
+ }
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.3.2
