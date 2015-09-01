@@ -1,96 +1,57 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH v5 10/10] ss: activate json_writer excluded logic
-Date: Tue,  1 Sep 2015 19:57:23 +0200
-Message-ID: <1441130243-20303-11-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH v5 07/10] ss: symmetrical subhandler output extension example
+Date: Tue,  1 Sep 2015 19:57:20 +0200
+Message-ID: <1441130243-20303-8-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1441130243-20303-1-git-send-email-matthias.tafelmeier@gmx.net>
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:51443 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.20]:49396 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754072AbbIAR5z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2015 13:57:55 -0400
+	id S1755290AbbIAR5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 13:57:54 -0400
 In-Reply-To: <1441130243-20303-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This small patch extends the lib json_writer module for formerly
-deactivated functionality.
+This small sized patch shall convey the locations which have to be
+changed for a symmetrical output extension. Symmetrical means in this
+context all existing semantically related handlers in the diverse
+formatters (for hr and json up to now).
 
+Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 ---
- include/json_writer.h | 1 +
- lib/json_writer.c     | 7 -------
- 2 files changed, 1 insertion(+), 7 deletions(-)
+ misc/ss_hr_fmt.c   | 2 ++
+ misc/ss_json_fmt.c | 2 ++
+ 2 files changed, 4 insertions(+)
 
-diff --git a/include/json_writer.h b/include/json_writer.h
-index ab9a008..3e2bbff 100644
---- a/include/json_writer.h
-+++ b/include/json_writer.h
-@@ -15,6 +15,7 @@
- #ifndef _JSON_WRITER_H_
- #define _JSON_WRITER_H_
+diff --git a/misc/ss_hr_fmt.c b/misc/ss_hr_fmt.c
+index 2f09838..4046ebf 100644
+--- a/misc/ss_hr_fmt.c
++++ b/misc/ss_hr_fmt.c
+@@ -82,6 +82,8 @@ static void tcp_stats_hr_fmt(struct tcpstat *s)
+ 		printf(" reordering:%d", s->reordering);
+ 	if (s->rcv_rtt)
+ 		printf(" rcv_rtt:%g", s->rcv_rtt);
++	if (s->rcv_space)
++		printf(" rcv_space:%d", s->rcv_space);
  
-+#include <stdio.h>
- #include <stdbool.h>
- #include <stdint.h>
+ 	CHECK_FMT_ADAPT(s->rcv_space, s,
+ 	hr_handler_must_be_adapted_accordingly_when_json_fmt_is_extended);
+diff --git a/misc/ss_json_fmt.c b/misc/ss_json_fmt.c
+index a927952..1dff57a 100644
+--- a/misc/ss_json_fmt.c
++++ b/misc/ss_json_fmt.c
+@@ -160,6 +160,8 @@ static void tcp_stats_json_fmt(struct tcpstat *s)
+ 		jsonw_int_field(json_wr, "reordering", s->reordering);
+ 	if (s->rcv_rtt)
+ 		jsonw_float_field(json_wr, "rcv_rtt", s->rcv_rtt);
++	if (s->rcv_space)
++		jsonw_int_field(json_wr, "rcv_space", s->rcv_space);
  
-diff --git a/lib/json_writer.c b/lib/json_writer.c
-index 2af16e1..dfed4d7 100644
---- a/lib/json_writer.c
-+++ b/lib/json_writer.c
-@@ -12,7 +12,6 @@
-  * Authors:	Stephen Hemminger <stephen@networkplumber.org>
-  */
- 
--#include <stdio.h>
- #include <stdbool.h>
- #include <stdarg.h>
- #include <assert.h>
-@@ -201,7 +200,6 @@ void jsonw_bool(json_writer_t *self, bool val)
- 	jsonw_printf(self, "%s", val ? "true" : "false");
- }
- 
--#ifdef notused
- void jsonw_null(json_writer_t *self)
- {
- 	jsonw_printf(self, "null");
-@@ -211,7 +209,6 @@ void jsonw_float(json_writer_t *self, double num)
- {
- 	jsonw_printf(self, "%g", num);
- }
--#endif
- 
- void jsonw_uint(json_writer_t *self, uint64_t num)
- {
-@@ -236,13 +233,11 @@ void jsonw_bool_field(json_writer_t *self, const char *prop, bool val)
- 	jsonw_bool(self, val);
- }
- 
--#ifdef notused
- void jsonw_float_field(json_writer_t *self, const char *prop, double val)
- {
- 	jsonw_name(self, prop);
- 	jsonw_float(self, val);
- }
--#endif
- 
- void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num)
- {
-@@ -256,13 +251,11 @@ void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num)
- 	jsonw_int(self, num);
- }
- 
--#ifdef notused
- void jsonw_null_field(json_writer_t *self, const char *prop)
- {
- 	jsonw_name(self, prop);
- 	jsonw_null(self);
- }
--#endif
- 
- #ifdef TEST
- int main(int argc, char **argv)
+ 	/*deal with special case */
+ 	res_json_fmt_branch(s->ss.state == SS_LISTEN, ' ');
 -- 
 1.9.1
