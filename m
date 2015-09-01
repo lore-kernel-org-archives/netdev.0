@@ -1,90 +1,179 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/4] net: qdisc: add op to run filters/actions
- before enqueue
-Date: Tue, 01 Sep 2015 10:21:23 -0700
-Message-ID: <1441128083.8932.177.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1441123709.git.daniel@iogearbox.net>
-	 <a18f0baba2668f0bbc15a45036713dcaa4bb09b0.1441123709.git.daniel@iogearbox.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] net: Fix behavior of unreachable, blackhole and prohibit
+ routes
+Date: Tue, 1 Sep 2015 10:53:20 -0700
+Message-ID: <55E5E610.501@gmail.com>
+References: <1441102392.3250.9.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, john.fastabend@gmail.com, ast@plumgrid.com,
-	netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: nforro@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33850 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752942AbbIARV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 13:21:28 -0400
-Received: by padhy1 with SMTP id hy1so2118494pad.1
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 10:21:28 -0700 (PDT)
-In-Reply-To: <a18f0baba2668f0bbc15a45036713dcaa4bb09b0.1441123709.git.daniel@iogearbox.net>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35658 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095AbbIARxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 13:53:22 -0400
+Received: by pacfv12 with SMTP id fv12so2849238pac.2
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 10:53:21 -0700 (PDT)
+In-Reply-To: <1441102392.3250.9.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-09-01 at 18:34 +0200, Daniel Borkmann wrote:
-> From: John Fastabend <john.r.fastabend@intel.com>
-> 
-> Add a new ->preclassify() op to allow multiqueue queuing disciplines
-> to call tc_classify() or perform other work before dev_pick_tx().
-> 
-> This helps, for example, with mqprio queueing discipline that has
-> offload support by most popular 10G NICs, where the txq effectively
-> picks the qdisc.
-> 
-> Once traffic is being directed to a specific queue then hardware TX
-> rings may be tuned to support this traffic type. mqprio already
-> gives the ability to do this via skb->priority where the ->preclassify()
-> provides more control over packet steering, it can classify the skb
-> and set the priority, for example, from an eBPF classifier (or action).
-> 
-> Also this allows traffic classifiers to be run without holding the
-> qdisc lock and gives one place to attach filters when mqprio is
-> in use. ->preclassify() could also be added to other mq qdiscs later
-> on: f.e. most classful qdiscs first check major/minor numbers of
-> skb->priority before actually consulting a more complex classifier.
-> 
-> For mqprio case today, a filter has to be attached to each txq qdisc
-> to have all traffic hit the filter. Since ->preclassify() is currently
-> only used by mqprio, the __dev_queue_xmit() fast path is guarded by
-> a generic, hidden Kconfig option (NET_CLS_PRECLASSIFY) that is only
-> selected by mqprio,
+On 09/01/2015 03:13 AM, Nikola Forr=C3=B3 wrote:
+> Man page of ip-route(8) says the following about route types:
+>
+>    unreachable - these destinations are unreachable.  Packets are dis=
+=E2=80=90
+>    carded and the ICMP message host unreachable is generated.  The lo=
+cal
+>    senders get an EHOSTUNREACH error.
+>
+>    blackhole - these destinations are unreachable.  Packets are dis=E2=
+=80=90
+>    carded silently.  The local senders get an EINVAL error.
+>
+>    prohibit - these destinations are unreachable.  Packets are discar=
+ded
+>    and the ICMP message communication administratively prohibited is
+>    generated.  The local senders get an EACCES error.
+>
+> In the inet6 address family, this was correct, except the local sende=
+rs
+> got ENETUNREACH error instead of EHOSTUNREACH in case of unreachable =
+route.
+> In the inet address family, all three route types generated ICMP mess=
+age
+> net unreachable, and the local senders got ENETUNREACH error.
+>
+> In both address families all three route types now behave consistent
+> with documentation.
 
+Generally updating kernel code to match user-space documentation isn't=20
+always the best way to go.  The question I would have is if there are=20
+any other user-space applications out there that might be expecting thi=
+s=20
+behaviour now?
 
-So all distros will select it, basically.
+Also your changes don't seem to match up with what you have described.=20
+You are returning the error code from fib_table_lookup, but=20
+fib_table_lookup can return -EAGAIN if there is no matching entry found=
+=2E=20
+  I don't see you describing how you would deal with that case.  You=20
+might try testing your code after deleting the default route to see wha=
+t=20
+behaviour it is you get.
 
-...
-
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 877c848..b768bca 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3052,6 +3052,23 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
->  	rcu_read_lock_bh();
->  
->  	skb_update_prio(skb);
-> +#ifdef CONFIG_NET_CLS_PRECLASSIFY
-> +	q = rcu_dereference_bh(dev->qdisc);
-> +	if (q && q->preclassify) {
-> +		switch (q->preclassify(skb, q)) {
-> +		default:
-> +			break;
-> +#ifdef CONFIG_NET_CLS_ACT
-> +		case TC_ACT_SHOT:
-> +		case TC_ACT_STOLEN:
-> +		case TC_ACT_QUEUED:
-> +			kfree_skb(skb);
-> +			rc = NET_XMIT_SUCCESS;
-> +			goto out;
-> +#endif
+> Signed-off-by: Nikola Forr=C3=B3 <nforro@redhat.com>
+> ---
+>   include/net/ip_fib.h | 19 ++++++++++++++-----
+>   net/ipv4/route.c     |  6 ++++--
+>   net/ipv6/route.c     |  4 +++-
+>   3 files changed, 21 insertions(+), 8 deletions(-)
+>
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index 5fa643b..8d174a7 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -233,8 +233,8 @@ static inline int fib_lookup(struct net *net, con=
+st struct flowi4 *flp,
+>   	rcu_read_lock();
+>
+>   	tb =3D fib_get_table(net, RT_TABLE_MAIN);
+> -	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF)=
+)
+> -		err =3D 0;
+> +	if (tb)
+> +		err =3D fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
+>
+>   	rcu_read_unlock();
+>
+> @@ -267,11 +267,20 @@ static inline int fib_lookup(struct net *net, s=
+truct flowi4 *flp,
+>
+>   	for (err =3D 0; !err; err =3D -ENETUNREACH) {
+>   		tb =3D rcu_dereference_rtnl(net->ipv4.fib_main);
+> -		if (tb && !fib_table_lookup(tb, flp, res, flags))
+> -			break;
+> +		if (tb) {
+> +			err =3D fib_table_lookup(tb, flp, res, flags);
+> +			if (!err)
+> +				break;
 > +		}
-> +	}
-> +#endif
->  
+>
+>   		tb =3D rcu_dereference_rtnl(net->ipv4.fib_default);
+> -		if (tb && !fib_table_lookup(tb, flp, res, flags))
+> +		if (tb) {
+> +			err =3D fib_table_lookup(tb, flp, res, flags);
+> +			if (!err)
+> +				break;
+> +		}
+> +
+> +		if (err)
+>   			break;
+>   	}
+>
 
-Since its a device attribute after all, why are you storing it in
-dev->qdisc->preclassify, adding a cache line miss for moderate load ?
+Without a default route set these functions are going to return -EAGAIN=
+=20
+when it should probably be returning -ENETUNREACH.
 
-(mqprio/mq root qdisc is normally not fetched in fast path ?)
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index e681b85..4ce3f87 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2020,6 +2020,7 @@ struct rtable *__ip_route_output_key(struct net=
+ *net, struct flowi4 *fl4)
+>   	struct fib_result res;
+>   	struct rtable *rth;
+>   	int orig_oif;
+> +	int err =3D ENETUNREACH;
+>
+>   	res.tclassid	=3D 0;
+>   	res.fi		=3D NULL;
+> @@ -2123,7 +2124,8 @@ struct rtable *__ip_route_output_key(struct net=
+ *net, struct flowi4 *fl4)
+>   		goto make_route;
+>   	}
+>
+> -	if (fib_lookup(net, fl4, &res, 0)) {
+> +	err =3D fib_lookup(net, fl4, &res, 0);
+> +	if (err) {
+>   		res.fi =3D NULL;
+>   		res.table =3D NULL;
+>   		if (fl4->flowi4_oif) {
+> @@ -2151,7 +2153,7 @@ struct rtable *__ip_route_output_key(struct net=
+ *net, struct flowi4 *fl4)
+>   			res.type =3D RTN_UNICAST;
+>   			goto make_route;
+>   		}
+> -		rth =3D ERR_PTR(-ENETUNREACH);
+> +		rth =3D ERR_PTR(err);
+>   		goto out;
+>   	}
+>
 
-dev->preclassify would be better IMO, close to dev->_tx
+This bit appears to overlook the fact that fib_rules_lookup could also=20
+be the function used to return the error via a call to fib_lookup.  In=20
+which case that also throws -ESRCH into the mix for return error codes.
+
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index d155864..d33a6a5 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1847,9 +1847,11 @@ int ip6_route_add(struct fib6_config *cfg)
+>   			rt->dst.input =3D ip6_pkt_prohibit;
+>   			break;
+>   		case RTN_THROW:
+> +		case RTN_UNREACHABLE:
+>   		default:
+>   			rt->dst.error =3D (cfg->fc_type =3D=3D RTN_THROW) ? -EAGAIN
+> -					: -ENETUNREACH;
+> +					: (cfg->fc_type =3D=3D RTN_UNREACHABLE)
+> +					? -EHOSTUNREACH : -ENETUNREACH;
+>   			rt->dst.output =3D ip6_pkt_discard_out;
+>   			rt->dst.input =3D ip6_pkt_discard;
+>   			break;
+>
