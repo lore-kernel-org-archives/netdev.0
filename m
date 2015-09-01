@@ -1,39 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Tue, 1 Sep 2015 21:00:57 +0800
-Message-ID: <20150901130057.GA13230@gondor.apana.org.au>
-References: <20150829090701.GN20760@orbit.nwl.cc>
- <20150830074717.GA25396@gondor.apana.org.au>
- <20150831110012.GO20760@orbit.nwl.cc>
- <20150901114300.GB12691@gondor.apana.org.au>
- <20150901124648.GA27550@orbit.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
+From: Mark Salter <msalter@redhat.com>
+Subject: [PATCH] phylib: fix device deletion order in mdiobus_unregister()
+Date: Tue,  1 Sep 2015 09:36:05 -0400
+Message-ID: <1441114565-2340-1-git-send-email-msalter@redhat.com>
+Cc: David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+	buytenh@wantstofly.org, grant.likely@secretlab.ca,
+	Mark Salter <msalter@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150901124648.GA27550@orbit.nwl.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 01, 2015 at 02:46:48PM +0200, Phil Sutter wrote:
->
-> This is not an inherent behaviour of the implementation but general
-> agreement. The insertion may fail non-permanently (returning -EBUSY),
-> users are expected to handle this by retrying the operation.
+commit 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not
+the bus' parent.") uncovered a problem in mdiobus_unregister() which
+leads to this warning when I reboot an APM Mustang (arm64) platform:
 
-Absolutely not.  The only reason for an insertion to fail is if we
-can't allocate enough memory.  Unless the user is also looping its
-kmalloc calls it definitely shouldn't be retrying the insert.
+  WARNING: CPU: 7 PID: 4239 at fs/sysfs/group.c:224 sysfs_remove_group+0xa0/0xa4()
+  sysfs group fffffe0000e07a10 not found for kobject 'xgene-mii-eth0:03'
+  ...
+  CPU: 7 PID: 4239 Comm: reboot Tainted: G            E   4.2.0-0.18.el7.test15.aarch64 #1
+  Hardware name: AppliedMicro Mustang/Mustang, BIOS 1.1.0 Aug 26 2015
+  Call Trace:
+  [<fffffe000009739c>] dump_backtrace+0x0/0x170
+  [<fffffe000009752c>] show_stack+0x20/0x2c
+  [<fffffe00007436f0>] dump_stack+0x78/0x9c
+  [<fffffe00000c2cb4>] warn_slowpath_common+0xa0/0xd8
+  [<fffffe00000c2d60>] warn_slowpath_fmt+0x74/0x88
+  [<fffffe0000293d3c>] sysfs_remove_group+0x9c/0xa4
+  [<fffffe00004a8bac>] dpm_sysfs_remove+0x5c/0x70
+  [<fffffe000049b388>] device_del+0x44/0x208
+  [<fffffe000049b578>] device_unregister+0x2c/0x7c
+  [<fffffe000050dc68>] mdiobus_unregister+0x48/0x94
+  [<fffffe000052afd0>] xgene_enet_mdio_remove+0x28/0x44
+  [<fffffe000052d3f0>] xgene_enet_remove+0xd0/0xd8
+  [<fffffe000052d424>] xgene_enet_shutdown+0x2c/0x3c
+  [<fffffe00004a204c>] platform_drv_shutdown+0x24/0x40
+  [<fffffe000049d4f4>] device_shutdown+0xf0/0x1b4
+  [<fffffe00000e31ec>] kernel_restart_prepare+0x40/0x4c
+  [<fffffe00000e32f8>] kernel_restart+0x1c/0x80
+  [<fffffe00000e3670>] SyS_reboot+0x17c/0x250
 
-If an expansion fails it means either that the system is suffering
-a catastrophic memory shortage, or the user of rhashtable is doing
-something wrong.
+The problem is that mdiobus_unregister() deletes the bus device before
+unregistering the phy devices on the bus. This wasn't a problem before
+because the phys were not children of the bus:
 
-Cheers,
+  /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0:03
+  /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0
+
+But now that they are:
+
+  /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0/xgene-mii-eth0:03
+
+when mdiobus_unregister deletes the bus device, the phy subdirs are
+removed from sysfs also. So when the phys are unregistered afterward,
+we get the warning. This patch changes the order so that phys are
+unregistered before the bus device is deleted.
+
+Signed-off-by: Mark Salter <msalter@redhat.com>
+---
+ drivers/net/phy/mdio_bus.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 46a14cb..02a4615 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -303,12 +303,12 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	BUG_ON(bus->state != MDIOBUS_REGISTERED);
+ 	bus->state = MDIOBUS_UNREGISTERED;
+ 
+-	device_del(&bus->dev);
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+ 		if (bus->phy_map[i])
+ 			device_unregister(&bus->phy_map[i]->dev);
+ 		bus->phy_map[i] = NULL;
+ 	}
++	device_del(&bus->dev);
+ }
+ EXPORT_SYMBOL(mdiobus_unregister);
+ 
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.4.3
