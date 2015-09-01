@@ -1,115 +1,83 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net 1/3] ipv6: Refactor common ip6gre_tunnel_init codes
-Date: Tue, 1 Sep 2015 11:55:01 -0700
-Message-ID: <1441133703-1570969-2-git-send-email-kafai@fb.com>
-References: <1441133703-1570969-1-git-send-email-kafai@fb.com>
+Subject: [PATCH net 0/3] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
+Date: Tue, 1 Sep 2015 11:55:00 -0700
+Message-ID: <1441133703-1570969-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Kernel Team <kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:25317 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751757AbbIASzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:55:15 -0400
-Received: from pps.filterd (m0004346 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t81IrkpL011790
-	for <netdev@vger.kernel.org>; Tue, 1 Sep 2015 11:55:15 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:63015 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751860AbbIASzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:55:35 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t81IqN4f017506
+	for <netdev@vger.kernel.org>; Tue, 1 Sep 2015 11:55:35 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1wngjrr64c-2
+	by mx0b-00082601.pphosted.com with ESMTP id 1wnh6h853q-3
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 11:55:15 -0700
+	for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 11:55:35 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- f4e1861850da11e58f210002c95209d8-f53fd240 for <netdev@vger.kernel.org>;	Tue,
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ f4dc683650da11e59fcb24be0593f280-f0fef240 for <netdev@vger.kernel.org>;	Tue,
  01 Sep 2015 11:55:04 -0700
-In-Reply-To: <1441133703-1570969-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is a prep work to fix the dst_entry refcnt bugs in ip6_tunnel.
+This patch series is to fix the dst refcnt bugs in ip6_tunnel.
 
-This patch refactors some common init codes used by both
-ip6gre_tunnel_init and ip6gre_tap_init.
+Patch 1 and 2 are the prep works.  Patch 3 is the fix.
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
----
- net/ipv6/ip6_gre.c | 37 ++++++++++++++++++++++++-------------
- 1 file changed, 24 insertions(+), 13 deletions(-)
+I can reproduce the bug by adding and removing the ip6gre tunnel
+while running a super_netperf TCP_CRR test.  I get the following
+trace by adding WARN_ON_ONCE(newrefcnt < 0) to dst_release():
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 69f4f68..495eab3 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1244,7 +1244,7 @@ static void ip6gre_tunnel_setup(struct net_device *dev)
- 	netif_keep_dst(dev);
- }
- 
--static int ip6gre_tunnel_init(struct net_device *dev)
-+static int ip6gre_tunnel_init_common(struct net_device *dev)
- {
- 	struct ip6_tnl *tunnel;
- 
-@@ -1254,16 +1254,30 @@ static int ip6gre_tunnel_init(struct net_device *dev)
- 	tunnel->net = dev_net(dev);
- 	strcpy(tunnel->parms.name, dev->name);
- 
-+	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-+	if (!dev->tstats)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+static int ip6gre_tunnel_init(struct net_device *dev)
-+{
-+	struct ip6_tnl *tunnel;
-+	int ret;
-+
-+	ret = ip6gre_tunnel_init_common(dev);
-+	if (ret)
-+		return ret;
-+
-+	tunnel = netdev_priv(dev);
-+
- 	memcpy(dev->dev_addr, &tunnel->parms.laddr, sizeof(struct in6_addr));
- 	memcpy(dev->broadcast, &tunnel->parms.raddr, sizeof(struct in6_addr));
- 
- 	if (ipv6_addr_any(&tunnel->parms.raddr))
- 		dev->header_ops = &ip6gre_header_ops;
- 
--	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
--	if (!dev->tstats)
--		return -ENOMEM;
--
- 	return 0;
- }
- 
-@@ -1459,19 +1473,16 @@ static void ip6gre_netlink_parms(struct nlattr *data[],
- static int ip6gre_tap_init(struct net_device *dev)
- {
- 	struct ip6_tnl *tunnel;
-+	int ret;
- 
--	tunnel = netdev_priv(dev);
-+	ret = ip6gre_tunnel_init_common(dev);
-+	if (ret)
-+		return ret;
- 
--	tunnel->dev = dev;
--	tunnel->net = dev_net(dev);
--	strcpy(tunnel->parms.name, dev->name);
-+	tunnel = netdev_priv(dev);
- 
- 	ip6gre_tnl_link_config(tunnel, 1);
- 
--	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
--	if (!dev->tstats)
--		return -ENOMEM;
--
- 	return 0;
- }
- 
--- 
-1.8.1
+[  312.760432] ------------[ cut here ]------------
+[  312.774664] WARNING: CPU: 2 PID: 10263 at net/core/dst.c:288 dst_release+0xf3/0x100()
+[  312.776041] Modules linked in: k10temp coretemp hwmon ip6_gre ip6_tunnel tunnel6 ipmi_devintf ipmi_ms\
+ghandler ip6table_filter ip6_tables xt_NFLOG nfnetlink_log nfnetlink xt_comment xt_statistic iptable_fil\
+ter ip_tables x_tables nfsv3 nfs_acl nfs fscache lockd grace mptctl netconsole autofs4 rpcsec_gss_krb5 a\
+uth_rpcgss oid_registry sunrpc ipv6 dm_mod loop iTCO_wdt iTCO_vendor_support serio_raw rtc_cmos pcspkr i\
+2c_i801 i2c_core lpc_ich mfd_core ehci_pci ehci_hcd e1000e mlx4_en ptp pps_core vxlan udp_tunnel ip6_udp\
+_tunnel mlx4_core sg button ext3 jbd mpt2sas raid_class
+[  312.785302] CPU: 2 PID: 10263 Comm: netperf Not tainted 4.2.0-rc8-00046-g4db9b63-dirty #15
+[  312.791695] Hardware name: Quanta Freedom /Windmill-EP, BIOS F03_3B04 09/12/2013
+[  312.792965]  ffffffff819dca2c ffff8811dfbdf6f8 ffffffff816537de ffff88123788fdb8
+[  312.794263]  0000000000000000 ffff8811dfbdf738 ffffffff81052646 ffff8811dfbdf768
+[  312.795593]  ffff881203a98180 00000000ffffffff ffff88242927a000 ffff88120a2532e0
+[  312.796946] Call Trace:
+[  312.797380]  [<ffffffff816537de>] dump_stack+0x45/0x57
+[  312.798288]  [<ffffffff81052646>] warn_slowpath_common+0x86/0xc0
+[  312.799699]  [<ffffffff8105273a>] warn_slowpath_null+0x1a/0x20
+[  312.800852]  [<ffffffff8159f9b3>] dst_release+0xf3/0x100
+[  312.801834]  [<ffffffffa03f1308>] ip6_tnl_dst_store+0x48/0x70 [ip6_tunnel]
+[  312.803738]  [<ffffffffa03fd0b6>] ip6gre_xmit2+0x536/0x720 [ip6_gre]
+[  312.804774]  [<ffffffffa03fd40a>] ip6gre_tunnel_xmit+0x16a/0x410 [ip6_gre]
+[  312.805986]  [<ffffffff8159934b>] dev_hard_start_xmit+0x23b/0x390
+[  312.808810]  [<ffffffff815a2f5f>] ? neigh_destroy+0xef/0x140
+[  312.809843]  [<ffffffff81599a6c>] __dev_queue_xmit+0x48c/0x4f0
+[  312.813931]  [<ffffffff81599ae3>] dev_queue_xmit_sk+0x13/0x20
+[  312.814993]  [<ffffffff815a0832>] neigh_direct_output+0x12/0x20
+[  312.817448]  [<ffffffffa021d633>] ip6_finish_output2+0x183/0x460 [ipv6]
+[  312.818762]  [<ffffffff81306fc5>] ? find_next_bit+0x15/0x20
+[  312.819671]  [<ffffffffa021fd79>] ip6_finish_output+0x89/0xe0 [ipv6]
+[  312.820720]  [<ffffffffa021fe14>] ip6_output+0x44/0xe0 [ipv6]
+[  312.821762]  [<ffffffff815c8809>] ? nf_hook_slow+0x69/0xc0
+[  312.823123]  [<ffffffffa021d232>] ip6_xmit+0x242/0x4c0 [ipv6]
+[  312.824073]  [<ffffffffa021c9f0>] ? ac6_proc_exit+0x20/0x20 [ipv6]
+[  312.825116]  [<ffffffffa024c751>] inet6_csk_xmit+0x61/0xa0 [ipv6]
+[  312.826127]  [<ffffffff815eb590>] tcp_transmit_skb+0x4f0/0x9b0
+[  312.827441]  [<ffffffff815ed267>] tcp_connect+0x637/0x7a0
+[  312.828327]  [<ffffffffa0245906>] tcp_v6_connect+0x2d6/0x550 [ipv6]
+[  312.829581]  [<ffffffff81606f05>] __inet_stream_connect+0x95/0x2f0
+[  312.830600]  [<ffffffff810ae13a>] ? hrtimer_try_to_cancel+0x1a/0xf0
+[  312.833456]  [<ffffffff812fba19>] ? timerqueue_add+0x59/0xb0
+[  312.834407]  [<ffffffff81607198>] inet_stream_connect+0x38/0x50
+[  312.835886]  [<ffffffff8157cb17>] SYSC_connect+0xb7/0xf0
+[  312.840035]  [<ffffffff810af6d3>] ? do_setitimer+0x1b3/0x200
+[  312.840983]  [<ffffffff810af75a>] ? alarm_setitimer+0x3a/0x70
+[  312.841941]  [<ffffffff8157d7ae>] SyS_connect+0xe/0x10
+[  312.842818]  [<ffffffff81659297>] entry_SYSCALL_64_fastpath+0x12/0x6a
+[  312.844206] ---[ end trace 43f3ecd86c3b1313 ]---
