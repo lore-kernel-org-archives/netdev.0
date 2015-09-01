@@ -1,134 +1,96 @@
 From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [PATCH RFC v2 06/21] net: rbridge: enable/disable TRILL capability
-Date: Tue,  1 Sep 2015 17:43:01 +0200
-Message-ID: <1441122196-11662-7-git-send-email-ahmed@gandi.net>
+Subject: [PATCH RFC v2 03/21] net: rbridge: add RBridge structure
+Date: Tue,  1 Sep 2015 17:42:58 +0200
+Message-ID: <1441122196-11662-4-git-send-email-ahmed@gandi.net>
 References: <1441122196-11662-1-git-send-email-ahmed@gandi.net>
 Cc: William Dauchy <william@gandi.net>, Ahmed Amamou <ahmed@gandi.net>,
 	Kamel Haddadou <kamel@gandi.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:56783 "EHLO gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:49694 "EHLO gandi.net"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752713AbbIAPxl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2015 11:53:41 -0400
+	id S1751631AbbIAPxn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 11:53:43 -0400
 In-Reply-To: <1441122196-11662-1-git-send-email-ahmed@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-enable switching TRILL capability state via sysfs command
+add basic RBridge structure
+add basic TRILL constant
+define rbr_nickinfo structure which represent distant RBridge information
 
 Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
-Signed-off-by: William Dauchy <william@gandi.net>
 Signed-off-by: Kamel Haddadou <kamel@gandi.net>
 ---
- net/bridge/Makefile     |  2 ++
- net/bridge/br_private.h |  5 ++++
- net/bridge/rbr.c        | 71 +++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 78 insertions(+)
- create mode 100644 net/bridge/rbr.c
+ net/bridge/rbr_private.h | 60 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 60 insertions(+)
+ create mode 100644 net/bridge/rbr_private.h
 
-diff --git a/net/bridge/Makefile b/net/bridge/Makefile
-index a1cda5d..27da487 100644
---- a/net/bridge/Makefile
-+++ b/net/bridge/Makefile
-@@ -21,3 +21,5 @@ bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o br_mdb.o
- bridge-$(CONFIG_BRIDGE_VLAN_FILTERING) += br_vlan.o
- 
- obj-$(CONFIG_NETFILTER) += netfilter/
-+
-+bridge-$(CONFIG_TRILL) += rbr.o
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index ff757da..67da2ae 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -834,6 +834,11 @@ int br_stp_set_port_priority(struct net_bridge_port *p, unsigned long newprio);
- int br_stp_set_path_cost(struct net_bridge_port *p, unsigned long path_cost);
- ssize_t br_show_bridge_id(char *buf, const struct bridge_id *id);
- 
-+/* rbr.c */
-+#ifdef CONFIG_TRILL
-+void br_trill_set_enabled(struct net_bridge *br, unsigned long val);
-+#endif
-+
- /* br_stp_bpdu.c */
- struct stp_proto;
- void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
-diff --git a/net/bridge/rbr.c b/net/bridge/rbr.c
+diff --git a/net/bridge/rbr_private.h b/net/bridge/rbr_private.h
 new file mode 100644
-index 0000000..c554743
+index 0000000..8d9fb4c
 --- /dev/null
-+++ b/net/bridge/rbr.c
-@@ -0,0 +1,71 @@
-+/*
-+ *	Generic parts
-+ *	Linux ethernet Rbridge
-+ *
-+ *	Authors:
-+ *	Ahmed AMAMOU	<ahmed@gandi.net>
-+ *	Kamel Haddadou	<kamel@gandi.net>
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ */
-+#include "br_private.h"
-+#include "rbr_private.h"
++++ b/net/bridge/rbr_private.h
+@@ -0,0 +1,60 @@
++#ifndef _RBR_PRIVATE_H
++#define _RBR_PRIVATE_H
 +
-+static struct rbr *add_rbr(struct net_bridge *br)
-+{
-+	struct rbr *rbr;
++#include <linux/atomic.h>
 +
-+	if (!br->rbr) {
-+		rbr = kzalloc(sizeof(*rbr), GFP_KERNEL);
-+		if (!rbr)
-+			return NULL;
++#define	RBRIDGE_NICKNAME_MIN	0x0000
++#define	RBRIDGE_NICKNAME_MAX	0xFFFF
 +
-+		rbr->br = br;
-+		rbr->nick = RBRIDGE_NICKNAME_NONE;
-+		rbr->treeroot = RBRIDGE_NICKNAME_NONE;
-+		return rbr;
-+	}
++/* Define well-known nicknames */
++#define	RBRIDGE_NICKNAME_NONE	RBRIDGE_NICKNAME_MIN
++#define	RBRIDGE_NICKNAME_UNUSED	RBRIDGE_NICKNAME_MAX
 +
-+	return br->rbr;
-+}
++#define	TRILL_PROTOCOL_VERS 0	/* th_version */
++#define	TRILL_DEFAULT_HOPS 21	/* th_hopcount */
++#define VALID_NICK(n)	((n) != RBRIDGE_NICKNAME_NONE && \
++			(n) != RBRIDGE_NICKNAME_UNUSED)
 +
-+static void br_trill_start(struct net_bridge *br)
-+{
-+	/* Disable STP if it is already enabled */
++struct rbr_nickinfo {
++	/* Nickname of the RBridge */
++	u16 nick;
++	/* Next-hop SNPA address to reach this RBridge */
++	u8 adjsnpa[ETH_ALEN];
++	/* Link on our system to use to reach next-hop */
++	u32 linkid;
++	/* Num of *our* adjacencies on a tree rooted at this RBridge */
++	u16 adjcount;
++	/* Num of distribution tree root nicks chosen by this RBridge */
++	u16 dtrootcount;
++	/* Variable size bytes to store adjacency nicks, distribution
++	 * tree roots. Adjacency nicks and
++	 * distribution tree roots are 16-bit fields.
++	 */
++};
 +
-+	if (br->stp_enabled != BR_NO_STP)
-+		br_stp_set_enabled(br, false);
-+	br->rbr = add_rbr(br);
-+	if (br->rbr)
-+		br->trill_enabled = BR_TRILL;
-+	else
-+		pr_warn("RBridge allocation for bridge '%s' failed\n",
-+			br->dev->name);
-+}
++struct rbr_node {
++	struct rbr_nickinfo *rbr_ni;
++	atomic_t refs;		/* reference count */
++};
 +
-+static void br_trill_stop(struct net_bridge *br)
-+{
-+	struct rbr *old;
++struct rbr {
++	u16 nick;		/* our nickname */
++	u16 treeroot;	/* tree root nickname */
++	struct rbr_node *rbr_nodes[RBRIDGE_NICKNAME_MAX];
++	struct net_bridge *br;	/* back pointer */
++};
 +
-+	spin_lock_bh(&br->lock);
-+	br->trill_enabled = BR_NO_TRILL;
-+	spin_unlock_bh(&br->lock);
-+	old = br->rbr;
-+	br->rbr = NULL;
-+	if (likely(old))
-+		kfree(old);
-+}
++/* Access the adjacency nick list at the end of rbr_nickinfo */
++#define	RBR_NI_ADJNICKSPTR(v) ((u16 *)((struct rbr_nickinfo *)(v) + 1))
++#define	RBR_NI_ADJNICK(v, n) (RBR_NI_ADJNICKSPTR(v)[(n)])
 +
-+void br_trill_set_enabled(struct net_bridge *br, unsigned long val)
-+{
-+	if (val) {
-+		if (br->trill_enabled == BR_NO_TRILL)
-+			br_trill_start(br);
-+	} else {
-+		if (br->trill_enabled != BR_NO_TRILL)
-+			br_trill_stop(br);
-+	}
-+}
++/* Access the DT root nick list in rbr_nickinfo after adjacency nicks */
++#define	RBR_NI_DTROOTNICKSPTR(v) (RBR_NI_ADJNICKSPTR(v) + (v)->adjcount)
++#define	RBR_NI_DTROOTNICK(v, n) (RBR_NI_DTROOTNICKSPTR(v)[(n)])
++
++#define	RBR_NI_TOTALSIZE(v) (\
++		(sizeof(struct rbr_nickinfo)) + \
++		(sizeof(u16) * (v)->adjcount) + \
++		(sizeof(u16) * (v)->dtrootcount)\
++		)
++#endif
 -- 
 2.1.4
