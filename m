@@ -1,33 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] mwifiex: Make mwifiex_dbg a function, reduce object size
-Date: Tue, 01 Sep 2015 08:16:00 -0700
-Message-ID: <1441120560.3012.30.camel@perches.com>
-References: <1441043205.3276.28.camel@perches.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CB8B595@AcuExch.aculab.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [net-next PATCH] drivers: net: cpsw: Add support to make gpio
+ drive which slave connected to phy
+Date: Tue, 1 Sep 2015 08:36:22 -0700
+Message-ID: <20150901153621.GI4215@atomide.com>
+References: <1441106719-5896-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB8B595@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+	Sekhar Nori <nsekhar@ti.com>, linux-omap@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from muru.com ([72.249.23.125]:47983 "EHLO muru.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751610AbbIAPgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 11:36:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1441106719-5896-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-09-01 at 15:09 +0000, David Laight wrote:
-> From: Joe Perches
-> > Sent: 31 August 2015 18:47
-> > 
-> > The mwifiex_dbg macro has two tests that could be consolidated
-> > into a function reducing overall object size ~10KB (~4%).
-> > 
-> > So convert the macro into a function.
-> 
-> This looks like it will slow things down somewhat.
+* Mugunthan V N <mugunthanvnm@ti.com> [150901 04:28]:
+> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+> @@ -26,6 +26,9 @@ Optional properties:
+>  - dual_emac		: Specifies Switch to act as Dual EMAC
+>  - syscon		: Phandle to the system control device node, which is
+>  			  the control module device of the am33x
+> +- select-slave-gpio	: Should be added if a gpio line is required to
+> +			  select which slave is connected to phy
+> +
 
-I doubt in any meaningful way.
+How about using something more generic here for the name?
+Something like mode-gpios?
+
+Regards,
+
+Tony
