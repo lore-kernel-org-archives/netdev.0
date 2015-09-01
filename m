@@ -1,179 +1,461 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] net: Fix behavior of unreachable, blackhole and prohibit
- routes
-Date: Tue, 1 Sep 2015 10:53:20 -0700
-Message-ID: <55E5E610.501@gmail.com>
-References: <1441102392.3250.9.camel@redhat.com>
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: iproute2 v5: full ss json support and general output simplification
+Date: Tue,  1 Sep 2015 19:57:13 +0200
+Message-ID: <1441130243-20303-1-git-send-email-matthias.tafelmeier@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: nforro@redhat.com, netdev@vger.kernel.org
+Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
+	edumazet@google.com, daniel@iogearbox.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35658 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752095AbbIARxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 13:53:22 -0400
-Received: by pacfv12 with SMTP id fv12so2849238pac.2
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 10:53:21 -0700 (PDT)
-In-Reply-To: <1441102392.3250.9.camel@redhat.com>
+Received: from mout.gmx.net ([212.227.17.20]:63945 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754177AbbIAR5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 13:57:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2015 03:13 AM, Nikola Forr=C3=B3 wrote:
-> Man page of ip-route(8) says the following about route types:
->
->    unreachable - these destinations are unreachable.  Packets are dis=
-=E2=80=90
->    carded and the ICMP message host unreachable is generated.  The lo=
-cal
->    senders get an EHOSTUNREACH error.
->
->    blackhole - these destinations are unreachable.  Packets are dis=E2=
-=80=90
->    carded silently.  The local senders get an EINVAL error.
->
->    prohibit - these destinations are unreachable.  Packets are discar=
-ded
->    and the ICMP message communication administratively prohibited is
->    generated.  The local senders get an EACCES error.
->
-> In the inet6 address family, this was correct, except the local sende=
-rs
-> got ENETUNREACH error instead of EHOSTUNREACH in case of unreachable =
-route.
-> In the inet address family, all three route types generated ICMP mess=
-age
-> net unreachable, and the local senders got ENETUNREACH error.
->
-> In both address families all three route types now behave consistent
-> with documentation.
+TLDR:
 
-Generally updating kernel code to match user-space documentation isn't=20
-always the best way to go.  The question I would have is if there are=20
-any other user-space applications out there that might be expecting thi=
-s=20
-behaviour now?
+- add full JSON support for ss
+- Patchset provides a general and easy to use abstraction to extend ss =
+later
+- Patchset size is large to minimize daily use ("user" should not deal =
+with
+  	formation (json, human readble) later on)
+- Patches 7/10 and 8/10 illustrate how to extend ss for new data to sup=
+port human readble and json
+	output.=20
+- Example_Usages: 1. ss -jt to print out all tcp related information fo=
+rmatted in json
+		  2. ss --json -a to print out all info (also summary)=20
 
-Also your changes don't seem to match up with what you have described.=20
-You are returning the error code from fib_table_lookup, but=20
-fib_table_lookup can return -EAGAIN if there is no matching entry found=
-=2E=20
-  I don't see you describing how you would deal with that case.  You=20
-might try testing your code after deleting the default route to see wha=
-t=20
-behaviour it is you get.
+STATS:
 
-> Signed-off-by: Nikola Forr=C3=B3 <nforro@redhat.com>
-> ---
->   include/net/ip_fib.h | 19 ++++++++++++++-----
->   net/ipv4/route.c     |  6 ++++--
->   net/ipv6/route.c     |  4 +++-
->   3 files changed, 21 insertions(+), 8 deletions(-)
->
-> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-> index 5fa643b..8d174a7 100644
-> --- a/include/net/ip_fib.h
-> +++ b/include/net/ip_fib.h
-> @@ -233,8 +233,8 @@ static inline int fib_lookup(struct net *net, con=
-st struct flowi4 *flp,
->   	rcu_read_lock();
->
->   	tb =3D fib_get_table(net, RT_TABLE_MAIN);
-> -	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF)=
-)
-> -		err =3D 0;
-> +	if (tb)
-> +		err =3D fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
->
->   	rcu_read_unlock();
->
-> @@ -267,11 +267,20 @@ static inline int fib_lookup(struct net *net, s=
-truct flowi4 *flp,
->
->   	for (err =3D 0; !err; err =3D -ENETUNREACH) {
->   		tb =3D rcu_dereference_rtnl(net->ipv4.fib_main);
-> -		if (tb && !fib_table_lookup(tb, flp, res, flags))
-> -			break;
-> +		if (tb) {
-> +			err =3D fib_table_lookup(tb, flp, res, flags);
-> +			if (!err)
-> +				break;
-> +		}
->
->   		tb =3D rcu_dereference_rtnl(net->ipv4.fib_default);
-> -		if (tb && !fib_table_lookup(tb, flp, res, flags))
-> +		if (tb) {
-> +			err =3D fib_table_lookup(tb, flp, res, flags);
-> +			if (!err)
-> +				break;
-> +		}
-> +
-> +		if (err)
->   			break;
->   	}
->
+  ss: rooted out ss type declarations for output formatters
+  ss: created formatters for json and hr
+  ss: removed obsolet fmt functions
+  ss: prepare timer for output handler usage
+  ss: replaced old output with new generic output mechanisms
+  ss: renaming and export of current_filter
+  ss: symmetrical subhandler output extension example
+  ss: symmetrical formatter extension example
+  ss: fixed free on local array for valid json output
+  ss: activate json_writer excluded logic
 
-Without a default route set these functions are going to return -EAGAIN=
-=20
-when it should probably be returning -ENETUNREACH.
+ include/json_writer.h |   1 +
+ lib/json_writer.c     |   7 -
+ misc/Makefile         |   2 +-
+ misc/ss.c             | 971 +++++++++++++++++-------------------------=
+--------
+ misc/ss_hr_fmt.c      | 321 +++++++++++++++++
+ misc/ss_hr_fmt.h      |   9 +
+ misc/ss_json_fmt.c    | 475 ++++++++++++++++++++++++
+ misc/ss_json_fmt.h    |  26 ++
+ misc/ss_out_fmt.c     | 137 +++++++
+ misc/ss_out_fmt.h     |  92 +++++
+ misc/ss_types.h       | 186 ++++++++++
+ 11 files changed, 1567 insertions(+), 660 deletions(-)
+ create mode 100644 misc/ss_hr_fmt.c
+ create mode 100644 misc/ss_hr_fmt.h
+ create mode 100644 misc/ss_json_fmt.c
+ create mode 100644 misc/ss_json_fmt.h
+ create mode 100644 misc/ss_out_fmt.c
+ create mode 100644 misc/ss_out_fmt.h
+ create mode 100644 misc/ss_types.h
 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index e681b85..4ce3f87 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2020,6 +2020,7 @@ struct rtable *__ip_route_output_key(struct net=
- *net, struct flowi4 *fl4)
->   	struct fib_result res;
->   	struct rtable *rth;
->   	int orig_oif;
-> +	int err =3D ENETUNREACH;
->
->   	res.tclassid	=3D 0;
->   	res.fi		=3D NULL;
-> @@ -2123,7 +2124,8 @@ struct rtable *__ip_route_output_key(struct net=
- *net, struct flowi4 *fl4)
->   		goto make_route;
->   	}
->
-> -	if (fib_lookup(net, fl4, &res, 0)) {
-> +	err =3D fib_lookup(net, fl4, &res, 0);
-> +	if (err) {
->   		res.fi =3D NULL;
->   		res.table =3D NULL;
->   		if (fl4->flowi4_oif) {
-> @@ -2151,7 +2153,7 @@ struct rtable *__ip_route_output_key(struct net=
- *net, struct flowi4 *fl4)
->   			res.type =3D RTN_UNICAST;
->   			goto make_route;
->   		}
-> -		rth =3D ERR_PTR(-ENETUNREACH);
-> +		rth =3D ERR_PTR(err);
->   		goto out;
->   	}
->
+--=20
 
-This bit appears to overlook the fact that fib_rules_lookup could also=20
-be the function used to return the error via a call to fib_lookup.  In=20
-which case that also throws -ESRCH into the mix for return error codes.
+Abstract:=20
 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index d155864..d33a6a5 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1847,9 +1847,11 @@ int ip6_route_add(struct fib6_config *cfg)
->   			rt->dst.input =3D ip6_pkt_prohibit;
->   			break;
->   		case RTN_THROW:
-> +		case RTN_UNREACHABLE:
->   		default:
->   			rt->dst.error =3D (cfg->fc_type =3D=3D RTN_THROW) ? -EAGAIN
-> -					: -ENETUNREACH;
-> +					: (cfg->fc_type =3D=3D RTN_UNREACHABLE)
-> +					? -EHOSTUNREACH : -ENETUNREACH;
->   			rt->dst.output =3D ip6_pkt_discard_out;
->   			rt->dst.input =3D ip6_pkt_discard;
->   			break;
->
+This patch set originates from the necessity to upgrade ss with the pos=
+sibility
+to output in json format. Not to clutter up ss too much, the author of =
+the
+patch decided to come up with a simple distributor to handler approach.=
+ That
+is, the distributor poses the mechanical interface which passes the out=
+put
+requests coming from ss to the appropriate handler. This simplifies the
+interaction with ss and provides a maximum of future extensiblity. Not =
+to
+forget, ss loses weight thereby since output implemented in ss itself d=
+oes
+migrate to the appropriate handler. Additionally, because types are sha=
+red
+amongst handlers, the distributor and ss, the author conceived, that a =
+separate
+containter module for types has to be formed. In future, all type decla=
+rations
+and extensins go there.=20
+
+In sum, the patchset has this voluminous extent since there is no viabl=
+e way
+for putting out syntactically correct human readble and json in a simpl=
+er manner.
+The requirement for convenient extensibility of output and data is
+another justification for the patchset size.
+
+Concept sketch:
+
+                                               formatter1=20
+                                              ************             =
+  =20
+                                              *          *             =
+  =20
+                                              *          *             =
+  =20
+           ss                           ~~~~~~~>zzzzzzz  *             =
+  =20
+     ******************                 ~     *          *             =
+  =20
+     *                *                 ~   ###>fffffff  *             =
+  =20
+     *                *                 ~   # *          *             =
+  =20
+     *                *      distributor~   # ************             =
+  =20
+     *   --------     *       ********* ~   #                          =
+  =20
+     *   -    --------------  *       * ~   #                          =
+  =20
+     *   --------     *    -  *       * ~   #                          =
+  =20
+     *                *    ---->++++ ~~~~   #                          =
+  =20
+     *                *       *       * ~   #  formatter2=20
+     *                *    ---->=3D=3D=3D=3D ######## ************     =
+          =20
+     *   --------     *    -  *       * ~   # *          *             =
+  =20
+     *   -    --------------  *       * ~   # *          *             =
+  =20
+     *   --------     *       ********* ~   # *          *             =
+  =20
+     *                *                 ~~~~#~~>zzzzzzz  *             =
+  =20
+     *                *                     # *          *             =
+  =20
+     *                *                     ###>fffffff	 *             =
+  =20
+     ******************                       *          *             =
+  =20
+                                              ************             =
+  =20
+						                      =20
+At the moment, the distributor is the ss_out_fmt module while two handl=
+ers are
+up: namely the ss_json_fmt and the ss_hr_fmt (human readable). You can =
+use
+those modules as the main reference for own extensions.
+
+=46uture Extension:
+In the following, I will expand on the expandability of the formatter m=
+odel.
+The explanations advances from the minimal to the most sweeping extensi=
+on in
+mind.
+
+Sub Format Handler Output=20
+Sketch
+
+		  FormatterX
+                  ***********************************                  =
+  =20
+                  *                                 *                  =
+  =20
+                  *   handlerX 			    *                    =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0    xxxxxxxxxxxxxxc<..  =C2=B0    *        =
+            =20
+                  *   =C2=B0                     .  =C2=B0    *        =
+            =20
+                  *   =C2=B0    xxxxxxxxxxxxxxc<.. potential context   =
+              =20
+                  *   =C2=B0        new:         .  =C2=B0    *     =20
+                  *   =C2=B0    +++++++++++++++... < * * * * * * * * * =
+* *      =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *               .                 *               *  =
+   =20
+                  *               .                 *               *  =
+   =20
+                  *               .                 *               *  =
+   =20
+                  *   handlerY		  	    *               *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    xxxxxxxxxxxxxxx     =C2=B0    *        =
+       *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    xxxxxxxxxxxxxxx     =C2=B0    *        =
+       *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *   expand symmetrically  =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *                                 *               *  =
+   =20
+                  *                                 *               *  =
+   =20
+                  *                                 *               *  =
+   =20
+                  ***********************************          	    *
+								    *
+		 		.				    *
+				.				    *
+				.				    *
+				 				    *
+		  FormatterY					    *
+                  ***********************************               *  =
+  =20
+                  *                                 *               *  =
+  =20
+                  *   handlerX			    *               *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    zzzzzzzzzzzzzzc<..  =C2=B0    *        =
+       *     =20
+                  *   =C2=B0                     .  =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    zzzzzzzzzzzzzzc<.. potential context   =
+  *             =20
+                  *   =C2=B0        new:         .  =C2=B0    *        =
+       *    =20
+                  *   =C2=B0    +++++++++++++++... < * * * * * * * * * =
+* *    =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *               .                 *                  =
+  =20
+                  *               .                 *                  =
+  =20
+                  *               .                 *                  =
+  =20
+                  *   handlerY		  	    *                    =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0    zzzzzzzzzzzzzzz     =C2=B0    *        =
+            =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0    zzzzzzzzzzzzzzz     =C2=B0    *        =
+            =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *                                 *                  =
+  =20
+                  *                                 *                  =
+  =20
+                  ***********************************    =20
+
+Explanation:
+If you plan to expand a sub out handler function of a formatter, it
+essentially boils down to adding a new printf with an according format =
+and
+probably a necessary predicate (condition). Nontheless, care must be ta=
+ken not
+to lose possible context interdependecies out of sight. An examble for =
+the
+latter would be the interdependecy of json coma setting terms =E2=80=93=
+ in compound
+types, you do need a coma between consecutive elements.
+
+More important is the issue about symmetric extensions. Except for the
+tcp_out_fmt function implementation =E2=80=93 where a macro (CHECK_FMT_=
+ADAPT) is in
+place to check for adaptions in the basic tcpstat data structure static=
+ally =E2=80=93
+no general programmatic approach is in place yet which would prevent as=
+ymmetric
+extensions. Up to someone devices a holistic solution, this patch relie=
+s on the
+extenders to deal with asymmetries. Is the aim to have a new output fea=
+ture
+available in all semantically related handlers of n different formatter=
+s, then
+the expander has to adapt n handlers as shown in the sketch above.
+
+Extend with further Format Handler in Formatter
+Sketch:
+-provides symmetrical extension intendet
+
+
+                                                       formatter1
+                                                      /----------------=
+----------\
+                                                      |                =
+          |
+                                                      |    spec_handler=
+X         |
+                                                      |     ###########=
+##### <** |
+                                                      |     ###########=
+#####   * |
+             distributor                              |            .   =
+        * |
+           O-------------------------O                |            .   =
+        * |
+           |    centr_hub            |                |    new_spec_han=
+dler    * |
+           | ***>01111110--------------------------+  |     +++++++++++=
++++++<~ * |
+           | *   02222220----------------------+   |  |     +++++++++++=
++++++ ~ * |
+           | *                       |         |   |  |                =
+      ~ * |
+           | *                       |         |   |  |      handler_hu=
+b1    ~ * |
+           | *  _______________      |         |   +--------->0########=
+#0****~** |
+           | * |gen_handlerX   |     |         |      |	      0++++++++=
++0~~~~~   |
+           | **********        |     |         |      |                =
+          |
+           | * |_______________|     |         |      |                =
+          |
+           | *         .             |         |      \----------------=
+----------/
+           | *         .             |         |                  .
+           | *         .             |         |                  .
+           | * +++++++++++++++++     |         |       formatterN .
+           | ***new_gen_handler+     |         |      /----------------=
+----------\
+           |   +               +     |         |      |                =
+          |
+           |   +++++++++++++++++     |         |      |    spec_handler=
+X         |
+           |                         |         |      |     ###########=
+##### <** |
+           O-------------------------O         |      |     ###########=
+#####   * |
+                                               |      |            .   =
+        * |
+                                               |      |            .   =
+        * |
+                                               |      |    new_spec_han=
+dler    * |
+                                               |      |     +++++++++++=
++++++<~ * |
+                                               |      |     +++++++++++=
++++++ ~ * |
+                                               |      |                =
+      ~ * |
+                                               |      |      handler_hu=
+bN    ~ * |
+                                               +------------->0########=
+#0****~** |
+                                                      |	      0++++++++=
++0~~~~~   |
+                                                      |                =
+          |
+                                                      |                =
+          |
+                                                      \----------------=
+----------/
+
+
+Explanation:
+As the sketch shows, the distributor works with the help of virtual fun=
+ction
+pointer in order to act as a call flow switch. It switches to the appro=
+riate
+formatter module and its handlers depending on the chosen output format=
+ by ss
+command input.=20
+
+So, to add a new formatter handler symmetrically (up to now that is the=
+ only
+sensibly conceivable case), the extender must implement a new generic h=
+andler
+in the distributor and the specific handlers in the formatters. Then th=
+e hub
+vtable structure type has to be broadend to contain the new function po=
+inter
+type for the generic handler. After that, he has to extend and update a=
+ll
+handler hubs with the new handlers location information (function point=
+er). The
+latter ensures the generic switching mechanism used by the generic hand=
+ler
+keeps to be upheld.
+
+Example:
+Let's say we want the new "foo" data for every output format retrievabl=
+e via
+ss. Up to now, we have the ss_out_fmt module as the distributor and two
+specific handlers: for one the ss_hr_fmt and secondly the ss_json_fmt m=
+odule.
+So we need a specific handler implementation in ss_hr_fmt and ss_json_f=
+mt
+modules and after that update the corresponding vtables (handler_hubs) =
+in the
+modules.  After that, the distributor, namely ss_out_fmt module, has to=
+ get a
+generic handler that switches via its vtable hub to either the json for=
+matter
+or the human readable formatter, depending on what fmt_type has been ch=
+osen by ss.
+Before the vtables in the specific modules can be updated, struct fmt_o=
+p_hub
+which is found in ss_out_fmt's interface header has get extendend with =
+the new
+function pointer type.
+
+As soon the new generic handler has been exported via the ss_out_fmt.h =
+module
+interface, ss can use the new fmt handler to print out info. It can sim=
+ply call
+the generic function and does not have to deal with formatting specific=
+ issues.
+
+Extend for another Formatter=20
+Sketch:
+The Sketch for handler extension should be sufficient for conveying the=
+ concept.
+Just think of another formatter after formatterN and a new entry in the=
+ central
+vtable of the distributor to reach this new formatter.
+
+Explanation:
+Nothing breathtaking has to be done when someone needs an new formatter=
+ module
+for let's be image =E2=80=93 out of pure hypothetical endeavors =E2=80=93=
+ xml ss output. First,
+implement the new formatter with all the offered interfaces in the
+distributor. Register all handlers in the local specific vtable hub.
+Then, register the local vtable hub in the generic vtable hub of the
+distributor to reach your new handler when chosen. Provide the client
+code - here ss - with a new fmt_type option acceptance. Before the
+option can do anything, you have to declare the new fmt_type. That's
+it. No further adaptions in ss would be necessary.
