@@ -1,174 +1,176 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 01/11] flow_dissector: Move skb related functions to skbuff.h
-Date: Tue, 1 Sep 2015 09:24:23 -0700
-Message-ID: <1441124673-3438470-2-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 02/11] skbuff: Make __skb_set_sw_hash a general function
+Date: Tue, 1 Sep 2015 09:24:24 -0700
+Message-ID: <1441124673-3438470-3-git-send-email-tom@herbertland.com>
 References: <1441124673-3438470-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:64794 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751172AbbIAQZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 12:25:07 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t81GNTr7006950
-	for <netdev@vger.kernel.org>; Tue, 1 Sep 2015 09:25:06 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:61936 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751172AbbIAQZJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 12:25:09 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t81GKCNd000417
+	for <netdev@vger.kernel.org>; Tue, 1 Sep 2015 09:25:09 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1wnf6p03cq-2
+	by mx0a-00082601.pphosted.com with ESMTP id 1wnake8ma7-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 09:25:06 -0700
+	for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 09:25:09 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.102.107.97) with ESMTP	id
- 00c5c49050c611e5b4920002c99331b0-5fbfc240 for <netdev@vger.kernel.org>;	Tue,
- 01 Sep 2015 09:25:05 -0700
+ 02645db650c611e5b4920002c99331b0-5fbfc240 for <netdev@vger.kernel.org>;	Tue,
+ 01 Sep 2015 09:25:07 -0700
 In-Reply-To: <1441124673-3438470-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the flow dissector functions that are specific to skbuffs into
-skbuff.h out of flow_dissector.h. This makes flow_dissector.h have
-no dependencies on skbuff.h.
+Move __skb_set_sw_hash to skbuff.h and add __skb_set_hash which is
+a common method (between __skb_set_sw_hash and skb_set_hash) to set
+the hash in an skbuff.
+
+Also, move skb_clear_hash to be closer to __skb_set_hash.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/linux/skbuff.h       | 47 +++++++++++++++++++++++++++++++++++++++++
- include/net/flow_dissector.h | 50 --------------------------------------------
- 2 files changed, 47 insertions(+), 50 deletions(-)
+ include/linux/skbuff.h       | 45 ++++++++++++++++++++++++++++----------------
+ include/net/flow_dissector.h |  5 +++++
+ net/core/flow_dissector.c    | 18 ++++++------------
+ 3 files changed, 40 insertions(+), 28 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 989307f9..8a697c6 100644
+index 8a697c6..5d2c812 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -945,6 +945,53 @@ skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
+@@ -937,14 +937,40 @@ enum pkt_hash_types {
+ 	PKT_HASH_TYPE_L4,	/* Input: src_IP, dst_IP, src_port, dst_port */
+ };
+ 
+-static inline void
+-skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
++static inline void skb_clear_hash(struct sk_buff *skb)
+ {
+-	skb->l4_hash = (type == PKT_HASH_TYPE_L4);
++	skb->hash = 0;
+ 	skb->sw_hash = 0;
++	skb->l4_hash = 0;
++}
++
++static inline void skb_clear_hash_if_not_l4(struct sk_buff *skb)
++{
++	if (!skb->l4_hash)
++		skb_clear_hash(skb);
++}
++
++static inline void
++__skb_set_hash(struct sk_buff *skb, __u32 hash, bool is_sw, bool is_l4)
++{
++	skb->l4_hash = is_l4;
++	skb->sw_hash = is_sw;
  	skb->hash = hash;
  }
  
-+void __skb_get_hash(struct sk_buff *skb);
-+u32 skb_get_poff(const struct sk_buff *skb);
-+u32 __skb_get_poff(const struct sk_buff *skb, void *data,
-+		   const struct flow_keys *keys, int hlen);
-+__be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
-+			    void *data, int hlen_proto);
-+
-+static inline __be32 skb_flow_get_ports(const struct sk_buff *skb,
-+					int thoff, u8 ip_proto)
++static inline void
++skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
 +{
-+	return __skb_flow_get_ports(skb, thoff, ip_proto, NULL, 0);
++	/* Used by drivers to set hash from HW */
++	__skb_set_hash(skb, hash, false, type == PKT_HASH_TYPE_L4);
 +}
 +
-+void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
-+			     const struct flow_dissector_key *key,
-+			     unsigned int key_count);
-+
-+bool __skb_flow_dissect(const struct sk_buff *skb,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container,
-+			void *data, __be16 proto, int nhoff, int hlen);
-+
-+static inline bool skb_flow_dissect(const struct sk_buff *skb,
-+				    struct flow_dissector *flow_dissector,
-+				    void *target_container)
++static inline void
++__skb_set_sw_hash(struct sk_buff *skb, __u32 hash, bool is_l4)
 +{
-+	return __skb_flow_dissect(skb, flow_dissector, target_container,
-+				  NULL, 0, 0, 0);
++	__skb_set_hash(skb, hash, true, is_l4);
 +}
 +
-+static inline bool skb_flow_dissect_flow_keys(const struct sk_buff *skb,
-+					      struct flow_keys *flow)
-+{
-+	memset(flow, 0, sizeof(*flow));
-+	return __skb_flow_dissect(skb, &flow_keys_dissector, flow,
-+				  NULL, 0, 0, 0);
-+}
-+
-+static inline bool skb_flow_dissect_flow_keys_buf(struct flow_keys *flow,
-+						  void *data, __be16 proto,
-+						  int nhoff, int hlen)
-+{
-+	memset(flow, 0, sizeof(*flow));
-+	return __skb_flow_dissect(NULL, &flow_keys_buf_dissector, flow,
-+				  data, proto, nhoff, hlen);
-+}
-+
- static inline __u32 skb_get_hash(struct sk_buff *skb)
+ void __skb_get_hash(struct sk_buff *skb);
+ u32 skb_get_poff(const struct sk_buff *skb);
+ u32 __skb_get_poff(const struct sk_buff *skb, void *data,
+@@ -1027,19 +1053,6 @@ static inline __u32 skb_get_hash_raw(const struct sk_buff *skb)
+ 	return skb->hash;
+ }
+ 
+-static inline void skb_clear_hash(struct sk_buff *skb)
+-{
+-	skb->hash = 0;
+-	skb->sw_hash = 0;
+-	skb->l4_hash = 0;
+-}
+-
+-static inline void skb_clear_hash_if_not_l4(struct sk_buff *skb)
+-{
+-	if (!skb->l4_hash)
+-		skb_clear_hash(skb);
+-}
+-
+ static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
  {
- 	if (!skb->l4_hash && !skb->sw_hash)
+ 	to->hash = from->hash;
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 1a8c224..6777a84 100644
+index 6777a84..af76c49 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -2,7 +2,6 @@
- #define _NET_FLOW_DISSECTOR_H
+@@ -167,4 +167,9 @@ struct flow_keys_digest {
+ void make_flow_keys_digest(struct flow_keys_digest *digest,
+ 			   const struct flow_keys *flow);
  
- #include <linux/types.h>
--#include <linux/skbuff.h>
- #include <linux/in6.h>
- #include <uapi/linux/if_ether.h>
++static inline bool flow_keys_have_l4(struct flow_keys *keys)
++{
++	return (keys->ports.ports || keys->tags.flow_label);
++}
++
+ #endif
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 11e6540..151b6e4 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -590,15 +590,6 @@ void make_flow_keys_digest(struct flow_keys_digest *digest,
+ }
+ EXPORT_SYMBOL(make_flow_keys_digest);
  
-@@ -134,23 +133,6 @@ struct flow_dissector {
- 	unsigned short int offset[FLOW_DISSECTOR_KEY_MAX];
- };
- 
--void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
--			     const struct flow_dissector_key *key,
--			     unsigned int key_count);
--
--bool __skb_flow_dissect(const struct sk_buff *skb,
--			struct flow_dissector *flow_dissector,
--			void *target_container,
--			void *data, __be16 proto, int nhoff, int hlen);
--
--static inline bool skb_flow_dissect(const struct sk_buff *skb,
--				    struct flow_dissector *flow_dissector,
--				    void *target_container)
+-static inline void __skb_set_sw_hash(struct sk_buff *skb, u32 hash,
+-				     struct flow_keys *keys)
 -{
--	return __skb_flow_dissect(skb, flow_dissector, target_container,
--				  NULL, 0, 0, 0);
+-	if (keys->ports.ports)
+-		skb->l4_hash = 1;
+-	skb->sw_hash = 1;
+-	skb->hash = hash;
 -}
 -
- struct flow_keys {
- 	struct flow_dissector_key_control control;
- #define FLOW_KEYS_HASH_START_FIELD basic
-@@ -170,38 +152,6 @@ __be32 flow_get_u32_dst(const struct flow_keys *flow);
- extern struct flow_dissector flow_keys_dissector;
- extern struct flow_dissector flow_keys_buf_dissector;
+ /**
+  * __skb_get_hash: calculate a flow hash
+  * @skb: sk_buff to calculate flow hash from
+@@ -619,7 +610,8 @@ void __skb_get_hash(struct sk_buff *skb)
+ 	if (!hash)
+ 		return;
  
--static inline bool skb_flow_dissect_flow_keys(const struct sk_buff *skb,
--					      struct flow_keys *flow)
--{
--	memset(flow, 0, sizeof(*flow));
--	return __skb_flow_dissect(skb, &flow_keys_dissector, flow,
--				  NULL, 0, 0, 0);
--}
--
--static inline bool skb_flow_dissect_flow_keys_buf(struct flow_keys *flow,
--						  void *data, __be16 proto,
--						  int nhoff, int hlen)
--{
--	memset(flow, 0, sizeof(*flow));
--	return __skb_flow_dissect(NULL, &flow_keys_buf_dissector, flow,
--				  data, proto, nhoff, hlen);
--}
--
--__be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
--			    void *data, int hlen_proto);
--
--static inline __be32 skb_flow_get_ports(const struct sk_buff *skb,
--					int thoff, u8 ip_proto)
--{
--	return __skb_flow_get_ports(skb, thoff, ip_proto, NULL, 0);
--}
--
--u32 flow_hash_from_keys(struct flow_keys *keys);
--void __skb_get_hash(struct sk_buff *skb);
--u32 skb_get_poff(const struct sk_buff *skb);
--u32 __skb_get_poff(const struct sk_buff *skb, void *data,
--		   const struct flow_keys *keys, int hlen);
--
- /* struct flow_keys_digest:
-  *
-  * This structure is used to hold a digest of the full flow keys. This is a
+-	__skb_set_sw_hash(skb, hash, &keys);
++	__skb_set_sw_hash(skb, hash,
++			  flow_keys_have_l4(&keys));
+ }
+ EXPORT_SYMBOL(__skb_get_hash);
+ 
+@@ -648,7 +640,8 @@ __u32 __skb_get_hash_flowi6(struct sk_buff *skb, struct flowi6 *fl6)
+ 	keys.tags.flow_label = (__force u32)fl6->flowlabel;
+ 	keys.basic.ip_proto = fl6->flowi6_proto;
+ 
+-	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys), &keys);
++	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
++			  flow_keys_have_l4(&keys));
+ 
+ 	return skb->hash;
+ }
+@@ -668,7 +661,8 @@ __u32 __skb_get_hash_flowi4(struct sk_buff *skb, struct flowi4 *fl4)
+ 	keys.keyid.keyid = fl4->fl4_gre_key;
+ 	keys.basic.ip_proto = fl4->flowi4_proto;
+ 
+-	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys), &keys);
++	__skb_set_sw_hash(skb, flow_hash_from_keys(&keys),
++			  flow_keys_have_l4(&keys));
+ 
+ 	return skb->hash;
+ }
 -- 
 1.8.1
