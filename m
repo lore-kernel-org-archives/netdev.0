@@ -1,95 +1,229 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/4] net: qdisc: add op to run filters/actions
- before enqueue
-Date: Tue, 01 Sep 2015 20:50:30 +0200
-Message-ID: <55E5F376.80600@iogearbox.net>
-References: <cover.1441123709.git.daniel@iogearbox.net>	 <a18f0baba2668f0bbc15a45036713dcaa4bb09b0.1441123709.git.daniel@iogearbox.net> <1441128083.8932.177.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, john.fastabend@gmail.com, ast@plumgrid.com,
-	netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v2] net: Make table id type u32
+Date: Tue,  1 Sep 2015 12:50:16 -0600
+Message-ID: <1441133416-29523-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33228 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752786AbbIASuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:50:35 -0400
-In-Reply-To: <1441128083.8932.177.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:38111 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700AbbIASuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:50:51 -0400
+Received: by igbut12 with SMTP id ut12so8243274igb.1
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 11:50:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2015 07:21 PM, Eric Dumazet wrote:
-> On Tue, 2015-09-01 at 18:34 +0200, Daniel Borkmann wrote:
->> From: John Fastabend <john.r.fastabend@intel.com>
->>
->> Add a new ->preclassify() op to allow multiqueue queuing disciplines
->> to call tc_classify() or perform other work before dev_pick_tx().
->>
->> This helps, for example, with mqprio queueing discipline that has
->> offload support by most popular 10G NICs, where the txq effectively
->> picks the qdisc.
->>
->> Once traffic is being directed to a specific queue then hardware TX
->> rings may be tuned to support this traffic type. mqprio already
->> gives the ability to do this via skb->priority where the ->preclassify()
->> provides more control over packet steering, it can classify the skb
->> and set the priority, for example, from an eBPF classifier (or action).
->>
->> Also this allows traffic classifiers to be run without holding the
->> qdisc lock and gives one place to attach filters when mqprio is
->> in use. ->preclassify() could also be added to other mq qdiscs later
->> on: f.e. most classful qdiscs first check major/minor numbers of
->> skb->priority before actually consulting a more complex classifier.
->>
->> For mqprio case today, a filter has to be attached to each txq qdisc
->> to have all traffic hit the filter. Since ->preclassify() is currently
->> only used by mqprio, the __dev_queue_xmit() fast path is guarded by
->> a generic, hidden Kconfig option (NET_CLS_PRECLASSIFY) that is only
->> selected by mqprio,
->
-> So all distros will select it, basically.
->
-> ...
->
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 877c848..b768bca 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -3052,6 +3052,23 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
->>   	rcu_read_lock_bh();
->>
->>   	skb_update_prio(skb);
->> +#ifdef CONFIG_NET_CLS_PRECLASSIFY
->> +	q = rcu_dereference_bh(dev->qdisc);
->> +	if (q && q->preclassify) {
->> +		switch (q->preclassify(skb, q)) {
->> +		default:
->> +			break;
->> +#ifdef CONFIG_NET_CLS_ACT
->> +		case TC_ACT_SHOT:
->> +		case TC_ACT_STOLEN:
->> +		case TC_ACT_QUEUED:
->> +			kfree_skb(skb);
->> +			rc = NET_XMIT_SUCCESS;
->> +			goto out;
->> +#endif
->> +		}
->> +	}
->> +#endif
->>
->
-> Since its a device attribute after all, why are you storing it in
-> dev->qdisc->preclassify, adding a cache line miss for moderate load ?
->
-> (mqprio/mq root qdisc is normally not fetched in fast path ?)
->
-> dev->preclassify would be better IMO, close to dev->_tx
+A number of VRF patches used 'int' for table id. It should be u32 to be
+consistent with the rest of the stack.
 
-Yes, makes sense, as this cacheline is accessed anyway few cycles later.
-I'll look into how well this approach integrates into tc's configuration
-path. I think mqprio/mq/... could just install/remove dev->preclassify()
-handler as soon as first filter is attached/detached.
+Fixes:
+4e3c89920cd3a ("net: Introduce VRF related flags and helpers")
+15be405eb2ea9 ("net: Add inet_addr lookup by table")
+30bbaa1950055 ("net: Fix up inet_addr_type checks")
+021dd3b8a142d ("net: Add routes to the table associated with the device")
+dc028da54ed35 ("inet: Move VRF table lookup to inlined function")
+f6d3c19274c74 ("net: FIB tracepoints")
 
-Thanks,
-Daniel
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v2
+- update tracepoint as well (thanks, Nikolay)
+
+ include/net/route.h        |  2 +-
+ include/net/vrf.h          | 24 ++++++++++++------------
+ include/trace/events/fib.h |  4 ++--
+ net/ipv4/af_inet.c         |  2 +-
+ net/ipv4/fib_frontend.c    | 10 +++++-----
+ net/ipv4/fib_semantics.c   |  2 +-
+ 6 files changed, 22 insertions(+), 22 deletions(-)
+
+diff --git a/include/net/route.h b/include/net/route.h
+index 395d79bb556c..cc61cb95f059 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -188,7 +188,7 @@ void ipv4_sk_redirect(struct sk_buff *skb, struct sock *sk);
+ void ip_rt_send_redirect(struct sk_buff *skb);
+ 
+ unsigned int inet_addr_type(struct net *net, __be32 addr);
+-unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id);
++unsigned int inet_addr_type_table(struct net *net, __be32 addr, u32 tb_id);
+ unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
+ 				__be32 addr);
+ unsigned int inet_addr_type_dev_table(struct net *net,
+diff --git a/include/net/vrf.h b/include/net/vrf.h
+index 5bfb16237fd7..593e6094ddd4 100644
+--- a/include/net/vrf.h
++++ b/include/net/vrf.h
+@@ -66,9 +66,9 @@ static inline int vrf_master_ifindex(const struct net_device *dev)
+ }
+ 
+ /* called with rcu_read_lock */
+-static inline int vrf_dev_table_rcu(const struct net_device *dev)
++static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
+ {
+-	int tb_id = 0;
++	u32 tb_id = 0;
+ 
+ 	if (dev) {
+ 		struct net_vrf_dev *vrf_ptr;
+@@ -80,9 +80,9 @@ static inline int vrf_dev_table_rcu(const struct net_device *dev)
+ 	return tb_id;
+ }
+ 
+-static inline int vrf_dev_table(const struct net_device *dev)
++static inline u32 vrf_dev_table(const struct net_device *dev)
+ {
+-	int tb_id;
++	u32 tb_id;
+ 
+ 	rcu_read_lock();
+ 	tb_id = vrf_dev_table_rcu(dev);
+@@ -91,10 +91,10 @@ static inline int vrf_dev_table(const struct net_device *dev)
+ 	return tb_id;
+ }
+ 
+-static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
++static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
+ {
+ 	struct net_device *dev;
+-	int tb_id = 0;
++	u32 tb_id = 0;
+ 
+ 	if (!ifindex)
+ 		return 0;
+@@ -111,9 +111,9 @@ static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
+ }
+ 
+ /* called with rtnl */
+-static inline int vrf_dev_table_rtnl(const struct net_device *dev)
++static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
+ {
+-	int tb_id = 0;
++	u32 tb_id = 0;
+ 
+ 	if (dev) {
+ 		struct net_vrf_dev *vrf_ptr;
+@@ -149,22 +149,22 @@ static inline int vrf_master_ifindex(const struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static inline int vrf_dev_table_rcu(const struct net_device *dev)
++static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
+ {
+ 	return 0;
+ }
+ 
+-static inline int vrf_dev_table(const struct net_device *dev)
++static inline u32 vrf_dev_table(const struct net_device *dev)
+ {
+ 	return 0;
+ }
+ 
+-static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
++static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
+ {
+ 	return 0;
+ }
+ 
+-static inline int vrf_dev_table_rtnl(const struct net_device *dev)
++static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
+ {
+ 	return 0;
+ }
+diff --git a/include/trace/events/fib.h b/include/trace/events/fib.h
+index acd1d22571a2..e9cea16d1515 100644
+--- a/include/trace/events/fib.h
++++ b/include/trace/events/fib.h
+@@ -11,12 +11,12 @@
+ 
+ TRACE_EVENT(fib_table_lookup,
+ 
+-	TP_PROTO(int tb_id, const struct flowi4 *flp),
++	TP_PROTO(u32 tb_id, const struct flowi4 *flp),
+ 
+ 	TP_ARGS(tb_id, flp),
+ 
+ 	TP_STRUCT__entry(
+-		__field(	int,	tb_id		)
++		__field(	u32,	tb_id		)
+ 		__field(	int,	oif		)
+ 		__field(	int,	iif		)
+ 		__field(	__u8,	tos		)
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 96773a2f95a7..1d0c3adb6f34 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -428,7 +428,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	struct net *net = sock_net(sk);
+ 	unsigned short snum;
+ 	int chk_addr_ret;
+-	int tb_id = RT_TABLE_LOCAL;
++	u32 tb_id = RT_TABLE_LOCAL;
+ 	int err;
+ 
+ 	/* If the socket has its own bind function then use it. (RAW) */
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 4036c94dfbe1..6fcbd215cdbc 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -213,7 +213,7 @@ void fib_flush_external(struct net *net)
+  */
+ static inline unsigned int __inet_dev_addr_type(struct net *net,
+ 						const struct net_device *dev,
+-						__be32 addr, int tb_id)
++						__be32 addr, u32 tb_id)
+ {
+ 	struct flowi4		fl4 = { .daddr = addr };
+ 	struct fib_result	res;
+@@ -240,7 +240,7 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
+ 	return ret;
+ }
+ 
+-unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id)
++unsigned int inet_addr_type_table(struct net *net, __be32 addr, u32 tb_id)
+ {
+ 	return __inet_dev_addr_type(net, NULL, addr, tb_id);
+ }
+@@ -255,7 +255,7 @@ EXPORT_SYMBOL(inet_addr_type);
+ unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
+ 				__be32 addr)
+ {
+-	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
++	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
+ 
+ 	return __inet_dev_addr_type(net, dev, addr, rt_table);
+ }
+@@ -268,7 +268,7 @@ unsigned int inet_addr_type_dev_table(struct net *net,
+ 				      const struct net_device *dev,
+ 				      __be32 addr)
+ {
+-	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
++	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
+ 
+ 	return __inet_dev_addr_type(net, NULL, addr, rt_table);
+ }
+@@ -803,7 +803,7 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifaddr *ifa)
+ {
+ 	struct net *net = dev_net(ifa->ifa_dev->dev);
+-	int tb_id = vrf_dev_table_rtnl(ifa->ifa_dev->dev);
++	u32 tb_id = vrf_dev_table_rtnl(ifa->ifa_dev->dev);
+ 	struct fib_table *tb;
+ 	struct fib_config cfg = {
+ 		.fc_protocol = RTPROT_KERNEL,
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 992a9597daf8..064bd3caaa4f 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -863,7 +863,7 @@ static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
+ {
+ 	if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
+ 	    fib_prefsrc != cfg->fc_dst) {
+-		int tb_id = cfg->fc_table;
++		u32 tb_id = cfg->fc_table;
+ 
+ 		if (tb_id == RT_TABLE_MAIN)
+ 			tb_id = RT_TABLE_LOCAL;
+-- 
+2.3.2 (Apple Git-55)
