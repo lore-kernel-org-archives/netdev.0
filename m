@@ -1,229 +1,143 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] net: Make table id type u32
-Date: Tue,  1 Sep 2015 12:50:16 -0600
-Message-ID: <1441133416-29523-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net 2/3] ipv6: Rename the dst_cache helper functions in ip6_tunnel
+Date: Tue, 1 Sep 2015 11:55:02 -0700
+Message-ID: <1441133703-1570969-3-git-send-email-kafai@fb.com>
+References: <1441133703-1570969-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>
+To: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:38111 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700AbbIASuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:50:51 -0400
-Received: by igbut12 with SMTP id ut12so8243274igb.1
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 11:50:50 -0700 (PDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48289 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750771AbbIASzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:55:07 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t81IskUu021271
+	for <netdev@vger.kernel.org>; Tue, 1 Sep 2015 11:55:06 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1wnake8yn5-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 11:55:06 -0700
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ f4e59b8650da11e591060002c95209d8-f73fc240 for <netdev@vger.kernel.org>;	Tue,
+ 01 Sep 2015 11:55:04 -0700
+In-Reply-To: <1441133703-1570969-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A number of VRF patches used 'int' for table id. It should be u32 to be
-consistent with the rest of the stack.
+It is a prep work to fix the dst_entry refcnt bugs in
+ip6_tunnel.
 
-Fixes:
-4e3c89920cd3a ("net: Introduce VRF related flags and helpers")
-15be405eb2ea9 ("net: Add inet_addr lookup by table")
-30bbaa1950055 ("net: Fix up inet_addr_type checks")
-021dd3b8a142d ("net: Add routes to the table associated with the device")
-dc028da54ed35 ("inet: Move VRF table lookup to inlined function")
-f6d3c19274c74 ("net: FIB tracepoints")
+This patch rename:
+1. ip6_tnl_dst_check() to ip6_tnl_dst_get() to better
+   reflect that it will take a dst refcnt in the next patch.
+2. ip6_tnl_dst_store() to ip6_tnl_dst_set() to have a more
+   conventional name matching with ip6_tnl_dst_get().
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
-v2
-- update tracepoint as well (thanks, Nikolay)
+ include/net/ip6_tunnel.h |  4 ++--
+ net/ipv6/ip6_gre.c       |  4 ++--
+ net/ipv6/ip6_tunnel.c    | 12 ++++++------
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
- include/net/route.h        |  2 +-
- include/net/vrf.h          | 24 ++++++++++++------------
- include/trace/events/fib.h |  4 ++--
- net/ipv4/af_inet.c         |  2 +-
- net/ipv4/fib_frontend.c    | 10 +++++-----
- net/ipv4/fib_semantics.c   |  2 +-
- 6 files changed, 22 insertions(+), 22 deletions(-)
-
-diff --git a/include/net/route.h b/include/net/route.h
-index 395d79bb556c..cc61cb95f059 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -188,7 +188,7 @@ void ipv4_sk_redirect(struct sk_buff *skb, struct sock *sk);
- void ip_rt_send_redirect(struct sk_buff *skb);
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index b8529aa..979b081 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -60,9 +60,9 @@ struct ipv6_tlv_tnl_enc_lim {
+ 	__u8 encap_limit;	/* tunnel encapsulation limit   */
+ } __packed;
  
- unsigned int inet_addr_type(struct net *net, __be32 addr);
--unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id);
-+unsigned int inet_addr_type_table(struct net *net, __be32 addr, u32 tb_id);
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr);
- unsigned int inet_addr_type_dev_table(struct net *net,
-diff --git a/include/net/vrf.h b/include/net/vrf.h
-index 5bfb16237fd7..593e6094ddd4 100644
---- a/include/net/vrf.h
-+++ b/include/net/vrf.h
-@@ -66,9 +66,9 @@ static inline int vrf_master_ifindex(const struct net_device *dev)
- }
+-struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t);
++struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t);
+ void ip6_tnl_dst_reset(struct ip6_tnl *t);
+-void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst);
++void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst);
+ int ip6_tnl_rcv_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+ 		const struct in6_addr *raddr);
+ int ip6_tnl_xmit_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 495eab3..2f2cff0 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -634,7 +634,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 	}
  
- /* called with rcu_read_lock */
--static inline int vrf_dev_table_rcu(const struct net_device *dev)
-+static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
- {
--	int tb_id = 0;
-+	u32 tb_id = 0;
+ 	if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_check(tunnel);
++		dst = ip6_tnl_dst_get(tunnel);
  
- 	if (dev) {
- 		struct net_vrf_dev *vrf_ptr;
-@@ -80,9 +80,9 @@ static inline int vrf_dev_table_rcu(const struct net_device *dev)
- 	return tb_id;
- }
+ 	if (!dst) {
+ 		ndst = ip6_route_output(net, NULL, fl6);
+@@ -763,7 +763,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
  
--static inline int vrf_dev_table(const struct net_device *dev)
-+static inline u32 vrf_dev_table(const struct net_device *dev)
- {
--	int tb_id;
-+	u32 tb_id;
- 
- 	rcu_read_lock();
- 	tb_id = vrf_dev_table_rcu(dev);
-@@ -91,10 +91,10 @@ static inline int vrf_dev_table(const struct net_device *dev)
- 	return tb_id;
- }
- 
--static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
-+static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
- {
- 	struct net_device *dev;
--	int tb_id = 0;
-+	u32 tb_id = 0;
- 
- 	if (!ifindex)
- 		return 0;
-@@ -111,9 +111,9 @@ static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
- }
- 
- /* called with rtnl */
--static inline int vrf_dev_table_rtnl(const struct net_device *dev)
-+static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
- {
--	int tb_id = 0;
-+	u32 tb_id = 0;
- 
- 	if (dev) {
- 		struct net_vrf_dev *vrf_ptr;
-@@ -149,22 +149,22 @@ static inline int vrf_master_ifindex(const struct net_device *dev)
+ 	ip6tunnel_xmit(NULL, skb, dev);
+ 	if (ndst)
+-		ip6_tnl_dst_store(tunnel, ndst);
++		ip6_tnl_dst_set(tunnel, ndst);
  	return 0;
- }
- 
--static inline int vrf_dev_table_rcu(const struct net_device *dev)
-+static inline u32 vrf_dev_table_rcu(const struct net_device *dev)
- {
- 	return 0;
- }
- 
--static inline int vrf_dev_table(const struct net_device *dev)
-+static inline u32 vrf_dev_table(const struct net_device *dev)
- {
- 	return 0;
- }
- 
--static inline int vrf_dev_table_ifindex(struct net *net, int ifindex)
-+static inline u32 vrf_dev_table_ifindex(struct net *net, int ifindex)
- {
- 	return 0;
- }
- 
--static inline int vrf_dev_table_rtnl(const struct net_device *dev)
-+static inline u32 vrf_dev_table_rtnl(const struct net_device *dev)
- {
- 	return 0;
- }
-diff --git a/include/trace/events/fib.h b/include/trace/events/fib.h
-index acd1d22571a2..e9cea16d1515 100644
---- a/include/trace/events/fib.h
-+++ b/include/trace/events/fib.h
-@@ -11,12 +11,12 @@
- 
- TRACE_EVENT(fib_table_lookup,
- 
--	TP_PROTO(int tb_id, const struct flowi4 *flp),
-+	TP_PROTO(u32 tb_id, const struct flowi4 *flp),
- 
- 	TP_ARGS(tb_id, flp),
- 
- 	TP_STRUCT__entry(
--		__field(	int,	tb_id		)
-+		__field(	u32,	tb_id		)
- 		__field(	int,	oif		)
- 		__field(	int,	iif		)
- 		__field(	__u8,	tos		)
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 96773a2f95a7..1d0c3adb6f34 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -428,7 +428,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	struct net *net = sock_net(sk);
- 	unsigned short snum;
- 	int chk_addr_ret;
--	int tb_id = RT_TABLE_LOCAL;
-+	u32 tb_id = RT_TABLE_LOCAL;
- 	int err;
- 
- 	/* If the socket has its own bind function then use it. (RAW) */
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 4036c94dfbe1..6fcbd215cdbc 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -213,7 +213,7 @@ void fib_flush_external(struct net *net)
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 2e67b66..d2dc9e7 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -126,7 +126,7 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+  * Locking : hash tables are protected by RCU and RTNL
   */
- static inline unsigned int __inet_dev_addr_type(struct net *net,
- 						const struct net_device *dev,
--						__be32 addr, int tb_id)
-+						__be32 addr, u32 tb_id)
- {
- 	struct flowi4		fl4 = { .daddr = addr };
- 	struct fib_result	res;
-@@ -240,7 +240,7 @@ static inline unsigned int __inet_dev_addr_type(struct net *net,
- 	return ret;
- }
  
--unsigned int inet_addr_type_table(struct net *net, __be32 addr, int tb_id)
-+unsigned int inet_addr_type_table(struct net *net, __be32 addr, u32 tb_id)
+-struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
++struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
  {
- 	return __inet_dev_addr_type(net, NULL, addr, tb_id);
- }
-@@ -255,7 +255,7 @@ EXPORT_SYMBOL(inet_addr_type);
- unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- 				__be32 addr)
- {
--	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
-+	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
+ 	struct dst_entry *dst = t->dst_cache;
  
- 	return __inet_dev_addr_type(net, dev, addr, rt_table);
- }
-@@ -268,7 +268,7 @@ unsigned int inet_addr_type_dev_table(struct net *net,
- 				      const struct net_device *dev,
- 				      __be32 addr)
- {
--	int rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
-+	u32 rt_table = vrf_dev_table(dev) ? : RT_TABLE_LOCAL;
+@@ -139,7 +139,7 @@ struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
  
- 	return __inet_dev_addr_type(net, NULL, addr, rt_table);
+ 	return dst;
  }
-@@ -803,7 +803,7 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifaddr *ifa)
- {
- 	struct net *net = dev_net(ifa->ifa_dev->dev);
--	int tb_id = vrf_dev_table_rtnl(ifa->ifa_dev->dev);
-+	u32 tb_id = vrf_dev_table_rtnl(ifa->ifa_dev->dev);
- 	struct fib_table *tb;
- 	struct fib_config cfg = {
- 		.fc_protocol = RTPROT_KERNEL,
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 992a9597daf8..064bd3caaa4f 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -863,7 +863,7 @@ static bool fib_valid_prefsrc(struct fib_config *cfg, __be32 fib_prefsrc)
- {
- 	if (cfg->fc_type != RTN_LOCAL || !cfg->fc_dst ||
- 	    fib_prefsrc != cfg->fc_dst) {
--		int tb_id = cfg->fc_table;
-+		u32 tb_id = cfg->fc_table;
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_check);
++EXPORT_SYMBOL_GPL(ip6_tnl_dst_get);
  
- 		if (tb_id == RT_TABLE_MAIN)
- 			tb_id = RT_TABLE_LOCAL;
+ void ip6_tnl_dst_reset(struct ip6_tnl *t)
+ {
+@@ -148,14 +148,14 @@ void ip6_tnl_dst_reset(struct ip6_tnl *t)
+ }
+ EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
+ 
+-void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
++void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst)
+ {
+ 	struct rt6_info *rt = (struct rt6_info *) dst;
+ 	t->dst_cookie = rt6_get_cookie(rt);
+ 	dst_release(t->dst_cache);
+ 	t->dst_cache = dst;
+ }
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_store);
++EXPORT_SYMBOL_GPL(ip6_tnl_dst_set);
+ 
+ /**
+  * ip6_tnl_lookup - fetch tunnel matching the end-point addresses
+@@ -1010,7 +1010,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+ 		neigh_release(neigh);
+ 	} else if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_check(t);
++		dst = ip6_tnl_dst_get(t);
+ 
+ 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
+ 		goto tx_err_link_failure;
+@@ -1102,7 +1102,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	ipv6h->daddr = fl6->daddr;
+ 	ip6tunnel_xmit(NULL, skb, dev);
+ 	if (ndst)
+-		ip6_tnl_dst_store(t, ndst);
++		ip6_tnl_dst_set(t, ndst);
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
 -- 
-2.3.2 (Apple Git-55)
+1.8.1
