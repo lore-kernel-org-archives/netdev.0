@@ -1,61 +1,95 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: Make table id type u32
-Date: Tue, 1 Sep 2015 12:39:54 -0600
-Message-ID: <55E5F0FA.4080909@cumulusnetworks.com>
-References: <1441131487-29367-1-git-send-email-dsa@cumulusnetworks.com>
- <55E5EDB6.9050801@cumulusnetworks.com>
- <E82296F9-9C96-4589-B85B-0D12FB7BAAF4@cumulusnetworks.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/4] net: qdisc: add op to run filters/actions
+ before enqueue
+Date: Tue, 01 Sep 2015 20:50:30 +0200
+Message-ID: <55E5F376.80600@iogearbox.net>
+References: <cover.1441123709.git.daniel@iogearbox.net>	 <a18f0baba2668f0bbc15a45036713dcaa4bb09b0.1441123709.git.daniel@iogearbox.net> <1441128083.8932.177.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, john.fastabend@gmail.com, ast@plumgrid.com,
+	netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:35020 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753082AbbIASj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:39:56 -0400
-Received: by igbkq10 with SMTP id kq10so7983904igb.0
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 11:39:56 -0700 (PDT)
-In-Reply-To: <E82296F9-9C96-4589-B85B-0D12FB7BAAF4@cumulusnetworks.com>
+Received: from www62.your-server.de ([213.133.104.62]:33228 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752786AbbIASuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 14:50:35 -0400
+In-Reply-To: <1441128083.8932.177.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/1/15 12:39 PM, Nikolay Aleksandrov wrote:
->
->> On Sep 1, 2015, at 11:25 AM, David Ahern <dsa@cumulusnetworks.com> w=
-rote:
+On 09/01/2015 07:21 PM, Eric Dumazet wrote:
+> On Tue, 2015-09-01 at 18:34 +0200, Daniel Borkmann wrote:
+>> From: John Fastabend <john.r.fastabend@intel.com>
 >>
->> for net-next. Forgot to add to subject line. (Thanks, Roopa, for the=
- reminder.)
+>> Add a new ->preclassify() op to allow multiqueue queuing disciplines
+>> to call tc_classify() or perform other work before dev_pick_tx().
 >>
->> On 9/1/15 12:18 PM, David Ahern wrote:
->>> A number of VRF patches used 'int' for table id. It should be u32 t=
-o be
->>> consistent with the rest of the stack.
->>>
->>> Fixes:
->>> 4e3c89920cd3a ("net: Introduce VRF related flags and helpers")
->>> 15be405eb2ea9 ("net: Add inet_addr lookup by table")
->>> 30bbaa1950055 ("net: Fix up inet_addr_type checks")
->>> 021dd3b8a142d ("net: Add routes to the table associated with the de=
-vice")
->>> dc028da54ed35 ("inet: Move VRF table lookup to inlined function")
->>>
->>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->>> ---
->>>   include/net/route.h      |  2 +-
->>>   include/net/vrf.h        | 24 ++++++++++++------------
->>>   net/ipv4/af_inet.c       |  2 +-
->>>   net/ipv4/fib_frontend.c  | 10 +++++-----
->>>   net/ipv4/fib_semantics.c |  2 +-
->>>   5 files changed, 20 insertions(+), 20 deletions(-)
-> <<snip>>
+>> This helps, for example, with mqprio queueing discipline that has
+>> offload support by most popular 10G NICs, where the txq effectively
+>> picks the qdisc.
+>>
+>> Once traffic is being directed to a specific queue then hardware TX
+>> rings may be tuned to support this traffic type. mqprio already
+>> gives the ability to do this via skb->priority where the ->preclassify()
+>> provides more control over packet steering, it can classify the skb
+>> and set the priority, for example, from an eBPF classifier (or action).
+>>
+>> Also this allows traffic classifiers to be run without holding the
+>> qdisc lock and gives one place to attach filters when mqprio is
+>> in use. ->preclassify() could also be added to other mq qdiscs later
+>> on: f.e. most classful qdiscs first check major/minor numbers of
+>> skb->priority before actually consulting a more complex classifier.
+>>
+>> For mqprio case today, a filter has to be attached to each txq qdisc
+>> to have all traffic hit the filter. Since ->preclassify() is currently
+>> only used by mqprio, the __dev_queue_xmit() fast path is guarded by
+>> a generic, hidden Kconfig option (NET_CLS_PRECLASSIFY) that is only
+>> selected by mqprio,
 >
-> Should the fib_table_lookup tracepoint be updated as well ? It seems =
-to be using
-> int for tb_id even though it=92s a u32 in struct fib_table.
+> So all distros will select it, basically.
 >
+> ...
+>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 877c848..b768bca 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -3052,6 +3052,23 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+>>   	rcu_read_lock_bh();
+>>
+>>   	skb_update_prio(skb);
+>> +#ifdef CONFIG_NET_CLS_PRECLASSIFY
+>> +	q = rcu_dereference_bh(dev->qdisc);
+>> +	if (q && q->preclassify) {
+>> +		switch (q->preclassify(skb, q)) {
+>> +		default:
+>> +			break;
+>> +#ifdef CONFIG_NET_CLS_ACT
+>> +		case TC_ACT_SHOT:
+>> +		case TC_ACT_STOLEN:
+>> +		case TC_ACT_QUEUED:
+>> +			kfree_skb(skb);
+>> +			rc = NET_XMIT_SUCCESS;
+>> +			goto out;
+>> +#endif
+>> +		}
+>> +	}
+>> +#endif
+>>
+>
+> Since its a device attribute after all, why are you storing it in
+> dev->qdisc->preclassify, adding a cache line miss for moderate load ?
+>
+> (mqprio/mq root qdisc is normally not fetched in fast path ?)
+>
+> dev->preclassify would be better IMO, close to dev->_tx
 
-yes. good catch.
+Yes, makes sense, as this cacheline is accessed anyway few cycles later.
+I'll look into how well this approach integrates into tc's configuration
+path. I think mqprio/mq/... could just install/remove dev->preclassify()
+handler as soon as first filter is attached/detached.
+
+Thanks,
+Daniel
