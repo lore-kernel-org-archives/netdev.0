@@ -1,145 +1,98 @@
-From: Nikola =?ISO-8859-1?Q?Forr=F3?= <nforro@redhat.com>
-Subject: [PATCH] net: Fix behavior of unreachable, blackhole and prohibit
- routes
-Date: Tue, 01 Sep 2015 12:13:12 +0200
-Message-ID: <1441102392.3250.9.camel@redhat.com>
-Reply-To: nforro@redhat.com
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH] drivers: net: cpsw: Add support to make gpio drive which slave connected to phy
+Date: Tue, 1 Sep 2015 16:55:19 +0530
+Message-ID: <1441106719-5896-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Tony Lindgren <tony@atomide.com>, Sekhar Nori <nsekhar@ti.com>,
+	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39321 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755318AbbIAKNO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2015 06:13:14 -0400
+Received: from devils.ext.ti.com ([198.47.26.153]:50442 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919AbbIALZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 07:25:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Man page of ip-route(8) says the following about route types:
+In DRA72x EVM, by default slave 1 is connected to the onboard
+phy, but slave 2 pins are also muxed with video input module
+which is controlled by pcf857x gpio and currently to select slave
+0 to connect to phy gpio hogging is used, but with
+omap2plus_defconfig the pcf857x gpio is built as module. So when
+using NFS on DRA72x EVM, board doesn't boot as gpio hogging do
+not set proper gpio state to connect slave 0 to phy as it is
+built as module and you do not see any errors for not setting
+gpio and just mentions dhcp reply not got.
 
-  unreachable - these destinations are unreachable.  Packets are dis=E2=
-=80=90
-  carded and the ICMP message host unreachable is generated.  The local
-  senders get an EHOSTUNREACH error.
+To solve this issue, introducing "select-slave-gpio" in DT when
+gpio based muxing is required. This will through a warning when
+vgpio get fails and returns probe defer. When gpio-pcf857x module
+is installed, cpsw probes again and ethernet becomes functional.
+Verified this on DRA72x with pcf as module and ramdisk [1]
 
-  blackhole - these destinations are unreachable.  Packets are dis=E2=80=
-=90
-  carded silently.  The local senders get an EINVAL error.
-
-  prohibit - these destinations are unreachable.  Packets are discarded
-  and the ICMP message communication administratively prohibited is
-  generated.  The local senders get an EACCES error.
-
-In the inet6 address family, this was correct, except the local senders
-got ENETUNREACH error instead of EHOSTUNREACH in case of unreachable ro=
-ute.
-In the inet address family, all three route types generated ICMP messag=
-e
-net unreachable, and the local senders got ENETUNREACH error.
-
-In both address families all three route types now behave consistent
-with documentation.
-
-Signed-off-by: Nikola Forr=C3=B3 <nforro@redhat.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- include/net/ip_fib.h | 19 ++++++++++++++-----
- net/ipv4/route.c     |  6 ++++--
- net/ipv6/route.c     |  4 +++-
- 3 files changed, 21 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 5fa643b..8d174a7 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -233,8 +233,8 @@ static inline int fib_lookup(struct net *net, const=
- struct flowi4 *flp,
- 	rcu_read_lock();
-=20
- 	tb =3D fib_get_table(net, RT_TABLE_MAIN);
--	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF))
--		err =3D 0;
-+	if (tb)
-+		err =3D fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
-=20
- 	rcu_read_unlock();
-=20
-@@ -267,11 +267,20 @@ static inline int fib_lookup(struct net *net, str=
-uct flowi4 *flp,
-=20
- 	for (err =3D 0; !err; err =3D -ENETUNREACH) {
- 		tb =3D rcu_dereference_rtnl(net->ipv4.fib_main);
--		if (tb && !fib_table_lookup(tb, flp, res, flags))
--			break;
-+		if (tb) {
-+			err =3D fib_table_lookup(tb, flp, res, flags);
-+			if (!err)
-+				break;
-+		}
-=20
- 		tb =3D rcu_dereference_rtnl(net->ipv4.fib_default);
--		if (tb && !fib_table_lookup(tb, flp, res, flags))
-+		if (tb) {
-+			err =3D fib_table_lookup(tb, flp, res, flags);
-+			if (!err)
-+				break;
-+		}
+This patch is texted on DRA72x, Logs [1] and pushed a branch [2]
+
+[1]: http://pastebin.ubuntu.com/12244652/
+[2]: git://git.ti.com/~mugunthanvnm/ti-linux-kernel/linux.git cpsw-gpio-optional
+
+---
+ Documentation/devicetree/bindings/net/cpsw.txt |  3 +++
+ drivers/net/ethernet/ti/cpsw.c                 | 10 ++++++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index 33fe846..cb693aa 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -26,6 +26,9 @@ Optional properties:
+ - dual_emac		: Specifies Switch to act as Dual EMAC
+ - syscon		: Phandle to the system control device node, which is
+ 			  the control module device of the am33x
++- select-slave-gpio	: Should be added if a gpio line is required to
++			  select which slave is connected to phy
 +
-+		if (err)
- 			break;
+ 
+ Slave Properties:
+ Required properties:
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 8fc90f1..ce965ad 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -29,6 +29,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/delay.h>
+ #include <linux/pm_runtime.h>
++#include <linux/gpio.h>
+ #include <linux/of.h>
+ #include <linux/of_net.h>
+ #include <linux/of_device.h>
+@@ -2207,6 +2208,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	void __iomem			*ss_regs;
+ 	struct resource			*res, *ss_res;
+ 	const struct of_device_id	*of_id;
++	struct gpio_desc		*select_slave;
+ 	u32 slave_offset, sliver_offset, slave_size;
+ 	int ret = 0, i;
+ 	int irq;
+@@ -2232,6 +2234,14 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ndev_ret;
  	}
-=20
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e681b85..4ce3f87 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2020,6 +2020,7 @@ struct rtable *__ip_route_output_key(struct net *=
-net, struct flowi4 *fl4)
- 	struct fib_result res;
- 	struct rtable *rth;
- 	int orig_oif;
-+	int err =3D ENETUNREACH;
-=20
- 	res.tclassid	=3D 0;
- 	res.fi		=3D NULL;
-@@ -2123,7 +2124,8 @@ struct rtable *__ip_route_output_key(struct net *=
-net, struct flowi4 *fl4)
- 		goto make_route;
- 	}
-=20
--	if (fib_lookup(net, fl4, &res, 0)) {
-+	err =3D fib_lookup(net, fl4, &res, 0);
-+	if (err) {
- 		res.fi =3D NULL;
- 		res.table =3D NULL;
- 		if (fl4->flowi4_oif) {
-@@ -2151,7 +2153,7 @@ struct rtable *__ip_route_output_key(struct net *=
-net, struct flowi4 *fl4)
- 			res.type =3D RTN_UNICAST;
- 			goto make_route;
- 		}
--		rth =3D ERR_PTR(-ENETUNREACH);
-+		rth =3D ERR_PTR(err);
- 		goto out;
- 	}
-=20
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index d155864..d33a6a5 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1847,9 +1847,11 @@ int ip6_route_add(struct fib6_config *cfg)
- 			rt->dst.input =3D ip6_pkt_prohibit;
- 			break;
- 		case RTN_THROW:
-+		case RTN_UNREACHABLE:
- 		default:
- 			rt->dst.error =3D (cfg->fc_type =3D=3D RTN_THROW) ? -EAGAIN
--					: -ENETUNREACH;
-+					: (cfg->fc_type =3D=3D RTN_UNREACHABLE)
-+					? -EHOSTUNREACH : -ENETUNREACH;
- 			rt->dst.output =3D ip6_pkt_discard_out;
- 			rt->dst.input =3D ip6_pkt_discard;
- 			break;
---=20
-2.4.3
+ 
++	select_slave = devm_gpiod_get_optional(&pdev->dev, "select-slave",
++					       GPIOD_OUT_LOW);
++	if (IS_ERR(select_slave)) {
++		ret = PTR_ERR(select_slave);
++		dev_err(&pdev->dev, "gpio request failed, ret %d\n", ret);
++		goto clean_ndev_ret;
++	}
++
+ 	/*
+ 	 * This may be required here for child devices.
+ 	 */
+-- 
+2.5.0.474.g3a9835b
