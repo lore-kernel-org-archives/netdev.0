@@ -1,97 +1,161 @@
-From: Mohammad Rajiullah <mohammad.rajiullah@kau.se>
-Subject: Unexpected loss recovery in TLP
-Date: Tue, 1 Sep 2015 11:00:49 +0200
-Message-ID: <0022CCFF-AA6E-4CB1-BEEF-D5B88CACA365@kau.se>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2102\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Anna Brunstrom <anna.brunstrom@kau.se>,
-	Per Hurtig <per.hurtig@kau.se>, eric.dumazet@gmail.com,
-	ncardwell@google.com
-To: netdev@vger.kernel.org
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: [PATCH 1/2] net: Remove ndo_xmit_flush netdev operation, use
+ signalling instead.
+Date: Tue, 1 Sep 2015 17:21:16 +0800
+Message-ID: <55E56E0C.7060500@windriver.com>
+References: <20140825.163502.973913220915588977.davem@davemloft.net>	<55E549CE.4010509@windriver.com> <20150901.000051.2053259950492309439.davem@davemloft.net> <55E54F5F.9040603@windriver.com> <55E56080.9020502@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <therbert@google.com>,
+	<jhs@mojatatu.com>, <hannes@stressinduktion.org>,
+	<edumazet@google.com>, <jeffrey.t.kirsher@intel.com>,
+	<rusty@rustcorp.com.au>, <brouer@redhat.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.kau.se ([193.10.220.38]:13242 "EHLO tiger.dc.kau.se"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755263AbbIAJKK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 05:10:10 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:38696 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752741AbbIAJXs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 05:23:48 -0400
+In-Reply-To: <55E56080.9020502@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On 09/01/2015 04:23 PM, Daniel Borkmann wrote:
+> On 09/01/2015 09:10 AM, yzhu1 wrote:
+>> On 09/01/2015 03:00 PM, David Miller wrote:
+>>> From: yzhu1 <Yanjun.Zhu@windriver.com>
+>>> Date: Tue, 1 Sep 2015 14:46:38 +0800
+>>>
+>>>> After I applied this patch, the skb->xmit_more is not always zero.
+>>> There have been thousands upon thousands of commits since that
+>>> change.
+>>>
+>>> You should be testing the tree as it currently stands, to see
+>>> if xmit_more behaves correctly or not.
+>>>
+>>> If xmit_more were incorrectly set to 1 in the current tree, it
+>>> would stall the TX queue of the networking device and we would
+>>> be seeing lots of reports of this.
+>>>
+>> Thanks for your reply.
+>> Yes. After running for several days, the following messages will appear.
+>
+> Your below trace says 3.14.29ltsi-WR7.0.0.0 ...
+>
+> As Dave said, please retest with something up to date, like 4.2 kernel,
+> or latest -net git tree.
+>
+> Besides, the *upstream* xmit_more changes first went into 3.18 ...
+> nearest git describe is at:
+>
+>   $ git describe 0b725a2ca61bedc33a2a63d0451d528b268cf975
+>   v3.17-rc1-251-g0b725a2
+>
+> So, that only tells me, that you are reporting a possible bug based on
+> some non-upstream kernel ... ? Thus, it's not even possible to verify
+> if the actual backport was correct ?
 
-While measuring TLP=E2=80=99s performance for an online gaming scenario=
-,  where both the client and the server send data, TLP=20
-shows unexpected loss recovery in Linux 3.18.5 kernel. Early retransmit=
- fails in response=20
-to the dupack which is later resolved using RTO.  I found the behaviour=
- consistent during the whole measurement period.
-=46ollowing is an excerpt from the tcpdump traces (taken at the server)=
- showing the behaviour:
+Sorry. There is something wrong with backporting this patch.
 
-0.733965    Client -> Server     HTTP 431 POST /Scores HTTP/1.1=20
-0.738355     Server -> Client HTTP 407 HTTP/1.1 200 OK=20
-0.985346     Server -> Client TCP 68 [TCP segment of a reassembled PDU]
-0.993322     Client -> Server     HTTP 431 [TCP Retransmission] POST /S=
-cores HTTP/1.1=20
-0.993352     Server -> Client TCP 78 [TCP Dup ACK 2339#1] 8081=E2=86=92=
-45451 [ACK] Seq=3D186995 Ack=3D230031  Len=3D0   SLE=3D229666 SRE=3D230=
-031
-1.089327     Server -> Client TCP 68 [TCP Retransmission] 8081=E2=86=92=
-45451 [PSH, ACK] Seq=3D186993 Ack=3D230031  Len=3D2 =20
-1.294816     Client -> Server     TCP 78 [TCP Dup ACK 2340#1] 45451=E2=86=
-=928081 [ACK] Seq=3D230031 Ack=3D186652  Len=3D0   SLE=3D186993 SRE=3D1=
-86995
-1.295018     Client -> Server     TCP 86 [TCP Dup ACK 2340#2] 45451=E2=86=
-=928081 [ACK] Seq=3D230031 Ack=3D186652  Len=3D0   SLE=3D186993 SRE=3D1=
-86995 SLE=3D186993 SRE=3D186995
-1.541328     Server -> Client HTTP 407 [TCP Retransmission] HTTP/1.1 20=
-0 OK =20
+Thanks for your help.
 
-=46rom some kernel debug info (using printk ..) it appears that for som=
-e reason although the incoming dupack=20
-starts the early retransmit delay timer, it never expires. The above me=
-asurement was taken in a=20
-wireless environment. I also recreated the scenario in a wired network =
-with synthetic traffic to have regular=20
-RTTs. The behaviour remains the same. =20
-0.287241     Client -> Server     TCP 316 58148 > colubris [PSH, ACK] S=
-eq=3D251 Ack=3D501 Win=3D31744 Len=3D250 TSval=3D98871521 TSecr=3D98865=
-126
- 0.287278     Server -> Client     TCP 316 colubris > 58148 [PSH, ACK] =
-Seq=3D501 Ack=3D501 Win=3D31232 Len=3D250 TSval=3D98865134 TSecr=3D9887=
-1521
- 0.515351     Server -> Client     TCP 316 colubris > 58148 [PSH, ACK] =
-Seq=3D751 Ack=3D501 Win=3D31232 Len=3D250 TSval=3D98865191 TSecr=3D9887=
-1521
- 0.518003     Client -> Server     TCP 316 [TCP Retransmission] 58148 >=
- colubris [PSH, ACK] Seq=3D251 Ack=3D501 Win=3D31744 Len=3D250 TSval=3D=
-98871579 TSecr=3D98865126
- 0.518021     Server -> Client     TCP 78 [TCP Dup ACK 12#1] colubris >=
- 58148 [ACK] Seq=3D1001 Ack=3D501 Win=3D31232 Len=3D0 TSval=3D98865191 =
-TSecr=3D98871579 SLE=3D251 SRE=3D501
- 0.518798     Server -> Client     TCP 316 [TCP Retransmission] colubri=
-s > 58148 [PSH, ACK] Seq=3D751 Ack=3D501 Win=3D31232 Len=3D250 TSval=3D=
-98865192 TSecr=3D98871579
- 0.544700     Client -> Server     TCP 78 [TCP Window Update] 58148 > c=
-olubris [ACK] Seq=3D501 Ack=3D501 Win=3D32768 Len=3D0 TSval=3D98871585 =
-TSecr=3D98865126 SLE=3D751 SRE=3D1001
- 0.549653     Client -> Server     TCP 86 [TCP Dup ACK 16#1] 58148 > co=
-lubris [ACK] Seq=3D501 Ack=3D501 Win=3D32768 Len=3D0 TSval=3D98871586 T=
-Secr=3D98865126 SLE=3D751 SRE=3D1001 SLE=3D751 SRE=3D1001
- 0.778802     Server -> Client     TCP 316 [TCP Retransmission] colubri=
-s > 58148 [PSH, ACK] Seq=3D501 Ack=3D501 Win=3D31232 Len=3D250 TSval=3D=
-98865257 TSecr=3D98871586
+Zhu Yanjun
 
-
-
-Cheers,
-Mohammad
-
-
-Mohammad Rajiullah
-Ph.D student
-Dept. of CS
-Karlstad University
-054 700 1758
-
-http://www.cs.kau.se/moharaji/
+>
+>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>    Tx Queue <1>
+>>    TDH <1a>
+>>    TDT <1a>
+>>    next_to_use <1d>
+>>    next_to_clean <1a>
+>> buffer_info[next_to_clean]
+>>    time_stamp <ffffeb7d>
+>>    next_to_watch <ffff88103ee711c0>
+>>    jiffies <fffff324>
+>>    desc.status <0>
+>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>    Tx Queue <1>
+>>    TDH <1a>
+>>    TDT <1a>
+>>    next_to_use <1d>
+>>    next_to_clean <1a>
+>> buffer_info[next_to_clean]
+>>    time_stamp <ffffeb7d>
+>>    next_to_watch <ffff88103ee711c0>
+>>    jiffies <fffffaf4>
+>>    desc.status <0>
+>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>    Tx Queue <1>
+>>    TDH <1a>
+>>    TDT <1a>
+>>    next_to_use <1d>
+>>    next_to_clean <1a>
+>> buffer_info[next_to_clean]
+>>    time_stamp <ffffeb7d>
+>>    next_to_watch <ffff88103ee711c0>
+>>    jiffies <1000002c4>
+>>    desc.status <0>
+>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>    Tx Queue <1>
+>>    TDH <1a>
+>>    TDT <1a>
+>>    next_to_use <1d>------------[ cut here ]------------
+>> WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264 
+>> dev_watchdog+0x259/0x270()
+>> NETDEV WATCHDOG: eth0 (igb): transmit queue 1 timed out
+>> Modules linked in: x86_pkg_temp_thermal intel_powerclamp coretemp 
+>> crct10dif_pclmul crct10dif_common aesni_intel aes_x86_64 glue_helper 
+>> lrw gf128mul ablk_helper cryptd iTCO_wdt sb_edac iTCO_vendor_support 
+>> ipmi_si edac_core i2c_i801 lpc_ich ipmi_msghandler nfsd fuse
+>> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 
+>> 3.14.29ltsi-WR7.0.0.0_standard #2
+>> Hardware name: Intel Corporation S2600CP/S2600CP, BIOS 
+>> RMLSDP.86I.R4.26.D674.1304190022 04/19/2013
+>>   0000000000000009 ffff88081f603da0 ffffffff81ab9bb8 ffff88081f603de8
+>>   ffff88081f603dd8 ffffffff8104c64d 0000000000000001 ffff880812f6d940
+>>   0000000000000000 ffff880813efc000 0000000000000008 ffff88081f603e38
+>> Call Trace:
+>>   <IRQ> [<ffffffff81ab9bb8>] dump_stack+0x4e/0x7a
+>>   [<ffffffff8104c64d>] warn_slowpath_common+0x7d/0xa0
+>>   [<ffffffff8104c6bc>] warn_slowpath_fmt+0x4c/0x50
+>>   [<ffffffff81ac09c7>] ? _raw_spin_unlock+0x17/0x30
+>>   [<ffffffff81998659>] dev_watchdog+0x259/0x270
+>>   [<ffffffff81998400>] ? dev_graft_qdisc+0x80/0x80
+>>   [<ffffffff810594cb>] call_timer_fn+0x3b/0x170
+>>   [<ffffffff81998400>] ? dev_graft_qdisc+0x80/0x80
+>>   [<ffffffff81059d64>] run_timer_softirq+0x1c4/0x2d0
+>>   [<ffffffff81051557>] __do_softirq+0xb7/0x2e0
+>>   [<ffffffff810518be>] irq_exit+0x7e/0xa0
+>>   [<ffffffff81acae74>] smp_apic_timer_interrupt+0x44/0x50
+>>   [<ffffffff81ac9c4a>] apic_timer_interrupt+0x6a/0x70
+>>   <EOI> [<ffffffff81880706>] ? cpuidle_enter_state+0x46/0xb0
+>>   [<ffffffff8188082c>] cpuidle_idle_call+0xbc/0x250
+>>   [<ffffffff8100cdce>] arch_cpu_idle+0xe/0x20
+>>   [<ffffffff810a2bb5>] cpu_startup_entry+0x185/0x290
+>>   [<ffffffff81ab4424>] rest_init+0x84/0x90
+>>   [<ffffffff82333d50>] start_kernel+0x3d6/0x3e3
+>>   [<ffffffff82333495>] x86_64_start_reservations+0x2a/0x2c
+>>   [<ffffffff8233358e>] x86_64_start_kernel+0xf7/0xfa
+>> ---[ end trace 57ad9eaf9dd80dc2 ]---
+>> igb 0000:09:00.0 eth0: Reset adapter
+>> igb: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
+>> igb 0000:09:00.0: Detected Tx Unit Hang
+>>
+>>    next_to_clean <1a>
+>> buffer_info[next_to_clean]
+>>    time_stamp <ffffeb7d>
+>>    next_to_watch <ffff88103ee711c0>
+>>    jiffies <100000a94>
+>>    desc.status <0>
+>>
+>>
+>>
+>> -- 
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>
+>
+>
