@@ -1,257 +1,205 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/4] net: qdisc: add op to run filters/actions before enqueue
-Date: Tue,  1 Sep 2015 18:34:22 +0200
-Message-ID: <a18f0baba2668f0bbc15a45036713dcaa4bb09b0.1441123709.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 2/4] ebpf: migrate bpf_prog's flags to bitfield
+Date: Tue,  1 Sep 2015 18:34:23 +0200
+Message-ID: <3b2f43e509d0db399ce9697ba8a41e6d97f5a22f.1441123709.git.daniel@iogearbox.net>
 References: <cover.1441123709.git.daniel@iogearbox.net>
 Cc: john.fastabend@gmail.com, ast@plumgrid.com, netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49534 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:49537 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507AbbIAQea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 12:34:30 -0400
+	with ESMTP id S1753231AbbIAQeb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 12:34:31 -0400
 In-Reply-To: <cover.1441123709.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1441123709.git.daniel@iogearbox.net>
 References: <cover.1441123709.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+As we need to add further flags to the bpf_prog structure, lets migrate
+both bools to a bitfield representation. The size of the base structure
+(excluding insns) remains unchanged at 40 bytes.
 
-Add a new ->preclassify() op to allow multiqueue queuing disciplines
-to call tc_classify() or perform other work before dev_pick_tx().
+Add also tags for the kmemchecker, so that it doesn't throw false
+positives. Even in case gcc would generate suboptimal code, it's not
+being accessed in performance critical paths.
 
-This helps, for example, with mqprio queueing discipline that has
-offload support by most popular 10G NICs, where the txq effectively
-picks the qdisc.
-
-Once traffic is being directed to a specific queue then hardware TX
-rings may be tuned to support this traffic type. mqprio already
-gives the ability to do this via skb->priority where the ->preclassify()
-provides more control over packet steering, it can classify the skb
-and set the priority, for example, from an eBPF classifier (or action).
-
-Also this allows traffic classifiers to be run without holding the
-qdisc lock and gives one place to attach filters when mqprio is
-in use. ->preclassify() could also be added to other mq qdiscs later
-on: f.e. most classful qdiscs first check major/minor numbers of
-skb->priority before actually consulting a more complex classifier.
-
-For mqprio case today, a filter has to be attached to each txq qdisc
-to have all traffic hit the filter. Since ->preclassify() is currently
-only used by mqprio, the __dev_queue_xmit() fast path is guarded by
-a generic, hidden Kconfig option (NET_CLS_PRECLASSIFY) that is only
-selected by mqprio, otherwise it defaults to off. Also, the Qdisc
-structure size will stay the same, we move __parent, used by cbq only
-into a write-mostly hole. If actions are enabled, __parent is written
-on every enqueue, and only read, rewritten in reshape_fail() phase.
-Therefore, this place in the read-mostly cacheline could be used by
-preclassify, which is written only once.
-
-Joint work with Daniel Borkmann.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/net/sch_generic.h | 16 +++++++++++-----
- net/core/dev.c            | 17 +++++++++++++++++
- net/sched/Kconfig         |  5 +++++
- net/sched/sch_generic.c   |  1 +
- net/sched/sch_mqprio.c    | 35 +++++++++++++++++++++++++++++++++++
- 5 files changed, 69 insertions(+), 5 deletions(-)
+ arch/arm/net/bpf_jit_32.c       | 2 +-
+ arch/arm64/net/bpf_jit_comp.c   | 2 +-
+ arch/mips/net/bpf_jit.c         | 2 +-
+ arch/powerpc/net/bpf_jit_comp.c | 2 +-
+ arch/s390/net/bpf_jit_comp.c    | 2 +-
+ arch/sparc/net/bpf_jit_comp.c   | 2 +-
+ arch/x86/net/bpf_jit_comp.c     | 2 +-
+ include/linux/filter.h          | 6 ++++--
+ kernel/bpf/core.c               | 4 ++++
+ kernel/bpf/syscall.c            | 4 ++--
+ net/core/filter.c               | 2 +-
+ 11 files changed, 18 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 444faa8..e65767d 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -69,13 +69,11 @@ struct Qdisc {
- 	u32			parent;
- 	int			(*reshape_fail)(struct sk_buff *skb,
- 					struct Qdisc *q);
-+	int			(*preclassify)(struct sk_buff *skb,
-+					       struct Qdisc *q);
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 876060b..0df5fd5 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -1047,7 +1047,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
  
- 	void			*u32_node;
+ 	set_memory_ro((unsigned long)header, header->pages);
+ 	fp->bpf_func = (void *)ctx.target;
+-	fp->jited = true;
++	fp->jited = 1;
+ out:
+ 	kfree(ctx.offsets);
+ 	return;
+diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+index c047598..a44e529 100644
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -744,7 +744,7 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
  
--	/* This field is deprecated, but it is still used by CBQ
--	 * and it will live until better solution will be invented.
--	 */
--	struct Qdisc		*__parent;
- 	struct netdev_queue	*dev_queue;
- 
- 	struct gnet_stats_rate_est64	rate_est;
-@@ -93,6 +91,14 @@ struct Qdisc {
- 	unsigned int		__state;
- 	struct gnet_stats_queue	qstats;
- 	struct rcu_head		rcu_head;
-+
-+	/* This field is deprecated, but it is still used by CBQ
-+	 * and it will live until better solution will be invented.
-+	 * If actions are enabled, it's modified on every enqueue,
-+	 * and only rw-accessed in slow-path (cbq_reshape_fail).
-+	 */
-+	struct Qdisc		*__parent;
-+
- 	int			padded;
- 	atomic_t		refcnt;
- 
-@@ -184,6 +190,7 @@ struct Qdisc_ops {
- 
- 	int 			(*enqueue)(struct sk_buff *, struct Qdisc *);
- 	struct sk_buff *	(*dequeue)(struct Qdisc *);
-+	int			(*preclassify)(struct sk_buff *, struct Qdisc *);
- 	struct sk_buff *	(*peek)(struct Qdisc *);
- 	unsigned int		(*drop)(struct Qdisc *);
- 
-@@ -199,7 +206,6 @@ struct Qdisc_ops {
- 	struct module		*owner;
- };
- 
--
- struct tcf_result {
- 	unsigned long	class;
- 	u32		classid;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 877c848..b768bca 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3052,6 +3052,23 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
- 	rcu_read_lock_bh();
- 
- 	skb_update_prio(skb);
-+#ifdef CONFIG_NET_CLS_PRECLASSIFY
-+	q = rcu_dereference_bh(dev->qdisc);
-+	if (q && q->preclassify) {
-+		switch (q->preclassify(skb, q)) {
-+		default:
-+			break;
-+#ifdef CONFIG_NET_CLS_ACT
-+		case TC_ACT_SHOT:
-+		case TC_ACT_STOLEN:
-+		case TC_ACT_QUEUED:
-+			kfree_skb(skb);
-+			rc = NET_XMIT_SUCCESS;
-+			goto out;
-+#endif
-+		}
-+	}
-+#endif
- 
- 	/* If device/qdisc don't need skb->dst, release it right now while
- 	 * its hot in this cpu cache.
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index daa3343..c235756 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -219,6 +219,7 @@ config NET_SCH_DRR
- 
- config NET_SCH_MQPRIO
- 	tristate "Multi-queue priority scheduler (MQPRIO)"
-+	select NET_CLS_PRECLASSIFY
- 	help
- 	  Say Y here if you want to use the Multi-queue Priority scheduler.
- 	  This scheduler allows QOS to be offloaded on NICs that have support
-@@ -351,6 +352,10 @@ comment "Classification"
- config NET_CLS
- 	bool
- 
-+config NET_CLS_PRECLASSIFY
-+	bool
-+	default n
-+
- config NET_CLS_BASIC
- 	tristate "Elementary classification (BASIC)"
- 	select NET_CLS
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index cb5d4ad..ef27ea2 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -605,6 +605,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
- 	sch->ops = ops;
- 	sch->enqueue = ops->enqueue;
- 	sch->dequeue = ops->dequeue;
-+	sch->preclassify = ops->preclassify;
- 	sch->dev_queue = dev_queue;
- 	dev_hold(dev);
- 	atomic_set(&sch->refcnt, 1);
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 3811a74..7e251cc 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -20,6 +20,7 @@
- #include <net/sch_generic.h>
- 
- struct mqprio_sched {
-+	struct tcf_proto __rcu *filter_list;
- 	struct Qdisc		**qdiscs;
- 	int hw_owned;
- };
-@@ -28,9 +29,13 @@ static void mqprio_destroy(struct Qdisc *sch)
- {
- 	struct net_device *dev = qdisc_dev(sch);
- 	struct mqprio_sched *priv = qdisc_priv(sch);
-+	struct tcf_proto *filter_list;
- 	unsigned int ntx;
- 
- 	if (priv->qdiscs) {
-+		filter_list = rtnl_dereference(priv->filter_list);
-+		tcf_destroy_chain(&filter_list);
-+
- 		for (ntx = 0;
- 		     ntx < dev->num_tx_queues && priv->qdiscs[ntx];
- 		     ntx++)
-@@ -391,12 +396,41 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
- 	}
+ 	set_memory_ro((unsigned long)header, header->pages);
+ 	prog->bpf_func = (void *)ctx.image;
+-	prog->jited = true;
++	prog->jited = 1;
+ out:
+ 	kfree(ctx.offset);
  }
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 0c4a133..77cb273 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -1251,7 +1251,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 		bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
  
-+static struct tcf_proto __rcu **mqprio_find_tcf(struct Qdisc *sch,
-+						unsigned long cl)
-+{
-+	struct mqprio_sched *q = qdisc_priv(sch);
+ 	fp->bpf_func = (void *)ctx.target;
+-	fp->jited = true;
++	fp->jited = 1;
+ 
+ out:
+ 	kfree(ctx.offsets);
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 17cea18..0478216 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -679,7 +679,7 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 		((u64 *)image)[1] = local_paca->kernel_toc;
+ #endif
+ 		fp->bpf_func = (void *)image;
+-		fp->jited = true;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index eeda051..9a0c4c2 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -1310,7 +1310,7 @@ void bpf_int_jit_compile(struct bpf_prog *fp)
+ 	if (jit.prg_buf) {
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		fp->bpf_func = (void *) jit.prg_buf;
+-		fp->jited = true;
++		fp->jited = 1;
+ 	}
+ free_addrs:
+ 	kfree(jit.addrs);
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index f8b9f71..22564f5 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -812,7 +812,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
+ 	if (image) {
+ 		bpf_flush_icache(image, image + proglen);
+ 		fp->bpf_func = (void *)image;
+-		fp->jited = true;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 70efcd0..7599197 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -1109,7 +1109,7 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
+ 		bpf_flush_icache(header, image + proglen);
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		prog->bpf_func = (void *)image;
+-		prog->jited = true;
++		prog->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index fa2cab9..bad618f 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -326,8 +326,10 @@ struct bpf_binary_header {
+ 
+ struct bpf_prog {
+ 	u16			pages;		/* Number of allocated pages */
+-	bool			jited;		/* Is our filter JIT'ed? */
+-	bool			gpl_compatible;	/* Is our filter GPL compatible? */
++	kmemcheck_bitfield_begin(meta);
++	u16			jited:1,	/* Is our filter JIT'ed? */
++				gpl_compatible:1; /* Is filter GPL compatible? */
++	kmemcheck_bitfield_end(meta);
+ 	u32			len;		/* Number of filter blocks */
+ 	enum bpf_prog_type	type;		/* Type of BPF program */
+ 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 67c380c..c8855c2 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -82,6 +82,8 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
+ 	if (fp == NULL)
+ 		return NULL;
+ 
++	kmemcheck_annotate_bitfield(fp, meta);
 +
-+	if (cl)
-+		return NULL;
+ 	aux = kzalloc(sizeof(*aux), GFP_KERNEL | gfp_extra_flags);
+ 	if (aux == NULL) {
+ 		vfree(fp);
+@@ -110,6 +112,8 @@ struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
+ 
+ 	fp = __vmalloc(size, gfp_flags, PAGE_KERNEL);
+ 	if (fp != NULL) {
++		kmemcheck_annotate_bitfield(fp, meta);
 +
-+	return &q->filter_list;
-+}
-+
-+static unsigned long mqprio_bind(struct Qdisc *sch, unsigned long parent,
-+				 u32 classid)
-+{
-+	return 0;
-+}
-+
-+static int mqprio_classify(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct mqprio_sched *q = qdisc_priv(sch);
-+	struct tcf_proto *fl = rcu_dereference_bh(q->filter_list);
-+	struct tcf_result res;
-+
-+	return tc_classify(skb, fl, &res, false);
-+}
-+
- static const struct Qdisc_class_ops mqprio_class_ops = {
- 	.graft		= mqprio_graft,
- 	.leaf		= mqprio_leaf,
- 	.get		= mqprio_get,
- 	.put		= mqprio_put,
- 	.walk		= mqprio_walk,
-+	.tcf_chain	= mqprio_find_tcf,
-+	.bind_tcf	= mqprio_bind,
-+	.unbind_tcf	= mqprio_put,
- 	.dump		= mqprio_dump_class,
- 	.dump_stats	= mqprio_dump_class_stats,
- };
-@@ -407,6 +441,7 @@ static struct Qdisc_ops mqprio_qdisc_ops __read_mostly = {
- 	.priv_size	= sizeof(struct mqprio_sched),
- 	.init		= mqprio_init,
- 	.destroy	= mqprio_destroy,
-+	.preclassify	= mqprio_classify,
- 	.attach		= mqprio_attach,
- 	.dump		= mqprio_dump,
- 	.owner		= THIS_MODULE,
+ 		memcpy(fp, fp_old, fp_old->pages * PAGE_SIZE);
+ 		fp->pages = size / PAGE_SIZE;
+ 
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index dc9b464..2ba2881 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -549,10 +549,10 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 		goto free_prog;
+ 
+ 	prog->orig_prog = NULL;
+-	prog->jited = false;
++	prog->jited = 0;
+ 
+ 	atomic_set(&prog->aux->refcnt, 1);
+-	prog->gpl_compatible = is_gpl;
++	prog->gpl_compatible = is_gpl ? 1 : 0;
+ 
+ 	/* find program type: socket_filter vs tracing_filter */
+ 	err = find_prog_type(type, prog);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 13079f0..e1c574c 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1001,7 +1001,7 @@ static struct bpf_prog *bpf_prepare_filter(struct bpf_prog *fp,
+ 	int err;
+ 
+ 	fp->bpf_func = NULL;
+-	fp->jited = false;
++	fp->jited = 0;
+ 
+ 	err = bpf_check_classic(fp->insns, fp->len);
+ 	if (err) {
 -- 
 1.9.3
