@@ -1,118 +1,82 @@
-From: Uwe Koziolek <uwe.koziolek@redknee.com>
-Subject: Re: [PATCH] net/bonding: send arp in interval if no active slave
-Date: Wed, 2 Sep 2015 01:15:33 +0200
-Message-ID: <55E63195.400@redknee.com>
-References: <1439828583-27325-1-git-send-email-jarod@redhat.com>
- <20150817165500.GA21512@vps.falico.eu> <55D215F7.3080905@redhat.com>
- <55D22E64.6020807@redknee.com> <2649.1439838866@famine>
- <55D2494F.3020800@redknee.com> <55E4D35B.4090502@redhat.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] skbuff: Fix skb checksum flag on skb pull
+Date: Tue, 1 Sep 2015 16:37:41 -0700
+Message-ID: <CALnjE+qRdzB=GRuN8R2jNCt51=rsMOSQ8-xKZ4q3PQkT1ST5HQ@mail.gmail.com>
+References: <1441061746-1492-1-git-send-email-pshelar@nicira.com>
+	<CALx6S34JrU5_S7wtSQsBHSVeUFjryHeJtGsCoZEdUtyy7F+__A@mail.gmail.com>
+	<CALnjE+q8N3y9D+9SVqm3w6f3KwBNtXW8A9RtVe5NFMA8aftbdA@mail.gmail.com>
+	<CALx6S36w0wYWXPwanxZeR=bdxHYZ=hOJFtk+j=jFAjmdgfDnRQ@mail.gmail.com>
+	<CALnjE+p0wa7ovOxn3E164GkZ35OLY-LM7-JA42E1K5AOycpZ0Q@mail.gmail.com>
+	<CALx6S360w+Y2BVj7Fv0dzmeivD2oO6NWaevMZyNB1kh7RrOgqw@mail.gmail.com>
+	<CALnjE+rVKBvP8eedf1+OZYc8uyPkyq6kiFzeyhjC3=9KhnoAow@mail.gmail.com>
+	<CALx6S34wyEBCMaQn_A+-O=s=d6vGwJL42Rw_2o92pgqhhGtkqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-15"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	<linux-kernel@vger.kernel.org>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	<netdev@vger.kernel.org>
-To: Jarod Wilson <jarod@redhat.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55E4D35B.4090502@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:32803 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717AbbIAXhm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 19:37:42 -0400
+Received: by igbkq10 with SMTP id kq10so13432610igb.0
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 16:37:42 -0700 (PDT)
+In-Reply-To: <CALx6S34wyEBCMaQn_A+-O=s=d6vGwJL42Rw_2o92pgqhhGtkqA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 01.09.2015 at 00:21 +0200 Jarod Wilson wrote:
-> On 2015-08-17 4:51 PM, Uwe Koziolek wrote:
->> On Mon, Aug 17, 2015 at 09:14PM +0200, Jay Vosburgh wrote:
->>> Uwe Koziolek <uwe.koziolek@redknee.com> wrote:
->>>
->>>> On2015-08-17 07:12 PM,Jarod Wilson wrote:
-> ...
->>>>> Uwe, can you perhaps further enlighten us as to what num_grat_arp
->>>>> settings were tried that didn't help? I'm still of the mind that if
->>>>> num_grat_arp *didn't* help, we probably need to do something keyed 
->>>>> off
->>>>> num_grat_arp.
->>>> The bonding slaves are connected to high available switches, each 
->>>> of the
->>>> slaves is connected to a different switch. If the bond is starting, 
->>>> only
->>>> the selected slave sends one arp-request. If a matching 
->>>> arp_response was
->>>> received, this slave and the bond is going into state up, sending the
->>>> gratitious arps...
->>>> But if you got no arp reply the next slave was selected.
->>>> With most of the newer switches, not overloaded, or with other 
->>>> software
->>>> bugs, or with a single switch configuration, you would get a arp
->>>> response
->>>> on the first arp request.
->>>> But in case of high availability configuration with non perfect 
->>>> switches
->>>> like HP ProCurve 54xx, also with some Cisco models, you may not get a
->>>> response on the first arp request.
+On Tue, Sep 1, 2015 at 2:25 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Tue, Sep 1, 2015 at 2:10 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Tue, Sep 1, 2015 at 12:55 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Tue, Sep 1, 2015 at 12:20 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>>> On Tue, Sep 1, 2015 at 7:19 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> On Mon, Aug 31, 2015 at 10:15 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>>>>> On Mon, Aug 31, 2015 at 9:12 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>>>> On Mon, Aug 31, 2015 at 3:55 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>>>>>>>> VXLAN device can receive skb with checksum partial. But the checksum
+>>>>>>>> offset could be in outer header which is pulled on receive. Such skb
+>>>>>>>> can cause the panic when checksum is calculated on skb. Following patch
+>>>>>>>> fixes the bug by setting checksum unnecessary while pulling outer header.
+>>>>>>>>
+>>>>>>> Okay, I think I understand what you are doing. I suggest in the
+>>>>>>> openvswitch path, if there is a checksum CHECKSUM_PARTIAL that refers
+>>>>>>> to the outer headers which must have been verified at this point then
+>>>>>>> set to CHECKSUM_NONE-- assuming CHECKSUM_UNNECESSARY on the inner
+>>>>>>> header is not correct in this case. If the CHECKSUM_PARTIAL refers to
+>>>>>>> the inner header then you can call skb_checksum_help to resolve an
+>>>>>>> inner checksum.
+>>>>>>>
+>>>>>>
+>>>>>> That would be OVS specific fix, But I do see skb_checksum_help()
+>>>>>> called in multiple places outside OVS that could result in similar
+>>>>>> kernel panic. Therefore I want to solve it up in networking stack
+>>>>>> rather than in OVS.
+>>>>>>
+>>>>> Please try to reproduce this out of OVS from the top of the tree then
+>>>>> and report down exactly where panic is occurring the code. Unlike most
+>>>>> of the of the other cases where skb_checksum_help() is being called
+>>>>> this in the RX path so skb is probably not pulled over the checksum
+>>>>> offset for those. Even so, if the skb is pulled beyond the checksum
+>>>>> offset then this should result in a negative offset in
+>>>>> skb_checksum_start_offset(skb) which should be okay. It looks like
+>>>>> this in itself should not be causing your panic.
+>>>>>
 >>>>
->>>> I have seen network snoops, there the switches are not responding 
->>>> to the
->>>> first arp request on slave 1, the second arp request was sent on 
->>>> slave 2
->>>> but the response was received on slave one,  and all following arp
->>>> requests are anwsered on the wrong slave for a longer time.
->>>     Could you elaborate on the exact "high availability
->>> configuration" here, including the model(s) of switch(es) involved?
+>>>> ip_do_fragment() also calls skb_checksum_help() that can results in
+>>>> similar panic. But it is not easy to reproduce it in this case due to
+>>>> call site is in exception path.
+>>>> The negative checksum offset can atleast cause assert failure in
+>>>> skb_checksum_help(). I will send patch to fix that.
 >>>
->>>     Is this some kind of race between the switch or switches
->>> updating the forwarding tables and the bond flip flopping between the
->>> slaves?  E.g., source MAC from ARP sent on slave 1 is used to populate
->>> the forwarding table, but (for whatever reason) there is no reply.  ARP
->>> on slave 2 is sent (using the same source MAC, unless you set
->>> fail_over_mac), but forwarding tables still send that MAC to slave 
->>> 1, so
->>> reply is sent there.
->> High availability:
->> 2 managed switches with routing capabilities have an interconnect.
->> One slave of a bonding interface is connected to the first switch, the
->> second slave is connected to the other switch.
->> The switch models are HP ProCurve 5406 and HP ProCurve 5412. As far as i
->> remember also HP E 3500 and  E 3800 are also
->> affected, for the affected Cisco models I can't answer today.
->> Affected single switch configurations was not seen.
+>>> Which BUG_ON do you see is hitting?
 >>
->> Yes, race conditions with delayed upgrades of the forwarding tables is a
->> well matching explanation for the problem.
->>
->>>> The proposed change sents up to 3 arp requests on a down bond using 
->>>> the
->>>> same slave, delayed by arp_interval.
->>>> Using problematic switches i have seen the the arp response on the 
->>>> right
->>>> slave at latest on the second arp request. So the bond is going into
->>>> state
->>>> up.
->>>>
->>>> How does it works:
->>>> The bonds in up state are handled on the beginning of 
->>>> bond_ab_arp_probe
->>>> procedure, the other part of this procedure is handling the slave
->>>> change.
->>>> The proposed change is bypassing the slave change for 2 additional 
->>>> calls
->>>> of bond_ab_arp_probe.
->>>> Now the retries are not only for an up bond available, they are also
->>>> implemented for a down bond.
->>>     Does this delay failover or bringup on switches that are not
->>> "problematic"?  I.e., if arp_interval is, say, 1000 (1 second), will
->>> this impact failover / recovery times?
->>>
->>>     -J
->> It depends.
->> failover times are not impacted, this is handled different.
->> Only the transition from a down bonding interface (bond and all slaves
->> are down) to the state up can be increased by up to 2 times 
->> arp_interval,
->> If the selected interface did not came up .If well working switches are
->> used, and everything other is also ok, there are no impacts.
+>> BUG_ON(offset >= skb_headlen(skb));
+>> where skb_headlen() returns unsigned int, therefore negative offset
+>> cast to unsigned int.
 >
-> Jay, any further thoughts on this given Uwe's reply? Uwe, did you have 
-> a chance to get affected Cisco model numbers too?
->
-The affected Cisco model was a C3750.
+> Thanks, looks like skb_headlen() needs to be case to int for this
+> comparison. Does this fix your issue?
+
+There are other function which takes len as unsigned int parameter,
+Need to fix those too. But even after this fix it would unnecessarily
+calculate checksum on packet. I want to avoid it.
