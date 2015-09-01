@@ -1,110 +1,128 @@
 From: Ahmed Amamou <ahmed@gandi.net>
-Subject: [PATCH RFC v2 10/21] net: rbridge: add rbr_node management function
-Date: Tue,  1 Sep 2015 17:43:05 +0200
-Message-ID: <1441122196-11662-11-git-send-email-ahmed@gandi.net>
+Subject: [PATCH RFC v2 07/21] net: rbridge: add sysfs for trill_state
+Date: Tue,  1 Sep 2015 17:43:02 +0200
+Message-ID: <1441122196-11662-8-git-send-email-ahmed@gandi.net>
 References: <1441122196-11662-1-git-send-email-ahmed@gandi.net>
-Cc: William Dauchy <william@gandi.net>, Ahmed Amamou <ahmed@gandi.net>,
-	Kamel Haddadou <kamel@gandi.net>
+Cc: William Dauchy <william@gandi.net>, Ahmed Amamou <ahmed@gandi.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:56207 "EHLO gandi.net"
+Received: from mail4.gandi.net ([217.70.183.210]:55328 "EHLO gandi.net"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752364AbbIAPxn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752953AbbIAPxn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 1 Sep 2015 11:53:43 -0400
 In-Reply-To: <1441122196-11662-1-git-send-email-ahmed@gandi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rbr_node are used to save distant Rbridges information
-they are use by local Rbridge to take routing decision
-this patch add get/put/free/find/del  function to rbr_node to
-avoid freeing a rbr_node that is still in use for routing
+in order to activate trill port without need for brctl
+add a sysfs for trill_state for net_bridge_port
 
 Signed-off-by: Ahmed Amamou <ahmed@gandi.net>
-Signed-off-by: Kamel Haddadou <kamel@gandi.net>
 Signed-off-by: William Dauchy <william@gandi.net>
 ---
- net/bridge/rbr.c         | 35 +++++++++++++++++++++++++++++++++++
- net/bridge/rbr_private.h | 23 +++++++++++++++++++++++
- 2 files changed, 58 insertions(+)
+ net/bridge/br_sysfs_br.c | 38 ++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_sysfs_if.c | 26 ++++++++++++++++++++++++++
+ 2 files changed, 64 insertions(+)
 
-diff --git a/net/bridge/rbr.c b/net/bridge/rbr.c
-index 31e72ef..718deb3 100644
---- a/net/bridge/rbr.c
-+++ b/net/bridge/rbr.c
-@@ -83,3 +83,38 @@ int set_treeroot(struct rbr *rbr, uint16_t treeroot)
-  set_tree_root_fail:
- 	return -ENOENT;
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 4c97fc5..63820c1 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -146,6 +146,41 @@ static ssize_t stp_state_store(struct device *d,
  }
-+
-+struct rbr_node *rbr_find_node(struct rbr *rbr, __u16 nickname)
-+{
-+	struct rbr_node *rbr_node;
-+
-+	if (unlikely(!VALID_NICK(nickname)))
-+		return NULL;
-+	rbr_node = rcu_dereference(rbr->rbr_nodes[nickname]);
-+	rbr_node_get(rbr_node);
-+
-+	return rbr_node;
-+}
-+
-+static void rbr_del_node(struct rbr *rbr, uint16_t nickname)
-+{
-+	struct rbr_node *rbr_node;
-+
-+	if (likely(VALID_NICK(nickname))) {
-+		rbr_node = rbr->rbr_nodes[nickname];
-+		if (likely(rbr_node)) {
-+			rcu_assign_pointer(rbr->rbr_nodes[nickname], NULL);
-+			rbr_node_put(rbr_node);
-+		}
-+	}
-+}
-+
-+static void rbr_del_all(struct rbr *rbr)
-+{
-+	unsigned int i;
-+
-+	for (i = RBRIDGE_NICKNAME_MIN; i < RBRIDGE_NICKNAME_MAX; i++) {
-+		if (likely(rbr->rbr_nodes[i]))
-+			rbr_del_node(rbr, i);
-+	}
-+}
-diff --git a/net/bridge/rbr_private.h b/net/bridge/rbr_private.h
-index 9166a8b..186e454 100644
---- a/net/bridge/rbr_private.h
-+++ b/net/bridge/rbr_private.h
-@@ -44,7 +44,30 @@ struct rbr {
- 	struct net_bridge *br;	/* back pointer */
- };
+ static DEVICE_ATTR_RW(stp_state);
  
-+static inline void rbr_node_free(struct rbr_node *rbr_node)
++#ifdef CONFIG_TRILL
++static ssize_t trill_state_show(struct device *d,
++				struct device_attribute *attr, char *buf)
 +{
-+	if (likely(rbr_node)) {
-+		kfree(rbr_node->rbr_ni);
-+		kfree(rbr_node);
-+	}
++	struct net_bridge *br = to_bridge(d);
++
++	return sprintf(buf, "%d\n", br->trill_enabled);
 +}
 +
-+static inline void rbr_node_get(struct rbr_node *rbr_node)
++static ssize_t trill_state_store(struct device *d,
++				 struct device_attribute *attr, const char *buf,
++				 size_t len)
 +{
-+	if (likely(rbr_node))
-+		atomic_inc(&rbr_node->refs);
++	struct net_bridge *br = to_bridge(d);
++	int err;
++	unsigned long val;
++
++	if (!ns_capable(dev_net(br->dev)->user_ns, CAP_NET_ADMIN))
++		return -EPERM;
++
++	err = kstrtoul(buf, 0, &val);
++	if (err)
++		return err;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++	br_trill_set_enabled(br, val);
++	rtnl_unlock();
++
++	return len;
 +}
 +
-+static inline void rbr_node_put(struct rbr_node *rbr_node)
-+{
-+	if (rbr_node) {
-+		if (unlikely(atomic_dec_and_test(&rbr_node->refs)))
-+			rbr_node_free(rbr_node);
-+	}
-+}
++static DEVICE_ATTR_RW(trill_state);
++#endif
 +
- int set_treeroot(struct rbr *rbr, uint16_t treeroot);
-+struct rbr_node *rbr_find_node(struct rbr *rbr, __u16 nickname);
+ static ssize_t group_fwd_mask_show(struct device *d,
+ 				   struct device_attribute *attr,
+ 				   char *buf)
+@@ -749,6 +784,9 @@ static struct attribute *bridge_attrs[] = {
+ 	&dev_attr_max_age.attr,
+ 	&dev_attr_ageing_time.attr,
+ 	&dev_attr_stp_state.attr,
++#ifdef CONFIG_TRILL
++	&dev_attr_trill_state.attr,
++#endif
+ 	&dev_attr_group_fwd_mask.attr,
+ 	&dev_attr_priority.attr,
+ 	&dev_attr_bridge_id.attr,
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index efe415a..174a705 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -137,6 +137,29 @@ static ssize_t show_port_state(struct net_bridge_port *p, char *buf)
+ }
+ static BRPORT_ATTR(state, S_IRUGO, show_port_state, NULL);
  
- /* Access the adjacency nick list at the end of rbr_nickinfo */
- #define	RBR_NI_ADJNICKSPTR(v) ((u16 *)((struct rbr_nickinfo *)(v) + 1))
++#ifdef CONFIG_TRILL
++
++static ssize_t show_port_trill_state(struct net_bridge_port *p, char *buf)
++{
++	return sprintf(buf, "%d\n", p->trill_flag);
++}
++
++static int store_port_trill_state(struct net_bridge_port *p,  unsigned long v)
++{
++	u8 val;
++
++	if (!ns_capable(dev_net(p->dev)->user_ns, CAP_NET_ADMIN))
++		return -EPERM;
++	val = (u8)v;
++	if (val > TRILL_FLAG_TRUNK)
++		return -ERANGE;
++	p->trill_flag = val;
++	return 0;
++}
++static BRPORT_ATTR(trill_state, S_IRUGO | S_IWUSR, show_port_trill_state,
++				   store_port_trill_state);
++#endif
++
+ static ssize_t show_message_age_timer(struct net_bridge_port *p,
+ 					    char *buf)
+ {
+@@ -200,6 +223,9 @@ static const struct brport_attribute *brport_attrs[] = {
+ 	&brport_attr_designated_port,
+ 	&brport_attr_designated_cost,
+ 	&brport_attr_state,
++#ifdef CONFIG_TRILL
++	&brport_attr_trill_state,
++#endif
+ 	&brport_attr_change_ack,
+ 	&brport_attr_config_pending,
+ 	&brport_attr_message_age_timer,
 -- 
 2.1.4
