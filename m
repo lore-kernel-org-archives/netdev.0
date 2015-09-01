@@ -1,65 +1,118 @@
-From: Robert Dolca <robert.dolca@intel.com>
-Subject: [PATCH v2 2/9] nfc: nci: Add function to get max packet size for conn
-Date: Tue,  1 Sep 2015 17:54:21 +0300
-Message-ID: <1441119268-30654-3-git-send-email-robert.dolca@intel.com>
-References: <1441119268-30654-1-git-send-email-robert.dolca@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Christophe Ricard <christophe.ricard@gmail.com>,
-	Robert Dolca <robert.dolca@intel.com>
-To: linux-nfc@lists.01.org,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] mwifiex: Make mwifiex_dbg a function, reduce object size
+Date: Tue, 1 Sep 2015 15:09:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB8B595@AcuExch.aculab.com>
+References: <1441043205.3276.28.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Joe Perches' <joe@perches.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441119268-30654-1-git-send-email-robert.dolca@intel.com>
+In-Reply-To: <1441043205.3276.28.camel@perches.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-FDP driver needs to send the firmware as regular packets
-(not fragmented). The driver should have a way to
-get the max packet size for a given connection.
+From: Joe Perches
+> Sent: 31 August 2015 18:47
+> 
+> The mwifiex_dbg macro has two tests that could be consolidated
+> into a function reducing overall object size ~10KB (~4%).
+> 
+> So convert the macro into a function.
 
-Signed-off-by: Robert Dolca <robert.dolca@intel.com>
----
- include/net/nfc/nci_core.h |  1 +
- net/nfc/nci/data.c         | 12 ++++++++++++
- 2 files changed, 13 insertions(+)
+This looks like it will slow things down somewhat.
+Maybe inline the tests and then do a call for the dev_info().
+Or at least inline the test for the debug flag.
+So you end up with something like:
 
-diff --git a/include/net/nfc/nci_core.h b/include/net/nfc/nci_core.h
-index d0d0f1e..8a4ab1e 100644
---- a/include/net/nfc/nci_core.h
-+++ b/include/net/nfc/nci_core.h
-@@ -351,6 +351,7 @@ int nci_prop_ntf_packet(struct nci_dev *ndev, __u16 opcode,
- void nci_rx_data_packet(struct nci_dev *ndev, struct sk_buff *skb);
- int nci_send_cmd(struct nci_dev *ndev, __u16 opcode, __u8 plen, void *payload);
- int nci_send_data(struct nci_dev *ndev, __u8 conn_id, struct sk_buff *skb);
-+__u8 nci_conn_max_data_pkt_payload_size(struct nci_dev *ndev, __u8 conn_id);
- void nci_data_exchange_complete(struct nci_dev *ndev, struct sk_buff *skb,
- 				__u8 conn_id, int err);
- void nci_hci_data_received_cb(void *context, struct sk_buff *skb, int err);
-diff --git a/net/nfc/nci/data.c b/net/nfc/nci/data.c
-index 83acd18..30cbed7 100644
---- a/net/nfc/nci/data.c
-+++ b/net/nfc/nci/data.c
-@@ -90,6 +90,18 @@ static inline void nci_push_data_hdr(struct nci_dev *ndev,
- 	nci_pbf_set((__u8 *)hdr, pbf);
- }
- 
-+__u8 nci_conn_max_data_pkt_payload_size(struct nci_dev *ndev, __u8 conn_id)
-+{
-+	struct nci_conn_info *conn_info;
-+
-+	conn_info = nci_get_conn_info_by_conn_id(ndev, conn_id);
-+	if (!conn_info)
-+		return -EPROTO;
-+
-+	return conn_info->max_pkt_payload_len;
-+}
-+EXPORT_SYMBOL(nci_conn_max_data_pkt_payload_size);
-+
- static int nci_queue_tx_data_frags(struct nci_dev *ndev,
- 				   __u8 conn_id,
- 				   struct sk_buff *skb) {
--- 
-1.9.1
+#define mwifiex_dbg(adapter, dbg_mask, fmt, args...)		\
+do {								\
+	if ((adapter)->debug_mask & MWIFIEX_DBG_##dbg_mask)	\
+		_mwifiex_dbg(adapter, fmt, ##__VA_ARGS__)
+} while (0)
+
+	David
+
+> 
+> $ size drivers/net/wireless/mwifiex/built-in.o* (x86-64 defconfig)
+>    text	   data	    bss	    dec	    hex	filename
+>  233102	   8628	   4809	 246539	  3c30b	drivers/net/wireless/mwifiex/built-
+> in.o.new
+>  243949	   8628	   4809	 257386	  3ed6a	drivers/net/wireless/mwifiex/built-
+> in.o.old
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/wireless/mwifiex/main.c | 20 ++++++++++++++++++++
+>  drivers/net/wireless/mwifiex/main.h | 17 ++++++++---------
+>  2 files changed, 28 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/mwifiex/main.c b/drivers/net/wireless/mwifiex/main.c
+> index 278dc94..4fa8ca3 100644
+> --- a/drivers/net/wireless/mwifiex/main.c
+> +++ b/drivers/net/wireless/mwifiex/main.c
+> @@ -1447,6 +1447,26 @@ exit_sem_err:
+>  }
+>  EXPORT_SYMBOL_GPL(mwifiex_remove_card);
+> 
+> +void _mwifiex_dbg(const struct mwifiex_adapter *adapter, int mask,
+> +		  const char *fmt, ...)
+> +{
+> +	struct va_format vaf;
+> +	va_list args;
+> +
+> +	if (!adapter->dev || !(adapter->debug_mask & mask))
+> +		return;
+> +
+> +	va_start(args, fmt);
+> +
+> +	vaf.fmt = fmt;
+> +	vaf.va = &args;
+> +
+> +	dev_info(adapter->dev, "%pV", &vaf);
+> +
+> +	va_end(args);
+> +}
+> +EXPORT_SYMBOL_GPL(_mwifiex_dbg);
+> +
+>  /*
+>   * This function initializes the module.
+>   *
+> diff --git a/drivers/net/wireless/mwifiex/main.h b/drivers/net/wireless/mwifiex/main.h
+> index 6b95121..96663214 100644
+> --- a/drivers/net/wireless/mwifiex/main.h
+> +++ b/drivers/net/wireless/mwifiex/main.h
+> @@ -48,6 +48,9 @@
+> 
+>  extern const char driver_version[];
+> 
+> +struct mwifiex_adapter;
+> +struct mwifiex_private;
+> +
+>  enum {
+>  	MWIFIEX_ASYNC_CMD,
+>  	MWIFIEX_SYNC_CMD
+> @@ -180,12 +183,11 @@ enum MWIFIEX_DEBUG_LEVEL {
+>  					MWIFIEX_DBG_FATAL | \
+>  					MWIFIEX_DBG_ERROR)
+> 
+> -#define mwifiex_dbg(adapter, dbg_mask, fmt, args...)		\
+> -do {								\
+> -	if ((adapter)->debug_mask & MWIFIEX_DBG_##dbg_mask)	\
+> -		if ((adapter)->dev)				\
+> -			dev_info((adapter)->dev, fmt, ## args);	\
+> -} while (0)
+> +__printf(3, 4)
+> +void _mwifiex_dbg(const struct mwifiex_adapter *adapter, int mask,
+> +		  const char *fmt, ...);
+> +#define mwifiex_dbg(adapter, mask, fmt, ...)				\
+> +	_mwifiex_dbg(adapter, MWIFIEX_DBG_##mask, fmt, ##__VA_ARGS__)
+> 
+...
