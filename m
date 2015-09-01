@@ -1,146 +1,68 @@
-From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Subject: [PATCH] usbnet: Fix a race between usbnet_stop() and the BH
-Date: Tue,  1 Sep 2015 17:05:33 +0300
-Message-ID: <1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
-References: <1441094336.3328.1.camel@suse.com>
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-To: Oliver Neukum <oneukum@suse.de>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+From: Mark Langsdorf <mlangsdo@redhat.com>
+Subject: Re: [PATCH] phylib: fix device deletion order in mdiobus_unregister()
+Date: Tue, 01 Sep 2015 09:07:12 -0500
+Message-ID: <55E5B110.5080704@redhat.com>
+References: <1441114565-2340-1-git-send-email-msalter@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <ddaney.cavm@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, f.fainelli@gmail.com,
+	buytenh@wantstofly.org, grant.likely@secretlab.ca
+To: Mark Salter <msalter@redhat.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441094336.3328.1.camel@suse.com>
+In-Reply-To: <1441114565-2340-1-git-send-email-msalter@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The race may happen when a device (e.g. YOTA 4G LTE Modem) is
-unplugged while the system is downloading a large file from the Net.
+On 09/01/2015 08:36 AM, Mark Salter wrote:
+> commit 8b63ec1837fa ("phylib: Make PHYs children of their MDIO bus, not
+> the bus' parent.") uncovered a problem in mdiobus_unregister() which
+> leads to this warning when I reboot an APM Mustang (arm64) platform:
+>
+>    WARNING: CPU: 7 PID: 4239 at fs/sysfs/group.c:224 sysfs_remove_group+0xa0/0xa4()
+>    sysfs group fffffe0000e07a10 not found for kobject 'xgene-mii-eth0:03'
+>    ...
+>    CPU: 7 PID: 4239 Comm: reboot Tainted: G            E   4.2.0-0.18.el7.test15.aarch64 #1
+>    Hardware name: AppliedMicro Mustang/Mustang, BIOS 1.1.0 Aug 26 2015
+>    Call Trace:
+>    [<fffffe000009739c>] dump_backtrace+0x0/0x170
+>    [<fffffe000009752c>] show_stack+0x20/0x2c
+>    [<fffffe00007436f0>] dump_stack+0x78/0x9c
+>    [<fffffe00000c2cb4>] warn_slowpath_common+0xa0/0xd8
+>    [<fffffe00000c2d60>] warn_slowpath_fmt+0x74/0x88
+>    [<fffffe0000293d3c>] sysfs_remove_group+0x9c/0xa4
+>    [<fffffe00004a8bac>] dpm_sysfs_remove+0x5c/0x70
+>    [<fffffe000049b388>] device_del+0x44/0x208
+>    [<fffffe000049b578>] device_unregister+0x2c/0x7c
+>    [<fffffe000050dc68>] mdiobus_unregister+0x48/0x94
+>    [<fffffe000052afd0>] xgene_enet_mdio_remove+0x28/0x44
+>    [<fffffe000052d3f0>] xgene_enet_remove+0xd0/0xd8
+>    [<fffffe000052d424>] xgene_enet_shutdown+0x2c/0x3c
+>    [<fffffe00004a204c>] platform_drv_shutdown+0x24/0x40
+>    [<fffffe000049d4f4>] device_shutdown+0xf0/0x1b4
+>    [<fffffe00000e31ec>] kernel_restart_prepare+0x40/0x4c
+>    [<fffffe00000e32f8>] kernel_restart+0x1c/0x80
+>    [<fffffe00000e3670>] SyS_reboot+0x17c/0x250
+>
+> The problem is that mdiobus_unregister() deletes the bus device before
+> unregistering the phy devices on the bus. This wasn't a problem before
+> because the phys were not children of the bus:
+>
+>    /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0:03
+>    /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0
+>
+> But now that they are:
+>
+>    /sys/devices/platform/APMC0D05:00/net/eth0/xgene-mii-eth0/xgene-mii-eth0:03
+>
+> when mdiobus_unregister deletes the bus device, the phy subdirs are
+> removed from sysfs also. So when the phys are unregistered afterward,
+> we get the warning. This patch changes the order so that phys are
+> unregistered before the bus device is deleted.
+>
+> Signed-off-by: Mark Salter <msalter@redhat.com>
+> ---
 
-Hardware breakpoints and Kprobes with delays were used to confirm that
-the race does actually happen.
-
-The race is on skb_queue ('next' pointer) between usbnet_stop()
-and rx_complete(), which, in turn, calls usbnet_bh().
-
-Here is a part of the call stack with the code where the changes to the
-queue happen. The line numbers are for the kernel 4.1.0:
-
-*0 __skb_unlink (skbuff.h:1517)
-    prev->next = next;
-*1 defer_bh (usbnet.c:430)
-    spin_lock_irqsave(&list->lock, flags);
-    old_state = entry->state;
-    entry->state = state;
-    __skb_unlink(skb, list);
-    spin_unlock(&list->lock);
-    spin_lock(&dev->done.lock);
-    __skb_queue_tail(&dev->done, skb);
-    if (dev->done.qlen == 1)
-        tasklet_schedule(&dev->bh);
-    spin_unlock_irqrestore(&dev->done.lock, flags);
-*2 rx_complete (usbnet.c:640)
-    state = defer_bh(dev, skb, &dev->rxq, state);
-
-At the same time, the following code repeatedly checks if the queue is
-empty and reads these values concurrently with the above changes:
-
-*0  usbnet_terminate_urbs (usbnet.c:765)
-    /* maybe wait for deletions to finish. */
-    while (!skb_queue_empty(&dev->rxq)
-        && !skb_queue_empty(&dev->txq)
-        && !skb_queue_empty(&dev->done)) {
-            schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
-            set_current_state(TASK_UNINTERRUPTIBLE);
-            netif_dbg(dev, ifdown, dev->net,
-                  "waited for %d urb completions\n", temp);
-    }
-*1  usbnet_stop (usbnet.c:806)
-    if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
-        usbnet_terminate_urbs(dev);
-
-As a result, it is possible, for example, that the skb is removed from
-dev->rxq by __skb_unlink() before the check
-"!skb_queue_empty(&dev->rxq)" in usbnet_terminate_urbs() is made. It is
-also possible in this case that the skb is added to dev->done queue
-after "!skb_queue_empty(&dev->done)" is checked. So
-usbnet_terminate_urbs() may stop waiting and return while dev->done
-queue still has an item.
-
-Locking in defer_bh() and usbnet_terminate_urbs() was revisited to avoid
-this race.
-
-Signed-off-by: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
----
- drivers/net/usb/usbnet.c | 39 ++++++++++++++++++++++++++++-----------
- 1 file changed, 28 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index e049857..b4cf107 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -428,12 +428,18 @@ static enum skb_state defer_bh(struct usbnet *dev, struct sk_buff *skb,
- 	old_state = entry->state;
- 	entry->state = state;
- 	__skb_unlink(skb, list);
--	spin_unlock(&list->lock);
--	spin_lock(&dev->done.lock);
-+
-+	/* defer_bh() is never called with list == &dev->done.
-+	 * spin_lock_nested() tells lockdep that it is OK to take
-+	 * dev->done.lock here with list->lock held.
-+	 */
-+	spin_lock_nested(&dev->done.lock, SINGLE_DEPTH_NESTING);
-+
- 	__skb_queue_tail(&dev->done, skb);
- 	if (dev->done.qlen == 1)
- 		tasklet_schedule(&dev->bh);
--	spin_unlock_irqrestore(&dev->done.lock, flags);
-+	spin_unlock(&dev->done.lock);
-+	spin_unlock_irqrestore(&list->lock, flags);
- 	return old_state;
- }
- 
-@@ -749,6 +755,20 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
- 
- /*-------------------------------------------------------------------------*/
- 
-+static void wait_skb_queue_empty(struct sk_buff_head *q)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&q->lock, flags);
-+	while (!skb_queue_empty(q)) {
-+		spin_unlock_irqrestore(&q->lock, flags);
-+		schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		spin_lock_irqsave(&q->lock, flags);
-+	}
-+	spin_unlock_irqrestore(&q->lock, flags);
-+}
-+
- // precondition: never called in_interrupt
- static void usbnet_terminate_urbs(struct usbnet *dev)
- {
-@@ -762,14 +782,11 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
- 		unlink_urbs(dev, &dev->rxq);
- 
- 	/* maybe wait for deletions to finish. */
--	while (!skb_queue_empty(&dev->rxq)
--		&& !skb_queue_empty(&dev->txq)
--		&& !skb_queue_empty(&dev->done)) {
--			schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
--			set_current_state(TASK_UNINTERRUPTIBLE);
--			netif_dbg(dev, ifdown, dev->net,
--				  "waited for %d urb completions\n", temp);
--	}
-+	wait_skb_queue_empty(&dev->rxq);
-+	wait_skb_queue_empty(&dev->txq);
-+	wait_skb_queue_empty(&dev->done);
-+	netif_dbg(dev, ifdown, dev->net,
-+		  "waited for %d urb completions\n", temp);
- 	set_current_state(TASK_RUNNING);
- 	remove_wait_queue(&dev->wait, &wait);
- }
--- 
-2.3.2
+Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
