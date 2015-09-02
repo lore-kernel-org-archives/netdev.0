@@ -1,166 +1,124 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net-next] Revert "net/ipv6: add sysctl option
- accept_ra_min_hop_limit"
-Date: Wed, 2 Sep 2015 11:43:01 +0200
-Message-ID: <20150902094301.GA6434@via.ecp.fr>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] ixgbe: Limit lowest interrupt rate
+ for adaptive interrupt moderation to 12K
+Date: Wed, 02 Sep 2015 03:07:00 -0700
+Message-ID: <1441188420.2783.18.camel@intel.com>
+References: <20150730221927.984.91700.stgit@ahduyck-vm-fedora22>
+	 <55E655A3.9010304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: liuhangbin@gmail.com, hideaki.yoshifuji@miraclelinux.com,
-	sd@queasysnail.net
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-/XbFWbB5648Sx9Fe4HLT"
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from artikodin.via.ecp.fr ([138.195.130.75]:59975 "EHLO
-	artikodin.via.ecp.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752037AbbIBJuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 05:50:03 -0400
-Content-Disposition: inline
+Received: from mga03.intel.com ([134.134.136.65]:37600 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751589AbbIBKHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Sep 2015 06:07:03 -0400
+In-Reply-To: <55E655A3.9010304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 8013d1d7eafb0589ca766db6b74026f76b7f5cb4.
 
-There are several issues with this patch.
-It completely cancels the security changes introduced by 6fd99094de2b
-("ipv6: Don't reduce hop limit for an interface").
-The current default value (min hop limit = 1) can result in the same
-denial of service that 6fd99094de2b prevents, but it is hard to define
-a correct and sane default value.
-More generally, it is yet another IPv6 sysctl, and we already have too
-many.
+--=-/XbFWbB5648Sx9Fe4HLT
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-This was introduced to satisfy a TAHI test case which, in my opinion, is
-too strict, turning the RFC's "SHOULD" into a "MUST":
+On Tue, 2015-09-01 at 18:49 -0700, Alexander Duyck wrote:
+> On 07/30/2015 03:19 PM, Alexander Duyck wrote:
+> > This patch updates the lowest limit for adaptive interrupt interrupt
+> > moderation to roughly 12K interrupts per second.
+> >
+> > The way I came about reaching 12K as the desired interrupt rate is
+> by
+> > testing with UDP flows.  Specifically I had a simple test that ran a
+> > netperf UDP_STREAM test at varying sizes.  What I found was as the
+> packet
+> > sizes increased the performance fell steadily behind until we were
+> only
+> > able to receive at ~4Gb/s with a message size of 65507.  A bit of
+> digging
+> > found that we were dropping packets for the socket in the network
+> stack,
+> > and looking at things further what I found was I could solve it by
+> increasing
+> > the interrupt rate, or increasing the rmem_default/rmem_max.  What I
+> found was
+> > that when the interrupt coalescing resulted in more data being
+> processed
+> > per interrupt than could be stored in the socket buffer we started
+> losing
+> > packets and the performance dropped.  So I reached 12K based on the
+> > following math.
+> >
+> > rmem_default =3D 212992
+> > skb->truesize =3D 2994
+> > 212992 / 2994 =3D 71.14 packets to fill the buffer
+> >
+> > packet rate at 1514 packet size is 812744pps
+> > 71.14 / 812744 =3D 87.9us to fill socket buffer
+> >
+> > >From there it was just a matter of choosing the interrupt rate and
+> > providing a bit of wiggle room which is why I decided to go with 12K
+> > interrupts per second as that uses a value of 84us.
+> >
+> > The data below is based on VM to VM over a direct assigned ixgbe
+> interface.
+> > The test run was:
+> >       netperf -H <ip> -t UDP_STREAM"
+> >
+> > Socket  Message  Elapsed      Messages                   CPU
+> Service
+> > Size    Size     Time         Okay Errors   Throughput   Util
+> Demand
+> > bytes   bytes    secs            #      #   10^6bits/sec % SS
+> us/KB
+> > Before:
+> > 212992   65507   60.00     1100662      0     9613.4     10.89
+> 0.557
+> > 212992           60.00      473474            4135.4     11.27
+> 0.576
+> >
+> > After:
+> > 212992   65507   60.00     1100413      0     9611.2     10.73
+> 0.549
+> > 212992           60.00      974132            8508.3     11.69
+> 0.598
+> >
+> > Using bare metal the data is similar but not as dramatic as the
+> throughput
+> > increases from about 8.5Gb/s to 9.5Gb/s.
+> >
+> > Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+>=20
+> Has there been any update on this patch?  I submitted it just over a=20
+> month ago now and it hasn't received any feedback.  I was hoping this=20
+> could be submitted before the merge window closes for net-next.
 
-    If the received Cur Hop Limit value is non-zero, the host
-    SHOULD set its CurHopLimit variable to the received value.
+It will be in the next series I push later today.
 
-The behavior of this sysctl is wrong in multiple ways.  Some are
-fixable, but let's not rush this commit into mainline, and revert this
-while we still can, then we can come up with a better solution.
+--=-/XbFWbB5648Sx9Fe4HLT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- Documentation/networking/ip-sysctl.txt |  8 --------
- include/linux/ipv6.h                   |  1 -
- include/uapi/linux/ipv6.h              |  1 -
- net/ipv6/addrconf.c                    | 10 ----------
- net/ipv6/ndisc.c                       | 16 +++++++++-------
- 5 files changed, 9 insertions(+), 27 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index ebe94f2cab98..c845aca413c8 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1371,14 +1371,6 @@ accept_ra_from_local - BOOLEAN
- 	   disabled if accept_ra_from_local is disabled
-                on a specific interface.
- 
--accept_ra_min_hop_limit - INTEGER
--	Minimum hop limit Information in Router Advertisement.
--
--	Hop limit Information in Router Advertisement less than this
--	variable shall be ignored.
--
--	Default: 1
--
- accept_ra_pinfo - BOOLEAN
- 	Learn Prefix Information in Router Advertisement.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index f1f32af6d9b9..5e6d3b8f5a42 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -29,7 +29,6 @@ struct ipv6_devconf {
- 	__s32		max_desync_factor;
- 	__s32		max_addresses;
- 	__s32		accept_ra_defrtr;
--	__s32		accept_ra_min_hop_limit;
- 	__s32		accept_ra_pinfo;
- 	__s32		ignore_routes_with_linkdown;
- #ifdef CONFIG_IPV6_ROUTER_PREF
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 38b4fef20219..44d13121de52 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -172,7 +172,6 @@ enum {
- 	DEVCONF_ACCEPT_RA_MTU,
- 	DEVCONF_STABLE_SECRET,
- 	DEVCONF_USE_OIF_ADDRS_ONLY,
--	DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT,
- 	DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
- 	DEVCONF_MAX
- };
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 99c0f2b843f0..c8829ce0bbe7 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -195,7 +195,6 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.max_addresses		= IPV6_MAX_ADDRESSES,
- 	.accept_ra_defrtr	= 1,
- 	.accept_ra_from_local	= 0,
--	.accept_ra_min_hop_limit= 1,
- 	.accept_ra_pinfo	= 1,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
-@@ -239,7 +238,6 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.max_addresses		= IPV6_MAX_ADDRESSES,
- 	.accept_ra_defrtr	= 1,
- 	.accept_ra_from_local	= 0,
--	.accept_ra_min_hop_limit= 1,
- 	.accept_ra_pinfo	= 1,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
-@@ -4658,7 +4656,6 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_MAX_DESYNC_FACTOR] = cnf->max_desync_factor;
- 	array[DEVCONF_MAX_ADDRESSES] = cnf->max_addresses;
- 	array[DEVCONF_ACCEPT_RA_DEFRTR] = cnf->accept_ra_defrtr;
--	array[DEVCONF_ACCEPT_RA_MIN_HOP_LIMIT] = cnf->accept_ra_min_hop_limit;
- 	array[DEVCONF_ACCEPT_RA_PINFO] = cnf->accept_ra_pinfo;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
-@@ -5594,13 +5591,6 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
--			.procname	= "accept_ra_min_hop_limit",
--			.data		= &ipv6_devconf.accept_ra_min_hop_limit,
--			.maxlen		= sizeof(int),
--			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
--		},
--		{
- 			.procname	= "accept_ra_pinfo",
- 			.data		= &ipv6_devconf.accept_ra_pinfo,
- 			.maxlen		= sizeof(int),
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 64a71354b069..fac72658bf59 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1235,16 +1235,18 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 
- 	if (rt)
- 		rt6_set_expires(rt, jiffies + (HZ * lifetime));
--	if (in6_dev->cnf.accept_ra_min_hop_limit < 256 &&
--	    ra_msg->icmph.icmp6_hop_limit) {
--		if (in6_dev->cnf.accept_ra_min_hop_limit <= ra_msg->icmph.icmp6_hop_limit) {
-+	if (ra_msg->icmph.icmp6_hop_limit) {
-+		/* Only set hop_limit on the interface if it is higher than
-+		 * the current hop_limit.
-+		 */
-+		if (in6_dev->cnf.hop_limit < ra_msg->icmph.icmp6_hop_limit) {
- 			in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
--			if (rt)
--				dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
--					       ra_msg->icmph.icmp6_hop_limit);
- 		} else {
--			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than minimum\n");
-+			ND_PRINTK(2, warn, "RA: Got route advertisement with lower hop_limit than current\n");
- 		}
-+		if (rt)
-+			dst_metric_set(&rt->dst, RTAX_HOPLIMIT,
-+				       ra_msg->icmph.icmp6_hop_limit);
- 	}
- 
- skip_defrtr:
--- 
-2.5.1
+iQIcBAABCgAGBQJV5spEAAoJEOVv75VaS+3OIQgP/1sIoUHLI0O3Vp1kkazatzOM
+ZQ6Tnep+V9B7mkEfqM6XdebG17pT74yew4+8l2I3qS8IVc5h1qTt/hElzjpcK+16
+UfnU3KkHD287WfizWr95UKeUVOifcrLQGnRbXJ/r9VcHzSoj9mzv4alsHlL/xgBl
+2Px8zuWd087UFXEt0KXSGiLHd5mhFMe9CztZlZzpRgoUcT/6IbsjNYIV+a+jWwAy
+Os2vVUaYDhkVIWSyPuNdV8x+Tb80wYArgvEH8mhICu2FvR0sbi/gHu/nLkXiuNbo
+p1J5HDQ+n5JB51JAO8q9f54AeorARm/unebRG14lEsL09+8/Xt7ofm0VP+YS5326
+WPynjnY1zQvfaBVSEUTshc78oLwPhKEed0l3JhO0setKXHBHoYHtLeja1JcYdtoy
+J5lXrlPhjvrM3yzeMIAWOhYin0v/IuSty8y+ZRLXG0+mC8CeZh8rH3HlCG2mJvZG
+jiJgnolWVf5mECCBsGjSL280t4aqjeMiWMEr0g9T5Q8hO7kJ9UKTShmXKhvEG3qr
+zhPjgBrjTGNna2s+CBvxZAnF4QvzuBNXUXVxArcvdkfleTNAJ8IXgwOY/ebnXL2s
+jJTpSi1Hq9bHF7WfM4+7Dj0bkM9mCFvjnftQY5iKKTQnQaE/XA1L39hd427GBsBe
+5wej5slW2z+dJ0bQ5q03
+=GGP7
+-----END PGP SIGNATURE-----
+
+--=-/XbFWbB5648Sx9Fe4HLT--
