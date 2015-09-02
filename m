@@ -1,69 +1,92 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next] flow_dissector: Fix function argument ordering dependency
-Date: Tue, 1 Sep 2015 18:11:04 -0700
-Message-ID: <1441156264-38469-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/19] ixgbe: Assign set_phy_power dynamically where needed
+Date: Tue,  1 Sep 2015 18:13:47 -0700
+Message-ID: <1441156443-33381-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57470 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753621AbbIBBLL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 21:11:11 -0400
-Received: from pps.filterd (m0004348 [127.0.0.1])
-	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t8219PSL004108
-	for <netdev@vger.kernel.org>; Tue, 1 Sep 2015 18:11:11 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004348.ppops.net with ESMTP id 1wnkvngd4f-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 18:11:11 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 7e839224510f11e58f9624be0595f910-53bf7240 for <netdev@vger.kernel.org>;	Tue,
- 01 Sep 2015 18:11:09 -0700
+Received: from mga01.intel.com ([192.55.52.88]:59488 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754583AbbIBBOG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 21:14:06 -0400
+In-Reply-To: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit c6cc1ca7f4d70c ("flowi: Abstract out functions to get flow hash
-based on flowi") introduced a bug in __skb_set_sw_hash where we
-require a dependency on evaluating arguments in a function in order.
-There is no such ordering enforced in C, so this incorrect. This
-patch fixes that by splitting out the arguments. This bug was
-found via a compiler warning that keys may be uninitialized.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+There are various reasons why this method may or may not need to be
+defined and some of these we don't know until runtime.  So we will
+set the value in get_invariants.
+
+Signed-off-by: Donald C Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/skbuff.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c |  5 +++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 18 ++++++++++++++++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 9e62687..eabfb81 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1035,9 +1035,9 @@ static inline __u32 skb_get_hash_flowi6(struct sk_buff *skb, struct flowi6 *fl6)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index 032a587..4e75843 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -54,6 +54,11 @@ enum ixgbe_media_type ixgbe_get_media_type_X540(struct ixgbe_hw *hw)
+ s32 ixgbe_get_invariants_X540(struct ixgbe_hw *hw)
  {
- 	if (!skb->l4_hash && !skb->sw_hash) {
- 		struct flow_keys keys;
-+		__u32 hash = __get_hash_from_flowi6(fl6, &keys);
+ 	struct ixgbe_mac_info *mac = &hw->mac;
++	struct ixgbe_phy_info *phy = &hw->phy;
++
++	/* set_phy_power was set by default to NULL */
++	if (!ixgbe_mng_present(hw))
++		phy->ops.set_phy_power = ixgbe_set_copper_phy_power;
  
--		__skb_set_sw_hash(skb, __get_hash_from_flowi6(fl6, &keys),
--				  flow_keys_have_l4(&keys));
-+		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
- 	}
+ 	mac->mcft_size = IXGBE_X540_MC_TBL_SIZE;
+ 	mac->vft_size = IXGBE_X540_VFT_TBL_SIZE;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 7581da1..662d2e8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -26,6 +26,20 @@
+ #include "ixgbe_common.h"
+ #include "ixgbe_phy.h"
  
- 	return skb->hash;
-@@ -1049,9 +1049,9 @@ static inline __u32 skb_get_hash_flowi4(struct sk_buff *skb, struct flowi4 *fl4)
- {
- 	if (!skb->l4_hash && !skb->sw_hash) {
- 		struct flow_keys keys;
-+		__u32 hash = __get_hash_from_flowi4(fl4, &keys);
++static s32 ixgbe_get_invariants_X550_x(struct ixgbe_hw *hw)
++{
++	struct ixgbe_mac_info *mac = &hw->mac;
++	struct ixgbe_phy_info *phy = &hw->phy;
++
++	/* Start with X540 invariants, since so simular */
++	ixgbe_get_invariants_X540(hw);
++
++	if (mac->ops.get_media_type(hw) != ixgbe_media_type_copper)
++		phy->ops.set_phy_power = NULL;
++
++	return 0;
++}
++
+ /** ixgbe_setup_mux_ctl - Setup ESDP register for I2C mux control
+  *  @hw: pointer to hardware structure
+  **/
+@@ -1855,7 +1869,7 @@ static struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
+ 	.read_reg		= &ixgbe_read_phy_reg_generic, \
+ 	.write_reg		= &ixgbe_write_phy_reg_generic, \
+ 	.setup_link		= &ixgbe_setup_phy_link_generic, \
+-	.set_phy_power		= &ixgbe_set_copper_phy_power, \
++	.set_phy_power		= NULL, \
+ 	.check_overtemp		= &ixgbe_tn_check_overtemp, \
+ 	.get_firmware_version	= &ixgbe_get_phy_firmware_version_generic,
  
--		__skb_set_sw_hash(skb, __get_hash_from_flowi4(fl4, &keys),
--				  flow_keys_have_l4(&keys));
-+		__skb_set_sw_hash(skb, hash, flow_keys_have_l4(&keys));
- 	}
+@@ -1893,7 +1907,7 @@ struct ixgbe_info ixgbe_X550_info = {
  
- 	return skb->hash;
+ struct ixgbe_info ixgbe_X550EM_x_info = {
+ 	.mac			= ixgbe_mac_X550EM_x,
+-	.get_invariants		= &ixgbe_get_invariants_X540,
++	.get_invariants		= &ixgbe_get_invariants_X550_x,
+ 	.mac_ops		= &mac_ops_X550EM_x,
+ 	.eeprom_ops		= &eeprom_ops_X550EM_x,
+ 	.phy_ops		= &phy_ops_X550EM_x,
 -- 
-1.8.1
+2.4.3
