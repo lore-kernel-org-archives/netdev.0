@@ -1,92 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/19] ixgbe: Assign set_phy_power dynamically where needed
-Date: Tue,  1 Sep 2015 18:13:47 -0700
-Message-ID: <1441156443-33381-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 18/19] ixgbe: Remove bimodal SR-IOV disabling
+Date: Tue,  1 Sep 2015 18:14:02 -0700
+Message-ID: <1441156443-33381-19-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alex Williamson <alex.williamson@redhat.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59488 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:59618 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754583AbbIBBOG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2015 21:14:06 -0400
+	id S1752999AbbIBBOO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 21:14:14 -0400
 In-Reply-To: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Alex Williamson <alex.williamson@redhat.com>
 
-There are various reasons why this method may or may not need to be
-defined and some of these we don't know until runtime.  So we will
-set the value in get_invariants.
+When unbinding an SR-IOV device with VFs configured from ixgbe, the
+driver behaves in one of two ways.  If max_vfs was specified, the
+SR-IOV state is disabled, removing the VFs.  The occurs regardless of
+whether the VF count was later modified through sysfs.  If however
+max_vfs is zero, such as by not specifying the module parameter, the
+VFs persist after the PF is unbound from ixgbe.  If the PF is then
+bound to vfio-pci to be assigned to a VM, the PF is non-functional.
 
-Signed-off-by: Donald C Skidmore <donald.c.skidmore@intel.com>
+>From the comment, commit da36b64736cf ("ixgbe: Implement PCI SR-IOV
+sysfs callback operation") clearly intended this alternate behavior,
+but probably didn't realize the PF doesn't work in this mode.
+
+This bimodal behavior is confusing to users and results in a state
+where the PF is broken for other uses unless the user sets
+sriov_numvfs to zero prior to unbinding the device.  Remove this
+behavior so that VFs are removed and the PF is functional for other
+uses after unbind, regardless of the way VFs are enabled.
+
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c |  5 +++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 18 ++++++++++++++++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 032a587..4e75843 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -54,6 +54,11 @@ enum ixgbe_media_type ixgbe_get_media_type_X540(struct ixgbe_hw *hw)
- s32 ixgbe_get_invariants_X540(struct ixgbe_hw *hw)
- {
- 	struct ixgbe_mac_info *mac = &hw->mac;
-+	struct ixgbe_phy_info *phy = &hw->phy;
-+
-+	/* set_phy_power was set by default to NULL */
-+	if (!ixgbe_mng_present(hw))
-+		phy->ops.set_phy_power = ixgbe_set_copper_phy_power;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 54dfad9..63b2cfe 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9023,12 +9023,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
+ 		unregister_netdev(netdev);
  
- 	mac->mcft_size = IXGBE_X540_MC_TBL_SIZE;
- 	mac->vft_size = IXGBE_X540_VFT_TBL_SIZE;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 7581da1..662d2e8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -26,6 +26,20 @@
- #include "ixgbe_common.h"
- #include "ixgbe_phy.h"
+ #ifdef CONFIG_PCI_IOV
+-	/*
+-	 * Only disable SR-IOV on unload if the user specified the now
+-	 * deprecated max_vfs module parameter.
+-	 */
+-	if (max_vfs)
+-		ixgbe_disable_sriov(adapter);
++	ixgbe_disable_sriov(adapter);
+ #endif
+ 	ixgbe_clear_interrupt_scheme(adapter);
  
-+static s32 ixgbe_get_invariants_X550_x(struct ixgbe_hw *hw)
-+{
-+	struct ixgbe_mac_info *mac = &hw->mac;
-+	struct ixgbe_phy_info *phy = &hw->phy;
-+
-+	/* Start with X540 invariants, since so simular */
-+	ixgbe_get_invariants_X540(hw);
-+
-+	if (mac->ops.get_media_type(hw) != ixgbe_media_type_copper)
-+		phy->ops.set_phy_power = NULL;
-+
-+	return 0;
-+}
-+
- /** ixgbe_setup_mux_ctl - Setup ESDP register for I2C mux control
-  *  @hw: pointer to hardware structure
-  **/
-@@ -1855,7 +1869,7 @@ static struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
- 	.read_reg		= &ixgbe_read_phy_reg_generic, \
- 	.write_reg		= &ixgbe_write_phy_reg_generic, \
- 	.setup_link		= &ixgbe_setup_phy_link_generic, \
--	.set_phy_power		= &ixgbe_set_copper_phy_power, \
-+	.set_phy_power		= NULL, \
- 	.check_overtemp		= &ixgbe_tn_check_overtemp, \
- 	.get_firmware_version	= &ixgbe_get_phy_firmware_version_generic,
- 
-@@ -1893,7 +1907,7 @@ struct ixgbe_info ixgbe_X550_info = {
- 
- struct ixgbe_info ixgbe_X550EM_x_info = {
- 	.mac			= ixgbe_mac_X550EM_x,
--	.get_invariants		= &ixgbe_get_invariants_X540,
-+	.get_invariants		= &ixgbe_get_invariants_X550_x,
- 	.mac_ops		= &mac_ops_X550EM_x,
- 	.eeprom_ops		= &eeprom_ops_X550EM_x,
- 	.phy_ops		= &phy_ops_X550EM_x,
 -- 
 2.4.3
