@@ -1,52 +1,273 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next:master 300/401] nf_defrag_ipv6_hooks.c:undefined reference
- to `nf_ct_zone_dflt'
-Date: Wed, 02 Sep 2015 10:31:05 +0200
-Message-ID: <55E6B3C9.4040508@iogearbox.net>
-References: <201509021529.WxsKStJ5%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>,
-	Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36524 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751380AbbIBIbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 04:31:12 -0400
-In-Reply-To: <201509021529.WxsKStJ5%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Matteo Croce <matteo@openwrt.org>
+Subject: [PATCH] [PATCH v3] add stealth mode
+Date: Wed,  2 Sep 2015 10:47:35 +0200
+Message-ID: <1441183655-16970-1-git-send-email-matteo@openwrt.org>
+Cc: linux-kernel@vger.kernel.org, Matteo Croce <matteo@openwrt.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/02/2015 09:26 AM, kbuild test robot wrote:
-> Hi Jiri,
->
-> It's probably a bug fix that unveils the link errors.
+Add option to disable any reply not related to a listening socket,
+like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
+Also disables ICMP replies to echo request and timestamp.
+The stealth mode can be enabled selectively for a single interface.
 
-I'll have a look, thanks!
+Signed-off-by: Matteo Croce <matteo@openwrt.org>
+---
+ Documentation/networking/ip-sysctl.txt | 14 ++++++++++++++
+ include/linux/inetdevice.h             |  1 +
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ip.h                |  1 +
+ net/ipv4/devinet.c                     |  1 +
+ net/ipv4/icmp.c                        |  6 ++++++
+ net/ipv4/ip_input.c                    |  5 +++--
+ net/ipv4/tcp_ipv4.c                    |  3 ++-
+ net/ipv4/udp.c                         |  4 +++-
+ net/ipv6/addrconf.c                    |  7 +++++++
+ net/ipv6/icmp.c                        |  3 ++-
+ net/ipv6/ip6_input.c                   |  5 +++--
+ net/ipv6/tcp_ipv6.c                    |  2 +-
+ net/ipv6/udp.c                         |  3 ++-
+ 14 files changed, 47 insertions(+), 9 deletions(-)
 
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> head:   20a17bf6c04e3eca8824c930ecc55ab832558e3b
-> commit: 751a587ac9f9a8bf314590fbac32d9e418060c5a [300/401] route: fix breakage after moving lwtunnel state
-> config: i386-randconfig-h0-09021408 (attached as .config)
-> reproduce:
->    git checkout 751a587ac9f9a8bf314590fbac32d9e418060c5a
->    # save the attached .config to linux build tree
->    make ARCH=i386
->
-> All error/warnings (new ones prefixed by >>):
->
->     net/built-in.o: In function `ipv4_conntrack_defrag':
->     nf_defrag_ipv4.c:(.text+0x8e209): undefined reference to `nf_ct_zone_dflt'
->     nf_defrag_ipv4.c:(.text+0x8e21c): undefined reference to `nf_ct_zone_dflt'
->     nf_defrag_ipv4.c:(.text+0x8e2cb): undefined reference to `nf_ct_zone_dflt'
->     net/built-in.o: In function `ipv6_defrag':
->>> nf_defrag_ipv6_hooks.c:(.text+0xdb825): undefined reference to `nf_ct_zone_dflt'
->     nf_defrag_ipv6_hooks.c:(.text+0xdb846): undefined reference to `nf_ct_zone_dflt'
->     net/built-in.o:nf_defrag_ipv6_hooks.c:(.text+0xdb8ff): more undefined references to `nf_ct_zone_dflt' follow
->
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
->
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 5fae770..50fe7df 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1181,6 +1181,13 @@ tag - INTEGER
+ 	Allows you to write a number, which can be used as required.
+ 	Default value is 0.
+ 
++stealth - BOOLEAN
++	Disable any reply not related to a listening socket,
++	like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
++	Also disables ICMP replies to echo requests and timestamp
++	and ICMP errors for unknown protocols.
++	Default value is 0.
++
+ Alexey Kuznetsov.
+ kuznet@ms2.inr.ac.ru
+ 
+@@ -1584,6 +1591,13 @@ stable_secret - IPv6 address
+ 
+ 	By default the stable secret is unset.
+ 
++stealth - BOOLEAN
++	Disable any reply not related to a listening socket,
++	like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
++	Also disables ICMPv6 replies to echo requests
++	and ICMP errors for unknown protocols.
++	Default value is 0.
++
+ icmp/*:
+ ratelimit - INTEGER
+ 	Limit the maximal rates for sending ICMPv6 packets.
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index a4328ce..a64c01e 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -128,6 +128,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ #define IN_DEV_ARP_ANNOUNCE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
+ #define IN_DEV_ARP_IGNORE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
+ #define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
++#define IN_DEV_STEALTH(in_dev)		IN_DEV_MAXCONF((in_dev), STEALTH)
+ 
+ struct in_ifaddr {
+ 	struct hlist_node	hash;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 82806c6..49494ec 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -53,6 +53,7 @@ struct ipv6_devconf {
+ 	__s32           ndisc_notify;
+ 	__s32		suppress_frag_ndisc;
+ 	__s32		accept_ra_mtu;
++	__s32		stealth;
+ 	struct ipv6_stable_secret {
+ 		bool initialized;
+ 		struct in6_addr secret;
+diff --git a/include/uapi/linux/ip.h b/include/uapi/linux/ip.h
+index 08f894d..4acbf99 100644
+--- a/include/uapi/linux/ip.h
++++ b/include/uapi/linux/ip.h
+@@ -165,6 +165,7 @@ enum
+ 	IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL,
+ 	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL,
+ 	IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN,
++	IPV4_DEVCONF_STEALTH,
+ 	__IPV4_DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 2d9cb17..6d9c080 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2190,6 +2190,7 @@ static struct devinet_sysctl_table {
+ 					      "promote_secondaries"),
+ 		DEVINET_SYSCTL_FLUSHING_ENTRY(ROUTE_LOCALNET,
+ 					      "route_localnet"),
++		DEVINET_SYSCTL_RW_ENTRY(STEALTH, "stealth"),
+ 	},
+ };
+ 
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index f5203fb..e8e71fb 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -882,6 +882,9 @@ static bool icmp_echo(struct sk_buff *skb)
+ {
+ 	struct net *net;
+ 
++	if (IN_DEV_STEALTH(skb->dev->ip_ptr))
++		return true;
++
+ 	net = dev_net(skb_dst(skb)->dev);
+ 	if (!net->ipv4.sysctl_icmp_echo_ignore_all) {
+ 		struct icmp_bxm icmp_param;
+@@ -915,6 +918,9 @@ static bool icmp_timestamp(struct sk_buff *skb)
+ 	if (skb->len < 4)
+ 		goto out_err;
+ 
++	if (IN_DEV_STEALTH(skb->dev->ip_ptr))
++		return true;
++
+ 	/*
+ 	 *	Fill in the current time as ms since midnight UT:
+ 	 */
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 2db4c87..c8e0c5b 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -223,8 +223,9 @@ static int ip_local_deliver_finish(struct sock *sk, struct sk_buff *skb)
+ 			if (!raw) {
+ 				if (xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 					IP_INC_STATS_BH(net, IPSTATS_MIB_INUNKNOWNPROTOS);
+-					icmp_send(skb, ICMP_DEST_UNREACH,
+-						  ICMP_PROT_UNREACH, 0);
++					if (!IN_DEV_STEALTH(skb->dev->ip_ptr))
++						icmp_send(skb, ICMP_DEST_UNREACH,
++							  ICMP_PROT_UNREACH, 0);
+ 				}
+ 				kfree_skb(skb);
+ 			} else {
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0ea2e1c..0b8a492 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -77,6 +77,7 @@
+ #include <net/busy_poll.h>
+ 
+ #include <linux/inet.h>
++#include <linux/inetdevice.h>
+ #include <linux/ipv6.h>
+ #include <linux/stddef.h>
+ #include <linux/proc_fs.h>
+@@ -1652,7 +1653,7 @@ csum_error:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
+ bad_packet:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+-	} else {
++	} else if (!IN_DEV_STEALTH(skb->dev->ip_ptr)) {
+ 		tcp_v4_send_reset(NULL, skb);
+ 	}
+ 
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 1b8c5ba..2e19cf3 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -96,6 +96,7 @@
+ #include <linux/timer.h>
+ #include <linux/mm.h>
+ #include <linux/inet.h>
++#include <linux/inetdevice.h>
+ #include <linux/netdevice.h>
+ #include <linux/slab.h>
+ #include <net/tcp_states.h>
+@@ -1823,7 +1824,8 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		goto csum_error;
+ 
+ 	UDP_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
+-	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++	if (!IN_DEV_STEALTH(skb->dev->ip_ptr))
++		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
+ 
+ 	/*
+ 	 * Hmm.  We got an UDP packet to a port to which we
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 21c2c81..b9e44e2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5585,6 +5585,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= addrconf_sysctl_stable_secret,
+ 		},
+ 		{
++			.procname	= "stealth",
++			.data		= &ipv6_devconf.stealth,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec,
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 713d743..47797a6 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -723,7 +723,8 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 
+ 	switch (type) {
+ 	case ICMPV6_ECHO_REQUEST:
+-		icmpv6_echo_reply(skb);
++		if (!idev->cnf.stealth)
++			icmpv6_echo_reply(skb);
+ 		break;
+ 
+ 	case ICMPV6_ECHO_REPLY:
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 57990c9..97e68aa 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -255,8 +255,9 @@ resubmit:
+ 			if (xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 				IP6_INC_STATS_BH(net, idev,
+ 						 IPSTATS_MIB_INUNKNOWNPROTOS);
+-				icmpv6_send(skb, ICMPV6_PARAMPROB,
+-					    ICMPV6_UNK_NEXTHDR, nhoff);
++				if (!idev->cnf.stealth)
++					icmpv6_send(skb, ICMPV6_PARAMPROB,
++						    ICMPV6_UNK_NEXTHDR, nhoff);
+ 			}
+ 			kfree_skb(skb);
+ 		} else {
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 7a6cea5..ffb1b7d 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1445,7 +1445,7 @@ csum_error:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
+ bad_packet:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+-	} else {
++	} else if (!__in6_dev_get(skb->dev)->cnf.stealth) {
+ 		tcp_v6_send_reset(NULL, skb);
+ 	}
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index e51fc3e..459238bb 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -934,7 +934,8 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		goto csum_error;
+ 
+ 	UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
+-	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
++	if (!__in6_dev_get(skb->dev)->cnf.stealth)
++		icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
+ 
+ 	kfree_skb(skb);
+ 	return 0;
+-- 
+2.1.4
