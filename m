@@ -1,48 +1,43 @@
-From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Subject: Re: [PATCHv1 net-next 0/5] netlink: mmap: kernel panic and some
- issues
-Date: Thu, 3 Sep 2015 07:27:10 +0900
-Message-ID: <20150902222710.GA7746@gmail.com>
-References: <20150814085807.GA30443@gmail.com>
- <55CDBC84.8020605@iogearbox.net>
- <55CDC51D.1060204@iogearbox.net>
- <20150817.140222.1763422851882964859.davem@davemloft.net>
- <55D492CC.6010602@iogearbox.net>
- <20150902000400.GA14821@gmail.com>
- <55E6C5AE.4060308@iogearbox.net>
- <20150902113553.GA3282@gmail.com>
- <55E71C34.1080504@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	fw@strlen.de
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] ipv6: fix exthdrs offload registration in out_rt path
+Date: Thu,  3 Sep 2015 00:29:07 +0200
+Message-ID: <fcd965e793be00159b46bbc672dd742e2f2615aa.1441230755.git.daniel@iogearbox.net>
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36297 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750897AbbIBW1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 18:27:16 -0400
-Received: by pacwi10 with SMTP id wi10so24504971pac.3
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 15:27:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55E71C34.1080504@iogearbox.net>
+Received: from www62.your-server.de ([213.133.104.62]:48438 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750891AbbIBW3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 18:29:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 02, 2015 at 05:56:36PM +0200, Daniel Borkmann wrote:
-> you suggest or not), for two reasons: I think (will start experimenting
-> more with it tomorrow), you would get an out of bounds access here in
-> case the skb->data is the last slot in the ring buffer and reaches
-> exactly to the ring buffer end. And (despite that), it's also hard
+We previously register IPPROTO_ROUTING offload under inet6_add_offload(),
+but in error path, we try to unregister it with inet_del_offload(). This
+doesn't seem correct, it should actually be inet6_del_offload(), also
+ipv6_exthdrs_offload_exit() from that commit seems rather incorrect (it
+also uses rthdr_offload twice), but it got removed entirely later on.
 
-I thought accessing as a value, not a pointer, in thats wrong shared
-info will not be a big problem, but
+Fixes: 3336288a9fea ("ipv6: Switch to using new offload infrastructure.")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ (Found during code review.)
 
-> to maintain - the next one adding a new shared info member will very
-> likely oversee this special case in netlink here, thus the issue would
-> then simply be reintroduced over and over.
+ net/ipv6/exthdrs_offload.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I agree with you.
-Thank you for taking your time. I think I have learned a lot.
-
-Thanks,
+diff --git a/net/ipv6/exthdrs_offload.c b/net/ipv6/exthdrs_offload.c
+index 447a7fb..f5e2ba1 100644
+--- a/net/ipv6/exthdrs_offload.c
++++ b/net/ipv6/exthdrs_offload.c
+@@ -36,6 +36,6 @@ out:
+ 	return ret;
+ 
+ out_rt:
+-	inet_del_offload(&rthdr_offload, IPPROTO_ROUTING);
++	inet6_del_offload(&rthdr_offload, IPPROTO_ROUTING);
+ 	goto out;
+ }
+-- 
+1.9.3
