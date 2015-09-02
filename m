@@ -1,311 +1,422 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/19] ixgbe: Add support for entering low power link up state
-Date: Tue,  1 Sep 2015 18:13:51 -0700
-Message-ID: <1441156443-33381-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/19] ixgbe: Add support for VXLAN RX offloads
+Date: Tue,  1 Sep 2015 18:13:50 -0700
+Message-ID: <1441156443-33381-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37040 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:59618 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754590AbbIBBOI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754588AbbIBBOI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 1 Sep 2015 21:14:08 -0400
 In-Reply-To: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-When the device is closing or suspending, call ixgbe_enter_lplu to
-enter low power link up state on devices that support it. When this
-is done, prevent the phy from being reset in the ixgbe_down path
-so that link is present when calling ixgbe_enter_lplu.
+Add support for VXLAN RX offloads for the X55x devices that support
+them.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  10 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  34 +++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 143 ++++++++++++++++++++++++++
- 3 files changed, 185 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |   6 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |  18 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 119 ++++++++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  15 ++--
+ 4 files changed, 127 insertions(+), 31 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index ac3ac2a..8830c0f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -630,6 +630,7 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_FCOE_ENABLED                 (u32)(1 << 21)
+ #define IXGBE_FLAG_SRIOV_CAPABLE                (u32)(1 << 22)
+ #define IXGBE_FLAG_SRIOV_ENABLED                (u32)(1 << 23)
++#define IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE	BIT(24)
+ 
+ 	u32 flags2;
+ #define IXGBE_FLAG2_RSC_CAPABLE                 (u32)(1 << 0)
+@@ -644,6 +645,9 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG2_RSS_FIELD_IPV6_UDP		(u32)(1 << 9)
+ #define IXGBE_FLAG2_PTP_PPS_ENABLED		(u32)(1 << 10)
+ #define IXGBE_FLAG2_PHY_INTERRUPT		(u32)(1 << 11)
++#ifdef CONFIG_IXGBE_VXLAN
++#define IXGBE_FLAG2_VXLAN_REREG_NEEDED		BIT(12)
++#endif
+ 
+ 	/* Tx fast path data */
+ 	int num_tx_queues;
+@@ -757,7 +761,9 @@ struct ixgbe_adapter {
+ 	u32 timer_event_accumulator;
+ 	u32 vferr_refcount;
+ 	struct ixgbe_mac_addr *mac_table;
++#ifdef CONFIG_IXGBE_VXLAN
+ 	u16 vxlan_port;
++#endif
+ 	struct kobject *info_kobj;
+ #ifdef CONFIG_IXGBE_HWMON
+ 	struct hwmon_buff *ixgbe_hwmon_buff;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index d910442..dd7062f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -1519,20 +1519,28 @@ static u32 ixgbe_atr_compute_sig_hash_82599(union ixgbe_atr_hash_dword input,
+  *  @input: unique input dword
+  *  @common: compressed common input dword
+  *  @queue: queue index to direct traffic to
++ *
++ * Note that the tunnel bit in input must not be set when the hardware
++ * tunneling support does not exist.
+  **/
+ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+ 					  union ixgbe_atr_hash_dword input,
+ 					  union ixgbe_atr_hash_dword common,
+ 					  u8 queue)
+ {
+-	u64  fdirhashcmd;
+-	u32  fdircmd;
++	u64 fdirhashcmd;
++	u8 flow_type;
++	bool tunnel;
++	u32 fdircmd;
+ 
+ 	/*
+ 	 * Get the flow_type in order to program FDIRCMD properly
+ 	 * lowest 2 bits are FDIRCMD.L4TYPE, third lowest bit is FDIRCMD.IPV6
+ 	 */
+-	switch (input.formatted.flow_type) {
++	tunnel = !!(input.formatted.flow_type & IXGBE_ATR_L4TYPE_TUNNEL_MASK);
++	flow_type = input.formatted.flow_type &
++		    (IXGBE_ATR_L4TYPE_TUNNEL_MASK - 1);
++	switch (flow_type) {
+ 	case IXGBE_ATR_FLOW_TYPE_TCPV4:
+ 	case IXGBE_ATR_FLOW_TYPE_UDPV4:
+ 	case IXGBE_ATR_FLOW_TYPE_SCTPV4:
+@@ -1548,8 +1556,10 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+ 	/* configure FDIRCMD register */
+ 	fdircmd = IXGBE_FDIRCMD_CMD_ADD_FLOW | IXGBE_FDIRCMD_FILTER_UPDATE |
+ 		  IXGBE_FDIRCMD_LAST | IXGBE_FDIRCMD_QUEUE_EN;
+-	fdircmd |= input.formatted.flow_type << IXGBE_FDIRCMD_FLOW_TYPE_SHIFT;
++	fdircmd |= (u32)flow_type << IXGBE_FDIRCMD_FLOW_TYPE_SHIFT;
+ 	fdircmd |= (u32)queue << IXGBE_FDIRCMD_RX_QUEUE_SHIFT;
++	if (tunnel)
++		fdircmd |= IXGBE_FDIRCMD_TUNNEL_FILTER;
+ 
+ 	/*
+ 	 * The lower 32-bits of fdirhashcmd is for FDIRHASH, the upper 32-bits
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index dcf849d..098c849 100644
+index 900562e..dcf849d 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5798,7 +5798,15 @@ static void ixgbe_close_suspend(struct ixgbe_adapter *adapter)
- {
- 	ixgbe_ptp_suspend(adapter);
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
--	ixgbe_down(adapter);
-+	if (adapter->hw.phy.ops.enter_lplu) {
-+		adapter->hw.phy.reset_disable = true;
-+		ixgbe_down(adapter);
-+		adapter->hw.phy.ops.enter_lplu(&adapter->hw);
-+		adapter->hw.phy.reset_disable = false;
-+	} else {
-+		ixgbe_down(adapter);
-+	}
-+
- 	ixgbe_free_irq(adapter);
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2014 Intel Corporation.
++  Copyright(c) 1999 - 2015 Intel Corporation.
  
- 	ixgbe_free_all_tx_resources(adapter);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 0e67824..19271e5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -848,6 +848,7 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_AUTO_NEG_LINK_STATUS	0x4 /* Indicates if link is up */
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -65,6 +65,9 @@
+ #include "ixgbe_common.h"
+ #include "ixgbe_dcb_82599.h"
+ #include "ixgbe_sriov.h"
++#ifdef CONFIG_IXGBE_VXLAN
++#include <net/vxlan.h>
++#endif
  
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_MASK	0x7 /* Speed/Duplex Mask */
-+#define IXGBE_MDIO_AUTO_NEG_VEN_STAT_SPEED_MASK	0x6 /* Speed Mask */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_10M_HALF 0x0 /* 10Mb/s Half Duplex */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_10M_FULL 0x1 /* 10Mb/s Full Duplex */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_100M_HALF 0x2 /* 100Mb/s H Duplex */
-@@ -856,6 +857,24 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_1GB_FULL 0x5 /* 1Gb/s Full Duplex */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_10GB_HALF 0x6 /* 10Gb/s Half Duplex */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_10GB_FULL 0x7 /* 10Gb/s Full Duplex */
-+#define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_1GB	0x4 /* 1Gb/s */
-+#define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_10GB	0x6 /* 10Gb/s */
-+
-+#define IXGBE_MII_10GBASE_T_AUTONEG_CTRL_REG	0x20	/* 10G Control Reg */
-+#define IXGBE_MII_AUTONEG_VENDOR_PROVISION_1_REG 0xC400	/* 1G Provisioning 1 */
-+#define IXGBE_MII_AUTONEG_XNP_TX_REG		0x17	/* 1G XNP Transmit */
-+#define IXGBE_MII_AUTONEG_ADVERTISE_REG		0x10	/* 100M Advertisement */
-+#define IXGBE_MII_10GBASE_T_ADVERTISE		0x1000	/* full duplex, bit:12*/
-+#define IXGBE_MII_1GBASE_T_ADVERTISE_XNP_TX	0x4000	/* full duplex, bit:14*/
-+#define IXGBE_MII_1GBASE_T_ADVERTISE		0x8000	/* full duplex, bit:15*/
-+#define IXGBE_MII_2_5GBASE_T_ADVERTISE		0x0400
-+#define IXGBE_MII_5GBASE_T_ADVERTISE		0x0800
-+#define IXGBE_MII_100BASE_T_ADVERTISE		0x0100	/* full duplex, bit:8 */
-+#define IXGBE_MII_100BASE_T_ADVERTISE_HALF	0x0080	/* half duplex, bit:7 */
-+#define IXGBE_MII_RESTART			0x200
-+#define IXGBE_MII_AUTONEG_COMPLETE		0x20
-+#define IXGBE_MII_AUTONEG_LINK_UP		0x04
-+#define IXGBE_MII_AUTONEG_REG			0x0
+ char ixgbe_driver_name[] = "ixgbe";
+ static const char ixgbe_driver_string[] =
+@@ -79,7 +82,7 @@ static char ixgbe_default_device_descr[] =
+ #define DRV_VERSION "4.0.1-k"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+-				"Copyright (c) 1999-2014 Intel Corporation.";
++				"Copyright (c) 1999-2015 Intel Corporation.";
  
- /* Management */
- #define IXGBE_MAVTV(_i) (0x05010 + ((_i) * 4)) /* 8 of these (0-7) */
-@@ -1305,6 +1324,7 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_AUTO_NEG_CONTROL	0x0 /* AUTO_NEG Control Reg */
- #define IXGBE_MDIO_AUTO_NEG_STATUS	0x1 /* AUTO_NEG Status Reg */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STAT	0xC800 /* AUTO_NEG Vendor Status Reg */
-+#define IXGBE_MDIO_AUTO_NEG_VENDOR_TX_ALARM  0xCC00 /* AUTO_NEG Vendor TX Reg */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_TX_ALARM2 0xCC01 /* AUTO_NEG Vendor Tx Reg */
- #define IXGBE_MDIO_AUTO_NEG_VEN_LSC	0x1 /* AUTO_NEG Vendor Tx LSC */
- #define IXGBE_MDIO_AUTO_NEG_ADVT	0x10 /* AUTO_NEG Advt Reg */
-@@ -1312,7 +1332,8 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_AUTO_NEG_EEE_ADVT	0x3C /* AUTO_NEG EEE Advt Reg */
+ static const char ixgbe_overheat_msg[] = "Network adapter has been stopped because it has over heated. Restart the computer. If the problem persists, power off the system and replace the adapter";
  
- #define IXGBE_MDIO_PHY_SET_LOW_POWER_MODE	 0x0800 /* Set low power mode */
--
-+#define IXGBE_AUTO_NEG_LP_STATUS	0xE820 /* AUTO NEG Rx LP Status Reg */
-+#define IXGBE_AUTO_NEG_LP_1000BASE_CAP	0x8000 /* AUTO NEG Rx LP 1000BaseT */
- #define IXGBE_MDIO_TX_VENDOR_ALARMS_3	0xCC02 /* Vendor Alarms 3 Reg */
- #define IXGBE_MDIO_TX_VENDOR_ALARMS_3_RST_MASK 0x3 /* PHY Reset Complete Mask */
- #define IXGBE_MDIO_GLOBAL_RES_PR_10 0xC479 /* Global Resv Provisioning 10 Reg */
-@@ -2041,6 +2062,11 @@ enum {
- #define IXGBE_NVM_POLL_WRITE       1  /* Flag for polling for write complete */
- #define IXGBE_NVM_POLL_READ        0  /* Flag for polling for read complete */
+@@ -1430,7 +1433,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
+ 	    (hdr_info & cpu_to_le16(IXGBE_RXDADV_PKTTYPE_TUNNEL >> 16))) {
+ 		encap_pkt = true;
+ 		skb->encapsulation = 1;
+-		skb->ip_summed = CHECKSUM_NONE;
+ 	}
  
-+#define NVM_INIT_CTRL_3			0x38
-+#define NVM_INIT_CTRL_3_LPLU		0x8
-+#define NVM_INIT_CTRL_3_D10GMP_PORT0	0x40
-+#define NVM_INIT_CTRL_3_D10GMP_PORT1	0x100
-+
- #define IXGBE_EEPROM_PAGE_SIZE_MAX       128
- #define IXGBE_EEPROM_RD_BUFFER_MAX_COUNT 512 /* EEPROM words # read in burst */
- #define IXGBE_EEPROM_WR_BUFFER_MAX_COUNT 256 /* EEPROM words # wr in burst */
-@@ -3301,6 +3327,7 @@ struct ixgbe_phy_operations {
- 	s32 (*write_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 val);
- 	s32 (*check_overtemp)(struct ixgbe_hw *);
- 	s32 (*set_phy_power)(struct ixgbe_hw *, bool on);
-+	s32 (*enter_lplu)(struct ixgbe_hw *);
- 	s32 (*handle_lasi)(struct ixgbe_hw *hw);
- };
- 
-@@ -3311,6 +3338,7 @@ struct ixgbe_eeprom_info {
- 	u16                             word_size;
- 	u16                             address_bits;
- 	u16                             word_page_size;
-+	u16				ctrl_word_3;
- };
- 
- #define IXGBE_FLAGS_DOUBLE_RESET_REQUIRED	0x01
-@@ -3466,6 +3494,10 @@ struct ixgbe_info {
- #define IXGBE_ERR_FDIR_CMD_INCOMPLETE		-38
- #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
- 
-+#define IXGBE_FUSES0_GROUP(_i)		(0x11158 + ((_i) * 4))
-+#define IXGBE_FUSES0_300MHZ		BIT(5)
-+#define IXGBE_FUSES0_REV1		BIT(6)
-+
- #define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P) ? 0x8010 : 0x4010)
- #define IXGBE_KRM_LINK_CTRL_1(P)	((P) ? 0x820C : 0x420C)
- #define IXGBE_KRM_DSP_TXFFE_STATE_4(P)	((P) ? 0x8634 : 0x4634)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 662d2e8..bbc5a2d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1458,6 +1458,144 @@ static s32 ixgbe_reset_phy_t_X550em(struct ixgbe_hw *hw)
- 	return ixgbe_enable_lasi_ext_t_x550em(hw);
+ 	/* if IP and error */
+@@ -4261,6 +4263,21 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
+ 	}
  }
  
-+/** ixgbe_get_lcd_x550em - Determine lowest common denominator
-+ *  @hw: pointer to hardware structure
-+ *  @lcd_speed: pointer to lowest common link speed
-+ *
-+ *  Determine lowest common link speed with link partner.
-+ **/
-+static s32 ixgbe_get_lcd_t_x550em(struct ixgbe_hw *hw,
-+				  ixgbe_link_speed *lcd_speed)
++static void ixgbe_clear_vxlan_port(struct ixgbe_adapter *adapter)
 +{
-+	u16 an_lp_status;
-+	s32 status;
-+	u16 word = hw->eeprom.ctrl_word_3;
-+
-+	*lcd_speed = IXGBE_LINK_SPEED_UNKNOWN;
-+
-+	status = hw->phy.ops.read_reg(hw, IXGBE_AUTO_NEG_LP_STATUS,
-+				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      &an_lp_status);
-+	if (status)
-+		return status;
-+
-+	/* If link partner advertised 1G, return 1G */
-+	if (an_lp_status & IXGBE_AUTO_NEG_LP_1000BASE_CAP) {
-+		*lcd_speed = IXGBE_LINK_SPEED_1GB_FULL;
-+		return status;
++	switch (adapter->hw.mac.type) {
++	case ixgbe_mac_X550:
++	case ixgbe_mac_X550EM_x:
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_VXLANCTRL, 0);
++#ifdef CONFIG_IXGBE_VXLAN
++		adapter->vxlan_port = 0;
++#endif
++		break;
++	default:
++		break;
 +	}
-+
-+	/* If 10G disabled for LPLU via NVM D10GMP, then return no valid LCD */
-+	if ((hw->bus.lan_id && (word & NVM_INIT_CTRL_3_D10GMP_PORT1)) ||
-+	    (word & NVM_INIT_CTRL_3_D10GMP_PORT0))
-+		return status;
-+
-+	/* Link partner not capable of lower speeds, return 10G */
-+	*lcd_speed = IXGBE_LINK_SPEED_10GB_FULL;
-+	return status;
 +}
 +
-+/** ixgbe_enter_lplu_x550em - Transition to low power states
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Configures Low Power Link Up on transition to low power states
-+ *  (from D0 to non-D0). Link is required to enter LPLU so avoid resetting
-+ *  the X557 PHY immediately prior to entering LPLU.
-+ **/
-+static s32 ixgbe_enter_lplu_t_x550em(struct ixgbe_hw *hw)
-+{
-+	u16 an_10g_cntl_reg, autoneg_reg, speed;
-+	s32 status;
-+	ixgbe_link_speed lcd_speed;
-+	u32 save_autoneg;
-+	bool link_up;
-+
-+	/* SW LPLU not required on later HW revisions. */
-+	if (IXGBE_FUSES0_REV1 & IXGBE_READ_REG(hw, IXGBE_FUSES0_GROUP(0)))
-+		return 0;
-+
-+	/* If blocked by MNG FW, then don't restart AN */
-+	if (ixgbe_check_reset_blocked(hw))
-+		return 0;
-+
-+	status = ixgbe_ext_phy_t_x550em_get_link(hw, &link_up);
-+	if (status)
-+		return status;
-+
-+	status = hw->eeprom.ops.read(hw, NVM_INIT_CTRL_3,
-+				     &hw->eeprom.ctrl_word_3);
-+	if (status)
-+		return status;
-+
-+	/* If link is down, LPLU disabled in NVM, WoL disabled, or
-+	 * manageability disabled, then force link down by entering
-+	 * low power mode.
-+	 */
-+	if (!link_up || !(hw->eeprom.ctrl_word_3 & NVM_INIT_CTRL_3_LPLU) ||
-+	    !(hw->wol_enabled || ixgbe_mng_present(hw)))
-+		return ixgbe_set_copper_phy_power(hw, false);
-+
-+	/* Determine LCD */
-+	status = ixgbe_get_lcd_t_x550em(hw, &lcd_speed);
-+	if (status)
-+		return status;
-+
-+	/* If no valid LCD link speed, then force link down and exit. */
-+	if (lcd_speed == IXGBE_LINK_SPEED_UNKNOWN)
-+		return ixgbe_set_copper_phy_power(hw, false);
-+
-+	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_VENDOR_STAT,
-+				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      &speed);
-+	if (status)
-+		return status;
-+
-+	/* If no link now, speed is invalid so take link down */
-+	status = ixgbe_ext_phy_t_x550em_get_link(hw, &link_up);
-+	if (status)
-+		return ixgbe_set_copper_phy_power(hw, false);
-+
-+	/* clear everything but the speed bits */
-+	speed &= IXGBE_MDIO_AUTO_NEG_VEN_STAT_SPEED_MASK;
-+
-+	/* If current speed is already LCD, then exit. */
-+	if (((speed == IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_1GB) &&
-+	     (lcd_speed == IXGBE_LINK_SPEED_1GB_FULL)) ||
-+	    ((speed == IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_10GB) &&
-+	     (lcd_speed == IXGBE_LINK_SPEED_10GB_FULL)))
-+		return status;
-+
-+	/* Clear AN completed indication */
-+	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_VENDOR_TX_ALARM,
-+				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      &autoneg_reg);
-+	if (status)
-+		return status;
-+
-+	status = hw->phy.ops.read_reg(hw, IXGBE_MII_10GBASE_T_AUTONEG_CTRL_REG,
-+				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      &an_10g_cntl_reg);
-+	if (status)
-+		return status;
-+
-+	status = hw->phy.ops.read_reg(hw,
-+				      IXGBE_MII_AUTONEG_VENDOR_PROVISION_1_REG,
-+				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      &autoneg_reg);
-+	if (status)
-+		return status;
-+
-+	save_autoneg = hw->phy.autoneg_advertised;
-+
-+	/* Setup link at least common link speed */
-+	status = hw->mac.ops.setup_link(hw, lcd_speed, false);
-+
-+	/* restore autoneg from before setting lplu speed */
-+	hw->phy.autoneg_advertised = save_autoneg;
-+
-+	return status;
-+}
-+
- /** ixgbe_init_phy_ops_X550em - PHY/SFP specific init
-  *  @hw: pointer to hardware structure
-  *
-@@ -1528,6 +1666,11 @@ static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- 			ret_val = ixgbe_setup_kr_speed_x550em(hw, speed);
- 		}
- 
-+		/* setup SW LPLU only for first revision */
-+		if (!(IXGBE_FUSES0_REV1 & IXGBE_READ_REG(hw,
-+							IXGBE_FUSES0_GROUP(0))))
-+			phy->ops.enter_lplu = ixgbe_enter_lplu_t_x550em;
-+
- 		phy->ops.handle_lasi = ixgbe_handle_lasi_ext_t_x550em;
- 		phy->ops.reset = ixgbe_reset_phy_t_X550em;
+ #ifdef CONFIG_IXGBE_DCB
+ /**
+  * ixgbe_configure_dcb - Configure DCB hardware
+@@ -5302,6 +5319,9 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ #ifdef CONFIG_IXGBE_DCA
+ 		adapter->flags &= ~IXGBE_FLAG_DCA_CAPABLE;
+ #endif
++#ifdef CONFIG_IXGBE_VXLAN
++		adapter->flags |= IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE;
++#endif
  		break;
+ 	default:
+ 		break;
+@@ -5753,10 +5773,11 @@ static int ixgbe_open(struct net_device *netdev)
+ 
+ 	ixgbe_up_complete(adapter);
+ 
+-#if IS_ENABLED(CONFIG_IXGBE_VXLAN)
++	ixgbe_clear_vxlan_port(adapter);
++#ifdef CONFIG_IXGBE_VXLAN
+ 	vxlan_get_rx_port(netdev);
+-
+ #endif
++
+ 	return 0;
+ 
+ err_set_queues:
+@@ -6816,6 +6837,12 @@ static void ixgbe_service_task(struct work_struct *work)
+ 		ixgbe_service_event_complete(adapter);
+ 		return;
+ 	}
++#ifdef CONFIG_IXGBE_VXLAN
++	if (adapter->flags2 & IXGBE_FLAG2_VXLAN_REREG_NEEDED) {
++		adapter->flags2 &= ~IXGBE_FLAG2_VXLAN_REREG_NEEDED;
++		vxlan_get_rx_port(adapter->netdev);
++	}
++#endif /* CONFIG_IXGBE_VXLAN */
+ 	ixgbe_reset_subtask(adapter);
+ 	ixgbe_phy_interrupt_subtask(adapter);
+ 	ixgbe_sfp_detection_subtask(adapter);
+@@ -7240,6 +7267,10 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 		struct ipv6hdr *ipv6;
+ 	} hdr;
+ 	struct tcphdr *th;
++	struct sk_buff *skb;
++#ifdef CONFIG_IXGBE_VXLAN
++	u8 encap = false;
++#endif /* CONFIG_IXGBE_VXLAN */
+ 	__be16 vlan_id;
+ 
+ 	/* if ring doesn't have a interrupt vector, cannot perform ATR */
+@@ -7253,16 +7284,36 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	ring->atr_count++;
+ 
+ 	/* snag network header to get L4 type and address */
+-	hdr.network = skb_network_header(first->skb);
++	skb = first->skb;
++	hdr.network = skb_network_header(skb);
++	if (skb->encapsulation) {
++#ifdef CONFIG_IXGBE_VXLAN
++		struct ixgbe_adapter *adapter = q_vector->adapter;
+ 
+-	/* Currently only IPv4/IPv6 with TCP is supported */
+-	if ((first->protocol != htons(ETH_P_IPV6) ||
+-	     hdr.ipv6->nexthdr != IPPROTO_TCP) &&
+-	    (first->protocol != htons(ETH_P_IP) ||
+-	     hdr.ipv4->protocol != IPPROTO_TCP))
++		if (!adapter->vxlan_port)
++			return;
++		if (first->protocol != htons(ETH_P_IP) ||
++		    hdr.ipv4->version != IPVERSION ||
++		    hdr.ipv4->protocol != IPPROTO_UDP) {
++			return;
++		}
++		if (ntohs(udp_hdr(skb)->dest) != adapter->vxlan_port)
++			return;
++		encap = true;
++		hdr.network = skb_inner_network_header(skb);
++		th = inner_tcp_hdr(skb);
++#else
+ 		return;
+-
+-	th = tcp_hdr(first->skb);
++#endif /* CONFIG_IXGBE_VXLAN */
++	} else {
++		/* Currently only IPv4/IPv6 with TCP is supported */
++		if ((first->protocol != htons(ETH_P_IPV6) ||
++		     hdr.ipv6->nexthdr != IPPROTO_TCP) &&
++		    (first->protocol != htons(ETH_P_IP) ||
++		     hdr.ipv4->protocol != IPPROTO_TCP))
++			return;
++		th = tcp_hdr(skb);
++	}
+ 
+ 	/* skip this packet since it is invalid or the socket is closing */
+ 	if (!th || th->fin)
+@@ -7311,6 +7362,11 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 			     hdr.ipv6->daddr.s6_addr32[3];
+ 	}
+ 
++#ifdef CONFIG_IXGBE_VXLAN
++	if (encap)
++		input.formatted.flow_type |= IXGBE_ATR_L4TYPE_TUNNEL_MASK;
++#endif /* CONFIG_IXGBE_VXLAN */
++
+ 	/* This assumes the Rx queue and Tx queue are bound to the same CPU */
+ 	ixgbe_fdir_add_signature_filter_82599(&q_vector->adapter->hw,
+ 					      input, common, ring->queue_index);
+@@ -7937,12 +7993,23 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 		need_reset = true;
+ 
+ 	netdev->features = features;
++
++#ifdef CONFIG_IXGBE_VXLAN
++	if ((adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE)) {
++		if (features & NETIF_F_RXCSUM)
++			adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
++		else
++			ixgbe_clear_vxlan_port(adapter);
++	}
++#endif /* CONFIG_IXGBE_VXLAN */
++
+ 	if (need_reset)
+ 		ixgbe_do_reset(netdev);
+ 
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_IXGBE_VXLAN
+ /**
+  * ixgbe_add_vxlan_port - Get notifications about VXLAN ports that come up
+  * @dev: The port's netdev
+@@ -7956,17 +8023,18 @@ static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u16 new_port = ntohs(port);
+ 
++	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
++		return;
++
+ 	if (sa_family == AF_INET6)
+ 		return;
+ 
+-	if (adapter->vxlan_port == new_port) {
+-		netdev_info(dev, "Port %d already offloaded\n", new_port);
++	if (adapter->vxlan_port == new_port)
+ 		return;
+-	}
+ 
+ 	if (adapter->vxlan_port) {
+ 		netdev_info(dev,
+-			    "Hit Max num of UDP ports, not adding port %d\n",
++			    "Hit Max num of VXLAN ports, not adding port %d\n",
+ 			    new_port);
+ 		return;
+ 	}
+@@ -7985,9 +8053,11 @@ static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+ 				 __be16 port)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+-	struct ixgbe_hw *hw = &adapter->hw;
+ 	u16 new_port = ntohs(port);
+ 
++	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
++		return;
++
+ 	if (sa_family == AF_INET6)
+ 		return;
+ 
+@@ -7997,9 +8067,10 @@ static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
+ 		return;
+ 	}
+ 
+-	adapter->vxlan_port = 0;
+-	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, 0);
++	ixgbe_clear_vxlan_port(adapter);
++	adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
+ }
++#endif /* CONFIG_IXGBE_VXLAN */
+ 
+ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 			     struct net_device *dev,
+@@ -8290,8 +8361,10 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
+ 	.ndo_dfwd_add_station	= ixgbe_fwd_add,
+ 	.ndo_dfwd_del_station	= ixgbe_fwd_del,
++#ifdef CONFIG_IXGBE_VXLAN
+ 	.ndo_add_vxlan_port	= ixgbe_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= ixgbe_del_vxlan_port,
++#endif /* CONFIG_IXGBE_VXLAN */
+ 	.ndo_features_check	= ixgbe_features_check,
+ };
+ 
+@@ -8658,14 +8731,18 @@ skip_sriov:
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 	netdev->priv_flags |= IFF_SUPP_NOFCS;
+ 
++#ifdef CONFIG_IXGBE_VXLAN
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_X550:
+ 	case ixgbe_mac_X550EM_x:
+-		netdev->hw_enc_features |= NETIF_F_RXCSUM;
++		netdev->hw_enc_features |= NETIF_F_RXCSUM |
++					   NETIF_F_IP_CSUM |
++					   NETIF_F_IPV6_CSUM;
+ 		break;
+ 	default:
+ 		break;
+ 	}
++#endif /* CONFIG_IXGBE_VXLAN */
+ 
+ #ifdef CONFIG_IXGBE_DCB
+ 	netdev->dcbnl_ops = &dcbnl_ops;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 938a410..0e67824 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2540,9 +2540,11 @@ enum ixgbe_fdir_pballoc_type {
+ #define IXGBE_FDIRCMD_QUEUE_EN                  0x00008000
+ #define IXGBE_FDIRCMD_FLOW_TYPE_SHIFT           5
+ #define IXGBE_FDIRCMD_RX_QUEUE_SHIFT            16
++#define IXGBE_FDIRCMD_RX_TUNNEL_FILTER_SHIFT	23
+ #define IXGBE_FDIRCMD_VT_POOL_SHIFT             24
+ #define IXGBE_FDIR_INIT_DONE_POLL               10
+ #define IXGBE_FDIRCMD_CMD_POLL                  10
++#define IXGBE_FDIRCMD_TUNNEL_FILTER		0x00800000
+ 
+ #define IXGBE_FDIR_DROP_QUEUE                   127
+ 
+@@ -2833,12 +2835,13 @@ typedef u32 ixgbe_link_speed;
+ #define IXGBE_ATR_SIGNATURE_HASH_KEY 0x174D3614
+ 
+ /* Software ATR input stream values and masks */
+-#define IXGBE_ATR_HASH_MASK     0x7fff
+-#define IXGBE_ATR_L4TYPE_MASK      0x3
+-#define IXGBE_ATR_L4TYPE_UDP       0x1
+-#define IXGBE_ATR_L4TYPE_TCP       0x2
+-#define IXGBE_ATR_L4TYPE_SCTP      0x3
+-#define IXGBE_ATR_L4TYPE_IPV6_MASK 0x4
++#define IXGBE_ATR_HASH_MASK		0x7fff
++#define IXGBE_ATR_L4TYPE_MASK		0x3
++#define IXGBE_ATR_L4TYPE_UDP		0x1
++#define IXGBE_ATR_L4TYPE_TCP		0x2
++#define IXGBE_ATR_L4TYPE_SCTP		0x3
++#define IXGBE_ATR_L4TYPE_IPV6_MASK	0x4
++#define IXGBE_ATR_L4TYPE_TUNNEL_MASK	0x10
+ enum ixgbe_atr_flow_type {
+ 	IXGBE_ATR_FLOW_TYPE_IPV4   = 0x0,
+ 	IXGBE_ATR_FLOW_TYPE_UDPV4  = 0x1,
 -- 
 2.4.3
