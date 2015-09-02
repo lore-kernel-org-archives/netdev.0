@@ -1,116 +1,55 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/3] net: Add FIB table id to rtable
-Date: Wed,  2 Sep 2015 13:58:35 -0700
-Message-ID: <1441227516-39692-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1441227516-39692-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: tgraf@suug.ch, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next 05/19] ixgbe: Add support for UDP-encapsulated tx
+ checksum offload
+Date: Thu, 3 Sep 2015 00:07:17 +0300
+Message-ID: <CAJ3xEMhLyP-S3EMC9L-utr-YMZmbZiE54cxMZT0pTGwHhqweew@mail.gmail.com>
+References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1441156443-33381-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CALx6S34-mUvQyUQNcVC+o+NeUxWEsCG2GS=Eq++eGqoh=kv8kg@mail.gmail.com>
+	<F63CFE64-29E1-484B-B19B-269FAAA9C54B@intel.com>
+	<CALx6S36T4tzB5aq3bbKq4DMEumvC4q2YhGscn19se0mGXGe5cQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Rustad, Mark D" <mark.d.rustad@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36066 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756048AbbIBU6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 16:58:51 -0400
-Received: by pacwi10 with SMTP id wi10so22614365pac.3
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 13:58:50 -0700 (PDT)
-In-Reply-To: <1441227516-39692-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:34729 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752597AbbIBVHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 17:07:18 -0400
+Received: by oiev17 with SMTP id v17so13740222oie.1
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 14:07:17 -0700 (PDT)
+In-Reply-To: <CALx6S36T4tzB5aq3bbKq4DMEumvC4q2YhGscn19se0mGXGe5cQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the FIB table id to rtable to make the information available for
-IPv4 as it is for IPv6.
+On Wed, Sep 2, 2015 at 8:38 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Wed, Sep 2, 2015 at 9:46 AM, Rustad, Mark D <mark.d.rustad@intel.com> wrote:
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/vrf.c       | 2 ++
- include/net/route.h     | 2 ++
- net/ipv4/route.c        | 8 ++++++++
- net/ipv4/xfrm4_policy.c | 1 +
- 4 files changed, 13 insertions(+)
+>> Note: NETIF_F_HW_CSUM is a superset of NETIF_F_IP_CSUM + NETIF_F_IPV6_CSUM.
+>> It means that device can fill TCP/UDP-like checksum anywhere in the packets
+>> whatever headers there might be.
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index e7094fbd7568..8c9ab5ebea23 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -320,6 +320,7 @@ static void vrf_rtable_destroy(struct net_vrf *vrf)
- 
- static struct rtable *vrf_rtable_create(struct net_device *dev)
- {
-+	struct net_vrf *vrf = netdev_priv(dev);
- 	struct rtable *rth;
- 
- 	rth = dst_alloc(&vrf_dst_ops, dev, 2,
-@@ -335,6 +336,7 @@ static struct rtable *vrf_rtable_create(struct net_device *dev)
- 		rth->rt_pmtu	= 0;
- 		rth->rt_gateway	= 0;
- 		rth->rt_uses_gateway = 0;
-+		rth->rt_table_id = vrf->tb_id;
- 		INIT_LIST_HEAD(&rth->rt_uncached);
- 		rth->rt_uncached_list = NULL;
- 	}
-diff --git a/include/net/route.h b/include/net/route.h
-index cc61cb95f059..10a7d21a211c 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -64,6 +64,8 @@ struct rtable {
- 	/* Miscellaneous cached information */
- 	u32			rt_pmtu;
- 
-+	u32			rt_table_id;
-+
- 	struct list_head	rt_uncached;
- 	struct uncached_list	*rt_uncached_list;
- };
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index eaefeadce07c..92acc95b7578 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1457,6 +1457,7 @@ static struct rtable *rt_dst_alloc(struct net_device *dev,
- 		rt->rt_pmtu = 0;
- 		rt->rt_gateway = 0;
- 		rt->rt_uses_gateway = 0;
-+		rt->rt_table_id = 0;
- 		INIT_LIST_HEAD(&rt->rt_uncached);
- 
- 		rt->dst.output = ip_output;
-@@ -1629,6 +1630,8 @@ static int __mkroute_input(struct sk_buff *skb,
- 	}
- 
- 	rth->rt_is_input = 1;
-+	if (res->table)
-+		rth->rt_table_id = res->table->tb_id;
- 	RT_CACHE_STAT_INC(in_slow_tot);
- 
- 	rth->dst.input = ip_forward;
-@@ -1808,6 +1811,8 @@ out:	return err;
- 	rth->dst.tclassid = itag;
- #endif
- 	rth->rt_is_input = 1;
-+	if (res.table)
-+		rth->rt_table_id = res.table->tb_id;
- 
- 	RT_CACHE_STAT_INC(in_slow_tot);
- 	if (res.type == RTN_UNREACHABLE) {
-@@ -1988,6 +1993,9 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 		return ERR_PTR(-ENOBUFS);
- 
- 	rth->rt_iif	= orig_oif ? : 0;
-+	if (res->table)
-+		rth->rt_table_id = res->table->tb_id;
-+
- 	RT_CACHE_STAT_INC(out_slow_tot);
- 
- 	if (flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index bb919b28619f..671011055ad5 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -95,6 +95,7 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
- 	xdst->u.rt.rt_gateway = rt->rt_gateway;
- 	xdst->u.rt.rt_uses_gateway = rt->rt_uses_gateway;
- 	xdst->u.rt.rt_pmtu = rt->rt_pmtu;
-+	xdst->u.rt.rt_table_id = rt->rt_table_id;
- 	INIT_LIST_HEAD(&xdst->u.rt.rt_uncached);
- 
- 	return 0;
--- 
-1.9.1
+>> The device can't do whatever, wherever. There is always a limit to the offset to the inner headers that can be handled, for instance.
+
+> If the device does NETIF_F_HW_CSUM then inner/outer headers are
+> irrelevant at least in the non-GSO case. All the device needs to do is
+> compute the checksum from start and write the answer at the given
+> offset. No protocol awareness needed in the device, no need to parse
+> headers on transmit.
+
+Tom, could you elaborate a little further on the
+semantics/requirements for devices supporting NETIF_F_HW_CSUM,
+specifically, AFAIU this isn't a TX equivalent of supporting checksum
+complete on RX, right? when you say "write the answer at the given
+offset" what non-common answers are you expecting devices to produce?
+how the kernel is hinting to the device on the nature on the expected
+answer beyond the offset?
+
+Or.
