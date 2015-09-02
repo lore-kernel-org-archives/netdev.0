@@ -1,439 +1,167 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net-next 06/19] ixgbe: Add support for VXLAN RX offloads
-Date: Tue, 1 Sep 2015 20:31:13 -0700
-Message-ID: <CALx6S368wxfg63jDA85C9g319Jwd9ExPDTidPSZu89jhyYNgTA@mail.gmail.com>
-References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1441156443-33381-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next:master 1557/1566] :undefined reference to `__get_hash_from_flowi6'
+Date: Tue, 1 Sep 2015 20:37:48 -0700
+Message-ID: <CALx6S36ha-mqAgt447=39qbvZBnKLqmBmzW4jtotXwtEjQZn=g@mail.gmail.com>
+References: <201509020753.wkuP0ucx%fengguang.wu@intel.com>
+	<20150901.170110.1874105615918834240.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Mark Rustad <mark.d.rustad@intel.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: fengguang.wu@intel.com, kbuild-all@01.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:33774 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124AbbIBDbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 23:31:14 -0400
-Received: by igbkq10 with SMTP id kq10so16326750igb.0
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 20:31:13 -0700 (PDT)
-In-Reply-To: <1441156443-33381-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:34683 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbbIBDht (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 23:37:49 -0400
+Received: by iofb144 with SMTP id b144so6316377iof.1
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 20:37:48 -0700 (PDT)
+In-Reply-To: <20150901.170110.1874105615918834240.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 1, 2015 at 6:13 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Mark Rustad <mark.d.rustad@intel.com>
+On Tue, Sep 1, 2015 at 5:01 PM, David Miller <davem@davemloft.net> wrote:
+> From: kbuild test robot <fengguang.wu@intel.com>
+> Date: Wed, 2 Sep 2015 07:50:55 +0800
 >
-> Add support for VXLAN RX offloads for the X55x devices that support
-> them.
+>> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+>> head:   41ecc3d390266acc1aa911d2ec477928a5248f75
+>> commit: c6cc1ca7f4d70cbb3ea3a5ca163c5dabaf155cdb [1557/1566] flowi: Abstract out functions to get flow hash based on flowi
+>> config: arm-at91_dt_defconfig (attached as .config)
+>> reproduce:
+>>   wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>>   chmod +x ~/bin/make.cross
+>>   git checkout c6cc1ca7f4d70cbb3ea3a5ca163c5dabaf155cdb
+>>   # save the attached .config to linux build tree
+>>   make.cross ARCH=arm
+>>
+>> All error/warnings (new ones prefixed by >>):
+>>
+>>    net/built-in.o: In function `ip6_xmit':
+>>>> :(.text+0x7e18c): undefined reference to `__get_hash_from_flowi6'
+>>    net/built-in.o: In function `__ip6_make_skb':
+>>    :(.text+0x81340): undefined reference to `__get_hash_from_flowi6'
 >
-> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> I am so regretting applying this patch series.
+>
+> Tom, test things more thoroughly in the future.
+>
+Sorry, I missed that. Thanks for fixing it up.
+
+Tom
+
+> I'll fix it with the following change:
+>
+> ====================
+> [PATCH] flow: Move __get_hash_from_flowi{4,6} into flow_dissector.c
+>
+> These cannot live in net/core/flow.c which only builds when XFRM is
+> enabled.
+>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |   6 ++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |  18 +++-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 119 ++++++++++++++++++++-----
->  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  15 ++--
->  4 files changed, 127 insertions(+), 31 deletions(-)
+>  net/core/flow.c           | 36 ------------------------------------
+>  net/core/flow_dissector.c | 35 +++++++++++++++++++++++++++++++++++
+>  2 files changed, 35 insertions(+), 36 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> index ac3ac2a..8830c0f 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> @@ -630,6 +630,7 @@ struct ixgbe_adapter {
->  #define IXGBE_FLAG_FCOE_ENABLED                 (u32)(1 << 21)
->  #define IXGBE_FLAG_SRIOV_CAPABLE                (u32)(1 << 22)
->  #define IXGBE_FLAG_SRIOV_ENABLED                (u32)(1 << 23)
-> +#define IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE       BIT(24)
->
->         u32 flags2;
->  #define IXGBE_FLAG2_RSC_CAPABLE                 (u32)(1 << 0)
-> @@ -644,6 +645,9 @@ struct ixgbe_adapter {
->  #define IXGBE_FLAG2_RSS_FIELD_IPV6_UDP         (u32)(1 << 9)
->  #define IXGBE_FLAG2_PTP_PPS_ENABLED            (u32)(1 << 10)
->  #define IXGBE_FLAG2_PHY_INTERRUPT              (u32)(1 << 11)
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +#define IXGBE_FLAG2_VXLAN_REREG_NEEDED         BIT(12)
-> +#endif
->
->         /* Tx fast path data */
->         int num_tx_queues;
-> @@ -757,7 +761,9 @@ struct ixgbe_adapter {
->         u32 timer_event_accumulator;
->         u32 vferr_refcount;
->         struct ixgbe_mac_addr *mac_table;
-> +#ifdef CONFIG_IXGBE_VXLAN
->         u16 vxlan_port;
-> +#endif
->         struct kobject *info_kobj;
->  #ifdef CONFIG_IXGBE_HWMON
->         struct hwmon_buff *ixgbe_hwmon_buff;
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> index d910442..dd7062f 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> @@ -1519,20 +1519,28 @@ static u32 ixgbe_atr_compute_sig_hash_82599(union ixgbe_atr_hash_dword input,
->   *  @input: unique input dword
->   *  @common: compressed common input dword
->   *  @queue: queue index to direct traffic to
-> + *
-> + * Note that the tunnel bit in input must not be set when the hardware
-> + * tunneling support does not exist.
->   **/
->  s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
->                                           union ixgbe_atr_hash_dword input,
->                                           union ixgbe_atr_hash_dword common,
->                                           u8 queue)
->  {
-> -       u64  fdirhashcmd;
-> -       u32  fdircmd;
-> +       u64 fdirhashcmd;
-> +       u8 flow_type;
-> +       bool tunnel;
-> +       u32 fdircmd;
->
->         /*
->          * Get the flow_type in order to program FDIRCMD properly
->          * lowest 2 bits are FDIRCMD.L4TYPE, third lowest bit is FDIRCMD.IPV6
->          */
-> -       switch (input.formatted.flow_type) {
-> +       tunnel = !!(input.formatted.flow_type & IXGBE_ATR_L4TYPE_TUNNEL_MASK);
-> +       flow_type = input.formatted.flow_type &
-> +                   (IXGBE_ATR_L4TYPE_TUNNEL_MASK - 1);
-> +       switch (flow_type) {
->         case IXGBE_ATR_FLOW_TYPE_TCPV4:
->         case IXGBE_ATR_FLOW_TYPE_UDPV4:
->         case IXGBE_ATR_FLOW_TYPE_SCTPV4:
-> @@ -1548,8 +1556,10 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
->         /* configure FDIRCMD register */
->         fdircmd = IXGBE_FDIRCMD_CMD_ADD_FLOW | IXGBE_FDIRCMD_FILTER_UPDATE |
->                   IXGBE_FDIRCMD_LAST | IXGBE_FDIRCMD_QUEUE_EN;
-> -       fdircmd |= input.formatted.flow_type << IXGBE_FDIRCMD_FLOW_TYPE_SHIFT;
-> +       fdircmd |= (u32)flow_type << IXGBE_FDIRCMD_FLOW_TYPE_SHIFT;
->         fdircmd |= (u32)queue << IXGBE_FDIRCMD_RX_QUEUE_SHIFT;
-> +       if (tunnel)
-> +               fdircmd |= IXGBE_FDIRCMD_TUNNEL_FILTER;
->
->         /*
->          * The lower 32-bits of fdirhashcmd is for FDIRHASH, the upper 32-bits
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 900562e..dcf849d 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -1,7 +1,7 @@
->  /*******************************************************************************
->
->    Intel 10 Gigabit PCI Express Linux driver
-> -  Copyright(c) 1999 - 2014 Intel Corporation.
-> +  Copyright(c) 1999 - 2015 Intel Corporation.
->
->    This program is free software; you can redistribute it and/or modify it
->    under the terms and conditions of the GNU General Public License,
-> @@ -65,6 +65,9 @@
->  #include "ixgbe_common.h"
->  #include "ixgbe_dcb_82599.h"
->  #include "ixgbe_sriov.h"
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +#include <net/vxlan.h>
-> +#endif
->
->  char ixgbe_driver_name[] = "ixgbe";
->  static const char ixgbe_driver_string[] =
-> @@ -79,7 +82,7 @@ static char ixgbe_default_device_descr[] =
->  #define DRV_VERSION "4.0.1-k"
->  const char ixgbe_driver_version[] = DRV_VERSION;
->  static const char ixgbe_copyright[] =
-> -                               "Copyright (c) 1999-2014 Intel Corporation.";
-> +                               "Copyright (c) 1999-2015 Intel Corporation.";
->
->  static const char ixgbe_overheat_msg[] = "Network adapter has been stopped because it has over heated. Restart the computer. If the problem persists, power off the system and replace the adapter";
->
-> @@ -1430,7 +1433,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
->             (hdr_info & cpu_to_le16(IXGBE_RXDADV_PKTTYPE_TUNNEL >> 16))) {
->                 encap_pkt = true;
->                 skb->encapsulation = 1;
-> -               skb->ip_summed = CHECKSUM_NONE;
->         }
->
->         /* if IP and error */
-> @@ -4261,6 +4263,21 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
->         }
+> diff --git a/net/core/flow.c b/net/core/flow.c
+> index 61930bb..1033725 100644
+> --- a/net/core/flow.c
+> +++ b/net/core/flow.c
+> @@ -22,7 +22,6 @@
+>  #include <linux/cpumask.h>
+>  #include <linux/mutex.h>
+>  #include <net/flow.h>
+> -#include <net/flow_dissector.h>
+>  #include <linux/atomic.h>
+>  #include <linux/security.h>
+>  #include <net/net_namespace.h>
+> @@ -510,38 +509,3 @@ void flow_cache_fini(struct net *net)
+>         fc->percpu = NULL;
+>  }
+>  EXPORT_SYMBOL(flow_cache_fini);
+> -
+> -__u32 __get_hash_from_flowi6(struct flowi6 *fl6, struct flow_keys *keys)
+> -{
+> -       memset(keys, 0, sizeof(*keys));
+> -
+> -       memcpy(&keys->addrs.v6addrs.src, &fl6->saddr,
+> -           sizeof(keys->addrs.v6addrs.src));
+> -       memcpy(&keys->addrs.v6addrs.dst, &fl6->daddr,
+> -           sizeof(keys->addrs.v6addrs.dst));
+> -       keys->control.addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+> -       keys->ports.src = fl6->fl6_sport;
+> -       keys->ports.dst = fl6->fl6_dport;
+> -       keys->keyid.keyid = fl6->fl6_gre_key;
+> -       keys->tags.flow_label = (__force u32)fl6->flowlabel;
+> -       keys->basic.ip_proto = fl6->flowi6_proto;
+> -
+> -       return flow_hash_from_keys(keys);
+> -}
+> -EXPORT_SYMBOL(__get_hash_from_flowi6);
+> -
+> -__u32 __get_hash_from_flowi4(struct flowi4 *fl4, struct flow_keys *keys)
+> -{
+> -       memset(keys, 0, sizeof(*keys));
+> -
+> -       keys->addrs.v4addrs.src = fl4->saddr;
+> -       keys->addrs.v4addrs.dst = fl4->daddr;
+> -       keys->control.addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+> -       keys->ports.src = fl4->fl4_sport;
+> -       keys->ports.dst = fl4->fl4_dport;
+> -       keys->keyid.keyid = fl4->fl4_gre_key;
+> -       keys->basic.ip_proto = fl4->flowi4_proto;
+> -
+> -       return flow_hash_from_keys(keys);
+> -}
+> -EXPORT_SYMBOL(__get_hash_from_flowi4);
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 8d32020..345a040 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -787,6 +787,41 @@ u32 skb_get_poff(const struct sk_buff *skb)
+>         return __skb_get_poff(skb, skb->data, &keys, skb_headlen(skb));
 >  }
 >
-> +static void ixgbe_clear_vxlan_port(struct ixgbe_adapter *adapter)
+> +__u32 __get_hash_from_flowi6(struct flowi6 *fl6, struct flow_keys *keys)
 > +{
-> +       switch (adapter->hw.mac.type) {
-> +       case ixgbe_mac_X550:
-> +       case ixgbe_mac_X550EM_x:
-> +               IXGBE_WRITE_REG(&adapter->hw, IXGBE_VXLANCTRL, 0);
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +               adapter->vxlan_port = 0;
-> +#endif
-> +               break;
-> +       default:
-> +               break;
-> +       }
+> +       memset(keys, 0, sizeof(*keys));
+> +
+> +       memcpy(&keys->addrs.v6addrs.src, &fl6->saddr,
+> +           sizeof(keys->addrs.v6addrs.src));
+> +       memcpy(&keys->addrs.v6addrs.dst, &fl6->daddr,
+> +           sizeof(keys->addrs.v6addrs.dst));
+> +       keys->control.addr_type = FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+> +       keys->ports.src = fl6->fl6_sport;
+> +       keys->ports.dst = fl6->fl6_dport;
+> +       keys->keyid.keyid = fl6->fl6_gre_key;
+> +       keys->tags.flow_label = (__force u32)fl6->flowlabel;
+> +       keys->basic.ip_proto = fl6->flowi6_proto;
+> +
+> +       return flow_hash_from_keys(keys);
 > +}
+> +EXPORT_SYMBOL(__get_hash_from_flowi6);
 > +
->  #ifdef CONFIG_IXGBE_DCB
->  /**
->   * ixgbe_configure_dcb - Configure DCB hardware
-> @@ -5302,6 +5319,9 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
->  #ifdef CONFIG_IXGBE_DCA
->                 adapter->flags &= ~IXGBE_FLAG_DCA_CAPABLE;
->  #endif
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +               adapter->flags |= IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE;
-> +#endif
->                 break;
->         default:
->                 break;
-> @@ -5753,10 +5773,11 @@ static int ixgbe_open(struct net_device *netdev)
->
->         ixgbe_up_complete(adapter);
->
-> -#if IS_ENABLED(CONFIG_IXGBE_VXLAN)
-> +       ixgbe_clear_vxlan_port(adapter);
-> +#ifdef CONFIG_IXGBE_VXLAN
->         vxlan_get_rx_port(netdev);
-> -
->  #endif
+> +__u32 __get_hash_from_flowi4(struct flowi4 *fl4, struct flow_keys *keys)
+> +{
+> +       memset(keys, 0, sizeof(*keys));
 > +
->         return 0;
->
->  err_set_queues:
-> @@ -6816,6 +6837,12 @@ static void ixgbe_service_task(struct work_struct *work)
->                 ixgbe_service_event_complete(adapter);
->                 return;
->         }
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +       if (adapter->flags2 & IXGBE_FLAG2_VXLAN_REREG_NEEDED) {
-> +               adapter->flags2 &= ~IXGBE_FLAG2_VXLAN_REREG_NEEDED;
-> +               vxlan_get_rx_port(adapter->netdev);
-> +       }
-> +#endif /* CONFIG_IXGBE_VXLAN */
->         ixgbe_reset_subtask(adapter);
->         ixgbe_phy_interrupt_subtask(adapter);
->         ixgbe_sfp_detection_subtask(adapter);
-> @@ -7240,6 +7267,10 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
->                 struct ipv6hdr *ipv6;
->         } hdr;
->         struct tcphdr *th;
-> +       struct sk_buff *skb;
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +       u8 encap = false;
-> +#endif /* CONFIG_IXGBE_VXLAN */
->         __be16 vlan_id;
->
->         /* if ring doesn't have a interrupt vector, cannot perform ATR */
-> @@ -7253,16 +7284,36 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
-
-Isn't this a function in the transmit path? What do these changes have
-to do with RX offloads?
-
->         ring->atr_count++;
->
->         /* snag network header to get L4 type and address */
-> -       hdr.network = skb_network_header(first->skb);
-> +       skb = first->skb;
-> +       hdr.network = skb_network_header(skb);
-> +       if (skb->encapsulation) {
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +               struct ixgbe_adapter *adapter = q_vector->adapter;
->
-> -       /* Currently only IPv4/IPv6 with TCP is supported */
-> -       if ((first->protocol != htons(ETH_P_IPV6) ||
-> -            hdr.ipv6->nexthdr != IPPROTO_TCP) &&
-> -           (first->protocol != htons(ETH_P_IP) ||
-> -            hdr.ipv4->protocol != IPPROTO_TCP))
-> +               if (!adapter->vxlan_port)
-> +                       return;
-> +               if (first->protocol != htons(ETH_P_IP) ||
-> +                   hdr.ipv4->version != IPVERSION ||
-> +                   hdr.ipv4->protocol != IPPROTO_UDP) {
-> +                       return;
-> +               }
-> +               if (ntohs(udp_hdr(skb)->dest) != adapter->vxlan_port)
-> +                       return;
-> +               encap = true;
-> +               hdr.network = skb_inner_network_header(skb);
-> +               th = inner_tcp_hdr(skb);
-> +#else
->                 return;
-> -
-> -       th = tcp_hdr(first->skb);
-> +#endif /* CONFIG_IXGBE_VXLAN */
-> +       } else {
-> +               /* Currently only IPv4/IPv6 with TCP is supported */
-> +               if ((first->protocol != htons(ETH_P_IPV6) ||
-> +                    hdr.ipv6->nexthdr != IPPROTO_TCP) &&
-> +                   (first->protocol != htons(ETH_P_IP) ||
-> +                    hdr.ipv4->protocol != IPPROTO_TCP))
-> +                       return;
-> +               th = tcp_hdr(skb);
-> +       }
->
->         /* skip this packet since it is invalid or the socket is closing */
->         if (!th || th->fin)
-> @@ -7311,6 +7362,11 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
->                              hdr.ipv6->daddr.s6_addr32[3];
->         }
->
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +       if (encap)
-> +               input.formatted.flow_type |= IXGBE_ATR_L4TYPE_TUNNEL_MASK;
-> +#endif /* CONFIG_IXGBE_VXLAN */
+> +       keys->addrs.v4addrs.src = fl4->saddr;
+> +       keys->addrs.v4addrs.dst = fl4->daddr;
+> +       keys->control.addr_type = FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+> +       keys->ports.src = fl4->fl4_sport;
+> +       keys->ports.dst = fl4->fl4_dport;
+> +       keys->keyid.keyid = fl4->fl4_gre_key;
+> +       keys->basic.ip_proto = fl4->flowi4_proto;
 > +
->         /* This assumes the Rx queue and Tx queue are bound to the same CPU */
->         ixgbe_fdir_add_signature_filter_82599(&q_vector->adapter->hw,
->                                               input, common, ring->queue_index);
-> @@ -7937,12 +7993,23 @@ static int ixgbe_set_features(struct net_device *netdev,
->                 need_reset = true;
->
->         netdev->features = features;
+> +       return flow_hash_from_keys(keys);
+> +}
+> +EXPORT_SYMBOL(__get_hash_from_flowi4);
 > +
-> +#ifdef CONFIG_IXGBE_VXLAN
-> +       if ((adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE)) {
-> +               if (features & NETIF_F_RXCSUM)
-> +                       adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
-> +               else
-> +                       ixgbe_clear_vxlan_port(adapter);
-> +       }
-> +#endif /* CONFIG_IXGBE_VXLAN */
-> +
->         if (need_reset)
->                 ixgbe_do_reset(netdev);
->
->         return 0;
->  }
->
-> +#ifdef CONFIG_IXGBE_VXLAN
->  /**
->   * ixgbe_add_vxlan_port - Get notifications about VXLAN ports that come up
->   * @dev: The port's netdev
-> @@ -7956,17 +8023,18 @@ static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
->         struct ixgbe_hw *hw = &adapter->hw;
->         u16 new_port = ntohs(port);
->
-> +       if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
-> +               return;
-> +
->         if (sa_family == AF_INET6)
->                 return;
->
-> -       if (adapter->vxlan_port == new_port) {
-> -               netdev_info(dev, "Port %d already offloaded\n", new_port);
-> +       if (adapter->vxlan_port == new_port)
->                 return;
-> -       }
->
->         if (adapter->vxlan_port) {
->                 netdev_info(dev,
-> -                           "Hit Max num of UDP ports, not adding port %d\n",
-> +                           "Hit Max num of VXLAN ports, not adding port %d\n",
->                             new_port);
->                 return;
->         }
-> @@ -7985,9 +8053,11 @@ static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
->                                  __be16 port)
->  {
->         struct ixgbe_adapter *adapter = netdev_priv(dev);
-> -       struct ixgbe_hw *hw = &adapter->hw;
->         u16 new_port = ntohs(port);
->
-> +       if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
-> +               return;
-> +
->         if (sa_family == AF_INET6)
->                 return;
->
-> @@ -7997,9 +8067,10 @@ static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
->                 return;
->         }
->
-> -       adapter->vxlan_port = 0;
-> -       IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, 0);
-> +       ixgbe_clear_vxlan_port(adapter);
-> +       adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
->  }
-> +#endif /* CONFIG_IXGBE_VXLAN */
->
->  static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
->                              struct net_device *dev,
-> @@ -8290,8 +8361,10 @@ static const struct net_device_ops ixgbe_netdev_ops = {
->         .ndo_bridge_getlink     = ixgbe_ndo_bridge_getlink,
->         .ndo_dfwd_add_station   = ixgbe_fwd_add,
->         .ndo_dfwd_del_station   = ixgbe_fwd_del,
-> +#ifdef CONFIG_IXGBE_VXLAN
->         .ndo_add_vxlan_port     = ixgbe_add_vxlan_port,
->         .ndo_del_vxlan_port     = ixgbe_del_vxlan_port,
-> +#endif /* CONFIG_IXGBE_VXLAN */
->         .ndo_features_check     = ixgbe_features_check,
->  };
->
-> @@ -8658,14 +8731,18 @@ skip_sriov:
->         netdev->priv_flags |= IFF_UNICAST_FLT;
->         netdev->priv_flags |= IFF_SUPP_NOFCS;
->
-> +#ifdef CONFIG_IXGBE_VXLAN
->         switch (adapter->hw.mac.type) {
->         case ixgbe_mac_X550:
->         case ixgbe_mac_X550EM_x:
-> -               netdev->hw_enc_features |= NETIF_F_RXCSUM;
-> +               netdev->hw_enc_features |= NETIF_F_RXCSUM |
-> +                                          NETIF_F_IP_CSUM |
-> +                                          NETIF_F_IPV6_CSUM;
->                 break;
->         default:
->                 break;
->         }
-> +#endif /* CONFIG_IXGBE_VXLAN */
->
->  #ifdef CONFIG_IXGBE_DCB
->         netdev->dcbnl_ops = &dcbnl_ops;
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> index 938a410..0e67824 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> @@ -2540,9 +2540,11 @@ enum ixgbe_fdir_pballoc_type {
->  #define IXGBE_FDIRCMD_QUEUE_EN                  0x00008000
->  #define IXGBE_FDIRCMD_FLOW_TYPE_SHIFT           5
->  #define IXGBE_FDIRCMD_RX_QUEUE_SHIFT            16
-> +#define IXGBE_FDIRCMD_RX_TUNNEL_FILTER_SHIFT   23
->  #define IXGBE_FDIRCMD_VT_POOL_SHIFT             24
->  #define IXGBE_FDIR_INIT_DONE_POLL               10
->  #define IXGBE_FDIRCMD_CMD_POLL                  10
-> +#define IXGBE_FDIRCMD_TUNNEL_FILTER            0x00800000
->
->  #define IXGBE_FDIR_DROP_QUEUE                   127
->
-> @@ -2833,12 +2835,13 @@ typedef u32 ixgbe_link_speed;
->  #define IXGBE_ATR_SIGNATURE_HASH_KEY 0x174D3614
->
->  /* Software ATR input stream values and masks */
-> -#define IXGBE_ATR_HASH_MASK     0x7fff
-> -#define IXGBE_ATR_L4TYPE_MASK      0x3
-> -#define IXGBE_ATR_L4TYPE_UDP       0x1
-> -#define IXGBE_ATR_L4TYPE_TCP       0x2
-> -#define IXGBE_ATR_L4TYPE_SCTP      0x3
-> -#define IXGBE_ATR_L4TYPE_IPV6_MASK 0x4
-> +#define IXGBE_ATR_HASH_MASK            0x7fff
-> +#define IXGBE_ATR_L4TYPE_MASK          0x3
-> +#define IXGBE_ATR_L4TYPE_UDP           0x1
-> +#define IXGBE_ATR_L4TYPE_TCP           0x2
-> +#define IXGBE_ATR_L4TYPE_SCTP          0x3
-> +#define IXGBE_ATR_L4TYPE_IPV6_MASK     0x4
-> +#define IXGBE_ATR_L4TYPE_TUNNEL_MASK   0x10
->  enum ixgbe_atr_flow_type {
->         IXGBE_ATR_FLOW_TYPE_IPV4   = 0x0,
->         IXGBE_ATR_FLOW_TYPE_UDPV4  = 0x1,
+>  static const struct flow_dissector_key flow_keys_dissector_keys[] = {
+>         {
+>                 .key_id = FLOW_DISSECTOR_KEY_CONTROL,
 > --
-> 2.4.3
+> 2.1.0
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
