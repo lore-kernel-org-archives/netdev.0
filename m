@@ -1,40 +1,48 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net 3/3] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
-Date: Wed, 2 Sep 2015 14:52:03 -0700
-Message-ID: <20150902215203.GB78846@kafai-mba.local>
-References: <1441133703-1570969-1-git-send-email-kafai@fb.com>
- <1441133703-1570969-4-git-send-email-kafai@fb.com>
- <1441138460.8932.182.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150902205802.GA78846@kafai-mba.local>
- <1441229445.8932.206.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Subject: Re: [PATCHv1 net-next 0/5] netlink: mmap: kernel panic and some
+ issues
+Date: Thu, 3 Sep 2015 07:27:10 +0900
+Message-ID: <20150902222710.GA7746@gmail.com>
+References: <20150814085807.GA30443@gmail.com>
+ <55CDBC84.8020605@iogearbox.net>
+ <55CDC51D.1060204@iogearbox.net>
+ <20150817.140222.1763422851882964859.davem@davemloft.net>
+ <55D492CC.6010602@iogearbox.net>
+ <20150902000400.GA14821@gmail.com>
+ <55E6C5AE.4060308@iogearbox.net>
+ <20150902113553.GA3282@gmail.com>
+ <55E71C34.1080504@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	fw@strlen.de
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58428 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753182AbbIBVwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 17:52:10 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36297 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897AbbIBW1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 18:27:16 -0400
+Received: by pacwi10 with SMTP id wi10so24504971pac.3
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 15:27:16 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1441229445.8932.206.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <55E71C34.1080504@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 02, 2015 at 02:30:45PM -0700, Eric Dumazet wrote:
-> Object cannot be freed until all cpus have exited their RCU sections.
-You meant the dst_destroy() here will wait for all cpus exited their RCU sections?
+On Wed, Sep 02, 2015 at 05:56:36PM +0200, Daniel Borkmann wrote:
+> you suggest or not), for two reasons: I think (will start experimenting
+> more with it tomorrow), you would get an out of bounds access here in
+> case the skb->data is the last slot in the ring buffer and reaches
+> exactly to the ring buffer end. And (despite that), it's also hard
 
-static inline void dst_free(struct dst_entry *dst)
-{
-	if (dst->obsolete > 0)
-		return;
-	if (!atomic_read(&dst->__refcnt)) {
-		dst = dst_destroy(dst);
-		if (!dst)
-			return;
-	}
-	__dst_free(dst);
-}
+I thought accessing as a value, not a pointer, in thats wrong shared
+info will not be a big problem, but
+
+> to maintain - the next one adding a new shared info member will very
+> likely oversee this special case in netlink here, thus the issue would
+> then simply be reintroduced over and over.
+
+I agree with you.
+Thank you for taking your time. I think I have learned a lot.
+
+Thanks,
