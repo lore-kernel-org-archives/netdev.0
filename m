@@ -1,45 +1,87 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 3/3] net: Add table id from route lookup to route response
-Date: Wed,  2 Sep 2015 09:40:34 -0700
-Message-ID: <1441212034-37464-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1441212034-37464-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [net-next 05/19] ixgbe: Add support for UDP-encapsulated tx
+ checksum offload
+Date: Wed, 2 Sep 2015 16:46:42 +0000
+Message-ID: <F63CFE64-29E1-484B-B19B-269FAAA9C54B@intel.com>
+References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1441156443-33381-6-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CALx6S34-mUvQyUQNcVC+o+NeUxWEsCG2GS=Eq++eGqoh=kv8kg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_90A5B14F-3215-4C6F-8AC6-9F1C0EC7373A";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34655 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755528AbbIBQko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 12:40:44 -0400
-Received: by padhy1 with SMTP id hy1so16955081pad.1
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 09:40:43 -0700 (PDT)
-In-Reply-To: <1441212034-37464-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mga09.intel.com ([134.134.136.24]:34407 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755106AbbIBQqq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Sep 2015 12:46:46 -0400
+In-Reply-To: <CALx6S34-mUvQyUQNcVC+o+NeUxWEsCG2GS=Eq++eGqoh=kv8kg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rt_fill_info which is called for 'route get' requests hardcodes the
-table id as RT_TABLE_MAIN which is not correct when multiple tables
-are used. Use the newly added table id in the rtable to send back
-the correct table.
+--Apple-Mail=_90A5B14F-3215-4C6F-8AC6-9F1C0EC7373A
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv4/route.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> On Sep 1, 2015, at 8:17 PM, Tom Herbert <tom@herbertland.com> wrote:
+>=20
+> I suspect this is not UDP-encapsulation specific, will it work with
+> TCP/IP/IP, TCP/IP/GRE etc.?
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 92acc95b7578..2738bf4132db 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2325,8 +2325,8 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 	r->rtm_dst_len	= 32;
- 	r->rtm_src_len	= 0;
- 	r->rtm_tos	= fl4->flowi4_tos;
--	r->rtm_table	= RT_TABLE_MAIN;
--	if (nla_put_u32(skb, RTA_TABLE, RT_TABLE_MAIN))
-+	r->rtm_table	= rt->rt_table_id;
-+	if (nla_put_u32(skb, RTA_TABLE, rt->rt_table_id))
- 		goto nla_put_failure;
- 	r->rtm_type	= rt->rt_type;
- 	r->rtm_scope	= RT_SCOPE_UNIVERSE;
--- 
-1.9.1
+It could do more, but this is what has been tested up to this point.
+
+> Isn't there anyway the ixgbe could just be made to NETIF_HW_CSUM? That
+> would be so much more straightforward and support nearly all use cases
+> without needing to jump through all these hoops.
+
+Well, the description says:
+
+ ---
+Note: NETIF_F_HW_CSUM is a superset of NETIF_F_IP_CSUM + =
+NETIF_F_IPV6_CSUM.
+It means that device can fill TCP/UDP-like checksum anywhere in the =
+packets
+whatever headers there might be.
+ ---
+
+The device can't do whatever, wherever. There is always a limit to the =
+offset to the inner headers that can be handled, for instance.
+
+--
+Mark Rustad, Networking Division, Intel Corporation
+
+
+--Apple-Mail=_90A5B14F-3215-4C6F-8AC6-9F1C0EC7373A
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJV5yfxAAoJEDwO/+eO4+5uNtEQAI/LjynTpOrI4BDOmuqTWhv6
+2OH6KAbn+HOWRdhp4Jgj5m6ZxVxg69zj10euh/+g6S6uBdXlzgLLT1bPNV8/iroy
+wkOUP6bzUNlkdQibLOZv7DektKhz8GgYFGTyYiKa8ItBd1ufeU5aT7iXLT5o7Qoo
+msKwVSfPoOCgjQhMipBhn/tp+fRuT8NjCsKHnL8nGD2qv4uqIRkBi7mRcWoQkH+U
+FPZnA0oxr+6N3KTBiT/d/IIfNqDUnCN3mPaXi2MLJcqMm0YZ6ZaoUZ1G9nwY2O9D
+mXJVT+YftfXCf2aBYftV08KFJvVFJDhGeC2ztXkw+stFbDn+Esm4WI1aaW+lAuYP
+3t9ktPo/eKaRtsWF8mDG188ae9tM2fgC+al8pyiOSv/vg0Pbkqr+paV/bjC+GESW
++3NTWCNupUX+o4pEqK99F3OHzHuVVJAcmcII7tFdqTPTBjgPdfwH1MTw+73gfN1u
+TRK1xZPgH5k+eYleFgaY9rDaMe0C1WbKoEcxL5gUFwn3OihcEPjOKCIgg4liLir2
+zFjxNHCb70gkWHdeYnzmThooU0bEXgfWFFzNOqbanuE7L+BWUeawzVFnJKaUKtIG
+rmpYIjKRd95vx0BZO8RKtiWYOnb1Plk+RcBe4oZIhzj3PixUVV2B60LRx/SkCbjV
+3cBLPRUjsoVzvd1oiwuz
+=vx5Y
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_90A5B14F-3215-4C6F-8AC6-9F1C0EC7373A--
