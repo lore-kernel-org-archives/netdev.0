@@ -1,48 +1,46 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 4/5] net_sched: forbid setting default qdisc to
- inappropriate ones
-Date: Tue, 1 Sep 2015 23:26:32 -0700
-Message-ID: <CAM_iQpX3UQuft9yrUEDo7ZmHhvM4CQj8UB=poPnz4punyvc8jQ@mail.gmail.com>
-References: <20150828.162037.473306692661391284.davem@davemloft.net>
-	<55E3546B.8000605@mojatatu.com>
-	<CAM_iQpVS2qzPeJNfNY11XP-b3bJH1BAU2aa2H3hLzu+F-zKAOw@mail.gmail.com>
-	<20150901.231913.1408311787626700854.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH] drivers: net: cpsw: Add support to make gpio
+ drive which slave connected to phy
+Date: Wed, 2 Sep 2015 12:03:10 +0530
+Message-ID: <55E69826.7090503@ti.com>
+References: <1441106719-5896-1-git-send-email-mugunthanvnm@ti.com>
+ <20150901153621.GI4215@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S . Miller" <davem@davemloft.net>,
+	Sekhar Nori <nsekhar@ti.com>, <linux-omap@vger.kernel.org>
+To: Tony Lindgren <tony@atomide.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:36691 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805AbbIBG0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 02:26:33 -0400
-Received: by oibi136 with SMTP id i136so164424oib.3
-        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 23:26:32 -0700 (PDT)
-In-Reply-To: <20150901.231913.1408311787626700854.davem@davemloft.net>
+Received: from bear.ext.ti.com ([192.94.94.41]:39097 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750856AbbIBGdX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Sep 2015 02:33:23 -0400
+In-Reply-To: <20150901153621.GI4215@atomide.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 1, 2015 at 11:19 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Tue, 1 Sep 2015 23:05:45 -0700
->
->> On Sun, Aug 30, 2015 at 12:07 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->>> On 08/28/15 19:20, David Miller wrote:
->>>
->>>> But HTB definitely should be allowed.
->>>
->>>
->>> Problem with most non-work conserving schedulers is what the meaning
->>> of default resources means; example, for HTB:
->>> What is the default bandwidth you allocate to a class of users?
->>
->> Exactly, that is why it has to need at least one parameter for bandwidth,
->> while default qdisc requires no parameter.
->
-> Ok I'm convinced.
+On Tuesday 01 September 2015 09:06 PM, Tony Lindgren wrote:
+> * Mugunthan V N <mugunthanvnm@ti.com> [150901 04:28]:
+>> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+>> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+>> @@ -26,6 +26,9 @@ Optional properties:
+>>  - dual_emac		: Specifies Switch to act as Dual EMAC
+>>  - syscon		: Phandle to the system control device node, which is
+>>  			  the control module device of the am33x
+>> +- select-slave-gpio	: Should be added if a gpio line is required to
+>> +			  select which slave is connected to phy
+>> +
+> 
+> How about using something more generic here for the name?
+> Something like mode-gpios?
+> 
 
-Ok, I will update the changelog to clarify this and resend.
+Yeah, agreed, for DRA72x it is used for connecting to phy, if some other
+board wanted to drive a GPIO for something else we can use this node to
+drive GPIO.
 
-Thanks.
+Will submit a v2 with name change
+
+Regards
+Mugunthan V N
