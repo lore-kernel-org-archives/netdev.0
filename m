@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sock, diag: fix panic in sock_diag_put_filterinfo
-Date: Wed, 02 Sep 2015 11:31:22 -0700 (PDT)
-Message-ID: <20150902.113122.471880367561328606.davem@davemloft.net>
-References: <8824dd0b0b627c5dfdfd767e0e366e3cc8f9505a.1441193159.git.daniel@iogearbox.net>
+Subject: Re: [net-next PATCH] net: ipv6: use common fib_default_rule_pref
+Date: Wed, 02 Sep 2015 11:34:39 -0700 (PDT)
+Message-ID: <20150902.113439.1914221451599696711.davem@davemloft.net>
+References: <1441198992-25359-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38353 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38383 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754958AbbIBSbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 14:31:23 -0400
-In-Reply-To: <8824dd0b0b627c5dfdfd767e0e366e3cc8f9505a.1441193159.git.daniel@iogearbox.net>
+	with ESMTP id S1754914AbbIBSel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 14:34:41 -0400
+In-Reply-To: <1441198992-25359-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed,  2 Sep 2015 14:00:36 +0200
+From: Phil Sutter <phil@nwl.cc>
+Date: Wed,  2 Sep 2015 15:03:12 +0200
 
-> diag socket's sock_diag_put_filterinfo() dumps classic BPF programs
-> upon request to user space (ss -0 -b). However, native eBPF programs
-> attached to sockets (SO_ATTACH_BPF) cannot be dumped with this method:
+> This switches IPv6 policy routing to use the shared
+> fib_default_rule_pref() function of IPv4 and DECnet. It is also used in
+> multicast routing for IPv4 as well as IPv6.
 > 
-> Their orig_prog is always NULL. However, sock_diag_put_filterinfo()
-> unconditionally tries to access its filter length resp. wants to copy
-> the filter insns from there. Internal cBPF to eBPF transformations
-> attached to sockets don't have this issue, as orig_prog state is kept.
+> The motivation for this patch is a complaint about iproute2 behaving
+> inconsistent between IPv4 and IPv6 when adding policy rules: Formerly,
+> IPv6 rules were assigned a fixed priority of 0x3FFF whereas for IPv4 the
+> assigned priority value was decreased with each rule added.
 > 
-> It's currently only used by packet sockets. If we would want to add
-> native eBPF support in the future, this needs to be done through
-> a different attribute than PACKET_DIAG_FILTER to not confuse possible
-> user space disassemblers that work on diag data.
-> 
-> Fixes: 89aa075832b0 ("net: sock: allow eBPF programs to be attached to sockets")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Applied and queued up for -stable, thanks.
+All ->default_pref() methods are therefore going to be set to the
+default, so just kill off the method entirely and call
+fib_default_rule_pref() directly.
