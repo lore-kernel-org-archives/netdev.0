@@ -1,36 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Wed, 2 Sep 2015 10:00:25 +0800
-Message-ID: <20150902020025.GA18184@gondor.apana.org.au>
-References: <20150901114300.GB12691@gondor.apana.org.au>
- <20150901124648.GA27550@orbit.nwl.cc>
- <20150901130057.GA13230@gondor.apana.org.au>
- <20150901134310.GB27550@orbit.nwl.cc>
- <20150901135019.GA13629@gondor.apana.org.au>
- <20150901135618.GD27550@orbit.nwl.cc>
- <20150901140341.GA13757@gondor.apana.org.au>
- <20150901141305.GA11564@pox.localdomain>
- <20150901141639.GA13856@gondor.apana.org.au>
- <20150901145124.GC11564@pox.localdomain>
+From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH v2] fm10k: Report MAC address on
+ driver	load
+Date: Wed, 2 Sep 2015 02:01:05 +0000
+Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E271B5392@ORSMSX103.amr.corp.intel.com>
+References: <20150619023812.1345.75383.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150901145124.GC11564@pox.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:32114 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752061AbbIBCBG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 22:01:06 -0400
+In-Reply-To: <20150619023812.1345.75383.stgit@ahduyck-vm-fedora22>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 01, 2015 at 04:51:24PM +0200, Thomas Graf wrote:
->
-> 1. The current in-kernel self-test
-> 2. bind_netlink.c: https://github.com/tgraf/rhashtable
 
-Thanks, I will try to reproduce this.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alexander Duyck
+Sent: Thursday, June 18, 2015 7:41 PM
+To: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+Subject: [Intel-wired-lan] [PATCH v2] fm10k: Report MAC address on driver load
+
+This change adds the MAC address to the list of values recorded on driver load.  The MAC address represents the serial number of the unit and allows us to track the value should a card be replaced in a system.
+
+The log message should now be similar in output to that of ixgbe.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+
+Tested-By: Krishneil Singh <krishneil.k.singh@intel.com>
+
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
