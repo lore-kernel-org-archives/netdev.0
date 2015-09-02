@@ -1,91 +1,80 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCHv1 net-next 0/5] netlink: mmap: kernel panic and some issues
-Date: Wed, 02 Sep 2015 11:47:26 +0200
-Message-ID: <55E6C5AE.4060308@iogearbox.net>
-References: <20150814085807.GA30443@gmail.com> <55CDBC84.8020605@iogearbox.net> <55CDC51D.1060204@iogearbox.net> <20150817.140222.1763422851882964859.davem@davemloft.net> <55D492CC.6010602@iogearbox.net> <20150902000400.GA14821@gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] x86: Wire up 32-bit direct socket calls
+Date: Wed, 2 Sep 2015 11:48:05 +0200
+Message-ID: <CAMuHMdXKA_+JY2ryf-yoJxQnbW=jsOjj_w2-Nsybpx0310neDA@mail.gmail.com>
+References: <cb5138299d37d5800e2d135b01a7667fa6115854.1436912629.git.luto@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	fw@strlen.de
-To: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44076 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751233AbbIBJrf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 05:47:35 -0400
-In-Reply-To: <20150902000400.GA14821@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: X86 ML <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Tulio Magno Quites Machado Filho
+	<tuliom@linux.vnet.ibm.com>, Andy Lutomirski <luto@amacapital.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Alexander Larsson <alexl@redhat.com>,
+	Cosimo Cecchi <cosimo@endlessm.com>,
+	Dan Nicholson <nicholson@endlessm.com>,
+	libc-alpha <libc-alpha@sourceware.org>,
+	Rajalakshmi Srinivasaraghavan <raji@linux.vnet.ibm.com>,
+	Linux-Arch <linux-arch@vger.kernel.org>
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <cb5138299d37d5800e2d135b01a7667fa6115854.1436912629.git.luto@kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/02/2015 02:04 AM, Ken-ichirou MATSUZAWA wrote:
-> On Wed, Aug 19, 2015 at 04:29:32PM +0200, Daniel Borkmann wrote:
->> On 08/17/2015 11:02 PM, David Miller wrote:
->>> From: Daniel Borkmann <daniel@iogearbox.net>
->>> Date: Fri, 14 Aug 2015 12:38:21 +0200
->>>
->>>> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
->>>> index 67d2104..4307446 100644
->>>> --- a/net/netlink/af_netlink.c
->>>> +++ b/net/netlink/af_netlink.c
->>>> @@ -238,6 +238,13 @@ static void __netlink_deliver_tap(struct sk_buff
->>>> *skb)
->>>>
->>>>   static void netlink_deliver_tap(struct sk_buff *skb)
->>>>   {
->>>> +	/* Netlink mmaped skbs must not access shared info, and thus
->>>> +	 * are not allowed to be cloned. For now, just don't allow
->>>> +	 * them to get inspected by taps.
->>>> +	 */
->>>> +	if (netlink_skb_is_mmaped(skb))
->>>> +		return;
->>>> +
->>>
->>> I would seriously rather see us do an expensive full copy of the SKB
->>> than to have traffic which is unexpectedly invisible to taps.
->>
->> Do you mean generically as we do in TX path, or only in this
->> particular scenario?
+On Wed, Jul 15, 2015 at 12:24 AM, Andy Lutomirski <luto@kernel.org> wrote:
+> On x86_64, there's no socketcall syscall; instead all of the socket
+> calls are real syscalls.  For 32-bit programs, we're stuck offering
+> the socketcall syscall, but it would be nice to expose the direct
+> calls as well.  This will enable seccomp to filter socket calls (for
+> new userspace only, but that's fine for some applications) and it
+> will provide a tiny performance boost.
 >
-> It seems that we only handle this particular scenario.
+> Signed-off-by: Andy Lutomirski <luto@kernel.org>
+> ---
+>  arch/x86/entry/syscalls/syscall_32.tbl | 15 +++++++++++++++
+>  1 file changed, 15 insertions(+)
 >
-> I think I can understand the cause of the panic. The original mmaped
-> skb, allocated by netlink_alloc_skb, has a skb destructor which set
-> skb head NULL. This prevents from accessing shared info in
-> skb_release_all, so my concerns that the shared info of original skb
-> may be accessed in kfree_skb and may cause a panic, is unnecessary.
->
-> But since skb_clone does not copy the destructor, skb_release_all
-> calls skb_release_data for cloned skb, accessing shared info and
-> causes the panic, I think. Setting the destructor after clone could
-> not fix the problem since __dev_queue_xmit call path,
-> netif_skb_features?, accesses shared info.
->
-> Talking about skb_copy path, original skb's shared info is accessed
-> only in copy_skb_header, to get gso related field. As a result of
-> those, we can avoid the panic by:
->
->    @@ -205,7 +205,10 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
->          int ret = -ENOMEM;
->
->          dev_hold(dev);
->          -       nskb = skb_clone(skb, GFP_ATOMIC);
->          +       if (netlink_skb_is_mmaped(skb))
->          +               nskb = skb_copy(skb, GFP_ATOMIC);
->          +       else
->          +               nskb = skb_clone(skb, GFP_ATOMIC);
->
-> Thanks to you, my question become clear:
-> Should we set gso_size to 0 after copying to make skb_is_gso
-> returning false?
+> diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
+> index ef8187f9d28d..25e3cf1cd8fd 100644
+> --- a/arch/x86/entry/syscalls/syscall_32.tbl
+> +++ b/arch/x86/entry/syscalls/syscall_32.tbl
+> @@ -365,3 +365,18 @@
+>  356    i386    memfd_create            sys_memfd_create
+>  357    i386    bpf                     sys_bpf
+>  358    i386    execveat                sys_execveat                    stub32_execveat
+> +359    i386    socket                  sys_socket
+> +360    i386    socketpair              sys_socketpair
+> +361    i386    bind                    sys_bind
+> +362    i386    connect                 sys_connect
+> +363    i386    listen                  sys_listen
+> +364    i386    accept4                 sys_accept4
+> +365    i386    getsockopt              sys_getsockopt                  compat_sys_getsockopt
+> +366    i386    setsockopt              sys_setsockopt                  compat_sys_setsockopt
+> +367    i386    getsockname             sys_getsockname
+> +368    i386    getpeername             sys_getpeername
+> +369    i386    sendto                  sys_sendto
+> +370    i386    sendmsg                 sys_sendmsg                     compat_sys_sendmsg
+> +371    i386    recvfrom                sys_recvfrom                    compat_sys_recvfrom
+> +372    i386    recvmsg                 sys_recvmsg                     compat_sys_recvmsg
+> +373    i386    shutdown                sys_shutdown
 
-It's still not correct. The thing is you can neither call skb_copy() nor
-skb_clone() on netlink mmaped skbs. For example, skb_copy_bits() would
-look at frags[] in the shared info and tries to copy them. I think adding
-extra logic to skb_copy() would be very ugly just to accommodate for this
-special case. We need an own netlink_mmap_to_full_skb() handler for this,
-that copies/transforms this into a "normal" skb. I'll have a look it this
-week.
+Should all other architectures follow suit?
+Or should we follow the s390 approach:
 
-Thanks,
-Daniel
+commit 5a7ff75a0c63222d138d944240146dc49a9624e1
+Author: Heiko Carstens <heiko.carstens@de.ibm.com>
+Date:   Tue Aug 4 09:15:58 2015 +0200
+
+    s390/syscalls: ignore syscalls reachable via sys_socketcall
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
