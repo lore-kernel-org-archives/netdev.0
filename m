@@ -1,43 +1,57 @@
 From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH v2] fm10k: Report MAC address on
- driver	load
-Date: Wed, 2 Sep 2015 02:01:05 +0000
-Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E271B5392@ORSMSX103.amr.corp.intel.com>
-References: <20150619023812.1345.75383.stgit@ahduyck-vm-fedora22>
+Subject: RE: [Intel-wired-lan] [PATCH 1/1] ixgbe: use kzalloc for allocating
+ one	thing
+Date: Wed, 2 Sep 2015 02:24:03 +0000
+Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E271B565B@ORSMSX103.amr.corp.intel.com>
+References: <1434686875-13040-1-git-send-email-maninder1.s@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-To: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: "pankaj.m@samsung.com" <pankaj.m@samsung.com>
+To: Maninder Singh <maninder1.s@samsung.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
 	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:32114 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752061AbbIBCBG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 22:01:06 -0400
-In-Reply-To: <20150619023812.1345.75383.stgit@ahduyck-vm-fedora22>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434686875-13040-1-git-send-email-maninder1.s@samsung.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 -----Original Message-----
-From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alexander Duyck
-Sent: Thursday, June 18, 2015 7:41 PM
-To: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-Subject: [Intel-wired-lan] [PATCH v2] fm10k: Report MAC address on driver load
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Maninder Singh
+Sent: Thursday, June 18, 2015 9:08 PM
+To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; Brandeburg, Jesse <jesse.brandeburg@intel.com>; Nelson, Shannon <shannon.nelson@intel.com>; Wyborny, Carolyn <carolyn.wyborny@intel.com>; Skidmore, Donald C <donald.c.skidmore@intel.com>; Vick, Matthew <matthew.vick@intel.com>; Ronciak, John <john.ronciak@intel.com>; Williams, Mitch A <mitch.a.williams@intel.com>; intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+Cc: Maninder Singh <maninder1.s@samsung.com>; pankaj.m@samsung.com
+Subject: [Intel-wired-lan] [PATCH 1/1] ixgbe: use kzalloc for allocating one thing
 
-This change adds the MAC address to the list of values recorded on driver load.  The MAC address represents the serial number of the unit and allows us to track the value should a card be replaced in a system.
+Use kzalloc rather than kcalloc(1..
 
-The log message should now be similar in output to that of ixgbe.
+The semantic patch that makes this change is as follows:
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+// <smpl>
+@@
+@@
+
+- kcalloc(1,
++ kzalloc(
+          ...)
+// </smpl>
+
+and removing checkpatch below CHECK:
+CHECK: Prefer kzalloc(sizeof(*fwd_adapter)...) over kzalloc(sizeof(struct ixgbe_fwd_adapter)...)
+
+Signed-off-by: Maninder Singh <maninder1.s@samsung.com>
+Reviewed-by: Vaneet Narang <v.narang@samsung.com>
 ---
-
+ 
 Tested-By: Krishneil Singh <krishneil.k.singh@intel.com>
-
-_______________________________________________
-Intel-wired-lan mailing list
-Intel-wired-lan@lists.osuosl.org
-http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
