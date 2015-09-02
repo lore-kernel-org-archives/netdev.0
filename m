@@ -1,65 +1,51 @@
-From: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-Subject: Re: [PATCHv1 net-next 0/5] netlink: mmap: kernel panic and some
- issues
-Date: Wed, 2 Sep 2015 20:35:53 +0900
-Message-ID: <20150902113553.GA3282@gmail.com>
-References: <20150814085807.GA30443@gmail.com>
- <55CDBC84.8020605@iogearbox.net>
- <55CDC51D.1060204@iogearbox.net>
- <20150817.140222.1763422851882964859.davem@davemloft.net>
- <55D492CC.6010602@iogearbox.net>
- <20150902000400.GA14821@gmail.com>
- <55E6C5AE.4060308@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	fw@strlen.de
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] sock, diag: fix panic in sock_diag_put_filterinfo
+Date: Wed,  2 Sep 2015 14:00:36 +0200
+Message-ID: <8824dd0b0b627c5dfdfd767e0e366e3cc8f9505a.1441193159.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34498 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341AbbIBLf7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 07:35:59 -0400
-Received: by padhy1 with SMTP id hy1so9145252pad.1
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 04:35:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55E6C5AE.4060308@iogearbox.net>
+Received: from www62.your-server.de ([213.133.104.62]:59800 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752682AbbIBMAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 08:00:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thank you for the reply.
+diag socket's sock_diag_put_filterinfo() dumps classic BPF programs
+upon request to user space (ss -0 -b). However, native eBPF programs
+attached to sockets (SO_ATTACH_BPF) cannot be dumped with this method:
 
-On Wed, Sep 02, 2015 at 11:47:26AM +0200, Daniel Borkmann wrote:
-> On 09/02/2015 02:04 AM, Ken-ichirou MATSUZAWA wrote:
-> >Talking about skb_copy path, original skb's shared info is accessed
-> >only in copy_skb_header, to get gso related field. As a result of
-> 
-> It's still not correct. The thing is you can neither call skb_copy() nor
-> skb_clone() on netlink mmaped skbs. For example, skb_copy_bits() would
+Their orig_prog is always NULL. However, sock_diag_put_filterinfo()
+unconditionally tries to access its filter length resp. wants to copy
+the filter insns from there. Internal cBPF to eBPF transformations
+attached to sockets don't have this issue, as orig_prog state is kept.
 
-I am sorry for the lack of explanation.
-And I am afraid I misunderstand...
+It's currently only used by packet sockets. If we would want to add
+native eBPF support in the future, this needs to be done through
+a different attribute than PACKET_DIAG_FILTER to not confuse possible
+user space disassemblers that work on diag data.
 
-Updated pointers to its data area in a mmaped netlink skb is only
-its tail. Head, data and end will not be updated. skb_copy() calls
+Fixes: 89aa075832b0 ("net: sock: allow eBPF programs to be attached to sockets")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/core/sock_diag.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-    int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len)
-
-as its argument, "offset" is always 0 and "len" is skb->len. In
-skb_copy_bits() both "start" and "copy" are skb->len, which means
-"len - copy" is always 0 so that retuns 0 before accessing shared
-info.
-
-I don't know the situation is intended or not, it seems that
-skb_copy() for a mmaped skb will not access its shared info.
-
-After that, copy_skb_header() will set newly allocate skb's (wrong)
-gso fields, I asked we should clear it or not.
-
-> special case. We need an own netlink_mmap_to_full_skb() handler for this,
-> that copies/transforms this into a "normal" skb. I'll have a look it this
-
-If the above situation is an unintentional, we need it to avoid a
-future confusion.
-
-Thanks,
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index d79866c..817622f 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -90,6 +90,9 @@ int sock_diag_put_filterinfo(bool may_report_filterinfo, struct sock *sk,
+ 		goto out;
+ 
+ 	fprog = filter->prog->orig_prog;
++	if (!fprog)
++		goto out;
++
+ 	flen = bpf_classic_proglen(fprog);
+ 
+ 	attr = nla_reserve(skb, attrtype, flen);
+-- 
+1.9.3
