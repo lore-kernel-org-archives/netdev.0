@@ -1,50 +1,177 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 16/19] ixgbe: fix bounds checking in ixgbe_setup_tc for 82598
-Date: Tue,  1 Sep 2015 18:14:00 -0700
-Message-ID: <1441156443-33381-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/19] ixgbe: Check whether FDIRCMD writes actually complete
+Date: Tue,  1 Sep 2015 18:13:48 -0700
+Message-ID: <1441156443-33381-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:37040 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754619AbbIBBON (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2015 21:14:13 -0400
+	id S1754581AbbIBBOH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 21:14:07 -0400
 In-Reply-To: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-This patch resolves an issue where users were not able to dynamically
-set number of queues for 82598 via ethtool -L
+Wait up to about 100 us for FDIRCMD writes to complete and return
+failure indications.
 
-Reported-by: Tal Abudi <talabudi@gmail.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 63 ++++++++++++++++----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  1 +
+ 2 files changed, 40 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index afdc7fb..0853cf0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7848,9 +7848,10 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 	bool pools;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 08fcf57..d910442 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
- 	/* Hardware supports up to 8 traffic classes */
--	if (tc > adapter->dcb_cfg.num_tcs.pg_tcs ||
--	    (hw->mac.type == ixgbe_mac_82598EB &&
--	     tc < MAX_TRAFFIC_CLASS))
-+	if (tc > adapter->dcb_cfg.num_tcs.pg_tcs)
-+		return -EINVAL;
+   Intel 10 Gigabit PCI Express Linux driver
+-  Copyright(c) 1999 - 2014 Intel Corporation.
++  Copyright(c) 1999 - 2015 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -1242,6 +1242,25 @@ mac_reset_top:
+ }
+ 
+ /**
++ * ixgbe_fdir_check_cmd_complete - poll to check whether FDIRCMD is complete
++ * @hw: pointer to hardware structure
++ * @fdircmd: current value of FDIRCMD register
++ */
++static s32 ixgbe_fdir_check_cmd_complete(struct ixgbe_hw *hw, u32 *fdircmd)
++{
++	int i;
 +
-+	if (hw->mac.type == ixgbe_mac_82598EB && tc && tc < MAX_TRAFFIC_CLASS)
- 		return -EINVAL;
++	for (i = 0; i < IXGBE_FDIRCMD_CMD_POLL; i++) {
++		*fdircmd = IXGBE_READ_REG(hw, IXGBE_FDIRCMD);
++		if (!(*fdircmd & IXGBE_FDIRCMD_CMD_MASK))
++			return 0;
++		udelay(10);
++	}
++
++	return IXGBE_ERR_FDIR_CMD_INCOMPLETE;
++}
++
++/**
+  *  ixgbe_reinit_fdir_tables_82599 - Reinitialize Flow Director tables.
+  *  @hw: pointer to hardware structure
+  **/
+@@ -1249,6 +1268,8 @@ s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw)
+ {
+ 	int i;
+ 	u32 fdirctrl = IXGBE_READ_REG(hw, IXGBE_FDIRCTRL);
++	u32 fdircmd;
++	s32 err;
  
- 	pools = (find_first_zero_bit(&adapter->fwd_bitmask, 32) > 1);
+ 	fdirctrl &= ~IXGBE_FDIRCTRL_INIT_DONE;
+ 
+@@ -1256,15 +1277,10 @@ s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw)
+ 	 * Before starting reinitialization process,
+ 	 * FDIRCMD.CMD must be zero.
+ 	 */
+-	for (i = 0; i < IXGBE_FDIRCMD_CMD_POLL; i++) {
+-		if (!(IXGBE_READ_REG(hw, IXGBE_FDIRCMD) &
+-		      IXGBE_FDIRCMD_CMD_MASK))
+-			break;
+-		udelay(10);
+-	}
+-	if (i >= IXGBE_FDIRCMD_CMD_POLL) {
+-		hw_dbg(hw, "Flow Director previous command isn't complete, aborting table re-initialization.\n");
+-		return IXGBE_ERR_FDIR_REINIT_FAILED;
++	err = ixgbe_fdir_check_cmd_complete(hw, &fdircmd);
++	if (err) {
++		hw_dbg(hw, "Flow Director previous command did not complete, aborting table re-initialization.\n");
++		return err;
+ 	}
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRFREE, 0);
+@@ -1754,6 +1770,7 @@ s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
+ 					  u16 soft_id, u8 queue)
+ {
+ 	u32 fdirport, fdirvlan, fdirhash, fdircmd;
++	s32 err;
+ 
+ 	/* currently IPv6 is not supported, must be programmed with 0 */
+ 	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRSIPv6(0),
+@@ -1802,6 +1819,11 @@ s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
+ 	fdircmd |= (u32)input->formatted.vm_pool << IXGBE_FDIRCMD_VT_POOL_SHIFT;
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRCMD, fdircmd);
++	err = ixgbe_fdir_check_cmd_complete(hw, &fdircmd);
++	if (err) {
++		hw_dbg(hw, "Flow Director command did not complete!\n");
++		return err;
++	}
+ 
+ 	return 0;
+ }
+@@ -1811,9 +1833,8 @@ s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
+ 					  u16 soft_id)
+ {
+ 	u32 fdirhash;
+-	u32 fdircmd = 0;
+-	u32 retry_count;
+-	s32 err = 0;
++	u32 fdircmd;
++	s32 err;
+ 
+ 	/* configure FDIRHASH register */
+ 	fdirhash = input->formatted.bkt_hash;
+@@ -1826,18 +1847,12 @@ s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
+ 	/* Query if filter is present */
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRCMD, IXGBE_FDIRCMD_CMD_QUERY_REM_FILT);
+ 
+-	for (retry_count = 10; retry_count; retry_count--) {
+-		/* allow 10us for query to process */
+-		udelay(10);
+-		/* verify query completed successfully */
+-		fdircmd = IXGBE_READ_REG(hw, IXGBE_FDIRCMD);
+-		if (!(fdircmd & IXGBE_FDIRCMD_CMD_MASK))
+-			break;
++	err = ixgbe_fdir_check_cmd_complete(hw, &fdircmd);
++	if (err) {
++		hw_dbg(hw, "Flow Director command did not complete!\n");
++		return err;
+ 	}
+ 
+-	if (!retry_count)
+-		err = IXGBE_ERR_FDIR_REINIT_FAILED;
+-
+ 	/* if filter exists in hardware then remove it */
+ 	if (fdircmd & IXGBE_FDIRCMD_FILTER_VALID) {
+ 		IXGBE_WRITE_REG(hw, IXGBE_FDIRHASH, fdirhash);
+@@ -1846,7 +1861,7 @@ s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
+ 				IXGBE_FDIRCMD_CMD_REMOVE_FLOW);
+ 	}
+ 
+-	return err;
++	return 0;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 4615a94..938a410 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -3460,6 +3460,7 @@ struct ixgbe_info {
+ #define IXGBE_ERR_PBA_SECTION                   -31
+ #define IXGBE_ERR_INVALID_ARGUMENT              -32
+ #define IXGBE_ERR_HOST_INTERFACE_COMMAND        -33
++#define IXGBE_ERR_FDIR_CMD_INCOMPLETE		-38
+ #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
+ 
+ #define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P) ? 0x8010 : 0x4010)
 -- 
 2.4.3
