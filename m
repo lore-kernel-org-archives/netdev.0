@@ -1,40 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next 4/5] net_sched: forbid setting default qdisc
- to inappropriate ones
-Date: Tue, 01 Sep 2015 23:19:13 -0700 (PDT)
-Message-ID: <20150901.231913.1408311787626700854.davem@davemloft.net>
-References: <20150828.162037.473306692661391284.davem@davemloft.net>
-	<55E3546B.8000605@mojatatu.com>
-	<CAM_iQpVS2qzPeJNfNY11XP-b3bJH1BAU2aa2H3hLzu+F-zKAOw@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 1/4] net: qdisc: add op to run filters/actions
+ before enqueue
+Date: Tue, 1 Sep 2015 23:22:49 -0700
+Message-ID: <CAHA+R7O-EAnGL1hhb_WtXXw1-Rj4kiFUqFkDkZe2SKWB-7Otrw@mail.gmail.com>
+References: <cover.1441123709.git.daniel@iogearbox.net>
+	<a18f0baba2668f0bbc15a45036713dcaa4bb09b0.1441123709.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: xiyou.wangcong@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	john fastabend <john.fastabend@gmail.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	netdev <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34758 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbbIBGTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 02:19:16 -0400
-In-Reply-To: <CAM_iQpVS2qzPeJNfNY11XP-b3bJH1BAU2aa2H3hLzu+F-zKAOw@mail.gmail.com>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:34159 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750852AbbIBGWu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 02:22:50 -0400
+Received: by ykdg206 with SMTP id g206so248794ykd.1
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 23:22:49 -0700 (PDT)
+In-Reply-To: <a18f0baba2668f0bbc15a45036713dcaa4bb09b0.1441123709.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 1 Sep 2015 23:05:45 -0700
+(Why not Cc'ing Jamal for net_sched pathes?)
 
-> On Sun, Aug 30, 2015 at 12:07 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 08/28/15 19:20, David Miller wrote:
->>
->>> But HTB definitely should be allowed.
->>
->>
->> Problem with most non-work conserving schedulers is what the meaning
->> of default resources means; example, for HTB:
->> What is the default bandwidth you allocate to a class of users?
-> 
-> Exactly, that is why it has to need at least one parameter for bandwidth,
-> while default qdisc requires no parameter.
+On Tue, Sep 1, 2015 at 9:34 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> From: John Fastabend <john.r.fastabend@intel.com>
+>
+> Add a new ->preclassify() op to allow multiqueue queuing disciplines
+> to call tc_classify() or perform other work before dev_pick_tx().
+>
+> This helps, for example, with mqprio queueing discipline that has
+> offload support by most popular 10G NICs, where the txq effectively
+> picks the qdisc.
+>
+> Once traffic is being directed to a specific queue then hardware TX
+> rings may be tuned to support this traffic type. mqprio already
+> gives the ability to do this via skb->priority where the ->preclassify()
+> provides more control over packet steering, it can classify the skb
+> and set the priority, for example, from an eBPF classifier (or action).
+>
+> Also this allows traffic classifiers to be run without holding the
+> qdisc lock and gives one place to attach filters when mqprio is
+> in use. ->preclassify() could also be added to other mq qdiscs later
+> on: f.e. most classful qdiscs first check major/minor numbers of
+> skb->priority before actually consulting a more complex classifier.
+>
+> For mqprio case today, a filter has to be attached to each txq qdisc
+> to have all traffic hit the filter. Since ->preclassify() is currently
+> only used by mqprio, the __dev_queue_xmit() fast path is guarded by
+> a generic, hidden Kconfig option (NET_CLS_PRECLASSIFY) that is only
+> selected by mqprio, otherwise it defaults to off. Also, the Qdisc
+> structure size will stay the same, we move __parent, used by cbq only
+> into a write-mostly hole. If actions are enabled, __parent is written
+> on every enqueue, and only read, rewritten in reshape_fail() phase.
+> Therefore, this place in the read-mostly cacheline could be used by
+> preclassify, which is written only once.
+>
 
-Ok I'm convinced.
+I don't like this approach. Ideally, qdisc layer should be totally
+on top of tx queues, which means tx queue selection should
+happen after dequeue. I looked at this before, the change is not
+trivial at all given the fact that qdisc ties too much with tx queue
+probably due to historical reasons, especially the tx softirq part.
+But that is really a long-term solution for me.
+
+I have no big objection for this as a short-term solution, however,
+once we add these filters before enqueue, we can't remove them
+any more. We really need to think twice about it.
+
+Jamal, do you have any better idea?
