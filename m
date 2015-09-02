@@ -1,41 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] net: fec: clear receive interrupts before
- processing a packet
-Date: Wed, 02 Sep 2015 16:07:12 -0700 (PDT)
-Message-ID: <20150902.160712.836608694994691635.davem@davemloft.net>
-References: <1441185854-16107-1-git-send-email-b38611@freescale.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net 3/3] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
+Date: Wed, 2 Sep 2015 16:10:31 -0700
+Message-ID: <20150902231031.GC78846@kafai-mba.local>
+References: <1441133703-1570969-1-git-send-email-kafai@fb.com>
+ <1441133703-1570969-4-git-send-email-kafai@fb.com>
+ <1441138460.8932.182.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150902205802.GA78846@kafai-mba.local>
+ <1441229445.8932.206.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150902215203.GB78846@kafai-mba.local>
+ <1441234137.8932.209.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk, phdm@macq.eu
-To: b38611@freescale.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kernel Team <kernel-team@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39925 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751897AbbIBXHN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 19:07:13 -0400
-In-Reply-To: <1441185854-16107-1-git-send-email-b38611@freescale.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:23206 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754020AbbIBXKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 19:10:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1441234137.8932.209.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Wed, 2 Sep 2015 17:24:14 +0800
+On Wed, Sep 02, 2015 at 03:48:57PM -0700, Eric Dumazet wrote:
+> On Wed, 2015-09-02 at 14:52 -0700, Martin KaFai Lau wrote:
+> > On Wed, Sep 02, 2015 at 02:30:45PM -0700, Eric Dumazet wrote:
+> > > Object cannot be freed until all cpus have exited their RCU sections.
+> > You meant the dst_destroy() here will wait for all cpus exited their RCU sections?
+> >
+> > static inline void dst_free(struct dst_entry *dst)
+> > {
+> > 	if (dst->obsolete > 0)
+> > 		return;
+> > 	if (!atomic_read(&dst->__refcnt)) {
+> > 		dst = dst_destroy(dst);
+> > 		if (!dst)
+> > 			return;
+> > 	}
+> > 	__dst_free(dst);
+> > }
+>
+> dst_free() is called after RCU grace period, in the case you are
+> interested in.
+>
+> Look at dst_rcu_free() and rt_free()
+Yes for IPv4 FIB
 
-> From: Russell King <rmk+kernel@arm.linux.org.uk>
-> 
-> The patch just to re-submit the patch "db3421c114cfa6326" because the
-> patch "4d494cdc92b3b9a0" remove the change.
-> 
-> Clear any pending receive interrupt before we process a pending packet.
-> This helps to avoid any spurious interrupts being raised after we have
-> fully cleaned the receive ring, while still allowing an interrupt to be
-> raised if we receive another packet.
-> 
-> The position of this is critical: we must do this prior to reading the
-> next packet status to avoid potentially dropping an interrupt when a
-> packet is still pending.
-> 
-> Acked-by: Fugang Duan <B38611@freescale.com>
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-
-Applied and queued up for -stable, thanks.
+Not for IPv6 FIB. F.e. rt6_release()
+The IPv6 FIB is protected by rwlock now.
