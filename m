@@ -1,95 +1,91 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/19] ixgbe: add new bus type for intergrated I/O interface (IOSF)
-Date: Tue,  1 Sep 2015 18:13:53 -0700
-Message-ID: <1441156443-33381-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/19] ixgbe: add new function to check for management presence
+Date: Tue,  1 Sep 2015 18:13:46 -0700
+Message-ID: <1441156443-33381-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59618 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:37040 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754581AbbIBBOK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2015 21:14:10 -0400
+	id S1753686AbbIBBOG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 21:14:06 -0400
 In-Reply-To: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-With this patch we add support for a new bus type ixgbe_bus_type_internal.
-X550em devices use IOSF and not PCIe bus so this new type is to accommodate
-them.
+This patch adds a support function that will indicate for the
+existence of management FW.
 
 Signed-off-by: Donald C Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 11 ++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c |  1 +
- 3 files changed, 12 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |  8 ++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 15 +++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  1 +
+ 3 files changed, 18 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 098c849..7e33125 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -246,11 +246,19 @@ static inline bool ixgbe_pcie_from_parent(struct ixgbe_hw *hw)
- static void ixgbe_check_minimum_link(struct ixgbe_adapter *adapter,
- 				     int expected_gts)
- {
-+	struct ixgbe_hw *hw = &adapter->hw;
- 	int max_gts = 0;
- 	enum pci_bus_speed speed = PCI_SPEED_UNKNOWN;
- 	enum pcie_link_width width = PCIE_LNK_WIDTH_UNKNOWN;
- 	struct pci_dev *pdev;
- 
-+	/* Some devices are not connected over PCIe and thus do not negotiate
-+	 * speed. These devices do not have valid bus info, and thus any report
-+	 * we generate may not be correct.
-+	 */
-+	if (hw->bus.type == ixgbe_bus_type_internal)
-+		return;
-+
- 	/* determine whether to use the parent device */
- 	if (ixgbe_pcie_from_parent(&adapter->hw))
- 		pdev = adapter->pdev->bus->parent->self;
-@@ -8837,9 +8845,10 @@ skip_sriov:
- 	hw->eeprom.ops.read(hw, 0x2d, &adapter->eeprom_verl);
- 
- 	/* pick up the PCI bus settings for reporting later */
--	hw->mac.ops.get_bus_info(hw);
- 	if (ixgbe_pcie_from_parent(hw))
- 		ixgbe_get_parent_bus_info(adapter);
-+	else
-+		 hw->mac.ops.get_bus_info(hw);
- 
- 	/* calculate the expected PCIe bandwidth required for optimal
- 	 * performance. Note that some older parts will never have enough
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 19271e5..37df15f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3067,6 +3067,7 @@ enum ixgbe_bus_type {
- 	ixgbe_bus_type_pci,
- 	ixgbe_bus_type_pcix,
- 	ixgbe_bus_type_pci_express,
-+	ixgbe_bus_type_internal,
- 	ixgbe_bus_type_reserved
- };
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index dce39be..96f603f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -620,6 +620,7 @@ static s32 ixgbe_update_flash_X550(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index b1e364d..08fcf57 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -504,16 +504,12 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
   **/
- static s32 ixgbe_get_bus_info_X550em(struct ixgbe_hw *hw)
+ static void ixgbe_stop_mac_link_on_d3_82599(struct ixgbe_hw *hw)
  {
-+	hw->bus.type  = ixgbe_bus_type_internal;
- 	hw->bus.width = ixgbe_bus_width_unknown;
- 	hw->bus.speed = ixgbe_bus_speed_unknown;
+-	u32 autoc2_reg, fwsm;
++	u32 autoc2_reg;
+ 	u16 ee_ctrl_2 = 0;
  
+ 	hw->eeprom.ops.read(hw, IXGBE_EEPROM_CTRL_2, &ee_ctrl_2);
+ 
+-	/* Check to see if MNG FW could be enabled */
+-	fwsm = IXGBE_READ_REG(hw, IXGBE_FWSM(hw));
+-
+-	if (((fwsm & IXGBE_FWSM_MODE_MASK) != IXGBE_FWSM_FW_MODE_PT) &&
+-	    !hw->wol_enabled &&
++	if (!ixgbe_mng_present(hw) && !hw->wol_enabled &&
+ 	    ee_ctrl_2 & IXGBE_EEPROM_CCD_BIT) {
+ 		autoc2_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
+ 		autoc2_reg |= IXGBE_AUTOC2_LINK_DISABLE_ON_D3_MASK;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 4c1c267..3f56a80 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3905,3 +3905,18 @@ void ixgbe_enable_rx_generic(struct ixgbe_hw *hw)
+ 		}
+ 	}
+ }
++
++/** ixgbe_mng_present - returns true when management capability is present
++ * @hw: pointer to hardware structure
++ **/
++bool ixgbe_mng_present(struct ixgbe_hw *hw)
++{
++	u32 fwsm;
++
++	if (hw->mac.type < ixgbe_mac_82599EB)
++		return false;
++
++	fwsm = IXGBE_READ_REG(hw, IXGBE_FWSM(hw));
++	fwsm &= IXGBE_FWSM_MODE_MASK;
++	return fwsm == IXGBE_FWSM_FW_MODE_PT;
++}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index ec015fe..2f779f3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -113,6 +113,7 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
+ 				 u32 length, u32 timeout, bool return_data);
+ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
++bool ixgbe_mng_present(struct ixgbe_hw *hw);
+ bool ixgbe_mng_enabled(struct ixgbe_hw *hw);
+ 
+ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
 -- 
 2.4.3
