@@ -1,177 +1,95 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/19] ixgbe: Check whether FDIRCMD writes actually complete
-Date: Tue,  1 Sep 2015 18:13:48 -0700
-Message-ID: <1441156443-33381-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/19] ixgbe: add new bus type for intergrated I/O interface (IOSF)
+Date: Tue,  1 Sep 2015 18:13:53 -0700
+Message-ID: <1441156443-33381-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37040 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:59618 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754581AbbIBBOH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Sep 2015 21:14:07 -0400
+	id S1754581AbbIBBOK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Sep 2015 21:14:10 -0400
 In-Reply-To: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Wait up to about 100 us for FDIRCMD writes to complete and return
-failure indications.
+With this patch we add support for a new bus type ixgbe_bus_type_internal.
+X550em devices use IOSF and not PCIe bus so this new type is to accommodate
+them.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Donald C Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 63 ++++++++++++++++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  1 +
- 2 files changed, 40 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 11 ++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c |  1 +
+ 3 files changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 08fcf57..d910442 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2014 Intel Corporation.
-+  Copyright(c) 1999 - 2015 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -1242,6 +1242,25 @@ mac_reset_top:
- }
- 
- /**
-+ * ixgbe_fdir_check_cmd_complete - poll to check whether FDIRCMD is complete
-+ * @hw: pointer to hardware structure
-+ * @fdircmd: current value of FDIRCMD register
-+ */
-+static s32 ixgbe_fdir_check_cmd_complete(struct ixgbe_hw *hw, u32 *fdircmd)
-+{
-+	int i;
-+
-+	for (i = 0; i < IXGBE_FDIRCMD_CMD_POLL; i++) {
-+		*fdircmd = IXGBE_READ_REG(hw, IXGBE_FDIRCMD);
-+		if (!(*fdircmd & IXGBE_FDIRCMD_CMD_MASK))
-+			return 0;
-+		udelay(10);
-+	}
-+
-+	return IXGBE_ERR_FDIR_CMD_INCOMPLETE;
-+}
-+
-+/**
-  *  ixgbe_reinit_fdir_tables_82599 - Reinitialize Flow Director tables.
-  *  @hw: pointer to hardware structure
-  **/
-@@ -1249,6 +1268,8 @@ s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 098c849..7e33125 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -246,11 +246,19 @@ static inline bool ixgbe_pcie_from_parent(struct ixgbe_hw *hw)
+ static void ixgbe_check_minimum_link(struct ixgbe_adapter *adapter,
+ 				     int expected_gts)
  {
- 	int i;
- 	u32 fdirctrl = IXGBE_READ_REG(hw, IXGBE_FDIRCTRL);
-+	u32 fdircmd;
-+	s32 err;
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	int max_gts = 0;
+ 	enum pci_bus_speed speed = PCI_SPEED_UNKNOWN;
+ 	enum pcie_link_width width = PCIE_LNK_WIDTH_UNKNOWN;
+ 	struct pci_dev *pdev;
  
- 	fdirctrl &= ~IXGBE_FDIRCTRL_INIT_DONE;
++	/* Some devices are not connected over PCIe and thus do not negotiate
++	 * speed. These devices do not have valid bus info, and thus any report
++	 * we generate may not be correct.
++	 */
++	if (hw->bus.type == ixgbe_bus_type_internal)
++		return;
++
+ 	/* determine whether to use the parent device */
+ 	if (ixgbe_pcie_from_parent(&adapter->hw))
+ 		pdev = adapter->pdev->bus->parent->self;
+@@ -8837,9 +8845,10 @@ skip_sriov:
+ 	hw->eeprom.ops.read(hw, 0x2d, &adapter->eeprom_verl);
  
-@@ -1256,15 +1277,10 @@ s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw)
- 	 * Before starting reinitialization process,
- 	 * FDIRCMD.CMD must be zero.
- 	 */
--	for (i = 0; i < IXGBE_FDIRCMD_CMD_POLL; i++) {
--		if (!(IXGBE_READ_REG(hw, IXGBE_FDIRCMD) &
--		      IXGBE_FDIRCMD_CMD_MASK))
--			break;
--		udelay(10);
--	}
--	if (i >= IXGBE_FDIRCMD_CMD_POLL) {
--		hw_dbg(hw, "Flow Director previous command isn't complete, aborting table re-initialization.\n");
--		return IXGBE_ERR_FDIR_REINIT_FAILED;
-+	err = ixgbe_fdir_check_cmd_complete(hw, &fdircmd);
-+	if (err) {
-+		hw_dbg(hw, "Flow Director previous command did not complete, aborting table re-initialization.\n");
-+		return err;
- 	}
+ 	/* pick up the PCI bus settings for reporting later */
+-	hw->mac.ops.get_bus_info(hw);
+ 	if (ixgbe_pcie_from_parent(hw))
+ 		ixgbe_get_parent_bus_info(adapter);
++	else
++		 hw->mac.ops.get_bus_info(hw);
  
- 	IXGBE_WRITE_REG(hw, IXGBE_FDIRFREE, 0);
-@@ -1754,6 +1770,7 @@ s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
- 					  u16 soft_id, u8 queue)
- {
- 	u32 fdirport, fdirvlan, fdirhash, fdircmd;
-+	s32 err;
- 
- 	/* currently IPv6 is not supported, must be programmed with 0 */
- 	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRSIPv6(0),
-@@ -1802,6 +1819,11 @@ s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
- 	fdircmd |= (u32)input->formatted.vm_pool << IXGBE_FDIRCMD_VT_POOL_SHIFT;
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_FDIRCMD, fdircmd);
-+	err = ixgbe_fdir_check_cmd_complete(hw, &fdircmd);
-+	if (err) {
-+		hw_dbg(hw, "Flow Director command did not complete!\n");
-+		return err;
-+	}
- 
- 	return 0;
- }
-@@ -1811,9 +1833,8 @@ s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
- 					  u16 soft_id)
- {
- 	u32 fdirhash;
--	u32 fdircmd = 0;
--	u32 retry_count;
--	s32 err = 0;
-+	u32 fdircmd;
-+	s32 err;
- 
- 	/* configure FDIRHASH register */
- 	fdirhash = input->formatted.bkt_hash;
-@@ -1826,18 +1847,12 @@ s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
- 	/* Query if filter is present */
- 	IXGBE_WRITE_REG(hw, IXGBE_FDIRCMD, IXGBE_FDIRCMD_CMD_QUERY_REM_FILT);
- 
--	for (retry_count = 10; retry_count; retry_count--) {
--		/* allow 10us for query to process */
--		udelay(10);
--		/* verify query completed successfully */
--		fdircmd = IXGBE_READ_REG(hw, IXGBE_FDIRCMD);
--		if (!(fdircmd & IXGBE_FDIRCMD_CMD_MASK))
--			break;
-+	err = ixgbe_fdir_check_cmd_complete(hw, &fdircmd);
-+	if (err) {
-+		hw_dbg(hw, "Flow Director command did not complete!\n");
-+		return err;
- 	}
- 
--	if (!retry_count)
--		err = IXGBE_ERR_FDIR_REINIT_FAILED;
--
- 	/* if filter exists in hardware then remove it */
- 	if (fdircmd & IXGBE_FDIRCMD_FILTER_VALID) {
- 		IXGBE_WRITE_REG(hw, IXGBE_FDIRHASH, fdirhash);
-@@ -1846,7 +1861,7 @@ s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
- 				IXGBE_FDIRCMD_CMD_REMOVE_FLOW);
- 	}
- 
--	return err;
-+	return 0;
- }
- 
- /**
+ 	/* calculate the expected PCIe bandwidth required for optimal
+ 	 * performance. Note that some older parts will never have enough
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 4615a94..938a410 100644
+index 19271e5..37df15f 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3460,6 +3460,7 @@ struct ixgbe_info {
- #define IXGBE_ERR_PBA_SECTION                   -31
- #define IXGBE_ERR_INVALID_ARGUMENT              -32
- #define IXGBE_ERR_HOST_INTERFACE_COMMAND        -33
-+#define IXGBE_ERR_FDIR_CMD_INCOMPLETE		-38
- #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
+@@ -3067,6 +3067,7 @@ enum ixgbe_bus_type {
+ 	ixgbe_bus_type_pci,
+ 	ixgbe_bus_type_pcix,
+ 	ixgbe_bus_type_pci_express,
++	ixgbe_bus_type_internal,
+ 	ixgbe_bus_type_reserved
+ };
  
- #define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P) ? 0x8010 : 0x4010)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index dce39be..96f603f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -620,6 +620,7 @@ static s32 ixgbe_update_flash_X550(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_get_bus_info_X550em(struct ixgbe_hw *hw)
+ {
++	hw->bus.type  = ixgbe_bus_type_internal;
+ 	hw->bus.width = ixgbe_bus_width_unknown;
+ 	hw->bus.speed = ixgbe_bus_speed_unknown;
+ 
 -- 
 2.4.3
