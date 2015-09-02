@@ -1,55 +1,44 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [net-next PATCH] net: ipv6: use common fib_default_rule_pref
-Date: Wed,  2 Sep 2015 15:03:12 +0200
-Message-ID: <1441198992-25359-1-git-send-email-phil@nwl.cc>
-Cc: tgraf@suug.ch, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] sock, diag: fix panic in sock_diag_put_filterinfo
+Date: Wed, 2 Sep 2015 15:10:48 +0200
+Message-ID: <55E6F558.9090500@6wind.com>
+References: <8824dd0b0b627c5dfdfd767e0e366e3cc8f9505a.1441193159.git.daniel@iogearbox.net>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:59856 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754628AbbIBNDO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Sep 2015 09:03:14 -0400
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35792 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753286AbbIBNKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 09:10:51 -0400
+Received: by wicge5 with SMTP id ge5so40408896wic.0
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 06:10:50 -0700 (PDT)
+In-Reply-To: <8824dd0b0b627c5dfdfd767e0e366e3cc8f9505a.1441193159.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This switches IPv6 policy routing to use the shared
-fib_default_rule_pref() function of IPv4 and DECnet. It is also used in
-multicast routing for IPv4 as well as IPv6.
-
-The motivation for this patch is a complaint about iproute2 behaving
-inconsistent between IPv4 and IPv6 when adding policy rules: Formerly,
-IPv6 rules were assigned a fixed priority of 0x3FFF whereas for IPv4 the
-assigned priority value was decreased with each rule added.
-
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- net/ipv6/fib6_rules.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
-
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 2367a16..a859ad2 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -258,11 +258,6 @@ nla_put_failure:
- 	return -ENOBUFS;
- }
- 
--static u32 fib6_rule_default_pref(struct fib_rules_ops *ops)
--{
--	return 0x3FFF;
--}
--
- static size_t fib6_rule_nlmsg_payload(struct fib_rule *rule)
- {
- 	return nla_total_size(16) /* dst */
-@@ -279,7 +274,7 @@ static const struct fib_rules_ops __net_initconst fib6_rules_ops_template = {
- 	.configure		= fib6_rule_configure,
- 	.compare		= fib6_rule_compare,
- 	.fill			= fib6_rule_fill,
--	.default_pref		= fib6_rule_default_pref,
-+	.default_pref		= fib_default_rule_pref,
- 	.nlmsg_payload		= fib6_rule_nlmsg_payload,
- 	.nlgroup		= RTNLGRP_IPV6_RULE,
- 	.policy			= fib6_rule_policy,
--- 
-2.1.2
+Le 02/09/2015 14:00, Daniel Borkmann a =C3=A9crit :
+> diag socket's sock_diag_put_filterinfo() dumps classic BPF programs
+> upon request to user space (ss -0 -b). However, native eBPF programs
+> attached to sockets (SO_ATTACH_BPF) cannot be dumped with this method=
+:
+>
+> Their orig_prog is always NULL. However, sock_diag_put_filterinfo()
+> unconditionally tries to access its filter length resp. wants to copy
+> the filter insns from there. Internal cBPF to eBPF transformations
+> attached to sockets don't have this issue, as orig_prog state is kept=
+=2E
+>
+> It's currently only used by packet sockets. If we would want to add
+> native eBPF support in the future, this needs to be done through
+> a different attribute than PACKET_DIAG_FILTER to not confuse possible
+> user space disassemblers that work on diag data.
+>
+> Fixes: 89aa075832b0 ("net: sock: allow eBPF programs to be attached t=
+o sockets")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
