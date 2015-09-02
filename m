@@ -1,80 +1,43 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] net: Add table id from route lookup to route response
-Date: Wed,  2 Sep 2015 13:16:20 -0700
-Message-ID: <1441224980-6201-1-git-send-email-dsa@cumulusnetworks.com>
-References: <20150902190836.GD20527@pox.localdomain>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33043 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751931AbbIBUQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 16:16:32 -0400
-Received: by pacex6 with SMTP id ex6so16705408pac.0
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 13:16:32 -0700 (PDT)
-In-Reply-To: <20150902190836.GD20527@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH] x86: Wire up 32-bit direct socket calls
+Date: Wed, 02 Sep 2015 13:16:19 -0700
+Message-ID: <55E75913.5050605@zytor.com>
+References: <cb5138299d37d5800e2d135b01a7667fa6115854.1436912629.git.luto@kernel.org> <CAMuHMdXKA_+JY2ryf-yoJxQnbW=jsOjj_w2-Nsybpx0310neDA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: X86 ML <x86@kernel.org>, Network Development <netdev@vger.kernel.org>,
+        Tulio Magno Quites Machado Filho <tuliom@linux.vnet.ibm.com>,
+        Andy Lutomirski <luto@amacapital.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Alexander Larsson <alexl@redhat.com>,
+        Cosimo Cecchi <cosimo@endlessm.com>,
+        Dan Nicholson <nicholson@endlessm.com>,
+        libc-alpha <libc-alpha@sourceware.org>,
+        Rajalakshmi Srinivasaraghavan <raji@linux.vnet.ibm.com>,
+        Linux-Arch <linux-arch@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Andy Lutomirski <luto@kernel.org>
+Return-path: <libc-alpha-return-62908-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <CAMuHMdXKA_+JY2ryf-yoJxQnbW=jsOjj_w2-Nsybpx0310neDA@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-IPv4 ABI has the table hardcoded as RT_TABLE_MAIN regardless of the table
-hit for the route lookup. Add the table using a new attribute,
-RTA_TABLE_LOOKUP, to maintain the ABI yet return the right table id.
+On 09/02/2015 02:48 AM, Geert Uytterhoeven wrote:
+> 
+> Should all other architectures follow suit?
+> Or should we follow the s390 approach:
+> 
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
+It is up to the maintainer(s), largely dependent on how likely you are
+going to want to support this in your libc, but in general, socketcall
+is an abomination which there is no reason not to bypass.
 
-Thomas: Something like this?
+So follow suit unless you have a strong reason not to.
 
-The current ABI is returning wrong data in some cases; that seems worse
-to me than breaking the ABI.
-
- include/uapi/linux/rtnetlink.h | 1 +
- net/ipv4/route.c               | 5 +++++
- net/ipv6/route.c               | 4 ++++
- 3 files changed, 10 insertions(+)
-
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 702024769c74..5add1468350a 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -310,6 +310,7 @@ enum rtattr_type_t {
- 	RTA_PREF,
- 	RTA_ENCAP_TYPE,
- 	RTA_ENCAP,
-+	RTA_TABLE_LOOKUP,  /* table hit for fib lookup */
- 	__RTA_MAX
- };
- 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 92acc95b7578..95454c368e66 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2328,6 +2328,11 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 	r->rtm_table	= RT_TABLE_MAIN;
- 	if (nla_put_u32(skb, RTA_TABLE, RT_TABLE_MAIN))
- 		goto nla_put_failure;
-+
-+	if (rt->rt_table_id && rt->rt_table_id != RT_TABLE_MAIN &&
-+	    nla_put_u32(skb, RTA_TABLE_LOOKUP, rt->rt_table_id))
-+		goto nla_put_failure;
-+
- 	r->rtm_type	= rt->rt_type;
- 	r->rtm_scope	= RT_SCOPE_UNIVERSE;
- 	r->rtm_protocol = RTPROT_UNSPEC;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f45cac6f8356..3c5d3a50bb7b 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2922,6 +2922,10 @@ static int rt6_fill_node(struct net *net,
- 	rtm->rtm_table = table;
- 	if (nla_put_u32(skb, RTA_TABLE, table))
- 		goto nla_put_failure;
-+
-+	if (table && nla_put_u32(skb, RTA_TABLE_LOOKUP, table))
-+		goto nla_put_failure;
-+
- 	if (rt->rt6i_flags & RTF_REJECT) {
- 		switch (rt->dst.error) {
- 		case -EINVAL:
--- 
-1.9.1
+	-hpa
