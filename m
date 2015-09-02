@@ -1,82 +1,77 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] flow_dissector: Fix function argument ordering
- dependency
-Date: Tue, 01 Sep 2015 18:34:37 -0700
-Message-ID: <1441157677.12163.13.camel@perches.com>
-References: <1441156264-38469-1-git-send-email-tom@herbertland.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] ixgbe: Limit lowest interrupt rate for
+ adaptive interrupt moderation to 12K
+Date: Tue, 1 Sep 2015 18:49:23 -0700
+Message-ID: <55E655A3.9010304@gmail.com>
+References: <20150730221927.984.91700.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0208.hostedemail.com ([216.40.44.208]:42012 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751144AbbIBBep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 21:34:45 -0400
-In-Reply-To: <1441156264-38469-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35007 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbbIBBtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Sep 2015 21:49:31 -0400
+Received: by pacfv12 with SMTP id fv12so14455415pac.2
+        for <netdev@vger.kernel.org>; Tue, 01 Sep 2015 18:49:30 -0700 (PDT)
+In-Reply-To: <20150730221927.984.91700.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-09-01 at 18:11 -0700, Tom Herbert wrote:
-> Commit c6cc1ca7f4d70c ("flowi: Abstract out functions to get flow hash
-> based on flowi") introduced a bug in __skb_set_sw_hash where we
-> require a dependency on evaluating arguments in a function in order.
-> There is no such ordering enforced in C, so this incorrect. This
-> patch fixes that by splitting out the arguments. This bug was
-> found via a compiler warning that keys may be uninitialized.
+On 07/30/2015 03:19 PM, Alexander Duyck wrote:
+> This patch updates the lowest limit for adaptive interrupt interrupt
+> moderation to roughly 12K interrupts per second.
+>
+> The way I came about reaching 12K as the desired interrupt rate is by
+> testing with UDP flows.  Specifically I had a simple test that ran a
+> netperf UDP_STREAM test at varying sizes.  What I found was as the packet
+> sizes increased the performance fell steadily behind until we were only
+> able to receive at ~4Gb/s with a message size of 65507.  A bit of digging
+> found that we were dropping packets for the socket in the network stack,
+> and looking at things further what I found was I could solve it by increasing
+> the interrupt rate, or increasing the rmem_default/rmem_max.  What I found was
+> that when the interrupt coalescing resulted in more data being processed
+> per interrupt than could be stored in the socket buffer we started losing
+> packets and the performance dropped.  So I reached 12K based on the
+> following math.
+>
+> rmem_default = 212992
+> skb->truesize = 2994
+> 212992 / 2994 = 71.14 packets to fill the buffer
+>
+> packet rate at 1514 packet size is 812744pps
+> 71.14 / 812744 = 87.9us to fill socket buffer
+>
+> >From there it was just a matter of choosing the interrupt rate and
+> providing a bit of wiggle room which is why I decided to go with 12K
+> interrupts per second as that uses a value of 84us.
+>
+> The data below is based on VM to VM over a direct assigned ixgbe interface.
+> The test run was:
+> 	netperf -H <ip> -t UDP_STREAM"
+>
+> Socket  Message  Elapsed      Messages                   CPU      Service
+> Size    Size     Time         Okay Errors   Throughput   Util     Demand
+> bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+> Before:
+> 212992   65507   60.00     1100662      0     9613.4     10.89    0.557
+> 212992           60.00      473474            4135.4     11.27    0.576
+>
+> After:
+> 212992   65507   60.00     1100413      0     9611.2     10.73    0.549
+> 212992           60.00      974132            8508.3     11.69    0.598
+>
+> Using bare metal the data is similar but not as dramatic as the throughput
+> increases from about 8.5Gb/s to 9.5Gb/s.
+>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-To help the reader know a bit more about how these
-functions operate, perhaps it'd also be useful/better
-to mark arguments as const where appropriate.
+Has there been any update on this patch?  I submitted it just over a 
+month ago now and it hasn't received any feedback.  I was hoping this 
+could be submitted before the merge window closes for net-next.
 
-I didn't look to see if any other functions could
-have the flow related args as const.
+Thanks.
 
-The __get_hash_from_flowi6 and flow_keys_have_l4
-functions could be:
----
- include/net/flow.h           | 2 +-
- include/net/flow_dissector.h | 2 +-
- net/core/flow_dissector.c    | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/flow.h b/include/net/flow.h
-index dafe97c..96fef26 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -244,7 +244,7 @@ void flow_cache_flush(struct net *net);
- void flow_cache_flush_deferred(struct net *net);
- extern atomic_t flow_cache_genid;
- 
--__u32 __get_hash_from_flowi6(struct flowi6 *fl6, struct flow_keys *keys);
-+__u32 __get_hash_from_flowi6(const struct flowi6 *fl6, struct flow_keys *keys);
- 
- static inline __u32 get_hash_from_flowi6(struct flowi6 *fl6)
- {
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 8c8548c..9fdcc3f 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -177,7 +177,7 @@ struct flow_keys_digest {
- void make_flow_keys_digest(struct flow_keys_digest *digest,
- 			   const struct flow_keys *flow);
- 
--static inline bool flow_keys_have_l4(struct flow_keys *keys)
-+static inline bool flow_keys_have_l4(const struct flow_keys *keys)
- {
- 	return (keys->ports.ports || keys->tags.flow_label);
- }
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 345a040..ccece96 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -787,7 +787,7 @@ u32 skb_get_poff(const struct sk_buff *skb)
- 	return __skb_get_poff(skb, skb->data, &keys, skb_headlen(skb));
- }
- 
--__u32 __get_hash_from_flowi6(struct flowi6 *fl6, struct flow_keys *keys)
-+__u32 __get_hash_from_flowi6(const struct flowi6 *fl6, struct flow_keys *keys)
- {
- 	memset(keys, 0, sizeof(*keys));
- 
+- Alex
