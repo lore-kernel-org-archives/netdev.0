@@ -1,61 +1,31 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next] xen-netback: add support for multicast control
-Date: Wed, 2 Sep 2015 14:01:53 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02F5AE451@AMSPEX01CL01.citrite.net>
-References: <1441196393-26564-1-git-send-email-paul.durrant@citrix.com>
- <20150902140049.GI18474@zion.uk.xensource.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] sock, diag: fix panic in sock_diag_put_filterinfo
+Date: Wed, 2 Sep 2015 08:03:49 -0700
+Message-ID: <55E70FD5.8020107@plumgrid.com>
+References: <8824dd0b0b627c5dfdfd767e0e366e3cc8f9505a.1441193159.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"Ian Campbell" <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:49207 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752893AbbIBOBy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 10:01:54 -0400
-In-Reply-To: <20150902140049.GI18474@zion.uk.xensource.com>
-Content-Language: en-US
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33732 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755127AbbIBPDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 11:03:54 -0400
+Received: by pacex6 with SMTP id ex6so9251115pac.0
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 08:03:54 -0700 (PDT)
+In-Reply-To: <8824dd0b0b627c5dfdfd767e0e366e3cc8f9505a.1441193159.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 02 September 2015 15:01
-> To: Paul Durrant
-> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org; Ian Campbell;
-> Wei Liu
-> Subject: Re: [PATCH net-next] xen-netback: add support for multicast control
-> 
-> On Wed, Sep 02, 2015 at 01:19:53PM +0100, Paul Durrant wrote:
-> > Xen's PV network protocol includes messages to add/remove ethernet
-> > multicast addresses to/from a filter list in the backend. This allows
-> > the frontend to request the backend only forward multicast packets
-> > which are off interest thus preventing unnecessary noise on the shared
-> 
-> "of interest"
+On 9/2/15 5:00 AM, Daniel Borkmann wrote:
+> diag socket's sock_diag_put_filterinfo() dumps classic BPF programs
+> upon request to user space (ss -0 -b). However, native eBPF programs
+> attached to sockets (SO_ATTACH_BPF) cannot be dumped with this method:
+...
+> Fixes: 89aa075832b0 ("net: sock: allow eBPF programs to be attached to sockets")
+> Signed-off-by: Daniel Borkmann<daniel@iogearbox.net>
 
-Ah yes :-)
-
-> 
-> > ring.
-> >
-> [...]
-> > +
-> > +void xenvif_mcast_flush(struct xenvif *vif)
-> 
-> Only one cosmetic comment.
-> 
-> My first impression of this function by looking at the name is that it
-> flushes queued multicast packets. Maybe we can rename it to
-> xenvif_mcast_addr_list_free ?
-> 
-
-Sure.
-
-  Paul
-
-> Wei.
+good catch. thanks
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
