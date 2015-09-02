@@ -1,43 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] xen-netback: add support for multicast
- control
-Date: Wed, 02 Sep 2015 11:45:35 -0700 (PDT)
-Message-ID: <20150902.114535.1282750973309097658.davem@davemloft.net>
-References: <1441213116-9038-1-git-send-email-paul.durrant@citrix.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next PATCH] net: ipv6: use common fib_default_rule_pref
+Date: Wed, 2 Sep 2015 20:46:06 +0200
+Message-ID: <20150902184606.GC20527@pox.localdomain>
+References: <1441198992-25359-1-git-send-email-phil@nwl.cc>
+ <20150902.113439.1914221451599696711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	ian.campbell@citrix.com, wei.liu2@citrix.com
-To: paul.durrant@citrix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: phil@nwl.cc, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38470 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754699AbbIBSpg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 14:45:36 -0400
-In-Reply-To: <1441213116-9038-1-git-send-email-paul.durrant@citrix.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:35924 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755870AbbIBSqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 14:46:08 -0400
+Received: by wibz8 with SMTP id z8so75529055wib.1
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 11:46:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150902.113439.1914221451599696711.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Durrant <paul.durrant@citrix.com>
-Date: Wed, 2 Sep 2015 17:58:36 +0100
+On 09/02/15 at 11:34am, David Miller wrote:
+> From: Phil Sutter <phil@nwl.cc>
+> Date: Wed,  2 Sep 2015 15:03:12 +0200
+> 
+> > This switches IPv6 policy routing to use the shared
+> > fib_default_rule_pref() function of IPv4 and DECnet. It is also used in
+> > multicast routing for IPv4 as well as IPv6.
+> > 
+> > The motivation for this patch is a complaint about iproute2 behaving
+> > inconsistent between IPv4 and IPv6 when adding policy rules: Formerly,
+> > IPv6 rules were assigned a fixed priority of 0x3FFF whereas for IPv4 the
+> > assigned priority value was decreased with each rule added.
+> > 
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> 
+> All ->default_pref() methods are therefore going to be set to the
+> default, so just kill off the method entirely and call
+> fib_default_rule_pref() directly.
 
-> Xen's PV network protocol includes messages to add/remove ethernet
-> multicast addresses to/from a filter list in the backend. This allows
-> the frontend to request the backend only forward multicast packets
-> which are of interest thus preventing unnecessary noise on the shared
-> ring.
-> 
-> The canonical netif header in git://xenbits.xen.org/xen.git specifies
-> the message format (two more XEN_NETIF_EXTRA_TYPEs) so the minimal
-> necessary changes have been pulled into include/xen/interface/io/netif.h.
-> 
-> To prevent the frontend from extending the multicast filter list
-> arbitrarily a limit (XEN_NETBK_MCAST_MAX) has been set to 64 entries.
-> This limit is not specified by the protocol and so may change in future.
-> If the limit is reached then the next XEN_NETIF_EXTRA_TYPE_MCAST_ADD
-> sent by the frontend will be failed with NETIF_RSP_ERROR.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+How strict are we with regard to compatibility here? New IPv6 rules
+with no pref specified currently get appended at the end of the list
+whereas this would start inserting at the head.
 
-Applied.
+I'm absolutely in favour of the new behaviour but this could break
+scripts which do not have proper prefs specified.
