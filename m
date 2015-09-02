@@ -1,71 +1,79 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] ip route: Print table id for 'ip route get'
-Date: Wed,  2 Sep 2015 10:30:31 -0700
-Message-ID: <1441215031-22667-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next 05/19] ixgbe: Add support for UDP-encapsulated tx
+ checksum offload
+Date: Wed, 2 Sep 2015 10:38:17 -0700
+Message-ID: <CALx6S36T4tzB5aq3bbKq4DMEumvC4q2YhGscn19se0mGXGe5cQ@mail.gmail.com>
+References: <1441156443-33381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1441156443-33381-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CALx6S34-mUvQyUQNcVC+o+NeUxWEsCG2GS=Eq++eGqoh=kv8kg@mail.gmail.com>
+	<F63CFE64-29E1-484B-B19B-269FAAA9C54B@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33031 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932141AbbIBRah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 13:30:37 -0400
-Received: by pacex6 with SMTP id ex6so12938337pac.0
-        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 10:30:36 -0700 (PDT)
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:34305 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753161AbbIBRiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 13:38:18 -0400
+Received: by igcpb10 with SMTP id pb10so31180507igc.1
+        for <netdev@vger.kernel.org>; Wed, 02 Sep 2015 10:38:17 -0700 (PDT)
+In-Reply-To: <F63CFE64-29E1-484B-B19B-269FAAA9C54B@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Table id is not dumped for 'ip route get' requests because the RTM_F_CLONED
-flag is set in rt_fill_info. Move it out from the check and show user the
-table id any time it is not MAIN.
+On Wed, Sep 2, 2015 at 9:46 AM, Rustad, Mark D <mark.d.rustad@intel.com> wrote:
+>> On Sep 1, 2015, at 8:17 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>
+>> I suspect this is not UDP-encapsulation specific, will it work with
+>> TCP/IP/IP, TCP/IP/GRE etc.?
+>
+> It could do more, but this is what has been tested up to this point.
+>
+Well, please test the those other encapsulations too! It's nice and
+all if they get the benefit, but it's really bad news if these changes
+were to screw them up (i.e. you don't want users of the GRE, IPIP to
+find out that they're now broken).
 
-Example:
-    $ ip ru ls
-    0:		from all lookup local
-    32765:	from all to 10.2.1.0/24 lookup 10
-    32766:	from all lookup main
-    32767:	from all lookup default
+>> Isn't there anyway the ixgbe could just be made to NETIF_HW_CSUM? That
+>> would be so much more straightforward and support nearly all use cases
+>> without needing to jump through all these hoops.
+>
+> Well, the description says:
+>
+>  ---
+> Note: NETIF_F_HW_CSUM is a superset of NETIF_F_IP_CSUM + NETIF_F_IPV6_CSUM.
+> It means that device can fill TCP/UDP-like checksum anywhere in the packets
+> whatever headers there might be.
+>  ---
+>
+> The device can't do whatever, wherever. There is always a limit to the offset to the inner headers that can be handled, for instance.
+>
+If the device does NETIF_F_HW_CSUM then inner/outer headers are
+irrelevant at least in the non-GSO case. All the device needs to do is
+compute the checksum from start and write the answer at the given
+offset. No protocol awareness needed in the device, no need to parse
+headers on transmit.
 
-    $ ip route ls
-    default via 10.0.0.254 dev eth0
-    10.0.0.0/24 dev eth0  proto kernel  scope link  src 10.0.0.2
-    10.2.2.0/24 dev eth2  proto kernel  scope link  src 10.2.2.2
-    10.2.3.0/24 dev eth3  proto kernel  scope link  src 10.2.3.2
-    10.2.4.0/24 dev eth4  proto kernel  scope link  src 10.2.4.2
+I have the same complaint that ixgbe requires a bunch of driver logic
+to offload VXLAN checksum unnecessary instead of just providing
+CHECKSUM_COMPLETE which would work with any encapsulation protocol,
+require no encapsulation awareness in the device, and should be a much
+simpler driver implementation.
 
-    $ ip route ls table 10
-    10.2.1.0/24 dev eth1  scope link
+So my input to NIC vendors will continue to be they provide general
+protocol agnostic solutions and *stop* perpetuating these narrow
+protocol specific and unnecessarily complicated solutions. If you
+don't believe me, see the similar longstanding comments in skbuff.h
+about NIC capabilities and checksums and what choices vendors make.
 
-    Currently:
-    $ ip route get 10.2.1.240
-    10.2.1.240 dev eth1  src 10.2.1.2
-        cache
+Tom
 
-    With this patch:
-    $ ip route get 10.2.1.240
-    10.2.1.240 dev eth1  table 10  src 10.2.1.2
-        cache
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- ip/iproute.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 8f49e6289003..9e6148d68e6c 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -421,9 +421,10 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	if (tb[RTA_OIF] && filter.oifmask != -1)
- 		fprintf(fp, "dev %s ", ll_index_to_name(*(int*)RTA_DATA(tb[RTA_OIF])));
- 
-+	if ((table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
-+		fprintf(fp, " table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
-+
- 	if (!(r->rtm_flags&RTM_F_CLONED)) {
--		if ((table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
--			fprintf(fp, " table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
- 		if ((r->rtm_protocol != RTPROT_BOOT || show_details > 0) && filter.protocolmask != -1)
- 			fprintf(fp, " proto %s ", rtnl_rtprot_n2a(r->rtm_protocol, b1, sizeof(b1)));
- 		if ((r->rtm_scope != RT_SCOPE_UNIVERSE || show_details > 0) && filter.scopemask != -1)
--- 
-1.9.1
+> --
+> Mark Rustad, Networking Division, Intel Corporation
+>
