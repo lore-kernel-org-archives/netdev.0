@@ -1,46 +1,51 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [GIT] Networking
-Date: Thu, 3 Sep 2015 23:26:26 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1509032325540.2035@localhost6.localdomain6>
-References: <20150902.223522.1792493140210966693.davem@davemloft.net> <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com> <20150903.104032.767889134756094076.davem@davemloft.net> <CA+55aFxtD2VYW2R0JwjFkZkvzQzcN7qK3m6ReR+BBXtfyDHx7g@mail.gmail.com>
- <1441305296.9666.14.camel@perches.com> <alpine.DEB.2.02.1509032121120.2035@localhost6.localdomain6> <CA+55aFy9L9U+bkk_VLRdWmepRH8LRkDw1sBo8t-byKUTZKWwBw@mail.gmail.com> <alpine.DEB.2.02.1509032250451.2035@localhost6.localdomain6>
- <CA+55aFzWY=2-JSZf+xBy6d=fdDHAFV5ABiyXeG3xGs7qO=ySsA@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2] net: Fix behaviour of unreachable, blackhole and
+ prohibit routes
+Date: Thu, 3 Sep 2015 15:22:35 -0700
+Message-ID: <55E8C82B.6000208@gmail.com>
+References: <1441271331.3360.36.camel@redhat.com>
+ <20150903.102955.927476775467830647.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-	Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFzWY=2-JSZf+xBy6d=fdDHAFV5ABiyXeG3xGs7qO=ySsA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, nforro@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:32864 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753026AbbICWWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 18:22:37 -0400
+Received: by iofh134 with SMTP id h134so4369657iof.0
+        for <netdev@vger.kernel.org>; Thu, 03 Sep 2015 15:22:37 -0700 (PDT)
+In-Reply-To: <20150903.102955.927476775467830647.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 09/03/2015 10:29 AM, David Miller wrote:
+> From: Nikola Forr=F3 <nforro@redhat.com>
+> Date: Thu, 03 Sep 2015 11:08:51 +0200
+>
+>> @@ -233,8 +233,10 @@ static inline int fib_lookup(struct net *net, c=
+onst struct flowi4 *flp,
+>>   	rcu_read_lock();
+>>  =20
+>>   	tb =3D fib_get_table(net, RT_TABLE_MAIN);
+>> -	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF=
+))
+>> -		err =3D 0;
+>> +	if (tb)
+>> +		err =3D fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
+>> +		if (err =3D=3D -EAGAIN)
+>> +			err =3D -ENETUNREACH;
+> You didn't test this.
 
+Actually the way the code is structured is still functional this way. =20
+The indentation is all that is really wrong.
 
-On Thu, 3 Sep 2015, Linus Torvalds wrote:
+I suspect this actually results in smaller code that may be faster for=20
+the standard case since tb will almost always have a value anyway, and=20
+if tb doesn't exist then err would equal -ENETUNREACH which would just=20
+mean the err =3D=3D -EAGAIN would be ignored.
 
-> On Thu, Sep 3, 2015 at 1:55 PM, Julia Lawall <julia.lawall@lip6.fr> wrote:
-> >
-> > There are 32 2-dimensional arrays in function parameters, and 1
-> > 3-dimensional array.  No 4-dimensional arrays.  I didn't check past that.
-> > None of these has a sizeof or ARRAY_SIZE.
-> >
-> > The three dimensional array is here: drivers/media/dvb-frontends/stv0367.c
-> 
-> Ok. That actually looks like a valid use of the C function argument
-> array passing semantics. It's rather much simpler than exposing the
-> pointers.
-> 
-> So I guess we don't really end up wanting to disallow this, and the
-> new gcc array sizeof warning is good enough.
-> 
-> Thanks for running the analysis so that I didn't have to look at it ;)
-
-The double arrays also look OK - the uses are also explicit double array 
-references.
-
-julia
+- Alex
