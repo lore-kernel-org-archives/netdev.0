@@ -1,56 +1,32 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] [PATCH v2 net-next] xen-netback: add support for
- multicast control
-Date: Thu, 3 Sep 2015 09:00:44 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02F5B0516@AMSPEX01CL01.citrite.net>
-References: <1441213116-9038-1-git-send-email-paul.durrant@citrix.com>
- <55E82768020000780009F32F@prv-mh.provo.novell.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: ip_rcv_finish() NULL pointer and possibly related Oopses
+Date: Thu, 03 Sep 2015 11:03:54 +0200
+Message-ID: <55E80CFA.7050408@iogearbox.net>
+References: <D2033B8F.4133C%Shaun.Crampton@metaswitch.com> <20150826074959.48aea34c@as> <CAGr1u3twv7KnXug3xZqL3X9NNpWBwGvw1RQpMHyqBmcC2ikamw@mail.gmail.com> <1440680401.8932.39.camel@edumazet-glaptop2.roam.corp.google.com> <D20CE2AD.43744%Shaun.Crampton@metaswitch.com> <55E7907D.9000606@iogearbox.net> <D20DBEF2.437A0%Shaun.Crampton@metaswitch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Michael Marineau <michael.marineau@coreos.com>,
+	Chuck Ebbert <cebbert.lkml@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Peter White <Peter.White@metaswitch.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
+To: Shaun Crampton <Shaun.Crampton@metaswitch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:60336 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894AbbICJAq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 05:00:46 -0400
-In-Reply-To: <55E82768020000780009F32F@prv-mh.provo.novell.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:60023 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbbICJD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 05:03:58 -0400
+In-Reply-To: <D20DBEF2.437A0%Shaun.Crampton@metaswitch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Jan Beulich [mailto:JBeulich@suse.com]
-> Sent: 03 September 2015 09:57
-> To: Paul Durrant
-> Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
-> netdev@vger.kernel.org
-> Subject: Re: [Xen-devel] [PATCH v2 net-next] xen-netback: add support for
-> multicast control
-> 
-> >>> On 02.09.15 at 18:58, <paul.durrant@citrix.com> wrote:
-> > @@ -1215,6 +1289,31 @@ static void xenvif_tx_build_gops(struct
-> xenvif_queue *queue,
-> >  				break;
-> >  		}
-> >
-> > +		if (extras[XEN_NETIF_EXTRA_TYPE_MCAST_ADD - 1].type) {
-> > +			struct xen_netif_extra_info *extra;
-> > +
-> > +			extra =
-> &extras[XEN_NETIF_EXTRA_TYPE_MCAST_ADD - 1];
-> > +			ret = xenvif_mcast_add(queue->vif, extra-
-> >u.mcast.addr);
-> 
-> What's the reason this call isn't gated on vif->multicast_control?
-> 
+On 09/03/2015 10:13 AM, Shaun Crampton wrote:
+...
+> Is there anything I can do on a running system to help figure this out?
+> Some sort of kernel equivalent to pmap to find out what module or device
+> owns that chunk of memory?
 
-No particular reason. I guess it eats a small amount of memory for no gain but a well behaved frontend wouldn't send such a request and a malicious one can only send 64 of them before netback starts to reject them.
-
-  Paul
-
-> Jan
+Hmm, perhaps /proc/kallsyms could point to something. 0xffffffffa0087d81
+and 0xffffffffa008772b could be from the same module, if any.
