@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Fix behaviour of unreachable, blackhole and
+Subject: Re: [PATCH v3] net: Fix behaviour of unreachable, blackhole and
  prohibit routes
-Date: Thu, 03 Sep 2015 10:29:55 -0700 (PDT)
-Message-ID: <20150903.102955.927476775467830647.davem@davemloft.net>
-References: <1441271331.3360.36.camel@redhat.com>
+Date: Thu, 03 Sep 2015 10:31:09 -0700 (PDT)
+Message-ID: <20150903.103109.1102527875442650781.davem@davemloft.net>
+References: <1441274722.3360.59.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: nforro@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44931 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44940 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751587AbbICR35 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 13:29:57 -0400
-In-Reply-To: <1441271331.3360.36.camel@redhat.com>
+	with ESMTP id S1751592AbbICRbK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 13:31:10 -0400
+In-Reply-To: <1441274722.3360.59.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Nikola Forr=F3 <nforro@redhat.com>
-Date: Thu, 03 Sep 2015 11:08:51 +0200
+Date: Thu, 03 Sep 2015 12:05:22 +0200
 
-> @@ -233,8 +233,10 @@ static inline int fib_lookup(struct net *net, co=
+> @@ -233,8 +233,11 @@ static inline int fib_lookup(struct net *net, co=
 nst struct flowi4 *flp,
 >  	rcu_read_lock();
 > =20
@@ -29,9 +29,12 @@ nst struct flowi4 *flp,
 > -	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF)=
 )
 > -		err =3D 0;
-> +	if (tb)
+> +	if (tb) {
 > +		err =3D fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
 > +		if (err =3D=3D -EAGAIN)
 > +			err =3D -ENETUNREACH;
+> +	}
+> =20
 
-You didn't test this.
+You resubmitted this so quickly, there is no way you did any testing
+of this code path even after fixing up the curly brace issue.
