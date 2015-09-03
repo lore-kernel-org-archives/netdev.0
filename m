@@ -1,65 +1,65 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH v2 net-next] xen-netback: add support for
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] [PATCH v2 net-next] xen-netback: add support for
  multicast control
-Date: Thu, 3 Sep 2015 10:31:22 +0100
-Message-ID: <1441272682.26292.309.camel@citrix.com>
+Date: Thu, 3 Sep 2015 09:34:49 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02F5B05DA@AMSPEX01CL01.citrite.net>
 References: <1441213116-9038-1-git-send-email-paul.durrant@citrix.com>
 	 <55E82768020000780009F32F@prv-mh.provo.novell.com>
 	 <9AAE0902D5BC7E449B7C8E4E778ABCD02F5B0516@AMSPEX01CL01.citrite.net>
+ <1441272682.26292.309.camel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Wei Liu <wei.liu2@citrix.com>,
 	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Paul Durrant <Paul.Durrant@citrix.com>,
+To: Ian Campbell <Ian.Campbell@citrix.com>,
 	Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:30503 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752810AbbICJb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2015 05:31:29 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD02F5B0516@AMSPEX01CL01.citrite.net>
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:12068 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753329AbbICJev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 05:34:51 -0400
+In-Reply-To: <1441272682.26292.309.camel@citrix.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-09-03 at 10:00 +0100, Paul Durrant wrote:
-> > 
-> > -----Original Message-----
-> > From: Jan Beulich [mailto:JBeulich@suse.com]
-> > Sent: 03 September 2015 09:57
-> > To: Paul Durrant
-> > Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
-> > netdev@vger.kernel.org
-> > Subject: Re: [Xen-devel] [PATCH v2 net-next] xen-netback: add support 
-> > for
-> > multicast control
-> > 
-> > > > > On 02.09.15 at 18:58, <paul.durrant@citrix.com> wrote:
-> > > @@ -1215,6 +1289,31 @@ static void xenvif_tx_build_gops(struct
-> > xenvif_queue *queue,
-> > >  				break;
-> > >  		}
-> > > 
-> > > +		if (extras[XEN_NETIF_EXTRA_TYPE_MCAST_ADD - 1].type) 
-> > > {
-> > > +			struct xen_netif_extra_info *extra;
-> > > +
-> > > +			extra =
-> > &extras[XEN_NETIF_EXTRA_TYPE_MCAST_ADD - 1];
-> > > +			ret = xenvif_mcast_add(queue->vif, extra-
-> > > u.mcast.addr);
-> > 
-> > What's the reason this call isn't gated on vif->multicast_control?
-> > 
-> 
-> No particular reason. I guess it eats a small amount of memory for no 
-> gain but a well behaved frontend wouldn't send such a request and a 
-> malicious one can only send 64 of them before netback starts to reject 
-> them.
-
-Perhaps a confused guest might submit them thinking they would work when
-actually the feature hasn't been properly negotiated and since it would
-succeed it wouldn't generate an error on the guest side?
-
-(A bit of a niche corner case I confess...)
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
+bzppYW4uY2FtcGJlbGxAY2l0cml4LmNvbV0NCj4gU2VudDogMDMgU2VwdGVtYmVyIDIwMTUgMTA6
+MzENCj4gVG86IFBhdWwgRHVycmFudDsgSmFuIEJldWxpY2gNCj4gQ2M6IFdlaSBMaXU7IHhlbi1k
+ZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJq
+ZWN0OiBSZTogW1hlbi1kZXZlbF0gW1BBVENIIHYyIG5ldC1uZXh0XSB4ZW4tbmV0YmFjazogYWRk
+IHN1cHBvcnQgZm9yDQo+IG11bHRpY2FzdCBjb250cm9sDQo+IA0KPiBPbiBUaHUsIDIwMTUtMDkt
+MDMgYXQgMTA6MDAgKzAxMDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiA+DQo+ID4gPiAtLS0t
+LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogSmFuIEJldWxpY2ggW21haWx0bzpK
+QmV1bGljaEBzdXNlLmNvbV0NCj4gPiA+IFNlbnQ6IDAzIFNlcHRlbWJlciAyMDE1IDA5OjU3DQo+
+ID4gPiBUbzogUGF1bCBEdXJyYW50DQo+ID4gPiBDYzogSWFuIENhbXBiZWxsOyBXZWkgTGl1OyB4
+ZW4tZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmc7DQo+ID4gPiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+ID4gPiBTdWJqZWN0OiBSZTogW1hlbi1kZXZlbF0gW1BBVENIIHYyIG5ldC1uZXh0XSB4
+ZW4tbmV0YmFjazogYWRkIHN1cHBvcnQNCj4gPiA+IGZvcg0KPiA+ID4gbXVsdGljYXN0IGNvbnRy
+b2wNCj4gPiA+DQo+ID4gPiA+ID4gPiBPbiAwMi4wOS4xNSBhdCAxODo1OCwgPHBhdWwuZHVycmFu
+dEBjaXRyaXguY29tPiB3cm90ZToNCj4gPiA+ID4gQEAgLTEyMTUsNiArMTI4OSwzMSBAQCBzdGF0
+aWMgdm9pZCB4ZW52aWZfdHhfYnVpbGRfZ29wcyhzdHJ1Y3QNCj4gPiA+IHhlbnZpZl9xdWV1ZSAq
+cXVldWUsDQo+ID4gPiA+ICAJCQkJYnJlYWs7DQo+ID4gPiA+ICAJCX0NCj4gPiA+ID4NCj4gPiA+
+ID4gKwkJaWYgKGV4dHJhc1tYRU5fTkVUSUZfRVhUUkFfVFlQRV9NQ0FTVF9BREQgLSAxXS50eXBl
+KQ0KPiA+ID4gPiB7DQo+ID4gPiA+ICsJCQlzdHJ1Y3QgeGVuX25ldGlmX2V4dHJhX2luZm8gKmV4
+dHJhOw0KPiA+ID4gPiArDQo+ID4gPiA+ICsJCQlleHRyYSA9DQo+ID4gPiAmZXh0cmFzW1hFTl9O
+RVRJRl9FWFRSQV9UWVBFX01DQVNUX0FERCAtIDFdOw0KPiA+ID4gPiArCQkJcmV0ID0geGVudmlm
+X21jYXN0X2FkZChxdWV1ZS0+dmlmLCBleHRyYS0NCj4gPiA+ID4gdS5tY2FzdC5hZGRyKTsNCj4g
+PiA+DQo+ID4gPiBXaGF0J3MgdGhlIHJlYXNvbiB0aGlzIGNhbGwgaXNuJ3QgZ2F0ZWQgb24gdmlm
+LT5tdWx0aWNhc3RfY29udHJvbD8NCj4gPiA+DQo+ID4NCj4gPiBObyBwYXJ0aWN1bGFyIHJlYXNv
+bi4gSSBndWVzcyBpdCBlYXRzIGEgc21hbGwgYW1vdW50IG9mIG1lbW9yeSBmb3Igbm8NCj4gPiBn
+YWluIGJ1dCBhIHdlbGwgYmVoYXZlZCBmcm9udGVuZCB3b3VsZG4ndCBzZW5kIHN1Y2ggYSByZXF1
+ZXN0IGFuZCBhDQo+ID4gbWFsaWNpb3VzIG9uZSBjYW4gb25seSBzZW5kIDY0IG9mIHRoZW0gYmVm
+b3JlIG5ldGJhY2sgc3RhcnRzIHRvIHJlamVjdA0KPiA+IHRoZW0uDQo+IA0KPiBQZXJoYXBzIGEg
+Y29uZnVzZWQgZ3Vlc3QgbWlnaHQgc3VibWl0IHRoZW0gdGhpbmtpbmcgdGhleSB3b3VsZCB3b3Jr
+DQo+IHdoZW4NCj4gYWN0dWFsbHkgdGhlIGZlYXR1cmUgaGFzbid0IGJlZW4gcHJvcGVybHkgbmVn
+b3RpYXRlZCBhbmQgc2luY2UgaXQgd291bGQNCj4gc3VjY2VlZCBpdCB3b3VsZG4ndCBnZW5lcmF0
+ZSBhbiBlcnJvciBvbiB0aGUgZ3Vlc3Qgc2lkZT8NCg0KSXQgd291bGQsIGJ1dCB0aGF0J3MgZXNz
+ZW50aWFsbHkgaGFybWxlc3MgdG8gZnVuY3Rpb25hbGl0eS4gSWYgdGhlIGZlYXR1cmUgaGFkIG5v
+dCBiZWVuIG5lZ290aWF0ZWQgcHJvcGVybHkgdGhlbiBtdWx0aWNhc3QgZmxvb2Rpbmcgd291bGQg
+c3RpbGwgYmUgaW4gb3BlcmF0aW9uIHNvIHRoZSBndWVzdCB3b3VsZCBub3QgbG9zZSBhbnkgbXVs
+dGljYXN0cy4gSSBjYW4gdGlnaHRlbiB0aGluZ3MgdXAgaWYgeW91IGxpa2UgYnV0IGFzIHlvdSBz
+YXkgYmVsb3cgaXQgaXMgYSBiaXQgb2YgYSBjb3JuZXIgY2FzZS4NCg0KICBQYXVsDQoNCj4gDQo+
+IChBIGJpdCBvZiBhIG5pY2hlIGNvcm5lciBjYXNlIEkgY29uZmVzcy4uLikNCg==
