@@ -1,30 +1,30 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] fixed_phy: pass 'irq' to fixed_phy_add()
-Date: Thu, 03 Sep 2015 13:23:49 -0700
-Message-ID: <55E8AC55.9080105@gmail.com>
-References: <3613326.r1qXWqo08b@wasted.cogentembedded.com>
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net-next] RDS: rds_conn_lookup() should factor in the
+ struct net for a match
+Date: Thu, 03 Sep 2015 13:36:57 -0700
+Message-ID: <55E8AF69.1080703@oracle.com>
+References: <20150903202452.GJ17626@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Cc: davem@davemloft.net, ajaykumar.hotchandani@oracle.com
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3613326.r1qXWqo08b@wasted.cogentembedded.com>
+In-Reply-To: <20150903202452.GJ17626@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/09/15 13:22, Sergei Shtylyov wrote:
-> I've noticed  that fixed_phy_register() ignores its 'irq' parameter instead of
-> passing it to fixed_phy_add(). Luckily, fixed_phy_register()  seems to  always
-> be  called with PHY_POLL  for 'irq'... :-)
+On 9/3/15 1:24 PM, Sowmini Varadhan wrote:
+>
+> Only return a conn if the rds_conn_net(conn) matches the struct
+> net passed to rds_conn_lookup().
+>
+> Fixes: 467fa15356ac ("RDS-TCP: Support multiple RDS-TCP listen endpoints,
+>         one per netns.")
+>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
 
-So not critical for -stable, good!
-
-> 
-> Fixes: a75951217472 ("net: phy: extend fixed driver with fixed_phy_register()")
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
