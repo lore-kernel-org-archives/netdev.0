@@ -1,114 +1,164 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/6] netfilter: conntrack: use nf_ct_tmpl_free in CT/synproxy error paths
-Date: Thu,  3 Sep 2015 11:51:01 +0200
-Message-ID: <1441273861-31092-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/6] netfilter: ipset: Fixing unnamed union init
+Date: Thu,  3 Sep 2015 11:50:59 +0200
+Message-ID: <1441273861-31092-5-git-send-email-pablo@netfilter.org>
 References: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46746 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752369AbbICJoj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2015 05:44:39 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: Elad Raz <eladr@mellanox.com>
 
-Commit 0838aa7fcfcd ("netfilter: fix netns dependencies with conntrack
-templates") migrated templates to the new allocator api, but forgot to
-update error paths for them in CT and synproxy to use nf_ct_tmpl_free()
-instead of nf_conntrack_free().
+In continue to proposed Vinson Lee's post [1], this patch fixes compilation
+issues founded at gcc 4.4.7. The initialization of .cidr field of unnamed
+unions causes compilation error in gcc 4.4.x.
 
-Due to that, memory is being freed into the wrong kmemcache, but also
-we drop the per net reference count of ct objects causing an imbalance.
+References
 
-In Brad's case, this leads to a wrap-around of net->ct.count and thus
-lets __nf_conntrack_alloc() refuse to create a new ct object:
+Visible links
+[1] https://lkml.org/lkml/2015/7/5/74
 
-  [   10.340913] xt_addrtype: ipv6 does not support BROADCAST matching
-  [   10.810168] nf_conntrack: table full, dropping packet
-  [   11.917416] r8169 0000:07:00.0 eth0: link up
-  [   11.917438] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-  [   12.815902] nf_conntrack: table full, dropping packet
-  [   15.688561] nf_conntrack: table full, dropping packet
-  [   15.689365] nf_conntrack: table full, dropping packet
-  [   15.690169] nf_conntrack: table full, dropping packet
-  [   15.690967] nf_conntrack: table full, dropping packet
-  [...]
-
-With slab debugging, it also reports the wrong kmemcache (kmalloc-512 vs.
-nf_conntrack_ffffffff81ce75c0) and reports poison overwrites, etc. Thus,
-to fix the problem, export and use nf_ct_tmpl_free() instead.
-
-Fixes: 0838aa7fcfcd ("netfilter: fix netns dependencies with conntrack templates")
-Reported-by: Brad Jackson <bjackson0971@gmail.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack.h |    1 +
- net/netfilter/nf_conntrack_core.c    |    3 ++-
- net/netfilter/nf_synproxy_core.c     |    2 +-
- net/netfilter/xt_CT.c                |    2 +-
- 4 files changed, 5 insertions(+), 3 deletions(-)
+ net/netfilter/ipset/ip_set_hash_netnet.c     |   20 ++++++++++++++++++--
+ net/netfilter/ipset/ip_set_hash_netportnet.c |   20 ++++++++++++++++++--
+ 2 files changed, 36 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 37cd391..4023c4c 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -292,6 +292,7 @@ extern unsigned int nf_conntrack_hash_rnd;
- void init_nf_conntrack_hash_rnd(void);
+diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
+index 3c862c0..a93dfeb 100644
+--- a/net/netfilter/ipset/ip_set_hash_netnet.c
++++ b/net/netfilter/ipset/ip_set_hash_netnet.c
+@@ -131,6 +131,13 @@ hash_netnet4_data_next(struct hash_netnet4_elem *next,
+ #define HOST_MASK	32
+ #include "ip_set_hash_gen.h"
  
- struct nf_conn *nf_ct_tmpl_alloc(struct net *net, u16 zone, gfp_t flags);
-+void nf_ct_tmpl_free(struct nf_conn *tmpl);
- 
- #define NF_CT_STAT_INC(net, count)	  __this_cpu_inc((net)->ct.stat->count)
- #define NF_CT_STAT_INC_ATOMIC(net, count) this_cpu_inc((net)->ct.stat->count)
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 3c20d02..0625a42 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -320,12 +320,13 @@ out_free:
- }
- EXPORT_SYMBOL_GPL(nf_ct_tmpl_alloc);
- 
--static void nf_ct_tmpl_free(struct nf_conn *tmpl)
-+void nf_ct_tmpl_free(struct nf_conn *tmpl)
++static void
++hash_netnet4_init(struct hash_netnet4_elem *e)
++{
++	e->cidr[0] = HOST_MASK;
++	e->cidr[1] = HOST_MASK;
++}
++
+ static int
+ hash_netnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 		  const struct xt_action_param *par,
+@@ -160,7 +167,7 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
  {
- 	nf_ct_ext_destroy(tmpl);
- 	nf_ct_ext_free(tmpl);
- 	kfree(tmpl);
- }
-+EXPORT_SYMBOL_GPL(nf_ct_tmpl_free);
+ 	const struct hash_netnet *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netnet4_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
++	struct hash_netnet4_elem e = { };
+ 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	u32 ip = 0, ip_to = 0, last;
+ 	u32 ip2 = 0, ip2_from = 0, ip2_to = 0, last2;
+@@ -169,6 +176,7 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
  
- static void
- destroy_conntrack(struct nf_conntrack *nfct)
-diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
-index d7f1685..d6ee8f8 100644
---- a/net/netfilter/nf_synproxy_core.c
-+++ b/net/netfilter/nf_synproxy_core.c
-@@ -378,7 +378,7 @@ static int __net_init synproxy_net_init(struct net *net)
- err3:
- 	free_percpu(snet->stats);
- err2:
--	nf_conntrack_free(ct);
-+	nf_ct_tmpl_free(ct);
- err1:
- 	return err;
- }
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index 43ddeee..f3377ce 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -233,7 +233,7 @@ out:
- 	return 0;
++	hash_netnet4_init(&e);
+ 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -357,6 +365,13 @@ hash_netnet6_data_next(struct hash_netnet4_elem *next,
+ #define IP_SET_EMIT_CREATE
+ #include "ip_set_hash_gen.h"
  
- err3:
--	nf_conntrack_free(ct);
-+	nf_ct_tmpl_free(ct);
- err2:
- 	nf_ct_l3proto_module_put(par->family);
- err1:
++static void
++hash_netnet6_init(struct hash_netnet6_elem *e)
++{
++	e->cidr[0] = HOST_MASK;
++	e->cidr[1] = HOST_MASK;
++}
++
+ static int
+ hash_netnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 		  const struct xt_action_param *par,
+@@ -385,13 +400,14 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
+ {
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netnet6_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
++	struct hash_netnet6_elem e = { };
+ 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	int ret;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ 
++	hash_netnet6_init(&e);
+ 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
+ 		return -IPSET_ERR_PROTOCOL;
+diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
+index 0c68734..9a14c23 100644
+--- a/net/netfilter/ipset/ip_set_hash_netportnet.c
++++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
+@@ -142,6 +142,13 @@ hash_netportnet4_data_next(struct hash_netportnet4_elem *next,
+ #define HOST_MASK	32
+ #include "ip_set_hash_gen.h"
+ 
++static void
++hash_netportnet4_init(struct hash_netportnet4_elem *e)
++{
++	e->cidr[0] = HOST_MASK;
++	e->cidr[1] = HOST_MASK;
++}
++
+ static int
+ hash_netportnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 		      const struct xt_action_param *par,
+@@ -175,7 +182,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ {
+ 	const struct hash_netportnet *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netportnet4_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
++	struct hash_netportnet4_elem e = { };
+ 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	u32 ip = 0, ip_to = 0, ip_last, p = 0, port, port_to;
+ 	u32 ip2_from = 0, ip2_to = 0, ip2_last, ip2;
+@@ -185,6 +192,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ 
++	hash_netportnet4_init(&e);
+ 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+@@ -412,6 +420,13 @@ hash_netportnet6_data_next(struct hash_netportnet4_elem *next,
+ #define IP_SET_EMIT_CREATE
+ #include "ip_set_hash_gen.h"
+ 
++static void
++hash_netportnet6_init(struct hash_netportnet6_elem *e)
++{
++	e->cidr[0] = HOST_MASK;
++	e->cidr[1] = HOST_MASK;
++}
++
+ static int
+ hash_netportnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 		      const struct xt_action_param *par,
+@@ -445,7 +460,7 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ {
+ 	const struct hash_netportnet *h = set->data;
+ 	ipset_adtfn adtfn = set->variant->adt[adt];
+-	struct hash_netportnet6_elem e = { .cidr = { HOST_MASK, HOST_MASK, }, };
++	struct hash_netportnet6_elem e = { };
+ 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	u32 port, port_to;
+ 	bool with_ports = false;
+@@ -454,6 +469,7 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ 
++	hash_netportnet6_init(&e);
+ 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
 -- 
 1.7.10.4
+
