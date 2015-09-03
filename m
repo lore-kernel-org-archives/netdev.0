@@ -1,49 +1,53 @@
-From: Dominique Martinet <dominique.martinet@cea.fr>
-Subject: [PATCH] 9p: trans_fd, initialize recv fcall properly if not set
-Date: Thu,  3 Sep 2015 11:38:49 +0200
-Message-ID: <1441273129-20185-1-git-send-email-dominique.martinet@cea.fr>
-Cc: Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dominique Martinet <dominique.martinet@cea.fr>
-To: v9fs-developer@lists.sourceforge.net
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 2/6] netfilter: bridge: fix IPv6 packets not being bridged with CONFIG_IPV6=n
+Date: Thu,  3 Sep 2015 11:50:57 +0200
+Message-ID: <1441273861-31092-3-git-send-email-pablo@netfilter.org>
+References: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nautica.notk.org ([91.121.71.147]:40050 "EHLO nautica.notk.org"
+Received: from mail.us.es ([193.147.175.20]:46727 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752877AbbICJiz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2015 05:38:55 -0400
+	id S1750885AbbICJoh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2015 05:44:37 -0400
+In-Reply-To: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-That code really should never be called (rc is allocated in
-tag_alloc), but if it had been it couldn't have worked...
+From: Bernhard Thaler <bernhard.thaler@wvnet.at>
 
-Signed-off-by: Dominique Martinet <dominique.martinet@cea.fr>
+230ac490f7fba introduced a dependency to CONFIG_IPV6 which breaks bridging
+of IPv6 packets on a bridge with CONFIG_IPV6=n.
+
+Sysctl entry /proc/sys/net/bridge/bridge-nf-call-ip6tables defaults to 1,
+for this reason packets are handled by br_nf_pre_routing_ipv6(). When compiled
+with CONFIG_IPV6=n this function returns NF_DROP but should return NF_ACCEPT
+to let packets through.
+
+Change CONFIG_IPV6=n br_nf_pre_routing_ipv6() return value to NF_ACCEPT.
+
+Tested with a simple bridge with two interfaces and IPv6 packets trying
+to pass from host on left side to host on right side of the bridge.
+
+Fixes: 230ac490f7fba ("netfilter: bridge: split ipv6 code into separated file")
+Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/9p/trans_fd.c | 3 +++
- 1 file changed, 3 insertions(+)
+ include/net/netfilter/br_netfilter.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-To be honest, I think it might be better to just bail out if we get in
-this switch (m->req->rc == NULL after p9_tag_lookup) and not try to
-allocate more, because if we get there it's likely a race condition and
-silently re-allocating will end up in more troubles than trying to
-recover is worth.
-Thoughts ?
-
-diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
-index a270dcc..0d9831a 100644
---- a/net/9p/trans_fd.c
-+++ b/net/9p/trans_fd.c
-@@ -363,6 +363,9 @@ static void p9_read_work(struct work_struct *work)
- 				err = -ENOMEM;
- 				goto error;
- 			}
-+			m->req->rc.capacity = m->client->msize;
-+			m->req->rc.sdata = (char*)m->req->rc +
-+						sizeof(struct p9_fcall);
- 		}
- 		m->rc.sdata = (char *)m->req->rc + sizeof(struct p9_fcall);
- 		memcpy(m->rc.sdata, m->tmp_buf, m->rc.capacity);
+diff --git a/include/net/netfilter/br_netfilter.h b/include/net/netfilter/br_netfilter.h
+index bab824b..d4c6b5f 100644
+--- a/include/net/netfilter/br_netfilter.h
++++ b/include/net/netfilter/br_netfilter.h
+@@ -59,7 +59,7 @@ static inline unsigned int
+ br_nf_pre_routing_ipv6(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		       const struct nf_hook_state *state)
+ {
+-	return NF_DROP;
++	return NF_ACCEPT;
+ }
+ #endif
+ 
 -- 
-1.8.3.1
+1.7.10.4
