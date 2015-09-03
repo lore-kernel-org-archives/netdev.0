@@ -1,98 +1,91 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/6] netfilter: ipset: Out of bound access in hash:net* types fixed
-Date: Thu,  3 Sep 2015 11:50:58 +0200
-Message-ID: <1441273861-31092-4-git-send-email-pablo@netfilter.org>
-References: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v2 net-next] xen-netback: add support for
+ multicast control
+Date: Thu, 3 Sep 2015 10:56:39 +0100
+Message-ID: <1441274199.26292.324.camel@citrix.com>
+References: <1441213116-9038-1-git-send-email-paul.durrant@citrix.com>
+	 <55E82768020000780009F32F@prv-mh.provo.novell.com>
+	 <9AAE0902D5BC7E449B7C8E4E778ABCD02F5B0516@AMSPEX01CL01.citrite.net>
+	 <1441272682.26292.309.camel@citrix.com>
+	 <9AAE0902D5BC7E449B7C8E4E778ABCD02F5B05DA@AMSPEX01CL01.citrite.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>,
+	Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46734 "EHLO mail.us.es"
+Received: from smtp.citrix.com ([66.165.176.89]:22776 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751726AbbICJoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2015 05:44:37 -0400
-In-Reply-To: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
+	id S1753795AbbICJ6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Sep 2015 05:58:19 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD02F5B05DA@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+On Thu, 2015-09-03 at 10:34 +0100, Paul Durrant wrote:
+> > 
+> > -----Original Message-----
+> > From: Ian Campbell [mailto:ian.campbell@citrix.com]
+> > Sent: 03 September 2015 10:31
+> > To: Paul Durrant; Jan Beulich
+> > Cc: Wei Liu; xen-devel@lists.xenproject.org; netdev@vger.kernel.org
+> > Subject: Re: [Xen-devel] [PATCH v2 net-next] xen-netback: add support 
+> > for
+> > multicast control
+> > 
+> > On Thu, 2015-09-03 at 10:00 +0100, Paul Durrant wrote:
+> > > > 
+> > > > -----Original Message-----
+> > > > From: Jan Beulich [mailto:JBeulich@suse.com]
+> > > > Sent: 03 September 2015 09:57
+> > > > To: Paul Durrant
+> > > > Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
+> > > > netdev@vger.kernel.org
+> > > > Subject: Re: [Xen-devel] [PATCH v2 net-next] xen-netback: add 
+> > > > support
+> > > > for
+> > > > multicast control
+> > > > 
+> > > > > > > On 02.09.15 at 18:58, <paul.durrant@citrix.com> wrote:
+> > > > > @@ -1215,6 +1289,31 @@ static void xenvif_tx_build_gops(struct
+> > > > xenvif_queue *queue,
+> > > > >  				break;
+> > > > >  		}
+> > > > > 
+> > > > > +		if (extras[XEN_NETIF_EXTRA_TYPE_MCAST_ADD - 
+> > > > > 1].type)
+> > > > > {
+> > > > > +			struct xen_netif_extra_info *extra;
+> > > > > +
+> > > > > +			extra =
+> > > > &extras[XEN_NETIF_EXTRA_TYPE_MCAST_ADD - 1];
+> > > > > +			ret = xenvif_mcast_add(queue->vif, extra
+> > > > > -
+> > > > > u.mcast.addr);
+> > > > 
+> > > > What's the reason this call isn't gated on vif->multicast_control?
+> > > > 
+> > > 
+> > > No particular reason. I guess it eats a small amount of memory for no
+> > > gain but a well behaved frontend wouldn't send such a request and a
+> > > malicious one can only send 64 of them before netback starts to 
+> > > reject
+> > > them.
+> > 
+> > Perhaps a confused guest might submit them thinking they would work
+> > when
+> > actually the feature hasn't been properly negotiated and since it would
+> > succeed it wouldn't generate an error on the guest side?
+> 
+> It would, but that's essentially harmless to functionality. If the 
+> feature had not been negotiated properly then multicast flooding would 
+> still be in operation so the guest would not lose any multicasts. I can 
+> tighten things up if you like but as you say below it is a bit of a 
+> corner case.
 
-Dave Jones reported that KASan detected out of bounds access in hash:net*
-types:
-
-[   23.139532] ==================================================================
-[   23.146130] BUG: KASan: out of bounds access in hash_net4_add_cidr+0x1db/0x220 at addr ffff8800d4844b58
-[   23.152937] Write of size 4 by task ipset/457
-[   23.159742] =============================================================================
-[   23.166672] BUG kmalloc-512 (Not tainted): kasan: bad access detected
-[   23.173641] -----------------------------------------------------------------------------
-[   23.194668] INFO: Allocated in hash_net_create+0x16a/0x470 age=7 cpu=1 pid=456
-[   23.201836]  __slab_alloc.constprop.66+0x554/0x620
-[   23.208994]  __kmalloc+0x2f2/0x360
-[   23.216105]  hash_net_create+0x16a/0x470
-[   23.223238]  ip_set_create+0x3e6/0x740
-[   23.230343]  nfnetlink_rcv_msg+0x599/0x640
-[   23.237454]  netlink_rcv_skb+0x14f/0x190
-[   23.244533]  nfnetlink_rcv+0x3f6/0x790
-[   23.251579]  netlink_unicast+0x272/0x390
-[   23.258573]  netlink_sendmsg+0x5a1/0xa50
-[   23.265485]  SYSC_sendto+0x1da/0x2c0
-[   23.272364]  SyS_sendto+0xe/0x10
-[   23.279168]  entry_SYSCALL_64_fastpath+0x12/0x6f
-
-The bug is fixed in the patch and the testsuite is extended in ipset
-to check cidr handling more thoroughly.
-
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
----
- net/netfilter/ipset/ip_set_hash_gen.h |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index afe905c..691b54f 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -152,9 +152,13 @@ htable_bits(u32 hashsize)
- #define SET_HOST_MASK(family)	(family == AF_INET ? 32 : 128)
- 
- #ifdef IP_SET_HASH_WITH_NET0
-+/* cidr from 0 to SET_HOST_MASK() value and c = cidr + 1 */
- #define NLEN(family)		(SET_HOST_MASK(family) + 1)
-+#define CIDR_POS(c)		((c) - 1)
- #else
-+/* cidr from 1 to SET_HOST_MASK() value and c = cidr + 1 */
- #define NLEN(family)		SET_HOST_MASK(family)
-+#define CIDR_POS(c)		((c) - 2)
- #endif
- 
- #else
-@@ -305,7 +309,7 @@ mtype_add_cidr(struct htype *h, u8 cidr, u8 nets_length, u8 n)
- 		} else if (h->nets[i].cidr[n] < cidr) {
- 			j = i;
- 		} else if (h->nets[i].cidr[n] == cidr) {
--			h->nets[cidr - 1].nets[n]++;
-+			h->nets[CIDR_POS(cidr)].nets[n]++;
- 			return;
- 		}
- 	}
-@@ -314,7 +318,7 @@ mtype_add_cidr(struct htype *h, u8 cidr, u8 nets_length, u8 n)
- 			h->nets[i].cidr[n] = h->nets[i - 1].cidr[n];
- 	}
- 	h->nets[i].cidr[n] = cidr;
--	h->nets[cidr - 1].nets[n] = 1;
-+	h->nets[CIDR_POS(cidr)].nets[n] = 1;
- }
- 
- static void
-@@ -325,8 +329,8 @@ mtype_del_cidr(struct htype *h, u8 cidr, u8 nets_length, u8 n)
- 	for (i = 0; i < nets_length; i++) {
- 		if (h->nets[i].cidr[n] != cidr)
- 			continue;
--		h->nets[cidr - 1].nets[n]--;
--		if (h->nets[cidr - 1].nets[n] > 0)
-+		h->nets[CIDR_POS(cidr)].nets[n]--;
-+		if (h->nets[CIDR_POS(cidr)].nets[n] > 0)
- 			return;
- 		for (j = i; j < net_end && h->nets[j].cidr[n]; j++)
- 			h->nets[j].cidr[n] = h->nets[j + 1].cidr[n];
--- 
-1.7.10.4
+Ah yes, I had something backwards and thought the guest might miss out on
+something it was expecting, but as you say it will just get more than it
+wanted.
