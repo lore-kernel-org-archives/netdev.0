@@ -1,12 +1,13 @@
-From: Marcel Holtmann <marcel@holtmann.org>
+From: Julia Lawall <julia.lawall@lip6.fr>
 Subject: Re: [GIT] Networking
-Date: Thu, 3 Sep 2015 14:09:36 -0700
-Message-ID: <62408D76-2E53-4914-97A9-32B65B167F9B@holtmann.org>
-References: <20150902.223522.1792493140210966693.davem@davemloft.net> <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com> <20150903.104032.767889134756094076.davem@davemloft.net> <CA+55aFxtD2VYW2R0JwjFkZkvzQzcN7qK3m6ReR+BBXtfyDHx7g@mail.gmail.com> <CA+55aFzZe2buU-LxAktxYNojuvMbUNt64QiKDpGsfFwtrbf+Qg@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
+Date: Thu, 3 Sep 2015 23:26:26 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1509032325540.2035@localhost6.localdomain6>
+References: <20150902.223522.1792493140210966693.davem@davemloft.net> <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com> <20150903.104032.767889134756094076.davem@davemloft.net> <CA+55aFxtD2VYW2R0JwjFkZkvzQzcN7qK3m6ReR+BBXtfyDHx7g@mail.gmail.com>
+ <1441305296.9666.14.camel@perches.com> <alpine.DEB.2.02.1509032121120.2035@localhost6.localdomain6> <CA+55aFy9L9U+bkk_VLRdWmepRH8LRkDw1sBo8t-byKUTZKWwBw@mail.gmail.com> <alpine.DEB.2.02.1509032250451.2035@localhost6.localdomain6>
+ <CA+55aFzWY=2-JSZf+xBy6d=fdDHAFV5ABiyXeG3xGs7qO=ySsA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
 	Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>,
 	Johannes Berg <johannes.berg@intel.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
@@ -14,44 +15,32 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFzZe2buU-LxAktxYNojuvMbUNt64QiKDpGsfFwtrbf+Qg@mail.gmail.com>
+In-Reply-To: <CA+55aFzWY=2-JSZf+xBy6d=fdDHAFV5ABiyXeG3xGs7qO=ySsA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Linus,
 
->> [-Wsizeof-array-argument]
+
+On Thu, 3 Sep 2015, Linus Torvalds wrote:
+
+> On Thu, Sep 3, 2015 at 1:55 PM, Julia Lawall <julia.lawall@lip6.fr> wrote:
+> >
+> > There are 32 2-dimensional arrays in function parameters, and 1
+> > 3-dimensional array.  No 4-dimensional arrays.  I didn't check past that.
+> > None of these has a sizeof or ARRAY_SIZE.
+> >
+> > The three dimensional array is here: drivers/media/dvb-frontends/stv0367.c
 > 
-> Ahh. Google shows that it's an old clang warning that gcc has recently
-> picked up.
+> Ok. That actually looks like a valid use of the C function argument
+> array passing semantics. It's rather much simpler than exposing the
+> pointers.
 > 
-> But even clang doesn't seem to have any way for a project to say
-> "please warn about arrays in function argument declaration". It *is*
-> very traditional idiomatic C, it's just that I personally think it's
-> one of those bad traditional C things exactly because it's so
-> misleading about what actually goes on. But I guess that in practice,
-> the only thing that it actually *affects* is "sizeof" (and assignment
-> to the variable name - something that would be invalid for a real
-> array, but works on argument arrays because they are really just
-> pointers).
+> So I guess we don't really end up wanting to disallow this, and the
+> new gcc array sizeof warning is good enough.
 > 
-> The "array as function argument" syntax is occasionally useful
-> (particularly for the multi-dimensional array case), so I very much
-> understand why it exists, I just think that in the kernel we'd be
-> better off with the rule that it's against our coding practices.
+> Thanks for running the analysis so that I didn't have to look at it ;)
 
-I find them useful as syntactic sugar. We have not used them a lot, but there are cases in our crypto handling code where we have fixed size array inputs/outputs and there we opted to use them. They make it easy to remember what the expected sizes of input and output are without having to read through the implementation (of course we never even tried to use sizeof on these pointers).
+The double arrays also look OK - the uses are also explicit double array 
+references.
 
-static int smp_ah(struct crypto_blkcipher *tfm, const u8 irk[16],                
-                  const u8 r[3], u8 res[3])
-
-This is one of the simple crypto hashing for privacy keys we have.
-
-	r' = padding || r
-	ah(h, r) = e(k, r') mod 2^24
-
-We are fully aware that const u8 r[3] is const u8 *r. As I said, it is syntactic sugar for us and nothing more.
-
-Regards
-
-Marcel
+julia
