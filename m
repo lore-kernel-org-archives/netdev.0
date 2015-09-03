@@ -1,105 +1,96 @@
-From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] ixgbe: Remove bimodal SR-IOV disabling
-Date: Thu, 3 Sep 2015 23:08:57 +0000
-Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E271B6324@ORSMSX103.amr.corp.intel.com>
-References: <20150710212710.9501.14320.stgit@gimli.home>
- <C5551D9AAB213A418B7FD5E4A6F30A0789336065@ORSMSX108.amr.corp.intel.com>
- <1436568256.1391.328.camel@redhat.com>
+From: "Hall, Christopher S" <christopher.s.hall@intel.com>
+Subject: RE: [PATCH v3 1/4] Add correlated clocksource deriving system time
+ from an auxiliary clocksource
+Date: Thu, 3 Sep 2015 23:20:37 +0000
+Message-ID: <B79D786B7111A34A8CF09F833429C493A90B2D1F@ORSMSX109.amr.corp.intel.com>
+References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
+ <1440183128-1384-2-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1508222143530.3873@nanos>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alex Williamson <alex.williamson@redhat.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
+	"peterz@infradead.org" <peterz@infradead.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:49456 "EHLO mga03.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:34784 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757464AbbICXI7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 19:08:59 -0400
-In-Reply-To: <1436568256.1391.328.camel@redhat.com>
+	id S1750708AbbICXUs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 19:20:48 -0400
+In-Reply-To: <alpine.DEB.2.11.1508222143530.3873@nanos>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------Original Message-----
-From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alex Williamson
-Sent: Friday, July 10, 2015 3:44 PM
-To: Rose, Gregory V <gregory.v.rose@intel.com>
-Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-kernel@vger.kernel.org
-Subject: Re: [Intel-wired-lan] [PATCH] ixgbe: Remove bimodal SR-IOV disabling
+> -----Original Message-----
+> From: Thomas Gleixner [mailto:tglx@linutronix.de]
+> Sent: Saturday, August 22, 2015 1:17 PM
+> To: Hall, Christopher S
+> Cc: Kirsher, Jeffrey T; hpa@zytor.com; mingo@redhat.com;
+> john.stultz@linaro.org; richardcochran@gmail.com; x86@kernel.org; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org; intel-wired-
+> lan@lists.osuosl.org; peterz@infradead.org
+> Subject: Re: [PATCH v3 1/4] Add correlated clocksource deriving system time
+> from an auxiliary clocksource
+>  
+> > +/**
+> > + * get_correlated_timestamp - Get a correlated timestamp
+> > + *
+> > + * Reads a timestamp from a device and correlates it to system time
+> > + */
+> > +int get_correlated_timestamp(struct correlated_ts *crt,
+> > +			     struct correlated_cs *crs)
+> > +{
+> > +	struct timekeeper *tk = &tk_core.timekeeper;
+> > +	unsigned long seq;
+> > +	cycles_t cycles;
+> > +	ktime_t base;
+> > +	s64 nsecs;
+> > +	int ret;
+> > +
+> > +	do {
+> > +		seq = read_seqcount_begin(&tk_core.seq);
+> > +		/*
+> > +		 * Verify that the correlated clocksoure is related to
+> > +		 * the currently installed timekeeper clocksoure
+> > +		 */
+> > +		if (tk->tkr_mono.clock != crs->related_cs)
+> > +			return -ENODEV;
+> > +
+> > +		/*
+> > +		 * Try to get a timestamp from the device.
+> > +		 */
+> > +		ret = crt->get_ts(crt);
+> > +		if (ret)
+> > +			return ret;
+> > +
+[Re-added code for context]
 
-On Fri, 2015-07-10 at 21:36 +0000, Rose, Gregory V wrote:
-> 
-> > -----Original Message-----
-> > From: Alex Williamson [mailto:alex.williamson@redhat.com]
-> > Sent: Friday, July 10, 2015 2:32 PM
-> > To: intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T
-> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Rose, 
-> > Gregory V
-> > Subject: [PATCH] ixgbe: Remove bimodal SR-IOV disabling
-> > 
-> > When unbinding an SR-IOV device with VFs configured from ixgbe, the 
-> > driver behaves in one of two ways.  If max_vfs was specified, the 
-> > SR-IOV state is disabled, removing the VFs.  The occurs regardless 
-> > of whether the VF count was later modified through sysfs.  If 
-> > however max_vfs is zero, such as by not specifying the module 
-> > parameter, the VFs persist after the PF is unbound from ixgbe.  If 
-> > the PF is then bound to vfio-pci to be assigned to a VM, the PF is non-functional.
-> > 
-> > >From the comment, commit da36b64736cf ("ixgbe: Implement PCI SR-IOV
-> > sysfs callback operation") clearly intended this alternate behavior, 
-> > but probably didn't realize the PF doesn't work in this mode.
-> > 
-> > This bimodal behavior is confusing to users and results in a state 
-> > where the PF is broken for other uses unless the user sets 
-> > sriov_numvfs to zero prior to unbinding the device.  Remove this 
-> > behavior so that VFs are removed and the PF is functional for other 
-> > uses after unbind, regardless of the way VFs are enabled.
-> > 
-> > Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
-> > Cc: Greg Rose <gregory.v.rose@intel.com>
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> > 
-> > I can only think that not disabling SR-IOV was meant to enable some 
-> > sort of persistence for VFs, but that's probably better accomplished 
-> > with either udev rules and/or modprobe.d install scripts.
-> > 
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    7 +------
-> >  1 file changed, 1 insertion(+), 6 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > index 5be12a0..de04e3e 100644
-> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > @@ -8810,12 +8810,7 @@ static void ixgbe_remove(struct pci_dev *pdev)
-> >  		unregister_netdev(netdev);
-> > 
-> >  #ifdef CONFIG_PCI_IOV
-> > -	/*
-> > -	 * Only disable SR-IOV on unload if the user specified the now
-> > -	 * deprecated max_vfs module parameter.
-> > -	 */
-> > -	if (max_vfs)
-> > -		ixgbe_disable_sriov(adapter);
-> > +	ixgbe_disable_sriov(adapter);
-> >  #endif
-> >  	ixgbe_clear_interrupt_scheme(adapter);
-> > 
-> 
-> Please remove max_vfs module parameter - it is deprecated and should be removed from upstream builds.  Dave let us get away with a kernel module a few years ago because the other necessary infrastructure to enable SR-IOV virtual functions via the PCIe interface was not available.  Now that it's there it should be removed and vendors/end users should be forced to move away from this.
+In addition to the network interface, ART will be used in the audio interface as well.
+We need to support the case where an audio co-processor will control the audio device.
+In this case, the get_ts() function supplied by the audio driver will be very slow
+(several milliseconds) and the result will be out of date by some fraction of that 
+amount.
 
-I can't really say I'm in favor of removing that option.  It's probably going to break a lot of people because doing the udev rules right is hard.  The sysfs sriov interface has been tossed over the wall as the right way to do things, but there's really no infrastructure to facilitate even the simple peanut butter, everybody gets the same number of VFs, interface that max_vfs provides.  I think the existence of this bug is probably a good indication that the sysfs interface has not really been adopted yet.  Thanks,
+This loop makes strict requirements on the latency and recency. Is it possible to relax
+that requirement in some way?
 
-Alex
+For example, supply the ART value as an argument and, in the case of the realtime
+clock, keep a short history of clock changes.  It would fail in cases where there
+are a lot of calls to adjtimex(), but it will would work most of the time.
 
-_______________________________________________
-Intel-wired-lan mailing list
-Intel-wired-lan@lists.osuosl.org
-http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+What can you suggest? Thanks
 
+Chris
 
-Tested-By: Krishneil Singh <Krishneil.k.singh@intel.com >
+> > +	} while (read_seqcount_retry(&tk_core.seq, seq));
+> > +	return 0;
+> > +}
