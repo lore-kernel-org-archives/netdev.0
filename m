@@ -1,45 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] fixed_phy: pass 'irq' to fixed_phy_add()
-Date: Thu, 03 Sep 2015 23:22:16 +0300
-Message-ID: <3613326.r1qXWqo08b@wasted.cogentembedded.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] RDS: rds_conn_lookup() should factor in the struct
+ net for a match
+Date: Thu, 3 Sep 2015 16:24:52 -0400
+Message-ID: <20150903202452.GJ17626@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:34152 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973AbbICUWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 16:22:19 -0400
-Received: by lbbmp1 with SMTP id mp1so526088lbb.1
-        for <netdev@vger.kernel.org>; Thu, 03 Sep 2015 13:22:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sowmini.varadhan@oracle.com, davem@davemloft.net,
+	santosh.shilimkar@oracle.com, ajaykumar.hotchandani@oracle.com
+To: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I've noticed  that fixed_phy_register() ignores its 'irq' parameter instead of
-passing it to fixed_phy_add(). Luckily, fixed_phy_register()  seems to  always
-be  called with PHY_POLL  for 'irq'... :-)
 
-Fixes: a75951217472 ("net: phy: extend fixed driver with fixed_phy_register()")
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Only return a conn if the rds_conn_net(conn) matches the struct
+net passed to rds_conn_lookup().
 
+Fixes: 467fa15356ac ("RDS-TCP: Support multiple RDS-TCP listen endpoints,
+       one per netns.")
+
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
-The patch is against DaveM's 'net.git' repo.
+ net/rds/connection.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
- drivers/net/phy/fixed_phy.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: net/drivers/net/phy/fixed_phy.c
-===================================================================
---- net.orig/drivers/net/phy/fixed_phy.c
-+++ net/drivers/net/phy/fixed_phy.c
-@@ -325,7 +325,7 @@ struct phy_device *fixed_phy_register(un
- 	phy_addr = phy_fixed_addr++;
- 	spin_unlock(&phy_fixed_addr_lock);
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index a50e652..9b2de5e 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -70,7 +70,8 @@ static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
+ } while (0)
  
--	ret = fixed_phy_add(PHY_POLL, phy_addr, status, link_gpio);
-+	ret = fixed_phy_add(irq, phy_addr, status, link_gpio);
- 	if (ret < 0)
- 		return ERR_PTR(ret);
+ /* rcu read lock must be held or the connection spinlock */
+-static struct rds_connection *rds_conn_lookup(struct hlist_head *head,
++static struct rds_connection *rds_conn_lookup(struct net *net,
++					      struct hlist_head *head,
+ 					      __be32 laddr, __be32 faddr,
+ 					      struct rds_transport *trans)
+ {
+@@ -78,7 +79,7 @@ static struct rds_connection *rds_conn_lookup(struct hlist_head *head,
  
+ 	hlist_for_each_entry_rcu(conn, head, c_hash_node) {
+ 		if (conn->c_faddr == faddr && conn->c_laddr == laddr &&
+-				conn->c_trans == trans) {
++		    conn->c_trans == trans && net == rds_conn_net(conn)) {
+ 			ret = conn;
+ 			break;
+ 		}
+@@ -132,7 +133,7 @@ static struct rds_connection *__rds_conn_create(struct net *net,
+ 	if (!is_outgoing && otrans->t_type == RDS_TRANS_TCP)
+ 		goto new_conn;
+ 	rcu_read_lock();
+-	conn = rds_conn_lookup(head, laddr, faddr, trans);
++	conn = rds_conn_lookup(net, head, laddr, faddr, trans);
+ 	if (conn && conn->c_loopback && conn->c_trans != &rds_loop_transport &&
+ 	    laddr == faddr && !is_outgoing) {
+ 		/* This is a looped back IB connection, and we're
+@@ -239,7 +240,7 @@ static struct rds_connection *__rds_conn_create(struct net *net,
+ 		if (!is_outgoing && otrans->t_type == RDS_TRANS_TCP)
+ 			found = NULL;
+ 		else
+-			found = rds_conn_lookup(head, laddr, faddr, trans);
++			found = rds_conn_lookup(net, head, laddr, faddr, trans);
+ 		if (found) {
+ 			trans->conn_free(conn->c_transport_data);
+ 			kmem_cache_free(rds_conn_slab, conn);
+-- 
+1.7.1
