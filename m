@@ -1,53 +1,37 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [patch net] switchdev: fix return value of switchdev_port_fdb_dump
- in case of error
-Date: Thu, 03 Sep 2015 09:59:38 -0700
-Message-ID: <55E87C7A.4020608@intel.com>
-References: <1441281857-613-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: Fix behaviour of unreachable, blackhole and
+ prohibit routes
+Date: Thu, 03 Sep 2015 10:29:55 -0700 (PDT)
+Message-ID: <20150903.102955.927476775467830647.davem@davemloft.net>
+References: <1441271331.3360.36.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	sfeldma@gmail.com, Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: nforro@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:43377 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751542AbbICQ7j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2015 12:59:39 -0400
-In-Reply-To: <1441281857-613-1-git-send-email-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44931 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751587AbbICR35 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 13:29:57 -0400
+In-Reply-To: <1441271331.3360.36.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/3/2015 5:04 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> switchdev_port_fdb_dump is used as .ndo_fdb_dump. Its return value is
-> idx, so we cannot return errval.
->
-> Fixes: 45d4122ca7cd ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops.")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+=46rom: Nikola Forr=F3 <nforro@redhat.com>
+Date: Thu, 03 Sep 2015 11:08:51 +0200
 
-> ---
->   net/switchdev/switchdev.c | 6 +-----
->   1 file changed, 1 insertion(+), 5 deletions(-)
->
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 16c1c43..fda38f8 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -853,12 +853,8 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
->   		.cb = cb,
->   		.idx = idx,
->   	};
-> -	int err;
-> -
-> -	err = switchdev_port_obj_dump(dev, &dump.obj);
-> -	if (err)
-> -		return err;
->   
-> +	switchdev_port_obj_dump(dev, &dump.obj);
->   	return dump.idx;
->   }
->   EXPORT_SYMBOL_GPL(switchdev_port_fdb_dump);
+> @@ -233,8 +233,10 @@ static inline int fib_lookup(struct net *net, co=
+nst struct flowi4 *flp,
+>  	rcu_read_lock();
+> =20
+>  	tb =3D fib_get_table(net, RT_TABLE_MAIN);
+> -	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF)=
+)
+> -		err =3D 0;
+> +	if (tb)
+> +		err =3D fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
+> +		if (err =3D=3D -EAGAIN)
+> +			err =3D -ENETUNREACH;
+
+You didn't test this.
