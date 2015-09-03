@@ -1,47 +1,49 @@
-From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH] be2net: Revert "make the RX_FILTER command asynchronous" commit
-Date: Thu,  3 Sep 2015 07:41:53 -0400
-Message-ID: <1441280513-27531-1-git-send-email-sathya.perla@avagotech.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] switchdev: fix return value of switchdev_port_fdb_dump in case of error
+Date: Thu,  3 Sep 2015 14:04:17 +0200
+Message-ID: <1441281857-613-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	sridhar.samudrala@intel.com, sfeldma@gmail.com,
+	Jiri Pirko <jiri@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:52705 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752775AbbICLes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 07:34:48 -0400
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:36096 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754003AbbICMEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 08:04:20 -0400
+Received: by wibz8 with SMTP id z8so96419461wib.1
+        for <netdev@vger.kernel.org>; Thu, 03 Sep 2015 05:04:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The be_cmd_rx_filter() routine sends a non-embedded cmd to the FW and used
-a pre-allocated dma memory to hold the cmd payload. This worked fine when
-this cmd was synchronous. This cmd was changed to asynchronous mode by the
-commit 8af65c2f4("make the RX_FILTER command asynchronous"). So now when
-there are two quick invocations of this cmd, the 2nd request may end up
-overwriting the first request, causing FW cmd corruption.
+From: Jiri Pirko <jiri@mellanox.com>
 
-This patch reverts the offending commit and hence fixes the regression.
+switchdev_port_fdb_dump is used as .ndo_fdb_dump. Its return value is
+idx, so we cannot return errval.
 
-Fixes: 8af65c2f4("be2net: make the RX_FILTER command asynchronous")
-Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
+Fixes: 45d4122ca7cd ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops.")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-David, the culprit commit that this patch is reverting was applied on
-the net-next tree. As net-next tree is closed now, I'm assuming you've
-merged the net-next tree onto the net tree. Thanks!
+ net/switchdev/switchdev.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
- drivers/net/ethernet/emulex/benet/be_cmds.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 3be1fbd..eb32391 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1968,7 +1968,7 @@ static int __be_cmd_rx_filter(struct be_adapter *adapter, u32 flags, u32 value)
- 			memcpy(req->mcast_mac[i++].byte, ha->addr, ETH_ALEN);
- 	}
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 16c1c43..fda38f8 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -853,12 +853,8 @@ int switchdev_port_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 		.cb = cb,
+ 		.idx = idx,
+ 	};
+-	int err;
+-
+-	err = switchdev_port_obj_dump(dev, &dump.obj);
+-	if (err)
+-		return err;
  
--	status = be_mcc_notify(adapter);
-+	status = be_mcc_notify_wait(adapter);
- err:
- 	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
++	switchdev_port_obj_dump(dev, &dump.obj);
+ 	return dump.idx;
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_fdb_dump);
 -- 
-2.4.1
+1.9.3
