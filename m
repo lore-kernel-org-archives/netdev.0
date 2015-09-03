@@ -1,34 +1,73 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [patch net] switchdev: fix return value of switchdev_port_fdb_dump
- in case of error
-Date: Thu, 3 Sep 2015 10:35:04 -0700
-Message-ID: <CAE4R7bArJBH2AVR4FVQ=2dPZ=scE9CTuMDZoL_aXFX+UZEPf0Q@mail.gmail.com>
-References: <1441281857-613-1-git-send-email-jiri@resnulli.us>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 103991] New: skb legth doesn't match the sum of all the
+ fragments length
+Date: Thu, 3 Sep 2015 10:37:43 -0700
+Message-ID: <20150903103743.56271574@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, eladr@mellanox.com,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:33543 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963AbbICRfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 13:35:24 -0400
-Received: by obbbh8 with SMTP id bh8so38616703obb.0
-        for <netdev@vger.kernel.org>; Thu, 03 Sep 2015 10:35:23 -0700 (PDT)
-In-Reply-To: <1441281857-613-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35098 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751021AbbICRhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 13:37:33 -0400
+Received: by pacfv12 with SMTP id fv12so53983014pac.2
+        for <netdev@vger.kernel.org>; Thu, 03 Sep 2015 10:37:33 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by smtp.gmail.com with ESMTPSA id n6sm25980091pdr.55.2015.09.03.10.37.32
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 03 Sep 2015 10:37:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 3, 2015 at 5:04 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> switchdev_port_fdb_dump is used as .ndo_fdb_dump. Its return value is
-> idx, so we cannot return errval.
->
-> Fixes: 45d4122ca7cd ("switchdev: add support for fdb add/del/dump via switchdev_port_obj ops.")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Scott Feldman<sfeldma@gmail.com>
+
+There is really not enough information here to make a real evaluation.
+kernel is old, hardware is unspecified, and the real problem is not well
+identified.
+
+
+Begin forwarded message:
+
+Date: Thu, 3 Sep 2015 10:51:44 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 103991] New: skb legth doesn't match the sum of all the fragments length
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=103991
+
+            Bug ID: 103991
+           Summary: skb legth doesn't match the sum of all the fragments
+                    length
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.13.0-62-generic
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: tht1234@mailinator.com
+        Regression: No
+
+The DUT has 2 interfaces with the same 10GB Ethernet card .
+The driver and H/W support TSO at 10G speed.
+IP forwarding on the DUT is enabled.
+Run iperf from a system connected to one interface to a system connedted to the
+second interface:
+
+      system A -------> DUT -------> system B
+
+Watch the outgoing skbs on the DUT to system B:
+
+  On packets with nr_frags == MAX_SKB_FRAGS (17) skb_len is *NOT* equal the
+some of the skb->len - skb->data_len + all of its frag->size.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
