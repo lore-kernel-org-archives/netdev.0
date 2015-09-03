@@ -1,43 +1,49 @@
-From: David Miller <davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT] Networking
-Date: Thu, 03 Sep 2015 10:40:32 -0700 (PDT)
-Message-ID: <20150903.104032.767889134756094076.davem@davemloft.net>
+Date: Thu, 3 Sep 2015 11:22:10 -0700
+Message-ID: <CA+55aFxtD2VYW2R0JwjFkZkvzQzcN7qK3m6ReR+BBXtfyDHx7g@mail.gmail.com>
 References: <20150902.223522.1792493140210966693.davem@davemloft.net>
 	<CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com>
+	<20150903.104032.767889134756094076.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lorenzo.bianconi83@gmail.com, johannes.berg@intel.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com>
+In-Reply-To: <20150903.104032.767889134756094076.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 3 Sep 2015 09:45:44 -0700
+On Thu, Sep 3, 2015 at 10:40 AM, David Miller <davem@davemloft.net> wro=
+te:
+>
+> Linus, what GCC version are you using and what does the warning look
+> like?
 
-> But happily gcc has a really really valid warning (kudos - I often end
-> up ragging on the bad warnings gcc has, but this one is a keeper),
-> because a few lines down the mistake then turns into pure and utter
-> garbage.
+I'm on whatever is in F22. gcc -v says
 
-I really wish my GCC had emitted a warning for this, I'm on 4.9.2 here:
+   gcc version 5.1.1 20150618 (Red Hat 5.1.1-4) (GCC)
 
-[davem@localhost linux]$ make net/mac80211/rate.o 
-  CHK     include/config/kernel.release
-  CHK     include/generated/uapi/linux/version.h
-  CHK     include/generated/utsrelease.h
-  CHK     include/generated/bounds.h
-  CHK     include/generated/timeconst.h
-  CHK     include/generated/asm-offsets.h
-  CALL    scripts/checksyscalls.sh
-  CC [M]  net/mac80211/rate.o
-[davem@localhost linux]$
+and the warning looks like so:
 
-Linus, what GCC version are you using and what does the warning look
-like?
+  net/mac80211/rate.c: In function =E2=80=98rate_control_cap_mask=E2=80=
+=99:
+  net/mac80211/rate.c:719:25: warning: =E2=80=98sizeof=E2=80=99 on arra=
+y function
+parameter =E2=80=98mcs_mask=E2=80=99 will return size of =E2=80=98u8 * =
+{aka unsigned char *}=E2=80=99
+[-Wsizeof-array-argument]
+     for (i =3D 0; i < sizeof(mcs_mask); i++)
+                           ^
 
-Anyways, Johannes please get this fixed, thanks.
+(note the lack of warning about the use of an array in the function
+definition parameter list - I tried to find if there's any way to
+enable such a warning, but couldn't find anything. Maybe my google-fu
+is weak, but more probably that just doesn't exist).
+
+                      Linus
