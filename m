@@ -1,77 +1,56 @@
-From: Philippe De Muyter <phdm@macq.eu>
-Subject: Re: [PATCH net-next 1/1] net: fec: clear receive interrupts before
-	processing a packet
-Date: Thu, 3 Sep 2015 10:00:14 +0200
-Message-ID: <20150903080013.GA17053@frolo.macqel>
-References: <1441185854-16107-1-git-send-email-b38611@freescale.com> <20150902094015.GA27372@frolo.macqel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, linux@arm.linux.org.uk
-To: Fugang Duan <b38611@freescale.com>
+From: "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>
+Subject: [PATCH] net/9p: Add device name details on error
+Date: Thu,  3 Sep 2015 13:36:51 +0530
+Message-ID: <1441267611-7451-1-git-send-email-aneesh.kumar@linux.vnet.ibm.com>
+Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>
+To: Eric Van Hensbergen <ericvh@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.macqel.be ([109.135.2.61]:60055 "EHLO smtp2.macqel.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750712AbbICIAT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Sep 2015 04:00:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20150902094015.GA27372@frolo.macqel>
+Received: from e28smtp07.in.ibm.com ([122.248.162.7]:57770 "EHLO
+	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbbICII4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 04:08:56 -0400
+Received: from /spool/local
+	by e28smtp07.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <aneesh.kumar@linux.vnet.ibm.com>;
+	Thu, 3 Sep 2015 13:37:28 +0530
+Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
+	by d28dlp01.in.ibm.com (Postfix) with ESMTP id A0FFAE008A
+	for <netdev@vger.kernel.org>; Thu,  3 Sep 2015 13:36:22 +0530 (IST)
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay03.in.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t8386vsq8257734
+	for <netdev@vger.kernel.org>; Thu, 3 Sep 2015 13:36:59 +0530
+Received: from d28av02.in.ibm.com (localhost [127.0.0.1])
+	by d28av02.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t8386u2I031636
+	for <netdev@vger.kernel.org>; Thu, 3 Sep 2015 13:36:57 +0530
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andy,
+If we use wrong device name 9p mount fails with error
 
-can you resubmit it, adding also my
+"9pnet_virtio: no channels available"
 
-Reported-by: Philippe De Muyter <phdm@macqel.be>
+Improve the error output as below
 
-and explaining that it also prevents a complete rx blockage failure ?
+"9pnet_virtio: no channels available for device /dev/root"
 
-Philippe
+Signed-off-by: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
+---
+ net/9p/trans_virtio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On Wed, Sep 02, 2015 at 11:40:15AM +0200, Philippe De Muyter wrote:
-> On Wed, Sep 02, 2015 at 05:24:14PM +0800, Fugang Duan wrote:
-> > From: Russell King <rmk+kernel@arm.linux.org.uk>
-> > 
-> > The patch just to re-submit the patch "db3421c114cfa6326" because the
-> > patch "4d494cdc92b3b9a0" remove the change.
-> 
-> I think you should mention also the titles of the commits.
-> 
-> And maybe send it also to stable.
-> > 
-> > Clear any pending receive interrupt before we process a pending packet.
-> > This helps to avoid any spurious interrupts being raised after we have
-> > fully cleaned the receive ring, while still allowing an interrupt to be
-> > raised if we receive another packet.
-> > 
-> > The position of this is critical: we must do this prior to reading the
-> > next packet status to avoid potentially dropping an interrupt when a
-> > packet is still pending.
-> > 
-> > Acked-by: Fugang Duan <B38611@freescale.com>
-> > Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> > ---
-> >  drivers/net/ethernet/freescale/fec_main.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> > index 1f89c59..6bed0ff 100644
-> > --- a/drivers/net/ethernet/freescale/fec_main.c
-> > +++ b/drivers/net/ethernet/freescale/fec_main.c
-> > @@ -1400,6 +1400,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
-> >  		if ((status & BD_ENET_RX_LAST) == 0)
-> >  			netdev_err(ndev, "rcv is not +last\n");
-> >  
-> Could a comment be added here to avoid another future removal ?
-> 
-> > +		writel(FEC_ENET_RXF, fep->hwp + FEC_IEVENT);
-> >  
-> >  		/* Check for errors. */
-> >  		if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_NO |
-> > -- 
-> > 1.9.1
-> 
-> Philippe
-
+diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+index 6e70ddb158b4..3827760c8eef 100644
+--- a/net/9p/trans_virtio.c
++++ b/net/9p/trans_virtio.c
+@@ -662,7 +662,7 @@ p9_virtio_create(struct p9_client *client, const char *devname, char *args)
+ 	mutex_unlock(&virtio_9p_lock);
+ 
+ 	if (!found) {
+-		pr_err("no channels available\n");
++		pr_err("no channels available for device %s\n", devname);
+ 		return ret;
+ 	}
+ 
 -- 
-Philippe De Muyter +32 2 6101532 Macq SA rue de l'Aeronef 2 B-1140 Bruxelles
+2.5.0
