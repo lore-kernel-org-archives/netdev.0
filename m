@@ -1,37 +1,41 @@
-From: Atsushi Nemoto <nemoto@toshiba-tops.co.jp>
-Subject: Re: [PATCH] net: eth: altera: fix napi poll_list corruption
-Date: Thu, 3 Sep 2015 09:52:57 +0900
-Message-ID: <20150903.095257.116214212.nemoto@toshiba-tops.co.jp>
-References: <20150902.174929.153474872.nemoto@toshiba-tops.co.jp>
-	<20150902.112500.2176991714061589322.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <vbridger@opensource.altera.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+From: Richard Laing <richard.laing@alliedtelesis.co.nz>
+Subject: [PATCH 1/1] net/ipv6: Correct PIM6 mrt_lock handling
+Date: Thu,  3 Sep 2015 13:52:31 +1200
+Message-ID: <1441245151-11495-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+Cc: jmorris@namei.org,
+	Richard Laing <richard.laing@alliedtelesis.co.nz>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from topsowa.toshiba-tops.co.jp ([61.200.21.19]:63428 "EHLO
-	TPSSRV64.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755588AbbICAxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 20:53:16 -0400
-In-Reply-To: <20150902.112500.2176991714061589322.davem@davemloft.net>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:59033 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756174AbbICBwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Sep 2015 21:52:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Sep 2015 11:25:00 -0700, David Miller <davem@davemloft.net> wrote:
-> Two lines below this change you are disabling interrupts anyways,
-> so I would suggest just moving the spin_lock_irqsave() before the
-> napi_gro_flush() to fix this.
-> 
-> Many of the checks done by napi_complete_done() (invoked by
-> napi_complete()) are completely redundant in this context.  For
-> example, the direct __napi_complete() call is a really nice
-> optimization because we know we are on the poll list and therefore
-> it is not empty.
+In the IPv6 multicast routing code the mrt_lock was not being released
+correctly in the MFC iterator, as a result adding or deleting a MIF would
+cause a hang because the mrt_lock could not be acquired.
 
-Thank you for your suggestion.
+This fix is a copy of the code for the IPv4 case and ensures that the lock
+is released correctly.
 
-I think napi_gro_flush() can be called with irq enabled, so moving the
-spin_lock_irqsave() just before the __napi_complete() (or moving the
-__napi_complete() just after the spin_lock_irqsave()) would be better,
-right?
+Signed-off-by: Richard Laing <richard.laing@alliedtelesis.co.nz>
+---
+
+ net/ipv6/ip6mr.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 74ceb73..5f36266 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -550,7 +550,7 @@ static void ipmr_mfc_seq_stop(struct seq_file *seq, void *v)
+ 
+ 	if (it->cache == &mrt->mfc6_unres_queue)
+ 		spin_unlock_bh(&mfc_unres_lock);
+-	else if (it->cache == mrt->mfc6_cache_array)
++	else if (it->cache == &mrt->mfc6_cache_array[it->ct])
+ 		read_unlock(&mrt_lock);
+ }
+ 
