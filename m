@@ -1,44 +1,87 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v3 1/4] Add correlated clocksource deriving system time
- from an auxiliary clocksource
-Date: Fri, 4 Sep 2015 16:28:27 +0200
-Message-ID: <20150904142827.GE18489@twins.programming.kicks-ass.net>
-References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
- <1440183128-1384-2-git-send-email-christopher.s.hall@intel.com>
- <alpine.DEB.2.11.1508222143530.3873@nanos>
- <B79D786B7111A34A8CF09F833429C493A90B2D1F@ORSMSX109.amr.corp.intel.com>
- <20150904081122.GA4201@netboy>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2015-09-04
+Date: Fri, 04 Sep 2015 16:37:56 +0200
+Message-ID: <1441377476.1971.14.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Hall, Christopher S" <christopher.s.hall@intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150904081122.GA4201@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 04, 2015 at 10:11:22AM +0200, Richard Cochran wrote:
-> On Thu, Sep 03, 2015 at 11:20:37PM +0000, Hall, Christopher S wrote:
-> > In addition to the network interface, ART will be used in the audio interface as well.
-> > We need to support the case where an audio co-processor will control the audio device.
-> > In this case, the get_ts() function supplied by the audio driver will be very slow
-> > (several milliseconds) and the result will be out of date by some fraction of that 
-> > amount.
-> 
-> Why does it take milliseconds to read one audio time stamp?
+Hi,
 
-So what I suspect, but please correct me if I'm wrong Chris, is that a
-DSP will buffer and process audio signals, and only later wake up the
-main CPU.
+=46irst pull request for this cycle, and the fix for the pointer issue =
+is
+the first patch in it :) Since nobody really has devices with enough
+streams where this matters, it was pretty harmless though.
 
-So by the time the CPU is made aware of the data, it's 'old'.
+Other than that, there are a few fixes all over - let me know if you
+see any issues.
+
+johannes
+
+The following changes since commit dd5cdb48edfd34401799056a9acf61078d77=
+3f90:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next (2=
+015-09-03 08:08:17 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags=
+/mac80211-for-davem-2015-09-04
+
+for you to fetch changes up to ef9be10c8c999e00b239eec24cf01952a308f8e7=
+:
+
+  mac80211: reject software RSSI CQM with beacon filtering (2015-09-04 =
+15:23:22 +0200)
+
+----------------------------------------------------------------
+=46or the first round of fixes, we have this:
+ * fix for the sizeof() pointer type issue
+ * a fix for regulatory getting into a restore loop
+ * a fix for rfkill global 'all' state, it needs to be stored
+   everywhere to apply correctly to new rfkill instances
+ * properly refuse CQM RSSI when it cannot actually be used
+ * protect HT TDLS traffic properly in non-HT networks
+ * don't incorrectly advertise 80 MHz support when not allowed
+
+----------------------------------------------------------------
+Arik Nemtsov (1):
+      mac80211: avoid VHT usage with no 80MHz chans allowed
+
+Avri Altman (1):
+      mac80211: protect non-HT BSS when HT TDLS traffic exists
+
+Johannes Berg (1):
+      mac80211: reject software RSSI CQM with beacon filtering
+
+Jo=C3=A3o Paulo Rechi Vita (1):
+      rfkill: Copy "all" global state to other types
+
+Maciej S. Szmigiero (1):
+      cfg80211: regulatory: restore proper user alpha2
+
+Thierry Reding (1):
+      mac80211: Do not use sizeof() on pointer type
+
+ include/net/mac80211.h |  4 ++-
+ net/mac80211/cfg.c     |  4 +++
+ net/mac80211/mlme.c    | 16 ++++++++++++
+ net/mac80211/rate.c    |  2 +-
+ net/mac80211/tdls.c    | 70 ++++++++++++++++++++++++++++++++++++++++++=
++++++---
+ net/mac80211/vht.c     | 15 +++++++++++
+ net/rfkill/core.c      | 10 +++++++-
+ net/wireless/reg.c     |  2 +-
+ 8 files changed, 116 insertions(+), 7 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
