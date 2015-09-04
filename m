@@ -1,49 +1,173 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/7] net: dsa: mv88e6xxx: improve ATU move operations
-Date: Fri,  4 Sep 2015 14:34:09 -0400
-Message-ID: <1441391656-22574-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC PATCH 1/3] net: introduce kfree_skb_bulk() user of kmem_cache_free_bulk()
+Date: Fri, 4 Sep 2015 11:47:17 -0700
+Message-ID: <CALx6S36R2zGwj5XF0GZWPOC1Ng5HviPWxBM-cn=DDMXU9Auoxg@mail.gmail.com>
+References: <20150904165944.4312.32435.stgit@devil>
+	<20150904170046.4312.38018.stgit@devil>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>, akpm@linux-foundation.org, linux-mm@kvack.org,
+	aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150904170046.4312.38018.stgit@devil>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On Fri, Sep 4, 2015 at 10:00 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> Introduce the first user of SLAB bulk free API kmem_cache_free_bulk(),
+> in the network stack in form of function kfree_skb_bulk() which bulk
+> free SKBs (not skb clones or skb->head, yet).
+>
+> As this is the third user of SKB reference decrementing, split out
+> refcnt decrement into helper function and use this in all call points.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+>  include/linux/skbuff.h |    1 +
+>  net/core/skbuff.c      |   87 +++++++++++++++++++++++++++++++++++++++---------
+>  2 files changed, 71 insertions(+), 17 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index b97597970ce7..e5f1e007723b 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -762,6 +762,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
+>  }
+>
+>  void kfree_skb(struct sk_buff *skb);
+> +void kfree_skb_bulk(struct sk_buff **skbs, unsigned int size);
+>  void kfree_skb_list(struct sk_buff *segs);
+>  void skb_tx_error(struct sk_buff *skb);
+>  void consume_skb(struct sk_buff *skb);
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 429b407b4fe6..034545934158 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -661,26 +661,83 @@ void __kfree_skb(struct sk_buff *skb)
+>  }
+>  EXPORT_SYMBOL(__kfree_skb);
+>
+> +/*
+> + *     skb_dec_and_test - Helper to drop ref to SKB and see is ready to free
+> + *     @skb: buffer to decrement reference
+> + *
+> + *     Drop a reference to the buffer, and return true if it is ready
+> + *     to free. Which is if the usage count has hit zero or is equal to 1.
+> + *
+> + *     This is performance critical code that should be inlined.
+> + */
+> +static inline bool skb_dec_and_test(struct sk_buff *skb)
+> +{
+> +       if (unlikely(!skb))
+> +               return false;
+> +       if (likely(atomic_read(&skb->users) == 1))
+> +               smp_rmb();
+> +       else if (likely(!atomic_dec_and_test(&skb->users)))
+> +               return false;
+> +       /* If reaching here SKB is ready to free */
+> +       return true;
+> +}
+> +
+>  /**
+>   *     kfree_skb - free an sk_buff
+>   *     @skb: buffer to free
+>   *
+>   *     Drop a reference to the buffer and free it if the usage count has
+> - *     hit zero.
+> + *     hit zero or is equal to 1.
+>   */
+>  void kfree_skb(struct sk_buff *skb)
+>  {
+> -       if (unlikely(!skb))
+> -               return;
+> -       if (likely(atomic_read(&skb->users) == 1))
+> -               smp_rmb();
+> -       else if (likely(!atomic_dec_and_test(&skb->users)))
+> -               return;
+> -       trace_kfree_skb(skb, __builtin_return_address(0));
+> -       __kfree_skb(skb);
+> +       if (skb_dec_and_test(skb)) {
+> +               trace_kfree_skb(skb, __builtin_return_address(0));
+> +               __kfree_skb(skb);
+> +       }
+>  }
+>  EXPORT_SYMBOL(kfree_skb);
+>
+> +/**
+> + *     kfree_skb_bulk - bulk free SKBs when refcnt allows to
+> + *     @skbs: array of SKBs to free
+> + *     @size: number of SKBs in array
+> + *
+> + *     If SKB refcnt allows for free, then release any auxiliary data
+> + *     and then bulk free SKBs to the SLAB allocator.
+> + *
+> + *     Note that interrupts must be enabled when calling this function.
+> + */
+> +void kfree_skb_bulk(struct sk_buff **skbs, unsigned int size)
+> +{
+What not pass a list of skbs (e.g. using skb->next)?
 
-This patchset completes the set of available Address Translation Unit
-operations.
+> +       int i;
+> +       size_t cnt = 0;
+> +
+> +       for (i = 0; i < size; i++) {
+> +               struct sk_buff *skb = skbs[i];
+> +
+> +               if (!skb_dec_and_test(skb))
+> +                       continue; /* skip skb, not ready to free */
+> +
+> +               /* Construct an array of SKBs, ready to be free'ed and
+> +                * cleanup all auxiliary, before bulk free to SLAB.
+> +                * For now, only handle non-cloned SKBs, related to
+> +                * SLAB skbuff_head_cache
+> +                */
+> +               if (skb->fclone == SKB_FCLONE_UNAVAILABLE) {
+> +                       skb_release_all(skb);
+> +                       skbs[cnt++] = skb;
+> +               } else {
+> +                       /* SKB was a clone, don't handle this case */
+> +                       __kfree_skb(skb);
+> +               }
+> +       }
+> +       if (likely(cnt)) {
+> +               kmem_cache_free_bulk(skbuff_head_cache, cnt, (void **) skbs);
+> +       }
+> +}
+> +EXPORT_SYMBOL(kfree_skb_bulk);
+> +
+>  void kfree_skb_list(struct sk_buff *segs)
+>  {
+>         while (segs) {
+> @@ -722,14 +779,10 @@ EXPORT_SYMBOL(skb_tx_error);
+>   */
+>  void consume_skb(struct sk_buff *skb)
+>  {
+> -       if (unlikely(!skb))
+> -               return;
+> -       if (likely(atomic_read(&skb->users) == 1))
+> -               smp_rmb();
+> -       else if (likely(!atomic_dec_and_test(&skb->users)))
+> -               return;
+> -       trace_consume_skb(skb);
+> -       __kfree_skb(skb);
+> +       if (skb_dec_and_test(skb)) {
+> +               trace_consume_skb(skb);
+> +               __kfree_skb(skb);
+> +       }
+>  }
+>  EXPORT_SYMBOL(consume_skb);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-These Marvell switches have 4 operations to flush or (re)move, all or
-only non-static MAC addresses, from the entire set of databases or from
-just a particular one.
-
-The first 3 patches introduce a generic _mv88e6xxx_atu_flush_move
-function. The 4 remaining patches update a few FID operations in the
-driver on setup, when a port join or leave a VLAN, or change state.
-
-This is a step forward improving the hardware bridging support in DSA
-and 88E6352-compatible switches.
-
-Cheers,
--v
-
-Vivien Didelot (7):
-  net: dsa: mv88e6xxx: extract FID write from ATU command
-  net: dsa: mv88e6xxx: extract ATU data write access
-  net: dsa: mv88e6xxx: rework ATU Flush operation
-  net: dsa: mv88e6xxx: flush ATU on initial setup
-  net: dsa: mv88e6xxx: flush all addresses when adding a VLAN
-  net: dsa: mv88e6xxx: remove addresses when a port leaves a VLAN
-  net: dsa: mv88e6xxx: remove all MACs when disabling a port
-
- drivers/net/dsa/mv88e6xxx.c | 153 ++++++++++++++++++++++++++++++++++----------
- drivers/net/dsa/mv88e6xxx.h |   8 +--
- 2 files changed, 123 insertions(+), 38 deletions(-)
-
--- 
-2.5.1
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
