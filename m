@@ -1,51 +1,247 @@
-From: =?UTF-8?B?QXVyw6lsaWVu?= <footplus@gmail.com>
-Subject: Re: Prioritize a vlan on another
-Date: Fri, 4 Sep 2015 12:52:45 +0200
-Message-ID: <CAPN4dA_N+tLcSRWPcYmoxgLAkmv2HT2aDb8w8se=qH3id4z_Kw@mail.gmail.com>
-References: <266BF78D-5C37-40E1-A065-1426CC2325E2@gmail.com>
-Reply-To: footplus@gmail.com
+From: Uwe Koziolek <uwe.koziolek@redknee.com>
+Subject: Re: [PATCH] net/bonding: send arp in interval if no active slave
+Date: Fri, 4 Sep 2015 13:04:38 +0200
+Message-ID: <55E97AC6.6030106@redknee.com>
+References: <1439828583-27325-1-git-send-email-jarod@redhat.com>
+ <20150817165500.GA21512@vps.falico.eu> <55D215F7.3080905@redhat.com>
+ <55D22E64.6020807@redknee.com> <2649.1439838866@famine>
+ <55D2494F.3020800@redknee.com>
+ <20150901154157.GY504@gospo.home.greyhouse.net>
+ <55E63065.8070906@redknee.com> <31529.1441292743@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:34422 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755326AbbIDKxF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 06:53:05 -0400
-Received: by oiev17 with SMTP id v17so9652909oie.1
-        for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 03:53:04 -0700 (PDT)
-In-Reply-To: <266BF78D-5C37-40E1-A065-1426CC2325E2@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-15"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jarod Wilson <jarod@redhat.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <31529.1441292743@famine>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 1, 2015 at 11:07 PM, <footplus@gmail.com> wrote:
+Am 03.09.2015 um 17:05 schrieb Jay Vosburgh:
+> Uwe Koziolek <uwe.koziolek@redknee.com> wrote:
 >
-> Hello,
+>> On Tue, Sep 01, 2015 at 05:41 PM +0200, Andy Gospodarek wrote:
+>>> On Mon, Aug 17, 2015 at 10:51:27PM +0200, Uwe Koziolek wrote:
+>>>> On Mon, Aug 17, 2015 at 09:14PM +0200, Jay Vosburgh wrote:
+>>>>> Uwe Koziolek <uwe.koziolek@redknee.com> wrote:
+>>>>>
+>>>>>> On2015-08-17 07:12 PM,Jarod Wilson wrote:
+>>>>>>> On 2015-08-17 12:55 PM, Veaceslav Falico wrote:
+>>>>>>>> On Mon, Aug 17, 2015 at 12:23:03PM -0400, Jarod Wilson wrote:
+>>>>>>>>> From: Uwe Koziolek <uwe.koziolek@redknee.com>
+>>>>>>>>>
+>>>>>>>>> With some very finicky switch hardware, active backup bonding can get
+>>>>>>>>> into
+>>>>>>>>> a situation where we play ping-pong between interfaces, trying to get
+>>>>>>>>> one
+>>>>>>>>> to come up as the active slave. There seems to be an issue with the
+>>>>>>>>> switch's arp replies either taking too long, or simply getting lost,
+>>>>>>>>> so we
+>>>>>>>>> wind up unable to get any interface up and active. Sometimes, the issue
+>>>>>>>>> sorts itself out after a while, sometimes it doesn't.
+>>>>>>>>>
+>>>>>>>>> Testing with num_grat_arp has proven fruitless, but sending an
+>>>>>>>>> additional
+>>>>>>>>> arp on curr_arp_slave if we're still in the arp_interval timeslice in
+>>>>>>>>> bond_ab_arp_probe(), has shown to produce 100% reliability in testing
+>>>>>>>>> with
+>>>>>>>>> this hardware combination.
+>>>>>>>> Sorry, I don't understand the logic of why it works, and what exactly
+>>>>>>>> are
+>>>>>>>> we fixiing here.
+>>>>>>>>
+>>>>>>>> It also breaks completely the logic for link state management in case
+>>>>>>>> of no
+>>>>>>>> current active slave for 2*arp_interval.
+>>>>>>>>
+>>>>>>>> Could you please elaborate what exactly is fixed here, and how it
+>>>>>>>> works? :)
+>>>>>>> I can either duplicate some information from the bug, or Uwe can, to
+>>>>>>> illustrate the exact nature of the problem.
+>>>>>>>
+>>>>>>>> p.s. num_grat_arp maybe could help?
+>>>>>>> That was my thought as well, but as I understand it, that route was
+>>>>>>> explored, and it didn't help any. I don't actually have a reproducer
+>>>>>>> setup of my own, unfortunately, so I'm kind of caught in the middle
+>>>>>>> here...
+>>>>>>>
+>>>>>>> Uwe, can you perhaps further enlighten us as to what num_grat_arp
+>>>>>>> settings were tried that didn't help? I'm still of the mind that if
+>>>>>>> num_grat_arp *didn't* help, we probably need to do something keyed off
+>>>>>>> num_grat_arp.
+>>>>>> The bonding slaves are connected to high available switches, each of the
+>>>>>> slaves is connected to a different switch. If the bond is starting, only
+>>>>>> the selected slave sends one arp-request. If a matching arp_response was
+>>>>>> received, this slave and the bond is going into state up, sending the
+>>>>>> gratitious arps...
+>>>>>> But if you got no arp reply the next slave was selected.
+>>>>>> With most of the newer switches, not overloaded, or with other software
+>>>>>> bugs, or with a single switch configuration, you would get a arp response
+>>>>>> on the first arp request.
+>>>>>> But in case of high availability configuration with non perfect switches
+>>>>>> like HP ProCurve 54xx, also with some Cisco models, you may not get a
+>>>>>> response on the first arp request.
+>>>>>>
+>>>>>> I have seen network snoops, there the switches are not responding to the
+>>>>>> first arp request on slave 1, the second arp request was sent on slave 2
+>>>>>> but the response was received on slave one,  and all following arp
+>>>>>> requests are anwsered on the wrong slave for a longer time.
+>>>>> 	Could you elaborate on the exact "high availability
+>>>>> configuration" here, including the model(s) of switch(es) involved?
+>>>>>
+>>>>> 	Is this some kind of race between the switch or switches
+>>>>> updating the forwarding tables and the bond flip flopping between the
+>>>>> slaves?  E.g., source MAC from ARP sent on slave 1 is used to populate
+>>>>> the forwarding table, but (for whatever reason) there is no reply.  ARP
+>>>>> on slave 2 is sent (using the same source MAC, unless you set
+>>>>> fail_over_mac), but forwarding tables still send that MAC to slave 1, so
+>>>>> reply is sent there.
+>>>> High availability:
+>>>> 2 managed switches with routing capabilities have an interconnect.
+>>>> One slave of a bonding interface is connected to the first switch, the
+>>>> second slave is connected to the other switch.
+>>>> The switch models are HP ProCurve 5406 and HP ProCurve 5412. As far as i
+>>>> remember also HP E 3500 and  E 3800 are also
+>>>> affected, for the affected Cisco models I can't answer today.
+>>>> Affected single switch configurations was not seen.
+>>>>
+>>>> Yes, race conditions with delayed upgrades of the forwarding tables is a
+>>>> well matching explanation for the problem.
+>>>>
+>>>>>> The proposed change sents up to 3 arp requests on a down bond using the
+>>>>>> same slave, delayed by arp_interval.
+>>>>>> Using problematic switches i have seen the the arp response on the right
+>>>>>> slave at latest on the second arp request. So the bond is going into state
+>>>>>> up.
+>>>>>>
+>>>>>> How does it works:
+>>>>>> The bonds in up state are handled on the beginning of bond_ab_arp_probe
+>>>>>> procedure, the other part of this procedure is handling the slave change.
+>>>>>> The proposed change is bypassing the slave change for 2 additional calls
+>>>>>> of bond_ab_arp_probe.
+>>>>>> Now the retries are not only for an up bond available, they are also
+>>>>>> implemented for a down bond.
+>>>>> 	Does this delay failover or bringup on switches that are not
+>>>>> "problematic"?  I.e., if arp_interval is, say, 1000 (1 second), will
+>>>>> this impact failover / recovery times?
+>>>>>
+>>>>> 	-J
+>>>> It depends.
+>>>> failover times are not impacted, this is handled different.
+>>>> Only the transition from a down bonding interface (bond and all slaves are
+>>>> down) to the state up can be increased by up to 2 times arp_interval,
+>>>> If the selected interface did not came up .If well working switches are
+>>>> used, and everything other is also ok, there are no impacts.
+>>> So I'm not a huge fan of workarounds like these, but I also understand
+>>> from a practical standpoint that this is useful.  My only issue with the
+>>> patch would be to please include a small comment (1-2 lines) in the code
+>>> that describes the behavior.  I know we have the changelog entries for
+>>> this, but I would feel better about having an exception like this in the
+>>> code for those reading it and wondering:
+>>>
+>>> "Why would we wait 2 intervals before failing over to the next interface
+>>> when there are no active interfaces?"
+>>>
+>>
+>> diff -up a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> --- a/drivers/net/bonding/bond_main.c   2015-08-30 20:34:09.000000000 +0200
+>> +++ b/drivers/net/bonding/bond_main.c   2015-09-02 00:39:10.000298202 +0200
+>> @@ -2795,6 +2795,16 @@ static bool bond_ab_arp_probe(struct bon
+>>                         return should_notify_rtnl;
+>>         }
+>>
+>> +       /* sometimes the forwarding tables of the switches are not updated fast enough
+>> +        * the first arp response after a slave change is received on the wrong slave.
+>> +        * the arp requests will be retried 2 times on the same slave
+>> +        */
+>> +
+>> +       if (bond_time_in_interval(bond, curr_arp_slave->last_link_up, 2)) {
+>> +               bond_arp_send_all(bond, curr_arp_slave);
+>> +               return should_notify_rtnl;
+>> +       }
+>> +
 >
-> I'm not sure if this is the right place to ask this, but i'm stuck on=
- a trafic priority problem since some time.
+> 	I probably should have asked this in the beginning, but at what
+> range of arp_interval values does the problem manifest?  If it's a race
+> condition with the switch update, I'd expect that only very small
+> arp_interval values would be affected.
 >
-> I have 2 10Gb interfaces (bnx2x) bonded in a 802.3ad aggregate. On th=
-is aggregate, 2 vlans are configured (let's INT and EXT) I need to ensu=
-re that, when sending traffic at near line rate via EXT, all packets ta=
-rgeted to INT are sent in priority (dropping EXT traffic as needed).
+> 	Also, your proposed comment wraps past 80 columns.
 >
+> 	-J
+>
+Only 500 msecs arp interval is used, no other values are checked.
+Wraps in patch are now removed.
 
-Replying to myself:
+diff -up ./drivers/net/bonding/bond_main.c.orig ./drivers/net/bonding/bond_main.c
+--- ./drivers/net/bonding/bond_main.c.orig	2015-08-30 20:34:09.000000000 +0200
++++ ./drivers/net/bonding/bond_main.c	2015-09-04 11:59:05.755897182 +0200
+@@ -2795,6 +2795,17 @@ static bool bond_ab_arp_probe(struct bon
+  			return should_notify_rtnl;
+  	}
 
-It seems that all I was needing was a -j CLASSIFY --set-class 0:6 in ip=
-tables.
++	/* sometimes the forwarding tables of the switches are not updated
++	 * fast enough. the first arp response after a slave change is received
++	 * on the wrong slave.
++	 * the arp requests will be retried 2 times on the same slave
++	 */
++
++	if (bond_time_in_interval(bond, curr_arp_slave->last_link_up, 2)) {
++		bond_arp_send_all(bond, curr_arp_slave);
++		return should_notify_rtnl;
++	}
++
+  	bond_set_slave_inactive_flags(curr_arp_slave, BOND_SLAVE_NOTIFY_LATER);
 
-This sufficed to classifiy the traffic in band 0 within 8 prio qdisc
-(with default priomap/bands) attached below the 8 first classes of mq.
-However, the packet TOS does not seem to affect the priority inside
-the VLAN/bonding with mq in any way.
+  	bond_for_each_slave_rcu(bond, slave, iter) {
 
-Problem solved for me.
-
-Thanks,
-Best regards,
-
---=20
-Aur=C3=A9lien Guillaume
+>
+>>         bond_set_slave_inactive_flags(curr_arp_slave, BOND_SLAVE_NOTIFY_LATER);
+>>
+>>         bond_for_each_slave_rcu(bond, slave, iter) {
+>>
+>>>>>> The num_grat_arp has no chance to solve the problem. The num_grat_arp is
+>>>>>> only used, if a different slave is going active.
+>>>>>> But in our case, the bonding slaves are not going into the state active
+>>>>>> for a longer time.
+>>>>>>>>> [jarod: manufacturing of changelog]
+>>>>>>>>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+>>>>>>>>> CC: Veaceslav Falico <vfalico@gmail.com>
+>>>>>>>>> CC: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>>>>>>>> CC: netdev@vger.kernel.org
+>>>>>>>>> Signed-off-by: Uwe Koziolek <uwe.koziolek@redknee.com>
+>>>>>>>>> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+>>>>>>>>> ---
+>>>>>>>>> drivers/net/bonding/bond_main.c | 5 +++++
+>>>>>>>>> 1 file changed, 5 insertions(+)
+>>>>>>>>>
+>>>>>>>>> diff --git a/drivers/net/bonding/bond_main.c
+>>>>>>>>> b/drivers/net/bonding/bond_main.c
+>>>>>>>>> index 0c627b4..60b9483 100644
+>>>>>>>>> --- a/drivers/net/bonding/bond_main.c
+>>>>>>>>> +++ b/drivers/net/bonding/bond_main.c
+>>>>>>>>> @@ -2794,6 +2794,11 @@ static bool bond_ab_arp_probe(struct bonding
+>>>>>>>>> *bond)
+>>>>>>>>>               return should_notify_rtnl;
+>>>>>>>>>       }
+>>>>>>>>>
+>>>>>>>>> +    if (bond_time_in_interval(bond, curr_arp_slave->last_link_up, 2))
+>>>>>>>>> {
+>>>>>>>>> +        bond_arp_send_all(bond, curr_arp_slave);
+>>>>>>>>> +        return should_notify_rtnl;
+>>>>>>>>> +    }
+>>>>>>>>> +
+>>>>>>>>>       bond_set_slave_inactive_flags(curr_arp_slave,
+>>>>>>>>> BOND_SLAVE_NOTIFY_LATER);
+>>>>>>>>>
+>>>>>>>>>       bond_for_each_slave_rcu(bond, slave, iter) {
+>>>>>>>>> --
+>>>>>>>>> 1.8.3.1
+>
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+>
