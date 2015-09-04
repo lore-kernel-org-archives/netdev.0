@@ -1,88 +1,51 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 1/6] ebpf: add a seccomp program type
-Date: Fri, 4 Sep 2015 13:17:47 -0700
-Message-ID: <20150904201743.GA1842@Alexeis-MacBook-Pro-2.local>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
- <1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] RDS: verify the underlying transport exists before
+ creating a connection
+Date: Fri, 4 Sep 2015 23:24:58 +0300
+Message-ID: <55E9FE1A.4080103@cogentembedded.com>
+References: <1441385019-27019-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tycho Andersen <tycho.andersen@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>, chien.yen@oracle.com,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:35545 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751033AbbIDUZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 16:25:02 -0400
+Received: by lbpo4 with SMTP id o4so17299739lbp.2
+        for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 13:25:00 -0700 (PDT)
+In-Reply-To: <1441385019-27019-1-git-send-email-sasha.levin@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 04, 2015 at 10:04:19AM -0600, Tycho Andersen wrote:
-> seccomp uses eBPF as its underlying storage and execution format, and eBPF
-> has features that seccomp would like to make use of in the future. This
-> patch adds a formal seccomp type to the eBPF verifier.
-> 
-> The current implementation of the seccomp eBPF type is very limited, and
-> doesn't support some interesting features (notably, maps) of eBPF. However,
-> the primary motivation for this patchset is to enable checkpoint/restore
-> for seccomp filters later in the series, to this limited feature set is ok
-> for now.
+Hello.
 
-yes. good compromise to start.
+On 09/04/2015 07:43 PM, Sasha Levin wrote:
 
-> +static const struct bpf_func_proto *
-> +seccomp_func_proto(enum bpf_func_id func_id)
-> +{
-> +	/* Right now seccomp eBPF loading doesn't support maps; seccomp filters
-> +	 * are considered to be read-only after they're installed, so map fds
-> +	 * probably need to be invalidated when a seccomp filter with maps is
-> +	 * installed.
+> There was no verification that an underlying transport exists when creating
+> a connection, this would cause dereferencing a NULL ptr.
+>
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> ---
+>   net/rds/connection.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
+>
+> diff --git a/net/rds/connection.c b/net/rds/connection.c
+> index a50e652..0218d81 100644
+> --- a/net/rds/connection.c
+> +++ b/net/rds/connection.c
+> @@ -189,6 +189,12 @@ new_conn:
+>   		}
+>   	}
+>
+> +	if (trans == NULL) {
 
-Just disabling bpf_map_lookup/update() helpers (the way you did here)
-is enough. The prorgram can still have references to maps, but since they
-won't be accessed it's safe.
+   Please use !trans instead, it's the form preferred by the networking code.
 
-> +	 *
-> +	 * The rest of these might be reasonable to call from seccomp, so we
-> +	 * export them.
-> +	 */
-> +	switch (func_id) {
-> +	case BPF_FUNC_ktime_get_ns:
-> +		return &bpf_ktime_get_ns_proto;
-> +	case BPF_FUNC_trace_printk:
-> +		return bpf_get_trace_printk_proto();
-> +	case BPF_FUNC_get_prandom_u32:
-> +		return &bpf_get_prandom_u32_proto;
-> +	case BPF_FUNC_get_smp_processor_id:
-> +		return &bpf_get_smp_processor_id_proto;
-> +	case BPF_FUNC_tail_call:
-> +		return &bpf_tail_call_proto;
-> +	case BPF_FUNC_get_current_pid_tgid:
-> +		return &bpf_get_current_pid_tgid_proto;
-> +	case BPF_FUNC_get_current_uid_gid:
-> +		return &bpf_get_current_uid_gid_proto;
-> +	case BPF_FUNC_get_current_comm:
-> +		return &bpf_get_current_comm_proto;
+[...]
 
-the list looks good to start with.
-
->  
-> +static u32 seccomp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
-> +				      int src_reg, int ctx_off,
-> +				      struct bpf_insn *insn_buf)
-> +{
-> +	struct bpf_insn *insn = insn_buf;
-> +
-> +	switch (ctx_off) {
-> +	case offsetof(struct seccomp_data, nr):
-
-the conversion of seccomp_data fields is unnecessary.
-We're doing conversion for sk_buff, because sk_buff and __sk_buff aree two
-different structures. __sk_buff is user ABI with its own fields that losely
-correspond to in-kernel struct sk_buff.
-seccomp_data is already part of user ABI, so it's ok to access as-is.
+MBR, Sergei
