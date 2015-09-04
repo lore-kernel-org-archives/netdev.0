@@ -1,64 +1,86 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: Re: [PATCH 3/6] ebpf: add a way to dump an eBPF program
-Date: Fri, 4 Sep 2015 15:00:09 -0600
-Message-ID: <20150904210009.GQ26679@smitten>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
- <1441382664-17437-4-git-send-email-tycho.andersen@canonical.com>
- <CAGXu5jJ5+EFDRpgJC6U8Y4nvPEh2fivi-TZRNC-4qP9Gi7B7pA@mail.gmail.com>
- <20150904204554.GO26679@smitten>
- <CAGXu5jK20KV2uaUPgy+6SZ-Q8eJFotX9W_kDKuGkjBJQXJDVRg@mail.gmail.com>
- <20150904205821.GE1842@Alexeis-MacBook-Pro-2.local>
+From: "Hall, Christopher S" <christopher.s.hall@intel.com>
+Subject: RE: [PATCH v3 1/4] Add correlated clocksource deriving system time
+ from an auxiliary clocksource
+Date: Fri, 4 Sep 2015 21:01:05 +0000
+Message-ID: <B79D786B7111A34A8CF09F833429C493A90B2FDE@ORSMSX109.amr.corp.intel.com>
+References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
+ <1440183128-1384-2-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1508222143530.3873@nanos>
+ <B79D786B7111A34A8CF09F833429C493A90B2D1F@ORSMSX109.amr.corp.intel.com>
+ <alpine.DEB.2.11.1509041438520.15006@nanos>
+ <20150904151021.GF18489@twins.programming.kicks-ass.net>
+ <20150904151743.GB16862@localhost.localdomain>
+ <20150904154133.GI18489@twins.programming.kicks-ass.net>
+ <alpine.DEB.2.11.1509041832440.15006@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150904205821.GE1842@Alexeis-MacBook-Pro-2.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Thomas Gleixner <tglx@linutronix.de>,
+	Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:12044 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933648AbbIDVBL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 17:01:11 -0400
+In-Reply-To: <alpine.DEB.2.11.1509041832440.15006@nanos>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 04, 2015 at 01:58:25PM -0700, Alexei Starovoitov wrote:
-> On Fri, Sep 04, 2015 at 01:50:55PM -0700, Kees Cook wrote:
-> > On Fri, Sep 4, 2015 at 1:45 PM, Tycho Andersen
-> > <tycho.andersen@canonical.com> wrote:
-> > > On Fri, Sep 04, 2015 at 01:17:30PM -0700, Kees Cook wrote:
-> > >> On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
-> > >> <tycho.andersen@canonical.com> wrote:
-> > >> > This commit adds a way to dump eBPF programs. The initial implementation
-> > >> > doesn't support maps, and therefore only allows dumping seccomp ebpf
-> > >> > programs which themselves don't currently support maps.
-> > >> >
-> > >> > We export the GPL bit as well as a unique ID for the program so that
-> > >>
-> > >> This unique ID appears to be the heap address for the prog. That's a
-> > >> huge leak, and should not be done. We don't want to introduce new
-> > >> kernel address leaks while we're trying to fix the remaining ones.
-> > >> Shouldn't the "unique ID" be the fd itself? I imagine KCMP_FILE
-> > >> could be used, for example.
-> > >
-> > > No; we acquire the fd per process, so if a task installs a filter and
-> > > then forks N times, we'll grab N (+1) copies of the filter from N (+1)
-> > > different file descriptors. Ideally, we'd have some way to figure out
-> > > that these were all the same. Some sort of prog_id is one way,
-> > > although there may be others.
-> > 
-> > If KCMP_FILE or a new KCMP_BPF isn't possible, then we'll probably
-> > have to add a unique id (counter) to all bpf programs as they're
-> > created.
+> -----Original Message-----
+> From: Thomas Gleixner [mailto:tglx@linutronix.de]
+> Sent: Friday, September 04, 2015 9:35 AM
+> To: Peter Zijlstra
+> Cc: Richard Cochran; Hall, Christopher S; Kirsher, Jeffrey T;
+> hpa@zytor.com; mingo@redhat.com; john.stultz@linaro.org; x86@kernel.org;
+> linux-kernel@vger.kernel.org; netdev@vger.kernel.org; intel-wired-
+> lan@lists.osuosl.org
+> Subject: Re: [PATCH v3 1/4] Add correlated clocksource deriving system time
+> from an auxiliary clocksource
 > 
-> I think tweaking KCMP_FILE for anon_inodes should do the trick
-> and should work at the end (if it's not working already).
+> On Fri, 4 Sep 2015, Peter Zijlstra wrote:
+> > On Fri, Sep 04, 2015 at 05:17:43PM +0200, Richard Cochran wrote:
+> > > On Fri, Sep 04, 2015 at 05:10:21PM +0200, Peter Zijlstra wrote:
+> > > > I think what they're getting at is asking if there's a rate limit to
+> > > > time adjustments, without that, saving the last n transition points
+> will
+> > > > still not cover any given length of history.
+> > >
+> > > As if the ntp code isn't complex enough already - now we're adding
+> > > sample histories and adjustment rating limiting?
+> > >
+> > > And all for some unknown DSP in a mythical sound card??
+> >
+> > Hehe, I'm just a 'translator' here. But going by you answer I'm taking
+> > it there isn't in fact a rate-limit to adjustments. Which, even if you
+> > were not opposed to that direction, makes it an unfeasible proposition.
+> >
+> > Also, I'm not thinking its too mythical, sound/soc/intel/ is full of
+> > audio DSP stuff, I think a newer version will just gain ART support.
+> 
+> Right, but we still do not know how that is going to be used. And
+> that's the key question. As long as that is not answered all can do is
+> wild guessing.
 
-Sounds good. I'll look into that for the next version, thanks.
+It's not wild guessing.  We do have it working on other OSs and have a pretty good 
+idea of how it will work.  The DSP firmware will be largely identical for Linux.  I 
+think now, we have a chicken and egg problem.
 
-Tycho
+We can't post audio drivers that break, or are broken by, the current ART interface.  
+How do I move this forward?  Should I minimally (I don't know exactly what that means 
+just yet) rewrite the ART interface so that the audio driver is mostly not broken and 
+post that along with the audio driver code?  Is this an acceptable approach?
+
+> 
+> Thanks,
+> 
+> 	tglx
