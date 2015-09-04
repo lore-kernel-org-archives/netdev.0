@@ -1,66 +1,51 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] vxlan: Refactor vxlan_udp_encap_recv() to kill compiler warning
-Date: Fri,  4 Sep 2015 12:49:32 +0200
-Message-ID: <1441363772-20850-1-git-send-email-geert@linux-m68k.org>
+From: =?UTF-8?B?QXVyw6lsaWVu?= <footplus@gmail.com>
+Subject: Re: Prioritize a vlan on another
+Date: Fri, 4 Sep 2015 12:52:45 +0200
+Message-ID: <CAPN4dA_N+tLcSRWPcYmoxgLAkmv2HT2aDb8w8se=qH3id4z_Kw@mail.gmail.com>
+References: <266BF78D-5C37-40E1-A065-1426CC2325E2@gmail.com>
+Reply-To: footplus@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:34422 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755326AbbIDKxF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 06:53:05 -0400
+Received: by oiev17 with SMTP id v17so9652909oie.1
+        for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 03:53:04 -0700 (PDT)
+In-Reply-To: <266BF78D-5C37-40E1-A065-1426CC2325E2@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-drivers/net/vxlan.c: In function =E2=80=98vxlan_udp_encap_recv=E2=80=99=
-:
-drivers/net/vxlan.c:1226: warning: =E2=80=98info=E2=80=99 may be used u=
-ninitialized in this function
+On Tue, Sep 1, 2015 at 11:07 PM, <footplus@gmail.com> wrote:
+>
+> Hello,
+>
+> I'm not sure if this is the right place to ask this, but i'm stuck on=
+ a trafic priority problem since some time.
+>
+> I have 2 10Gb interfaces (bnx2x) bonded in a 802.3ad aggregate. On th=
+is aggregate, 2 vlans are configured (let's INT and EXT) I need to ensu=
+re that, when sending traffic at near line rate via EXT, all packets ta=
+rgeted to INT are sent in priority (dropping EXT traffic as needed).
+>
 
-While this warning is a false positive, it can be killed easily by
-getting rid of the pointer intermediary and referring directly to the
-ip_tunnel_info structure.
+Replying to myself:
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-Compile-tested only.
----
- drivers/net/vxlan.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+It seems that all I was needing was a -j CLASSIFY --set-class 0:6 in ip=
+tables.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ce988fd01b3486c7..cf8b7f0473b3985a 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1223,7 +1223,6 @@ drop:
- static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct metadata_dst *tun_dst =3D NULL;
--	struct ip_tunnel_info *info;
- 	struct vxlan_sock *vs;
- 	struct vxlanhdr *vxh;
- 	u32 flags, vni;
-@@ -1270,8 +1269,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, =
-struct sk_buff *skb)
- 		if (!tun_dst)
- 			goto drop;
-=20
--		info =3D &tun_dst->u.tun_info;
--		md =3D ip_tunnel_info_opts(info);
-+		md =3D ip_tunnel_info_opts(&tun_dst->u.tun_info);
- 	} else {
- 		memset(md, 0, sizeof(*md));
- 	}
-@@ -1286,7 +1284,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, =
-struct sk_buff *skb)
- 		md->gbp =3D ntohs(gbp->policy_id);
-=20
- 		if (tun_dst)
--			info->key.tun_flags |=3D TUNNEL_VXLAN_OPT;
-+			tun_dst->u.tun_info.key.tun_flags |=3D TUNNEL_VXLAN_OPT;
-=20
- 		if (gbp->dont_learn)
- 			md->gbp |=3D VXLAN_GBP_DONT_LEARN;
+This sufficed to classifiy the traffic in band 0 within 8 prio qdisc
+(with default priomap/bands) attached below the 8 first classes of mq.
+However, the packet TOS does not seem to affect the priority inside
+the VLAN/bonding with mq in any way.
+
+Problem solved for me.
+
+Thanks,
+Best regards,
+
 --=20
-1.9.1
+Aur=C3=A9lien Guillaume
