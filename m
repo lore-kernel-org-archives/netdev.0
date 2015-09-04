@@ -1,28 +1,39 @@
-From: =?UTF-8?Q?S=C3=A9bastien_Bocahu?= <sbu@reportlinker.com>
-Subject: Re: Linux kernel commit breaks IPMI on iface downing
-Date: Fri, 4 Sep 2015 09:55:25 +0200
-Message-ID: <CAJPaPGU=8mWhrOSKRMnZjEULsBcO4PWkCsyUEfLfpY+cktyK_w@mail.gmail.com>
-References: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
- <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com> <CAJPaPGUsyHwaaTuUGcV5BMsSDcw1T7XQ9GVy5KwsMao3k8u+Kg@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3 1/4] Add correlated clocksource deriving system time
+ from an auxiliary clocksource
+Date: Fri, 4 Sep 2015 10:11:22 +0200
+Message-ID: <20150904081122.GA4201@netboy>
+References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
+ <1440183128-1384-2-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1508222143530.3873@nanos>
+ <B79D786B7111A34A8CF09F833429C493A90B2D1F@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: harish.patil@qlogic.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:34788 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758441AbbIDHzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 03:55:46 -0400
-Received: by lbbmp1 with SMTP id mp1so6844952lbb.1
-        for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 00:55:45 -0700 (PDT)
-In-Reply-To: <CAJPaPGUsyHwaaTuUGcV5BMsSDcw1T7XQ9GVy5KwsMao3k8u+Kg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"peterz@infradead.org" <peterz@infradead.org>
+To: "Hall, Christopher S" <christopher.s.hall@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <B79D786B7111A34A8CF09F833429C493A90B2D1F@ORSMSX109.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Sep 03, 2015 at 11:20:37PM +0000, Hall, Christopher S wrote:
+> In addition to the network interface, ART will be used in the audio interface as well.
+> We need to support the case where an audio co-processor will control the audio device.
+> In this case, the get_ts() function supplied by the audio driver will be very slow
+> (several milliseconds) and the result will be out of date by some fraction of that 
+> amount.
 
-Any chance this behaviour gets fixed, with either a new firmware or a
-workaround in the kernel ?
+Why does it take milliseconds to read one audio time stamp?
 
-thanks
+Thanks,
+Richard
