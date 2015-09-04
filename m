@@ -1,118 +1,47 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: eBPF / seccomp globals?
-Date: Fri, 4 Sep 2015 13:37:59 -0700
-Message-ID: <CAGXu5jJ4nY36M1xLXMe99YOpE1cABWBk7UchPpzz9EyW4YUAxw@mail.gmail.com>
-References: <CAMkWEXPxrth6Bt1X1OhAQYMWPM5XSy2oJEtCkv1grLFNYo5Edg@mail.gmail.com>
-	<CAGXu5j+M6nGHaRSb4uxGAcTyWD3SpWRskd89et7yfMnp3cgzgQ@mail.gmail.com>
-	<CAMkWEXOGtBST0y-2F0Jna4WaVmJsroZvSrwB4vnbtXYTY31O0Q@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache bulk
+ free API.
+Date: Fri, 4 Sep 2015 13:39:14 -0700
+Message-ID: <55EA0172.2040505@gmail.com>
+References: <20150824005727.2947.36065.stgit@localhost>
+ <20150904165944.4312.32435.stgit@devil> <55E9DE51.7090109@gmail.com>
+ <alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Michael Tirado <mtirado418@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMkWEXOGtBST0y-2F0Jna4WaVmJsroZvSrwB4vnbtXYTY31O0Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+ akpm@linux-foundation.org, linux-mm@kvack.org, aravinda@linux.vnet.ibm.com,
+ "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 4, 2015 at 1:29 PM, Michael Tirado <mtirado418@gmail.com> wrote:
->> What we did in Chrome OS was to use the "minijail" tool[2] to
->> LD_PRELOAD a .so that sets up the seccomp filter after the exec. It's
->> a bit of a hack, but works in well-defined environments. You are
->> talking about namespaces, though, so maybe minijail is worth a look?
->> It does that too and a whole lot more.
+On 09/04/2015 11:55 AM, Christoph Lameter wrote:
+> On Fri, 4 Sep 2015, Alexander Duyck wrote:
 >
-> Minijail is pretty similar to what I have been working on the past few
-> months,  unfortunately I have already written it, doh!  Those slides
-> are a good resource,  definitely helpful as introduction to seccomp.
->
-> So it seems there are no easy solutions to this problem. Using
-> LD_PRELOAD to defer seccomp filter application scares me a little bit,
-> and won't work with file capabilities IIRC, though it is a damn clever
+>> were to create a per-cpu pool for skbs that could be freed and allocated in
+>> NAPI context.  So for example we already have napi_alloc_skb, why not just add
+>> a napi_free_skb and then make the array of objects to be freed part of a pool
+>> that could be used for either allocation or freeing?  If the pool runs empty
+>> you just allocate something like 8 or 16 new skb heads, and if you fill it you
+>> just free half of the list?
+> The slab allocators provide something like a per cpu pool for you to
+> optimize object alloc and free.
 
-Do you still need file capabilities with the availability of the new
-ambient capabilities?
+Right, but one of the reasons for Jesper to implement the bulk 
+alloc/free is to avoid the cmpxchg that is being used to get stuff into 
+or off of the per cpu lists.
 
-https://s3hh.wordpress.com/2015/07/25/ambient-capabilities/
-http://thread.gmane.org/gmane.linux.kernel.lsm/24034
+In the case of network drivers they are running in softirq context 
+almost exclusively.  As such it is useful to have a set of buffers that 
+can be acquired or freed from this context without the need to use any 
+synchronization primitives.  Then once the softirq context ends then we 
+can free up some or all of the resources back to the slab allocator.
 
-> solution.  I think for now I will explore the possibility of
-> validating argument 1 of exec to allow only the program I am launching
-> to be exec'd, so if somehow by Thor's hammer that program escapes it's
-> sandbox, it will only be able to exec itself.  I suppose it will have
-> to now be restricted to absolute paths only.
-
-Well, you can only examine the memory address and not what's pointed
-to, so you may be out of luck there too. Sorry! On the TODO list is
-doing deep argument inspection, but it is not an easy thing to get
-right. :)
-
--Kees
-
->
-> Thanks everyone for the clarification!
->
-> On Fri, Sep 4, 2015 at 4:01 AM, Kees Cook <keescook@chromium.org> wrote:
->> On Thu, Sep 3, 2015 at 6:01 PM, Michael Tirado <mtirado418@gmail.com> wrote:
->>> Hiyall,
->>>
->>> I have created a seccomp white list filter for a program that launches
->>> other less trustworthy programs.  It's working great so far, but I
->>> have run into a little roadblock.  the launcher program needs to call
->>> execve as it's final step, but that may not be present in the white
->>> list.  I am wondering if there is any way to use some sort of global
->>> variable that will be preserved between syscall filter calls so that I
->>> can allow only one execve, if not present in white list by
->>> incrementing a counter variable.
->>>
->>> I see that in Documentation/networking/filter.txt one of the registers
->>> is documented as being a pointer to struct sk_buff, in the seccomp
->>> context this is a pointer to struct seccomp_data  instead, right?  and
->>> the line about callee saved registers R6-R9  probably refers to them
->>> being saved across calls within that filter, and not calls between
->>> filters?
->>>
->>> My apologies if this is not the appropriate place to ask for help, but
->>> it is difficult to find useful information on how eBPF works, and is a
->>> bit confusing trying to figure out the differences between seccomp and
->>> net filters, and the old bpf code kicking around short of spending
->>> countless hours reading through all of it.  If anybody has a some
->>> links to share I would be very grateful.  the only way I can think to
->>> make this work otherwise is to mount everything as MS_NOEXEC in the
->>> new namespace, but that just feels wrong.
->>
->> For documentation, there's some great slides on seccomp from Plumber's
->> this year[1].
->>
->> At present, there is no variable state beyond the syscall context (PC,
->> args) available to seccomp filters. The no_new_privs prctl was added
->> to reduce the risk of including execve in a filter's whitelist, but
->> that isn't as strong as the "exec once" feature you want.
->>
->> What we did in Chrome OS was to use the "minijail" tool[2] to
->> LD_PRELOAD a .so that sets up the seccomp filter after the exec. It's
->> a bit of a hack, but works in well-defined environments. You are
->> talking about namespaces, though, so maybe minijail is worth a look?
->> It does that too and a whole lot more.
->>
->> As for using maps via eBPF in seccomp, it's on the horizon, but it
->> comes with a lot exposure that I haven't finished pondering, so I
->> don't think those features will be added soon.
->>
->> -Kees
->>
->> [1] http://man7.org/conf/lpc2015/limiting_kernel_attack_surface_with_seccomp-LPC_2015-Kerrisk.pdf
->> [2] see subdirectory "minijail" after "git clone
->> https://chromium.googlesource.com/chromiumos/platform2/"
->>
->>
->> --
->> Kees Cook
->> Chrome OS Security
-
-
-
--- 
-Kees Cook
-Chrome OS Security
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
