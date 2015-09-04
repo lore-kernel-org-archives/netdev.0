@@ -1,30 +1,40 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH 2/6] seccomp: make underlying bpf ref counted as well
-Date: Fri, 4 Sep 2015 14:53:53 -0700
-Message-ID: <CALCETrXLSx23y=rNiP79WJ54EWroWRcp39Pou4ERjZ5DnM5Ykg@mail.gmail.com>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com> <1441382664-17437-3-git-send-email-tycho.andersen@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] r8169: fix sleepable allocation during
+ netdevice stats retrieval.
+Date: Fri, 04 Sep 2015 15:22:23 -0700 (PDT)
+Message-ID: <20150904.152223.1146732101537643393.davem@davemloft.net>
+References: <55E9A518.3080906@gmail.com>
+	<20150904.113657.2146226970417029162.davem@davemloft.net>
+	<20150904205904.GA32346@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Tycho Andersen <tycho.andersen@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441382664-17437-3-git-send-email-tycho.andersen@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org,
+	vinschen@redhat.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54504 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759298AbbIDWW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 18:22:26 -0400
+In-Reply-To: <20150904205904.GA32346@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
-<tycho.andersen@canonical.com> wrote:
-> Additionally, we mark classic converted seccomp filters as seccomp eBPF
-> programs, since they are a subset of what is supported in seccomp eBPF.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 4 Sep 2015 22:59:04 +0200
 
-Off the top of my head, I'm okay with this.
+> net/core/net-sysfs.c::netstat_show fetches statistics under dev_base_lock.
+> 
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=104031
+> Fixes: 6e85d5ad36a2 ("r8169: Add values missing in @get_stats64 from HW counters")
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Corinna Vinschen <vinschen@redhat.com>
 
---Andy
+Is there any reason we cannot allocate this DMA buffer at probe or
+open time?
+
+There cannot be any arguments concerning parallel access as far
+as I can see, there is a single set of registers to program
+this address into therefore we cannot allow more than one entity
+to get into the counter fetch sequence at the same time anyways.
