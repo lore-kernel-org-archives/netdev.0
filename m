@@ -1,92 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [RFC PATCH 3/3] ixgbe: bulk free SKBs during TX completion cleanup
- cycle
-Date: Fri, 04 Sep 2015 19:01:21 +0200
-Message-ID: <20150904170117.4312.97676.stgit@devil>
-References: <20150904165944.4312.32435.stgit@devil>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH] RDS: verify the underlying transport exists before
+ creating a connection
+Date: Fri, 4 Sep 2015 10:32:14 -0700
+Message-ID: <55E9D59E.4080103@oracle.com>
+References: <1441385019-27019-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Jesper Dangaard Brouer <brouer@redhat.com>,
-        aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        iamjoonsoo.kim@lge.com
-To: netdev@vger.kernel.org, akpm@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150904165944.4312.32435.stgit@devil>
-Sender: owner-linux-mm@kvack.org
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>, chien.yen@oracle.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441385019-27019-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-First user of the SKB bulk free API (namely kfree_skb_bulk() via
-waitlist helper add-and-flush API).
+Sasha,
 
-There is an opportunity to bulk free SKBs during reclaiming of
-resources after DMA transmit completes in ixgbe_clean_tx_irq.  Thus,
-bulk freeing at this point does not introduce any added latency.
-Choosing bulk size 32 even-though budget usually is 64, due (1) to
-limit the stack usage and (2) as SLAB behind SKBs have 32 objects per
-slab.
+On 9/4/2015 9:43 AM, Sasha Levin wrote:
+> There was no verification that an underlying transport exists when creating
+> a connection, this would cause dereferencing a NULL ptr.
+>
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> ---
+>   net/rds/connection.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
+>
+> diff --git a/net/rds/connection.c b/net/rds/connection.c
+> index a50e652..0218d81 100644
+> --- a/net/rds/connection.c
+> +++ b/net/rds/connection.c
+> @@ -189,6 +189,12 @@ new_conn:
+>   		}
+>   	}
+>
+> +	if (trans == NULL) {
+> +		kmem_cache_free(rds_conn_slab, conn);
+> +		conn = ERR_PTR(-ENODEV);
+> +		goto out;
+> +	}
+> +
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+Did you see the NULL oops in any tests ? The reason
+am asking this because callers of '__rds_conn_create()'
+are not passing the trans as null so that leaves with
+only the loopback case. In that case as well,
+rds_loop_transport is never going to be null.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 463ff47200f1..d35d6b47bae2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1075,6 +1075,7 @@ static void ixgbe_tx_timeout_reset(struct ixgbe_adapter *adapter)
-  * @q_vector: structure containing interrupt and ring information
-  * @tx_ring: tx ring to clean
-  **/
-+#define BULK_FREE_SIZE 32
- static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 			       struct ixgbe_ring *tx_ring)
- {
-@@ -1084,6 +1085,11 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 	unsigned int total_bytes = 0, total_packets = 0;
- 	unsigned int budget = q_vector->tx.work_limit;
- 	unsigned int i = tx_ring->next_to_clean;
-+	struct sk_buff *skbs[BULK_FREE_SIZE];
-+	struct dev_free_waitlist wl;
-+
-+	wl.skb_cnt = 0;
-+	wl.skbs = skbs;
- 
- 	if (test_bit(__IXGBE_DOWN, &adapter->state))
- 		return true;
-@@ -1113,8 +1119,8 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 		total_bytes += tx_buffer->bytecount;
- 		total_packets += tx_buffer->gso_segs;
- 
--		/* free the skb */
--		dev_consume_skb_any(tx_buffer->skb);
-+		/* delay skb free and bulk free later */
-+		dev_free_waitlist_add(&wl, tx_buffer->skb, BULK_FREE_SIZE);
- 
- 		/* unmap skb header data */
- 		dma_unmap_single(tx_ring->dev,
-@@ -1164,6 +1170,8 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 		budget--;
- 	} while (likely(budget));
- 
-+	dev_free_waitlist_flush(&wl); /* free remaining SKBs on waitlist */
-+
- 	i += tx_ring->count;
- 	tx_ring->next_to_clean = i;
- 	u64_stats_update_begin(&tx_ring->syncp);
-@@ -1224,6 +1232,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 
- 	return !!budget;
- }
-+#undef BULK_FREE_SIZE
- 
- #ifdef CONFIG_IXGBE_DCA
- static void ixgbe_update_tx_dca(struct ixgbe_adapter *adapter,
+The check is good but am curious whether we have a
+case which will hit this scenario.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards,
+Santosh
