@@ -1,47 +1,65 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache bulk
- free API.
-Date: Fri, 4 Sep 2015 13:39:14 -0700
-Message-ID: <55EA0172.2040505@gmail.com>
-References: <20150824005727.2947.36065.stgit@localhost>
- <20150904165944.4312.32435.stgit@devil> <55E9DE51.7090109@gmail.com>
- <alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 5/6] seccomp: add a way to attach a filter via eBPF fd
+Date: Fri, 4 Sep 2015 13:40:24 -0700
+Message-ID: <20150904204021.GD1842@Alexeis-MacBook-Pro-2.local>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+ <1441382664-17437-6-git-send-email-tycho.andersen@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
- akpm@linux-foundation.org, linux-mm@kvack.org, aravinda@linux.vnet.ibm.com,
- "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Tycho Andersen <tycho.andersen@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1441382664-17437-6-git-send-email-tycho.andersen@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/04/2015 11:55 AM, Christoph Lameter wrote:
-> On Fri, 4 Sep 2015, Alexander Duyck wrote:
->
->> were to create a per-cpu pool for skbs that could be freed and allocated in
->> NAPI context.  So for example we already have napi_alloc_skb, why not just add
->> a napi_free_skb and then make the array of objects to be freed part of a pool
->> that could be used for either allocation or freeing?  If the pool runs empty
->> you just allocate something like 8 or 16 new skb heads, and if you fill it you
->> just free half of the list?
-> The slab allocators provide something like a per cpu pool for you to
-> optimize object alloc and free.
+On Fri, Sep 04, 2015 at 10:04:23AM -0600, Tycho Andersen wrote:
+> This is the final bit needed to support seccomp filters created via the bpf
+> syscall.
+> 
+> One concern with this patch is exactly what the interface should look like
+> for users, since seccomp()'s second argument is a pointer, we could ask
+> people to pass a pointer to the fd, but implies we might write to it which
+> seems impolite. Right now we cast the pointer (and force the user to cast
+> it), which generates ugly warnings. I'm not sure what the right answer is
+> here.
 
-Right, but one of the reasons for Jesper to implement the bulk 
-alloc/free is to avoid the cmpxchg that is being used to get stuff into 
-or off of the per cpu lists.
+I think passing &fd is fine. setsockopt does similar things.
 
-In the case of network drivers they are running in softirq context 
-almost exclusively.  As such it is useful to have a set of buffers that 
-can be acquired or freed from this context without the need to use any 
-synchronization primitives.  Then once the softirq context ends then we 
-can free up some or all of the resources back to the slab allocator.
+> -#define SECCOMP_FILTER_FLAG_MASK	(SECCOMP_FILTER_FLAG_TSYNC)
+> +#define SECCOMP_FILTER_FLAG_MASK	(\
+> +	SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_EBPF)
+>  
+>  #ifdef CONFIG_SECCOMP
+>  
+> diff --git a/include/uapi/linux/seccomp.h b/include/uapi/linux/seccomp.h
+> index 0f238a4..c29a423 100644
+> --- a/include/uapi/linux/seccomp.h
+> +++ b/include/uapi/linux/seccomp.h
+> @@ -16,6 +16,7 @@
+>  
+>  /* Valid flags for SECCOMP_SET_MODE_FILTER */
+>  #define SECCOMP_FILTER_FLAG_TSYNC	1
+> +#define SECCOMP_FILTER_FLAG_EBPF	(1 << 1)
+...
+> -	prepared = seccomp_prepare_user_filter(filter);
+> +	if (flags & SECCOMP_FILTER_FLAG_EBPF)
+> +		prepared = seccomp_prepare_ebpf(filter);
+> +	else
+> +		prepared = seccomp_prepare_user_filter(filter);
+> +
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I think instead of flag for existing SECCOMP_SET_MODE_FILTER
+command, it would have been cleaner to add new command
+SECCOMP_SET_MODE_BPF
+and pass &fd to it.
+Both kernel implementation and user side would look better ?
