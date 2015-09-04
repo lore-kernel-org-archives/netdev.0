@@ -1,39 +1,38 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: Support ip route get via given table
-Date: Thu, 3 Sep 2015 17:25:59 -0600
-Message-ID: <55E8D707.7010309@cumulusnetworks.com>
-References: <1441220592-7339-1-git-send-email-dsa@cumulusnetworks.com>
- <20150903.154015.1172003362734952780.davem@davemloft.net>
+From: Michael Tirado <mtirado418@gmail.com>
+Subject: eBPF / seccomp globals?
+Date: Fri, 4 Sep 2015 01:01:20 +0000
+Message-ID: <CAMkWEXPxrth6Bt1X1OhAQYMWPM5XSy2oJEtCkv1grLFNYo5Edg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35574 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754974AbbICX0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 19:26:02 -0400
-Received: by ioiz6 with SMTP id z6so5566454ioi.2
-        for <netdev@vger.kernel.org>; Thu, 03 Sep 2015 16:26:01 -0700 (PDT)
-In-Reply-To: <20150903.154015.1172003362734952780.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/3/15 4:40 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Wed,  2 Sep 2015 12:03:12 -0700
->
->> Add support for 'ip [-6] route get table X' where the user wants to
->> force the FIB lookup from a given table.
->>
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->
-> As Thomas mentioned, this adds cost to the FIB lookup fastpath
-> for a control-plane only feature, which is really undesirable.
->
-> I think I'll pass on this change for now, sorry.
->
+Hiyall,
 
-Got it. I had other ideas on how to implement it. Figured I would start 
-with the simplest.
+I have created a seccomp white list filter for a program that launches
+other less trustworthy programs.  It's working great so far, but I
+have run into a little roadblock.  the launcher program needs to call
+execve as it's final step, but that may not be present in the white
+list.  I am wondering if there is any way to use some sort of global
+variable that will be preserved between syscall filter calls so that I
+can allow only one execve, if not present in white list by
+incrementing a counter variable.
+
+I see that in Documentation/networking/filter.txt one of the registers
+is documented as being a pointer to struct sk_buff, in the seccomp
+context this is a pointer to struct seccomp_data  instead, right?  and
+the line about callee saved registers R6-R9  probably refers to them
+being saved across calls within that filter, and not calls between
+filters?
+
+My apologies if this is not the appropriate place to ask for help, but
+it is difficult to find useful information on how eBPF works, and is a
+bit confusing trying to figure out the differences between seccomp and
+net filters, and the old bpf code kicking around short of spending
+countless hours reading through all of it.  If anybody has a some
+links to share I would be very grateful.  the only way I can think to
+make this work otherwise is to mount everything as MS_NOEXEC in the
+new namespace, but that just feels wrong.
