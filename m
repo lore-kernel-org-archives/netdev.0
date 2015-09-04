@@ -1,49 +1,31 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: Re: [PATCH] ethernet: synopsys: SYNOPSYS_DWC_ETH_QOS should depend
- on HAS_DMA
-Date: Fri, 4 Sep 2015 15:35:22 +0200
-Message-ID: <1441373722.8749.3.camel@axis.com>
-References: <1441370652-13762-1-git-send-email-geert@linux-m68k.org>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH] device property: Don't overwrite addr when failing in
+ device_get_mac_address
+Date: Fri, 4 Sep 2015 09:03:00 -0500
+Message-ID: <55E9A494.5000108@arm.com>
+References: <1441321190-25631-1-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Julien Grall <julien.grall@citrix.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441370652-13762-1-git-send-email-geert@linux-m68k.org>
+In-Reply-To: <1441321190-25631-1-git-send-email-julien.grall@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-09-04 at 14:44 +0200, Geert Uytterhoeven wrote:
-> If NO_DMA=y:
-> 
->     ERROR: "dma_alloc_coherent" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
->     ERROR: "dma_free_coherent" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
->     ERROR: "dma_unmap_single" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
->     ERROR: "dma_map_page" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
->     ERROR: "dma_mapping_error" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
->     ERROR: "dma_map_single" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
-> 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+On 09/03/2015 05:59 PM, Julien Grall wrote:
+> The function device_get_mac_address is trying different property names
+> in order to get the mac address. To check the return value, the variable
+> addr (which contain the buffer pass by the caller) will be re-used. This
+> means that if the previous property is not found, the next property will
+> be read using a NULL buffer.
 
-Acked-by: Lars Persson <larper@axis.com>
+Thanks for catching that! I checked the OF version to see if it has the 
+same problem, but of course it doesn't because I added the logic to pass 
+the buffer into the routine.
 
-> ---
->  drivers/net/ethernet/synopsys/Kconfig | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/synopsys/Kconfig b/drivers/net/ethernet/synopsys/Kconfig
-> index a8f315106742d9b1..8276ee5a7d541b2e 100644
-> --- a/drivers/net/ethernet/synopsys/Kconfig
-> +++ b/drivers/net/ethernet/synopsys/Kconfig
-> @@ -20,7 +20,7 @@ config SYNOPSYS_DWC_ETH_QOS
->  	select PHYLIB
->  	select CRC32
->  	select MII
-> -	depends on OF
-> +	depends on OF && HAS_DMA
->  	---help---
->  	  This driver supports the DWC Ethernet QoS from Synopsys
->  
+Reviewed-by: Jeremy Linton <jeremy.linton@arm.com>
