@@ -1,50 +1,64 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net 1/1] r8169: fix sleepable allocation during netdevice
- stats retrieval.
-Date: Fri, 4 Sep 2015 22:59:04 +0200
-Message-ID: <20150904205904.GA32346@electric-eye.fr.zoreil.com>
-References: <55E9A518.3080906@gmail.com>
- <20150904.113657.2146226970417029162.davem@davemloft.net>
+From: Tycho Andersen <tycho.andersen@canonical.com>
+Subject: Re: [PATCH 3/6] ebpf: add a way to dump an eBPF program
+Date: Fri, 4 Sep 2015 15:00:09 -0600
+Message-ID: <20150904210009.GQ26679@smitten>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+ <1441382664-17437-4-git-send-email-tycho.andersen@canonical.com>
+ <CAGXu5jJ5+EFDRpgJC6U8Y4nvPEh2fivi-TZRNC-4qP9Gi7B7pA@mail.gmail.com>
+ <20150904204554.GO26679@smitten>
+ <CAGXu5jK20KV2uaUPgy+6SZ-Q8eJFotX9W_kDKuGkjBJQXJDVRg@mail.gmail.com>
+ <20150904205821.GE1842@Alexeis-MacBook-Pro-2.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org,
-	vinschen@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57036 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbbIDU7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 16:59:37 -0400
+Cc: Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150904.113657.2146226970417029162.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150904205821.GE1842@Alexeis-MacBook-Pro-2.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-net/core/net-sysfs.c::netstat_show fetches statistics under dev_base_lock.
+On Fri, Sep 04, 2015 at 01:58:25PM -0700, Alexei Starovoitov wrote:
+> On Fri, Sep 04, 2015 at 01:50:55PM -0700, Kees Cook wrote:
+> > On Fri, Sep 4, 2015 at 1:45 PM, Tycho Andersen
+> > <tycho.andersen@canonical.com> wrote:
+> > > On Fri, Sep 04, 2015 at 01:17:30PM -0700, Kees Cook wrote:
+> > >> On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
+> > >> <tycho.andersen@canonical.com> wrote:
+> > >> > This commit adds a way to dump eBPF programs. The initial implementation
+> > >> > doesn't support maps, and therefore only allows dumping seccomp ebpf
+> > >> > programs which themselves don't currently support maps.
+> > >> >
+> > >> > We export the GPL bit as well as a unique ID for the program so that
+> > >>
+> > >> This unique ID appears to be the heap address for the prog. That's a
+> > >> huge leak, and should not be done. We don't want to introduce new
+> > >> kernel address leaks while we're trying to fix the remaining ones.
+> > >> Shouldn't the "unique ID" be the fd itself? I imagine KCMP_FILE
+> > >> could be used, for example.
+> > >
+> > > No; we acquire the fd per process, so if a task installs a filter and
+> > > then forks N times, we'll grab N (+1) copies of the filter from N (+1)
+> > > different file descriptors. Ideally, we'd have some way to figure out
+> > > that these were all the same. Some sort of prog_id is one way,
+> > > although there may be others.
+> > 
+> > If KCMP_FILE or a new KCMP_BPF isn't possible, then we'll probably
+> > have to add a unique id (counter) to all bpf programs as they're
+> > created.
+> 
+> I think tweaking KCMP_FILE for anon_inodes should do the trick
+> and should work at the end (if it's not working already).
 
-Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=104031
-Fixes: 6e85d5ad36a2 ("r8169: Add values missing in @get_stats64 from HW counters")
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Corinna Vinschen <vinschen@redhat.com>
----
+Sounds good. I'll look into that for the next version, thanks.
 
- Applies against davem's net as of f1ccbfce2fc787981d1182d09c1f6b67766783a8.
-
- drivers/net/ethernet/realtek/r8169.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 24dcbe6..56829ea 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -2200,7 +2200,7 @@ static struct rtl8169_counters *rtl8169_map_counters(struct net_device *dev,
- 	struct rtl8169_counters *counters;
- 	u32 cmd;
- 
--	counters = dma_alloc_coherent(d, sizeof(*counters), paddr, GFP_KERNEL);
-+	counters = dma_alloc_coherent(d, sizeof(*counters), paddr, GFP_ATOMIC);
- 	if (counters) {
- 		RTL_W32(CounterAddrHigh, (u64)*paddr >> 32);
- 		cmd = (u64)*paddr & DMA_BIT_MASK(32);
--- 
-2.4.3
+Tycho
