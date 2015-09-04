@@ -1,59 +1,49 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: Re: eBPF / seccomp globals?
-Date: Fri, 4 Sep 2015 08:03:49 -0600
-Message-ID: <20150904140349.GK26679@smitten>
-References: <CAMkWEXPxrth6Bt1X1OhAQYMWPM5XSy2oJEtCkv1grLFNYo5Edg@mail.gmail.com>
- <20150904031704.GA1427@Alexeis-MBP-2.westell.com>
+From: poma <pomidorabelisima@gmail.com>
+Subject: BUG: sleeping function called from invalid context at
+ mm/page_alloc.c:3186
+Date: Fri, 4 Sep 2015 16:05:12 +0200
+Message-ID: <55E9A518.3080906@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Tirado <mtirado418@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Kees Cook <keescook@chromium.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150904031704.GA1427@Alexeis-MBP-2.westell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:34463 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757872AbbIDOFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 10:05:16 -0400
+Received: by wicfx3 with SMTP id fx3so23857132wic.1
+        for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 07:05:15 -0700 (PDT)
+Received: from localhost (iskon3769.duo.carnet.hr. [31.147.110.185])
+        by smtp.gmail.com with ESMTPSA id f7sm4385340wij.17.2015.09.04.07.05.13
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 04 Sep 2015 07:05:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Call Trace:
+ [<ffffffff81847119>] dump_stack+0x4b/0x63
+ [<ffffffff810d5329>] ___might_sleep+0x179/0x230
+ [<ffffffff810d5429>] __might_sleep+0x49/0x80
+ [<ffffffff811e541e>] __alloc_pages_nodemask+0x2fe/0xb90
+ [<ffffffff81429236>] ? debug_object_activate+0xb6/0x1e0
+ [<ffffffff814298c1>] ? debug_object_active_state+0x91/0x150
+ [<ffffffff810218e6>] dma_generic_alloc_coherent+0x96/0x130
+ [<ffffffff81069865>] x86_swiotlb_alloc_coherent+0x25/0x50
+ [<ffffffff810215fd>] dma_alloc_attrs+0x6d/0xe0
+ [<ffffffffa003725e>] rtl8169_map_counters+0x3e/0x70 [r8169]
+ [<ffffffffa0038674>] rtl8169_update_counters+0x64/0x140 [r8169]
+ [<ffffffffa00388ff>] rtl8169_get_stats64+0xbf/0x130 [r8169]
+ [<ffffffff816fc694>] dev_get_stats+0x54/0x100
+ [<ffffffff817254c7>] dev_seq_printf_stats+0x37/0x120
+ [<ffffffff817255c4>] dev_seq_show+0x14/0x30
+ [<ffffffff8128e41a>] seq_read+0x2fa/0x3e0
+ [<ffffffff812dbd92>] proc_reg_read+0x42/0x70
+ [<ffffffff81264c17>] __vfs_read+0x37/0x100
+ [<ffffffff81384ae3>] ? security_file_permission+0xa3/0xc0
+ [<ffffffff81265596>] vfs_read+0x86/0x130
+ [<ffffffff81266318>] SyS_read+0x58/0xd0
+ [<ffffffff81850db2>] entry_SYSCALL_64_fastpath+0x12/0x76
 
-On Thu, Sep 03, 2015 at 08:17:05PM -0700, Alexei Starovoitov wrote:
-> On Fri, Sep 04, 2015 at 01:01:20AM +0000, Michael Tirado wrote:
-> > Hiyall,
-> > 
-> > I have created a seccomp white list filter for a program that launches
-> > other less trustworthy programs.  It's working great so far, but I
-> > have run into a little roadblock.  the launcher program needs to call
-> > execve as it's final step, but that may not be present in the white
-> > list.  I am wondering if there is any way to use some sort of global
-> > variable that will be preserved between syscall filter calls so that I
-> > can allow only one execve, if not present in white list by
-> > incrementing a counter variable.
-> > 
-> > I see that in Documentation/networking/filter.txt one of the registers
-> > is documented as being a pointer to struct sk_buff, in the seccomp
-> > context this is a pointer to struct seccomp_data  instead, right?  and
-> > the line about callee saved registers R6-R9  probably refers to them
-> > being saved across calls within that filter, and not calls between
-> > filters?
-> 
-> R6-R9 are the registered preserved across calls to helper functions
-> within single program. They are not preserved across invocations
-> of the same program. At the start of the program only R1 (pointer
-> to context) is valid.
-> The eBPF programs used for kprobes, sockets and TC can simulate
-> global state via maps. Like a map of one element can have some
-> 'struct globals { ... }' as a value in such map. Then programs
-> can keep global state in there. If a key into such map is cpu_id,
-> then such state becomes per-cpu global. Other tricks possible too.
-> Unfortunately seccomp doesn't have access to eBPF yet
-> (only classic BPF is supported), but, I believe, Tycho is
-> working on adding eBPF to seccomp and criu of eBPF programs...
-
-Indeed I am, however my patches don't have support for seccomp
-programs using eBPF maps. I'm intending to post them later today, so
-stay tuned.
-
-Tycho
+https://bugzilla.kernel.org/show_bug.cgi?id=104031
