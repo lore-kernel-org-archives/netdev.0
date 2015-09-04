@@ -1,87 +1,86 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net 1/1] cxgb4: fix usage of uninitialized variable
-Date: Fri, 4 Sep 2015 23:05:42 +0200
-Message-ID: <20150904210542.GA785@electric-eye.fr.zoreil.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 1/6] ebpf: add a seccomp program type
+Date: Fri, 4 Sep 2015 14:08:37 -0700
+Message-ID: <CAGXu5jKGBuD15KBfXKoYbGB40cNsbh=Dz8GM=bmUL-oECRhzxA@mail.gmail.com>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+	<1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
+	<CAGXu5j+9YvL6XzX=x8krZbdJXFpe-3FuMu=hAZX9Ew=hYyuK7Q@mail.gmail.com>
+	<20150904210615.GR26679@smitten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57058 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933784AbbIDVGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 17:06:22 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Tycho Andersen <tycho.andersen@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150904210615.GR26679@smitten>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c: In function =E2=80=98i=
-nit_one=E2=80=99:
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4579:8: warning: =E2=80=
-=98chip=E2=80=99 may be used uninitialized in this function [-Wmaybe-un=
-initialized]
-   chip |=3D CHELSIO_CHIP_CODE(CHELSIO_T4, pl_rev);
-        ^
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4571:11: note: =E2=80=98=
-chip=E2=80=99 was declared here
-  int ver, chip;
-           ^
+On Fri, Sep 4, 2015 at 2:06 PM, Tycho Andersen
+<tycho.andersen@canonical.com> wrote:
+> On Fri, Sep 04, 2015 at 01:34:12PM -0700, Kees Cook wrote:
+>> On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
+>> <tycho.andersen@canonical.com> wrote:
+>> > +static const struct bpf_func_proto *
+>> > +seccomp_func_proto(enum bpf_func_id func_id)
+>> > +{
+>> > +       /* Right now seccomp eBPF loading doesn't support maps; seccomp filters
+>> > +        * are considered to be read-only after they're installed, so map fds
+>> > +        * probably need to be invalidated when a seccomp filter with maps is
+>> > +        * installed.
+>> > +        *
+>> > +        * The rest of these might be reasonable to call from seccomp, so we
+>> > +        * export them.
+>> > +        */
+>> > +       switch (func_id) {
+>> > +       case BPF_FUNC_ktime_get_ns:
+>> > +               return &bpf_ktime_get_ns_proto;
+>> > +       case BPF_FUNC_trace_printk:
+>> > +               return bpf_get_trace_printk_proto();
+>> > +       case BPF_FUNC_get_prandom_u32:
+>> > +               return &bpf_get_prandom_u32_proto;
+>> > +       case BPF_FUNC_get_smp_processor_id:
+>> > +               return &bpf_get_smp_processor_id_proto;
+>> > +       case BPF_FUNC_tail_call:
+>> > +               return &bpf_tail_call_proto;
+>> > +       case BPF_FUNC_get_current_pid_tgid:
+>> > +               return &bpf_get_current_pid_tgid_proto;
+>> > +       case BPF_FUNC_get_current_uid_gid:
+>> > +               return &bpf_get_current_uid_gid_proto;
+>> > +       case BPF_FUNC_get_current_comm:
+>> > +               return &bpf_get_current_comm_proto;
+>> > +       default:
+>> > +               return NULL;
+>> > +       }
+>> > +}
+>>
+>> While this list is probably fine, I don't want to mix the addition of
+>> eBPF functions to the seccomp ABI with the CRIU changes. No function
+>> calls are currently possible and it should stay that way.
+>
+> Ok, I can remove them.
+>
+>> I was expecting to see a validator, similar to the existing BPF
+>> validator that is called when creating seccomp filters currently. Can
+>> we add a similar validator for new BPF_PROG_TYPE_SECCOMP?
+>
+> That's effectively what this patch does; when the eBPF is loaded via
+> bpf(), you tell bpf() you want a BPF_PROG_TYPE_SECCOMP, and it invokes
+> this validation/translation code, i.e. it uses
+> seccomp_is_valid_access() to check and make sure access are aligned
+> and inside struct seccomp_data.
 
-=46ixes: d86bd29e0b31 ("cxgb4/cxgb4vf: read the correct bits of PL Who =
-Am I register")
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Hariprasad Shenai <hariprasad@chelsio.com>
----
+What about limiting the possible instructions?
 
- Applies against davem's net as of f1ccbfce2fc787981d1182d09c1f6b677667=
-83a8.
+-Kees
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/=
-net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index eb22d58..592a4d6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4568,28 +4568,23 @@ static void free_some_resources(struct adapter =
-*adapter)
-=20
- static int get_chip_type(struct pci_dev *pdev, u32 pl_rev)
- {
--	int ver, chip;
- 	u16 device_id;
-=20
- 	/* Retrieve adapter's device ID */
- 	pci_read_config_word(pdev, PCI_DEVICE_ID, &device_id);
--	ver =3D device_id >> 12;
--	switch (ver) {
-+
-+	switch (device_id >> 12) {
- 	case CHELSIO_T4:
--		chip |=3D CHELSIO_CHIP_CODE(CHELSIO_T4, pl_rev);
--		break;
-+		return CHELSIO_CHIP_CODE(CHELSIO_T4, pl_rev);
- 	case CHELSIO_T5:
--		chip |=3D CHELSIO_CHIP_CODE(CHELSIO_T5, pl_rev);
--		break;
-+		return CHELSIO_CHIP_CODE(CHELSIO_T5, pl_rev);
- 	case CHELSIO_T6:
--		chip |=3D CHELSIO_CHIP_CODE(CHELSIO_T6, pl_rev);
--		break;
-+		return CHELSIO_CHIP_CODE(CHELSIO_T6, pl_rev);
- 	default:
- 		dev_err(&pdev->dev, "Device %d is not supported\n",
- 			device_id);
--		return -EINVAL;
- 	}
--	return chip;
-+	return -EINVAL;
- }
-=20
- static int init_one(struct pci_dev *pdev, const struct pci_device_id *=
-ent)
---=20
-2.4.3
+-- 
+Kees Cook
+Chrome OS Security
