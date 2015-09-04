@@ -1,8 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH RFC v2 net 2/5] ipv6: Rename the dst_cache helper functions in ip6_tunnel
-Date: Fri, 4 Sep 2015 16:12:39 -0700
-Message-ID: <1441408362-4177515-3-git-send-email-kafai@fb.com>
-References: <1441408362-4177515-1-git-send-email-kafai@fb.com>
+Subject: [PATCH RFC v2 net 0/5] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
+Date: Fri, 4 Sep 2015 16:12:37 -0700
+Message-ID: <1441408362-4177515-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -11,135 +10,80 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Kernel Team <kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:3207 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55897 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934116AbbIDXM6 (ORCPT
+	by vger.kernel.org with ESMTP id S934117AbbIDXM6 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 19:12:58 -0400
-Received: from pps.filterd (m0044012 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t84NC1qo025436
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t84NA27q020410
 	for <netdev@vger.kernel.org>; Fri, 4 Sep 2015 16:12:57 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1wqkds04xd-2
+	by mx0a-00082601.pphosted.com with ESMTP id 1wqj5s89h2-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 16:12:57 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 79c90b0e535a11e58b010002c992ebde-a23fd240 for <netdev@vger.kernel.org>;	Fri,
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 79c6c38a535a11e59f080002c95209d8-f63fa240 for <netdev@vger.kernel.org>;	Fri,
  04 Sep 2015 16:12:56 -0700
-In-Reply-To: <1441408362-4177515-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is a prep work to fix the dst_entry refcnt bugs in
-ip6_tunnel.
+v2:
+- Add patch 4 and 5 to remove the spinlock
 
-This patch rename:
-1. ip6_tnl_dst_check() to ip6_tnl_dst_get() to better
-   reflect that it will take a dst refcnt in the next patch.
-2. ip6_tnl_dst_store() to ip6_tnl_dst_set() to have a more
-   conventional name matching with ip6_tnl_dst_get().
+v1:
+This patch series is to fix the dst refcnt bugs in ip6_tunnel.
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
----
- include/net/ip6_tunnel.h |  4 ++--
- net/ipv6/ip6_gre.c       |  4 ++--
- net/ipv6/ip6_tunnel.c    | 12 ++++++------
- 3 files changed, 10 insertions(+), 10 deletions(-)
+Patch 1 and 2 are the prep works.  Patch 3 is the fix.
 
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index 76c091b..6ebccce 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -60,9 +60,9 @@ struct ipv6_tlv_tnl_enc_lim {
- 	__u8 encap_limit;	/* tunnel encapsulation limit   */
- } __packed;
- 
--struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t);
-+struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t);
- void ip6_tnl_dst_reset(struct ip6_tnl *t);
--void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst);
-+void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst);
- int ip6_tnl_rcv_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
- 		const struct in6_addr *raddr);
- int ip6_tnl_xmit_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index be6b0b9..4903c9a 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -633,7 +633,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
- 	}
- 
- 	if (!fl6->flowi6_mark)
--		dst = ip6_tnl_dst_check(tunnel);
-+		dst = ip6_tnl_dst_get(tunnel);
- 
- 	if (!dst) {
- 		ndst = ip6_route_output(net, NULL, fl6);
-@@ -762,7 +762,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
- 
- 	ip6tunnel_xmit(skb, dev);
- 	if (ndst)
--		ip6_tnl_dst_store(tunnel, ndst);
-+		ip6_tnl_dst_set(tunnel, ndst);
- 	return 0;
- tx_err_link_failure:
- 	stats->tx_carrier_errors++;
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 96abdd0..2c5a1e3 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -132,7 +132,7 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
-  * Locking : hash tables are protected by RCU and RTNL
-  */
- 
--struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
-+struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
- {
- 	struct dst_entry *dst = t->dst_cache;
- 
-@@ -145,7 +145,7 @@ struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
- 
- 	return dst;
- }
--EXPORT_SYMBOL_GPL(ip6_tnl_dst_check);
-+EXPORT_SYMBOL_GPL(ip6_tnl_dst_get);
- 
- void ip6_tnl_dst_reset(struct ip6_tnl *t)
- {
-@@ -154,14 +154,14 @@ void ip6_tnl_dst_reset(struct ip6_tnl *t)
- }
- EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
- 
--void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
-+void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst)
- {
- 	struct rt6_info *rt = (struct rt6_info *) dst;
- 	t->dst_cookie = rt6_get_cookie(rt);
- 	dst_release(t->dst_cache);
- 	t->dst_cache = dst;
- }
--EXPORT_SYMBOL_GPL(ip6_tnl_dst_store);
-+EXPORT_SYMBOL_GPL(ip6_tnl_dst_set);
- 
- /**
-  * ip6_tnl_lookup - fetch tunnel matching the end-point addresses
-@@ -1016,7 +1016,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
- 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
- 		neigh_release(neigh);
- 	} else if (!fl6->flowi6_mark)
--		dst = ip6_tnl_dst_check(t);
-+		dst = ip6_tnl_dst_get(t);
- 
- 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
- 		goto tx_err_link_failure;
-@@ -1108,7 +1108,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
- 	ipv6h->daddr = fl6->daddr;
- 	ip6tunnel_xmit(skb, dev);
- 	if (ndst)
--		ip6_tnl_dst_store(t, ndst);
-+		ip6_tnl_dst_set(t, ndst);
- 	return 0;
- tx_err_link_failure:
- 	stats->tx_carrier_errors++;
--- 
-1.8.1
+I can reproduce the bug by adding and removing the ip6gre tunnel
+while running a super_netperf TCP_CRR test.  I get the following
+trace by adding WARN_ON_ONCE(newrefcnt < 0) to dst_release():
+
+[  312.760432] ------------[ cut here ]------------
+[  312.774664] WARNING: CPU: 2 PID: 10263 at net/core/dst.c:288 dst_release+0xf3/0x100()
+[  312.776041] Modules linked in: k10temp coretemp hwmon ip6_gre ip6_tunnel tunnel6 ipmi_devintf ipmi_msgh\
+andler ip6table_filter ip6_tables xt_NFLOG nfnetlink_log nfnetlink xt_comment xt_statistic iptable_filter \
+ip_tables x_tables nfsv3 nfs_acl nfs fscache lockd grace mptctl netconsole autofs4 rpcsec_gss_krb5 auth_rp\
+cgss oid_registry sunrpc ipv6 dm_mod loop iTCO_wdt iTCO_vendor_support serio_raw rtc_cmos pcspkr i2c_i801 \
+i2c_core lpc_ich mfd_core ehci_pci ehci_hcd e1000e mlx4_en ptp pps_core vxlan udp_tunnel ip6_udp_tunnel ml\
+x4_core sg button ext3 jbd mpt2sas raid_class
+[  312.785302] CPU: 2 PID: 10263 Comm: netperf Not tainted 4.2.0-rc8-00046-g4db9b63-dirty #15
+[  312.791695] Hardware name: Quanta Freedom /Windmill-EP, BIOS F03_3B04 09/12/2013
+[  312.792965]  ffffffff819dca2c ffff8811dfbdf6f8 ffffffff816537de ffff88123788fdb8
+[  312.794263]  0000000000000000 ffff8811dfbdf738 ffffffff81052646 ffff8811dfbdf768
+[  312.795593]  ffff881203a98180 00000000ffffffff ffff88242927a000 ffff88120a2532e0
+[  312.796946] Call Trace:
+[  312.797380]  [<ffffffff816537de>] dump_stack+0x45/0x57
+[  312.798288]  [<ffffffff81052646>] warn_slowpath_common+0x86/0xc0
+[  312.799699]  [<ffffffff8105273a>] warn_slowpath_null+0x1a/0x20
+[  312.800852]  [<ffffffff8159f9b3>] dst_release+0xf3/0x100
+[  312.801834]  [<ffffffffa03f1308>] ip6_tnl_dst_store+0x48/0x70 [ip6_tunnel]
+[  312.803738]  [<ffffffffa03fd0b6>] ip6gre_xmit2+0x536/0x720 [ip6_gre]
+[  312.804774]  [<ffffffffa03fd40a>] ip6gre_tunnel_xmit+0x16a/0x410 [ip6_gre]
+[  312.805986]  [<ffffffff8159934b>] dev_hard_start_xmit+0x23b/0x390
+[  312.808810]  [<ffffffff815a2f5f>] ? neigh_destroy+0xef/0x140
+[  312.809843]  [<ffffffff81599a6c>] __dev_queue_xmit+0x48c/0x4f0
+[  312.813931]  [<ffffffff81599ae3>] dev_queue_xmit_sk+0x13/0x20
+[  312.814993]  [<ffffffff815a0832>] neigh_direct_output+0x12/0x20
+[  312.817448]  [<ffffffffa021d633>] ip6_finish_output2+0x183/0x460 [ipv6]
+[  312.818762]  [<ffffffff81306fc5>] ? find_next_bit+0x15/0x20
+[  312.819671]  [<ffffffffa021fd79>] ip6_finish_output+0x89/0xe0 [ipv6]
+[  312.820720]  [<ffffffffa021fe14>] ip6_output+0x44/0xe0 [ipv6]
+[  312.821762]  [<ffffffff815c8809>] ? nf_hook_slow+0x69/0xc0
+[  312.823123]  [<ffffffffa021d232>] ip6_xmit+0x242/0x4c0 [ipv6]
+[  312.824073]  [<ffffffffa021c9f0>] ? ac6_proc_exit+0x20/0x20 [ipv6]
+[  312.825116]  [<ffffffffa024c751>] inet6_csk_xmit+0x61/0xa0 [ipv6]
+[  312.826127]  [<ffffffff815eb590>] tcp_transmit_skb+0x4f0/0x9b0
+[  312.827441]  [<ffffffff815ed267>] tcp_connect+0x637/0x7a0
+[  312.828327]  [<ffffffffa0245906>] tcp_v6_connect+0x2d6/0x550 [ipv6]
+[  312.829581]  [<ffffffff81606f05>] __inet_stream_connect+0x95/0x2f0
+[  312.830600]  [<ffffffff810ae13a>] ? hrtimer_try_to_cancel+0x1a/0xf0
+[  312.833456]  [<ffffffff812fba19>] ? timerqueue_add+0x59/0xb0
+[  312.834407]  [<ffffffff81607198>] inet_stream_connect+0x38/0x50
+[  312.835886]  [<ffffffff8157cb17>] SYSC_connect+0xb7/0xf0
+[  312.840035]  [<ffffffff810af6d3>] ? do_setitimer+0x1b3/0x200
+[  312.840983]  [<ffffffff810af75a>] ? alarm_setitimer+0x3a/0x70
+[  312.841941]  [<ffffffff8157d7ae>] SyS_connect+0xe/0x10
+[  312.842818]  [<ffffffff81659297>] entry_SYSCALL_64_fastpath+0x12/0x6a
+[  312.844206] ---[ end trace 43f3ecd86c3b1313 ]---
