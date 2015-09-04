@@ -1,37 +1,41 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] cfg80211: regulatory: restore proper user alpha2
-Date: Fri, 04 Sep 2015 14:30:03 +0200
-Message-ID: <1441369803.1971.4.camel@sipsolutions.net>
-References: <55E72B2F.0@maciej.szmigiero.name>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>,
-	linux-wireless@vger.kernel.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] ethernet: synopsys: SYNOPSYS_DWC_ETH_QOS should depend on HAS_DMA
+Date: Fri,  4 Sep 2015 14:44:12 +0200
+Message-ID: <1441370652-13762-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Lars Persson <lars.persson@axis.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55E72B2F.0@maciej.szmigiero.name>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-09-02 at 19:00 +0200, Maciej S. Szmigiero wrote:
-> restore_regulatory_settings() should restore alpha2
-> as computed in restore_alpha2(), not raw user_alpha2 to
-> behave as described in the comment just above that code.
-> 
-> This fixes endless loop of calling CRDA for "00" and "97"
-> countries after resume from suspend on my laptop.
-> 
-> Looks like others had the same problem, too:
-> http://ath9k-devel.ath9k.narkive.com/knY5W6St/ath9k-and-crda-messages
-> -in-logs
-> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/899335
-> https://forum.porteus.org/viewtopic.php?t=4975&p=36436
-> https://forums.opensuse.org/showthread.php/
-> 483356-Authentication-Regulatory-Domain-issues-ath5k-12-2
-> 
+If NO_DMA=y:
 
-Applied, thanks.
+    ERROR: "dma_alloc_coherent" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
+    ERROR: "dma_free_coherent" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
+    ERROR: "dma_unmap_single" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
+    ERROR: "dma_map_page" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
+    ERROR: "dma_mapping_error" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
+    ERROR: "dma_map_single" [drivers/net/ethernet/synopsys/dwc_eth_qos.ko] undefined!
 
-johannes
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/net/ethernet/synopsys/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/synopsys/Kconfig b/drivers/net/ethernet/synopsys/Kconfig
+index a8f315106742d9b1..8276ee5a7d541b2e 100644
+--- a/drivers/net/ethernet/synopsys/Kconfig
++++ b/drivers/net/ethernet/synopsys/Kconfig
+@@ -20,7 +20,7 @@ config SYNOPSYS_DWC_ETH_QOS
+ 	select PHYLIB
+ 	select CRC32
+ 	select MII
+-	depends on OF
++	depends on OF && HAS_DMA
+ 	---help---
+ 	  This driver supports the DWC Ethernet QoS from Synopsys
+ 
+-- 
+1.9.1
