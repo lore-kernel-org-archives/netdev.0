@@ -1,39 +1,42 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: Linux kernel commit breaks IPMI on iface downing
-Date: Fri, 4 Sep 2015 01:29:59 -0700
-Message-ID: <1441355399.8556.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
-	 <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <CAJPaPGUsyHwaaTuUGcV5BMsSDcw1T7XQ9GVy5KwsMao3k8u+Kg@mail.gmail.com>
-	 <CAJPaPGU=8mWhrOSKRMnZjEULsBcO4PWkCsyUEfLfpY+cktyK_w@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [GIT] Networking
+Date: Fri, 4 Sep 2015 09:07:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB8D542@AcuExch.aculab.com>
+References: <20150902.223522.1792493140210966693.davem@davemloft.net>
+ <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com>
+ <20150903.104032.767889134756094076.davem@davemloft.net>
+ <CA+55aFxtD2VYW2R0JwjFkZkvzQzcN7qK3m6ReR+BBXtfyDHx7g@mail.gmail.com>
+ <CA+55aFzZe2buU-LxAktxYNojuvMbUNt64QiKDpGsfFwtrbf+Qg@mail.gmail.com>
+ <62408D76-2E53-4914-97A9-32B65B167F9B@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=cp1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <harish.patil@qlogic.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?S=E9bastien?= Bocahu <sbu@reportlinker.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:61059 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665AbbIDIaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 04:30:11 -0400
-In-Reply-To: <CAJPaPGU=8mWhrOSKRMnZjEULsBcO4PWkCsyUEfLfpY+cktyK_w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: 'Marcel Holtmann' <marcel@holtmann.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <62408D76-2E53-4914-97A9-32B65B167F9B@holtmann.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-09-04 at 09:55 +0200, S=E9bastien Bocahu wrote:=20
-> Hi,
->=20
-> Any chance this behaviour gets fixed, with either a new firmware or a
-> workaround in the kernel ?
->=20
+> I find them useful as syntactic sugar. We have not used them a lot, but there are cases in our crypto
+> handling code where we have fixed size array inputs/outputs and there we opted to use them. They make
+> it easy to remember what the expected sizes of input and output are without having to read through the
+> implementation (of course we never even tried to use sizeof on these pointers).
+> 
+> static int smp_ah(struct crypto_blkcipher *tfm, const u8 irk[16],
+>                   const u8 r[3], u8 res[3])
 
-As I said earlier, when we call bnx2_shutdown_chip(), we inform the
-firmware that the driver is shutting down.  The firmware should know
-that there is IPMI firmware and the link needs to stay up.
+Expect that it looks like you are passing arrays by value,
+but instead you are passing by reference.
 
-In the older driver, we would also call bnx2_set_power_state() which
-would send some additional messages to the firmware before putting the
-device in D3hot.  May be these messages are required by the firmware to
-keep the link up.  Harish, please check with your firmware team.
-Thanks.
+Explicitly pass by reference and sizeof works.
+The object code will be the same.
+
+	David
