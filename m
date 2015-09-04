@@ -1,65 +1,51 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: [PATCH 2/6] seccomp: make underlying bpf ref counted as well
-Date: Fri,  4 Sep 2015 10:04:20 -0600
-Message-ID: <1441382664-17437-3-git-send-email-tycho.andersen@canonical.com>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
-Cc: Will Drewry <wad@chromium.org>, Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Tycho Andersen <tycho.andersen@canonical.com>
-To: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v3 1/4] Add correlated clocksource deriving system time
+ from an auxiliary clocksource
+Date: Fri, 4 Sep 2015 18:35:18 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1509041832440.15006@nanos>
+References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com> <1440183128-1384-2-git-send-email-christopher.s.hall@intel.com> <alpine.DEB.2.11.1508222143530.3873@nanos> <B79D786B7111A34A8CF09F833429C493A90B2D1F@ORSMSX109.amr.corp.intel.com>
+ <alpine.DEB.2.11.1509041438520.15006@nanos> <20150904151021.GF18489@twins.programming.kicks-ass.net> <20150904151743.GB16862@localhost.localdomain> <20150904154133.GI18489@twins.programming.kicks-ass.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	"Hall, Christopher S" <christopher.s.hall@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+In-Reply-To: <20150904154133.GI18489@twins.programming.kicks-ass.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the next patch, we're going to add a way to access the underlying
-filters via bpf fds. This means that we need to ref-count both the
-struct seccomp_filter objects and the struct bpf_prog objects separately,
-in case a process dies but a filter is still referred to by another
-process.
+On Fri, 4 Sep 2015, Peter Zijlstra wrote:
+> On Fri, Sep 04, 2015 at 05:17:43PM +0200, Richard Cochran wrote:
+> > On Fri, Sep 04, 2015 at 05:10:21PM +0200, Peter Zijlstra wrote:
+> > > I think what they're getting at is asking if there's a rate limit to
+> > > time adjustments, without that, saving the last n transition points will
+> > > still not cover any given length of history.
+> > 
+> > As if the ntp code isn't complex enough already - now we're adding
+> > sample histories and adjustment rating limiting?
+> > 
+> > And all for some unknown DSP in a mythical sound card??
+> 
+> Hehe, I'm just a 'translator' here. But going by you answer I'm taking
+> it there isn't in fact a rate-limit to adjustments. Which, even if you
+> were not opposed to that direction, makes it an unfeasible proposition.
+> 
+> Also, I'm not thinking its too mythical, sound/soc/intel/ is full of
+> audio DSP stuff, I think a newer version will just gain ART support.
 
-Additionally, we mark classic converted seccomp filters as seccomp eBPF
-programs, since they are a subset of what is supported in seccomp eBPF.
+Right, but we still do not know how that is going to be used. And
+that's the key question. As long as that is not answered all can do is
+wild guessing.
 
-Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
-CC: Kees Cook <keescook@chromium.org>
-CC: Will Drewry <wad@chromium.org>
-CC: Oleg Nesterov <oleg@redhat.com>
-CC: Andy Lutomirski <luto@amacapital.net>
-CC: Pavel Emelyanov <xemul@parallels.com>
-CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
-CC: Alexei Starovoitov <ast@kernel.org>
-CC: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/seccomp.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Thanks,
 
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index 5bd4779..acfe1fb 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -377,6 +377,8 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
- 	}
- 
- 	atomic_set(&sfilter->usage, 1);
-+	atomic_set(&sfilter->prog->aux->refcnt, 1);
-+	sfilter->prog->type = BPF_PROG_TYPE_SECCOMP;
- 
- 	return sfilter;
- }
-@@ -469,7 +471,7 @@ void get_seccomp_filter(struct task_struct *tsk)
- static inline void seccomp_filter_free(struct seccomp_filter *filter)
- {
- 	if (filter) {
--		bpf_prog_free(filter->prog);
-+		bpf_prog_put(filter->prog);
- 		kfree(filter);
- 	}
- }
--- 
-2.1.4
+	tglx
