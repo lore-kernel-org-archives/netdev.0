@@ -1,95 +1,113 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: Re: [PATCH 1/6] ebpf: add a seccomp program type
-Date: Fri, 4 Sep 2015 15:09:18 -0600
-Message-ID: <20150904210918.GS26679@smitten>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
- <1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
- <20150904201743.GA1842@Alexeis-MacBook-Pro-2.local>
+From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH] RDS: verify the underlying transport exists before
+ creating a connection
+Date: Fri, 4 Sep 2015 14:12:12 -0700
+Message-ID: <55EA092C.9000509@oracle.com>
+References: <1441385019-27019-1-git-send-email-sasha.levin@oracle.com>
+ <55E9D59E.4080103@oracle.com> <55E9F498.5000402@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>, chien.yen@oracle.com,
+	davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150904201743.GA1842@Alexeis-MacBook-Pro-2.local>
+In-Reply-To: <55E9F498.5000402@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 04, 2015 at 01:17:47PM -0700, Alexei Starovoitov wrote:
-> On Fri, Sep 04, 2015 at 10:04:19AM -0600, Tycho Andersen wrote:
-> > seccomp uses eBPF as its underlying storage and execution format, and eBPF
-> > has features that seccomp would like to make use of in the future. This
-> > patch adds a formal seccomp type to the eBPF verifier.
-> > 
-> > The current implementation of the seccomp eBPF type is very limited, and
-> > doesn't support some interesting features (notably, maps) of eBPF. However,
-> > the primary motivation for this patchset is to enable checkpoint/restore
-> > for seccomp filters later in the series, to this limited feature set is ok
-> > for now.
-> 
-> yes. good compromise to start.
-> 
-> > +static const struct bpf_func_proto *
-> > +seccomp_func_proto(enum bpf_func_id func_id)
-> > +{
-> > +	/* Right now seccomp eBPF loading doesn't support maps; seccomp filters
-> > +	 * are considered to be read-only after they're installed, so map fds
-> > +	 * probably need to be invalidated when a seccomp filter with maps is
-> > +	 * installed.
-> 
-> Just disabling bpf_map_lookup/update() helpers (the way you did here)
-> is enough. The prorgram can still have references to maps, but since they
-> won't be accessed it's safe.
-> 
-> > +	 *
-> > +	 * The rest of these might be reasonable to call from seccomp, so we
-> > +	 * export them.
-> > +	 */
-> > +	switch (func_id) {
-> > +	case BPF_FUNC_ktime_get_ns:
-> > +		return &bpf_ktime_get_ns_proto;
-> > +	case BPF_FUNC_trace_printk:
-> > +		return bpf_get_trace_printk_proto();
-> > +	case BPF_FUNC_get_prandom_u32:
-> > +		return &bpf_get_prandom_u32_proto;
-> > +	case BPF_FUNC_get_smp_processor_id:
-> > +		return &bpf_get_smp_processor_id_proto;
-> > +	case BPF_FUNC_tail_call:
-> > +		return &bpf_tail_call_proto;
-> > +	case BPF_FUNC_get_current_pid_tgid:
-> > +		return &bpf_get_current_pid_tgid_proto;
-> > +	case BPF_FUNC_get_current_uid_gid:
-> > +		return &bpf_get_current_uid_gid_proto;
-> > +	case BPF_FUNC_get_current_comm:
-> > +		return &bpf_get_current_comm_proto;
-> 
-> the list looks good to start with.
-> 
-> >  
-> > +static u32 seccomp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
-> > +				      int src_reg, int ctx_off,
-> > +				      struct bpf_insn *insn_buf)
-> > +{
-> > +	struct bpf_insn *insn = insn_buf;
-> > +
-> > +	switch (ctx_off) {
-> > +	case offsetof(struct seccomp_data, nr):
-> 
-> the conversion of seccomp_data fields is unnecessary.
-> We're doing conversion for sk_buff, because sk_buff and __sk_buff aree two
-> different structures. __sk_buff is user ABI with its own fields that losely
-> correspond to in-kernel struct sk_buff.
-> seccomp_data is already part of user ABI, so it's ok to access as-is.
 
-Ok, I noticed this but somehow didn't put it all together. I'll axe
-this for the next version, thanks.
+On 9/4/15 12:44 PM, Sasha Levin wrote:
+> On 09/04/2015 01:32 PM, santosh shilimkar wrote:
+>> Sasha,
+>>
+>> On 9/4/2015 9:43 AM, Sasha Levin wrote:
+>>> There was no verification that an underlying transport exists when creating
+>>> a connection, this would cause dereferencing a NULL ptr.
+>>>
+>>> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+>>> ---
+>>>    net/rds/connection.c |    6 ++++++
+>>>    1 file changed, 6 insertions(+)
+>>>
+>>> diff --git a/net/rds/connection.c b/net/rds/connection.c
+>>> index a50e652..0218d81 100644
+>>> --- a/net/rds/connection.c
+>>> +++ b/net/rds/connection.c
+>>> @@ -189,6 +189,12 @@ new_conn:
+>>>            }
+>>>        }
+>>>
+>>> +    if (trans == NULL) {
+>>> +        kmem_cache_free(rds_conn_slab, conn);
+>>> +        conn = ERR_PTR(-ENODEV);
+>>> +        goto out;
+>>> +    }
+>>> +
+>>
+>> Did you see the NULL oops in any tests ? The reason
+>> am asking this because callers of '__rds_conn_create()'
+>> are not passing the trans as null so that leaves with
+>> only the loopback case. In that case as well,
+>> rds_loop_transport is never going to be null.
+>>
+>> The check is good but am curious whether we have a
+>> case which will hit this scenario.
+>
+> This is the trace I have:
+>
+Thanks.
 
-Tycho
+>
+> [135546.047719] kasan: GPF could be caused by NULL-ptr deref or user memory accessgeneral protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC KASAN
+> [135546.051270] Modules linked in:
+> [135546.051781] CPU: 4 PID: 15650 Comm: trinity-c4 Not tainted 4.2.0-next-20150902-sasha-00041-gbaa1222-dirty #2527
+> [135546.053217] task: ffff8800835bc000 ti: ffff8800bc708000 task.ti: ffff8800bc708000
+> [135546.054291] RIP: __rds_conn_create (net/rds/connection.c:194)
+> [135546.055666] RSP: 0018:ffff8800bc70fab0  EFLAGS: 00010202
+> [135546.056457] RAX: dffffc0000000000 RBX: 0000000000000f2c RCX: ffff8800835bc000
+> [135546.057494] RDX: 0000000000000007 RSI: ffff8800835bccd8 RDI: 0000000000000038
+> [135546.058530] RBP: ffff8800bc70fb18 R08: 0000000000000001 R09: 0000000000000000
+> [135546.059556] R10: ffffed014d7a3a23 R11: ffffed014d7a3a21 R12: 0000000000000000
+> [135546.060614] R13: 0000000000000001 R14: ffff8801ec3d0000 R15: 0000000000000000
+> [135546.061668] FS:  00007faad4ffb700(0000) GS:ffff880252000000(0000) knlGS:0000000000000000
+> [135546.062836] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> [135546.063682] CR2: 000000000000846a CR3: 000000009d137000 CR4: 00000000000006a0
+> [135546.064723] Stack:
+> [135546.065048]  ffffffffafe2055c ffffffffafe23fc1 ffffed00493097bf ffff8801ec3d0008
+> [135546.066247]  0000000000000000 00000000000000d0 0000000000000000 ac194a24c0586342
+> [135546.067438]  1ffff100178e1f78 ffff880320581b00 ffff8800bc70fdd0 ffff880320581b00
+> [135546.068629] Call Trace:
+> [135546.069028] ? __rds_conn_create (include/linux/rcupdate.h:856 net/rds/connection.c:134)
+> [135546.069989] ? rds_message_copy_from_user (net/rds/message.c:298)
+> [135546.071021] rds_conn_create_outgoing (net/rds/connection.c:278)
+> [135546.071981] rds_sendmsg (net/rds/send.c:1058)
+> [135546.072858] ? perf_trace_lock (include/trace/events/lock.h:38)
+> [135546.073744] ? lockdep_init (kernel/locking/lockdep.c:3298)
+> [135546.074577] ? rds_send_drop_to (net/rds/send.c:976)
+> [135546.075508] ? __might_fault (./arch/x86/include/asm/current.h:14 mm/memory.c:3795)
+> [135546.076349] ? __might_fault (mm/memory.c:3795)
+> [135546.077179] ? rds_send_drop_to (net/rds/send.c:976)
+> [135546.078114] sock_sendmsg (net/socket.c:611 net/socket.c:620)
+> [135546.078856] SYSC_sendto (net/socket.c:1657)
+> [135546.079596] ? SYSC_connect (net/socket.c:1628)
+> [135546.080510] ? trace_dump_stack (kernel/trace/trace.c:1926)
+> [135546.081397] ? ring_buffer_unlock_commit (kernel/trace/ring_buffer.c:2479 kernel/trace/ring_buffer.c:2558 kernel/trace/ring_buffer.c:2674)
+> [135546.082390] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
+> [135546.083410] ? trace_event_raw_event_sys_enter (include/trace/events/syscalls.h:16)
+> [135546.084481] ? do_audit_syscall_entry (include/trace/events/syscalls.h:16)
+> [135546.085438] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
+> [135546.085515] rds_ib_laddr_check(): addr 36.74.25.172 ret -99 node type -1
+
+So rds_ib_laddr_check() failed means either the app
+isn't doing bind() before sendmsg() or ignoring the error
+returned by bind() and going ahead and issuing the send.
+
+Anyway, we can't control the application so having
+this hole plugged is good.
+
+Please include the back trace in the commit log. With
+that update,
+
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
