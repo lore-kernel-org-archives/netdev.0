@@ -1,170 +1,30 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH 1/3] net: introduce kfree_skb_bulk() user of kmem_cache_free_bulk()
-Date: Fri, 4 Sep 2015 11:47:17 -0700
-Message-ID: <CALx6S36R2zGwj5XF0GZWPOC1Ng5HviPWxBM-cn=DDMXU9Auoxg@mail.gmail.com>
-References: <20150904165944.4312.32435.stgit@devil>
-	<20150904170046.4312.38018.stgit@devil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>, akpm@linux-foundation.org, linux-mm@kvack.org,
-	aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache
+ bulk free API.
+Date: Fri, 4 Sep 2015 13:55:24 -0500 (CDT)
+Message-ID: <alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
+References: <20150824005727.2947.36065.stgit@localhost> <20150904165944.4312.32435.stgit@devil> <55E9DE51.7090109@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+    akpm@linux-foundation.org, linux-mm@kvack.org, aravinda@linux.vnet.ibm.com,
+    "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150904170046.4312.38018.stgit@devil>
+In-Reply-To: <55E9DE51.7090109@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 4, 2015 at 10:00 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> Introduce the first user of SLAB bulk free API kmem_cache_free_bulk(),
-> in the network stack in form of function kfree_skb_bulk() which bulk
-> free SKBs (not skb clones or skb->head, yet).
->
-> As this is the third user of SKB reference decrementing, split out
-> refcnt decrement into helper function and use this in all call points.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
->  include/linux/skbuff.h |    1 +
->  net/core/skbuff.c      |   87 +++++++++++++++++++++++++++++++++++++++---------
->  2 files changed, 71 insertions(+), 17 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index b97597970ce7..e5f1e007723b 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -762,6 +762,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
->  }
->
->  void kfree_skb(struct sk_buff *skb);
-> +void kfree_skb_bulk(struct sk_buff **skbs, unsigned int size);
->  void kfree_skb_list(struct sk_buff *segs);
->  void skb_tx_error(struct sk_buff *skb);
->  void consume_skb(struct sk_buff *skb);
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 429b407b4fe6..034545934158 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -661,26 +661,83 @@ void __kfree_skb(struct sk_buff *skb)
->  }
->  EXPORT_SYMBOL(__kfree_skb);
->
-> +/*
-> + *     skb_dec_and_test - Helper to drop ref to SKB and see is ready to free
-> + *     @skb: buffer to decrement reference
-> + *
-> + *     Drop a reference to the buffer, and return true if it is ready
-> + *     to free. Which is if the usage count has hit zero or is equal to 1.
-> + *
-> + *     This is performance critical code that should be inlined.
-> + */
-> +static inline bool skb_dec_and_test(struct sk_buff *skb)
-> +{
-> +       if (unlikely(!skb))
-> +               return false;
-> +       if (likely(atomic_read(&skb->users) == 1))
-> +               smp_rmb();
-> +       else if (likely(!atomic_dec_and_test(&skb->users)))
-> +               return false;
-> +       /* If reaching here SKB is ready to free */
-> +       return true;
-> +}
-> +
->  /**
->   *     kfree_skb - free an sk_buff
->   *     @skb: buffer to free
->   *
->   *     Drop a reference to the buffer and free it if the usage count has
-> - *     hit zero.
-> + *     hit zero or is equal to 1.
->   */
->  void kfree_skb(struct sk_buff *skb)
->  {
-> -       if (unlikely(!skb))
-> -               return;
-> -       if (likely(atomic_read(&skb->users) == 1))
-> -               smp_rmb();
-> -       else if (likely(!atomic_dec_and_test(&skb->users)))
-> -               return;
-> -       trace_kfree_skb(skb, __builtin_return_address(0));
-> -       __kfree_skb(skb);
-> +       if (skb_dec_and_test(skb)) {
-> +               trace_kfree_skb(skb, __builtin_return_address(0));
-> +               __kfree_skb(skb);
-> +       }
->  }
->  EXPORT_SYMBOL(kfree_skb);
->
-> +/**
-> + *     kfree_skb_bulk - bulk free SKBs when refcnt allows to
-> + *     @skbs: array of SKBs to free
-> + *     @size: number of SKBs in array
-> + *
-> + *     If SKB refcnt allows for free, then release any auxiliary data
-> + *     and then bulk free SKBs to the SLAB allocator.
-> + *
-> + *     Note that interrupts must be enabled when calling this function.
-> + */
-> +void kfree_skb_bulk(struct sk_buff **skbs, unsigned int size)
-> +{
-What not pass a list of skbs (e.g. using skb->next)?
+On Fri, 4 Sep 2015, Alexander Duyck wrote:
 
-> +       int i;
-> +       size_t cnt = 0;
-> +
-> +       for (i = 0; i < size; i++) {
-> +               struct sk_buff *skb = skbs[i];
-> +
-> +               if (!skb_dec_and_test(skb))
-> +                       continue; /* skip skb, not ready to free */
-> +
-> +               /* Construct an array of SKBs, ready to be free'ed and
-> +                * cleanup all auxiliary, before bulk free to SLAB.
-> +                * For now, only handle non-cloned SKBs, related to
-> +                * SLAB skbuff_head_cache
-> +                */
-> +               if (skb->fclone == SKB_FCLONE_UNAVAILABLE) {
-> +                       skb_release_all(skb);
-> +                       skbs[cnt++] = skb;
-> +               } else {
-> +                       /* SKB was a clone, don't handle this case */
-> +                       __kfree_skb(skb);
-> +               }
-> +       }
-> +       if (likely(cnt)) {
-> +               kmem_cache_free_bulk(skbuff_head_cache, cnt, (void **) skbs);
-> +       }
-> +}
-> +EXPORT_SYMBOL(kfree_skb_bulk);
-> +
->  void kfree_skb_list(struct sk_buff *segs)
->  {
->         while (segs) {
-> @@ -722,14 +779,10 @@ EXPORT_SYMBOL(skb_tx_error);
->   */
->  void consume_skb(struct sk_buff *skb)
->  {
-> -       if (unlikely(!skb))
-> -               return;
-> -       if (likely(atomic_read(&skb->users) == 1))
-> -               smp_rmb();
-> -       else if (likely(!atomic_dec_and_test(&skb->users)))
-> -               return;
-> -       trace_consume_skb(skb);
-> -       __kfree_skb(skb);
-> +       if (skb_dec_and_test(skb)) {
-> +               trace_consume_skb(skb);
-> +               __kfree_skb(skb);
-> +       }
->  }
->  EXPORT_SYMBOL(consume_skb);
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> were to create a per-cpu pool for skbs that could be freed and allocated in
+> NAPI context.  So for example we already have napi_alloc_skb, why not just add
+> a napi_free_skb and then make the array of objects to be freed part of a pool
+> that could be used for either allocation or freeing?  If the pool runs empty
+> you just allocate something like 8 or 16 new skb heads, and if you fill it you
+> just free half of the list?
+
+The slab allocators provide something like a per cpu pool for you to
+optimize object alloc and free.
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
