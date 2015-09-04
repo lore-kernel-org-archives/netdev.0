@@ -1,90 +1,104 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [GIT] Networking
-Date: Fri, 4 Sep 2015 17:38:41 +0000
-Message-ID: <8BC0F5D8-5872-4387-BACA-BE7EAF479928@intel.com>
-References: <20150902.223522.1792493140210966693.davem@davemloft.net>
- <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com>
- <20150903.104032.767889134756094076.davem@davemloft.net>
- <CA+55aFxtD2VYW2R0JwjFkZkvzQzcN7qK3m6ReR+BBXtfyDHx7g@mail.gmail.com>
- <CA+55aFzZe2buU-LxAktxYNojuvMbUNt64QiKDpGsfFwtrbf+Qg@mail.gmail.com>
- <62408D76-2E53-4914-97A9-32B65B167F9B@holtmann.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CB8D542@AcuExch.aculab.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache bulk
+ free API.
+Date: Fri, 4 Sep 2015 11:09:21 -0700
+Message-ID: <55E9DE51.7090109@gmail.com>
+References: <20150824005727.2947.36065.stgit@localhost>
+ <20150904165944.4312.32435.stgit@devil>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_447D6358-56B9-4C5F-80FD-2BB019DB81F7";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB8D542@AcuExch.aculab.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, aravinda@linux.vnet.ibm.com,
+ Christoph Lameter <cl@linux.com>,
+ "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+ akpm@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150904165944.4312.32435.stgit@devil>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_447D6358-56B9-4C5F-80FD-2BB019DB81F7
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=windows-1252
+On 09/04/2015 10:00 AM, Jesper Dangaard Brouer wrote:
+> During TX DMA completion cleanup there exist an opportunity in the NIC
+> drivers to perform bulk free, without introducing additional latency.
+>
+> For an IPv4 forwarding workload the network stack is hitting the
+> slowpath of the kmem_cache "slub" allocator.  This slowpath can be
+> mitigated by bulk free via the detached freelists patchset.
+>
+> Depend on patchset:
+>   http://thread.gmane.org/gmane.linux.kernel.mm/137469
+>
+> Kernel based on MMOTM tag 2015-08-24-16-12 from git repo:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mhocko/mm.git
+>   Also contains Christoph's patch "slub: Avoid irqoff/on in bulk allocation"
+>
+>
+> Benchmarking: Single CPU IPv4 forwarding UDP (generator pktgen):
+>   * Before: 2043575 pps
+>   * After : 2090522 pps
+>   * Improvements: +46947 pps and -10.99 ns
+>
+> In the before case, perf report shows slub free hits the slowpath:
+>   1.98%  ksoftirqd/6  [kernel.vmlinux]  [k] __slab_free.isra.72
+>   1.29%  ksoftirqd/6  [kernel.vmlinux]  [k] cmpxchg_double_slab.isra.71
+>   0.95%  ksoftirqd/6  [kernel.vmlinux]  [k] kmem_cache_free
+>   0.95%  ksoftirqd/6  [kernel.vmlinux]  [k] kmem_cache_alloc
+>   0.20%  ksoftirqd/6  [kernel.vmlinux]  [k] __cmpxchg_double_slab.isra.60
+>   0.17%  ksoftirqd/6  [kernel.vmlinux]  [k] ___slab_alloc.isra.68
+>   0.09%  ksoftirqd/6  [kernel.vmlinux]  [k] __slab_alloc.isra.69
+>
+> After the slowpath calls are almost gone:
+>   0.22%  ksoftirqd/6  [kernel.vmlinux]  [k] __cmpxchg_double_slab.isra.60
+>   0.18%  ksoftirqd/6  [kernel.vmlinux]  [k] ___slab_alloc.isra.68
+>   0.14%  ksoftirqd/6  [kernel.vmlinux]  [k] __slab_free.isra.72
+>   0.14%  ksoftirqd/6  [kernel.vmlinux]  [k] cmpxchg_double_slab.isra.71
+>   0.08%  ksoftirqd/6  [kernel.vmlinux]  [k] __slab_alloc.isra.69
+>
+>
+> Extra info, tuning SLUB per CPU structures gives further improvements:
+>   * slub-tuned: 2124217 pps
+>   * patched increase: +33695 pps and  -7.59 ns
+>   * before  increase: +80642 pps and -18.58 ns
+>
+> Tuning done:
+>   echo 256 > /sys/kernel/slab/skbuff_head_cache/cpu_partial
+>   echo 9   > /sys/kernel/slab/skbuff_head_cache/min_partial
+>
+> Without SLUB tuning, same performance comes with kernel cmdline "slab_nomerge":
+>   * slab_nomerge: 2121824 pps
+>
+> Test notes:
+>   * Notice very fast CPU i7-4790K CPU @ 4.00GHz
+>   * gcc version 4.8.3 20140911 (Red Hat 4.8.3-9) (GCC)
+>   * kernel 4.1.0-mmotm-2015-08-24-16-12+ #271 SMP
+>   * Generator pktgen UDP single flow (pktgen_sample03_burst_single_flow.sh)
+>   * Tuned for forwarding:
+>    - unloaded netfilter modules
+>    - Sysctl settings:
+>    - net/ipv4/conf/default/rp_filter = 0
+>    - net/ipv4/conf/all/rp_filter = 0
+>    - (Forwarding performance is affected by early demux)
+>    - net/ipv4/ip_early_demux = 0
+>    - net.ipv4.ip_forward = 1
+>    - Disabled GRO on NICs
+>    - ethtool -K ixgbe3 gro off tso off gso off
+>
+> ---
 
-> On Sep 4, 2015, at 2:07 AM, David Laight <David.Laight@ACULAB.COM> =
-wrote:
->=20
->> I find them useful as syntactic sugar. We have not used them a lot, =
-but there are cases in our crypto
->> handling code where we have fixed size array inputs/outputs and there =
-we opted to use them. They make
->> it easy to remember what the expected sizes of input and output are =
-without having to read through the
->> implementation (of course we never even tried to use sizeof on these =
-pointers).
->>=20
->> static int smp_ah(struct crypto_blkcipher *tfm, const u8 irk[16],
->>                  const u8 r[3], u8 res[3])
->=20
-> Expect that it looks like you are passing arrays by value,
-> but instead you are passing by reference.
->=20
-> Explicitly pass by reference and sizeof works.
+This is an interesting start.  However I feel like it might work better 
+if you were to create a per-cpu pool for skbs that could be freed and 
+allocated in NAPI context.  So for example we already have 
+napi_alloc_skb, why not just add a napi_free_skb and then make the array 
+of objects to be freed part of a pool that could be used for either 
+allocation or freeing?  If the pool runs empty you just allocate 
+something like 8 or 16 new skb heads, and if you fill it you just free 
+half of the list?
 
-It depends on what you mean by works. It at least doesn't look so =
-misleading when passing by reference and so works more as expected. The =
-sizeof in either case will never return the size of the array. To have =
-sizeof return the size of the array would require a typedef of the array =
-to pass by reference. In some cases that could be the right thing to do.
+- Alex
 
 --
-Mark Rustad, Networking Division, Intel Corporation
-
-
---Apple-Mail=_447D6358-56B9-4C5F-80FD-2BB019DB81F7
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJV6dchAAoJEDwO/+eO4+5udkcQAL7Bg+OzBOStiwdBZch1S8BG
-6GF4XDSZBz4+/H7ywxqNXZfMl6K63ceZCA7K0Y/HJNvWG/YQAzKPSjmlISb+aFv/
-uN3CX5P8/2Ul3f9VisXTZX+7wZ2khF5kyEkRubpWz8VRtAIzTCkk5TgOWPWU/oJ/
-ISEFnJNbWmTHpGvY4yIckAH94ZUCXTf+aZ3CG9+aS47bPgjrBp+h5B4Xl+HvkgJ3
-LQIG8rfRgbYSJ616AyI6SQz/F2n8FSDQC/6OaWmI2Ko1+0hGUT7myESFw/k8+XOK
-5wvjVnxGdtYfW2zXq0KlVvqVEGM9n66zRerqVA3JVohazVaebuTWxyriKC2ccZ0H
-m0VpWk5OVkrTIGwNcx1YaVWHxG+ks0C27aprW4OqvofYObp0MJc2OC6fxbuEV/XI
-1In0baIRFlo9CsHPK7Orl7KciuQS0yQxIgvpzrbXH8qgXAlscjLGb35WZBqFRPLC
-nsztDe6qtVRdsV4XhJXo0Ubo4fUqJXMCOvBSd/QUV8EhqsI+DSLbi+r+uDOBGBwO
-zSETrbt3gRatWdnQVHCvOn0gQIywAKE/Zc8ggUyeazHyM3G4PgXl89LbYCt4ZPD+
-dVa0FGVlJuU7VRJlyRzQc0W5H4uxw05O6fb51SvKZM1c1Iy9HGLN5ZjenJxgw7Vc
-3yF4UdE+ugU+8uqjxspU
-=Pwd4
------END PGP SIGNATURE-----
-
---Apple-Mail=_447D6358-56B9-4C5F-80FD-2BB019DB81F7--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
