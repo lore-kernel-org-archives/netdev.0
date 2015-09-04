@@ -1,37 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] r8169: fix sleepable allocation during
- netdevice stats retrieval.
-Date: Fri, 04 Sep 2015 16:15:59 -0700 (PDT)
-Message-ID: <20150904.161559.86539633451623020.davem@davemloft.net>
-References: <20150904205904.GA32346@electric-eye.fr.zoreil.com>
-	<20150904.152223.1146732101537643393.davem@davemloft.net>
-	<20150904231105.GA3159@electric-eye.fr.zoreil.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] openvswitch: Remove conntrack Kconfig option.
+Date: Fri, 4 Sep 2015 16:23:12 -0700
+Message-ID: <CALnjE+p+UB5o-TShVbGVHMm2pO5PNwLCdZEQhiXGa_f8h5Pbeg@mail.gmail.com>
+References: <1441397260-61272-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pomidorabelisima@gmail.com, netdev@vger.kernel.org,
-	vinschen@redhat.com
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55479 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934040AbbIDXQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 19:16:00 -0400
-In-Reply-To: <20150904231105.GA3159@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1441397260-61272-1-git-send-email-joestringer@nicira.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 5 Sep 2015 01:11:05 +0200
+On Fri, Sep 4, 2015 at 1:07 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> There's no particular desire to have conntrack action support in Open
+> vSwitch as an independently configurable bit, rather just to ensure
+> there is not a hard dependency. This exposed option doesn't accurately
+> reflect the conntrack dependency when enabled, so simplify this by
+> removing the option. Compile the support if NF_CONNTRACK is enabled.
+>
+> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
 
-> David Miller <davem@davemloft.net> :
-> [...]
->> Is there any reason we cannot allocate this DMA buffer at probe or
->> open time?
-> 
-> None.
-> 
-> As a fix for 6e85d5ad36a2 or as net-next material ?
-
-I think we should just do it right to fix this bug, it's new to this
-merge window anyways.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
