@@ -1,38 +1,32 @@
-From: Michael Tirado <mtirado418@gmail.com>
-Subject: eBPF / seccomp globals?
-Date: Fri, 4 Sep 2015 01:01:20 +0000
-Message-ID: <CAMkWEXPxrth6Bt1X1OhAQYMWPM5XSy2oJEtCkv1grLFNYo5Edg@mail.gmail.com>
+From: pcdndz@comorestelecom.km
+Subject: Hello
+Date: Fri, 4 Sep 2015 04:17:52 +0300 (EAT)
+Message-ID: <2f7dc0db292341529b516277dc37b558.squirrel@webmail.comorestelecom.km>
+Reply-To: claims-desk01@Safe-mail.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.comorestelecom.km ([197.255.224.7]:37172 "HELO
+	mail1.comorestelecom.km" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751065AbbIDB1M convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 21:27:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hiyall,
 
-I have created a seccomp white list filter for a program that launches
-other less trustworthy programs.  It's working great so far, but I
-have run into a little roadblock.  the launcher program needs to call
-execve as it's final step, but that may not be present in the white
-list.  I am wondering if there is any way to use some sort of global
-variable that will be preserved between syscall filter calls so that I
-can allow only one execve, if not present in white list by
-incrementing a counter variable.
 
-I see that in Documentation/networking/filter.txt one of the registers
-is documented as being a pointer to struct sk_buff, in the seccomp
-context this is a pointer to struct seccomp_data  instead, right?  and
-the line about callee saved registers R6-R9  probably refers to them
-being saved across calls within that filter, and not calls between
-filters?
 
-My apologies if this is not the appropriate place to ask for help, but
-it is difficult to find useful information on how eBPF works, and is a
-bit confusing trying to figure out the differences between seccomp and
-net filters, and the old bpf code kicking around short of spending
-countless hours reading through all of it.  If anybody has a some
-links to share I would be very grateful.  the only way I can think to
-make this work otherwise is to mount everything as MS_NOEXEC in the
-new namespace, but that just feels wrong.
+The prestigious Microsoft and AOL has set out and successfully organized a
+Sweepstakes. Your email address has subsequently won you 2,000,000.00
+GBP(Two Million Great Britain Pound Sterling) as one of the jackpot winner
+in this draw. To file for your claim Please Contact your fiduciary agent.
+Here below are the details of your Fiduciary agent. You are to contact him
+via email
+
+Megan Burkhart
+Microsoft Promotion Award Team
+Head Sweepstakes Organizing Committee.
+Email: claims-desk01@Safe-mail.net
+Microsoft Team.
