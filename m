@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH RFC v2 net 4/5] ipv6: Avoid double dst_free
-Date: Fri, 4 Sep 2015 16:12:41 -0700
-Message-ID: <1441408362-4177515-5-git-send-email-kafai@fb.com>
+Subject: [PATCH RFC v2 net 2/5] ipv6: Rename the dst_cache helper functions in ip6_tunnel
+Date: Fri, 4 Sep 2015 16:12:39 -0700
+Message-ID: <1441408362-4177515-3-git-send-email-kafai@fb.com>
 References: <1441408362-4177515-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,149 +11,135 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Kernel Team <kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:9407 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S934123AbbIDXM6 (ORCPT
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:3207 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934116AbbIDXM6 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 19:12:58 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t84N8hbb014159
+Received: from pps.filterd (m0044012 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t84NC1qo025436
 	for <netdev@vger.kernel.org>; Fri, 4 Sep 2015 16:12:57 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1wqk22rb84-2
+	by mx0a-00082601.pphosted.com with ESMTP id 1wqkds04xd-2
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 16:12:57 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
  mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 79e0d194535a11e596bf0002c992ebde-a33f7240 for <netdev@vger.kernel.org>;	Fri,
+ 79c90b0e535a11e58b010002c992ebde-a23fd240 for <netdev@vger.kernel.org>;	Fri,
  04 Sep 2015 16:12:56 -0700
 In-Reply-To: <1441408362-4177515-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is a prep work to get dst freeing from fib tree undergo
-a rcu grace period.
+It is a prep work to fix the dst_entry refcnt bugs in
+ip6_tunnel.
 
-The following is a common paradigm:
-if (ip6_del_rt(rt))
-	dst_free(rt)
-
-which means, if rt cannot be deleted from the fib tree, dst_free(rt) now.
-1. We don't know the ip6_del_rt(rt) failure is because it
-   was not managed by fib tree (DST_NOCACHE) or it had already been
-   removed from the fib tree.
-2. If rt had been managed by the fib tree, ip6_del_rt(rt) failure means
-   dst_free(rt) has already been called already.  A second
-   dst_free(rt) is not always obviously safe.  The rt may have
-   been destroyed already.
-3. If rt is a DST_NOCACHE, dst_free(rt) should not be called.
-4. It is a stopper to make dst freeing from fib tree undergo a
-   rcu grace period.
-
-This patch is to use a DST_NOCACHE flag to indicate a rt is
-managed by the fib tree or not.
+This patch rename:
+1. ip6_tnl_dst_check() to ip6_tnl_dst_get() to better
+   reflect that it will take a dst refcnt in the next patch.
+2. ip6_tnl_dst_store() to ip6_tnl_dst_set() to have a more
+   conventional name matching with ip6_tnl_dst_get().
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- net/ipv6/addrconf.c |  7 +++----
- net/ipv6/ip6_fib.c  | 11 +++++++++--
- net/ipv6/route.c    |  7 +++++--
- 3 files changed, 17 insertions(+), 8 deletions(-)
+ include/net/ip6_tunnel.h |  4 ++--
+ net/ipv6/ip6_gre.c       |  4 ++--
+ net/ipv6/ip6_tunnel.c    | 12 ++++++------
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ba006d9..b6225aa 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4855,13 +4855,12 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 76c091b..6ebccce 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -60,9 +60,9 @@ struct ipv6_tlv_tnl_enc_lim {
+ 	__u8 encap_limit;	/* tunnel encapsulation limit   */
+ } __packed;
  
- 			rt = addrconf_get_prefix_route(&ifp->peer_addr, 128,
- 						       ifp->idev->dev, 0, 0);
--			if (rt && ip6_del_rt(rt))
--				dst_free(&rt->dst);
-+			if (rt)
-+				ip6_del_rt(rt);
- 		}
- 		dst_hold(&ifp->rt->dst);
- 
--		if (ip6_del_rt(ifp->rt))
--			dst_free(&ifp->rt->dst);
-+		ip6_del_rt(ifp->rt);
- 
- 		rt_genid_bump_ipv6(net);
- 		break;
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 6492115..346aa4a 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -897,6 +897,10 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 	int replace_required = 0;
- 	int sernum = fib6_new_sernum(info->nl_net);
- 
-+	if (WARN_ON_ONCE((rt->dst.flags & DST_NOCACHE) &&
-+			 !atomic_read(&rt->dst.__refcnt)))
-+		return -EINVAL;
-+
- 	if (info->nlh) {
- 		if (!(info->nlh->nlmsg_flags & NLM_F_CREATE))
- 			allow_create = 0;
-@@ -989,6 +993,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 		fib6_start_gc(info->nl_net, rt);
- 		if (!(rt->rt6i_flags & RTF_CACHE))
- 			fib6_prune_clones(info->nl_net, pn);
-+		rt->dst.flags &= ~DST_NOCACHE;
+-struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t);
++struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t);
+ void ip6_tnl_dst_reset(struct ip6_tnl *t);
+-void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst);
++void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst);
+ int ip6_tnl_rcv_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+ 		const struct in6_addr *raddr);
+ int ip6_tnl_xmit_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index be6b0b9..4903c9a 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -633,7 +633,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
  	}
  
- out:
-@@ -1013,7 +1018,8 @@ out:
- 			atomic_inc(&pn->leaf->rt6i_ref);
- 		}
- #endif
--		dst_free(&rt->dst);
-+		if (!(rt->dst.flags & DST_NOCACHE))
-+			dst_free(&rt->dst);
- 	}
- 	return err;
+ 	if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_check(tunnel);
++		dst = ip6_tnl_dst_get(tunnel);
  
-@@ -1024,7 +1030,8 @@ out:
- st_failure:
- 	if (fn && !(fn->fn_flags & (RTN_RTINFO|RTN_ROOT)))
- 		fib6_repair_tree(info->nl_net, fn);
--	dst_free(&rt->dst);
-+	if (!(rt->dst.flags & DST_NOCACHE))
-+		dst_free(&rt->dst);
- 	return err;
- #endif
+ 	if (!dst) {
+ 		ndst = ip6_route_output(net, NULL, fl6);
+@@ -762,7 +762,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 
+ 	ip6tunnel_xmit(skb, dev);
+ 	if (ndst)
+-		ip6_tnl_dst_store(tunnel, ndst);
++		ip6_tnl_dst_set(tunnel, ndst);
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 96abdd0..2c5a1e3 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -132,7 +132,7 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+  * Locking : hash tables are protected by RCU and RTNL
+  */
+ 
+-struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
++struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
+ {
+ 	struct dst_entry *dst = t->dst_cache;
+ 
+@@ -145,7 +145,7 @@ struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
+ 
+ 	return dst;
  }
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index bc9ff77..ecc63eb 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1313,8 +1313,7 @@ static void ip6_link_failure(struct sk_buff *skb)
- 	if (rt) {
- 		if (rt->rt6i_flags & RTF_CACHE) {
- 			dst_hold(&rt->dst);
--			if (ip6_del_rt(rt))
--				dst_free(&rt->dst);
-+			ip6_del_rt(rt);
- 		} else if (rt->rt6i_node && (rt->rt6i_flags & RTF_DEFAULT)) {
- 			rt->rt6i_node->fn_sernum = -1;
- 		}
-@@ -1962,6 +1961,9 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
- 	if (rt == net->ipv6.ip6_null_entry) {
- 		err = -ENOENT;
- 		goto out;
-+	} else if (rt->dst.flags & DST_NOCACHE) {
-+		err = -ENOENT;
-+		goto out;
- 	}
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_check);
++EXPORT_SYMBOL_GPL(ip6_tnl_dst_get);
  
- 	table = rt->rt6i_table;
-@@ -2445,6 +2447,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 	rt->rt6i_dst.addr = *addr;
- 	rt->rt6i_dst.plen = 128;
- 	rt->rt6i_table = fib6_get_table(net, RT6_TABLE_LOCAL);
-+	rt->dst.flags |= DST_NOCACHE;
+ void ip6_tnl_dst_reset(struct ip6_tnl *t)
+ {
+@@ -154,14 +154,14 @@ void ip6_tnl_dst_reset(struct ip6_tnl *t)
+ }
+ EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
  
- 	atomic_set(&rt->dst.__refcnt, 1);
+-void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
++void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst)
+ {
+ 	struct rt6_info *rt = (struct rt6_info *) dst;
+ 	t->dst_cookie = rt6_get_cookie(rt);
+ 	dst_release(t->dst_cache);
+ 	t->dst_cache = dst;
+ }
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_store);
++EXPORT_SYMBOL_GPL(ip6_tnl_dst_set);
  
+ /**
+  * ip6_tnl_lookup - fetch tunnel matching the end-point addresses
+@@ -1016,7 +1016,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+ 		neigh_release(neigh);
+ 	} else if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_check(t);
++		dst = ip6_tnl_dst_get(t);
+ 
+ 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
+ 		goto tx_err_link_failure;
+@@ -1108,7 +1108,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	ipv6h->daddr = fl6->daddr;
+ 	ip6tunnel_xmit(skb, dev);
+ 	if (ndst)
+-		ip6_tnl_dst_store(t, ndst);
++		ip6_tnl_dst_set(t, ndst);
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
 -- 
 1.8.1
