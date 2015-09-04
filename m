@@ -1,217 +1,115 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 1/6] ebpf: add a seccomp program type
-Date: Fri, 4 Sep 2015 13:34:12 -0700
-Message-ID: <CAGXu5j+9YvL6XzX=x8krZbdJXFpe-3FuMu=hAZX9Ew=hYyuK7Q@mail.gmail.com>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
-	<1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
+Subject: Re: eBPF / seccomp globals?
+Date: Fri, 4 Sep 2015 13:37:59 -0700
+Message-ID: <CAGXu5jJ4nY36M1xLXMe99YOpE1cABWBk7UchPpzz9EyW4YUAxw@mail.gmail.com>
+References: <CAMkWEXPxrth6Bt1X1OhAQYMWPM5XSy2oJEtCkv1grLFNYo5Edg@mail.gmail.com>
+	<CAGXu5j+M6nGHaRSb4uxGAcTyWD3SpWRskd89et7yfMnp3cgzgQ@mail.gmail.com>
+	<CAMkWEXOGtBST0y-2F0Jna4WaVmJsroZvSrwB4vnbtXYTY31O0Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
+Cc: Network Development <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Tycho Andersen <tycho.andersen@canonical.com>
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Michael Tirado <mtirado418@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
+In-Reply-To: <CAMkWEXOGtBST0y-2F0Jna4WaVmJsroZvSrwB4vnbtXYTY31O0Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
-<tycho.andersen@canonical.com> wrote:
-> seccomp uses eBPF as its underlying storage and execution format, and eBPF
-> has features that seccomp would like to make use of in the future. This
-> patch adds a formal seccomp type to the eBPF verifier.
+On Fri, Sep 4, 2015 at 1:29 PM, Michael Tirado <mtirado418@gmail.com> wrote:
+>> What we did in Chrome OS was to use the "minijail" tool[2] to
+>> LD_PRELOAD a .so that sets up the seccomp filter after the exec. It's
+>> a bit of a hack, but works in well-defined environments. You are
+>> talking about namespaces, though, so maybe minijail is worth a look?
+>> It does that too and a whole lot more.
 >
-> The current implementation of the seccomp eBPF type is very limited, and
-> doesn't support some interesting features (notably, maps) of eBPF. However,
-> the primary motivation for this patchset is to enable checkpoint/restore
-> for seccomp filters later in the series, to this limited feature set is ok
-> for now.
+> Minijail is pretty similar to what I have been working on the past few
+> months,  unfortunately I have already written it, doh!  Those slides
+> are a good resource,  definitely helpful as introduction to seccomp.
 >
-> Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
-> CC: Kees Cook <keescook@chromium.org>
-> CC: Will Drewry <wad@chromium.org>
-> CC: Oleg Nesterov <oleg@redhat.com>
-> CC: Andy Lutomirski <luto@amacapital.net>
-> CC: Pavel Emelyanov <xemul@parallels.com>
-> CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
-> CC: Alexei Starovoitov <ast@kernel.org>
-> CC: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  include/uapi/linux/bpf.h |  1 +
->  net/core/filter.c        | 95 ++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 96 insertions(+)
->
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 29ef6f9..79b825a 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -122,6 +122,7 @@ enum bpf_prog_type {
->         BPF_PROG_TYPE_KPROBE,
->         BPF_PROG_TYPE_SCHED_CLS,
->         BPF_PROG_TYPE_SCHED_ACT,
-> +       BPF_PROG_TYPE_SECCOMP,
->  };
->
->  #define BPF_PSEUDO_MAP_FD      1
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index be3098f..ed339fa 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -1466,6 +1466,39 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
->         }
->  }
->
-> +static const struct bpf_func_proto *
-> +seccomp_func_proto(enum bpf_func_id func_id)
-> +{
-> +       /* Right now seccomp eBPF loading doesn't support maps; seccomp filters
-> +        * are considered to be read-only after they're installed, so map fds
-> +        * probably need to be invalidated when a seccomp filter with maps is
-> +        * installed.
-> +        *
-> +        * The rest of these might be reasonable to call from seccomp, so we
-> +        * export them.
-> +        */
-> +       switch (func_id) {
-> +       case BPF_FUNC_ktime_get_ns:
-> +               return &bpf_ktime_get_ns_proto;
-> +       case BPF_FUNC_trace_printk:
-> +               return bpf_get_trace_printk_proto();
-> +       case BPF_FUNC_get_prandom_u32:
-> +               return &bpf_get_prandom_u32_proto;
-> +       case BPF_FUNC_get_smp_processor_id:
-> +               return &bpf_get_smp_processor_id_proto;
-> +       case BPF_FUNC_tail_call:
-> +               return &bpf_tail_call_proto;
-> +       case BPF_FUNC_get_current_pid_tgid:
-> +               return &bpf_get_current_pid_tgid_proto;
-> +       case BPF_FUNC_get_current_uid_gid:
-> +               return &bpf_get_current_uid_gid_proto;
-> +       case BPF_FUNC_get_current_comm:
-> +               return &bpf_get_current_comm_proto;
-> +       default:
-> +               return NULL;
-> +       }
-> +}
+> So it seems there are no easy solutions to this problem. Using
+> LD_PRELOAD to defer seccomp filter application scares me a little bit,
+> and won't work with file capabilities IIRC, though it is a damn clever
 
-While this list is probably fine, I don't want to mix the addition of
-eBPF functions to the seccomp ABI with the CRIU changes. No function
-calls are currently possible and it should stay that way.
+Do you still need file capabilities with the availability of the new
+ambient capabilities?
 
-I was expecting to see a validator, similar to the existing BPF
-validator that is called when creating seccomp filters currently. Can
-we add a similar validator for new BPF_PROG_TYPE_SECCOMP?
+https://s3hh.wordpress.com/2015/07/25/ambient-capabilities/
+http://thread.gmane.org/gmane.linux.kernel.lsm/24034
+
+> solution.  I think for now I will explore the possibility of
+> validating argument 1 of exec to allow only the program I am launching
+> to be exec'd, so if somehow by Thor's hammer that program escapes it's
+> sandbox, it will only be able to exec itself.  I suppose it will have
+> to now be restricted to absolute paths only.
+
+Well, you can only examine the memory address and not what's pointed
+to, so you may be out of luck there too. Sorry! On the TODO list is
+doing deep argument inspection, but it is not an easy thing to get
+right. :)
 
 -Kees
 
-> +
->  static bool __is_valid_access(int off, int size, enum bpf_access_type type)
->  {
->         /* check bounds */
-> @@ -1516,6 +1549,17 @@ static bool tc_cls_act_is_valid_access(int off, int size,
->         return __is_valid_access(off, size, type);
->  }
 >
-> +static bool seccomp_is_valid_access(int off, int size,
-> +                                   enum bpf_access_type type)
-> +{
-> +       if (type == BPF_WRITE)
-> +               return false;
-> +
-> +       if (off < 0 || off >= sizeof(struct seccomp_data) || off & 3)
-> +               return false;
-> +
-> +       return true;
-> +}
->  static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
->                                       int src_reg, int ctx_off,
->                                       struct bpf_insn *insn_buf)
-> @@ -1630,6 +1674,45 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
->         return insn - insn_buf;
->  }
+> Thanks everyone for the clarification!
 >
-> +static u32 seccomp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
-> +                                     int src_reg, int ctx_off,
-> +                                     struct bpf_insn *insn_buf)
-> +{
-> +       struct bpf_insn *insn = insn_buf;
-> +
-> +       switch (ctx_off) {
-> +       case offsetof(struct seccomp_data, nr):
-> +               BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data, nr) != 4);
-> +
-> +               *insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg, ctx_off);
-> +               break;
-> +
-> +       case offsetof(struct seccomp_data, arch):
-> +               BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data, arch) != 4);
-> +
-> +               *insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg, ctx_off);
-> +               break;
-> +
-> +       case offsetof(struct seccomp_data, instruction_pointer):
-> +               BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data,
-> +                                         instruction_pointer) != 8);
-> +
-> +               *insn++ = BPF_LDX_MEM(BPF_DW, dst_reg, src_reg, ctx_off);
-> +               break;
-> +
-> +       default:
-> +               if (ctx_off & 7 ||
-> +                   ctx_off < offsetof(struct seccomp_data, args))
-> +                       return -EINVAL;
-> +
-> +               BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data, args[0]) != 8);
-> +
-> +               *insn++ = BPF_LDX_MEM(BPF_DW, dst_reg, src_reg, ctx_off);
-> +       }
-> +
-> +       return insn - insn_buf;
-> +}
-> +
->  static const struct bpf_verifier_ops sk_filter_ops = {
->         .get_func_proto = sk_filter_func_proto,
->         .is_valid_access = sk_filter_is_valid_access,
-> @@ -1642,6 +1725,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
->         .convert_ctx_access = bpf_net_convert_ctx_access,
->  };
->
-> +static const struct bpf_verifier_ops seccomp_ops = {
-> +       .get_func_proto = seccomp_func_proto,
-> +       .is_valid_access = seccomp_is_valid_access,
-> +       .convert_ctx_access = seccomp_convert_ctx_access,
-> +};
-> +
->  static struct bpf_prog_type_list sk_filter_type __read_mostly = {
->         .ops = &sk_filter_ops,
->         .type = BPF_PROG_TYPE_SOCKET_FILTER,
-> @@ -1657,11 +1746,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
->         .type = BPF_PROG_TYPE_SCHED_ACT,
->  };
->
-> +static struct bpf_prog_type_list seccomp_type __read_mostly = {
-> +       .ops = &seccomp_ops,
-> +       .type = BPF_PROG_TYPE_SECCOMP,
-> +};
-> +
->  static int __init register_sk_filter_ops(void)
->  {
->         bpf_register_prog_type(&sk_filter_type);
->         bpf_register_prog_type(&sched_cls_type);
->         bpf_register_prog_type(&sched_act_type);
-> +       bpf_register_prog_type(&seccomp_type);
->
->         return 0;
->  }
-> --
-> 2.1.4
->
+> On Fri, Sep 4, 2015 at 4:01 AM, Kees Cook <keescook@chromium.org> wrote:
+>> On Thu, Sep 3, 2015 at 6:01 PM, Michael Tirado <mtirado418@gmail.com> wrote:
+>>> Hiyall,
+>>>
+>>> I have created a seccomp white list filter for a program that launches
+>>> other less trustworthy programs.  It's working great so far, but I
+>>> have run into a little roadblock.  the launcher program needs to call
+>>> execve as it's final step, but that may not be present in the white
+>>> list.  I am wondering if there is any way to use some sort of global
+>>> variable that will be preserved between syscall filter calls so that I
+>>> can allow only one execve, if not present in white list by
+>>> incrementing a counter variable.
+>>>
+>>> I see that in Documentation/networking/filter.txt one of the registers
+>>> is documented as being a pointer to struct sk_buff, in the seccomp
+>>> context this is a pointer to struct seccomp_data  instead, right?  and
+>>> the line about callee saved registers R6-R9  probably refers to them
+>>> being saved across calls within that filter, and not calls between
+>>> filters?
+>>>
+>>> My apologies if this is not the appropriate place to ask for help, but
+>>> it is difficult to find useful information on how eBPF works, and is a
+>>> bit confusing trying to figure out the differences between seccomp and
+>>> net filters, and the old bpf code kicking around short of spending
+>>> countless hours reading through all of it.  If anybody has a some
+>>> links to share I would be very grateful.  the only way I can think to
+>>> make this work otherwise is to mount everything as MS_NOEXEC in the
+>>> new namespace, but that just feels wrong.
+>>
+>> For documentation, there's some great slides on seccomp from Plumber's
+>> this year[1].
+>>
+>> At present, there is no variable state beyond the syscall context (PC,
+>> args) available to seccomp filters. The no_new_privs prctl was added
+>> to reduce the risk of including execve in a filter's whitelist, but
+>> that isn't as strong as the "exec once" feature you want.
+>>
+>> What we did in Chrome OS was to use the "minijail" tool[2] to
+>> LD_PRELOAD a .so that sets up the seccomp filter after the exec. It's
+>> a bit of a hack, but works in well-defined environments. You are
+>> talking about namespaces, though, so maybe minijail is worth a look?
+>> It does that too and a whole lot more.
+>>
+>> As for using maps via eBPF in seccomp, it's on the horizon, but it
+>> comes with a lot exposure that I haven't finished pondering, so I
+>> don't think those features will be added soon.
+>>
+>> -Kees
+>>
+>> [1] http://man7.org/conf/lpc2015/limiting_kernel_attack_surface_with_seccomp-LPC_2015-Kerrisk.pdf
+>> [2] see subdirectory "minijail" after "git clone
+>> https://chromium.googlesource.com/chromiumos/platform2/"
+>>
+>>
+>> --
+>> Kees Cook
+>> Chrome OS Security
 
 
 
