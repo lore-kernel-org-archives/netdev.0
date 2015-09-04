@@ -1,7 +1,7 @@
 From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: [PATCH 4/6] seccomp: add a way to access filters via bpf fds
-Date: Fri,  4 Sep 2015 10:04:22 -0600
-Message-ID: <1441382664-17437-5-git-send-email-tycho.andersen@canonical.com>
+Subject: [PATCH 1/6] ebpf: add a seccomp program type
+Date: Fri,  4 Sep 2015 10:04:19 -0600
+Message-ID: <1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
 References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
 Cc: Will Drewry <wad@chromium.org>, Oleg Nesterov <oleg@redhat.com>,
 	Andy Lutomirski <luto@amacapital.net>,
@@ -17,11 +17,15 @@ In-Reply-To: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a way for a process that is "real root" to access the
-seccomp filters of another process. The process first does a
-PTRACE_SECCOMP_GET_FILTER_FD to get an fd with that process' seccomp filter
-attached, and then iterates on this with PTRACE_SECCOMP_NEXT_FILTER using
-bpf(BPF_PROG_DUMP) to dump the actual program at each step.
+seccomp uses eBPF as its underlying storage and execution format, and eBPF
+has features that seccomp would like to make use of in the future. This
+patch adds a formal seccomp type to the eBPF verifier.
+
+The current implementation of the seccomp eBPF type is very limited, and
+doesn't support some interesting features (notably, maps) of eBPF. However,
+the primary motivation for this patchset is to enable checkpoint/restore
+for seccomp filters later in the series, to this limited feature set is ok
+for now.
 
 Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
 CC: Kees Cook <keescook@chromium.org>
@@ -33,217 +37,160 @@ CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
 CC: Alexei Starovoitov <ast@kernel.org>
 CC: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/bpf.h         | 12 ++++++++++
- include/linux/seccomp.h     | 14 +++++++++++
- include/uapi/linux/ptrace.h |  3 +++
- kernel/bpf/syscall.c        | 26 ++++++++++++++++++++-
- kernel/ptrace.c             |  7 ++++++
- kernel/seccomp.c            | 57 +++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 118 insertions(+), 1 deletion(-)
+ include/uapi/linux/bpf.h |  1 +
+ net/core/filter.c        | 95 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 96 insertions(+)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 4383476..30682dc 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -157,6 +157,8 @@ void bpf_register_prog_type(struct bpf_prog_type_list *tl);
- void bpf_register_map_type(struct bpf_map_type_list *tl);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 29ef6f9..79b825a 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -122,6 +122,7 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_KPROBE,
+ 	BPF_PROG_TYPE_SCHED_CLS,
+ 	BPF_PROG_TYPE_SCHED_ACT,
++	BPF_PROG_TYPE_SECCOMP,
+ };
  
- struct bpf_prog *bpf_prog_get(u32 ufd);
-+int bpf_prog_set(u32 ufd, struct bpf_prog *new);
-+int bpf_new_fd(struct bpf_prog *prog, int flags);
- void bpf_prog_put(struct bpf_prog *prog);
- void bpf_prog_put_rcu(struct bpf_prog *prog);
- 
-@@ -175,6 +177,16 @@ static inline struct bpf_prog *bpf_prog_get(u32 ufd)
- 	return ERR_PTR(-EOPNOTSUPP);
+ #define BPF_PSEUDO_MAP_FD	1
+diff --git a/net/core/filter.c b/net/core/filter.c
+index be3098f..ed339fa 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1466,6 +1466,39 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 	}
  }
  
-+static inline int bpf_prog_set(u32 ufd, struct bpf_prog *new)
++static const struct bpf_func_proto *
++seccomp_func_proto(enum bpf_func_id func_id)
 +{
-+	return -EINVAL;
++	/* Right now seccomp eBPF loading doesn't support maps; seccomp filters
++	 * are considered to be read-only after they're installed, so map fds
++	 * probably need to be invalidated when a seccomp filter with maps is
++	 * installed.
++	 *
++	 * The rest of these might be reasonable to call from seccomp, so we
++	 * export them.
++	 */
++	switch (func_id) {
++	case BPF_FUNC_ktime_get_ns:
++		return &bpf_ktime_get_ns_proto;
++	case BPF_FUNC_trace_printk:
++		return bpf_get_trace_printk_proto();
++	case BPF_FUNC_get_prandom_u32:
++		return &bpf_get_prandom_u32_proto;
++	case BPF_FUNC_get_smp_processor_id:
++		return &bpf_get_smp_processor_id_proto;
++	case BPF_FUNC_tail_call:
++		return &bpf_tail_call_proto;
++	case BPF_FUNC_get_current_pid_tgid:
++		return &bpf_get_current_pid_tgid_proto;
++	case BPF_FUNC_get_current_uid_gid:
++		return &bpf_get_current_uid_gid_proto;
++	case BPF_FUNC_get_current_comm:
++		return &bpf_get_current_comm_proto;
++	default:
++		return NULL;
++	}
 +}
 +
-+static inline int bpf_new_fd(struct bpf_prog *prog, int flags)
-+{
-+	return -EINVAL;
-+}
-+
- static inline void bpf_prog_put(struct bpf_prog *prog)
+ static bool __is_valid_access(int off, int size, enum bpf_access_type type)
  {
+ 	/* check bounds */
+@@ -1516,6 +1549,17 @@ static bool tc_cls_act_is_valid_access(int off, int size,
+ 	return __is_valid_access(off, size, type);
  }
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index f426503..d1a86ed 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -95,4 +95,18 @@ static inline void get_seccomp_filter(struct task_struct *tsk)
- 	return;
+ 
++static bool seccomp_is_valid_access(int off, int size,
++				    enum bpf_access_type type)
++{
++	if (type == BPF_WRITE)
++		return false;
++
++	if (off < 0 || off >= sizeof(struct seccomp_data) || off & 3)
++		return false;
++
++	return true;
++}
+ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 				      int src_reg, int ctx_off,
+ 				      struct bpf_insn *insn_buf)
+@@ -1630,6 +1674,45 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 	return insn - insn_buf;
  }
- #endif /* CONFIG_SECCOMP_FILTER */
-+
-+#if defined(CONFIG_SECCOMP_FILTER) && defined(CONFIG_CHECKPOINT_RESTORE)
-+extern long seccomp_get_filter_fd(struct task_struct *child);
-+extern long seccomp_next_filter(struct task_struct *child, u32 fd);
-+#else
-+static inline long seccomp_get_filter_fd(struct task_struct *child)
+ 
++static u32 seccomp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
++				      int src_reg, int ctx_off,
++				      struct bpf_insn *insn_buf)
 +{
-+	return -EINVAL;
-+}
-+static inline long seccomp_next_filter(struct task_struct *child, u32 fd)
-+{
-+	return -EINVAL;
-+}
-+#endif /* CONFIG_SECCOMP_FILTER && CONFIG_CHECKPOINT_RESTORE */
- #endif /* _LINUX_SECCOMP_H */
-diff --git a/include/uapi/linux/ptrace.h b/include/uapi/linux/ptrace.h
-index a7a6979..dfd7d2e 100644
---- a/include/uapi/linux/ptrace.h
-+++ b/include/uapi/linux/ptrace.h
-@@ -23,6 +23,9 @@
- 
- #define PTRACE_SYSCALL		  24
- 
-+#define PTRACE_SECCOMP_GET_FILTER_FD	40
-+#define PTRACE_SECCOMP_NEXT_FILTER	41
++	struct bpf_insn *insn = insn_buf;
 +
- /* 0x4200-0x4300 are reserved for architecture-independent additions.  */
- #define PTRACE_SETOPTIONS	0x4200
- #define PTRACE_GETEVENTMSG	0x4201
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index ee580d0..58e7421 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -506,6 +506,30 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
- }
- EXPORT_SYMBOL_GPL(bpf_prog_get);
- 
-+int bpf_prog_set(u32 ufd, struct bpf_prog *new)
-+{
-+	struct fd f;
-+	struct bpf_prog *prog;
++	switch (ctx_off) {
++	case offsetof(struct seccomp_data, nr):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data, nr) != 4);
 +
-+	f = fdget(ufd);
++		*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg, ctx_off);
++		break;
 +
-+	prog = get_prog(f);
-+	if (!IS_ERR(prog) && prog)
-+		bpf_prog_put(prog);
++	case offsetof(struct seccomp_data, arch):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data, arch) != 4);
 +
-+	atomic_inc(&new->aux->refcnt);
-+	f.file->private_data = new;
-+	fdput(f);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(bpf_prog_set);
++		*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg, ctx_off);
++		break;
 +
-+int bpf_new_fd(struct bpf_prog *prog, int flags)
-+{
-+	return anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog, flags);
-+}
-+EXPORT_SYMBOL_GPL(bpf_new_fd);
++	case offsetof(struct seccomp_data, instruction_pointer):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data,
++					  instruction_pointer) != 8);
 +
- /* last field in 'union bpf_attr' used by this command */
- #define	BPF_PROG_LOAD_LAST_FIELD kern_version
- 
-@@ -572,7 +596,7 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	if (err < 0)
- 		goto free_used_maps;
- 
--	err = anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog, O_RDWR | O_CLOEXEC);
-+	err = bpf_new_fd(prog, O_RDWR | O_CLOEXEC);
- 	if (err < 0)
- 		/* failed to allocate fd */
- 		goto free_used_maps;
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 787320d..4e4b534 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -1016,6 +1016,13 @@ int ptrace_request(struct task_struct *child, long request,
- 		break;
- 	}
- #endif
++		*insn++ = BPF_LDX_MEM(BPF_DW, dst_reg, src_reg, ctx_off);
++		break;
 +
-+	case PTRACE_SECCOMP_GET_FILTER_FD:
-+		return seccomp_get_filter_fd(child);
++	default:
++		if (ctx_off & 7 ||
++		    ctx_off < offsetof(struct seccomp_data, args))
++			return -EINVAL;
 +
-+	case PTRACE_SECCOMP_NEXT_FILTER:
-+		return seccomp_next_filter(child, data);
++		BUILD_BUG_ON(FIELD_SIZEOF(struct seccomp_data, args[0]) != 8);
 +
- 	default:
- 		break;
- 	}
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index acfe1fb..a2c5b32 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -26,6 +26,8 @@
- #endif
- 
- #ifdef CONFIG_SECCOMP_FILTER
-+#include <linux/bpf.h>
-+#include <uapi/linux/bpf.h>
- #include <linux/filter.h>
- #include <linux/pid.h>
- #include <linux/ptrace.h>
-@@ -814,6 +816,61 @@ static inline long seccomp_set_mode_filter(unsigned int flags,
- }
- #endif
- 
-+#if defined(CONFIG_SECCOMP_FILTER) && defined(CONFIG_CHECKPOINT_RESTORE)
-+long seccomp_get_filter_fd(struct task_struct *child)
-+{
-+	long fd;
-+	struct seccomp_filter *filter;
-+
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EACCES;
-+
-+	if (child->seccomp.mode != SECCOMP_MODE_FILTER)
-+		return -EINVAL;
-+
-+	filter = child->seccomp.filter;
-+
-+	fd = bpf_new_fd(filter->prog, O_RDONLY);
-+	if (fd > 0)
-+		atomic_inc(&filter->prog->aux->refcnt);
-+
-+	return fd;
-+}
-+
-+long seccomp_next_filter(struct task_struct *child, u32 fd)
-+{
-+	struct seccomp_filter *cur;
-+	struct bpf_prog *prog;
-+	long ret = -ESRCH;
-+
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EACCES;
-+
-+	if (child->seccomp.mode != SECCOMP_MODE_FILTER)
-+		return -EINVAL;
-+
-+	prog = bpf_prog_get(fd);
-+	if (IS_ERR(prog)) {
-+		ret = PTR_ERR(prog);
-+		goto out;
++		*insn++ = BPF_LDX_MEM(BPF_DW, dst_reg, src_reg, ctx_off);
 +	}
 +
-+	for (cur = child->seccomp.filter; cur; cur = cur->prev) {
-+		if (cur->prog == prog) {
-+			if (!cur->prev)
-+				ret = -ENOENT;
-+			else
-+				ret = bpf_prog_set(fd, cur->prev->prog);
-+			break;
-+		}
-+	}
-+
-+out:
-+	bpf_prog_put(prog);
-+	return ret;
++	return insn - insn_buf;
 +}
-+#endif
 +
- /* Common entry point for both prctl and syscall. */
- static long do_seccomp(unsigned int op, unsigned int flags,
- 		       const char __user *uargs)
+ static const struct bpf_verifier_ops sk_filter_ops = {
+ 	.get_func_proto = sk_filter_func_proto,
+ 	.is_valid_access = sk_filter_is_valid_access,
+@@ -1642,6 +1725,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
+ 	.convert_ctx_access = bpf_net_convert_ctx_access,
+ };
+ 
++static const struct bpf_verifier_ops seccomp_ops = {
++	.get_func_proto = seccomp_func_proto,
++	.is_valid_access = seccomp_is_valid_access,
++	.convert_ctx_access = seccomp_convert_ctx_access,
++};
++
+ static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+ 	.ops = &sk_filter_ops,
+ 	.type = BPF_PROG_TYPE_SOCKET_FILTER,
+@@ -1657,11 +1746,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
+ 	.type = BPF_PROG_TYPE_SCHED_ACT,
+ };
+ 
++static struct bpf_prog_type_list seccomp_type __read_mostly = {
++	.ops = &seccomp_ops,
++	.type = BPF_PROG_TYPE_SECCOMP,
++};
++
+ static int __init register_sk_filter_ops(void)
+ {
+ 	bpf_register_prog_type(&sk_filter_type);
+ 	bpf_register_prog_type(&sched_cls_type);
+ 	bpf_register_prog_type(&sched_act_type);
++	bpf_register_prog_type(&seccomp_type);
+ 
+ 	return 0;
+ }
 -- 
 2.1.4
