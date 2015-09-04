@@ -1,32 +1,49 @@
-From: pcdndz@comorestelecom.km
-Subject: Hello
-Date: Fri, 4 Sep 2015 04:17:52 +0300 (EAT)
-Message-ID: <2f7dc0db292341529b516277dc37b558.squirrel@webmail.comorestelecom.km>
-Reply-To: claims-desk01@Safe-mail.net
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: eBPF / seccomp globals?
+Date: Thu, 3 Sep 2015 20:17:05 -0700
+Message-ID: <20150904031704.GA1427@Alexeis-MBP-2.westell.com>
+References: <CAMkWEXPxrth6Bt1X1OhAQYMWPM5XSy2oJEtCkv1grLFNYo5Edg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.comorestelecom.km ([197.255.224.7]:37172 "HELO
-	mail1.comorestelecom.km" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751065AbbIDB1M convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Sep 2015 21:27:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Tycho Andersen <tycho.andersen@canonical.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Kees Cook <keescook@chromium.org>
+To: Michael Tirado <mtirado418@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMkWEXPxrth6Bt1X1OhAQYMWPM5XSy2oJEtCkv1grLFNYo5Edg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Sep 04, 2015 at 01:01:20AM +0000, Michael Tirado wrote:
+> Hiyall,
+> 
+> I have created a seccomp white list filter for a program that launches
+> other less trustworthy programs.  It's working great so far, but I
+> have run into a little roadblock.  the launcher program needs to call
+> execve as it's final step, but that may not be present in the white
+> list.  I am wondering if there is any way to use some sort of global
+> variable that will be preserved between syscall filter calls so that I
+> can allow only one execve, if not present in white list by
+> incrementing a counter variable.
+> 
+> I see that in Documentation/networking/filter.txt one of the registers
+> is documented as being a pointer to struct sk_buff, in the seccomp
+> context this is a pointer to struct seccomp_data  instead, right?  and
+> the line about callee saved registers R6-R9  probably refers to them
+> being saved across calls within that filter, and not calls between
+> filters?
 
-
-
-The prestigious Microsoft and AOL has set out and successfully organized a
-Sweepstakes. Your email address has subsequently won you 2,000,000.00
-GBP(Two Million Great Britain Pound Sterling) as one of the jackpot winner
-in this draw. To file for your claim Please Contact your fiduciary agent.
-Here below are the details of your Fiduciary agent. You are to contact him
-via email
-
-Megan Burkhart
-Microsoft Promotion Award Team
-Head Sweepstakes Organizing Committee.
-Email: claims-desk01@Safe-mail.net
-Microsoft Team.
+R6-R9 are the registered preserved across calls to helper functions
+within single program. They are not preserved across invocations
+of the same program. At the start of the program only R1 (pointer
+to context) is valid.
+The eBPF programs used for kprobes, sockets and TC can simulate
+global state via maps. Like a map of one element can have some
+'struct globals { ... }' as a value in such map. Then programs
+can keep global state in there. If a key into such map is cpu_id,
+then such state becomes per-cpu global. Other tricks possible too.
+Unfortunately seccomp doesn't have access to eBPF yet
+(only classic BPF is supported), but, I believe, Tycho is
+working on adding eBPF to seccomp and criu of eBPF programs...
