@@ -1,49 +1,44 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: BUG: sleeping function called from invalid context at
- mm/page_alloc.c:3186
-Date: Fri, 4 Sep 2015 16:05:12 +0200
-Message-ID: <55E9A518.3080906@gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v3 1/4] Add correlated clocksource deriving system time
+ from an auxiliary clocksource
+Date: Fri, 4 Sep 2015 16:28:27 +0200
+Message-ID: <20150904142827.GE18489@twins.programming.kicks-ass.net>
+References: <1440183128-1384-1-git-send-email-christopher.s.hall@intel.com>
+ <1440183128-1384-2-git-send-email-christopher.s.hall@intel.com>
+ <alpine.DEB.2.11.1508222143530.3873@nanos>
+ <B79D786B7111A34A8CF09F833429C493A90B2D1F@ORSMSX109.amr.corp.intel.com>
+ <20150904081122.GA4201@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34463 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757872AbbIDOFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 10:05:16 -0400
-Received: by wicfx3 with SMTP id fx3so23857132wic.1
-        for <netdev@vger.kernel.org>; Fri, 04 Sep 2015 07:05:15 -0700 (PDT)
-Received: from localhost (iskon3769.duo.carnet.hr. [31.147.110.185])
-        by smtp.gmail.com with ESMTPSA id f7sm4385340wij.17.2015.09.04.07.05.13
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 04 Sep 2015 07:05:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Hall, Christopher S" <christopher.s.hall@intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150904081122.GA4201@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Call Trace:
- [<ffffffff81847119>] dump_stack+0x4b/0x63
- [<ffffffff810d5329>] ___might_sleep+0x179/0x230
- [<ffffffff810d5429>] __might_sleep+0x49/0x80
- [<ffffffff811e541e>] __alloc_pages_nodemask+0x2fe/0xb90
- [<ffffffff81429236>] ? debug_object_activate+0xb6/0x1e0
- [<ffffffff814298c1>] ? debug_object_active_state+0x91/0x150
- [<ffffffff810218e6>] dma_generic_alloc_coherent+0x96/0x130
- [<ffffffff81069865>] x86_swiotlb_alloc_coherent+0x25/0x50
- [<ffffffff810215fd>] dma_alloc_attrs+0x6d/0xe0
- [<ffffffffa003725e>] rtl8169_map_counters+0x3e/0x70 [r8169]
- [<ffffffffa0038674>] rtl8169_update_counters+0x64/0x140 [r8169]
- [<ffffffffa00388ff>] rtl8169_get_stats64+0xbf/0x130 [r8169]
- [<ffffffff816fc694>] dev_get_stats+0x54/0x100
- [<ffffffff817254c7>] dev_seq_printf_stats+0x37/0x120
- [<ffffffff817255c4>] dev_seq_show+0x14/0x30
- [<ffffffff8128e41a>] seq_read+0x2fa/0x3e0
- [<ffffffff812dbd92>] proc_reg_read+0x42/0x70
- [<ffffffff81264c17>] __vfs_read+0x37/0x100
- [<ffffffff81384ae3>] ? security_file_permission+0xa3/0xc0
- [<ffffffff81265596>] vfs_read+0x86/0x130
- [<ffffffff81266318>] SyS_read+0x58/0xd0
- [<ffffffff81850db2>] entry_SYSCALL_64_fastpath+0x12/0x76
+On Fri, Sep 04, 2015 at 10:11:22AM +0200, Richard Cochran wrote:
+> On Thu, Sep 03, 2015 at 11:20:37PM +0000, Hall, Christopher S wrote:
+> > In addition to the network interface, ART will be used in the audio interface as well.
+> > We need to support the case where an audio co-processor will control the audio device.
+> > In this case, the get_ts() function supplied by the audio driver will be very slow
+> > (several milliseconds) and the result will be out of date by some fraction of that 
+> > amount.
+> 
+> Why does it take milliseconds to read one audio time stamp?
 
-https://bugzilla.kernel.org/show_bug.cgi?id=104031
+So what I suspect, but please correct me if I'm wrong Chris, is that a
+DSP will buffer and process audio signals, and only later wake up the
+main CPU.
+
+So by the time the CPU is made aware of the data, it's 'old'.
