@@ -1,45 +1,46 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH ethtool V3 1/2] ethtool: Add copybreak support
-Date: Sat, 05 Sep 2015 10:48:59 +0100
-Message-ID: <1441446539.13323.4.camel@decadent.org.uk>
-References: <1434024928-33177-1-git-send-email-hadarh@mellanox.com>
-	 <1434024928-33177-2-git-send-email-hadarh@mellanox.com>
+Subject: Re: [PATCH v2 1/2] ethtool: changes of emac_regs structure
+ accordingly within driver emac_regs structure.
+Date: Sat, 05 Sep 2015 11:41:13 +0100
+Message-ID: <1441449673.14803.4.camel@decadent.org.uk>
+References: <20150805150153.10f054ed@fr-ThinkPad-W520>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-E02jBfnuNpRc2pRw//v1"
-Cc: netdev@vger.kernel.org, _govind@gmx.com,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45422 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752417AbbIEKlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 06:41:53 -0400
-In-Reply-To: <1434024928-33177-2-git-send-email-hadarh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-yycs0oMdotBAdp6x2Vd5"
+To: Ivan Mikhaylov <ivan@ru.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150805150153.10f054ed@fr-ThinkPad-W520>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-E02jBfnuNpRc2pRw//v1
+--=-yycs0oMdotBAdp6x2Vd5
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2015-06-11 at 15:15 +0300, Hadar Hen Zion wrote:
-> From: Govindarajulu Varadarajan <_govind@gmx.com>
+On Wed, 2015-08-05 at 15:01 +0400, Ivan Mikhaylov wrote:
+> * do the redefinition of emac_regs struct from driver structure perspecti=
+ve
+>   and passing size from actual struct size, not from memory area variable
+>   which set in dts file.
 >=20
-> Add support for setting/getting driver's tx/rx_copybreak value.
->=20
-> Copybreak is handled through a new ethtool tunable interface.
->=20
-> The kernel support was added in 3.18, commit f0db9b07341 "ethtool:
-> Add generic options for tunables"
+> * passing variable from dts option may cause a problem with output below=
+=20
+>   MII's section which we're fixing with this and 5369c71 commit in kernel=
+.
 [...]
 
-So why have you sent a patch that only handles copy-break?  The kernel=20
-tells us the type of each tunable and ethtool should use that to decide
-how to print and parse values.
+But you still aren't handling the case where only one of the driver and
+ethtool is upgraded, even by reporting an error.
+
+I'm never going to apply patches to ethtool that obviously break binary
+compatibility, so you are wasting your time sending me new versions
+that do that.
+
+At this point you should probably just bump the dump version numbers in
+both places.
 
 Ben.
 
@@ -48,26 +49,26 @@ Ben Hutchings
 friends: People who know you well, but like you anyway.
 
 
---=-E02jBfnuNpRc2pRw//v1
+--=-yycs0oMdotBAdp6x2Vd5
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAVeq6i+e/yOyVhhEJAQq2Xw/+Jv7ePHrW1LWqscezO+weVrWuswVEJUe7
-mmDw2vXL1NtD8zOiR86AUnjA6caQUWNUW/qvweSjflweDs+NKDl96Pv5VyoVAeJX
-S7zzYElC8ie5jW7bv6vxzRmdZsMmem16ciNU6VXhaMlFPupG8q2tIHv33WWYg005
-6U1n+rxS8t2DTGF593VDuMnqEM9uOPZ4VUVYxUK+Np+Sff8dgHzCYWvUQeq6iLEQ
-A2QKB+JjMgykoY37rVkxom1GFk+7Hwmn4QX09n8lQuI0+HteROKP7sJoWoBeLSOy
-NsMM+rPK+0jRaYSkc/7kpuHOz5kHD1rxtgRaJT0g9d49JdP9U3ul9GuUCxA4yguD
-T3id7/dZwZU2xqsQQijAsKuNjiG0uFebygxQPP4IJQ85EBX/f69w3X3M2SEfrNn8
-r7nHtDjldHjiVxcUfE7VvLvZEu/ZzD1YzsVaHVhLYIsvjAlmynQhckTWvdJkLBdc
-XMR13jSoiOufXF6IeUI2VPyC6ZGuNf3vnRjg7V9x7D9lmHUeXrcHjVyHFwtpezlL
-XP4Y6kmFwdxJdr6Fh7tKubD9iEX+RsUQJOEiGtRpDhwBmtR2lYBqIdtm6VknUnDY
-2qTMKZm27p2eLzodfqDAbFtE1s9Oo9H0cYTgQcyBjI7ZOJBZbHD6dFQ9lU/XxmtR
-s8FbDTu17pM=
-=cyA5
+iQIVAwUAVerGyee/yOyVhhEJAQrKjg//UjkwmEF2Ardp8d6soFrL9LFCUntDMOTL
+MhOio9ohRIvNyV+uEKMfkDjxjqNlgPNHoFpk2gQBqpkqqjpZXLMVZKst80Nu6uy1
+WunUZSBlCkOLBcjDaOlDeLH8UjL9ZsgiVpQkpWUsG6KhU2ks54WYk9yNG2QXhgKA
+6pQTE/381GRKwI3rn91EonCYGUNLMoMiH0tuxYmkwcPMCwR0ZI0oJFTgl3Tc+csd
+m4m7XP5lC+JfVsgzx4CjDW+LnoJ8Y2H3ztJMQIELP8Yhj1V4Y5ysIvcR2Csn8BWw
+x0MsQlwzblzaz/qsHnO0tyoJV/r1dqtieo0+fQvEqk0dGIx1VniTI5nYQ7YSxV8k
+vg83az7qp6FnppX8EPdtdRlCBONcyRdA3h+aIlrIlmLqypV5nQD//ebDQSCMivX9
+w3RHkJwph94UK/bZLUvuBSOEuoTbw1Has39QIGawcw6KQ4r60/pmYo3Vpvb2LGwk
+4DgOr9j4bWZHUr+4+65Dx96xFYUPe6vhfrPxA9og5TfSJyySQ4TyEAbp9l0QrDht
+6qmXXDom8lN1SQlnAuKAxD08NEUgYLifhY2usxjhXU+GeGCU5qgV7dbH8Rkuf+mt
++dT8HCDPZA+3C0/OqrD6TLyaX/z+UcwykzA6GvFQQTtWU+Tp5rFyvD9zwDR2VLlq
+b0CHiKBGRl0=
+=y1zg
 -----END PGP SIGNATURE-----
 
---=-E02jBfnuNpRc2pRw//v1--
+--=-yycs0oMdotBAdp6x2Vd5--
