@@ -1,71 +1,77 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: parsing the output of ethtool programmatically
-Date: Sat, 05 Sep 2015 10:53:14 +0100
-Message-ID: <1441446794.13323.8.camel@decadent.org.uk>
-References: <558B5937.4080600@unix-beratung.de>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache
+ bulk free API.
+Date: Sat, 5 Sep 2015 13:18:25 +0200
+Message-ID: <20150905131825.6c04837d@redhat.com>
+References: <20150824005727.2947.36065.stgit@localhost>
+	<20150904165944.4312.32435.stgit@devil>
+	<55E9DE51.7090109@gmail.com>
+	<alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
+	<55EA0172.2040505@gmail.com>
+	<alpine.DEB.2.11.1509041844190.2499@east.gentwo.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-NSuC/ZiFCjWRv/T8nx3V"
-To: Robert Urban <urban@unix-beratung.de>, bwh@kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45416 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754126AbbIEKlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 06:41:40 -0400
-In-Reply-To: <558B5937.4080600@unix-beratung.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org,
+        akpm@linux-foundation.org, linux-mm@kvack.org,
+        aravinda@linux.vnet.ibm.com,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        iamjoonsoo.kim@lge.com, brouer@redhat.com
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.11.1509041844190.2499@east.gentwo.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
+
+On Fri, 4 Sep 2015 18:45:13 -0500 (CDT)
+Christoph Lameter <cl@linux.com> wrote:
+
+> On Fri, 4 Sep 2015, Alexander Duyck wrote:
+> > Right, but one of the reasons for Jesper to implement the bulk alloc/free is
+> > to avoid the cmpxchg that is being used to get stuff into or off of the per
+> > cpu lists.
+> 
+> There is no full cmpxchg used for the per cpu lists. Its a cmpxchg without
+> lock semantics which is very cheap.
+
+The double_cmpxchg without lock prefix still cost 9 cycles, which is
+very fast but still a cost (add approx 19 cycles for a lock prefix).
+
+It is slower than local_irq_disable + local_irq_enable that only cost
+7 cycles, which the bulking call uses.  (That is the reason bulk calls
+with 1 object can almost compete with fastpath).
 
 
---=-NSuC/ZiFCjWRv/T8nx3V
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> > In the case of network drivers they are running in softirq context almost
+> > exclusively.  As such it is useful to have a set of buffers that can be
+> > acquired or freed from this context without the need to use any
+> > synchronization primitives.  Then once the softirq context ends then we can
+> > free up some or all of the resources back to the slab allocator.
+> 
+> That is the case in the slab allocators.
 
-On Thu, 2015-06-25 at 03:28 +0200, Robert Urban wrote:
-> Hello,
->=20
-> there doesn't seem to be any flag to request ethtool to present its outpu=
-t in a
-> script-friendly form.  Things like:
-> >         Link partner advertised link modes:  10baseT/Half 10baseT/Full
-> >                                              100baseT/Half 100baseT/Ful=
-l
-> >                                              1000baseT/Full
-> are kind of pain to parse.
->=20
-> Something to consider?
+There is a potential for taking advantage of this softirq context,
+which is basically what my qmempool implementation did.
 
-Or write a library for using SIOCETHTOOL.  The interface is fairly well
-documented now and there are other users besides the ethtool utility.
+But we have now optimized the slub allocator to an extend that (in case
+of slab-tuning or slab_nomerge) is faster than my qmempool implementation.
 
-Ben.
+Thus, I would like a smaller/slimmer layer than qmempool.  We do need
+some per CPU cache for allocations, like Alex suggests, but I'm not
+sure we need that for the free side.  For now I'm returning
+objects/skbs directly to slub, and is hoping enough objects can be
+merged in a detached freelist, which allow me to return several objects
+with a single locked double_cmpxchg.
 
---=20
-Ben Hutchings
-friends: People who know you well, but like you anyway.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
 
-
---=-NSuC/ZiFCjWRv/T8nx3V
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAVeq7iue/yOyVhhEJAQpPeBAAtK1fpLnE6NJRXuwW5/eKjYwZrqxgH4Hd
-OUA+LD7LymZPAQjQk2TQ8a+Unlxkwz2p30v5qW9dTKO5SN3s3Wfh98kRNQ2/2jDa
-Xoa7aj7dHwwDYw+rij7QlL0UBxq8Zz0iiORE8EiLB3DMAiERxRoE7IZPMY5CpHbs
-sH5Wsn84IXZf0bWXjJ8HaVJwvr8CM6iHhSvvfW/mhWOLpFkPs+YWasvysFiDDhGB
-6eC9Nd6WAY3D5q2s5OEJQ7ZEhLnC5gdDJ73s6fMh+NK5twD66Ip5uZT5CKmItyQh
-T85xPCChwjTYUQbnXCRXBqUsef75VCCdH0tEjHE+eh6Bf9RE0QpJvVWMoxdGLQZD
-NCVK7sMzjjj/Z6cG2Y5seyOrg4q2PqiLFjslBaYwV+p6djzr0ENMcOWF5FC3PiBk
-1uTewYrnKnAYa21DihjAIEvmlM8QsDxpgMYtHpJmqpZa37s+8xL14cuO47zax9fJ
-vxOnWW5wnwxI+XuKYGp0B5fVYEjdnsKqJk+8l8YwXWHuaEMwZDbNk3JzTrZg7d62
-IDJd07XM3c2oc4tH1XbUd/P69FZHJl8W875cp/A0fseFWIhUMfTTDdBnPJ8owFnu
-SjS+m4Anco7WPL+IAG3wKZsoQex7WwNg2e1iL9QQfzCVsZ3q6DigER5RznUEgXqM
-w3z7493gsoY=
-=foyU
------END PGP SIGNATURE-----
-
---=-NSuC/ZiFCjWRv/T8nx3V--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
