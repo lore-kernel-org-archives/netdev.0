@@ -1,46 +1,43 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v2 1/2] ethtool: changes of emac_regs structure
- accordingly within driver emac_regs structure.
-Date: Sat, 05 Sep 2015 11:41:13 +0100
-Message-ID: <1441449673.14803.4.camel@decadent.org.uk>
-References: <20150805150153.10f054ed@fr-ThinkPad-W520>
+Subject: Re: parsing the output of ethtool programmatically
+Date: Sat, 05 Sep 2015 10:53:14 +0100
+Message-ID: <1441446794.13323.8.camel@decadent.org.uk>
+References: <558B5937.4080600@unix-beratung.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-yycs0oMdotBAdp6x2Vd5"
-To: Ivan Mikhaylov <ivan@ru.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150805150153.10f054ed@fr-ThinkPad-W520>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-NSuC/ZiFCjWRv/T8nx3V"
+To: Robert Urban <urban@unix-beratung.de>, bwh@kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45416 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754126AbbIEKlk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 06:41:40 -0400
+In-Reply-To: <558B5937.4080600@unix-beratung.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-yycs0oMdotBAdp6x2Vd5
+--=-NSuC/ZiFCjWRv/T8nx3V
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2015-08-05 at 15:01 +0400, Ivan Mikhaylov wrote:
-> * do the redefinition of emac_regs struct from driver structure perspecti=
-ve
->   and passing size from actual struct size, not from memory area variable
->   which set in dts file.
+On Thu, 2015-06-25 at 03:28 +0200, Robert Urban wrote:
+> Hello,
 >=20
-> * passing variable from dts option may cause a problem with output below=
-=20
->   MII's section which we're fixing with this and 5369c71 commit in kernel=
-.
-[...]
+> there doesn't seem to be any flag to request ethtool to present its outpu=
+t in a
+> script-friendly form.  Things like:
+> >         Link partner advertised link modes:  10baseT/Half 10baseT/Full
+> >                                              100baseT/Half 100baseT/Ful=
+l
+> >                                              1000baseT/Full
+> are kind of pain to parse.
+>=20
+> Something to consider?
 
-But you still aren't handling the case where only one of the driver and
-ethtool is upgraded, even by reporting an error.
-
-I'm never going to apply patches to ethtool that obviously break binary
-compatibility, so you are wasting your time sending me new versions
-that do that.
-
-At this point you should probably just bump the dump version numbers in
-both places.
+Or write a library for using SIOCETHTOOL.  The interface is fairly well
+documented now and there are other users besides the ethtool utility.
 
 Ben.
 
@@ -49,26 +46,26 @@ Ben Hutchings
 friends: People who know you well, but like you anyway.
 
 
---=-yycs0oMdotBAdp6x2Vd5
+--=-NSuC/ZiFCjWRv/T8nx3V
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAVerGyee/yOyVhhEJAQrKjg//UjkwmEF2Ardp8d6soFrL9LFCUntDMOTL
-MhOio9ohRIvNyV+uEKMfkDjxjqNlgPNHoFpk2gQBqpkqqjpZXLMVZKst80Nu6uy1
-WunUZSBlCkOLBcjDaOlDeLH8UjL9ZsgiVpQkpWUsG6KhU2ks54WYk9yNG2QXhgKA
-6pQTE/381GRKwI3rn91EonCYGUNLMoMiH0tuxYmkwcPMCwR0ZI0oJFTgl3Tc+csd
-m4m7XP5lC+JfVsgzx4CjDW+LnoJ8Y2H3ztJMQIELP8Yhj1V4Y5ysIvcR2Csn8BWw
-x0MsQlwzblzaz/qsHnO0tyoJV/r1dqtieo0+fQvEqk0dGIx1VniTI5nYQ7YSxV8k
-vg83az7qp6FnppX8EPdtdRlCBONcyRdA3h+aIlrIlmLqypV5nQD//ebDQSCMivX9
-w3RHkJwph94UK/bZLUvuBSOEuoTbw1Has39QIGawcw6KQ4r60/pmYo3Vpvb2LGwk
-4DgOr9j4bWZHUr+4+65Dx96xFYUPe6vhfrPxA9og5TfSJyySQ4TyEAbp9l0QrDht
-6qmXXDom8lN1SQlnAuKAxD08NEUgYLifhY2usxjhXU+GeGCU5qgV7dbH8Rkuf+mt
-+dT8HCDPZA+3C0/OqrD6TLyaX/z+UcwykzA6GvFQQTtWU+Tp5rFyvD9zwDR2VLlq
-b0CHiKBGRl0=
-=y1zg
+iQIVAwUAVeq7iue/yOyVhhEJAQpPeBAAtK1fpLnE6NJRXuwW5/eKjYwZrqxgH4Hd
+OUA+LD7LymZPAQjQk2TQ8a+Unlxkwz2p30v5qW9dTKO5SN3s3Wfh98kRNQ2/2jDa
+Xoa7aj7dHwwDYw+rij7QlL0UBxq8Zz0iiORE8EiLB3DMAiERxRoE7IZPMY5CpHbs
+sH5Wsn84IXZf0bWXjJ8HaVJwvr8CM6iHhSvvfW/mhWOLpFkPs+YWasvysFiDDhGB
+6eC9Nd6WAY3D5q2s5OEJQ7ZEhLnC5gdDJ73s6fMh+NK5twD66Ip5uZT5CKmItyQh
+T85xPCChwjTYUQbnXCRXBqUsef75VCCdH0tEjHE+eh6Bf9RE0QpJvVWMoxdGLQZD
+NCVK7sMzjjj/Z6cG2Y5seyOrg4q2PqiLFjslBaYwV+p6djzr0ENMcOWF5FC3PiBk
+1uTewYrnKnAYa21DihjAIEvmlM8QsDxpgMYtHpJmqpZa37s+8xL14cuO47zax9fJ
+vxOnWW5wnwxI+XuKYGp0B5fVYEjdnsKqJk+8l8YwXWHuaEMwZDbNk3JzTrZg7d62
+IDJd07XM3c2oc4tH1XbUd/P69FZHJl8W875cp/A0fseFWIhUMfTTDdBnPJ8owFnu
+SjS+m4Anco7WPL+IAG3wKZsoQex7WwNg2e1iL9QQfzCVsZ3q6DigER5RznUEgXqM
+w3z7493gsoY=
+=foyU
 -----END PGP SIGNATURE-----
 
---=-yycs0oMdotBAdp6x2Vd5--
+--=-NSuC/ZiFCjWRv/T8nx3V--
