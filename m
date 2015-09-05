@@ -1,93 +1,89 @@
-From: Jon Masters <jcm@redhat.com>
-Subject: _DSD standardization note (WAS: Re: [PATCH 2/2] net, thunder, bgx:
- Add support for ACPI binding.)
-Date: Sat, 05 Sep 2015 16:00:37 -0400
-Message-ID: <55EB49E5.5040206@redhat.com>
-References: <1438907590-29649-1-git-send-email-ddaney.cavm@gmail.com>	<1438907590-29649-3-git-send-email-ddaney.cavm@gmail.com>	<20150807140106.GE7646@leverpostej>	<55C4ECC6.7050908@caviumnetworks.com>	<20150807175127.GB12013@leverpostej>	<CAJZ5v0gc=bo3ayO7aWq19Hh_205YC52wqXGbbM5vxR1atXm+oA@mail.gmail.com>	<55C5494D.5010903@caviumnetworks.com> <CAJZ5v0iNqRsrpwzWY5o97R1S+Dr-CzRPg3Cymt1q4v5gvABCQA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
-	David Daney <ddaney.cavm@gmail.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"rob.herring@linaro.org" <rob.herring@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-	David Daney <david.daney@cavium.com>,
-	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
-	Robert Richter <rrichter@cavium.com>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: "Rafael J. Wysocki" <rafael@kernel.org>,
-	David Daney <ddaney@caviumnetworks.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: bcm_sf2: Fix ageing conditions and operation
+Date: Sat,  5 Sep 2015 13:07:27 -0700
+Message-ID: <1441483647-8278-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+	vivien.didelot@savoirfairelinux.com, linux@roeck-us.net,
+	andrew@lunn.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55867 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752279AbbIEUBA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Sep 2015 16:01:00 -0400
-In-Reply-To: <CAJZ5v0iNqRsrpwzWY5o97R1S+Dr-CzRPg3Cymt1q4v5gvABCQA@mail.gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:32878 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753268AbbIEUKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 16:10:07 -0400
+Received: by pacex6 with SMTP id ex6so56016438pac.0
+        for <netdev@vger.kernel.org>; Sat, 05 Sep 2015 13:10:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following up on this thread after finally seeing it...figured I would
-send something just for the archive mainly (we discussed this in person
-recently at a few different events and I think are aligned already).
+The comparison check between cur_hw_state and hw_state is currently
+invalid because cur_hw_state is right shifted by G_MISTP_SHIFT, while
+hw_state is not, so we end-up comparing bits 2:0 with bits 7:5, which is
+going to cause an additional aging to occur. Fix this by not shifting
+cur_hw_state while reading it, but instead, mask the value with the
+appropriately shitfted bitmask.
 
-On 08/07/2015 08:28 PM, Rafael J. Wysocki wrote:
-> Hi David,
-> 
-> On Sat, Aug 8, 2015 at 2:11 AM, David Daney <ddaney@caviumnetworks.com> wrote:
->> On 08/07/2015 05:05 PM, Rafael J. Wysocki wrote:
-> 
-> [cut]
-> 
->>>
->>> It is actually useful to people as far as I can say.
->>>
->>> Also, if somebody is going to use properties with ACPI, why whould
->>> they use a different set of properties with DT?
+The other problem with the fast-ageing process is that we did not set
+the EN_AGE_DYNAMIC bit to request the ageing to occur for dynamically
+learned MAC addresses. Finally, write back 0 to the FAST_AGE_CTRL
+register to avoid leaving spurious bits sets from one operation to the
+other.
 
-Generally speaking, if there's a net new thing to handle, there is of
-course no particular problem with using DT as an inspiration, but we
-need to be conscious of the fact that Linux isn't the only Operating
-System that may need to support these bindings, so the correct thing (as
-stated by many of you, and below, and in person also recently - so we
-are aligned) is to get this (the MAC address binding for _DSD in ACPI)
-standardized properly through UEFI where everyone who has a vest OS
-interest beyond Linux can also have their own involvement as well. As
-discussed, that doesn't make it part of ACPI6.0, just a binding.
+Fixes: 12f460f23423 ("net: dsa: bcm_sf2: add HW bridging support")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+David, this dates back to 4.1, could you queue this for -stable?
 
-FWIW I made a decision on the Red Hat end that in our guidelines to
-partners for ARM RHEL(SA - Server for ARM) builds we would not generally
-endorse any use of _DSD, with the exception of the MAC address binding
-being discussed here. In that case, I realized I had not been fully
-prescriptive enough with the vendors building early hw in that I should
-have realized this would happen and have required that they do this the
-right way. MAC IP should be more sophisticated such that it can handle
-being reset even after the firmware has loaded its MAC address(es).
-Platform flash storage separate from UEFI variable storage (which is
-being abused to contain too much now that DXE drivers then load into the
-ACPI tables prior to exiting Boot Services, etc.) should contain the
-actual MAC address(es), as it is done on other arches, and it should not
-be necessary to communicate this via ACPI tables to begin with (that's a
-cost saving embedded concept that should not happen on server systems in
-the general case). I have already had several unannounced future designs
-adjusted in light of this _DSD usage.
+Thanks!
 
-In the case of providing MAC address information (only) by _DSD, I
-connected the initial ARMv8 SoC silicon vendors who needed to use such a
-hack to ensure they were using the same properties, and will followup
-off list to ensure Cavium are looped into that. But, we do need to get
-the _DSD property for MAC address provision standardized through UEFI
-properly as an official binding rather than just a link on the website,
-and then we need to be extremely careful not to grow any further
-dependence upon _DSD elsewhere. Generally, if you're using that approach
-on a server system (other than for this MAC case), your firmware or
-design (or both) need to be modified to not use _DSD.
+ drivers/net/dsa/bcm_sf2.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-Jon.
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 289e20443d83..9d56515f4c4d 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -418,7 +418,7 @@ static int bcm_sf2_sw_fast_age_port(struct dsa_switch  *ds, int port)
+ 	core_writel(priv, port, CORE_FAST_AGE_PORT);
+ 
+ 	reg = core_readl(priv, CORE_FAST_AGE_CTRL);
+-	reg |= EN_AGE_PORT | FAST_AGE_STR_DONE;
++	reg |= EN_AGE_PORT | EN_AGE_DYNAMIC | FAST_AGE_STR_DONE;
+ 	core_writel(priv, reg, CORE_FAST_AGE_CTRL);
+ 
+ 	do {
+@@ -432,6 +432,8 @@ static int bcm_sf2_sw_fast_age_port(struct dsa_switch  *ds, int port)
+ 	if (!timeout)
+ 		return -ETIMEDOUT;
+ 
++	core_writel(priv, 0, CORE_FAST_AGE_CTRL);
++
+ 	return 0;
+ }
+ 
+@@ -507,7 +509,7 @@ static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
+ 	u32 reg;
+ 
+ 	reg = core_readl(priv, CORE_G_PCTL_PORT(port));
+-	cur_hw_state = reg >> G_MISTP_STATE_SHIFT;
++	cur_hw_state = reg & (G_MISTP_STATE_MASK << G_MISTP_STATE_SHIFT);
+ 
+ 	switch (state) {
+ 	case BR_STATE_DISABLED:
+@@ -531,10 +533,12 @@ static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
+ 	}
+ 
+ 	/* Fast-age ARL entries if we are moving a port from Learning or
+-	 * Forwarding state to Disabled, Blocking or Listening state
++	 * Forwarding (cur_hw_state) state to Disabled, Blocking or Listening
++	 * state (hw_state)
+ 	 */
+ 	if (cur_hw_state != hw_state) {
+-		if (cur_hw_state & 4 && !(hw_state & 4)) {
++		if (cur_hw_state >= G_MISTP_LEARN_STATE &&
++		    hw_state <= G_MISTP_LISTEN_STATE) {
+ 			ret = bcm_sf2_sw_fast_age_port(ds, port);
+ 			if (ret) {
+ 				pr_err("%s: fast-ageing failed\n", __func__);
+-- 
+2.1.0
