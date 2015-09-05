@@ -1,296 +1,144 @@
-From: romieu@fr.zoreil.com
-Subject: [PATCH net 3/3] r8169: increase the lifespan of the hardware counters dump area.
-Date: Sat,  5 Sep 2015 14:18:54 +0200
-Message-ID: <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
-References: <cover.1441454454.git.romieu@fr.zoreil.com>
+From: Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>
+Subject: Re: [GIT] Networking
+Date: Sat, 5 Sep 2015 18:14:47 +0200
+Message-ID: <CAA2SeNKkH2neVkDxaqD5L76AE077JQqTFBr7jGehgjzMGD-Knw@mail.gmail.com>
+References: <20150902.223522.1792493140210966693.davem@davemloft.net>
+	<CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	pomidorabelisima@gmail.com, vinschen@redhat.com
-To: netdev@vger.kernel.org
+	Johannes Berg <johannes.berg@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57773 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752164AbbIEMTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 08:19:38 -0400
-In-Reply-To: <cover.1441454454.git.romieu@fr.zoreil.com>
-In-Reply-To: <cover.1441454454.git.romieu@fr.zoreil.com>
-References: <cover.1441454454.git.romieu@fr.zoreil.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37238 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353AbbIEQOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 12:14:48 -0400
+In-Reply-To: <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
+Hi all,
 
-net/core/net-sysfs.c::netstat_show retrieves stats with spinlock held.
+> On Wed, Sep 2, 2015 at 10:35 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> Another merge window, another set of networking changes.  I've heard
+>> rumblings that the lightweight tunnels infrastructure has been voted
+>> networking change of the year.
+>
+> .. and others say that the most notable feature is the idiotic bugs
+> that it introduces, and the compiler even complains about.
+>
+> Christ, people. Learn C, instead of just stringing random characters
+> together until it compiles (with warnings).
+>
+> This:
+>
+>   static bool rate_control_cap_mask(struct ieee80211_sub_if_data *sdata,
+>                                    struct ieee80211_supported_band *sband,
+>                                    struct ieee80211_sta *sta, u32 *mask,
+>                                    u8 mcs_mask[IEEE80211_HT_MCS_MASK_LEN])
+>
+> is horribly broken to begin with, because array arguments in C don't
+> actually exist. Sadly, compilers accept it for various bad historical
+> reasons, and silently turn it into just a pointer argument. There are
+> arguments for them, but they are from weak minds.
+>
+> But happily gcc has a really really valid warning (kudos - I often end
+> up ragging on the bad warnings gcc has, but this one is a keeper),
+> because a few lines down the mistake then turns into pure and utter
+> garbage.
+>
+> It's garbage that was basically encouraged by the first mistake
+> (thinking that C allows array arguments), namely:
+>
+>                   for (i = 0; i < sizeof(mcs_mask); i++)
+>
 
-This change avoids sleepable allocation and performs some housekeeping:
-- receive ring, transmit ring and counters dump area allocation failures
-  are all considered fatal during open()
-- netif_warn is now redundant with rtl_reset_counters_cond built-in
-  failure message.
-- rtl_reset_counters_cond induced failures in open() are also considered
-  fatal: it takes acceptable work to unwind comfortably.
+I moved rate_control_apply_mask() logic in rate_control_cap_mask() in
+order to be applied in multiple code points (i.e.
+ rate_control_apply_mask_ratetbl()). Since I was using gcc version
+4.9.2, the warning did not show up. Sorry for that bug.
 
-Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=104031
-Fixes: 6e85d5ad36a2 ("r8169: Add values missing in @get_stats64 from HW counters")
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Corinna Vinschen <vinschen@redhat.com>
-Cc: pomidorabelisima@gmail.com
----
- drivers/net/ethernet/realtek/r8169.c | 132 +++++++++++++++--------------------
- 1 file changed, 55 insertions(+), 77 deletions(-)
+> the "sizeof(mcs_mask)" is _shit_. Since array arguments don't actually
+> exist in C, it is the size of the pointer, not the array. The first
+> mistake makes the bug look like reasonable code. Although I'd argue
+> that the code would actually be bad regardless, since "sizeof" is the
+> size in bytes, and the code actually wants the number of entries (and
+> we do have ARRAY_SIZE() for that).
+>
+> Sure, in this case the entries are just one byte each, so it would
+> have *worked* had it not been for the array argument issue, but it's
+> misleading and the code is just fundamentally buggy and nonsensical in
+> two entirely different ways that fed on each other.
+>
+> That line should read
+>
+>                   for (i = 0; i < IEEE80211_HT_MCS_MASK_LEN; i++)
+>
+> and the argument should just have been declared as the pointer it actually is.
+>
+> A later patch then added onto the pile of manure by adding *another*
+> broken array argument, but at least that one then used the proper loop
+> for traversal of that array.
+>
+> The fact that I notice this bug from a very basic "let's just compile
+> each pull request and make sure it isn't complete crap" is sad.
+>
+> Now, it *looks* like the code was just moved, and the "sizeof()" was
+> initially correct (because it was a size of an actual array). Well, it
+> was "correct" in the sense that it generated the right code, even if
+> the whole confusion between "number of entries" and "size in bytes"
+> was still there. Then it got moved and turned from "confused but
+> happens to generate correct code" into "buggy pile of bovine manure".
+> See commit 90c66bd2232a ("mac80211: remove ieee80211_tx_rate
+> dependency in rate mask code").
+>
+> So I can see how this bug happened, and I am only slightly upset with
+> Lorenzo who is the author of that commit.
+>
+> What I can't see is why the code has existed in at least two
+> maintainer trees (Johannes' and David's) for a couple of weeks, and
+> nobody cared about the new compiler warnings? And it was sent to me
+> despite that new warning?
+>
+> I realy want people to take a really hard look at functions that use
+> arrays as arguments. It really is very misleading, even if it can look
+> "prettier", and some people will argue that it's "documentation" about
+> how the pointer is a particular size. But it's neither. It's basically
+> just lying about what is going on, and the only thing it documents is
+> "I don't know how to C". Misleading documentation isn't documentation,
+> it's a mistake.
+>
+> I see it in that file for at least the functions rate_idx_match_mask()
+> and rate_control_cap_mask(). I tried - and failed - to come up with a
+> reasonable grep pattern to try to see how common it is, and I'm too
+> lazy to add some sparse check for it.
+>
+> Please people. When I see these kinds of obviously bogus code
+> problems, that just makes me very upset. Because it makes me worry
+> about all the non-obvious stuff that I miss.  Sadly, this time I had
+> pushed out the merge early (because I wanted to test the wireless
+> changes on my laptop), so now the bug is out there.
+>
+> I'm not sure what the practical *impact* of the bug is. Yes, it only
+> traverses four or eight rate entries (depending on 32-bit or
+> 64-bitness of the kernel) out of the ten that it should. But maybe in
+> practice one of the first entries are always good enough matches. So
+> maybe _testing_ doesn't actually show this bug, but I sure wish people
+> just took compiler warnings more seriously (and were a lot more
+> careful about moving things to functions, and never ever used the
+> "function argument is an array" model).
+>
+>                Linus
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index c0a5edb..ae07567 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -833,8 +833,11 @@ struct rtl8169_private {
- 	unsigned features;
- 
- 	struct mii_if_info mii;
-+
- 	struct rtl8169_counters *counters;
- 	struct rtl8169_tc_offsets tc_offset;
-+	dma_addr_t counters_map;
-+
- 	u32 saved_wolopts;
- 	u32 opts1_mask;
- 
-@@ -2197,64 +2200,33 @@ DECLARE_RTL_COND(rtl_reset_counters_cond)
- 	return RTL_R32(CounterAddrLow) & CounterReset;
- }
- 
--static struct rtl8169_counters *rtl8169_map_counters(struct net_device *dev,
--						     dma_addr_t *paddr,
--						     u32 counter_cmd)
-+static int rtl8169_cmd_counters(struct net_device *dev, u32 counter_cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
--	struct device *d = &tp->pci_dev->dev;
--	struct rtl8169_counters *counters;
-+	dma_addr_t paddr = tp->counters_map;
- 	u32 cmd;
- 
--	counters = dma_alloc_coherent(d, sizeof(*counters), paddr, GFP_KERNEL);
--	if (counters) {
--		RTL_W32(CounterAddrHigh, (u64)*paddr >> 32);
--		cmd = (u64)*paddr & DMA_BIT_MASK(32);
--		RTL_W32(CounterAddrLow, cmd);
--		RTL_W32(CounterAddrLow, cmd | counter_cmd);
--	}
--	return counters;
--}
-+	RTL_W32(CounterAddrHigh, (u64)paddr >> 32);
-+	cmd = (u64)paddr & DMA_BIT_MASK(32);
-+	RTL_W32(CounterAddrLow, cmd);
-+	RTL_W32(CounterAddrLow, cmd | counter_cmd);
- 
--static void rtl8169_unmap_counters (struct net_device *dev,
--				    dma_addr_t paddr,
--				    struct rtl8169_counters *counters)
--{
--	struct rtl8169_private *tp = netdev_priv(dev);
--	void __iomem *ioaddr = tp->mmio_addr;
--	struct device *d = &tp->pci_dev->dev;
--
--	RTL_W32(CounterAddrLow, 0);
--	RTL_W32(CounterAddrHigh, 0);
--
--	dma_free_coherent(d, sizeof(*counters), counters, paddr);
-+	return rtl_udelay_loop_wait_low(tp, &rtl_reset_counters_cond, 10, 1000);
- }
- 
--static bool rtl8169_reset_counters(struct net_device *dev)
-+static int rtl8169_reset_counters(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	struct rtl8169_counters *counters;
--	dma_addr_t paddr;
--	bool ret = true;
- 
- 	/*
- 	 * Versions prior to RTL_GIGA_MAC_VER_19 don't support resetting the
- 	 * tally counters.
- 	 */
- 	if (tp->mac_version < RTL_GIGA_MAC_VER_19)
--		return true;
--
--	counters = rtl8169_map_counters(dev, &paddr, CounterReset);
--	if (!counters)
--		return false;
--
--	if (!rtl_udelay_loop_wait_low(tp, &rtl_reset_counters_cond, 10, 1000))
--		ret = false;
--
--	rtl8169_unmap_counters(dev, paddr, counters);
-+		return -EINVAL;
- 
--	return ret;
-+	return rtl8169_cmd_counters(dev, CounterReset);
- }
- 
- DECLARE_RTL_COND(rtl_counters_cond)
-@@ -2264,44 +2236,30 @@ DECLARE_RTL_COND(rtl_counters_cond)
- 	return RTL_R32(CounterAddrLow) & CounterDump;
- }
- 
--static bool rtl8169_update_counters(struct net_device *dev)
-+static int rtl8169_update_counters(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
--	struct rtl8169_counters *counters;
--	dma_addr_t paddr;
--	bool ret = true;
- 
- 	/*
- 	 * Some chips are unable to dump tally counters when the receiver
- 	 * is disabled.
- 	 */
- 	if ((RTL_R8(ChipCmd) & CmdRxEnb) == 0)
--		return true;
--
--	counters = rtl8169_map_counters(dev, &paddr, CounterDump);
--	if (!counters)
--		return false;
--
--	if (rtl_udelay_loop_wait_low(tp, &rtl_counters_cond, 10, 1000))
--		memcpy(&tp->counters, counters, sizeof(*counters));
--	else
--		ret = false;
--
--	rtl8169_unmap_counters(dev, paddr, counters);
-+		return -EINVAL;
- 
--	return ret;
-+	return rtl8169_cmd_counters(dev, CounterDump);
- }
- 
--static bool rtl8169_init_counter_offsets(struct net_device *dev)
-+static int rtl_init_counter_offsets(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	struct rtl8169_counters *counters = tp->counters;
- 	struct rtl8169_tc_offsets *offset = &tp->tc_offset;
--	bool ret = false;
-+	int rc;
- 
- 	/*
--	 * rtl8169_init_counter_offsets is called from rtl_open.  On chip
-+	 * rtl_init_counter_offsets is called from rtl_open.  On chip
- 	 * versions prior to RTL_GIGA_MAC_VER_19 the tally counters are only
- 	 * reset by a power cycle, while the counter values collected by the
- 	 * driver are reset at every driver unload/load cycle.
-@@ -2310,27 +2268,29 @@ static bool rtl8169_init_counter_offsets(struct net_device *dev)
- 	 * values, we collect the initial values at first open(*) and use them
- 	 * as offsets to normalize the values returned by @get_stats64.
- 	 *
--	 * (*) We can't call rtl8169_init_counter_offsets from rtl_init_one
-+	 * (*) We can't call rtl_init_counter_offsets from rtl_init_one
- 	 * for the reason stated in rtl8169_update_counters; CmdRxEnb is only
- 	 * set at open time by rtl_hw_start.
- 	 */
- 
- 	if (offset->inited)
--		return true;
-+		return 0;
- 
- 	/* If both, reset and update fail, propagate to caller. */
--	if (rtl8169_reset_counters(dev))
--		ret = true;
-+	rc = rtl8169_reset_counters(dev);
-+	if (!rc)
-+		goto out;
- 
--	if (rtl8169_update_counters(dev))
--		ret = true;
-+	rc = rtl8169_update_counters(dev);
-+	if (rc < 0)
-+		goto out;
- 
- 	offset->tx_errors = counters->tx_errors;
- 	offset->tx_multi_collision = counters->tx_multi_collision;
- 	offset->tx_aborted = counters->tx_aborted;
- 	offset->inited = true;
--
--	return ret;
-+out:
-+	return rc;
- }
- 
- static void rtl8169_get_ethtool_stats(struct net_device *dev,
-@@ -7674,8 +7634,8 @@ static int rtl8169_close(struct net_device *dev)
- 
- 	free_irq(pdev->irq, dev);
- 
--	kfree(tp->counters);
--
-+	dma_free_coherent(&pdev->dev, sizeof(*tp->counters), tp->counters,
-+			  tp->counters_map);
- 	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
- 			  tp->RxPhyAddr);
- 	dma_free_coherent(&pdev->dev, R8169_TX_RING_BYTES, tp->TxDescArray,
-@@ -7720,7 +7680,8 @@ static int rtl_open(struct net_device *dev)
- 	if (!tp->RxDescArray)
- 		goto err_free_tx_0;
- 
--	tp->counters = kmalloc(sizeof(*tp->counters), GFP_KERNEL);
-+	tp->counters = dma_alloc_coherent(&pdev->dev, sizeof(*tp->counters),
-+					  &tp->counters_map, GFP_KERNEL);
- 	if (!tp->counters)
- 		goto err_free_rx_1;
- 
-@@ -7742,8 +7703,6 @@ static int rtl_open(struct net_device *dev)
- 
- 	rtl_lock_work(tp);
- 
--	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
--
- 	napi_enable(&tp->napi);
- 
- 	rtl8169_init_phy(dev, tp);
-@@ -7754,8 +7713,22 @@ static int rtl_open(struct net_device *dev)
- 
- 	rtl_hw_start(dev);
- 
--	if (!rtl8169_init_counter_offsets(dev))
--		netif_warn(tp, hw, dev, "counter reset/update failed\n");
-+	retval = rtl_init_counter_offsets(dev);
-+	if (retval < 0) {
-+		/*
-+		 * Late error but the current thread is still in control:
-+		 * - deferred work could have been scheduled - and it could
-+		 *   be actually waiting for its mutex to be released - but
-+		 *   we still haven't allowed it to perform real work.
-+		 * - transmit timeout timer can't run either.
-+		 */
-+		rtl8169_hw_reset(tp);
-+		rtl_pll_power_down(tp);
-+		rtl_unlock_work(tp);
-+		goto err_napi_disable_4;
-+	}
-+
-+	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
- 
- 	netif_start_queue(dev);
- 
-@@ -7768,11 +7741,16 @@ static int rtl_open(struct net_device *dev)
- out:
- 	return retval;
- 
-+err_napi_disable_4:
-+	napi_disable(&tp->napi);
-+	cancel_work_sync(&tp->wk.work);
-+	free_irq(pdev->irq, dev);
- err_release_fw_3:
- 	rtl_release_firmware(tp);
- 	rtl8169_rx_clear(tp);
- err_free_counters_2:
--	kfree(tp->counters);
-+	dma_free_coherent(&pdev->dev, sizeof(*tp->counters), tp->counters,
-+			  tp->counters_map);
- 	tp->counters = NULL;
- err_free_rx_1:
- 	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
+Best regards,
+Lorenzo
+
 -- 
-2.4.3
+UNIX is Sexy: who | grep -i blonde | talk; cd ~; wine; talk; touch;
+unzip; touch; strip; gasp; finger; gasp; mount; fsck; more; yes; gasp;
+umount; make clean; sleep
