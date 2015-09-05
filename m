@@ -1,33 +1,93 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH RFC v2 net 4/5] ipv6: Avoid double dst_free
-Date: Fri, 4 Sep 2015 16:52:46 -0700
-Message-ID: <20150904235246.GA99888@kafai-mba.local>
-References: <1441408362-4177515-1-git-send-email-kafai@fb.com>
- <1441408362-4177515-5-git-send-email-kafai@fb.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH 3/6] ebpf: add a way to dump an eBPF program
+Date: Fri, 4 Sep 2015 17:08:30 -0700
+Message-ID: <CALCETrXZTEsBR0hGsLAk5MQFSnpAP8FvzPXuhrFJNGUt6J-ZjA@mail.gmail.com>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+ <1441382664-17437-4-git-send-email-tycho.andersen@canonical.com>
+ <CAGXu5jJ5+EFDRpgJC6U8Y4nvPEh2fivi-TZRNC-4qP9Gi7B7pA@mail.gmail.com>
+ <20150904204554.GO26679@smitten> <CALCETrW5fS5d73ASJvhUuK=Yret7hcWD-B9NhZ3EsnCaw0MWFQ@mail.gmail.com>
+ <20150904222855.GT26679@smitten> <CAGXu5jKEbKSR+s0k7FsQ3NgQ7-meQcWaBbZWCNDnx1RnnrAK-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Kernel Team <kernel-team@fb.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48524 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760772AbbIDXw6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Sep 2015 19:52:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1441408362-4177515-5-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tycho Andersen <tycho.andersen@canonical.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Cyrill Gorcunov <gorcunov@parallels.com>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jKEbKSR+s0k7FsQ3NgQ7-meQcWaBbZWCNDnx1RnnrAK-w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 04, 2015 at 04:12:41PM -0700, Martin KaFai Lau wrote:
-> @@ -1962,6 +1961,9 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
->  	if (rt == net->ipv6.ip6_null_entry) {
->  		err = -ENOENT;
->  		goto out;
-> +	} else if (rt->dst.flags & DST_NOCACHE) {
-> +		err = -ENOENT;
-> +		goto out;
->  	}
-These two cases should be merged.
+On Fri, Sep 4, 2015 at 4:27 PM, Kees Cook <keescook@chromium.org> wrote:
+> On Fri, Sep 4, 2015 at 3:28 PM, Tycho Andersen
+> <tycho.andersen@canonical.com> wrote:
+>> On Fri, Sep 04, 2015 at 02:48:03PM -0700, Andy Lutomirski wrote:
+>>> On Fri, Sep 4, 2015 at 1:45 PM, Tycho Andersen
+>>> <tycho.andersen@canonical.com> wrote:
+>>> > On Fri, Sep 04, 2015 at 01:17:30PM -0700, Kees Cook wrote:
+>>> >> On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
+>>> >> <tycho.andersen@canonical.com> wrote:
+>>> >> > This commit adds a way to dump eBPF programs. The initial implementation
+>>> >> > doesn't support maps, and therefore only allows dumping seccomp ebpf
+>>> >> > programs which themselves don't currently support maps.
+>>> >> >
+>>> >> > We export the GPL bit as well as a unique ID for the program so that
+>>> >>
+>>> >> This unique ID appears to be the heap address for the prog. That's a
+>>> >> huge leak, and should not be done. We don't want to introduce new
+>>> >> kernel address leaks while we're trying to fix the remaining ones.
+>>> >> Shouldn't the "unique ID" be the fd itself? I imagine KCMP_FILE
+>>> >> could be used, for example.
+>>> >
+>>> > No; we acquire the fd per process, so if a task installs a filter and
+>>> > then forks N times, we'll grab N (+1) copies of the filter from N (+1)
+>>> > different file descriptors. Ideally, we'd have some way to figure out
+>>> > that these were all the same. Some sort of prog_id is one way,
+>>> > although there may be others.
+>>>
+>>> I disagree a bit.  I think we want the actual hierarchy to be a
+>>> well-defined thing, because I have plans to make the hierarchy
+>>> actually do something.  That means that we'll need to have a more
+>>> exact way to dump the hierarchy than "these two filters are identical"
+>>> or "these two filters are not identical".
+>>
+>> Can you elaborate on what this would look like? I think with the
+>> "these two filters are the same" primitive (the same in the sense that
+>> they were inherited during a fork, not just that
+>> memcmp(filter1->insns, filter2->insns) == 0) you can infer the entire
+>> hierarchy, however clunky it may be to do so.
+>>
+>> Another issue is that KCMP_FILE won't work in this case, as it
+>> effectively compares the struct file *, which will be different since
+>> we need to call anon_inode_getfd() for each call of
+>> ptrace(PTRACE_SECCOMP_GET_FILTER_FD). We could add a KCMP_BPF (or just
+>> a KCMP_FILE_PRIVATE_DATA, since that's effectively what it would be).
+>> Does that make sense? [added Cyrill]
+>
+> If KCMP_FILE_PRIVATE_DATA isn't desired, I think a global counter id
+> is the next best.
+
+The problem is that you can't checkpoint and restore it.  We could
+have a counter relative to the parent filter, though.
+
+--Andy
+
+>
+> -Kees
+>
+> --
+> Kees Cook
+> Chrome OS Security
+
+
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
