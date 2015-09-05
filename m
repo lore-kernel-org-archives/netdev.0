@@ -1,28 +1,28 @@
 From: Ben Hutchings <ben@decadent.org.uk>
 Subject: Re: [PATCH ethtool V3 1/2] ethtool: Add copybreak support
-Date: Sat, 05 Sep 2015 10:50:01 +0100
-Message-ID: <1441446601.13323.6.camel@decadent.org.uk>
+Date: Sat, 05 Sep 2015 10:48:59 +0100
+Message-ID: <1441446539.13323.4.camel@decadent.org.uk>
 References: <1434024928-33177-1-git-send-email-hadarh@mellanox.com>
 	 <1434024928-33177-2-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-KI0Pkp9ua8J6vioNs4ra"
+	protocol="application/pgp-signature"; boundary="=-E02jBfnuNpRc2pRw//v1"
 Cc: netdev@vger.kernel.org, _govind@gmx.com,
 	Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>
 To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45414 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45422 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754717AbbIEKlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 06:41:40 -0400
+	by vger.kernel.org with ESMTP id S1752417AbbIEKlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 06:41:53 -0400
 In-Reply-To: <1434024928-33177-2-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-KI0Pkp9ua8J6vioNs4ra
+--=-E02jBfnuNpRc2pRw//v1
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -37,7 +37,7 @@ On Thu, 2015-06-11 at 15:15 +0300, Hadar Hen Zion wrote:
 > Add generic options for tunables"
 [...]
 
-So why have you sent a patch that only handles copy-break?  The kernel
+So why have you sent a patch that only handles copy-break?  The kernel=20
 tells us the type of each tunable and ethtool should use that to decide
 how to print and parse values.
 
@@ -48,26 +48,26 @@ Ben Hutchings
 friends: People who know you well, but like you anyway.
 
 
---=-KI0Pkp9ua8J6vioNs4ra
+--=-E02jBfnuNpRc2pRw//v1
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAVeq6yee/yOyVhhEJAQqSQBAAoaJOz0jGuns9byYpxbXIGSCEcCJDb68X
-rUrMozGMxInsOAcy212LRI/li1VoFiUDP3ovGf5diLtRIOTtVS+U3goQHVBNwaws
-SO1b8D9aSsy1UyZmqlJEjA5gKiCjRK1dzIw3kCoe4D0Chuz2ZdhTdRHW3oSeG+ZT
-xGSMkht82jke+fpZHe3ZTkKgOJgrW7EG+A3zWcmJcgySObKGEh23zjXqks7WGYgf
-oUVEAPxG0P5o2Y2tJB6Elh/5tEBYbkgX2NmbBRVKA0WKHc+LyIFkcvILrZMTZzYS
-GLts8ct/RhT7/9f4VeaDJjypgtlrKpO81eX5NWekyQNj63W0I7EPmvsW1QVSjEV3
-UiPe1gPOS6ZXbhI7T3VJ1mgBg/DFZXlXq76sZQc/e+zGzJ/VyU8NyJe1EY3iRU0u
-HJ72/VDJkl6Fe2CJw6L1yxicsY3bmHy075kAhyYGHGzkJzRgd8lG8Perfh+z+dKJ
-RWGUFb+F6ts5b0G7PPT4vGwO9VIr9WsF83Zr3n9db51pqVyCz8Jg62pe6LV8NmXs
-36WJALukrrO+1Caz+ePbEZuUbRPy90VjIcYPYahnCOq5fh/6PSQzJxuJNUs9rqT3
-tE7lXAhsIMDXwSkeLJO+72ZEGEgSvnw1bBJ2gw6JJY09ciXvvyHIyPvVuFM60G5x
-vHQa1XpZbXM=
-=ExbT
+iQIVAwUAVeq6i+e/yOyVhhEJAQq2Xw/+Jv7ePHrW1LWqscezO+weVrWuswVEJUe7
+mmDw2vXL1NtD8zOiR86AUnjA6caQUWNUW/qvweSjflweDs+NKDl96Pv5VyoVAeJX
+S7zzYElC8ie5jW7bv6vxzRmdZsMmem16ciNU6VXhaMlFPupG8q2tIHv33WWYg005
+6U1n+rxS8t2DTGF593VDuMnqEM9uOPZ4VUVYxUK+Np+Sff8dgHzCYWvUQeq6iLEQ
+A2QKB+JjMgykoY37rVkxom1GFk+7Hwmn4QX09n8lQuI0+HteROKP7sJoWoBeLSOy
+NsMM+rPK+0jRaYSkc/7kpuHOz5kHD1rxtgRaJT0g9d49JdP9U3ul9GuUCxA4yguD
+T3id7/dZwZU2xqsQQijAsKuNjiG0uFebygxQPP4IJQ85EBX/f69w3X3M2SEfrNn8
+r7nHtDjldHjiVxcUfE7VvLvZEu/ZzD1YzsVaHVhLYIsvjAlmynQhckTWvdJkLBdc
+XMR13jSoiOufXF6IeUI2VPyC6ZGuNf3vnRjg7V9x7D9lmHUeXrcHjVyHFwtpezlL
+XP4Y6kmFwdxJdr6Fh7tKubD9iEX+RsUQJOEiGtRpDhwBmtR2lYBqIdtm6VknUnDY
+2qTMKZm27p2eLzodfqDAbFtE1s9Oo9H0cYTgQcyBjI7ZOJBZbHD6dFQ9lU/XxmtR
+s8FbDTu17pM=
+=cyA5
 -----END PGP SIGNATURE-----
 
---=-KI0Pkp9ua8J6vioNs4ra--
+--=-E02jBfnuNpRc2pRw//v1--
