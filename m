@@ -1,40 +1,64 @@
-From: Michael Welling <mwelling@ieee.org>
-Subject: [PATCH] net: phy: Handle postive return codes in phy_connect
-Date: Sat,  5 Sep 2015 13:01:29 -0500
-Message-ID: <1441476089-22108-1-git-send-email-mwelling@ieee.org>
-Cc: Michael Welling <mwelling@ieee.org>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] ethtool: Dump eeprom info for soldered on modules
+Date: Sat, 05 Sep 2015 11:48:55 +0100
+Message-ID: <1441450135.14803.6.camel@decadent.org.uk>
+References: <1439690718-10040-1-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-R/gLZhLHYnI27m3C0UAL"
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, Ben Hutchings <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:34588 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752459AbbIESBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 14:01:43 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47133 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751525AbbIETNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 15:13:16 -0400
+In-Reply-To: <1439690718-10040-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function phy_connect_direct can possibly return a positive
-return code. Using ERR_PTR with a positive value can lead to
-deferencing of an invalid pointer.
 
-Signed-off-by: Michael Welling <mwelling@ieee.org>
----
- drivers/net/phy/phy_device.c | 3 +++
- 1 file changed, 3 insertions(+)
+--=-R/gLZhLHYnI27m3C0UAL
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index c0f2111..a7e14a6 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -477,6 +477,9 @@ struct phy_device *phy_connect(struct net_device *dev, const char *bus_id,
- 	phydev = to_phy_device(d);
- 
- 	rc = phy_connect_direct(dev, phydev, handler, interface);
-+	if (rc > 0)
-+		return ERR_PTR(-ENODEV);
-+
- 	if (rc)
- 		return ERR_PTR(rc);
- 
--- 
-2.1.4
+On Sun, 2015-08-16 at 04:05 +0200, Andrew Lunn wrote:
+> Modules which are soldered onto the motherboard may also use the=20
+> sff8079
+> EEPROM format. Dump these in the same way as SFP modules.
+>=20
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+[...]
+
+Applied, thanks.
+
+Ben.
+
+--=20
+Ben Hutchings
+friends: People who know you well, but like you anyway.
+
+
+--=-R/gLZhLHYnI27m3C0UAL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAVerIl+e/yOyVhhEJAQpLbw//Ug0qLQDk/RaWs3MyXN4ocsInr/27tJY/
+fhdtAg58gGjsSk9nVZ0XW0/qc6W2vmE7y42IDBLEvgzoYKCcDUvxa9ecxS55cE7+
+IkM2Tj4QKwwlSpfGY/rYnJZI+qFeh6hOxkmM4a6UgzDyLwfUCTqX1ILgxO90XvLG
+JPKU3Oy2+u3G52unz0YcJ4ll4Lm8bfmn3PVvI/HmmTzUx+fSoprIH3WtJaeL3rUc
+sT6FE0d/ZyqSyI1buWzVMTvJG4rwDG3kaQw40I8Gy42Oc18CrcdNxoO7KoY60mFj
+7ySxIYLO5zMt28c2KeE0D4tFeqJp/LmK2+k+IezOcIEIZeK53NCq9VAi+MSaMI4P
+fvZsuTXVFHm9d58Hr/Va62a0/dZSZqKEqdvC1Nqsr4ycEGcizJBjkYAPP3GndDcI
+4fiyVSxr/4sdsUwYKedSen/QcTtLDR5fUPKdkahOAPp+Nf/V11ZzRUYJiasQ2hJR
+UZ6+x6KTnHTUg4TXJqXLREKYZ7qkncEX/7iZp+A+WEUM1SfJFF5Zd8cq09hPfsm2
+RE/UPsuI2ngY/dE2qyGvP5ytkmxrXg8O1/fnoV+WBHvo2Aon4K5CZVBkHunt8rV/
+tdGTXUSg7015wbNDay+VZminumbqfA7VTEp51NB6K6TvGRcYdngCnAdx1Dwh2pwA
+B29B22aMleY=
+=eKTQ
+-----END PGP SIGNATURE-----
+
+--=-R/gLZhLHYnI27m3C0UAL--
