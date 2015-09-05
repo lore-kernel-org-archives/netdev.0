@@ -1,77 +1,33 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache
- bulk free API.
-Date: Sat, 5 Sep 2015 13:18:25 +0200
-Message-ID: <20150905131825.6c04837d@redhat.com>
-References: <20150824005727.2947.36065.stgit@localhost>
-	<20150904165944.4312.32435.stgit@devil>
-	<55E9DE51.7090109@gmail.com>
-	<alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
-	<55EA0172.2040505@gmail.com>
-	<alpine.DEB.2.11.1509041844190.2499@east.gentwo.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org,
-        akpm@linux-foundation.org, linux-mm@kvack.org,
-        aravinda@linux.vnet.ibm.com,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        iamjoonsoo.kim@lge.com, brouer@redhat.com
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.11.1509041844190.2499@east.gentwo.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: romieu@fr.zoreil.com
+Subject: [PATCH net 0/3] r8169: fix sleepable allocation during netdevice stats retrieval.
+Date: Sat,  5 Sep 2015 14:18:51 +0200
+Message-ID: <cover.1441454454.git.romieu@fr.zoreil.com>
+Cc: David Miller <davem@davemloft.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	pomidorabelisima@gmail.com, vinschen@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57772 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbbIEMTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 08:19:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 4 Sep 2015 18:45:13 -0500 (CDT)
-Christoph Lameter <cl@linux.com> wrote:
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-> On Fri, 4 Sep 2015, Alexander Duyck wrote:
-> > Right, but one of the reasons for Jesper to implement the bulk alloc/free is
-> > to avoid the cmpxchg that is being used to get stuff into or off of the per
-> > cpu lists.
-> 
-> There is no full cmpxchg used for the per cpu lists. Its a cmpxchg without
-> lock semantics which is very cheap.
+This series applies against davem's net as of
+724a7636ad026a3a68f3fc626ccd04111f65cfd9 ("Merge branch 'sctp-fixes').
 
-The double_cmpxchg without lock prefix still cost 9 cycles, which is
-very fast but still a cost (add approx 19 cycles for a lock prefix).
+It's untested though reviewable. I should be able to try it this evening.
 
-It is slower than local_irq_disable + local_irq_enable that only cost
-7 cycles, which the bulking call uses.  (That is the reason bulk calls
-with 1 object can almost compete with fastpath).
+Francois Romieu (3):
+  r8169: decouple the counters data and the device private area.
+  r8169: move rtl_reset_counters_cond before the hardware counters helpers.
+  r8169: increase the lifespan of the hardware counters dump area.
 
-
-> > In the case of network drivers they are running in softirq context almost
-> > exclusively.  As such it is useful to have a set of buffers that can be
-> > acquired or freed from this context without the need to use any
-> > synchronization primitives.  Then once the softirq context ends then we can
-> > free up some or all of the resources back to the slab allocator.
-> 
-> That is the case in the slab allocators.
-
-There is a potential for taking advantage of this softirq context,
-which is basically what my qmempool implementation did.
-
-But we have now optimized the slub allocator to an extend that (in case
-of slab-tuning or slab_nomerge) is faster than my qmempool implementation.
-
-Thus, I would like a smaller/slimmer layer than qmempool.  We do need
-some per CPU cache for allocations, like Alex suggests, but I'm not
-sure we need that for the free side.  For now I'm returning
-objects/skbs directly to slub, and is hoping enough objects can be
-merged in a detached freelist, which allow me to return several objects
-with a single locked double_cmpxchg.
+ drivers/net/ethernet/realtek/r8169.c | 200 +++++++++++++++++------------------
+ 1 file changed, 96 insertions(+), 104 deletions(-)
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.4.3
