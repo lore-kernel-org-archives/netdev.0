@@ -1,173 +1,107 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [net-next PATCH v2] net: ipv6: use common fib_default_rule_pref
-Date: Sun,  6 Sep 2015 12:20:58 +0200
-Message-ID: <1441534858-6452-1-git-send-email-phil@nwl.cc>
-References: <20150905.220040.768580139044156666.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: davem@davemloft.net
+From: Corinna Vinschen <vinschen@redhat.com>
+Subject: Re: [PATCH net 3/3] r8169: increase the lifespan of the hardware
+ counters dump area.
+Date: Sun, 6 Sep 2015 12:37:32 +0200
+Message-ID: <20150906103732.GF30539@calimero.vinschen.de>
+References: <cover.1441454454.git.romieu@fr.zoreil.com>
+ <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="EgVrEAR5UttbsTXg"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	pomidorabelisima@gmail.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:38518 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751459AbbIFKVA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Sep 2015 06:21:00 -0400
-In-Reply-To: <20150905.220040.768580139044156666.davem@davemloft.net>
+Received: from mail-n.franken.de ([193.175.24.27]:51348 "EHLO
+	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbbIFKhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2015 06:37:35 -0400
+Content-Disposition: inline
+In-Reply-To: <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This switches IPv6 policy routing to use the shared
-fib_default_rule_pref() function of IPv4 and DECnet. It is also used in
-multicast routing for IPv4 as well as IPv6.
 
-The motivation for this patch is a complaint about iproute2 behaving
-inconsistent between IPv4 and IPv6 when adding policy rules: Formerly,
-IPv6 rules were assigned a fixed priority of 0x3FFF whereas for IPv4 the
-assigned priority value was decreased with each rule added.
+--EgVrEAR5UttbsTXg
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Since then all users of the default_pref field have been converted to
-assign the generic function fib_default_rule_pref(), fib_nl_newrule()
-may just use it directly instead. Therefore get rid of the function
-pointer altogether and make fib_default_rule_pref() static, as it's not
-used outside fib_rules.c anymore.
+On Sep  5 14:18, romieu@fr.zoreil.com wrote:
+> From: Francois Romieu <romieu@fr.zoreil.com>
+>=20
+> net/core/net-sysfs.c::netstat_show retrieves stats with spinlock held.
+>=20
+> This change avoids sleepable allocation and performs some housekeeping:
+> - receive ring, transmit ring and counters dump area allocation failures
+>   are all considered fatal during open()
+> - netif_warn is now redundant with rtl_reset_counters_cond built-in
+>   failure message.
+> - rtl_reset_counters_cond induced failures in open() are also considered
+>   fatal: it takes acceptable work to unwind comfortably.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
-Changes since v1:
-- Folded together with API change and adjusted commit message accordingly.
----
- include/net/fib_rules.h |  1 -
- net/core/fib_rules.c    | 10 +++-------
- net/decnet/dn_rules.c   |  1 -
- net/ipv4/fib_rules.c    |  1 -
- net/ipv4/ipmr.c         |  1 -
- net/ipv6/fib6_rules.c   |  6 ------
- net/ipv6/ip6mr.c        |  1 -
- 7 files changed, 3 insertions(+), 18 deletions(-)
+Why?  The counter reset is not a fatal condition for the operation of
+the NIC.  Even if the counters show incorrect values, the normal
+operation of the NIC is not affected.  And to top that off, even if
+resetting the counters actually doesn't work, the driver keeps the
+offset values, so a failed reset won't even harm the statistics.  It
+just doesn't make sense to break the NIC operation for such a minor
+problem.  And worse:
 
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 4e8f804..75cda93 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -66,7 +66,6 @@ struct fib_rules_ops {
- 					   struct nlattr **);
- 	int			(*fill)(struct fib_rule *, struct sk_buff *,
- 					struct fib_rule_hdr *);
--	u32			(*default_pref)(struct fib_rules_ops *ops);
- 	size_t			(*nlmsg_payload)(struct fib_rule *);
- 
- 	/* Called after modifications to the rules set, must flush
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index ae8306e..bf77e36 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -44,7 +44,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
- }
- EXPORT_SYMBOL(fib_default_rule_add);
- 
--u32 fib_default_rule_pref(struct fib_rules_ops *ops)
-+static u32 fib_default_rule_pref(struct fib_rules_ops *ops)
- {
- 	struct list_head *pos;
- 	struct fib_rule *rule;
-@@ -60,7 +60,6 @@ u32 fib_default_rule_pref(struct fib_rules_ops *ops)
- 
- 	return 0;
- }
--EXPORT_SYMBOL(fib_default_rule_pref);
- 
- static void notify_rule_change(int event, struct fib_rule *rule,
- 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
-@@ -299,8 +298,8 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	}
- 	rule->fr_net = net;
- 
--	if (tb[FRA_PRIORITY])
--		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
-+	rule->pref = tb[FRA_PRIORITY] ? nla_get_u32(tb[FRA_PRIORITY])
-+	                              : fib_default_rule_pref(ops);
- 
- 	if (tb[FRA_IIFNAME]) {
- 		struct net_device *dev;
-@@ -350,9 +349,6 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	else
- 		rule->suppress_ifgroup = -1;
- 
--	if (!tb[FRA_PRIORITY] && ops->default_pref)
--		rule->pref = ops->default_pref(ops);
--
- 	err = -EINVAL;
- 	if (tb[FRA_GOTO]) {
- 		if (rule->action != FR_ACT_GOTO)
-diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-index 9d66a0f..295bbd6 100644
---- a/net/decnet/dn_rules.c
-+++ b/net/decnet/dn_rules.c
-@@ -229,7 +229,6 @@ static const struct fib_rules_ops __net_initconst dn_fib_rules_ops_template = {
- 	.configure	= dn_fib_rule_configure,
- 	.compare	= dn_fib_rule_compare,
- 	.fill		= dn_fib_rule_fill,
--	.default_pref	= fib_default_rule_pref,
- 	.flush_cache	= dn_fib_rule_flush_cache,
- 	.nlgroup	= RTNLGRP_DECnet_RULE,
- 	.policy		= dn_fib_rule_policy,
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 18123d5..f2bda9e 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -318,7 +318,6 @@ static const struct fib_rules_ops __net_initconst fib4_rules_ops_template = {
- 	.delete		= fib4_rule_delete,
- 	.compare	= fib4_rule_compare,
- 	.fill		= fib4_rule_fill,
--	.default_pref	= fib_default_rule_pref,
- 	.nlmsg_payload	= fib4_rule_nlmsg_payload,
- 	.flush_cache	= fib4_rule_flush_cache,
- 	.nlgroup	= RTNLGRP_IPV4_RULE,
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 3a2c016..866ee89 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -233,7 +233,6 @@ static const struct fib_rules_ops __net_initconst ipmr_rules_ops_template = {
- 	.match		= ipmr_rule_match,
- 	.configure	= ipmr_rule_configure,
- 	.compare	= ipmr_rule_compare,
--	.default_pref	= fib_default_rule_pref,
- 	.fill		= ipmr_rule_fill,
- 	.nlgroup	= RTNLGRP_IPV4_RULE,
- 	.policy		= ipmr_rule_policy,
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 2367a16..9f777ec 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -258,11 +258,6 @@ nla_put_failure:
- 	return -ENOBUFS;
- }
- 
--static u32 fib6_rule_default_pref(struct fib_rules_ops *ops)
--{
--	return 0x3FFF;
--}
--
- static size_t fib6_rule_nlmsg_payload(struct fib_rule *rule)
- {
- 	return nla_total_size(16) /* dst */
-@@ -279,7 +274,6 @@ static const struct fib_rules_ops __net_initconst fib6_rules_ops_template = {
- 	.configure		= fib6_rule_configure,
- 	.compare		= fib6_rule_compare,
- 	.fill			= fib6_rule_fill,
--	.default_pref		= fib6_rule_default_pref,
- 	.nlmsg_payload		= fib6_rule_nlmsg_payload,
- 	.nlgroup		= RTNLGRP_IPV6_RULE,
- 	.policy			= fib6_rule_policy,
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 74ceb73..774c95e 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -217,7 +217,6 @@ static const struct fib_rules_ops __net_initconst ip6mr_rules_ops_template = {
- 	.match		= ip6mr_rule_match,
- 	.configure	= ip6mr_rule_configure,
- 	.compare	= ip6mr_rule_compare,
--	.default_pref	= fib_default_rule_pref,
- 	.fill		= ip6mr_rule_fill,
- 	.nlgroup	= RTNLGRP_IPV6_RULE,
- 	.policy		= ip6mr_rule_policy,
--- 
-2.1.2
+> -static bool rtl8169_reset_counters(struct net_device *dev)
+> +static int rtl8169_reset_counters(struct net_device *dev)
+>  {
+>  	struct rtl8169_private *tp =3D netdev_priv(dev);
+> -	struct rtl8169_counters *counters;
+> -	dma_addr_t paddr;
+> -	bool ret =3D true;
+> =20
+>  	/*
+>  	 * Versions prior to RTL_GIGA_MAC_VER_19 don't support resetting the
+>  	 * tally counters.
+>  	 */
+>  	if (tp->mac_version < RTL_GIGA_MAC_VER_19)
+> -		return true;
+> -
+> -	counters =3D rtl8169_map_counters(dev, &paddr, CounterReset);
+> -	if (!counters)
+> -		return false;
+> -
+> -	if (!rtl_udelay_loop_wait_low(tp, &rtl_reset_counters_cond, 10, 1000))
+> -		ret =3D false;
+> -
+> -	rtl8169_unmap_counters(dev, paddr, counters);
+> +		return -EINVAL;
+
+This returns -EINVAL even for older chip versions which are not capable
+of resetting the counters.  The result is, this driver will not work at
+all on chip versions prior to RTL_GIGA_MAC_VER_19 anymore, because
+rtl_open will always fail.
+
+Other then that, I can test the patch probably tomorrow.
+
+
+Corinna
+
+--EgVrEAR5UttbsTXg
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJV7BdsAAoJEPU2Bp2uRE+gCOwQAIJGUGeqk48vwmhfVO+suZH6
+CyKv/X35E+yeKkktqk7eIe4e7Jm5WYXUM1Aa06VWOyB7cnoS6oW94X5xNW0UKHWO
+PjKYP8FZQLS33FJdraHXKX9UcPDfDEzW1MhA9wereAdgntExLEJe3QShhjdnapiM
+Wzu4XuQSRiXgtMZVdR7R2pIL96mvLOxDuQiJW4rrAnLagYExSg1QIwuj248puqlC
+tE0zUuFYNEQCE6BoQQ+Ikhxr1cV37Youyt3O80uFFsihcGeI04u+vJj7TatMtEiT
+Z6P8cy9a9kIvTd0Mk3Mj3lSql8EIyLAVRbjDXblLRWtbZI1u1DpXnvxCdTwt2DPu
+2twgRKPx4WReXmLkoSu8mthZGon0FlLWc4OfqcOekPs8Dq58gpHWEvpjGz9vo0OB
+xwjqBT51nToULE9tyHTE75Uw8QYpuRXh02uMrjPIdhSMFG1k8qj++5CJl+J4dpY3
+stew4IDv5dgvPh5AckO5fTkOn3SuRsuGyGprrFJRg+mH0fSBrd2REUOwmufJSCfC
+jxESVt9oFSSi/XW0d276VTrdibCB8FE1uUKx0pzFWUdWKsF1y7uOUrcALI6f2Gtr
+gtaSu53iGLaROaikerRv9IszIAYpAyQhV/k3TQydDqM+fnD7vir/3mb2DCr2tGHa
+kItwHhJ6k9RIpG5zvPM7
+=1SAZ
+-----END PGP SIGNATURE-----
+
+--EgVrEAR5UttbsTXg--
