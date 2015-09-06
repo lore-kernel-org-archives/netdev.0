@@ -1,64 +1,116 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH net 1/3] r8169: decouple the counters data and the device
- private area.
-Date: Sun, 6 Sep 2015 12:38:55 +0200
-Message-ID: <20150906103855.GG30539@calimero.vinschen.de>
-References: <cover.1441454454.git.romieu@fr.zoreil.com>
- <cc3b19f13a82e27928eb8cb3ee0d831d7fea62f8.1441454454.git.romieu@fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="H4SyuGOnfnj3aJqJ"
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	pomidorabelisima@gmail.com
-To: romieu@fr.zoreil.com
+From: Felix Kaiser <felix.kaiser@fxkr.net>
+Subject: [PATCH] ip link/addr show: add empty line between interfaces
+Date: Sun,  6 Sep 2015 13:01:09 +0200
+Message-ID: <1441537269-13899-1-git-send-email-felix.kaiser@fxkr.net>
+Cc: Felix Kaiser <felix.kaiser@fxkr.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:47208 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbbIFKi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2015 06:38:57 -0400
-Content-Disposition: inline
-In-Reply-To: <cc3b19f13a82e27928eb8cb3ee0d831d7fea62f8.1441454454.git.romieu@fr.zoreil.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:35415 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbbIFLBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2015 07:01:46 -0400
+Received: by wicge5 with SMTP id ge5so55901935wic.0
+        for <netdev@vger.kernel.org>; Sun, 06 Sep 2015 04:01:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This improves the readability of the output.
 
---H4SyuGOnfnj3aJqJ
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
+Signed-off-by: Felix Kaiser <felix.kaiser@fxkr.net>
+---
+ ip/ip_common.h |  3 ++-
+ ip/ipaddress.c | 11 +++++++++--
+ ip/iplink.c    |  2 +-
+ ip/ipmonitor.c |  2 +-
+ 4 files changed, 13 insertions(+), 5 deletions(-)
 
-On Sep  5 14:18, romieu@fr.zoreil.com wrote:
-> From: Francois Romieu <romieu@fr.zoreil.com>
-> @@ -2335,24 +2337,25 @@ static void rtl8169_get_ethtool_stats(struct net_device *dev,
->  				      struct ethtool_stats *stats, u64 *data)
->  {
->  	struct rtl8169_private *tp = netdev_priv(dev);
-> +	struct rtl8169_counters *c = tp->counters;
-
-Minor style nit: Shouldn't that local var ideally be called "counters"
-as you did in the other functions?
-
-
-Corinna
-
---H4SyuGOnfnj3aJqJ
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJV7Be/AAoJEPU2Bp2uRE+gkuUP/22BLHv6G/9lTldDuSCuBDsy
-eU34kNLZHXS3qJxOesIkYhoDUiJ7y6+shKy57PDqb7MsbQH70ToXQr9W0DrWTdOd
-YxwXoq/6HL61GQ8Ya6A9JPuVYCAU5f+FGNyLykKr4MzM9YPcWIzqX9ge1BU4/F8N
-2bsZ6QM7M5o73RmpV2YI8YCAR7ncuUxUHcGI5QJohuofK+Do1xJmnqw9diXkYkAe
-DW88OT8maXIWxael7Oa7/yUU7HJJk9cq/nBD7IO/nlvsqTpSRcsU4QFZo4IezGoa
-bxd8imHQaapQRBYE9OVO9mLe38Wdd1NQwQfSt6/QVvak5EvXOGLrU0YMeLn98pNT
-NkhrWaWdES2BixFSxFFxDW9MCTOA6fWtZtGrZYNfQlfhZdkJTandzPEFQjCJt/C3
-pxeCR/R+wVDu8ShyIqVuldmjfALf8lIO4Y8p7uavriyZpGkZQ9zIU8Uyo5KZSjjw
-wANoTUUDtYwnCProM4ipEVZrQ9xnDXh/venBH5NJpErP52MFdpmTljcQkH5b56LG
-3NfPSv+iWIUVV+gwYTq1Vw0O9B5RxsscMgDy/D0x1MgjvGC6Xq+iZVmNxUcRbGlS
-l1zm4r//xapOAb1ZMPh4OB70O/CgTtgHGCrMlPzRol0thB/ipv7Vjs9pMj2U/3cP
-WjJkZErNyuZJW/zwq0Ry
-=Pah1
------END PGP SIGNATURE-----
-
---H4SyuGOnfnj3aJqJ--
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index f74face..c39601d 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -1,7 +1,8 @@
+ extern int get_operstate(const char *name);
+ extern int print_linkinfo(const struct sockaddr_nl *who,
+ 			  struct nlmsghdr *n,
+-			  void *arg);
++			  void *arg,
++			  int nitem);
+ extern int print_linkinfo_brief(const struct sockaddr_nl *who,
+ 				struct nlmsghdr *n,
+ 				void *arg);
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 2aa5fbf..8b696fd 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -682,7 +682,7 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
+ }
+ 
+ int print_linkinfo(const struct sockaddr_nl *who,
+-		   struct nlmsghdr *n, void *arg)
++		   struct nlmsghdr *n, void *arg, int nitem)
+ {
+ 	FILE *fp = (FILE*)arg;
+ 	struct ifinfomsg *ifi = NLMSG_DATA(n);
+@@ -736,6 +736,10 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 		}
+ 	}
+ 
++	if (nitem > 0) {
++		fprintf(fp, "\n"); // empty line
++	}
++
+ 	if (n->nlmsg_type == RTM_DELLINK)
+ 		fprintf(fp, "Deleted ");
+ 
+@@ -1638,6 +1642,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 		ipaddr_filter(&linfo, &ainfo);
+ 	}
+ 
++	int nitem = 0;
+ 	for (l = linfo.head; l; l = l->next) {
+ 		int res = 0;
+ 		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+@@ -1649,12 +1654,14 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 								ainfo.head,
+ 								stdout);
+ 		} else if (no_link ||
+-			 (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
++			 (res = print_linkinfo(NULL, &l->h, stdout, nitem)) >= 0) {
+ 			if (filter.family != AF_PACKET)
+ 				print_selected_addrinfo(ifi,
+ 							ainfo.head, stdout);
+ 			if (res > 0 && !do_link && show_stats)
+ 				print_link_stats(stdout, &l->h);
++			if (res > 0)
++				nitem++;
+ 		}
+ 	}
+ 	fflush(stdout);
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 97f46cd..da4697c 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -847,7 +847,7 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
+ 	if (brief)
+ 		print_linkinfo_brief(NULL, &answer.n, stdout);
+ 	else
+-		print_linkinfo(NULL, &answer.n, stdout);
++		print_linkinfo(NULL, &answer.n, stdout, 0);
+ 
+ 	return 0;
+ }
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 8bcf882..c95568e 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -87,7 +87,7 @@ static int accept_msg(const struct sockaddr_nl *who,
+ 	if (n->nlmsg_type == RTM_NEWLINK || n->nlmsg_type == RTM_DELLINK) {
+ 		ll_remember_index(who, n, NULL);
+ 		print_headers(fp, "[LINK]", ctrl);
+-		print_linkinfo(who, n, arg);
++		print_linkinfo(who, n, arg, 0);
+ 		return 0;
+ 	}
+ 	if (n->nlmsg_type == RTM_NEWADDR || n->nlmsg_type == RTM_DELADDR) {
+-- 
+2.4.3
