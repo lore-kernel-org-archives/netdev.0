@@ -1,71 +1,49 @@
-From: Nick Warne <nick@linicks.net>
-Subject: Re: [PATCH] net/core/sysctl_net_core.c  unused variable
-Date: Sun, 06 Sep 2015 16:36:11 +0100
-Message-ID: <55EC5D6B.3030402@linicks.net>
-References: <55EC4A03.905@linicks.net>	 <1441551148.28194.40.camel@perches.com> <55EC58DF.6020501@linicks.net> <1441553310.28194.44.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+Subject: [PATCH] net: stmmac: Use msleep rather then udelay for reset delay
+Date: Sun,  6 Sep 2015 17:50:59 +0200
+Message-ID: <1441554659-8419-1-git-send-email-sjoerd.simons@collabora.co.uk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441553310.28194.44.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/09/15 16:28, Joe Perches wrote:
-> On Sun, 2015-09-06 at 16:16 +0100, Nick Warne wrote:
->> On 06/09/15 15:52, Joe Perches wrote:
->> > On Sun, 2015-09-06 at 15:13 +0100, Nick Warne wrote:
->> >> gcc version 4.8.2 (GCC) warns that 'static int one = 1;' is declared but
->> >> not used in file net/core/sysctl_net_core.c.
->> >
->> > Only when CONFIG_NET isn't set.
->>
->> CONFIG_NET=y
->>
->> Peculiar indeed.
->>
->> >> Reading the file, that is
->> >> the case.  Attached is a patch to remove it.
->> >
->> > $ git grep -w -n one net/core/sysctl_net_core.c
->> > net/core/sysctl_net_core.c:26:static int one = 1;
->> > net/core/sysctl_net_core.c:332:         .extra2         = &one
->> >
->> >> Signed-off-by:  Nick Warne <nick@linicks.net>
->> >
->> > Please use grep to augment reading.
->>
->> grep -w -n one net/core/sysctl_net_core.c
->> 26:static int one = 1;
->>
->> ?
->>
->> I just don't have the &one.
->>
->> I am confused now.
->
-> What source tree are you using?
+The reset delays used for stmmac are in the order of 10ms to 1 second,
+which is far too long for udelay usage, so switch to using msleep.
 
-Latest longterm 3.18.21
+Practically this fixes the PHY not being reliably detected in some cases
+as udelay wouldn't actually delay for long enough to let the phy
+reliably be reset.
 
-> What changes in what branch exist?
+Signed-off-by: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+---
 
-I am not using git (if that is what you mean by 'branches') - just 
-tarballs from kernel.org
->
-> btw: please use scripts/get_maintainer.pl to better
-> determine who should be cc'd on your patches.
->
-> you left out netdev.
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-Sorry, my bad, I need to learn/read more.
-
-Thanks for your help/advice :)
-
-Nick
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index b735fa2..17fa588 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -161,11 +161,16 @@ int stmmac_mdio_reset(struct mii_bus *bus)
+ 
+ 		if (!gpio_request(reset_gpio, "mdio-reset")) {
+ 			gpio_direction_output(reset_gpio, active_low ? 1 : 0);
+-			udelay(data->delays[0]);
++			if (data->delays[0])
++				msleep((data->delays[0] + 999) / 1000);
++
+ 			gpio_set_value(reset_gpio, active_low ? 0 : 1);
+-			udelay(data->delays[1]);
++			if (data->delays[1])
++				msleep((data->delays[1] + 999) / 1000);
++
+ 			gpio_set_value(reset_gpio, active_low ? 1 : 0);
+-			udelay(data->delays[2]);
++			if (data->delays[2])
++				msleep((data->delays[2] + 999) / 1000);
+ 		}
+ 	}
+ #endif
 -- 
-Gosh that takes me back... or is it forward?  That's the trouble with
-time travel, you never can tell."
-		-- Doctor Who "Androids of Tara"
+2.5.1
