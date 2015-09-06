@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: normalize return value of
- pm_runtime_get_sync() in MDIO write
-Date: Sat, 05 Sep 2015 22:04:25 -0700 (PDT)
-Message-ID: <20150905.220425.2069850242655969926.davem@davemloft.net>
-References: <55E8A1B6.2080008@maciej.szmigiero.name>
+Subject: Re: [PATCH net-next] RDS: rds_conn_lookup() should factor in the
+ struct net for a match
+Date: Sat, 05 Sep 2015 22:05:18 -0700 (PDT)
+Message-ID: <20150905.220518.45486814032088496.davem@davemloft.net>
+References: <20150903202452.GJ17626@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, B38611@freescale.com,
-	Frank.Li@freescale.com, LW@KARO-electronics.de,
-	fabio.estevam@freescale.com, andrew@lunn.ch,
-	linux-kernel@vger.kernel.org
-To: mail@maciej.szmigiero.name
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55E8A1B6.2080008@maciej.szmigiero.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com,
+	ajaykumar.hotchandani@oracle.com
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35016 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751168AbbIFFFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2015 01:05:19 -0400
+In-Reply-To: <20150903202452.GJ17626@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Date: Thu, 03 Sep 2015 21:38:30 +0200
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Thu, 3 Sep 2015 16:24:52 -0400
 
-> If fec MDIO write method succeeds its return value comes from
-> call to pm_runtime_get_sync().
-> But pm_runtime_get_sync() can also return 1.
 > 
-> In case of Micrel KSZ9031 PHY this value will then
-> be returned along the call chain of phy_write() ->
-> ksz9031_extended_write() -> ksz9031_center_flp_timing() ->
-> ksz9031_config_init() -> phy_init_hw() -> phy_attach_direct() ->
-> phy_connect_direct().
+> Only return a conn if the rds_conn_net(conn) matches the struct
+> net passed to rds_conn_lookup().
 > 
-> Then phy_connect() will cast it into a pointer using ERR_PTR(),
-> which then fec_enet_mii_probe() will try to dereference
-> resulting in an oops.
+> Fixes: 467fa15356ac ("RDS-TCP: Support multiple RDS-TCP listen endpoints,
+>        one per netns.")
 > 
-> Fix it by normalizing return value of pm_runtime_get_sync()
-> to be zero if positive in MDIO write method.
-> 
-> Signed-off-by: Maciej Szmigiero <mail@maciej.szmigiero.name>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
 Applied.
