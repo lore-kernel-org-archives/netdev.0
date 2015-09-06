@@ -1,116 +1,71 @@
-From: Felix Kaiser <felix.kaiser@fxkr.net>
-Subject: [PATCH] ip link/addr show: add empty line between interfaces
-Date: Sun,  6 Sep 2015 13:01:09 +0200
-Message-ID: <1441537269-13899-1-git-send-email-felix.kaiser@fxkr.net>
-Cc: Felix Kaiser <felix.kaiser@fxkr.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:35415 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbbIFLBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2015 07:01:46 -0400
-Received: by wicge5 with SMTP id ge5so55901935wic.0
-        for <netdev@vger.kernel.org>; Sun, 06 Sep 2015 04:01:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nick Warne <nick@linicks.net>
+Subject: Re: [PATCH] net/core/sysctl_net_core.c  unused variable
+Date: Sun, 06 Sep 2015 16:36:11 +0100
+Message-ID: <55EC5D6B.3030402@linicks.net>
+References: <55EC4A03.905@linicks.net>	 <1441551148.28194.40.camel@perches.com> <55EC58DF.6020501@linicks.net> <1441553310.28194.44.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441553310.28194.44.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This improves the readability of the output.
+On 06/09/15 16:28, Joe Perches wrote:
+> On Sun, 2015-09-06 at 16:16 +0100, Nick Warne wrote:
+>> On 06/09/15 15:52, Joe Perches wrote:
+>> > On Sun, 2015-09-06 at 15:13 +0100, Nick Warne wrote:
+>> >> gcc version 4.8.2 (GCC) warns that 'static int one = 1;' is declared but
+>> >> not used in file net/core/sysctl_net_core.c.
+>> >
+>> > Only when CONFIG_NET isn't set.
+>>
+>> CONFIG_NET=y
+>>
+>> Peculiar indeed.
+>>
+>> >> Reading the file, that is
+>> >> the case.  Attached is a patch to remove it.
+>> >
+>> > $ git grep -w -n one net/core/sysctl_net_core.c
+>> > net/core/sysctl_net_core.c:26:static int one = 1;
+>> > net/core/sysctl_net_core.c:332:         .extra2         = &one
+>> >
+>> >> Signed-off-by:  Nick Warne <nick@linicks.net>
+>> >
+>> > Please use grep to augment reading.
+>>
+>> grep -w -n one net/core/sysctl_net_core.c
+>> 26:static int one = 1;
+>>
+>> ?
+>>
+>> I just don't have the &one.
+>>
+>> I am confused now.
+>
+> What source tree are you using?
 
-Signed-off-by: Felix Kaiser <felix.kaiser@fxkr.net>
----
- ip/ip_common.h |  3 ++-
- ip/ipaddress.c | 11 +++++++++--
- ip/iplink.c    |  2 +-
- ip/ipmonitor.c |  2 +-
- 4 files changed, 13 insertions(+), 5 deletions(-)
+Latest longterm 3.18.21
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index f74face..c39601d 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -1,7 +1,8 @@
- extern int get_operstate(const char *name);
- extern int print_linkinfo(const struct sockaddr_nl *who,
- 			  struct nlmsghdr *n,
--			  void *arg);
-+			  void *arg,
-+			  int nitem);
- extern int print_linkinfo_brief(const struct sockaddr_nl *who,
- 				struct nlmsghdr *n,
- 				void *arg);
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 2aa5fbf..8b696fd 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -682,7 +682,7 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
- }
- 
- int print_linkinfo(const struct sockaddr_nl *who,
--		   struct nlmsghdr *n, void *arg)
-+		   struct nlmsghdr *n, void *arg, int nitem)
- {
- 	FILE *fp = (FILE*)arg;
- 	struct ifinfomsg *ifi = NLMSG_DATA(n);
-@@ -736,6 +736,10 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 		}
- 	}
- 
-+	if (nitem > 0) {
-+		fprintf(fp, "\n"); // empty line
-+	}
-+
- 	if (n->nlmsg_type == RTM_DELLINK)
- 		fprintf(fp, "Deleted ");
- 
-@@ -1638,6 +1642,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 		ipaddr_filter(&linfo, &ainfo);
- 	}
- 
-+	int nitem = 0;
- 	for (l = linfo.head; l; l = l->next) {
- 		int res = 0;
- 		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
-@@ -1649,12 +1654,14 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 								ainfo.head,
- 								stdout);
- 		} else if (no_link ||
--			 (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
-+			 (res = print_linkinfo(NULL, &l->h, stdout, nitem)) >= 0) {
- 			if (filter.family != AF_PACKET)
- 				print_selected_addrinfo(ifi,
- 							ainfo.head, stdout);
- 			if (res > 0 && !do_link && show_stats)
- 				print_link_stats(stdout, &l->h);
-+			if (res > 0)
-+				nitem++;
- 		}
- 	}
- 	fflush(stdout);
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 97f46cd..da4697c 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -847,7 +847,7 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
- 	if (brief)
- 		print_linkinfo_brief(NULL, &answer.n, stdout);
- 	else
--		print_linkinfo(NULL, &answer.n, stdout);
-+		print_linkinfo(NULL, &answer.n, stdout, 0);
- 
- 	return 0;
- }
-diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
-index 8bcf882..c95568e 100644
---- a/ip/ipmonitor.c
-+++ b/ip/ipmonitor.c
-@@ -87,7 +87,7 @@ static int accept_msg(const struct sockaddr_nl *who,
- 	if (n->nlmsg_type == RTM_NEWLINK || n->nlmsg_type == RTM_DELLINK) {
- 		ll_remember_index(who, n, NULL);
- 		print_headers(fp, "[LINK]", ctrl);
--		print_linkinfo(who, n, arg);
-+		print_linkinfo(who, n, arg, 0);
- 		return 0;
- 	}
- 	if (n->nlmsg_type == RTM_NEWADDR || n->nlmsg_type == RTM_DELADDR) {
+> What changes in what branch exist?
+
+I am not using git (if that is what you mean by 'branches') - just 
+tarballs from kernel.org
+>
+> btw: please use scripts/get_maintainer.pl to better
+> determine who should be cc'd on your patches.
+>
+> you left out netdev.
+
+Sorry, my bad, I need to learn/read more.
+
+Thanks for your help/advice :)
+
+Nick
 -- 
-2.4.3
+Gosh that takes me back... or is it forward?  That's the trouble with
+time travel, you never can tell."
+		-- Doctor Who "Androids of Tara"
