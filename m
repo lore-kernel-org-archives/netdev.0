@@ -1,50 +1,49 @@
-From: Eric Van Hensbergen <ericvh@gmail.com>
-Subject: Re: [PATCH] 9p: trans_fd, initialize recv fcall properly if not set
-Date: Sat, 5 Sep 2015 22:15:06 -0500
-Message-ID: <CAFkjPT=1TAq5S_TBgKa_UyGs2CfhDKOWEqc9HyhKHw89vO_ZOQ@mail.gmail.com>
-References: <1441273129-20185-1-git-send-email-dominique.martinet@cea.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] Netfilter fixes for net
+Date: Sat, 05 Sep 2015 21:59:05 -0700 (PDT)
+Message-ID: <20150905.215905.1856210304694191648.davem@davemloft.net>
+References: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: V9FS Developers <v9fs-developer@lists.sourceforge.net>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Dominique Martinet <dominique.martinet@cea.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:35585 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726AbbIFDP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 23:15:27 -0400
-In-Reply-To: <1441273129-20185-1-git-send-email-dominique.martinet@cea.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1441273861-31092-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 3, 2015 at 4:38 AM, Dominique Martinet
-<dominique.martinet@cea.fr> wrote:
-> That code really should never be called (rc is allocated in
-> tag_alloc), but if it had been it couldn't have worked...
->
-> Signed-off-by: Dominique Martinet <dominique.martinet@cea.fr>
-> ---
->  net/9p/trans_fd.c | 3 +++
->  1 file changed, 3 insertions(+)
->
-> To be honest, I think it might be better to just bail out if we get in
-> this switch (m->req->rc == NULL after p9_tag_lookup) and not try to
-> allocate more, because if we get there it's likely a race condition and
-> silently re-allocating will end up in more troubles than trying to
-> recover is worth.
-> Thoughts ?
->
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu,  3 Sep 2015 11:50:55 +0200
 
-Hmmm...trying to rattle my brain and remember why I put it in there
-back in 2008.
-It might have just been over-defensive programming -- or more likely it just
-pre-dated all the zero copy infrastructure which pretty much guaranteed we had
-an rc allocated and what is there is vestigial.  I'm happy to accept a
-patch which
-makes this an assert, or perhaps just resets the connection because something
-has gone horribly wrong (similar to the ENOMEM path that is there now).
+> The following patchset contains Netfilter fixes for net, they are:
+> 
+> 1) Oneliner to restore maps in nf_tables since we support addressing registers
+>    at 32 bits level.
+> 
+> 2) Restore previous default behaviour in bridge netfilter when CONFIG_IPV6=n,
+>    oneliner from Bernhard Thaler.
+> 
+> 3) Out of bound access in ipset hash:net* set types, reported by Dave Jones'
+>    KASan utility, patch from Jozsef Kadlecsik.
+> 
+> 4) Fix ipset compilation with gcc 4.4.7 related to C99 initialization of
+>    unnamed unions, patch from Elad Raz.
+> 
+> 5) Add a workaround to address inconsistent endianess in the res_id field of
+>    nfnetlink batch messages, reported by Florian Westphal.
+> 
+> 6) Fix error paths of CT/synproxy since the conntrack template was moved to use
+>    kmalloc, patch from Daniel Borkmann.
+> 
+> All of them look good to me to reach 4.2, I can route this to -stable myself
+> too, just let me know what you prefer.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-        -eric
+Pulled, there was a merge conflict, please verify that I resolved it
+correctly.
+
+Thanks.
