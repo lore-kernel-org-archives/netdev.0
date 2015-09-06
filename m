@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net/ipv6: Correct PIM6 mrt_lock handling
-Date: Sat, 05 Sep 2015 17:32:24 -0700 (PDT)
-Message-ID: <20150905.173224.1142280299008389422.davem@davemloft.net>
-References: <1441245151-11495-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+Subject: Re: [PATCH] net: wan: sbni: fix device usage count
+Date: Sat, 05 Sep 2015 17:33:10 -0700 (PDT)
+Message-ID: <20150905.173310.1415682891578970908.davem@davemloft.net>
+References: <1441260030-8141-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org
-To: richard.laing@alliedtelesis.co.nz
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: sudipm.mukherjee@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34069 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34081 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759AbbIFAc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 20:32:28 -0400
-In-Reply-To: <1441245151-11495-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+	with ESMTP id S1750818AbbIFAdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 20:33:11 -0400
+In-Reply-To: <1441260030-8141-1-git-send-email-sudipm.mukherjee@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Laing <richard.laing@alliedtelesis.co.nz>
-Date: Thu,  3 Sep 2015 13:52:31 +1200
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Date: Thu,  3 Sep 2015 11:30:30 +0530
 
-> In the IPv6 multicast routing code the mrt_lock was not being released
-> correctly in the MFC iterator, as a result adding or deleting a MIF would
-> cause a hang because the mrt_lock could not be acquired.
+> dev_get_by_name() will increment the usage count if the matching device
+> is found. But we were not decrementing the count if we have got the
+> device and the device is non-active.
 > 
-> This fix is a copy of the code for the IPv4 case and ensures that the lock
-> is released correctly.
-> 
-> Signed-off-by: Richard Laing <richard.laing@alliedtelesis.co.nz>
+> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
