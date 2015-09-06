@@ -1,32 +1,32 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: Handle postive return codes in phy_connect
-Date: Sat, 5 Sep 2015 22:22:57 +0200
-Message-ID: <20150905202257.GE6040@lunn.ch>
-References: <1441476089-22108-1-git-send-email-mwelling@ieee.org>
- <20150905191840.GC6040@lunn.ch>
- <20150905194400.GA1687@deathstar>
- <20150905194755.GD6040@lunn.ch>
- <20150905202125.GA6250@deathstar>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net/ipv6: Correct PIM6 mrt_lock handling
+Date: Sat, 05 Sep 2015 17:32:24 -0700 (PDT)
+Message-ID: <20150905.173224.1142280299008389422.davem@davemloft.net>
+References: <1441245151-11495-1-git-send-email-richard.laing@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michael Welling <mwelling@ieee.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150905202125.GA6250@deathstar>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jmorris@namei.org
+To: richard.laing@alliedtelesis.co.nz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34069 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbbIFAc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Sep 2015 20:32:28 -0400
+In-Reply-To: <1441245151-11495-1-git-send-email-richard.laing@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > It might not be an ERRNO. E.g. https://lkml.org/lkml/2015/9/3/534
-> > fixed a bug where a positive value is returned which is not an
-> > indication of an error.
+From: Richard Laing <richard.laing@alliedtelesis.co.nz>
+Date: Thu,  3 Sep 2015 13:52:31 +1200
+
+> In the IPv6 multicast routing code the mrt_lock was not being released
+> correctly in the MFC iterator, as a result adding or deleting a MIF would
+> cause a hang because the mrt_lock could not be acquired.
 > 
-> It appears that I have stumbled upon the exact same issue as is fixed in
-> the patch above.
+> This fix is a copy of the code for the IPv4 case and ensures that the lock
+> is released correctly.
+> 
+> Signed-off-by: Richard Laing <richard.laing@alliedtelesis.co.nz>
 
-Ah, sorry. I put that bug there :-(
-
-The fix should be making its way into the kernel soon.
-
-    Andrew
+Applied and queued up for -stable, thanks.
