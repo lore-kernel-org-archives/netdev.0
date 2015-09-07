@@ -1,53 +1,42 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] stmmac: fix check for phydev being open
-Date: Mon, 7 Sep 2015 21:19:58 +0300
-Message-ID: <55EDD54E.7030205@cogentembedded.com>
-References: <1441649709-12325-1-git-send-email-abrodkin@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	arc-linux-dev@synopsys.com, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441649709-12325-1-git-send-email-abrodkin@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Felix Kaiser <felix.kaiser@fxkr.net>
+Subject: Re: [PATCH] ip link/addr show: add empty line between interfaces
+Date: Mon, 07 Sep 2015 21:57:35 +0200
+Message-ID: <1441653684-sup-9275@zero>
+References: <1441537269-13899-1-git-send-email-felix.kaiser@fxkr.net> <20150907144609.3ec9f4d0@griffin> <1441639971-sup-8473@zero> <20150907175411.491f9c96@griffin> <20150907110932.7687a913@urahara>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Jiri Benc <jbenc@redhat.com>, netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:33876 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072AbbIGT5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 15:57:38 -0400
+Received: by wicfx3 with SMTP id fx3so98126759wic.1
+        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 12:57:37 -0700 (PDT)
+In-reply-to: <20150907110932.7687a913@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Excerpts from Stephen Hemminger's message of 2015-09-07 11:09:32 -0700:
+> Agreed with Jiri. I prefer the new shorter brief format, not longer format.
 
-On 09/07/2015 09:15 PM, Alexey Brodkin wrote:
+As long as it requires extra typing, few are going to use it.
+It's about the default.
 
-> Current implementation via IS_ERR(phydev) may make no sense because
-> of_phy_attach() returns NULL on failure instead of error value.
+Did you try the brief format with a few v6 addresses on an
+interface? When the line gets wrapped, it gets hard to read.
 
-> Still for checking result of phy_connect() IS_ERR() is useful.
+Besides, this isn't about the brief format, but about making
+the long format less unreadable.
 
-> So adding explicit check for NULL.
+> Did you ever try a system with 10 interfaces or 1000 tunnels??
 
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: arc-linux-dev@synopsys.com
-> Cc: linux-kernel@vger.kernel.org
-> Cc: stable@vger.kernel.org
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 864b476..ad2ce3e 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -837,7 +837,7 @@ static int stmmac_init_phy(struct net_device *dev)
->   				     interface);
->   	}
->
-> -	if (IS_ERR(phydev)) {
-> +	if (!phydev || IS_ERR(phydev)) {
+The largest I tried it on had 11 interfaces (8 of which are for tunnels).
+That's not 1000, but how many people have that?
 
-    There's IS_ERR_OR_NULL().
+After all the positive feedback I got locally I'm genuinely
+surprised that you don't like it, but I guess that's the way it is.
 
-WBR, Sergei
+Thanks for looking at it, though!
+Felix
