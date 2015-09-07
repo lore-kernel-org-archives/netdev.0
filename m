@@ -1,61 +1,75 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache
- bulk free API.
-Date: Mon, 7 Sep 2015 10:16:10 +0200
-Message-ID: <20150907101610.44504597@redhat.com>
-References: <20150824005727.2947.36065.stgit@localhost>
-	<20150904165944.4312.32435.stgit@devil>
-	<55E9DE51.7090109@gmail.com>
+Subject: Re: [RFC PATCH 1/3] net: introduce kfree_skb_bulk() user of
+ kmem_cache_free_bulk()
+Date: Mon, 7 Sep 2015 10:41:01 +0200
+Message-ID: <20150907104101.3e392a6d@redhat.com>
+References: <20150904165944.4312.32435.stgit@devil>
+	<20150904170046.4312.38018.stgit@devil>
+	<CALx6S36R2zGwj5XF0GZWPOC1Ng5HviPWxBM-cn=DDMXU9Auoxg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm@kvack.org,
-        aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
-        "Paul E.
- McKenney" <paulmck@linux.vnet.ibm.com>,
-        iamjoonsoo.kim@lge.com, brouer@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <55E9DE51.7090109@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	akpm@linux-foundation.org, linux-mm@kvack.org,
+	aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	iamjoonsoo.kim@lge.com, brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51875 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752543AbbIGIlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Sep 2015 04:41:09 -0400
+In-Reply-To: <CALx6S36R2zGwj5XF0GZWPOC1Ng5HviPWxBM-cn=DDMXU9Auoxg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 4 Sep 2015 11:09:21 -0700
-Alexander Duyck <alexander.duyck@gmail.com> wrote:
+On Fri, 4 Sep 2015 11:47:17 -0700 Tom Herbert <tom@herbertland.com> wrote:
 
-> This is an interesting start.  However I feel like it might work better 
-> if you were to create a per-cpu pool for skbs that could be freed and 
-> allocated in NAPI context.  So for example we already have 
-> napi_alloc_skb, why not just add a napi_free_skb
+> On Fri, Sep 4, 2015 at 10:00 AM, Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> > Introduce the first user of SLAB bulk free API kmem_cache_free_bulk(),
+> > in the network stack in form of function kfree_skb_bulk() which bulk
+> > free SKBs (not skb clones or skb->head, yet).
+> >
+[...]
+> > +/**
+> > + *     kfree_skb_bulk - bulk free SKBs when refcnt allows to
+> > + *     @skbs: array of SKBs to free
+> > + *     @size: number of SKBs in array
+> > + *
+> > + *     If SKB refcnt allows for free, then release any auxiliary data
+> > + *     and then bulk free SKBs to the SLAB allocator.
+> > + *
+> > + *     Note that interrupts must be enabled when calling this function.
+> > + */
+> > +void kfree_skb_bulk(struct sk_buff **skbs, unsigned int size)
+> > +{
+>
+> What not pass a list of skbs (e.g. using skb->next)?
 
-I do like the idea...
+Because the next layer, the slab API needs an array:
+  kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
 
-> and then make the array 
-> of objects to be freed part of a pool that could be used for either 
-> allocation or freeing?  If the pool runs empty you just allocate 
-> something like 8 or 16 new skb heads, and if you fill it you just free 
-> half of the list?
+Look at the patch:
+ [PATCH V2 3/3] slub: build detached freelist with look-ahead
+ http://thread.gmane.org/gmane.linux.kernel.mm/137469/focus=137472
 
-But I worry that this algorithm will "randomize" the (skb) objects.
-And the SLUB bulk optimization only works if we have many objects
-belonging to the same page.
-
-It would likely be fastest to implement a simple stack (for these
-per-cpu pools), but I again worry that it would randomize the
-object-pages.  A simple queue might be better, but slightly slower.
-Guess I could just reuse part of qmempool / alf_queue as a quick test.
-
-Having a per-cpu pool in networking would solve the problem of the slub
-per-cpu pool isn't large enough for our use-case.  On the other hand,
-maybe we should fix slub to dynamically adjust the size of it's per-cpu
-resources?
+Where I use this array to progressively scan for objects belonging to
+the same page.  (A subtle detail is I manage to zero out the array,
+which is good from a security/error-handling point of view, as pointers
+to the objects are not left dangling on the stack).
 
 
-A pre-req knowledge (for people not knowing slub's internal details):
-Slub alloc path will pickup a page, and empty all objects for that page
-before proceeding to the next page.  Thus, slub bulk alloc will give
-many objects belonging to the page.  I'm trying to keep these objects
-grouped together until they can be free'ed in a bulk.
+I cannot argue that, writing skb->next comes as an additional cost,
+because the slUb free also writes into this cacheline.  Perhaps the
+slAb allocator does not?
+
+[...]
+> > +       if (likely(cnt)) {
+> > +               kmem_cache_free_bulk(skbuff_head_cache, cnt, (void **) skbs);
+> > +       }
+> > +}
+> > +EXPORT_SYMBOL(kfree_skb_bulk);
 
 -- 
 Best regards,
@@ -63,9 +77,3 @@ Best regards,
   MSc.CS, Sr. Network Kernel Developer at Red Hat
   Author of http://www.iptv-analyzer.org
   LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
