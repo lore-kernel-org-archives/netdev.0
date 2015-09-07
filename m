@@ -1,71 +1,50 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: slab-nomerge (was Re: [git pull] device mapper changes for 4.3)
-Date: Mon, 7 Sep 2015 13:22:13 -0700
-Message-ID: <CA+55aFym-dM37xtvKjddMheSV9vPUq=tnN9FoFvEgD0QWW22sg@mail.gmail.com>
-References: <CA+55aFyepmdpbg9U2Pvp+aHjKmmGCrTK2ywzqfmaOTMXQasYNw@mail.gmail.com>
-	<20150903005115.GA27804@redhat.com>
-	<CA+55aFxpH6-XD97dOsuGvwozyV=28eBsxiKS901h8PFZrxaygw@mail.gmail.com>
-	<20150903060247.GV1933@devil.localdomain>
-	<CA+55aFxftNVWVD7ujseqUDNgbVamrFWf0PVM+hPnrfmmACgE0Q@mail.gmail.com>
-	<20150904032607.GX1933@devil.localdomain>
-	<CA+55aFzBTL=DnC4zv6yxjk0HxwxWpOhpKDPA8zkTGdgbh08sEg@mail.gmail.com>
-	<20150907113026.5bb28ca3@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dave Chinner <dchinner@redhat.com>,
-	Mike Snitzer <snitzer@redhat.com>,
-	Christoph Lameter <cl@linux.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Rientjes <rientjes@google.com>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-	"dm-devel@redhat.com" <dm-devel@redhat.com>,
-	Alasdair G Kergon <agk@redhat.com>,
-	Joe Thornber <ejt@redhat.com>,
-	Mikulas Patocka <mpatocka@redhat.com>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Sami Tolvanen <samitolvanen@google.com>,
-	Viresh Kumar <viresh.kumar@linaro.org>,
-	Heinz Mauelshagen <heinzm@redhat.com>,
-	linux-mm <linux-mm@kvack.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37835 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751162AbbIGUWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 16:22:14 -0400
-Received: by igbni9 with SMTP id ni9so63363227igb.0
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 13:22:13 -0700 (PDT)
-In-Reply-To: <20150907113026.5bb28ca3@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: [PATCH v2] stmmac: fix check for phydev being open
+Date: Mon,  7 Sep 2015 23:50:19 +0300
+Message-ID: <1441659019-25522-1-git-send-email-abrodkin@synopsys.com>
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 7, 2015 at 2:30 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
->
-> The slub allocator have a faster "fastpath", if your workload is
-> fast-reusing within the same per-cpu page-slab, but once the workload
-> increases you hit the slowpath, and then slab catches up. Slub looks
-> great in micro-benchmarking.
->
-> And with "slab_nomerge" I get even high performance:
+Current implementation via IS_ERR(phydev) may make no sense because
+of_phy_attach() returns NULL on failure instead of error value.
 
-I think those two are related.
+Still for checking result of phy_connect() IS_ERR() is useful.
 
-Not merging means that effectively the percpu caches end up being
-bigger (simply because there are more of them), and so it captures
-more of the fastpath cases.
+To address both situations we use combined IS_ERR_OR_NULL() check.
 
-Obviously the percpu queue size is an easy tunable too, but there are
-real downsides to that too. I suspect your IP forwarding case isn't so
-different from some of the microbenchmarks, it just has more
-outstanding work..
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: linux-kernel@vger.kernel.org
+Cc: stable@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+---
 
-And yes, the slow path (ie not hitting in the percpu cache) of SLUB
-could hopefully be optimizable too, although maybe the bulk patches
-are the way to go (and unrelated to this thread - at least part of
-your bulk patches actually got merged last Friday - they were part of
-Andrew's patch-bomb).
+Changes compared to v1:
+ * Use IS_ERR_OR_NULL() instead of discrete checks for null and err
 
-            Linus
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 864b476..7985d8a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -837,7 +837,7 @@ static int stmmac_init_phy(struct net_device *dev)
+ 				     interface);
+ 	}
+ 
+-	if (IS_ERR(phydev)) {
++	if (IS_ERR_OR_NULL(phydev)) {
+ 		pr_err("%s: Could not attach to PHY\n", dev->name);
+ 		return PTR_ERR(phydev);
+ 	}
+-- 
+2.4.3
