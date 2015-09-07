@@ -1,47 +1,53 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip link/addr show: add empty line between interfaces
-Date: Mon, 7 Sep 2015 11:09:32 -0700
-Message-ID: <20150907110932.7687a913@urahara>
-References: <1441537269-13899-1-git-send-email-felix.kaiser@fxkr.net>
-	<20150907144609.3ec9f4d0@griffin>
-	<1441639971-sup-8473@zero>
-	<20150907175411.491f9c96@griffin>
+Subject: Re: [PATCH] iproute: print more verbose error on route cache flush
+Date: Mon, 7 Sep 2015 11:10:46 -0700
+Message-ID: <20150907111046.39d459b0@urahara>
+References: <1441438850-4793-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Felix Kaiser <felix.kaiser@fxkr.net>, netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35911 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936AbbIGSJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 14:09:22 -0400
-Received: by padhk3 with SMTP id hk3so17166173pad.3
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 11:09:22 -0700 (PDT)
-In-Reply-To: <20150907175411.491f9c96@griffin>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33602 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946AbbIGSKf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 14:10:35 -0400
+Received: by pacex6 with SMTP id ex6so102070217pac.0
+        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 11:10:34 -0700 (PDT)
+In-Reply-To: <1441438850-4793-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Sep 2015 17:54:11 +0200
-Jiri Benc <jbenc@redhat.com> wrote:
+On Sat,  5 Sep 2015 10:40:50 +0300
+Denis Kirjanov <kda@linux-powerpc.org> wrote:
 
-> On Mon, 07 Sep 2015 17:38:48 +0200, Felix Kaiser wrote:
-> > My opinion is that if someone parses that, they deserve the opportunity
-> > to fix their code. At the very least they could have used -oneline!
+> Before:
+> kda@vfirst ~/devel/iproute2 $ ./ip/ip route flush cache
+> Cannot open "/proc/sys/net/ipv4/route/flush"
 > 
-> No doubt. I also don't like scripts that parse the default "ip a"
-> output.
+> After:
+> kda@vfirst ~/devel/iproute2/ip $ ./ip route flush cache
+> Cannot open "/proc/sys/net/ipv4/route/flush": Permission denied
 > 
-> I just pointed out that there are different opinions and that it can
-> have some consequences. Personally, I have no strong feeling against
-> nor for the patch. It's up to Stephen to decide.
+> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> ---
+>  ip/iproute.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> > I've met users who use a shell alias to hack newlines in
-> 
-> Which is not a bad solution, actually.
-> 
->  Jiri
-> 
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 8f49e62..abe4180 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -1213,7 +1213,8 @@ static int iproute_flush_cache(void)
+>  	char *buffer = "-1";
+>  
+>  	if (flush_fd < 0) {
+> -		fprintf (stderr, "Cannot open \"%s\"\n", ROUTE_FLUSH_PATH);
+> +		fprintf (stderr, "Cannot open \"%s\": %s\n",
+> +				ROUTE_FLUSH_PATH, strerror(errno));
+>  		return -1;
+>  	}
+>  
 
-Agreed with Jiri. I prefer the new shorter brief format, not longer format.
-Did you ever try a system with 10 interfaces or 1000 tunnels??
+Sure why not, applied
