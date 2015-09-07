@@ -1,56 +1,54 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPv6 xfrm GSO fragmentation bug
-Date: Mon, 7 Sep 2015 12:00:45 +0200
-Message-ID: <20150907100044.GH25499@secunet.com>
-References: <20150830082432.GA25588@gondor.apana.org.au>
- <20150831071916.GG25499@secunet.com>
- <20150831073526.GA31958@gondor.apana.org.au>
- <20150904052106.GA5689@gondor.apana.org.au>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [GIT] Networking
+Date: Mon, 7 Sep 2015 11:02:59 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB8E788@AcuExch.aculab.com>
+References: <20150902.223522.1792493140210966693.davem@davemloft.net>
+ <CA+55aFx=xh4+vCNOgwXyfeV-t=6anXimqBxH_i71RjYy+Gy9-w@mail.gmail.com>
+ <20150903.104032.767889134756094076.davem@davemloft.net>
+ <CA+55aFxtD2VYW2R0JwjFkZkvzQzcN7qK3m6ReR+BBXtfyDHx7g@mail.gmail.com>
+ <CA+55aFzZe2buU-LxAktxYNojuvMbUNt64QiKDpGsfFwtrbf+Qg@mail.gmail.com>
+ <62408D76-2E53-4914-97A9-32B65B167F9B@holtmann.org>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB8D542@AcuExch.aculab.com>
+ <8BC0F5D8-5872-4387-BACA-BE7EAF479928@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Network Development" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "'Rustad, Mark D'" <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:47819 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750816AbbIGKAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Sep 2015 06:00:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20150904052106.GA5689@gondor.apana.org.au>
+Received: from smtp-out4.electric.net ([192.162.216.183]:56130 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010AbbIGLED convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 07:04:03 -0400
+In-Reply-To: <8BC0F5D8-5872-4387-BACA-BE7EAF479928@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 04, 2015 at 01:21:06PM +0800, Herbert Xu wrote:
-> On Mon, Aug 31, 2015 at 03:35:26PM +0800, Herbert Xu wrote:
-> > 
-> > I see where the bug came from.  Indeed IPv6 does do fragmentation
-> > but only for tunnel mode.  While your patch added a check that also
-> > affected transport mode.  So in addition to the GSO fix we should
-> > also make the MTU check conditional to tunnel mode.
+From: Rustad, Mark D
+...
+> >> static int smp_ah(struct crypto_blkcipher *tfm, const u8 irk[16],
+> >>                  const u8 r[3], u8 res[3])
+> >
+> > Expect that it looks like you are passing arrays by value,
+> > but instead you are passing by reference.
+> >
+> > Explicitly pass by reference and sizeof works.
 > 
-> Here is the patch:
-> 
-> ---8<---
-> ipv6: Fix IPsec pre-encap fragmentation check
-> 
-> The IPv6 IPsec pre-encap path performs fragmentation for tunnel-mode
-> packets.  That is, we perform fragmentation pre-encap rather than
-> post-encap.
-> 
-> A check was added later to ensure that proper MTU information is
-> passed back for locally generated traffic.  Unfortunately this
-> check was performed on all IPsec packets, including transport-mode
-> packets.
-> 
-> What's more, the check failed to take GSO into account.
-> 
-> The end result is that transport-mode GSO packets get dropped at
-> the check.
-> 
-> This patch fixes it by moving the tunnel mode check forward as well
-> as adding the GSO check.
-> 
-> Fixes: dd767856a36e ("xfrm6: Don't call icmpv6_send on local error")
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> It depends on what you mean by works. It at least doesn't look so misleading when passing by reference
+> and so works more as expected. The sizeof in either case will never return the size of the array. To
+> have sizeof return the size of the array would require a typedef of the array to pass by reference. In
+> some cases that could be the right thing to do.
 
-Applied to the ipsec tree, thanks Herbert!
+Feed:
+int bar(int (*f)[10]) { return sizeof *f; }
+into cc -O2 -S and look at the generated code - returns 40 not 4.
+
+	David
