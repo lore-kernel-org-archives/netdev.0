@@ -1,42 +1,79 @@
-From: Felix Kaiser <felix.kaiser@fxkr.net>
-Subject: Re: [PATCH] ip link/addr show: add empty line between interfaces
-Date: Mon, 07 Sep 2015 21:57:35 +0200
-Message-ID: <1441653684-sup-9275@zero>
-References: <1441537269-13899-1-git-send-email-felix.kaiser@fxkr.net> <20150907144609.3ec9f4d0@griffin> <1441639971-sup-8473@zero> <20150907175411.491f9c96@griffin> <20150907110932.7687a913@urahara>
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Jiri Benc <jbenc@redhat.com>, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 1/3] net: introduce kfree_skb_bulk() user of
+ kmem_cache_free_bulk()
+Date: Mon, 7 Sep 2015 22:14:48 +0200
+Message-ID: <20150907221448.2b18b174@redhat.com>
+References: <20150904165944.4312.32435.stgit@devil>
+	<20150904170046.4312.38018.stgit@devil>
+	<CALx6S36R2zGwj5XF0GZWPOC1Ng5HviPWxBM-cn=DDMXU9Auoxg@mail.gmail.com>
+	<20150907104101.3e392a6d@redhat.com>
+	<CALx6S348WrCr1mCOCMsr7fnSRp1bDRaG+-G1B+gpCJ3a4JeUtQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	akpm@linux-foundation.org, linux-mm@kvack.org,
+	aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	iamjoonsoo.kim@lge.com, brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:33876 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbbIGT5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 15:57:38 -0400
-Received: by wicfx3 with SMTP id fx3so98126759wic.1
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 12:57:37 -0700 (PDT)
-In-reply-to: <20150907110932.7687a913@urahara>
+Received: from mx1.redhat.com ([209.132.183.28]:38828 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751091AbbIGUO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Sep 2015 16:14:56 -0400
+In-Reply-To: <CALx6S348WrCr1mCOCMsr7fnSRp1bDRaG+-G1B+gpCJ3a4JeUtQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Excerpts from Stephen Hemminger's message of 2015-09-07 11:09:32 -0700:
-> Agreed with Jiri. I prefer the new shorter brief format, not longer format.
 
-As long as it requires extra typing, few are going to use it.
-It's about the default.
+On Mon, 7 Sep 2015 09:25:49 -0700 Tom Herbert <tom@herbertland.com> wrote:
 
-Did you try the brief format with a few v6 addresses on an
-interface? When the line gets wrapped, it gets hard to read.
+> >> What not pass a list of skbs (e.g. using skb->next)?
+> >
+> > Because the next layer, the slab API needs an array:
+> >   kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+> >
+> 
+> I suppose we could ask the same question of that function. IMO
+> encouraging drivers to define arrays of pointers on the stack like
+> you're doing in the ixgbe patch is a bad direction.
+> 
+> In any case I believe this would be simpler in the networking side
+> just to maintain a list of skb's to free. Then the dev_free_waitlist
+> structure might not be needed then since we could just use a
+> skb_buf_head for that.
 
-Besides, this isn't about the brief format, but about making
-the long format less unreadable.
+I guess it is more natural for the network side to work with skb lists.
+But I'm keeping it for slab/slub as we cannot assume/enforce objects of a
+specific data type.
 
-> Did you ever try a system with 10 interfaces or 1000 tunnels??
+I worried about how large bulk free we should allow, due to the
+interaction with skb->destructor which for sockets affect their memory
+accounting. E.g. we have seen issues with hypervisor network drivers
+(Xen and HyperV) that are too slow to cleanup their TX completion queue
+that their TCP bandwidth get limited by tcp_limit_output_bytes.
+I capped it at 32, and the NAPI budget will cap it at 64.
 
-The largest I tried it on had 11 interfaces (8 of which are for tunnels).
-That's not 1000, but how many people have that?
 
-After all the positive feedback I got locally I'm genuinely
-surprised that you don't like it, but I guess that's the way it is.
+By the following argument, bulk free of 64 objects/skb's is not a problem.
+The delay I'm introducing is very small, before the first real
+kfree_skb is called, which calls the destructor with free up socket
+memory accounting.
 
-Thanks for looking at it, though!
-Felix
+Assume measured packet rate of: 2105011 pps
+Time between packets (1/2105011*10^9): 475 ns
+
+Perf shows ixgbe_clean_tx_irq() takes: 1.23%
+Extrapolating the function call cost: 5.84 ns (475*(1.23/100))
+
+Processing 64 packets in ixgbe_clean_tx_irq() 373 ns.
+At 10Gbit/s how many bytes can arrive in this period, only: 466 bytes.
+((373/10^9)*(10000*10^6)/8)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
