@@ -1,53 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute: print more verbose error on route cache flush
-Date: Mon, 7 Sep 2015 11:10:46 -0700
-Message-ID: <20150907111046.39d459b0@urahara>
-References: <1441438850-4793-1-git-send-email-kda@linux-powerpc.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Denis Kirjanov <kda@linux-powerpc.org>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: [PATCH] stmmac: fix check for phydev being open
+Date: Mon,  7 Sep 2015 21:15:09 +0300
+Message-ID: <1441649709-12325-1-git-send-email-abrodkin@synopsys.com>
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	arc-linux-dev@synopsys.com, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33602 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946AbbIGSKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 14:10:35 -0400
-Received: by pacex6 with SMTP id ex6so102070217pac.0
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 11:10:34 -0700 (PDT)
-In-Reply-To: <1441438850-4793-1-git-send-email-kda@linux-powerpc.org>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:33624 "EHLO
+	smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750953AbbIGSPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 14:15:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat,  5 Sep 2015 10:40:50 +0300
-Denis Kirjanov <kda@linux-powerpc.org> wrote:
+Current implementation via IS_ERR(phydev) may make no sense because
+of_phy_attach() returns NULL on failure instead of error value.
 
-> Before:
-> kda@vfirst ~/devel/iproute2 $ ./ip/ip route flush cache
-> Cannot open "/proc/sys/net/ipv4/route/flush"
-> 
-> After:
-> kda@vfirst ~/devel/iproute2/ip $ ./ip route flush cache
-> Cannot open "/proc/sys/net/ipv4/route/flush": Permission denied
-> 
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
-> ---
->  ip/iproute.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index 8f49e62..abe4180 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -1213,7 +1213,8 @@ static int iproute_flush_cache(void)
->  	char *buffer = "-1";
->  
->  	if (flush_fd < 0) {
-> -		fprintf (stderr, "Cannot open \"%s\"\n", ROUTE_FLUSH_PATH);
-> +		fprintf (stderr, "Cannot open \"%s\": %s\n",
-> +				ROUTE_FLUSH_PATH, strerror(errno));
->  		return -1;
->  	}
->  
+Still for checking result of phy_connect() IS_ERR() is useful.
 
-Sure why not, applied
+So adding explicit check for NULL.
+
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: arc-linux-dev@synopsys.com
+Cc: linux-kernel@vger.kernel.org
+Cc: stable@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 864b476..ad2ce3e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -837,7 +837,7 @@ static int stmmac_init_phy(struct net_device *dev)
+ 				     interface);
+ 	}
+ 
+-	if (IS_ERR(phydev)) {
++	if (!phydev || IS_ERR(phydev)) {
+ 		pr_err("%s: Could not attach to PHY\n", dev->name);
+ 		return PTR_ERR(phydev);
+ 	}
+-- 
+2.4.3
