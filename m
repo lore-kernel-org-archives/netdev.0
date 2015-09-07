@@ -1,76 +1,47 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 104161] New: DLNA services disappear on bridge device
- shortly after starting the dlna service
-Date: Mon, 7 Sep 2015 11:01:43 -0700
-Message-ID: <20150907110143.0480992f@urahara>
+Subject: Re: [PATCH] ip link/addr show: add empty line between interfaces
+Date: Mon, 7 Sep 2015 11:09:32 -0700
+Message-ID: <20150907110932.7687a913@urahara>
+References: <1441537269-13899-1-git-send-email-felix.kaiser@fxkr.net>
+	<20150907144609.3ec9f4d0@griffin>
+	<1441639971-sup-8473@zero>
+	<20150907175411.491f9c96@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Felix Kaiser <felix.kaiser@fxkr.net>, netdev@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35629 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751717AbbIGSBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 14:01:32 -0400
-Received: by pacfv12 with SMTP id fv12so104313029pac.2
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 11:01:32 -0700 (PDT)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by smtp.gmail.com with ESMTPSA id xs7sm529340pab.4.2015.09.07.11.01.31
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 07 Sep 2015 11:01:31 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35911 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936AbbIGSJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 14:09:22 -0400
+Received: by padhk3 with SMTP id hk3so17166173pad.3
+        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 11:09:22 -0700 (PDT)
+In-Reply-To: <20150907175411.491f9c96@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 7 Sep 2015 17:54:11 +0200
+Jiri Benc <jbenc@redhat.com> wrote:
 
+> On Mon, 07 Sep 2015 17:38:48 +0200, Felix Kaiser wrote:
+> > My opinion is that if someone parses that, they deserve the opportunity
+> > to fix their code. At the very least they could have used -oneline!
+> 
+> No doubt. I also don't like scripts that parse the default "ip a"
+> output.
+> 
+> I just pointed out that there are different opinions and that it can
+> have some consequences. Personally, I have no strong feeling against
+> nor for the patch. It's up to Stephen to decide.
+> 
+> > I've met users who use a shell alias to hack newlines in
+> 
+> Which is not a bad solution, actually.
+> 
+>  Jiri
+> 
 
-Begin forwarded message:
-
-Date: Mon, 7 Sep 2015 13:31:54 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 104161] New: DLNA services disappear on bridge device shortly after starting the dlna service
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=104161
-
-            Bug ID: 104161
-           Summary: DLNA services disappear on bridge device shortly after
-                    starting the dlna service
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.2
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: t.powa@gmx.de
-        Regression: No
-
-Hi,
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=9afd85c9e4552b276e2f4cfefd622bdeeffbbf26
-
-This commit introduces a weird behaviour on my dlna server, commit was
-bisected.
-
-This commit was merged into 4.2 series, which makes my dlna/upnp services
-disappear real soon after starting from discovering from other clients.
-Localhost seems not to be affected but every external discovery is broken.
-The dlna services run on a bridge device with IPV4. Mythtv and Minidlna both
-disappear after some minutes of running.
-4.2 with those 3 patches reverted makes it work as it should:
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=a516993f0ac1694673412eb2d16a091eafa77d2a
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=fcba67c94abe83e0e69a65737000ccbb16a4fa03
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=9afd85c9e4552b276e2f4cfefd622bdeeffbbf26
-
-Do you need any more information to get this really weird bug fixed?
-
-Thanks in advance.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Agreed with Jiri. I prefer the new shorter brief format, not longer format.
+Did you ever try a system with 10 interfaces or 1000 tunnels??
