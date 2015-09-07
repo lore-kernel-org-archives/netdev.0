@@ -1,92 +1,99 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH net 3/3] r8169: increase the lifespan of the hardware
- counters dump area.
-Date: Mon, 7 Sep 2015 11:29:49 +0200
-Message-ID: <20150907092949.GH30539@calimero.vinschen.de>
-References: <cover.1441454454.git.romieu@fr.zoreil.com>
- <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
- <20150906103732.GF30539@calimero.vinschen.de>
- <20150906202153.GB19371@electric-eye.fr.zoreil.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: slab-nomerge (was Re: [git pull] device mapper changes for 4.3)
+Date: Mon, 7 Sep 2015 11:30:26 +0200
+Message-ID: <20150907113026.5bb28ca3@redhat.com>
+References: <CA+55aFyepmdpbg9U2Pvp+aHjKmmGCrTK2ywzqfmaOTMXQasYNw@mail.gmail.com>
+	<20150903005115.GA27804@redhat.com>
+	<CA+55aFxpH6-XD97dOsuGvwozyV=28eBsxiKS901h8PFZrxaygw@mail.gmail.com>
+	<20150903060247.GV1933@devil.localdomain>
+	<CA+55aFxftNVWVD7ujseqUDNgbVamrFWf0PVM+hPnrfmmACgE0Q@mail.gmail.com>
+	<20150904032607.GX1933@devil.localdomain>
+	<CA+55aFzBTL=DnC4zv6yxjk0HxwxWpOhpKDPA8zkTGdgbh08sEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="HB4mHL4PVvkpZAgW"
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	pomidorabelisima@gmail.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:42344 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751489AbbIGJ3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 05:29:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20150906202153.GB19371@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, Dave Chinner <dchinner@redhat.com>,
+        Mike Snitzer
+ <snitzer@redhat.com>, Christoph Lameter <cl@linux.com>,
+        Pekka Enberg
+ <penberg@kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        David
+ Rientjes <rientjes@google.com>,
+        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+        "dm-devel@redhat.com" <dm-devel@redhat.com>,
+        Alasdair G Kergon
+ <agk@redhat.com>, Joe Thornber <ejt@redhat.com>,
+        Mikulas Patocka
+ <mpatocka@redhat.com>,
+        Vivek Goyal <vgoyal@redhat.com>,
+        Sami Tolvanen
+ <samitolvanen@google.com>,
+        Viresh Kumar <viresh.kumar@linaro.org>,
+        Heinz
+ Mauelshagen <heinzm@redhat.com>, linux-mm <linux-mm@kvack.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CA+55aFzBTL=DnC4zv6yxjk0HxwxWpOhpKDPA8zkTGdgbh08sEg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
 
---HB4mHL4PVvkpZAgW
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Thu, 3 Sep 2015 20:51:09 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-On Sep  6 22:21, Francois Romieu wrote:
-> Corinna Vinschen <vinschen@redhat.com> :
-> > On Sep  5 14:18, romieu@fr.zoreil.com wrote:
-> [...]
-> > > - rtl_reset_counters_cond induced failures in open() are also conside=
-red
-> > >   fatal: it takes acceptable work to unwind comfortably.
-> >=20
-> > Why?
->=20
->=20
-> Crap, my description does not match the code wrt rtl_reset_counters_cond.=
- :o/
->=20
-> s/rtl8169_reset_counters/rtl8169_update_counters/g
->=20
-> The code is right.
->=20
-> [...]
-> > This returns -EINVAL even for older chip versions which are not capable
-> > of resetting the counters.  The result is, this driver will not work at
-> > all on chip versions prior to RTL_GIGA_MAC_VER_19 anymore, because
-> > rtl_open will always fail.
->=20
-> No. My changelog was misleading. rtl_init_counter_offsets handles this pa=
-rt
-> correctly.
+> On Thu, Sep 3, 2015 at 8:26 PM, Dave Chinner <dchinner@redhat.com> wrote:
+> >
+> > The double standard is the problem here. No notification, proof,
+> > discussion or review was needed to turn on slab merging for
+> > everyone, but you're setting a very high bar to jump if anyone wants
+> > to turn it off in their code.
+> 
+> Ehh. You realize that almost the only load that is actually seriously
+> allocator-limited is networking?
+> 
+> And slub was beating slab on that? And slub has been doing the merging
+> since day one. Slab was just changed to try to keep up with the
+> winning strategy.
 
-Oh, right, I missed that rtl_init_counter_offsets checks for `if (!rc)',
-not for `if (rc < 0)' as for the call to rtl8169_update_counters.
+Sorry, I have to correct you on this.  The slub allocator is not as
+fast as you might think.  The slab allocator is actually faster for
+networking.
 
-Still wondering though.  Given that the driver never failed before if
-the counter values couldn't be updated, and given that these counter
-values only have statistical relevance, why should this suddenly result
-in a fatal failure at open time?
+IP-forwarding, single CPU, single flow UDP (highly tuned):
+ * Allocator slub: 2043575 pps
+ * Allocator slab: 2088295 pps
+
+Difference slab faster than slub:
+ * +44720 pps and -10.48ns
+
+The slub allocator have a faster "fastpath", if your workload is
+fast-reusing within the same per-cpu page-slab, but once the workload
+increases you hit the slowpath, and then slab catches up. Slub looks
+great in micro-benchmarking.
 
 
-Corinna
+As you can see in patchset:
+ [PATCH 0/3] Network stack, first user of SLAB/kmem_cache bulk free API.
+ http://thread.gmane.org/gmane.linux.kernel.mm/137469/focus=376625
 
---HB4mHL4PVvkpZAgW
-Content-Type: application/pgp-signature
+I'm working on speeding up slub to the level of slab.  And it seems
+like I have succeeded with half-a-nanosec 2090522 pps (+2227 pps or
+0.51 ns).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+And with "slab_nomerge" I get even high performance:
+ * slub: bulk-free and slab_nomerge: 2121824 pps
+ * Diff to slub: +78249 and -18.05ns
 
-iQIcBAEBCAAGBQJV7VkNAAoJEPU2Bp2uRE+gzc8QAI39PjMyPL0kyQCE0OPUBkhY
-XJg+bqZA+fk9Ycq6aDsNTX1go4/OgVwRa43XiKrMaQ7kiTmNVlc6IQhIVqnAcCDS
-/qjDLQM9jHox+1k5RBejoKTazjknLbP88/1Vn0ma1QIgRJ8/h9xeGI7xCRla3oD5
-lRGwqwD0kQVOv1LxTqG+bAAbdPrqWOBHyiipltBblL3pCebRvWfjSJxajDDdiGeI
-F+K4O9nYu3AV/Ai3CW0hqPcBXNbomV8g0JBPKVxwneiRyspqx0NOwGJ5X3FLYv/l
-b/YB+FPZZ4/77Fi96TtIb3+iCaq5NOqtIkDeIqeTdP2jxomr5kO1lsR7tbrao9ck
-1rA1M69aTuAmx5/BAS9jAne3Trn35cw/KLrzklLFfgsDNoYinwFPGmCBnwNE640B
-7o85JT6PBve/Agf6iFhMpLxAWGMVWRBb8BZTTN6rVKwm4dyrSBK8Gb0btddDCCwE
-KlDDzsVYg0AxLNzMWeS1TfFHjD2QEoSYTTNil0HG65uUmD2AEILtA3sQ5u8hGpS+
-AC+bfinhYnPESceOk2j+iy9s4NaG3F69xnKfFDejYnlqEm6c/J5bzd5hnBYw/otc
-enNRxiuoyk8xMa+eFJ2zNwH/wFo6xzR77aIc4T5wyHjZaetH6BHGSsJFacaEKUQL
-XGbrchoN03c/R5pP51gs
-=BzI+
------END PGP SIGNATURE-----
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
 
---HB4mHL4PVvkpZAgW--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
