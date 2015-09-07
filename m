@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] openvswitch: Remove conntrack Kconfig option.
-Date: Sun, 06 Sep 2015 23:48:48 -0700 (PDT)
-Message-ID: <20150906.234848.1038487585913518678.davem@davemloft.net>
-References: <1441397260-61272-1-git-send-email-joestringer@nicira.com>
+Subject: Re: [PATCH] fixed_phy: pass 'irq' to fixed_phy_add()
+Date: Sun, 06 Sep 2015 23:49:48 -0700 (PDT)
+Message-ID: <20150906.234948.490398330420454086.davem@davemloft.net>
+References: <3613326.r1qXWqo08b@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: joestringer@nicira.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	linux-kernel@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42067 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42073 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753827AbbIGGsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 02:48:53 -0400
-In-Reply-To: <1441397260-61272-1-git-send-email-joestringer@nicira.com>
+	with ESMTP id S1751106AbbIGGtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 02:49:49 -0400
+In-Reply-To: <3613326.r1qXWqo08b@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joestringer@nicira.com>
-Date: Fri,  4 Sep 2015 13:07:40 -0700
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 03 Sep 2015 23:22:16 +0300
 
-> There's no particular desire to have conntrack action support in Open
-> vSwitch as an independently configurable bit, rather just to ensure
-> there is not a hard dependency. This exposed option doesn't accurately
-> reflect the conntrack dependency when enabled, so simplify this by
-> removing the option. Compile the support if NF_CONNTRACK is enabled.
+> I've noticed  that fixed_phy_register() ignores its 'irq' parameter instead of
+> passing it to fixed_phy_add(). Luckily, fixed_phy_register()  seems to  always
+> be  called with PHY_POLL  for 'irq'... :-)
 > 
-> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Fixes: a75951217472 ("net: phy: extend fixed driver with fixed_phy_register()")
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 Applied, thanks.
