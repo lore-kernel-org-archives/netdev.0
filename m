@@ -1,71 +1,112 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH v2] stmmac: fix check for phydev being open
-Date: Mon, 7 Sep 2015 21:08:17 +0000
-Message-ID: <1441660096.4998.1.camel@synopsys.com>
-References: <1441659019-25522-1-git-send-email-abrodkin@synopsys.com>
-	 <55EDF930.10601@cogentembedded.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: slab-nomerge (was Re: [git pull] device mapper changes for 4.3)
+Date: Mon, 7 Sep 2015 23:17:15 +0200
+Message-ID: <20150907231715.0a375b40@redhat.com>
+References: <CA+55aFyepmdpbg9U2Pvp+aHjKmmGCrTK2ywzqfmaOTMXQasYNw@mail.gmail.com>
+	<20150903005115.GA27804@redhat.com>
+	<CA+55aFxpH6-XD97dOsuGvwozyV=28eBsxiKS901h8PFZrxaygw@mail.gmail.com>
+	<20150903060247.GV1933@devil.localdomain>
+	<CA+55aFxftNVWVD7ujseqUDNgbVamrFWf0PVM+hPnrfmmACgE0Q@mail.gmail.com>
+	<20150904032607.GX1933@devil.localdomain>
+	<CA+55aFzBTL=DnC4zv6yxjk0HxwxWpOhpKDPA8zkTGdgbh08sEg@mail.gmail.com>
+	<20150907113026.5bb28ca3@redhat.com>
+	<CA+55aFym-dM37xtvKjddMheSV9vPUq=tnN9FoFvEgD0QWW22sg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-7"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55EDF930.10601@cogentembedded.com>
-Content-Language: en-US
-Content-ID: <A57D41AAD6C4414C9E9511F3ECF1A46D@internal.synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Dave Chinner <dchinner@redhat.com>, Mike Snitzer <snitzer@redhat.com>,
+        Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>,
+        Andrew
+ Morton <akpm@linux-foundation.org>,
+        David Rientjes <rientjes@google.com>,
+        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+        "dm-devel@redhat.com"
+ <dm-devel@redhat.com>,
+        Alasdair G Kergon <agk@redhat.com>, Joe Thornber
+ <ejt@redhat.com>,
+        Mikulas Patocka <mpatocka@redhat.com>,
+        Vivek Goyal
+ <vgoyal@redhat.com>,
+        Sami Tolvanen <samitolvanen@google.com>,
+        Viresh Kumar
+ <viresh.kumar@linaro.org>,
+        Heinz Mauelshagen <heinzm@redhat.com>, linux-mm
+ <linux-mm@kvack.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>, brouer@redhat.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CA+55aFym-dM37xtvKjddMheSV9vPUq=tnN9FoFvEgD0QWW22sg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+On Mon, 7 Sep 2015 13:22:13 -0700
+Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-On Mon, 2015-09-07 at 23:53 +-0300, Sergei Shtylyov wrote:
-+AD4- On 09/07/2015 11:50 PM, Alexey Brodkin wrote:
-+AD4- 
-+AD4- +AD4- Current implementation via IS+AF8-ERR(phydev) may make no sense because
-+AD4- +AD4- of+AF8-phy+AF8-attach() returns NULL on failure instead of error value.
-+AD4- +AD4- 
-+AD4- +AD4- Still for checking result of phy+AF8-connect() IS+AF8-ERR() is useful.
-+AD4- +AD4- 
-+AD4- +AD4- To address both situations we use combined IS+AF8-ERR+AF8-OR+AF8-NULL() check.
-+AD4- +AD4- 
-+AD4- +AD4- Cc: Giuseppe Cavallaro +ADw-peppe.cavallaro+AEA-st.com+AD4-
-+AD4- +AD4- Cc: linux-kernel+AEA-vger.kernel.org
-+AD4- +AD4- Cc: stable+AEA-vger.kernel.org
-+AD4- +AD4- Cc: David Miller +ADw-davem+AEA-davemloft.net+AD4-
-+AD4- +AD4- Cc: Sergei Shtylyov +ADw-sergei.shtylyov+AEA-cogentembedded.com+AD4-
-+AD4- +AD4- Signed-off-by: Alexey Brodkin +ADw-abrodkin+AEA-synopsys.com+AD4-
-+AD4- +AD4- ---
-+AD4- +AD4- 
-+AD4- +AD4- Changes compared to v1:
-+AD4- +AD4-   +ACo- Use IS+AF8-ERR+AF8-OR+AF8-NULL() instead of discrete checks for null and err
-+AD4- +AD4- 
-+AD4- +AD4-   drivers/net/ethernet/stmicro/stmmac/stmmac+AF8-main.c +AHw- 2 +--
-+AD4- +AD4-   1 file changed, 1 insertion(+-), 1 deletion(-)
-+AD4- +AD4- 
-+AD4- +AD4- diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac+AF8-main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac+AF8-main.c
-+AD4- +AD4- index 864b476..7985d8a 100644
-+AD4- +AD4- --- a/drivers/net/ethernet/stmicro/stmmac/stmmac+AF8-main.c
-+AD4- +AD4- +-+-+- b/drivers/net/ethernet/stmicro/stmmac/stmmac+AF8-main.c
-+AD4- +AD4- +AEAAQA- -837,7 +-837,7 +AEAAQA- static int stmmac+AF8-init+AF8-phy(struct net+AF8-device +ACo-dev)
-+AD4- +AD4-   				     interface)+ADs-
-+AD4- +AD4-   	+AH0-
-+AD4- +AD4- 
-+AD4- +AD4- -	if (IS+AF8-ERR(phydev)) +AHs-
-+AD4- +AD4- +-	if (IS+AF8-ERR+AF8-OR+AF8-NULL(phydev)) +AHs-
-+AD4- +AD4-   		pr+AF8-err(+ACIAJQ-s: Could not attach to PHY+AFw-n+ACI-, dev-+AD4-name)+ADs-
-+AD4- +AD4-   		return PTR+AF8-ERR(phydev)+ADs-
-+AD4- 
-+AD4-     Hm, in case of phydev +AD0APQ- NULL, you're going to return 0 here... is that 
-+AD4- what you want?
+> On Mon, Sep 7, 2015 at 2:30 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> >
+> > The slub allocator have a faster "fastpath", if your workload is
+> > fast-reusing within the same per-cpu page-slab, but once the workload
+> > increases you hit the slowpath, and then slab catches up. Slub looks
+> > great in micro-benchmarking.
+> >
+> > And with "slab_nomerge" I get even high performance:
+> 
+> I think those two are related.
+> 
+> Not merging means that effectively the percpu caches end up being
+> bigger (simply because there are more of them), and so it captures
+> more of the fastpath cases.
 
-Ah, right.
+Yes, that was also my theory.  As manually tuning the percpu sizes gave
+me almost the same boost.
 
-So then the question would be what's a proper error code for +ACE-phydev:
--ENOENT or -ENODEV?
 
--Alexey
+> Obviously the percpu queue size is an easy tunable too, but there are
+> real downsides to that too. 
+
+The easy fix is to introduce a subsystem specific percpu cache that is
+large enough for our use-case.  That seems to be a trend. I'm hoping to
+come up with something smarter that every subsystem can benefit from. 
+E.g some heuristic that can dynamic adjust SLUB according to the usage
+pattern. I can imagine something as simple as a counter for every
+slowpath call, that is only valid as long as the jiffies count matches
+(reset to zero, and store new jiffies cnt).  (But I have not thought
+this through...)
+
+
+> I suspect your IP forwarding case isn't so
+> different from some of the microbenchmarks, it just has more
+> outstanding work..
+
+Yes, I will admit that my testing is very close to micro benchmarking,
+and it is specifically designed to pressure the system to its limits[1].
+Especially the minimum frame size is evil and unrealistic, but the real
+purpose is preparing the stack for increasing speeds like 100Gbit/s.
+
+
+> And yes, the slow path (ie not hitting in the percpu cache) of SLUB
+> could hopefully be optimizable too, although maybe the bulk patches
+> are the way to go (and unrelated to this thread - at least part of
+> your bulk patches actually got merged last Friday - they were part of
+> Andrew's patch-bomb).
+
+Cool. Yes, it is only part of the bulk patches. The real performance
+boosters are not in yet (but I need to make them work correctly with
+memory debugging enabled before they can get merged).  At least the
+main API is in, which allows me to implement use-case easier in other
+subsystems :-)
+
+[1] http://netoptimizer.blogspot.dk/2014/09/packet-per-sec-measurements-for.html
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
