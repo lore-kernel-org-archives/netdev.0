@@ -1,116 +1,189 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: [PATCH net 1/1] r8169: fix sleepable allocation during netdevice
- stats retrieval.
-Date: Mon, 7 Sep 2015 16:43:13 +0200
-Message-ID: <55EDA281.3030706@gmail.com>
-References: <55E9A518.3080906@gmail.com>
- <20150904.113657.2146226970417029162.davem@davemloft.net>
- <20150904205904.GA32346@electric-eye.fr.zoreil.com>
- <20150906101954.GE30539@calimero.vinschen.de> <55ED391C.2090906@gmail.com>
- <20150907085023.GA17511@calimero.vinschen.de>
+From: Corinna Vinschen <vinschen@redhat.com>
+Subject: Re: [PATCH net 3/3] r8169: increase the lifespan of the hardware
+ counters dump area.
+Date: Mon, 7 Sep 2015 16:44:12 +0200
+Message-ID: <20150907144412.GA26524@calimero.vinschen.de>
+References: <cover.1441454454.git.romieu@fr.zoreil.com>
+ <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
+ <20150906103732.GF30539@calimero.vinschen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Mike Massonnet <m8t@gandi.net>,
-	Benedikt Meurer <benedikt.meurer@unix-ag.uni-siegen.de>,
-	Bernhard Walle <bernhard.walle@gmx.de>,
-	Hendrik Scholz <hscholz@raisdorf.net>,
-	Florian Rivoal <frivoal@xfce.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="jRHKVT23PllUwdXP"
+To: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, pomidorabelisima@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:32797 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050AbbIGOnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 10:43:17 -0400
-Received: by wiclk2 with SMTP id lk2so91140675wic.0
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 07:43:16 -0700 (PDT)
-In-Reply-To: <20150907085023.GA17511@calimero.vinschen.de>
+Received: from mail-n.franken.de ([193.175.24.27]:40835 "EHLO
+	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbbIGOoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 10:44:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20150906103732.GF30539@calimero.vinschen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07.09.2015 10:50, Corinna Vinschen wrote:
-> On Sep  7 09:13, poma wrote:
->> On 06.09.2015 12:19, Corinna Vinschen wrote:
->>> On Sep  4 22:59, Francois Romieu wrote:
->>>>  Applies against davem's net as of f1ccbfce2fc787981d1182d09c1f6b67766783a8.
->>>>
->>>>  drivers/net/ethernet/realtek/r8169.c | 2 +-
->>>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
->>>> index 24dcbe6..56829ea 100644
->>>> --- a/drivers/net/ethernet/realtek/r8169.c
->>>> +++ b/drivers/net/ethernet/realtek/r8169.c
->>>> @@ -2200,7 +2200,7 @@ static struct rtl8169_counters *rtl8169_map_counters(struct net_device *dev,
->>>>  	struct rtl8169_counters *counters;
->>>>  	u32 cmd;
->>>>  
->>>> -	counters = dma_alloc_coherent(d, sizeof(*counters), paddr, GFP_KERNEL);
->>>> +	counters = dma_alloc_coherent(d, sizeof(*counters), paddr, GFP_ATOMIC);
->>>>  	if (counters) {
->>>>  		RTL_W32(CounterAddrHigh, (u64)*paddr >> 32);
->>>>  		cmd = (u64)*paddr & DMA_BIT_MASK(32);
->>>> -- 
->>>> 2.4.3
->>> [...]
->> 1. Reverted to r8169.c?id=eb78139
->>    - the noise is still present
->> 2. Patches applied - Francois Romieu (3):
->>    r8169: decouple the counters data and the device private area.
->>    r8169: move rtl_reset_counters_cond before the hardware counters helpers.
->>    r8169: increase the lifespan of the hardware counters dump area.
->>    - the noise is still present
-> 
-> Sure you tested the right code?  I'm just asking because...
-> 
->> [   70.016445]  [<ffffffff81847841>] dump_stack+0x4b/0x63
->> [   70.016456]  [<ffffffff811008c7>] lockdep_rcu_suspicious+0xd7/0x110
->> [   70.016465]  [<ffffffff810d5297>] ___might_sleep+0xa7/0x230
->> [   70.016472]  [<ffffffff810d5469>] __might_sleep+0x49/0x80
->> [   70.016481]  [<ffffffff811e54ce>] __alloc_pages_nodemask+0x2fe/0xb90
->> [   70.016490]  [<ffffffff8112197d>] ? debug_lockdep_rcu_enabled+0x1d/0x20
->> [   70.016499]  [<ffffffff81024ab9>] ? sched_clock+0x9/0x10
->> [   70.016507]  [<ffffffff810e24ac>] ? local_clock+0x1c/0x20
->> [   70.016514]  [<ffffffff8112197d>] ? debug_lockdep_rcu_enabled+0x1d/0x20
->> [   70.016524]  [<ffffffff810218e6>] dma_generic_alloc_coherent+0x96/0x130
->> [   70.016534]  [<ffffffff81069865>] x86_swiotlb_alloc_coherent+0x25/0x50
->> [   70.016541]  [<ffffffff810215fd>] dma_alloc_attrs+0x6d/0xe0
->> [   70.016555]  [<ffffffffa003525e>] rtl8169_map_counters+0x3e/0x70 [r8169]
-> 
-> ...rtl8169_map_counters only exists before Francois patch.  The patch
-> removes this function.
-> 
-> 
-> Corinna
-> 
 
-I do not know, is this OK?
+--jRHKVT23PllUwdXP
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-$ rpm -i https://kojipkgs.fedoraproject.org/packages/kernel/4.3.0/0.rc0.git7.1.fc24/src/kernel-4.3.0-0.rc0.git7.1.fc24.src.rpm
-$ rpmbuild -bp rpmbuild/SPECS/kernel.spec
-$ cd rpmbuild/BUILD/kernel-4.2.fc24/linux-4.3.0-0.rc0.git7.1.fc24.x86_64/
+On Sep  6 12:37, Corinna Vinschen wrote:
+> On Sep  5 14:18, romieu@fr.zoreil.com wrote:
+> > From: Francois Romieu <romieu@fr.zoreil.com>
+> >=20
+> > net/core/net-sysfs.c::netstat_show retrieves stats with spinlock held.
+> >=20
+> > This change avoids sleepable allocation and performs some housekeeping:
+> > - receive ring, transmit ring and counters dump area allocation failures
+> >   are all considered fatal during open()
+> > - netif_warn is now redundant with rtl_reset_counters_cond built-in
+> >   failure message.
+> > - rtl_reset_counters_cond induced failures in open() are also considered
+> >   fatal: it takes acceptable work to unwind comfortably.
+>=20
+> Why?  The counter reset is not a fatal condition for the operation of
+> the NIC.  Even if the counters show incorrect values, the normal
+> operation of the NIC is not affected.  And to top that off, even if
+> resetting the counters actually doesn't work, the driver keeps the
+> offset values, so a failed reset won't even harm the statistics.  It
+> just doesn't make sense to break the NIC operation for such a minor
+> problem.  And worse:
+>=20
+> > -static bool rtl8169_reset_counters(struct net_device *dev)
+> > +static int rtl8169_reset_counters(struct net_device *dev)
+> >  {
+> >  	struct rtl8169_private *tp =3D netdev_priv(dev);
+> > -	struct rtl8169_counters *counters;
+> > -	dma_addr_t paddr;
+> > -	bool ret =3D true;
+> > =20
+> >  	/*
+> >  	 * Versions prior to RTL_GIGA_MAC_VER_19 don't support resetting the
+> >  	 * tally counters.
+> >  	 */
+> >  	if (tp->mac_version < RTL_GIGA_MAC_VER_19)
+> > -		return true;
+> > -
+> > -	counters =3D rtl8169_map_counters(dev, &paddr, CounterReset);
+> > -	if (!counters)
+> > -		return false;
+> > -
+> > -	if (!rtl_udelay_loop_wait_low(tp, &rtl_reset_counters_cond, 10, 1000))
+> > -		ret =3D false;
+> > -
+> > -	rtl8169_unmap_counters(dev, paddr, counters);
+> > +		return -EINVAL;
+>=20
+> This returns -EINVAL even for older chip versions which are not capable
+> of resetting the counters.  The result is, this driver will not work at
+> all on chip versions prior to RTL_GIGA_MAC_VER_19 anymore, because
+> rtl_open will always fail.
+>=20
+> Other then that, I can test the patch probably tomorrow.
 
-$ curl -s "http://marc.info/?l=linux-netdev&m=144145559429943&q=raw" | patch -p1
-patching file drivers/net/ethernet/realtek/r8169.c
-patch unexpectedly ends in middle of line
-$ curl -s "http://marc.info/?l=linux-netdev&m=144145559729944&q=raw" | patch -p1
-patching file drivers/net/ethernet/realtek/r8169.c
-patch unexpectedly ends in middle of line
-$ curl -s "http://marc.info/?l=linux-netdev&m=144145558929942&q=raw" | patch -p1
-patching file drivers/net/ethernet/realtek/r8169.c
-patch unexpectedly ends in middle of line
+I have a bit of a problem with this patch.  It crashes when loading the
+driver manually w/ modprobe.  For some reason dev_get_stats is called
+during rtl_init_one and at that time the counters pointer is NULL, so
+the kernel gets a SEGV.  After I worked around that I got a SEGV in
+rtl_remove_one, which I still have to find out why.  I didn't test with
+the latest kernel, though, so I still have to check if that's the reason
+for the crashes.  That takes a bit longer, I just wanted to let you
+know.
 
-$ sed -i 's/PATCHLEVEL = 2/PATCHLEVEL = 3/' Makefile
-$ sed -i 's/EXTRAVERSION =/EXTRAVERSION = -0.rc0.git7.1.fc24.x86_64/' Makefile
+There's also a problem with rtl8169_cmd_counters:  It always calls
+rtl_udelay_loop_wait_low w/ rtl_reset_counters_cond, even when called
+=66rom rtl8169_update_counters, where it should call
+rtl_udelay_loop_wait_low w/ rtl_counters_cond to check for the
+CounterDump flag, rather than for the CounterReset flag.
 
-$ make -j drivers/net/ethernet/realtek/r8169.ko
-$ su
-# cp drivers/net/ethernet/realtek/r8169.ko /usr/lib/modules/4.3.0-0.rc0.git7.1.fc24.x86_64/updates/
-# depmod 
+For now I applied the below patch, but I think it's a bit ugly to
+conditionalize the rtl_cond struct by the incoming flag value.
 
-# dracut -f --kver 4.3.0-0.rc0.git7.1.fc24.x86_64 
-# lsinitrd --kver 4.3.0-0.rc0.git7.1.fc24.x86_64 | grep r8169
-... usr/lib/modules/4.3.0-0.rc0.git7.1.fc24.x86_64/updates/r8169.ko
 
-# systemctl reboot
+Corinna
+
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/re=
+altek/r8169.c
+index ae07567..cd7adbf 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -2200,6 +2200,13 @@ DECLARE_RTL_COND(rtl_reset_counters_cond)
+ 	return RTL_R32(CounterAddrLow) & CounterReset;
+ }
+=20
++DECLARE_RTL_COND(rtl_counters_cond)
++{
++	void __iomem *ioaddr =3D tp->mmio_addr;
++
++	return RTL_R32(CounterAddrLow) & CounterDump;
++}
++
+ static int rtl8169_cmd_counters(struct net_device *dev, u32 counter_cmd)
+ {
+ 	struct rtl8169_private *tp =3D netdev_priv(dev);
+@@ -2212,7 +2219,10 @@ static int rtl8169_cmd_counters(struct net_device *d=
+ev, u32 counter_cmd)
+ 	RTL_W32(CounterAddrLow, cmd);
+ 	RTL_W32(CounterAddrLow, cmd | counter_cmd);
+=20
+-	return rtl_udelay_loop_wait_low(tp, &rtl_reset_counters_cond, 10, 1000);
++	return rtl_udelay_loop_wait_low(tp,
++		counter_cmd =3D=3D CounterDump ? &rtl_counters_cond :
++					     &rtl_reset_counters_cond,
++		10, 1000);
+ }
+=20
+ static int rtl8169_reset_counters(struct net_device *dev)
+@@ -2229,13 +2239,6 @@ static int rtl8169_reset_counters(struct net_device =
+*dev)
+ 	return rtl8169_cmd_counters(dev, CounterReset);
+ }
+=20
+-DECLARE_RTL_COND(rtl_counters_cond)
+-{
+-	void __iomem *ioaddr =3D tp->mmio_addr;
+-
+-	return RTL_R32(CounterAddrLow) & CounterDump;
+-}
+-
+ static int rtl8169_update_counters(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp =3D netdev_priv(dev);
+@@ -7800,8 +7803,11 @@ rtl8169_get_stats64(struct net_device *dev, struct r=
+tnl_link_stats64 *stats)
+=20
+ 	/*
+ 	 * Fetch additonal counter values missing in stats collected by driver
+-	 * from tally counters.
++	 * from tally counters, but only if we're already initialized.
+ 	 */
++	if (!counters)
++	  return stats;
++
+ 	rtl8169_update_counters(dev);
+=20
+ 	/*
+
+--jRHKVT23PllUwdXP
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJV7aK8AAoJEPU2Bp2uRE+gmJkP/iCt9knHh7GQT89Xb7i8gD9U
+UXnaf857i4j40kS+sxwE/i7NG2kFlYAAaqjn7ReNOtjKshLr5C1JBQxSDoIvrRcc
+msw3sITCY1s/dBhXAYtT42pNGLbd83P7K+gayyMNUDD9vGnoHfUn7oRQl7BavT7X
+rnADyrnL+8AC2d1k+la8XbtMClUTkz8VO+yfi7vz923tO6stJ+5ZzvaqLYnhcJwd
+m6Cv9ZmXmEcfofdAkxPbYYPDKbb4uuvVep92YP/maHrLreMYQFj5AuhbT/uPSPxQ
+9drmjboBoji0TZCGgVUXBeczhTEg9mKo9JVL11vQVUPFGY4QMqC0Ad3L5TMPs19y
+gD2S6QlScelMeB9WC6Zf/SsxHV1H4EzoND4dh3ihxzVjSV9fO8pVsB++XIYqTc7R
+nuxDQq/O9NkTU32DEDfwXMikD153NGnCpmTmDju2CBOkXbTzUobMVxpCx7t/ZNkI
+mcr3Hw9h7pflsFjsk8I0QYoOL/OadH6wYsgjfgTvM8xXioPAOLMi4bDfAEND7BAV
+9bwa6BEgyVpzjUqp4I5UM63dgAH1om/j3Gy/qN4ua+NTRARaMEuHwlKD05Y8VGrN
+wmQ8fdb2I8cmgjLdz4NUWPW0tNfvPGTt0AwvoIN0WbD8AH6KhnVcy0vg8uIxpIwl
+Wqq4wLsHPG68JmFtBB4g
+=XlMR
+-----END PGP SIGNATURE-----
+
+--jRHKVT23PllUwdXP--
