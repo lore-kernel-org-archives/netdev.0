@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fixed_phy: pass 'irq' to fixed_phy_add()
-Date: Sun, 06 Sep 2015 23:49:48 -0700 (PDT)
-Message-ID: <20150906.234948.490398330420454086.davem@davemloft.net>
-References: <3613326.r1qXWqo08b@wasted.cogentembedded.com>
+Subject: Re: [PATCH net 3/3] r8169: increase the lifespan of the hardware
+ counters dump area.
+Date: Mon, 07 Sep 2015 00:05:30 -0700 (PDT)
+Message-ID: <20150907.000530.2280325695730676502.davem@davemloft.net>
+References: <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
+	<20150906103732.GF30539@calimero.vinschen.de>
+	<20150906202153.GB19371@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
+Cc: netdev@vger.kernel.org, pomidorabelisima@gmail.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42073 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42140 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106AbbIGGtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 02:49:49 -0400
-In-Reply-To: <3613326.r1qXWqo08b@wasted.cogentembedded.com>
+	with ESMTP id S1753429AbbIGHFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 03:05:31 -0400
+In-Reply-To: <20150906202153.GB19371@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Thu, 03 Sep 2015 23:22:16 +0300
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Sun, 6 Sep 2015 22:21:53 +0200
 
-> I've noticed  that fixed_phy_register() ignores its 'irq' parameter instead of
-> passing it to fixed_phy_add(). Luckily, fixed_phy_register()  seems to  always
-> be  called with PHY_POLL  for 'irq'... :-)
+> Corinna Vinschen <vinschen@redhat.com> :
+>> On Sep  5 14:18, romieu@fr.zoreil.com wrote:
+> [...]
+>> > - rtl_reset_counters_cond induced failures in open() are also considered
+>> >   fatal: it takes acceptable work to unwind comfortably.
+>> 
+>> Why?
 > 
-> Fixes: a75951217472 ("net: phy: extend fixed driver with fixed_phy_register()")
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> Crap, my description does not match the code wrt rtl_reset_counters_cond. :o/
+> 
+> s/rtl8169_reset_counters/rtl8169_update_counters/g
+> 
+> The code is right.
 
-Applied, thanks.
+Please resubmit with fixed commit log messages, thanks!
