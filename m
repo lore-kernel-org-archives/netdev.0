@@ -1,99 +1,106 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: slab-nomerge (was Re: [git pull] device mapper changes for 4.3)
-Date: Mon, 7 Sep 2015 11:30:26 +0200
-Message-ID: <20150907113026.5bb28ca3@redhat.com>
-References: <CA+55aFyepmdpbg9U2Pvp+aHjKmmGCrTK2ywzqfmaOTMXQasYNw@mail.gmail.com>
-	<20150903005115.GA27804@redhat.com>
-	<CA+55aFxpH6-XD97dOsuGvwozyV=28eBsxiKS901h8PFZrxaygw@mail.gmail.com>
-	<20150903060247.GV1933@devil.localdomain>
-	<CA+55aFxftNVWVD7ujseqUDNgbVamrFWf0PVM+hPnrfmmACgE0Q@mail.gmail.com>
-	<20150904032607.GX1933@devil.localdomain>
-	<CA+55aFzBTL=DnC4zv6yxjk0HxwxWpOhpKDPA8zkTGdgbh08sEg@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH v3] drivers: net: cpsw: Add support to drive gpios for ethernet to be functional
+Date: Mon, 7 Sep 2015 15:16:44 +0530
+Message-ID: <1441619204-15403-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Dave Chinner <dchinner@redhat.com>,
-        Mike Snitzer
- <snitzer@redhat.com>, Christoph Lameter <cl@linux.com>,
-        Pekka Enberg
- <penberg@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        David
- Rientjes <rientjes@google.com>,
-        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-        "dm-devel@redhat.com" <dm-devel@redhat.com>,
-        Alasdair G Kergon
- <agk@redhat.com>, Joe Thornber <ejt@redhat.com>,
-        Mikulas Patocka
- <mpatocka@redhat.com>,
-        Vivek Goyal <vgoyal@redhat.com>,
-        Sami Tolvanen
- <samitolvanen@google.com>,
-        Viresh Kumar <viresh.kumar@linaro.org>,
-        Heinz
- Mauelshagen <heinzm@redhat.com>, linux-mm <linux-mm@kvack.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CA+55aFzBTL=DnC4zv6yxjk0HxwxWpOhpKDPA8zkTGdgbh08sEg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Tony Lindgren <tony@atomide.com>, Sekhar Nori <nsekhar@ti.com>,
+	<linux-omap@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:35259 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751018AbbIGJrB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Sep 2015 05:47:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+In DRA72x EVM, by default slave 1 is connected to the onboard
+phy, but slave 2 pins are also muxed with video input module
+which is controlled by pcf857x gpio and currently to select slave
+0 to connect to phy gpio hogging is used, but with
+omap2plus_defconfig the pcf857x gpio is built as module. So when
+using NFS on DRA72x EVM, board doesn't boot as gpio hogging do
+not set proper gpio state to connect slave 0 to phy as it is
+built as module and you do not see any errors for not setting
+gpio and just mentions dhcp reply not got.
 
-On Thu, 3 Sep 2015 20:51:09 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
+To solve this issue, introducing "mode-gpios" in DT when gpio
+based muxing is required. This will throw a warning when gpio
+get fails and returns probe defer. When gpio-pcf857x module is
+installed, cpsw probes again and ethernet becomes functional.
+Verified this on DRA72x with pcf as module and ramdisk.
 
-> On Thu, Sep 3, 2015 at 8:26 PM, Dave Chinner <dchinner@redhat.com> wrote:
-> >
-> > The double standard is the problem here. No notification, proof,
-> > discussion or review was needed to turn on slab merging for
-> > everyone, but you're setting a very high bar to jump if anyone wants
-> > to turn it off in their code.
-> 
-> Ehh. You realize that almost the only load that is actually seriously
-> allocator-limited is networking?
-> 
-> And slub was beating slab on that? And slub has been doing the merging
-> since day one. Slab was just changed to try to keep up with the
-> winning strategy.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
 
-Sorry, I have to correct you on this.  The slub allocator is not as
-fast as you might think.  The slab allocator is actually faster for
-networking.
+Changes from v2:
+* Used mode-gpios, so that the driver is generic enough to handle
+  multiple gpios
 
-IP-forwarding, single CPU, single flow UDP (highly tuned):
- * Allocator slub: 2043575 pps
- * Allocator slab: 2088295 pps
+This patch is tested on DRA72x, Logs [1] and pushed a branch [2]
 
-Difference slab faster than slub:
- * +44720 pps and -10.48ns
+[1]: http://pastebin.ubuntu.com/12306224/
+[2]: git://git.ti.com/~mugunthanvnm/ti-linux-kernel/linux.git cpsw-gpio-optional-v3
 
-The slub allocator have a faster "fastpath", if your workload is
-fast-reusing within the same per-cpu page-slab, but once the workload
-increases you hit the slowpath, and then slab catches up. Slub looks
-great in micro-benchmarking.
+---
+ Documentation/devicetree/bindings/net/cpsw.txt | 7 +++++++
+ drivers/net/ethernet/ti/cpsw.c                 | 9 +++++++++
+ 2 files changed, 16 insertions(+)
 
-
-As you can see in patchset:
- [PATCH 0/3] Network stack, first user of SLAB/kmem_cache bulk free API.
- http://thread.gmane.org/gmane.linux.kernel.mm/137469/focus=376625
-
-I'm working on speeding up slub to the level of slab.  And it seems
-like I have succeeded with half-a-nanosec 2090522 pps (+2227 pps or
-0.51 ns).
-
-And with "slab_nomerge" I get even high performance:
- * slub: bulk-free and slab_nomerge: 2121824 pps
- * Diff to slub: +78249 and -18.05ns
-
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index a9df21a..676ecf6 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -30,6 +30,13 @@ Optional properties:
+ - dual_emac		: Specifies Switch to act as Dual EMAC
+ - syscon		: Phandle to the system control device node, which is
+ 			  the control module device of the am33x
++- mode-gpios		: Should be added if one/multiple gpio lines are
++			  required to be driven so that cpsw data lines
++			  can be connected to the phy via selective mux.
++			  For example in dra72x-evm, pcf gpio has to be
++			  driven low so that cpsw slave 0 and phy data
++			  lines are connected via mux.
++
+ 
+ Slave Properties:
+ Required properties:
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 8fc90f1..c670317 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -29,6 +29,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/delay.h>
+ #include <linux/pm_runtime.h>
++#include <linux/gpio.h>
+ #include <linux/of.h>
+ #include <linux/of_net.h>
+ #include <linux/of_device.h>
+@@ -2207,6 +2208,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	void __iomem			*ss_regs;
+ 	struct resource			*res, *ss_res;
+ 	const struct of_device_id	*of_id;
++	struct gpio_descs		*mode;
+ 	u32 slave_offset, sliver_offset, slave_size;
+ 	int ret = 0, i;
+ 	int irq;
+@@ -2232,6 +2234,13 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ndev_ret;
+ 	}
+ 
++	mode = devm_gpiod_get_array_optional(&pdev->dev, "mode", GPIOD_OUT_LOW);
++	if (IS_ERR(mode)) {
++		ret = PTR_ERR(mode);
++		dev_err(&pdev->dev, "gpio request failed, ret %d\n", ret);
++		goto clean_ndev_ret;
++	}
++
+ 	/*
+ 	 * This may be required here for child devices.
+ 	 */
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.6.0.rc0.24.gec371ff
