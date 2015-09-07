@@ -1,30 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6171: add hardware 802.1Q
- support
-Date: Sun, 06 Sep 2015 19:51:05 -0700 (PDT)
-Message-ID: <20150906.195105.1398878220974561564.davem@davemloft.net>
-References: <1441380144-26205-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
+From: Barry Song <21cnbao@gmail.com>
+Subject: [PATCH] dm9000: fix a typo
+Date: Mon,  7 Sep 2015 03:15:20 +0000
+Message-ID: <1441595720-31975-1-git-send-email-21cnbao@gmail.com>
+Cc: Barry Song <Baohua.Song@csr.com>
+To: davem@davemloft.net, nikita@compulab.co.il,
+	grinberg@compulab.co.il, jg1.han@samsung.com, mugunthanvnm@ti.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41061 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753715AbbIGCvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2015 22:51:07 -0400
-In-Reply-To: <1441380144-26205-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34608 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753208AbbIGDHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Sep 2015 23:07:47 -0400
+Received: by padhy16 with SMTP id hy16so79905606pad.1
+        for <netdev@vger.kernel.org>; Sun, 06 Sep 2015 20:07:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri,  4 Sep 2015 11:22:24 -0400
+From: Barry Song <Baohua.Song@csr.com>
 
-> The Marvell 88E6171 switch is in the 88E6351 family, which supports
-> 802.1Q, thus add support from the generic mv88e6xxx functions.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Barry Song <Baohua.Song@csr.com>
+---
+ drivers/net/ethernet/davicom/dm9000.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied.
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index c0a7813..cf94b72 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -1226,7 +1226,7 @@ static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
+ 	if (int_status & ISR_PRS)
+ 		dm9000_rx(dev);
+ 
+-	/* Trnasmit Interrupt check */
++	/* Transmit Interrupt check */
+ 	if (int_status & ISR_PTS)
+ 		dm9000_tx_done(dev, db);
+ 
+-- 
+1.9.1
