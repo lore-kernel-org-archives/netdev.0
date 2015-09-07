@@ -1,39 +1,63 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH v2] stmmac: fix check for phydev being open
-Date: Mon, 7 Sep 2015 21:26:20 +0000
-Message-ID: <1441661180.4998.5.camel@synopsys.com>
-References: <1441659019-25522-1-git-send-email-abrodkin@synopsys.com>
-	 <55EE008E.6040405@cogentembedded.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net 3/3] r8169: increase the lifespan of the hardware
+ counters dump area.
+Date: Mon, 7 Sep 2015 23:52:51 +0200
+Message-ID: <20150907215251.GA4897@electric-eye.fr.zoreil.com>
+References: <cover.1441454454.git.romieu@fr.zoreil.com>
+ <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
+ <20150906103732.GF30539@calimero.vinschen.de>
+ <20150907144412.GA26524@calimero.vinschen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-7"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <55EE008E.6040405@cogentembedded.com>
-Content-Language: en-US
-Content-ID: <059FAEE77F2E3F4CB1598884C7D83335@internal.synopsys.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	pomidorabelisima@gmail.com
+To: Corinna Vinschen <vinschen@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:60799 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbbIGVxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 17:53:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20150907144412.GA26524@calimero.vinschen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+Corinna Vinschen <vinschen@redhat.com> :
+[...]
+> I have a bit of a problem with this patch.  It crashes when loading the
+> driver manually w/ modprobe.  For some reason dev_get_stats is called
+> during rtl_init_one and at that time the counters pointer is NULL, so
+> the kernel gets a SEGV.
+>
+>  After I worked around that I got a SEGV in
+> rtl_remove_one, which I still have to find out why.  I didn't test with
+> the latest kernel, though, so I still have to check if that's the reason
+> for the crashes.  That takes a bit longer, I just wanted to let you
+> know.
 
-On Tue, 2015-09-08 at 00:24 +-0300, Sergei Shtylyov wrote:
-+AD4- On 09/07/2015 11:50 PM, Alexey Brodkin wrote:
-+AD4- 
-+AD4- +AD4- Current implementation via IS+AF8-ERR(phydev) may make no sense because
-+AD4- +AD4- of+AF8-phy+AF8-attach() returns NULL on failure instead of error value.
-+AD4- 
-+AD4-     Not of+AF8-phy+AF8-connect()?
+Call me stupid: I forgot that it's perfectly fine to request the stats
+of a down interface. :o/
 
-I already noticed this misspelling - it came from my exploration of
-what happens inside of+AF8-phy+AF8-connect(). So sort of braindump.
+Updated patch is on the way.
 
-I will fix in v3 re-spin.
+> There's also a problem with rtl8169_cmd_counters:  It always calls
+> rtl_udelay_loop_wait_low w/ rtl_reset_counters_cond, even when called
+> from rtl8169_update_counters, where it should call
+> rtl_udelay_loop_wait_low w/ rtl_counters_cond to check for the
+> CounterDump flag, rather than for the CounterReset flag.
+> 
+> For now I applied the below patch, but I think it's a bit ugly to
+> conditionalize the rtl_cond struct by the incoming flag value.
 
--Alexey
+<captain obvious>
+
+Let's check both at once:
+
+	return RTL_R32(CounterAddrLow) & (CounterDump | CounterReset);
+
+</captain obvious>
+
+Thanks for reviewing.
+
+-- 
+Ueimor
