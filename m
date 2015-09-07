@@ -1,70 +1,38 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH 1/3] net: introduce kfree_skb_bulk() user of kmem_cache_free_bulk()
-Date: Mon, 7 Sep 2015 09:25:49 -0700
-Message-ID: <CALx6S348WrCr1mCOCMsr7fnSRp1bDRaG+-G1B+gpCJ3a4JeUtQ@mail.gmail.com>
-References: <20150904165944.4312.32435.stgit@devil>
-	<20150904170046.4312.38018.stgit@devil>
-	<CALx6S36R2zGwj5XF0GZWPOC1Ng5HviPWxBM-cn=DDMXU9Auoxg@mail.gmail.com>
-	<20150907104101.3e392a6d@redhat.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH v4 18/20] net/xen-netback: Make it running on 64KB page
+ granularity
+Date: Mon, 7 Sep 2015 17:57:27 +0100
+Message-ID: <20150907165727.GT6436@zion.uk.xensource.com>
+References: <1441640038-23615-1-git-send-email-julien.grall@citrix.com>
+ <1441640038-23615-19-git-send-email-julien.grall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>, akpm@linux-foundation.org, linux-mm@kvack.org,
-	aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150907104101.3e392a6d@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xenproject.org>,
+	<linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
+	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:14116 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751287AbbIGQ5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Sep 2015 12:57:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1441640038-23615-19-git-send-email-julien.grall@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> What not pass a list of skbs (e.g. using skb->next)?
->
-> Because the next layer, the slab API needs an array:
->   kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
->
+You might need to rebase you patch. A patch to netback went it recently.
 
-I suppose we could ask the same question of that function. IMO
-encouraging drivers to define arrays of pointers on the stack like
-you're doing in the ixgbe patch is a bad direction.
+On Mon, Sep 07, 2015 at 04:33:56PM +0100, Julien Grall wrote:
+> The PV network protocol is using 4KB page granularity. The goal of this
+> patch is to allow a Linux using 64KB page granularity working as a
+> network backend on a non-modified Xen.
+> 
+> It's only necessary to adapt the ring size and break skb data in small
+> chunk of 4KB. The rest of the code is relying on the grant table code.
+> 
+> Signed-off-by: Julien Grall <julien.grall@citrix.com>
+> 
 
-In any case I believe this would be simpler in the networking side
-just to maintain a list of skb's to free. Then the dev_free_waitlist
-structure might not be needed then since we could just use a
-skb_buf_head for that.
-
-
-Tom
-
-> Look at the patch:
->  [PATCH V2 3/3] slub: build detached freelist with look-ahead
->  http://thread.gmane.org/gmane.linux.kernel.mm/137469/focus=137472
->
-> Where I use this array to progressively scan for objects belonging to
-> the same page.  (A subtle detail is I manage to zero out the array,
-> which is good from a security/error-handling point of view, as pointers
-> to the objects are not left dangling on the stack).
->
->
-> I cannot argue that, writing skb->next comes as an additional cost,
-> because the slUb free also writes into this cacheline.  Perhaps the
-> slAb allocator does not?
->
-> [...]
->> > +       if (likely(cnt)) {
->> > +               kmem_cache_free_bulk(skbuff_head_cache, cnt, (void **) skbs);
->> > +       }
->> > +}
->> > +EXPORT_SYMBOL(kfree_skb_bulk);
->
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Sr. Network Kernel Developer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
