@@ -1,116 +1,119 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net] cxgb4: Changes for new firmware 1.14.4.0
-Date: Mon,  7 Sep 2015 17:40:50 +0530
-Message-ID: <1441627850-5610-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net v3] ipv6: fix multipath route replace error recovery
+Date: Mon, 7 Sep 2015 14:37:56 +0200
+Message-ID: <55ED8524.8030109@6wind.com>
+References: <1441572402-39024-1-git-send-email-roopa@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mkubecek@suse.cz, Mazziesaccount@gmail.com,
+	hannes@stressinduktion.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12155 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750885AbbIGMKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 08:10:36 -0400
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:38291 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541AbbIGMh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Sep 2015 08:37:59 -0400
+Received: by wiclk2 with SMTP id lk2so82830302wic.1
+        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 05:37:58 -0700 (PDT)
+In-Reply-To: <1441572402-39024-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Incorporate fw_ldst_cmd structure change for new firmware and also
-update version string for the same
+Le 06/09/2015 22:46, Roopa Prabhu a =C3=A9crit :
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+I've sent you some comments about the v2, so please keep me in CC for t=
+he next
+versions.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h     | 33 +++++++++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h | 12 ++++-----
- 2 files changed, 37 insertions(+), 8 deletions(-)
+>
+> Problem:
+> The ecmp route replace support for ipv6 in the kernel, deletes the
+> existing ecmp route too early, ie when it installs the first nexthop.
+> If there is an error in installing the subsequent nexthops, its too l=
+ate
+> to recover the already deleted existing route
+>
+> This patch fixes the problem with the following:
+It does not really 'fix' the problem, it only reduces the probability t=
+o have
+an error. This is really different. The status is much better after thi=
+s patch,
+but it could be good to reword a bit the commitlog to reflect that.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index ab46746..a32de30 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -762,8 +762,6 @@ enum fw_ldst_func_mod_index {
- 
- struct fw_ldst_cmd {
- 	__be32 op_to_addrspace;
--#define FW_LDST_CMD_ADDRSPACE_S		0
--#define FW_LDST_CMD_ADDRSPACE_V(x)	((x) << FW_LDST_CMD_ADDRSPACE_S)
- 	__be32 cycles_to_len16;
- 	union fw_ldst {
- 		struct fw_ldst_addrval {
-@@ -788,6 +786,13 @@ struct fw_ldst_cmd {
- 			__be16 vctl;
- 			__be16 rval;
- 		} mdio;
-+		struct fw_ldst_cim_rq {
-+			u8 req_first64[8];
-+			u8 req_second64[8];
-+			u8 resp_first64[8];
-+			u8 resp_second64[8];
-+			__be32 r3[2];
-+		} cim_rq;
- 		union fw_ldst_mps {
- 			struct fw_ldst_mps_rplc {
- 				__be16 fid_idx;
-@@ -828,9 +833,33 @@ struct fw_ldst_cmd {
- 			__be16 nset_pkd;
- 			__be32 data[12];
- 		} pcie;
-+		struct fw_ldst_i2c_deprecated {
-+			u8 pid_pkd;
-+			u8 base;
-+			u8 boffset;
-+			u8 data;
-+			__be32 r9;
-+		} i2c_deprecated;
-+		struct fw_ldst_i2c {
-+			u8 pid;
-+			u8 did;
-+			u8 boffset;
-+			u8 blen;
-+			__be32 r9;
-+			__u8   data[48];
-+		} i2c;
-+		struct fw_ldst_le {
-+			__be32 index;
-+			__be32 r9;
-+			u8 val[33];
-+			u8 r11[7];
-+		} le;
- 	} u;
- };
- 
-+#define FW_LDST_CMD_ADDRSPACE_S		0
-+#define FW_LDST_CMD_ADDRSPACE_V(x)	((x) << FW_LDST_CMD_ADDRSPACE_S)
-+
- #define FW_LDST_CMD_MSG_S       31
- #define FW_LDST_CMD_MSG_V(x)	((x) << FW_LDST_CMD_MSG_S)
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-index 32b2135..58a0327 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-@@ -36,18 +36,18 @@
- #define __T4FW_VERSION_H__
- 
- #define T4FW_VERSION_MAJOR 0x01
--#define T4FW_VERSION_MINOR 0x0D
--#define T4FW_VERSION_MICRO 0x20
-+#define T4FW_VERSION_MINOR 0x0E
-+#define T4FW_VERSION_MICRO 0x04
- #define T4FW_VERSION_BUILD 0x00
- 
- #define T5FW_VERSION_MAJOR 0x01
--#define T5FW_VERSION_MINOR 0x0D
--#define T5FW_VERSION_MICRO 0x20
-+#define T5FW_VERSION_MINOR 0x0E
-+#define T5FW_VERSION_MICRO 0x04
- #define T5FW_VERSION_BUILD 0x00
- 
- #define T6FW_VERSION_MAJOR 0x01
--#define T6FW_VERSION_MINOR 0x0D
--#define T6FW_VERSION_MICRO 0x2D
-+#define T6FW_VERSION_MINOR 0x0E
-+#define T6FW_VERSION_MICRO 0x04
- #define T6FW_VERSION_BUILD 0x00
- 
- #endif
--- 
-2.3.4
+> a) Changes the existing multipath route add code to a two stage proce=
+ss:
+>    build rt6_infos + insert them
+> 	ip6_route_add rt6_info creation code is moved into
+> 	ip6_route_info_create.
+> b) This ensures that all errors are caught during building rt6_infos
+>    and we fail early
+> c) Separates multipath add and del code. Because add needs the specia=
+l
+>    two stage mode in a) and delete essentially does not care.
+> d) In any event if the code fails during inserting a route again, a
+>    warning is printed (This should be unlikely)
+>
+> Before the patch:
+> $ip -6 route show
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 102=
+4
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 102=
+4
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 102=
+4
+>
+> /* Try replacing the route with a duplicate nexthop */
+> $ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
+> fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
+> swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
+> RTNETLINK answers: File exists
+>
+> $ip -6 route show
+> /* previously added ecmp route 3000:1000:1000:1000::2 dissappears fro=
+m
+>   * kernel */
+>
+> After the patch:
+> $ip -6 route show
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 102=
+4
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 102=
+4
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 102=
+4
+>
+> /* Try replacing the route with a duplicate nexthop */
+> $ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
+> fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
+> swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
+> RTNETLINK answers: File exists
+>
+> $ip -6 route show
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 102=
+4
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 102=
+4
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 102=
+4
+>
+> Fixes: 27596472473a ("ipv6: fix ECMP route replacement")
+As said in the v2 thread, I still don't agree with this tag.
+
+[snip]
+> +static void ip6_print_replace_route_err(struct list_head *rt6_nh_lis=
+t)
+> +{
+> +	struct rt6_nh *nh;
+> +
+> +	list_for_each_entry(nh, rt6_nh_list, next) {
+> +		pr_warn("IPV6: replace premature del %pI6 nexthop %pI6 ifi %d\n",
+I don't think that a user (who didn't read the code) can understand thi=
+s
+sentence. Another suggestion:
+"ECMPv6: route replacement failed (check the consistency of the install=
+ed=20
+route)". Not sure that the nexthops should be listed after.
