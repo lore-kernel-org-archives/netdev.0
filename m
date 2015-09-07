@@ -1,40 +1,70 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH] ip link/addr show: add empty line between interfaces
-Date: Mon, 7 Sep 2015 17:54:11 +0200
-Message-ID: <20150907175411.491f9c96@griffin>
-References: <1441537269-13899-1-git-send-email-felix.kaiser@fxkr.net>
-	<20150907144609.3ec9f4d0@griffin>
-	<1441639971-sup-8473@zero>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC PATCH 1/3] net: introduce kfree_skb_bulk() user of kmem_cache_free_bulk()
+Date: Mon, 7 Sep 2015 09:25:49 -0700
+Message-ID: <CALx6S348WrCr1mCOCMsr7fnSRp1bDRaG+-G1B+gpCJ3a4JeUtQ@mail.gmail.com>
+References: <20150904165944.4312.32435.stgit@devil>
+	<20150904170046.4312.38018.stgit@devil>
+	<CALx6S36R2zGwj5XF0GZWPOC1Ng5HviPWxBM-cn=DDMXU9Auoxg@mail.gmail.com>
+	<20150907104101.3e392a6d@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Felix Kaiser <felix.kaiser@fxkr.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53106 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751283AbbIGPyP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Sep 2015 11:54:15 -0400
-In-Reply-To: <1441639971-sup-8473@zero>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>, akpm@linux-foundation.org, linux-mm@kvack.org,
+	aravinda@linux.vnet.ibm.com, Christoph Lameter <cl@linux.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, iamjoonsoo.kim@lge.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150907104101.3e392a6d@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 07 Sep 2015 17:38:48 +0200, Felix Kaiser wrote:
-> My opinion is that if someone parses that, they deserve the opportunity
-> to fix their code. At the very least they could have used -oneline!
+>> What not pass a list of skbs (e.g. using skb->next)?
+>
+> Because the next layer, the slab API needs an array:
+>   kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+>
 
-No doubt. I also don't like scripts that parse the default "ip a"
-output.
+I suppose we could ask the same question of that function. IMO
+encouraging drivers to define arrays of pointers on the stack like
+you're doing in the ixgbe patch is a bad direction.
 
-I just pointed out that there are different opinions and that it can
-have some consequences. Personally, I have no strong feeling against
-nor for the patch. It's up to Stephen to decide.
+In any case I believe this would be simpler in the networking side
+just to maintain a list of skb's to free. Then the dev_free_waitlist
+structure might not be needed then since we could just use a
+skb_buf_head for that.
 
-> I've met users who use a shell alias to hack newlines in
 
-Which is not a bad solution, actually.
+Tom
 
- Jiri
+> Look at the patch:
+>  [PATCH V2 3/3] slub: build detached freelist with look-ahead
+>  http://thread.gmane.org/gmane.linux.kernel.mm/137469/focus=137472
+>
+> Where I use this array to progressively scan for objects belonging to
+> the same page.  (A subtle detail is I manage to zero out the array,
+> which is good from a security/error-handling point of view, as pointers
+> to the objects are not left dangling on the stack).
+>
+>
+> I cannot argue that, writing skb->next comes as an additional cost,
+> because the slUb free also writes into this cacheline.  Perhaps the
+> slAb allocator does not?
+>
+> [...]
+>> > +       if (likely(cnt)) {
+>> > +               kmem_cache_free_bulk(skbuff_head_cache, cnt, (void **) skbs);
+>> > +       }
+>> > +}
+>> > +EXPORT_SYMBOL(kfree_skb_bulk);
+>
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Sr. Network Kernel Developer at Red Hat
+>   Author of http://www.iptv-analyzer.org
+>   LinkedIn: http://www.linkedin.com/in/brouer
 
--- 
-Jiri Benc
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
