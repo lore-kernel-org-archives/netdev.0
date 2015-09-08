@@ -1,63 +1,40 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net v3] ipv6: fix multipath route replace error recovery
-Date: Tue, 8 Sep 2015 11:55:18 +0200
-Message-ID: <55EEB086.7000100@6wind.com>
-References: <1441572402-39024-1-git-send-email-roopa@cumulusnetworks.com>
- <55EE2EEA.5040109@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mkubecek@suse.cz, Mazziesaccount@gmail.com,
-	hannes@stressinduktion.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: roopa <roopa@cumulusnetworks.com>, davem@davemloft.net
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net 0/2] Fix tx flit calculation and wc stat configuration
+Date: Tue,  8 Sep 2015 16:25:38 +0530
+Message-ID: <1441709740-7533-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:38093 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754180AbbIHJzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 05:55:33 -0400
-Received: by wiclk2 with SMTP id lk2so108812841wic.1
-        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 02:55:32 -0700 (PDT)
-In-Reply-To: <55EE2EEA.5040109@cumulusnetworks.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:8191 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753254AbbIHKzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 06:55:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/09/2015 02:42, roopa a =E9crit :
-> On 9/6/15, 1:46 PM, Roopa Prabhu wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Problem:
->> The ecmp route replace support for ipv6 in the kernel, deletes the
->> existing ecmp route too early, ie when it installs the first nexthop=
-=2E
->> If there is an error in installing the subsequent nexthops, its too =
-late
->> to recover the already deleted existing route
->>
->> This patch fixes the problem with the following:
->> a) Changes the existing multipath route add code to a two stage proc=
-ess:
->>    build rt6_infos + insert them
->>     ip6_route_add rt6_info creation code is moved into
->>     ip6_route_info_create.
->> b) This ensures that all errors are caught during building rt6_infos
->>    and we fail early
->>
-> The other way I have been thinking of solving the problem is to mark =
-the sibling
-> routes being replaced with some state
-> ...so they can be restored on error. Still figuring out a way to do t=
-his in a
-> clean and non-intrusive way.
-If I'm not wrong, the only error which may result to an inconsistent li=
-st of
-nexthops is ENOMEM (after your patch). I'm not sure it's worth to add t=
-oo much
-complexity to the code to handle this error.
+Hi,
 
-> Or maybe  just save the sibling routes (rt6_infos) being replaced in =
-a list and
-> re-insert them on error.
-Yes, but we can also fail to re-insert the route.
+This patch series fixes the following:
+Patch 1/2 fixes tx flit calculation, which if wrong can lead to 
+stall, hang, data corrpution, write combining failure. Patch 2/2 fixes 
+PCI-E write combining stats configuration.
+
+This patch series has been created against net tree and includes
+patches on cxgb4 driver.
+
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
+
+Thanks
+
+Hariprasad Shenai (2):
+  cxgb4: Fix tx flit calculation
+  cxgb4: Fix for write-combining stats configuration
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 7 +++++--
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        | 2 +-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+-- 
+2.3.4
