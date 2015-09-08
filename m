@@ -1,375 +1,86 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net v4] ipv6: fix multipath route replace error recovery
-Date: Tue,  8 Sep 2015 10:53:04 -0700
-Message-ID: <1441734784-34416-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: nicolas.dichtel@6wind.com, mkubecek@suse.cz,
-	Mazziesaccount@gmail.com, hannes@stressinduktion.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3] stmmac: fix check for phydev being open
+Date: Tue, 8 Sep 2015 22:53:51 +0300
+Message-ID: <55EF3CCF.4000608@cogentembedded.com>
+References: <1441701786-10789-1-git-send-email-abrodkin@synopsys.com>
+ <55EEC462.2000906@cogentembedded.com> <1441716387.21150.0.camel@synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34042 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751864AbbIHRxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 13:53:11 -0400
-Received: by padhy16 with SMTP id hy16so127880734pad.1
-        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 10:53:11 -0700 (PDT)
+Received: from mail-la0-f52.google.com ([209.85.215.52]:33334 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355AbbIHTxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 15:53:55 -0400
+Received: by lamp12 with SMTP id p12so74618043lam.0
+        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 12:53:54 -0700 (PDT)
+In-Reply-To: <1441716387.21150.0.camel@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Hello.
 
-Problem:
-The ecmp route replace support for ipv6 in the kernel, deletes the
-existing ecmp route too early, ie when it installs the first nexthop.
-If there is an error in installing the subsequent nexthops, its too late
-to recover the already deleted existing route leaving the fib
-in an inconsistent state.
+On 09/08/2015 03:46 PM, Alexey Brodkin wrote:
 
-This patch reduces the possibility of this by doing the following:
-a) Changes the existing multipath route add code to a two stage process:
-  build rt6_infos + insert them
-	ip6_route_add rt6_info creation code is moved into
-	ip6_route_info_create.
-b) This ensures that most errors are caught during building rt6_infos
-  and we fail early
-c) Separates multipath add and del code. Because add needs the special
-  two stage mode in a) and delete essentially does not care.
-d) In any event if the code fails during inserting a route again, a
-  warning is printed (This should be unlikely)
+>>> Current check of phydev with IS_ERR(phydev) may make not much sense
+>>> because of_phy_connect() returns NULL on failure instead of error value.
+>>>
+>>> Still for checking result of phy_connect() IS_ERR() makes perfect sense.
+>>>
+>>> So let's use combined check IS_ERR_OR_NULL() that covers both cases.
+>>>
+>>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>>> Cc: linux-kernel@vger.kernel.org
+>>> Cc: stable@vger.kernel.org
+>>> Cc: David Miller <davem@davemloft.net>
+>>> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+>>> ---
+>>>
+>>> Changes compared to v2:
+>>>    * Updated commit message with mention of of_phy_connect() instead of
+>>>      of_phy_attach().
+>>>    * Return ENODEV in case of of_phy_connect() failure
+>>>
+>>> Changes compared to v1:
+>>>    * Use IS_ERR_OR_NULL() instead of discrete checks for null and err
+>>>
+>>>    drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 7 +++++--
+>>>    1 file changed, 5 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>> index 864b476..e2c9c86 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>> @@ -837,9 +837,12 @@ static int stmmac_init_phy(struct net_device *dev)
+>>>    				     interface);
+>>>    	}
+>>>
+>>> -	if (IS_ERR(phydev)) {
+>>> +	if (IS_ERR_OR_NULL(phydev)) {
+>>>    		pr_err("%s: Could not attach to PHY\n", dev->name);
+>>> -		return PTR_ERR(phydev);
+>>> +		if (!phydev)
+>>> +			return -ENODEV;
+>>> +		else
+>>> +			return PTR_ERR(phydev);
+>>
+>>      Don't need *else* after *return* and scripts/checkpatch.pl should have
+>> complained about that.
+>
+> ./scripts/checkpatch.pl 0001-stmmac-fix-check-for-phydev-being-open.patch
+> total: 0 errors, 0 warnings, 0 checks, 14 lines checked
 
-Before the patch:
-$ip -6 route show
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 1024
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 1024
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 1024
+    Hm... I bet I saw such warning from checkpatch.pl recently (it was a false 
+positive though, so maybe the check was removed recently, not sure). Your 
+patch is clean indeed, however my comment is still valid.
 
-/* Try replacing the route with a duplicate nexthop */
-$ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
-fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
-swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
-RTNETLINK answers: File exists
+> -Alexey
 
-$ip -6 route show
-/* previously added ecmp route 3000:1000:1000:1000::2 dissappears from
- * kernel */
-
-After the patch:
-$ip -6 route show
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 1024
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 1024
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 1024
-
-/* Try replacing the route with a duplicate nexthop */
-$ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
-fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
-swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
-RTNETLINK answers: File exists
-
-$ip -6 route show
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 1024
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 1024
-3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 1024
-
-Fixes: 27596472473a ("ipv6: fix ECMP route replacement")
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-
-v1 - v2 : fix leak
-v2 - v3: fix 'Fixes' tag and warn msg (feedback from nicolas)
-         resending against net
-v3 - v4: reword warn msg (feedback from nicolas). I still print the
-         nexthops in the warning to help user know the offending
-         route replace. The msg is printed for each nexthop which I
-         think should be ok because this is consistent with all other cases
-         (notifications etc) where IPV6 multipath nexthops are
-         treated as individual routes and this warn should be very
-         unlikely.
----
- net/ipv6/route.c | 201 ++++++++++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 175 insertions(+), 26 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f45cac6..34539d3 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1748,7 +1748,7 @@ static int ip6_convert_metrics(struct mx6_config *mxc,
- 	return -EINVAL;
- }
- 
--int ip6_route_add(struct fib6_config *cfg)
-+int ip6_route_info_create(struct fib6_config *cfg, struct rt6_info **rt_ret)
- {
- 	int err;
- 	struct net *net = cfg->fc_nlinfo.nl_net;
-@@ -1756,7 +1756,6 @@ int ip6_route_add(struct fib6_config *cfg)
- 	struct net_device *dev = NULL;
- 	struct inet6_dev *idev = NULL;
- 	struct fib6_table *table;
--	struct mx6_config mxc = { .mx = NULL, };
- 	int addr_type;
- 
- 	if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
-@@ -1981,6 +1980,32 @@ install_route:
- 
- 	cfg->fc_nlinfo.nl_net = dev_net(dev);
- 
-+	*rt_ret = rt;
-+
-+	return 0;
-+out:
-+	if (dev)
-+		dev_put(dev);
-+	if (idev)
-+		in6_dev_put(idev);
-+	if (rt)
-+		dst_free(&rt->dst);
-+
-+	*rt_ret = NULL;
-+
-+	return err;
-+}
-+
-+int ip6_route_add(struct fib6_config *cfg)
-+{
-+	struct mx6_config mxc = { .mx = NULL, };
-+	struct rt6_info *rt = NULL;
-+	int err;
-+
-+	err = ip6_route_info_create(cfg, &rt);
-+	if (err)
-+		goto out;
-+
- 	err = ip6_convert_metrics(&mxc, cfg);
- 	if (err)
- 		goto out;
-@@ -1988,14 +2013,12 @@ install_route:
- 	err = __ip6_ins_rt(rt, &cfg->fc_nlinfo, &mxc);
- 
- 	kfree(mxc.mx);
-+
- 	return err;
- out:
--	if (dev)
--		dev_put(dev);
--	if (idev)
--		in6_dev_put(idev);
- 	if (rt)
- 		dst_free(&rt->dst);
-+
- 	return err;
- }
- 
-@@ -2776,19 +2799,78 @@ errout:
- 	return err;
- }
- 
--static int ip6_route_multipath(struct fib6_config *cfg, int add)
-+struct rt6_nh {
-+	struct rt6_info *rt6_info;
-+	struct fib6_config r_cfg;
-+	struct mx6_config mxc;
-+	struct list_head next;
-+};
-+
-+static void ip6_print_replace_route_err(struct list_head *rt6_nh_list)
-+{
-+	struct rt6_nh *nh;
-+
-+	list_for_each_entry(nh, rt6_nh_list, next) {
-+		pr_warn("IPV6: multipath route replace failed (check consistency of installed routes): %pI6 nexthop %pI6 ifi %d\n",
-+		        &nh->r_cfg.fc_dst, &nh->r_cfg.fc_gateway,
-+		        nh->r_cfg.fc_ifindex);
-+	}
-+}
-+
-+static int ip6_route_info_append(struct list_head *rt6_nh_list,
-+				 struct rt6_info *rt, struct fib6_config *r_cfg)
-+{
-+	struct rt6_nh *nh;
-+	struct rt6_info *rtnh;
-+	int err = -EEXIST;
-+
-+	list_for_each_entry(nh, rt6_nh_list, next) {
-+		/* check if rt6_info already exists */
-+		rtnh = nh->rt6_info;
-+
-+		if (rtnh->dst.dev == rt->dst.dev &&
-+		    rtnh->rt6i_idev == rt->rt6i_idev &&
-+		    ipv6_addr_equal(&rtnh->rt6i_gateway,
-+				    &rt->rt6i_gateway))
-+			return err;
-+	}
-+
-+	nh = kzalloc(sizeof(*nh), GFP_KERNEL);
-+	if (!nh)
-+		return -ENOMEM;
-+	nh->rt6_info = rt;
-+	err = ip6_convert_metrics(&nh->mxc, r_cfg);
-+	if (err) {
-+		kfree(nh);
-+		return err;
-+	}
-+	memcpy(&nh->r_cfg, r_cfg, sizeof(*r_cfg));
-+	list_add_tail(&nh->next, rt6_nh_list);
-+
-+	return 0;
-+}
-+
-+static int ip6_route_multipath_add(struct fib6_config *cfg)
- {
- 	struct fib6_config r_cfg;
- 	struct rtnexthop *rtnh;
-+	struct rt6_info *rt;
-+	struct rt6_nh *err_nh;
-+	struct rt6_nh *nh, *nh_safe;
- 	int remaining;
- 	int attrlen;
--	int err = 0, last_err = 0;
-+	int err = 1;
-+	int nhn = 0;
-+	int replace = (cfg->fc_nlinfo.nlh &&
-+		       (cfg->fc_nlinfo.nlh->nlmsg_flags & NLM_F_REPLACE));
-+	LIST_HEAD(rt6_nh_list);
- 
- 	remaining = cfg->fc_mp_len;
--beginning:
- 	rtnh = (struct rtnexthop *)cfg->fc_mp;
- 
--	/* Parse a Multipath Entry */
-+	/* Parse a Multipath Entry and build a list (rt6_nh_list) of
-+	 * rt6_info structs per nexthop
-+	 */
- 	while (rtnh_ok(rtnh, remaining)) {
- 		memcpy(&r_cfg, cfg, sizeof(*cfg));
- 		if (rtnh->rtnh_ifindex)
-@@ -2808,22 +2890,32 @@ beginning:
- 			if (nla)
- 				r_cfg.fc_encap_type = nla_get_u16(nla);
- 		}
--		err = add ? ip6_route_add(&r_cfg) : ip6_route_del(&r_cfg);
-+
-+		err = ip6_route_info_create(&r_cfg, &rt);
-+		if (err)
-+			goto cleanup;
-+
-+		err = ip6_route_info_append(&rt6_nh_list, rt, &r_cfg);
- 		if (err) {
--			last_err = err;
--			/* If we are trying to remove a route, do not stop the
--			 * loop when ip6_route_del() fails (because next hop is
--			 * already gone), we should try to remove all next hops.
--			 */
--			if (add) {
--				/* If add fails, we should try to delete all
--				 * next hops that have been already added.
--				 */
--				add = 0;
--				remaining = cfg->fc_mp_len - remaining;
--				goto beginning;
--			}
-+			dst_free(&rt->dst);
-+			goto cleanup;
-+		}
-+
-+		rtnh = rtnh_next(rtnh, &remaining);
-+	}
-+
-+	err_nh = NULL;
-+	list_for_each_entry(nh, &rt6_nh_list, next) {
-+		err = __ip6_ins_rt(nh->rt6_info, &cfg->fc_nlinfo, &nh->mxc);
-+		/* nh->rt6_info is used or freed at this point, reset to NULL*/
-+		nh->rt6_info = NULL;
-+		if (err) {
-+			if (replace && nhn)
-+				ip6_print_replace_route_err(&rt6_nh_list);
-+			err_nh = nh;
-+			goto add_errout;
- 		}
-+
- 		/* Because each route is added like a single route we remove
- 		 * these flags after the first nexthop: if there is a collision,
- 		 * we have already failed to add the first nexthop:
-@@ -2833,6 +2925,63 @@ beginning:
- 		 */
- 		cfg->fc_nlinfo.nlh->nlmsg_flags &= ~(NLM_F_EXCL |
- 						     NLM_F_REPLACE);
-+		nhn++;
-+	}
-+
-+	goto cleanup;
-+
-+add_errout:
-+	/* Delete routes that were already added */
-+	list_for_each_entry(nh, &rt6_nh_list, next) {
-+		if (err_nh == nh)
-+			break;
-+		ip6_route_del(&nh->r_cfg);
-+	}
-+
-+cleanup:
-+	list_for_each_entry_safe(nh, nh_safe, &rt6_nh_list, next) {
-+		if (nh->rt6_info)
-+			dst_free(&nh->rt6_info->dst);
-+		if (nh->mxc.mx)
-+			kfree(nh->mxc.mx);
-+		list_del(&nh->next);
-+		kfree(nh);
-+	}
-+
-+	return err;
-+}
-+
-+static int ip6_route_multipath_del(struct fib6_config *cfg)
-+{
-+	struct fib6_config r_cfg;
-+	struct rtnexthop *rtnh;
-+	int remaining;
-+	int attrlen;
-+	int err = 1, last_err = 0;
-+
-+	remaining = cfg->fc_mp_len;
-+	rtnh = (struct rtnexthop *)cfg->fc_mp;
-+
-+	/* Parse a Multipath Entry */
-+	while (rtnh_ok(rtnh, remaining)) {
-+		memcpy(&r_cfg, cfg, sizeof(*cfg));
-+		if (rtnh->rtnh_ifindex)
-+			r_cfg.fc_ifindex = rtnh->rtnh_ifindex;
-+
-+		attrlen = rtnh_attrlen(rtnh);
-+		if (attrlen > 0) {
-+			struct nlattr *nla, *attrs = rtnh_attrs(rtnh);
-+
-+			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
-+			if (nla) {
-+				nla_memcpy(&r_cfg.fc_gateway, nla, 16);
-+				r_cfg.fc_flags |= RTF_GATEWAY;
-+			}
-+		}
-+		err = ip6_route_del(&r_cfg);
-+		if (err)
-+			last_err = err;
-+
- 		rtnh = rtnh_next(rtnh, &remaining);
- 	}
- 
-@@ -2849,7 +2998,7 @@ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		return err;
- 
- 	if (cfg.fc_mp)
--		return ip6_route_multipath(&cfg, 0);
-+		return ip6_route_multipath_del(&cfg);
- 	else
- 		return ip6_route_del(&cfg);
- }
-@@ -2864,7 +3013,7 @@ static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		return err;
- 
- 	if (cfg.fc_mp)
--		return ip6_route_multipath(&cfg, 1);
-+		return ip6_route_multipath_add(&cfg);
- 	else
- 		return ip6_route_add(&cfg);
- }
--- 
-1.9.1
+MBR, Sergei
