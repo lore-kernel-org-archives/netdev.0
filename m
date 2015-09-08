@@ -1,25 +1,45 @@
-From: Christoph Lameter <cl@linux.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 Subject: Re: [PATCH mm] slab: implement bulking for SLAB allocator
-Date: Tue, 8 Sep 2015 10:22:32 -0500 (CDT)
-Message-ID: <alpine.DEB.2.11.1509081020510.25292@east.gentwo.org>
+Date: Tue, 8 Sep 2015 17:54:51 +0200
+Message-ID: <20150908175451.2ce83a0b@redhat.com>
 References: <20150908142147.22804.37717.stgit@devil>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+	<alpine.DEB.2.11.1509081020510.25292@east.gentwo.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: iamjoonsoo.kim@lge.com, akpm@linux-foundation.org, linux-mm@kvack.org,
-    netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+        netdev@vger.kernel.org, brouer@redhat.com
+To: Christoph Lameter <cl@linux.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150908142147.22804.37717.stgit@devil>
+In-Reply-To: <alpine.DEB.2.11.1509081020510.25292@east.gentwo.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Sep 2015, Jesper Dangaard Brouer wrote:
+On Tue, 8 Sep 2015 10:22:32 -0500 (CDT)
+Christoph Lameter <cl@linux.com> wrote:
 
-> Also notice how well bulking maintains the performance when the bulk
-> size increases (which is a soar spot for the slub allocator).
+> On Tue, 8 Sep 2015, Jesper Dangaard Brouer wrote:
+> 
+> > Also notice how well bulking maintains the performance when the bulk
+> > size increases (which is a soar spot for the slub allocator).
+> 
+> Well you are not actually completing the free action in SLAB. This is
+> simply queueing the item to be freed later. Also was this test done on a
+> NUMA system? Alien caches at some point come into the picture.
 
-Well you are not actually completing the free action in SLAB. This is
-simply queueing the item to be freed later. Also was this test done on a
-NUMA system? Alien caches at some point come into the picture.
+This test was a single CPU benchmark with no congestion or concurrency.
+But the code was compiled with CONFIG_NUMA=y.
+
+I don't know the slAb code very well, but the kmem_cache_node->list_lock
+looks like a scalability issue.  I guess that is what you are referring
+to ;-)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
