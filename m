@@ -1,66 +1,35 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC PATCH net-next 0/3] net: switchdev: extract specific object structures
-Date: Tue,  8 Sep 2015 16:47:52 -0400
-Message-ID: <1441745275-13200-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, kernel@savoirfairelinux.com,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: fix out of bounds access in verifier log
+Date: Tue, 08 Sep 2015 23:00:25 +0200
+Message-ID: <55EF4C69.3010401@iogearbox.net>
+References: <1441744801-15537-1-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yonghong Song <yhs@plumgrid.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-208-88-110-44.savoirfairelinux.net ([208.88.110.44]:41193
-	"EHLO mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751552AbbIHUtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 16:49:05 -0400
+Received: from www62.your-server.de ([213.133.104.62]:45526 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752646AbbIHVAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 17:00:30 -0400
+In-Reply-To: <1441744801-15537-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On 09/08/2015 10:40 PM, Alexei Starovoitov wrote:
+> when the verifier log is enabled the print_bpf_insn() is doing
+> bpf_alu_string[BPF_OP(insn->code) >> 4]
+> and
+> bpf_jmp_string[BPF_OP(insn->code) >> 4]
+> where BPF_OP is a 4-bit instruction opcode.
+> Malformed insns can cause out of bounds access.
+> Fix it by sizing arrays appropriately.
+>
+> The bug was found by clang address sanitizer with libfuzzer.
+>
+> Reported-by: Yonghong Song <yhs@plumgrid.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Current implementations of .switchdev_port_obj_add and .switchdev_port_obj_dump
-must pass the generic switchdev_obj structure instead of a specific one (e.g.
-switchdev_obj_fdb) to the related driver accessors, because it contains the
-object transaction and callback. This is not very convenient for drivers.
-
-Instead of having all specific structures included into a switchdev_obj union,
-it would be simpler to embed a switchdev_obj structure as the first member of
-the more specific ones. That way, a driver can cast the switchdev_obj pointer
-to the specific structure and have access to all the information from it.
-
-As an example, this allows Rocker to change its two FDB accessors:
-
-    rocker_port_fdb_add(rocker_port, obj->trans, &obj->u.fdb);
-    rocker_port_fdb_dump(rocker_port, obj);
-
-for these most consistent ones:
-
-    fdb = (struct switchdev_obj_fdb *) obj;
-    rocker_port_fdb_add(rocker_port, fdb);
-    rocker_port_fdb_dump(rocker_port, fdb);
-
-This is what struct netdev_notifier_info and its specific supersets (e.g.
-struct netdev_notifier_changeupper_info) do in include/linux/netdevice.h.
-
-This patchset does that and updates bridge, Rocker and DSA accordingly.
-
-Note that this patchset was sent as an RFC not to bother David with new
-net-next stuffs, but if the changes look good, it is ready to merge.
-
-Also, please take note that the change sits on top of:
-http://patchwork.ozlabs.org/patch/514894/
-
-Vivien Didelot (3):
-  net: switchdev: extract switchdev_obj_vlan
-  net: switchdev: extract switchdev_obj_ipv4_fib
-  net: switchdev: extract switchdev_obj_fdb
-
- drivers/net/ethernet/rocker/rocker.c |  50 ++++++++------
- include/net/switchdev.h              |  49 ++++++++------
- net/bridge/br_fdb.c                  |  12 ++--
- net/bridge/br_vlan.c                 |  26 +++----
- net/dsa/slave.c                      |  59 +++++++++-------
- net/switchdev/switchdev.c            | 127 ++++++++++++++++-------------------
- 6 files changed, 165 insertions(+), 158 deletions(-)
-
--- 
-2.5.1
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
