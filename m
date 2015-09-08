@@ -1,53 +1,55 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 2/2] cxgb4: Fix for write-combining stats configuration
-Date: Tue,  8 Sep 2015 16:25:40 +0530
-Message-ID: <1441709740-7533-3-git-send-email-hariprasad@chelsio.com>
-References: <1441709740-7533-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Julien Grall <julien.grall@citrix.com>
+Subject: Re: [Xen-devel] [PATCH v4 18/20] net/xen-netback: Make it running
+ on 64KB page granularity
+Date: Tue, 8 Sep 2015 12:07:31 +0100
+Message-ID: <55EEC173.6020606@citrix.com>
+References: <1441640038-23615-1-git-send-email-julien.grall@citrix.com>
+	<1441640038-23615-19-git-send-email-julien.grall@citrix.com>
+ <20150907165727.GT6436@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:10078 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754346AbbIHKzp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 06:55:45 -0400
-In-Reply-To: <1441709740-7533-1-git-send-email-hariprasad@chelsio.com>
+Received: from smtp.citrix.com ([66.165.176.89]:61273 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753367AbbIHLIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Sep 2015 07:08:47 -0400
+In-Reply-To: <20150907165727.GT6436@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The write-combining configuration register SGE_STAT_CFG_A needs to
-be configured after FW initializes the adapter, else FW will reset
-the configuration
+Hi Wei,
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+On 07/09/15 17:57, Wei Liu wrote:
+> You might need to rebase you patch. A patch to netback went it recently.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 592a4d6..f5dcde2 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4719,8 +4719,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			err = -ENOMEM;
- 			goto out_free_adapter;
- 		}
--		t4_write_reg(adapter, SGE_STAT_CFG_A,
--			     STATSOURCE_T5_V(7) | STATMODE_V(0));
- 	}
- 
- 	setup_memwin(adapter);
-@@ -4732,6 +4730,11 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto out_unmap_bar;
- 
-+	/* configure SGE_STAT_CFG_A to read WC stats */
-+	if (!is_t4(adapter->params.chip))
-+		t4_write_reg(adapter, SGE_STAT_CFG_A,
-+			     STATSOURCE_T5_V(7) | STATMODE_V(0));
-+
- 	for_each_port(adapter, i) {
- 		struct net_device *netdev;
- 
+Do you mean 210c34dcd8d912dcc740f1f17625a7293af5cb56 "xen-netback: add
+support for multicast control"?
+
+If so I didn't see any specific issue while rebasing on the latest
+linus' master.
+
+> On Mon, Sep 07, 2015 at 04:33:56PM +0100, Julien Grall wrote:
+>> The PV network protocol is using 4KB page granularity. The goal of this
+>> patch is to allow a Linux using 64KB page granularity working as a
+>> network backend on a non-modified Xen.
+>>
+>> It's only necessary to adapt the ring size and break skb data in small
+>> chunk of 4KB. The rest of the code is relying on the grant table code.
+>>
+>> Signed-off-by: Julien Grall <julien.grall@citrix.com>
+>>
+> 
+> Reviewed-by: Wei Liu <wei.liu2@citrix.com>
+
+Thank you!
+
+Regards,
+
 -- 
-2.3.4
+Julien Grall
