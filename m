@@ -1,35 +1,69 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: fix out of bounds access in verifier log
-Date: Tue, 08 Sep 2015 23:00:25 +0200
-Message-ID: <55EF4C69.3010401@iogearbox.net>
-References: <1441744801-15537-1-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 1/3] net: introduce kfree_skb_bulk() user of
+ kmem_cache_free_bulk()
+Date: Tue, 08 Sep 2015 14:01:10 -0700 (PDT)
+Message-ID: <20150908.140110.899240065088272758.davem@davemloft.net>
+References: <20150904165944.4312.32435.stgit@devil>
+	<20150904170046.4312.38018.stgit@devil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yonghong Song <yhs@plumgrid.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45526 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752646AbbIHVAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 17:00:30 -0400
-In-Reply-To: <1441744801-15537-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, linux-mm@kvack.org,
+ aravinda@linux.vnet.ibm.com, cl@linux.com, paulmck@linux.vnet.ibm.com,
+ iamjoonsoo.kim@lge.com
+To: brouer@redhat.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150904170046.4312.38018.stgit@devil>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 09/08/2015 10:40 PM, Alexei Starovoitov wrote:
-> when the verifier log is enabled the print_bpf_insn() is doing
-> bpf_alu_string[BPF_OP(insn->code) >> 4]
-> and
-> bpf_jmp_string[BPF_OP(insn->code) >> 4]
-> where BPF_OP is a 4-bit instruction opcode.
-> Malformed insns can cause out of bounds access.
-> Fix it by sizing arrays appropriately.
->
-> The bug was found by clang address sanitizer with libfuzzer.
->
-> Reported-by: Yonghong Song <yhs@plumgrid.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Fri, 04 Sep 2015 19:00:53 +0200
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> +/**
+> + *	kfree_skb_bulk - bulk free SKBs when refcnt allows to
+> + *	@skbs: array of SKBs to free
+> + *	@size: number of SKBs in array
+> + *
+> + *	If SKB refcnt allows for free, then release any auxiliary data
+> + *	and then bulk free SKBs to the SLAB allocator.
+> + *
+> + *	Note that interrupts must be enabled when calling this function.
+> + */
+> +void kfree_skb_bulk(struct sk_buff **skbs, unsigned int size)
+> +{
+> +	int i;
+> +	size_t cnt = 0;
+> +
+> +	for (i = 0; i < size; i++) {
+> +		struct sk_buff *skb = skbs[i];
+> +
+> +		if (!skb_dec_and_test(skb))
+> +			continue; /* skip skb, not ready to free */
+> +
+> +		/* Construct an array of SKBs, ready to be free'ed and
+> +		 * cleanup all auxiliary, before bulk free to SLAB.
+> +		 * For now, only handle non-cloned SKBs, related to
+> +		 * SLAB skbuff_head_cache
+> +		 */
+> +		if (skb->fclone == SKB_FCLONE_UNAVAILABLE) {
+> +			skb_release_all(skb);
+> +			skbs[cnt++] = skb;
+> +		} else {
+> +			/* SKB was a clone, don't handle this case */
+> +			__kfree_skb(skb);
+> +		}
+> +	}
+> +	if (likely(cnt)) {
+> +		kmem_cache_free_bulk(skbuff_head_cache, cnt, (void **) skbs);
+> +	}
+> +}
+
+You're going to have to do a trace_kfree_skb() or trace_consume_skb() for
+these things.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
