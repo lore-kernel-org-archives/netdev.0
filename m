@@ -1,165 +1,44 @@
-From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Subject: Re: [PATCH] usbnet: Fix a race between usbnet_stop() and the BH
-Date: Tue, 8 Sep 2015 10:24:09 +0300
-Message-ID: <55EE8D19.8020703@rosalab.ru>
+Date: Tue, 08 Sep 2015 09:37:08 +0200
+Message-ID: <87fv2ppdjv.fsf@nemi.mork.no>
 References: <1441094336.3328.1.camel@suse.com>
- <1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
+	<1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
+	<55EE8D19.8020703@rosalab.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>,
-	=?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Oliver Neukum <oneukum@suse.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:59612 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753238AbbIHHh1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 03:37:27 -0400
+In-Reply-To: <55EE8D19.8020703@rosalab.ru> (Eugene Shatokhin's message of
+	"Tue, 8 Sep 2015 10:24:09 +0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-01.09.2015 17:05, Eugene Shatokhin =EF=E8=F8=E5=F2:
-> The race may happen when a device (e.g. YOTA 4G LTE Modem) is
-> unplugged while the system is downloading a large file from the Net.
->
-> Hardware breakpoints and Kprobes with delays were used to confirm tha=
-t
-> the race does actually happen.
->
-> The race is on skb_queue ('next' pointer) between usbnet_stop()
-> and rx_complete(), which, in turn, calls usbnet_bh().
->
-> Here is a part of the call stack with the code where the changes to t=
-he
-> queue happen. The line numbers are for the kernel 4.1.0:
->
-> *0 __skb_unlink (skbuff.h:1517)
->      prev->next =3D next;
-> *1 defer_bh (usbnet.c:430)
->      spin_lock_irqsave(&list->lock, flags);
->      old_state =3D entry->state;
->      entry->state =3D state;
->      __skb_unlink(skb, list);
->      spin_unlock(&list->lock);
->      spin_lock(&dev->done.lock);
->      __skb_queue_tail(&dev->done, skb);
->      if (dev->done.qlen =3D=3D 1)
->          tasklet_schedule(&dev->bh);
->      spin_unlock_irqrestore(&dev->done.lock, flags);
-> *2 rx_complete (usbnet.c:640)
->      state =3D defer_bh(dev, skb, &dev->rxq, state);
->
-> At the same time, the following code repeatedly checks if the queue i=
-s
-> empty and reads these values concurrently with the above changes:
->
-> *0  usbnet_terminate_urbs (usbnet.c:765)
->      /* maybe wait for deletions to finish. */
->      while (!skb_queue_empty(&dev->rxq)
->          && !skb_queue_empty(&dev->txq)
->          && !skb_queue_empty(&dev->done)) {
->              schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
->              set_current_state(TASK_UNINTERRUPTIBLE);
->              netif_dbg(dev, ifdown, dev->net,
->                    "waited for %d urb completions\n", temp);
->      }
-> *1  usbnet_stop (usbnet.c:806)
->      if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
->          usbnet_terminate_urbs(dev);
->
-> As a result, it is possible, for example, that the skb is removed fro=
-m
-> dev->rxq by __skb_unlink() before the check
-> "!skb_queue_empty(&dev->rxq)" in usbnet_terminate_urbs() is made. It =
-is
-> also possible in this case that the skb is added to dev->done queue
-> after "!skb_queue_empty(&dev->done)" is checked. So
-> usbnet_terminate_urbs() may stop waiting and return while dev->done
-> queue still has an item.
->
-> Locking in defer_bh() and usbnet_terminate_urbs() was revisited to av=
-oid
-> this race.
->
-> Signed-off-by: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-> ---
->   drivers/net/usb/usbnet.c | 39 ++++++++++++++++++++++++++++---------=
---
->   1 file changed, 28 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index e049857..b4cf107 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -428,12 +428,18 @@ static enum skb_state defer_bh(struct usbnet *d=
-ev, struct sk_buff *skb,
->   	old_state =3D entry->state;
->   	entry->state =3D state;
->   	__skb_unlink(skb, list);
-> -	spin_unlock(&list->lock);
-> -	spin_lock(&dev->done.lock);
-> +
-> +	/* defer_bh() is never called with list =3D=3D &dev->done.
-> +	 * spin_lock_nested() tells lockdep that it is OK to take
-> +	 * dev->done.lock here with list->lock held.
-> +	 */
-> +	spin_lock_nested(&dev->done.lock, SINGLE_DEPTH_NESTING);
-> +
->   	__skb_queue_tail(&dev->done, skb);
->   	if (dev->done.qlen =3D=3D 1)
->   		tasklet_schedule(&dev->bh);
-> -	spin_unlock_irqrestore(&dev->done.lock, flags);
-> +	spin_unlock(&dev->done.lock);
-> +	spin_unlock_irqrestore(&list->lock, flags);
->   	return old_state;
->   }
->
-> @@ -749,6 +755,20 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
->
->   /*-----------------------------------------------------------------=
---------*/
->
-> +static void wait_skb_queue_empty(struct sk_buff_head *q)
-> +{
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&q->lock, flags);
-> +	while (!skb_queue_empty(q)) {
-> +		spin_unlock_irqrestore(&q->lock, flags);
-> +		schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
-> +		set_current_state(TASK_UNINTERRUPTIBLE);
-> +		spin_lock_irqsave(&q->lock, flags);
-> +	}
-> +	spin_unlock_irqrestore(&q->lock, flags);
-> +}
-> +
->   // precondition: never called in_interrupt
->   static void usbnet_terminate_urbs(struct usbnet *dev)
->   {
-> @@ -762,14 +782,11 @@ static void usbnet_terminate_urbs(struct usbnet=
- *dev)
->   		unlink_urbs(dev, &dev->rxq);
->
->   	/* maybe wait for deletions to finish. */
-> -	while (!skb_queue_empty(&dev->rxq)
-> -		&& !skb_queue_empty(&dev->txq)
-> -		&& !skb_queue_empty(&dev->done)) {
-> -			schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
-> -			set_current_state(TASK_UNINTERRUPTIBLE);
-> -			netif_dbg(dev, ifdown, dev->net,
-> -				  "waited for %d urb completions\n", temp);
-> -	}
-> +	wait_skb_queue_empty(&dev->rxq);
-> +	wait_skb_queue_empty(&dev->txq);
-> +	wait_skb_queue_empty(&dev->done);
-> +	netif_dbg(dev, ifdown, dev->net,
-> +		  "waited for %d urb completions\n", temp);
->   	set_current_state(TASK_RUNNING);
->   	remove_wait_queue(&dev->wait, &wait);
->   }
->
+Eugene Shatokhin <eugene.shatokhin@rosalab.ru> writes:
 
-I resent the patch to make it separate. What is the status of this now?
+> I resent the patch to make it separate. What is the status of this no=
+w?
 
-Regards,
-Eugene
+One of the many nice features of patchwork is that you don't need to as=
+k
+those questions :)
+
+See http://patchwork.ozlabs.org/patch/512856/
+
+I really don't think it's appropriate for me to ack this, but I can add
+my
+
+Reviewed-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+
+if that helps.
+
+
+Bj=C3=B8rn
