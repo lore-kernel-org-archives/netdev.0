@@ -1,228 +1,83 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH mm] slab: implement bulking for SLAB allocator
-Date: Tue, 08 Sep 2015 16:21:48 +0200
-Message-ID: <20150908142147.22804.37717.stgit@devil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Christoph Lameter <cl@linux.com>,
-        netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
-To: iamjoonsoo.kim@lge.com, akpm@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH v2] RDS: verify the underlying transport exists before creating a connection
+Date: Tue,  8 Sep 2015 10:53:40 -0400
+Message-ID: <1441724020-19035-1-git-send-email-sasha.levin@oracle.com>
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
+To: chien.yen@oracle.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement a basic approach of bulking in the slab allocator. Simply
-use local_irq_{disable,enable} and call single alloc/free in a loop.
-This simple implementation approach is surprising fast.
+There was no verification that an underlying transport exists when creating
+a connection, this would cause dereferencing a NULL ptr.
 
-Notice the normal slab fastpath is: 96 cycles (24.119 ns). Below table
-show that single object bulking only takes 42 cycles.  This can be
-explained by the bulk APIs requirement to be called from a known
-interrupt context, that is with interrupts enabled.  This allow us to
-avoid the expensive (37 cycles) local_irq_{save,restore}, and instead
-use the much faster (7 cycles) local_irq_{disable,restore}.
+It might happen on sockets that weren't properly bound before attempting to
+send a message, which will cause a NULL ptr deref:
 
-Benchmarked[1] obj size 256 bytes on CPU i7-4790K @ 4.00GHz:
+[135546.047719] kasan: GPF could be caused by NULL-ptr deref or user memory accessgeneral protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC KASAN
+[135546.051270] Modules linked in:
+[135546.051781] CPU: 4 PID: 15650 Comm: trinity-c4 Not tainted 4.2.0-next-20150902-sasha-00041-gbaa1222-dirty #2527
+[135546.053217] task: ffff8800835bc000 ti: ffff8800bc708000 task.ti: ffff8800bc708000
+[135546.054291] RIP: __rds_conn_create (net/rds/connection.c:194)
+[135546.055666] RSP: 0018:ffff8800bc70fab0  EFLAGS: 00010202
+[135546.056457] RAX: dffffc0000000000 RBX: 0000000000000f2c RCX: ffff8800835bc000
+[135546.057494] RDX: 0000000000000007 RSI: ffff8800835bccd8 RDI: 0000000000000038
+[135546.058530] RBP: ffff8800bc70fb18 R08: 0000000000000001 R09: 0000000000000000
+[135546.059556] R10: ffffed014d7a3a23 R11: ffffed014d7a3a21 R12: 0000000000000000
+[135546.060614] R13: 0000000000000001 R14: ffff8801ec3d0000 R15: 0000000000000000
+[135546.061668] FS:  00007faad4ffb700(0000) GS:ffff880252000000(0000) knlGS:0000000000000000
+[135546.062836] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[135546.063682] CR2: 000000000000846a CR3: 000000009d137000 CR4: 00000000000006a0
+[135546.064723] Stack:
+[135546.065048]  ffffffffafe2055c ffffffffafe23fc1 ffffed00493097bf ffff8801ec3d0008
+[135546.066247]  0000000000000000 00000000000000d0 0000000000000000 ac194a24c0586342
+[135546.067438]  1ffff100178e1f78 ffff880320581b00 ffff8800bc70fdd0 ffff880320581b00
+[135546.068629] Call Trace:
+[135546.069028] ? __rds_conn_create (include/linux/rcupdate.h:856 net/rds/connection.c:134)
+[135546.069989] ? rds_message_copy_from_user (net/rds/message.c:298)
+[135546.071021] rds_conn_create_outgoing (net/rds/connection.c:278)
+[135546.071981] rds_sendmsg (net/rds/send.c:1058)
+[135546.072858] ? perf_trace_lock (include/trace/events/lock.h:38)
+[135546.073744] ? lockdep_init (kernel/locking/lockdep.c:3298)
+[135546.074577] ? rds_send_drop_to (net/rds/send.c:976)
+[135546.075508] ? __might_fault (./arch/x86/include/asm/current.h:14 mm/memory.c:3795)
+[135546.076349] ? __might_fault (mm/memory.c:3795)
+[135546.077179] ? rds_send_drop_to (net/rds/send.c:976)
+[135546.078114] sock_sendmsg (net/socket.c:611 net/socket.c:620)
+[135546.078856] SYSC_sendto (net/socket.c:1657)
+[135546.079596] ? SYSC_connect (net/socket.c:1628)
+[135546.080510] ? trace_dump_stack (kernel/trace/trace.c:1926)
+[135546.081397] ? ring_buffer_unlock_commit (kernel/trace/ring_buffer.c:2479 kernel/trace/ring_buffer.c:2558 kernel/trace/ring_buffer.c:2674)
+[135546.082390] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
+[135546.083410] ? trace_event_raw_event_sys_enter (include/trace/events/syscalls.h:16)
+[135546.084481] ? do_audit_syscall_entry (include/trace/events/syscalls.h:16)
+[135546.085438] ? trace_buffer_unlock_commit (kernel/trace/trace.c:1749)
+[135546.085515] rds_ib_laddr_check(): addr 36.74.25.172 ret -99 node type -1 
 
-bulk - Current                  - simple slab bulk implementation
-  1 - 115 cycles(tsc) 28.812 ns - 42 cycles(tsc) 10.715 ns - improved 63.5%
-  2 - 103 cycles(tsc) 25.956 ns - 27 cycles(tsc)  6.985 ns - improved 73.8%
-  3 - 101 cycles(tsc) 25.336 ns - 22 cycles(tsc)  5.733 ns - improved 78.2%
-  4 - 100 cycles(tsc) 25.147 ns - 21 cycles(tsc)  5.319 ns - improved 79.0%
-  8 -  98 cycles(tsc) 24.616 ns - 18 cycles(tsc)  4.620 ns - improved 81.6%
- 16 -  97 cycles(tsc) 24.408 ns - 17 cycles(tsc)  4.344 ns - improved 82.5%
- 30 -  98 cycles(tsc) 24.641 ns - 16 cycles(tsc)  4.202 ns - improved 83.7%
- 32 -  98 cycles(tsc) 24.607 ns - 16 cycles(tsc)  4.199 ns - improved 83.7%
- 34 -  98 cycles(tsc) 24.605 ns - 18 cycles(tsc)  4.579 ns - improved 81.6%
- 48 -  97 cycles(tsc) 24.463 ns - 17 cycles(tsc)  4.405 ns - improved 82.5%
- 64 -  97 cycles(tsc) 24.370 ns - 17 cycles(tsc)  4.384 ns - improved 82.5%
-128 -  99 cycles(tsc) 24.763 ns - 19 cycles(tsc)  4.755 ns - improved 80.8%
-158 -  98 cycles(tsc) 24.708 ns - 18 cycles(tsc)  4.723 ns - improved 81.6%
-250 - 101 cycles(tsc) 25.342 ns - 20 cycles(tsc)  5.035 ns - improved 80.2%
 
-Also notice how well bulking maintains the performance when the bulk
-size increases (which is a soar spot for the slub allocator).
-
-Increasing the bulk size further:
- 20 cycles(tsc)  5.214 ns (bulk: 512)
- 30 cycles(tsc)  7.734 ns (bulk: 768)
- 40 cycles(tsc) 10.244 ns (bulk:1024)
- 72 cycles(tsc) 18.049 ns (bulk:2048)
- 90 cycles(tsc) 22.585 ns (bulk:4096)
-
-[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/slab_bulk_test01.c
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com> 
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 ---
- mm/slab.c |   87 +++++++++++++++++++++++++++++++++++++++++++------------------
- 1 file changed, 62 insertions(+), 25 deletions(-)
+ net/rds/connection.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/mm/slab.c b/mm/slab.c
-index d890750ec31e..0086b24210ad 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -3234,11 +3234,15 @@ __do_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
- #endif /* CONFIG_NUMA */
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index a50e652..0218d81 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -189,6 +189,12 @@ new_conn:
+ 		}
+ 	}
  
- static __always_inline void *
--slab_alloc(struct kmem_cache *cachep, gfp_t flags, unsigned long caller)
-+slab_alloc(struct kmem_cache *cachep, gfp_t flags, unsigned long caller,
-+	   bool irq_off_needed)
- {
- 	unsigned long save_flags;
- 	void *objp;
- 
-+	/* Compiler need to remove irq_off_needed branch statements */
-+	BUILD_BUG_ON(!__builtin_constant_p(irq_off_needed));
-+
- 	flags &= gfp_allowed_mask;
- 
- 	lockdep_trace_alloc(flags);
-@@ -3249,9 +3253,11 @@ slab_alloc(struct kmem_cache *cachep, gfp_t flags, unsigned long caller)
- 	cachep = memcg_kmem_get_cache(cachep, flags);
- 
- 	cache_alloc_debugcheck_before(cachep, flags);
--	local_irq_save(save_flags);
-+	if (irq_off_needed)
-+		local_irq_save(save_flags);
- 	objp = __do_cache_alloc(cachep, flags);
--	local_irq_restore(save_flags);
-+	if (irq_off_needed)
-+		local_irq_restore(save_flags);
- 	objp = cache_alloc_debugcheck_after(cachep, flags, objp, caller);
- 	kmemleak_alloc_recursive(objp, cachep->object_size, 1, cachep->flags,
- 				 flags);
-@@ -3407,7 +3413,7 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
-  */
- void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
- {
--	void *ret = slab_alloc(cachep, flags, _RET_IP_);
-+	void *ret = slab_alloc(cachep, flags, _RET_IP_, true);
- 
- 	trace_kmem_cache_alloc(_RET_IP_, ret,
- 			       cachep->object_size, cachep->size, flags);
-@@ -3416,16 +3422,23 @@ void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
- }
- EXPORT_SYMBOL(kmem_cache_alloc);
- 
--void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
--{
--	__kmem_cache_free_bulk(s, size, p);
--}
--EXPORT_SYMBOL(kmem_cache_free_bulk);
--
-+/* Note that interrupts must be enabled when calling this function. */
- bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
--								void **p)
-+			   void **p)
- {
--	return __kmem_cache_alloc_bulk(s, flags, size, p);
-+	size_t i;
-+
-+	local_irq_disable();
-+	for (i = 0; i < size; i++) {
-+		void *x = p[i] = slab_alloc(s, flags, _RET_IP_, false);
-+
-+		if (!x) {
-+			__kmem_cache_free_bulk(s, i, p);
-+			return false;
-+		}
++	if (trans == NULL) {
++		kmem_cache_free(rds_conn_slab, conn);
++		conn = ERR_PTR(-ENODEV);
++		goto out;
 +	}
-+	local_irq_enable();
-+	return true;
- }
- EXPORT_SYMBOL(kmem_cache_alloc_bulk);
- 
-@@ -3435,7 +3448,7 @@ kmem_cache_alloc_trace(struct kmem_cache *cachep, gfp_t flags, size_t size)
- {
- 	void *ret;
- 
--	ret = slab_alloc(cachep, flags, _RET_IP_);
-+	ret = slab_alloc(cachep, flags, _RET_IP_, true);
- 
- 	trace_kmalloc(_RET_IP_, ret,
- 		      size, cachep->size, flags);
-@@ -3526,7 +3539,7 @@ static __always_inline void *__do_kmalloc(size_t size, gfp_t flags,
- 	cachep = kmalloc_slab(size, flags);
- 	if (unlikely(ZERO_OR_NULL_PTR(cachep)))
- 		return cachep;
--	ret = slab_alloc(cachep, flags, caller);
-+	ret = slab_alloc(cachep, flags, caller, true);
- 
- 	trace_kmalloc(caller, ret,
- 		      size, cachep->size, flags);
-@@ -3546,32 +3559,56 @@ void *__kmalloc_track_caller(size_t size, gfp_t flags, unsigned long caller)
- }
- EXPORT_SYMBOL(__kmalloc_track_caller);
- 
--/**
-- * kmem_cache_free - Deallocate an object
-- * @cachep: The cache the allocation was from.
-- * @objp: The previously allocated object.
-- *
-- * Free an object which was previously allocated from this
-- * cache.
-- */
--void kmem_cache_free(struct kmem_cache *cachep, void *objp)
-+/* Caller is responsible for disabling local IRQs */
-+static __always_inline void __kmem_cache_free(struct kmem_cache *cachep,
-+					      void *objp, bool irq_off_needed)
- {
- 	unsigned long flags;
 +
-+	/* Compiler need to remove irq_off_needed branch statements */
-+	BUILD_BUG_ON(!__builtin_constant_p(irq_off_needed));
-+
- 	cachep = cache_from_obj(cachep, objp);
- 	if (!cachep)
- 		return;
+ 	conn->c_trans = trans;
  
--	local_irq_save(flags);
-+	if (irq_off_needed)
-+		local_irq_save(flags);
- 	debug_check_no_locks_freed(objp, cachep->object_size);
- 	if (!(cachep->flags & SLAB_DEBUG_OBJECTS))
- 		debug_check_no_obj_freed(objp, cachep->object_size);
- 	__cache_free(cachep, objp, _RET_IP_);
--	local_irq_restore(flags);
-+	if (irq_off_needed)
-+		local_irq_restore(flags);
-+}
- 
-+/**
-+ * kmem_cache_free - Deallocate an object
-+ * @cachep: The cache the allocation was from.
-+ * @objp: The previously allocated object.
-+ *
-+ * Free an object which was previously allocated from this
-+ * cache.
-+ */
-+void kmem_cache_free(struct kmem_cache *cachep, void *objp)
-+{
-+	__kmem_cache_free(cachep, objp, true);
- 	trace_kmem_cache_free(_RET_IP_, objp);
- }
- EXPORT_SYMBOL(kmem_cache_free);
- 
-+/* Note that interrupts must be enabled when calling this function. */
-+void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
-+{
-+	size_t i;
-+
-+	local_irq_disable();
-+	for (i = 0; i < size; i++)
-+		__kmem_cache_free(s, p[i], false);
-+	local_irq_enable();
-+}
-+EXPORT_SYMBOL(kmem_cache_free_bulk);
-+
- /**
-  * kfree - free previously allocated memory
-  * @objp: pointer returned by kmalloc.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ 	ret = trans->conn_alloc(conn, gfp);
+-- 
+1.7.10.4
