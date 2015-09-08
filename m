@@ -1,46 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usbnet: Fix a race between usbnet_stop() and the BH
-Date: Tue, 08 Sep 2015 13:18:08 -0700 (PDT)
-Message-ID: <20150908.131808.2080207445306948902.davem@davemloft.net>
-References: <1441094336.3328.1.camel@suse.com>
-	<1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
+From: Petr Cvek <petr.cvek@tul.cz>
+Subject: Re: [PATCH 2/3] net: irda: pxaficp_ir: convert to readl and writel
+Date: Tue, 8 Sep 2015 22:24:09 +0200
+Message-ID: <55EF43E9.2040000@tul.cz>
+References: <1441261251-19548-1-git-send-email-robert.jarzmik@free.fr>
+ <1441261251-19548-3-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: oneukum@suse.de, bjorn@mork.no, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: eugene.shatokhin@rosalab.ru
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>
+To: Robert Jarzmik <robert.jarzmik@free.fr>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
+In-Reply-To: <1441261251-19548-3-git-send-email-robert.jarzmik@free.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
-Date: Tue,  1 Sep 2015 17:05:33 +0300
+Dne 3.9.2015 v 08:20 Robert Jarzmik napsal(a):
+> Convert the pxa IRDA driver to readl and writel primitives, and remove
+> another set of direct registers access. This leaves only the DMA
+> registers access, which will be dealt with dmaengine conversion.
 
-> The race may happen when a device (e.g. YOTA 4G LTE Modem) is
-> unplugged while the system is downloading a large file from the Net.
-> 
-> Hardware breakpoints and Kprobes with delays were used to confirm that
-> the race does actually happen.
-> 
-> The race is on skb_queue ('next' pointer) between usbnet_stop()
-> and rx_complete(), which, in turn, calls usbnet_bh().
-> 
-> Here is a part of the call stack with the code where the changes to the
-> queue happen. The line numbers are for the kernel 4.1.0:
- ...
-> As a result, it is possible, for example, that the skb is removed from
-> dev->rxq by __skb_unlink() before the check
-> "!skb_queue_empty(&dev->rxq)" in usbnet_terminate_urbs() is made. It is
-> also possible in this case that the skb is added to dev->done queue
-> after "!skb_queue_empty(&dev->done)" is checked. So
-> usbnet_terminate_urbs() may stop waiting and return while dev->done
-> queue still has an item.
-> 
-> Locking in defer_bh() and usbnet_terminate_urbs() was revisited to avoid
-> this race.
-> 
-> Signed-off-by: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Test on magician (nonvanilla, but there should not be any collision).
 
-Applied, thanks.
+>  
+> -	err = request_mem_region(__PREG(STUART), 0x24, "IrDA") ? 0 : -EBUSY;
+> -	if (err)
+> -		goto err_mem_1;
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +	ficp = devm_ioremap_resource(&pdev->dev, res);
+> +	if (IS_ERR(ficp)) {
+> +		dev_err(&pdev->dev, "resource ficp not defined\n");
+
+Fails around here with:
+
+[ 4245.368764] pxa2xx-ir pxa2xx-ir: invalid resource
+[ 4245.369191] pxa2xx-ir pxa2xx-ir: resource ficp not defined
+[ 4245.369364] pxa2xx-ir: probe of pxa2xx-ir failed with error -22
+
+Did you defined resources somewhere? Actual resources are in "pxa_ir_resources" variable at:
+
+	http://lxr.free-electrons.com/source/arch/arm/mach-pxa/devices.c#L386
+
+or this pdata should be moved into specific machine files?
+
+Cheers,
+Petr
