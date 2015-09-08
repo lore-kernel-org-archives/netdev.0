@@ -1,85 +1,94 @@
 From: Corinna Vinschen <vinschen@redhat.com>
 Subject: Re: [PATCH net 3/3] r8169: increase the lifespan of the hardware
  counters dump area.
-Date: Tue, 8 Sep 2015 10:05:12 +0200
-Message-ID: <20150908080512.GF20288@calimero.vinschen.de>
-References: <20150906103732.GF30539@calimero.vinschen.de>
- <20150906202153.GB19371@electric-eye.fr.zoreil.com>
- <20150907092949.GH30539@calimero.vinschen.de>
- <20150907.170058.1837760587790956754.davem@davemloft.net>
+Date: Tue, 8 Sep 2015 10:09:00 +0200
+Message-ID: <20150908080900.GG20288@calimero.vinschen.de>
+References: <cover.1441454454.git.romieu@fr.zoreil.com>
+ <fb3db9039225ed3a030e779565b8e11f99fc8ae2.1441454454.git.romieu@fr.zoreil.com>
+ <20150906103732.GF30539@calimero.vinschen.de>
+ <20150907144412.GA26524@calimero.vinschen.de>
+ <20150907215251.GA4897@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="orO6xySwJI16pVnm"
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	protocol="application/pgp-signature"; boundary="Mjqg7Yu+0hL22rav"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	pomidorabelisima@gmail.com
-To: David Miller <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:42311 "EHLO
+Received: from mail-n.franken.de ([193.175.24.27]:51352 "EHLO
 	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754369AbbIHIFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 04:05:16 -0400
+	with ESMTP id S1752005AbbIHIJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 04:09:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20150907.170058.1837760587790956754.davem@davemloft.net>
+In-Reply-To: <20150907215251.GA4897@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---orO6xySwJI16pVnm
+--Mjqg7Yu+0hL22rav
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Hi David,
-
-On Sep  7 17:00, David Miller wrote:
-> From: Corinna Vinschen <vinschen@redhat.com>
-> Date: Mon, 7 Sep 2015 11:29:49 +0200
+On Sep  7 23:52, Francois Romieu wrote:
+> Corinna Vinschen <vinschen@redhat.com> :
+> [...]
+> > I have a bit of a problem with this patch.  It crashes when loading the
+> > driver manually w/ modprobe.  For some reason dev_get_stats is called
+> > during rtl_init_one and at that time the counters pointer is NULL, so
+> > the kernel gets a SEGV.
+> >
+> >  After I worked around that I got a SEGV in
+> > rtl_remove_one, which I still have to find out why.  I didn't test with
+> > the latest kernel, though, so I still have to check if that's the reason
+> > for the crashes.  That takes a bit longer, I just wanted to let you
+> > know.
 >=20
-> > Still wondering though.  Given that the driver never failed before if
-> > the counter values couldn't be updated, and given that these counter
-> > values only have statistical relevance, why should this suddenly result
-> > in a fatal failure at open time?
+> Call me stupid: I forgot that it's perfectly fine to request the stats
+> of a down interface. :o/
 >=20
-> Failing to allocate such a small buffer means we have much deeper issues
-> at hand.  A GFP_KERNEL allocation of this size really should not fail.
+> Updated patch is on the way.
+>=20
+> > There's also a problem with rtl8169_cmd_counters:  It always calls
+> > rtl_udelay_loop_wait_low w/ rtl_reset_counters_cond, even when called
+> > from rtl8169_update_counters, where it should call
+> > rtl_udelay_loop_wait_low w/ rtl_counters_cond to check for the
+> > CounterDump flag, rather than for the CounterReset flag.
+> >=20
+> > For now I applied the below patch, but I think it's a bit ugly to
+> > conditionalize the rtl_cond struct by the incoming flag value.
+>=20
+> <captain obvious>
+>=20
+> Let's check both at once:
+>=20
+> 	return RTL_R32(CounterAddrLow) & (CounterDump | CounterReset);
 
-I'm not talking about the allocation.  I agree with you on that score.
-
-What I'm talking about is the situation where the NIC hardware fails to
-reset or update its own counters for whatever reason.  Apparently the
-mechanism is supposed to be performed within a given timeframe.  The
-code sets some registers and then waits for a flag bit to be set to 0.
-For that it utilizes a busy loop checking the flag bit up to 1000 times
-with a delay of about 10 us.
-
-The error condition is that the flag bit hasn't been set to 0 when the
-loop exits, after roughly 10ms, and *this* part does not constitute a
-fatal error which breaks the operation of the NIC.  So, from my
-perspective a timeout while trying to wait for updated counter values
-=66rom the NIC at @ndo_open time should not be treated as fatal.
+If you're sure that's valid, then why not?  It's certainly cleaner
+code.
 
 
 Corinna
 
---orO6xySwJI16pVnm
+--Mjqg7Yu+0hL22rav
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAEBCAAGBQJV7pa4AAoJEPU2Bp2uRE+gwn4QAKFIDzPAGUtgpRHv2JnqQ9S2
-zAbgNpLScA5gCDaE7C6KZ0Fi+G0+bwacgsMxpwtqw0MapRvUBveUwVH+1Te2H2BL
-FqSltU3LqZGvaztl4qZQhu+ZFLgK8B75cH8MqfiEs/okl5Ma0kCs0mfopYIjgWZh
-jfa190MO3IajLoaq0YP0IyUkN72UDYP4JFcvyGSwPxXETedztGet9wSVBDjHImRe
-ualnuvquEH5LLMSFQGi+K6Y6uTehZx3/FEGiQb8aTAIHVS773+b96745oGGpdGhq
-CzFOpdRi0kUC4ib06K9WkS2j0ZLVRtk8ZWEH5R/+DZpB5codcbrEVkXwMEUFtP6x
-SVo5giQv0scLIbS/Y8GLgvZ0OJaXdeOYXR+DskyzdcJzLF8CEYhS63/FfQljmspD
-x74KJCRodvxkVF3Z79YyKPguGrLIpFcQ3QwlIhpLPVO8Vde5V6TQnbksTYuWYZVX
-dYrQPGujJDJZpAzR/3S+xq6kD+SKgebGcqr4T75fAGmgOKPKjEy32ILFmzMv9X1/
-aAcX5nkY9q8znLOuf2Y6/Wz4ZiFkCWYkXLx9f9RElEw0YRKvX4yTugrb+KUD012h
-4R6NEhw8J37d9gPIzApDy9TffdTykaQak6bRxN6pNaREFPftvXCIqeUeU3Rkmt+x
-tWStq7Y6+L5sKdcYT4DI
-=PnwH
+iQIcBAEBCAAGBQJV7pebAAoJEPU2Bp2uRE+gAPwQAJU7GzjijBUqwbcGu3NfhNgb
+LJT6LGtF1kKrp2l8jwcKZ/IQU0OFiWy9Ozx8o0IMesa63YOBVuE36OnHZAABuCYr
+RyKYWmbEH3+vEdLbwrO9CTK1wJ6704EMyyGKMuxlTsOBBrSTv1y/P6wyy+KzUocd
+ALp00Y/HWN30zUuF/D9rfHEV1hJ776QVxj4t0he2BShiH8Fz0GxyJPHXA65cafiM
+R1ytsntNcnzJXVZ3fj6r5WgT3DX1o23rKFIdZV+32fN8lGnKy/Bcte2s5uJHmYoD
+otIss5q3YG75u69Nu+aq+kSx7KmggNZPHQPqJFNHJrrfXOzcX9JH2ABjVK7p7VXW
+28jkG0nurCy5V2i0Xdszk1AUN69PAFHmkX3MTk0mFE8kKXwTGjqGKT7u1PlSc9qX
+rytrdj4+FmfibrlbpfCjwhjTwDgsEhmIJOqXt4wMGT+Eq1wfv/vUDsRoSQ+Dg2EX
+dJ7ANYK1068E3Q4ZnXtpeB9oGG4b3Vh4o+OmRaC5/mc6+Mb0Ksg7PGnz6Vjl/mIS
+6rqPq0bDO30nlE7GJ+o5YXumllY2IJelHlO2NblhF4g6ZCF6hP2XgoX1KT+Fx+9Q
+btR4oeDo1MynQkr7jlez2nzetefWCWdqTgds+oudys+xMoT5BekCDydN/OZnD1WG
+KYFOGwQ61nIW4f4cPIqB
+=l0JL
 -----END PGP SIGNATURE-----
 
---orO6xySwJI16pVnm--
+--Mjqg7Yu+0hL22rav--
