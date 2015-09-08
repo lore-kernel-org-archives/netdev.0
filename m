@@ -1,36 +1,165 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: [PATCH net 1/1] r8169: fix sleepable allocation during netdevice
- stats retrieval.
-Date: Tue, 8 Sep 2015 08:36:08 +0200
-Message-ID: <55EE81D8.4010008@gmail.com>
-References: <55E9A518.3080906@gmail.com>
- <20150904.113657.2146226970417029162.davem@davemloft.net>
- <20150904205904.GA32346@electric-eye.fr.zoreil.com>
- <20150906101954.GE30539@calimero.vinschen.de> <55ED391C.2090906@gmail.com>
- <20150907085023.GA17511@calimero.vinschen.de> <55EDA281.3030706@gmail.com>
+From: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+Subject: Re: [PATCH] usbnet: Fix a race between usbnet_stop() and the BH
+Date: Tue, 8 Sep 2015 10:24:09 +0300
+Message-ID: <55EE8D19.8020703@rosalab.ru>
+References: <1441094336.3328.1.camel@suse.com>
+ <1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Mike Massonnet <m8t@gandi.net>,
-	Benedikt Meurer <benedikt.meurer@unix-ag.uni-siegen.de>,
-	Bernhard Walle <bernhard.walle@gmx.de>,
-	Hendrik Scholz <hscholz@raisdorf.net>,
-	Florian Rivoal <frivoal@xfce.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:35363 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455AbbIHGgN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 02:36:13 -0400
-Received: by wicge5 with SMTP id ge5so103433602wic.0
-        for <netdev@vger.kernel.org>; Mon, 07 Sep 2015 23:36:12 -0700 (PDT)
-In-Reply-To: <55EDA281.3030706@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1251;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.de>,
+	=?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441116333-5377-1-git-send-email-eugene.shatokhin@rosalab.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2nd batch:
-0001-r8169-decouple-the-counters-data-and-the-device-priv.patch
-0002-r8169-use-a-single-condition-to-check-the-completion.patch
-0003-r8169-increase-the-lifespan-of-the-hardware-counters.patch
-- the noise is still present
+01.09.2015 17:05, Eugene Shatokhin =EF=E8=F8=E5=F2:
+> The race may happen when a device (e.g. YOTA 4G LTE Modem) is
+> unplugged while the system is downloading a large file from the Net.
+>
+> Hardware breakpoints and Kprobes with delays were used to confirm tha=
+t
+> the race does actually happen.
+>
+> The race is on skb_queue ('next' pointer) between usbnet_stop()
+> and rx_complete(), which, in turn, calls usbnet_bh().
+>
+> Here is a part of the call stack with the code where the changes to t=
+he
+> queue happen. The line numbers are for the kernel 4.1.0:
+>
+> *0 __skb_unlink (skbuff.h:1517)
+>      prev->next =3D next;
+> *1 defer_bh (usbnet.c:430)
+>      spin_lock_irqsave(&list->lock, flags);
+>      old_state =3D entry->state;
+>      entry->state =3D state;
+>      __skb_unlink(skb, list);
+>      spin_unlock(&list->lock);
+>      spin_lock(&dev->done.lock);
+>      __skb_queue_tail(&dev->done, skb);
+>      if (dev->done.qlen =3D=3D 1)
+>          tasklet_schedule(&dev->bh);
+>      spin_unlock_irqrestore(&dev->done.lock, flags);
+> *2 rx_complete (usbnet.c:640)
+>      state =3D defer_bh(dev, skb, &dev->rxq, state);
+>
+> At the same time, the following code repeatedly checks if the queue i=
+s
+> empty and reads these values concurrently with the above changes:
+>
+> *0  usbnet_terminate_urbs (usbnet.c:765)
+>      /* maybe wait for deletions to finish. */
+>      while (!skb_queue_empty(&dev->rxq)
+>          && !skb_queue_empty(&dev->txq)
+>          && !skb_queue_empty(&dev->done)) {
+>              schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
+>              set_current_state(TASK_UNINTERRUPTIBLE);
+>              netif_dbg(dev, ifdown, dev->net,
+>                    "waited for %d urb completions\n", temp);
+>      }
+> *1  usbnet_stop (usbnet.c:806)
+>      if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
+>          usbnet_terminate_urbs(dev);
+>
+> As a result, it is possible, for example, that the skb is removed fro=
+m
+> dev->rxq by __skb_unlink() before the check
+> "!skb_queue_empty(&dev->rxq)" in usbnet_terminate_urbs() is made. It =
+is
+> also possible in this case that the skb is added to dev->done queue
+> after "!skb_queue_empty(&dev->done)" is checked. So
+> usbnet_terminate_urbs() may stop waiting and return while dev->done
+> queue still has an item.
+>
+> Locking in defer_bh() and usbnet_terminate_urbs() was revisited to av=
+oid
+> this race.
+>
+> Signed-off-by: Eugene Shatokhin <eugene.shatokhin@rosalab.ru>
+> ---
+>   drivers/net/usb/usbnet.c | 39 ++++++++++++++++++++++++++++---------=
+--
+>   1 file changed, 28 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index e049857..b4cf107 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -428,12 +428,18 @@ static enum skb_state defer_bh(struct usbnet *d=
+ev, struct sk_buff *skb,
+>   	old_state =3D entry->state;
+>   	entry->state =3D state;
+>   	__skb_unlink(skb, list);
+> -	spin_unlock(&list->lock);
+> -	spin_lock(&dev->done.lock);
+> +
+> +	/* defer_bh() is never called with list =3D=3D &dev->done.
+> +	 * spin_lock_nested() tells lockdep that it is OK to take
+> +	 * dev->done.lock here with list->lock held.
+> +	 */
+> +	spin_lock_nested(&dev->done.lock, SINGLE_DEPTH_NESTING);
+> +
+>   	__skb_queue_tail(&dev->done, skb);
+>   	if (dev->done.qlen =3D=3D 1)
+>   		tasklet_schedule(&dev->bh);
+> -	spin_unlock_irqrestore(&dev->done.lock, flags);
+> +	spin_unlock(&dev->done.lock);
+> +	spin_unlock_irqrestore(&list->lock, flags);
+>   	return old_state;
+>   }
+>
+> @@ -749,6 +755,20 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
+>
+>   /*-----------------------------------------------------------------=
+--------*/
+>
+> +static void wait_skb_queue_empty(struct sk_buff_head *q)
+> +{
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&q->lock, flags);
+> +	while (!skb_queue_empty(q)) {
+> +		spin_unlock_irqrestore(&q->lock, flags);
+> +		schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
+> +		set_current_state(TASK_UNINTERRUPTIBLE);
+> +		spin_lock_irqsave(&q->lock, flags);
+> +	}
+> +	spin_unlock_irqrestore(&q->lock, flags);
+> +}
+> +
+>   // precondition: never called in_interrupt
+>   static void usbnet_terminate_urbs(struct usbnet *dev)
+>   {
+> @@ -762,14 +782,11 @@ static void usbnet_terminate_urbs(struct usbnet=
+ *dev)
+>   		unlink_urbs(dev, &dev->rxq);
+>
+>   	/* maybe wait for deletions to finish. */
+> -	while (!skb_queue_empty(&dev->rxq)
+> -		&& !skb_queue_empty(&dev->txq)
+> -		&& !skb_queue_empty(&dev->done)) {
+> -			schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
+> -			set_current_state(TASK_UNINTERRUPTIBLE);
+> -			netif_dbg(dev, ifdown, dev->net,
+> -				  "waited for %d urb completions\n", temp);
+> -	}
+> +	wait_skb_queue_empty(&dev->rxq);
+> +	wait_skb_queue_empty(&dev->txq);
+> +	wait_skb_queue_empty(&dev->done);
+> +	netif_dbg(dev, ifdown, dev->net,
+> +		  "waited for %d urb completions\n", temp);
+>   	set_current_state(TASK_RUNNING);
+>   	remove_wait_queue(&dev->wait, &wait);
+>   }
+>
+
+I resent the patch to make it separate. What is the status of this now?
+
+Regards,
+Eugene
