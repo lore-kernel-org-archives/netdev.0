@@ -1,142 +1,243 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net] xen-netback: require fewer guest Rx slots when not using GSO
-Date: Tue, 8 Sep 2015 14:25:14 +0100
-Message-ID: <1441718714-3256-1-git-send-email-david.vrabel@citrix.com>
+From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 5/6] seccomp: add a way to attach a filter via eBPF fd
+Date: Tue, 8 Sep 2015 07:40:44 -0600
+Message-ID: <20150908134044.GV26679@smitten>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+ <1441382664-17437-6-git-send-email-tycho.andersen@canonical.com>
+ <CAGXu5jKke44txdYqEgPRrkn8SyWGjJuHxT2qMdq2ztp_16mQyw@mail.gmail.com>
+ <55EA95FE.7000006@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:6591 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754553AbbIHNZi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2015 09:25:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <55EA95FE.7000006-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit f48da8b14d04ca87ffcffe68829afd45f926ec6a (xen-netback: fix
-unlimited guest Rx internal queue and carrier flapping) introduced a
-regression.
+On Sat, Sep 05, 2015 at 09:13:02AM +0200, Michael Kerrisk (man-pages) wrote:
+> On 09/04/2015 10:41 PM, Kees Cook wrote:
+> > On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
+> > <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+> >> This is the final bit needed to support seccomp filters created via the bpf
+> >> syscall.
+> 
+> Hmm. Thanks Kees, for CCinf linux-api@. That really should have been done at
+> the outset.
 
-The PV frontend in IPXE only places 4 requests on the guest Rx ring.
-Since netback required at least (MAX_SKB_FRAGS + 1) slots, IPXE could
-not receive any packets.
+Apologies, I'll cc the list on future versions.
 
-a) If GSO is not enabled on the VIF, fewer guest Rx slots are required
-   for the largest possible packet.  Calculate the required slots
-   based on the maximum GSO size or the MTU.
+> Tycho, where's the man-pages patch describing this new kernel-userspace
+> API feature? :-)
 
-   This calculation of the number of required slots relies on
-   1650d5455bd2 (xen-netback: always fully coalesce guest Rx packets)
-   which present in 4.0-rc1 and later.
+Once we get the API finalized I'm happy to write it.
 
-b) Reduce the Rx stall detection to checking for at least one
-   available Rx request.  This is fine since we're predominately
-   concerned with detecting interfaces which are down and thus have
-   zero available Rx requests.
+> >> One concern with this patch is exactly what the interface should look like
+> >> for users, since seccomp()'s second argument is a pointer, we could ask
+> >> people to pass a pointer to the fd, but implies we might write to it which
+> >> seems impolite. Right now we cast the pointer (and force the user to cast
+> >> it), which generates ugly warnings. I'm not sure what the right answer is
+> >> here.
+> >>
+> >> Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> >> CC: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> >> CC: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> >> CC: Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> >> CC: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+> >> CC: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> >> CC: Serge E. Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
+> >> CC: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> >> CC: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+> >> ---
+> >>  include/linux/seccomp.h      |  3 +-
+> >>  include/uapi/linux/seccomp.h |  1 +
+> >>  kernel/seccomp.c             | 70 ++++++++++++++++++++++++++++++++++++--------
+> >>  3 files changed, 61 insertions(+), 13 deletions(-)
+> >>
+> >> diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+> >> index d1a86ed..a725dd5 100644
+> >> --- a/include/linux/seccomp.h
+> >> +++ b/include/linux/seccomp.h
+> >> @@ -3,7 +3,8 @@
+> >>
+> >>  #include <uapi/linux/seccomp.h>
+> >>
+> >> -#define SECCOMP_FILTER_FLAG_MASK       (SECCOMP_FILTER_FLAG_TSYNC)
+> >> +#define SECCOMP_FILTER_FLAG_MASK       (\
+> >> +       SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_EBPF)
+> >>
+> >>  #ifdef CONFIG_SECCOMP
+> >>
+> >> diff --git a/include/uapi/linux/seccomp.h b/include/uapi/linux/seccomp.h
+> >> index 0f238a4..c29a423 100644
+> >> --- a/include/uapi/linux/seccomp.h
+> >> +++ b/include/uapi/linux/seccomp.h
+> >> @@ -16,6 +16,7 @@
+> >>
+> >>  /* Valid flags for SECCOMP_SET_MODE_FILTER */
+> >>  #define SECCOMP_FILTER_FLAG_TSYNC      1
+> >> +#define SECCOMP_FILTER_FLAG_EBPF       (1 << 1)
+> >>
+> >>  /*
+> >>   * All BPF programs must return a 32-bit value.
+> >> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+> >> index a2c5b32..9c6bea6 100644
+> >> --- a/kernel/seccomp.c
+> >> +++ b/kernel/seccomp.c
+> >> @@ -355,17 +355,6 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
+> >>
+> >>         BUG_ON(INT_MAX / fprog->len < sizeof(struct sock_filter));
+> >>
+> >> -       /*
+> >> -        * Installing a seccomp filter requires that the task has
+> >> -        * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
+> >> -        * This avoids scenarios where unprivileged tasks can affect the
+> >> -        * behavior of privileged children.
+> >> -        */
+> >> -       if (!task_no_new_privs(current) &&
+> >> -           security_capable_noaudit(current_cred(), current_user_ns(),
+> >> -                                    CAP_SYS_ADMIN) != 0)
+> >> -               return ERR_PTR(-EACCES);
+> >> -
+> >>         /* Allocate a new seccomp_filter */
+> >>         sfilter = kzalloc(sizeof(*sfilter), GFP_KERNEL | __GFP_NOWARN);
+> >>         if (!sfilter)
+> >> @@ -509,6 +498,48 @@ static void seccomp_send_sigsys(int syscall, int reason)
+> >>         info.si_syscall = syscall;
+> >>         force_sig_info(SIGSYS, &info, current);
+> >>  }
+> >> +
+> >> +#ifdef CONFIG_BPF_SYSCALL
+> >> +static struct seccomp_filter *seccomp_prepare_ebpf(const char __user *filter)
+> >> +{
+> >> +       /* XXX: this cast generates a warning. should we make people pass in
+> >> +        * &fd, or is there some nicer way of doing this?
+> >> +        */
+> >> +       u32 fd = (u32) filter;
+> > 
+> > I think this is probably the right way to do it, modulo getting the
+> > warning fixed. Let me invoke the great linux-api subscribers to get
+> > some more opinions.
+> 
+> Sigh. It's sad, but the using a cast does seem the simplest option.
+> But, how about another idea...
+> 
+> > tl;dr: adding SECCOMP_FILTER_FLAG_EBPF to the flags changes the
+> > pointer argument into an fd argument. Is this sane, should it be a
+> > pointer to an fd, or should it not be a flag at all, creating a new
+> > seccomp command instead (SECCOMP_MODE_FILTER_EBPF)?
+> 
+> What about
+> 
+>     seccomp(SECCOMP_MODE_FILTER_EBPF, flags, structp)
+> 
+> Where structp is a pointer to something like
+> 
+> struct seccomp_ebpf {
+>     int size;      /* Size of this whole struct */
+>     int fd;
+> }
+> 
+> 'size' allows for future expansion of the struct (in case we want to 
+> expand it later), and placing 'fd' inside a struct avoids unpleasant
+> implication that would be made by passing a pointer to an fd as the
+> third argument.
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netback/common.h  | 10 ----------
- drivers/net/xen-netback/netback.c | 23 ++++++++++++++++-------
- 2 files changed, 16 insertions(+), 17 deletions(-)
+I like this; although perhaps something like bpf() has, with the
+unions inside the struct so that we don't have to declare another
+struct if we add another seccomp command. Kees?
 
-Note that this can only be backported as-is on top of
-1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b (xen-netback: always fully
-coalesce guest Rx packets) which is in 4.0 and later.
+Tycho
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 8a495b3..25990b1 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -200,11 +200,6 @@ struct xenvif_queue { /* Per-queue data for xenvif */
- 	struct xenvif_stats stats;
- };
- 
--/* Maximum number of Rx slots a to-guest packet may use, including the
-- * slot needed for GSO meta-data.
-- */
--#define XEN_NETBK_RX_SLOTS_MAX (MAX_SKB_FRAGS + 1)
--
- enum state_bit_shift {
- 	/* This bit marks that the vif is connected */
- 	VIF_STATUS_CONNECTED,
-@@ -306,11 +301,6 @@ int xenvif_dealloc_kthread(void *data);
- 
- void xenvif_rx_queue_tail(struct xenvif_queue *queue, struct sk_buff *skb);
- 
--/* Determine whether the needed number of slots (req) are available,
-- * and set req_event if not.
-- */
--bool xenvif_rx_ring_slots_available(struct xenvif_queue *queue, int needed);
--
- void xenvif_carrier_on(struct xenvif *vif);
- 
- /* Callback from stack when TX packet can be released */
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 3f44b52..e791930 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -149,9 +149,20 @@ static inline pending_ring_idx_t pending_index(unsigned i)
- 	return i & (MAX_PENDING_REQS-1);
- }
- 
--bool xenvif_rx_ring_slots_available(struct xenvif_queue *queue, int needed)
-+static int xenvif_rx_ring_slots_needed(struct xenvif *vif)
-+{
-+	if (vif->gso_mask)
-+		return DIV_ROUND_UP(vif->dev->gso_max_size, PAGE_SIZE) + 1;
-+	else
-+		return DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
-+}
-+
-+static bool xenvif_rx_ring_slots_available(struct xenvif_queue *queue)
- {
- 	RING_IDX prod, cons;
-+	int needed;
-+
-+	needed = xenvif_rx_ring_slots_needed(queue->vif);
- 
- 	do {
- 		prod = queue->rx.sring->req_prod;
-@@ -513,7 +524,7 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 
- 	skb_queue_head_init(&rxq);
- 
--	while (xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX)
-+	while (xenvif_rx_ring_slots_available(queue)
- 	       && (skb = xenvif_rx_dequeue(queue)) != NULL) {
- 		queue->last_rx_time = jiffies;
- 
-@@ -1839,8 +1850,7 @@ static bool xenvif_rx_queue_stalled(struct xenvif_queue *queue)
- 	prod = queue->rx.sring->req_prod;
- 	cons = queue->rx.req_cons;
- 
--	return !queue->stalled
--		&& prod - cons < XEN_NETBK_RX_SLOTS_MAX
-+	return !queue->stalled && prod - cons < 1
- 		&& time_after(jiffies,
- 			      queue->last_rx_time + queue->vif->stall_timeout);
- }
-@@ -1852,14 +1862,13 @@ static bool xenvif_rx_queue_ready(struct xenvif_queue *queue)
- 	prod = queue->rx.sring->req_prod;
- 	cons = queue->rx.req_cons;
- 
--	return queue->stalled
--		&& prod - cons >= XEN_NETBK_RX_SLOTS_MAX;
-+	return queue->stalled && prod - cons >= 1;
- }
- 
- static bool xenvif_have_rx_work(struct xenvif_queue *queue)
- {
- 	return (!skb_queue_empty(&queue->rx_queue)
--		&& xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX))
-+		&& xenvif_rx_ring_slots_available(queue))
- 		|| (queue->vif->stall_timeout &&
- 		    (xenvif_rx_queue_stalled(queue)
- 		     || xenvif_rx_queue_ready(queue)))
--- 
-2.1.4
+> Cheers,
+> 
+> Michael
+> 
+> 
+> > -Kees
+> > 
+> >> +       struct seccomp_filter *ret;
+> >> +       struct bpf_prog *prog;
+> >> +
+> >> +       prog = bpf_prog_get(fd);
+> >> +       if (IS_ERR(prog))
+> >> +               return (struct seccomp_filter *) prog;
+> >> +
+> >> +       if (prog->type != BPF_PROG_TYPE_SECCOMP) {
+> >> +               bpf_prog_put(prog);
+> >> +               return ERR_PTR(-EINVAL);
+> >> +       }
+> >> +
+> >> +       ret = kzalloc(sizeof(*ret), GFP_KERNEL | __GFP_NOWARN);
+> >> +       if (!ret) {
+> >> +               bpf_prog_put(prog);
+> >> +               return ERR_PTR(-ENOMEM);
+> >> +       }
+> >> +
+> >> +       ret->prog = prog;
+> >> +       atomic_set(&ret->usage, 1);
+> >> +
+> >> +       /* Intentionally don't bpf_prog_put() here, because the underlying prog
+> >> +        * is refcounted too and we're holding a reference from the struct
+> >> +        * seccomp_filter object.
+> >> +        */
+> >> +
+> >> +       return ret;
+> >> +}
+> >> +#else
+> >> +static struct seccomp_filter *seccomp_prepare_ebpf(const char __user *filter)
+> >> +{
+> >> +       return ERR_PTR(-EINVAL);
+> >> +}
+> >> +#endif
+> >>  #endif /* CONFIG_SECCOMP_FILTER */
+> >>
+> >>  /*
+> >> @@ -775,8 +806,23 @@ static long seccomp_set_mode_filter(unsigned int flags,
+> >>         if (flags & ~SECCOMP_FILTER_FLAG_MASK)
+> >>                 return -EINVAL;
+> >>
+> >> +       /*
+> >> +        * Installing a seccomp filter requires that the task has
+> >> +        * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
+> >> +        * This avoids scenarios where unprivileged tasks can affect the
+> >> +        * behavior of privileged children.
+> >> +        */
+> >> +       if (!task_no_new_privs(current) &&
+> >> +           security_capable_noaudit(current_cred(), current_user_ns(),
+> >> +                                    CAP_SYS_ADMIN) != 0)
+> >> +               return -EACCES;
+> >> +
+> >>         /* Prepare the new filter before holding any locks. */
+> >> -       prepared = seccomp_prepare_user_filter(filter);
+> >> +       if (flags & SECCOMP_FILTER_FLAG_EBPF)
+> >> +               prepared = seccomp_prepare_ebpf(filter);
+> >> +       else
+> >> +               prepared = seccomp_prepare_user_filter(filter);
+> >> +
+> >>         if (IS_ERR(prepared))
+> >>                 return PTR_ERR(prepared);
+> >>
+> >> --
+> >> 2.1.4
+> >>
+> > 
+> > 
+> > 
+> 
+> 
+> -- 
+> Michael Kerrisk
+> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+> Linux/UNIX System Programming Training: http://man7.org/training/
