@@ -1,39 +1,32 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 1/3] net: switchdev: extract
- switchdev_obj_vlan
-Date: Tue, 8 Sep 2015 22:58:41 +0200
-Message-ID: <20150908205841.GF29184@lunn.ch>
-References: <1441745275-13200-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1441745275-13200-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next 0/2] driver: net: xgene: Enable 2nd 10GbE port on APM X-Gene SoC
+Date: Tue,  8 Sep 2015 15:50:25 -0700
+Message-ID: <1441752627-9326-1-git-send-email-isubramanian@apm.com>
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:33542 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751489AbbIHVG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2015 17:06:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1441745275-13200-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36428 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753406AbbIHWuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 18:50:35 -0400
+Received: by padhk3 with SMTP id hk3so51399413pad.3
+        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 15:50:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +/* SWITCHDEV_OBJ_PORT_VLAN */
-> +struct switchdev_obj_vlan {
-> +	struct switchdev_obj obj;	/* must be first */
-> +	u16 flags;
-> +	u16 vid_begin;
-> +	u16 vid_end;
-> +};
+This patch adds support for 2nd 10GbE on APM X-Gene SoC
 
-I know you give a few examples for where this is done in network code,
-but i think container_of() is used much more. You can then place the
-struct switchdev_obj anywhere in the structure, and it will work.
+---
+Iyappan Subramanian (2):
+  driver: net: xgene: Add support for 2nd 10GbE port
+  dtb: xgene: Add 2nd 10GbE node
 
-#define to_switchdev_obj_vlan(o) container_of(o, struct switchdev_obj_vlan, obj)
+ arch/arm64/boot/dts/apm/apm-storm.dtsi           | 28 ++++++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   |  3 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 16 ++++++++++----
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h |  5 +++++
+ 4 files changed, 47 insertions(+), 5 deletions(-)
 
-	Andrew
+-- 
+1.9.1
