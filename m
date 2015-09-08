@@ -1,82 +1,74 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 1/3 v7] net: track link-status of ipv4
- nexthops
-Date: Tue, 8 Sep 2015 23:32:56 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1509082313120.1756@ja.home.ssi.bg>
-References: <1435081538-1620-1-git-send-email-gospo@cumulusnetworks.com> <1435081538-1620-2-git-send-email-gospo@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	ddutt@cumulusnetworks.com, sfeldma@gmail.com,
-	alexander.duyck@gmail.com, hannes@stressinduktion.org,
-	stephen@networkplumber.org
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] bpf: fix out of bounds access in verifier log
+Date: Tue,  8 Sep 2015 13:40:01 -0700
+Message-ID: <1441744801-15537-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Yonghong Song <yhs@plumgrid.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:58284 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752337AbbIHUdU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2015 16:33:20 -0400
-In-Reply-To: <1435081538-1620-2-git-send-email-gospo@cumulusnetworks.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35197 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753191AbbIHUkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 16:40:07 -0400
+Received: by pacfv12 with SMTP id fv12so136688388pac.2
+        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 13:40:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+when the verifier log is enabled the print_bpf_insn() is doing
+bpf_alu_string[BPF_OP(insn->code) >> 4]
+and
+bpf_jmp_string[BPF_OP(insn->code) >> 4]
+where BPF_OP is a 4-bit instruction opcode.
+Malformed insns can cause out of bounds access.
+Fix it by sizing arrays appropriately.
 
-	Hello,
+The bug was found by clang address sanitizer with libfuzzer.
 
-On Tue, 23 Jun 2015, Andy Gospodarek wrote:
+Reported-by: Yonghong Song <yhs@plumgrid.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+fyi sanitizer error looks like:
+...
+ 27 invalid dst register in STX OK
+ 28 invalid dst register in ST OK
+ 29 invalid src register in LDX OK
+ 30 invalid dst register in LDX OK
+ 31 junk insn OK
+ 32 junk insn2 OK
+=================================================================
+==52730==ERROR: AddressSanitizer: global-buffer-overflow on address 0x000000500c58
+READ of size 8 at 0x000000500c58 thread T0
+    #0 0x4e480b in print_bpf_insn verifier.c:332:5
+    #1 0x4e1bcb in do_check verifier.c:1657:4
+...
+0x000000500c58 is located 8 bytes to the right of global variable 'bpf_alu_string'
+defined in 'verifier.c:286:26' (0x500be0) of size 112
+---
+ kernel/bpf/verifier.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> Add a fib flag called RTNH_F_LINKDOWN to any ipv4 nexthops that are
-> reachable via an interface where carrier is off.  No action is taken,
-> but additional flags are passed to userspace to indicate carrier status.
-> 
-> This also includes a cleanup to fib_disable_ip to more clearly indicate
-> what event made the function call to replace the more cryptic force
-> option previously used.
-> 
-
-> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> index 872494e..534eb14 100644
-> --- a/net/ipv4/fib_frontend.c
-> +++ b/net/ipv4/fib_frontend.c
-
-> @@ -1093,7 +1093,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
->  			/* Last address was deleted from this interface.
->  			 * Disable IP.
->  			 */
-> -			fib_disable_ip(dev, 1);
-> +			fib_disable_ip(dev, event);
-
-	NETDEV_DOWN for "inetaddr" event is used instead of force=1 ...
-
->  	case NETDEV_DOWN:
-> -		fib_disable_ip(dev, 0);
-> +		fib_disable_ip(dev, event);
-
-	Ops, NETDEV_DOWN for different "netdev" event is
-used this time for force=0 ...
-
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index 28ec3c1..b1b305b 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-
-> @@ -1112,7 +1124,8 @@ int fib_sync_down_dev(struct net_device *dev, int force)
->  	struct hlist_head *head = &fib_info_devhash[hash];
->  	struct fib_nh *nh;
->  
-> -	if (force)
-> +	if (event == NETDEV_UNREGISTER ||
-> +	    event == NETDEV_DOWN)
-
-	Wrong, both kinds of NETDEV_DOWN events set scope = -1.
-May be this leads to removal of RT_SCOPE_NOWHERE NHs when
-"netdev" event NETDEV_DOWN comes. May be we still need a
-flag to know if the NETDEV_DOWN event was for force=1 and
-to check it again above? Or may be to use "force" flag again?
-
->  		scope = -1;
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index ed12e385fb75..b074b23000d6 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -283,7 +283,7 @@ static const char *const bpf_class_string[] = {
+ 	[BPF_ALU64] = "alu64",
+ };
+ 
+-static const char *const bpf_alu_string[] = {
++static const char *const bpf_alu_string[16] = {
+ 	[BPF_ADD >> 4]  = "+=",
+ 	[BPF_SUB >> 4]  = "-=",
+ 	[BPF_MUL >> 4]  = "*=",
+@@ -307,7 +307,7 @@ static const char *const bpf_ldst_string[] = {
+ 	[BPF_DW >> 3] = "u64",
+ };
+ 
+-static const char *const bpf_jmp_string[] = {
++static const char *const bpf_jmp_string[16] = {
+ 	[BPF_JA >> 4]   = "jmp",
+ 	[BPF_JEQ >> 4]  = "==",
+ 	[BPF_JGT >> 4]  = ">",
+-- 
+1.7.9.5
