@@ -1,86 +1,102 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3] stmmac: fix check for phydev being open
-Date: Tue, 8 Sep 2015 22:53:51 +0300
-Message-ID: <55EF3CCF.4000608@cogentembedded.com>
-References: <1441701786-10789-1-git-send-email-abrodkin@synopsys.com>
- <55EEC462.2000906@cogentembedded.com> <1441716387.21150.0.camel@synopsys.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net v4] ipv6: fix multipath route replace error recovery
+Date: Tue, 8 Sep 2015 21:59:50 +0200
+Message-ID: <55EF3E36.7090405@cumulusnetworks.com>
+References: <1441734784-34416-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Cc: nicolas.dichtel@6wind.com, mkubecek@suse.cz,
+	Mazziesaccount@gmail.com, hannes@stressinduktion.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:33334 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751355AbbIHTxz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 15:53:55 -0400
-Received: by lamp12 with SMTP id p12so74618043lam.0
-        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 12:53:54 -0700 (PDT)
-In-Reply-To: <1441716387.21150.0.camel@synopsys.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35561 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862AbbIHT7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 15:59:54 -0400
+Received: by wicge5 with SMTP id ge5so129979106wic.0
+        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 12:59:52 -0700 (PDT)
+In-Reply-To: <1441734784-34416-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 09/08/2015 07:53 PM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Problem:
+> The ecmp route replace support for ipv6 in the kernel, deletes the
+> existing ecmp route too early, ie when it installs the first nexthop.
+> If there is an error in installing the subsequent nexthops, its too late
+> to recover the already deleted existing route leaving the fib
+> in an inconsistent state.
+> 
+> This patch reduces the possibility of this by doing the following:
+> a) Changes the existing multipath route add code to a two stage process:
+>   build rt6_infos + insert them
+> 	ip6_route_add rt6_info creation code is moved into
+> 	ip6_route_info_create.
+> b) This ensures that most errors are caught during building rt6_infos
+>   and we fail early
+> c) Separates multipath add and del code. Because add needs the special
+>   two stage mode in a) and delete essentially does not care.
+> d) In any event if the code fails during inserting a route again, a
+>   warning is printed (This should be unlikely)
+> 
+> Before the patch:
+> $ip -6 route show
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 1024
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 1024
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 1024
+> 
+> /* Try replacing the route with a duplicate nexthop */
+> $ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
+> fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
+> swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
+> RTNETLINK answers: File exists
+> 
+> $ip -6 route show
+> /* previously added ecmp route 3000:1000:1000:1000::2 dissappears from
+>  * kernel */
+> 
+> After the patch:
+> $ip -6 route show
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 1024
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 1024
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 1024
+> 
+> /* Try replacing the route with a duplicate nexthop */
+> $ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
+> fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
+> swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
+> RTNETLINK answers: File exists
+> 
+> $ip -6 route show
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 1024
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 1024
+> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 1024
+> 
+> Fixes: 27596472473a ("ipv6: fix ECMP route replacement")
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> v1 - v2 : fix leak
+> v2 - v3: fix 'Fixes' tag and warn msg (feedback from nicolas)
+>          resending against net
+> v3 - v4: reword warn msg (feedback from nicolas). I still print the
+>          nexthops in the warning to help user know the offending
+>          route replace. The msg is printed for each nexthop which I
+>          think should be ok because this is consistent with all other cases
+>          (notifications etc) where IPV6 multipath nexthops are
+>          treated as individual routes and this warn should be very
+>          unlikely.
+> ---
+>  net/ipv6/route.c | 201 ++++++++++++++++++++++++++++++++++++++++++++++++-------
+>  1 file changed, 175 insertions(+), 26 deletions(-)
+> 
 
-On 09/08/2015 03:46 PM, Alexey Brodkin wrote:
+I went over it and also ran a few tests with the change, IMO printing
+the offending entry is helpful to analyze the problem.
+FWIW,
 
->>> Current check of phydev with IS_ERR(phydev) may make not much sense
->>> because of_phy_connect() returns NULL on failure instead of error value.
->>>
->>> Still for checking result of phy_connect() IS_ERR() makes perfect sense.
->>>
->>> So let's use combined check IS_ERR_OR_NULL() that covers both cases.
->>>
->>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->>> Cc: linux-kernel@vger.kernel.org
->>> Cc: stable@vger.kernel.org
->>> Cc: David Miller <davem@davemloft.net>
->>> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
->>> ---
->>>
->>> Changes compared to v2:
->>>    * Updated commit message with mention of of_phy_connect() instead of
->>>      of_phy_attach().
->>>    * Return ENODEV in case of of_phy_connect() failure
->>>
->>> Changes compared to v1:
->>>    * Use IS_ERR_OR_NULL() instead of discrete checks for null and err
->>>
->>>    drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 7 +++++--
->>>    1 file changed, 5 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> index 864b476..e2c9c86 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> @@ -837,9 +837,12 @@ static int stmmac_init_phy(struct net_device *dev)
->>>    				     interface);
->>>    	}
->>>
->>> -	if (IS_ERR(phydev)) {
->>> +	if (IS_ERR_OR_NULL(phydev)) {
->>>    		pr_err("%s: Could not attach to PHY\n", dev->name);
->>> -		return PTR_ERR(phydev);
->>> +		if (!phydev)
->>> +			return -ENODEV;
->>> +		else
->>> +			return PTR_ERR(phydev);
->>
->>      Don't need *else* after *return* and scripts/checkpatch.pl should have
->> complained about that.
->
-> ./scripts/checkpatch.pl 0001-stmmac-fix-check-for-phydev-being-open.patch
-> total: 0 errors, 0 warnings, 0 checks, 14 lines checked
-
-    Hm... I bet I saw such warning from checkpatch.pl recently (it was a false 
-positive though, so maybe the check was removed recently, not sure). Your 
-patch is clean indeed, however my comment is still valid.
-
-> -Alexey
-
-MBR, Sergei
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
