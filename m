@@ -1,95 +1,42 @@
-From: Boqun Feng <boqun.feng@gmail.com>
-Subject: [PATCH v2] atomics,cmpxchg: Privatize the inclusion of asm/cmpxchg.h
-Date: Wed,  9 Sep 2015 09:27:04 +0800
-Message-ID: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
+From: Harish Patil <harish.patil@qlogic.com>
+Subject: Re: Linux kernel commit breaks IPMI on iface downing
+Date: Wed, 9 Sep 2015 01:33:16 +0000
+Message-ID: <D214D9E7.BFB25%harish.patil@qlogic.com>
+References: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
+ <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <CAJPaPGUsyHwaaTuUGcV5BMsSDcw1T7XQ9GVy5KwsMao3k8u+Kg@mail.gmail.com>
+ <CAJPaPGU=8mWhrOSKRMnZjEULsBcO4PWkCsyUEfLfpY+cktyK_w@mail.gmail.com>
+ <1441355399.8556.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Kirk Reiser <kirk@reisers.ca>,
- linux-net-drivers@solarflare.com, Davidlohr Bueso <dave@stgolabs.net>,
- linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
- Peter Zijlstra <peterz@infradead.org>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Boqun Feng <boqun.feng@gmail.com>, Will Deacon <will.deacon@arm.com>,
- Kishon Vijay Abraham I <kishon@ti.com>, speakup@linux-speakup.org,
- Ingo Molnar <mingo@redhat.com>, Shradha Shah <sshah@solarflare.com>,
- Samuel Thibault <samuel.thibault@ens-lyon.org>, netdev@vger.kernel.org,
- Chris Brannon <chris@the-brannons.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Ameen Rahman" <ameen.rahman@qlogic.com>
+To: Michael Chan <mchan@broadcom.com>,
+	=?utf-8?B?U8OpYmFzdGllbiBCb2NhaHU=?= <sbu@reportlinker.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:41177 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753204AbbIIBdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 21:33:21 -0400
+In-Reply-To: <1441355399.8556.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Content-Language: en-US
+Content-ID: <62DBC5396F7D4449836C7596F5C165A7@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After commit:
-
-atomics: add acquire/release/relaxed variants of some atomic operations
-
-Architectures may only provide {cmp,}xchg_relaxed definitions in
-asm/cmpxchg.h. Other variants, such as {cmp,}xchg, may be built in
-linux/atomic.h, which means simply including asm/cmpxchg.h may not get
-the definitions of all the{cmp,}xchg variants. Therefore, we should
-privatize the inclusions of asm/cmpxchg.h to keep it only included in
-arch/* and replace the inclusions outside with linux/atomic.h
-
-Acked-by: Will Deacon <will.deacon@arm.com>
-Signed-off-by: Boqun Feng <boqun.feng@gmail.com>
----
-v1 --> v2:
-	1. rebase on current master branch of tip tree
-	2. remove documentation modification
-
- drivers/net/ethernet/sfc/mcdi.c     | 2 +-
- drivers/phy/phy-rcar-gen2.c         | 3 +--
- drivers/staging/speakup/selection.c | 2 +-
- 3 files changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 81640f8..968383e 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -9,7 +9,7 @@
- 
- #include <linux/delay.h>
- #include <linux/moduleparam.h>
--#include <asm/cmpxchg.h>
-+#include <linux/atomic.h>
- #include "net_driver.h"
- #include "nic.h"
- #include "io.h"
-diff --git a/drivers/phy/phy-rcar-gen2.c b/drivers/phy/phy-rcar-gen2.c
-index 6e0d9fa..c7a0599 100644
---- a/drivers/phy/phy-rcar-gen2.c
-+++ b/drivers/phy/phy-rcar-gen2.c
-@@ -17,8 +17,7 @@
- #include <linux/phy/phy.h>
- #include <linux/platform_device.h>
- #include <linux/spinlock.h>
--
--#include <asm/cmpxchg.h>
-+#include <linux/atomic.h>
- 
- #define USBHS_LPSTS			0x02
- #define USBHS_UGCTRL			0x80
-diff --git a/drivers/staging/speakup/selection.c b/drivers/staging/speakup/selection.c
-index 98af3b1..aa5ab6c 100644
---- a/drivers/staging/speakup/selection.c
-+++ b/drivers/staging/speakup/selection.c
-@@ -7,7 +7,7 @@
- #include <linux/workqueue.h>
- #include <linux/tty.h>
- #include <linux/tty_flip.h>
--#include <asm/cmpxchg.h>
-+#include <linux/atomic.h>
- 
- #include "speakup.h"
- 
--- 
-2.5.1
+DQo+T24gRnJpLCAyMDE1LTA5LTA0IGF0IDA5OjU1ICswMjAwLCBTw6liYXN0aWVuIEJvY2FodSB3
+cm90ZToNCj4+IEhpLA0KPj4gDQo+PiBBbnkgY2hhbmNlIHRoaXMgYmVoYXZpb3VyIGdldHMgZml4
+ZWQsIHdpdGggZWl0aGVyIGEgbmV3IGZpcm13YXJlIG9yIGENCj4+IHdvcmthcm91bmQgaW4gdGhl
+IGtlcm5lbCA/DQo+PiANCj4NCj5BcyBJIHNhaWQgZWFybGllciwgd2hlbiB3ZSBjYWxsIGJueDJf
+c2h1dGRvd25fY2hpcCgpLCB3ZSBpbmZvcm0gdGhlDQo+ZmlybXdhcmUgdGhhdCB0aGUgZHJpdmVy
+IGlzIHNodXR0aW5nIGRvd24uICBUaGUgZmlybXdhcmUgc2hvdWxkIGtub3cNCj50aGF0IHRoZXJl
+IGlzIElQTUkgZmlybXdhcmUgYW5kIHRoZSBsaW5rIG5lZWRzIHRvIHN0YXkgdXAuDQo+DQo+SW4g
+dGhlIG9sZGVyIGRyaXZlciwgd2Ugd291bGQgYWxzbyBjYWxsIGJueDJfc2V0X3Bvd2VyX3N0YXRl
+KCkgd2hpY2gNCj53b3VsZCBzZW5kIHNvbWUgYWRkaXRpb25hbCBtZXNzYWdlcyB0byB0aGUgZmly
+bXdhcmUgYmVmb3JlIHB1dHRpbmcgdGhlDQo+ZGV2aWNlIGluIEQzaG90LiAgTWF5IGJlIHRoZXNl
+IG1lc3NhZ2VzIGFyZSByZXF1aXJlZCBieSB0aGUgZmlybXdhcmUgdG8NCj5rZWVwIHRoZSBsaW5r
+IHVwLiAgSGFyaXNoLCBwbGVhc2UgY2hlY2sgd2l0aCB5b3VyIGZpcm13YXJlIHRlYW0uDQo+VGhh
+bmtzLg0KPg0KPg0KPg0KPg0KDQpIaSBNaWNoYWVsL1NlYmFzdGllbiwNCkFDSy4gU3VyZSwgSSB3
+aWxsIGxvb2sgaW50byBpdCBhbmQgZ2V0IGJhY2suDQoNClRoYW5rcywNCkhhcmlzaA0KDQo=
