@@ -1,49 +1,103 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v6 02/10] ss: created formatters for json and hr
-Date: Wed, 9 Sep 2015 15:34:40 -0700
-Message-ID: <20150909153440.49757e14@urahara>
-References: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
-	<4b7ff1016053461a80465ce8138e12a2@HQ1WP-EXMB11.corp.brocade.com>
-	<20150909143049.0aa08d37@urahara>
-	<cf829f8ac6ea466eb9bb693350dd3291@HQ1WP-EXMB11.corp.brocade.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] net: Refactor path selection in
+ __ip_route_output_key
+Date: Wed, 9 Sep 2015 16:56:16 -0600
+Message-ID: <55F0B910.2040906@cumulusnetworks.com>
+References: <1441835862-41403-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hagen@jauu.net" <hagen@jauu.net>,
-	"shemminger@osdl.org" <shemminger@osdl.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"daniel@iogearbox.net" <daniel@iogearbox.net>
-To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Cc: tom@herbertland.com
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33546 "EHLO
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35388 "EHLO
 	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753028AbbIIWea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 18:34:30 -0400
-Received: by pacex6 with SMTP id ex6so22630620pac.0
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 15:34:29 -0700 (PDT)
-In-Reply-To: <cf829f8ac6ea466eb9bb693350dd3291@HQ1WP-EXMB11.corp.brocade.com>
+	with ESMTP id S1751055AbbIIW4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 18:56:18 -0400
+Received: by pacfv12 with SMTP id fv12so23305023pac.2
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 15:56:18 -0700 (PDT)
+In-Reply-To: <1441835862-41403-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Sep 2015 22:00:36 +0000
-Matthias Tafelmeier <matthias.tafelmeier@gmx.net> wrote:
+arg... I goofed the subject line (default is net-next via git config), 
+but this one is required for 2/2 so if you want 2/2 for net this one 
+should be net as well.
 
-> >> +#define STATIC_ASSERT(COND, MSG)			\
-> >> +{							\
-> >> +	char STATIC_ASSERT##MSG[(COND) ? 1 : -1];	\
-> >> +	(void)STATIC_ASSERT##MSG[0];		\
-> >> +}
-> > 
-> > If you are going to introduce this, please use same convention
-> > as Linux kernel. ie. BUILD_BUG_ON()
-> > 
-> > Your code looks like it came out of some other project.
-> > 
-> 
-> Well, but when using "BUILD_BUG_ON()" I would have to give up on having
-> put out the MSG by compiler when a static issue occurs. I liked that notion.
 
-If it won't compile, people will look at the code. The message is really
-irrelevant.
+On 9/9/15 3:57 PM, David Ahern wrote:
+> VRF device needs same path selection following lookup to set source
+> address. Rather than duplicating code, move existing code into a
+> function that is exported to modules.
+>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>   include/net/ip_fib.h     |  2 ++
+>   net/ipv4/fib_semantics.c | 18 ++++++++++++++++++
+>   net/ipv4/route.c         | 13 +------------
+>   3 files changed, 21 insertions(+), 12 deletions(-)
+>
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index a37d0432bebd..9d8fe37dacbf 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -313,6 +313,8 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event);
+>   int fib_sync_down_addr(struct net *net, __be32 local);
+>   int fib_sync_up(struct net_device *dev, unsigned int nh_flags);
+>   void fib_select_multipath(struct fib_result *res);
+> +void fib_select_path(struct net *net, struct fib_result *res,
+> +		     struct flowi4 *fl4);
+>
+>   /* Exported by fib_trie.c */
+>   void fib_trie_init(void);
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index 064bd3caaa4f..4ca172223ecb 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -1547,3 +1547,21 @@ void fib_select_multipath(struct fib_result *res)
+>   	spin_unlock_bh(&fib_multipath_lock);
+>   }
+>   #endif
+> +
+> +void fib_select_path(struct net *net, struct fib_result *res,
+> +		     struct flowi4 *fl4)
+> +{
+> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +	if (res->fi->fib_nhs > 1 && fl4->flowi4_oif == 0)
+> +		fib_select_multipath(res);
+> +	else
+> +#endif
+> +	if (!res->prefixlen &&
+> +	    res->table->tb_num_default > 1 &&
+> +	    res->type == RTN_UNICAST && !fl4->flowi4_oif)
+> +		fib_select_default(fl4, res);
+> +
+> +	if (!fl4->saddr)
+> +		fl4->saddr = FIB_RES_PREFSRC(net, *res);
+> +}
+> +EXPORT_SYMBOL(fib_select_path);
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 5f4a5565ad8b..16d62635b484 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2198,18 +2198,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+>   		goto make_route;
+>   	}
+>
+> -#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> -	if (res.fi->fib_nhs > 1 && fl4->flowi4_oif == 0)
+> -		fib_select_multipath(&res);
+> -	else
+> -#endif
+> -	if (!res.prefixlen &&
+> -	    res.table->tb_num_default > 1 &&
+> -	    res.type == RTN_UNICAST && !fl4->flowi4_oif)
+> -		fib_select_default(fl4, &res);
+> -
+> -	if (!fl4->saddr)
+> -		fl4->saddr = FIB_RES_PREFSRC(net, res);
+> +	fib_select_path(net, &res, fl4);
+>
+>   	dev_out = FIB_RES_DEV(res);
+>   	fl4->flowi4_oif = dev_out->ifindex;
+>
