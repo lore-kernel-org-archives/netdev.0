@@ -1,31 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 3/4] net: mv643xx_eth: use kzalloc
-Date: Wed, 09 Sep 2015 11:45:56 -0700
-Message-ID: <1441824356.17219.69.camel@perches.com>
-References: <1441787886-7214-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1441787886-7214-4-git-send-email-linux@rasmusvillemoes.dk>
-	 <1441814431.17219.46.camel@perches.com> <87r3m74f2k.fsf@rasmusvillemoes.dk>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2] atomics,cmpxchg: Privatize the inclusion of
+ asm/cmpxchg.h
+Date: Tue, 8 Sep 2015 21:00:32 -0700
+Message-ID: <20150909040032.GB5497@kroah.com>
+References: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0002.hostedemail.com ([216.40.44.2]:45744 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750819AbbIISp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 14:45:59 -0400
-In-Reply-To: <87r3m74f2k.fsf@rasmusvillemoes.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Shradha Shah <sshah@solarflare.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>,
+	William Hubbs <w.d.hubbs@gmail.com>,
+	Chris Brannon <chris@the-brannons.com>,
+	Kirk Reiser <kirk@reisers.ca>,
+	Samuel Thibault <samuel.thibault@ens-lyon.org>,
+	Aybuke Ozdemir <aybuke.147@gmail.com>,
+	Davidlohr Bueso <dave@stgolabs.net>,
+	linux-net-drivers@solarflare.com, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org, speakup@linux-speakup.org,
+	devel@driverdev.osuosl.org
+To: Boqun Feng <boqun.feng@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-09-09 at 20:34 +0200, Rasmus Villemoes wrote:
-> mc_spec and mc_other are u32*, we allocate 0x200 = 512 bytes = 128
-> u32s, and pointer arithmetic makes mc_other point to the latter 64. Then
-> the memory is cleared 256 bytes at a time.
+On Wed, Sep 09, 2015 at 09:27:04AM +0800, Boqun Feng wrote:
+> After commit:
 > 
-> It's unusual and slightly obfuscated code, but I don't think it's
-> wrong. 
+> atomics: add acquire/release/relaxed variants of some atomic operations
+> 
+> Architectures may only provide {cmp,}xchg_relaxed definitions in
+> asm/cmpxchg.h. Other variants, such as {cmp,}xchg, may be built in
+> linux/atomic.h, which means simply including asm/cmpxchg.h may not get
+> the definitions of all the{cmp,}xchg variants. Therefore, we should
+> privatize the inclusions of asm/cmpxchg.h to keep it only included in
+> arch/* and replace the inclusions outside with linux/atomic.h
+> 
+> Acked-by: Will Deacon <will.deacon@arm.com>
+> Signed-off-by: Boqun Feng <boqun.feng@gmail.com>
+> ---
+> v1 --> v2:
+> 	1. rebase on current master branch of tip tree
+> 	2. remove documentation modification
+> 
 
-Right, misread.
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
