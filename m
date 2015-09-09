@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH: netdev: add a cast NLMSG_OK to avoid a GCC warning in
- users' code
-Date: Wed, 09 Sep 2015 12:37:17 -0700 (PDT)
-Message-ID: <20150909.123717.2263645868892698375.davem@davemloft.net>
-References: <alpine.LRH.2.02.1509080933340.4754@redclaw.mimosa.com>
+Subject: Re: [PATCH v2] RDS: verify the underlying transport exists before
+ creating a connection
+Date: Wed, 09 Sep 2015 12:38:51 -0700 (PDT)
+Message-ID: <20150909.123851.1753247693899572461.davem@davemloft.net>
+References: <1441724020-19035-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hugh@mimosa.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34337 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808AbbIIThS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 15:37:18 -0400
-In-Reply-To: <alpine.LRH.2.02.1509080933340.4754@redclaw.mimosa.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sasha.levin@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441724020-19035-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "D. Hugh Redelmeier" <hugh@mimosa.com>
-Date: Tue, 8 Sep 2015 09:46:56 -0400 (EDT)
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Tue,  8 Sep 2015 10:53:40 -0400
 
-> Using netlink.h's NLMSG_OK correctly will cause GCC to issue a warning
-> on systems with 32-bit userland.  The definition can easily be changed
-> to avoid this.
+> There was no verification that an underlying transport exists when creating
+> a connection, this would cause dereferencing a NULL ptr.
+> 
+> It might happen on sockets that weren't properly bound before attempting to
+> send a message, which will cause a NULL ptr deref:
+ ...
+> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com> 
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-Everyone either uses an unsigned type (such as "size_t") or adds an
-explicit cast to an unsinged type for the second argument.
-
-The code you were trying to compile should do so as well.
-
-I'm not applying this, sorry.
+Applied.
