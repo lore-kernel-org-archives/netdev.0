@@ -1,58 +1,43 @@
-From: Duan Andy <fugang.duan@freescale.com>
-Subject: RE: [PATCH net-next 1/1] net: fec: add netif status check before set
- mac address
-Date: Wed, 9 Sep 2015 03:45:48 +0000
-Message-ID: <BN3PR0301MB1219283913FA957BB6943F27F5520@BN3PR0301MB1219.namprd03.prod.outlook.com>
-References: <1441766567-30689-1-git-send-email-b38611@freescale.com>
- <55EFA98F.7010700@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: dsa: bcm_sf2: Fix ageing conditions and
+ operation
+Date: Tue, 08 Sep 2015 22:28:06 -0700 (PDT)
+Message-ID: <20150908.222806.2296252940023685292.davem@davemloft.net>
+References: <1441483647-8278-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
+	linux@roeck-us.net, andrew@lunn.ch
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0101.outbound.protection.outlook.com ([157.56.110.101]:60672
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752829AbbIIDpv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2015 23:45:51 -0400
-In-Reply-To: <55EFA98F.7010700@gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:57557 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228AbbIIF2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 01:28:10 -0400
+In-Reply-To: <1441483647-8278-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFdlZG5l
-c2RheSwgU2VwdGVtYmVyIDA5LCAyMDE1IDExOjM4IEFNDQo+IFRvOiBEdWFuIEZ1Z2FuZy1CMzg2
-MTE7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGJo
-dXRjaGluZ3NAc29sYXJmbGFyZS5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCAx
-LzFdIG5ldDogZmVjOiBhZGQgbmV0aWYgc3RhdHVzIGNoZWNrIGJlZm9yZQ0KPiBzZXQgbWFjIGFk
-ZHJlc3MNCj4gDQo+IExlIDA5LzA4LzE1IDE5OjQyLCBGdWdhbmcgRHVhbiBhIMOpY3JpdCA6DQo+
-ID4gVGhlcmUgZXhpc3Qgb25lIGlzc3VlIGJ5IGJlbG93IGNhc2UgdGhhdCBjYXNlIHN5c3RlbSBo
-YW5nOg0KPiA+IGlmY29uZmlnIGV0aDAgZG93bg0KPiA+IGlmY29uZmlnIGV0aDAgaHcgZXRoZXIg
-MDA6MTA6MTk6MTk6ODE6MTkNCj4gPg0KPiA+IEFmdGVyIGV0aDAgZG93biwgYWxsIGZlYyBjbG9j
-a3MgYXJlIGdhdGVkIG9mZi4gSW4gdGhlDQo+ID4gLmZlY19zZXRfbWFjX2FkZHJlc3MoKSBmdW5j
-dGlvbiwgaXQgd2lsbCBzZXQgbmV3IE1BQyBhZGRyZXNzIHRvDQo+IHJlZ2lzdGVycywgd2hpY2gg
-Y2F1c2VzIHN5c3RlbSBoYW5nLg0KPiA+DQo+ID4gU28gaXQgbmVlZHMgdG8gYWRkIG5ldGlmIHN0
-YXR1cyBjaGVjayB0byBhdm9pZCByZWdpc3RlcnMgYWNjZXNzIHdoZW4NCj4gPiBjbG9ja3MgYXJl
-IGdhdGVkIG9mZi4gVW50aWwgZXRoMCB1cCB0aGUgbmV3IE1BQyBhZGRyZXNzIGFyZSB3cm90ZSBp
-bnRvDQo+IHJlbGF0ZWQgcmVnaXN0ZXJzLg0KPiANCj4gU2luY2UgdGhpcyBpcyBhIGJ1ZyBmaXgs
-IGRvIG5vdCB5b3UgaW50ZW5kIHRvIHRhcmdldCB0aGUgIm5ldCIgdHJlZQ0KPiBpbnN0ZWFkIG9m
-ICJuZXQtbmV4dCI/DQo+IA0KVGhhbmtzIGZvciB5b3VyIHJlbWluZGluZywgaXQgaXMgYmV0dGVy
-IHRvIGVudGVyIG5ldCB0cmVlLg0KDQpEYXZpZCwgaWYgeW91IGFwcGx5IGl0LCBwbHMgcHV0IGl0
-IGludG8gbmV0IHRyZWUuIFRoYW5rcy4NCg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogRnVnYW5n
-IER1YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyB8IDMgKysrDQo+ID4gIDEgZmlsZSBjaGFuZ2Vk
-LCAzIGluc2VydGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
-ZXNjYWxlL2ZlY19tYWluLmMNCj4gPiBpbmRleCA5MTkyNWUzLi5jZDA5ZGJiIDEwMDY0NA0KPiA+
-IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4gKysr
-IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiBAQCAtMzAy
-OSw2ICszMDI5LDkgQEAgZmVjX3NldF9tYWNfYWRkcmVzcyhzdHJ1Y3QgbmV0X2RldmljZSAqbmRl
-diwgdm9pZA0KPiAqcCkNCj4gPiAgCQltZW1jcHkobmRldi0+ZGV2X2FkZHIsIGFkZHItPnNhX2Rh
-dGEsIG5kZXYtPmFkZHJfbGVuKTsNCj4gPiAgCX0NCj4gPg0KPiA+ICsJaWYgKCFuZXRpZl9ydW5u
-aW5nKG5kZXYpKQ0KPiA+ICsJCXJldHVybiAwOw0KPiA+ICsNCj4gPiAgCXdyaXRlbChuZGV2LT5k
-ZXZfYWRkclszXSB8IChuZGV2LT5kZXZfYWRkclsyXSA8PCA4KSB8DQo+ID4gIAkJKG5kZXYtPmRl
-dl9hZGRyWzFdIDw8IDE2KSB8IChuZGV2LT5kZXZfYWRkclswXSA8PCAyNCksDQo+ID4gIAkJZmVw
-LT5od3AgKyBGRUNfQUREUl9MT1cpOw0KPiA+DQo+IA0KPiANCj4gLS0NCj4gRmxvcmlhbg0K
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sat,  5 Sep 2015 13:07:27 -0700
+
+> The comparison check between cur_hw_state and hw_state is currently
+> invalid because cur_hw_state is right shifted by G_MISTP_SHIFT, while
+> hw_state is not, so we end-up comparing bits 2:0 with bits 7:5, which is
+> going to cause an additional aging to occur. Fix this by not shifting
+> cur_hw_state while reading it, but instead, mask the value with the
+> appropriately shitfted bitmask.
+> 
+> The other problem with the fast-ageing process is that we did not set
+> the EN_AGE_DYNAMIC bit to request the ageing to occur for dynamically
+> learned MAC addresses. Finally, write back 0 to the FAST_AGE_CTRL
+> register to avoid leaving spurious bits sets from one operation to the
+> other.
+> 
+> Fixes: 12f460f23423 ("net: dsa: bcm_sf2: add HW bridging support")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> David, this dates back to 4.1, could you queue this for -stable?
+
+Applied and queued up for -stable, thanks!
