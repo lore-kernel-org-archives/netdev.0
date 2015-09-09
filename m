@@ -1,238 +1,394 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH v6 08/10] ss: symmetrical formatter extension example
-Date: Wed,  9 Sep 2015 21:43:19 +0200
-Message-ID: <1441827801-9617-9-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH v6 06/10] ss: renaming and export of current_filter
+Date: Wed,  9 Sep 2015 21:43:17 +0200
+Message-ID: <1441827801-9617-7-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:52264 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.19]:54284 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754795AbbIITnk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Sep 2015 15:43:40 -0400
+	id S1754648AbbIITnb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Sep 2015 15:43:31 -0400
 In-Reply-To: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit shall show shortly where to place changes when one wants to
-extend an ss output formatter with a new handler (format print
-procedure). The extension is done symmetrically. That means, every up to
-now existing formatter is extended with a semantically equivalent
-handler (hr and json formatter).
+Exported current_filter as ss_current_filter, because in
+the fmt handlers, I need that piece of info to resolve out issues of json.
 
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- misc/ss_hr_fmt.c   | 61 ++++++++++++++++++++++++++++++++++++++++++++++++++
- misc/ss_json_fmt.c | 65 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- misc/ss_out_fmt.c  | 10 +++++++++
- misc/ss_out_fmt.h  | 10 +++++++++
- 4 files changed, 146 insertions(+)
+ misc/ss.c | 154 +++++++++++++++++++++++++++++++-------------------------------
+ 1 file changed, 78 insertions(+), 76 deletions(-)
 
-diff --git a/misc/ss_hr_fmt.c b/misc/ss_hr_fmt.c
-index 4046ebf..7b4eb7b 100644
---- a/misc/ss_hr_fmt.c
-+++ b/misc/ss_hr_fmt.c
-@@ -242,6 +242,66 @@ static void packet_show_ring_hr_fmt(struct packet_diag_ring *ring)
- 	printf(",features:0x%x", ring->pdr_features);
- }
+diff --git a/misc/ss.c b/misc/ss.c
+index 7a1b6eb..6ff40a3 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -106,6 +106,7 @@ int show_sock_ctx = 0;
+ int user_ent_hash_build_init = 0;
+ int follow_events = 0;
+ int json_output = 0;
++int json_first_elem = 1;
  
-+static void packet_details_hr_fmt(struct packet_diag_info *pinfo,
-+		struct packet_diag_ring *ring_rx,
-+		struct packet_diag_ring *ring_tx,
-+		uint32_t fanout,
-+		bool has_fanout)
-+{
-+	if (pinfo) {
-+		printf("\n\tver:%d", pinfo->pdi_version);
-+		printf(" cpy_thresh:%d", pinfo->pdi_copy_thresh);
-+		printf(" flags( ");
-+		if (pinfo->pdi_flags & PDI_RUNNING)
-+			printf("running");
-+		if (pinfo->pdi_flags & PDI_AUXDATA)
-+			printf(" auxdata");
-+		if (pinfo->pdi_flags & PDI_ORIGDEV)
-+			printf(" origdev");
-+		if (pinfo->pdi_flags & PDI_VNETHDR)
-+			printf(" vnethdr");
-+		if (pinfo->pdi_flags & PDI_LOSS)
-+			printf(" loss");
-+		if (!pinfo->pdi_flags)
-+			printf("0");
-+		printf(" )");
-+	}
-+	if (ring_rx) {
-+		printf("\n\tring_rx(");
-+		packet_show_ring_fmt(ring_rx);
-+		printf(")");
-+	}
-+	if (ring_tx) {
-+		printf("\n\tring_tx(");
-+		packet_show_ring_fmt(ring_tx);
-+		printf(")");
-+	}
-+	if (has_fanout) {
-+		uint16_t type = (fanout >> 16) & 0xffff;
-+
-+		printf("\n\tfanout(");
-+		printf("id:%d,", fanout & 0xffff);
-+		printf("type:");
-+
-+		if (type == 0)
-+			printf("hash");
-+		else if (type == 1)
-+			printf("lb");
-+		else if (type == 2)
-+			printf("cpu");
-+		else if (type == 3)
-+			printf("roll");
-+		else if (type == 4)
-+			printf("random");
-+		else if (type == 5)
-+			printf("qm");
-+		else
-+			printf("0x%x", type);
-+
-+		printf(")");
-+	}
-+}
-+
- const struct fmt_op_hub hr_output_op = {
- 	.tcp_stats_fmt = tcp_stats_hr_fmt,
- 	.tcp_timer_fmt = tcp_timer_hr_fmt,
-@@ -257,4 +317,5 @@ const struct fmt_op_hub hr_output_op = {
- 	.opt_fmt = opt_hr_fmt,
- 	.proc_fmt = proc_hr_fmt,
- 	.packet_show_ring_fmt = packet_show_ring_hr_fmt,
-+	.packet_details_fmt = packet_details_hr_fmt
+ int netid_width;
+ int state_width;
+@@ -200,7 +201,7 @@ static const struct filter default_afs[AF_MAX] = {
  };
-diff --git a/misc/ss_json_fmt.c b/misc/ss_json_fmt.c
-index 1dff57a..74d7025 100644
---- a/misc/ss_json_fmt.c
-+++ b/misc/ss_json_fmt.c
-@@ -392,6 +392,70 @@ static void packet_show_ring_json_fmt(struct packet_diag_ring *ring)
- 	jsonw_hex_field_outp(json_wr, "features_0x", ring->pdr_features);
- }
  
-+static void packet_details_json_fmt(struct packet_diag_info *pinfo,
-+		struct packet_diag_ring *ring_rx,
-+		struct packet_diag_ring *ring_tx,
-+		uint32_t fanout,
-+		bool has_fanout)
-+{
-+	char tmp_out[16];
-+
-+	if (pinfo) {
-+		jsonw_int_field(json_wr, "ver", pinfo->pdi_version);
-+		jsonw_int_field(json_wr, "cpy_thresh", pinfo->pdi_copy_thresh);
-+		if (pinfo->pdi_flags & PDI_RUNNING)
-+			sprintf(tmp_out, "running");
-+		if (pinfo->pdi_flags & PDI_AUXDATA)
-+			sprintf(tmp_out, "_auxdata");
-+		if (pinfo->pdi_flags & PDI_ORIGDEV)
-+			sprintf(tmp_out, "_origdev");
-+		if (pinfo->pdi_flags & PDI_VNETHDR)
-+			sprintf(tmp_out, "_vnethdr");
-+		if (pinfo->pdi_flags & PDI_LOSS)
-+			sprintf(tmp_out, "_loss");
-+		if (!pinfo->pdi_flags)
-+			sprintf(tmp_out, "0");
-+		jsonw_string_field(json_wr, "flags", tmp_out);
-+	}
-+	if (ring_rx) {
-+		jsonw_name(json_wr, "ring_rx");
-+		jsonw_start_object(json_wr);
-+		packet_show_ring_fmt(ring_rx);
-+		jsonw_end_object(json_wr);
-+	}
-+	if (ring_tx) {
-+		jsonw_name(json_wr, "ring_tx");
-+		jsonw_start_object(json_wr);
-+		packet_show_ring_fmt(ring_tx);
-+		jsonw_end_object(json_wr);
-+	}
-+	if (has_fanout) {
-+		uint16_t type = (fanout >> 16) & 0xffff;
-+
-+		jsonw_name(json_wr, "fanout");
-+		jsonw_start_object(json_wr);
-+		jsonw_int_field(json_wr, "id", fanout & 0xffff);
-+
-+		if (type == 0)
-+			sprintf("hash");
-+		else if (type == 1)
-+			sprintf(tmp_out, "lb");
-+		else if (type == 2)
-+			sprintf(tmp_out, "cpu");
-+		else if (type == 3)
-+			sprintf(tmp_out, "roll");
-+		else if (type == 4)
-+			sprintf(tmp_out, "random");
-+		else if (type == 5)
-+			sprintf(tmp_out, "qm");
-+		else
-+			sprintf(tmp_out, "0x%x", type);
-+
-+		jsonw_string_field(json_wr, "type", tmp_out);
-+		jsonw_end_object(json_wr);
-+	}
-+}
-+
- const struct fmt_op_hub json_output_op = {
- 	.tcp_stats_fmt = tcp_stats_json_fmt,
- 	.tcp_timer_fmt = tcp_timer_json_fmt,
-@@ -407,4 +471,5 @@ const struct fmt_op_hub json_output_op = {
- 	.opt_fmt = opt_json_fmt,
- 	.proc_fmt = proc_json_fmt,
- 	.packet_show_ring_fmt = packet_show_ring_json_fmt,
-+	.packet_details_fmt = packet_details_json_fmt
- };
-diff --git a/misc/ss_out_fmt.c b/misc/ss_out_fmt.c
-index 57bc24e..6d92201 100644
---- a/misc/ss_out_fmt.c
-+++ b/misc/ss_out_fmt.c
-@@ -125,3 +125,13 @@ void packet_show_ring_fmt(struct packet_diag_ring *ring)
+ static int do_default = 1;
+-static struct filter current_filter;
++struct filter ss_current_filter;
+ 
+ static void filter_db_set(struct filter *f, int db)
  {
- 	fmt_op_hub[fmt_type]->packet_show_ring_fmt(ring);
- }
-+void packet_details_fmt(struct packet_diag_info *pinfo,
-+		struct packet_diag_ring *ring_rx,
-+		struct packet_diag_ring *ring_tx,
-+		uint32_t fanout,
-+		bool has_fanout)
-+{
-+	fmt_op_hub[fmt_type]->packet_details_fmt(pinfo,
-+			ring_rx, ring_tx, fanout, has_fanout);
-+}
-+
-diff --git a/misc/ss_out_fmt.h b/misc/ss_out_fmt.h
-index c9f08ce..2c707ac 100644
---- a/misc/ss_out_fmt.h
-+++ b/misc/ss_out_fmt.h
-@@ -58,6 +58,11 @@ struct fmt_op_hub {
- 	void (*opt_fmt)(char *opt);
- 	void (*proc_fmt)(int serv_width, char *pid_ctx);
- 	void (*packet_show_ring_fmt)(struct packet_diag_ring *ring);
-+	void (*packet_details_fmt)(struct packet_diag_info *pinfo,
-+		struct packet_diag_ring *ring_rx,
-+		struct packet_diag_ring *ring_tx,
-+		uint32_t fanout,
-+		bool has_fanout);
- };
+@@ -1182,7 +1183,7 @@ void *parse_hostcond(char *addr, bool is_port)
+ 	struct aafilter a = { .port = -1 };
+ 	struct aafilter *res;
+ 	int fam = preferred_family;
+-	struct filter *f = &current_filter;
++	struct filter *f = &ss_current_filter;
  
- void tcp_stats_fmt(struct tcpstat *s);
-@@ -78,6 +83,11 @@ void bpf_filter_fmt(struct sock_filter *f, int num);
- void opt_fmt(char *opt);
- void proc_fmt(int serv_width, char *pid_ctx);
- void packet_show_ring_fmt(struct packet_diag_ring *ring);
-+void packet_details_fmt(struct packet_diag_info *pinfo,
-+		struct packet_diag_ring *ring_rx,
-+		struct packet_diag_ring *ring_tx,
-+		uint32_t fanout,
-+		bool has_fanout);
+ 	if (fam == AF_UNIX || strncmp(addr, "unix:", 5) == 0) {
+ 		char *p;
+@@ -1281,9 +1282,9 @@ void *parse_hostcond(char *addr, bool is_port)
+ 			if (get_integer(&a.port, port, 0)) {
+ 				struct servent *se1 = NULL;
+ 				struct servent *se2 = NULL;
+-				if (current_filter.dbs&(1<<UDP_DB))
++				if (ss_current_filter.dbs & (1 << UDP_DB))
+ 					se1 = getservbyname(port, UDP_PROTO);
+-				if (current_filter.dbs&(1<<TCP_DB))
++				if (ss_current_filter.dbs & (1 << TCP_DB))
+ 					se2 = getservbyname(port, TCP_PROTO);
+ 				if (se1 && se2 && se1->s_port != se2->s_port) {
+ 					fprintf(stderr, "Error: ambiguous port \"%s\".\n", port);
+@@ -1297,9 +1298,9 @@ void *parse_hostcond(char *addr, bool is_port)
+ 					struct scache *s;
+ 					for (s = rlist; s; s = s->next) {
+ 						if ((s->proto == UDP_PROTO &&
+-						     (current_filter.dbs&(1<<UDP_DB))) ||
++						     (ss_current_filter.dbs&(1<<UDP_DB))) ||
+ 						    (s->proto == TCP_PROTO &&
+-						     (current_filter.dbs&(1<<TCP_DB)))) {
++						     (ss_current_filter.dbs&(1<<TCP_DB)))) {
+ 							if (s->name && strcmp(s->name, port) == 0) {
+ 								if (a.port > 0 && a.port != s->port) {
+ 									fprintf(stderr, "Error: ambiguous port \"%s\".\n", port);
+@@ -3220,19 +3221,19 @@ int main(int argc, char *argv[])
+ 			follow_events = 1;
+ 			break;
+ 		case 'd':
+-			filter_db_set(&current_filter, DCCP_DB);
++			filter_db_set(&ss_current_filter, DCCP_DB);
+ 			break;
+ 		case 't':
+-			filter_db_set(&current_filter, TCP_DB);
++			filter_db_set(&ss_current_filter, TCP_DB);
+ 			break;
+ 		case 'u':
+-			filter_db_set(&current_filter, UDP_DB);
++			filter_db_set(&ss_current_filter, UDP_DB);
+ 			break;
+ 		case 'w':
+-			filter_db_set(&current_filter, RAW_DB);
++			filter_db_set(&ss_current_filter, RAW_DB);
+ 			break;
+ 		case 'x':
+-			filter_af_set(&current_filter, AF_UNIX);
++			filter_af_set(&ss_current_filter, AF_UNIX);
+ 			break;
+ 		case 'a':
+ 			state_filter = SS_ALL;
+@@ -3241,25 +3242,25 @@ int main(int argc, char *argv[])
+ 			state_filter = (1 << SS_LISTEN) | (1 << SS_CLOSE);
+ 			break;
+ 		case '4':
+-			filter_af_set(&current_filter, AF_INET);
++			filter_af_set(&ss_current_filter, AF_INET);
+ 			break;
+ 		case '6':
+-			filter_af_set(&current_filter, AF_INET6);
++			filter_af_set(&ss_current_filter, AF_INET6);
+ 			break;
+ 		case '0':
+-			filter_af_set(&current_filter, AF_PACKET);
++			filter_af_set(&ss_current_filter, AF_PACKET);
+ 			break;
+ 		case 'f':
+ 			if (strcmp(optarg, "inet") == 0)
+-				filter_af_set(&current_filter, AF_INET);
++				filter_af_set(&ss_current_filter, AF_INET);
+ 			else if (strcmp(optarg, "inet6") == 0)
+-				filter_af_set(&current_filter, AF_INET6);
++				filter_af_set(&ss_current_filter, AF_INET6);
+ 			else if (strcmp(optarg, "link") == 0)
+-				filter_af_set(&current_filter, AF_PACKET);
++				filter_af_set(&ss_current_filter, AF_PACKET);
+ 			else if (strcmp(optarg, "unix") == 0)
+-				filter_af_set(&current_filter, AF_UNIX);
++				filter_af_set(&ss_current_filter, AF_UNIX);
+ 			else if (strcmp(optarg, "netlink") == 0)
+-				filter_af_set(&current_filter, AF_NETLINK);
++				filter_af_set(&ss_current_filter, AF_NETLINK);
+ 			else if (strcmp(optarg, "help") == 0)
+ 				help();
+ 			else {
+@@ -3272,9 +3273,9 @@ int main(int argc, char *argv[])
+ 		{
+ 			char *p, *p1;
+ 			if (!saw_query) {
+-				current_filter.dbs = 0;
++				ss_current_filter.dbs = 0;
+ 				state_filter = state_filter ?
+-				               state_filter : SS_CONN;
++							state_filter : SS_CONN;
+ 				saw_query = 1;
+ 				do_default = 0;
+ 			}
+@@ -3283,44 +3284,44 @@ int main(int argc, char *argv[])
+ 				if ((p1 = strchr(p, ',')) != NULL)
+ 					*p1 = 0;
+ 				if (strcmp(p, "all") == 0) {
+-					filter_default_dbs(&current_filter);
++					filter_default_dbs(&ss_current_filter);
+ 				} else if (strcmp(p, "inet") == 0) {
+-					filter_db_set(&current_filter, UDP_DB);
+-					filter_db_set(&current_filter, DCCP_DB);
+-					filter_db_set(&current_filter, TCP_DB);
+-					filter_db_set(&current_filter, RAW_DB);
++					filter_db_set(&ss_current_filter, UDP_DB);
++					filter_db_set(&ss_current_filter, DCCP_DB);
++					filter_db_set(&ss_current_filter, TCP_DB);
++					filter_db_set(&ss_current_filter, RAW_DB);
+ 				} else if (strcmp(p, "udp") == 0) {
+-					filter_db_set(&current_filter, UDP_DB);
++					filter_db_set(&ss_current_filter, UDP_DB);
+ 				} else if (strcmp(p, "dccp") == 0) {
+-					filter_db_set(&current_filter, DCCP_DB);
++					filter_db_set(&ss_current_filter, DCCP_DB);
+ 				} else if (strcmp(p, "tcp") == 0) {
+-					filter_db_set(&current_filter, TCP_DB);
++					filter_db_set(&ss_current_filter, TCP_DB);
+ 				} else if (strcmp(p, "raw") == 0) {
+-					filter_db_set(&current_filter, RAW_DB);
++					filter_db_set(&ss_current_filter, RAW_DB);
+ 				} else if (strcmp(p, "unix") == 0) {
+-					filter_db_set(&current_filter, UNIX_ST_DB);
+-					filter_db_set(&current_filter, UNIX_DG_DB);
+-					filter_db_set(&current_filter, UNIX_SQ_DB);
++					filter_db_set(&ss_current_filter, UNIX_ST_DB);
++					filter_db_set(&ss_current_filter, UNIX_DG_DB);
++					filter_db_set(&ss_current_filter, UNIX_SQ_DB);
+ 				} else if (strcasecmp(p, "unix_stream") == 0 ||
+ 					   strcmp(p, "u_str") == 0) {
+-					filter_db_set(&current_filter, UNIX_ST_DB);
++					filter_db_set(&ss_current_filter, UNIX_ST_DB);
+ 				} else if (strcasecmp(p, "unix_dgram") == 0 ||
+ 					   strcmp(p, "u_dgr") == 0) {
+-					filter_db_set(&current_filter, UNIX_DG_DB);
++					filter_db_set(&ss_current_filter, UNIX_DG_DB);
+ 				} else if (strcasecmp(p, "unix_seqpacket") == 0 ||
+ 					   strcmp(p, "u_seq") == 0) {
+-					filter_db_set(&current_filter, UNIX_SQ_DB);
++					filter_db_set(&ss_current_filter, UNIX_SQ_DB);
+ 				} else if (strcmp(p, "packet") == 0) {
+-					filter_db_set(&current_filter, PACKET_R_DB);
+-					filter_db_set(&current_filter, PACKET_DG_DB);
++					filter_db_set(&ss_current_filter, PACKET_R_DB);
++					filter_db_set(&ss_current_filter, PACKET_DG_DB);
+ 				} else if (strcmp(p, "packet_raw") == 0 ||
+ 					   strcmp(p, "p_raw") == 0) {
+-					filter_db_set(&current_filter, PACKET_R_DB);
++					filter_db_set(&ss_current_filter, PACKET_R_DB);
+ 				} else if (strcmp(p, "packet_dgram") == 0 ||
+ 					   strcmp(p, "p_dgr") == 0) {
+-					filter_db_set(&current_filter, PACKET_DG_DB);
++					filter_db_set(&ss_current_filter, PACKET_DG_DB);
+ 				} else if (strcmp(p, "netlink") == 0) {
+-					filter_db_set(&current_filter, NETLINK_DB);
++					filter_db_set(&ss_current_filter, NETLINK_DB);
+ 				} else {
+ 					fprintf(stderr, "ss: \"%s\" is illegal socket table id\n", p);
+ 					usage();
+@@ -3386,7 +3387,7 @@ int main(int argc, char *argv[])
  
- /*unisonly utilized formatting parts*/
- char *sprint_bw(char *buf, double bw);
+ 	/* Now parse filter... */
+ 	if (argc == 0 && filter_fp) {
+-		if (ssfilter_parse(&current_filter.f, 0, NULL, filter_fp))
++		if (ssfilter_parse(&ss_current_filter.f, 0, NULL, filter_fp))
+ 			usage();
+ 	}
+ 
+@@ -3412,32 +3413,32 @@ int main(int argc, char *argv[])
+ 
+ 	if (do_default) {
+ 		state_filter = state_filter ? state_filter : SS_CONN;
+-		filter_default_dbs(&current_filter);
++		filter_default_dbs(&ss_current_filter);
+ 	}
+ 
+-	filter_states_set(&current_filter, state_filter);
+-	filter_merge_defaults(&current_filter);
++	filter_states_set(&ss_current_filter, state_filter);
++	filter_merge_defaults(&ss_current_filter);
+ 
+ 	if (resolve_services && resolve_hosts &&
+-	    (current_filter.dbs&(UNIX_DBM|(1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB))))
++	    (ss_current_filter.dbs&(UNIX_DBM|(1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB))))
+ 		init_service_resolver();
+ 
+-	if (current_filter.dbs == 0) {
++	if (ss_current_filter.dbs == 0) {
+ 		fprintf(stderr, "ss: no socket tables to show with such filter.\n");
+ 		exit(0);
+ 	}
+-	if (current_filter.families == 0) {
++	if (ss_current_filter.families == 0) {
+ 		fprintf(stderr, "ss: no families to show with such filter.\n");
+ 		exit(0);
+ 	}
+-	if (current_filter.states == 0) {
++	if (ss_current_filter.states == 0) {
+ 		fprintf(stderr, "ss: no socket states to show with such filter.\n");
+ 		exit(0);
+ 	}
+ 
+ 	if (dump_tcpdiag) {
+ 		FILE *dump_fp = stdout;
+-		if (!(current_filter.dbs & (1<<TCP_DB))) {
++		if (!(ss_current_filter.dbs & (1<<TCP_DB))) {
+ 			fprintf(stderr, "ss: tcpdiag dump requested and no tcp in filter.\n");
+ 			exit(0);
+ 		}
+@@ -3450,7 +3451,7 @@ int main(int argc, char *argv[])
+ 		}
+ 		jsonw_name(json_wr, "TCP");
+ 		jsonw_start_array(json_wr);
+-		inet_show_netlink(&current_filter, dump_fp, IPPROTO_TCP);
++		inet_show_netlink(&ss_current_filter, dump_fp, IPPROTO_TCP);
+ 		jsonw_end_array(json_wr);
+ 		jsonw_destroy(&json_wr);
+ 		fflush(dump_fp);
+@@ -3466,15 +3467,15 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+ 
+-	if (ssfilter_parse(&current_filter.f, argc, argv, filter_fp))
++	if (ssfilter_parse(&ss_current_filter.f, argc, argv, filter_fp))
+ 		usage();
+ 
+ 	netid_width = 0;
+-	if (current_filter.dbs&(current_filter.dbs-1))
++	if (ss_current_filter.dbs & (ss_current_filter.dbs - 1))
+ 		netid_width = 5;
+ 
+ 	state_width = 0;
+-	if (current_filter.states&(current_filter.states-1))
++	if (ss_current_filter.states & (ss_current_filter.states - 1))
+ 		state_width = 10;
+ 
+ 	screen_width = 80;
+@@ -3527,67 +3528,68 @@ int main(int argc, char *argv[])
+ 
+ 	fflush(stdout);
+ 
+-	if (current_filter.dbs & (1<<NETLINK_DB)) {
++	if (ss_current_filter.dbs & (1<<NETLINK_DB)) {
+ 		if (json_output) {
+ 			jsonw_name(json_wr, "NETLINK");
+ 			jsonw_start_array(json_wr);
+-			netlink_show(&current_filter);
++			netlink_show(&ss_current_filter);
++			jsonw_end_array(json_wr);
+ 		} else
+-			netlink_show(&current_filter);
++			netlink_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & PACKET_DBM) {
++	if (ss_current_filter.dbs & PACKET_DBM) {
+ 		if (json_output) {
+ 			jsonw_name(json_wr, "PACKET");
+ 			jsonw_start_array(json_wr);
+-			packet_show(&current_filter);
++			packet_show(&ss_current_filter);
+ 			jsonw_end_array(json_wr);
+ 		} else
+-			packet_show(&current_filter);
++			packet_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & UNIX_DBM) {
++	if (ss_current_filter.dbs & UNIX_DBM) {
+ 		if (json_output) {
+ 			jsonw_name(json_wr, "UNIX");
+ 			jsonw_start_array(json_wr);
+-			unix_show(&current_filter);
++			unix_show(&ss_current_filter);
+ 			jsonw_end_array(json_wr);
+ 		} else
+-			unix_show(&current_filter);
++			unix_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & (1<<RAW_DB)) {
++	if (ss_current_filter.dbs & (1<<RAW_DB)) {
+ 		if (json_output) {
+ 			jsonw_name(json_wr, "RAW");
+ 			jsonw_start_array(json_wr);
+-			raw_show(&current_filter);
++			raw_show(&ss_current_filter);
+ 			jsonw_end_array(json_wr);
+ 		} else
+-			raw_show(&current_filter);
++			raw_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & (1<<UDP_DB)) {
++	if (ss_current_filter.dbs & (1<<UDP_DB)) {
+ 		if (json_output) {
+ 			jsonw_name(json_wr, "UDP");
+ 			jsonw_start_array(json_wr);
+-			udp_show(&current_filter);
++			udp_show(&ss_current_filter);
+ 			jsonw_end_array(json_wr);
+ 		} else
+-			udp_show(&current_filter);
++			udp_show(&ss_current_filter);
+ 	}
+-	if (current_filter.dbs & (1<<TCP_DB)) {
++	if (ss_current_filter.dbs & (1<<TCP_DB)) {
+ 		if (json_output) {
+ 			jsonw_name(json_wr, "TCP");
+ 			jsonw_start_array(json_wr);
+-			tcp_show(&current_filter, IPPROTO_TCP);
++			tcp_show(&ss_current_filter, IPPROTO_TCP);
+ 			jsonw_end_array(json_wr);
+ 		} else
+-			tcp_show(&current_filter, IPPROTO_TCP);
++			tcp_show(&ss_current_filter, IPPROTO_TCP);
+ 	}
+-	if (current_filter.dbs & (1<<DCCP_DB)) {
++	if (ss_current_filter.dbs & (1<<DCCP_DB)) {
+ 		if (json_output) {
+ 			jsonw_name(json_wr, "DCCP");
+ 			jsonw_start_array(json_wr);
+-			tcp_show(&current_filter, IPPROTO_DCCP);
++			tcp_show(&ss_current_filter, IPPROTO_DCCP);
+ 			jsonw_end_array(json_wr);
+ 		} else
+-			tcp_show(&current_filter, IPPROTO_DCCP);
++			tcp_show(&ss_current_filter, IPPROTO_DCCP);
+ 	}
+ 
+ 	if (json_output)
+@@ -3596,7 +3598,7 @@ int main(int argc, char *argv[])
+ 	fflush(stdout);
+ 
+ 	if (follow_events)
+-		exit(handle_follow_request(&current_filter));
++		exit(handle_follow_request(&ss_current_filter));
+ 
+ 	if (show_users || show_proc_ctx || show_sock_ctx)
+ 		user_ent_destroy();
 -- 
 1.9.1
