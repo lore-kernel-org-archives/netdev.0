@@ -1,109 +1,100 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 3/4] net: mv643xx_eth: use kzalloc
-Date: Wed, 09 Sep 2015 16:25:27 -0700
-Message-ID: <1441841127.17219.94.camel@perches.com>
-References: <1441787886-7214-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1441787886-7214-4-git-send-email-linux@rasmusvillemoes.dk>
-	 <1441814431.17219.46.camel@perches.com> <87r3m74f2k.fsf@rasmusvillemoes.dk>
-	 <1441824356.17219.69.camel@perches.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH 3/6] ebpf: add a way to dump an eBPF program
+Date: Wed, 9 Sep 2015 16:44:24 -0700
+Message-ID: <CALCETrUhb9DiaJXppbJ4PwV1xD1cmd8xH+J27h6HQN23oRcO+Q@mail.gmail.com>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+ <1441382664-17437-4-git-send-email-tycho.andersen@canonical.com>
+ <CAGXu5jJ5+EFDRpgJC6U8Y4nvPEh2fivi-TZRNC-4qP9Gi7B7pA@mail.gmail.com>
+ <20150904204554.GO26679@smitten> <CALCETrW5fS5d73ASJvhUuK=Yret7hcWD-B9NhZ3EsnCaw0MWFQ@mail.gmail.com>
+ <20150904222855.GT26679@smitten> <CALCETrUY7B381DrzfDSvmDyZ98KAdWMHvpbJffJ0_ApjzH-Kbw@mail.gmail.com>
+ <20150905002727.GA3890@hopstrocity> <20150909223422.GE26679@smitten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441824356.17219.69.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Cyrill Gorcunov <gorcunov@parallels.com>
+To: Tycho Andersen <tycho.andersen@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:35075 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753170AbbIIXop (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 19:44:45 -0400
+Received: by obuk4 with SMTP id k4so21565116obu.2
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 16:44:44 -0700 (PDT)
+In-Reply-To: <20150909223422.GE26679@smitten>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-09-09 at 11:45 -0700, Joe Perches wrote:
-> On Wed, 2015-09-09 at 20:34 +0200, Rasmus Villemoes wrote:
-> > mc_spec and mc_other are u32*, we allocate 0x200 = 512 bytes = 128
-> > u32s, and pointer arithmetic makes mc_other point to the latter 64. Then
-> > the memory is cleared 256 bytes at a time.
-> > 
-> > It's unusual and slightly obfuscated code, but I don't think it's
-> > wrong. 
+On Wed, Sep 9, 2015 at 3:34 PM, Tycho Andersen
+<tycho.andersen@canonical.com> wrote:
+> On Fri, Sep 04, 2015 at 06:27:27PM -0600, Tycho Andersen wrote:
+>> On Fri, Sep 04, 2015 at 04:08:53PM -0700, Andy Lutomirski wrote:
+>> > On Fri, Sep 4, 2015 at 3:28 PM, Tycho Andersen
+>> > <tycho.andersen@canonical.com> wrote:
+>> > > On Fri, Sep 04, 2015 at 02:48:03PM -0700, Andy Lutomirski wrote:
+>> > >> On Fri, Sep 4, 2015 at 1:45 PM, Tycho Andersen
+>> > >> <tycho.andersen@canonical.com> wrote:
+>> > >> > On Fri, Sep 04, 2015 at 01:17:30PM -0700, Kees Cook wrote:
+>> > >> >> On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
+>> > >> >> <tycho.andersen@canonical.com> wrote:
+>> > >> >> > This commit adds a way to dump eBPF programs. The initial implementation
+>> > >> >> > doesn't support maps, and therefore only allows dumping seccomp ebpf
+>> > >> >> > programs which themselves don't currently support maps.
+>> > >> >> >
+>> > >> >> > We export the GPL bit as well as a unique ID for the program so that
+>> > >> >>
+>> > >> >> This unique ID appears to be the heap address for the prog. That's a
+>> > >> >> huge leak, and should not be done. We don't want to introduce new
+>> > >> >> kernel address leaks while we're trying to fix the remaining ones.
+>> > >> >> Shouldn't the "unique ID" be the fd itself? I imagine KCMP_FILE
+>> > >> >> could be used, for example.
+>> > >> >
+>> > >> > No; we acquire the fd per process, so if a task installs a filter and
+>> > >> > then forks N times, we'll grab N (+1) copies of the filter from N (+1)
+>> > >> > different file descriptors. Ideally, we'd have some way to figure out
+>> > >> > that these were all the same. Some sort of prog_id is one way,
+>> > >> > although there may be others.
+>> > >>
+>> > >> I disagree a bit.  I think we want the actual hierarchy to be a
+>> > >> well-defined thing, because I have plans to make the hierarchy
+>> > >> actually do something.  That means that we'll need to have a more
+>> > >> exact way to dump the hierarchy than "these two filters are identical"
+>> > >> or "these two filters are not identical".
+>> > >
+>> > > Can you elaborate on what this would look like? I think with the
+>> > > "these two filters are the same" primitive (the same in the sense that
+>> > > they were inherited during a fork, not just that
+>> > > memcmp(filter1->insns, filter2->insns) == 0) you can infer the entire
+>> > > hierarchy, however clunky it may be to do so.
+>> > >
+>> > > Another issue is that KCMP_FILE won't work in this case, as it
+>> > > effectively compares the struct file *, which will be different since
+>> > > we need to call anon_inode_getfd() for each call of
+>> > > ptrace(PTRACE_SECCOMP_GET_FILTER_FD). We could add a KCMP_BPF (or just
+>> > > a KCMP_FILE_PRIVATE_DATA, since that's effectively what it would be).
+>> > > Does that make sense? [added Cyrill]
+>> > >
+>> >
+>> > I don't really know what it would look like.  I think we want a way to
+>> > compare struct seccomp_filter pointers.
+>
+> Here's a thought,
+>
+> The set I'm currently proposing effectively separates the ref-counting
+> of the struct seccomp_filter from the struct bpf_prog (by necessity,
+> since we're referring to filters from fds). What if we went a little
+> futher, and made a copy of each seccomp_filter on fork(), keeping it
+> pointed at the same bpf_prog but adding some metadata about how it was
+> inherited (tsk->seccomp.filter->inheritence_count++ perhaps). This
+> would still require this change:
 
-Perhaps this would make the code a bit clearer:
+Won't that break the tsync mechanism?
 
-Use kcalloc, decimal sizes, decimal indexing,
-and a promiscuous exit block using the same
-style as the non-promiscuous multicast block.
----
-  drivers/net/ethernet/marvell/mv643xx_eth.c | 46 ++++++++++++++----------------
- 1 file changed, 22 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index d52639b..9230ed5 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1845,32 +1845,19 @@ static void mv643xx_eth_program_multicast_filter(struct net_device *dev)
- 	struct netdev_hw_addr *ha;
- 	int i;
- 
--	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
--		int port_num;
--		u32 accept;
-+	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI))
-+		goto promiscuous;
- 
--oom:
--		port_num = mp->port_num;
--		accept = 0x01010101;
--		for (i = 0; i < 0x100; i += 4) {
--			wrl(mp, SPECIAL_MCAST_TABLE(port_num) + i, accept);
--			wrl(mp, OTHER_MCAST_TABLE(port_num) + i, accept);
--		}
--		return;
--	}
--
--	mc_spec = kmalloc(0x200, GFP_ATOMIC);
--	if (mc_spec == NULL)
--		goto oom;
--	mc_other = mc_spec + (0x100 >> 2);
--
--	memset(mc_spec, 0, 0x100);
--	memset(mc_other, 0, 0x100);
-+	/* Allocate both mc_spec and mc_other tables */
-+	mc_spec = kcalloc(128, sizeof(u32), GFP_ATOMIC);
-+	if (!mc_spec)
-+		goto promiscuous;
-+	mc_other = &mc_spec[64];
- 
- 	netdev_for_each_mc_addr(ha, dev) {
- 		u8 *a = ha->addr;
- 		u32 *table;
--		int entry;
-+		u8 entry;
- 
- 		if (memcmp(a, "\x01\x00\x5e\x00\x00", 5) == 0) {
- 			table = mc_spec;
-@@ -1883,12 +1870,23 @@ oom:
- 		table[entry >> 2] |= 1 << (8 * (entry & 3));
- 	}
- 
--	for (i = 0; i < 0x100; i += 4) {
--		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i, mc_spec[i >> 2]);
--		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i, mc_other[i >> 2]);
-+	for (i = 0; i < 64; i++) {
-+		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    mc_spec[i]);
-+		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    mc_other[i]);
- 	}
- 
- 	kfree(mc_spec);
-+	return;
-+
-+promiscuous:
-+	for (i = 0; i < 64; i++) {
-+		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    0x01010101u);
-+		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    0x01010101u);
-+	}
- }
- 
- static void mv643xx_eth_set_rx_mode(struct net_device *dev)
+--Andy
