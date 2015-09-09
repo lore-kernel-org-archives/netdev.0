@@ -1,41 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v3] net: ipv6: use common fib_default_rule_pref
-Date: Wed, 09 Sep 2015 14:22:12 -0700 (PDT)
-Message-ID: <20150909.142212.1136433147380661879.davem@davemloft.net>
-References: <20150909114537.GP7029@orbit.nwl.cc>
-	<1441801256-12551-1-git-send-email-phil@nwl.cc>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v6 02/10] ss: created formatters for json and hr
+Date: Wed, 9 Sep 2015 14:30:49 -0700
+Message-ID: <20150909143049.0aa08d37@urahara>
+References: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
+	<4b7ff1016053461a80465ce8138e12a2@HQ1WP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: phil@nwl.cc
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"shemminger@osdl.org" <shemminger@osdl.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35061 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752066AbbIIVWN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 17:22:13 -0400
-In-Reply-To: <1441801256-12551-1-git-send-email-phil@nwl.cc>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33345 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751808AbbIIVai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 17:30:38 -0400
+Received: by pacex6 with SMTP id ex6so21320782pac.0
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 14:30:38 -0700 (PDT)
+In-Reply-To: <4b7ff1016053461a80465ce8138e12a2@HQ1WP-EXMB11.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Wed,  9 Sep 2015 14:20:56 +0200
+On Wed, 9 Sep 2015 19:43:13 +0000
+Matthias Tafelmeier <matthias.tafelmeier@gmx.net> wrote:
 
-> This switches IPv6 policy routing to use the shared
-> fib_default_rule_pref() function of IPv4 and DECnet. It is also used in
-> multicast routing for IPv4 as well as IPv6.
-> 
-> The motivation for this patch is a complaint about iproute2 behaving
-> inconsistent between IPv4 and IPv6 when adding policy rules: Formerly,
-> IPv6 rules were assigned a fixed priority of 0x3FFF whereas for IPv4 the
-> assigned priority value was decreased with each rule added.
-> 
-> Since then all users of the default_pref field have been converted to
-> assign the generic function fib_default_rule_pref(), fib_nl_newrule()
-> may just use it directly instead. Therefore get rid of the function
-> pointer altogether and make fib_default_rule_pref() static, as it's not
-> used outside fib_rules.c anymore.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> +#define STATIC_ASSERT(COND, MSG)			\
+> +{							\
+> +	char STATIC_ASSERT##MSG[(COND) ? 1 : -1];	\
+> +	(void)STATIC_ASSERT##MSG[0];		\
+> +}
 
-This looks a lot better, applied, thanks.
+If you are going to introduce this, please use same convention
+as Linux kernel. ie. BUILD_BUG_ON()
+
+Your code looks like it came out of some other project.
