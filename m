@@ -1,28 +1,60 @@
-From: Lillie Phillips <Lillie.Phillips@arkansas.gov>
-Subject: Cher utilisateur de messagerie Web.
-Date: Wed, 9 Sep 2015 09:02:23 +0000
-Message-ID: <C10FB77BE075E24E8EE4B37A4C070B9D015E0C56B1@CM-SAS-MBX-06.sas.arkgov.net>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH net-next 1/1] net: fec: add netif status check before
+ set mac address
+Date: Wed, 09 Sep 2015 11:14:17 +0200
+Message-ID: <1441790057.9583.7.camel@pengutronix.de>
+References: <1441766567-30689-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "info@fedmdical.com" <info@fedmdical.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: Fugang Duan <b38611@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.dis.arkansas.gov ([170.94.213.83]:5814 "EHLO
-	mail7.dis.arkansas.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752253AbbIIJLx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 05:11:53 -0400
-Content-Language: en-US
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:53213 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751443AbbIIJOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 05:14:23 -0400
+In-Reply-To: <1441766567-30689-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cher utilisateur de messagerie Web.
+Am Mittwoch, den 09.09.2015, 10:42 +0800 schrieb Fugang Duan:
+> There exist one issue by below case that case system hang:
+> ifconfig eth0 down
+> ifconfig eth0 hw ether 00:10:19:19:81:19
+> 
+> After eth0 down, all fec clocks are gated off. In the .fec_set_mac_address()
+> function, it will set new MAC address to registers, which causes system hang.
+> 
+> So it needs to add netif status check to avoid registers access when clocks are
+> gated off. Until eth0 up the new MAC address are wrote into related registers.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 91925e3..cd09dbb 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -3029,6 +3029,9 @@ fec_set_mac_address(struct net_device *ndev, void *p)
+>  		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
+>  	}
+>  
+> +	if (!netif_running(ndev))
+> +		return 0;
+This deserves a comment in the code as to why it is needed and how it
+still works.
 
+Regards,
+Lucas
+> +
+>  	writel(ndev->dev_addr[3] | (ndev->dev_addr[2] << 8) |
+>  		(ndev->dev_addr[1] << 16) | (ndev->dev_addr[0] << 24),
+>  		fep->hwp + FEC_ADDR_LOW);
 
-
-Nous avons un probl=E8me technique, nous notre base de date pour le mom=
-ent. vous =EAtes au CLIQUEZ ICI<http://www.demera.honor.es/send.php> po=
-ur vous reconfirmer web compte de messagerie une fois de plus.
-
-
-
-Help desk
+-- 
+Pengutronix e.K.             | Lucas Stach                 |
+Industrial Linux Solutions   | http://www.pengutronix.de/  |
