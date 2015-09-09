@@ -1,62 +1,57 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: [PATCH v4] stmmac: fix check for phydev being open
-Date: Wed,  9 Sep 2015 18:01:08 +0300
-Message-ID: <1441810868-7212-1-git-send-email-abrodkin@synopsys.com>
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 5/6] seccomp: add a way to attach a filter via eBPF fd
+Date: Wed, 9 Sep 2015 08:14:04 -0700
+Message-ID: <20150909151402.GA3429@Alexeis-MBP-2.westell.com>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+ <1441382664-17437-6-git-send-email-tycho.andersen@canonical.com>
+ <CAGXu5jKke44txdYqEgPRrkn8SyWGjJuHxT2qMdq2ztp_16mQyw@mail.gmail.com>
+ <55EA95FE.7000006@gmail.com>
+ <20150908134044.GV26679@smitten>
+ <CAGXu5jKS0yX92XXhL6ZkqMrxkqFpPyyBd7wbsvEEx4rqZ0VG6g@mail.gmail.com>
+ <20150909144724.GZ26679@smitten>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	"Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20150909144724.GZ26679@smitten>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Current check of phydev with IS_ERR(phydev) may make not much sense
-because of_phy_connect() returns NULL on failure instead of error value.
+On Wed, Sep 09, 2015 at 08:47:24AM -0600, Tycho Andersen wrote:
+> On Tue, Sep 08, 2015 at 05:07:03PM -0700, Kees Cook wrote:
+> >
+> > Yeah, bpf's union looks good. Let's add a "command" flag, though:
+> > 
+> > seccomp(SECCOMP_MODE_FILTER_EBPF, int cmd, union, size);
+> > 
+> > And this cmd could be ADD_FD or something?
+> > 
+> > How's that look?
+> 
+> I think we can drop the size (using the same strategy as bpf() and
+> checking for zeroes at the end), and keep the same signature for
+> seccomp(); so:
+> 
+> seccomp(SECCOMP_MODE_FILTER_EBPF, SECCOMP_ADD_BPF_FD, &union)
+> 
+> Yes, I'll use this in the next version.
 
-Still for checking result of phy_connect() IS_ERR() makes perfect sense.
-
-So let's use combined check IS_ERR_OR_NULL() that covers both cases.
-
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: linux-kernel@vger.kernel.org
-Cc: stable@vger.kernel.org
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
----
-
-Changes compared to v3:
- * Remove "else" branch after "return" as suggested by Sergei.
-
-Changes compared to v2:
- * Updated commit message with mention of of_phy_connect() instead of
-   of_phy_attach().
- * Return ENODEV in case of of_phy_connect() failure
-
-Changes compared to v1:
- * Use IS_ERR_OR_NULL() instead of discrete checks for null and err
-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 864b476..925f2f8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -837,8 +837,11 @@ static int stmmac_init_phy(struct net_device *dev)
- 				     interface);
- 	}
- 
--	if (IS_ERR(phydev)) {
-+	if (IS_ERR_OR_NULL(phydev)) {
- 		pr_err("%s: Could not attach to PHY\n", dev->name);
-+		if (!phydev)
-+			return -ENODEV;
-+
- 		return PTR_ERR(phydev);
- 	}
- 
--- 
-2.4.3
+actually bpf() has size as the last argument:
+SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
+perf_event_open() doesn't and size is embedded as one of the fields.
+Both approaches are equivally powerfull from extensitiblity
+point of view. My preference was to keep size as an explicit
+argument.
