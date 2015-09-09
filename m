@@ -1,68 +1,65 @@
-From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Subject: Re: [PATCH v2 1/2] ethtool: changes of emac_regs structure
- accordingly within driver emac_regs structure.
-Date: Wed, 9 Sep 2015 15:28:01 +0400
-Message-ID: <20150909152801.71019c58@fr-ThinkPad-W520>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache
+ bulk free API.
+Date: Wed, 9 Sep 2015 14:59:19 +0200
+Message-ID: <20150909145919.4d68ea36@redhat.com>
+References: <20150824005727.2947.36065.stgit@localhost>
+	<20150904165944.4312.32435.stgit@devil>
+	<55E9DE51.7090109@gmail.com>
+	<alpine.DEB.2.11.1509041354560.993@east.gentwo.org>
+	<55EA0172.2040505@gmail.com>
+	<alpine.DEB.2.11.1509041844190.2499@east.gentwo.org>
+	<20150905131825.6c04837d@redhat.com>
+	<alpine.DEB.2.11.1509081228100.26148@east.gentwo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org,
+        akpm@linux-foundation.org, linux-mm@kvack.org,
+        aravinda@linux.vnet.ibm.com,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        iamjoonsoo.kim@lge.com, brouer@redhat.com
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.11.1509081228100.26148@east.gentwo.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Aug 2015 15:10:00 +0400
-Ivan Mikhaylov <ivan@ru.ibm.com> wrote:
+On Tue, 8 Sep 2015 12:32:40 -0500 (CDT)
+Christoph Lameter <cl@linux.com> wrote:
 
->On Wed, 2015-08-05 at 15:01 +0400, Ivan Mikhaylov wrote:
->> * do the redefinition of emac_regs struct from driver structure
->> perspective and passing size from actual struct size, not from memory
->> area variable which set in dts file.
->> 
->> * passing variable from dts option may cause a problem with output
->> below MII's section which we're fixing with this and 5369c71 commit
->> in kernel.
->[...]
->
->But you still aren't handling the case where only one of the driver and
->ethtool is upgraded, even by reporting an error.
->
->I'm never going to apply patches to ethtool that obviously break binary
->compatibility, so you are wasting your time sending me new versions
->that do that.
->
->At this point you should probably just bump the dump version numbers in
->both places.
->
->Ben.
->
->-- 
->Ben Hutchings
->friends: People who know you well, but like you anyway.
->
->[unhandled content-type:application/pgp-signature]
+> On Sat, 5 Sep 2015, Jesper Dangaard Brouer wrote:
+> 
+> > The double_cmpxchg without lock prefix still cost 9 cycles, which is
+> > very fast but still a cost (add approx 19 cycles for a lock prefix).
+> >
+> > It is slower than local_irq_disable + local_irq_enable that only cost
+> > 7 cycles, which the bulking call uses.  (That is the reason bulk calls
+> > with 1 object can almost compete with fastpath).
+> 
+> Hmmm... Guess we need to come up with distinct version of kmalloc() for
+> irq and non irq contexts to take advantage of that . Most at non irq
+> context anyways.
 
-Ben, thanks for looking to that. 
+I agree, it would be an easy win.  Do notice this will have the most
+impact for the slAb allocator.
 
-I decided to divide patches for 
-1 - structure change which fixing problem
-2 - add EMAC4SYNC
-May be it wasn't clear from first patch...
+I estimate alloc + free cost would save:
+ * slAb would save approx 60 cycles
+ * slUb would save approx  4 cycles
 
-There as a note to you with questions without answer:
-https://lkml.org/lkml/2015/6/23/466
+We might consider keeping the slUb approach as it would be more
+friendly for RT with less IRQ disabling.
 
-Also I said in that thread I can prove with table of 
- 1. old ethtool old driver
- 2. patched ethtool old driver
- 3. patched ethtool patched driver
- 4. old ethtool patched driver
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
 
-if you want to see difference in output on machine what I've.
- 
-Can we talk on some irc channel to resolve that situation,
-it will be much faster, where I can find you on irc.debian.org?
-
-Thanks in advance.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
