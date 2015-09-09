@@ -1,76 +1,27 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net] xen-netback: respect user provided max_queues
-Date: Wed, 9 Sep 2015 11:16:28 +0100
-Message-ID: <20150909101628.GK12714@zion.uk.xensource.com>
-References: <1441793395-25537-1-git-send-email-wei.liu2@citrix.com>
- <55F0061C.2080403@citrix.com>
+Subject: [PATCH net v2 0/2] xen-net{front,back}: respect user provided max_queues
+Date: Wed, 9 Sep 2015 11:23:04 +0100
+Message-ID: <1441794186-26991-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Xen-devel <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, Ian Campbell <ian.campbell@citrix.com>,
-	"Johnny Strom" <johnny.strom@linuxsolutions.fi>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain
+Cc: Wei Liu <wei.liu2@citrix.com>
+To: Xen-devel <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:59198 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:18758 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbbIIKQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 06:16:30 -0400
-Content-Disposition: inline
-In-Reply-To: <55F0061C.2080403@citrix.com>
+	with ESMTP id S1755103AbbIIKXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 06:23:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 09, 2015 at 11:12:44AM +0100, David Vrabel wrote:
-> On 09/09/15 11:09, Wei Liu wrote:
-> > Originally that parameter was always reset to num_online_cpus during
-> > module initialisation, which renders it useless.
-> > 
-> > The fix is to only set max_queues to num_online_cpus when user has not
-> > provided a value.
-> [...]
-> > --- a/drivers/net/xen-netback/netback.c
-> > +++ b/drivers/net/xen-netback/netback.c
-> > @@ -67,7 +67,7 @@ module_param(rx_drain_timeout_msecs, uint, 0444);
-> >  unsigned int rx_stall_timeout_msecs = 60000;
-> >  module_param(rx_stall_timeout_msecs, uint, 0444);
-> >  
-> > -unsigned int xenvif_max_queues;
-> > +unsigned int xenvif_max_queues = 0;
-> 
-> You don't need this.
-> 
-> Otherwise,
-> 
-> Reviewed-by: David Vrabel <david.vrabel@citrix.com>
-> 
-> Is an equivalent fix needed in netfront?
-> 
+Wei Liu (2):
+  xen-netback: respect user provided max_queues
+  xen-netfront: respect user provided max_queues
 
-I think so.
+ drivers/net/xen-netback/netback.c | 7 +++++--
+ drivers/net/xen-netfront.c        | 7 +++++--
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-I will address your comment and send both fixes (front and back) in a
-series.
-
-Wei.
-
-> David
-> 
-> >  module_param_named(max_queues, xenvif_max_queues, uint, 0644);
-> >  MODULE_PARM_DESC(max_queues,
-> >  		 "Maximum number of queues per virtual interface");
-> > @@ -2105,8 +2105,11 @@ static int __init netback_init(void)
-> >  	if (!xen_domain())
-> >  		return -ENODEV;
-> >  
-> > -	/* Allow as many queues as there are CPUs, by default */
-> > -	xenvif_max_queues = num_online_cpus();
-> > +	/* Allow as many queues as there are CPUs if user has not
-> > +	 * specified a value.
-> > +	 */
-> > +	if (xenvif_max_queues == 0)
-> > +		xenvif_max_queues = num_online_cpus();
-> >  
-> >  	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
-> >  		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
-> > 
+-- 
+2.1.4
