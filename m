@@ -1,49 +1,63 @@
-From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 5/6] seccomp: add a way to attach a filter via eBPF fd
-Date: Wed, 9 Sep 2015 08:47:24 -0600
-Message-ID: <20150909144724.GZ26679@smitten>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
- <1441382664-17437-6-git-send-email-tycho.andersen@canonical.com>
- <CAGXu5jKke44txdYqEgPRrkn8SyWGjJuHxT2qMdq2ztp_16mQyw@mail.gmail.com>
- <55EA95FE.7000006@gmail.com>
- <20150908134044.GV26679@smitten>
- <CAGXu5jKS0yX92XXhL6ZkqMrxkqFpPyyBd7wbsvEEx4rqZ0VG6g@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 104301] New: Connect failure on sctp socket under debug
+Date: Wed, 9 Sep 2015 07:47:59 -0700
+Message-ID: <20150909074759.1e256966@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAGXu5jKS0yX92XXhL6ZkqMrxkqFpPyyBd7wbsvEEx4rqZ0VG6g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35603 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752397AbbIIOrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 10:47:48 -0400
+Received: by pacfv12 with SMTP id fv12so12603727pac.2
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 07:47:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 08, 2015 at 05:07:03PM -0700, Kees Cook wrote:
->
-> Yeah, bpf's union looks good. Let's add a "command" flag, though:
-> 
-> seccomp(SECCOMP_MODE_FILTER_EBPF, int cmd, union, size);
-> 
-> And this cmd could be ADD_FD or something?
-> 
-> How's that look?
 
-I think we can drop the size (using the same strategy as bpf() and
-checking for zeroes at the end), and keep the same signature for
-seccomp(); so:
 
-seccomp(SECCOMP_MODE_FILTER_EBPF, SECCOMP_ADD_BPF_FD, &union)
+Begin forwarded message:
 
-Yes, I'll use this in the next version.
+Date: Wed, 9 Sep 2015 13:57:38 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 104301] New: Connect failure on sctp socket under debug
 
-Tycho
+
+https://bugzilla.kernel.org/show_bug.cgi?id=104301
+
+            Bug ID: 104301
+           Summary: Connect failure on sctp socket under debug
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.13.0-63-generic
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: riccardomanfrin@gmail.com
+        Regression: No
+
+When starting an sctp client with gdb, I experience a connect failure (-1 is
+returned), with errno 106 (Transport endpoint is already connected).
+
+If I then cat /proc/net/sctp/assocs, I see the connection and I see the
+successful handshake on wireshark.
+
+If I ignore the connect failure, and pretend I'm actually connected, I can send
+and receive packets without any trouble.
+
+The same client application, run not-under-gdb, does not exhibits the issue and
+the connect returns 0.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
