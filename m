@@ -1,394 +1,459 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH v6 06/10] ss: renaming and export of current_filter
-Date: Wed,  9 Sep 2015 21:43:17 +0200
-Message-ID: <1441827801-9617-7-git-send-email-matthias.tafelmeier@gmx.net>
-References: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: iproute2 v6: full ss json support and general output simplification
+Date: Wed,  9 Sep 2015 21:43:11 +0200
+Message-ID: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:54284 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.15]:55683 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754648AbbIITnb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754651AbbIITnb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 9 Sep 2015 15:43:31 -0400
-In-Reply-To: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Exported current_filter as ss_current_filter, because in
-the fmt handlers, I need that piece of info to resolve out issues of json.
+- add full JSON support for ss
+- Patchset provides a general and easy to use abstraction to extend ss =
+later
+- Patchset size is large to minimize daily use ("user" should not deal =
+with
+  	formation (json, human readble) later on)
+- Patches 7/10 and 8/10 illustrate how to extend ss for new data to sup=
+port human readble and json
+	output.=20
+- Example_Usages: 1. ss -jt to print out all tcp related information fo=
+rmatted in json
+		  2. ss --json -a to print out all info (also summary)=20
 
-Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
----
- misc/ss.c | 154 +++++++++++++++++++++++++++++++-------------------------------
- 1 file changed, 78 insertions(+), 76 deletions(-)
+STATS:
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 7a1b6eb..6ff40a3 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -106,6 +106,7 @@ int show_sock_ctx = 0;
- int user_ent_hash_build_init = 0;
- int follow_events = 0;
- int json_output = 0;
-+int json_first_elem = 1;
- 
- int netid_width;
- int state_width;
-@@ -200,7 +201,7 @@ static const struct filter default_afs[AF_MAX] = {
- };
- 
- static int do_default = 1;
--static struct filter current_filter;
-+struct filter ss_current_filter;
- 
- static void filter_db_set(struct filter *f, int db)
- {
-@@ -1182,7 +1183,7 @@ void *parse_hostcond(char *addr, bool is_port)
- 	struct aafilter a = { .port = -1 };
- 	struct aafilter *res;
- 	int fam = preferred_family;
--	struct filter *f = &current_filter;
-+	struct filter *f = &ss_current_filter;
- 
- 	if (fam == AF_UNIX || strncmp(addr, "unix:", 5) == 0) {
- 		char *p;
-@@ -1281,9 +1282,9 @@ void *parse_hostcond(char *addr, bool is_port)
- 			if (get_integer(&a.port, port, 0)) {
- 				struct servent *se1 = NULL;
- 				struct servent *se2 = NULL;
--				if (current_filter.dbs&(1<<UDP_DB))
-+				if (ss_current_filter.dbs & (1 << UDP_DB))
- 					se1 = getservbyname(port, UDP_PROTO);
--				if (current_filter.dbs&(1<<TCP_DB))
-+				if (ss_current_filter.dbs & (1 << TCP_DB))
- 					se2 = getservbyname(port, TCP_PROTO);
- 				if (se1 && se2 && se1->s_port != se2->s_port) {
- 					fprintf(stderr, "Error: ambiguous port \"%s\".\n", port);
-@@ -1297,9 +1298,9 @@ void *parse_hostcond(char *addr, bool is_port)
- 					struct scache *s;
- 					for (s = rlist; s; s = s->next) {
- 						if ((s->proto == UDP_PROTO &&
--						     (current_filter.dbs&(1<<UDP_DB))) ||
-+						     (ss_current_filter.dbs&(1<<UDP_DB))) ||
- 						    (s->proto == TCP_PROTO &&
--						     (current_filter.dbs&(1<<TCP_DB)))) {
-+						     (ss_current_filter.dbs&(1<<TCP_DB)))) {
- 							if (s->name && strcmp(s->name, port) == 0) {
- 								if (a.port > 0 && a.port != s->port) {
- 									fprintf(stderr, "Error: ambiguous port \"%s\".\n", port);
-@@ -3220,19 +3221,19 @@ int main(int argc, char *argv[])
- 			follow_events = 1;
- 			break;
- 		case 'd':
--			filter_db_set(&current_filter, DCCP_DB);
-+			filter_db_set(&ss_current_filter, DCCP_DB);
- 			break;
- 		case 't':
--			filter_db_set(&current_filter, TCP_DB);
-+			filter_db_set(&ss_current_filter, TCP_DB);
- 			break;
- 		case 'u':
--			filter_db_set(&current_filter, UDP_DB);
-+			filter_db_set(&ss_current_filter, UDP_DB);
- 			break;
- 		case 'w':
--			filter_db_set(&current_filter, RAW_DB);
-+			filter_db_set(&ss_current_filter, RAW_DB);
- 			break;
- 		case 'x':
--			filter_af_set(&current_filter, AF_UNIX);
-+			filter_af_set(&ss_current_filter, AF_UNIX);
- 			break;
- 		case 'a':
- 			state_filter = SS_ALL;
-@@ -3241,25 +3242,25 @@ int main(int argc, char *argv[])
- 			state_filter = (1 << SS_LISTEN) | (1 << SS_CLOSE);
- 			break;
- 		case '4':
--			filter_af_set(&current_filter, AF_INET);
-+			filter_af_set(&ss_current_filter, AF_INET);
- 			break;
- 		case '6':
--			filter_af_set(&current_filter, AF_INET6);
-+			filter_af_set(&ss_current_filter, AF_INET6);
- 			break;
- 		case '0':
--			filter_af_set(&current_filter, AF_PACKET);
-+			filter_af_set(&ss_current_filter, AF_PACKET);
- 			break;
- 		case 'f':
- 			if (strcmp(optarg, "inet") == 0)
--				filter_af_set(&current_filter, AF_INET);
-+				filter_af_set(&ss_current_filter, AF_INET);
- 			else if (strcmp(optarg, "inet6") == 0)
--				filter_af_set(&current_filter, AF_INET6);
-+				filter_af_set(&ss_current_filter, AF_INET6);
- 			else if (strcmp(optarg, "link") == 0)
--				filter_af_set(&current_filter, AF_PACKET);
-+				filter_af_set(&ss_current_filter, AF_PACKET);
- 			else if (strcmp(optarg, "unix") == 0)
--				filter_af_set(&current_filter, AF_UNIX);
-+				filter_af_set(&ss_current_filter, AF_UNIX);
- 			else if (strcmp(optarg, "netlink") == 0)
--				filter_af_set(&current_filter, AF_NETLINK);
-+				filter_af_set(&ss_current_filter, AF_NETLINK);
- 			else if (strcmp(optarg, "help") == 0)
- 				help();
- 			else {
-@@ -3272,9 +3273,9 @@ int main(int argc, char *argv[])
- 		{
- 			char *p, *p1;
- 			if (!saw_query) {
--				current_filter.dbs = 0;
-+				ss_current_filter.dbs = 0;
- 				state_filter = state_filter ?
--				               state_filter : SS_CONN;
-+							state_filter : SS_CONN;
- 				saw_query = 1;
- 				do_default = 0;
- 			}
-@@ -3283,44 +3284,44 @@ int main(int argc, char *argv[])
- 				if ((p1 = strchr(p, ',')) != NULL)
- 					*p1 = 0;
- 				if (strcmp(p, "all") == 0) {
--					filter_default_dbs(&current_filter);
-+					filter_default_dbs(&ss_current_filter);
- 				} else if (strcmp(p, "inet") == 0) {
--					filter_db_set(&current_filter, UDP_DB);
--					filter_db_set(&current_filter, DCCP_DB);
--					filter_db_set(&current_filter, TCP_DB);
--					filter_db_set(&current_filter, RAW_DB);
-+					filter_db_set(&ss_current_filter, UDP_DB);
-+					filter_db_set(&ss_current_filter, DCCP_DB);
-+					filter_db_set(&ss_current_filter, TCP_DB);
-+					filter_db_set(&ss_current_filter, RAW_DB);
- 				} else if (strcmp(p, "udp") == 0) {
--					filter_db_set(&current_filter, UDP_DB);
-+					filter_db_set(&ss_current_filter, UDP_DB);
- 				} else if (strcmp(p, "dccp") == 0) {
--					filter_db_set(&current_filter, DCCP_DB);
-+					filter_db_set(&ss_current_filter, DCCP_DB);
- 				} else if (strcmp(p, "tcp") == 0) {
--					filter_db_set(&current_filter, TCP_DB);
-+					filter_db_set(&ss_current_filter, TCP_DB);
- 				} else if (strcmp(p, "raw") == 0) {
--					filter_db_set(&current_filter, RAW_DB);
-+					filter_db_set(&ss_current_filter, RAW_DB);
- 				} else if (strcmp(p, "unix") == 0) {
--					filter_db_set(&current_filter, UNIX_ST_DB);
--					filter_db_set(&current_filter, UNIX_DG_DB);
--					filter_db_set(&current_filter, UNIX_SQ_DB);
-+					filter_db_set(&ss_current_filter, UNIX_ST_DB);
-+					filter_db_set(&ss_current_filter, UNIX_DG_DB);
-+					filter_db_set(&ss_current_filter, UNIX_SQ_DB);
- 				} else if (strcasecmp(p, "unix_stream") == 0 ||
- 					   strcmp(p, "u_str") == 0) {
--					filter_db_set(&current_filter, UNIX_ST_DB);
-+					filter_db_set(&ss_current_filter, UNIX_ST_DB);
- 				} else if (strcasecmp(p, "unix_dgram") == 0 ||
- 					   strcmp(p, "u_dgr") == 0) {
--					filter_db_set(&current_filter, UNIX_DG_DB);
-+					filter_db_set(&ss_current_filter, UNIX_DG_DB);
- 				} else if (strcasecmp(p, "unix_seqpacket") == 0 ||
- 					   strcmp(p, "u_seq") == 0) {
--					filter_db_set(&current_filter, UNIX_SQ_DB);
-+					filter_db_set(&ss_current_filter, UNIX_SQ_DB);
- 				} else if (strcmp(p, "packet") == 0) {
--					filter_db_set(&current_filter, PACKET_R_DB);
--					filter_db_set(&current_filter, PACKET_DG_DB);
-+					filter_db_set(&ss_current_filter, PACKET_R_DB);
-+					filter_db_set(&ss_current_filter, PACKET_DG_DB);
- 				} else if (strcmp(p, "packet_raw") == 0 ||
- 					   strcmp(p, "p_raw") == 0) {
--					filter_db_set(&current_filter, PACKET_R_DB);
-+					filter_db_set(&ss_current_filter, PACKET_R_DB);
- 				} else if (strcmp(p, "packet_dgram") == 0 ||
- 					   strcmp(p, "p_dgr") == 0) {
--					filter_db_set(&current_filter, PACKET_DG_DB);
-+					filter_db_set(&ss_current_filter, PACKET_DG_DB);
- 				} else if (strcmp(p, "netlink") == 0) {
--					filter_db_set(&current_filter, NETLINK_DB);
-+					filter_db_set(&ss_current_filter, NETLINK_DB);
- 				} else {
- 					fprintf(stderr, "ss: \"%s\" is illegal socket table id\n", p);
- 					usage();
-@@ -3386,7 +3387,7 @@ int main(int argc, char *argv[])
- 
- 	/* Now parse filter... */
- 	if (argc == 0 && filter_fp) {
--		if (ssfilter_parse(&current_filter.f, 0, NULL, filter_fp))
-+		if (ssfilter_parse(&ss_current_filter.f, 0, NULL, filter_fp))
- 			usage();
- 	}
- 
-@@ -3412,32 +3413,32 @@ int main(int argc, char *argv[])
- 
- 	if (do_default) {
- 		state_filter = state_filter ? state_filter : SS_CONN;
--		filter_default_dbs(&current_filter);
-+		filter_default_dbs(&ss_current_filter);
- 	}
- 
--	filter_states_set(&current_filter, state_filter);
--	filter_merge_defaults(&current_filter);
-+	filter_states_set(&ss_current_filter, state_filter);
-+	filter_merge_defaults(&ss_current_filter);
- 
- 	if (resolve_services && resolve_hosts &&
--	    (current_filter.dbs&(UNIX_DBM|(1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB))))
-+	    (ss_current_filter.dbs&(UNIX_DBM|(1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB))))
- 		init_service_resolver();
- 
--	if (current_filter.dbs == 0) {
-+	if (ss_current_filter.dbs == 0) {
- 		fprintf(stderr, "ss: no socket tables to show with such filter.\n");
- 		exit(0);
- 	}
--	if (current_filter.families == 0) {
-+	if (ss_current_filter.families == 0) {
- 		fprintf(stderr, "ss: no families to show with such filter.\n");
- 		exit(0);
- 	}
--	if (current_filter.states == 0) {
-+	if (ss_current_filter.states == 0) {
- 		fprintf(stderr, "ss: no socket states to show with such filter.\n");
- 		exit(0);
- 	}
- 
- 	if (dump_tcpdiag) {
- 		FILE *dump_fp = stdout;
--		if (!(current_filter.dbs & (1<<TCP_DB))) {
-+		if (!(ss_current_filter.dbs & (1<<TCP_DB))) {
- 			fprintf(stderr, "ss: tcpdiag dump requested and no tcp in filter.\n");
- 			exit(0);
- 		}
-@@ -3450,7 +3451,7 @@ int main(int argc, char *argv[])
- 		}
- 		jsonw_name(json_wr, "TCP");
- 		jsonw_start_array(json_wr);
--		inet_show_netlink(&current_filter, dump_fp, IPPROTO_TCP);
-+		inet_show_netlink(&ss_current_filter, dump_fp, IPPROTO_TCP);
- 		jsonw_end_array(json_wr);
- 		jsonw_destroy(&json_wr);
- 		fflush(dump_fp);
-@@ -3466,15 +3467,15 @@ int main(int argc, char *argv[])
- 		}
- 	}
- 
--	if (ssfilter_parse(&current_filter.f, argc, argv, filter_fp))
-+	if (ssfilter_parse(&ss_current_filter.f, argc, argv, filter_fp))
- 		usage();
- 
- 	netid_width = 0;
--	if (current_filter.dbs&(current_filter.dbs-1))
-+	if (ss_current_filter.dbs & (ss_current_filter.dbs - 1))
- 		netid_width = 5;
- 
- 	state_width = 0;
--	if (current_filter.states&(current_filter.states-1))
-+	if (ss_current_filter.states & (ss_current_filter.states - 1))
- 		state_width = 10;
- 
- 	screen_width = 80;
-@@ -3527,67 +3528,68 @@ int main(int argc, char *argv[])
- 
- 	fflush(stdout);
- 
--	if (current_filter.dbs & (1<<NETLINK_DB)) {
-+	if (ss_current_filter.dbs & (1<<NETLINK_DB)) {
- 		if (json_output) {
- 			jsonw_name(json_wr, "NETLINK");
- 			jsonw_start_array(json_wr);
--			netlink_show(&current_filter);
-+			netlink_show(&ss_current_filter);
-+			jsonw_end_array(json_wr);
- 		} else
--			netlink_show(&current_filter);
-+			netlink_show(&ss_current_filter);
- 	}
--	if (current_filter.dbs & PACKET_DBM) {
-+	if (ss_current_filter.dbs & PACKET_DBM) {
- 		if (json_output) {
- 			jsonw_name(json_wr, "PACKET");
- 			jsonw_start_array(json_wr);
--			packet_show(&current_filter);
-+			packet_show(&ss_current_filter);
- 			jsonw_end_array(json_wr);
- 		} else
--			packet_show(&current_filter);
-+			packet_show(&ss_current_filter);
- 	}
--	if (current_filter.dbs & UNIX_DBM) {
-+	if (ss_current_filter.dbs & UNIX_DBM) {
- 		if (json_output) {
- 			jsonw_name(json_wr, "UNIX");
- 			jsonw_start_array(json_wr);
--			unix_show(&current_filter);
-+			unix_show(&ss_current_filter);
- 			jsonw_end_array(json_wr);
- 		} else
--			unix_show(&current_filter);
-+			unix_show(&ss_current_filter);
- 	}
--	if (current_filter.dbs & (1<<RAW_DB)) {
-+	if (ss_current_filter.dbs & (1<<RAW_DB)) {
- 		if (json_output) {
- 			jsonw_name(json_wr, "RAW");
- 			jsonw_start_array(json_wr);
--			raw_show(&current_filter);
-+			raw_show(&ss_current_filter);
- 			jsonw_end_array(json_wr);
- 		} else
--			raw_show(&current_filter);
-+			raw_show(&ss_current_filter);
- 	}
--	if (current_filter.dbs & (1<<UDP_DB)) {
-+	if (ss_current_filter.dbs & (1<<UDP_DB)) {
- 		if (json_output) {
- 			jsonw_name(json_wr, "UDP");
- 			jsonw_start_array(json_wr);
--			udp_show(&current_filter);
-+			udp_show(&ss_current_filter);
- 			jsonw_end_array(json_wr);
- 		} else
--			udp_show(&current_filter);
-+			udp_show(&ss_current_filter);
- 	}
--	if (current_filter.dbs & (1<<TCP_DB)) {
-+	if (ss_current_filter.dbs & (1<<TCP_DB)) {
- 		if (json_output) {
- 			jsonw_name(json_wr, "TCP");
- 			jsonw_start_array(json_wr);
--			tcp_show(&current_filter, IPPROTO_TCP);
-+			tcp_show(&ss_current_filter, IPPROTO_TCP);
- 			jsonw_end_array(json_wr);
- 		} else
--			tcp_show(&current_filter, IPPROTO_TCP);
-+			tcp_show(&ss_current_filter, IPPROTO_TCP);
- 	}
--	if (current_filter.dbs & (1<<DCCP_DB)) {
-+	if (ss_current_filter.dbs & (1<<DCCP_DB)) {
- 		if (json_output) {
- 			jsonw_name(json_wr, "DCCP");
- 			jsonw_start_array(json_wr);
--			tcp_show(&current_filter, IPPROTO_DCCP);
-+			tcp_show(&ss_current_filter, IPPROTO_DCCP);
- 			jsonw_end_array(json_wr);
- 		} else
--			tcp_show(&current_filter, IPPROTO_DCCP);
-+			tcp_show(&ss_current_filter, IPPROTO_DCCP);
- 	}
- 
- 	if (json_output)
-@@ -3596,7 +3598,7 @@ int main(int argc, char *argv[])
- 	fflush(stdout);
- 
- 	if (follow_events)
--		exit(handle_follow_request(&current_filter));
-+		exit(handle_follow_request(&ss_current_filter));
- 
- 	if (show_users || show_proc_ctx || show_sock_ctx)
- 		user_ent_destroy();
--- 
-1.9.1
+  ss: rooted out ss type declarations for output formatters
+  ss: created formatters for json and hr
+  ss: removed obsolet fmt functions
+  ss: prepare timer for output handler usage
+  ss: replaced old output with new generic output mechanisms
+  ss: renaming and export of current_filter
+  ss: symmetrical subhandler output extension example
+  ss: symmetrical formatter extension example
+  ss: fixed free on local array for valid json output
+  ss: activate json_writer excluded logic
+
+ include/json_writer.h |   1 +
+ lib/json_writer.c     |   7 -
+ misc/Makefile         |   2 +-
+ misc/ss.c             | 971 +++++++++++++++++-------------------------=
+--------
+ misc/ss_hr_fmt.c      | 321 +++++++++++++++++
+ misc/ss_hr_fmt.h      |   9 +
+ misc/ss_json_fmt.c    | 475 ++++++++++++++++++++++++
+ misc/ss_json_fmt.h    |  26 ++
+ misc/ss_out_fmt.c     | 137 +++++++
+ misc/ss_out_fmt.h     |  92 +++++
+ misc/ss_types.h       | 186 ++++++++++
+ 11 files changed, 1567 insertions(+), 660 deletions(-)
+ create mode 100644 misc/ss_hr_fmt.c
+ create mode 100644 misc/ss_hr_fmt.h
+ create mode 100644 misc/ss_json_fmt.c
+ create mode 100644 misc/ss_json_fmt.h
+ create mode 100644 misc/ss_out_fmt.c
+ create mode 100644 misc/ss_out_fmt.h
+ create mode 100644 misc/ss_types.h
+
+--=20
+
+Abstract:=20
+
+This patch set originates from the necessity to upgrade ss with the pos=
+sibility
+to output in json format. Not to clutter up ss too much, the author of =
+the
+patch decided to come up with a simple distributor to handler approach.=
+ That
+is, the distributor poses the mechanical interface which passes the out=
+put
+requests coming from ss to the appropriate handler. This simplifies the
+interaction with ss and provides a maximum of future extensiblity. Not =
+to
+forget, ss loses weight thereby since output implemented in ss itself d=
+oes
+migrate to the appropriate handler. Additionally, because types are sha=
+red
+amongst handlers, the distributor and ss, the author conceived, that a =
+separate
+containter module for types has to be formed. In future, all type decla=
+rations
+and extensins go there.=20
+
+In sum, the patchset has this voluminous extent since there is no viabl=
+e way
+for putting out syntactically correct human readble and json in a simpl=
+er manner.
+The requirement for convenient extensibility of output and data is
+another justification for the patchset size.
+
+Concept sketch:
+
+                                               formatter1=20
+                                              ************             =
+  =20
+                                              *          *             =
+  =20
+                                              *          *             =
+  =20
+           ss                           ~~~~~~~>zzzzzzz  *             =
+  =20
+     ******************                 ~     *          *             =
+  =20
+     *                *                 ~   ###>fffffff  *             =
+  =20
+     *                *                 ~   # *          *             =
+  =20
+     *                *      distributor~   # ************             =
+  =20
+     *   --------     *       ********* ~   #                          =
+  =20
+     *   -    --------------  *       * ~   #                          =
+  =20
+     *   --------     *    -  *       * ~   #                          =
+  =20
+     *                *    ---->++++ ~~~~   #                          =
+  =20
+     *                *       *       * ~   #  formatter2=20
+     *                *    ---->=3D=3D=3D=3D ######## ************     =
+          =20
+     *   --------     *    -  *       * ~   # *          *             =
+  =20
+     *   -    --------------  *       * ~   # *          *             =
+  =20
+     *   --------     *       ********* ~   # *          *             =
+  =20
+     *                *                 ~~~~#~~>zzzzzzz  *             =
+  =20
+     *                *                     # *          *             =
+  =20
+     *                *                     ###>fffffff	 *             =
+  =20
+     ******************                       *          *             =
+  =20
+                                              ************             =
+  =20
+						                      =20
+At the moment, the distributor is the ss_out_fmt module while two handl=
+ers are
+up: namely the ss_json_fmt and the ss_hr_fmt (human readable). You can =
+use
+those modules as the main reference for own extensions.
+
+=46uture Extension:
+In the following, I will expand on the expandability of the formatter m=
+odel.
+The explanations advances from the minimal to the most sweeping extensi=
+on in
+mind.
+
+Sub Format Handler Output=20
+Sketch
+
+		  FormatterX
+                  ***********************************                  =
+  =20
+                  *                                 *                  =
+  =20
+                  *   handlerX 			    *                    =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0    xxxxxxxxxxxxxxc<..  =C2=B0    *        =
+            =20
+                  *   =C2=B0                     .  =C2=B0    *        =
+            =20
+                  *   =C2=B0    xxxxxxxxxxxxxxc<.. potential context   =
+              =20
+                  *   =C2=B0        new:         .  =C2=B0    *     =20
+                  *   =C2=B0    +++++++++++++++... < * * * * * * * * * =
+* *      =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *               .                 *               *  =
+   =20
+                  *               .                 *               *  =
+   =20
+                  *               .                 *               *  =
+   =20
+                  *   handlerY		  	    *               *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    xxxxxxxxxxxxxxx     =C2=B0    *        =
+       *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    xxxxxxxxxxxxxxx     =C2=B0    *        =
+       *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *   expand symmetrically  =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *                                 *               *  =
+   =20
+                  *                                 *               *  =
+   =20
+                  *                                 *               *  =
+   =20
+                  ***********************************          	    *
+								    *
+		 		.				    *
+				.				    *
+				.				    *
+				 				    *
+		  FormatterY					    *
+                  ***********************************               *  =
+  =20
+                  *                                 *               *  =
+  =20
+                  *   handlerX			    *               *     =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *               *     =20
+                  *   =C2=B0                        =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    zzzzzzzzzzzzzzc<..  =C2=B0    *        =
+       *     =20
+                  *   =C2=B0                     .  =C2=B0    *        =
+       *     =20
+                  *   =C2=B0    zzzzzzzzzzzzzzc<.. potential context   =
+  *             =20
+                  *   =C2=B0        new:         .  =C2=B0    *        =
+       *    =20
+                  *   =C2=B0    +++++++++++++++... < * * * * * * * * * =
+* *    =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *               .                 *                  =
+  =20
+                  *               .                 *                  =
+  =20
+                  *               .                 *                  =
+  =20
+                  *   handlerY		  	    *                    =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0    zzzzzzzzzzzzzzz     =C2=B0    *        =
+            =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0    zzzzzzzzzzzzzzz     =C2=B0    *        =
+            =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0                        =C2=B0    *        =
+            =20
+                  *   =C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=
+=B0=C2=B0=C2=B0=C2=B0=C2=B0=C2=B0    *                    =20
+                  *                                 *                  =
+  =20
+                  *                                 *                  =
+  =20
+                  ***********************************    =20
+
+Explanation:
+If you plan to expand a sub out handler function of a formatter, it
+essentially boils down to adding a new printf with an according format =
+and
+probably a necessary predicate (condition). Nontheless, care must be ta=
+ken not
+to lose possible context interdependecies out of sight. An examble for =
+the
+latter would be the interdependecy of json coma setting terms =E2=80=93=
+ in compound
+types, you do need a coma between consecutive elements.
+
+More important is the issue about symmetric extensions. Except for the
+tcp_out_fmt function implementation =E2=80=93 where a macro (CHECK_FMT_=
+ADAPT) is in
+place to check for adaptions in the basic tcpstat data structure static=
+ally =E2=80=93
+no general programmatic approach is in place yet which would prevent as=
+ymmetric
+extensions. Up to someone devices a holistic solution, this patch relie=
+s on the
+extenders to deal with asymmetries. Is the aim to have a new output fea=
+ture
+available in all semantically related handlers of n different formatter=
+s, then
+the expander has to adapt n handlers as shown in the sketch above.
+
+Extend with further Format Handler in Formatter
+Sketch:
+-provides symmetrical extension intendet
+
+
+                                                       formatter1
+                                                      /----------------=
+----------\
+                                                      |                =
+          |
+                                                      |    spec_handler=
+X         |
+                                                      |     ###########=
+##### <** |
+                                                      |     ###########=
+#####   * |
+             distributor                              |            .   =
+        * |
+           O-------------------------O                |            .   =
+        * |
+           |    centr_hub            |                |    new_spec_han=
+dler    * |
+           | ***>01111110--------------------------+  |     +++++++++++=
++++++<~ * |
+           | *   02222220----------------------+   |  |     +++++++++++=
++++++ ~ * |
+           | *                       |         |   |  |                =
+      ~ * |
+           | *                       |         |   |  |      handler_hu=
+b1    ~ * |
+           | *  _______________      |         |   +--------->0########=
+#0****~** |
+           | * |gen_handlerX   |     |         |      |	      0++++++++=
++0~~~~~   |
+           | **********        |     |         |      |                =
+          |
+           | * |_______________|     |         |      |                =
+          |
+           | *         .             |         |      \----------------=
+----------/
+           | *         .             |         |                  .
+           | *         .             |         |                  .
+           | * +++++++++++++++++     |         |       formatterN .
+           | ***new_gen_handler+     |         |      /----------------=
+----------\
+           |   +               +     |         |      |                =
+          |
+           |   +++++++++++++++++     |         |      |    spec_handler=
+X         |
+           |                         |         |      |     ###########=
+##### <** |
+           O-------------------------O         |      |     ###########=
+#####   * |
+                                               |      |            .   =
+        * |
+                                               |      |            .   =
+        * |
+                                               |      |    new_spec_han=
+dler    * |
+                                               |      |     +++++++++++=
++++++<~ * |
+                                               |      |     +++++++++++=
++++++ ~ * |
+                                               |      |                =
+      ~ * |
+                                               |      |      handler_hu=
+bN    ~ * |
+                                               +------------->0########=
+#0****~** |
+                                                      |	      0++++++++=
++0~~~~~   |
+                                                      |                =
+          |
+                                                      |                =
+          |
+                                                      \----------------=
+----------/
+
+
+Explanation:
+As the sketch shows, the distributor works with the help of virtual fun=
+ction
+pointer in order to act as a call flow switch. It switches to the appro=
+riate
+formatter module and its handlers depending on the chosen output format=
+ by ss
+command input.=20
+
+So, to add a new formatter handler symmetrically (up to now that is the=
+ only
+sensibly conceivable case), the extender must implement a new generic h=
+andler
+in the distributor and the specific handlers in the formatters. Then th=
+e hub
+vtable structure type has to be broadend to contain the new function po=
+inter
+type for the generic handler. After that, he has to extend and update a=
+ll
+handler hubs with the new handlers location information (function point=
+er). The
+latter ensures the generic switching mechanism used by the generic hand=
+ler
+keeps to be upheld.
+
+Example:
+Let's say we want the new "foo" data for every output format retrievabl=
+e via
+ss. Up to now, we have the ss_out_fmt module as the distributor and two
+specific handlers: for one the ss_hr_fmt and secondly the ss_json_fmt m=
+odule.
+So we need a specific handler implementation in ss_hr_fmt and ss_json_f=
+mt
+modules and after that update the corresponding vtables (handler_hubs) =
+in the
+modules.  After that, the distributor, namely ss_out_fmt module, has to=
+ get a
+generic handler that switches via its vtable hub to either the json for=
+matter
+or the human readable formatter, depending on what fmt_type has been ch=
+osen by ss.
+Before the vtables in the specific modules can be updated, struct fmt_o=
+p_hub
+which is found in ss_out_fmt's interface header has get extendend with =
+the new
+function pointer type.
+
+As soon the new generic handler has been exported via the ss_out_fmt.h =
+module
+interface, ss can use the new fmt handler to print out info. It can sim=
+ply call
+the generic function and does not have to deal with formatting specific=
+ issues.
+
+Extend for another Formatter=20
+Sketch:
+The Sketch for handler extension should be sufficient for conveying the=
+ concept.
+Just think of another formatter after formatterN and a new entry in the=
+ central
+vtable of the distributor to reach this new formatter.
+
+Explanation:
+Nothing breathtaking has to be done when someone needs an new formatter=
+ module
+for let's be image =E2=80=93 out of pure hypothetical endeavors =E2=80=93=
+ xml ss output. First,
+implement the new formatter with all the offered interfaces in the
+distributor. Register all handlers in the local specific vtable hub.
+Then, register the local vtable hub in the generic vtable hub of the
+distributor to reach your new handler when chosen. Provide the client
+code - here ss - with a new fmt_type option acceptance. Before the
+option can do anything, you have to declare the new fmt_type. That's
+it. No further adaptions in ss would be necessary.
