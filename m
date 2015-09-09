@@ -1,79 +1,95 @@
-From: Petr Cvek <petr.cvek@tul.cz>
-Subject: Re: [PATCH 2/3] net: irda: pxaficp_ir: convert to readl and writel
-Date: Wed, 9 Sep 2015 03:23:27 +0200
-Message-ID: <55EF8A0F.7070106@tul.cz>
-References: <1441261251-19548-1-git-send-email-robert.jarzmik@free.fr>
- <1441261251-19548-3-git-send-email-robert.jarzmik@free.fr>
- <55EF43E9.2040000@tul.cz>
+From: Boqun Feng <boqun.feng@gmail.com>
+Subject: [PATCH v2] atomics,cmpxchg: Privatize the inclusion of asm/cmpxchg.h
+Date: Wed,  9 Sep 2015 09:27:04 +0800
+Message-ID: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Arnd Bergmann <arnd@arndb.de>
-To: Robert Jarzmik <robert.jarzmik@free.fr>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bubo.tul.cz ([147.230.16.1]:55850 "EHLO bubo.tul.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752916AbbIIBTL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Sep 2015 21:19:11 -0400
-In-Reply-To: <55EF43E9.2040000@tul.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, Kirk Reiser <kirk@reisers.ca>,
+ linux-net-drivers@solarflare.com, Davidlohr Bueso <dave@stgolabs.net>,
+ linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
+ Peter Zijlstra <peterz@infradead.org>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Boqun Feng <boqun.feng@gmail.com>, Will Deacon <will.deacon@arm.com>,
+ Kishon Vijay Abraham I <kishon@ti.com>, speakup@linux-speakup.org,
+ Ingo Molnar <mingo@redhat.com>, Shradha Shah <sshah@solarflare.com>,
+ Samuel Thibault <samuel.thibault@ens-lyon.org>, netdev@vger.kernel.org,
+ Chris Brannon <chris@the-brannons.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Dne 8.9.2015 v 22:24 Petr Cvek napsal(a):
-> 
-> Did you defined resources somewhere? Actual resources are in "pxa_ir_resources" variable at:
-> 
-> 	http://lxr.free-electrons.com/source/arch/arm/mach-pxa/devices.c#L386
-> 
-> or this pdata should be moved into specific machine files?
-> 
+After commit:
 
-I tried to add following patch for new resources, but now it fails with:
+atomics: add acquire/release/relaxed variants of some atomic operations
 
-[  141.534545] pxa2xx-ir pxa2xx-ir: can't request region for resource [mem 0x40700000-0x40700100]
-[  141.534574] pxa2xx-ir pxa2xx-ir: resource stuart not defined
-[  141.534656] pxa2xx-ir: probe of pxa2xx-ir failed with error -16
+Architectures may only provide {cmp,}xchg_relaxed definitions in
+asm/cmpxchg.h. Other variants, such as {cmp,}xchg, may be built in
+linux/atomic.h, which means simply including asm/cmpxchg.h may not get
+the definitions of all the{cmp,}xchg variants. Therefore, we should
+privatize the inclusions of asm/cmpxchg.h to keep it only included in
+arch/* and replace the inclusions outside with linux/atomic.h
 
-That's because STUART is allocated by normal UART driver at:
+Acked-by: Will Deacon <will.deacon@arm.com>
+Signed-off-by: Boqun Feng <boqun.feng@gmail.com>
+---
+v1 --> v2:
+	1. rebase on current master branch of tip tree
+	2. remove documentation modification
 
-	http://lxr.free-electrons.com/source/arch/arm/mach-pxa/devices.c#L244
+ drivers/net/ethernet/sfc/mcdi.c     | 2 +-
+ drivers/phy/phy-rcar-gen2.c         | 3 +--
+ drivers/staging/speakup/selection.c | 2 +-
+ 3 files changed, 3 insertions(+), 4 deletions(-)
 
-So somehow there must be configuration for STUART used with FICP and STUART alone (probably can be used for normal UART).
-
-
-diff --git a/arch/arm/mach-pxa/devices.c b/arch/arm/mach-pxa/devices.c
-index 3543466..316ffa3 100644
---- a/arch/arm/mach-pxa/devices.c
-+++ b/arch/arm/mach-pxa/devices.c
-@@ -394,6 +394,26 @@ static struct resource pxa_ir_resources[] = {
- 		.end    = IRQ_ICP,
- 		.flags  = IORESOURCE_IRQ,
- 	},
-+	[2] = {
-+		.start  = 0x40800000,
-+		.end    = 0x40800000 + 0x100,
-+		.flags  = IORESOURCE_MEM,
-+	},
-+	[3] = {
-+		.start  = 0x40700000,
-+		.end    = 0x40700000 + 0x100,
-+		.flags  = IORESOURCE_MEM,
-+	},
-+	[4] = {
-+		.start  = 17,
-+		.end    = 17,
-+		.flags  = IORESOURCE_DMA,
-+	},
-+	[5] = {
-+		.start  = 18,
-+		.end    = 18,
-+		.flags  = IORESOURCE_DMA,
-+	},
- };
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 81640f8..968383e 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -9,7 +9,7 @@
  
- struct platform_device pxa_device_ficp = {
+ #include <linux/delay.h>
+ #include <linux/moduleparam.h>
+-#include <asm/cmpxchg.h>
++#include <linux/atomic.h>
+ #include "net_driver.h"
+ #include "nic.h"
+ #include "io.h"
+diff --git a/drivers/phy/phy-rcar-gen2.c b/drivers/phy/phy-rcar-gen2.c
+index 6e0d9fa..c7a0599 100644
+--- a/drivers/phy/phy-rcar-gen2.c
++++ b/drivers/phy/phy-rcar-gen2.c
+@@ -17,8 +17,7 @@
+ #include <linux/phy/phy.h>
+ #include <linux/platform_device.h>
+ #include <linux/spinlock.h>
+-
+-#include <asm/cmpxchg.h>
++#include <linux/atomic.h>
+ 
+ #define USBHS_LPSTS			0x02
+ #define USBHS_UGCTRL			0x80
+diff --git a/drivers/staging/speakup/selection.c b/drivers/staging/speakup/selection.c
+index 98af3b1..aa5ab6c 100644
+--- a/drivers/staging/speakup/selection.c
++++ b/drivers/staging/speakup/selection.c
+@@ -7,7 +7,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/tty.h>
+ #include <linux/tty_flip.h>
+-#include <asm/cmpxchg.h>
++#include <linux/atomic.h>
+ 
+ #include "speakup.h"
+ 
 -- 
-1.7.12.1
+2.5.1
