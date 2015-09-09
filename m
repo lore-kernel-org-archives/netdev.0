@@ -1,203 +1,307 @@
 From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH 3/4] stmmac: remove some __func__ printing
-Date: Wed,  9 Sep 2015 15:14:15 +0200
-Message-ID: <1441804456-15914-3-git-send-email-clabbe.montjoie@gmail.com>
+Subject: [PATCH 4/4] stmmac: Fix simple style problem
+Date: Wed,  9 Sep 2015 15:14:16 +0200
+Message-ID: <1441804456-15914-4-git-send-email-clabbe.montjoie@gmail.com>
 References: <1441804456-15914-1-git-send-email-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	LABBE Corentin <clabbe.montjoie@gmail.com>
 To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:37372 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032AbbIINOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 09:14:52 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1441804456-15914-1-git-send-email-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that stmmac use dev_xxx, some __func__ are not necessary since their
-use was to clearly identify which driver was logging.
-
-This patch remove __func__ where such printing is useless.
+This patch fix the following warnings:
+- braces {} should be used on all arms of this statement
+- Prefer seq_puts to seq_printf
+- No space is necessary after a cast
+- Missing a blank line after declarations
+- Please don't use multiple blank lines
+- Comparison to NULL could be written
+- networking block comments don't use an empty /* line
+- Do not include the paragraph about writing to the Free Software
 
 Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 57 +++++++++--------------
- 1 file changed, 21 insertions(+), 36 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 74 +++++++++++------------
+ 1 file changed, 35 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c1dc41b..5335bad 100644
+index 5335bad..3ba95a7 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -988,7 +988,7 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
- 	skb = __netdev_alloc_skb_ip_align(priv->dev, priv->dma_buf_sz, flags);
- 	if (!skb) {
- 		dev_err(priv->device,
--			"%s: Rx init fails; skb is NULL\n", __func__);
-+			"Rx init fails; skb is NULL\n");
- 		return -ENOMEM;
- 	}
- 	priv->rx_skbuff[i] = skb;
-@@ -996,7 +996,7 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
- 						priv->dma_buf_sz,
- 						DMA_FROM_DEVICE);
- 	if (dma_mapping_error(priv->device, priv->rx_skbuff_dma[i])) {
--		dev_err(priv->device, "%s: DMA mapping error\n", __func__);
-+		dev_err(priv->device, "DMA mapping error\n");
- 		dev_kfree_skb_any(skb);
- 		return -EINVAL;
- 	}
-@@ -1709,8 +1709,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	/* DMA initialization and SW reset */
- 	ret = stmmac_init_dma_engine(priv);
- 	if (ret < 0) {
--		dev_err(priv->device, "%s: DMA engine initialization failed\n",
--			__func__);
-+		dev_err(priv->device, "DMA engine initialization failed\n");
- 		return ret;
- 	}
+@@ -13,10 +13,6 @@
+   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+   more details.
  
-@@ -1742,15 +1741,13 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	if (init_ptp) {
- 		ret = stmmac_init_ptp(priv);
- 		if (ret && ret != -EOPNOTSUPP)
--			dev_warn(priv->device, "%s: failed PTP initialisation\n",
--				 __func__);
-+			dev_warn(priv->device, "failed PTP initialisation\n");
- 	}
+-  You should have received a copy of the GNU General Public License along with
+-  this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+-
+   The full GNU General Public License is included in this distribution in
+   the file called "COPYING".
  
- #ifdef CONFIG_DEBUG_FS
- 	ret = stmmac_init_fs(dev);
- 	if (ret < 0)
--		dev_warn(priv->device, "%s: failed debugFS registration\n",
--			 __func__);
-+		dev_warn(priv->device, "failed debugFS registration\n");
- #endif
- 	/* Start the ball rolling... */
- 	dev_dbg(priv->device, "%s: DMA RX/TX processes started...\n",
-@@ -1797,8 +1794,7 @@ static int stmmac_open(struct net_device *dev)
- 		ret = stmmac_init_phy(dev);
- 		if (ret) {
- 			dev_err(priv->device,
--				"%s: Cannot attach to PHY (error: %d)\n",
--			       __func__, ret);
-+				"Cannot attach to PHY (error: %d)\n", ret);
- 			return ret;
- 		}
- 	}
-@@ -1814,22 +1810,19 @@ static int stmmac_open(struct net_device *dev)
+@@ -197,7 +193,7 @@ static void print_pkt(unsigned char *buf, int len)
+ }
  
- 	ret = alloc_dma_desc_resources(priv);
- 	if (ret < 0) {
--		dev_err(priv->device, "%s: DMA descriptors allocation failed\n",
--			__func__);
-+		dev_err(priv->device, "DMA descriptors allocation failed\n");
- 		goto dma_desc_error;
- 	}
+ /* minimum number of free TX descriptors required to wake up TX process */
+-#define STMMAC_TX_THRESH(x)	(x->dma_tx_size/4)
++#define STMMAC_TX_THRESH(x)	(x->dma_tx_size / 4)
  
- 	ret = init_dma_desc_rings(dev, GFP_KERNEL);
- 	if (ret < 0) {
--		dev_err(priv->device,
--			"%s: DMA descriptors initialization failed\n",
--			__func__);
-+		dev_err(priv->device, "DMA descriptors initialization failed\n");
- 		goto init_error;
- 	}
- 
- 	ret = stmmac_hw_setup(dev, true);
- 	if (ret < 0) {
--		dev_err(priv->device, "%s: Hw setup failed\n", __func__);
-+		dev_err(priv->device, "Hw setup failed\n");
- 		goto init_error;
- 	}
- 
-@@ -1842,9 +1835,8 @@ static int stmmac_open(struct net_device *dev)
- 	ret = request_irq(dev->irq, stmmac_interrupt,
- 			  IRQF_SHARED, dev->name, dev);
- 	if (unlikely(ret < 0)) {
--		dev_err(priv->device,
--			"%s: ERROR: allocating the IRQ %d (error: %d)\n",
--		       __func__, dev->irq, ret);
-+		dev_err(priv->device, "ERROR: allocating the IRQ %d (error: %d)\n",
-+			dev->irq, ret);
- 		goto init_error;
- 	}
- 
-@@ -1853,9 +1845,8 @@ static int stmmac_open(struct net_device *dev)
- 		ret = request_irq(priv->wol_irq, stmmac_interrupt,
- 				  IRQF_SHARED, dev->name, dev);
- 		if (unlikely(ret < 0)) {
--			dev_err(priv->device,
--				"%s: ERROR: allocating the WoL IRQ %d (%d)\n",
--			       __func__, priv->wol_irq, ret);
-+			dev_err(priv->device, "ERROR: allocating the WoL IRQ %d (%d)\n",
-+				priv->wol_irq, ret);
- 			goto wolirq_error;
- 		}
- 	}
-@@ -1865,9 +1856,8 @@ static int stmmac_open(struct net_device *dev)
- 		ret = request_irq(priv->lpi_irq, stmmac_interrupt, IRQF_SHARED,
- 				  dev->name, dev);
- 		if (unlikely(ret < 0)) {
--			dev_err(priv->device,
--				"%s: ERROR: allocating the LPI IRQ %d (%d)\n",
--			       __func__, priv->lpi_irq, ret);
-+			dev_err(priv->device, "ERROR: allocating the LPI IRQ %d (%d)\n",
-+				priv->lpi_irq, ret);
- 			goto lpiirq_error;
- 		}
- 	}
-@@ -1972,9 +1962,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if (!netif_queue_stopped(dev)) {
- 			netif_stop_queue(dev);
- 			/* This is a hard error, log it. */
--			dev_err(priv->device,
--				"%s: Tx Ring full when queue awake\n",
--				__func__);
-+			dev_err(priv->device, "Tx Ring full when queue awake\n");
- 		}
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -2881,8 +2869,7 @@ int stmmac_dvr_probe(struct device *device,
- 
- 	priv->stmmac_clk = devm_clk_get(priv->device, STMMAC_RESOURCE_NAME);
- 	if (IS_ERR(priv->stmmac_clk)) {
--		dev_warn(priv->device, "%s: warning: cannot get CSR clock\n",
--			 __func__);
-+		dev_warn(priv->device, "warning: cannot get CSR clock\n");
- 		/* If failed to obtain stmmac_clk and specific clk_csr value
- 		 * is NOT passed from the platform, probe fail.
- 		 */
-@@ -2955,8 +2942,7 @@ int stmmac_dvr_probe(struct device *device,
- 
- 	ret = register_netdev(ndev);
- 	if (ret) {
--		dev_err(priv->device, "%s: ERROR %i registering the device\n",
--			__func__, ret);
-+		dev_err(priv->device, "ERROR %i registering the device\n", ret);
- 		goto error_netdev_register;
- 	}
- 
-@@ -2978,9 +2964,8 @@ int stmmac_dvr_probe(struct device *device,
- 		/* MDIO bus Registration */
- 		ret = stmmac_mdio_register(ndev);
- 		if (ret < 0) {
--			dev_err(priv->device,
--				"%s: MDIO bus (id: %d) registration failed",
--				 __func__, priv->plat->bus_id);
-+			dev_err(priv->device, "MDIO bus (id: %d) registration failed",
-+				priv->plat->bus_id);
- 			goto error_mdio_register;
- 		}
- 	}
-@@ -3012,7 +2997,7 @@ int stmmac_dvr_remove(struct net_device *ndev)
+ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
  {
- 	struct stmmac_priv *priv = netdev_priv(ndev);
+@@ -207,7 +203,7 @@ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
+ /**
+  * stmmac_hw_fix_mac_speed - callback for speed selection
+  * @priv: driver private structure
+- * Description: on some platforms (e.g. ST), some HW system configuraton
++ * Description: on some platforms (e.g. ST), some HW system configuration
+  * registers have to be set according to the link speed negotiated.
+  */
+ static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
+@@ -371,8 +367,6 @@ static void stmmac_get_tx_hwtstamp(struct stmmac_priv *priv,
+ 	shhwtstamp.hwtstamp = ns_to_ktime(ns);
+ 	/* pass tstamp to stack */
+ 	skb_tstamp_tx(skb, &shhwtstamp);
+-
+-	return;
+ }
  
--	dev_info(priv->device, "%s: removing driver", __func__);
-+	dev_info(priv->device, "removing driver");
+ /* stmmac_get_rx_hwtstamp - get HW RX timestamps
+@@ -615,7 +609,7 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 		 * 2^x * y == (y << x), hence
+ 		 * 2^32 * 50000000 ==> (50000000 << 32)
+ 		 */
+-		temp = (u64) (50000000ULL << 32);
++		temp = (u64)(50000000ULL << 32);
+ 		priv->default_addend = div_u64(temp, priv->clk_ptp_rate);
+ 		priv->hw->ptp->config_addend(priv->ioaddr,
+ 					     priv->default_addend);
+@@ -693,7 +687,7 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 	int new_state = 0;
+ 	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
  
- 	priv->hw->dma->stop_rx(priv->ioaddr);
+-	if (phydev == NULL)
++	if (!phydev)
+ 		return;
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+@@ -702,7 +696,8 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 		u32 ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
+ 
+ 		/* Now we make sure that we can be in full duplex mode.
+-		 * If not, we operate in half-duplex mode. */
++		 * If not, we operate in half-duplex mode.
++		 */
+ 		if (phydev->duplex != priv->oldduplex) {
+ 			new_state = 1;
+ 			if (!(phydev->duplex))
+@@ -728,11 +723,10 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 			case 10:
+ 				if (priv->plat->has_gmac) {
+ 					ctrl |= priv->hw->link.port;
+-					if (phydev->speed == SPEED_100) {
++					if (phydev->speed == SPEED_100)
+ 						ctrl |= priv->hw->link.speed;
+-					} else {
++					else
+ 						ctrl &= ~(priv->hw->link.speed);
+-					}
+ 				} else {
+ 					ctrl &= ~priv->hw->link.port;
+ 				}
+@@ -814,6 +808,7 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	char bus_id[MII_BUS_ID_SIZE];
+ 	int interface = priv->plat->interface;
+ 	int max_speed = priv->plat->max_speed;
++
+ 	priv->oldlink = 0;
+ 	priv->speed = 0;
+ 	priv->oldduplex = -1;
+@@ -851,8 +846,7 @@ static int stmmac_init_phy(struct net_device *dev)
+ 		phydev->advertising &= ~(SUPPORTED_1000baseT_Half |
+ 					 SUPPORTED_1000baseT_Full);
+ 
+-	/*
+-	 * Broken HW is sometimes missing the pull-up resistor on the
++	/* Broken HW is sometimes missing the pull-up resistor on the
+ 	 * MDIO line, which results in reads to non-existent devices returning
+ 	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
+ 	 * device as well.
+@@ -882,18 +876,18 @@ static void stmmac_display_ring(void *head, int size, int extend_desc)
+ 	int i;
+ 	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
+ 	struct dma_desc *p = (struct dma_desc *)head;
++	u64 x;
+ 
+ 	for (i = 0; i < size; i++) {
+-		u64 x;
+ 		if (extend_desc) {
+-			x = *(u64 *) ep;
++			x = *(u64 *)ep;
+ 			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+ 				i, (unsigned int)virt_to_phys(ep),
+ 				(unsigned int)x, (unsigned int)(x >> 32),
+ 				ep->basic.des2, ep->basic.des3);
+ 			ep++;
+ 		} else {
+-			x = *(u64 *) p;
++			x = *(u64 *)p;
+ 			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x",
+ 				i, (unsigned int)virt_to_phys(p),
+ 				(unsigned int)x, (unsigned int)(x >> 32),
+@@ -1058,6 +1052,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+ 	}
+ 	for (i = 0; i < rxsize; i++) {
+ 		struct dma_desc *p;
++
+ 		if (priv->extend_desc)
+ 			p = &((priv->dma_erx + i)->basic);
+ 		else
+@@ -1095,6 +1090,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+ 	/* TX INITIALIZATION */
+ 	for (i = 0; i < txsize; i++) {
+ 		struct dma_desc *p;
++
+ 		if (priv->extend_desc)
+ 			p = &((priv->dma_etx + i)->basic);
+ 		else
+@@ -1154,7 +1150,7 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
+ 						 DMA_TO_DEVICE);
+ 		}
+ 
+-		if (priv->tx_skbuff[i] != NULL) {
++		if (priv->tx_skbuff[i]) {
+ 			dev_kfree_skb_any(priv->tx_skbuff[i]);
+ 			priv->tx_skbuff[i] = NULL;
+ 			priv->tx_skbuff_dma[i].buf = 0;
+@@ -1292,8 +1288,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ 	if (priv->plat->force_thresh_dma_mode)
+ 		priv->hw->dma->dma_mode(priv->ioaddr, tc, tc, rxfifosz);
+ 	else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
+-		/*
+-		 * In case of GMAC, SF mode can be enabled
++		/* In case of GMAC, SF mode can be enabled
+ 		 * to perform the TX COE in HW. This depends on:
+ 		 * 1) TX COE if actually supported
+ 		 * 2) There is no bugged Jumbo frame support
+@@ -1371,7 +1366,7 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ 		}
+ 		priv->hw->mode->clean_desc3(priv, p);
+ 
+-		if (likely(skb != NULL)) {
++		if (likely(skb)) {
+ 			pkts_compl++;
+ 			bytes_compl += skb->len;
+ 			dev_consume_skb_any(skb);
+@@ -1425,6 +1420,7 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
+ {
+ 	int i;
+ 	int txsize = priv->dma_tx_size;
++
+ 	netif_stop_queue(priv->dev);
+ 
  	priv->hw->dma->stop_tx(priv->ioaddr);
+@@ -2113,7 +2109,6 @@ static void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
+ 	}
+ }
+ 
+-
+ /**
+  * stmmac_rx_refill - refill used skb preallocated buffers
+  * @priv: driver private structure
+@@ -2134,12 +2129,12 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+ 		else
+ 			p = priv->dma_rx + entry;
+ 
+-		if (likely(priv->rx_skbuff[entry] == NULL)) {
++		if (likely(!priv->rx_skbuff[entry])) {
+ 			struct sk_buff *skb;
+ 
+ 			skb = netdev_alloc_skb_ip_align(priv->dev, bfsize);
+ 
+-			if (unlikely(skb == NULL))
++			if (unlikely(!skb))
+ 				break;
+ 
+ 			priv->rx_skbuff[entry] = skb;
+@@ -2535,25 +2530,25 @@ static void sysfs_display_ring(void *head, int size, int extend_desc,
+ 	int i;
+ 	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
+ 	struct dma_desc *p = (struct dma_desc *)head;
++	u64 x;
+ 
+ 	for (i = 0; i < size; i++) {
+-		u64 x;
+ 		if (extend_desc) {
+-			x = *(u64 *) ep;
++			x = *(u64 *)ep;
+ 			seq_printf(seq, "%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+ 				   i, (unsigned int)virt_to_phys(ep),
+ 				   (unsigned int)x, (unsigned int)(x >> 32),
+ 				   ep->basic.des2, ep->basic.des3);
+ 			ep++;
+ 		} else {
+-			x = *(u64 *) p;
++			x = *(u64 *)p;
+ 			seq_printf(seq, "%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+ 				   i, (unsigned int)virt_to_phys(ep),
+ 				   (unsigned int)x, (unsigned int)(x >> 32),
+ 				   p->des2, p->des3);
+ 			p++;
+ 		}
+-		seq_printf(seq, "\n");
++		seq_puts(seq, "\n");
+ 	}
+ }
+ 
+@@ -2565,14 +2560,14 @@ static int stmmac_sysfs_ring_read(struct seq_file *seq, void *v)
+ 	unsigned int rxsize = priv->dma_rx_size;
+ 
+ 	if (priv->extend_desc) {
+-		seq_printf(seq, "Extended RX descriptor ring:\n");
++		seq_puts(seq, "Extended RX descriptor ring:\n");
+ 		sysfs_display_ring((void *)priv->dma_erx, rxsize, 1, seq);
+-		seq_printf(seq, "Extended TX descriptor ring:\n");
++		seq_puts(seq, "Extended TX descriptor ring:\n");
+ 		sysfs_display_ring((void *)priv->dma_etx, txsize, 1, seq);
+ 	} else {
+-		seq_printf(seq, "RX descriptor ring:\n");
++		seq_puts(seq, "RX descriptor ring:\n");
+ 		sysfs_display_ring((void *)priv->dma_rx, rxsize, 0, seq);
+-		seq_printf(seq, "TX descriptor ring:\n");
++		seq_puts(seq, "TX descriptor ring:\n");
+ 		sysfs_display_ring((void *)priv->dma_tx, txsize, 0, seq);
+ 	}
+ 
+@@ -2598,13 +2593,13 @@ static int stmmac_sysfs_dma_cap_read(struct seq_file *seq, void *v)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 
+ 	if (!priv->hw_cap_support) {
+-		seq_printf(seq, "DMA HW features not supported\n");
++		seq_puts(seq, "DMA HW features not supported\n");
+ 		return 0;
+ 	}
+ 
+-	seq_printf(seq, "==============================\n");
+-	seq_printf(seq, "\tDMA HW features\n");
+-	seq_printf(seq, "==============================\n");
++	seq_puts(seq, "==============================\n");
++	seq_puts(seq, "\tDMA HW features\n");
++	seq_puts(seq, "==============================\n");
+ 
+ 	seq_printf(seq, "\t10/100 Mbps %s\n",
+ 		   (priv->dma_cap.mbps_10_100) ? "Y" : "N");
+@@ -2793,8 +2788,9 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 		else if (priv->dma_cap.rx_coe_type1)
+ 			priv->plat->rx_coe = STMMAC_RX_COE_TYPE1;
+ 
+-	} else
++	} else {
+ 		dev_info(priv->device, "No HW DMA feature register supported\n");
++	}
+ 
+ 	/* To use alternate (extended) or normal descriptor structures */
+ 	stmmac_selec_desc_mode(priv);
 -- 
 2.4.6
