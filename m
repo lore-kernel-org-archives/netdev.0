@@ -1,67 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/1] net: fec: add netif status check before set
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH net-next 1/1] net: fec: add netif status check before set
  mac address
-Date: Tue, 8 Sep 2015 20:37:51 -0700
-Message-ID: <55EFA98F.7010700@gmail.com>
+Date: Wed, 9 Sep 2015 03:45:48 +0000
+Message-ID: <BN3PR0301MB1219283913FA957BB6943F27F5520@BN3PR0301MB1219.namprd03.prod.outlook.com>
 References: <1441766567-30689-1-git-send-email-b38611@freescale.com>
+ <55EFA98F.7010700@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: Fugang Duan <b38611@freescale.com>, davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:35487 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752623AbbIIDhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Sep 2015 23:37:54 -0400
-Received: by obuk4 with SMTP id k4so100973372obu.2
-        for <netdev@vger.kernel.org>; Tue, 08 Sep 2015 20:37:53 -0700 (PDT)
-In-Reply-To: <1441766567-30689-1-git-send-email-b38611@freescale.com>
+Received: from mail-bn1bn0101.outbound.protection.outlook.com ([157.56.110.101]:60672
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752829AbbIIDpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Sep 2015 23:45:51 -0400
+In-Reply-To: <55EFA98F.7010700@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 09/08/15 19:42, Fugang Duan a =C3=A9crit :
-> There exist one issue by below case that case system hang:
-> ifconfig eth0 down
-> ifconfig eth0 hw ether 00:10:19:19:81:19
->=20
-> After eth0 down, all fec clocks are gated off. In the .fec_set_mac_ad=
-dress()
-> function, it will set new MAC address to registers, which causes syst=
-em hang.
->=20
-> So it needs to add netif status check to avoid registers access when =
-clocks are
-> gated off. Until eth0 up the new MAC address are wrote into related r=
-egisters.
-
-Since this is a bug fix, do not you intend to target the "net" tree
-instead of "net-next"?
-
->=20
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 3 +++
->  1 file changed, 3 insertions(+)
->=20
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/=
-ethernet/freescale/fec_main.c
-> index 91925e3..cd09dbb 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -3029,6 +3029,9 @@ fec_set_mac_address(struct net_device *ndev, vo=
-id *p)
->  		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
->  	}
-> =20
-> +	if (!netif_running(ndev))
-> +		return 0;
-> +
->  	writel(ndev->dev_addr[3] | (ndev->dev_addr[2] << 8) |
->  		(ndev->dev_addr[1] << 16) | (ndev->dev_addr[0] << 24),
->  		fep->hwp + FEC_ADDR_LOW);
->=20
-
-
---=20
-=46lorian
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFdlZG5l
+c2RheSwgU2VwdGVtYmVyIDA5LCAyMDE1IDExOjM4IEFNDQo+IFRvOiBEdWFuIEZ1Z2FuZy1CMzg2
+MTE7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGJo
+dXRjaGluZ3NAc29sYXJmbGFyZS5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCAx
+LzFdIG5ldDogZmVjOiBhZGQgbmV0aWYgc3RhdHVzIGNoZWNrIGJlZm9yZQ0KPiBzZXQgbWFjIGFk
+ZHJlc3MNCj4gDQo+IExlIDA5LzA4LzE1IDE5OjQyLCBGdWdhbmcgRHVhbiBhIMOpY3JpdCA6DQo+
+ID4gVGhlcmUgZXhpc3Qgb25lIGlzc3VlIGJ5IGJlbG93IGNhc2UgdGhhdCBjYXNlIHN5c3RlbSBo
+YW5nOg0KPiA+IGlmY29uZmlnIGV0aDAgZG93bg0KPiA+IGlmY29uZmlnIGV0aDAgaHcgZXRoZXIg
+MDA6MTA6MTk6MTk6ODE6MTkNCj4gPg0KPiA+IEFmdGVyIGV0aDAgZG93biwgYWxsIGZlYyBjbG9j
+a3MgYXJlIGdhdGVkIG9mZi4gSW4gdGhlDQo+ID4gLmZlY19zZXRfbWFjX2FkZHJlc3MoKSBmdW5j
+dGlvbiwgaXQgd2lsbCBzZXQgbmV3IE1BQyBhZGRyZXNzIHRvDQo+IHJlZ2lzdGVycywgd2hpY2gg
+Y2F1c2VzIHN5c3RlbSBoYW5nLg0KPiA+DQo+ID4gU28gaXQgbmVlZHMgdG8gYWRkIG5ldGlmIHN0
+YXR1cyBjaGVjayB0byBhdm9pZCByZWdpc3RlcnMgYWNjZXNzIHdoZW4NCj4gPiBjbG9ja3MgYXJl
+IGdhdGVkIG9mZi4gVW50aWwgZXRoMCB1cCB0aGUgbmV3IE1BQyBhZGRyZXNzIGFyZSB3cm90ZSBp
+bnRvDQo+IHJlbGF0ZWQgcmVnaXN0ZXJzLg0KPiANCj4gU2luY2UgdGhpcyBpcyBhIGJ1ZyBmaXgs
+IGRvIG5vdCB5b3UgaW50ZW5kIHRvIHRhcmdldCB0aGUgIm5ldCIgdHJlZQ0KPiBpbnN0ZWFkIG9m
+ICJuZXQtbmV4dCI/DQo+IA0KVGhhbmtzIGZvciB5b3VyIHJlbWluZGluZywgaXQgaXMgYmV0dGVy
+IHRvIGVudGVyIG5ldCB0cmVlLg0KDQpEYXZpZCwgaWYgeW91IGFwcGx5IGl0LCBwbHMgcHV0IGl0
+IGludG8gbmV0IHRyZWUuIFRoYW5rcy4NCg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogRnVnYW5n
+IER1YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyB8IDMgKysrDQo+ID4gIDEgZmlsZSBjaGFuZ2Vk
+LCAzIGluc2VydGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2ZlY19tYWluLmMNCj4gPiBpbmRleCA5MTkyNWUzLi5jZDA5ZGJiIDEwMDY0NA0KPiA+
+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4gKysr
+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiBAQCAtMzAy
+OSw2ICszMDI5LDkgQEAgZmVjX3NldF9tYWNfYWRkcmVzcyhzdHJ1Y3QgbmV0X2RldmljZSAqbmRl
+diwgdm9pZA0KPiAqcCkNCj4gPiAgCQltZW1jcHkobmRldi0+ZGV2X2FkZHIsIGFkZHItPnNhX2Rh
+dGEsIG5kZXYtPmFkZHJfbGVuKTsNCj4gPiAgCX0NCj4gPg0KPiA+ICsJaWYgKCFuZXRpZl9ydW5u
+aW5nKG5kZXYpKQ0KPiA+ICsJCXJldHVybiAwOw0KPiA+ICsNCj4gPiAgCXdyaXRlbChuZGV2LT5k
+ZXZfYWRkclszXSB8IChuZGV2LT5kZXZfYWRkclsyXSA8PCA4KSB8DQo+ID4gIAkJKG5kZXYtPmRl
+dl9hZGRyWzFdIDw8IDE2KSB8IChuZGV2LT5kZXZfYWRkclswXSA8PCAyNCksDQo+ID4gIAkJZmVw
+LT5od3AgKyBGRUNfQUREUl9MT1cpOw0KPiA+DQo+IA0KPiANCj4gLS0NCj4gRmxvcmlhbg0K
