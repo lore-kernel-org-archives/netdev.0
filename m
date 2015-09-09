@@ -1,51 +1,92 @@
-From: Palmer Dabbelt <palmer@dabbelt.com>
-Subject: [PATCH 11/13] Hide MAX_RAW_MINORS behind #ifdef __KERNEL__
-Date: Wed,  9 Sep 2015 14:08:20 -0700
-Message-ID: <1441832902-28993-12-git-send-email-palmer@dabbelt.com>
-References: <2644177.lVCYzIBfPW@wuerfel>
- <1441832902-28993-1-git-send-email-palmer@dabbelt.com>
-Cc: 3chas3@gmail.com
-To: arnd@arndb.de
+From: Corinna Vinschen <vinschen@redhat.com>
+Subject: Re: [PATCH net] r8169: Fix sleeping function called during
+ get_stats64
+Date: Wed, 9 Sep 2015 23:13:06 +0200
+Message-ID: <20150909211306.GA1693@calimero.vinschen.de>
+References: <1441801223-27534-1-git-send-email-vinschen@redhat.com>
+ <20150909202334.GA18625@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="h31gzZEtNLTqOjlF"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	pomidorabelisima@gmail.com,
+	Konrad Rzeszutek Wilk <konrad@kernel.org>,
+	linux-kernel@vger.kernel.org, nic_swsd@realtek.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Cc: hpa@zytor.com
-Cc: mingo@redhat.com
-Cc: plagnioj@jcrosoft.com
-Cc: jikos@kernel.org
-Cc: linux-api@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-atm-general@lists.sourceforge.net
-Cc: linux-fbdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Cc: tglx@linutronix.de
-Cc: tomi.valkeinen@ti.com
-Cc: x86@kernel.org
-Cc: Palmer Dabbelt <palmer@dabbelt.com>
-In-Reply-To: <1441832902-28993-1-git-send-email-palmer@dabbelt.com>
+Content-Disposition: inline
+In-Reply-To: <20150909202334.GA18625@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I don't think this was ever meant to be exposed to userspace.
 
-Signed-off-by: Palmer Dabbelt <palmer@dabbelt.com>
-Reviewed-by: Andrew Waterman <waterman@eecs.berkeley.edu>
-Reviewed-by: Albert Ou <aou@eecs.berkeley.edu>
----
- include/uapi/linux/raw.h | 2 ++
- 1 file changed, 2 insertions(+)
+--h31gzZEtNLTqOjlF
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/uapi/linux/raw.h b/include/uapi/linux/raw.h
-index 62d543e70603..6d8d87524ff2 100644
---- a/include/uapi/linux/raw.h
-+++ b/include/uapi/linux/raw.h
-@@ -13,6 +13,8 @@ struct raw_config_request
- 	__u64	block_minor;
- };
- 
-+#ifdef __KERNEL__
- #define MAX_RAW_MINORS CONFIG_MAX_RAW_DEVS
-+#endif
- 
- #endif /* __LINUX_RAW_H */
--- 
-2.4.6
+On Sep  9 22:23, Francois Romieu wrote:
+> Corinna Vinschen <vinschen@redhat.com> :
+> [...]
+> > diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
+t/realtek/r8169.c
+> > index 24dcbe6..630811a 100644
+> > --- a/drivers/net/ethernet/realtek/r8169.c
+> > +++ b/drivers/net/ethernet/realtek/r8169.c
+> [...]
+> > +	if (!paddr)
+> > +		return false;
+>=20
+> I guess this is the secret recipe.
+
+Actually, no.  I started out stress testing this combined with a printk
+to show if paddr can be NULL, but this never occurs.  ndo_get_stats64 is
+apparently only called after registering the device, and this occurs
+after calling dma_alloc_coherent in rtl_init_one.
+
+Rather than removing the entire test, I acidentally only removed the
+printk.  Sorry about that.
+
+> [...]
+> > @@ -8447,9 +8411,14 @@ static int rtl_init_one(struct pci_dev *pdev, co=
+nst struct pci_device_id *ent)
+> > =20
+> >  	tp->rtl_fw =3D RTL_FIRMWARE_UNKNOWN;
+> > =20
+> > +	tp->CntArray =3D dma_alloc_coherent (&pdev->dev, sizeof(*tp->CntArray=
+),
+> > +					   &tp->CntPhysAddr, GFP_KERNEL);
+> > +	if (!tp->CntArray)
+> > +		goto err_out_cnt_4;
+> > +
+>=20
+> rc is still zero here so rtl_init_one will return success.
+
+Thanks for catching!  I'm sending a fixed patch in a minute, removing
+the paddr test and setting rc to -ENOMEM if dma_alloc_coherent fails.
+
+
+Corinna
+
+--h31gzZEtNLTqOjlF
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJV8KDiAAoJEPU2Bp2uRE+gcxwP/17K6FxhjcloltAxpY1/9c4E
+XgaXTyL7bDahYwyAeX6ixMsD7ZvxjmGK1AJcnGzH1xI2PJNF8mSMKdHzrHamrhWT
+eRycjzfLS/0KmnaM8ogktG7rK5DjBOqFJYiZwJvwJm6jtruAat+hz+AjVAvaxBY2
+VDiO9dWpq+CY302a8YyI6KTI02uy8RKiZu9L084zA8pxJobPCga/VIlAbl9GDseo
+qg+8KvIhRpI0MZ5IzhNa8ysuUEnD7mQB9HmwDc6g5bFDh+QXfblWwIX5FXsXmDzM
+XxdJZi7bIgC/rrcPcei5vWy033ZVFwa3OPFcMk9nOu+4Bt2AcH3AHQDbo9dUZysD
+/V0qUXnOlLFwsT3HB21dKM6cuNLBSzu4SGvEh0l5p9lSTq6YO+0K7d0GysJpVSbL
+IagLzyVScFNEIeEMIYZCe6fXOZvbkTbvNKLYKKGrYdqrr1VPgn/axyIa1RRYw6KP
+OPjsJzFI3Q7zUnPMMrk8gNMmGcKlJFb+OsNKOvI7zTADJuXJJQBa+Pj+bb0/c+S/
+fvE3NDk1dwu0T9ksWUmSoNckMDxm5FZBXvGRmpYs43Gwk1K4s+q7X6qgpK0RHrQv
+uy0ATRAwEgjEZFp3DJ27+No+fwQU5+57JcaSWXu+Y1x9grch4jJ6d5jy+XkYk1WB
+gWKagSjWwOcHQ4z34qor
+=WvkI
+-----END PGP SIGNATURE-----
+
+--h31gzZEtNLTqOjlF--
