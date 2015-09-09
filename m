@@ -1,49 +1,57 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 1/6] ebpf: add a seccomp program type
-Date: Wed, 09 Sep 2015 18:13:57 +0200
-Message-ID: <55F05AC5.4000005@iogearbox.net>
-References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com> <1441382664-17437-2-git-send-email-tycho.andersen@canonical.com> <CALCETrVhmBS+uEjYwCE=CzkXL5C+mysj=Rq=jMD3LTqbZUDD-g@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/4] stmmac: replace all pr_xxx by their dev_xxx
+ counterpart
+Date: Wed, 09 Sep 2015 09:14:42 -0700
+Message-ID: <1441815282.17219.51.camel@perches.com>
+References: <1441804456-15914-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>,
-	Tycho Andersen <tycho.andersen@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrVhmBS+uEjYwCE=CzkXL5C+mysj=Rq=jMD3LTqbZUDD-g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: LABBE Corentin <clabbe.montjoie@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0028.hostedemail.com ([216.40.44.28]:40791 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751390AbbIIQOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 12:14:45 -0400
+In-Reply-To: <1441804456-15914-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/04/2015 11:50 PM, Andy Lutomirski wrote:
-> On Fri, Sep 4, 2015 at 9:04 AM, Tycho Andersen
-[...]
->> +static const struct bpf_func_proto *
->> +seccomp_func_proto(enum bpf_func_id func_id)
->> +{
->> +       /* Right now seccomp eBPF loading doesn't support maps; seccomp filters
->> +        * are considered to be read-only after they're installed, so map fds
->> +        * probably need to be invalidated when a seccomp filter with maps is
->> +        * installed.
->> +        *
->> +        * The rest of these might be reasonable to call from seccomp, so we
->> +        * export them.
->> +        */
->> +       switch (func_id) {
->> +       case BPF_FUNC_ktime_get_ns:
->> +               return &bpf_ktime_get_ns_proto;
->> +       case BPF_FUNC_trace_printk:
->> +               return bpf_get_trace_printk_proto();
->> +       case BPF_FUNC_get_prandom_u32:
->> +               return &bpf_get_prandom_u32_proto;
->
-> I don't think we should expose prandom to unprivileged userspace.
-> This may be an attack vector.
+On Wed, 2015-09-09 at 15:14 +0200, LABBE Corentin wrote:
+> The stmmac driver use lots of pr_xxx functions to print information.
+> This is bad since we cannot know which device logs the information.
+> (moreover if two stmmac device are present)
+[]
+> So this patch replace all pr_xxx by their dev_xxx counterpart.
 
-Agreed, it should not be exposed for unpriv'ed users.
+Using
+	netdev_<level>(priv->dev, ...
+instead of
+	dev_<level>(priv->device,
+
+would be more consistent with other ethernet devices.
+
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+[]
+> @@ -298,7 +298,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+>  			 */
+>  			spin_lock_irqsave(&priv->lock, flags);
+>  			if (priv->eee_active) {
+> -				pr_debug("stmmac: disable EEE\n");
+> +				dev_dbg(priv->device, "disable EEE\n");
+
+				netdev_dbg(priv->dev, ...)
+
+> @@ -657,10 +657,10 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+>  		priv->adv_ts = 1;
+>  
+>  	if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
+> -		pr_debug("IEEE 1588-2002 Time Stamp supported\n");
+> +		dev_dbg(priv->device, "IEEE 1588-2002 Time Stamp supported\n");
+
+And these netif_msg_<foo> could be
+
+	if (priv->dma_cap.timestamp)
+		netif_dbg(priv, hw, priv->dev, ...);
