@@ -1,40 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v6 02/10] ss: created formatters for json and hr
-Date: Wed, 9 Sep 2015 14:30:49 -0700
-Message-ID: <20150909143049.0aa08d37@urahara>
-References: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
-	<4b7ff1016053461a80465ce8138e12a2@HQ1WP-EXMB11.corp.brocade.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: IFLA_INET6_[ICMP6]STATS
+Date: Wed, 9 Sep 2015 17:34:44 -0400
+Message-ID: <20150909213444.GD20544@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hagen@jauu.net" <hagen@jauu.net>,
-	"shemminger@osdl.org" <shemminger@osdl.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"daniel@iogearbox.net" <daniel@iogearbox.net>
-To: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: raghavendra.kt@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33345 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808AbbIIVai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 17:30:38 -0400
-Received: by pacex6 with SMTP id ex6so21320782pac.0
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 14:30:38 -0700 (PDT)
-In-Reply-To: <4b7ff1016053461a80465ce8138e12a2@HQ1WP-EXMB11.corp.brocade.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:29334 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752202AbbIIVer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 17:34:47 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Sep 2015 19:43:13 +0000
-Matthias Tafelmeier <matthias.tafelmeier@gmx.net> wrote:
 
-> +#define STATIC_ASSERT(COND, MSG)			\
-> +{							\
-> +	char STATIC_ASSERT##MSG[(COND) ? 1 : -1];	\
-> +	(void)STATIC_ASSERT##MSG[0];		\
-> +}
+I'm doing some experiments that are trying to simultaneously
+scaling the number of CPUs, and the number of processes 
+and encountering getifaddrs() weaknesses.
 
-If you are going to introduce this, please use same convention
-as Linux kernel. ie. BUILD_BUG_ON()
+Others have run into similar things in the past,  e.g., 
+  http://lists.openwall.net/netdev/2014/01/23/119
+and more relevant to my experiment: the findings behind 
+the recent commit a3a77372.
 
-Your code looks like it came out of some other project.
+In my case, it looks like getifaddrs() doesnt even use the
+results of IFLA_INET6_STATS or IFLA_INET6_ICMP6STATS- 
+from my scan of glibc, this information is ignored (it only 
+looks at IFLA_STATS).  Moreover, if I hack out  all of 
+snmp_fold_field() (so that it always returns 0),  it helps 
+my cpu utilization and scaling, and no errors are reported.
+
+So the question is- who uses IFLA_INET6_STATS/IFLA_INET6_ICMP6STATS?
+Is this intended for some ND/ripngd etc daemon?  Doesnt seem to 
+be documented in rtnetlink(7), and couldnt find any users in glibc,
+and google did not find any usage. 
+
+--Sowmini
