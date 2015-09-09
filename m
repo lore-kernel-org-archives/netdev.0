@@ -1,288 +1,184 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: [PATCH net] r8169: Fix sleeping function called during get_stats64
-Date: Wed,  9 Sep 2015 14:20:23 +0200
-Message-ID: <1441801223-27534-1-git-send-email-vinschen@redhat.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>, pomidorabelisima@gmail.com,
-	Konrad Rzeszutek Wilk <konrad@kernel.org>,
-	linux-kernel@vger.kernel.org, nic_swsd@realtek.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [net-next PATCH v3] net: ipv6: use common fib_default_rule_pref
+Date: Wed,  9 Sep 2015 14:20:56 +0200
+Message-ID: <1441801256-12551-1-git-send-email-phil@nwl.cc>
+References: <20150909114537.GP7029@orbit.nwl.cc>
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:47432 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753044AbbIIMU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Sep 2015 08:20:58 -0400
+In-Reply-To: <20150909114537.GP7029@orbit.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=104031
-Fixes: 6e85d5ad36a26debc23a9a865c029cbe242b2dc8
+This switches IPv6 policy routing to use the shared
+fib_default_rule_pref() function of IPv4 and DECnet. It is also used in
+multicast routing for IPv4 as well as IPv6.
 
-Based on the discussion starting at
-http://www.spinics.net/lists/netdev/msg342193.html
+The motivation for this patch is a complaint about iproute2 behaving
+inconsistent between IPv4 and IPv6 when adding policy rules: Formerly,
+IPv6 rules were assigned a fixed priority of 0x3FFF whereas for IPv4 the
+assigned priority value was decreased with each rule added.
 
-Tested locally on RTL8168evl/8111evl with various concurrent processes
-accessing /proc/net/dev while changing the link state as well as
-removing/reloading the r8169 module at the same time.
+Since then all users of the default_pref field have been converted to
+assign the generic function fib_default_rule_pref(), fib_nl_newrule()
+may just use it directly instead. Therefore get rid of the function
+pointer altogether and make fib_default_rule_pref() static, as it's not
+used outside fib_rules.c anymore.
 
-Signed-off-by: Corinna Vinschen <vinschen@redhat.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/ethernet/realtek/r8169.c | 140 ++++++++++++++---------------------
- 1 file changed, 56 insertions(+), 84 deletions(-)
+Changes since v1:
+- Folded together with API change and adjusted commit message accordingly.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 24dcbe6..630811a 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -833,7 +833,8 @@ struct rtl8169_private {
- 	unsigned features;
+Changes since v2:
+- Dropped leftover function declaration in fib_rules.h
+- Tested for IPv4 and IPv6 to correctly apply default prefs while still
+  respecting user-defined preference.
+---
+ include/net/fib_rules.h |  2 --
+ net/core/fib_rules.c    | 10 +++-------
+ net/decnet/dn_rules.c   |  1 -
+ net/ipv4/fib_rules.c    |  1 -
+ net/ipv4/ipmr.c         |  1 -
+ net/ipv6/fib6_rules.c   |  6 ------
+ net/ipv6/ip6mr.c        |  1 -
+ 7 files changed, 3 insertions(+), 19 deletions(-)
+
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 4e8f804..59160de 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -66,7 +66,6 @@ struct fib_rules_ops {
+ 					   struct nlattr **);
+ 	int			(*fill)(struct fib_rule *, struct sk_buff *,
+ 					struct fib_rule_hdr *);
+-	u32			(*default_pref)(struct fib_rules_ops *ops);
+ 	size_t			(*nlmsg_payload)(struct fib_rule *);
  
- 	struct mii_if_info mii;
--	struct rtl8169_counters counters;
-+	dma_addr_t CntPhysAddr;
-+	struct rtl8169_counters *CntArray;
- 	struct rtl8169_tc_offsets tc_offset;
- 	u32 saved_wolopts;
- 	u32 opts1_mask;
-@@ -2190,53 +2191,40 @@ static int rtl8169_get_sset_count(struct net_device *dev, int sset)
+ 	/* Called after modifications to the rules set, must flush
+@@ -118,5 +117,4 @@ int fib_rules_lookup(struct fib_rules_ops *, struct flowi *, int flags,
+ 		     struct fib_lookup_arg *);
+ int fib_default_rule_add(struct fib_rules_ops *, u32 pref, u32 table,
+ 			 u32 flags);
+-u32 fib_default_rule_pref(struct fib_rules_ops *ops);
+ #endif
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index ae8306e..bf77e36 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -44,7 +44,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
+ }
+ EXPORT_SYMBOL(fib_default_rule_add);
+ 
+-u32 fib_default_rule_pref(struct fib_rules_ops *ops)
++static u32 fib_default_rule_pref(struct fib_rules_ops *ops)
+ {
+ 	struct list_head *pos;
+ 	struct fib_rule *rule;
+@@ -60,7 +60,6 @@ u32 fib_default_rule_pref(struct fib_rules_ops *ops)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(fib_default_rule_pref);
+ 
+ static void notify_rule_change(int event, struct fib_rule *rule,
+ 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
+@@ -299,8 +298,8 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
  	}
+ 	rule->fr_net = net;
+ 
+-	if (tb[FRA_PRIORITY])
+-		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
++	rule->pref = tb[FRA_PRIORITY] ? nla_get_u32(tb[FRA_PRIORITY])
++	                              : fib_default_rule_pref(ops);
+ 
+ 	if (tb[FRA_IIFNAME]) {
+ 		struct net_device *dev;
+@@ -350,9 +349,6 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 	else
+ 		rule->suppress_ifgroup = -1;
+ 
+-	if (!tb[FRA_PRIORITY] && ops->default_pref)
+-		rule->pref = ops->default_pref(ops);
+-
+ 	err = -EINVAL;
+ 	if (tb[FRA_GOTO]) {
+ 		if (rule->action != FR_ACT_GOTO)
+diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
+index 9d66a0f..295bbd6 100644
+--- a/net/decnet/dn_rules.c
++++ b/net/decnet/dn_rules.c
+@@ -229,7 +229,6 @@ static const struct fib_rules_ops __net_initconst dn_fib_rules_ops_template = {
+ 	.configure	= dn_fib_rule_configure,
+ 	.compare	= dn_fib_rule_compare,
+ 	.fill		= dn_fib_rule_fill,
+-	.default_pref	= fib_default_rule_pref,
+ 	.flush_cache	= dn_fib_rule_flush_cache,
+ 	.nlgroup	= RTNLGRP_DECnet_RULE,
+ 	.policy		= dn_fib_rule_policy,
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 18123d5..f2bda9e 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -318,7 +318,6 @@ static const struct fib_rules_ops __net_initconst fib4_rules_ops_template = {
+ 	.delete		= fib4_rule_delete,
+ 	.compare	= fib4_rule_compare,
+ 	.fill		= fib4_rule_fill,
+-	.default_pref	= fib_default_rule_pref,
+ 	.nlmsg_payload	= fib4_rule_nlmsg_payload,
+ 	.flush_cache	= fib4_rule_flush_cache,
+ 	.nlgroup	= RTNLGRP_IPV4_RULE,
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 3a2c016..866ee89 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -233,7 +233,6 @@ static const struct fib_rules_ops __net_initconst ipmr_rules_ops_template = {
+ 	.match		= ipmr_rule_match,
+ 	.configure	= ipmr_rule_configure,
+ 	.compare	= ipmr_rule_compare,
+-	.default_pref	= fib_default_rule_pref,
+ 	.fill		= ipmr_rule_fill,
+ 	.nlgroup	= RTNLGRP_IPV4_RULE,
+ 	.policy		= ipmr_rule_policy,
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 2367a16..9f777ec 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -258,11 +258,6 @@ nla_put_failure:
+ 	return -ENOBUFS;
  }
  
--static struct rtl8169_counters *rtl8169_map_counters(struct net_device *dev,
--						     dma_addr_t *paddr,
--						     u32 counter_cmd)
-+DECLARE_RTL_COND(rtl_counters_cond)
- {
--	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
--	struct device *d = &tp->pci_dev->dev;
--	struct rtl8169_counters *counters;
--	u32 cmd;
- 
--	counters = dma_alloc_coherent(d, sizeof(*counters), paddr, GFP_KERNEL);
--	if (counters) {
--		RTL_W32(CounterAddrHigh, (u64)*paddr >> 32);
--		cmd = (u64)*paddr & DMA_BIT_MASK(32);
--		RTL_W32(CounterAddrLow, cmd);
--		RTL_W32(CounterAddrLow, cmd | counter_cmd);
--	}
--	return counters;
-+	return RTL_R32(CounterAddrLow) & (CounterReset | CounterDump);
- }
- 
--static void rtl8169_unmap_counters (struct net_device *dev,
--				    dma_addr_t paddr,
--				    struct rtl8169_counters *counters)
-+static bool rtl8169_do_counters(struct net_device *dev, u32 counter_cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
--	struct device *d = &tp->pci_dev->dev;
-+	dma_addr_t paddr = tp->CntPhysAddr;
-+	u32 cmd;
-+	bool ret;
- 
--	RTL_W32(CounterAddrLow, 0);
--	RTL_W32(CounterAddrHigh, 0);
-+	if (!paddr)
-+		return false;
- 
--	dma_free_coherent(d, sizeof(*counters), counters, paddr);
--}
-+	RTL_W32(CounterAddrHigh, (u64)paddr >> 32);
-+	cmd = (u64)paddr & DMA_BIT_MASK(32);
-+	RTL_W32(CounterAddrLow, cmd);
-+	RTL_W32(CounterAddrLow, cmd | counter_cmd);
- 
--DECLARE_RTL_COND(rtl_reset_counters_cond)
+-static u32 fib6_rule_default_pref(struct fib_rules_ops *ops)
 -{
--	void __iomem *ioaddr = tp->mmio_addr;
-+	ret = rtl_udelay_loop_wait_low(tp, &rtl_counters_cond, 10, 1000);
- 
--	return RTL_R32(CounterAddrLow) & CounterReset;
-+	RTL_W32(CounterAddrLow, 0);
-+	RTL_W32(CounterAddrHigh, 0);
-+
-+	return ret;
- }
- 
- static bool rtl8169_reset_counters(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	struct rtl8169_counters *counters;
--	dma_addr_t paddr;
--	bool ret = true;
- 
- 	/*
- 	 * Versions prior to RTL_GIGA_MAC_VER_19 don't support resetting the
-@@ -2245,32 +2233,13 @@ static bool rtl8169_reset_counters(struct net_device *dev)
- 	if (tp->mac_version < RTL_GIGA_MAC_VER_19)
- 		return true;
- 
--	counters = rtl8169_map_counters(dev, &paddr, CounterReset);
--	if (!counters)
--		return false;
--
--	if (!rtl_udelay_loop_wait_low(tp, &rtl_reset_counters_cond, 10, 1000))
--		ret = false;
--
--	rtl8169_unmap_counters(dev, paddr, counters);
--
--	return ret;
+-	return 0x3FFF;
 -}
 -
--DECLARE_RTL_COND(rtl_counters_cond)
--{
--	void __iomem *ioaddr = tp->mmio_addr;
--
--	return RTL_R32(CounterAddrLow) & CounterDump;
-+        return rtl8169_do_counters(dev, CounterReset);
- }
- 
- static bool rtl8169_update_counters(struct net_device *dev)
+ static size_t fib6_rule_nlmsg_payload(struct fib_rule *rule)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
--	struct rtl8169_counters *counters;
--	dma_addr_t paddr;
--	bool ret = true;
- 
- 	/*
- 	 * Some chips are unable to dump tally counters when the receiver
-@@ -2279,23 +2248,13 @@ static bool rtl8169_update_counters(struct net_device *dev)
- 	if ((RTL_R8(ChipCmd) & CmdRxEnb) == 0)
- 		return true;
- 
--	counters = rtl8169_map_counters(dev, &paddr, CounterDump);
--	if (!counters)
--		return false;
--
--	if (rtl_udelay_loop_wait_low(tp, &rtl_counters_cond, 10, 1000))
--		memcpy(&tp->counters, counters, sizeof(*counters));
--	else
--		ret = false;
--
--	rtl8169_unmap_counters(dev, paddr, counters);
--
--	return ret;
-+	return rtl8169_do_counters(dev, CounterDump);
- }
- 
- static bool rtl8169_init_counter_offsets(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	struct rtl8169_counters *counters = tp->CntArray;
- 	bool ret = false;
- 
- 	/*
-@@ -2323,9 +2282,9 @@ static bool rtl8169_init_counter_offsets(struct net_device *dev)
- 	if (rtl8169_update_counters(dev))
- 		ret = true;
- 
--	tp->tc_offset.tx_errors = tp->counters.tx_errors;
--	tp->tc_offset.tx_multi_collision = tp->counters.tx_multi_collision;
--	tp->tc_offset.tx_aborted = tp->counters.tx_aborted;
-+	tp->tc_offset.tx_errors = counters->tx_errors;
-+	tp->tc_offset.tx_multi_collision = counters->tx_multi_collision;
-+	tp->tc_offset.tx_aborted = counters->tx_aborted;
- 	tp->tc_offset.inited = true;
- 
- 	return ret;
-@@ -2335,24 +2294,25 @@ static void rtl8169_get_ethtool_stats(struct net_device *dev,
- 				      struct ethtool_stats *stats, u64 *data)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	struct rtl8169_counters *counters = tp->CntArray;
- 
- 	ASSERT_RTNL();
- 
- 	rtl8169_update_counters(dev);
- 
--	data[0] = le64_to_cpu(tp->counters.tx_packets);
--	data[1] = le64_to_cpu(tp->counters.rx_packets);
--	data[2] = le64_to_cpu(tp->counters.tx_errors);
--	data[3] = le32_to_cpu(tp->counters.rx_errors);
--	data[4] = le16_to_cpu(tp->counters.rx_missed);
--	data[5] = le16_to_cpu(tp->counters.align_errors);
--	data[6] = le32_to_cpu(tp->counters.tx_one_collision);
--	data[7] = le32_to_cpu(tp->counters.tx_multi_collision);
--	data[8] = le64_to_cpu(tp->counters.rx_unicast);
--	data[9] = le64_to_cpu(tp->counters.rx_broadcast);
--	data[10] = le32_to_cpu(tp->counters.rx_multicast);
--	data[11] = le16_to_cpu(tp->counters.tx_aborted);
--	data[12] = le16_to_cpu(tp->counters.tx_underun);
-+	data[0] = le64_to_cpu(counters->tx_packets);
-+	data[1] = le64_to_cpu(counters->rx_packets);
-+	data[2] = le64_to_cpu(counters->tx_errors);
-+	data[3] = le32_to_cpu(counters->rx_errors);
-+	data[4] = le16_to_cpu(counters->rx_missed);
-+	data[5] = le16_to_cpu(counters->align_errors);
-+	data[6] = le32_to_cpu(counters->tx_one_collision);
-+	data[7] = le32_to_cpu(counters->tx_multi_collision);
-+	data[8] = le64_to_cpu(counters->rx_unicast);
-+	data[9] = le64_to_cpu(counters->rx_broadcast);
-+	data[10] = le32_to_cpu(counters->rx_multicast);
-+	data[11] = le16_to_cpu(counters->tx_aborted);
-+	data[12] = le16_to_cpu(counters->tx_underun);
- }
- 
- static void rtl8169_get_strings(struct net_device *dev, u32 stringset, u8 *data)
-@@ -7780,6 +7740,7 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
-+	struct rtl8169_counters *counters = tp->CntArray;
- 	unsigned int start;
- 
- 	if (netif_running(dev))
-@@ -7816,11 +7777,11 @@ rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	 * Subtract values fetched during initalization.
- 	 * See rtl8169_init_counter_offsets for a description why we do that.
- 	 */
--	stats->tx_errors = le64_to_cpu(tp->counters.tx_errors) -
-+	stats->tx_errors = le64_to_cpu(counters->tx_errors) -
- 		le64_to_cpu(tp->tc_offset.tx_errors);
--	stats->collisions = le32_to_cpu(tp->counters.tx_multi_collision) -
-+	stats->collisions = le32_to_cpu(counters->tx_multi_collision) -
- 		le32_to_cpu(tp->tc_offset.tx_multi_collision);
--	stats->tx_aborted_errors = le16_to_cpu(tp->counters.tx_aborted) -
-+	stats->tx_aborted_errors = le16_to_cpu(counters->tx_aborted) -
- 		le16_to_cpu(tp->tc_offset.tx_aborted);
- 
- 	return stats;
-@@ -8022,6 +7983,9 @@ static void rtl_remove_one(struct pci_dev *pdev)
- 
- 	unregister_netdev(dev);
- 
-+	dma_free_coherent(&tp->pci_dev->dev, sizeof(*tp->CntArray),
-+			  tp->CntArray, tp->CntPhysAddr);
-+
- 	rtl_release_firmware(tp);
- 
- 	if (pci_dev_run_wake(pdev))
-@@ -8447,9 +8411,14 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	tp->rtl_fw = RTL_FIRMWARE_UNKNOWN;
- 
-+	tp->CntArray = dma_alloc_coherent (&pdev->dev, sizeof(*tp->CntArray),
-+					   &tp->CntPhysAddr, GFP_KERNEL);
-+	if (!tp->CntArray)
-+		goto err_out_cnt_4;
-+
- 	rc = register_netdev(dev);
- 	if (rc < 0)
--		goto err_out_msi_4;
-+		goto err_out_msi_5;
- 
- 	pci_set_drvdata(pdev, dev);
- 
-@@ -8483,7 +8452,10 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- out:
- 	return rc;
- 
--err_out_msi_4:
-+err_out_msi_5:
-+	dma_free_coherent(&pdev->dev, sizeof(*tp->CntArray), tp->CntArray,
-+			  tp->CntPhysAddr);
-+err_out_cnt_4:
- 	netif_napi_del(&tp->napi);
- 	rtl_disable_msi(pdev, tp);
- 	iounmap(ioaddr);
+ 	return nla_total_size(16) /* dst */
+@@ -279,7 +274,6 @@ static const struct fib_rules_ops __net_initconst fib6_rules_ops_template = {
+ 	.configure		= fib6_rule_configure,
+ 	.compare		= fib6_rule_compare,
+ 	.fill			= fib6_rule_fill,
+-	.default_pref		= fib6_rule_default_pref,
+ 	.nlmsg_payload		= fib6_rule_nlmsg_payload,
+ 	.nlgroup		= RTNLGRP_IPV6_RULE,
+ 	.policy			= fib6_rule_policy,
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 74ceb73..774c95e 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -217,7 +217,6 @@ static const struct fib_rules_ops __net_initconst ip6mr_rules_ops_template = {
+ 	.match		= ip6mr_rule_match,
+ 	.configure	= ip6mr_rule_configure,
+ 	.compare	= ip6mr_rule_compare,
+-	.default_pref	= fib_default_rule_pref,
+ 	.fill		= ip6mr_rule_fill,
+ 	.nlgroup	= RTNLGRP_IPV6_RULE,
+ 	.policy		= ip6mr_rule_policy,
 -- 
-2.1.0
+2.1.2
