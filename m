@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] RDS: verify the underlying transport exists before
- creating a connection
-Date: Wed, 09 Sep 2015 12:38:51 -0700 (PDT)
-Message-ID: <20150909.123851.1753247693899572461.davem@davemloft.net>
-References: <1441724020-19035-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH net] ebpf: fix fd refcount leaks related to maps in bpf
+ syscall
+Date: Wed, 09 Sep 2015 12:39:52 -0700 (PDT)
+Message-ID: <20150909.123952.1280382713842950863.davem@davemloft.net>
+References: <021e4aac946ab776e7f4af1310f7ed2a642ccd08.1441727453.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441724020-19035-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34416 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752692AbbIITjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 15:39:53 -0400
+In-Reply-To: <021e4aac946ab776e7f4af1310f7ed2a642ccd08.1441727453.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Tue,  8 Sep 2015 10:53:40 -0400
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Tue,  8 Sep 2015 18:00:09 +0200
 
-> There was no verification that an underlying transport exists when creating
-> a connection, this would cause dereferencing a NULL ptr.
+> We may already have gotten a proper fd struct through fdget(), so
+> whenever we return at the end of an map operation, we need to call
+> fdput(). However, each map operation from syscall side first probes
+> CHECK_ATTR() to verify that unused fields in the bpf_attr union are
+> zero.
 > 
-> It might happen on sockets that weren't properly bound before attempting to
-> send a message, which will cause a NULL ptr deref:
- ...
-> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com> 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> In case of malformed input, we return with error, but the lookup to
+> the map_fd was already performed at that time, so that we return
+> without an corresponding fdput(). Fix it by performing an fdget()
+> only right before bpf_map_get(). The fdget() invocation on maps in
+> the verifier is not affected.
+> 
+> Fixes: db20fd2b0108 ("bpf: add lookup/update/delete/iterate methods to BPF maps")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Applied.
+Applied, thanks Daniel.
