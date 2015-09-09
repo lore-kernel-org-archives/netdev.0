@@ -1,167 +1,290 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] sctp: fix race on protocol/netns initialization
-Date: Wed, 09 Sep 2015 16:30:35 -0400
-Message-ID: <55F096EB.7000204@gmail.com>
-References: <27f20cc781cac28bc2ce7229719748a2f6824bd8.1441827818.git.marcelo.leitner@gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH net] add microchip LAN88xx phy driver
+Date: Wed, 9 Sep 2015 20:49:53 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D556925@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:36504 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751944AbbIIUaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 16:30:39 -0400
-In-Reply-To: <27f20cc781cac28bc2ce7229719748a2f6824bd8.1441827818.git.marcelo.leitner@gmail.com>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:52329 "EHLO
+	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752026AbbIIUt7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 16:49:59 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/2015 04:03 PM, Marcelo Ricardo Leitner wrote:
-> Consider sctp module is unloaded and is being requested because an user
-> is creating a sctp socket.
-> 
-> During initialization, sctp will add the new protocol type and then
-> initialize pernet subsys:
-> 
->         status = sctp_v4_protosw_init();
->         if (status)
->                 goto err_protosw_init;
-> 
->         status = sctp_v6_protosw_init();
->         if (status)
->                 goto err_v6_protosw_init;
-> 
->         status = register_pernet_subsys(&sctp_net_ops);
-> 
-> The problem is that after those calls to sctp_v{4,6}_protosw_init(), it
-> is possible for userspace to create SCTP sockets like if the module is
-> already fully loaded. If that happens, one of the possible effects is
-> that we will have readers for net->sctp.local_addr_list list earlier
-> than expected and sctp_net_init() does not take precautions while
-> dealing with that list, leading to a potential panic but not limited to
-> that, as sctp_sock_init() will copy a bunch of blank/partially
-> initialized values from net->sctp.
-> 
-> The race happens like this:
-> 
->      CPU 0                           |  CPU 1
->   socket()                           |
->    __sock_create                     | socket()
->     inet_create                      |  __sock_create
->      list_for_each_entry_rcu(        |
->         answer, &inetsw[sock->type], |
->         list) {                      |   inet_create
->       /* no hits */                  |
->      if (unlikely(err)) {            |
->       ...                            |
->       request_module()               |
->       /* socket creation is blocked  |
->        * the module is fully loaded  |
->        */                            |
->        sctp_init                     |
->         sctp_v4_protosw_init         |
->          inet_register_protosw       |
->           list_add_rcu(&p->list,     |
->                        last_perm);   |
->                                      |  list_for_each_entry_rcu(
->                                      |     answer, &inetsw[sock->type],
->         sctp_v6_protosw_init         |     list) {
->                                      |     /* hit, so assumes protocol
->                                      |      * is already loaded
->                                      |      */
->                                      |  /* socket creation continues
->                                      |   * before netns is initialized
->                                      |   */
->         register_pernet_subsys       |
-> 
-> Inverting the initialization order between register_pernet_subsys() and
-> sctp_v4_protosw_init() is not possible because register_pernet_subsys()
-> will create a control sctp socket, so the protocol must be already
-> visible by then. Deferring the socket creation to a work-queue is not
-> good specially because we loose the ability to handle its errors.
-> 
-> So the fix then is to invert the initialization order inside
-> register_pernet_subsys() so that the control socket is created by last
-> and also block socket creation if netns initialization wasn't yet
-> performed.
-> 
+Add Microchip LAN88XX phy driver for phylib.
 
-not sure how much I like that...  Wouldn't it be better
-to pull the control socket initialization stuff out into its
-own function that does something like
+Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+---
+ drivers/net/phy/Kconfig      |   5 ++
+ drivers/net/phy/Makefile     |   1 +
+ drivers/net/phy/microchip.c  | 148 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/microchipphy.h |  73 +++++++++++++++++++++
+ 4 files changed, 227 insertions(+)
+ create mode 100644 drivers/net/phy/microchip.c
+ create mode 100644 include/linux/microchipphy.h
 
-for_each_net_rcu()
-	init_control_socket(net, ...)
-
-
-Or may be even pull the control socket creation
-stuff completely into its own per-net ops operations structure
-and initialize it after the the protosw stuff has been done.
-
--vlad
-
-> Fixes: 4db67e808640 ("sctp: Make the address lists per network namespace")
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  net/sctp/protocol.c | 18 +++++++++++-------
->  net/sctp/socket.c   |  4 ++++
->  2 files changed, 15 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> index 4345790ad3266c353eeac5398593c2a9ce4effda..d8f78165768a75f93f4ce4120dd5475b6a623aaf 100644
-> --- a/net/sctp/protocol.c
-> +++ b/net/sctp/protocol.c
-> @@ -1271,12 +1271,6 @@ static int __net_init sctp_net_init(struct net *net)
->  
->  	sctp_dbg_objcnt_init(net);
->  
-> -	/* Initialize the control inode/socket for handling OOTB packets.  */
-> -	if ((status = sctp_ctl_sock_init(net))) {
-> -		pr_err("Failed to initialize the SCTP control sock\n");
-> -		goto err_ctl_sock_init;
-> -	}
-> -
->  	/* Initialize the local address list. */
->  	INIT_LIST_HEAD(&net->sctp.local_addr_list);
->  	spin_lock_init(&net->sctp.local_addr_lock);
-> @@ -1284,11 +1278,21 @@ static int __net_init sctp_net_init(struct net *net)
->  
->  	/* Initialize the address event list */
->  	INIT_LIST_HEAD(&net->sctp.addr_waitq);
-> -	INIT_LIST_HEAD(&net->sctp.auto_asconf_splist);
->  	spin_lock_init(&net->sctp.addr_wq_lock);
->  	net->sctp.addr_wq_timer.expires = 0;
->  	setup_timer(&net->sctp.addr_wq_timer, sctp_addr_wq_timeout_handler,
->  		    (unsigned long)net);
-> +	/* sctp_init_sock() will use this to know that netns is
-> +	 * nearly all initialized but already good to go.
-> +	 */
-> +	INIT_LIST_HEAD(&net->sctp.auto_asconf_splist);
-> +
-> +	/* Initialize the control inode/socket for handling OOTB packets.  */
-> +	status = sctp_ctl_sock_init(net);
-> +	if (status) {
-> +		pr_err("Failed to initialize the SCTP control sock\n");
-> +		goto err_ctl_sock_init;
-> +	}
->  
->  	return 0;
->  
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 17bef01b9aa3e7f75328d39fc976f9e80d641e92..45b94deec93d0c7c1612a16922348cf2a7e65ec5 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -3993,6 +3993,10 @@ static int sctp_init_sock(struct sock *sk)
->  
->  	pr_debug("%s: sk:%p\n", __func__, sk);
->  
-> +	/* Validate if netns is already initialized. */
-> +	if (!net->sctp.auto_asconf_splist.prev)
-> +		return -ENOPROTOOPT;
-> +
->  	sp = sctp_sk(sk);
->  
->  	/* Initialize the SCTP per socket area.  */
-> 
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index c07030d..c5ad98a 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -127,6 +127,11 @@ config DP83867_PHY
+ 	---help---
+ 	  Currently supports the DP83867 PHY.
+ 
++config MICROCHIP_PHY
++	tristate "Drivers for Microchip PHYs"
++	help
++	  Supports the LAN88XX PHYs.
++
+ config FIXED_PHY
+ 	tristate "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
+ 	depends on PHYLIB
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 9bb1033..87f079c 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -37,3 +37,4 @@ obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
+ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
+ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
+ obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
++obj-$(CONFIG_MICROCHIP_PHY)	+= microchip.o
+diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
+new file mode 100644
+index 0000000..c0a20eb
+--- /dev/null
++++ b/drivers/net/phy/microchip.c
+@@ -0,0 +1,148 @@
++/*
++ * Copyright (C) 2015 Microchip Technology
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, see <http://www.gnu.org/licenses/>.
++ */
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++#include <linux/microchipphy.h>
++
++#define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
++#define DRIVER_DESC	"Microchip LAN88XX PHY driver"
++
++struct lan88xx_priv {
++	int	chip_id;
++	int	chip_rev;
++	__u32	wolopts;
++};
++
++static int lan88xx_phy_config_intr(struct phy_device *phydev)
++{
++	int rc;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
++		/* unmask all source and clear them before enable */
++		rc = phy_write(phydev, LAN88XX_INT_MASK, 0x7FFF);
++		rc = phy_read(phydev, LAN88XX_INT_STS);
++		rc = phy_write(phydev, LAN88XX_INT_MASK,
++			       LAN88XX_INT_MASK_MDINTPIN_EN_ |
++			       LAN88XX_INT_MASK_LINK_CHANGE_);
++	} else {
++		rc = phy_write(phydev, LAN88XX_INT_MASK, 0);
++	}
++
++	return rc < 0 ? rc : 0;
++}
++
++static int lan88xx_phy_ack_interrupt(struct phy_device *phydev)
++{
++	int rc = phy_read(phydev, LAN88XX_INT_STS);
++
++	return rc < 0 ? rc : 0;
++}
++
++int lan88xx_suspend(struct phy_device *phydev)
++{
++	struct lan88xx_priv *priv = phydev->priv;
++
++	/* do not power down PHY when WOL is enabled */
++	if (!priv->wolopts)
++		genphy_suspend(phydev);
++
++	return 0;
++}
++
++static int lan88xx_probe(struct phy_device *phydev)
++{
++	struct device *dev = &phydev->dev;
++	struct lan88xx_priv *priv;
++
++	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->wolopts = 0;
++
++	/* these values can be used to identify internal PHY */
++	priv->chip_id = phy_read_mmd_indirect(phydev, LAN88XX_MMD3_CHIP_ID,
++					      3, phydev->addr);
++	priv->chip_rev = phy_read_mmd_indirect(phydev, LAN88XX_MMD3_CHIP_REV,
++					       3, phydev->addr);
++
++	phydev->priv = priv;
++
++	return 0;
++}
++
++static void lan88xx_remove(struct phy_device *phydev)
++{
++	struct device *dev = &phydev->dev;
++	struct lan88xx_priv *priv = phydev->priv;
++
++	if (priv)
++		devm_kfree(dev, priv);
++}
++
++static int lan88xx_set_wol(struct phy_device *phydev,
++			   struct ethtool_wolinfo *wol)
++{
++	struct lan88xx_priv *priv = phydev->priv;
++
++	priv->wolopts = wol->wolopts;
++
++	return 0;
++}
++
++static struct phy_driver microchip_phy_driver[] = {
++{
++	.phy_id		= 0x0007c130,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Microchip LAN88xx",
++
++	.features	= (PHY_GBIT_FEATURES |
++			   SUPPORTED_Pause | SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
++
++	.probe		= lan88xx_probe,
++	.remove		= lan88xx_remove,
++
++	.config_init	= genphy_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++
++	.ack_interrupt	= lan88xx_phy_ack_interrupt,
++	.config_intr	= lan88xx_phy_config_intr,
++
++	.suspend	= lan88xx_suspend,
++	.resume		= genphy_resume,
++	.set_wol	= lan88xx_set_wol,
++
++	.driver		= { .owner = THIS_MODULE, }
++} };
++
++module_phy_driver(microchip_phy_driver);
++
++static struct mdio_device_id __maybe_unused microchip_tbl[] = {
++	{ 0x0007c130, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, microchip_tbl);
++
++MODULE_AUTHOR(DRIVER_AUTHOR);
++MODULE_DESCRIPTION(DRIVER_DESC);
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/microchipphy.h b/include/linux/microchipphy.h
+new file mode 100644
+index 0000000..eb492d4
+--- /dev/null
++++ b/include/linux/microchipphy.h
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (C) 2015 Microchip Technology
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef _MICROCHIPPHY_H
++#define _MICROCHIPPHY_H
++
++#define LAN88XX_INT_MASK			(0x19)
++#define LAN88XX_INT_MASK_MDINTPIN_EN_		(0x8000)
++#define LAN88XX_INT_MASK_SPEED_CHANGE_		(0x4000)
++#define LAN88XX_INT_MASK_LINK_CHANGE_		(0x2000)
++#define LAN88XX_INT_MASK_FDX_CHANGE_		(0x1000)
++#define LAN88XX_INT_MASK_AUTONEG_ERR_		(0x0800)
++#define LAN88XX_INT_MASK_AUTONEG_DONE_		(0x0400)
++#define LAN88XX_INT_MASK_POE_DETECT_		(0x0200)
++#define LAN88XX_INT_MASK_SYMBOL_ERR_		(0x0100)
++#define LAN88XX_INT_MASK_FAST_LINK_FAIL_	(0x0080)
++#define LAN88XX_INT_MASK_WOL_EVENT_		(0x0040)
++#define LAN88XX_INT_MASK_EXTENDED_INT_		(0x0020)
++#define LAN88XX_INT_MASK_RESERVED_		(0x0010)
++#define LAN88XX_INT_MASK_FALSE_CARRIER_		(0x0008)
++#define LAN88XX_INT_MASK_LINK_SPEED_DS_		(0x0004)
++#define LAN88XX_INT_MASK_MASTER_SLAVE_DONE_	(0x0002)
++#define LAN88XX_INT_MASK_RX__ER_		(0x0001)
++
++#define LAN88XX_INT_STS				(0x1A)
++#define LAN88XX_INT_STS_INT_ACTIVE_		(0x8000)
++#define LAN88XX_INT_STS_SPEED_CHANGE_		(0x4000)
++#define LAN88XX_INT_STS_LINK_CHANGE_		(0x2000)
++#define LAN88XX_INT_STS_FDX_CHANGE_		(0x1000)
++#define LAN88XX_INT_STS_AUTONEG_ERR_		(0x0800)
++#define LAN88XX_INT_STS_AUTONEG_DONE_		(0x0400)
++#define LAN88XX_INT_STS_POE_DETECT_		(0x0200)
++#define LAN88XX_INT_STS_SYMBOL_ERR_		(0x0100)
++#define LAN88XX_INT_STS_FAST_LINK_FAIL_		(0x0080)
++#define LAN88XX_INT_STS_WOL_EVENT_		(0x0040)
++#define LAN88XX_INT_STS_EXTENDED_INT_		(0x0020)
++#define LAN88XX_INT_STS_RESERVED_		(0x0010)
++#define LAN88XX_INT_STS_FALSE_CARRIER_		(0x0008)
++#define LAN88XX_INT_STS_LINK_SPEED_DS_		(0x0004)
++#define LAN88XX_INT_STS_MASTER_SLAVE_DONE_	(0x0002)
++#define LAN88XX_INT_STS_RX_ER_			(0x0001)
++
++#define LAN88XX_EXT_PAGE_ACCESS			(0x1F)
++#define LAN88XX_EXT_PAGE_SPACE_0		(0x0000)
++#define LAN88XX_EXT_PAGE_SPACE_1		(0x0001)
++#define LAN88XX_EXT_PAGE_SPACE_2		(0x0002)
++
++/* Extended Register Page 1 space */
++#define LAN88XX_EXT_MODE_CTRL			(0x13)
++#define LAN88XX_EXT_MODE_CTRL_MDIX_MASK_	(0x000C)
++#define LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_	(0x0000)
++#define LAN88XX_EXT_MODE_CTRL_MDI_		(0x0008)
++#define LAN88XX_EXT_MODE_CTRL_MDI_X_		(0x000C)
++
++/* MMD 3 Registers */
++#define	LAN88XX_MMD3_CHIP_ID			(32877)
++#define	LAN88XX_MMD3_CHIP_REV			(32878)
++
++#endif /* _MICROCHIPPHY_H */
+-- 
+2.1.4
