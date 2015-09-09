@@ -1,36 +1,46 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net:master 30/34] net/ipv6/route.c:2946:3-8: WARNING: NULL check
- before freeing functions like kfree, debugfs_remove,
- debugfs_remove_recursive or usb_free_urb is not needed. Maybe consider
- reorganizing relevant code to avoid passing NULL values.
-Date: Thu, 10 Sep 2015 06:57:12 +0800
-Message-ID: <201509100609.fhjHrskx%fengguang.wu@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IFLA_INET6_[ICMP6]STATS
+Date: Wed, 09 Sep 2015 16:00:58 -0700
+Message-ID: <1441839658.4619.24.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150909213444.GD20544@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghavendra.kt@linux.vnet.ibm.com
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:17177 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753570AbbIIW6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Sep 2015 18:58:49 -0400
-Content-Disposition: inline
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35153 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751055AbbIIXBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 19:01:00 -0400
+Received: by pacfv12 with SMTP id fv12so23403983pac.2
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 16:00:59 -0700 (PDT)
+In-Reply-To: <20150909213444.GD20544@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-head:   f53de1e9a4aaf8cbe08845da6f7ff26a078ac507
-commit: 6b9ea5a64ed5eeb3f68f2e6fcce0ed1179801d1e [30/34] ipv6: fix multipath route replace error recovery
+On Wed, 2015-09-09 at 17:34 -0400, Sowmini Varadhan wrote:
+> I'm doing some experiments that are trying to simultaneously
+> scaling the number of CPUs, and the number of processes 
+> and encountering getifaddrs() weaknesses.
+> 
+> Others have run into similar things in the past,  e.g., 
+>   http://lists.openwall.net/netdev/2014/01/23/119
+> and more relevant to my experiment: the findings behind 
+> the recent commit a3a77372.
+> 
+> In my case, it looks like getifaddrs() doesnt even use the
+> results of IFLA_INET6_STATS or IFLA_INET6_ICMP6STATS- 
+> from my scan of glibc, this information is ignored (it only 
+> looks at IFLA_STATS).  Moreover, if I hack out  all of 
+> snmp_fold_field() (so that it always returns 0),  it helps 
+> my cpu utilization and scaling, and no errors are reported.
+> 
+> So the question is- who uses IFLA_INET6_STATS/IFLA_INET6_ICMP6STATS?
+> Is this intended for some ND/ripngd etc daemon?  Doesnt seem to 
+> be documented in rtnetlink(7), and couldnt find any users in glibc,
+> and google did not find any usage. 
 
-
-coccinelle warnings: (new ones prefixed by >>)
-
->> net/ipv6/route.c:2946:3-8: WARNING: NULL check before freeing functions like kfree, debugfs_remove, debugfs_remove_recursive or usb_free_urb is not needed. Maybe consider reorganizing relevant code to avoid passing NULL values.
-
-Please review and possibly fold the followup patch.
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+At least ICMP6 stats do not have O(Ncpu) cost anymore,
+after commit be281e554e2a4cf2478df7a8b8926c89454bccfa
+("ipv6: reduce per device ICMP mib sizes")
