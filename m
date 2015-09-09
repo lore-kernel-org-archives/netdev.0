@@ -1,68 +1,109 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] netlink, mmap: don't walk rx ring on poll if receive queue non-empty
-Date: Thu, 10 Sep 2015 01:20:46 +0200
-Message-ID: <5e369c9aa5889383aece50a6b5c22256b19ab334.1441839128.git.daniel@iogearbox.net>
-Cc: chamaken@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50306 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026AbbIIXU5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 19:20:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 3/4] net: mv643xx_eth: use kzalloc
+Date: Wed, 09 Sep 2015 16:25:27 -0700
+Message-ID: <1441841127.17219.94.camel@perches.com>
+References: <1441787886-7214-1-git-send-email-linux@rasmusvillemoes.dk>
+	 <1441787886-7214-4-git-send-email-linux@rasmusvillemoes.dk>
+	 <1441814431.17219.46.camel@perches.com> <87r3m74f2k.fsf@rasmusvillemoes.dk>
+	 <1441824356.17219.69.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441824356.17219.69.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In case of netlink mmap, there can be situations where received frames
-have to be placed into the normal receive queue. The ring buffer indicates
-this through NL_MMAP_STATUS_COPY, so the user is asked to pick them up
-via recvmsg(2) syscall, and to put the slot back to NL_MMAP_STATUS_UNUSED.
+On Wed, 2015-09-09 at 11:45 -0700, Joe Perches wrote:
+> On Wed, 2015-09-09 at 20:34 +0200, Rasmus Villemoes wrote:
+> > mc_spec and mc_other are u32*, we allocate 0x200 = 512 bytes = 128
+> > u32s, and pointer arithmetic makes mc_other point to the latter 64. Then
+> > the memory is cleared 256 bytes at a time.
+> > 
+> > It's unusual and slightly obfuscated code, but I don't think it's
+> > wrong. 
 
-Commit 0ef707700f1c ("netlink: rx mmap: fix POLLIN condition") changed
-polling, so that we walk in the worst case the whole ring through the
-new netlink_has_valid_frame(), for example, when the ring would have no
-NL_MMAP_STATUS_VALID, but at least one NL_MMAP_STATUS_COPY frame.
+Perhaps this would make the code a bit clearer:
 
-Since we do a datagram_poll() already earlier to pick up a mask that could
-possibly contain POLLIN | POLLRDNORM already (due to NL_MMAP_STATUS_COPY),
-we can skip checking the rx ring entirely.
-
-In case the kernel is compiled with !CONFIG_NETLINK_MMAP, then all this is
-irrelevant anyway as netlink_poll() is just defined as datagram_poll().
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Use kcalloc, decimal sizes, decimal indexing,
+and a promiscuous exit block using the same
+style as the non-promiscuous multicast block.
 ---
- net/netlink/af_netlink.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+  drivers/net/ethernet/marvell/mv643xx_eth.c | 46 ++++++++++++++----------------
+ 1 file changed, 22 insertions(+), 24 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 50889be..72c1330 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -674,12 +674,19 @@ static unsigned int netlink_poll(struct file *file, struct socket *sock,
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index d52639b..9230ed5 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1845,32 +1845,19 @@ static void mv643xx_eth_program_multicast_filter(struct net_device *dev)
+ 	struct netdev_hw_addr *ha;
+ 	int i;
  
- 	mask = datagram_poll(file, sock, wait);
+-	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
+-		int port_num;
+-		u32 accept;
++	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI))
++		goto promiscuous;
  
--	spin_lock_bh(&sk->sk_receive_queue.lock);
--	if (nlk->rx_ring.pg_vec) {
--		if (netlink_has_valid_frame(&nlk->rx_ring))
--			mask |= POLLIN | POLLRDNORM;
-+	/* We could already have received frames in the normal receive
-+	 * queue, that will show up as NL_MMAP_STATUS_COPY in the ring,
-+	 * so if mask contains pollin/etc already, there's no point
-+	 * walking the ring.
-+	 */
-+	if ((mask & (POLLIN | POLLRDNORM)) != (POLLIN | POLLRDNORM)) {
-+		spin_lock_bh(&sk->sk_receive_queue.lock);
-+		if (nlk->rx_ring.pg_vec) {
-+			if (netlink_has_valid_frame(&nlk->rx_ring))
-+				mask |= POLLIN | POLLRDNORM;
-+		}
-+		spin_unlock_bh(&sk->sk_receive_queue.lock);
+-oom:
+-		port_num = mp->port_num;
+-		accept = 0x01010101;
+-		for (i = 0; i < 0x100; i += 4) {
+-			wrl(mp, SPECIAL_MCAST_TABLE(port_num) + i, accept);
+-			wrl(mp, OTHER_MCAST_TABLE(port_num) + i, accept);
+-		}
+-		return;
+-	}
+-
+-	mc_spec = kmalloc(0x200, GFP_ATOMIC);
+-	if (mc_spec == NULL)
+-		goto oom;
+-	mc_other = mc_spec + (0x100 >> 2);
+-
+-	memset(mc_spec, 0, 0x100);
+-	memset(mc_other, 0, 0x100);
++	/* Allocate both mc_spec and mc_other tables */
++	mc_spec = kcalloc(128, sizeof(u32), GFP_ATOMIC);
++	if (!mc_spec)
++		goto promiscuous;
++	mc_other = &mc_spec[64];
+ 
+ 	netdev_for_each_mc_addr(ha, dev) {
+ 		u8 *a = ha->addr;
+ 		u32 *table;
+-		int entry;
++		u8 entry;
+ 
+ 		if (memcmp(a, "\x01\x00\x5e\x00\x00", 5) == 0) {
+ 			table = mc_spec;
+@@ -1883,12 +1870,23 @@ oom:
+ 		table[entry >> 2] |= 1 << (8 * (entry & 3));
  	}
--	spin_unlock_bh(&sk->sk_receive_queue.lock);
  
- 	spin_lock_bh(&sk->sk_write_queue.lock);
- 	if (nlk->tx_ring.pg_vec) {
--- 
-1.9.3
+-	for (i = 0; i < 0x100; i += 4) {
+-		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i, mc_spec[i >> 2]);
+-		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i, mc_other[i >> 2]);
++	for (i = 0; i < 64; i++) {
++		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
++		    mc_spec[i]);
++		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
++		    mc_other[i]);
+ 	}
+ 
+ 	kfree(mc_spec);
++	return;
++
++promiscuous:
++	for (i = 0; i < 64; i++) {
++		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
++		    0x01010101u);
++		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
++		    0x01010101u);
++	}
+ }
+ 
+ static void mv643xx_eth_set_rx_mode(struct net_device *dev)
