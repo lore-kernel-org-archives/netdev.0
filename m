@@ -1,56 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Wed, 9 Sep 2015 12:15:36 +0300
-Message-ID: <20150909121536-mutt-send-email-mst@redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCHv1 net-next 0/5] netlink: mmap: kernel panic and some issues
+Date: Wed, 09 Sep 2015 11:22:58 +0200
+Message-ID: <55EFFA72.2080600@iogearbox.net>
+References: <20150814085807.GA30443@gmail.com> <55CDBC84.8020605@iogearbox.net> <55CDC51D.1060204@iogearbox.net> <20150817.140222.1763422851882964859.davem@davemloft.net> <55EDA536.10707@iogearbox.net> <20150909085333.GD5986@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	den@openvz.org, famz@redhat.com, graeme.gregory@linaro.org,
-	mst@redhat.com, pbonzini@redhat.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, chamaken@gmail.com,
+	netdev@vger.kernel.org, fw@strlen.de
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:33443 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751957AbbIIJXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 05:23:04 -0400
+In-Reply-To: <20150909085333.GD5986@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 64291f7db5bd8150a74ad2036f1037e6a0428df2:
+On 09/09/2015 10:53 AM, Thomas Graf wrote:
+> On 09/07/15 at 04:54pm, Daniel Borkmann wrote:
+>> On 08/17/2015 11:02 PM, David Miller wrote:
+>> ...
+>>> I would seriously rather see us do an expensive full copy of the SKB
+>>> than to have traffic which is unexpectedly invisible to taps.
+>>
+>> I've been looking into this issue a bit further, so the copy for the
+>> tap seems doable, but while further going through the code to find similar
+>> issues elsewhere, and doing some experiments, it looks like we write
+>> shared info also in some edge-cases of upcalls such as nfqueue or ovs
+>> when mmaped netlink is used for rx. I did a test with nfqueue using
+>> the libmnl mmap branch [1].
+>
+> Note that OVS does not utilize mmaped netlink even though it has been
+> considered for a while. It is theoretically possible that non-OVS user
+> space user of the OVS netlink API is using it although I'm not aware
+> somebody actually does. We can probably fix this specifically for nfqueue.
 
-  Linux 4.2 (2015-08-30 11:34:09 -0700)
+Sure, I know, it's not included in OVS user space upstream. I meant the
+kernel parts of these subsystems where it could be possible /iff/ there's
+someone running a netlink socket in rx ring mode against it (but I have
+no overview whether someone is doing this in the wild); sorry, should have
+been more specific.
 
-are available in the git repository at:
+Netlink mmap is also not officially upstream in libmnl and neither in
+libnetfilter_queue. It looks like it's sitting in the libmnl branch that
+I mentioned, but didn't get merged so far. Afaik, Ken-ichirou was doing
+work related to adapting this into netfilter in the past.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+Anyway, I'll get the stuff ready tonight that I have so far wrt fixes.
 
-for you to fetch changes up to 997e120843e82609c8d99a9d5714e6cf91e14cbe:
-
-  virtio_balloon: do not change memory amount visible via /proc/meminfo (2015-09-08 13:32:11 +0300)
-
-----------------------------------------------------------------
-virtio: fixes and features 4.3
-
-virtio-mmio can now be auto-loaded through acpi.
-virtio blk supports extended partitions.
-total memory is better reported when using virtio balloon with auto-deflate.
-cache control is re-enabled when using virtio-blk in modern mode.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Denis V. Lunev (2):
-      virtio_ballon: change stub of release_pages_by_pfn
-      virtio_balloon: do not change memory amount visible via /proc/meminfo
-
-Fam Zheng (1):
-      virtio-blk: Allow extended partitions
-
-Graeme Gregory (1):
-      virtio_mmio: add ACPI probing
-
-Paolo Bonzini (1):
-      virtio-blk: use VIRTIO_BLK_F_WCE and VIRTIO_BLK_F_CONFIG_WCE in virtio1
-
- drivers/block/virtio_blk.c      |  6 +++---
- drivers/virtio/virtio_balloon.c | 16 ++++++++++------
- drivers/virtio/virtio_mmio.c    | 10 ++++++++++
- 3 files changed, 23 insertions(+), 9 deletions(-)
+Cheers,
+Daniel
