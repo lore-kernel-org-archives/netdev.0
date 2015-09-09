@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1 net] xen-netback: require fewer guest Rx slots when
- not using GSO
-Date: Wed, 09 Sep 2015 12:34:59 -0700 (PDT)
-Message-ID: <20150909.123459.1956039261743477106.davem@davemloft.net>
-References: <1441718714-3256-1-git-send-email-david.vrabel@citrix.com>
+Subject: Re: PATCH: netdev: add a cast NLMSG_OK to avoid a GCC warning in
+ users' code
+Date: Wed, 09 Sep 2015 12:37:17 -0700 (PDT)
+Message-ID: <20150909.123717.2263645868892698375.davem@davemloft.net>
+References: <alpine.LRH.2.02.1509080933340.4754@redclaw.mimosa.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	ian.campbell@citrix.com, wei.liu2@citrix.com
-To: david.vrabel@citrix.com
+Cc: netdev@vger.kernel.org
+To: hugh@mimosa.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34322 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34337 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808AbbIITfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 15:35:00 -0400
-In-Reply-To: <1441718714-3256-1-git-send-email-david.vrabel@citrix.com>
+	with ESMTP id S1751808AbbIIThS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 15:37:18 -0400
+In-Reply-To: <alpine.LRH.2.02.1509080933340.4754@redclaw.mimosa.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Tue, 8 Sep 2015 14:25:14 +0100
+From: "D. Hugh Redelmeier" <hugh@mimosa.com>
+Date: Tue, 8 Sep 2015 09:46:56 -0400 (EDT)
 
-> Commit f48da8b14d04ca87ffcffe68829afd45f926ec6a (xen-netback: fix
-> unlimited guest Rx internal queue and carrier flapping) introduced a
-> regression.
-> 
-> The PV frontend in IPXE only places 4 requests on the guest Rx ring.
-> Since netback required at least (MAX_SKB_FRAGS + 1) slots, IPXE could
-> not receive any packets.
-> 
-> a) If GSO is not enabled on the VIF, fewer guest Rx slots are required
->    for the largest possible packet.  Calculate the required slots
->    based on the maximum GSO size or the MTU.
-> 
->    This calculation of the number of required slots relies on
->    1650d5455bd2 (xen-netback: always fully coalesce guest Rx packets)
->    which present in 4.0-rc1 and later.
-> 
-> b) Reduce the Rx stall detection to checking for at least one
->    available Rx request.  This is fine since we're predominately
->    concerned with detecting interfaces which are down and thus have
->    zero available Rx requests.
-> 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Using netlink.h's NLMSG_OK correctly will cause GCC to issue a warning
+> on systems with 32-bit userland.  The definition can easily be changed
+> to avoid this.
 
-Applied, thanks David.
+Everyone either uses an unsigned type (such as "size_t") or adds an
+explicit cast to an unsinged type for the second argument.
+
+The code you were trying to compile should do so as well.
+
+I'm not applying this, sorry.
