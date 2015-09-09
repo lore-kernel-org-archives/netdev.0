@@ -1,44 +1,68 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [RFC PATCH 0/3] Network stack, first user of SLAB/kmem_cache
- bulk free API.
-Date: Wed, 9 Sep 2015 09:08:47 -0500 (CDT)
-Message-ID: <alpine.DEB.2.11.1509090907240.18992@east.gentwo.org>
-References: <20150824005727.2947.36065.stgit@localhost> <20150904165944.4312.32435.stgit@devil> <55E9DE51.7090109@gmail.com> <alpine.DEB.2.11.1509041354560.993@east.gentwo.org> <55EA0172.2040505@gmail.com> <alpine.DEB.2.11.1509041844190.2499@east.gentwo.org>
- <20150905131825.6c04837d@redhat.com> <alpine.DEB.2.11.1509081228100.26148@east.gentwo.org> <20150909145919.4d68ea36@redhat.com>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-mm@kvack.org, aravinda@linux.vnet.ibm.com,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	iamjoonsoo.kim@lge.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-ch2-08v.sys.comcast.net ([69.252.207.40]:53727 "EHLO
-	resqmta-ch2-08v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751469AbbIIOIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 10:08:50 -0400
-In-Reply-To: <20150909145919.4d68ea36@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivan Mikhaylov <ivan@ru.ibm.com>
+Subject: Re: [PATCH v2 1/2] ethtool: changes of emac_regs structure
+ accordingly within driver emac_regs structure.
+Date: Wed, 9 Sep 2015 17:05:52 +0400
+Message-ID: <20150909170552.7cc7677c@fr-ThinkPad-W520>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Sep 2015, Jesper Dangaard Brouer wrote:
+On Wed, 9 Aug 2015 15:10:00 +0400
+Ivan Mikhaylov <ivan@ru.ibm.com> wrote:
 
-> > Hmmm... Guess we need to come up with distinct version of kmalloc() for
-> > irq and non irq contexts to take advantage of that . Most at non irq
-> > context anyways.
+>On Wed, 2015-08-05 at 15:01 +0400, Ivan Mikhaylov wrote:
+>> * do the redefinition of emac_regs struct from driver structure
+>> perspective and passing size from actual struct size, not from memory
+>> area variable which set in dts file.
+>> 
+>> * passing variable from dts option may cause a problem with output
+>> below MII's section which we're fixing with this and 5369c71 commit
+>> in kernel.
+>[...]
 >
-> I agree, it would be an easy win.  Do notice this will have the most
-> impact for the slAb allocator.
+>But you still aren't handling the case where only one of the driver and
+>ethtool is upgraded, even by reporting an error.
 >
-> I estimate alloc + free cost would save:
->  * slAb would save approx 60 cycles
->  * slUb would save approx  4 cycles
+>I'm never going to apply patches to ethtool that obviously break binary
+>compatibility, so you are wasting your time sending me new versions
+>that do that.
 >
-> We might consider keeping the slUb approach as it would be more
-> friendly for RT with less IRQ disabling.
+>At this point you should probably just bump the dump version numbers in
+>both places.
+>
+>Ben.
+>
+>-- 
+>Ben Hutchings
+>friends: People who know you well, but like you anyway.
+>
+>[unhandled content-type:application/pgp-signature]
 
-IRQ disabling it a mixed bag. Older cpus have higher latencies there and
-also virtualized contexts may require the hypervisor tracks the interrupt
-state.
+Ben, thanks for looking to that. 
 
-For recent intel cpus this is certainly a workable approach.
+I decided to divide patches for 
+1 - structure change which fixing problem
+2 - add EMAC4SYNC
+May be it wasn't clear from first patch...
+
+There as a note to you with questions without answer:
+https://lkml.org/lkml/2015/6/23/466
+
+Also I said in that thread I can prove with table of 
+ 1. old ethtool old driver
+ 2. patched ethtool old driver
+ 3. patched ethtool patched driver
+ 4. old ethtool patched driver
+
+if you want to see difference in output on machine what I've.
+ 
+Can we talk on some irc channel to resolve that situation,
+it will be much faster, where I can find you on irc.debian.org?
+
+Thanks in advance.
