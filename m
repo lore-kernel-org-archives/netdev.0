@@ -1,53 +1,37 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2] atomics,cmpxchg: Privatize the inclusion of
- asm/cmpxchg.h
-Date: Tue, 8 Sep 2015 21:00:32 -0700
-Message-ID: <20150909040032.GB5497@kroah.com>
-References: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] r8169: fix sleepable allocation during
+ netdevice stats retrieval.
+Date: Wed, 09 Sep 2015 12:04:05 -0700 (PDT)
+Message-ID: <20150909.120405.378304490596297372.davem@davemloft.net>
+References: <20150909155404.GC19913@calimero.vinschen.de>
+	<20150909155511.GD19913@calimero.vinschen.de>
+	<55F07BBC.9020308@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Shradha Shah <sshah@solarflare.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	William Hubbs <w.d.hubbs@gmail.com>,
-	Chris Brannon <chris@the-brannons.com>,
-	Kirk Reiser <kirk@reisers.ca>,
-	Samuel Thibault <samuel.thibault@ens-lyon.org>,
-	Aybuke Ozdemir <aybuke.147@gmail.com>,
-	Davidlohr Bueso <dave@stgolabs.net>,
-	linux-net-drivers@solarflare.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, speakup@linux-speakup.org,
-	devel@driverdev.osuosl.org
-To: Boqun Feng <boqun.feng@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, m8t@gandi.net,
+	benedikt.meurer@unix-ag.uni-siegen.de, bernhard.walle@gmx.de,
+	hscholz@raisdorf.net, frivoal@xfce.org
+To: pomidorabelisima@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34066 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751620AbbIITEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 15:04:08 -0400
+In-Reply-To: <55F07BBC.9020308@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 09, 2015 at 09:27:04AM +0800, Boqun Feng wrote:
-> After commit:
-> 
-> atomics: add acquire/release/relaxed variants of some atomic operations
-> 
-> Architectures may only provide {cmp,}xchg_relaxed definitions in
-> asm/cmpxchg.h. Other variants, such as {cmp,}xchg, may be built in
-> linux/atomic.h, which means simply including asm/cmpxchg.h may not get
-> the definitions of all the{cmp,}xchg variants. Therefore, we should
-> privatize the inclusions of asm/cmpxchg.h to keep it only included in
-> arch/* and replace the inclusions outside with linux/atomic.h
-> 
-> Acked-by: Will Deacon <will.deacon@arm.com>
-> Signed-off-by: Boqun Feng <boqun.feng@gmail.com>
-> ---
-> v1 --> v2:
-> 	1. rebase on current master branch of tip tree
-> 	2. remove documentation modification
-> 
+From: poma <pomidorabelisima@gmail.com>
+Date: Wed, 9 Sep 2015 20:34:36 +0200
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> [  230.110233]  [<ffffffff810218e6>] dma_generic_alloc_coherent+0x96/0x130
+> [  230.110242]  [<ffffffff81069865>] x86_swiotlb_alloc_coherent+0x25/0x50
+> [  230.110250]  [<ffffffff810215fd>] dma_alloc_attrs+0x6d/0xe0
+> [  230.110265]  [<ffffffffa002e25e>] rtl8169_map_counters+0x3e/0x70 [r8169]
+> [  230.110277]  [<ffffffffa002f674>] rtl8169_update_counters+0x64/0x140 [r8169]
+> [  230.110289]  [<ffffffffa002f8ff>] rtl8169_get_stats64+0xbf/0x130 [r8169]
+> [  230.110299]  [<ffffffff81700b74>] dev_get_stats+0x54/0x100
 
+The patch in question removes this call to dma_alloc_coherent() so you
+aren't running a kernel which actually has the patch applied.
