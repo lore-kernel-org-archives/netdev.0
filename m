@@ -1,75 +1,71 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/3] net: switchdev: extract specific object structures
-Date: Wed, 9 Sep 2015 09:25:14 -0700
-Message-ID: <CAE4R7bDVNDUoxzRR8jtkOzEk7wvMZGNodMO=aRMUgz2KBxnQog@mail.gmail.com>
-References: <1441745275-13200-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 1/6] ebpf: add a seccomp program type
+Date: Wed, 9 Sep 2015 09:37:51 -0700
+Message-ID: <CAGXu5jJVNfBZ1ugmpA3FCnG4++EPLfRhjSNBi3TtA0xGK=fzsg@mail.gmail.com>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+	<1441382664-17437-2-git-send-email-tycho.andersen@canonical.com>
+	<CAGXu5j+9YvL6XzX=x8krZbdJXFpe-3FuMu=hAZX9Ew=hYyuK7Q@mail.gmail.com>
+	<20150904210615.GR26679@smitten>
+	<CAGXu5jKGBuD15KBfXKoYbGB40cNsbh=Dz8GM=bmUL-oECRhzxA@mail.gmail.com>
+	<20150909155035.GA26679@smitten>
+	<20150909160744.GA3526@Alexeis-MBP-2.westell.com>
+	<55F059C7.9070105@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	kernel <kernel@savoirfairelinux.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Tycho Andersen <tycho.andersen@canonical.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:33518 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752409AbbIIQZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 12:25:34 -0400
-Received: by obbbh8 with SMTP id bh8so12303554obb.0
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 09:25:34 -0700 (PDT)
-In-Reply-To: <1441745275-13200-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:35615 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754519AbbIIQhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 12:37:52 -0400
+Received: by ioiz6 with SMTP id z6so28775863ioi.2
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 09:37:51 -0700 (PDT)
+In-Reply-To: <55F059C7.9070105@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 8, 2015 at 1:47 PM, Vivien Didelot
-<vivien.didelot@savoirfairelinux.com> wrote:
-> Hi!
+On Wed, Sep 9, 2015 at 9:09 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 09/09/2015 06:07 PM, Alexei Starovoitov wrote:
+>>
+>> On Wed, Sep 09, 2015 at 09:50:35AM -0600, Tycho Andersen wrote:
 >
-> Current implementations of .switchdev_port_obj_add and .switchdev_port_obj_dump
-> must pass the generic switchdev_obj structure instead of a specific one (e.g.
-> switchdev_obj_fdb) to the related driver accessors, because it contains the
-> object transaction and callback. This is not very convenient for drivers.
+> [...]
+>>>
+>>> Thoughts?
+>>
+>>
+>> Please do not add any per-instruction hacks. None of them are
+>> necessary. Classic had to do extra ugly checks in seccomp only
+>> because verifier wasn't flexible enough.
+>> If you don't want to see any BPF_CALL in seccomp, just have
+>> empty get_func_proto() callback for BPF_PROG_TYPE_SECCOMP
+>> and verifier will reject all calls.
+>> Currently we have only two non-generic instrucitons
+>> LD_ABS and LD_IND that are avaialable for sockets/TC only,
+>> because these are legacy instructions and we had to make
+>> exceptions for them.
 >
-> Instead of having all specific structures included into a switchdev_obj union,
-> it would be simpler to embed a switchdev_obj structure as the first member of
-> the more specific ones. That way, a driver can cast the switchdev_obj pointer
-> to the specific structure and have access to all the information from it.
->
-> As an example, this allows Rocker to change its two FDB accessors:
->
->     rocker_port_fdb_add(rocker_port, obj->trans, &obj->u.fdb);
->     rocker_port_fdb_dump(rocker_port, obj);
->
-> for these most consistent ones:
->
->     fdb = (struct switchdev_obj_fdb *) obj;
->     rocker_port_fdb_add(rocker_port, fdb);
->     rocker_port_fdb_dump(rocker_port, fdb);
->
-> This is what struct netdev_notifier_info and its specific supersets (e.g.
-> struct netdev_notifier_changeupper_info) do in include/linux/netdevice.h.
->
-> This patchset does that and updates bridge, Rocker and DSA accordingly.
->
-> Note that this patchset was sent as an RFC not to bother David with new
-> net-next stuffs, but if the changes look good, it is ready to merge.
->
-> Also, please take note that the change sits on top of:
-> http://patchwork.ozlabs.org/patch/514894/
->
+> Yep, +1.
 
-HI Vivien, looks good. Some requests for the next version:
+Hrmpf. This adds to the cognitive load for accepting this patch
+series. :P Now I have to convince myself that there is no additional
+exposure to seccomp by using the entire set of eBPF instructions.
+While I'm pretty sure it'll be fine, I really don't want to risk being
+wrong and opening a hole here. I will spend some time looking at the
+new eBPF instructions...
 
-1) Move the cb() member out of struct switchdev_obj and into the
-containing struct switchdev_obj_xxx structure.  This way the second
-arg to cb() can be struct switchdev_obj_xxx *.  (And, I have pending
-patches where the first arg to cb() is different, so making the dump
-cb() func specific to obj type will help).
+-Kees
 
-2) As already mentioned, use container_of where possible to avoid
-locking struct member at a position within struct.
-
-Should the same treatment be done for switchdev_attr?  Maybe that's a
-second patchset.
-
--scott
+-- 
+Kees Cook
+Chrome OS Security
