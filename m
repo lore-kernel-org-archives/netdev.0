@@ -1,77 +1,66 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net-next] Revert "net/ipv6: add sysctl option
- accept_ra_min_hop_limit"
-Date: Wed, 9 Sep 2015 12:10:54 +0200
-Message-ID: <20150909101054.GA6753@bistromath.redhat.com>
-References: <20150902094301.GA6434@via.ecp.fr>
- <20150902.161110.223512323094619164.davem@davemloft.net>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH net] xen-netback: respect user provided max_queues
+Date: Wed, 9 Sep 2015 11:12:44 +0100
+Message-ID: <55F0061C.2080403@citrix.com>
+References: <1441793395-25537-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	liuhangbin@gmail.com, hideaki.yoshifuji@miraclelinux.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Johnny Strom <johnny.strom@linuxsolutions.fi>
+To: Wei Liu <wei.liu2@citrix.com>,
+	Xen-devel <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38117 "EHLO mx1.redhat.com"
+Received: from smtp02.citrix.com ([66.165.176.63]:2787 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753773AbbIIKK6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Sep 2015 06:10:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20150902.161110.223512323094619164.davem@davemloft.net>
+	id S1751886AbbIIKMv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Sep 2015 06:12:51 -0400
+In-Reply-To: <1441793395-25537-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-09-02, 16:11:10 -0700, David Miller wrote:
-> From: Sabrina Dubroca <sd@queasysnail.net>
-> Date: Wed, 2 Sep 2015 11:43:01 +0200
+On 09/09/15 11:09, Wei Liu wrote:
+> Originally that parameter was always reset to num_online_cpus during
+> module initialisation, which renders it useless.
 > 
-> > This reverts commit 8013d1d7eafb0589ca766db6b74026f76b7f5cb4.
-> > 
-> > There are several issues with this patch.
-> > It completely cancels the security changes introduced by 6fd99094de2b
-> > ("ipv6: Don't reduce hop limit for an interface").
-> > The current default value (min hop limit = 1) can result in the same
-> > denial of service that 6fd99094de2b prevents, but it is hard to define
-> > a correct and sane default value.
-> > More generally, it is yet another IPv6 sysctl, and we already have too
-> > many.
-> > 
-> > This was introduced to satisfy a TAHI test case which, in my opinion, is
-> > too strict, turning the RFC's "SHOULD" into a "MUST":
-> > 
-> >     If the received Cur Hop Limit value is non-zero, the host
-> >     SHOULD set its CurHopLimit variable to the received value.
-> > 
-> > The behavior of this sysctl is wrong in multiple ways.  Some are
-> > fixable, but let's not rush this commit into mainline, and revert this
-> > while we still can, then we can come up with a better solution.
-> > 
-> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> The fix is to only set max_queues to num_online_cpus when user has not
+> provided a value.
+[...]
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -67,7 +67,7 @@ module_param(rx_drain_timeout_msecs, uint, 0444);
+>  unsigned int rx_stall_timeout_msecs = 60000;
+>  module_param(rx_stall_timeout_msecs, uint, 0444);
+>  
+> -unsigned int xenvif_max_queues;
+> +unsigned int xenvif_max_queues = 0;
+
+You don't need this.
+
+Otherwise,
+
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+
+Is an equivalent fix needed in netfront?
+
+David
+
+>  module_param_named(max_queues, xenvif_max_queues, uint, 0644);
+>  MODULE_PARM_DESC(max_queues,
+>  		 "Maximum number of queues per virtual interface");
+> @@ -2105,8 +2105,11 @@ static int __init netback_init(void)
+>  	if (!xen_domain())
+>  		return -ENODEV;
+>  
+> -	/* Allow as many queues as there are CPUs, by default */
+> -	xenvif_max_queues = num_online_cpus();
+> +	/* Allow as many queues as there are CPUs if user has not
+> +	 * specified a value.
+> +	 */
+> +	if (xenvif_max_queues == 0)
+> +		xenvif_max_queues = num_online_cpus();
+>  
+>  	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
+>  		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
 > 
-> I don't agree with this revert.
-> 
-> If you look at the original commit, the quoted RFC recommends adding
-> a configurable method to protect against this.
-> 
-> And that's exactly what the commit you are trying to revert is doing.
-> 
-> The only thing I would entertain is potentially an adjustment of the
-> default, working in concert with the TAHI folks to make sure their
-> tests still pass with any new default.
-
-Would you agree with a default of 64, as Florian suggested?
-
-
-Can we still modify the behavior of this sysctl? It's already been in
-Linus's tree for a while, but if we can, I would rather restrict the
-values we let the user write to accept_ra_min_hop_limit, as anything
-outside [0..255] does not really make sense.
-
-Allowing an RA to update the hop limit if
-
-   current hop limit < RA.hop_limit < accept_ra_min_hop_limit
-
-might also be desirable, but I'm not so sure about this case.
-
-
--- 
-Sabrina
