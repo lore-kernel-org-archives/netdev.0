@@ -1,113 +1,65 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net v4] ipv6: fix multipath route replace error recovery
-Date: Wed, 9 Sep 2015 12:05:04 +0200
-Message-ID: <55F00450.6060006@6wind.com>
-References: <1441734784-34416-1-git-send-email-roopa@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net] xen-netback: respect user provided max_queues
+Date: Wed, 9 Sep 2015 11:09:55 +0100
+Message-ID: <1441793395-25537-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mkubecek@suse.cz, Mazziesaccount@gmail.com,
-	hannes@stressinduktion.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
+Content-Type: text/plain
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Johnny Strom <johnny.strom@linuxsolutions.fi>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Xen-devel <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:35965 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752119AbbIIKFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 06:05:19 -0400
-Received: by wicgb1 with SMTP id gb1so109758894wic.1
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 03:05:18 -0700 (PDT)
-In-Reply-To: <1441734784-34416-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:46132 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751626AbbIIKJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 06:09:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/09/2015 19:53, Roopa Prabhu a =C3=A9crit :
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> Problem:
-> The ecmp route replace support for ipv6 in the kernel, deletes the
-> existing ecmp route too early, ie when it installs the first nexthop.
-> If there is an error in installing the subsequent nexthops, its too l=
-ate
-> to recover the already deleted existing route leaving the fib
-> in an inconsistent state.
->
-> This patch reduces the possibility of this by doing the following:
-> a) Changes the existing multipath route add code to a two stage proce=
-ss:
->    build rt6_infos + insert them
-> 	ip6_route_add rt6_info creation code is moved into
-> 	ip6_route_info_create.
-> b) This ensures that most errors are caught during building rt6_infos
->    and we fail early
-> c) Separates multipath add and del code. Because add needs the specia=
-l
->    two stage mode in a) and delete essentially does not care.
-> d) In any event if the code fails during inserting a route again, a
->    warning is printed (This should be unlikely)
->
-> Before the patch:
-> $ip -6 route show
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 102=
-4
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 102=
-4
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 102=
-4
->
-> /* Try replacing the route with a duplicate nexthop */
-> $ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
-> fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
-> swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
-> RTNETLINK answers: File exists
->
-> $ip -6 route show
-> /* previously added ecmp route 3000:1000:1000:1000::2 dissappears fro=
-m
->   * kernel */
->
-> After the patch:
-> $ip -6 route show
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 102=
-4
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 102=
-4
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 102=
-4
->
-> /* Try replacing the route with a duplicate nexthop */
-> $ip -6 route change 3000:1000:1000:1000::2/128 nexthop via
-> fe80::202:ff:fe00:b dev swp49s0 nexthop via fe80::202:ff:fe00:d dev
-> swp49s1 nexthop via fe80::202:ff:fe00:d dev swp49s1
-> RTNETLINK answers: File exists
->
-> $ip -6 route show
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:b dev swp49s0 metric 102=
-4
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:d dev swp49s1 metric 102=
-4
-> 3000:1000:1000:1000::2 via fe80::202:ff:fe00:f dev swp49s2 metric 102=
-4
->
-> Fixes: 27596472473a ("ipv6: fix ECMP route replacement")
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-LGTM
+Originally that parameter was always reset to num_online_cpus during
+module initialisation, which renders it useless.
 
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+The fix is to only set max_queues to num_online_cpus when user has not
+provided a value.
 
->
-> v1 - v2 : fix leak
-> v2 - v3: fix 'Fixes' tag and warn msg (feedback from nicolas)
->           resending against net
-> v3 - v4: reword warn msg (feedback from nicolas). I still print the
->           nexthops in the warning to help user know the offending
->           route replace. The msg is printed for each nexthop which I
->           think should be ok because this is consistent with all othe=
-r cases
->           (notifications etc) where IPV6 multipath nexthops are
->           treated as individual routes and this warn should be very
->           unlikely.
-> ---
-nit: history should be put after the "---" ;-)
+Reported-by: Johnny Strom <johnny.strom@linuxsolutions.fi>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+---
+Cc: Johnny Strom <johnny.strom@linuxsolutions.fi>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/netback.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 42569b9..b219a80 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -67,7 +67,7 @@ module_param(rx_drain_timeout_msecs, uint, 0444);
+ unsigned int rx_stall_timeout_msecs = 60000;
+ module_param(rx_stall_timeout_msecs, uint, 0444);
+ 
+-unsigned int xenvif_max_queues;
++unsigned int xenvif_max_queues = 0;
+ module_param_named(max_queues, xenvif_max_queues, uint, 0644);
+ MODULE_PARM_DESC(max_queues,
+ 		 "Maximum number of queues per virtual interface");
+@@ -2105,8 +2105,11 @@ static int __init netback_init(void)
+ 	if (!xen_domain())
+ 		return -ENODEV;
+ 
+-	/* Allow as many queues as there are CPUs, by default */
+-	xenvif_max_queues = num_online_cpus();
++	/* Allow as many queues as there are CPUs if user has not
++	 * specified a value.
++	 */
++	if (xenvif_max_queues == 0)
++		xenvif_max_queues = num_online_cpus();
+ 
+ 	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
+ 		pr_info("fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
+-- 
+2.1.4
