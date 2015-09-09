@@ -1,43 +1,52 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH v6 04/10] ss: prepare timer for output handler usage
-Date: Wed,  9 Sep 2015 21:43:15 +0200
-Message-ID: <1441827801-9617-5-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH v6 09/10] ss: fixed free on local array for valid json output
+Date: Wed,  9 Sep 2015 21:43:20 +0200
+Message-ID: <1441827801-9617-10-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:52090 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.15.15]:50553 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753382AbbIITna (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Sep 2015 15:43:30 -0400
+	id S1754682AbbIITnc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Sep 2015 15:43:32 -0400
 In-Reply-To: <1441827801-9617-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Minor preparation Patch
-
-Renamed, and exported timer to not have to pass it as a function local
-parameter argument.
+Minor fix to enable json output. Freeing of automatic char array name
+which will get freed after function stack cleanup. Another one after
+tcp_stats_fmt for freeing automatic tcpstats struct instance.
 
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- misc/ss.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ misc/ss.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
 diff --git a/misc/ss.c b/misc/ss.c
-index 4cc6991..e7ea041 100644
+index 6ff40a3..80aebe6 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -649,7 +649,7 @@ static const char *sstate_namel[] = {
- 	[SS_CLOSING] = "closing",
- };
+@@ -1660,10 +1660,6 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		s.segs_out = info->tcpi_segs_out;
+ 		s.segs_in = info->tcpi_segs_in;
+ 		tcp_stats_fmt(&s);
+-		if (s.dctcp)
+-			free(s.dctcp);
+-		if (s.cong_alg)
+-			free(s.cong_alg);
+ 	}
+ }
  
--static const char *tmr_name[] = {
-+const char *ss_timer_name[] = {
- 	"off",
- 	"on",
- 	"keepalive",
+@@ -2362,8 +2358,6 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 	if (json_output)
+ 		jsonw_end_object(json_wr);
+ 
+-	if (name)
+-		free(name);
+ 	return 0;
+ }
+ 
 -- 
 1.9.1
