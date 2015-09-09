@@ -1,63 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 104301] New: Connect failure on sctp socket under debug
-Date: Wed, 9 Sep 2015 07:47:59 -0700
-Message-ID: <20150909074759.1e256966@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35603 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752397AbbIIOrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 10:47:48 -0400
-Received: by pacfv12 with SMTP id fv12so12603727pac.2
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 07:47:48 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: [PATCH v4] stmmac: fix check for phydev being open
+Date: Wed,  9 Sep 2015 18:01:08 +0300
+Message-ID: <1441810868-7212-1-git-send-email-abrodkin@synopsys.com>
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Current check of phydev with IS_ERR(phydev) may make not much sense
+because of_phy_connect() returns NULL on failure instead of error value.
 
+Still for checking result of phy_connect() IS_ERR() makes perfect sense.
 
-Begin forwarded message:
+So let's use combined check IS_ERR_OR_NULL() that covers both cases.
 
-Date: Wed, 9 Sep 2015 13:57:38 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 104301] New: Connect failure on sctp socket under debug
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: linux-kernel@vger.kernel.org
+Cc: stable@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+---
 
+Changes compared to v3:
+ * Remove "else" branch after "return" as suggested by Sergei.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=104301
+Changes compared to v2:
+ * Updated commit message with mention of of_phy_connect() instead of
+   of_phy_attach().
+ * Return ENODEV in case of of_phy_connect() failure
 
-            Bug ID: 104301
-           Summary: Connect failure on sctp socket under debug
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.13.0-63-generic
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: riccardomanfrin@gmail.com
-        Regression: No
+Changes compared to v1:
+ * Use IS_ERR_OR_NULL() instead of discrete checks for null and err
 
-When starting an sctp client with gdb, I experience a connect failure (-1 is
-returned), with errno 106 (Transport endpoint is already connected).
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-If I then cat /proc/net/sctp/assocs, I see the connection and I see the
-successful handshake on wireshark.
-
-If I ignore the connect failure, and pretend I'm actually connected, I can send
-and receive packets without any trouble.
-
-The same client application, run not-under-gdb, does not exhibits the issue and
-the connect returns 0.
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 864b476..925f2f8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -837,8 +837,11 @@ static int stmmac_init_phy(struct net_device *dev)
+ 				     interface);
+ 	}
+ 
+-	if (IS_ERR(phydev)) {
++	if (IS_ERR_OR_NULL(phydev)) {
+ 		pr_err("%s: Could not attach to PHY\n", dev->name);
++		if (!phydev)
++			return -ENODEV;
++
+ 		return PTR_ERR(phydev);
+ 	}
+ 
 -- 
-You are receiving this mail because:
-You are the assignee for the bug.
+2.4.3
