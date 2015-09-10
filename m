@@ -1,34 +1,71 @@
-From: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] Remove #ifdef CONFIG_64BIT from all asm-generic/fcntl.h
-Date: Thu, 10 Sep 2015 12:18:05 +0100
-Message-ID: <18247.1441883885@warthog.procyon.org.uk>
-References: <18147.1441883729@warthog.procyon.org.uk> <1441832902-28993-1-git-send-email-palmer@dabbelt.com> <2644177.lVCYzIBfPW@wuerfel>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH 2/3] net: irda: pxaficp_ir: convert to readl and writel
+Date: Thu, 10 Sep 2015 13:14:50 +0200
+Message-ID: <87io7iv845.fsf@belgarion.home>
+References: <1441261251-19548-1-git-send-email-robert.jarzmik@free.fr>
+	<1441261251-19548-3-git-send-email-robert.jarzmik@free.fr>
+	<55EF43E9.2040000@tul.cz> <55EF8A0F.7070106@tul.cz>
+	<87twr4un1h.fsf@belgarion.home> <55F11FDE.6050304@tul.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, 3chas3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org,
-	jikos-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-atm-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org, tomi.valkeinen-l0cyMroinI0@public.gmane.org,
-	x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Palmer Dabbelt <palmer-96lFi9zoCfxBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <18147.1441883729-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
-Content-ID: <18246.1441883885.1-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: zonque@gmail.com, ulf.hansson@linaro.org,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>
+To: Petr Cvek <petr.cvek@tul.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55F11FDE.6050304@tul.cz> (Petr Cvek's message of "Thu, 10 Sep
+	2015 08:14:54 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+Petr Cvek <petr.cvek@tul.cz> writes:
 
-> Rather than iterating through all the rest of your patches and saying the same
-> thing, if there's something in a UAPI header that needs wrapping in __KERNEL__
-> to exclude it from userspace's use, then it should be transferred to the
-> non-UAPI variant of that header (which should #include the UAPI variant).
+> Dne 9.9.2015 v 08:25 Robert Jarzmik napsal(a):
+>> Petr Cvek <petr.cvek@tul.cz> writes:
+>> 
+>>> Dne 8.9.2015 v 22:24 Petr Cvek napsal(a):
+>>>>
+>>>> Did you defined resources somewhere? Actual resources are in
+>>>> "pxa_ir_resources" variable at:
+>> I have them in patch [1], which is exactly the patch you have made yourself.
+>
+> Is there a mailing list for this specific patch? It seems I did not get any
+> mail with it.
+Should have been posted to linux arm kernel mailing list, unless my mailer
+failed ...
 
-I should mention that there is the odd case where this is difficult to
-achieve.  See include/uapi/linux/acct.h for an example...
+> BTW This patch required update of my kernel repo. It seems that my:
+>
+> 	magician.c patches + ficp patch + new dma engine
+>
+> does not work for me at all. Kernel throws some panic about interrupts and then
+> it ends in an infinite stack dumping loop. Fault occurs before rootfs is
+> mounted, so probably around MMC init (with removed SD card it fails normally
+> with no rootfs found error).
+Could you send me (privately) the stack you're getting please. This is something
+I'd like to catch up early in the -rc releases.
 
-David
+> Is it required to change something in the mach-pxa machine specific files?
+Nope. As long as CONFIG_PXA_DMA is set, it's alright. Building on top of
+linux-next of the future v4.3-rc1 would be better, as the dmaengine support
+should be consistent across drivers/dma and arch/arm/mach-pxa in there.
+
+> Which hardware was used for testing new dma engine implementation? Notably MMC
+> driver part, probably commit:
+Mioa701 (pxa270), cm-x300 (pxa310), zylonite (pxa310). The MMC was specificaly
+tested on mioa701, on top of linux-next a week ago (about the day v4.2 was released).
+
+Now with your stack, could you also give me the upstream commit id of the tip of
+the tree you're using (before your patches) please ?
+
+And it is true I have not tested the rootfs special case, where drivers are not
+yet initialized (and more specifically gpio and interrupt chip). Your backtrace
+should tell me if you fall into this category of issues ... but I digress, this
+has no link with pxaficp.
+
+Cheers.
+
+-- 
+Robert
