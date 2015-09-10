@@ -1,91 +1,81 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [PATCH net 1/1] r8169: fix sleepable allocation during netdevice
- stats retrieval.
-Date: Thu, 10 Sep 2015 16:29:51 +0200
-Message-ID: <20150910142951.GA25217@calimero.vinschen.de>
-References: <55EE81D8.4010008@gmail.com>
- <55F04F40.4040901@gmail.com>
- <20150909155404.GC19913@calimero.vinschen.de>
- <20150909155511.GD19913@calimero.vinschen.de>
- <55F07BBC.9020308@gmail.com>
- <20150909190805.GA26699@calimero.vinschen.de>
- <55F0BCB6.5030508@gmail.com>
- <55F0C5F5.4040101@gmail.com>
- <20150910084709.GB19486@calimero.vinschen.de>
- <55F1793C.50205@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: fix race on protocol/netns initialization
+Date: Thu, 10 Sep 2015 11:36:13 -0300
+Message-ID: <55F1955D.8010302@gmail.com>
+References: <27f20cc781cac28bc2ce7229719748a2f6824bd8.1441827818.git.marcelo.leitner@gmail.com>
+ <20150909.171600.1487892650387164045.davem@davemloft.net>
+ <55F17D69.2050404@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB9194F@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="TB36FDmn/VVEgNH/"
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Mike Massonnet <m8t@gandi.net>,
-	Bernhard Walle <bernhard.walle@gmx.de>,
-	Hendrik Scholz <hscholz@raisdorf.net>,
-	Florian Rivoal <frivoal@xfce.org>
-To: poma <pomidorabelisima@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"vyasevich@gmail.com" <vyasevich@gmail.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:47884 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709AbbIJO3y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 10:29:54 -0400
-Content-Disposition: inline
-In-Reply-To: <55F1793C.50205@gmail.com>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:33193 "EHLO
+	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752439AbbIJOgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 10:36:20 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB9194F@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Em 10-09-2015 10:02, David Laight escreveu:
+> From: Marcelo Ricardo Leitner
+>> Sent: 10 September 2015 13:54
+>> Em 09-09-2015 21:16, David Miller escreveu:
+>>> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+>>> Date: Wed,  9 Sep 2015 17:03:01 -0300
+>>>
+>>>> So the fix then is to invert the initialization order inside
+>>>> register_pernet_subsys() so that the control socket is created by last
+>>>> and also block socket creation if netns initialization wasn't yet
+>>>> performed.
+>>>
+>>> If we really need to we could make ->create() fail with -EAFNOSUPPORT
+>>> if kern==1 until the protocol is fully setup.
+>>>
+>>> Or, instead of failing, we could make such ->create() calls block
+>>> until the control sock init is complete or fails.
+>>
+>> I guess I should have written that paragraph in another order, perhaps like:
+>> So the fix then is to deny any sctp socket creation until netns
+>> initialization is sufficiently done. And due to that, we have to
+>> initialize the control socket as last step in netns initialization, as
+>> now it can't be created earlier anymore.
+>>
+>> Is it clearer on the intention?
+>>
+>> And my emphasis on userspace sockets was to highlight that a random user
+>> could trigger it, but yes both users are affected by the issue.
+>>
+>> Strictly speaking, we would have to block ->create() not until the
+>> control socket init is done but until the protocol is fully loaded. Such
+>> condition, with this patch, is after net->sctp.auto_asconf_splist is
+>> initialized. But for blocking until instead of just denying, we would
+>> need some other mechanism.
+>>
+>> It would be better from the (sctp) user point of view but then such
+>> solution may better belong to another layer instead and protect all
+>> protocols at once. (I checked and couldn't find other protocols at risk
+>> like sctp)
+>
+> Given that the first ->create() blocks while the protocol code loads
+> it really wouldn't be right to error a subsequent ->create() because
+> the load hasn't completed.
 
---TB36FDmn/VVEgNH/
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Can't say I don't agree with you, but at the same time, there are other 
+temporary errors that can happen and that the user should just retry. 
+This would be just another condition in a trade off for avoiding complexity.
 
-On Sep 10 14:36, poma wrote:
-> On 10.09.2015 10:47, Corinna Vinschen wrote:
-> > On Sep 10 01:51, poma wrote:
-> >> [PATCH v2] r8169: Fix sleeping function called during get_stats64
-> >> http://www.spinics.net/lists/netdev/msg342490.html
-> >> - the noise is still present
-> >>
-> >> Corinna, care to share kernel-core & kernel-modules you are testing wi=
-th,
-> >> to unravel the Gordian Knot?
-> >=20
-> > Somehow your initrd seem to refuse to pick up the new kernel module.
-> > [...etc...]
->=20
-> [PATCH v3] r8169: Fix sleeping function called during get_stats64, v2
-> http://marc.info/?l=3Dlinux-netdev&m=3D144187488130444&q=3Draw
->=20
-> # dracut --omit-drivers r8169 -f --kver 4.3.0-0.rc0.git11.1.fc24.x86_64
->=20
-> - the noise is gone
->=20
-> Tested-by: poma <pomidorabelisima@gmail.com>
+> I hold a semaphore across sock_create_kern() because of issues with sctp.
+> (Current kernels are nowhere near as bad as really old ones though.)
 
-Thanks for testing!
+Oh, that's not good to hear. I'll experiment with that later, try to 
+catch some bugs. :)
 
-
-Corinna
-
---TB36FDmn/VVEgNH/
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJV8ZPfAAoJEPU2Bp2uRE+g2L0P/RQTGMo+HkcjBvJspaDbMcPf
-FrVVR9JUcy1dtxIUEvhH55TgEK0qDbst3zu/5t+ocNlYk1TmWCTpvlLluUZCp8lR
-ufxFy+3G0zUTdbXC8XwJjj/Pw8pmiOG0mhHQr8BEWK0/HtnAyB0aortq8Dhxi/nN
-f6qmv5rQUR46pWl/ttkArjLqyQiJCwvQpnoE/F1N/ApZ6hs1BgcrSn9vxWmD4VzU
-yOVR0eXE7/t9V5TMSIuyA765iLKqySwdL4xy4eJhyyC17y+MRV9R2e8AFHXTeNOP
-jvrLGUK7qN/nDVL0B9zLf3KokAxbTNWVL9TX3Hy0dVCv3cF1c1aVxST3sPWHtZdk
-o7IFDvnneavLh9NyazCO2lDMWRUlfInpqGpwgHawvOVG6GR8VgTlbGrhuZCEilJb
-5OqJKhUHMJHU0u4pitksQyhxHuRVlKLmRAxYj6GB0C5WfiJ59QqXSUlnqLi0mBF1
-pWxw44yVMshCgPluP+dAVBerduF1VhEbDjxPin4RSR6nxrrE2n+zoCOce964si0A
-peQ4n3dh3fEGY+Uo+ycr5EaQrqlUW1HNWwxTBq/DkY51GJ82ptBFoQXDIpQkvDBH
-qP0/vOagkJ2sLbTIFe9/AAioDkndatFMea59CIoyf3/zwSOF6SqqVhBIU4CjrxAH
-DlZlZgEqQXUhWdsiXRV0
-=Q+OK
------END PGP SIGNATURE-----
-
---TB36FDmn/VVEgNH/--
+   Marcelo
