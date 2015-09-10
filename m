@@ -1,264 +1,251 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: [PATCH] net: smc91x: convert pxa dma to dmaengine
-Date: Thu, 10 Sep 2015 21:26:04 +0200
-Message-ID: <1441913164-3785-1-git-send-email-robert.jarzmik@free.fr>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Robert Jarzmik <robert.jarzmik@free.fr>
-To: Nicolas Pitre <nico@fluxnic.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: [PATCH v7 03/10] ss: removed obsolet fmt functions
+Date: Thu, 10 Sep 2015 21:35:01 +0200
+Message-ID: <1441913708-15532-4-git-send-email-matthias.tafelmeier@gmx.net>
+References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
+	edumazet@google.com, daniel@iogearbox.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.22]:52880 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750819AbbIJTfV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2015 15:35:21 -0400
+In-Reply-To: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
-slave driver. This makes this driver a bit more PXA agnostic.
+Those functions are obsoleted since the new fmt handler mechanism
+subsumes their tasks. Rendundancy would be contradictory to
+the new mechanism.
 
-The driver was tested on pxa27x (mainstone) and pxa310 (zylonite),
-ie. only pxa platforms.
-
-Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
-This has potential to break other platform such as Neponset, Idp,
-halibut and qsd8x50, so I added Russell and Arnd as they were discussing
-smc91x support last February.
----
- drivers/net/ethernet/smsc/smc91x.c | 29 +++++++----
- drivers/net/ethernet/smsc/smc91x.h | 99 +++++++++++++++++++++++++-------------
- 2 files changed, 84 insertions(+), 44 deletions(-)
+ misc/ss.c | 190 --------------------------------------------------------------
+ 1 file changed, 190 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 630f0b7800e4..0e2fc1a844ab 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -2018,10 +2018,18 @@ static int smc_probe(struct net_device *dev, void __iomem *ioaddr,
- 	lp->cfg.flags |= SMC91X_USE_DMA;
- #  endif
- 	if (lp->cfg.flags & SMC91X_USE_DMA) {
--		int dma = pxa_request_dma(dev->name, DMA_PRIO_LOW,
--					  smc_pxa_dma_irq, NULL);
--		if (dma >= 0)
--			dev->dma = dma;
-+		dma_cap_mask_t mask;
-+		struct pxad_param param;
-+
-+		dma_cap_zero(mask);
-+		dma_cap_set(DMA_SLAVE, mask);
-+		param.prio = PXAD_PRIO_LOWEST;
-+		param.drcmr = -1UL;
-+
-+		lp->dma_chan =
-+			dma_request_slave_channel_compat(mask, pxad_filter_fn,
-+							 &param, &dev->dev,
-+							 "data");
- 	}
- #endif
+diff --git a/misc/ss.c b/misc/ss.c
+index 83775d1..4cc6991 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -649,43 +649,6 @@ static const char *sstate_namel[] = {
+ 	[SS_CLOSING] = "closing",
+ };
  
-@@ -2032,8 +2040,8 @@ static int smc_probe(struct net_device *dev, void __iomem *ioaddr,
- 			    version_string, revision_register & 0x0f,
- 			    lp->base, dev->irq);
- 
--		if (dev->dma != (unsigned char)-1)
--			pr_cont(" DMA %d", dev->dma);
-+		if (lp->dma_chan)
-+			pr_cont(" DMA %p", lp->dma_chan);
- 
- 		pr_cont("%s%s\n",
- 			lp->cfg.flags & SMC91X_NOWAIT ? " [nowait]" : "",
-@@ -2058,8 +2066,8 @@ static int smc_probe(struct net_device *dev, void __iomem *ioaddr,
- 
- err_out:
- #ifdef CONFIG_ARCH_PXA
--	if (retval && dev->dma != (unsigned char)-1)
--		pxa_free_dma(dev->dma);
-+	if (retval && lp->dma_chan)
-+		dma_release_channel(lp->dma_chan);
- #endif
- 	return retval;
- }
-@@ -2370,6 +2378,7 @@ static int smc_drv_probe(struct platform_device *pdev)
- 		struct smc_local *lp = netdev_priv(ndev);
- 		lp->device = &pdev->dev;
- 		lp->physaddr = res->start;
-+
- 	}
- #endif
- 
-@@ -2406,8 +2415,8 @@ static int smc_drv_remove(struct platform_device *pdev)
- 	free_irq(ndev->irq, ndev);
- 
- #ifdef CONFIG_ARCH_PXA
--	if (ndev->dma != (unsigned char)-1)
--		pxa_free_dma(ndev->dma);
-+	if (lp->dma_chan)
-+		dma_release_channel(lp->dma_chan);
- #endif
- 	iounmap(lp->base);
- 
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index 3a18501d1068..a3c129e1e40a 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -33,6 +33,7 @@
- #ifndef _SMC91X_H_
- #define _SMC91X_H_
- 
-+#include <linux/dmaengine.h>
- #include <linux/smc91x.h>
- 
- /*
-@@ -244,6 +245,7 @@ struct smc_local {
- 	u_long physaddr;
- 	struct device *device;
- #endif
-+	struct dma_chan *dma_chan;
- 	void __iomem *base;
- 	void __iomem *datacs;
- 
-@@ -265,21 +267,47 @@ struct smc_local {
-  * as RX which can overrun memory and lose packets.
-  */
- #include <linux/dma-mapping.h>
--#include <mach/dma.h>
-+#include <linux/dma/pxa-dma.h>
- 
- #ifdef SMC_insl
- #undef SMC_insl
- #define SMC_insl(a, r, p, l) \
- 	smc_pxa_dma_insl(a, lp, r, dev->dma, p, l)
- static inline void
-+smc_pxa_dma_inpump(struct smc_local *lp, u_char *buf, int len)
-+{
-+	dma_addr_t dmabuf;
-+	struct dma_async_tx_descriptor *tx;
-+	dma_cookie_t cookie;
-+	enum dma_status status;
-+	struct dma_tx_state state;
-+
-+	dmabuf = dma_map_single(lp->device, buf, len, DMA_FROM_DEVICE);
-+	tx = dmaengine_prep_slave_single(lp->dma_chan, dmabuf, len,
-+					 DMA_DEV_TO_MEM, 0);
-+	if (tx) {
-+		cookie = dmaengine_submit(tx);
-+		dma_async_issue_pending(lp->dma_chan);
-+		do {
-+			status = dmaengine_tx_status(lp->dma_chan, cookie,
-+						     &state);
-+			cpu_relax();
-+		} while (status != DMA_COMPLETE && status != DMA_ERROR &&
-+			 state.residue);
-+		dmaengine_terminate_all(lp->dma_chan);
-+	}
-+	dma_unmap_single(lp->device, dmabuf, len, DMA_FROM_DEVICE);
-+}
-+
-+static inline void
- smc_pxa_dma_insl(void __iomem *ioaddr, struct smc_local *lp, int reg, int dma,
- 		 u_char *buf, int len)
- {
--	u_long physaddr = lp->physaddr;
--	dma_addr_t dmabuf;
-+	struct dma_slave_config	config;
-+	int ret;
- 
- 	/* fallback if no DMA available */
--	if (dma == (unsigned char)-1) {
-+	if (!lp->dma_chan) {
- 		readsl(ioaddr + reg, buf, len);
- 		return;
- 	}
-@@ -291,18 +319,22 @@ smc_pxa_dma_insl(void __iomem *ioaddr, struct smc_local *lp, int reg, int dma,
- 		len--;
- 	}
- 
-+	memset(&config, 0, sizeof(config));
-+	config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-+	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-+	config.src_addr = lp->physaddr + reg;
-+	config.dst_addr = lp->physaddr + reg;
-+	config.src_maxburst = 32;
-+	config.dst_maxburst = 32;
-+	ret = dmaengine_slave_config(lp->dma_chan, &config);
-+	if (ret) {
-+		dev_err(lp->device, "dma channel configuration failed: %d\n",
-+			ret);
-+		return;
-+	}
-+
- 	len *= 4;
--	dmabuf = dma_map_single(lp->device, buf, len, DMA_FROM_DEVICE);
--	DCSR(dma) = DCSR_NODESC;
--	DTADR(dma) = dmabuf;
--	DSADR(dma) = physaddr + reg;
--	DCMD(dma) = (DCMD_INCTRGADDR | DCMD_BURST32 |
--		     DCMD_WIDTH4 | (DCMD_LENGTH & len));
--	DCSR(dma) = DCSR_NODESC | DCSR_RUN;
--	while (!(DCSR(dma) & DCSR_STOPSTATE))
--		cpu_relax();
--	DCSR(dma) = 0;
--	dma_unmap_single(lp->device, dmabuf, len, DMA_FROM_DEVICE);
-+	smc_pxa_dma_inpump(lp, buf, len);
- }
- #endif
- 
-@@ -314,11 +346,11 @@ static inline void
- smc_pxa_dma_insw(void __iomem *ioaddr, struct smc_local *lp, int reg, int dma,
- 		 u_char *buf, int len)
- {
--	u_long physaddr = lp->physaddr;
--	dma_addr_t dmabuf;
-+	struct dma_slave_config	config;
-+	int ret;
- 
- 	/* fallback if no DMA available */
--	if (dma == (unsigned char)-1) {
-+	if (!lp->dma_chan) {
- 		readsw(ioaddr + reg, buf, len);
- 		return;
- 	}
-@@ -330,26 +362,25 @@ smc_pxa_dma_insw(void __iomem *ioaddr, struct smc_local *lp, int reg, int dma,
- 		len--;
- 	}
- 
-+	memset(&config, 0, sizeof(config));
-+	config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
-+	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
-+	config.src_addr = lp->physaddr + reg;
-+	config.dst_addr = lp->physaddr + reg;
-+	config.src_maxburst = 32;
-+	config.dst_maxburst = 32;
-+	ret = dmaengine_slave_config(lp->dma_chan, &config);
-+	if (ret) {
-+		dev_err(lp->device, "dma channel configuration failed: %d\n",
-+			ret);
-+		return;
-+	}
-+
- 	len *= 2;
--	dmabuf = dma_map_single(lp->device, buf, len, DMA_FROM_DEVICE);
--	DCSR(dma) = DCSR_NODESC;
--	DTADR(dma) = dmabuf;
--	DSADR(dma) = physaddr + reg;
--	DCMD(dma) = (DCMD_INCTRGADDR | DCMD_BURST32 |
--		     DCMD_WIDTH2 | (DCMD_LENGTH & len));
--	DCSR(dma) = DCSR_NODESC | DCSR_RUN;
--	while (!(DCSR(dma) & DCSR_STOPSTATE))
--		cpu_relax();
--	DCSR(dma) = 0;
--	dma_unmap_single(lp->device, dmabuf, len, DMA_FROM_DEVICE);
-+	smc_pxa_dma_inpump(lp, buf, len);
- }
- #endif
- 
--static void
--smc_pxa_dma_irq(int dma, void *dummy)
+-static void sock_state_print(struct sockstat *s, const char *sock_name)
 -{
--	DCSR(dma) = 0;
+-	if (netid_width)
+-		printf("%-*s ", netid_width, sock_name);
+-	if (state_width)
+-		printf("%-*s ", state_width, sstate_name[s->state]);
+-
+-	printf("%-6d %-6d ", s->rq, s->wq);
 -}
- #endif  /* CONFIG_ARCH_PXA */
+-
+-static void sock_details_print(struct sockstat *s)
+-{
+-	if (s->uid)
+-		printf(" uid:%u", s->uid);
+-
+-	printf(" ino:%u", s->ino);
+-	printf(" sk:%llx", s->sk);
+-}
+-
+-static void sock_addr_print_width(int addr_len, const char *addr, char *delim,
+-		int port_len, const char *port, const char *ifname)
+-{
+-	if (ifname) {
+-		printf("%*s%%%s%s%-*s ", addr_len, addr, ifname, delim,
+-				port_len, port);
+-	}
+-	else {
+-		printf("%*s%s%-*s ", addr_len, addr, delim, port_len, port);
+-	}
+-}
+-
+-static void sock_addr_print(const char *addr, char *delim, const char *port,
+-		const char *ifname)
+-{
+-	sock_addr_print_width(addr_width, addr, delim, serv_width, port, ifname);
+-}
+-
+ static const char *tmr_name[] = {
+ 	"off",
+ 	"on",
+@@ -695,33 +658,6 @@ static const char *tmr_name[] = {
+ 	"unknown"
+ };
  
+-static const char *print_ms_timer(int timeout)
+-{
+-	static char buf[64];
+-	int secs, msecs, minutes;
+-	if (timeout < 0)
+-		timeout = 0;
+-	secs = timeout/1000;
+-	minutes = secs/60;
+-	secs = secs%60;
+-	msecs = timeout%1000;
+-	buf[0] = 0;
+-	if (minutes) {
+-		msecs = 0;
+-		snprintf(buf, sizeof(buf)-16, "%dmin", minutes);
+-		if (minutes > 9)
+-			secs = 0;
+-	}
+-	if (secs) {
+-		if (secs > 9)
+-			msecs = 0;
+-		sprintf(buf+strlen(buf), "%d%s", secs, msecs ? "." : "sec");
+-	}
+-	if (msecs)
+-		sprintf(buf+strlen(buf), "%03dms", msecs);
+-	return buf;
+-}
+-
+ struct scache *rlist;
  
+ static void init_service_resolver(void)
+@@ -1484,122 +1420,6 @@ static int proc_inet_split_line(char *line, char **loc, char **rem, char **data)
+ 	return 0;
+ }
+ 
+-static char *sprint_bw(char *buf, double bw)
+-{
+-	if (bw > 1000000.)
+-		sprintf(buf,"%.1fM", bw / 1000000.);
+-	else if (bw > 1000.)
+-		sprintf(buf,"%.1fK", bw / 1000.);
+-	else
+-		sprintf(buf, "%g", bw);
+-
+-	return buf;
+-}
+-
+-static void tcp_stats_print(struct tcpstat *s)
+-{
+-	char b1[64];
+-
+-	if (s->has_ts_opt)
+-		printf(" ts");
+-	if (s->has_sack_opt)
+-		printf(" sack");
+-	if (s->has_ecn_opt)
+-		printf(" ecn");
+-	if (s->has_ecnseen_opt)
+-		printf(" ecnseen");
+-	if (s->has_fastopen_opt)
+-		printf(" fastopen");
+-	if (s->cong_alg[0])
+-		printf(" %s", s->cong_alg);
+-	if (s->has_wscale_opt)
+-		printf(" wscale:%d,%d", s->snd_wscale, s->rcv_wscale);
+-	if (s->rto)
+-		printf(" rto:%g", s->rto);
+-	if (s->backoff)
+-		printf(" backoff:%u", s->backoff);
+-	if (s->rtt)
+-		printf(" rtt:%g/%g", s->rtt, s->rttvar);
+-	if (s->ato)
+-		printf(" ato:%g", s->ato);
+-
+-	if (s->qack)
+-		printf(" qack:%d", s->qack);
+-	if (s->qack & 1)
+-		printf(" bidir");
+-
+-	if (s->mss)
+-		printf(" mss:%d", s->mss);
+-	if (s->cwnd)
+-		printf(" cwnd:%d", s->cwnd);
+-	if (s->ssthresh)
+-		printf(" ssthresh:%d", s->ssthresh);
+-
+-	if (s->bytes_acked)
+-		printf(" bytes_acked:%llu", s->bytes_acked);
+-	if (s->bytes_received)
+-		printf(" bytes_received:%llu", s->bytes_received);
+-	if (s->segs_out)
+-		printf(" segs_out:%u", s->segs_out);
+-	if (s->segs_in)
+-		printf(" segs_in:%u", s->segs_in);
+-
+-	if (s->dctcp && s->dctcp->enabled) {
+-		struct dctcpstat *dctcp = s->dctcp;
+-
+-		printf(" dctcp:(ce_state:%u,alpha:%u,ab_ecn:%u,ab_tot:%u)",
+-				dctcp->ce_state, dctcp->alpha, dctcp->ab_ecn,
+-				dctcp->ab_tot);
+-	} else if (s->dctcp) {
+-		printf(" dctcp:fallback_mode");
+-	}
+-
+-	if (s->send_bps)
+-		printf(" send %sbps", sprint_bw(b1, s->send_bps));
+-	if (s->lastsnd)
+-		printf(" lastsnd:%u", s->lastsnd);
+-	if (s->lastrcv)
+-		printf(" lastrcv:%u", s->lastrcv);
+-	if (s->lastack)
+-		printf(" lastack:%u", s->lastack);
+-
+-	if (s->pacing_rate) {
+-		printf(" pacing_rate %sbps", sprint_bw(b1, s->pacing_rate));
+-		if (s->pacing_rate_max)
+-				printf("/%sbps", sprint_bw(b1,
+-							s->pacing_rate_max));
+-	}
+-
+-	if (s->unacked)
+-		printf(" unacked:%u", s->unacked);
+-	if (s->retrans || s->retrans_total)
+-		printf(" retrans:%u/%u", s->retrans, s->retrans_total);
+-	if (s->lost)
+-		printf(" lost:%u", s->lost);
+-	if (s->sacked && s->ss.state != SS_LISTEN)
+-		printf(" sacked:%u", s->sacked);
+-	if (s->fackets)
+-		printf(" fackets:%u", s->fackets);
+-	if (s->reordering != 3)
+-		printf(" reordering:%d", s->reordering);
+-	if (s->rcv_rtt)
+-		printf(" rcv_rtt:%g", s->rcv_rtt);
+-	if (s->rcv_space)
+-		printf(" rcv_space:%d", s->rcv_space);
+-}
+-
+-static void tcp_timer_print(struct tcpstat *s)
+-{
+-	if (s->timer) {
+-		if (s->timer > 4)
+-			s->timer = 5;
+-		printf(" timer:(%s,%s,%d)",
+-				tmr_name[s->timer],
+-				print_ms_timer(s->timeout),
+-				s->retrans);
+-	}
+-}
+-
+ static int tcp_show_line(char *line, const struct filter *f, int family)
+ {
+ 	int rto = 0, ato = 0;
+@@ -2694,16 +2514,6 @@ static int packet_stats_print(struct sockstat *s, const struct filter *f)
+ 	return 0;
+ }
+ 
+-static void packet_show_ring(struct packet_diag_ring *ring)
+-{
+-	printf("blk_size:%d", ring->pdr_block_size);
+-	printf(",blk_nr:%d", ring->pdr_block_nr);
+-	printf(",frm_size:%d", ring->pdr_frame_size);
+-	printf(",frm_nr:%d", ring->pdr_frame_nr);
+-	printf(",tmo:%d", ring->pdr_retire_tmo);
+-	printf(",features:0x%x", ring->pdr_features);
+-}
+-
+ static int packet_show_sock(const struct sockaddr_nl *addr,
+ 		struct nlmsghdr *nlh, void *arg)
+ {
 -- 
-2.1.4
+1.9.1
