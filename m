@@ -1,77 +1,30 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: fix race on protocol/netns initialization
-Date: Thu, 10 Sep 2015 13:24:54 -0300
-Message-ID: <20150910162454.GB4496@localhost.localdomain>
-References: <27f20cc781cac28bc2ce7229719748a2f6824bd8.1441827818.git.marcelo.leitner@gmail.com>
- <55F096EB.7000204@gmail.com>
- <55F09F57.6080602@gmail.com>
- <55F1847A.9010801@gmail.com>
- <55F19243.3010006@gmail.com>
- <55F1A6AE.2010804@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC net-next 01/10] qed: Add module with basic common support
+Date: Thu, 10 Sep 2015 10:10:57 -0700 (PDT)
+Message-ID: <20150910.101057.1870095895052608803.davem@davemloft.net>
+References: <1441893261-6222-1-git-send-email-Yuval.Mintz@qlogic.com>
+	<1441893261-6222-2-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59410 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751598AbbIJQY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2015 12:24:58 -0400
-Content-Disposition: inline
-In-Reply-To: <55F1A6AE.2010804@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41126 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751489AbbIJRLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 13:11:01 -0400
+In-Reply-To: <1441893261-6222-2-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 10, 2015 at 11:50:06AM -0400, Vlad Yasevich wrote:
-> On 09/10/2015 10:22 AM, Marcelo Ricardo Leitner wrote:
-> > Em 10-09-2015 10:24, Vlad Yasevich escreveu:
-...
-> >> Then you can order sctp_net_init() such that it happens first, then protosw registration
-> >> happens, then control socket initialization happens, then inet protocol registration
-> >> happens.
-> >>
-> >> This way, we are always guaranteed that by the time user calls socket(), protocol
-> >> defaults are fully initialized.
-> > 
-> > Okay, that works for module loading stage, but then how would we handle new netns's? We
-> > have to create the control socket per netns and AFAICT sctp_net_init() is the only hook
-> > called when a new netns is being created.
-> > 
-> > Then if we move it a workqueue that is scheduled by sctp_net_init(), we loose the ability
-> > to handle its errors by propagating through sctp_net_init() return value, not good.
-> 
-> Here is kind of what I had in mind.  It's incomplete and completely untested (not even
-> compiled), but good enough to describe the idea:
-...
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Thu, 10 Sep 2015 16:54:12 +0300
 
-Ohh, ok now I get it, thanks. If having two pernet_subsys for a given
-module is fine, that works for me. It's clearer and has no moment of
-temporary failure.
+>  Documentation/networking/LICENSE.qlogic            |  288 ++
 
-I can finish this patch if everybody agrees with it.
+I do not want to get into the habit of having to add copy after copy
+of the GPL v2 to the source tree, so this is rather inappropriate.
 
-> >>> I used the list pointer because that's null as that memory is entirely zeroed when alloced
-> >>> and, after initialization, it's never null again. Works like a lock/condition without
-> >>> using an extra field.
-> >>>
-> >>
-> >> I understand this a well.  What I don't particularly like is that we are re-using
-> >> a list without really stating why it's now done this way.  Additionally, it's not really
-> >> the last that happens so it's seems kind of hacky...  If we need to add new
-> >> per-net initializers, we now need to make sure that the code is put in the right
-> >> place.  I'd just really like to have a cleaner solution...
-> > 
-> > Ok, got you. We could add a dedicated flag/bit for that then, if reusing the list is not
-> > clear enough. Or, as we are discussing on the other part of thread, we could make it block
-> > and wait for the initialization, probably using some wait_queue. I'm still thinking on
-> > something this way, likely something more below than sctp then.
-> > 
-> 
-> I think if we don the above, the second process calling socket() will either find the
-> the protosw or will try to load the module also.  I think either is ok after
-> request_module returns we'll look at the protosw and will find find things.
-
-Seems so, yes. Nice.
-
-  Marcelo
+Everything said in that file is explicitly covered by the top-level
+COPYING file.
