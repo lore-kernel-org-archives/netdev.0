@@ -1,109 +1,95 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH 2/2 v2] net: Remove VRF change to udp_sendmsg
-Date: Wed, 9 Sep 2015 17:51:19 -0700
-Message-ID: <CALx6S35Fwu5QsR-W=0LVzvZv_PGqbV3TGR9T5YRU65QCY0OgzQ@mail.gmail.com>
-References: <1441835862-41403-1-git-send-email-dsa@cumulusnetworks.com>
-	<1441835862-41403-2-git-send-email-dsa@cumulusnetworks.com>
-	<CALx6S35scg=6vr9zPBD=_VPHGDwkq22hQM4Ce2roi4j5DXrYZw@mail.gmail.com>
-	<55F0CD92.7080700@cumulusnetworks.com>
+From: Tycho Andersen <tycho.andersen@canonical.com>
+Subject: Re: [PATCH 3/6] ebpf: add a way to dump an eBPF program
+Date: Wed, 9 Sep 2015 18:58:53 -0600
+Message-ID: <20150910005853.GG26679@smitten>
+References: <CAGXu5jJ5+EFDRpgJC6U8Y4nvPEh2fivi-TZRNC-4qP9Gi7B7pA@mail.gmail.com>
+ <20150904204554.GO26679@smitten>
+ <CALCETrW5fS5d73ASJvhUuK=Yret7hcWD-B9NhZ3EsnCaw0MWFQ@mail.gmail.com>
+ <20150904222855.GT26679@smitten>
+ <CALCETrUY7B381DrzfDSvmDyZ98KAdWMHvpbJffJ0_ApjzH-Kbw@mail.gmail.com>
+ <20150905002727.GA3890@hopstrocity>
+ <20150909223422.GE26679@smitten>
+ <CALCETrUhb9DiaJXppbJ4PwV1xD1cmd8xH+J27h6HQN23oRcO+Q@mail.gmail.com>
+ <20150910001315.GF26679@smitten>
+ <CALCETrVJ1qwBwiB=abCa1G3bf_dqyQroYFLvuZt6WPQsYmJvqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:36733 "EHLO
-	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751429AbbIJAvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 20:51:20 -0400
-Received: by ioii196 with SMTP id i196so42780169ioi.3
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 17:51:20 -0700 (PDT)
-In-Reply-To: <55F0CD92.7080700@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Cyrill Gorcunov <gorcunov@parallels.com>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrVJ1qwBwiB=abCa1G3bf_dqyQroYFLvuZt6WPQsYmJvqA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 9, 2015 at 5:23 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 9/9/15 6:04 PM, Tom Herbert wrote:
->>
->> On Wed, Sep 9, 2015 at 2:57 PM, David Ahern <dsa@cumulusnetworks.com>
->> wrote:
->>>
->>> Remove the VRF change in udp_sendmsg to set the source address. The VRF
->>> driver already has access to the packet on the TX path via the dst. It
->>> can be used to update the source address in the header. Since the VRF
->>> device is directly associated with a table use fib_table_lookup rather
->>> than the ip_route_output lookup functions.
->>>
->>> Function to update source address based on similar code in OVS.
->>>
->> I have the same comment as in v1 of this patch. Implementing address
->> selection by doing SNAT is not the right approach.
->
->
-> Hi Tom:
->
-> As I mentioned before this is not SNAT. The source address is being done at
-> L3 just as it is in the non-VRF case, and it is only set if the prior layers
-> have not.
->
-It is NAT since you are changing the source address and modifying the
-transport protocol checksum below IP and transport layer. There are a
-bunch of side effects that you would need to consider. This is
-creating custom APIs changing the semantics of address selection, and
-also creates inconsistency between how addresses may be selected
-between a connected and unconnected sockets. Consider that
-ip_local_out_sk calls netfilter NF_INET_LOCAL_OUT hook before
-dst->output, so then netfilter would start seeing packets with zero
-source address???
+On Wed, Sep 09, 2015 at 05:44:06PM -0700, Andy Lutomirski wrote:
+> On Wed, Sep 9, 2015 at 5:13 PM, Tycho Andersen
+> <tycho.andersen@canonical.com> wrote:
+> > On Wed, Sep 09, 2015 at 04:44:24PM -0700, Andy Lutomirski wrote:
+> >> On Wed, Sep 9, 2015 at 3:34 PM, Tycho Andersen
+> >> <tycho.andersen@canonical.com> wrote:
+> >> >
+> >> > Here's a thought,
+> >> >
+> >> > The set I'm currently proposing effectively separates the ref-counting
+> >> > of the struct seccomp_filter from the struct bpf_prog (by necessity,
+> >> > since we're referring to filters from fds). What if we went a little
+> >> > futher, and made a copy of each seccomp_filter on fork(), keeping it
+> >> > pointed at the same bpf_prog but adding some metadata about how it was
+> >> > inherited (tsk->seccomp.filter->inheritence_count++ perhaps). This
+> >> > would still require this change:
+> >>
+> >> Won't that break the tsync mechanism?
+> >
+> > We'll need the change I posted (is_ancestor comparing the underlying
+> > bpf_prog instead of the seccomp_filter), but then I think it'll work.
+> > I guess we'll need to do some more bookkeeping when we install filters
+> > via TSYNC since each thread would need its own seccomp_filter, and
+> > we'd also have to decide whether a filter installed via TSYNC was
+> > inherited or not.
+> >
+> > Am I missing something?
+> 
+> Yes.  I don't think that:
+> 
+> int fd = [create an ebpf fd];
+> if (fork()) {
+>   /* Process A */
+>   seccomp(attach fd);
+>   ...
+> } else {
+>   /* Process B */
+>   seccomp(attach fd);
+>   ...
+> }
+> 
+> should result in processes A and B being considered to have the same
+> seccomp_filter state.  In particular, I eventually want to make the
+> seccomp_filter state be considerably more interesting than just the
+> bpf program.
+> 
+> There's another severe problem, I think.  Suppose that ebpf1 and ebpf2
+> are ebpf fds.  If processes C and D start out with no filters at all,
+> C attaches ebpf1 and ebpf2, and D attaches just ebpf2, then C and D
+> are definitely *not* in the same state, and neither is an ancestor of
+> the other.
 
-A lot of design in the stack is predicated on inet_select_addr
-returning the source address to use for sending a packet. This should
-always return a reasonable address as an invariant, if someone wishes
-to rewrite addresses at a lower layer that's fine, but that should be
-defined as a NAT operation. If a device wants to weigh in on address
-selection then we can define an ndo function for that as I mentioned
-before.
+Ah, yes.
 
-Tom
+> IOW I really do think that seccomp_filter should have identity.
 
-> vrf_set_ip_saddr is called by vrf_output. Setting a probe on a test case
-> shows:
->
-> root@vm-wheezy:~# perf probe vrf_output
-> Added new event:
->   probe:vrf_output     (on vrf_output)
->
-> You can now use it in all perf tools, such as:
->
->         perf record -e probe:vrf_output -aR sleep 1
->
-> root@vm-wheezy:~# perf record -e probe:vrf_output -a -g -- vrf-test -t dgram
-> -I vrf10 -r 10.2.1.254
-> 09/09/2015 11:19:40 Sent message:
-> 09/09/2015 11:19:40     Hello world!
-> 09/09/2015 11:19:40 Message from: 10.2.1.254:12345
-> 09/09/2015 11:19:40     Hello world!
-> [ perf record: Woken up 1 times to write data ]
-> [ perf record: Captured and wrote 0.050 MB perf.data (1 samples) ]
->
-> root@vm-wheezy:~# perf script --kallsyms /tmp/kallsyms
-> vrf-test  2773 [002]   207.598817: probe:vrf_output: (ffffffff813a5959)
->         ffffffff813a595a vrf_output ([kernel.kallsyms])
->         ffffffff81451dd7 ip_local_out_sk ([kernel.kallsyms])
->         ffffffff81452cd7 ip_send_skb ([kernel.kallsyms])
->         ffffffff8147571e udp_send_skb ([kernel.kallsyms])
->         ffffffff81475f6f udp_sendmsg ([kernel.kallsyms])
->         ffffffff8147feec inet_sendmsg ([kernel.kallsyms])
->         ffffffff813ffc18 sock_sendmsg_nosec ([kernel.kallsyms])
->         ffffffff81401414 SYSC_sendto ([kernel.kallsyms])
->         ffffffff814015dd sys_sendto ([kernel.kallsyms])
->         ffffffff81526572 entry_SYSCALL_64_fastpath ([kernel.kallsyms])
->                    dc9d3 sendto (/lib/x86_64-linux-gnu/libc-2.13.so)
->                     3217 main (/root/bin/vrf-test)
->                    1eead __libc_start_main
-> (/lib/x86_64-linux-gnu/libc-2.13.so)
->
-> Packets are diverted to the VRF device via a static/custom dst which has the
-> output operation set to vrf_output.
->
-> David
->
+What if we kept a pointer to the seccomp_filter that was inherited on
+fork()? Everything "below" that in the tree is not inherited, and
+everything above is. Unfortunately, it's not obvious how to restore
+this state.
+
+Tycho
