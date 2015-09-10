@@ -1,42 +1,35 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH 2/5] lan78xx: Add PHYLIB and MICROCHIP_PHY as default config.
-Date: Thu, 10 Sep 2015 22:16:08 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D557D98@CHN-SV-EXMX02.mchp-main.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [pve-devel] bridge vlan range, kernel 4.1 : "message truncated"
+ warning when too much vlans defined
+Date: Thu, 10 Sep 2015 15:26:30 -0700
+Message-ID: <55F20396.9090505@cumulusnetworks.com>
+References: <1522237479.23555412.1438194289391.JavaMail.zimbra@oxygem.tv> <E4CD12F19ABA0C4D8729E087A761DC350F536639@ORSMSX101.amr.corp.intel.com> <999679133.23642075.1438234304221.JavaMail.zimbra@oxygem.tv> <972878625.39892449.1441867226052.JavaMail.zimbra@oxygem.tv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Arad, Ronen" <ronen.arad@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	Rami Rosen <rami.rosen@intel.com>
+To: Alexandre DERUMIER <aderumier@odiso.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp02.microchip.com ([198.175.253.38]:39688 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751130AbbIJWQI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 18:16:08 -0400
-Content-Language: en-US
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33231 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751114AbbIJW0b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 18:26:31 -0400
+Received: by pacex6 with SMTP id ex6so54984791pac.0
+        for <netdev@vger.kernel.org>; Thu, 10 Sep 2015 15:26:31 -0700 (PDT)
+In-Reply-To: <972878625.39892449.1441867226052.JavaMail.zimbra@oxygem.tv>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add PHYLIB and MICROCHIP_PHY as default configuration for  lan78xx.
 
-Repost with new order of patches.
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
----
- drivers/net/usb/Kconfig | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 1610b79..d9ca7aa 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -109,6 +109,8 @@ config USB_RTL8152
- config USB_LAN78XX
- 	tristate "Microchip LAN78XX Based USB Ethernet Adapters"
- 	select MII
-+	select PHYLIB
-+	select MICROCHIP_PHY
- 	help
- 	  This option adds support for Microchip LAN78XX based USB 2
- 	  & USB 3 10/100/1000 Ethernet adapters.
--- 
-2.1.4
+On 9/9/15, 11:40 PM, Alexandre DERUMIER wrote:
+> Hi,
+>
+> This still not fixed in iproute 4.2.
+>
+> Is they any plan to increase the rtnl_dump_filter buffer size soon ?
+>
+Instead of increasing the default size, it would be nicer if this was 
+configurable for iproute2 (I haven't looked yet).
