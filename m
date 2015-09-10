@@ -1,29 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 1/5] stmmac: replace all pr_xxx by their netdev_xxx
- counterpart
-Date: Thu, 10 Sep 2015 08:44:54 -0700
-Message-ID: <1441899894.17219.160.camel@perches.com>
-References: <1441888653-30535-1-git-send-email-clabbe.montjoie@gmail.com>
-	 <1441888653-30535-2-git-send-email-clabbe.montjoie@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: IFLA_INET6_[ICMP6]STATS
+Date: Thu, 10 Sep 2015 11:48:19 -0400
+Message-ID: <20150910154819.GL20544@oracle.com>
+References: <20150909213444.GD20544@oracle.com>
+ <20150909.144308.360246374222280540.davem@davemloft.net>
+ <20150909214528.GE20544@oracle.com>
+ <55F1A53E.1010908@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: LABBE Corentin <clabbe.montjoie@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	raghavendra.kt@linux.vnet.ibm.com
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0150.hostedemail.com ([216.40.44.150]:52246 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752659AbbIJPo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 11:44:57 -0400
-In-Reply-To: <1441888653-30535-2-git-send-email-clabbe.montjoie@gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:44304 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753574AbbIJPsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 11:48:36 -0400
+Content-Disposition: inline
+In-Reply-To: <55F1A53E.1010908@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-09-10 at 14:37 +0200, LABBE Corentin wrote:
-> So this patch replace all pr_xxx by their dev_xxx counterpart.
+On (09/10/15 08:43), roopa wrote:
+> If you decide to use a flag, there is IFLA_EXT_MASK which is used to
+> specify such filters from userspace today.
+> 
+> /* New extended info filters for IFLA_EXT_MASK */
+> #define RTEXT_FILTER_VF         (1 << 0)
+> #define RTEXT_FILTER_BRVLAN     (1 << 1)
+> #define RTEXT_FILTER_BRVLAN_COMPRESSED  (1 << 2)
 
-Minor mismatch between subject and commit message.
-Maybe not worth resending.
+I was actually going to use a NLM_F* flag, which is what
+I thought Dave as suggesting (seems a bit simpler
+than IFLA_EXT_MASK). 
 
-Thanks
+--Sowmini
