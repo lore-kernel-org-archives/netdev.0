@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/2] xen-net{front,back}: respect user provided
- max_queues
-Date: Wed, 09 Sep 2015 22:05:53 -0700 (PDT)
-Message-ID: <20150909.220553.642261089490536395.davem@davemloft.net>
-References: <1441794186-26991-1-git-send-email-wei.liu2@citrix.com>
-	<20150909.215322.1247922588988536450.davem@davemloft.net>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net v4] ipv6: fix multipath route replace error recovery
+Date: Wed, 09 Sep 2015 22:08:03 -0700
+Message-ID: <55F11033.6090303@cumulusnetworks.com>
+References: <1441734784-34416-1-git-send-email-roopa@cumulusnetworks.com> <20150909.141059.1681588831579060449.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org
-To: wei.liu2@citrix.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.dichtel@6wind.com, mkubecek@suse.cz,
+	Mazziesaccount@gmail.com, hannes@stressinduktion.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37344 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750813AbbIJFFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 01:05:54 -0400
-In-Reply-To: <20150909.215322.1247922588988536450.davem@davemloft.net>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35543 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803AbbIJFIG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 01:08:06 -0400
+Received: by pacfv12 with SMTP id fv12so32131129pac.2
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 22:08:06 -0700 (PDT)
+In-Reply-To: <20150909.141059.1681588831579060449.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAwOSBT
-ZXAgMjAxNSAyMTo1MzoyMiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFdlaSBMaXUgPHdlaS5saXUy
-QGNpdHJpeC5jb20+DQo+IERhdGU6IFdlZCwgOSBTZXAgMjAxNSAxMToyMzowNCArMDEwMA0KPiAN
-Cj4+IFdlaSBMaXUgKDIpOg0KPj4gICB4ZW4tbmV0YmFjazogcmVzcGVjdCB1c2VyIHByb3ZpZGVk
-IG1heF9xdWV1ZXMNCj4+ICAgeGVuLW5ldGZyb250OiByZXNwZWN0IHVzZXIgcHJvdmlkZWQgbWF4
-X3F1ZXVlcw0KPiANCj4gQm90aCBhcHBsaWVkLCB0aGFua3MuDQoNCllvLCB0aGlzIGRvZXNuJ3Qg
-ZXZlbiBjb21waWxlIQ0KDQpkcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYzogSW4gZnVuY3Rpb24g
-oW5ldGlmX2luaXSiOg0KZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmM6MjEzODo2OiBlcnJvcjog
-oXhlbnZpZl9tYXhfcXVldWVzoiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlv
-bikNCiAgaWYgKHhlbnZpZl9tYXhfcXVldWVzID09IDApDQogICAgICBeDQpkcml2ZXJzL25ldC94
-ZW4tbmV0ZnJvbnQuYzoyMTM4OjY6IG5vdGU6IGVhY2ggdW5kZWNsYXJlZCBpZGVudGlmaWVyIGlz
-IHJlcG9ydGVkIG9ubHkgb25jZSBmb3IgZWFjaCBmdW5jdGlvbiBpdCBhcHBlYXJzIGluDQoNCg==
+On 9/9/15, 2:10 PM, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Tue,  8 Sep 2015 10:53:04 -0700
+>
+>> This patch reduces the possibility of this by doing the following:
+>> a) Changes the existing multipath route add code to a two stage process:
+>>    build rt6_infos + insert them
+>> 	ip6_route_add rt6_info creation code is moved into
+>> 	ip6_route_info_create.
+>> b) This ensures that most errors are caught during building rt6_infos
+>>    and we fail early
+>> c) Separates multipath add and del code. Because add needs the special
+>>    two stage mode in a) and delete essentially does not care.
+>> d) In any event if the code fails during inserting a route again, a
+>>    warning is printed (This should be unlikely)
+> Looks good, follows the usual "prepare/commit" paradigm.
+>
+> Applied, thanks.
+>
+> For net-next, it might be nice to make ip6_route_info_create() return
+> error pointers instead of returning the rt pointer by reference.
+ok, sounds good. Will post a patch with the error pointer to next-next 
+when it opens. thanks.
