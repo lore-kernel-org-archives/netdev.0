@@ -1,446 +1,371 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [RFC net-next 09/10] qed: Add statistics support
-Date: Thu, 10 Sep 2015 16:54:20 +0300
-Message-ID: <1441893261-6222-10-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [RFC net-next 06/10] qede: classification configuration
+Date: Thu, 10 Sep 2015 16:54:17 +0300
+Message-ID: <1441893261-6222-7-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1441893261-6222-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, <Yuval.Mintz@qlogic.com>,
-	Manish Chopra <Manish.Chopra@qlogic.com>
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:61172 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753235AbbIJN4H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 09:56:07 -0400
-Received: from pps.filterd (m0045602.ppops.net [127.0.0.1])
-	by mx0a-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t8ADqOO3030682
-	for <netdev@vger.kernel.org>; Thu, 10 Sep 2015 06:56:07 -0700
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:33181 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753439AbbIJNz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 09:55:57 -0400
+Received: from pps.filterd (m0085408.ppops.net [127.0.0.1])
+	by mx0b-0016ce01.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id t8ADqrvG013420
+	for <netdev@vger.kernel.org>; Thu, 10 Sep 2015 06:55:57 -0700
 Received: from avcashub1.qlogic.com (avcashub3.qlogic.com [198.70.193.117])
-	by mx0a-0016ce01.pphosted.com with ESMTP id 1wqyhvq02q-1
+	by mx0b-0016ce01.pphosted.com with ESMTP id 1wqycnf4bu-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 10 Sep 2015 06:56:07 -0700
+	for <netdev@vger.kernel.org>; Thu, 10 Sep 2015 06:55:57 -0700
 In-Reply-To: <1441893261-6222-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <Manish.Chopra@qlogic.com>
+From: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 
-Device statistics can be gathered on-demand. This adds the qed support for
-reading the statistics [both function and port] from the device, and adds
-to the public API a method for requesting the current statistics.
+Add the ability to configure basic classification in driver by
+implementing ndo_set_mac_address() and ndo_set_rx_mode().
 
-Signed-off-by: Manish Chopra <Manish.Chopra@qlogic.com>
+Signed-off-by: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h         |  14 ++
- drivers/net/ethernet/qlogic/qed/qed_dev.c     | 244 +++++++++++++++++++++++++-
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h |   3 +
- drivers/net/ethernet/qlogic/qed/qed_hsi.h     |  30 ++++
- drivers/net/ethernet/qlogic/qed/qed_l2.c      |   3 +
- include/linux/qed/qed_eth_if.h                |   3 +
- 6 files changed, 296 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qede/qede.h      |  10 ++
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 241 +++++++++++++++++++++++++++
+ 2 files changed, 251 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 020b67d..62cf799 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -214,7 +214,20 @@ struct qed_qm_info {
- 	u32				pf_rl;
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 1aaa013..c611520 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -88,6 +88,9 @@ struct qede_dev {
+ 	struct qed_update_vport_rss_params	rss_params;
+ 	u16			q_num_rx_buffers; /* Must be a power of two */
+ 	u16			q_num_tx_buffers; /* Must be a power of two */
++
++	struct delayed_work		sp_task;
++	unsigned long			sp_flags;
  };
  
-+struct storm_stats {
-+	u32     address;
-+	u32     len;
+ enum QEDE_STATE {
+@@ -187,6 +190,13 @@ struct qede_fastpath {
+ 
+ #define QEDE_CSUM_ERROR			BIT(0)
+ #define QEDE_CSUM_UNNECESSARY		BIT(1)
++
++#define QEDE_SP_RX_MODE		1
++
++union qede_reload_args {
++	u16 mtu;
 +};
 +
-+struct qed_storm_stats {
-+	struct storm_stats mstats;
-+	struct storm_stats pstats;
-+	struct storm_stats tstats;
-+	struct storm_stats ustats;
-+};
+ #define RX_RING_SIZE_POW	13
+ #define RX_RING_SIZE		BIT(RX_RING_SIZE_POW)
+ #define NUM_RX_BDS_MAX		(RX_RING_SIZE - 1)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index bb94c38..93d48d5 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -1029,10 +1029,31 @@ static irqreturn_t qede_msix_fp_int(int irq, void *fp_cookie)
+ 
+ static int qede_open(struct net_device *ndev);
+ static int qede_close(struct net_device *ndev);
++static int qede_set_mac_addr(struct net_device *ndev, void *p);
++static void qede_set_rx_mode(struct net_device *ndev);
++static void qede_config_rx_mode(struct net_device *ndev);
 +
- struct qed_fw_data {
-+	struct fw_ver_info	*fw_ver_info;
- 	const u8		*modes_tree_buf;
- 	union init_op		*init_ops;
- 	const u32		*arr_data;
-@@ -298,6 +311,7 @@ struct qed_hwfn {
- 
- 	/* QM init */
- 	struct qed_qm_info		qm_info;
-+	struct qed_storm_stats		storm_stats;
- 
- 	/* Buffer for unzipping firmware data */
- 	void				*unzip_buf;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index fb4ac19..cabbc90 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -646,8 +646,10 @@ int qed_hw_init(struct qed_dev *cdev,
- 		bool allow_npar_tx_switch,
- 		const u8 *bin_fw_data)
- {
--	u32 load_code, param;
-+	struct qed_storm_stats *p_stat;
-+	u32 load_code, param, *p_address;
- 	int rc, mfw_rc, i;
-+	u8 fw_vport = 0;
- 
- 	rc = qed_init_fw_data(cdev, bin_fw_data);
- 	if (rc != 0)
-@@ -656,6 +658,10 @@ int qed_hw_init(struct qed_dev *cdev,
- 	for_each_hwfn(cdev, i) {
- 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
- 
-+		rc = qed_fw_vport(p_hwfn, 0, &fw_vport);
-+		if (rc != 0)
-+			return rc;
++static int qede_set_ucast_rx_mac(struct qede_dev *edev,
++				 enum qed_filter_xcast_params_type opcode,
++				 unsigned char mac[ETH_ALEN])
++{
++	struct qed_filter_params filter_cmd;
 +
- 		/* Enable DMAE in PXP */
- 		rc = qed_change_pci_hwfn(p_hwfn, p_hwfn->p_main_ptt, true);
++	memset(&filter_cmd, 0, sizeof(filter_cmd));
++	filter_cmd.type = QED_FILTER_TYPE_UCAST;
++	filter_cmd.filter.ucast.type = opcode;
++	filter_cmd.filter.ucast.mac_valid = 1;
++	ether_addr_copy(filter_cmd.filter.ucast.mac, mac);
++
++	return edev->ops->filter_config(edev->cdev, &filter_cmd);
++}
++
+ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_open = qede_open,
+ 	.ndo_stop = qede_close,
+ 	.ndo_start_xmit = qede_start_xmit,
++	.ndo_set_rx_mode = qede_set_rx_mode,
++	.ndo_set_mac_address = qede_set_mac_addr,
+ 	.ndo_validate_addr = eth_validate_addr,
+ };
  
-@@ -722,6 +728,25 @@ int qed_hw_init(struct qed_dev *cdev,
- 		}
- 
- 		p_hwfn->hw_init_done = true;
-+
-+		/* init PF stats */
-+		p_stat = &p_hwfn->storm_stats;
-+		p_stat->mstats.address = BAR0_MAP_REG_MSDM_RAM +
-+					 MSTORM_QUEUE_STAT_OFFSET(fw_vport);
-+		p_stat->mstats.len = sizeof(struct eth_mstorm_per_queue_stat);
-+
-+		p_stat->ustats.address = BAR0_MAP_REG_USDM_RAM +
-+					 USTORM_QUEUE_STAT_OFFSET(fw_vport);
-+		p_stat->ustats.len = sizeof(struct eth_ustorm_per_queue_stat);
-+
-+		p_stat->pstats.address = BAR0_MAP_REG_PSDM_RAM +
-+					 PSTORM_QUEUE_STAT_OFFSET(fw_vport);
-+		p_stat->pstats.len = sizeof(struct eth_pstorm_per_queue_stat);
-+
-+		p_address = &p_stat->tstats.address;
-+		*p_address = BAR0_MAP_REG_TSDM_RAM +
-+			     TSTORM_PORT_STAT_OFFSET(MFW_PORT(p_hwfn));
-+		p_stat->tstats.len = sizeof(struct tstorm_per_port_stat);
- 	}
- 
- 	return 0;
-@@ -1502,6 +1527,223 @@ void qed_chain_free(struct qed_dev *cdev,
- 			  p_chain->p_phys_addr);
+@@ -1197,6 +1218,20 @@ err:
+ 	return -ENOMEM;
  }
  
-+static void __qed_get_vport_stats(struct qed_dev	*cdev,
-+				  struct qed_eth_stats  *stats)
++static void qede_sp_task(struct work_struct *work)
 +{
-+	int i, j;
++	struct qede_dev *edev = container_of(work, struct qede_dev,
++					     sp_task.work);
++	mutex_lock(&edev->qede_lock);
 +
-+	memset(stats, 0, sizeof(*stats));
-+
-+	for_each_hwfn(cdev, i) {
-+		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
-+		struct eth_mstorm_per_queue_stat mstats;
-+		struct eth_ustorm_per_queue_stat ustats;
-+		struct eth_pstorm_per_queue_stat pstats;
-+		struct tstorm_per_port_stat tstats;
-+		struct port_stats port_stats;
-+		struct qed_ptt *p_ptt = qed_ptt_acquire(p_hwfn);
-+
-+		if (!p_ptt) {
-+			DP_ERR(p_hwfn, "Failed to acquire ptt\n");
-+			continue;
-+		}
-+
-+		memset(&mstats, 0, sizeof(mstats));
-+		qed_memcpy_from(p_hwfn, p_ptt, &mstats,
-+				p_hwfn->storm_stats.mstats.address,
-+				p_hwfn->storm_stats.mstats.len);
-+
-+		memset(&ustats, 0, sizeof(ustats));
-+		qed_memcpy_from(p_hwfn, p_ptt, &ustats,
-+				p_hwfn->storm_stats.ustats.address,
-+				p_hwfn->storm_stats.ustats.len);
-+
-+		memset(&pstats, 0, sizeof(pstats));
-+		qed_memcpy_from(p_hwfn, p_ptt, &pstats,
-+				p_hwfn->storm_stats.pstats.address,
-+				p_hwfn->storm_stats.pstats.len);
-+
-+		memset(&tstats, 0, sizeof(tstats));
-+		qed_memcpy_from(p_hwfn, p_ptt, &tstats,
-+				p_hwfn->storm_stats.tstats.address,
-+				p_hwfn->storm_stats.tstats.len);
-+
-+		memset(&port_stats, 0, sizeof(port_stats));
-+
-+		if (p_hwfn->mcp_info)
-+			qed_memcpy_from(p_hwfn, p_ptt, &port_stats,
-+					p_hwfn->mcp_info->port_addr +
-+					offsetof(struct public_port, stats),
-+					sizeof(port_stats));
-+		qed_ptt_release(p_hwfn, p_ptt);
-+
-+		stats->no_buff_discards +=
-+			HILO_64_REGPAIR(mstats.no_buff_discard);
-+		stats->packet_too_big_discard +=
-+			HILO_64_REGPAIR(mstats.packet_too_big_discard);
-+		stats->ttl0_discard +=
-+			HILO_64_REGPAIR(mstats.ttl0_discard);
-+		stats->tpa_coalesced_pkts +=
-+			HILO_64_REGPAIR(mstats.tpa_coalesced_pkts);
-+		stats->tpa_coalesced_events +=
-+			HILO_64_REGPAIR(mstats.tpa_coalesced_events);
-+		stats->tpa_aborts_num +=
-+			HILO_64_REGPAIR(mstats.tpa_aborts_num);
-+		stats->tpa_coalesced_bytes +=
-+			HILO_64_REGPAIR(mstats.tpa_coalesced_bytes);
-+
-+		stats->rx_ucast_bytes +=
-+			HILO_64_REGPAIR(ustats.rcv_ucast_bytes);
-+		stats->rx_mcast_bytes +=
-+			HILO_64_REGPAIR(ustats.rcv_mcast_bytes);
-+		stats->rx_bcast_bytes +=
-+			HILO_64_REGPAIR(ustats.rcv_bcast_bytes);
-+		stats->rx_ucast_pkts +=
-+			HILO_64_REGPAIR(ustats.rcv_ucast_pkts);
-+		stats->rx_mcast_pkts +=
-+			HILO_64_REGPAIR(ustats.rcv_mcast_pkts);
-+		stats->rx_bcast_pkts +=
-+			HILO_64_REGPAIR(ustats.rcv_bcast_pkts);
-+
-+		stats->mftag_filter_discards +=
-+			HILO_64_REGPAIR(tstats.mftag_filter_discard);
-+		stats->mac_filter_discards +=
-+			HILO_64_REGPAIR(tstats.eth_mac_filter_discard);
-+
-+		stats->tx_ucast_bytes +=
-+			HILO_64_REGPAIR(pstats.sent_ucast_bytes);
-+		stats->tx_mcast_bytes +=
-+			HILO_64_REGPAIR(pstats.sent_mcast_bytes);
-+		stats->tx_bcast_bytes +=
-+			HILO_64_REGPAIR(pstats.sent_bcast_bytes);
-+		stats->tx_ucast_pkts +=
-+			HILO_64_REGPAIR(pstats.sent_ucast_pkts);
-+		stats->tx_mcast_pkts +=
-+			HILO_64_REGPAIR(pstats.sent_mcast_pkts);
-+		stats->tx_bcast_pkts +=
-+			HILO_64_REGPAIR(pstats.sent_bcast_pkts);
-+		stats->tx_err_drop_pkts +=
-+			HILO_64_REGPAIR(pstats.error_drop_pkts);
-+		stats->rx_64_byte_packets       += port_stats.pmm.r64;
-+		stats->rx_127_byte_packets      += port_stats.pmm.r127;
-+		stats->rx_255_byte_packets      += port_stats.pmm.r255;
-+		stats->rx_511_byte_packets      += port_stats.pmm.r511;
-+		stats->rx_1023_byte_packets     += port_stats.pmm.r1023;
-+		stats->rx_1518_byte_packets     += port_stats.pmm.r1518;
-+		stats->rx_1522_byte_packets     += port_stats.pmm.r1522;
-+		stats->rx_2047_byte_packets     += port_stats.pmm.r2047;
-+		stats->rx_4095_byte_packets     += port_stats.pmm.r4095;
-+		stats->rx_9216_byte_packets     += port_stats.pmm.r9216;
-+		stats->rx_16383_byte_packets    += port_stats.pmm.r16383;
-+		stats->rx_crc_errors	    += port_stats.pmm.rfcs;
-+		stats->rx_mac_crtl_frames       += port_stats.pmm.rxcf;
-+		stats->rx_pause_frames	  += port_stats.pmm.rxpf;
-+		stats->rx_pfc_frames	    += port_stats.pmm.rxpp;
-+		stats->rx_align_errors	  += port_stats.pmm.raln;
-+		stats->rx_carrier_errors	+= port_stats.pmm.rfcr;
-+		stats->rx_oversize_packets      += port_stats.pmm.rovr;
-+		stats->rx_jabbers	       += port_stats.pmm.rjbr;
-+		stats->rx_undersize_packets     += port_stats.pmm.rund;
-+		stats->rx_fragments	     += port_stats.pmm.rfrg;
-+		stats->tx_64_byte_packets       += port_stats.pmm.t64;
-+		stats->tx_65_to_127_byte_packets += port_stats.pmm.t127;
-+		stats->tx_128_to_255_byte_packets += port_stats.pmm.t255;
-+		stats->tx_256_to_511_byte_packets  += port_stats.pmm.t511;
-+		stats->tx_512_to_1023_byte_packets += port_stats.pmm.t1023;
-+		stats->tx_1024_to_1518_byte_packets += port_stats.pmm.t1518;
-+		stats->tx_1519_to_2047_byte_packets += port_stats.pmm.t2047;
-+		stats->tx_2048_to_4095_byte_packets += port_stats.pmm.t4095;
-+		stats->tx_4096_to_9216_byte_packets += port_stats.pmm.t9216;
-+		stats->tx_9217_to_16383_byte_packets += port_stats.pmm.t16383;
-+		stats->tx_pause_frames	  += port_stats.pmm.txpf;
-+		stats->tx_pfc_frames	    += port_stats.pmm.txpp;
-+		stats->tx_lpi_entry_count       += port_stats.pmm.tlpiec;
-+		stats->tx_total_collisions      += port_stats.pmm.tncl;
-+		stats->rx_mac_bytes	     += port_stats.pmm.rbyte;
-+		stats->rx_mac_uc_packets	+= port_stats.pmm.rxuca;
-+		stats->rx_mac_mc_packets	+= port_stats.pmm.rxmca;
-+		stats->rx_mac_bc_packets	+= port_stats.pmm.rxbca;
-+		stats->rx_mac_frames_ok	 += port_stats.pmm.rxpok;
-+		stats->tx_mac_bytes	     += port_stats.pmm.tbyte;
-+		stats->tx_mac_uc_packets	+= port_stats.pmm.txuca;
-+		stats->tx_mac_mc_packets	+= port_stats.pmm.txmca;
-+		stats->tx_mac_bc_packets	+= port_stats.pmm.txbca;
-+		stats->tx_mac_ctrl_frames       += port_stats.pmm.txcf;
-+
-+		for (j = 0; j < 8; j++) {
-+			stats->brb_truncates += port_stats.brb.brb_truncate[j];
-+			stats->brb_discards += port_stats.brb.brb_discard[j];
-+		}
-+	}
-+}
-+
-+void qed_get_vport_stats(struct qed_dev *cdev,
-+			 struct qed_eth_stats *stats)
-+{
-+	u32 i;
-+
-+	if (!cdev) {
-+		memset(stats, 0, sizeof(*stats));
-+		return;
++	if (edev->state == QEDE_STATE_OPEN) {
++		if (test_and_clear_bit(QEDE_SP_RX_MODE, &edev->sp_flags))
++			qede_config_rx_mode(edev->ndev);
 +	}
 +
-+	__qed_get_vport_stats(cdev, stats);
-+
-+	if (!cdev->reset_stats)
-+		return;
-+
-+	/* Reduce the statistics baseline */
-+	for (i = 0; i < sizeof(struct qed_eth_stats) / sizeof(u64); i++)
-+		((u64 *)stats)[i] -= ((u64 *)cdev->reset_stats)[i];
++	mutex_unlock(&edev->qede_lock);
 +}
 +
-+/* zeroes V-PORT specific portion of stats (Port stats remains untouched) */
-+void qed_reset_vport_stats(struct qed_dev *cdev)
+ static void qede_update_pf_params(struct qed_dev *cdev)
+ {
+ 	struct qed_pf_params pf_params;
+@@ -1268,6 +1303,9 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
+ 
+ 	edev->ops->common->set_id(cdev, edev->ndev->name, DRV_MODULE_VERSION);
+ 
++	INIT_DELAYED_WORK(&edev->sp_task, qede_sp_task);
++	mutex_init(&edev->qede_lock);
++
+ 	DP_INFO(edev, "Ending successfully qede probe\n");
+ 
+ 	return 0;
+@@ -1305,6 +1343,7 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
+ 
+ 	DP_INFO(edev, "Starting qede_remove\n");
+ 
++	cancel_delayed_work_sync(&edev->sp_task);
+ 	unregister_netdev(ndev);
+ 
+ 	edev->ops->common->set_power_state(cdev, PCI_D0);
+@@ -2024,6 +2063,24 @@ static int qede_start_queues(struct qede_dev *edev)
+ 	return 0;
+ }
+ 
++static int qede_set_mcast_rx_mac(struct qede_dev *edev,
++				 enum qed_filter_xcast_params_type opcode,
++				 unsigned char *mac, int num_macs)
 +{
++	struct qed_filter_params filter_cmd;
 +	int i;
 +
-+	for_each_hwfn(cdev, i) {
-+		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
-+		struct eth_mstorm_per_queue_stat mstats;
-+		struct eth_ustorm_per_queue_stat ustats;
-+		struct eth_pstorm_per_queue_stat pstats;
-+		struct qed_ptt *p_ptt = qed_ptt_acquire(p_hwfn);
++	memset(&filter_cmd, 0, sizeof(filter_cmd));
++	filter_cmd.type = QED_FILTER_TYPE_MCAST;
++	filter_cmd.filter.mcast.type = opcode;
++	filter_cmd.filter.mcast.num = num_macs;
 +
-+		if (!p_ptt) {
-+			DP_ERR(p_hwfn, "Failed to acquire ptt\n");
-+			continue;
-+		}
++	for (i = 0; i < num_macs; i++, mac += ETH_ALEN)
++		ether_addr_copy(filter_cmd.filter.mcast.mac[i], mac);
 +
-+		memset(&mstats, 0, sizeof(mstats));
-+		qed_memcpy_to(p_hwfn, p_ptt,
-+			      p_hwfn->storm_stats.mstats.address,
-+			      &mstats,
-+			      p_hwfn->storm_stats.mstats.len);
-+
-+		memset(&ustats, 0, sizeof(ustats));
-+		qed_memcpy_to(p_hwfn, p_ptt,
-+			      p_hwfn->storm_stats.ustats.address,
-+			      &ustats,
-+			      p_hwfn->storm_stats.ustats.len);
-+
-+		memset(&pstats, 0, sizeof(pstats));
-+		qed_memcpy_to(p_hwfn, p_ptt,
-+			      p_hwfn->storm_stats.pstats.address,
-+			      &pstats,
-+			      p_hwfn->storm_stats.pstats.len);
-+
-+		qed_ptt_release(p_hwfn, p_ptt);
-+	}
-+
-+	/* PORT statistics are not necessarily reset, so we need to
-+	 * read and create a baseline for future statistics.
-+	 */
-+	if (!cdev->reset_stats)
-+		DP_INFO(cdev, "Reset stats not allocated\n");
-+	else
-+		__qed_get_vport_stats(cdev, cdev->reset_stats);
++	return edev->ops->filter_config(edev->cdev, &filter_cmd);
 +}
 +
- int qed_fw_l2_queue(struct qed_hwfn *p_hwfn,
- 		    u16 src_id,
- 		    u16 *dst_id)
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-index 4fa6cd4..759123b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-@@ -154,6 +154,9 @@ struct qed_ptt *qed_ptt_acquire(struct qed_hwfn *p_hwfn);
-  */
- void qed_ptt_release(struct qed_hwfn	*p_hwfn,
- 		     struct qed_ptt	*p_ptt);
-+void qed_get_vport_stats(struct qed_dev *cdev,
-+			 struct qed_eth_stats   *stats);
-+void qed_reset_vport_stats(struct qed_dev *cdev);
- 
- enum qed_dmae_address_type_t {
- 	QED_DMAE_ADDRESS_HOST_VIRT,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 8640b8b..3550ac6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -353,6 +353,36 @@ struct core_conn_context {
- 	struct regpair			ustorm_st_padding[2] /* padding */;
+ enum qede_unload_mode {
+ 	QEDE_UNLOAD_NORMAL,
  };
+@@ -2034,6 +2091,9 @@ static void qede_unload(struct qede_dev *edev, enum qede_unload_mode mode)
  
-+struct eth_mstorm_per_queue_stat {
-+	struct regpair  ttl0_discard;
-+	struct regpair  packet_too_big_discard;
-+	struct regpair  no_buff_discard;
-+	struct regpair  not_active_discard;
-+	struct regpair  tpa_coalesced_pkts;
-+	struct regpair  tpa_coalesced_events;
-+	struct regpair  tpa_aborts_num;
-+	struct regpair  tpa_coalesced_bytes;
-+};
-+
-+struct eth_pstorm_per_queue_stat {
-+	struct regpair  sent_ucast_bytes;
-+	struct regpair  sent_mcast_bytes;
-+	struct regpair  sent_bcast_bytes;
-+	struct regpair  sent_ucast_pkts;
-+	struct regpair  sent_mcast_pkts;
-+	struct regpair  sent_bcast_pkts;
-+	struct regpair  error_drop_pkts;
-+};
-+
-+struct eth_ustorm_per_queue_stat {
-+	struct regpair  rcv_ucast_bytes;
-+	struct regpair  rcv_mcast_bytes;
-+	struct regpair  rcv_bcast_bytes;
-+	struct regpair  rcv_ucast_pkts;
-+	struct regpair  rcv_mcast_pkts;
-+	struct regpair  rcv_bcast_pkts;
-+};
-+
- /* Event Ring Next Page Address */
- struct event_ring_next_addr {
- 	struct regpair	addr /* Next Page Address */;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 996dfb3..14ec550 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -1352,6 +1352,8 @@ static int qed_start_vport(struct qed_dev	*cdev,
- 			   vport_id, mtu);
- 	}
+ 	DP_INFO(edev, "Starting qede unload\n");
  
-+	qed_reset_vport_stats(cdev);
++	mutex_lock(&edev->qede_lock);
++	edev->state = QEDE_STATE_CLOSED;
 +
+ 	/* Close OS Tx */
+ 	netif_tx_disable(edev->ndev);
+ 	netif_carrier_off(edev->ndev);
+@@ -2108,6 +2168,9 @@ static int qede_load(struct qede_dev *edev, enum qede_load_mode mode)
+ 	/* Add primary mac and set Rx filters */
+ 	ether_addr_copy(edev->primary_mac, edev->ndev->dev_addr);
+ 
++	mutex_lock(&edev->qede_lock);
++	edev->state = QEDE_STATE_OPEN;
++	mutex_unlock(&edev->qede_lock);
+ 	DP_INFO(edev, "Ending successfully qede load\n");
+ 
+ 	return 0;
+@@ -2152,3 +2215,181 @@ static int qede_close(struct net_device *ndev)
+ 
  	return 0;
  }
- 
-@@ -1746,6 +1748,7 @@ static const struct qed_eth_ops qed_eth_ops_pass = {
- 	.filter_config = &qed_configure_filter,
- 	.fastpath_stop = &qed_fastpath_stop,
- 	.eth_cqe_completion = &qed_fp_cqe_completion,
-+	.get_vport_stats = &qed_get_vport_stats,
- };
- 
- const struct qed_eth_ops	*qed_get_eth_ops(u32 version)
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 9a65f2b..5ec930f 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -148,6 +148,9 @@ struct qed_eth_ops {
- 	int (*eth_cqe_completion)(struct qed_dev *cdev,
- 				  u8 rss_id,
- 				  struct eth_slow_path_rx_cqe *cqe);
 +
-+	void (*get_vport_stats)(struct qed_dev *cdev,
-+				struct qed_eth_stats *stats);
- };
- 
- const struct qed_eth_ops *qed_get_eth_ops(u32 version);
++static int qede_set_mac_addr(struct net_device *ndev, void *p)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++	struct sockaddr *addr = p;
++	int rc;
++
++	ASSERT_RTNL(); /* @@@TBD To be removed */
++
++	DP_INFO(edev, "Set_mac_addr called\n");
++
++	if (!is_valid_ether_addr(addr->sa_data)) {
++		DP_NOTICE(edev, "The MAC address is not valid\n");
++		return -EFAULT;
++	}
++
++	ether_addr_copy(ndev->dev_addr, addr->sa_data);
++
++	if (!netif_running(ndev))  {
++		DP_NOTICE(edev, "The device is currently down\n");
++		return 0;
++	}
++
++	/* Remove the previous primary mac */
++	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
++				   edev->primary_mac);
++	if (rc)
++		return rc;
++
++	/* Add MAC filter according to the new unicast HW MAC address */
++	ether_addr_copy(edev->primary_mac, ndev->dev_addr);
++	return qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
++				      edev->primary_mac);
++}
++
++static int
++qede_configure_mcast_filtering(struct net_device *ndev,
++			       enum qed_filter_rx_mode_type *accept_flags)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++	unsigned char *mc_macs, *temp;
++	struct netdev_hw_addr *ha;
++	int rc = 0, mc_count;
++	size_t size;
++
++	size = 64 * ETH_ALEN;
++
++	mc_macs = kzalloc(size, GFP_KERNEL);
++	if (!mc_macs) {
++		DP_NOTICE(edev,
++			  "Failed to allocate memory for multicast MACs\n");
++		rc = -ENOMEM;
++		goto exit;
++	}
++
++	temp = mc_macs;
++
++	/* Remove all previously configured MAC filters */
++	rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
++				   mc_macs, 1);
++	if (rc)
++		goto exit;
++
++	netif_addr_lock_bh(ndev);
++
++	mc_count = netdev_mc_count(ndev);
++	if (mc_count < 64) {
++		netdev_for_each_mc_addr(ha, ndev) {
++			ether_addr_copy(temp, ha->addr);
++			temp += ETH_ALEN;
++		}
++	}
++
++	netif_addr_unlock_bh(ndev);
++
++	/* Check for all multicast @@@TBD resource allocation */
++	if ((ndev->flags & IFF_ALLMULTI) ||
++	    (mc_count > 64)) {
++		if (*accept_flags == QED_FILTER_RX_MODE_TYPE_REGULAR)
++			*accept_flags = QED_FILTER_RX_MODE_TYPE_MULTI_PROMISC;
++	} else {
++		/* Add all multicast MAC filters */
++		rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
++					   mc_macs, mc_count);
++	}
++
++exit:
++	kfree(mc_macs);
++	return rc;
++}
++
++static void qede_set_rx_mode(struct net_device *ndev)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++
++	DP_INFO(edev, "qede_set_rx_mode called\n");
++
++	if (edev->state != QEDE_STATE_OPEN) {
++		DP_INFO(edev,
++			"qede_set_rx_mode called while interface is down\n");
++	} else {
++		set_bit(QEDE_SP_RX_MODE, &edev->sp_flags);
++		schedule_delayed_work(&edev->sp_task, 0);
++	}
++}
++
++/* Must be called with qede_lock held */
++static void qede_config_rx_mode(struct net_device *ndev)
++{
++	enum qed_filter_rx_mode_type accept_flags = QED_FILTER_TYPE_UCAST;
++	struct qede_dev *edev = netdev_priv(ndev);
++	struct qed_filter_params rx_mode;
++	unsigned char *uc_macs, *temp;
++	struct netdev_hw_addr *ha;
++	int rc, uc_count;
++	size_t size;
++
++	netif_addr_lock_bh(ndev);
++
++	uc_count = netdev_uc_count(ndev);
++	size = uc_count * ETH_ALEN;
++
++	uc_macs = kzalloc(size, GFP_ATOMIC);
++	if (!uc_macs) {
++		DP_NOTICE(edev, "Failed to allocate memory for unicast MACs\n");
++		netif_addr_unlock_bh(ndev);
++		return;
++	}
++
++	temp = uc_macs;
++	netdev_for_each_uc_addr(ha, ndev) {
++		ether_addr_copy(temp, ha->addr);
++		temp += ETH_ALEN;
++	}
++
++	netif_addr_unlock_bh(ndev);
++
++	/* Configure the struct for the Rx mode */
++	memset(&rx_mode, 0, sizeof(struct qed_filter_params));
++	rx_mode.type = QED_FILTER_TYPE_RX_MODE;
++
++	/* Remove all previous unicast secondary macs and multicast macs
++	 * (configrue / leave the primary mac)
++	 */
++	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_REPLACE,
++				   edev->primary_mac);
++	if (rc)
++		goto out;
++
++	/* Check for promiscuous */
++	if ((ndev->flags & IFF_PROMISC) ||
++	    (uc_count > 15)) { /* @@@TBD resource allocation - 1 */
++		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
++	} else {
++		/* Add MAC filters according to the unicast secondary macs */
++		int i;
++
++		temp = uc_macs;
++		for (i = 0; i < uc_count; i++) {
++			rc = qede_set_ucast_rx_mac(edev,
++						   QED_FILTER_XCAST_TYPE_ADD,
++						   temp);
++			if (rc)
++				goto out;
++
++			temp += ETH_ALEN;
++		}
++
++		rc = qede_configure_mcast_filtering(ndev, &accept_flags);
++		if (rc)
++			goto out;
++	}
++
++	rx_mode.filter.accept_flags = accept_flags;
++	edev->ops->filter_config(edev->cdev, &rx_mode);
++out:
++	kfree(uc_macs);
++}
 -- 
 1.9.3
