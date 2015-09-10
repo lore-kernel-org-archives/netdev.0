@@ -1,61 +1,39 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCHv1 net] xen-netback: require fewer guest Rx
- slots when not using GSO
-Date: Thu, 10 Sep 2015 10:41:40 +0100
-Message-ID: <55F15054.1070003@citrix.com>
-References: <1441718714-3256-1-git-send-email-david.vrabel@citrix.com>
- <20150909193416.GA15048@l.oracle.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
+Date: Thu, 10 Sep 2015 12:05:27 +0200
+Message-ID: <20150910100527.GX7029@orbit.nwl.cc>
+References: <20150901124648.GA27550@orbit.nwl.cc>
+ <20150901130057.GA13230@gondor.apana.org.au>
+ <20150901134310.GB27550@orbit.nwl.cc>
+ <20150901135019.GA13629@gondor.apana.org.au>
+ <20150901135618.GD27550@orbit.nwl.cc>
+ <20150901140341.GA13757@gondor.apana.org.au>
+ <20150901141305.GA11564@pox.localdomain>
+ <20150901141639.GA13856@gondor.apana.org.au>
+ <20150901145124.GC11564@pox.localdomain>
+ <20150910080344.GA28214@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:23548 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbbIJJlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 05:41:44 -0400
-In-Reply-To: <20150909193416.GA15048@l.oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fengguang.wu@intel.com, wfg@linux.intel.com, lkp@01.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150910080344.GA28214@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/09/15 20:34, Konrad Rzeszutek Wilk wrote:
-> On Tue, Sep 08, 2015 at 02:25:14PM +0100, David Vrabel wrote:
->> Commit f48da8b14d04ca87ffcffe68829afd45f926ec6a (xen-netback: fix
->> unlimited guest Rx internal queue and carrier flapping) introduced a
->> regression.
->>
->> The PV frontend in IPXE only places 4 requests on the guest Rx ring.
+On Thu, Sep 10, 2015 at 04:03:44PM +0800, Herbert Xu wrote:
+> On Tue, Sep 01, 2015 at 04:51:24PM +0200, Thomas Graf wrote:
+> > 
+> > 1. The current in-kernel self-test
+> > 2. bind_netlink.c: https://github.com/tgraf/rhashtable
 > 
-> in IPXE ? What is that?
+> I can't reproduce it:
 
-ipxe.org
+I can't speak for netlink, but if you apply patch 1/3 from this thread,
+test_rhashtable.c starts generating many insert failures during the
+multiple thread test.
 
->> Since netback required at least (MAX_SKB_FRAGS + 1) slots, IPXE could
->> not receive any packets.
->>
->> a) If GSO is not enabled on the VIF, fewer guest Rx slots are required
->>    for the largest possible packet.  Calculate the required slots
-> 
-> s/slots/slot number/
->>    based on the maximum GSO size or the MTU.
->>
->>    This calculation of the number of required slots relies on
->>    1650d5455bd2 (xen-netback: always fully coalesce guest Rx packets)
->>    which present in 4.0-rc1 and later.
->>
->> b) Reduce the Rx stall detection to checking for at least one
-> 
-> s/to/by/
->>    available Rx request.  This is fine since we're predominately
->>    concerned with detecting interfaces which are down and thus have
->>    zero available Rx requests.
-> 
-> s/have zero available Rx requests/no available Rx requests/?
-
-If the only review comments you have are unnecessary changes to the
-grammar in the commit message, it's probably best if you don't post them.
-
-David
+Cheers, Phil
