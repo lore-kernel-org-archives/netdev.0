@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4: changes for new firmware 1.14.4.0
-Date: Wed, 09 Sep 2015 21:30:28 -0700 (PDT)
-Message-ID: <20150909.213028.536023149021174269.davem@davemloft.net>
-References: <1441859113-5959-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net] netlink, mmap: don't walk rx ring on poll if
+ receive queue non-empty
+Date: Wed, 09 Sep 2015 21:43:42 -0700 (PDT)
+Message-ID: <20150909.214342.191904339315763716.davem@davemloft.net>
+References: <5e369c9aa5889383aece50a6b5c22256b19ab334.1441839128.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Cc: chamaken@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37173 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37250 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754462AbbIJEa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 00:30:29 -0400
-In-Reply-To: <1441859113-5959-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1750956AbbIJEnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 00:43:43 -0400
+In-Reply-To: <5e369c9aa5889383aece50a6b5c22256b19ab334.1441839128.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Thu, 10 Sep 2015 09:55:13 +0530
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 10 Sep 2015 01:20:46 +0200
 
-> Incorporate fw_ldst_cmd structure change for new firmware and also
-> update version string for the same
+> In case of netlink mmap, there can be situations where received frames
+> have to be placed into the normal receive queue. The ring buffer indicates
+> this through NL_MMAP_STATUS_COPY, so the user is asked to pick them up
+> via recvmsg(2) syscall, and to put the slot back to NL_MMAP_STATUS_UNUSED.
 > 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-> ---
-> V2: Rebased patch to apply cleanly
+> Commit 0ef707700f1c ("netlink: rx mmap: fix POLLIN condition") changed
+> polling, so that we walk in the worst case the whole ring through the
+> new netlink_has_valid_frame(), for example, when the ring would have no
+> NL_MMAP_STATUS_VALID, but at least one NL_MMAP_STATUS_COPY frame.
+> 
+> Since we do a datagram_poll() already earlier to pick up a mask that could
+> possibly contain POLLIN | POLLRDNORM already (due to NL_MMAP_STATUS_COPY),
+> we can skip checking the rx ring entirely.
+> 
+> In case the kernel is compiled with !CONFIG_NETLINK_MMAP, then all this is
+> irrelevant anyway as netlink_poll() is just defined as datagram_poll().
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied, thanks.
+Applied.
