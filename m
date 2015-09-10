@@ -1,82 +1,156 @@
-From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] ixgbe: Limit lowest interrupt rate
- for adaptive interrupt moderation to 12K
-Date: Thu, 10 Sep 2015 19:49:40 +0000
-Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E271BC9E2@ORSMSX103.amr.corp.intel.com>
-References: <20150730221927.984.91700.stgit@ahduyck-vm-fedora22>
- <55E655A3.9010304@gmail.com> <1441188420.2783.18.camel@intel.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH RFC] RTEXT_FILTER_SKIP_STATS support to avoid dumping
+ inet/inet6 stats
+Date: Thu, 10 Sep 2015 16:16:49 -0400
+Message-ID: <20150910201649.GD28585@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, raghavendra.kt@linux.vnet.ibm.com,
+	roopa@cumulusnetworks.com, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org, sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9207 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752083AbbIJTtz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2015 15:49:55 -0400
-In-Reply-To: <1441188420.2783.18.camel@intel.com>
-Content-Language: en-US
+Received: from aserp1040.oracle.com ([141.146.126.69]:34196 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbbIJUQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 16:16:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWls
-dG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24gQmVoYWxmIE9m
-IEplZmYgS2lyc2hlcg0KU2VudDogV2VkbmVzZGF5LCBTZXB0ZW1iZXIgMiwgMjAxNSAzOjA3IEFN
-DQpUbzogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuZHV5Y2tAZ21haWwuY29tPg0KQ2M6IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQpT
-dWJqZWN0OiBSZTogW0ludGVsLXdpcmVkLWxhbl0gW1BBVENIXSBpeGdiZTogTGltaXQgbG93ZXN0
-IGludGVycnVwdCByYXRlIGZvciBhZGFwdGl2ZSBpbnRlcnJ1cHQgbW9kZXJhdGlvbiB0byAxMksN
-Cg0KT24gVHVlLCAyMDE1LTA5LTAxIGF0IDE4OjQ5IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3Jv
-dGU6DQo+IE9uIDA3LzMwLzIwMTUgMDM6MTkgUE0sIEFsZXhhbmRlciBEdXljayB3cm90ZToNCj4g
-PiBUaGlzIHBhdGNoIHVwZGF0ZXMgdGhlIGxvd2VzdCBsaW1pdCBmb3IgYWRhcHRpdmUgaW50ZXJy
-dXB0IGludGVycnVwdCANCj4gPiBtb2RlcmF0aW9uIHRvIHJvdWdobHkgMTJLIGludGVycnVwdHMg
-cGVyIHNlY29uZC4NCj4gPg0KPiA+IFRoZSB3YXkgSSBjYW1lIGFib3V0IHJlYWNoaW5nIDEySyBh
-cyB0aGUgZGVzaXJlZCBpbnRlcnJ1cHQgcmF0ZSBpcw0KPiBieQ0KPiA+IHRlc3Rpbmcgd2l0aCBV
-RFAgZmxvd3MuICBTcGVjaWZpY2FsbHkgSSBoYWQgYSBzaW1wbGUgdGVzdCB0aGF0IHJhbiBhIA0K
-PiA+IG5ldHBlcmYgVURQX1NUUkVBTSB0ZXN0IGF0IHZhcnlpbmcgc2l6ZXMuICBXaGF0IEkgZm91
-bmQgd2FzIGFzIHRoZQ0KPiBwYWNrZXQNCj4gPiBzaXplcyBpbmNyZWFzZWQgdGhlIHBlcmZvcm1h
-bmNlIGZlbGwgc3RlYWRpbHkgYmVoaW5kIHVudGlsIHdlIHdlcmUNCj4gb25seQ0KPiA+IGFibGUg
-dG8gcmVjZWl2ZSBhdCB+NEdiL3Mgd2l0aCBhIG1lc3NhZ2Ugc2l6ZSBvZiA2NTUwNy4gIEEgYml0
-IG9mDQo+IGRpZ2dpbmcNCj4gPiBmb3VuZCB0aGF0IHdlIHdlcmUgZHJvcHBpbmcgcGFja2V0cyBm
-b3IgdGhlIHNvY2tldCBpbiB0aGUgbmV0d29yaw0KPiBzdGFjaywNCj4gPiBhbmQgbG9va2luZyBh
-dCB0aGluZ3MgZnVydGhlciB3aGF0IEkgZm91bmQgd2FzIEkgY291bGQgc29sdmUgaXQgYnkNCj4g
-aW5jcmVhc2luZw0KPiA+IHRoZSBpbnRlcnJ1cHQgcmF0ZSwgb3IgaW5jcmVhc2luZyB0aGUgcm1l
-bV9kZWZhdWx0L3JtZW1fbWF4LiAgV2hhdCBJDQo+IGZvdW5kIHdhcw0KPiA+IHRoYXQgd2hlbiB0
-aGUgaW50ZXJydXB0IGNvYWxlc2NpbmcgcmVzdWx0ZWQgaW4gbW9yZSBkYXRhIGJlaW5nDQo+IHBy
-b2Nlc3NlZA0KPiA+IHBlciBpbnRlcnJ1cHQgdGhhbiBjb3VsZCBiZSBzdG9yZWQgaW4gdGhlIHNv
-Y2tldCBidWZmZXIgd2Ugc3RhcnRlZA0KPiBsb3NpbmcNCj4gPiBwYWNrZXRzIGFuZCB0aGUgcGVy
-Zm9ybWFuY2UgZHJvcHBlZC4gIFNvIEkgcmVhY2hlZCAxMksgYmFzZWQgb24gdGhlIA0KPiA+IGZv
-bGxvd2luZyBtYXRoLg0KPiA+DQo+ID4gcm1lbV9kZWZhdWx0ID0gMjEyOTkyDQo+ID4gc2tiLT50
-cnVlc2l6ZSA9IDI5OTQNCj4gPiAyMTI5OTIgLyAyOTk0ID0gNzEuMTQgcGFja2V0cyB0byBmaWxs
-IHRoZSBidWZmZXINCj4gPg0KPiA+IHBhY2tldCByYXRlIGF0IDE1MTQgcGFja2V0IHNpemUgaXMg
-ODEyNzQ0cHBzDQo+ID4gNzEuMTQgLyA4MTI3NDQgPSA4Ny45dXMgdG8gZmlsbCBzb2NrZXQgYnVm
-ZmVyDQo+ID4NCj4gPiA+RnJvbSB0aGVyZSBpdCB3YXMganVzdCBhIG1hdHRlciBvZiBjaG9vc2lu
-ZyB0aGUgaW50ZXJydXB0IHJhdGUgYW5kDQo+ID4gcHJvdmlkaW5nIGEgYml0IG9mIHdpZ2dsZSBy
-b29tIHdoaWNoIGlzIHdoeSBJIGRlY2lkZWQgdG8gZ28gd2l0aCAxMksgDQo+ID4gaW50ZXJydXB0
-cyBwZXIgc2Vjb25kIGFzIHRoYXQgdXNlcyBhIHZhbHVlIG9mIDg0dXMuDQo+ID4NCj4gPiBUaGUg
-ZGF0YSBiZWxvdyBpcyBiYXNlZCBvbiBWTSB0byBWTSBvdmVyIGEgZGlyZWN0IGFzc2lnbmVkIGl4
-Z2JlDQo+IGludGVyZmFjZS4NCj4gPiBUaGUgdGVzdCBydW4gd2FzOg0KPiA+ICAgICAgIG5ldHBl
-cmYgLUggPGlwPiAtdCBVRFBfU1RSRUFNIg0KPiA+DQo+ID4gU29ja2V0ICBNZXNzYWdlICBFbGFw
-c2VkICAgICAgTWVzc2FnZXMgICAgICAgICAgICAgICAgICAgQ1BVDQo+IFNlcnZpY2UNCj4gPiBT
-aXplICAgIFNpemUgICAgIFRpbWUgICAgICAgICBPa2F5IEVycm9ycyAgIFRocm91Z2hwdXQgICBV
-dGlsDQo+IERlbWFuZA0KPiA+IGJ5dGVzICAgYnl0ZXMgICAgc2VjcyAgICAgICAgICAgICMgICAg
-ICAjICAgMTBeNmJpdHMvc2VjICUgU1MNCj4gdXMvS0INCj4gPiBCZWZvcmU6DQo+ID4gMjEyOTky
-ICAgNjU1MDcgICA2MC4wMCAgICAgMTEwMDY2MiAgICAgIDAgICAgIDk2MTMuNCAgICAgMTAuODkN
-Cj4gMC41NTcNCj4gPiAyMTI5OTIgICAgICAgICAgIDYwLjAwICAgICAgNDczNDc0ICAgICAgICAg
-ICAgNDEzNS40ICAgICAxMS4yNw0KPiAwLjU3Ng0KPiA+DQo+ID4gQWZ0ZXI6DQo+ID4gMjEyOTky
-ICAgNjU1MDcgICA2MC4wMCAgICAgMTEwMDQxMyAgICAgIDAgICAgIDk2MTEuMiAgICAgMTAuNzMN
-Cj4gMC41NDkNCj4gPiAyMTI5OTIgICAgICAgICAgIDYwLjAwICAgICAgOTc0MTMyICAgICAgICAg
-ICAgODUwOC4zICAgICAxMS42OQ0KPiAwLjU5OA0KPiA+DQo+ID4gVXNpbmcgYmFyZSBtZXRhbCB0
-aGUgZGF0YSBpcyBzaW1pbGFyIGJ1dCBub3QgYXMgZHJhbWF0aWMgYXMgdGhlDQo+IHRocm91Z2hw
-dXQNCj4gPiBpbmNyZWFzZXMgZnJvbSBhYm91dCA4LjVHYi9zIHRvIDkuNUdiL3MuDQo+ID4NCj4g
-PiBTaWduZWQtb2ZmLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1eWNrQHJlZGhh
-dC5jb20+DQo+IA0KPiBIYXMgdGhlcmUgYmVlbiBhbnkgdXBkYXRlIG9uIHRoaXMgcGF0Y2g/ICBJ
-IHN1Ym1pdHRlZCBpdCBqdXN0IG92ZXIgYSANCj4gbW9udGggYWdvIG5vdyBhbmQgaXQgaGFzbid0
-IHJlY2VpdmVkIGFueSBmZWVkYmFjay4gIEkgd2FzIGhvcGluZyB0aGlzIA0KPiBjb3VsZCBiZSBz
-dWJtaXR0ZWQgYmVmb3JlIHRoZSBtZXJnZSB3aW5kb3cgY2xvc2VzIGZvciBuZXQtbmV4dC4NCg0K
-SXQgd2lsbCBiZSBpbiB0aGUgbmV4dCBzZXJpZXMgSSBwdXNoIGxhdGVyIHRvZGF5Lg0KDQpUZXN0
-ZWQtYnk6IEtyaXNobmVpbCBTaW5naCA8a3Jpc2huZWlsLmsuc2luZ2hAaW50ZWwuY29tPg0KDQoN
-Cg==
+
+Many commonly used functions like getifaddrs() invoke RTM_GETLINK
+to dump the interface information, and do not need the
+the AF_INET6 statististics that are always returned by default
+from rtnl_fill_ifinfo().
+
+Computing the statistics can be an expensive operation that impacts
+scaling, so it is desirable to avoid this if the information is
+not needed.
+
+This patch adds a the RTEXT_FILTER_SKIP_STATS extended info flag that
+can be passed with netlink_request() to avoid statistics comuputation
+for the ifinfo path.
+
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ include/net/rtnetlink.h        |    3 ++-
+ include/uapi/linux/rtnetlink.h |    1 +
+ net/core/rtnetlink.c           |    3 ++-
+ net/ipv4/devinet.c             |    3 ++-
+ net/ipv6/addrconf.c            |   13 +++++++++----
+ 5 files changed, 16 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 18fdb98..2219c83 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -122,7 +122,8 @@ struct rtnl_af_ops {
+ 	int			family;
+ 
+ 	int			(*fill_link_af)(struct sk_buff *skb,
+-						const struct net_device *dev);
++						const struct net_device *dev,
++						bool skip_af_stats);
+ 	size_t			(*get_link_af_size)(const struct net_device *dev);
+ 
+ 	int			(*validate_link_af)(const struct net_device *dev,
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 7020247..434227f 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -666,6 +666,7 @@ struct tcamsg {
+ #define RTEXT_FILTER_VF		(1 << 0)
+ #define RTEXT_FILTER_BRVLAN	(1 << 1)
+ #define RTEXT_FILTER_BRVLAN_COMPRESSED	(1 << 2)
++#define	RTEXT_FILTER_SKIP_STATS	(1 << 3)
+ 
+ /* End of information exported to user level */
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a466821..958e299 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1054,6 +1054,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	struct nlattr *attr, *af_spec;
+ 	struct rtnl_af_ops *af_ops;
+ 	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
++	bool skip_af_stats = ((ext_filter_mask & RTEXT_FILTER_SKIP_STATS) != 0);
+ 
+ 	ASSERT_RTNL();
+ 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
+@@ -1272,7 +1273,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			if (!(af = nla_nest_start(skb, af_ops->family)))
+ 				goto nla_put_failure;
+ 
+-			err = af_ops->fill_link_af(skb, dev);
++			err = af_ops->fill_link_af(skb, dev, skip_af_stats);
+ 
+ 			/*
+ 			 * Caller may return ENODATA to indicate that there
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 2d9cb17..b1ef81f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1654,7 +1654,8 @@ static size_t inet_get_link_af_size(const struct net_device *dev)
+ 	return nla_total_size(IPV4_DEVCONF_MAX * 4); /* IFLA_INET_CONF */
+ }
+ 
+-static int inet_fill_link_af(struct sk_buff *skb, const struct net_device *dev)
++static int inet_fill_link_af(struct sk_buff *skb, const struct net_device *dev,
++			     bool skip_af_stats)
+ {
+ 	struct in_device *in_dev = rcu_dereference_rtnl(dev->ip_ptr);
+ 	struct nlattr *nla;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 99c0f2b..928f32b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4760,7 +4760,8 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
+ 	}
+ }
+ 
+-static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev)
++static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev,
++				  bool skip_af_stats)
+ {
+ 	struct nlattr *nla;
+ 	struct ifla_cacheinfo ci;
+@@ -4780,6 +4781,9 @@ static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev)
+ 
+ 	/* XXX - MC not implemented */
+ 
++	if (skip_af_stats)
++		return 0;
++
+ 	nla = nla_reserve(skb, IFLA_INET6_STATS, IPSTATS_MIB_MAX * sizeof(u64));
+ 	if (!nla)
+ 		goto nla_put_failure;
+@@ -4815,14 +4819,15 @@ static size_t inet6_get_link_af_size(const struct net_device *dev)
+ 	return inet6_ifla6_size();
+ }
+ 
+-static int inet6_fill_link_af(struct sk_buff *skb, const struct net_device *dev)
++static int inet6_fill_link_af(struct sk_buff *skb, const struct net_device *dev,
++			      bool skip_af_stats)
+ {
+ 	struct inet6_dev *idev = __in6_dev_get(dev);
+ 
+ 	if (!idev)
+ 		return -ENODATA;
+ 
+-	if (inet6_fill_ifla6_attrs(skb, idev) < 0)
++	if (inet6_fill_ifla6_attrs(skb, idev, skip_af_stats) < 0)
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+@@ -4977,7 +4982,7 @@ static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev,
+ 	if (!protoinfo)
+ 		goto nla_put_failure;
+ 
+-	if (inet6_fill_ifla6_attrs(skb, idev) < 0)
++	if (inet6_fill_ifla6_attrs(skb, idev, false) < 0)
+ 		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, protoinfo);
+-- 
+1.7.1
