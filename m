@@ -1,100 +1,66 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net-next] Revert "net/ipv6: add sysctl option
- accept_ra_min_hop_limit"
-Date: Thu, 10 Sep 2015 14:52:45 +0900
-Message-ID: <55F11AAD.3030209@miraclelinux.com>
-References: <20150902094301.GA6434@via.ecp.fr>
- <20150902.161110.223512323094619164.davem@davemloft.net>
- <20150909101054.GA6753@bistromath.redhat.com>
+From: Petr Cvek <petr.cvek@tul.cz>
+Subject: Re: [PATCH 2/3] net: irda: pxaficp_ir: convert to readl and writel
+Date: Thu, 10 Sep 2015 08:14:54 +0200
+Message-ID: <55F11FDE.6050304@tul.cz>
+References: <1441261251-19548-1-git-send-email-robert.jarzmik@free.fr>
+ <1441261251-19548-3-git-send-email-robert.jarzmik@free.fr>
+ <55EF43E9.2040000@tul.cz> <55EF8A0F.7070106@tul.cz>
+ <87twr4un1h.fsf@belgarion.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	hideaki.yoshifuji@miraclelinux.com,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	liuhangbin@gmail.com
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33418 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbbIJFwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 01:52:49 -0400
-Received: by pacex6 with SMTP id ex6so32868231pac.0
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 22:52:48 -0700 (PDT)
-In-Reply-To: <20150909101054.GA6753@bistromath.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>
+To: Robert Jarzmik <robert.jarzmik@free.fr>, zonque@gmail.com,
+	ulf.hansson@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87twr4un1h.fsf@belgarion.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sabrina Dubroca wrote:
-> 2015-09-02, 16:11:10 -0700, David Miller wrote:
->> From: Sabrina Dubroca <sd@queasysnail.net>
->> Date: Wed, 2 Sep 2015 11:43:01 +0200
->>
->>> This reverts commit 8013d1d7eafb0589ca766db6b74026f76b7f5cb4.
+Dne 9.9.2015 v 08:25 Robert Jarzmik napsal(a):
+> Petr Cvek <petr.cvek@tul.cz> writes:
+> 
+>> Dne 8.9.2015 v 22:24 Petr Cvek napsal(a):
 >>>
->>> There are several issues with this patch.
->>> It completely cancels the security changes introduced by 6fd99094de2b
->>> ("ipv6: Don't reduce hop limit for an interface").
->>> The current default value (min hop limit = 1) can result in the same
->>> denial of service that 6fd99094de2b prevents, but it is hard to define
->>> a correct and sane default value.
->>> More generally, it is yet another IPv6 sysctl, and we already have too
->>> many.
->>>
->>> This was introduced to satisfy a TAHI test case which, in my opinion, is
->>> too strict, turning the RFC's "SHOULD" into a "MUST":
->>>
->>>     If the received Cur Hop Limit value is non-zero, the host
->>>     SHOULD set its CurHopLimit variable to the received value.
->>>
->>> The behavior of this sysctl is wrong in multiple ways.  Some are
->>> fixable, but let's not rush this commit into mainline, and revert this
->>> while we still can, then we can come up with a better solution.
->>>
->>> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+>>> Did you defined resources somewhere? Actual resources are in
+>>> "pxa_ir_resources" variable at:
+> I have them in patch [1], which is exactly the patch you have made yourself.
+
+Is there a mailing list for this specific patch? It seems I did not get any mail with it.
+
+> 
+>> I tried to add following patch for new resources, but now it fails with:
 >>
->> I don't agree with this revert.
+>> [  141.534545] pxa2xx-ir pxa2xx-ir: can't request region for resource [mem 0x40700000-0x40700100]
+>> [  141.534574] pxa2xx-ir pxa2xx-ir: resource stuart not defined
+>> [  141.534656] pxa2xx-ir: probe of pxa2xx-ir failed with error -16
 >>
->> If you look at the original commit, the quoted RFC recommends adding
->> a configurable method to protect against this.
+>> That's because STUART is allocated by normal UART driver at:
 >>
->> And that's exactly what the commit you are trying to revert is doing.
+>> 	http://lxr.free-electrons.com/source/arch/arm/mach-pxa/devices.c#L244
 >>
->> The only thing I would entertain is potentially an adjustment of the
->> default, working in concert with the TAHI folks to make sure their
->> tests still pass with any new default.
-> 
-> Would you agree with a default of 64, as Florian suggested?
-
-1 was chosen to restore our behavior before introduction of current
-hoplimit check.  I am not in favor of changing that value.
-
-Plus, 64 is too restrictive and 32 would be enough for global
-internet, IMHO.
-
-> 
-> 
-> Can we still modify the behavior of this sysctl? It's already been in
-> Linus's tree for a while, but if we can, I would rather restrict the
-> values we let the user write to accept_ra_min_hop_limit, as anything
-> outside [0..255] does not really make sense.
-
-[1..256], maybe, but it is not harmful to set outside the range.
-0 is always ignored. If it is set to 256 or more, the option is
-completely ignored.
-
-> 
-> Allowing an RA to update the hop limit if
-> 
->    current hop limit < RA.hop_limit < accept_ra_min_hop_limit
-> 
-> might also be desirable, but I'm not so sure about this case.
-> 
+>> So somehow there must be configuration for STUART used with FICP and STUART
+>> alone (probably can be used for normal UART).
+> That's because you have to remove from magician.c:
+> 	pxa_set_stuart_info(NULL);
 > 
 
-It might be... byt I don't think it is a good idea since it becomes
-more complex.
+Thanks, I missed that.
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+BTW This patch required update of my kernel repo. It seems that my:
+
+	magician.c patches + ficp patch + new dma engine
+
+does not work for me at all. Kernel throws some panic about interrupts and then it ends in an infinite stack dumping loop. Fault occurs before rootfs is mounted, so probably around MMC init (with removed SD card it fails normally with no rootfs found error).
+
+Is it required to change something in the mach-pxa machine specific files?
+
+Which hardware was used for testing new dma engine implementation? Notably MMC driver part, probably commit:
+
+	6464b71409511939efce1ae4fb4ec6e3483b11b2
+
+Best regards,
+Petr
