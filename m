@@ -1,53 +1,60 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH 2/2 v2] net: Remove VRF change to udp_sendmsg
-Date: Wed, 9 Sep 2015 19:10:04 -0600
-Message-ID: <55F0D86C.90903@cumulusnetworks.com>
-References: <1441835862-41403-1-git-send-email-dsa@cumulusnetworks.com>
- <1441835862-41403-2-git-send-email-dsa@cumulusnetworks.com>
- <CALx6S35scg=6vr9zPBD=_VPHGDwkq22hQM4Ce2roi4j5DXrYZw@mail.gmail.com>
- <55F0CD92.7080700@cumulusnetworks.com>
- <CALx6S35Fwu5QsR-W=0LVzvZv_PGqbV3TGR9T5YRU65QCY0OgzQ@mail.gmail.com>
+From: Duan Andy <fugang.duan@freescale.com>
+Subject: RE: [PATCH net-next 1/1] net: fec: add netif status check before set
+ mac address
+Date: Thu, 10 Sep 2015 01:05:00 +0000
+Message-ID: <BN3PR0301MB121924A55380E144466B0790F5510@BN3PR0301MB1219.namprd03.prod.outlook.com>
+References: <1441766567-30689-1-git-send-email-b38611@freescale.com>
+ <1441790057.9583.7.camel@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35596 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752441AbbIJBKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 21:10:06 -0400
-Received: by pacfv12 with SMTP id fv12so26191820pac.2
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 18:10:06 -0700 (PDT)
-In-Reply-To: <CALx6S35Fwu5QsR-W=0LVzvZv_PGqbV3TGR9T5YRU65QCY0OgzQ@mail.gmail.com>
+Received: from mail-bl2on0124.outbound.protection.outlook.com ([65.55.169.124]:12928
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751441AbbIJBTs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Sep 2015 21:19:48 -0400
+In-Reply-To: <1441790057.9583.7.camel@pengutronix.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/9/15 6:51 PM, Tom Herbert wrote:
-> It is NAT since you are changing the source address and modifying the
-> transport protocol checksum below IP and transport layer. There are a
-> bunch of side effects that you would need to consider. This is
-> creating custom APIs changing the semantics of address selection, and
-> also creates inconsistency between how addresses may be selected
-> between a connected and unconnected sockets. Consider that
-> ip_local_out_sk calls netfilter NF_INET_LOCAL_OUT hook before
-> dst->output, so then netfilter would start seeing packets with zero
-> source address???
-
-understood.
-
->
-> A lot of design in the stack is predicated on inet_select_addr
-> returning the source address to use for sending a packet. This should
-> always return a reasonable address as an invariant, if someone wishes
-> to rewrite addresses at a lower layer that's fine, but that should be
-> defined as a NAT operation. If a device wants to weigh in on address
-> selection then we can define an ndo function for that as I mentioned
-> before.
-
-I am floating an idea internally that re-implements how VRF impacts the 
-stack. It's 4.4 material and essentially adds dev_xxxx() / ndo functions 
-for the intrusions. With net-next closed no since throwing them out yet 
-and Nikolay always has good comments on my wild ass ideas.
-
-David
+RnJvbTogTHVjYXMgU3RhY2ggPGwuc3RhY2hAcGVuZ3V0cm9uaXguZGU+IFNlbnQ6IFdlZG5lc2Rh
+eSwgU2VwdGVtYmVyIDA5LCAyMDE1IDU6MTQgUE0NCj4gVG86IER1YW4gRnVnYW5nLUIzODYxMQ0K
+PiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gYmh1
+dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDEv
+MV0gbmV0OiBmZWM6IGFkZCBuZXRpZiBzdGF0dXMgY2hlY2sgYmVmb3JlDQo+IHNldCBtYWMgYWRk
+cmVzcw0KPiANCj4gQW0gTWl0dHdvY2gsIGRlbiAwOS4wOS4yMDE1LCAxMDo0MiArMDgwMCBzY2hy
+aWViIEZ1Z2FuZyBEdWFuOg0KPiA+IFRoZXJlIGV4aXN0IG9uZSBpc3N1ZSBieSBiZWxvdyBjYXNl
+IHRoYXQgY2FzZSBzeXN0ZW0gaGFuZzoNCj4gPiBpZmNvbmZpZyBldGgwIGRvd24NCj4gPiBpZmNv
+bmZpZyBldGgwIGh3IGV0aGVyIDAwOjEwOjE5OjE5OjgxOjE5DQo+ID4NCj4gPiBBZnRlciBldGgw
+IGRvd24sIGFsbCBmZWMgY2xvY2tzIGFyZSBnYXRlZCBvZmYuIEluIHRoZQ0KPiA+IC5mZWNfc2V0
+X21hY19hZGRyZXNzKCkgZnVuY3Rpb24sIGl0IHdpbGwgc2V0IG5ldyBNQUMgYWRkcmVzcyB0bw0K
+PiByZWdpc3RlcnMsIHdoaWNoIGNhdXNlcyBzeXN0ZW0gaGFuZy4NCj4gPg0KPiA+IFNvIGl0IG5l
+ZWRzIHRvIGFkZCBuZXRpZiBzdGF0dXMgY2hlY2sgdG8gYXZvaWQgcmVnaXN0ZXJzIGFjY2VzcyB3
+aGVuDQo+ID4gY2xvY2tzIGFyZSBnYXRlZCBvZmYuIFVudGlsIGV0aDAgdXAgdGhlIG5ldyBNQUMg
+YWRkcmVzcyBhcmUgd3JvdGUgaW50bw0KPiByZWxhdGVkIHJlZ2lzdGVycy4NCj4gPg0KPiA+IFNp
+Z25lZC1vZmYtYnk6IEZ1Z2FuZyBEdWFuIDxCMzg2MTFAZnJlZXNjYWxlLmNvbT4NCj4gPiAtLS0N
+Cj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAzICsrKw0K
+PiA+ICAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspDQo+ID4NCj4gPiBkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gPiBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ID4gaW5kZXggOTE5MjVlMy4u
+Y2QwOWRiYiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+ZmVjX21haW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNf
+bWFpbi5jDQo+ID4gQEAgLTMwMjksNiArMzAyOSw5IEBAIGZlY19zZXRfbWFjX2FkZHJlc3Moc3Ry
+dWN0IG5ldF9kZXZpY2UgKm5kZXYsIHZvaWQNCj4gKnApDQo+ID4gIAkJbWVtY3B5KG5kZXYtPmRl
+dl9hZGRyLCBhZGRyLT5zYV9kYXRhLCBuZGV2LT5hZGRyX2xlbik7DQo+ID4gIAl9DQo+ID4NCj4g
+PiArCWlmICghbmV0aWZfcnVubmluZyhuZGV2KSkNCj4gPiArCQlyZXR1cm4gMDsNCj4gVGhpcyBk
+ZXNlcnZlcyBhIGNvbW1lbnQgaW4gdGhlIGNvZGUgYXMgdG8gd2h5IGl0IGlzIG5lZWRlZCBhbmQg
+aG93IGl0DQo+IHN0aWxsIHdvcmtzLg0KPiANCj4gUmVnYXJkcywNCj4gTHVjYXMNCj4gPiArDQoN
+Ck9rLCBJIHdpbGwgYWRkIGNvbW1lbnQgb24gaGVyZSBpbiBuZXh0IHZlcnNpb24uDQoNClRoYW5r
+cy4NCj4gPiAgCXdyaXRlbChuZGV2LT5kZXZfYWRkclszXSB8IChuZGV2LT5kZXZfYWRkclsyXSA8
+PCA4KSB8DQo+ID4gIAkJKG5kZXYtPmRldl9hZGRyWzFdIDw8IDE2KSB8IChuZGV2LT5kZXZfYWRk
+clswXSA8PCAyNCksDQo+ID4gIAkJZmVwLT5od3AgKyBGRUNfQUREUl9MT1cpOw0KPiANCj4gLS0N
+Cj4gUGVuZ3V0cm9uaXggZS5LLiAgICAgICAgICAgICB8IEx1Y2FzIFN0YWNoICAgICAgICAgICAg
+ICAgICB8DQo+IEluZHVzdHJpYWwgTGludXggU29sdXRpb25zICAgfCBodHRwOi8vd3d3LnBlbmd1
+dHJvbml4LmRlLyAgfA0K
