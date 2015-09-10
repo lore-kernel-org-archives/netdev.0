@@ -1,84 +1,56 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC v2 net-next 1/4] phylib: Add phy_set_max_speed helper
-Date: Fri, 11 Sep 2015 13:30:11 +0900
-Message-ID: <20150911043011.GA20882@verge.net.au>
-References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
- <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
- <55F2552A.1010509@gmail.com>
+From: YesGrowth =?utf-8?Q?Loans=C2=AE?=
+	<achmad.tohari@semenindonesia.com>
+Subject: =?utf-8?Q?kreditl=C9=99r?=
+Date: Fri, 11 Sep 2015 02:42:40 +0700
+Message-ID: <876015245.45519.1441914160741.JavaMail.zimbra@semenindonesia.com>
+Reply-To: YesGrowth =?utf-8?Q?Loans=C2=AE?= <yesgrowth1986@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55F2552A.1010509@gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 252.subnet118-97-85.static.astinet.telkom.net.id ([118.97.85.252]:54656
+	"EHLO mx2.semenindonesia.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750819AbbIKEgS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2015 00:36:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 10, 2015 at 09:14:34PM -0700, Florian Fainelli wrote:
-> Le 09/10/15 19:01, Simon Horman a =C3=A9crit :
-> > Add a helper to allow ethernet drivers to limit the speed of a phy
-> > (that they are attached to).
-> >=20
-> > This mainly involves factoring out the business-end of
-> > of_set_phy_supported() and exporting a new symbol.
-> >=20
-> > This code seems to be open coded in several places, in several diff=
-erent
-> > variants.
-> >=20
-> > This code is envisaged this will be used in situations where settin=
-g
-> > the "max-speed" property is not appropriate, e.g. because the maxim=
-um
-> > speed is not a property of the phy hardware.
->=20
-> This looks good to me, one minor comment, see below:
->=20
-> >=20
-> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> >=20
-> > ---
-> >=20
-> > v2
-> > * First post
-> > ---
-> >  drivers/net/phy/phy_device.c | 52 ++++++++++++++++++++++++++++----=
-------------
-> >  include/linux/phy.h          |  1 +
-> >  2 files changed, 34 insertions(+), 19 deletions(-)
-> >=20
-> > diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_dev=
-ice.c
-> > index c0f211127274..d9a020095972 100644
-> > --- a/drivers/net/phy/phy_device.c
-> > +++ b/drivers/net/phy/phy_device.c
-> > @@ -1205,6 +1205,37 @@ static int gen10g_resume(struct phy_device *=
-phydev)
-> >  	return 0;
-> >  }
-> > =20
-> > +static void __set_phy_supported(struct phy_device *phydev, u32 max=
-_speed)
-> > +{
-> > +	if (!IS_ENABLED(CONFIG_OF_MDIO))
-> > +		return;
->=20
-> I think that part should be moved to of_set_phy_supported(), since yo=
-ur
-> are exporting phy_set_max_speed() which should therefore be available
-> regardless of whether Device Tree is used.
 
-Yes of course, silly me.
 
-> While you are it, it might be nice to either warn or return -ENOTSUPP=
- if
-> the speed does not match 10, 100 or 1000, but that might be worth a
-> second patch.
 
-Sure, that sounds reasonable.
+
+ Yax=C5=9F=C4=B1 g=C3=BCn,
+
+   M=C9=99n xan=C4=B1m Rose Butler, YesGrowth kreditl=C9=99r kimi tan=C4=
+=B1nan tan=C4=B1nm=C4=B1=C5=9F qanuni kredit =C5=9Firk=C9=99tinin icra=C3=
+=A7=C4=B1 agent edir=C9=99m. Bir pis kredit v=C9=99 ya sizin =C3=B6d=C9=
+=99m=C9=99k =C3=BC=C3=A7=C3=BCn pul ehtiyac=C4=B1 olan edirsiniz? Bizim=
+ faiz d=C9=99r=C9=99c=C9=99si 3% t=C9=99=C5=9Fkil edir.
+
+  maraql=C4=B1 =C9=99g=C9=99r a=C5=9Fa=C4=9F=C4=B1dak=C4=B1 formu doldu=
+run.
+
+ Tam ad=C4=B1:
+ gender:
+ M=C9=99bl=C9=99=C4=9F laz=C4=B1m:
+ M=C3=BCdd=C9=99t:
+
+ Siz Tel vasit=C9=99sil=C9=99 =C9=99laq=C9=99 saxlaya bil=C9=99rsiniz: =
++447045734550, yesgrowth1986@gmail.com
+
+  H=C3=B6rm=C9=99tl=C9=99,
+ Xan=C4=B1m Rose Butler
+_____________________________________________________________________
+This message is intended only for recipients who are authorized to rece=
+ive it. It contains confidential and/ or legally privileged information=
+ belonging to PT SEMEN INDONESIA (Persero) Tbk, therefore the authorize=
+d recipients shall protect this confidential information disclosed purs=
+uant to provisions of Semen Indonesia's policy. If you are not a valid =
+recipient of this message, please delete it from your system and/ or de=
+stroy all of the tangible material produced from the information herein=
+ together with all copies or reproductions thereof and notify the sende=
+r immediately. Please also be notified that any disclosure, copying, di=
+stribution or taking any action based on the contents of this message i=
+s strictly prohibited and may be unlawful
