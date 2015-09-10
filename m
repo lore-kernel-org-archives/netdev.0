@@ -1,103 +1,57 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] sctp: fix race on protocol/netns initialization
-Date: Thu, 10 Sep 2015 15:14:41 -0400
-Message-ID: <55F1D6A1.6060605@gmail.com>
-References: <27f20cc781cac28bc2ce7229719748a2f6824bd8.1441827818.git.marcelo.leitner@gmail.com> <55F096EB.7000204@gmail.com> <55F09F57.6080602@gmail.com> <55F1847A.9010801@gmail.com> <55F19243.3010006@gmail.com> <55F1A6AE.2010804@gmail.com> <20150910162454.GB4496@localhost.localdomain> <20150910183520.GD4496@localhost.localdomain>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/4] vhost: move features to core
+Date: Thu, 10 Sep 2015 22:15:05 +0300
+Message-ID: <55F1D6B9.3010007@cogentembedded.com>
+References: <1441869802-15847-1-git-send-email-mst@redhat.com>
+	<1441869802-15847-3-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:33870 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752365AbbIJTOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 15:14:44 -0400
-In-Reply-To: <20150910183520.GD4496@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "Xie, Huawei" <huawei.xie@intel.com>,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1441869802-15847-3-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 09/10/2015 02:35 PM, Marcelo Ricardo Leitner wrote:
-> On Thu, Sep 10, 2015 at 01:24:54PM -0300, Marcelo Ricardo Leitner wrote:
->> On Thu, Sep 10, 2015 at 11:50:06AM -0400, Vlad Yasevich wrote:
->>> On 09/10/2015 10:22 AM, Marcelo Ricardo Leitner wrote:
->>>> Em 10-09-2015 10:24, Vlad Yasevich escreveu:
->> ...
->>>>> Then you can order sctp_net_init() such that it happens first, then protosw registration
->>>>> happens, then control socket initialization happens, then inet protocol registration
->>>>> happens.
->>>>>
->>>>> This way, we are always guaranteed that by the time user calls socket(), protocol
->>>>> defaults are fully initialized.
->>>>
->>>> Okay, that works for module loading stage, but then how would we handle new netns's? We
->>>> have to create the control socket per netns and AFAICT sctp_net_init() is the only hook
->>>> called when a new netns is being created.
->>>>
->>>> Then if we move it a workqueue that is scheduled by sctp_net_init(), we loose the ability
->>>> to handle its errors by propagating through sctp_net_init() return value, not good.
->>>
->>> Here is kind of what I had in mind.  It's incomplete and completely untested (not even
->>> compiled), but good enough to describe the idea:
->> ...
->>
->> Ohh, ok now I get it, thanks. If having two pernet_subsys for a given
->> module is fine, that works for me. It's clearer and has no moment of
->> temporary failure.
->>
->> I can finish this patch if everybody agrees with it.
->>
->>>>>> I used the list pointer because that's null as that memory is entirely zeroed when alloced
->>>>>> and, after initialization, it's never null again. Works like a lock/condition without
->>>>>> using an extra field.
->>>>>>
->>>>>
->>>>> I understand this a well.  What I don't particularly like is that we are re-using
->>>>> a list without really stating why it's now done this way.  Additionally, it's not really
->>>>> the last that happens so it's seems kind of hacky...  If we need to add new
->>>>> per-net initializers, we now need to make sure that the code is put in the right
->>>>> place.  I'd just really like to have a cleaner solution...
->>>>
->>>> Ok, got you. We could add a dedicated flag/bit for that then, if reusing the list is not
->>>> clear enough. Or, as we are discussing on the other part of thread, we could make it block
->>>> and wait for the initialization, probably using some wait_queue. I'm still thinking on
->>>> something this way, likely something more below than sctp then.
->>>>
->>>
->>> I think if we don the above, the second process calling socket() will either find the
->>> the protosw or will try to load the module also.  I think either is ok after
->>> request_module returns we'll look at the protosw and will find find things.
->>
->> Seems so, yes. Nice.
-> 
-> I was testing with it, something is not good. I finished your patch and
-> testing with a flooder like:
->  # for j in {1..5}; do for i in {1234..1280}; do \
->        sctp_darn -H 192.168.122.147 -P $j$i -l & done & done
-> 
-... snip...
-> 
-> It seems that request_module will not serialize it as we wanted and we
-> would be putting unexpected pressure on it, yet it fixes the original
-> issue.
+Hello.
 
-So, wouldn't the same issue exist when running the above with DCCP sockets?
+On 09/10/2015 10:23 AM, Michael S. Tsirkin wrote:
 
-> Maybe we can place a semaphore at inet_create(), protecting the
-> request_module()s so only one socket can do it at a time and, after it
-> is released, whoever was blocked on it re-checks if the module isn't
-> already loaded before attempting again. It makes the loading of
-> different modules slower, though, but I'm not sure if that's really a
-> problem. Not many modules are loaded at the same time like that. What do
-> you think? 
+> virtio 1 and any layout are core features, move them
+> there. This fixes vhost test.
+>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-I think this is a different issue.  The fact that we keep trying to probe
-the same module is silly.  May be a per proto semaphore so that SCTP doesn't
-block DCCP for example.
+[...]
+> diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
+> index d9c501e..f2882ac 100644
+> --- a/drivers/vhost/test.c
+> +++ b/drivers/vhost/test.c
+> @@ -277,10 +277,13 @@ static long vhost_test_ioctl(struct file *f, unsigned int ioctl,
+>   			return -EFAULT;
+>   		return 0;
+>   	case VHOST_SET_FEATURES:
+> +		printk(KERN_ERR "1\n");
+>   		if (copy_from_user(&features, featurep, sizeof features))
+>   			return -EFAULT;
+> +		printk(KERN_ERR "2\n");
+>   		if (features & ~VHOST_FEATURES)
+>   			return -EOPNOTSUPP;
+> +		printk(KERN_ERR "3\n");
+>   		return vhost_test_set_features(n, features);
+>   	case VHOST_RESET_OWNER:
+>   		return vhost_test_reset_owner(n);
 
--vlad
+    Debugging printk's remained?
 
-> 
->   Marcelo
-> 
+MBR, Sergei
