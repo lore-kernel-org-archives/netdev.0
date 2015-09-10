@@ -1,280 +1,92 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] sctp: fix race on protocol/netns initialization
-Date: Thu, 10 Sep 2015 11:50:06 -0400
-Message-ID: <55F1A6AE.2010804@gmail.com>
-References: <27f20cc781cac28bc2ce7229719748a2f6824bd8.1441827818.git.marcelo.leitner@gmail.com> <55F096EB.7000204@gmail.com> <55F09F57.6080602@gmail.com> <55F1847A.9010801@gmail.com> <55F19243.3010006@gmail.com>
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] igb: don't unmap hw_addr if its NULL
+Date: Thu, 10 Sep 2015 15:53:42 +0000
+Message-ID: <9B4A1B1917080E46B64F07F2989DADD6535EA162@ORSMSX114.amr.corp.intel.com>
+References: <1441858049-44827-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:34403 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886AbbIJPuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 11:50:09 -0400
-In-Reply-To: <55F19243.3010006@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Jarod Wilson <jarod@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441858049-44827-1-git-send-email-jarod@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/10/2015 10:22 AM, Marcelo Ricardo Leitner wrote:
-> Em 10-09-2015 10:24, Vlad Yasevich escreveu:
->> On 09/09/2015 05:06 PM, Marcelo Ricardo Leitner wrote:
->>> Em 09-09-2015 17:30, Vlad Yasevich escreveu:
->>>> On 09/09/2015 04:03 PM, Marcelo Ricardo Leitner wrote:
->>>>> Consider sctp module is unloaded and is being requested because an user
->>>>> is creating a sctp socket.
->>>>>
->>>>> During initialization, sctp will add the new protocol type and then
->>>>> initialize pernet subsys:
->>>>>
->>>>>           status = sctp_v4_protosw_init();
->>>>>           if (status)
->>>>>                   goto err_protosw_init;
->>>>>
->>>>>           status = sctp_v6_protosw_init();
->>>>>           if (status)
->>>>>                   goto err_v6_protosw_init;
->>>>>
->>>>>           status = register_pernet_subsys(&sctp_net_ops);
->>>>>
->>>>> The problem is that after those calls to sctp_v{4,6}_protosw_init(), it
->>>>> is possible for userspace to create SCTP sockets like if the module is
->>>>> already fully loaded. If that happens, one of the possible effects is
->>>>> that we will have readers for net->sctp.local_addr_list list earlier
->>>>> than expected and sctp_net_init() does not take precautions while
->>>>> dealing with that list, leading to a potential panic but not limited to
->>>>> that, as sctp_sock_init() will copy a bunch of blank/partially
->>>>> initialized values from net->sctp.
->>>>>
->>>>> The race happens like this:
->>>>>
->>>>>        CPU 0                           |  CPU 1
->>>>>     socket()                           |
->>>>>      __sock_create                     | socket()
->>>>>       inet_create                      |  __sock_create
->>>>>        list_for_each_entry_rcu(        |
->>>>>           answer, &inetsw[sock->type], |
->>>>>           list) {                      |   inet_create
->>>>>         /* no hits */                  |
->>>>>        if (unlikely(err)) {            |
->>>>>         ...                            |
->>>>>         request_module()               |
->>>>>         /* socket creation is blocked  |
->>>>>          * the module is fully loaded  |
->>>>>          */                            |
->>>>>          sctp_init                     |
->>>>>           sctp_v4_protosw_init         |
->>>>>            inet_register_protosw       |
->>>>>             list_add_rcu(&p->list,     |
->>>>>                          last_perm);   |
->>>>>                                        |  list_for_each_entry_rcu(
->>>>>                                        |     answer, &inetsw[sock->type],
->>>>>           sctp_v6_protosw_init         |     list) {
->>>>>                                        |     /* hit, so assumes protocol
->>>>>                                        |      * is already loaded
->>>>>                                        |      */
->>>>>                                        |  /* socket creation continues
->>>>>                                        |   * before netns is initialized
->>>>>                                        |   */
->>>>>           register_pernet_subsys       |
->>>>>
->>>>> Inverting the initialization order between register_pernet_subsys() and
->>>>> sctp_v4_protosw_init() is not possible because register_pernet_subsys()
->>>>> will create a control sctp socket, so the protocol must be already
->>>>> visible by then. Deferring the socket creation to a work-queue is not
->>>>> good specially because we loose the ability to handle its errors.
->>>>>
->>>>> So the fix then is to invert the initialization order inside
->>>>> register_pernet_subsys() so that the control socket is created by last
->>>>> and also block socket creation if netns initialization wasn't yet
->>>>> performed.
->>>>>
->>>>
->>>> not sure how much I like that...  Wouldn't it be better
->>>> to pull the control socket initialization stuff out into its
->>>> own function that does something like
->>>>
->>>> for_each_net_rcu()
->>>>      init_control_socket(net, ...)
->>>>
->>>>
->>>> Or may be even pull the control socket creation
->>>> stuff completely into its own per-net ops operations structure
->>>> and initialize it after the the protosw stuff has been done.
->>>>
->>>> -vlad
->>>
->>> I'm afraid error handling won't be easy then.
->>>
->>> But still, the control socket is not really the problem, because we don't care (much?) if
->>> it contains zeroed values and the panic happens only if you call connect() on it. I moved
->>> it solely because of the protection on sctp_init_sock().
->>>
->>> The real problem is new sockets created by an user application while module is still
->>> loading, because even if them don't trigger the panic, they may not be fully functional
->>> due to improper values loaded. Can't see other good ways to protect sctp_init_sock() from
->>> that early call (as in, prior to netns initialization).
->>
->> Right, I understand what the problem really is.  Like you said, the simple fix is to
->> reorder the sctp defaults initialization with protosw registration.  However, that's
->> not possible because control socket is created in the sctp defaults initialization code
->> and needs protosw to be registered (chicken and egg issue).
-> 
-> Yes, same page then, cool.
-> 
->> What I am saying is that it is kind of strange to create control socket during protocol
->> default initialization.  The control socket has nothing  really to do with defaults.  So,
->> we could pull it out of the defaults initialization (sctp_net_init()) code and into its
->> own initialization path.
-> 
-> I don't really see sctp_net_init() as a pure defaults initialization routine. It's the
-> callback for new netns's, so it should initialize anything needed for a new netns, no?
-> 
->> Then you can order sctp_net_init() such that it happens first, then protosw registration
->> happens, then control socket initialization happens, then inet protocol registration
->> happens.
->>
->> This way, we are always guaranteed that by the time user calls socket(), protocol
->> defaults are fully initialized.
-> 
-> Okay, that works for module loading stage, but then how would we handle new netns's? We
-> have to create the control socket per netns and AFAICT sctp_net_init() is the only hook
-> called when a new netns is being created.
-> 
-> Then if we move it a workqueue that is scheduled by sctp_net_init(), we loose the ability
-> to handle its errors by propagating through sctp_net_init() return value, not good.
+Thanks! I tried testing this sort of thing last spring, but there just wasn't a lot of hardware available to me and things weren't breaking with my setup (not sure why).
 
-Here is kind of what I had in mind.  It's incomplete and completely untested (not even
-compiled), but good enough to describe the idea:
+ACK.
 
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 59e8035..970bdce 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1166,7 +1166,7 @@ static void sctp_v4_del_protocol(void)
-        unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
- }
+Todd Fujinaka
+Software Application Engineer
+Networking Division (ND)
+Intel Corporation
+todd.fujinaka@intel.com
+(503) 712-4565
 
--static int __net_init sctp_net_init(struct net *net)
-+static int __net_init sctp_defauls_init(struct net *net)
- {
-        int status;
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Jarod Wilson
+Sent: Wednesday, September 09, 2015 9:07 PM
+To: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; Jarod Wilson
+Subject: [Intel-wired-lan] [PATCH] igb: don't unmap hw_addr if its NULL
 
-@@ -1259,12 +1259,6 @@ static int __net_init sctp_net_init(struct net *net)
+I've got a startech thunderbolt dock someone loaned me, which among other things, has the following device in it:
 
-        sctp_dbg_objcnt_init(net);
+08:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
 
--       /* Initialize the control inode/socket for handling OOTB packets.  */
--       if ((status = sctp_ctl_sock_init(net))) {
--               pr_err("Failed to initialize the SCTP control sock\n");
--               goto err_ctl_sock_init;
--       }
--
-        /* Initialize the local address list. */
-        INIT_LIST_HEAD(&net->sctp.local_addr_list);
-        spin_lock_init(&net->sctp.local_addr_lock);
-@@ -1291,15 +1285,12 @@ err_sysctl_register:
-        return status;
- }
+This hotplugs just fine (kernel 4.2.0 plus a patch or two here):
 
--static void __net_exit sctp_net_exit(struct net *net)
-+static void __net_exit sctp_defautls_exit(struct net *net)
- {
-        /* Free the local address list */
-        sctp_free_addr_wq(net);
-        sctp_free_local_addr_list(net);
+[  863.020315] igb: Intel(R) Gigabit Ethernet Network Driver - version 5.2.18-k [  863.020316] igb: Copyright (c) 2007-2014 Intel Corporation.
+[  863.028657] igb 0000:08:00.0: enabling device (0000 -> 0002) [  863.062089] igb 0000:08:00.0: added PHC on eth0 [  863.062090] igb 0000:08:00.0: Intel(R) Gigabit Ethernet Network Connection [  863.062091] igb 0000:08:00.0: eth0: (PCIe:2.5Gb/s:Width x1) e8:ea:6a:00:1b:2a [  863.062194] igb 0000:08:00.0: eth0: PBA No: 000200-000 [  863.062196] igb 0000:08:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s) [  863.064889] igb 0000:08:00.0 enp8s0: renamed from eth0
 
--       /* Free the control endpoint.  */
--       inet_ctl_sock_destroy(net->sctp.ctl_sock);
--
-        sctp_dbg_objcnt_exit(net);
+But disconnecting it is another story:
 
-        sctp_proc_exit(net);
-@@ -1307,9 +1298,31 @@ static void __net_exit sctp_net_exit(struct net *net)
-        sctp_sysctl_net_unregister(net);
- }
+[ 1002.807932] igb 0000:08:00.0: removed PHC on enp8s0 [ 1002.807944] igb 0000:08:00.0 enp8s0: PCIe link lost, device now detached [ 1003.341141] ------------[ cut here ]------------ [ 1003.341148] WARNING: CPU: 0 PID: 199 at lib/iomap.c:43 bad_io_access+0x38/0x40() [ 1003.341149] Bad IO access at port 0x0 () [ 1003.342767] Modules linked in: snd_usb_audio snd_usbmidi_lib snd_rawmidi igb dca firewire_ohci firewire_core crc_itu_t rfcomm ctr ccm arc4 iwlmvm mac80211 fuse xt_CHECKSUM ipt_MASQUERADE
+nf_nat_masquerade_ipv4 tun ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 ipt_REJECT nf_reject_ipv4 xt_conntrack ebtable_nat ebtable_broute bridge stp llc ebtable_filter ebtables ip6table_nat
+nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack iptable_mangle iptable_security iptable_raw iptable_filter bnep dm_mirror dm_region_hash dm_log dm_mod coretemp x86_pkg_temp_thermal intel_powerclamp kvm_intel snd_hda_codec_hdmi kvm crct10dif_pclmul crc32_pclmul ghash_clmulni_intel drbg [ 1003.342793]  ansi_cprng aesni_intel hp_wmi aes_x86_64 iTCO_wdt lrw iTCO_vendor_support ppdev gf128mul sparse_keymap glue_helper ablk_helper cryptd snd_hda_codec_realtek snd_hda_codec_generic microcode snd_hda_intel uvcvideo iwlwifi snd_hda_codec videobuf2_vmalloc videobuf2_memops snd_hda_core videobuf2_core snd_hwdep btusb v4l2_common btrtl snd_seq btbcm btinte
+ l videodev cfg80211 snd_seq_device rtsx_pci_ms bluetooth pcspkr input_leds i2c_i801 media parport_pc memstick rfkill sg lpc_ich snd_pcm 8250_fintek parport joydev snd_timer snd soundcore hp_accel ie31200_edac mei_me lis3lv02d edac_core input_polldev mei hp_wireless shpchp tpm_infineon sch_fq_codel nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables autofs4 xfs libcrc32c sd_mod sr_mod cdrom rtsx_pci_sdmmc mmc_core crc32c_intel serio_raw rtsx_pci [ 1003.342822]  nouveau ahci libahci mxm_wmi e1000e xhci_pci hwmon ptp drm_kms_helper pps_core xhci_hcd ttm wmi video ipv6 [ 1003.342839] CPU: 0 PID: 199 Comm: kworker/0:2 Not tainted 4.2.0-2.el7_UNSUPPORTED.x86_64 #1 [ 1003.342840] Hardware name: Hewlett-Packard HP ZBook 15 G2/2253, BIOS M70 Ver. 01.07 02/26/2015 [ 1003.342843] Workqueue: pcieh
+ p-3 pciehp_power_thread [ 1003.342844]  ffffffff81a90655 ffff8804866d3b48 ffffffff8164763a 0000000000000000 [ 1003.342846]  ffff8804866d3b98 ffff8804866d3b88 ffffffff8107134a ffff8804866d3b88 [ 1003.342847]  ffff880486f46000 ffff88046c8a8000 ffff880486f46840 ffff88046c8a8098 [ 1003.342848] Call Trace:
+[ 1003.342852]  [<ffffffff8164763a>] dump_stack+0x45/0x57 [ 1003.342855]  [<ffffffff8107134a>] warn_slowpath_common+0x8a/0xc0 [ 1003.342857]  [<ffffffff810713c6>] warn_slowpath_fmt+0x46/0x50 [ 1003.342859]  [<ffffffff8133719e>] ? pci_disable_msix+0x3e/0x50 [ 1003.342860]  [<ffffffff812f6328>] bad_io_access+0x38/0x40 [ 1003.342861]  [<ffffffff812f6567>] pci_iounmap+0x27/0x40 [ 1003.342865]  [<ffffffffa0b728d7>] igb_remove+0xc7/0x160 [igb] [ 1003.342867]  [<ffffffff8132189f>] pci_device_remove+0x3f/0xc0 [ 1003.342869]  [<ffffffff81433426>] __device_release_driver+0x96/0x130
+[ 1003.342870]  [<ffffffff814334e3>] device_release_driver+0x23/0x30 [ 1003.342871]  [<ffffffff8131b404>] pci_stop_bus_device+0x94/0xa0 [ 1003.342872]  [<ffffffff8131b3ad>] pci_stop_bus_device+0x3d/0xa0 [ 1003.342873]  [<ffffffff8131b3ad>] pci_stop_bus_device+0x3d/0xa0 [ 1003.342874]  [<ffffffff8131b516>] pci_stop_and_remove_bus_device+0x16/0x30
+[ 1003.342876]  [<ffffffff81333f5b>] pciehp_unconfigure_device+0x9b/0x180
+[ 1003.342877]  [<ffffffff81333a73>] pciehp_disable_slot+0x43/0xb0 [ 1003.342878]  [<ffffffff81333b6d>] pciehp_power_thread+0x8d/0xb0 [ 1003.342885]  [<ffffffff810881b2>] process_one_work+0x152/0x3d0 [ 1003.342886]  [<ffffffff8108854a>] worker_thread+0x11a/0x460 [ 1003.342887]  [<ffffffff81088430>] ? process_one_work+0x3d0/0x3d0 [ 1003.342890]  [<ffffffff8108ddd9>] kthread+0xc9/0xe0 [ 1003.342891]  [<ffffffff8108dd10>] ? kthread_create_on_node+0x180/0x180
+[ 1003.342893]  [<ffffffff8164e29f>] ret_from_fork+0x3f/0x70 [ 1003.342894]  [<ffffffff8108dd10>] ? kthread_create_on_node+0x180/0x180
+[ 1003.342895] ---[ end trace 65a77e06d5aa9358 ]---
 
--static struct pernet_operations sctp_net_ops = {
--       .init = sctp_net_init,
--       .exit = sctp_net_exit,
-+static struct pernet_operations sctp_defaults_ops = {
-+       .init = sctp_net_defaults_init,
-+       .exit = sctp_net_defaults_exit,
-+};
-+
-+static int __net_init sctp_net_ctrlsock_init(struct net *net)
-+{
-+       int status;
-+
-+       /* Initialize the control inode/socket for handling OOTB packets.  */
-+       if ((status = sctp_ctl_sock_init(net)))
-+               pr_err("Failed to initialize the SCTP control sock\n");
-+
-+       return status;
-+}
-+
-+static void __net_exit sctp_defautls_exit(struct net *net)
-+{
-+       /* Free the control endpoint.  */
-+       inet_ctl_sock_destroy(net->sctp.ctl_sock);
-+}
-+
-+static struct pernet_operations sctp_ctrlsock_opts = {
-+       .init = sctp_net_ctrlsock_init,
-+       .exit = sctp_net_ctrlsock_exit,
- };
- /* Initialize the universe into something sensible.  */
-@@ -1442,6 +1455,10 @@ static __init int sctp_init(void)
-        sctp_v4_pf_init();
-        sctp_v6_pf_init();
+Upon looking at the igb driver, I see that igb_rd32() attempted to read from hw_addr and failed, so it set hw->hw_addr to NULL and spit out the message in the log output above, "PCIe link lost, device now detached".
 
-+       status = register_pernet_subsys(&sctp_defaults_ops);
-+       if (status)
-+               goto err_register_default_ops;
-+
-        status = sctp_v4_protosw_init();
+Well, now that hw_addr is NULL, the attempt to call pci_iounmap in igb_remove() is obviously not going to go well. Simple solution here is to simply make sure hw_addr is not NULL before we try to call pci_iounmap on it, and now I can hot-unplug this thunderbolt dock without a problem.
 
-        if (status)
-@@ -1451,9 +1468,9 @@ static __init int sctp_init(void)
-        if (status)
-                goto err_v6_protosw_init;
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
--       status = register_pernet_subsys(&sctp_net_ops);
-+       status = register_pernet_subsys(&sctp_ctrlsock_ops);
-        if (status)
--               goto err_register_pernet_subsys;
-+               goto err_register_ctrlsock_ops;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index e174fbb..a5e0022 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2823,7 +2823,8 @@ static void igb_remove(struct pci_dev *pdev)
+ 
+ 	igb_clear_interrupt_scheme(adapter);
+ 
+-	pci_iounmap(pdev, hw->hw_addr);
++	if (hw->hw_addr)
++		pci_iounmap(pdev, hw->hw_addr);
+ 	if (hw->flash_address)
+ 		iounmap(hw->flash_address);
+ 	pci_release_selected_regions(pdev,
+--
+1.8.3.1
 
-        status = sctp_v4_add_protocol();
-        if (status)
-
-
-> 
->>> I used the list pointer because that's null as that memory is entirely zeroed when alloced
->>> and, after initialization, it's never null again. Works like a lock/condition without
->>> using an extra field.
->>>
->>
->> I understand this a well.  What I don't particularly like is that we are re-using
->> a list without really stating why it's now done this way.  Additionally, it's not really
->> the last that happens so it's seems kind of hacky...  If we need to add new
->> per-net initializers, we now need to make sure that the code is put in the right
->> place.  I'd just really like to have a cleaner solution...
-> 
-> Ok, got you. We could add a dedicated flag/bit for that then, if reusing the list is not
-> clear enough. Or, as we are discussing on the other part of thread, we could make it block
-> and wait for the initialization, probably using some wait_queue. I'm still thinking on
-> something this way, likely something more below than sctp then.
-> 
-
-I think if we don the above, the second process calling socket() will either find the
-the protosw or will try to load the module also.  I think either is ok after
-request_module returns we'll look at the protosw and will find find things.
-
--vlad
-
-> Thanks,
-> Marcelo
-> 
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
