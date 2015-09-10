@@ -1,105 +1,83 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] mv643xx_eth: Neaten mv643xx_eth_program_multicast_filter
-Date: Wed, 09 Sep 2015 17:40:56 -0700
-Message-ID: <1441845656.17219.110.camel@perches.com>
-References: <1441787886-7214-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <20150909.170620.88355755480464840.davem@davemloft.net>
+From: Ben Pope <benpope81@gmail.com>
+Subject: Re: [PATCH] alx: Add the Device ID for the Killer E2400
+Date: Thu, 10 Sep 2015 08:42:59 +0800
+Message-ID: <55F0D213.2070101@gmail.com>
+References: <1441732050-7005-1-git-send-email-benpope81@gmail.com>
+ <20150909.124437.2066417848362699199.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux@rasmusvillemoes.dk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Cc: jcliburn@gmail.com, netdev@vger.kernel.org, ben@pope.name
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150909.170620.88355755480464840.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36459 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751829AbbIJAnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 20:43:03 -0400
+Received: by padhk3 with SMTP id hk3so25051164pad.3
+        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 17:43:02 -0700 (PDT)
+In-Reply-To: <20150909.124437.2066417848362699199.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The code around the allocation and loops are a bit obfuscated.
+On Thursday, September 10, 2015 03:44 AM, David Miller wrote:
+> That's a rather rediculous Subject line, you'll need to fix that
+> before anyone will consider your submission seriously.
 
-Neaten it by using:
+My apologies, first time user of git-send-email, I should have just sent 
+it to myself as a test.
 
-o kcalloc with decimal count and sizeof(u32)
-o Decimal loop indexing and i++ not i += 4
-o A promiscuous block using a similar style
-  to the multicast block
-o Remove unnecessary variables
+The body was supposed to include the following lspci -vv output in case 
+it was useful:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-Here's a neatening patch respun against Rasmus' patch
-Might be useful.
+03:00.0 Ethernet controller: Qualcomm Atheros Device e0a1 (rev 10)
+     Subsystem: Micro-Star International Co., Ltd. [MSI] Device 7977
+     Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx-
+     Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+     Latency: 0
+     Interrupt: pin A routed to IRQ 325
+     Region 0: Memory at dfc00000 (64-bit, non-prefetchable) [size=256K]
+     Region 2: I/O ports at d000 [size=128]
+     Capabilities: [40] Power Management version 3
+         Flags: PMEClk- DSI- D1- D2- AuxCurrent=375mA 
+PME(D0+,D1+,D2+,D3hot+,D3cold+)
+         Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+     Capabilities: [58] Express (v1) Endpoint, MSI 00
+         DevCap:    MaxPayload 4096 bytes, PhantFunc 0, Latency L0s 
+unlimited, L1 unlimited
+             ExtTag- AttnBtn+ AttnInd+ PwrInd+ RBE+ FLReset-
+         DevCtl:    Report errors: Correctable+ Non-Fatal+ Fatal+ 
+Unsupported+
+             RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+             MaxPayload 256 bytes, MaxReadReq 512 bytes
+         DevSta:    CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ 
+TransPend-
+         LnkCap:    Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Exit 
+Latency L0s unlimited, L1 unlimited
+             ClockPM+ Surprise- LLActRep- BwNot-
+         LnkCtl:    ASPM Disabled; RCB 64 bytes Disabled- CommClk+
+             ExtSynch- ClockPM+ AutWidDis- BWInt- AutBWInt-
+         LnkSta:    Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ 
+DLActive- BWMgmt- ABWMgmt-
+     Capabilities: [c0] MSI: Enable+ Count=1/16 Maskable+ 64bit+
+         Address: 00000000fee0200c  Data: 4192
+         Masking: 0000fffe  Pending: 00000000
+     Capabilities: [d8] MSI-X: Enable- Count=16 Masked-
+         Vector table: BAR=0 offset=00002000
+         PBA: BAR=0 offset=00003000
+     Capabilities: [100 v1] Advanced Error Reporting
+         UESta:    DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- 
+RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
+         UEMsk:    DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- 
+RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+         UESvrt:    DLP- SDES+ TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- 
+RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
+         CESta:    RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
+         CEMsk:    RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+         AERCap:    First Error Pointer: 14, GenCap+ CGenEn- ChkCap+ ChkEn-
+     Kernel driver in use: alx
 
- drivers/net/ethernet/marvell/mv643xx_eth.c | 43 +++++++++++++++---------------
- 1 file changed, 22 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 960169e..c78ae18 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1845,29 +1845,19 @@ static void mv643xx_eth_program_multicast_filter(struct net_device *dev)
- 	struct netdev_hw_addr *ha;
- 	int i;
- 
--	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI)) {
--		int port_num;
--		u32 accept;
-+	if (dev->flags & (IFF_PROMISC | IFF_ALLMULTI))
-+		goto promiscuous;
- 
--oom:
--		port_num = mp->port_num;
--		accept = 0x01010101;
--		for (i = 0; i < 0x100; i += 4) {
--			wrl(mp, SPECIAL_MCAST_TABLE(port_num) + i, accept);
--			wrl(mp, OTHER_MCAST_TABLE(port_num) + i, accept);
--		}
--		return;
--	}
--
--	mc_spec = kzalloc(0x200, GFP_ATOMIC);
--	if (mc_spec == NULL)
--		goto oom;
--	mc_other = mc_spec + (0x100 >> 2);
-+	/* Allocate both mc_spec and mc_other tables */
-+	mc_spec = kcalloc(128, sizeof(u32), GFP_ATOMIC);
-+	if (!mc_spec)
-+		goto promiscuous;
-+	mc_other = &mc_spec[64];
- 
- 	netdev_for_each_mc_addr(ha, dev) {
- 		u8 *a = ha->addr;
- 		u32 *table;
--		int entry;
-+		u8 entry;
- 
- 		if (memcmp(a, "\x01\x00\x5e\x00\x00", 5) == 0) {
- 			table = mc_spec;
-@@ -1880,12 +1870,23 @@ oom:
- 		table[entry >> 2] |= 1 << (8 * (entry & 3));
- 	}
- 
--	for (i = 0; i < 0x100; i += 4) {
--		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i, mc_spec[i >> 2]);
--		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i, mc_other[i >> 2]);
-+	for (i = 0; i < 64; i++) {
-+		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    mc_spec[i]);
-+		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    mc_other[i]);
- 	}
- 
- 	kfree(mc_spec);
-+	return;
-+
-+promiscuous:
-+	for (i = 0; i < 64; i++) {
-+		wrl(mp, SPECIAL_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    0x01010101u);
-+		wrl(mp, OTHER_MCAST_TABLE(mp->port_num) + i * sizeof(u32),
-+		    0x01010101u);
-+	}
- }
- 
- static void mv643xx_eth_set_rx_mode(struct net_device *dev)
+Ben
