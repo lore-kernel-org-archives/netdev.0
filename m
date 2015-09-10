@@ -1,53 +1,61 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net v2 0/2] xen-net{front,back}: respect user provided
- max_queues
-Date: Thu, 10 Sep 2015 10:05:03 +0100
-Message-ID: <20150910090503.GA29711@zion.uk.xensource.com>
-References: <1441794186-26991-1-git-send-email-wei.liu2@citrix.com>
- <20150909.215322.1247922588988536450.davem@davemloft.net>
- <20150909.220553.642261089490536395.davem@davemloft.net>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net-next] Revert "net/ipv6: add sysctl option
+ accept_ra_min_hop_limit"
+Date: Thu, 10 Sep 2015 11:19:04 +0200
+Message-ID: <20150910091904.GA22575@bistromath.redhat.com>
+References: <20150902094301.GA6434@via.ecp.fr>
+ <20150902.161110.223512323094619164.davem@davemloft.net>
+ <20150909101054.GA6753@bistromath.redhat.com>
+ <CAPwn2JRcHBSj4mnYZyjmYinpcb9yB6Makcw+ynSyMaQJg0cYaQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	network dev <netdev@vger.kernel.org>,
+	=?utf-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:25312 "EHLO SMTP.CITRIX.COM"
+Received: from mx1.redhat.com ([209.132.183.28]:44911 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751227AbbIJJFG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2015 05:05:06 -0400
+	id S1751295AbbIJJTI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2015 05:19:08 -0400
 Content-Disposition: inline
-In-Reply-To: <20150909.220553.642261089490536395.davem@davemloft.net>
+In-Reply-To: <CAPwn2JRcHBSj4mnYZyjmYinpcb9yB6Makcw+ynSyMaQJg0cYaQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 09, 2015 at 10:05:53PM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 09 Sep 2015 21:53:22 -0700 (PDT)
->=20
-> > From: Wei Liu <wei.liu2@citrix.com>
-> > Date: Wed, 9 Sep 2015 11:23:04 +0100
-> >=20
-> >> Wei Liu (2):
-> >>   xen-netback: respect user provided max_queues
-> >>   xen-netfront: respect user provided max_queues
-> >=20
-> > Both applied, thanks.
->=20
-> Yo, this doesn't even compile!
->=20
-> drivers/net/xen-netfront.c: In function =E2=80=98netif_init=E2=80=99:
-> drivers/net/xen-netfront.c:2138:6: error: =E2=80=98xenvif_max_queues=E2=
-=80=99 undeclared (first use in this function)
->   if (xenvif_max_queues =3D=3D 0)
->       ^
-> drivers/net/xen-netfront.c:2138:6: note: each undeclared identifier i=
-s reported only once for each function it appears in
->=20
+Hello,
 
-Sorry about this.
+2015-09-10, 10:54:38 +0800, Hangbin Liu wrote:
+> > Can we still modify the behavior of this sysctl? It's already been in
+> > Linus's tree for a while, but if we can, I would rather restrict the
+> > values we let the user write to accept_ra_min_hop_limit, as anything
+> > outside [0..255] does not really make sense.
+> 
+> Yes, so the checked if (in6_dev->cnf.accept_ra_min_hop_limit < 256 &&
+> ra_msg->icmph.icmp6_hop_limit)  make sure we only update the value between
+> [1..255].
 
-I will send an updated version.
+I was thinking of returning -EINVAL when the user tries to set it to
+300, using proc_dointvec_minmax.
 
-Wei.
+
+> > Allowing an RA to update the hop limit if
+> >
+> >    current hop limit < RA.hop_limit < accept_ra_min_hop_limit
+> >
+> > might also be desirable, but I'm not so sure about this case.
+> 
+> Yes, and we also should allow an RA to update the hop limit if
+> 
+> accept_ra_min_hop_limit <= RA.hop_limit < current hop limit
+> 
+> e.g accept_ra_min_hop_limit = RA.hop_limit =64, current hop limit = 128
+
+Yes, that's what we're doing at the moment, and I would leave it as is.
+
+
+Thanks,
+
+-- 
+Sabrina
