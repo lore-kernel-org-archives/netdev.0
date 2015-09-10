@@ -1,56 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] rhashtable-test: retry insert operations in threads
-Date: Thu, 10 Sep 2015 16:03:44 +0800
-Message-ID: <20150910080344.GA28214@gondor.apana.org.au>
-References: <20150901114300.GB12691@gondor.apana.org.au>
- <20150901124648.GA27550@orbit.nwl.cc>
- <20150901130057.GA13230@gondor.apana.org.au>
- <20150901134310.GB27550@orbit.nwl.cc>
- <20150901135019.GA13629@gondor.apana.org.au>
- <20150901135618.GD27550@orbit.nwl.cc>
- <20150901140341.GA13757@gondor.apana.org.au>
- <20150901141305.GA11564@pox.localdomain>
- <20150901141639.GA13856@gondor.apana.org.au>
- <20150901145124.GC11564@pox.localdomain>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] net/mac80211/rate.c: fix wrong sizeof()
+Date: Thu, 10 Sep 2015 10:13:05 +0200
+Message-ID: <1441872785.2108.2.camel@sipsolutions.net>
+References: <1441832214-6939-1-git-send-email-slyich@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com,
-	wfg@linux.intel.com, lkp@01.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150901145124.GC11564@pox.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Trofimovich <siarheit-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Lorenzo Bianconi <lorenzo.bianconi83-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sergei Trofimovich <slyich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1441832214-6939-1-git-send-email-slyich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 01, 2015 at 04:51:24PM +0200, Thomas Graf wrote:
+On Wed, 2015-09-09 at 21:56 +0100, Sergei Trofimovich wrote:
+> From: Sergei Trofimovich <siarheit-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 > 
-> 1. The current in-kernel self-test
-> 2. bind_netlink.c: https://github.com/tgraf/rhashtable
+> Noticed by gcc-5.2.0:
+> 
+>     net/mac80211/rate.c: In function 'rate_control_cap_mask':
+>     net/mac80211/rate.c:719:25: warning: 'sizeof' on array function 
+> parameter 'mcs_mask' will return size of 'u8 * {aka unsigned char *}' 
+> [-Wsizeof-array-argument]
+>        for (i = 0; i < sizeof(mcs_mask); i++)
+>                              ^
+> 
+We already merged a fix for this.
 
-I can't reproduce it:
-
-$ while :; do ./bind_netlink 10000 12345; done
-Ports successfully created, terminating
-Create 10000 ports
-Created 1000 ports
-Created 2000 ports
-Created 3000 ports
-Created 4000 ports
-Created 5000 ports
-Created 6000 ports
-Created 7000 ports
-Created 8000 ports
-Created 9000 ports
-Created 10000 ports
-Ports successfully created, terminating
-...
-
-So what am I missing?
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
