@@ -1,32 +1,28 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 12/13] Hide AT_VECTOR_SIZE_ARCH behind #ifdef __KERNEL__
-Date: Thu, 10 Sep 2015 12:14:06 +0100
-Message-ID: <18120.1441883646@warthog.procyon.org.uk>
-References: <1441832902-28993-13-git-send-email-palmer@dabbelt.com> <2644177.lVCYzIBfPW@wuerfel> <1441832902-28993-1-git-send-email-palmer@dabbelt.com>
+From: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] Remove #ifdef CONFIG_64BIT from all asm-generic/fcntl.h
+Date: Thu, 10 Sep 2015 12:15:29 +0100
+Message-ID: <18147.1441883729@warthog.procyon.org.uk>
+References: <1441832902-28993-1-git-send-email-palmer@dabbelt.com> <2644177.lVCYzIBfPW@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, arnd@arndb.de, 3chas3@gmail.com,
-	hpa@zytor.com, mingo@redhat.com, plagnioj@jcrosoft.com,
-	jikos@kernel.org, linux-api@vger.kernel.org,
-	linux-arch@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net,
-	linux-fbdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, tglx@linutronix.de, tomi.valkeinen@ti.com,
-	x86@kernel.org
-To: Palmer Dabbelt <palmer@dabbelt.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60492 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754453AbbIJLON (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2015 07:14:13 -0400
-In-Reply-To: <1441832902-28993-13-git-send-email-palmer@dabbelt.com>
-Content-ID: <18119.1441883646.1@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, 3chas3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org,
+	jikos-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-atm-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org, tomi.valkeinen-l0cyMroinI0@public.gmane.org,
+	x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Palmer Dabbelt <palmer-96lFi9zoCfxBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1441832902-28993-1-git-send-email-palmer-96lFi9zoCfxBDgjK7y7TUQ@public.gmane.org>
+Content-ID: <18146.1441883729.1-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Palmer Dabbelt <palmer@dabbelt.com> wrote:
+Rather than iterating through all the rest of your patches and saying the same
+thing, if there's something in a UAPI header that needs wrapping in __KERNEL__
+to exclude it from userspace's use, then it should be transferred to the
+non-UAPI variant of that header (which should #include the UAPI variant).
 
-> I think this actually isn't a good idea, but I can't find anything
-> outside of the kernel that's using this so I'm going to hide it.
-
-It should be in arch/x86/include/asm/auxvec.h then.
+David
