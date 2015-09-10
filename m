@@ -1,159 +1,341 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH v2] igb: don't unmap NULL hw_addr
-Date: Thu, 10 Sep 2015 15:37:50 -0400
-Message-ID: <1441913870-12953-1-git-send-email-jarod@redhat.com>
-References: <9AC147AD-6D52-4A7D-BE5B-3A40F8D22B1A@intel.com>
-Cc: Jarod Wilson <jarod@redhat.com>,
-	Mark Rustad <mark.d.rustad@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33298 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751523AbbIJTh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2015 15:37:58 -0400
-In-Reply-To: <9AC147AD-6D52-4A7D-BE5B-3A40F8D22B1A@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 10 Sep 2015 12:42:34 -0700 (PDT)
+Message-ID: <20150910.124234.719744288193220381.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I've got a startech thunderbolt dock someone loaned me, which among other
-things, has the following device in it:
 
-08:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+1) Fix out-of-bounds array access in netfilter ipset, from Jozsef
+   Kadlecsik.
 
-This hotplugs just fine (kernel 4.2.0 plus a patch or two here):
+2) Use correct free operation on netfilter conntrack templates, from
+   Daniel Borkmann.
 
-[  863.020315] igb: Intel(R) Gigabit Ethernet Network Driver - version 5.2.18-k
-[  863.020316] igb: Copyright (c) 2007-2014 Intel Corporation.
-[  863.028657] igb 0000:08:00.0: enabling device (0000 -> 0002)
-[  863.062089] igb 0000:08:00.0: added PHC on eth0
-[  863.062090] igb 0000:08:00.0: Intel(R) Gigabit Ethernet Network Connection
-[  863.062091] igb 0000:08:00.0: eth0: (PCIe:2.5Gb/s:Width x1) e8:ea:6a:00:1b:2a
-[  863.062194] igb 0000:08:00.0: eth0: PBA No: 000200-000
-[  863.062196] igb 0000:08:00.0: Using MSI-X interrupts. 4 rx queue(s), 4 tx queue(s)
-[  863.064889] igb 0000:08:00.0 enp8s0: renamed from eth0
+3) Fix route leak in SCTP, from Marcelo Ricardo Leitner.
 
-But disconnecting it is another story:
+4) Fix sizeof(pointer) in mac80211, from Thierry Reding.
 
-[ 1002.807932] igb 0000:08:00.0: removed PHC on enp8s0
-[ 1002.807944] igb 0000:08:00.0 enp8s0: PCIe link lost, device now detached
-[ 1003.341141] ------------[ cut here ]------------
-[ 1003.341148] WARNING: CPU: 0 PID: 199 at lib/iomap.c:43 bad_io_access+0x38/0x40()
-[ 1003.341149] Bad IO access at port 0x0 ()
-[ 1003.342767] Modules linked in: snd_usb_audio snd_usbmidi_lib snd_rawmidi igb dca firewire_ohci firewire_core crc_itu_t rfcomm ctr ccm arc4 iwlmvm mac80211 fuse xt_CHECKSUM ipt_MASQUERADE
-nf_nat_masquerade_ipv4 tun ip6t_rpfilter ip6t_REJECT nf_reject_ipv6 ipt_REJECT nf_reject_ipv4 xt_conntrack ebtable_nat ebtable_broute bridge stp llc ebtable_filter ebtables ip6table_nat
-nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
-nf_conntrack iptable_mangle iptable_security iptable_raw iptable_filter bnep dm_mirror dm_region_hash dm_log dm_mod coretemp x86_pkg_temp_thermal intel_powerclamp kvm_intel snd_hda_codec_hdmi kvm
-crct10dif_pclmul crc32_pclmul ghash_clmulni_intel drbg
-[ 1003.342793]  ansi_cprng aesni_intel hp_wmi aes_x86_64 iTCO_wdt lrw iTCO_vendor_support ppdev gf128mul sparse_keymap glue_helper ablk_helper cryptd snd_hda_codec_realtek snd_hda_codec_generic
-microcode snd_hda_intel uvcvideo iwlwifi snd_hda_codec videobuf2_vmalloc videobuf2_memops snd_hda_core videobuf2_core snd_hwdep btusb v4l2_common btrtl snd_seq btbcm btintel videodev cfg80211
-snd_seq_device rtsx_pci_ms bluetooth pcspkr input_leds i2c_i801 media parport_pc memstick rfkill sg lpc_ich snd_pcm 8250_fintek parport joydev snd_timer snd soundcore hp_accel ie31200_edac
-mei_me lis3lv02d edac_core input_polldev mei hp_wireless shpchp tpm_infineon sch_fq_codel nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables autofs4 xfs libcrc32c sd_mod sr_mod cdrom
-rtsx_pci_sdmmc mmc_core crc32c_intel serio_raw rtsx_pci
-[ 1003.342822]  nouveau ahci libahci mxm_wmi e1000e xhci_pci hwmon ptp drm_kms_helper pps_core xhci_hcd ttm wmi video ipv6
-[ 1003.342839] CPU: 0 PID: 199 Comm: kworker/0:2 Not tainted 4.2.0-2.el7_UNSUPPORTED.x86_64 #1
-[ 1003.342840] Hardware name: Hewlett-Packard HP ZBook 15 G2/2253, BIOS M70 Ver. 01.07 02/26/2015
-[ 1003.342843] Workqueue: pciehp-3 pciehp_power_thread
-[ 1003.342844]  ffffffff81a90655 ffff8804866d3b48 ffffffff8164763a 0000000000000000
-[ 1003.342846]  ffff8804866d3b98 ffff8804866d3b88 ffffffff8107134a ffff8804866d3b88
-[ 1003.342847]  ffff880486f46000 ffff88046c8a8000 ffff880486f46840 ffff88046c8a8098
-[ 1003.342848] Call Trace:
-[ 1003.342852]  [<ffffffff8164763a>] dump_stack+0x45/0x57
-[ 1003.342855]  [<ffffffff8107134a>] warn_slowpath_common+0x8a/0xc0
-[ 1003.342857]  [<ffffffff810713c6>] warn_slowpath_fmt+0x46/0x50
-[ 1003.342859]  [<ffffffff8133719e>] ? pci_disable_msix+0x3e/0x50
-[ 1003.342860]  [<ffffffff812f6328>] bad_io_access+0x38/0x40
-[ 1003.342861]  [<ffffffff812f6567>] pci_iounmap+0x27/0x40
-[ 1003.342865]  [<ffffffffa0b728d7>] igb_remove+0xc7/0x160 [igb]
-[ 1003.342867]  [<ffffffff8132189f>] pci_device_remove+0x3f/0xc0
-[ 1003.342869]  [<ffffffff81433426>] __device_release_driver+0x96/0x130
-[ 1003.342870]  [<ffffffff814334e3>] device_release_driver+0x23/0x30
-[ 1003.342871]  [<ffffffff8131b404>] pci_stop_bus_device+0x94/0xa0
-[ 1003.342872]  [<ffffffff8131b3ad>] pci_stop_bus_device+0x3d/0xa0
-[ 1003.342873]  [<ffffffff8131b3ad>] pci_stop_bus_device+0x3d/0xa0
-[ 1003.342874]  [<ffffffff8131b516>] pci_stop_and_remove_bus_device+0x16/0x30
-[ 1003.342876]  [<ffffffff81333f5b>] pciehp_unconfigure_device+0x9b/0x180
-[ 1003.342877]  [<ffffffff81333a73>] pciehp_disable_slot+0x43/0xb0
-[ 1003.342878]  [<ffffffff81333b6d>] pciehp_power_thread+0x8d/0xb0
-[ 1003.342885]  [<ffffffff810881b2>] process_one_work+0x152/0x3d0
-[ 1003.342886]  [<ffffffff8108854a>] worker_thread+0x11a/0x460
-[ 1003.342887]  [<ffffffff81088430>] ? process_one_work+0x3d0/0x3d0
-[ 1003.342890]  [<ffffffff8108ddd9>] kthread+0xc9/0xe0
-[ 1003.342891]  [<ffffffff8108dd10>] ? kthread_create_on_node+0x180/0x180
-[ 1003.342893]  [<ffffffff8164e29f>] ret_from_fork+0x3f/0x70
-[ 1003.342894]  [<ffffffff8108dd10>] ? kthread_create_on_node+0x180/0x180
-[ 1003.342895] ---[ end trace 65a77e06d5aa9358 ]---
+5) Fix cache pointer comparison in ip6mr leading to missed
+   unlock of mrt_lock.  From Richard Laing.
 
-Upon looking at the igb driver, I see that igb_rd32() attempted to read from
-hw_addr and failed, so it set hw->hw_addr to NULL and spit out the message
-in the log output above, "PCIe link lost, device now detached".
+6) rds_conn_lookup() needs to consider network namespace in key
+   comparison, from Sowmini Varadhan.
 
-Well, now that hw_addr is NULL, the attempt to call pci_iounmap is obviously
-not going to go well. As suggested by Mark Rustad, do something similar to
-what ixgbe does, and save a copy of hw_addr as adapter->io_addr, so we can
-still call pci_iounmap on it on teardown. Additionally, for consistency,
-make the pci_iomap call assignment directly to io_addr, so map and unmap
-match.
+7) Fix deadlock in TIPC code wrt. broadcast link wakeups, from
+   Kolmakov Dmitriy.
 
-CC: Mark Rustad <mark.d.rustad@intel.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: intel-wired-lan@lists.osuosl.org
-CC: netdev@vger.kernel.org
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
+8) Fix fd leaks in bpf syscall, from Daniel Borkmann.
+
+9) Fix error recovery when installing ipv6 multipath routes,
+   we would delete the old route before we would know if we
+   could fully commit to the new set of nexthops.  Fix from
+   Roopa Prabhu.
+
+10) Fix run-time suspend problems in r8152, from Hayes Wang.
+
+11) In fec, don't program the MAC address into the chip when
+    the clocks are gated off.  From Fugang Duan.
+
+12) Fix poll behavior for netlink sockets when using rx ring mmap,
+    from Daniel Borkmann.
+
+13) Don't allocate memory with GFP_KERNEL from get_stats64 in
+    r8169 driver, from Corinna Vinschen.
+
+14) In TCP Cubic congestion control, handle idle periods better
+    where we are application limited, in order to keep cwnd from
+    growing out of control.  From Eric Dumzet.
+
+Please pull, thanks a lot!
+
+The following changes since commit dd5cdb48edfd34401799056a9acf61078d77=
+3f90:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next (2=
+015-09-03 08:08:17 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net=20
+
+for you to fetch changes up to 30927520dbae297182990bb21d08762bcc35ce1d=
+:
+
+  tcp_cubic: better follow cubic curve after idle period (2015-09-10 10=
+:58:33 -0700)
+
+----------------------------------------------------------------
+Alexei Starovoitov (1):
+      bpf: fix out of bounds access in verifier log
+
+Alexey Brodkin (1):
+      stmmac: fix check for phydev being open
+
+Arik Nemtsov (1):
+      mac80211: avoid VHT usage with no 80MHz chans allowed
+
+Atsushi Nemoto (2):
+      net: eth: altera: fix napi poll_list corruption
+      net: eth: altera: Fix the initial device operstate
+
+Avri Altman (1):
+      mac80211: protect non-HT BSS when HT TDLS traffic exists
+
+Barry Song (1):
+      dm9000: fix a typo
+
+Bernhard Thaler (1):
+      netfilter: bridge: fix IPv6 packets not being bridged with CONFIG=
+_IPV6=3Dn
+
+Corinna Vinschen (1):
+      r8169: Fix sleeping function called during get_stats64, v2
+
+Daniel Borkmann (4):
+      netfilter: conntrack: use nf_ct_tmpl_free in CT/synproxy error pa=
+ths
+      ebpf: fix fd refcount leaks related to maps in bpf syscall
+      netlink, mmap: don't walk rx ring on poll if receive queue non-em=
+pty
+      netlink, mmap: fix edge-case leakages in nf queue zero-copy
+
+David S. Miller (5):
+      Merge branch 'sctp-fixes'
+      Merge git://git.kernel.org/.../pablo/nf
+      Merge tag 'mac80211-for-davem-2015-09-04' of git://git.kernel.org=
+/.../jberg/mac80211
+      Merge branch 'cxgb4-fixes'
+      Merge branch 'r8152-autoresume'
+
+David Vrabel (1):
+      xen-netback: require fewer guest Rx slots when not using GSO
+
+Elad Raz (1):
+      netfilter: ipset: Fixing unnamed union init
+
+Eric Dumazet (1):
+      tcp_cubic: better follow cubic curve after idle period
+
+Eugene Shatokhin (1):
+      usbnet: Fix a race between usbnet_stop() and the BH
+
+=46lorian Fainelli (2):
+      net: dsa: bcm_sf2: Fix ageing conditions and operation
+      net: dsa: bcm_sf2: Fix 64-bits register writes
+
+Geert Uytterhoeven (3):
+      lan78xx: Fix ladv/radv error handling in lan78xx_link_reset()
+      vxlan: Refactor vxlan_udp_encap_recv() to kill compiler warning
+      ethernet: synopsys: SYNOPSYS_DWC_ETH_QOS should depend on HAS_DMA
+
+Hariprasad Shenai (3):
+      cxgb4: Fix tx flit calculation
+      cxgb4: Fix for write-combining stats configuration
+      cxgb4: changes for new firmware 1.14.4.0
+
+Henrik Austad (1):
+      ether: add IEEE 1722 ethertype - TSN
+
+Jiri Pirko (1):
+      switchdev: fix return value of switchdev_port_fdb_dump in case of=
+ error
+
+Joe Stringer (1):
+      openvswitch: Remove conntrack Kconfig option.
+
+Johannes Berg (1):
+      mac80211: reject software RSSI CQM with beacon filtering
+
+Jozsef Kadlecsik (1):
+      netfilter: ipset: Out of bound access in hash:net* types fixed
+
+Jo=E3o Paulo Rechi Vita (1):
+      rfkill: Copy "all" global state to other types
+
+Julien Grall (1):
+      device property: Don't overwrite addr when failing in device_get_=
+mac_address
+
+Kolmakov Dmitriy (1):
+      net: tipc: fix stall during bclink wakeup procedure
+
+Maciej S. Szmigiero (2):
+      cfg80211: regulatory: restore proper user alpha2
+      net: fec: normalize return value of pm_runtime_get_sync() in MDIO=
+ write
+
+Marcelo Ricardo Leitner (2):
+      sctp: fix dst leak
+      sctp: add routing output fallback
+
+Neal Cardwell (1):
+      tcp: generate CA_EVENT_TX_START on data frames
+
+Nimrod Andy (1):
+      net: fec: add netif status check before set mac address
+
+Pablo Neira Ayuso (2):
+      netfilter: nf_tables: Use 32 bit addressing register from nft_typ=
+e_to_reg()
+      netfilter: nfnetlink: work around wrong endianess in res_id field
+
+Phil Sutter (1):
+      net: ipv6: use common fib_default_rule_pref
+
+Rasmus Villemoes (4):
+      net: cavium: liquidio: use kzalloc in setup_glist()
+      net: jme: use kzalloc() instead of kmalloc+memset
+      net: mv643xx_eth: use kzalloc
+      net: qlcnic: delete redundant memsets
+
+Richard Laing (1):
+      net/ipv6: Correct PIM6 mrt_lock handling
+
+Roopa Prabhu (1):
+      ipv6: fix multipath route replace error recovery
+
+Sasha Levin (1):
+      RDS: verify the underlying transport exists before creating a con=
+nection
+
+Sathya Perla (1):
+      be2net: Revert "make the RX_FILTER command asynchronous" commit
+
+Sergei Shtylyov (1):
+      fixed_phy: pass 'irq' to fixed_phy_add()
+
+Sowmini Varadhan (1):
+      RDS: rds_conn_lookup() should factor in the struct net for a matc=
+h
+
+Sudip Mukherjee (1):
+      net: wan: sbni: fix device usage count
+
+Thierry Reding (1):
+      mac80211: Do not use sizeof() on pointer type
+
+Tobias Klauser (1):
+      net: ethoc: Remove unnecessary #ifdef CONFIG_OF
+
+Vivien Didelot (3):
+      net: dsa: mv88e6171: add hardware 802.1Q support
+      net: bridge: check __vlan_vid_del for error
+      net: bridge: remove unnecessary switchdev include
+
+Wei Liu (2):
+      xen-netback: respect user provided max_queues
+      xen-netfront: respect user provided max_queues
+
+Woojung.Huh@microchip.com (1):
+      add microchip LAN88xx phy driver
+
+Wu Fengguang (1):
+      ipv6: fix ifnullfree.cocci warnings
+
+fran=E7ois romieu (1):
+      cxgb4: fix usage of uninitialized variable
+
+hayeswang (2):
+      r8152: split DRIVER_VERSION
+      r8152: fix the runtime suspend issues
+
+ drivers/base/property.c                                  |  14 ++--
+ drivers/net/dsa/bcm_sf2.c                                |  12 ++-
+ drivers/net/dsa/bcm_sf2.h                                |   4 +-
+ drivers/net/dsa/mv88e6171.c                              |   5 ++
+ drivers/net/ethernet/altera/altera_tse_main.c            |   4 +-
+ drivers/net/ethernet/cavium/liquidio/lio_main.c          |   3 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c          |  24 +++---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c                 |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h            |  33 +++++++=
+-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h        |  12 +--
+ drivers/net/ethernet/davicom/dm9000.c                    |   2 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c              |   2 +-
+ drivers/net/ethernet/ethoc.c                             |   7 +-
+ drivers/net/ethernet/freescale/fec_main.c                |  12 ++-
+ drivers/net/ethernet/jme.c                               |   8 +-
+ drivers/net/ethernet/marvell/mv643xx_eth.c               |   5 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c      |   2 -
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c          |   2 -
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c |   2 -
+ drivers/net/ethernet/realtek/r8169.c                     | 137 +++++++=
+++++++--------------------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c        |   5 +-
+ drivers/net/ethernet/synopsys/Kconfig                    |   2 +-
+ drivers/net/phy/Kconfig                                  |   5 ++
+ drivers/net/phy/Makefile                                 |   1 +
+ drivers/net/phy/fixed_phy.c                              |   2 +-
+ drivers/net/phy/microchip.c                              | 148 +++++++=
++++++++++++++++++++++++++++++
+ drivers/net/usb/lan78xx.c                                |  11 ++-
+ drivers/net/usb/r8152.c                                  |  66 +++++++=
+++++++++-
+ drivers/net/usb/usbnet.c                                 |  39 +++++++=
 ---
- drivers/net/ethernet/intel/igb/igb.h      |  2 ++
- drivers/net/ethernet/intel/igb/igb_main.c | 10 ++++++----
- 2 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 212d668..df1d1c5 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -389,6 +389,8 @@ struct igb_adapter {
- 	u16 link_speed;
- 	u16 link_duplex;
- 
-+	u8 __iomem *io_addr; /* Mainly for iounmap use */
-+
- 	struct work_struct reset_task;
- 	struct work_struct watchdog_task;
- 	bool fc_autoneg;
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index e174fbb..76928b6 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2294,9 +2294,11 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->msg_enable = netif_msg_init(debug, DEFAULT_MSG_ENABLE);
- 
- 	err = -EIO;
--	hw->hw_addr = pci_iomap(pdev, 0, 0);
--	if (!hw->hw_addr)
-+	adapter->io_addr = pci_iomap(pdev, 0, 0);
-+	if (!adapter->io_addr)
- 		goto err_ioremap;
-+	/* hw->hw_addr can be altered, we'll use adapter->io_addr for unmap */
-+	hw->hw_addr = adapter->io_addr;
- 
- 	netdev->netdev_ops = &igb_netdev_ops;
- 	igb_set_ethtool_ops(netdev);
-@@ -2656,7 +2658,7 @@ err_sw_init:
- #ifdef CONFIG_PCI_IOV
- 	igb_disable_sriov(pdev);
- #endif
--	pci_iounmap(pdev, hw->hw_addr);
-+	pci_iounmap(pdev, adapter->io_addr);
- err_ioremap:
- 	free_netdev(netdev);
- err_alloc_etherdev:
-@@ -2823,7 +2825,7 @@ static void igb_remove(struct pci_dev *pdev)
- 
- 	igb_clear_interrupt_scheme(adapter);
- 
--	pci_iounmap(pdev, hw->hw_addr);
-+	pci_iounmap(pdev, adapter->io_addr);
- 	if (hw->flash_address)
- 		iounmap(hw->flash_address);
- 	pci_release_selected_regions(pdev,
--- 
-1.8.3.1
+ drivers/net/vxlan.c                                      |   6 +-
+ drivers/net/wan/sbni.c                                   |   2 +
+ drivers/net/xen-netback/common.h                         |  10 ---
+ drivers/net/xen-netback/netback.c                        |  30 +++++--=
+-
+ drivers/net/xen-netfront.c                               |   7 +-
+ include/linux/microchipphy.h                             |  73 +++++++=
++++++++++++
+ include/linux/netlink.h                                  |  13 +++-
+ include/net/fib_rules.h                                  |   2 -
+ include/net/mac80211.h                                   |   4 +-
+ include/net/netfilter/br_netfilter.h                     |   2 +-
+ include/net/netfilter/nf_conntrack.h                     |   1 +
+ include/net/netfilter/nf_tables.h                        |   2 +-
+ include/uapi/linux/if_ether.h                            |   1 +
+ kernel/bpf/syscall.c                                     |  12 ++-
+ kernel/bpf/verifier.c                                    |   4 +-
+ net/bridge/br_netlink.c                                  |   1 -
+ net/bridge/br_vlan.c                                     |  17 ++++-
+ net/core/fib_rules.c                                     |  10 +--
+ net/decnet/dn_rules.c                                    |   1 -
+ net/ipv4/fib_rules.c                                     |   1 -
+ net/ipv4/ipmr.c                                          |   1 -
+ net/ipv4/tcp_cubic.c                                     |  16 ++++
+ net/ipv4/tcp_output.c                                    |   6 +-
+ net/ipv6/fib6_rules.c                                    |   6 --
+ net/ipv6/ip6mr.c                                         |   3 +-
+ net/ipv6/route.c                                         | 200 +++++++=
++++++++++++++++++++++++++++++++++++-------
+ net/mac80211/cfg.c                                       |   4 +
+ net/mac80211/mlme.c                                      |  16 ++++
+ net/mac80211/rate.c                                      |   2 +-
+ net/mac80211/tdls.c                                      |  70 +++++++=
++++++++++-
+ net/mac80211/vht.c                                       |  15 ++++
+ net/netfilter/ipset/ip_set_hash_gen.h                    |  12 ++-
+ net/netfilter/ipset/ip_set_hash_netnet.c                 |  20 ++++-
+ net/netfilter/ipset/ip_set_hash_netportnet.c             |  20 ++++-
+ net/netfilter/nf_conntrack_core.c                        |   3 +-
+ net/netfilter/nf_synproxy_core.c                         |   2 +-
+ net/netfilter/nfnetlink.c                                |   8 +-
+ net/netfilter/nfnetlink_queue_core.c                     |   5 +-
+ net/netfilter/xt_CT.c                                    |   2 +-
+ net/netlink/af_netlink.c                                 |  35 ++++++-=
+--
+ net/openvswitch/Kconfig                                  |  12 +--
+ net/openvswitch/Makefile                                 |   4 +-
+ net/openvswitch/conntrack.h                              |   4 +-
+ net/rds/connection.c                                     |  15 +++-
+ net/rfkill/core.c                                        |  10 ++-
+ net/sctp/protocol.c                                      |  10 ++-
+ net/switchdev/switchdev.c                                |   6 +-
+ net/tipc/bcast.c                                         |  30 +++++++=
+-
+ net/wireless/reg.c                                       |   2 +-
+ 78 files changed, 994 insertions(+), 315 deletions(-)
+ create mode 100644 drivers/net/phy/microchip.c
+ create mode 100644 include/linux/microchipphy.h
