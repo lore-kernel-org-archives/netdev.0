@@ -1,53 +1,128 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] tcp_cubic: better follow cubic curve after
- idle period
-Date: Thu, 10 Sep 2015 10:59:06 -0700 (PDT)
-Message-ID: <20150910.105906.1350790432465932740.davem@davemloft.net>
-References: <1441808667.4619.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1441860907.4619.44.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
-	jri@google.com, stephen@networkplumber.org, sangtae.ha@gmail.com,
-	lawrence@brakmo.org
-To: eric.dumazet@gmail.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] netlink, mmap: transform mmap skb into full skb on taps
+Date: Thu, 10 Sep 2015 20:05:46 +0200
+Message-ID: <d8546f5fdd1e84659e0f184275b36fcd565fe59c.1441887916.git.daniel@iogearbox.net>
+Cc: chamaken@gmail.com, fw@strlen.de, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41519 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbbIJR7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 13:59:07 -0400
-In-Reply-To: <1441860907.4619.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:55446 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752521AbbIJSFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 14:05:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 09 Sep 2015 21:55:07 -0700
+Ken-ichirou reported that running netlink in mmap mode for receive in
+combination with nlmon will throw a NULL pointer dereference in
+__kfree_skb() on nlmon_xmit(), in my case I can also trigger an "unable
+to handle kernel paging request". The problem is the skb_clone() in
+__netlink_deliver_tap_skb() for skbs that are mmaped.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Jana Iyengar found an interesting issue on CUBIC :
-> 
-> The epoch is only updated/reset initially and when experiencing losses.
-> The delta "t" of now - epoch_start can be arbitrary large after app idle
-> as well as the bic_target. Consequentially the slope (inverse of
-> ca->cnt) would be really large, and eventually ca->cnt would be
-> lower-bounded in the end to 2 to have delayed-ACK slow-start behavior.
-> 
-> This particularly shows up when slow_start_after_idle is disabled
-> as a dangerous cwnd inflation (1.5 x RTT) after few seconds of idle
-> time.
-> 
-> Jana initial fix was to reset epoch_start if app limited,
-> but Neal pointed out it would ask the CUBIC algorithm to recalculate the
-> curve so that we again start growing steeply upward from where cwnd is
-> now (as CUBIC does just after a loss). Ideally we'd want the cwnd growth
-> curve to be the same shape, just shifted later in time by the amount of
-> the idle period.
-> 
-> Reported-by: Jana Iyengar <jri@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+I.e. the cloned skb doesn't have a destructor, whereas the mmap netlink
+skb has it pointed to netlink_skb_destructor(), set in the handler
+netlink_ring_setup_skb(). There, skb->head is being set to NULL, so
+that in such cases, __kfree_skb() doesn't perform a skb_release_data()
+via skb_release_all(), where skb->head is possibly being freed through
+kfree(head) into slab allocator, although netlink mmap skb->head points
+to the mmap buffer. Similarly, the same has to be done also for large
+netlink skbs where the data area is vmalloced. Therefore, as discussed,
+make a copy for these rather rare cases for now. This fixes the issue
+on my and Ken-ichirou's test-cases.
 
-Applied.
+Reference: http://thread.gmane.org/gmane.linux.network/371129
+Fixes: bcbde0d449ed ("net: netlink: virtual tap device management")
+Reported-by: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Tested-by: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+---
+ ( This was the last one I had in my queue. )
+
+ net/netlink/af_netlink.c | 30 +++++++++++++++++++++++-------
+ net/netlink/af_netlink.h |  9 +++++++++
+ 2 files changed, 32 insertions(+), 7 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 7f86d3b..4cad99d 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -125,6 +125,24 @@ static inline u32 netlink_group_mask(u32 group)
+ 	return group ? 1 << (group - 1) : 0;
+ }
+ 
++static struct sk_buff *netlink_to_full_skb(const struct sk_buff *skb,
++					   gfp_t gfp_mask)
++{
++	unsigned int len = skb_end_offset(skb);
++	struct sk_buff *new;
++
++	new = alloc_skb(len, gfp_mask);
++	if (new == NULL)
++		return NULL;
++
++	NETLINK_CB(new).portid = NETLINK_CB(skb).portid;
++	NETLINK_CB(new).dst_group = NETLINK_CB(skb).dst_group;
++	NETLINK_CB(new).creds = NETLINK_CB(skb).creds;
++
++	memcpy(skb_put(new, len), skb->data, len);
++	return new;
++}
++
+ int netlink_add_tap(struct netlink_tap *nt)
+ {
+ 	if (unlikely(nt->dev->type != ARPHRD_NETLINK))
+@@ -206,7 +224,11 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
+ 	int ret = -ENOMEM;
+ 
+ 	dev_hold(dev);
+-	nskb = skb_clone(skb, GFP_ATOMIC);
++
++	if (netlink_skb_is_mmaped(skb) || is_vmalloc_addr(skb->head))
++		nskb = netlink_to_full_skb(skb, GFP_ATOMIC);
++	else
++		nskb = skb_clone(skb, GFP_ATOMIC);
+ 	if (nskb) {
+ 		nskb->dev = dev;
+ 		nskb->protocol = htons((u16) sk->sk_protocol);
+@@ -279,11 +301,6 @@ static void netlink_rcv_wake(struct sock *sk)
+ }
+ 
+ #ifdef CONFIG_NETLINK_MMAP
+-static bool netlink_skb_is_mmaped(const struct sk_buff *skb)
+-{
+-	return NETLINK_CB(skb).flags & NETLINK_SKB_MMAPED;
+-}
+-
+ static bool netlink_rx_is_mmaped(struct sock *sk)
+ {
+ 	return nlk_sk(sk)->rx_ring.pg_vec != NULL;
+@@ -846,7 +863,6 @@ static void netlink_ring_set_copied(struct sock *sk, struct sk_buff *skb)
+ }
+ 
+ #else /* CONFIG_NETLINK_MMAP */
+-#define netlink_skb_is_mmaped(skb)	false
+ #define netlink_rx_is_mmaped(sk)	false
+ #define netlink_tx_is_mmaped(sk)	false
+ #define netlink_mmap			sock_no_mmap
+diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
+index 8900840..df9a060 100644
+--- a/net/netlink/af_netlink.h
++++ b/net/netlink/af_netlink.h
+@@ -59,6 +59,15 @@ static inline struct netlink_sock *nlk_sk(struct sock *sk)
+ 	return container_of(sk, struct netlink_sock, sk);
+ }
+ 
++static inline bool netlink_skb_is_mmaped(const struct sk_buff *skb)
++{
++#ifdef CONFIG_NETLINK_MMAP
++	return NETLINK_CB(skb).flags & NETLINK_SKB_MMAPED;
++#else
++	return false;
++#endif /* CONFIG_NETLINK_MMAP */
++}
++
+ struct netlink_table {
+ 	struct rhashtable	hash;
+ 	struct hlist_head	mc_list;
+-- 
+1.9.3
