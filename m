@@ -1,115 +1,82 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: fix race on protocol/netns initialization
-Date: Thu, 10 Sep 2015 16:42:47 -0300
-Message-ID: <55F1DD37.1080900@gmail.com>
-References: <27f20cc781cac28bc2ce7229719748a2f6824bd8.1441827818.git.marcelo.leitner@gmail.com>
- <55F096EB.7000204@gmail.com> <55F09F57.6080602@gmail.com>
- <55F1847A.9010801@gmail.com> <55F19243.3010006@gmail.com>
- <55F1A6AE.2010804@gmail.com> <20150910162454.GB4496@localhost.localdomain>
- <20150910183520.GD4496@localhost.localdomain> <55F1D6A1.6060605@gmail.com>
+From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] ixgbe: Limit lowest interrupt rate
+ for adaptive interrupt moderation to 12K
+Date: Thu, 10 Sep 2015 19:49:40 +0000
+Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E271BC9E2@ORSMSX103.amr.corp.intel.com>
+References: <20150730221927.984.91700.stgit@ahduyck-vm-fedora22>
+ <55E655A3.9010304@gmail.com> <1441188420.2783.18.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:32907 "EHLO
-	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753119AbbIJTmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 15:42:55 -0400
-In-Reply-To: <55F1D6A1.6060605@gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:9207 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752083AbbIJTtz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2015 15:49:55 -0400
+In-Reply-To: <1441188420.2783.18.camel@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 10-09-2015 16:14, Vlad Yasevich escreveu:
-> On 09/10/2015 02:35 PM, Marcelo Ricardo Leitner wrote:
->> On Thu, Sep 10, 2015 at 01:24:54PM -0300, Marcelo Ricardo Leitner wrote:
->>> On Thu, Sep 10, 2015 at 11:50:06AM -0400, Vlad Yasevich wrote:
->>>> On 09/10/2015 10:22 AM, Marcelo Ricardo Leitner wrote:
->>>>> Em 10-09-2015 10:24, Vlad Yasevich escreveu:
->>> ...
->>>>>> Then you can order sctp_net_init() such that it happens first, then protosw registration
->>>>>> happens, then control socket initialization happens, then inet protocol registration
->>>>>> happens.
->>>>>>
->>>>>> This way, we are always guaranteed that by the time user calls socket(), protocol
->>>>>> defaults are fully initialized.
->>>>>
->>>>> Okay, that works for module loading stage, but then how would we handle new netns's? We
->>>>> have to create the control socket per netns and AFAICT sctp_net_init() is the only hook
->>>>> called when a new netns is being created.
->>>>>
->>>>> Then if we move it a workqueue that is scheduled by sctp_net_init(), we loose the ability
->>>>> to handle its errors by propagating through sctp_net_init() return value, not good.
->>>>
->>>> Here is kind of what I had in mind.  It's incomplete and completely untested (not even
->>>> compiled), but good enough to describe the idea:
->>> ...
->>>
->>> Ohh, ok now I get it, thanks. If having two pernet_subsys for a given
->>> module is fine, that works for me. It's clearer and has no moment of
->>> temporary failure.
->>>
->>> I can finish this patch if everybody agrees with it.
->>>
->>>>>>> I used the list pointer because that's null as that memory is entirely zeroed when alloced
->>>>>>> and, after initialization, it's never null again. Works like a lock/condition without
->>>>>>> using an extra field.
->>>>>>>
->>>>>>
->>>>>> I understand this a well.  What I don't particularly like is that we are re-using
->>>>>> a list without really stating why it's now done this way.  Additionally, it's not really
->>>>>> the last that happens so it's seems kind of hacky...  If we need to add new
->>>>>> per-net initializers, we now need to make sure that the code is put in the right
->>>>>> place.  I'd just really like to have a cleaner solution...
->>>>>
->>>>> Ok, got you. We could add a dedicated flag/bit for that then, if reusing the list is not
->>>>> clear enough. Or, as we are discussing on the other part of thread, we could make it block
->>>>> and wait for the initialization, probably using some wait_queue. I'm still thinking on
->>>>> something this way, likely something more below than sctp then.
->>>>>
->>>>
->>>> I think if we don the above, the second process calling socket() will either find the
->>>> the protosw or will try to load the module also.  I think either is ok after
->>>> request_module returns we'll look at the protosw and will find find things.
->>>
->>> Seems so, yes. Nice.
->>
->> I was testing with it, something is not good. I finished your patch and
->> testing with a flooder like:
->>   # for j in {1..5}; do for i in {1234..1280}; do \
->>         sctp_darn -H 192.168.122.147 -P $j$i -l & done & done
->>
-> ... snip...
->>
->> It seems that request_module will not serialize it as we wanted and we
->> would be putting unexpected pressure on it, yet it fixes the original
->> issue.
->
-> So, wouldn't the same issue exist when running the above with DCCP sockets?
-
-Pretty much, yes.
-
->> Maybe we can place a semaphore at inet_create(), protecting the
->> request_module()s so only one socket can do it at a time and, after it
->> is released, whoever was blocked on it re-checks if the module isn't
->> already loaded before attempting again. It makes the loading of
->> different modules slower, though, but I'm not sure if that's really a
->> problem. Not many modules are loaded at the same time like that. What do
->> you think?
->
-> I think this is a different issue.  The fact that we keep trying to probe
-
-Agreed. I'll post this one as v2 while we continue with the 
-request_module part.
-
-> the same module is silly.  May be a per proto semaphore so that SCTP doesn't
-> block DCCP for example.
-
-Can be, yes. It just has to be dynamic, otherwise we would have to have 
-like 256 semaphores that are left unused for most of the system's 
-lifetime. I'll see what I can do here.
-
-Thanks,
-Marcelo
+DQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWls
+dG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24gQmVoYWxmIE9m
+IEplZmYgS2lyc2hlcg0KU2VudDogV2VkbmVzZGF5LCBTZXB0ZW1iZXIgMiwgMjAxNSAzOjA3IEFN
+DQpUbzogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuZHV5Y2tAZ21haWwuY29tPg0KQ2M6IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQpT
+dWJqZWN0OiBSZTogW0ludGVsLXdpcmVkLWxhbl0gW1BBVENIXSBpeGdiZTogTGltaXQgbG93ZXN0
+IGludGVycnVwdCByYXRlIGZvciBhZGFwdGl2ZSBpbnRlcnJ1cHQgbW9kZXJhdGlvbiB0byAxMksN
+Cg0KT24gVHVlLCAyMDE1LTA5LTAxIGF0IDE4OjQ5IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3Jv
+dGU6DQo+IE9uIDA3LzMwLzIwMTUgMDM6MTkgUE0sIEFsZXhhbmRlciBEdXljayB3cm90ZToNCj4g
+PiBUaGlzIHBhdGNoIHVwZGF0ZXMgdGhlIGxvd2VzdCBsaW1pdCBmb3IgYWRhcHRpdmUgaW50ZXJy
+dXB0IGludGVycnVwdCANCj4gPiBtb2RlcmF0aW9uIHRvIHJvdWdobHkgMTJLIGludGVycnVwdHMg
+cGVyIHNlY29uZC4NCj4gPg0KPiA+IFRoZSB3YXkgSSBjYW1lIGFib3V0IHJlYWNoaW5nIDEySyBh
+cyB0aGUgZGVzaXJlZCBpbnRlcnJ1cHQgcmF0ZSBpcw0KPiBieQ0KPiA+IHRlc3Rpbmcgd2l0aCBV
+RFAgZmxvd3MuICBTcGVjaWZpY2FsbHkgSSBoYWQgYSBzaW1wbGUgdGVzdCB0aGF0IHJhbiBhIA0K
+PiA+IG5ldHBlcmYgVURQX1NUUkVBTSB0ZXN0IGF0IHZhcnlpbmcgc2l6ZXMuICBXaGF0IEkgZm91
+bmQgd2FzIGFzIHRoZQ0KPiBwYWNrZXQNCj4gPiBzaXplcyBpbmNyZWFzZWQgdGhlIHBlcmZvcm1h
+bmNlIGZlbGwgc3RlYWRpbHkgYmVoaW5kIHVudGlsIHdlIHdlcmUNCj4gb25seQ0KPiA+IGFibGUg
+dG8gcmVjZWl2ZSBhdCB+NEdiL3Mgd2l0aCBhIG1lc3NhZ2Ugc2l6ZSBvZiA2NTUwNy4gIEEgYml0
+IG9mDQo+IGRpZ2dpbmcNCj4gPiBmb3VuZCB0aGF0IHdlIHdlcmUgZHJvcHBpbmcgcGFja2V0cyBm
+b3IgdGhlIHNvY2tldCBpbiB0aGUgbmV0d29yaw0KPiBzdGFjaywNCj4gPiBhbmQgbG9va2luZyBh
+dCB0aGluZ3MgZnVydGhlciB3aGF0IEkgZm91bmQgd2FzIEkgY291bGQgc29sdmUgaXQgYnkNCj4g
+aW5jcmVhc2luZw0KPiA+IHRoZSBpbnRlcnJ1cHQgcmF0ZSwgb3IgaW5jcmVhc2luZyB0aGUgcm1l
+bV9kZWZhdWx0L3JtZW1fbWF4LiAgV2hhdCBJDQo+IGZvdW5kIHdhcw0KPiA+IHRoYXQgd2hlbiB0
+aGUgaW50ZXJydXB0IGNvYWxlc2NpbmcgcmVzdWx0ZWQgaW4gbW9yZSBkYXRhIGJlaW5nDQo+IHBy
+b2Nlc3NlZA0KPiA+IHBlciBpbnRlcnJ1cHQgdGhhbiBjb3VsZCBiZSBzdG9yZWQgaW4gdGhlIHNv
+Y2tldCBidWZmZXIgd2Ugc3RhcnRlZA0KPiBsb3NpbmcNCj4gPiBwYWNrZXRzIGFuZCB0aGUgcGVy
+Zm9ybWFuY2UgZHJvcHBlZC4gIFNvIEkgcmVhY2hlZCAxMksgYmFzZWQgb24gdGhlIA0KPiA+IGZv
+bGxvd2luZyBtYXRoLg0KPiA+DQo+ID4gcm1lbV9kZWZhdWx0ID0gMjEyOTkyDQo+ID4gc2tiLT50
+cnVlc2l6ZSA9IDI5OTQNCj4gPiAyMTI5OTIgLyAyOTk0ID0gNzEuMTQgcGFja2V0cyB0byBmaWxs
+IHRoZSBidWZmZXINCj4gPg0KPiA+IHBhY2tldCByYXRlIGF0IDE1MTQgcGFja2V0IHNpemUgaXMg
+ODEyNzQ0cHBzDQo+ID4gNzEuMTQgLyA4MTI3NDQgPSA4Ny45dXMgdG8gZmlsbCBzb2NrZXQgYnVm
+ZmVyDQo+ID4NCj4gPiA+RnJvbSB0aGVyZSBpdCB3YXMganVzdCBhIG1hdHRlciBvZiBjaG9vc2lu
+ZyB0aGUgaW50ZXJydXB0IHJhdGUgYW5kDQo+ID4gcHJvdmlkaW5nIGEgYml0IG9mIHdpZ2dsZSBy
+b29tIHdoaWNoIGlzIHdoeSBJIGRlY2lkZWQgdG8gZ28gd2l0aCAxMksgDQo+ID4gaW50ZXJydXB0
+cyBwZXIgc2Vjb25kIGFzIHRoYXQgdXNlcyBhIHZhbHVlIG9mIDg0dXMuDQo+ID4NCj4gPiBUaGUg
+ZGF0YSBiZWxvdyBpcyBiYXNlZCBvbiBWTSB0byBWTSBvdmVyIGEgZGlyZWN0IGFzc2lnbmVkIGl4
+Z2JlDQo+IGludGVyZmFjZS4NCj4gPiBUaGUgdGVzdCBydW4gd2FzOg0KPiA+ICAgICAgIG5ldHBl
+cmYgLUggPGlwPiAtdCBVRFBfU1RSRUFNIg0KPiA+DQo+ID4gU29ja2V0ICBNZXNzYWdlICBFbGFw
+c2VkICAgICAgTWVzc2FnZXMgICAgICAgICAgICAgICAgICAgQ1BVDQo+IFNlcnZpY2UNCj4gPiBT
+aXplICAgIFNpemUgICAgIFRpbWUgICAgICAgICBPa2F5IEVycm9ycyAgIFRocm91Z2hwdXQgICBV
+dGlsDQo+IERlbWFuZA0KPiA+IGJ5dGVzICAgYnl0ZXMgICAgc2VjcyAgICAgICAgICAgICMgICAg
+ICAjICAgMTBeNmJpdHMvc2VjICUgU1MNCj4gdXMvS0INCj4gPiBCZWZvcmU6DQo+ID4gMjEyOTky
+ICAgNjU1MDcgICA2MC4wMCAgICAgMTEwMDY2MiAgICAgIDAgICAgIDk2MTMuNCAgICAgMTAuODkN
+Cj4gMC41NTcNCj4gPiAyMTI5OTIgICAgICAgICAgIDYwLjAwICAgICAgNDczNDc0ICAgICAgICAg
+ICAgNDEzNS40ICAgICAxMS4yNw0KPiAwLjU3Ng0KPiA+DQo+ID4gQWZ0ZXI6DQo+ID4gMjEyOTky
+ICAgNjU1MDcgICA2MC4wMCAgICAgMTEwMDQxMyAgICAgIDAgICAgIDk2MTEuMiAgICAgMTAuNzMN
+Cj4gMC41NDkNCj4gPiAyMTI5OTIgICAgICAgICAgIDYwLjAwICAgICAgOTc0MTMyICAgICAgICAg
+ICAgODUwOC4zICAgICAxMS42OQ0KPiAwLjU5OA0KPiA+DQo+ID4gVXNpbmcgYmFyZSBtZXRhbCB0
+aGUgZGF0YSBpcyBzaW1pbGFyIGJ1dCBub3QgYXMgZHJhbWF0aWMgYXMgdGhlDQo+IHRocm91Z2hw
+dXQNCj4gPiBpbmNyZWFzZXMgZnJvbSBhYm91dCA4LjVHYi9zIHRvIDkuNUdiL3MuDQo+ID4NCj4g
+PiBTaWduZWQtb2ZmLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1eWNrQHJlZGhh
+dC5jb20+DQo+IA0KPiBIYXMgdGhlcmUgYmVlbiBhbnkgdXBkYXRlIG9uIHRoaXMgcGF0Y2g/ICBJ
+IHN1Ym1pdHRlZCBpdCBqdXN0IG92ZXIgYSANCj4gbW9udGggYWdvIG5vdyBhbmQgaXQgaGFzbid0
+IHJlY2VpdmVkIGFueSBmZWVkYmFjay4gIEkgd2FzIGhvcGluZyB0aGlzIA0KPiBjb3VsZCBiZSBz
+dWJtaXR0ZWQgYmVmb3JlIHRoZSBtZXJnZSB3aW5kb3cgY2xvc2VzIGZvciBuZXQtbmV4dC4NCg0K
+SXQgd2lsbCBiZSBpbiB0aGUgbmV4dCBzZXJpZXMgSSBwdXNoIGxhdGVyIHRvZGF5Lg0KDQpUZXN0
+ZWQtYnk6IEtyaXNobmVpbCBTaW5naCA8a3Jpc2huZWlsLmsuc2luZ2hAaW50ZWwuY29tPg0KDQoN
+Cg==
