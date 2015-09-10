@@ -1,57 +1,52 @@
 From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH v7 07/10] ss: symmetrical subhandler output extension example
-Date: Thu, 10 Sep 2015 21:35:05 +0200
-Message-ID: <1441913708-15532-8-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: [PATCH v7 09/10] ss: fixed free on local array for valid json output
+Date: Thu, 10 Sep 2015 21:35:07 +0200
+Message-ID: <1441913708-15532-10-git-send-email-matthias.tafelmeier@gmx.net>
 References: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
 Cc: hagen@jauu.net, shemminger@osdl.org, fw@strlen.de,
 	edumazet@google.com, daniel@iogearbox.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:54888 "EHLO mout.gmx.net"
+Received: from mout.gmx.net ([212.227.17.20]:57859 "EHLO mout.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752626AbbIJTfn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Sep 2015 15:35:43 -0400
+	id S1752859AbbIJTfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2015 15:35:39 -0400
 In-Reply-To: <1441913708-15532-1-git-send-email-matthias.tafelmeier@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This small sized patch shall convey the locations which have to be
-changed for a symmetrical output extension. Symmetrical means in this
-context all existing semantically related handlers in the diverse
-formatters (for hr and json up to now).
+Minor fix to enable json output. Freeing of automatic char array name
+which will get freed after function stack cleanup. Another one after
+tcp_stats_fmt for freeing automatic tcpstats struct instance.
 
-Suggested-by: Hagen Paul Pfeifer <hagen@jauu.net>
 Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
 ---
- misc/ss_hr_fmt.c   | 2 ++
- misc/ss_json_fmt.c | 2 ++
- 2 files changed, 4 insertions(+)
+ misc/ss.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/misc/ss_hr_fmt.c b/misc/ss_hr_fmt.c
-index 2f09838..4046ebf 100644
---- a/misc/ss_hr_fmt.c
-+++ b/misc/ss_hr_fmt.c
-@@ -82,6 +82,8 @@ static void tcp_stats_hr_fmt(struct tcpstat *s)
- 		printf(" reordering:%d", s->reordering);
- 	if (s->rcv_rtt)
- 		printf(" rcv_rtt:%g", s->rcv_rtt);
-+	if (s->rcv_space)
-+		printf(" rcv_space:%d", s->rcv_space);
+diff --git a/misc/ss.c b/misc/ss.c
+index 6ff40a3..80aebe6 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1660,10 +1660,6 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		s.segs_out = info->tcpi_segs_out;
+ 		s.segs_in = info->tcpi_segs_in;
+ 		tcp_stats_fmt(&s);
+-		if (s.dctcp)
+-			free(s.dctcp);
+-		if (s.cong_alg)
+-			free(s.cong_alg);
+ 	}
+ }
  
- 	CHECK_FMT_ADAPT(s->rcv_space, s,
- 	hr_handler_must_be_adapted_accordingly_when_json_fmt_is_extended);
-diff --git a/misc/ss_json_fmt.c b/misc/ss_json_fmt.c
-index a927952..1dff57a 100644
---- a/misc/ss_json_fmt.c
-+++ b/misc/ss_json_fmt.c
-@@ -160,6 +160,8 @@ static void tcp_stats_json_fmt(struct tcpstat *s)
- 		jsonw_int_field(json_wr, "reordering", s->reordering);
- 	if (s->rcv_rtt)
- 		jsonw_float_field(json_wr, "rcv_rtt", s->rcv_rtt);
-+	if (s->rcv_space)
-+		jsonw_int_field(json_wr, "rcv_space", s->rcv_space);
+@@ -2362,8 +2358,6 @@ static int unix_show_sock(const struct sockaddr_nl *addr, struct nlmsghdr *nlh,
+ 	if (json_output)
+ 		jsonw_end_object(json_wr);
  
- 	/*deal with special case */
- 	res_json_fmt_branch(s->ss.state == SS_LISTEN, ' ');
+-	if (name)
+-		free(name);
+ 	return 0;
+ }
+ 
 -- 
 1.9.1
