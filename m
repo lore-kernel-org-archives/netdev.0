@@ -1,33 +1,251 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] RTEXT_FILTER_SKIP_STATS support to avoid dumping
- inet/inet6 stats
-Date: Thu, 10 Sep 2015 13:29:33 -0700 (PDT)
-Message-ID: <20150910.132933.1956643418409700904.davem@davemloft.net>
-References: <20150910201649.GD28585@oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghavendra.kt@linux.vnet.ibm.com,
-	roopa@cumulusnetworks.com, eric.dumazet@gmail.com
-To: sowmini.varadhan@oracle.com
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH net v2] sctp: fix race on protocol/netns initialization
+Date: Thu, 10 Sep 2015 17:31:15 -0300
+Message-ID: <d4d786dc6ae30a18e80435ffdee55f8c9582c3dc.1441916456.git.marcelo.leitner@gmail.com>
+References: <55F1DD37.1080900@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42396 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943AbbIJU3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 16:29:36 -0400
-In-Reply-To: <20150910201649.GD28585@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:60297 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750764AbbIJUb1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Sep 2015 16:31:27 -0400
+In-Reply-To: <55F1DD37.1080900@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu, 10 Sep 2015 16:16:49 -0400
+Consider sctp module is unloaded and is being requested because an user
+is creating a sctp socket.
 
-> @@ -1272,7 +1273,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  			if (!(af = nla_nest_start(skb, af_ops->family)))
->  				goto nla_put_failure;
->  
-> -			err = af_ops->fill_link_af(skb, dev);
-> +			err = af_ops->fill_link_af(skb, dev, skip_af_stats);
+During initialization, sctp will add the new protocol type and then
+initialize pernet subsys:
 
-Maybe just pass down the raw flags as 'ext_filter_mask', like we do
-for the rtnl_fill_ifinfo() call chain.
+        status = sctp_v4_protosw_init();
+        if (status)
+                goto err_protosw_init;
+
+        status = sctp_v6_protosw_init();
+        if (status)
+                goto err_v6_protosw_init;
+
+        status = register_pernet_subsys(&sctp_net_ops);
+
+The problem is that after those calls to sctp_v{4,6}_protosw_init(), it
+is possible for userspace to create SCTP sockets like if the module is
+already fully loaded. If that happens, one of the possible effects is
+that we will have readers for net->sctp.local_addr_list list earlier
+than expected and sctp_net_init() does not take precautions while
+dealing with that list, leading to a potential panic but not limited to
+that, as sctp_sock_init() will copy a bunch of blank/partially
+initialized values from net->sctp.
+
+The race happens like this:
+
+     CPU 0                           |  CPU 1
+  socket()                           |
+   __sock_create                     | socket()
+    inet_create                      |  __sock_create
+     list_for_each_entry_rcu(        |
+        answer, &inetsw[sock->type], |
+        list) {                      |   inet_create
+      /* no hits */                  |
+     if (unlikely(err)) {            |
+      ...                            |
+      request_module()               |
+      /* socket creation is blocked  |
+       * the module is fully loaded  |
+       */                            |
+       sctp_init                     |
+        sctp_v4_protosw_init         |
+         inet_register_protosw       |
+          list_add_rcu(&p->list,     |
+                       last_perm);   |
+                                     |  list_for_each_entry_rcu(
+                                     |     answer, &inetsw[sock->type],
+        sctp_v6_protosw_init         |     list) {
+                                     |     /* hit, so assumes protocol
+                                     |      * is already loaded
+                                     |      */
+                                     |  /* socket creation continues
+                                     |   * before netns is initialized
+                                     |   */
+        register_pernet_subsys       |
+
+Simply inverting the initialization order between
+register_pernet_subsys() and sctp_v4_protosw_init() is not possible
+because register_pernet_subsys() will create a control sctp socket, so
+the protocol must be already visible by then. Deferring the socket
+creation to a work-queue is not good specially because we loose the
+ability to handle its errors.
+
+So, as suggested by Vlad, the fix is to split netns initialization in
+two moments: defaults and control socket, so that the defaults are
+already loaded by when we register the protocol, while control socket
+initialization is kept at the same moment it is today.
+
+Fixes: 4db67e808640 ("sctp: Make the address lists per network namespace")
+Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+
+Notes:
+    As discussed, a supplementary fix for this one for serializing socket
+    creation/module loading and avoiding failures when creating sockets
+    while the module is still being loaded is welcomed but not required
+    for this one and will be posted separately.
+
+ net/sctp/protocol.c | 64 ++++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 41 insertions(+), 23 deletions(-)
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 4345790ad3266c353eeac5398593c2a9ce4effda..8930046eaa1b9023c3d06ab7875a19c42b7d3a57 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1178,7 +1178,7 @@ static void sctp_v4_del_protocol(void)
+ 	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+ }
+ 
+-static int __net_init sctp_net_init(struct net *net)
++static int __net_init sctp_defaults_init(struct net *net)
+ {
+ 	int status;
+ 
+@@ -1271,12 +1271,6 @@ static int __net_init sctp_net_init(struct net *net)
+ 
+ 	sctp_dbg_objcnt_init(net);
+ 
+-	/* Initialize the control inode/socket for handling OOTB packets.  */
+-	if ((status = sctp_ctl_sock_init(net))) {
+-		pr_err("Failed to initialize the SCTP control sock\n");
+-		goto err_ctl_sock_init;
+-	}
+-
+ 	/* Initialize the local address list. */
+ 	INIT_LIST_HEAD(&net->sctp.local_addr_list);
+ 	spin_lock_init(&net->sctp.local_addr_lock);
+@@ -1292,9 +1286,6 @@ static int __net_init sctp_net_init(struct net *net)
+ 
+ 	return 0;
+ 
+-err_ctl_sock_init:
+-	sctp_dbg_objcnt_exit(net);
+-	sctp_proc_exit(net);
+ err_init_proc:
+ 	cleanup_sctp_mibs(net);
+ err_init_mibs:
+@@ -1303,15 +1294,12 @@ err_sysctl_register:
+ 	return status;
+ }
+ 
+-static void __net_exit sctp_net_exit(struct net *net)
++static void __net_exit sctp_defaults_exit(struct net *net)
+ {
+ 	/* Free the local address list */
+ 	sctp_free_addr_wq(net);
+ 	sctp_free_local_addr_list(net);
+ 
+-	/* Free the control endpoint.  */
+-	inet_ctl_sock_destroy(net->sctp.ctl_sock);
+-
+ 	sctp_dbg_objcnt_exit(net);
+ 
+ 	sctp_proc_exit(net);
+@@ -1319,9 +1307,32 @@ static void __net_exit sctp_net_exit(struct net *net)
+ 	sctp_sysctl_net_unregister(net);
+ }
+ 
+-static struct pernet_operations sctp_net_ops = {
+-	.init = sctp_net_init,
+-	.exit = sctp_net_exit,
++static struct pernet_operations sctp_defaults_ops = {
++	.init = sctp_defaults_init,
++	.exit = sctp_defaults_exit,
++};
++
++static int __net_init sctp_ctrlsock_init(struct net *net)
++{
++	int status;
++
++	/* Initialize the control inode/socket for handling OOTB packets.  */
++	status = sctp_ctl_sock_init(net);
++	if (status)
++		pr_err("Failed to initialize the SCTP control sock\n");
++
++	return status;
++}
++
++static void __net_init sctp_ctrlsock_exit(struct net *net)
++{
++	/* Free the control endpoint.  */
++	inet_ctl_sock_destroy(net->sctp.ctl_sock);
++}
++
++static struct pernet_operations sctp_ctrlsock_ops = {
++	.init = sctp_ctrlsock_init,
++	.exit = sctp_ctrlsock_exit,
+ };
+ 
+ /* Initialize the universe into something sensible.  */
+@@ -1454,8 +1465,11 @@ static __init int sctp_init(void)
+ 	sctp_v4_pf_init();
+ 	sctp_v6_pf_init();
+ 
+-	status = sctp_v4_protosw_init();
++	status = register_pernet_subsys(&sctp_defaults_ops);
++	if (status)
++		goto err_register_defaults;
+ 
++	status = sctp_v4_protosw_init();
+ 	if (status)
+ 		goto err_protosw_init;
+ 
+@@ -1463,9 +1477,9 @@ static __init int sctp_init(void)
+ 	if (status)
+ 		goto err_v6_protosw_init;
+ 
+-	status = register_pernet_subsys(&sctp_net_ops);
++	status = register_pernet_subsys(&sctp_ctrlsock_ops);
+ 	if (status)
+-		goto err_register_pernet_subsys;
++		goto err_register_ctrlsock;
+ 
+ 	status = sctp_v4_add_protocol();
+ 	if (status)
+@@ -1481,12 +1495,14 @@ out:
+ err_v6_add_protocol:
+ 	sctp_v4_del_protocol();
+ err_add_protocol:
+-	unregister_pernet_subsys(&sctp_net_ops);
+-err_register_pernet_subsys:
++	unregister_pernet_subsys(&sctp_ctrlsock_ops);
++err_register_ctrlsock:
+ 	sctp_v6_protosw_exit();
+ err_v6_protosw_init:
+ 	sctp_v4_protosw_exit();
+ err_protosw_init:
++	unregister_pernet_subsys(&sctp_defaults_ops);
++err_register_defaults:
+ 	sctp_v4_pf_exit();
+ 	sctp_v6_pf_exit();
+ 	sctp_sysctl_unregister();
+@@ -1519,12 +1535,14 @@ static __exit void sctp_exit(void)
+ 	sctp_v6_del_protocol();
+ 	sctp_v4_del_protocol();
+ 
+-	unregister_pernet_subsys(&sctp_net_ops);
++	unregister_pernet_subsys(&sctp_ctrlsock_ops);
+ 
+ 	/* Free protosw registrations */
+ 	sctp_v6_protosw_exit();
+ 	sctp_v4_protosw_exit();
+ 
++	unregister_pernet_subsys(&sctp_defaults_ops);
++
+ 	/* Unregister with socket layer. */
+ 	sctp_v6_pf_exit();
+ 	sctp_v4_pf_exit();
+-- 
+2.4.3
