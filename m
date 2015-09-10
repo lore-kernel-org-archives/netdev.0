@@ -1,83 +1,83 @@
-From: Ben Pope <benpope81@gmail.com>
-Subject: Re: [PATCH] alx: Add the Device ID for the Killer E2400
-Date: Thu, 10 Sep 2015 08:42:59 +0800
-Message-ID: <55F0D213.2070101@gmail.com>
-References: <1441732050-7005-1-git-send-email-benpope81@gmail.com>
- <20150909.124437.2066417848362699199.davem@davemloft.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH 3/6] ebpf: add a way to dump an eBPF program
+Date: Wed, 9 Sep 2015 17:44:06 -0700
+Message-ID: <CALCETrVJ1qwBwiB=abCa1G3bf_dqyQroYFLvuZt6WPQsYmJvqA@mail.gmail.com>
+References: <1441382664-17437-1-git-send-email-tycho.andersen@canonical.com>
+ <1441382664-17437-4-git-send-email-tycho.andersen@canonical.com>
+ <CAGXu5jJ5+EFDRpgJC6U8Y4nvPEh2fivi-TZRNC-4qP9Gi7B7pA@mail.gmail.com>
+ <20150904204554.GO26679@smitten> <CALCETrW5fS5d73ASJvhUuK=Yret7hcWD-B9NhZ3EsnCaw0MWFQ@mail.gmail.com>
+ <20150904222855.GT26679@smitten> <CALCETrUY7B381DrzfDSvmDyZ98KAdWMHvpbJffJ0_ApjzH-Kbw@mail.gmail.com>
+ <20150905002727.GA3890@hopstrocity> <20150909223422.GE26679@smitten>
+ <CALCETrUhb9DiaJXppbJ4PwV1xD1cmd8xH+J27h6HQN23oRcO+Q@mail.gmail.com> <20150910001315.GF26679@smitten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, netdev@vger.kernel.org, ben@pope.name
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36459 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829AbbIJAnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Sep 2015 20:43:03 -0400
-Received: by padhk3 with SMTP id hk3so25051164pad.3
-        for <netdev@vger.kernel.org>; Wed, 09 Sep 2015 17:43:02 -0700 (PDT)
-In-Reply-To: <20150909.124437.2066417848362699199.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Cyrill Gorcunov <gorcunov@parallels.com>
+To: Tycho Andersen <tycho.andersen@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150910001315.GF26679@smitten>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday, September 10, 2015 03:44 AM, David Miller wrote:
-> That's a rather rediculous Subject line, you'll need to fix that
-> before anyone will consider your submission seriously.
+On Wed, Sep 9, 2015 at 5:13 PM, Tycho Andersen
+<tycho.andersen@canonical.com> wrote:
+> On Wed, Sep 09, 2015 at 04:44:24PM -0700, Andy Lutomirski wrote:
+>> On Wed, Sep 9, 2015 at 3:34 PM, Tycho Andersen
+>> <tycho.andersen@canonical.com> wrote:
+>> >
+>> > Here's a thought,
+>> >
+>> > The set I'm currently proposing effectively separates the ref-counting
+>> > of the struct seccomp_filter from the struct bpf_prog (by necessity,
+>> > since we're referring to filters from fds). What if we went a little
+>> > futher, and made a copy of each seccomp_filter on fork(), keeping it
+>> > pointed at the same bpf_prog but adding some metadata about how it was
+>> > inherited (tsk->seccomp.filter->inheritence_count++ perhaps). This
+>> > would still require this change:
+>>
+>> Won't that break the tsync mechanism?
+>
+> We'll need the change I posted (is_ancestor comparing the underlying
+> bpf_prog instead of the seccomp_filter), but then I think it'll work.
+> I guess we'll need to do some more bookkeeping when we install filters
+> via TSYNC since each thread would need its own seccomp_filter, and
+> we'd also have to decide whether a filter installed via TSYNC was
+> inherited or not.
+>
+> Am I missing something?
 
-My apologies, first time user of git-send-email, I should have just sent 
-it to myself as a test.
+Yes.  I don't think that:
 
-The body was supposed to include the following lspci -vv output in case 
-it was useful:
+int fd = [create an ebpf fd];
+if (fork()) {
+  /* Process A */
+  seccomp(attach fd);
+  ...
+} else {
+  /* Process B */
+  seccomp(attach fd);
+  ...
+}
 
-03:00.0 Ethernet controller: Qualcomm Atheros Device e0a1 (rev 10)
-     Subsystem: Micro-Star International Co., Ltd. [MSI] Device 7977
-     Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B- DisINTx-
-     Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-     Latency: 0
-     Interrupt: pin A routed to IRQ 325
-     Region 0: Memory at dfc00000 (64-bit, non-prefetchable) [size=256K]
-     Region 2: I/O ports at d000 [size=128]
-     Capabilities: [40] Power Management version 3
-         Flags: PMEClk- DSI- D1- D2- AuxCurrent=375mA 
-PME(D0+,D1+,D2+,D3hot+,D3cold+)
-         Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
-     Capabilities: [58] Express (v1) Endpoint, MSI 00
-         DevCap:    MaxPayload 4096 bytes, PhantFunc 0, Latency L0s 
-unlimited, L1 unlimited
-             ExtTag- AttnBtn+ AttnInd+ PwrInd+ RBE+ FLReset-
-         DevCtl:    Report errors: Correctable+ Non-Fatal+ Fatal+ 
-Unsupported+
-             RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-             MaxPayload 256 bytes, MaxReadReq 512 bytes
-         DevSta:    CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ 
-TransPend-
-         LnkCap:    Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Exit 
-Latency L0s unlimited, L1 unlimited
-             ClockPM+ Surprise- LLActRep- BwNot-
-         LnkCtl:    ASPM Disabled; RCB 64 bytes Disabled- CommClk+
-             ExtSynch- ClockPM+ AutWidDis- BWInt- AutBWInt-
-         LnkSta:    Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ 
-DLActive- BWMgmt- ABWMgmt-
-     Capabilities: [c0] MSI: Enable+ Count=1/16 Maskable+ 64bit+
-         Address: 00000000fee0200c  Data: 4192
-         Masking: 0000fffe  Pending: 00000000
-     Capabilities: [d8] MSI-X: Enable- Count=16 Masked-
-         Vector table: BAR=0 offset=00002000
-         PBA: BAR=0 offset=00003000
-     Capabilities: [100 v1] Advanced Error Reporting
-         UESta:    DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- 
-RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
-         UEMsk:    DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- 
-RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-         UESvrt:    DLP- SDES+ TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- 
-RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-         CESta:    RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
-         CEMsk:    RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-         AERCap:    First Error Pointer: 14, GenCap+ CGenEn- ChkCap+ ChkEn-
-     Kernel driver in use: alx
+should result in processes A and B being considered to have the same
+seccomp_filter state.  In particular, I eventually want to make the
+seccomp_filter state be considerably more interesting than just the
+bpf program.
 
+IOW I really do think that seccomp_filter should have identity.
 
-Ben
+There's another severe problem, I think.  Suppose that ebpf1 and ebpf2
+are ebpf fds.  If processes C and D start out with no filters at all,
+C attaches ebpf1 and ebpf2, and D attaches just ebpf2, then C and D
+are definitely *not* in the same state, and neither is an ancestor of
+the other.
+
+--Andy
