@@ -1,37 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] Net: core: stream.c: coding style fixes
-Date: Fri, 11 Sep 2015 13:24:19 -0700
-Message-ID: <20150911132419.1f7fe553@urahara>
-References: <1442002380-15526-1-git-send-email-cristos@vipserv.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
-To: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:32954 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751841AbbIKUYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 16:24:09 -0400
-Received: by pacex6 with SMTP id ex6so84075311pac.0
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 13:24:09 -0700 (PDT)
-In-Reply-To: <1442002380-15526-1-git-send-email-cristos@vipserv.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+Subject: [PATCH v2] net: stmmac: Use msleep rather then udelay for reset delay
+Date: Fri, 11 Sep 2015 22:25:48 +0200
+Message-ID: <1442003149-10717-1-git-send-email-sjoerd.simons@collabora.co.uk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Sep 2015 22:13:00 +0200
-Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org> wrote:
+The reset delays used for stmmac are in the order of 10ms to 1 second,
+which is far too long for udelay usage, so switch to using msleep.
 
->   *     So we (will) share it here.
->   *
-> - *     Authors:        Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-> - *                     (from old tcp.c code)
-> - *                     Alan Cox <alan@lxorguk.ukuu.org.uk> (Borrowed comments 8-))
-> + *     Authors:    Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-> + *                 (from old tcp.c code)
-> + *                 Alan Cox <alan@lxorguk.ukuu.org.uk> (Borrowed comments 8-))
->   */
->  
->  #incl
+Practically this fixes the PHY not being reliably detected in some cases
+as udelay wouldn't actually delay for long enough to let the phy
+reliably be reset.
 
-Leave the comments alone.
+Signed-off-by: Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+
+---
+
+Changes in v2:
+- Use DIV_ROUND_UP instead of handcoding the same
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index b735fa2..ebf6abc 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -161,11 +161,16 @@ int stmmac_mdio_reset(struct mii_bus *bus)
+ 
+ 		if (!gpio_request(reset_gpio, "mdio-reset")) {
+ 			gpio_direction_output(reset_gpio, active_low ? 1 : 0);
+-			udelay(data->delays[0]);
++			if (data->delays[0])
++				msleep(DIV_ROUND_UP(data->delays[0], 1000));
++
+ 			gpio_set_value(reset_gpio, active_low ? 0 : 1);
+-			udelay(data->delays[1]);
++			if (data->delays[1])
++				msleep(DIV_ROUND_UP(data->delays[1], 1000));
++
+ 			gpio_set_value(reset_gpio, active_low ? 1 : 0);
+-			udelay(data->delays[2]);
++			if (data->delays[2])
++				msleep(DIV_ROUND_UP(data->delays[2], 1000));
+ 		}
+ 	}
+ #endif
+-- 
+2.5.1
