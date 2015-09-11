@@ -1,61 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] bnx2x: use ktime_get_seconds() for timestamp
-Date: Fri, 11 Sep 2015 11:33:01 +0200
-Message-ID: <2387233.xmDni0GXyg@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: y2038@lists.linaro.org, Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:56060 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751730AbbIKJdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 05:33:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] at86rf230: fix build warning
+Date: Fri, 11 Sep 2015 15:16:04 +0530
+Message-ID: <1441964764-15611-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: Alexander Aring <alex.aring@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit c48f350ff5e7 "bnx2x: Add MFW dump support" added the
-bnx2x_update_mfw_dump() function that reads the current time and stores
-it in a 32-bit field that gets passed into a buffer in a fixed format.
+e616a00ce786 ("drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL")
+has removed the usage of the integer "ret" but missed removing the
+variable. And we were getting a build warning about "unused variable".
 
-This is potentially broken when the epoch overflows in 2038, and
-otherwise overflows in 2106. As we're trying to avoid uses of
-struct timeval for this reason, I noticed the addition of this
-function, and tried to rewrite it in a way that is more explicit
-about the overflow and that will keep working once we deprecate
-struct timeval.
-
-I assume that it is not possible to change the ABI any more, otherwise
-we should try to use a 64-bit field for the seconds right away.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>
+Fixes: e616a00ce786 ("drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL")
+Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e3da2bddf143..89a174fa1300 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -3705,16 +3705,14 @@ out:
- 
- void bnx2x_update_mfw_dump(struct bnx2x *bp)
+ drivers/net/ieee802154/at86rf230.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index a9f3af6..9ae98fd 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -1645,7 +1645,6 @@ static struct dentry *at86rf230_debugfs_root;
+ static int at86rf230_stats_show(struct seq_file *file, void *offset)
  {
--	struct timeval epoc;
- 	u32 drv_ver;
- 	u32 valid_dump;
+ 	struct at86rf230_local *lp = file->private;
+-	int ret;
  
- 	if (!SHMEM2_HAS(bp, drv_info))
- 		return;
- 
--	/* Update Driver load time */
--	do_gettimeofday(&epoc);
--	SHMEM2_WR(bp, drv_info.epoc, epoc.tv_sec);
-+	/* Update Driver load time, possibly broken in y2038 */
-+	SHMEM2_WR(bp, drv_info.epoc, (u32)ktime_get_real_seconds());
- 
- 	drv_ver = bnx2x_update_mng_version_utility(DRV_MODULE_VERSION, true);
- 	SHMEM2_WR(bp, drv_info.drv_ver, drv_ver);
+ 	seq_printf(file, "SUCCESS:\t\t%8llu\n", lp->trac.success);
+ 	seq_printf(file, "SUCCESS_DATA_PENDING:\t%8llu\n",
+-- 
+1.9.1
