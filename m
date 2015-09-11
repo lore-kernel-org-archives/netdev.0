@@ -1,390 +1,288 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v3 net 3/5] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
-Date: Fri, 11 Sep 2015 11:06:19 -0700
-Message-ID: <1441994781-2718585-4-git-send-email-kafai@fb.com>
-References: <1441994781-2718585-1-git-send-email-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Kernel Team <kernel-team@fb.com>
-To: netdev <netdev@vger.kernel.org>
+From: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
+Subject: [PATCH] Net: core: datagram.c coding style fixes
+Date: Fri, 11 Sep 2015 20:21:04 +0200
+Message-ID: <1441995664-13860-1-git-send-email-cristos@vipserv.org>
+Cc: viro@zeniv.linux.org.uk, netdev@vger.kernel.org,
+	Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49215 "EHLO
-	m0041696.ppops.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751540AbbIKSHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 14:07:44 -0400
-Received: from pps.filterd (m0041696 [127.0.0.1])
-	by m0041696.ppops.net (8.14.5/8.14.5) with SMTP id t8BI7Nh6032476
-	for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 11:07:44 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0041696.ppops.net with ESMTP id 1wv08dgq9e-7
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 11:07:44 -0700
-Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- f079ced258af11e5a01e0002c9521c9e-9cffa240 for <netdev@vger.kernel.org>;	Fri,
- 11 Sep 2015 11:07:18 -0700
-In-Reply-To: <1441994781-2718585-1-git-send-email-kafai@fb.com>
+Received: from sv1-2.x14.eu ([144.76.176.218]:39815 "EHLO sv1-2.x14.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751142AbbIKS12 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2015 14:27:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Problems in the current dst_entry cache in the ip6_tunnel:
+Fixed several coding style issues reported by checkpatch.pl
 
-1. ip6_tnl_dst_set is racy.  There is no lock to protect it:
-   - One major problem is that the dst refcnt gets messed up. F.e.
-     the same dst_cache can be released multiple times and then
-     triggering the infamous dst refcnt < 0 warning message.
-   - Another issue is the inconsistency between dst_cache and
-     dst_cookie.
-
-   It can be reproduced by adding and removing the ip6gre tunnel
-   while running a super_netperf TCP_CRR test.
-
-2. ip6_tnl_dst_get does not take the dst refcnt before returning
-   the dst.
-
-This patch:
-1. Create a percpu dst_entry cache in ip6_tnl
-2. Use a spinlock to protect the dst_cache operations
-3. ip6_tnl_dst_get always takes the dst refcnt before returning
-
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Signed-off-by: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
 ---
- include/net/ip6_tunnel.h |  11 ++++-
- net/ipv6/ip6_gre.c       |  38 ++++++++-------
- net/ipv6/ip6_tunnel.c    | 122 +++++++++++++++++++++++++++++++++++------------
- 3 files changed, 123 insertions(+), 48 deletions(-)
+ net/core/datagram.c | 89 ++++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 51 insertions(+), 38 deletions(-)
 
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index 979b081..60b4f40 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -32,6 +32,12 @@ struct __ip6_tnl_parm {
- 	__be32			o_key;
- };
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 617088a..b284a6d 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -9,7 +9,8 @@
+  *	identical recvmsg() code. So we share it here. The poll was
+  *	shared before but buried in udp.c so I moved it.
+  *
+- *	Authors:	Alan Cox <alan@lxorguk.ukuu.org.uk>. (datagram_poll() from old
++ *	Authors:
++ *		Alan Cox <alan@lxorguk.ukuu.org.uk>. (datagram_poll() from old
+  *						     udp.c code)
+  *
+  *	Fixes:
+@@ -36,7 +37,7 @@
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+-#include <asm/uaccess.h>
++#include <linux/uaccess.h>
+ #include <linux/mm.h>
+ #include <linux/interrupt.h>
+ #include <linux/errno.h>
+@@ -60,29 +61,24 @@
+ #include <trace/events/skb.h>
+ #include <net/busy_poll.h>
  
-+struct ip6_tnl_dst {
-+	spinlock_t lock;
-+	struct dst_entry *dst;
-+	u32 cookie;
-+};
-+
- /* IPv6 tunnel */
- struct ip6_tnl {
- 	struct ip6_tnl __rcu *next;	/* next tunnel in list */
-@@ -39,8 +45,7 @@ struct ip6_tnl {
- 	struct net *net;	/* netns for packet i/o */
- 	struct __ip6_tnl_parm parms;	/* tunnel configuration parameters */
- 	struct flowi fl;	/* flowi template for xmit */
--	struct dst_entry *dst_cache;    /* cached dst */
--	u32 dst_cookie;
-+	struct ip6_tnl_dst __percpu *dst_cache;	/* cached dst */
- 
- 	int err_count;
- 	unsigned long err_time;
-@@ -61,6 +66,8 @@ struct ipv6_tlv_tnl_enc_lim {
- } __packed;
- 
- struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t);
-+int ip6_tnl_dst_init(struct ip6_tnl *t);
-+void ip6_tnl_dst_destroy(struct ip6_tnl *t);
- void ip6_tnl_dst_reset(struct ip6_tnl *t);
- void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst);
- int ip6_tnl_rcv_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 24f5dd8..6465124 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -637,17 +637,17 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
- 		dst = ip6_tnl_dst_get(tunnel);
- 
- 	if (!dst) {
--		ndst = ip6_route_output(net, NULL, fl6);
-+		dst = ip6_route_output(net, NULL, fl6);
- 
--		if (ndst->error)
-+		if (dst->error)
- 			goto tx_err_link_failure;
--		ndst = xfrm_lookup(net, ndst, flowi6_to_flowi(fl6), NULL, 0);
--		if (IS_ERR(ndst)) {
--			err = PTR_ERR(ndst);
--			ndst = NULL;
-+		dst = xfrm_lookup(net, dst, flowi6_to_flowi(fl6), NULL, 0);
-+		if (IS_ERR(dst)) {
-+			err = PTR_ERR(dst);
-+			dst = NULL;
- 			goto tx_err_link_failure;
- 		}
--		dst = ndst;
-+		ndst = dst;
- 	}
- 
- 	tdev = dst->dev;
-@@ -702,12 +702,9 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
- 		skb = new_skb;
- 	}
- 
--	if (fl6->flowi6_mark) {
--		skb_dst_set(skb, dst);
--		ndst = NULL;
--	} else {
--		skb_dst_set_noref(skb, dst);
--	}
-+	if (!fl6->flowi6_mark && ndst)
-+		ip6_tnl_dst_set(tunnel, ndst);
-+	skb_dst_set(skb, dst);
- 
- 	proto = NEXTHDR_GRE;
- 	if (encap_limit >= 0) {
-@@ -762,14 +759,12 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
- 	skb_set_inner_protocol(skb, protocol);
- 
- 	ip6tunnel_xmit(NULL, skb, dev);
--	if (ndst)
--		ip6_tnl_dst_set(tunnel, ndst);
- 	return 0;
- tx_err_link_failure:
- 	stats->tx_carrier_errors++;
- 	dst_link_failure(skb);
- tx_err_dst_release:
--	dst_release(ndst);
-+	dst_release(dst);
- 	return err;
+-/*
+- *	Is a socket 'connection oriented' ?
+- */
++/* Is a socket 'connection oriented' ? */
+ static inline int connection_based(struct sock *sk)
+ {
+ 	return sk->sk_type == SOCK_SEQPACKET || sk->sk_type == SOCK_STREAM;
  }
  
-@@ -1223,6 +1218,9 @@ static const struct net_device_ops ip6gre_netdev_ops = {
- 
- static void ip6gre_dev_free(struct net_device *dev)
+-static int receiver_wake_function(wait_queue_t *wait, unsigned int mode, int sync,
+-				  void *key)
++static int receiver_wake_function(wait_queue_t *wait, unsigned int mode,
++				  int sync, void *key)
  {
-+	struct ip6_tnl *t = netdev_priv(dev);
-+
-+	ip6_tnl_dst_destroy(t);
- 	free_percpu(dev->tstats);
- 	free_netdev(dev);
+ 	unsigned long bits = (unsigned long)key;
+ 
+-	/*
+-	 * Avoid a wakeup if event not interesting for us
+-	 */
++	 /* Avoid a wakeup if event not interesting for us */
+ 	if (bits && !(bits & (POLLIN | POLLERR)))
+ 		return 0;
+ 	return autoremove_wake_function(wait, mode, sync, key);
  }
-@@ -1248,6 +1246,7 @@ static void ip6gre_tunnel_setup(struct net_device *dev)
- static int ip6gre_tunnel_init_common(struct net_device *dev)
- {
- 	struct ip6_tnl *tunnel;
-+	int ret;
- 
- 	tunnel = netdev_priv(dev);
- 
-@@ -1259,6 +1258,13 @@ static int ip6gre_tunnel_init_common(struct net_device *dev)
- 	if (!dev->tstats)
- 		return -ENOMEM;
- 
-+	ret = ip6_tnl_dst_init(tunnel);
-+	if (ret) {
-+		free_percpu(dev->tstats);
-+		dev->tstats = NULL;
-+		return ret;
-+	}
+-/*
+- * Wait for the last received packet to be different from skb
+- */
 +
- 	return 0;
- }
- 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 599b0b4..851cf6d 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -126,37 +126,90 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
-  * Locking : hash tables are protected by RCU and RTNL
-  */
- 
--struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
-+static void __ip6_tnl_per_cpu_dst_set(struct ip6_tnl_dst *idst,
-+				      struct dst_entry *dst)
++/* Wait for the last received packet to be different from skb */
+ static int wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,
+ 				 const struct sk_buff *skb)
  {
--	struct dst_entry *dst = t->dst_cache;
+@@ -198,8 +194,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 	struct sk_buff *skb, *last;
+ 	unsigned long cpu_flags;
+ 	long timeo;
+-	/*
+-	 * Caller is allowed not to check sk->sk_err before skb_recv_datagram()
++
++	/* Caller is allowed not to check sk->sk_err before
++	 * skb_recv_datagram()
+ 	 */
+ 	int error = sock_error(sk);
+ 
+@@ -235,9 +232,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 					goto unlock_err;
+ 
+ 				atomic_inc(&skb->users);
+-			} else
++			} else {
+ 				__skb_unlink(skb, queue);
 -
--	if (dst && dst->obsolete &&
--	    !dst->ops->check(dst, t->dst_cookie)) {
--		t->dst_cache = NULL;
--		dst_release(dst);
--		return NULL;
-+	dst_release(idst->dst);
-+	if (dst) {
-+		dst_hold(dst);
-+		idst->cookie = rt6_get_cookie((struct rt6_info *)dst);
-+	} else {
-+		idst->cookie = 0;
++			}
+ 			spin_unlock_irqrestore(&queue->lock, cpu_flags);
+ 			*off = _off;
+ 			return skb;
+@@ -367,7 +364,8 @@ int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 			copy = len;
+ 		if (copy_to_iter(skb->data + offset, copy, to) != copy)
+ 			goto short_copy;
+-		if ((len -= copy) == 0)
++		len -= copy;
++		if (len == 0)
+ 			return 0;
+ 		offset += copy;
  	}
-+	idst->dst = dst;
-+}
-+
-+static void ip6_tnl_per_cpu_dst_set(struct ip6_tnl_dst *idst,
-+				    struct dst_entry *dst)
-+{
+@@ -380,14 +378,16 @@ int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 		WARN_ON(start > offset + len);
  
-+	spin_lock_bh(&idst->lock);
-+	__ip6_tnl_per_cpu_dst_set(idst, dst);
-+	spin_unlock_bh(&idst->lock);
-+}
-+
-+struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
-+{
-+	struct ip6_tnl_dst *idst;
-+	struct dst_entry *dst;
-+
-+	idst = raw_cpu_ptr(t->dst_cache);
-+	spin_lock_bh(&idst->lock);
-+	dst = idst->dst;
-+	if (dst) {
-+		if (!dst->obsolete || dst->ops->check(dst, idst->cookie)) {
-+			dst_hold(idst->dst);
-+		} else {
-+			__ip6_tnl_per_cpu_dst_set(idst, NULL);
-+			dst = NULL;
-+		}
-+	}
-+	spin_unlock_bh(&idst->lock);
- 	return dst;
- }
- EXPORT_SYMBOL_GPL(ip6_tnl_dst_get);
- 
- void ip6_tnl_dst_reset(struct ip6_tnl *t)
- {
--	dst_release(t->dst_cache);
--	t->dst_cache = NULL;
-+	int i;
-+
-+	for_each_possible_cpu(i)
-+		ip6_tnl_per_cpu_dst_set(raw_cpu_ptr(t->dst_cache), NULL);
- }
- EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
- 
- void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst)
- {
--	struct rt6_info *rt = (struct rt6_info *) dst;
--	t->dst_cookie = rt6_get_cookie(rt);
--	dst_release(t->dst_cache);
--	t->dst_cache = dst;
-+	ip6_tnl_per_cpu_dst_set(raw_cpu_ptr(t->dst_cache), dst);
-+
- }
- EXPORT_SYMBOL_GPL(ip6_tnl_dst_set);
- 
-+void ip6_tnl_dst_destroy(struct ip6_tnl *t)
-+{
-+	if (!t->dst_cache)
-+		return;
-+
-+	ip6_tnl_dst_reset(t);
-+	free_percpu(t->dst_cache);
-+}
-+EXPORT_SYMBOL_GPL(ip6_tnl_dst_destroy);
-+
-+int ip6_tnl_dst_init(struct ip6_tnl *t)
-+{
-+	int i;
-+
-+	t->dst_cache = alloc_percpu(struct ip6_tnl_dst);
-+	if (!t->dst_cache)
-+		return -ENOMEM;
-+
-+	for_each_possible_cpu(i)
-+		spin_lock_init(&per_cpu_ptr(t->dst_cache, i)->lock);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ip6_tnl_dst_init);
-+
- /**
-  * ip6_tnl_lookup - fetch tunnel matching the end-point addresses
-  *   @remote: the address of the tunnel exit-point
-@@ -271,6 +324,9 @@ ip6_tnl_unlink(struct ip6_tnl_net *ip6n, struct ip6_tnl *t)
- 
- static void ip6_dev_free(struct net_device *dev)
- {
-+	struct ip6_tnl *t = netdev_priv(dev);
-+
-+	ip6_tnl_dst_destroy(t);
- 	free_percpu(dev->tstats);
- 	free_netdev(dev);
- }
-@@ -1016,17 +1072,17 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
- 		goto tx_err_link_failure;
- 
- 	if (!dst) {
--		ndst = ip6_route_output(net, NULL, fl6);
-+		dst = ip6_route_output(net, NULL, fl6);
- 
--		if (ndst->error)
-+		if (dst->error)
- 			goto tx_err_link_failure;
--		ndst = xfrm_lookup(net, ndst, flowi6_to_flowi(fl6), NULL, 0);
--		if (IS_ERR(ndst)) {
--			err = PTR_ERR(ndst);
--			ndst = NULL;
-+		dst = xfrm_lookup(net, dst, flowi6_to_flowi(fl6), NULL, 0);
-+		if (IS_ERR(dst)) {
-+			err = PTR_ERR(dst);
-+			dst = NULL;
- 			goto tx_err_link_failure;
+ 		end = start + skb_frag_size(frag);
+-		if ((copy = end - offset) > 0) {
++		copy = end - offset;
++		if (copy > 0) {
+ 			if (copy > len)
+ 				copy = len;
+ 			if (copy_page_to_iter(skb_frag_page(frag),
+ 					      frag->page_offset + offset -
+ 					      start, copy, to) != copy)
+ 				goto short_copy;
+-			if (!(len -= copy))
++			len -= copy;
++			if (len == 0)
+ 				return 0;
+ 			offset += copy;
  		}
--		dst = ndst;
-+		ndst = dst;
- 	}
+@@ -400,13 +400,15 @@ int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 		WARN_ON(start > offset + len);
  
- 	tdev = dst->dev;
-@@ -1072,12 +1128,11 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
- 		consume_skb(skb);
- 		skb = new_skb;
- 	}
--	if (fl6->flowi6_mark) {
--		skb_dst_set(skb, dst);
--		ndst = NULL;
--	} else {
--		skb_dst_set_noref(skb, dst);
--	}
-+
-+	if (!fl6->flowi6_mark && ndst)
-+		ip6_tnl_dst_set(t, ndst);
-+	skb_dst_set(skb, dst);
-+
- 	skb->transport_header = skb->network_header;
- 
- 	proto = fl6->flowi6_proto;
-@@ -1101,14 +1156,12 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
- 	ipv6h->saddr = fl6->saddr;
- 	ipv6h->daddr = fl6->daddr;
- 	ip6tunnel_xmit(NULL, skb, dev);
--	if (ndst)
--		ip6_tnl_dst_set(t, ndst);
- 	return 0;
- tx_err_link_failure:
- 	stats->tx_carrier_errors++;
- 	dst_link_failure(skb);
- tx_err_dst_release:
--	dst_release(ndst);
-+	dst_release(dst);
- 	return err;
- }
- 
-@@ -1573,12 +1626,21 @@ static inline int
- ip6_tnl_dev_init_gen(struct net_device *dev)
+ 		end = start + frag_iter->len;
+-		if ((copy = end - offset) > 0) {
++		copy = end - offset;
++		if (copy > 0) {
+ 			if (copy > len)
+ 				copy = len;
+ 			if (skb_copy_datagram_iter(frag_iter, offset - start,
+ 						   to, copy))
+ 				goto fault;
+-			if ((len -= copy) == 0)
++			len -= copy;
++			if (len == 0)
+ 				return 0;
+ 			offset += copy;
+ 		}
+@@ -441,8 +443,8 @@ EXPORT_SYMBOL(skb_copy_datagram_iter);
+  *	Returns 0 or -EFAULT.
+  */
+ int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
+-				 struct iov_iter *from,
+-				 int len)
++				struct iov_iter *from,
++				int len)
  {
- 	struct ip6_tnl *t = netdev_priv(dev);
-+	int ret;
+ 	int start = skb_headlen(skb);
+ 	int i, copy = start - offset;
+@@ -454,7 +456,8 @@ int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
+ 			copy = len;
+ 		if (copy_from_iter(skb->data + offset, copy, from) != copy)
+ 			goto fault;
+-		if ((len -= copy) == 0)
++		len -= copy;
++		if (len == 0)
+ 			return 0;
+ 		offset += copy;
+ 	}
+@@ -467,18 +470,19 @@ int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
+ 		WARN_ON(start > offset + len);
  
- 	t->dev = dev;
- 	t->net = dev_net(dev);
- 	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
- 	if (!dev->tstats)
- 		return -ENOMEM;
-+
-+	ret = ip6_tnl_dst_init(t);
-+	if (ret) {
-+		free_percpu(dev->tstats);
-+		dev->tstats = NULL;
-+		return ret;
-+	}
-+
- 	return 0;
- }
+ 		end = start + skb_frag_size(frag);
+-		if ((copy = end - offset) > 0) {
++		copy = end - offset;
++		if (copy > 0) {
+ 			size_t copied;
  
+ 			if (copy > len)
+ 				copy = len;
+ 			copied = copy_page_from_iter(skb_frag_page(frag),
+-					  frag->page_offset + offset - start,
+-					  copy, from);
++					frag->page_offset + offset - start,
++					copy, from);
+ 			if (copied != copy)
+ 				goto fault;
+-
+-			if (!(len -= copy))
++			len -= copy;
++			if (len == 0)
+ 				return 0;
+ 			offset += copy;
+ 		}
+@@ -491,14 +495,16 @@ int skb_copy_datagram_from_iter(struct sk_buff *skb, int offset,
+ 		WARN_ON(start > offset + len);
+ 
+ 		end = start + frag_iter->len;
+-		if ((copy = end - offset) > 0) {
++		copy = end - offset;
++		if (copy > 0) {
+ 			if (copy > len)
+ 				copy = len;
+ 			if (skb_copy_datagram_from_iter(frag_iter,
+ 							offset - start,
+ 							from, copy))
+ 				goto fault;
+-			if ((len -= copy) == 0)
++			len -= copy;
++			if (len == 0)
+ 				return 0;
+ 			offset += copy;
+ 		}
+@@ -556,6 +562,7 @@ int zerocopy_sg_from_iter(struct sk_buff *skb, struct iov_iter *from)
+ 		atomic_add(truesize, &skb->sk->sk_wmem_alloc);
+ 		while (copied) {
+ 			int size = min_t(int, copied, PAGE_SIZE - start);
++
+ 			skb_fill_page_desc(skb, frag++, pages[n], start, size);
+ 			start = 0;
+ 			copied -= size;
+@@ -583,7 +590,8 @@ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+ 		n = csum_and_copy_to_iter(skb->data + offset, copy, csump, to);
+ 		if (n != copy)
+ 			goto fault;
+-		if ((len -= copy) == 0)
++		len -= copy;
++		if (len == 0)
+ 			return 0;
+ 		offset += copy;
+ 		pos = copy;
+@@ -596,7 +604,8 @@ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+ 		WARN_ON(start > offset + len);
+ 
+ 		end = start + skb_frag_size(frag);
+-		if ((copy = end - offset) > 0) {
++		copy = end - offset;
++		if (copy > 0) {
+ 			__wsum csum2 = 0;
+ 			struct page *page = skb_frag_page(frag);
+ 			u8  *vaddr = kmap(page);
+@@ -610,7 +619,8 @@ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+ 			if (n != copy)
+ 				goto fault;
+ 			*csump = csum_block_add(*csump, csum2, pos);
+-			if (!(len -= copy))
++			len -= copy;
++			if (len == 0)
+ 				return 0;
+ 			offset += copy;
+ 			pos += copy;
+@@ -624,8 +634,10 @@ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+ 		WARN_ON(start > offset + len);
+ 
+ 		end = start + frag_iter->len;
+-		if ((copy = end - offset) > 0) {
++		copy = end - offset;
++		if (copy > 0) {
+ 			__wsum csum2 = 0;
++
+ 			if (copy > len)
+ 				copy = len;
+ 			if (skb_copy_and_csum_datagram(frag_iter,
+@@ -634,7 +646,8 @@ static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+ 						       &csum2))
+ 				goto fault;
+ 			*csump = csum_block_add(*csump, csum2, pos);
+-			if ((len -= copy) == 0)
++			len -= copy;
++			if (len == 0)
+ 				return 0;
+ 			offset += copy;
+ 			pos += copy;
+@@ -736,7 +749,7 @@ fault:
+ EXPORT_SYMBOL(skb_copy_and_csum_datagram_msg);
+ 
+ /**
+- * 	datagram_poll - generic datagram poll
++ *	datagram_poll - generic datagram poll
+  *	@file: file struct
+  *	@sock: socket
+  *	@wait: poll table
 -- 
 2.5.1
