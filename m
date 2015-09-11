@@ -1,42 +1,62 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Re: [fw filter]: Broken! fw mark based tc class selection not working
-Date: Sat, 12 Sep 2015 03:54:25 +0530
-Message-ID: <CAA5aLPgCqOXU3vw6moSvADuOc4Q_TM2iJLHjSH0O8NwYJJ1t7g@mail.gmail.com>
-References: <CAA5aLPhvkEPpDhaxSNWnGHU2H0WmCaYhbo-fYKP8+Xzka3-q=g@mail.gmail.com>
-	<CAHA+R7P5jTGBof-oObzJ0SidRr17fKLGjoMkk0-VYzuSLjawZg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net 1/5] ipv6: Refactor common ip6gre_tunnel_init
+ codes
+Date: Fri, 11 Sep 2015 15:30:59 -0700 (PDT)
+Message-ID: <20150911.153059.459077104316140368.davem@davemloft.net>
+References: <1441994781-2718585-1-git-send-email-kafai@fb.com>
+	<1441994781-2718585-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hannes@stressinduktion.org, kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:34542 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752125AbbIKWY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 18:24:26 -0400
-Received: by obbda8 with SMTP id da8so71560434obb.1
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 15:24:26 -0700 (PDT)
-In-Reply-To: <CAHA+R7P5jTGBof-oObzJ0SidRr17fKLGjoMkk0-VYzuSLjawZg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50872 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752853AbbIKWbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 18:31:02 -0400
+In-Reply-To: <1441994781-2718585-2-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no handle with fw filter. That's the whole point is. If
-handle and class (flow id) is not specified, then whatever be the mark
-on the packet, its automatically set as flowid. So if mark is 0x10003,
-then this fw filter
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 11 Sep 2015 11:06:17 -0700
 
-tc filter add dev eth0 parent 1:0 protocol ip fw
+> @@ -1460,19 +1474,16 @@ static void ip6gre_netlink_parms(struct nlattr *data[],
+>  static int ip6gre_tap_init(struct net_device *dev)
+>  {
+>  	struct ip6_tnl *tunnel;
+> +	int ret;
+>  
+> -	tunnel = netdev_priv(dev);
+> +	ret = ip6gre_tunnel_init_common(dev);
+> +	if (ret)
+> +		return ret;
+>  
+> -	tunnel->dev = dev;
+> -	tunnel->net = dev_net(dev);
+> -	strcpy(tunnel->parms.name, dev->name);
+> +	tunnel = netdev_priv(dev);
+>  
+>  	ip6gre_tnl_link_config(tunnel, 1);
+>  
+> -	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+> -	if (!dev->tstats)
+> -		return -ENOMEM;
+> -
+>  	return 0;
+>  }
 
-will cause 0x10003 being set as classid I.e. 1:3.
+Is this really equivalent?
 
+The existing code for GRE tap device initialization would use whatever
+ether_setup() left in the broadcast address, it would leave
+dev->dev_addr alone, and unconditionally use eth_header_ops.
 
-tc qdisc add dev eth0 root handle 1: htb
-tc class add dev eth0 parent 1: classid 1:a htb rate 1mbit
-tc class add dev eth0 parent 1: classid 1:b htb rate 1mbit
-tc class add dev eth0 parent 1: classid 1:c htb rate 1mbit
-tc filter add dev eth0 parent 1:0 protocol ip fw
+You are changing behavior here, and it's been like this has been this
+way long enough that I can't see clearly whether this is a valid
+change or not.  It probably is not.
 
-iptables -t mangle -I OUTPUT -o eth0 -p tcp -j MARK --set-mark 0x1000a
-iptables -t mangle -I OUTPUT -o eth0 -p icmp -j MARK --set-mark 0x1000b
-iptables -t mangle -I OUTPUT -o eth0 -p udp -j MARK --set-mark 0x1000c
+Either way, even if it is valid, you have to document what is happening
+here and why it's ok.
