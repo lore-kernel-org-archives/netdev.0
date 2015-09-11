@@ -1,100 +1,69 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v2 net-next 1/4] phylib: Add phy_set_max_speed helper
-Date: Fri, 11 Sep 2015 16:34:58 +0300
-Message-ID: <55F2D882.20908@cogentembedded.com>
-References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
- <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH v2 3/5] ebpf: add a way to dump an eBPF program
+Date: Fri, 11 Sep 2015 15:39:14 +0200
+Message-ID: <55F2D982.8010406@iogearbox.net>
+References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com> <1441930862-14347-4-git-send-email-tycho.andersen@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:33434 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913AbbIKNfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 09:35:00 -0400
-Received: by lbcjc2 with SMTP id jc2so39662705lbc.0
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 06:34:59 -0700 (PDT)
-In-Reply-To: <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1441930862-14347-4-git-send-email-tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 9/11/2015 5:01 AM, Simon Horman wrote:
-
-> Add a helper to allow ethernet drivers to limit the speed of a phy
-> (that they are attached to).
+On 09/11/2015 02:21 AM, Tycho Andersen wrote:
+> This commit adds a way to dump eBPF programs. The initial implementation
+> doesn't support maps, and therefore only allows dumping seccomp ebpf
+> programs which themselves don't currently support maps.
 >
-> This mainly involves factoring out the business-end of
-> of_set_phy_supported() and exporting a new symbol.
+> v2: don't export a prog_id for the filter
 >
-> This code seems to be open coded in several places, in several different
-> variants.
->
-> This code is envisaged this will be used in situations where setting
-> the "max-speed" property is not appropriate, e.g. because the maximum
-> speed is not a property of the phy hardware.
->
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
->
-> ---
->
-> v2
-> * First post
-> ---
->   drivers/net/phy/phy_device.c | 52 ++++++++++++++++++++++++++++----------------
->   include/linux/phy.h          |  1 +
->   2 files changed, 34 insertions(+), 19 deletions(-)
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index c0f211127274..d9a020095972 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -1205,6 +1205,37 @@ static int gen10g_resume(struct phy_device *phydev)
->   	return 0;
+> Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> CC: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> CC: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> CC: Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> CC: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+> CC: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> CC: Serge E. Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
+> CC: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> CC: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+[...]
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index dc9b464..58ae9f4 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -586,6 +586,44 @@ free_prog:
+>   	return err;
 >   }
 >
-> +static void __set_phy_supported(struct phy_device *phydev, u32 max_speed)
+> +static int bpf_prog_dump(union bpf_attr *attr, union bpf_attr __user *uattr)
 > +{
-> +	if (!IS_ENABLED(CONFIG_OF_MDIO))
-> +		return;
+> +	int ufd = attr->prog_fd;
+> +	struct fd f = fdget(ufd);
+> +	struct bpf_prog *prog;
+> +	int ret = -EINVAL;
 > +
-> +	/* The default values for phydev->supported are provided by the PHY
-> +	 * driver "features" member, we want to reset to sane defaults fist
-
-    s/fist/first/.
-
-> +	 * before supporting higher speeds.
+> +	prog = get_prog(f);
+> +	if (IS_ERR(prog))
+> +		return PTR_ERR(prog);
+> +
+> +	/* For now, let's refuse to dump anything that isn't a seccomp program.
+> +	 * Other program types have support for maps, which our current dump
+> +	 * code doesn't support.
 > +	 */
-> +	phydev->supported &= PHY_DEFAULT_FEATURES;
-> +
-> +	switch (max_speed) {
-> +	default:
-> +		return;
-> +
+> +	if (prog->type != BPF_PROG_TYPE_SECCOMP)
+> +		goto out;
 
-    I don't think empty line is needed here.
-
-> +	case SPEED_1000:
-> +		phydev->supported |= PHY_1000BT_FEATURES;
-
-    Need a comment like /* Fall thru */.
-
-> +	case SPEED_100:
-> +		phydev->supported |= PHY_100BT_FEATURES;
-
-    And here.
-
-> +	case SPEED_10:
-> +		phydev->supported |= PHY_10BT_FEATURES;
-> +	}
-> +}
-[...]
-
-MBR, Sergei
+Yep, also when you start adding helper calls (next to map objects) you'd
+need to undo kernel pointers that the verifier sets here.
