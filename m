@@ -1,39 +1,37 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net] openvswitch: Fix dependency on IPv6 defrag.
-Date: Fri, 11 Sep 2015 15:01:16 -0700
-Message-ID: <1442008876-19462-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org
-To: pshelar@nicira.com, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2x: use ktime_get_seconds() for timestamp
+Date: Fri, 11 Sep 2015 15:03:22 -0700 (PDT)
+Message-ID: <20150911.150322.1083790165932796949.davem@davemloft.net>
+References: <2387233.xmDni0GXyg@wuerfel>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, y2038@lists.linaro.org,
+	Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2387233.xmDni0GXyg@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When NF_CONNTRACK is built-in, NF_DEFRAG_IPV6 is a module, and
-OPENVSWITCH is built-in, the following build error would occur:
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 11 Sep 2015 11:33:01 +0200
 
-net/built-in.o: In function `ovs_ct_execute':
-(.text+0x10f587): undefined reference to `nf_ct_frag6_gather'
+> commit c48f350ff5e7 "bnx2x: Add MFW dump support" added the
+> bnx2x_update_mfw_dump() function that reads the current time and stores
+> it in a 32-bit field that gets passed into a buffer in a fixed format.
+> 
+> This is potentially broken when the epoch overflows in 2038, and
+> otherwise overflows in 2106. As we're trying to avoid uses of
+> struct timeval for this reason, I noticed the addition of this
+> function, and tried to rewrite it in a way that is more explicit
+> about the overflow and that will keep working once we deprecate
+> struct timeval.
+> 
+> I assume that it is not possible to change the ABI any more, otherwise
+> we should try to use a 64-bit field for the seconds right away.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-Reported-by: Jim Davis <jim.epost@gmail.com>
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
- net/openvswitch/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-index 2a071f4..d143aa9 100644
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@ -5,7 +5,8 @@
- config OPENVSWITCH
- 	tristate "Open vSwitch"
- 	depends on INET
--	depends on (!NF_CONNTRACK || NF_CONNTRACK)
-+	depends on !NF_CONNTRACK || \
-+		   (NF_CONNTRACK && (!NF_DEFRAG_IPV6 || NF_DEFRAG_IPV6))
- 	select LIBCRC32C
- 	select MPLS
- 	select NET_MPLS_GSO
--- 
-2.1.4
+Applied, thanks.
