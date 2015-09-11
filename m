@@ -1,121 +1,152 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] netlink, mmap: transform mmap skb into full skb on
- taps
-Date: Fri, 11 Sep 2015 22:35:08 +0200
-Message-ID: <55F33AFC.1080206@iogearbox.net>
-References: <d8546f5fdd1e84659e0f184275b36fcd565fe59c.1441887916.git.daniel@iogearbox.net>	<20150910.221132.1962916984876023271.davem@davemloft.net>	<55F2AC29.3030209@iogearbox.net> <20150911.124205.1992250802389107845.davem@davemloft.net>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v3 net-next] rtnetlink: RTEXT_FILTER_SKIP_STATS support to
+ avoid dumping inet/inet6 stats
+Date: Fri, 11 Sep 2015 16:48:48 -0400
+Message-ID: <20150911204848.GC9687@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: chamaken@gmail.com, fw@strlen.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, raghavendra.kt@linux.vnet.ibm.com,
+	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
+	jose.marchesi@oracle.com
+To: netdev@vger.kernel.org, sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42877 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752661AbbIKUfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 16:35:20 -0400
-In-Reply-To: <20150911.124205.1992250802389107845.davem@davemloft.net>
+Received: from userp1040.oracle.com ([156.151.31.81]:30643 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751696AbbIKUtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 16:49:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/11/2015 09:42 PM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Fri, 11 Sep 2015 12:25:45 +0200
->
->> Already calling into skb_clone() is an issue itself, as the data
->> area is user space buffer, and skb_clone() as well as skb_copy()
->> access skb_shinfo() area. :/ So in that regard netlink mmap skbs are
->> even further restrictive on what we can do than netlink large skbs.
->
-> Indeed, this is fatal.
->
-> So we'd still need something special like your
-> netlink_to_full_skb_clone to elide trying to touch the skb_shinfo
-> area.
->
-> I thought briefly about somehow cobbling up extra space in the ring
-> entries so we could have a real skb_shinfo() there, but that's illegal
-> too as the user could scribble all over it randomly while we interpret
-> the contents.  We don't own that memory.  So this doesn't work.
 
-Yes, agreed.
+Many commonly used functions like getifaddrs() invoke RTM_GETLINK
+to dump the interface information, and do not need the
+the AF_INET6 statististics that are always returned by default
+from rtnl_fill_ifinfo().
 
-> We could rename the clone_preserves_destructor and have it also mean
-> that the SKB lacks frags and skb_shinfo() should not be inspected.
->
-> Something like this:
-[...]
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2738d35..898c53d 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-[...]
-> @@ -2220,7 +2221,8 @@ static inline void skb_orphan(struct sk_buff *skb)
->    */
->   static inline int skb_orphan_frags(struct sk_buff *skb, gfp_t gfp_mask)
->   {
-> -	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY)))
-> +	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) ||
-> +		   skb->private_buffers))
+Computing the statistics can be an expensive operation that impacts
+scaling, so it is desirable to avoid this if the information is
+not needed.
 
-(These two would need to be swapped.)
+This patch adds a the RTEXT_FILTER_SKIP_STATS extended info flag that
+can be passed with netlink_request() to avoid statistics computation
+for the ifinfo path.
 
->   		return 0;
->   	return skb_copy_ubufs(skb, gfp_mask);
->   }
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index dad4dd3..54f9d6e 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -825,7 +825,10 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
->   	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
->   	n->cloned = 1;
->   	n->nohdr = 0;
-> -	n->destructor = NULL;
-> +	if (!skb->private_buffers)
-> +		n->destructor = NULL;
-> +	else
-> +		C(destructor);
->   	C(tail);
->   	C(end);
->   	C(head);
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2: David Miller comments: pass u32 ext_filter_mask down.
+v3: non-RFC version of v2.
 
-We would also have to conditionally skip the __skb_clone()'s ...
+ include/net/rtnetlink.h        |    3 ++-
+ include/uapi/linux/rtnetlink.h |    1 +
+ net/core/rtnetlink.c           |    2 +-
+ net/ipv4/devinet.c             |    3 ++-
+ net/ipv6/addrconf.c            |   13 +++++++++----
+ 5 files changed, 15 insertions(+), 7 deletions(-)
 
-   atomic_inc(&(skb_shinfo(skb)->dataref));
-
-Thus, the issue here is that while netlink_alloc_large_skb() and
-netlink_ring_setup_skb() would set both skb->private_buffers = 1,
-the large skb case would actually need to inspect dataref count
-(which it also can legally do) to properly release the vmalloc'ed
-area again, while the other case must not even touch it. So if I
-see this correctly, it looks like it's unfortunately not possible
-to combine the two cases in a single flag. :/
-
-If there's a good case to burn this flag outside of netlink for e.g.
-vmalloc backend memory on skbs, it could be solved like that, while
-the mmap case be declared netlink's problem. ;) I currently don't
-have a better idea than to copy these guys, hmmm.
-
-[...]
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 7f86d3b..523adac 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -854,6 +855,14 @@ static void netlink_ring_set_copied(struct sock *sk, struct sk_buff *skb)
->   #define netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group, scm)	0
->   #endif /* CONFIG_NETLINK_MMAP */
->
-> +static bool skb_can_release_head(struct sk_buff *skb)
-> +{
-> +	if (!skb->cloned ||
-> +	    !atomic_dec_return(&(skb_shinfo(skb)->dataref)))
-> +		return true;
-> +	return false;
-> +}
-> +
->   static void netlink_skb_destructor(struct sk_buff *skb)
->   {
->   #ifdef CONFIG_NETLINK_MMAP
-> @@ -866,31 +875,35 @@ static void netlink_skb_destructor(struct sk_buff *skb)
-[...]
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 18fdb98..aff6ceb 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -122,7 +122,8 @@ struct rtnl_af_ops {
+ 	int			family;
+ 
+ 	int			(*fill_link_af)(struct sk_buff *skb,
+-						const struct net_device *dev);
++						const struct net_device *dev,
++						u32 ext_filter_mask);
+ 	size_t			(*get_link_af_size)(const struct net_device *dev);
+ 
+ 	int			(*validate_link_af)(const struct net_device *dev,
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 7020247..434227f 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -666,6 +666,7 @@ struct tcamsg {
+ #define RTEXT_FILTER_VF		(1 << 0)
+ #define RTEXT_FILTER_BRVLAN	(1 << 1)
+ #define RTEXT_FILTER_BRVLAN_COMPRESSED	(1 << 2)
++#define	RTEXT_FILTER_SKIP_STATS	(1 << 3)
+ 
+ /* End of information exported to user level */
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a466821..e545229 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1272,7 +1272,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			if (!(af = nla_nest_start(skb, af_ops->family)))
+ 				goto nla_put_failure;
+ 
+-			err = af_ops->fill_link_af(skb, dev);
++			err = af_ops->fill_link_af(skb, dev, ext_filter_mask);
+ 
+ 			/*
+ 			 * Caller may return ENODATA to indicate that there
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 2d9cb17..7350084 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1654,7 +1654,8 @@ static size_t inet_get_link_af_size(const struct net_device *dev)
+ 	return nla_total_size(IPV4_DEVCONF_MAX * 4); /* IFLA_INET_CONF */
+ }
+ 
+-static int inet_fill_link_af(struct sk_buff *skb, const struct net_device *dev)
++static int inet_fill_link_af(struct sk_buff *skb, const struct net_device *dev,
++			     u32 ext_filter_mask)
+ {
+ 	struct in_device *in_dev = rcu_dereference_rtnl(dev->ip_ptr);
+ 	struct nlattr *nla;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 99c0f2b..9acbb09 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4760,7 +4760,8 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
+ 	}
+ }
+ 
+-static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev)
++static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev,
++				  u32 ext_filter_mask)
+ {
+ 	struct nlattr *nla;
+ 	struct ifla_cacheinfo ci;
+@@ -4780,6 +4781,9 @@ static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev)
+ 
+ 	/* XXX - MC not implemented */
+ 
++	if (!!(ext_filter_mask & RTEXT_FILTER_SKIP_STATS))
++		return 0;
++
+ 	nla = nla_reserve(skb, IFLA_INET6_STATS, IPSTATS_MIB_MAX * sizeof(u64));
+ 	if (!nla)
+ 		goto nla_put_failure;
+@@ -4815,14 +4819,15 @@ static size_t inet6_get_link_af_size(const struct net_device *dev)
+ 	return inet6_ifla6_size();
+ }
+ 
+-static int inet6_fill_link_af(struct sk_buff *skb, const struct net_device *dev)
++static int inet6_fill_link_af(struct sk_buff *skb, const struct net_device *dev,
++			      u32 ext_filter_mask)
+ {
+ 	struct inet6_dev *idev = __in6_dev_get(dev);
+ 
+ 	if (!idev)
+ 		return -ENODATA;
+ 
+-	if (inet6_fill_ifla6_attrs(skb, idev) < 0)
++	if (inet6_fill_ifla6_attrs(skb, idev, ext_filter_mask) < 0)
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+@@ -4977,7 +4982,7 @@ static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev,
+ 	if (!protoinfo)
+ 		goto nla_put_failure;
+ 
+-	if (inet6_fill_ifla6_attrs(skb, idev) < 0)
++	if (inet6_fill_ifla6_attrs(skb, idev, 0) < 0)
+ 		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, protoinfo);
+-- 
+1.7.1
