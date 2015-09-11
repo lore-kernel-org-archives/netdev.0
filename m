@@ -1,80 +1,85 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: Re: [PATCH] ebpf: emit correct src_reg for conditional jumps
-Date: Fri, 11 Sep 2015 09:50:34 -0600
-Message-ID: <20150911155034.GO27574@smitten>
-References: <1441931107-17673-1-git-send-email-tycho.andersen@canonical.com>
- <55F294A9.9020005@iogearbox.net>
- <55F29EB8.50805@iogearbox.net>
- <20150911154041.GA5171@Alexeis-MBP-2.westell.com>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH v2 2/5] seccomp: make underlying bpf ref counted as well
+Date: Fri, 11 Sep 2015 18:03:59 +0200
+Message-ID: <55F2FB6F.7050708@iogearbox.net>
+References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com> <1441930862-14347-3-git-send-email-tycho.andersen@canonical.com> <55F2D0EC.9090004@iogearbox.net> <20150911144400.GI27574@smitten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34354 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752846AbbIKPug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 11:50:36 -0400
-Received: by iofb144 with SMTP id b144so103116253iof.1
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 08:50:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150911154041.GA5171@Alexeis-MBP-2.westell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150911144400.GI27574@smitten>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2015 at 08:40:43AM -0700, Alexei Starovoitov wrote:
-> On Fri, Sep 11, 2015 at 11:28:24AM +0200, Daniel Borkmann wrote:
-> > [off topic for this patch]
-> > 
-> > ... this requirement also breaks down for cases where you have a single
-> > classic BPF instruction that maps into 2 or more eBPF instructions, hitting
-> > BPF_MAXINSNS early at the time when you try to call into bpf(2) again with
-> > the dumped result. If I recall correctly, Chrome seems to use up quite a lot
-> > of insns space on (classic) seccomp-BPF, so this could potentially be a real
-> > issue, next to artificially crafted examples that would fail.
-> > 
-> > With regards to the latter, also classic programs that could have holes of
-> > dead code where you jump over them (see lib/test_bpf.c for examples) are
-> > unfortunately allowed on the ABI side, so while the classic -> eBPF converter
-> > may translate this dead region 1:1, it will be rejected by the verifier when
-> > you dump and try to reload that. ;) Anyway, it's perhaps a silly example, but
-> > it shows that this use-case can only work on a 'best-effort' basis, and not
-> > cover everything of the classic BPF ABI, as opposed to having an interface
-> > that can dump/restore classic BPF instructions directly.
-> > 
-> > Do you need this for checkpoint/restore? Wouldn't this therefore be better
-> > done as dump/restore classic<->classic and eBPF<->eBPF directly? In socket
-> > filters we do this by keeping orig_prog around, I guess it's better to bite
-> > the bullet of additional memory overhead in case of classic seccomp-BPF, too.
-> 
-> I don't think so.
-> When I played with libseccomp and chrome I saw that browser installed
-> several bpf programs for every new tab. The longest program was 275
-> classic insns which translated to slightly more eBPF insns
-> (because in eBPF we don't have < and <= instructions, so converter
-> needs to emit extra jump insns)
-> Also they don't produce unreachable code.
-> So getting over 4k limit and unreachable are rather hypothetical
-> problems. I wouldn't want to have two interfaces to criu seccomp.
-> eBPF is going to be used by seccomp as well, so having two is extra
-> burden for user space criu.
+On 09/11/2015 04:44 PM, Tycho Andersen wrote:
+> On Fri, Sep 11, 2015 at 03:02:36PM +0200, Daniel Borkmann wrote:
+>> On 09/11/2015 02:20 AM, Tycho Andersen wrote:
+>>> In the next patch, we're going to add a way to access the underlying
+>>> filters via bpf fds. This means that we need to ref-count both the
+>>> struct seccomp_filter objects and the struct bpf_prog objects separately,
+>>> in case a process dies but a filter is still referred to by another
+>>> process.
+>>>
+>>> Additionally, we mark classic converted seccomp filters as seccomp eBPF
+>>> programs, since they are a subset of what is supported in seccomp eBPF.
+>>>
+>>> Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+>>> CC: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+>>> CC: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+>>> CC: Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>> CC: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+>>> CC: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>>> CC: Serge E. Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
+>>> CC: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>> CC: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+>>> ---
+>>>   kernel/seccomp.c | 4 +++-
+>>>   1 file changed, 3 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+>>> index 245df6b..afaeddf 100644
+>>> --- a/kernel/seccomp.c
+>>> +++ b/kernel/seccomp.c
+>>> @@ -378,6 +378,8 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
+>>>   	}
+>>>
+>>>   	atomic_set(&sfilter->usage, 1);
+>>> +	atomic_set(&sfilter->prog->aux->refcnt, 1);
+>>> +	sfilter->prog->type = BPF_PROG_TYPE_SECCOMP;
+>>
+>> So, if you do this, then this breaks the assumption of eBPF JITs
+>> that, currently, all classic converted BPF programs always have a
+>> prog->type of BPF_PROG_TYPE_UNSPEC (see: bpf_prog_was_classic()).
+>>
+>> Currently, JITs make use of this information to determine whether
+>> A and X mappings for such programs should or should not be cleared
+>> in the prologue (s390 currently).
+>>
+>> In the seccomp_prepare_filter() stage, we're already past that, so
+>> it will not cause an issue, but we certainly would need to be very
+>> careful in future, if bpf_prog_was_classic() is then used at a later
+>> stage when we already have a generated bpf_prog somewhere, as then
+>> this assumption will break.
+>
+> The only reason we need to do this is to allow BPF_DUMP_PROG to work,
+> since we were restricting it to only allow dumping of seccomp
+> programs, since those don't have maps. Instead, perhaps we could allow
+> dumping of BPF_PROG_TYPE_SECCOMP and BPF_PROG_TYPE_UNSPEC?
 
-I think the burden is not so huge once we have eBPF c/r in place (we
-could just check the classic flag first, then dump the eBPF version or
-something). However, it doesn't seem ideal to have to support two
-interfaces.
-
-> If we start hitting 4k limit for eBPF, we can easily bump it
-> and/or add < and <= insns to eBPF (which was on my todo list anyway).
-
-I was hoping you might say this (assuming you mean add < BPF_MAXINSNS
-to the converter).
-
-The dead code is certainly a problem, but perhaps we can wait on this
-until there become some critical application that has this issue. I
-was hoping we could get away without extra memory usage on the kernel
-side (indeed, this patchset is mostly to try and avoid that).
-
-Tycho
+There are possibilities that BPF_PROG_TYPE_UNSPEC is calling helpers
+already today, at least in networking case, not seccomp. So, since
+you want to export [classic -> eBPF] only for seccomp, put fds on them
+and dump these via bpf(2), you could allow that (with a big comment
+stating why it's safe), but mid-term we really need to sanitize all
+this stuff properly as this is needed for other types, too.
