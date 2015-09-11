@@ -1,120 +1,100 @@
-From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: Re: NFS/TCP/IPv6 acting strangely in 4.2
-Date: Fri, 11 Sep 2015 14:18:18 +0100
-Message-ID: <20150911131818.GP21084@n2100.arm.linux.org.uk>
-References: <20150911113839.GO21084@n2100.arm.linux.org.uk>
- <1441976691.4619.58.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC v2 net-next 1/4] phylib: Add phy_set_max_speed helper
+Date: Fri, 11 Sep 2015 16:34:58 +0300
+Message-ID: <55F2D882.20908@cogentembedded.com>
+References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
+ <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1441976691.4619.58.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:33434 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913AbbIKNfA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 09:35:00 -0400
+Received: by lbcjc2 with SMTP id jc2so39662705lbc.0
+        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 06:34:59 -0700 (PDT)
+In-Reply-To: <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 06:04:51AM -0700, Eric Dumazet wrote:
-> On Fri, 2015-09-11 at 12:38 +0100, Russell King - ARM Linux wrote:
-> > I have a recent Marvell Armada 388 board here which uses the mvneta
-> > driver.  I'm seeing some weird effects with NFS with it acting as a
-> > client.  Unfortunately, the board does not have a functional RTC.
-> >=20
-> > The NFS server is the same NFS server that I've used for years with
-> > multiple other clients (it's my main NFS server) and it continues t=
-o
-> > support all other clients without any ill effect.  The NFS server
-> > kernel is rather old now, being a 3.x kernel.
-> >=20
-> > The NFS client appears to connect using TCP/IPv6 and initially is
-> > accessible.  Everything appears to work normally, and then the NFS
-> > server appears to stop responding.
-> >=20
-> > Running tcpdump on the NFS server, and then dumping the captured
-> > packets
-> > with tshark (because tcpdump appears not to understand IPv6 SYNs on
-> > the
-> > NFS port) shows:
-> >=20
-> >   3   0.030036 armada388 -> n2100 TCP 843=E2=86=92nfs [SYN] Seq=3D9=
-36803106
-> > Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D1 TSval=3D892366 TSecr=3D=
-0 WS=3D128
->=20
-> >   4   0.030409 n2100 -> armada388 TCP nfs=E2=86=92843 [SYN, ACK] Se=
-q=3D409465870
-> > Ack=3D936803107 Win=3D28560 Len=3D0 MSS=3D1440 SACK_PERM=3D1
-> >  TSval=3D818169117 TSecr=3D892366 WS=3D64
->=20
-> >   5   0.030493 armada388 -> n2100 TCP [TCP Port numbers reused]
-> > 843=E2=86=92nfs [SYN] Seq=3D936803633 Win=3D28800 Len=3D0 MSS=3D144=
-0 SACK_PERM=3D1
-> > TSval=3D892366 TSecr=3D0 WS=3D128
->=20
-> Yes, this packet looks very wrong. Like two simultaneous connect with
-> same source port. It is not a retransmit (Seq numbers differ)
->=20
-> >   6   0.030699 n2100 -> armada388 TCP nfs=E2=86=92843 [RST, ACK] Se=
-q=3D0
-> > Ack=3D936803634 Win=3D0 Len=3D0
-> >   7   0.030766 armada388 -> n2100 TCP 843=E2=86=92nfs [RST] Seq=3D9=
-36803107
-> > Win=3D0 Len=3D0
->=20
-> I suspect port reuse in NFS being broken.
->=20
-> Have you tried to apply
+Hello.
 
-Thanks, I'll give this a go and report back.
+On 9/11/2015 5:01 AM, Simon Horman wrote:
 
-I've been trying to debug this unsuccessfully.  It's really not helpful
-to enable rpc debugging, and then be greeted with this from printk:
+> Add a helper to allow ethernet drivers to limit the speed of a phy
+> (that they are attached to).
+>
+> This mainly involves factoring out the business-end of
+> of_set_phy_supported() and exporting a new symbol.
+>
+> This code seems to be open coded in several places, in several different
+> variants.
+>
+> This code is envisaged this will be used in situations where setting
+> the "max-speed" property is not appropriate, e.g. because the maximum
+> speed is not a property of the phy hardware.
+>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+>
+> ---
+>
+> v2
+> * First post
+> ---
+>   drivers/net/phy/phy_device.c | 52 ++++++++++++++++++++++++++++----------------
+>   include/linux/phy.h          |  1 +
+>   2 files changed, 34 insertions(+), 19 deletions(-)
+>
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index c0f211127274..d9a020095972 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -1205,6 +1205,37 @@ static int gen10g_resume(struct phy_device *phydev)
+>   	return 0;
+>   }
+>
+> +static void __set_phy_supported(struct phy_device *phydev, u32 max_speed)
+> +{
+> +	if (!IS_ENABLED(CONFIG_OF_MDIO))
+> +		return;
+> +
+> +	/* The default values for phydev->supported are provided by the PHY
+> +	 * driver "features" member, we want to reset to sane defaults fist
 
-[ 2760.156924] RPC:       state 4 conn 1 dead 0 zapped 1 sk_shutdown 3
-[ 2760.163218] RPC:       xs_tcp_state_change client ee240800...
-[ 2760.168976] RPC:       state 5 conn 0 dead 0 zapped 1 sk_shutdown 3
-[ 2760.175273] RPC:       xs_tcp_state_change client ee240800...
-[ 2760.181032] RPC:       state 7 conn 0 dead 0 zapped 1 sk_shutdown 3
-[ 2760.187315] RPC:       disconnected transport ee240800
-[ 2760.192467] RPC:       xs_tcp_state_change client ee240800...
-[ 2760.198224] RPC:       state 7 conn 0 dead 0 zapped 1 sk_shutdown 3
-[ 2760.204505] RPC:       disconnected transport ee240800
-[ 2760.209653] RPC:       xs_tcp_data_ready...
-[ 2760.215001] RPC:       wake_up_first(ee240918 "xprt_sending")
-lspci -vvx |less
-[ 2805.912330] RPC:       looking up Generic cred
-[ 2805.916791] RPC:       looking up Generic cred
-[ 2805.921259] RPC:       looking up Generic cred
-[ 2805.921784] RPC:       looking up Generic cred
-[ 2805.921787] RPC:       looking up Generic cred
-[ 2805.921788] RPC:       looking up Generic cred
-[ 2805.921792] RPC:       new task initialized, procpid 327
-[ 2805.921794] RPC:       allocated task ee358300
-[ 2805.921797] RPC:  1335 __rpc_execute flags=3D0x80
-[ 2805.921800] RPC:  1335 call_start nfs3 proc ACCESS (sync)
-[ 2805.921801] RPC:  1335 call_reserve (status 0)
-[ 2805.921805] RPC:  1335 reserved req ee8a2900 xid af74741b
-** 168 printk messages dropped ** [ 2805.928207] RPC:       read reply =
-XID b174741b
-** 366 printk messages dropped ** [ 2805.941242] RPC:  1343 setting ala=
-rm for 60000 ms
-** 310 printk messages dropped ** [ 2805.958274] RPC:       xprt =3D ee=
-240800, tcp_copied =3D 120, tcp_offset =3D 120, tcp_reclen =3D 120
-** 89 printk messages dropped ** [ 2805.959613] RPC:  1350 reserved req=
- ee8a2900 xid be74741b
-[ 2805.959614] RPC:       wake_up_first(ee240918 "xprt_sending")
+    s/fist/first/.
 
-which is just where we want to see the printk messages.  This kind'a
-makes printk and the rpc debug stuff rather useless. :(
+> +	 * before supporting higher speeds.
+> +	 */
+> +	phydev->supported &= PHY_DEFAULT_FEATURES;
+> +
+> +	switch (max_speed) {
+> +	default:
+> +		return;
+> +
 
---=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    I don't think empty line is needed here.
+
+> +	case SPEED_1000:
+> +		phydev->supported |= PHY_1000BT_FEATURES;
+
+    Need a comment like /* Fall thru */.
+
+> +	case SPEED_100:
+> +		phydev->supported |= PHY_100BT_FEATURES;
+
+    And here.
+
+> +	case SPEED_10:
+> +		phydev->supported |= PHY_10BT_FEATURES;
+> +	}
+> +}
+[...]
+
+MBR, Sergei
