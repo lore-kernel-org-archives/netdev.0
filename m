@@ -1,37 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: use ktime_get_seconds() for timestamp
-Date: Fri, 11 Sep 2015 15:03:22 -0700 (PDT)
-Message-ID: <20150911.150322.1083790165932796949.davem@davemloft.net>
-References: <2387233.xmDni0GXyg@wuerfel>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: randconfig build error with next-20150911, in net/openvswitch
+Date: Fri, 11 Sep 2015 15:05:09 -0700
+Message-ID: <CANr6G5zD=Pkt=ZvFW8i8AXX_0KnwxZviOCuFVR8Z90Zzf9SY6A@mail.gmail.com>
+References: <CA+r1Zhiv+XTVX2a-E-57dDkxqvNNVMf7NpoBVuabXBZsPXT_4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, y2038@lists.linaro.org,
-	Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2387233.xmDni0GXyg@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jim Davis <jim.epost@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CA+r1Zhiv+XTVX2a-E-57dDkxqvNNVMf7NpoBVuabXBZsPXT_4g@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 11 Sep 2015 11:33:01 +0200
+On 11 September 2015 at 09:53, Jim Davis <jim.epost@gmail.com> wrote:
+> Building with the attached random configuration file,
+>
+> net/built-in.o: In function `ovs_ct_execute':
+> (.text+0x10f587): undefined reference to `nf_ct_frag6_gather'
 
-> commit c48f350ff5e7 "bnx2x: Add MFW dump support" added the
-> bnx2x_update_mfw_dump() function that reads the current time and stores
-> it in a 32-bit field that gets passed into a buffer in a fixed format.
-> 
-> This is potentially broken when the epoch overflows in 2038, and
-> otherwise overflows in 2106. As we're trying to avoid uses of
-> struct timeval for this reason, I noticed the addition of this
-> function, and tried to rewrite it in a way that is more explicit
-> about the overflow and that will keep working once we deprecate
-> struct timeval.
-> 
-> I assume that it is not possible to change the ABI any more, otherwise
-> we should try to use a 64-bit field for the seconds right away.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Applied, thanks.
+Thanks for the report, I sent a patch:
+https://patchwork.ozlabs.org/patch/517033/
