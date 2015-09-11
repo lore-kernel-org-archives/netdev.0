@@ -1,8 +1,8 @@
 From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Subject: Re: [PATCH v2 1/5] ebpf: add a seccomp program type
-Date: Fri, 11 Sep 2015 14:09:45 +0200
-Message-ID: <CAKgNAkhtb5=9QvkOqx+LeUmz2V-bzowyf-VepG3Oe2gW1BSGmw@mail.gmail.com>
-References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com> <1441930862-14347-2-git-send-email-tycho.andersen@canonical.com>
+Subject: Re: [PATCH v2 5/5] seccomp: add a way to attach a filter via eBPF fd
+Date: Fri, 11 Sep 2015 14:10:47 +0200
+Message-ID: <CAKgNAkhRhr6xYHd6do1L9YMWVVHcS1-YnhLviXibMYR3aeu+DA@mail.gmail.com>
+References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com> <1441930862-14347-6-git-send-email-tycho.andersen@canonical.com>
 Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -20,34 +20,32 @@ Cc: Kees Cook <keescook@chromium.org>,
 	Linux API <linux-api@vger.kernel.org>
 To: Tycho Andersen <tycho.andersen@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441930862-14347-2-git-send-email-tycho.andersen@canonical.com>
+In-Reply-To: <1441930862-14347-6-git-send-email-tycho.andersen@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11 September 2015 at 02:20, Tycho Andersen
+On 11 September 2015 at 02:21, Tycho Andersen
 <tycho.andersen@canonical.com> wrote:
-> seccomp uses eBPF as its underlying storage and execution format, and eBPF
-> has features that seccomp would like to make use of in the future. This
-> patch adds a formal seccomp type to the eBPF verifier.
+> This is the final bit needed to support seccomp filters created via the bpf
+> syscall. The patch adds a new seccomp operation SECCOMP_MODE_FILTER_EBPF,
+> which takes exactly one command (presumably to be expanded upon later when
+> seccomp EBPFs support more interesting things) and an argument struct
+> similar to that of bpf(), although the size is explicit in the struct to
+> avoid changing the signature of seccomp().
 >
-> The current implementation of the seccomp eBPF type is very limited, and
-> doesn't support some interesting features (notably, maps) of eBPF. However,
-> the primary motivation for this patchset is to enable checkpoint/restore
-> for seccomp filters later in the series, to this limited feature set is ok
-> for now.
+> v2: Don't abuse seccomp's third argument; use a separate command and a
+>     pointer to a structure instead.
 
 Hi Tycho,
 
-Seems like a man-pages patch is warranted here also?
+Here, I'm entering broken record territory :-). Seems like a man-pages
+patch is warranted here also?
 
 Cheers,
 
 Michael
 
 
-> v2: * don't allow seccomp eBPF programs to call any functions
->     * get rid of superfluous seccomp_convert_ctx_access
->
 > Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
 > CC: Kees Cook <keescook@chromium.org>
 > CC: Will Drewry <wad@chromium.org>
@@ -58,90 +56,230 @@ Michael
 > CC: Alexei Starovoitov <ast@kernel.org>
 > CC: Daniel Borkmann <daniel@iogearbox.net>
 > ---
->  include/uapi/linux/bpf.h |  1 +
->  net/core/filter.c        | 31 +++++++++++++++++++++++++++++++
->  2 files changed, 32 insertions(+)
+>  include/uapi/linux/seccomp.h |  16 +++++
+>  kernel/seccomp.c             | 135 ++++++++++++++++++++++++++++++++++++++-----
+>  2 files changed, 138 insertions(+), 13 deletions(-)
 >
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 92a48e2..631cdee 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -123,6 +123,7 @@ enum bpf_prog_type {
->         BPF_PROG_TYPE_KPROBE,
->         BPF_PROG_TYPE_SCHED_CLS,
->         BPF_PROG_TYPE_SCHED_ACT,
-> +       BPF_PROG_TYPE_SECCOMP,
+> diff --git a/include/uapi/linux/seccomp.h b/include/uapi/linux/seccomp.h
+> index 0f238a4..a8694e2 100644
+> --- a/include/uapi/linux/seccomp.h
+> +++ b/include/uapi/linux/seccomp.h
+> @@ -13,10 +13,14 @@
+>  /* Valid operations for seccomp syscall. */
+>  #define SECCOMP_SET_MODE_STRICT        0
+>  #define SECCOMP_SET_MODE_FILTER        1
+> +#define SECCOMP_MODE_FILTER_EBPF       2
+>
+>  /* Valid flags for SECCOMP_SET_MODE_FILTER */
+>  #define SECCOMP_FILTER_FLAG_TSYNC      1
+>
+> +/* Valid cmds for SECCOMP_MODE_FILTER_EBPF */
+> +#define SECCOMP_EBPF_ADD_FD    0
+> +
+>  /*
+>   * All BPF programs must return a 32-bit value.
+>   * The bottom 16-bits are for optional return data.
+> @@ -51,4 +55,16 @@ struct seccomp_data {
+>         __u64 args[6];
 >  };
 >
->  #define BPF_PSEUDO_MAP_FD      1
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 13079f0..faaae67 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -1612,6 +1612,15 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
->         }
->  }
+> +struct seccomp_ebpf {
+> +       unsigned int size;
+> +
+> +       union {
+> +               /* SECCOMP_EBPF_ADD_FD */
+> +               struct {
+> +                       unsigned int    add_flags;
+> +                       __u32           add_fd;
+> +               };
+> +       };
+> +};
+> +
+>  #endif /* _UAPI_LINUX_SECCOMP_H */
+> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+> index 1856f69..e78175a 100644
+> --- a/kernel/seccomp.c
+> +++ b/kernel/seccomp.c
+> @@ -65,6 +65,9 @@ struct seccomp_filter {
+>  /* Limit any path through the tree to 256KB worth of instructions. */
+>  #define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
 >
-> +static const struct bpf_func_proto *
-> +seccomp_func_proto(enum bpf_func_id func_id)
+> +static long seccomp_install_filter(unsigned int flags,
+> +                                  struct seccomp_filter *prepared);
+> +
+>  /*
+>   * Endianness is explicitly ignored and left for BPF program authors to manage
+>   * as per the specific architecture.
+> @@ -356,17 +359,6 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
+>
+>         BUG_ON(INT_MAX / fprog->len < sizeof(struct sock_filter));
+>
+> -       /*
+> -        * Installing a seccomp filter requires that the task has
+> -        * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
+> -        * This avoids scenarios where unprivileged tasks can affect the
+> -        * behavior of privileged children.
+> -        */
+> -       if (!task_no_new_privs(current) &&
+> -           security_capable_noaudit(current_cred(), current_user_ns(),
+> -                                    CAP_SYS_ADMIN) != 0)
+> -               return ERR_PTR(-EACCES);
+> -
+>         /* Allocate a new seccomp_filter */
+>         sfilter = kzalloc(sizeof(*sfilter), GFP_KERNEL | __GFP_NOWARN);
+>         if (!sfilter)
+> @@ -510,8 +502,105 @@ static void seccomp_send_sigsys(int syscall, int reason)
+>         info.si_syscall = syscall;
+>         force_sig_info(SIGSYS, &info, current);
+>  }
+> +
+>  #endif /* CONFIG_SECCOMP_FILTER */
+>
+> +#if defined(CONFIG_BPF_SYSCALL) && defined(CONFIG_SECCOMP_FILTER)
+> +static struct seccomp_filter *seccomp_prepare_ebpf(int fd)
 > +{
-> +       /* At some point in the future seccomp filters may grow support for
-> +        * eBPF functions. For now, these are disabled.
+> +       struct seccomp_filter *ret;
+> +       struct bpf_prog *prog;
+> +
+> +       prog = bpf_prog_get(fd);
+> +       if (IS_ERR(prog))
+> +               return (struct seccomp_filter *) prog;
+> +
+> +       if (prog->type != BPF_PROG_TYPE_SECCOMP) {
+> +               bpf_prog_put(prog);
+> +               return ERR_PTR(-EINVAL);
+> +       }
+> +
+> +       ret = kzalloc(sizeof(*ret), GFP_KERNEL | __GFP_NOWARN);
+> +       if (!ret) {
+> +               bpf_prog_put(prog);
+> +               return ERR_PTR(-ENOMEM);
+> +       }
+> +
+> +       ret->prog = prog;
+> +       atomic_set(&ret->usage, 1);
+> +
+> +       /* Intentionally don't bpf_prog_put() here, because the underlying prog
+> +        * is refcounted too and we're holding a reference from the struct
+> +        * seccomp_filter object.
 > +        */
-> +       return NULL;
+> +       return ret;
 > +}
 > +
->  static bool __is_valid_access(int off, int size, enum bpf_access_type type)
->  {
->         /* check bounds */
-> @@ -1662,6 +1671,17 @@ static bool tc_cls_act_is_valid_access(int off, int size,
->         return __is_valid_access(off, size, type);
->  }
->
-> +static bool seccomp_is_valid_access(int off, int size,
-> +                                   enum bpf_access_type type)
+> +static long seccomp_ebpf_add_fd(struct seccomp_ebpf *ebpf)
 > +{
-> +       if (type == BPF_WRITE)
-> +               return false;
+> +       struct seccomp_filter *prepared;
 > +
-> +       if (off < 0 || off >= sizeof(struct seccomp_data) || off & 3)
-> +               return false;
+> +       prepared = seccomp_prepare_ebpf(ebpf->add_fd);
+> +       if (IS_ERR(prepared))
+> +               return PTR_ERR(prepared);
 > +
-> +       return true;
+> +       return seccomp_install_filter(ebpf->add_flags, prepared);
 > +}
->  static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
->                                       int src_reg, int ctx_off,
->                                       struct bpf_insn *insn_buf)
-> @@ -1795,6 +1815,11 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
->         .convert_ctx_access = bpf_net_convert_ctx_access,
->  };
->
-> +static const struct bpf_verifier_ops seccomp_ops = {
-> +       .get_func_proto = seccomp_func_proto,
-> +       .is_valid_access = seccomp_is_valid_access,
-> +};
 > +
->  static struct bpf_prog_type_list sk_filter_type __read_mostly = {
->         .ops = &sk_filter_ops,
->         .type = BPF_PROG_TYPE_SOCKET_FILTER,
-> @@ -1810,11 +1835,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
->         .type = BPF_PROG_TYPE_SCHED_ACT,
->  };
->
-> +static struct bpf_prog_type_list seccomp_type __read_mostly = {
-> +       .ops = &seccomp_ops,
-> +       .type = BPF_PROG_TYPE_SECCOMP,
-> +};
+> +static long seccomp_mode_filter_ebpf(unsigned int cmd, const char __user *uargs)
+> +{
+> +       const struct seccomp_ebpf __user *uebpf;
+> +       struct seccomp_ebpf ebpf;
+> +       unsigned int size;
+> +       long ret = -EFAULT;
 > +
->  static int __init register_sk_filter_ops(void)
+> +       uebpf = (const struct seccomp_ebpf __user *) uargs;
+> +
+> +       if (get_user(size, &uebpf->size) != 0)
+> +               return -EFAULT;
+> +
+> +       /* If we're handed a bigger struct than we know of,
+> +        * ensure all the unknown bits are 0 - i.e. new
+> +        * user-space does not rely on any kernel feature
+> +        * extensions we dont know about yet.
+> +        */
+> +       if (size > sizeof(ebpf)) {
+> +               unsigned char __user *addr;
+> +               unsigned char __user *end;
+> +               unsigned char val;
+> +
+> +               addr = (void __user *)uebpf + sizeof(ebpf);
+> +               end  = (void __user *)uebpf + size;
+> +
+> +               for (; addr < end; addr++) {
+> +                       int err = get_user(val, addr);
+> +
+> +                       if (err)
+> +                               return err;
+> +                       if (val)
+> +                               return -E2BIG;
+> +               }
+> +               size = sizeof(ebpf);
+> +       }
+> +
+> +       if (copy_from_user(&ebpf, uebpf, size) != 0)
+> +               return -EFAULT;
+> +
+> +       switch (cmd) {
+> +       case SECCOMP_EBPF_ADD_FD:
+> +               ret = seccomp_ebpf_add_fd(&ebpf);
+> +               break;
+> +       }
+> +
+> +       return ret;
+> +}
+> +#else
+> +static long seccomp_mode_filter_ebpf(unsigned int cmd, const char __user *uargs)
+> +{
+> +       return -EINVAL;
+> +}
+> +#endif
+> +
+>  /*
+>   * Secure computing mode 1 allows only read/write/exit/sigreturn.
+>   * To be fully secure this must be combined with rlimit
+> @@ -760,9 +849,7 @@ out:
+>  static long seccomp_set_mode_filter(unsigned int flags,
+>                                     const char __user *filter)
 >  {
->         bpf_register_prog_type(&sk_filter_type);
->         bpf_register_prog_type(&sched_cls_type);
->         bpf_register_prog_type(&sched_act_type);
-> +       bpf_register_prog_type(&seccomp_type);
+> -       const unsigned long seccomp_mode = SECCOMP_MODE_FILTER;
+>         struct seccomp_filter *prepared = NULL;
+> -       long ret = -EINVAL;
 >
->         return 0;
->  }
+>         /* Validate flags. */
+>         if (flags & ~SECCOMP_FILTER_FLAG_MASK)
+> @@ -773,6 +860,26 @@ static long seccomp_set_mode_filter(unsigned int flags,
+>         if (IS_ERR(prepared))
+>                 return PTR_ERR(prepared);
+>
+> +       return seccomp_install_filter(flags, prepared);
+> +}
+> +
+> +static long seccomp_install_filter(unsigned int flags,
+> +                                  struct seccomp_filter *prepared)
+> +{
+> +       const unsigned long seccomp_mode = SECCOMP_MODE_FILTER;
+> +       long ret = -EINVAL;
+> +
+> +       /*
+> +        * Installing a seccomp filter requires that the task has
+> +        * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
+> +        * This avoids scenarios where unprivileged tasks can affect the
+> +        * behavior of privileged children.
+> +        */
+> +       if (!task_no_new_privs(current) &&
+> +           security_capable_noaudit(current_cred(), current_user_ns(),
+> +                                    CAP_SYS_ADMIN) != 0)
+> +               return -EACCES;
+> +
+>         /*
+>          * Make sure we cannot change seccomp or nnp state via TSYNC
+>          * while another thread is in the middle of calling exec.
+> @@ -875,6 +982,8 @@ static long do_seccomp(unsigned int op, unsigned int flags,
+>                 return seccomp_set_mode_strict();
+>         case SECCOMP_SET_MODE_FILTER:
+>                 return seccomp_set_mode_filter(flags, uargs);
+> +       case SECCOMP_MODE_FILTER_EBPF:
+> +               return seccomp_mode_filter_ebpf(flags, uargs);
+>         default:
+>                 return -EINVAL;
+>         }
 > --
 > 2.1.4
 >
