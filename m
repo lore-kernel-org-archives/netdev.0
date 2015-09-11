@@ -1,7 +1,7 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC v2 net-next 4/4] ravb: Add support for r8a7795 SoC
-Date: Fri, 11 Sep 2015 11:01:18 +0900
-Message-ID: <1441936878-18290-5-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH/RFC v2 net-next 3/4] ravb: Document binding for r8a7795 SoC
+Date: Fri, 11 Sep 2015 11:01:17 +0900
+Message-ID: <1441936878-18290-4-git-send-email-horms+renesas@verge.net.au>
 References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Magnus Damm <magnus.damm@gmail.com>,
@@ -11,185 +11,140 @@ Cc: linux-arm-kernel@lists.infradead.org,
 	Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
 	Simon Horman <horms+renesas@verge.net.au>
 To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:40846 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbbIKCBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 22:01:50 -0400
 In-Reply-To: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-This patch supports the r8a7795 SoC by:
-- Using two interrupts
-  + One for E-MAC
-  + One for everything else
-  + Both can be handled by the existing common interrupt handler, which
-    affords a simpler update to support the new SoC. In future some
-    consideration may be given to implementing multiple interrupt handlers
-- Limiting the phy speed to 100Mbit/s for the new SoC;
-  at this time it is not clear how this restriction may be lifted
-  but I hope it will be possible as more information comes to light
+This patch updates the ravb binding to support the r8a7795 SoC by:
+- Adding a compat string for the new hardware
+- Adding 25 named interrupts to binding for the new SoC;
+  older SoCs continue to use a single multiplexed interrupt
 
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-[horms: reworked]
+The example is also updated to reflect the r8a7795 as this is the
+more complex case.
+
+Based on work by Kazuya Mizuguchi and others.
+
 Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
 ---
 
-v0 [Kazuya Mizuguchi]
-
-v1 [Simon Horman]
-* Updated patch subject
-
-v2 [Simon Horman]
-* Reworked based on extensive feedback from
-  Geert Uytterhoeven and Sergei Shtylyov.
-* Broke binding update out into separate patch
+v2
+* First post; broken out of a driver update patch
+* As discussed with Geert Uytterhoeven and Sergei Shtylyov
+  - Binding: Make all interrupts mandatory as named-interrupts of
+    the form ch%u
 ---
- drivers/net/ethernet/renesas/ravb.h      |  7 ++++
- drivers/net/ethernet/renesas/ravb_main.c | 57 +++++++++++++++++++++++++++-----
- 2 files changed, 55 insertions(+), 9 deletions(-)
+ .../devicetree/bindings/net/renesas,ravb.txt       | 65 +++++++++++++++++++---
+ 1 file changed, 58 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-index a157aaaaff6a..0623fff932e4 100644
---- a/drivers/net/ethernet/renesas/ravb.h
-+++ b/drivers/net/ethernet/renesas/ravb.h
-@@ -766,6 +766,11 @@ struct ravb_ptp {
- 	struct ravb_ptp_perout perout[N_PER_OUT];
- };
+diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+index 1fd8831437bf..6c360f993d33 100644
+--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
++++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+@@ -6,8 +6,11 @@ interface contains.
+ Required properties:
+ - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
+ 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
++	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
+ - reg: offset and length of (1) the register block and (2) the stream buffer.
+-- interrupts: interrupt specifier for the sole interrupt.
++- interrupts: interrupt specifiers.
++	      One for each entry in interrupt-names the R8A7795 SoC;
++	      One entry for a multiplexed interrupt otherwise.
+ - phy-mode: see ethernet.txt file in the same directory.
+ - phy-handle: see ethernet.txt file in the same directory.
+ - #address-cells: number of address cells for the MDIO bus, must be equal to 1.
+@@ -18,6 +21,9 @@ Required properties:
+ Optional properties:
+ - interrupt-parent: the phandle for the interrupt controller that services
+ 		    interrupts for this device.
++- interrupt-names: One entry per interrupt named "ch%u".
++		   For the R8A7795 SoC this property is mandatory,
++		   and "ch0" through "ch24" are mandatory.
+ - pinctrl-names: pin configuration state name ("default").
+ - renesas,no-ether-link: boolean, specify when a board does not provide a proper
+ 			 AVB_LINK signal.
+@@ -27,13 +33,46 @@ Optional properties:
+ Example:
  
-+enum ravb_chip_id {
-+	RCAR_GEN2,
-+	RCAR_GEN3,
-+};
+ 	ethernet@e6800000 {
+-		compatible = "renesas,etheravb-r8a7790";
+-		reg = <0 0xe6800000 0 0x800>, <0 0xee0e8000 0 0x4000>;
++		compatible = "renesas,etheravb-r8a7795";
++		reg = <0 0xe6800000 0 0x800>, <0 0xe6a00000 0 0x10000>;
+ 		interrupt-parent = <&gic>;
+-		interrupts = <0 163 IRQ_TYPE_LEVEL_HIGH>;
+-		clocks = <&mstp8_clks R8A7790_CLK_ETHERAVB>;
+-		phy-mode = "rmii";
++		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-names = "ch0", "ch1", "ch2", "ch3",
++				  "ch4", "ch5", "ch6", "ch7",
++				  "ch8", "ch9", "ch10", "ch11",
++				  "ch12", "ch13", "ch14", "ch15",
++				  "ch16", "ch17", "ch18", "ch19",
++				  "ch20", "ch21", "ch22", "ch23",
++				  "ch24";
++		clocks = <&mstp8_clks R8A7795_CLK_ETHERAVB>;
++		phy-mode = "rgmii-id";
++		phy-reset-gpio = <&gpio2 10 0>;
+ 		phy-handle = <&phy0>;
 +
- struct ravb_private {
- 	struct net_device *ndev;
- 	struct platform_device *pdev;
-@@ -806,6 +811,8 @@ struct ravb_private {
- 	int msg_enable;
- 	int speed;
- 	int duplex;
-+	int emac_irq;
-+	enum ravb_chip_id chip_id;
+ 		pinctrl-0 = <&ether_pins>;
+ 		pinctrl-names = "default";
+ 		renesas,no-ether-link;
+@@ -41,8 +80,20 @@ Example:
+ 		#size-cells = <0>;
  
- 	unsigned no_avb_link:1;
- 	unsigned avb_link_active_low:1;
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 4ca093d033f8..cc6702e33d65 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -889,6 +889,14 @@ static int ravb_phy_init(struct net_device *ndev)
- 		return -ENOENT;
- 	}
- 
-+	/* This driver only support 10/100Mbit speeds on Gen3
-+	 * at this time.
-+	 */
-+	if (priv->chip_id == RCAR_GEN3) {
-+		netdev_info(ndev, "limiting PHY to 100Mbit/s\n");
-+		phy_set_max_speed(phydev, SPEED_100);
-+	}
-+
- 	netdev_info(ndev, "attached PHY %d (IRQ %d) to driver %s\n",
- 		    phydev->addr, phydev->irq, phydev->drv->name);
- 
-@@ -1197,6 +1205,15 @@ static int ravb_open(struct net_device *ndev)
- 		goto out_napi_off;
- 	}
- 
-+	if (priv->chip_id == RCAR_GEN3) {
-+		error = request_irq(priv->emac_irq, ravb_interrupt,
-+				    IRQF_SHARED, ndev->name, ndev);
-+		if (error) {
-+			netdev_err(ndev, "cannot request IRQ\n");
-+			goto out_free_irq;
-+		}
-+	}
-+
- 	/* Device init */
- 	error = ravb_dmac_init(ndev);
- 	if (error)
-@@ -1220,6 +1237,7 @@ out_ptp_stop:
- 	ravb_ptp_stop(ndev);
- out_free_irq:
- 	free_irq(ndev->irq, ndev);
-+	free_irq(priv->emac_irq, ndev);
- out_napi_off:
- 	napi_disable(&priv->napi[RAVB_NC]);
- 	napi_disable(&priv->napi[RAVB_BE]);
-@@ -1625,13 +1643,23 @@ static int ravb_mdio_release(struct ravb_private *priv)
- 	return 0;
- }
- 
-+static const struct of_device_id ravb_match_table[] = {
-+	{ .compatible = "renesas,etheravb-r8a7790", .data = (void *)RCAR_GEN2 },
-+	{ .compatible = "renesas,etheravb-r8a7794", .data = (void *)RCAR_GEN2 },
-+	{ .compatible = "renesas,etheravb-r8a7795", .data = (void *)RCAR_GEN3 },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, ravb_match_table);
-+
- static int ravb_probe(struct platform_device *pdev)
- {
- 	struct device_node *np = pdev->dev.of_node;
-+	const struct of_device_id *match;
- 	struct ravb_private *priv;
-+	enum ravb_chip_id chip_id;
- 	struct net_device *ndev;
--	int error, irq, q;
- 	struct resource *res;
-+	int error, irq, q;
- 
- 	if (!np) {
- 		dev_err(&pdev->dev,
-@@ -1657,7 +1685,14 @@ static int ravb_probe(struct platform_device *pdev)
- 	/* The Ether-specific entries in the device structure. */
- 	ndev->base_addr = res->start;
- 	ndev->dma = -1;
--	irq = platform_get_irq(pdev, 0);
-+
-+	match = of_match_device(of_match_ptr(ravb_match_table), &pdev->dev);
-+	chip_id = (enum ravb_chip_id)match->data;
-+
-+	if (chip_id == RCAR_GEN3)
-+		irq = platform_get_irq_byname(pdev, "ch22");
-+	else
-+		irq = platform_get_irq(pdev, 0);
- 	if (irq < 0) {
- 		error = irq;
- 		goto out_release;
-@@ -1688,6 +1723,17 @@ static int ravb_probe(struct platform_device *pdev)
- 	priv->avb_link_active_low =
- 		of_property_read_bool(np, "renesas,ether-link-active-low");
- 
-+	if (chip_id == RCAR_GEN3) {
-+		irq = platform_get_irq_byname(pdev, "ch24");
-+		if (irq < 0) {
-+			error = irq;
-+			goto out_release;
-+		}
-+		priv->emac_irq = irq;
-+	}
-+
-+	priv->chip_id = chip_id;
-+
- 	/* Set function */
- 	ndev->netdev_ops = &ravb_netdev_ops;
- 	ndev->ethtool_ops = &ravb_ethtool_ops;
-@@ -1818,13 +1864,6 @@ static const struct dev_pm_ops ravb_dev_pm_ops = {
- #define RAVB_PM_OPS NULL
- #endif
- 
--static const struct of_device_id ravb_match_table[] = {
--	{ .compatible = "renesas,etheravb-r8a7790" },
--	{ .compatible = "renesas,etheravb-r8a7794" },
--	{ }
--};
--MODULE_DEVICE_TABLE(of, ravb_match_table);
--
- static struct platform_driver ravb_driver = {
- 	.probe		= ravb_probe,
- 	.remove		= ravb_remove,
+ 		phy0: ethernet-phy@0 {
++			rxc-skew-ps = <900>;
++			rxdv-skew-ps = <0>;
++			rxd0-skew-ps = <0>;
++			rxd1-skew-ps = <0>;
++			rxd2-skew-ps = <0>;
++			rxd3-skew-ps = <0>;
++			txc-skew-ps = <900>;
++			txen-skew-ps = <0>;
++			txd0-skew-ps = <0>;
++			txd1-skew-ps = <0>;
++			txd2-skew-ps = <0>;
++			txd3-skew-ps = <0>;
+ 			reg = <0>;
+ 			interrupt-parent = <&gpio2>;
+-			interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
++			interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
+ 		};
+ 	};
 -- 
 2.1.4
-
