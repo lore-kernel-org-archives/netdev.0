@@ -1,76 +1,71 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
+From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Subject: Re: [PATCH v2 3/5] ebpf: add a way to dump an eBPF program
-Date: Fri, 11 Sep 2015 08:44:51 -0600
-Message-ID: <20150911144451.GJ27574@smitten>
+Date: Fri, 11 Sep 2015 08:59:16 -0600
+Message-ID: <20150911145916.GK27574@smitten>
 References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
  <1441930862-14347-4-git-send-email-tycho.andersen@canonical.com>
- <55F2D982.8010406@iogearbox.net>
+ <20150911022940.GA4903@Alexeis-MacBook-Pro-2.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <55F2D982.8010406@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20150911022940.GA4903-2RGepAHry06MXrjNfwE7T/6muRTtt8+awzqs5ZKRSiY@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2015 at 03:39:14PM +0200, Daniel Borkmann wrote:
-> On 09/11/2015 02:21 AM, Tycho Andersen wrote:
-> >This commit adds a way to dump eBPF programs. The initial implementation
-> >doesn't support maps, and therefore only allows dumping seccomp ebpf
-> >programs which themselves don't currently support maps.
-> >
-> >v2: don't export a prog_id for the filter
-> >
-> >Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
-> >CC: Kees Cook <keescook@chromium.org>
-> >CC: Will Drewry <wad@chromium.org>
-> >CC: Oleg Nesterov <oleg@redhat.com>
-> >CC: Andy Lutomirski <luto@amacapital.net>
-> >CC: Pavel Emelyanov <xemul@parallels.com>
-> >CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
-> >CC: Alexei Starovoitov <ast@kernel.org>
-> >CC: Daniel Borkmann <daniel@iogearbox.net>
-> [...]
-> >diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> >index dc9b464..58ae9f4 100644
-> >--- a/kernel/bpf/syscall.c
-> >+++ b/kernel/bpf/syscall.c
-> >@@ -586,6 +586,44 @@ free_prog:
-> >  	return err;
-> >  }
-> >
-> >+static int bpf_prog_dump(union bpf_attr *attr, union bpf_attr __user *uattr)
-> >+{
-> >+	int ufd = attr->prog_fd;
-> >+	struct fd f = fdget(ufd);
-> >+	struct bpf_prog *prog;
-> >+	int ret = -EINVAL;
-> >+
-> >+	prog = get_prog(f);
-> >+	if (IS_ERR(prog))
-> >+		return PTR_ERR(prog);
-> >+
-> >+	/* For now, let's refuse to dump anything that isn't a seccomp program.
-> >+	 * Other program types have support for maps, which our current dump
-> >+	 * code doesn't support.
-> >+	 */
-> >+	if (prog->type != BPF_PROG_TYPE_SECCOMP)
-> >+		goto out;
+On Thu, Sep 10, 2015 at 07:29:42PM -0700, Alexei Starovoitov wrote:
+> On Thu, Sep 10, 2015 at 06:21:00PM -0600, Tycho Andersen wrote:
+> > +static int bpf_prog_dump(union bpf_attr *attr, union bpf_attr __user *uattr)
+> > +{
+> > +	int ufd = attr->prog_fd;
+> > +	struct fd f = fdget(ufd);
+> > +	struct bpf_prog *prog;
+> > +	int ret = -EINVAL;
+> > +
+> > +	prog = get_prog(f);
+> > +	if (IS_ERR(prog))
+> > +		return PTR_ERR(prog);
+> > +
+> > +	/* For now, let's refuse to dump anything that isn't a seccomp program.
+> > +	 * Other program types have support for maps, which our current dump
+> > +	 * code doesn't support.
+> > +	 */
+> > +	if (prog->type != BPF_PROG_TYPE_SECCOMP)
+> > +		goto out;
+> > +
+> > +	ret = -EFAULT;
+> > +	if (put_user(prog->len, &uattr->dump_insn_cnt))
+> > +		goto out;
+> > +
+> > +	if (put_user((u8) prog->gpl_compatible, &uattr->gpl_compatible))
+> > +		goto out;
+> > +
+> > +	if (attr->dump_insns) {
+> > +		u32 len = prog->len * sizeof(struct bpf_insn);
+> > +
+> > +		if (copy_to_user(u64_to_ptr(attr->dump_insns),
+> > +				 prog->insns, len) != 0)
+> > +			goto out;
+> > +	}
+> > +
+> > +	ret = 0;
+> > +out:
+> > +	return ret;
 > 
-> Yep, also when you start adding helper calls (next to map objects) you'd
-> need to undo kernel pointers that the verifier sets here.
+> fdput() is missing in all error paths.
 
-Good point, I'll add that to the comment as well.
+So it is, thanks!
 
 Tycho
