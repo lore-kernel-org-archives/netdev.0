@@ -1,98 +1,82 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net-next] Revert "net/ipv6: add sysctl option
- accept_ra_min_hop_limit"
-Date: Fri, 11 Sep 2015 12:08:40 +0900
-Message-ID: <55F245B8.3060903@miraclelinux.com>
-References: <20150902094301.GA6434@via.ecp.fr>
- <20150902.161110.223512323094619164.davem@davemloft.net>
- <20150909101054.GA6753@bistromath.redhat.com>
- <55F11AAD.3030209@miraclelinux.com>
- <20150910094037.GB22575@bistromath.redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH/RFC v2 net-next 1/4] phylib: Add phy_set_max_speed helper
+Date: Thu, 10 Sep 2015 21:14:34 -0700
+Message-ID: <55F2552A.1010509@gmail.com>
+References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
+ <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	David Miller <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	liuhangbin@gmail.com
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:32910 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbbIKDIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 23:08:43 -0400
-Received: by pacex6 with SMTP id ex6so61335547pac.0
-        for <netdev@vger.kernel.org>; Thu, 10 Sep 2015 20:08:43 -0700 (PDT)
-In-Reply-To: <20150910094037.GB22575@bistromath.redhat.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:33763 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbbIKEOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 00:14:36 -0400
+In-Reply-To: <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 09/10/15 19:01, Simon Horman a =C3=A9crit :
+> Add a helper to allow ethernet drivers to limit the speed of a phy
+> (that they are attached to).
+>=20
+> This mainly involves factoring out the business-end of
+> of_set_phy_supported() and exporting a new symbol.
+>=20
+> This code seems to be open coded in several places, in several differ=
+ent
+> variants.
+>=20
+> This code is envisaged this will be used in situations where setting
+> the "max-speed" property is not appropriate, e.g. because the maximum
+> speed is not a property of the phy hardware.
 
+This looks good to me, one minor comment, see below:
 
-Sabrina Dubroca wrote:
-> 2015-09-10, 14:52:45 +0900, YOSHIFUJI Hideaki wrote:
->> Sabrina Dubroca wrote:
->>> 2015-09-02, 16:11:10 -0700, David Miller wrote:
->>>> The only thing I would entertain is potentially an adjustment of the
->>>> default, working in concert with the TAHI folks to make sure their
->>>> tests still pass with any new default.
->>>
->>> Would you agree with a default of 64, as Florian suggested?
->>
->> 1 was chosen to restore our behavior before introduction of current
->> hoplimit check.  I am not in favor of changing that value.
-> 
-> But our old behavior had a security issue, which is why the >= current
-> check was introduced.
+>=20
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+>=20
+> ---
+>=20
+> v2
+> * First post
+> ---
+>  drivers/net/phy/phy_device.c | 52 ++++++++++++++++++++++++++++------=
+----------
+>  include/linux/phy.h          |  1 +
+>  2 files changed, 34 insertions(+), 19 deletions(-)
+>=20
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_devic=
+e.c
+> index c0f211127274..d9a020095972 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -1205,6 +1205,37 @@ static int gen10g_resume(struct phy_device *ph=
+ydev)
+>  	return 0;
+>  }
+> =20
+> +static void __set_phy_supported(struct phy_device *phydev, u32 max_s=
+peed)
+> +{
+> +	if (!IS_ENABLED(CONFIG_OF_MDIO))
+> +		return;
 
-We have the knob to "protect" ourselves now but it has drawbacks no to
-accept lower values than specified.  We can never have ultimate default
-for everybody.  The knob might "mitigate" the issue but once we have
-any rouge routers on our L2, we lose anyway.  So, I do want to keep it
-as-is not to change our traditional behavior.
+I think that part should be moved to of_set_phy_supported(), since your
+are exporting phy_set_max_speed() which should therefore be available
+regardless of whether Device Tree is used.
 
-> 
-> 
->> Plus, 64 is too restrictive and 32 would be enough for global
->> internet, IMHO.
-> 
-> I guess I could live with that, if 32 is indeed enough for everybody.
-> 
-> 
->>> Can we still modify the behavior of this sysctl? It's already been in
->>> Linus's tree for a while, but if we can, I would rather restrict the
->>> values we let the user write to accept_ra_min_hop_limit, as anything
->>> outside [0..255] does not really make sense.
->>
->> [1..256], maybe, but it is not harmful to set outside the range.
->> 0 is always ignored. If it is set to 256 or more, the option is
->> completely ignored.
-> 
-> Not harmful, but maybe slightly misleading, and requires the "< 256"
-> check when processing a RA.
+While you are it, it might be nice to either warn or return -ENOTSUPP i=
+f
+the speed does not match 10, 100 or 1000, but that might be worth a
+second patch.
 
-The "Cur Hop Limit" field is 8bit long...
-
-> 
-> 
->>> Allowing an RA to update the hop limit if
->>>
->>>    current hop limit < RA.hop_limit < accept_ra_min_hop_limit
->>>
->>> might also be desirable, but I'm not so sure about this case.
->>>
->>>
->>
->> It might be... byt I don't think it is a good idea since it becomes
->> more complex.
-> 
-> A bit more complex, yes.  But I don't think this should hold us back
-> if it results in better behavior.
-> 
-> 
-> Thanks,
-> 
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Thanks!
+--=20
+=46lorian
