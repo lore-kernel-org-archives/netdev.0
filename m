@@ -1,138 +1,77 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: NFS/TCP/IPv6 acting strangely in 4.2
-Date: Fri, 11 Sep 2015 17:24:17 +0100
-Message-ID: <20150911162416.GV21084@n2100.arm.linux.org.uk>
-References: <20150911113839.GO21084@n2100.arm.linux.org.uk>
- <1441976691.4619.58.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150911143347.GQ21084@n2100.arm.linux.org.uk>
- <20150911150613.GR21084@n2100.arm.linux.org.uk>
- <1441984723.4619.61.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: v2 of seccomp filter c/r patches
+Date: Fri, 11 Sep 2015 09:30:52 -0700
+Message-ID: <CALCETrVYtv1=g-xPjQ-LiX+5GK3xtB6a2hYbat0TuU-Bd4QA6Q@mail.gmail.com>
+References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-nfs@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:41399 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752355AbbIKQYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 12:24:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1441984723.4619.61.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1441930862-14347-1-git-send-email-tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2015 at 08:18:43AM -0700, Eric Dumazet wrote:
-> On Fri, 2015-09-11 at 16:06 +0100, Russell King - ARM Linux wrote:
-> > On Fri, Sep 11, 2015 at 03:33:47PM +0100, Russell King - ARM Linux =
-wrote:
-> > > It looks like 0c78789e3a030615c6650fde89546cadf40ec2cc might be r=
-elevant
-> > > too, but I don't see that solving the multiple _concurrent_ conne=
-ction
-> > > attempts with the same port number - presumably it's somehow tryi=
-ng to
-> > > make the same socket repeatedly connect despite a previous connec=
-tion
-> > > being in progress, which would have nothing to do with cleaning u=
-p a
-> > > previous attempt.
-> >=20
-> > As I suspected, applying the above commit in addition does not solv=
-e the
-> > problem, I still see the same behaviour: SYN SYNACK SYN RSTACK, SYN
-> > SYNACK SYN RSTACK, and eventual SYN storms.
-> >=20
-> > I do have this captured as well:
-> >=20
-> > 2558   0.834316 armada388 -> n2100 TCP [TCP Port numbers reused] rp=
-asswd=E2=86=92nfs [SYN] Seq=3D1053655487 Win=3D28800 Len=3D0 MSS=3D1440=
- SACK_PERM=3D1 TSval=3D60001 TSecr=3D0 WS=3D128
-> > 2559   0.834572 n2100 -> armada388 TCP nfs=E2=86=92rpasswd [SYN, AC=
-K] Seq=3D3076611574 Ack=3D1053655488 Win=3D28560 Len=3D0 MSS=3D1440 SAC=
-K_PERM=3D1 TSval=3D869622246 TSecr=3D60001 WS=3D64
-> > 2560   0.834666 armada388 -> n2100 TCP [TCP Port numbers reused] rp=
-asswd=E2=86=92nfs [SYN] Seq=3D1054228544 Win=3D28800 Len=3D0 MSS=3D1440=
- SACK_PERM=3D1 TSval=3D60005 TSecr=3D0 WS=3D128
-> > 2561   0.834895 n2100 -> armada388 TCP nfs=E2=86=92rpasswd [ACK] Se=
-q=3D3076611575 Ack=3D1053655488 Win=3D28560 Len=3D0 TSval=3D869622246 T=
-Secr=3D60001
-> >=20
-> > The packet at 2561 looks wrong to me - this doesn't follow what I k=
-now
-> > would be the standard TCP setup of syn, synack, ack, because that f=
-inal
-> > ack is in the wrong direction.
-> >=20
->=20
-> This 2561 packet is an ACK packet, because n2100 has a SYN_RECV socke=
-t
-> created by packet 2558.
->=20
-> It receives a SYN packet (2560) that it interprets as a packet slight=
-ly
-> out of sequence (1054228544 being above 1053655487) for this SYN_RECV
->=20
-> The wrong packet is 2560, not 2561
+On Sep 10, 2015 5:22 PM, "Tycho Andersen" <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+>
+> Hi all,
+>
+> Here is v2 of the seccomp filter c/r set. The patch notes have individual
+> changes from the last series, but there are two points not noted:
+>
+> * The series still does not allow us to correctly restore state for programs
+>   that will use SECCOMP_FILTER_FLAG_TSYNC in the future. Given that we want to
+>   keep seccomp_filter's identity, I think something along the lines of another
+>   seccomp command like SECCOMP_INHERIT_PARENT is needed (although I'm not sure
+>   if this can even be done yet). In addition, we'll need a kcmp command for
+>   figuring out if filters are the same, although this too needs to compare
+>   seccomp_filter objects, so it's a little screwy. Any thoughts on how to do
+>   this nicely are welcome.
 
-Ok.
+Let's add a concept of a seccompfd.
 
-Looking deeper at the XPRT sunrpc code, I have to wonder about the
-sanity of this:
+For background of what I want to add: I want to be able to create a
+seccomp monitor.  A seccomp monitor will be, logically, a pair of a
+struct file that represents the monitor and a seccomp_filter that is
+controlled by the monitor.  Depending on flags, whoever holds the
+monitor fd could change the active filter, intercept syscalls, and
+issue syscalls on behalf of a process that is trapped in an
+intercepted syscall.
 
-void xprt_connect(struct rpc_task *task)
-{
-=2E..
-        if (!xprt_connected(xprt)) {
-=2E..
-                if (test_bit(XPRT_CLOSING, &xprt->state))
-                        return;
-                if (xprt_test_and_set_connecting(xprt))
-                        return;
-                xprt->stat.connect_start =3D jiffies;
-                xprt->ops->connect(xprt, task);
+Seccomp filters would nest properly.
 
-That calls into xs_connect(), which schedules a workqueue to do the
-connection.  The workqueue will call xs_tcp_setup_socket().
+The interface would probably be (extremely pseudocoded):
 
-xs_tcp_setup_socket() creates a socket if one didn't exist, otherwise
-re-using the previously obtained socket (which'll be why its using the
-same socket) and then goes on to call xs_tcp_finish_connecting().
+monitor_fd, filter_fd = seccomp(CREATE_MONITOR, flags, ...);
 
-xs_tcp_finish_connecting() calls kernel_connect(), which will return
--EINPROGRESS.  We seem to treat EINPROGRESS as if the connection was
-successful:
+Then, later:
 
-        case 0:
-        case -EINPROGRESS:
-        case -EALREADY:
-                xprt_unlock_connect(xprt, transport);
-                xprt_clear_connecting(xprt);
-                return;
+seccomp(ATTACH_TO_FILTER, filter_fd);  /* now filtered */
 
-and the xprt_clear_connecting() results in this whole path being
-re-opened: the socket is not yet connected, so xprt_connected() will
-return false, and despite the socket connection still being mid-way
-through being connected, we clear the "connecting" status, causing
-xprt_test_and_set_connecting() to return false.
+read(monitor_fd, buf, size); /* returns an intercepted syscall */
+write(monitor_fd, buf, size); /* issues a syscall or releases the
+trapped task */
 
-That allows us to re-call xprt->ops->connect, re-queue the connect
-worker, and re-run the call to kernel_connect() for a socket which is
-already mid-way through being connected.
+This can't be implemented on x86 without either going insane or
+finishing the massive set of pending cleanups to the x86 entry code.
+I favor the latter.
 
-Shouldn't the "connecting" status only be cleared when either the socke=
-t
-has _finished_ connecting, or when the connection has _failed_ to conne=
-ct,
-and not when it's mid-way through connecting?
+We could, however, add part of it right now: we could have a way to
+create a filterfd, we could add kcmp support for it, and we could add
+the ATTACH_TO_FILTER thing.  I think that would solve your problem.
 
-I've not been able to prove this: I've set rpc_debug to 129 to log
-just xprt and trans RPC facilities, and that's sufficient to change
-the timing such that this doesn't happen.
+One major open question: does a filter_fd know what its parent is and,
+if so, will it just refuse to attach if the caller's parent is wrong?
+Or will a filter_fd attach anywhere.
 
---=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+--Andy
