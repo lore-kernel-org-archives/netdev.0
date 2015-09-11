@@ -1,231 +1,250 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink, mmap: transform mmap skb into full skb on
- taps
-Date: Thu, 10 Sep 2015 22:11:32 -0700 (PDT)
-Message-ID: <20150910.221132.1962916984876023271.davem@davemloft.net>
-References: <d8546f5fdd1e84659e0f184275b36fcd565fe59c.1441887916.git.daniel@iogearbox.net>
+From: "D. Hugh Redelmeier" <hugh@mimosa.com>
+Subject: Re: PATCH: netdev: add a cast NLMSG_OK to avoid a GCC warning in
+ users' code
+Date: Fri, 11 Sep 2015 02:21:28 -0400 (EDT)
+Message-ID: <alpine.LRH.2.02.1509110204200.4754@redclaw.mimosa.com>
+References: <alpine.LRH.2.02.1509080933340.4754@redclaw.mimosa.com> <20150909.123717.2263645868892698375.davem@davemloft.net>
+Reply-To: "D. Hugh Redelmeier" <hugh@mimosa.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: chamaken@gmail.com, fw@strlen.de, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45068 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751617AbbIKFLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 01:11:34 -0400
-In-Reply-To: <d8546f5fdd1e84659e0f184275b36fcd565fe59c.1441887916.git.daniel@iogearbox.net>
+Received: from gw-d.mimosa.com ([209.161.207.149]:45572 "EHLO gw-d.mimosa.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751243AbbIKGVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2015 02:21:42 -0400
+In-Reply-To: <20150909.123717.2263645868892698375.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 10 Sep 2015 20:05:46 +0200
+| From: David Miller <davem@davemloft.net>
 
-> Ken-ichirou reported that running netlink in mmap mode for receive in
-> combination with nlmon will throw a NULL pointer dereference in
-> __kfree_skb() on nlmon_xmit(), in my case I can also trigger an "unable
-> to handle kernel paging request". The problem is the skb_clone() in
-> __netlink_deliver_tap_skb() for skbs that are mmaped.
-> 
-> I.e. the cloned skb doesn't have a destructor, whereas the mmap netlink
-> skb has it pointed to netlink_skb_destructor(), set in the handler
-> netlink_ring_setup_skb(). There, skb->head is being set to NULL, so
-> that in such cases, __kfree_skb() doesn't perform a skb_release_data()
-> via skb_release_all(), where skb->head is possibly being freed through
-> kfree(head) into slab allocator, although netlink mmap skb->head points
-> to the mmap buffer. Similarly, the same has to be done also for large
-> netlink skbs where the data area is vmalloced. Therefore, as discussed,
-> make a copy for these rather rare cases for now. This fixes the issue
-> on my and Ken-ichirou's test-cases.
-> 
-> Reference: http://thread.gmane.org/gmane.linux.network/371129
-> Fixes: bcbde0d449ed ("net: netlink: virtual tap device management")
-> Reported-by: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Tested-by: Ken-ichirou MATSUZAWA <chamaken@gmail.com>
+| Everyone either uses an unsigned type (such as "size_t") or adds an
+| explicit cast to an unsinged type for the second argument.
 
-Looking more deeply into this, I think we have the same exact problem
-with netlink skbs that use vmalloc memory at skb->head.
+That sounded odd to me.  So I looked through the Fedora code base, as
+indexed by searchcode.com.  This took a stupid amount of time so I
+didn't check my work.
 
-We have a special hack, but only when netlink_skb_clone() is used,
-to preserve the destructor.  But these skbs can escape anywhere
-and be eventually cloned as we have seen with the mmap stuff.
+Summary: 37 files use a signed type, 32 files use an unsigned type
+(some are in each category!).
 
-I'm wondering if we should do something more precise to fix this,
-and in a way that handles both the mmap and vmalloc cases.
+So your point is not correct.
 
-How about we burn the last flag bit in sk_buff:
+It is amazing how many private definitions there are for NLMSG_OK.
+They are mostly just copies but at least some leave out the int cast of
+the result of sizeof.
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 639e9b8..47d5875 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -97,22 +97,6 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
- void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
- int netlink_sendskb(struct sock *sk, struct sk_buff *skb);
- 
--static inline struct sk_buff *
--netlink_skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
--{
--	struct sk_buff *nskb;
--
--	nskb = skb_clone(skb, gfp_mask);
--	if (!nskb)
--		return NULL;
--
--	/* This is a large skb, set destructor callback to release head */
--	if (is_vmalloc_addr(skb->head))
--		nskb->destructor = skb->destructor;
--
--	return nskb;
--}
--
- /*
-  *	skb should fit one page. This choice is good for headerless malloc.
-  *	But we should limit to 8K so that userspace does not have to
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 2738d35..77b804c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -584,8 +584,9 @@ struct sk_buff {
- 				fclone:2,
- 				peeked:1,
- 				head_frag:1,
--				xmit_more:1;
--	/* one bit hole */
-+				xmit_more:1,
-+				clone_preserves_destructor;
-+
- 	kmemcheck_bitfield_end(flags1);
- 
- 	/* fields enclosed in headers_start/headers_end are copied
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index dad4dd3..4a7b8e3 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -825,7 +825,8 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
- 	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
- 	n->cloned = 1;
- 	n->nohdr = 0;
--	n->destructor = NULL;
-+	if (!skb->clone_preserves_destructor)
-+		n->destructor = NULL;
- 	C(tail);
- 	C(end);
- 	C(head);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 6fcbd21..2ec5425 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1075,7 +1075,7 @@ static void nl_fib_input(struct sk_buff *skb)
- 	    nlmsg_len(nlh) < sizeof(*frn))
- 		return;
- 
--	skb = netlink_skb_clone(skb, GFP_KERNEL);
-+	skb = skb_clone(skb, GFP_KERNEL);
- 	if (!skb)
- 		return;
- 	nlh = nlmsg_hdr(skb);
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 70277b1..4c612481 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -291,7 +291,7 @@ static void nfnetlink_rcv_batch(struct sk_buff *skb, struct nlmsghdr *nlh,
- replay:
- 	status = 0;
- 
--	skb = netlink_skb_clone(oskb, GFP_KERNEL);
-+	skb = skb_clone(oskb, GFP_KERNEL);
- 	if (!skb)
- 		return netlink_ack(oskb, nlh, -ENOMEM);
- 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7f86d3b..214f1a1 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -719,6 +719,7 @@ static void netlink_ring_setup_skb(struct sk_buff *skb, struct sock *sk,
- 	skb->end	= skb->tail + size;
- 	skb->len	= 0;
- 
-+	skb->clone_preserves_destructor = 1;
- 	skb->destructor	= netlink_skb_destructor;
- 	NETLINK_CB(skb).flags |= NETLINK_SKB_MMAPED;
- 	NETLINK_CB(skb).sk = sk;
-@@ -854,6 +855,14 @@ static void netlink_ring_set_copied(struct sock *sk, struct sk_buff *skb)
- #define netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group, scm)	0
- #endif /* CONFIG_NETLINK_MMAP */
- 
-+static bool skb_can_release_head(struct sk_buff *skb)
-+{
-+	if (!skb->cloned ||
-+	    !atomic_dec_return(&(skb_shinfo(skb)->dataref)))
-+		return true;
-+	return false;
-+}
-+
- static void netlink_skb_destructor(struct sk_buff *skb)
- {
- #ifdef CONFIG_NETLINK_MMAP
-@@ -866,31 +875,35 @@ static void netlink_skb_destructor(struct sk_buff *skb)
- 	 * the status. In the direction userspace to kernel, the status is
- 	 * always reset here after the packet was processed and freed.
- 	 */
--	if (netlink_skb_is_mmaped(skb)) {
--		hdr = netlink_mmap_hdr(skb);
--		sk = NETLINK_CB(skb).sk;
-+	if (!netlink_skb_is_mmaped(skb))
-+		goto not_mmaped;
- 
--		if (NETLINK_CB(skb).flags & NETLINK_SKB_TX) {
--			netlink_set_status(hdr, NL_MMAP_STATUS_UNUSED);
--			ring = &nlk_sk(sk)->tx_ring;
--		} else {
--			if (!(NETLINK_CB(skb).flags & NETLINK_SKB_DELIVERED)) {
--				hdr->nm_len = 0;
--				netlink_set_status(hdr, NL_MMAP_STATUS_VALID);
--			}
--			ring = &nlk_sk(sk)->rx_ring;
--		}
-+	if (!skb_can_release_head(skb))
-+		goto clone_refs_remain;
- 
--		WARN_ON(atomic_read(&ring->pending) == 0);
--		atomic_dec(&ring->pending);
--		sock_put(sk);
-+	hdr = netlink_mmap_hdr(skb);
-+	sk = NETLINK_CB(skb).sk;
- 
--		skb->head = NULL;
-+	if (NETLINK_CB(skb).flags & NETLINK_SKB_TX) {
-+		netlink_set_status(hdr, NL_MMAP_STATUS_UNUSED);
-+		ring = &nlk_sk(sk)->tx_ring;
-+	} else {
-+		if (!(NETLINK_CB(skb).flags & NETLINK_SKB_DELIVERED)) {
-+			hdr->nm_len = 0;
-+			netlink_set_status(hdr, NL_MMAP_STATUS_VALID);
-+		}
-+		ring = &nlk_sk(sk)->rx_ring;
- 	}
-+
-+	WARN_ON(atomic_read(&ring->pending) == 0);
-+	atomic_dec(&ring->pending);
-+	sock_put(sk);
-+clone_refs_remain:
-+	skb->head = NULL;
-+not_mmaped:
- #endif
- 	if (is_vmalloc_addr(skb->head)) {
--		if (!skb->cloned ||
--		    !atomic_dec_return(&(skb_shinfo(skb)->dataref)))
-+		if (skb_can_release_head(skb))
- 			vfree(skb->head);
- 
- 		skb->head = NULL;
-@@ -1669,6 +1682,7 @@ static struct sk_buff *netlink_alloc_large_skb(unsigned int size,
- 	if (data == NULL)
- 		return NULL;
- 
-+	skb->clone_preserves_destructor = 1;
- 	skb = __build_skb(data, size);
- 	if (skb == NULL)
- 		vfree(data);
+The kernel's own version seems to be an inline function (with a
+lower-case name).  It would be nice to replace the NLMSG_OK macro with
+an inline function: this supports better type checking.  I don't know
+if there are technical reasons not to do this.
+
+Supporting data:
+
+strongswan /strongswan-5.0.0/src/libhydra/plugins/kernel_netlink/kernel_netlink_ipsec.c
+	int, size_t, size_t, size_t, size_t, size_t
+
+libnfnetlink /libnfnetlink-1.0.0/src/libnfnetlink.c
+	size_t, size_t, size_t, unsigned int
+
+glibc /glibc-2.16-75f0d304/sysdeps/unix/sysv/linux/ifaddrs.c
+arm-gp2x-linux-glibc /arm-gp2x-linux-glibc-2.3.6/glibc-2.3.6/sysdeps/unix/sysv/linux/ifaddrs.c
+	size_t, size_t, size_t
+
+strongswan /strongswan-5.0.0/src/libhydra/plugins/kernel_netlink/kernel_netlink_net.c
+	int, size_t, size_t, size_t
+
+fcoe-utils /fcoe-utils-1.0.23/fcoemon.c
+	int, int, int
+
+uClibc /uClibc-0.9.32/libc/inet/ifaddrs.c
+	size_t, size_t, size_t
+
+glibc /glibc-2.16-75f0d304/sysdeps/unix/sysv/linux/if_index.c
+arm-gp2x-linux-glibc /arm-gp2x-linux-glibc-2.3.6/glibc-2.3.6/sysdeps/unix/sysv/linux/if_index.c
+	size_t, size_t
+
+bootchart /bootchart2-0.14.0/collector/tasks-netlink.c
+	size_, size_t
+
+netlabel_tools /netlabel_tools-0.19/libnetlabel/mod_mgmt.c
+netlabel_tools /netlabel_tools-0.19/libnetlabel/mod_unlabeled.c
+	each has int, int
+
+bird /bird-1.3.7/sysdep/linux/netlink/netlink.c
+	unsigned int, unsigned int
+
+gtk-gnutella /gtk-gnutella-0.97.1/src/lib/getgateway.c
+	unsigned, unsigned
+
+iproute /iproute2-3.4.0/lib/libnetlink.c
+	int, int
+
+iproute /iproute2-3.4.0/misc/ss.c
+	int, ssize_t
+
+lldpad /lldpad-0.9.44/lldp_dcbx_nl.c
+	unsigned
+
+dlm /dlm-3.99.5/dlm_controld/netlink.c
+	int, int
+
+gnet2 /gnet-2.0.8/src/usagi_ifaddrs.c
+	int, int
+
+dnsmasq /dnsmasq-2.59/src/netlink.c
+	size_t (through cast of ssize_t value), size_t (through cast of ssize_t value)
+
+net-snmp /net-snmp-5.7.1/agent/mibgroup/ip-mib/data_access/ipaddress_linux.c
+	int, int
+
+net-snmp /net-snmp-5.7.1/agent/mibgroup/ip-mib/data_access/defaultrouter_linux.c
+	int
+
+rb_libtorrent /libtorrent-rasterbar-0.16.2/src/enum_net.cpp
+	int, int
+
+bootparamd /netkit-bootparamd-0.17/rpc.bootparamd/bootparam_default_route.c
+	u_int (through cast of int value), u_int (through cast of int value)
+
+nss-myhostname /nss-myhostname-0.3/netlink.c
+	size_t (through cast of ssize_t value)
+
+glibc /glibc-2.16-75f0d304/sysdeps/unix/sysv/linux/check_native.c
+glibc /glibc-2.16-75f0d304/sysdeps/unix/sysv/linux/check_pf.c
+	size_t (through cast of ssize_t value)
+
+audit /audit-2.2.1/lib/netlink.c
+	unsigned int (through cast of int)
+
+rstp /rstp/libnetlink.c
+	int
+
+fence-virt /fence-virt-0.3.0/common/ip_lookup.c
+	int
+
+libpcap /libpcap-1.3.0/pcap-netfilter-linux.c
+	int
+
+oidentd /oidentd-2.0.8/src/kernel/linux.c
+	has it's own copy of the definition of NLMSG_OK, without cast to int
+	size_t (cast of ssize_t value)
+
+netlabel_tools /netlabel_tools-0.19/libnetlabel/netlabel_comm.c
+	int
+
+netlabel_tools /netlabel_tools-0.19/libnetlabel/mod_cipsov4.c
+	int
+
+keepalived /keepalived-1.2.2/keepalived/vrrp/vrrp_netlink.c
+	int
+
+xen /xen-4.1.2/tools/python/xen/lowlevel/netlink/libnetlink.c
+	int
+
+mipv6-daemon /mipv6-daemon-2.0.2.20110203bgit/libnetlink/libnetlink.c
+	size_t (cast of int value)
+
+avahi /avahi-0.6.31/avahi-core/netlink.c
+	size_t (cast of ssize_t)
+
+avahi /avahi-0.6.31/avahi-autoipd/iface-linux.c
+	size_t
+
+libcgroup /libcgroup-0.38/src/daemon/cgrulesengd.c
+	size_t (but code would probably be more correct with ssize_t)
+
+libnl /libnl-1.1/lib/nl.c
+	int
+
+pl /pl-6.0.2/packages/tipc/tipcutils/tipc-config.c
+	int
+
+mingw-glib2 /glib-2.33.1/gio/gnetworkmonitornetlink.c
+	size_t (cast of gssize value)
+
+fcoe-utils /fcoe-utils-1.0.23/lib/rtnetlink.c
+	int
+
+libnl3 /libnl-3.2.7/lib/nl.c
+	int
+
+iscsi-initiator-utils /open-iscsi-2.0-872-rc4-bnx2i/usr/dcb_app.c
+	unsigned int (cast from int)
+
+lldpad /lldpad-0.9.44/lldp_rtnl.c
+	unsigned
+
+lldpad /lldpad-0.9.44/nltest.c
+	unsigned int (cast from int)
+
+ebtables /ebtables-v2.0.10-4/examples/ulog/test_ulog.c
+	65536 (odd! bug?); counts as an int
+
+wpa_supplicant /wpa_supplicant-1.0-rc3/src/drivers/netlink.c
+	int
+
+ipsec-tools /ipsec-tools-0.8.0/src/racoon/grabmyaddr.c
+	int
+
+ulogd /ulogd-2.0.0beta4/libipulog/libipulog.c
+	size_t
+
+gupnp /gupnp-0.18.3/libgupnp/gupnp-linux-context-manager.c
+	int
+
+ike /ike/source/libip/libip.route.cpp
+	int
+
+libnfnetlink /libnfnetlink-1.0.0/src/rtnl.c
+	int
+
+dnsmasq /dnsmasq-2.59/contrib/wrt/dhcp_release.c
+	size_t (cast from ssize_t)
+
+netplug /netplug-1.2.9.1/netlink.c
+	int
+
+oidentd /oidentd-2.0.8/src/kernel/linux.c
+	size_t (from ssize_t)
+
+certmonger /certmonger-0.59/src/netlink.c
+	size_t (cast from int)
+
+certmonger /certmonger-0.59/src/nl-check.c
+	unsigned int (cast from int)
+
+radvd /radvd-1.9.1/netlink.c
+	int
+
+ptlib /ptlib-2.10.2/src/ptlib/unix/socket.cxx
+	unsigned (cast from int)
+
+acpid /acpid-2.0.16/kacpimon/libnetlink.c
+	unsigned (cast from int)
+
+net-snmp /net-snmp-5.7.1/agent/mibgroup/etherlike-mib/data_access/dot3stats_linux.c
+	int
+
+net-snmp /net-snmp-5.7.1/agent/mibgroup/if-mib/data_access/interface_linux.c
+	int
+
+net-snmp /net-snmp-5.7.1/agent/mibgroup/ip-mib/data_access/arp_netlink.c
+	int
+
+net-snmp /net-snmp-5.7.1/agent/mibgroup/mibII/tcpTable.c
+	int
+
+fprobe-ulog /fprobe-ulog-1.1/src/libipulog/libipulog.c
+	size_t
+
+busybox /busybox-1.19.4/networking/ifplugd.c
+	ssize_t
+
+busybox /busybox-1.19.4/networking/libiproute/libnetlink.c
+	int
+
+ntp /ntp-4.2.6p5/ntpd/ntp_io.c
+	int
