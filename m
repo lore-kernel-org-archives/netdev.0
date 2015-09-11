@@ -1,37 +1,101 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] at86rf230: fix build warning
-Date: Fri, 11 Sep 2015 15:16:04 +0530
-Message-ID: <1441964764-15611-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
-	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: xfrm4_garbage_collect reaching limit
+Date: Fri, 11 Sep 2015 11:48:08 +0200
+Message-ID: <20150911094808.GI25499@secunet.com>
+References: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Dan Streetman <ddstreet@ieee.org>,
+	Jay Vosburgh <jay.vosburgh@canonical.com>,
+	<netdev@vger.kernel.org>
+To: Dan Streetman <dan.streetman@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:38196 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751296AbbIKJsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2015 05:48:12 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-e616a00ce786 ("drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL")
-has removed the usage of the integer "ret" but missed removing the
-variable. And we were getting a build warning about "unused variable".
+Hi Dan.
 
-Fixes: e616a00ce786 ("drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL")
-Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
----
- drivers/net/ieee802154/at86rf230.c | 1 -
- 1 file changed, 1 deletion(-)
+On Thu, Sep 10, 2015 at 05:01:26PM -0400, Dan Streetman wrote:
+> Hi Steffen,
+> 
+> I've been working with Jay on a ipsec issue, which I believe he
+> discussed with you.  
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index a9f3af6..9ae98fd 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1645,7 +1645,6 @@ static struct dentry *at86rf230_debugfs_root;
- static int at86rf230_stats_show(struct seq_file *file, void *offset)
- {
- 	struct at86rf230_local *lp = file->private;
--	int ret;
- 
- 	seq_printf(file, "SUCCESS:\t\t%8llu\n", lp->trac.success);
- 	seq_printf(file, "SUCCESS_DATA_PENDING:\t%8llu\n",
--- 
-1.9.1
+Yes, we talked about this at the LPC.
+
+> In this case the xfrm4_garbage_collect is
+> returning error because the number of xfrm4 dst entries has exceeded
+> twice the gc_thresh, which causes new allocations of xfrm4 dst objects
+> to fail, thus making the ipsec connection unusable (until dst objects
+> are removed/freed).
+> 
+> The main reason the count gets to the limit is because the
+> xfrm4_policy_afinfo.garbage_collect function - which points to
+> flow_cache_flush (indirectly) - doesn't actually guarantee any xfrm4
+> dst will get cleaned up, it only cleans up unused entries.
+> 
+> The flow cache hashtable size limit watermark does restrict how many
+> flow cache entries exist (by shrinking the per-cpu hashtable once it
+> has 4k entries), and therefore indirectly controls the total number of
+> xfrm4 dst objects.  However, there's a mismatch between the default
+> xfrm4 gc_thresh - of 32k objects (which sets a 64k max of xfrm4 dst
+> objects) - and the flow cache hashtable limit of 4k objects per cpu.
+> Any system with 16 or less cpus will have a total limit of 64k (or
+> less) flow cache entries, so the 64k xfrm4 dst entry limit will never
+> be reached.  However for any system with more than 16 cpus, the flow
+> cache limit is greater than the xfrm4 dst limit, and so the xfrm4 dst
+> allocation can fail, rendering the ipsec connection unusable.
+> 
+> The most obvious solution is for the system admin to increase the
+> xfrm4_gc_thresh value, although it's not really an obvious solution to
+> the end-user what value they should set it to :-) 
+
+Yes, a static gc threshold is always wrong for some workloads. So
+the user needs to adjust it to his needs, even if the right value
+is not obvious.
+
+> Possibly the
+> default value of xfrm4_gc_thresh could be set proportional to
+> num_online_cpus(), but that doesn't help when cpus are onlined after
+> boot.  
+
+This could be an option, we could change the xfrm4_gc_thresh value with
+a cpu notifier callback if more cpus come up after boot.
+
+> Also, a warning message indicating the xfrm4_gc_thresh limit
+> was reached, and a suggestion to increase the limit, may help anyone
+> who hits the issue.
+> 
+> I'm not sure if something more aggressive is appropriate, like
+> removing active entries during garbage collection. 
+
+It would not make too much sense to push an active flow out of the
+fastpath just to add some other flow. If the number of active
+entries is to high, there is no other option than increasing the
+gc threshold.
+
+You could try to reduce the number of active entries by shutting
+down stale security associations frequently.
+
+> Or, removing the
+> failure condition from xfrm4_garbage_collect so xfrm4 dst_ops can
+> always be allocated,
+
+This would open doors for DOS attacks, we can't do this.
+
+> or just increasing it from gc_thresh * 2 up to *
+> 4 or more.
+
+This would just defer the problem, so not a real solution.
+
+That said, whatever we do, we just paper over the real problem,
+that is the flowcache itself. Everything that need this kind
+of garbage collecting is fundamentally broken. But as long as
+nobody volunteers to work on a replacement, we have to live
+with this situation somehow.
