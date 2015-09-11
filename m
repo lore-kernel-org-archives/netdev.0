@@ -1,59 +1,195 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC v2 net-next 0/4] ravb: Add support for r8a7795 SoC
-Date: Fri, 11 Sep 2015 11:01:14 +0900
-Message-ID: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH/RFC v2 net-next 4/4] ravb: Add support for r8a7795 SoC
+Date: Fri, 11 Sep 2015 11:01:18 +0900
+Message-ID: <1441936878-18290-5-git-send-email-horms+renesas@verge.net.au>
+References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
 	Simon Horman <horms+renesas@verge.net.au>
 To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
 Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series enhances the ravb driver to support the r8a7795 SoC.
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-Changes:
+This patch supports the r8a7795 SoC by:
+- Using two interrupts
+  + One for E-MAC
+  + One for everything else
+  + Both can be handled by the existing common interrupt handler, which
+    affords a simpler update to support the new SoC. In future some
+    consideration may be given to implementing multiple interrupt handlers
+- Limiting the phy speed to 100Mbit/s for the new SoC;
+  at this time it is not clear how this restriction may be lifted
+  but I hope it will be possible as more information comes to light
 
-v1 -> v2
-* Address extensive review from Sergei Shtylyov and  Geert Uytterhoeven
-  - In particular mandate all 25 interrupts in binding
-* Broke brinding change into a separate patch
-* New 100Mbit/s limit implementation in ravb driver using
-  proposed update to phylib
-* Split integration and driver changes into separate patch-sets
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+[horms: reworked]
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
-Base:
+---
 
-This is based on net-next/master
+v0 [Kazuya Mizuguchi]
 
-Availability:
+v1 [Simon Horman]
+* Updated patch subject
 
-* I will separately post a series,
-  "[PATCH/RFC v2 0/5] arm64: dts: r8a7795: enable EthernetAVB on Salvator-X",
-  to the linux-sh list to integrate the ravb on the r8a7795/salvatore-x board
-* To aid review I will push the following to the renesas tree:
-  - driver (this series): (me/r8a7795-ravb-driver-v2)
-  - integration: me/r8a7795-ravb-integration-v2
-  - both with runtime dependencies: me/r8a7795-ravb-driver-and-integration-v2.runtime
-  
-Kazuya Mizuguchi (3):
-  ravb: Provide dev parameter to DMA API
-  ravb: Document binding for r8a7795 SoC
-  ravb: Add support for r8a7795 SoC
+v2 [Simon Horman]
+* Reworked based on extensive feedback from
+  Geert Uytterhoeven and Sergei Shtylyov.
+* Broke binding update out into separate patch
+---
+ drivers/net/ethernet/renesas/ravb.h      |  7 ++++
+ drivers/net/ethernet/renesas/ravb_main.c | 57 +++++++++++++++++++++++++++-----
+ 2 files changed, 55 insertions(+), 9 deletions(-)
 
-Simon Horman (1):
-  phylib: Add phy_set_max_speed helper
-
- .../devicetree/bindings/net/renesas,ravb.txt       | 65 +++++++++++++--
- drivers/net/ethernet/renesas/ravb.h                |  7 ++
- drivers/net/ethernet/renesas/ravb_main.c           | 95 +++++++++++++++-------
- drivers/net/phy/phy_device.c                       | 52 +++++++-----
- include/linux/phy.h                                |  1 +
- 5 files changed, 166 insertions(+), 54 deletions(-)
-
+diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
+index a157aaaaff6a..0623fff932e4 100644
+--- a/drivers/net/ethernet/renesas/ravb.h
++++ b/drivers/net/ethernet/renesas/ravb.h
+@@ -766,6 +766,11 @@ struct ravb_ptp {
+ 	struct ravb_ptp_perout perout[N_PER_OUT];
+ };
+ 
++enum ravb_chip_id {
++	RCAR_GEN2,
++	RCAR_GEN3,
++};
++
+ struct ravb_private {
+ 	struct net_device *ndev;
+ 	struct platform_device *pdev;
+@@ -806,6 +811,8 @@ struct ravb_private {
+ 	int msg_enable;
+ 	int speed;
+ 	int duplex;
++	int emac_irq;
++	enum ravb_chip_id chip_id;
+ 
+ 	unsigned no_avb_link:1;
+ 	unsigned avb_link_active_low:1;
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 4ca093d033f8..cc6702e33d65 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -889,6 +889,14 @@ static int ravb_phy_init(struct net_device *ndev)
+ 		return -ENOENT;
+ 	}
+ 
++	/* This driver only support 10/100Mbit speeds on Gen3
++	 * at this time.
++	 */
++	if (priv->chip_id == RCAR_GEN3) {
++		netdev_info(ndev, "limiting PHY to 100Mbit/s\n");
++		phy_set_max_speed(phydev, SPEED_100);
++	}
++
+ 	netdev_info(ndev, "attached PHY %d (IRQ %d) to driver %s\n",
+ 		    phydev->addr, phydev->irq, phydev->drv->name);
+ 
+@@ -1197,6 +1205,15 @@ static int ravb_open(struct net_device *ndev)
+ 		goto out_napi_off;
+ 	}
+ 
++	if (priv->chip_id == RCAR_GEN3) {
++		error = request_irq(priv->emac_irq, ravb_interrupt,
++				    IRQF_SHARED, ndev->name, ndev);
++		if (error) {
++			netdev_err(ndev, "cannot request IRQ\n");
++			goto out_free_irq;
++		}
++	}
++
+ 	/* Device init */
+ 	error = ravb_dmac_init(ndev);
+ 	if (error)
+@@ -1220,6 +1237,7 @@ out_ptp_stop:
+ 	ravb_ptp_stop(ndev);
+ out_free_irq:
+ 	free_irq(ndev->irq, ndev);
++	free_irq(priv->emac_irq, ndev);
+ out_napi_off:
+ 	napi_disable(&priv->napi[RAVB_NC]);
+ 	napi_disable(&priv->napi[RAVB_BE]);
+@@ -1625,13 +1643,23 @@ static int ravb_mdio_release(struct ravb_private *priv)
+ 	return 0;
+ }
+ 
++static const struct of_device_id ravb_match_table[] = {
++	{ .compatible = "renesas,etheravb-r8a7790", .data = (void *)RCAR_GEN2 },
++	{ .compatible = "renesas,etheravb-r8a7794", .data = (void *)RCAR_GEN2 },
++	{ .compatible = "renesas,etheravb-r8a7795", .data = (void *)RCAR_GEN3 },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, ravb_match_table);
++
+ static int ravb_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
++	const struct of_device_id *match;
+ 	struct ravb_private *priv;
++	enum ravb_chip_id chip_id;
+ 	struct net_device *ndev;
+-	int error, irq, q;
+ 	struct resource *res;
++	int error, irq, q;
+ 
+ 	if (!np) {
+ 		dev_err(&pdev->dev,
+@@ -1657,7 +1685,14 @@ static int ravb_probe(struct platform_device *pdev)
+ 	/* The Ether-specific entries in the device structure. */
+ 	ndev->base_addr = res->start;
+ 	ndev->dma = -1;
+-	irq = platform_get_irq(pdev, 0);
++
++	match = of_match_device(of_match_ptr(ravb_match_table), &pdev->dev);
++	chip_id = (enum ravb_chip_id)match->data;
++
++	if (chip_id == RCAR_GEN3)
++		irq = platform_get_irq_byname(pdev, "ch22");
++	else
++		irq = platform_get_irq(pdev, 0);
+ 	if (irq < 0) {
+ 		error = irq;
+ 		goto out_release;
+@@ -1688,6 +1723,17 @@ static int ravb_probe(struct platform_device *pdev)
+ 	priv->avb_link_active_low =
+ 		of_property_read_bool(np, "renesas,ether-link-active-low");
+ 
++	if (chip_id == RCAR_GEN3) {
++		irq = platform_get_irq_byname(pdev, "ch24");
++		if (irq < 0) {
++			error = irq;
++			goto out_release;
++		}
++		priv->emac_irq = irq;
++	}
++
++	priv->chip_id = chip_id;
++
+ 	/* Set function */
+ 	ndev->netdev_ops = &ravb_netdev_ops;
+ 	ndev->ethtool_ops = &ravb_ethtool_ops;
+@@ -1818,13 +1864,6 @@ static const struct dev_pm_ops ravb_dev_pm_ops = {
+ #define RAVB_PM_OPS NULL
+ #endif
+ 
+-static const struct of_device_id ravb_match_table[] = {
+-	{ .compatible = "renesas,etheravb-r8a7790" },
+-	{ .compatible = "renesas,etheravb-r8a7794" },
+-	{ }
+-};
+-MODULE_DEVICE_TABLE(of, ravb_match_table);
+-
+ static struct platform_driver ravb_driver = {
+ 	.probe		= ravb_probe,
+ 	.remove		= ravb_remove,
 -- 
 2.1.4
 
