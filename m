@@ -1,70 +1,48 @@
-From: Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-Subject: Re: [PATCHv2 RFC] RTEXT_FILTER_SKIP_STATS support to avoid dumping
- inet/inet6 stats
-Date: Sat, 12 Sep 2015 00:22:44 +0530
-Message-ID: <55F322FC.1050509@linux.vnet.ibm.com>
-References: <20150910213429.GH28585@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
-	jose.marchesi@oracle.com
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [net-next PATCH] net: bridge: fix for bridging 802.1Q without REORDER_HDR
+Date: Fri, 11 Sep 2015 21:22:03 +0200
+Message-ID: <1441999323-29381-1-git-send-email-phil@nwl.cc>
+Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([122.248.162.7]:48962 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484AbbIKSvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 14:51:02 -0400
-Received: from /spool/local
-	by e28smtp07.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <raghavendra.kt@linux.vnet.ibm.com>;
-	Sat, 12 Sep 2015 00:20:59 +0530
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by d28dlp01.in.ibm.com (Postfix) with ESMTP id 120F0E0054
-	for <netdev@vger.kernel.org>; Sat, 12 Sep 2015 00:20:23 +0530 (IST)
-Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
-	by d28relay03.in.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t8BIos1O43516092
-	for <netdev@vger.kernel.org>; Sat, 12 Sep 2015 00:20:55 +0530
-Received: from d28av02.in.ibm.com (localhost [127.0.0.1])
-	by d28av02.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t8BIosoZ020069
-	for <netdev@vger.kernel.org>; Sat, 12 Sep 2015 00:20:54 +0530
-In-Reply-To: <20150910213429.GH28585@oracle.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:55179 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752890AbbIKTWG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2015 15:22:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/11/2015 03:04 AM, Sowmini Varadhan wrote:
->
-> Many commonly used functions like getifaddrs() invoke RTM_GETLINK
-> to dump the interface information, and do not need the
-> the AF_INET6 statististics that are always returned by default
-> from rtnl_fill_ifinfo().
->
-> Computing the statistics can be an expensive operation that impacts
-> scaling, so it is desirable to avoid this if the information is
-> not needed.
->
-> This patch adds a the RTEXT_FILTER_SKIP_STATS extended info flag that
-> can be passed with netlink_request() to avoid statistics computation
-> for the ifinfo path.
->
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
-> v2: David Miller comments: pass u32 ext_filter_mask down.
->
->   include/net/rtnetlink.h        |    3 ++-
->   include/uapi/linux/rtnetlink.h |    1 +
->   net/core/rtnetlink.c           |    2 +-
->   net/ipv4/devinet.c             |    3 ++-
->   net/ipv6/addrconf.c            |   13 +++++++++----
->   5 files changed, 15 insertions(+), 7 deletions(-)
+When forwarding packets from an 802.1Q interface with REORDER_HDR set to
+zero, the VLAN header previously inserted by vlan_do_receive() needs to
+be stripped from the packet and the mac_header adjustment undone,
+otherwise a tagged frame with first four bytes missing will be
+transmitted.
 
-Sowmini, Thanks for the patch which is more cleaner way without
-breaking current behaviour.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ net/bridge/br_input.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-[ Though RTEXT_FILTER_NEED_STATS flag with reverse effect  would have
-helped immediately :)]
-
-/me waits for the RTEXT_FILTER_SKIP_STATS to be supported in
-gccgo/golang, so that it can be used in docker newNetlinkRequest() to
-exploit this.
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index f921a5d..e4e3fc7 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -288,6 +288,16 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+ 	}
+ 
+ forward:
++	if (is_vlan_dev(skb->dev) &&
++	    !(vlan_dev_priv(skb->dev)->flags & VLAN_FLAG_REORDER_HDR)) {
++		unsigned int offset = skb->data - skb_mac_header(skb);
++
++		skb_push(skb, offset);
++		memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
++		skb->mac_header += VLAN_HLEN;
++		skb_pull(skb, offset);
++		skb_reset_mac_len(skb);
++	}
+ 	switch (p->state) {
+ 	case BR_STATE_FORWARDING:
+ 		rhook = rcu_dereference(br_should_route_hook);
+-- 
+2.1.2
