@@ -1,150 +1,129 @@
 From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC v2 net-next 3/4] ravb: Document binding for r8a7795 SoC
-Date: Fri, 11 Sep 2015 11:01:17 +0900
-Message-ID: <1441936878-18290-4-git-send-email-horms+renesas@verge.net.au>
+Subject: [PATCH/RFC v2 net-next 1/4] phylib: Add phy_set_max_speed helper
+Date: Fri, 11 Sep 2015 11:01:15 +0900
+Message-ID: <1441936878-18290-2-git-send-email-horms+renesas@verge.net.au>
 References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Magnus Damm <magnus.damm@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
 	Simon Horman <horms+renesas@verge.net.au>
 To: netdev@vger.kernel.org, linux-sh@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from kirsty.vergenet.net ([202.4.237.240]:40846 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbbIKCBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 22:01:50 -0400
+	with ESMTP id S1751310AbbIKCBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 22:01:47 -0400
 In-Reply-To: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Add a helper to allow ethernet drivers to limit the speed of a phy
+(that they are attached to).
 
-This patch updates the ravb binding to support the r8a7795 SoC by:
-- Adding a compat string for the new hardware
-- Adding 25 named interrupts to binding for the new SoC;
-  older SoCs continue to use a single multiplexed interrupt
+This mainly involves factoring out the business-end of
+of_set_phy_supported() and exporting a new symbol.
 
-The example is also updated to reflect the r8a7795 as this is the
-more complex case.
+This code seems to be open coded in several places, in several different
+variants.
 
-Based on work by Kazuya Mizuguchi and others.
+This code is envisaged this will be used in situations where setting
+the "max-speed" property is not appropriate, e.g. because the maximum
+speed is not a property of the phy hardware.
 
 Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
 ---
 
 v2
-* First post; broken out of a driver update patch
-* As discussed with Geert Uytterhoeven and Sergei Shtylyov
-  - Binding: Make all interrupts mandatory as named-interrupts of
-    the form ch%u
+* First post
 ---
- .../devicetree/bindings/net/renesas,ravb.txt       | 65 +++++++++++++++++++---
- 1 file changed, 58 insertions(+), 7 deletions(-)
+ drivers/net/phy/phy_device.c | 52 ++++++++++++++++++++++++++++----------------
+ include/linux/phy.h          |  1 +
+ 2 files changed, 34 insertions(+), 19 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-index 1fd8831437bf..6c360f993d33 100644
---- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-@@ -6,8 +6,11 @@ interface contains.
- Required properties:
- - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
- 	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
-+	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
- - reg: offset and length of (1) the register block and (2) the stream buffer.
--- interrupts: interrupt specifier for the sole interrupt.
-+- interrupts: interrupt specifiers.
-+	      One for each entry in interrupt-names the R8A7795 SoC;
-+	      One entry for a multiplexed interrupt otherwise.
- - phy-mode: see ethernet.txt file in the same directory.
- - phy-handle: see ethernet.txt file in the same directory.
- - #address-cells: number of address cells for the MDIO bus, must be equal to 1.
-@@ -18,6 +21,9 @@ Required properties:
- Optional properties:
- - interrupt-parent: the phandle for the interrupt controller that services
- 		    interrupts for this device.
-+- interrupt-names: One entry per interrupt named "ch%u".
-+		   For the R8A7795 SoC this property is mandatory,
-+		   and "ch0" through "ch24" are mandatory.
- - pinctrl-names: pin configuration state name ("default").
- - renesas,no-ether-link: boolean, specify when a board does not provide a proper
- 			 AVB_LINK signal.
-@@ -27,13 +33,46 @@ Optional properties:
- Example:
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index c0f211127274..d9a020095972 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1205,6 +1205,37 @@ static int gen10g_resume(struct phy_device *phydev)
+ 	return 0;
+ }
  
- 	ethernet@e6800000 {
--		compatible = "renesas,etheravb-r8a7790";
--		reg = <0 0xe6800000 0 0x800>, <0 0xee0e8000 0 0x4000>;
-+		compatible = "renesas,etheravb-r8a7795";
-+		reg = <0 0xe6800000 0 0x800>, <0 0xe6a00000 0 0x10000>;
- 		interrupt-parent = <&gic>;
--		interrupts = <0 163 IRQ_TYPE_LEVEL_HIGH>;
--		clocks = <&mstp8_clks R8A7790_CLK_ETHERAVB>;
--		phy-mode = "rmii";
-+		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
-+			     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "ch0", "ch1", "ch2", "ch3",
-+				  "ch4", "ch5", "ch6", "ch7",
-+				  "ch8", "ch9", "ch10", "ch11",
-+				  "ch12", "ch13", "ch14", "ch15",
-+				  "ch16", "ch17", "ch18", "ch19",
-+				  "ch20", "ch21", "ch22", "ch23",
-+				  "ch24";
-+		clocks = <&mstp8_clks R8A7795_CLK_ETHERAVB>;
-+		phy-mode = "rgmii-id";
-+		phy-reset-gpio = <&gpio2 10 0>;
- 		phy-handle = <&phy0>;
++static void __set_phy_supported(struct phy_device *phydev, u32 max_speed)
++{
++	if (!IS_ENABLED(CONFIG_OF_MDIO))
++		return;
 +
- 		pinctrl-0 = <&ether_pins>;
- 		pinctrl-names = "default";
- 		renesas,no-ether-link;
-@@ -41,8 +80,20 @@ Example:
- 		#size-cells = <0>;
++	/* The default values for phydev->supported are provided by the PHY
++	 * driver "features" member, we want to reset to sane defaults fist
++	 * before supporting higher speeds.
++	 */
++	phydev->supported &= PHY_DEFAULT_FEATURES;
++
++	switch (max_speed) {
++	default:
++		return;
++
++	case SPEED_1000:
++		phydev->supported |= PHY_1000BT_FEATURES;
++	case SPEED_100:
++		phydev->supported |= PHY_100BT_FEATURES;
++	case SPEED_10:
++		phydev->supported |= PHY_10BT_FEATURES;
++	}
++}
++
++void phy_set_max_speed(struct phy_device *phydev, u32 max_speed)
++{
++	__set_phy_supported(phydev, max_speed);
++	phydev->advertising = phydev->supported;
++}
++EXPORT_SYMBOL(phy_set_max_speed);
++
+ static void of_set_phy_supported(struct phy_device *phydev)
+ {
+ 	struct device_node *node = phydev->dev.of_node;
+@@ -1216,25 +1247,8 @@ static void of_set_phy_supported(struct phy_device *phydev)
+ 	if (!node)
+ 		return;
  
- 		phy0: ethernet-phy@0 {
-+			rxc-skew-ps = <900>;
-+			rxdv-skew-ps = <0>;
-+			rxd0-skew-ps = <0>;
-+			rxd1-skew-ps = <0>;
-+			rxd2-skew-ps = <0>;
-+			rxd3-skew-ps = <0>;
-+			txc-skew-ps = <900>;
-+			txen-skew-ps = <0>;
-+			txd0-skew-ps = <0>;
-+			txd1-skew-ps = <0>;
-+			txd2-skew-ps = <0>;
-+			txd3-skew-ps = <0>;
- 			reg = <0>;
- 			interrupt-parent = <&gpio2>;
--			interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
-+			interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
- 		};
- 	};
+-	if (!of_property_read_u32(node, "max-speed", &max_speed)) {
+-		/* The default values for phydev->supported are provided by the PHY
+-		 * driver "features" member, we want to reset to sane defaults fist
+-		 * before supporting higher speeds.
+-		 */
+-		phydev->supported &= PHY_DEFAULT_FEATURES;
+-
+-		switch (max_speed) {
+-		default:
+-			return;
+-
+-		case SPEED_1000:
+-			phydev->supported |= PHY_1000BT_FEATURES;
+-		case SPEED_100:
+-			phydev->supported |= PHY_100BT_FEATURES;
+-		case SPEED_10:
+-			phydev->supported |= PHY_10BT_FEATURES;
+-		}
+-	}
++	if (!of_property_read_u32(node, "max-speed", &max_speed))
++		__set_phy_supported(phydev, max_speed);
+ }
+ 
+ /**
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 962387a192f1..692b202a52af 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -794,6 +794,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
+ int phy_start_interrupts(struct phy_device *phydev);
+ void phy_print_status(struct phy_device *phydev);
+ void phy_device_free(struct phy_device *phydev);
++void phy_set_max_speed(struct phy_device *phydev, u32 max_speed);
+ 
+ int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask,
+ 		       int (*run)(struct phy_device *));
 -- 
 2.1.4
