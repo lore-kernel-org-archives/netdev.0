@@ -1,65 +1,65 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH/RFC v2 net-next 3/4] ravb: Document binding for r8a7795 SoC
-Date: Fri, 11 Sep 2015 09:12:17 +0200
-Message-ID: <CAMuHMdWY+8Cv9ZnnzMcSYskFfArues8EnWgMiCMnQ16sN1TW_A@mail.gmail.com>
-References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
-	<1441936878-18290-4-git-send-email-horms+renesas@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1441936878-18290-4-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mathias Krause <minipli@googlemail.com>
+Subject: [PATCH] xfrm6: Fix ICMPv6 and MH header checks in _decode_session6
+Date: Fri, 11 Sep 2015 09:57:20 +0200
+Message-ID: <1441958240-29679-1-git-send-email-minipli@googlemail.com>
+Cc: Marcin Jurkowski <marcin1j@gmail.com>, satmd@lain.at,
+	netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>,
+	Mathias Krause <mathias.krause@secunet.com>,
+	PaX Team <pageexec@freemail.hu>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f196.google.com ([209.85.212.196]:35944 "EHLO
+	mail-wi0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751266AbbIKH5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 03:57:44 -0400
+Received: by wicmn1 with SMTP id mn1so8805593wic.3
+        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 00:57:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
+From: Mathias Krause <mathias.krause@secunet.com>
 
-On Fri, Sep 11, 2015 at 4:01 AM, Simon Horman
-<horms+renesas@verge.net.au> wrote:
-> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> @@ -6,8 +6,11 @@ interface contains.
->  Required properties:
->  - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
->               "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
-> +             "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
->  - reg: offset and length of (1) the register block and (2) the stream buffer.
-> -- interrupts: interrupt specifier for the sole interrupt.
-> +- interrupts: interrupt specifiers.
-> +             One for each entry in interrupt-names the R8A7795 SoC;
+Ensure there's enough data left prior calling pskb_may_pull(). If
+skb->data was already advanced, we'll call pskb_may_pull() with a
+negative value converted to unsigned int -- leading to a huge
+positive value. That won't matter in practice as pskb_may_pull()
+will likely fail in this case, but it leads to underflow reports on
+kernels handling such kind of over-/underflows, e.g. a PaX enabled
+kernel instrumented with the size_overflow plugin.
 
-... for the R8A7795 SoC
+Reported-by: satmd <satmd@lain.at>
+Reported-and-tested-by: Marcin Jurkowski <marcin1j@gmail.com>
+Signed-off-by: Mathias Krause <mathias.krause@secunet.com>
+Cc: PaX Team <pageexec@freemail.hu>
+---
+ net/ipv6/xfrm6_policy.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-> +             One entry for a multiplexed interrupt otherwise.
->  - phy-mode: see ethernet.txt file in the same directory.
->  - phy-handle: see ethernet.txt file in the same directory.
->  - #address-cells: number of address cells for the MDIO bus, must be equal to 1.
-> @@ -18,6 +21,9 @@ Required properties:
->  Optional properties:
->  - interrupt-parent: the phandle for the interrupt controller that services
->                     interrupts for this device.
-> +- interrupt-names: One entry per interrupt named "ch%u".
-> +                  For the R8A7795 SoC this property is mandatory,
-> +                  and "ch0" through "ch24" are mandatory.
-
-This suggests the single multiplexed interrupt on R-Car Gen2 can be called
-"ch0". Is that what you want? I know the driver doesn't care.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index ed0583c1b9fc..c988c3f033cf 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -174,7 +174,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 			return;
+ 
+ 		case IPPROTO_ICMPV6:
+-			if (!onlyproto && pskb_may_pull(skb, nh + offset + 2 - skb->data)) {
++			if (!onlyproto && (nh + offset + 2 < skb->data ||
++			    pskb_may_pull(skb, nh + offset + 2 - skb->data))) {
+ 				u8 *icmp;
+ 
+ 				nh = skb_network_header(skb);
+@@ -188,7 +189,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ #if IS_ENABLED(CONFIG_IPV6_MIP6)
+ 		case IPPROTO_MH:
+ 			offset += ipv6_optlen(exthdr);
+-			if (!onlyproto && pskb_may_pull(skb, nh + offset + 3 - skb->data)) {
++			if (!onlyproto && (nh + offset + 3 < skb->data ||
++			    pskb_may_pull(skb, nh + offset + 3 - skb->data))) {
+ 				struct ip6_mh *mh;
+ 
+ 				nh = skb_network_header(skb);
+-- 
+2.1.4
