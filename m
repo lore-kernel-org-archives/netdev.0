@@ -1,64 +1,77 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC v2 net-next 3/4] ravb: Document binding for r8a7795
- SoC
-Date: Fri, 11 Sep 2015 17:14:44 +0900
-Message-ID: <20150911081443.GD2835@verge.net.au>
-References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
- <1441936878-18290-4-git-send-email-horms+renesas@verge.net.au>
- <CAMuHMdWY+8Cv9ZnnzMcSYskFfArues8EnWgMiCMnQ16sN1TW_A@mail.gmail.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [PATCH] x86: Wire up 32-bit direct socket calls
+Date: Fri, 11 Sep 2015 10:24:29 +0200
+Message-ID: <20150911082429.GA12452@osiris>
+References: <cb5138299d37d5800e2d135b01a7667fa6115854.1436912629.git.luto@kernel.org>
+ <CAMuHMdXKA_+JY2ryf-yoJxQnbW=jsOjj_w2-Nsybpx0310neDA@mail.gmail.com>
+ <55E75913.5050605@zytor.com>
+ <3193269.4TGcgnGPrm@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Andy Lutomirski <luto@kernel.org>, X86 ML <x86@kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Tulio Magno Quites Machado Filho <tuliom@linux.vnet.ibm.com>,
+        Andy Lutomirski <luto@amacapital.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Alexander Larsson <alexl@redhat.com>,
+        Cosimo Cecchi <cosimo@endlessm.com>,
+        Dan Nicholson <nicholson@endlessm.com>,
+        libc-alpha <libc-alpha@sourceware.org>,
+        Rajalakshmi Srinivasaraghavan <raji@linux.vnet.ibm.com>,
+        Linux-Arch <linux-arch@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <libc-alpha-return-63115-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
 Content-Disposition: inline
-In-Reply-To: <CAMuHMdWY+8Cv9ZnnzMcSYskFfArues8EnWgMiCMnQ16sN1TW_A@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
+In-Reply-To: <3193269.4TGcgnGPrm@wuerfel>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2015 at 09:12:17AM +0200, Geert Uytterhoeven wrote:
-> Hi Simon,
+On Mon, Sep 07, 2015 at 02:53:12PM +0200, Arnd Bergmann wrote:
+> On Wednesday 02 September 2015 13:16:19 H. Peter Anvin wrote:
+> > On 09/02/2015 02:48 AM, Geert Uytterhoeven wrote:
+> > > 
+> > > Should all other architectures follow suit?
+> > > Or should we follow the s390 approach:
+> > > 
+> > 
+> > It is up to the maintainer(s), largely dependent on how likely you are
+> > going to want to support this in your libc, but in general, socketcall
+> > is an abomination which there is no reason not to bypass.
+> > 
+> > So follow suit unless you have a strong reason not to.
 > 
-> On Fri, Sep 11, 2015 at 4:01 AM, Simon Horman
-> <horms+renesas@verge.net.au> wrote:
-> > --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> > +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> > @@ -6,8 +6,11 @@ interface contains.
-> >  Required properties:
-> >  - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
-> >               "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
-> > +             "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
-> >  - reg: offset and length of (1) the register block and (2) the stream buffer.
-> > -- interrupts: interrupt specifier for the sole interrupt.
-> > +- interrupts: interrupt specifiers.
-> > +             One for each entry in interrupt-names the R8A7795 SoC;
+> +1
 > 
-> ... for the R8A7795 SoC
+> In my y2038 syscall series, I'm adding a new recvmmsg64 call, and
+> we may decide to add new setsockopt/getsockopt variants as well.
+> This is probably not the last change to socketcall, and it would
+> be made much easier if all architectures had separate calls here.
 > 
-> > +             One entry for a multiplexed interrupt otherwise.
-> >  - phy-mode: see ethernet.txt file in the same directory.
-> >  - phy-handle: see ethernet.txt file in the same directory.
-> >  - #address-cells: number of address cells for the MDIO bus, must be equal to 1.
-> > @@ -18,6 +21,9 @@ Required properties:
-> >  Optional properties:
-> >  - interrupt-parent: the phandle for the interrupt controller that services
-> >                     interrupts for this device.
-> > +- interrupt-names: One entry per interrupt named "ch%u".
-> > +                  For the R8A7795 SoC this property is mandatory,
-> > +                  and "ch0" through "ch24" are mandatory.
+> It seems that there are very few architectures that don't already have
+> the separate calls:
 > 
-> This suggests the single multiplexed interrupt on R-Car Gen2 can be called
-> "ch0". Is that what you want? I know the driver doesn't care.
+> $ git grep -l __NR_socketcall arch/*/include/uapi  | xargs git grep -L recvmsg 
+> arch/cris/include/uapi/asm/unistd.h
+> arch/frv/include/uapi/asm/unistd.h
+> arch/m32r/include/uapi/asm/unistd.h
+> arch/m68k/include/uapi/asm/unistd.h
+> arch/mn10300/include/uapi/asm/unistd.h
+> arch/s390/include/uapi/asm/unistd.h
+> 
+> These are of course all examples of architectures that originally followed
+> the i386 syscall scheme closely rather than trying to leave out obsolete
+> calls.
 
-No, its not what I intended.
+FWIW, the s390 approach (ignoring the "new" system calls) is only temporarily.
+I'll enable the seperate calls later when I have time to test everything,
+especially the glibc stuff.
 
-I think its reasonable to allow the multiplexed interrupt to be named,
-but to what I wonder. The documentation seems to call the interrupt
-"EthernetAVB", which isn't very exciting.
+The same is true for the ipc system call. (any reason why the seperate system
+calls haven't been enabled on x86 now as well?)
