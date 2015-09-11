@@ -1,100 +1,78 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: v2 of seccomp filter c/r patches
-Date: Fri, 11 Sep 2015 10:00:22 -0700
-Message-ID: <CALCETrWxLMSgdsdT9gTL80LSovONmCcTYjzqrHqF-WdJ4BN1Uw@mail.gmail.com>
-References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com> <CALCETrVYtv1=g-xPjQ-LiX+5GK3xtB6a2hYbat0TuU-Bd4QA6Q@mail.gmail.com>
+From: "D. Hugh Redelmeier" <hugh@mimosa.com>
+Subject: RE: PATCH: netdev: add a cast NLMSG_OK to avoid a GCC warning in
+ users' code
+Date: Fri, 11 Sep 2015 13:11:26 -0400 (EDT)
+Message-ID: <alpine.LRH.2.02.1509110845151.4754@redclaw.mimosa.com>
+References: <alpine.LRH.2.02.1509080933340.4754@redclaw.mimosa.com> <20150909.123717.2263645868892698375.davem@davemloft.net> <alpine.LRH.2.02.1509091555230.4754@redclaw.mimosa.com> <063D6719AE5E284EB5DD2968C1650D6D1CB922FF@AcuExch.aculab.com>
+Reply-To: "D. Hugh Redelmeier" <hugh@mimosa.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrVYtv1=g-xPjQ-LiX+5GK3xtB6a2hYbat0TuU-Bd4QA6Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw-d.mimosa.com ([209.161.207.149]:45966 "EHLO gw-d.mimosa.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752500AbbIKRLr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Sep 2015 13:11:47 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB922FF@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 9:30 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
-> On Sep 10, 2015 5:22 PM, "Tycho Andersen" <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
->>
->> Hi all,
->>
->> Here is v2 of the seccomp filter c/r set. The patch notes have individual
->> changes from the last series, but there are two points not noted:
->>
->> * The series still does not allow us to correctly restore state for programs
->>   that will use SECCOMP_FILTER_FLAG_TSYNC in the future. Given that we want to
->>   keep seccomp_filter's identity, I think something along the lines of another
->>   seccomp command like SECCOMP_INHERIT_PARENT is needed (although I'm not sure
->>   if this can even be done yet). In addition, we'll need a kcmp command for
->>   figuring out if filters are the same, although this too needs to compare
->>   seccomp_filter objects, so it's a little screwy. Any thoughts on how to do
->>   this nicely are welcome.
->
-> Let's add a concept of a seccompfd.
->
-> For background of what I want to add: I want to be able to create a
-> seccomp monitor.  A seccomp monitor will be, logically, a pair of a
-> struct file that represents the monitor and a seccomp_filter that is
-> controlled by the monitor.  Depending on flags, whoever holds the
-> monitor fd could change the active filter, intercept syscalls, and
-> issue syscalls on behalf of a process that is trapped in an
-> intercepted syscall.
->
-> Seccomp filters would nest properly.
->
-> The interface would probably be (extremely pseudocoded):
->
-> monitor_fd, filter_fd = seccomp(CREATE_MONITOR, flags, ...);
->
-> Then, later:
->
-> seccomp(ATTACH_TO_FILTER, filter_fd);  /* now filtered */
->
-> read(monitor_fd, buf, size); /* returns an intercepted syscall */
-> write(monitor_fd, buf, size); /* issues a syscall or releases the
-> trapped task */
->
-> This can't be implemented on x86 without either going insane or
-> finishing the massive set of pending cleanups to the x86 entry code.
-> I favor the latter.
->
-> We could, however, add part of it right now: we could have a way to
-> create a filterfd, we could add kcmp support for it, and we could add
-> the ATTACH_TO_FILTER thing.  I think that would solve your problem.
->
-> One major open question: does a filter_fd know what its parent is and,
-> if so, will it just refuse to attach if the caller's parent is wrong?
-> Or will a filter_fd attach anywhere.
->
+| From: David Laight <David.Laight@ACULAB.COM>
 
-Let me add one more thought:
+| From: D. Hugh Redelmeier
 
-Currently, struct seccomp_filter encodes a strict tree hierarchy: it
-knows what its parent is.  This only matters as an implementation
-detail and because TSYNC checks for seccomp_filter equality.
+| > #define NLMSG_OK(nlh,len) ((len) >= (int)sizeof(struct nlmsghdr) && \
+| > 			   (nlh)->nlmsg_len >= sizeof(struct nlmsghdr) && \
+| > 			   (nlh)->nlmsg_len <= (len))
 
-We could change this without user-visible effects.  We could say that,
-for TSYNC purposes, two filter states match if they contain exactly
-the same layers in the same order where a layer does *not* encode a
-concept of parent.  We could then say that attaching a classic bpf
-filter creates a branch new layer that is not equal to any other layer
-that's been created.
+| Why not cast (nlh)->nl_msg_len instead?
+| Perhaps:
+| 	(typeof (len))(nlh)->nlmsg_len <= (len)
+| which is almost certainly safe unless 'len' is 'signed char'.
 
-This has no effect whatsoever.  The difference would be that we could
-declare that attaching the same ebpf program twice creates the *same*
-layer so that, if you fork and both children attach the same ebpf
-program, then they match for TSYNC purposes.  Similarly, attaching the
-same hypothetical filterfd would create the same layer.
+(Nit pick: it doesn't feel safe to cast to short either.)
 
-Thoughts?
+You would also want to adjust the first compare to
+	(len) >= (typeof (len))sizeof(struct nlmsghdr)
+Remember that, on 32-bit machines, with the current macro, GCC gives a
+warning on the first compare if len is unsigned.
 
---Andy
+These casts together might cover up some weird typing errors, like
+using char * or double.
+
+This doesn't seem like a bad fix.  It probably doesn't break any
+currently working code unless something depended on one of the
+surprising conversions.
+
+I think that this change is better than the status quo but
+isn't the best place to get to.
+
+
+The most common source of the value is from a call to one of the
+recv(2) functions.  These functions return a ssize_t.  In particular,
+the error indicator is -1.
+
+=> The error indicator -1 is only handled correctly by NLMSG_OK if the
+   first compare is a signed compare.
+
+The right change is to force the type to be ssize_t.  This should
+break no currently working code (unless it is accidentally working).
+After all, no practical length would be positive in size_t and negative in
+ssize_t.
+
+Using "int" instead of ssize_t would work on all Linux machines that I
+know and has the merit of matching the documentation, so that is the
+code change I suggested.
+
+| Or subtract the two values and compare against zero?
+
+If it is an unsigned subtract, the result cannot be negative, so that
+doesn't work.
+
+If it is a signed subtract, you have just the same problems as a
+signed compare, plus you can get overflow (undefined in C, but
+probably not in Linux).
+
+So this isn't a win.
