@@ -1,62 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next PATCH] net: bridge: fix for bridging 802.1Q without
- REORDER_HDR
-Date: Fri, 11 Sep 2015 12:24:45 -0700
-Message-ID: <20150911122445.53cdfbcf@urahara>
-References: <1441999323-29381-1-git-send-email-phil@nwl.cc>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [RFC PATCH 3/3] devicetree: macb: Add optional property tsu-clk
+Date: Fri, 11 Sep 2015 09:52:56 -0700
+Message-ID: <20150911165256.GT19678@xsjsorenbubuntu>
+References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
+ <1441958258-35441-4-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35826 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426AbbIKTYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 15:24:35 -0400
-Received: by pacfv12 with SMTP id fv12so84187778pac.2
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 12:24:34 -0700 (PDT)
-In-Reply-To: <1441999323-29381-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<harinikatakamlinux@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<harinik@xilinx.com>, <punnaia@xilinx.com>, <michals@xilinx.com>,
+	<anirudh@xilinx.com>
+To: Harini Katakam <harini.katakam@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1441958258-35441-4-git-send-email-harinik@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Sep 2015 21:22:03 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+Hi Harini,
 
-> When forwarding packets from an 802.1Q interface with REORDER_HDR set to
-> zero, the VLAN header previously inserted by vlan_do_receive() needs to
-> be stripped from the packet and the mac_header adjustment undone,
-> otherwise a tagged frame with first four bytes missing will be
-> transmitted.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+On Fri, 2015-09-11 at 01:27PM +0530, Harini Katakam wrote:
+> Add TSU clock frequency to be used for 1588 support in macb driver.
+>=20
+> Signed-off-by: Harini Katakam <harinik@xilinx.com>
 > ---
->  net/bridge/br_input.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> index f921a5d..e4e3fc7 100644
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -288,6 +288,16 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
->  	}
->  
->  forward:
-> +	if (is_vlan_dev(skb->dev) &&
-> +	    !(vlan_dev_priv(skb->dev)->flags & VLAN_FLAG_REORDER_HDR)) {
-> +		unsigned int offset = skb->data - skb_mac_header(skb);
-> +
-> +		skb_push(skb, offset);
-> +		memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
-> +		skb->mac_header += VLAN_HLEN;
-> +		skb_pull(skb, offset);
-> +		skb_reset_mac_len(skb);
-> +	}
->  	switch (p->state) {
->  	case BR_STATE_FORWARDING:
->  		rhook = rcu_dereference(br_should_route_hook);
+>  Documentation/devicetree/bindings/net/macb.txt |    3 +++
+>  1 file changed, 3 insertions(+)
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documen=
+tation/devicetree/bindings/net/macb.txt
+> index b5d7976..f7c0ea8 100644
+> --- a/Documentation/devicetree/bindings/net/macb.txt
+> +++ b/Documentation/devicetree/bindings/net/macb.txt
+> @@ -19,6 +19,9 @@ Required properties:
+>  	Optional elements: 'tx_clk'
+>  - clocks: Phandles to input clocks.
+> =20
+> +Optional properties:
+> +- tsu-clk: Time stamp unit clock frequency used.
 
-Thanks for finding this. Is this a new thing or has it always been there?
+Why are we not using the CCF and a clk_get_rate() in the driver?
 
-Sorry, this looks so special case it doesn't seem like a good idea.
-Something is broken in VLAN handling if this is required.
+	S=C3=B6ren
