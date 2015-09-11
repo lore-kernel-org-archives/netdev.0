@@ -1,95 +1,145 @@
-From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH v2 2/5] seccomp: make underlying bpf ref counted as well
-Date: Fri, 11 Sep 2015 11:33:11 -0600
-Message-ID: <20150911173311.GB7244@smitten>
-References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
- <1441930862-14347-3-git-send-email-tycho.andersen@canonical.com>
- <55F2D0EC.9090004@iogearbox.net>
- <20150911144400.GI27574@smitten>
- <55F2FB6F.7050708@iogearbox.net>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH v3 net 2/5] ipv6: Rename the dst_cache helper functions in ip6_tunnel
+Date: Fri, 11 Sep 2015 11:06:18 -0700
+Message-ID: <1441994781-2718585-3-git-send-email-kafai@fb.com>
+References: <1441994781-2718585-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <55F2FB6F.7050708-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Kernel Team <kernel-team@fb.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:29095 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751491AbbIKSHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 14:07:20 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t8BI5Ssl002680
+	for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 11:07:19 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1wv3mp0498-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 11:07:19 -0700
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ f0549d2e58af11e5a5f40002c95209d8-dc9fd240 for <netdev@vger.kernel.org>;	Fri,
+ 11 Sep 2015 11:07:18 -0700
+In-Reply-To: <1441994781-2718585-1-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 06:03:59PM +0200, Daniel Borkmann wrote:
-> On 09/11/2015 04:44 PM, Tycho Andersen wrote:
-> >On Fri, Sep 11, 2015 at 03:02:36PM +0200, Daniel Borkmann wrote:
-> >>On 09/11/2015 02:20 AM, Tycho Andersen wrote:
-> >>>In the next patch, we're going to add a way to access the underlying
-> >>>filters via bpf fds. This means that we need to ref-count both the
-> >>>struct seccomp_filter objects and the struct bpf_prog objects separately,
-> >>>in case a process dies but a filter is still referred to by another
-> >>>process.
-> >>>
-> >>>Additionally, we mark classic converted seccomp filters as seccomp eBPF
-> >>>programs, since they are a subset of what is supported in seccomp eBPF.
-> >>>
-> >>>Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> >>>CC: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> >>>CC: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> >>>CC: Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> >>>CC: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-> >>>CC: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> >>>CC: Serge E. Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-> >>>CC: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> >>>CC: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-> >>>---
-> >>>  kernel/seccomp.c | 4 +++-
-> >>>  1 file changed, 3 insertions(+), 1 deletion(-)
-> >>>
-> >>>diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-> >>>index 245df6b..afaeddf 100644
-> >>>--- a/kernel/seccomp.c
-> >>>+++ b/kernel/seccomp.c
-> >>>@@ -378,6 +378,8 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
-> >>>  	}
-> >>>
-> >>>  	atomic_set(&sfilter->usage, 1);
-> >>>+	atomic_set(&sfilter->prog->aux->refcnt, 1);
-> >>>+	sfilter->prog->type = BPF_PROG_TYPE_SECCOMP;
-> >>
-> >>So, if you do this, then this breaks the assumption of eBPF JITs
-> >>that, currently, all classic converted BPF programs always have a
-> >>prog->type of BPF_PROG_TYPE_UNSPEC (see: bpf_prog_was_classic()).
-> >>
-> >>Currently, JITs make use of this information to determine whether
-> >>A and X mappings for such programs should or should not be cleared
-> >>in the prologue (s390 currently).
-> >>
-> >>In the seccomp_prepare_filter() stage, we're already past that, so
-> >>it will not cause an issue, but we certainly would need to be very
-> >>careful in future, if bpf_prog_was_classic() is then used at a later
-> >>stage when we already have a generated bpf_prog somewhere, as then
-> >>this assumption will break.
-> >
-> >The only reason we need to do this is to allow BPF_DUMP_PROG to work,
-> >since we were restricting it to only allow dumping of seccomp
-> >programs, since those don't have maps. Instead, perhaps we could allow
-> >dumping of BPF_PROG_TYPE_SECCOMP and BPF_PROG_TYPE_UNSPEC?
-> 
-> There are possibilities that BPF_PROG_TYPE_UNSPEC is calling helpers
-> already today, at least in networking case, not seccomp. So, since
-> you want to export [classic -> eBPF] only for seccomp, put fds on them
-> and dump these via bpf(2), you could allow that (with a big comment
-> stating why it's safe), but mid-term we really need to sanitize all
-> this stuff properly as this is needed for other types, too.
+It is a prep work to fix the dst_entry refcnt bugs in
+ip6_tunnel.
 
-Sorry, just to be clear, you're suggesting that the patch is ok modulo
-a comment describing the jit issues?
+This patch rename:
+1. ip6_tnl_dst_check() to ip6_tnl_dst_get() to better
+   reflect that it will take a dst refcnt in the next patch.
+2. ip6_tnl_dst_store() to ip6_tnl_dst_set() to have a more
+   conventional name matching with ip6_tnl_dst_get().
 
-Tycho
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+---
+ include/net/ip6_tunnel.h |  4 ++--
+ net/ipv6/ip6_gre.c       |  4 ++--
+ net/ipv6/ip6_tunnel.c    | 12 ++++++------
+ 3 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index b8529aa..979b081 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -60,9 +60,9 @@ struct ipv6_tlv_tnl_enc_lim {
+ 	__u8 encap_limit;	/* tunnel encapsulation limit   */
+ } __packed;
+ 
+-struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t);
++struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t);
+ void ip6_tnl_dst_reset(struct ip6_tnl *t);
+-void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst);
++void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst);
+ int ip6_tnl_rcv_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+ 		const struct in6_addr *raddr);
+ int ip6_tnl_xmit_ctl(struct ip6_tnl *t, const struct in6_addr *laddr,
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index af60d46..24f5dd8 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -634,7 +634,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 	}
+ 
+ 	if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_check(tunnel);
++		dst = ip6_tnl_dst_get(tunnel);
+ 
+ 	if (!dst) {
+ 		ndst = ip6_route_output(net, NULL, fl6);
+@@ -763,7 +763,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 
+ 	ip6tunnel_xmit(NULL, skb, dev);
+ 	if (ndst)
+-		ip6_tnl_dst_store(tunnel, ndst);
++		ip6_tnl_dst_set(tunnel, ndst);
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index b0ab420..599b0b4 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -126,7 +126,7 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+  * Locking : hash tables are protected by RCU and RTNL
+  */
+ 
+-struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
++struct dst_entry *ip6_tnl_dst_get(struct ip6_tnl *t)
+ {
+ 	struct dst_entry *dst = t->dst_cache;
+ 
+@@ -139,7 +139,7 @@ struct dst_entry *ip6_tnl_dst_check(struct ip6_tnl *t)
+ 
+ 	return dst;
+ }
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_check);
++EXPORT_SYMBOL_GPL(ip6_tnl_dst_get);
+ 
+ void ip6_tnl_dst_reset(struct ip6_tnl *t)
+ {
+@@ -148,14 +148,14 @@ void ip6_tnl_dst_reset(struct ip6_tnl *t)
+ }
+ EXPORT_SYMBOL_GPL(ip6_tnl_dst_reset);
+ 
+-void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
++void ip6_tnl_dst_set(struct ip6_tnl *t, struct dst_entry *dst)
+ {
+ 	struct rt6_info *rt = (struct rt6_info *) dst;
+ 	t->dst_cookie = rt6_get_cookie(rt);
+ 	dst_release(t->dst_cache);
+ 	t->dst_cache = dst;
+ }
+-EXPORT_SYMBOL_GPL(ip6_tnl_dst_store);
++EXPORT_SYMBOL_GPL(ip6_tnl_dst_set);
+ 
+ /**
+  * ip6_tnl_lookup - fetch tunnel matching the end-point addresses
+@@ -1010,7 +1010,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+ 		neigh_release(neigh);
+ 	} else if (!fl6->flowi6_mark)
+-		dst = ip6_tnl_dst_check(t);
++		dst = ip6_tnl_dst_get(t);
+ 
+ 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
+ 		goto tx_err_link_failure;
+@@ -1102,7 +1102,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	ipv6h->daddr = fl6->daddr;
+ 	ip6tunnel_xmit(NULL, skb, dev);
+ 	if (ndst)
+-		ip6_tnl_dst_store(t, ndst);
++		ip6_tnl_dst_set(t, ndst);
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
+-- 
+2.5.1
