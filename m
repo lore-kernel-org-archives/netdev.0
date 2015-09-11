@@ -1,44 +1,64 @@
-From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [RFC PATCH 3/3] devicetree: macb: Add optional property tsu-clk
-Date: Fri, 11 Sep 2015 13:27:38 +0530
-Message-ID: <1441958258-35441-4-git-send-email-harinik@xilinx.com>
-References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH/RFC v2 net-next 3/4] ravb: Document binding for r8a7795
+ SoC
+Date: Fri, 11 Sep 2015 17:14:44 +0900
+Message-ID: <20150911081443.GD2835@verge.net.au>
+References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
+ <1441936878-18290-4-git-send-email-horms+renesas@verge.net.au>
+ <CAMuHMdWY+8Cv9ZnnzMcSYskFfArues8EnWgMiCMnQ16sN1TW_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
-	<punnaia@xilinx.com>, <michals@xilinx.com>, <anirudh@xilinx.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<boris.brezillon@free-electrons.com>,
-	<alexandre.belloni@free-electrons.com>,
-	<harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdWY+8Cv9ZnnzMcSYskFfArues8EnWgMiCMnQ16sN1TW_A@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add TSU clock frequency to be used for 1588 support in macb driver.
+On Fri, Sep 11, 2015 at 09:12:17AM +0200, Geert Uytterhoeven wrote:
+> Hi Simon,
+> 
+> On Fri, Sep 11, 2015 at 4:01 AM, Simon Horman
+> <horms+renesas@verge.net.au> wrote:
+> > --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> > +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> > @@ -6,8 +6,11 @@ interface contains.
+> >  Required properties:
+> >  - compatible: "renesas,etheravb-r8a7790" if the device is a part of R8A7790 SoC.
+> >               "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
+> > +             "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
+> >  - reg: offset and length of (1) the register block and (2) the stream buffer.
+> > -- interrupts: interrupt specifier for the sole interrupt.
+> > +- interrupts: interrupt specifiers.
+> > +             One for each entry in interrupt-names the R8A7795 SoC;
+> 
+> ... for the R8A7795 SoC
+> 
+> > +             One entry for a multiplexed interrupt otherwise.
+> >  - phy-mode: see ethernet.txt file in the same directory.
+> >  - phy-handle: see ethernet.txt file in the same directory.
+> >  - #address-cells: number of address cells for the MDIO bus, must be equal to 1.
+> > @@ -18,6 +21,9 @@ Required properties:
+> >  Optional properties:
+> >  - interrupt-parent: the phandle for the interrupt controller that services
+> >                     interrupts for this device.
+> > +- interrupt-names: One entry per interrupt named "ch%u".
+> > +                  For the R8A7795 SoC this property is mandatory,
+> > +                  and "ch0" through "ch24" are mandatory.
+> 
+> This suggests the single multiplexed interrupt on R-Car Gen2 can be called
+> "ch0". Is that what you want? I know the driver doesn't care.
 
-Signed-off-by: Harini Katakam <harinik@xilinx.com>
----
- Documentation/devicetree/bindings/net/macb.txt |    3 +++
- 1 file changed, 3 insertions(+)
+No, its not what I intended.
 
-diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index b5d7976..f7c0ea8 100644
---- a/Documentation/devicetree/bindings/net/macb.txt
-+++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -19,6 +19,9 @@ Required properties:
- 	Optional elements: 'tx_clk'
- - clocks: Phandles to input clocks.
- 
-+Optional properties:
-+- tsu-clk: Time stamp unit clock frequency used.
-+
- Examples:
- 
- 	macb0: ethernet@fffc4000 {
--- 
-1.7.9.5
+I think its reasonable to allow the multiplexed interrupt to be named,
+but to what I wonder. The documentation seems to call the interrupt
+"EthernetAVB", which isn't very exciting.
