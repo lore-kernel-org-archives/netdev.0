@@ -1,28 +1,42 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: randconfig build error with next-20150911, in net/openvswitch
-Date: Fri, 11 Sep 2015 15:05:09 -0700
-Message-ID: <CANr6G5zD=Pkt=ZvFW8i8AXX_0KnwxZviOCuFVR8Z90Zzf9SY6A@mail.gmail.com>
-References: <CA+r1Zhiv+XTVX2a-E-57dDkxqvNNVMf7NpoBVuabXBZsPXT_4g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V5 net-next 1/2] net: introduce socket family constants
+Date: Fri, 11 Sep 2015 15:07:27 -0700 (PDT)
+Message-ID: <20150911.150727.1724015352215300943.davem@davemloft.net>
+References: <1441973350-62517-1-git-send-email-ubraun@linux.vnet.ibm.com>
+	<1441973350-62517-2-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jim Davis <jim.epost@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+r1Zhiv+XTVX2a-E-57dDkxqvNNVMf7NpoBVuabXBZsPXT_4g@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, ursula.braun@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50724 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752661AbbIKWH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 18:07:28 -0400
+In-Reply-To: <1441973350-62517-2-git-send-email-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11 September 2015 at 09:53, Jim Davis <jim.epost@gmail.com> wrote:
-> Building with the attached random configuration file,
->
-> net/built-in.o: In function `ovs_ct_execute':
-> (.text+0x10f587): undefined reference to `nf_ct_frag6_gather'
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Fri, 11 Sep 2015 14:09:09 +0200
 
-Thanks for the report, I sent a patch:
-https://patchwork.ozlabs.org/patch/517033/
+> @@ -0,0 +1,13 @@
+> +/*
+> + * SMC		Definitions for the SMC protocol.
+> + *
+> + * Author:	Ursula Braun <ursula.braun@de.ibm.com>
+> + */
+> +#ifndef _SMC_H
+> +#define _SMC_H
+> +
+> +/* SMC socket options - disjunct with TCP socket options */
+> +#define SMC_KEEPALIVE		99	/* start/stop keepalives */
+> +
+> +#endif /* _SMC_H */
+> +
+
+Trailing empty lines in files always generate warnings when such
+patches are attempted to be applied by GIT.
