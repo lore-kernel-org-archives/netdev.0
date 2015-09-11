@@ -1,99 +1,84 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: NFS/TCP/IPv6 acting strangely in 4.2
-Date: Fri, 11 Sep 2015 12:38:39 +0100
-Message-ID: <20150911113839.GO21084@n2100.arm.linux.org.uk>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 4/5] seccomp: add a way to access filters via bpf fds
+Date: Fri, 11 Sep 2015 13:47:38 +0200
+Message-ID: <55F2BF5A.8010006@iogearbox.net>
+References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com> <1441930862-14347-5-git-send-email-tycho.andersen@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org
-To: Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:40656 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352AbbIKLiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 07:38:50 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org
+To: Tycho Andersen <tycho.andersen@canonical.com>,
+	Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441930862-14347-5-git-send-email-tycho.andersen@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have a recent Marvell Armada 388 board here which uses the mvneta
-driver.  I'm seeing some weird effects with NFS with it acting as a
-client.  Unfortunately, the board does not have a functional RTC.
+On 09/11/2015 02:21 AM, Tycho Andersen wrote:
+> This patch adds a way for a process that is "real root" to access the
+> seccomp filters of another process. The process first does a
+> PTRACE_SECCOMP_GET_FILTER_FD to get an fd with that process' seccomp filter
+> attached, and then iterates on this with PTRACE_SECCOMP_NEXT_FILTER using
+> bpf(BPF_PROG_DUMP) to dump the actual program at each step.
+>
+> Signed-off-by: Tycho Andersen <tycho.andersen@canonical.com>
+> CC: Kees Cook <keescook@chromium.org>
+> CC: Will Drewry <wad@chromium.org>
+> CC: Oleg Nesterov <oleg@redhat.com>
+> CC: Andy Lutomirski <luto@amacapital.net>
+> CC: Pavel Emelyanov <xemul@parallels.com>
+> CC: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+> CC: Alexei Starovoitov <ast@kernel.org>
+> CC: Daniel Borkmann <daniel@iogearbox.net>
+[...]
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index 58ae9f4..ac3ed1c 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -506,6 +506,30 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
+>   }
+>   EXPORT_SYMBOL_GPL(bpf_prog_get);
+>
+> +int bpf_prog_set(u32 ufd, struct bpf_prog *new)
+> +{
+> +	struct fd f;
+> +	struct bpf_prog *prog;
+> +
+> +	f = fdget(ufd);
+> +
+> +	prog = get_prog(f);
+> +	if (!IS_ERR(prog) && prog)
+> +		bpf_prog_put(prog);
+> +
+> +	atomic_inc(&new->aux->refcnt);
+> +	f.file->private_data = new;
+> +	fdput(f);
+> +	return 0;
 
-The NFS server is the same NFS server that I've used for years with
-multiple other clients (it's my main NFS server) and it continues to
-support all other clients without any ill effect.  The NFS server
-kernel is rather old now, being a 3.x kernel.
+So in case get_prog() fails, and for example f.file is infact NULL,
+you assign the bpf prog then to ERR_PTR(-EBADF)'s private_data? :(
 
-The NFS client appears to connect using TCP/IPv6 and initially is
-accessible.  Everything appears to work normally, and then the NFS
-server appears to stop responding.
+> +}
+> +EXPORT_SYMBOL_GPL(bpf_prog_set);
+> +
+> +int bpf_new_fd(struct bpf_prog *prog, int flags)
+> +{
+> +	return anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog, flags);
+> +}
+> +EXPORT_SYMBOL_GPL(bpf_new_fd);
 
-Running tcpdump on the NFS server, and then dumping the captured packet=
-s
-with tshark (because tcpdump appears not to understand IPv6 SYNs on the
-NFS port) shows:
+Any reason why these two need to be exported for modules? Which
+modules are using them?
 
-  1   0.000000 fe80::250:43ff:fe02:201 -> fe80::214:fdff:fe10:4f86 ICMP=
-v6 Neighbor Solicitation for fe80::214:fdff:fe10:4f86 from 00:50:43:02:=
-02:01
-  2   0.000252 fe80::214:fdff:fe10:4f86 -> fe80::250:43ff:fe02:201 ICMP=
-v6 Neighbor Advertisement fe80::214:fdff:fe10:4f86 (sol)
-  3   0.030036 armada388 -> n2100 TCP 843=E2=86=92nfs [SYN] Seq=3D93680=
-3106 Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D1 TSval=3D892366 TSecr=3D=
-0 WS=3D128
-  4   0.030409 n2100 -> armada388 TCP nfs=E2=86=92843 [SYN, ACK] Seq=3D=
-409465870 Ack=3D936803107 Win=3D28560 Len=3D0 MSS=3D1440 SACK_PERM=3D1 =
-TSval=3D818169117 TSecr=3D892366 WS=3D64
-  5   0.030493 armada388 -> n2100 TCP [TCP Port numbers reused] 843=E2=86=
-=92nfs [SYN] Seq=3D936803633 Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D=
-1 TSval=3D892366 TSecr=3D0 WS=3D128
-  6   0.030699 n2100 -> armada388 TCP nfs=E2=86=92843 [RST, ACK] Seq=3D=
-0 Ack=3D936803634 Win=3D0 Len=3D0
-  7   0.030766 armada388 -> n2100 TCP 843=E2=86=92nfs [RST] Seq=3D93680=
-3107 Win=3D0 Len=3D0
-  8   3.040150 armada388 -> n2100 TCP [TCP Port numbers reused] 843=E2=86=
-=92nfs [SYN] Seq=3D983834371 Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D=
-1 TSval=3D892667 TSecr=3D0 WS=3D128
-  9   3.040467 n2100 -> armada388 TCP nfs=E2=86=92843 [SYN, ACK] Seq=3D=
-456498252 Ack=3D983834372 Win=3D28560 Len=3D0 MSS=3D1440 SACK_PERM=3D1 =
-TSval=3D818169418 TSecr=3D892667 WS=3D64
- 10   3.040552 armada388 -> n2100 TCP [TCP Port numbers reused] 843=E2=86=
-=92nfs [SYN] Seq=3D983834922 Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D=
-1 TSval=3D892667 TSecr=3D0 WS=3D128
- 11   3.040771 n2100 -> armada388 TCP nfs=E2=86=92843 [RST, ACK] Seq=3D=
-0 Ack=3D983834923 Win=3D0 Len=3D0
- 12   3.040845 armada388 -> n2100 TCP 843=E2=86=92nfs [RST] Seq=3D98383=
-4372 Win=3D0 Len=3D0
- 13   6.050296 armada388 -> n2100 TCP [TCP Port numbers reused] 843=E2=86=
-=92nfs [SYN] Seq=3D1030865629 Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D=
-1 TSval=3D892968 TSecr=3D0 WS=3D128
- 14   6.050673 n2100 -> armada388 TCP nfs=E2=86=92843 [SYN, ACK] Seq=3D=
-503532268 Ack=3D1030865630 Win=3D28560 Len=3D0 MSS=3D1440 SACK_PERM=3D1=
- TSval=3D818169719 TSecr=3D892968 WS=3D64
- 15   6.050761 armada388 -> n2100 TCP [TCP Port numbers reused] 843=E2=86=
-=92nfs [SYN] Seq=3D1030866205 Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D=
-1 TSval=3D892968 TSecr=3D0 WS=3D128
+I think modules should probably not mess with this.
 
-It seems rather strange that the Armada388 NFS client is trying to
-connect _two_ TCP/IPv6 connections from the same address and the same
-port but with different sequence numbers (which suggests that packet
-numbers 5, 10 and 15 are the problem ones.
-
-However, what happens with the reset packets is most interesting.
-Packet 6 looks like it's resetting the duplicate connection caused by
-packet 5.  Packet 7 looks like it's resetting the initial connection
-from packet 4.
-
-It seems fairly reproducable, though I haven't worked out exactly what
-triggers it.
-
-Is this a known bug?  Any ideas where to start looking?
-
-Thanks.
-
---=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+If you already name it generic, it would also be good if bpf_new_fd()
+is used in case of maps that call anon_inode_getfd(), too.
