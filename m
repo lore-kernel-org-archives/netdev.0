@@ -1,233 +1,326 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: NFS/TCP/IPv6 acting strangely in 4.2
-Date: Fri, 11 Sep 2015 15:33:47 +0100
-Message-ID: <20150911143347.GQ21084@n2100.arm.linux.org.uk>
-References: <20150911113839.GO21084@n2100.arm.linux.org.uk>
- <1441976691.4619.58.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH v2 5/5] seccomp: add a way to attach a filter via eBPF fd
+Date: Fri, 11 Sep 2015 08:40:17 -0600
+Message-ID: <20150911144017.GH27574@smitten>
+References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
+ <1441930862-14347-6-git-send-email-tycho.andersen@canonical.com>
+ <55F2CB27.7030804@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:41158 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752308AbbIKOeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 10:34:05 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1441976691.4619.58.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <55F2CB27.7030804-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2015 at 06:04:51AM -0700, Eric Dumazet wrote:
-> On Fri, 2015-09-11 at 12:38 +0100, Russell King - ARM Linux wrote:
-> > Running tcpdump on the NFS server, and then dumping the captured
-> > packets
-> > with tshark (because tcpdump appears not to understand IPv6 SYNs on
-> > the
-> > NFS port) shows:
-> >=20
-> >   3   0.030036 armada388 -> n2100 TCP 843=E2=86=92nfs [SYN] Seq=3D9=
-36803106
-> > Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D1 TSval=3D892366 TSecr=3D=
-0 WS=3D128
->=20
-> >   4   0.030409 n2100 -> armada388 TCP nfs=E2=86=92843 [SYN, ACK] Se=
-q=3D409465870
-> > Ack=3D936803107 Win=3D28560 Len=3D0 MSS=3D1440 SACK_PERM=3D1
-> >  TSval=3D818169117 TSecr=3D892366 WS=3D64
->=20
-> >   5   0.030493 armada388 -> n2100 TCP [TCP Port numbers reused]
-> > 843=E2=86=92nfs [SYN] Seq=3D936803633 Win=3D28800 Len=3D0 MSS=3D144=
-0 SACK_PERM=3D1
-> > TSval=3D892366 TSecr=3D0 WS=3D128
->=20
-> Yes, this packet looks very wrong. Like two simultaneous connect with
-> same source port. It is not a retransmit (Seq numbers differ)
->=20
-> >   6   0.030699 n2100 -> armada388 TCP nfs=E2=86=92843 [RST, ACK] Se=
-q=3D0
-> > Ack=3D936803634 Win=3D0 Len=3D0
-> >   7   0.030766 armada388 -> n2100 TCP 843=E2=86=92nfs [RST] Seq=3D9=
-36803107
-> > Win=3D0 Len=3D0
->=20
-> I suspect port reuse in NFS being broken.
->=20
-> Have you tried to apply
->=20
-> commit 099392048cd443349c50310f7fdc96070e40f4e7
-> Author: Trond Myklebust <trond.myklebust@primarydata.com>
-> Date:   Sat Aug 29 19:11:21 2015 -0700
->=20
->     SUNRPC: Prevent SYN+SYNACK+RST storms
->    =20
->     Add a shutdown() call before we release the socket in order to en=
-sure the
->     reset is sent before we try to reconnect.
->    =20
->     Signed-off-by: Trond Myklebust <trond.myklebust@primarydata.com>
+On Fri, Sep 11, 2015 at 02:37:59PM +0200, Daniel Borkmann wrote:
+> On 09/11/2015 02:21 AM, Tycho Andersen wrote:
+> >This is the final bit needed to support seccomp filters created via the bpf
+> >syscall. The patch adds a new seccomp operation SECCOMP_MODE_FILTER_EBPF,
+> >which takes exactly one command (presumably to be expanded upon later when
+> >seccomp EBPFs support more interesting things) and an argument struct
+> >similar to that of bpf(), although the size is explicit in the struct to
+> >avoid changing the signature of seccomp().
+> >
+> >v2: Don't abuse seccomp's third argument; use a separate command and a
+> >     pointer to a structure instead.
+> 
+> Comments below ...
+> 
+> >Signed-off-by: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> >CC: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> >CC: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> >CC: Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> >CC: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+> >CC: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> >CC: Serge E. Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
+> >CC: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> >CC: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+> >---
+> >  include/uapi/linux/seccomp.h |  16 +++++
+> >  kernel/seccomp.c             | 135 ++++++++++++++++++++++++++++++++++++++-----
+> >  2 files changed, 138 insertions(+), 13 deletions(-)
+> >
+> >diff --git a/include/uapi/linux/seccomp.h b/include/uapi/linux/seccomp.h
+> >index 0f238a4..a8694e2 100644
+> >--- a/include/uapi/linux/seccomp.h
+> >+++ b/include/uapi/linux/seccomp.h
+> >@@ -13,10 +13,14 @@
+> >  /* Valid operations for seccomp syscall. */
+> >  #define SECCOMP_SET_MODE_STRICT	0
+> >  #define SECCOMP_SET_MODE_FILTER	1
+> >+#define SECCOMP_MODE_FILTER_EBPF	2
+> 
+> Should this be SECCOMP_SET_MODE_FILTER_EBPF or just SECCOMP_SET_MODE_EBPF?
 
-Applying this patch changes the behaviour slightly, but doesn't fix the
-problem:
+I just stole the name Kees gave it in the previous thread, but I think
+that perhaps there are other plans for manipulating seccomp ebpfs (?).
+The command is SECCOMP_EBPF_ADD_FD, so it seems like we could add a
+command like SECCOMP_EBPF_SOMETHING in the future.
 
-  1   0.000000 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [SYN] Seq=3D=
-3766378552 Win=3D28800 Len=3D0 MSS=3D1440 SACK_PERM=3D1 TSval=3D240384 =
-TSecr=3D0 WS=3D128
-  2   0.000431 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [SYN, ACK]=
- Seq=3D1297069321 Ack=3D3766378553 Win=3D28560 Len=3D0 MSS=3D1440 SACK_=
-PERM=3D1 TSval=3D869361932 TSecr=3D240384 WS=3D64
-  3   0.000518 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766379468 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-  4   0.000740 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [RST, ACK]=
- Seq=3D0 Ack=3D3766379469 Win=3D0 Len=3D0
-  5   0.000812 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766379980 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-  6   0.001051 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [SYN, ACK]=
- Seq=3D1297080280 Ack=3D3766379981 Win=3D28560 Len=3D0 MSS=3D1440 SACK_=
-PERM=3D1 TSval=3D869361932 TSecr=3D240384 WS=3D64
-  7   0.001137 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766380519 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-  8   0.001352 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [RST, ACK]=
- Seq=3D0 Ack=3D3766380520 Win=3D0 Len=3D0
+> >  /* Valid flags for SECCOMP_SET_MODE_FILTER */
+> >  #define SECCOMP_FILTER_FLAG_TSYNC	1
+> >
+> >+/* Valid cmds for SECCOMP_MODE_FILTER_EBPF */
+> >+#define SECCOMP_EBPF_ADD_FD	0
+> >+
+> >  /*
+> >   * All BPF programs must return a 32-bit value.
+> >   * The bottom 16-bits are for optional return data.
+> >@@ -51,4 +55,16 @@ struct seccomp_data {
+> >  	__u64 args[6];
+> >  };
+> >
+> >+struct seccomp_ebpf {
+> >+	unsigned int size;
+> >+
+> >+	union {
+> >+		/* SECCOMP_EBPF_ADD_FD */
+> >+		struct {
+> >+			unsigned int	add_flags;
+> >+			__u32		add_fd;
+> >+		};
+> >+	};
+> >+};
+> >+
+> >  #endif /* _UAPI_LINUX_SECCOMP_H */
+> >diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+> >index 1856f69..e78175a 100644
+> >--- a/kernel/seccomp.c
+> >+++ b/kernel/seccomp.c
+> >@@ -65,6 +65,9 @@ struct seccomp_filter {
+> >  /* Limit any path through the tree to 256KB worth of instructions. */
+> >  #define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
+> >
+> >+static long seccomp_install_filter(unsigned int flags,
+> >+				   struct seccomp_filter *prepared);
+> >+
+> >  /*
+> >   * Endianness is explicitly ignored and left for BPF program authors to manage
+> >   * as per the specific architecture.
+> >@@ -356,17 +359,6 @@ static struct seccomp_filter *seccomp_prepare_filter(struct sock_fprog *fprog)
+> >
+> >  	BUG_ON(INT_MAX / fprog->len < sizeof(struct sock_filter));
+> >
+> >-	/*
+> >-	 * Installing a seccomp filter requires that the task has
+> >-	 * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
+> >-	 * This avoids scenarios where unprivileged tasks can affect the
+> >-	 * behavior of privileged children.
+> >-	 */
+> >-	if (!task_no_new_privs(current) &&
+> >-	    security_capable_noaudit(current_cred(), current_user_ns(),
+> >-				     CAP_SYS_ADMIN) != 0)
+> >-		return ERR_PTR(-EACCES);
+> >-
+> >  	/* Allocate a new seccomp_filter */
+> >  	sfilter = kzalloc(sizeof(*sfilter), GFP_KERNEL | __GFP_NOWARN);
+> >  	if (!sfilter)
+> >@@ -510,8 +502,105 @@ static void seccomp_send_sigsys(int syscall, int reason)
+> >  	info.si_syscall = syscall;
+> >  	force_sig_info(SIGSYS, &info, current);
+> >  }
+> >+
+> >  #endif	/* CONFIG_SECCOMP_FILTER */
+> >
+> >+#if defined(CONFIG_BPF_SYSCALL) && defined(CONFIG_SECCOMP_FILTER)
+> >+static struct seccomp_filter *seccomp_prepare_ebpf(int fd)
+> >+{
+> >+	struct seccomp_filter *ret;
+> >+	struct bpf_prog *prog;
+> >+
+> >+	prog = bpf_prog_get(fd);
+> >+	if (IS_ERR(prog))
+> >+		return (struct seccomp_filter *) prog;
+> 
+> ERR_CAST()
+> 
+> >+
+> >+	if (prog->type != BPF_PROG_TYPE_SECCOMP) {
+> >+		bpf_prog_put(prog);
+> >+		return ERR_PTR(-EINVAL);
+> >+	}
+> >+
+> >+	ret = kzalloc(sizeof(*ret), GFP_KERNEL | __GFP_NOWARN);
+> >+	if (!ret) {
+> >+		bpf_prog_put(prog);
+> >+		return ERR_PTR(-ENOMEM);
+> >+	}
+> >+
+> >+	ret->prog = prog;
+> >+	atomic_set(&ret->usage, 1);
+> >+
+> >+	/* Intentionally don't bpf_prog_put() here, because the underlying prog
+> >+	 * is refcounted too and we're holding a reference from the struct
+> >+	 * seccomp_filter object.
+> >+	 */
+> >+	return ret;
+> >+}
+> >+
+> >+static long seccomp_ebpf_add_fd(struct seccomp_ebpf *ebpf)
+> >+{
+> >+	struct seccomp_filter *prepared;
+> >+
+> >+	prepared = seccomp_prepare_ebpf(ebpf->add_fd);
+> >+	if (IS_ERR(prepared))
+> >+		return PTR_ERR(prepared);
+> >+
+> >+	return seccomp_install_filter(ebpf->add_flags, prepared);
+> >+}
+> >+
+> >+static long seccomp_mode_filter_ebpf(unsigned int cmd, const char __user *uargs)
+> >+{
+> >+	const struct seccomp_ebpf __user *uebpf;
+> >+	struct seccomp_ebpf ebpf;
+> >+	unsigned int size;
+> >+	long ret = -EFAULT;
+> >+
+> >+	uebpf = (const struct seccomp_ebpf __user *) uargs;
+> >+
+> >+	if (get_user(size, &uebpf->size) != 0)
+> >+		return -EFAULT;
+> >+
+> >+	/* If we're handed a bigger struct than we know of,
+> >+	 * ensure all the unknown bits are 0 - i.e. new
+> >+	 * user-space does not rely on any kernel feature
+> >+	 * extensions we dont know about yet.
+> >+	 */
+> >+	if (size > sizeof(ebpf)) {
+> >+		unsigned char __user *addr;
+> >+		unsigned char __user *end;
+> >+		unsigned char val;
+> >+
+> >+		addr = (void __user *)uebpf + sizeof(ebpf);
+> >+		end  = (void __user *)uebpf + size;
+> >+
+> >+		for (; addr < end; addr++) {
+> >+			int err = get_user(val, addr);
+> >+
+> >+			if (err)
+> >+				return err;
+> >+			if (val)
+> >+				return -E2BIG;
+> >+		}
+> >+		size = sizeof(ebpf);
+> >+	}
+> >+
+> >+	if (copy_from_user(&ebpf, uebpf, size) != 0)
+> >+		return -EFAULT;
+> 
+> Not sure it's worth adding all this bpf(2)-alike interface complexity into
+> this, but fair enough, I guess there are some very good reasons and bigger
+> additions coming then ...
 
-Notice the lack of second reset, but the syns trying to re-use the same
-port but with different sequence numbers is still there.
+I'm not sure what bigger additions are coming, although it seems Andy
+might have something. I think this is just an attempt to future proof
+things.
 
-Eventually, we get to a storm of SYNs:
+> >+	switch (cmd) {
+> >+	case SECCOMP_EBPF_ADD_FD:
+> >+		ret = seccomp_ebpf_add_fd(&ebpf);
+> >+		break;
+> >+	}
+> >+
+> >+	return ret;
+> >+}
+> >+#else
+> >+static long seccomp_mode_filter_ebpf(unsigned int cmd, const char __user *uargs)
+> >+{
+> >+	return -EINVAL;
+> >+}
+> >+#endif
+> >+
+> >  /*
+> >   * Secure computing mode 1 allows only read/write/exit/sigreturn.
+> >   * To be fully secure this must be combined with rlimit
+> >@@ -760,9 +849,7 @@ out:
+> >  static long seccomp_set_mode_filter(unsigned int flags,
+> >  				    const char __user *filter)
+> >  {
+> >-	const unsigned long seccomp_mode = SECCOMP_MODE_FILTER;
+> >  	struct seccomp_filter *prepared = NULL;
+> >-	long ret = -EINVAL;
+> >
+> >  	/* Validate flags. */
+> >  	if (flags & ~SECCOMP_FILTER_FLAG_MASK)
+> >@@ -773,6 +860,26 @@ static long seccomp_set_mode_filter(unsigned int flags,
+> >  	if (IS_ERR(prepared))
+> >  		return PTR_ERR(prepared);
+> >
+> >+	return seccomp_install_filter(flags, prepared);
+> 
+> I (truly) hope, I'm overseeing something ;) ...
+> 
+> ... but why doing all the (classic) seccomp-BPF preparation work (which is rather
+> a lot) up to this point, where you have it ready, only to *then* find out we don't
+> have the actual permissions ?!
 
-468   0.084816 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766488832 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-469   0.085046 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [SYN, ACK]=
- Seq=3D1298392849 Ack=3D3766488833 Win=3D28560 Len=3D0 MSS=3D1440 SACK_=
-PERM=3D1 TSval=3D869361940 TSecr=3D240384 WS=3D64
-470   0.085136 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766489333 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-471   0.085391 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [RST, ACK]=
- Seq=3D0 Ack=3D3766489334 Win=3D0 Len=3D0
-472   0.085482 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766489762 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-473   0.085777 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766490263 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-474   0.086023 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766490694 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-=2E..
-526   0.104063 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766514610 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-527   0.104308 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766515182 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-528   0.104560 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766515621 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-529   0.104799 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766516122 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-530   0.105052 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766516556 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-=2E..
-550   0.110487 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-wis=
-mar=E2=86=92nfs [SYN] Seq=3D3766525755 Win=3D28800 Len=3D0 MSS=3D1440 S=
-ACK_PERM=3D1 TSval=3D240384 TSecr=3D0 WS=3D128
-551   0.114016 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [SYN, ACK]=
- Seq=3D1298403514 Ack=3D3766489763 Win=3D28560 Len=3D0 MSS=3D1440 SACK_=
-PERM=3D1 TSval=3D869361940 TSecr=3D240384 WS=3D64
+Yes, this seems dumb. I was trying to avoid having the check in two
+places, but that's probably what's necessary.
 
-followed by a storm of SYN,ACKs and resets.  This seems to happen sever=
-al
-times in the packet log.
+> Plus, when seccomp_install_filter() fails with -EACCES, who is releasing all the
+> allocated foo resp. dropping taken program refs !?
 
-At some point something starts going really crazy:
+Yes, seccomp_install_filter is /supposed/ to free things if the
+install fails, although it doesn't in the permissions case because
+of the copy paste error, doh.
 
-9341   2.668325 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [ACK] Seq=
-=3D1337671519 Ack=3D3802565165 Win=3D28560 Len=3D0 TSval=3D869362196 TS=
-ecr=3D240615
-9342   2.668413 n2100 -> armada388 TCP [TCP Dup ACK 9341#1] nfs=E2=86=92=
-hcp-wismar [ACK] Seq=3D1337671519 Ack=3D3802565165 Win=3D28560 Len=3D0 =
-TSval=3D869362196 TSecr=3D240615
-9343   2.668423 n2100 -> armada388 TCP [TCP Dup ACK 9341#2] nfs=E2=86=92=
-hcp-wismar [ACK] Seq=3D1337671519 Ack=3D3802565165 Win=3D28560 Len=3D0 =
-TSval=3D869362196 TSecr=3D240615
-9344   2.668433 n2100 -> armada388 TCP [TCP Dup ACK 9341#3] nfs=E2=86=92=
-hcp-wismar [ACK] Seq=3D1337671519 Ack=3D3802565165 Win=3D28560 Len=3D0 =
-TSval=3D869362196 TSecr=3D240615
-=2E..
-9419   2.669586 n2100 -> armada388 TCP [TCP Dup ACK 9341#78] nfs=E2=86=92=
-hcp-wismar [ACK] Seq=3D1337671519 Ack=3D3802565165 Win=3D28560 Len=3D0 =
-TSval=3D869362198 TSecr=3D240615
+> I see the same in seccomp_ebpf_add_fd().
 
-There's no other packets logged between any of these duplicated acks an=
-d
-I don't seem to have anything preceeding that with a sequence number of
-380256516*, so I assume tcpdump dropped some packets.
+Same as above, seccomp_install_filter is supposed to call
+seccomp_filter_free in case of an error, but it doesn't.
 
-Eventually, we get to:
+Thanks for the look. I'll make the changes for the next set.
 
-31213   8.247815 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-w=
-ismar=E2=86=92nfs [SYN] Seq=3D3892006879 Win=3D28800 Len=3D0 MSS=3D1440=
- SACK_PERM=3D1 TSval=3D241188 TSecr=3D0 WS=3D128
-=2E..
-31337   8.297654 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [RST] Se=
-q=3D3891941177 Win=3D0 Len=3D0
-31338   8.297753 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [RST] Se=
-q=3D3891942022 Win=3D0 Len=3D0
-31339   8.297798 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [RST] Se=
-q=3D3891942867 Win=3D0 Len=3D0
-31340   8.297835 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [RST] Se=
-q=3D3891943715 Win=3D0 Len=3D0
-31341   8.297872 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [RST] Se=
-q=3D3891944560 Win=3D0 Len=3D0
-31342   8.298076 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [RST] Se=
-q=3D3891945416 Win=3D0 Len=3D0
-31343   8.300232 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [SYN, AC=
-K] Seq=3D1425940018 Ack=3D3892006880 Win=3D28560 Len=3D0 MSS=3D1440 SAC=
-K_PERM=3D1 TSval=3D869362756 TSecr=3D241188 WS=3D64
+Tycho
 
-31344   9.050382 armada388 -> n2100 TCP [TCP Port numbers reused] hcp-w=
-ismar=E2=86=92nfs [SYN] Seq=3D3892315104 Win=3D28800 Len=3D0 MSS=3D1440=
- SACK_PERM=3D1 TSval=3D241289 TSecr=3D0 WS=3D128
-31345   9.050760 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [SYN, AC=
-K] Seq=3D1438481320 Ack=3D3892315105 Win=3D28560 Len=3D0 MSS=3D1440 SAC=
-K_PERM=3D1 TSval=3D869362837 TSecr=3D241289 WS=3D64
-31346   9.051115 armada388 -> n2100 TCP hcp-wismar=E2=86=92nfs [ACK] Se=
-q=3D3892315105 Ack=3D1438481321 Win=3D28800 Len=3D0 TSval=3D241289 TSec=
-r=3D869362837
-31347   9.051624 armada388 -> n2100 NFS V3 ACCESS Call, FH: 0x905379cc,=
- [Check: RD LU MD XT DL]
-31348   9.051878 n2100 -> armada388 TCP nfs=E2=86=92hcp-wismar [ACK] Se=
-q=3D1438481321 Ack=3D3892315225 Win=3D28608 Len=3D0 TSval=3D869362837 T=
-Secr=3D241289
-31349   9.052164 armada388 -> n2100 NFS V3 ACCESS Call, FH: 0x905379cc,=
- [Check: RD LU MD XT DL]
-
-where things start working again.
-
-It looks like 0c78789e3a030615c6650fde89546cadf40ec2cc might be relevan=
-t
-too, but I don't see that solving the multiple _concurrent_ connection
-attempts with the same port number - presumably it's somehow trying to
-make the same socket repeatedly connect despite a previous connection
-being in progress, which would have nothing to do with cleaning up a
-previous attempt.
-
-To me, it looks like the sunrpc code isn't tracking whether a TCP
-connection is already in progress, and waiting for the TCP connection
-to either finish connecting, or fail to connect before attempting
-another connection.
-
---=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+> So, an unprivileged child could increase the parent's bpf_prog's reference count
+> w/o having the actual permissions to do so, and thus controlling it to the point
+> where the next bpf_prog_put() would unintentionally release it?
+> 
+> (So yeah, I'm hoping I misread something ... ;))
+> 
+> >+}
+> >+
+> >+static long seccomp_install_filter(unsigned int flags,
+> >+				   struct seccomp_filter *prepared)
+> >+{
+> >+	const unsigned long seccomp_mode = SECCOMP_MODE_FILTER;
+> >+	long ret = -EINVAL;
+> >+
+> >+	/*
+> >+	 * Installing a seccomp filter requires that the task has
+> >+	 * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
+> >+	 * This avoids scenarios where unprivileged tasks can affect the
+> >+	 * behavior of privileged children.
+> >+	 */
+> >+	if (!task_no_new_privs(current) &&
+> >+	    security_capable_noaudit(current_cred(), current_user_ns(),
+> >+				     CAP_SYS_ADMIN) != 0)
+> >+		return -EACCES;
+> >+
+> >  	/*
+> >  	 * Make sure we cannot change seccomp or nnp state via TSYNC
+> >  	 * while another thread is in the middle of calling exec.
+> >@@ -875,6 +982,8 @@ static long do_seccomp(unsigned int op, unsigned int flags,
+> >  		return seccomp_set_mode_strict();
+> >  	case SECCOMP_SET_MODE_FILTER:
+> >  		return seccomp_set_mode_filter(flags, uargs);
+> >+	case SECCOMP_MODE_FILTER_EBPF:
+> >+		return seccomp_mode_filter_ebpf(flags, uargs);
+> >  	default:
+> >  		return -EINVAL;
+> >  	}
+> >
+> 
