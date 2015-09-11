@@ -1,28 +1,31 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] openvswitch: Fix dependency on IPv6 defrag.
-Date: Fri, 11 Sep 2015 15:11:36 -0700
-Message-ID: <CALnjE+qNBGWkLkTYP2cagp7gC2hFSc=ai7N48djADf3cqcezRw@mail.gmail.com>
-References: <1442008876-19462-1-git-send-email-joestringer@nicira.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] netlink, mmap: transform mmap skb into full skb on
+ taps
+Date: Sat, 12 Sep 2015 00:18:54 +0200
+Message-ID: <55F3534E.4050405@iogearbox.net>
+References: <55F2AC29.3030209@iogearbox.net>	<20150911.124205.1992250802389107845.davem@davemloft.net>	<55F33AFC.1080206@iogearbox.net> <20150911.143459.1484553569083753621.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442008876-19462-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: chamaken@gmail.com, fw@strlen.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:50362 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752125AbbIKWS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 18:18:58 -0400
+In-Reply-To: <20150911.143459.1484553569083753621.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 3:01 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> When NF_CONNTRACK is built-in, NF_DEFRAG_IPV6 is a module, and
-> OPENVSWITCH is built-in, the following build error would occur:
+On 09/11/2015 11:34 PM, David Miller wrote:
+...
+> Another approach would be to put the mmap user data into a page frag,
+> but that obviously has some costs associated with it.  However,
+> nothing in netlink is ready for fragged skbs yet.  It's the reason why
+> we have the large skb via vmalloc facility.
 >
-> net/built-in.o: In function `ovs_ct_execute':
-> (.text+0x10f587): undefined reference to `nf_ct_frag6_gather'
->
-> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-> Reported-by: Jim Davis <jim.epost@gmail.com>
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> Long term fixing that is probably the way to go, but that would be an
+> enormous project.
 
-Looks good
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+Yeah, that could resolve it.
