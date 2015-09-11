@@ -1,29 +1,68 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: [fw filter]: Broken! fw mark based tc class selection not working
-Date: Fri, 11 Sep 2015 23:34:19 +0700
-Message-ID: <CAA5aLPhvkEPpDhaxSNWnGHU2H0WmCaYhbo-fYKP8+Xzka3-q=g@mail.gmail.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCH net] bridge: fix igmpv3 / mldv2 report parsing
+Date: Fri, 11 Sep 2015 18:39:48 +0200
+Message-ID: <1441989588-26312-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:33079 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587AbbIKQeT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Sep 2015 12:34:19 -0400
-Received: by oixx17 with SMTP id x17so45866549oix.0
-        for <netdev@vger.kernel.org>; Fri, 11 Sep 2015 09:34:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: bridge@lists.linux-foundation.org,
+	Tobias Powalowski <tobias.powalowski@googlemail.com>,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Recently I came to know that,
-Without any options fw classifier maps fwmark to classid.
+With the newly introduced helper functions the skb pulling is hidden in
+the checksumming function - and undone before returning to the caller.
 
-tc filter add dev <iface> parent <qhandle> protocol ip prio 1 fw
+The IGMPv3 and MLDv2 report parsing functions in the bridge still
+assumed that the skb is pointing to the beginning of the IGMP/MLD
+message while it is now kept at the beginning of the IPv4/6 header,
+breaking the message parsing and creating packet loss.
 
-i.e. if my packet has mark(0x10001) and class id is not set,
-then above tc filter, will set class id = 0x10001 i.e. 1:1
+Fixing this by taking the offset between IP and IGMP/MLD header into
+account, too.
 
-But when I am trying it out, its not working!
-I am having class 1:1 defined but its not at all hit.
+Fixes: 9afd85c9e455 ("net: Export IGMP/MLD message validation code")
+Reported-by: Tobias Powalowski <tobias.powalowski@googlemail.com>
+Tested-by: Tobias Powalowski <tobias.powalowski@googlemail.com>
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+---
+ net/bridge/br_multicast.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 66efdc2..480b3de 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1006,7 +1006,7 @@ static int br_ip4_multicast_igmp3_report(struct net=
+_bridge *br,
+=20
+ 	ih =3D igmpv3_report_hdr(skb);
+ 	num =3D ntohs(ih->ngrec);
+-	len =3D sizeof(*ih);
++	len =3D skb_transport_offset(skb) + sizeof(*ih);
+=20
+ 	for (i =3D 0; i < num; i++) {
+ 		len +=3D sizeof(*grec);
+@@ -1067,7 +1067,7 @@ static int br_ip6_multicast_mld2_report(struct net_=
+bridge *br,
+=20
+ 	icmp6h =3D icmp6_hdr(skb);
+ 	num =3D ntohs(icmp6h->icmp6_dataun.un_data16[1]);
+-	len =3D sizeof(*icmp6h);
++	len =3D skb_transport_offset(skb) + sizeof(*icmp6h);
+=20
+ 	for (i =3D 0; i < num; i++) {
+ 		__be16 *nsrcs, _nsrcs;
+--=20
+1.7.10.4
