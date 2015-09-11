@@ -1,101 +1,79 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: xfrm4_garbage_collect reaching limit
-Date: Fri, 11 Sep 2015 11:48:08 +0200
-Message-ID: <20150911094808.GI25499@secunet.com>
-References: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] x86: Wire up 32-bit direct socket calls
+Date: Fri, 11 Sep 2015 11:54:50 +0200
+Message-ID: <CAMuHMdXX31xZ4AS6FbeXLXgDn5UV5=0C3hrihuwDOP_abuJsBg@mail.gmail.com>
+References: <cb5138299d37d5800e2d135b01a7667fa6115854.1436912629.git.luto@kernel.org>
+	<3193269.4TGcgnGPrm@wuerfel>
+	<20150911082429.GA12452@osiris>
+	<49726621.LPTnfQXYGz@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Dan Streetman <ddstreet@ieee.org>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	<netdev@vger.kernel.org>
-To: Dan Streetman <dan.streetman@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:38196 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751296AbbIKJsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Sep 2015 05:48:12 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>, "H. Peter Anvin" <hpa@zytor.com>,
+	Andy Lutomirski <luto@kernel.org>, X86 ML <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Tulio Magno Quites Machado Filho <tuliom@linux.vnet.ibm.com>, Andy Lutomirski <luto@amacapital.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Alexander Larsson <alexl@redhat.com>,
+	Cosimo Cecchi <cosimo@endlessm.com>, Dan Nicholson <nicholson@endlessm.com>,
+	libc-alpha <libc-alpha@sourceware.org>,
+	Rajalakshmi Srinivasaraghavan <raji@linux.vnet.ibm.com>, Linux-Arch <linux-arch@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <libc-alpha-return-63122-glibc-alpha=m.gmane.org@sourceware.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+In-Reply-To: <49726621.LPTnfQXYGz@wuerfel>
+List-Id: netdev.vger.kernel.org
 
-Hi Dan.
+On Fri, Sep 11, 2015 at 10:46 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Friday 11 September 2015 10:24:29 Heiko Carstens wrote:
+>>
+>> FWIW, the s390 approach (ignoring the "new" system calls) is only temporarily.
+>> I'll enable the seperate calls later when I have time to test everything,
+>> especially the glibc stuff.
+>
+> Ok, thanks for clarifying.
+>
+>> The same is true for the ipc system call. (any reason why the seperate system
+>> calls haven't been enabled on x86 now as well?)
+>
+> Agreed, we should split that out on all architectures as well.
+> Almost the same set of architectures that have sys_socketcall also
+> have sys_ipc, and the reasons for changing are identical. I don't
+> think we have any other system calls that are handled like this
+> on some architectures but not on others. There are a couple of
+> system calls (e.g. futex) that are also multiplexers, but at
+> least they do it consistently.
 
-On Thu, Sep 10, 2015 at 05:01:26PM -0400, Dan Streetman wrote:
-> Hi Steffen,
-> 
-> I've been working with Jay on a ipsec issue, which I believe he
-> discussed with you.  
+To make sure I don't miss any (it seems I missed recvmmsg and sendmmsg for
+the socketcall case, sigh), this is the list of ipc syscalls to implement?
 
-Yes, we talked about this at the LPC.
+    sys_msgget
+    sys_msgctl
+    sys_msgrcv
+    sys_msgsnd
+    sys_semget
+    sys_semctl
+    sys_semtimedop
+    sys_shmget
+    sys_shmctl
+    sys_shmat
+    sys_shmdt
 
-> In this case the xfrm4_garbage_collect is
-> returning error because the number of xfrm4 dst entries has exceeded
-> twice the gc_thresh, which causes new allocations of xfrm4 dst objects
-> to fail, thus making the ipsec connection unusable (until dst objects
-> are removed/freed).
-> 
-> The main reason the count gets to the limit is because the
-> xfrm4_policy_afinfo.garbage_collect function - which points to
-> flow_cache_flush (indirectly) - doesn't actually guarantee any xfrm4
-> dst will get cleaned up, it only cleans up unused entries.
-> 
-> The flow cache hashtable size limit watermark does restrict how many
-> flow cache entries exist (by shrinking the per-cpu hashtable once it
-> has 4k entries), and therefore indirectly controls the total number of
-> xfrm4 dst objects.  However, there's a mismatch between the default
-> xfrm4 gc_thresh - of 32k objects (which sets a 64k max of xfrm4 dst
-> objects) - and the flow cache hashtable limit of 4k objects per cpu.
-> Any system with 16 or less cpus will have a total limit of 64k (or
-> less) flow cache entries, so the 64k xfrm4 dst entry limit will never
-> be reached.  However for any system with more than 16 cpus, the flow
-> cache limit is greater than the xfrm4 dst limit, and so the xfrm4 dst
-> allocation can fail, rendering the ipsec connection unusable.
-> 
-> The most obvious solution is for the system admin to increase the
-> xfrm4_gc_thresh value, although it's not really an obvious solution to
-> the end-user what value they should set it to :-) 
+sys_semop() seems to be unneeded because it can be implemented using
+sys_semtimedop()?
 
-Yes, a static gc threshold is always wrong for some workloads. So
-the user needs to adjust it to his needs, even if the right value
-is not obvious.
+Thanks!
 
-> Possibly the
-> default value of xfrm4_gc_thresh could be set proportional to
-> num_online_cpus(), but that doesn't help when cpus are onlined after
-> boot.  
+Gr{oetje,eeting}s,
 
-This could be an option, we could change the xfrm4_gc_thresh value with
-a cpu notifier callback if more cpus come up after boot.
+                        Geert
 
-> Also, a warning message indicating the xfrm4_gc_thresh limit
-> was reached, and a suggestion to increase the limit, may help anyone
-> who hits the issue.
-> 
-> I'm not sure if something more aggressive is appropriate, like
-> removing active entries during garbage collection. 
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-It would not make too much sense to push an active flow out of the
-fastpath just to add some other flow. If the number of active
-entries is to high, there is no other option than increasing the
-gc threshold.
-
-You could try to reduce the number of active entries by shutting
-down stale security associations frequently.
-
-> Or, removing the
-> failure condition from xfrm4_garbage_collect so xfrm4 dst_ops can
-> always be allocated,
-
-This would open doors for DOS attacks, we can't do this.
-
-> or just increasing it from gc_thresh * 2 up to *
-> 4 or more.
-
-This would just defer the problem, so not a real solution.
-
-That said, whatever we do, we just paper over the real problem,
-that is the flowcache itself. Everything that need this kind
-of garbage collecting is fundamentally broken. But as long as
-nobody volunteers to work on a replacement, we have to live
-with this situation somehow.
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
