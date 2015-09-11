@@ -1,48 +1,42 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [pve-devel] bridge vlan range, kernel 4.1 : "message truncated"
- warning when too much vlans defined
-Date: Thu, 10 Sep 2015 17:02:51 -0700
-Message-ID: <55F21A2B.6070205@cumulusnetworks.com>
-References: <999679133.23642075.1438234304221.JavaMail.zimbra@oxygem.tv> <972878625.39892449.1441867226052.JavaMail.zimbra@oxygem.tv> <55F20396.9090505@cumulusnetworks.com> <20150910.155830.1391952981935838143.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: aderumier@odiso.com, ronen.arad@intel.com, netdev@vger.kernel.org,
-	rami.rosen@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36460 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbbIKACw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Sep 2015 20:02:52 -0400
-Received: by padhk3 with SMTP id hk3so56648043pad.3
-        for <netdev@vger.kernel.org>; Thu, 10 Sep 2015 17:02:52 -0700 (PDT)
-In-Reply-To: <20150910.155830.1391952981935838143.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: v2 of seccomp filter c/r patches
+Date: Thu, 10 Sep 2015 18:20:57 -0600
+Message-ID: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 9/10/15, 3:58 PM, David Miller wrote:
-> From: roopa <roopa@cumulusnetworks.com>
-> Date: Thu, 10 Sep 2015 15:26:30 -0700
->
->> On 9/9/15, 11:40 PM, Alexandre DERUMIER wrote:
->>> Hi,
->>>
->>> This still not fixed in iproute 4.2.
->>>
->>> Is they any plan to increase the rtnl_dump_filter buffer size soon ?
->> Instead of increasing the default size, it would be nicer if this was
->> configurable for iproute2 (I haven't looked yet).
-> I would definitely prefer this be done in a run-time manner of some
-> sort, and then other libraries can use iproute2's logic as a reference
-> for how to deal with this reliably, properly, and in a %100
-> future-proof manner.
->
-> Something of the "if request X fails, double the buffer size" variety.
-agreed. This would be ideal. libnl already handles it this way.
-We have to move iproute2 recv buffer to dynamic allocation and also 
-realloc on MSG_TRUNC.
+Hi all,
 
-I can get to it one of these days unless somebody beats me to it.
+Here is v2 of the seccomp filter c/r set. The patch notes have individual
+changes from the last series, but there are two points not noted:
 
-thanks.
+* The series still does not allow us to correctly restore state for programs
+  that will use SECCOMP_FILTER_FLAG_TSYNC in the future. Given that we want to
+  keep seccomp_filter's identity, I think something along the lines of another
+  seccomp command like SECCOMP_INHERIT_PARENT is needed (although I'm not sure
+  if this can even be done yet). In addition, we'll need a kcmp command for
+  figuring out if filters are the same, although this too needs to compare
+  seccomp_filter objects, so it's a little screwy. Any thoughts on how to do
+  this nicely are welcome.
+
+* I've dropped the bpf converter bug from the set and will submit it
+  separately.
+
+Alexei mentioned that this should go via net-next to minimize cross-tree
+conflicts. Does that make sense here?
+
+Thanks,
+
+Tycho
