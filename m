@@ -1,77 +1,49 @@
-From: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
-Subject: [PATCH v2] Net: core: stream.c: coding style fixes
-Date: Sat, 12 Sep 2015 09:24:32 +0200
-Message-ID: <1442042672-20108-1-git-send-email-cristos@vipserv.org>
-Cc: edumazet@google.com, netdev@vger.kernel.org,
-	Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sv1-2.x14.eu ([144.76.176.218]:49834 "EHLO sv1-2.x14.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000AbbILHY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Sep 2015 03:24:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Subject: [PATCH] iwlwifi: mvm: fix tof.h header guard
+Date: Sat, 12 Sep 2015 12:04:51 +0200
+Message-ID: <1442052291-2328-1-git-send-email-nicolas.iooss_linux@m4x.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+To: Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Gregory Greenman <gregory.greenman@intel.com>,
+	linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixed coding style issues reported by checkpatch.pl
+Commit ce7929186a39 ("iwlwifi: mvm: add basic Time of Flight (802.11mc
+FTM) support") created drivers/net/wireless/iwlwifi/mvm/tof.h with a
+broken header guard:
 
-Signed-off-by: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
+    #ifndef __tof
+    #define __tof_h__
+
+    ...
+
+    #endif /* __tof_h__ */
+
+Use __tof_h__ in the first line.
+
+Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
 ---
- net/core/stream.c | 23 +++++++++++++----------
- 1 file changed, 13 insertions(+), 10 deletions(-)
+ drivers/net/wireless/iwlwifi/mvm/tof.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/stream.c b/net/core/stream.c
-index d70f77a..c089589 100644
---- a/net/core/stream.c
-+++ b/net/core/stream.c
-@@ -60,6 +60,7 @@ int sk_stream_wait_connect(struct sock *sk, long *timeo_p)
+diff --git a/drivers/net/wireless/iwlwifi/mvm/tof.h b/drivers/net/wireless/iwlwifi/mvm/tof.h
+index 50ae8adaaa6e..9beebc33cb8d 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/tof.h
++++ b/drivers/net/wireless/iwlwifi/mvm/tof.h
+@@ -60,7 +60,7 @@
+  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  *
+  *****************************************************************************/
+-#ifndef __tof
++#ifndef __tof_h__
+ #define __tof_h__
  
- 	do {
- 		int err = sock_error(sk);
-+
- 		if (err)
- 			return err;
- 		if ((1 << sk->sk_state) & ~(TCPF_SYN_SENT | TCPF_SYN_RECV))
-@@ -122,9 +123,10 @@ int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
- 	bool noblock = (*timeo_p ? false : true);
- 	DEFINE_WAIT(wait);
- 
--	if (sk_stream_memory_free(sk))
--		current_timeo = vm_wait = (prandom_u32() % (HZ / 5)) + 2;
--
-+	if (sk_stream_memory_free(sk)) {
-+		vm_wait = (prandom_u32() % (HZ / 5)) + 2;
-+		current_timeo = vm_wait;
-+	}
- 	while (1) {
- 		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
- 
-@@ -145,18 +147,19 @@ int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
- 
- 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- 		sk->sk_write_pending++;
--		sk_wait_event(sk, &current_timeo, sk->sk_err ||
--						  (sk->sk_shutdown & SEND_SHUTDOWN) ||
--						  (sk_stream_memory_free(sk) &&
--						  !vm_wait));
-+		sk_wait_event(sk, &current_timeo,
-+			      sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN) ||
-+			      (sk_stream_memory_free(sk) && !vm_wait));
- 		sk->sk_write_pending--;
- 
- 		if (vm_wait) {
- 			vm_wait -= current_timeo;
- 			current_timeo = *timeo_p;
--			if (current_timeo != MAX_SCHEDULE_TIMEOUT &&
--			    (current_timeo -= vm_wait) < 0)
--				current_timeo = 0;
-+			if (current_timeo != MAX_SCHEDULE_TIMEOUT) {
-+				current_timeo -= vm_wait;
-+				if (current_timeo < 0)
-+					current_timeo = 0;
-+			}
- 			vm_wait = 0;
- 		}
- 		*timeo_p = current_timeo;
+ #include "fw-api-tof.h"
 -- 
 2.5.1
