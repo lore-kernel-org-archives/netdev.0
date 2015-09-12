@@ -1,31 +1,51 @@
-From: Global@vger.kernel.org, Ore@vger.kernel.org,
-	Malaysia@vger.kernel.org
-Subject: Investments and Loans.
-Date: Sat, 12 Sep 2015 17:23:02 +0100
-Message-ID: <AM2PR08MB0051AA335BBE13ED210C5C35B85F0@AM2PR08MB0051.eurprd08.prod.outlook.com>
-Reply-To: <mrsangupta@qq.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipvs:Fix locking requirements in the function
+ ip_vs_unlink_service
+Date: Sat, 12 Sep 2015 21:28:36 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1509122111110.1491@ja.home.ssi.bg>
+References: <1442032025-18642-1-git-send-email-xerofoify@gmail.com> <alpine.LFD.2.11.1509120910090.1626@ja.home.ssi.bg> <55F43D34.3020805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3hn0249.outbound.protection.outlook.com ([157.55.234.249]:4352
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753939AbbILQXT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Sep 2015 12:23:19 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: wensong@linux-vs.org, horms@verge.net.au, pablo@netfilter.org,
+	kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org
+To: nick <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55F43D34.3020805@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear sir/ Madam
 
-I am Mr Sujata Gupta Foreign investment Co-ordinator for Global Ore (M) SDN. BHD Malaysia, we are currently looking for foreign investors for property developement and purchase in our country.
+	Hello,
 
-We are also business investors, We give out Equity Loan Funding, Collateral and Non Collateral Loans. SBLC and many other business support services.
+On Sat, 12 Sep 2015, nick wrote:
 
-Kindly contact us if you are interested to partner with us, Looking forward to your urgent response. Reply via : mrsangupta@qq.com
+> > 	BH locking is not needed anymore. Also, sched_lock is
+> > used by schedulers to protect only access to svc->sched_data
+> > fields.
+> > 
+> > 	It seems the comment is outdated after
+> > commit ceec4c381681 ("ipvs: convert services to rcu").
+> > 
+> Julian,
+> You are correct after reading the commit id for rcu locking conversion that this comment
+> is outdated. However the locking may still be required but in terms of rcu_read_lock/
+> unlock around this function call as it's still a critical region.
 
-Sincerely
-Mr Sujata Gupta
-Investment Co-ordinator.
+	This function is called under __ip_vs_mutex, so
+there is single writer that modifies the configuration.
+As "readers" the schedulers access the configuration under
+rcu_read_lock (eg. called in tcp_conn_schedule) but they
+are free to use other locking too. ip_vs_wlc.c scheduler
+is example where sched_lock is not used because only
+svc->destinations is accessed which is protected with RCU
+by definition. You can check __ip_vs_unlink_dest() how
+dest is unlinked with list_del_rcu() before sched->del_dest
+method is called.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
