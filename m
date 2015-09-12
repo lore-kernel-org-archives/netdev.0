@@ -1,67 +1,102 @@
 From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH 2/3] net: irda: pxaficp_ir: convert to readl and writel
-Date: Sat, 12 Sep 2015 13:03:45 +0200
-Message-ID: <87d1xnucfi.fsf@belgarion.home>
-References: <1441261251-19548-1-git-send-email-robert.jarzmik@free.fr>
-	<1441261251-19548-3-git-send-email-robert.jarzmik@free.fr>
-	<55EF43E9.2040000@tul.cz> <55EF8A0F.7070106@tul.cz>
-	<87twr4un1h.fsf@belgarion.home> <55F11FDE.6050304@tul.cz>
-	<87io7iv845.fsf@belgarion.home> <55F233D2.3020708@tul.cz>
-	<87y4gdtr6e.fsf@belgarion.home> <55F3A798.5090904@tul.cz>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: zonque@gmail.com, ulf.hansson@linaro.org,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Arnd Bergmann <arnd@arndb.de>
-To: Petr Cvek <petr.cvek@tul.cz>
+Subject: [PATCH v2 1/3] net: irda: pxaficp_ir: use sched_clock() for time management
+Date: Sat, 12 Sep 2015 13:45:22 +0200
+Message-ID: <1442058324-9760-1-git-send-email-robert.jarzmik@free.fr>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Robert Jarzmik <robert.jarzmik@free.fr>
+To: Samuel Ortiz <samuel@sortiz.org>, Petr Cvek <petr.cvek@tul.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55F3A798.5090904@tul.cz> (Petr Cvek's message of "Sat, 12 Sep
-	2015 06:18:32 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Petr Cvek <petr.cvek@tul.cz> writes:
+Instead of using directly the OS timer through direct register access,
+use the standard sched_clock(), which will end up in OSCR reading
+anyway.
 
->>>> And it is true I have not tested the rootfs special case, where drivers are not
->>>> yet initialized (and more specifically gpio and interrupt chip). Your backtrace
->>>> should tell me if you fall into this category of issues ... but I digress, this
->>>> has no link with pxaficp.
->>>
->>> Should I start new thread? (same bug can be present in the FICP too)
->> Yes, this pxamci bothers me, it deserves a thread.
->
-> Will start soon.
-And I think I see your problem now :
-  (a) there is a regression from the commit 8c8fe97b2b8a, for which the fix is
-  here: https://lkml.org/lkml/2015/9/6/112
-  (b) for gpio expanders, another fix is here :
-  https://lkml.org/lkml/2015/9/12/62
+This is a first step for direct access register removal and machine
+specific code removal from this driver.
 
-The regression is on dmaengine, that's where the thread belongs I think, at
-least if that fixes your issue.
+Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+---
+ drivers/net/irda/pxaficp_ir.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
->>> but STIER is not just an offset, but full register address:
->>> 	
->>> 	__REG(0x40700004)
->>>
->>> So the definition should be changed, unless there is another patch I did not
->>> received (in that case, send me full patchset again please) :-).
->> Agreed, this is a bug in this patch. With this fix, is the pxaficp working or do
->> you need a bit more time to experiment ?
->
-> I have tried with a nasty hack (use only lower part of address, it should equal with reg offset):
-> 	#undef __REG
-> 	-#define __REG(x) (x)
-> 	+#define __REG(x) (x & 0xffff)
->
-> and it seems to work. The module inits and I am able to see IrDA traffic and
-> ping other machine. FIR mode (mostly impacted by DMA) is still untested as
-> magician unfortunately supports only SIR mode.
-Okay, I'll add a fix in the next iteration, thanks for finding this.
-
-Cheers.
-
+diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+index 100454662e4b..b1794998c68e 100644
+--- a/drivers/net/irda/pxaficp_ir.c
++++ b/drivers/net/irda/pxaficp_ir.c
+@@ -29,7 +29,6 @@
+ 
+ #include <mach/dma.h>
+ #include <linux/platform_data/irda-pxaficp.h>
+-#include <mach/regs-ost.h>
+ #include <mach/regs-uart.h>
+ 
+ #define FICP		__REG(0x40800000)  /* Start of FICP area */
+@@ -102,7 +101,7 @@
+ struct pxa_irda {
+ 	int			speed;
+ 	int			newspeed;
+-	unsigned long		last_oscr;
++	unsigned long long	last_clk;
+ 
+ 	unsigned char		*dma_rx_buff;
+ 	unsigned char		*dma_tx_buff;
+@@ -292,7 +291,7 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+ 			}
+ 			lsr = STLSR;
+ 		}
+-		si->last_oscr = readl_relaxed(OSCR);
++		si->last_clk = sched_clock();
+ 		break;
+ 
+ 	case 0x04: /* Received Data Available */
+@@ -303,7 +302,7 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+ 		    dev->stats.rx_bytes++;
+ 	            async_unwrap_char(dev, &dev->stats, &si->rx_buff, STRBR);
+ 	  	} while (STLSR & LSR_DR);
+-		si->last_oscr = readl_relaxed(OSCR);
++		si->last_clk = sched_clock();
+ 	  	break;
+ 
+ 	case 0x02: /* Transmit FIFO Data Request */
+@@ -319,7 +318,7 @@ static irqreturn_t pxa_irda_sir_irq(int irq, void *dev_id)
+                         /* We need to ensure that the transmitter has finished. */
+ 			while ((STLSR & LSR_TEMT) == 0)
+ 				cpu_relax();
+-			si->last_oscr = readl_relaxed(OSCR);
++			si->last_clk = sched_clock();
+ 
+ 			/*
+ 		 	* Ok, we've finished transmitting.  Now enable
+@@ -373,7 +372,7 @@ static void pxa_irda_fir_dma_tx_irq(int channel, void *data)
+ 
+ 	while (ICSR1 & ICSR1_TBY)
+ 		cpu_relax();
+-	si->last_oscr = readl_relaxed(OSCR);
++	si->last_clk = sched_clock();
+ 
+ 	/*
+ 	 * HACK: It looks like the TBY bit is dropped too soon.
+@@ -473,8 +472,8 @@ static irqreturn_t pxa_irda_fir_irq(int irq, void *dev_id)
+ 
+ 	/* stop RX DMA */
+ 	DCSR(si->rxdma) &= ~DCSR_RUN;
+-	si->last_oscr = readl_relaxed(OSCR);
+ 	icsr0 = ICSR0;
++	si->last_clk = sched_clock();
+ 
+ 	if (icsr0 & (ICSR0_FRE | ICSR0_RAB)) {
+ 		if (icsr0 & ICSR0_FRE) {
+@@ -549,7 +548,7 @@ static int pxa_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		skb_copy_from_linear_data(skb, si->dma_tx_buff, skb->len);
+ 
+ 		if (mtt)
+-			while ((unsigned)(readl_relaxed(OSCR) - si->last_oscr)/4 < mtt)
++			while ((sched_clock() - si->last_clk) / 4 < mtt)
+ 				cpu_relax();
+ 
+ 		/* stop RX DMA,  disable FICP */
 -- 
-Robert
+2.1.4
