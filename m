@@ -1,51 +1,49 @@
 From: Petr Cvek <petr.cvek@tul.cz>
-Subject: Re: [PATCH v2 2/3] net: irda: pxaficp_ir: convert to readl and writel
-Date: Sun, 13 Sep 2015 03:34:46 +0200
-Message-ID: <55F4D2B6.7020605@tul.cz>
-References: <1442058324-9760-1-git-send-email-robert.jarzmik@free.fr>
- <1442058324-9760-2-git-send-email-robert.jarzmik@free.fr>
+Subject: Re: [PATCH 2/3] net: irda: pxaficp_ir: convert to readl and writel
+Date: Sun, 13 Sep 2015 04:47:51 +0200
+Message-ID: <55F4E3D7.2000106@tul.cz>
+References: <1441261251-19548-1-git-send-email-robert.jarzmik@free.fr>
+ <1441261251-19548-3-git-send-email-robert.jarzmik@free.fr>
+ <55EF43E9.2040000@tul.cz> <55EF8A0F.7070106@tul.cz>
+ <87twr4un1h.fsf@belgarion.home> <55F11FDE.6050304@tul.cz>
+ <87io7iv845.fsf@belgarion.home> <55F233D2.3020708@tul.cz>
+ <87y4gdtr6e.fsf@belgarion.home> <55F3A798.5090904@tul.cz>
+ <87d1xnucfi.fsf@belgarion.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: zonque@gmail.com, ulf.hansson@linaro.org,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Arnd Bergmann <arnd@arndb.de>
-To: Robert Jarzmik <robert.jarzmik@free.fr>,
-	Samuel Ortiz <samuel@sortiz.org>
+To: Robert Jarzmik <robert.jarzmik@free.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442058324-9760-2-git-send-email-robert.jarzmik@free.fr>
+In-Reply-To: <87d1xnucfi.fsf@belgarion.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dne 12.9.2015 v 13:45 Robert Jarzmik napsal(a):
-> Convert the pxa IRDA driver to readl and writel primitives, and remove
-> another set of direct registers access. This leaves only the DMA
-> registers access, which will be dealt with dmaengine conversion.
+Dne 12.9.2015 v 13:03 Robert Jarzmik napsal(a):
+> Petr Cvek <petr.cvek@tul.cz> writes:
 > 
-> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-> ---
-> Since v1: modified __REG macro to cope with STIER, ST* registers
-> ---
->  drivers/net/irda/pxaficp_ir.c | 210 +++++++++++++++++++++++++-----------------
->  1 file changed, 126 insertions(+), 84 deletions(-)
+>>>>> And it is true I have not tested the rootfs special case, where drivers are not
+>>>>> yet initialized (and more specifically gpio and interrupt chip). Your backtrace
+>>>>> should tell me if you fall into this category of issues ... but I digress, this
+>>>>> has no link with pxaficp.
+>>>>
+>>>> Should I start new thread? (same bug can be present in the FICP too)
+>>> Yes, this pxamci bothers me, it deserves a thread.
+>>
+>> Will start soon.
+> And I think I see your problem now :
+>   (a) there is a regression from the commit 8c8fe97b2b8a, for which the fix is
+>   here: https://lkml.org/lkml/2015/9/6/112
+>   (b) for gpio expanders, another fix is here :
+>   https://lkml.org/lkml/2015/9/12/62
 > 
-> diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
-> index b1794998c68e..4a2b3f71e4a8 100644
-> --- a/drivers/net/irda/pxaficp_ir.c
-> +++ b/drivers/net/irda/pxaficp_ir.c
-> @@ -29,15 +29,16 @@
->  
->  #include <mach/dma.h>
->  #include <linux/platform_data/irda-pxaficp.h>
-> +#undef __REG
-> +#define __REG(x) ((x) & 0xffff)
->  #include <mach/regs-uart.h>
-What are future plans for the definitions in the mach/regs-uart.h ? Maybe it would be better to duplicate register definition in ficp source code (it seems that normal PXA UART driver does not use these ones). But random searches shows, that at least base address register:
+> The regression is on dmaengine, that's where the thread belongs I think, at
+> least if that fixes your issue.
+> 
+Great now it finally boots. Thanks.
 
-	#define STUART          STRBR
-	#define STRBR           __REG(0x40700000)  /* Receive Buffer Register (read only) */
-
-is used in machine init source codes. I can look at it in the "near" future (if I don't forget :-D).
-
-In other case patchset works, as it has been tested for SIR part.
-
-Tested-by: Petr Cvek <petr.cvek@tul.cz>
+Petr
