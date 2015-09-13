@@ -1,58 +1,51 @@
-From: Akemi Yagi <amyagi@gmail.com>
-Subject: Re: [PATCH v2 net-next] netfilter: ipset: Fixing unnamed union initg
-Date: Sat, 12 Sep 2015 18:01:27 -0700
-Message-ID: <CABA31DqmtsrK-O7j=X4mJYSBz2rMV28u0mZ=z2RWEJ4w8pTGBQ@mail.gmail.com>
-References: <1440222251-21132-1-git-send-email-eladr@mellanox.com>
- <alpine.DEB.2.10.1508222006570.13403@blackhole.kfki.hu> <20150822184448.GA3610@salvia>
- <20150828225943.GA22393@salvia> <CABA31DoF20veE1c_TxY_xZ=Zk0ThmwGCAthbLb8SJLu608rxHg@mail.gmail.com>
- <CAHTgTXU+A6Rg8oT0iUDCyTCRtTbBWEe9oDxCY6fEFNj-1v1-xA@mail.gmail.com>
+From: Petr Cvek <petr.cvek@tul.cz>
+Subject: Re: [PATCH v2 2/3] net: irda: pxaficp_ir: convert to readl and writel
+Date: Sun, 13 Sep 2015 03:34:46 +0200
+Message-ID: <55F4D2B6.7020605@tul.cz>
+References: <1442058324-9760-1-git-send-email-robert.jarzmik@free.fr>
+ <1442058324-9760-2-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Elad Raz <eladr@mellanox.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netfilter-devel@vger.kernel.org,
-	Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Patrick McHardy <kaber@trash.net>,
-	Sergey Popovich <popovich_sergei@mail.ua>,
-	Anton Danilov <littlesmilingcloud@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Alan Bartlett <ajb@elrepo.org>,
-	Vinson Lee <vlee@twopensource.com>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34635 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754827AbbIMBBr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Sep 2015 21:01:47 -0400
-In-Reply-To: <CAHTgTXU+A6Rg8oT0iUDCyTCRtTbBWEe9oDxCY6fEFNj-1v1-xA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>
+To: Robert Jarzmik <robert.jarzmik@free.fr>,
+	Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442058324-9760-2-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 31, 2015 at 12:16 AM, Vinson Lee <vlee@twopensource.com> wrote:
-> On Fri, Aug 28, 2015 at 4:21 PM, Akemi Yagi <amyagi@gmail.com> wrote:
->> On Fri, Aug 28, 2015 at 3:59 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->>> On Sat, Aug 22, 2015 at 08:44:48PM +0200, Pablo Neira Ayuso wrote:
->>> [...]
->>>> I'll wait for some little time just in case someone raises any
->>>> concern.
->>>
->>> JFYI, I'll be passing up this patch to David via the nf tree soon.
->>> Thanks.
->>
->> Thank you for pushing this forward.
->>
->> Akemi
->
-> Linux 4.2 was released without this patch. Please also backport it to
-> the 4.2 stable branch.
+Dne 12.9.2015 v 13:45 Robert Jarzmik napsal(a):
+> Convert the pxa IRDA driver to readl and writel primitives, and remove
+> another set of direct registers access. This leaves only the DMA
+> registers access, which will be dealt with dmaengine conversion.
+> 
+> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+> ---
+> Since v1: modified __REG macro to cope with STIER, ST* registers
+> ---
+>  drivers/net/irda/pxaficp_ir.c | 210 +++++++++++++++++++++++++-----------------
+>  1 file changed, 126 insertions(+), 84 deletions(-)
+> 
+> diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+> index b1794998c68e..4a2b3f71e4a8 100644
+> --- a/drivers/net/irda/pxaficp_ir.c
+> +++ b/drivers/net/irda/pxaficp_ir.c
+> @@ -29,15 +29,16 @@
+>  
+>  #include <mach/dma.h>
+>  #include <linux/platform_data/irda-pxaficp.h>
+> +#undef __REG
+> +#define __REG(x) ((x) & 0xffff)
+>  #include <mach/regs-uart.h>
+What are future plans for the definitions in the mach/regs-uart.h ? Maybe it would be better to duplicate register definition in ficp source code (it seems that normal PXA UART driver does not use these ones). But random searches shows, that at least base address register:
 
-Thanks to all for this effort. The patch is finally in the mainline
-kernel 4.3-rc1 released today. Now I wish backporting to the 4.2
-branch goes smoothly.
+	#define STUART          STRBR
+	#define STRBR           __REG(0x40700000)  /* Receive Buffer Register (read only) */
 
-Akemi
+is used in machine init source codes. I can look at it in the "near" future (if I don't forget :-D).
+
+In other case patchset works, as it has been tested for SIR part.
+
+Tested-by: Petr Cvek <petr.cvek@tul.cz>
