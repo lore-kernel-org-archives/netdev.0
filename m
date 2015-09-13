@@ -1,15 +1,12 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 14/39] SUNRPC: drop null test before destroy functions
-Date: Sun, 13 Sep 2015 14:15:07 +0200
-Message-ID: <1442146532-9100-15-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 10/39] atm: he: drop null test before destroy functions
+Date: Sun, 13 Sep 2015 14:15:03 +0200
+Message-ID: <1442146532-9100-11-git-send-email-Julia.Lawall@lip6.fr>
 References: <1442146532-9100-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: sergey.senozhatsky@gmail.com, kernel-janitors@vger.kernel.org,
-	Jeff Layton <jlayton@poochiereds.net>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chas Williams <3chas3@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1442146532-9100-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -29,29 +26,31 @@ The semantic patch that makes this change is as follows:
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/sunrpc/sched.c |   12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+ drivers/atm/he.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
-index b140c09..425ca2f 100644
---- a/net/sunrpc/sched.c
-+++ b/net/sunrpc/sched.c
-@@ -1092,14 +1092,10 @@ void
- rpc_destroy_mempool(void)
- {
- 	rpciod_stop();
--	if (rpc_buffer_mempool)
--		mempool_destroy(rpc_buffer_mempool);
--	if (rpc_task_mempool)
--		mempool_destroy(rpc_task_mempool);
--	if (rpc_task_slabp)
--		kmem_cache_destroy(rpc_task_slabp);
--	if (rpc_buffer_slabp)
--		kmem_cache_destroy(rpc_buffer_slabp);
-+	mempool_destroy(rpc_buffer_mempool);
-+	mempool_destroy(rpc_task_mempool);
-+	kmem_cache_destroy(rpc_task_slabp);
-+	kmem_cache_destroy(rpc_buffer_slabp);
- 	rpc_destroy_wait_queue(&delay_queue);
- }
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index a8da3a5..0f5cb37 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -1578,9 +1578,7 @@ he_stop(struct he_dev *he_dev)
  
+ 	kfree(he_dev->rbpl_virt);
+ 	kfree(he_dev->rbpl_table);
+-
+-	if (he_dev->rbpl_pool)
+-		dma_pool_destroy(he_dev->rbpl_pool);
++	dma_pool_destroy(he_dev->rbpl_pool);
+ 
+ 	if (he_dev->rbrq_base)
+ 		dma_free_coherent(&he_dev->pci_dev->dev, CONFIG_RBRQ_SIZE * sizeof(struct he_rbrq),
+@@ -1594,8 +1592,7 @@ he_stop(struct he_dev *he_dev)
+ 		dma_free_coherent(&he_dev->pci_dev->dev, CONFIG_TBRQ_SIZE * sizeof(struct he_tbrq),
+ 				  he_dev->tpdrq_base, he_dev->tpdrq_phys);
+ 
+-	if (he_dev->tpd_pool)
+-		dma_pool_destroy(he_dev->tpd_pool);
++	dma_pool_destroy(he_dev->tpd_pool);
+ 
+ 	if (he_dev->pci_dev) {
+ 		pci_read_config_word(he_dev->pci_dev, PCI_COMMAND, &command);
