@@ -1,65 +1,70 @@
-From: Tycho Andersen <tycho.andersen@canonical.com>
-Subject: Re: [PATCH v2 2/5] seccomp: make underlying bpf ref counted as well
-Date: Mon, 14 Sep 2015 10:00:30 -0600
-Message-ID: <20150914160030.GC31864@smitten>
-References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
- <1441930862-14347-3-git-send-email-tycho.andersen@canonical.com>
- <55F2D0EC.9090004@iogearbox.net>
- <20150911144400.GI27574@smitten>
- <55F2FB6F.7050708@iogearbox.net>
- <20150911173311.GB7244@smitten>
- <55F31D43.5080001@iogearbox.net>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH V2] debugfs: don't assume sizeof(bool) to be 4 bytes
+Date: Mon, 14 Sep 2015 09:03:48 -0700
+Message-ID: <20150914160348.GA7290@kroah.com>
+References: <81516fb9c662cc338b5af5b63fbbcde5374e0893.1442202447.git.viresh.kumar@linaro.org>
+ <1708603.aKpYchk1pa@wuerfel>
+ <20150914154708.GF32551@linux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook@chromium.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Will Drewry <wad@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-api@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, linaro-kernel@lists.linaro.org,
+	"open list:NETWORKING DRIVERS WIRELESS" <linux-wireless@vger.kernel.org>,
+	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..." <alsa-devel@alsa-project.org>,
+	Avri Altman <avri.altman@intel.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	"open list:DOCUMENTATION" <linux-doc@vger.kernel.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>,
+	"open list:MEMORY MANAGEMENT" <linux-mm@kvack.org>,
+	Kalle Valo <kvalo@qca.qualcomm.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Wang Long <long.wanglong@huawei.com>,
+	Richard Fitzgerald <rf@opensource.wolfsonmicro.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	Davidlohr Bueso <dave@stg
+To: Viresh Kumar <viresh.kumar@linaro.org>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <55F31D43.5080001@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20150914154708.GF32551@linux>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
-
-On Fri, Sep 11, 2015 at 08:28:19PM +0200, Daniel Borkmann wrote:
-> I think due to the given insns restrictions on classic seccomp, this
-> could work for "most cases" (see below) for the time being until pointer
-> sanitation is resolved and that seccomp-only restriction from the dump
-> could be removed,
-
-Ok, thanks.
-
-> BUT there's one more stone in the road which you still
-> need to take care of with this whole 'giving classic seccomp-BPF -> eBPF
-> transforms an fd, dumping and restoring that via bpf(2)' approach:
+On Mon, Sep 14, 2015 at 09:17:08PM +0530, Viresh Kumar wrote:
+> On 14-09-15, 17:39, Arnd Bergmann wrote:
+> > On Monday 14 September 2015 09:21:54 Viresh Kumar wrote:
+> > > diff --git a/drivers/acpi/ec_sys.c b/drivers/acpi/ec_sys.c
+> > > index b4c216bab22b..bea8e425a8de 100644
+> > > --- a/drivers/acpi/ec_sys.c
+> > > +++ b/drivers/acpi/ec_sys.c
+> > > @@ -128,7 +128,7 @@ static int acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)
+> > >  	if (!debugfs_create_x32("gpe", 0444, dev_dir, (u32 *)&first_ec->gpe))
+> > >  		goto error;
+> > >  	if (!debugfs_create_bool("use_global_lock", 0444, dev_dir,
+> > > -				 (u32 *)&first_ec->global_lock))
+> > > +				 &first_ec->global_lock))
+> > >  		goto error;
+> > >  
+> > >  	if (write_support)
+> > 
+> > This one might need a separate patch that can be backported to stable, as
+> > the original code is already broken on big-endian 64-bit machines:
+> > global_lock is 'unsigned long'.
 > 
-> If you have JIT enabled on ARM32, and add a classic seccomp-BPF filter,
-> and dump that via your bpf(2) interface based on the current patches, what
-> you'll get is not eBPF opcodes but classic (!) BPF opcodes as ARM32 classic
-> JIT supports compilation of seccomp, since commit 24e737c1ebac ("ARM: net:
-> add JIT support for loads from struct seccomp_data.").
+> Hmmm, so you suggest a single patch that will do s/unsigned long/u32
+> and that will be followed with this patch (almost) as is. Right?
 > 
-> So in that case, bpf_prepare_filter() will not call into bpf_migrate_filter()
-> as there's simply no need for it, because the classic code could already
-> be JITed there. I guess other archs where JIT support for eBPF in not yet
-> within near sight might sooner or later support this insn for their classic
-> JITs, too ...
+> Also, regarding the stable thing, we will surely not be able to
+> backport it straight away. But we should get it backported for sure.
+> 
+> @Greg: What all kernel versions you want this to be backported for?
 
-Thanks for pointing this out.
+What ever ones you think it is relevant for :)
 
-What if we legislate that the output of bpf(BPF_PROG_DUMP, ...) is
-always eBPF? As near as I can tell there is no way to determine if a
-struct bpf_prog is classic or eBPF, so we'd need to add a bit to
-indicate whether or not the prog has been converted so that
-BPF_PROG_DUMP knows when to convert it.
-
-Tycho
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
