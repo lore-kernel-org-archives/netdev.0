@@ -1,44 +1,125 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: kernel warning in tcp_fragment
-Date: Mon, 14 Sep 2015 14:15:52 -0400
-Message-ID: <CADVnQym84Qv-zrWatCGZcNBcNhXp68LrNCB9iVME=NxU6OYiTQ@mail.gmail.com>
-References: <CABPcSqLrbCm92z23sSUf_0dLGZU5ZMHvzGxWkTxx0hH5KsBKQg@mail.gmail.com>
-	<20150727231947.GC2832181@devbig242.prn2.facebook.com>
-	<CABPcSqLJz33sQ9a_-g9oi7i=fxkBSXga9aSs3X2CJ_Xb2xVSOg@mail.gmail.com>
-	<CABPcSqLWopootOwASY+KacoLM-G62iYfv+9VhJb0-MmQXtbYmQ@mail.gmail.com>
-	<CADVnQy=-ADK-LVVhOC8Fs=z_1PiLjMSc4+z_qnKXu-wKx7Nq8g@mail.gmail.com>
-	<20150813034528.GC2871239@devbig242.prn2.facebook.com>
-	<55E62E89.3000204@fastly.com>
-	<CABPcSqJMS3oYLbL=Ns71ciF_9rcZNuZ0VceV=noaLJgV=LTAQQ@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [net-next PATCH] net: bridge: fix for bridging 802.1Q
+ without REORDER_HDR
+Date: Mon, 14 Sep 2015 14:21:10 -0400
+Message-ID: <55F71016.7060202@gmail.com>
+References: <1441999323-29381-1-git-send-email-phil@nwl.cc>
+	<20150911122445.53cdfbcf@urahara>
+	<20150911202033.GE7029@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Grant Zhang <gzhang@fastly.com>, Martin KaFai Lau <kafai@fb.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	FB Kernel Team <kernel-team@fb.com>
-To: Jovi Zhangwei <jovi@cloudflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:33036 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751595AbbINSPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 14:15:52 -0400
-Received: by obbbh8 with SMTP id bh8so115322201obb.0
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 11:15:52 -0700 (PDT)
-In-Reply-To: <CABPcSqJMS3oYLbL=Ns71ciF_9rcZNuZ0VceV=noaLJgV=LTAQQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20150911202033.GE7029@orbit.nwl.cc>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 14, 2015 at 6:27 AM, Jovi Zhangwei <jovi@cloudflare.com> wrote:
->
-> Hi Near,
->
-> After several days testing on your patch, our system crashed. Dmesg attached.
+On 09/11/2015 04:20 PM, Phil Sutter wrote:
+> On Fri, Sep 11, 2015 at 12:24:45PM -0700, Stephen Hemminger wrote:
+>> On Fri, 11 Sep 2015 21:22:03 +0200
+>> Phil Sutter <phil@nwl.cc> wrote:
+>>
+>>> When forwarding packets from an 802.1Q interface with REORDER_HDR set to
+>>> zero, the VLAN header previously inserted by vlan_do_receive() needs to
+>>> be stripped from the packet and the mac_header adjustment undone,
+>>> otherwise a tagged frame with first four bytes missing will be
+>>> transmitted.
+>>>
+>>> Signed-off-by: Phil Sutter <phil@nwl.cc>
+>>> ---
+>>>  net/bridge/br_input.c | 10 ++++++++++
+>>>  1 file changed, 10 insertions(+)
+>>>
+>>> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+>>> index f921a5d..e4e3fc7 100644
+>>> --- a/net/bridge/br_input.c
+>>> +++ b/net/bridge/br_input.c
+>>> @@ -288,6 +288,16 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+>>>  	}
+>>>  
+>>>  forward:
+>>> +	if (is_vlan_dev(skb->dev) &&
+>>> +	    !(vlan_dev_priv(skb->dev)->flags & VLAN_FLAG_REORDER_HDR)) {
+>>> +		unsigned int offset = skb->data - skb_mac_header(skb);
+>>> +
+>>> +		skb_push(skb, offset);
+>>> +		memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
+>>> +		skb->mac_header += VLAN_HLEN;
+>>> +		skb_pull(skb, offset);
+>>> +		skb_reset_mac_len(skb);
+>>> +	}
+>>>  	switch (p->state) {
+>>>  	case BR_STATE_FORWARDING:
+>>>  		rhook = rcu_dereference(br_should_route_hook);
+>>
+>> Thanks for finding this. Is this a new thing or has it always been there?
+> 
+> Sorry, I didn't check if this is a regression or not. Seen initially
+> with RHEL7's kernel-3.10.0-229.7.2, which due to the massive backporting
+> is by far not as old as it might seem. But it's surely not a brand new
+> problem of net-next or so.
+> 
+> Since nowadays no sane mind touches REORDER_HDR (there was originally a
+> bug in NetworkManager which defaulted this to 0), it may very well be
+> there for a long time already.
+> 
+>> Sorry, this looks so special case it doesn't seem like a good idea.
+>> Something is broken in VLAN handling if this is required.
+> 
+> It is so ugly, I wish I had found a better way to fix the problem. Well,
+> maybe I miss something:
+> 
+> - packet enters __netif_receive_skb_core():
+>   - skb->protocol is set to ETH_P_8021Q, so:
+>     - packet is untagged
+>     - skb->vlan_tci set
+>     - skb->protocol set to 'real' protocol
+>   - skb_vlan_tag_present(skb) == true, so:
+>     - vlan_do_receive() is called:
+>       - tags the packet again
+>       - zeroes vlan_tci
+>     - goto another_round
+> - __netif_receive_skb_core(), round 2:
+>   - skb->protocol is not ETH_P_8021Q -> no untagging
+>   - skb_vlan_tag_present(skb) == false -> no vlan_do_receive()
+>   - rx_handler handler (== br_handle_frame) is called
+> 
+> IMO the root of all evil is the existence of REORDER_HDR itself. It
+> causes an skb which should have been untagged to being passed along with
+> VLAN header present and code dealing with it needs to clean up the mess.
 
-Jovi -- Sorry about that... thank you for the testing and the data point.
+So the problem here appears the be the code the in br_dev_queue_push_xmit().
+It assumes that MAC_HLEN worth of data has been removed from the skb,
+which is normal in case of normal VLAN processing.  However, without
+REORDER_HEADER set this is no longer the case.  In this case, the ethernet
+header is shifted 4 bytes, and when we push the it back we miss the 4 bytes
+of the destination mac address...
 
-neal
+I wonder if it would be safe to just use skb->mac_len.
+
+Of course, looks like vlan filtering also makes this assumption and
+could be really broken.  And God forbid, someone creates a bunch of
+nested encapsulated vlans (Q-in-Q-in...) with REORDER_HEADER == 0.
+We could end up completely leaving the ethernet header out.
+
+Looks like it's been there for a very long while.
+
+-vlad
+
+> 
+> Cheers, Phil
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
