@@ -1,43 +1,33 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] iwlwifi: mvm: fix tof.h header guard
-Date: Mon, 14 Sep 2015 10:37:28 +0200
-Message-ID: <1442219848.2075.5.camel@sipsolutions.net>
-References: <1442052291-2328-1-git-send-email-nicolas.iooss_linux@m4x.org>
-	 (sfid-20150912_121249_388301_136F5B59)
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net] ipv6: include NLM_F_REPLACE in route replace
+ notifications
+Date: Mon, 14 Sep 2015 10:44:42 +0200
+Message-ID: <20150914084441.GA5382@unicorn.suse.cz>
+References: <1442164713-54206-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Gregory Greenman <gregory.greenman@intel.com>,
-	linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, nicolas.dichtel@6wind.com,
+	Mazziesaccount@gmail.com, hannes@stressinduktion.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55129 "EHLO sipsolutions.net"
+Received: from mx2.suse.de ([195.135.220.15]:45418 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753200AbbINIhg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Sep 2015 04:37:36 -0400
-In-Reply-To: <1442052291-2328-1-git-send-email-nicolas.iooss_linux@m4x.org> (sfid-20150912_121249_388301_136F5B59)
+	id S1753353AbbINIoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2015 04:44:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1442164713-54206-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-09-12 at 12:04 +0200, Nicolas Iooss wrote:
-> Commit ce7929186a39 ("iwlwifi: mvm: add basic Time of Flight 
-> (802.11mc
-> FTM) support") created drivers/net/wireless/iwlwifi/mvm/tof.h with a
-> broken header guard:
+On Sun, Sep 13, 2015 at 10:18:33AM -0700, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
->     #ifndef __tof
->     #define __tof_h__
+> This patch adds NLM_F_REPLACE flag to ipv6 route replace notifications.
+> This makes nlm_flags in ipv6 replace notifications consistent
+> with ipv4.
 > 
->     ...
-> 
->     #endif /* __tof_h__ */
-> 
-> Use __tof_h__ in the first line.
-> 
-Thanks, I applied it to our development tree.
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-johannes
+Reviewed-by: Michal Kubecek <mkubecek@suse.cz>
