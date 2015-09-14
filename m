@@ -1,44 +1,55 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm6: Fix ICMPv6 and MH header checks in
- _decode_session6
-Date: Mon, 14 Sep 2015 13:52:12 +0200
-Message-ID: <20150914115212.GJ25499@secunet.com>
-References: <1441958240-29679-1-git-send-email-minipli@googlemail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH 00/39] drop null test before destroy functions
+Date: Mon, 14 Sep 2015 13:55:06 +0200
+Message-ID: <55F6B59A.4040104@users.sourceforge.net>
+References: <1442146532-9100-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Marcin Jurkowski <marcin1j@gmail.com>, <satmd@lain.at>,
-	<netdev@vger.kernel.org>,
-	Mathias Krause <mathias.krause@secunet.com>,
-	PaX Team <pageexec@freemail.hu>
-To: Mathias Krause <minipli@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:37777 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751363AbbINLwR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Sep 2015 07:52:17 -0400
-Content-Disposition: inline
-In-Reply-To: <1441958240-29679-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: iommu@lists.linux-foundation.org, dccp@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, intel-gfx@lists.freedesktop.org,
+	ecryptfs@vger.kernel.org, dmaengine@vger.kernel.org,
+	sergey.senozhatsky@gmail.com,
+	Dan Williams <dan.j.williams@intel.com>,
+	cluster-devel@redhat.com, intel-wired-lan@lists.osuosl.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
+	netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
+	linux-btrfs@vger.kernel.org, linux-nilfs@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mtd@lists.infradead.org,
+	linux-usb@vger.kernel.org, linux
+To: Julia Lawall <Julia.Lawall@lip6.fr>,
+	kernel-janitors@vger.kernel.org
+Return-path: <ecryptfs-owner@vger.kernel.org>
+In-Reply-To: <1442146532-9100-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: ecryptfs-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 11, 2015 at 09:57:20AM +0200, Mathias Krause wrote:
-> From: Mathias Krause <mathias.krause@secunet.com>
-> 
-> Ensure there's enough data left prior calling pskb_may_pull(). If
-> skb->data was already advanced, we'll call pskb_may_pull() with a
-> negative value converted to unsigned int -- leading to a huge
-> positive value. That won't matter in practice as pskb_may_pull()
-> will likely fail in this case, but it leads to underflow reports on
-> kernels handling such kind of over-/underflows, e.g. a PaX enabled
-> kernel instrumented with the size_overflow plugin.
-> 
-> Reported-by: satmd <satmd@lain.at>
-> Reported-and-tested-by: Marcin Jurkowski <marcin1j@gmail.com>
-> Signed-off-by: Mathias Krause <mathias.krause@secunet.com>
-> Cc: PaX Team <pageexec@freemail.hu>
+> Recent commits to kernel/git/torvalds/linux.git have made the following
+> functions able to tolerate NULL arguments:
+>
+> kmem_cache_destroy (commit 3942d29918522)
+> mempool_destroy (commit 4e3ca3e033d1)
+> dma_pool_destroy (commit 44d7175da6ea)
 
-Skipping upper layer informations due to a wrong length calculation,
-may also leed to incorrect policy lookups. Patch applied to the
-ipsec tree, thanks!
+How do you think about to extend an other SmPL script?
+
+Related topic:
+scripts/coccinelle/free: Delete NULL test before freeing functions
+https://systeme.lip6.fr/pipermail/cocci/2015-May/001960.html
+https://www.mail-archive.com/cocci@systeme.lip6.fr/msg01855.html
+
+
+> If these changes are OK, I will address the remainder later.
+
+Would anybody like to reuse my general SmPL approach for similar source
+code clean-up?
+
+Regards,
+Markus
