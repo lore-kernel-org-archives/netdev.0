@@ -1,84 +1,43 @@
-From: Boris Brezillon <boris.brezillon@free-electrons.com>
-Subject: Re: [RFC PATCH 3/3] devicetree: macb: Add optional property tsu-clk
-Date: Mon, 14 Sep 2015 09:58:46 +0200
-Message-ID: <20150914095846.0d8e2d74@bbrezillon>
-References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
-	<1441958258-35441-4-git-send-email-harinik@xilinx.com>
-	<20150911165256.GT19678@xsjsorenbubuntu>
-	<CAFcVECK=EONgqPq1jt_kti-VKXPWGVj3OSnqUvo0YcR65Z+Phg@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] iwlwifi: mvm: fix tof.h header guard
+Date: Mon, 14 Sep 2015 10:37:28 +0200
+Message-ID: <1442219848.2075.5.camel@sipsolutions.net>
+References: <1442052291-2328-1-git-send-email-nicolas.iooss_linux@m4x.org>
+	 (sfid-20150912_121249_388301_136F5B59)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>,
-	Harini Katakam <harini.katakam@xilinx.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>, davem@davemloft.net,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	"michals@xilinx.com" <michals@xilinx.com>, anirudh@xilinx.com
-To: Harini Katakam <harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFcVECK=EONgqPq1jt_kti-VKXPWGVj3OSnqUvo0YcR65Z+Phg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Gregory Greenman <gregory.greenman@intel.com>,
+	linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:55129 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753200AbbINIhg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2015 04:37:36 -0400
+In-Reply-To: <1442052291-2328-1-git-send-email-nicolas.iooss_linux@m4x.org> (sfid-20150912_121249_388301_136F5B59)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Harini,
+On Sat, 2015-09-12 at 12:04 +0200, Nicolas Iooss wrote:
+> Commit ce7929186a39 ("iwlwifi: mvm: add basic Time of Flight 
+> (802.11mc
+> FTM) support") created drivers/net/wireless/iwlwifi/mvm/tof.h with a
+> broken header guard:
+> 
+>     #ifndef __tof
+>     #define __tof_h__
+> 
+>     ...
+> 
+>     #endif /* __tof_h__ */
+> 
+> Use __tof_h__ in the first line.
+> 
+Thanks, I applied it to our development tree.
 
-On Mon, 14 Sep 2015 09:39:05 +0530
-Harini Katakam <harinikatakamlinux@gmail.com> wrote:
-
-> On Fri, Sep 11, 2015 at 10:22 PM, S=C3=B6ren Brinkmann
-> <soren.brinkmann@xilinx.com> wrote:
-> > Hi Harini,
-> >
-> > On Fri, 2015-09-11 at 01:27PM +0530, Harini Katakam wrote:
-> >> Add TSU clock frequency to be used for 1588 support in macb driver=
-=2E
-> >>
-> >> Signed-off-by: Harini Katakam <harinik@xilinx.com>
-> >> ---
-> >>  Documentation/devicetree/bindings/net/macb.txt |    3 +++
-> >>  1 file changed, 3 insertions(+)
-> >>
-> >> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Docu=
-mentation/devicetree/bindings/net/macb.txt
-> >> index b5d7976..f7c0ea8 100644
-> >> --- a/Documentation/devicetree/bindings/net/macb.txt
-> >> +++ b/Documentation/devicetree/bindings/net/macb.txt
-> >> @@ -19,6 +19,9 @@ Required properties:
-> >>       Optional elements: 'tx_clk'
-> >>  - clocks: Phandles to input clocks.
-> >>
-> >> +Optional properties:
-> >> +- tsu-clk: Time stamp unit clock frequency used.
-> >
-> > Why are we not using the CCF and a clk_get_rate() in the driver?
-> >
->=20
-> If the clock source was only internal, we could use this
-> approach as usual. But TSU clock can be configured to
-> come from an external clock source or internal.
-
-How about declaring a fixed-rate clk [1] if it comes from an external
-clk, and using a clk driver for the internal clk case?
-This way you'll be able to use the clk API (including the
-clk_get_rate() function) instead of introducing a new way to retrieve a
-clk frequency.
-
-Best Regards,
-
-Boris
-
-[1]http://lxr.free-electrons.com/source/Documentation/devicetree/bindin=
-gs/clock/fixed-clock.txt
-
---=20
-Boris Brezillon, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+johannes
