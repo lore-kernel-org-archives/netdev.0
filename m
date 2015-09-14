@@ -1,131 +1,94 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: DSA: phy polling
-Date: Mon, 14 Sep 2015 10:28:55 -0700
-Message-ID: <55F703D7.1070707@gmail.com>
-References: <20150914104254.GI21084@n2100.arm.linux.org.uk>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [RFC PATCH 3/3] devicetree: macb: Add optional property tsu-clk
+Date: Mon, 14 Sep 2015 23:04:42 +0530
+Message-ID: <CAFcVEC+KKhJFW5X2ff5ZY3Tp8LRQ-8=T7X7NJ2bBL7c822KYhw@mail.gmail.com>
+References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
+	<1441958258-35441-4-git-send-email-harinik@xilinx.com>
+	<20150911165256.GT19678@xsjsorenbubuntu>
+	<CAFcVECK=EONgqPq1jt_kti-VKXPWGVj3OSnqUvo0YcR65Z+Phg@mail.gmail.com>
+	<20150914095846.0d8e2d74@bbrezillon>
+	<20150914144423.GG19678@xsjsorenbubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36133 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274AbbINRbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 13:31:51 -0400
-Received: by padhk3 with SMTP id hk3so149442751pad.3
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 10:31:50 -0700 (PDT)
-In-Reply-To: <20150914104254.GI21084@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Boris Brezillon <boris.brezillon@free-electrons.com>,
+	Harini Katakam <harini.katakam@xilinx.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>, davem@davemloft.net,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	"michals@xilinx.com" <michals@xilinx.com>, anirudh@xilinx.com
+To: =?UTF-8?Q?S=C3=B6ren_Brinkmann?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150914144423.GG19678@xsjsorenbubuntu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14/09/15 03:42, Russell King - ARM Linux wrote:
-> Andrew,
-> 
-> I think you're the current maintainer of the Marvell DSA code, as being
-> the most recent author of changes to it. :)
-> 
-> I've noticed in my testing that the Marvell DSA code seems to poll the
-> internal phy link status in mv88e6xxx_poll_link(), and set the network
-> device carrier status according to the results.
-> 
-> However, the internal phys are created using phylib, which also polls
-> the phys for their link status, and controls the associated netdev
-> carrier status.
-> 
-> The side effect of this is that I see duplicated link status messages in
-> the kernel log when connecting or disconnecting cables from the switch,
-> caused by the code in mv88e6xxx_poll_link() racing with the phylib code.
-> From what I can see, the code in mv88e6xxx_poll_link() is entirely
-> redundant as the phylib layer will take care of any phy attached to the
-> switch.
-> 
-> To prove this, I have the following code in my tree, which disables the
-> polling on a port where we have a phy attached (either an internal or
-> external phy).  The result is that the per-port network devices are still
-> updated with the link status even though this code is disabled - thanks
-> to the phylib polling.
-> 
-> I'm left wondering whether the DSA specific phy polling does anything
-> useful, or whether the entire polling code both in mv88e6xxx.c and
-> net/dsa can be removed (mv88e6xxx.c seems to be its only user.)
+Hi Soren/Boris,
 
-Just my 2 cents here, I suspect the original intention behind this code
-was to help utilize the switch's built-in PHY polling unit when
-available, and use the HW to collect the state of all PHYs in fewer
-register to read, instead of having to do individual (and quite possibly
-expensive) MDIO reads towards each individual per-port PHYs (at least
-two reads per PHY to latch MII_BMSR).
+On Mon, Sep 14, 2015 at 8:14 PM, S=C3=B6ren Brinkmann
+<soren.brinkmann@xilinx.com> wrote:
+> On Mon, 2015-09-14 at 09:58AM +0200, Boris Brezillon wrote:
+>> Hi Harini,
+>>
+>> On Mon, 14 Sep 2015 09:39:05 +0530
+>> Harini Katakam <harinikatakamlinux@gmail.com> wrote:
+>>
+>> > On Fri, Sep 11, 2015 at 10:22 PM, S=C3=B6ren Brinkmann
+>> > <soren.brinkmann@xilinx.com> wrote:
+>> > > Hi Harini,
+>> > >
+>> > > On Fri, 2015-09-11 at 01:27PM +0530, Harini Katakam wrote:
+>> > >> Add TSU clock frequency to be used for 1588 support in macb dri=
+ver.
+>> > >>
+>> > >> Signed-off-by: Harini Katakam <harinik@xilinx.com>
+>> > >> ---
+>> > >>  Documentation/devicetree/bindings/net/macb.txt |    3 +++
+>> > >>  1 file changed, 3 insertions(+)
+>> > >>
+>> > >> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/D=
+ocumentation/devicetree/bindings/net/macb.txt
+>> > >> index b5d7976..f7c0ea8 100644
+>> > >> --- a/Documentation/devicetree/bindings/net/macb.txt
+>> > >> +++ b/Documentation/devicetree/bindings/net/macb.txt
+>> > >> @@ -19,6 +19,9 @@ Required properties:
+>> > >>       Optional elements: 'tx_clk'
+>> > >>  - clocks: Phandles to input clocks.
+>> > >>
+>> > >> +Optional properties:
+>> > >> +- tsu-clk: Time stamp unit clock frequency used.
+>> > >
+>> > > Why are we not using the CCF and a clk_get_rate() in the driver?
+>> > >
+>> >
+>> > If the clock source was only internal, we could use this
+>> > approach as usual. But TSU clock can be configured to
+>> > come from an external clock source or internal.
+>>
+>> How about declaring a fixed-rate clk [1] if it comes from an externa=
+l
+>> clk, and using a clk driver for the internal clk case?
+>> This way you'll be able to use the clk API (including the
+>> clk_get_rate() function) instead of introducing a new way to retriev=
+e a
+>> clk frequency.
+>
+> Right. Also, Zynq does already support external clock inputs (actuall=
+y,
+> every clock originates from some external clock/oscillator at some
+> point). Maybe that code needs some additions to handle the TSU clock
+> too. But either way, I can't see why a clock cannot be modeled using =
+the
+> CCF.
 
-Now, I do agree there is a duplication of functionality here, and a
-potential fix would be to avoid starting the PHY state machine if/when
-the switch supports such a feature (not call phy_start*), that should
-still get you consistent consistent link partner advertised/status
-values, question is, does that really benefit anybody though?
+Ok, I'm going to try this.
 
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index 26ec2fbfaa89..4c324eafeef2 100644
-> --- a/drivers/net/dsa/mv88e6xxx.c
-> +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -400,6 +400,13 @@ void mv88e6xxx_poll_link(struct dsa_switch *ds)
->  		if (dev == NULL)
->  			continue;
->  
-> +		/*
-> +		 * Ignore ports which have a phy; phylib will take care
-> +		 * of polling the link status for these.
-> +		 */
-> +		if (dsa_slave_has_phy(dev))
-> +			continue;
-> +
->  		link = 0;
->  		if (dev->flags & IFF_UP) {
->  			port_status = mv88e6xxx_reg_read(ds, REG_PORT(i),
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index fbca63ba8f73..b31e9da43ea7 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -176,6 +176,8 @@ static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
->  	return ds->phys_port_mask & (1 << p) && ds->ports[p];
->  }
->  
-> +extern bool dsa_slave_has_phy(struct net_device *);
-> +
->  static inline u8 dsa_upstream_port(struct dsa_switch *ds)
->  {
->  	struct dsa_switch_tree *dst = ds->dst;
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 35c47ddd04f0..a107242816ff 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -10,6 +10,7 @@
->  
->  #include <linux/list.h>
->  #include <linux/etherdevice.h>
-> +#include <linux/export.h>
->  #include <linux/netdevice.h>
->  #include <linux/phy.h>
->  #include <linux/phy_fixed.h>
-> @@ -873,6 +874,14 @@ int dsa_slave_resume(struct net_device *slave_dev)
->  	return 0;
->  }
->  
-> +bool dsa_slave_has_phy(struct net_device *slave_dev)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(slave_dev);
-> +
-> +	return p->phy != NULL;
-> +}
-> +EXPORT_SYMBOL_GPL(dsa_slave_has_phy);
-> +
->  int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->  		     int port, char *name)
->  {
-> 
-> 
-
-
--- 
-Florian
+Regards,
+Harini
