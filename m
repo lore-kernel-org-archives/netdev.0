@@ -1,54 +1,58 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: DSA: phy polling
-Date: Mon, 14 Sep 2015 19:23:14 +0100
-Message-ID: <20150914182314.GP21084@n2100.arm.linux.org.uk>
-References: <20150914104254.GI21084@n2100.arm.linux.org.uk>
- <55F703D7.1070707@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Any way to configure a vlan interface to grab ONLY untagged frames?
+Date: Mon, 14 Sep 2015 14:28:33 -0400
+Message-ID: <55F711D1.9050605@gmail.com>
+References: <55F5A8FC.1020707@neulinger.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Nathan Neulinger <nneul@neulinger.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:48438 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbbINSXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 14:23:22 -0400
-Content-Disposition: inline
-In-Reply-To: <55F703D7.1070707@gmail.com>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:34663 "EHLO
+	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbbINS2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 14:28:35 -0400
+Received: by qkfq186 with SMTP id q186so61901673qkf.1
+        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 11:28:34 -0700 (PDT)
+In-Reply-To: <55F5A8FC.1020707@neulinger.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 14, 2015 at 10:28:55AM -0700, Florian Fainelli wrote:
-> Just my 2 cents here, I suspect the original intention behind this code
-> was to help utilize the switch's built-in PHY polling unit when
-> available, and use the HW to collect the state of all PHYs in fewer
-> register to read, instead of having to do individual (and quite possibly
-> expensive) MDIO reads towards each individual per-port PHYs (at least
-> two reads per PHY to latch MII_BMSR).
+On 09/13/2015 12:49 PM, Nathan Neulinger wrote:
+> It seems like running 'vconfig add IFACE 0' and using IFACE.0 would do this, but it
+> doesn't actually seem to work that way.
+> 
+> If I capture on IFACE directly, I'd expect to get all traffic, including the tagged frames
+> (with the tag intact). Looking to be able to bridge/capture/etc. and specifically only
+> receive the untagged frames that haven't already been pulled out into a vlan specific
+> interface.
+> 
+> Is there any way to accomplish this without using ebtables or other similar hacks?
 
-Does the Marvell phy have such a register?  Looking at the register
-dump and plugging/unplugging cables seems not to show a register
-reporting whether any particular interface has changed state, and
-I haven't noticed there being any combined register in anything I've
-seen on these switches.
+If you are dealing with a hw interface, any interface that supports vlan
+filtering will by default receive only untagged frames.  Only when you put
+into promiscuous mode, will you receive all frames.
 
-> Now, I do agree there is a duplication of functionality here, and a
-> potential fix would be to avoid starting the PHY state machine if/when
-> the switch supports such a feature (not call phy_start*), that should
-> still get you consistent consistent link partner advertised/status
-> values, question is, does that really benefit anybody though?
+With bridge, you could configure your vlans adjacent to you bridge:
 
-I disagree - it's the DSA polling that needs to go.  The DSA polling
-only looks at the port status, and derives from it the carrier
-state.  The rest of the information is only turned into a printk().
-The PHY state machine does a lot more, recording the link speed so
-that ethtool works on the interface.
+   vlan0...N   bridge
+     |          |
+     +-- eth0 --+
 
-If we do want to go the other way, then the phy code needs a rework so
-that it can be properly classed and drivers with non-standard MII
-registers supported without needing to build register emulation layers.
+This way, configured vlan traffic will go to vlan devices, while all other
+traffic will got bridge.  You can even limit this "all other traffic"
+further, by turning on vlan filtering on the bridge which will allow
+you to run eth0 in non-promiscuous mode thus enforcing HW vlan filters.
 
--- 
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+-vlad
+
+> 
+> -- Nathan
+> 
+> ------------------------------------------------------------
+> Nathan Neulinger                       nneul@neulinger.org
+> Neulinger Consulting                   (573) 612-1412
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
