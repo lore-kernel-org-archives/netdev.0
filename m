@@ -1,50 +1,30 @@
-From: Davidlohr Bueso <dave@stgolabs.net>
-Subject: Re: [PATCH v2] atomics,cmpxchg: Privatize the inclusion of
- asm/cmpxchg.h
-Date: Sun, 13 Sep 2015 15:47:40 -0700
-Message-ID: <20150913224740.GF19736@linux-q0g1.site>
-References: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
+From: Financial@vger.kernel.org, Offer@vger.kernel.org
+Subject: loan.
+Date: Mon, 14 Sep 2015 01:39:59 +0100
+Message-ID: <CY1PR19MB0110A858581F9574B924E6E5B85D0__37090.6805540018$1442191279$gmane$org@CY1PR19MB0110.namprd19.prod.outlook.com>
+Reply-To: <ken.inv@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Shradha Shah <sshah@solarflare.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	William Hubbs <w.d.hubbs@gmail.com>,
-	Chris Brannon <chris@the-brannons.com>,
-	Kirk Reiser <kirk@reisers.ca>,
-	Samuel Thibault <samuel.thibault@ens-lyon.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Aybuke Ozdemir <aybuke.147@gmail.com>,
-	linux-net-drivers@solarflare.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, speakup@linux-speakup.org,
-	devel@driverdev.osuosl.org
-To: Boqun Feng <boqun.feng@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1441762024-2081-1-git-send-email-boqun.feng@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2un0251.outbound.protection.outlook.com ([65.55.169.251]:58000
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753209AbbINAlA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Sep 2015 20:41:00 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 09 Sep 2015, Boqun Feng wrote:
+Do you need a loan to pay off your bills, start up a business We give out loan at affordable rate of 2%. For quick response provide the below information.
 
->After commit:
->
->atomics: add acquire/release/relaxed variants of some atomic operations
->
->Architectures may only provide {cmp,}xchg_relaxed definitions in
->asm/cmpxchg.h. Other variants, such as {cmp,}xchg, may be built in
->linux/atomic.h, which means simply including asm/cmpxchg.h may not get
->the definitions of all the{cmp,}xchg variants. Therefore, we should
->privatize the inclusions of asm/cmpxchg.h to keep it only included in
->arch/* and replace the inclusions outside with linux/atomic.h
->
->Acked-by: Will Deacon <will.deacon@arm.com>
->Signed-off-by: Boqun Feng <boqun.feng@gmail.com>
+Name:
+Amount:
+Duration:
+Country:
+Age:
+Address:
+Mobile Number:
 
-fwiw,
-
-Acked-by: Davidlohr Bueso <dave@stgolabs.net>
+Regards.
