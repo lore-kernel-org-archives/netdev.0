@@ -1,110 +1,77 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: DSA: phy polling
-Date: Mon, 14 Sep 2015 11:42:54 +0100
-Message-ID: <20150914104254.GI21084@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V6 net-next 1/2] net: introduce socket family constants
+Date: Mon, 14 Sep 2015 12:42:45 +0200
+Message-ID: <1442227366-79236-2-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1442227366-79236-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Cc: utz.bacher@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, ursula.braun@de.ibm.com,
+	ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:47283 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755409AbbINKnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 06:43:00 -0400
-Content-Disposition: inline
+Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:48069 "EHLO
+	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755392AbbINKm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 06:42:56 -0400
+Received: from /spool/local
+	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+	Mon, 14 Sep 2015 11:42:54 +0100
+In-Reply-To: <1442227366-79236-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew,
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-I think you're the current maintainer of the Marvell DSA code, as being
-the most recent author of changes to it. :)
+The new socket family is assigned the next available address / protocol
+family constant 41.
 
-I've noticed in my testing that the Marvell DSA code seems to poll the
-internal phy link status in mv88e6xxx_poll_link(), and set the network
-device carrier status according to the results.
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
+ include/linux/socket.h |  4 +++-
+ include/net/smc.h      | 12 ++++++++++++
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+ create mode 100644 include/net/smc.h
 
-However, the internal phys are created using phylib, which also polls
-the phys for their link status, and controls the associated netdev
-carrier status.
-
-The side effect of this is that I see duplicated link status messages in
-the kernel log when connecting or disconnecting cables from the switch,
-caused by the code in mv88e6xxx_poll_link() racing with the phylib code.
->From what I can see, the code in mv88e6xxx_poll_link() is entirely
-redundant as the phylib layer will take care of any phy attached to the
-switch.
-
-To prove this, I have the following code in my tree, which disables the
-polling on a port where we have a phy attached (either an internal or
-external phy).  The result is that the per-port network devices are still
-updated with the link status even though this code is disabled - thanks
-to the phylib polling.
-
-I'm left wondering whether the DSA specific phy polling does anything
-useful, or whether the entire polling code both in mv88e6xxx.c and
-net/dsa can be removed (mv88e6xxx.c seems to be its only user.)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 26ec2fbfaa89..4c324eafeef2 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -400,6 +400,13 @@ void mv88e6xxx_poll_link(struct dsa_switch *ds)
- 		if (dev == NULL)
- 			continue;
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 5bf59c8..1adcbcc 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -200,7 +200,8 @@ struct ucred {
+ #define AF_ALG		38	/* Algorithm sockets		*/
+ #define AF_NFC		39	/* NFC sockets			*/
+ #define AF_VSOCK	40	/* vSockets			*/
+-#define AF_MAX		41	/* For now.. */
++#define AF_SMC		41	/* smc sockets			*/
++#define AF_MAX		42	/* For now.. */
  
-+		/*
-+		 * Ignore ports which have a phy; phylib will take care
-+		 * of polling the link status for these.
-+		 */
-+		if (dsa_slave_has_phy(dev))
-+			continue;
-+
- 		link = 0;
- 		if (dev->flags & IFF_UP) {
- 			port_status = mv88e6xxx_reg_read(ds, REG_PORT(i),
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index fbca63ba8f73..b31e9da43ea7 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -176,6 +176,8 @@ static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
- 	return ds->phys_port_mask & (1 << p) && ds->ports[p];
- }
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -246,6 +247,7 @@ struct ucred {
+ #define PF_ALG		AF_ALG
+ #define PF_NFC		AF_NFC
+ #define PF_VSOCK	AF_VSOCK
++#define PF_SMC		AF_SMC
+ #define PF_MAX		AF_MAX
  
-+extern bool dsa_slave_has_phy(struct net_device *);
+ /* Maximum queue length specifiable by listen.  */
+diff --git a/include/net/smc.h b/include/net/smc.h
+new file mode 100644
+index 0000000..68cdaae
+--- /dev/null
++++ b/include/net/smc.h
+@@ -0,0 +1,12 @@
++/*
++ * SMC		Definitions for the SMC protocol.
++ *
++ * Author:	Ursula Braun <ursula.braun@de.ibm.com>
++ */
++#ifndef _SMC_H
++#define _SMC_H
 +
- static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- {
- 	struct dsa_switch_tree *dst = ds->dst;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 35c47ddd04f0..a107242816ff 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -10,6 +10,7 @@
- 
- #include <linux/list.h>
- #include <linux/etherdevice.h>
-+#include <linux/export.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
- #include <linux/phy_fixed.h>
-@@ -873,6 +874,14 @@ int dsa_slave_resume(struct net_device *slave_dev)
- 	return 0;
- }
- 
-+bool dsa_slave_has_phy(struct net_device *slave_dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(slave_dev);
++/* SMC socket options - disjunct with TCP socket options */
++#define SMC_KEEPALIVE		99	/* start/stop keepalives */
 +
-+	return p->phy != NULL;
-+}
-+EXPORT_SYMBOL_GPL(dsa_slave_has_phy);
-+
- int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		     int port, char *name)
- {
-
-
++#endif /* _SMC_H */
 -- 
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.3.8
