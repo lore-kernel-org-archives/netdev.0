@@ -1,40 +1,83 @@
-From: Palmer Dabbelt <palmer@dabbelt.com>
-Subject: Re: [PATCH] Remove #ifdef CONFIG_64BIT from all asm-generic/fcntl.h
-Date: Mon, 14 Sep 2015 15:50:12 -0700 (PDT)
-Message-ID: <55f74f24.a2eb420a.57553.fffff8c5@mx.google.com>
-References: <18247.1441883885@warthog.procyon.org.uk>
-Cc: dhowells@redhat.com
-To: dhowells@redhat.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-CC: arnd@arndb.de
-CC: 3chas3@gmail.com
-CC: hpa@zytor.com
-CC: mingo@redhat.com
-CC: plagnioj@jcrosoft.com
-CC: jikos@kernel.org
-CC: linux-api@vger.kernel.org
-CC: linux-arch@vger.kernel.org
-CC: linux-atm-general@lists.sourceforge.net
-CC: linux-fbdev@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: netdev@vger.kernel.org
-CC: tglx@linutronix.de
-CC: tomi.valkeinen@ti.com
-CC: x86@kernel.org
-In-Reply-To: <18247.1441883885@warthog.procyon.org.uk>
-Sender: linux-arch-owner@vger.kernel.org
+From: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+Subject: [PATCH v7 0/3] can: Allwinner A10/A20 CAN Controller support - Summary
+Date: Tue, 15 Sep 2015 01:17:09 +0200
+Message-ID: <1442272632-20251-1-git-send-email-info@gerhard-bertelsmann.de>
+Cc: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+To: wg@grandegger.com, mkl@pengutronix.de,
+	maxime.ripard@free-electrons.com, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Sep 2015 04:18:05 PDT (-0700), dhowells@redhat.com wrote:
-> David Howells <dhowells@redhat.com> wrote:
->
->> Rather than iterating through all the rest of your patches and saying the same
->> thing, if there's something in a UAPI header that needs wrapping in __KERNEL__
->> to exclude it from userspace's use, then it should be transferred to the
->> non-UAPI variant of that header (which should #include the UAPI variant).
->
-> I should mention that there is the odd case where this is difficult to
-> achieve.  See include/uapi/linux/acct.h for an example...
+Hi,
 
-OK, sorry about that.  I'm submitting a v3 that should fix these
-problems.
+please find attached the next version of my patch set. I have 
+taken all remarks from Marc into the new version
+
+Please review, test and report bugs if exists.
+
+The patchset applies to all recent Kernel versions (4.3-rc, 4.2, next etc.).
+
+[PATCH v7 1/3] Device Tree Binding Documentation
+[PATCH v7 2/3] Defconfigs
+[PATCH v7 3/3] Kernel Module
+
+History:
+    V7: set_normal_mode: stripped (code inserted in can_stop)
+        set_reset_mode: stripped (code inserted in can_start)
+        sunxi_can_start: reworked
+        sunxi_can_stop: function added
+	sunxi_can_err: don't skip if skb alloc fails
+	sunxican_bittiming_const: use netdev_dbg instead of netdev_info
+        sunxican_probe: CAN_CTRLMODE_PRESUME_ACK
+
+    v6: renamed the driver to sun4i as suggested by Maxime Ripard
+        removed module version
+        removed suspend and resume
+        moved clk enable from can_start into open / should be balanced
+          between enabling and disabling now
+        freeing resources on error
+        
+    v5: fix license
+        modify prefix to mode select defines
+        enable and disable clock in sunxican_get_berr_counter
+        delete set_normal_mode at the end of sunxi_can_start
+        removed sunxican_id_table
+        use devm_clk_get instead of clk_get
+        use devm_ioremap_resource to simplify probe and remove
+        make set-normal-mode and set-reset-mode more readable
+        
+    v4: defines prefixed with SUNXI_
+        sunxi_can_write_cmdreg tweaked
+        loops in set_xxx_mode reworked
+        add return value to set_xxx_mode
+        sunxican_start_xmit reworked
+        struct platform_driver stripped
+        moved set_bittiming into open
+        moved clock start into open
+        add clock stop to close
+        suspend reworked
+        resume reworked
+        fixed double counting bug
+
+    v3: changed error state change handling (thx Andri for the hint)
+        use bittiming function correct (no need to call it)
+        strip down priv (suggested by Marc)
+        scripts/checkpatch.pl-> no matches anymore
+        sparse -> no errors or warnings anymore
+    v2: cleaning
+    v1: initial
+
+Signed-off-by: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+---
+
+ .../devicetree/bindings/net/can/sun4i_can.txt      |  38 +
+ arch/arm/configs/multi_v7_defconfig                |   1 +
+ arch/arm/configs/sunxi_defconfig                   |   2 +
+ drivers/net/can/Kconfig                            |  10 +
+ drivers/net/can/Makefile                           |   1 +
+ drivers/net/can/sun4i_can.c                        | 857 +++++++++++++++++++++
+ 6 files changed, 909 insertions(+)
+
