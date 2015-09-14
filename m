@@ -1,148 +1,76 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: Re: [PATCH v2] net: mvneta: fix refilling for Rx DMA buffers
-Date: Tue, 15 Sep 2015 00:46:03 +0200
-Message-ID: <20150914224603.GB7306@kw.sim.vm.gnt>
-References: <1437303653-2236-1-git-send-email-simon.guinot@sequanux.org>
- <20150721.003033.1524284435822402813.davem@davemloft.net>
- <CAA-51jPPDHfE1uT2NuJ53wWTvEgh7DcW0K0-xZgQdjAD2CC04w@mail.gmail.com>
- <20150914221320.GA7306@kw.sim.vm.gnt>
- <CAA-51jNFeJn5ZPz5JRcK1Cv3WnFnDWV--SN2fqCNMyxxKrdmhg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: DSA: phy polling
+Date: Mon, 14 Sep 2015 15:41:46 -0700
+Message-ID: <55F74D2A.8010104@gmail.com>
+References: <20150914104254.GI21084@n2100.arm.linux.org.uk> <55F703D7.1070707@gmail.com> <20150914182314.GP21084@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MfFXiAuoTsnnDAfZ"
-Cc: David Miller <davem@davemloft.net>,
-	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-	jason@lakedaemon.net, netdev@vger.kernel.org, vdonnefort@gmail.com,
-	stable@vger.kernel.org,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	yoann@sculo.fr, linux-arm-kernel@lists.infradead.org,
-	sebastian.hesselbarth@gmail.com
-To: Oren Laskin <oren@igneous.io>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAA-51jNFeJn5ZPz5JRcK1Cv3WnFnDWV--SN2fqCNMyxxKrdmhg@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34678 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208AbbINWod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 18:44:33 -0400
+Received: by padhy16 with SMTP id hy16so155743959pad.1
+        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 15:44:32 -0700 (PDT)
+In-Reply-To: <20150914182314.GP21084@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 14/09/15 11:23, Russell King - ARM Linux wrote:
+> On Mon, Sep 14, 2015 at 10:28:55AM -0700, Florian Fainelli wrote:
+>> Just my 2 cents here, I suspect the original intention behind this code
+>> was to help utilize the switch's built-in PHY polling unit when
+>> available, and use the HW to collect the state of all PHYs in fewer
+>> register to read, instead of having to do individual (and quite possibly
+>> expensive) MDIO reads towards each individual per-port PHYs (at least
+>> two reads per PHY to latch MII_BMSR).
+> 
+> Does the Marvell phy have such a register?  Looking at the register
+> dump and plugging/unplugging cables seems not to show a register
+> reporting whether any particular interface has changed state, and
+> I haven't noticed there being any combined register in anything I've
+> seen on these switches.
 
---MfFXiAuoTsnnDAfZ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+It seemed to me like the PPU was meant to provide that, but I cannot
+find any "summary" register which would give you such a status, must
+have conflated that with what Broadcom switches support.
 
-On Mon, Sep 14, 2015 at 03:16:50PM -0700, Oren Laskin wrote:
-> I would hit this error on my Armada 370 board about 20% of the time
-> after downloading a 30MB file to /tmp.  We're running a 1 Gb SGMII
-> link.  I would hit this in less than a minute before removing this
-> commit from my tree.  I've now been running this test in a loop for a
-> few hours with no problems.
+> 
+>> Now, I do agree there is a duplication of functionality here, and a
+>> potential fix would be to avoid starting the PHY state machine if/when
+>> the switch supports such a feature (not call phy_start*), that should
+>> still get you consistent consistent link partner advertised/status
+>> values, question is, does that really benefit anybody though?
+> 
+> I disagree - it's the DSA polling that needs to go.  The DSA polling
+> only looks at the port status, and derives from it the carrier
+> state.  The rest of the information is only turned into a printk().
+> The PHY state machine does a lot more, recording the link speed so
+> that ethtool works on the interface.
 
-Outch.
+I am fine with that approach, it was not exactly clear to me before
+reading the code whether the link polling workqueue was doing anything
+useful in mv88e6xxx.c, now it is pretty clear to me, this is as
+expensive (more actually because of the PPU get/put) and useless since
+the PHY library directly polls the individual per-port PHYs.
 
-At the time I have tested this patch with several runs of 20 wget/md5sum
-of a 1GB file (with jumbo frames enabled or not). I have also used this
-program: http://git.lacie-nas.org/?p=3Dnetsum.git;a=3Dsummary. It allows to
-detect data corruption over network very quickly.
+> 
+> If we do want to go the other way, then the phy code needs a rework so
+> that it can be properly classed and drivers with non-standard MII
+> registers supported without needing to build register emulation layers.
+> 
 
-It is very weird, I should have seen something...
+That part is going to be challenging, all the ethtool/PHY library/MII
+code is built around the assumption of translating user-configurable
+settings into standard MII calls (all the adv_to* etc.), but, then
+again, MII is just one possible translation layer here, you could "plug"
+another one if your HW supports that (e.g: non-MDIO, but MMIO for
+instance which understands basic concepts like speed/link/duplex/pause).
 
-Moreover I understand that you reproduce the issue very quickly and
-without any refilling errors. It is also quite weird because the patch
-does basically nothing in a such case.
-
-BTW, which hardware are you using exactly ?
-
-Definitively I'll have a closer look at it tomorrow.
-
-Simon
-
->=20
-> It was somewhat hard to diagnose since files I used scp didn't see the
-> issues (or at least as quickly).  I set up an http program to serve a
-> file and replicated the problem with wget and found it.
->=20
-> Oren
->=20
-> On Mon, Sep 14, 2015 at 3:13 PM, Simon Guinot <simon.guinot@sequanux.org>=
- wrote:
-> > Hi Oren,
-> >
-> > On Mon, Sep 14, 2015 at 01:22:12PM -0700, Oren Laskin wrote:
-> >> I had to undo this change on my Amada 370 based board.  It was causing
-> >> corrupt data to make it through on large downloads.  I'm using wget to=
- get
-> >> the same 30MB file many times and the SHA would occasionally be differ=
-ent.
-> >
-> > During your tests, can you see some "Linux processing - Can't refill"
-> > messages along with the data corruptions ?
-> >
-> >> I tracked it down to this commit.  In it, I would find on the order of=
- a
-> >> few hundred bytes to simply be wrong data.
-> >
-> > I am little bit surprised here. For me, this patch is very simple and
-> > does the exact opposite. It does fix kernel crashes and data corruptions
-> > in case of refilling errors. This can happen for example if you run
-> > large data transfers with jumbo frames enabled...
-> >
-> > But anyway, I'll try to reproduce the issue tomorrow. I only have to
-> > wget the same file (size 30MB) in a loop and to check its md5sum ?
-> > That's it ? And how long should I wait for the error ?
-> >
-> > Thanks,
-> >
-> > Simon
-> >
-> >>
-> >> Thanks,
-> >>
-> >> Oren
-> >>
-> >> On Tue, Jul 21, 2015 at 12:30 AM, David Miller <davem@davemloft.net> w=
-rote:
-> >>
-> >> > From: Simon Guinot <simon.guinot@sequanux.org>
-> >> > Date: Sun, 19 Jul 2015 13:00:53 +0200
-> >> >
-> >> > > With the actual code, if a memory allocation error happens while
-> >> > > refilling a Rx descriptor, then the original Rx buffer is both pas=
-sed
-> >> > > to the networking stack (in a SKB) and let in the Rx ring. This le=
-ads
-> >> > > to various kernel oops and crashes.
-> >> > >
-> >> > > As a fix, this patch moves Rx descriptor refilling ahead of buildi=
-ng
-> >> > > SKB with the associated Rx buffer. In case of a memory allocation
-> >> > > failure, data is dropped and the original DMA buffer is put back i=
-nto
-> >> > > the Rx ring.
-> >> > >
-> >> > > Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> >> > > Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP
-> >> > network unit")
-> >> > > Cc: <stable@vger.kernel.org> # v3.8+
-> >> > > Tested-by: Yoann Sculo <yoann@sculo.fr>
-> >> >
-> >> > Applied, thanks.
-> >> >
-> >> > _______________________________________________
-> >> > linux-arm-kernel mailing list
-> >> > linux-arm-kernel@lists.infradead.org
-> >> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> >> >
-
---MfFXiAuoTsnnDAfZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlX3TisACgkQgtp0PDeOcDpoEwCfeNR4PiF0L/ie7zR+GdwCp+zz
-nScAn2uBvxRUqWa5oCRq8YkeW6hC/P5Z
-=MzOw
------END PGP SIGNATURE-----
-
---MfFXiAuoTsnnDAfZ--
+Oh well.
+-- 
+Florian
