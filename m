@@ -1,73 +1,48 @@
 From: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-Subject: [PATCH v6 0/3] can: Allwinner A10/A20 CAN Controller support - Summary
-Date: Mon, 14 Sep 2015 14:54:56 +0200
-Message-ID: <1442235299-5885-1-git-send-email-info@gerhard-bertelsmann.de>
+Subject: [PATCH v6 2/3] can: Allwinner A10/A20 CAN Controller support - Defconfigs
+Date: Mon, 14 Sep 2015 14:54:58 +0200
+Message-ID: <1442235299-5885-3-git-send-email-info@gerhard-bertelsmann.de>
+References: <1442235299-5885-1-git-send-email-info@gerhard-bertelsmann.de>
 Cc: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
 To: wg@grandegger.com, mkl@pengutronix.de,
 	maxime.ripard@free-electrons.com, linux-can@vger.kernel.org,
 	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1442235299-5885-1-git-send-email-info@gerhard-bertelsmann.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-Hi,
-
-please find attached the next try. Thanks to Marc an Maxime for their reviews.
-To be honest I made the defconfig the best of my belief.
-
-Please test and report bugs if exists.
-
-[PATCH v6 1/3] Device Tree Binding Documentation
-[PATCH v6 2/3] Defconfigs
-[PATCH v6 3/3] Kernel Module
-
-History:
-    V6: renamed the driver to sun4i as suggested by Maxime Ripard
-        removed module version
-        removed suspend and resume
-        moved clk enable from can_start into open / should be balanced
-          between enabling and disabling now
-        freeing resources on error
-        
-    v5: fix license
-        modify prefix to mode select defines
-        enable and disable clock in sunxican_get_berr_counter
-        delete set_normal_mode at the end of sunxi_can_start
-        removed sunxican_id_table
-        use devm_clk_get instead of clk_get
-        use devm_ioremap_resource to simplify probe and remove
-        make set-normal-mode and set-reset-mode more readable
-        
-    v4: defines prefixed with SUNXI_
-        sunxi_can_write_cmdreg tweaked
-        loops in set_xxx_mode reworked
-        add return value to set_xxx_mode
-        sunxican_start_xmit reworked
-        struct platform_driver stripped
-        moved set_bittiming into open
-        moved clock start into open
-        add clock stop to close
-        suspend reworked
-        resume reworked
-        fixed double counting bug
-
-    v3: changed error state change handling (thx Andri for the hint)
-        use bittiming function correct (no need to call it)
-        strip down priv (suggested by Marc)
-        scripts/checkpatch.pl-> no matches anymore
-        sparse -> no errors or warnings anymore
-    v2: cleaning
-    v1: initial
 
 Signed-off-by: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
 ---
 
- .../devicetree/bindings/net/can/sun4i_can.txt      |  37 +
  arch/arm/configs/multi_v7_defconfig                |   1 +
  arch/arm/configs/sunxi_defconfig                   |   2 +
- drivers/net/can/Kconfig                            |  10 +
- drivers/net/can/Makefile                           |   1 +
- drivers/net/can/sun4i_can.c                        | 824 +++++++++++++++++++++
- 6 files changed, 875 insertions(+)
+ 2 files changed, 3 insertions(+)
 
+
+diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
+index 03deb7f..14eb6b9 100644
+--- a/arch/arm/configs/multi_v7_defconfig
++++ b/arch/arm/configs/multi_v7_defconfig
+@@ -153,6 +153,7 @@ CONFIG_CAN_DEV=y
+ CONFIG_CAN_AT91=m
+ CONFIG_CAN_XILINXCAN=y
+ CONFIG_CAN_MCP251X=y
++CONFIG_CAN_SUN4I=y
+ CONFIG_BT=m
+ CONFIG_BT_MRVL=m
+ CONFIG_BT_MRVL_SDIO=m
+diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
+index 51eea22..fe020a5 100644
+--- a/arch/arm/configs/sunxi_defconfig
++++ b/arch/arm/configs/sunxi_defconfig
+@@ -31,6 +31,8 @@ CONFIG_IP_PNP_BOOTP=y
+ # CONFIG_INET_LRO is not set
+ # CONFIG_INET_DIAG is not set
+ # CONFIG_IPV6 is not set
++CONFIG_CAN=y
++CONFIG_CAN_SUN4I=y
+ # CONFIG_WIRELESS is not set
+ CONFIG_DEVTMPFS=y
+ CONFIG_DEVTMPFS_MOUNT=y
