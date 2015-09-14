@@ -1,96 +1,65 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] atm: deal with setting entry before mkip was called
-Date: Mon, 14 Sep 2015 11:48:50 -0400
-Message-ID: <1442245730-31575-1-git-send-email-sasha.levin@oracle.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <sasha.levin@oracle.com>
-To: davem@davemloft.net, edumazet@google.com
+From: Tycho Andersen <tycho.andersen@canonical.com>
+Subject: Re: [PATCH v2 2/5] seccomp: make underlying bpf ref counted as well
+Date: Mon, 14 Sep 2015 10:00:30 -0600
+Message-ID: <20150914160030.GC31864@smitten>
+References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
+ <1441930862-14347-3-git-send-email-tycho.andersen@canonical.com>
+ <55F2D0EC.9090004@iogearbox.net>
+ <20150911144400.GI27574@smitten>
+ <55F2FB6F.7050708@iogearbox.net>
+ <20150911173311.GB7244@smitten>
+ <55F31D43.5080001@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook@chromium.org>,
+	Alexei Starovoitov <ast@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Will Drewry <wad@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-api@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55F31D43.5080001@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If we didn't call ATMARP_MKIP before ATMARP_ENCAP the VCC descriptor is
-non-existant and we'll end up dereferencing a NULL ptr:
+Hi Daniel,
 
-[1033173.491930] kasan: GPF could be caused by NULL-ptr deref or user memory accessirq event stamp: 123386
-[1033173.493678] general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC KASAN
-[1033173.493689] Modules linked in:
-[1033173.493697] CPU: 9 PID: 23815 Comm: trinity-c64 Not tainted 4.2.0-next-20150911-sasha-00043-g353d875-dirty #2545
-[1033173.493706] task: ffff8800630c4000 ti: ffff880063110000 task.ti: ffff880063110000
-[1033173.493823] RIP: clip_ioctl (net/atm/clip.c:320 net/atm/clip.c:689)
-[1033173.493826] RSP: 0018:ffff880063117a88  EFLAGS: 00010203
-[1033173.493828] RAX: dffffc0000000000 RBX: 0000000000000000 RCX: 000000000000000c
-[1033173.493830] RDX: 0000000000000002 RSI: ffffffffb3f10720 RDI: 0000000000000014
-[1033173.493832] RBP: ffff880063117b80 R08: ffff88047574d9a4 R09: 0000000000000000
-[1033173.493834] R10: 0000000000000000 R11: 0000000000000000 R12: 1ffff1000c622f53
-[1033173.493836] R13: ffff8800cb905500 R14: ffff8808d6da2000 R15: 00000000fffffdfd
-[1033173.493840] FS:  00007fa56b92d700(0000) GS:ffff880478000000(0000) knlGS:0000000000000000
-[1033173.493843] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[1033173.493845] CR2: 0000000000000000 CR3: 00000000630e8000 CR4: 00000000000006a0
-[1033173.493855] Stack:
-[1033173.493862]  ffffffffb0b60444 000000000000eaea 0000000041b58ab3 ffffffffb3c3ce32
-[1033173.493867]  ffffffffb0b6f3e0 ffffffffb0b60444 ffffffffb5ea2e50 1ffff1000c622f5e
-[1033173.493873]  ffff8800630c4cd8 00000000000ee09a ffffffffb3ec4888 ffffffffb5ea2de8
-[1033173.493874] Call Trace:
-[1033173.494108] do_vcc_ioctl (net/atm/ioctl.c:170)
-[1033173.494113] vcc_ioctl (net/atm/ioctl.c:189)
-[1033173.494116] svc_ioctl (net/atm/svc.c:605)
-[1033173.494200] sock_do_ioctl (net/socket.c:874)
-[1033173.494204] sock_ioctl (net/socket.c:958)
-[1033173.494244] do_vfs_ioctl (fs/ioctl.c:43 fs/ioctl.c:607)
-[1033173.494290] SyS_ioctl (fs/ioctl.c:622 fs/ioctl.c:613)
-[1033173.494295] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:186)
-[1033173.494362] Code: fa 48 c1 ea 03 80 3c 02 00 0f 85 50 09 00 00 49 8b 9e 60 06 00 00 48 b8 00 00 00 00 00 fc ff df 48 8d 7b 14 48 89 fa 48 c1 ea 03 <0f> b6 04 02 48 89 fa 83 e2 07 38 d0 7f 08 84 c0 0f 85 14 09 00
-All code
-========
-   0:   fa                      cli
-   1:   48 c1 ea 03             shr    $0x3,%rdx
-   5:   80 3c 02 00             cmpb   $0x0,(%rdx,%rax,1)
-   9:   0f 85 50 09 00 00       jne    0x95f
-   f:   49 8b 9e 60 06 00 00    mov    0x660(%r14),%rbx
-  16:   48 b8 00 00 00 00 00    movabs $0xdffffc0000000000,%rax
-  1d:   fc ff df
-  20:   48 8d 7b 14             lea    0x14(%rbx),%rdi
-  24:   48 89 fa                mov    %rdi,%rdx
-  27:   48 c1 ea 03             shr    $0x3,%rdx
-  2b:*  0f b6 04 02             movzbl (%rdx,%rax,1),%eax               <-- trapping instruction
-  2f:   48 89 fa                mov    %rdi,%rdx
-  32:   83 e2 07                and    $0x7,%edx
-  35:   38 d0                   cmp    %dl,%al
-  37:   7f 08                   jg     0x41
-  39:   84 c0                   test   %al,%al
-  3b:   0f 85 14 09 00 00       jne    0x955
+On Fri, Sep 11, 2015 at 08:28:19PM +0200, Daniel Borkmann wrote:
+> I think due to the given insns restrictions on classic seccomp, this
+> could work for "most cases" (see below) for the time being until pointer
+> sanitation is resolved and that seccomp-only restriction from the dump
+> could be removed,
 
-Code starting with the faulting instruction
-===========================================
-   0:   0f b6 04 02             movzbl (%rdx,%rax,1),%eax
-   4:   48 89 fa                mov    %rdi,%rdx
-   7:   83 e2 07                and    $0x7,%edx
-   a:   38 d0                   cmp    %dl,%al
-   c:   7f 08                   jg     0x16
-   e:   84 c0                   test   %al,%al
-  10:   0f 85 14 09 00 00       jne    0x92a
-[1033173.494366] RIP clip_ioctl (net/atm/clip.c:320 net/atm/clip.c:689)
-[1033173.494368]  RSP <ffff880063117a88>
+Ok, thanks.
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/atm/clip.c |    3 +++
- 1 file changed, 3 insertions(+)
+> BUT there's one more stone in the road which you still
+> need to take care of with this whole 'giving classic seccomp-BPF -> eBPF
+> transforms an fd, dumping and restoring that via bpf(2)' approach:
+> 
+> If you have JIT enabled on ARM32, and add a classic seccomp-BPF filter,
+> and dump that via your bpf(2) interface based on the current patches, what
+> you'll get is not eBPF opcodes but classic (!) BPF opcodes as ARM32 classic
+> JIT supports compilation of seccomp, since commit 24e737c1ebac ("ARM: net:
+> add JIT support for loads from struct seccomp_data.").
+> 
+> So in that case, bpf_prepare_filter() will not call into bpf_migrate_filter()
+> as there's simply no need for it, because the classic code could already
+> be JITed there. I guess other archs where JIT support for eBPF in not yet
+> within near sight might sooner or later support this insn for their classic
+> JITs, too ...
 
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index 17e55df..4407b2f 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -317,6 +317,9 @@ static int clip_constructor(struct neighbour *neigh)
- 
- static int clip_encap(struct atm_vcc *vcc, int mode)
- {
-+	if (!CLIP_VCC(vcc))
-+		return -EBADF;
-+
- 	CLIP_VCC(vcc)->encap = mode;
- 	return 0;
- }
--- 
-1.7.10.4
+Thanks for pointing this out.
+
+What if we legislate that the output of bpf(BPF_PROG_DUMP, ...) is
+always eBPF? As near as I can tell there is no way to determine if a
+struct bpf_prog is classic or eBPF, so we'd need to add a bit to
+indicate whether or not the prog has been converted so that
+BPF_PROG_DUMP knows when to convert it.
+
+Tycho
