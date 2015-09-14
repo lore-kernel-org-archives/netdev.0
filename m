@@ -1,70 +1,121 @@
-From: Nathan Neulinger <nneul@neulinger.org>
-Subject: Re: Any way to configure a vlan interface to grab ONLY untagged
- frames?
-Date: Mon, 14 Sep 2015 13:35:28 -0500
-Message-ID: <55F71370.3000706@neulinger.org>
-References: <55F5A8FC.1020707@neulinger.org> <55F711D1.9050605@gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [net-next PATCH] net: bridge: fix for bridging 802.1Q without
+ REORDER_HDR
+Date: Mon, 14 Sep 2015 22:06:48 +0200
+Message-ID: <20150914200648.GH30501@orbit.nwl.cc>
+References: <1441999323-29381-1-git-send-email-phil@nwl.cc>
+ <20150911122445.53cdfbcf@urahara>
+ <20150911202033.GE7029@orbit.nwl.cc>
+ <55F71016.7060202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f173.google.com ([209.85.160.173]:35559 "EHLO
-	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750980AbbINSfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 14:35:31 -0400
-Received: by ykdu9 with SMTP id u9so162533196ykd.2
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 11:35:30 -0700 (PDT)
-In-Reply-To: <55F711D1.9050605@gmail.com>
+Received: from orbit.nwl.cc ([176.31.251.142]:55436 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752008AbbINUGu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2015 16:06:50 -0400
+Content-Disposition: inline
+In-Reply-To: <55F71016.7060202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-That is a quite elegant solution. I will give that a try!
+On Mon, Sep 14, 2015 at 02:21:10PM -0400, Vlad Yasevich wrote:
+> On 09/11/2015 04:20 PM, Phil Sutter wrote:
+> > On Fri, Sep 11, 2015 at 12:24:45PM -0700, Stephen Hemminger wrote:
+> >> On Fri, 11 Sep 2015 21:22:03 +0200
+> >> Phil Sutter <phil@nwl.cc> wrote:
+> >>
+> >>> When forwarding packets from an 802.1Q interface with REORDER_HDR set to
+> >>> zero, the VLAN header previously inserted by vlan_do_receive() needs to
+> >>> be stripped from the packet and the mac_header adjustment undone,
+> >>> otherwise a tagged frame with first four bytes missing will be
+> >>> transmitted.
+> >>>
+> >>> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> >>> ---
+> >>>  net/bridge/br_input.c | 10 ++++++++++
+> >>>  1 file changed, 10 insertions(+)
+> >>>
+> >>> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> >>> index f921a5d..e4e3fc7 100644
+> >>> --- a/net/bridge/br_input.c
+> >>> +++ b/net/bridge/br_input.c
+> >>> @@ -288,6 +288,16 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+> >>>  	}
+> >>>  
+> >>>  forward:
+> >>> +	if (is_vlan_dev(skb->dev) &&
+> >>> +	    !(vlan_dev_priv(skb->dev)->flags & VLAN_FLAG_REORDER_HDR)) {
+> >>> +		unsigned int offset = skb->data - skb_mac_header(skb);
+> >>> +
+> >>> +		skb_push(skb, offset);
+> >>> +		memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
+> >>> +		skb->mac_header += VLAN_HLEN;
+> >>> +		skb_pull(skb, offset);
+> >>> +		skb_reset_mac_len(skb);
+> >>> +	}
+> >>>  	switch (p->state) {
+> >>>  	case BR_STATE_FORWARDING:
+> >>>  		rhook = rcu_dereference(br_should_route_hook);
+> >>
+> >> Thanks for finding this. Is this a new thing or has it always been there?
+> > 
+> > Sorry, I didn't check if this is a regression or not. Seen initially
+> > with RHEL7's kernel-3.10.0-229.7.2, which due to the massive backporting
+> > is by far not as old as it might seem. But it's surely not a brand new
+> > problem of net-next or so.
+> > 
+> > Since nowadays no sane mind touches REORDER_HDR (there was originally a
+> > bug in NetworkManager which defaulted this to 0), it may very well be
+> > there for a long time already.
+> > 
+> >> Sorry, this looks so special case it doesn't seem like a good idea.
+> >> Something is broken in VLAN handling if this is required.
+> > 
+> > It is so ugly, I wish I had found a better way to fix the problem. Well,
+> > maybe I miss something:
+> > 
+> > - packet enters __netif_receive_skb_core():
+> >   - skb->protocol is set to ETH_P_8021Q, so:
+> >     - packet is untagged
+> >     - skb->vlan_tci set
+> >     - skb->protocol set to 'real' protocol
+> >   - skb_vlan_tag_present(skb) == true, so:
+> >     - vlan_do_receive() is called:
+> >       - tags the packet again
+> >       - zeroes vlan_tci
+> >     - goto another_round
+> > - __netif_receive_skb_core(), round 2:
+> >   - skb->protocol is not ETH_P_8021Q -> no untagging
+> >   - skb_vlan_tag_present(skb) == false -> no vlan_do_receive()
+> >   - rx_handler handler (== br_handle_frame) is called
+> > 
+> > IMO the root of all evil is the existence of REORDER_HDR itself. It
+> > causes an skb which should have been untagged to being passed along with
+> > VLAN header present and code dealing with it needs to clean up the mess.
+> 
+> So the problem here appears the be the code the in br_dev_queue_push_xmit().
+> It assumes that MAC_HLEN worth of data has been removed from the skb,
+> which is normal in case of normal VLAN processing.  However, without
+> REORDER_HEADER set this is no longer the case.  In this case, the ethernet
+> header is shifted 4 bytes, and when we push the it back we miss the 4 bytes
+> of the destination mac address...
 
--- Nathan
+Please note that vlan_do_receive() also inserts the VLAN header in
+between ethernet header and IP header, therefore:
 
-On 09/14/2015 01:28 PM, Vlad Yasevich wrote:
-> On 09/13/2015 12:49 PM, Nathan Neulinger wrote:
->> It seems like running 'vconfig add IFACE 0' and using IFACE.0 would do this, but it
->> doesn't actually seem to work that way.
->>
->> If I capture on IFACE directly, I'd expect to get all traffic, including the tagged frames
->> (with the tag intact). Looking to be able to bridge/capture/etc. and specifically only
->> receive the untagged frames that haven't already been pulled out into a vlan specific
->> interface.
->>
->> Is there any way to accomplish this without using ebtables or other similar hacks?
->
-> If you are dealing with a hw interface, any interface that supports vlan
-> filtering will by default receive only untagged frames.  Only when you put
-> into promiscuous mode, will you receive all frames.
->
-> With bridge, you could configure your vlans adjacent to you bridge:
->
->     vlan0...N   bridge
->       |          |
->       +-- eth0 --+
->
-> This way, configured vlan traffic will go to vlan devices, while all other
-> traffic will got bridge.  You can even limit this "all other traffic"
-> further, by turning on vlan filtering on the bridge which will allow
-> you to run eth0 in non-promiscuous mode thus enforcing HW vlan filters.
->
-> -vlad
->
->>
->> -- Nathan
->>
->> ------------------------------------------------------------
->> Nathan Neulinger                       nneul@neulinger.org
->> Neulinger Consulting                   (573) 612-1412
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> I wonder if it would be safe to just use skb->mac_len.
 
--- 
-------------------------------------------------------------
-Nathan Neulinger                       nneul@neulinger.org
-Neulinger Consulting                   (573) 612-1412
+Given this works, the bridge would still forward a tagged frame which
+should have been untagged in the first place.
+
+I just wondered where this added VLAN header is dropped if the interface
+does not belong to a bridge, but then realized that further packet
+processing simply ignores the ethernet header (and everything following
+it). So unless I forget something, this should indeed be a
+bridge-specific problem.
+
+Cheers, Phil
