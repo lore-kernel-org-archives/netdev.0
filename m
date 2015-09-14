@@ -1,74 +1,47 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Netfilter: BUG: unable to handle kernel paging request, RIP:
- physdev_mt+0xd6/0x160
-Date: Mon, 14 Sep 2015 16:45:16 +0200
-Message-ID: <20150914144516.GM24810@breakpoint.cc>
-References: <1620a50057d1e8aadafe27c74ee42d93@eikelenboom.it>
- <20150913180620.GK24810@breakpoint.cc>
- <57e23f8e80b57dff72f6bc5b7e9b2d53@eikelenboom.it>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [net-next PATCH] net: sched: document attach_default_qdiscs
+Date: Mon, 14 Sep 2015 17:31:30 +0200
+Message-ID: <1442244690-6672-1-git-send-email-phil@nwl.cc>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33466 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752336AbbINOpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 10:45:18 -0400
-Content-Disposition: inline
-In-Reply-To: <57e23f8e80b57dff72f6bc5b7e9b2d53@eikelenboom.it>
+Received: from orbit.nwl.cc ([176.31.251.142]:37161 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754239AbbINPbd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2015 11:31:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sander Eikelenboom <linux@eikelenboom.it> wrote:
-> On 2015-09-13 20:06, Florian Westphal wrote:
-> >Sander Eikelenboom <linux@eikelenboom.it> wrote:
-> >>Using a linux-4.3-rc1 kernel i encountered the splat below:
-> >
-> >Thanks for reporting this bug.
-> >
-> >>[  290.200642] BUG: unable to handle kernel paging request at
-> >>000000000484195d
-> >>[  290.211702] IP: [<ffffffff819bc3e6>] physdev_mt+0xd6/0x160
-> >[..]
-> >
-> >>[  290.444088]  [<ffffffff81a4e6c0>] ipt_do_table+0x210/0x390
-> >>[  290.461951]  [<ffffffff81a510ae>] iptable_filter_hook+0x2e/0x70
-> >>[  290.470756]  [<ffffffff8199279c>] nf_iterate+0x4c/0x80
-> >>[  290.479587]  [<ffffffff81992834>] nf_hook_slow+0x64/0xc0
-> >>[  290.488341]  [<ffffffff81a06779>] ip_forward+0x369/0x3c0
-> >>[  290.496927]  [<ffffffff81a06380>] ? ip_frag_mem+0x40/0x40
-> >>[  290.505365]  [<ffffffff81a04961>] ip_rcv_finish+0x101/0x330
-> >>[  290.513480]  [<ffffffff81a05001>] ip_rcv+0x291/0x390
-> >>[  290.521562]  [<ffffffff81a04860>] ?
-> >
-> >Aye, ip forwarding of bridged packets with call-iptables=1 is broken.
-> >
-> >Please, could you try this patch?  It fixes this bug for me.
-> 
-> Hi Florian,
-> 
-> Works for me too, thx for the fix !
+The process of selecting an interface's default qdisc is not really
+intuitive, at least because there are three different cases to consider.
 
-Sorry, I made this claim too early.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ net/sched/sch_generic.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-We cannot use this fix, since it will still cause kernel oops when using
--j NFQUEUE in PRE_ROUTING (We would bump refcnt on ->physoutdev, which is
-garbage in this case).
-
-Only option is to undo 72b1e5e4cac as follows:
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -183,7 +183,8 @@ struct nf_bridge_info {
- 		/* prerouting: detect dnat in orig/reply direction */
- 		__be32          ipv4_daddr;
- 		struct in6_addr ipv6_daddr;
--
-+	};
-+	union {
- 		/* after prerouting + nat detected: store original source
- 		 * mac since neigh resolution overwrites it, only used while
- 		 * skb is out in neigh layer.
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index cb5d4ad..d7eaa51 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -741,6 +741,18 @@ static void attach_one_default_qdisc(struct net_device *dev,
+ 	dev_queue->qdisc_sleeping = qdisc;
+ }
+ 
++/**
++ *	attach_default_qdiscs - set qdiscs back to default
++ *	@dev: network device to attach to
++ *
++ * This function attaches the (configurable) default qdisc to
++ * an interface.
++ * The actual default depends: Non-MQ, physical interfaces
++ * get whatever default_qdisc_ops has been set to. Multiqueue
++ * interfaces get mq, which uses default_qdisc_ops for it's
++ * leaves. Finally, virtual interfaces unconditionally
++ * default to noqueue.
++ */
+ static void attach_default_qdiscs(struct net_device *dev)
+ {
+ 	struct netdev_queue *txq;
+-- 
+2.1.2
