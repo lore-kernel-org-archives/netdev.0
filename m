@@ -1,74 +1,47 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH] net: dsa: actually force the speed on the CPU port
-Date: Mon, 14 Sep 2015 13:09:04 +0100
-Message-ID: <E1ZbSZE-0007KQ-HO@rmk-PC.arm.linux.org.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [fw filter]: Broken! fw mark based tc class selection not working
+Date: Mon, 14 Sep 2015 08:28:05 -0400
+Message-ID: <55F6BD55.6080503@mojatatu.com>
+References: <CAA5aLPhvkEPpDhaxSNWnGHU2H0WmCaYhbo-fYKP8+Xzka3-q=g@mail.gmail.com>
+ <CAHA+R7P5jTGBof-oObzJ0SidRr17fKLGjoMkk0-VYzuSLjawZg@mail.gmail.com>
+ <CAA5aLPgCqOXU3vw6moSvADuOc4Q_TM2iJLHjSH0O8NwYJJ1t7g@mail.gmail.com>
+ <CAHA+R7N6rTS5rmALk_2FxUXc0s9Ni4snJQ52tS3imaA6hotdHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=iso-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Cong Wang <cwang@twopensource.com>,
+	Akshat Kakkar <akshat.1984@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:47624 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451AbbINMJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 08:09:07 -0400
-Content-Disposition: inline
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:36474 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753185AbbINM2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 08:28:10 -0400
+Received: by igcrk20 with SMTP id rk20so85849099igc.1
+        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 05:28:09 -0700 (PDT)
+In-Reply-To: <CAHA+R7N6rTS5rmALk_2FxUXc0s9Ni4snJQ52tS3imaA6hotdHw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 54d792f257c6 ("net: dsa: Centralise global and port setup
-code into mv88e6xxx.") merged in the 4.2 merge window broke the link
-speed forcing for the CPU port of Marvell DSA switches.  The original
-code was:
+On 09/11/15 20:00, Cong Wang wrote:
+> On Fri, Sep 11, 2015 at 3:24 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
 
-        /* MAC Forcing register: don't force link, speed, duplex
-         * or flow control state to any particular values on physical
-         * ports, but force the CPU port and all DSA ports to 1000 Mb/s
-         * full duplex.
-         */
-        if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
-                REG_WRITE(addr, 0x01, 0x003e);
-        else
-                REG_WRITE(addr, 0x01, 0x0003);
+> Hmm, I didn't know that before either. Looks like my tp->init change
+> breaks it.
+>
+> Could you try the following patch?
+>
 
-but the new code does a read-modify-write:
+I would just make init() empty for this classifier (return 0?).
+If someone wants to add classids ids, change() is available.
+The most common (efficient) use case is what Akshat shows.
+So even the check in the classify should optimize for that i.e
+if (head == NULL)
+     do old method
+else
+     ...
 
-                reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
-                if (dsa_is_cpu_port(ds, port) ||
-                    ds->dsa_port_mask & (1 << port)) {
-                        reg |= PORT_PCS_CTRL_FORCE_LINK |
-                                PORT_PCS_CTRL_LINK_UP |
-                                PORT_PCS_CTRL_DUPLEX_FULL |
-                                PORT_PCS_CTRL_FORCE_DUPLEX;
-                        if (mv88e6xxx_6065_family(ds))
-                                reg |= PORT_PCS_CTRL_100;
-                        else
-                                reg |= PORT_PCS_CTRL_1000;
-
-The link speed in the PCS control register is a two bit field.  Forcing
-the link speed in this way doesn't ensure that the bit field is set to
-the correct value - on the hardware I have here, the speed bitfield
-remains set to 0x03, resulting in the speed not being forced to gigabit.
-
-We must clear both bits before forcing the link speed.
-
-Fixes: 54d792f257c6 ("net: dsa: Centralise global and port setup code into mv88e6xxx.")
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/dsa/mv88e6xxx.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 561342466076..26ec2fbfaa89 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1387,6 +1387,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 		reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_PCS_CTRL);
- 		if (dsa_is_cpu_port(ds, port) ||
- 		    ds->dsa_port_mask & (1 << port)) {
-+			reg &= ~PORT_PCS_CTRL_UNFORCED;
- 			reg |= PORT_PCS_CTRL_FORCE_LINK |
- 				PORT_PCS_CTRL_LINK_UP |
- 				PORT_PCS_CTRL_DUPLEX_FULL |
--- 
-2.1.0
+cheers,
+jamal
