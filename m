@@ -1,76 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: DSA: phy polling
-Date: Mon, 14 Sep 2015 15:41:46 -0700
-Message-ID: <55F74D2A.8010104@gmail.com>
-References: <20150914104254.GI21084@n2100.arm.linux.org.uk> <55F703D7.1070707@gmail.com> <20150914182314.GP21084@n2100.arm.linux.org.uk>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [net-next PATCH] net: sched: document attach_default_qdiscs
+Date: Tue, 15 Sep 2015 00:42:08 +0200
+Message-ID: <20150914224208.GJ30501@orbit.nwl.cc>
+References: <1442244690-6672-1-git-send-email-phil@nwl.cc>
+ <CAHA+R7PATvda=EPof5mHY_CNH1OnkVnRytJPbJgZHtTkgMB9LA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34678 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208AbbINWod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 18:44:33 -0400
-Received: by padhy16 with SMTP id hy16so155743959pad.1
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 15:44:32 -0700 (PDT)
-In-Reply-To: <20150914182314.GP21084@n2100.arm.linux.org.uk>
+Received: from orbit.nwl.cc ([176.31.251.142]:60414 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751469AbbINWmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Sep 2015 18:42:10 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7PATvda=EPof5mHY_CNH1OnkVnRytJPbJgZHtTkgMB9LA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/09/15 11:23, Russell King - ARM Linux wrote:
-> On Mon, Sep 14, 2015 at 10:28:55AM -0700, Florian Fainelli wrote:
->> Just my 2 cents here, I suspect the original intention behind this code
->> was to help utilize the switch's built-in PHY polling unit when
->> available, and use the HW to collect the state of all PHYs in fewer
->> register to read, instead of having to do individual (and quite possibly
->> expensive) MDIO reads towards each individual per-port PHYs (at least
->> two reads per PHY to latch MII_BMSR).
+On Mon, Sep 14, 2015 at 03:07:42PM -0700, Cong Wang wrote:
+> On Mon, Sep 14, 2015 at 8:31 AM, Phil Sutter <phil@nwl.cc> wrote:
+> > The process of selecting an interface's default qdisc is not really
+> > intuitive, at least because there are three different cases to consider.
 > 
-> Does the Marvell phy have such a register?  Looking at the register
-> dump and plugging/unplugging cables seems not to show a register
-> reporting whether any particular interface has changed state, and
-> I haven't noticed there being any combined register in anything I've
-> seen on these switches.
+> It is a static function, not an API, so I don't think it is the right
+> place to document.
 
-It seemed to me like the PPU was meant to provide that, but I cannot
-find any "summary" register which would give you such a status, must
-have conflated that with what Broadcom switches support.
+So static functions should never be documented? I'm playing devil's
+advocate, but still:
 
-> 
->> Now, I do agree there is a duplication of functionality here, and a
->> potential fix would be to avoid starting the PHY state machine if/when
->> the switch supports such a feature (not call phy_start*), that should
->> still get you consistent consistent link partner advertised/status
->> values, question is, does that really benefit anybody though?
-> 
-> I disagree - it's the DSA polling that needs to go.  The DSA polling
-> only looks at the port status, and derives from it the carrier
-> state.  The rest of the information is only turned into a printk().
-> The PHY state machine does a lot more, recording the link speed so
-> that ethtool works on the interface.
+> Maybe update default_qdisc description in Documentation/sysctl/net.txt?
 
-I am fine with that approach, it was not exactly clear to me before
-reading the code whether the link polling workqueue was doing anything
-useful in mv88e6xxx.c, now it is pretty clear to me, this is as
-expensive (more actually because of the PPU get/put) and useless since
-the PHY library directly polls the individual per-port PHYs.
+I don't think this is the right place for source code documentation. The
+intended audience are users, and I wouldn't expect a developer to search
+in there. On the other hand, that description would indeed benefit from
+a review: Apart from omitting noqueue, it neither mentions leaf qdiscs.
+I'll fix this.
 
-> 
-> If we do want to go the other way, then the phy code needs a rework so
-> that it can be properly classed and drivers with non-standard MII
-> registers supported without needing to build register emulation layers.
-> 
-
-That part is going to be challenging, all the ethtool/PHY library/MII
-code is built around the assumption of translating user-configurable
-settings into standard MII calls (all the adv_to* etc.), but, then
-again, MII is just one possible translation layer here, you could "plug"
-another one if your HW supports that (e.g: non-MDIO, but MMIO for
-instance which understands basic concepts like speed/link/duplex/pause).
-
-Oh well.
--- 
-Florian
+Thanks, Phil
