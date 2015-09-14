@@ -1,36 +1,40 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH] net: sched: document attach_default_qdiscs
-Date: Mon, 14 Sep 2015 15:49:30 -0700
-Message-ID: <CAHA+R7NoiTHoxaf+FhPo01evDd_W4g_Oz7o-CuoewFdHU_g3hA@mail.gmail.com>
-References: <1442244690-6672-1-git-send-email-phil@nwl.cc>
-	<CAHA+R7PATvda=EPof5mHY_CNH1OnkVnRytJPbJgZHtTkgMB9LA@mail.gmail.com>
-	<20150914224208.GJ30501@orbit.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f173.google.com ([209.85.160.173]:35460 "EHLO
-	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbbINWta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 18:49:30 -0400
-Received: by ykdu9 with SMTP id u9so168883894ykd.2
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 15:49:30 -0700 (PDT)
-In-Reply-To: <20150914224208.GJ30501@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Palmer Dabbelt <palmer@dabbelt.com>
+Subject: Re: [PATCH] Remove #ifdef CONFIG_64BIT from all asm-generic/fcntl.h
+Date: Mon, 14 Sep 2015 15:50:12 -0700 (PDT)
+Message-ID: <55f74f24.a2eb420a.57553.fffff8c5@mx.google.com>
+References: <18247.1441883885@warthog.procyon.org.uk>
+Cc: dhowells@redhat.com
+To: dhowells@redhat.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+CC: arnd@arndb.de
+CC: 3chas3@gmail.com
+CC: hpa@zytor.com
+CC: mingo@redhat.com
+CC: plagnioj@jcrosoft.com
+CC: jikos@kernel.org
+CC: linux-api@vger.kernel.org
+CC: linux-arch@vger.kernel.org
+CC: linux-atm-general@lists.sourceforge.net
+CC: linux-fbdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: netdev@vger.kernel.org
+CC: tglx@linutronix.de
+CC: tomi.valkeinen@ti.com
+CC: x86@kernel.org
+In-Reply-To: <18247.1441883885@warthog.procyon.org.uk>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 14, 2015 at 3:42 PM, Phil Sutter <phil@nwl.cc> wrote:
-> On Mon, Sep 14, 2015 at 03:07:42PM -0700, Cong Wang wrote:
->> Maybe update default_qdisc description in Documentation/sysctl/net.txt?
+On Thu, 10 Sep 2015 04:18:05 PDT (-0700), dhowells@redhat.com wrote:
+> David Howells <dhowells@redhat.com> wrote:
 >
-> I don't think this is the right place for source code documentation. The
-> intended audience are users, and I wouldn't expect a developer to search
-> in there. On the other hand, that description would indeed benefit from
-> a review: Apart from omitting noqueue, it neither mentions leaf qdiscs.
-> I'll fix this.
+>> Rather than iterating through all the rest of your patches and saying the same
+>> thing, if there's something in a UAPI header that needs wrapping in __KERNEL__
+>> to exclude it from userspace's use, then it should be transferred to the
+>> non-UAPI variant of that header (which should #include the UAPI variant).
 >
+> I should mention that there is the odd case where this is difficult to
+> achieve.  See include/uapi/linux/acct.h for an example...
 
-You are not just documenting the source code, you are documenting
-a user-visible behavior. This is why I proposed net.txt.
+OK, sorry about that.  I'm submitting a v3 that should fix these
+problems.
