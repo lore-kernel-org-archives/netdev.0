@@ -1,73 +1,73 @@
-From: Trond Myklebust <trond.myklebust@primarydata.com>
-Subject: Re: [PATCH 14/39] SUNRPC: drop null test before destroy functions
-Date: Mon, 14 Sep 2015 12:25:16 -0400
-Message-ID: <CAHQdGtSsb6occmKYYoUa52Dno9_m2=fVCb3naDc84uJjqSoSQg@mail.gmail.com>
-References: <1442146532-9100-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1442146532-9100-15-git-send-email-Julia.Lawall@lip6.fr>
-	<20150914160710.GB5338@fieldses.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] pptp: avoid releasing the sock too early
+Date: Mon, 14 Sep 2015 09:43:47 -0700
+Message-ID: <1442249027.14284.2.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1442245229-31099-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Julia Lawall <Julia.Lawall@lip6.fr>, sergey.senozhatsky@gmail.com,
-	Kernel Janitors Mailing List
-	<kernel-janitors@vger.kernel.org>,
-	Jeff Layton <jlayton@poochiereds.net>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	Linux Network Devel Mailing List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20150914160710.GB5338@fieldses.org>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xeb@mail.ru, ebiederm@xmission.com, davem@davemloft.net,
+	simon@farnz.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442245229-31099-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 14, 2015 at 12:07 PM, J. Bruce Fields <bfields@fieldses.org> wrote:
-> ACK, but assuming Trond takes this one.--b.
+On Mon, 2015-09-14 at 11:40 -0400, Sasha Levin wrote:
+> Since we're using RCU we can't free the sock structure before RCU lets us,
+> otherwise we're risking getting use-after-frees accessing it:
 
-No problem. I'll pick it up...
+> 
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> ---
+>  drivers/net/ppp/pptp.c   |    9 ++++++++-
+>  include/linux/if_pppox.h |    1 +
+>  2 files changed, 9 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+> index 686f37d..cb7a029 100644
+> --- a/drivers/net/ppp/pptp.c
+> +++ b/drivers/net/ppp/pptp.c
+> @@ -517,6 +517,13 @@ static int pptp_getname(struct socket *sock, struct sockaddr *uaddr,
+>  	return 0;
+>  }
+>  
+> +static void pptp_release_cb(struct rcu_head *rcu)
+> +{
+> +	struct pppox_sock *p = container_of(rcu, struct pppox_sock, rcu);
+> +
+> +	sock_put(sk_pppox(p));
+> +}
+> +
+>  static int pptp_release(struct socket *sock)
+>  {
+>  	struct sock *sk = sock->sk;
+> @@ -545,7 +552,7 @@ static int pptp_release(struct socket *sock)
+>  	sock->sk = NULL;
+>  
+>  	release_sock(sk);
+> -	sock_put(sk);
+> +	call_rcu(&po->rcu, pptp_release_cb);
+>  
+>  	return error;
+>  }
+> diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
+> index b49cf92..ba9c378 100644
+> --- a/include/linux/if_pppox.h
+> +++ b/include/linux/if_pppox.h
+> @@ -55,6 +55,7 @@ struct pppox_sock {
+>  		struct pptp_opt  pptp;
+>  	} proto;
+>  	__be16			num;
+> +	struct rcu_head rcu;
+>  };
+>  #define pppoe_dev	proto.pppoe.dev
+>  #define pppoe_ifindex	proto.pppoe.ifindex
 
-Cheers
-  Trond
+Hmm, is the synchronize_rcu() in del_chan() still needed, and why it was
+not enough ?
 
-> On Sun, Sep 13, 2015 at 02:15:07PM +0200, Julia Lawall wrote:
->> Remove unneeded NULL test.
->>
->> The semantic patch that makes this change is as follows:
->> (http://coccinelle.lip6.fr/)
->>
->> // <smpl>
->> @@ expression x; @@
->> -if (x != NULL)
->>   \(kmem_cache_destroy\|mempool_destroy\|dma_pool_destroy\)(x);
->> // </smpl>
->>
->> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
->>
->> ---
->>  net/sunrpc/sched.c |   12 ++++--------
->>  1 file changed, 4 insertions(+), 8 deletions(-)
->>
->> diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
->> index b140c09..425ca2f 100644
->> --- a/net/sunrpc/sched.c
->> +++ b/net/sunrpc/sched.c
->> @@ -1092,14 +1092,10 @@ void
->>  rpc_destroy_mempool(void)
->>  {
->>       rpciod_stop();
->> -     if (rpc_buffer_mempool)
->> -             mempool_destroy(rpc_buffer_mempool);
->> -     if (rpc_task_mempool)
->> -             mempool_destroy(rpc_task_mempool);
->> -     if (rpc_task_slabp)
->> -             kmem_cache_destroy(rpc_task_slabp);
->> -     if (rpc_buffer_slabp)
->> -             kmem_cache_destroy(rpc_buffer_slabp);
->> +     mempool_destroy(rpc_buffer_mempool);
->> +     mempool_destroy(rpc_task_mempool);
->> +     kmem_cache_destroy(rpc_task_slabp);
->> +     kmem_cache_destroy(rpc_buffer_slabp);
->>       rpc_destroy_wait_queue(&delay_queue);
->>  }
->>
+I believe your patch might reduce the race window, but it is not clear
+it is the right fix.
