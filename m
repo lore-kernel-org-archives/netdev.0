@@ -1,123 +1,98 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC v2 net-next 3/4] ravb: Document binding for r8a7795
- SoC
-Date: Mon, 14 Sep 2015 09:42:08 +0900
-Message-ID: <20150914004207.GA6230@verge.net.au>
-References: <1441936878-18290-1-git-send-email-horms+renesas@verge.net.au>
- <1441936878-18290-4-git-send-email-horms+renesas@verge.net.au>
- <55F2E44D.6010505@cogentembedded.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: fjes: update_zone_task
+Date: Mon, 14 Sep 2015 04:32:07 +0300
+Message-ID: <20150914013207.GA18438@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: izumi.taku@jp.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:30919 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752985AbbINBcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Sep 2015 21:32:20 -0400
 Content-Disposition: inline
-In-Reply-To: <55F2E44D.6010505@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 05:25:17PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 9/11/2015 5:01 AM, Simon Horman wrote:
-> 
-> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >
-> >This patch updates the ravb binding to support the r8a7795 SoC by:
-> >- Adding a compat string for the new hardware
-> >- Adding 25 named interrupts to binding for the new SoC;
-> >   older SoCs continue to use a single multiplexed interrupt
-> >
-> >The example is also updated to reflect the r8a7795 as this is the
-> >more complex case.
-> >
-> >Based on work by Kazuya Mizuguchi and others.
-> >
-> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> >
-> >---
-> >
-> >v2
-> >* First post; broken out of a driver update patch
-> >* As discussed with Geert Uytterhoeven and Sergei Shtylyov
-> >   - Binding: Make all interrupts mandatory as named-interrupts of
-> >     the form ch%u
-> >---
-> >  .../devicetree/bindings/net/renesas,ravb.txt       | 65 +++++++++++++++++++---
-> >  1 file changed, 58 insertions(+), 7 deletions(-)
-> >
-> >diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >index 1fd8831437bf..6c360f993d33 100644
-> >--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> >+++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> [...]
-> >@@ -27,13 +33,46 @@ Optional properties:
-> >  Example:
-> >
-> >  	ethernet@e6800000 {
-> >-		compatible = "renesas,etheravb-r8a7790";
-> >-		reg = <0 0xe6800000 0 0x800>, <0 0xee0e8000 0 0x4000>;
-> >+		compatible = "renesas,etheravb-r8a7795";
-> >+		reg = <0 0xe6800000 0 0x800>, <0 0xe6a00000 0 0x10000>;
-> >  		interrupt-parent = <&gic>;
-> >-		interrupts = <0 163 IRQ_TYPE_LEVEL_HIGH>;
-> >-		clocks = <&mstp8_clks R8A7790_CLK_ETHERAVB>;
-> >-		phy-mode = "rmii";
-> >+		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
-> >+			     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
-> >+		interrupt-names = "ch0", "ch1", "ch2", "ch3",
-> >+				  "ch4", "ch5", "ch6", "ch7",
-> >+				  "ch8", "ch9", "ch10", "ch11",
-> >+				  "ch12", "ch13", "ch14", "ch15",
-> >+				  "ch16", "ch17", "ch18", "ch19",
-> >+				  "ch20", "ch21", "ch22", "ch23",
-> >+				  "ch24";
-> 
->    To me, these names don't look very helpful. You could as well omit them
-> and use platform_get_irq() with the channel #.
+Hello Taku Izumi,
 
-These names reflect the hardware; which is the aim of DT.
+The patch 785f28e061a8: "fjes: update_zone_task" from Aug 21, 2015,
+leads to the following static checker warning:
 
-As I believe you pointed out earlier it is preferred to use named
-interrupts when there is more than one. Do I misunderstand the situation
-there?
+	drivers/net/fjes/fjes_hw.c:1016 fjes_hw_update_zone_task()
+	warn: potential off by one 'info[]' limit 'hw->max_epid'
 
-If you have a positive contribution to make regarding better names then
-I am all ears.
+drivers/net/fjes/fjes_hw.c
+   963          case 0:
+   964  
+   965                  for (epidx = 0; epidx < hw->max_epid; epidx++) {
+   966                          if (epidx == hw->my_epid) {
+   967                                  hw->ep_shm_info[epidx].es_status =
+   968                                          info[epidx].es_status;
+   969                                  hw->ep_shm_info[epidx].zone =
+   970                                          info[epidx].zone;
+   971                                  continue;
+   972                          }
+   973  
+   974                          pstatus = fjes_hw_get_partner_ep_status(hw, epidx);
+   975                          switch (pstatus) {
+   976                          case EP_PARTNER_UNSHARE:
+   977                          default:
+   978                                  if ((info[epidx].zone !=
+   979                                          FJES_ZONING_ZONE_TYPE_NONE) &&
+   980                                      (info[epidx].es_status ==
+   981                                          FJES_ZONING_STATUS_ENABLE) &&
+   982                                      (info[epidx].zone ==
+   983                                          info[hw->my_epid].zone))
+   984                                          set_bit(epidx, &share_bit);
+   985                                  else
+   986                                          set_bit(epidx, &unshare_bit);
+   987                                  break;
+   988  
+   989                          case EP_PARTNER_COMPLETE:
+   990                          case EP_PARTNER_WAITING:
+   991                                  if ((info[epidx].zone ==
+   992                                          FJES_ZONING_ZONE_TYPE_NONE) ||
+   993                                      (info[epidx].es_status !=
+   994                                          FJES_ZONING_STATUS_ENABLE) ||
+   995                                      (info[epidx].zone !=
+   996                                          info[hw->my_epid].zone)) {
+   997                                          set_bit(epidx,
+   998                                                  &adapter->unshare_watch_bitmask);
+   999                                          set_bit(epidx,
+  1000                                                  &hw->hw_info.buffer_unshare_reserve_bit);
+  1001                                  }
+  1002                                  break;
+  1003  
+  1004                          case EP_PARTNER_SHARED:
+  1005                                  if ((info[epidx].zone ==
+  1006                                          FJES_ZONING_ZONE_TYPE_NONE) ||
+  1007                                      (info[epidx].es_status !=
+  1008                                          FJES_ZONING_STATUS_ENABLE) ||
+  1009                                      (info[epidx].zone !=
+  1010                                          info[hw->my_epid].zone))
+  1011                                          set_bit(epidx, &irq_bit);
+  1012                                  break;
+  1013                          }
+  1014                  }
+  1015  
+  1016                  hw->ep_shm_info[epidx].es_status = info[epidx].es_status;
+  1017                  hw->ep_shm_info[epidx].zone = info[epidx].zone;
 
-> >+		clocks = <&mstp8_clks R8A7795_CLK_ETHERAVB>;
-> >+		phy-mode = "rgmii-id";
-> >+		phy-reset-gpio = <&gpio2 10 0>;
-> 
->    I don't see how this prop is used by the driver and it's not documented
-> in the bindings.
 
-Thanks for pointing that out. It looks like I should remove phy-reset-gpio.
+I'm not sure how Smatch is able to generate this warning.  The array is
+allocated using the FJES_DEV_REQ_BUF_SIZE(hw->max_epid) macro.  It
+really has a lot of obfuscation layers so I wasn't able to understand
+it.
+
+It seems like this might be a real bug though.  I suspect the fix is to
+change the continue on line 970 to a break and delete lines 1016 and
+1017?
+
+  1018  
+  1019                  break;
+  1020          }
+
+regards,
+dan carpenter
