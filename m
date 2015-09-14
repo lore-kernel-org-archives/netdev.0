@@ -1,90 +1,74 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH 3/3] devicetree: macb: Add optional property tsu-clk
-Date: Mon, 14 Sep 2015 07:44:23 -0700
-Message-ID: <20150914144423.GG19678@xsjsorenbubuntu>
-References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
- <1441958258-35441-4-git-send-email-harinik@xilinx.com>
- <20150911165256.GT19678@xsjsorenbubuntu>
- <CAFcVECK=EONgqPq1jt_kti-VKXPWGVj3OSnqUvo0YcR65Z+Phg@mail.gmail.com>
- <20150914095846.0d8e2d74@bbrezillon>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Netfilter: BUG: unable to handle kernel paging request, RIP:
+ physdev_mt+0xd6/0x160
+Date: Mon, 14 Sep 2015 16:45:16 +0200
+Message-ID: <20150914144516.GM24810@breakpoint.cc>
+References: <1620a50057d1e8aadafe27c74ee42d93@eikelenboom.it>
+ <20150913180620.GK24810@breakpoint.cc>
+ <57e23f8e80b57dff72f6bc5b7e9b2d53@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Harini Katakam <harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org" <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	"michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org" <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <anirudh-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33466 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752336AbbINOpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 10:45:18 -0400
 Content-Disposition: inline
-In-Reply-To: <20150914095846.0d8e2d74@bbrezillon>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <57e23f8e80b57dff72f6bc5b7e9b2d53@eikelenboom.it>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-09-14 at 09:58AM +0200, Boris Brezillon wrote:
-> Hi Harini,
->=20
-> On Mon, 14 Sep 2015 09:39:05 +0530
-> Harini Katakam <harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->=20
-> > On Fri, Sep 11, 2015 at 10:22 PM, S=C3=B6ren Brinkmann
-> > <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org> wrote:
-> > > Hi Harini,
-> > >
-> > > On Fri, 2015-09-11 at 01:27PM +0530, Harini Katakam wrote:
-> > >> Add TSU clock frequency to be used for 1588 support in macb driv=
-er.
-> > >>
-> > >> Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-> > >> ---
-> > >>  Documentation/devicetree/bindings/net/macb.txt |    3 +++
-> > >>  1 file changed, 3 insertions(+)
-> > >>
-> > >> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Do=
-cumentation/devicetree/bindings/net/macb.txt
-> > >> index b5d7976..f7c0ea8 100644
-> > >> --- a/Documentation/devicetree/bindings/net/macb.txt
-> > >> +++ b/Documentation/devicetree/bindings/net/macb.txt
-> > >> @@ -19,6 +19,9 @@ Required properties:
-> > >>       Optional elements: 'tx_clk'
-> > >>  - clocks: Phandles to input clocks.
-> > >>
-> > >> +Optional properties:
-> > >> +- tsu-clk: Time stamp unit clock frequency used.
-> > >
-> > > Why are we not using the CCF and a clk_get_rate() in the driver?
-> > >
-> >=20
-> > If the clock source was only internal, we could use this
-> > approach as usual. But TSU clock can be configured to
-> > come from an external clock source or internal.
->=20
-> How about declaring a fixed-rate clk [1] if it comes from an external
-> clk, and using a clk driver for the internal clk case?
-> This way you'll be able to use the clk API (including the
-> clk_get_rate() function) instead of introducing a new way to retrieve=
- a
-> clk frequency.
+Sander Eikelenboom <linux@eikelenboom.it> wrote:
+> On 2015-09-13 20:06, Florian Westphal wrote:
+> >Sander Eikelenboom <linux@eikelenboom.it> wrote:
+> >>Using a linux-4.3-rc1 kernel i encountered the splat below:
+> >
+> >Thanks for reporting this bug.
+> >
+> >>[  290.200642] BUG: unable to handle kernel paging request at
+> >>000000000484195d
+> >>[  290.211702] IP: [<ffffffff819bc3e6>] physdev_mt+0xd6/0x160
+> >[..]
+> >
+> >>[  290.444088]  [<ffffffff81a4e6c0>] ipt_do_table+0x210/0x390
+> >>[  290.461951]  [<ffffffff81a510ae>] iptable_filter_hook+0x2e/0x70
+> >>[  290.470756]  [<ffffffff8199279c>] nf_iterate+0x4c/0x80
+> >>[  290.479587]  [<ffffffff81992834>] nf_hook_slow+0x64/0xc0
+> >>[  290.488341]  [<ffffffff81a06779>] ip_forward+0x369/0x3c0
+> >>[  290.496927]  [<ffffffff81a06380>] ? ip_frag_mem+0x40/0x40
+> >>[  290.505365]  [<ffffffff81a04961>] ip_rcv_finish+0x101/0x330
+> >>[  290.513480]  [<ffffffff81a05001>] ip_rcv+0x291/0x390
+> >>[  290.521562]  [<ffffffff81a04860>] ?
+> >
+> >Aye, ip forwarding of bridged packets with call-iptables=1 is broken.
+> >
+> >Please, could you try this patch?  It fixes this bug for me.
+> 
+> Hi Florian,
+> 
+> Works for me too, thx for the fix !
 
-Right. Also, Zynq does already support external clock inputs (actually,
-every clock originates from some external clock/oscillator at some
-point). Maybe that code needs some additions to handle the TSU clock
-too. But either way, I can't see why a clock cannot be modeled using th=
-e
-CCF.
+Sorry, I made this claim too early.
 
-	S=C3=B6ren
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We cannot use this fix, since it will still cause kernel oops when using
+-j NFQUEUE in PRE_ROUTING (We would bump refcnt on ->physoutdev, which is
+garbage in this case).
+
+Only option is to undo 72b1e5e4cac as follows:
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -183,7 +183,8 @@ struct nf_bridge_info {
+ 		/* prerouting: detect dnat in orig/reply direction */
+ 		__be32          ipv4_daddr;
+ 		struct in6_addr ipv6_daddr;
+-
++	};
++	union {
+ 		/* after prerouting + nat detected: store original source
+ 		 * mac since neigh resolution overwrites it, only used while
+ 		 * skb is out in neigh layer.
