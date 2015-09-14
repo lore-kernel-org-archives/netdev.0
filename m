@@ -1,120 +1,79 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH v6 1/3] can: Allwinner A10/A20 CAN Controller support -
- Devicetree bindings
-Date: Mon, 14 Sep 2015 15:30:22 +0200
-Message-ID: <20150914133022.GB4684@lukather>
-References: <1442235299-5885-1-git-send-email-info@gerhard-bertelsmann.de>
- <1442235299-5885-2-git-send-email-info@gerhard-bertelsmann.de>
- <55F6C46D.7090203@pengutronix.de>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH] x86: Wire up 32-bit direct socket calls
+Date: Mon, 14 Sep 2015 15:35:00 +0200
+Message-ID: <20150914133500.GA385@gmail.com>
+References: <cb5138299d37d5800e2d135b01a7667fa6115854.1436912629.git.luto@kernel.org>
+ <49726621.LPTnfQXYGz@wuerfel>
+ <CAMuHMdXX31xZ4AS6FbeXLXgDn5UV5=0C3hrihuwDOP_abuJsBg@mail.gmail.com>
+ <2108882.tTxglVCXxY@wuerfel>
+ <CALCETrVbNs-bOfr8cC3CC2RrBtKctdw4d0o9Ds6RQfXEm466YQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="H1spWtNR+x+ondvy"
-Cc: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>,
-	wg@grandegger.com, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andy Lutomirski <luto@kernel.org>, X86 ML <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Tulio Magno Quites Machado Filho
+	<tuliom@linux.vnet.ibm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Alexander Larsson <alexl@redhat.com>,
+	Cosimo Cecchi <cosimo@endlessm.com>,
+	Dan Nicholson <nicholson@endlessm.com>,
+	libc-alpha <libc-alpha@sourceware.org>,
+	Rajalakshmi Srinivasaraghavan <raji@linux.vnet.ibm.com>,
+	Linux-Arch <linux-arch@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-arch-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <55F6C46D.7090203@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CALCETrVbNs-bOfr8cC3CC2RrBtKctdw4d0o9Ds6RQfXEm466YQ@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---H1spWtNR+x+ondvy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+* Andy Lutomirski <luto@amacapital.net> wrote:
 
-Hi,
+> On Fri, Sep 11, 2015 at 3:14 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > On Friday 11 September 2015 11:54:50 Geert Uytterhoeven wrote:
+> >> To make sure I don't miss any (it seems I missed recvmmsg and sendmmsg for
+> >> the socketcall case, sigh), this is the list of ipc syscalls to implement?
+> >>
+> >>     sys_msgget
+> >>     sys_msgctl
+> >>     sys_msgrcv
+> >>     sys_msgsnd
+> >>     sys_semget
+> >>     sys_semctl
+> >>     sys_semtimedop
+> >>     sys_shmget
+> >>     sys_shmctl
+> >>     sys_shmat
+> >>     sys_shmdt
+> >>
+> >> sys_semop() seems to be unneeded because it can be implemented using
+> >> sys_semtimedop()?
+> >>
+> >
+> > Yes, that list looks right. IPC also includes a set of six sys_mq_*
+> > call, but I believe that everyone already has those as they are not
+> > covered by sys_ipc.
+> >
+> > For y2038 compatibility, we will likely add a new variant of
+> > semtimedop that takes a 64-bit timespec. While the argument passed
+> > there is a relative time that will never need to be longer than 68
+> > years, we need to accommodate user space that defines timespec
+> > in a sane way, and converting the argument in libc would be awkward.
+> >
+> 
+> I missed sys_ipc entirely.
+> 
+> Ingo, Thomas, want to just wire those up, too?  I can send a patch
+> next week, but it'll be as trivial as the socket one.
 
-On Mon, Sep 14, 2015 at 02:58:21PM +0200, Marc Kleine-Budde wrote:
-> On 09/14/2015 02:54 PM, Gerhard Bertelsmann wrote:
-> > Signed-off-by: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-> > ---
-> >=20
-> >  .../devicetree/bindings/net/can/sun4i_can.txt      |  37 +
-> >  1 files changed, 37 insertions(+)
-> >=20
-> >=20
-> > diff --git a/Documentation/devicetree/bindings/net/can/sun4i_can.txt b/=
-Documentation/devicetree/bindings/net/can/sun4i_can.txt
-> > new file mode 100644
-> > index 0000000..b572e2b
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/can/sun4i_can.txt
-> > @@ -0,0 +1,37 @@
-> > +Allwinner A10/A20 CAN controller Device Tree Bindings
-> > +-----------------------------------------------------
-> > +
-> > +Required properties:
-> > +- compatible: "allwinner,sunxican"
-> > +- reg: physical base address and size of the Allwinner A10/A20 CAN reg=
-ister map.
-> > +- interrupts: interrupt specifier for the sole interrupt.
-> > +- clock: phandle and clock specifier.
-> > +
-> > +Example
-> > +-------
-> > +
-> > +SoC common .dtsi file:
-> > +
-> > +	can0_pins_a: can0 <at> 0 {
->=20
-> That's supposed to be a proper "@":
->=20
->     can0@0
->=20
-> > +		allwinner,pins =3D "PH20","PH21";
-> > +		allwinner,function =3D "can";
-> > +		allwinner,drive =3D <0>;
-> > +		allwinner,pull =3D <0>;
-> > +	};
-> > +
-> > +	can0: can <at> 01c2bc00 {
->=20
->     can0@01c2bc00
+Yeah, sure - split out system calls are so much better (and slightly faster) than 
+omnibus demuxers.
 
-Actually, beside '<at>' vs '@', he was right.
+Thanks,
 
-The name of the node in the DT should be:
-
-<device class>@<address>
-
-Which in our case is can@01c2bc00, like he used.
-
->=20
-> > +		compatible =3D "allwinner,sunxican";
-
-However, the compatible is still not right.
-
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
-
---H1spWtNR+x+ondvy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJV9svuAAoJEBx+YmzsjxAgfoUQALyT0N96RVA5UMy1phiuRz6n
-VuTdVSZHgxOs8Gl1T13nnIt7k0CgAiweaSmQqAisNeO4LVqRquEesi6pcr2zQLiX
-F3e1Z5FB6U6KLndz+qsWwAwMbzKLGfThIpjpnLv2PefWhzhl5jR6Uaa+MWHkN3x4
-dCBddS8AvM28lZdyQA2b50BaiSH+ZCd9I3f5dEv3U9pBC1NPTF7tXOwFHOGaXCjR
-jZUViLVW9JopFCKv9+mwwmJnC7kjnHBk67MRFXLyqiUanJleYD5DUlGgzFUT0oI0
-aI/5v3UdJNtvsZIAf+xAMC+kHdv9bD1p7fKRyh2z00aY17wX+AY/dr/6bEK7Caeh
-/O3bStHkBic+LKVhWcwWUjK0/MkHcqaP2NYK6tlXBwLS45dk9cvRNP1S9T/4Y+2J
-Wqx5ok05WPbhbyqZhdZ7DDms1GkxO9HgIIKSQ/n9+nDBMFauSoiRTUQ3HblfaRvT
-mxrY5/JmIlzeN/1O9zNZG3c3gw5En5m0giOXY8JKosV1p3fGqyqbrUuzgzesjlEY
-87jvNzz6ZoC2v2bbCxUxTlChWeVidXBkPX21MizvBbqrB0GRr/lpzb+OHyeZPZH+
-uJY8MMnZhgo7kZeaSQnjqZzLLwB+3Cf77630oxx80lAcI+z+FZOpTwUQsj9k2/iN
-jxcGJOoTp/Az6lT5uJkT
-=Cbtr
------END PGP SIGNATURE-----
-
---H1spWtNR+x+ondvy--
+	Ingo
