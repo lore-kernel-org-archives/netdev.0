@@ -1,52 +1,104 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [fw filter]: Broken! fw mark based tc class selection not working
-Date: Mon, 14 Sep 2015 15:04:01 -0700
-Message-ID: <CAHA+R7NCn0OsLUdVZbvJ_B8tJGVJ9_Pys_FARPM2Z-xdS4-_Uw@mail.gmail.com>
-References: <CAA5aLPhvkEPpDhaxSNWnGHU2H0WmCaYhbo-fYKP8+Xzka3-q=g@mail.gmail.com>
-	<CAHA+R7P5jTGBof-oObzJ0SidRr17fKLGjoMkk0-VYzuSLjawZg@mail.gmail.com>
-	<CAA5aLPgCqOXU3vw6moSvADuOc4Q_TM2iJLHjSH0O8NwYJJ1t7g@mail.gmail.com>
-	<CAHA+R7N6rTS5rmALk_2FxUXc0s9Ni4snJQ52tS3imaA6hotdHw@mail.gmail.com>
-	<55F6BD55.6080503@mojatatu.com>
+From: Simon Guinot <simon.guinot@sequanux.org>
+Subject: Re: [PATCH v2] net: mvneta: fix refilling for Rx DMA buffers
+Date: Tue, 15 Sep 2015 00:13:20 +0200
+Message-ID: <20150914221320.GA7306@kw.sim.vm.gnt>
+References: <1437303653-2236-1-git-send-email-simon.guinot@sequanux.org>
+ <20150721.003033.1524284435822402813.davem@davemloft.net>
+ <CAA-51jPPDHfE1uT2NuJ53wWTvEgh7DcW0K0-xZgQdjAD2CC04w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Akshat Kakkar <akshat.1984@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:33520 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181AbbINWED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 18:04:03 -0400
-Received: by ykft14 with SMTP id t14so15357482ykf.0
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 15:04:02 -0700 (PDT)
-In-Reply-To: <55F6BD55.6080503@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="W/nzBZO5zC0uMSeA"
+Cc: David Miller <davem@davemloft.net>,
+	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
+	jason@lakedaemon.net, netdev@vger.kernel.org, vdonnefort@gmail.com,
+	stable@vger.kernel.org,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	yoann@sculo.fr, linux-arm-kernel@lists.infradead.org,
+	sebastian.hesselbarth@gmail.com
+To: Oren Laskin <oren@igneous.io>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAA-51jPPDHfE1uT2NuJ53wWTvEgh7DcW0K0-xZgQdjAD2CC04w@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 14, 2015 at 5:28 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 09/11/15 20:00, Cong Wang wrote:
->>
->> On Fri, Sep 11, 2015 at 3:24 PM, Akshat Kakkar <akshat.1984@gmail.com>
->> wrote:
->
->
->> Hmm, I didn't know that before either. Looks like my tp->init change
->> breaks it.
->>
->> Could you try the following patch?
->>
->
-> I would just make init() empty for this classifier (return 0?).
-> If someone wants to add classids ids, change() is available.
-> The most common (efficient) use case is what Akshat shows.
-> So even the check in the classify should optimize for that i.e
-> if (head == NULL)
->     do old method
-> else
->     ...
 
-That is exactly the original code. But it is not readable at all,
-at least I still missed it when I touched the tp->init() part. :(
-Having a boolean doesn't harm anything.
+--W/nzBZO5zC0uMSeA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Oren,
+
+On Mon, Sep 14, 2015 at 01:22:12PM -0700, Oren Laskin wrote:
+> I had to undo this change on my Amada 370 based board.  It was causing
+> corrupt data to make it through on large downloads.  I'm using wget to get
+> the same 30MB file many times and the SHA would occasionally be different.
+
+During your tests, can you see some "Linux processing - Can't refill"
+messages along with the data corruptions ?
+
+> I tracked it down to this commit.  In it, I would find on the order of a
+> few hundred bytes to simply be wrong data.
+
+I am little bit surprised here. For me, this patch is very simple and
+does the exact opposite. It does fix kernel crashes and data corruptions
+in case of refilling errors. This can happen for example if you run
+large data transfers with jumbo frames enabled...
+
+But anyway, I'll try to reproduce the issue tomorrow. I only have to
+wget the same file (size 30MB) in a loop and to check its md5sum ?
+That's it ? And how long should I wait for the error ?
+
+Thanks,
+
+Simon
+
+>=20
+> Thanks,
+>=20
+> Oren
+>=20
+> On Tue, Jul 21, 2015 at 12:30 AM, David Miller <davem@davemloft.net> wrot=
+e:
+>=20
+> > From: Simon Guinot <simon.guinot@sequanux.org>
+> > Date: Sun, 19 Jul 2015 13:00:53 +0200
+> >
+> > > With the actual code, if a memory allocation error happens while
+> > > refilling a Rx descriptor, then the original Rx buffer is both passed
+> > > to the networking stack (in a SKB) and let in the Rx ring. This leads
+> > > to various kernel oops and crashes.
+> > >
+> > > As a fix, this patch moves Rx descriptor refilling ahead of building
+> > > SKB with the associated Rx buffer. In case of a memory allocation
+> > > failure, data is dropped and the original DMA buffer is put back into
+> > > the Rx ring.
+> > >
+> > > Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+> > > Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP
+> > network unit")
+> > > Cc: <stable@vger.kernel.org> # v3.8+
+> > > Tested-by: Yoann Sculo <yoann@sculo.fr>
+> >
+> > Applied, thanks.
+> >
+> > _______________________________________________
+> > linux-arm-kernel mailing list
+> > linux-arm-kernel@lists.infradead.org
+> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> >
+
+--W/nzBZO5zC0uMSeA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlX3RoAACgkQgtp0PDeOcDqP3wCbB+KQt8GDwhADpAjySSUnP+rg
+d+wAn0Gids73HOe/Nm8//xM3CGoadvWU
+=w05I
+-----END PGP SIGNATURE-----
+
+--W/nzBZO5zC0uMSeA--
