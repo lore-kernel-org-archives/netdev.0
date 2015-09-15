@@ -1,128 +1,120 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: kernel 4.2 : "bridge vlan" command return empty result (works
- with kernel 4.1.3)
-Date: Tue, 15 Sep 2015 12:02:34 -0700
-Message-ID: <55F86B4A.7090001@cumulusnetworks.com>
-References: <1167950469.57377315.1442338762965.JavaMail.zimbra@oxygem.tv>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH V4 1/2] pci: Add dev_flags bit to access VPD through
+ function 0
+Date: Tue, 15 Sep 2015 13:04:20 -0600
+Message-ID: <1442343860.23936.141.camel@redhat.com>
+References: <20150713183821.19985.52157.stgit@mdrustad-wks.jf.intel.com>
+	 <20150713184001.19985.64867.stgit@mdrustad-wks.jf.intel.com>
+	 <1442341152.23936.122.camel@redhat.com>
+	 <F17F8A11-FB09-4131-A404-DE106F3944BB@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>
-To: Alexandre DERUMIER <aderumier@odiso.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Myron Stowe <myron.stowe@redhat.com>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34355 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751438AbbIOTCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 15:02:37 -0400
-Received: by padhy16 with SMTP id hy16so184239385pad.1
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 12:02:36 -0700 (PDT)
-In-Reply-To: <1167950469.57377315.1442338762965.JavaMail.zimbra@oxygem.tv>
+Received: from mx1.redhat.com ([209.132.183.28]:51041 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750965AbbIOTEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 15:04:21 -0400
+In-Reply-To: <F17F8A11-FB09-4131-A404-DE106F3944BB@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/15/15, 10:39 AM, Alexandre DERUMIER wrote:
-> Hi,
->
-> since kernel 4.2, "bridge vlan" command return empty result.
->
->
-> kernel 4.1.3
-> ------------
-> # bridge vlan
-> port	vlan ids
-> eth0	 1 PVID Egress Untagged
-> 	 90
-> 	 91
-> 	 92
-> 	 93
-> 	 94
-> 	 95
-> 	 96
-> 	 97
-> 	 98
-> 	 99
-> 	 100
->
-> vmbr0	 1 PVID Egress Untagged
-> 	 94
->
->
->
-> kernel 4.2
-> ----------------
-> # bridge vlan
-> port	vlan ids
->
->
->
-> Note that vlans are correctly working,it seem that is just the display.
->
-> tcpdump -e -i vmbr0
->
-> 19:38:08.005055 00:08:7c:bd:ae:40 (oui Unknown) > 00:18:8b:7c:c8:37 (oui Unknown), ethertype 802.1Q (0x8100), length 64: vlan 94, p 0, ethertype IPv4, 172.20.0.17.52299 > kvmtest2.odiso.net.ssh: Flags [.], ack 339613, win 5523, length 0
-> 19:38:08.007730 00:08:7c:bd:ae:40 (oui Unknown) > 00:18:8b:7c:c8:37 (oui Unknown), ethertype 802.1Q (0x8100), length 64: vlan 94, p 0, ethertype IPv4, 172.20.0.17.52299 > kvmtest2.odiso.net.ssh: Flags [.], ack 342145, win 5568, length 0
-> 19:38:08.010977 00:08:7c:bd:ae:40 (oui Unknown) > 00:18:8b:7c:c8:37 (oui Unknown), ethertype 802.1Q (0x8100), length 64: vlan 94, p 0, ethertype IPv4, 172.20.0.17.52299 > kvmtest2.odiso.net.ssh: Flags [.], ack 344677, win 5614, length 0
-> 19:3
-I was able to reproduce this when there is a bond in the system.
+On Tue, 2015-09-15 at 18:39 +0000, Rustad, Mark D wrote:
+> > On Sep 15, 2015, at 11:19 AM, Alex Williamson <alex.williamson@redh=
+at.com> wrote:
+> >=20
+> > In addition to the (PCI_SLOT() !=3D devfn) issue, I'm concerned abo=
+ut
+> > topologies like we see on Skylake.  IIRC, the integrated NIC appear=
+s at
+> > something like 00:1f.6.  I don't know if that specific NIC has VPD,=
+ nor
+> > am I sure it really matter because another example or some future
+> > version might.  So we'll set the PCI_DEV_FLAGS_VPD_REF_F0 because w=
+e do
+> > so for all (PCI_FUNC() !=3D 0) Intel NICs, we'll call
+> > pci_vpd_f0_dev_check(), which will error because function 0 has a
+> > different class code and device ID, so we return error and if VPD e=
+xists
+> > on the device, it's now inaccessible.
+>=20
+> Yes, that is exactly what would happen.
+>=20
+> > I thought there was talk about whitelisting anything on the root bu=
+s to
+> > avoid strange root complex integrated devices (and perhaps avoid th=
+e
+> > general case for assigned devices within a VM), but I don't see any=
+thing
+> > like that here.
+>=20
+> I hadn't heard that talk, but I'm not on the PCI list and I guess I
+> wasn't copied.
+>=20
+> > Perhaps instead of failing and hiding VPD we should fail, clear the
+> > flag, and allow normal access.  Thanks,
+>=20
+> Because the purpose of VPD is to hold information about the device, I
+> would suggest that VPD should never be provided for an embedded
+> network device, but rather for the device as a whole. So while there
+> may well be VPD for an SOC, that VPD should not be associated with on=
+e
+> of its embedded devices, but rather something more appropriate for th=
+e
+> device as a whole. And attaching VPD to a whole bunch of internal
+> devices would just be madness.
 
-Looks like this was due to 85fdb956726ff2a ("switchdev: cut over to new 
-switchdev_port_bridge_getlink").
-When CONFIG_SWITCHDEV is off, nodes that use switchdev api for 
-ndo_bridge_getlink (example, bonds, teams, rocker) can return
--EOPNOTSUPP. The problem went away on my box with the following patch. I 
-will submit an official patch in a bit.
-Do you have a bond in your system ?.
+=46RU-type information is only one of the use cases of VPD, the spec al=
+so
+defines (PCI rev 3.0, 6.4):
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 01ced4a..bdb3842 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3013,6 +3013,7 @@ static int rtnl_bridge_getlink(struct sk_buff 
-*skb, struct
-         u32 portid = NETLINK_CB(cb->skb).portid;
-         u32 seq = cb->nlh->nlmsg_seq;
-         u32 filter_mask = 0;
-+       int err;
+        ... a mechanism for storing information such as performance and
+        failure data on the device being monitored.
 
-         if (nlmsg_len(cb->nlh) > sizeof(struct ifinfomsg)) {
-                 struct nlattr *extfilt;
-@@ -3033,20 +3034,25 @@ static int rtnl_bridge_getlink(struct sk_buff 
-*skb, stru
-                 struct net_device *br_dev = 
-netdev_master_upper_dev_get(dev);
+That information could very much be function specific.
 
-                 if (br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
--                       if (idx >= cb->args[0] &&
-- br_dev->netdev_ops->ndo_bridge_getlink(
--                                   skb, portid, seq, dev, filter_mask,
--                                   NLM_F_MULTI) < 0)
--                               break;
-+                       if (idx >= cb->args[0]) {
-+                               err = 
-br_dev->netdev_ops->ndo_bridge_getlink(
-+                                               skb, portid, seq, dev,
-+                                               filter_mask, NLM_F_MULTI);
-+                               if ( err < 0 && err != -EOPNOTSUPP)
-+                                       break;
-+                       }
-                         idx++;
-                 }
+> So I understand the concern, but I don't think that it should really
+> happen in real systems. I did think about this case when I was workin=
+g
+> on the patches. A networking device should really only have VPD when
+> it is its own physical device, such as a NIC.
+>=20
 
-                 if (ops->ndo_bridge_getlink) {
--                       if (idx >= cb->args[0] &&
--                           ops->ndo_bridge_getlink(skb, portid, seq, dev,
--                                                   filter_mask,
--                                                   NLM_F_MULTI) < 0)
--                               break;
-+                       if (idx >= cb->args[0]) {
-+                               err = ops->ndo_bridge_getlink(skb, portid,
-+                                                             seq, dev,
-+ filter_mask,
-+ NLM_F_MULTI);
-+                               if ( err < 0 && err != -EOPNOTSUPP)
-+                                       break;
-+                       }
-                         idx++;
-                 }
-         }
+When I was looking at whether we should provide VPD access of an
+assigned device at all, I ran across this interesting statement in the
+PCI spec (rev 3.0, I.3.1.1):
+
+        CP Extended Capability
+
+        This field allows a new capability to be identified in the VPD
+        area. Since dynamic control/status cannot be placed in VPD, the
+        data for this field identifies where, in the device=E2=80=99s m=
+emory or
+        I/O address space, the control/status registers for the
+        capability can be found. Location of the control/status
+        registers is identified by providing the index (a value between
+        0 and 5) of the Base Address register that defines the address
+        range that contains the registers, and the offset within that
+        Base Address register range where the control/status registers
+        reside. The data area for this field is four bytes long. The
+        first byte contains the ID of the extended capability. The
+        second byte contains the index (zero based) of the Base Address
+        register used. The next two bytes contain the offset (in
+        little-endian order) within that address range where the
+        control/status registers defined for that capability reside.
+
+Again, this sounds like function specific data, and both here and above=
+,
+blocking access to VPD could affect the functionality of drivers.  It
+may be the case that Intel would find this use to be madness, but
+there's no PCI spec requirement that separate functions are in any way
+similar and we're looking at an interface that may be used by non-Intel
+devices as well.  Thanks,
+
+Alex
