@@ -1,47 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net 0/5] ipv6: Fix dst_entry refcnt bugs in
- ip6_tunnel
-Date: Tue, 15 Sep 2015 15:02:52 -0700 (PDT)
-Message-ID: <20150915.150252.882663449854060859.davem@davemloft.net>
-References: <1442352609-1476011-1-git-send-email-kafai@fb.com>
+Subject: Re: [PATCH net v2] rtnetlink: catch -EOPNOTSUPP errors from
+ ndo_bridge_getlink
+Date: Tue, 15 Sep 2015 15:04:26 -0700 (PDT)
+Message-ID: <20150915.150426.281510694142997913.davem@davemloft.net>
+References: <1442353469-4861-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	hannes@stressinduktion.org, kernel-team@fb.com
-To: kafai@fb.com
+Cc: aderumier@odiso.com, sfeldma@gmail.com, jiri@resnulli.us,
+	netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54188 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54214 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751633AbbIOWCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 18:02:53 -0400
-In-Reply-To: <1442352609-1476011-1-git-send-email-kafai@fb.com>
+	with ESMTP id S1751272AbbIOWE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 18:04:27 -0400
+In-Reply-To: <1442353469-4861-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Tue, 15 Sep 2015 14:30:04 -0700
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Tue, 15 Sep 2015 14:44:29 -0700
 
-> v4:
-> - Fix a compilation error in patch 5 when CONFIG_LOCKDEP is turned on and
->   re-test it
-> 
-> v3:
-> - Merge a 'if else if' test in patch 4
-> - Use rcu_dereference_protected in patch 5 to fix a sparse check when
->   CONFIG_SPARSE_RCU_POINTER is enabled
-> 
-> v2:
-> - Add patch 4 and 5 to remove the spinlock
-> 
-> v1:
-> This patch series is to fix the dst refcnt bugs in ip6_tunnel.
-> 
-> Patch 1 and 2 are the prep works.  Patch 3 is the fix.
-> 
-> I can reproduce the bug by adding and removing the ip6gre tunnel
-> while running a super_netperf TCP_CRR test.  I get the following
-> trace by adding WARN_ON_ONCE(newrefcnt < 0) to dst_release():
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
  ...
+> ndo_bridge_getlink can return -EOPNOTSUPP when an interfaces
+> ndo_bridge_getlink op is set to switchdev_port_bridge_getlink
+> and CONFIG_SWITCHDEV is not defined. This today can happen to
+> bond, rocker and team devices. This patch adds -EOPNOTSUPP
+> checks after calls to ndo_bridge_getlink.
+> 
+> Fixes: 85fdb956726ff2a ("switchdev: cut over to new switchdev_port_bridge_getlink")
+> Reported-by: Alexandre DERUMIER <aderumier@odiso.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> v2: fix checkpatch errors
 
-Series applied, thanks.
+Applied, thanks for fixing this Roopa.
