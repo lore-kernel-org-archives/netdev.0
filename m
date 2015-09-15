@@ -1,117 +1,144 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: Fix vti use case with oif in dst lookups
-Date: Tue, 15 Sep 2015 15:10:50 -0700
-Message-ID: <1442355050-9214-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, steffen.klassert@secunet.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next 1/2] tcp: provide skb->hash to synack packets
+Date: Tue, 15 Sep 2015 15:24:20 -0700
+Message-ID: <1442355860.4116.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>,
+	Mahesh Bandewar <maheshb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33340 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751855AbbIOWK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 18:10:56 -0400
-Received: by pacex6 with SMTP id ex6so188392288pac.0
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 15:10:56 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33802 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549AbbIOWYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 18:24:23 -0400
+Received: by padhy16 with SMTP id hy16so188277322pad.1
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 15:24:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steffen reported that the recent change to add oif to dst lookups breaks
-the VTI use case. The problem is that with the oif set in the flow struct
-the comparison to the nh_oif is triggered. Fix by splitting the
-FLOWI_FLAG_VRFSRC into 2 flags -- one that triggers the vrf device cache
-bypass (FLOWI_FLAG_VRFSRC) and another telling the lookup to not compare
-nh oif (FLOWI_FLAG_SKIP_NH_OIF).
+From: Eric Dumazet <edumazet@google.com>
 
-Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
+In commit b73c3d0e4f0e ("net: Save TX flow hash in sock and set in skbuf
+on xmit"), Tom provided a l4 hash to most outgoing TCP packets.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+We'd like to provide one as well for SYNACK packets, so that all packets
+of a given flow share same txhash, to later enable bonding driver to
+also use skb->hash to perform slave selection.
+
+Note that a SYNACK retransmit shuffles the tx hash, as Tom did
+in commit 265f94ff54d62 ("net: Recompute sk_txhash on negative routing
+advice") for established sockets.
+
+This has nice effect making TCP flows resilient to some kind of black
+holes, even at connection establish phase.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Tom Herbert <tom@herbertland.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
 ---
-IPv6 does not show this problem for me. So no change is added for IPv6.
-If your mileage varies let me know and I'll take another look.
+ include/linux/tcp.h   |    1 +
+ include/net/sock.h    |   12 ++++++++----
+ net/ipv4/tcp_input.c  |    1 +
+ net/ipv4/tcp_ipv4.c   |    2 +-
+ net/ipv4/tcp_output.c |    2 ++
+ net/ipv6/tcp_ipv6.c   |    2 +-
+ 6 files changed, 14 insertions(+), 6 deletions(-)
 
- drivers/net/vrf.c       | 3 ++-
- include/net/flow.h      | 1 +
- include/net/route.h     | 2 +-
- net/ipv4/fib_trie.c     | 2 +-
- net/ipv4/udp.c          | 3 ++-
- net/ipv4/xfrm4_policy.c | 2 ++
- 6 files changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index e7094fbd7568..488c6f50df73 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -193,7 +193,8 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
- 		.flowi4_oif = vrf_dev->ifindex,
- 		.flowi4_iif = LOOPBACK_IFINDEX,
- 		.flowi4_tos = RT_TOS(ip4h->tos),
--		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_VRFSRC,
-+		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_VRFSRC |
-+				FLOWI_FLAG_SKIP_NH_OIF,
- 		.daddr = ip4h->daddr,
- 	};
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 48c3696..937b978 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -113,6 +113,7 @@ struct tcp_request_sock {
+ 	struct inet_request_sock 	req;
+ 	const struct tcp_request_sock_ops *af_specific;
+ 	bool				tfo_listener;
++	u32				txhash;
+ 	u32				rcv_isn;
+ 	u32				snt_isn;
+ 	u32				snt_synack; /* synack sent time */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 7aa7844..94dff7f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1654,12 +1654,16 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
+ kuid_t sock_i_uid(struct sock *sk);
+ unsigned long sock_i_ino(struct sock *sk);
  
-diff --git a/include/net/flow.h b/include/net/flow.h
-index acd6a096250e..9b85db85f13c 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -35,6 +35,7 @@ struct flowi_common {
- #define FLOWI_FLAG_ANYSRC		0x01
- #define FLOWI_FLAG_KNOWN_NH		0x02
- #define FLOWI_FLAG_VRFSRC		0x04
-+#define FLOWI_FLAG_SKIP_NH_OIF		0x08
- 	__u32	flowic_secid;
- 	struct flowi_tunnel flowic_tun_key;
- };
-diff --git a/include/net/route.h b/include/net/route.h
-index cc61cb95f059..f46af256880c 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -255,7 +255,7 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32
- 		flow_flags |= FLOWI_FLAG_ANYSRC;
- 
- 	if (netif_index_is_vrf(sock_net(sk), oif))
--		flow_flags |= FLOWI_FLAG_VRFSRC;
-+		flow_flags |= FLOWI_FLAG_VRFSRC | FLOWI_FLAG_SKIP_NH_OIF;
- 
- 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
- 			   protocol, flow_flags, dst, src, dport, sport);
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 26d6ffb6d23c..6c2af797f2f9 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1426,7 +1426,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 			    nh->nh_flags & RTNH_F_LINKDOWN &&
- 			    !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
- 				continue;
--			if (!(flp->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
-+			if (!(flp->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF)) {
- 				if (flp->flowi4_oif &&
- 				    flp->flowi4_oif != nh->nh_oif)
- 					continue;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index c0a15e7f359f..f7d1d5e19e95 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1024,7 +1024,8 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 		if (netif_index_is_vrf(net, ipc.oif)) {
- 			flowi4_init_output(fl4, ipc.oif, sk->sk_mark, tos,
- 					   RT_SCOPE_UNIVERSE, sk->sk_protocol,
--					   (flow_flags | FLOWI_FLAG_VRFSRC),
-+					   (flow_flags | FLOWI_FLAG_VRFSRC |
-+					    FLOWI_FLAG_SKIP_NH_OIF),
- 					   faddr, saddr, dport,
- 					   inet->inet_sport);
- 
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index bb919b28619f..c10a9ee68433 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -33,6 +33,8 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
- 	if (saddr)
- 		fl4->saddr = saddr->a4;
- 
-+	fl4->flowi4_flags = FLOWI_FLAG_SKIP_NH_OIF;
+-static inline void sk_set_txhash(struct sock *sk)
++static inline u32 net_tx_rndhash(void)
+ {
+-	sk->sk_txhash = prandom_u32();
++	u32 v = prandom_u32();
 +
- 	rt = __ip_route_output_key(net, fl4);
- 	if (!IS_ERR(rt))
- 		return &rt->dst;
++	return v ?: 1;
++}
+ 
+-	if (unlikely(!sk->sk_txhash))
+-		sk->sk_txhash = 1;
++static inline void sk_set_txhash(struct sock *sk)
++{
++	sk->sk_txhash = net_tx_rndhash();
+ }
+ 
+ static inline void sk_rethink_txhash(struct sock *sk)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a8f515b..a62e9c7 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6228,6 +6228,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	}
+ 
+ 	tcp_rsk(req)->snt_isn = isn;
++	tcp_rsk(req)->txhash = net_tx_rndhash();
+ 	tcp_openreq_init_rwin(req, sk, dst);
+ 	fastopen = !want_cookie &&
+ 		   tcp_try_fastopen(sk, skb, req, &foc, dst);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 93898e0..d671d74 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1276,8 +1276,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	newinet->mc_index     = inet_iif(skb);
+ 	newinet->mc_ttl	      = ip_hdr(skb)->ttl;
+ 	newinet->rcv_tos      = ip_hdr(skb)->tos;
++	newsk->sk_txhash      = tcp_rsk(req)->txhash;
+ 	inet_csk(newsk)->icsk_ext_hdr_len = 0;
+-	sk_set_txhash(newsk);
+ 	if (inet_opt)
+ 		inet_csk(newsk)->icsk_ext_hdr_len = inet_opt->opt.optlen;
+ 	newinet->inet_id = newtp->write_seq ^ jiffies;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f9a8a12..d0ad355 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2987,6 +2987,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	rcu_read_lock();
+ 	md5 = tcp_rsk(req)->af_specific->req_md5_lookup(sk, req_to_sk(req));
+ #endif
++	skb_set_hash(skb, tcp_rsk(req)->txhash, PKT_HASH_TYPE_L4);
+ 	tcp_header_size = tcp_synack_options(sk, req, mss, skb, &opts, md5,
+ 					     foc) + sizeof(*th);
+ 
+@@ -3505,6 +3506,7 @@ int tcp_rtx_synack(struct sock *sk, struct request_sock *req)
+ 	struct flowi fl;
+ 	int res;
+ 
++	tcp_rsk(req)->txhash = net_tx_rndhash();
+ 	res = af_ops->send_synack(sk, NULL, &fl, req, 0, NULL);
+ 	if (!res) {
+ 		TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_RETRANSSEGS);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 97d9314..f9c0e26 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1090,7 +1090,7 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	newsk->sk_v6_rcv_saddr = ireq->ir_v6_loc_addr;
+ 	newsk->sk_bound_dev_if = ireq->ir_iif;
+ 
+-	sk_set_txhash(newsk);
++	newsk->sk_txhash = tcp_rsk(req)->txhash;
+ 
+ 	/* Now IPv6 options...
+ 
