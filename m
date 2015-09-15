@@ -1,110 +1,65 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: v2 of seccomp filter c/r patches
-Date: Tue, 15 Sep 2015 13:01:23 -0700
-Message-ID: <CALCETrVED+pUDzSEurgrjjqMZpvO2vxG-uAf3ZJHHAYCbqS6YQ@mail.gmail.com>
-References: <1441930862-14347-1-git-send-email-tycho.andersen@canonical.com>
- <CALCETrVYtv1=g-xPjQ-LiX+5GK3xtB6a2hYbat0TuU-Bd4QA6Q@mail.gmail.com>
- <CALCETrWxLMSgdsdT9gTL80LSovONmCcTYjzqrHqF-WdJ4BN1Uw@mail.gmail.com>
- <20150911172806.GA7244@smitten> <CALCETrWH0vLZwkOV6JCnC-pLaHe0dboXs5-ETkXFCR9X-aq7qw@mail.gmail.com>
- <20150915160738.GJ31864@smitten> <CALCETrVxhNvmEdMq0XRy1YZ+oJLDwcmE1y6prs7FGGhsS-Y5gg@mail.gmail.com>
- <20150915182626.GK31864@smitten>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next:master 6/10] include/linux/usb/cdc.h:47:5: warning:
+ 'struct usb_interface' declared inside parameter list
+Date: Tue, 15 Sep 2015 13:25:38 -0700 (PDT)
+Message-ID: <20150915.132538.2065465403874989751.davem@davemloft.net>
+References: <201509160313.6mZCFUqL%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Serge E. Hallyn" <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-To: Tycho Andersen <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150915182626.GK31864@smitten>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: oneukum@suse.com, kbuild-all@01.org, netdev@vger.kernel.org
+To: fengguang.wu@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53526 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110AbbIOUZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 16:25:41 -0400
+In-Reply-To: <201509160313.6mZCFUqL%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2015 at 11:26 AM, Tycho Andersen
-<tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
-> Hi Andy,
->
-> On Tue, Sep 15, 2015 at 11:13:51AM -0700, Andy Lutomirski wrote:
->> On Tue, Sep 15, 2015 at 9:07 AM, Tycho Andersen
->> <tycho.andersen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
->> > Hi Andy,
->> >
->> > On Mon, Sep 14, 2015 at 10:52:46AM -0700, Andy Lutomirski wrote:
->> >>
->> >> I'm not sure I entirely like this solution...
->> >
->> > Ok. Since we also aren't going to do all the eBPF stuff now, how about
->> > something that looks like this:
->> >
->> > struct seccomp_layer {
->> >   unsigned int size;
->> >   unsigned int type; /* SECCOMP_BPF_CLASSIC or SECCOMP_EBPF or ... */
->> >   bool inherited;
->> >   union {
->> >     unsigned int insn_cnt;
->> >     struct bpf_insn *insns;
->> >   };
->> > };
->> >
->> > with a ptrace command:
->> >
->> > ptrace(PTRACE_SECCOMP_DUMP_LAYER, pid, i, &layer);
->> >
->> > If we save a pointer to the current seccomp filter on fork (if there
->> > is one), then I think the inherited flag is just,
->> >
->> > inherited = is_ancestor(child->seccomp.filter, child->seccomp.inherited_filter)
->> >
->>
->> I'm lost.  What is the inherited flag for?
->
-> We need some way to expose the seccomp hierarchy, specifically which
-> filters are inherited, so that we can correctly restore the filter
-> tree for tasks that may use TSYNC in the future. You've mentioned that
-> you don't like kcmp, so this is an alternative to that.
->
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Wed, 16 Sep 2015 03:56:14 +0800
 
-My only objection to kcmp is that IMO it's a suboptimal interface and
-could be better.  I have no problem with the general principle of
-asking to compare two objects.
+> All warnings (new ones prefixed by >>):
+> 
+>    In file included from drivers/usb/gadget/function/u_serial.h:16:0,
+>                     from drivers/usb/gadget/function/f_acm.c:23:
+>>> include/linux/usb/cdc.h:47:5: warning: 'struct usb_interface' declared inside parameter list
+>         int buflen);
+>         ^
+>>> include/linux/usb/cdc.h:47:5: warning: its scope is only this definition or declaration, which is probably not what you want
 
-The thing I really don't have a good handle on is whether the seccomp
-filter hierarchy should look more like A:
+I'll fix this as follows:
 
-struct seccomp_filter {
-    ...;
-    struct seccomp_filter *prev;
-};
+====================
+[PATCH] cdc: Fix build warning.
 
-with the seccomp_filter being the user-visible object
+   In file included from drivers/usb/gadget/function/u_serial.h:16:0,
+                    from drivers/usb/gadget/function/f_acm.c:23:
+>> include/linux/usb/cdc.h:47:5: warning: 'struct usb_interface' declared inside parameter list
+        int buflen);
+        ^
+>> include/linux/usb/cdc.h:47:5: warning: its scope is only this definition or declaration, which is probably not what you want
 
-Or B:
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/usb/cdc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-struct seccomp_layer {
-   ...;  /* BPF program, etc. */
-}
-
-struct seccomp_filter {
-   struct seccomp_layer *layer;
-   struct seccomp_filter *prev;
-};  /* or equivalent */
-
-with seccomp_layer being the user-visible object.
-
-A is simpler to implement in a memory-efficient way, but it's less
-flexible.  I haven't come up with a compelling use case for B where A
-doesn't work, with the caveat that, if an fd points to a
-seccomp_filter in model A, you can't attach it unless your current
-state matches its "prev" state (or an ancestor thereof), which might
-be a little bit awkward.
-
-Am I making more sense now?
-
---Andy
+diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
+index cd8f2e1..959d0c8 100644
+--- a/include/linux/usb/cdc.h
++++ b/include/linux/usb/cdc.h
+@@ -40,7 +40,7 @@ struct usb_cdc_parsed_header {
+ 	bool phonet_magic_present;
+ };
+ 
+-
++struct usb_interface;
+ int cdc_parse_cdc_header(struct usb_cdc_parsed_header *hdr,
+ 				struct usb_interface *intf,
+ 				u8 *buffer,
+-- 
+2.1.0
