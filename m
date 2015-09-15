@@ -1,121 +1,139 @@
-From: Dan Streetman <dan.streetman@canonical.com>
-Subject: Re: xfrm4_garbage_collect reaching limit
-Date: Mon, 14 Sep 2015 23:14:59 -0400
-Message-ID: <CAOZ2QJPAb4PfoBybPuhMokh9jhRFY0XSNMajf75Mgx=3=KXfUg@mail.gmail.com>
-References: <CAOZ2QJPt=3YmLG=S2Zf70yNPwLf-dbWtiyWJNbfYMRrQ5C6EZg@mail.gmail.com>
- <20150911094808.GI25499@secunet.com>
+From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
+Subject: bnx2x - occasional high packet loss (on LAN)
+Date: Tue, 15 Sep 2015 06:17:26 +0200
+Message-ID: <20150915041726.GD6850@pcnci.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dan Streetman <ddstreet@ieee.org>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="IMjqdzrDRly81ofr"
+Cc: nik@linuxbox.cz
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:36178 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751834AbbIODPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 23:15:39 -0400
-Received: by igcrk20 with SMTP id rk20so6338446igc.1
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 20:15:39 -0700 (PDT)
-In-Reply-To: <20150911094808.GI25499@secunet.com>
+Received: from gwu.lbox.cz ([62.245.111.132]:45433 "EHLO gwu.lbox.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751389AbbIOEfV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 00:35:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 5:48 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> Hi Dan.
->
-> On Thu, Sep 10, 2015 at 05:01:26PM -0400, Dan Streetman wrote:
->> Hi Steffen,
->>
->> I've been working with Jay on a ipsec issue, which I believe he
->> discussed with you.
->
-> Yes, we talked about this at the LPC.
->
->> In this case the xfrm4_garbage_collect is
->> returning error because the number of xfrm4 dst entries has exceeded
->> twice the gc_thresh, which causes new allocations of xfrm4 dst objects
->> to fail, thus making the ipsec connection unusable (until dst objects
->> are removed/freed).
->>
->> The main reason the count gets to the limit is because the
->> xfrm4_policy_afinfo.garbage_collect function - which points to
->> flow_cache_flush (indirectly) - doesn't actually guarantee any xfrm4
->> dst will get cleaned up, it only cleans up unused entries.
->>
->> The flow cache hashtable size limit watermark does restrict how many
->> flow cache entries exist (by shrinking the per-cpu hashtable once it
->> has 4k entries), and therefore indirectly controls the total number of
->> xfrm4 dst objects.  However, there's a mismatch between the default
->> xfrm4 gc_thresh - of 32k objects (which sets a 64k max of xfrm4 dst
->> objects) - and the flow cache hashtable limit of 4k objects per cpu.
->> Any system with 16 or less cpus will have a total limit of 64k (or
->> less) flow cache entries, so the 64k xfrm4 dst entry limit will never
->> be reached.  However for any system with more than 16 cpus, the flow
->> cache limit is greater than the xfrm4 dst limit, and so the xfrm4 dst
->> allocation can fail, rendering the ipsec connection unusable.
->>
->> The most obvious solution is for the system admin to increase the
->> xfrm4_gc_thresh value, although it's not really an obvious solution to
->> the end-user what value they should set it to :-)
->
-> Yes, a static gc threshold is always wrong for some workloads. So
-> the user needs to adjust it to his needs, even if the right value
-> is not obvious.
->
->> Possibly the
->> default value of xfrm4_gc_thresh could be set proportional to
->> num_online_cpus(), but that doesn't help when cpus are onlined after
->> boot.
->
-> This could be an option, we could change the xfrm4_gc_thresh value with
-> a cpu notifier callback if more cpus come up after boot.
 
-the issue there is, if the value is changed by the user, does a cpu
-hotplug reset it back to default...
+--IMjqdzrDRly81ofr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->
->> Also, a warning message indicating the xfrm4_gc_thresh limit
->> was reached, and a suggestion to increase the limit, may help anyone
->> who hits the issue.
+Hello,
 
-what do you think about this?  it's the simplest option; something like
+I'm trying to track strange issue with one of our servers and
+like to ask for recommendations..
 
-pr_warn_ratelimited("xfrm4_gc_limit exceeded\n");
+I've got three node cluster (nodes A..C) interconnected with stacked broadc=
+om
+ICX6610. eth0 of each box is connected to first switch, eth1 to second one,
+bonding set as follows: "mode=3D802.3ad lacp_rate=3Dfast xmit_hash_policy=
+=3Dlayer2+3 miimon=3D100"
 
-or with a suggestion...
+It happened few times, that suddenly eth1 on box A started misbehaving and =
+communication
+with other nodes (ie flood ping) started dropping up to 30% packets. When t=
+his port
+has been shut on both sides, problem immediately vanished.
 
-pr_warn_ratelimited("xfrm4_gc_limit exceeded, you may want to increase
-to %d or more",
-  2048 * num_online_cpus());
+We've tried replacing card, cable and using different port on switch, but p=
+roblem
+repeated again yesterday..
 
->>
->> I'm not sure if something more aggressive is appropriate, like
->> removing active entries during garbage collection.
->
-> It would not make too much sense to push an active flow out of the
-> fastpath just to add some other flow. If the number of active
-> entries is to high, there is no other option than increasing the
-> gc threshold.
->
-> You could try to reduce the number of active entries by shutting
-> down stale security associations frequently.
->
->> Or, removing the
->> failure condition from xfrm4_garbage_collect so xfrm4 dst_ops can
->> always be allocated,
->
-> This would open doors for DOS attacks, we can't do this.
->
->> or just increasing it from gc_thresh * 2 up to *
->> 4 or more.
->
-> This would just defer the problem, so not a real solution.
->
-> That said, whatever we do, we just paper over the real problem,
-> that is the flowcache itself. Everything that need this kind
-> of garbage collecting is fundamentally broken. But as long as
-> nobody volunteers to work on a replacement, we have to live
-> with this situation somehow.
->
+Since it's "only" loss, and not link loss, bonding doesn't help me much..
+
+however during weekend, port also had strange link issue:
+
+Sep 12 15:23:45 remrprv1a kernel: [676373.296786] bnx2x 0000:03:00.1 eth1: =
+NIC Link is Down
+Sep 12 15:23:46 remrprv1a kernel: [676373.356638] bond0: link status defini=
+tely down for interface eth1, disabling it
+Sep 12 15:23:46 remrprv1a kernel: [676374.299571] bnx2x 0000:03:00.1 eth1: =
+NIC Link is Up, 10000 Mbps full duplex, Flow control: ON - receive & transm=
+it
+Sep 12 15:23:47 remrprv1a kernel: [676374.364428] bond0: link status defini=
+tely up for interface eth1, 10000 Mbps full duplex
+Sep 12 15:23:47 remrprv1a kernel: [676374.372902] bond0: first active inter=
+face up!
+Sep 12 15:24:24 remrprv1a kernel: [676411.402511] bnx2x 0000:03:00.1 eth1: =
+NIC Link is Down
+Sep 12 15:24:24 remrprv1a kernel: [676411.407422] bond0: link status defini=
+tely down for interface eth1, disabling it
+Sep 12 15:24:25 remrprv1a kernel: [676412.405311] bnx2x 0000:03:00.1 eth1: =
+NIC Link is Up, 10000 Mbps full duplex, Flow control: ON - receive & transm=
+it
+Sep 12 15:24:25 remrprv1a kernel: [676412.408123] bond0: link status defini=
+tely up for interface eth1, 0 Mbps full duplex
+Sep 12 15:24:51 remrprv1a kernel: [676438.477641] bnx2x 0000:03:00.1 eth1: =
+NIC Link is Down
+Sep 12 15:24:51 remrprv1a kernel: [676438.528513] bond0: link status defini=
+tely down for interface eth1, disabling it
+Sep 12 15:24:52 remrprv1a kernel: [676439.480472] bnx2x 0000:03:00.1 eth1: =
+NIC Link is Up, 10000 Mbps full duplex, Flow control: ON - receive & transm=
+it
+Sep 12 15:24:52 remrprv1a kernel: [676439.536282] bond0: link status defini=
+tely up for interface eth1, 10000 Mbps full duplex
+
+0mbps link speed is quite weird I guess..
+
+all three boxes are the same, running centos6 based system, 4.0.5 x86_64 ke=
+rnel.
+
+The only difference I noticed on them is, that irqbalance was enabled on pr=
+oblematic
+box and not on the others.. So I disabled it and rebooted the box.. The pro=
+blem is,
+I can't really wait for the problem to reappear, so I'd like to ask, has an=
+ybody
+seen similar problem? I of so, was it fixed in some newer kernel release? I=
+ haven't
+found mention in the changelogs, but still.. or does somebody have a hint o=
+n what else
+I should check?=20
+
+I'll try to reproduce this on test system (enabling irqbalance and doing so=
+me network
+benchmarks, but I'd be most happy if I could prevent it on this production =
+system..)
+
+thanks a lot for any advance
+
+with best regards
+
+nikola ciprich
+
+PS: here's lspci -vv of eths.. should I provide any further information, pl=
+ease let me know:
+
+http://nik.lbox.cz/download/lspci.txt
+
+--=20
+-------------------------------------
+Ing. Nikola CIPRICH
+LinuxBox.cz, s.r.o.
+28.rijna 168, 709 00 Ostrava
+
+tel.:   +420 591 166 214
+fax:    +420 596 621 273
+mobil:  +420 777 093 799
+www.linuxbox.cz
+
+mobil servis: +420 737 238 656
+email servis: servis@linuxbox.cz
+-------------------------------------
+
+--IMjqdzrDRly81ofr
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.14 (GNU/Linux)
+
+iEYEARECAAYFAlX3m9YACgkQ3xdJJrLygV7cHgCfal5ul2RHrZ6YaeYRd0gKJhwR
+95oAoNGP+MJr1QXR5x54O1YDrg+mlFdN
+=9E2N
+-----END PGP SIGNATURE-----
+
+--IMjqdzrDRly81ofr--
