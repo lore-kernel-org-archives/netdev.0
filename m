@@ -1,129 +1,78 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH V4 1/2] pci: Add dev_flags bit to access VPD through
- function 0
-Date: Tue, 15 Sep 2015 15:17:27 -0600
-Message-ID: <1442351847.23936.155.camel@redhat.com>
-References: <20150713183821.19985.52157.stgit@mdrustad-wks.jf.intel.com>
-	 <20150713184001.19985.64867.stgit@mdrustad-wks.jf.intel.com>
-	 <1442341152.23936.122.camel@redhat.com>
-	 <F17F8A11-FB09-4131-A404-DE106F3944BB@intel.com>
-	 <1442343860.23936.141.camel@redhat.com>
-	 <5E6FC98D-C2B9-4F69-ABB9-84A39AE6D271@intel.com>
+From: Oren Laskin <oren@igneous.io>
+Subject: Re: [PATCH] net: mvneta: fix DMA buffer unmapping in mvneta_rx()
+Date: Tue, 15 Sep 2015 14:19:45 -0700
+Message-ID: <CAA-51jMAHa=sU8B5eSTLHnqYDSy93bO1Jbc2=qHY6S=qM1__MA@mail.gmail.com>
+References: <20150915203634.GI7306@kw.sim.vm.gnt>
+	<1442349681-27437-1-git-send-email-simon.guinot@sequanux.org>
+Reply-To: oren@igneous.io
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Myron Stowe <myron.stowe@redhat.com>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <5E6FC98D-C2B9-4F69-ABB9-84A39AE6D271@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Vincent Donnefort <vdonnefort@gmail.com>,
+	Yoann Sculo <yoann@sculo.fr>, Sebastien Rannou <mxs@sbrk.org>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: Simon Guinot <simon.guinot@sequanux.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1442349681-27437-1-git-send-email-simon.guinot@sequanux.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-09-15 at 20:47 +0000, Rustad, Mark D wrote:
-> > On Sep 15, 2015, at 12:04 PM, Alex Williamson <alex.williamson@redh=
-at.com> wrote:
-> >=20
-> >=20
-> > FRU-type information is only one of the use cases of VPD, the spec =
-also
-> > defines (PCI rev 3.0, 6.4):
-> >=20
-> >        ... a mechanism for storing information such as performance =
-and
-> >        failure data on the device being monitored.
-> >=20
-> > That information could very much be function specific.
->=20
-> It is open to interpretation. I guess still I see it as the physical =
-device as a whole.
->=20
-> > When I was looking at whether we should provide VPD access of an
-> > assigned device at all, I ran across this interesting statement in =
-the
-> > PCI spec (rev 3.0, I.3.1.1):
-> >=20
-> >        CP Extended Capability
-> >=20
-> >        This field allows a new capability to be identified in the V=
-PD
-> >        area. Since dynamic control/status cannot be placed in VPD, =
-the
-> >        data for this field identifies where, in the device=E2=80=99=
-s memory or
-> >        I/O address space, the control/status registers for the
-> >        capability can be found. Location of the control/status
-> >        registers is identified by providing the index (a value betw=
-een
-> >        0 and 5) of the Base Address register that defines the addre=
-ss
-> >        range that contains the registers, and the offset within tha=
-t
-> >        Base Address register range where the control/status registe=
-rs
-> >        reside. The data area for this field is four bytes long. The
-> >        first byte contains the ID of the extended capability. The
-> >        second byte contains the index (zero based) of the Base Addr=
-ess
-> >        register used. The next two bytes contain the offset (in
-> >        little-endian order) within that address range where the
-> >        control/status registers defined for that capability reside.
-> >=20
-> > Again, this sounds like function specific data, and both here and a=
-bove,
-> > blocking access to VPD could affect the functionality of drivers.  =
-It
-> > may be the case that Intel would find this use to be madness, but
-> > there's no PCI spec requirement that separate functions are in any =
-way
-> > similar and we're looking at an interface that may be used by non-I=
-ntel
-> > devices as well.  Thanks,
->=20
-> It isn't an interface as such, it is a quirk to address some
-> widespread design problems with multi function devices with VPD. And
-> you are right that functions can be different. In fact this quirk is
-> needed only because now they often (usually in fact) are not
-> different! I do hope to see some non-Intel devices use the quirk,
-> because I'm pretty sure there are other devices that have the same
-> issue.
->=20
-> I realize that I covered a pretty wide swath by making the quirk appl=
-y
-> to all Intel Ethernet devices, but that still seems correct. The
-> Skylake is not an issue because it does not have VPD so the
-> pci_find_capability will fail before any handling of the quirk is
-> possible. The code that applies the quirk could check specific
-> devices, but it would make the code a lot bigger, and I see this kind
-> of code as dead weight for so many systems that I tried to make it as
-> small as possible. Since all Intel Ethernet seems to be correct now
-> and as far as I can see into the future, that is what I did.
->=20
-> Going back to something you mentioned before, I think you are right
-> that the failure case for the pci_vpd_f0_dev_check could be made to
-> simply clear the quirk and continue, since pci_vpd_f0_dev_check reall=
-y
-> should not fail in cases where the quirk is applicable. That does see=
-m
-> like a reasonable change to me the more I think about it.
->=20
-> I think a whitelist would be unnecessary dead weight.
+This fixes the regression we saw.
 
-Yep, a whitelist is probably not the way to go.  AFAICT, you're looking
-for plugin-cards where all the functions meet the criteria of having th=
-e
-same class, vendor, and device ID.  If we don't meet that criteria, the=
-n
-it's not a device we're expecting and we should leave it alone.
+Tested-by: Oren Laskin <oren@igneous.io>
 
-Also, rather than clearing the flag, can we move the tests done by
-pci_vpd_f0_dev_check() into the
-quirk setup function?  It seems like function 0 should be sufficiently
-configured by the time we're probing non-zero functions that we can be
-more selective in setting the flag rather than unsetting it later.
-Thanks,
-
-Alex
+On Tue, Sep 15, 2015 at 1:41 PM, Simon Guinot <simon.guinot@sequanux.org> wrote:
+> This patch fixes a regression introduced by the commit a84e32894191
+> ("net: mvneta: fix refilling for Rx DMA buffers"). Due to this commit
+> the newly allocated Rx buffers are DMA-unmapped in place of those passed
+> to the networking stack. Obviously, this causes data corruptions.
+>
+> This patch fixes the issue by ensuring that the right Rx buffers are
+> DMA-unmapped.
+>
+> Reported-by: Oren Laskin <oren@igneous.io>
+> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
+> Fixes: a84e32894191 ("net: mvneta: fix refilling for Rx DMA buffers")
+> Cc: <stable@vger.kernel.org> # v3.8+
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index 62e48bc0cb23..03e052a1cf5a 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -1479,6 +1479,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+>                 struct mvneta_rx_desc *rx_desc = mvneta_rxq_next_desc_get(rxq);
+>                 struct sk_buff *skb;
+>                 unsigned char *data;
+> +               dma_addr_t phys_addr;
+>                 u32 rx_status;
+>                 int rx_bytes, err;
+>
+> @@ -1486,6 +1487,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+>                 rx_status = rx_desc->status;
+>                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
+>                 data = (unsigned char *)rx_desc->buf_cookie;
+> +               phys_addr = rx_desc->buf_phys_addr;
+>
+>                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
+>                     (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
+> @@ -1534,7 +1536,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+>                 if (!skb)
+>                         goto err_drop_frame;
+>
+> -               dma_unmap_single(dev->dev.parent, rx_desc->buf_phys_addr,
+> +               dma_unmap_single(dev->dev.parent, phys_addr,
+>                                  MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+>
+>                 rcvd_pkts++;
+> --
+> 2.1.4
+>
