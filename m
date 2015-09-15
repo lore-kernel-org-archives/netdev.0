@@ -1,30 +1,52 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: [PATCH] at86rf230: fix build warning
-Date: Tue, 15 Sep 2015 13:44:57 +0530
-Message-ID: <20150915081457.GH9305@sudip-pc>
-References: <1441964764-15611-1-git-send-email-sudipm.mukherjee@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
-	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1441964764-15611-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH] net: qdisc: enhance default_qdisc documentation
+Date: Tue, 15 Sep 2015 10:33:07 +0200
+Message-ID: <1442305987-6559-1-git-send-email-phil@nwl.cc>
+Cc: davem@davemloft.net, cwang@twopensource.com,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:44483 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751330AbbIOIdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 04:33:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 03:16:04PM +0530, Sudip Mukherjee wrote:
-> e616a00ce786 ("drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL")
-> has removed the usage of the integer "ret" but missed removing the
-> variable. And we were getting a build warning about "unused variable".
-> 
-> Fixes: e616a00ce786 ("drivers/net/ieee802154/at86rf230.c: seq_printf() now returns NULL")
-> Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
-> ---
-Please drop this patch. This was against a temporary fix by Stephen on
-linux-next. The commit is not availble now.
+Aside from some lingual cleanup, point out which interfaces are not or
+partly covered by this setting.
 
-regards
-sudip
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ Documentation/sysctl/net.txt | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+index 6294b51..809ab6e 100644
+--- a/Documentation/sysctl/net.txt
++++ b/Documentation/sysctl/net.txt
+@@ -54,13 +54,15 @@ default_qdisc
+ --------------
+ 
+ The default queuing discipline to use for network devices. This allows
+-overriding the default queue discipline of pfifo_fast with an
+-alternative. Since the default queuing discipline is created with the
+-no additional parameters so is best suited to queuing disciplines that
+-work well without configuration like stochastic fair queue (sfq),
+-CoDel (codel) or fair queue CoDel (fq_codel). Don't use queuing disciplines
+-like Hierarchical Token Bucket or Deficit Round Robin which require setting
+-up classes and bandwidths.
++overriding the default of pfifo_fast with an alternative. Since the default
++queuing discipline is created without additional parameters so is best suited
++to queuing disciplines that work well without configuration like stochastic
++fair queue (sfq), CoDel (codel) or fair queue CoDel (fq_codel). Don't use
++queuing disciplines like Hierarchical Token Bucket or Deficit Round Robin
++which require setting up classes and bandwidths. Note that physical multiqueue
++interfaces still use mq as root qdisc, which in turn uses this default for its
++leaves. Virtual devices (like e.g. lo or veth) ignore this setting and instead
++default to noqueue.
+ Default: pfifo_fast
+ 
+ busy_read
+-- 
+2.1.2
