@@ -1,139 +1,73 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: Add documentation for VRF device
-Date: Tue, 15 Sep 2015 10:50:14 -0600
-Message-ID: <1442335814-47505-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33818 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbbIOQuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 12:50:20 -0400
-Received: by padhy16 with SMTP id hy16so181417209pad.1
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 09:50:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: List corruption on epoll_ctl(EPOLL_CTL_DEL) an AF_UNIX socket
+Date: Tue, 15 Sep 2015 18:07:05 +0100
+Message-ID: <878u87ipc6.fsf@doppelsaurus.mobileactivedefense.com>
+References: <20150913195354.GA12352@jig.fritz.box>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Davidlohr Bueso <dave@stgolabs.net>,
+	Olivier Mauras <olivier@mauras.ch>,
+	PaX Team <pageexec@freemail.hu>
+To: Mathias Krause <minipli@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150913195354.GA12352@jig.fritz.box> (Mathias Krause's message
+	of "Sun, 13 Sep 2015 21:53:54 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- Documentation/networking/vrf.txt | 96 ++++++++++++++++++++++++++++++++++++++++
- MAINTAINERS                      |  1 +
- 2 files changed, 97 insertions(+)
- create mode 100644 Documentation/networking/vrf.txt
+Mathias Krause <minipli@googlemail.com> writes:
+> this is an attempt to resurrect the thread initially started here:
+>
+>   http://thread.gmane.org/gmane.linux.network/353003
+>
+> As that patch fixed the issue for the mentioned reproducer, it did not
+> fix the bug for the production code Olivier is using. :(
+>
+> Changing the reproducer only slightly allows me to trigger the following
+> list debug splat (CONFIG_DEBUG_LIST=y) reliable within seconds -- even
+> with the above linked patch applied:
 
-diff --git a/Documentation/networking/vrf.txt b/Documentation/networking/vrf.txt
-new file mode 100644
-index 000000000000..031ef4a63485
---- /dev/null
-+++ b/Documentation/networking/vrf.txt
-@@ -0,0 +1,96 @@
-+Virtual Routing and Forwarding (VRF)
-+====================================
-+The VRF device combined with ip rules provides the ability to create virtual
-+routing and forwarding domains (aka VRFs, VRF-lite to be specific) in the
-+Linux network stack. One use case is the multi-tenancy problem where each
-+tenant has their own unique routing tables and in the very least need
-+different default gateways.
-+
-+Processes can be "VRF aware" by binding a socket to the VRF device. Packets
-+through the socket then use the routing table associated with the VRF
-+device. An important feature of the VRF device implementation is that it
-+impacts only Layer 3 and above so L2 tools (e.g., LLDP) are not affected
-+(ie., they do not need to be run in each VRF). The design also allows
-+the use of higher priority ip rules (Policy Based Routing, PBR) to take
-+precedence over the VRF device rules directing specific traffic as desired.
-+
-+In addition, VRF devices allow VRFs to be nested within namespaces. For
-+example network namespaces provide separation of network interfaces at L1
-+(Layer 1 separation), VLANs on the interfaces within a namespace provide
-+L2 separation and then VRF devices provide L3 separation.
-+
-+Design
-+------
-+A VRF device is created with an associated route table. Network interfaces
-+are then enslaved to a VRF device:
-+
-+         +-----------------------------+
-+         |           vrf-blue          |  ===> route table 10
-+         +-----------------------------+
-+            |        |            |
-+         +------+ +------+     +-------------+
-+         | eth1 | | eth2 | ... |    bond1    |
-+         +------+ +------+     +-------------+
-+                                  |       |
-+                              +------+ +------+
-+                              | eth8 | | eth9 |
-+                              +------+ +------+
-+
-+Packets received on an enslaved device and are switched to the VRF device
-+using an rx_handler which gives the impression that packets flow through
-+the VRF device. Similarly on egress routing rules are used to send packets
-+to the VRF device driver before getting sent out the actual interface. This
-+allows tcpdump on a VRF device to capture all packets into and out of the
-+VRF as a whole.[1] Similiarly, netfilter [2] and tc rules can be applied
-+using the VRF device to specify rules that apply to the VRF domain as a whole.
-+
-+[1] Packets in the forwarded state do not flow through the device, so those
-+    packets are not seen by tcpdump. Will revisit this limitation in a
-+    future release.
-+
-+[2] Iptables on ingress is limited to NF_INET_PRE_ROUTING only with skb->dev
-+    set to real ingress device and egress is limited to NF_INET_POST_ROUTING.
-+    Will revisit this limitation in a future release.
-+
-+
-+Setup
-+-----
-+1. VRF device is created with an association to a FIB table.
-+   e.g, ip link add vrf-blue type vrf table 10
-+        ip link set dev vrf-blue up
-+
-+2. Rules are added that send lookups to the associated FIB table when the
-+   iif or oif is the VRF device. e.g.,
-+       ip ru add oif vrf-blue table 10
-+       ip ru add iif vrf-blue table 10
-+
-+   Set the default route for the table (and hence default route for the VRF).
-+   e.g, ip route add table 10 prohibit default
-+
-+3. Enslave L3 interfaces to a VRF device.
-+   e.g,  ip link set dev eth1 master vrf-blue
-+
-+   Local and connected routes for enslaved devices are automatically moved to
-+   the table associated with VRF device. Any additional routes depending on
-+   the enslaved device will need to be reinserted following the enslavement.
-+
-+4. Additional VRF routes are added to associated table.
-+   e.g., ip route add table 10 ...
-+
-+
-+Applications
-+------------
-+Applications that are to work within a VRF need to bind their socket to the
-+VRF device:
-+
-+    setsockopt(sd, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen(dev)+1);
-+
-+or to specify the output device using cmsg and IP_PKTINFO.
-+
-+
-+Limitations
-+-----------
-+VRF device currently only works for IPv4. Support for IPv6 is under development.
-+
-+Index of original ingress interface is not available via cmsg. Will address
-+soon.
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 310da4295c70..d4d9d4f6d271 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -11243,6 +11243,7 @@ L:	netdev@vger.kernel.org
- S:	Maintained
- F:	drivers/net/vrf.c
- F:	include/net/vrf.h
-+F:	Documentation/networking/vrf.txt
- 
- VT1211 HARDWARE MONITOR DRIVER
- M:	Juerg Haefliger <juergh@gmail.com>
--- 
-2.3.2 (Apple Git-55)
+The patch was
+
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+ <at>  <at>  -2233,10 +2233,14  <at>  <at>  static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 	writable = unix_writable(sk);
+ 	other = unix_peer_get(sk);
+ 	if (other) {
+-		if (unix_peer(other) != sk) {
++		unix_state_lock(other);
++		if (!sock_flag(other, SOCK_DEAD) && unix_peer(other) != sk) {
++			unix_state_unlock(other);
+ 			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
+ 			if (unix_recvq_full(other))
+ 				writable = 0;
++		} else {
++			unix_state_unlock(other);
+ 		}
+ 		sock_put(other);
+ 	}
+
+That's obviously not going to help you when 'racing with
+unix_release_sock' as the socket might be released immediately after the
+unix_state_unlock, ie, before sock_poll_wait is called. Provided I
+understand this correctly, the problem is that the socket reference
+count may have become 1 by the time sock_put is called but the
+sock_poll_wait has created a new reference to it which isn't accounted
+for.
+
+A simple way to fix that could be to do something like
+
+unix_state_lock(other);
+if (!sock_flag(other, SOCK_DEAD)) sock_poll_wait(...)
+unix_state_unlock(other);
+
+This would imply that unix_release_sock either marked the socket as dead
+before the sock_poll_wait was executed or that the wake_up_interruptible
+call in there will run after ->peer_wait was used (and it will thus
+'unpollwait' it again).
