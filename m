@@ -1,43 +1,48 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v3 net 0/5] ipv6: Fix dst_entry refcnt bugs in
  ip6_tunnel
-Date: Mon, 14 Sep 2015 19:49:25 -0700 (PDT)
-Message-ID: <20150914.194925.1193918139295619388.davem@davemloft.net>
+Date: Mon, 14 Sep 2015 19:56:37 -0700 (PDT)
+Message-ID: <20150914.195637.558611773755031925.davem@davemloft.net>
 References: <1441994781-2718585-1-git-send-email-kafai@fb.com>
+	<20150914.194925.1193918139295619388.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
 	hannes@stressinduktion.org, kernel-team@fb.com
 To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45434 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45461 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751964AbbIOCt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 22:49:28 -0400
-In-Reply-To: <1441994781-2718585-1-git-send-email-kafai@fb.com>
+	with ESMTP id S1751626AbbIOC4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 22:56:39 -0400
+In-Reply-To: <20150914.194925.1193918139295619388.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Fri, 11 Sep 2015 11:06:16 -0700
-
-> v3:
-> - Merge a 'if else if' test in patch 4
-> - Use rcu_dereference_protected in patch 5 to fix a sparse check when
->   CONFIG_SPARSE_RCU_POINTER is enabled
-> 
-> v2:
-> - Add patch 4 and 5 to remove the spinlock
-> 
-> v1:
-> This patch series is to fix the dst refcnt bugs in ip6_tunnel.
-> 
-> Patch 1 and 2 are the prep works.  Patch 3 is the fix.
-> 
-> I can reproduce the bug by adding and removing the ip6gre tunnel
-> while running a super_netperf TCP_CRR test.  I get the following
-> trace by adding WARN_ON_ONCE(newrefcnt < 0) to dst_release():
- ...
-
-Series applied, thanks Martin.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxNCBT
+ZXAgMjAxNSAxOTo0OToyNSAtMDcwMCAoUERUKQ0KDQo+IFNlcmllcyBhcHBsaWVkLCB0aGFua3Mg
+TWFydGluLg0KDQpBY3R1YWxseSwgcmV2ZXJ0ZWQsIHRoaXMgZG9lc24ndCBldmVuIGNvbXBpbGUg
+Oi0vDQoNCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBpbmNsdWRlL2xpbnV4L3NyY3UuaDozMzowLA0K
+ICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbGludXgvbm90aWZpZXIuaDoxNSwNCiAgICAg
+ICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L21lbW9yeV9ob3RwbHVnLmg6NiwNCiAgICAg
+ICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L21tem9uZS5oOjgxMiwNCiAgICAgICAgICAg
+ICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L2dmcC5oOjUsDQogICAgICAgICAgICAgICAgIGZyb20g
+aW5jbHVkZS9saW51eC9rbW9kLmg6MjIsDQogICAgICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9s
+aW51eC9tb2R1bGUuaDoxMywNCiAgICAgICAgICAgICAgICAgZnJvbSBuZXQvaXB2Ni9pcDZfdHVu
+bmVsLmM6MjM6DQpuZXQvaXB2Ni9pcDZfdHVubmVsLmM6IEluIGZ1bmN0aW9uIKFpcDZfdG5sX3Bl
+cl9jcHVfZHN0X3NldKI6DQpuZXQvaXB2Ni9pcDZfdHVubmVsLmM6MTM1OjM1OiBlcnJvcjogaW52
+YWxpZCB0eXBlIGFyZ3VtZW50IG9mIKEtPqIgKGhhdmUgoXNlcWxvY2tfdKIpDQogICAgICAgIGxv
+Y2tkZXBfaXNfaGVsZCgmaWRzdC0+bG9jay0+bG9jaykpKTsNCiAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgXg0KaW5jbHVkZS9saW51eC9yY3VwZGF0ZS5oOjU2OTo1Mjogbm90ZTog
+aW4gZGVmaW5pdGlvbiBvZiBtYWNybyChUkNVX0xPQ0tERVBfV0FSTqINCiAgIGlmIChkZWJ1Z19s
+b2NrZGVwX3JjdV9lbmFibGVkKCkgJiYgIV9fd2FybmVkICYmIChjKSkgeyBcDQogICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXg0KaW5jbHVkZS9saW51
+eC9yY3VwZGF0ZS5oOjc4NzoyOiBub3RlOiBpbiBleHBhbnNpb24gb2YgbWFjcm8goV9fcmN1X2Rl
+cmVmZXJlbmNlX3Byb3RlY3RlZKINCiAgX19yY3VfZGVyZWZlcmVuY2VfcHJvdGVjdGVkKChwKSwg
+KGMpLCBfX3JjdSkNCiAgXg0KbmV0L2lwdjYvaXA2X3R1bm5lbC5jOjEzMzoxNDogbm90ZTogaW4g
+ZXhwYW5zaW9uIG9mIG1hY3JvIKFyY3VfZGVyZWZlcmVuY2VfcHJvdGVjdGVkog0KICBkc3RfcmVs
+ZWFzZShyY3VfZGVyZWZlcmVuY2VfcHJvdGVjdGVkKA0KICAgICAgICAgICAgICBeDQpuZXQvaXB2
+Ni9pcDZfdHVubmVsLmM6MTM1Ojg6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNybyChbG9ja2Rl
+cF9pc19oZWxkog0KICAgICAgICBsb2NrZGVwX2lzX2hlbGQoJmlkc3QtPmxvY2stPmxvY2spKSk7
+DQogICAgICAgIF4NCg==
