@@ -1,60 +1,33 @@
-From: Alexandre DERUMIER <aderumier@odiso.com>
-Subject: kernel 4.2 : "bridge vlan" command return empty result (works with
- kernel 4.1.3)
-Date: Tue, 15 Sep 2015 19:39:22 +0200 (CEST)
-Message-ID: <1167950469.57377315.1442338762965.JavaMail.zimbra@oxygem.tv>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: [PATCH] pptp: avoid releasing the sock too early
+Date: Tue, 15 Sep 2015 13:39:10 -0400
+Message-ID: <55F857BE.6060201@oracle.com>
+References: <1442245229-31099-1-git-send-email-sasha.levin@oracle.com> <1442249027.14284.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: roopa <roopa@cumulusnetworks.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailpro.odiso.net ([89.248.209.98]:53231 "EHLO
-	mailpro.odiso.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965AbbIORjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 13:39:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xeb@mail.ru, ebiederm@xmission.com, davem@davemloft.net,
+	simon@farnz.org.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442249027.14284.2.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 09/14/2015 12:43 PM, Eric Dumazet wrote:
+> Hmm, is the synchronize_rcu() in del_chan() still needed, and why it was
+> not enough ?
+> 
+> I believe your patch might reduce the race window, but it is not clear
+> it is the right fix.
 
-since kernel 4.2, "bridge vlan" command return empty result.
+You're right, I've missed the synchronize_rcu() originally. At this point
+I'm certain that my patch is incorrect (so ignore it please), but I don't see
+the cause of the bug either.
 
-
-kernel 4.1.3
-------------
-# bridge vlan
-port	vlan ids
-eth0	 1 PVID Egress Untagged
-	 90
-	 91
-	 92
-	 93
-	 94
-	 95
-	 96
-	 97
-	 98
-	 99
-	 100
-
-vmbr0	 1 PVID Egress Untagged
-	 94
+Let me think about it some more...
 
 
-
-kernel 4.2  
-----------------
-# bridge vlan
-port	vlan ids
-
-
-
-Note that vlans are correctly working,it seem that is just the display.
-
-tcpdump -e -i vmbr0
-
-19:38:08.005055 00:08:7c:bd:ae:40 (oui Unknown) > 00:18:8b:7c:c8:37 (oui Unknown), ethertype 802.1Q (0x8100), length 64: vlan 94, p 0, ethertype IPv4, 172.20.0.17.52299 > kvmtest2.odiso.net.ssh: Flags [.], ack 339613, win 5523, length 0
-19:38:08.007730 00:08:7c:bd:ae:40 (oui Unknown) > 00:18:8b:7c:c8:37 (oui Unknown), ethertype 802.1Q (0x8100), length 64: vlan 94, p 0, ethertype IPv4, 172.20.0.17.52299 > kvmtest2.odiso.net.ssh: Flags [.], ack 342145, win 5568, length 0
-19:38:08.010977 00:08:7c:bd:ae:40 (oui Unknown) > 00:18:8b:7c:c8:37 (oui Unknown), ethertype 802.1Q (0x8100), length 64: vlan 94, p 0, ethertype IPv4, 172.20.0.17.52299 > kvmtest2.odiso.net.ssh: Flags [.], ack 344677, win 5614, length 0
-19:3
+Thanks,
+Sasha
