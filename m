@@ -1,76 +1,69 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] xfrm: Add oif to dst lookups
-Date: Tue, 15 Sep 2015 07:47:20 -0600
-Message-ID: <55F82168.5080304@cumulusnetworks.com>
-References: <1439247491-80410-1-git-send-email-dsa@cumulusnetworks.com>
- <20150915092838.GK25499@secunet.com>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: Re: [PATCH V3 2/2] debugfs: don't assume sizeof(bool) to be 4 bytes
+Date: Tue, 15 Sep 2015 19:34:36 +0530
+Message-ID: <20150915140436.GJ6350@linux>
+References: <9b705747a138c96c26faee5218f7b47403195b28.1442305897.git.viresh.kumar@linaro.org>
+ <27d37898b4be6b9b9f31b90135f8206ca079a868.1442305897.git.viresh.kumar@linaro.org>
+ <1442313464.1914.21.camel@sipsolutions.net>
+ <20150915110447.GI6350@linux>
+ <20150915094509.46cca84d@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	davem@davemloft.net
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33039 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806AbbIONrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 09:47:23 -0400
-Received: by pacex6 with SMTP id ex6so177901254pac.0
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 06:47:23 -0700 (PDT)
-In-Reply-To: <20150915092838.GK25499@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"linaro-kernel@lists.linaro.org" <linaro-kernel@lists.linaro.org>,
+	Rafael Wysocki <rjw@rjwysocki.net>,
+	"sboyd@codeaurora.org" <sboyd@codeaurora.org>,
+	"arnd@arndb.de" <arnd@arndb.de>, Mark Brown <broonie@kernel.org>,
+	Akinobu Mita <akinobu.mita@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..." <alsa-devel@alsa-project.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Arik Nemtsov <arik@wizery.com>,
+	"open list:QUALCOMM ATHEROS ATH10K WIRELESS DRIVER" <ath10k@lists.infradead.org>,
+	"open list:QUALCOMM ATHEROS ATH9K WIRELESS DRIVER" <ath9k-devel@lists.ath9k.org>,
+	"Altman, Avri" <avri.altman@intel.com>,
+	"open list
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20150915094509.46cca84d@gandalf.local.home>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi Steffen:
+On 15-09-15, 09:45, Steven Rostedt wrote:
+> Then break up the patch.
 
-On 9/15/15 3:28 AM, Steffen Klassert wrote:
-> On Mon, Aug 10, 2015 at 04:58:11PM -0600, David Ahern wrote:
->> Rules can be installed that direct route lookups to specific tables based
->> on oif. Plumb the oif through the xfrm lookups so it gets set in the flow
->> struct and passed to the resolver routines.
->>
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->
-> David, this change broke vti tunnels.
->
->> @@ -1690,8 +1694,8 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
->>
->>   		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
->>   			family = xfrm[i]->props.family;
->> -			dst = xfrm_dst_lookup(xfrm[i], tos, &saddr, &daddr,
->> -					      family);
->> +			dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif,
->> +					      &saddr, &daddr, family);
->
-> Passing the original output interface to xfrm_dst_lookup will generate
-> a routing loop whenever the original output interface is not identical
-> to the tunnel endpoint, like it is with vti. We can not ask for a route
-> through a specific interface here. This is the lookup for the tunnel
-> endpoints, so it must return a route through the local tunnel endpoint
-> device.
->
-> I don't know how you are going to use this with your vrf changes, so
-> I'm not sure how to fix this in a way that it works with vrf. Please
-> look into this.
->
+That will cause build warnings between the patches due to prototype
+mismatch. Maybe I should ignore get_maintainers for this patch and
+just cc the lists :)
 
-I wonder if it is failing in fib_table_lookup() at this point:
+> Your Cc list is far too large, I would nack
+> this patch just for that alone.
 
-                                 if (flp->flowi4_oif &&
-                                     flp->flowi4_oif != nh->nh_oif)
-                                         continue;
+:(
 
-(for this case flp->flowi4_flags does not have FLOWI_FLAG_VRFSRC set).
+> Sad part is, you didn't even Cc Linus (which I added). I believe he was
+> against having bool's in structures before.
 
-There are FIB tracepoints that would help shed some light, combined with 
-a probe on exit:
+Sorry about that, I had no clue that I should explicitly include Linus
+to this thread.
 
-perf probe -a 'fib_table_lookup_ret=fib_table_lookup%return ret=%ax'
-perf record -e fib:* -e probe:* -a
-perf script
+> Linus, This patch changes a lot of u32s into bools in structures.
+> What's your take on that?
+> 
+> I added the patch again to the bottom of this email so that Linus may
+> see it (it was cut from the email I'm replying to).
 
-I have not used VTI mode before. I'll look into it today. If possible 
-can you send me config commands to reproduce?
+Thanks Steven.
 
-Thanks,
-David
+-- 
+viresh
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
