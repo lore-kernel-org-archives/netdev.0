@@ -1,38 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bonding: use l4 hash if available
-Date: Tue, 15 Sep 2015 16:20:28 -0700
-Message-ID: <1442359228.4116.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442355868.4116.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAF2d9jgb_MP==6Go-quk=9s_Nyg8ewgFzfkvUi-y5j_7zBqksw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: smc91x: convert pxa dma to dmaengine
+Date: Tue, 15 Sep 2015 16:24:14 -0700 (PDT)
+Message-ID: <20150915.162414.1153837609419205002.davem@davemloft.net>
+References: <1441913164-3785-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33845 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbbIOXUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 19:20:30 -0400
-Received: by padhy16 with SMTP id hy16so189422900pad.1
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 16:20:30 -0700 (PDT)
-In-Reply-To: <CAF2d9jgb_MP==6Go-quk=9s_Nyg8ewgFzfkvUi-y5j_7zBqksw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nico@fluxnic.net, linux@arm.linux.org.uk, arnd@arndb.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: robert.jarzmik@free.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1441913164-3785-1-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-09-15 at 15:54 -0700, Mahesh Bandewar wrote:
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Thu, 10 Sep 2015 21:26:04 +0200
 
-> > +       if (bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP34 &&
-> > +           skb->l4_hash)
-> if (ENCAP34 || LAYER34) && l4_hash) may be?
+> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
+> slave driver. This makes this driver a bit more PXA agnostic.
+> 
+> The driver was tested on pxa27x (mainstone) and pxa310 (zylonite),
+> ie. only pxa platforms.
+> 
+> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+> Cc: Russell King <linux@arm.linux.org.uk>
+> Cc: Arnd Bergmann <arnd@arndb.de>
+> ---
+> This has potential to break other platform such as Neponset, Idp,
+> halibut and qsd8x50, so I added Russell and Arnd as they were discussing
+> smc91x support last February.
 
-Hmm, traditional BOND_XMIT_POLICY_LAYER34 did not a full flow bisection
-(tunnel awareness added in commit
-32819dc1834866cb9547cb75f81af9edd58d33cd bonding: modify the old and add
-new xmit hash policies)
-
-This could radically change some setups and behavior.
-
-BOND_XMIT_POLICY_ENCAP34 looks a better fit to me.
+Is someone testing whether such platforms break or not?  I'm waiting for
+that before I consider applying this patch.
