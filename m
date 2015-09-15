@@ -1,47 +1,83 @@
-From: Peter Korsgaard <peter@korsgaard.com>
-Subject: Re: DSA: phy polling
-Date: Tue, 15 Sep 2015 08:32:38 +0200
-Message-ID: <87y4g8xke1.fsf@dell.be.48ers.dk>
-References: <20150914104254.GI21084@n2100.arm.linux.org.uk>
-	<55F703D7.1070707@gmail.com>
-	<20150914182314.GP21084@n2100.arm.linux.org.uk>
-	<55F74D2A.8010104@gmail.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v7 1/3] can: Allwinner A10/A20 CAN Controller support -
+ Devicetree bindings
+Date: Tue, 15 Sep 2015 09:54:00 +0200
+Message-ID: <20150915075400.GK4684@lukather>
+References: <1442272632-20251-1-git-send-email-info@gerhard-bertelsmann.de>
+ <1442272632-20251-2-git-send-email-info@gerhard-bertelsmann.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:32999 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750698AbbIOGcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 02:32:42 -0400
-Received: by wiclk2 with SMTP id lk2so13613668wic.0
-        for <netdev@vger.kernel.org>; Mon, 14 Sep 2015 23:32:41 -0700 (PDT)
-In-Reply-To: <55F74D2A.8010104@gmail.com> (Florian Fainelli's message of "Mon,
-	14 Sep 2015 15:41:46 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="j3zO+32zXj6UcJCE"
+Cc: wg@grandegger.com, mkl@pengutronix.de, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1442272632-20251-2-git-send-email-info@gerhard-bertelsmann.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>>>> "Florian" == Florian Fainelli <f.fainelli@gmail.com> writes:
+
+--j3zO+32zXj6UcJCE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
 Hi,
 
- >> Does the Marvell phy have such a register?  Looking at the register
- >> dump and plugging/unplugging cables seems not to show a register
- >> reporting whether any particular interface has changed state, and
- >> I haven't noticed there being any combined register in anything I've
- >> seen on these switches.
+On Tue, Sep 15, 2015 at 01:17:10AM +0200, Gerhard Bertelsmann wrote:
+> Devicetree bindings for Allwinner A10/A20 CAN
+>=20
+> Signed-off-by: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+> ---
+>=20
+>  .../devicetree/bindings/net/can/sun4i_can.txt      |  38 +
+>  1 file changed, 38 insertions(+)
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/can/sun4i_can.txt b/Do=
+cumentation/devicetree/bindings/net/can/sun4i_can.txt
+> new file mode 100644
+> index 0000000..5819043
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/can/sun4i_can.txt
+> @@ -0,0 +1,38 @@
+> +Allwinner A10/A20 CAN controller Device Tree Bindings
+> +-----------------------------------------------------
+> +
+> +Required properties:
+> +- compatible: "allwinner,sun4ican"
 
- > It seemed to me like the PPU was meant to provide that, but I cannot
- > find any "summary" register which would give you such a status, must
- > have conflated that with what Broadcom switches support.
+A bit better, but still not the one I told you to use.
 
-It's been some years, but I think the PPU was just to automatically
-configure the switch MACs to to match the phy autonegotiation results.
+Thanks,
+Maxime
 
-I also don't see any summery register though.
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
 
--- 
-Bye, Peter Korsgaard
+--j3zO+32zXj6UcJCE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJV986YAAoJEBx+YmzsjxAgNI4P/RnoJjpcHECs2Z4R6zIx+2Jd
+1rmMVUeHsgYDajvic35jMKLj68kYptpTeu05JKA4YINHbBb4kkZEVikfF+urSv5p
+D56R8T19z6aLVi+myYaHjhJ3zhBemEBEyxHqrw4dEPBaZt+Y401YN42DB+gdcXce
+oWAh83whlhwDv/RpAtxRS5piBTIW5UMojSe7LmseWyLupGUfFY61QR4njK93gm1T
+oaxpWWlJ6mETR+oAwpiRfVYbF1an0lH51rfJg589eE+slYcBwVw+QS9QG3cS2rmm
+m+k4OW2KTtAtb2KW1qynNkelQCDP0XnwSauHq3x2uYVfcP+urMADH8mpMi0PtWye
+uerrmU3YlX1f0TOfzwcBi7BVjrsi9rONzX5h7bW6O3Aaenwo/Ubjx5l7dyIW2Skf
+IjBnxe5Ks8kljf5wgZCYNmwgbnDwkbiqP8DWQZr3RHvTdYUYQJxQdPtnxrHobZ7R
+g6VAYFuAsHdaiHm3skoLkxb54ijKcUEnQ5g125/xPszlBWuOFBQwlZ5jxEPaXtpB
+wKhwGYMI2FwGEwBtKAtAa/JsW8d1gkj/g3UY7t4f/GqqO5jcHcVc+HmFoq0tQlkA
+3ZI1EcXUI8fl86oETD884Lri33lNMGNbTb259Ru2tprHp1Z+YYYsZi+sYXsZ7KsP
+K0biO2AoCuBvQJ0gTbRV
+=uobk
+-----END PGP SIGNATURE-----
+
+--j3zO+32zXj6UcJCE--
