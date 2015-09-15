@@ -1,60 +1,64 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH V3 2/2] debugfs: don't assume sizeof(bool) to be 4 bytes
-Date: Tue, 15 Sep 2015 10:29:29 -0400
-Message-ID: <20150915142929.GB2905@mtj.duckdns.org>
-References: <9b705747a138c96c26faee5218f7b47403195b28.1442305897.git.viresh.kumar@linaro.org>
-	<27d37898b4be6b9b9f31b90135f8206ca079a868.1442305897.git.viresh.kumar@linaro.org>
-	<20150915100454.70dcc04d@gandalf.local.home>
-	<20150915141208.GK6350@linux>
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: always set num
+ queues if possible
+Date: Tue, 15 Sep 2015 10:37:47 -0400
+Message-ID: <1442327867.3494.17.camel@gmail.com>
+References: <1442266096.3494.15.camel@gmail.com>
+	 <55F7FA2D.5040701@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "open list:NETWORKING DRIVERS \(WIRELESS\)"
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..."
-	<alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org>, Avri Altman <avri.altman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"open list:DOCUMENTATION" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Sebastian Andrzej Siewior <bigeasy-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>, Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>,
-	"open list:MEMORY MANAGEMENT" <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Luciano Coelho <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Wang Long <long.wanglong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Richard Fitzgerald <rf-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, open list <linux-kernel@vger.k
-To: Viresh Kumar <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150915141208.GK6350@linux>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:32769 "EHLO
+	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754619AbbIOOhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 10:37:50 -0400
+Received: by qkdw123 with SMTP id w123so72790087qkd.0
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 07:37:48 -0700 (PDT)
+In-Reply-To: <55F7FA2D.5040701@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Tue, Sep 15, 2015 at 07:42:08PM +0530, Viresh Kumar wrote:
-> Ah, yes. Thanks for letting me know (I just testedit as well).
+On Tue, 2015-09-15 at 11:59 +0100, David Vrabel wrote:
+> On 14/09/15 22:28, Charles (Chas) Williams wrote:
+> > The xen store preserves this information across module invocations.
+> > If you insmod netfront with two queues and later insmod again with one
+> > queue, the backend will still believe you asked for two queues.
 > 
-> But will it look sane enough to set a boolean to anything apart from
-> true/false or 1/0? Yes, it will always be set to 0/1 only, but still..
+> Can you rewrite the commit message to be clearer?
+> 
+> "If netfront connects with 2 (or more) queues and then reconnects with
+> only 1 queue it fails to delete or rewrite the multi-queue-num-queues
+> key and netback will try to use the wrong number of queues.
+> 
+> Always write the num-queues field if the backend has multi-queue support."
 
-Let's please not do something unnecessary.  Everybody has different
-ideas about what looks natural and the best way to achieve some
-semblance of consistency is sticking with minimum unless there are
-overriding concerns and there isn't any here.
+Yes I can do that.
 
-Thanks.
+> 
+> > --- a/drivers/net/xen-netfront.c
+> > +++ b/drivers/net/xen-netfront.c
+> > @@ -1819,11 +1819,7 @@ again:
+> >  		goto destroy_ring;
+> >  	}
+> >  
+> > -	if (num_queues == 1) {
+> > -		err = write_queue_xenstore_keys(&info->queues[0], &xbt, 0); /* flat */
+> > -		if (err)
+> > -			goto abort_transaction_no_dev_fatal;
+> > -	} else {
+> > +	if (xenbus_exists(xbt, dev->nodename, "multi-queue-num-queues")) {
+> >  		/* Write the number of queues */
+> >  		err = xenbus_printf(xbt, dev->nodename, "multi-queue-num-queues",
+> >  				    "%u", num_queues);
+> 
+> Isn't this broken?  It looks like it won't write the
+> multi-queue-num-queues key the first time around.
+> 
+> It think this should be conditional on multi-queue-max-queues existing
+> (which is written by the backend if multi-queue is supported).
 
--- 
-tejun
+You are right.  I am testing against the wrong key here.  I should have
+tested for multi-queue-max-queues.
