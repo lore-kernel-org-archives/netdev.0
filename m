@@ -1,355 +1,110 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/2] ipv4: L3 hash-based multipath
-Date: Tue, 15 Sep 2015 14:40:48 -0700
-Message-ID: <55F89060.6010707@gmail.com>
-References: <1442348993-3023-1-git-send-email-pch@ordbogen.com>
- <1442348993-3023-2-git-send-email-pch@ordbogen.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: =?UTF-8?Q?Peter_N=c3=b8rlund?= <pch@ordbogen.com>,
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net v2] rtnetlink: catch -EOPNOTSUPP errors from ndo_bridge_getlink
+Date: Tue, 15 Sep 2015 14:44:29 -0700
+Message-ID: <1442353469-4861-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: aderumier@odiso.com, sfeldma@gmail.com, jiri@resnulli.us,
 	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33713 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751625AbbIOVku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 17:40:50 -0400
-Received: by pacex6 with SMTP id ex6so187779295pac.0
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 14:40:49 -0700 (PDT)
-In-Reply-To: <1442348993-3023-2-git-send-email-pch@ordbogen.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:36177 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688AbbIOVod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 17:44:33 -0400
+Received: by padhk3 with SMTP id hk3so187340290pad.3
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 14:44:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/15/2015 01:29 PM, Peter N=C3=B8rlund wrote:
-> Replaces the per-packet multipath with a hash-based multipath using
-> source and destination address.
->
-> Signed-off-by: Peter N=C3=B8rlund <pch@ordbogen.com>
-> ---
->   include/net/ip_fib.h     |  11 ++--
->   net/ipv4/fib_semantics.c | 137 +++++++++++++++++++++++++-----------=
------------
->   net/ipv4/route.c         |  23 +++++++-
->   3 files changed, 102 insertions(+), 69 deletions(-)
->
-> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-> index a37d043..c335dd4 100644
-> --- a/include/net/ip_fib.h
-> +++ b/include/net/ip_fib.h
-> @@ -79,7 +79,7 @@ struct fib_nh {
->   	unsigned char		nh_scope;
->   #ifdef CONFIG_IP_ROUTE_MULTIPATH
->   	int			nh_weight;
-> -	int			nh_power;
-> +	atomic_t		nh_upper_bound;
->   #endif
->   #ifdef CONFIG_IP_ROUTE_CLASSID
->   	__u32			nh_tclassid;
-> @@ -118,7 +118,7 @@ struct fib_info {
->   #define fib_advmss fib_metrics[RTAX_ADVMSS-1]
->   	int			fib_nhs;
->   #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> -	int			fib_power;
-> +	int			fib_weight;
->   #endif
->   	struct rcu_head		rcu;
->   	struct fib_nh		fib_nh[0];
-> @@ -312,7 +312,12 @@ int ip_fib_check_default(__be32 gw, struct net_d=
-evice *dev);
->   int fib_sync_down_dev(struct net_device *dev, unsigned long event);
->   int fib_sync_down_addr(struct net *net, __be32 local);
->   int fib_sync_up(struct net_device *dev, unsigned int nh_flags);
-> -void fib_select_multipath(struct fib_result *res);
-> +
-> +extern u32 fib_multipath_secret __read_mostly;
-> +
-> +typedef int (*multipath_hash_func_t)(void *ctx);
-> +void fib_select_multipath(struct fib_result *res,
-> +			  multipath_hash_func_t hash_func, void *ctx);
->
->   /* Exported by fib_trie.c */
->   void fib_trie_init(void);
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index 064bd3c..64d3e0e 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-> @@ -57,8 +57,7 @@ static unsigned int fib_info_cnt;
->   static struct hlist_head fib_info_devhash[DEVINDEX_HASHSIZE];
->
->   #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> -
-> -static DEFINE_SPINLOCK(fib_multipath_lock);
-> +u32 fib_multipath_secret __read_mostly;
->
->   #define for_nexthops(fi) {						\
->   	int nhsel; const struct fib_nh *nh;				\
-> @@ -468,6 +467,55 @@ static int fib_count_nexthops(struct rtnexthop *=
-rtnh, int remaining)
->   	return remaining > 0 ? 0 : nhs;
->   }
->
-> +static void fib_rebalance(struct fib_info *fi)
-> +{
-> +	int total;
-> +	int w;
-> +	struct in_device *in_dev;
-> +
-> +	if (fi->fib_nhs < 2)
-> +		return;
-> +
-> +	total =3D 0;
-> +	for_nexthops(fi) {
-> +		if (nh->nh_flags & RTNH_F_DEAD)
-> +			continue;
-> +
-> +		in_dev =3D __in_dev_get_rcu(nh->nh_dev);
-> +
-> +		if (in_dev &&
-> +		    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-> +		    nh->nh_flags & RTNH_F_LINKDOWN)
-> +			continue;
-> +
-> +		total +=3D nh->nh_weight;
-> +	} endfor_nexthops(fi);
-> +
-> +	w =3D 0;
-> +	change_nexthops(fi) {
-> +		int upper_bound;
-> +
-> +		in_dev =3D __in_dev_get_rcu(nexthop_nh->nh_dev);
-> +
-> +		if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
-> +			upper_bound =3D -1;
-> +		} else if (in_dev &&
-> +			   IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-> +			   nexthop_nh->nh_flags & RTNH_F_LINKDOWN) {
-> +			upper_bound =3D -1;
-> +		} else {
-> +			w +=3D nexthop_nh->nh_weight;
-> +			upper_bound =3D DIV_ROUND_CLOSEST(2147483648LL * w,
-> +							total) - 1;
-> +		}
-> +
-> +		atomic_set(&nexthop_nh->nh_upper_bound, upper_bound);
-> +	} endfor_nexthops(fi);
-> +
-> +	net_get_random_once(&fib_multipath_secret,
-> +			    sizeof(fib_multipath_secret));
-> +}
-> +
->   static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
->   		       int remaining, struct fib_config *cfg)
->   {
-> @@ -1094,8 +1142,15 @@ struct fib_info *fib_create_info(struct fib_co=
-nfig *cfg)
->
->   	change_nexthops(fi) {
->   		fib_info_update_nh_saddr(net, nexthop_nh);
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +		fi->fib_weight +=3D nexthop_nh->nh_weight;
-> +#endif
->   	} endfor_nexthops(fi)
->
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +	fib_rebalance(fi);
-> +#endif
-> +
->   link_it:
->   	ofi =3D fib_find_info(fi);
->   	if (ofi) {
-> @@ -1317,12 +1372,6 @@ int fib_sync_down_dev(struct net_device *dev, =
-unsigned long event)
->   					nexthop_nh->nh_flags |=3D RTNH_F_LINKDOWN;
->   					break;
->   				}
-> -#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> -				spin_lock_bh(&fib_multipath_lock);
-> -				fi->fib_power -=3D nexthop_nh->nh_power;
-> -				nexthop_nh->nh_power =3D 0;
-> -				spin_unlock_bh(&fib_multipath_lock);
-> -#endif
->   				dead++;
->   			}
->   #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> @@ -1345,6 +1394,10 @@ int fib_sync_down_dev(struct net_device *dev, =
-unsigned long event)
->   			}
->   			ret++;
->   		}
-> +
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +		fib_rebalance(fi);
-> +#endif
->   	}
->
->   	return ret;
-> @@ -1467,20 +1520,17 @@ int fib_sync_up(struct net_device *dev, unsig=
-ned int nh_flags)
->   			    !__in_dev_get_rtnl(dev))
->   				continue;
->   			alive++;
-> -#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> -			spin_lock_bh(&fib_multipath_lock);
-> -			nexthop_nh->nh_power =3D 0;
->   			nexthop_nh->nh_flags &=3D ~nh_flags;
-> -			spin_unlock_bh(&fib_multipath_lock);
-> -#else
-> -			nexthop_nh->nh_flags &=3D ~nh_flags;
-> -#endif
->   		} endfor_nexthops(fi)
->
->   		if (alive > 0) {
->   			fi->fib_flags &=3D ~nh_flags;
->   			ret++;
->   		}
-> +
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +		fib_rebalance(fi);
-> +#endif
->   	}
->
->   	return ret;
-> @@ -1488,62 +1538,21 @@ int fib_sync_up(struct net_device *dev, unsig=
-ned int nh_flags)
->
->   #ifdef CONFIG_IP_ROUTE_MULTIPATH
->
-> -/*
-> - * The algorithm is suboptimal, but it provides really
-> - * fair weighted route distribution.
-> - */
-> -void fib_select_multipath(struct fib_result *res)
-> +void fib_select_multipath(struct fib_result *res,
-> +			  multipath_hash_func_t hash_func, void *ctx)
->   {
->   	struct fib_info *fi =3D res->fi;
-> -	struct in_device *in_dev;
-> -	int w;
-> -
-> -	spin_lock_bh(&fib_multipath_lock);
-> -	if (fi->fib_power <=3D 0) {
-> -		int power =3D 0;
-> -		change_nexthops(fi) {
-> -			in_dev =3D __in_dev_get_rcu(nexthop_nh->nh_dev);
-> -			if (nexthop_nh->nh_flags & RTNH_F_DEAD)
-> -				continue;
-> -			if (in_dev &&
-> -			    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-> -			    nexthop_nh->nh_flags & RTNH_F_LINKDOWN)
-> -				continue;
-> -			power +=3D nexthop_nh->nh_weight;
-> -			nexthop_nh->nh_power =3D nexthop_nh->nh_weight;
-> -		} endfor_nexthops(fi);
-> -		fi->fib_power =3D power;
-> -		if (power <=3D 0) {
-> -			spin_unlock_bh(&fib_multipath_lock);
-> -			/* Race condition: route has just become dead. */
-> -			res->nh_sel =3D 0;
-> -			return;
-> -		}
-> -	}
-> -
-> +	int h =3D hash_func(ctx) & 0x7FFFFFFF;
->
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-So if I understand this correctly you use the ctx and hash function at=20
-the very start of the fib_select_multipath function call, do I have tha=
-t=20
-right?
+problem reported:
+	kernel 4.1.3
+	------------
+	# bridge vlan
+	port	vlan ids
+	eth0	 1 PVID Egress Untagged
+	 	90
+	 	91
+	 	92
+	 	93
+	 	94
+	 	95
+	 	96
+	 	97
+	 	98
+	 	99
+	 	100
 
-> -	/* w should be random number [0..fi->fib_power-1],
-> -	 * it is pretty bad approximation.
-> -	 */
-> -
-> -	w =3D jiffies % fi->fib_power;
-> +	for_nexthops(fi) {
-> +		if (h > atomic_read(&nh->nh_upper_bound))
-> +			continue;
->
-> -	change_nexthops(fi) {
-> -		if (!(nexthop_nh->nh_flags & RTNH_F_DEAD) &&
-> -		    nexthop_nh->nh_power) {
-> -			w -=3D nexthop_nh->nh_power;
-> -			if (w <=3D 0) {
-> -				nexthop_nh->nh_power--;
-> -				fi->fib_power--;
-> -				res->nh_sel =3D nhsel;
-> -				spin_unlock_bh(&fib_multipath_lock);
-> -				return;
-> -			}
-> -		}
-> +		res->nh_sel =3D nhsel;
-> +		return;
->   	} endfor_nexthops(fi);
->
->   	/* Race condition: route has just become dead. */
->   	res->nh_sel =3D 0;
-> -	spin_unlock_bh(&fib_multipath_lock);
->   }
->   #endif
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 5f4a556..41d977c 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1646,6 +1646,25 @@ out:
->   	return err;
->   }
->
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +
-> +static int ip_multipath_hash_skb(void *ctx)
-> +{
-> +	const struct sk_buff *skb =3D (struct sk_buff *)ctx;
-> +	const struct iphdr *iph =3D ip_hdr(skb);
-> +
-> +	return jhash_2words(iph->saddr, iph->daddr, fib_multipath_secret);
-> +}
-> +
-> +static int ip_multipath_hash_fl4(void *ctx)
-> +{
-> +	const struct flowi4 *fl4 =3D (const struct flowi4 *)ctx;
-> +
-> +	return jhash_2words(fl4->saddr, fl4->daddr, fib_multipath_secret);
-> +}
-> +
-> +#endif /* CONFIG_IP_ROUTE_MULTIPATH */
-> +
->   static int ip_mkroute_input(struct sk_buff *skb,
->   			    struct fib_result *res,
->   			    const struct flowi4 *fl4,
-> @@ -1654,7 +1673,7 @@ static int ip_mkroute_input(struct sk_buff *skb=
-,
->   {
->   #ifdef CONFIG_IP_ROUTE_MULTIPATH
->   	if (res->fi && res->fi->fib_nhs > 1)
-> -		fib_select_multipath(res);
-> +		fib_select_multipath(res, ip_multipath_hash_skb, skb);
->   #endif
->
->   	/* create a routing cache entry */
-> @@ -2200,7 +2219,7 @@ struct rtable *__ip_route_output_key(struct net=
- *net, struct flowi4 *fl4)
->
->   #ifdef CONFIG_IP_ROUTE_MULTIPATH
->   	if (res.fi->fib_nhs > 1 && fl4->flowi4_oif =3D=3D 0)
-> -		fib_select_multipath(&res);
-> +		fib_select_multipath(&res, ip_multipath_hash_fl4, fl4);
->   	else
->   #endif
->   	if (!res.prefixlen &&
->
+	vmbr0	 1 PVID Egress Untagged
+	 	94
 
-If you are using the hash right at the start of the function anyway why=
-=20
-not just call jhash_2words first, then pass the resultant hash to=20
-fib_select_multipath instead of passing the function pointer and the=20
-void pointer.  You can probably save yourself quite a few cycles this w=
-ay.
+	kernel 4.2
+	-----------
+	# bridge vlan
+	port	vlan ids
 
-- Alex
+ndo_bridge_getlink can return -EOPNOTSUPP when an interfaces
+ndo_bridge_getlink op is set to switchdev_port_bridge_getlink
+and CONFIG_SWITCHDEV is not defined. This today can happen to
+bond, rocker and team devices. This patch adds -EOPNOTSUPP
+checks after calls to ndo_bridge_getlink.
+
+Fixes: 85fdb956726ff2a ("switchdev: cut over to new switchdev_port_bridge_getlink")
+Reported-by: Alexandre DERUMIER <aderumier@odiso.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+v2: fix checkpatch errors
+
+ net/core/rtnetlink.c | 26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a466821..0ec4840 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3047,6 +3047,7 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
+ 	u32 portid = NETLINK_CB(cb->skb).portid;
+ 	u32 seq = cb->nlh->nlmsg_seq;
+ 	u32 filter_mask = 0;
++	int err;
+ 
+ 	if (nlmsg_len(cb->nlh) > sizeof(struct ifinfomsg)) {
+ 		struct nlattr *extfilt;
+@@ -3067,20 +3068,25 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
+ 		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+ 
+ 		if (br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
+-			if (idx >= cb->args[0] &&
+-			    br_dev->netdev_ops->ndo_bridge_getlink(
+-				    skb, portid, seq, dev, filter_mask,
+-				    NLM_F_MULTI) < 0)
+-				break;
++			if (idx >= cb->args[0]) {
++				err = br_dev->netdev_ops->ndo_bridge_getlink(
++						skb, portid, seq, dev,
++						filter_mask, NLM_F_MULTI);
++				if (err < 0 && err != -EOPNOTSUPP)
++					break;
++			}
+ 			idx++;
+ 		}
+ 
+ 		if (ops->ndo_bridge_getlink) {
+-			if (idx >= cb->args[0] &&
+-			    ops->ndo_bridge_getlink(skb, portid, seq, dev,
+-						    filter_mask,
+-						    NLM_F_MULTI) < 0)
+-				break;
++			if (idx >= cb->args[0]) {
++				err = ops->ndo_bridge_getlink(skb, portid,
++							      seq, dev,
++							      filter_mask,
++							      NLM_F_MULTI);
++				if (err < 0 && err != -EOPNOTSUPP)
++					break;
++			}
+ 			idx++;
+ 		}
+ 	}
+-- 
+1.9.1
