@@ -1,154 +1,190 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH] net: bridge: fix for bridging 802.1Q without
- REORDER_HDR
-Date: Tue, 15 Sep 2015 20:17:55 +0200
-Message-ID: <20150915181755.GA6902@orbit.nwl.cc>
-References: <1441999323-29381-1-git-send-email-phil@nwl.cc>
- <20150911122445.53cdfbcf@urahara>
- <20150911202033.GE7029@orbit.nwl.cc>
- <55F71016.7060202@gmail.com>
- <20150914200648.GH30501@orbit.nwl.cc>
- <55F83539.2050706@gmail.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH V4 1/2] pci: Add dev_flags bit to access VPD through
+ function 0
+Date: Tue, 15 Sep 2015 12:19:12 -0600
+Message-ID: <1442341152.23936.122.camel@redhat.com>
+References: <20150713183821.19985.52157.stgit@mdrustad-wks.jf.intel.com>
+	 <20150713184001.19985.64867.stgit@mdrustad-wks.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: bhelgaas@google.com, linux-pci@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	Myron Stowe <myron.stowe@redhat.com>
+To: Mark D Rustad <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:44766 "EHLO mail.nwl.cc"
+Received: from mx1.redhat.com ([209.132.183.28]:47267 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751823AbbIOSR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2015 14:17:57 -0400
-Content-Disposition: inline
-In-Reply-To: <55F83539.2050706@gmail.com>
+	id S1751573AbbIOSTN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 14:19:13 -0400
+In-Reply-To: <20150713184001.19985.64867.stgit@mdrustad-wks.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2015 at 11:11:53AM -0400, Vlad Yasevich wrote:
-> On 09/14/2015 04:06 PM, Phil Sutter wrote:
-> > On Mon, Sep 14, 2015 at 02:21:10PM -0400, Vlad Yasevich wrote:
-> >> On 09/11/2015 04:20 PM, Phil Sutter wrote:
-> >>> On Fri, Sep 11, 2015 at 12:24:45PM -0700, Stephen Hemminger wrote:
-> >>>> On Fri, 11 Sep 2015 21:22:03 +0200
-> >>>> Phil Sutter <phil@nwl.cc> wrote:
-> >>>>
-> >>>>> When forwarding packets from an 802.1Q interface with REORDER_HDR set to
-> >>>>> zero, the VLAN header previously inserted by vlan_do_receive() needs to
-> >>>>> be stripped from the packet and the mac_header adjustment undone,
-> >>>>> otherwise a tagged frame with first four bytes missing will be
-> >>>>> transmitted.
-> >>>>>
-> >>>>> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> >>>>> ---
-> >>>>>  net/bridge/br_input.c | 10 ++++++++++
-> >>>>>  1 file changed, 10 insertions(+)
-> >>>>>
-> >>>>> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> >>>>> index f921a5d..e4e3fc7 100644
-> >>>>> --- a/net/bridge/br_input.c
-> >>>>> +++ b/net/bridge/br_input.c
-> >>>>> @@ -288,6 +288,16 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
-> >>>>>  	}
-> >>>>>  
-> >>>>>  forward:
-> >>>>> +	if (is_vlan_dev(skb->dev) &&
-> >>>>> +	    !(vlan_dev_priv(skb->dev)->flags & VLAN_FLAG_REORDER_HDR)) {
-> >>>>> +		unsigned int offset = skb->data - skb_mac_header(skb);
-> >>>>> +
-> >>>>> +		skb_push(skb, offset);
-> >>>>> +		memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
-> >>>>> +		skb->mac_header += VLAN_HLEN;
-> >>>>> +		skb_pull(skb, offset);
-> >>>>> +		skb_reset_mac_len(skb);
-> >>>>> +	}
-> >>>>>  	switch (p->state) {
-> >>>>>  	case BR_STATE_FORWARDING:
-> >>>>>  		rhook = rcu_dereference(br_should_route_hook);
-> >>>>
-> >>>> Thanks for finding this. Is this a new thing or has it always been there?
-> >>>
-> >>> Sorry, I didn't check if this is a regression or not. Seen initially
-> >>> with RHEL7's kernel-3.10.0-229.7.2, which due to the massive backporting
-> >>> is by far not as old as it might seem. But it's surely not a brand new
-> >>> problem of net-next or so.
-> >>>
-> >>> Since nowadays no sane mind touches REORDER_HDR (there was originally a
-> >>> bug in NetworkManager which defaulted this to 0), it may very well be
-> >>> there for a long time already.
-> >>>
-> >>>> Sorry, this looks so special case it doesn't seem like a good idea.
-> >>>> Something is broken in VLAN handling if this is required.
-> >>>
-> >>> It is so ugly, I wish I had found a better way to fix the problem. Well,
-> >>> maybe I miss something:
-> >>>
-> >>> - packet enters __netif_receive_skb_core():
-> >>>   - skb->protocol is set to ETH_P_8021Q, so:
-> >>>     - packet is untagged
-> >>>     - skb->vlan_tci set
-> >>>     - skb->protocol set to 'real' protocol
-> >>>   - skb_vlan_tag_present(skb) == true, so:
-> >>>     - vlan_do_receive() is called:
-> >>>       - tags the packet again
-> >>>       - zeroes vlan_tci
-> >>>     - goto another_round
-> >>> - __netif_receive_skb_core(), round 2:
-> >>>   - skb->protocol is not ETH_P_8021Q -> no untagging
-> >>>   - skb_vlan_tag_present(skb) == false -> no vlan_do_receive()
-> >>>   - rx_handler handler (== br_handle_frame) is called
-> >>>
-> >>> IMO the root of all evil is the existence of REORDER_HDR itself. It
-> >>> causes an skb which should have been untagged to being passed along with
-> >>> VLAN header present and code dealing with it needs to clean up the mess.
-> >>
-> >> So the problem here appears the be the code the in br_dev_queue_push_xmit().
-> >> It assumes that MAC_HLEN worth of data has been removed from the skb,
-> >> which is normal in case of normal VLAN processing.  However, without
-> >> REORDER_HEADER set this is no longer the case.  In this case, the ethernet
-> >> header is shifted 4 bytes, and when we push the it back we miss the 4 bytes
-> >> of the destination mac address...
-> > 
-> > Please note that vlan_do_receive() also inserts the VLAN header in
-> > between ethernet header and IP header, therefore:
-> > 
-> >> I wonder if it would be safe to just use skb->mac_len.
-> > 
-> > Given this works, the bridge would still forward a tagged frame which
-> > should have been untagged in the first place.
-> > 
-> > I just wondered where this added VLAN header is dropped if the interface
-> > does not belong to a bridge, but then realized that further packet
-> > processing simply ignores the ethernet header (and everything following
-> > it). So unless I forget something, this should indeed be a
-> > bridge-specific problem.
-> > 
+On Mon, 2015-07-13 at 11:40 -0700, Mark D Rustad wrote:
+> From: Mark Rustad <mark.d.rustad@intel.com>
 > 
-> Looks like macvtap is also susceptible to this problem.  It seems to be a bad
-> idea to allow any upper device configuration on top of a REORDER_HDR=0 vlan.
-> It is also not enough to just check is_vlan_dev(skb->dev) because vlan may be at
-> lower in the device stack.
+> Add a dev_flags bit, PCI_DEV_FLAGS_VPD_REF_F0, to access VPD through
+> function 0 to provide VPD access on other functions. This is for
+> hardware devices that provide copies of the same VPD capability
+> registers in multiple functions. Because the kernel expects that
+> each function has its own registers, both the locking and the state
+> tracking are affected by VPD accesses to different functions.
+> 
+> On such devices for example, if a VPD write is performed on function
+> 0, *any* later attempt to read VPD from any other function of that
+> device will hang. This has to do with how the kernel tracks the
+> expected value of the F bit per function.
+> 
+> Concurrent accesses to different functions of the same device can
+> not only hang but also corrupt both read and write VPD data.
+> 
+> When hangs occur, typically the error message:
+> 
+> vpd r/w failed.  This is likely a firmware bug on this device.
+> 
+> will be seen.
+> 
+> Never set this bit on function 0 or there will be an infinite recursion.
+> 
+> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+> ---
+> Changes in V2:
+> - Corrected spelling in log message
+> - Added checks to see that the referenced function 0 is reasonable
+> Changes in V3:
+> - Don't leak a device reference
+> - Check that function 0 has VPD
+> - Make a helper for the function 0 checks
+> - Do multifunction check in the quirk
+> Changes in V4:
+> - Provide a much more detailed explanation in the commit log
+> ---
+>  drivers/pci/access.c |   61 +++++++++++++++++++++++++++++++++++++++++++++++++-
+>  include/linux/pci.h  |    2 ++
+>  2 files changed, 62 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/pci/access.c b/drivers/pci/access.c
+> index d9b64a175990..b965c12168b7 100644
+> --- a/drivers/pci/access.c
+> +++ b/drivers/pci/access.c
+> @@ -439,6 +439,56 @@ static const struct pci_vpd_ops pci_vpd_pci22_ops = {
+>  	.release = pci_vpd_pci22_release,
+>  };
+>  
+> +static ssize_t pci_vpd_f0_read(struct pci_dev *dev, loff_t pos, size_t count,
+> +			       void *arg)
+> +{
+> +	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
+> +	ssize_t ret;
+> +
+> +	if (!tdev)
+> +		return -ENODEV;
+> +
+> +	ret = pci_read_vpd(tdev, pos, count, arg);
+> +	pci_dev_put(tdev);
+> +	return ret;
+> +}
+> +
+> +static ssize_t pci_vpd_f0_write(struct pci_dev *dev, loff_t pos, size_t count,
+> +				const void *arg)
+> +{
+> +	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
+> +	ssize_t ret;
+> +
+> +	if (!tdev)
+> +		return -ENODEV;
+> +
+> +	ret = pci_write_vpd(tdev, pos, count, arg);
+> +	pci_dev_put(tdev);
+> +	return ret;
+> +}
+> +
+> +static const struct pci_vpd_ops pci_vpd_f0_ops = {
+> +	.read = pci_vpd_f0_read,
+> +	.write = pci_vpd_f0_write,
+> +	.release = pci_vpd_pci22_release,
+> +};
+> +
+> +static int pci_vpd_f0_dev_check(struct pci_dev *dev)
+> +{
+> +	struct pci_dev *tdev = pci_get_slot(dev->bus, PCI_SLOT(dev->devfn));
+> +	int ret = 0;
+> +
+> +	if (!tdev)
+> +		return -ENODEV;
+> +	if (!tdev->vpd || !tdev->multifunction ||
+> +	    dev->class != tdev->class || dev->vendor != tdev->vendor ||
+> +	    dev->device != tdev->device)
+> +		ret = -ENODEV;
+> +
+> +	pci_dev_put(tdev);
+> +	return ret;
+> +}
+> +
+>  int pci_vpd_pci22_init(struct pci_dev *dev)
+>  {
+>  	struct pci_vpd_pci22 *vpd;
+> @@ -447,12 +497,21 @@ int pci_vpd_pci22_init(struct pci_dev *dev)
+>  	cap = pci_find_capability(dev, PCI_CAP_ID_VPD);
+>  	if (!cap)
+>  		return -ENODEV;
+> +	if (dev->dev_flags & PCI_DEV_FLAGS_VPD_REF_F0) {
+> +		int ret = pci_vpd_f0_dev_check(dev);
+> +
+> +		if (ret)
+> +			return ret;
+> +	}
 
-Oh well. Apart from implementing workarounds for this workaround, maybe
-there is another approach:
 
-If I see this correctly, the VLAN header is only interesting for users
-looking directly at the packet, like PACKET or RAW sockets. All others
-either ignore the MAC layer or expect it to be untagged (which is the
-purpose of reading packets from a VLAN interface).
+In addition to the (PCI_SLOT() != devfn) issue, I'm concerned about
+topologies like we see on Skylake.  IIRC, the integrated NIC appears at
+something like 00:1f.6.  I don't know if that specific NIC has VPD, nor
+am I sure it really matter because another example or some future
+version might.  So we'll set the PCI_DEV_FLAGS_VPD_REF_F0 because we do
+so for all (PCI_FUNC() != 0) Intel NICs, we'll call
+pci_vpd_f0_dev_check(), which will error because function 0 has a
+different class code and device ID, so we return error and if VPD exists
+on the device, it's now inaccessible.
 
-Users wanting to read these (re-)tagged frames need to attach to the
-interface where they occur directly. Expecting to see the VLAN header
-when sniffing on a bridge interface which has the problematic VLAN
-interface enslaved can sanely be denied, right?
+I thought there was talk about whitelisting anything on the root bus to
+avoid strange root complex integrated devices (and perhaps avoid the
+general case for assigned devices within a VM), but I don't see anything
+like that here.
 
-So wouldn't it be the easier option to patch up these users interested
-in the data to insert the tag there instead of having it added by
-default and deciding where (and how) to get rid of it again?
+Perhaps instead of failing and hiding VPD we should fail, clear the
+flag, and allow normal access.  Thanks,
 
-Assuming that e.g. a PACKET socket is bound to the interface, everything
-necessary should be at hand, i.e. if REORDER_HDR is set or not and what
-the VLAN ID was.
+Alex
 
-What do you think?
-
-Cheers, Phil
+>  	vpd = kzalloc(sizeof(*vpd), GFP_ATOMIC);
+>  	if (!vpd)
+>  		return -ENOMEM;
+>  
+>  	vpd->base.len = PCI_VPD_PCI22_SIZE;
+> -	vpd->base.ops = &pci_vpd_pci22_ops;
+> +	if (dev->dev_flags & PCI_DEV_FLAGS_VPD_REF_F0)
+> +		vpd->base.ops = &pci_vpd_f0_ops;
+> +	else
+> +		vpd->base.ops = &pci_vpd_pci22_ops;
+>  	mutex_init(&vpd->lock);
+>  	vpd->cap = cap;
+>  	vpd->busy = false;
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 8a0321a8fb59..8edb125db13a 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -180,6 +180,8 @@ enum pci_dev_flags {
+>  	PCI_DEV_FLAGS_NO_BUS_RESET = (__force pci_dev_flags_t) (1 << 6),
+>  	/* Do not use PM reset even if device advertises NoSoftRst- */
+>  	PCI_DEV_FLAGS_NO_PM_RESET = (__force pci_dev_flags_t) (1 << 7),
+> +	/* Get VPD from function 0 VPD */
+> +	PCI_DEV_FLAGS_VPD_REF_F0 = (__force pci_dev_flags_t) (1 << 8),
+>  };
+>  
+>  enum pci_irq_reroute_variant {
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
