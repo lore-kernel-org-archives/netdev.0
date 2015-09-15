@@ -1,66 +1,65 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
+From: Steven Rostedt <rostedt@goodmis.org>
 Subject: Re: [PATCH V3 2/2] debugfs: don't assume sizeof(bool) to be 4 bytes
-Date: Tue, 15 Sep 2015 19:34:36 +0530
-Message-ID: <20150915140436.GJ6350@linux>
+Date: Tue, 15 Sep 2015 10:04:54 -0400
+Message-ID: <20150915100454.70dcc04d@gandalf.local.home>
 References: <9b705747a138c96c26faee5218f7b47403195b28.1442305897.git.viresh.kumar@linaro.org>
- <27d37898b4be6b9b9f31b90135f8206ca079a868.1442305897.git.viresh.kumar@linaro.org>
- <1442313464.1914.21.camel@sipsolutions.net>
- <20150915110447.GI6350@linux>
- <20150915094509.46cca84d@gandalf.local.home>
+	<27d37898b4be6b9b9f31b90135f8206ca079a868.1442305897.git.viresh.kumar@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linaro-kernel@lists.linaro.org" <linaro-kernel@lists.linaro.org>,
-	Rafael Wysocki <rjw@rjwysocki.net>,
-	"sboyd@codeaurora.org" <sboyd@codeaurora.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, Mark Brown <broonie@kernel.org>,
-	Akinobu Mita <akinobu.mita@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..." <alsa-devel@alsa-project.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Arik Nemtsov <arik@wizery.com>,
-	"open list:QUALCOMM ATHEROS ATH10K WIRELESS DRIVER" <ath10k@lists.infradead.org>,
-	"open list:QUALCOMM ATHEROS ATH9K WIRELESS DRIVER" <ath9k-devel@lists.ath9k.org>,
-	"Altman, Avri" <avri.altman@intel.com>,
-	"open list
-To: Steven Rostedt <rostedt@goodmis.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, linaro-kernel@lists.linaro.org, Rafael
+ Wysocki <rjw@rjwysocki.net>, sboyd@codeaurora.org, arnd@arndb.de, Mark
+ Brown <broonie@kernel.org>, Akinobu Mita <akinobu.mita@gmail.com>,
+ Alexander Duyck <alexander.h.duyck@redhat.com>, alsa-devel@alsa-project.org
+ (moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM...), Andrew
+ Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@amacapital.net>,
+ Arik Nemtsov <arik@wizery.com>, ath10k@lists.infradead.org (open
+ list:QUALCOMM ATHEROS ATH10K WIRELESS DRIVER), ath9k-devel@lists.ath9k.org
+ (open list:QUALCOMM ATHEROS ATH9K WIRELESS DRIVER), Avri Altman
+ <avri.altman@intel.com>, b43-dev@lists.infradead.org (open list:B43
+ WIRELESS DRIVER), Borislav Petkov <bp@alien8.de>, Brian Silverman
+ <bsilver16384@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>,
+ Charles Keepax <ckeepax@opensource.wolfsonmic
+To: Viresh Kumar <viresh.kumar@linaro.org>
 Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20150915094509.46cca84d@gandalf.local.home>
+In-Reply-To: <27d37898b4be6b9b9f31b90135f8206ca079a868.1442305897.git.viresh.kumar@linaro.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 15-09-15, 09:45, Steven Rostedt wrote:
-> Then break up the patch.
+On Tue, 15 Sep 2015 14:04:59 +0530
+Viresh Kumar <viresh.kumar@linaro.org> wrote:
 
-That will cause build warnings between the patches due to prototype
-mismatch. Maybe I should ignore get_maintainers for this patch and
-just cc the lists :)
+> diff --git a/drivers/acpi/ec.c b/drivers/acpi/ec.c
+> index 2614a839c60d..f11e17ad7834 100644
+> --- a/drivers/acpi/ec.c
+> +++ b/drivers/acpi/ec.c
+> @@ -1237,7 +1237,7 @@ ec_parse_device(acpi_handle handle, u32 Level, void *context, void **retval)
+>  	/* Use the global lock for all EC transactions? */
+>  	tmp = 0;
+>  	acpi_evaluate_integer(handle, "_GLK", NULL, &tmp);
+> -	ec->global_lock = tmp;
+> +	ec->global_lock = !!tmp;
 
-> Your Cc list is far too large, I would nack
-> this patch just for that alone.
+BTW, the above is equivalent if global_lock is of type bool.
 
-:(
+-- Steve
 
-> Sad part is, you didn't even Cc Linus (which I added). I believe he was
-> against having bool's in structures before.
-
-Sorry about that, I had no clue that I should explicitly include Linus
-to this thread.
-
-> Linus, This patch changes a lot of u32s into bools in structures.
-> What's your take on that?
-> 
-> I added the patch again to the bottom of this email so that Linus may
-> see it (it was cut from the email I'm replying to).
-
-Thanks Steven.
-
--- 
-viresh
+>  	ec->handle = handle;
+>  	return AE_CTRL_TERMINATE;
+>  }
+> diff --git a/drivers/acpi/internal.h b/drivers/acpi/internal.h
+> index 9db196de003c..5a72e2b140fc 100644
+> --- a/drivers/acpi/internal.h
+> +++ b/drivers/acpi/internal.h
+> @@ -138,7 +138,7 @@ struct acpi_ec {
+>  	unsigned long gpe;
+>  	unsigned long command_addr;
+>  	unsigned long data_addr;
+> -	u32 global_lock;
+> +	bool global_lock;
+>  	unsigned long flags;
+>  	unsigned long reference_count;
+>  	struct mutex mutex;
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
