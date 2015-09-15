@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Net: core: sock.c coding style fixes
-Date: Tue, 15 Sep 2015 11:53:58 -0700 (PDT)
-Message-ID: <20150915.115358.27550892434513423.davem@davemloft.net>
-References: <87mvwnbkzr.fsf@x220.int.ebiederm.org>
-	<55F8652D.30809@vipserv.org>
-	<20150915184346.GA7817@Alexeis-MacBook-Pro-2.local>
+Subject: Re: [PATCH for-next] cxgb4: add device ID for few T5 adapters
+Date: Tue, 15 Sep 2015 11:55:19 -0700 (PDT)
+Message-ID: <20150915.115519.122632705586179099.davem@davemloft.net>
+References: <1442317809-7438-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cristos@vipserv.org, ebiederm@xmission.com, edumazet@google.com,
-	netdev@vger.kernel.org
-To: alexei.starovoitov@gmail.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52554 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52570 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751981AbbIOSx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 14:53:59 -0400
-In-Reply-To: <20150915184346.GA7817@Alexeis-MacBook-Pro-2.local>
+	with ESMTP id S1751960AbbIOSzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 14:55:20 -0400
+In-Reply-To: <1442317809-7438-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Tue, 15 Sep 2015 11:43:49 -0700
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue, 15 Sep 2015 17:20:09 +0530
 
-> imo it makes sense to fix coding style only if nearby lines are
-> affected by meaningful changes.
-> Just blank rewrites like these are more harmful than useful.
-> They distort git blame, make backporting harder, etc.
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-+1
+Adding just some new device IDs is definitely 'net' material, mind
+if I apply it there instead?
