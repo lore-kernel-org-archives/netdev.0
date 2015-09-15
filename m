@@ -1,7 +1,8 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v4 net 0/5] ipv6: Fix dst_entry refcnt bugs in ip6_tunnel
-Date: Tue, 15 Sep 2015 14:30:04 -0700
-Message-ID: <1442352609-1476011-1-git-send-email-kafai@fb.com>
+Subject: [PATCH v4 net 4/5] ipv6: Avoid double dst_free
+Date: Tue, 15 Sep 2015 14:30:08 -0700
+Message-ID: <1442352609-1476011-5-git-send-email-kafai@fb.com>
+References: <1442352609-1476011-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -10,89 +11,149 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Kernel Team <kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:13462 "EHLO
-	m0001303.ppops.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751810AbbIOVak (ORCPT
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37162 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751904AbbIOVak (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 17:30:40 -0400
-Received: from pps.filterd (m0001303 [127.0.0.1])
-	by m0001303.ppops.net (8.14.5/8.14.5) with SMTP id t8FLSXxW021021
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t8FLU8a6017899
 	for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 14:30:39 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 1wxu1p02hw-2
+	by mx0a-00082601.pphosted.com with ESMTP id 1wxt3p8ck0-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 14:30:39 -0700
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- 014095ae5bf111e580fa0002c9521c9e-9c7f9240 for <netdev@vger.kernel.org>;	Tue,
- 15 Sep 2015 14:30:37 -0700
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 01c50cd05bf111e598480002c95209d8-d81fc240 for <netdev@vger.kernel.org>;	Tue,
+ 15 Sep 2015 14:30:38 -0700
+In-Reply-To: <1442352609-1476011-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v4:
-- Fix a compilation error in patch 5 when CONFIG_LOCKDEP is turned on and
-  re-test it
+It is a prep work to get dst freeing from fib tree undergo
+a rcu grace period.
 
-v3:
-- Merge a 'if else if' test in patch 4
-- Use rcu_dereference_protected in patch 5 to fix a sparse check when
-  CONFIG_SPARSE_RCU_POINTER is enabled
+The following is a common paradigm:
+if (ip6_del_rt(rt))
+	dst_free(rt)
 
-v2:
-- Add patch 4 and 5 to remove the spinlock
+which means, if rt cannot be deleted from the fib tree, dst_free(rt) now.
+1. We don't know the ip6_del_rt(rt) failure is because it
+   was not managed by fib tree (e.g. DST_NOCACHE) or it had already been
+   removed from the fib tree.
+2. If rt had been managed by the fib tree, ip6_del_rt(rt) failure means
+   dst_free(rt) has been called already.  A second
+   dst_free(rt) is not always obviously safe.  The rt may have
+   been destroyed already.
+3. If rt is a DST_NOCACHE, dst_free(rt) should not be called.
+4. It is a stopper to make dst freeing from fib tree undergo a
+   rcu grace period.
 
-v1:
-This patch series is to fix the dst refcnt bugs in ip6_tunnel.
+This patch is to use a DST_NOCACHE flag to indicate a rt is
+not managed by the fib tree.
 
-Patch 1 and 2 are the prep works.  Patch 3 is the fix.
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+---
+ net/ipv6/addrconf.c |  7 +++----
+ net/ipv6/ip6_fib.c  | 11 +++++++++--
+ net/ipv6/route.c    |  7 ++++---
+ 3 files changed, 16 insertions(+), 9 deletions(-)
 
-I can reproduce the bug by adding and removing the ip6gre tunnel
-while running a super_netperf TCP_CRR test.  I get the following
-trace by adding WARN_ON_ONCE(newrefcnt < 0) to dst_release():
-
-[  312.760432] ------------[ cut here ]------------
-[  312.774664] WARNING: CPU: 2 PID: 10263 at net/core/dst.c:288 dst_release+0xf3/0x100()
-[  312.776041] Modules linked in: k10temp coretemp hwmon ip6_gre ip6_tunnel tunnel6 ipmi_devintf ipmi_ms\
-ghandler ip6table_filter ip6_tables xt_NFLOG nfnetlink_log nfnetlink xt_comment xt_statistic iptable_fil\
-ter ip_tables x_tables nfsv3 nfs_acl nfs fscache lockd grace mptctl netconsole autofs4 rpcsec_gss_krb5 a\
-uth_rpcgss oid_registry sunrpc ipv6 dm_mod loop iTCO_wdt iTCO_vendor_support serio_raw rtc_cmos pcspkr i\
-2c_i801 i2c_core lpc_ich mfd_core ehci_pci ehci_hcd e1000e mlx4_en ptp pps_core vxlan udp_tunnel ip6_udp\
-_tunnel mlx4_core sg button ext3 jbd mpt2sas raid_class
-[  312.785302] CPU: 2 PID: 10263 Comm: netperf Not tainted 4.2.0-rc8-00046-g4db9b63-dirty #15
-[  312.791695] Hardware name: Quanta Freedom /Windmill-EP, BIOS F03_3B04 09/12/2013
-[  312.792965]  ffffffff819dca2c ffff8811dfbdf6f8 ffffffff816537de ffff88123788fdb8
-[  312.794263]  0000000000000000 ffff8811dfbdf738 ffffffff81052646 ffff8811dfbdf768
-[  312.795593]  ffff881203a98180 00000000ffffffff ffff88242927a000 ffff88120a2532e0
-[  312.796946] Call Trace:
-[  312.797380]  [<ffffffff816537de>] dump_stack+0x45/0x57
-[  312.798288]  [<ffffffff81052646>] warn_slowpath_common+0x86/0xc0
-[  312.799699]  [<ffffffff8105273a>] warn_slowpath_null+0x1a/0x20
-[  312.800852]  [<ffffffff8159f9b3>] dst_release+0xf3/0x100
-[  312.801834]  [<ffffffffa03f1308>] ip6_tnl_dst_store+0x48/0x70 [ip6_tunnel]
-[  312.803738]  [<ffffffffa03fd0b6>] ip6gre_xmit2+0x536/0x720 [ip6_gre]
-[  312.804774]  [<ffffffffa03fd40a>] ip6gre_tunnel_xmit+0x16a/0x410 [ip6_gre]
-[  312.805986]  [<ffffffff8159934b>] dev_hard_start_xmit+0x23b/0x390
-[  312.808810]  [<ffffffff815a2f5f>] ? neigh_destroy+0xef/0x140
-[  312.809843]  [<ffffffff81599a6c>] __dev_queue_xmit+0x48c/0x4f0
-[  312.813931]  [<ffffffff81599ae3>] dev_queue_xmit_sk+0x13/0x20
-[  312.814993]  [<ffffffff815a0832>] neigh_direct_output+0x12/0x20
-[  312.817448]  [<ffffffffa021d633>] ip6_finish_output2+0x183/0x460 [ipv6]
-[  312.818762]  [<ffffffff81306fc5>] ? find_next_bit+0x15/0x20
-[  312.819671]  [<ffffffffa021fd79>] ip6_finish_output+0x89/0xe0 [ipv6]
-[  312.820720]  [<ffffffffa021fe14>] ip6_output+0x44/0xe0 [ipv6]
-[  312.821762]  [<ffffffff815c8809>] ? nf_hook_slow+0x69/0xc0
-[  312.823123]  [<ffffffffa021d232>] ip6_xmit+0x242/0x4c0 [ipv6]
-[  312.824073]  [<ffffffffa021c9f0>] ? ac6_proc_exit+0x20/0x20 [ipv6]
-[  312.825116]  [<ffffffffa024c751>] inet6_csk_xmit+0x61/0xa0 [ipv6]
-[  312.826127]  [<ffffffff815eb590>] tcp_transmit_skb+0x4f0/0x9b0
-[  312.827441]  [<ffffffff815ed267>] tcp_connect+0x637/0x7a0
-[  312.828327]  [<ffffffffa0245906>] tcp_v6_connect+0x2d6/0x550 [ipv6]
-[  312.829581]  [<ffffffff81606f05>] __inet_stream_connect+0x95/0x2f0
-[  312.830600]  [<ffffffff810ae13a>] ? hrtimer_try_to_cancel+0x1a/0xf0
-[  312.833456]  [<ffffffff812fba19>] ? timerqueue_add+0x59/0xb0
-[  312.834407]  [<ffffffff81607198>] inet_stream_connect+0x38/0x50
-[  312.835886]  [<ffffffff8157cb17>] SYSC_connect+0xb7/0xf0
-[  312.840035]  [<ffffffff810af6d3>] ? do_setitimer+0x1b3/0x200
-[  312.840983]  [<ffffffff810af75a>] ? alarm_setitimer+0x3a/0x70
-[  312.841941]  [<ffffffff8157d7ae>] SyS_connect+0xe/0x10
-[  312.842818]  [<ffffffff81659297>] entry_SYSCALL_64_fastpath+0x12/0x6a
-[  312.844206] ---[ end trace 43f3ecd86c3b1313 ]---
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 030fefd..9001133 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5127,13 +5127,12 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+ 
+ 			rt = addrconf_get_prefix_route(&ifp->peer_addr, 128,
+ 						       ifp->idev->dev, 0, 0);
+-			if (rt && ip6_del_rt(rt))
+-				dst_free(&rt->dst);
++			if (rt)
++				ip6_del_rt(rt);
+ 		}
+ 		dst_hold(&ifp->rt->dst);
+ 
+-		if (ip6_del_rt(ifp->rt))
+-			dst_free(&ifp->rt->dst);
++		ip6_del_rt(ifp->rt);
+ 
+ 		rt_genid_bump_ipv6(net);
+ 		break;
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 418d982..e68350b 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -933,6 +933,10 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
+ 	int replace_required = 0;
+ 	int sernum = fib6_new_sernum(info->nl_net);
+ 
++	if (WARN_ON_ONCE((rt->dst.flags & DST_NOCACHE) &&
++			 !atomic_read(&rt->dst.__refcnt)))
++		return -EINVAL;
++
+ 	if (info->nlh) {
+ 		if (!(info->nlh->nlmsg_flags & NLM_F_CREATE))
+ 			allow_create = 0;
+@@ -1025,6 +1029,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
+ 		fib6_start_gc(info->nl_net, rt);
+ 		if (!(rt->rt6i_flags & RTF_CACHE))
+ 			fib6_prune_clones(info->nl_net, pn);
++		rt->dst.flags &= ~DST_NOCACHE;
+ 	}
+ 
+ out:
+@@ -1049,7 +1054,8 @@ out:
+ 			atomic_inc(&pn->leaf->rt6i_ref);
+ 		}
+ #endif
+-		dst_free(&rt->dst);
++		if (!(rt->dst.flags & DST_NOCACHE))
++			dst_free(&rt->dst);
+ 	}
+ 	return err;
+ 
+@@ -1060,7 +1066,8 @@ out:
+ st_failure:
+ 	if (fn && !(fn->fn_flags & (RTN_RTINFO|RTN_ROOT)))
+ 		fib6_repair_tree(info->nl_net, fn);
+-	dst_free(&rt->dst);
++	if (!(rt->dst.flags & DST_NOCACHE))
++		dst_free(&rt->dst);
+ 	return err;
+ #endif
+ }
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 53617d7..3d3c1b2 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1322,8 +1322,7 @@ static void ip6_link_failure(struct sk_buff *skb)
+ 	if (rt) {
+ 		if (rt->rt6i_flags & RTF_CACHE) {
+ 			dst_hold(&rt->dst);
+-			if (ip6_del_rt(rt))
+-				dst_free(&rt->dst);
++			ip6_del_rt(rt);
+ 		} else if (rt->rt6i_node && (rt->rt6i_flags & RTF_DEFAULT)) {
+ 			rt->rt6i_node->fn_sernum = -1;
+ 		}
+@@ -2028,7 +2027,8 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
+ 	struct fib6_table *table;
+ 	struct net *net = dev_net(rt->dst.dev);
+ 
+-	if (rt == net->ipv6.ip6_null_entry) {
++	if (rt == net->ipv6.ip6_null_entry ||
++	    rt->dst.flags & DST_NOCACHE) {
+ 		err = -ENOENT;
+ 		goto out;
+ 	}
+@@ -2515,6 +2515,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 	rt->rt6i_dst.addr = *addr;
+ 	rt->rt6i_dst.plen = 128;
+ 	rt->rt6i_table = fib6_get_table(net, RT6_TABLE_LOCAL);
++	rt->dst.flags |= DST_NOCACHE;
+ 
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 
+-- 
+2.5.1
