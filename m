@@ -1,78 +1,59 @@
-From: Oren Laskin <oren@igneous.io>
-Subject: Re: [PATCH] net: mvneta: fix DMA buffer unmapping in mvneta_rx()
-Date: Tue, 15 Sep 2015 14:19:45 -0700
-Message-ID: <CAA-51jMAHa=sU8B5eSTLHnqYDSy93bO1Jbc2=qHY6S=qM1__MA@mail.gmail.com>
-References: <20150915203634.GI7306@kw.sim.vm.gnt>
-	<1442349681-27437-1-git-send-email-simon.guinot@sequanux.org>
-Reply-To: oren@igneous.io
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Vincent Donnefort <vdonnefort@gmail.com>,
-	Yoann Sculo <yoann@sculo.fr>, Sebastien Rannou <mxs@sbrk.org>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	stable@vger.kernel.org
-To: Simon Guinot <simon.guinot@sequanux.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1442349681-27437-1-git-send-email-simon.guinot@sequanux.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: [PATCH v2] net-sysfs: get_netdev_queue_index() cleanup
+Date: Tue, 15 Sep 2015 18:28:00 -0300
+Message-ID: <1442352480-1311-1-git-send-email-cascardo@redhat.com>
+Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52255 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751540AbbIOV2V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 17:28:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes the regression we saw.
+Redo commit ed1acc8cd8c22efa919da8d300bab646e01c2dce.
 
-Tested-by: Oren Laskin <oren@igneous.io>
+Commit 822b3b2ebfff8e9b3d006086c527738a7ca00cd0 ("net: Add max rate tx queue
+attribute") moved get_netdev_queue_index around, but kept the old version.
+Probably because of a reuse of the original patch from before Eric's change to
+that function.
 
-On Tue, Sep 15, 2015 at 1:41 PM, Simon Guinot <simon.guinot@sequanux.org> wrote:
-> This patch fixes a regression introduced by the commit a84e32894191
-> ("net: mvneta: fix refilling for Rx DMA buffers"). Due to this commit
-> the newly allocated Rx buffers are DMA-unmapped in place of those passed
-> to the networking stack. Obviously, this causes data corruptions.
->
-> This patch fixes the issue by ensuring that the right Rx buffers are
-> DMA-unmapped.
->
-> Reported-by: Oren Laskin <oren@igneous.io>
-> Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> Fixes: a84e32894191 ("net: mvneta: fix refilling for Rx DMA buffers")
-> Cc: <stable@vger.kernel.org> # v3.8+
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 62e48bc0cb23..03e052a1cf5a 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -1479,6 +1479,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
->                 struct mvneta_rx_desc *rx_desc = mvneta_rxq_next_desc_get(rxq);
->                 struct sk_buff *skb;
->                 unsigned char *data;
-> +               dma_addr_t phys_addr;
->                 u32 rx_status;
->                 int rx_bytes, err;
->
-> @@ -1486,6 +1487,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
->                 rx_status = rx_desc->status;
->                 rx_bytes = rx_desc->data_size - (ETH_FCS_LEN + MVNETA_MH_SIZE);
->                 data = (unsigned char *)rx_desc->buf_cookie;
-> +               phys_addr = rx_desc->buf_phys_addr;
->
->                 if (!mvneta_rxq_desc_is_first_last(rx_status) ||
->                     (rx_status & MVNETA_RXD_ERR_SUMMARY)) {
-> @@ -1534,7 +1536,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
->                 if (!skb)
->                         goto err_drop_frame;
->
-> -               dma_unmap_single(dev->dev.parent, rx_desc->buf_phys_addr,
-> +               dma_unmap_single(dev->dev.parent, phys_addr,
->                                  MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
->
->                 rcvd_pkts++;
-> --
-> 2.1.4
->
+Remove one inline keyword, and no need for a loop to find
+an index into a table.
+
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Fixes: 822b3b2ebfff ("net: Add max rate tx queue attribute")
+Acked-by:  Or Gerlitz <ogerlitz@mellanox.com>
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Cc: Eric Dumazet <edumazet@google.com>
+---
+ net/core/net-sysfs.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index b279077..49b5990 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1004,15 +1004,12 @@ static ssize_t show_trans_timeout(struct netdev_queue *queue,
+ }
+ 
+ #ifdef CONFIG_XPS
+-static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
++static unsigned int get_netdev_queue_index(struct netdev_queue *queue)
+ {
+ 	struct net_device *dev = queue->dev;
+-	int i;
+-
+-	for (i = 0; i < dev->num_tx_queues; i++)
+-		if (queue == &dev->_tx[i])
+-			break;
++	unsigned int i;
+ 
++	i = queue - dev->_tx;
+ 	BUG_ON(i >= dev->num_tx_queues);
+ 
+ 	return i;
+-- 
+2.4.3
