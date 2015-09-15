@@ -1,60 +1,52 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCHv1 net] xen-netback: require fewer guest Rx
- slots when not using GSO
-Date: Tue, 15 Sep 2015 11:30:17 +0100
-Message-ID: <55F7F339.4050501@citrix.com>
-References: <1441718714-3256-1-git-send-email-david.vrabel@citrix.com>
- <20150909.123459.1956039261743477106.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
-	<ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>
-To: David Miller <davem@davemloft.net>, <david.vrabel@citrix.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 2/5] qeth: no write permission for readonly sysattr
+Date: Tue, 15 Sep 2015 12:32:15 +0200
+Message-ID: <1442313138-64526-3-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1442313138-64526-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ursula.braun@de.ibm.com, ubraun@linux.vnet.ibm.com,
+	Lakhvich Dmitriy <ldmitriy@ru.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:64740 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753027AbbIOKak (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2015 06:30:40 -0400
-In-Reply-To: <20150909.123459.1956039261743477106.davem@davemloft.net>
+Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:59466 "EHLO
+	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752495AbbIOKc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 06:32:28 -0400
+Received: from /spool/local
+	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+	Tue, 15 Sep 2015 11:32:26 +0100
+In-Reply-To: <1442313138-64526-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/15 20:34, David Miller wrote:
-> From: David Vrabel <david.vrabel@citrix.com>
-> Date: Tue, 8 Sep 2015 14:25:14 +0100
-> 
->> Commit f48da8b14d04ca87ffcffe68829afd45f926ec6a (xen-netback: fix
->> unlimited guest Rx internal queue and carrier flapping) introduced a
->> regression.
->>
->> The PV frontend in IPXE only places 4 requests on the guest Rx ring.
->> Since netback required at least (MAX_SKB_FRAGS + 1) slots, IPXE could
->> not receive any packets.
->>
->> a) If GSO is not enabled on the VIF, fewer guest Rx slots are required
->>    for the largest possible packet.  Calculate the required slots
->>    based on the maximum GSO size or the MTU.
->>
->>    This calculation of the number of required slots relies on
->>    1650d5455bd2 (xen-netback: always fully coalesce guest Rx packets)
->>    which present in 4.0-rc1 and later.
->>
->> b) Reduce the Rx stall detection to checking for at least one
->>    available Rx request.  This is fine since we're predominately
->>    concerned with detecting interfaces which are down and thus have
->>    zero available Rx requests.
->>
->> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> 
-> Applied, thanks David.
+From: Lakhvich Dmitriy <ldmitriy@ru.ibm.com>
 
-Hi David,
+User is not allowed to write into bridge_state sysfs file.
+Fixed attribute not mislead the user
 
-This is causing regressions with certain frontend drivers.  Can you drop
-it, please?
+Signed-off-by: Lakhvich Dmitriy <ldmitriy@ru.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Reported-by: Peter Oberparleiter <oberpar@linux.vnet.ibm.com>
+Reviewed-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Reviewed-by: Thomas Richter <tmricht@de.ibm.com>
+---
+ drivers/s390/net/qeth_l2_sys.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Apologies for posting the patch before running it through the full set
-of internal testing.
-
-David
+diff --git a/drivers/s390/net/qeth_l2_sys.c b/drivers/s390/net/qeth_l2_sys.c
+index 52673cd..692db49 100644
+--- a/drivers/s390/net/qeth_l2_sys.c
++++ b/drivers/s390/net/qeth_l2_sys.c
+@@ -109,7 +109,7 @@ static ssize_t qeth_bridge_port_state_show(struct device *dev,
+ 	return qeth_bridge_port_role_state_show(dev, attr, buf, 1);
+ }
+ 
+-static DEVICE_ATTR(bridge_state, 0644, qeth_bridge_port_state_show,
++static DEVICE_ATTR(bridge_state, 0444, qeth_bridge_port_state_show,
+ 		   NULL);
+ 
+ static ssize_t qeth_bridgeport_hostnotification_show(struct device *dev,
+-- 
+2.3.8
