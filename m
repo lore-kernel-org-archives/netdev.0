@@ -1,64 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] Net: core: sock.c coding style fixes
-Date: Tue, 15 Sep 2015 11:43:49 -0700
-Message-ID: <20150915184346.GA7817@Alexeis-MacBook-Pro-2.local>
-References: <1442339925-17079-1-git-send-email-cristos@vipserv.org>
- <87mvwnbkzr.fsf@x220.int.ebiederm.org>
- <55F8652D.30809@vipserv.org>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: kernel panic in pppoe_release
+Date: Tue, 15 Sep 2015 20:49:59 +0200
+Message-ID: <20150915184959.GA2869@alphalink.fr>
+References: <006f01d0e67c$c3d53f10$4b7fbd30$@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, davem@davemloft.net,
-	edumazet@google.com, netdev@vger.kernel.org
-To: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Murat Sezgin <msezgin@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34236 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576AbbIOSn5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 14:43:57 -0400
-Received: by padhy16 with SMTP id hy16so183844229pad.1
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 11:43:57 -0700 (PDT)
+Received: from zimbra.alphalink.fr ([217.15.80.77]:50967 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751070AbbIOSuF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 14:50:05 -0400
 Content-Disposition: inline
-In-Reply-To: <55F8652D.30809@vipserv.org>
+In-Reply-To: <006f01d0e67c$c3d53f10$4b7fbd30$@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2015 at 08:36:29PM +0200, Krzysztof Majzerowicz-Jaszcz wrote:
-> OK, sorry. I'll undo the comments then. Do you have any other suggestions?
-> 
-> KMJ
-> 
-> On 15/09/15 20:22, Eric W. Biederman wrote:
-> > Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org> writes:
-> > 
-> >> Fixed most coding style issues reported by checkpatch.pl
-> > 
-> > Ugh.  At least in the matter of comments I find this patch makes
-> > the code uglier.
-> > 
-> > Replacing:
-> > /*
-> >  *             Important banner about the code
-> >  */
-> > 
-> > with
-> >  /* Important banner about the code */
-> > 
-> > Does not look as nice and does not convey the same information as
-> > clearly.
-> > 
-> > Remember checkpatch.pl is not the ruler or the rules it is a servant
-> > with a bunch of heuristics to point out problems.
-> > 
-> > Eric
-> > 
-> >> Signed-off-by: Krzysztof Majzerowicz-Jaszcz <cristos@vipserv.org>
-> >> ---
-> >>  net/core/sock.c | 442 +++++++++++++++++++++++++-------------------------------
-> >>  1 file changed, 200 insertions(+), 242 deletions(-)
-
-200 checkpatch changes in one commit?
-
-imo it makes sense to fix coding style only if nearby lines are
-affected by meaningful changes.
-Just blank rewrites like these are more harmful than useful.
-They distort git blame, make backporting harder, etc.
+On Thu, Sep 03, 2015 at 12:14:32PM -0700, Murat Sezgin wrote:
+> I just wonder , if the
+> proposed patch by Denys Fedoryshchenko, which is below, fixes this is=
+sue
+> completely.
+>=20
+> =A0=A0=A0=A0=A0=A0=A0 pppox_unbind_sock(sk);
+> =A0=A0=A0=A0=A0=A0=A0 +/* Signal the death of the socket. */
+> =A0=A0=A0=A0=A0=A0=A0 +sk->sk_state =3D PPPOX_DEAD;
+>=20
+> Do you have a conclusion on this bug? Is it safe to get this patch al=
+ong
+> with the other workqueue patches?
+>
+You might want to check my recent reply in the original thread:
+https://marc.info/?l=3Dlinux-netdev&m=3D144190062507458&w=3D2
