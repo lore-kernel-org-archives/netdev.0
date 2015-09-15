@@ -1,60 +1,43 @@
-From: martinbj2008@gmail.com
-Subject: [PATCH V1 net-next] net: only check perm protocol when register proto
-Date: Tue, 15 Sep 2015 08:14:05 +0800
-Message-ID: <1442276045-4233-1-git-send-email-martinbj2008@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	baker.kernel@gmail.com, Junwei Zhang <martinbj2008@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net 0/5] ipv6: Fix dst_entry refcnt bugs in
+ ip6_tunnel
+Date: Mon, 14 Sep 2015 19:49:25 -0700 (PDT)
+Message-ID: <20150914.194925.1193918139295619388.davem@davemloft.net>
+References: <1441994781-2718585-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hannes@stressinduktion.org, kernel-team@fb.com
+To: kafai@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45434 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751964AbbIOCt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Sep 2015 22:49:28 -0400
+In-Reply-To: <1441994781-2718585-1-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Junwei Zhang <martinbj2008@gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 11 Sep 2015 11:06:16 -0700
 
-the permanent protocol nodes are at the head of the list.
-So only need check all these nodes.
+> v3:
+> - Merge a 'if else if' test in patch 4
+> - Use rcu_dereference_protected in patch 5 to fix a sparse check when
+>   CONFIG_SPARSE_RCU_POINTER is enabled
+> 
+> v2:
+> - Add patch 4 and 5 to remove the spinlock
+> 
+> v1:
+> This patch series is to fix the dst refcnt bugs in ip6_tunnel.
+> 
+> Patch 1 and 2 are the prep works.  Patch 3 is the fix.
+> 
+> I can reproduce the bug by adding and removing the ip6gre tunnel
+> while running a super_netperf TCP_CRR test.  I get the following
+> trace by adding WARN_ON_ONCE(newrefcnt < 0) to dst_release():
+ ...
 
-and insert the new node after the last permanent protocol node,
-no matter new node is permanent or not.
-
-If the inserted proto conflicts with existing permanent protocol,
-then goto out_permanent immediately.
-
-Signed-off-by: Martin Zhang <martinbj2008@gmail.com>
----
- net/ipv4/af_inet.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1d0c3ad..c61e0b5 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1043,22 +1043,16 @@ void inet_register_protosw(struct inet_protosw *p)
- 		goto out_illegal;
- 
- 	/* If we are trying to override a permanent protocol, bail. */
--	answer = NULL;
- 	last_perm = &inetsw[p->type];
- 	list_for_each(lh, &inetsw[p->type]) {
- 		answer = list_entry(lh, struct inet_protosw, list);
--
- 		/* Check only the non-wild match. */
--		if (INET_PROTOSW_PERMANENT & answer->flags) {
--			if (protocol == answer->protocol)
-+		if ((INET_PROTOSW_PERMANENT & answer->flags) == 0)
- 				break;
--			last_perm = lh;
--		}
--
--		answer = NULL;
-+		if (protocol == answer->protocol)
-+			goto out_permanent;
-+		last_perm = lh;
- 	}
--	if (answer)
--		goto out_permanent;
- 
- 	/* Add the new entry after the last permanent entry if any, so that
- 	 * the new entry does not override a permanent entry when matched with
--- 
-1.8.3.1
+Series applied, thanks Martin.
