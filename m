@@ -1,48 +1,60 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: Add oif to dst lookups
-Date: Tue, 15 Sep 2015 11:28:38 +0200
-Message-ID: <20150915092838.GK25499@secunet.com>
-References: <1439247491-80410-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCHv1 net] xen-netback: require fewer guest Rx
+ slots when not using GSO
+Date: Tue, 15 Sep 2015 11:30:17 +0100
+Message-ID: <55F7F339.4050501@citrix.com>
+References: <1441718714-3256-1-git-send-email-david.vrabel@citrix.com>
+ <20150909.123459.1956039261743477106.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <herbert@gondor.apana.org.au>,
-	<davem@davemloft.net>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
+	<ian.campbell@citrix.com>, <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>, <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53034 "EHLO a.mx.secunet.com"
+Received: from smtp.citrix.com ([66.165.176.89]:64740 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754852AbbIOJ2m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2015 05:28:42 -0400
-Content-Disposition: inline
-In-Reply-To: <1439247491-80410-1-git-send-email-dsa@cumulusnetworks.com>
+	id S1753027AbbIOKak (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 06:30:40 -0400
+In-Reply-To: <20150909.123459.1956039261743477106.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 10, 2015 at 04:58:11PM -0600, David Ahern wrote:
-> Rules can be installed that direct route lookups to specific tables based
-> on oif. Plumb the oif through the xfrm lookups so it gets set in the flow
-> struct and passed to the resolver routines.
+On 09/09/15 20:34, David Miller wrote:
+> From: David Vrabel <david.vrabel@citrix.com>
+> Date: Tue, 8 Sep 2015 14:25:14 +0100
 > 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>> Commit f48da8b14d04ca87ffcffe68829afd45f926ec6a (xen-netback: fix
+>> unlimited guest Rx internal queue and carrier flapping) introduced a
+>> regression.
+>>
+>> The PV frontend in IPXE only places 4 requests on the guest Rx ring.
+>> Since netback required at least (MAX_SKB_FRAGS + 1) slots, IPXE could
+>> not receive any packets.
+>>
+>> a) If GSO is not enabled on the VIF, fewer guest Rx slots are required
+>>    for the largest possible packet.  Calculate the required slots
+>>    based on the maximum GSO size or the MTU.
+>>
+>>    This calculation of the number of required slots relies on
+>>    1650d5455bd2 (xen-netback: always fully coalesce guest Rx packets)
+>>    which present in 4.0-rc1 and later.
+>>
+>> b) Reduce the Rx stall detection to checking for at least one
+>>    available Rx request.  This is fine since we're predominately
+>>    concerned with detecting interfaces which are down and thus have
+>>    zero available Rx requests.
+>>
+>> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> 
+> Applied, thanks David.
 
-David, this change broke vti tunnels.
+Hi David,
 
-> @@ -1690,8 +1694,8 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
->  
->  		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
->  			family = xfrm[i]->props.family;
-> -			dst = xfrm_dst_lookup(xfrm[i], tos, &saddr, &daddr,
-> -					      family);
-> +			dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif,
-> +					      &saddr, &daddr, family);
+This is causing regressions with certain frontend drivers.  Can you drop
+it, please?
 
-Passing the original output interface to xfrm_dst_lookup will generate
-a routing loop whenever the original output interface is not identical
-to the tunnel endpoint, like it is with vti. We can not ask for a route
-through a specific interface here. This is the lookup for the tunnel
-endpoints, so it must return a route through the local tunnel endpoint
-device.
+Apologies for posting the patch before running it through the full set
+of internal testing.
 
-I don't know how you are going to use this with your vrf changes, so
-I'm not sure how to fix this in a way that it works with vrf. Please
-look into this.
+David
