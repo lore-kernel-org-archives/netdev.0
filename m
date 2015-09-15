@@ -1,64 +1,142 @@
-From: "Charles (Chas) Williams" <3chas3@gmail.com>
-Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: always set num
- queues if possible
-Date: Tue, 15 Sep 2015 10:37:47 -0400
-Message-ID: <1442327867.3494.17.camel@gmail.com>
-References: <1442266096.3494.15.camel@gmail.com>
-	 <55F7FA2D.5040701@citrix.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v7 3/3] can: Allwinner A10/A20 CAN Controller support -
+ Kernel module
+Date: Tue, 15 Sep 2015 16:46:33 +0200
+Message-ID: <55F82F49.8020901@pengutronix.de>
+References: <1442272632-20251-1-git-send-email-info@gerhard-bertelsmann.de>
+ <1442272632-20251-4-git-send-email-info@gerhard-bertelsmann.de>
+ <20150915142810.GM4684@lukather>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="6i72tfPk8AUCbcn46mLRah1aTajN3R01M"
+Cc: wg@grandegger.com, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:32769 "EHLO
-	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754619AbbIOOhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 10:37:50 -0400
-Received: by qkdw123 with SMTP id w123so72790087qkd.0
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 07:37:48 -0700 (PDT)
-In-Reply-To: <55F7FA2D.5040701@citrix.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43621 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751694AbbIOOqp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 10:46:45 -0400
+In-Reply-To: <20150915142810.GM4684@lukather>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-09-15 at 11:59 +0100, David Vrabel wrote:
-> On 14/09/15 22:28, Charles (Chas) Williams wrote:
-> > The xen store preserves this information across module invocations.
-> > If you insmod netfront with two queues and later insmod again with one
-> > queue, the backend will still believe you asked for two queues.
-> 
-> Can you rewrite the commit message to be clearer?
-> 
-> "If netfront connects with 2 (or more) queues and then reconnects with
-> only 1 queue it fails to delete or rewrite the multi-queue-num-queues
-> key and netback will try to use the wrong number of queues.
-> 
-> Always write the num-queues field if the backend has multi-queue support."
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--6i72tfPk8AUCbcn46mLRah1aTajN3R01M
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Yes I can do that.
+On 09/15/2015 04:28 PM, Maxime Ripard wrote:
+>> +static int sunxican_get_berr_counter(const struct net_device *dev,
+>> +				     struct can_berr_counter *bec)
+>> +{
+>> +	struct sunxican_priv *priv =3D netdev_priv(dev);
+>> +	u32 errors;
+>> +	int err;
+>> +
+>> +	err =3D clk_prepare_enable(priv->clk);
+>> +	if (err) {
+>> +		netdev_err(dev, "could not enable clock\n");
+>> +		return err;
+>> +	}
+>=20
+> Can this function be called if the device is closed? If not, then this
+> clock calls are useless.
 
-> 
-> > --- a/drivers/net/xen-netfront.c
-> > +++ b/drivers/net/xen-netfront.c
-> > @@ -1819,11 +1819,7 @@ again:
-> >  		goto destroy_ring;
-> >  	}
-> >  
-> > -	if (num_queues == 1) {
-> > -		err = write_queue_xenstore_keys(&info->queues[0], &xbt, 0); /* flat */
-> > -		if (err)
-> > -			goto abort_transaction_no_dev_fatal;
-> > -	} else {
-> > +	if (xenbus_exists(xbt, dev->nodename, "multi-queue-num-queues")) {
-> >  		/* Write the number of queues */
-> >  		err = xenbus_printf(xbt, dev->nodename, "multi-queue-num-queues",
-> >  				    "%u", num_queues);
-> 
-> Isn't this broken?  It looks like it won't write the
-> multi-queue-num-queues key the first time around.
-> 
-> It think this should be conditional on multi-queue-max-queues existing
-> (which is written by the backend if multi-queue is supported).
+Yes, that's why there are there.
 
-You are right.  I am testing against the wrong key here.  I should have
-tested for multi-queue-max-queues.
+>=20
+>> +	errors =3D readl(priv->base + SUNXI_REG_ERRC_ADDR);
+>> +
+>> +	bec->txerr =3D errors & 0xFF;
+>> +	bec->rxerr =3D (errors >> 16) & 0xFF;
+>> +
+>> +	clk_disable_unprepare(priv->clk);
+>> +
+>> +	return 0;
+>> +}
+
+[...]
+
+>> +static int sunxican_open(struct net_device *dev)
+>> +{
+>> +	struct sunxican_priv *priv =3D netdev_priv(dev);
+>> +	int err;
+>> +
+>> +	/* common open */
+>> +	err =3D open_candev(dev);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	/* register interrupt handler */
+>> +	err =3D request_irq(dev->irq, sunxi_can_interrupt, IRQF_SHARED,
+>=20
+> We don't have any shared interrupt as far as I know, do you really
+> need this flag?
+
+Not needed, but the IRQ handler properly returns HANDLED or NONE. So
+it's better to remove this flag then?
+
+>=20
+>> +			  dev->name, dev);
+>> +	if (err) {
+>> +		netdev_err(dev, "request_irq err: %d\n", err);
+>> +		goto exit_irq;
+>> +	}
+>> +
+>> +	/* turn on clocking for CAN peripheral block */
+>> +	err =3D clk_prepare_enable(priv->clk);
+>> +	if (err) {
+>> +		netdev_err(dev, "could not enable CAN peripheral clock\n");
+>> +		goto exit_clock;
+>> +	}
+>> +
+>> +	err =3D sunxi_can_start(dev);
+>> +	if (err) {
+>> +		netdev_err(dev, "could not start CAN peripheral\n");
+>> +		goto exit_can_start;
+>> +	}
+>> +
+>> +	can_led_event(dev, CAN_LED_EVENT_OPEN);
+>> +	netif_start_queue(dev);
+>> +
+>> +	return 0;
+>> +
+>> +exit_can_start:
+>> +	clk_disable_unprepare(priv->clk);
+>> +exit_clock:
+>> +	free_irq(dev->irq, dev);
+>> +exit_irq:
+>> +	close_candev(dev);
+>> +	return err;
+>> +}
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--6i72tfPk8AUCbcn46mLRah1aTajN3R01M
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJV+C9JAAoJEP5prqPJtc/HY+QH/Rgl5AIBi03s6o4yhr/TikqL
+DrykxhSC3yRREJRxyRZz0TqFhzgIKecEyMHDkEc8qtXh6HYV8Zq6g3tVakp5N9Ig
+oskkAKJXxW3bYd2u9POnpl6FUS+B6fEcz8mkLkq0GaLFmdAVifLEkw82UrK9aNvY
+UeS71cTYo9DBE5nUxyqCyF+a39KRIN02MXLjC++B72E6vuTUPp5zGpiSUzSc+JSz
+/u6+aEOuZjFsinaeG0TWx7+LqKUNGA4/1VTFK3aVmcVMq6EsZ5aROpNUZK7gtVry
+jl6zfCEk1l7W8PU0+zYE0qhIdqe34uKnJghAKzaFIb5xmjoJs7mSh9Dq7FJy17s=
+=PKKI
+-----END PGP SIGNATURE-----
+
+--6i72tfPk8AUCbcn46mLRah1aTajN3R01M--
