@@ -1,93 +1,107 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: Re: [PATCH v2] net: mvneta: fix refilling for Rx DMA buffers
-Date: Tue, 15 Sep 2015 22:36:34 +0200
-Message-ID: <20150915203634.GI7306@kw.sim.vm.gnt>
-References: <1437303653-2236-1-git-send-email-simon.guinot@sequanux.org>
- <20150721.003033.1524284435822402813.davem@davemloft.net>
- <CAA-51jPPDHfE1uT2NuJ53wWTvEgh7DcW0K0-xZgQdjAD2CC04w@mail.gmail.com>
+From: =?UTF-8?q?Peter=20N=C3=B8rlund?= <pch@ordbogen.com>
+Subject: [PATCH v3 net-next 0/2] ipv4: Hash-based multipath routing
+Date: Tue, 15 Sep 2015 22:29:51 +0200
+Message-ID: <1442348993-3023-1-git-send-email-pch@ordbogen.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="d6iqOn7HZPWKXx18"
-Cc: David Miller <davem@davemloft.net>,
-	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-	jason@lakedaemon.net, netdev@vger.kernel.org, vdonnefort@gmail.com,
-	stable@vger.kernel.org,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	yoann@sculo.fr, linux-arm-kernel@lists.infradead.org,
-	sebastian.hesselbarth@gmail.com
-To: Oren Laskin <oren@igneous.io>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAA-51jPPDHfE1uT2NuJ53wWTvEgh7DcW0K0-xZgQdjAD2CC04w@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ordbogen.com ([91.240.88.21]:41184 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751981AbbIOUa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 16:30:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+When the routing cache was removed in 3.6, the IPv4 multipath algorithm=
+ changed
+from more or less being destination-based into being quasi-random per-p=
+acket
+scheduling. This increases the risk of out-of-order packets and makes i=
+t
+impossible to use multipath together with anycast services.
+
+This patch series replaces the old implementation with flow-based load
+balancing based on a hash over the source and destination addresses.
+
+Distribution of the hash is done with thresholds as described in RFC 29=
+92.
+This reduces the disruption when a path is added/remove when having mor=
+e than
+two paths.
+
+To futher the chance of successful usage in conjuction with anycast, IC=
+MP
+error packets are hashed over the inner IP addresses. This ensures that=
+ PMTU
+will work together with anycast or load-balancers such as IPVS.
+
+Port numbers are not considered since fragments could cause problems wi=
+th
+anycast and IPVS. Relying on the DF-flag for TCP packets is also insuff=
+icient,
+since ICMP inspection effectively extracts information from the opposit=
+e
+flow which might have a different state of the DF-flag. This is also wh=
+y the
+RSS hash is not used. These are typically based on the NDIS RSS spec wh=
+ich
+mandates TCP support.
+
+Benchmarking on a Xeon X3550 (4 cores, 2.66GHz) showed that it was desi=
+reable
+to move the ICMP handling to a separate method. The reason for this bei=
+ng that
+the standard hash function can work without using the stack, and the IC=
+MP
+function cannot (due to skb_header_pointer), causing 4 additional hits =
+on the
+cache. By separating the two, the fast path (non-ICMP) only requires th=
+ree
+reads from cache.
+
+Two-path benchmarks (ip_mkroute_input excl. __mkroute_input):
+
+Original per-packet:  ~394 cycles/packet
+L3 hash w/o noinline: ~128 cycles/packet
+L3 hash w/ noinline:   ~97 cycles/packet
+
+Changes in v3:
+- Multipath algorithm is no longer configurable (always L3)
+- Added random seed to hash
+- Moved ICMP inspection to isolated function
+- Ignore source quench packets (deprecated as per RFC 6633)
+
+Changes in v2:
+- Replaced 8-bit xor hash with 31-bit jenkins hash
+- Don't scale weights (since 31-bit)
+- Avoided unnecesary renaming of variables
+- Rely on DF-bit instead of fragment offset when checking for fragmenta=
+tion
+- upper_bound is now inclusive to avoid overflow
+- Use a callback to postpone extracting flow information until necessar=
+y
+- Skipped ICMP inspection entirely with L4 hashing
+- Handle newly added sysctl ignore_routes_with_linkdown
+
+Best Regards
+ Peter N=C3=B8rlund
 
 
---d6iqOn7HZPWKXx18
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Peter N=C3=B8rlund (2):
+      ipv4: L3 hash-based multipath
+      ipv4: ICMP packet inspection for multipath
 
-On Mon, Sep 14, 2015 at 01:22:12PM -0700, Oren Laskin wrote:
-> I had to undo this change on my Amada 370 based board.  It was causing
-> corrupt data to make it through on large downloads.  I'm using wget to get
-> the same 30MB file many times and the SHA would occasionally be different.
-> I tracked it down to this commit.  In it, I would find on the order of a
-> few hundred bytes to simply be wrong data.
-
-Hi Oren,
-
-Well, you are right. This patch actually introduces a pretty serious
-bug. I still don't understand how I missed that in a first place and
-I apologize for the inconvenience.
-
-Anyway, I am about to send a patch fixing the issue. Please, can you
-test it ?
-
-Thanks in advance,
-
-Simon
-
-> On Tue, Jul 21, 2015 at 12:30 AM, David Miller <davem@davemloft.net> wrot=
-e:
->=20
-> > From: Simon Guinot <simon.guinot@sequanux.org>
-> > Date: Sun, 19 Jul 2015 13:00:53 +0200
-> >
-> > > With the actual code, if a memory allocation error happens while
-> > > refilling a Rx descriptor, then the original Rx buffer is both passed
-> > > to the networking stack (in a SKB) and let in the Rx ring. This leads
-> > > to various kernel oops and crashes.
-> > >
-> > > As a fix, this patch moves Rx descriptor refilling ahead of building
-> > > SKB with the associated Rx buffer. In case of a memory allocation
-> > > failure, data is dropped and the original DMA buffer is put back into
-> > > the Rx ring.
-> > >
-> > > Signed-off-by: Simon Guinot <simon.guinot@sequanux.org>
-> > > Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP
-> > network unit")
-> > > Cc: <stable@vger.kernel.org> # v3.8+
-> > > Tested-by: Yoann Sculo <yoann@sculo.fr>
-> >
-> > Applied, thanks.
-> >
-> > _______________________________________________
-> > linux-arm-kernel mailing list
-> > linux-arm-kernel@lists.infradead.org
-> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> >
-
---d6iqOn7HZPWKXx18
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlX4gVIACgkQgtp0PDeOcDpYywCgogyrlKKKcipaiQiEZv26bVU9
-XUYAnRi+4MQEFZo1KxJB26jGelqJxKov
-=XInw
------END PGP SIGNATURE-----
-
---d6iqOn7HZPWKXx18--
+ include/net/ip_fib.h     |  11 +++-
+ include/net/route.h      |  12 +++-
+ net/ipv4/fib_semantics.c | 137 +++++++++++++++++++++++----------------=
+----
+ net/ipv4/icmp.c          |  16 +++++
+ net/ipv4/route.c         |  73 +++++++++++++++++++++--
+ 5 files changed, 177 insertions(+), 72 deletions(-)
