@@ -1,53 +1,60 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH 2/2] airo: Implement netif_carrier_on/off
-Date: Tue, 15 Sep 2015 17:18:09 +0200
-Message-ID: <1442330289-2907-2-git-send-email-linux@rainbow-software.org>
-References: <1442330289-2907-1-git-send-email-linux@rainbow-software.org>
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
+From: Roy Pledge <roy.pledge@freescale.com>
+Subject: RE: [v2 04/11] soc/fsl: Introduce drivers for the DPAA QMan
+Date: Tue, 15 Sep 2015 15:32:10 +0000
+Message-ID: <BN3PR0301MB1267B1FE0917FB456281983F8C5C0@BN3PR0301MB1267.namprd03.prod.outlook.com>
+References: <1439410497-19039-1-git-send-email-Roy.Pledge@freescale.com>
+ <1439410497-19039-5-git-send-email-Roy.Pledge@freescale.com>
+ <20150912011005.GA8796@home.buserror.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1442330289-2907-1-git-send-email-linux@rainbow-software.org>
+In-Reply-To: <20150912011005.GA8796@home.buserror.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add calls to netif_carrier_on and netif_carrier_off
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
----
- drivers/net/wireless/airo.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index a8f2767..629245c 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -3267,6 +3267,7 @@ static void airo_handle_link(struct airo_info *ai)
- 			wake_up_interruptible(&ai->thr_wait);
- 		} else
- 			airo_send_event(ai->dev);
-+		netif_carrier_on(ai->dev);
- 	} else if (!scan_forceloss) {
- 		if (auto_wep && !ai->expires) {
- 			ai->expires = RUN_AT(3*HZ);
-@@ -3277,7 +3278,9 @@ static void airo_handle_link(struct airo_info *ai)
- 		eth_zero_addr(wrqu.ap_addr.sa_data);
- 		wrqu.ap_addr.sa_family = ARPHRD_ETHER;
- 		wireless_send_event(ai->dev, SIOCGIWAP, &wrqu, NULL);
--	}
-+		netif_carrier_off(ai->dev);
-+	} else
-+		netif_carrier_off(ai->dev);
- }
- 
- static void airo_handle_rx(struct airo_info *ai)
-@@ -3613,6 +3616,7 @@ static void disable_MAC( struct airo_info *ai, int lock ) {
- 		return;
- 
- 	if (test_bit(FLAG_ENABLED, &ai->flags)) {
-+		netif_carrier_off(ai->dev);
- 		memset(&cmd, 0, sizeof(cmd));
- 		cmd.cmd = MAC_DISABLE; // disable in case already enabled
- 		issuecommand(ai, &cmd, &rsp);
--- 
-Ondrej Zary
+> -----Original Message-----
+> From: Wood Scott-B07421
+> Sent: Friday, September 11, 2015 9:10 PM
+> To: Pledge Roy-R01356 <roy.pledge@freescale.com>
+> Cc: linuxppc-dev@lists.ozlabs.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [v2 04/11] soc/fsl: Introduce drivers for the DPAA QMan
+> 
+> On Wed, Aug 12, 2015 at 04:14:50PM -0400, Roy Pledge wrote:
+> > +/* Lock/unlock frame queues, subject to the "LOCKED" flag. This is
+> > +about
+> > + * inter-processor locking only. Note, FQLOCK() is always called
+> > +either under a
+> > + * local_irq_save() or from interrupt context - hence there's no need
+> > +for irq
+> > + * protection (and indeed, attempting to nest irq-protection doesn't
+> > +work, as
+> > + * the "irq en/disable" machinery isn't recursive...). */ #define
+> > +FQLOCK(fq) \
+> > +	do { \
+> > +		struct qman_fq *__fq478 = (fq); \
+> > +		if (fq_isset(__fq478, QMAN_FQ_FLAG_LOCKED)) \
+> > +			spin_lock(&__fq478->fqlock); \
+> > +	} while (0)
+> > +#define FQUNLOCK(fq) \
+> > +	do { \
+> > +		struct qman_fq *__fq478 = (fq); \
+> > +		if (fq_isset(__fq478, QMAN_FQ_FLAG_LOCKED)) \
+> > +			spin_unlock(&__fq478->fqlock); \
+> > +	} while (0)
+> > +
+> 
+> I don't see QMAN_FQ_FLAG_LOCKED set anywhere.  What is the use case?
+
+The idea was to allow multiple threads to manipulate the state of a frame queue at the same time without clobbering each others changes since the operation is a read/modify/write.  I see two users of this flag in code that hasn't been submitted upstream yet, but I'm not sure if the use is required in those two instances either. At a glance it doesn't seem like it is needed but I would need to follow up with the users to make sure they aren't performing FQ management commands in multiple threads.
+
+> 
+> -Scott
