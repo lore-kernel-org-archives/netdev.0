@@ -1,59 +1,85 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] solos-pci: Increase headroom on received packets
-Date: Wed, 16 Sep 2015 12:32:03 +0100
-Message-ID: <1442403123.131189.70.camel@infradead.org>
+Subject: [PATCH v2] solos-pci: Increase headroom on received packets
+Date: Wed, 16 Sep 2015 12:35:00 +0100
+Message-ID: <1442403300.131189.73.camel@infradead.org>
 References: <1442399145.131189.56.camel@infradead.org>
 	 <1442400813.4116.48.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-BFe33wr0ldAIJTvsYgEd"
+	boundary="=-SbCaP9Gz9egbA7bDj/rl"
 Cc: netdev@vger.kernel.org, simon@fire.lp0.eu, guy@traverse.com.au,
 	linux-atm-general@lists.sourceforge.net
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51706 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:51732 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750989AbbIPLcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 07:32:08 -0400
+	with ESMTP id S1751839AbbIPLfF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 07:35:05 -0400
 In-Reply-To: <1442400813.4116.48.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-BFe33wr0ldAIJTvsYgEd
+--=-SbCaP9Gz9egbA7bDj/rl
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2015-09-16 at 03:53 -0700, Eric Dumazet wrote:
-> You should use netdev_alloc_skb() : This helper is better for rx skbs,
-> as it allows for better packing of frames in GRO or TCP stack.
+A comment in include/linux/skbuff.h says that:
 
-OK, thanks. I don't have a netdev (this is an ATM device) but I can use
-dev_alloc_skb().
+ * Various parts of the networking layer expect at least 32 bytes of
+ * headroom, you should not reduce this.
 
-> Also netdev_alloc_skb_ip_align() might handle the NET_IP_ALIGN stuff
-> for arches that care.
+This was demonstrated by a panic when handling fragmented IPv6 packets:
+http://marc.info/?l=3Dlinux-netdev&m=3D144236093519172&w=3D2
 
-I'd briefly considered NET_IP_ALIGN but decided against it because this
-isn't Ethernet and my hardware header is a nice sane 8 bytes, not 14.
+It's not entirely clear if that comment is still valid =E2=80=94 and if it =
+is,
+perhaps netif_rx() ought to be enforcing it with a warning.
 
-But actually, the primary use cases for this are PPPoATM =E2=80=94 with 2 b=
-ytes
-of PPP frame type, and PPPoE over BR2684 =E2=80=94 with 14 bytes of Etherne=
-t
-header. So NET_IP_ALIGN would actually make sense.
+But either way, it is rather stupid from a performance point of view
+for us to be receiving packets into a buffer which doesn't have enough
+room to prepend an Ethernet header =E2=80=94 it means that *every* incoming
+packet is going to be need to be reallocated. So let's fix that.
 
-Unfortunately the FPGA can't do DMA to unaligned addresses, so I can't
-do it in the DMA case. I can do it for the MMIO code path though (which
-I still haven't tested).
-
-I'll send a new patch in a moment...
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 74e18b0..3d7fb65 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -805,7 +805,12 @@ static void solos_bh(unsigned long card_arg)
+ 					continue;
+ 				}
+=20
+-				skb =3D alloc_skb(size + 1, GFP_ATOMIC);
++				/* Use netdev_alloc_skb() because it adds NET_SKB_PAD of
++				 * headroom, and ensures we can route packets back out an
++				 * Ethernet interface (for example) without having to
++				 * reallocate. Adding NET_IP_ALIGN also ensures that both
++				 * PPPoATM and PPPoEoBR2684 packets end up aligned. */
++				skb =3D netdev_alloc_skb_ip_align(NULL, size + 1);
+ 				if (!skb) {
+ 					if (net_ratelimit())
+ 						dev_warn(&card->dev->dev, "Failed to allocate sk_buff for RX\n");
+@@ -869,7 +874,10 @@ static void solos_bh(unsigned long card_arg)
+ 		/* Allocate RX skbs for any ports which need them */
+ 		if (card->using_dma && card->atmdev[port] &&
+ 		    !card->rx_skb[port]) {
+-			struct sk_buff *skb =3D alloc_skb(RX_DMA_SIZE, GFP_ATOMIC);
++			/* Unlike the MMIO case (qv) we can't add NET_IP_ALIGN
++			 * here; the FPGA can only DMA to addresses which are
++			 * aligned to 4 bytes. */
++			struct sk_buff *skb =3D dev_alloc_skb(RX_DMA_SIZE);
+ 			if (skb) {
+ 				SKB_CB(skb)->dma_addr =3D
+ 					dma_map_single(&card->dev->dev, skb->data,
 
 --=20
-dwmw2
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
 
---=-BFe33wr0ldAIJTvsYgEd
+--=-SbCaP9Gz9egbA7bDj/rl
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -146,18 +172,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTE2MTEzMjAzWjAjBgkqhkiG9w0BCQQxFgQUlLaaW5uZBdg2wG0PmSr/xeGjxvEw
+CQUxDxcNMTUwOTE2MTEzNTAwWjAjBgkqhkiG9w0BCQQxFgQUIqLC0JXL2znQ6aSyDiasPQQV4dsw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQAQS3EZAILqIVsrLcdsAbezJFYPPPA1hM2eYnx4l0+G1jY8mebwqfTwVDIH
-s3au1M+r+jsGjlMBz9PFDGOMLilJQM0yyG25mczsFhKegd5RCbierORLpv8eSMzeQQTnbQLcMqq4
-zYKZ163pxHAXsCsz+0LIqewgl+Sv3rd0mtkdjyDrxt81WV/Wj35kLAjGUkZv/vy6rTlFUTWV7J8a
-fO+biN3d7AYngRtprGXtrySG2nq6vMUvf02Kk5uz1F395b11Y6EmKUxfTawdabmK8HwJ+yX2ukN8
-EAg6fL/UJmaQH4kL6X/BhcPgm4Fn84mfA2xlhlBNsCrHLEOXzb8WNlDlAAAAAAAA
+hkiG9w0BAQEFAASCAQCM+ZhhX9aFzyCqpzSLZz11eAp7wGg5wGFVz2bmQoD9yQ6hj9IGOrS8T/eN
+yzSsmljvT2cEnQ3wjMhAPvdbph286zbPt3EEl7a2y8cNyi6MOUk/bca+4mrsDjW6mig3bCAeClIx
+datj6DSd0DOJ0xUrmhUKZ4Cg3N7b82YYKVprkN+Q6Prb/QHi4AkfiS6TI4FhntA41qbyfbV+F0qx
+1+sq/DY+p8GWiAdqmk+JzgPY6iqm/bImRAJWCUAtn93G55YS5hKGHKfb7ITIiKasp1ITliaWyLUb
++QY9DNZ+icK0jVRUgqrbOm+6TiHy1+HJ9/p1PuwumtiD6/51uhcIM7OJAAAAAAAA
 
 
---=-BFe33wr0ldAIJTvsYgEd--
+--=-SbCaP9Gz9egbA7bDj/rl--
