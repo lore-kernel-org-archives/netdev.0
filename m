@@ -1,63 +1,41 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 2/2] bonding: use l4 hash if available
-Date: Tue, 15 Sep 2015 17:15:34 -0700
-Message-ID: <CALx6S37WgoNp-mgSHFmDc0dW1ozKt-5kNV4+j4oPekebVz8JVQ@mail.gmail.com>
-References: <1442355868.4116.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S36gs8qC5UXjowoDShZif=81BMJQjUyR_mn4JTaH6xE43w@mail.gmail.com>
-	<1442361832.4116.21.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/18] fm10k: TRIVIAL fix typo in fm10k_netdev.c
+Date: Tue, 15 Sep 2015 17:36:40 -0700
+Message-ID: <1442363803-47237-16-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1442363803-47237-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:36095 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764AbbIPAPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 20:15:34 -0400
-Received: by ioii196 with SMTP id i196so215909279ioi.3
-        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 17:15:34 -0700 (PDT)
-In-Reply-To: <1442361832.4116.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:58335 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753298AbbIPAgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 20:36:50 -0400
+In-Reply-To: <1442363803-47237-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2015 at 5:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2015-09-15 at 16:45 -0700, Tom Herbert wrote:
->> > +       if (bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP34 &&
->> > +           skb->l4_hash)
->> > +                       return skb->hash;
->> > +
->> >         if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
->> >             !bond_flow_dissect(bond, skb, &flow))
->> >                 return bond_eth_hash(skb);
->> >
->> >
->> Ugh, bond_flow_dissect is yet another instance of customized flow
->> dissection! We should really clean this up. I suggest that in cases
->> were we want L4 hash a call to skb_get_hash should suffice. We can
->> create skb_get_l3hash when caller explicitly wants an L3 hash-- this
->> would return skb->hash if it's valid and skb->l4_hash is not set, else
->> call flow dissector with FLOW_DISSECTOR_F_STOP_AT_L3 and then do the
->> normal hash over flow keys (don't save result in skb->hash in this
->> case).
->
-> This code predates all the change you did recently ;)
->
-A more fundamental question is whether we can eliminate some of these
-hashing types (I see five of them in if_bonding.h). Is there any
-substantial difference between this and IPv4/v6 ECMP routing such that
-they shouldn't all have the same path selection modes?
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Tom
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> BTW, the simple xor weakness is showing up after
-> our change favoring even ports at connect() time, for a bonding device
-> with 2 or 4 slaves.
->
-> (commit 07f4c90062f8fc7c8c26f8f95324cbe8fa3145a5
-> "tcp/dccp: try to not exhaust ip_local_port_range in connect()")
->
->
->
->
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 3a6230b..639263d 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -1048,7 +1048,7 @@ void fm10k_restore_rx_state(struct fm10k_intfc *interface)
+ 					   vid, true, 0);
+ 	}
+ 
+-	/* update xcast mode before syncronizing addresses */
++	/* update xcast mode before synchronizing addresses */
+ 	hw->mac.ops.update_xcast_mode(hw, glort, xcast_mode);
+ 
+ 	/* synchronize all of the addresses */
+-- 
+2.4.3
