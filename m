@@ -1,52 +1,139 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/18] fm10k: don't store sw_vid at reset
-Date: Tue, 15 Sep 2015 17:36:36 -0700
-Message-ID: <1442363803-47237-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/18] ixgbe: Limit lowest interrupt rate for adaptive interrupt moderation to 12K
+Date: Tue, 15 Sep 2015 17:36:28 -0700
+Message-ID: <1442363803-47237-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1442363803-47237-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19234 "EHLO mga09.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:25583 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752903AbbIPAgt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Sep 2015 20:36:49 -0400
+	id S1752940AbbIPAgr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Sep 2015 20:36:47 -0400
 In-Reply-To: <1442363803-47237-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-If we store the sw_vid at reset of PF, then we accidentally prevent the
-VF from receiving the message to update its default VID. This only
-occurs if the VF is created before the PF has come up, which is the
-standard way of creating VFs when using the module parameter.
+This patch updates the lowest limit for adaptive interrupt interrupt
+moderation to roughly 12K interrupts per second.
 
-This fixes an issue where we request the incorrect MAC/VLAN
-combinations, and prevents us from accidentally reporting some frames as
-VLAN tagged.
+The way I came about reaching 12K as the desired interrupt rate is by
+testing with UDP flows.  Specifically I had a simple test that ran a
+netperf UDP_STREAM test at varying sizes.  What I found was as the packet
+sizes increased the performance fell steadily behind until we were only
+able to receive at ~4Gb/s with a message size of 65507.  A bit of digging
+found that we were dropping packets for the socket in the network stack,
+and looking at things further what I found was I could solve it by increasing
+the interrupt rate, or increasing the rmem_default/rmem_max.  What I found was
+that when the interrupt coalescing resulted in more data being processed
+per interrupt than could be stored in the socket buffer we started losing
+packets and the performance dropped.  So I reached 12K based on the
+following math.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+rmem_default = 212992
+skb->truesize = 2994
+212992 / 2994 = 71.14 packets to fill the buffer
+
+packet rate at 1514 packet size is 812744pps
+71.14 / 812744 = 87.9us to fill socket buffer
+
+>From there it was just a matter of choosing the interrupt rate and
+providing a bit of wiggle room which is why I decided to go with 12K
+interrupts per second as that uses a value of 84us.
+
+The data below is based on VM to VM over a direct assigned ixgbe interface.
+The test run was:
+	netperf -H <ip> -t UDP_STREAM"
+
+Socket  Message  Elapsed      Messages                   CPU      Service
+Size    Size     Time         Okay Errors   Throughput   Util     Demand
+bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+Before:
+212992   65507   60.00     1100662      0     9613.4     10.89    0.557
+212992           60.00      473474            4135.4     11.27    0.576
+
+After:
+212992   65507   60.00     1100413      0     9611.2     10.73    0.549
+212992           60.00      974132            8508.3     11.69    0.598
+
+Using bare metal the data is similar but not as dramatic as the throughput
+increases from about 8.5Gb/s to 9.5Gb/s.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_iov.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         | 3 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c     | 2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 4 ++--
+ 4 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-index 94571e6..0e25a80 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-@@ -228,9 +228,6 @@ int fm10k_iov_resume(struct pci_dev *pdev)
- 		hw->iov.ops.set_lport(hw, vf_info, i,
- 				      FM10K_VF_FLAG_MULTI_CAPABLE);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index edf1fb9..a699c99 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -539,8 +539,7 @@ struct hwmon_buff {
+ #define IXGBE_MIN_RSC_ITR	24
+ #define IXGBE_100K_ITR		40
+ #define IXGBE_20K_ITR		200
+-#define IXGBE_10K_ITR		400
+-#define IXGBE_8K_ITR		500
++#define IXGBE_12K_ITR		336
  
--		/* assign our default vid to the VF following reset */
--		vf_info->sw_vid = hw->mac.default_vid;
--
- 		/* mailbox is disconnected so we don't send a message */
- 		hw->iov.ops.assign_default_mac_vlan(hw, vf_info);
+ /* ixgbe_test_staterr - tests bits in Rx descriptor status and error fields */
+ static inline __le32 ixgbe_test_staterr(union ixgbe_adv_rx_desc *rx_desc,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index ab2edc8..94c4912 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2286,7 +2286,7 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 		adapter->tx_itr_setting = ec->tx_coalesce_usecs;
  
+ 	if (adapter->tx_itr_setting == 1)
+-		tx_itr_param = IXGBE_10K_ITR;
++		tx_itr_param = IXGBE_12K_ITR;
+ 	else
+ 		tx_itr_param = adapter->tx_itr_setting;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index 68e1e75..f3168bc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -866,7 +866,7 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
+ 	if (txr_count && !rxr_count) {
+ 		/* tx only vector */
+ 		if (adapter->tx_itr_setting == 1)
+-			q_vector->itr = IXGBE_10K_ITR;
++			q_vector->itr = IXGBE_12K_ITR;
+ 		else
+ 			q_vector->itr = adapter->tx_itr_setting;
+ 	} else {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c04480e..acb1b91 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2261,7 +2261,7 @@ static void ixgbe_update_itr(struct ixgbe_q_vector *q_vector,
+ 	/* simple throttlerate management
+ 	 *   0-10MB/s   lowest (100000 ints/s)
+ 	 *  10-20MB/s   low    (20000 ints/s)
+-	 *  20-1249MB/s bulk   (8000 ints/s)
++	 *  20-1249MB/s bulk   (12000 ints/s)
+ 	 */
+ 	/* what was last interrupt timeslice? */
+ 	timepassed_us = q_vector->itr >> 2;
+@@ -2350,7 +2350,7 @@ static void ixgbe_set_itr(struct ixgbe_q_vector *q_vector)
+ 		new_itr = IXGBE_20K_ITR;
+ 		break;
+ 	case bulk_latency:
+-		new_itr = IXGBE_8K_ITR;
++		new_itr = IXGBE_12K_ITR;
+ 		break;
+ 	default:
+ 		break;
 -- 
 2.4.3
