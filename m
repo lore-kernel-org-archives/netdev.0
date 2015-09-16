@@ -1,105 +1,75 @@
-From: Wengang Wang <wen.gang.wang@oracle.com>
-Subject: [PATCH] ip: find correct route for socket which is not bound to a device
-Date: Wed, 16 Sep 2015 14:34:15 +0800
-Message-ID: <1442385255-27014-1-git-send-email-wen.gang.wang@oracle.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH v2 net-next 2/2] bpf: add bpf_redirect() helper
+Date: Tue, 15 Sep 2015 23:45:52 -0700
+Message-ID: <55F91020.4030005@gmail.com>
+References: <1442383543-4720-1-git-send-email-ast@plumgrid.com> <1442383543-4720-3-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: wen.gang.wang@oracle.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:43256 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752226AbbIPGc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 02:32:56 -0400
-Received: from userv0022.oracle.com (userv0022.oracle.com [156.151.31.74])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t8G6Wtjm028266
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 06:32:56 GMT
-Received: from aserv0122.oracle.com (aserv0122.oracle.com [141.146.126.236])
-	by userv0022.oracle.com (8.13.8/8.13.8) with ESMTP id t8G6WtZ0019225
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 06:32:55 GMT
-Received: from abhmp0006.oracle.com (abhmp0006.oracle.com [141.146.116.12])
-	by aserv0122.oracle.com (8.13.8/8.13.8) with ESMTP id t8G6Wsjb011706
-	for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 06:32:55 GMT
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:33077 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752031AbbIPGoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 02:44:06 -0400
+Received: by oixx17 with SMTP id x17so113946806oix.0
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 23:44:04 -0700 (PDT)
+In-Reply-To: <1442383543-4720-3-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46or multi-cast, we should find valid route(thus get the meaniful pmtu=
-) for
-the package on the socket which is not bound to a device(sk_bound_dev_i=
-f
-being 0) too.
+On 15-09-15 11:05 PM, Alexei Starovoitov wrote:
+> Existing bpf_clone_redirect() helper clones skb before redirecting
+> it to RX or TX of destination netdev.
+> Introduce bpf_redirect() helper that does that without cloning.
+> 
+> Benchmarked with two hosts using 10G ixgbe NICs.
+> One host is doing line rate pktgen.
+> Another host is configured as:
+> $ tc qdisc add dev $dev ingress
+> $ tc filter add dev $dev root pref 10 u32 match u32 0 0 flowid 1:2 \
+>    action bpf run object-file tcbpf1_kern.o section clone_redirect_xmit drop
+> so it receives the packet on $dev and immediately xmits it on $dev + 1
+> The section 'clone_redirect_xmit' in tcbpf1_kern.o file has the program
+> that does bpf_clone_redirect() and performance is 2.0 Mpps
+> 
+> $ tc filter add dev $dev root pref 10 u32 match u32 0 0 flowid 1:2 \
+>    action bpf run object-file tcbpf1_kern.o section redirect_xmit drop
+> which is using bpf_redirect() - 2.4 Mpps
+> 
+> and using cls_bpf with integrated actions as:
+> $ tc filter add dev $dev root pref 10 \
+>   bpf run object-file tcbpf1_kern.o section redirect_xmit integ_act classid 1
+> performance is 2.5 Mpps
+> 
+> To summarize:
+> u32+act_bpf using clone_redirect - 2.0 Mpps
+> u32+act_bpf using redirect - 2.4 Mpps
+> cls_bpf using redirect - 2.5 Mpps
+> 
+> For comparison linux bridge in this setup is doing 2.1 Mpps
+> and ixgbe rx + drop in ip_rcv - 7.8 Mpps
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+> This approach is using per_cpu scratch area to store ifindex and flags.
+> The other alternatives discussed at plumbers are slower and more intrusive.
+> v1->v2: dropped redundant iff_up check
+> 
+>  include/net/sch_generic.h    |    1 +
+>  include/uapi/linux/bpf.h     |    8 ++++++++
+>  include/uapi/linux/pkt_cls.h |    1 +
+>  net/core/dev.c               |    8 ++++++++
+>  net/core/filter.c            |   44 ++++++++++++++++++++++++++++++++++++++++++
+>  net/sched/act_bpf.c          |    1 +
+>  net/sched/cls_bpf.c          |    1 +
+>  samples/bpf/bpf_helpers.h    |    4 ++++
+>  samples/bpf/tcbpf1_kern.c    |   24 ++++++++++++++++++++++-
+>  9 files changed, 91 insertions(+), 1 deletion(-)
+> 
 
-=46rom man page of socket(7)
-
-       SO_BINDTODEVICE
-		Bind this socket to a particular device like =E2=80=9Ceth0=E2=80=9D, =
-as
-		specified in the passed interface name.  If the name is an
-		empty string or the option length is zero, the socket
-		device binding is removed. The  passed  option is  a
-		variable-length null-terminated interface name string with
-		the maximum size of IFNAMSIZ.  If a socket is bound to an
-		interface, only packets received from that particular
-		interface are processed by the socket. Note that this works
-		only for some socket types, particularly AF_INET sockets.
-		It is not supported for packet sockets (use normal bind(2)
-		there).
-
-The man page doesn't say when socket not bound packages won't be routed=
-=2E
-
-A problem is hit that all multi-cast packages dropped by kernel(from se=
-nder
-host). The lower layer is IPoIB with MTU being 7000. And I was sending =
-4096
-length multi-cast  package. In side IPoIB the first send is dropped bec=
-ause
-is exeeding the internal package size limitation mcast_mtu which is 204=
-4.
-So IPoIB calls ip_rt_update_pmtu (indirectly) trying to set path mtu. A
-correct route is configured for the multi-cast, so the setting of pmtu
-cucceeded and the next multi-cast package(to the same target) is expect=
-ed
-to succeed(it would be well fragmented accroding to the pmtu I just set=
-).
-But actually the second and later multi-cast packages got dropped too. =
-And
-the reason is that the neighor looking up(fib_lookup) is skipped becaus=
-e of
-the socket is not bound to device(sk_bound_dev_if being 0). After appli=
-ed
-the patch I proposed here, it works fine.
-
-Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
----
- net/ipv4/route.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 5f4a556..032481a 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2097,7 +2097,7 @@ struct rtable *__ip_route_output_key(struct net *=
-net, struct flowi4 *fl4)
- 			 */
-=20
- 			fl4->flowi4_oif =3D dev_out->ifindex;
--			goto make_route;
-+			goto lookup;
- 		}
-=20
- 		if (!(fl4->flowi4_flags & FLOWI_FLAG_ANYSRC)) {
-@@ -2153,6 +2153,7 @@ struct rtable *__ip_route_output_key(struct net *=
-net, struct flowi4 *fl4)
- 		goto make_route;
- 	}
-=20
-+lookup:
- 	if (fib_lookup(net, fl4, &res, 0)) {
- 		res.fi =3D NULL;
- 		res.table =3D NULL;
---=20
-2.1.0
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
