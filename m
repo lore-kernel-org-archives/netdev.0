@@ -1,53 +1,94 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: IPv6 routing/fragmentation panic
-Date: Wed, 16 Sep 2015 17:30:56 +0200
-Message-ID: <20150916153056.GR24810@breakpoint.cc>
-References: <1442332400.131189.21.camel@infradead.org>
- <20150915234848.GO24810@breakpoint.cc>
- <1442398145.131189.46.camel@infradead.org>
- <20150916132733.GQ24810@breakpoint.cc>
- <1442412054.131189.97.camel@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
-	johannes@sipsolutions.net
-To: David Woodhouse <dwmw2@infradead.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: Initialize table in fib result
+Date: Wed, 16 Sep 2015 09:38:45 -0600
+Message-ID: <1442417925-51597-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: sergey.senozhatsky.work@gmail.com, richard.alpe@ericsson.com,
+	festevam@gmail.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39087 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752326AbbIPPa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 11:30:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1442412054.131189.97.camel@infradead.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:33940 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648AbbIPPiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 11:38:52 -0400
+Received: by igcpb10 with SMTP id pb10so37553647igc.1
+        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 08:38:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse <dwmw2@infradead.org> wrote:
-> >                         if (frag->len > mtu ||
-> >                             ((frag->len & 7) && frag->next) ||
-> > -                           skb_headroom(frag) < hlen)
-> > +                           skb_headroom(frag) < (hlen + hroom))
-> >                                 goto slow_path_clean;
-> >  
-> >                         /* Partially cloned skb? */
-> 
-> My test is 'ping -s 2000', and I end up with a fragment of 1280 bytes
-> followed by a fragment of 776 bytes.
-> 
-> The test cited above is only actually running on the latter fragment
-> (which for some reason is fine and has headroom of 58 bytes).
-> 
-> The first, larger, fragment isn't being checked. And that's the one
-> with only 10 bytes of headroom.
+Sergey, Richard and Fabio reported an oops in ip_route_input_noref. e.g., from Richard:
 
-Thanks for this detailed analysis.
-I've sent a patch that should address all of these issues.
+[    0.877040] BUG: unable to handle kernel NULL pointer dereference at 0000000000000056
+[    0.877597] IP: [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
+[    0.877597] PGD 3fa14067 PUD 3fa6e067 PMD 0
+[    0.877597] Oops: 0000 [#1] SMP
+[    0.877597] Modules linked in: virtio_net virtio_pci virtio_ring virtio
+[    0.877597] CPU: 1 PID: 119 Comm: ifconfig Not tainted 4.2.0+ #1
+[    0.877597] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[    0.877597] task: ffff88003fab0bc0 ti: ffff88003faa8000 task.ti: ffff88003faa8000
+[    0.877597] RIP: 0010:[<ffffffff8155b5e2>]  [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
+[    0.877597] RSP: 0018:ffff88003ed03ba0  EFLAGS: 00010202
+[    0.877597] RAX: 0000000000000046 RBX: 00000000ffffff8f RCX: 0000000000000020
+[    0.877597] RDX: ffff88003fab50b8 RSI: 0000000000000200 RDI: ffffffff8152b4b8
+[    0.877597] RBP: ffff88003ed03c50 R08: 0000000000000000 R09: 0000000000000000
+[    0.877597] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88003fab6f00
+[    0.877597] R13: ffff88003fab5000 R14: 0000000000000000 R15: ffffffff81cb5600
+[    0.877597] FS:  00007f6de5751700(0000) GS:ffff88003ed00000(0000) knlGS:0000000000000000
+[    0.877597] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[    0.877597] CR2: 0000000000000056 CR3: 000000003fa6d000 CR4: 00000000000006e0
+[    0.877597] Stack:
+[    0.877597]  0000000000000000 0000000000000046 ffff88003fffa600 ffff88003ed03be0
+[    0.877597]  ffff88003f9e2c00 697da8c0017da8c0 ffff880000000000 000000000007fd00
+[    0.877597]  0000000000000000 0000000000000046 0000000000000000 0000000400000000
+[    0.877597] Call Trace:
+[    0.877597]  <IRQ>
+[    0.877597]  [<ffffffff812bfa1f>] ? cpumask_next_and+0x2f/0x40
+[    0.877597]  [<ffffffff8158e13c>] arp_process+0x39c/0x690
+[    0.877597]  [<ffffffff8158e57e>] arp_rcv+0x13e/0x170
+[    0.877597]  [<ffffffff8151feec>] __netif_receive_skb_core+0x60c/0xa00
+[    0.877597]  [<ffffffff81515795>] ? __build_skb+0x25/0x100
+[    0.877597]  [<ffffffff81515795>] ? __build_skb+0x25/0x100
+[    0.877597]  [<ffffffff81521ff6>] __netif_receive_skb+0x16/0x70
+[    0.877597]  [<ffffffff81522078>] netif_receive_skb_internal+0x28/0x90
+[    0.877597]  [<ffffffff8152288f>] napi_gro_receive+0x7f/0xd0
+[    0.877597]  [<ffffffffa0017906>] virtnet_receive+0x256/0x910 [virtio_net]
+[    0.877597]  [<ffffffffa0017fd8>] virtnet_poll+0x18/0x80 [virtio_net]
+[    0.877597]  [<ffffffff815234cd>] net_rx_action+0x1dd/0x2f0
+[    0.877597]  [<ffffffff81053228>] __do_softirq+0x98/0x260
+[    0.877597]  [<ffffffff8164969c>] do_softirq_own_stack+0x1c/0x30
 
-Turns out that all tests are wrong in your case.
+The root cause is use of res.table uninitialized.
 
-ip6_fragment doesn't expand headroom, since this skb had the ipv6
-fragment header pulled, so that part thinks there are 18 bytes
-available (we later push the frag header back when sending fragments).
+Thanks to Nikolay for noticing the uninitialized use amongst the maze of
+gotos.
 
-The 'skb_headroom(frag) < hlen))' is wrong since it neither accounts for
-device header length nor the fragment header that we need to push.
+Fixes: b7503e0cdb5d ("net: Add FIB table id to rtable")
+Reported-by: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Reported-by: Richard Alpe <richard.alpe@ericsson.com>
+Reported-by: Fabio Estevam <festevam@gmail.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/route.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index da427a4a33fe..80f7c5b7b832 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1712,6 +1712,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		goto martian_source;
+ 
+ 	res.fi = NULL;
++	res.table = NULL;
+ 	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
+ 		goto brd_input;
+ 
+@@ -1834,6 +1835,7 @@ out:	return err;
+ 	RT_CACHE_STAT_INC(in_no_route);
+ 	res.type = RTN_UNREACHABLE;
+ 	res.fi = NULL;
++	res.table = NULL;
+ 	goto local_input;
+ 
+ 	/*
+-- 
+2.3.2 (Apple Git-55)
