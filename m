@@ -1,59 +1,90 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: [PATCH V3 2/2] debugfs: don't assume sizeof(bool) to be 4 bytes
-Date: Wed, 16 Sep 2015 09:24:59 +0200
-Message-ID: <20150916072459.GC4113@nazgul.tnic>
-References: <9b705747a138c96c26faee5218f7b47403195b28.1442305897.git.viresh.kumar@linaro.org>
- <27d37898b4be6b9b9f31b90135f8206ca079a868.1442305897.git.viresh.kumar@linaro.org>
- <1442313464.1914.21.camel@sipsolutions.net>
- <20150915110447.GI6350@linux>
- <20150915094509.46cca84d@gandalf.local.home>
- <CA+55aFxVQ9jD=jUqPZt76EMe_Tb-_SA8v=rOHeR9Ljdsc6=xGQ@mail.gmail.com>
- <20150915134732.7ff50d03@gandalf.local.home>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: NFS/TCP/IPv6 acting strangely in 4.2
+Date: Wed, 16 Sep 2015 09:31:15 +0200
+Message-ID: <20150916073115.GB29740@1wt.eu>
+References: <20150911113839.GO21084@n2100.arm.linux.org.uk> <1442386435.3756.282.camel@vitec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Viresh Kumar <viresh.kumar@linaro.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linaro-kernel@lists.linaro.org" <linaro-kernel@lists.linaro.org>,
-	Rafael Wysocki <rjw@rjwysocki.net>,
-	"sboyd@codeaurora.org" <sboyd@codeaurora.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, Mark Brown <broonie@kernel.org>,
-	Akinobu Mita <akinobu.mita@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..." <alsa-devel@alsa-project.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Arik Nemtsov <arik@wizery.com>,
-	"open list:QUALCOMM ATHEROS ATH10K WIRELESS DRIVER" <ath10k@lists.infradead.org>,
-	"open list:QUALCOMM ATHEROS ATH9K WIRELESS DRIVER" <ath9k-devel@lists.ath9k.org>,
-	"Altman, A
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"trond.myklebust@primarydata.com" <trond.myklebust@primarydata.com>,
+	"anna.schumaker@netapp.com" <anna.schumaker@netapp.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Damien =?iso-8859-1?Q?Th=E9bault?= <damien.thebault@vitec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:13339 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753064AbbIPHcL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Sep 2015 03:32:11 -0400
 Content-Disposition: inline
-In-Reply-To: <20150915134732.7ff50d03@gandalf.local.home>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1442386435.3756.282.camel@vitec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 15, 2015 at 01:47:32PM -0400, Steven Rostedt wrote:
-> What do others think when there's a change that goes across the board
-> this much? BCC OK with you, as just an FYI, I'm doing this? Or should
-> just the lists be enough and if you don't see it, too bad?
+Hi,
 
-Bcc sounds good to me.
+On Wed, Sep 16, 2015 at 06:53:57AM +0000, Damien Th=E9bault wrote:
+> On Fri, 2015-09-11 at 12:38 +0100, Russell King - ARM Linux wrote:
+> > I have a recent Marvell Armada 388 board here which uses the mvneta
+> > driver.  I'm seeing some weird effects with NFS with it acting as a
+> > client.
+>=20
+> Hello,
+>=20
+> I'm upgrading a Marvelle Armada 370 board using the mvneta driver fro=
+m
+> 4.0 to 4.2 and noticed issues with NFS booting.
+> Basically, most of the time init returns with an error code, or
+> programs segfault or throw illegal instructions.
+>=20
+> Since it worked fine on 4.0 I bisected until I found commit
+> a84e32894191cfcbffa54180d78d7d4654d56c20 "net: mvneta: fix refilling
+> for Rx DMA buffers".
+>=20
+> If I revert this commit, everything seems to get back to normal.
+> Could you try it ? The two issues look very similar.
 
-(Let's see how many bounces I get when I reply to such a huge CC list.
-:-))
+I'm not sure but I'm seeing that the accounting was changed by this
+patch without being certain of the implications; if the revert above
+works, it would be nice to try to only apply this just to see if
+that's indeed an accounting error or not :
 
--- 
-Regards/Gruss,
-    Boris.
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethern=
+et/marvell/mvneta.c
+index 62e48bc..4205867 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1463,6 +1463,7 @@ static int mvneta_rx(struct mvneta_port *pp, int =
+rx_todo,
+ {
+ 	struct net_device *dev =3D pp->dev;
+ 	int rx_done;
++	int missed =3D 0;
+ 	u32 rcvd_pkts =3D 0;
+ 	u32 rcvd_bytes =3D 0;
+=20
+@@ -1527,6 +1528,7 @@ static int mvneta_rx(struct mvneta_port *pp, int =
+rx_todo,
+ 		if (err) {
+ 			netdev_err(dev, "Linux processing - Can't refill\n");
+ 			rxq->missed++;
++			missed++;
+ 			goto err_drop_frame;
+ 		}
+=20
+@@ -1561,7 +1563,7 @@ static int mvneta_rx(struct mvneta_port *pp, int =
+rx_todo,
+ 	}
+=20
+ 	/* Update rxq management counters */
+-	mvneta_rxq_desc_num_update(pp, rxq, rx_done, rx_done);
++	mvneta_rxq_desc_num_update(pp, rxq, rx_done, rx_done - missed);
+=20
+ 	return rx_done;
+ }
 
-ECO tip #101: Trim your mails when you reply.
---
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards,
+Willy
