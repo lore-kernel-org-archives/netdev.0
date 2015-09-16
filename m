@@ -1,98 +1,132 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH RFC 0/3] Allow postponed netfilter handling for socket
- matches
-Date: Wed, 16 Sep 2015 23:21:00 +0200
-Message-ID: <20150916212100.GT24810@breakpoint.cc>
-References: <1442418180-14322-1-git-send-email-daniel@zonque.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+Date: Wed, 16 Sep 2015 14:38:58 -0700
+Message-ID: <55F9E172.2040008@gmail.com>
+References: <1442418625-11805-1-git-send-email-vkuznets@redhat.com>
+ <BN1PR0301MB0770C47D37D272F5A28CD1DECA5B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB9800B@AcuExch.aculab.com>
+ <BY2PR0301MB16548B482FF9E0F4D82FC2C8A05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, daniel@iogearbox.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	fw@strlen.de, balazs.scheidler@balabit.com
-To: Daniel Mack <daniel@zonque.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1442418180-14322-1-git-send-email-daniel@zonque.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jason Wang <jasowang@redhat.com>
+To: KY Srinivasan <kys@microsoft.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	Vitaly Kuznetsov <vkuznets@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BY2PR0301MB16548B482FF9E0F4D82FC2C8A05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Mack <daniel@zonque.org> wrote:
-> I'm re-addressing the issue of matching socket meta information for
-> non-established sockets that has been discussed a while ago:
-> 
->   http://article.gmane.org/gmane.comp.security.firewalls.netfilter.devel/56877
-> 
-> Being able to reliably match on net_cls cgroup ids is crucial in
-> order to build a per-application or per-container firewall rules
-> which don't leak ingress packets. Such a feature would be very
-> useful to have.
+On 09/16/2015 10:55 AM, KY Srinivasan wrote:
+>
+>> -----Original Message-----
+>> From: David Laight [mailto:David.Laight@ACULAB.COM]
+>> Sent: Wednesday, September 16, 2015 9:25 AM
+>> To: Haiyang Zhang <haiyangz@microsoft.com>; Vitaly Kuznetsov
+>> <vkuznets@redhat.com>; netdev@vger.kernel.org
+>> Cc: David S. Miller <davem@davemloft.net>; linux-kernel@vger.kernel.org;
+>> KY Srinivasan <kys@microsoft.com>; Jason Wang <jasowang@redhat.com>
+>> Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-
+>> V
+>>
+>> From: Haiyang Zhang
+>>> Sent: 16 September 2015 17:09
+>>>> -----Original Message-----
+>>>> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+>>>> Sent: Wednesday, September 16, 2015 11:50 AM
+>>>> To: netdev@vger.kernel.org
+>>>> Cc: David S. Miller <davem@davemloft.net>; linux-
+>> kernel@vger.kernel.org;
+>>>> KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
+>>>> <haiyangz@microsoft.com>; Jason Wang <jasowang@redhat.com>
+>>>> Subject: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-
+>> V
+>>>> Commit b08cc79155fc26d0d112b1470d1ece5034651a4b ("hv_netvsc:
+>> Eliminate
+>>>>   memory allocation in the packet send path") introduced skb headroom
+>>>> request for Hyper-V netvsc driver:
+>>>>
+>>>>         max_needed_headroom = sizeof(struct hv_netvsc_packet) +
+>>>>                                 sizeof(struct rndis_message) +
+>>>>                                 NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE +
+>>>>                                 NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE;
+>>>>         ...
+>>>>         net->needed_headroom = max_needed_headroom;
+>>>>
+>>>> max_needed_headroom is 220 bytes, it significantly exceeds the
+>>>> LL_MAX_HEADER setting. This causes each skb to be cloned on send
+>> path,
+>>>> e.g. for IPv4 case we fall into the following clause
+>>>> (ip_finish_output2()):
+>>>>
+>>>> if (unlikely(skb_headroom(skb) < hh_len && dev->header_ops)) {
+>>>>      ...
+>>>>      skb2 = skb_realloc_headroom(skb, LL_RESERVED_SPACE(dev));
+>>>>      ...
+>>>> }
+>>>>
+>>>> leading to a significant performance regression. Increase
+>> LL_MAX_HEADER
+>>>> to make it suitable for netvsc, make it 224 to be 16-aligned.
+>>>> Alternatively we could (partially) revert the commit which introduced
+>>>> skb
+>>>> headroom request restoring manual memory allocation on transmit path.
+>>>>
+>>>> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+>>>> ---
+>>>>   include/linux/netdevice.h | 4 +++-
+>>>>   1 file changed, 3 insertions(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>>> index 88a0069..7233790 100644
+>>>> --- a/include/linux/netdevice.h
+>>>> +++ b/include/linux/netdevice.h
+>>>> @@ -132,7 +132,9 @@ static inline bool dev_xmit_complete(int rc)
+>>>>    *	used.
+>>>>    */
+>>>>
+>>>> -#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+>>>> +#if IS_ENABLED(CONFIG_HYPERV_NET)
+>>>> +# define LL_MAX_HEADER 224
+>>>> +#elif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+>>>>   # if defined(CONFIG_MAC80211_MESH)
+>>>>   #  define LL_MAX_HEADER 128
+>>>>   # else
+>>> Thanks for the patch.
+>>> To avoid we forget to update that 224 number when we add more things
+>>> into netvsc header, I suggest that we define a macro in netdevice.h such
+>>> as:
+>>> #define HVNETVSC_MAX_HEADER 224
+>>> #define LL_MAX_HEADER HVNETVSC_MAX_HEADER
+>>>
+>>> And, put a note in netvsc code saying the header reservation shouldn't
+>>> exceed HVNETVSC_MAX_HEADER, or you need to update
+>> HVNETVSC_MAX_HEADER.
+>>
+>> Am I right in thinking this is adding an extra 96 unused bytes to the front
+>> of almost all skb just so that hyper-v can make its link level header
+>> contiguous with whatever follows (IP header ?).
+>>
+>> Doesn't sound ideal.
+> Remote NDIS is the protocol used to send packets from the guest to the host. Every packet
+> needs to be decorated with the RNDIS header and the maximum room needed for the RNDIS
+> header is the hreadroom we want.
 
-Could you clarify what 'which don't leak ingress packets' means?
+I think we get that.  The question is does the Remote NDIS header and 
+packet info actually need to be a part of the header data?  I would 
+argue that it probably doesn't.
 
-> A previous attempt to fix the currently existing issues was to call
-> out to the early demuxing helper functions from the meta matching
-> callbacks, but that doesn't suffice because it doesn't address the
-> case of multicast UDP and other, more complex lookup methods
-> implemented in various protocol handlers.
+So for example in netvsc_start_xmit it looks like you are calling 
+init_page_array in order to populate a set of page buffers, but the 
+first buffer for the Remote NDIS protocol is populated as a separate 
+page and offset.  As such it doesn't seem like it necessarily needs to 
+be a part of the header data but could be maintained perhaps in a 
+separate ring buffer, or perhaps just be a separate page that you break 
+up to use for each header.
 
-Yes, but see below.
-
-> This patch set outlines a different approach by adding a flag to
-> 'struct sk_buff' called 'nf_postponed'. This flag is set by
-> nft_meta_get_eval() in case a decision cannot be made due to a missing
-> skb->sk. skbs flagged that way will then be ran through the netfilter
-> chain processor again after the protocol handlers did the real socket
-> lookup. A small addition to 'struct nft_pktinfo' is needed so that the
-> matching callbacks can access the socket that was passed into
-> nf_hook().
-> 
-> Note that the new flag does not actually bloat 'struct skb_buff',
-> because it still fits into the 'flags1' bitfield. Also, the extra
-> netfilter chain iteration will not be done by any subsequent packet in
-> the same stream, as for those, the early demux code will set skb->sk.
-> 
-> The patch set is obviously not yet finished, because a lot more
-> protocol handlers need to be patched. Right now, I only addressed
-> tcp_ipv4. Before I do that, I want to get some feedback on the
-> approach, so please let me know what you think.
-
-I think there are several issues.
-
-implementation problems:
-- i'm not sure its legal to call the hook input with skb->sk locked,
-  some matches might want to aquire it.
-- what makes NFT_META_CGROUP special? (or was that just an example?)
-
-design issues:
-The assumption seems to be that a given skb can always be mapped to a
-particular socket, and hence a cgroup.
-
-Thats not necessarily the case, e.g. with broad-/multicasting or when
-the socket is e.g. in timewait state.
-
-Some skbs will now travel INPUT hooks twice.
-
-And once you'd extend this so that we re-invoke nf hooks for mcast
-packets, for each socket they've been received on, you change netfilter
-behaviour again (one skb, one traversal -> n traversals of ruleset, one
-for each sk).
-
-I think that this makes it a non-starter, sorry.
-
-I would much rather see nft_demux_{udp,tcp,sctp,dccp,...}.c which moves
-early-demux-esque code into the nft ruleset.
-
-Then you could do something like
-
-nft add rule ip filter input meta l4proto tcp demux meta cgroup 42
-
-The caveat being that even in this case we cannot guarantee
-that skb->sk is set afterwards, or that a cgroup can be derived from it.
-
-Iff you absolutely need this, I'd seriously entertain the idea of adding
-NFPROTO_L4_TCP, etc, ... or, maybe better, allow to attach nft ruleset
-as a socket filter.
-
-But really, at that point, a much better question would be wheter net
-cgroups are the answer to whatever the question was, or what problem we
-are attempting to address here...
+- Alex
