@@ -1,38 +1,46 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man ip-link: Fix wording in VLAN reorder_hdr explanation
-Date: Wed, 16 Sep 2015 19:55:19 +0300
-Message-ID: <1442422519-12679-1-git-send-email-vadim4j@gmail.com>
-Cc: jgh@redhat.com, Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH] man ip-link: Add more explanation about vlan reordering
+Date: Wed, 16 Sep 2015 19:58:01 +0300
+Message-ID: <20150916165801.GA12824@angus-think.lan>
+References: <1439839344-12772-1-git-send-email-vadim4j@gmail.com>
+ <55DDDAF4.30904@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Jeremy Harris <jgh@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35541 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbbIPQ6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 12:58:37 -0400
-Received: by wicge5 with SMTP id ge5so83515221wic.0
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 09:58:36 -0700 (PDT)
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:33044 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753217AbbIPRBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 13:01:18 -0400
+Received: by wiclk2 with SMTP id lk2so82633323wic.0
+        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 10:01:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <55DDDAF4.30904@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+On Wed, Aug 26, 2015 at 04:27:48PM +0100, Jeremy Harris wrote:
+> On 17/08/15 20:22, Vadim Kochan wrote:
+> > +.BR reorder_hdr " is " on
+> > +then VLAN header will be not inserted immediately but only before passing to the
+> > +physical device (if this device does not support VLAN offloading), the similar
+> > +on the RX direction - by default the packet will be untagged before being
+> > +received by VLAN device. Reordering allows to accelerate tagging on egress and
+> > +to hide VLAN header on ingress so the packet looks like regular Ethernet packet,
+> > +at the same time it might be confusing while the packet sniffing as the VLAN header
+>                                           ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 
+> Does not read well.  "for packet capture" perhaps?
+> -- 
+> Jeremy
+> 
+> 
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- man/man8/ip-link.8.in | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Jeremy,
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 1896eb6..4928249 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -327,7 +327,7 @@ physical device (if this device does not support VLAN offloading), the similar
- on the RX direction - by default the packet will be untagged before being
- received by VLAN device. Reordering allows to accelerate tagging on egress and
- to hide VLAN header on ingress so the packet looks like regular Ethernet packet,
--at the same time it might be confusing while the packet sniffing as the VLAN header
-+at the same time it might be confusing for packet capture as the VLAN header
- does not exist within the packet.
- 
- VLAN offloading can be checked by
--- 
-2.4.2
+Thanks for you comment, I have sent a patch, let me know if it is correct now.
+And sorry for so late response.
+
+Thanks,
+Vadim Kochan
