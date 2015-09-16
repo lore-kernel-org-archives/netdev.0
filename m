@@ -1,70 +1,88 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: IPv6 routing/fragmentation panic
-Date: Wed, 16 Sep 2015 11:09:05 +0100
-Message-ID: <1442398145.131189.46.camel@infradead.org>
-References: <1442332400.131189.21.camel@infradead.org>
-	 <20150915234848.GO24810@breakpoint.cc>
+Subject: [PATCH] solos-pci: Increase headroom on received packets
+Date: Wed, 16 Sep 2015 11:25:45 +0100
+Message-ID: <1442399145.131189.56.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-UFCsdIvTVKbaJCm+lXoq"
-Cc: netdev <netdev@vger.kernel.org>, johannes@sipsolutions.net
-To: Florian Westphal <fw@strlen.de>
+	boundary="=-r8P+CyK1KM6OptLWNgiV"
+Cc: simon@fire.lp0.eu, guy@traverse.com.au,
+	linux-atm-general@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51142 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:51259 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753885AbbIPKJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 06:09:08 -0400
-In-Reply-To: <20150915234848.GO24810@breakpoint.cc>
+	with ESMTP id S1754803AbbIPKZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 06:25:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-UFCsdIvTVKbaJCm+lXoq
+--=-r8P+CyK1KM6OptLWNgiV
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2015-09-16 at 01:48 +0200, Florian Westphal wrote:
->=20
-> What I don't understand is why you see this with fragmented ipv6=20
-> packets only (and not with all ipv6 forwarded skbs).
->=20
-> Something like this copy-pastry from ip_finish_output2 should fix it:
+A comment in include/linux/skbuff.h says that:
 
-That works; thanks.
+ * Various parts of the networking layer expect at least 32 bytes of
+ * headroom, you should not reduce this.
 
-Tested-by: David Woodhouse <David.Woodhouse@intel.com>
+This was demonstrated by a panic when handling fragmented IPv6 packets:
+http://marc.info/?l=3Dlinux-netdev&m=3D144236093519172&w=3D2
 
-A little extra debugging output shows that the offending fragments were
-arriving here with skb_headroom(skb)=3D=3D10. Which is reasonable, being
-the Solos ADSL card's header of 8 bytes followed by 2 bytes of PPP
-frame type.
+It's not entirely clear if that comment is still valid =E2=80=94 and if it =
+is,
+perhaps netif_rx() ought to be enforcing it with a warning.
 
-The non-fragmented packets, on the other hand, are arriving with a
-headroom of 42 bytes. Could something else already have reallocated
-them before they get that far? (Do we have any way to gather statistics
-on such reallocations? It seems that might be useful for performance
-investigation.)
+But either way, it is rather stupid from a performance point of view
+for us to be receiving packets into a buffer which doesn't have enough
+room to prepend an Ethernet header =E2=80=94 it means that *every* incoming
+packet is going to be need to be reallocated. So let's fix that.
 
-Johannes and I were talking on IRC yesterday about trying to make this
-kind of thing easier to reproduce without odd hardware. We postulated a
-skb_torture() function which, when an appropriate debugging option was
-enabled, would randomly screw around with the skb in various
-interesting ways =E2=80=94 shifting the data down so that there's no headro=
-om,
-deliberately making it *non-linear*, temporarily cloning it and freeing
-the clone a couple of seconds later, etc.
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---=20
+Tested in the DMA code path; I don't believe the DMA-capable devices
+can still be used in MMIO mode. Simon, Guy, would you be able to test
+the MMIO version?
 
-Then we could insert calls to skb_torture() in interesting places like
-netif_rx(), ip6_finish_output2() and anywhere else that seems
-appropriate (perhaps with flags to indicate *what* kind of torture is
-permissible in certain locations). And see what breaks...
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 74e18b0..be8225e 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -805,13 +805,13 @@ static void solos_bh(unsigned long card_arg)
+ 					continue;
+ 				}
+=20
+-				skb =3D alloc_skb(size + 1, GFP_ATOMIC);
++				skb =3D alloc_skb(size + NET_SKB_PAD + 1, GFP_ATOMIC);
+ 				if (!skb) {
+ 					if (net_ratelimit())
+ 						dev_warn(&card->dev->dev, "Failed to allocate sk_buff for RX\n");
+ 					continue;
+ 				}
+-
++				skb_reserve(skb, NET_SKB_PAD);
+ 				memcpy_fromio(skb_put(skb, size),
+ 					      RX_BUF(card, port) + sizeof(*header),
+ 					      size);
+@@ -869,8 +869,10 @@ static void solos_bh(unsigned long card_arg)
+ 		/* Allocate RX skbs for any ports which need them */
+ 		if (card->using_dma && card->atmdev[port] &&
+ 		    !card->rx_skb[port]) {
+-			struct sk_buff *skb =3D alloc_skb(RX_DMA_SIZE, GFP_ATOMIC);
++			struct sk_buff *skb =3D alloc_skb(RX_DMA_SIZE + NET_SKB_PAD,
++							GFP_ATOMIC);
+ 			if (skb) {
++				skb_reserve(skb, NET_SKB_PAD);
+ 				SKB_CB(skb)->dma_addr =3D
+ 					dma_map_single(&card->dev->dev, skb->data,
+ 						       RX_DMA_SIZE, DMA_FROM_DEVICE);
 
 --=20
 David Woodhouse                            Open Source Technology Centre
 David.Woodhouse@intel.com                              Intel Corporation
 
 
---=-UFCsdIvTVKbaJCm+lXoq
+--=-r8P+CyK1KM6OptLWNgiV
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -157,18 +175,18 @@ Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
 YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
 ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
 AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTUwOTE2MTAwOTA1WjAjBgkqhkiG9w0BCQQxFgQUgqCiCtjKR4gGCawI/erxCM1fte8w
+CQUxDxcNMTUwOTE2MTAyNTQ1WjAjBgkqhkiG9w0BCQQxFgQUWliYA8PT8k+lgQspX655QT9i+fUw
 gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
 ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
 L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
 CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
 LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
 U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
-hkiG9w0BAQEFAASCAQBRiPE5xNP5PEfjQyxh7CUYm244XLh0AXcbQvtsIsZv+BLByhYW8/33eMwc
-WVnQSLw7Xwtyg+ZamJNbIsbzeP9rc77keZXyNorfZp3cFPyZjMIRlvWvXL/Fk4ku/tJ+GpYdfMWk
-6zZSmfPPjs9i7ZwrcVOvDqXUEOsPyLNSPHKg/6My4la976MtQ7j1o1PexBfwFzNPkkj5e8KAGXp0
-LhHYw5xTg7DQxnTMY0wJN0Zo2YxlUWVmf2dVh1I/kxot10qOyaLaCRG9yDGX1J66Gfzq4fcCc2F1
-fN7fWtemEwOtI8l5zxmgAY2fjEIE0o9GONvgFTjgRv19/1V1pF9n3GkZAAAAAAAA
+hkiG9w0BAQEFAASCAQB1avtOB4/ANt3E4HruBL2WrkA5MmPdcb4XkobPo8DcgjtADNLMYoSTvtDe
+yRyaXwnWyIf72/3r4f360XoZVyvoQhyWTjc2ZtKR6naZATGWPVYd8rtWv26cFys5a6mnLVVHzSgg
+ksm6OFXPkKjOwqVC8KaggcTXv/CWSbDG2hSbnRF+bNDlNzq36tiCMVIcovtW5GYJcktm5IoPAZKG
+5iAfMLA8NrpiP1YkfFprArryYQ6BMz0Ghg0aN27ZUY9oWY4slqL7ydHCRnQihWxC5avjdkjwMVSV
+WgY/omBC7/WqH3ud5fusrsQTSgQN6Ii6u7+R0/Pha/+wfVFDlSL5o8QfAAAAAAAA
 
 
---=-UFCsdIvTVKbaJCm+lXoq--
+--=-r8P+CyK1KM6OptLWNgiV--
