@@ -1,25 +1,103 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ARCNET: fix hard_header_len limit
-Date: Wed, 16 Sep 2015 10:53:55 -0700 (PDT)
-Message-ID: <20150916.105355.1150359645528383355.davem@davemloft.net>
-References: <20150805153451.GB20781@pengutronix.de>
-	<20150916124713.GA18173@pengutronix.de>
+Subject: Re: [net-next:master 6/12] include/linux/usb/cdc.h:23: error:
+ redefinition of 'struct usb_cdc_parsed_header'
+Date: Wed, 16 Sep 2015 10:54:54 -0700 (PDT)
+Message-ID: <20150916.105454.1537994485794572085.davem@davemloft.net>
+References: <201509160310.FiynyPOo%fengguang.wu@intel.com>
+	<20150915.132742.739418011603329556.davem@davemloft.net>
+	<20150916130658.GB24184@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
-To: mgr@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150916124713.GA18173@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: oneukum@suse.com, kbuild-all@01.org, netdev@vger.kernel.org
+To: fengguang.wu@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33832 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753925AbbIPRyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 13:54:55 -0400
+In-Reply-To: <20150916130658.GB24184@wfg-t540p.sh.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Grzeschik <mgr@pengutronix.de>
-Date: Wed, 16 Sep 2015 14:47:13 +0200
+From: Fengguang Wu <fengguang.wu@intel.com>
+Date: Wed, 16 Sep 2015 21:06:58 +0800
 
-> I have the cleanup patches from Joe Perches and several ARCNET patches
-> on top, waiting to be posted on the list. What is your Opinion to my
-> Maintainer Request I send some weeks ago?
+> On Tue, Sep 15, 2015 at 01:27:42PM -0700, David Miller wrote:
+>> From: kbuild test robot <fengguang.wu@intel.com>
+>> Date: Wed, 16 Sep 2015 03:57:11 +0800
+>> 
+>> > All error/warnings (new ones prefixed by >>):
+>> > 
+>> >    In file included from drivers/usb/gadget/function/u_ether.h:20,
+>> >                     from drivers/usb/gadget/legacy/cdc2.c:16:
+>> >    include/linux/usb/cdc.h:47: warning: 'struct usb_interface' declared inside parameter list
+>> >    include/linux/usb/cdc.h:47: warning: its scope is only this definition or declaration, which is probably not what you want
+>> >    In file included from drivers/usb/gadget/function/u_serial.h:16,
+>> >                     from drivers/usb/gadget/legacy/cdc2.c:17:
+>> >>> include/linux/usb/cdc.h:23: error: redefinition of 'struct usb_cdc_parsed_header'
+>> >    include/linux/usb/cdc.h:47: warning: 'struct usb_interface' declared inside parameter list
+>> >>> include/linux/usb/cdc.h:47: error: conflicting types for 'cdc_parse_cdc_header'
+>> >    include/linux/usb/cdc.h:47: error: previous declaration of 'cdc_parse_cdc_header' was here
+>> 
+>> This may be a side effect of the initial warning, does this reproduce with
+>> that fixed?  Please show me what the warning looks like in that case.
+> 
+> Dave, net-next/master commit ad1e7b97b3 ("cdc: Fix build warning.")
+> still has errors.
+> 
+> The problem is, the header file <linux/usb/cdc.h> is included twice.
 
-Please just repost this patch anew, thanks.
+That's not possible after the patch I committed from Stephen Rothwell
+which adds proper include guards:
+
+====================
+commit b84ee0d7f375ed7840c7c110d46eac24cf94b2a2
+Author: Stephen Rothwell <sfr@canb.auug.org.au>
+Date:   Wed Sep 16 11:10:16 2015 +1000
+
+    cdc: add header guards
+    
+    Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
+index 959d0c8..b5706f9 100644
+--- a/include/linux/usb/cdc.h
++++ b/include/linux/usb/cdc.h
+@@ -7,6 +7,8 @@
+  * modify it under the terms of the GNU General Public License
+  * version 2 as published by the Free Software Foundation.
+  */
++#ifndef __LINUX_USB_CDC_H
++#define __LINUX_USB_CDC_H
+ 
+ #include <uapi/linux/usb/cdc.h>
+ 
+@@ -45,3 +47,5 @@ int cdc_parse_cdc_header(struct usb_cdc_parsed_header *hdr,
+ 				struct usb_interface *intf,
+ 				u8 *buffer,
+ 				int buflen);
++
++#endif /* __LINUX_USB_CDC_H */
+diff --git a/include/uapi/linux/usb/cdc.h b/include/uapi/linux/usb/cdc.h
+index b6a9cdd..e2bc417 100644
+--- a/include/uapi/linux/usb/cdc.h
++++ b/include/uapi/linux/usb/cdc.h
+@@ -6,8 +6,8 @@
+  * firmware based USB peripherals.
+  */
+ 
+-#ifndef __LINUX_USB_CDC_H
+-#define __LINUX_USB_CDC_H
++#ifndef __UAPI_LINUX_USB_CDC_H
++#define __UAPI_LINUX_USB_CDC_H
+ 
+ #include <linux/types.h>
+ 
+@@ -444,4 +444,4 @@ struct usb_cdc_ncm_ndp_input_size {
+ #define USB_CDC_NCM_CRC_NOT_APPENDED			0x00
+ #define USB_CDC_NCM_CRC_APPENDED			0x01
+ 
+-#endif /* __LINUX_USB_CDC_H */
++#endif /* __UAPI_LINUX_USB_CDC_H */
