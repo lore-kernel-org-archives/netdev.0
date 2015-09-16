@@ -1,50 +1,48 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 01/30] netfilter: Remove !CONFIG_NETFITLER definition of nf_hook_thresh
-Date: Tue, 15 Sep 2015 20:03:49 -0500
-Message-ID: <1442365458-16349-1-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 04/30] xfrm: Remove unused afinfo method init_dst
+Date: Tue, 15 Sep 2015 20:03:52 -0500
+Message-ID: <1442365458-16349-4-git-send-email-ebiederm@xmission.com>
 References: <87mvwn18my.fsf@x220.int.ebiederm.org>
 Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>
 To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60182 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751272AbbIPBLa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 21:11:30 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-The !CONFIG_NETFILTER definition of nf_hook_thresh calls okfn when
-the CONFIG_NETFITLER defintion does not, making it buggy.
-
-As the !CONFIG_NETFILTER defintion of nf_hook_thresh is not used remove
-it rather than fix it.
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/linux/netfilter.h | 9 ---------
- 1 file changed, 9 deletions(-)
+ include/net/xfrm.h     | 2 --
+ net/xfrm/xfrm_policy.c | 2 --
+ 2 files changed, 4 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 36a652531791..1abac85ec907 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -344,15 +344,6 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
- #else /* !CONFIG_NETFILTER */
- #define NF_HOOK(pf, hook, sk, skb, indev, outdev, okfn) (okfn)(sk, skb)
- #define NF_HOOK_COND(pf, hook, sk, skb, indev, outdev, okfn, cond) (okfn)(sk, skb)
--static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
--				 struct sock *sk,
--				 struct sk_buff *skb,
--				 struct net_device *indev,
--				 struct net_device *outdev,
--				 int (*okfn)(struct sock *sk, struct sk_buff *), int thresh)
--{
--	return okfn(sk, skb);
--}
- static inline int nf_hook(u_int8_t pf, unsigned int hook, struct sock *sk,
- 			  struct sk_buff *skb, struct net_device *indev,
- 			  struct net_device *outdev,
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 312e3fee9ccf..fd176106909a 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -296,8 +296,6 @@ struct xfrm_policy_afinfo {
+ 						  struct flowi *fl,
+ 						  int reverse);
+ 	int			(*get_tos)(const struct flowi *fl);
+-	void			(*init_dst)(struct net *net,
+-					    struct xfrm_dst *dst);
+ 	int			(*init_path)(struct xfrm_dst *path,
+ 					     struct dst_entry *dst,
+ 					     int nfheader_len);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 94af3d065785..6b5d6e2b9a49 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1583,8 +1583,6 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
+ 
+ 		memset(dst + 1, 0, sizeof(*xdst) - sizeof(*dst));
+ 		xdst->flo.ops = &xfrm_bundle_fc_ops;
+-		if (afinfo->init_dst)
+-			afinfo->init_dst(net, xdst);
+ 	} else
+ 		xdst = ERR_PTR(-ENOBUFS);
+ 
 -- 
 2.2.1
+
