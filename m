@@ -1,81 +1,60 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [linux-next] oops in ip_route_input_noref
-Date: Wed, 16 Sep 2015 07:07:42 -0600
-Message-ID: <55F9699E.5080807@cumulusnetworks.com>
-References: <20150916092447.GA945@swordfish> <55F9578C.40209@ericsson.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [patch net-next 2/3] mlxsw: expose EMAD transactions statistics
+ via debugfs
+Date: Wed, 16 Sep 2015 10:14:25 -0300
+Message-ID: <20150916131424.GA2311@localhost.localdomain>
+References: <20150827054004.GA2228@nanopsycho.orion>
+ <20150826.230115.2076911912997875741.davem@davemloft.net>
+ <20150827062704.GE2228@nanopsycho.orion>
+ <20150826.233603.681080899557993733.davem@davemloft.net>
+ <20150827064029.GI2228@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Richard Alpe <richard.alpe@ericsson.com>,
-	Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, sfeldma@gmail.com,
+	netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	ogerlitz@mellanox.com, jiri@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33170 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752198AbbIPNHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 09:07:46 -0400
-Received: by pacex6 with SMTP id ex6so209645439pac.0
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 06:07:46 -0700 (PDT)
-In-Reply-To: <55F9578C.40209@ericsson.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33125 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752471AbbIPNO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Sep 2015 09:14:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20150827064029.GI2228@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/16/15 5:50 AM, Richard Alpe wrote:
-> On 2015-09-16 11:24, Sergey Senozhatsky wrote:
->> Hi,
->>
->> 4.3.0-rc1-next-20150916
->>
->> oops after removal of rndis usb device
+On Thu, Aug 27, 2015 at 08:40:29AM +0200, Jiri Pirko wrote:
+> Thu, Aug 27, 2015 at 08:36:03AM CEST, davem@davemloft.net wrote:
+> >From: Jiri Pirko <jiri@resnulli.us>
+> >Date: Thu, 27 Aug 2015 08:27:04 +0200
+> >
+> >> I'm not saying it is not possible, it certainly is. But I think that
+> >> for example rocker internals have no value to default user, he
+> >> should not care and he cannot find out what is going on there
+> >> without knowledge or rocker.c code. The question is, do we need some
+> >> standard interface to expose random debugging data? I don't think
+> >> so, I think that debugfs is exactly the tool to be used in that
+> >> case.
+> >
+> >If it is only interesting to rocker.c maintainer, he can keep a local
+> >patch he applies when he needs such a facility.
+> >
+> >This discussion is becomming circular.
+> >
+> >If it's useful, it needs a well defined interface.
+> >
+> >If it's not useful, it doesn't belong in the tree.
+> >
+> >Therefore, debugfs is useless.
+> 
+> Fair enough.
 
-Hi Sergey:
+Late reply, sorry, but another idea is to leave the stats in place (as
+they were going to be calculated even with debugfs unmounted) and (for
+now at least) fetch them with systemtap, perf or something like that.
+Then the stats are there for when you need them and with an interface as
+flexible as it can get. Even if you happen to do a post-mortem analysis,
+the info would at least be there.
 
-Is this with KVM or baremetal?
-
------8<-----
-thanks for the analysis
-
->> addr2line -e vmlinux -i 0xffffffff8146c0b1
->> net/ipv4/route.c:1815
->> net/ipv4/route.c:1905
->>
->>
->> which seems to be this line ip_route_input_noref()->ip_route_input_slow():
->> ...
->> 1813         rth->rt_is_input = 1;
->> 1814         if (res.table)
->> 1815                 rth->rt_table_id = res.table->tb_id;
->> 1816
->> ...
->>
->>
->> added by b7503e0cdb5dbec5d201aa69d8888c14679b5ae8
->>
->>      net: Add FIB table id to rtable
->>
->>      Add the FIB table id to rtable to make the information available for
->>      IPv4 as it is for IPv6.
->>
->>
->> 	-ss
-
-Hi Richard:
-
-> I to get an Oops in ip_route_input_noref(). It happens occasionally during bootup.
-> KVM environment using virtio driver. Let me know if you need any additional info or
-> if you want me to try to bisect it.
->
-> Starting network...
-> ...
-> [    0.877040] BUG: unable to handle kernel NULL pointer dereference at 0000000000000056
-> [    0.877597] IP: [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
-
-Can you send me your kernel config and qemu command line? KVM with 
-virtio networking is a primary test vehicle, and I did not encounter 
-this at all.
-
-Thanks,
-David
+  Marcelo
