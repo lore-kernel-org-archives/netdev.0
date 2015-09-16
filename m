@@ -1,39 +1,37 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v2 net] net/mlx4_en: really allow to change RSS key
-Date: Wed, 16 Sep 2015 14:05:25 +0300
-Message-ID: <CAJ3xEMiqyPfcxi7ESGodzwYN059Q09MDUduzy-HhdJMqZ=tizg@mail.gmail.com>
-References: <1442366788.4116.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1442366987.4116.37.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v4] add stealth mode
+Date: Wed, 16 Sep 2015 13:06:29 +0200
+Message-ID: <20150916110629.GP24810@breakpoint.cc>
+References: <20150915.120057.1457031142615117336.davem@davemloft.net>
+ <1442397259-28894-1-git-send-email-matteo@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eyal Perry <eyalpe@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:35531 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637AbbIPLF0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 07:05:26 -0400
-Received: by oiww128 with SMTP id w128so120949250oiw.2
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 04:05:26 -0700 (PDT)
-In-Reply-To: <1442366987.4116.37.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Matteo Croce <matteo@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1442397259-28894-1-git-send-email-matteo@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 16, 2015 at 4:29 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> When changing rss key, we do not want to overwrite user provided key
-> by the one provided by netdev_rss_key_fill(), which is the host random
-> key generated at boot time.
->
-> Fixes: 947cbb0ac242 ("net/mlx4_en: Support for configurable RSS hash function")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Eyal Perry <eyalpe@mellanox.com>
-> CC: Amir Vadai <amirv@mellanox.com>
+Matteo Croce <matteo@openwrt.org> wrote:
+> Add option to disable any reply not related to a listening socket,
+> like RST/ACK for TCP and ICMP Port-Unreachable for UDP.
+> Also disables ICMP replies to echo request and timestamp.
+> The stealth mode can be enabled selectively for a single interface.
 
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+I think it would make more sense to extend the socket match
+in xtables if it can't be used to achive this already.
 
-Dave, can you please push it to -stable of >= 3.19 ?
+seems like
+*filter
+:INPUT ACCEPT [0:0]
+-A INPUT -p tcp -m socket --nowildcard -j ACCEPT
+-A INPUT -p tcp -j DROP
+COMMIT
+
+Already does what you want for tcp, udp should work too.
+I'd much rather see xtables and/or nftables to be extended
+with whatever feature(s) are needed to configure such a policy
+rather than pushing this into the core network stack.
