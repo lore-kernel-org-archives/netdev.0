@@ -1,70 +1,47 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 21/30] ipv6: Only compute net once in ip6_finish_output2
-Date: Tue, 15 Sep 2015 20:04:09 -0500
-Message-ID: <1442365458-16349-21-git-send-email-ebiederm@xmission.com>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net/mlx4_en:
+Date: Tue, 15 Sep 2015 18:26:28 -0700
+Message-ID: <1442366788.4116.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Eyal Perry <eyalpe@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33754 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbbIPB0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 21:26:30 -0400
+Received: by pacex6 with SMTP id ex6so192622983pac.0
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 18:26:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Eric Dumazet <edumazet@google.com>
+
+When changing rss key, we do not want to overwrite user provided key
+by the one provided by netdev_rss_key_fill(), which is the host random
+key generated at boot time.
+
+Fixes: 947cbb0ac242 ("net/mlx4_en: Support for configurable RSS hash function")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Eyal Perry <eyalpe@mellanox.com>
+CC: Amir Vadai <amirv@mellanox.com>
 ---
- net/ipv6/ip6_output.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index a80502c64523..12d0166a64cd 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -60,6 +60,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *dev = dst->dev;
-+	struct net *net = dev_net(dev);
- 	struct neighbour *neigh;
- 	struct in6_addr *nexthop;
- 	int ret;
-@@ -71,7 +72,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
- 		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
- 
- 		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(sk) &&
--		    ((mroute6_socket(dev_net(dev), skb) &&
-+		    ((mroute6_socket(net, skb) &&
- 		     !(IP6CB(skb)->flags & IP6SKB_FORWARDED)) ||
- 		     ipv6_chk_mcast_addr(dev, &ipv6_hdr(skb)->daddr,
- 					 &ipv6_hdr(skb)->saddr))) {
-@@ -86,15 +87,14 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
- 					dev_loopback_xmit);
- 
- 			if (ipv6_hdr(skb)->hop_limit == 0) {
--				IP6_INC_STATS(dev_net(dev), idev,
-+				IP6_INC_STATS(net, idev,
- 					      IPSTATS_MIB_OUTDISCARDS);
- 				kfree_skb(skb);
- 				return 0;
- 			}
- 		}
- 
--		IP6_UPD_PO_STATS(dev_net(dev), idev, IPSTATS_MIB_OUTMCAST,
--				skb->len);
-+		IP6_UPD_PO_STATS(net, idev, IPSTATS_MIB_OUTMCAST, skb->len);
- 
- 		if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
- 		    IPV6_ADDR_SCOPE_NODELOCAL &&
-@@ -116,8 +116,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
- 	}
- 	rcu_read_unlock_bh();
- 
--	IP6_INC_STATS(dev_net(dst->dev),
--		      ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
-+	IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
- 	kfree_skb(skb);
- 	return -EINVAL;
- }
--- 
-2.2.1
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 4402a1e48c9b..0ce6ffe73ca8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -1268,8 +1268,6 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
+ 		rss_context->hash_fn = MLX4_RSS_HASH_TOP;
+ 		memcpy(rss_context->rss_key, priv->rss_key,
+ 		       MLX4_EN_RSS_KEY_SIZE);
+-		netdev_rss_key_fill(rss_context->rss_key,
+-				    MLX4_EN_RSS_KEY_SIZE);
+ 	} else {
+ 		en_err(priv, "Unknown RSS hash function requested\n");
+ 		err = -EINVAL;
