@@ -1,99 +1,38 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
-Date: Wed, 16 Sep 2015 16:25:03 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB9800B@AcuExch.aculab.com>
-References: <1442418625-11805-1-git-send-email-vkuznets@redhat.com>
- <BN1PR0301MB0770C47D37D272F5A28CD1DECA5B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	Jason Wang <jasowang@redhat.com>
-To: 'Haiyang Zhang' <haiyangz@microsoft.com>,
-	Vitaly Kuznetsov <vkuznets@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN1PR0301MB0770C47D37D272F5A28CD1DECA5B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] man ip-link: Fix wording in VLAN reorder_hdr explanation
+Date: Wed, 16 Sep 2015 19:55:19 +0300
+Message-ID: <1442422519-12679-1-git-send-email-vadim4j@gmail.com>
+Cc: jgh@redhat.com, Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:35541 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752778AbbIPQ6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 12:58:37 -0400
+Received: by wicge5 with SMTP id ge5so83515221wic.0
+        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 09:58:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang
-> Sent: 16 September 2015 17:09
-> > -----Original Message-----
-> > From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
-> > Sent: Wednesday, September 16, 2015 11:50 AM
-> > To: netdev@vger.kernel.org
-> > Cc: David S. Miller <davem@davemloft.net>; linux-kernel@vger.kernel.org;
-> > KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> > <haiyangz@microsoft.com>; Jason Wang <jasowang@redhat.com>
-> > Subject: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
-> >
-> > Commit b08cc79155fc26d0d112b1470d1ece5034651a4b ("hv_netvsc: Eliminate
-> >  memory allocation in the packet send path") introduced skb headroom
-> > request for Hyper-V netvsc driver:
-> >
-> >        max_needed_headroom = sizeof(struct hv_netvsc_packet) +
-> >                                sizeof(struct rndis_message) +
-> >                                NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE +
-> >                                NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE;
-> >        ...
-> >        net->needed_headroom = max_needed_headroom;
-> >
-> > max_needed_headroom is 220 bytes, it significantly exceeds the
-> > LL_MAX_HEADER setting. This causes each skb to be cloned on send path,
-> > e.g. for IPv4 case we fall into the following clause
-> > (ip_finish_output2()):
-> >
-> > if (unlikely(skb_headroom(skb) < hh_len && dev->header_ops)) {
-> >     ...
-> >     skb2 = skb_realloc_headroom(skb, LL_RESERVED_SPACE(dev));
-> >     ...
-> > }
-> >
-> > leading to a significant performance regression. Increase LL_MAX_HEADER
-> > to make it suitable for netvsc, make it 224 to be 16-aligned.
-> > Alternatively we could (partially) revert the commit which introduced
-> > skb
-> > headroom request restoring manual memory allocation on transmit path.
-> >
-> > Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> > ---
-> >  include/linux/netdevice.h | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index 88a0069..7233790 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -132,7 +132,9 @@ static inline bool dev_xmit_complete(int rc)
-> >   *	used.
-> >   */
-> >
-> > -#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
-> > +#if IS_ENABLED(CONFIG_HYPERV_NET)
-> > +# define LL_MAX_HEADER 224
-> > +#elif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
-> >  # if defined(CONFIG_MAC80211_MESH)
-> >  #  define LL_MAX_HEADER 128
-> >  # else
-> 
-> Thanks for the patch.
-> To avoid we forget to update that 224 number when we add more things
-> into netvsc header, I suggest that we define a macro in netdevice.h such
-> as:
-> #define HVNETVSC_MAX_HEADER 224
-> #define LL_MAX_HEADER HVNETVSC_MAX_HEADER
-> 
-> And, put a note in netvsc code saying the header reservation shouldn't
-> exceed HVNETVSC_MAX_HEADER, or you need to update HVNETVSC_MAX_HEADER.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Am I right in thinking this is adding an extra 96 unused bytes to the front
-of almost all skb just so that hyper-v can make its link level header
-contiguous with whatever follows (IP header ?).
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ man/man8/ip-link.8.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Doesn't sound ideal.
-
-	David
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 1896eb6..4928249 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -327,7 +327,7 @@ physical device (if this device does not support VLAN offloading), the similar
+ on the RX direction - by default the packet will be untagged before being
+ received by VLAN device. Reordering allows to accelerate tagging on egress and
+ to hide VLAN header on ingress so the packet looks like regular Ethernet packet,
+-at the same time it might be confusing while the packet sniffing as the VLAN header
++at the same time it might be confusing for packet capture as the VLAN header
+ does not exist within the packet.
+ 
+ VLAN offloading can be checked by
+-- 
+2.4.2
