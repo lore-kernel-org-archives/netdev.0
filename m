@@ -1,43 +1,44 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: FW: [RFC net-next 01/10] qed: Add module with basic common support
-Date: Wed, 16 Sep 2015 05:53:49 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63E27EBC@avmb3.qlogic.org>
-References: <1441893261-6222-1-git-send-email-Yuval.Mintz@qlogic.com>
-	<1441893261-6222-2-git-send-email-Yuval.Mintz@qlogic.com>,<20150910.101057.1870095895052608803.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>
-To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next 0/2] bpf: performance improvements
+Date: Tue, 15 Sep 2015 23:05:41 -0700
+Message-ID: <1442383543-4720-1-git-send-email-ast@plumgrid.com>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49595 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750989AbbIPFxx convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2015 01:53:53 -0400
-In-Reply-To: <20150910.101057.1870095895052608803.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34226 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588AbbIPGFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 02:05:54 -0400
+Received: by padhy16 with SMTP id hy16so199231994pad.1
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 23:05:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> Date: Thu, 10 Sep 2015 16:54:12 +0300
+v1->v2: dropped redundant iff_up check in patch 2
 
-> >  Documentation/networking/LICENSE.qlogic            |  288 ++
+At plumbers we discussed different options on how to get rid of skb_clone
+from bpf_clone_redirect(), the patch 2 implements the best option.
+Patch 1 adds 'integrated exts' to cls_bpf to improve performance by
+combining simple actions into bpf classifier.
 
-> I do not want to get into the habit of having to add copy after copy
-> of the GPL v2 to the source tree, so this is rather inappropriate.
+Alexei Starovoitov (1):
+  bpf: add bpf_redirect() helper
 
-> Everything said in that file is explicitly covered by the top-level
-> COPYING file.
+Daniel Borkmann (1):
+  cls_bpf: introduce integrated actions
 
-You're right; We'll remove this and add some comment reference
-to COPYING instead in v2.
+ include/net/sch_generic.h    |    3 ++-
+ include/uapi/linux/bpf.h     |    9 +++++++
+ include/uapi/linux/pkt_cls.h |    4 +++
+ net/core/dev.c               |    8 ++++++
+ net/core/filter.c            |   58 +++++++++++++++++++++++++++++++++++++++
+ net/sched/act_bpf.c          |    1 +
+ net/sched/cls_bpf.c          |   61 ++++++++++++++++++++++++++++++++++--------
+ samples/bpf/bpf_helpers.h    |    4 +++
+ samples/bpf/tcbpf1_kern.c    |   24 ++++++++++++++++-
+ 9 files changed, 159 insertions(+), 13 deletions(-)
 
-On a related but different topic,  I've noticed a lack of commentary
-for this series; Don't know if it's due to lack of time, interest, or
-something else.
-[I know we write perfect code [ ;-) ], but I would have guessed that
-Adding 10Ks of lines of code to the kernel would generate at least
-some rejects].
-Should we wait any longer before sending the next revision?
+-- 
+1.7.9.5
