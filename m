@@ -1,73 +1,113 @@
-From: Michael Grzeschik <mgr@pengutronix.de>
-Subject: Re: [PATCH] ARCNET: fix hard_header_len limit
-Date: Wed, 16 Sep 2015 14:47:13 +0200
-Message-ID: <20150916124713.GA18173@pengutronix.de>
-References: <20150805153451.GB20781@pengutronix.de>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [net-next:master 6/12] include/linux/usb/cdc.h:23: error:
+ redefinition of 'struct usb_cdc_parsed_header'
+Date: Wed, 16 Sep 2015 21:06:58 +0800
+Message-ID: <20150916130658.GB24184@wfg-t540p.sh.intel.com>
+References: <201509160310.FiynyPOo%fengguang.wu@intel.com>
+ <20150915.132742.739418011603329556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: oneukum@suse.com, kbuild-all@01.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:33851 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005AbbIPMrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 08:47:17 -0400
+Received: from mga11.intel.com ([192.55.52.93]:13023 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752031AbbIPNG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Sep 2015 09:06:59 -0400
 Content-Disposition: inline
-In-Reply-To: <20150805153451.GB20781@pengutronix.de>
+In-Reply-To: <20150915.132742.739418011603329556.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 05, 2015 at 05:34:51PM +0200, Michael Grzeschik wrote:
-> On Thu, Jul 30, 2015 at 11:16:36AM -0700, David Miller wrote:
-> > From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-> > Date: Thu, 30 Jul 2015 15:34:36 +0200
-> > 
-> > > The commit <9c7077622dd9> ("packet: make packet_snd fail on len smaller
-> > > than l2 header") adds the check for minimum packet length of the used l2.
-> > > For arcnet the hardware header length is not the complete archdr which
-> > > includes hard + soft header. This patch changes the length to
-> > > sizeof(arc_hardware).
-> > > 
-> > > Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
-> > 
-> > The hard header len is used for other purposes as well, are you sure
-> > those don't get broken by this change?
-> 
-> Its meaning is to represent the amount of the hardware (link layer)
-> data of one packet.
-> 
-> Which other purposes do you mean?
-> Can you point to some code?
-> 
-> > Code assumes that if the data at the SKB mac pointer is taken, for
-> > dev->hard_header_len bytes, that is exactly the link layer header.
-> > And that this can be used to compare two MAC headers, copy the
-> > MAC header from one packet to another, etc.
-> 
-> The link layer size of arcnet is 4 bytes long. 1 byte source, 1 byte
-> dest and two offset bytes. As described by struct arc_hardware in
-> if_arcnet.h . The above condition is fulfilled when the mac pointer
-> is 0.
-> 
-> The following pending bytes of struct archdr have a variable meaning
-> depending of the used protocol and are represented by an union.
-> (network layer)
-> 
-> In the case of raw packets, the payload comes immediately after the
-> hard_header.
-> 
+On Tue, Sep 15, 2015 at 01:27:42PM -0700, David Miller wrote:
+> From: kbuild test robot <fengguang.wu@intel.com>
+> Date: Wed, 16 Sep 2015 03:57:11 +0800
+>=20
+> > All error/warnings (new ones prefixed by >>):
+> >=20
+> >    In file included from drivers/usb/gadget/function/u_ether.h:20,
+> >                     from drivers/usb/gadget/legacy/cdc2.c:16:
+> >    include/linux/usb/cdc.h:47: warning: 'struct usb_interface' decl=
+ared inside parameter list
+> >    include/linux/usb/cdc.h:47: warning: its scope is only this defi=
+nition or declaration, which is probably not what you want
+> >    In file included from drivers/usb/gadget/function/u_serial.h:16,
+> >                     from drivers/usb/gadget/legacy/cdc2.c:17:
+> >>> include/linux/usb/cdc.h:23: error: redefinition of 'struct usb_cd=
+c_parsed_header'
+> >    include/linux/usb/cdc.h:47: warning: 'struct usb_interface' decl=
+ared inside parameter list
+> >>> include/linux/usb/cdc.h:47: error: conflicting types for 'cdc_par=
+se_cdc_header'
+> >    include/linux/usb/cdc.h:47: error: previous declaration of 'cdc_=
+parse_cdc_header' was here
+>=20
+> This may be a side effect of the initial warning, does this reproduce=
+ with
+> that fixed?  Please show me what the warning looks like in that case.
 
-Ping!
+Dave, net-next/master commit ad1e7b97b3 ("cdc: Fix build warning.")
+still has errors.
 
-I have the cleanup patches from Joe Perches and several ARCNET patches
-on top, waiting to be posted on the list. What is your Opinion to my
-Maintainer Request I send some weeks ago?
+The problem is, the header file <linux/usb/cdc.h> is included twice.
 
-Michael
+recent_errors
+=E2=94=9C=E2=94=80=E2=94=80 arm-arm5
+=E2=94=82=C2=A0=C2=A0 =E2=94=9C=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:conflicting-types-for-cdc_parse_cdc_header
+=E2=94=82=C2=A0=C2=A0 =E2=94=94=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:redefinition-of-struct-usb_cdc_parsed_header
+=E2=94=9C=E2=94=80=E2=94=80 arm-arm67
+=E2=94=82=C2=A0=C2=A0 =E2=94=9C=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:conflicting-types-for-cdc_parse_cdc_header
+=E2=94=82=C2=A0=C2=A0 =E2=94=94=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:redefinition-of-struct-usb_cdc_parsed_header
+=E2=94=9C=E2=94=80=E2=94=80 arm-mmp
+=E2=94=82=C2=A0=C2=A0 =E2=94=9C=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:conflicting-types-for-cdc_parse_cdc_header
+=E2=94=82=C2=A0=C2=A0 =E2=94=94=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:redefinition-of-struct-usb_cdc_parsed_header
+=E2=94=9C=E2=94=80=E2=94=80 arm-omap2plus_defconfig
+=E2=94=82=C2=A0=C2=A0 =E2=94=9C=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:conflicting-types-for-cdc_parse_cdc_header
+=E2=94=82=C2=A0=C2=A0 =E2=94=94=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:redefinition-of-struct-usb_cdc_parsed_header
+=E2=94=9C=E2=94=80=E2=94=80 avr32-atngw100_defconfig
+=E2=94=82=C2=A0=C2=A0 =E2=94=94=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:redefinition-of-struct-usb_cdc_parsed_header
+=E2=94=9C=E2=94=80=E2=94=80 avr32-atstk1006_defconfig
+=E2=94=82=C2=A0=C2=A0 =E2=94=94=E2=94=80=E2=94=80 include-linux-usb-cdc=
+=2Eh:error:redefinition-of-struct-usb_cdc_parsed_header
+=E2=94=94=E2=94=80=E2=94=80 i386-allmodconfig
+    =E2=94=9C=E2=94=80=E2=94=80 include-linux-usb-cdc.h:error:conflicti=
+ng-types-for-cdc_parse_cdc_header
+    =E2=94=94=E2=94=80=E2=94=80 include-linux-usb-cdc.h:error:redefinit=
+ion-of-struct-usb_cdc_parsed_header
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+The error messages are now:
+
+In file included from drivers/usb/gadget/function/u_ether.h:20:0,
+                 from drivers/usb/gadget/function/f_ncm.c:26:
+include/linux/usb/cdc.h:23:8: error: redefinition of 'struct usb_cdc_pa=
+rsed_header'
+ struct usb_cdc_parsed_header {
+        ^
+In file included from drivers/usb/gadget/function/f_ncm.c:24:0:
+include/linux/usb/cdc.h:23:8: note: originally defined here
+ struct usb_cdc_parsed_header {
+        ^
+In file included from drivers/usb/gadget/function/u_ether.h:20:0,
+                 from drivers/usb/gadget/function/f_ncm.c:26:
+include/linux/usb/cdc.h:44:5: error: conflicting types for 'cdc_parse_c=
+dc_header'
+ int cdc_parse_cdc_header(struct usb_cdc_parsed_header *hdr,
+     ^
+In file included from drivers/usb/gadget/function/f_ncm.c:24:0:
+include/linux/usb/cdc.h:44:5: note: previous declaration of 'cdc_parse_=
+cdc_header' was here
+ int cdc_parse_cdc_header(struct usb_cdc_parsed_header *hdr,
+     ^
+
+Thanks,
+=46engguang
