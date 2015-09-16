@@ -1,53 +1,42 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH] net: smc91x: convert pxa dma to dmaengine
-Date: Wed, 16 Sep 2015 11:41:54 +0200
-Message-ID: <87a8smsntp.fsf@belgarion.home>
-References: <1441913164-3785-1-git-send-email-robert.jarzmik@free.fr>
-	<20150915.162414.1153837609419205002.davem@davemloft.net>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: vhost: build failure
+Date: Wed, 16 Sep 2015 15:20:13 +0530
+Message-ID: <20150916095013.GA4326@sudip-pc>
+References: <20150916082008.GA28512@sudip-pc>
+ <20150916112119-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: nico@fluxnic.net, arnd@arndb.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150915.162414.1153837609419205002.davem@davemloft.net> (David
-	Miller's message of "Tue, 15 Sep 2015 16:24:14 -0700 (PDT)")
+Content-Disposition: inline
+In-Reply-To: <20150916112119-mutt-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+On Wed, Sep 16, 2015 at 11:36:45AM +0300, Michael S. Tsirkin wrote:
+> On Wed, Sep 16, 2015 at 01:50:08PM +0530, Sudip Mukherjee wrote:
+> > Hi,
+> > While crosscompiling the kernel for openrisc with allmodconfig the build
+> > failed with the error:
+> > drivers/vhost/vhost.c: In function 'vhost_vring_ioctl':
+> > drivers/vhost/vhost.c:818:3: error: call to '__compiletime_assert_818' declared with attribute error: BUILD_BUG_ON failed: __alignof__
+> > *vq->avail > VRING_AVAIL_ALIGN_SIZE
+> > 
+> > Can you please give me any idea about what the problem might be and how
+> > it can be solved.
+> > 
+> > You can see the build log at:
+> > https://travis-ci.org/sudipm-mukherjee/parport/jobs/80365425
+> > 
+> > regards
+> > sudip
+> 
+> Yes - I think I saw this already.
+> I think the openrisc cross-compiler is broken.
+I thought so. Thanks for the quick reply. I will open a bug in gcc and
+lets see what they say.
 
-> From: Robert Jarzmik <robert.jarzmik@free.fr>
-> Date: Thu, 10 Sep 2015 21:26:04 +0200
->
->> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
->> slave driver. This makes this driver a bit more PXA agnostic.
->> 
->> The driver was tested on pxa27x (mainstone) and pxa310 (zylonite),
->> ie. only pxa platforms.
->> 
->> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
->> Cc: Russell King <linux@arm.linux.org.uk>
->> Cc: Arnd Bergmann <arnd@arndb.de>
->> ---
->> This has potential to break other platform such as Neponset, Idp,
->> halibut and qsd8x50, so I added Russell and Arnd as they were discussing
->> smc91x support last February.
->
-
-> Is someone testing whether such platforms break or not?  I'm waiting for
-> that before I consider applying this patch.
-
-My understanding is that Russell is the only one left testing them, or at least
-he was the only one complaining about a breakage lately on neponset.
-
-I can wait several weeks for Russell to have a bit of time to try : I know it
-will compile correctly at least for neponset, and I know almost all the code is
-under #ifdef CONFIG_ARCH_PXA. And still I would feel far more comfortable if it
-was tested, just as you.
-
-Cheers.
-
--- 
-Robert
+regards
+sudip
