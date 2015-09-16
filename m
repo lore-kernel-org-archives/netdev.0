@@ -1,75 +1,29 @@
-From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
-Subject: Re: bnx2x - occasional high packet loss (on LAN)
-Date: Wed, 16 Sep 2015 10:18:34 +0200
-Message-ID: <20150916081833.GE6850@pcnci.linuxbox.cz>
-References: <20150915041726.GD6850@pcnci.linuxbox.cz>
- <81D78EA7F834FA4C83B64260D494C8590870F221@avmb3.qlogic.org>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: vhost: build failure
+Date: Wed, 16 Sep 2015 13:50:08 +0530
+Message-ID: <20150916082008.GA28512@sudip-pc>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3XA6nns4nE4KvaS/"
-Cc: netdev <netdev@vger.kernel.org>,
-	"nik@linuxbox.cz" <nik@linuxbox.cz>
-To: Ariel Elior <Ariel.Elior@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gwu.lbox.cz ([62.245.111.132]:57809 "EHLO gwu.lbox.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751921AbbIPISn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2015 04:18:43 -0400
-Content-Disposition: inline
-In-Reply-To: <81D78EA7F834FA4C83B64260D494C8590870F221@avmb3.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---3XA6nns4nE4KvaS/
 Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 16, 2015 at 08:15:41AM +0000, Ariel Elior wrote:
-> Hi Nikola,
-> Please provide dmesg output from your system.
-> Thanks,
-> Ariel
+Hi,
+While crosscompiling the kernel for openrisc with allmodconfig the build
+failed with the error:
+drivers/vhost/vhost.c: In function 'vhost_vring_ioctl':
+drivers/vhost/vhost.c:818:3: error: call to '__compiletime_assert_818' declared with attribute error: BUILD_BUG_ON failed: __alignof__
+*vq->avail > VRING_AVAIL_ALIGN_SIZE
 
-Hello Ariel,
+Can you please give me any idea about what the problem might be and how
+it can be solved.
 
-here it is:
+You can see the build log at:
+https://travis-ci.org/sudipm-mukherjee/parport/jobs/80365425
 
-http://nik.lbox.cz/download/dmesg.txt
-
-BR
-
-nik
-
-
->=20
-
-
---=20
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28.rijna 168, 709 00 Ostrava
-
-tel.:   +420 591 166 214
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
-
---3XA6nns4nE4KvaS/
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.14 (GNU/Linux)
-
-iEYEARECAAYFAlX5JdkACgkQ3xdJJrLygV4KVgCfY7fH/6rF2HSPRVBDp+Hot42t
-oQYAn0uUQUHsGlnLihe88QX3grHQ0kJM
-=k+uv
------END PGP SIGNATURE-----
-
---3XA6nns4nE4KvaS/--
+regards
+sudip
