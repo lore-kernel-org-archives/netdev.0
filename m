@@ -1,56 +1,57 @@
-From: Damian Hobson-Garcia <dhobsong@igel.co.jp>
-Subject: Re: [PATCH v2 1/1] eventfd: implementation of EFD_MASK flag
-Date: Wed, 16 Sep 2015 16:43:58 +0900
-Message-ID: <55F91DBE.90903@igel.co.jp>
-References: <1442384836-13045-1-git-send-email-dhobsong@igel.co.jp>
- <1442384836-13045-2-git-send-email-dhobsong@igel.co.jp>
- <70093385dc00b108e16862c8b8b1c13c@imap.lucina.net>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH V3 2/2] debugfs: don't assume sizeof(bool) to be 4 bytes
+Date: Wed, 16 Sep 2015 10:02:18 +0200
+Message-ID: <20150916080218.GA8155@gmail.com>
+References: <9b705747a138c96c26faee5218f7b47403195b28.1442305897.git.viresh.kumar@linaro.org>
+ <27d37898b4be6b9b9f31b90135f8206ca079a868.1442305897.git.viresh.kumar@linaro.org>
+ <1442313464.1914.21.camel@sipsolutions.net>
+ <20150915110447.GI6350@linux>
+ <20150915094509.46cca84d@gandalf.local.home>
+ <CA+55aFxVQ9jD=jUqPZt76EMe_Tb-_SA8v=rOHeR9Ljdsc6=xGQ@mail.gmail.com>
+ <20150915134732.7ff50d03@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, David.Laight@aculab.com
-To: Martin Sustrik <sustrik@250bpm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <70093385dc00b108e16862c8b8b1c13c@imap.lucina.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Viresh Kumar <viresh.kumar@linaro.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"linaro-kernel@lists.linaro.org" <linaro-kernel@lists.linaro.org>,
+	Rafael Wysocki <rjw@rjwysocki.net>,
+	"sboyd@codeaurora.org" <sboyd@codeaurora.org>,
+	"arnd@arndb.de" <arnd@arndb.de>, Mark Brown <broonie@kernel.org>,
+	Akinobu Mita <akinobu.mita@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..." <alsa-devel@alsa-project.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Arik Nemtsov <arik@wizery.com>,
+	"open list:QUALCOMM ATHEROS ATH10K WIRELESS DRIVER" <ath10k@lists.infradead.org>,
+	"open list:QUALCOMM ATHEROS ATH9K WIRELESS DRIVER" <ath9k-devel@lists.ath9k.org>,
+	"Altman, A
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20150915134732.7ff50d03@gandalf.local.home>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi Martin,
 
-On 2015-09-16 3:51 PM, Martin Sustrik wrote:
-> On 2015-09-16 08:27, Damian Hobson-Garcia wrote:
->>
->> Additionally, to provide a way to associate user-space state with eventfd
->> object, it allows to attach user-space data to the file descriptor.
-> 
-> The above paragraph is a leftover from the past. The functionality no
-> longer exist.
-> 
-Oops, I forgot to delete that part. I'll get rid of it.
+* Steven Rostedt <rostedt@goodmis.org> wrote:
 
->>
->> The semantics of EFD_MASK are as follows:
->>
->> eventfd(2):
->>
->> If eventfd is created with EFD_MASK flag set, it is initialised in such a
->> way as to signal no events on the file descriptor when it is polled on.
->> The 'initval' argument is ignored.
->>
->> write(2):
->>
->> User is allowed to write only buffers containing the following structure:
->>
->> struct efd_mask {
->>   uint32_t events;
->> };
-> 
-> Is it worth having a struct here? Why not just uint32_t?
-As it stands right now, no, the struct doesn't really add anything.
-uint32_t should be just fine.
-> 
-> Martin
+> But please, next time, go easy on the Cc list. Maybe just use bcc for those not 
+> on the list, stating that you BCC'd a lot of people to make sure this is sane, 
+> but didn't want to spam everyone with every reply.
 
-Damian
+Not just that, such a long Cc: list is a semi-guarantee that various list engines 
+(vger included I think) would drop the mail as spam and nobody else would get the 
+mail...
+
+Thanks,
+
+	Ingo
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
