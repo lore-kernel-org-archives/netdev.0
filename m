@@ -1,94 +1,85 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: Initialize table in fib result
-Date: Wed, 16 Sep 2015 09:38:45 -0600
-Message-ID: <1442417925-51597-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: sergey.senozhatsky.work@gmail.com, richard.alpe@ericsson.com,
-	festevam@gmail.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:33940 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751648AbbIPPiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 11:38:52 -0400
-Received: by igcpb10 with SMTP id pb10so37553647igc.1
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 08:38:52 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH RFC 2/3] netfilter: nft_meta: mark skbs for postponed filter processing
+Date: Wed, 16 Sep 2015 17:42:59 +0200
+Message-ID: <1442418180-14322-3-git-send-email-daniel@zonque.org>
+References: <1442418180-14322-1-git-send-email-daniel@zonque.org>
+Cc: daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, fw@strlen.de, balazs.scheidler@balabit.com,
+	Daniel Mack <daniel@zonque.org>
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1442418180-14322-1-git-send-email-daniel@zonque.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sergey, Richard and Fabio reported an oops in ip_route_input_noref. e.g., from Richard:
+When the cgroup matching code in nft_meta is called without a socket to
+look at, it currently bails out and lets the packet pass. This is bad,
+because the reason for skb->sk being NULL is simply that the packet was
+directed to a socket that hasn't been looked up yet by early demux.
 
-[    0.877040] BUG: unable to handle kernel NULL pointer dereference at 0000000000000056
-[    0.877597] IP: [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
-[    0.877597] PGD 3fa14067 PUD 3fa6e067 PMD 0
-[    0.877597] Oops: 0000 [#1] SMP
-[    0.877597] Modules linked in: virtio_net virtio_pci virtio_ring virtio
-[    0.877597] CPU: 1 PID: 119 Comm: ifconfig Not tainted 4.2.0+ #1
-[    0.877597] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[    0.877597] task: ffff88003fab0bc0 ti: ffff88003faa8000 task.ti: ffff88003faa8000
-[    0.877597] RIP: 0010:[<ffffffff8155b5e2>]  [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
-[    0.877597] RSP: 0018:ffff88003ed03ba0  EFLAGS: 00010202
-[    0.877597] RAX: 0000000000000046 RBX: 00000000ffffff8f RCX: 0000000000000020
-[    0.877597] RDX: ffff88003fab50b8 RSI: 0000000000000200 RDI: ffffffff8152b4b8
-[    0.877597] RBP: ffff88003ed03c50 R08: 0000000000000000 R09: 0000000000000000
-[    0.877597] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88003fab6f00
-[    0.877597] R13: ffff88003fab5000 R14: 0000000000000000 R15: ffffffff81cb5600
-[    0.877597] FS:  00007f6de5751700(0000) GS:ffff88003ed00000(0000) knlGS:0000000000000000
-[    0.877597] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[    0.877597] CR2: 0000000000000056 CR3: 000000003fa6d000 CR4: 00000000000006e0
-[    0.877597] Stack:
-[    0.877597]  0000000000000000 0000000000000046 ffff88003fffa600 ffff88003ed03be0
-[    0.877597]  ffff88003f9e2c00 697da8c0017da8c0 ffff880000000000 000000000007fd00
-[    0.877597]  0000000000000000 0000000000000046 0000000000000000 0000000400000000
-[    0.877597] Call Trace:
-[    0.877597]  <IRQ>
-[    0.877597]  [<ffffffff812bfa1f>] ? cpumask_next_and+0x2f/0x40
-[    0.877597]  [<ffffffff8158e13c>] arp_process+0x39c/0x690
-[    0.877597]  [<ffffffff8158e57e>] arp_rcv+0x13e/0x170
-[    0.877597]  [<ffffffff8151feec>] __netif_receive_skb_core+0x60c/0xa00
-[    0.877597]  [<ffffffff81515795>] ? __build_skb+0x25/0x100
-[    0.877597]  [<ffffffff81515795>] ? __build_skb+0x25/0x100
-[    0.877597]  [<ffffffff81521ff6>] __netif_receive_skb+0x16/0x70
-[    0.877597]  [<ffffffff81522078>] netif_receive_skb_internal+0x28/0x90
-[    0.877597]  [<ffffffff8152288f>] napi_gro_receive+0x7f/0xd0
-[    0.877597]  [<ffffffffa0017906>] virtnet_receive+0x256/0x910 [virtio_net]
-[    0.877597]  [<ffffffffa0017fd8>] virtnet_poll+0x18/0x80 [virtio_net]
-[    0.877597]  [<ffffffff815234cd>] net_rx_action+0x1dd/0x2f0
-[    0.877597]  [<ffffffff81053228>] __do_softirq+0x98/0x260
-[    0.877597]  [<ffffffff8164969c>] do_softirq_own_stack+0x1c/0x30
+This patch does two things:
 
-The root cause is use of res.table uninitialized.
+ a) it uses the newly introduced pkt->sk pointer rather than skb->sk
+    to check for the net class ID. This allows us to look at the socket
+    the user passed into nf_hook().
 
-Thanks to Nikolay for noticing the uninitialized use amongst the maze of
-gotos.
+ b) in case the socket can't be accessed, it marks the skb as
+    'nf_postponed', so that later dispatchers have a chance to
+    re-iterate the chain for such packets, after a full demux was
+    conducted.
 
-Fixes: b7503e0cdb5d ("net: Add FIB table id to rtable")
-Reported-by: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Reported-by: Richard Alpe <richard.alpe@ericsson.com>
-Reported-by: Fabio Estevam <festevam@gmail.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Note that the added flag in 'struct skb' does not increase the size
+of the struct, as it fits in the 'flags1' bitfield.
+
+Signed-off-by: Daniel Mack <daniel@zonque.org>
 ---
- net/ipv4/route.c | 2 ++
- 1 file changed, 2 insertions(+)
+ include/linux/skbuff.h   | 3 ++-
+ net/netfilter/nft_meta.c | 9 ++++++---
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index da427a4a33fe..80f7c5b7b832 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1712,6 +1712,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		goto martian_source;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2738d35..3590101 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -584,7 +584,8 @@ struct sk_buff {
+ 				fclone:2,
+ 				peeked:1,
+ 				head_frag:1,
+-				xmit_more:1;
++				xmit_more:1,
++				nf_postponed:1;
+ 	/* one bit hole */
+ 	kmemcheck_bitfield_end(flags1);
  
- 	res.fi = NULL;
-+	res.table = NULL;
- 	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
- 		goto brd_input;
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index cb2f13e..33b8d23 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -29,8 +29,9 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 		       const struct nft_pktinfo *pkt)
+ {
+ 	const struct nft_meta *priv = nft_expr_priv(expr);
+-	const struct sk_buff *skb = pkt->skb;
+ 	const struct net_device *in = pkt->in, *out = pkt->out;
++	struct sk_buff *skb = pkt->skb;
++	struct sock *sk = pkt->sk;
+ 	u32 *dest = &regs->data[priv->dreg];
  
-@@ -1834,6 +1835,7 @@ out:	return err;
- 	RT_CACHE_STAT_INC(in_no_route);
- 	res.type = RTN_UNREACHABLE;
- 	res.fi = NULL;
-+	res.table = NULL;
- 	goto local_input;
- 
- 	/*
+ 	switch (priv->key) {
+@@ -168,9 +169,11 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 		break;
+ #ifdef CONFIG_CGROUP_NET_CLASSID
+ 	case NFT_META_CGROUP:
+-		if (skb->sk == NULL || !sk_fullsock(skb->sk))
++		if (sk == NULL || !sk_fullsock(sk)) {
++			skb->nf_postponed = 1;
+ 			goto err;
+-		*dest = skb->sk->sk_classid;
++		}
++		*dest = sk->sk_classid;
+ 		break;
+ #endif
+ 	default:
 -- 
-2.3.2 (Apple Git-55)
+2.5.0
+
