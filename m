@@ -1,110 +1,180 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [net-next:master 6/12] include/linux/usb/cdc.h:23: error:
- redefinition of 'struct usb_cdc_parsed_header'
-Date: Thu, 17 Sep 2015 06:51:20 +0800
-Message-ID: <20150916225120.GA18257@wfg-t540p.sh.intel.com>
-References: <201509160310.FiynyPOo%fengguang.wu@intel.com>
- <20150915.132742.739418011603329556.davem@davemloft.net>
- <20150916130658.GB24184@wfg-t540p.sh.intel.com>
- <20150916.105454.1537994485794572085.davem@davemloft.net>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+Date: Wed, 16 Sep 2015 22:57:35 +0000
+Message-ID: <BY2PR0301MB16540426BFD633C8EBD1A4BBA05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+References: <1442418625-11805-1-git-send-email-vkuznets@redhat.com>
+ <BN1PR0301MB0770C47D37D272F5A28CD1DECA5B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB9800B@AcuExch.aculab.com>
+ <BY2PR0301MB16548B482FF9E0F4D82FC2C8A05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+ <55F9E172.2040008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: oneukum@suse.com, kbuild-all@01.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:16111 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752349AbbIPWvV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2015 18:51:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20150916.105454.1537994485794572085.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jason Wang <jasowang@redhat.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"Vitaly Kuznetsov" <vkuznets@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55F9E172.2040008@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 16, 2015 at 10:54:54AM -0700, David Miller wrote:
-> From: Fengguang Wu <fengguang.wu@intel.com>
-> Date: Wed, 16 Sep 2015 21:06:58 +0800
-> 
-> > On Tue, Sep 15, 2015 at 01:27:42PM -0700, David Miller wrote:
-> >> From: kbuild test robot <fengguang.wu@intel.com>
-> >> Date: Wed, 16 Sep 2015 03:57:11 +0800
-> >> 
-> >> > All error/warnings (new ones prefixed by >>):
-> >> > 
-> >> >    In file included from drivers/usb/gadget/function/u_ether.h:20,
-> >> >                     from drivers/usb/gadget/legacy/cdc2.c:16:
-> >> >    include/linux/usb/cdc.h:47: warning: 'struct usb_interface' declared inside parameter list
-> >> >    include/linux/usb/cdc.h:47: warning: its scope is only this definition or declaration, which is probably not what you want
-> >> >    In file included from drivers/usb/gadget/function/u_serial.h:16,
-> >> >                     from drivers/usb/gadget/legacy/cdc2.c:17:
-> >> >>> include/linux/usb/cdc.h:23: error: redefinition of 'struct usb_cdc_parsed_header'
-> >> >    include/linux/usb/cdc.h:47: warning: 'struct usb_interface' declared inside parameter list
-> >> >>> include/linux/usb/cdc.h:47: error: conflicting types for 'cdc_parse_cdc_header'
-> >> >    include/linux/usb/cdc.h:47: error: previous declaration of 'cdc_parse_cdc_header' was here
-> >> 
-> >> This may be a side effect of the initial warning, does this reproduce with
-> >> that fixed?  Please show me what the warning looks like in that case.
-> > 
-> > Dave, net-next/master commit ad1e7b97b3 ("cdc: Fix build warning.")
-> > still has errors.
-> > 
-> > The problem is, the header file <linux/usb/cdc.h> is included twice.
-> 
-> That's not possible after the patch I committed from Stephen Rothwell
-> which adds proper include guards:
 
-Yes, this patch fixed the errors nicely!
 
-Thanks,
-Fengguang
+> -----Original Message-----
+> From: Alexander Duyck [mailto:alexander.duyck@gmail.com]
+> Sent: Wednesday, September 16, 2015 2:39 PM
+> To: KY Srinivasan <kys@microsoft.com>; David Laight
+> <David.Laight@ACULAB.COM>; Haiyang Zhang <haiyangz@microsoft.com>;
+> Vitaly Kuznetsov <vkuznets@redhat.com>; netdev@vger.kernel.org
+> Cc: David S. Miller <davem@davemloft.net>; linux-kernel@vger.kernel.org;
+> Jason Wang <jasowang@redhat.com>
+> Subject: Re: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+> 
+> On 09/16/2015 10:55 AM, KY Srinivasan wrote:
+> >
+> >> -----Original Message-----
+> >> From: David Laight [mailto:David.Laight@ACULAB.COM]
+> >> Sent: Wednesday, September 16, 2015 9:25 AM
+> >> To: Haiyang Zhang <haiyangz@microsoft.com>; Vitaly Kuznetsov
+> >> <vkuznets@redhat.com>; netdev@vger.kernel.org
+> >> Cc: David S. Miller <davem@davemloft.net>; linux-kernel@vger.kernel.org;
+> >> KY Srinivasan <kys@microsoft.com>; Jason Wang <jasowang@redhat.com>
+> >> Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-
+> >> V
+> >>
+> >> From: Haiyang Zhang
+> >>> Sent: 16 September 2015 17:09
+> >>>> -----Original Message-----
+> >>>> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+> >>>> Sent: Wednesday, September 16, 2015 11:50 AM
+> >>>> To: netdev@vger.kernel.org
+> >>>> Cc: David S. Miller <davem@davemloft.net>; linux-
+> >> kernel@vger.kernel.org;
+> >>>> KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
+> >>>> <haiyangz@microsoft.com>; Jason Wang <jasowang@redhat.com>
+> >>>> Subject: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-
+> >> V
+> >>>> Commit b08cc79155fc26d0d112b1470d1ece5034651a4b ("hv_netvsc:
+> >> Eliminate
+> >>>>   memory allocation in the packet send path") introduced skb headroom
+> >>>> request for Hyper-V netvsc driver:
+> >>>>
+> >>>>         max_needed_headroom = sizeof(struct hv_netvsc_packet) +
+> >>>>                                 sizeof(struct rndis_message) +
+> >>>>                                 NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE +
+> >>>>                                 NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE;
+> >>>>         ...
+> >>>>         net->needed_headroom = max_needed_headroom;
+> >>>>
+> >>>> max_needed_headroom is 220 bytes, it significantly exceeds the
+> >>>> LL_MAX_HEADER setting. This causes each skb to be cloned on send
+> >> path,
+> >>>> e.g. for IPv4 case we fall into the following clause
+> >>>> (ip_finish_output2()):
+> >>>>
+> >>>> if (unlikely(skb_headroom(skb) < hh_len && dev->header_ops)) {
+> >>>>      ...
+> >>>>      skb2 = skb_realloc_headroom(skb, LL_RESERVED_SPACE(dev));
+> >>>>      ...
+> >>>> }
+> >>>>
+> >>>> leading to a significant performance regression. Increase
+> >> LL_MAX_HEADER
+> >>>> to make it suitable for netvsc, make it 224 to be 16-aligned.
+> >>>> Alternatively we could (partially) revert the commit which introduced
+> >>>> skb
+> >>>> headroom request restoring manual memory allocation on transmit path.
+> >>>>
+> >>>> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> >>>> ---
+> >>>>   include/linux/netdevice.h | 4 +++-
+> >>>>   1 file changed, 3 insertions(+), 1 deletion(-)
+> >>>>
+> >>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> >>>> index 88a0069..7233790 100644
+> >>>> --- a/include/linux/netdevice.h
+> >>>> +++ b/include/linux/netdevice.h
+> >>>> @@ -132,7 +132,9 @@ static inline bool dev_xmit_complete(int rc)
+> >>>>    *	used.
+> >>>>    */
+> >>>>
+> >>>> -#if defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+> >>>> +#if IS_ENABLED(CONFIG_HYPERV_NET)
+> >>>> +# define LL_MAX_HEADER 224
+> >>>> +#elif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+> >>>>   # if defined(CONFIG_MAC80211_MESH)
+> >>>>   #  define LL_MAX_HEADER 128
+> >>>>   # else
+> >>> Thanks for the patch.
+> >>> To avoid we forget to update that 224 number when we add more things
+> >>> into netvsc header, I suggest that we define a macro in netdevice.h such
+> >>> as:
+> >>> #define HVNETVSC_MAX_HEADER 224
+> >>> #define LL_MAX_HEADER HVNETVSC_MAX_HEADER
+> >>>
+> >>> And, put a note in netvsc code saying the header reservation shouldn't
+> >>> exceed HVNETVSC_MAX_HEADER, or you need to update
+> >> HVNETVSC_MAX_HEADER.
+> >>
+> >> Am I right in thinking this is adding an extra 96 unused bytes to the front
+> >> of almost all skb just so that hyper-v can make its link level header
+> >> contiguous with whatever follows (IP header ?).
+> >>
+> >> Doesn't sound ideal.
+> > Remote NDIS is the protocol used to send packets from the guest to the host.
+> Every packet
+> > needs to be decorated with the RNDIS header and the maximum room needed
+> for the RNDIS
+> > header is the hreadroom we want.
+> 
+> I think we get that.  The question is does the Remote NDIS header and
+> packet info actually need to be a part of the header data?  I would
+> argue that it probably doesn't.
+> 
+> So for example in netvsc_start_xmit it looks like you are calling
+> init_page_array in order to populate a set of page buffers, but the
+> first buffer for the Remote NDIS protocol is populated as a separate
+> page and offset.  As such it doesn't seem like it necessarily needs to
+> be a part of the header data but could be maintained perhaps in a
+> separate ring buffer, or perhaps just be a separate page that you break
+> up to use for each header.
 
-> ====================
-> commit b84ee0d7f375ed7840c7c110d46eac24cf94b2a2
-> Author: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date:   Wed Sep 16 11:10:16 2015 +1000
+You are right; the rndis header can be built as a separate fragment and sent.
+Indeed this is what we were doing earlier - on the outgoing path we would allocate
+memory for the rndis header. My goal was to avoid this allocation on every packet being
+sent and I decided to use the headroom instead. If we can completely avoid all memory
+allocation for rndis header, it makes a significant perf difference:
+
+Throughput as measured by iperf on a 40G interface (VM to VM on two nodes) in Gbps.
+Scenario #A: LL_MAX_HEADER =128 [no change], needed_headroom = 220 [no change]
+Scenario #B: LL_MAX_HEADER =224, needed_headroom = 220 [no change]
+
+Conn#   #A                     #B          
+1              6.9                  8.2  
+2              13.2                14.9        
+4              17.6                16.6        
+8              24.1                26.9        
+16           24.0                 31.5        
+32           24.5                 33.6        
+64           31.6                 31.5        
+128         29.6                 30.3        
+
+Column A is the existing code where we end up having to allocate more headroom and column B is with
+Vitaly's patch. I will experiment with a light-weight allocator for the rndis header.
+
+Regards,
+
+K. Y
+
+
+
+
+
 > 
->     cdc: add header guards
->     
->     Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
-> index 959d0c8..b5706f9 100644
-> --- a/include/linux/usb/cdc.h
-> +++ b/include/linux/usb/cdc.h
-> @@ -7,6 +7,8 @@
->   * modify it under the terms of the GNU General Public License
->   * version 2 as published by the Free Software Foundation.
->   */
-> +#ifndef __LINUX_USB_CDC_H
-> +#define __LINUX_USB_CDC_H
->  
->  #include <uapi/linux/usb/cdc.h>
->  
-> @@ -45,3 +47,5 @@ int cdc_parse_cdc_header(struct usb_cdc_parsed_header *hdr,
->  				struct usb_interface *intf,
->  				u8 *buffer,
->  				int buflen);
-> +
-> +#endif /* __LINUX_USB_CDC_H */
-> diff --git a/include/uapi/linux/usb/cdc.h b/include/uapi/linux/usb/cdc.h
-> index b6a9cdd..e2bc417 100644
-> --- a/include/uapi/linux/usb/cdc.h
-> +++ b/include/uapi/linux/usb/cdc.h
-> @@ -6,8 +6,8 @@
->   * firmware based USB peripherals.
->   */
->  
-> -#ifndef __LINUX_USB_CDC_H
-> -#define __LINUX_USB_CDC_H
-> +#ifndef __UAPI_LINUX_USB_CDC_H
-> +#define __UAPI_LINUX_USB_CDC_H
->  
->  #include <linux/types.h>
->  
-> @@ -444,4 +444,4 @@ struct usb_cdc_ncm_ndp_input_size {
->  #define USB_CDC_NCM_CRC_NOT_APPENDED			0x00
->  #define USB_CDC_NCM_CRC_APPENDED			0x01
->  
-> -#endif /* __LINUX_USB_CDC_H */
-> +#endif /* __UAPI_LINUX_USB_CDC_H */
+> - Alex
