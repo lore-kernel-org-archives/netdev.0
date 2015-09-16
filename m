@@ -1,44 +1,59 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 26/30] bridge: Cache net in br_nf_pre_routing_finish
-Date: Tue, 15 Sep 2015 20:04:14 -0500
-Message-ID: <1442365458-16349-26-git-send-email-ebiederm@xmission.com>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] bonding: use l4 hash if available
+Date: Tue, 15 Sep 2015 18:14:42 -0700
+Message-ID: <1442366082.4116.26.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1442355868.4116.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAF2d9jgb_MP==6Go-quk=9s_Nyg8ewgFzfkvUi-y5j_7zBqksw@mail.gmail.com>
+	 <1442359228.4116.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAF2d9jg7rkfvH1J8Ttf5dokAo=jnZi6ujkdM9m9BGWJeX62yNQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34178 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752498AbbIPBOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 21:14:45 -0400
+Received: by padhy16 with SMTP id hy16so191978315pad.1
+        for <netdev@vger.kernel.org>; Tue, 15 Sep 2015 18:14:44 -0700 (PDT)
+In-Reply-To: <CAF2d9jg7rkfvH1J8Ttf5dokAo=jnZi6ujkdM9m9BGWJeX62yNQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is prep work for passing net to the netfilter hooks.
+On Tue, 2015-09-15 at 17:04 -0700, Mahesh Bandewar wrote:
+> On Tue, Sep 15, 2015 at 4:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Tue, 2015-09-15 at 15:54 -0700, Mahesh Bandewar wrote:
+> >
+> >> > +       if (bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP34 &&
+> >> > +           skb->l4_hash)
+> >> if (ENCAP34 || LAYER34) && l4_hash) may be?
+> >
+> > Hmm, traditional BOND_XMIT_POLICY_LAYER34 did not a full flow bisection
+> > (tunnel awareness added in commit
+> > 32819dc1834866cb9547cb75f81af9edd58d33cd bonding: modify the old and add
+> > new xmit hash policies)
+> >
+> > This could radically change some setups and behavior.
+> >
+> > BOND_XMIT_POLICY_ENCAP34 looks a better fit to me.
+> >
+> Agreed, this will change flow distribution for LAYER34 policy but then
+> loose out on calculating hash per packet which I think is unnecessary.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- net/bridge/br_netfilter_hooks.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+We added new bonding policy exactly for this.
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index e6910b71af6e..c1127908e23a 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -346,6 +346,7 @@ static int br_nf_pre_routing_finish(struct sock *sk, struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dev;
- 	struct iphdr *iph = ip_hdr(skb);
-+	struct net *net = dev_net(dev);
- 	struct nf_bridge_info *nf_bridge = nf_bridge_info_get(skb);
- 	struct rtable *rt;
- 	int err;
-@@ -371,7 +372,7 @@ static int br_nf_pre_routing_finish(struct sock *sk, struct sk_buff *skb)
- 			if (err != -EHOSTUNREACH || !in_dev || IN_DEV_FORWARD(in_dev))
- 				goto free_skb;
- 
--			rt = ip_route_output(dev_net(dev), iph->daddr, 0,
-+			rt = ip_route_output(net, iph->daddr, 0,
- 					     RT_TOS(iph->tos), 0);
- 			if (!IS_ERR(rt)) {
- 				/* - Bridged-and-DNAT'ed traffic doesn't
--- 
-2.2.1
+If people are stuck with LAYER34, that is their choice.
 
+> 
+> This elimination of hash calculation is a good step but I'm feeling
+> that it's somehow tied to ENCAP policy which is actually orthogonal
+> and should be applied to LAYER34 also.
+
+You can send a followup patch, once fully tested.
+
+I've tested the ENCAP34 mode only, I do not want to add cycles for a
+mode that is potentially a legacy one that nobody uses.
