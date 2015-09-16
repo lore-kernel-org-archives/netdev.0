@@ -1,61 +1,56 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH RFC 3/3] net: tcp_ipv4: re-run netfilter chains for marked skbs
-Date: Wed, 16 Sep 2015 17:43:00 +0200
-Message-ID: <1442418180-14322-4-git-send-email-daniel@zonque.org>
+Subject: [PATCH RFC 1/3] netfilter: add socket to struct nft_pktinfo
+Date: Wed, 16 Sep 2015 17:42:58 +0200
+Message-ID: <1442418180-14322-2-git-send-email-daniel@zonque.org>
 References: <1442418180-14322-1-git-send-email-daniel@zonque.org>
 Cc: daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org, fw@strlen.de, balazs.scheidler@balabit.com,
 	Daniel Mack <daniel@zonque.org>
 To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:47604 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:47601 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753185AbbIPPu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752239AbbIPPu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 16 Sep 2015 11:50:56 -0400
 In-Reply-To: <1442418180-14322-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an skb has been marked for later re-iteration through netfilter,
-do that after __inet_lookup_skb() has been called. This allows packets
-sent to unconnected sockets to be filtered reliably.
+The high-level netfilter hook API already enables users to pass a socket,
+but that information is lost when the chains are walked.
 
-Note that this will never happen for subsequent packets in the same
-stream, as skb->sk will be set due to early demux, and hence
-skb->nf_postponed will remain 0.
+In order to let internal eval callbacks use the passed filter rather than
+skb->sk, add a pointer of type 'struct sock' to 'struct nft_pktinfo' and
+set that field via nft_set_pktinfo().
+
+This allows us to run filter chains from situations where skb->sk is unset.
+Fall back to skb->sk in case state->sk is NULL, so filter callbacks can be
+written in a generic way.
 
 Signed-off-by: Daniel Mack <daniel@zonque.org>
 ---
- net/ipv4/tcp_ipv4.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ include/net/netfilter/nf_tables.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 93898e0..61e0cb4 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -78,6 +78,7 @@
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index aa8bee7..05e97ed 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -13,6 +13,7 @@
+ #define NFT_JUMP_STACK_SIZE	16
  
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-+#include <linux/netfilter.h>
- #include <linux/stddef.h>
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-@@ -1594,6 +1595,15 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	if (!sk)
- 		goto no_tcp_socket;
- 
-+	if (unlikely(skb->nf_postponed)) {
-+		ret = nf_hook(NFPROTO_IPV4, NF_INET_LOCAL_IN, sk,
-+			      skb, skb->dev, NULL, NULL);
-+		if (ret != 1) {
-+			sock_put(sk);
-+			return 0;
-+		}
-+	}
-+
- process:
- 	if (sk->sk_state == TCP_TIME_WAIT)
- 		goto do_time_wait;
+ struct nft_pktinfo {
++	struct sock			*sk;
+ 	struct sk_buff			*skb;
+ 	const struct net_device		*in;
+ 	const struct net_device		*out;
+@@ -29,6 +30,7 @@ static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
+ 				   struct sk_buff *skb,
+ 				   const struct nf_hook_state *state)
+ {
++	pkt->sk = state->sk ?: skb->sk;
+ 	pkt->skb = skb;
+ 	pkt->in = pkt->xt.in = state->in;
+ 	pkt->out = pkt->xt.out = state->out;
 -- 
 2.5.0
