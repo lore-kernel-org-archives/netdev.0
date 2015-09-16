@@ -1,86 +1,70 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 11/30] ipv4: Only compute net once in ip_do_fragment
-Date: Tue, 15 Sep 2015 20:03:59 -0500
-Message-ID: <1442365458-16349-11-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 21/30] ipv6: Only compute net once in ip6_finish_output2
+Date: Tue, 15 Sep 2015 20:04:09 -0500
+Message-ID: <1442365458-16349-21-git-send-email-ebiederm@xmission.com>
 References: <87mvwn18my.fsf@x220.int.ebiederm.org>
 Cc: netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>
 To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60412 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752547AbbIPBNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Sep 2015 21:13:41 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/ip_output.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ net/ipv6/ip6_output.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 9ee622ad8dfa..85b72d450184 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -531,9 +531,11 @@ int ip_do_fragment(struct sock *sk, struct sk_buff *skb,
- 	int offset;
- 	__be16 not_last_frag;
- 	struct rtable *rt = skb_rtable(skb);
-+	struct net *net;
- 	int err = 0;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index a80502c64523..12d0166a64cd 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -60,6 +60,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net_device *dev = dst->dev;
++	struct net *net = dev_net(dev);
+ 	struct neighbour *neigh;
+ 	struct in6_addr *nexthop;
+ 	int ret;
+@@ -71,7 +72,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
+ 		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
  
- 	dev = rt->dst.dev;
-+	net = dev_net(dev);
+ 		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(sk) &&
+-		    ((mroute6_socket(dev_net(dev), skb) &&
++		    ((mroute6_socket(net, skb) &&
+ 		     !(IP6CB(skb)->flags & IP6SKB_FORWARDED)) ||
+ 		     ipv6_chk_mcast_addr(dev, &ipv6_hdr(skb)->daddr,
+ 					 &ipv6_hdr(skb)->saddr))) {
+@@ -86,15 +87,14 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
+ 					dev_loopback_xmit);
  
- 	/*
- 	 *	Point into the IP datagram header.
-@@ -626,7 +628,7 @@ int ip_do_fragment(struct sock *sk, struct sk_buff *skb,
- 			err = output(sk, skb);
- 
- 			if (!err)
--				IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGCREATES);
-+				IP_INC_STATS(net, IPSTATS_MIB_FRAGCREATES);
- 			if (err || !frag)
- 				break;
- 
-@@ -636,7 +638,7 @@ int ip_do_fragment(struct sock *sk, struct sk_buff *skb,
+ 			if (ipv6_hdr(skb)->hop_limit == 0) {
+-				IP6_INC_STATS(dev_net(dev), idev,
++				IP6_INC_STATS(net, idev,
+ 					      IPSTATS_MIB_OUTDISCARDS);
+ 				kfree_skb(skb);
+ 				return 0;
+ 			}
  		}
  
- 		if (err == 0) {
--			IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGOKS);
-+			IP_INC_STATS(net, IPSTATS_MIB_FRAGOKS);
- 			return 0;
- 		}
+-		IP6_UPD_PO_STATS(dev_net(dev), idev, IPSTATS_MIB_OUTMCAST,
+-				skb->len);
++		IP6_UPD_PO_STATS(net, idev, IPSTATS_MIB_OUTMCAST, skb->len);
  
-@@ -645,7 +647,7 @@ int ip_do_fragment(struct sock *sk, struct sk_buff *skb,
- 			kfree_skb(frag);
- 			frag = skb;
- 		}
--		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
-+		IP_INC_STATS(net, IPSTATS_MIB_FRAGFAILS);
- 		return err;
- 
- slow_path_clean:
-@@ -767,15 +769,15 @@ slow_path:
- 		if (err)
- 			goto fail;
- 
--		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGCREATES);
-+		IP_INC_STATS(net, IPSTATS_MIB_FRAGCREATES);
+ 		if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
+ 		    IPV6_ADDR_SCOPE_NODELOCAL &&
+@@ -116,8 +116,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
  	}
- 	consume_skb(skb);
--	IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGOKS);
-+	IP_INC_STATS(net, IPSTATS_MIB_FRAGOKS);
- 	return err;
+ 	rcu_read_unlock_bh();
  
- fail:
+-	IP6_INC_STATS(dev_net(dst->dev),
+-		      ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
++	IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
  	kfree_skb(skb);
--	IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
-+	IP_INC_STATS(net, IPSTATS_MIB_FRAGFAILS);
- 	return err;
+ 	return -EINVAL;
  }
- EXPORT_SYMBOL(ip_do_fragment);
 -- 
 2.2.1
+
