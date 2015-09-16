@@ -1,68 +1,48 @@
 From: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-Subject: [PATCH v8 1/3] can: Allwinner A10/A20 CAN Controller support - Devicetree bindings
-Date: Wed, 16 Sep 2015 13:21:19 +0200
-Message-ID: <1442402482-7118-2-git-send-email-info@gerhard-bertelsmann.de>
+Subject: [PATCH v8 3/4] can: Allwinner A10/A20 CAN Controller support -
+ Defconfig
+Date: Wed, 16 Sep 2015 13:21:21 +0200
+Message-ID: <1442402482-7118-4-git-send-email-info@gerhard-bertelsmann.de>
 References: <1442402482-7118-1-git-send-email-info@gerhard-bertelsmann.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-To: wg@grandegger.com, mkl@pengutronix.de,
-	maxime.ripard@free-electrons.com, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: wg@grandegger.com, mkl@pengutronix.de, maxime.ripard@free-electrons.com,
+ linux-can@vger.kernel.org, netdev@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1442402482-7118-1-git-send-email-info@gerhard-bertelsmann.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Devicetree bindings for Allwinner A10/A20 CAN
+Defconfig sunxi for Allwinner A10/A20 CAN driver
 
 Signed-off-by: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
 ---
 
- .../devicetree/bindings/net/can/sun4i_can.txt      |  38 +
- 1 files changed, 389 insertions(+)
+ arch/arm/configs/sunxi_defconfig                   |   2 +
+ 1 file changed, 2 insertions(+)
 
 
-diff --git a/Documentation/devicetree/bindings/net/can/sun4i_can.txt b/Documentation/devicetree/bindings/net/can/sun4i_can.txt
-new file mode 100644
-index 0000000..cd0f50c
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/can/sun4i_can.txt
-@@ -0,0 +1,38 @@
-+Allwinner A10/A20 CAN controller Device Tree Bindings
-+-----------------------------------------------------
-+
-+Required properties:
-+- compatible: "allwinner,sun4i-a10-can"
-+- reg: physical base address and size of the Allwinner A10/A20 CAN register map.
-+- interrupts: interrupt specifier for the sole interrupt.
-+- clock: phandle and clock specifier.
-+
-+
-+Example
-+-------
-+
-+SoC common .dtsi file:
-+
-+	can0_pins_a: can0@0 {
-+		allwinner,pins = "PH20","PH21";
-+		allwinner,function = "can";
-+		allwinner,drive = <0>;
-+		allwinner,pull = <0>;
-+	};
-+...
-+	can0: can@01c2bc00 {
-+		compatible = "allwinner,sun4i-a10-can";
-+		reg = <0x01c2bc00 0x400>;
-+		interrupts = <0 26 4>;
-+		clocks = <&apb1_gates 4>;
-+		status = "disabled";
-+	};
-+
-+Board specific .dts file:
-+
-+	can0: can@01c2bc00 {
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&can0_pins_a>;
-+		status = "okay";
-+	};
-+
+diff --git a/arch/arm/configs/sunxi_defconfig b/arch/arm/configs/sunxi_defconfig
+index 51eea22..fe020a5 100644
+--- a/arch/arm/configs/sunxi_defconfig
++++ b/arch/arm/configs/sunxi_defconfig
+@@ -31,6 +31,8 @@ CONFIG_IP_PNP_BOOTP=y
+ # CONFIG_INET_LRO is not set
+ # CONFIG_INET_DIAG is not set
+ # CONFIG_IPV6 is not set
++CONFIG_CAN=y
++CONFIG_CAN_SUN4I=y
+ # CONFIG_WIRELESS is not set
+ CONFIG_DEVTMPFS=y
+ CONFIG_DEVTMPFS_MOUNT=y
