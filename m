@@ -1,56 +1,90 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH net 6/6] lan78xx: Remove not defined MAC_CR_GMII_EN_ bit
- from MAC_CR.
-Date: Wed, 16 Sep 2015 23:41:19 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D55C6B7@CHN-SV-EXMX02.mchp-main.com>
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Subject: Re: [linux-next] oops in ip_route_input_noref
+Date: Thu, 17 Sep 2015 08:47:38 +0900
+Message-ID: <20150916234738.GA592@swordfish>
+References: <20150916092447.GA945@swordfish>
+ <55F9578C.40209@ericsson.com>
+ <55F9699E.5080807@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:47440 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753067AbbIPXlU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 19:41:20 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Alpe <richard.alpe@ericsson.com>,
+	Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55F9699E.5080807@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove not defined MAC_CR_GMII_EN_ bit from MAC_CR.
+On (09/16/15 07:07), David Ahern wrote:
+> Hi Sergey:
+> 
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
----
- drivers/net/usb/lan78xx.c | 3 ---
- drivers/net/usb/lan78xx.h | 1 -
- 2 files changed, 4 deletions(-)
+Hi,
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 9102c71..bfac0db 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -1909,10 +1909,7 @@ static int lan78xx_reset(struct lan78xx_net *dev)
- 	} while ((buf & PMT_CTL_PHY_RST_) || !(buf & PMT_CTL_READY_));
- 
- 	ret = lan78xx_read_reg(dev, MAC_CR, &buf);
--
--	buf |= MAC_CR_GMII_EN_;
- 	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
--
- 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
- 
- 	/* enable PHY interrupts */
-diff --git a/drivers/net/usb/lan78xx.h b/drivers/net/usb/lan78xx.h
-index e0a5a8f..a93fb65 100644
---- a/drivers/net/usb/lan78xx.h
-+++ b/drivers/net/usb/lan78xx.h
-@@ -549,7 +549,6 @@
- #define LTM_INACTIVE1_TIMER10_		(0x0000FFFF)
- 
- #define MAC_CR				(0x100)
--#define MAC_CR_GMII_EN_			(0x00080000)
- #define MAC_CR_EEE_TX_CLK_STOP_EN_	(0x00040000)
- #define MAC_CR_EEE_EN_			(0x00020000)
- #define MAC_CR_EEE_TLAR_EN_		(0x00010000)
--- 
-2.1.4
+sorry for long reply. Baremetal. So grabbing the backtrace is
+a bit complicated. But it looks very close to what Richard Alpe
+has posted.
+
+in IRQ
+
+RIP is at ip_route_input_noref
+
+[    0.877597]  [<ffffffff8158e13c>] arp_process+0x39c/0x690
+[    0.877597]  [<ffffffff8158e57e>] arp_rcv+0x13e/0x170
+
+
+	-ss
+
+
+> Is this with KVM or baremetal?
+> 
+> -----8<-----
+> thanks for the analysis
+> 
+> >>addr2line -e vmlinux -i 0xffffffff8146c0b1
+> >>net/ipv4/route.c:1815
+> >>net/ipv4/route.c:1905
+> >>
+> >>
+> >>which seems to be this line ip_route_input_noref()->ip_route_input_slow():
+> >>...
+> >>1813         rth->rt_is_input = 1;
+> >>1814         if (res.table)
+> >>1815                 rth->rt_table_id = res.table->tb_id;
+> >>1816
+> >>...
+> >>
+> >>
+> >>added by b7503e0cdb5dbec5d201aa69d8888c14679b5ae8
+> >>
+> >>     net: Add FIB table id to rtable
+> >>
+> >>     Add the FIB table id to rtable to make the information available for
+> >>     IPv4 as it is for IPv6.
+> >>
+> >>
+> >>	-ss
+> 
+> Hi Richard:
+> 
+> >I to get an Oops in ip_route_input_noref(). It happens occasionally during bootup.
+> >KVM environment using virtio driver. Let me know if you need any additional info or
+> >if you want me to try to bisect it.
+> >
+> >Starting network...
+> >...
+> >[    0.877040] BUG: unable to handle kernel NULL pointer dereference at 0000000000000056
+> >[    0.877597] IP: [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
+> 
+> Can you send me your kernel config and qemu command line? KVM with virtio
+> networking is a primary test vehicle, and I did not encounter this at all.
+> 
+> Thanks,
+> David
+> 
+> 
