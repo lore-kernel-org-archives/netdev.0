@@ -1,330 +1,105 @@
-From: Damian Hobson-Garcia <dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
-Subject: [PATCH v2 1/1] eventfd: implementation of EFD_MASK flag
-Date: Wed, 16 Sep 2015 15:27:16 +0900
-Message-ID: <1442384836-13045-2-git-send-email-dhobsong@igel.co.jp>
-References: <1442384836-13045-1-git-send-email-dhobsong@igel.co.jp>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org, Damian Hobson-Garcia <dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
-To: viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1442384836-13045-1-git-send-email-dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Wengang Wang <wen.gang.wang@oracle.com>
+Subject: [PATCH] ip: find correct route for socket which is not bound to a device
+Date: Wed, 16 Sep 2015 14:34:15 +0800
+Message-ID: <1442385255-27014-1-git-send-email-wen.gang.wang@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: wen.gang.wang@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:43256 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752226AbbIPGc4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 02:32:56 -0400
+Received: from userv0022.oracle.com (userv0022.oracle.com [156.151.31.74])
+	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t8G6Wtjm028266
+	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 06:32:56 GMT
+Received: from aserv0122.oracle.com (aserv0122.oracle.com [141.146.126.236])
+	by userv0022.oracle.com (8.13.8/8.13.8) with ESMTP id t8G6WtZ0019225
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 06:32:55 GMT
+Received: from abhmp0006.oracle.com (abhmp0006.oracle.com [141.146.116.12])
+	by aserv0122.oracle.com (8.13.8/8.13.8) with ESMTP id t8G6Wsjb011706
+	for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 06:32:55 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Martin Sustrik <sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org>
+=46or multi-cast, we should find valid route(thus get the meaniful pmtu=
+) for
+the package on the socket which is not bound to a device(sk_bound_dev_i=
+f
+being 0) too.
 
-When implementing network protocols in user space, one has to implement
-fake file descriptors to represent the sockets for the protocol.
+=46rom man page of socket(7)
 
-Polling on such fake file descriptors is a problem (poll/select/epoll
-accept only true file descriptors) and forces protocol implementers to use
-various workarounds resulting in complex, non-standard and convoluted APIs.
+       SO_BINDTODEVICE
+		Bind this socket to a particular device like =E2=80=9Ceth0=E2=80=9D, =
+as
+		specified in the passed interface name.  If the name is an
+		empty string or the option length is zero, the socket
+		device binding is removed. The  passed  option is  a
+		variable-length null-terminated interface name string with
+		the maximum size of IFNAMSIZ.  If a socket is bound to an
+		interface, only packets received from that particular
+		interface are processed by the socket. Note that this works
+		only for some socket types, particularly AF_INET sockets.
+		It is not supported for packet sockets (use normal bind(2)
+		there).
 
-More generally, ability to create full-blown file descriptors for
-userspace-to-userspace signalling is missing. While eventfd(2) goes half
-the way towards this goal it has follwoing shorcomings:
+The man page doesn't say when socket not bound packages won't be routed=
+=2E
 
-I.  There's no way to signal POLLPRI, POLLHUP etc.
-II. There's no way to signal arbitrary combination of POLL* flags. Most
-    notably, simultaneous !POLLIN and !POLLOUT, which is a perfectly valid
-    combination for a network protocol (rx buffer is empty and tx buffer is
-    full), cannot be signaled using eventfd.
+A problem is hit that all multi-cast packages dropped by kernel(from se=
+nder
+host). The lower layer is IPoIB with MTU being 7000. And I was sending =
+4096
+length multi-cast  package. In side IPoIB the first send is dropped bec=
+ause
+is exeeding the internal package size limitation mcast_mtu which is 204=
+4.
+So IPoIB calls ip_rt_update_pmtu (indirectly) trying to set path mtu. A
+correct route is configured for the multi-cast, so the setting of pmtu
+cucceeded and the next multi-cast package(to the same target) is expect=
+ed
+to succeed(it would be well fragmented accroding to the pmtu I just set=
+).
+But actually the second and later multi-cast packages got dropped too. =
+And
+the reason is that the neighor looking up(fib_lookup) is skipped becaus=
+e of
+the socket is not bound to device(sk_bound_dev_if being 0). After appli=
+ed
+the patch I proposed here, it works fine.
 
-This patch implements new EFD_MASK flag which solves the above problems.
-
-Additionally, to provide a way to associate user-space state with eventfd
-object, it allows to attach user-space data to the file descriptor.
-
-The semantics of EFD_MASK are as follows:
-
-eventfd(2):
-
-If eventfd is created with EFD_MASK flag set, it is initialised in such a
-way as to signal no events on the file descriptor when it is polled on.
-The 'initval' argument is ignored.
-
-write(2):
-
-User is allowed to write only buffers containing the following structure:
-
-struct efd_mask {
-  uint32_t events;
-};
-
-The value of 'events' should be any combination of event flags as defined
-by poll(2) function (POLLIN, POLLOUT, POLLERR, POLLHUP etc.) Specified
-events will be signaled when polling (select, poll, epoll) on the eventfd
-is done later on.
-
-read(2):
-
-read is not supported and will fail with EINVAL.
-
-select(2), poll(2) and similar:
-
-When polling on the eventfd marked by EFD_MASK flag, all the events
-specified in last written 'events' field shall be signaled.
-
-Signed-off-by: Martin Sustrik <sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org>
-
-[dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org: Rebased, and resubmitted for Linux 4.3]
-Signed-off-by: Damian Hobson-Garcia <dhobsong-AlSX/UN32fvPDbFq/vQRIQ@public.gmane.org>
+Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
 ---
- fs/eventfd.c                 | 102 ++++++++++++++++++++++++++++++++++++++-----
- include/linux/eventfd.h      |  16 +------
- include/uapi/linux/eventfd.h |  39 +++++++++++++++++
- 3 files changed, 132 insertions(+), 25 deletions(-)
- create mode 100644 include/uapi/linux/eventfd.h
+ net/ipv4/route.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/fs/eventfd.c b/fs/eventfd.c
-index 8d0c0df..1a6a066 100644
---- a/fs/eventfd.c
-+++ b/fs/eventfd.c
-@@ -2,6 +2,7 @@
-  *  fs/eventfd.c
-  *
-  *  Copyright (C) 2007  Davide Libenzi <davidel-AhlLAIvw+VEjIGhXcJzhZg@public.gmane.org>
-+ *  Copyright (C) 2013  Martin Sustrik <sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org>
-  *
-  */
- 
-@@ -22,18 +23,31 @@
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- 
-+#define EFD_SHARED_FCNTL_FLAGS (O_CLOEXEC | O_NONBLOCK)
-+#define EFD_FLAGS_SET (EFD_SHARED_FCNTL_FLAGS | EFD_SEMAPHORE | EFD_MASK)
-+#define EFD_MASK_VALID_EVENTS (POLLIN | POLLPRI | POLLOUT | POLLERR | POLLHUP)
-+
- struct eventfd_ctx {
- 	struct kref kref;
- 	wait_queue_head_t wqh;
--	/*
--	 * Every time that a write(2) is performed on an eventfd, the
--	 * value of the __u64 being written is added to "count" and a
--	 * wakeup is performed on "wqh". A read(2) will return the "count"
--	 * value to userspace, and will reset "count" to zero. The kernel
--	 * side eventfd_signal() also, adds to the "count" counter and
--	 * issue a wakeup.
--	 */
--	__u64 count;
-+	union {
-+		/*
-+		 * Every time that a write(2) is performed on an eventfd, the
-+		 * value of the __u64 being written is added to "count" and a
-+		 * wakeup is performed on "wqh". A read(2) will return the
-+		 * "count" value to userspace, and will reset "count" to zero.
-+		 * The kernel side eventfd_signal() also, adds to the "count"
-+		 * counter and issue a wakeup.
-+		 */
-+		__u64 count;
-+
-+		/*
-+		 * When using eventfd in EFD_MASK mode this stracture stores the
-+		 * current events to be signaled on the eventfd (events member)
-+		 * along with opaque user-defined data (data member).
-+		 */
-+		struct efd_mask mask;
-+	};
- 	unsigned int flags;
- };
- 
-@@ -134,6 +148,14 @@ static unsigned int eventfd_poll(struct file *file, poll_table *wait)
- 	return events;
- }
- 
-+static unsigned int eventfd_mask_poll(struct file *file, poll_table *wait)
-+{
-+	struct eventfd_ctx *ctx = file->private_data;
-+
-+	poll_wait(file, &ctx->wqh, wait);
-+	return ctx->mask.events;
-+}
-+
- static void eventfd_ctx_do_read(struct eventfd_ctx *ctx, __u64 *cnt)
- {
- 	*cnt = (ctx->flags & EFD_SEMAPHORE) ? 1 : ctx->count;
-@@ -239,6 +261,14 @@ static ssize_t eventfd_read(struct file *file, char __user *buf, size_t count,
- 	return put_user(cnt, (__u64 __user *) buf) ? -EFAULT : sizeof(cnt);
- }
- 
-+static ssize_t eventfd_mask_read(struct file *file, char __user *buf,
-+			    size_t count,
-+			    loff_t *ppos)
-+{
-+	return -EINVAL;
-+}
-+
-+
- static ssize_t eventfd_write(struct file *file, const char __user *buf, size_t count,
- 			     loff_t *ppos)
- {
-@@ -286,6 +316,28 @@ static ssize_t eventfd_write(struct file *file, const char __user *buf, size_t c
- 	return res;
- }
- 
-+static ssize_t eventfd_mask_write(struct file *file, const char __user *buf,
-+			     size_t count,
-+			     loff_t *ppos)
-+{
-+	struct eventfd_ctx *ctx = file->private_data;
-+	struct efd_mask mask;
-+
-+	if (count < sizeof(mask))
-+		return -EINVAL;
-+	if (copy_from_user(&mask, buf, sizeof(mask)))
-+		return -EFAULT;
-+	if (mask.events & ~EFD_MASK_VALID_EVENTS)
-+		return -EINVAL;
-+	spin_lock_irq(&ctx->wqh.lock);
-+	memcpy(&ctx->mask, &mask, sizeof(ctx->mask));
-+	if (waitqueue_active(&ctx->wqh))
-+		wake_up_locked_poll(&ctx->wqh,
-+			(unsigned long)ctx->mask.events);
-+	spin_unlock_irq(&ctx->wqh.lock);
-+	return sizeof(ctx->mask);
-+}
-+
- #ifdef CONFIG_PROC_FS
- static void eventfd_show_fdinfo(struct seq_file *m, struct file *f)
- {
-@@ -296,6 +348,16 @@ static void eventfd_show_fdinfo(struct seq_file *m, struct file *f)
- 		   (unsigned long long)ctx->count);
- 	spin_unlock_irq(&ctx->wqh.lock);
- }
-+
-+static void eventfd_mask_show_fdinfo(struct seq_file *m, struct file *f)
-+{
-+	struct eventfd_ctx *ctx = f->private_data;
-+
-+	spin_lock_irq(&ctx->wqh.lock);
-+	seq_printf(m, "eventfd-mask: %x\n",
-+		(unsigned)ctx->mask.events);
-+	spin_unlock_irq(&ctx->wqh.lock);
-+}
- #endif
- 
- static const struct file_operations eventfd_fops = {
-@@ -309,6 +371,17 @@ static const struct file_operations eventfd_fops = {
- 	.llseek		= noop_llseek,
- };
- 
-+static const struct file_operations eventfd_mask_fops = {
-+#ifdef CONFIG_PROC_FS
-+	.show_fdinfo	= eventfd_mask_show_fdinfo,
-+#endif
-+	.release	= eventfd_release,
-+	.poll		= eventfd_mask_poll,
-+	.read		= eventfd_mask_read,
-+	.write		= eventfd_mask_write,
-+	.llseek		= noop_llseek,
-+};
-+
- /**
-  * eventfd_fget - Acquire a reference of an eventfd file descriptor.
-  * @fd: [in] Eventfd file descriptor.
-@@ -392,6 +465,7 @@ struct file *eventfd_file_create(unsigned int count, int flags)
- {
- 	struct file *file;
- 	struct eventfd_ctx *ctx;
-+	const struct file_operations *fops;
- 
- 	/* Check the EFD_* constants for consistency.  */
- 	BUILD_BUG_ON(EFD_CLOEXEC != O_CLOEXEC);
-@@ -406,10 +480,16 @@ struct file *eventfd_file_create(unsigned int count, int flags)
- 
- 	kref_init(&ctx->kref);
- 	init_waitqueue_head(&ctx->wqh);
--	ctx->count = count;
-+	if (flags & EFD_MASK) {
-+		memset(&ctx->mask, 0, sizeof(ctx->mask));
-+		fops = &eventfd_mask_fops;
-+	} else {
-+		ctx->count = count;
-+		fops = &eventfd_fops;
-+	}
- 	ctx->flags = flags;
- 
--	file = anon_inode_getfile("[eventfd]", &eventfd_fops, ctx,
-+	file = anon_inode_getfile("[eventfd]", fops, ctx,
- 				  O_RDWR | (flags & EFD_SHARED_FCNTL_FLAGS));
- 	if (IS_ERR(file))
- 		eventfd_free_ctx(ctx);
-diff --git a/include/linux/eventfd.h b/include/linux/eventfd.h
-index ff0b981..87de343 100644
---- a/include/linux/eventfd.h
-+++ b/include/linux/eventfd.h
-@@ -8,23 +8,11 @@
- #ifndef _LINUX_EVENTFD_H
- #define _LINUX_EVENTFD_H
- 
-+#include <uapi/linux/eventfd.h>
-+
- #include <linux/fcntl.h>
- #include <linux/wait.h>
- 
--/*
-- * CAREFUL: Check include/uapi/asm-generic/fcntl.h when defining
-- * new flags, since they might collide with O_* ones. We want
-- * to re-use O_* flags that couldn't possibly have a meaning
-- * from eventfd, in order to leave a free define-space for
-- * shared O_* flags.
-- */
--#define EFD_SEMAPHORE (1 << 0)
--#define EFD_CLOEXEC O_CLOEXEC
--#define EFD_NONBLOCK O_NONBLOCK
--
--#define EFD_SHARED_FCNTL_FLAGS (O_CLOEXEC | O_NONBLOCK)
--#define EFD_FLAGS_SET (EFD_SHARED_FCNTL_FLAGS | EFD_SEMAPHORE)
--
- struct file;
- 
- #ifdef CONFIG_EVENTFD
-diff --git a/include/uapi/linux/eventfd.h b/include/uapi/linux/eventfd.h
-new file mode 100644
-index 0000000..98ec034
---- /dev/null
-+++ b/include/uapi/linux/eventfd.h
-@@ -0,0 +1,39 @@
-+/*
-+ *  Copyright (C) 2013 Martin Sustrik <sustrik-8XN41Hm7QBXQT0dZR+AlfA@public.gmane.org>
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ */
-+
-+#ifndef _UAPI_LINUX_EVENTFD_H
-+#define _UAPI_LINUX_EVENTFD_H
-+
-+/* For O_CLOEXEC */
-+#include <linux/fcntl.h>
-+#include <linux/types.h>
-+
-+/*
-+ * CAREFUL: Check include/asm-generic/fcntl.h when defining
-+ * new flags, since they might collide with O_* ones. We want
-+ * to re-use O_* flags that couldn't possibly have a meaning
-+ * from eventfd, in order to leave a free define-space for
-+ * shared O_* flags.
-+ */
-+
-+/* Provide semaphore-like semantics for reads from the eventfd. */
-+#define EFD_SEMAPHORE (1 << 0)
-+/* Provide event mask semantics for the eventfd. */
-+#define EFD_MASK (1 << 1)
-+/*  Set the close-on-exec (FD_CLOEXEC) flag on the eventfd. */
-+#define EFD_CLOEXEC O_CLOEXEC
-+/*  Create the eventfd in non-blocking mode. */
-+#define EFD_NONBLOCK O_NONBLOCK
-+
-+/* Structure to read/write to eventfd in EFD_MASK mode. */
-+struct efd_mask {
-+	__u32 events;
-+};
-+
-+#endif /* _UAPI_LINUX_EVENTFD_H */
--- 
-1.9.1
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 5f4a556..032481a 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2097,7 +2097,7 @@ struct rtable *__ip_route_output_key(struct net *=
+net, struct flowi4 *fl4)
+ 			 */
+=20
+ 			fl4->flowi4_oif =3D dev_out->ifindex;
+-			goto make_route;
++			goto lookup;
+ 		}
+=20
+ 		if (!(fl4->flowi4_flags & FLOWI_FLAG_ANYSRC)) {
+@@ -2153,6 +2153,7 @@ struct rtable *__ip_route_output_key(struct net *=
+net, struct flowi4 *fl4)
+ 		goto make_route;
+ 	}
+=20
++lookup:
+ 	if (fib_lookup(net, fl4, &res, 0)) {
+ 		res.fi =3D NULL;
+ 		res.table =3D NULL;
+--=20
+2.1.0
