@@ -1,83 +1,32 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: David Ahern <dsa@cumulusnetworks.com>
 Subject: Re: [PATCH net-next] net: Initialize table in fib result
-Date: Wed, 16 Sep 2015 17:56:05 +0200
-Message-ID: <55F99115.3020307@cumulusnetworks.com>
+Date: Wed, 16 Sep 2015 10:04:30 -0600
+Message-ID: <55F9930E.5060305@cumulusnetworks.com>
 References: <1442417925-51597-1-git-send-email-dsa@cumulusnetworks.com>
+ <55F99115.3020307@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: sergey.senozhatsky.work@gmail.com, richard.alpe@ericsson.com,
 	festevam@gmail.com
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:35956 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753608AbbIPP4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 11:56:08 -0400
-Received: by wicgb1 with SMTP id gb1so80468701wic.1
-        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 08:56:07 -0700 (PDT)
-In-Reply-To: <1442417925-51597-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34849 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752412AbbIPQEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 12:04:33 -0400
+Received: by pacfv12 with SMTP id fv12so217261421pac.2
+        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 09:04:33 -0700 (PDT)
+In-Reply-To: <55F99115.3020307@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/16/2015 05:38 PM, David Ahern wrote:
-> Sergey, Richard and Fabio reported an oops in ip_route_input_noref. e.g., from Richard:
-> 
-> [    0.877040] BUG: unable to handle kernel NULL pointer dereference at 0000000000000056
-> [    0.877597] IP: [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
-> [    0.877597] PGD 3fa14067 PUD 3fa6e067 PMD 0
-> [    0.877597] Oops: 0000 [#1] SMP
-> [    0.877597] Modules linked in: virtio_net virtio_pci virtio_ring virtio
-> [    0.877597] CPU: 1 PID: 119 Comm: ifconfig Not tainted 4.2.0+ #1
-> [    0.877597] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [    0.877597] task: ffff88003fab0bc0 ti: ffff88003faa8000 task.ti: ffff88003faa8000
-> [    0.877597] RIP: 0010:[<ffffffff8155b5e2>]  [<ffffffff8155b5e2>] ip_route_input_noref+0x1a2/0xb00
-> [    0.877597] RSP: 0018:ffff88003ed03ba0  EFLAGS: 00010202
-> [    0.877597] RAX: 0000000000000046 RBX: 00000000ffffff8f RCX: 0000000000000020
-> [    0.877597] RDX: ffff88003fab50b8 RSI: 0000000000000200 RDI: ffffffff8152b4b8
-> [    0.877597] RBP: ffff88003ed03c50 R08: 0000000000000000 R09: 0000000000000000
-> [    0.877597] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88003fab6f00
-> [    0.877597] R13: ffff88003fab5000 R14: 0000000000000000 R15: ffffffff81cb5600
-> [    0.877597] FS:  00007f6de5751700(0000) GS:ffff88003ed00000(0000) knlGS:0000000000000000
-> [    0.877597] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [    0.877597] CR2: 0000000000000056 CR3: 000000003fa6d000 CR4: 00000000000006e0
-> [    0.877597] Stack:
-> [    0.877597]  0000000000000000 0000000000000046 ffff88003fffa600 ffff88003ed03be0
-> [    0.877597]  ffff88003f9e2c00 697da8c0017da8c0 ffff880000000000 000000000007fd00
-> [    0.877597]  0000000000000000 0000000000000046 0000000000000000 0000000400000000
-> [    0.877597] Call Trace:
-> [    0.877597]  <IRQ>
-> [    0.877597]  [<ffffffff812bfa1f>] ? cpumask_next_and+0x2f/0x40
-> [    0.877597]  [<ffffffff8158e13c>] arp_process+0x39c/0x690
-> [    0.877597]  [<ffffffff8158e57e>] arp_rcv+0x13e/0x170
-> [    0.877597]  [<ffffffff8151feec>] __netif_receive_skb_core+0x60c/0xa00
-> [    0.877597]  [<ffffffff81515795>] ? __build_skb+0x25/0x100
-> [    0.877597]  [<ffffffff81515795>] ? __build_skb+0x25/0x100
-> [    0.877597]  [<ffffffff81521ff6>] __netif_receive_skb+0x16/0x70
-> [    0.877597]  [<ffffffff81522078>] netif_receive_skb_internal+0x28/0x90
-> [    0.877597]  [<ffffffff8152288f>] napi_gro_receive+0x7f/0xd0
-> [    0.877597]  [<ffffffffa0017906>] virtnet_receive+0x256/0x910 [virtio_net]
-> [    0.877597]  [<ffffffffa0017fd8>] virtnet_poll+0x18/0x80 [virtio_net]
-> [    0.877597]  [<ffffffff815234cd>] net_rx_action+0x1dd/0x2f0
-> [    0.877597]  [<ffffffff81053228>] __do_softirq+0x98/0x260
-> [    0.877597]  [<ffffffff8164969c>] do_softirq_own_stack+0x1c/0x30
-> 
-> The root cause is use of res.table uninitialized.
-> 
-> Thanks to Nikolay for noticing the uninitialized use amongst the maze of
-> gotos.
-> 
-> Fixes: b7503e0cdb5d ("net: Add FIB table id to rtable")
-> Reported-by: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-> Reported-by: Richard Alpe <richard.alpe@ericsson.com>
-> Reported-by: Fabio Estevam <festevam@gmail.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  net/ipv4/route.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-Just to have it documented: I don't think we need the second NULLing,
-but it doesn't hurt.
+On 9/16/15 9:56 AM, Nikolay Aleksandrov wrote:
+> Just to have it documented: I don't think we need the second NULLing,
+> but it doesn't hurt.
 
-Thanks,
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+I think we do. After the second one there is a goto to local_input which 
+uses res.table. The second goto is reachable 'if 
+!IN_DEV_FORWARD(in_dev)' in which case res.table is valid but should not 
+be. In short if fi is reset, table should be.
