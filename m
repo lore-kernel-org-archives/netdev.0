@@ -1,69 +1,66 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [linux-next] oops in ip_route_input_noref
-Date: Wed, 16 Sep 2015 09:04:15 -0600
-Message-ID: <55F984EF.4040503@cumulusnetworks.com>
-References: <20150916092447.GA945@swordfish>
- <CAOMZO5CTgq_Sd81=XWEHv5oe1WyVpaydNzUXz_EbY2BWR6xF7g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000302050502070203020206"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	richard.alpe@ericsson.com
-To: Fabio Estevam <festevam@gmail.com>,
-	Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOMZO5CTgq_Sd81=XWEHv5oe1WyVpaydNzUXz_EbY2BWR6xF7g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Experiences with slub bulk use-case for network stack
+Date: Wed, 16 Sep 2015 10:13:25 -0500 (CDT)
+Message-ID: <alpine.DEB.2.11.1509161009420.21859@east.gentwo.org>
+References: <20150824005727.2947.36065.stgit@localhost> <20150904165944.4312.32435.stgit@devil> <20150916120230.4ca75217@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
+    Alexander Duyck <alexander.duyck@gmail.com>, iamjoonsoo.kim@lge.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150916120230.4ca75217@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000302050502070203020206
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 16 Sep 2015, Jesper Dangaard Brouer wrote:
 
-On 9/16/15 9:00 AM, Fabio Estevam wrote:
-> On Wed, Sep 16, 2015 at 6:24 AM, Sergey Senozhatsky
-> <sergey.senozhatsky.work@gmail.com> wrote:
 >
->> added by b7503e0cdb5dbec5d201aa69d8888c14679b5ae8
->>
->>      net: Add FIB table id to rtable
->>
->>      Add the FIB table id to rtable to make the information available for
->>      IPv4 as it is for IPv6.
+> Hint, this leads up to discussing if current bulk *ALLOC* API need to
+> be changed...
 >
-> I see the same issue here when booting a mx25 ARM processor via NFS.
+> Alex and I have been working hard on practical use-case for SLAB
+> bulking (mostly slUb), in the network stack.  Here is a summary of
+> what we have learned so far.
+
+SLAB refers to the SLAB allocator which is one slab allocator and SLUB is
+another slab allocator.
+
+Please keep that consistent otherwise things get confusing
+
+> Bulk free'ing SKBs during TX completion is a big and easy win.
 >
-> defconfig is arch/arm/configs/imx_v4_v5_defconfig.
->
+> Specifically for slUb, normal path for freeing these objects (which
+> are not on c->freelist) require a locked double_cmpxchg per object.
+> The bulk free (via detached freelist patch) allow to free all objects
+> belonging to the same slab-page, to be free'ed with a single locked
+> double_cmpxchg. Thus, the bulk free speedup is quite an improvement.
 
-I am still not able to reproduce. While I work on a full Cumulus image 
-for other test cases here's a patch to try; eagle eye Nikolay noted a 
-potential use without init in the maze of goto's.
+Yep.
 
-Thanks,
-David
+> Alex and I had the idea of bulk alloc returns an "allocator specific
+> cache" data-structure (and we add some helpers to access this).
 
---------------000302050502070203020206
-Content-Type: text/plain; charset=UTF-8; x-mac-type="0"; x-mac-creator="0";
- name="res-table-init.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="res-table-init.patch"
+Maybe add some Macros to handle this?
 
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3JvdXRlLmMgYi9uZXQvaXB2NC9yb3V0ZS5jCmluZGV4
-IGRhNDI3YTRhMzNmZS4uODBmN2M1YjdiODMyIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9yb3V0
-ZS5jCisrKyBiL25ldC9pcHY0L3JvdXRlLmMKQEAgLTE3MTIsNiArMTcxMiw3IEBAIHN0YXRp
-YyBpbnQgaXBfcm91dGVfaW5wdXRfc2xvdyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBfX2JlMzIg
-ZGFkZHIsIF9fYmUzMiBzYWRkciwKIAkJZ290byBtYXJ0aWFuX3NvdXJjZTsKIAogCXJlcy5m
-aSA9IE5VTEw7CisJcmVzLnRhYmxlID0gTlVMTDsKIAlpZiAoaXB2NF9pc19sYmNhc3QoZGFk
-ZHIpIHx8IChzYWRkciA9PSAwICYmIGRhZGRyID09IDApKQogCQlnb3RvIGJyZF9pbnB1dDsK
-IApAQCAtMTgzNCw2ICsxODM1LDcgQEAgb3V0OglyZXR1cm4gZXJyOwogCVJUX0NBQ0hFX1NU
-QVRfSU5DKGluX25vX3JvdXRlKTsKIAlyZXMudHlwZSA9IFJUTl9VTlJFQUNIQUJMRTsKIAly
-ZXMuZmkgPSBOVUxMOworCXJlcy50YWJsZSA9IE5VTEw7CiAJZ290byBsb2NhbF9pbnB1dDsK
-IAogCS8qCg==
---------------000302050502070203020206--
+> In the slUb case, the freelist is a single linked pointer list.  In
+> the network stack the skb objects have a skb->next pointer, which is
+> located at the same position as freelist pointer.  Thus, simply
+> returning the freelist directly, could be interpreted as a skb-list.
+> The helper API would then do the prefetching, when pulling out
+> objects.
+
+The problem with the SLUB case is that the objects must be on the same
+slab page.
+
+> For the slUb case, we would simply cmpxchg either c->freelist or
+> page->freelist with a NULL ptr, and then own all objects on the
+> freelist. This also reduce the time we keep IRQs disabled.
+
+You dont need to disable interrupts for the cmpxchges. There is additional
+state in the page struct though so the updates must be done carefully.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
