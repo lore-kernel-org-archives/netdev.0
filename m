@@ -1,40 +1,76 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] net: Fix vti use case with oif in dst lookups
-Date: Wed, 16 Sep 2015 10:21:14 +0200
-Message-ID: <20150916082114.GA7701@secunet.com>
-References: <1442355050-9214-1-git-send-email-dsa@cumulusnetworks.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: vhost: build failure
+Date: Wed, 16 Sep 2015 11:36:45 +0300
+Message-ID: <20150916112119-mutt-send-email-mst@redhat.com>
+References: <20150916082008.GA28512@sudip-pc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:41554 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752007AbbIPIVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2015 04:21:18 -0400
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1442355050-9214-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150916082008.GA28512@sudip-pc>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 15, 2015 at 03:10:50PM -0700, David Ahern wrote:
-> Steffen reported that the recent change to add oif to dst lookups breaks
-> the VTI use case. The problem is that with the oif set in the flow struct
-> the comparison to the nh_oif is triggered. Fix by splitting the
-> FLOWI_FLAG_VRFSRC into 2 flags -- one that triggers the vrf device cache
-> bypass (FLOWI_FLAG_VRFSRC) and another telling the lookup to not compare
-> nh oif (FLOWI_FLAG_SKIP_NH_OIF).
+On Wed, Sep 16, 2015 at 01:50:08PM +0530, Sudip Mukherjee wrote:
+> Hi,
+> While crosscompiling the kernel for openrisc with allmodconfig the build
+> failed with the error:
+> drivers/vhost/vhost.c: In function 'vhost_vring_ioctl':
+> drivers/vhost/vhost.c:818:3: error: call to '__compiletime_assert_818' declared with attribute error: BUILD_BUG_ON failed: __alignof__
+> *vq->avail > VRING_AVAIL_ALIGN_SIZE
 > 
-> Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
+> Can you please give me any idea about what the problem might be and how
+> it can be solved.
 > 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> You can see the build log at:
+> https://travis-ci.org/sudipm-mukherjee/parport/jobs/80365425
+> 
+> regards
+> sudip
 
-This works, thanks a lot for the quick fix!
+Yes - I think I saw this already.
+I think the openrisc cross-compiler is broken.
 
-> ---
-> IPv6 does not show this problem for me. So no change is added for IPv6.
-> If your mileage varies let me know and I'll take another look.
+VRING_AVAIL_ALIGN_SIZE is 2
 
-IPv6 works just fine as it is, so no change needed.
+*vq->avail is:
 
-Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+struct vring_avail {
+        __virtio16 flags;
+        __virtio16 idx;
+        __virtio16 ring[];
+};
+
+And __virtio16 is just a u16 with some sparse annotations.
+
+Looking at openrisc architecture document:
+	Operand:		Length		addr[3:0] if aligned
+	Halfword (or half) 	2 bytes 	Xxx0
+
+Type	C-TYPE        Sizeof Alignment Openrisc Equivalent
+Short   Signed short    2      2       Signed halfword
+
+and
+
+16.1.2
+Aggregates and Unions
+Aggregates (structures and arrays) and unions assume the alignment of their most
+strictly aligned element.
+
+So to me, it looks like your gcc violates the ABI
+by adding alignment requirements > 2.
+
+-- 
+MST
