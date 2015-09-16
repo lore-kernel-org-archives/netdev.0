@@ -1,33 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fix cdc-phonet.c dependency and build
- error
-Date: Wed, 16 Sep 2015 11:51:34 -0700 (PDT)
-Message-ID: <20150916.115134.1177033076495078606.davem@davemloft.net>
-References: <55F9B5C9.1060509@infradead.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
-To: rdunlap@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34414 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752347AbbIPTLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 15:11:12 -0400
-In-Reply-To: <55F9B5C9.1060509@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH v2] atm: deal with setting entry before mkip was called
+Date: Wed, 16 Sep 2015 15:30:21 -0400
+Message-ID: <1442431821-8217-1-git-send-email-sasha.levin@oracle.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: davem@davemloft.net, edumazet@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Wed, 16 Sep 2015 11:32:41 -0700
+If we didn't call ATMARP_MKIP before ATMARP_ENCAP the VCC descriptor is
+non-existant and we'll end up dereferencing a NULL ptr:
 
-> From: Randy Dunlap <rdunlap@infradead.org>
-> 
-> Fix build error caused by missing Kconfig dependency:
-> 
-> ERROR: "cdc_parse_cdc_header" [drivers/net/usb/cdc-phonet.ko] undefined!
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+[1033173.491930] kasan: GPF could be caused by NULL-ptr deref or user memory accessirq event stamp: 123386
+[1033173.493678] general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC KASAN
+[1033173.493689] Modules linked in:
+[1033173.493697] CPU: 9 PID: 23815 Comm: trinity-c64 Not tainted 4.2.0-next-20150911-sasha-00043-g353d875-dirty #2545
+[1033173.493706] task: ffff8800630c4000 ti: ffff880063110000 task.ti: ffff880063110000
+[1033173.493823] RIP: clip_ioctl (net/atm/clip.c:320 net/atm/clip.c:689)
+[1033173.493826] RSP: 0018:ffff880063117a88  EFLAGS: 00010203
+[1033173.493828] RAX: dffffc0000000000 RBX: 0000000000000000 RCX: 000000000000000c
+[1033173.493830] RDX: 0000000000000002 RSI: ffffffffb3f10720 RDI: 0000000000000014
+[1033173.493832] RBP: ffff880063117b80 R08: ffff88047574d9a4 R09: 0000000000000000
+[1033173.493834] R10: 0000000000000000 R11: 0000000000000000 R12: 1ffff1000c622f53
+[1033173.493836] R13: ffff8800cb905500 R14: ffff8808d6da2000 R15: 00000000fffffdfd
+[1033173.493840] FS:  00007fa56b92d700(0000) GS:ffff880478000000(0000) knlGS:0000000000000000
+[1033173.493843] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[1033173.493845] CR2: 0000000000000000 CR3: 00000000630e8000 CR4: 00000000000006a0
+[1033173.493855] Stack:
+[1033173.493862]  ffffffffb0b60444 000000000000eaea 0000000041b58ab3 ffffffffb3c3ce32
+[1033173.493867]  ffffffffb0b6f3e0 ffffffffb0b60444 ffffffffb5ea2e50 1ffff1000c622f5e
+[1033173.493873]  ffff8800630c4cd8 00000000000ee09a ffffffffb3ec4888 ffffffffb5ea2de8
+[1033173.493874] Call Trace:
+[1033173.494108] do_vcc_ioctl (net/atm/ioctl.c:170)
+[1033173.494113] vcc_ioctl (net/atm/ioctl.c:189)
+[1033173.494116] svc_ioctl (net/atm/svc.c:605)
+[1033173.494200] sock_do_ioctl (net/socket.c:874)
+[1033173.494204] sock_ioctl (net/socket.c:958)
+[1033173.494244] do_vfs_ioctl (fs/ioctl.c:43 fs/ioctl.c:607)
+[1033173.494290] SyS_ioctl (fs/ioctl.c:622 fs/ioctl.c:613)
+[1033173.494295] entry_SYSCALL_64_fastpath (arch/x86/entry/entry_64.S:186)
+[1033173.494362] Code: fa 48 c1 ea 03 80 3c 02 00 0f 85 50 09 00 00 49 8b 9e 60 06 00 00 48 b8 00 00 00 00 00 fc ff df 48 8d 7b 14 48 89 fa 48 c1 ea 03 <0f> b6 04 02 48 89 fa 83 e2 07 38 d0 7f 08 84 c0 0f 85 14 09 00
+All code
+========
+   0:   fa                      cli
+   1:   48 c1 ea 03             shr    $0x3,%rdx
+   5:   80 3c 02 00             cmpb   $0x0,(%rdx,%rax,1)
+   9:   0f 85 50 09 00 00       jne    0x95f
+   f:   49 8b 9e 60 06 00 00    mov    0x660(%r14),%rbx
+  16:   48 b8 00 00 00 00 00    movabs $0xdffffc0000000000,%rax
+  1d:   fc ff df
+  20:   48 8d 7b 14             lea    0x14(%rbx),%rdi
+  24:   48 89 fa                mov    %rdi,%rdx
+  27:   48 c1 ea 03             shr    $0x3,%rdx
+  2b:*  0f b6 04 02             movzbl (%rdx,%rax,1),%eax               <-- trapping instruction
+  2f:   48 89 fa                mov    %rdi,%rdx
+  32:   83 e2 07                and    $0x7,%edx
+  35:   38 d0                   cmp    %dl,%al
+  37:   7f 08                   jg     0x41
+  39:   84 c0                   test   %al,%al
+  3b:   0f 85 14 09 00 00       jne    0x955
 
-Applied, thanks Randy.
+Code starting with the faulting instruction
+===========================================
+   0:   0f b6 04 02             movzbl (%rdx,%rax,1),%eax
+   4:   48 89 fa                mov    %rdi,%rdx
+   7:   83 e2 07                and    $0x7,%edx
+   a:   38 d0                   cmp    %dl,%al
+   c:   7f 08                   jg     0x16
+   e:   84 c0                   test   %al,%al
+  10:   0f 85 14 09 00 00       jne    0x92a
+[1033173.494366] RIP clip_ioctl (net/atm/clip.c:320 net/atm/clip.c:689)
+[1033173.494368]  RSP <ffff880063117a88>
+
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/atm/clip.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index 17e55df..4407b2f 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -317,6 +317,9 @@ static int clip_constructor(struct neighbour *neigh)
+ 
+ static int clip_encap(struct atm_vcc *vcc, int mode)
+ {
++	if (!CLIP_VCC(vcc))
++		return -EBADFD;
++
+ 	CLIP_VCC(vcc)->encap = mode;
+ 	return 0;
+ }
+-- 
+1.7.10.4
