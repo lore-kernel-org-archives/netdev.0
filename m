@@ -1,49 +1,51 @@
 From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH v2 1/3] net: irda: pxaficp_ir: use sched_clock() for time management
-Date: Wed, 16 Sep 2015 11:34:01 +0200
-Message-ID: <87eghyso6u.fsf@belgarion.home>
-References: <1442058324-9760-1-git-send-email-robert.jarzmik@free.fr>
-	<20150915.164025.1543038793305792029.davem@davemloft.net>
+Subject: Re: [PATCH] net: smc91x: convert pxa dma to dmaengine
+Date: Wed, 16 Sep 2015 11:41:54 +0200
+Message-ID: <87a8smsntp.fsf@belgarion.home>
+References: <1441913164-3785-1-git-send-email-robert.jarzmik@free.fr>
+	<20150915.162414.1153837609419205002.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: samuel@sortiz.org, petr.cvek@tul.cz, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, arnd@arndb.de
-To: David Miller <davem@davemloft.net>
+Cc: nico@fluxnic.net, arnd@arndb.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150915.164025.1543038793305792029.davem@davemloft.net> (David
-	Miller's message of "Tue, 15 Sep 2015 16:40:25 -0700 (PDT)")
+In-Reply-To: <20150915.162414.1153837609419205002.davem@davemloft.net> (David
+	Miller's message of "Tue, 15 Sep 2015 16:24:14 -0700 (PDT)")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 David Miller <davem@davemloft.net> writes:
 
 > From: Robert Jarzmik <robert.jarzmik@free.fr>
-> Date: Sat, 12 Sep 2015 13:45:22 +0200
+> Date: Thu, 10 Sep 2015 21:26:04 +0200
 >
->> Instead of using directly the OS timer through direct register access,
->> use the standard sched_clock(), which will end up in OSCR reading
->> anyway.
+>> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
+>> slave driver. This makes this driver a bit more PXA agnostic.
 >> 
->> This is a first step for direct access register removal and machine
->> specific code removal from this driver.
+>> The driver was tested on pxa27x (mainstone) and pxa310 (zylonite),
+>> ie. only pxa platforms.
 >> 
 >> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+>> Cc: Russell King <linux@arm.linux.org.uk>
+>> Cc: Arnd Bergmann <arnd@arndb.de>
+>> ---
+>> This has potential to break other platform such as Neponset, Idp,
+>> halibut and qsd8x50, so I added Russell and Arnd as they were discussing
+>> smc91x support last February.
 >
-> What is the granularity of the OSCR register?
-It's 307ns (ie. 3.25MHz clock).
 
-> If it is not nanoseconds, then you need to adjust calculations
-> such as this one:
-Tell me if the 307ns requires something I should adjust.
+> Is someone testing whether such platforms break or not?  I'm waiting for
+> that before I consider applying this patch.
 
-My understanding is that the flow will be :
- sched_clock()
-   rd->read_sched_clock() (cyc_to_ns() transformed for return)
-     pxa_read_sched_clock()
-       readl_relaxed(OSCR)
+My understanding is that Russell is the only one left testing them, or at least
+he was the only one complaining about a breakage lately on neponset.
 
-I didn't see any timings issue, as the flow looks equivalent to the readl(OSCR),
-but I might have overlooked something.
+I can wait several weeks for Russell to have a bit of time to try : I know it
+will compile correctly at least for neponset, and I know almost all the code is
+under #ifdef CONFIG_ARCH_PXA. And still I would feel far more comfortable if it
+was tested, just as you.
 
 Cheers.
 
