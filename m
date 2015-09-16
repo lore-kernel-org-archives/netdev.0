@@ -1,90 +1,84 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: NFS/TCP/IPv6 acting strangely in 4.2
-Date: Wed, 16 Sep 2015 09:31:15 +0200
-Message-ID: <20150916073115.GB29740@1wt.eu>
-References: <20150911113839.GO21084@n2100.arm.linux.org.uk> <1442386435.3756.282.camel@vitec.com>
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH 1/4] stmmac: replace all pr_xxx by their dev_xxx
+ counterpart
+Date: Wed, 16 Sep 2015 09:35:39 +0200
+Message-ID: <20150916073539.GA11061@Red>
+References: <1441804456-15914-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1441815282.17219.51.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux@arm.linux.org.uk" <linux@arm.linux.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"trond.myklebust@primarydata.com" <trond.myklebust@primarydata.com>,
-	"anna.schumaker@netapp.com" <anna.schumaker@netapp.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Damien =?iso-8859-1?Q?Th=E9bault?= <damien.thebault@vitec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:13339 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753064AbbIPHcL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Sep 2015 03:32:11 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1442386435.3756.282.camel@vitec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1441815282.17219.51.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Sep 09, 2015 at 09:14:42AM -0700, Joe Perches wrote:
+> On Wed, 2015-09-09 at 15:14 +0200, LABBE Corentin wrote:
+> > The stmmac driver use lots of pr_xxx functions to print information.
+> > This is bad since we cannot know which device logs the information.
+> > (moreover if two stmmac device are present)
+> []
+> > So this patch replace all pr_xxx by their dev_xxx counterpart.
+> 
+> Using
+> 	netdev_<level>(priv->dev, ...
+> instead of
+> 	dev_<level>(priv->device,
+> 
+> would be more consistent with other ethernet devices.
+> 
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> []
+> > @@ -298,7 +298,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+> >  			 */
+> >  			spin_lock_irqsave(&priv->lock, flags);
+> >  			if (priv->eee_active) {
+> > -				pr_debug("stmmac: disable EEE\n");
+> > +				dev_dbg(priv->device, "disable EEE\n");
+> 
+> 				netdev_dbg(priv->dev, ...)
+> 
+> > @@ -657,10 +657,10 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+> >  		priv->adv_ts = 1;
+> >  
+> >  	if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
+> > -		pr_debug("IEEE 1588-2002 Time Stamp supported\n");
+> > +		dev_dbg(priv->device, "IEEE 1588-2002 Time Stamp supported\n");
+> 
+> And these netif_msg_<foo> could be
+> 
+> 	if (priv->dma_cap.timestamp)
+> 		netif_dbg(priv, hw, priv->dev, ...);
+> 
+> 
 
-On Wed, Sep 16, 2015 at 06:53:57AM +0000, Damien Th=E9bault wrote:
-> On Fri, 2015-09-11 at 12:38 +0100, Russell King - ARM Linux wrote:
-> > I have a recent Marvell Armada 388 board here which uses the mvneta
-> > driver.  I'm seeing some weird effects with NFS with it acting as a
-> > client.
->=20
-> Hello,
->=20
-> I'm upgrading a Marvelle Armada 370 board using the mvneta driver fro=
-m
-> 4.0 to 4.2 and noticed issues with NFS booting.
-> Basically, most of the time init returns with an error code, or
-> programs segfault or throw illegal instructions.
->=20
-> Since it worked fine on 4.0 I bisected until I found commit
-> a84e32894191cfcbffa54180d78d7d4654d56c20 "net: mvneta: fix refilling
-> for Rx DMA buffers".
->=20
-> If I revert this commit, everything seems to get back to normal.
-> Could you try it ? The two issues look very similar.
+Hello
 
-I'm not sure but I'm seeing that the accounting was changed by this
-patch without being certain of the implications; if the revert above
-works, it would be nice to try to only apply this just to see if
-that's indeed an accounting error or not :
+My main goal is to improve logging from
+[    0.796804] stmmaceth 1c50000.ethernet: no reset control found
+[    0.802635]  Ring mode enabled
+[    0.805713]  No HW DMA feature register supported
+[    0.810239]  Normal descriptors
+[    0.813577]  TX Checksum insertion supported
+[   23.615074] eth0: device MAC address aa:65:84:d5:a3:58
+[   23.704326]  RX IPC Checksum Offload disabled
+[   23.704349]  No MAC Management Counters available
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethern=
-et/marvell/mvneta.c
-index 62e48bc..4205867 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1463,6 +1463,7 @@ static int mvneta_rx(struct mvneta_port *pp, int =
-rx_todo,
- {
- 	struct net_device *dev =3D pp->dev;
- 	int rx_done;
-+	int missed =3D 0;
- 	u32 rcvd_pkts =3D 0;
- 	u32 rcvd_bytes =3D 0;
-=20
-@@ -1527,6 +1528,7 @@ static int mvneta_rx(struct mvneta_port *pp, int =
-rx_todo,
- 		if (err) {
- 			netdev_err(dev, "Linux processing - Can't refill\n");
- 			rxq->missed++;
-+			missed++;
- 			goto err_drop_frame;
- 		}
-=20
-@@ -1561,7 +1563,7 @@ static int mvneta_rx(struct mvneta_port *pp, int =
-rx_todo,
- 	}
-=20
- 	/* Update rxq management counters */
--	mvneta_rxq_desc_num_update(pp, rxq, rx_done, rx_done);
-+	mvneta_rxq_desc_num_update(pp, rxq, rx_done, rx_done - missed);
-=20
- 	return rx_done;
- }
+to that:
+[    0.788147] sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): no reset control found
+[    0.797400] sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): Ring mode enabled
+[    0.806211] sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): No HW DMA feature register supported
+[    0.816658] sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): Normal descriptors
+[    0.825522] sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): TX Checksum insertion supported
+[   12.971725] sun7i-dwmac 1c50000.ethernet eth0: device MAC address 3e:62:18:6f:c7:f4
+[   13.056902] sun7i-dwmac 1c50000.ethernet eth0: RX IPC Checksum Offload disabled
+[   13.056929] sun7i-dwmac 1c50000.ethernet eth0: No MAC Management Counters available
 
-Regards,
-Willy
+But by using the netdev_ functions the first five lines are not "pretty" with the "(unnamed net_device) (uninitialized)"
+Could I switch back do dev_xxx since they are "early device logging" and so make it prettier ?
+
+Best regards
