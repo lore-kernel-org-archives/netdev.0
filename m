@@ -1,92 +1,108 @@
-From: Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
-Subject: [PATCH] Replace get_seconds with ktime_get_seconds
-Date: Thu, 17 Sep 2015 18:12:53 +0200
-Message-ID: <1442506373-3326-1-git-send-email-ksenija.stanojevic@gmail.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dhowells@redhat.com, arnd@arndb.de,
-	Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
-To: y2038@lists.linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH next 28/30] netfilter: Pass struct net into the netfilter
+ hooks
+Date: Thu, 17 Sep 2015 18:25:54 +0200
+Message-ID: <55FAE992.9060103@6wind.com>
+References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+ <1442365458-16349-28-git-send-email-ebiederm@xmission.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:37304 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752015AbbIQQZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 12:25:57 -0400
+Received: by wicfx3 with SMTP id fx3so34539319wic.0
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 09:25:56 -0700 (PDT)
+In-Reply-To: <1442365458-16349-28-git-send-email-ebiederm@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace time_t type and get_seconds function which are not y2038 safe
-on 32-bit systems. Function ktime_get_seconds use monotonic instead of
-real time and therefore will not cause overflow.
+Le 16/09/2015 03:04, Eric W. Biederman a =C3=A9crit :
+> Pass a network namespace parameter into the netfilter hooks.  At the
+> call site of the netfilter hooks the path a packet is taking through
+> the network stack is well known which allows the network namespace to
+> be easily and reliabily.
+>
+> This allows the replacement of magic code like
+> "dev_net(state->in?:state->out)" that appears at the start of most
+> netfilter hooks with "state->net".
+>
+> In almost all cases the network namespace passed in is derived
+> from the first network device passed in, guaranteeing those
+> paths will not see any changes in practice.
+>
+> The exceptions are:
+> xfrm/xfrm_output.c:xfrm_output_resume()         xs_net(skb_dst(skb)->=
+xfrm)
+> ipvs/ip_vs_xmit.c:ip_vs_nat_send_or_cont()      ip_vs_conn_net(cp)
+> ipvs/ip_vs_xmit.c:ip_vs_send_or_cont()          ip_vs_conn_net(cp)
+> ipv4/raw.c:raw_send_hdrinc()                    sock_net(sk)
+> ipv6/ip6_output.c:ip6_xmit()			sock_net(sk)
+> ipv6/ndisc.c:ndisc_send_skb()                   dev_net(skb->dev) not=
+ dev_net(dst->dev)
+> ipv6/raw.c:raw6_send_hdrinc()                   sock_net(sk)
+> br_netfilter_hooks.c:br_nf_pre_routing_finish() dev_net(skb->dev) bef=
+ore skb->dev is set to nf_bridge->physindev
+>
+> In all cases these exceptions seem to be a better expression for the
+> network namespace the packet is being processed in then the historic
+> "dev_net(in?in:out)".  I am documenting them in case something odd
+> pops up and someone starts trying to track down what happened.
+>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+[snip]
+>   int br_forward_finish(struct sock *sk, struct sk_buff *skb)
+>   {
+> -	return NF_HOOK(NFPROTO_BRIDGE, NF_BR_POST_ROUTING, sk, skb,
+> -		       NULL, skb->dev,
+> +	struct net *net =3D dev_net(skb->dev);
+nit: blank line after the declaration
 
-Signed-off-by: Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
----
- net/rxrpc/ar-connection.c | 4 ++--
- net/rxrpc/ar-internal.h   | 4 ++--
- net/rxrpc/ar-transport.c  | 4 ++--
- 3 files changed, 6 insertions(+), 6 deletions(-)
+> +	return NF_HOOK(NFPROTO_BRIDGE, NF_BR_POST_ROUTING,
+> +		       net, sk, skb, NULL, skb->dev,
+>   		       br_dev_queue_push_xmit);
+>
+>   }
+[snip]
+>   int xfrm4_output(struct sock *sk, struct sk_buff *skb)
+>   {
+> -	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, sk, skb,
+> -			    NULL, skb_dst(skb)->dev, __xfrm4_output,
+> +	struct net *net =3D dev_net(skb_dst(skb)->dev);
+nit: same here
 
-diff --git a/net/rxrpc/ar-connection.c b/net/rxrpc/ar-connection.c
-index 6631f4f..692b3e6 100644
---- a/net/rxrpc/ar-connection.c
-+++ b/net/rxrpc/ar-connection.c
-@@ -808,7 +808,7 @@ void rxrpc_put_connection(struct rxrpc_connection *conn)
- 
- 	ASSERTCMP(atomic_read(&conn->usage), >, 0);
- 
--	conn->put_time = get_seconds();
-+	conn->put_time = ktime_get_seconds();
- 	if (atomic_dec_and_test(&conn->usage)) {
- 		_debug("zombie");
- 		rxrpc_queue_delayed_work(&rxrpc_connection_reap, 0);
-@@ -852,7 +852,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
- 
- 	_enter("");
- 
--	now = get_seconds();
-+	now = ktime_get_seconds();
- 	earliest = ULONG_MAX;
- 
- 	write_lock_bh(&rxrpc_connection_lock);
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index aef1bd2..2934a73 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -208,7 +208,7 @@ struct rxrpc_transport {
- 	struct rb_root		server_conns;	/* server connections on this transport */
- 	struct list_head	link;		/* link in master session list */
- 	struct sk_buff_head	error_queue;	/* error packets awaiting processing */
--	time_t			put_time;	/* time at which to reap */
-+	unsigned long		put_time;	/* time at which to reap */
- 	spinlock_t		client_lock;	/* client connection allocation lock */
- 	rwlock_t		conn_lock;	/* lock for active/dead connections */
- 	atomic_t		usage;
-@@ -256,7 +256,7 @@ struct rxrpc_connection {
- 	struct rxrpc_crypt	csum_iv;	/* packet checksum base */
- 	unsigned long		events;
- #define RXRPC_CONN_CHALLENGE	0		/* send challenge packet */
--	time_t			put_time;	/* time at which to reap */
-+	unsigned long		put_time;	/* time at which to reap */
- 	rwlock_t		lock;		/* access lock */
- 	spinlock_t		state_lock;	/* state-change lock */
- 	atomic_t		usage;
-diff --git a/net/rxrpc/ar-transport.c b/net/rxrpc/ar-transport.c
-index 1976dec..9946467 100644
---- a/net/rxrpc/ar-transport.c
-+++ b/net/rxrpc/ar-transport.c
-@@ -189,7 +189,7 @@ void rxrpc_put_transport(struct rxrpc_transport *trans)
- 
- 	ASSERTCMP(atomic_read(&trans->usage), >, 0);
- 
--	trans->put_time = get_seconds();
-+	trans->put_time = ktime_get_seconds();
- 	if (unlikely(atomic_dec_and_test(&trans->usage))) {
- 		_debug("zombie");
- 		/* let the reaper determine the timeout to avoid a race with
-@@ -226,7 +226,7 @@ static void rxrpc_transport_reaper(struct work_struct *work)
- 
- 	_enter("");
- 
--	now = get_seconds();
-+	now = ktime_get_seconds();
- 	earliest = ULONG_MAX;
- 
- 	/* extract all the transports that have been dead too long */
--- 
-1.9.1
+> +	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
+> +			    net, sk, skb, NULL, skb_dst(skb)->dev,
+> +			    __xfrm4_output,
+>   			    !(IPCB(skb)->flags & IPSKB_REROUTED));
+>   }
+[snip]
+>   int xfrm6_output(struct sock *sk, struct sk_buff *skb)
+>   {
+> -	return NF_HOOK_COND(NFPROTO_IPV6, NF_INET_POST_ROUTING, sk, skb,
+> -			    NULL, skb_dst(skb)->dev, __xfrm6_output,
+> +	struct net *net =3D dev_net(skb_dst(skb)->dev);
+nit: same here
+
+> +	return NF_HOOK_COND(NFPROTO_IPV6, NF_INET_POST_ROUTING,
+> +			    net, sk, skb,  NULL, skb_dst(skb)->dev,
+> +			    __xfrm6_output,
+>   			    !(IP6CB(skb)->flags & IP6SKB_REROUTED));
+>   }
+[snip]
+>   int xfrm_output_resume(struct sk_buff *skb, int err)
+>   {
+> +	struct net *net =3D xs_net(skb_dst(skb)->xfrm);
+nit: same here
+
+>   	while (likely((err =3D xfrm_output_one(skb, err)) =3D=3D 0)) {
+>   		nf_reset(skb);
