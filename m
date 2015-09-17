@@ -1,70 +1,82 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net 4/5] be2net: allow offloading with the same port for IPv4 and IPv6
-Date: Thu, 17 Sep 2015 16:11:13 +0200
-Message-ID: <1b2a27cefac4b736f098624b8c411aee6ccef9f2.1442498316.git.jbenc@redhat.com>
+Subject: [PATCH net 3/5] qlcnic: track vxlan port count
+Date: Thu, 17 Sep 2015 16:11:12 +0200
+Message-ID: <dbf2967e209b64318d34cd18a637d12abdb939fb.1442498316.git.jbenc@redhat.com>
 References: <cover.1442498316.git.jbenc@redhat.com>
-Cc: Sathya Perla <sathya.perla@avagotech.com>,
-	Ajit Khaparde <ajit.khaparde@avagotech.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
+Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Dept-GELinuxNICDev@qlogic.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37273 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37263 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751839AbbIQOL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 10:11:28 -0400
+	id S1751737AbbIQOL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 10:11:26 -0400
 In-Reply-To: <cover.1442498316.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The callback for adding vxlan port can be called with the same port for both
-IPv4 and IPv6. Do not disable the offloading if this occurs.
+The callback for adding vxlan port can be called with the same port for
+both IPv4 and IPv6. Do not disable the offloading when the same port for
+both protocols is added and later one of them removed.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |  1 +
- drivers/net/ethernet/emulex/benet/be_main.c | 10 ++++++++++
- 2 files changed, 11 insertions(+)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |  1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 18 +++++++++++++-----
+ 2 files changed, 14 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 0a27805cbbbd..821540913343 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -582,6 +582,7 @@ struct be_adapter {
- 	u16 pvid;
- 	__be16 vxlan_port;
- 	int vxlan_port_count;
-+	int vxlan_port_aliases;
- 	struct phy_info phy;
- 	u8 wol_cap;
- 	bool wol_en;
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 12687bf52b95..7bf51a1a0a77 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5176,6 +5176,11 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
- 	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 06bcc734fe8d..d6696cfa11d2 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -536,6 +536,7 @@ struct qlcnic_hardware_context {
+ 	u8 extend_lb_time;
+ 	u8 phys_port_id[ETH_ALEN];
+ 	u8 lb_mode;
++	u8 vxlan_port_count;
+ 	u16 vxlan_port;
+ 	struct device *hwmon_dev;
+ 	u32 post_mode;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 8b08b20e8b30..d4481454b5f8 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -483,11 +483,17 @@ static void qlcnic_add_vxlan_port(struct net_device *netdev,
+ 	/* Adapter supports only one VXLAN port. Use very first port
+ 	 * for enabling offload
+ 	 */
+-	if (!qlcnic_encap_rx_offload(adapter) || ahw->vxlan_port)
++	if (!qlcnic_encap_rx_offload(adapter))
+ 		return;
++	if (!ahw->vxlan_port_count) {
++		ahw->vxlan_port_count = 1;
++		ahw->vxlan_port = ntohs(port);
++		adapter->flags |= QLCNIC_ADD_VXLAN_PORT;
++		return;
++	}
++	if (ahw->vxlan_port == ntohs(port))
++		ahw->vxlan_port_count++;
+ 
+-	ahw->vxlan_port = ntohs(port);
+-	adapter->flags |= QLCNIC_ADD_VXLAN_PORT;
+ }
+ 
+ static void qlcnic_del_vxlan_port(struct net_device *netdev,
+@@ -496,11 +502,13 @@ static void qlcnic_del_vxlan_port(struct net_device *netdev,
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 
+-	if (!qlcnic_encap_rx_offload(adapter) || !ahw->vxlan_port ||
++	if (!qlcnic_encap_rx_offload(adapter) || !ahw->vxlan_port_count ||
+ 	    (ahw->vxlan_port != ntohs(port)))
  		return;
  
-+	if (adapter->vxlan_port == port && adapter->vxlan_port_count) {
-+		adapter->vxlan_port_aliases++;
-+		return;
-+	}
-+
- 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
- 		dev_info(dev,
- 			 "Only one UDP port supported for VxLAN offloads\n");
-@@ -5226,6 +5231,11 @@ static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
- 	if (adapter->vxlan_port != port)
- 		goto done;
+-	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
++	ahw->vxlan_port_count--;
++	if (!ahw->vxlan_port_count)
++		adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
+ }
  
-+	if (adapter->vxlan_port_aliases) {
-+		adapter->vxlan_port_aliases--;
-+		return;
-+	}
-+
- 	be_disable_vxlan_offloads(adapter);
- 
- 	dev_info(&adapter->pdev->dev,
+ static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
 -- 
 1.8.3.1
