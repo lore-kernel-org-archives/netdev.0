@@ -1,190 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] sch_dsmark: improve memory locality
-Date: Thu, 17 Sep 2015 16:37:13 -0700
-Message-ID: <1442533033.7946.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net 2/2]  8139cp: reset BQL when ring tx ring cleared
+Date: Fri, 18 Sep 2015 01:44:49 +0200
+Message-ID: <20150917234449.GA25782@electric-eye.fr.zoreil.com>
+References: <20130520095443.2d18b2cb@nehalam.linuxnetplumber.net>
+ <20130520213728.GA28252@electric-eye.fr.zoreil.com>
+ <20130520172749.2a4447b6@nehalam.linuxnetplumber.net>
+ <1442232308.30875.6.camel@infradead.org>
+ <20150914215913.GA24962@electric-eye.fr.zoreil.com>
+ <1442489793.131189.142.camel@infradead.org>
+ <1442502391.131189.160.camel@infradead.org>
+ <20150917204449.GA22105@electric-eye.fr.zoreil.com>
+ <1442528065.97487.6.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33869 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbbIQXhP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 19:37:15 -0400
-Received: by padhy16 with SMTP id hy16so32291355pad.1
-        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 16:37:15 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:60330 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190AbbIQXqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 19:46:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1442528065.97487.6.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+David Woodhouse <dwmw2@infradead.org> :
+[...]
+> And of course, even if I fix the TX timeout handling, I'd still like to
+> know why it's happening in the first place...
 
-Memory placement in sch_dsmark is silly : Better place mask/value
-in the same cache line.
+So do I.
 
-Also, we can embed small arrays in the first cache line and
-remove a potential cache miss.
+The TxDmaOkLowDesc register may tell if the Tx dma part is still making
+any progress. I have added a TxPoll request. See below.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_dsmark.c |   63 ++++++++++++++++++++-------------------
- 1 file changed, 33 insertions(+), 30 deletions(-)
-
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index c4d45fd8c551..f357f34d02d2 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -35,14 +35,20 @@
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index d79e33b..963d2a2 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -129,6 +129,9 @@ MODULE_PARM_DESC (multicast_filter_limit, "8139cp: maximum number of filtered mu
+ /* Time in jiffies before concluding the transmitter is hung. */
+ #define TX_TIMEOUT		(6*HZ)
  
- #define NO_DEFAULT_INDEX	(1 << 16)
- 
-+struct mask_value {
-+	u8			mask;
-+	u8			value;
-+};
++/* TODO: calibrate. It ought to be related to the PCI bus frequency. */
++#define CP_EARLY_TIMEOUT	(16 * 1024)
 +
- struct dsmark_qdisc_data {
- 	struct Qdisc		*q;
- 	struct tcf_proto __rcu	*filter_list;
--	u8			*mask;	/* "owns" the array */
--	u8			*value;
-+	struct mask_value	*mv;
- 	u16			indices;
-+	u8			set_tc_index;
- 	u32			default_index;	/* index range is 0...0xffff */
--	int			set_tc_index;
-+#define DSMARK_EMBEDDED_SZ	16
-+	struct mask_value	embedded[DSMARK_EMBEDDED_SZ];
+ /* hardware minimum and maximum for a single frame's data payload */
+ #define CP_MIN_MTU		60	/* TODO: allow lower, but pad */
+ #define CP_MAX_MTU		4096
+@@ -146,9 +149,11 @@ enum {
+ 	TxConfig	= 0x40, /* Tx configuration */
+ 	ChipVersion	= 0x43, /* 8-bit chip version, inside TxConfig */
+ 	RxConfig	= 0x44, /* Rx configuration */
++	TimerCount	= 0x48, /* 32 bit general purpose timer. */
+ 	RxMissed	= 0x4C,	/* 24 bits valid, write clears */
+ 	Cfg9346		= 0x50, /* EEPROM select/control; Cfg reg [un]lock */
+ 	Config1		= 0x52, /* Config1 */
++	TimerInt	= 0x54, /* TimerCount IRQ triggering timeout value */
+ 	Config3		= 0x59, /* Config3 */
+ 	Config4		= 0x5A, /* Config4 */
+ 	MultiIntr	= 0x5C, /* Multiple interrupt select */
+@@ -157,6 +162,7 @@ enum {
+ 	NWayAdvert	= 0x66, /* MII ADVERTISE */
+ 	NWayLPAR	= 0x68, /* MII LPA */
+ 	NWayExpansion	= 0x6A, /* MII Expansion */
++	TxDmaOkLowDesc	= 0x82,	/* Low 16 bit address of a Tx descriptor. */
+ 	Config5		= 0xD8,	/* Config5 */
+ 	TxPoll		= 0xD9,	/* Tell chip to check Tx descriptors for work */
+ 	RxMaxSize	= 0xDA, /* Max size of an Rx packet (8169 only) */
+@@ -283,7 +289,8 @@ enum {
+ 	LANWake         = (1 << 1),  /* Enable LANWake signal */
+ 	PMEStatus	= (1 << 0),  /* PME status can be reset by PCI RST# */
+ 
+-	cp_norx_intr_mask = PciErr | LinkChg | TxOK | TxErr | TxEmpty,
++	cp_norx_intr_mask = PciErr | TimerIntr | LinkChg |
++			    TxOK | TxErr | TxEmpty,
+ 	cp_rx_intr_mask = RxOK | RxErr | RxEmpty | RxFIFOOvr,
+ 	cp_intr_mask = cp_rx_intr_mask | cp_norx_intr_mask,
  };
+@@ -608,6 +615,18 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
  
- static inline int dsmark_valid_index(struct dsmark_qdisc_data *p, u16 index)
-@@ -116,7 +122,6 @@ static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
- 	struct nlattr *opt = tca[TCA_OPTIONS];
- 	struct nlattr *tb[TCA_DSMARK_MAX + 1];
- 	int err = -EINVAL;
--	u8 mask = 0;
- 
- 	pr_debug("%s(sch %p,[qdisc %p],classid %x,parent %x), arg 0x%lx\n",
- 		 __func__, sch, p, classid, parent, *arg);
-@@ -133,14 +138,11 @@ static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
- 	if (err < 0)
- 		goto errout;
- 
--	if (tb[TCA_DSMARK_MASK])
--		mask = nla_get_u8(tb[TCA_DSMARK_MASK]);
--
- 	if (tb[TCA_DSMARK_VALUE])
--		p->value[*arg - 1] = nla_get_u8(tb[TCA_DSMARK_VALUE]);
-+		p->mv[*arg - 1].value = nla_get_u8(tb[TCA_DSMARK_VALUE]);
- 
- 	if (tb[TCA_DSMARK_MASK])
--		p->mask[*arg - 1] = mask;
-+		p->mv[*arg - 1].mask = nla_get_u8(tb[TCA_DSMARK_MASK]);
- 
- 	err = 0;
- 
-@@ -155,8 +157,8 @@ static int dsmark_delete(struct Qdisc *sch, unsigned long arg)
- 	if (!dsmark_valid_index(p, arg))
- 		return -EINVAL;
- 
--	p->mask[arg - 1] = 0xff;
--	p->value[arg - 1] = 0;
-+	p->mv[arg - 1].mask = 0xff;
-+	p->mv[arg - 1].value = 0;
- 
- 	return 0;
- }
-@@ -173,7 +175,7 @@ static void dsmark_walk(struct Qdisc *sch, struct qdisc_walker *walker)
- 		return;
- 
- 	for (i = 0; i < p->indices; i++) {
--		if (p->mask[i] == 0xff && !p->value[i])
-+		if (p->mv[i].mask == 0xff && !p->mv[i].value)
- 			goto ignore;
- 		if (walker->count >= walker->skip) {
- 			if (walker->fn(sch, i + 1, walker) < 0) {
-@@ -291,12 +293,12 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
- 
- 	switch (tc_skb_protocol(skb)) {
- 	case htons(ETH_P_IP):
--		ipv4_change_dsfield(ip_hdr(skb), p->mask[index],
--				    p->value[index]);
-+		ipv4_change_dsfield(ip_hdr(skb), p->mv[index].mask,
-+				    p->mv[index].value);
- 			break;
- 	case htons(ETH_P_IPV6):
--		ipv6_change_dsfield(ipv6_hdr(skb), p->mask[index],
--				    p->value[index]);
-+		ipv6_change_dsfield(ipv6_hdr(skb), p->mv[index].mask,
-+				    p->mv[index].value);
- 			break;
- 	default:
- 		/*
-@@ -304,7 +306,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
- 		 * This way, we can send non-IP traffic through dsmark
- 		 * and don't need yet another qdisc as a bypass.
- 		 */
--		if (p->mask[index] != 0xff || p->value[index])
-+		if (p->mv[index].mask != 0xff || p->mv[index].value)
- 			pr_warn("%s: unsupported protocol %d\n",
- 				__func__, ntohs(tc_skb_protocol(skb)));
- 		break;
-@@ -346,7 +348,7 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
- 	int err = -EINVAL;
- 	u32 default_index = NO_DEFAULT_INDEX;
- 	u16 indices;
--	u8 *mask;
-+	int i;
- 
- 	pr_debug("%s(sch %p,[qdisc %p],opt %p)\n", __func__, sch, p, opt);
- 
-@@ -366,18 +368,18 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (tb[TCA_DSMARK_DEFAULT_INDEX])
- 		default_index = nla_get_u16(tb[TCA_DSMARK_DEFAULT_INDEX]);
- 
--	mask = kmalloc(indices * 2, GFP_KERNEL);
--	if (mask == NULL) {
-+	if (indices <= DSMARK_EMBEDDED_SZ)
-+		p->mv = p->embedded;
-+	else
-+		p->mv = kmalloc_array(indices, sizeof(*p->mv), GFP_KERNEL);
-+	if (!p->mv) {
- 		err = -ENOMEM;
- 		goto errout;
- 	}
--
--	p->mask = mask;
--	memset(p->mask, 0xff, indices);
--
--	p->value = p->mask + indices;
--	memset(p->value, 0, indices);
--
-+	for (i = 0; i < indices; i++) {
-+		p->mv[i].mask = 0xff;
-+		p->mv[i].value = 0;
+ 	if (status & (TxOK | TxErr | TxEmpty | SWInt))
+ 		cp_tx(cp);
++
++	if ((status & TimerIntr) && (cp->tx_head != cp->tx_tail)) {
++		if (net_ratelimit()) {
++			netdev_info(dev, "Timeout head=%08x, tail=%08x desc=%04x\n",
++				    cp->tx_head, cp->tx_tail,
++				    cpr16(TxDmaOkLowDesc));
++		}
++		cp_tx(cp);
++		if (cp->tx_head != cp->tx_tail)
++			cpw8_f(TxPoll, NormalTxPoll);
 +	}
- 	p->indices = indices;
- 	p->default_index = default_index;
- 	p->set_tc_index = nla_get_flag(tb[TCA_DSMARK_SET_TC_INDEX]);
-@@ -410,7 +412,8 @@ static void dsmark_destroy(struct Qdisc *sch)
++
+ 	if (status & LinkChg)
+ 		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
  
- 	tcf_destroy_chain(&p->filter_list);
- 	qdisc_destroy(p->q);
--	kfree(p->mask);
-+	if (p->mv != p->embedded)
-+		kfree(p->mv);
+@@ -885,6 +904,8 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *skb,
+ out_unlock:
+ 	spin_unlock_irqrestore(&cp->lock, intr_flags);
+ 
++	cpw32(TimerCount, CP_EARLY_TIMEOUT);
++
+ 	cpw8(TxPoll, NormalTxPoll);
+ 
+ 	return NETDEV_TX_OK;
+@@ -1064,6 +1085,8 @@ static void cp_init_hw (struct cp_private *cp)
+ 
+ 	cpw16(MultiIntr, 0);
+ 
++	cpw32(TimerInt, CP_EARLY_TIMEOUT);
++
+ 	cpw8_f(Cfg9346, Cfg9346_Lock);
  }
  
- static int dsmark_dump_class(struct Qdisc *sch, unsigned long cl,
-@@ -430,8 +433,8 @@ static int dsmark_dump_class(struct Qdisc *sch, unsigned long cl,
- 	opts = nla_nest_start(skb, TCA_OPTIONS);
- 	if (opts == NULL)
- 		goto nla_put_failure;
--	if (nla_put_u8(skb, TCA_DSMARK_MASK, p->mask[cl - 1]) ||
--	    nla_put_u8(skb, TCA_DSMARK_VALUE, p->value[cl - 1]))
-+	if (nla_put_u8(skb, TCA_DSMARK_MASK, p->mv[cl - 1].mask) ||
-+	    nla_put_u8(skb, TCA_DSMARK_VALUE, p->mv[cl - 1].value))
- 		goto nla_put_failure;
- 
- 	return nla_nest_end(skb, opts);
