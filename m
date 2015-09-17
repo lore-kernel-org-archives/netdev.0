@@ -1,39 +1,103 @@
-From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: Re: [PATCH net-next v2] net: Initialize table in fib result
-Date: Thu, 17 Sep 2015 09:45:16 +0200
-Message-ID: <55FA6F8C.90808@ericsson.com>
-References: <1442420199-51715-1-git-send-email-dsa@cumulusnetworks.com> <55F996AC.1090305@cumulusnetworks.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v8 1/3] can: Allwinner A10/A20 CAN Controller support -
+ Devicetree bindings
+Date: Thu, 17 Sep 2015 10:04:56 +0200
+Message-ID: <55FA7428.4030801@pengutronix.de>
+References: <1442402482-7118-1-git-send-email-info@gerhard-bertelsmann.de>
+ <1442402482-7118-2-git-send-email-info@gerhard-bertelsmann.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	<sergey.senozhatsky.work@gmail.com>, <festevam@gmail.com>
-To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:42486 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753864AbbIQHp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 03:45:29 -0400
-In-Reply-To: <55F996AC.1090305@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="DnEEud09CUixDbdGAbIXlsqhF8WhuhQ60"
+To: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>,
+	wg@grandegger.com, maxime.ripard@free-electrons.com,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442402482-7118-2-git-send-email-info@gerhard-bertelsmann.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2015-09-16 18:19, Nikolay Aleksandrov wrote:
-> The root cause is use of res.table uninitialized.
->> 
->> Thanks to Nikolay for noticing the uninitialized use amongst the maze of
->> gotos.
->> 
->> As Nikolay pointed out the second initialization is not required to fix
->> the oops, but rather to fix a related problem where a valid lookup should
->> be invalidated before creating the rth entry.
->> 
->> Fixes: b7503e0cdb5d ("net: Add FIB table id to rtable")
->> Reported-by: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
->> Reported-by: Richard Alpe <richard.alpe@ericsson.com>
-Works for me as well. Thanks!
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--DnEEud09CUixDbdGAbIXlsqhF8WhuhQ60
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-(Tested-by: Richard Alpe <richard.alpe@ericsson.com>)
+On 09/16/2015 01:21 PM, Gerhard Bertelsmann wrote:
+> Devicetree bindings for Allwinner A10/A20 CAN
+>=20
+> Signed-off-by: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+> ---
+>=20
+>  .../devicetree/bindings/net/can/sun4i_can.txt      |  38 +
+>  1 files changed, 389 insertions(+)
+>=20
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/can/sun4i_can.txt b/=
+Documentation/devicetree/bindings/net/can/sun4i_can.txt
+> new file mode 100644
+> index 0000000..cd0f50c
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/can/sun4i_can.txt
+> @@ -0,0 +1,38 @@
+> +Allwinner A10/A20 CAN controller Device Tree Bindings
+> +-----------------------------------------------------
+> +
+> +Required properties:
+> +- compatible: "allwinner,sun4i-a10-can"
+> +- reg: physical base address and size of the Allwinner A10/A20 CAN reg=
+ister map.
+> +- interrupts: interrupt specifier for the sole interrupt.
+> +- clock: phandle and clock specifier.
+> +
+> +
+> +Example
+> +-------
+> +
+> +SoC common .dtsi file:
+> +
+> +	can0_pins_a: can0@0 {
+> +		allwinner,pins =3D "PH20","PH21";
+> +		allwinner,function =3D "can";
+> +		allwinner,drive =3D <0>;
+> +		allwinner,pull =3D <0>;
+> +	};
+> +...
+> +	can0: can@01c2bc00 {
+> +		compatible =3D "allwinner,sun4i-a10-can";
+> +		reg =3D <0x01c2bc00 0x400>;
+> +		interrupts =3D <0 26 4>;
+> +		clocks =3D <&apb1_gates 4>;
+> +		status =3D "disabled";
+> +	};
 
-Regards
-Richard
+What about adding this snippet to SoC where the CAN core is available?
+Maxime, what's the policy on sinxi? If you give me an Ack I'd like to
+take the series via linux-can-next (and to net-next) upstream.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--DnEEud09CUixDbdGAbIXlsqhF8WhuhQ60
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJV+nQoAAoJEP5prqPJtc/HGtoIAJRGX/E7oo+0++CedkT1OYMx
+b6yT4mpAwfLOqcWFQJoNfEQNUcudbHQswBkfFnIKaRFp1HxHnXndqD9zSrDS3gK3
+ZbYh8F37oxi4Tv9qJaN4/nvEG92g2HdRFCuhvisGJhrCTZCnhZE1Fy3BEy9wfvw/
+s/3YhrLrXNnbsIc7MfgL7oeS5bkQJTmZV3oxFJb3yEmhl9DKUQJPg3IcGQVzr7Gv
+SEaFWtOtJW8kXhXVlei5SOcFseEMw60KjFehOEg3KZ55ValmKuWrn21Kj5T5wIJY
+Y3MTnSuVyNJAy8CeRpI0VeKQylxgM6dEZmX+0u4+GmMIATtG6vpiUj2nLpgjcJE=
+=7blM
+-----END PGP SIGNATURE-----
+
+--DnEEud09CUixDbdGAbIXlsqhF8WhuhQ60--
