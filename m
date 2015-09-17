@@ -1,57 +1,115 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] net: irda: pxaficp_ir: use sched_clock() for
- time management
-Date: Thu, 17 Sep 2015 14:51:06 -0700 (PDT)
-Message-ID: <20150917.145106.1238429841434804906.davem@davemloft.net>
-References: <1442058324-9760-1-git-send-email-robert.jarzmik@free.fr>
-	<20150915.164025.1543038793305792029.davem@davemloft.net>
-	<87eghyso6u.fsf@belgarion.home>
+From: Janusz Wolak <januszvdm@gmail.com>
+Subject: e1000_hw_c_checkpatch_coding_style_errors_remove
+Date: Thu, 17 Sep 2015 23:56:48 +0200
+Message-ID: <55FB3720.6010805@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------030100060908010907050409"
+To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:35351 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751908AbbIQV4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 17:56:51 -0400
+Received: by lbpo4 with SMTP id o4so16391888lbp.2
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 14:56:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------030100060908010907050409
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, petr.cvek@tul.cz, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, arnd@arndb.de
-To: robert.jarzmik@free.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87eghyso6u.fsf@belgarion.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Date: Wed, 16 Sep 2015 11:34:01 +0200
 
-> David Miller <davem@davemloft.net> writes:
-> 
->> From: Robert Jarzmik <robert.jarzmik@free.fr>
->> Date: Sat, 12 Sep 2015 13:45:22 +0200
->>
->>> Instead of using directly the OS timer through direct register access,
->>> use the standard sched_clock(), which will end up in OSCR reading
->>> anyway.
->>> 
->>> This is a first step for direct access register removal and machine
->>> specific code removal from this driver.
->>> 
->>> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
->>
->> What is the granularity of the OSCR register?
-> It's 307ns (ie. 3.25MHz clock).
-> 
->> If it is not nanoseconds, then you need to adjust calculations
->> such as this one:
-> Tell me if the 307ns requires something I should adjust.
-> 
-> My understanding is that the flow will be :
->  sched_clock()
->    rd->read_sched_clock() (cyc_to_ns() transformed for return)
->      pxa_read_sched_clock()
->        readl_relaxed(OSCR)
-> 
-> I didn't see any timings issue, as the flow looks equivalent to the readl(OSCR),
-> but I might have overlooked something.
+--------------030100060908010907050409
+Content-Type: text/x-patch;
+ name="e1000_hw_c_Remove_checkpatch_coding_style_errors.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="e1000_hw_c_Remove_checkpatch_coding_style_errors.patch"
 
-Of course it's different, because sched_clock() converts the value read
-from OSCR into nanoseconds, which is obviously different from using the
-OSCR register value directly.
+>From 4ac9fd87e092f58eb7a6ed898360dfd83c5c10f5 Mon Sep 17 00:00:00 2001
+From: Janusz Wolak <januszvdm@gmail.com>
+Date: Thu, 17 Sep 2015 23:34:29 +0200
+Subject: [PATCH] Remove checkpatch coding style errors.
 
-You're therefore feeding different values into this IRDA code.
+Signed-off-by: Janusz Wolak <januszvdm@gmail.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_hw.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
+index 45c8c864..cc1fe40 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
+@@ -683,7 +683,7 @@ static s32 e1000_adjust_serdes_amplitude(struct e1000_hw *hw)
+ 	}
+ 
+ 	ret_val = e1000_read_eeprom(hw, EEPROM_SERDES_AMPLITUDE, 1,
+-	                            &eeprom_data);
++				    &eeprom_data);
+ 	if (ret_val) {
+ 		return ret_val;
+ 	}
+@@ -1652,7 +1652,7 @@ s32 e1000_phy_setup_autoneg(struct e1000_hw *hw)
+ 		mii_1000t_ctrl_reg = 0;
+ 	} else {
+ 		ret_val = e1000_write_phy_reg(hw, PHY_1000T_CTRL,
+-		                              mii_1000t_ctrl_reg);
++					      mii_1000t_ctrl_reg);
+ 		if (ret_val)
+ 			return ret_val;
+ 	}
+@@ -2193,8 +2193,7 @@ static s32 e1000_config_fc_after_link_up(struct e1000_hw *hw)
+ 			else if (!(mii_nway_adv_reg & NWAY_AR_PAUSE) &&
+ 				 (mii_nway_adv_reg & NWAY_AR_ASM_DIR) &&
+ 				 (mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
+-				 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR))
+-			{
++				 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
+ 				hw->fc = E1000_FC_TX_PAUSE;
+ 				e_dbg
+ 				    ("Flow Control = TX PAUSE frames only.\n");
+@@ -2210,8 +2209,7 @@ static s32 e1000_config_fc_after_link_up(struct e1000_hw *hw)
+ 			else if ((mii_nway_adv_reg & NWAY_AR_PAUSE) &&
+ 				 (mii_nway_adv_reg & NWAY_AR_ASM_DIR) &&
+ 				 !(mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
+-				 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR))
+-			{
++				 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
+ 				hw->fc = E1000_FC_RX_PAUSE;
+ 				e_dbg
+ 				    ("Flow Control = RX PAUSE frames only.\n");
+@@ -3449,7 +3447,7 @@ s32 e1000_phy_get_info(struct e1000_hw *hw, struct e1000_phy_info *phy_info)
+ 	if (hw->phy_type == e1000_phy_igp)
+ 		return e1000_phy_igp_get_info(hw, phy_info);
+ 	else if ((hw->phy_type == e1000_phy_8211) ||
+-	         (hw->phy_type == e1000_phy_8201))
++		 (hw->phy_type == e1000_phy_8201))
+ 		return E1000_SUCCESS;
+ 	else
+ 		return e1000_phy_m88_get_info(hw, phy_info);
+@@ -3896,7 +3894,7 @@ static s32 e1000_do_read_eeprom(struct e1000_hw *hw, u16 offset, u16 words,
+ 
+ 	if (hw->mac_type == e1000_ce4100) {
+ 		GBE_CONFIG_FLASH_READ(GBE_CONFIG_BASE_VIRT, offset, words,
+-		                      data);
++				      data);
+ 		return E1000_SUCCESS;
+ 	}
+ 
+@@ -4070,7 +4068,7 @@ static s32 e1000_do_write_eeprom(struct e1000_hw *hw, u16 offset, u16 words,
+ 
+ 	if (hw->mac_type == e1000_ce4100) {
+ 		GBE_CONFIG_FLASH_WRITE(GBE_CONFIG_BASE_VIRT, offset, words,
+-		                       data);
++				       data);
+ 		return E1000_SUCCESS;
+ 	}
+ 
+-- 
+1.9.1
+
+
+--------------030100060908010907050409--
