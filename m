@@ -1,36 +1,36 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH net] netlink: make sure -EBUSY won't escape from netlink_insert
-Date: Thu, 17 Sep 2015 11:47:12 -0700
-Message-ID: <CA+55aFxyqfxJphqDF_X4hG40b21XWP0fFdMhFJKn6riy5-kmtA@mail.gmail.com>
-References: <d466c48264ca677f0fc61ff76526780c32c37cb5.1438898409.git.daniel@iogearbox.net>
-	<20150810.110015.1616067694505641781.davem@davemloft.net>
-	<20150917054114.GN1983@Chimay.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+Date: Thu, 17 Sep 2015 11:52:18 -0700 (PDT)
+Message-ID: <20150917.115218.655587837796826886.davem@davemloft.net>
+References: <BY2PR0301MB16540426BFD633C8EBD1A4BBA05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CB989E9@AcuExch.aculab.com>
+	<BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Thomas Graf <tgraf@suug.ch>,
-	Network Development <netdev@vger.kernel.org>
-To: Christoph Paasch <christoph.paasch@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@ACULAB.COM, alexander.duyck@gmail.com,
+	haiyangz@microsoft.com, vkuznets@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jasowang@redhat.com
+To: kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:36032 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752735AbbIQSrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 14:47:13 -0400
-Received: by ioii196 with SMTP id i196so32268508ioi.3
-        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 11:47:13 -0700 (PDT)
-In-Reply-To: <20150917054114.GN1983@Chimay.local>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44730 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752483AbbIQSwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 14:52:20 -0400
+In-Reply-To: <BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 16, 2015 at 10:41 PM, Christoph Paasch
-<christoph.paasch@gmail.com> wrote:
->
-> can this patch get queued up for 4.1 as well?
-> It seems to fix a similar issue in 4.1.6.
+From: KY Srinivasan <kys@microsoft.com>
+Date: Thu, 17 Sep 2015 15:14:05 +0000
 
-I think Herbert has an additional patch for this issue. But yes, I
-think should be scheduled for stable. Herbert?
+> I think I can achieve my original goal of not having any allocation
+> in the send path by carefully using the memory available in the skb:
 
-                Linus
+Please stop flat-out ignoring David L.'s suggestion.
+
+Have a pre-cooked ring of buffers for these descriptors that you can
+point the chip at.  No per-packet allocation is necessary at all.
+
+If you play games with SKBs you will get burned.
