@@ -1,161 +1,170 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: mvneta: SGMII fixed-link not so fixed
-Date: Fri, 18 Sep 2015 00:14:22 +0100
-Message-ID: <20150917231422.GY21084@n2100.arm.linux.org.uk>
-References: <20150914103207.GH21084@n2100.arm.linux.org.uk>
- <55F6AA25.2070603@list.ru>
- <20150914114209.GL21084@n2100.arm.linux.org.uk>
- <20150917.151247.2129216999071943354.davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH 1/2] 8139cp: Use dev_kfree_skb_any() instead of
+ dev_kfree_skb() in cp_clean_rings()
+Date: Fri, 18 Sep 2015 00:19:08 +0100
+Message-ID: <1442531948.97487.8.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stsp@list.ru, andrew@lunn.ch, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-i+XdaRUjiBKtA2neviXR"
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:56434 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751981AbbIQXOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 19:14:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20150917.151247.2129216999071943354.davem@davemloft.net>
+Received: from casper.infradead.org ([85.118.1.10]:38135 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752448AbbIQXTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 19:19:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 17, 2015 at 03:12:47PM -0700, David Miller wrote:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-> Date: Mon, 14 Sep 2015 12:42:09 +0100
-> 
-> > Thanks, I think that will solve it.  I have to wonder why that patch
-> > (f8af8e6eb9509 in mainline) didn't made it into v4.2 though, as it's
-> > billed as a regression that occurred in the previous merge window, and
-> > given that it was sent in July, and we're now in September.  As it
-> > wasn't in v4.2, it looks like it should be a stable candidate.
-> 
-> The series had a whole bunch of non bug fixes in it and we were in
-> the final phases of 4.2, in which case I defer to applying patches
-> to net-next only unless I'm told otherwise.
-> 
-> It's up the the patch/series author to let me know that an important
-> regression fix is hidden in there, but they should have submitted
-> it seperately from the rest in that kind of situation anyways.
-> 
-> > David, any objections to having the stable guys pick this regression
-> > fix up, if not already done so?
-> 
-> More than this patch is needed, the one before it (3/4) instantiates
-> the necessary property in the DT, for example.
-> 
-> I can queue up the whole series for -stable if you want.
 
-Sorry in advance for this rambling reply...
+--=-i+XdaRUjiBKtA2neviXR
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I'm not entirely certain that'd be a good idea at the moment, for a
-number of reasons, which are coming up because I'm looking at getting
-a SFP cage supported with mvneta hardware.
+This can be called from cp_tx_timeout() with interrupts disabled.
+Spotted by Francois Romieu <romieu@fr.zoreil.com>
 
-1. Serdes gigabit ethernet links have two operating modes for in-band
-   "negotiation" - Cisco SGMII format, and 1000base-X format.  Both use
-   exactly the same encoding on the wire, the only differences between
-   them are the contents of a 16-bit configuration word and how each
-   end of the link handles that.  SFP can use either format depending
-   on the module hot-plugged in - fiber modules will normally use
-   1000base-X, but copper modules which contain a PHY may use either
-   SGMII or 1000base-X.  (Fiber modules for 100baseFX will probably
-   use SGMII though.)
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+ drivers/net/ethernet/realtek/8139cp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-   The issue there is two-fold: that the new DT property just says it's
-   "in-band" or "auto" but there's no way to specify the format of the
-   in-band configuration.
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/r=
+ealtek/8139cp.c
+index d79e33b..52a5334 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1151,7 +1151,7 @@ static void cp_clean_rings (struct cp_private *cp)
+ 			desc =3D cp->rx_ring + i;
+ 			dma_unmap_single(&cp->pdev->dev,le64_to_cpu(desc->addr),
+ 					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-			dev_kfree_skb(cp->rx_skb[i]);
++			dev_kfree_skb_any(cp->rx_skb[i]);
+ 		}
+ 	}
+=20
+@@ -1164,7 +1164,7 @@ static void cp_clean_rings (struct cp_private *cp)
+ 					 le32_to_cpu(desc->opts1) & 0xffff,
+ 					 PCI_DMA_TODEVICE);
+ 			if (le32_to_cpu(desc->opts1) & LastFrag)
+-				dev_kfree_skb(skb);
++				dev_kfree_skb_any(skb);
+ 			cp->dev->stats.tx_dropped++;
+ 		}
+ 	}
+--=20
+2.4.3
 
-2. With Serdes, the PCS layer of the PHY, which does the autonegotiation,
-   is moved to the MAC.  When connected to a SGMII PHY, the PHY may report
-   over the Serdes connection the Cisco SGMII configuration word which
-   instructs the MAC how to configure itself.  It's not "negotiation" by
-   any means, but "phy telling the MAC how to configure itself" word.
-
-   Having "in-band" enabled pretty much requires the use of the "fixed-link"
-   property, which seems to be a total hack around the PCS layer being in
-   the MAC - the "fixed-link" phy is no longer fixed, but is used as a
-   means to convey the negotiated results from the MAC side PCS to the
-   software-emulated PHY, only to have them pop back out into the MAC
-   driver.
-
-   If you specify "in-band" without a "fixed-link" but have other MACs
-   making use of the fixed-link support, all hell breaks loose, because
-   mvneta will call the fixed-link update function with the real phy
-   with the in-band results, and this can hit a fixed-link PHY for some
-   other network adapter.  The fixed-link PHY code makes no attempt to
-   validate that the phy_device passed in really is a fixed-link phy
-   and not a MDIO phy.
-
-3. Having DT specify a fixed-link with parameters along with in-band
-   negotiation results in the fixed-link parameters being ignored.
-   This means if a fixed-link DT declaration specifies a speed, that
-   declaration will be ignored.  What I'm basically saying is that:
-
-		phy-mode = "sgmii";
-		fixed-link {
-			speed = <1000>;
-		};
-
-   specifies a fixed-speed serdes link at 1000mbps, but:
-
-		phy-mode = "sgmii";
-		managed = "in-band-status";
-		fixed-link {
-			speed = <1000>;
-		};
-
-   does not fix the speed at all.  _But_ using the in-band status
-   property fundamentally requires this for mvneta to behave correctly:
-
-		phy-mode = "sgmii";
-		managed = "in-band-status";
-		fixed-link {
-		};
-
-   with _no_ phy node.
-
-4. Going back to the SFP problem, the link is only up when the SFP
-   module pins indicate that there's no transmitter fault, no loss of
-   signal _and_ the PCS layer at the MAC indicates that it has completed
-   negotiation.  This pretty much rules out trying to emulate a SFP cage
-   as a software-based PHY.  I've code right now doing exactly that, and
-   it results in netif_carrier_on() being called far too early.
-
-What I don't know is how many generations of the mvneta hardware have
-support for both serdes modes, but what I'm basically saying is that
-the solution we now have seems to be somewhat lacking - maybe it should
-have been "auto", "in-band-sgmii" and "in-band-1000base-x" with the
-ability to add additional modes later.
-
-The other point I'm making above is that I'm forming the opinion that
-the existing PHY layer isn't flexible enough for supporting SFP, and I
-need some way to represent at least part of the autonegotiation at the
-MAC level without involving the PHY level - especially when considering
-that a real PHY might be inside the SFP cage which can be talked to
-over I2C.
-
-This is the problem I'm presently grappling with, and it's taking lots
-of thought right now.  I'm aware of other drivers in the kernel which
-support SFP, each using their own implementations to support that.
+--=20
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
 
-Lastly, while looking at this, I've a small stack of patches for the PHY
-code resolving some of the issues I've mentioned above, and fixing broken
-reference counting and mdio bus module removal issues:
+--=-i+XdaRUjiBKtA2neviXR
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
 
- phy: fixed-phy: properly validate phy in fixed_phy_update_state()
- net: fix phy refcounting in a bunch of drivers
- of_mdio: fix MDIO phy device refcounting
- phy: add proper phy struct device refcounting
- phy: fix mdiobus module safety
- phy: fix of_mdio_find_bus() device refcount leak
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISjjCCBicw
+ggUPoAMCAQICAw3vNzANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+MB4XDTE1MDUwNTA5NDM0MVoXDTE2MDUwNTA5NTMzNlowQjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFk
+ZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMkbm9kPbx1j/X4RVyf/pPKSYwelcco69TvnQQbKM8m8xkWjXJI1
+jpJ1jMaGUZGFToINMSZi7lZawUozudWbXSKy1SikENSTJHffsdRAIlsp+hR8vWvjsKUry6sEdqPG
+doa5RY7+N4WRusWZDYW/RRWE6i9EL9qV86CVPYqw22UBOUw4/j/HVGCV6TSB8yE5iEwhk/hUuzRr
+FZm1MJMR7mCS7BCR8Lr5jFY61lWpBiXNXIxLZCvDc26KR5L5tYX43iUVO3fzES1GRVoYnxxk2tmz
+fcsZG5vK+Trc9L8OZJfkYrEHH3+Iw41MQ0w/djVtYr1+HYldx0QmYXAtnhIj+UMCAwEAAaOCAtkw
+ggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+BDAdBgNVHQ4EFgQUszC96C3w5/2+d+atSr0IpT26YI4wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+
+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/
+MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
+bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1
+dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0
+aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9s
+aWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNl
+IG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRw
+Oi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsG
+AQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYI
+KwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50
+LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEF
+BQADggEBAHMQmxHHodpS85X8HRyxhvfkys7r+taCNOaNU9cxQu/cZ/6k5nS2qGNMzZ6jb7ueY/V7
+7p+4DW/9ZWODDTf4Fz00mh5SSVc20Bz7t+hhxwHd62PZgENh5i76Qq2tw48U8AsYo5damHby1epf
+neZafLpUkLLO7AGBJIiRVTevdvyXQ0qnixOmKMWyvrhSNGuVIKVdeqLP+102Dwf+dpFyw+j1hz28
+jEEKpHa+NR1b2kXuSPi/rMGhexwlJOh4tK8KQ6Ryr0rIN//NSbOgbyYZrzc/ZUWX9V5OA84ChFb2
+vkFl0OcYrttp/rhDBLITwffPxSZeoBh9H7zYzkbCXKL3BUIwggYnMIIFD6ADAgECAgMN7zcwDQYJ
+KoZIhvcNAQEFBQAwgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYD
+VQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFydENv
+bSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTAeFw0xNTA1MDUwOTQzNDFa
+Fw0xNjA1MDUwOTUzMzZaMEIxHDAaBgNVBAMME2R3bXcyQGluZnJhZGVhZC5vcmcxIjAgBgkqhkiG
+9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
+AQDJG5vZD28dY/1+EVcn/6TykmMHpXHKOvU750EGyjPJvMZFo1ySNY6SdYzGhlGRhU6CDTEmYu5W
+WsFKM7nVm10istUopBDUkyR337HUQCJbKfoUfL1r47ClK8urBHajxnaGuUWO/jeFkbrFmQ2Fv0UV
+hOovRC/alfOglT2KsNtlATlMOP4/x1Rglek0gfMhOYhMIZP4VLs0axWZtTCTEe5gkuwQkfC6+YxW
+OtZVqQYlzVyMS2Qrw3NuikeS+bWF+N4lFTt38xEtRkVaGJ8cZNrZs33LGRubyvk63PS/DmSX5GKx
+Bx9/iMONTENMP3Y1bWK9fh2JXcdEJmFwLZ4SI/lDAgMBAAGjggLZMIIC1TAJBgNVHRMEAjAAMAsG
+A1UdDwQEAwIEsDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwHQYDVR0OBBYEFLMwvegt
+8Of9vnfmrUq9CKU9umCOMB8GA1UdIwQYMBaAFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB4GA1UdEQQX
+MBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwggFMBgNVHSAEggFDMIIBPzCCATsGCysGAQQBgbU3AQID
+MIIBKjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjCB9wYI
+KwYBBQUHAgIwgeowJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBARqBvlRo
+aXMgY2VydGlmaWNhdGUgd2FzIGlzc3VlZCBhY2NvcmRpbmcgdG8gdGhlIENsYXNzIDEgVmFsaWRh
+dGlvbiByZXF1aXJlbWVudHMgb2YgdGhlIFN0YXJ0Q29tIENBIHBvbGljeSwgcmVsaWFuY2Ugb25s
+eSBmb3IgdGhlIGludGVuZGVkIHB1cnBvc2UgaW4gY29tcGxpYW5jZSBvZiB0aGUgcmVseWluZyBw
+YXJ0eSBvYmxpZ2F0aW9ucy4wNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vY3J0dTEtY3JsLmNybDCBjgYIKwYBBQUHAQEEgYEwfzA5BggrBgEFBQcwAYYtaHR0cDovL29j
+c3Auc3RhcnRzc2wuY29tL3N1Yi9jbGFzczEvY2xpZW50L2NhMEIGCCsGAQUFBzAChjZodHRwOi8v
+YWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zdWIuY2xhc3MxLmNsaWVudC5jYS5jcnQwIwYDVR0SBBww
+GoYYaHR0cDovL3d3dy5zdGFydHNzbC5jb20vMA0GCSqGSIb3DQEBBQUAA4IBAQBzEJsRx6HaUvOV
+/B0csYb35MrO6/rWgjTmjVPXMULv3Gf+pOZ0tqhjTM2eo2+7nmP1e+6fuA1v/WVjgw03+Bc9NJoe
+UklXNtAc+7foYccB3etj2YBDYeYu+kKtrcOPFPALGKOXWph28tXqX53mWny6VJCyzuwBgSSIkVU3
+r3b8l0NKp4sTpijFsr64UjRrlSClXXqiz/tdNg8H/naRcsPo9Yc9vIxBCqR2vjUdW9pF7kj4v6zB
+oXscJSToeLSvCkOkcq9KyDf/zUmzoG8mGa83P2VFl/VeTgPOAoRW9r5BZdDnGK7baf64QwSyE8H3
+z8UmXqAYfR+82M5Gwlyi9wVCMIIGNDCCBBygAwIBAgIBHjANBgkqhkiG9w0BAQUFADB9MQswCQYD
+VQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwg
+Q2VydGlmaWNhdGUgU2lnbmluZzEpMCcGA1UEAxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRo
+b3JpdHkwHhcNMDcxMDI0MjEwMTU1WhcNMTcxMDI0MjEwMTU1WjCBjDELMAkGA1UEBhMCSUwxFjAU
+BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRl
+IFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUg
+Q2xpZW50IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxwmDzM4t2BqxKaQuE6uW
+vooyg4ymiEGWVUet1G8SD+rqvyNH4QrvnEIaFHxOhESip7vMz39ScLpNLbL1QpOlPW/tFIzNHS3q
+d2XRNYG5Sv9RcGE+T4qbLtsjjJbi6sL7Ls/f/X9ftTyhxvxWkf8KW37iKrueKsxw2HqolH7GM6FX
+5UfNAwAu4ZifkpmZzU1slBhyWwaQPEPPZRsWoTb7q8hmgv6Nv3Hg9rmA1/VPBIOQ6SKRkHXG0Hhm
+q1dOFoAFI411+a/9nWm5rcVjGcIWZ2v/43Yksq60jExipA4l5uv9/+Hm33mbgmCszdj/Dthf13tg
+Av2O83hLJ0exTqfrlwIDAQABo4IBrTCCAakwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
+AQYwHQYDVR0OBBYEFFNy7ZKc4NrLAVx8fpY1TvLUuFGCMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mH
+MMo0aEPQQa7yMGYGCCsGAQUFBwEBBFowWDAnBggrBgEFBQcwAYYbaHR0cDovL29jc3Auc3RhcnRz
+c2wuY29tL2NhMC0GCCsGAQUFBzAChiFodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcnQw
+WwYDVR0fBFQwUjAnoCWgI4YhaHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3JsMCegJaAj
+hiFodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwgYAGA1UdIAR5MHcwdQYLKwYBBAGB
+tTcBAgEwZjAuBggrBgEFBQcCARYiaHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5LnBkZjA0
+BggrBgEFBQcCARYoaHR0cDovL3d3dy5zdGFydHNzbC5jb20vaW50ZXJtZWRpYXRlLnBkZjANBgkq
+hkiG9w0BAQUFAAOCAgEACoMIfXirLAZcuGOMXq4cuSN3TaFx2H2GvD5VSy/6rV55BYHbWNaPeQn3
+oBSU8KgQZn/Kck1JxbLpAxVCNtsxeW1R87ifhsYZ0qjdrA9anrW2MAWCtosmAOT4OxK9QPoSjCMx
+M3HbkZCDJgnlE8jMopH21BbyAYr7b5EfGRQJNtgWcvqSXwKHnTutR08+Kkn0KAkXCzeQNLeA5LlY
+UzFyM7kPAp8pIRMQ+seHunmyG642S2+y/qHEdMuGIwpfz3eDF1PdctL04qYK/zu+Qg1Bw0RwgigV
+Zs/0c5HP2/e9DBHh7eSwtzYlk4AUr6yxLlcwSjOfOmKEQ/Q8tzh0IFiNu9IPuTGAPBn4CPxD0+Ru
+8T2wg8/s43R/PT3kd1OEqOJUl7q+h+r6fpvU0Fzxd2tC8Ga6fDEPme+1Nbi+03pVjuZQKbGwKJ66
+gEn06WqaxVZC+J8hh/jR0k9mST1iAZPNYulcNJ8tKmVtjYsv0L1TSm2+NwON58tO+pIVzu3DWwSE
+XSf+qkDavQam+QtEOZxLBXI++aMUEapSn+k3Lxm48ZCYfAWLb/Xj7F5JQMbZvCexglAbYR0kIHqW
+5DnsYSdMD/IplJMojx0NBrxJ3fN9dvX2Y6BIXRsF1du4qESm4/3CKuyUV7p9DW3mPlHTGLvYxnyK
+Qy7VFBkoLINszBrOUeIxggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
+YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcx
+ODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENB
+AgMN7zcwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
+CQUxDxcNMTUwOTE3MjMxOTA4WjAjBgkqhkiG9w0BCQQxFgQUOvd1dm1n66S+6dj8LHFAGGG+WgEw
+gaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMN7zcwgacG
+CyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRk
+LjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMv
+U3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAw3vNzANBgkq
+hkiG9w0BAQEFAASCAQCvHzOMgUQ6Dpsv77abs0jW6KG9QG0DQA9Hi5aDNzLaXmVjDT2/xLKkDh8e
+/9VMI0ta6SWFPonCzo4eoPavt+CuC+SLbjX6KpLUVwtw9dPy0VaqRL3sO3su/YxTeY/h2NKQkHmE
+wjCjz7jAJoloFLshiCvQTW+x9j5bpgnio0dL3wF1ZIcYnD9ERK/E/Y2LC0b4tyM6xez/RkfbBUT3
+QFY1IYdCQA224NJy49G8s6PgKChsmvKn1/qw33AbcB/JmHiplWV/cK/4NpldiUyyRXYmKwiVXyvd
+G/hmQueQ5Y0nmwgPS6LdClRLVLftaileorAkbwpoY5FTtUS6AW8yyU/KAAAAAAAA
 
-I hope to be able to send those out in the next few days - they have
-nothing to do with SFP itself but are the results of looking through the
-PHY code.
 
--- 
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+--=-i+XdaRUjiBKtA2neviXR--
