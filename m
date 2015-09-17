@@ -1,53 +1,44 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v8 0/4] can: Allwinner A10/A20 CAN Controller support
- - Summary
-Date: Thu, 17 Sep 2015 20:12:31 +0200
-Message-ID: <55FB028F.7070206@hartkopp.net>
-References: <1442402482-7118-1-git-send-email-info@gerhard-bertelsmann.de> <20150917175444.GJ4684@lukather>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: list of all network namespaces
+Date: Thu, 17 Sep 2015 20:14:50 +0200
+Message-ID: <20150917201450.02c9586c@griffin>
+References: <CAOxq_8Noj5oxPY5BEsWL6u4h_AD+oXYS+JCRGES_gmMQKd0rOQ@mail.gmail.com>
+	<55FA0F4A.3010105@hp.com>
+	<9B0331B6EBBD0E4684FBFAEDA55776F919440808@HASMSX110.ger.corp.intel.com>
+	<CAOxq_8OTR2neJhDU4BOubWcc7Qd=j9T3jg4ESv-ojXqj+xxYxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, mkl@pengutronix.de, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20150917175444.GJ4684@lukather>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Rosen, Rami" <rami.rosen@intel.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ani Sinha <ani@arista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35193 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751582AbbIQSOz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 14:14:55 -0400
+In-Reply-To: <CAOxq_8OTR2neJhDU4BOubWcc7Qd=j9T3jg4ESv-ojXqj+xxYxQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 17 Sep 2015 10:39:57 -0700, Ani Sinha wrote:
+> Will there be any interest if I cook up a kernel patch that lists all
+> network namespaces through /proc?
 
+/proc is a wrong interface for this, enumerating all net namespaces has
+nothing to do with processes. Each process has its corresponding
+namespaces in /proc already listed, which is as much as belongs
+to /proc.
 
-On 17.09.2015 19:54, Maxime Ripard wrote:
-> On Wed, Sep 16, 2015 at 01:21:18PM +0200, Gerhard Bertelsmann wrote:
->> Hi,
->>
->> please find attached the next version of my patch set. I have
->> taken all remarks from Maxime Ripard into the new version
->>
->> Please review, test and report bugs if exists.
->>
->> The patchset applies to all recent Kernel versions (4.x, next etc.).
->>
->> [PATCH v8 1/4] Device Tree Binding Documentation
->> [PATCH v8 2/4] Defconfig multi_v7
->> [PATCH v8 3/4] Defconfig sunxi
->> [PATCH v8 4/4] Kernel Module
->
-> Applied 3 and 4.
+Dumping all net namespaces should be probably netlink based but
+obviously, you'll have hard time sending file descriptors over netlink.
+You can dump their netnsids but that won't help you much accessing the
+namespace contents.
 
-Applied to what tree?
+This is not as easy as it seems. But I'd love to have such feature.
 
-That's not the friendly way when Marc asks you about the documentation about 
-the device tree (patch 1) and you commit the CAN driver and the sunxi 
-defconfig (patch 3 & 4) that he mainly reviewed to whatever tree.
+ Jiri
 
-New CAN drivers go via can-next and net-next into mainline.
-
-So please answer Marcs question and let him queue up the CAN driver via 
-can-next himself.
-
-Thanks,
-Oliver
-
+-- 
+Jiri Benc
