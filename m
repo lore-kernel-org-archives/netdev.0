@@ -1,61 +1,29 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] geneve: remove use of internal IP header when calling IP_ECN_decapsulate
-Date: Thu, 17 Sep 2015 13:17:51 -0400
-Message-ID: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
-Cc: davem@davemloft.net, "John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Ani Sinha <ani@arista.com>
+Subject: Re: list of all network namespaces
+Date: Thu, 17 Sep 2015 10:39:57 -0700
+Message-ID: <CAOxq_8OTR2neJhDU4BOubWcc7Qd=j9T3jg4ESv-ojXqj+xxYxQ@mail.gmail.com>
+References: <CAOxq_8Noj5oxPY5BEsWL6u4h_AD+oXYS+JCRGES_gmMQKd0rOQ@mail.gmail.com>
+ <55FA0F4A.3010105@hp.com> <9B0331B6EBBD0E4684FBFAEDA55776F919440808@HASMSX110.ger.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rosen, Rami" <rami.rosen@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55529 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751937AbbIQRXH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 13:23:07 -0400
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:38304 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751984AbbIQRkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 13:40:18 -0400
+Received: by igxx6 with SMTP id x6so523759igx.1
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 10:40:17 -0700 (PDT)
+In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F919440808@HASMSX110.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This seems to have been a "thinko".  IP_ECN_decapsulate needs info
-from both internal and external headers.
+On Thu, Sep 17, 2015 at 2:51 AM, Rosen, Rami <rami.rosen@intel.com> wrote:
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- drivers/net/geneve.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+> Network namespaces which were created by other ways (like userspace applications
+> using the clone() system call) will *not* be reflected by neither of them.
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index da3259ce7c8d..a917ae1cfbf3 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -121,10 +121,10 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 	struct metadata_dst *tun_dst = NULL;
- 	struct geneve_dev *geneve = NULL;
- 	struct pcpu_sw_netstats *stats;
--	struct iphdr *iph;
-+	struct iphdr *iph = NULL;
- 	u8 *vni;
- 	__be32 addr;
--	int err;
-+	int err = 0;
- 
- 	if (gs->collect_md) {
- 		static u8 zero_vni[3];
-@@ -178,13 +178,15 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 
- 	skb_reset_network_header(skb);
- 
--	iph = ip_hdr(skb); /* Now inner IP header... */
--	err = IP_ECN_decapsulate(iph, skb);
-+	if (iph)
-+		err = IP_ECN_decapsulate(iph, skb);
- 
- 	if (unlikely(err)) {
- 		if (log_ecn_error)
--			net_info_ratelimited("non-ECT from %pI4 with TOS=%#x\n",
--					     &iph->saddr, iph->tos);
-+			if (iph)
-+				net_info_ratelimited("non-ECT from %pI4 "
-+						     "with TOS=%#x\n",
-+						     &iph->saddr, iph->tos);
- 		if (err > 1) {
- 			++geneve->dev->stats.rx_frame_errors;
- 			++geneve->dev->stats.rx_errors;
--- 
-2.4.3
+Will there be any interest if I cook up a kernel patch that lists all
+network namespaces through /proc?
