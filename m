@@ -1,75 +1,39 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: NFS/TCP/IPv6 acting strangely in 4.2
-Date: Thu, 17 Sep 2015 15:06:25 +0100
-Message-ID: <20150917140625.GR21084@n2100.arm.linux.org.uk>
-References: <20150911113839.GO21084@n2100.arm.linux.org.uk>
- <1442386435.3756.282.camel@vitec.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"anna.schumaker@netapp.com" <anna.schumaker@netapp.com>,
-	"trond.myklebust@primarydata.com" <trond.myklebust@primarydata.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Damien =?iso-8859-1?Q?Th=E9bault?= <damien.thebault@vitec.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net 0/5] vxlan fixes
+Date: Thu, 17 Sep 2015 16:11:09 +0200
+Message-ID: <cover.1442498316.git.jbenc@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:55451 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339AbbIQOGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 10:06:36 -0400
-Content-Disposition: inline
-In-Reply-To: <1442386435.3756.282.camel@vitec.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58011 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751354AbbIQOLX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 10:11:23 -0400
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (Postfix) with ESMTPS id 6722F8E6EA
+	for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 14:11:23 +0000 (UTC)
+Received: from griffin.upir.cz (ovpn-204-25.brq.redhat.com [10.40.204.25])
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t8HEBMd5023833
+	for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 10:11:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 16, 2015 at 06:53:57AM +0000, Damien Th=E9bault wrote:
-> On Fri, 2015-09-11 at 12:38 +0100, Russell King - ARM Linux wrote:
-> > I have a recent Marvell Armada 388 board here which uses the mvneta
-> > driver.  I'm seeing some weird effects with NFS with it acting as a
-> > client.
->=20
-> Hello,
->=20
-> I'm upgrading a Marvelle Armada 370 board using the mvneta driver fro=
-m
-> 4.0 to 4.2 and noticed issues with NFS booting.
-> Basically, most of the time init returns with an error code, or
-> programs segfault or throw illegal instructions.
->=20
-> Since it worked fine on 4.0 I bisected until I found commit
-> a84e32894191cfcbffa54180d78d7d4654d56c20 "net: mvneta: fix refilling
-> for Rx DMA buffers".
->=20
-> If I revert this commit, everything seems to get back to normal.
-> Could you try it ? The two issues look very similar.
+This fixes various issues with vxlan related to IPv6.
 
-If you look at my original problem report, you'll see that has nothing
-to do with the problem I'm seeing.
+Jiri Benc (5):
+  vxlan: set needed headroom correctly
+  vxlan: reject IPv6 addresses if IPv6 is not configured
+  qlcnic: track vxlan port count
+  be2net: allow offloading with the same port for IPv4 and IPv6
+  bnx2x: track vxlan port count
 
-My problem is:
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 14 ++++++++++++--
+ drivers/net/ethernet/emulex/benet/be.h           |  1 +
+ drivers/net/ethernet/emulex/benet/be_main.c      | 10 ++++++++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |  1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 18 +++++++++++++-----
+ drivers/net/vxlan.c                              | 15 +++++++++------
+ 7 files changed, 47 insertions(+), 13 deletions(-)
 
-- TCP disconnects
-- NFS tries to establish a new connection with the server, sending a SY=
-N
-- NFS server replies with a SYNACK
-- NFS client immediately sends another SYN with a different sequence
-   number, so it's a _new_ attempt to connect to the NFS server.
-
-At this point, the socket for the previous SYNACK'd connection has been
-destroyed mid-setup.
-
-This is because the sunrpc code is horribly racy - it doesn't block a
-second attempt to call kernel_connect() on a socket which is already in
-the process of connecting to the NFS server.
-
-Even if the SYNACK had been corrupted (due to mvneta's rx code), that
-has no bearing on the race in the sunrpc layer that destroys the previo=
-us
-socket before the TCP SYN/SYNACK/ACK handshake has had a chance to
-complete.
-
---=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+-- 
+1.8.3.1
