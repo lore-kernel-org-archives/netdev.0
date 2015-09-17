@@ -1,41 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
-Date: Thu, 17 Sep 2015 13:10:37 -0700 (PDT)
-Message-ID: <20150917.131037.2286760949122849895.davem@davemloft.net>
-References: <BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
-	<20150917.115218.655587837796826886.davem@davemloft.net>
-	<BY2PR0301MB1654790C65E4E7EC98A76946A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: iproute2 tunnel name parsing
+Date: Thu, 17 Sep 2015 23:10:57 +0300
+Message-ID: <20150917201057.GA32635@angus-think.lan>
+References: <CAK8ArgO8mWN657smVDuCRHQVKScnBM1K9VP93e-YY+hf2sdwyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, alexander.duyck@gmail.com,
-	haiyangz@microsoft.com, vkuznets@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jasowang@redhat.com
-To: kys@microsoft.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Wilhelm Wijkander <lists@0x5e.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45337 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160AbbIQUKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:10:40 -0400
-In-Reply-To: <BY2PR0301MB1654790C65E4E7EC98A76946A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:33113 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190AbbIQUOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:14:16 -0400
+Received: by wiclk2 with SMTP id lk2so38759177wic.0
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 13:14:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAK8ArgO8mWN657smVDuCRHQVKScnBM1K9VP93e-YY+hf2sdwyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: KY Srinivasan <kys@microsoft.com>
-Date: Thu, 17 Sep 2015 19:52:01 +0000
-
+On Thu, Sep 17, 2015 at 09:55:29PM +0200, Wilhelm Wijkander wrote:
+> Hi,
 > 
+> I'm trying to create a sit tunnel called "hel": ip tun add hel mode
+> sit remote 10.200.0.2 local 10.200.1.2 ttl 255, however it seems like
+> this is interpreted as the help argument and I get the usage text. Is
+> there a way to escape names that I've missed, or is this an error
+> somewhere in argv parsing?
 > 
->> -----Original Message-----
->> Have a pre-cooked ring of buffers for these descriptors that you can
->> point the chip at.  No per-packet allocation is necessary at all.
-> 
-> Even if I had a ring of buffers, I would still need to manage the life cycle
-> of these buffers - selecting an unused one on the transmit path and marking
-> it used (atomically).
+> (I'm not subscribed, so a cc would be appreciated)
+> Thanks,
+> Wilhelm
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Have one per TX ring entry, then the lifetime matches the lifetime of the
-TX entry itself and therefore you need do nothing.
+Hi Wilhelm,
 
-That's the whole idea.
+You can use 'name' before 'hel' like:
+
+    $ ip tun add name hel mode sit remote 10.200.0.2 local 10.200.1.2 ttl 255
+
+and it should work, actually I just tried and it works.
+
+Regards,
+Vadim Kochan
