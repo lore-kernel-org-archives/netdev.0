@@ -1,74 +1,139 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp_cubic: do not set epoch_start in the future
-Date: Thu, 17 Sep 2015 08:38:00 -0700
-Message-ID: <1442504280.16225.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH RFC 0/3] Allow postponed netfilter handling for socket
+ matches
+Date: Thu, 17 Sep 2015 18:00:08 +0200
+Message-ID: <20150917160008.GA32700@breakpoint.cc>
+References: <1442418180-14322-1-git-send-email-daniel@zonque.org>
+ <20150916212100.GT24810@breakpoint.cc>
+ <55FA902F.50006@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Jana Iyengar <jri@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36798 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663AbbIQPiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 11:38:03 -0400
-Received: by padhk3 with SMTP id hk3so22759407pad.3
-        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 08:38:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, pablo@netfilter.org,
+	daniel@iogearbox.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, balazs.scheidler@balabit.com
+To: Daniel Mack <daniel@zonque.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55FA902F.50006@zonque.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Daniel Mack <daniel@zonque.org> wrote:
+> Hi Florian,
+> 
+> On 09/16/2015 11:21 PM, Florian Westphal wrote:
+> > Daniel Mack <daniel@zonque.org> wrote:
+> >> I'm re-addressing the issue of matching socket meta information for
+> >> non-established sockets that has been discussed a while ago:
+> >>
+> >>   http://article.gmane.org/gmane.comp.security.firewalls.netfilter.devel/56877
+> >>
+> >> Being able to reliably match on net_cls cgroup ids is crucial in
+> >> order to build a per-application or per-container firewall rules
+> >> which don't leak ingress packets. Such a feature would be very
+> >> useful to have.
+> > 
+> > Could you clarify what 'which don't leak ingress packets' means?
+> 
+> Well, currently, the existing cgroups matches only filter packets that
+> are sent to an established socket. All other packets are ignored. So
+> when users install such matches as advertised by the documented
+> examples, and the chain policy is permissive, the firewall 'leaks'
+> packets, which is unexpected.
 
-Tracking idle time in bictcp_cwnd_event() is imprecise, as epoch_start
-is normally set at ACK processing time, not at send time.
+Then 'the documentation' needs fixing.
+cgroup (and anything related to sk data, including uid, etc.) is
+not guaranteed to work.
 
-Doing a proper fix would need to add an additional state variable,
-and does not seem worth the trouble, given CUBIC bug has been there
-forever before Jana noticed it.
+We can only match what is available in the packet payload, and
+some extra info that the stack can make available to us (e.g.
+VLAN id, or skb->sk in some cases on output) and conntrack state plus
+whatever extra data conntrack allows to attach.
 
-Let's simply not set epoch_start in the future, otherwise
-bictcp_update() could overflow and CUBIC would again
-grow cwnd too fast.
+> >> The patch set is obviously not yet finished, because a lot more
+> >> protocol handlers need to be patched. Right now, I only addressed
+> >> tcp_ipv4. Before I do that, I want to get some feedback on the
+> >> approach, so please let me know what you think.
+> > 
+> > I think there are several issues.
+> > 
+> > implementation problems:
+> > - i'm not sure its legal to call the hook input with skb->sk locked,
+> >   some matches might want to aquire it.
+> 
+> In the code as it stands after my patch set, I don't see where skb->sk
+> is locked?
 
-This was detected thanks to a packetdrill test Neal wrote that was flaky
-before applying this fix.
+True.
 
-Fixes: 30927520dbae ("tcp_cubic: better follow cubic curve after idle period")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Cc: Jana Iyengar <jri@google.com>
----
- net/ipv4/tcp_cubic.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+[..]
 
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index c6ded6b2a79f..448c2615fece 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -154,14 +154,20 @@ static void bictcp_init(struct sock *sk)
- static void bictcp_cwnd_event(struct sock *sk, enum tcp_ca_event event)
- {
- 	if (event == CA_EVENT_TX_START) {
--		s32 delta = tcp_time_stamp - tcp_sk(sk)->lsndtime;
- 		struct bictcp *ca = inet_csk_ca(sk);
-+		u32 now = tcp_time_stamp;
-+		s32 delta;
-+
-+		delta = now - tcp_sk(sk)->lsndtime;
- 
- 		/* We were application limited (idle) for a while.
- 		 * Shift epoch_start to keep cwnd growth to cubic curve.
- 		 */
--		if (ca->epoch_start && delta > 0)
-+		if (ca->epoch_start && delta > 0) {
- 			ca->epoch_start += delta;
-+			if (after(ca->epoch_start, now))
-+				ca->epoch_start = now;
-+		}
- 		return;
- 	}
- }
+> > design issues:
+> > The assumption seems to be that a given skb can always be mapped to a
+> > particular socket, and hence a cgroup.
+> >
+> > Thats not necessarily the case, e.g. with broad-/multicasting or when
+> > the socket is e.g. in timewait state.
+> 
+> Yes, that's true. The idea for multicast would be to just drop the
+> cloned skb instead of delivering it to the final socket.
+
+-v please.
+
+> > I would much rather see nft_demux_{udp,tcp,sctp,dccp,...}.c which moves
+> > early-demux-esque code into the nft ruleset.
+> > 
+> > Then you could do something like
+> > 
+> > nft add rule ip filter input meta l4proto tcp demux meta cgroup 42
+> 
+> Ok, but how would that be different from the unconditional demuxing
+> patches we've kicked around earlier, especially when it comes to
+> multicast sockets? Could you explain what you have in mind here?
+
+Two things:
+- keep it out of core network stack
+- make it explicit so we can document that 'demux' keyword is fishy and
+will not work reliably.
+
+F.e. I don't see how mcast could ever be made to work except by adding
+an entirely new filtering mechanism/new hooks in core stack.
+
+> > The caveat being that even in this case we cannot guarantee
+> > that skb->sk is set afterwards, or that a cgroup can be derived from it.
+> > 
+> > Iff you absolutely need this, I'd seriously entertain the idea of adding
+> > NFPROTO_L4_TCP, etc, ... or, maybe better, allow to attach nft ruleset
+> > as a socket filter.
+> 
+> That would be a new netfilter hook then, something that is called after
+> LOCAL_IN, for ingress only? In a sense, it would be called from the
+> protocol handlers, just as my patches do right now, but instead of
+> conditionally re-iterating the same rules again, we would walk a
+> different chain?
+
+Yes, something like that.  Obviously, you'll need to dru^W brib^W
+convince a LOT of people before that could ever fly.
+
+I think we should not do this and that this 'match on ingress sk
+properties' is just bad[tm].
+
+f.e. you'd also have to move all of the stuff you want into
+sock_common ... 8-(
+
+> > But really, at that point, a much better question would be wheter net
+> > cgroups are the answer to whatever the question was, or what problem we
+> > are attempting to address here...
+> 
+> The idea is simply to have a packet filter which is based on information
+> derived from the task that sends or will eventually handle the packet.
+
+Starts to smell like snet (https://lwn.net/Articles/441587/)
+
+> IOW: We want to be able to install netfilter rules that apply to all
+> packets received or sent by tasks that match a certain criteria, without
+> modifying the sources of those tasks.
+
+Sorry, I think netfilter is wrong tool for this, at least for ingress.
+You could use conntrack to stash net_cls id in the connmark, though (for
+inbound reply packets).
