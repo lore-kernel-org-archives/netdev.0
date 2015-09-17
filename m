@@ -1,44 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: list of all network namespaces
-Date: Thu, 17 Sep 2015 20:14:50 +0200
-Message-ID: <20150917201450.02c9586c@griffin>
-References: <CAOxq_8Noj5oxPY5BEsWL6u4h_AD+oXYS+JCRGES_gmMQKd0rOQ@mail.gmail.com>
-	<55FA0F4A.3010105@hp.com>
-	<9B0331B6EBBD0E4684FBFAEDA55776F919440808@HASMSX110.ger.corp.intel.com>
-	<CAOxq_8OTR2neJhDU4BOubWcc7Qd=j9T3jg4ESv-ojXqj+xxYxQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: bcmgenet: Implement RX coalescing control
+ knobs
+Date: Thu, 17 Sep 2015 11:18:45 -0700
+Message-ID: <55FB0405.8010503@gmail.com>
+References: <1442447260-14129-1-git-send-email-f.fainelli@gmail.com> <1442447260-14129-3-git-send-email-f.fainelli@gmail.com> <55FAFF46.7010203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Rosen, Rami" <rami.rosen@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ani Sinha <ani@arista.com>
+Cc: davem@davemloft.net, jaedon.shin@gmail.com, pgynther@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35193 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751582AbbIQSOz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 14:14:55 -0400
-In-Reply-To: <CAOxq_8OTR2neJhDU4BOubWcc7Qd=j9T3jg4ESv-ojXqj+xxYxQ@mail.gmail.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33740 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752043AbbIQSW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 14:22:27 -0400
+Received: by pacex6 with SMTP id ex6so26392476pac.0
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 11:22:27 -0700 (PDT)
+In-Reply-To: <55FAFF46.7010203@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Sep 2015 10:39:57 -0700, Ani Sinha wrote:
-> Will there be any interest if I cook up a kernel patch that lists all
-> network namespaces through /proc?
+On 17/09/15 10:58, Florian Fainelli wrote:
+> On 16/09/15 16:47, Florian Fainelli wrote:
+>> Add support for the ethtool rx-frames coalescing parameter which allows
+>> defining the number of RX interrupts per frames received. The RDMA
+>> engine supports a configurable timeout with a resolution of
+>> approximately 8.192 us.
+>>
+>> We can no longer enable the BDONE/PDONE interrupts as those would
+>> fire for each packet/buffer received, which would defeat the MBDONE
+>> interrupt purpose. The MBDONE interrupt is guaranteed to correspond to a
+>> PDONE/BDONE interrupt when the threshold is set to 1.
+> 
+> *sigh*, I missed the initialization of the INTR_THRESHOLD register, so
+> right now, we just have no interrupts configured properly for RX, will
+> re-submit shortly.
+> 
+> Meanwhile, please send feedback if you have any, thanks!
+> 
 
-/proc is a wrong interface for this, enumerating all net namespaces has
-nothing to do with processes. Each process has its corresponding
-namespaces in /proc already listed, which is as much as belongs
-to /proc.
+Actually, no that version of the patch is just fine, since we already
+programmed the DMA_MBUF_DONE_THRESH since commit
+6f5a272c99108d9f8450c454a4baede9e7cc643f (" net: bcmgenet: rework Rx
+queue init")
 
-Dumping all net namespaces should be probably netlink based but
-obviously, you'll have hard time sending file descriptors over netlink.
-You can dump their netnsids but that won't help you much accessing the
-namespace contents.
-
-This is not as easy as it seems. But I'd love to have such feature.
-
- Jiri
-
+Sorry about the noise, -ENOCOFFEE.
 -- 
-Jiri Benc
+Florian
