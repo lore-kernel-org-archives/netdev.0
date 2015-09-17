@@ -1,91 +1,58 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
-Date: Thu, 17 Sep 2015 15:14:05 +0000
-Message-ID: <BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
-References: <1442418625-11805-1-git-send-email-vkuznets@redhat.com>
- <BN1PR0301MB0770C47D37D272F5A28CD1DECA5B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB9800B@AcuExch.aculab.com>
- <BY2PR0301MB16548B482FF9E0F4D82FC2C8A05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
- <55F9E172.2040008@gmail.com>
- <BY2PR0301MB16540426BFD633C8EBD1A4BBA05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB989E9@AcuExch.aculab.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 net-next 1/2] cls_bpf: introduce integrated actions
+Date: Thu, 17 Sep 2015 08:19:16 -0700
+Message-ID: <55FAD9F4.1010603@plumgrid.com>
+References: <1442383543-4720-1-git-send-email-ast@plumgrid.com>
+ <1442383543-4720-2-git-send-email-ast@plumgrid.com>
+ <55FAB40E.304@mojatatu.com> <55FABC7B.6060502@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jason Wang <jasowang@redhat.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"Vitaly Kuznetsov" <vkuznets@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB989E9@AcuExch.aculab.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36224 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751778AbbIQPTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 11:19:16 -0400
+Received: by padhk3 with SMTP id hk3so22385301pad.3
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 08:19:16 -0700 (PDT)
+In-Reply-To: <55FABC7B.6060502@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 9/17/15 6:13 AM, Daniel Borkmann wrote:
+> Hi Jamal,
+>
+> On 09/17/2015 02:37 PM, Jamal Hadi Salim wrote:
+>> On 09/16/15 02:05, Alexei Starovoitov wrote:
+>>> From: Daniel Borkmann <daniel@iogearbox.net>
+>>>
+>>> Often cls_bpf classifier is used with single action drop attached.
+>>> Optimize this use case and let cls_bpf return both classid and action.
+>>> For backwards compatibility reasons enable this feature under
+>>> TCA_BPF_FLAG_ACT_DIRECT flag.
+>>>
+>>
+>> This is going off in a different direction really.
+>> You are replicating the infrastructure inside bpf.
+>
+> Hmm, I don't really agree. With cls_bpf you have non-linear
+> classifications as opposed to walking a chain of classifiers:
+> worst case, I have to walk through N classifiers just to find
+> out that the last one matches that I need to drop - this doesn't
+> scale at all. Given that we can make this decision right here,
+> we can use this fact and have simple return codes provided as
+> well. It only supplements non-linear classification that was
+> from the very beginning of cls_bpf a core part of it.
 
-
-> -----Original Message-----
-> From: David Laight [mailto:David.Laight@ACULAB.COM]
-> Sent: Thursday, September 17, 2015 1:38 AM
-> To: KY Srinivasan <kys@microsoft.com>; Alexander Duyck
-> <alexander.duyck@gmail.com>; Haiyang Zhang <haiyangz@microsoft.com>;
-> Vitaly Kuznetsov <vkuznets@redhat.com>; netdev@vger.kernel.org
-> Cc: David S. Miller <davem@davemloft.net>; linux-kernel@vger.kernel.org;
-> Jason Wang <jasowang@redhat.com>
-> Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
-> 
-> From: KY Srinivasan
-> > Sent: 16 September 2015 23:58
-> ...
-> > > I think we get that.  The question is does the Remote NDIS header and
-> > > packet info actually need to be a part of the header data?  I would
-> > > argue that it probably doesn't.
-> > >
-> > > So for example in netvsc_start_xmit it looks like you are calling
-> > > init_page_array in order to populate a set of page buffers, but the
-> > > first buffer for the Remote NDIS protocol is populated as a separate
-> > > page and offset.  As such it doesn't seem like it necessarily needs to
-> > > be a part of the header data but could be maintained perhaps in a
-> > > separate ring buffer, or perhaps just be a separate page that you break
-> > > up to use for each header.
-> >
-> > You are right; the rndis header can be built as a separate fragment and sent.
-> > Indeed this is what we were doing earlier - on the outgoing path we would
-> allocate
-> > memory for the rndis header. My goal was to avoid this allocation on every
-> packet being
-> > sent and I decided to use the headroom instead. If we can completely avoid all
-> memory
-> > allocation for rndis header, it makes a significant perf difference:
-> ...
-> 
-> 
-> So just preallocate the header space as a fixed buffer for each ring entry
-> (or tx frame).
-> 
-> If you allocate a fixed buffer for each ring entry you may find there are
-> performance gains from copying small fragments into the buffer instead
-> of doing whatever mapping operations are required.
-> 
-> 	David
-
-Yes; I could do that. My original goal of asking for additional head room was to avoid having
-any allocation in the transmit path. I did not realize that all I had done was push the allocation to a
-different spot since the head room I was asking was greater than the default head room on skb allocation.
-
-I think I can achieve my original goal of not having any allocation in the send path by carefully using the
-memory available in the skb:
-
-1. I am going to separately handle the rndis header and this can be packed in the default headroom
-available in the skb.
-2. I will use the scratch area in the skb to stash away the state that needs to persist. This is the state needed
-to cleanup the guest state after we get the send_complete packet.
-
-Regards,
-
-K. Y 
- 
+I don't see the replication either. May be the commit log was
+misread as bpf program now executes the actions and bypasses
+tcf_exts_exec() ? Well, that may be interesting idea for
+the future, but that's not what the patch is doing.
+With this patch cls_bpf can return single integer like
+TC_ACT_SHOT/TC_ACT_OK that gact/act_bpf can already do as
+an _optimization_ to avoid extra hops. To do full-fledged
+action chaining the tcf_exts_exec() is used.
