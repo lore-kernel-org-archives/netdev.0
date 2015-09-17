@@ -1,152 +1,164 @@
-From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: Re: NFS/TCP/IPv6 acting strangely in 4.2
-Date: Thu, 17 Sep 2015 14:57:07 +0100
-Message-ID: <20150917135705.GQ21084@n2100.arm.linux.org.uk>
-References: <20150911113839.GO21084@n2100.arm.linux.org.uk>
- <1441976691.4619.58.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150911143347.GQ21084@n2100.arm.linux.org.uk>
- <20150911150613.GR21084@n2100.arm.linux.org.uk>
- <1441984723.4619.61.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150911162416.GV21084@n2100.arm.linux.org.uk>
- <20150911164937.GW21084@n2100.arm.linux.org.uk>
+From: Nikola =?ISO-8859-1?Q?Forr=F3?= <nforro@redhat.com>
+Subject: [PATCH v4] net: Fix behaviour of unreachable, blackhole and
+ prohibit routes
+Date: Thu, 17 Sep 2015 16:01:32 +0200
+Message-ID: <1442498492.2914.1.camel@redhat.com>
+Reply-To: nforro@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	AnnaSchumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150911164937.GW21084-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44426 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751753AbbIQOBf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 10:01:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 11, 2015 at 05:49:38PM +0100, Russell King - ARM Linux wrot=
-e:
-> Following that idea, I just tried the patch below, and it seems to wo=
-rk.
-> I don't know whether it handles all cases after a call to kernel_conn=
-ect(),
-> but it stops the multiple connection attempts:
->=20
->   1   0.000000 armada388 -> n2100 TCP 1009=E2=86=92nfs [SYN] Seq=3D37=
-94066539 Win=3D28560 Len=3D0 MSS=3D1440 SACK_PERM=3D1 TSval=3D15712 TSe=
-cr=3D870317691 WS=3D128
->   2   0.000414 n2100 -> armada388 TCP nfs=E2=86=921009 [SYN, ACK] Seq=
-=3D1884476522 Ack=3D3794066540 Win=3D28560 Len=3D0 MSS=3D1440 SACK_PERM=
-=3D1 TSval=3D870318939 TSecr=3D15712 WS=3D64
->   3   0.000787 armada388 -> n2100 TCP 1009=E2=86=92nfs [ACK] Seq=3D37=
-94066540 Ack=3D1884476523 Win=3D28672 Len=3D0 TSval=3D15712 TSecr=3D870=
-318939
->   4   0.001304 armada388 -> n2100 NFS V3 ACCESS Call, FH: 0x905379cc,=
- [Check: RD LU MD XT DL]
->   5   0.001566 n2100 -> armada388 TCP nfs=E2=86=921009 [ACK] Seq=3D18=
-84476523 Ack=3D3794066660 Win=3D28608 Len=3D0 TSval=3D870318939 TSecr=3D=
-15712
->   6   0.001640 armada388 -> n2100 NFS V3 ACCESS Call, FH: 0x905379cc,=
- [Check: RD LU MD XT DL]
->   7   0.001866 n2100 -> armada388 TCP nfs=E2=86=921009 [ACK] Seq=3D18=
-84476523 Ack=3D3794066780 Win=3D28608 Len=3D0 TSval=3D870318939 TSecr=3D=
-15712
->   8   0.003070 n2100 -> armada388 NFS V3 ACCESS Reply (Call In 4), [A=
-llowed: RD LU MD XT DL]
->   9   0.003415 armada388 -> n2100 TCP 1009=E2=86=92nfs [ACK] Seq=3D37=
-94066780 Ack=3D1884476647 Win=3D28672 Len=3D0 TSval=3D15712 TSecr=3D870=
-318939
->  10   0.003592 armada388 -> n2100 NFS V3 ACCESS Call, FH: 0xe15fc9c9,=
- [Check: RD LU MD XT DL]
->  11   0.004354 n2100 -> armada388 NFS V3 ACCESS Reply (Call In 6), [A=
-llowed: RD LU MD XT DL]
->  12   0.004682 armada388 -> n2100 NFS V3 ACCESS Call, FH: 0xe15fc9c9,=
- [Check: RD LU MD XT DL]
->  13   0.005365 n2100 -> armada388 NFS V3 ACCESS Reply (Call In 10), [=
-Allowed: RD LU MD XT DL]
->  14   0.005701 armada388 -> n2100 NFS V3 GETATTR Call, FH: 0xe15fc9c9
-> ...
+Man page of ip-route(8) says following about route types:
 
-NFS people - any comments on this patch?  Is it the correct way to solv=
+  unreachable - these destinations are unreachable.  Packets are dis=E2=
+=80=90
+  carded and the ICMP message host unreachable is generated.  The local
+  senders get an EHOSTUNREACH error.
+
+  blackhole - these destinations are unreachable.  Packets are dis=E2=80=
+=90
+  carded silently.  The local senders get an EINVAL error.
+
+  prohibit - these destinations are unreachable.  Packets are discarded
+  and the ICMP message communication administratively prohibited is
+  generated.  The local senders get an EACCES error.
+
+In the inet6 address family, this was correct, except the local senders
+got ENETUNREACH error instead of EHOSTUNREACH in case of unreachable ro=
+ute.
+In the inet address family, all three route types generated ICMP messag=
 e
-this problem (please see the first message in this thread for the probl=
-em.)
-Without this patch, NFS is unusable as it tries to launch multiple new
-connections from the same port to the NFS server without giving the NFS
-server time to respond and establish the TCP connection.
+net unreachable, and the local senders got ENETUNREACH error.
 
->=20
->  net/sunrpc/xprtsock.c | 8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
->=20
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index ff5b6a2e62c3..c456d6e51c56 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -1450,6 +1450,7 @@ static void xs_tcp_state_change(struct sock *sk=
-)
->  	switch (sk->sk_state) {
->  	case TCP_ESTABLISHED:
->  		spin_lock(&xprt->transport_lock);
-> +		xprt_clear_connecting(xprt);
->  		if (!xprt_test_and_set_connected(xprt)) {
->  			struct sock_xprt *transport =3D container_of(xprt,
->  					struct sock_xprt, xprt);
-> @@ -1474,12 +1475,14 @@ static void xs_tcp_state_change(struct sock *=
-sk)
->  		smp_mb__before_atomic();
->  		clear_bit(XPRT_CONNECTED, &xprt->state);
->  		clear_bit(XPRT_CLOSE_WAIT, &xprt->state);
-> +		clear_bit(XPRT_CONNECTING, &xprt->state);	=09
->  		smp_mb__after_atomic();
->  		break;
->  	case TCP_CLOSE_WAIT:
->  		/* The server initiated a shutdown of the socket */
->  		xprt->connect_cookie++;
->  		clear_bit(XPRT_CONNECTED, &xprt->state);
-> +		clear_bit(XPRT_CONNECTING, &xprt->state);
->  		xs_tcp_force_close(xprt);
->  	case TCP_CLOSING:
->  		/*
-> @@ -1493,6 +1496,7 @@ static void xs_tcp_state_change(struct sock *sk=
-)
->  		set_bit(XPRT_CLOSING, &xprt->state);
->  		smp_mb__before_atomic();
->  		clear_bit(XPRT_CONNECTED, &xprt->state);
-> +		clear_bit(XPRT_CONNECTING, &xprt->state);
->  		smp_mb__after_atomic();
->  		break;
->  	case TCP_CLOSE:
-> @@ -2237,11 +2241,13 @@ static void xs_tcp_setup_socket(struct work_s=
-truct *work)
->  		xs_tcp_force_close(xprt);
->  		break;
->  	case 0:
-> -	case -EINPROGRESS:
->  	case -EALREADY:
->  		xprt_unlock_connect(xprt, transport);
->  		xprt_clear_connecting(xprt);
->  		return;
-> +	case -EINPROGRESS:
-> +		xprt_unlock_connect(xprt, transport);
-> +		return;
->  	case -EINVAL:
->  		/* Happens, for instance, if the user specified a link
->  		 * local IPv6 address without a scope-id.
->=20
->=20
-> --=20
-> FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-> according to speedtest.net.
->=20
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+In both address families all three route types now behave consistently
+with documentation.
 
+Signed-off-by: Nikola Forr=C3=B3 <nforro@redhat.com>
+---
+ include/net/ip_fib.h | 30 +++++++++++++++++++-----------
+ net/ipv4/route.c     |  6 ++++--
+ net/ipv6/route.c     |  4 +++-
+ 3 files changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index a37d043..727d6e9 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -236,8 +236,11 @@ static inline int fib_lookup(struct net *net, cons=
+t struct flowi4 *flp,
+ 	rcu_read_lock();
+=20
+ 	tb =3D fib_get_table(net, RT_TABLE_MAIN);
+-	if (tb && !fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF))
+-		err =3D 0;
++	if (tb)
++		err =3D fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
++
++	if (err =3D=3D -EAGAIN)
++		err =3D -ENETUNREACH;
+=20
+ 	rcu_read_unlock();
+=20
+@@ -258,7 +261,7 @@ static inline int fib_lookup(struct net *net, struc=
+t flowi4 *flp,
+ 			     struct fib_result *res, unsigned int flags)
+ {
+ 	struct fib_table *tb;
+-	int err;
++	int err =3D -ENETUNREACH;
+=20
+ 	flags |=3D FIB_LOOKUP_NOREF;
+ 	if (net->ipv4.fib_has_custom_rules)
+@@ -268,15 +271,20 @@ static inline int fib_lookup(struct net *net, str=
+uct flowi4 *flp,
+=20
+ 	res->tclassid =3D 0;
+=20
+-	for (err =3D 0; !err; err =3D -ENETUNREACH) {
+-		tb =3D rcu_dereference_rtnl(net->ipv4.fib_main);
+-		if (tb && !fib_table_lookup(tb, flp, res, flags))
+-			break;
++	tb =3D rcu_dereference_rtnl(net->ipv4.fib_main);
++	if (tb)
++		err =3D fib_table_lookup(tb, flp, res, flags);
++
++	if (!err)
++		goto out;
++
++	tb =3D rcu_dereference_rtnl(net->ipv4.fib_default);
++	if (tb)
++		err =3D fib_table_lookup(tb, flp, res, flags);
+=20
+-		tb =3D rcu_dereference_rtnl(net->ipv4.fib_default);
+-		if (tb && !fib_table_lookup(tb, flp, res, flags))
+-			break;
+-	}
++out:
++	if (err =3D=3D -EAGAIN)
++		err =3D -ENETUNREACH;
+=20
+ 	rcu_read_unlock();
+=20
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 5f4a556..c6ad99a 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2045,6 +2045,7 @@ struct rtable *__ip_route_output_key(struct net *=
+net, struct flowi4 *fl4)
+ 	struct fib_result res;
+ 	struct rtable *rth;
+ 	int orig_oif;
++	int err =3D -ENETUNREACH;
+=20
+ 	res.tclassid	=3D 0;
+ 	res.fi		=3D NULL;
+@@ -2153,7 +2154,8 @@ struct rtable *__ip_route_output_key(struct net *=
+net, struct flowi4 *fl4)
+ 		goto make_route;
+ 	}
+=20
+-	if (fib_lookup(net, fl4, &res, 0)) {
++	err =3D fib_lookup(net, fl4, &res, 0);
++	if (err) {
+ 		res.fi =3D NULL;
+ 		res.table =3D NULL;
+ 		if (fl4->flowi4_oif) {
+@@ -2181,7 +2183,7 @@ struct rtable *__ip_route_output_key(struct net *=
+net, struct flowi4 *fl4)
+ 			res.type =3D RTN_UNICAST;
+ 			goto make_route;
+ 		}
+-		rth =3D ERR_PTR(-ENETUNREACH);
++		rth =3D ERR_PTR(err);
+ 		goto out;
+ 	}
+=20
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 3d3c1b2..a608ace 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1885,9 +1885,11 @@ int ip6_route_info_create(struct fib6_config *cf=
+g, struct rt6_info **rt_ret)
+ 			rt->dst.input =3D ip6_pkt_prohibit;
+ 			break;
+ 		case RTN_THROW:
++		case RTN_UNREACHABLE:
+ 		default:
+ 			rt->dst.error =3D (cfg->fc_type =3D=3D RTN_THROW) ? -EAGAIN
+-					: -ENETUNREACH;
++					: (cfg->fc_type =3D=3D RTN_UNREACHABLE)
++					? -EHOSTUNREACH : -ENETUNREACH;
+ 			rt->dst.output =3D ip6_pkt_discard_out;
+ 			rt->dst.input =3D ip6_pkt_discard;
+ 			break;
 --=20
-=46TTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.4.3
