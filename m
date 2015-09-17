@@ -1,95 +1,190 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: mvneta: SGMII fixed-link not so fixed
-Date: Thu, 17 Sep 2015 16:36:44 -0700
-Message-ID: <55FB4E8C.6050307@gmail.com>
-References: <20150914103207.GH21084@n2100.arm.linux.org.uk> <55F6AA25.2070603@list.ru> <20150914114209.GL21084@n2100.arm.linux.org.uk> <20150917.151247.2129216999071943354.davem@davemloft.net> <20150917231422.GY21084@n2100.arm.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_dsmark: improve memory locality
+Date: Thu, 17 Sep 2015 16:37:13 -0700
+Message-ID: <1442533033.7946.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, stsp@list.ru, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33765 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbbIQXgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 19:36:49 -0400
-Received: by pacex6 with SMTP id ex6so32421674pac.0
-        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 16:36:48 -0700 (PDT)
-In-Reply-To: <20150917231422.GY21084@n2100.arm.linux.org.uk>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33869 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751816AbbIQXhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 19:37:15 -0400
+Received: by padhy16 with SMTP id hy16so32291355pad.1
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 16:37:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/09/15 16:14, Russell King - ARM Linux wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-[snip]
+Memory placement in sch_dsmark is silly : Better place mask/value
+in the same cache line.
 
->    with _no_ phy node.
-> 
-> 4. Going back to the SFP problem, the link is only up when the SFP
->    module pins indicate that there's no transmitter fault, no loss of
->    signal _and_ the PCS layer at the MAC indicates that it has completed
->    negotiation.  This pretty much rules out trying to emulate a SFP cage
->    as a software-based PHY.  I've code right now doing exactly that, and
->    it results in netif_carrier_on() being called far too early.
+Also, we can embed small arrays in the first cache line and
+remove a potential cache miss.
 
-Andrew recently added support for having the fixed PHY emulated PHY poll
-a GPIO to determine link status. If this information comes differently
-(e.g: via MMIO/MAC registers) in your case, I guess we could either
-extend the fixed PHY to support that scheme, or just open-code the
-carrier state change in the mvneta driver.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_dsmark.c |   63 ++++++++++++++++++++-------------------
+ 1 file changed, 33 insertions(+), 30 deletions(-)
 
-> 
-> What I don't know is how many generations of the mvneta hardware have
-> support for both serdes modes, but what I'm basically saying is that
-> the solution we now have seems to be somewhat lacking - maybe it should
-> have been "auto", "in-band-sgmii" and "in-band-1000base-x" with the
-> ability to add additional modes later.
-
-Staas and I had quite some discussions about this topic, and I think I
-changed my mind at least once about his initial proposal, but I seem to
-recall that I suggested making the auto-negotiation property something
-more flexible than it currently is (or maybe Staas did, and my mind
-plays tricks on me).
-
-> 
-> The other point I'm making above is that I'm forming the opinion that
-> the existing PHY layer isn't flexible enough for supporting SFP, and I
-> need some way to represent at least part of the autonegotiation at the
-> MAC level without involving the PHY level - especially when considering
-> that a real PHY might be inside the SFP cage which can be talked to
-> over I2C.
-
-This is a fair conclusion, the PHY library is really designed to support
-well 10/100/1000 PHYs, anything else, including 10Gbits PHY are not that
-well supported. Anything that is not MDIO is not that well supported,
-and the fixed PHY has its limitations.
-
-It is unclear to me how much of the PHY library: state machine, link
-management, device abstraction, and ethtool interface is going to be
-useful if you have a SFP instead of a MDIO-connected PHY.
-
-> 
-> This is the problem I'm presently grappling with, and it's taking lots
-> of thought right now.  I'm aware of other drivers in the kernel which
-> support SFP, each using their own implementations to support that.
-> 
-> 
-> Lastly, while looking at this, I've a small stack of patches for the PHY
-> code resolving some of the issues I've mentioned above, and fixing broken
-> reference counting and mdio bus module removal issues:
-> 
->  phy: fixed-phy: properly validate phy in fixed_phy_update_state()
->  net: fix phy refcounting in a bunch of drivers
->  of_mdio: fix MDIO phy device refcounting
->  phy: add proper phy struct device refcounting
->  phy: fix mdiobus module safety
->  phy: fix of_mdio_find_bus() device refcount leak
-> 
-> I hope to be able to send those out in the next few days - they have
-> nothing to do with SFP itself but are the results of looking through the
-> PHY code.
-> 
--- 
-Florian
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index c4d45fd8c551..f357f34d02d2 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -35,14 +35,20 @@
+ 
+ #define NO_DEFAULT_INDEX	(1 << 16)
+ 
++struct mask_value {
++	u8			mask;
++	u8			value;
++};
++
+ struct dsmark_qdisc_data {
+ 	struct Qdisc		*q;
+ 	struct tcf_proto __rcu	*filter_list;
+-	u8			*mask;	/* "owns" the array */
+-	u8			*value;
++	struct mask_value	*mv;
+ 	u16			indices;
++	u8			set_tc_index;
+ 	u32			default_index;	/* index range is 0...0xffff */
+-	int			set_tc_index;
++#define DSMARK_EMBEDDED_SZ	16
++	struct mask_value	embedded[DSMARK_EMBEDDED_SZ];
+ };
+ 
+ static inline int dsmark_valid_index(struct dsmark_qdisc_data *p, u16 index)
+@@ -116,7 +122,6 @@ static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+ 	struct nlattr *tb[TCA_DSMARK_MAX + 1];
+ 	int err = -EINVAL;
+-	u8 mask = 0;
+ 
+ 	pr_debug("%s(sch %p,[qdisc %p],classid %x,parent %x), arg 0x%lx\n",
+ 		 __func__, sch, p, classid, parent, *arg);
+@@ -133,14 +138,11 @@ static int dsmark_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	if (tb[TCA_DSMARK_MASK])
+-		mask = nla_get_u8(tb[TCA_DSMARK_MASK]);
+-
+ 	if (tb[TCA_DSMARK_VALUE])
+-		p->value[*arg - 1] = nla_get_u8(tb[TCA_DSMARK_VALUE]);
++		p->mv[*arg - 1].value = nla_get_u8(tb[TCA_DSMARK_VALUE]);
+ 
+ 	if (tb[TCA_DSMARK_MASK])
+-		p->mask[*arg - 1] = mask;
++		p->mv[*arg - 1].mask = nla_get_u8(tb[TCA_DSMARK_MASK]);
+ 
+ 	err = 0;
+ 
+@@ -155,8 +157,8 @@ static int dsmark_delete(struct Qdisc *sch, unsigned long arg)
+ 	if (!dsmark_valid_index(p, arg))
+ 		return -EINVAL;
+ 
+-	p->mask[arg - 1] = 0xff;
+-	p->value[arg - 1] = 0;
++	p->mv[arg - 1].mask = 0xff;
++	p->mv[arg - 1].value = 0;
+ 
+ 	return 0;
+ }
+@@ -173,7 +175,7 @@ static void dsmark_walk(struct Qdisc *sch, struct qdisc_walker *walker)
+ 		return;
+ 
+ 	for (i = 0; i < p->indices; i++) {
+-		if (p->mask[i] == 0xff && !p->value[i])
++		if (p->mv[i].mask == 0xff && !p->mv[i].value)
+ 			goto ignore;
+ 		if (walker->count >= walker->skip) {
+ 			if (walker->fn(sch, i + 1, walker) < 0) {
+@@ -291,12 +293,12 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+ 
+ 	switch (tc_skb_protocol(skb)) {
+ 	case htons(ETH_P_IP):
+-		ipv4_change_dsfield(ip_hdr(skb), p->mask[index],
+-				    p->value[index]);
++		ipv4_change_dsfield(ip_hdr(skb), p->mv[index].mask,
++				    p->mv[index].value);
+ 			break;
+ 	case htons(ETH_P_IPV6):
+-		ipv6_change_dsfield(ipv6_hdr(skb), p->mask[index],
+-				    p->value[index]);
++		ipv6_change_dsfield(ipv6_hdr(skb), p->mv[index].mask,
++				    p->mv[index].value);
+ 			break;
+ 	default:
+ 		/*
+@@ -304,7 +306,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+ 		 * This way, we can send non-IP traffic through dsmark
+ 		 * and don't need yet another qdisc as a bypass.
+ 		 */
+-		if (p->mask[index] != 0xff || p->value[index])
++		if (p->mv[index].mask != 0xff || p->mv[index].value)
+ 			pr_warn("%s: unsupported protocol %d\n",
+ 				__func__, ntohs(tc_skb_protocol(skb)));
+ 		break;
+@@ -346,7 +348,7 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
+ 	int err = -EINVAL;
+ 	u32 default_index = NO_DEFAULT_INDEX;
+ 	u16 indices;
+-	u8 *mask;
++	int i;
+ 
+ 	pr_debug("%s(sch %p,[qdisc %p],opt %p)\n", __func__, sch, p, opt);
+ 
+@@ -366,18 +368,18 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (tb[TCA_DSMARK_DEFAULT_INDEX])
+ 		default_index = nla_get_u16(tb[TCA_DSMARK_DEFAULT_INDEX]);
+ 
+-	mask = kmalloc(indices * 2, GFP_KERNEL);
+-	if (mask == NULL) {
++	if (indices <= DSMARK_EMBEDDED_SZ)
++		p->mv = p->embedded;
++	else
++		p->mv = kmalloc_array(indices, sizeof(*p->mv), GFP_KERNEL);
++	if (!p->mv) {
+ 		err = -ENOMEM;
+ 		goto errout;
+ 	}
+-
+-	p->mask = mask;
+-	memset(p->mask, 0xff, indices);
+-
+-	p->value = p->mask + indices;
+-	memset(p->value, 0, indices);
+-
++	for (i = 0; i < indices; i++) {
++		p->mv[i].mask = 0xff;
++		p->mv[i].value = 0;
++	}
+ 	p->indices = indices;
+ 	p->default_index = default_index;
+ 	p->set_tc_index = nla_get_flag(tb[TCA_DSMARK_SET_TC_INDEX]);
+@@ -410,7 +412,8 @@ static void dsmark_destroy(struct Qdisc *sch)
+ 
+ 	tcf_destroy_chain(&p->filter_list);
+ 	qdisc_destroy(p->q);
+-	kfree(p->mask);
++	if (p->mv != p->embedded)
++		kfree(p->mv);
+ }
+ 
+ static int dsmark_dump_class(struct Qdisc *sch, unsigned long cl,
+@@ -430,8 +433,8 @@ static int dsmark_dump_class(struct Qdisc *sch, unsigned long cl,
+ 	opts = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (opts == NULL)
+ 		goto nla_put_failure;
+-	if (nla_put_u8(skb, TCA_DSMARK_MASK, p->mask[cl - 1]) ||
+-	    nla_put_u8(skb, TCA_DSMARK_VALUE, p->value[cl - 1]))
++	if (nla_put_u8(skb, TCA_DSMARK_MASK, p->mv[cl - 1].mask) ||
++	    nla_put_u8(skb, TCA_DSMARK_VALUE, p->mv[cl - 1].value))
+ 		goto nla_put_failure;
+ 
+ 	return nla_nest_end(skb, opts);
