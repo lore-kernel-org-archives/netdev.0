@@ -1,119 +1,83 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH v8 1/3] can: Allwinner A10/A20 CAN Controller support -
- Devicetree bindings
-Date: Thu, 17 Sep 2015 12:06:17 +0200
-Message-ID: <20150917100617.GB4684@lukather>
-References: <1442402482-7118-1-git-send-email-info@gerhard-bertelsmann.de>
- <1442402482-7118-2-git-send-email-info@gerhard-bertelsmann.de>
- <55FA7428.4030801@pengutronix.de>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: Possible netlink autobind regression
+Date: Thu, 17 Sep 2015 07:30:34 -0400
+Message-ID: <20150917113034.GA14471@htj.duckdns.org>
+References: <20150917022909.GA22754@htj.duckdns.org>
+ <20150917030845.GA19162@gondor.apana.org.au>
+ <20150917034134.GA19327@gondor.apana.org.au>
+ <CAHA+R7OdJyZiidHarKhp-U6R5fkHj=5KjugK=XoWj=q4D8krxw@mail.gmail.com>
+ <20150917051503.GA19978@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="nM4qzG6nHdnn/sXd"
-Cc: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>,
-	wg@grandegger.com, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <cwang@twopensource.com>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>, kafai@fb.com,
+	kernel-team <kernel-team@fb.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <55FA7428.4030801@pengutronix.de>
+In-Reply-To: <20150917051503.GA19978@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello, Herbert.
 
---nM4qzG6nHdnn/sXd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Thu, Sep 17, 2015 at 01:15:03PM +0800, Herbert Xu wrote:
+> netlink: Fix autobind race condition that leads to zero port ID
+> 
+> The commit c0bb07df7d981e4091432754e30c9c720e2c0c78 ("netlink:
+> Reset portid after netlink_insert failure") introduced a race
+> condition where if two threads tried to autobind the same socket
+> one of them may end up with a zero port ID.
+>
+> This patch reverts that commit and instead fixes it by introducing
+> a separte "bound" variable to indicate whether a user-space socket
+> has been bound.
+> 
+> Fixes: c0bb07df7d98 ("netlink: Reset portid after netlink_insert failure")
+> Reported-by: Tejun Heo <tj@kernel.org>
+> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Reviewed-by: Cong Wang <cwang@twopensource.com>
 
-On Thu, Sep 17, 2015 at 10:04:56AM +0200, Marc Kleine-Budde wrote:
-> On 09/16/2015 01:21 PM, Gerhard Bertelsmann wrote:
-> > Devicetree bindings for Allwinner A10/A20 CAN
-> >=20
-> > Signed-off-by: Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
-> > ---
-> >=20
-> >  .../devicetree/bindings/net/can/sun4i_can.txt      |  38 +
-> >  1 files changed, 389 insertions(+)
-> >=20
-> >=20
-> > diff --git a/Documentation/devicetree/bindings/net/can/sun4i_can.txt b/=
-Documentation/devicetree/bindings/net/can/sun4i_can.txt
-> > new file mode 100644
-> > index 0000000..cd0f50c
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/can/sun4i_can.txt
-> > @@ -0,0 +1,38 @@
-> > +Allwinner A10/A20 CAN controller Device Tree Bindings
-> > +-----------------------------------------------------
-> > +
-> > +Required properties:
-> > +- compatible: "allwinner,sun4i-a10-can"
-> > +- reg: physical base address and size of the Allwinner A10/A20 CAN reg=
-ister map.
-> > +- interrupts: interrupt specifier for the sole interrupt.
-> > +- clock: phandle and clock specifier.
-> > +
-> > +
-> > +Example
-> > +-------
-> > +
-> > +SoC common .dtsi file:
-> > +
-> > +	can0_pins_a: can0@0 {
-> > +		allwinner,pins =3D "PH20","PH21";
-> > +		allwinner,function =3D "can";
-> > +		allwinner,drive =3D <0>;
-> > +		allwinner,pull =3D <0>;
-> > +	};
-> > +...
-> > +	can0: can@01c2bc00 {
-> > +		compatible =3D "allwinner,sun4i-a10-can";
-> > +		reg =3D <0x01c2bc00 0x400>;
-> > +		interrupts =3D <0 26 4>;
-> > +		clocks =3D <&apb1_gates 4>;
-> > +		status =3D "disabled";
-> > +	};
->=20
-> What about adding this snippet to SoC where the CAN core is available?
-> Maxime, what's the policy on sinxi?
+Maybe add that this led to a deadlock and add a Link tag to this
+thread?
 
-It would be great, but it can come as a second step.
+> @@ -1083,10 +1083,12 @@ static int netlink_insert(struct sock *sk, u32 portid)
+>  	if (err) {
+>  		if (err == -EEXIST)
+>  			err = -EADDRINUSE;
+> -		nlk_sk(sk)->portid = 0;
+>  		sock_put(sk);
+> +		goto err;
+>  	}
+>  
+> +	nlk_sk(sk)->bound = !!portid;
 
-> If you give me an Ack I'd like to take the series via linux-can-next
-> (and to net-next) upstream.
+!! isn't necessasry and this creates ordering between two stores.
+->bound must be visible only after ->portid is visible, so this should
+be smp_store_release().
 
-I just did so for this patch, I'll review the driver when I'll have a
-bit of time.
+> @@ -2371,7 +2373,7 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+>  		dst_group = nlk->dst_group;
+>  	}
+>  
+> -	if (!nlk->portid) {
+> +	if (!nlk->bound) {
 
-Thanks!
-Maxime
+And all unlocked reads should be smp_load_acquire().
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+>  		err = netlink_autobind(sock);
+>  		if (err)
+>  			goto out;
 
---nM4qzG6nHdnn/sXd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Thanks.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJV+pCZAAoJEBx+YmzsjxAg5F0P/0bQ+EG0MwVEP0RiMFFlg+Zj
-odfmDTGAalQQoHUZYZ6yV2ZvluTXnKGWmKdH0xlRE2vVC4BuiLp9geJrfRhqYxQO
-HFQ5rFvsslilrWdI8nIBIjRzZ5zCB5l+Zi8O6j7L/V2JeYuBJ4/GwFwloVaPMf0G
-zmab+KUD4ejs+U3QMaX2rZ69XPqLnOW3+ABqkwstT3VnBAXy0BHbhl2+pEVCLghU
-st02DiQmBKnr2GGFGV359H9+/UrLjSqPYoHtthXkWlijWQCGZgMYvtz3IRfYbbCr
-1kvf2Jiwx+9riYkMqtsZPJc1Ue8unlAxo6YiDNpq1ZQOHw6ZS06cPwMJ1NQaDL4A
-NF4I9nuORlhm4pZs5g1fK5UxCE2oDJluRQvIPfW+mhmPN3ght7Vbnh4JpS0p1cNy
-G323Wg+lSATQLYrPS0tYSqoR7QZZoGIiiRu4KRyI7kUAkgpBoJbXz3UHGhOOPH/n
-29NLGLgngegx+H7a2FlGwzDjqD2gK4eiZDF4D1kiPBt+tyJ0wovUAFiZ2P1+TeqB
-J8271uDNPZp0ri8CDEB6VV7c07OzIxq8X//DkvXOkkZbpwdprWEkq7YskzL59Rim
-O0Ya21A3u6/F4XalKSgfa0uWtIzmSZLp5Zuss4u6QpaUMmCXPm9sUE7rohHOfiPs
-DXJhDwvf1CXw7n91WZpC
-=2pKe
------END PGP SIGNATURE-----
-
---nM4qzG6nHdnn/sXd--
+-- 
+tejun
