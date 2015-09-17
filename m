@@ -1,36 +1,55 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: list of all network namespaces
-Date: Wed, 16 Sep 2015 17:54:34 -0700
-Message-ID: <55FA0F4A.3010105@hp.com>
-References: <CAOxq_8Noj5oxPY5BEsWL6u4h_AD+oXYS+JCRGES_gmMQKd0rOQ@mail.gmail.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH 27/31] net/tipc: use kmemdup rather than duplicating its
+ implementation
+Date: Thu, 17 Sep 2015 09:19:05 +0800
+Message-ID: <55FA1509.7090008@windriver.com>
+References: <1438934377-4922-1-git-send-email-a.hajda@samsung.com>
+ <1438934377-4922-28-git-send-email-a.hajda@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: Ani Sinha <ani@arista.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t4625.austin.hp.com ([15.73.212.76]:58719 "EHLO
-	g2t4625.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752822AbbIQBBC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Sep 2015 21:01:02 -0400
-Received: from g2t4619.austin.hp.com (g2t4619.austin.hp.com [15.73.212.82])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g2t4625.austin.hp.com (Postfix) with ESMTPS id 0FFFE612A
-	for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 00:54:36 +0000 (UTC)
-In-Reply-To: <CAOxq_8Noj5oxPY5BEsWL6u4h_AD+oXYS+JCRGES_gmMQKd0rOQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	<linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Andrzej Hajda <a.hajda@samsung.com>,
+	Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1438934377-4922-28-git-send-email-a.hajda@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/16/2015 05:46 PM, Ani Sinha wrote:
-> Hi guys
->
-> just a stupid question. Is it possible to get a list of all active
-> network namespaces in the kernel through /proc or some other
-> interface?
+On 08/07/2015 03:59 PM, Andrzej Hajda wrote:
+> The patch was generated using fixed coccinelle semantic patch
+> scripts/coccinelle/api/memdup.cocci [1].
+> 
+> [1]: http://permalink.gmane.org/gmane.linux.kernel/2014320
+> 
+> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
 
-Presumably you could copy what "ip netns" does, which appears to be to 
-look in /var/run/netns .  At least that is what an strace of that 
-command suggests.
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
 
-rick jones
+> ---
+>  net/tipc/server.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/net/tipc/server.c b/net/tipc/server.c
+> index 922e04a..c187cad 100644
+> --- a/net/tipc/server.c
+> +++ b/net/tipc/server.c
+> @@ -411,13 +411,12 @@ static struct outqueue_entry *tipc_alloc_entry(void *data, int len)
+>  	if (!entry)
+>  		return NULL;
+>  
+> -	buf = kmalloc(len, GFP_ATOMIC);
+> +	buf = kmemdup(data, len, GFP_ATOMIC);
+>  	if (!buf) {
+>  		kfree(entry);
+>  		return NULL;
+>  	}
+>  
+> -	memcpy(buf, data, len);
+>  	entry->iov.iov_base = buf;
+>  	entry->iov.iov_len = len;
+>  
+> 
