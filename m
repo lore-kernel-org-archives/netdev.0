@@ -1,36 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
-Date: Thu, 17 Sep 2015 11:52:18 -0700 (PDT)
-Message-ID: <20150917.115218.655587837796826886.davem@davemloft.net>
-References: <BY2PR0301MB16540426BFD633C8EBD1A4BBA05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB989E9@AcuExch.aculab.com>
-	<BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: fix data race on sk_buff after re-cloning
+Date: Thu, 17 Sep 2015 12:03:14 -0700
+Message-ID: <1442516594.7946.2.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1442515456-12390-1-git-send-email-dvyukov@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, alexander.duyck@gmail.com,
-	haiyangz@microsoft.com, vkuznets@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jasowang@redhat.com
-To: kys@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44730 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752483AbbIQSwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 14:52:20 -0400
-In-Reply-To: <BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, edumazet@google.com,
+	alexander.h.duyck@redhat.com, jiri@resnulli.us,
+	hannes@stressinduktion.org, linus.luessing@c0d3.blue,
+	willemb@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, andreyknvl@google.com,
+	kcc@google.com, glider@google.com, paulmck@linux.vnet.ibm.com,
+	hboehm@google.com
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1442515456-12390-1-git-send-email-dvyukov@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: KY Srinivasan <kys@microsoft.com>
-Date: Thu, 17 Sep 2015 15:14:05 +0000
+On Thu, 2015-09-17 at 20:44 +0200, Dmitry Vyukov wrote:
+> KernelThreadSanitizer (KTSAN) reported the following race (on 4.2 rc2):
+> 
+> ThreadSanitizer: data-race in __copy_skb_header
+...
 
-> I think I can achieve my original goal of not having any allocation
-> in the send path by carefully using the memory available in the skb:
+> 	if (likely(atomic_read(&skb->users) == 1))
+> 		smp_rmb();
+> 
+> The patch contains a proposed fix.
+> If it looks good to you and the scenario looks sane,
+> then I will update the description and resend it.
+> ---
+>  net/core/skbuff.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
 
-Please stop flat-out ignoring David L.'s suggestion.
+I have to double check this patch, but in the case it is needed,
+it would be better to not use fancy new atomic_read_acquire(),
+as backporting the fix up to 3.19 (where the bug was probably added)
+will require extra hassle.
 
-Have a pre-cooked ring of buffers for these descriptors that you can
-point the chip at.  No per-packet allocation is necessary at all.
+atomic_read_acquire() would be fine for cleanups and new code, in next
+branch.
 
-If you play games with SKBs you will get burned.
+Thanks !
