@@ -1,44 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net 2/2]  8139cp: reset BQL when ring tx ring cleared
-Date: Thu, 17 Sep 2015 22:44:49 +0200
-Message-ID: <20150917204449.GA22105@electric-eye.fr.zoreil.com>
-References: <20130520095443.2d18b2cb@nehalam.linuxnetplumber.net>
- <20130520213728.GA28252@electric-eye.fr.zoreil.com>
- <20130520172749.2a4447b6@nehalam.linuxnetplumber.net>
- <1442232308.30875.6.camel@infradead.org>
- <20150914215913.GA24962@electric-eye.fr.zoreil.com>
- <1442489793.131189.142.camel@infradead.org>
- <1442502391.131189.160.camel@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] iplink_geneve: add UDP destination port configuration
+ at link creation
+Date: Thu, 17 Sep 2015 13:49:49 -0700
+Message-ID: <1442522989.7946.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1442518065-23294-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:59916 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751633AbbIQUpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:45:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1442502391.131189.160.camel@infradead.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35551 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487AbbIQUtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:49:51 -0400
+Received: by pacfv12 with SMTP id fv12so29407555pac.2
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 13:49:51 -0700 (PDT)
+In-Reply-To: <1442518065-23294-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Woodhouse <dwmw2@infradead.org> :
-> On Thu, 2015-09-17 at 12:36 +0100, David Woodhouse wrote:
-> >=20
-> > Thanks; I'll try that. In fact since updating to 4.2 the problem ha=
-s
-> > got worse =E2=80=94 now the whole machine dies:
->=20
-> There is something very strange going on here. I've found two ways to
-> make it stop crashing when cp_tx_timeout() hits the 'popf' when
-> unlocking the spinlock.
+On Thu, 2015-09-17 at 15:27 -0400, John W. Linville wrote:
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> ---
 
-cp_tx_timeout takes lock, disables irq, calls cp_clean_rings, thus
-plain dev_kfree_skb if a skb is still referenced in one of the
-rx/tx ring. You may replace it with dev_kfree_skb_any.
+>  }
+>  
+> @@ -150,6 +159,10 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+>  		else
+>  			fprintf(f, "tos %#x ", tos);
+>  	}
+> +
+> +	if (tb[IFLA_GENEVE_PORT])
+> +		fprintf(f, "dstport %u ",
+> +			ntohs(rta_getattr_u16(tb[IFLA_GENEVE_PORT])));
 
---=20
-Ueimor
+This looks strange.
+
+Kernel does :
+
+if (nla_put_u16(skb, IFLA_GENEVE_PORT, ntohs(geneve->dst_port)))
+        goto nla_put_failure;
