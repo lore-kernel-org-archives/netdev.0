@@ -1,42 +1,71 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [fw filter]: Broken! fw mark based tc class selection not working
-Date: Thu, 17 Sep 2015 08:16:31 -0400
-Message-ID: <55FAAF1F.6000206@mojatatu.com>
-References: <CAA5aLPhvkEPpDhaxSNWnGHU2H0WmCaYhbo-fYKP8+Xzka3-q=g@mail.gmail.com>
- <CAHA+R7P5jTGBof-oObzJ0SidRr17fKLGjoMkk0-VYzuSLjawZg@mail.gmail.com>
- <CAA5aLPgCqOXU3vw6moSvADuOc4Q_TM2iJLHjSH0O8NwYJJ1t7g@mail.gmail.com>
- <CAHA+R7N6rTS5rmALk_2FxUXc0s9Ni4snJQ52tS3imaA6hotdHw@mail.gmail.com>
- <55F6BD55.6080503@mojatatu.com>
- <CAHA+R7NCn0OsLUdVZbvJ_B8tJGVJ9_Pys_FARPM2Z-xdS4-_Uw@mail.gmail.com>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: pull request: bluetooth 2015-09-17
+Date: Thu, 17 Sep 2015 15:27:17 +0300
+Message-ID: <20150917122717.GA28252@t440s.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Akshat Kakkar <akshat.1984@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:34878 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260AbbIQMQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 08:16:34 -0400
-Received: by ioiz6 with SMTP id z6so19326096ioi.2
-        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 05:16:34 -0700 (PDT)
-In-Reply-To: <CAHA+R7NCn0OsLUdVZbvJ_B8tJGVJ9_Pys_FARPM2Z-xdS4-_Uw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="VbJkn9YxBvnuCH5J"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/14/15 18:04, Cong Wang wrote:
 
->
-> That is exactly the original code. But it is not readable at all,
-> at least I still missed it when I touched the tp->init() part. :(
-> Having a boolean doesn't harm anything.
+--VbJkn9YxBvnuCH5J
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-The default should really be no head alloced (given that is the
-main use case).
-The other part you can make more readable.
+Hi Dave,
 
-cheers,
-jamal
+Here's one important patch for the 4.3-rc series that fixes an issue
+with Bluetooth LE encryption failing because of a too early check for
+the SMP context.
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 20471ed4d403a5f4de6aa0c10cd1e446f7f2b3c7:
+
+  dccp: drop null test before destroy functions (2015-09-15 16:49:43 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
+
+for you to fetch changes up to d8949aad3eab5d396f4fefcd581773bf07b9a79e:
+
+  Bluetooth: Delay check for conn->smp in smp_conn_security() (2015-09-17 12:28:27 +0200)
+
+----------------------------------------------------------------
+Johan Hedberg (1):
+      Bluetooth: Delay check for conn->smp in smp_conn_security()
+
+ net/bluetooth/smp.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+--VbJkn9YxBvnuCH5J
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJV+rGlAAoJECQj9vv5qNQSIFAP/1rxiD6DYyMCZmD+kK9tS1oo
+DbWQJkrlNpJfXIR6nfhKukCSZY2d7JwaeUtWD+7/Pnj+yyVNkc/wbio0V7X+yr9g
+Qs+OptkHTxaxOO5m9IqDeNaUAp+kJxJ2kOuCyJk+kcaxRHxEis+wIVvbbaiUpHwq
+Q/6eokOQuH+WT2didgDVvXFcRRPj1QqASvx6yyIFUrM386K0UIBE3CXWqWvpnruC
+oeijDYskGOdFNLvqpPhu+lkWQCh+KxGhEujFgIunCiPIsyOeMMq8PmgSFzsPgYTL
+yKUgWChHsbJ9eUgG2E4X5GMebKq3+X613TQbNpMV0BAmU6tu0ICkiIMgdF5YhcVn
+v9Ls0dhTv0WuqfOUkg5znkZuo3pKRQkUUyHyMNzAeG8wlsxzcb+dZXK9WXLqQwzD
+og/jOy+WotwWxQsY1pvzTsEJuUFhrL269h19aAJlsBCGmFIQWyDKiZ9gnmCRyauX
+JQxtXBdvkWQv2dv7n2MIisEwcL7eymBp6N8+p513FZLEkc+9FjsDE0QwCwspKPbC
+HLIGBq3E40IiPA/D7TVme2X1iPnk+lua/vJcg9WdcLVd/6UMEJKZJaxhjCLfYoeU
+Vkw0sdoBepmI/s4GYlWaUAc7MyC6GOBg4JImSR0ecu0Y3tyPBhZmS0N25/dTbE/b
+1nQfaqNYoukbj0DFC+H2
+=znSC
+-----END PGP SIGNATURE-----
+
+--VbJkn9YxBvnuCH5J--
