@@ -1,69 +1,59 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH next 0/30] Passing net through the netfilter hooks
-Date: Thu, 17 Sep 2015 18:30:36 +0200
-Message-ID: <55FAEAAC.1070302@6wind.com>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <87mvwn18my.fsf@x220.int.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] geneve: restore vlan bits in xmit path
+Date: Thu, 17 Sep 2015 13:18:58 -0400
+Message-ID: <1442510338-10180-1-git-send-email-linville@tuxdriver.com>
+Cc: davem@davemloft.net, Pravin B Shelar <pshelar@nicira.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55530 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371AbbIQRXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 13:23:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 16/09/2015 02:59, Eric W. Biederman a =C3=A9crit :
->
-> My primary goal with this patchset and it's follow ups is to cleanup =
-the
-> network routing paths so that we do not look at the output device to
-> derive the network namespace.  My plan is to pass the network namespa=
-ce
-> of the transmitting socket through the output path, to replace code t=
-hat
-> looks at the output network device today.  Once that is done we can h=
-ave
-> routes with output devices outside of the current network namespace.
-> Which should allow reception and transmission of packets in network
-> namespaces to be as fast as normal packet reception and transmission
-> with early demux disabled, because it will same code path.
->
-> Once skb_dst(skb)->dev is a little better under control I think it wi=
-ll
-> also be possible to use rcu to cleanup the ancient hack that sets
-> dst->dev to loopback_dev when a network device is removed.
->
-> The work to get there is a series of code cleanups.  I am starting wi=
-th
-> passing net into the netfilter hooks and into the functions that are
-> called after the netfilter hooks.  This removes from netfilter the
-> need to guess which network namespace it is working on.
->
-> To get there I perform a series of minor prep patches so the big chan=
-ges
-> at the end are possible to audit without getting lost in the noise.  =
-In
-> particular I have a lot of patches computing net into a local variabl=
-e
-> and then using it through out the function.
->
-> So this patchset encompases removing dead code, sorting out the _sk
-> functions that were added last time someone pushed a prototype change
-> through the post netfilter functions.  Cleaning up individual functio=
-ns
-> use of the network namespace.  Passing net into the netfilter hooks.
-> Passing net into the post netfilter functions.  Using state->net in
-> the netfilter code where it is available and trivially usable.
-LGTM (except some minor comments).
+These seem to have been accidentally dropped in commit 371bd1061d29
+("geneve: Consolidate Geneve functionality in single module.").
 
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ drivers/net/geneve.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index a917ae1cfbf3..0aaf302cc31b 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -14,6 +14,7 @@
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
+ #include <linux/hash.h>
+ #include <net/dst_metadata.h>
+ #include <net/gro_cells.h>
+@@ -532,13 +533,20 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
+ 	int err;
+ 
+ 	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+-			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct iphdr);
++			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct iphdr)
++			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
+ 	err = skb_cow_head(skb, min_headroom);
+ 	if (unlikely(err)) {
+ 		kfree_skb(skb);
+ 		goto free_rt;
+ 	}
+ 
++	skb = vlan_hwaccel_push_inside(skb);
++	if (unlikely(!skb)) {
++		err = -ENOMEM;
++		goto free_rt;
++	}
++
+ 	skb = udp_tunnel_handle_offloads(skb, csum);
+ 	if (IS_ERR(skb)) {
+ 		err = PTR_ERR(skb);
+-- 
+2.4.3
