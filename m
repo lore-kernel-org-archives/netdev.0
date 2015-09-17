@@ -1,34 +1,73 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: list of all network namespaces
-Date: Thu, 17 Sep 2015 09:51:21 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F919440808@HASMSX110.ger.corp.intel.com>
-References: <CAOxq_8Noj5oxPY5BEsWL6u4h_AD+oXYS+JCRGES_gmMQKd0rOQ@mail.gmail.com>
- <55FA0F4A.3010105@hp.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH 27/31] net/tipc: use kmemdup rather than duplicating its
+ implementation
+Date: Thu, 17 Sep 2015 09:58:08 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D2232ECFD@eusaamb103.ericsson.se>
+References: <1438934377-4922-1-git-send-email-a.hajda@samsung.com>
+ <1438934377-4922-28-git-send-email-a.hajda@samsung.com>
+ <55F93F55.70505@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Rick Jones <rick.jones2@hp.com>, Ani Sinha <ani@arista.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21012 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751104AbbIQJvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 05:51:25 -0400
-In-Reply-To: <55FA0F4A.3010105@hp.com>
+To: Andrzej Hajda <a.hajda@samsung.com>,
+	Ying Xue <ying.xue@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55F93F55.70505@samsung.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGksDQoNCj5QcmVzdW1hYmx5IHlvdSBjb3VsZCBjb3B5IHdoYXQgImlwIG5ldG5zIiBkb2VzLCB3
-aGljaCBhcHBlYXJzIHRvIGJlIHRvIGxvb2sgaW4gL3Zhci9ydW4vbmV0bnMgLiAgQXQgbGVhc3Qg
-dGhhdCBpcyB3aGF0IGFuIHN0cmFjZSBvZiB0aGF0ID5jb21tYW5kIHN1Z2dlc3RzLg0KDQpUaGlz
-IGlzIHRydWUsIGJ1dCBrZWVwIGluIG1pbmQgdGhhdCB0aGUgb3V0cHV0IG9mICJpcCBuZXRucyIs
-IGFzIHdlbGwgYXMgbGlzdGluZyB0aGUgY29udGVudHMgb2YgL3Zhci9ydW4vbmV0bnMsIHJlZmxl
-Y3RzIG9ubHkgbmV0d29yayBuYW1lc3BhY2VzDQp3aGljaCB3ZXJlIGNyZWF0ZWQgd2l0aCB0aGUg
-ImlwIG5ldG5zIiBjb21tYW5kLiBUaGUgImlwIG5ldG5zIiB1c2Vyc3BhY2UgaW1wbGVtZW50YXRp
-b24gY29uc2lzdHMgb2YgY29kZSB3aGljaCBlbmFibGVzIHRoaXMsDQpieSBjcmVhdGluZyAvdmFy
-L3J1bi9uZXRucywgYmluZCBtb3VudGluZyBpdCwgZXRjLg0KDQpOZXR3b3JrIG5hbWVzcGFjZXMg
-d2hpY2ggd2VyZSBjcmVhdGVkIGJ5IG90aGVyIHdheXMgKGxpa2UgdXNlcnNwYWNlIGFwcGxpY2F0
-aW9ucw0KdXNpbmcgdGhlIGNsb25lKCkgc3lzdGVtIGNhbGwpIHdpbGwgKm5vdCogYmUgcmVmbGVj
-dGVkIGJ5IG5laXRoZXIgb2YgdGhlbS4NCg0KUmVnYXJkcywNClJhbWkgUm9zZW4NCkludGVsIENv
-cnBvcmF0aW9uDQoNCg0K
+Acked-by: Jon Maloy <jon.maloy@ericsson.com>
+
+///jon
+
+> -----Original Message-----
+> From: Andrzej Hajda [mailto:a.hajda@samsung.com]
+> Sent: Wednesday, 16 September, 2015 06:07
+> To: Jon Maloy; Ying Xue
+> Cc: Bartlomiej Zolnierkiewicz; Marek Szyprowski; linux-
+> kernel@vger.kernel.org; David S. Miller; netdev@vger.kernel.org
+> Subject: Re: [PATCH 27/31] net/tipc: use kmemdup rather than duplicating its
+> implementation
+> 
+> Ping.
+> 
+> Regards
+> Andrzej
+> 
+> On 08/07/2015 09:59 AM, Andrzej Hajda wrote:
+> > The patch was generated using fixed coccinelle semantic patch
+> > scripts/coccinelle/api/memdup.cocci [1].
+> >
+> > [1]: http://permalink.gmane.org/gmane.linux.kernel/2014320
+> >
+> > Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+> > ---
+> >  net/tipc/server.c | 3 +--
+> >  1 file changed, 1 insertion(+), 2 deletions(-)
+> >
+> > diff --git a/net/tipc/server.c b/net/tipc/server.c index
+> > 922e04a..c187cad 100644
+> > --- a/net/tipc/server.c
+> > +++ b/net/tipc/server.c
+> > @@ -411,13 +411,12 @@ static struct outqueue_entry
+> *tipc_alloc_entry(void *data, int len)
+> >  	if (!entry)
+> >  		return NULL;
+> >
+> > -	buf = kmalloc(len, GFP_ATOMIC);
+> > +	buf = kmemdup(data, len, GFP_ATOMIC);
+> >  	if (!buf) {
+> >  		kfree(entry);
+> >  		return NULL;
+> >  	}
+> >
+> > -	memcpy(buf, data, len);
+> >  	entry->iov.iov_base = buf;
+> >  	entry->iov.iov_len = len;
+> >
