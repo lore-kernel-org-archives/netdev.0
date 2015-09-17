@@ -1,58 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH v2] geneve: remove use of internal IP header when calling IP_ECN_decapsulate
-Date: Thu, 17 Sep 2015 16:34:54 -0400
-Message-ID: <1442522094-876-1-git-send-email-linville@tuxdriver.com>
-References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
-Cc: davem@davemloft.net, Jesse Gross <jesse@nicira.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net 2/2]  8139cp: reset BQL when ring tx ring cleared
+Date: Thu, 17 Sep 2015 22:44:49 +0200
+Message-ID: <20150917204449.GA22105@electric-eye.fr.zoreil.com>
+References: <20130520095443.2d18b2cb@nehalam.linuxnetplumber.net>
+ <20130520213728.GA28252@electric-eye.fr.zoreil.com>
+ <20130520172749.2a4447b6@nehalam.linuxnetplumber.net>
+ <1442232308.30875.6.camel@infradead.org>
+ <20150914215913.GA24962@electric-eye.fr.zoreil.com>
+ <1442489793.131189.142.camel@infradead.org>
+ <1442502391.131189.160.camel@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58721 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752078AbbIQUpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:45:12 -0400
-In-Reply-To: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59916 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751633AbbIQUpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:45:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1442502391.131189.160.camel@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This seems to have been a "thinko".  IP_ECN_decapsulate needs info
-from both internal and external headers.
+David Woodhouse <dwmw2@infradead.org> :
+> On Thu, 2015-09-17 at 12:36 +0100, David Woodhouse wrote:
+> >=20
+> > Thanks; I'll try that. In fact since updating to 4.2 the problem ha=
+s
+> > got worse =E2=80=94 now the whole machine dies:
+>=20
+> There is something very strange going on here. I've found two ways to
+> make it stop crashing when cp_tx_timeout() hits the 'popf' when
+> unlocking the spinlock.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
-v2 -- ensure the collect_md path still calls IP_ECN_decapsulate
+cp_tx_timeout takes lock, disables irq, calls cp_clean_rings, thus
+plain dev_kfree_skb if a skb is still referenced in one of the
+rx/tx ring. You may replace it with dev_kfree_skb_any.
 
- drivers/net/geneve.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index da3259ce7c8d..549febac0579 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -126,6 +126,8 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 	__be32 addr;
- 	int err;
- 
-+	iph = ip_hdr(skb); /* outer IP header... */
-+
- 	if (gs->collect_md) {
- 		static u8 zero_vni[3];
- 
-@@ -133,7 +135,6 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 		addr = 0;
- 	} else {
- 		vni = gnvh->vni;
--		iph = ip_hdr(skb); /* Still outer IP header... */
- 		addr = iph->saddr;
- 	}
- 
-@@ -178,7 +179,6 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
- 
- 	skb_reset_network_header(skb);
- 
--	iph = ip_hdr(skb); /* Now inner IP header... */
- 	err = IP_ECN_decapsulate(iph, skb);
- 
- 	if (unlikely(err)) {
--- 
-2.4.3
+--=20
+Ueimor
