@@ -1,37 +1,39 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] geneve: remove use of internal IP header when calling IP_ECN_decapsulate
-Date: Thu, 17 Sep 2015 12:46:48 -0700
-Message-ID: <CAEP_g=8Hjcae1zrzV2--j6J3rsXfZmexnGsziA3OTmezdLtbkA@mail.gmail.com>
-References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
+Subject: Re: [PATCH] geneve: restore vlan bits in xmit path
+Date: Thu, 17 Sep 2015 12:48:56 -0700
+Message-ID: <CAEP_g=8v__N59dKe1wUfgHDjgrvGzXWN4AJ=ifeuxxn_FNmDQQ@mail.gmail.com>
+References: <1442510338-10180-1-git-send-email-linville@tuxdriver.com>
+ <CALnjE+r9A0bUmF-ZEvUdhop2kD7VGQYpn0PKG23cCU9qcrUrVQ@mail.gmail.com> <20150917192534.GE25806@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:34540 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751630AbbIQTrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 15:47:09 -0400
-Received: by lahg1 with SMTP id g1so18240380lah.1
-        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 12:47:07 -0700 (PDT)
-In-Reply-To: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:35347 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751059AbbIQTtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 15:49:17 -0400
+Received: by lagj9 with SMTP id j9so18225807lag.2
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 12:49:15 -0700 (PDT)
+In-Reply-To: <20150917192534.GE25806@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 17, 2015 at 10:17 AM, John W. Linville
+On Thu, Sep 17, 2015 at 12:25 PM, John W. Linville
 <linville@tuxdriver.com> wrote:
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> index da3259ce7c8d..a917ae1cfbf3 100644
-> --- a/drivers/net/geneve.c
-> +++ b/drivers/net/geneve.c
-> @@ -178,13 +178,15 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
+> On Thu, Sep 17, 2015 at 11:45:58AM -0700, Pravin Shelar wrote:
+>> On Thu, Sep 17, 2015 at 10:18 AM, John W. Linville
+>> <linville@tuxdriver.com> wrote:
+>> > These seem to have been accidentally dropped in commit 371bd1061d29
+>> > ("geneve: Consolidate Geneve functionality in single module.").
+>> >
+>> Geneve should not export vxlan feature. So that it never sees vxlan
+>> tagged packets. Can you turn off the vlan feature?
 >
->         skb_reset_network_header(skb);
->
-> -       iph = ip_hdr(skb); /* Now inner IP header... */
-> -       err = IP_ECN_decapsulate(iph, skb);
-> +       if (iph)
-> +               err = IP_ECN_decapsulate(iph, skb);
+> I'm not sure I understand...?  This is vlan, not vxlan.
 
-It looks like this is now conditional based on !collect_md. I'm not
-sure that we want to have a difference in behavior between the two.
+I think he just mean vlan. If you remove the line where
+dev->vlan_features are set then the core stack will handle this and we
+don't need to do anything special here.
