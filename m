@@ -1,71 +1,38 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth 2015-09-17
-Date: Thu, 17 Sep 2015 15:27:17 +0300
-Message-ID: <20150917122717.GA28252@t440s.lan>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 net-next 1/2] cls_bpf: introduce integrated actions
+Date: Thu, 17 Sep 2015 08:37:34 -0400
+Message-ID: <55FAB40E.304@mojatatu.com>
+References: <1442383543-4720-1-git-send-email-ast@plumgrid.com>
+ <1442383543-4720-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="VbJkn9YxBvnuCH5J"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:32910 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751633AbbIQMhg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 08:37:36 -0400
+Received: by igbkq10 with SMTP id kq10so11213397igb.0
+        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 05:37:36 -0700 (PDT)
+In-Reply-To: <1442383543-4720-2-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 09/16/15 02:05, Alexei Starovoitov wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+>
+> Often cls_bpf classifier is used with single action drop attached.
+> Optimize this use case and let cls_bpf return both classid and action.
+> For backwards compatibility reasons enable this feature under
+> TCA_BPF_FLAG_ACT_DIRECT flag.
+>
 
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This is going off in a different direction really.
+You are replicating the infrastructure inside bpf.
 
-Hi Dave,
-
-Here's one important patch for the 4.3-rc series that fixes an issue
-with Bluetooth LE encryption failing because of a too early check for
-the SMP context.
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit 20471ed4d403a5f4de6aa0c10cd1e446f7f2b3c7:
-
-  dccp: drop null test before destroy functions (2015-09-15 16:49:43 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to d8949aad3eab5d396f4fefcd581773bf07b9a79e:
-
-  Bluetooth: Delay check for conn->smp in smp_conn_security() (2015-09-17 12:28:27 +0200)
-
-----------------------------------------------------------------
-Johan Hedberg (1):
-      Bluetooth: Delay check for conn->smp in smp_conn_security()
-
- net/bluetooth/smp.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
---VbJkn9YxBvnuCH5J
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJV+rGlAAoJECQj9vv5qNQSIFAP/1rxiD6DYyMCZmD+kK9tS1oo
-DbWQJkrlNpJfXIR6nfhKukCSZY2d7JwaeUtWD+7/Pnj+yyVNkc/wbio0V7X+yr9g
-Qs+OptkHTxaxOO5m9IqDeNaUAp+kJxJ2kOuCyJk+kcaxRHxEis+wIVvbbaiUpHwq
-Q/6eokOQuH+WT2didgDVvXFcRRPj1QqASvx6yyIFUrM386K0UIBE3CXWqWvpnruC
-oeijDYskGOdFNLvqpPhu+lkWQCh+KxGhEujFgIunCiPIsyOeMMq8PmgSFzsPgYTL
-yKUgWChHsbJ9eUgG2E4X5GMebKq3+X613TQbNpMV0BAmU6tu0ICkiIMgdF5YhcVn
-v9Ls0dhTv0WuqfOUkg5znkZuo3pKRQkUUyHyMNzAeG8wlsxzcb+dZXK9WXLqQwzD
-og/jOy+WotwWxQsY1pvzTsEJuUFhrL269h19aAJlsBCGmFIQWyDKiZ9gnmCRyauX
-JQxtXBdvkWQv2dv7n2MIisEwcL7eymBp6N8+p513FZLEkc+9FjsDE0QwCwspKPbC
-HLIGBq3E40IiPA/D7TVme2X1iPnk+lua/vJcg9WdcLVd/6UMEJKZJaxhjCLfYoeU
-Vkw0sdoBepmI/s4GYlWaUAc7MyC6GOBg4JImSR0ecu0Y3tyPBhZmS0N25/dTbE/b
-1nQfaqNYoukbj0DFC+H2
-=znSC
------END PGP SIGNATURE-----
-
---VbJkn9YxBvnuCH5J--
+cheers,
+jamal
