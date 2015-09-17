@@ -1,51 +1,70 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net 2/5] vxlan: reject IPv6 addresses if IPv6 is not configured
-Date: Thu, 17 Sep 2015 16:11:11 +0200
-Message-ID: <45992b922f7bd5d0290c3a67034953838e372f31.1442498316.git.jbenc@redhat.com>
+Subject: [PATCH net 4/5] be2net: allow offloading with the same port for IPv4 and IPv6
+Date: Thu, 17 Sep 2015 16:11:13 +0200
+Message-ID: <1b2a27cefac4b736f098624b8c411aee6ccef9f2.1442498316.git.jbenc@redhat.com>
 References: <cover.1442498316.git.jbenc@redhat.com>
+Cc: Sathya Perla <sathya.perla@avagotech.com>,
+	Ajit Khaparde <ajit.khaparde@avagotech.com>,
+	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42517 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37273 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751634AbbIQOLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 10:11:25 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id 5668E2ED158
-	for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 14:11:25 +0000 (UTC)
-Received: from griffin.upir.cz (ovpn-204-25.brq.redhat.com [10.40.204.25])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t8HEBMd7023833
-	for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 10:11:24 -0400
+	id S1751839AbbIQOL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 10:11:28 -0400
 In-Reply-To: <cover.1442498316.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When IPv6 address is set without IPv6 configured, the vxlan socket is mostly
-treated as an IPv4 one but various lookus in fdb etc. still take the
-AF_INET6 into account. This creates incosistencies with weird consequences.
-
-Just reject IPv6 addresses in such case.
+The callback for adding vxlan port can be called with the same port for both
+IPv4 and IPv6. Do not disable the offloading if this occurs.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/vxlan.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/emulex/benet/be.h      |  1 +
+ drivers/net/ethernet/emulex/benet/be_main.c | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 6ebe562af04e..bbac1d35ed4e 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2636,8 +2636,11 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 		dst->remote_ip.sa.sa_family = AF_INET;
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 0a27805cbbbd..821540913343 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -582,6 +582,7 @@ struct be_adapter {
+ 	u16 pvid;
+ 	__be16 vxlan_port;
+ 	int vxlan_port_count;
++	int vxlan_port_aliases;
+ 	struct phy_info phy;
+ 	u8 wol_cap;
+ 	bool wol_en;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 12687bf52b95..7bf51a1a0a77 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -5176,6 +5176,11 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+ 		return;
  
- 	if (dst->remote_ip.sa.sa_family == AF_INET6 ||
--	    vxlan->cfg.saddr.sa.sa_family == AF_INET6)
-+	    vxlan->cfg.saddr.sa.sa_family == AF_INET6) {
-+		if (!IS_ENABLED(CONFIG_IPV6))
-+			return -EPFNOSUPPORT;
- 		use_ipv6 = true;
++	if (adapter->vxlan_port == port && adapter->vxlan_port_count) {
++		adapter->vxlan_port_aliases++;
++		return;
 +	}
++
+ 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
+ 		dev_info(dev,
+ 			 "Only one UDP port supported for VxLAN offloads\n");
+@@ -5226,6 +5231,11 @@ static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+ 	if (adapter->vxlan_port != port)
+ 		goto done;
  
- 	if (conf->remote_ifindex) {
- 		struct net_device *lowerdev
++	if (adapter->vxlan_port_aliases) {
++		adapter->vxlan_port_aliases--;
++		return;
++	}
++
+ 	be_disable_vxlan_offloads(adapter);
+ 
+ 	dev_info(&adapter->pdev->dev,
 -- 
 1.8.3.1
