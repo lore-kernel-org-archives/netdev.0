@@ -1,38 +1,91 @@
-From: "Mrs. Vinayak Arora" <marymaprlighting@gmail.com>
-Subject: Re: My Dear in Christ
-Date: Thu, 17 Sep 2015 22:01:15 +0800
-Message-ID: <76d60e7235954160f7ae9cb28de2f7d6.squirrel@webmail.hammermaritime.com>
-Reply-To: vinayakorora4@gmail.com
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+Date: Thu, 17 Sep 2015 15:14:05 +0000
+Message-ID: <BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+References: <1442418625-11805-1-git-send-email-vkuznets@redhat.com>
+ <BN1PR0301MB0770C47D37D272F5A28CD1DECA5B0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB9800B@AcuExch.aculab.com>
+ <BY2PR0301MB16548B482FF9E0F4D82FC2C8A05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+ <55F9E172.2040008@gmail.com>
+ <BY2PR0301MB16540426BFD633C8EBD1A4BBA05B0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB989E9@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lax07.web.com.ph ([66.63.178.34]:40438 "EHLO lax07.web.com.ph"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751471AbbIQPOM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 11:14:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-My Dear,
-
-My happiness is that I have lived a worthy life. My doctor told me that I
-have serious sickness which is cancer problem. Knowing my condition I
-decided to donate my funds to you. I want this funds to be used for the
-orphanages, poor and widows. Please i do not want a situation where this
-funds will be used in an ungodly manner like what my brothers have done in
-the past. That's why I'm taking this decision. I'm not afraid of death
-because I know where I'm going. Please have me in your prayers always. The
-last of my money which no one knows of is the huge cash deposit of united
-state dollars  $52,000,000 that I have with a finance/Security Company. I
-will want you to dispatch it to charity organizations if only you will be
-sincere. As soon as i get an answer from you i will give you contacts of
-my bank and my attorney.
-
-Mrs. Vinayak Arora
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jason Wang <jasowang@redhat.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"Vitaly Kuznetsov" <vkuznets@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB989E9@AcuExch.aculab.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-NB Please do not share my email address with anyone as I have received
-some emails from some unscrupulous people claiming to be charity
-organizations and other weird stories.
+
+> -----Original Message-----
+> From: David Laight [mailto:David.Laight@ACULAB.COM]
+> Sent: Thursday, September 17, 2015 1:38 AM
+> To: KY Srinivasan <kys@microsoft.com>; Alexander Duyck
+> <alexander.duyck@gmail.com>; Haiyang Zhang <haiyangz@microsoft.com>;
+> Vitaly Kuznetsov <vkuznets@redhat.com>; netdev@vger.kernel.org
+> Cc: David S. Miller <davem@davemloft.net>; linux-kernel@vger.kernel.org;
+> Jason Wang <jasowang@redhat.com>
+> Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+> 
+> From: KY Srinivasan
+> > Sent: 16 September 2015 23:58
+> ...
+> > > I think we get that.  The question is does the Remote NDIS header and
+> > > packet info actually need to be a part of the header data?  I would
+> > > argue that it probably doesn't.
+> > >
+> > > So for example in netvsc_start_xmit it looks like you are calling
+> > > init_page_array in order to populate a set of page buffers, but the
+> > > first buffer for the Remote NDIS protocol is populated as a separate
+> > > page and offset.  As such it doesn't seem like it necessarily needs to
+> > > be a part of the header data but could be maintained perhaps in a
+> > > separate ring buffer, or perhaps just be a separate page that you break
+> > > up to use for each header.
+> >
+> > You are right; the rndis header can be built as a separate fragment and sent.
+> > Indeed this is what we were doing earlier - on the outgoing path we would
+> allocate
+> > memory for the rndis header. My goal was to avoid this allocation on every
+> packet being
+> > sent and I decided to use the headroom instead. If we can completely avoid all
+> memory
+> > allocation for rndis header, it makes a significant perf difference:
+> ...
+> 
+> 
+> So just preallocate the header space as a fixed buffer for each ring entry
+> (or tx frame).
+> 
+> If you allocate a fixed buffer for each ring entry you may find there are
+> performance gains from copying small fragments into the buffer instead
+> of doing whatever mapping operations are required.
+> 
+> 	David
+
+Yes; I could do that. My original goal of asking for additional head room was to avoid having
+any allocation in the transmit path. I did not realize that all I had done was push the allocation to a
+different spot since the head room I was asking was greater than the default head room on skb allocation.
+
+I think I can achieve my original goal of not having any allocation in the send path by carefully using the
+memory available in the skb:
+
+1. I am going to separately handle the rndis header and this can be packed in the default headroom
+available in the skb.
+2. I will use the scratch area in the skb to stash away the state that needs to persist. This is the state needed
+to cleanup the guest state after we get the send_complete packet.
+
+Regards,
+
+K. Y 
+ 
