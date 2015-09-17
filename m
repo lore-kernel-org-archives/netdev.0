@@ -1,69 +1,66 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [GIT-PULL nf-next 00/15] IPVS Updates for v4.4
-Date: Thu, 17 Sep 2015 14:40:36 +0900
-Message-ID: <1442468451-24012-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Christoph Paasch <christoph.paasch@gmail.com>
+Subject: Re: [PATCH net] netlink: make sure -EBUSY won't escape from
+ netlink_insert
+Date: Wed, 16 Sep 2015 22:41:14 -0700
+Message-ID: <20150917054114.GN1983@Chimay.local>
+References: <d466c48264ca677f0fc61ff76526780c32c37cb5.1438898409.git.daniel@iogearbox.net>
+ <20150810.110015.1616067694505641781.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@iogearbox.net, herbert@gondor.apana.org.au, tgraf@suug.ch,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:55084 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753393AbbIQFlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 01:41:12 -0400
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33943 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753424AbbIQFlP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 01:41:15 -0400
+Received: by padhy16 with SMTP id hy16so10422016pad.1
+        for <netdev@vger.kernel.org>; Wed, 16 Sep 2015 22:41:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150810.110015.1616067694505641781.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+Hello,
 
-please consider these IPVS Updates for v4.4.
+On 10/08/15 - 11:00:15, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Fri,  7 Aug 2015 00:26:41 +0200
+> > Linus reports the following deadlock on rtnl_mutex; triggered only
+> > once so far (extract):
+>  ...
+> > It seems so far plausible that the recursive call into rtnetlink_rcv()
+> > looks suspicious. One way, where this could trigger is that the senders
+> > NETLINK_CB(skb).portid was wrongly 0 (which is rtnetlink socket), so
+> > the rtnl_getlink() request's answer would be sent to the kernel instead
+> > to the actual user process, thus grabbing rtnl_mutex() twice.
+> > 
+> > One theory would be that netlink_autobind() triggered via netlink_sendmsg()
+> > internally overwrites the -EBUSY error to 0, but where it is wrongly
+> > originating from __netlink_insert() instead. That would reset the
+> > socket's portid to 0, which is then filled into NETLINK_CB(skb).portid
+> > later on. As commit d470e3b483dc ("[NETLINK]: Fix two socket hashing bugs.")
+> > also puts it, -EBUSY should not be propagated from netlink_insert().
+> > 
+> > It looks like it's very unlikely to reproduce. We need to trigger the
+> > rhashtable_insert_rehash() handler under a situation where rehashing
+> > currently occurs (one /rare/ way would be to hit ht->elasticity limits
+> > while not filled enough to expand the hashtable, but that would rather
+> > require a specifically crafted bind() sequence with knowledge about
+> > destination slots, seems unlikely). It probably makes sense to guard
+> > __netlink_insert() in any case and remap that error. It was suggested
+> > that EOVERFLOW might be better than an already overloaded ENOMEM.
+> > 
+> > Reference: http://thread.gmane.org/gmane.linux.network/372676
+> > Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> 
+> Applied and queued up for -stable, thanks.
 
-The updates include the following from Alex Gartrell:
-* Scheduling of ICMP
-* Sysctl to ignore tunneled packets; and hence some packet-looping scenarios
+can this patch get queued up for 4.1 as well?
+It seems to fix a similar issue in 4.1.6.
 
-The following changes since commit 851345c5bbb4644911f7c351c042559a71f57d19:
 
-  netfilter: reduce sparse warnings (2015-08-28 21:04:12 +0200)
-
-are available in the git repository at:
-
-  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v4.4
-
-for you to fetch changes up to 4e478098ac0ac1b6ef9a70fcdc2ec8b93f1b59a1:
-
-  ipvs: add sysctl to ignore tunneled packets (2015-09-17 11:50:02 +0900)
-
-----------------------------------------------------------------
-Alex Gartrell (15):
-      ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off
-      ipvs: Add hdr_flags to iphdr
-      ipvs: Handle inverse and icmp headers in ip_vs_leave
-      ipvs: pull out ip_vs_try_to_schedule function
-      ipvs: drop inverse argument to conn_{in,out}_get
-      ipvs: Make ip_vs_schedule aware of inverse iph'es
-      ipvs: add schedule_icmp sysctl
-      ipvs: Use outer header in ip_vs_bypass_xmit_v6
-      ipvs: sh: support scheduling icmp/inverse packets consistently
-      ipvs: attempt to schedule icmp packets
-      ipvs: ensure that ICMP cannot be sent in reply to ICMP
-      ipvs: support scheduling inverse and icmp TCP packets
-      ipvs: support scheduling inverse and icmp UDP packets
-      ipvs: support scheduling inverse and icmp SCTP packets
-      ipvs: add sysctl to ignore tunneled packets
-
- Documentation/networking/ipvs-sysctl.txt |  10 ++
- include/net/ip_vs.h                      | 120 ++++++++++---
- net/netfilter/ipvs/ip_vs_conn.c          |  12 +-
- net/netfilter/ipvs/ip_vs_core.c          | 299 +++++++++++++++++++------------
- net/netfilter/ipvs/ip_vs_ctl.c           |  15 +-
- net/netfilter/ipvs/ip_vs_pe_sip.c        |   2 +-
- net/netfilter/ipvs/ip_vs_proto_ah_esp.c  |  17 +-
- net/netfilter/ipvs/ip_vs_proto_sctp.c    |  34 ++--
- net/netfilter/ipvs/ip_vs_proto_tcp.c     |  38 +++-
- net/netfilter/ipvs/ip_vs_proto_udp.c     |  25 ++-
- net/netfilter/ipvs/ip_vs_sh.c            |  45 +++--
- net/netfilter/ipvs/ip_vs_xmit.c          |  24 +--
- net/netfilter/xt_ipvs.c                  |   4 +-
- 13 files changed, 427 insertions(+), 218 deletions(-)
+Thanks,
+Christoph
