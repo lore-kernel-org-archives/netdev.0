@@ -1,36 +1,53 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: list of all network namespaces
-Date: Thu, 17 Sep 2015 11:11:36 -0700
-Message-ID: <CAHA+R7OQ2RrqfTyZODm2LJFaX2X5jp-ibnM8cRcUsB8Bju_7EA@mail.gmail.com>
-References: <CAOxq_8Noj5oxPY5BEsWL6u4h_AD+oXYS+JCRGES_gmMQKd0rOQ@mail.gmail.com>
-	<55FA0F4A.3010105@hp.com>
-	<9B0331B6EBBD0E4684FBFAEDA55776F919440808@HASMSX110.ger.corp.intel.com>
-	<CAOxq_8OTR2neJhDU4BOubWcc7Qd=j9T3jg4ESv-ojXqj+xxYxQ@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH v8 0/4] can: Allwinner A10/A20 CAN Controller support
+ - Summary
+Date: Thu, 17 Sep 2015 20:12:31 +0200
+Message-ID: <55FB028F.7070206@hartkopp.net>
+References: <1442402482-7118-1-git-send-email-info@gerhard-bertelsmann.de> <20150917175444.GJ4684@lukather>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Rosen, Rami" <rami.rosen@intel.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ani Sinha <ani@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f174.google.com ([209.85.160.174]:36758 "EHLO
-	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371AbbIQSLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 14:11:37 -0400
-Received: by ykdt18 with SMTP id t18so24771442ykd.3
-        for <netdev@vger.kernel.org>; Thu, 17 Sep 2015 11:11:36 -0700 (PDT)
-In-Reply-To: <CAOxq_8OTR2neJhDU4BOubWcc7Qd=j9T3jg4ESv-ojXqj+xxYxQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wg@grandegger.com, mkl@pengutronix.de, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Gerhard Bertelsmann <info@gerhard-bertelsmann.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20150917175444.GJ4684@lukather>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 17, 2015 at 10:39 AM, Ani Sinha <ani@arista.com> wrote:
-> On Thu, Sep 17, 2015 at 2:51 AM, Rosen, Rami <rami.rosen@intel.com> wrote:
->
->> Network namespaces which were created by other ways (like userspace applications
->> using the clone() system call) will *not* be reflected by neither of them.
->
-> Will there be any interest if I cook up a kernel patch that lists all
-> network namespaces through /proc?
 
-How do you list them since they don't have names in kernel, names
-are given in user-space.
+
+On 17.09.2015 19:54, Maxime Ripard wrote:
+> On Wed, Sep 16, 2015 at 01:21:18PM +0200, Gerhard Bertelsmann wrote:
+>> Hi,
+>>
+>> please find attached the next version of my patch set. I have
+>> taken all remarks from Maxime Ripard into the new version
+>>
+>> Please review, test and report bugs if exists.
+>>
+>> The patchset applies to all recent Kernel versions (4.x, next etc.).
+>>
+>> [PATCH v8 1/4] Device Tree Binding Documentation
+>> [PATCH v8 2/4] Defconfig multi_v7
+>> [PATCH v8 3/4] Defconfig sunxi
+>> [PATCH v8 4/4] Kernel Module
+>
+> Applied 3 and 4.
+
+Applied to what tree?
+
+That's not the friendly way when Marc asks you about the documentation about 
+the device tree (patch 1) and you commit the CAN driver and the sunxi 
+defconfig (patch 3 & 4) that he mainly reviewed to whatever tree.
+
+New CAN drivers go via can-next and net-next into mainline.
+
+So please answer Marcs question and let him queue up the CAN driver via 
+can-next himself.
+
+Thanks,
+Oliver
+
