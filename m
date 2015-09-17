@@ -1,20 +1,58 @@
-From: DKareem@vger.kernel.org
-Subject: I need to talk to you very urgent, Email me via: dkareem878@yahoo.com.hk
-Date: Fri, 18 Sep 2015 14:11:53 +0530
-Message-ID: <SG2PR0201MB0952663061240B1E197138E8B85A0@SG2PR0201MB0952.apcprd02.prod.outlook.com>
-Reply-To: <dkareem878@yahoo.com.hk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients@vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH v2] geneve: remove use of internal IP header when calling IP_ECN_decapsulate
+Date: Thu, 17 Sep 2015 16:34:54 -0400
+Message-ID: <1442522094-876-1-git-send-email-linville@tuxdriver.com>
+References: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
+Cc: davem@davemloft.net, Jesse Gross <jesse@nicira.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-hk2apc01hn0235.outbound.protection.outlook.com ([104.47.124.235]:63551
-	"EHLO APC01-HK2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751633AbbIQUmf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:42:35 -0400
-Content-Description: Mail message body
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58721 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752078AbbIQUpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Sep 2015 16:45:12 -0400
+In-Reply-To: <1442510271-10110-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I need to talk to you very urgent, Email me via: dkareem878@yahoo.com.hk
+This seems to have been a "thinko".  IP_ECN_decapsulate needs info
+from both internal and external headers.
+
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+v2 -- ensure the collect_md path still calls IP_ECN_decapsulate
+
+ drivers/net/geneve.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index da3259ce7c8d..549febac0579 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -126,6 +126,8 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
+ 	__be32 addr;
+ 	int err;
+ 
++	iph = ip_hdr(skb); /* outer IP header... */
++
+ 	if (gs->collect_md) {
+ 		static u8 zero_vni[3];
+ 
+@@ -133,7 +135,6 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
+ 		addr = 0;
+ 	} else {
+ 		vni = gnvh->vni;
+-		iph = ip_hdr(skb); /* Still outer IP header... */
+ 		addr = iph->saddr;
+ 	}
+ 
+@@ -178,7 +179,6 @@ static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
+ 
+ 	skb_reset_network_header(skb);
+ 
+-	iph = ip_hdr(skb); /* Now inner IP header... */
+ 	err = IP_ECN_decapsulate(iph, skb);
+ 
+ 	if (unlikely(err)) {
+-- 
+2.4.3
