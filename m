@@ -1,55 +1,92 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH next 22/30] ipv6: Cache net in ip6_output
-Date: Thu, 17 Sep 2015 18:06:02 +0200
-Message-ID: <55FAE4EA.9060402@6wind.com>
-References: <87mvwn18my.fsf@x220.int.ebiederm.org>
- <1442365458-16349-22-git-send-email-ebiederm@xmission.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1442365458-16349-22-git-send-email-ebiederm@xmission.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
+Subject: [PATCH] Replace get_seconds with ktime_get_seconds
+Date: Thu, 17 Sep 2015 18:12:53 +0200
+Message-ID: <1442506373-3326-1-git-send-email-ksenija.stanojevic@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dhowells@redhat.com, arnd@arndb.de,
+	Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
+To: y2038@lists.linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 16/09/2015 03:04, Eric W. Biederman a =C3=A9crit :
-> Keep net in a local variable so I can use it in NF_HOOK_COND
-> when I pass struct net to all of the netfilter hooks.
->
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->   net/ipv6/ip6_output.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 12d0166a64cd..8cab909b181e 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -135,9 +135,9 @@ int ip6_output(struct sock *sk, struct sk_buff *s=
-kb)
->   {
->   	struct net_device *dev =3D skb_dst(skb)->dev;
->   	struct inet6_dev *idev =3D ip6_dst_idev(skb_dst(skb));
-> +	struct net *net =3D dev_net(dev);
-nit: same here for the blank line.
+Replace time_t type and get_seconds function which are not y2038 safe
+on 32-bit systems. Function ktime_get_seconds use monotonic instead of
+real time and therefore will not cause overflow.
 
->   	if (unlikely(idev->cnf.disable_ipv6)) {
-> -		IP6_INC_STATS(dev_net(dev), idev,
-> -			      IPSTATS_MIB_OUTDISCARDS);
-> +		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
->   		kfree_skb(skb);
->   		return 0;
->   	}
->
+Signed-off-by: Ksenija Stanojevic <ksenija.stanojevic@gmail.com>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/rxrpc/ar-connection.c | 4 ++--
+ net/rxrpc/ar-internal.h   | 4 ++--
+ net/rxrpc/ar-transport.c  | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/rxrpc/ar-connection.c b/net/rxrpc/ar-connection.c
+index 6631f4f..692b3e6 100644
+--- a/net/rxrpc/ar-connection.c
++++ b/net/rxrpc/ar-connection.c
+@@ -808,7 +808,7 @@ void rxrpc_put_connection(struct rxrpc_connection *conn)
+ 
+ 	ASSERTCMP(atomic_read(&conn->usage), >, 0);
+ 
+-	conn->put_time = get_seconds();
++	conn->put_time = ktime_get_seconds();
+ 	if (atomic_dec_and_test(&conn->usage)) {
+ 		_debug("zombie");
+ 		rxrpc_queue_delayed_work(&rxrpc_connection_reap, 0);
+@@ -852,7 +852,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 
+ 	_enter("");
+ 
+-	now = get_seconds();
++	now = ktime_get_seconds();
+ 	earliest = ULONG_MAX;
+ 
+ 	write_lock_bh(&rxrpc_connection_lock);
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index aef1bd2..2934a73 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -208,7 +208,7 @@ struct rxrpc_transport {
+ 	struct rb_root		server_conns;	/* server connections on this transport */
+ 	struct list_head	link;		/* link in master session list */
+ 	struct sk_buff_head	error_queue;	/* error packets awaiting processing */
+-	time_t			put_time;	/* time at which to reap */
++	unsigned long		put_time;	/* time at which to reap */
+ 	spinlock_t		client_lock;	/* client connection allocation lock */
+ 	rwlock_t		conn_lock;	/* lock for active/dead connections */
+ 	atomic_t		usage;
+@@ -256,7 +256,7 @@ struct rxrpc_connection {
+ 	struct rxrpc_crypt	csum_iv;	/* packet checksum base */
+ 	unsigned long		events;
+ #define RXRPC_CONN_CHALLENGE	0		/* send challenge packet */
+-	time_t			put_time;	/* time at which to reap */
++	unsigned long		put_time;	/* time at which to reap */
+ 	rwlock_t		lock;		/* access lock */
+ 	spinlock_t		state_lock;	/* state-change lock */
+ 	atomic_t		usage;
+diff --git a/net/rxrpc/ar-transport.c b/net/rxrpc/ar-transport.c
+index 1976dec..9946467 100644
+--- a/net/rxrpc/ar-transport.c
++++ b/net/rxrpc/ar-transport.c
+@@ -189,7 +189,7 @@ void rxrpc_put_transport(struct rxrpc_transport *trans)
+ 
+ 	ASSERTCMP(atomic_read(&trans->usage), >, 0);
+ 
+-	trans->put_time = get_seconds();
++	trans->put_time = ktime_get_seconds();
+ 	if (unlikely(atomic_dec_and_test(&trans->usage))) {
+ 		_debug("zombie");
+ 		/* let the reaper determine the timeout to avoid a race with
+@@ -226,7 +226,7 @@ static void rxrpc_transport_reaper(struct work_struct *work)
+ 
+ 	_enter("");
+ 
+-	now = get_seconds();
++	now = ktime_get_seconds();
+ 	earliest = ULONG_MAX;
+ 
+ 	/* extract all the transports that have been dead too long */
+-- 
+1.9.1
