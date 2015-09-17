@@ -1,83 +1,79 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH next 31/30] netfilter: Add blank lines in callers of netfilter hooks
-Date: Thu, 17 Sep 2015 17:21:31 -0500
-Message-ID: <87io78wutw.fsf@x220.int.ebiederm.org>
+Subject: Re: [PATCH next 0/30] Passing net through the netfilter hooks
+Date: Thu, 17 Sep 2015 17:24:37 -0500
+Message-ID: <876138wuoq.fsf@x220.int.ebiederm.org>
 References: <87mvwn18my.fsf@x220.int.ebiederm.org>
+	<55FAEAAC.1070302@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <87mvwn18my.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Tue, 15 Sep 2015 19:59:49 -0500")
+In-Reply-To: <55FAEAAC.1070302@6wind.com> (Nicolas Dichtel's message of "Thu,
+	17 Sep 2015 18:30:36 +0200")
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 
-In code review it was noticed that I had failed to add some blank lines
-in places where they are customarily used.  Taking a second look at the
-code I have to agree blank lines would be nice so I have added them
-here.
+> Le 16/09/2015 02:59, Eric W. Biederman a =C3=A9crit :
+>>
+>> My primary goal with this patchset and it's follow ups is to cleanup=
+ the
+>> network routing paths so that we do not look at the output device to
+>> derive the network namespace.  My plan is to pass the network namesp=
+ace
+>> of the transmitting socket through the output path, to replace code =
+that
+>> looks at the output network device today.  Once that is done we can =
+have
+>> routes with output devices outside of the current network namespace.
+>> Which should allow reception and transmission of packets in network
+>> namespaces to be as fast as normal packet reception and transmission
+>> with early demux disabled, because it will same code path.
+>>
+>> Once skb_dst(skb)->dev is a little better under control I think it w=
+ill
+>> also be possible to use rcu to cleanup the ancient hack that sets
+>> dst->dev to loopback_dev when a network device is removed.
+>>
+>> The work to get there is a series of code cleanups.  I am starting w=
+ith
+>> passing net into the netfilter hooks and into the functions that are
+>> called after the netfilter hooks.  This removes from netfilter the
+>> need to guess which network namespace it is working on.
+>>
+>> To get there I perform a series of minor prep patches so the big cha=
+nges
+>> at the end are possible to audit without getting lost in the noise. =
+ In
+>> particular I have a lot of patches computing net into a local variab=
+le
+>> and then using it through out the function.
+>>
+>> So this patchset encompases removing dead code, sorting out the _sk
+>> functions that were added last time someone pushed a prototype chang=
+e
+>> through the post netfilter functions.  Cleaning up individual functi=
+ons
+>> use of the network namespace.  Passing net into the netfilter hooks.
+>> Passing net into the post netfilter functions.  Using state->net in
+>> the netfilter code where it is available and trivially usable.
+> LGTM (except some minor comments).
+>
+> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Reported-by:  Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- net/ipv4/xfrm4_output.c | 1 +
- net/ipv6/ip6_output.c   | 1 +
- net/ipv6/xfrm6_output.c | 1 +
- net/xfrm/xfrm_output.c  | 1 +
- 4 files changed, 4 insertions(+)
+Thanks for review.  I have added an extra patch for the missing blank
+lines that are still missing after the entire series.  As they affect
+neither code correctness nor bisectability I don't think there is any
+point respinning the indivdual patches.
 
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index 28ae2048b93a..cd6be736e19f 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -97,6 +97,7 @@ static int __xfrm4_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- int xfrm4_output(struct sock *sk, struct sk_buff *skb)
- {
- 	struct net *net = dev_net(skb_dst(skb)->dev);
-+
- 	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
- 			    net, sk, skb, NULL, skb_dst(skb)->dev,
- 			    __xfrm4_output,
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d8d68e81d123..291a07be5dfb 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -136,6 +136,7 @@ int ip6_output(struct sock *sk, struct sk_buff *skb)
- 	struct net_device *dev = skb_dst(skb)->dev;
- 	struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
- 	struct net *net = dev_net(dev);
-+
- 	if (unlikely(idev->cnf.disable_ipv6)) {
- 		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
- 		kfree_skb(skb);
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 68a996f8a044..0c3e9ffcf231 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -169,6 +169,7 @@ static int __xfrm6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- int xfrm6_output(struct sock *sk, struct sk_buff *skb)
- {
- 	struct net *net = dev_net(skb_dst(skb)->dev);
-+
- 	return NF_HOOK_COND(NFPROTO_IPV6, NF_INET_POST_ROUTING,
- 			    net, sk, skb,  NULL, skb_dst(skb)->dev,
- 			    __xfrm6_output,
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 61ba99f61dc8..c48a4b8582bb 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -132,6 +132,7 @@ out:
- int xfrm_output_resume(struct sk_buff *skb, int err)
- {
- 	struct net *net = xs_net(skb_dst(skb)->xfrm);
-+
- 	while (likely((err = xfrm_output_one(skb, err)) == 0)) {
- 		nf_reset(skb);
- 
--- 
-2.2.1
-
+Eric
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
