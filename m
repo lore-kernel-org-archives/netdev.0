@@ -1,91 +1,65 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2015-09-17
-Date: Thu, 17 Sep 2015 23:07:44 +0200
-Message-ID: <55FB2BA0.6070300@pengutronix.de>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+Date: Thu, 17 Sep 2015 21:16:24 +0000
+Message-ID: <BY2PR0301MB16543959FB2FF3D1156D04C8A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+References: <BY2PR0301MB16547020327B59C72692E730A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+	<20150917.115218.655587837796826886.davem@davemloft.net>
+	<BY2PR0301MB1654790C65E4E7EC98A76946A05A0@BY2PR0301MB1654.namprd03.prod.outlook.com>
+ <20150917.131037.2286760949122849895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="gf2o5fIoGjAqg1QoRBoLqIGqJVWIhB7S4"
-Cc: David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>,
+	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"vkuznets@redhat.com" <vkuznets@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150917.131037.2286760949122849895.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---gf2o5fIoGjAqg1QoRBoLqIGqJVWIhB7S4
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-Hello David,
-
-this is a pull request of two patches for net-next/master.
-
-Gerhard Bertelsmann adds support for the CAN controller found on the
-Allwinner A10/A20 SoC.
-
-Marc
-
----
-
-The following changes since commit 37d2dbcdcca88e392009d7cbe8617d5af0ebcb=
-32:
-
-  net: fix cdc-phonet.c dependency and build error (2015-09-16 11:51:19 -=
-0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
-gs/linux-can-next-for-4.4-20150917
-
-for you to fetch changes up to 0738eff14d817a02ab082c392c96a1613006f158:
-
-  can: Allwinner A10/A20 CAN Controller support - Kernel module (2015-09-=
-17 22:39:08 +0200)
-
-----------------------------------------------------------------
-linux-can-next-for-4.4-20150917
-
-----------------------------------------------------------------
-Gerhard Bertelsmann (2):
-      can: Allwinner A10/A20 CAN Controller support - Devicetree bindings=
-
-      can: Allwinner A10/A20 CAN Controller support - Kernel module
-
- .../devicetree/bindings/net/can/sun4i_can.txt      |  36 +
- drivers/net/can/Kconfig                            |  10 +
- drivers/net/can/Makefile                           |   1 +
- drivers/net/can/sun4i_can.c                        | 857 +++++++++++++++=
-++++++
- 4 files changed, 904 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/can/sun4i_can.t=
-xt
- create mode 100644 drivers/net/can/sun4i_can.c
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---gf2o5fIoGjAqg1QoRBoLqIGqJVWIhB7S4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, September 17, 2015 1:11 PM
+> To: KY Srinivasan <kys@microsoft.com>
+> Cc: David.Laight@ACULAB.COM; alexander.duyck@gmail.com; Haiyang Zhang
+> <haiyangz@microsoft.com>; vkuznets@redhat.com; netdev@vger.kernel.org;
+> linux-kernel@vger.kernel.org; jasowang@redhat.com
+> Subject: Re: [PATCH net-next RFC] net: increase LL_MAX_HEADER for Hyper-V
+> 
+> From: KY Srinivasan <kys@microsoft.com>
+> Date: Thu, 17 Sep 2015 19:52:01 +0000
+> 
+> >
+> >
+> >> -----Original Message-----
+> >> Have a pre-cooked ring of buffers for these descriptors that you can
+> >> point the chip at.  No per-packet allocation is necessary at all.
+> >
+> > Even if I had a ring of buffers, I would still need to manage the life cycle
+> > of these buffers - selecting an unused one on the transmit path and marking
+> > it used (atomically).
+> 
+> Have one per TX ring entry, then the lifetime matches the lifetime of the
+> TX entry itself and therefore you need do nothing.
 
------BEGIN PGP SIGNATURE-----
+Yes, I understand. Unfortunately, the ring buffer used on Hyper-V to send the packets to the host is not
+managed as a traditional TX ring entries - it is not fixed size and a given packet can wrap around and lastly, I think
+the management of space on the ring buffer is not tied to the act of completing the send operation. That is why
+we have an explicit "send complete" message.
 
-iQEcBAEBCgAGBQJV+yugAAoJEP5prqPJtc/H250H/A2nXI87wCqU3XU7egKXFze5
-Gk9pX8jIHoN5K4CAURVrYvdny2E3wKilDDhkVusGdaEz2Bpc+7fvvduD+UVL2pkm
-fOK3xEr9LgZT6HFhD3s5CrWlnn4yyRNrAALmM9eKD+zarCyDn4TnYWjGq8syUfFh
-y0Snnx3SYzP8sK2D5NGUl++N/G2/qG7iM7R4QF+BbaN7T4T0gnzsJ/4B1sveyb9a
-QFWyKRZlXeZO26Epi5/zbMm2tZJGTomiEhQ6/9MmFoZZnFY8Icu/7wztEP7TBBeJ
-C5alp4V6tLFmekcWzsOIXLgJk3XhLDA8K4JhPlXmGY6KZ6ISwM6fqy2A7o0RokM=
-=ZsFB
------END PGP SIGNATURE-----
+I am working on moving the model to more closely match the hardware model but it will take some time.
+For now, I will implement a very light weight mechanism for managing the additional memory needed.
 
---gf2o5fIoGjAqg1QoRBoLqIGqJVWIhB7S4--
+Regards,
+
+K. Y
+> 
+> That's the whole idea.
