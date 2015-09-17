@@ -1,63 +1,80 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net 1/5] vxlan: set needed headroom correctly
-Date: Thu, 17 Sep 2015 16:11:10 +0200
-Message-ID: <179da48667c8c9e5dbe24672311f84e30e0571b1.1442498316.git.jbenc@redhat.com>
+Subject: [PATCH net 5/5] bnx2x: track vxlan port count
+Date: Thu, 17 Sep 2015 16:11:14 +0200
+Message-ID: <b4b940529e405e005b3419341ab007f15f5ad8b3.1442498316.git.jbenc@redhat.com>
 References: <cover.1442498316.git.jbenc@redhat.com>
-Cc: Cong Wang <cwang@twopensource.com>
+Cc: Ariel Elior <ariel.elior@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56938 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:21625 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751354AbbIQOLY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Sep 2015 10:11:24 -0400
+	id S1751737AbbIQOL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Sep 2015 10:11:29 -0400
 In-Reply-To: <cover.1442498316.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vxlan_setup is called when allocating the net_device, i.e. way before
-vxlan_newlink (or vxlan_dev_configure) is called. This means
-vxlan->default_dst is actually unset in vxlan_setup and the condition that
-sets needed_headroom always takes the else branch.
+The callback for adding vxlan port can be called with the same port for
+both IPv4 and IPv6. Do not disable the offloading when the same port for
+both protocols is added and later one of them removed.
 
-Set the needed_headrom at the point when we have the information about
-the address family available.
-
-Fixes: e4c7ed415387c ("vxlan: add ipv6 support")
-Fixes: 2853af6a2ea1a ("vxlan: use dev->needed_headroom instead of dev->hard_header_len")
-CC: Cong Wang <cwang@twopensource.com>
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/vxlan.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 14 ++++++++++++--
+ 2 files changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index cf8b7f0473b3..6ebe562af04e 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2392,10 +2392,6 @@ static void vxlan_setup(struct net_device *dev)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index ba936635322a..b5e64b02200c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1946,6 +1946,7 @@ struct bnx2x {
+ 	u16 vlan_cnt;
+ 	u16 vlan_credit;
+ 	u16 vxlan_dst_port;
++	u8 vxlan_dst_port_count;
+ 	bool accept_any_vlan;
+ };
  
- 	eth_hw_addr_random(dev);
- 	ether_setup(dev);
--	if (vxlan->default_dst.remote_ip.sa.sa_family == AF_INET6)
--		dev->needed_headroom = ETH_HLEN + VXLAN6_HEADROOM;
--	else
--		dev->needed_headroom = ETH_HLEN + VXLAN_HEADROOM;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 89a174fa1300..f1d62d5dbaff 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -10108,12 +10108,18 @@ static void __bnx2x_add_vxlan_port(struct bnx2x *bp, u16 port)
+ 	if (!netif_running(bp->dev))
+ 		return;
  
- 	dev->netdev_ops = &vxlan_netdev_ops;
- 	dev->destructor = free_netdev;
-@@ -2670,8 +2666,12 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 
- 		dev->needed_headroom = lowerdev->hard_header_len +
- 				       (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
--	} else if (use_ipv6)
-+	} else if (use_ipv6) {
- 		vxlan->flags |= VXLAN_F_IPV6;
-+		dev->needed_headroom = ETH_HLEN + VXLAN6_HEADROOM;
-+	} else {
-+		dev->needed_headroom = ETH_HLEN + VXLAN_HEADROOM;
+-	if (bp->vxlan_dst_port || !IS_PF(bp)) {
++	if (bp->vxlan_dst_port_count && bp->vxlan_dst_port == port) {
++		bp->vxlan_dst_port_count++;
++		return;
 +	}
++
++	if (bp->vxlan_dst_port_count || !IS_PF(bp)) {
+ 		DP(BNX2X_MSG_SP, "Vxlan destination port limit reached\n");
+ 		return;
+ 	}
  
- 	memcpy(&vxlan->cfg, conf, sizeof(*conf));
- 	if (!vxlan->cfg.dst_port)
+ 	bp->vxlan_dst_port = port;
++	bp->vxlan_dst_port_count = 1;
+ 	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_ADD_VXLAN_PORT, 0);
+ }
+ 
+@@ -10128,10 +10134,14 @@ static void bnx2x_add_vxlan_port(struct net_device *netdev,
+ 
+ static void __bnx2x_del_vxlan_port(struct bnx2x *bp, u16 port)
+ {
+-	if (!bp->vxlan_dst_port || bp->vxlan_dst_port != port || !IS_PF(bp)) {
++	if (!bp->vxlan_dst_port_count || bp->vxlan_dst_port != port ||
++	    !IS_PF(bp)) {
+ 		DP(BNX2X_MSG_SP, "Invalid vxlan port\n");
+ 		return;
+ 	}
++	bp->vxlan_dst_port--;
++	if (bp->vxlan_dst_port)
++		return;
+ 
+ 	if (netif_running(bp->dev)) {
+ 		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_DEL_VXLAN_PORT, 0);
 -- 
 1.8.3.1
