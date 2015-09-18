@@ -1,230 +1,345 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH next 03/15] inet netfilter: Prefer state->hook to ops->hooknum
-Date: Fri, 18 Sep 2015 14:32:56 -0500
-Message-ID: <1442604788-19718-3-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH next 02/15] inet netfilter: Remove hook from ip6t_do_table, arp_do_table, ipt_do_table
+Date: Fri, 18 Sep 2015 14:32:55 -0500
+Message-ID: <1442604788-19718-2-git-send-email-ebiederm@xmission.com>
 References: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	netfilter-devel@vger.kernel.org, <netdev@vger.kernel.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:33846 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753481AbbIRTk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 15:40:27 -0400
+Received: from out03.mta.xmission.com ([166.70.13.233]:35939 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752770AbbIRTkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Sep 2015 15:40:24 -0400
 In-Reply-To: <87fv2bo7br.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The values of nf_hook_state.hook and nf_hook_ops.hooknum must be the
-same by definition.
+The values of ops->hooknum and state->hook are guaraneted to be equal
+making the hook argument to ip6t_do_table, arp_do_table, and
+ipt_do_table is unnecessary. Remove the unnecessary hook argument.
 
-We are more likely to access the fields in nf_hook_state over the
-fields in nf_hook_ops so with a little luck this results in
-fewer cache line misses, and slightly more consistent code.
+In the callers use state->hook instead of ops->hooknum for clarity and
+to reduce the number of cachelines the callers touch.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  4 ++--
- net/ipv4/netfilter/nf_defrag_ipv4.c            |  2 +-
- net/ipv4/netfilter/nf_nat_l3proto_ipv4.c       | 14 +++++++-------
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |  4 ++--
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |  4 ++--
- net/ipv6/netfilter/nf_nat_l3proto_ipv6.c       | 14 +++++++-------
- 6 files changed, 21 insertions(+), 21 deletions(-)
+ include/linux/netfilter_arp/arp_tables.h  |  1 -
+ include/linux/netfilter_ipv4/ip_tables.h  |  1 -
+ include/linux/netfilter_ipv6/ip6_tables.h |  1 -
+ net/ipv4/netfilter/arp_tables.c           |  2 +-
+ net/ipv4/netfilter/arptable_filter.c      |  3 +--
+ net/ipv4/netfilter/ip_tables.c            |  2 +-
+ net/ipv4/netfilter/iptable_filter.c       |  5 ++---
+ net/ipv4/netfilter/iptable_mangle.c       | 12 +++++-------
+ net/ipv4/netfilter/iptable_nat.c          |  3 +--
+ net/ipv4/netfilter/iptable_raw.c          |  5 ++---
+ net/ipv4/netfilter/iptable_security.c     |  5 ++---
+ net/ipv6/netfilter/ip6_tables.c           |  2 +-
+ net/ipv6/netfilter/ip6table_filter.c      |  3 +--
+ net/ipv6/netfilter/ip6table_mangle.c      | 12 +++++-------
+ net/ipv6/netfilter/ip6table_nat.c         |  3 +--
+ net/ipv6/netfilter/ip6table_raw.c         |  3 +--
+ net/ipv6/netfilter/ip6table_security.c    |  3 +--
+ 17 files changed, 25 insertions(+), 41 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 9564684876c9..15749cc5cf2b 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -147,7 +147,7 @@ static unsigned int ipv4_conntrack_in(const struct nf_hook_ops *ops,
- 				      struct sk_buff *skb,
- 				      const struct nf_hook_state *state)
+diff --git a/include/linux/netfilter_arp/arp_tables.h b/include/linux/netfilter_arp/arp_tables.h
+index c22a7fb8d0df..6f074db2f23d 100644
+--- a/include/linux/netfilter_arp/arp_tables.h
++++ b/include/linux/netfilter_arp/arp_tables.h
+@@ -53,7 +53,6 @@ extern struct xt_table *arpt_register_table(struct net *net,
+ 					    const struct arpt_replace *repl);
+ extern void arpt_unregister_table(struct xt_table *table);
+ extern unsigned int arpt_do_table(struct sk_buff *skb,
+-				  unsigned int hook,
+ 				  const struct nf_hook_state *state,
+ 				  struct xt_table *table);
+ 
+diff --git a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
+index 4073510da485..aa598f942c01 100644
+--- a/include/linux/netfilter_ipv4/ip_tables.h
++++ b/include/linux/netfilter_ipv4/ip_tables.h
+@@ -64,7 +64,6 @@ struct ipt_error {
+ 
+ extern void *ipt_alloc_initial_table(const struct xt_table *);
+ extern unsigned int ipt_do_table(struct sk_buff *skb,
+-				 unsigned int hook,
+ 				 const struct nf_hook_state *state,
+ 				 struct xt_table *table);
+ 
+diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
+index b40d2b635778..0f76e5c674f9 100644
+--- a/include/linux/netfilter_ipv6/ip6_tables.h
++++ b/include/linux/netfilter_ipv6/ip6_tables.h
+@@ -30,7 +30,6 @@ extern struct xt_table *ip6t_register_table(struct net *net,
+ 					    const struct ip6t_replace *repl);
+ extern void ip6t_unregister_table(struct net *net, struct xt_table *table);
+ extern unsigned int ip6t_do_table(struct sk_buff *skb,
+-				  unsigned int hook,
+ 				  const struct nf_hook_state *state,
+ 				  struct xt_table *table);
+ 
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 8f87fc38ccde..10eb2b297450 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -247,10 +247,10 @@ struct arpt_entry *arpt_next_entry(const struct arpt_entry *entry)
+ }
+ 
+ unsigned int arpt_do_table(struct sk_buff *skb,
+-			   unsigned int hook,
+ 			   const struct nf_hook_state *state,
+ 			   struct xt_table *table)
  {
--	return nf_conntrack_in(state->net, PF_INET, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET, state->hook, skb);
- }
- 
- static unsigned int ipv4_conntrack_local(const struct nf_hook_ops *ops,
-@@ -158,7 +158,7 @@ static unsigned int ipv4_conntrack_local(const struct nf_hook_ops *ops,
- 	if (skb->len < sizeof(struct iphdr) ||
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
- 		return NF_ACCEPT;
--	return nf_conntrack_in(state->net, PF_INET, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET, state->hook, skb);
- }
- 
- /* Connection tracking may drop packets, but never alters them, so
-diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
-index 9306ec4fab41..8aea536d2e83 100644
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -83,7 +83,7 @@ static unsigned int ipv4_conntrack_defrag(const struct nf_hook_ops *ops,
- 	/* Gather fragments. */
- 	if (ip_is_fragment(ip_hdr(skb))) {
- 		enum ip_defrag_users user =
--			nf_ct_defrag_user(ops->hooknum, skb);
-+			nf_ct_defrag_user(state->hook, skb);
- 
- 		if (nf_ct_ipv4_gather_frags(skb, user))
- 			return NF_STOLEN;
-diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-index 22f4579b0c2a..16da45a76dac 100644
---- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-@@ -266,7 +266,7 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_nat *nat;
- 	/* maniptype == SRC for postrouting. */
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
-+	enum nf_nat_manip_type maniptype = HOOK2MANIP(state->hook);
- 
- 	/* We never see fragments: conntrack defrags on pre-routing
- 	 * and local-out, and nf_nat_out protects post-routing.
-@@ -295,7 +295,7 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	case IP_CT_RELATED_REPLY:
- 		if (ip_hdr(skb)->protocol == IPPROTO_ICMP) {
- 			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
--							   ops->hooknum))
-+							   state->hook))
- 				return NF_DROP;
- 			else
- 				return NF_ACCEPT;
-@@ -312,17 +312,17 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 
--			if (nf_nat_initialized(ct, HOOK2MANIP(ops->hooknum)))
-+			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook)))
- 				break;
- 
--			ret = nf_nat_alloc_null_binding(ct, ops->hooknum);
-+			ret = nf_nat_alloc_null_binding(ct, state->hook);
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		} else {
- 			pr_debug("Already setup manip %s for ct %p\n",
- 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
- 				 ct);
--			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat,
-+			if (nf_nat_oif_changed(state->hook, ctinfo, nat,
- 					       state->out))
- 				goto oif_changed;
- 		}
-@@ -332,11 +332,11 @@ nf_nat_ipv4_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		/* ESTABLISHED */
- 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
- 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
--		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, state->out))
-+		if (nf_nat_oif_changed(state->hook, ctinfo, nat, state->out))
- 			goto oif_changed;
- 	}
- 
--	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
-+	return nf_nat_packet(ct, ctinfo, state->hook, skb);
- 
- oif_changed:
- 	nf_ct_kill_acct(ct, ctinfo, skb);
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 1ef1b79def56..339be1d59afc 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -169,7 +169,7 @@ static unsigned int ipv6_conntrack_in(const struct nf_hook_ops *ops,
- 				      struct sk_buff *skb,
- 				      const struct nf_hook_state *state)
++	unsigned int hook = state->hook;
+ 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
+ 	unsigned int verdict = NF_DROP;
+ 	const struct arphdr *arp;
+diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
+index d217e4c19645..1352e12d4068 100644
+--- a/net/ipv4/netfilter/arptable_filter.c
++++ b/net/ipv4/netfilter/arptable_filter.c
+@@ -30,8 +30,7 @@ static unsigned int
+ arptable_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct nf_hook_state *state)
  {
--	return nf_conntrack_in(state->net, PF_INET6, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET6, state->hook, skb);
+-	return arpt_do_table(skb, ops->hooknum, state,
+-			     state->net->ipv4.arptable_filter);
++	return arpt_do_table(skb, state, state->net->ipv4.arptable_filter);
  }
  
- static unsigned int ipv6_conntrack_local(const struct nf_hook_ops *ops,
-@@ -181,7 +181,7 @@ static unsigned int ipv6_conntrack_local(const struct nf_hook_ops *ops,
- 		net_notice_ratelimited("ipv6_conntrack_local: packet too short\n");
+ static struct nf_hook_ops *arpfilter_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 5d514eac4c31..2b049e135de8 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -285,10 +285,10 @@ struct ipt_entry *ipt_next_entry(const struct ipt_entry *entry)
+ /* Returns one of the generic firewall policies, like NF_ACCEPT. */
+ unsigned int
+ ipt_do_table(struct sk_buff *skb,
+-	     unsigned int hook,
+ 	     const struct nf_hook_state *state,
+ 	     struct xt_table *table)
+ {
++	unsigned int hook = state->hook;
+ 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
+ 	const struct iphdr *ip;
+ 	/* Initializing verdict to NF_DROP keeps gcc happy. */
+diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
+index 32feff32b116..02d4c5395d6e 100644
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -36,14 +36,13 @@ static unsigned int
+ iptable_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		    const struct nf_hook_state *state)
+ {
+-	if (ops->hooknum == NF_INET_LOCAL_OUT &&
++	if (state->hook == NF_INET_LOCAL_OUT &&
+ 	    (skb->len < sizeof(struct iphdr) ||
+ 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
+ 		/* root is playing with raw sockets. */
  		return NF_ACCEPT;
- 	}
--	return nf_conntrack_in(state->net, PF_INET6, ops->hooknum, skb);
-+	return nf_conntrack_in(state->net, PF_INET6, state->hook, skb);
+ 
+-	return ipt_do_table(skb, ops->hooknum, state,
+-			    state->net->ipv4.iptable_filter);
++	return ipt_do_table(skb, state, state->net->ipv4.iptable_filter);
  }
  
- static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-index 6b576be3c83e..a9c08520596b 100644
---- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -63,7 +63,7 @@ static unsigned int ipv6_defrag(const struct nf_hook_ops *ops,
+ static struct nf_hook_ops *filter_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
+index 4a5150fc9510..dc2ff6884999 100644
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -58,8 +58,7 @@ ipt_mangle_out(struct sk_buff *skb, const struct nf_hook_state *state)
+ 	daddr = iph->daddr;
+ 	tos = iph->tos;
+ 
+-	ret = ipt_do_table(skb, NF_INET_LOCAL_OUT, state,
+-			   state->net->ipv4.iptable_mangle);
++	ret = ipt_do_table(skb, state, state->net->ipv4.iptable_mangle);
+ 	/* Reroute for ANY change. */
+ 	if (ret != NF_DROP && ret != NF_STOLEN) {
+ 		iph = ip_hdr(skb);
+@@ -83,14 +82,13 @@ iptable_mangle_hook(const struct nf_hook_ops *ops,
+ 		     struct sk_buff *skb,
+ 		     const struct nf_hook_state *state)
+ {
+-	if (ops->hooknum == NF_INET_LOCAL_OUT)
++	if (state->hook == NF_INET_LOCAL_OUT)
+ 		return ipt_mangle_out(skb, state);
+-	if (ops->hooknum == NF_INET_POST_ROUTING)
+-		return ipt_do_table(skb, ops->hooknum, state,
++	if (state->hook == NF_INET_POST_ROUTING)
++		return ipt_do_table(skb, state,
+ 				    state->net->ipv4.iptable_mangle);
+ 	/* PREROUTING/INPUT/FORWARD: */
+-	return ipt_do_table(skb, ops->hooknum, state,
+-			    state->net->ipv4.iptable_mangle);
++	return ipt_do_table(skb, state, state->net->ipv4.iptable_mangle);
+ }
+ 
+ static struct nf_hook_ops *mangle_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/iptable_nat.c b/net/ipv4/netfilter/iptable_nat.c
+index 4f4c64f81169..8ff63ac1f0d6 100644
+--- a/net/ipv4/netfilter/iptable_nat.c
++++ b/net/ipv4/netfilter/iptable_nat.c
+@@ -33,8 +33,7 @@ static unsigned int iptable_nat_do_chain(const struct nf_hook_ops *ops,
+ 					 const struct nf_hook_state *state,
+ 					 struct nf_conn *ct)
+ {
+-	return ipt_do_table(skb, ops->hooknum, state,
+-			    state->net->ipv4.nat_table);
++	return ipt_do_table(skb, state, state->net->ipv4.nat_table);
+ }
+ 
+ static unsigned int iptable_nat_ipv4_fn(const struct nf_hook_ops *ops,
+diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
+index 20126e469ffb..bbb0523d87de 100644
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -23,14 +23,13 @@ static unsigned int
+ iptable_raw_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		 const struct nf_hook_state *state)
+ {
+-	if (ops->hooknum == NF_INET_LOCAL_OUT &&
++	if (state->hook == NF_INET_LOCAL_OUT &&
+ 	    (skb->len < sizeof(struct iphdr) ||
+ 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
+ 		/* root is playing with raw sockets. */
  		return NF_ACCEPT;
- #endif
  
--	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(ops->hooknum, skb));
-+	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(state->hook, skb));
- 	/* queued */
- 	if (reasm == NULL)
- 		return NF_STOLEN;
-@@ -74,7 +74,7 @@ static unsigned int ipv6_defrag(const struct nf_hook_ops *ops,
+-	return ipt_do_table(skb, ops->hooknum, state,
+-			    state->net->ipv4.iptable_raw);
++	return ipt_do_table(skb, state, state->net->ipv4.iptable_raw);
+ }
  
- 	nf_ct_frag6_consume_orig(reasm);
+ static struct nf_hook_ops *rawtable_ops __read_mostly;
+diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
+index 82fefd609b85..b92417038705 100644
+--- a/net/ipv4/netfilter/iptable_security.c
++++ b/net/ipv4/netfilter/iptable_security.c
+@@ -40,14 +40,13 @@ static unsigned int
+ iptable_security_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		      const struct nf_hook_state *state)
+ {
+-	if (ops->hooknum == NF_INET_LOCAL_OUT &&
++	if (state->hook == NF_INET_LOCAL_OUT &&
+ 	    (skb->len < sizeof(struct iphdr) ||
+ 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
+ 		/* Somebody is playing with raw sockets. */
+ 		return NF_ACCEPT;
  
--	NF_HOOK_THRESH(NFPROTO_IPV6, ops->hooknum, state->net, state->sk, reasm,
-+	NF_HOOK_THRESH(NFPROTO_IPV6, state->hook, state->net, state->sk, reasm,
- 		       state->in, state->out,
- 		       state->okfn, NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
+-	return ipt_do_table(skb, ops->hooknum, state,
+-			    state->net->ipv4.iptable_security);
++	return ipt_do_table(skb, state, state->net->ipv4.iptable_security);
+ }
  
-diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-index 70fbaed49edb..8bc94907dbd9 100644
---- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-@@ -272,7 +272,7 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 	struct nf_conn *ct;
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_nat *nat;
--	enum nf_nat_manip_type maniptype = HOOK2MANIP(ops->hooknum);
-+	enum nf_nat_manip_type maniptype = HOOK2MANIP(state->hook);
- 	__be16 frag_off;
- 	int hdrlen;
- 	u8 nexthdr;
-@@ -303,7 +303,7 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ static struct nf_hook_ops *sectbl_ops __read_mostly;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index cd9b401231d3..da6446b6e3f9 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -314,10 +314,10 @@ ip6t_next_entry(const struct ip6t_entry *entry)
+ /* Returns one of the generic firewall policies, like NF_ACCEPT. */
+ unsigned int
+ ip6t_do_table(struct sk_buff *skb,
+-	      unsigned int hook,
+ 	      const struct nf_hook_state *state,
+ 	      struct xt_table *table)
+ {
++	unsigned int hook = state->hook;
+ 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
+ 	/* Initializing verdict to NF_DROP keeps gcc happy. */
+ 	unsigned int verdict = NF_DROP;
+diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
+index 2449005fb5dc..a7327f61b90c 100644
+--- a/net/ipv6/netfilter/ip6table_filter.c
++++ b/net/ipv6/netfilter/ip6table_filter.c
+@@ -35,8 +35,7 @@ static unsigned int
+ ip6table_filter_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct nf_hook_state *state)
+ {
+-	return ip6t_do_table(skb, ops->hooknum, state,
+-			     state->net->ipv6.ip6table_filter);
++	return ip6t_do_table(skb, state, state->net->ipv6.ip6table_filter);
+ }
  
- 		if (hdrlen >= 0 && nexthdr == IPPROTO_ICMPV6) {
- 			if (!nf_nat_icmpv6_reply_translation(skb, ct, ctinfo,
--							     ops->hooknum,
-+							     state->hook,
- 							     hdrlen))
- 				return NF_DROP;
- 			else
-@@ -321,17 +321,17 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 			if (ret != NF_ACCEPT)
- 				return ret;
+ static struct nf_hook_ops *filter_ops __read_mostly;
+diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
+index a46dbf097d29..c2e061dcedf3 100644
+--- a/net/ipv6/netfilter/ip6table_mangle.c
++++ b/net/ipv6/netfilter/ip6table_mangle.c
+@@ -57,8 +57,7 @@ ip6t_mangle_out(struct sk_buff *skb, const struct nf_hook_state *state)
+ 	/* flowlabel and prio (includes version, which shouldn't change either */
+ 	flowlabel = *((u_int32_t *)ipv6_hdr(skb));
  
--			if (nf_nat_initialized(ct, HOOK2MANIP(ops->hooknum)))
-+			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook)))
- 				break;
+-	ret = ip6t_do_table(skb, NF_INET_LOCAL_OUT, state,
+-			    state->net->ipv6.ip6table_mangle);
++	ret = ip6t_do_table(skb, state, state->net->ipv6.ip6table_mangle);
  
--			ret = nf_nat_alloc_null_binding(ct, ops->hooknum);
-+			ret = nf_nat_alloc_null_binding(ct, state->hook);
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		} else {
- 			pr_debug("Already setup manip %s for ct %p\n",
- 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
- 				 ct);
--			if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, state->out))
-+			if (nf_nat_oif_changed(state->hook, ctinfo, nat, state->out))
- 				goto oif_changed;
- 		}
- 		break;
-@@ -340,11 +340,11 @@ nf_nat_ipv6_fn(const struct nf_hook_ops *ops, struct sk_buff *skb,
- 		/* ESTABLISHED */
- 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
- 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
--		if (nf_nat_oif_changed(ops->hooknum, ctinfo, nat, state->out))
-+		if (nf_nat_oif_changed(state->hook, ctinfo, nat, state->out))
- 			goto oif_changed;
- 	}
+ 	if (ret != NF_DROP && ret != NF_STOLEN &&
+ 	    (!ipv6_addr_equal(&ipv6_hdr(skb)->saddr, &saddr) ||
+@@ -79,14 +78,13 @@ static unsigned int
+ ip6table_mangle_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		     const struct nf_hook_state *state)
+ {
+-	if (ops->hooknum == NF_INET_LOCAL_OUT)
++	if (state->hook == NF_INET_LOCAL_OUT)
+ 		return ip6t_mangle_out(skb, state);
+-	if (ops->hooknum == NF_INET_POST_ROUTING)
+-		return ip6t_do_table(skb, ops->hooknum, state,
++	if (state->hook == NF_INET_POST_ROUTING)
++		return ip6t_do_table(skb, state,
+ 				     state->net->ipv6.ip6table_mangle);
+ 	/* INPUT/FORWARD */
+-	return ip6t_do_table(skb, ops->hooknum, state,
+-			     state->net->ipv6.ip6table_mangle);
++	return ip6t_do_table(skb, state, state->net->ipv6.ip6table_mangle);
+ }
  
--	return nf_nat_packet(ct, ctinfo, ops->hooknum, skb);
-+	return nf_nat_packet(ct, ctinfo, state->hook, skb);
+ static struct nf_hook_ops *mangle_ops __read_mostly;
+diff --git a/net/ipv6/netfilter/ip6table_nat.c b/net/ipv6/netfilter/ip6table_nat.c
+index a56451de127f..efa6754c4d06 100644
+--- a/net/ipv6/netfilter/ip6table_nat.c
++++ b/net/ipv6/netfilter/ip6table_nat.c
+@@ -35,8 +35,7 @@ static unsigned int ip6table_nat_do_chain(const struct nf_hook_ops *ops,
+ 					  const struct nf_hook_state *state,
+ 					  struct nf_conn *ct)
+ {
+-	return ip6t_do_table(skb, ops->hooknum, state,
+-			     state->net->ipv6.ip6table_nat);
++	return ip6t_do_table(skb, state, state->net->ipv6.ip6table_nat);
+ }
  
- oif_changed:
- 	nf_ct_kill_acct(ct, ctinfo, skb);
+ static unsigned int ip6table_nat_fn(const struct nf_hook_ops *ops,
+diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
+index 18e831e35782..fac6ad7c0a7c 100644
+--- a/net/ipv6/netfilter/ip6table_raw.c
++++ b/net/ipv6/netfilter/ip6table_raw.c
+@@ -22,8 +22,7 @@ static unsigned int
+ ip6table_raw_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		  const struct nf_hook_state *state)
+ {
+-	return ip6t_do_table(skb, ops->hooknum, state,
+-			     state->net->ipv6.ip6table_raw);
++	return ip6t_do_table(skb, state, state->net->ipv6.ip6table_raw);
+ }
+ 
+ static struct nf_hook_ops *rawtable_ops __read_mostly;
+diff --git a/net/ipv6/netfilter/ip6table_security.c b/net/ipv6/netfilter/ip6table_security.c
+index 83bc96ae5d73..96c94fc240c8 100644
+--- a/net/ipv6/netfilter/ip6table_security.c
++++ b/net/ipv6/netfilter/ip6table_security.c
+@@ -39,8 +39,7 @@ static unsigned int
+ ip6table_security_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+ 		       const struct nf_hook_state *state)
+ {
+-	return ip6t_do_table(skb, ops->hooknum, state,
+-			     state->net->ipv6.ip6table_security);
++	return ip6t_do_table(skb, state, state->net->ipv6.ip6table_security);
+ }
+ 
+ static struct nf_hook_ops *sectbl_ops __read_mostly;
 -- 
 2.2.1
